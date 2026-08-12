@@ -5,13 +5,14 @@
  * decides which sectors a music request plays, so getting it wrong is silent:
  * every scene gets a plausible theme, just not its own.
  *
- * Three things are pinned. The lookup itself (names, bounds, path and case
+ * Four things are pinned. The lookup itself (names, bounds, path and case
  * handling); that the table still agrees with SOURCES/MUSIC.CPP's ListJingle,
- * which is where the order comes from; and that MUSIC.CPP's two track tables
+ * which is where the order comes from; that MUSIC.CPP's two track tables
  * still hold identical music numbers, which is what lets PlayMusic route both
- * releases through one path. The last two read that source file rather than
- * linking it, so the table can live beside the disc code without the two
- * drifting apart unnoticed.
+ * releases through one path; and that scripts/dev/disc_extract.py, which names
+ * a ripper's output by this same mapping, still spells it the same way. Those
+ * three read their source file rather than linking it, so the table can live
+ * beside the disc code without the copies drifting apart unnoticed.
  */
 #include "test_harness.h"
 
@@ -120,6 +121,56 @@ static void test_agrees_with_music_cpp(void) {
     }
 }
 
+/* The extractor cuts CD audio out of a rip and names the files, so it carries its
+   own copy of this table. A drift there is silent in a way the engine's is not:
+   nothing fails, the themes just come out under each other's names. Read its
+   `CD_TRACK_NAMES = { 2: "TADPCM2", ... }` and require an exact match. */
+static void test_agrees_with_extractor(void) {
+    std::string path = std::string(TEST_SOURCE_ROOT) + "scripts/dev/disc_extract.py";
+    FILE *f = fopen(path.c_str(), "rb");
+    ASSERT_TRUE(f != NULL);
+    if (!f)
+        return;
+    std::string text;
+    char buf[4096];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), f)) > 0)
+        text.append(buf, n);
+    fclose(f);
+
+    size_t start = text.find("CD_TRACK_NAMES = {");
+    ASSERT_TRUE(start != std::string::npos);
+    if (start == std::string::npos)
+        return;
+    size_t end = text.find('}', start);
+    ASSERT_TRUE(end != std::string::npos);
+    if (end == std::string::npos)
+        return;
+
+    int seen = 0;
+    for (size_t i = text.find('{', start) + 1; i < end;) {
+        size_t digit = text.find_first_of("0123456789", i);
+        if (digit == std::string::npos || digit > end)
+            break;
+        size_t colon = text.find(':', digit);
+        if (colon == std::string::npos || colon > end)
+            break;
+        size_t q1 = text.find('"', colon);
+        size_t q2 = (q1 == std::string::npos) ? q1 : text.find('"', q1 + 1);
+        if (q1 == std::string::npos || q2 == std::string::npos || q2 > end)
+            break;
+        int track = atoi(text.c_str() + digit);
+        std::string name = text.substr(q1 + 1, q2 - q1 - 1);
+        const char *mine = CdTracks_NameForNumber(track);
+        ASSERT_TRUE(mine != NULL && name == mine);
+        seen++;
+        i = q2 + 1;
+    }
+    /* Every audio track the engine knows has to be in the script's table too, or
+       the extractor would quietly leave one theme unnamed. */
+    ASSERT_EQ_INT(CDTRACKS_LAST_AUDIO - CDTRACKS_FIRST_AUDIO + 1, seen);
+}
+
 /* Pull a `U8 <name>[] = { ... };` initialiser out of MUSIC.CPP as (value, hasJingleFlag)
    pairs. Entries look like "JINGLE | 9, // comment" or "3, // comment". */
 static bool read_track_table(const char *table, std::vector<std::pair<int, bool>> &out) {
@@ -193,6 +244,7 @@ int main(void) {
     RUN_TEST(test_number_by_name);
     RUN_TEST(test_round_trip);
     RUN_TEST(test_agrees_with_music_cpp);
+    RUN_TEST(test_agrees_with_extractor);
     RUN_TEST(test_track_tables_agree_on_music_numbers);
     TEST_SUMMARY();
     return test_failures != 0;

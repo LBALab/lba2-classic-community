@@ -76,7 +76,8 @@ for reproducibility; cited from the format and effects docs.
 | [dev/impact_disasm.py](dev/impact_disasm.py) | Disassemble and round-trip IMPACT effect bytecode (`RESS_IMPACT=47`). | [IMPACT_SCRIPTS.md](../docs/IMPACT_SCRIPTS.md) |
 | [dev/flow_dump.py](dev/flow_dump.py) | Decode FLOW particle-emitter definitions (`RESS_FLOW=45`). | [IMPACT_SCRIPTS.md](../docs/IMPACT_SCRIPTS.md) |
 | [dev/pof_dump.py](dev/pof_dump.py) | Decode POF 2D wireframe shapes (`RESS_POF=46`). | [IMPACT_SCRIPTS.md](../docs/IMPACT_SCRIPTS.md) |
-| [dev/iso_bin.py](dev/iso_bin.py) | Read the ISO9660 filesystem out of a raw Mode1/2352 CD image on the fly. | [DISC_IMAGE_SOURCE.md](../docs/DISC_IMAGE_SOURCE.md) |
+| [dev/iso_bin.py](dev/iso_bin.py) | Read the ISO9660 filesystem out of a raw Mode1/2352 (or cooked 2048) CD image on the fly. | [DISC_IMAGE_SOURCE.md](../docs/DISC_IMAGE_SOURCE.md) |
+| [dev/disc_extract.py](dev/disc_extract.py) | Extract a playable game-data folder from a rip, a CD drive (`--from-drive`) or a ripped soundtrack, naming the CD tracks the way the engine asks for them (`--selftest` for the cue and TOC rules). | [GAME_DATA.md](../docs/GAME_DATA.md) |
 | [dev/acf_decode.py](dev/acf_decode.py) | Decode Adeline ACF/XCF cinematic frames (Time Commando tile codec). | spike |
 | [dev/acf_inspect.py](dev/acf_inspect.py) | Parse the ACF/XCF cinematic container chunk layout. | spike |
 | [dev/extract_lba2_gog_media.py](dev/extract_lba2_gog_media.py) | Extract FMV / VOX / music from a GOG `LBA2.GOG` BIN image into the install dir. | [GAME_DATA.md](../docs/GAME_DATA.md) |

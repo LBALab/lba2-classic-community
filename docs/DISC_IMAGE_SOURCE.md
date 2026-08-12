@@ -417,6 +417,51 @@ not good enough when the failure mode is full-scale noise), and editing a cue to
 much work as converting the image properly. If a second sample ever turns up, this is a small
 change with the arithmetic already checked.
 
+## Extraction
+
+`scripts/dev/disc_extract.py` writes a rip out to loose files: the asset root's subtree, plus the
+Red Book tracks cut into `music/TADPCM2.WAV` and friends. It exists for the shapes the engine
+deliberately does not serve, not as an alternative to mounting. A `bin`+`cue` already plays whole,
+and extracting it costs 535 MB to gain nothing.
+
+What it is for is a physical disc, whose themes the engine will not read (below), and a container
+that mounts data-only. Either rip the audio with any tool and let the script name the files, taking
+the track number from the filename so `track02.cdda.wav` and `Track 2.wav` both land right, or hand
+it the drive with `--from-drive` and let it read the disc itself.
+
+`--from-drive` reads the table of contents and the audio sectors directly: `IOCTL_CDROM_READ_TOC`
+and `IOCTL_CDROM_RAW_READ` on Windows, `CDROMREADTOCENTRY` and `CDROMREADAUDIO` on Linux. Reads are
+chunked at 27 sectors, which is the ATAPI ceiling of 63504 bytes; 64 comes back as "the parameter is
+incorrect". The Windows path is verified end to end against a real mixed-mode disc, the Linux one is
+written from the kernel headers with the struct layouts checked against the compiler but never run
+against a device, and macOS has no backend and says so.
+
+The one thing a table of contents cannot express that a cue can is where the music actually starts.
+The data track's run-out bleeds into the front of the first audio track, five sectors of it on the
+US disc, and a drive hands that back as audio. So the script finds the join by distribution rather
+than level: data read as audio is uniform noise averaging half of full scale, where the music after
+it averages 0.005. The trim only engages when the first sector is at or above a quarter of full
+scale, which no music reaches, so a track that merely starts loud is left alone. Run against the
+retail disc it independently lands on the same sector the corrected cue names by hand, and touches
+none of the other five tracks.
+
+Where this leaves quality: audio sectors carry no error correction, so a damaged disc gives clicks
+that `cdparanoia` would re-read and interpolate away and this will not. That is the price of no
+dependency, it is bounded, and the retry count is printed so it is visible rather than silent. A
+disc that reports retries is a disc to rip properly and bring back through `--tracks-from`.
+
+The naming is the whole contribution. A ripper knows track numbers and nothing else; that track 6
+holds `JADPCM01` rather than `TADPCM6` is this repo's finding, from the disc's own table of
+contents. So the script carries a copy of the `CDTRACKS.CPP` table, and `tests/cdtracks` reads both
+and fails if they disagree. A drift there would be silent in a way the engine's cannot be: nothing
+errors, the themes simply come out under each other's names.
+
+It refuses the same guesses the engine refuses. A cue whose `FILE` names something other than the
+image being read is reported, not applied, for the reason given above. A cue with a single external
+audio track is reported too: GOG's lists its one theme as `TRACK 02` when the music is `TADPCM6`, so
+the number there is not a CD track number, and the engine's own rule 4 draws the line in the same
+place.
+
 ## What is not done
 
 - **Drive-backed CD audio, a deliberate non-goal.** A player can point the engine at a mounted disc
@@ -436,7 +481,15 @@ change with the arithmetic already checked.
   same stream the image path uses. That means either a `libcdio` dependency or three platform
   backends (`IOCTL_CDROM_RAW_READ`, `CDROMREADAUDIO`, and something for macOS). Both are a lot of
   surface for the one player who has a physical disc and will not rip it, when a single pass through
-  any imaging tool puts them on a path that already works end to end.
+  any imaging tool puts them on a path that already works end to end. That player now has a second
+  route as well: keep playing off the mounted disc and take the themes off it once with
+  `disc_extract.py --from-drive` (above).
+
+  Note what that does *not* change. The extraction happening in a script is exactly why it is
+  allowed to be a dependency-free best effort: it runs once, its output is checked by ear, and a bad
+  read is visible as a retry count. The same code inside the engine would sit in the audio path,
+  where it would have to be right every time, on every drive, with no chance to inspect the result.
+  The shape carved out below is still the shape.
 
   If it is ever wanted, the shape is carved out: a fourth source at the tail of
   `PlayStreamInternal`, using the same `CDTRACKS` mapping, with the table of contents read from the
@@ -444,9 +497,6 @@ change with the arithmetic already checked.
 - **CD-DA out of an MDX.** Its audio region uses a different stride from its data region and its
   track table is encrypted, so there is nothing to address it with. MDX support is data only, and
   the conversion to `bin`+`cue` is the answer for anyone who wants the soundtrack.
-- **An extraction helper.** A script that writes `music/Track<NN>.wav` out of a `bin`+`cue` would
-  make any container playable with no engine risk. Worth having as the documented answer for NRG,
-  CCD and friends, but nothing needs it now that the common shapes resolve directly.
 
 ## Coverage
 
@@ -458,8 +508,9 @@ change with the arithmetic already checked.
 - `tests/cue`: the TOC parser over a retail in-image shape (with a hole in the track numbering, and
   an `INDEX 00` pregap that must not be mistaken for the start), a multi-file external rip, GOG's
   two-track shape, and a malformed `INDEX`. The original external-audio cases are unchanged.
-- `tests/cdtracks`: the mapping both ways, its bounds, path and case handling, and the check that
-  reads `MUSIC.CPP` to confirm the order still agrees.
+- `tests/cdtracks`: the mapping both ways, its bounds, path and case handling, the check that
+  reads `MUSIC.CPP` to confirm the order still agrees, and the one that reads `disc_extract.py` so
+  the extractor cannot name a theme differently from the engine.
 - `tests/disc_image`: the marker probe discovery uses, and that a raw image beats a cooked one
   regardless of name or directory order.
 

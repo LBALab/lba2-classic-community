@@ -200,6 +200,67 @@ root. Assets and jingles come straight off the medium; the themes need a rip, be
 from a drive is not something the engine does (see
 [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md#what-is-not-done)).
 
+### Extracting to loose files
+
+You do not need this for a bin/cue rip, which plays as it is. It is for the cases the engine cannot
+serve from the medium: a physical disc whose themes you want, a container that mounts data-only
+(MDX, NRG, CCD), or simply wanting the files on disk to mod or inspect.
+
+```
+python3 scripts/dev/disc_extract.py /path/to/rip ~/lba2-data
+```
+
+That writes the game data out of the image and cuts the six Red Book tracks into
+`music/TADPCM2.WAV` and friends, about 535 MB from the US disc. Then
+`lba2cc --game-dir ~/lba2-data` as usual.
+
+### Straight from the drive
+
+With the disc in a drive, `--from-drive` reads the soundtrack off it. Point the source at the game
+data on the disc (`<drive>:\TWINSEN` on the 1997 US disc) and name the drive:
+
+```
+python3 scripts/dev/disc_extract.py /media/cdrom/TWINSEN ~/lba2-data --from-drive /dev/sr0
+py -3 scripts\dev\disc_extract.py G:\TWINSEN C:\lba2-data --from-drive G
+```
+
+It reads the disc's own table of contents, so the track numbering is the disc's rather than a guess,
+and every audio track it finds has to be one the naming table knows or it says so. Omit the device
+and it uses the first drive it finds.
+
+**Trimming the join.** On a mixed-mode disc the data track's run-out bleeds into the front of the
+first audio track, and a drive hands that back as audio: five sectors of full-scale noise ahead of
+"The Empire" on the US disc. A cue can say "start later" and ours does; a table of contents cannot,
+so the script finds the join itself. What identifies it is not loudness but distribution, since data
+read as audio is uniform noise averaging half of full scale where the music that follows averages
+0.005. The test only opens on a first sector at or above a quarter of full scale, so a track that
+simply starts loud is never trimmed.
+
+Audio sectors carry no error correction, so a scratched disc gives clicks that `cdparanoia` would
+re-read and interpolate away and this will not. The script reports its retry count; if it is
+non-zero, or a theme sounds wrong, rip with `cdparanoia` and come back through `--tracks-from`.
+macOS has no drive backend here, so rip and use `--tracks-from` there.
+
+### From a rip you already made
+
+Rip with whatever your platform has (`cdparanoia`, EAC, ImgBurn) and point the script at the result.
+It reads the track number out of each filename, so `track02.cdda.wav` and `Track 2.wav` both work:
+
+```
+python3 scripts/dev/disc_extract.py ~/ripped ~/lba2-data                    # audio only
+python3 scripts/dev/disc_extract.py disc.mdx ~/lba2-data --tracks-from ~/ripped
+```
+
+**The naming is the point.** A ripper gives you `track02.wav`; what it cannot tell you is that CD
+track 6 is `JADPCM01` rather than `TADPCM6`, or that the `TADPCM1` theme is not pressed on the US
+disc at all. That mapping lives in [CDTRACKS.CPP](../LIB386/SYSTEM/CDTRACKS.CPP), and
+`tests/cdtracks` fails if the script's copy of it drifts. Renaming the files by hand is where this
+goes wrong: every scene gets a plausible theme, just not its own.
+
+The script is idempotent (`--force` to overwrite, `--dry-run` to see the plan) and stdlib-only. It
+declines to guess: a cue that describes a different file than the image, or one with a single
+external audio track whose number is not a CD track number, is reported rather than acted on.
+
 ## Config file
 
 See [CONFIG.md](CONFIG.md). If `lba2.cfg` is missing from the user config folder, the engine copies from the asset directory when present; if the asset directory has no `lba2.cfg`, an embedded template (from the build) is written instead.
