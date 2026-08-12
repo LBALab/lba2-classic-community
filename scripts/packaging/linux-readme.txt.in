@@ -55,6 +55,13 @@ keep two installs from sharing them, give each its own:
 
 The folder is created if it is not there, so naming a new one starts you fresh.
 
+Or name a profile instead of a folder, and the game picks the folder for you:
+
+    ./@LBA2_EXECUTABLE_NAME@ --profile gog --game-dir /path/to/game
+
+Each profile keeps its own saves, settings and remembered install. Running
+without one writes where the game always did, so nothing you already have moves.
+
 
 RUNNING
 -------

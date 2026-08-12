@@ -751,6 +751,46 @@ static bool test_user_dir_precedence() {
     return bad == 0;
 }
 
+/* A profile is a directory inside the user directory, so its name must not be
+ * able to name anything outside it. Rejection happens before the run resolves
+ * any path, because a name that escaped would put the saves somewhere nobody
+ * asked for and there is no log yet to say so. */
+static bool test_profile_name_rules() {
+    int bad = 0;
+
+    /* Ordinary names people will actually type, dots and spaces included. */
+    static const char *const good[] = {"gog", "ea-cd", "twinsen", "v1.2",
+                                       "my install", "A_B-2", ".hidden"};
+    for (size_t i = 0; i < sizeof good / sizeof good[0]; i++) {
+        if (!Directories_IsValidProfileName(good[i])) {
+            printf("FAIL profile: rejected the usable name '%s'\n", good[i]);
+            bad++;
+        }
+    }
+
+    /* Anything that could step out of the profiles directory, plus nothing at
+     * all. Both separators are refused whatever the host, so a name written on
+     * one platform is refused on the other rather than quietly meaning
+     * something different. ".." is rejected wherever it appears, which also
+     * costs a name like "v1..2"; that is the intended trade. */
+    static const char *const evil[] = {"", "/", "\\", "a/b", "a\\b", "..",
+                                       "../escape", "escape/..", ".", "a..b",
+                                       "/etc", "C:\\Windows"};
+    for (size_t i = 0; i < sizeof evil / sizeof evil[0]; i++) {
+        if (Directories_IsValidProfileName(evil[i])) {
+            printf("FAIL profile: accepted the unusable name '%s'\n", evil[i]);
+            bad++;
+        }
+    }
+
+    if (Directories_IsValidProfileName(NULL)) {
+        printf("FAIL profile: accepted a null name\n");
+        bad++;
+    }
+
+    return bad == 0;
+}
+
 /* Persisted-LastGameDir probe: a previous picker session wrote
  * last_game_dir.txt to <SDL_GetPrefPath>; ResolveGameDataDir must
  * read it back and return that path before falling through to
@@ -1517,6 +1557,9 @@ int main() {
         failed++;
     }
     if (!test_user_dir_precedence()) {
+        failed++;
+    }
+    if (!test_profile_name_rules()) {
         failed++;
     }
     if (!test_persisted_last_game_dir()) {

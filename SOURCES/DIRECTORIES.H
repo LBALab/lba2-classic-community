@@ -42,6 +42,22 @@ void EndDirectories();
 /// stops in InitDirectories naming the path that failed.
 void Directories_SetUserDirOverride(const char *path);
 
+/// Select a named profile: saves, config, log and the remembered game-data path
+/// move into `profiles/<name>/` under the user directory, so several installs
+/// can be kept apart without naming a folder for each.
+///
+/// Composes with the override above, which says where the root is while this
+/// says which profile inside it. The default profile is the root itself, so a
+/// run that names none writes where it always did.
+///
+/// Same timing rule as the override: call before the first GetDefaultUserDir.
+void Directories_SetProfileOverride(const char *name);
+
+/// True when \p name can be a profile directory: not empty, no path separator
+/// in either spelling, no parent-directory hop, not a bare dot. A profile lives
+/// inside the user directory and has to stay there.
+bool Directories_IsValidProfileName(const char *name);
+
 /// The precedence rule behind GetDefaultUserDir, without the caching or the
 /// directory creation, so it can be exercised directly: \p overridePath (the
 /// command line) beats \p envPath (LBA2_USER_DIR), and an empty string counts

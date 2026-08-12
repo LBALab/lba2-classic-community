@@ -49,6 +49,9 @@ static const T_CLI_FLAG CliFlags[] = {
     {"--user-dir", 1, 0, 1, NULL, "<dir>", "folder for this run's saves, settings and log,\n"
                                            "created if missing. Use it to keep two installs\n"
                                            "apart, or to run against a fresh folder"},
+    {"--profile", 1, 0, 1, NULL, "<name>", "keep this run's saves and settings under a name of\n"
+                                           "their own, so several installs don't share them.\n"
+                                           "Created on first use; no name means the usual folder"},
     {"--disc", 1, 1, 0, NULL, "<file>", "mount this disc image instead of picking one\n"
                                         "from the game folder. Takes an image or a cue\n"
                                         "(the cue names its image). Use it when a folder\n"

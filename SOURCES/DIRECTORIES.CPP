@@ -27,6 +27,7 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
+#define DIR_NAME_PROFILES "profiles" ADELINE_PATH_SEP
 #define DIR_NAME_SAVE "save" ADELINE_PATH_SEP
 #define DIR_NAME_SHOOT "shoot" ADELINE_PATH_SEP
 #define DIR_NAME_BUGS "bugs" ADELINE_PATH_SEP
@@ -60,6 +61,9 @@ S32 directoriesDistVersion;
 /* Set from the command line before anything asks for a path; empty means the
    environment, then the per-user default, decide. See GetDefaultUserDir. */
 static char directoriesUserDirOverride[ADELINE_MAX_PATH] = "";
+/* Named profile, or empty for the default one, which is the user directory
+   itself. See GetDefaultUserDir. */
+static char directoriesProfile[ADELINE_MAX_PATH] = "";
 
 // --- Private functions -------------------------------------------------------
 /**
@@ -299,6 +303,34 @@ void GetCurrentRunningDir(char *outDir) {
 #endif
 }
 
+bool Directories_IsValidProfileName(const char *name) {
+    if ((name == NULL) || (name[0] == '\0')) {
+        return false;
+    }
+
+    /* A profile is a directory inside the user directory and has to stay there,
+       so nothing that could walk out of it is accepted: no separator in either
+       spelling (a Windows path uses one, a POSIX one the other, and a name
+       crossing platforms should be refused on both), and no parent hop. A bare
+       dot names the profiles directory itself. */
+    if (strchr(name, '/') || strchr(name, '\\') || strstr(name, "..")) {
+        return false;
+    }
+    if (strcmp(name, ".") == 0) {
+        return false;
+    }
+    return true;
+}
+
+void Directories_SetProfileOverride(const char *name) {
+    if (name == NULL) {
+        directoriesProfile[0] = '\0';
+        return;
+    }
+    strncpy(directoriesProfile, name, ADELINE_MAX_PATH);
+    directoriesProfile[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+}
+
 void Directories_SetUserDirOverride(const char *path) {
     if (path == NULL) {
         directoriesUserDirOverride[0] = '\0';
@@ -357,17 +389,45 @@ void GetDefaultUserDir(char *outDir) {
            a fall back to the default: a run that quietly wrote somewhere other
            than where it was told is the failure this flag exists to prevent, so
            the unusable path stays and InitDirectories stops the boot naming it. */
-        if (Directories_ResolveUserDir(userDir, ADELINE_MAX_PATH,
-                                       directoriesUserDirOverride,
-                                       getenv("LBA2_USER_DIR"))) {
-            SDL_CreateDirectory(userDir);
-        } else {
+        if (!Directories_ResolveUserDir(userDir, ADELINE_MAX_PATH,
+                                        directoriesUserDirOverride,
+                                        getenv("LBA2_USER_DIR"))) {
             char *sdlUserPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
             if (sdlUserPath != NULL) {
                 strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
                 userDir[ADELINE_MAX_PATH - 1] = '\0';
                 SDL_free(sdlUserPath);
             }
+        }
+
+        /* A named profile is a directory inside whatever root was just
+           resolved, so --user-dir and --profile compose: the first says where,
+           the second says which. The default profile is the root itself rather
+           than a "default" folder under it, so an install that never names one
+           keeps writing exactly where it always did and there is nothing to
+           migrate. */
+        if (directoriesProfile[0] != '\0') {
+            char root[ADELINE_MAX_PATH];
+            strncpy(root, userDir, ADELINE_MAX_PATH);
+            root[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+
+            if (snprintf(userDir, ADELINE_MAX_PATH, "%s%s%s%s", root,
+                         DIR_NAME_PROFILES, directoriesProfile,
+                         ADELINE_PATH_SEP) >= ADELINE_MAX_PATH) {
+                /* Truncated, and a truncated path is a different folder. Empty
+                   rather than nearly-right, so the boot stops instead of
+                   writing somewhere nobody asked for. */
+                Log_Error("Profile path too long (>= %d): '%s' under '%s'",
+                          ADELINE_MAX_PATH, directoriesProfile, root);
+                userDir[0] = '\0';
+            }
+        }
+
+        /* Idempotent, and it succeeds when the folder is already there, so this
+           covers a named user directory, a named profile, and the per-user
+           default SDL already created. */
+        if (userDir[0] != '\0') {
+            SDL_CreateDirectory(userDir);
         }
         initialized = true;
     }

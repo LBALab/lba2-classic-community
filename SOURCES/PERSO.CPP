@@ -2979,13 +2979,29 @@ int main(int argc, char *argv[]) {
         char resFolderPath[ADELINE_MAX_PATH] = "";
         char userFolderPath[ADELINE_MAX_PATH] = "";
 
-        /* --user-dir has to be read before the first GetDefaultUserDir, which is
-           the next line: that call resolves the root once and caches it, so an
-           override arriving later would leave the log in one folder and the
-           saves in another. Last spelling wins, as it does for --disc. */
+        /* --user-dir and --profile have to be read before the first
+           GetDefaultUserDir, which is the next line: that call resolves the root
+           once and caches it, so an override arriving later would leave the log
+           in one folder and the saves in another. Last spelling wins, as it does
+           for --disc.
+
+           A profile name is checked here rather than left to fail later: an
+           unusable one means the run would write somewhere other than asked,
+           and there is no log yet to explain it. */
         for (int i = 1; i + 1 < argc; i++) {
             if (!strcmp(argv[i], "--user-dir"))
                 Directories_SetUserDirOverride(argv[i + 1]);
+            if (!strcmp(argv[i], "--profile")) {
+                if (!Directories_IsValidProfileName(argv[i + 1])) {
+                    fprintf(stderr,
+                            "error: '%s' is not a usable profile name\n\n"
+                            "A profile is a folder inside your saves folder, so the name cannot\n"
+                            "contain '/' or '\\', cannot step up with '..', and cannot be empty.\n",
+                            argv[i + 1]);
+                    return 2;
+                }
+                Directories_SetProfileOverride(argv[i + 1]);
+            }
         }
 
         GetDefaultUserDir(userFolderPath);
