@@ -6,8 +6,8 @@ shape this script is optional. It exists for the cases the engine cannot serve:
 
   * A physical disc. Data and jingles play straight off a mounted CD, but the six
     themes are Red Book audio and reading audio from a drive is a deliberate
-    non-goal (see docs/DISC_IMAGE_SOURCE.md). Rip the audio with any tool, point
-    this at the result, and the themes become files the engine loads normally.
+    non-goal for the engine (see docs/DISC_IMAGE_SOURCE.md). `--from-drive` reads
+    them here instead, where a dependency-free best effort is allowed to be one.
   * A container the engine mounts data-only: an MDX (encrypted track table), NRG,
     CCD. Convert or rip the audio separately, then use `--tracks-from`.
   * Wanting loose files on disk for modding or inspection.
@@ -19,13 +19,16 @@ That mapping is CD_TRACK_NAMES below, kept in step with LIB386/SYSTEM/CDTRACKS.C
 by tests/cdtracks.
 
 Usage:
-  disc_extract.py SOURCE OUTDIR [--tracks-from DIR] [--force] [--dry-run]
+  disc_extract.py SOURCE OUTDIR [--from-drive [DEV]] [--tracks-from DIR]
+                                [--force] [--dry-run]
 
-  SOURCE  a .cue, a disc image, a directory holding either, or a directory of
-          already-ripped track WAVs (audio only, for the mounted-disc flow).
+  SOURCE  a .cue, a disc image, a directory holding either, a mounted disc, or a
+          directory of already-ripped track WAVs.
 
 Examples:
   disc_extract.py TWINSEN.cue ~/lba2-data
+  disc_extract.py /media/cdrom/TWINSEN ~/lba2-data --from-drive /dev/sr0
+  disc_extract.py G:\\TWINSEN C:\\lba2-data --from-drive G
   disc_extract.py /media/cdrom ~/lba2-data --tracks-from ~/ripped
   disc_extract.py ~/ripped ~/lba2-data           # audio only, into an existing tree
 
@@ -39,6 +42,7 @@ import argparse
 import os
 import re
 import shutil
+import struct
 import sys
 import wave
 
@@ -305,6 +309,43 @@ class Plan(object):
         print("  %-40s %10s  %s" % (os.path.basename(dest), size or "?", what))
 
 
+def open_wav(dest):
+    wf = wave.open(dest, "wb")
+    wf.setnchannels(CDDA_CHANNELS)
+    wf.setsampwidth(CDDA_WIDTH)
+    wf.setframerate(CDDA_RATE)
+    return wf
+
+
+def write_wav_from_drive(drive, dest, first_sector, sectors, plan):
+    """Rip a track off the disc in the chunks the transport allows.
+
+    A failed chunk is retried before giving up, and the count comes back so a
+    disc that is struggling says so rather than producing quiet damage."""
+    payload = sectors * RAW_SECTOR
+    if plan.keep_existing(dest, payload + 44):
+        return 0
+    plan.note(dest, payload + 44,
+              "CD track from LBA %d (%d sectors)" % (first_sector, sectors))
+    if plan.dry_run:
+        return 0
+    retries = 0
+    with open_wav(dest) as wf:
+        done = 0
+        while done < sectors:
+            count = min(MAX_SECTORS_PER_READ, sectors - done)
+            for attempt in range(3):
+                try:
+                    wf.writeframes(drive.read_audio(first_sector + done, count))
+                    break
+                except DriveError:
+                    retries += 1
+                    if attempt == 2:
+                        raise
+            done += count
+    return retries
+
+
 def write_wav_from_sectors(src, dest, first_sector, sectors, plan):
     """Cut a CD-DA track out of a raw image. Sector bytes are already the PCM the
     WAV wants, so this is a header plus a copy."""
@@ -315,10 +356,7 @@ def write_wav_from_sectors(src, dest, first_sector, sectors, plan):
               "CD track from sector %d (%d sectors)" % (first_sector, sectors))
     if plan.dry_run:
         return
-    with open(src, "rb") as fh, wave.open(dest, "wb") as wf:
-        wf.setnchannels(CDDA_CHANNELS)
-        wf.setsampwidth(CDDA_WIDTH)
-        wf.setframerate(CDDA_RATE)
+    with open(src, "rb") as fh, open_wav(dest) as wf:
         fh.seek(first_sector * RAW_SECTOR)
         left = payload
         while left > 0:
@@ -352,6 +390,36 @@ def extract_tree(img, iso_root, lba, size, outdir, plan):
                 data = img.read_lba(clba + done, batch)
                 fh.write(data[:csize - done * iso_bin.USER])
                 done += batch
+
+
+def holds_marker(directory):
+    """Whether a directory is game data, by the marker discovery uses."""
+    try:
+        return any(n.upper() == MARKER for n in os.listdir(directory))
+    except OSError:
+        return False
+
+
+def copy_data_tree(srcdir, outdir, plan):
+    """Copy an already-readable game-data tree, which is what a mounted disc is."""
+    for root, dirs, files in os.walk(srcdir):
+        dirs.sort()
+        rel = os.path.relpath(root, srcdir)
+        target = outdir if rel == "." else os.path.join(outdir, rel)
+        for name in sorted(files):
+            src = os.path.join(root, name)
+            dest = os.path.join(target, name)
+            try:
+                size = os.path.getsize(src)
+            except OSError:
+                continue
+            if plan.keep_existing(dest, size):
+                continue
+            plan.note(dest, size, os.path.join(rel, name) if rel != "." else name)
+            if plan.dry_run:
+                continue
+            os.makedirs(target, exist_ok=True)
+            shutil.copyfile(src, dest)
 
 
 def copy_ripped(sources, outdir, plan):
@@ -391,6 +459,302 @@ def ripped_wavs_in(directory):
     return out
 
 
+# --- reading a drive ---------------------------------------------------------
+# Audio sectors carry no error correction, so a scratched disc gives clicks that
+# cdparanoia would re-read and interpolate away and this will not. That is the
+# trade for having no dependency; --from-drive reports its retry count so a bad
+# read is visible, and a damaged disc is a reason to rip with cdparanoia and come
+# back through --tracks-from.
+MAX_SECTORS_PER_READ = 27  # 27 x 2352 = 63504, just under the 64 KB ATAPI ceiling
+LEADOUT_TRACK = 0xAA
+MSF_OFFSET = 150  # MSF counts from 00:02:00, so LBA 0 is at frame 150
+
+
+class DriveError(Exception):
+    pass
+
+
+class TocTrack(object):
+    def __init__(self, number, lba, is_data):
+        self.number = number
+        self.lba = lba
+        self.is_data = is_data
+
+    def __repr__(self):
+        return "TocTrack(%d, %d, %s)" % (self.number, self.lba, self.is_data)
+
+
+def parse_toc_buffer(buf):
+    """Parse a Windows CDROM_TOC into TocTracks, lead-out included.
+
+    Header is Length[2] big-endian, FirstTrack, LastTrack; then 8-byte entries of
+    Reserved, Adr/Ctrl, TrackNumber, Reserved, then a 4-byte address whose last
+    three bytes are M, S, F."""
+    if len(buf) < 4:
+        raise DriveError("table of contents too short (%d bytes)" % len(buf))
+    tracks = []
+    for o in range(4, len(buf) - 7, 8):
+        number = buf[o + 2]
+        if number == 0:
+            break
+        ctrl = buf[o + 1] & 0x0F
+        m, s, f = buf[o + 5], buf[o + 6], buf[o + 7]
+        lba = (m * 60 + s) * 75 + f - MSF_OFFSET
+        tracks.append(TocTrack(number, lba, bool(ctrl & 0x04)))
+        if number == LEADOUT_TRACK:
+            break
+    if not tracks:
+        raise DriveError("table of contents lists no tracks")
+    return tracks
+
+
+def audio_tracks_from_toc(toc):
+    """[(track number, first sector, sector count)] for the audio a disc carries.
+
+    Each track runs to the start of the next entry, and the lead-out is what
+    bounds the last one, which is why it has to be in the table."""
+    spans = []
+    for i, t in enumerate(toc):
+        if t.is_data or t.number == LEADOUT_TRACK or i + 1 >= len(toc):
+            continue
+        count = toc[i + 1].lba - t.lba
+        if count > 0:
+            spans.append((t.number, t.lba, count))
+    return spans
+
+
+class WindowsDrive(object):
+    """CD access through DeviceIoControl. Verified against a real mixed-mode disc."""
+
+    IOCTL_CDROM_READ_TOC = 0x24000
+    IOCTL_CDROM_RAW_READ = 0x2403E
+    TRACK_MODE_CDDA = 2
+
+    def __init__(self, device):
+        import ctypes
+        from ctypes import wintypes
+
+        self.ctypes = ctypes
+        self.wintypes = wintypes
+        letter = device.strip().rstrip(":").replace("\\", "").replace(".", "")
+        self.path = "\\\\.\\%s:" % letter[-1:].upper()
+        self.name = self.path
+
+    def _open(self):
+        ctypes, wintypes = self.ctypes, self.wintypes
+        create = ctypes.windll.kernel32.CreateFileW
+        create.restype = wintypes.HANDLE  # must not truncate the handle on win64
+        create.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                           ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD,
+                           wintypes.HANDLE]
+        invalid = ctypes.c_void_p(-1).value
+        for access in (0x80000000, 0):  # GENERIC_READ, then none: many IOCTLs allow it
+            handle = create(self.path, access, 0x1 | 0x2, None, 3, 0, None)
+            if handle is not None and handle != invalid:
+                return handle
+        raise DriveError("cannot open %s (error %d)"
+                         % (self.path, self.ctypes.get_last_error()))
+
+    def _ioctl(self, code, in_buf, out_size):
+        ctypes, wintypes = self.ctypes, self.wintypes
+        handle = self._open()
+        try:
+            control = ctypes.windll.kernel32.DeviceIoControl
+            control.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.c_void_p,
+                                wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
+                                ctypes.POINTER(wintypes.DWORD), ctypes.c_void_p]
+            out = ctypes.create_string_buffer(out_size)
+            returned = wintypes.DWORD(0)
+            ok = control(handle, code,
+                         in_buf, len(in_buf) if in_buf else 0,
+                         out, out_size, ctypes.byref(returned), None)
+            if not ok:
+                raise DriveError("ioctl 0x%X on %s failed (error %d)"
+                                 % (code, self.path, ctypes.GetLastError()))
+            return out.raw[:returned.value]
+        finally:
+            ctypes.windll.kernel32.CloseHandle(handle)
+
+    def read_toc(self):
+        return parse_toc_buffer(self._ioctl(self.IOCTL_CDROM_READ_TOC, None, 2048))
+
+    def read_audio(self, lba, sectors):
+        import struct as _struct
+        # RAW_READ_INFO. DiskOffset is a byte offset of lba * 2048 even though
+        # CDDA hands back 2352-byte sectors, which is this IOCTL's own quirk.
+        info = _struct.pack("<qII", lba * 2048, sectors, self.TRACK_MODE_CDDA)
+        data = self._ioctl(self.IOCTL_CDROM_RAW_READ, info, sectors * RAW_SECTOR)
+        if len(data) != sectors * RAW_SECTOR:
+            raise DriveError("short read at LBA %d: %d bytes for %d sectors"
+                             % (lba, len(data), sectors))
+        return data
+
+
+class LinuxDrive(object):
+    """CD access through the cdrom ioctls.
+
+    The struct layouts are taken from <linux/cdrom.h> and let ctypes do the
+    alignment, but nothing here has been run against a device: this box has no
+    optical drive. If it fails, rip with cdparanoia and use --tracks-from, which
+    is the tested path."""
+
+    CDROMREADTOCHDR = 0x5305
+    CDROMREADTOCENTRY = 0x5306
+    CDROMREADAUDIO = 0x530E
+    CDROM_LBA = 1
+
+    def __init__(self, device):
+        import ctypes
+        import fcntl
+
+        self.ctypes = ctypes
+        self.fcntl = fcntl
+        self.name = device
+        self.path = device
+
+        class Addr(ctypes.Union):
+            _fields_ = [("msf", ctypes.c_uint8 * 3), ("lba", ctypes.c_int)]
+
+        class TocHeader(ctypes.Structure):
+            _fields_ = [("trk0", ctypes.c_uint8), ("trk1", ctypes.c_uint8)]
+
+        class TocEntry(ctypes.Structure):
+            _fields_ = [("track", ctypes.c_uint8),
+                        ("adr", ctypes.c_uint8, 4),
+                        ("ctrl", ctypes.c_uint8, 4),
+                        ("format", ctypes.c_uint8),
+                        ("addr", Addr),
+                        ("datamode", ctypes.c_uint8)]
+
+        class ReadAudio(ctypes.Structure):
+            _fields_ = [("addr", Addr),
+                        ("addr_format", ctypes.c_uint8),
+                        ("nframes", ctypes.c_int),
+                        ("buf", ctypes.POINTER(ctypes.c_uint8))]
+
+        self.TocHeader, self.TocEntry, self.ReadAudio = TocHeader, TocEntry, ReadAudio
+
+    def _fd(self):
+        try:  # O_NONBLOCK so an empty or spinning-up drive fails rather than hangs
+            return os.open(self.path, os.O_RDONLY | os.O_NONBLOCK)
+        except OSError as exc:
+            raise DriveError("cannot open %s: %s" % (self.path, exc))
+
+    def read_toc(self):
+        fd = self._fd()
+        try:
+            header = self.TocHeader()
+            self.fcntl.ioctl(fd, self.CDROMREADTOCHDR, header)
+            tracks = []
+            numbers = list(range(header.trk0, header.trk1 + 1)) + [LEADOUT_TRACK]
+            for number in numbers:
+                entry = self.TocEntry()
+                entry.track = number
+                entry.format = self.CDROM_LBA
+                self.fcntl.ioctl(fd, self.CDROMREADTOCENTRY, entry)
+                tracks.append(TocTrack(number, entry.addr.lba, bool(entry.ctrl & 0x04)))
+            return tracks
+        except OSError as exc:
+            raise DriveError("reading the table of contents of %s: %s" % (self.path, exc))
+        finally:
+            os.close(fd)
+
+    def read_audio(self, lba, sectors):
+        ctypes = self.ctypes
+        fd = self._fd()
+        try:
+            buf = (ctypes.c_uint8 * (sectors * RAW_SECTOR))()
+            request = self.ReadAudio()
+            request.addr.lba = lba
+            request.addr_format = self.CDROM_LBA
+            request.nframes = sectors
+            request.buf = ctypes.cast(buf, ctypes.POINTER(ctypes.c_uint8))
+            self.fcntl.ioctl(fd, self.CDROMREADAUDIO, request)
+            return bytes(bytearray(buf))
+        except OSError as exc:
+            raise DriveError("reading audio at LBA %d from %s: %s" % (lba, self.path, exc))
+        finally:
+            os.close(fd)
+
+
+# On a mixed-mode disc the data track's run-out bleeds into the front of the first
+# audio track, and a drive hands it back as audio: five sectors of full-scale noise
+# before the music on the US disc. A cue can say "start later" and ours does; a TOC
+# cannot, so a drive rip has to find the join itself.
+#
+# What separates them is not loudness but distribution. Data read as audio is
+# uniform noise, so its mean sample magnitude sits near half of full scale, where the
+# music that follows measures 0.005 and even a brickwalled master stays under about
+# 0.35 because music has crest factor and noise does not. The gate is set at 0.40 to
+# sit clear of both, the skip is capped at one transport read, and a trim is printed
+# rather than done quietly, because the one signal this cannot tell from data is a
+# sustained full-scale tone (a sine averages 0.637) and that deserves to be visible.
+RUNOUT_GATE = 0.40  # a first sector this loud on average is data, not music
+RUNOUT_TAIL = 0.05  # keep skipping while the noise fades out
+RUNOUT_MAX_SECTORS = MAX_SECTORS_PER_READ  # one transport read, ~360 ms, is plenty
+
+
+def mean_magnitude(sector):
+    """Mean absolute sample value of one CD-DA sector, as a fraction of full scale."""
+    samples = struct.unpack("<%dh" % (len(sector) // 2), sector)
+    if not samples:
+        return 0.0
+    return sum(abs(v) for v in samples) / float(len(samples) * 32768)
+
+
+def runout_sectors(head):
+    """How many leading sectors of `head` are data run-out rather than music."""
+    if not head or mean_magnitude(head[0]) < RUNOUT_GATE:
+        return 0
+    skipped = 0
+    for sector in head[:RUNOUT_MAX_SECTORS]:
+        if mean_magnitude(sector) < RUNOUT_TAIL:
+            break
+        skipped += 1
+    return skipped
+
+
+def trim_leading_runout(drive, first_lba, sectors):
+    """(first sector, count) with any data run-out trimmed off the head."""
+    probe = min(RUNOUT_MAX_SECTORS, sectors)
+    if probe <= 0:
+        return first_lba, sectors
+    data = drive.read_audio(first_lba, probe)
+    head = [data[i * RAW_SECTOR:(i + 1) * RAW_SECTOR] for i in range(probe)]
+    skip = runout_sectors(head)
+    return first_lba + skip, sectors - skip
+
+
+def default_device():
+    """The drive to use when --from-drive names none."""
+    if sys.platform == "win32":
+        import ctypes
+        mask = ctypes.windll.kernel32.GetLogicalDrives()
+        for i in range(26):
+            if not mask & (1 << i):
+                continue
+            root = "%s:\\" % chr(ord("A") + i)
+            if ctypes.windll.kernel32.GetDriveTypeW(root) == 5:  # DRIVE_CDROM
+                return chr(ord("A") + i)
+        raise DriveError("no CD drive found")
+    for path in ("/dev/cdrom", "/dev/sr0", "/dev/sr1"):
+        if os.path.exists(path):
+            return path
+    raise DriveError("no CD drive found (looked for /dev/cdrom and /dev/sr0)")
+
+
+def open_drive(device):
+    if not device:
+        device = default_device()
+    if sys.platform == "win32":
+        return WindowsDrive(device)
+    if sys.platform.startswith("linux"):
+        return LinuxDrive(device)
+    raise DriveError(
+        "reading a drive is not implemented on %s. Rip the audio with a tool your "
+        "platform has, then pass --tracks-from." % sys.platform)
+
+
 # --- self-test ---------------------------------------------------------------
 # The cue rules are where this can be wrong without anything failing: get a span
 # or a track number off and every theme still plays, just not its own. `--selftest`
@@ -424,6 +788,21 @@ FILE "track03.wav" WAVE
   TRACK 03 AUDIO
     INDEX 01 00:00:00
 """
+
+# The US disc's own CDROM_TOC, read off the drive with IOCTL_CDROM_READ_TOC. One
+# data track and six audio, lead-out at 292864. Kept verbatim so the parse is
+# pinned against a real disc rather than a table written to match the parser.
+RETAIL_TOC_HEX = (
+    "00420107"
+    "0014010000000200"
+    "0010020000 2E083F"
+    "0010030000 31363F"
+    "0010040000 35061A"
+    "0010050000 38271A"
+    "0010060000 3C151A"
+    "0010070000 3D0F1A"
+    "0010AA0000 410640"
+).replace(" ", "")
 
 
 def selftest():
@@ -468,21 +847,153 @@ def selftest():
     check("track number from a space", track_number_of("Track 7.wav"), 7)
     check("track number from none", track_number_of("purple.wav"), None)
 
+    # The disc's own table of contents, against the addresses the corrected cue
+    # records. Every track sits 150 frames above its offset in a BIN that dropped
+    # the data-track run-out, which is what makes the two views agree.
+    toc = parse_toc_buffer(bytearray.fromhex(RETAIL_TOC_HEX))
+    check("toc track count", len(toc), 8)
+    check("toc data track", (toc[0].number, toc[0].lba, toc[0].is_data), (1, 0, True))
+    check("toc audio numbering", [t.number for t in toc[1:-1]], [2, 3, 4, 5, 6, 7])
+    check("toc all audio", [t.is_data for t in toc[1:]], [False] * 7)
+    check("toc leadout", (toc[-1].number, toc[-1].lba), (LEADOUT_TRACK, 292864))
+    check("toc track 2", toc[1].lba, 207368 + MSF_OFFSET - 5)  # the 5 run-out sectors
+    check("toc track 3", toc[2].lba, 224313 + MSF_OFFSET)
+    check("toc spans", audio_tracks_from_toc(toc),
+          [(2, 207513, 16950), (3, 224463, 14363), (4, 238826, 15975),
+           (5, 254801, 16650), (6, 271451, 4050), (7, 275501, 17363)])
+    # Every audio track on this disc must be one the naming table knows, or a
+    # theme would come off the disc with nowhere to go.
+    check("toc tracks are all named",
+          [n for n, _, _ in audio_tracks_from_toc(toc) if n not in CD_TRACK_NAMES], [])
+
+    # The run-out trim, on sectors built to look like what it has to tell apart.
+    # A plain LCG so the "noise" is the same on every run and every machine.
+    def noise_sector():
+        out = bytearray()
+        seed = 12345
+        for _ in range(RAW_SECTOR // 2):
+            seed = (1103515245 * seed + 12345) & 0x7FFFFFFF
+            out += struct.pack("<h", (seed >> 8) % 65536 - 32768)
+        return bytes(out)
+
+    def level_sector(amplitude):
+        return struct.pack("<h", amplitude) * (RAW_SECTOR // 2)
+
+    silence = level_sector(0)
+    quiet = level_sector(160)  # about what the music measures
+    noise = noise_sector()
+
+    check("noise looks like data", round(mean_magnitude(noise), 1), 0.5)
+    check("silence measures zero", mean_magnitude(silence), 0.0)
+    check("trim skips the run-out", runout_sectors([noise, noise, silence, quiet]), 2)
+    check("trim leaves clean audio alone", runout_sectors([quiet] * 4), 0)
+    check("trim leaves silence alone", runout_sectors([silence] * 4), 0)
+    check("trim needs the gate to open", runout_sectors([quiet, noise, noise]), 0)
+    check("trim on nothing", runout_sectors([]), 0)
+    check("trim is capped", runout_sectors([noise] * 100), RUNOUT_MAX_SECTORS)
+
     for line in failures:
         print("FAIL %s" % line)
     print("%d check(s), %d failed" % (checks[0], len(failures)))
     return 1 if failures else 0
 
 
+# --- music sources -----------------------------------------------------------
+def music_from_cue(image, cue, raw, outdir, plan):
+    tracks = parse_cue(cue)
+    print("Cue:        %s (%d tracks)" % (cue, len(tracks)))
+    loose = external_audio(tracks)
+    if loose:
+        base = os.path.dirname(os.path.abspath(cue))
+        print("Music:      one file per track, named by the cue")
+        copy_ripped([(n, os.path.join(base, f)) for n, f in loose
+                     if os.path.isfile(os.path.join(base, f))], outdir, plan)
+    elif not cue_names(cue, tracks, image):
+        # A cue's INDEX addresses belong to the file it names. Applying them to a
+        # different one lands mid-sector and plays as full-scale noise, so
+        # "probably the same disc" is not enough.
+        print("Music:      %s describes %r, not this image"
+              % (os.path.basename(cue), tracks[0].source))
+    elif not raw:
+        print("Music:      image is cooked (2048), so it carries no CD audio")
+    else:
+        spans = audio_spans(tracks, os.path.getsize(image) // RAW_SECTOR)
+        if spans:
+            print("Music:      matched by CD track number")
+            target = music_dir_in(outdir)
+            if not plan.dry_run:
+                os.makedirs(target, exist_ok=True)
+            for number, first, count in spans:
+                name = CD_TRACK_NAMES.get(number)
+                if name is None:
+                    print("  track %02d carries no music on this disc" % number)
+                    continue
+                write_wav_from_sectors(image, os.path.join(target, name + ".WAV"),
+                                       first, count, plan)
+        elif single_external(tracks):
+            print("Music:      one external audio file (%s), whose cue number is not "
+                  "a CD track number" % single_external(tracks))
+            print("            The engine plays it as it stands; leave it where it "
+                  "is rather than renaming it here.")
+        else:
+            print("Music:      the cue lists no audio tracks in this image")
+
+
+def music_from_drive(drive, outdir, plan):
+    """Read the disc's own table of contents and rip each audio track it lists."""
+    try:
+        toc = drive.read_toc()
+    except DriveError as exc:
+        raise SystemExit("%s\nRip the audio with cdparanoia or ImgBurn and pass "
+                         "--tracks-from instead." % exc)
+
+    spans = audio_tracks_from_toc(toc)
+    data = [t for t in toc if t.is_data]
+    print("Drive:      %s" % drive.name)
+    print("TOC:        %d track(s), %d data, %d audio, lead-out %d"
+          % (len(toc) - 1, len(data), len(spans), toc[-1].lba))
+    if not spans:
+        print("Music:      this disc has no audio tracks")
+        return
+
+    print("Music:      from the disc's own table of contents")
+    target = music_dir_in(outdir)
+    if not plan.dry_run:
+        os.makedirs(target, exist_ok=True)
+
+    retries = 0
+    for number, first, count in spans:
+        name = CD_TRACK_NAMES.get(number)
+        if name is None:
+            print("  track %02d is audio, but no theme is mapped to it" % number)
+            continue
+        try:
+            start, count = trim_leading_runout(drive, first, count)
+            if start != first:
+                print("  track %02d starts with %d sector(s) of data run-out, trimmed"
+                      % (number, start - first))
+            first = start
+            retries += write_wav_from_drive(
+                drive, os.path.join(target, name + ".WAV"), first, count, plan)
+        except DriveError as exc:
+            print("  track %02d failed: %s" % (number, exc))
+    if retries:
+        print("            %d chunk(s) needed a retry, so check those themes by ear"
+              % retries)
+
+
 # --- driver ------------------------------------------------------------------
 def resolve_source(source):
-    """(image path or None, cue path or None, ripped WAVs or [])."""
+    """(image, cue, ripped WAVs, plain data directory), each None or empty if absent."""
     if os.path.isdir(source):
-        wavs = ripped_wavs_in(source)
         image = pick_image(source)
-        if image is None:
-            return None, None, wavs
-        return image, pick_cue(image), []
+        if image is not None:
+            return image, pick_cue(image), [], None
+        # A mounted disc, or any install: the files are already readable, so the
+        # data side is a copy and only the audio needs a source.
+        if holds_marker(source):
+            return None, None, [], source
+        return None, None, ripped_wavs_in(source), None
     ext = os.path.splitext(source)[1].lower()
     if ext in CUE_EXTS:
         tracks = parse_cue(source)
@@ -492,9 +1003,9 @@ def resolve_source(source):
         if not os.path.isfile(image):
             raise SystemExit("%s names %r, which is not beside it"
                              % (source, tracks[0].source))
-        return image, source, []
+        return image, source, [], None
     if ext in IMAGE_EXTS or looks_like_image(source):
-        return source, pick_cue(source), []
+        return source, pick_cue(source), [], None
     raise SystemExit("%s is not a cue, an image, or a directory holding either" % source)
 
 
@@ -502,12 +1013,15 @@ def main():
     ap = argparse.ArgumentParser(
         description="Extract a playable game-data folder from a CD, themes included.")
     ap.add_argument("source", nargs="?",
-                    help="a .cue, a disc image, or a directory holding "
-                         "either (or a directory of ripped track WAVs)")
+                    help="a .cue, a disc image, a directory holding either, a mounted "
+                         "disc, or a directory of ripped track WAVs")
     ap.add_argument("outdir", nargs="?", help="where to write the game data")
     ap.add_argument("--tracks-from", metavar="DIR",
                     help="take the CD audio from a folder of ripped WAVs instead of "
                          "from the image (for containers whose audio is unreachable)")
+    ap.add_argument("--from-drive", metavar="DEVICE", nargs="?", const="",
+                    help="read the CD audio off a drive (/dev/sr0, or a Windows drive "
+                         "letter); omit the value to use the first one found")
     ap.add_argument("--force", action="store_true",
                     help="overwrite files already at the destination")
     ap.add_argument("--dry-run", action="store_true", help="say what would be written")
@@ -520,19 +1034,28 @@ def main():
     if not a.source or not a.outdir:
         ap.error("SOURCE and OUTDIR are both required")
 
-    image, cue, ripped = resolve_source(a.source)
+    image, cue, ripped, datadir = resolve_source(a.source)
     if a.tracks_from:
         ripped = ripped_wavs_in(a.tracks_from)
         if not ripped:
             raise SystemExit("no track WAVs in %s" % a.tracks_from)
 
+    drive = None
+    if a.from_drive is not None:
+        try:
+            drive = open_drive(a.from_drive)
+        except DriveError as exc:
+            raise SystemExit("%s" % exc)
+
     plan = Plan(a.force, a.dry_run)
     if not a.dry_run:
         os.makedirs(a.outdir, exist_ok=True)
 
-    if image is None and not ripped:
-        raise SystemExit("%s holds no disc image and no ripped WAVs" % a.source)
+    if image is None and datadir is None and not ripped and drive is None:
+        raise SystemExit("%s holds no disc image, no game data and no ripped WAVs"
+                         % a.source)
 
+    raw = False
     if image is not None:
         print("Image:      %s" % image)
         img = iso_bin.open_image(image)
@@ -550,54 +1073,23 @@ def main():
         print("Data:")
         extract_tree(img, iso_root, lba, size, a.outdir, plan)
         img.f.close()
+    elif datadir is not None:
+        print("Data dir:   %s" % datadir)
+        print("Data:")
+        copy_data_tree(datadir, a.outdir, plan)
 
-        if cue and not ripped:
-            tracks = parse_cue(cue)
-            print("Cue:        %s (%d tracks)" % (cue, len(tracks)))
-            loose = external_audio(tracks)
-            if loose:
-                base = os.path.dirname(os.path.abspath(cue))
-                print("Music:      one file per track, named by the cue")
-                copy_ripped(
-                    [(n, os.path.join(base, f)) for n, f in loose
-                     if os.path.isfile(os.path.join(base, f))], a.outdir, plan)
-            elif not cue_names(cue, tracks, image):
-                # A cue's INDEX addresses belong to the file it names. Applying
-                # them to a different one lands mid-sector and plays as
-                # full-scale noise, so "probably the same disc" is not enough.
-                print("Music:      %s describes %r, not this image"
-                      % (os.path.basename(cue), tracks[0].source))
-            elif not raw:
-                print("Music:      image is cooked (2048), so it carries no CD audio")
-            else:
-                sectors = os.path.getsize(image) // RAW_SECTOR
-                spans = audio_spans(tracks, sectors)
-                if spans:
-                    print("Music:      matched by CD track number")
-                    target = music_dir_in(a.outdir)
-                    if not a.dry_run:
-                        os.makedirs(target, exist_ok=True)
-                    for number, first, count in spans:
-                        name = CD_TRACK_NAMES.get(number)
-                        if name is None:
-                            print("  track %02d carries no music on this disc" % number)
-                            continue
-                        write_wav_from_sectors(
-                            image, os.path.join(target, name + ".WAV"),
-                            first, count, plan)
-                elif single_external(tracks):
-                    print("Music:      one external audio file (%s), whose cue number "
-                          "is not a CD track number" % single_external(tracks))
-                    print("            The engine plays it as it stands; leave it "
-                          "where it is rather than renaming it here.")
-                else:
-                    print("Music:      the cue lists no audio tracks in this image")
-        elif not cue and not ripped:
-            print("Music:      no cue beside the image, so the themes stay silent")
-
-    if ripped:
+    # One audio source, in the order of how much it is trusted: a drive is the
+    # disc itself, a rip the user made is next, and a cue is an assertion about a
+    # file. Whichever wins, the naming is the same.
+    if drive is not None:
+        music_from_drive(drive, a.outdir, plan)
+    elif ripped:
         print("Music:      from %s" % (a.tracks_from or a.source))
         copy_ripped(ripped, a.outdir, plan)
+    elif image is not None and cue:
+        music_from_cue(image, cue, raw, a.outdir, plan)
+    elif image is not None:
+        print("Music:      no cue beside the image, so the themes stay silent")
 
     # What matters is whether each theme ended up with a file, not how it got
     # there: on GOG the same music sits inside the data track, so counting only
@@ -609,7 +1101,7 @@ def main():
             "%s (track %02d)" % (CD_TRACK_NAMES[n], n) for n in missing))
     print("%d file(s) written, %d already there, %.1f MB"
           % (plan.written, plan.skipped, plan.bytes / 1048576.0))
-    if not a.dry_run and image is not None:
+    if not a.dry_run and (image is not None or datadir is not None):
         print("Play it with: lba2cc --game-dir %s" % os.path.abspath(a.outdir))
 
 
