@@ -10,7 +10,24 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+
+- Rolling `latest` AppImages no longer replace themselves with the newest
+  stable release on first run. The `latest` keyword in the bundled
+  self-updater's update information means "newest non-prerelease", not the
+  rolling release's tag of the same name, so a rolling download overwrote
+  its own payload with the stable build while keeping its rolling
+  filename. The result was a `0.13.0-dev` AppImage whose banner read
+  `0.12.0` and reported itself up to date from then on. Rolling builds now carry
+  `latest-pre` and track the rolling channel; tagged AppImages are
+  unaffected and still update to the newest stable tag. Existing rolling
+  downloads need replacing once by hand.
+- `scripts/dev/verify-release.sh` now checks that each artifact's
+  `--version` matches the version in its filename, and that each AppImage
+  carries the self-update channel belonging to the release it hangs off.
+- `scripts/dev/verify-release.sh` no longer aborts with no results at all
+  when it cannot register qemu binfmt for the aarch64 legs. It reports the
+  aarch64 failures and checks the rest.
 
 ## [0.12.0] - 2026-07-16
 

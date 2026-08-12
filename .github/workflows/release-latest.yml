@@ -44,6 +44,10 @@ jobs:
     uses: ./.github/workflows/reusable-build-linux-appimage.yml
     with:
       artifact-prefix: latest-linux
+      # Keep a rolling AppImage on the rolling channel. On the default
+      # channel it self-updates onto the newest stable tag on first run,
+      # under its own rolling filename. See docs/RELEASING.md.
+      update-channel: latest-pre
 
   build-linux-tarball:
     uses: ./.github/workflows/reusable-build-linux-tarball.yml
