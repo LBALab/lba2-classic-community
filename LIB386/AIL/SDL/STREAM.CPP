@@ -552,6 +552,24 @@ static bool InstallDirFromMusicPath(const char *name, char *outDir, int max) {
    putting the bytes in the order the mixer wants: read the sector range and hand
    it to the same stream setup a WAV uses, which is what gives it the existing
    volume, pause and resume behaviour. */
+static bool PlayCdAudioBuffer(Uint8 *pcm, size_t pcmBytes, uint32_t startSector, S32 skipFrames) {
+    /* Red Book is MSB-first and a ripper is meant to swap it; some do not, so
+       the order is measured rather than assumed. See LIB386/SYSTEM/CDDA.CPP. */
+    if (CdDa_NeedsByteSwap(pcm, pcmBytes)) {
+        CdDa_ByteSwap(pcm, pcmBytes);
+        if (musicLogEnabled)
+            SDL_Log("[MUSIC] CD audio at sector %u is big-endian, byte-swapped it",
+                    (unsigned)startSector);
+    }
+
+    SDL_AudioSpec spec;
+    SDL_zero(spec);
+    spec.freq = 44100;
+    spec.format = SDL_AUDIO_S16LE;
+    spec.channels = 2;
+    return SetupWavStream(&spec, pcm, (Uint32)pcmBytes, skipFrames);
+}
+
 static bool PlayCdAudioFromImage(uint32_t startSector, uint32_t endSector, S32 skipFrames) {
     if (endSector <= startSector)
         return false;
@@ -566,22 +584,54 @@ static bool PlayCdAudioFromImage(uint32_t startSector, uint32_t endSector, S32 s
         return false;
     }
 
-    /* Red Book is MSB-first and a ripper is meant to swap it; some do not, so
-       the order is measured rather than assumed. See LIB386/SYSTEM/CDDA.CPP. */
-    size_t pcmBytes = (size_t)got * 2352;
-    if (CdDa_NeedsByteSwap(pcm, pcmBytes)) {
-        CdDa_ByteSwap(pcm, pcmBytes);
-        if (musicLogEnabled)
-            SDL_Log("[MUSIC] CD audio at sector %u is big-endian, byte-swapped it",
-                    (unsigned)startSector);
+    bool ok = PlayCdAudioBuffer(pcm, (size_t)got * 2352, startSector, skipFrames);
+    free(pcm);
+    return ok;
+}
+
+/* How many whole 2352-byte audio sectors a file holds. */
+static uint32_t RawSectorsInFile(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f)
+        return 0;
+    uint32_t sectors = 0;
+    if (fseek(f, 0, SEEK_END) == 0) {
+        long size = ftell(f);
+        if (size > 0)
+            sectors = (uint32_t)(size / 2352);
+    }
+    fclose(f);
+    return sectors;
+}
+
+/* Raw audio sectors out of a BINARY file the cue names but the mount does not
+   cover. A rip that splits every track into its own file is still bin+cue, and
+   is what DiscImageCreator and EAC produce by default; the bytes are the same
+   raw sectors an in-image track holds, addressed in a file of their own. Track
+   addresses in such a cue are relative to the file that carries the track. */
+static bool PlayCdAudioFromFile(const char *path, uint32_t startSector, uint32_t endSector,
+                                S32 skipFrames) {
+    if (endSector <= startSector)
+        return false;
+    FILE *f = fopen(path, "rb");
+    if (!f)
+        return false;
+
+    size_t want = (size_t)(endSector - startSector) * 2352;
+    Uint8 *pcm = (Uint8 *)malloc(want);
+    if (!pcm) {
+        fclose(f);
+        return false;
+    }
+    bool read = (fseek(f, (long)startSector * 2352, SEEK_SET) == 0) &&
+                (fread(pcm, 1, want, f) == want);
+    fclose(f);
+    if (!read) {
+        free(pcm);
+        return false;
     }
 
-    SDL_AudioSpec spec;
-    SDL_zero(spec);
-    spec.freq = 44100;
-    spec.format = SDL_AUDIO_S16LE;
-    spec.channels = 2;
-    bool ok = SetupWavStream(&spec, pcm, (Uint32)pcmBytes, skipFrames);
+    bool ok = PlayCdAudioBuffer(pcm, want, startSector, skipFrames);
     free(pcm);
     return ok;
 }
@@ -668,10 +718,35 @@ static RedbookOutcome PlayTocTrack(const CueTrack *t, const CueTrack *toc, int n
         return played ? REDBOOK_PLAYED : REDBOOK_HANDLED;
     }
 
+    /* A BINARY file the mount does not cover: a rip that gave every track its own
+       file, which DiscImageCreator and EAC both do by default. Still bin+cue, and
+       the bytes are the same raw sectors. Addresses in such a cue are relative to
+       the file carrying the track, so a track ends at the next track in that same
+       file, or at its end. */
+    if (!DiscImage_IsMountedFile(t->file)) {
+        char path[ADELINE_MAX_PATH];
+        int w = snprintf(path, sizeof(path), "%s%s", tocDir, t->file);
+        if (w < 0 || (size_t)w >= sizeof(path))
+            return REDBOOK_HANDLED;
+        uint32_t fileSectors = RawSectorsInFile(path);
+        if (fileSectors == 0 || t->startFrame >= fileSectors)
+            return REDBOOK_HANDLED;
+        uint32_t stop = fileSectors;
+        for (int i = 0; i < n; i++) {
+            if (strcmp(toc[i].file, t->file) == 0 && toc[i].startFrame > t->startFrame &&
+                toc[i].startFrame < stop)
+                stop = toc[i].startFrame;
+        }
+        bool played = PlayCdAudioFromFile(path, t->startFrame, stop, startFrame);
+        if (played && musicLogEnabled) {
+            SDL_Log("[MUSIC] PlayStream start CD-DA track %s: sectors %u..%u of %s (from %s)",
+                    label, (unsigned)t->startFrame, (unsigned)stop, t->file, name);
+        }
+        return played ? REDBOOK_PLAYED : REDBOOK_HANDLED;
+    }
+
     /* Inside the image. The cue's sector addresses only mean anything against
        the file that cue describes, and only a raw image has audio sectors. */
-    if (!DiscImage_IsMountedFile(t->file))
-        return REDBOOK_HANDLED;
     uint32_t total = DiscImage_RawSectorCount();
     if (total == 0 || t->startFrame >= total)
         return REDBOOK_HANDLED;

@@ -99,10 +99,13 @@ CUE_EXTS = (".cue", ".dat", ".toc")
 
 # --- cue sheet ---------------------------------------------------------------
 class CueTrack(object):
-    def __init__(self, number, mode, source):
+    def __init__(self, number, mode, source, source_type="BINARY"):
         self.number = number
         self.mode = mode  # AUDIO, MODE1/2352, ...
         self.source = source  # the FILE this track lives in
+        # BINARY means raw sectors, whether that file is the whole disc or just
+        # this track. WAVE/MP3/AIFF mean a decodable audio file.
+        self.source_type = source_type
         self.indexes = {}  # index number -> LBA within that file
 
     @property
@@ -124,6 +127,7 @@ def parse_cue(path):
     """Return the cue's tracks in file order. Raises ValueError on a bad INDEX."""
     tracks = []
     source = None
+    source_type = "BINARY"
     current = None
     with open(path, "r", errors="replace") as fh:
         for lineno, line in enumerate(fh, 1):
@@ -132,13 +136,14 @@ def parse_cue(path):
                 continue
             head = line.split(None, 1)[0].upper()
             if head == "FILE":
-                m = re.match(r'FILE\s+"([^"]+)"|FILE\s+(\S+)', line, re.I)
+                m = re.match(r'FILE\s+"([^"]+)"\s*(\S+)?|FILE\s+(\S+)\s*(\S+)?', line, re.I)
                 if m:
-                    source = m.group(1) or m.group(2)
+                    source = m.group(1) or m.group(3)
+                    source_type = (m.group(2) or m.group(4) or "BINARY").upper()
             elif head == "TRACK":
                 parts = line.split()
                 if len(parts) >= 3:
-                    current = CueTrack(int(parts[1]), parts[2].upper(), source)
+                    current = CueTrack(int(parts[1]), parts[2].upper(), source, source_type)
                     tracks.append(current)
             elif head == "INDEX" and current is not None:
                 parts = line.split()
@@ -310,8 +315,8 @@ def themes_for_tracks(spans, outdir, plan):
     and slide every later track onto the wrong theme."""
     missing = themes_without_files(outdir, plan.stems)
     if len(missing) == len(spans):
-        return missing
-    return [CD_TRACK_NAMES.get(number) for number, _, _ in spans]
+        return missing, "position"
+    return [CD_TRACK_NAMES.get(number) for number, _, _ in spans], "the US track table"
 
 
 def themes_without_a_file(outdir, stems):
@@ -486,11 +491,14 @@ def copy_data_tree(srcdir, outdir, plan):
             shutil.copyfile(src, dest)
 
 
-def copy_ripped(sources, outdir, plan):
-    """Name a ripper's output the way the engine asks for it."""
+def copy_ripped(sources, outdir, plan, force_name=None):
+    """Name a ripper's output the way the engine asks for it.
+
+    `force_name` overrides the track-number lookup, for a caller that has already
+    worked out which theme this is."""
     target = music_dir_in(outdir)
     for number, path in sorted(sources):
-        name = CD_TRACK_NAMES.get(number)
+        name = force_name if force_name else CD_TRACK_NAMES.get(number)
         if name is None:
             print("  skipping %s: track %s carries no music on this disc"
                   % (os.path.basename(path), number))
@@ -1015,7 +1023,7 @@ def selftest():
     # A European pressing: one track, one theme with no file.
     plan.stems = set(t for t in ALL_THEMES if t != "TADPCM6")
     check("europe names its one track",
-          themes_for_tracks(spans_of(2), "/nonexistent", plan), ["TADPCM6"])
+          themes_for_tracks(spans_of(2), "/nonexistent", plan), (["TADPCM6"], "position"))
 
     # The Brazilian disc: seven pressed, seven missing, so positional throughout.
     br = set(ALL_THEMES) - {"TADPCM1", "TADPCM2", "TADPCM3", "TADPCM4", "TADPCM5",
@@ -1023,14 +1031,16 @@ def selftest():
     plan.stems = br
     check("brazil maps tracks 2..8",
           themes_for_tracks(spans_of(2, 3, 4, 5, 6, 7, 8), "/nonexistent", plan),
-          ["TADPCM1", "TADPCM2", "TADPCM3", "TADPCM4", "TADPCM5", "JADPCM01", "TADPCM6"])
+          (["TADPCM1", "TADPCM2", "TADPCM3", "TADPCM4", "TADPCM5", "JADPCM01", "TADPCM6"],
+           "position"))
 
     # The US disc presses six of the same seven, so the counts disagree and the
     # table takes over. Positional would have named track 2 TADPCM1.
     plan.stems = br
     check("us falls back to the table",
           themes_for_tracks(spans_of(2, 3, 4, 5, 6, 7), "/nonexistent", plan),
-          ["TADPCM2", "TADPCM3", "TADPCM4", "TADPCM5", "JADPCM01", "TADPCM6"])
+          (["TADPCM2", "TADPCM3", "TADPCM4", "TADPCM5", "JADPCM01", "TADPCM6"],
+           "the US track table"))
 
     for line in failures:
         print("FAIL %s" % line)
@@ -1039,44 +1049,76 @@ def selftest():
 
 
 # --- music sources -----------------------------------------------------------
+def audio_track_extent(track, tracks, file_sectors):
+    """(first sector, sector count) of one audio track inside its own FILE.
+
+    A cue's addresses are relative to the file carrying the track, so a track
+    runs to the next one in that same file and the last runs to its end. A
+    pregap belongs to the track that follows it, as Red Book defines it."""
+    end = file_sectors
+    for other in tracks:
+        if other.source != track.source or other.first_index is None:
+            continue
+        if track.start < other.first_index < end:
+            end = other.first_index
+    return track.start, max(0, end - track.start)
+
+
 def music_from_cue(image, cue, raw, outdir, plan):
     tracks = parse_cue(cue)
     print("Cue:        %s (%d tracks)" % (cue, len(tracks)))
-    loose = external_audio(tracks)
-    if loose:
-        base = os.path.dirname(os.path.abspath(cue))
-        print("Music:      one file per track, named by the cue")
-        copy_ripped([(n, os.path.join(base, f)) for n, f in loose
-                     if os.path.isfile(os.path.join(base, f))], outdir, plan)
-    elif not cue_names(cue, tracks, image):
-        # A cue's INDEX addresses belong to the file it names. Applying them to a
-        # different one lands mid-sector and plays as full-scale noise, so
-        # "probably the same disc" is not enough.
-        print("Music:      %s describes %r, not this image"
-              % (os.path.basename(cue), tracks[0].source))
-    elif not raw:
-        print("Music:      image is cooked (2048), so it carries no CD audio")
-    else:
-        spans = audio_spans(tracks, os.path.getsize(image) // RAW_SECTOR)
-        if spans:
-            print("Music:      matched by CD track number")
-            target = music_dir_in(outdir)
-            if not plan.dry_run:
-                os.makedirs(target, exist_ok=True)
-            names = themes_for_tracks(spans, outdir, plan)
-            for (number, first, count), name in zip(spans, names):
-                if name is None:
-                    print("  track %02d: cannot tell which theme this is" % number)
-                    continue
-                write_wav_from_sectors(image, os.path.join(target, name + ".WAV"),
-                                       first, count, plan)
-        elif single_external(tracks):
-            print("Music:      one external audio file (%s), whose cue number is not "
-                  "a CD track number" % single_external(tracks))
-            print("            The engine plays it as it stands; leave it where it "
-                  "is rather than renaming it here.")
+    base = os.path.dirname(os.path.abspath(cue))
+    audio = [t for t in tracks if t.mode == "AUDIO" and t.start is not None]
+    if not audio:
+        print("Music:      the cue lists no audio tracks")
+        return
+
+    # A cue's INDEX addresses belong to the file it names. Applying them to a
+    # different one lands mid-sector and plays as full-scale noise, so "probably
+    # the same disc" is not enough to read sectors out of the mounted image.
+    image_usable = raw and cue_names(cue, tracks, image)
+    if not image_usable and any(t.source == tracks[0].source for t in audio):
+        why = ("image is cooked (2048), so it carries no CD audio" if not raw else
+               "%s describes %r, not this image"
+               % (os.path.basename(cue), tracks[0].source))
+        print("Music:      %s" % why)
+
+    names, rule = themes_for_tracks([(t.number, t.start, 0) for t in audio], outdir, plan)
+    print("Music:      %d audio track(s), named by %s" % (len(audio), rule))
+    target = music_dir_in(outdir)
+    if not plan.dry_run:
+        os.makedirs(target, exist_ok=True)
+
+    for track, name in zip(audio, names):
+        if name is None:
+            print("  track %02d: cannot tell which theme this is" % track.number)
+            continue
+        path = os.path.join(base, track.source) if track.source else None
+
+        if track.source == tracks[0].source and image_usable:
+            # Audio sectors inside the mounted image.
+            first, count = audio_track_extent(
+                track, tracks, os.path.getsize(image) // RAW_SECTOR)
+            write_wav_from_sectors(image, os.path.join(target, name + ".WAV"),
+                                   first, count, plan)
+        elif track.source_type == "BINARY":
+            # Its own BINARY file: a rip that split every track, which is what
+            # DiscImageCreator and EAC produce. Same raw sectors, own file.
+            if not path or not os.path.isfile(path):
+                print("  track %02d: %r is not beside the cue" % (track.number, track.source))
+                continue
+            first, count = audio_track_extent(
+                track, tracks, os.path.getsize(path) // RAW_SECTOR)
+            write_wav_from_sectors(path, os.path.join(target, name + ".WAV"),
+                                   first, count, plan)
         else:
-            print("Music:      the cue lists no audio tracks in this image")
+            # A decodable audio file the cue names (GOG ships its one theme as
+            # LBA2.OGG). Copied under the theme's name, keeping its own
+            # extension so the engine's OGG fallback still finds it.
+            if not path or not os.path.isfile(path):
+                print("  track %02d: %r is not beside the cue" % (track.number, track.source))
+                continue
+            copy_ripped([(track.number, path)], outdir, plan, force_name=name)
 
 
 def music_from_drive(drive, outdir, plan):
@@ -1102,7 +1144,7 @@ def music_from_drive(drive, outdir, plan):
         os.makedirs(target, exist_ok=True)
 
     retries = 0
-    names = themes_for_tracks(spans, outdir, plan)
+    names, _ = themes_for_tracks(spans, outdir, plan)
     for (number, first, count), name in zip(spans, names):
         if name is None:
             print("  track %02d is audio, but no theme is mapped to it" % number)
