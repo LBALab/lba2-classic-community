@@ -38,7 +38,13 @@ HDR = 16  # 12 sync + 4 header before the 2048 user bytes (Mode1/2352)
 
 # Raw first: a cooked image has no sync pattern, so it can only be read one way,
 # while a raw one read as cooked lands mid-sector and matches nothing.
-LAYOUTS = ((SECTOR, HDR), (USER, 0))
+#
+#   2352/16  MODE1 raw: 12 sync + 4 header, then the user data.
+#   2352/24  MODE2 Form 1 raw (CD-ROM XA / CD-Bridge): the same 16 bytes plus an
+#            8-byte subheader. The European EA pressing of LBA2 is one of these.
+#   2048/0   cooked, data track only.
+MODE2_HDR = 24
+LAYOUTS = ((SECTOR, HDR), (SECTOR, MODE2_HDR), (USER, 0))
 
 class Image:
     def __init__(self, path, stride=SECTOR, hdr=HDR):
@@ -54,6 +60,13 @@ class Image:
     @property
     def is_raw(self):
         return self.stride == SECTOR
+
+    @property
+    def mode(self):
+        """MODE1, MODE2 or cooked: the stride alone cannot tell the first two apart."""
+        if self.stride != SECTOR:
+            return "cooked"
+        return "MODE2" if self.hdr == MODE2_HDR else "MODE1"
 
 def open_image(path):
     """Open an image whichever layout it uses, or return None if it is not ISO9660.

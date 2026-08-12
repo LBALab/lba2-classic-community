@@ -36,10 +36,12 @@ iso9660_t *iso_open_ex(const char *path, int allowContainerScan);
 void iso_close(iso9660_t *iso);
 
 //──────────────────────────────────────────────────────────────────────────
-// Report the detected layout: sector stride (2352 raw or 2048 cooked) and the
-// byte offset of logical sector 0. Lets a caller rank candidate images (raw
-// carries CD audio that cooked cannot) and locate raw audio sectors.
-int iso_layout(iso9660_t *iso, int *outSectorSize, long *outBase);
+// Report the detected layout: sector stride (2352 raw or 2048 cooked), the byte
+// offset of logical sector 0, and the offset of the user data within a sector
+// (16 for MODE1 raw, 24 for MODE2 Form 1, 0 for cooked). Lets a caller rank
+// candidate images (raw carries CD audio that cooked cannot), locate raw audio
+// sectors, and name the mode it found. Any out pointer may be NULL.
+int iso_layout(iso9660_t *iso, int *outSectorSize, long *outBase, int *outDataOff);
 
 //──────────────────────────────────────────────────────────────────────────
 // Read `count` whole 2352-byte sectors starting at `lba`, contents untouched.

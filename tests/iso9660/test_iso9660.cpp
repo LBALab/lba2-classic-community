@@ -106,15 +106,16 @@ static std::vector<std::vector<uint8_t>> build_sectors() {
     return secs;
 }
 
-/* Pack logical sectors into a raw-2352 (Mode-1) or cooked-2048 image. In the raw
-   layout the 2048 user bytes sit at offset 16; sync/header/ECC stay zero (the
-   reader never touches them). */
-static std::vector<uint8_t> pack(const std::vector<std::vector<uint8_t>> &secs, bool raw) {
-    const int ss = raw ? 2352 : 2048;
-    const int off = raw ? 16 : 0;
-    std::vector<uint8_t> out((size_t)secs.size() * ss, 0);
+/* Pack logical sectors into one of the on-disc layouts. `sectorSize` is 2352 for
+   a raw image or 2048 for a cooked one, and `dataOff` is where the 2048 user
+   bytes start inside a sector: 16 for MODE1 raw, 24 for MODE2 Form 1 (the same
+   sync and header plus an 8-byte subheader), 0 for cooked. Sync/header/subheader
+   and ECC stay zero, which the reader never looks at. */
+static std::vector<uint8_t> pack(const std::vector<std::vector<uint8_t>> &secs, int sectorSize,
+                                 int dataOff) {
+    std::vector<uint8_t> out((size_t)secs.size() * sectorSize, 0);
     for (size_t i = 0; i < secs.size(); i++)
-        memcpy(out.data() + i * ss + off, secs[i].data(), 2048);
+        memcpy(out.data() + i * sectorSize + dataOff, secs[i].data(), 2048);
     return out;
 }
 
@@ -134,9 +135,10 @@ extern "C" void collect_path(void *ud, const char *path, uint32_t size) {
     ((std::vector<std::string> *)ud)->push_back(path);
 }
 
-static void check_image(bool raw) {
-    std::string path = std::string(TEST_TMP_DIR) + "/iso_fixture_" + (raw ? "raw" : "cooked") + ".bin";
-    if (!write_file(path, pack(build_sectors(), raw))) {
+static void check_image(int sectorSize, int dataOff, const char *tag) {
+    const bool raw = (sectorSize == 2352);
+    std::string path = std::string(TEST_TMP_DIR) + "/iso_fixture_" + tag + ".bin";
+    if (!write_file(path, pack(build_sectors(), sectorSize, dataOff))) {
         FAIL_MSG("could not write fixture %s", path.c_str());
         return;
     }
@@ -213,6 +215,17 @@ static void check_image(bool raw) {
     /* Raw images can carry audio sectors after the data; cooked ones cannot. */
     ASSERT_EQ_INT(raw ? (int)NSECTORS : 0, (int)iso_raw_sector_count(iso));
 
+    /* The detected layout is reported back, and the mode is what distinguishes
+       MODE1 from MODE2: both are 2352-byte raw images and differ only here. A
+       wrong data offset still finds the filesystem when base absorbs it, but
+       then iso_read_raw is off by that much and the audio comes out as noise. */
+    int gotSs = 0, gotOff = 0;
+    long gotBase = -1;
+    ASSERT_EQ_INT(0, iso_layout(iso, &gotSs, &gotBase, &gotOff));
+    ASSERT_EQ_INT(sectorSize, gotSs);
+    ASSERT_EQ_INT(dataOff, gotOff);
+    ASSERT_EQ_INT(0, (int)gotBase);
+
     /* Reads clamp at EOF; reading at/after EOF yields 0. */
     uint8_t tail[64];
     ASSERT_EQ_INT(10, iso_pread(iso, blba, bsize, BIG_LEN - 10, tail, 64));
@@ -222,8 +235,11 @@ static void check_image(bool raw) {
     remove(path.c_str());
 }
 
-static void test_cooked_2048(void) { check_image(false); }
-static void test_raw_2352(void) { check_image(true); }
+static void test_cooked_2048(void) { check_image(2048, 0, "cooked"); }
+static void test_raw_2352(void) { check_image(2352, 16, "raw"); }
+/* MODE2 Form 1, the CD-ROM XA / CD-Bridge layout the European EA pressing of
+   LBA2 uses. Its user data sits 8 bytes further into each sector than MODE1. */
+static void test_raw_2352_mode2(void) { check_image(2352, 24, "raw_mode2"); }
 
 /* A non-ISO file (no CD001 PVD at LBA 16) is rejected, not misread. */
 static void test_non_iso_rejected(void) {
@@ -250,7 +266,7 @@ static void check_container(bool raw, size_t headerLen) {
     std::string path = std::string(TEST_TMP_DIR) + "/iso_container_" +
                        (raw ? "raw" : "cooked") + ".bin";
     std::vector<uint8_t> data(headerLen, 0x00);
-    std::vector<uint8_t> img = pack(build_sectors(), raw);
+    std::vector<uint8_t> img = pack(build_sectors(), raw ? 2352 : 2048, raw ? 16 : 0);
     data.insert(data.end(), img.begin(), img.end());
     if (!write_file(path, data)) {
         FAIL_MSG("could not write fixture %s", path.c_str());
@@ -267,7 +283,7 @@ static void check_container(bool raw, size_t headerLen) {
     }
     int ss = 0;
     long base = 0;
-    ASSERT_EQ_INT(0, iso_layout(iso, &ss, &base));
+    ASSERT_EQ_INT(0, iso_layout(iso, &ss, &base, NULL));
     ASSERT_EQ_INT(raw ? 2352 : 2048, ss);
     ASSERT_EQ_INT((int)headerLen, (int)base);
 
@@ -402,6 +418,7 @@ static void test_truncated_extent_graceful(void) {
 int main(void) {
     RUN_TEST(test_cooked_2048);
     RUN_TEST(test_raw_2352);
+    RUN_TEST(test_raw_2352_mode2);
     RUN_TEST(test_non_iso_rejected);
     RUN_TEST(test_container_header_cooked);
     RUN_TEST(test_container_header_raw);

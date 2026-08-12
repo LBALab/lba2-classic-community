@@ -811,7 +811,14 @@ static void cmd_disc(int argc, const char *argv[]) {
     }
 
     Console_Print("Image:      %s", info.path);
-    Console_Print("Layout:     %d-byte sectors, data at byte %ld", info.sectorSize, info.base);
+    /* Name the mode, not just the stride. MODE1 and MODE2 are both 2352-byte
+       raw images and differ only in where the user data starts, so the stride
+       alone cannot tell a reader which one they have. */
+    const char *mode = (info.sectorSize != 2352) ? "cooked"
+                       : (info.dataOffset == 24) ? "MODE2 raw"
+                                                 : "MODE1 raw";
+    Console_Print("Layout:     %d-byte sectors, %s (data at %d), image starts at byte %ld",
+                  info.sectorSize, mode, info.dataOffset, info.base);
     Console_Print("Asset root: /%s   (%d files)", info.assetRoot, (int)info.fileCount);
     if (info.rawSectors > 0) {
         Console_Print("Sectors:    %u raw, so in-image CD audio can be read", (unsigned)info.rawSectors);
