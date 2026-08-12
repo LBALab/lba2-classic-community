@@ -165,10 +165,13 @@
 
 #include <FILEIO.H>
 
+/* The DEMO build pulled Adeline's CD-audio library by absolute path off the
+   1997 build machine. The demo ships its music as MUSIC/*.WAV, not CD tracks,
+   so nothing here needs it -- and the sibling CDROM include below was already
+   commented out for the same reason.
 #ifdef DEMO
 #include "/projet/lib386/lib_cd/lib_cd.h"
 #endif
-/*
 #ifdef	CDROM
 #include 	"/projet/lib386/lib_cd/lib_cd.h"
 #endif

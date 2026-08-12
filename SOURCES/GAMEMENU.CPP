@@ -3839,7 +3839,7 @@ S32 MainGameMenu(S32 load) {
                 SlideShow();
                 //                                        DemoBumper() ;
                 GetSavePath(tmpFilePathSave, ADELINE_MAX_PATH, CURRENTSAVE_FILENAME);
-                unlink(tmpFilePathSave);
+                Delete(tmpFilePathSave); // was unlink(); Delete() is the portable wrapper
                 FlagShowEndDemo = TRUE;
 
                 Image_LoadStretched(tmpFilePathScreen, Log, PCR_MENU);
@@ -5014,6 +5014,11 @@ void DemoBumper(void) {
 		Load_HQR( tmpFilePath, Log, PCR_MENU ) ;
 	}
 */
+    /* ShowLogo leaves the bumper on screen, so the menu backdrop has to come
+       back from screen.hqr before the caller flips. */
+    char tmpFilePath[ADELINE_MAX_PATH];
+    GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+
     ShowLogo(PCR_BUMPER, 5);
     Load_HQR(tmpFilePath, Log, PCR_MENU);
 }
