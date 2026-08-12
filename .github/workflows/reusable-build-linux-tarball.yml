@@ -25,6 +25,7 @@ jobs:
   build:
     name: "Build ${{ matrix.arch }}"
     runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -43,12 +44,13 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
+          # Acquire::Retries so a mirror hiccup costs a retry, not the leg.
+          sudo apt-get -o Acquire::Retries=5 update
           # Build deps only — SDL3 comes from setup-sdl below (as a static
           # library), so we don't install libsdl3-dev. The transitive deps
           # SDL3 itself needs at build time (X11, Wayland, ALSA, etc.) are
           # pulled in here so SDL3's CMake build can configure all backends.
-          sudo apt-get install -y --no-install-recommends \
+          sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
             cmake ninja-build build-essential \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
             libxinerama-dev libxxf86vm-dev libxss-dev libxtst-dev \

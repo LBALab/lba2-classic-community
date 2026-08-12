@@ -27,6 +27,7 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v7
