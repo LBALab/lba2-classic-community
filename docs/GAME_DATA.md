@@ -200,6 +200,39 @@ root. Assets and jingles come straight off the medium; the themes need a rip, be
 from a drive is not something the engine does (see
 [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md#what-is-not-done)).
 
+### Extracting to loose files
+
+You do not need this for a bin/cue rip, which plays as it is. It is for the cases the engine cannot
+serve from the medium: a physical disc whose themes you want, a container that mounts data-only
+(MDX, NRG, CCD), or simply wanting the files on disk to mod or inspect.
+
+```
+python3 scripts/dev/disc_extract.py /path/to/rip ~/lba2-data
+```
+
+That writes the game data out of the image and cuts the six Red Book tracks into
+`music/TADPCM2.WAV` and friends, about 535 MB from the US disc. Then
+`lba2cc --game-dir ~/lba2-data` as usual.
+
+If the audio has to come from somewhere else, rip it with whatever your platform has (`cdparanoia`,
+EAC, ImgBurn) and point the script at the result. It reads the track number out of each filename,
+so `track02.cdda.wav` and `Track 2.wav` both work:
+
+```
+python3 scripts/dev/disc_extract.py ~/ripped ~/lba2-data                    # audio only
+python3 scripts/dev/disc_extract.py disc.mdx ~/lba2-data --tracks-from ~/ripped
+```
+
+**The naming is the point.** A ripper gives you `track02.wav`; what it cannot tell you is that CD
+track 6 is `JADPCM01` rather than `TADPCM6`, or that the `TADPCM1` theme is not pressed on the US
+disc at all. That mapping lives in [CDTRACKS.CPP](../LIB386/SYSTEM/CDTRACKS.CPP), and
+`tests/cdtracks` fails if the script's copy of it drifts. Renaming the files by hand is where this
+goes wrong: every scene gets a plausible theme, just not its own.
+
+The script is idempotent (`--force` to overwrite, `--dry-run` to see the plan) and stdlib-only. It
+declines to guess: a cue that describes a different file than the image, or one with a single
+external audio track whose number is not a CD track number, is reported rather than acted on.
+
 ## Config file
 
 See [CONFIG.md](CONFIG.md). If `lba2.cfg` is missing from the user config folder, the engine copies from the asset directory when present; if the asset directory has no `lba2.cfg`, an embedded template (from the build) is written instead.
