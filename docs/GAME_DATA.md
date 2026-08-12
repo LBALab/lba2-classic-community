@@ -143,6 +143,13 @@ See issue [#119](https://github.com/LBALab/lba2-classic-community/issues/119) fo
 The engine reads a CD rip directly. You do not need to extract anything, and you do not need a
 storefront copy.
 
+**Which pressing you have matters less than it used to.** The engine reads MODE1 and MODE2 raw
+images and cooked ISOs, and works out for itself which themes a disc pressed and which byte order
+they were written in. The European Electronic Arts discs press one theme, the US Activision disc
+presses six, the Brazilian Activision disc presses seven and numbers them differently, and one
+circulating European rip stores its audio in raw Red Book (big-endian) order. All of them play.
+See [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md#the-pressings).
+
 **Rip to BIN/CUE, not ISO.** This matters more than it sounds. A 1997 retail disc is *mixed mode*:
 one data track holding the game, then the soundtrack as Red Book audio tracks. ISO 9660 is a
 filesystem format with room for one data track and nowhere to record a table of contents, so an ISO
