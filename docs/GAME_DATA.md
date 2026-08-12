@@ -268,6 +268,56 @@ The script is idempotent (`--force` to overwrite, `--dry-run` to see the plan) a
 declines to guess: a cue that describes a different file than the image, or one with a single
 external audio track whose number is not a CD track number, is reported rather than acted on.
 
+## The 1997 playable demo
+
+The demo that shipped on magazine cover discs is a separate SKU, not a mode. Its data set is a
+different install and its behaviour lives behind `#ifdef DEMO` in the original sources, so a demo
+binary cannot run retail data and a retail binary cannot run demo data. Build it with:
+
+```bash
+cmake -S . -B build-demo -G Ninja -DLBA2_BUILD_DEMO=ON
+cmake --build build-demo
+```
+
+then point it at a demo install (`--game-dir`) the same way as retail.
+
+What the data holds, against the retail CD:
+
+| | Demo | Retail |
+|---|---|---|
+| Islands | `CITADEL` only | 17 `.ILE`/`.OBL` pairs |
+| `LBA2.HQR` (credits) | absent | present |
+| `ANIM3DS.HQR` | absent | present |
+| `VIDEO/VIDEO.HQR` | absent | 231 MB |
+| `VOX/` | absent | 39 banks across 3 languages |
+| Music | `MUSIC/*.WAV`, 9 tracks | 24 tracks |
+| `SCRSHOT.HQR` | present | absent |
+
+The HQR container is the same format throughout, same LZSS and LZMIT codecs and the same header
+layout, so every bank the demo does ship loads unmodified. The banks are subsets: 743 animations
+against 2084, 129 bodies against 470, 1243 background chunks against 18101. Music filenames are a
+subset of `ListJingle`, so the normal music path plays them with no special case. `SCRSHOT.HQR` is
+the one bank the demo adds, holding the marketing stills its slideshow shows.
+
+Two of those gaps are load-bearing and the demo build accounts for them: `LBA2.HQR` is the marker
+that identifies a resource directory, so the demo build looks for `RESS.HQR` instead, and
+`VIDEO.HQR` is required at boot, so the demo build warns and runs without cutscenes. Retail's movie
+bank alone is larger than the whole 17 MB demo, which is why no demo install has one.
+
+Behaviour that differs from retail, all of it original:
+
+- Three fixed scenarios (`demo0.lba`, `demo1.lba`, `demo2.lba`) instead of free saves. New Game
+  loads the first, Load Game is unavailable, and an in-game save writes back to the current slot
+  without prompting for a name.
+- Leaving certain cubes advances to the next scenario, hardcoded in `GereZoneChangeCube` handling
+  in `OBJECT.CPP` and commented in the original as "Grosse Rustine pour la demo".
+- The title logo is drawn over gameplay every frame. Retail ships the same sprites but draws them
+  only during the attract reel and on Activision/Virgin builds.
+- The player starts with all darts, sewer covers are forced hidden, ambient sound is suppressed in
+  the phantom cube, and the `LF_DEMO` life-script function reports `1` so scripts can branch on it.
+- The end of the demo runs the `SCRSHOT.HQR` slideshow, which the console exposes as
+  `ui slideshow`.
+
 ## Config file
 
 See [CONFIG.md](CONFIG.md). If `lba2.cfg` is missing from the user config folder, the engine copies from the asset directory when present; if the asset directory has no `lba2.cfg`, an embedded template (from the build) is written instead.
