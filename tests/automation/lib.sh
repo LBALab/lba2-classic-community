@@ -38,6 +38,20 @@ fi
 
 SKIP_RC=77 # autotools convention: a skipped test
 
+# user_dir — the folder the engine writes to for this run: saves, lba2.cfg,
+# adeline.log, last_game_dir.txt. LBA2_USER_DIR when a test has isolated itself,
+# otherwise the per-user default SDL picks.
+#
+# Tests that reach into that folder ask here rather than rebuilding the platform
+# path, which they used to do by knowing the org/app SDL_GetPrefPath appends.
+user_dir() {
+    if [ -n "${LBA2_USER_DIR:-}" ]; then
+        printf '%s\n' "${LBA2_USER_DIR%/}"
+    else
+        printf '%s\n' "${XDG_DATA_HOME:-$HOME/.local/share}/Twinsen/LBA2"
+    fi
+}
+
 skip() { echo "SKIP: ${TESTNAME:-test}: $*"; exit $SKIP_RC; }
 fail() { echo "FAIL: ${TESTNAME:-test}: $*"; exit 1; }
 pass() { echo "PASS: ${TESTNAME:-test}${1:+ — $1}"; exit 0; }
@@ -124,8 +138,7 @@ ctl_headless_at() {
 with_menu_main_fixture() {
     local body="$1"
     local save_dir current_lba backup
-    # XDG_DATA_HOME may or may not be set; fall back to the documented default.
-    save_dir="${XDG_DATA_HOME:-$HOME/.local/share}/Twinsen/LBA2/save"
+    save_dir="$(user_dir)/save"
     current_lba="$save_dir/current.lba"
     backup="$(mktemp -t current.lba.bak.XXXXXX)"
     mkdir -p "$save_dir"

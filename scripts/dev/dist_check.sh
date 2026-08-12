@@ -39,8 +39,8 @@ LIST="${LBA2_DIST_LIST:-$DEFAULT_LIST}"
 
 run() { # run <profile> <gamedir> <extra args...>
     local prof="$1" dir="$2"; shift 2
-    XDG_DATA_HOME="$prof" SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
-        timeout 300 "$EXE" --game-dir "$dir" --no-autosave "$@" 2>&1
+    SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+        timeout 300 "$EXE" --user-dir "$prof" --game-dir "$dir" --no-autosave "$@" 2>&1
 }
 
 hash_png() { # hash_png <png>

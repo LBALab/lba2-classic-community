@@ -34,11 +34,10 @@ SAVE="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Desert Island.LBA"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-# Isolate the cfg/save dir: each run passes --fixed-timestep 16 explicitly, and a fresh
-# XDG_DATA_HOME keeps that (and any config write) out of the developer's shared lba2.cfg, so this
-# test neither depends on nor mutates the cfg FixedTimestep other suites read.
-export XDG_DATA_HOME="$tmp/xdg"
-mkdir -p "$XDG_DATA_HOME"
+# Isolate the cfg/save dir: each run passes --fixed-timestep 16 explicitly, and a fresh user dir
+# keeps that (and any config write) out of the developer's shared lba2.cfg, so this test neither
+# depends on nor mutates the cfg FixedTimestep other suites read. The engine creates the folder.
+export LBA2_USER_DIR="$tmp/user"
 
 # throws_and_resets <dt> <ticks> <exec> -> echoes "<throws> <action_resets> <gen_anim>"
 run_probe() {

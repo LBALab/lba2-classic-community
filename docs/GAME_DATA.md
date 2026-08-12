@@ -65,6 +65,9 @@ The persisted path lives at `<SDL_GetPrefPath("Twinsen", "LBA2")>/last_game_dir.
 | macOS | `~/Library/Application Support/Twinsen/LBA2/last_game_dir.txt` |
 | Windows | `%APPDATA%\Twinsen\LBA2\last_game_dir.txt` |
 
+`--user-dir <dir>` (or `LBA2_USER_DIR`) moves that whole folder, the remembered path included, so
+two installs can each keep their own. The folder is created if it is not there.
+
 It's a single-line text file (the absolute path to the chosen game-data folder). Safe to delete by hand to force the picker to re-appear on next launch — the engine treats a missing file as "never picked," same as a fresh install.
 
 ### Forcing the picker without deleting the file

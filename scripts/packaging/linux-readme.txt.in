@@ -47,6 +47,14 @@ The remembered choice lives at:
 
 Delete it to force the picker to re-appear on next launch.
 
+Saves, settings, the log and that remembered path all live in one folder. To
+keep two installs from sharing them, give each its own:
+
+    ./@LBA2_EXECUTABLE_NAME@ --user-dir ~/lba2-profiles/gog --game-dir /path/to/game
+    LBA2_USER_DIR=~/lba2-profiles/gog ./@LBA2_EXECUTABLE_NAME@
+
+The folder is created if it is not there, so naming a new one starts you fresh.
+
 
 RUNNING
 -------
