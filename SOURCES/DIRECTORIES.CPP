@@ -300,7 +300,7 @@ void GetDefaultUserDir(char *outDir) {
     static bool initialized = false;
     static char userDir[ADELINE_MAX_PATH] = "";
     if (!initialized) {
-        char *sdlUserPath = SDL_GetPrefPath("Twinsen", "LBA2");
+        char *sdlUserPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
         if (sdlUserPath != NULL) {
             strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
             userDir[ADELINE_MAX_PATH - 1] = '\0';

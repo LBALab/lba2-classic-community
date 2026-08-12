@@ -134,7 +134,7 @@ static bool had_persisted = false;
 static char persisted_path[ADELINE_MAX_PATH];
 
 static void compute_persisted_path() {
-    char *prefPath = SDL_GetPrefPath("Twinsen", "LBA2");
+    char *prefPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
     if (prefPath == NULL) {
         persisted_path[0] = '\0';
         return;
@@ -482,7 +482,7 @@ static bool test_persisted_last_game_dir() {
     unsetenv_portable("LBA2_GAME_DIR");
 
     /* Snapshot the un-overridden pref path. */
-    char *originalPrefPath = SDL_GetPrefPath("Twinsen", "LBA2");
+    char *originalPrefPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
     if (originalPrefPath == NULL) {
         return false;
     }
@@ -500,7 +500,7 @@ static bool test_persisted_last_game_dir() {
     /* Did the env override actually take? SDL3 may have cached the
      * pref path during an earlier call (e.g. from another test in
      * this same process), in which case our setenv is a no-op. */
-    char *overriddenPrefPath = SDL_GetPrefPath("Twinsen", "LBA2");
+    char *overriddenPrefPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
     if (overriddenPrefPath == NULL) {
         SDL_free(originalPrefPath);
         unsetenv_portable("XDG_DATA_HOME");

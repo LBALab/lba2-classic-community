@@ -283,6 +283,15 @@ cmake --build build-demo
 
 then point it at a demo install (`--game-dir`) the same way as retail.
 
+A demo build keeps its user-writable data in its own folder, `Twinsen/LBA2-Demo` rather than
+`Twinsen/LBA2`, so demo saves, `lba2.cfg`, `adeline.log` and the remembered game-data path never mix
+with a retail profile's. That last one is the reason it matters rather than merely being tidy: the
+demo's marker `RESS.HQR` is present in retail installs too, so a demo binary handed a retail path
+accepts it. Sharing `last_game_dir.txt` would hand it exactly that path as soon as a retail build
+had run first, and the demo would boot retail data it cannot play. Separate folders, no such
+handoff. Both builds still honour `--game-dir`, so naming the wrong install explicitly is still
+possible and still yours to get right.
+
 What the data holds, against the retail CD:
 
 | | Demo | Retail |
