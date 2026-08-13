@@ -31,6 +31,10 @@
 # what Finder and Gatekeeper read, and the Mach-O's load commands say which
 # libraries it expects to find on the target machine.
 #
+# The Android APKs are read with the SDK build-tools, which check the three
+# things an install fails on: the manifest, the signature, and 16 KB page
+# safety. Missing build-tools reports SKIP.
+#
 # Usage:
 #   scripts/dev/verify-release.sh [<tag>]
 #
@@ -119,6 +123,7 @@ gh release download "$TAG" \
     --pattern 'lba2cc-*.AppImage.zsync' \
     --pattern 'lba2cc-*-windows-*.zip' \
     --pattern 'lba2cc-*-macos-*.dmg' \
+    --pattern 'lba2cc-*-android-*.apk' \
     --dir . 2>&1 | tail -5 || true
 
 # Collect what actually landed — release artifact naming has shifted
@@ -129,6 +134,7 @@ TARBALLS=( lba2cc-*-linux-*.tar.gz )
 APPIMAGES=( lba2cc-*-*linux*-*.AppImage lba2cc-*-AppImage-*.AppImage )
 WIN_ZIPS=( lba2cc-*-windows-*.zip )
 MAC_DMGS=( lba2cc-*-macos-*.dmg )
+APKS=( lba2cc-*-android-*.apk )
 shopt -u nullglob
 
 if [[ ${#TARBALLS[@]} -eq 0 && ${#APPIMAGES[@]} -eq 0 ]]; then
@@ -179,7 +185,13 @@ version_from_name() {
     stem="${stem%.AppImage}"
     stem="${stem%.zip}"
     stem="${stem%.dmg}"
+    stem="${stem%.apk}"
     stem="${stem#lba2cc-}"
+    # Android ABI names carry their own dashes (arm64-v8a, armeabi-v7a), so
+    # peel that suffix off by name instead of by counting fields.
+    case "$stem" in
+        *-android-*) printf '%s' "${stem%%-android-*}"; return ;;
+    esac
     stem="${stem%-*}"
     printf '%s' "${stem%-*}"
 }
@@ -594,6 +606,97 @@ PY
         else
             pass_row "$label" "every linked library is a system one"
         fi
+    fi
+done
+
+# The Android APKs. An APK can't be run here either, but the three things
+# that stop one installing or loading are all readable: the manifest, the
+# signature, and 16 KB page alignment.
+#
+# The tools ship with the SDK rather than the distro, and an SDK install
+# doesn't put them on PATH, so they are resolved from ANDROID_HOME (or the
+# usual install location) instead of being required.
+android_sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+android_build_tools=$( ls -d "$android_sdk"/build-tools/*/ 2>/dev/null | sort -V | tail -1 || true )
+android_ndk="${ANDROID_NDK:-}"
+if [[ -z "$android_ndk" ]]; then
+    android_ndk=$( ls -d "$android_sdk"/ndk/*/ 2>/dev/null | sort -V | tail -1 || true )
+fi
+# apksigner is a JVM tool. Prefer whatever the caller has set up, then the
+# JDK an SDK install usually sits next to.
+android_java_home="${JAVA_HOME:-}"
+if [[ -z "$android_java_home" ]] && command -v java >/dev/null 2>&1; then
+    android_java_home=$( dirname "$( dirname "$( command -v java )" )" )
+fi
+if [[ -z "$android_java_home" ]]; then
+    android_java_home=$( ls -d "$android_sdk"/../jbr "$HOME"/Android/jdk-*/ 2>/dev/null | sort -V | tail -1 || true )
+fi
+
+for apk in "${APKS[@]}"; do
+    stem="${apk%.apk}"
+    label="android $stem"
+    expected="$( version_from_name "$apk" )"
+
+    if [[ -z "$android_build_tools" ]]; then
+        skip_row "$label" "no SDK build-tools under $android_sdk, APK not read"
+        continue
+    fi
+    aapt2="${android_build_tools}aapt2"
+    apksigner="${android_build_tools}apksigner"
+
+    if [[ ! -x "$aapt2" ]]; then
+        skip_row "$label" "no aapt2 in $android_build_tools, manifest not read"
+    else
+        badging=$( "$aapt2" dump badging "$apk" 2>/dev/null || true )
+        package_line=$( printf '%s\n' "$badging" | grep -m1 '^package:' || true )
+        apk_version=$( printf '%s' "$package_line" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" )
+        apk_code=$( printf '%s' "$package_line" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p" )
+        apk_abi=$( printf '%s\n' "$badging" | sed -n "s/^native-code: '\([^']*\)'.*/\1/p" )
+        if [[ -z "$package_line" ]]; then
+            fail_row "$label" "aapt2 could not read the manifest"
+        elif [[ "$apk_version" != "$expected" ]]; then
+            fail_row "$label" "manifest versionName=$apk_version, the filename says $expected"
+        elif [[ -n "$apk_abi" && "$apk" != *"$apk_abi"* ]]; then
+            fail_row "$label" "manifest native-code=$apk_abi, which the filename does not name"
+        else
+            pass_row "$label" "versionName=$apk_version versionCode=$apk_code abi=$apk_abi"
+        fi
+    fi
+
+    if [[ ! -x "$apksigner" ]]; then
+        skip_row "$label" "no apksigner in $android_build_tools, signature not checked"
+    elif [[ -z "$android_java_home" ]]; then
+        skip_row "$label" "no JVM found for apksigner, signature not checked"
+    else
+        if signing=$( JAVA_HOME="$android_java_home" "$apksigner" verify --verbose "$apk" 2>&1 ); then
+            schemes=""
+            [[ "$signing" == *"(JAR signing): true"* ]] && schemes="v1"
+            [[ "$signing" == *"Scheme v2): true"* ]] && schemes="${schemes:+$schemes+}v2"
+            [[ "$signing" == *"Scheme v3): true"* ]] && schemes="${schemes:+$schemes+}v3"
+            # v1 alone is refused by every Android since 11, so a release
+            # that lost its v2 signature installs nowhere current.
+            if [[ "$schemes" == *v2* || "$schemes" == *v3* ]]; then
+                pass_row "$label" "signature verifies ($schemes)"
+            else
+                fail_row "$label" "signature verifies with ${schemes:-no known scheme}, needs v2 or better"
+            fi
+        else
+            fail_row "$label" "signature does not verify: ${signing%%$'\n'*}"
+        fi
+    fi
+
+    # 16 KB pages are an arm64 concern (Android 15+). A 32-bit ABI legitimately
+    # aligns to 4 KB, so running the check there would report a failure that
+    # isn't one.
+    if [[ "$apk" != *arm64* ]]; then
+        skip_row "$label" "16 KB page check does not apply to a 32-bit ABI"
+    elif [[ -z "$android_ndk" ]]; then
+        skip_row "$label" "no NDK under $android_sdk, 16 KB page safety not checked"
+    elif ANDROID_NDK="$android_ndk" ANDROID_HOME="$android_sdk" \
+         bash "$SCRIPT_DIR/check-16k-align.sh" "$apk" >/dev/null 2>&1; then
+        pass_row "$label" "16 KB-safe"
+    else
+        fail_row "$label" "not 16 KB-safe, see scripts/dev/check-16k-align.sh $apk"
     fi
 done
 
