@@ -188,6 +188,35 @@ would change some of those and not others.
 
 Editing the `Version` line in `lba2.cfg` by hand does the same thing.
 
+## Reading it off the data instead
+
+Everything above is what an installer wrote down. `scripts/dev/fingerprint_distro.py` answers the
+same question from the payload, for a directory, a disc image or a cue sheet:
+
+```
+scripts/dev/fingerprint_distro.py <path>...      # or --scan <dir> for every child
+```
+
+It reports the **master** and the **pressing** separately, because they move independently.
+
+`RESS.HQR` names the master. It takes one of two values across every release checked, and the split
+is the one the engine makes: `{UNKNOWN, EA}` is LBA2, everything else is Twinsen's Odyssey. Three of
+its fifty entries carry the difference and none of them is branding, so it records which data master
+the copy was built from rather than who sold it. Both Activision pressings ship it byte for byte
+despite being different locales.
+
+`SCENE.HQR` and `TEXT.HQR` name the pressing, locale included, which is exactly what `RESS` cannot
+see.
+
+That separation is what makes an unsampled release degrade usefully. A pressing from a publisher not
+in the table answers with its master immediately and only the pressing reads as unrecorded, where a
+single combined key would have answered nothing at all. The six `DistribVersion` constants are six
+labels on those two masters, so a Virgin disc is Twinsen's Odyssey and the tool says so.
+
+A declaration that agrees about the master is taken as naming the publisher, which the measurement
+cannot reach. One that disagrees is reported as a conflict: it means either the rules are wrong or
+the install was assembled from two sources.
+
 ## Version_US
 
 A vestige. Declared at [C_EXTERN.H:139](../SOURCES/C_EXTERN.H#L139), defined as `TRUE` at

@@ -64,6 +64,8 @@ into each artifact.
 | [dev/run-savegame-corpus.sh](dev/run-savegame-corpus.sh) | Build and run the savegame corpus harness from any working directory. | `make` (savegame corpus target) |
 | [save_probe.py](save_probe.py) | Offline probe of `.lba` save headers, LZSS bodies, fixed-offset fields, and a 32-vs-64 ABI forward-simulator. | `run-savegame-corpus.sh`, [SAVEGAME.md](../docs/SAVEGAME.md) |
 | [save_probe_lz_selftest.py](save_probe_lz_selftest.py) | Golden `ExpandLZ` vectors mirroring `tests/SYSTEM/test_lz.cpp`. | `make save-probe-lz-selftest` |
+| [dev/dist_check.sh](dev/dist_check.sh) | Sweep every retail distribution: one row per install, five assertions, non-zero exit if any fails. Needs real installs, so local only. | manual ([TESTING.md](../docs/TESTING.md)) |
+| [dev/png_hash.py](dev/png_hash.py) | Plain pixel hash of a PNG capture, which is enough because `--fixed-dt` makes UI captures exactly reproducible. | `dist_check.sh`, the control-harness UI tests |
 
 ## Data-format & asset tools (`dev/`)
 
@@ -81,6 +83,7 @@ for reproducibility; cited from the format and effects docs.
 | [dev/acf_decode.py](dev/acf_decode.py) | Decode Adeline ACF/XCF cinematic frames (Time Commando tile codec). | spike |
 | [dev/acf_inspect.py](dev/acf_inspect.py) | Parse the ACF/XCF cinematic container chunk layout. | spike |
 | [dev/extract_lba2_gog_media.py](dev/extract_lba2_gog_media.py) | Extract FMV / VOX / music from a GOG `LBA2.GOG` BIN image into the install dir. | [GAME_DATA.md](../docs/GAME_DATA.md) |
+| [dev/fingerprint_distro.py](dev/fingerprint_distro.py) | Identify which release a game directory or disc image holds, from the payload rather than the config: `RESS.HQR` names the master, `SCENE`/`TEXT` the pressing. | [VERSIONS.md](../docs/VERSIONS.md) |
 | [dev/art_catalog_screen.py](dev/art_catalog_screen.py) | Dump every `SCREEN.HQR` bitmap to PNG (widescreen art inventory; output local-only). | manual (widescreen) |
 | [dev/art_treatment_preview.py](dev/art_treatment_preview.py) | Preview widescreen art treatments (letterbox / palette-fill / edge-clone / mirror-tile) as PNGs. | manual (widescreen) |
 
