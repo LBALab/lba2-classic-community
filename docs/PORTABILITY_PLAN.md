@@ -291,12 +291,15 @@ an install declaring 3, pointed at a medium declaring 1, kept reporting `3 (ea)`
 that declares 1, because the config was copied on first run and never revisited. The layered read
 closes it: the same profile now reports 1 there and 3 back on the first install.
 
-`WROTE` found something nobody was looking for. On an install whose voices sit on the filesystem
-rather than inside a disc image, playing one updates its mtime:
-[MESSAGE.CPP:857](../SOURCES/MESSAGE.CPP#L857) touches a voice file already on the hard disk, under
-`ONE_GAME_DIRECTORY`. That is the 1997 CD cache keeping an LRU stamp so the oldest copy could be
-evicted when the disk filled, and with the voices installed there is nothing to evict. Content is
-untouched, only the timestamp. Unfixed, and it keeps that row red.
+`WROTE` found something nobody was looking for, on its first run. An install whose voices sit on the
+filesystem rather than inside a disc image had their mtime stamped by playing them: the 1997 CD
+cache keeping a last-used mark so the oldest copy could be evicted when the disk filled, still
+firing on voices that were never copied and cannot be evicted. Content untouched, only the
+timestamp, which is why nothing had noticed. Fixed in
+[MESSAGE.CPP](../SOURCES/MESSAGE.CPP), and the row is green.
+
+That is the case for the check rather than an aside. It cost a directory hash before and after each
+install and found a live defect the same day, in code nobody was reading.
 
 ### What stays out of the repo
 
