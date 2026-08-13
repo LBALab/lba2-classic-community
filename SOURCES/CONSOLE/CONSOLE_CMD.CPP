@@ -26,6 +26,7 @@ extern S32 GfxDitherShading;
 #include "../RES_CATALOG.H"
 #include "../RES_SWITCH.H"
 #include "../PERFTRACE.H"
+#include "../PERSO.H" /* WriteConfigValue (persist one setting) */
 #include <SYSTEM/CDTRACKS.H>
 #include <SYSTEM/CUE.H>
 #include <SYSTEM/DISCIMG.H>
@@ -886,6 +887,34 @@ static void cmd_distrib(int argc, const char *argv[]) {
         return;
     }
 
+    /* Whether the publisher splash is drawn, which is a separate question from
+       which release this is: a tree that declares one may not want its logo,
+       and a re-release that declares nothing may want one. Same persistence as
+       the release itself, because the splash runs once in the boot slideshow
+       and reading the key later would not bring it back. */
+    if (!strcasecmp(argv[1], "logo")) {
+        if (argc < 3) {
+            Console_Print("Splash: %s (this run)", Distrib_ShowSplash() ? "ON" : "OFF");
+            Console_Print("Usage: distrib logo <on|off>");
+            return;
+        }
+        S32 show;
+        if (!strcasecmp(argv[2], "on") || !strcmp(argv[2], "1")) {
+            show = TRUE;
+        } else if (!strcasecmp(argv[2], "off") || !strcmp(argv[2], "0")) {
+            show = FALSE;
+        } else {
+            Console_Print("distrib logo: bad arg '%s' (use on|off).", argv[2]);
+            return;
+        }
+        if (!WriteConfigValue("ShowDistribLogo", show)) {
+            Console_Print("Failed to write cfg");
+            return;
+        }
+        Console_Print("Splash %s (next launch)", show ? "ON" : "OFF");
+        return;
+    }
+
     /* Accept numeric (0-5) or table-name. Numeric first so "1" wins
        cleanly without colliding on a future name that happens to start
        with a digit. */
@@ -918,7 +947,7 @@ static void cmd_distrib(int argc, const char *argv[]) {
         }
     }
 
-    if (!DefFileBufferWriteValue("Version", newVer)) {
+    if (!WriteConfigValue("Version", newVer)) {
         Console_Print("Failed to write cfg");
         return;
     }
@@ -1541,8 +1570,12 @@ static void cmd_vsync(int argc, const char *argv[]) {
     }
 
     Window_SetVSync(DisplayVSync);
-    DefFileBufferWriteValue("VSync", DisplayVSync);
+    /* Applied either way; say so separately from whether it was stored, rather
+       than reporting a setting that will not survive the run. */
     Console_Print("Vsync: %s", DisplayVSync ? "ON" : "OFF");
+    if (!WriteConfigValue("VSync", DisplayVSync)) {
+        Console_Print("(this run only: could not write cfg)");
+    }
 }
 
 /* fixedtimestep [on|off|toggle|<ms>]: issue #358. Throttle the simulation to advance at
@@ -1566,7 +1599,9 @@ static void cmd_fixedtimestep(int argc, const char *argv[]) {
             }
             FixedTimestep = ms;
         }
-        DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
+        if (!WriteConfigValue("FixedTimestep", FixedTimestep)) {
+            Console_Print("(this run only: could not write cfg)");
+        }
     }
 
     if (FixedTimestep > 0) {
@@ -1965,8 +2000,10 @@ void Console_RegisterAll(void) {
                               "when a disc's music is silent: it shows which CD track each theme wants "
                               "and whether the cue describes it.");
     Console_RegisterCommandEx("distrib", cmd_distrib, "Set distributor (Version) for next launch",
-                              "distrib <activision|ea|virgin|... | 0-5>",
-                              "Persists to lba2.cfg (Version key). Run with no args to show current.");
+                              "distrib <activision|ea|virgin|... | 0-5> | distrib logo <on|off>",
+                              "Persists to lba2.cfg (Version, ShowDistribLogo). Run with no args to show "
+                              "current. 'logo' turns the publisher splash on or off without changing which "
+                              "release this is.");
     Console_RegisterCommandEx("credits", cmd_credits, "Play credits sequence", "credits [0|1]",
                               "Closes console. Mode: 0=bad end (default), 1=good end. Press any key to skip.");
     Console_RegisterCommandEx("listvideos", cmd_listvideos, "List available ACF video names", "(no args)",

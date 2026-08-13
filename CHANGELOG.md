@@ -38,8 +38,17 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   defaults to on when a config declares a release and off when nothing does,
   because a release shipping no config ships no publisher branding either, and a
   value read off the data is not grounds for showing one.
+- `distrib logo <on|off>` in the console sets that key without changing which
+  release the engine thinks it is running.
 
 ### Fixed
+
+- The console verbs that persist one setting (`distrib`, `vsync`,
+  `fixedtimestep`) stored nothing on any install that ships its own `lba2.cfg`,
+  which is every retail disc and GOG. Writing a single key went straight to the
+  buffer, and writes are refused there while the game data's config is layered
+  under the player's. `vsync` and `fixedtimestep` did not check, so they applied
+  the setting and reported success while it lasted only until the game closed.
 
 - Saves shipped with an install are handed to a profile the first time it is
   used. The 1997 demo ships the three sections its fixed save slots load, in
