@@ -57,6 +57,10 @@
 #     what only a container can show.
 #   - aarch64 leg auto-registers qemu-user-static binfmt via
 #     tonistiigi/binfmt if not already set up
+#   - unzip for the Windows ZIP; 7z, python3 and llvm-otool for the macOS
+#     bundle; the Android SDK build-tools (found via ANDROID_HOME) for the
+#     APKs. Each is optional: what is missing reports SKIP, so the run says
+#     what it checked rather than quietly checking less.
 set -euo pipefail
 
 TAG="${1:-latest}"
@@ -450,10 +454,11 @@ for zip in "${WIN_ZIPS[@]}"; do
     # anything that isn't a recognised handler failure counts as a FAIL.
     if [[ $rc -eq 126 ]] || [[ "$out" == *"Exec format error"* ]] \
        || [[ "$out" == *"run-detectors"* ]] || [[ "$out" == *"binfmt"* ]]; then
-        # First line only, and clipped: the handler's complaint names the
-        # full path, which says nothing and swamps the row.
+        # First line only, without the path it ends in: which file failed to
+        # launch says nothing here, and it swamps the row.
         reason="${out%%$'\n'*}"
-        skip_row "$label" "host cannot launch PE binaries: ${reason:0:60}"
+        reason="${reason%% for /*}"
+        skip_row "$label" "host cannot launch PE binaries: ${reason:0:70}"
     elif [[ $rc -ne 0 || -z "$version" ]]; then
         fail_row "$label" "rc=$rc out=$out"
     elif [[ "$version" != "$expected" ]]; then
