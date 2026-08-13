@@ -46,6 +46,11 @@ static int setenv_portable(const char *k, const char *v) {
 }
 
 static void unsetenv_portable(const char *k) {
+    /* Both halves, deliberately. SetEnvironmentVariableA clears the Win32
+       block; the CRT keeps its own copy, and getenv reads that one, so
+       clearing only the block leaves the variable visible to the code under
+       test. _putenv_s with an empty value removes it from the CRT copy. */
+    _putenv_s(k, "");
     SetEnvironmentVariableA(k, NULL);
 }
 
@@ -111,6 +116,16 @@ static char *getcwd_portable(char *buf, size_t sz) {
 
 static int chdir_portable(const char *p) {
     return chdir(p);
+}
+
+/** Creates a unique directory under /tmp; `tag` is a short label for the path
+ *  prefix. Twin of the Windows one above, so a fixture needs no #ifdef of its
+ *  own. The older tests predate it and open-code mkdtemp. */
+static bool make_temp_dir(char *out, size_t out_sz, const char *tag) {
+    if (snprintf(out, out_sz, "/tmp/lba2disc_%s_XXXXXX", tag) >= (int)out_sz) {
+        return false;
+    }
+    return mkdtemp(out) != NULL;
 }
 
 #endif
@@ -950,6 +965,405 @@ static bool test_installed_file_beats_image_copy() {
     return ok;
 }
 
+/* An AppImage sees SDL_GetBasePath as its own read-only mount point, so the
+ * only thing naming the folder the player put the file in is $APPIMAGE. These
+ * drive that probe.
+ *
+ * Each one parks the working directory in an empty tree of its own, so cwd,
+ * the parent walk and the sibling scan have nothing to find. The assertion is
+ * on Res_GetDiscoverySource rather than on the resolved path alone: two probes
+ * can reach the same directory, and which one answered is the behaviour.
+ *
+ * $APPDIR is set alongside $APPIMAGE because the seam requires the running
+ * executable to sit inside the mount before it believes either. The test binary
+ * is not in an AppImage, so the fixture points $APPDIR at the binary's own
+ * folder, which is what being inside one looks like from in here. */
+
+/** Empty dir inside an empty parent, for a working directory that finds
+ *  nothing by itself. Both paths are returned so the caller can remove them. */
+static bool make_isolated_cwd(char *out, size_t out_sz, char *outParent,
+                              size_t outParent_sz, const char *tag) {
+    if (!make_temp_dir(outParent, outParent_sz, tag)) {
+        return false;
+    }
+    if (snprintf(out, out_sz, "%s/cwd", outParent) >= (int)out_sz) {
+        return false;
+    }
+    return mkdir_portable(out) == 0;
+}
+
+/** Best-effort removal of a fixture root: the marker and any disc image in it,
+ *  the same inside a Common/ under it, then the directories. Leaving these
+ *  behind matters more than usual here, because /tmp is the parent the sibling
+ *  scan enumerates for any test that runs from a directory under it. */
+static void remove_fixture_root(const char *root) {
+    static const char *const kNames[] = {"LBA2.HQR", "RESS.HQR", "disc.iso"};
+    char path[768];
+
+    for (size_t i = 0; i < sizeof(kNames) / sizeof(kNames[0]); i++) {
+        snprintf(path, sizeof(path), "%s/Common/%s", root, kNames[i]);
+        unlink_portable(path);
+        snprintf(path, sizeof(path), "%s/%s", root, kNames[i]);
+        unlink_portable(path);
+    }
+    snprintf(path, sizeof(path), "%s/Common", root);
+    rmdir_portable(path);
+    rmdir_portable(root);
+}
+
+/** The mount an AppImage would be running from: the test binary's own folder.
+ *  Empty string if SDL cannot say, which fails the fixture rather than the
+ *  code under test. */
+static void this_executable_dir(char *out, size_t out_sz) {
+    const char *base = SDL_GetBasePath();
+    snprintf(out, out_sz, "%s", base != NULL ? base : "");
+}
+
+/** Runs discovery with $APPIMAGE set to `appImagePath`, $APPDIR to `appDir`,
+ *  and the working directory parked somewhere empty. Every output is written
+ *  on every path, including the early failures, so a caller that ignores the
+ *  return still reads initialized memory. */
+static bool resolve_with_appimage(const char *appImagePath, const char *appDir,
+                                  const char *tag, char *outDir, size_t outDirSz,
+                                  char *outSource, size_t outSourceSz) {
+    snprintf(outDir, outDirSz, "%s", "");
+    snprintf(outSource, outSourceSz, "%s", "");
+
+    char isolated[512];
+    char isolatedParent[256];
+    if (!make_isolated_cwd(isolated, sizeof(isolated), isolatedParent,
+                           sizeof(isolatedParent), tag)) {
+        return false;
+    }
+    char oldcwd[4096];
+    if (getcwd_portable(oldcwd, sizeof(oldcwd)) == NULL) {
+        return false;
+    }
+    if (chdir_portable(isolated) != 0) {
+        return false;
+    }
+
+    unsetenv_portable("LBA2_GAME_DIR");
+    setenv_portable("APPIMAGE", appImagePath);
+    if (appDir != NULL) {
+        setenv_portable("APPDIR", appDir);
+    } else {
+        unsetenv_portable("APPDIR");
+    }
+
+    char out[ADELINE_MAX_PATH];
+    int argc = 1;
+    char arg0[] = "lba2";
+    char *argv[] = {arg0, NULL};
+    const bool ok = ResolveGameDataDir(out, ADELINE_MAX_PATH, &argc, argv);
+    const char *source = Res_GetDiscoverySource();
+    snprintf(outSource, outSourceSz, "%s", source != NULL ? source : "");
+    snprintf(outDir, outDirSz, "%s", out);
+
+    unsetenv_portable("APPIMAGE");
+    unsetenv_portable("APPDIR");
+    chdir_portable(oldcwd);
+    rmdir_portable(isolated);
+    rmdir_portable(isolatedParent);
+    return ok;
+}
+
+/** The Steam layout: HQRs in Common/, AppImage dropped in the install root.
+ *  This is the reported Steam Deck case with the working directory not
+ *  helping, which is what a file manager launch looks like. */
+static bool test_appimage_dir_common_join() {
+    char root[512];
+    if (!make_temp_dir(root, sizeof(root), "aicom")) {
+        return false;
+    }
+    char common[640];
+    snprintf(common, sizeof(common), "%s/Common", root);
+    if (mkdir_portable(common) != 0) {
+        return false;
+    }
+    create_marker_hqr(common);
+
+    char appImage[640];
+    snprintf(appImage, sizeof(appImage), "%s/lba2cc-x86_64.AppImage", root);
+    char mount[ADELINE_MAX_PATH];
+    this_executable_dir(mount, sizeof(mount));
+
+    char out[ADELINE_MAX_PATH];
+    char source[128];
+    const bool ok = resolve_with_appimage(appImage, mount, "aicomc", out,
+                                          sizeof(out), source, sizeof(source));
+    remove_fixture_root(root);
+
+    if (!ok) {
+        fprintf(stderr,
+                "test_appimage_dir_common_join: discovery failed to find "
+                "Common/ beside the AppImage\n");
+        return false;
+    }
+    if (strstr(out, "Common") == NULL) {
+        fprintf(stderr,
+                "test_appimage_dir_common_join: resolved '%s', expected the "
+                "Common/ subdirectory\n",
+                out);
+        return false;
+    }
+    if (strcmp(source, "next to the AppImage, Common/") != 0) {
+        fprintf(stderr,
+                "test_appimage_dir_common_join: matched via '%s', expected "
+                "'next to the AppImage, Common/'\n",
+                source);
+        return false;
+    }
+    return true;
+}
+
+/** The GOG and demo layout: HQRs loose in the folder the AppImage sits in. */
+static bool test_appimage_dir_bare() {
+    char root[512];
+    if (!make_temp_dir(root, sizeof(root), "aibare")) {
+        return false;
+    }
+    create_marker_hqr(root);
+
+    char appImage[640];
+    snprintf(appImage, sizeof(appImage), "%s/lba2cc-x86_64.AppImage", root);
+    char mount[ADELINE_MAX_PATH];
+    this_executable_dir(mount, sizeof(mount));
+
+    char out[ADELINE_MAX_PATH];
+    char source[128];
+    const bool ok = resolve_with_appimage(appImage, mount, "aibarec", out,
+                                          sizeof(out), source, sizeof(source));
+    remove_fixture_root(root);
+
+    if (!ok) {
+        fprintf(stderr,
+                "test_appimage_dir_bare: discovery failed on a marker beside "
+                "the AppImage\n");
+        return false;
+    }
+    if (strcmp(source, "next to the AppImage") != 0) {
+        fprintf(stderr,
+                "test_appimage_dir_bare: matched via '%s', expected 'next to "
+                "the AppImage'\n",
+                source);
+        return false;
+    }
+    return true;
+}
+
+/** A rip and the AppImage, nothing extracted. Covers the allowImage widening
+ *  on the bare join: dropping the binary next to a disc image is a thing
+ *  people do, and the folder holds no HQR of its own to find. */
+static bool test_appimage_dir_disc_image() {
+    char root[512];
+    if (!make_temp_dir(root, sizeof(root), "aiiso")) {
+        return false;
+    }
+    char isoPath[640];
+    snprintf(isoPath, sizeof(isoPath), "%s/disc.iso", root);
+    if (!write_case_fixture_iso(isoPath)) {
+        fprintf(stderr, "test_appimage_dir_disc_image: cannot write iso\n");
+        return false;
+    }
+
+    char appImage[640];
+    snprintf(appImage, sizeof(appImage), "%s/lba2cc-x86_64.AppImage", root);
+    char mount[ADELINE_MAX_PATH];
+    this_executable_dir(mount, sizeof(mount));
+
+    char out[ADELINE_MAX_PATH];
+    char source[128];
+    const bool ok = resolve_with_appimage(appImage, mount, "aiisoc", out,
+                                          sizeof(out), source, sizeof(source));
+    remove_fixture_root(root);
+
+    if (!ok) {
+        fprintf(stderr,
+                "test_appimage_dir_disc_image: discovery failed on a disc "
+                "image beside the AppImage\n");
+        return false;
+    }
+    if (strcmp(source, "next to the AppImage") != 0) {
+        fprintf(stderr,
+                "test_appimage_dir_disc_image: matched via '%s', expected "
+                "'next to the AppImage'\n",
+                source);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * The AppImage's folder outranks the folder the executable is in.
+ *
+ * This is the whole point of the probe and nothing else pins it: for an
+ * AppImage the executable sits in a populated read-only /tmp mount, so a
+ * marker there must lose to one beside the launched file. Both are planted and
+ * the source label says which won. Moving the probe below the binary's own
+ * folder passes every other case in this file and fails this one.
+ */
+static bool test_appimage_dir_outranks_binary_dir() {
+    char root[512];
+    if (!make_temp_dir(root, sizeof(root), "airank")) {
+        return false;
+    }
+    create_marker_hqr(root);
+
+    char mount[ADELINE_MAX_PATH];
+    this_executable_dir(mount, sizeof(mount));
+    if (mount[0] == '\0') {
+        fprintf(stderr, "test_appimage_dir_outranks_binary_dir: no base path\n");
+        return false;
+    }
+    /* A marker in the executable's own directory, which is what an AppImage
+       mount looks like: a folder full of files that is not where the player
+       put anything. Removed again below, however this ends. */
+    create_marker_hqr(mount);
+
+    char appImage[640];
+    snprintf(appImage, sizeof(appImage), "%s/lba2cc-x86_64.AppImage", root);
+
+    char out[ADELINE_MAX_PATH];
+    char source[128];
+    const bool ok = resolve_with_appimage(appImage, mount, "airankc", out,
+                                          sizeof(out), source, sizeof(source));
+
+    char plantedMarker[768];
+    snprintf(plantedMarker, sizeof(plantedMarker), "%s%s", mount,
+             Directories_GetResMarker());
+    unlink_portable(plantedMarker);
+    remove_fixture_root(root);
+
+    if (!ok) {
+        fprintf(stderr,
+                "test_appimage_dir_outranks_binary_dir: discovery failed\n");
+        return false;
+    }
+    if (strcmp(source, "next to the AppImage") != 0) {
+        fprintf(stderr,
+                "test_appimage_dir_outranks_binary_dir: matched via '%s', "
+                "expected 'next to the AppImage' to outrank the binary's own "
+                "folder\n",
+                source);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * $APPIMAGE inherited from an unrelated AppImage is ignored.
+ *
+ * The runtime exports it into every child process, so an AppImage terminal
+ * hands it to a distribution build of this engine launched from that shell.
+ * Answering there would point discovery at another application's folder and
+ * call it, in the banner, a packaging this build is not. The fixture is the
+ * hostile one: the folder DOES hold game data, so a probe that trusts the
+ * variable succeeds and reports the wrong mechanism.
+ */
+static bool test_appimage_outside_appdir_ignored() {
+    char root[512];
+    if (!make_temp_dir(root, sizeof(root), "aiforeign")) {
+        return false;
+    }
+    create_marker_hqr(root);
+
+    char appImage[640];
+    snprintf(appImage, sizeof(appImage), "%s/some-other-app.AppImage", root);
+
+    char out[ADELINE_MAX_PATH];
+    char source[128];
+    /* $APPDIR names a mount this executable is not inside, which is exactly
+       what an inherited environment looks like. */
+    resolve_with_appimage(appImage, "/tmp/.mount_someotherapp", "aiforeignc",
+                          out, sizeof(out), source, sizeof(source));
+    remove_fixture_root(root);
+
+    if (strstr(source, "AppImage") != NULL) {
+        fprintf(stderr,
+                "test_appimage_outside_appdir_ignored: matched via '%s' on an "
+                "$APPIMAGE belonging to another process\n",
+                source);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * A long filename under a short directory still resolves.
+ *
+ * The refusal is about the answer, which is the directory, not about the value
+ * it was derived from. Measuring the whole string instead would drop a folder
+ * that fits several times over merely because the file in it has a long name.
+ */
+static bool test_appimage_long_filename_resolves() {
+    char root[512];
+    if (!make_temp_dir(root, sizeof(root), "ailongname")) {
+        return false;
+    }
+    create_marker_hqr(root);
+
+    char appImage[ADELINE_MAX_PATH * 2];
+    int n = snprintf(appImage, sizeof(appImage), "%s/", root);
+    for (int i = n; i < ADELINE_MAX_PATH + 16; i++) {
+        appImage[i] = 'a';
+    }
+    appImage[ADELINE_MAX_PATH + 16] = '\0';
+
+    char mount[ADELINE_MAX_PATH];
+    this_executable_dir(mount, sizeof(mount));
+
+    char out[ADELINE_MAX_PATH];
+    char source[128];
+    const bool ok = resolve_with_appimage(appImage, mount, "ailongnamec", out,
+                                          sizeof(out), source, sizeof(source));
+    remove_fixture_root(root);
+
+    if (!ok || strcmp(source, "next to the AppImage") != 0) {
+        fprintf(stderr,
+                "test_appimage_long_filename_resolves: matched via '%s' on a "
+                "%d-char $APPIMAGE whose directory is only %d chars\n",
+                source, (int)strlen(appImage), (int)strlen(root) + 1);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * A directory too long to hold is refused, not truncated.
+ *
+ * Copy-then-strip would cut the value mid-path and remove the remains as the
+ * last component, landing on a shorter directory that may well exist, with
+ * nothing to tell it apart from the right answer. Pure string handling, so the
+ * fixture need not exist on disk.
+ */
+static bool test_appimage_overlong_dir_ignored() {
+    char appImage[ADELINE_MAX_PATH * 2];
+    appImage[0] = '/';
+    for (int i = 1; i < ADELINE_MAX_PATH + 8; i++) {
+        appImage[i] = 'd';
+    }
+    snprintf(appImage + ADELINE_MAX_PATH + 8,
+             sizeof(appImage) - (ADELINE_MAX_PATH + 8), "/lba2cc.AppImage");
+
+    char mount[ADELINE_MAX_PATH];
+    this_executable_dir(mount, sizeof(mount));
+
+    char out[ADELINE_MAX_PATH];
+    char source[128];
+    resolve_with_appimage(appImage, mount, "aioverlong", out, sizeof(out),
+                          source, sizeof(source));
+
+    if (strstr(source, "AppImage") != NULL) {
+        fprintf(stderr,
+                "test_appimage_overlong_dir_ignored: matched via '%s' on a "
+                "directory of %d chars; it should have been refused\n",
+                source, ADELINE_MAX_PATH + 8);
+        return false;
+    }
+    return true;
+}
+
 int main() {
     if (!SDL_Init(0)) {
         return 1;
@@ -968,6 +1382,13 @@ int main() {
     backup_persisted_game_dir();
     atexit(restore_persisted_game_dir);
 
+    /* Same reasoning one probe over: discovery now looks at $APPIMAGE before
+       the working directory, so a suite run from inside an AppImage would
+       resolve to that folder instead of each test's fixture. The AppImage
+       cases set both themselves and clear them again. */
+    unsetenv_portable("APPIMAGE");
+    unsetenv_portable("APPDIR");
+
     int failed = 0;
     if (!test_sibling_direct_next_to_cwd()) {
         failed++;
@@ -979,6 +1400,27 @@ int main() {
         failed++;
     }
     if (!test_cwd_common_outranks_data()) {
+        failed++;
+    }
+    if (!test_appimage_dir_common_join()) {
+        failed++;
+    }
+    if (!test_appimage_dir_bare()) {
+        failed++;
+    }
+    if (!test_appimage_dir_disc_image()) {
+        failed++;
+    }
+    if (!test_appimage_dir_outranks_binary_dir()) {
+        failed++;
+    }
+    if (!test_appimage_outside_appdir_ignored()) {
+        failed++;
+    }
+    if (!test_appimage_long_filename_resolves()) {
+        failed++;
+    }
+    if (!test_appimage_overlong_dir_ignored()) {
         failed++;
     }
     if (!test_env_lba2_game_dir()) {
