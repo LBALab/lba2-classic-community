@@ -380,12 +380,22 @@ return early with no capture. `numvar` for `ui found-object` is the `TabInv` slo
 
 ### Test fixtures and goldens
 
-Nine `tests/automation/test_ui_*.sh` fixtures byte-compare each verb's output against a
+Ten `tests/automation/test_ui_*.sh` fixtures byte-compare each verb's output against a
 committed PNG golden under `tests/savegame/corpus/baselines/ui/`. They run in
 `tests/automation/run.sh` alongside the other harness tests. The goldens were rendered
 under the dummy video driver, so the comparison must be too; `ctl_headless` in `lib.sh`
 passes `--headless`, which handles that (you no longer need `SDL_VIDEODRIVER=dummy` in the
 environment).
+
+A golden is only reproducible if the fixture owns every input the surface reads, and the
+boot main menu reads one that is easy to miss: `BuildGameMainMenu` assembles its rows from
+the save directory rather than from `--load`, so `save/current.lba` adds the Resume row and
+moves the menu's vertical centre from 275 to 335, and any named save adds the Load row.
+`ui_menu_main` pinned `current.lba` and inherited the named saves from whoever ran it, which
+made it pass for developers with saves on disk and fail for everyone else. Both menu
+fixtures now seed a save directory of their own (`seed_menu_save_dir` in `lib.sh`):
+`ui_menu_main` captures the returning-player menu, `ui_menu_main_fresh` the three-row one a
+new install shows, which is the only `ui_*` golden taken with no save loaded at all.
 
 A second tier of `test_ui_*_wide.sh` fixtures (inventory, menu-options) renders the
 same verb at a wider resolution and asserts that the centred 640×480 crop of the

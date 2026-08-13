@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
-# ui menu-main: capture the boot-time main game menu (Resume / New / Load /
-# Options / Quit over the cloudy-sky background), byte-compare to the
-# committed golden.  Fixture: Anon1 (so the Resume option is selectable
-# and the save thumbnail shows at top).
+# ui menu-main: the boot main menu as a returning player sees it (Resume / New /
+# Load / Options / Quit over the cloudy-sky background, save thumbnail on top),
+# byte-compared to the committed golden.
 #
-# The thumbnail at the top of the main menu is read by the engine from
-# ~/.local/share/Twinsen/LBA2/save/current.lba — *not* from the --load
-# argument.  with_menu_main_fixture copies the corpus Anon1.LBA into
-# current.lba for the test run and restores the original on exit; without
-# this the test result depends on the developer's last play session.
+# This menu is not a fixed screen. BuildGameMainMenu assembles it from the save
+# directory: current.lba adds the Resume row and moves the whole menu's vertical
+# centre from 275 to 335, and any named save adds the Load row. So the golden is
+# a picture of a save directory as much as of a renderer, and the test has to own
+# that directory. It used to own half of it, pinning current.lba inside the
+# developer's own user folder while leaving the named saves to whatever was
+# lying there; on a machine with none, the engine drew a four-row menu against a
+# five-row golden and reported it as a rendering divergence.
+#
+# The other state, the three-row menu a new install shows, has a golden of its
+# own in test_ui_menu_main_fresh.sh. Those two bracket what varies here: both
+# vertical centres, both thumbnail cases, and the shortest and tallest menus.
+# The in-between states (current.lba without named saves, or the reverse) differ
+# only in row count and are left out on purpose.
 #
 # Regenerate the golden with: LBA2_UI_REGEN=1 bash tests/automation/test_ui_menu_main.sh
 TESTNAME=ui_menu_main
@@ -20,4 +28,9 @@ GOLDEN="$REPO/tests/savegame/corpus/baselines/ui/menu_main_Anon1.png"
 
 [ -f "$LBA2_TEST_SAVE" ] || skip "fixture save missing: $LBA2_TEST_SAVE"
 
-with_menu_main_fixture 'ui_compare "menu-main" "$GOLDEN"'
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+export LBA2_USER_DIR="$tmp/user"
+seed_menu_save_dir "$LBA2_USER_DIR" returning
+
+ui_compare "menu-main" "$GOLDEN"
