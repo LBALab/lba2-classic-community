@@ -306,24 +306,50 @@ stated once.**
 | `Disc:` | image name, when mounted | unchanged |
 | `Saves:`, `Config:`, `Log:` | bare paths | a `Writes:` line under them naming the profile and how the user directory was chosen |
 | `Config` (the later block) | path only | which layers supplied the values |
-| `Release` | absent | the declared `DistribVersion`, and whether anything declared it |
+| `Release` | absent | the operative `DistribVersion`, and what the data looks like |
 
 `Writes:` is silent when neither a profile nor an override is in play, so an install that names
 neither keeps the banner it always had.
 
-The data fingerprint is **undecided**, not rejected. It is out of the first change because what it is
-for has not been settled, not because it would not work.
+`Release` states the value the run operates under first and the observation second, because 0 is the
+ordinary outcome and not a missing one. No 2point21 re-release ships a config beside its assets, so
+Steam and GOG Classic both seed from the built-in template and run at `UNKNOWN_VERSION`, which is
+also what most players want: `DistribLogo` matches no case at 0 and draws nothing, while
+`AdelineLogo` is a separate call that does not consult the value. Reporting that as declared by
+nothing frames the wanted state as a deficiency, so the line says `default` instead.
+
+```
+Release  default (0), data is ea
+Release  activision (1) from the config, data agrees
+Release  ea (3) from the config, data is activision
+```
+
+The `data is` half of that line needs a fingerprint, and what one is *for* is now settled in one
+direction: release detection, reported and never acted on, specified in
+[#485](https://github.com/LBALab/lba2-classic-community/issues/485). What is left is sequencing. The
+declared half of `Release` stands on its own and can land with the rest of Layer 5; the observed half
+arrives with #485, and until it does the line ends after the value.
 
 Measured across the six installs to hand, folding the sizes of a few banks does discriminate:
 
 | Banks | Behaviour across the six |
 |---|---|
-| `RESS`, `TEXT`, `SCENE` | GOG, Steam and both EA discs identical; each Activision pressing different, and different from each other |
+| `RESS` | two values: one shared by both Activision pressings, one by GOG, Steam and both EA discs |
+| `TEXT`, `SCENE` | move between the two Activision pressings, so they separate locale, not publisher |
 | `SPRITES`, `BODY`, `ANIM`, `LBA2` | byte-identical on all six, so they carry no signal |
 
 So the four releases that are the same data fold to one value, and the two that are not fold to two
 others. Sizes are a `stat` each and reach inside a mounted image as readily as the filesystem, since
 `FileSize` goes through `OpenRead`.
+
+Folding the three together hides which axis each one measures, and the axes are not the same. `RESS`
+is invariant within a publisher: both Activision pressings ship it byte for byte despite differing in
+locale, and three of its fifty entries carry the difference from the EA master, none of them branding
+(1 `RESS_FONT_GPM`, 44 `RESS_FILE3D`, 47 `RESS_IMPACT`). What it measures is which master the copy was
+built from. `TEXT` and `SCENE` are what move between the two Activision pressings, so they name the
+pressing rather than the publisher. Read separately, an Activision pressing in a locale nobody has
+sampled still answers `activision` on `RESS` and only its pressing goes unrecognised; folded, it
+produces a fourth value the table has no entry for and answers nothing.
 
 What that leaves is the question underneath, and the two answers want opposite designs:
 
@@ -436,11 +462,17 @@ saves appearing to vanish, at the cost of a permanently asymmetric layout. Movin
 cleaner and needs a one-time migration with a fallback. Leaning root. This is the one choice that is
 expensive to revisit.
 
-**What is the fingerprint for?** The pass over the matrix is done and the input set is answered:
-`RESS`, `TEXT` and `SCENE` carry all the discriminating signal across the six installs on hand, and
-`SPRITES`, `BODY`, `ANIM` and `LBA2` are byte-identical on every one. What is not answered is
-whether the job is change detection or release detection, and that decides the input set rather than
-the other way round. Not in the first change for that reason alone.
+**What is the fingerprint for?** Half answered. Release detection is
+[#485](https://github.com/LBALab/lba2-classic-community/issues/485): report the lineage from `RESS`
+and the pressing from `TEXT` and `SCENE`, three `stat`s, alongside whatever the config declares. It
+gates nothing and never sets `DistribVersion`.
+
+Change detection, "is this the same data set as last time", stays open, and it cannot share that
+input set. `SAMPLES.HQR` is 5754107 bytes in both masters and differs in content, so a digest over
+sizes reports two different data sets as the same one. Answering that question means hashing content
+across a wider set of banks, tens of megabytes at boot, for a line nothing branches on. Different
+cost, different design, and out of the first change on its own merits rather than for want of a
+decision.
 
 **How much of the banner is load-bearing?** The disc-image line is deliberately silent when no image
 is mounted, so that a filesystem-only install produces a byte-identical banner. Adding identity lines
