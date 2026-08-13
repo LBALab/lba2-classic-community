@@ -129,8 +129,8 @@ include(${CMAKE_SOURCE_DIR}/cmake/git_version.cmake)
 set(LBA2_EXECUTABLE_NAME    "lba2cc"                        CACHE STRING "Name of the built game executable")
 set(LBA2_PRODUCT_NAME       "LBA2 Classic Community"        CACHE STRING "Display name (window title, .desktop Name, AppImage label)")
 set(LBA2_PRODUCT_NAME_DEMO  "LBA2 Twinsen's Odyssey Demo"   CACHE STRING "Display name when the binary is built with -DDEMO")
-set(LBA2_PRODUCT_DESCRIPTION "A community fork for evolving and modernizing LBA2 source port"
-                                                            CACHE STRING "One-line description (.desktop Comment field)")
+set(LBA2_PRODUCT_DESCRIPTION "A community source port of Little Big Adventure 2"
+                                                            CACHE STRING "One-line description (.desktop Comment, AppStream summary)")
 set(LBA2_DESKTOP_ID         "lba2cc"                        CACHE STRING "Desktop file basename and icon ID")
 set(LBA2_BUNDLE_IDENTIFIER  "org.lbalab.lba2cc"             CACHE STRING "Reverse-DNS app identifier (macOS bundle ID, AppStream component ID)")
 

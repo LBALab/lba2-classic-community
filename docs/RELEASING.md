@@ -345,7 +345,7 @@ configure time and every surface follows.
 | `LBA2_EXECUTABLE_NAME`     | `lba2cc`                        | binary name, `.desktop` `Exec=` / `StartupWMClass`         |
 | `LBA2_PRODUCT_NAME`        | `LBA2 Classic Community`        | window title (with version), `.desktop` `Name`, AppImage   |
 | `LBA2_PRODUCT_NAME_DEMO`   | `LBA2 Twinsen's Odyssey Demo`   | window title when built with `-DDEMO`                      |
-| `LBA2_PRODUCT_DESCRIPTION` | (one-line fork description)     | `.desktop` `Comment`                                       |
+| `LBA2_PRODUCT_DESCRIPTION` | (one-line fork description)     | `.desktop` `Comment`, AppStream `<summary>`                |
 | `LBA2_DESKTOP_ID`          | `lba2cc`                        | `.desktop` filename stem and `Icon=` value                 |
 | `LBA2_BUNDLE_IDENTIFIER`   | `org.lbalab.lba2cc`             | macOS bundle ID, AppStream component ID and filename       |
 
