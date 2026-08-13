@@ -128,8 +128,71 @@ follows.
 
 ### Layer 4: portable marker
 
-A marker file beside the binary pins `userDir` to a local `User/` directory. Small once layer 1
-exists, and it makes the release bundles self-contained.
+Design sketch. Not built, and the metadata question below is the open part.
+
+**The rule.** A file named `portable.txt` beside the binary makes the tree self-contained: the user
+directory becomes `User/` next to the binary instead of the per-user path SDL picks. An empty file
+is the whole feature. Dolphin uses exactly this name and shape, and ScummVM does the same thing by
+looking for its ini beside the binary, so it is a convention players already recognise.
+
+Beside the **binary**, not the working directory. A shortcut, a file manager or a launcher each set
+a different working directory, and the one thing this file has to be is stable. Discovery already
+distinguishes the two, with `next to the binary` as its own probe label.
+
+**Where it sits in the precedence.** Slotted in just above the per-user default:
+
+```
+--user-dir  >  LBA2_USER_DIR  >  portable.txt  >  per-user default
+```
+
+Every explicit input still wins, so the file changes only the fallback and cannot surprise someone
+who set the environment variable deliberately. The alternative, letting the marker beat the
+environment, argues that a stick should keep its data with it whatever the host machine says. That
+reading is defensible and it is a worse default: it makes a file the player may have forgotten about
+override something they typed.
+
+`--profile` composes as it does with `--user-dir`, giving `User/profiles/<name>/`.
+
+**What happens when the tree is read only.** A marker on a CD, a read-only mount or a system install
+directory names a folder that cannot be created. The rule already set for `--user-dir` applies: stop
+the boot naming the path, rather than quietly falling back to the per-user directory. A run that
+wrote somewhere other than where it was told is the failure this whole layer exists to prevent.
+
+**Not shipped by default.** A release bundle that carried `portable.txt` would make every install
+portable, including one unzipped into a system directory. It is something the player creates, or
+something a deliberately packaged portable edition includes.
+
+#### The open question: what, if anything, goes inside
+
+Empty means default portable behaviour. Whether a non-empty file means anything is undecided. The
+candidates, and what each is actually worth:
+
+| Key | What it would do | Worth it? |
+|---|---|---|
+| `profile:` | the default profile for this tree | **Strongest candidate.** It is the one thing no flag can express: "this tree is my GOG setup", travelling with the tree rather than with a shell alias |
+| `gameDir:` | where the data is, relative to the binary | Weak. Discovery already probes next to the binary and a `Common/` under it, which is the layout a bundle would use anyway |
+| `disc:` | which image in the bundle to mount | Weak. Same reasoning, and `--disc` covers the case of several |
+| `userDir:` | somewhere other than `User/` | Argues against itself. A portable tree that writes elsewhere is not portable, and `--user-dir` already says that better |
+
+So the recommendation is to **ship the switch alone and reserve the contents**: parse nothing at
+first, document that the file's contents are reserved, and add `profile:` only when someone actually
+wants a bundle that names its own profile. Every other key on that list duplicates a flag that
+already exists, and a config file whose keys are all flag aliases is a second way to say the same
+thing that then has to be kept in step.
+
+If keys do arrive, they should read through the same layered mechanism as everything else rather
+than growing a private parser.
+
+#### To settle before building
+
+**Does the demo SKU share `User/`?** It takes its own per-user folder today
+(`ADELINE_PREF_APP`), which a single `User/` beside the binary would undo for a tree holding both
+builds. Either the marker resolves to `User/` and `User-Demo/`, or a portable tree is one SKU by
+definition and the collision is not worth guarding.
+
+**Does the sweep get a row for it?** `ISOLATION` proves a run stayed out of the developer's own
+folder. A portable row would prove the converse, that a marked tree writes inside itself and nowhere
+else, which is the same assertion pointed the other way.
 
 ### Layer 5: provenance at boot
 
