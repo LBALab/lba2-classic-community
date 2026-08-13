@@ -16,7 +16,7 @@ Index of documentation in this repository.
 | [MENU.md](MENU.md) | Game menu flow, layout, localization, submenus, and entry points. |
 | [TEXT.md](TEXT.md) | Text and localization: the `TEXT.HQR` format (language x bank entry pairs, order/text banks, the attribute byte), id resolution, the two fonts and their codepages, the dialogue engine, and why community strings must live in source. |
 | [CONFIG.md](CONFIG.md) | lba2.cfg lifecycle, keys, and what each does (original vs community). |
-| [VERSIONS.md](VERSIONS.md) | Every "version" field in the engine and what it does: `DistribVersion` (the `Version` config key) and its eight branch sites, the dead `Version_US`, installer-only keys, save-layout `NUM_VERSION`, and what the pressed discs actually declare. |
+| [VERSIONS.md](VERSIONS.md) | Every "version" field in the engine and what it does: `DistribVersion` (the `Version` config key) and its six branch sites, the dead `Version_US`, installer-only keys, save-layout `NUM_VERSION`, and what the pressed discs actually declare. |
 | [SAVEGAME.md](SAVEGAME.md) | .lba save format: lifecycle, binary layout, version compatibility, save editors, LBALab tools. |
 | [CAMERA.md](CAMERA.md) | Camera system: interior (iso) vs exterior (perspective), CameraCenter, Auto camera (`FollowCamera`, community addition). |
 | [TIMING.md](TIMING.md) | Engine timing: TimerSystemHR vs TimerRefHR, LockTimer vs SaveTimer semantics, ManageTime call sites, fixed-dt overlay, and the 1997 `ManageTime` bug history. |
@@ -46,6 +46,8 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 | [WINDOWS.md](WINDOWS.md) | Building on Windows with MSYS2; game files, toolchain. |
 | [ANDROID.md](ANDROID.md) | Building, packaging, and running on Android (arm64-v8a / armeabi-v7a): NDK + SDL3 cross-build, APK bundler, 16 KB pages, game-data placement, touch overlay. |
 | [GAME_DATA.md](GAME_DATA.md) | Retail game files: `LBA2_GAME_DIR`, `--game-dir`, discovery order, dev layouts. |
+| [PORTABILITY_PLAN.md](PORTABILITY_PLAN.md) | Keeping several installs out of each other's saves and settings: `--user-dir`, `--profile`, the `portable.txt` marker, the config read as a chain rather than a copy, and what the boot banner says about where a run is reading and writing. |
+| [RELEASE_DETECTION_PLAN.md](RELEASE_DETECTION_PLAN.md) | Plan (awaiting go/no-go): read the release off the data instead of believing the config. What `DistribVersion` actually decides, why `0` is the right answer for a re-release, the one case that renders wrong today, and separating the publisher splash from the release identity. |
 | [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md) | Reading retail assets straight from a raw ISO/BIN disc image (GOG `LBA2.GOG`): ISO9660 reader, mount + `OpenRead` fallback, in-image music. Plus the retail CD assessment (US "Twinsen's Odyssey" rip) and the plan for CD-DA music, other containers and multi-track cues. |
 | [DEBUG.md](DEBUG.md) | Original Adeline debug tools (DEBUG_TOOLS=ON): overlay, F9 screenshot, bug save/load, cheats, scene selection. |
 | [CONSOLE.md](CONSOLE.md) | Quake-style debug console (always available): backtick/F12, commands and cvars. |

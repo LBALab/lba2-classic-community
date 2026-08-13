@@ -61,23 +61,25 @@ code distinguishes 2 from 1 or 5 from 4.
 
 ### Every place it branches
 
-Eight sites, and this is the complete list.
+Six `switch` statements, and this is the complete list. The first covers two branches at once.
 
 | Site | Branch | `{0, 3}` | `{1, 2, 4, 5}` |
 |------|--------|----------|----------------|
-| [PERSO.CPP:3250](../SOURCES/PERSO.CPP#L3250) | CD volume label to look for | `LBA2` | `TWINSEN` |
-| [PERSO.CPP:3250](../SOURCES/PERSO.CPP#L3250) | `MessageNoCD` | `MESSAGE_NO_CD` | `MESSAGE_NO_CD_US` |
+| [PERSO.CPP:3383](../SOURCES/PERSO.CPP#L3383) | CD volume label to look for | `LBA2` | `TWINSEN` |
+| [PERSO.CPP:3383](../SOURCES/PERSO.CPP#L3383) | `MessageNoCD` | `MESSAGE_NO_CD` | `MESSAGE_NO_CD_US` |
 | [CONFIG.CPP:1463](../SOURCES/CONFIG.CPP#L1463) `AskForCD` | Insert-disc prompt | text id 7 | text id 6 |
-| [DIRECTORIES.CPP:406](../SOURCES/DIRECTORIES.CPP#L406) | Voice folder on the CD | `lba2/vox/` | `twinsen/vox/` |
 | [MUSIC.CPP:229](../SOURCES/MUSIC.CPP#L229) `InitTabTracks` | Track table | `TrackCD`, first CD track 6 | `TrackCDUS`, first CD track 0 |
 | [GAMEMENU.CPP:1108](../SOURCES/GAMEMENU.CPP#L1108) `DrawCadreNewGame` | New-game panel sprite | 11 | 16 |
 | [OBJECT.CPP:6122](../SOURCES/OBJECT.CPP#L6122) | In-game corner logo sprite | 11 at x-103 | 16 at x-110 |
 | [GAMEMENU.CPP:4870](../SOURCES/GAMEMENU.CPP#L4870) `DistribLogo` | Boot splash | see below | see below |
 
+Voices are not on the list. Nothing in `SOURCES/` or `LIB386/` consults `DistribVersion` to build a
+voice path, so the folder read off a disc does not depend on the release.
+
 The two messages are in [DEFINES.H:24-25](../SOURCES/DEFINES.H#L24): *"You need LBA2 CD, sorry!"* and
 *"You need Twinsen's Odyssey CD, sorry!"*.
 
-Seven of the eight ask the same yes/no question: is this `UNKNOWN` or `EA`, or is it anything else?
+All but one ask the same yes/no question: is this `UNKNOWN` or `EA`, or is it anything else?
 That is the European identity, where the game is *Little Big Adventure 2* and the disc is labelled
 `LBA2`, against the Activision/Virgin identity, where it is *Twinsen's Odyssey* and the disc is
 labelled `TWINSEN`. Every consumer is written as a `switch` with `UNKNOWN_VERSION` and `EA_VERSION`
@@ -106,15 +108,15 @@ installers rather than the game.
 
 ### Which of those you can actually see
 
-Two of the eight, on this port.
+Two of them, on this port.
 
 The boot splash is one, and the new-game panel sprite is the other.
 
-The four CD-related branches are computed and then discarded. `InitCD` passes the volume name to
+The three CD-related branches are computed and then discarded. `InitCD` passes the volume name to
 `OpenCD`, and the SDL backend at [CD.CPP:50](../LIB386/AIL/SDL/CD.CPP#L50) ignores the argument
 entirely and returns a fixed drive letter, so the check always succeeds. The no-CD message, the
-`AskForCD` prompt and the retry loop are unreachable, and the CD voice folder is only consulted when
-a CD prefix is configured. Under the original MILES backend this was real: `OpenCD` walked drives A
+`AskForCD` prompt and the retry loop are therefore unreachable. Under the original MILES backend this
+was real: `OpenCD` walked drives A
 to Z, opened each as a Red Book device, and compared the volume label against the name it was given
 ([MILES/CD.CPP:39](../LIB386/AIL/MILES/CD.CPP#L39)). That comparison is the one place the engine
 ever cross-checked `DistribVersion` against the physical medium.
