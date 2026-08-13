@@ -9,7 +9,7 @@
 # system, with the executable bit preserved and the static linking
 # claim holding.
 #
-# Three metadata checks ride along, because each failure mode is silent
+# Four metadata checks ride along, because each failure mode is silent
 # until a user hits it:
 #
 #   * `--version` agrees with the version in the filename, so a
@@ -19,6 +19,8 @@
 #     cross-arch AppImages the run check has to skip.
 #   * The AppImage carries its AppStream metainfo, which decides how the
 #     app presents itself in software centres and the AppImageHub catalog.
+#   * The .zsync control file still describes the AppImage it was published
+#     with, so self-update works for people who already have the file.
 #
 # Windows ZIPs and macOS DMGs aren't checked — running them on a Linux
 # host needs wine / qemu-system-x86 / a Mac, which is more machinery
@@ -110,6 +112,7 @@ gh release download "$TAG" \
     --pattern 'lba2cc-*-linux-*.tar.gz' \
     --pattern 'lba2cc-*-anylinux-*.AppImage' \
     --pattern 'lba2cc-*-AppImage-*.AppImage' \
+    --pattern 'lba2cc-*.AppImage.zsync' \
     --dir . 2>&1 | tail -5 || true
 
 # Collect what actually landed — release artifact naming has shifted
@@ -186,6 +189,51 @@ check_update_channel() {
         pass_row "$label" "update-channel=$channel"
     else
         fail_row "$label" "update-channel=$channel, expected $EXPECT_CHANNEL on tag $TAG"
+    fi
+}
+
+# Each AppImage is published with a .zsync control file, and that file is
+# what an updater fetches first: a plain-text header naming the target, its
+# length and its SHA-1, then the block sums it diffs against. If the header
+# drifts from the artifact actually attached to the release (an AppImage
+# rebuilt and re-uploaded over an older .zsync, or an upload that half
+# failed), self-update breaks for everyone who already has the file, and
+# nothing else here would notice: the AppImage still runs and still names
+# the right update channel. Only comparing the two files catches it.
+check_zsync() {
+    local label="$1" zs="$2" aimg="$3"
+    local line key val want_name="" want_len="" want_sha="" got_len got_sha
+
+    if [[ ! -f "$zs" ]]; then
+        skip_row "$label" "no .zsync published alongside this AppImage"
+        return
+    fi
+    # The header is text terminated by a blank line, and the block sums
+    # after it are binary, so the loop breaks on that line and never reads
+    # into them.
+    while IFS= read -r line; do
+        line="${line%$'\r'}"
+        [[ -z "$line" ]] && break
+        key="${line%%: *}"
+        val="${line#*: }"
+        case "$key" in
+            Filename) want_name="$val" ;;
+            Length)   want_len="$val"  ;;
+            SHA-1)    want_sha="$val"  ;;
+        esac
+    done < "$zs"
+
+    got_len=$( wc -c < "$aimg" | tr -d ' ' )
+    got_sha=$( sha1sum "$aimg" | cut -d' ' -f1 )
+
+    if [[ "$want_name" != "${aimg##*/}" ]]; then
+        fail_row "$label" "zsync names $want_name, but it sits beside ${aimg##*/}"
+    elif [[ "$want_len" != "$got_len" ]]; then
+        fail_row "$label" "zsync length=$want_len, artifact=$got_len"
+    elif [[ "$want_sha" != "$got_sha" ]]; then
+        fail_row "$label" "zsync SHA-1=$want_sha, artifact=$got_sha"
+    else
+        pass_row "$label" "zsync matches artifact (sha1=${got_sha:0:12})"
     fi
 }
 
@@ -273,9 +321,10 @@ for aimg in "${APPIMAGES[@]}"; do
         *x86_64*)  aimg_arch="x86_64";  platform="linux/amd64" ;;
         *)         aimg_arch="unknown"; platform="linux/amd64" ;;
     esac
-    # Reads the file directly, so it runs for every AppImage including the
-    # cross-arch ones skipped below.
+    # Both read the files directly, so they run for every AppImage including
+    # the cross-arch ones skipped below.
     check_update_channel "appimage $stem" "$WORK_DIR/$aimg"
+    check_zsync "appimage $stem" "$WORK_DIR/$aimg.zsync" "$WORK_DIR/$aimg"
     if [[ "$aimg_arch" != "$HOST_ARCH" ]]; then
         skip_row "appimage $stem" "cross-arch AppImage (host=$HOST_ARCH, image=$aimg_arch) — qemu-user can't run AppImage runtime stub"
         continue
