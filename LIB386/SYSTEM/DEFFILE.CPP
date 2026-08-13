@@ -239,6 +239,30 @@ static S32 LayerIsClean(const char *bytes, S32 size) {
 }
 
 //══════════════════════════════════════════════════════════════════════════
+void DefFileBufferSaveState(T_DEFFILE_STATE *out) {
+    if (out == NULL) {
+        return;
+    }
+    out->org = OrgPtrDef;
+    out->end = EndPtrDef;
+    out->bufferSize = BufferSize;
+    out->layersAttached = LayersAttached;
+    strcpy(out->fileName, FileName);
+}
+
+//══════════════════════════════════════════════════════════════════════════
+void DefFileBufferRestoreState(const T_DEFFILE_STATE *in) {
+    if (in == NULL) {
+        return;
+    }
+    OrgPtrDef = in->org;
+    EndPtrDef = in->end;
+    BufferSize = in->bufferSize;
+    LayersAttached = in->layersAttached;
+    strcpy(FileName, in->fileName);
+}
+
+//══════════════════════════════════════════════════════════════════════════
 S32 DefFileBufferAppendFile(const char *file) {
     if (!OrgPtrDef || (file == NULL)) {
         return FALSE;
@@ -255,39 +279,23 @@ S32 DefFileBufferAppendFile(const char *file) {
 
     /* Load straight into the tail, past the separator, so the file is never
        copied twice. Its own line, so the last key above cannot run into the
-       first key here. */
+       first key here.
+
+       The window is sized from what Load actually read, not from the FileSize
+       above. The two can disagree -- removable media, an image remounted, the
+       file rewritten between the two calls -- and trusting the stat would pull
+       whatever the buffer already held into the read window as config text. */
     char *layer = EndPtrDef + 1;
-    if (!Load((char *)file, layer)) {
-        return FALSE;
+    const S32 loaded = (S32)Load((char *)file, layer);
+    if ((loaded <= 0) || (loaded > size)) {
+        return FALSE; // nothing read, or more than the bound that was checked
     }
-    if (!LayerIsClean(layer, size)) {
+    if (!LayerIsClean(layer, loaded)) {
         return FALSE; // EndPtrDef untouched, so the window still excludes it
     }
 
     *EndPtrDef = 10;
-    EndPtrDef = layer + size;
-    SealBuffer();
-    LayersAttached = TRUE;
-    return TRUE;
-}
-
-//══════════════════════════════════════════════════════════════════════════
-S32 DefFileBufferAppendMem(const void *bytes, S32 size) {
-    if (!OrgPtrDef || (bytes == NULL) || (size <= 0)) {
-        return FALSE;
-    }
-    if (!LayerFits(size)) {
-        Log_Warn("DefFileBufferAppendMem: no room for a %d byte layer", size);
-        return FALSE;
-    }
-    if (!LayerIsClean((const char *)bytes, size)) {
-        return FALSE;
-    }
-
-    char *p = EndPtrDef;
-    *p++ = 10;
-    memcpy(p, bytes, (size_t)size);
-    EndPtrDef = p + size;
+    EndPtrDef = layer + loaded;
     SealBuffer();
     LayersAttached = TRUE;
     return TRUE;
@@ -452,6 +460,14 @@ S32 DefFileBufferWriteString(const char *ident, const char *string) {
 
 //══════════════════════════════════════════════════════════════════════════
 S32 DefFileBufferBeginBatch(void) {
+    /* Same reason DefFileBufferWriteString refuses: every write in the batch
+       would refuse anyway, so the batch would commit nothing and still report
+       success. Fail at the boundary, where the caller can still notice. */
+    if (LayersAttached) {
+        Log_Error("DefFileBufferBeginBatch: buffer has read-only layers attached");
+        return FALSE;
+    }
+
     if (BatchActive OR !OrgPtrDef) {
         return FALSE;
     }

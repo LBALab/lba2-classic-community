@@ -4,6 +4,7 @@
 
 //****************************************************************************
 #include <SYSTEM/ITOA.H>
+#include <SYSTEM/LIMITS.H> /* ADELINE_MAX_PATH, for the saved-state struct below */
 
 //****************************************************************************
 #ifdef __cplusplus
@@ -36,20 +37,36 @@ S32 DefFileBufferReadValueDefault(const char *ident, S32 def);
 S32 DefFileBufferReadValue2(const char *ident, S32 *result);
 
 //****************************************************************************
-// Layered reads. After DefFileBufferInit has loaded the file a run owns, these
-// append lower-priority sources to the same buffer: a config shipped with the
-// game data, and a built-in default. Reads scan forward and stop at the first
-// match, so a key the owned file defines shadows the same key underneath, while
-// a key only a lower layer defines is still found.
+// Layered reads. After DefFileBufferInit has loaded the file a run owns, this
+// appends a lower-priority source to the same buffer: the config shipped with
+// the game data. Reads scan forward and stop at the first match, so a key the
+// owned file defines shadows the same key underneath, while a key only the
+// lower layer defines is still found. A key neither defines falls through to
+// the compiled default the read site names.
 //
-// Both return FALSE when the layer is absent, empty, corrupt, or will not fit,
-// which simply leaves the buffer as it was. An absent layer is ordinary.
+// Returns FALSE when the layer is absent, empty, corrupt, or will not fit,
+// leaving the buffer as it was. An absent layer is ordinary, not an error.
 //
-// Read-only: DefFileBufferWriteString refuses while layers are attached, since
-// rewriting the buffer would persist them into the owned file. Any writer must
-// DefFileBufferInit on its own file first, which clears them.
+// Read-only: DefFileBufferWriteString and DefFileBufferBeginBatch both refuse
+// while a layer is attached, since rewriting the buffer would persist it into
+// the owned file. Any writer must DefFileBufferInit on its own file first,
+// which clears the layer.
 S32 DefFileBufferAppendFile(const char *file);
-S32 DefFileBufferAppendMem(const void *bytes, S32 size);
+
+// Save and restore the whole read window, for a caller that needs a transient
+// read against a buffer of its own without disturbing the one the boot
+// assembled. Without it, any such read silently drops the layers for everything
+// that reads after it.
+typedef struct {
+    char *org;
+    char *end;
+    S32 bufferSize;
+    S32 layersAttached;
+    char fileName[ADELINE_MAX_PATH];
+} T_DEFFILE_STATE;
+
+void DefFileBufferSaveState(T_DEFFILE_STATE *out);
+void DefFileBufferRestoreState(const T_DEFFILE_STATE *in);
 
 //****************************************************************************
 S32 DefFileBufferWriteString(const char *ident, const char *string);
