@@ -91,7 +91,7 @@ These cover the disc-image resource source ([DISC_IMAGE_SOURCE.md](DISC_IMAGE_SO
 
 ### 6b. Retail distribution sweep (`scripts/dev/dist_check.sh`, local, opt-in)
 
-Needs real installs, so it cannot run in CI. It exists because the retail releases are not interchangeable: each states its own `Version` in the `lba2.cfg` in its install folder, a fresh profile inherits it, and that picks the music track table and two logo sprites. A change can be right on one distribution and wrong on another.
+Needs real installs, so it cannot run in CI. It exists because the retail releases are not interchangeable: each states its own `Version` in the `lba2.cfg` in its install folder, that config is read underneath the profile's own on every boot, and the value picks the music track table and two logo sprites. A change can be right on one distribution and wrong on another.
 
 ```bash
 scripts/dev/dist_check.sh [outdir]          # defaults to ../LBA2/Common, ../LBA2-GOG, ../TWINSEN
@@ -100,7 +100,7 @@ LBA2_DIST_LIST="name:/path" scripts/dev/dist_check.sh
 
 Each install gets a profile of its own inside one throwaway user directory, so what is measured is the new-user path rather than the developer's own settings, and every run goes through profile path composition. One row per install: release identity, language, whether an image mounted, the asset preflight, how each of three music requests was actually served, and pixel hashes (`scripts/dev/png_hash.py`) of six captures: an interior scene, an exterior one, three UI modals, and a demo-mode frame.
 
-It is a check, not only a report, and exits non-zero when any of five assertions fails:
+It is a check, not only a report, and exits non-zero when any of six assertions fails:
 
 | | |
 |---|---|
@@ -109,6 +109,7 @@ It is a check, not only a report, and exits non-zero when any of five assertions
 | `BOUND` | naming the profile and nothing else finds the folder that profile was given |
 | `ISOLATION` | the folder the engine writes to when nobody tells it otherwise is untouched across the whole sweep, which is what proves `--user-dir` took |
 | `REBIND` | a profile seeded from one release, pointed at another, reports the second |
+| `MASTER` | the banks do not contradict the declaration. A row that fails this is an install assembled from two sources, drawing one publisher's sprites over another's data |
 
 `WROTE` earned its place immediately: it caught the CD voice cache stamping mtimes on installed game data, in code nothing was reading.
 
@@ -118,7 +119,17 @@ Demo mode is in there for a reason. It is the only surface where `DistribVersion
 
 Hashes are a per-install baseline to diff against a later run (`diff a/summary.txt b/summary.txt`). Do not compare them across installs: US and EU legitimately differ in language, in volume defaults inherited from each install's config, and in that demo logo.
 
-### 6c. Config upgrade path (`tests/automation/test_config_upgrade.sh`, local)
+### 6c. Release detection (`tests/automation/test_release_detection.sh`, local)
+
+[tests/distrib](../tests/distrib/test_distrib_resolve.cpp) pins the rules between a declaration and a measurement and needs no assets, so it runs in CI. This is the other half, against a real install: that the measurement happens, that it reaches the banks wherever they live including inside a mounted disc image, and that the two are compared rather than one standing in for the other.
+
+```bash
+LBA2_GAME_DIR=/path/to/data bash tests/automation/test_release_detection.sh
+```
+
+The declaration side is driven from the profile, never from the install. Writing a config beside the game data to set up a test would be the defect `WROTE` exists to catch, and would not work at all on an install mounted from an image. A tree the size table has no entry for skips rather than fails, which is the same stance the table itself takes.
+
+### 6d. Config upgrade path (`tests/automation/test_config_upgrade.sh`, local)
 
 The sweep above measures the new-user path: every profile in it is one the engine just created. The other direction is the player who already has an `lba2.cfg` and updates the engine under it, and it is the one the layered read changed the mechanics of, so it gets a test of its own.
 

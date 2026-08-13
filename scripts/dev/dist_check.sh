@@ -19,12 +19,15 @@
 # The hashes are a per-install baseline. A summary is written to <outdir>, so
 # comparing two runs is `diff a/summary.txt b/summary.txt`.
 #
-# Five checks run alongside the captures, about the profiles rather than the
-# rendering:
+# Six checks run alongside the captures, about the profiles and the data rather
+# than the rendering:
 #
 #   IDENTITY   per install, the release the engine reports matches the Version
 #              its own config declares. Reported as '-' for a disc image, whose
 #              config is inside it.
+#   MASTER     per install, the banks do not contradict the declaration. A row
+#              that fails this is an install assembled from two sources, and it
+#              draws one publisher's sprites over another's data in silence.
 #   BOUND      per install, naming the profile and nothing else finds the folder
 #              the profile was given, so the binding is exercised rather than
 #              assumed.
@@ -37,7 +40,7 @@
 #              the second. Needs two installs declaring different releases.
 #
 # Exits non-zero if any install fails to boot with its assets, fails to produce
-# a capture, or fails one of those five, so it can be used as a check and not
+# a capture, or fails one of those six, so it can be used as a check and not
 # only read.
 
 set -uo pipefail
@@ -103,6 +106,35 @@ distrib_of() { # distrib_of <log>
     local line
     line=$(grep -oE 'Release +[a-z_]+ \([0-9]+\)( from the config)?' "$1" | head -1)
     printf '%s\n' "${line#Release}" | sed -E 's/^ +//; s/ from the config$//'
+}
+
+# What the banks measure as, which is a separate fact from what the config
+# declares. Its own column, beside DISTRIB, so agreement and disagreement are
+# both readable off the row rather than out of a log nobody opens.
+#
+# Always the master, never a verdict: the banner says "data agrees" when the two
+# match, and the declared value names the master in that case, since {0, 3} is
+# the European arm and everything else the American one.
+data_of() { # data_of <log>
+    local line
+    line=$(grep -aoE 'Release +.*' "$1" | head -1 | sed -E 's/[[:space:]]+$//')
+    case "$line" in
+        *"data is "*)     printf '%s\n' "${line##*data is }" ;;
+        *"from the data") printf "Twinsen's Odyssey\n" ;;
+        *"data agrees")
+            case "$line" in
+                *"(0)"*|*"(3)"*) printf 'LBA2\n' ;;
+                *)               printf "Twinsen's Odyssey\n" ;;
+            esac ;;
+        *)                printf -- '-\n' ;;
+    esac
+}
+
+# Whether the banner reported the two disagreeing. Only a declaration can
+# conflict with a measurement: with nothing declared there is nothing to
+# contradict, and the banner names the master as an observation.
+data_conflicts() { # data_conflicts <log>
+    grep -aq 'from the config, data is' "$1"
 }
 
 # What an install declares, read straight off its config without asking the
@@ -188,8 +220,8 @@ REBIND_ROWS=""
 # Captured surfaces: an interior scene (the cold-boot start), an exterior one
 # (a different render path, and where the draw-order bugs have historically
 # lived), and three UI modals. Each is a chance for a change to show up.
-hdr=$(printf '%-13s %-14s %-9s %-9s %-7s %-7s %-7s %-7s %-9s %-13s %-13s %-13s %-13s %-13s %-13s' \
-      INSTALL DISTRIB IDENTITY LANGUAGE DISC ASSETS WROTE BOUND MUSIC INTERIOR EXTERIOR MENU OPTIONS INVENTORY DEMO)
+hdr=$(printf '%-13s %-14s %-18s %-9s %-9s %-7s %-7s %-7s %-7s %-9s %-13s %-13s %-13s %-13s %-13s %-13s' \
+      INSTALL DISTRIB DATA IDENTITY LANGUAGE DISC ASSETS WROTE BOUND MUSIC INTERIOR EXTERIOR MENU OPTIONS INVENTORY DEMO)
 echo "$hdr" | tee -a "$SUMMARY"
 printf '%.0s-' {1..176} | tee -a "$SUMMARY"; echo | tee -a "$SUMMARY"
 
@@ -216,6 +248,7 @@ while IFS= read -r entry; do
         --tick 12 --exit > "$log"
 
     distrib=$(distrib_of "$log")
+    data=$(data_of "$log")
     disc=$(grep -q '^Disc:' "$log" && echo mounted || echo none)
     assets=$(grep -q 'Assets *all present' "$log" && echo ok || echo MISSING)
     # Reported because it explains most cross-install render differences: the
@@ -295,8 +328,8 @@ while IFS= read -r entry; do
 
     REBIND_ROWS="$REBIND_ROWS$name|$dir|${distrib:-?}"$'\n'
 
-    row=$(printf '%-13s %-14s %-9s %-9s %-7s %-7s %-7s %-7s %-9s %-13s %-13s %-13s %-13s %-13s %-13s' \
-        "$name" "${distrib:-?}" "$identity" "${lang:-?}" "$disc" "$assets" "$wrote" "$bound" "$music" \
+    row=$(printf '%-13s %-14s %-18s %-9s %-9s %-7s %-7s %-7s %-7s %-9s %-13s %-13s %-13s %-13s %-13s %-13s' \
+        "$name" "${distrib:-?}" "${data:-?}" "$identity" "${lang:-?}" "$disc" "$assets" "$wrote" "$bound" "$music" \
         "$interior" "$exterior" "$menu_main" "$menu_opts" "$inventory" "$demo")
     echo "$row" | tee -a "$SUMMARY"
 
@@ -304,6 +337,10 @@ while IFS= read -r entry; do
     [ "$assets" = ok ] || { echo "  FAIL $name: assets not all present" >&2; failures=$((failures+1)); }
     [ "$wrote" = ok ] || { echo "  FAIL $name: the sweep wrote into the install at $dir" >&2; failures=$((failures+1)); }
     [ "$identity" != MISMATCH ] || { echo "  FAIL $name: install declares Version $want_ver, engine read $got_ver" >&2; failures=$((failures+1)); }
+    # MASTER: the assets must not contradict the declaration. A row that fails
+    # this is an install assembled from two sources, and it renders one
+    # publisher's sprites over another's data without complaining.
+    ! data_conflicts "$log" || { echo "  FAIL $name: declared $distrib, data measures as $data" >&2; failures=$((failures+1)); }
     [ "$bound" = ok ] || { echo "  FAIL $name: profile '$prof' alone resolved '$bound_dir', wanted '$dir'" >&2; failures=$((failures+1)); }
     # Test the hashes themselves, not the printed row. A data-only image serves no
     # CD audio, so its music column reads "---", and matching a dash anywhere in

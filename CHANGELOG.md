@@ -28,6 +28,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The boot banner says how the run chose where to write, and which release it
   believes it is: a `Writes:` line naming the profile and the mechanism, and a
   `Release` line stating the declared publisher and whether anything declared it.
+- The release line also says what the game data itself measures as, read off
+  `RESS.HQR` at boot, so a config declaring one publisher over another's assets
+  is reported instead of quietly drawing the wrong logo. An install that ships no
+  config gets the answer from its data: European data runs exactly as it always
+  has, and American data now gets the American sprites and disc label instead of
+  the European ones.
+- `ShowDistribLogo` in `lba2.cfg` turns the publisher splash on or off. It
+  defaults to on when a config declares a release and off when nothing does,
+  because a release shipping no config ships no publisher branding either, and a
+  value read off the data is not grounds for showing one.
 
 ### Fixed
 
