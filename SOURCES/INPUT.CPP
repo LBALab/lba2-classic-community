@@ -241,8 +241,13 @@ void WriteInputConfig(void) {
     S32 n;
     char id[50];
 
-    if (!FileSize(PathConfigFile))
-        return;
+    /* No "is there a config yet" guard. There used not to be one to write into
+       until the engine had installed a default at boot; nothing installs one now
+       that the game data's config is layered rather than copied, so a fresh
+       profile reaches its first exit with no file. Refusing here dropped every
+       binding on that first exit while the settings written after it created the
+       file anyway, so a rebind made in the first session vanished. The writes
+       below create the file like any other. */
 
     DefFileBufferWriteValue("WinMode", TRUE);
 
@@ -320,8 +325,8 @@ void ReadGamepadConfig(void) {
 
 //-------------------------------------------------------------------------
 void WriteGamepadConfig(void) {
-    if (!FileSize(PathConfigFile))
-        return;
+    /* Same as WriteInputConfig above: no file yet is the ordinary first-exit
+       state of a fresh profile, not a reason to drop the pad settings. */
 
     DefFileBufferWriteValue("GamepadDeadzone", JoystickDeadzone);
     DefFileBufferWriteValue("GamepadCameraAnalog", GamepadCameraAnalog);

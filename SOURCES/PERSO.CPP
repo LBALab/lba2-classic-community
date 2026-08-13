@@ -2988,7 +2988,16 @@ int main(int argc, char *argv[]) {
            A profile name is checked here rather than left to fail later: an
            unusable one means the run would write somewhere other than asked,
            and there is no log yet to explain it. */
-        for (int i = 1; i + 1 < argc; i++) {
+        for (int i = 1; i < argc;) {
+            const int arity = Cli_FlagArity(argv[i]);
+            if (arity < 0) { /* not a flag we know: a value, or a positional */
+                i++;
+                continue;
+            }
+            if (arity < 1 || i + 1 >= argc) {
+                i += 1 + arity;
+                continue;
+            }
             if (!strcmp(argv[i], "--user-dir"))
                 Directories_SetUserDirOverride(argv[i + 1]);
             if (!strcmp(argv[i], "--profile")) {
@@ -3002,6 +3011,7 @@ int main(int argc, char *argv[]) {
                 }
                 Directories_SetProfileOverride(argv[i + 1]);
             }
+            i += 1 + arity;
         }
 
         GetDefaultUserDir(userFolderPath);

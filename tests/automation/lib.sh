@@ -48,7 +48,10 @@ user_dir() {
     if [ -n "${LBA2_USER_DIR:-}" ]; then
         printf '%s\n' "${LBA2_USER_DIR%/}"
     else
-        printf '%s\n' "${XDG_DATA_HOME:-$HOME/.local/share}/Twinsen/LBA2"
+        case "$(uname -s)" in
+            Darwin) printf '%s\n' "$HOME/Library/Application Support/Twinsen/LBA2" ;;
+            *)      printf '%s\n' "${XDG_DATA_HOME:-$HOME/.local/share}/Twinsen/LBA2" ;;
+        esac
     fi
 }
 

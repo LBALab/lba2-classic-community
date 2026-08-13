@@ -222,6 +222,16 @@ int Cli_WantsHelp(int argc, char *argv[]) {
     return 0;
 }
 
+int Cli_FlagArity(const char *arg) {
+    const T_CLI_FLAG *flag;
+
+    if (arg == NULL) {
+        return -1;
+    }
+    flag = FindFlag(arg);
+    return flag ? flag->nvalues : -1;
+}
+
 int Cli_ValidateArgs(int argc, char *argv[]) {
     int i = 1;
 

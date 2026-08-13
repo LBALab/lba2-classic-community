@@ -354,6 +354,16 @@ bool Directories_ResolveUserDir(char *outDir, U16 outMax,
         return false;
     }
 
+    /* Too long to hold, or too long to hold a separator: either way the result
+       would be a different directory, and a run that quietly wrote to a
+       different directory is what this whole path exists to prevent. Report
+       nothing resolved rather than something nearly right. */
+    const size_t want = strlen(chosen);
+    if (want + 2 > (size_t)outMax) {
+        Log_Error("User directory path too long (>= %d): '%s'", outMax, chosen);
+        return false;
+    }
+
     strncpy(outDir, chosen, outMax);
     outDir[outMax - 1] = '\0'; // Guarantee
 
@@ -366,7 +376,7 @@ bool Directories_ResolveUserDir(char *outDir, U16 outMax,
        cannot be made to work, and returning it verbatim means the boot error
        quotes back what was actually asked for. */
     const size_t len = strlen(outDir);
-    if ((len > 0) && (len + 1 < (size_t)outMax) && (outDir[len - 1] != '/') &&
+    if ((len > 0) && (outDir[len - 1] != '/') &&
         (outDir[len - 1] != ADELINE_PATH_SEP_CHAR)) {
         outDir[len] = ADELINE_PATH_SEP_CHAR;
         outDir[len + 1] = '\0';

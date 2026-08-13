@@ -736,15 +736,28 @@ static bool test_user_dir_precedence() {
         bad++;
     }
 
-    /* No room for a separator: the path comes back as it stands rather than
-     * truncated to make space, so the boot error quotes what was asked for.
-     * The buffer must survive intact either way. */
+    /* No room for the path plus its separator: refused outright. Truncating to
+     * fit, or returning it without the separator, both name a different
+     * directory, and a run that quietly wrote to a different directory is what
+     * this whole path exists to prevent. The buffer is left alone. */
     char longPath[ADELINE_MAX_PATH];
     memset(longPath, 'a', ADELINE_MAX_PATH - 1);
     longPath[ADELINE_MAX_PATH - 1] = '\0';
-    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, longPath, NULL) ||
-        strcmp(out, longPath) != 0) {
-        printf("FAIL user_dir: an unseparable path should come back verbatim\n");
+    strcpy(out, "untouched");
+    if (Directories_ResolveUserDir(out, ADELINE_MAX_PATH, longPath, NULL) ||
+        strcmp(out, "untouched") != 0) {
+        printf("FAIL user_dir: a path with no room for its separator should be refused\n");
+        bad++;
+    }
+
+    /* The longest path that does fit still gets its separator. */
+    char fits[ADELINE_MAX_PATH];
+    memset(fits, 'b', ADELINE_MAX_PATH - 2);
+    fits[ADELINE_MAX_PATH - 2] = '\0';
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, fits, NULL) ||
+        strlen(out) != (size_t)(ADELINE_MAX_PATH - 1) ||
+        out[ADELINE_MAX_PATH - 2] != ADELINE_PATH_SEP_CHAR) {
+        printf("FAIL user_dir: the longest path that fits should still be separated\n");
         bad++;
     }
 
