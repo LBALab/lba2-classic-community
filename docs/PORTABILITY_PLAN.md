@@ -319,10 +319,15 @@ also what most players want: `DistribLogo` matches no case at 0 and draws nothin
 nothing frames the wanted state as a deficiency, so the line says `default` instead.
 
 ```
-Release  default (0), data is ea
+Release  default (0), data is LBA2
 Release  activision (1) from the config, data agrees
-Release  ea (3) from the config, data is activision
+Release  ea (3) from the config, data is Twinsen's Odyssey
 ```
+
+The observed half names the master rather than a publisher, spelled out, because that is what the
+data can actually answer and what the engine branches on: `{UNKNOWN, EA}` is LBA2, everything else is
+Twinsen's Odyssey. A publisher name there would be a guess about who sold a copy, which churns, and
+`to` abbreviated reads as a preposition that cuts the sentence off.
 
 The `data is` half of that line needs a fingerprint, and what one is *for* is now settled in one
 direction: release detection, reported and never acted on, specified in

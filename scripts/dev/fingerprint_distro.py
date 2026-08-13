@@ -11,7 +11,8 @@ releases to be worth compiling in.
 
 Two independent questions get answered, because they are independent facts:
 
-  lineage    Which publisher's data this is, i.e. what DistribVersion should be.
+  lineage    Which of the two masters this data is: lba2, or twinsen for
+             Twinsen's Odyssey. The engine only ever distinguishes those two.
              Decided by RESS.HQR, whose contents differ between the Activision
              and the Electronic Arts masters and nowhere else that matters.
   packaging  Who shipped the copy: a 1997 disc, a DOS install off one, GOG's
@@ -56,6 +57,25 @@ DISTRIB_NAMES = {
     VIRGIN_VERSION: "virgin",
     VIRGIN_ASIA_VERSION: "virgin_asia",
 }
+
+# The engine reads two masters, not six publishers. {UNKNOWN, EA} take the LBA2
+# identity, disc label LBA2 and lba2/vox; everything else takes Twinsen's
+# Odyssey, TWINSEN and twinsen/vox. A lineage answer names the product for that
+# reason: it stays true for a Virgin pressing nobody has sampled, where naming
+# the publisher would be a guess about a company that never touched this data.
+MASTER_NAMES = {
+    UNKNOWN_VERSION: "lba2",
+    EA_VERSION: "lba2",
+    ACTIVISION_VERSION: "twinsen",
+    ACTIVISION_SUD_VERSION: "twinsen",
+    VIRGIN_VERSION: "twinsen",
+    VIRGIN_ASIA_VERSION: "twinsen",
+}
+
+
+def master_name(ver):
+    return MASTER_NAMES.get(ver, "?")
+
 
 # RESS.HQR splits the corpus in two, and the split lines up exactly with the
 # publisher. Three of its fifty entries differ between the two masters, and none
@@ -214,6 +234,7 @@ class Target:
             "pressing": self.pressing,
             "distrib_version": ver,
             "distrib_name": DISTRIB_NAMES[ver],
+            "master": master_name(ver),
             "distrib_basis": basis,
             "markers": self.markers,
             "signals": {k: {"version": v[0], "detail": v[1]} for k, v in self.signals.items()},
@@ -459,7 +480,7 @@ def main():
     for r in results:
         ver, basis = r.resolve()
         name = os.path.basename(r.label.rstrip("/"))[:width]
-        lineage = DISTRIB_NAMES[ver] if r.game == "lba2" else "-"
+        lineage = master_name(ver) if r.game == "lba2" else "-"
         print(head % (width, name, r.game, r.packaging, lineage, r.pressing,
                       basis if r.game == "lba2" else ""))
         if args.verbose:
