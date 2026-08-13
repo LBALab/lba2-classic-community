@@ -212,9 +212,19 @@ every launch.
 The rule is general and the demo is simply the case with something to copy. A retail install ships
 an empty folder, so it is a silent no-op there.
 
-Not covered: an install whose saves exist only inside a disc image. Reading them would mean
-enumerating a directory through the image reader rather than the filesystem, and no distribution
-ships one that way.
+Not covered: an install whose saves exist only inside a disc image. The seeding enumerates a
+directory, which it does through the filesystem.
+
+Measured before leaving it out. None of the four retail images to hand carries a single `.lba`, two
+Activision pressings and two EA, and there is a structural reason: a pressed disc is the shipped
+product, and saves are made by the player on the hard disk. The `SAVE/` folder on an extracted
+install is put there by the installer, which is why it is empty.
+
+The one distribution that ships saves is the demo, and it went out on covermount discs, so a rip of
+one is the case that could turn up. Covering it would not need the enumeration: `Copy` opens through
+`OpenRead`, which already falls through to a mounted image, so trying the three slot names the demo
+build already knows would find them on either medium in about ten lines. Worth doing when a demo
+image appears, and not before, since nothing attests one.
 
 ### Layer 5: provenance at boot
 
