@@ -100,12 +100,18 @@ bool Res_AutoDetectDimensions(U32 *outW, U32 *outH);
    log: "CLI", "cfg", "auto", or "default". Static literal; never NULL. */
 const char *Res_BootDimensionsSource(void);
 
-/* True when the live resolution was auto-detected (or fell back to the
-   compile-time default) rather than chosen by the player. WriteConfigFile uses
-   this to skip persisting ResolutionX/Y, so an auto resolution re-derives from
-   the display each launch instead of freezing into the cfg. Cleared by a
-   successful Res_Switch and by a CLI/cfg value at boot. */
-bool Res_ResolutionIsAutoDerived(void);
+/* True when the live resolution is a stored preference that WriteConfigFile
+   should write to ResolutionX/Y. Set by the cfg's own value at boot and by a
+   successful player-chosen Res_Switch (the Display submenu, the `resolution`
+   console verb).
+
+   False for the two sizes nobody chose to keep: an auto-detected or
+   compile-time-default resolution, which re-derives from the display each
+   launch rather than freezing into the cfg, and a --resolution asked for on the
+   command line, which is that run's size only. False also means "leave the keys
+   alone", not "erase them": WriteConfigFile rewrites the config it read, so a
+   stored preference survives a run that overrode it. */
+bool Res_ResolutionShouldPersist(void);
 
 /* Read the boot fullscreen choice (lba2.cfg DisplayFullScreen) the same
    transient, heap-free way as Res_LoadBootDimensions, so the window can be

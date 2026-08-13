@@ -22,10 +22,20 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 - Options menu changes globals only; config is written once at exit. No intermediate saves when changing options.
 - **A setting forced for one run is not written back.** The write serialises globals, so without this a
   flag whose own help says "this run only" would leave its value in the player's config for every later
-  launch. `--fixed-timestep`, `--language` and `LBA2_TEXFILTER` are the three; `WriteConfigFile` puts the
-  stored preference back for each while the live value is still the one that was forced (`ValueToPersist`
-  in PERSO.CPP). `--resolution` is deliberately not one of them: it is a player-facing choice that
-  persists on purpose, which is also why an auto-detected resolution is left out of the file entirely.
+  launch. `--fixed-timestep`, `--language` and `LBA2_TEXFILTER` go through `ValueToPersist` in PERSO.CPP,
+  which puts the stored preference back while the live value is still the one that was forced.
+  `--resolution` reaches the same end differently: `Res_ResolutionShouldPersist` is false for it, so
+  `WriteConfigFile` leaves `ResolutionX/Y` as it found them. Only two things make a resolution a
+  preference to keep, the config's own value and a resolution picked during the run (Display submenu,
+  `resolution` console verb); an auto-detected one is left out of the file entirely so it re-derives
+  from the display each launch.
+- Which flags may write is declared in `CLI_ARGS.CPP`'s `writes` column, printed under `--help-all` as
+  "[keeps this in your settings]", and held to by
+  [`tests/automation/test_cli_flag_contract.sh`](../tests/automation/test_cli_flag_contract.sh). Only
+  five may: `--profile` and `--pick-game-dir`, whose job is to record a choice; `--load`, because
+  restoring a save makes its player the current one and the config records that in `LastSave` exactly
+  as loading from the menu does; and `--exec` / `--exec-at`, which carry console commands and so carry
+  whatever those commands persist. Everything else must leave the settings byte-identical.
 
 ## Keys: what each does
 

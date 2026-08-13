@@ -44,15 +44,21 @@
    width rule live in RES_CATALOG.H: the same limits the --resolution CLI, the
    console verb, and the Display submenu all derive from. */
 
-/* True when the live resolution came from auto-detect or the compile-time
-   default, i.e. the player never explicitly chose it. WriteConfigFile skips
-   persisting ResolutionX/Y in that case, so an auto resolution re-derives from
-   the display every launch instead of freezing into the cfg on first exit.
-   Cleared the moment the player picks a resolution explicitly: a successful
-   Res_Switch (menu / console verb), or a CLI / cfg value at boot. Defined here
-   so Res_Switch (below) and the boot resolver (further down) both see it. */
-static bool g_resIsAutoDerived = false;
-bool Res_ResolutionIsAutoDerived(void) { return g_resIsAutoDerived; }
+/* True when the live resolution is a preference to keep, which is what
+   WriteConfigFile writes ResolutionX/Y from. Set by the cfg's own value at boot
+   and by a player-chosen Res_Switch (Display submenu, `resolution` console
+   verb). Defined here so Res_Switch (below) and the boot resolver (further
+   down) both see it.
+
+   Two sizes are deliberately not preferences. An auto-detected or default one
+   re-derives from the display every launch instead of freezing into the cfg on
+   first exit. A --resolution on the command line is that run's size: the flag
+   is how you check one mode without adopting it, and a harness pinning 640x480
+   for a capture must not rewrite the player's own choice. Starting false is the
+   safe end of that: the keys are then left as the config already had them,
+   because WriteConfigFile rewrites the file it read. */
+static bool g_resShouldPersist = false;
+bool Res_ResolutionShouldPersist(void) { return g_resShouldPersist; }
 
 /* The resolution the player chose. Tracked apart from ModeDesiredX/Y because
    those hold whatever the current scene renders at, and an interior downshift
@@ -219,7 +225,7 @@ static bool Res_SwitchEx(U32 newW, U32 newH, bool playerChoice) {
     if (ModeDesiredX == newW && ModeDesiredY == newH) {
         /* Confirming the current mode is still an explicit choice. */
         if (playerChoice)
-            g_resIsAutoDerived = false;
+            g_resShouldPersist = true;
         return true;
     }
 
@@ -335,7 +341,7 @@ static bool Res_SwitchEx(U32 newW, U32 newH, bool playerChoice) {
        WriteConfigFile persist it across launches. A scene-driven switch is not
        a preference and must never freeze an interior size into the cfg. */
     if (playerChoice)
-        g_resIsAutoDerived = false;
+        g_resShouldPersist = true;
     return true;
 }
 
@@ -389,7 +395,10 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
         *outW = (U32)Control_GetResolutionX();
         *outH = (U32)Control_GetResolutionY();
         g_bootDimSource = "CLI";
-        g_resIsAutoDerived = false;
+        /* Deliberately not a stored preference: g_resShouldPersist stays false,
+           so this run renders at the requested size and leaves ResolutionX/Y in
+           the config exactly as it found them. Adopting the size is what the
+           Display submenu and the `resolution` console verb are for. */
         return;
     }
 
@@ -421,7 +430,7 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
                 *outW = (U32)w;
                 *outH = (U32)h;
                 g_bootDimSource = "cfg";
-                g_resIsAutoDerived = false;
+                g_resShouldPersist = true;
                 DefFileBufferRestoreState(&savedDef);
                 return;
             } else {
@@ -446,7 +455,7 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
        docs/WIDESCREEN.md Phase 4. */
     if (Res_AutoDetectDimensions(outW, outH)) {
         g_bootDimSource = "auto";
-        g_resIsAutoDerived = true;
+        g_resShouldPersist = false;
         return;
     }
 
@@ -454,7 +463,7 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
     *outW = RESOLUTION_X;
     *outH = RESOLUTION_Y;
     g_bootDimSource = "default";
-    g_resIsAutoDerived = true;
+    g_resShouldPersist = false;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/

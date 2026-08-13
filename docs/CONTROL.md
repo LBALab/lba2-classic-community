@@ -597,6 +597,16 @@ The keystone is `test_tick.sh`: it loads, advances 1 vs 60 ticks, and asserts th
 clock and the hero's idle-animation frame both advanced — proving the loop steps the
 simulation, not just a counter.
 
+`test_cli_flag_contract.sh` is the one that keeps the harness honest about the machine it
+runs on. A flag names a mode for one run, so a run told to render at 640x480 or throttle the
+sim must leave the player's settings exactly as it found them; the exceptions are the flags
+whose job is to act on stored state, declared in `CLI_ARGS.CPP`'s `writes` column and printed
+under `--help-all`. The test holds every flag to that column in both directions, and checks
+its own case list against `--help-all` so a flag added to the table cannot go untested. It
+exists because three flags had already broken the rule while their help text claimed
+otherwise, and a leaked setting only ever shows up as the next run behaving differently for
+no visible reason.
+
 ### Driving the opening (`test_walkthrough_opening.sh`)
 
 The walkthrough e2e: cold boot into Twinsen's house, out through the front door, then a
