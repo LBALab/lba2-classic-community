@@ -79,6 +79,14 @@ run_bound() { # run_bound <profile-name> <extra args...>
         --no-autosave "$@" 2>&1
 }
 
+# A path the engine has to open itself. MSYS2 converts a standalone argument to
+# Windows form on its way to a native binary, but not one buried inside a longer
+# --exec string, so the engine is handed /d/... and cannot open it. Elsewhere
+# this is the identity.
+enginepath() { # enginepath <path>
+    if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s\n' "$1"; fi
+}
+
 hash_png() { # hash_png <png>
     [ -f "$1" ] || { echo "-"; return; }
     python3 "$ROOT/scripts/dev/png_hash.py" "$1" 2>/dev/null
@@ -117,6 +125,12 @@ default_user_dir() {
     local app="${LBA2_PREF_APP:-LBA2}"
     case "$(uname -s)" in
         Darwin) printf '%s\n' "$HOME/Library/Application Support/Twinsen/$app" ;;
+        MSYS*|MINGW*|CYGWIN*)
+            # %APPDATA%, and back to a POSIX path so the fingerprint can walk it.
+            local roaming="${APPDATA:-}"
+            [ -n "$roaming" ] && command -v cygpath >/dev/null 2>&1 &&
+                roaming="$(cygpath -u "$roaming")"
+            printf '%s\n' "${roaming:-$HOME}/Twinsen/$app" ;;
         *)      printf '%s\n' "${XDG_DATA_HOME:-$HOME/.local/share}/Twinsen/$app" ;;
     esac
 }
@@ -150,7 +164,8 @@ PY
 hash_modal() { # hash_modal <profile> <gamedir> <modal> <name>
     local prof="$1" dir="$2" modal="$3" name="$4"
     local png="$OUT/$name-$modal.png"
-    run "$prof" "$dir" --headless --fixed-dt 16 --exec "ui $modal $png" --tick 4 --exit >> "$log"
+    run "$prof" "$dir" --headless --fixed-dt 16 \
+        --exec "ui $modal $(enginepath "$png")" --tick 4 --exit >> "$log"
     hash_png "$png"
 }
 
@@ -252,11 +267,14 @@ while IFS= read -r entry; do
     run_bound "$prof" --headless --tick 2 --exit > "$OUT/$name-bound.log"
     bound_dir=$(grep -oE '^Assets: .*  \(' "$OUT/$name-bound.log" | head -1 |
                 sed -E 's/^Assets: //; s/  \($//')
-    case "$bound_dir" in
-        "$dir"|"$dir"/) bound=ok ;;
-        "")             bound=NOBOOT ;;
-        *)              bound=WRONG ;;
-    esac
+    # Compared as shapes, not spellings: the banner ends the path with the
+    # platform's separator, so a Windows run answers with a trailing backslash
+    # for a folder named with forward ones.
+    norm() { printf '%s\n' "$1" | tr '\\' '/' | sed 's|/*$||'; }
+    if [ -z "$bound_dir" ]; then bound=NOBOOT
+    elif [ "$(norm "$bound_dir")" = "$(norm "$dir")" ]; then bound=ok
+    else bound=WRONG
+    fi
 
     # Every run against this install is done; the folder must look untouched.
     if [ "$(tree_fingerprint "$dir")" = "$game_before" ]; then wrote=ok; else wrote=DIRTY; fi
