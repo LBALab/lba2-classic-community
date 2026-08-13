@@ -303,11 +303,29 @@ stated once.**
 `Writes:` is silent when neither a profile nor an override is in play, so an install that names
 neither keeps the banner it always had.
 
-The data fingerprint is **not** in. It was there to answer "same data set as last time?", which
-nothing yet asks; the two lines above cover the question people actually bring to a bug report.
-Sizes of a fixed set of banks folded into one value would still be the cheap way to add it, and it
-would remain change detection rather than identification: which release this is stays declared, per
-VERSIONS.md.
+The data fingerprint is **undecided**, not rejected. It is out of the first change because what it is
+for has not been settled, not because it would not work.
+
+Measured across the six installs to hand, folding the sizes of a few banks does discriminate:
+
+| Banks | Behaviour across the six |
+|---|---|
+| `RESS`, `TEXT`, `SCENE` | GOG, Steam and both EA discs identical; each Activision pressing different, and different from each other |
+| `SPRITES`, `BODY`, `ANIM`, `LBA2` | byte-identical on all six, so they carry no signal |
+
+So the four releases that are the same data fold to one value, and the two that are not fold to two
+others. Sizes are a `stat` each and reach inside a mounted image as readily as the filesystem, since
+`FileSize` goes through `OpenRead`.
+
+What that leaves is the question underneath, and the two answers want opposite designs:
+
+- **Change detection**, "is this the same data set as last time?", wants every cheap input it can
+  get, so a mod, a patch or a half-finished copy shows up.
+- **Release detection**, "which pressing is this?", wants exactly the three discriminating banks,
+  and is a larger step than a banner line: nothing in this engine has ever detected a release.
+  VERSIONS.md's finding is that identity is declared and believed. A fingerprint that could tell an
+  Activision disc from an EA one without reading the config would make "your config says EA and this
+  data is not" a thing the engine could notice, which is a capability, not a report.
 
 Two things follow. `dist_check.sh` used to run the `distrib` console command to learn the release
 identity; with it in the banner, one boot and one grep covers the whole row, and any run in that
@@ -405,8 +423,11 @@ saves appearing to vanish, at the cost of a permanently asymmetric layout. Movin
 cleaner and needs a one-time migration with a fallback. Leaning root. This is the one choice that is
 expensive to revisit.
 
-**Which banks feed the fingerprint?** It has to stay stable across a reinstall of the same release
-and change when the data set changes. Needs a pass over the matrix before fixing the input set.
+**What is the fingerprint for?** The pass over the matrix is done and the input set is answered:
+`RESS`, `TEXT` and `SCENE` carry all the discriminating signal across the six installs on hand, and
+`SPRITES`, `BODY`, `ANIM` and `LBA2` are byte-identical on every one. What is not answered is
+whether the job is change detection or release detection, and that decides the input set rather than
+the other way round. Not in the first change for that reason alone.
 
 **How much of the banner is load-bearing?** The disc-image line is deliberately silent when no image
 is mounted, so that a filesystem-only install produces a byte-identical banner. Adding identity lines
