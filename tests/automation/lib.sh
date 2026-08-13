@@ -129,50 +129,52 @@ ctl_headless_at() {
         "$LBA2_BIN" --language English --no-audio --resolution "$res" "$@"
 }
 
-# with_menu_main_fixture <body>
-# Some ui_* tests (today: ui_menu_main) render a thumbnail that the engine
-# reads from the user's local ~/.local/share/Twinsen/LBA2/save/current.lba —
-# not from --load's argument. That file evolves on every play session, so
-# the test isn't reproducible unless the harness pins it. Copy a known
-# fixture into current.lba, run the body, restore the original on exit.
+# seed_menu_save_dir <user-dir> <fresh|returning> [save-file]
+# The boot main menu is assembled from the save directory, not from --load:
+# BuildGameMainMenu (GAMEMENU.CPP) adds "Resume Game" when save/current.lba
+# exists, which also shifts the whole menu's vertical centre from 275 to 335,
+# and adds "Load Game" when IsExistSavedGame() finds any named save. A test
+# capturing that menu therefore owns the save directory, or it renders whichever
+# shape the developer's own saves happen to produce and compares it against a
+# golden captured on somebody else's disk.
 #
-# The fixture is the same corpus Anon1.LBA the test --load's, so the
-# thumbnail in current.lba ends up matching the loaded scene.
-with_menu_main_fixture() {
-    local body="$1"
-    local save_dir current_lba backup
-    save_dir="$(user_dir)/save"
-    current_lba="$save_dir/current.lba"
-    backup="$(mktemp -t current.lba.bak.XXXXXX)"
-    mkdir -p "$save_dir"
-    if [ -f "$current_lba" ]; then
-        cp "$current_lba" "$backup"
-    else
-        : > "$backup.absent"
+# Seeds a user directory of the test's own for one of the two states worth a
+# golden: `fresh` is what a new install shows (New / Options / Quit, no
+# thumbnail), `returning` is the full menu (Resume / New / Load / Options /
+# Quit, thumbnail from current.lba). The caller exports LBA2_USER_DIR and owns
+# the cleanup.
+seed_menu_save_dir() {
+    local dir="$1/save" mode="$2" save="${3:-$LBA2_TEST_SAVE}"
+    mkdir -p "$dir"
+    if [ "$mode" = "returning" ]; then
+        # current.lba is the thumbnail and the Resume row; the named save is the
+        # only thing IsExistSavedGame looks for, and its name does not matter.
+        cp "$save" "$dir/current.lba"
+        cp "$save" "$dir/Anon1.LBA"
     fi
-    # Restore on any exit path — trap fires on EXIT regardless of pass/fail.
-    trap '
-        if [ -f "$backup.absent" ]; then rm -f "$current_lba" "$backup.absent";
-        else cp "$backup" "$current_lba"; fi
-        rm -f "$backup"
-    ' EXIT
-    cp "$LBA2_TEST_SAVE" "$current_lba"
-    eval "$body"
 }
 
 # ui_compare <verb-args...> <golden-path>
 # Runs `ctl_headless --load $LBA2_TEST_SAVE --exec "ui <verb-args>" ...` writing
 # the capture to a temp file, then compares sha256 against the committed golden.
 # Set LBA2_UI_REGEN=1 to copy the capture over the golden instead of comparing.
+#
+# An empty LBA2_TEST_SAVE runs without --load, for the one surface whose subject
+# is the absence of a save: the main menu a new install shows.
 ui_compare() {
-    local args="" golden="" out= shaA shaB
+    local args="" golden="" out= shaA shaB rc=0
     while [ $# -gt 1 ]; do args="${args:+$args }$1"; shift; done
     golden="$1"
     out="$(mktemp -t "${TESTNAME:-ui}.XXXXXX.png")"
     # the verb takes the capture path as its last arg
-    ctl_headless --load "$LBA2_TEST_SAVE" \
-        --exec "ui $args $out" --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 \
-        || { rc=$?; rm -f "$out"; fail "verb 'ui $args' returned non-zero ($rc)"; }
+    if [ -n "${LBA2_TEST_SAVE:-}" ]; then
+        ctl_headless --load "$LBA2_TEST_SAVE" \
+            --exec "ui $args $out" --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 || rc=$?
+    else
+        ctl_headless \
+            --exec "ui $args $out" --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 || rc=$?
+    fi
+    [ "$rc" = 0 ] || { rm -f "$out"; fail "verb 'ui $args' returned non-zero ($rc)"; }
     [ -f "$out" ] || fail "no capture written for 'ui $args'"
     if [ "${LBA2_UI_REGEN:-}" = "1" ]; then
         mkdir -p "$(dirname "$golden")"
