@@ -85,10 +85,15 @@ dependency.
 Replace the first-run copy with an ordered read:
 
 ```
-built-in template  <  <resDir>/lba2.cfg  <  <profile>/lba2.cfg  <  CLI
+compiled defaults  <  <resDir>/lba2.cfg  <  <profile>/lba2.cfg  <  CLI
 ```
 
-Writes only ever reach the profile config. The split this needs already exists in the code:
+Writes only ever reach the profile config.
+
+The bottom is the default each read site already names, not the built-in template. The template
+stays a seed, written once into a profile whose install ships no config of its own. As a layer its
+values would also reach every install that ships a config but leaves a key out, changing settled
+defaults (`FullScreen` among them) on machines that never saw it. The split this needs already exists in the code:
 `WriteConfigFile` does a load-modify-rewrite through `DefFileBufferInit`, preserving keys it does not
 know, and it never writes `Version`. So the keys partition by owner with no new bookkeeping.
 

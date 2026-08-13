@@ -142,7 +142,7 @@ directory trees read from the ISO 9660 descriptors.
 | GOG | `(Electronic Arts)` | 3 | n/a | n/a |
 | Steam Classic | no header comment | key absent | n/a | n/a |
 | Demo | no header comment | key absent | n/a | n/a |
-| [SOURCES/LBA2.CFG](../SOURCES/LBA2.CFG) in this repo | no header comment | 0 | n/a | n/a |
+| [SOURCES/LBA2.CFG](../SOURCES/LBA2.CFG) in this repo | no header comment | key absent | n/a | n/a |
 
 Two things follow.
 
@@ -221,6 +221,11 @@ Three more keys are written by the DOS installer and never read by the engine. T
 | `LanguageInstall` | installer | nothing |
 | `Demo` | installer | nothing |
 | `PathInstall` | installer | nothing |
+
+The in-repo template leaves `Version` out on purpose. It is written into a profile only when the
+game data ships no config of its own, and a value seeded that way would shadow the install
+underneath it for good, which is exactly the snapshot the layered read exists to avoid. Absent
+reads as `UNKNOWN_VERSION`, which is what it declared before.
 
 `Demo: 1` in the demo's config is the clearest case. It looks like the flag that selects demo
 behaviour, but the demo is a compile-time build (`-DDEMO`) and the key is inert. The demo config

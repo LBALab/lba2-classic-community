@@ -36,11 +36,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/* The built-in lba2.cfg, generated into the binary by the build. It is the
-   bottom layer of the config stack below: the answer when neither the run's own
-   config nor the one beside the game data defines a key. */
-extern const unsigned char g_embeddedLba2CfgBytes[];
-extern const U32 g_embeddedLba2CfgBytesSize;
+int WriteEmbeddedDefaultLba2Cfg(const char *destPath);
 #ifdef __cplusplus
 }
 #endif
@@ -208,10 +204,28 @@ void InitAdeline(S32 argc, char *argv[]) {
 
     // ··········································································
     //  Config File
-    //  Nothing is created here. The config a run reads is three sources stacked
-    //  (see the DefFile section below), and the file this run owns is written
-    //  the first time a setting changes.
+    //  Nothing is copied. The config beside the game data is read as a layer
+    //  under this run's own (see the DefFile section below), so it keeps
+    //  answering for the game data every boot instead of being snapshotted into
+    //  a profile that then outlives the install it was taken from.
+    //
+    //  An install shipping no config has nothing to layer, so the built-in
+    //  template is installed once, exactly as before. It is a seed and not a
+    //  third layer on purpose: as a layer its values would also reach every
+    //  install that ships a config but leaves a key out, changing settled
+    //  defaults (FullScreen among them) on machines that never saw it.
     GetCfgPath(PathConfigFile, ADELINE_MAX_PATH, CFG_NAME);
+    {
+        char PathSeedConfigFile[ADELINE_MAX_PATH];
+        GetDefaultCfgPath(PathSeedConfigFile, ADELINE_MAX_PATH, CFG_NAME);
+        if (!ExistsFileOrDir(PathConfigFile) && !ExistsFileOrDir(PathSeedConfigFile)) {
+            if (!WriteEmbeddedDefaultLba2Cfg(PathConfigFile)) {
+                BootFatal("Could not write a default configuration file to '%s'.",
+                          PathConfigFile);
+            }
+            Log_Warn("Config     wrote built-in template (no default in game data)");
+        }
+    }
 
     // ··········································································
     //  CMDLINE
@@ -349,9 +363,10 @@ void InitAdeline(S32 argc, char *argv[]) {
     // ··········································································
     //  DefFile
     //
-    //  Three layers, highest priority first: the config this run owns, the one
-    //  shipped beside the game data, then the built-in template. A key is taken
-    //  from the first layer that defines it.
+    //  Two layers, highest priority first: the config this run owns, then the
+    //  one shipped beside the game data. A key is taken from the first layer
+    //  that defines it; a key neither defines falls to the compiled default the
+    //  read site names.
     //
     //  This replaced copying the game-data config into a fresh profile. A copy
     //  is a snapshot: whichever install a profile first booted against decided
@@ -367,17 +382,15 @@ void InitAdeline(S32 argc, char *argv[]) {
     //  first.
     {
         char PathDataConfigFile[ADELINE_MAX_PATH];
-        S32 fromData, fromBuiltin;
+        S32 fromData;
 
         DefFileBufferInit(PathConfigFile, (void *)(ibuffer), ibuffersize);
 
         GetDefaultCfgPath(PathDataConfigFile, ADELINE_MAX_PATH, CFG_NAME);
         fromData = DefFileBufferAppendFile(PathDataConfigFile);
-        fromBuiltin = DefFileBufferAppendMem(g_embeddedLba2CfgBytes,
-                                             (S32)g_embeddedLba2CfgBytesSize);
 
-        Log_Info("Config     %s%s%s", ExistsFileOrDir(PathConfigFile) ? "own" : "own (none yet)",
-                 fromData ? " + game data" : "", fromBuiltin ? " + built-in" : "");
+        Log_Info("Config     %s%s", ExistsFileOrDir(PathConfigFile) ? "own" : "own (none yet)",
+                 fromData ? " + game data" : "");
     }
 
     // ··········································································
