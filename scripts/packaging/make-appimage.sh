@@ -33,6 +33,15 @@ mkdir -p ./AppDir/bin
 cp -v ./packaging/"${LBA2_DESKTOP_ID}.png" ./AppDir/
 cp -v ./build/packaging/"${LBA2_DESKTOP_ID}.desktop" ./AppDir/
 
+# AppStream metainfo. The path is fixed by convention, not by our layout: the
+# AppImageHub catalog scanner and desktop-integration tools like Gear Lever
+# look in usr/share/metainfo/ specifically, even though sharun otherwise
+# builds a flat AppDir with no usr/ prefix. Without this the app shows up in
+# software centres with no summary, licence or category.
+mkdir -p ./AppDir/usr/share/metainfo
+cp -v ./build/packaging/"${LBA2_BUNDLE_IDENTIFIER}.metainfo.xml" \
+      ./AppDir/usr/share/metainfo/
+
 read -r VERSION < ./dist/VERSION.txt
 export ARCH VERSION
 export OUTPATH=./dist

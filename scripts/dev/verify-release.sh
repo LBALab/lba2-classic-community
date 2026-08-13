@@ -9,14 +9,16 @@
 # system, with the executable bit preserved and the static linking
 # claim holding.
 #
-# Two metadata checks ride along, because both failure modes are silent
-# until a user reports a confusing version number:
+# Three metadata checks ride along, because each failure mode is silent
+# until a user hits it:
 #
 #   * `--version` agrees with the version in the filename, so a
 #     mislabelled artifact can't reach the Releases page.
 #   * The AppImage's baked-in self-update channel matches the release it
 #     was attached to. This one needs no container, so it covers the
 #     cross-arch AppImages the run check has to skip.
+#   * The AppImage carries its AppStream metainfo, which decides how the
+#     app presents itself in software centres and the AppImageHub catalog.
 #
 # Windows ZIPs and macOS DMGs aren't checked — running them on a Linux
 # host needs wine / qemu-system-x86 / a Mac, which is more machinery
@@ -290,6 +292,19 @@ for aimg in "${APPIMAGES[@]}"; do
         FAIL=$(( FAIL + 1 ))
         continue
     fi
+    # AppStream metainfo, at the path AppImageHub and desktop-integration
+    # tools read. Nothing at runtime touches it, and CI validates the
+    # generated file rather than the assembled AppDir, so a packaging change
+    # that stopped copying it in would leave every other check green.
+    metainfo=( "$WORK_DIR/$extract_dir"/squashfs-root/usr/share/metainfo/*.metainfo.xml )
+    if [[ -f "${metainfo[0]}" ]]; then
+        RESULTS+=( "PASS  appimage $stem  metainfo=${metainfo[0]##*/}" )
+        PASS=$(( PASS + 1 ))
+    else
+        RESULTS+=( "FAIL  appimage $stem  no usr/share/metainfo/*.metainfo.xml in the AppDir" )
+        FAIL=$(( FAIL + 1 ))
+    fi
+
     run_check \
         "appimage $stem" \
         "$platform" \

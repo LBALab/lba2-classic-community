@@ -62,6 +62,20 @@ jobs:
             -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF \
             --preset linux
 
+      # The generated .desktop entry and AppStream metainfo are copied into the
+      # AppDir verbatim, so validating them here validates what ships. Both are
+      # gates for the AppImageHub catalog, and neither failure mode is visible
+      # from a build that succeeds: an unregistered Categories= value just files
+      # the launcher entry under the wrong menu, on the machines that have one.
+      - name: Validate packaging metadata
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends desktop-file-utils appstream
+          # Globbed rather than named so renaming LBA2_DESKTOP_ID or
+          # LBA2_BUNDLE_IDENTIFIER doesn't quietly validate nothing.
+          desktop-file-validate build/packaging/*.desktop
+          appstreamcli validate --explain build/packaging/*.metainfo.xml
+
       - name: Build
         run: |
           cmake --build build --target lba2cc

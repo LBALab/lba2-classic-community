@@ -50,6 +50,6 @@
     <false/>
 
     <key>NSHumanReadableCopyright</key>
-    <string>@LBA2_PRODUCT_DESCRIPTION@</string>
+    <string>@LBA2_COPYRIGHT@</string>
 </dict>
 </plist>
