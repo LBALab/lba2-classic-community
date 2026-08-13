@@ -2,7 +2,8 @@
 # The CLI contract that automation depends on (#433). Every case here guards against a
 # run that silently does the wrong thing and still exits 0:
 #
-#   --help          prints usage and exits 0 WITHOUT booting the game
+#   --help          prints usage and exits 0 WITHOUT booting the game, and points at
+#                   --help-all, which is where the automation flags are listed
 #   unknown flag    exits non-zero instead of booting with the flag silently ignored
 #   missing value   exits non-zero instead of dropping the flag ("--tick" with no count)
 #   flag-as-value   exits non-zero instead of swallowing it ("--exec-at 5 --tick 30" must
@@ -18,10 +19,18 @@ TESTNAME=cli_contract
 precheck
 
 # --- --help: exits 0, prints usage, does not open a window ---------------------
+# Help is two tiers: --help is the player's page and names --help-all, which is
+# where the automation flags this suite runs on are listed. Both are asserted, or
+# a tier that stopped printing its half would read as a passing contract.
 out="$(timeout 10 "$LBA2_BIN" --help 2>/dev/null)" || fail "--help exited non-zero"
 case "$out" in
-*Usage:*--headless*) ;;
+*Usage:*--help-all*) ;;
 *) fail "--help did not print usage (got: $(echo "$out" | head -1))" ;;
+esac
+all="$(timeout 10 "$LBA2_BIN" --help-all 2>/dev/null)" || fail "--help-all exited non-zero"
+case "$all" in
+*Usage:*--headless*) ;;
+*) fail "--help-all did not list the automation flags (got: $(echo "$all" | head -1))" ;;
 esac
 
 # --- unknown flag: refuses to run ----------------------------------------------
