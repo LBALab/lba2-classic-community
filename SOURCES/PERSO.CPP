@@ -2445,7 +2445,20 @@ void ReadConfigFile(void) {
         FlagDisplayText = 1; // default
 
     // version distributeur
-    DistribVersion = DefFileBufferReadValueDefault("Version", UNKNOWN_VERSION);
+    /* Read so that absent and an explicit 0 stay distinguishable. They mean the
+       same to every consumer, and different things to a reader: a store build
+       ships no key at all, which is ordinary, while a written 0 is somebody
+       choosing no publisher. */
+    {
+        S32 declaredVersion;
+        if (DefFileBufferReadValue2("Version", &declaredVersion)) {
+            DistribVersion = declaredVersion;
+            Distrib_SetDeclared(true);
+        } else {
+            DistribVersion = UNKNOWN_VERSION;
+            Distrib_SetDeclared(false);
+        }
+    }
 
     FlagMenuMouse = DefFileBufferReadValueDefault("MenuMouse", TRUE);
     if (FlagMenuMouse != 0)
@@ -3315,14 +3328,24 @@ int main(int argc, char *argv[]) {
     }
     Log_Info("Language   %s", GetLanguageName(Language));
     /* The release this run believes it is. Declared by the config beside the
-       game data, never detected (docs/VERSIONS.md), so it is worth saying out
-       loud: it decides the distributor splash, two logo sprites and the CD
-       voice folder, and an install assembled by hand loses the key silently and
-       reads as unknown. Saying "declared by" rather than "detected" is the
-       point of the line. */
-    Log_Info("Release    %d (%s) declared by %s", (int)DistribVersion,
-             Distrib_Name(DistribVersion),
-             (DistribVersion == UNKNOWN_VERSION) ? "nothing" : "the config");
+       game data, never detected (docs/VERSIONS.md), and it decides the
+       distributor splash, two logo sprites and the CD voice folder.
+    /* The value the run operates under, then where it came from. 0 is the
+       ordinary outcome rather than a missing one: no 2point21 re-release ships
+       a config beside its assets, so those installs run at UNKNOWN_VERSION,
+       where DistribLogo matches no case and draws nothing. Calling that
+       "unknown, declared by nothing" would report the wanted state as a
+       deficiency, so it reads as the default it is.
+
+       The observed half, what the data itself looks like, needs a fingerprint
+       and arrives with the release-detection work; until then the line ends
+       after the source. */
+    if (Distrib_WasDeclared()) {
+        Log_Info("Release    %s (%d) from the config", Distrib_Name(DistribVersion),
+                 (int)DistribVersion);
+    } else {
+        Log_Info("Release    default (%d)", (int)DistribVersion);
+    }
 
     /* "Ready" counts engine subsystems coming up (InitAdeline: SDL, audio,
        video, window). The intro banners/logos that follow are a timed slideshow,

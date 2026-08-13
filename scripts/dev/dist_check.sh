@@ -95,9 +95,14 @@ hash_png() { # hash_png <png>
 # The release each run believes it is, read off the boot banner. The `distrib`
 # console command reports the same value, but the banner needs no command, so
 # any run in this file can be asked rather than only the one built to ask.
+#
+# The banner states the value the run operates under and where it came from, so
+# a row reads "ea (3)" when a config declared one and "default (0)" when none
+# did, which is the ordinary state for a re-release.
 distrib_of() { # distrib_of <log>
-    grep -oE 'Release +[0-9]+ \([a-z_]+\)' "$1" | head -1 |
-        sed -E 's/Release +//'
+    local line
+    line=$(grep -oE 'Release +[a-z_]+ \([0-9]+\)( from the config)?' "$1" | head -1)
+    printf '%s\n' "${line#Release}" | sed -E 's/^ +//; s/ from the config$//'
 }
 
 # What an install declares, read straight off its config without asking the
@@ -281,7 +286,9 @@ while IFS= read -r entry; do
 
     # IDENTITY: the fresh profile inherited what the install actually declares.
     want_ver="$(declared_version "$dir")"
-    got_ver="${distrib%% *}"
+    # "ea (3) cfg" -> 3; "default (0)" has nothing declared to compare.
+    got_ver=$(printf '%s' "$distrib" | sed -nE 's/.*\(([0-9]+)\).*/\1/p')
+    case "$distrib" in default*) got_ver="" ;; esac
     if [ -z "$want_ver" ]; then identity="-"
     elif [ "$want_ver" = "$got_ver" ]; then identity=ok
     else identity=MISMATCH; fi

@@ -21,3 +21,9 @@ const char *Distrib_Name(S32 version) {
     }
     return "unknown";
 }
+
+static bool distribDeclared = false;
+
+void Distrib_SetDeclared(bool declared) { distribDeclared = declared; }
+
+bool Distrib_WasDeclared(void) { return distribDeclared; }

@@ -25,6 +25,15 @@ extern const int DistribNameCount;
 /// Name for \p version, or "unknown" for a value no constant claims.
 const char *Distrib_Name(S32 version);
 
+/// Whether the config named a Version at all, as against the engine falling
+/// back to UNKNOWN_VERSION.
+///
+/// Worth separating, because absent is the ordinary state: the modern store
+/// builds ship no key, so their data is European and their config says nothing,
+/// and a banner calling that "unknown" reports the majority case as a fault.
+void Distrib_SetDeclared(bool declared);
+bool Distrib_WasDeclared(void);
+
 #ifdef __cplusplus
 }
 #endif
