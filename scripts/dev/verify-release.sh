@@ -22,10 +22,14 @@
 #   * The .zsync control file still describes the AppImage it was published
 #     with, so self-update works for people who already have the file.
 #
-# Windows ZIPs and macOS DMGs aren't checked — running them on a Linux
-# host needs wine / qemu-system-x86 / a Mac, which is more machinery
-# than the marginal signal justifies. CI already builds and packages
-# both.
+# The Windows ZIP is checked too. Under WSL a Windows .exe launched from
+# Linux runs as a Windows process, so the shipped binary answers `--version`
+# with no wine and no VM. Off WSL that check reports SKIP and the PE
+# metadata is still read, which needs nothing but grep.
+#
+# macOS DMGs aren't checked — running one needs a Mac, which is more
+# machinery than the marginal signal justifies. CI already builds and
+# packages it.
 #
 # Usage:
 #   scripts/dev/verify-release.sh [<tag>]
@@ -106,13 +110,14 @@ echo "[verify-release] workdir: $WORK_DIR"
 
 cd "$WORK_DIR"
 
-echo "[verify-release] downloading Linux artifacts..."
+echo "[verify-release] downloading artifacts..."
 gh release download "$TAG" \
     --repo "$REPO_SLUG" \
     --pattern 'lba2cc-*-linux-*.tar.gz' \
     --pattern 'lba2cc-*-anylinux-*.AppImage' \
     --pattern 'lba2cc-*-AppImage-*.AppImage' \
     --pattern 'lba2cc-*.AppImage.zsync' \
+    --pattern 'lba2cc-*-windows-*.zip' \
     --dir . 2>&1 | tail -5 || true
 
 # Collect what actually landed — release artifact naming has shifted
@@ -121,6 +126,7 @@ gh release download "$TAG" \
 shopt -s nullglob
 TARBALLS=( lba2cc-*-linux-*.tar.gz )
 APPIMAGES=( lba2cc-*-*linux*-*.AppImage lba2cc-*-AppImage-*.AppImage )
+WIN_ZIPS=( lba2cc-*-windows-*.zip )
 shopt -u nullglob
 
 if [[ ${#TARBALLS[@]} -eq 0 && ${#APPIMAGES[@]} -eq 0 ]]; then
@@ -169,6 +175,7 @@ skip_row() { RESULTS+=( "SKIP  $1  $2" ); }
 version_from_name() {
     local stem="${1%.tar.gz}"
     stem="${stem%.AppImage}"
+    stem="${stem%.zip}"
     stem="${stem#lba2cc-}"
     stem="${stem%-*}"
     printf '%s' "${stem%-*}"
@@ -357,6 +364,88 @@ for aimg in "${APPIMAGES[@]}"; do
         "ro" \
         "/test/$extract_dir/squashfs-root/AppRun --version" \
         "$( version_from_name "$aimg" )"
+done
+
+# The Windows ZIP. Two signals, and only the second needs a Windows.
+#
+# VERSIONINFO is a resource block inside the PE holding the strings
+# Explorer shows under Properties > Details. It is UTF-16LE, so dropping the
+# NUL bytes turns it back into greppable text, on the same reasoning as the
+# AppImage .upd_info check: no binutils requirement for one string.
+#
+# Then the binary is run. WSL registers a binfmt handler for PE images, so a
+# Windows .exe launched from a Linux path executes as a real Windows
+# process, which makes this the cheapest platform here to verify rather than
+# the most expensive. It also exercises the claim that the ZIP is complete,
+# since a missing runtime DLL shows up as a launch failure. Off WSL, or with
+# the handler shadowed, the row says so and the metadata check still stands.
+for zip in "${WIN_ZIPS[@]}"; do
+    stem="${zip%.zip}"
+    label="windows $stem"
+    expected="$( version_from_name "$zip" )"
+
+    if ! command -v unzip >/dev/null 2>&1; then
+        skip_row "$label" "unzip not installed, ZIP not opened"
+        continue
+    fi
+    extract_dir="windows-$stem"
+    mkdir -p "$WORK_DIR/$extract_dir"
+    if ! unzip -q -o "$zip" -d "$WORK_DIR/$extract_dir" 2>/dev/null; then
+        fail_row "$label" "unzip failed"
+        continue
+    fi
+    # -print -quit rather than `| head -1`: under pipefail, head closing the
+    # pipe early can make the whole substitution fail, and under set -e that
+    # ends the run.
+    exe=$( find "$WORK_DIR/$extract_dir" -name 'lba2cc.exe' -type f -print -quit )
+    if [[ -z "$exe" ]]; then
+        fail_row "$label" "no lba2cc.exe in the ZIP"
+        continue
+    fi
+
+    # Drop the NULs once, into a file. Grepping a file rather than a pipe
+    # matters here: `grep -q` stops at the first match, which closes the pipe
+    # under it, and pipefail then reports the whole pipeline as failed.
+    pe_text="$WORK_DIR/$extract_dir/pe-strings.txt"
+    tr -d '\0' < "$exe" > "$pe_text"
+
+    # Anchored on the key name, so this can't pass on a version that happens
+    # to appear elsewhere in the image. The trailing byte after the value is
+    # the next record's length field, so match a prefix rather than equality.
+    if ! grep -a -q -F "FileVersion$expected" "$pe_text"; then
+        found=$( grep -a -o -m1 'FileVersion[0-9][ -~]\{0,32\}' "$pe_text" || true )
+        fail_row "$label" "VERSIONINFO ${found:-carries no FileVersion}, filename says $expected"
+    elif ! grep -a -q 'FileDescription[ -~]\{4,\}' "$pe_text"; then
+        fail_row "$label" "VERSIONINFO has FileVersion=$expected but no FileDescription"
+    else
+        pass_row "$label" "VERSIONINFO FileVersion=$expected, FileDescription set"
+    fi
+
+    chmod +x "$exe"
+    win_run=( "$exe" --version )
+    # A release binary that hangs must not hang the verification.
+    command -v timeout >/dev/null 2>&1 && win_run=( timeout 60 "${win_run[@]}" )
+    if out=$( "${win_run[@]}" 2>&1 ); then rc=0; else rc=$?; fi
+    out=$( printf '%s' "$out" | tr -d '\r' )
+    version=$( printf '%s\n' "$out" | awk 'NF{last=$0} END{print last}' )
+
+    # Tell "this host can't launch PE binaries" apart from "the binary is
+    # broken". The first is a property of the workstation and has to read as
+    # SKIP; the second is exactly what this script exists to catch, so
+    # anything that isn't a recognised handler failure counts as a FAIL.
+    if [[ $rc -eq 126 ]] || [[ "$out" == *"Exec format error"* ]] \
+       || [[ "$out" == *"run-detectors"* ]] || [[ "$out" == *"binfmt"* ]]; then
+        # First line only, and clipped: the handler's complaint names the
+        # full path, which says nothing and swamps the row.
+        reason="${out%%$'\n'*}"
+        skip_row "$label" "host cannot launch PE binaries: ${reason:0:60}"
+    elif [[ $rc -ne 0 || -z "$version" ]]; then
+        fail_row "$label" "rc=$rc out=$out"
+    elif [[ "$version" != "$expected" ]]; then
+        fail_row "$label" "--version=$version but the filename says $expected"
+    else
+        pass_row "$label" "--version=$version (ran as a Windows process)"
+    fi
 done
 
 echo
