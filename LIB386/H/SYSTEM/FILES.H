@@ -59,6 +59,10 @@ S32 WriteFileAtomic(const char *finalPath, const void *buffer, U32 size);
 S32 CommitFileAtomic(const char *tempPath, const char *finalPath);
 
 U32 Delete(const char *filename);
+// Set a file's modification time to now. No caller in the engine: nothing it
+// ships writes to installed game data. Kept as part of the platform seam, and
+// wanted again by any on-disk cache that needs a last-used stamp (see the CD
+// voice cache section in MESSAGE.CPP).
 S32 Touch(const char *filename);
 U32 FileSize(const char *filename);
 

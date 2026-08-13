@@ -467,6 +467,55 @@ CDROM PART
 #endif
 #ifdef CDROM
     /*-------------------------------------------------------------------------*/
+    /* The CD to hard-disk voice cache.
+
+   Built for a 1997 install: a small copy on the hard disk, the disc in the
+   drive, and voice banks pulled off the CD on demand. A bank copied to the
+   disk carried the time it was last used as its own mtime, so the oldest could
+   be unlinked when the disk filled.
+
+   Nothing reaches it now, for two independent reasons. InitDirectories is
+   called with an empty CD prefix; and GetVoicePath's no-prefix branch then
+   assigns voicePathHD a second time rather than voicePathCD, so correcting the
+   first alone changes nothing. voicePathCD stays empty either way, which makes
+   GetVoicePath(fromCD) yield a bare filename resolved against the working
+   directory rather than a disc, and TryCopyFileCD_HD stops at its zero-size
+   check before any copy begins. Anyone restoring a CD path has to settle both,
+   deliberately. A mounted disc image cannot supply that source either:
+   DiscImage_OpenRead maps only paths under the mount base, which a bare
+   filename is not. An image would want no cache regardless, being byte-range
+   reads into a local file.
+
+   Two guards keep it harmless while it sits here, and both are load-bearing.
+   ClearVoiceFile and DeleteOlderFileHD skip anything under the resource
+   directory, because InitVoiceFile registers every installed .VOX into the
+   same table the eviction picks its victim from. (On an image-only install it
+   registers nothing at all: it walks the folder with opendir, which sees the
+   filesystem and not the image.) Without those guards the only bound on the
+   eviction loop is GetHDFreeSize returning a constant, and that function
+   carries a FIXME asking for a real implementation.
+
+   Reviving this for a physical drive is worth doing if the hardware is ever
+   supported: a real disc is slow enough to need a cache where an image is not.
+   Three things have to change first.
+
+     - Where it writes. It caches into the resource directory, which holds
+       installed game data and which the port otherwise only reads. A cache
+       belongs in the user directory. See the note above GetVoicePath in
+       DIRECTORIES.CPP.
+     - What it keys on. It stamps the mtime of the very file it caches, and
+       InitVoiceFile reads that mtime back as the LRU key on the next run. Both
+       halves have to move to an index the cache owns, or the order it evicts
+       in is the order entries were copied rather than last use.
+     - What bounds it. Real free space or a configured ceiling, not a stub.
+
+   The guards move with it rather than going away. Once entries live in the
+   user directory none of them is under the resource directory, so both tests
+   fall inert on cache entries while still protecting installed data.
+
+   The presentation in CopyFileCD_HD, the fade, the copy screen and TimeBar, is
+   the original and is the part a revival would want kept as it stands. */
+    /*-------------------------------------------------------------------------*/
     //      Pour prendre en compte les eventuels fichiers déjà sur HD
     void
     InitVoiceFile() {
@@ -479,12 +528,21 @@ CDROM PART
     dir = opendir(filesDir);
     if (dir != NULL) {
         while ((file = readdir(dir)) != NULL) {
-            if (ade_strcasestr(file->d_name, ".VOX") != NULL) {
+            /* The extension ends the name; it does not merely appear in it.
+               A substring test also takes EN_001.VOX.bak and anything else
+               someone left beside the banks, and each one costs a slot in a
+               table sized for the banks a release ships. */
+            const size_t nameLen = strlen(file->d_name);
+            const size_t extLen = strlen(EXT_VOX);
+            if ((nameLen > extLen) &&
+                (strcasecmp(file->d_name + nameLen - extLen, EXT_VOX) == 0)) {
                 GetVoicePath(pathname, ADELINE_MAX_PATH, file->d_name);
 
+                /* A failed stat leaves fileInfo untouched, so the mode and the
+                   size below would be whatever the stack held. Dangling
+                   symlinks and races with deletion both land here. */
                 struct stat fileInfo;
-                stat(pathname, &fileInfo);
-                if (S_ISREG(fileInfo.st_mode)) {
+                if ((stat(pathname, &fileInfo) == 0) && S_ISREG(fileInfo.st_mode)) {
                     AddFileNameOnHD(pathname, fileInfo.st_size, fileInfo.st_mtime);
                 }
             }
@@ -571,6 +629,16 @@ void AddFileNameOnHD(char *filename, U32 size, U32 timer) {
             break;
     }
 
+    /* Updating an existing entry always has a slot. Adding one needs a free
+       slot, and the table holds what a release ships, so a folder with more
+       banks than that is not a case to grow for. Drop the extra rather than
+       write past the end and into the globals that follow. */
+    if ((i == NbFileOnHD) && (NbFileOnHD >= MAX_FILE_VOICE)) {
+        Log_Warn("Voice file table full (%d entries), ignoring '%s'",
+                 MAX_FILE_VOICE, filename);
+        return;
+    }
+
     strcpy(pt->NameHD, filename); //     Eventuelle recopie...
     pt->SaveTimer = timer;
     pt->SizeFileHD = size;
@@ -589,13 +657,27 @@ void DeleteOlderFileHD() {
     min = 0xFFFFFFFFL; //     le plus récent, non?
 
     pt = TabFileOnHD;
+    pt1 = NULL;
 
     for (i = 0; i < NbFileOnHD; i++, pt++) {
+        /* Installed game data is never a cache entry, so it is never a
+           candidate for eviction. The same invariant ClearVoiceFile holds,
+           applied to the other delete site: InitVoiceFile registers every .VOX
+           under the resource directory into this table, so without the test
+           the oldest entry chosen here is one of the player's own files. */
+        if (Directories_IsUnderResDir(pt->NameHD))
+            continue;
         if (pt->SaveTimer <= min) {
             min = pt->SaveTimer;
             pt1 = pt;
         }
     }
+
+    /* Nothing evictable, which is the normal case on an install whose voices
+       all came with it. Leave the table alone; the caller re-reads the free
+       space, sees it unchanged and gives up. */
+    if (pt1 == NULL)
+        return;
 
     if (FileSize(pt1->NameHD)) //  cf Del upper
     {
@@ -609,9 +691,15 @@ void DeleteOlderFileHD() {
     if (NbFileOnHD) {
         pt--; //     back to last Entry
 
-        strcpy(pt1->NameHD, pt->NameHD); // copy Last -> Current
-        pt1->SaveTimer = pt->SaveTimer;
-        pt1->SizeFileHD = pt->SizeFileHD;
+        /* The freed slot is filled from the end of the table. When the victim
+           was the last entry there is nothing to move, and the copy would be a
+           strcpy onto itself, which is undefined and which the sanitizers
+           abort on. */
+        if (pt1 != pt) {
+            strcpy(pt1->NameHD, pt->NameHD); // copy Last -> Current
+            pt1->SaveTimer = pt->SaveTimer;
+            pt1->SizeFileHD = pt->SizeFileHD;
+        }
     }
 }
 /*-------------------------------------------------------------------------*/
@@ -851,11 +939,10 @@ void InitSpeak(S32 file) {
 
     if (size) //      Already on HD
     {
+        /* The stamp is in-memory only. Reading a bank never writes to the
+           directory it came from, so installed game data is untouched by
+           playback. See the section header above. */
         AddFileNameOnHD(filehd, size, time(NULL)); // Maj Timer
-
-#ifdef ONE_GAME_DIRECTORY //      Uniquement en version HD
-        Touch(filehd);
-#endif
 
         InitFileNar(filehd, FROM_HD);
         return;
