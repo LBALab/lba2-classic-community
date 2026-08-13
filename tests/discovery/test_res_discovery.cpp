@@ -800,6 +800,79 @@ static bool test_user_dir_precedence() {
     return bad == 0;
 }
 
+/* A marker beside the binary makes a tree self-contained. An empty file is the
+ * whole feature, so the only questions are whether one is there and what folder
+ * it names. */
+static bool test_portable_marker() {
+    char out[ADELINE_MAX_PATH];
+    int bad = 0;
+
+#ifndef _WIN32
+    char dir[] = "/tmp/lba2port_XXXXXX";
+    if (mkdtemp(dir) == NULL) {
+        return false;
+    }
+#else
+    char dir[512];
+    if (!make_temp_dir(dir, sizeof(dir), "port")) {
+        return false;
+    }
+#endif
+
+    /* No marker: the caller falls back to the per-user path. */
+    strcpy(out, "untouched");
+    if (Directories_PortableUserDir(out, ADELINE_MAX_PATH, dir) ||
+        strcmp(out, "untouched") != 0) {
+        printf("FAIL portable: an unmarked tree should resolve nothing\n");
+        bad++;
+    }
+
+    /* A directory of that name is somebody's folder, not a marker. */
+    char markerDir[ADELINE_MAX_PATH];
+    snprintf(markerDir, sizeof markerDir, "%s/%s", dir, ADELINE_PORTABLE_MARKER);
+    if (mkdir_portable(markerDir) == 0) {
+        if (Directories_PortableUserDir(out, ADELINE_MAX_PATH, dir)) {
+            printf("FAIL portable: a directory named %s counted as a marker\n",
+                   ADELINE_PORTABLE_MARKER);
+            bad++;
+        }
+        rmdir_portable(markerDir);
+    }
+
+    /* An empty file is enough, and names <baseDir>/User[-Demo]/. */
+    FILE *f = fopen(markerDir, "wb");
+    if (f != NULL) {
+        fclose(f);
+        char want[ADELINE_MAX_PATH];
+        snprintf(want, sizeof want, "%s%c%s%c", dir, ADELINE_PATH_SEP_CHAR,
+                 ADELINE_PORTABLE_DIR, ADELINE_PATH_SEP_CHAR);
+        if (!Directories_PortableUserDir(out, ADELINE_MAX_PATH, dir) ||
+            strcmp(out, want) != 0) {
+            printf("FAIL portable: marked tree resolved '%s', wanted '%s'\n", out, want);
+            bad++;
+        }
+        /* A base path already carrying its separator resolves the same. */
+        char withSep[ADELINE_MAX_PATH];
+        snprintf(withSep, sizeof withSep, "%s%c", dir, ADELINE_PATH_SEP_CHAR);
+        if (!Directories_PortableUserDir(out, ADELINE_MAX_PATH, withSep) ||
+            strcmp(out, want) != 0) {
+            printf("FAIL portable: a trailing separator changed the answer\n");
+            bad++;
+        }
+        unlink_portable(markerDir);
+    }
+
+    /* Nothing to sit beside. */
+    if (Directories_PortableUserDir(out, ADELINE_MAX_PATH, NULL) ||
+        Directories_PortableUserDir(out, ADELINE_MAX_PATH, "")) {
+        printf("FAIL portable: an empty base path should resolve nothing\n");
+        bad++;
+    }
+
+    rmdir_portable(dir);
+    return bad == 0;
+}
+
 /* A profile is a directory inside the user directory, so its name must not be
  * able to name anything outside it. Rejection happens before the run resolves
  * any path, because a name that escaped would put the saves somewhere nobody
@@ -1612,6 +1685,9 @@ int main() {
         failed++;
     }
     if (!test_sibling_scan_is_not_user_input()) {
+        failed++;
+    }
+    if (!test_portable_marker()) {
         failed++;
     }
     if (!test_persisted_last_game_dir()) {

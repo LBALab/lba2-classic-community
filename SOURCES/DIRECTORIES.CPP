@@ -394,6 +394,40 @@ bool Directories_ResolveUserDir(char *outDir, U16 outMax,
     return true;
 }
 
+bool Directories_PortableUserDir(char *outDir, U16 outMax, const char *baseDir) {
+    assert((outDir != NULL) && (outMax > 0));
+
+    if ((baseDir == NULL) || (baseDir[0] == '\0')) {
+        return false;
+    }
+
+    char root[ADELINE_MAX_PATH];
+    if (!Directories_ResolveUserDir(root, ADELINE_MAX_PATH, baseDir, NULL)) {
+        return false; // too long to hold a separator, so nothing sits beside it
+    }
+
+    /* Case-probed like every other name the engine looks for, so a marker made
+       on Windows is still a marker here. A directory of that name is not one:
+       it would be a folder somebody made, not a file they wrote. */
+    char marker[ADELINE_MAX_PATH];
+    if (!Discover(marker, ADELINE_MAX_PATH, root, ADELINE_PORTABLE_MARKER)) {
+        return false;
+    }
+    char markerPath[ADELINE_MAX_PATH];
+    if (snprintf(markerPath, ADELINE_MAX_PATH, "%s%s", root, marker) >= ADELINE_MAX_PATH) {
+        return false;
+    }
+    if (IsDirectory(markerPath)) {
+        return false;
+    }
+
+    if (snprintf(outDir, outMax, "%s%s%s", root, ADELINE_PORTABLE_DIR,
+                 ADELINE_PATH_SEP) >= (int)outMax) {
+        return false;
+    }
+    return true;
+}
+
 void GetDefaultUserDir(char *outDir) {
     static bool initialized = false;
     static char userDir[ADELINE_MAX_PATH] = "";
@@ -421,11 +455,21 @@ void GetDefaultUserDir(char *outDir) {
         if (!Directories_ResolveUserDir(userDir, ADELINE_MAX_PATH,
                                         directoriesUserDirOverride,
                                         getenv("LBA2_USER_DIR"))) {
-            char *sdlUserPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
-            if (sdlUserPath != NULL) {
-                strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
-                userDir[ADELINE_MAX_PATH - 1] = '\0';
-                SDL_free(sdlUserPath);
+            /* A marker beside the binary makes the tree self-contained. It sits
+               below both explicit inputs on purpose, so it changes only the
+               fallback: a file the player may have forgotten about must not
+               override something they typed.
+
+               SDL3 hands back an internal cached pointer here; do not free it. */
+            if (Directories_PortableUserDir(userDir, ADELINE_MAX_PATH, SDL_GetBasePath())) {
+                directoriesUserDirSource = ADELINE_PORTABLE_MARKER;
+            } else {
+                char *sdlUserPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
+                if (sdlUserPath != NULL) {
+                    strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
+                    userDir[ADELINE_MAX_PATH - 1] = '\0';
+                    SDL_free(sdlUserPath);
+                }
             }
         }
 

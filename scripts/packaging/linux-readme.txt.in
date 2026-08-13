@@ -62,6 +62,11 @@ Or name a profile instead of a folder, and the game picks the folder for you:
 Each profile keeps its own saves, settings and remembered install. Running
 without one writes where the game always did, so nothing you already have moves.
 
+To keep everything with the game instead, put an empty file called
+portable.txt next to the binary. Saves and settings then live in User/ beside
+it, so the whole folder can move to a USB stick and keep working. Anything you
+pass on the command line still wins over it.
+
 A profile remembers the folder you gave it, so name it once and then don't:
 
     ./@LBA2_EXECUTABLE_NAME@ --profile gog --game-dir /path/to/game

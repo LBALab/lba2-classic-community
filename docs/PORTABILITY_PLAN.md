@@ -128,7 +128,7 @@ follows.
 
 ### Layer 4: portable marker
 
-Design sketch. Not built, and the metadata question below is the open part.
+Built. The metadata question below stayed open and nothing parses the file.
 
 **The rule.** A file named `portable.txt` beside the binary makes the tree self-contained: the user
 directory becomes `User/` next to the binary instead of the per-user path SDL picks. An empty file
@@ -189,9 +189,9 @@ than growing a private parser.
 (`ADELINE_PREF_APP`), and a single `User/` beside the binary would undo that for a tree holding both
 builds, so the marker resolves per SKU exactly as the per-user path does.
 
-**Does the sweep get a row for it?** `ISOLATION` proves a run stayed out of the developer's own
-folder. A portable row would prove the converse, that a marked tree writes inside itself and nowhere
-else, which is the same assertion pointed the other way.
+**The sweep gets no row for it.** `ISOLATION` is per-install and portability is per-tree, so the two
+do not share a shape. `tests/discovery` covers the predicate instead: unmarked, marked, a directory
+wearing the marker's name, and a base path with and without its separator.
 
 ### Saves the install ships
 

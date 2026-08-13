@@ -10,6 +10,17 @@
 /// last_game_dir.txt would hand it exactly that path the moment a retail build
 /// ran first. Separate folders keep the two SKUs from pointing each other at
 /// data neither can use, and keep demo saves out of a retail profile.
+/// The marker that makes a tree self-contained, and the folder it names. An
+/// empty file beside the binary is the whole feature; its contents are reserved
+/// and nothing parses them. Each SKU takes its own folder for the same reason it
+/// takes its own per-user one.
+#define ADELINE_PORTABLE_MARKER "portable.txt"
+#ifdef DEMO
+#define ADELINE_PORTABLE_DIR "User-Demo"
+#else
+#define ADELINE_PORTABLE_DIR "User"
+#endif
+
 #define ADELINE_PREF_ORG "Twinsen"
 #ifdef DEMO
 #define ADELINE_PREF_APP "LBA2-Demo"
@@ -77,6 +88,18 @@ bool Directories_IsValidProfileName(const char *name);
 /// room left for one.
 bool Directories_ResolveUserDir(char *outDir, U16 outMax,
                                 const char *overridePath, const char *envPath);
+
+/// The user directory a portable tree writes to, given the folder the binary
+/// sits in: `<baseDir>/User/`, or `User-Demo/` for the demo build.
+///
+/// Returns false when \p baseDir names nothing, when no marker sits beside the
+/// binary, or when the composed path will not fit, leaving \p outDir untouched.
+/// A directory called portable.txt is not a marker.
+///
+/// The marker is looked for beside the binary rather than in the working
+/// directory: a shortcut, a file manager and a launcher each set a different
+/// working directory, and the one thing this file has to be is stable.
+bool Directories_PortableUserDir(char *outDir, U16 outMax, const char *baseDir);
 
 // --- Interface ---------------------------------------------------------------
 void GetCurrentRunningDir(char *outDir); ///< Path where application was run
