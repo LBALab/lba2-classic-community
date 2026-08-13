@@ -421,7 +421,11 @@ bool Directories_PortableUserDir(char *outDir, U16 outMax, const char *baseDir) 
         return false;
     }
 
-    if (snprintf(outDir, outMax, "%s%s%s", root, ADELINE_PORTABLE_DIR,
+    /* One directory per build under it, keyed the same way the per-user path is,
+       so `User/LBA2/` and `Twinsen/LBA2/` say the same thing and a tree holding
+       two builds needs no second scheme. */
+    if (snprintf(outDir, outMax, "%s%s%s%s%s", root, ADELINE_PORTABLE_DIR,
+                 ADELINE_PATH_SEP, ADELINE_PREF_APP,
                  ADELINE_PATH_SEP) >= (int)outMax) {
         return false;
     }

@@ -844,8 +844,9 @@ static bool test_portable_marker() {
     if (f != NULL) {
         fclose(f);
         char want[ADELINE_MAX_PATH];
-        snprintf(want, sizeof want, "%s%c%s%c", dir, ADELINE_PATH_SEP_CHAR,
-                 ADELINE_PORTABLE_DIR, ADELINE_PATH_SEP_CHAR);
+        snprintf(want, sizeof want, "%s%c%s%c%s%c", dir, ADELINE_PATH_SEP_CHAR,
+                 ADELINE_PORTABLE_DIR, ADELINE_PATH_SEP_CHAR, ADELINE_PREF_APP,
+                 ADELINE_PATH_SEP_CHAR);
         if (!Directories_PortableUserDir(out, ADELINE_MAX_PATH, dir) ||
             strcmp(out, want) != 0) {
             printf("FAIL portable: marked tree resolved '%s', wanted '%s'\n", out, want);

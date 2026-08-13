@@ -2,25 +2,24 @@
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
+/// The marker that makes a tree self-contained. An empty file beside the binary
+/// is the whole feature; its contents are reserved and nothing parses them.
+#define ADELINE_PORTABLE_MARKER "portable.txt"
+/// The folder it names, which then holds one directory per build, keyed the same
+/// way the per-user path is: `User/LBA2/` mirrors `Twinsen/LBA2/`. A tree holding
+/// more than one build gives each its own without a second naming scheme, which
+/// is what a second game hosted on this engine would otherwise need.
+#define ADELINE_PORTABLE_DIR "User"
+
 /// Org and app passed to SDL_GetPrefPath, so every user-writable path (saves,
-/// lba2.cfg, adeline.log, last_game_dir.txt) agrees on one folder.
+/// lba2.cfg, adeline.log, last_game_dir.txt) agrees on one folder. The app half
+/// is also the per-build directory under a portable tree's `User/`.
 ///
 /// The demo SKU takes its own. Its marker, RESS.HQR, is present in retail
 /// installs too, so a demo binary handed a retail path validates it; sharing
 /// last_game_dir.txt would hand it exactly that path the moment a retail build
 /// ran first. Separate folders keep the two SKUs from pointing each other at
 /// data neither can use, and keep demo saves out of a retail profile.
-/// The marker that makes a tree self-contained, and the folder it names. An
-/// empty file beside the binary is the whole feature; its contents are reserved
-/// and nothing parses them. Each SKU takes its own folder for the same reason it
-/// takes its own per-user one.
-#define ADELINE_PORTABLE_MARKER "portable.txt"
-#ifdef DEMO
-#define ADELINE_PORTABLE_DIR "User-Demo"
-#else
-#define ADELINE_PORTABLE_DIR "User"
-#endif
-
 #define ADELINE_PREF_ORG "Twinsen"
 #ifdef DEMO
 #define ADELINE_PREF_APP "LBA2-Demo"

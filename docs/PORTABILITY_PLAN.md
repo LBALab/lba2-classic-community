@@ -131,7 +131,8 @@ follows.
 Built. The metadata question below stayed open and nothing parses the file.
 
 **The rule.** A file named `portable.txt` beside the binary makes the tree self-contained: the user
-directory becomes `User/` next to the binary instead of the per-user path SDL picks. An empty file
+directory becomes `User/<build>/` next to the binary instead of the per-user path SDL picks, where
+`<build>` is the same token the per-user path uses, so `User/LBA2/` mirrors `Twinsen/LBA2/`. An empty file
 is the whole feature. Dolphin uses exactly this name and shape, and ScummVM does the same thing by
 looking for its ini beside the binary, so it is a convention players already recognise.
 
@@ -185,9 +186,10 @@ than growing a private parser.
 
 #### To settle before building
 
-**The demo SKU gets `User-Demo/`.** Settled. It takes its own per-user folder today
-(`ADELINE_PREF_APP`), and a single `User/` beside the binary would undo that for a tree holding both
-builds, so the marker resolves per SKU exactly as the per-user path does.
+**The demo SKU gets its own folder.** Settled, and generalised: rather than a sibling `User-Demo/`,
+the portable root holds one directory per build, `User/LBA2/` beside `User/LBA2-Demo/`. Same token,
+same shape as the per-user path, and a second game hosted on this engine is another value of it
+rather than a third naming scheme. See what a second game does to this, below.
 
 **The sweep gets no row for it.** `ISOLATION` is per-install and portability is per-tree, so the two
 do not share a shape. `tests/discovery` covers the predicate instead: unmarked, marked, a directory
@@ -225,6 +227,56 @@ one is the case that could turn up. Covering it would not need the enumeration: 
 `OpenRead`, which already falls through to a mounted image, so trying the three slot names the demo
 build already knows would find them on either medium in about ten lines. Worth doing when a demo
 image appears, and not before, since nothing attests one.
+
+### What a second game does to this
+
+LBA1 is the north star for the engine/game split, and it changes one of the two roots. Written down
+now because the cheap moment is before anyone has a portable tree.
+
+**The per-user path already handles it; the portable path did not.** `SDL_GetPrefPath("Twinsen",
+"LBA2")` puts the build in the path. `portable.txt` resolved to a flat `User/`, so a tree holding two
+builds had them share it. The portable root now mirrors the per-user one:
+
+```
+Twinsen/LBA2/          Twinsen/LBA2-Demo/          per-user
+<tree>/User/LBA2/      <tree>/User/LBA2-Demo/      portable
+```
+
+One token, `ADELINE_PREF_APP`, keys both. A second game is another value of it and needs no second
+scheme.
+
+**The ordering is the real constraint.** The user directory is resolved at
+[PERSO.CPP:3018](../SOURCES/PERSO.CPP#L3018), the log opens at 3032, and the game data is not
+discovered until 3070. So the token has to be known before anything has looked at a single asset.
+That is free while it is compile-time, and it is the fork worth deciding deliberately:
+
+- **One binary per game**, as the demo SKU already is. The constant extends, the ordering holds,
+  nothing here moves.
+- **One binary hosting either, chosen from the data.** Then the user directory cannot be resolved
+  until after discovery, and the boot log has nowhere to live in the meantime. That log was moved
+  *earlier* on purpose, so the "we cannot find your game data" diagnostics reach a file, which is
+  exactly when a persisted log matters most. Reversing that is the cost, and it is not small.
+
+**Markers do not discriminate on their own.** Comparing the banks a 1994 LBA1 install ships against
+an LBA2 one:
+
+| | Banks |
+|---|---|
+| LBA1 only | `FILE3D`, `INVOBJ`, `LBA_BLL`, `LBA_BRK`, `LBA_GRI`, `MIDI_MI`, `MIDI_SB` |
+| Shared | `ANIM`, `BODY`, **`RESS`**, `SAMPLES`, `SCENE`, `SPRITES`, `TEXT` |
+| LBA2 only | `ANIM3DS`, `HOLOMAP`, `LBA2`, `LBA_BKG`, `OBJFIX`, `SCREEN`, `SPRIRAW` |
+
+`RESS.HQR` is shared, and it is what the demo build validates on. A demo binary already accepts a
+retail LBA2 folder for that reason; an LBA1 install would be a third folder it accepts. Whatever
+marker LBA1 takes should come from its own column, `FILE3D.HQR` being the obvious one, and the demo's
+marker deserves revisiting at the same time.
+
+**LBA1 has no release identity to report.** It ships `LBA.CFG` in the same DefFile format with the
+same `Language` and `LanguageCD` keys, so the layered read carries straight over. It has no
+`DistribVersion`: the mechanism and its six constants are LBA2 additions, and `lba1-classic` carries
+only the same dead `Version_US` extern. A US and a EU pressing exist commercially with nothing in
+the config to tell them apart, so the banner's `Release` line has no answer for LBA1 and should be
+absent rather than say `unknown`, which would claim a mechanism exists.
 
 ### Layer 5: provenance at boot
 
