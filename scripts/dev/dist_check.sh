@@ -63,9 +63,12 @@ hash_png() { # hash_png <png>
     python3 "$ROOT/scripts/dev/png_hash.py" "$1" 2>/dev/null
 }
 
-# The release each run believes it is, read back from the `distrib` command.
+# The release each run believes it is, read off the boot banner. The `distrib`
+# console command reports the same value, but the banner needs no command, so
+# any run in this file can be asked rather than only the one built to ask.
 distrib_of() { # distrib_of <log>
-    grep -oE 'Current: [0-9] \([a-z_]+\)' "$1" | head -1 | sed 's/Current: //'
+    grep -oE 'Release +[0-9]+ \([a-z_]+\)' "$1" | head -1 |
+        sed -E 's/Release +//'
 }
 
 # What an install declares, read straight off its config without asking the
@@ -163,7 +166,7 @@ while IFS= read -r entry; do
 
     # One boot: identity, mount, preflight, and the music decisions.
     run "$prof" "$dir" \
-        --exec "audio global log 1; distrib; disc" \
+        --exec "audio global log 1; disc" \
         --exec-at 3 "playmusic 1" --exec-at 6 "playmusic 5" --exec-at 9 "playmusic 6" \
         --tick 12 --exit > "$log"
 
