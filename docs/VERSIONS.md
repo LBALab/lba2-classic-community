@@ -33,11 +33,16 @@ Two things about that line carry most of the story.
 The config key is `Version`, the global is `DistribVersion`. The key name says nothing about what it
 holds, which is why an install assembled by hand tends to lose it silently.
 
-Nothing detects the release. There is no asset fingerprint, no executable check, no probe of the
-CD volume label. The engine believes whatever the config file says, and if the key is absent it
-believes `UNKNOWN_VERSION`. The value flows in one direction only: installer writes it, engine reads
-it. `WriteConfigFile` never writes `Version` back, so in the original the game cannot change its own
-release identity.
+A declaration always wins. That is the original contract, and it holds whatever the assets turn out
+to be: the installer states the release, `WriteConfigFile` never writes `Version` back, and the game
+cannot change its own release identity. What the port adds is a measurement beside it, so a
+declaration that contradicts its own data is reported instead of silently drawing one publisher's
+sprites over another's. See [Reading it off the data](#reading-it-off-the-data-instead).
+
+With the key absent the value is `UNKNOWN_VERSION` unless the data measures as the American master,
+in which case it is the American arm. Nothing else about an undeclared install changes: `0` already
+behaves as `EA` everywhere except the splash, so recognising a re-release alters nothing about how it
+runs, and a value that came from the assets never brings a publisher splash with it.
 
 The compiled-in default at [GLOBAL.CPP:21](../SOURCES/GLOBAL.CPP#L21) is `ACTIVISION_VERSION`, but
 `ReadConfigFile` always overwrites it, so it only applies before the config is read.
@@ -218,6 +223,37 @@ labels on those two masters, so a Virgin disc is Twinsen's Odyssey and the tool 
 A declaration that agrees about the master is taken as naming the publisher, which the measurement
 cannot reach. One that disagrees is reported as a conflict: it means either the rules are wrong or
 the install was assembled from two sources.
+
+### What the engine does with it
+
+The same measurement, on one `RESS.HQR` and one `FileSize`, which goes through `OpenRead` and so
+sizes a bank inside a mounted disc image from its directory record without reading it. The rules live
+in [DISTRIB.CPP](../SOURCES/DISTRIB.CPP) and are pinned by
+[tests/distrib](../tests/distrib/test_distrib_resolve.cpp):
+
+| Config | Release identity | Splash |
+|---|---|---|
+| declares a `Version` | as declared | shown |
+| declares nothing, data is LBA2 | `0` | none |
+| declares nothing, data is Twinsen's Odyssey | `1` | none |
+| declares nothing, data unrecognised | `0` | none |
+
+`ShowDistribLogo` overrides the splash in either direction and is never written back, so the default
+keeps deriving from whether a release was declared rather than freezing one install's answer into a
+profile.
+
+The boot line reports both halves, operative value first:
+
+```
+Release    default (0), data is LBA2
+Release    activision (1) from the config, data agrees
+Release    activision (1) from the data
+Release    ea (3) from the config, data is Twinsen's Odyssey
+```
+
+The last is the case nothing else catches. A size is a weak hash and the sample behind the table is
+small, so a tree matching no entry reads as unrecognised and keeps the behaviour it would have had
+anyway.
 
 ## Version_US
 

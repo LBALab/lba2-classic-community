@@ -156,23 +156,30 @@ which is the case with no coverage today and the one the plan exists for.
 The measurement in this document was made that way and is reproducible: extract a pressing to a
 folder, capture the attract frame with a pinned clock, remove the config, capture again.
 
-## Sequencing
+## What is built
 
-1. Read `RESS.HQR`'s size at boot, map it to a master through a table, report it on the release line.
-   Nothing behavioural. Lands the fingerprint, the table and the unrecognised path with a visible
-   result and no risk.
-2. Split the splash decision out of `DistribVersion` and default it from declaredness. Still no
-   behaviour change, because every case reproduces what happens today.
-3. Let a detected master answer the five behavioural sites when nothing declared one. This is the
-   only step that changes what anyone sees, and only for a tree that ships American data with no
-   config.
-4. Resolve `Version_US`, one way or the other.
+Steps one to three of the design above, in [DISTRIB.CPP](../SOURCES/DISTRIB.CPP) with the boot-time
+measurement in `ReadConfigFile` and the splash gate in `DistribLogo`. The rules are pinned by
+[tests/distrib](../tests/distrib/test_distrib_resolve.cpp), which needs no assets and runs in CI, and
+by [test_release_detection.sh](../tests/automation/test_release_detection.sh), which needs an install
+and checks that the measurement happens at all, reaches inside a mounted disc image, and is compared
+against a declaration rather than standing in for one.
+
+`scripts/dev/dist_check.sh` gains a `DATA` column beside `DISTRIB` and a sixth assertion, `MASTER`,
+so an install whose assets contradict its own config fails the sweep instead of being a line in a
+log. [VERSIONS.md](VERSIONS.md#reading-it-off-the-data-instead) is the reference; this document is
+the reasoning behind it.
+
+## Left out
+
+`Version_US`, which is dead rather than wrong, and removing a config read is its own change with its
+own blast radius.
 
 ## Open decisions
 
 - Whether the detected master should also be allowed to answer for a tree whose declaration is
   present but unparseable, which is neither declared nor undeclared.
-- Whether the splash switch is a config key, a CLI flag, or both. A key is what an installer or a
-  packager can set; a flag is what a player can try once.
+- Whether the splash switch wants a CLI flag beside the config key. A key is what an installer or a
+  packager sets; a flag is what a player tries once.
 - Whether an unrecognised tree is worth saying anything about on the release line at all, or whether
   it should read the same as no data at all so the line stays quiet in the ordinary case.
