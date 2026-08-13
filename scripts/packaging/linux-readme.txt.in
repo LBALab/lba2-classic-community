@@ -72,6 +72,10 @@ A profile remembers the folder you gave it, so name it once and then don't:
     ./@LBA2_EXECUTABLE_NAME@ --profile gog --game-dir /path/to/game
     ./@LBA2_EXECUTABLE_NAME@ --profile gog
 
+LBA2_PROFILE=gog does the same, for a shortcut or launcher that sets the
+environment rather than passing flags. On a desktop shortcut, adding
+--profile gog to the command is usually the easier of the two.
+
 
 RUNNING
 -------

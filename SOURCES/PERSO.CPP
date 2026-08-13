@@ -2935,6 +2935,22 @@ static void parse_save_load_test_flag(int *argc, char *argv[]) {
     *argc = write;
 }
 
+/* Take a profile name from wherever it came, or refuse it by name. Checked
+   before any path is resolved: an unusable name means the run would write
+   somewhere other than asked, and there is no log yet to explain it. */
+static bool ProfileNameOrExit(const char *name, const char *source) {
+    if (Directories_IsValidProfileName(name)) {
+        Directories_SetProfileOverride(name);
+        return true;
+    }
+    fprintf(stderr,
+            "error: %s names '%s', which is not a usable profile name\n\n"
+            "A profile is a folder inside your saves folder, so the name cannot\n"
+            "contain '/' or '\\', cannot step up with '..', and cannot be empty.\n",
+            source, name);
+    return false;
+}
+
 int main(int argc, char *argv[]) {
     /* --version: print resolved engine version (from VERSION file at the
      * repo root, optionally suffixed with -dirty) and exit. Handled before
@@ -3002,6 +3018,7 @@ int main(int argc, char *argv[]) {
            A profile name is checked here rather than left to fail later: an
            unusable one means the run would write somewhere other than asked,
            and there is no log yet to explain it. */
+        bool profileNamed = false;
         for (int i = 1; i < argc;) {
             const int arity = Cli_FlagArity(argv[i]);
             if (arity < 0) { /* not a flag we know: a value, or a positional */
@@ -3015,17 +3032,23 @@ int main(int argc, char *argv[]) {
             if (!strcmp(argv[i], "--user-dir"))
                 Directories_SetUserDirOverride(argv[i + 1]);
             if (!strcmp(argv[i], "--profile")) {
-                if (!Directories_IsValidProfileName(argv[i + 1])) {
-                    fprintf(stderr,
-                            "error: '%s' is not a usable profile name\n\n"
-                            "A profile is a folder inside your saves folder, so the name cannot\n"
-                            "contain '/' or '\\', cannot step up with '..', and cannot be empty.\n",
-                            argv[i + 1]);
+                if (!ProfileNameOrExit(argv[i + 1], "--profile"))
                     return 2;
-                }
-                Directories_SetProfileOverride(argv[i + 1]);
+                profileNamed = true;
             }
             i += 1 + arity;
+        }
+
+        /* LBA2_PROFILE, for the launcher or shortcut that cannot pass a flag.
+           Below --profile, matching LBA2_USER_DIR under --user-dir and
+           LBA2_GAME_DIR under --game-dir: the environment sets the habit, the
+           command line settles the run. */
+        if (!profileNamed) {
+            const char *envProfile = getenv("LBA2_PROFILE");
+            if ((envProfile != NULL) && (envProfile[0] != '\0') &&
+                !ProfileNameOrExit(envProfile, "LBA2_PROFILE")) {
+                return 2;
+            }
         }
 
         GetDefaultUserDir(userFolderPath);

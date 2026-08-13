@@ -51,7 +51,8 @@ static const T_CLI_FLAG CliFlags[] = {
                                            "apart, or to run against a fresh folder"},
     {"--profile", 1, 0, 1, NULL, "<name>", "keep this run's saves and settings under a name of\n"
                                            "their own, so several installs don't share them.\n"
-                                           "Created on first use; no name means the usual folder"},
+                                           "LBA2_PROFILE does the same. No name means the\n"
+                                           "usual folder"},
     {"--disc", 1, 1, 0, NULL, "<file>", "mount this disc image instead of picking one\n"
                                         "from the game folder. Takes an image or a cue\n"
                                         "(the cue names its image). Use it when a folder\n"

@@ -60,6 +60,8 @@ void Directories_SetUserDirOverride(const char *path);
 /// says which profile inside it. The default profile is the root itself, so a
 /// run that names none writes where it always did.
 ///
+/// Set from --profile, or from LBA2_PROFILE when no flag names one.
+///
 /// Same timing rule as the override: call before the first GetDefaultUserDir.
 void Directories_SetProfileOverride(const char *name);
 

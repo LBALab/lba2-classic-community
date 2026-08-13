@@ -68,7 +68,7 @@ The persisted path lives at `<SDL_GetPrefPath("Twinsen", "LBA2")>/last_game_dir.
 `--user-dir <dir>` (or `LBA2_USER_DIR`) moves that whole folder, the remembered path included, so
 two installs can each keep their own. The folder is created if it is not there.
 
-`--profile <name>` does the same thing without naming a folder: everything moves to
+`--profile <name>` (or `LBA2_PROFILE`) does the same thing without naming a folder: everything moves to
 `profiles/<name>/` inside the user folder, so `--profile gog` and `--profile ea-cd` keep their saves,
 settings and remembered install apart. Naming no profile writes where the game always did, so
 nothing existing moves. The two compose: `--user-dir` says where the root is, `--profile` says which
