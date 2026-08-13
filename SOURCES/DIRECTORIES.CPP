@@ -2,6 +2,7 @@
 
 #include <SYSTEM/ADELINE.H>
 #include <SYSTEM/DISCIMG.H>
+#include <SYSTEM/FILECOPY.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>
 #include <SYSTEM/LOG.H>
@@ -9,6 +10,8 @@
 
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
+
+#include <dirent.h>
 
 #include <assert.h>
 #include <stdlib.h>
@@ -490,6 +493,68 @@ void GetSavePath(char *outPath, U16 pathMaxSize, const char *saveFilename) {
     }
 
     DiscoverEndingAndAppend(outPath, pathMaxSize, savePath, saveFilename);
+}
+
+/* Saves the install ships, handed to a profile the first time it is used.
+   `<gameDir>/SAVE/` is where the DOS engine wrote, so every install has the
+   folder; retail ones leave it empty, and the 1997 demo fills it with the three
+   sections its fixed slots are meant to load. Nothing looked there, so those
+   three were unreachable: the slots resolved to files that did not exist.
+
+   Copied rather than read in place, because these are slots the player saves
+   back into, and the install may be a mounted image or read-only media.
+
+   Once, keyed on the save folder not existing yet, which is the only moment a
+   profile has never been used. Seeding on a missing file instead would raise
+   saves the player had deleted, every launch. */
+void Directories_SeedSavesFromGameData(void) {
+    assert(directoriesInitialized);
+
+    char destDir[ADELINE_MAX_PATH];
+    GetSavePath(destDir, ADELINE_MAX_PATH, NULL);
+    if (ExistsFileOrDir(destDir)) {
+        return; // this profile has been used before
+    }
+
+    char srcDir[ADELINE_MAX_PATH];
+    DiscoverEndingAndAppend(srcDir, ADELINE_MAX_PATH, directoriesResDir, DIR_NAME_SAVE);
+    DIR *dirp = opendir(srcDir);
+    if (dirp == NULL) {
+        return; // nothing shipped, which is the ordinary case
+    }
+
+    S32 copied = 0;
+    struct dirent *entry;
+    while ((entry = readdir(dirp)) != NULL) {
+        const char *name = entry->d_name;
+        const size_t len = strlen(name);
+        /* Top-level saves only. The SHOOT/ beside them holds screenshots the
+           engine generates, and a directory is not a save. */
+        if (len < 5 || SDL_strcasecmp(name + len - 4, ".lba") != 0) {
+            continue;
+        }
+
+        char srcPath[ADELINE_MAX_PATH];
+        char destPath[ADELINE_MAX_PATH];
+        if (snprintf(srcPath, ADELINE_MAX_PATH, "%s%s", srcDir, name) >= ADELINE_MAX_PATH ||
+            snprintf(destPath, ADELINE_MAX_PATH, "%s%s", destDir, name) >= ADELINE_MAX_PATH) {
+            continue;
+        }
+        if (!ExistsOnFilesystem(srcPath)) {
+            continue; // a directory ending in .lba, or a stale entry
+        }
+        if (copied == 0 && !SDL_CreateDirectory(destDir)) {
+            break; // nowhere to put them; the boot reports the folder elsewhere
+        }
+        if (Copy(srcPath, destPath)) {
+            copied++;
+        }
+    }
+    closedir(dirp);
+
+    if (copied > 0) {
+        Log_Info("Saves      %d shipped with the game data, copied in", copied);
+    }
 }
 
 void GetShootPath(char *outPath, U16 pathMaxSize, const char *shootFilename) {

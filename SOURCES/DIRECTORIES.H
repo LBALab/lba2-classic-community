@@ -107,6 +107,12 @@ void GetDefaultCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename);
 
 void GetCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename);
 void GetSavePath(char *outPath, U16 pathMaxSize, const char *saveFilename);
+
+/// Copy any saves the install ships into this profile's save folder, once,
+/// the first time the profile is used. A retail install ships none and this
+/// does nothing; the 1997 demo ships the three its fixed slots load.
+/// Call before anything creates the save folder.
+void Directories_SeedSavesFromGameData(void);
 void GetShootPath(char *outPath, U16 pathMaxSize, const char *shootFilename);
 void GetBugPath(char *outPath, U16 pathMaxSize, const char *bugFilename);
 void GetJinglePath(char *outPath, U16 pathMaxSize, const char *jingleFilename);

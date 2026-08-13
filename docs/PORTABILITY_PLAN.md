@@ -185,14 +185,36 @@ than growing a private parser.
 
 #### To settle before building
 
-**Does the demo SKU share `User/`?** It takes its own per-user folder today
-(`ADELINE_PREF_APP`), which a single `User/` beside the binary would undo for a tree holding both
-builds. Either the marker resolves to `User/` and `User-Demo/`, or a portable tree is one SKU by
-definition and the collision is not worth guarding.
+**The demo SKU gets `User-Demo/`.** Settled. It takes its own per-user folder today
+(`ADELINE_PREF_APP`), and a single `User/` beside the binary would undo that for a tree holding both
+builds, so the marker resolves per SKU exactly as the per-user path does.
 
 **Does the sweep get a row for it?** `ISOLATION` proves a run stayed out of the developer's own
 folder. A portable row would prove the converse, that a marked tree writes inside itself and nowhere
 else, which is the same assertion pointed the other way.
+
+### Saves the install ships
+
+`<gameDir>/SAVE/` is where the DOS engine wrote, so every install has the folder. Retail ones leave
+it empty. The 1997 demo fills it with `DEMO0`, `DEMO1` and `DEMO2`, the three sections its fixed save
+slots are built to load, plus a `CURRENT`.
+
+Nothing looked there. `SetDemoSaveGame` builds its path through `GetSavePath`, which resolves under
+the user directory, so on any profile the three slots pointed at files that did not exist and the
+demo's sections were unreachable. True in every mode, not only a portable one.
+
+A profile is now handed those saves the first time it is used. Copied rather than read in place,
+because they are slots the player saves back into and the install may be a mounted image or
+read-only media. Keyed on the save folder not existing yet, which is the only moment a profile has
+never been used: seeding on a missing file instead would raise saves the player had deleted, on
+every launch.
+
+The rule is general and the demo is simply the case with something to copy. A retail install ships
+an empty folder, so it is a silent no-op there.
+
+Not covered: an install whose saves exist only inside a disc image. Reading them would mean
+enumerating a directory through the image reader rather than the filesystem, and no distribution
+ships one that way.
 
 ### Layer 5: provenance at boot
 

@@ -3237,6 +3237,10 @@ int main(int argc, char *argv[]) {
     }
 
 #ifdef ONE_GAME_DIRECTORY
+    /* Before CreateLbaDirectories, which creates the save folder: its absence is
+       what says this profile has never been used. */
+    Directories_SeedSavesFromGameData();
+
     CreateLbaDirectories();
 #endif
 
