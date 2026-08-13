@@ -1,6 +1,7 @@
 #include "C_EXTERN.H"
 #include "CONFIG.H"
 #include "DIRECTORIES.H"
+#include "DISTRIB.H"
 #include "INPUT.H"
 #include "JOYSTICK.H"
 #include "PERSO.H" /* WriteConfigFile (persist on resolution change) */
@@ -4869,9 +4870,19 @@ S32 ShowLogo(S32 numscr, S32 nsec) {
 
 void DistribLogo(void) {
 #ifdef DEMO
-    // Bumper 3 Distributeurs
+    /* Bumper 3 Distributeurs. Not gated on Distrib_ShowSplash: the demo's
+       bumper is part of its own presentation and owes nothing to
+       DistribVersion, and the splash default is off for anything that declares
+       no release, which is every demo tree. */
     ShowLogo(3 * 2, 5);
 #else
+    /* Which publisher a release was licensed to show is not a fact about its
+       assets, so a value the data supplied does not get to put a logo in front
+       of anyone. Distrib_Resolve decides; see DISTRIB.H. */
+    if (!Distrib_ShowSplash()) {
+        return;
+    }
+
     // depend de la version
     switch (DistribVersion) {
     case ACTIVISION_VERSION:

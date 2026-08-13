@@ -8,6 +8,7 @@ extern S32 GfxDitherShading;
 #include "INITADEL.H"
 #include "DIRECTORIES.H"
 #include "DISTRIB.H"
+#include "HQR_NAMES.H"
 #include "RES_DISCOVERY.H"
 #include "RES_PICKER.H"
 #include "INPUT.H"
@@ -2450,14 +2451,33 @@ void ReadConfigFile(void) {
        ships no key at all, which is ordinary, while a written 0 is somebody
        choosing no publisher. */
     {
-        S32 declaredVersion;
-        if (DefFileBufferReadValue2("Version", &declaredVersion)) {
-            DistribVersion = declaredVersion;
-            Distrib_SetDeclared(true);
-        } else {
-            DistribVersion = UNKNOWN_VERSION;
-            Distrib_SetDeclared(false);
+        S32 declaredVersion = UNKNOWN_VERSION;
+        const bool declared = (DefFileBufferReadValue2("Version", &declaredVersion) != 0);
+        Distrib_SetDeclared(declared);
+
+        /* What the assets say, independently of what anyone wrote down. One
+           FileSize, and no read: it goes through OpenRead, so a bank inside a
+           mounted disc image is sized from its directory record exactly as a
+           loose file is sized with lseek. */
+        char ressPath[ADELINE_MAX_PATH];
+        GetResPath(ressPath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+        Distrib_SetMaster(Distrib_MasterFromRessSize(FileSize(ressPath)));
+
+        bool showSplash = false;
+        Distrib_Resolve(declared, declaredVersion, Distrib_GetMaster(), &DistribVersion,
+                        &showSplash);
+
+        /* Last say to the config, in either direction. A tree assembled by hand
+           can ask for the splash its declaration implies to be left off, and a
+           release that ships no config can ask for one. Read only, never
+           written: the default is derived from whether a release was declared,
+           and storing it would freeze one install's answer into a profile that
+           may be pointed at another tomorrow. */
+        S32 splashChoice;
+        if (DefFileBufferReadValue2("ShowDistribLogo", &splashChoice)) {
+            showSplash = (splashChoice != 0);
         }
+        Distrib_SetShowSplash(showSplash);
     }
 
     FlagMenuMouse = DefFileBufferReadValueDefault("MenuMouse", TRUE);
@@ -3340,11 +3360,37 @@ int main(int argc, char *argv[]) {
        The observed half, what the data itself looks like, needs a fingerprint
        and arrives with the release-detection work; until then the line ends
        after the source. */
-    if (Distrib_WasDeclared()) {
-        Log_Info("Release    %s (%d) from the config", Distrib_Name(DistribVersion),
-                 (int)DistribVersion);
-    } else {
-        Log_Info("Release    default (%d)", (int)DistribVersion);
+    {
+        const T_DATA_MASTER master = Distrib_GetMaster();
+        const char *dataName = Distrib_MasterName(master);
+
+        if (Distrib_WasDeclared()) {
+            /* The two halves compared on the one axis they share. A declaration
+               naming a publisher the data cannot see still agrees, as long as
+               both land on the same master. */
+            if (master == DATA_MASTER_UNRECOGNISED) {
+                Log_Info("Release    %s (%d) from the config", Distrib_Name(DistribVersion),
+                         (int)DistribVersion);
+            } else if (master == Distrib_MasterForVersion(DistribVersion)) {
+                Log_Info("Release    %s (%d) from the config, data agrees",
+                         Distrib_Name(DistribVersion), (int)DistribVersion);
+            } else {
+                /* The case nothing catches otherwise: one publisher's splash
+                   and panel sprite drawn over another's data, exiting 0. */
+                Log_Info("Release    %s (%d) from the config, data is %s",
+                         Distrib_Name(DistribVersion), (int)DistribVersion, dataName);
+            }
+        } else if (DistribVersion != UNKNOWN_VERSION) {
+            Log_Info("Release    %s (%d) from the data", Distrib_Name(DistribVersion),
+                     (int)DistribVersion);
+        } else if (master != DATA_MASTER_UNRECOGNISED) {
+            /* Operative value first, observation second. Nothing was declared
+               and nothing needs to be: this is the wanted state for a
+               re-release, not a gap in it. */
+            Log_Info("Release    default (%d), data is %s", (int)DistribVersion, dataName);
+        } else {
+            Log_Info("Release    default (%d)", (int)DistribVersion);
+        }
     }
 
     /* "Ready" counts engine subsystems coming up (InitAdeline: SDL, audio,
