@@ -21,9 +21,11 @@ This is the one probe that boots an install nobody named: it enumerates the pare
 | Command line | `./lba2cc --game-dir /path/to/game` or `--data-dir` (alias) |
 | Environment | `export LBA2_GAME_DIR=/path/to/game` |
 | Persisted choice | `last_game_dir.txt` in the user-prefs folder, written automatically the first time you pick a folder via the launch dialog (see [First-launch folder picker](#first-launch-folder-picker) below) |
-| Discovery | See [SOURCES/RES_DISCOVERY.CPP](../SOURCES/RES_DISCOVERY.CPP): SDL binary directory and a `Common/` under it, current working directory and a `Common/` under it, parents of cwd, `./data`, `../LBA2`, `../game`, sibling scan of parent-of-cwd |
+| Discovery | See [SOURCES/RES_DISCOVERY.CPP](../SOURCES/RES_DISCOVERY.CPP): the folder an AppImage was launched from and a `Common/` under it, SDL binary directory and a `Common/` under it, current working directory and a `Common/` under it, parents of cwd, `./data`, `../LBA2`, `../game`, sibling scan of parent-of-cwd |
 
 Every root the engine probes also tries a `Common/` inside it, because that is where a retail install keeps the HQRs. So `--game-dir` and `LBA2_GAME_DIR` work pointed at either the install root or the data folder, and running the binary from inside an install root finds the data without any flag.
+
+**The AppImage build looks in the folder you put the `.AppImage` file in.** It runs from a read-only mount under `/tmp`, so the binary's own directory is never the install; the file's location is taken from `$APPIMAGE`, which the AppImage runtime sets. Dropping the AppImage into your game folder is therefore enough, however you launch it. The variable is only believed when the running executable is inside the matching `$APPDIR` mount, because the AppImage runtime exports it to every child process and an ordinary build launched from an AppImage terminal would otherwise inherit a path to an unrelated application.
 
 **Naming a path that holds no game data stops the run.** Neither override falls through to the probes below it: an override that names the wrong place is a mistake, and continuing would boot whatever discovery turns up next. That is a launch against assets nobody asked for, reported only by the `Assets:` line and still exiting 0. You get the picker instead (or a clean error when headless).
 
@@ -38,7 +40,7 @@ Assets: /home/user/GOG/tlba2-classic/Common/  (--game-dir, Common/)
 Assets: /home/user/LBA2-GOG/                  (sibling scan)
 ```
 
-The probes run silently and in priority order, so without this a run that picks an unexpected folder for a good reason (a forgotten `LBA2_GAME_DIR`, a stale `last_game_dir.txt`) looks the same as one that is simply broken. The label is the difference between reading a bug report and guessing at one. Labels name the mechanism, not the code: `--game-dir`, `LBA2_GAME_DIR`, `last_game_dir.txt`, `next to the binary`, `working directory`, `parent walk`, `sibling scan`, `first-launch picker`, and the Android storage roots.
+The probes run silently and in priority order, so without this a run that picks an unexpected folder for a good reason (a forgotten `LBA2_GAME_DIR`, a stale `last_game_dir.txt`) looks the same as one that is simply broken. The label is the difference between reading a bug report and guessing at one. Labels name the mechanism, not the code: `--game-dir`, `LBA2_GAME_DIR`, `last_game_dir.txt`, `next to the AppImage`, `next to the binary`, `working directory`, `parent walk`, `sibling scan`, `first-launch picker`, and the Android storage roots. A root that matched through a subfolder names it too, as in `next to the AppImage, Common/`.
 
 ## First-launch folder picker
 

@@ -4,6 +4,7 @@
 
 #include <SYSTEM/ANDROID.H>
 #include <SYSTEM/ADELINE.H>
+#include <SYSTEM/BUNDLE.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>
 #include <SYSTEM/LOG.H>
@@ -197,6 +198,45 @@ bool TryJoinBaseSub(const char *base, const char *sub, char *outDir, U16 outMax,
         return false;
     }
     return NormalizeAndTry(buf, outDir, outMax, tried, triedCount, allowImage);
+}
+
+/**
+ * The layouts an install root can take, in one order, for a root that is a
+ * place somebody deliberately put the binary: the folder itself, then Common/
+ * where a retail install keeps the HQRs, then the two layouts people build by
+ * hand. \p rootName names the root in the banner and in the tried list.
+ *
+ * The bare folder accepts a disc image as well as extracted files. That costs a
+ * directory walk, which is why the speculative probes elsewhere in this file
+ * stay off it; here it is one folder somebody chose, and it is reached only
+ * before a game folder has ever been remembered.
+ */
+bool TryInstallRoot(const char *base, const char *rootName, char *outDir,
+                    U16 outMax, char tried[][ADELINE_MAX_PATH],
+                    int *triedCount) {
+    static const char *const kRootSubdirs[] = {"Common", "data", "game"};
+    char source[64];
+
+    if (base == NULL || base[0] == '\0') {
+        return false;
+    }
+
+    snprintf(source, sizeof(source), "next to the %s", rootName);
+    Res_SetDiscoverySource(source);
+    if (TryJoinBaseSub(base, "", outDir, outMax, tried, triedCount, true)) {
+        return true;
+    }
+
+    for (size_t i = 0; i < sizeof(kRootSubdirs) / sizeof(kRootSubdirs[0]); i++) {
+        snprintf(source, sizeof(source), "next to the %s, %s/", rootName,
+                 kRootSubdirs[i]);
+        Res_SetDiscoverySource(source);
+        if (TryJoinBaseSub(base, kRootSubdirs[i], outDir, outMax, tried,
+                           triedCount)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
@@ -475,26 +515,32 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
        the sibling scan below stay on the cheap check, because they are guesses
        and there are a lot of them. */
     basePath = SDL_GetBasePath();
-    if (basePath != NULL) {
-        Res_SetDiscoverySource("next to the binary");
-        if (TryJoinBaseSub(basePath, "", outDir, outMax, tried, &triedCount, true)) {
+
+    /* Packagings that run the executable from somewhere other than where the
+       launched file lives, ahead of the binary's own folder because for those
+       the binary's folder is a read-only mount that cannot hold game data.
+
+       Without this, dropping an AppImage into the game folder works only when
+       the launcher happens to set a matching working directory. Steam does,
+       which is why the Steam Deck reports resolve once the working directory
+       is probed; a file manager does not, and neither does a terminal in any
+       other folder.
+
+       Which packaging this is, and how its folder is found, belongs in the
+       seam and not here: see Bundle_GetLauncherDir. No separate probe for the
+       directory the launch came from, either -- the working-directory probes
+       below already look exactly there. */
+    char bundleDir[ADELINE_MAX_PATH];
+    const char *bundleKind = NULL;
+    if (Bundle_GetLauncherDir(basePath, bundleDir, ADELINE_MAX_PATH, &bundleKind)) {
+        if (TryInstallRoot(bundleDir, bundleKind, outDir, outMax, tried,
+                           &triedCount)) {
             return true;
         }
-        /* Common/ before data/ and game/: it is where a retail install
-           actually keeps the HQRs, which is why --game-dir joins it too. The
-           other two are guesses kept for layouts people have built by hand. */
-        Res_SetDiscoverySource("next to the binary, Common/");
-        if (TryJoinBaseSub(basePath, "Common", outDir, outMax, tried, &triedCount)) {
-            return true;
-        }
-        Res_SetDiscoverySource("next to the binary, data/");
-        if (TryJoinBaseSub(basePath, "data", outDir, outMax, tried, &triedCount)) {
-            return true;
-        }
-        Res_SetDiscoverySource("next to the binary, game/");
-        if (TryJoinBaseSub(basePath, "game", outDir, outMax, tried, &triedCount)) {
-            return true;
-        }
+    }
+
+    if (TryInstallRoot(basePath, "binary", outDir, outMax, tried, &triedCount)) {
+        return true;
     }
 
     GetCurrentRunningDir(walk);
