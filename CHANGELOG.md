@@ -43,6 +43,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `--resolution` wrote the size it was given into `lba2.cfg`, so asking for one
+  launch at a different resolution replaced the one you had picked, and any
+  script that pinned a size for a screenshot rewrote your setting. It now renders
+  the run at the size asked for and leaves the stored one alone. Choosing a
+  resolution in the Display submenu or with the `resolution` console command
+  still keeps it, and a resolution auto-detected from your display still
+  re-derives each launch rather than freezing into the config.
 - `--fixed-timestep` and `--language` wrote themselves into `lba2.cfg`, so a flag
   documented as applying to one run changed the setting for every later launch:
   one `--fixed-timestep 100` throttled the game from then on, and one

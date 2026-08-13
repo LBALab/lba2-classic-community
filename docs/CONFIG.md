@@ -22,10 +22,13 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 - Options menu changes globals only; config is written once at exit. No intermediate saves when changing options.
 - **A setting forced for one run is not written back.** The write serialises globals, so without this a
   flag whose own help says "this run only" would leave its value in the player's config for every later
-  launch. `--fixed-timestep`, `--language` and `LBA2_TEXFILTER` are the three; `WriteConfigFile` puts the
-  stored preference back for each while the live value is still the one that was forced (`ValueToPersist`
-  in PERSO.CPP). `--resolution` is deliberately not one of them: it is a player-facing choice that
-  persists on purpose, which is also why an auto-detected resolution is left out of the file entirely.
+  launch. `--fixed-timestep`, `--language` and `LBA2_TEXFILTER` go through `ValueToPersist` in PERSO.CPP,
+  which puts the stored preference back while the live value is still the one that was forced.
+  `--resolution` reaches the same end differently: `Res_ResolutionShouldPersist` is false for it, so
+  `WriteConfigFile` leaves `ResolutionX/Y` as it found them. Only two things make a resolution a
+  preference to keep, the config's own value and a resolution picked during the run (Display submenu,
+  `resolution` console verb); an auto-detected one is left out of the file entirely so it re-derives
+  from the display each launch.
 
 ## Keys: what each does
 
