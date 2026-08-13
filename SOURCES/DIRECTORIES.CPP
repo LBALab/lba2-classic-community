@@ -322,6 +322,8 @@ bool Directories_IsValidProfileName(const char *name) {
     return true;
 }
 
+const char *Directories_GetProfile(void) { return directoriesProfile; }
+
 void Directories_SetProfileOverride(const char *name) {
     if (name == NULL) {
         directoriesProfile[0] = '\0';

@@ -333,6 +333,11 @@ bool BuildPersistedGameDirPath(char *outPath, size_t outMax) {
     int written = snprintf(outPath, outMax, "%slast_game_dir.txt", userDir);
     return written > 0 && static_cast<size_t>(written) < outMax;
 }
+} // namespace
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 bool ReadPersistedGameDir(char *outPath, U16 outMax) {
     char filePath[ADELINE_MAX_PATH];
@@ -361,12 +366,6 @@ bool ReadPersistedGameDir(char *outPath, U16 outMax) {
     return outPath[0] != '\0';
 }
 
-} // namespace
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 bool WritePersistedGameDir(const char *path) {
     char filePath[ADELINE_MAX_PATH];
     if (!BuildPersistedGameDirPath(filePath, sizeof(filePath))) {
@@ -389,6 +388,11 @@ bool WritePersistedGameDir(const char *path) {
    label, and a failed attempt's label is overwritten by the next one before
    anyone reads it. */
 static char s_discoverySource[64] = "";
+/* True when the resolved folder came from something the user typed this run,
+   rather than a remembered pick or a probe. See Res_ResolvedFromUserInput. */
+static bool s_resolvedFromUserInput = false;
+
+bool Res_ResolvedFromUserInput(void) { return s_resolvedFromUserInput; }
 
 void Res_SetDiscoverySource(const char *label) {
     if (label == NULL) {
@@ -397,6 +401,13 @@ void Res_SetDiscoverySource(const char *label) {
     }
     strncpy(s_discoverySource, label, sizeof(s_discoverySource) - 1);
     s_discoverySource[sizeof(s_discoverySource) - 1] = '\0';
+
+    /* Set here rather than at each call site so a label and its provenance
+       cannot drift apart. The two explicit forms are the flag and the
+       environment variable; a remembered pick, a probe or the picker are not
+       something the user typed this run. */
+    s_resolvedFromUserInput = (strncmp(s_discoverySource, "--game-dir", 10) == 0) ||
+                              (strncmp(s_discoverySource, "LBA2_GAME_DIR", 13) == 0);
 }
 
 const char *Res_GetDiscoverySource(void) { return s_discoverySource; }

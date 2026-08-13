@@ -283,6 +283,13 @@ static bool test_env_lba2_game_dir_common_join() {
     /* The banner has to name the probe that won, and this is the case that
      * catches a mislabel: the env branch makes two attempts, so a label set
      * once for the pair would report the wrong one for whichever hit second. */
+    /* A named profile binds to what the user typed, so the flag that gates that
+     * has to be true here and false for the probes below. */
+    if (!Res_ResolvedFromUserInput()) {
+        fprintf(stderr,
+                "test_env_lba2_game_dir_common_join: LBA2_GAME_DIR did not count as user input\n");
+        return false;
+    }
     const char *via = Res_GetDiscoverySource();
     if (strcmp(via, "LBA2_GAME_DIR, Common/") != 0) {
         fprintf(stderr,
@@ -645,6 +652,35 @@ static bool test_cwd_common_outranks_data() {
                 "test_cwd_common_outranks_data: resolved '%s' via '%s', "
                 "expected the Common/ join to win\n",
                 out, viaCopy);
+        return false;
+    }
+    return true;
+}
+
+/* The sibling scan is the probe that boots an install nobody named. A named
+ * profile writes down what resolved it, so this must never report as user
+ * input: binding a guess would make an arbitrary folder that profile's install
+ * for good. */
+static bool test_sibling_scan_is_not_user_input() {
+    unsetenv_portable("LBA2_GAME_DIR");
+    Res_SetDiscoverySource("sibling scan");
+    if (Res_ResolvedFromUserInput()) {
+        printf("FAIL provenance: the sibling scan counted as user input\n");
+        return false;
+    }
+    Res_SetDiscoverySource("last_game_dir.txt");
+    if (Res_ResolvedFromUserInput()) {
+        printf("FAIL provenance: a remembered pick counted as user input\n");
+        return false;
+    }
+    Res_SetDiscoverySource("--game-dir");
+    if (!Res_ResolvedFromUserInput()) {
+        printf("FAIL provenance: --game-dir did not count as user input\n");
+        return false;
+    }
+    Res_SetDiscoverySource("--game-dir, Common/");
+    if (!Res_ResolvedFromUserInput()) {
+        printf("FAIL provenance: --game-dir with the Common/ join was missed\n");
         return false;
     }
     return true;
@@ -1573,6 +1609,9 @@ int main() {
         failed++;
     }
     if (!test_profile_name_rules()) {
+        failed++;
+    }
+    if (!test_sibling_scan_is_not_user_input()) {
         failed++;
     }
     if (!test_persisted_last_game_dir()) {

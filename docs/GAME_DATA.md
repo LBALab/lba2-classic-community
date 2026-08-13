@@ -74,6 +74,18 @@ settings and remembered install apart. Naming no profile writes where the game a
 nothing existing moves. The two compose: `--user-dir` says where the root is, `--profile` says which
 profile inside it. A name is a folder name, so it cannot contain `/` or `\` or step up with `..`.
 
+A named profile remembers the install it was given, so naming it is enough after the first time:
+
+```
+lba2cc --profile gog --game-dir /path/to/gog     # once
+lba2cc --profile gog                             # from then on
+```
+
+Only a folder you named is remembered, from `--game-dir` or `LBA2_GAME_DIR`. A folder discovery
+guessed at is not, because the probes are a fallback and writing one down would make an arbitrary
+install that profile's for good. Running without a profile keeps its old behaviour, where
+`--game-dir` applies to that run only.
+
 It's a single-line text file (the absolute path to the chosen game-data folder). Safe to delete by hand to force the picker to re-appear on next launch — the engine treats a missing file as "never picked," same as a fresh install.
 
 ### Forcing the picker without deleting the file

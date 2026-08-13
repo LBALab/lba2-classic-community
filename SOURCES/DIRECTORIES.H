@@ -53,6 +53,9 @@ void Directories_SetUserDirOverride(const char *path);
 /// Same timing rule as the override: call before the first GetDefaultUserDir.
 void Directories_SetProfileOverride(const char *name);
 
+/// The profile in force, or an empty string for the default one.
+const char *Directories_GetProfile(void);
+
 /// True when \p name can be a profile directory: not empty, no path separator
 /// in either spelling, no parent-directory hop, not a bare dot. A profile lives
 /// inside the user directory and has to stay there.

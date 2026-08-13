@@ -3119,6 +3119,30 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        /* A named profile binds to the install it was given, so that naming the
+           profile alone works next time: `--profile gog --game-dir <path>` once,
+           then `--profile gog`.
+
+           Only for a folder the user typed. Binding a probe's answer would
+           write down a guess as that profile's install for good, and the
+           sibling scan is exactly the probe that boots something nobody named:
+           without this rule, `--profile gog` on its own would happily settle on
+           whatever install happened to sit beside the binary and remember it.
+
+           The default profile keeps its old behaviour, where an explicit
+           --game-dir is for this run only. Naming a profile is what says "this
+           is my setup"; running without one is not. */
+        if (Directories_GetProfile()[0] != '\0' && Res_ResolvedFromUserInput()) {
+            char boundPath[ADELINE_MAX_PATH] = "";
+            const bool alreadyBound =
+                ReadPersistedGameDir(boundPath, ADELINE_MAX_PATH) &&
+                strcmp(boundPath, resFolderPath) == 0;
+            if (!alreadyBound && WritePersistedGameDir(resFolderPath)) {
+                Log_Info("Profile    '%s' now points at %s",
+                         Directories_GetProfile(), resFolderPath);
+            }
+        }
+
         InitDirectories(userFolderPath, resFolderPath, userFolderPath, "",
                         DistribVersion);
 

@@ -62,6 +62,11 @@ Or name a profile instead of a folder, and the game picks the folder for you:
 Each profile keeps its own saves, settings and remembered install. Running
 without one writes where the game always did, so nothing you already have moves.
 
+A profile remembers the folder you gave it, so name it once and then don't:
+
+    ./@LBA2_EXECUTABLE_NAME@ --profile gog --game-dir /path/to/game
+    ./@LBA2_EXECUTABLE_NAME@ --profile gog
+
 
 RUNNING
 -------

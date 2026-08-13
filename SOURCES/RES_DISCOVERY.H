@@ -34,6 +34,12 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv);
 bool WritePersistedGameDir(const char *path);
 
 /**
+ * Read back what WritePersistedGameDir stored, into \p outPath.
+ * @return false when nothing is stored, leaving \p outPath untouched.
+ */
+bool ReadPersistedGameDir(char *outPath, U16 outMax);
+
+/**
  * Which probe produced the directory ResolveGameDataDir returned, as a short
  * label for the boot banner ("LBA2_GAME_DIR", "sibling scan", ...).
  *
@@ -47,6 +53,17 @@ bool WritePersistedGameDir(const char *path);
  * process lifetime (points at static storage).
  */
 const char *Res_GetDiscoverySource(void);
+
+/**
+ * True when the game folder came from something typed on this run's command
+ * line or in its environment, rather than a remembered pick or a probe.
+ *
+ * A named profile binds to what the user named, so that `--profile gog` alone
+ * works next time. It must not bind to a guess: the probes are a fallback, and
+ * writing one down would make an arbitrary folder that profile's install for
+ * good.
+ */
+bool Res_ResolvedFromUserInput(void);
 
 /**
  * Record the probe that resolved the directory. Called by ResolveGameDataDir
