@@ -2467,12 +2467,12 @@ void ReadConfigFile(void) {
         Distrib_Resolve(declared, declaredVersion, Distrib_GetMaster(), &DistribVersion,
                         &showSplash);
 
-        /* Last say to the config, in either direction. A tree assembled by hand
-           can ask for the splash its declaration implies to be left off, and a
-           release that ships no config can ask for one. Read only, never
-           written: the default is derived from whether a release was declared,
-           and storing it would freeze one install's answer into a profile that
-           may be pointed at another tomorrow. */
+        /* Last say to whoever wrote a config, in either direction: an install
+           can suppress the splash its own declaration implies, and a player can
+           ask for one their install never declared. Read only, never written,
+           so the default keeps deriving from whether a release was declared
+           rather than freezing one install's answer into a profile that may be
+           pointed at another tomorrow. */
         S32 splashChoice;
         if (DefFileBufferReadValue2("ShowDistribLogo", &splashChoice)) {
             showSplash = (splashChoice != 0);
@@ -3347,19 +3347,17 @@ int main(int argc, char *argv[]) {
                     GetLanguageName(Language), (int)Language);
     }
     Log_Info("Language   %s", GetLanguageName(Language));
-    /* The release this run believes it is. Declared by the config beside the
-       game data, never detected (docs/VERSIONS.md), and it decides the
-       distributor splash, two logo sprites and the CD voice folder.
-    /* The value the run operates under, then where it came from. 0 is the
-       ordinary outcome rather than a missing one: no 2point21 re-release ships
-       a config beside its assets, so those installs run at UNKNOWN_VERSION,
-       where DistribLogo matches no case and draws nothing. Calling that
-       "unknown, declared by nothing" would report the wanted state as a
-       deficiency, so it reads as the default it is.
+    /* What release this run is, and how it knows. Two inputs settle it: what a
+       config declared and what the assets measure as (docs/VERSIONS.md). The
+       declaration wins; the measurement is reported beside it, because the two
+       disagreeing means one publisher's splash and panel sprite drawn over
+       another's data with nothing saying so.
 
-       The observed half, what the data itself looks like, needs a fingerprint
-       and arrives with the release-detection work; until then the line ends
-       after the source. */
+       Operative value first. 0 is the ordinary outcome rather than a missing
+       one: no 2point21 re-release ships a config beside its assets, so those
+       installs run at UNKNOWN_VERSION, where DistribLogo matches no case and
+       draws nothing. Calling that "unknown, declared by nothing" would report
+       the wanted state as a deficiency, so it reads as the default it is. */
     {
         const T_DATA_MASTER master = Distrib_GetMaster();
         const char *dataName = Distrib_MasterName(master);

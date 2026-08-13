@@ -119,7 +119,7 @@ Demo mode is in there for a reason. It is the only surface where `DistribVersion
 
 Hashes are a per-install baseline to diff against a later run (`diff a/summary.txt b/summary.txt`). Do not compare them across installs: US and EU legitimately differ in language, in volume defaults inherited from each install's config, and in that demo logo.
 
-### 6b-ii. Release detection (`tests/automation/test_release_detection.sh`, local)
+### 6c. Release detection (`tests/automation/test_release_detection.sh`, local)
 
 [tests/distrib](../tests/distrib/test_distrib_resolve.cpp) pins the rules between a declaration and a measurement and needs no assets, so it runs in CI. This is the other half, against a real install: that the measurement happens, that it reaches the banks wherever they live including inside a mounted disc image, and that the two are compared rather than one standing in for the other.
 
@@ -129,7 +129,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_release_detection.sh
 
 The declaration side is driven from the profile, never from the install. Writing a config beside the game data to set up a test would be the defect `WROTE` exists to catch, and would not work at all on an install mounted from an image. A tree the size table has no entry for skips rather than fails, which is the same stance the table itself takes.
 
-### 6c. Config upgrade path (`tests/automation/test_config_upgrade.sh`, local)
+### 6d. Config upgrade path (`tests/automation/test_config_upgrade.sh`, local)
 
 The sweep above measures the new-user path: every profile in it is one the engine just created. The other direction is the player who already has an `lba2.cfg` and updates the engine under it, and it is the one the layered read changed the mechanics of, so it gets a test of its own.
 

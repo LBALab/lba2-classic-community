@@ -9,7 +9,7 @@ touched it.
 
 | Field | Storage | Identifies | Status |
 |-------|---------|------------|--------|
-| `DistribVersion` | `Version` key in `lba2.cfg` | Which publisher's edition this is | Live, 8 consumers |
+| `DistribVersion` | `Version` key in `lba2.cfg`, or the data when none declares one | Which publisher's edition this is | Live, 6 branch sites |
 | `Version_US` | `Version_US` key in `lba2.cfg` | Nothing | Read, never used |
 | `NumVersion` / `NUM_VERSION` | First byte of a `.lba` save | Save layout revision | Live, see [SAVEGAME.md](SAVEGAME.md) |
 | `SAVE_VERSION` | Nothing | Save routine lineage | Declared, never referenced |

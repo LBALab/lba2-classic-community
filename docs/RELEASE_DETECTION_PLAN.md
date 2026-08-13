@@ -158,8 +158,8 @@ folder, capture the attract frame with a pinned clock, remove the config, captur
 
 ## What is built
 
-Steps one to three of the design above, in [DISTRIB.CPP](../SOURCES/DISTRIB.CPP) with the boot-time
-measurement in `ReadConfigFile` and the splash gate in `DistribLogo`. The rules are pinned by
+All of the design above, in [DISTRIB.CPP](../SOURCES/DISTRIB.CPP), with the boot-time measurement in
+`ReadConfigFile` and the splash gate in `DistribLogo`. The rules are pinned by
 [tests/distrib](../tests/distrib/test_distrib_resolve.cpp), which needs no assets and runs in CI, and
 by [test_release_detection.sh](../tests/automation/test_release_detection.sh), which needs an install
 and checks that the measurement happens at all, reaches inside a mounted disc image, and is compared

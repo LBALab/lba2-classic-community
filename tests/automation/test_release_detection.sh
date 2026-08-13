@@ -83,7 +83,7 @@ printf '%s' "$conflicted" | grep -qE "\($opposite_ver\) from the config" ||
 # outlive the tree they came from, which is the snapshot the layered read exists
 # to avoid.
 for key in Version ShowDistribLogo; do
-    grep -aqE "^[[:space:]]*$key[[:space:]]*:" "$tmp/plain/lba2.cfg" &&
+    grep -aqE "^[[:space:]]*${key}[[:space:]]*:" "$tmp/plain/lba2.cfg" &&
         fail "$key was written into a profile that never declared it"
 done
 
