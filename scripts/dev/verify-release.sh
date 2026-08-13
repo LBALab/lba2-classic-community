@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# Post-release smoke test for the Linux release artifacts.
+# Post-release smoke test for the published release artifacts.
 #
-# Downloads the Linux tarballs and AppImages attached to a GitHub
-# Release, extracts them, and runs each binary in a clean
-# debian:stable-slim container with no SDL3 / libsmacker / X11 deps
-# installed. Verifies the unique signal CI doesn't cover: the artifact
-# GitHub *serves* (post-upload, post-download) actually runs on a fresh
-# system, with the executable bit preserved and the static linking
-# claim holding.
+# Downloads what a GitHub Release actually serves and checks each artifact
+# as far as this host allows. The Linux tarballs and AppImages are extracted
+# and run in a clean debian:stable-slim container with no SDL3 / libsmacker
+# / X11 deps installed, which is the signal CI doesn't cover: the artifact
+# GitHub *serves* (post-upload, post-download) runs on a fresh system, with
+# the executable bit preserved and the static linking claim holding.
 #
 # Four metadata checks ride along, because each failure mode is silent
 # until a user hits it:
@@ -27,9 +26,10 @@
 # with no wine and no VM. Off WSL that check reports SKIP and the PE
 # metadata is still read, which needs nothing but grep.
 #
-# macOS DMGs aren't checked — running one needs a Mac, which is more
-# machinery than the marginal signal justifies. CI already builds and
-# packages it.
+# The macOS DMG can't be executed without a Mac, but everything it declares
+# can be read here: the disk image opens with 7z, the bundle's Info.plist is
+# what Finder and Gatekeeper read, and the Mach-O's load commands say which
+# libraries it expects to find on the target machine.
 #
 # Usage:
 #   scripts/dev/verify-release.sh [<tag>]
@@ -118,6 +118,7 @@ gh release download "$TAG" \
     --pattern 'lba2cc-*-AppImage-*.AppImage' \
     --pattern 'lba2cc-*.AppImage.zsync' \
     --pattern 'lba2cc-*-windows-*.zip' \
+    --pattern 'lba2cc-*-macos-*.dmg' \
     --dir . 2>&1 | tail -5 || true
 
 # Collect what actually landed — release artifact naming has shifted
@@ -127,6 +128,7 @@ shopt -s nullglob
 TARBALLS=( lba2cc-*-linux-*.tar.gz )
 APPIMAGES=( lba2cc-*-*linux*-*.AppImage lba2cc-*-AppImage-*.AppImage )
 WIN_ZIPS=( lba2cc-*-windows-*.zip )
+MAC_DMGS=( lba2cc-*-macos-*.dmg )
 shopt -u nullglob
 
 if [[ ${#TARBALLS[@]} -eq 0 && ${#APPIMAGES[@]} -eq 0 ]]; then
@@ -176,6 +178,7 @@ version_from_name() {
     local stem="${1%.tar.gz}"
     stem="${stem%.AppImage}"
     stem="${stem%.zip}"
+    stem="${stem%.dmg}"
     stem="${stem#lba2cc-}"
     stem="${stem%-*}"
     printf '%s' "${stem%-*}"
@@ -445,6 +448,152 @@ for zip in "${WIN_ZIPS[@]}"; do
         fail_row "$label" "--version=$version but the filename says $expected"
     else
         pass_row "$label" "--version=$version (ran as a Windows process)"
+    fi
+done
+
+# The macOS DMG. Nothing here can execute it, so this reads what it
+# declares about itself, which is most of what a packaging mistake breaks.
+#
+# 7z opens the disk image with no loopback mount and no root. The Info.plist
+# inside is the file Finder, Launch Services and Gatekeeper read, so a wrong
+# version or an empty copyright field is visible to every macOS user and to
+# nobody else. The Mach-O's load commands then name every library the binary
+# expects to find at runtime: anything outside /usr/lib and /System/Library
+# is something the .app would have to carry, so an empty list is how the
+# "SDL3 is linked statically" claim gets checked without a Mac.
+for dmg in "${MAC_DMGS[@]}"; do
+    stem="${dmg%.dmg}"
+    label="macos $stem"
+    expected="$( version_from_name "$dmg" )"
+    case "$dmg" in
+        *arm64*)  want_arch="arm64" ;;
+        *x86_64*) want_arch="x86_64" ;;
+        *)        want_arch="" ;;
+    esac
+
+    sevenzip=""
+    for candidate in 7z 7zz 7za; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            sevenzip="$candidate"
+            break
+        fi
+    done
+    if [[ -z "$sevenzip" ]]; then
+        skip_row "$label" "no 7z on this host, disk image not opened"
+        continue
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        skip_row "$label" "no python3 on this host, Info.plist not read"
+        continue
+    fi
+
+    extract_dir="macos-$stem"
+    mkdir -p "$WORK_DIR/$extract_dir"
+    if ! "$sevenzip" x -y -o"$WORK_DIR/$extract_dir" "$dmg" >/dev/null 2>&1; then
+        fail_row "$label" "$sevenzip could not open the disk image"
+        continue
+    fi
+    plist=$( find "$WORK_DIR/$extract_dir" -path '*/Contents/Info.plist' -print -quit )
+    if [[ -z "$plist" ]]; then
+        fail_row "$label" "no .app bundle with a Contents/Info.plist in the disk image"
+        continue
+    fi
+
+    # plistlib reads both the XML and the binary plist format, and four bytes
+    # of the Mach-O header give the architecture, so the bundle answers for
+    # itself without a Mach-O aware objdump being installed.
+    mac_version=""; mac_id=""; mac_copyright=""; mac_arch=""; mac_exec=""
+    while IFS=$'\t' read -r key value; do
+        case "$key" in
+            version)   mac_version="$value"   ;;
+            id)        mac_id="$value"        ;;
+            copyright) mac_copyright="$value" ;;
+            arch)      mac_arch="$value"      ;;
+            exec)      mac_exec="$value"      ;;
+        esac
+    done < <(python3 - "$plist" <<'PY'
+import os
+import plistlib
+import struct
+import sys
+
+plist_path = sys.argv[1]
+with open(plist_path, "rb") as handle:
+    info = plistlib.load(handle)
+
+
+def emit(key, value):
+    print(f"{key}\t{value}")
+
+
+emit("version", info.get("CFBundleShortVersionString", ""))
+emit("id", info.get("CFBundleIdentifier", ""))
+emit("copyright", info.get("NSHumanReadableCopyright", ""))
+
+executable = os.path.join(os.path.dirname(plist_path), "MacOS",
+                          info.get("CFBundleExecutable", ""))
+if not os.path.isfile(executable):
+    emit("exec", "")
+    sys.exit(0)
+emit("exec", executable)
+
+with open(executable, "rb") as handle:
+    header = handle.read(8)
+magic = struct.unpack("<I", header[:4])[0]
+if magic in (0xFEEDFACF, 0xFEEDFACE):
+    cpu = struct.unpack("<I", header[4:8])[0]
+elif magic in (0xCFFAEDFE, 0xCEFAEDFE):
+    cpu = struct.unpack(">I", header[4:8])[0]
+elif magic in (0xBEBAFECA, 0xCAFEBABE):
+    cpu = "universal"          # several slices, so no single cputype
+else:
+    cpu = "not a Mach-O"
+emit("arch", {0x0100000C: "arm64", 0x01000007: "x86_64"}.get(cpu, cpu))
+PY
+    )
+
+    if [[ -z "$mac_exec" ]]; then
+        fail_row "$label" "Info.plist names no executable that exists in the bundle"
+        continue
+    fi
+    if [[ "$mac_version" != "$expected" ]]; then
+        fail_row "$label" "Info.plist says $mac_version, the filename says $expected"
+    elif [[ -z "$mac_id" ]]; then
+        fail_row "$label" "bundle carries no CFBundleIdentifier"
+    elif [[ "$mac_copyright" != *Copyright* ]]; then
+        fail_row "$label" "NSHumanReadableCopyright is not a copyright line: ${mac_copyright:-empty}"
+    else
+        pass_row "$label" "$mac_id $mac_version, copyright set"
+    fi
+
+    if [[ -n "$want_arch" && "$mac_arch" != "$want_arch" ]]; then
+        fail_row "$label" "Mach-O is $mac_arch, the filename says $want_arch"
+    else
+        pass_row "$label" "Mach-O arch=$mac_arch"
+    fi
+
+    otool=""
+    for candidate in llvm-otool otool; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            otool="$candidate"
+            break
+        fi
+    done
+    if [[ -z "$otool" ]]; then
+        # Packaged per LLVM release rather than on PATH on most distros.
+        otool=$( ls -d /usr/lib/llvm-*/bin/llvm-otool 2>/dev/null | sort -V | tail -1 || true )
+    fi
+    if [[ -z "$otool" ]]; then
+        skip_row "$label" "no llvm-otool on this host, linked libraries not read"
+    else
+        outside=$( "$otool" -L "$mac_exec" 2>/dev/null \
+            | awk 'NR > 1 { print $1 }' \
+            | grep -v -E '^(/usr/lib/|/System/Library/)' || true )
+        if [[ -n "$outside" ]]; then
+            fail_row "$label" "links libraries the bundle does not carry: ${outside//$'\n'/ }"
+        else
+            pass_row "$label" "every linked library is a system one"
+        fi
     fi
 done
 
