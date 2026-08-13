@@ -137,6 +137,11 @@ file is the whole switch; a `profile:` line names the profile that tree uses by 
 is the whole feature. Dolphin uses exactly this name and shape, and ScummVM does the same thing by
 looking for its ini beside the binary, so it is a convention players already recognise.
 
+Its name is matched whatever the case. A player types this file by hand on a filesystem that ignores
+case and then carries the tree to one that does not, and the four case variations the engine probes
+for shipped assets do not cover `portable.TXT`. A miss is silent, so the tree simply stops being
+portable with nothing said.
+
 Beside the **binary**, not the working directory. A shortcut, a file manager or a launcher each set
 a different working directory, and the one thing this file has to be is stable. Discovery already
 distinguishes the two, with `next to the binary` as its own probe label.

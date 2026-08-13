@@ -839,6 +839,26 @@ static bool test_portable_marker() {
         rmdir_portable(markerDir);
     }
 
+    /* However it is spelled. A player types this one by hand on a filesystem
+     * that ignores case, then carries the tree to one that does not. */
+    static const char *const spellings[] = {"portable.txt", "PORTABLE.TXT",
+                                            "Portable.txt", "portable.TXT",
+                                            "pORTABLE.txt"};
+    for (size_t i = 0; i < sizeof spellings / sizeof spellings[0]; i++) {
+        char spelt[ADELINE_MAX_PATH];
+        snprintf(spelt, sizeof spelt, "%s/%s", dir, spellings[i]);
+        FILE *sf = fopen(spelt, "wb");
+        if (sf == NULL) {
+            continue;
+        }
+        fclose(sf);
+        if (!Directories_PortableUserDir(out, ADELINE_MAX_PATH, dir)) {
+            printf("FAIL portable: '%s' was not recognised as the marker\n", spellings[i]);
+            bad++;
+        }
+        unlink_portable(spelt);
+    }
+
     /* An empty file is enough, and names <baseDir>/User[-Demo]/. */
     FILE *f = fopen(markerDir, "wb");
     if (f != NULL) {

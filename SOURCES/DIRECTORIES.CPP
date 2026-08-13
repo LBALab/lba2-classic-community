@@ -413,6 +413,27 @@ bool Directories_ResolveUserDir(char *outDir, U16 outMax,
     return true;
 }
 
+/* The marker, however it is spelled. One pass over the directory the binary
+   sits in, which is small and read once per boot. */
+static bool FindPortableMarker(const char *dir, char *outName, U16 outMax) {
+    DIR *dirp = opendir(dir);
+    if (dirp == NULL) {
+        return false;
+    }
+
+    bool found = false;
+    struct dirent *entry;
+    while (!found && ((entry = readdir(dirp)) != NULL)) {
+        if (SDL_strcasecmp(entry->d_name, ADELINE_PORTABLE_MARKER) == 0) {
+            strncpy(outName, entry->d_name, outMax);
+            outName[outMax - 1] = '\0'; // Guarantee
+            found = true;
+        }
+    }
+    closedir(dirp);
+    return found;
+}
+
 /* The one key the marker carries. A bundle that is somebody's GOG setup can say
    so, which is the only thing about a portable tree that no flag can express: a
    flag belongs to a run, this belongs to the tree and travels with it.
@@ -479,11 +500,15 @@ bool Directories_PortableUserDir(char *outDir, U16 outMax, const char *baseDir) 
         return false; // too long to hold a separator, so nothing sits beside it
     }
 
-    /* Case-probed like every other name the engine looks for, so a marker made
-       on Windows is still a marker here. A directory of that name is not one:
-       it would be a folder somebody made, not a file they wrote. */
+    /* Matched however it is spelled, by looking at what is actually there.
+       Discover's four case variations are the right tool for a name a
+       distribution shipped, where the spelling is one of a known few. This file
+       is the one a player types by hand, on a filesystem that does not care
+       about case, and then carries to one that does: portable.TXT and
+       pORTABLE.txt are neither of them among those four, and a miss is silent.
+       The tree simply is not portable, with nothing said. */
     char marker[ADELINE_MAX_PATH];
-    if (!Discover(marker, ADELINE_MAX_PATH, root, ADELINE_PORTABLE_MARKER)) {
+    if (!FindPortableMarker(root, marker, ADELINE_MAX_PATH)) {
         return false;
     }
     char markerPath[ADELINE_MAX_PATH];

@@ -105,7 +105,9 @@ bool Directories_ResolveUserDir(char *outDir, U16 outMax,
 ///
 /// The marker is looked for beside the binary rather than in the working
 /// directory: a shortcut, a file manager and a launcher each set a different
-/// working directory, and the one thing this file has to be is stable.
+/// working directory, and the one thing this file has to be is stable. Its name
+/// is matched whatever the case, because a player types it on a filesystem that
+/// ignores case and then carries the tree to one that does not.
 bool Directories_PortableUserDir(char *outDir, U16 outMax, const char *baseDir);
 
 /// The profile a portable tree names for itself, from a `profile:` line in the
