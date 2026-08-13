@@ -8,20 +8,19 @@
 #   3. No CLI override -> cfg wins over default.
 #   4. With CLI override -> CLI wins over cfg (precedence check).
 #
-# Tests isolate the user environment by setting XDG_DATA_HOME to a temp
-# dir; the engine's SDL_GetPrefPath resolves to "$tmpdir/Twinsen/LBA2/",
-# so the real user cfg at ~/.local/share/Twinsen/LBA2/lba2.cfg is never
-# touched.
+# Tests isolate the user environment by pointing LBA2_USER_DIR at a temp
+# dir, which is then the whole user folder, so the real user cfg at
+# ~/.local/share/Twinsen/LBA2/lba2.cfg is never touched.
 TESTNAME=res_switch_cfg
 . "$(dirname "$0")/lib.sh"
 precheck
 need_save
 
-# Each sub-run gets its own XDG_DATA_HOME so cfg writes don't bleed.
+# Each sub-run gets its own user dir so cfg writes don't bleed.
 make_cfg() {
     local dir="$1" rx="$2" ry="$3"
-    mkdir -p "$dir/Twinsen/LBA2"
-    cat > "$dir/Twinsen/LBA2/lba2.cfg" <<EOF
+    mkdir -p "$dir"
+    cat > "$dir/lba2.cfg" <<EOF
 ResolutionX: $rx
 ResolutionY: $ry
 EOF
@@ -37,7 +36,7 @@ dump_resolution() {
     local xdg="$1" extra="${2:-}"
     local out
     out="$(mktemp -t res_cfg.XXXXXX.json)"
-    XDG_DATA_HOME="$xdg" ctl_headless_cfg_driven --load "$LBA2_TEST_SAVE" \
+    LBA2_USER_DIR="$xdg" ctl_headless_cfg_driven --load "$LBA2_TEST_SAVE" \
         --fixed-dt 16 --tick 2 --dump-state "$out" --exit $extra \
         >/dev/null 2>&1 \
         || { rm -f "$out"; fail "engine non-zero exit ($?)"; }

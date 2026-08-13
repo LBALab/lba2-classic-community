@@ -98,13 +98,44 @@ scripts/dev/dist_check.sh [outdir]          # defaults to ../LBA2/Common, ../LBA
 LBA2_DIST_LIST="name:/path" scripts/dev/dist_check.sh
 ```
 
-Each install gets a throwaway profile, so what is measured is the new-user path rather than the developer's own settings. One row per install: release identity, language, whether an image mounted, the asset preflight, how each of three music requests was actually served, and pixel hashes (`scripts/dev/png_hash.py`) of six captures: an interior scene, an exterior one, three UI modals, and a demo-mode frame.
+Each install gets a profile of its own inside one throwaway user directory, so what is measured is the new-user path rather than the developer's own settings, and every run goes through profile path composition. One row per install: release identity, language, whether an image mounted, the asset preflight, how each of three music requests was actually served, and pixel hashes (`scripts/dev/png_hash.py`) of six captures: an interior scene, an exterior one, three UI modals, and a demo-mode frame.
+
+It is a check, not only a report, and exits non-zero when any of five assertions fails:
+
+| | |
+|---|---|
+| `IDENTITY` | the release the engine reports matches the `Version` the install's own config declares, read off the file rather than out of the engine. `-` for a disc image, whose config is inside it |
+| `WROTE` | nothing under the game directory changes. An install is input; a config read out of it must not be written back, which also has to hold on read-only media |
+| `BOUND` | naming the profile and nothing else finds the folder that profile was given |
+| `ISOLATION` | the folder the engine writes to when nobody tells it otherwise is untouched across the whole sweep, which is what proves `--user-dir` took |
+| `REBIND` | a profile seeded from one release, pointed at another, reports the second |
+
+`WROTE` earned its place immediately: it caught the CD voice cache stamping mtimes on installed game data, in code nothing was reading.
 
 Demo mode is in there for a reason. It is the only surface where `DistribVersion` visibly differs: the logo swapped at `OBJECT.CPP`'s "incrust logo demo" is drawn only when `DemoSlide` is set, so every other capture matches across releases even though the releases are identified differently. In a good run the demo hash agrees for the two releases that map to the same sprite and differs for the third.
 
 **Pass `--fixed-dt` to anything that captures a UI screen.** The menus animate a plasma strip on the clock, so without a pinned clock the same screen hashes differently on every run, and a comparison built on it reports regressions that are not there. This is worth knowing beyond this script: it applies to any UI capture in the engine. With `--fixed-dt` the captures are exactly reproducible and need no masking at all, which is why `png_hash.py` is a plain pixel hash.
 
 Hashes are a per-install baseline to diff against a later run (`diff a/summary.txt b/summary.txt`). Do not compare them across installs: US and EU legitimately differ in language, in volume defaults inherited from each install's config, and in that demo logo.
+
+### 6c. Config upgrade path (`tests/automation/test_config_upgrade.sh`, local)
+
+The sweep above measures the new-user path: every profile in it is one the engine just created. The other direction is the player who already has an `lba2.cfg` and updates the engine under it, and it is the one the layered read changed the mechanics of, so it gets a test of its own.
+
+```bash
+LBA2_GAME_DIR=/path/to/data bash tests/automation/test_config_upgrade.sh
+```
+
+It writes a config by hand with values that all differ from the compiled defaults, runs, and reads the file back. Four assertions:
+
+1. The keys the player owns come back out unchanged, and none are dropped.
+2. A key the game data owns is answered on every boot and is never copied into the profile, so it cannot outlive the install it came from. Checked twice: the key must be absent from the written file, and the same install must report the same release to an upgrading player as to a new one.
+3. A config naming a `Version` itself still beats the one under it.
+4. An empty config is a config to fill in, not a fatal.
+
+`Shadow` is the interesting exception and is asserted separately: `SetDetailLevel` re-derives it from `DetailLevel` at boot, so it is a key the engine writes but does not keep. Without that assertion the next reader finds a value that changed by itself and reads it as a config bug.
+
+The invariant is not "matches an older build". That would need a second binary and could only be measured once, whereas what actually decays is the layering, and a player's settings resolving differently after an update is not something anyone reports as a bug.
 
 PR host jobs and `make test` build the `host_tests` aggregate target, then:
 

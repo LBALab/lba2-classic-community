@@ -2,8 +2,19 @@
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
+/// The marker that makes a tree self-contained. An empty file beside the binary
+/// is the whole switch. It may carry one key, `profile:`, naming the profile
+/// that tree uses by default; anything else in it is reserved and unread.
+#define ADELINE_PORTABLE_MARKER "portable.txt"
+/// The folder it names, which then holds one directory per build, keyed the same
+/// way the per-user path is: `User/LBA2/` mirrors `Twinsen/LBA2/`. A tree holding
+/// more than one build gives each its own without a second naming scheme, which
+/// is what a second game hosted on this engine would otherwise need.
+#define ADELINE_PORTABLE_DIR "User"
+
 /// Org and app passed to SDL_GetPrefPath, so every user-writable path (saves,
-/// lba2.cfg, adeline.log, last_game_dir.txt) agrees on one folder.
+/// lba2.cfg, adeline.log, last_game_dir.txt) agrees on one folder. The app half
+/// is also the per-build directory under a portable tree's `User/`.
 ///
 /// The demo SKU takes its own. Its marker, RESS.HQR, is present in retail
 /// installs too, so a demo binary handed a retail path validates it; sharing
@@ -26,6 +37,86 @@ extern "C" {
 void InitDirectories(const char *userDir, const char *resDir,
                      const char *cfgDir, const char *CDPrefix, S32 distVersion);
 void EndDirectories();
+
+/// Point the user directory somewhere other than the per-user default, for the
+/// whole run: saves, lba2.cfg, adeline.log and the remembered game-data path
+/// all follow it. Precedence is this override, then LBA2_USER_DIR, then the
+/// per-user path SDL picks.
+///
+/// Call before the first GetDefaultUserDir: the resolved root is cached on that
+/// first call, and a later override would leave the two halves of a run writing
+/// to different folders.
+///
+/// The directory is created if it does not exist, parents included, so naming a
+/// fresh one is enough to get an empty profile. A path that cannot be created
+/// is left in place rather than silently swapped for the default; the boot then
+/// stops in InitDirectories naming the path that failed.
+void Directories_SetUserDirOverride(const char *path);
+
+/// Select a named profile: saves, config, log and the remembered game-data path
+/// move into `profiles/<name>/` under the user directory, so several installs
+/// can be kept apart without naming a folder for each.
+///
+/// Composes with the override above, which says where the root is while this
+/// says which profile inside it. The default profile is the root itself, so a
+/// run that names none writes where it always did.
+///
+/// Set from --profile, or from LBA2_PROFILE when no flag names one.
+///
+/// Same timing rule as the override: call before the first GetDefaultUserDir.
+void Directories_SetProfileOverride(const char *name);
+
+/// The profile in force, or an empty string for the default one.
+const char *Directories_GetProfile(void);
+
+/// Which of the three resolved the user directory: "--user-dir",
+/// "LBA2_USER_DIR" or "default". For the boot banner, so a pasted log says how
+/// the run chose where to write, not just where it wrote.
+const char *Directories_GetUserDirSource(void);
+
+/// True when \p name can be a profile directory: not empty, no path separator
+/// in either spelling, no parent-directory hop, not a bare dot, no colon, and
+/// no trailing dot or space. A profile lives inside the user directory and has
+/// to stay there, and has to name the same folder on every platform: a colon is
+/// a drive on Windows, and a trailing dot or space is dropped there, which would
+/// silently make two names one profile.
+bool Directories_IsValidProfileName(const char *name);
+
+/// The precedence rule behind GetDefaultUserDir, without the caching or the
+/// directory creation, so it can be exercised directly: \p overridePath (the
+/// command line) beats \p envPath (LBA2_USER_DIR), and an empty string counts
+/// as absent.
+///
+/// Returns false when neither names anything, leaving \p outDir untouched;
+/// that is the caller's signal to use the per-user path SDL picks. Otherwise
+/// writes the winner with a trailing separator, or verbatim when there is no
+/// room left for one.
+bool Directories_ResolveUserDir(char *outDir, U16 outMax,
+                                const char *overridePath, const char *envPath);
+
+/// The user directory a portable tree writes to, given the folder the binary
+/// sits in: `<baseDir>/User/<build>/`, where `<build>` is ADELINE_PREF_APP, so
+/// `User/LBA2/` mirrors `Twinsen/LBA2/` and a tree holding more than one build
+/// gives each its own.
+///
+/// Returns false when \p baseDir names nothing, when no marker sits beside the
+/// binary, or when the composed path will not fit, leaving \p outDir untouched.
+/// A directory called portable.txt is not a marker.
+///
+/// The marker is looked for beside the binary rather than in the working
+/// directory: a shortcut, a file manager and a launcher each set a different
+/// working directory, and the one thing this file has to be is stable. Its name
+/// is matched whatever the case, because a player types it on a filesystem that
+/// ignores case and then carries the tree to one that does not.
+bool Directories_PortableUserDir(char *outDir, U16 outMax, const char *baseDir);
+
+/// The profile a portable tree names for itself, from a `profile:` line in the
+/// marker. The one key the file carries: a bundle that is somebody's GOG setup
+/// can say so, which is the only thing about a tree that no flag can express.
+///
+/// False when no marker chose this run's root, or the marker names no profile.
+/// Only meaningful after GetDefaultUserDir has resolved the root.
+bool Directories_PortableProfile(char *outName, U16 outMax);
 
 // --- Interface ---------------------------------------------------------------
 void GetCurrentRunningDir(char *outDir); ///< Path where application was run
@@ -56,6 +147,12 @@ void GetDefaultCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename);
 
 void GetCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename);
 void GetSavePath(char *outPath, U16 pathMaxSize, const char *saveFilename);
+
+/// Copy any saves the install ships into this profile's save folder, once,
+/// the first time the profile is used. A retail install ships none and this
+/// does nothing; the 1997 demo ships the three its fixed slots load.
+/// Call before anything creates the save folder.
+void Directories_SeedSavesFromGameData(void);
 void GetShootPath(char *outPath, U16 pathMaxSize, const char *shootFilename);
 void GetBugPath(char *outPath, U16 pathMaxSize, const char *bugFilename);
 void GetJinglePath(char *outPath, U16 pathMaxSize, const char *jingleFilename);

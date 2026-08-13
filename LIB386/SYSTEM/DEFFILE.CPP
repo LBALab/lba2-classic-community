@@ -29,6 +29,12 @@ static S32 BatchActive = FALSE;
 static S32 BatchDirty = FALSE; // a write happened, so the temp exists to commit
 static char BatchFinalPath[ADELINE_MAX_PATH];
 
+// Set once a lower-priority layer has been appended to the buffer. The buffer
+// then holds more than FileName does, so writing it back would persist those
+// layers into the file. Writes refuse while it is set; DefFileBufferInit clears
+// it. See the API comment in DEFFILE.H.
+static S32 LayersAttached = FALSE;
+
 //══════════════════════════════════════════════════════════════════════════
 static inline S32 ReadBufferString(const char *identificateur) {
     char *ptrdef;
@@ -98,6 +104,27 @@ static inline S32 ReadBufferString(const char *identificateur) {
             ptrdef++;
     }
     return FALSE;
+}
+
+//══════════════════════════════════════════════════════════════════════════
+/* Close the read window: trim trailing blanks, then lay the terminator the
+   reader stops on. ReadBufferString scans while ptr < EndPtrDef and steps over
+   runs of sub-space bytes, so the 0/32/0 past the end is what stops it walking
+   into whatever the buffer held before. Every path that moves EndPtrDef ends
+   here, so the invariant has one definition. */
+static void SealBuffer(void) {
+    do {
+        EndPtrDef--;
+        if (EndPtrDef < OrgPtrDef) {
+            break;
+        }
+    } while ((U8)*EndPtrDef <= 32);
+
+    EndPtrDef++;
+
+    EndPtrDef[0] = 0;
+    EndPtrDef[1] = 32;
+    EndPtrDef[2] = 0;
 }
 
 //══════════════════════════════════════════════════════════════════════════
@@ -179,21 +206,93 @@ S32 DefFileBufferInit(char *file, void *buffer, S32 maxsize) {
     }
 
     BufferSize = maxsize;
+    LayersAttached = FALSE; // a fresh load owns exactly what FileName holds
     OrgPtrDef = (char *)buffer;
     EndPtrDef = OrgPtrDef + buffersize;
-    do {
-        EndPtrDef--;
-        if (EndPtrDef < OrgPtrDef) {
-            break;
-        }
-    } while ((U8)*EndPtrDef <= 32);
+    SealBuffer(); // trailing trim, then the 0/32/0 the read loop stops on
 
-    EndPtrDef++;
+    return TRUE;
+}
 
-    EndPtrDef[0] = 0;
-    EndPtrDef[1] = 32; // Rajoute une ligne avec un espace tout à la fin
-    EndPtrDef[2] = 0;
+//══════════════════════════════════════════════════════════════════════════
 
+/* Room for a separator, `size` bytes of layer, and the three end sentinels. */
+static S32 LayerFits(S32 size) {
+    return ((S32)(EndPtrDef - OrgPtrDef) + 1 + size + 3) <= BufferSize;
+}
+
+/* A NUL anywhere in a layer would end every read that reaches it, hiding both
+   the layers below and whatever this one meant to supply. Refuse the layer
+   rather than attach a buffer that reads short. */
+static S32 LayerIsClean(const char *bytes, S32 size) {
+    if (memchr(bytes, 0, (size_t)size) == NULL) {
+        return TRUE;
+    }
+    Log_Warn("DefFileBufferAppend: layer has embedded NULs (corrupt) - skipping");
+    return FALSE;
+}
+
+//══════════════════════════════════════════════════════════════════════════
+void DefFileBufferSaveState(T_DEFFILE_STATE *out) {
+    if (out == NULL) {
+        return;
+    }
+    out->org = OrgPtrDef;
+    out->end = EndPtrDef;
+    out->bufferSize = BufferSize;
+    out->layersAttached = LayersAttached;
+    strcpy(out->fileName, FileName);
+}
+
+//══════════════════════════════════════════════════════════════════════════
+void DefFileBufferRestoreState(const T_DEFFILE_STATE *in) {
+    if (in == NULL) {
+        return;
+    }
+    OrgPtrDef = in->org;
+    EndPtrDef = in->end;
+    BufferSize = in->bufferSize;
+    LayersAttached = in->layersAttached;
+    strcpy(FileName, in->fileName);
+}
+
+//══════════════════════════════════════════════════════════════════════════
+S32 DefFileBufferAppendFile(const char *file) {
+    if (!OrgPtrDef || (file == NULL)) {
+        return FALSE;
+    }
+
+    const S32 size = (S32)FileSize(file);
+    if (size <= 0) {
+        return FALSE; // absent or empty: nothing to layer, and not an error
+    }
+    if (!LayerFits(size)) {
+        Log_Warn("DefFileBufferAppendFile: no room for %s (%d bytes)", file, size);
+        return FALSE;
+    }
+
+    /* Load straight into the tail, past the separator, so the file is never
+       copied twice. Its own line, so the last key above cannot run into the
+       first key here.
+
+       Read with a bound rather than a bare Load, and size the window from what
+       came back rather than from the FileSize above. The two can disagree --
+       removable media, an image remounted, the file rewritten between the stat
+       and the read -- and an unbounded read of a file that grew would be past
+       the end of the space LayerFits approved before anything could notice. */
+    char *layer = EndPtrDef + 1;
+    const S32 loaded = LoadSize((char *)file, layer, size);
+    if (loaded <= 0) {
+        return FALSE;
+    }
+    if (!LayerIsClean(layer, loaded)) {
+        return FALSE; // EndPtrDef untouched, so the window still excludes it
+    }
+
+    *EndPtrDef = 10;
+    EndPtrDef = layer + loaded;
+    SealBuffer();
+    LayersAttached = TRUE;
     return TRUE;
 }
 
@@ -280,6 +379,16 @@ S32 DefFileBufferWriteString(const char *ident, const char *string) {
         return FALSE;
     }
 
+    /* The buffer holds lower-priority layers the file does not, and a write
+       rewrites the whole buffer, so persisting it would fold the game data's
+       config into the player's. Callers that write re-load the file they own
+       first (WriteConfigFile does), which clears the layers; reaching here with
+       them attached is a bug, not a state to paper over. */
+    if (LayersAttached) {
+        Log_Error("DefFileBufferWriteString('%s'): buffer has read-only layers attached", ident);
+        return FALSE;
+    }
+
     result = DefFileBufferReadString(ident);
 
     // Atomic write: the new content is spliced into a temp file which then
@@ -346,6 +455,14 @@ S32 DefFileBufferWriteString(const char *ident, const char *string) {
 
 //══════════════════════════════════════════════════════════════════════════
 S32 DefFileBufferBeginBatch(void) {
+    /* Same reason DefFileBufferWriteString refuses: every write in the batch
+       would refuse anyway, so the batch would commit nothing and still report
+       success. Fail at the boundary, where the caller can still notice. */
+    if (LayersAttached) {
+        Log_Error("DefFileBufferBeginBatch: buffer has read-only layers attached");
+        return FALSE;
+    }
+
     if (BatchActive OR !OrgPtrDef) {
         return FALSE;
     }

@@ -6,6 +6,7 @@
  * Tests here only assert `lba2.hqr` presence as the discovery gate.
  */
 
+#include <SYSTEM/ADELINE.H>
 #include <SYSTEM/ADELINE_TYPES.H>
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/FILES.H>
@@ -282,6 +283,13 @@ static bool test_env_lba2_game_dir_common_join() {
     /* The banner has to name the probe that won, and this is the case that
      * catches a mislabel: the env branch makes two attempts, so a label set
      * once for the pair would report the wrong one for whichever hit second. */
+    /* A named profile binds to what the user typed, so the flag that gates that
+     * has to be true here and false for the probes below. */
+    if (!Res_ResolvedFromUserInput()) {
+        fprintf(stderr,
+                "test_env_lba2_game_dir_common_join: LBA2_GAME_DIR did not count as user input\n");
+        return false;
+    }
     const char *via = Res_GetDiscoverySource();
     if (strcmp(via, "LBA2_GAME_DIR, Common/") != 0) {
         fprintf(stderr,
@@ -649,6 +657,35 @@ static bool test_cwd_common_outranks_data() {
     return true;
 }
 
+/* The sibling scan is the probe that boots an install nobody named. A named
+ * profile writes down what resolved it, so this must never report as user
+ * input: binding a guess would make an arbitrary folder that profile's install
+ * for good. */
+static bool test_sibling_scan_is_not_user_input() {
+    unsetenv_portable("LBA2_GAME_DIR");
+    Res_SetDiscoverySource("sibling scan");
+    if (Res_ResolvedFromUserInput()) {
+        printf("FAIL provenance: the sibling scan counted as user input\n");
+        return false;
+    }
+    Res_SetDiscoverySource("last_game_dir.txt");
+    if (Res_ResolvedFromUserInput()) {
+        printf("FAIL provenance: a remembered pick counted as user input\n");
+        return false;
+    }
+    Res_SetDiscoverySource("--game-dir");
+    if (!Res_ResolvedFromUserInput()) {
+        printf("FAIL provenance: --game-dir did not count as user input\n");
+        return false;
+    }
+    Res_SetDiscoverySource("--game-dir, Common/");
+    if (!Res_ResolvedFromUserInput()) {
+        printf("FAIL provenance: --game-dir with the Common/ join was missed\n");
+        return false;
+    }
+    return true;
+}
+
 static bool test_embedded_cfg_write() {
 #ifndef _WIN32
     char dir[] = "/tmp/lba2emb_XXXXXX";
@@ -671,6 +708,236 @@ static bool test_embedded_cfg_write() {
     unlink_portable(dest);
     rmdir_portable(dir);
     return sz == g_embeddedLba2CfgBytesSize;
+}
+
+/* User-directory precedence: --user-dir beats LBA2_USER_DIR, an empty string
+ * counts as nothing set, and whatever wins comes back with exactly one trailing
+ * separator. That last part is what keeps a path typed without one from making
+ * every Get*Path append a sibling instead of a child.
+ *
+ * Exercises Directories_ResolveUserDir rather than GetDefaultUserDir: the
+ * latter resolves once and caches, so a process can only ask it a single
+ * question, which is the same wall the persisted-path test below runs into. */
+static bool test_user_dir_precedence() {
+    char out[ADELINE_MAX_PATH];
+    int bad = 0;
+
+    /* Nothing named: report that, and leave the buffer alone so the caller's
+     * platform default is not quietly overwritten with a partial answer. */
+    strcpy(out, "untouched");
+    if (Directories_ResolveUserDir(out, ADELINE_MAX_PATH, NULL, NULL) ||
+        strcmp(out, "untouched") != 0) {
+        printf("FAIL user_dir: both absent should resolve nothing\n");
+        bad++;
+    }
+    if (Directories_ResolveUserDir(out, ADELINE_MAX_PATH, "", "")) {
+        printf("FAIL user_dir: empty strings should count as absent\n");
+        bad++;
+    }
+
+    /* Precedence, including an empty override falling through to the env. */
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, "/cli", "/env") ||
+        strncmp(out, "/cli", 4) != 0) {
+        printf("FAIL user_dir: command line should beat the environment\n");
+        bad++;
+    }
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, "", "/env") ||
+        strncmp(out, "/env", 4) != 0) {
+        printf("FAIL user_dir: empty override should fall through to the environment\n");
+        bad++;
+    }
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, NULL, "/env") ||
+        strncmp(out, "/env", 4) != 0) {
+        printf("FAIL user_dir: null override should fall through to the environment\n");
+        bad++;
+    }
+
+    /* Exactly one trailing separator, whether or not one was typed, and
+     * whichever of the two spellings this platform accepts. */
+    char want[ADELINE_MAX_PATH];
+    snprintf(want, sizeof want, "/a/b%c", ADELINE_PATH_SEP_CHAR);
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, "/a/b", NULL) ||
+        strcmp(out, want) != 0) {
+        printf("FAIL user_dir: missing separator should be appended\n");
+        bad++;
+    }
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, "/a/b/", NULL) ||
+        strcmp(out, "/a/b/") != 0) {
+        printf("FAIL user_dir: an existing '/' should not be doubled\n");
+        bad++;
+    }
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, want, NULL) ||
+        strcmp(out, want) != 0) {
+        printf("FAIL user_dir: an existing native separator should not be doubled\n");
+        bad++;
+    }
+
+    /* No room for the path plus its separator: refused outright. Truncating to
+     * fit, or returning it without the separator, both name a different
+     * directory, and a run that quietly wrote to a different directory is what
+     * this whole path exists to prevent. The buffer is left alone. */
+    char longPath[ADELINE_MAX_PATH];
+    memset(longPath, 'a', ADELINE_MAX_PATH - 1);
+    longPath[ADELINE_MAX_PATH - 1] = '\0';
+    strcpy(out, "untouched");
+    if (Directories_ResolveUserDir(out, ADELINE_MAX_PATH, longPath, NULL) ||
+        strcmp(out, "untouched") != 0) {
+        printf("FAIL user_dir: a path with no room for its separator should be refused\n");
+        bad++;
+    }
+
+    /* The longest path that does fit still gets its separator. */
+    char fits[ADELINE_MAX_PATH];
+    memset(fits, 'b', ADELINE_MAX_PATH - 2);
+    fits[ADELINE_MAX_PATH - 2] = '\0';
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, fits, NULL) ||
+        strlen(out) != (size_t)(ADELINE_MAX_PATH - 1) ||
+        out[ADELINE_MAX_PATH - 2] != ADELINE_PATH_SEP_CHAR) {
+        printf("FAIL user_dir: the longest path that fits should still be separated\n");
+        bad++;
+    }
+
+    return bad == 0;
+}
+
+/* A marker beside the binary makes a tree self-contained. An empty file is the
+ * whole feature, so the only questions are whether one is there and what folder
+ * it names. */
+static bool test_portable_marker() {
+    char out[ADELINE_MAX_PATH];
+    int bad = 0;
+
+#ifndef _WIN32
+    char dir[] = "/tmp/lba2port_XXXXXX";
+    if (mkdtemp(dir) == NULL) {
+        return false;
+    }
+#else
+    char dir[512];
+    if (!make_temp_dir(dir, sizeof(dir), "port")) {
+        return false;
+    }
+#endif
+
+    /* No marker: the caller falls back to the per-user path. */
+    strcpy(out, "untouched");
+    if (Directories_PortableUserDir(out, ADELINE_MAX_PATH, dir) ||
+        strcmp(out, "untouched") != 0) {
+        printf("FAIL portable: an unmarked tree should resolve nothing\n");
+        bad++;
+    }
+
+    /* A directory of that name is somebody's folder, not a marker. */
+    char markerDir[ADELINE_MAX_PATH];
+    snprintf(markerDir, sizeof markerDir, "%s/%s", dir, ADELINE_PORTABLE_MARKER);
+    if (mkdir_portable(markerDir) == 0) {
+        if (Directories_PortableUserDir(out, ADELINE_MAX_PATH, dir)) {
+            printf("FAIL portable: a directory named %s counted as a marker\n",
+                   ADELINE_PORTABLE_MARKER);
+            bad++;
+        }
+        rmdir_portable(markerDir);
+    }
+
+    /* However it is spelled. A player types this one by hand on a filesystem
+     * that ignores case, then carries the tree to one that does not. */
+    static const char *const spellings[] = {"portable.txt", "PORTABLE.TXT",
+                                            "Portable.txt", "portable.TXT",
+                                            "pORTABLE.txt"};
+    for (size_t i = 0; i < sizeof spellings / sizeof spellings[0]; i++) {
+        char spelt[ADELINE_MAX_PATH];
+        snprintf(spelt, sizeof spelt, "%s/%s", dir, spellings[i]);
+        FILE *sf = fopen(spelt, "wb");
+        if (sf == NULL) {
+            continue;
+        }
+        fclose(sf);
+        if (!Directories_PortableUserDir(out, ADELINE_MAX_PATH, dir)) {
+            printf("FAIL portable: '%s' was not recognised as the marker\n", spellings[i]);
+            bad++;
+        }
+        unlink_portable(spelt);
+    }
+
+    /* An empty file is enough, and names <baseDir>/User[-Demo]/. */
+    FILE *f = fopen(markerDir, "wb");
+    if (f != NULL) {
+        fclose(f);
+        char want[ADELINE_MAX_PATH];
+        snprintf(want, sizeof want, "%s%c%s%c%s%c", dir, ADELINE_PATH_SEP_CHAR,
+                 ADELINE_PORTABLE_DIR, ADELINE_PATH_SEP_CHAR, ADELINE_PREF_APP,
+                 ADELINE_PATH_SEP_CHAR);
+        if (!Directories_PortableUserDir(out, ADELINE_MAX_PATH, dir) ||
+            strcmp(out, want) != 0) {
+            printf("FAIL portable: marked tree resolved '%s', wanted '%s'\n", out, want);
+            bad++;
+        }
+        /* A base path already carrying its separator resolves the same. */
+        char withSep[ADELINE_MAX_PATH];
+        snprintf(withSep, sizeof withSep, "%s%c", dir, ADELINE_PATH_SEP_CHAR);
+        if (!Directories_PortableUserDir(out, ADELINE_MAX_PATH, withSep) ||
+            strcmp(out, want) != 0) {
+            printf("FAIL portable: a trailing separator changed the answer\n");
+            bad++;
+        }
+        unlink_portable(markerDir);
+    }
+
+    /* Nothing to sit beside. */
+    if (Directories_PortableUserDir(out, ADELINE_MAX_PATH, NULL) ||
+        Directories_PortableUserDir(out, ADELINE_MAX_PATH, "")) {
+        printf("FAIL portable: an empty base path should resolve nothing\n");
+        bad++;
+    }
+
+    rmdir_portable(dir);
+    return bad == 0;
+}
+
+/* A profile is a directory inside the user directory, so its name must not be
+ * able to name anything outside it. Rejection happens before the run resolves
+ * any path, because a name that escaped would put the saves somewhere nobody
+ * asked for and there is no log yet to say so. */
+static bool test_profile_name_rules() {
+    int bad = 0;
+
+    /* Ordinary names people will actually type, dots and spaces included. */
+    static const char *const good[] = {"gog", "ea-cd", "twinsen", "v1.2",
+                                       "my install", "A_B-2", ".hidden"};
+    for (size_t i = 0; i < sizeof good / sizeof good[0]; i++) {
+        if (!Directories_IsValidProfileName(good[i])) {
+            printf("FAIL profile: rejected the usable name '%s'\n", good[i]);
+            bad++;
+        }
+    }
+
+    /* Anything that could step out of the profiles directory, plus nothing at
+     * all. Both separators are refused whatever the host, so a name written on
+     * one platform is refused on the other rather than quietly meaning
+     * something different. ".." is rejected wherever it appears, which also
+     * costs a name like "v1..2"; that is the intended trade.
+     *
+     * A colon and a trailing dot or space go the same way. Windows reads a
+     * colon as a drive and drops a trailing dot or space, so "gog." and "gog"
+     * would be one profile there and two here. Verified on Windows: before this
+     * rule, --profile 'trailing.' and --profile 'trailing' shared a folder. */
+    static const char *const evil[] = {"", "/", "\\", "a/b", "a\\b", "..",
+                                       "../escape", "escape/..", ".", "a..b",
+                                       "/etc", "C:\\Windows", "C:", "a:b",
+                                       "trailing.", "trailing "};
+    for (size_t i = 0; i < sizeof evil / sizeof evil[0]; i++) {
+        if (Directories_IsValidProfileName(evil[i])) {
+            printf("FAIL profile: accepted the unusable name '%s'\n", evil[i]);
+            bad++;
+        }
+    }
+
+    if (Directories_IsValidProfileName(NULL)) {
+        printf("FAIL profile: accepted a null name\n");
+        bad++;
+    }
+
+    return bad == 0;
 }
 
 /* Persisted-LastGameDir probe: a previous picker session wrote
@@ -1436,6 +1703,18 @@ int main() {
         failed++;
     }
     if (!test_embedded_cfg_write()) {
+        failed++;
+    }
+    if (!test_user_dir_precedence()) {
+        failed++;
+    }
+    if (!test_profile_name_rules()) {
+        failed++;
+    }
+    if (!test_sibling_scan_is_not_user_input()) {
+        failed++;
+    }
+    if (!test_portable_marker()) {
         failed++;
     }
     if (!test_persisted_last_game_dir()) {

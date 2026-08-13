@@ -46,6 +46,14 @@ static const T_CLI_FLAG CliFlags[] = {
     {"--game-dir", 1, 1, 1, NULL, "<dir>", "folder holding the game data, the one with the\n"
                                            "HQR files in it (often Common/)"},
     {"--data-dir", 1, 1, 0, NULL, "<dir>", "same as --game-dir"},
+    {"--user-dir", 1, 0, 1, NULL, "<dir>", "folder for this run's saves, settings and log,\n"
+                                           "created if missing. LBA2_USER_DIR does the same.\n"
+                                           "Use it to keep two installs apart, or to run\n"
+                                           "against a fresh folder"},
+    {"--profile", 1, 0, 1, NULL, "<name>", "keep this run's saves and settings under a name of\n"
+                                           "their own, so several installs don't share them.\n"
+                                           "LBA2_PROFILE does the same. No name means the\n"
+                                           "usual folder"},
     {"--disc", 1, 1, 0, NULL, "<file>", "mount this disc image instead of picking one\n"
                                         "from the game folder. Takes an image or a cue\n"
                                         "(the cue names its image). Use it when a folder\n"
@@ -214,6 +222,16 @@ int Cli_WantsHelp(int argc, char *argv[]) {
         i += flag ? 1 + flag->nvalues : 1;
     }
     return 0;
+}
+
+int Cli_FlagArity(const char *arg) {
+    const T_CLI_FLAG *flag;
+
+    if (arg == NULL) {
+        return -1;
+    }
+    flag = FindFlag(arg);
+    return flag ? flag->nvalues : -1;
 }
 
 int Cli_ValidateArgs(int argc, char *argv[]) {

@@ -142,7 +142,7 @@ directory trees read from the ISO 9660 descriptors.
 | GOG | `(Electronic Arts)` | 3 | n/a | n/a |
 | Steam Classic | no header comment | key absent | n/a | n/a |
 | Demo | no header comment | key absent | n/a | n/a |
-| [SOURCES/LBA2.CFG](../SOURCES/LBA2.CFG) in this repo | no header comment | 0 | n/a | n/a |
+| [SOURCES/LBA2.CFG](../SOURCES/LBA2.CFG) in this repo | no header comment | key absent | n/a | n/a |
 
 Two things follow.
 
@@ -188,6 +188,35 @@ would change some of those and not others.
 
 Editing the `Version` line in `lba2.cfg` by hand does the same thing.
 
+## Reading it off the data instead
+
+Everything above is what an installer wrote down. `scripts/dev/fingerprint_distro.py` answers the
+same question from the payload, for a directory, a disc image or a cue sheet:
+
+```
+scripts/dev/fingerprint_distro.py <path>...      # or --scan <dir> for every child
+```
+
+It reports the **master** and the **pressing** separately, because they move independently.
+
+`RESS.HQR` names the master. It takes one of two values across every release checked, and the split
+is the one the engine makes: `{UNKNOWN, EA}` is LBA2, everything else is Twinsen's Odyssey. Three of
+its fifty entries carry the difference and none of them is branding, so it records which data master
+the copy was built from rather than who sold it. Both Activision pressings ship it byte for byte
+despite being different locales.
+
+`SCENE.HQR` and `TEXT.HQR` name the pressing, locale included, which is exactly what `RESS` cannot
+see.
+
+That separation is what makes an unsampled release degrade usefully. A pressing from a publisher not
+in the table answers with its master immediately and only the pressing reads as unrecorded, where a
+single combined key would have answered nothing at all. The six `DistribVersion` constants are six
+labels on those two masters, so a Virgin disc is Twinsen's Odyssey and the tool says so.
+
+A declaration that agrees about the master is taken as naming the publisher, which the measurement
+cannot reach. One that disagrees is reported as a conflict: it means either the rules are wrong or
+the install was assembled from two sources.
+
 ## Version_US
 
 A vestige. Declared at [C_EXTERN.H:139](../SOURCES/C_EXTERN.H#L139), defined as `TRUE` at
@@ -221,6 +250,11 @@ Three more keys are written by the DOS installer and never read by the engine. T
 | `LanguageInstall` | installer | nothing |
 | `Demo` | installer | nothing |
 | `PathInstall` | installer | nothing |
+
+The in-repo template leaves `Version` out on purpose. It is written into a profile only when the
+game data ships no config of its own, and a value seeded that way would shadow the install
+underneath it for good, which is exactly the snapshot the layered read exists to avoid. Absent
+reads as `UNKNOWN_VERSION`, which is what it declared before.
 
 `Demo: 1` in the demo's config is the clearest case. It looks like the flag that selects demo
 behaviour, but the demo is a compile-time build (`-DDEMO`) and the key is inert. The demo config
@@ -264,7 +298,9 @@ never read. A format version the loader chose not to check.
 [RELEASING.md](RELEASING.md).
 
 The name collides with the `Version` config key and with `DistribVersion`'s comment header, which is
-worth knowing when grepping.
+worth knowing when grepping. The two are kept in separate files for the same reason:
+[VERSION.CPP](../SOURCES/VERSION.CPP) is the build string and nothing else, and the publisher names
+live in [DISTRIB.CPP](../SOURCES/DISTRIB.CPP).
 
 ## Build variants
 

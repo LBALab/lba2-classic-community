@@ -47,6 +47,42 @@ The remembered choice lives at:
 
 Delete it to force the picker to re-appear on next launch.
 
+Saves, settings, the log and that remembered path all live in one folder. To
+keep two installs from sharing them, give each its own:
+
+    ./@LBA2_EXECUTABLE_NAME@ --user-dir ~/lba2-profiles/gog --game-dir /path/to/game
+    LBA2_USER_DIR=~/lba2-profiles/gog ./@LBA2_EXECUTABLE_NAME@
+
+The folder is created if it is not there, so naming a new one starts you fresh.
+
+Or name a profile instead of a folder, and the game picks the folder for you:
+
+    ./@LBA2_EXECUTABLE_NAME@ --profile gog --game-dir /path/to/game
+
+Each profile keeps its own saves, settings and remembered install. Running
+without one writes where the game always did, so nothing you already have moves.
+
+To keep everything with the game instead, put an empty file called
+portable.txt next to the binary. Saves and settings then live in User/LBA2/
+beside it, so the whole folder can move to a USB stick and keep working.
+Anything you pass on the command line still wins over it.
+
+To make that stick a particular setup, put one line in portable.txt:
+
+    profile: gog
+
+The file's name is matched whatever the capitalisation, so one made on Windows
+still works here.
+
+A profile remembers the folder you gave it, so name it once and then don't:
+
+    ./@LBA2_EXECUTABLE_NAME@ --profile gog --game-dir /path/to/game
+    ./@LBA2_EXECUTABLE_NAME@ --profile gog
+
+LBA2_PROFILE=gog does the same, for a shortcut or launcher that sets the
+environment rather than passing flags. On a desktop shortcut, adding
+--profile gog to the command is usually the easier of the two.
+
 
 RUNNING
 -------

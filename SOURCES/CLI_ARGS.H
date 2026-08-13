@@ -29,6 +29,14 @@ int Cli_WantsHelp(int argc, char *argv[]);
    can exit instead of booting the game with a silently-ignored typo. */
 int Cli_ValidateArgs(int argc, char *argv[]);
 
+/**
+ * How many values \p arg takes, or -1 if it is not a flag this build knows.
+ *
+ * For a scan that has to run before the ordinary parsers: walking by arity is
+ * what keeps another flag's value from being read as a flag in its own right.
+ */
+int Cli_FlagArity(const char *arg);
+
 #ifdef __cplusplus
 }
 #endif

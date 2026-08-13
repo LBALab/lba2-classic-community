@@ -100,7 +100,7 @@ fi
 # --- --no-autosave must not break an explicit save (console `savebug`) -----------
 # ctl() passes --no-autosave for every test, so gating SaveGame() would silently turn
 # `savebug` into a no-op across the whole suite.
-bugs_dir="${XDG_DATA_HOME:-$HOME/.local/share}/Twinsen/LBA2/save/bugs"
+bugs_dir="$(user_dir)/save/bugs"
 bug_file="$bugs_dir/clicontract.lba"
 rm -f "$bug_file"
 ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --exec "savebug clicontract" --tick 5 --exit \

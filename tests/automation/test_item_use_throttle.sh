@@ -22,13 +22,13 @@ precheck
 FIX="$(dirname "$0")/../savegame/corpus/saves/steam_classic_2023/Wannies fragment.LBA"
 [ -f "$FIX" ] || skip "fixture missing: $FIX"
 
-# Isolate the log + cfg in a temp XDG dir: no stale runs, no touching the real adeline.log.
-xdg="$(mktemp -d)"
-trap 'rm -rf "$xdg"' EXIT
-log="$xdg/Twinsen/LBA2/adeline.log"
+# Isolate the log + cfg in a temp user dir: no stale runs, no touching the real adeline.log.
+user="$(mktemp -d)"
+trap 'rm -rf "$user"' EXIT
+log="$user/adeline.log"
 
 # The give-dialog blocks the tick loop, so the run never exits cleanly: bound it and SIGKILL.
-XDG_DATA_HOME="$xdg" SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
+LBA2_USER_DIR="$user" SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
     timeout -s KILL 20 "$LBA2_BIN" \
     --language English --no-audio --resolution 640x480 --load "$FIX" \
     --fixed-timestep 100 --fixed-dt 8 --exec "useitem trace 1; useitem 18 1 5" --tick 20 --exit \

@@ -65,6 +65,36 @@ The persisted path lives at `<SDL_GetPrefPath("Twinsen", "LBA2")>/last_game_dir.
 | macOS | `~/Library/Application Support/Twinsen/LBA2/last_game_dir.txt` |
 | Windows | `%APPDATA%\Twinsen\LBA2\last_game_dir.txt` |
 
+`--user-dir <dir>` (or `LBA2_USER_DIR`) moves that whole folder, the remembered path included, so
+two installs can each keep their own. The folder is created if it is not there.
+
+`--profile <name>` (or `LBA2_PROFILE`) does the same thing without naming a folder: everything moves to
+`profiles/<name>/` inside the user folder, so `--profile gog` and `--profile ea-cd` keep their saves,
+settings and remembered install apart. Naming no profile writes where the game always did, so
+nothing existing moves. The two compose: `--user-dir` says where the root is, `--profile` says which
+profile inside it. A name is a folder name, so it cannot contain `/` or `\` or step up with `..`.
+
+An empty file called `portable.txt` beside the binary makes the whole tree self-contained: the user
+folder becomes `User/LBA2/` next to the binary (`User/LBA2-Demo/` for a demo build), so a copy on a
+USB stick carries its saves and settings with it, and a tree holding both builds keeps them apart.
+A `profile: <name>` line in that file names the profile the tree uses by default, so a bundle can be
+somebody's GOG setup without anyone typing a flag. Anything you pass still wins over it. The file's contents are reserved and nothing reads them.
+`--user-dir` and `LBA2_USER_DIR` still win over it, so a marker cannot override something you typed,
+and a tree that cannot be written to stops the boot naming the folder rather than quietly writing
+elsewhere. Release bundles do not ship the marker; it is something you add.
+
+A named profile remembers the install it was given, so naming it is enough after the first time:
+
+```
+lba2cc --profile gog --game-dir /path/to/gog     # once
+lba2cc --profile gog                             # from then on
+```
+
+Only a folder you named is remembered, from `--game-dir` or `LBA2_GAME_DIR`. A folder discovery
+guessed at is not, because the probes are a fallback and writing one down would make an arbitrary
+install that profile's for good. Running without a profile keeps its old behaviour, where
+`--game-dir` applies to that run only.
+
 It's a single-line text file (the absolute path to the chosen game-data folder). Safe to delete by hand to force the picker to re-appear on next launch — the engine treats a missing file as "never picked," same as a fresh install.
 
 ### Forcing the picker without deleting the file

@@ -2,6 +2,7 @@
 
 #include <SYSTEM/ADELINE.H>
 #include <SYSTEM/DISCIMG.H>
+#include <SYSTEM/FILECOPY.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>
 #include <SYSTEM/LOG.H>
@@ -9,6 +10,10 @@
 
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
+
+#include <stdio.h>
+
+#include <dirent.h>
 
 #include <assert.h>
 #include <stdlib.h>
@@ -27,6 +32,7 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
+#define DIR_NAME_PROFILES "profiles" ADELINE_PATH_SEP
 #define DIR_NAME_SAVE "save" ADELINE_PATH_SEP
 #define DIR_NAME_SHOOT "shoot" ADELINE_PATH_SEP
 #define DIR_NAME_BUGS "bugs" ADELINE_PATH_SEP
@@ -57,6 +63,18 @@ char directoriesResDir[ADELINE_MAX_PATH] = "";
 char directoriesCfgDir[ADELINE_MAX_PATH] = "";
 char directoriesCDPrefix[ADELINE_MAX_PATH] = "";
 S32 directoriesDistVersion;
+/* Set from the command line before anything asks for a path; empty means the
+   environment, then the per-user default, decide. See GetDefaultUserDir. */
+static char directoriesUserDirOverride[ADELINE_MAX_PATH] = "";
+/* Named profile, or empty for the default one, which is the user directory
+   itself. See GetDefaultUserDir. */
+static char directoriesProfile[ADELINE_MAX_PATH] = "";
+/* The marker that put this run in a portable tree, so its one key can be read
+   back after the root is settled. Empty when no marker chose the root. */
+static char directoriesPortableMarkerPath[ADELINE_MAX_PATH] = "";
+/* How the user directory got resolved, for the boot banner. Set once, by
+   GetDefaultUserDir. */
+static const char *directoriesUserDirSource = "default";
 
 // --- Private functions -------------------------------------------------------
 /**
@@ -296,15 +314,334 @@ void GetCurrentRunningDir(char *outDir) {
 #endif
 }
 
+bool Directories_IsValidProfileName(const char *name) {
+    if ((name == NULL) || (name[0] == '\0')) {
+        return false;
+    }
+
+    /* A profile is a directory inside the user directory and has to stay there,
+       so nothing that could walk out of it is accepted: no separator in either
+       spelling (a Windows path uses one, a POSIX one the other, and a name
+       crossing platforms should be refused on both), and no parent hop. A bare
+       dot names the profiles directory itself. */
+    if (strchr(name, '/') || strchr(name, '\\') || strstr(name, "..")) {
+        return false;
+    }
+    if (strcmp(name, ".") == 0) {
+        return false;
+    }
+
+    /* Refused on every platform, for the same reason both separators are: a
+       name has to mean the same folder wherever the tree is opened.
+
+       A colon is a drive or a stream on Windows, so `C:` resolves to somewhere
+       else entirely and the run dies later with a path nobody typed. A trailing
+       dot or space is dropped by the Windows path parser, which quietly makes
+       "gog." and "gog" one profile while the player believes they have two.
+       Both accepted here on Linux would be a name that stops working when the
+       stick is carried across. */
+    if (strchr(name, ':')) {
+        return false;
+    }
+    const size_t len = strlen(name);
+    if ((name[len - 1] == '.') || (name[len - 1] == ' ')) {
+        return false;
+    }
+    return true;
+}
+
+const char *Directories_GetProfile(void) { return directoriesProfile; }
+
+const char *Directories_GetUserDirSource(void) { return directoriesUserDirSource; }
+
+void Directories_SetProfileOverride(const char *name) {
+    if (name == NULL) {
+        directoriesProfile[0] = '\0';
+        return;
+    }
+    strncpy(directoriesProfile, name, ADELINE_MAX_PATH);
+    directoriesProfile[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+}
+
+void Directories_SetUserDirOverride(const char *path) {
+    if (path == NULL) {
+        directoriesUserDirOverride[0] = '\0';
+        return;
+    }
+    strncpy(directoriesUserDirOverride, path, ADELINE_MAX_PATH);
+    directoriesUserDirOverride[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+}
+
+bool Directories_ResolveUserDir(char *outDir, U16 outMax,
+                                const char *overridePath, const char *envPath) {
+    assert((outDir != NULL) && (outMax > 0));
+
+    const char *chosen = NULL;
+    if ((overridePath != NULL) && (overridePath[0] != '\0')) {
+        chosen = overridePath;
+    } else if ((envPath != NULL) && (envPath[0] != '\0')) {
+        chosen = envPath;
+    }
+    if (chosen == NULL) {
+        return false;
+    }
+
+    /* Too long to hold, or too long to hold a separator: either way the result
+       would be a different directory, and a run that quietly wrote to a
+       different directory is what this whole path exists to prevent. Report
+       nothing resolved rather than something nearly right. */
+    const size_t want = strlen(chosen);
+    if (want + 2 > (size_t)outMax) {
+        Log_Error("User directory path too long (>= %d): '%s'", outMax, chosen);
+        return false;
+    }
+
+    strncpy(outDir, chosen, outMax);
+    outDir[outMax - 1] = '\0'; // Guarantee
+
+    /* Every Get*Path builds its result as baseDir + name with no separator of
+       its own, and SDL_GetPrefPath always hands back a trailing one, so a path
+       typed without it has to be brought to the same shape or the first append
+       lands a sibling file instead of a child. The length guard above means
+       there is always room for it. */
+    const size_t len = strlen(outDir);
+    if ((len > 0) && (outDir[len - 1] != '/') &&
+        (outDir[len - 1] != ADELINE_PATH_SEP_CHAR)) {
+        outDir[len] = ADELINE_PATH_SEP_CHAR;
+        outDir[len + 1] = '\0';
+    }
+    return true;
+}
+
+/* The marker, however it is spelled. One pass over the directory the binary
+   sits in, which is small and read once per boot. */
+static bool FindPortableMarker(const char *dir, char *outName, U16 outMax) {
+    DIR *dirp = opendir(dir);
+    if (dirp == NULL) {
+        return false;
+    }
+
+    bool found = false;
+    struct dirent *entry;
+    while (!found && ((entry = readdir(dirp)) != NULL)) {
+        if (SDL_strcasecmp(entry->d_name, ADELINE_PORTABLE_MARKER) == 0) {
+            strncpy(outName, entry->d_name, outMax);
+            outName[outMax - 1] = '\0'; // Guarantee
+            found = true;
+        }
+    }
+    closedir(dirp);
+    return found;
+}
+
+/* The one key the marker carries. A bundle that is somebody's GOG setup can say
+   so, which is the only thing about a portable tree that no flag can express: a
+   flag belongs to a run, this belongs to the tree and travels with it.
+
+   Parsed here rather than through DefFile, which needs a buffer and sets module
+   state this early in the boot, for one key in a file that is usually empty.
+   Everything else in it is still reserved and still unread. */
+static bool ReadPortableProfile(const char *markerPath, char *outName, U16 outMax) {
+    FILE *f = fopen(markerPath, "rb");
+    if (f == NULL) {
+        return false;
+    }
+
+    char line[ADELINE_MAX_PATH];
+    bool found = false;
+    while (!found && (fgets(line, (int)sizeof(line), f) != NULL)) {
+        char *p = line;
+        while ((*p == ' ') || (*p == '\t')) {
+            p++;
+        }
+        if (SDL_strncasecmp(p, "profile", 7) != 0) {
+            continue;
+        }
+        p += 7;
+        while ((*p == ' ') || (*p == '\t')) {
+            p++;
+        }
+        if ((*p != ':') && (*p != '=')) {
+            continue; // a longer word starting "profile", not the key
+        }
+        p++;
+        while ((*p == ' ') || (*p == '\t')) {
+            p++;
+        }
+        /* To end of line, then back over trailing blanks. */
+        char *end = p;
+        while ((*end != '\0') && (*end != '\r') && (*end != '\n')) {
+            end++;
+        }
+        while ((end > p) && ((end[-1] == ' ') || (end[-1] == '\t'))) {
+            end--;
+        }
+        *end = '\0';
+        if (p != end) {
+            strncpy(outName, p, outMax);
+            outName[outMax - 1] = '\0'; // Guarantee
+            found = true;
+        }
+    }
+
+    fclose(f);
+    return found;
+}
+
+bool Directories_PortableUserDir(char *outDir, U16 outMax, const char *baseDir) {
+    assert((outDir != NULL) && (outMax > 0));
+
+    if ((baseDir == NULL) || (baseDir[0] == '\0')) {
+        return false;
+    }
+
+    char root[ADELINE_MAX_PATH];
+    if (!Directories_ResolveUserDir(root, ADELINE_MAX_PATH, baseDir, NULL)) {
+        return false; // too long to hold a separator, so nothing sits beside it
+    }
+
+    /* Matched however it is spelled, by looking at what is actually there.
+       Discover's four case variations are the right tool for a name a
+       distribution shipped, where the spelling is one of a known few. This file
+       is the one a player types by hand, on a filesystem that does not care
+       about case, and then carries to one that does: portable.TXT and
+       pORTABLE.txt are neither of them among those four, and a miss is silent.
+       The tree simply is not portable, with nothing said. */
+    char marker[ADELINE_MAX_PATH];
+    if (!FindPortableMarker(root, marker, ADELINE_MAX_PATH)) {
+        return false;
+    }
+    char markerPath[ADELINE_MAX_PATH];
+    if (snprintf(markerPath, ADELINE_MAX_PATH, "%s%s", root, marker) >= ADELINE_MAX_PATH) {
+        return false;
+    }
+    if (IsDirectory(markerPath)) {
+        return false;
+    }
+
+    /* One directory per build under it, keyed the same way the per-user path is,
+       so `User/LBA2/` and `Twinsen/LBA2/` say the same thing and a tree holding
+       two builds needs no second scheme. */
+    if (snprintf(outDir, outMax, "%s%s%s%s%s", root, ADELINE_PORTABLE_DIR,
+                 ADELINE_PATH_SEP, ADELINE_PREF_APP,
+                 ADELINE_PATH_SEP) >= (int)outMax) {
+        return false;
+    }
+
+    strncpy(directoriesPortableMarkerPath, markerPath, ADELINE_MAX_PATH);
+    directoriesPortableMarkerPath[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+    return true;
+}
+
+bool Directories_PortableProfile(char *outName, U16 outMax) {
+    assert((outName != NULL) && (outMax > 0));
+
+    if (directoriesPortableMarkerPath[0] == '\0') {
+        return false; // no marker chose this run's root
+    }
+    return ReadPortableProfile(directoriesPortableMarkerPath, outName, outMax);
+}
+
 void GetDefaultUserDir(char *outDir) {
     static bool initialized = false;
     static char userDir[ADELINE_MAX_PATH] = "";
     if (!initialized) {
-        char *sdlUserPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
-        if (sdlUserPath != NULL) {
-            strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
-            userDir[ADELINE_MAX_PATH - 1] = '\0';
-            SDL_free(sdlUserPath);
+        /* Explicit override first, environment second, per-user default last:
+           the same CLI > env > default order the resolution and game-data paths
+           already follow.
+
+           A named directory is created rather than required to exist, matching
+           SDL_GetPrefPath, which creates its own. That is what makes
+           `--user-dir <fresh path>` an empty profile in one step, with no mkdir
+           on the caller. Creation failure is deliberately not papered over with
+           a fall back to the default: a run that quietly wrote somewhere other
+           than where it was told is the failure this flag exists to prevent, so
+           the unusable path stays and InitDirectories stops the boot naming it. */
+        const char *env = getenv("LBA2_USER_DIR");
+        const bool asked = (directoriesUserDirOverride[0] != '\0') ||
+                           ((env != NULL) && (env[0] != '\0'));
+        if (directoriesUserDirOverride[0] != '\0') {
+            directoriesUserDirSource = "--user-dir";
+        } else if (asked) {
+            directoriesUserDirSource = "LBA2_USER_DIR";
+        }
+
+        if (!Directories_ResolveUserDir(userDir, ADELINE_MAX_PATH,
+                                        directoriesUserDirOverride, env)) {
+            /* Somebody named a folder and it could not be made into one, which
+               is the case this flag exists to make loud. Falling through to the
+               per-user default here would write the run's saves somewhere other
+               than where it was told while the banner still named the override.
+               Empty stops the boot in InitDirectories instead. */
+            if (asked) {
+                userDir[0] = '\0';
+            } else {
+                /* A marker beside the binary makes the tree self-contained. It
+                   sits below both explicit inputs on purpose, so it changes only
+                   the fallback: a file the player may have forgotten about must
+                   not override something they typed.
+
+                   SDL3 hands back an internal cached pointer; do not free it. */
+                if (Directories_PortableUserDir(userDir, ADELINE_MAX_PATH, SDL_GetBasePath())) {
+                    directoriesUserDirSource = ADELINE_PORTABLE_MARKER;
+                } else {
+                    char *sdlUserPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
+                    if (sdlUserPath != NULL) {
+                        strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
+                        userDir[ADELINE_MAX_PATH - 1] = '\0';
+                        SDL_free(sdlUserPath);
+                    }
+                }
+            }
+        }
+
+        /* A tree that names its own profile gets it when nothing else did. The
+           marker belongs to the tree, so it sits below both the flag and the
+           environment, which belong to a run. A name it cannot use stops the
+           boot rather than quietly landing in the default profile: writing
+           somewhere other than the file asked for is the failure this whole
+           path exists to prevent. */
+        if ((userDir[0] != '\0') && (directoriesProfile[0] == '\0')) {
+            char fromMarker[ADELINE_MAX_PATH];
+            if (Directories_PortableProfile(fromMarker, ADELINE_MAX_PATH)) {
+                if (Directories_IsValidProfileName(fromMarker)) {
+                    Directories_SetProfileOverride(fromMarker);
+                } else {
+                    Log_Error("%s names '%s', which is not a usable profile name",
+                              ADELINE_PORTABLE_MARKER, fromMarker);
+                    userDir[0] = '\0';
+                }
+            }
+        }
+
+        /* A named profile is a directory inside whatever root was just
+           resolved, so --user-dir and --profile compose: the first says where,
+           the second says which. The default profile is the root itself rather
+           than a "default" folder under it, so an install that never names one
+           keeps writing exactly where it always did and there is nothing to
+           migrate. */
+        if ((directoriesProfile[0] != '\0') && (userDir[0] != '\0')) {
+            char root[ADELINE_MAX_PATH];
+            strncpy(root, userDir, ADELINE_MAX_PATH);
+            root[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+
+            if (snprintf(userDir, ADELINE_MAX_PATH, "%s%s%s%s", root,
+                         DIR_NAME_PROFILES, directoriesProfile,
+                         ADELINE_PATH_SEP) >= ADELINE_MAX_PATH) {
+                /* Truncated, and a truncated path is a different folder. Empty
+                   rather than nearly-right, so the boot stops instead of
+                   writing somewhere nobody asked for. */
+                Log_Error("Profile path too long (>= %d): '%s' under '%s'",
+                          ADELINE_MAX_PATH, directoriesProfile, root);
+                userDir[0] = '\0';
+            }
+        }
+
+        /* Idempotent, and it succeeds when the folder is already there, so this
+           covers a named user directory, a named profile, and the per-user
+           default SDL already created. */
+        if (userDir[0] != '\0') {
+            SDL_CreateDirectory(userDir);
         }
         initialized = true;
     }
@@ -341,6 +678,78 @@ void GetSavePath(char *outPath, U16 pathMaxSize, const char *saveFilename) {
     }
 
     DiscoverEndingAndAppend(outPath, pathMaxSize, savePath, saveFilename);
+}
+
+/* Saves the install ships, handed to a profile the first time it is used.
+   `<gameDir>/SAVE/` is where the DOS engine wrote, so every install has the
+   folder; retail ones leave it empty, and the 1997 demo fills it with the three
+   sections its fixed slots are meant to load. Nothing looked there, so those
+   three were unreachable: the slots resolved to files that did not exist.
+
+   Copied rather than read in place, because these are slots the player saves
+   back into, and the install may be a mounted image or read-only media.
+
+   Once, keyed on the save folder not existing yet, which is the only moment a
+   profile has never been used. Seeding on a missing file instead would raise
+   saves the player had deleted, every launch. */
+void Directories_SeedSavesFromGameData(void) {
+    assert(directoriesInitialized);
+
+    char destDir[ADELINE_MAX_PATH];
+    GetSavePath(destDir, ADELINE_MAX_PATH, NULL);
+    if (ExistsFileOrDir(destDir)) {
+        return; // this profile has been used before
+    }
+
+    char srcDir[ADELINE_MAX_PATH];
+    DiscoverEndingAndAppend(srcDir, ADELINE_MAX_PATH, directoriesResDir, DIR_NAME_SAVE);
+    DIR *dirp = opendir(srcDir);
+    if (dirp == NULL) {
+        return; // nothing shipped, which is the ordinary case
+    }
+
+    S32 copied = 0;
+    S32 failed = 0;
+    struct dirent *entry;
+    while ((entry = readdir(dirp)) != NULL) {
+        const char *name = entry->d_name;
+        const size_t len = strlen(name);
+        /* Top-level saves only. The SHOOT/ beside them holds screenshots the
+           engine generates, and a directory is not a save. */
+        if (len < 5 || SDL_strcasecmp(name + len - 4, ".lba") != 0) {
+            continue;
+        }
+
+        char srcPath[ADELINE_MAX_PATH];
+        char destPath[ADELINE_MAX_PATH];
+        if (snprintf(srcPath, ADELINE_MAX_PATH, "%s%s", srcDir, name) >= ADELINE_MAX_PATH ||
+            snprintf(destPath, ADELINE_MAX_PATH, "%s%s", destDir, name) >= ADELINE_MAX_PATH) {
+            continue;
+        }
+        if (!ExistsOnFilesystem(srcPath)) {
+            continue; // a directory ending in .lba, or a stale entry
+        }
+        if (copied == 0 && !SDL_CreateDirectory(destDir)) {
+            break; // nowhere to put them; the boot reports the folder elsewhere
+        }
+        if (Copy(srcPath, destPath)) {
+            copied++;
+        } else {
+            Log_Warn("Saves      could not copy %s out of the game data", name);
+            failed++;
+        }
+    }
+    closedir(dirp);
+
+    if (copied > 0) {
+        Log_Info("Saves      %d shipped with the game data, copied in", copied);
+    } else if (failed > 0) {
+        /* The folder was created for a copy that never landed, and its presence
+           is what says this profile has been used. Leaving it would retire the
+           seeding for good on the first bad run, so take it back and let the
+           next launch try again. */
+        SDL_RemovePath(destDir); // empty, so this succeeds and the next launch retries
+    }
 }
 
 void GetShootPath(char *outPath, U16 pathMaxSize, const char *shootFilename) {

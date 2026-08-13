@@ -22,15 +22,15 @@ SAVE="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Desert Island.LBA"
 
 # Count GEN_ANIM_COUP_* (17/18/19 = a melee attack) frames in the input trace when the action press
 # starts on rendered frame $1. Aggressive mode is set by injecting I_AGRESSIF (0x10000); 0x1 = up
-# (walk), 0x80 = I_ACTION_M (action). An isolated XDG_DATA_HOME keeps the trace log to this run.
+# (walk), 0x80 = I_ACTION_M (action). An isolated user dir keeps the trace log to this run.
 coup_frames() { # action-start-frame
     local f="$1" sv home log n
     sv="$(mktemp --suffix=.LBA)"
     home="$(mktemp -d)"
     cp "$SAVE" "$sv"
-    XDG_DATA_HOME="$home" ctl_headless --load "$sv" --fixed-dt 8 --fixed-timestep 24 --log-level debug \
+    LBA2_USER_DIR="$home" ctl_headless --load "$sv" --fixed-dt 8 --fixed-timestep 24 --log-level debug \
         --exec "input trace 1; input fseq 0:0x10000:6/0:up:120/${f}:up+action:6" --tick 60 --exit >/dev/null 2>&1
-    log="$home/Twinsen/LBA2/adeline.log"
+    log="$home/adeline.log"
     n=$(grep "\[input\]" "$log" 2>/dev/null | grep -cE "gen_anim=(17|18|19)")
     rm -rf "$sv" "$home"
     echo "$n"

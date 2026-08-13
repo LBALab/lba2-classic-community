@@ -399,10 +399,19 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
        Mem_ConfigureScreenBuffers / InitMainBuffer, where ScreenAux isn't
        allocated yet. The later ReadConfigFile call (post-InitProgram) does
        its own DefFileBufferInit against ScreenAux which fully resets the
-       module state; nothing carries over from this transient init. */
+       module state.
+
+       The window is put back before leaving, because this is also called a
+       second time for the boot banner, after InitAdeline has stacked the
+       config layers. Without the restore that later call would leave the
+       module pointed at this scratch copy of the owned file alone, and every
+       read after it (InitLanguage among them) would lose the game-data
+       layer. */
     if (PathConfigFile[0] != '\0' && ExistsFileOrDir(PathConfigFile)) {
         /* BSS scratch (see RES_BOOT_CFG_BUFSZ) rather than blowing main's stack. */
         static char tmpCfgBuf[RES_BOOT_CFG_BUFSZ];
+        T_DEFFILE_STATE savedDef;
+        DefFileBufferSaveState(&savedDef);
         if (DefFileBufferInit(PathConfigFile, tmpCfgBuf, (S32)sizeof tmpCfgBuf)) {
             const long w = DefFileBufferReadValueDefault("ResolutionX", 0);
             const long h = DefFileBufferReadValueDefault("ResolutionY", 0);
@@ -413,6 +422,7 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
                 *outH = (U32)h;
                 g_bootDimSource = "cfg";
                 g_resIsAutoDerived = false;
+                DefFileBufferRestoreState(&savedDef);
                 return;
             } else {
                 LogPrintf(
@@ -424,6 +434,7 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
                     RESOLUTION_X, RESOLUTION_Y);
             }
         }
+        DefFileBufferRestoreState(&savedDef);
     }
 
     /* No CLI override and no saved resolution: auto-detect a widescreen render
@@ -460,10 +471,14 @@ bool Res_LoadBootFullscreen(void) {
        (FALSE) and its <0/>1 clamp — keep the two in sync. */
     if (PathConfigFile[0] != '\0' && ExistsFileOrDir(PathConfigFile)) {
         static char tmpCfgBuf[RES_BOOT_CFG_BUFSZ];
+        T_DEFFILE_STATE savedDef;
+        DefFileBufferSaveState(&savedDef);
         if (DefFileBufferInit(PathConfigFile, tmpCfgBuf, (S32)sizeof tmpCfgBuf)) {
             const long fs = DefFileBufferReadValueDefault("DisplayFullScreen", 0);
+            DefFileBufferRestoreState(&savedDef);
             return fs == 1;
         }
+        DefFileBufferRestoreState(&savedDef);
     }
     return false;
 }

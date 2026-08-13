@@ -7,6 +7,7 @@ extern S32 GfxDitherShading;
 #include "BUILD_INFO.h" /* LBA2_VERSION_STRING (for --version flag) */
 #include "INITADEL.H"
 #include "DIRECTORIES.H"
+#include "DISTRIB.H"
 #include "RES_DISCOVERY.H"
 #include "RES_PICKER.H"
 #include "INPUT.H"
@@ -2444,7 +2445,20 @@ void ReadConfigFile(void) {
         FlagDisplayText = 1; // default
 
     // version distributeur
-    DistribVersion = DefFileBufferReadValueDefault("Version", UNKNOWN_VERSION);
+    /* Read so that absent and an explicit 0 stay distinguishable. They mean the
+       same to every consumer, and different things to a reader: a store build
+       ships no key at all, which is ordinary, while a written 0 is somebody
+       choosing no publisher. */
+    {
+        S32 declaredVersion;
+        if (DefFileBufferReadValue2("Version", &declaredVersion)) {
+            DistribVersion = declaredVersion;
+            Distrib_SetDeclared(true);
+        } else {
+            DistribVersion = UNKNOWN_VERSION;
+            Distrib_SetDeclared(false);
+        }
+    }
 
     FlagMenuMouse = DefFileBufferReadValueDefault("MenuMouse", TRUE);
     if (FlagMenuMouse != 0)
@@ -2528,6 +2542,11 @@ void ReadConfigFile(void) {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 void WriteConfigFile(void) {
+    /* Writes go to the file this run owns, alone: DefFileBufferInit clears any
+       layer, because rewriting a layered buffer would fold the game data's
+       config into the player's. The layer is put back at the end, since this is
+       also called mid-run (the options menu, a resolution switch) and every read
+       afterwards would otherwise lose the keys only the game data defines. */
     DefFileBufferInit(PathConfigFile, ScreenAux, (640 * 480 + RECOVER_AREA));
 
     // Batch the whole save into one fsync + atomic rename. Without this, each of
@@ -2611,6 +2630,14 @@ void WriteConfigFile(void) {
 
     if (batched) {
         DefFileBufferEndBatch();
+    }
+
+    /* Re-stack the game data's config under the file just written. Reads after
+       this point see what the boot assembled. */
+    {
+        char dataCfg[ADELINE_MAX_PATH];
+        GetDefaultCfgPath(dataCfg, ADELINE_MAX_PATH, CFG_NAME);
+        DefFileBufferAppendFile(dataCfg);
     }
 }
 
@@ -2921,6 +2948,22 @@ static void parse_save_load_test_flag(int *argc, char *argv[]) {
     *argc = write;
 }
 
+/* Take a profile name from wherever it came, or refuse it by name. Checked
+   before any path is resolved: an unusable name means the run would write
+   somewhere other than asked, and there is no log yet to explain it. */
+static bool ProfileNameOrExit(const char *name, const char *source) {
+    if (Directories_IsValidProfileName(name)) {
+        Directories_SetProfileOverride(name);
+        return true;
+    }
+    fprintf(stderr,
+            "error: %s names '%s', which is not a usable profile name\n\n"
+            "A profile is a folder inside your saves folder, so the name cannot\n"
+            "contain '/' or '\\', cannot step up with '..', and cannot be empty.\n",
+            source, name);
+    return false;
+}
+
 int main(int argc, char *argv[]) {
     /* --version: print resolved engine version (from VERSION file at the
      * repo root, optionally suffixed with -dirty) and exit. Handled before
@@ -2978,6 +3021,48 @@ int main(int argc, char *argv[]) {
     {
         char resFolderPath[ADELINE_MAX_PATH] = "";
         char userFolderPath[ADELINE_MAX_PATH] = "";
+
+        /* --user-dir and --profile have to be read before the first
+           GetDefaultUserDir, which is the next line: that call resolves the root
+           once and caches it, so an override arriving later would leave the log
+           in one folder and the saves in another. Last spelling wins, as it does
+           for --disc.
+
+           A profile name is checked here rather than left to fail later: an
+           unusable one means the run would write somewhere other than asked,
+           and there is no log yet to explain it. */
+        bool profileNamed = false;
+        for (int i = 1; i < argc;) {
+            const int arity = Cli_FlagArity(argv[i]);
+            if (arity < 0) { /* not a flag we know: a value, or a positional */
+                i++;
+                continue;
+            }
+            if (arity < 1 || i + 1 >= argc) {
+                i += 1 + arity;
+                continue;
+            }
+            if (!strcmp(argv[i], "--user-dir"))
+                Directories_SetUserDirOverride(argv[i + 1]);
+            if (!strcmp(argv[i], "--profile")) {
+                if (!ProfileNameOrExit(argv[i + 1], "--profile"))
+                    return 2;
+                profileNamed = true;
+            }
+            i += 1 + arity;
+        }
+
+        /* LBA2_PROFILE, for the launcher or shortcut that cannot pass a flag.
+           Below --profile, matching LBA2_USER_DIR under --user-dir and
+           LBA2_GAME_DIR under --game-dir: the environment sets the habit, the
+           command line settles the run. */
+        if (!profileNamed) {
+            const char *envProfile = getenv("LBA2_PROFILE");
+            if ((envProfile != NULL) && (envProfile[0] != '\0') &&
+                !ProfileNameOrExit(envProfile, "LBA2_PROFILE")) {
+                return 2;
+            }
+        }
 
         GetDefaultUserDir(userFolderPath);
 
@@ -3084,6 +3169,30 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        /* A named profile binds to the install it was given, so that naming the
+           profile alone works next time: `--profile gog --game-dir <path>` once,
+           then `--profile gog`.
+
+           Only for a folder the user typed. Binding a probe's answer would
+           write down a guess as that profile's install for good, and the
+           sibling scan is exactly the probe that boots something nobody named:
+           without this rule, `--profile gog` on its own would happily settle on
+           whatever install happened to sit beside the binary and remember it.
+
+           The default profile keeps its old behaviour, where an explicit
+           --game-dir is for this run only. Naming a profile is what says "this
+           is my setup"; running without one is not. */
+        if (Directories_GetProfile()[0] != '\0' && Res_ResolvedFromUserInput()) {
+            char boundPath[ADELINE_MAX_PATH] = "";
+            const bool alreadyBound =
+                ReadPersistedGameDir(boundPath, ADELINE_MAX_PATH) &&
+                strcmp(boundPath, resFolderPath) == 0;
+            if (!alreadyBound && WritePersistedGameDir(resFolderPath)) {
+                Log_Info("Profile    '%s' now points at %s",
+                         Directories_GetProfile(), resFolderPath);
+            }
+        }
+
         InitDirectories(userFolderPath, resFolderPath, userFolderPath, "",
                         DistribVersion);
 
@@ -3177,6 +3286,10 @@ int main(int argc, char *argv[]) {
     }
 
 #ifdef ONE_GAME_DIRECTORY
+    /* Before CreateLbaDirectories, which creates the save folder: its absence is
+       what says this profile has never been used. */
+    Directories_SeedSavesFromGameData();
+
     CreateLbaDirectories();
 #endif
 
@@ -3214,6 +3327,25 @@ int main(int argc, char *argv[]) {
                     GetLanguageName(Language), (int)Language);
     }
     Log_Info("Language   %s", GetLanguageName(Language));
+    /* The release this run believes it is. Declared by the config beside the
+       game data, never detected (docs/VERSIONS.md), and it decides the
+       distributor splash, two logo sprites and the CD voice folder.
+    /* The value the run operates under, then where it came from. 0 is the
+       ordinary outcome rather than a missing one: no 2point21 re-release ships
+       a config beside its assets, so those installs run at UNKNOWN_VERSION,
+       where DistribLogo matches no case and draws nothing. Calling that
+       "unknown, declared by nothing" would report the wanted state as a
+       deficiency, so it reads as the default it is.
+
+       The observed half, what the data itself looks like, needs a fingerprint
+       and arrives with the release-detection work; until then the line ends
+       after the source. */
+    if (Distrib_WasDeclared()) {
+        Log_Info("Release    %s (%d) from the config", Distrib_Name(DistribVersion),
+                 (int)DistribVersion);
+    } else {
+        Log_Info("Release    default (%d)", (int)DistribVersion);
+    }
 
     /* "Ready" counts engine subsystems coming up (InitAdeline: SDL, audio,
        video, window). The intro banners/logos that follow are a timed slideshow,

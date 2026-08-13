@@ -316,20 +316,28 @@ bool TryParentSiblingScan(char *outDir, U16 outMax, char tried[][ADELINE_MAX_PAT
  * at picker-success time, before InitDirectories / InitAdeline have set
  * up the lba2.cfg buffer machinery. Written via stdio; read via stdio.
  *
- * Org/app naming comes from ADELINE_PREF_ORG / ADELINE_PREF_APP in
- * SOURCES/DIRECTORIES.H, so this pointer lands in the same folder as the
- * saves and cfg it belongs with, and a demo build never reads a retail
- * build's pick. */
+ * Asks GetDefaultUserDir rather than reaching for SDL_GetPrefPath itself, so
+ * this pointer lands in the same folder as the saves and cfg it belongs with:
+ * the demo SKU's own (ADELINE_PREF_ORG / ADELINE_PREF_APP in DIRECTORIES.H, so
+ * a demo build never reads a retail build's pick), and whatever --user-dir or
+ * LBA2_USER_DIR names. A second reader of the raw pref path would be a run
+ * whose remembered game folder sits outside the profile the rest of it writes
+ * to. One resolver, one answer. */
 bool BuildPersistedGameDirPath(char *outPath, size_t outMax) {
-    char *prefPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
-    if (prefPath == NULL) {
+    char userDir[ADELINE_MAX_PATH] = "";
+    GetDefaultUserDir(userDir);
+    if (userDir[0] == '\0') {
         return false;
     }
-    /* SDL_GetPrefPath always returns a path with a trailing separator. */
-    int written = snprintf(outPath, outMax, "%slast_game_dir.txt", prefPath);
-    SDL_free(prefPath);
+    /* GetDefaultUserDir guarantees a trailing separator. */
+    int written = snprintf(outPath, outMax, "%slast_game_dir.txt", userDir);
     return written > 0 && static_cast<size_t>(written) < outMax;
 }
+} // namespace
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 bool ReadPersistedGameDir(char *outPath, U16 outMax) {
     char filePath[ADELINE_MAX_PATH];
@@ -358,12 +366,6 @@ bool ReadPersistedGameDir(char *outPath, U16 outMax) {
     return outPath[0] != '\0';
 }
 
-} // namespace
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 bool WritePersistedGameDir(const char *path) {
     char filePath[ADELINE_MAX_PATH];
     if (!BuildPersistedGameDirPath(filePath, sizeof(filePath))) {
@@ -386,6 +388,11 @@ bool WritePersistedGameDir(const char *path) {
    label, and a failed attempt's label is overwritten by the next one before
    anyone reads it. */
 static char s_discoverySource[64] = "";
+/* True when the resolved folder came from something the user typed this run,
+   rather than a remembered pick or a probe. See Res_ResolvedFromUserInput. */
+static bool s_resolvedFromUserInput = false;
+
+bool Res_ResolvedFromUserInput(void) { return s_resolvedFromUserInput; }
 
 void Res_SetDiscoverySource(const char *label) {
     if (label == NULL) {
@@ -394,6 +401,13 @@ void Res_SetDiscoverySource(const char *label) {
     }
     strncpy(s_discoverySource, label, sizeof(s_discoverySource) - 1);
     s_discoverySource[sizeof(s_discoverySource) - 1] = '\0';
+
+    /* Set here rather than at each call site so a label and its provenance
+       cannot drift apart. The two explicit forms are the flag and the
+       environment variable; a remembered pick, a probe or the picker are not
+       something the user typed this run. */
+    s_resolvedFromUserInput = (strncmp(s_discoverySource, "--game-dir", 10) == 0) ||
+                              (strncmp(s_discoverySource, "LBA2_GAME_DIR", 13) == 0);
 }
 
 const char *Res_GetDiscoverySource(void) { return s_discoverySource; }

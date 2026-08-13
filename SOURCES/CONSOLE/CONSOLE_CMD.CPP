@@ -5,6 +5,7 @@
 #include "../COMMON.H"
 #include "../ZONE_GEOM.H" // ZonePointInBox (zonelist shares the engine's zone box test)
 #include "../DIRECTORIES.H"
+#include "../DISTRIB.H"
 #include "../PLAYACF.H"
 #include <POLYGON/POLYFILT.H>
 
@@ -773,25 +774,7 @@ static void cmd_slide(int argc, const char *argv[]) {
    derived globals (MessageNoCD, music track table, etc.) are computed
    from it once at startup and won't refresh — partial live application
    would be more confusing than just "takes effect on next launch". */
-static const struct {
-    const char *name;
-    S32 ver;
-} s_distribTable[] = {
-    {"unknown", UNKNOWN_VERSION},
-    {"activision", ACTIVISION_VERSION},
-    {"activision_sud", ACTIVISION_SUD_VERSION},
-    {"ea", EA_VERSION},
-    {"virgin", VIRGIN_VERSION},
-    {"virgin_asia", VIRGIN_ASIA_VERSION},
-};
-
-static const char *distrib_name_for(S32 ver) {
-    for (size_t i = 0; i < sizeof(s_distribTable) / sizeof(s_distribTable[0]); i++) {
-        if (s_distribTable[i].ver == ver)
-            return s_distribTable[i].name;
-    }
-    return "?";
-}
+/* The name/value mapping lives in DISTRIB.H, shared with the boot banner. */
 
 /* Report what the disc-image source is working with. The boot banner is
    deliberately one line, which is not enough to answer the question a rip
@@ -895,10 +878,10 @@ static void cmd_disc(int argc, const char *argv[]) {
 
 static void cmd_distrib(int argc, const char *argv[]) {
     if (argc < 2) {
-        Console_Print("Current: %d (%s)", (int)DistribVersion, distrib_name_for(DistribVersion));
+        Console_Print("Current: %d (%s)", (int)DistribVersion, Distrib_Name(DistribVersion));
         Console_Print("Available:");
-        for (size_t i = 0; i < sizeof(s_distribTable) / sizeof(s_distribTable[0]); i++) {
-            Console_Print("  %d  %s", (int)s_distribTable[i].ver, s_distribTable[i].name);
+        for (size_t i = 0; i < (size_t)DistribNameCount; i++) {
+            Console_Print("  %d  %s", (int)DistribNames[i].version, DistribNames[i].name);
         }
         return;
     }
@@ -911,8 +894,8 @@ static void cmd_distrib(int argc, const char *argv[]) {
     long n = strtol(argv[1], &end, 0);
     if (end && *end == '\0' && argv[1][0] != '\0') {
         S32 found = FALSE;
-        for (size_t i = 0; i < sizeof(s_distribTable) / sizeof(s_distribTable[0]); i++) {
-            if (s_distribTable[i].ver == (S32)n) {
+        for (size_t i = 0; i < (size_t)DistribNameCount; i++) {
+            if (DistribNames[i].version == (S32)n) {
                 newVer = (S32)n;
                 found = TRUE;
                 break;
@@ -923,9 +906,9 @@ static void cmd_distrib(int argc, const char *argv[]) {
             return;
         }
     } else {
-        for (size_t i = 0; i < sizeof(s_distribTable) / sizeof(s_distribTable[0]); i++) {
-            if (!strcasecmp(argv[1], s_distribTable[i].name)) {
-                newVer = s_distribTable[i].ver;
+        for (size_t i = 0; i < (size_t)DistribNameCount; i++) {
+            if (!strcasecmp(argv[1], DistribNames[i].name)) {
+                newVer = DistribNames[i].version;
                 break;
             }
         }
@@ -940,7 +923,7 @@ static void cmd_distrib(int argc, const char *argv[]) {
         return;
     }
     Console_Print("Version %d (%s) (next launch)",
-                  (int)newVer, distrib_name_for(newVer));
+                  (int)newVer, Distrib_Name(newVer));
 }
 
 static void cmd_listvideos(int argc, const char *argv[]) {

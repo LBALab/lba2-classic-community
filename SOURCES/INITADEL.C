@@ -176,6 +176,25 @@ void InitAdeline(S32 argc, char *argv[]) {
         Log_Raw("Saves:  %s", saveFolderPath);
         Log_Raw("Config: %s", cfgFilePath);
         Log_Raw("Log:    %s", logFilePath);
+        /* Where the three above came from. The Assets line names the probe that
+           won for the same reason: a run that wrote somewhere unexpected for a
+           good reason (a forgotten LBA2_USER_DIR, a --profile in a shortcut)
+           and one that is simply wrong look identical in a bug report
+           otherwise. Silent on a plain run, so an install that names neither
+           keeps the banner it always had. */
+        {
+            const char *profile = Directories_GetProfile();
+            const char *source = Directories_GetUserDirSource();
+            const int named = (profile[0] != '\0');
+            const int overridden = (strcmp(source, "default") != 0);
+            if (named && overridden) {
+                Log_Raw("Writes: profile '%s' under %s", profile, source);
+            } else if (named) {
+                Log_Raw("Writes: profile '%s'", profile);
+            } else if (overridden) {
+                Log_Raw("Writes: %s", source);
+            }
+        }
         Log_Raw("");
     }
 
@@ -204,21 +223,21 @@ void InitAdeline(S32 argc, char *argv[]) {
 
     // ··········································································
     //  Config File
-    //  First run (or the user deleted it): install a default lba2.cfg — copy the
-    //  one shipped with the game data, or fall back to the built-in template.
-    //  Logged once, after the action, so the boot log states what actually
-    //  happened: Info for the copy, Warn for the no-default-in-game-data fallback.
+    //  Nothing is copied. The config beside the game data is read as a layer
+    //  under this run's own (see the DefFile section below), so it keeps
+    //  answering for the game data every boot instead of being snapshotted into
+    //  a profile that then outlives the install it was taken from.
+    //
+    //  An install shipping no config has nothing to layer, so the built-in
+    //  template is installed once, exactly as before. It is a seed and not a
+    //  third layer on purpose: as a layer its values would also reach every
+    //  install that ships a config but leaves a key out, changing settled
+    //  defaults (FullScreen among them) on machines that never saw it.
     GetCfgPath(PathConfigFile, ADELINE_MAX_PATH, CFG_NAME);
-    if (!ExistsFileOrDir(PathConfigFile)) {
-        char PathDefaultConfigFile[ADELINE_MAX_PATH];
-        GetDefaultCfgPath(PathDefaultConfigFile, ADELINE_MAX_PATH, CFG_NAME);
-        if (ExistsFileOrDir(PathDefaultConfigFile)) {
-            if (!Copy(PathDefaultConfigFile, PathConfigFile)) {
-                BootFatal("Could not copy the configuration file to '%s'.",
-                          PathConfigFile);
-            }
-            Log_Info("Config     created from game-data default");
-        } else {
+    {
+        char PathSeedConfigFile[ADELINE_MAX_PATH];
+        GetDefaultCfgPath(PathSeedConfigFile, ADELINE_MAX_PATH, CFG_NAME);
+        if (!ExistsFileOrDir(PathConfigFile) && !ExistsFileOrDir(PathSeedConfigFile)) {
             if (!WriteEmbeddedDefaultLba2Cfg(PathConfigFile)) {
                 BootFatal("Could not write a default configuration file to '%s'.",
                           PathConfigFile);
@@ -362,8 +381,36 @@ void InitAdeline(S32 argc, char *argv[]) {
 
     // ··········································································
     //  DefFile
+    //
+    //  Two layers, highest priority first: the config this run owns, then the
+    //  one shipped beside the game data. A key is taken from the first layer
+    //  that defines it; a key neither defines falls to the compiled default the
+    //  read site names.
+    //
+    //  This replaced copying the game-data config into a fresh profile. A copy
+    //  is a snapshot: whichever install a profile first booted against decided
+    //  its release, language and key bindings for good, and pointing that same
+    //  profile at another release left it announcing the first one's publisher
+    //  while reading the second one's data. Layering keeps the game data's keys
+    //  answering for the game data, every boot, while the keys the player has
+    //  actually changed stay theirs -- WriteConfigFile writes only those, into
+    //  the owned file alone.
+    //
+    //  Nothing writes through this buffer: DefFileBufferWriteString refuses
+    //  while layers are attached, and WriteConfigFile re-loads the owned file
+    //  first.
+    {
+        char PathDataConfigFile[ADELINE_MAX_PATH];
+        S32 fromData;
 
-    DefFileBufferInit(PathConfigFile, (void *)(ibuffer), ibuffersize);
+        DefFileBufferInit(PathConfigFile, (void *)(ibuffer), ibuffersize);
+
+        GetDefaultCfgPath(PathDataConfigFile, ADELINE_MAX_PATH, CFG_NAME);
+        fromData = DefFileBufferAppendFile(PathDataConfigFile);
+
+        Log_Info("Config     %s%s", ExistsFileOrDir(PathConfigFile) ? "own" : "own (none yet)",
+                 fromData ? " + game data" : "");
+    }
 
     // ··········································································
 }

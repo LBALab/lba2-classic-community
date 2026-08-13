@@ -18,13 +18,13 @@ precheck
 FIX="$(dirname "$0")/../savegame/corpus/saves/steam_classic_2023/Wannies fragment.LBA"
 [ -f "$FIX" ] || skip "fixture missing: $FIX"
 
-xdg="$(mktemp -d)"
-trap 'rm -rf "$xdg"' EXIT
-log="$xdg/Twinsen/LBA2/adeline.log"
+user="$(mktemp -d)"
+trap 'rm -rf "$user"' EXIT
+log="$user/adeline.log"
 
 # With skipmodals the run must EXIT cleanly (no dialog hang). Bound it so a regression (hang) fails
 # fast instead of stalling the suite; a clean run finishes in a couple of seconds.
-XDG_DATA_HOME="$xdg" SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
+LBA2_USER_DIR="$user" SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
     timeout -s KILL 30 "$LBA2_BIN" \
     --language English --no-audio --resolution 640x480 --load "$FIX" --fixed-dt 16 \
     --exec "skipmodals 1; useitem trace 1; useitem 18 1 3" --tick 40 --exit \
