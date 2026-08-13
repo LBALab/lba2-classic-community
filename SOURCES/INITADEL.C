@@ -176,6 +176,25 @@ void InitAdeline(S32 argc, char *argv[]) {
         Log_Raw("Saves:  %s", saveFolderPath);
         Log_Raw("Config: %s", cfgFilePath);
         Log_Raw("Log:    %s", logFilePath);
+        /* Where the three above came from. The Assets line names the probe that
+           won for the same reason: a run that wrote somewhere unexpected for a
+           good reason (a forgotten LBA2_USER_DIR, a --profile in a shortcut)
+           and one that is simply wrong look identical in a bug report
+           otherwise. Silent on a plain run, so an install that names neither
+           keeps the banner it always had. */
+        {
+            const char *profile = Directories_GetProfile();
+            const char *source = Directories_GetUserDirSource();
+            const int named = (profile[0] != '\0');
+            const int overridden = (strcmp(source, "default") != 0);
+            if (named && overridden) {
+                Log_Raw("Writes: profile '%s' under %s", profile, source);
+            } else if (named) {
+                Log_Raw("Writes: profile '%s'", profile);
+            } else if (overridden) {
+                Log_Raw("Writes: %s", source);
+            }
+        }
         Log_Raw("");
     }
 

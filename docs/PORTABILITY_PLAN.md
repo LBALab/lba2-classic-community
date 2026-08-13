@@ -145,21 +145,26 @@ reasoning applies just as well to the writable side, which today prints a bare p
 So: **every resolved path says how it was resolved, and the identity the run operates under is
 stated once.**
 
-| Line | Today | Adds |
+| Line | Before | Now |
 |---|---|---|
 | `Assets:` | path plus winning probe | unchanged |
 | `Disc:` | image name, when mounted | unchanged |
-| `Saves:`, `Log:` | bare paths | the profile they belong to, and how the user directory was chosen: default, `--user-dir`, env, or portable marker |
-| `Config:` | bare path | the same, plus which layer supplied the values once the chain exists |
-| identity | absent | SKU, declared `DistribVersion`, and the data fingerprint |
+| `Saves:`, `Config:`, `Log:` | bare paths | a `Writes:` line under them naming the profile and how the user directory was chosen |
+| `Config` (the later block) | path only | which layers supplied the values |
+| `Release` | absent | the declared `DistribVersion`, and whether anything declared it |
 
-The fingerprint is **change detection, not identification**: sizes of a small fixed set of banks
-folded into one value, a `stat` each rather than a read of the install. It answers "same data set as
-last time?" and says nothing about which commercial release this is. Identity stays with the
-declaration, per VERSIONS.md.
+`Writes:` is silent when neither a profile nor an override is in play, so an install that names
+neither keeps the banner it always had.
 
-Two things follow. `dist_check.sh` runs the `distrib` console command to learn the release identity;
-with it in the banner, one boot and one grep covers the whole row. And the matrix's isolation checks
+The data fingerprint is **not** in. It was there to answer "same data set as last time?", which
+nothing yet asks; the two lines above cover the question people actually bring to a bug report.
+Sizes of a fixed set of banks folded into one value would still be the cheap way to add it, and it
+would remain change detection rather than identification: which release this is stays declared, per
+VERSIONS.md.
+
+Two things follow. `dist_check.sh` used to run the `distrib` console command to learn the release
+identity; with it in the banner, one boot and one grep covers the whole row, and any run in that
+file can be asked rather than only the one built to ask. And the matrix's isolation checks
 get an independent witness: the log states which directory the run claimed, and the file-level check
 confirms nothing outside it moved.
 

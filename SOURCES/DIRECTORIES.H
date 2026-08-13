@@ -56,6 +56,11 @@ void Directories_SetProfileOverride(const char *name);
 /// The profile in force, or an empty string for the default one.
 const char *Directories_GetProfile(void);
 
+/// Which of the three resolved the user directory: "--user-dir",
+/// "LBA2_USER_DIR" or "default". For the boot banner, so a pasted log says how
+/// the run chose where to write, not just where it wrote.
+const char *Directories_GetUserDirSource(void);
+
 /// True when \p name can be a profile directory: not empty, no path separator
 /// in either spelling, no parent-directory hop, not a bare dot. A profile lives
 /// inside the user directory and has to stay there.

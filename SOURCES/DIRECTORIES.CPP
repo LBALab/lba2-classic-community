@@ -64,6 +64,9 @@ static char directoriesUserDirOverride[ADELINE_MAX_PATH] = "";
 /* Named profile, or empty for the default one, which is the user directory
    itself. See GetDefaultUserDir. */
 static char directoriesProfile[ADELINE_MAX_PATH] = "";
+/* How the user directory got resolved, for the boot banner. Set once, by
+   GetDefaultUserDir. */
+static const char *directoriesUserDirSource = "default";
 
 // --- Private functions -------------------------------------------------------
 /**
@@ -324,6 +327,8 @@ bool Directories_IsValidProfileName(const char *name) {
 
 const char *Directories_GetProfile(void) { return directoriesProfile; }
 
+const char *Directories_GetUserDirSource(void) { return directoriesUserDirSource; }
+
 void Directories_SetProfileOverride(const char *name) {
     if (name == NULL) {
         directoriesProfile[0] = '\0';
@@ -401,6 +406,15 @@ void GetDefaultUserDir(char *outDir) {
            a fall back to the default: a run that quietly wrote somewhere other
            than where it was told is the failure this flag exists to prevent, so
            the unusable path stays and InitDirectories stops the boot naming it. */
+        if (directoriesUserDirOverride[0] != '\0') {
+            directoriesUserDirSource = "--user-dir";
+        } else {
+            const char *env = getenv("LBA2_USER_DIR");
+            if ((env != NULL) && (env[0] != '\0')) {
+                directoriesUserDirSource = "LBA2_USER_DIR";
+            }
+        }
+
         if (!Directories_ResolveUserDir(userDir, ADELINE_MAX_PATH,
                                         directoriesUserDirOverride,
                                         getenv("LBA2_USER_DIR"))) {

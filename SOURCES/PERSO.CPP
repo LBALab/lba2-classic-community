@@ -7,6 +7,7 @@ extern S32 GfxDitherShading;
 #include "BUILD_INFO.h" /* LBA2_VERSION_STRING (for --version flag) */
 #include "INITADEL.H"
 #include "DIRECTORIES.H"
+#include "VERSION.H"
 #include "RES_DISCOVERY.H"
 #include "RES_PICKER.H"
 #include "INPUT.H"
@@ -3273,6 +3274,15 @@ int main(int argc, char *argv[]) {
                     GetLanguageName(Language), (int)Language);
     }
     Log_Info("Language   %s", GetLanguageName(Language));
+    /* The release this run believes it is. Declared by the config beside the
+       game data, never detected (docs/VERSIONS.md), so it is worth saying out
+       loud: it decides the distributor splash, two logo sprites and the CD
+       voice folder, and an install assembled by hand loses the key silently and
+       reads as unknown. Saying "declared by" rather than "detected" is the
+       point of the line. */
+    Log_Info("Release    %d (%s) declared by %s", (int)DistribVersion,
+             Distrib_Name(DistribVersion),
+             (DistribVersion == UNKNOWN_VERSION) ? "nothing" : "the config");
 
     /* "Ready" counts engine subsystems coming up (InitAdeline: SDL, audio,
        video, window). The intro banners/logos that follow are a timed slideshow,
