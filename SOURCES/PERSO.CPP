@@ -2561,13 +2561,37 @@ void ReadConfigFile(void) {
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-void WriteConfigFile(void) {
-    /* Writes go to the file this run owns, alone: DefFileBufferInit clears any
-       layer, because rewriting a layered buffer would fold the game data's
-       config into the player's. The layer is put back at the end, since this is
-       also called mid-run (the options menu, a resolution switch) and every read
-       afterwards would otherwise lose the keys only the game data defines. */
+/* The config a run reads from is the file it owns with the one beside the game
+   data stacked underneath. Writes refuse while that layer is attached, because
+   rewriting a layered buffer would fold the install's keys into the player's
+   file, where they would outlive the install they came from.
+
+   So a write is three steps, not one: detach by re-reading the owned file
+   alone, write, then stack the game data's config back. Anything persisting a
+   setting goes through OpenOwnedConfig / RestackDataConfig or through
+   WriteConfigValue below; reaching for DefFileBufferWrite* directly gets a
+   refusal, and callers that do not check for one report success while storing
+   nothing. */
+static void OpenOwnedConfig(void) {
     DefFileBufferInit(PathConfigFile, ScreenAux, (640 * 480 + RECOVER_AREA));
+}
+
+static void RestackDataConfig(void) {
+    char dataCfg[ADELINE_MAX_PATH];
+    GetDefaultCfgPath(dataCfg, ADELINE_MAX_PATH, CFG_NAME);
+    DefFileBufferAppendFile(dataCfg);
+}
+
+S32 WriteConfigValue(const char *ident, S32 value) {
+    OpenOwnedConfig();
+    const S32 ok = DefFileBufferWriteValue(ident, value);
+    RestackDataConfig();
+    return ok;
+}
+
+/*──────────────────────────────────────────────────────────────────────────*/
+void WriteConfigFile(void) {
+    OpenOwnedConfig();
 
     // Batch the whole save into one fsync + atomic rename. Without this, each of
     // the ~30 writes below would fsync + rename on its own, which is noticeably
@@ -2652,13 +2676,9 @@ void WriteConfigFile(void) {
         DefFileBufferEndBatch();
     }
 
-    /* Re-stack the game data's config under the file just written. Reads after
-       this point see what the boot assembled. */
-    {
-        char dataCfg[ADELINE_MAX_PATH];
-        GetDefaultCfgPath(dataCfg, ADELINE_MAX_PATH, CFG_NAME);
-        DefFileBufferAppendFile(dataCfg);
-    }
+    /* Reads after this point see what the boot assembled, which matters because
+       this is also called mid-run: the options menu and a resolution switch. */
+    RestackDataConfig();
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
