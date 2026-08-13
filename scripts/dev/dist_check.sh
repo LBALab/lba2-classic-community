@@ -19,12 +19,15 @@
 # The hashes are a per-install baseline. A summary is written to <outdir>, so
 # comparing two runs is `diff a/summary.txt b/summary.txt`.
 #
-# Four checks run alongside the captures, about the profiles rather than the
+# Five checks run alongside the captures, about the profiles rather than the
 # rendering:
 #
 #   IDENTITY   per install, the release the engine reports matches the Version
 #              its own config declares. Reported as '-' for a disc image, whose
 #              config is inside it.
+#   BOUND      per install, naming the profile and nothing else finds the folder
+#              the profile was given, so the binding is exercised rather than
+#              assumed.
 #   WROTE      per install, the folder is unchanged after every run against it.
 #              An install is input; a config read out of it must not be written
 #              back, which also has to hold on read-only media.
@@ -34,7 +37,7 @@
 #              the second. Needs two installs declaring different releases.
 #
 # Exits non-zero if any install fails to boot with its assets, fails to produce
-# a capture, or fails one of those four, so it can be used as a check and not
+# a capture, or fails one of those five, so it can be used as a check and not
 # only read.
 
 set -uo pipefail
@@ -54,10 +57,26 @@ gog:$ROOT/../LBA2-GOG
 twinsen-rip:$ROOT/../TWINSEN"
 LIST="${LBA2_DIST_LIST:-$DEFAULT_LIST}"
 
-run() { # run <profile> <gamedir> <extra args...>
+# One throwaway user directory for the whole sweep, with a profile per install
+# inside it. Naming profiles rather than a folder each is the arrangement the
+# feature exists for: several installs kept apart under one root. It also puts
+# every run through profile path composition and the game-dir binding, which
+# nothing else exercises.
+USERROOT="$OUT/userdir"
+
+run() { # run <profile-name> <gamedir> <extra args...>
     local prof="$1" dir="$2"; shift 2
     SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
-        timeout 300 "$EXE" --user-dir "$prof" --game-dir "$dir" --no-autosave "$@" 2>&1
+        timeout 300 "$EXE" --user-dir "$USERROOT" --profile "$prof" \
+        --game-dir "$dir" --no-autosave "$@" 2>&1
+}
+
+# The same, without naming the game folder: a bound profile has to find it.
+run_bound() { # run_bound <profile-name> <extra args...>
+    local prof="$1"; shift
+    SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+        timeout 300 "$EXE" --user-dir "$USERROOT" --profile "$prof" \
+        --no-autosave "$@" 2>&1
 }
 
 hash_png() { # hash_png <png>
@@ -149,10 +168,10 @@ REBIND_ROWS=""
 # Captured surfaces: an interior scene (the cold-boot start), an exterior one
 # (a different render path, and where the draw-order bugs have historically
 # lived), and three UI modals. Each is a chance for a change to show up.
-hdr=$(printf '%-13s %-14s %-9s %-9s %-7s %-7s %-7s %-9s %-13s %-13s %-13s %-13s %-13s %-13s' \
-      INSTALL DISTRIB IDENTITY LANGUAGE DISC ASSETS WROTE MUSIC INTERIOR EXTERIOR MENU OPTIONS INVENTORY DEMO)
+hdr=$(printf '%-13s %-14s %-9s %-9s %-7s %-7s %-7s %-7s %-9s %-13s %-13s %-13s %-13s %-13s %-13s' \
+      INSTALL DISTRIB IDENTITY LANGUAGE DISC ASSETS WROTE BOUND MUSIC INTERIOR EXTERIOR MENU OPTIONS INVENTORY DEMO)
 echo "$hdr" | tee -a "$SUMMARY"
-printf '%.0s-' {1..168} | tee -a "$SUMMARY"; echo | tee -a "$SUMMARY"
+printf '%.0s-' {1..176} | tee -a "$SUMMARY"; echo | tee -a "$SUMMARY"
 
 while IFS= read -r entry; do
     [ -n "$entry" ] || continue
@@ -162,7 +181,7 @@ while IFS= read -r entry; do
         continue
     fi
 
-    prof="$OUT/profile-$name"; rm -rf "$prof"; mkdir -p "$prof"
+    prof="$name"; rm -rf "$USERROOT/profiles/$prof"
     log="$OUT/$name.log"
 
     # NOPOLLUTE: the install is input, never output. The engine reads a config
@@ -227,6 +246,18 @@ while IFS= read -r entry; do
     exterior=$(hash_png "$OUT/$name-exterior.png")
     demo=$(hash_png "$OUT/$name-demo.png")
 
+    # BOUND: the profile was handed this folder on its first run, so naming the
+    # profile and nothing else has to find it again. Without this the binding is
+    # only ever exercised by hand.
+    run_bound "$prof" --headless --tick 2 --exit > "$OUT/$name-bound.log"
+    bound_dir=$(grep -oE '^Assets: .*  \(' "$OUT/$name-bound.log" | head -1 |
+                sed -E 's/^Assets: //; s/  \($//')
+    case "$bound_dir" in
+        "$dir"|"$dir"/) bound=ok ;;
+        "")             bound=NOBOOT ;;
+        *)              bound=WRONG ;;
+    esac
+
     # Every run against this install is done; the folder must look untouched.
     if [ "$(tree_fingerprint "$dir")" = "$game_before" ]; then wrote=ok; else wrote=DIRTY; fi
 
@@ -239,8 +270,8 @@ while IFS= read -r entry; do
 
     REBIND_ROWS="$REBIND_ROWS$name|$dir|${distrib:-?}"$'\n'
 
-    row=$(printf '%-13s %-14s %-9s %-9s %-7s %-7s %-7s %-9s %-13s %-13s %-13s %-13s %-13s %-13s' \
-        "$name" "${distrib:-?}" "$identity" "${lang:-?}" "$disc" "$assets" "$wrote" "$music" \
+    row=$(printf '%-13s %-14s %-9s %-9s %-7s %-7s %-7s %-7s %-9s %-13s %-13s %-13s %-13s %-13s %-13s' \
+        "$name" "${distrib:-?}" "$identity" "${lang:-?}" "$disc" "$assets" "$wrote" "$bound" "$music" \
         "$interior" "$exterior" "$menu_main" "$menu_opts" "$inventory" "$demo")
     echo "$row" | tee -a "$SUMMARY"
 
@@ -248,6 +279,7 @@ while IFS= read -r entry; do
     [ "$assets" = ok ] || { echo "  FAIL $name: assets not all present" >&2; failures=$((failures+1)); }
     [ "$wrote" = ok ] || { echo "  FAIL $name: the sweep wrote into the install at $dir" >&2; failures=$((failures+1)); }
     [ "$identity" != MISMATCH ] || { echo "  FAIL $name: install declares Version $want_ver, engine read $got_ver" >&2; failures=$((failures+1)); }
+    [ "$bound" = ok ] || { echo "  FAIL $name: profile '$prof' alone resolved '$bound_dir', wanted '$dir'" >&2; failures=$((failures+1)); }
     # Test the hashes themselves, not the printed row. A data-only image serves no
     # CD audio, so its music column reads "---", and matching a dash anywhere in
     # the line reported that as a missing screenshot on an install where all six
@@ -298,7 +330,7 @@ else
     a_dir="${rebind_a#*|}"; a_dir="${a_dir%|*}"; a_want="${rebind_a##*|}"
     b_dir="${rebind_b#*|}"; b_dir="${b_dir%|*}"; b_want="${rebind_b##*|}"
     rlog="$OUT/rebind.log"
-    rprof="$OUT/profile-rebind"; rm -rf "$rprof"
+    rprof="rebind"; rm -rf "$USERROOT/profiles/$rprof"
 
     run "$rprof" "$a_dir" --tick 2 --exit > "$rlog"
     got_a="$(distrib_of "$rlog")"

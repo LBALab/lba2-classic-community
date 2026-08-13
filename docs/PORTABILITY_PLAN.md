@@ -347,12 +347,17 @@ to diagnose the first reports.
 ### The distribution matrix
 
 `scripts/dev/dist_check.sh` already sweeps the installs, gives each a throwaway profile, and writes a
-diffable summary. Extend it rather than building a second harness. Four checks:
+diffable summary. Extend it rather than building a second harness. Five checks:
+
+Each install gets a profile inside one throwaway user directory, rather than a directory each. That
+is the arrangement profiles exist for, and it puts every run through profile path composition and the
+game-dir binding, which nothing else exercises.
 
 | Check | Asserts | Reported as |
 |---|---|---|
 | `IDENTITY` | the release the engine reports matches the `Version` the install's own config declares | a column, `-` for a disc image |
 | `WROTE` | nothing under the game directory is written | a column |
+| `BOUND` | naming the profile and nothing else finds the folder that profile was given | a column |
 | `ISOLATION` | the developer's own user directory is byte-identical before and after the sweep | one line after the table |
 | `REBIND` | a profile seeded from one install, re-run against another, reports the second one's `Version` | one line after the table |
 
