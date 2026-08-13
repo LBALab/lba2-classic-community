@@ -196,21 +196,59 @@ class Target:
     def signal(self, name, version, detail):
         self.signals[name] = (version, detail)
 
+    MEASURED = ("ress", "volume_label")
+    DECLARED = ("cfg_version", "cfg_header")
+
+    def measured_master(self):
+        """The master the copy itself shows, or (None, None).
+
+        RESS.HQR first: it is the copy. The volume label is as good but only
+        exists for a disc.
+        """
+        for name in self.MEASURED:
+            ver = self.signals.get(name, (None,))[0]
+            if ver is not None:
+                return master_name(ver), name
+        return None, None
+
     def resolve(self):
         """Settle on one DistribVersion, preferring measured over declared.
 
-        RESS.HQR first: it is the copy itself. The volume label is as good but
-        only exists for a disc. The config keys come last because they are what
-        an installer asserted, and an install assembled by hand asserts nothing
-        or asserts something stale.
+        The measurement is coarser than the answer. RESS and the volume label
+        distinguish the two masters and nothing finer, so on the Twinsen's
+        Odyssey side they can only ever say ACTIVISION_VERSION, whoever actually
+        pressed it. A declaration that agrees about the master is therefore not
+        competing with the measurement, it is naming the publisher the
+        measurement cannot reach, and it is taken for that and nothing else. One
+        that disagrees about the master is a genuine conflict and is ignored
+        here; conflicts() reports it.
         """
-        for name in ("ress", "volume_label", "cfg_version", "cfg_header"):
-            if name in self.signals and self.signals[name][0] is not None:
-                return self.signals[name][0], name
+        master, basis = self.measured_master()
+        for name in self.DECLARED:
+            ver = self.signals.get(name, (None,))[0]
+            if ver is None:
+                continue
+            if master is None:
+                return ver, name
+            if master_name(ver) == master and ver != self.signals[basis][0]:
+                return ver, name
+        if basis is not None:
+            return self.signals[basis][0], basis
         return UNKNOWN_VERSION, "default"
 
     def conflicts(self):
         """Signals that disagree, which is the whole reason to print evidence.
+
+        Compared as masters, because that is the unit every signal can actually
+        speak in. RESS can only ever answer ACTIVISION_VERSION or EA_VERSION, so
+        holding it against a config declaring Virgin would report a disagreement
+        between two statements that agree completely: both say Twinsen's
+        Odyssey. That false positive would fire on precisely the pressings
+        nobody has sampled, which is where the tool is supposed to degrade
+        gracefully.
+
+        What is lost is two publishers disagreeing on one master, which is a
+        disagreement about who sold a copy rather than about what the copy is.
 
         A disagreement here is not noise to be averaged away: it means either
         the rules are wrong or the install has been assembled from two sources,
@@ -219,11 +257,11 @@ class Target:
         claims = {}
         for name, (ver, _) in sorted(self.signals.items()):
             if ver is not None:
-                claims.setdefault(ver, []).append(name)
+                claims.setdefault(master_name(ver), []).append(name)
         if len(claims) < 2:
             return []
-        return ["%s" % ", ".join("%s says %s" % ("+".join(names), DISTRIB_NAMES[ver])
-                                 for ver, names in sorted(claims.items()))]
+        return ["%s" % ", ".join("%s says %s" % ("+".join(names), master)
+                                 for master, names in sorted(claims.items()))]
 
     def to_dict(self):
         ver, basis = self.resolve()
