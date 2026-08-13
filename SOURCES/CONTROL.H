@@ -64,6 +64,14 @@ long Control_GetResolutionY(void);
 int Control_HasLanguage(void);
 int Control_GetLanguage(void);
 
+/* Sim-throttle override via --fixed-timestep <ms>. Returns 1 if the flag was supplied
+   (use Control_GetFixedTimestep for the forced value, 0..100, 0 = off), 0 otherwise.
+   Applied on the first tick in Control_TickHook, after ReadConfigFile has taken the
+   cfg's value. WriteConfigFile reads these back so the forced value is not persisted:
+   the flag is documented as this run only, unlike the `fixedtimestep` console verb. */
+int Control_HasFixedTimestep(void);
+long Control_GetFixedTimestep(void);
+
 /* --no-audio: skip InitAIL() and InitSampleDriver() at boot. Returns 1 if the flag
    was supplied, 0 otherwise. With audio init skipped, the SDL audio subsystem
    never opens a stream and the dummy driver's nanosleep pacing (~74% of sys time

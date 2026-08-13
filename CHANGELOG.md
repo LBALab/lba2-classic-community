@@ -43,6 +43,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `--fixed-timestep` and `--language` wrote themselves into `lba2.cfg`, so a flag
+  documented as applying to one run changed the setting for every later launch:
+  one `--fixed-timestep 100` throttled the game from then on, and one
+  `--language Deutsch` to check the German text made German the language. Both
+  now apply to the run that asked and leave the stored preference alone, while a
+  setting changed on purpose (the options menu, the `fixedtimestep` console verb)
+  persists as before.
 - The console verbs that persist one setting (`distrib`, `vsync`,
   `fixedtimestep`) stored nothing on any install that ships its own `lba2.cfg`,
   which is every retail disc and GOG. Writing a single key went straight to the

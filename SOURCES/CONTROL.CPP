@@ -518,6 +518,14 @@ int Control_GetLanguage(void) {
     return s_language;
 }
 
+int Control_HasFixedTimestep(void) {
+    return s_have_fixed_timestep;
+}
+
+long Control_GetFixedTimestep(void) {
+    return s_fixed_timestep;
+}
+
 int Control_NoAudio(void) {
     return s_no_audio;
 }

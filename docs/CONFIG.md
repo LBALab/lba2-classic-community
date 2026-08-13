@@ -20,6 +20,12 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 - **Read**: `ReadConfigFile()` in [SOURCES/PERSO.CPP](../SOURCES/PERSO.CPP) (line 1701), invoked from `InitProgram()` at line 1825
 - **Write**: `WriteConfigFile()` in PERSO.CPP (line 1757), called from `TheEndInfo()` (line 1955)
 - Options menu changes globals only; config is written once at exit. No intermediate saves when changing options.
+- **A setting forced for one run is not written back.** The write serialises globals, so without this a
+  flag whose own help says "this run only" would leave its value in the player's config for every later
+  launch. `--fixed-timestep`, `--language` and `LBA2_TEXFILTER` are the three; `WriteConfigFile` puts the
+  stored preference back for each while the live value is still the one that was forced (`ValueToPersist`
+  in PERSO.CPP). `--resolution` is deliberately not one of them: it is a player-facing choice that
+  persists on purpose, which is also why an auto-detected resolution is left out of the file entirely.
 
 ## Keys: what each does
 
@@ -52,6 +58,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | FlagKeepVoice | string | ON, OFF | ON | Keep voice files on HD |
 | MenuMouse | int | 0, 1 | 1 | 1 = menu cursor, hover/left-click confirm, wheel for sliders and save list; 0 = keyboard/joystick only (classic) |
 | TextureFilter | int | 0–2 | 0 | Filtered texture sampling in the software fillers. 0=off (unchanged output), 1=horizontal 2-tap, 2=bilinear 4-tap. `LBA2_TEXFILTER` overrides for one run without persisting. See [GFX_OPTIONS.md](GFX_OPTIONS.md) |
+| FixedTimestep | int | 0–100 (ms) | 16 | Sim throttle, so movement is frame-rate independent above 60 fps; 0 restores the historical per-frame simulation. Set by the `fixedtimestep` console verb; `--fixed-timestep` overrides for one run without persisting. See [MOVEMENT_FRAMERATE.md](MOVEMENT_FRAMERATE.md) |
 | DitherShading | int | 0, 1 | 0 | Ordered dither on Gouraud shade rows, softening the 16-step ramp banding. See [GFX_OPTIONS.md](GFX_OPTIONS.md) |
 
 ### Original keys (Adeline)

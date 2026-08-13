@@ -2337,11 +2337,42 @@ restartloop:
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
-/* What lba2.cfg held for the texture filter, and what an LBA2_TEXFILTER
-   override forced for this run (-1 when none). WriteConfigFile needs both to
-   tell a per-run override apart from a genuine change. */
+/* What lba2.cfg held for a setting some override may be forcing for this run,
+   and what the override forced (-1 when none). WriteConfigFile needs both to
+   tell a per-run override apart from a genuine change.
+
+   Every flag here says "this run only" in its own help text, and a run that
+   said so must not leave the value behind for the next one: `--fixed-timestep 100`
+   once would otherwise throttle every later launch, and `--language Deutsch` for
+   one look at the German text would make German the setting. --resolution is
+   deliberately not in this list; it is a player-facing preference that persists
+   on purpose (see WriteConfigFile). */
 static S32 StoredTexFilter = 0;
 static S32 EnvTexFilter = -1;
+static S32 StoredFixedTimestep = 16;
+static S32 StoredLanguage = 0;
+
+/* The value to write for such a setting: the stored preference while the live
+   value is still the one the override forced, otherwise the live value, because
+   then something during the run changed it on purpose.
+
+   The comparison is on the value, not on who last wrote it. Settings reached
+   through cvars are registered as bare pointers with no on-change hook, so
+   setting the same value from the console during an overridden run cannot be
+   told from not touching it: that does not persist, while setting a different
+   one does. Accepted trade for not growing the cvar API. */
+static S32 ValueToPersist(S32 live, S32 stored, S32 forced) {
+    return (forced >= 0 && live == forced) ? stored : live;
+}
+
+/* -1 when the run was not given the flag, which is what ValueToPersist wants. */
+static S32 ForcedFixedTimestep(void) {
+    return Control_HasFixedTimestep() ? (S32)Control_GetFixedTimestep() : -1;
+}
+
+static S32 ForcedLanguage(void) {
+    return Control_HasLanguage() ? (S32)Control_GetLanguage() : -1;
+}
 
 void ReadConfigFile(void) {
     const char *ptr;
@@ -2434,6 +2465,9 @@ void ReadConfigFile(void) {
     FixedTimestep = DefFileBufferReadValueDefault("FixedTimestep", 16);
     if (FixedTimestep < 0 OR FixedTimestep > 100)
         FixedTimestep = 16;
+    /* Before Control_TickHook applies any --fixed-timestep, so this is the
+       player's own setting rather than the throttle a harness run forced. */
+    StoredFixedTimestep = FixedTimestep;
 
     /* Console toggle scancode (SDL scancode integer); invalid values fall back to F12 in console module. */
     Console_SetToggleScancode(DefFileBufferReadValueDefault("ConsoleToggleKey", K_F12));
@@ -2603,7 +2637,8 @@ void WriteConfigFile(void) {
     WriteGamepadConfig();  // Sauve Config Gamepad dans LBA2.CFG
     WriteVolumeSettings(); // Sauve volumes dans LBA2.CFG
 
-    DefFileBufferWriteString("Language", GetLanguageName(Language));
+    DefFileBufferWriteString(
+        "Language", GetLanguageName(ValueToPersist(Language, StoredLanguage, ForcedLanguage())));
 #ifdef CDROM
     DefFileBufferWriteString("LanguageCD", GetLanguageName(LanguageCD));
 #endif
@@ -2621,19 +2656,12 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("DitherShading", GfxDitherShading);
     /* An environment override is for the run that asked for it: persisting the
        live value would turn `LBA2_TEXFILTER=2 ./lba2cc` into a permanent
-       setting nobody chose, so the stored value wins while the live one still
-       matches what the environment forced.
-
-       The comparison is on the value, not on who last wrote it, because cvars
-       are registered as bare pointers with no on-change hook. Setting the same
-       value from the console during an overridden run is therefore
-       indistinguishable from not touching it, and does not persist; setting a
-       different one does. Accepted trade for not growing the cvar API. */
+       setting nobody chose. */
     DefFileBufferWriteValue("TextureFilter",
-                            (EnvTexFilter >= 0 && PolyTexFilter == EnvTexFilter)
-                                ? StoredTexFilter
-                                : PolyTexFilter);
-    DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
+                            ValueToPersist(PolyTexFilter, StoredTexFilter, EnvTexFilter));
+    DefFileBufferWriteValue(
+        "FixedTimestep",
+        ValueToPersist(FixedTimestep, StoredFixedTimestep, ForcedFixedTimestep()));
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
     /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >
        auto-detect > compile-time default). Persist it only when the player
@@ -3356,6 +3384,9 @@ int main(int argc, char *argv[]) {
     //-------------------
 
     InitLanguage(); // multilangue
+    /* What the cfg resolved to, captured before the override below replaces it,
+       so WriteConfigFile can put the player's own language back. */
+    StoredLanguage = Language;
     /* --language <name> override: bypass the cfg's Language key for this run.
        Used by the test harness to pin a deterministic language regardless of
        whatever the local cfg says, and useful for any dev wanting to spot-
