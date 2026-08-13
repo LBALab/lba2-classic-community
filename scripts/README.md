@@ -40,7 +40,7 @@ Local wrappers that build a release binary and then delegate to the matching
 | [dev/build-linux-tarball.sh](dev/build-linux-tarball.sh) | Dry-run the Linux static-binary tarball: build, then call `bundle-linux-tarball.sh`. | manual |
 | [dev/build-macos-release.sh](dev/build-macos-release.sh) | Dry-run the macOS DMG: build (host arch by default), then call `bundle-macos.sh`. | manual |
 | [dev/build-windows-release.sh](dev/build-windows-release.sh) | Dry-run the Windows ZIP: build (MSYS2 native or Linux cross), then call `bundle-windows.sh`. | manual |
-| [dev/verify-release.sh](dev/verify-release.sh) | Post-release smoke test: download the published Linux artifacts, run each in a clean container, and check the version and AppImage self-update channel they carry. | manual ([RELEASING.md](../docs/RELEASING.md)) |
+| [dev/verify-release.sh](dev/verify-release.sh) | Post-release smoke test: download the published Linux artifacts, run each in a clean container, and check the version, AppImage self-update channel and AppStream metainfo they carry. | manual ([RELEASING.md](../docs/RELEASING.md)) |
 
 ## Packaging (`packaging/`)
 

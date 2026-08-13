@@ -5,4 +5,6 @@ Comment=@LBA2_PRODUCT_DESCRIPTION@
 Exec=@LBA2_EXECUTABLE_NAME@
 Icon=@LBA2_DESKTOP_ID@
 StartupWMClass=@LBA2_EXECUTABLE_NAME@
-Categories=Game;Adventure;Platform;
+# Registered freedesktop categories only. Keep in sync with lba2cc.metainfo.xml.in.
+Categories=Game;AdventureGame;ActionGame;
+Keywords=LBA;LBA2;Twinsen;Odyssey;Adeline;

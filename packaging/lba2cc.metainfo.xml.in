@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+AppStream metainfo. Configured by CMake into
+${CMAKE_BINARY_DIR}/packaging/<bundle-id>.metainfo.xml and copied into the
+AppImage at usr/share/metainfo/, which is where AppImageHub, Gear Lever and
+software centres look for it. Do not edit the generated copy; edit this
+template, or override the LBA2_* cache variables in the root CMakeLists.txt.
+
+Keep <categories> in sync with the Categories= line in lba2cc.desktop.in.
+-->
+<component type="desktop-application">
+  <id>@LBA2_BUNDLE_IDENTIFIER@</id>
+  <launchable type="desktop-id">@LBA2_DESKTOP_ID@.desktop</launchable>
+  <provides>
+    <binary>@LBA2_EXECUTABLE_NAME@</binary>
+  </provides>
+
+  <name>@LBA2_PRODUCT_NAME@</name>
+  <summary>@LBA2_PRODUCT_DESCRIPTION@</summary>
+  <developer id="org.lbalab">
+    <name>LBALab</name>
+  </developer>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-2.0-only</project_license>
+
+  <description>
+    <p>
+      A community source port of Little Big Adventure 2 (Twinsen's Odyssey),
+      built from the original Adeline Software sources released by LBALab. It
+      keeps the 1997 game intact while making it run on current systems.
+    </p>
+    <p>
+      This is the engine only. It needs the data files from a copy of the game
+      you already own: the original discs, or the GOG or Steam release.
+    </p>
+  </description>
+
+  <categories>
+    <category>Game</category>
+    <category>AdventureGame</category>
+    <category>ActionGame</category>
+  </categories>
+
+  <url type="homepage">https://github.com/LBALab/lba2-classic-community</url>
+  <url type="bugtracker">https://github.com/LBALab/lba2-classic-community/issues</url>
+  <url type="help">https://github.com/LBALab/lba2-classic-community/blob/main/README.md</url>
+  <url type="vcs-browser">https://github.com/LBALab/lba2-classic-community</url>
+
+  <content_rating type="oars-1.1">
+    <content_attribute id="violence-cartoon">mild</content_attribute>
+  </content_rating>
+</component>
