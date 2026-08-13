@@ -63,8 +63,12 @@ MODES="
 --res-switch-test|--res-switch-test 2:1280x720
 --save-load-test|--save-load-test \"$tmp/slt.lba\"
 "
+# --bind-game-dir is checked here only for what this test asks of every writer,
+# that it writes. Its own behaviour, moving a binding rather than setting a fresh
+# one, needs a second run to be visible at all and lives in test_profile_bind.sh.
 WRITERS="
 --profile|--profile contract
+--bind-game-dir|--profile bindcontract --game-dir \"$LBA2_GAME_DIR\" --bind-game-dir
 --load|--load \"$SAVE\"
 --exec|--exec \"vsync off\"
 --exec-at|--exec-at 1 \"vsync off\"

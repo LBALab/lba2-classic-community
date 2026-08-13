@@ -95,6 +95,19 @@ guessed at is not, because the probes are a fallback and writing one down would 
 install that profile's for good. Running without a profile keeps its old behaviour, where
 `--game-dir` applies to that run only.
 
+It binds once. Naming a different folder later runs against that folder and leaves the binding
+where it is, so trying another install for one run cannot quietly replace the setup the profile
+exists to hold. Moving a profile says so:
+
+```
+lba2cc --profile gog --game-dir /new/path                    # this run only
+lba2cc --profile gog --game-dir /new/path --bind-game-dir    # from now on
+```
+
+The run that does not move it logs the difference, naming both the folder it used and the one the
+profile keeps. `--bind-game-dir` with no profile, or with no folder you named, warns and binds
+nothing rather than passing silently.
+
 It's a single-line text file (the absolute path to the chosen game-data folder). Safe to delete by hand to force the picker to re-appear on next launch — the engine treats a missing file as "never picked," same as a fresh install.
 
 ### Forcing the picker without deleting the file
