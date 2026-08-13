@@ -118,6 +118,25 @@ Demo mode is in there for a reason. It is the only surface where `DistribVersion
 
 Hashes are a per-install baseline to diff against a later run (`diff a/summary.txt b/summary.txt`). Do not compare them across installs: US and EU legitimately differ in language, in volume defaults inherited from each install's config, and in that demo logo.
 
+### 6c. Config upgrade path (`tests/automation/test_config_upgrade.sh`, local)
+
+The sweep above measures the new-user path: every profile in it is one the engine just created. The other direction is the player who already has an `lba2.cfg` and updates the engine under it, and it is the one the layered read changed the mechanics of, so it gets a test of its own.
+
+```bash
+LBA2_GAME_DIR=/path/to/data bash tests/automation/test_config_upgrade.sh
+```
+
+It writes a config by hand with values that all differ from the compiled defaults, runs, and reads the file back. Four assertions:
+
+1. The keys the player owns come back out unchanged, and none are dropped.
+2. A key the game data owns is answered on every boot and is never copied into the profile, so it cannot outlive the install it came from. Checked twice: the key must be absent from the written file, and the same install must report the same release to an upgrading player as to a new one.
+3. A config naming a `Version` itself still beats the one under it.
+4. An empty config is a config to fill in, not a fatal.
+
+`Shadow` is the interesting exception and is asserted separately: `SetDetailLevel` re-derives it from `DetailLevel` at boot, so it is a key the engine writes but does not keep. Without that assertion the next reader finds a value that changed by itself and reads it as a config bug.
+
+The invariant is not "matches an older build". That would need a second binary and could only be measured once, whereas what actually decays is the layering, and a player's settings resolving differently after an update is not something anyone reports as a bug.
+
 PR host jobs and `make test` build the `host_tests` aggregate target, then:
 
 ```bash

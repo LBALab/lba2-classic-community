@@ -415,6 +415,25 @@ timestamp, which is why nothing had noticed. Fixed in
 That is the case for the check rather than an aside. It cost a directory hash before and after each
 install and found a live defect the same day, in code nobody was reading.
 
+### The upgrade path
+
+The matrix measures the new-user path: every profile in it is one the engine just created. That
+leaves the direction with something to lose, a player who already has an `lba2.cfg` and updates the
+engine under it, and layer 2 is the change that alters the mechanics of it.
+`tests/automation/test_config_upgrade.sh` covers it: a config written by hand, every value chosen to
+differ from the compiled default, run once, read back. It asserts that the keys the player owns come
+back unchanged and none are dropped, that a key the game data owns is answered without being copied
+into the profile, that a config naming its own `Version` still wins over the layer under it, and that
+an empty config is something to fill in rather than a fatal.
+
+Deliberately not asserted against a build of `main`. Two binaries would pin the transition and
+nothing after it, and the transition is the part that is over once it has happened. What decays is
+the layering, so the invariant to hold is that a config holding these keys resolves to these values.
+
+The one key that legitimately changes is `Shadow`, which `SetDetailLevel` re-derives from
+`DetailLevel` at every boot. Left unstated, a value that changed by itself reads as a config bug to
+whoever finds it next, so the test pins the derivation instead of the value.
+
 ### What stays out of the repo
 
 The installs a developer holds are their own business, and the repo must not record them. The line:
