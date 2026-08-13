@@ -229,18 +229,18 @@ After a tag-driven release publishes its artifacts, run:
 bash scripts/dev/verify-release.sh v0.9.0   # or `latest` for rolling
 ```
 
-The script downloads the Linux tarballs and AppImages attached to the
-release, extracts them, and runs each binary in a clean
-`debian:stable-slim` container with no SDL3 / X11 / audio deps
-installed. Verifies the unique signal CI doesn't cover: the artifact
-GitHub *serves* (post-upload, post-download) actually runs on a fresh
-system, executable bit preserved and static-linking claim holding.
-Cross-arch tarballs are checked via qemu-user-static binfmt (auto-registered);
+The script downloads every artifact the release serves and checks each as
+far as the host allows. The Linux tarballs and AppImages are extracted and
+run in a clean `debian:stable-slim` container with no SDL3 / X11 / audio
+deps installed. That is the signal CI doesn't cover: the artifact GitHub
+*serves* (post-upload, post-download) actually runs on a fresh system,
+executable bit preserved and static-linking claim holding. Cross-arch
+tarballs are checked via qemu-user-static binfmt (auto-registered);
 cross-arch AppImages are skipped because qemu doesn't handle the AppImage
 type-2 runtime stub reliably.
 
-Two metadata checks ride along, both covering failure modes that stay
-invisible until someone reports a confusing version number:
+Metadata checks ride along, each covering a failure mode that stays
+invisible until someone hits it:
 
 - **`--version` agrees with the filename.** A mislabelled artifact fails
   here rather than on the Releases page.
@@ -249,12 +249,35 @@ invisible until someone reports a confusing version number:
   it needs no container, so this one also covers the cross-arch AppImages
   the run check has to skip. See [Rolling latest
   pre-release](#rolling-latest-pre-release) for what a wrong channel does.
+- **The AppImage carries its AppStream metainfo**, which is what software
+  centres and the AppImageHub catalog read.
+- **The `.zsync` still describes the AppImage beside it** (name, length,
+  SHA-1). If they drift, self-update quietly stops working for everyone who
+  already has the file, and nothing else here would notice.
 
-Windows ZIPs, macOS DMGs and Android APKs aren't checked. Running them
-on a Linux host needs `wine`, `qemu-system-x86`, a Mac, or an Android
-emulator, which is more machinery than the marginal signal justifies.
+The other three platforms are checked as far as a Linux host reaches:
 
-**Without a container runtime** the script still runs both metadata checks
+- **Windows** runs. Under WSL the kernel has a binfmt handler for PE
+  images, so the shipped `.exe` executes as a Windows process and answers
+  `--version` with no wine and no VM. Its VERSIONINFO block is read too,
+  which needs nothing but `grep` and works off WSL. If another handler
+  claims the `MZ` magic first the run reports SKIP, so check
+  `update-binfmts --display cli` before believing the host can't do it.
+- **macOS** is read, not run. `7z` opens the DMG, the bundle's
+  `Info.plist` has to name the right version and carry a copyright line,
+  the Mach-O header has to be the right architecture, and every library in
+  its load commands has to be a system one, which is how the static SDL3
+  link is checked without a Mac. Needs `7z`, `python3` and `llvm-otool`.
+- **Android** is read with the SDK build-tools: manifest `versionName` and
+  ABI against the filename, a signature that verifies under v2 or better,
+  and 16 KB page safety on the arm64 APK via
+  [check-16k-align.sh](../scripts/dev/check-16k-align.sh). Resolved from
+  `ANDROID_HOME`, reported as SKIP when the SDK isn't installed.
+
+Anything the host can't do reports SKIP rather than failing, so the table
+says what was actually checked.
+
+**Without a container runtime** the script still runs the metadata checks
 and exits 2 rather than 0. The channel is read straight out of the file, and
 `--version` is taken by running same-arch artifacts on the host, marked
 `(host run; clean-system NOT verified)` in the row. Cross-arch artifacts are

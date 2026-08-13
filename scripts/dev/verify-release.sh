@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# Post-release smoke test for the Linux release artifacts.
+# Post-release smoke test for the published release artifacts.
 #
-# Downloads the Linux tarballs and AppImages attached to a GitHub
-# Release, extracts them, and runs each binary in a clean
-# debian:stable-slim container with no SDL3 / libsmacker / X11 deps
-# installed. Verifies the unique signal CI doesn't cover: the artifact
-# GitHub *serves* (post-upload, post-download) actually runs on a fresh
-# system, with the executable bit preserved and the static linking
-# claim holding.
+# Downloads what a GitHub Release actually serves and checks each artifact
+# as far as this host allows. The Linux tarballs and AppImages are extracted
+# and run in a clean debian:stable-slim container with no SDL3 / libsmacker
+# / X11 deps installed, which is the signal CI doesn't cover: the artifact
+# GitHub *serves* (post-upload, post-download) runs on a fresh system, with
+# the executable bit preserved and the static linking claim holding.
 #
-# Three metadata checks ride along, because each failure mode is silent
+# Four metadata checks ride along, because each failure mode is silent
 # until a user hits it:
 #
 #   * `--version` agrees with the version in the filename, so a
@@ -19,11 +18,22 @@
 #     cross-arch AppImages the run check has to skip.
 #   * The AppImage carries its AppStream metainfo, which decides how the
 #     app presents itself in software centres and the AppImageHub catalog.
+#   * The .zsync control file still describes the AppImage it was published
+#     with, so self-update works for people who already have the file.
 #
-# Windows ZIPs and macOS DMGs aren't checked — running them on a Linux
-# host needs wine / qemu-system-x86 / a Mac, which is more machinery
-# than the marginal signal justifies. CI already builds and packages
-# both.
+# The Windows ZIP is checked too. Under WSL a Windows .exe launched from
+# Linux runs as a Windows process, so the shipped binary answers `--version`
+# with no wine and no VM. Off WSL that check reports SKIP and the PE
+# metadata is still read, which needs nothing but grep.
+#
+# The macOS DMG can't be executed without a Mac, but everything it declares
+# can be read here: the disk image opens with 7z, the bundle's Info.plist is
+# what Finder and Gatekeeper read, and the Mach-O's load commands say which
+# libraries it expects to find on the target machine.
+#
+# The Android APKs are read with the SDK build-tools, which check the three
+# things an install fails on: the manifest, the signature, and 16 KB page
+# safety. Missing build-tools reports SKIP.
 #
 # Usage:
 #   scripts/dev/verify-release.sh [<tag>]
@@ -47,6 +57,10 @@
 #     what only a container can show.
 #   - aarch64 leg auto-registers qemu-user-static binfmt via
 #     tonistiigi/binfmt if not already set up
+#   - unzip for the Windows ZIP; 7z, python3 and llvm-otool for the macOS
+#     bundle; the Android SDK build-tools (found via ANDROID_HOME) for the
+#     APKs. Each is optional: what is missing reports SKIP, so the run says
+#     what it checked rather than quietly checking less.
 set -euo pipefail
 
 TAG="${1:-latest}"
@@ -104,12 +118,16 @@ echo "[verify-release] workdir: $WORK_DIR"
 
 cd "$WORK_DIR"
 
-echo "[verify-release] downloading Linux artifacts..."
+echo "[verify-release] downloading artifacts..."
 gh release download "$TAG" \
     --repo "$REPO_SLUG" \
     --pattern 'lba2cc-*-linux-*.tar.gz' \
     --pattern 'lba2cc-*-anylinux-*.AppImage' \
     --pattern 'lba2cc-*-AppImage-*.AppImage' \
+    --pattern 'lba2cc-*.AppImage.zsync' \
+    --pattern 'lba2cc-*-windows-*.zip' \
+    --pattern 'lba2cc-*-macos-*.dmg' \
+    --pattern 'lba2cc-*-android-*.apk' \
     --dir . 2>&1 | tail -5 || true
 
 # Collect what actually landed — release artifact naming has shifted
@@ -118,6 +136,9 @@ gh release download "$TAG" \
 shopt -s nullglob
 TARBALLS=( lba2cc-*-linux-*.tar.gz )
 APPIMAGES=( lba2cc-*-*linux*-*.AppImage lba2cc-*-AppImage-*.AppImage )
+WIN_ZIPS=( lba2cc-*-windows-*.zip )
+MAC_DMGS=( lba2cc-*-macos-*.dmg )
+APKS=( lba2cc-*-android-*.apk )
 shopt -u nullglob
 
 if [[ ${#TARBALLS[@]} -eq 0 && ${#APPIMAGES[@]} -eq 0 ]]; then
@@ -153,6 +174,12 @@ PASS=0
 FAIL=0
 declare -a RESULTS
 
+# One row of the result table. Every check ends in exactly one of these, so
+# the tally and the printed table can't drift apart.
+pass_row() { RESULTS+=( "PASS  $1  $2" ); PASS=$(( PASS + 1 )); }
+fail_row() { RESULTS+=( "FAIL  $1  $2" ); FAIL=$(( FAIL + 1 )); }
+skip_row() { RESULTS+=( "SKIP  $1  $2" ); }
+
 # Version embedded in an artifact filename, which is always
 # lba2cc-<version>-<platform>-<arch>.<ext>. Strip the prefix and the two
 # trailing fields. <version> itself contains dashes (`0.13.0-dev`), so peel
@@ -160,7 +187,15 @@ declare -a RESULTS
 version_from_name() {
     local stem="${1%.tar.gz}"
     stem="${stem%.AppImage}"
+    stem="${stem%.zip}"
+    stem="${stem%.dmg}"
+    stem="${stem%.apk}"
     stem="${stem#lba2cc-}"
+    # Android ABI names carry their own dashes (arm64-v8a, armeabi-v7a), so
+    # peel that suffix off by name instead of by counting fields.
+    case "$stem" in
+        *-android-*) printf '%s' "${stem%%-android-*}"; return ;;
+    esac
     stem="${stem%-*}"
     printf '%s' "${stem%-*}"
 }
@@ -172,17 +207,59 @@ check_update_channel() {
     local upd channel
     upd=$( grep -a -o -m1 'gh-releases-zsync|[^|]*|[^|]*|[^|]*|' "$aimg" || true )
     if [[ -z "$upd" ]]; then
-        RESULTS+=( "FAIL  $label  carries no gh-releases-zsync update information" )
-        FAIL=$(( FAIL + 1 ))
+        fail_row "$label" "carries no gh-releases-zsync update information"
         return
     fi
     channel=$( printf '%s' "$upd" | cut -d'|' -f4 )
     if [[ "$channel" == "$EXPECT_CHANNEL" ]]; then
-        RESULTS+=( "PASS  $label  update-channel=$channel" )
-        PASS=$(( PASS + 1 ))
+        pass_row "$label" "update-channel=$channel"
     else
-        RESULTS+=( "FAIL  $label  update-channel=$channel, expected $EXPECT_CHANNEL on tag $TAG" )
-        FAIL=$(( FAIL + 1 ))
+        fail_row "$label" "update-channel=$channel, expected $EXPECT_CHANNEL on tag $TAG"
+    fi
+}
+
+# Each AppImage is published with a .zsync control file, and that file is
+# what an updater fetches first: a plain-text header naming the target, its
+# length and its SHA-1, then the block sums it diffs against. If the header
+# drifts from the artifact actually attached to the release (an AppImage
+# rebuilt and re-uploaded over an older .zsync, or an upload that half
+# failed), self-update breaks for everyone who already has the file, and
+# nothing else here would notice: the AppImage still runs and still names
+# the right update channel. Only comparing the two files catches it.
+check_zsync() {
+    local label="$1" zs="$2" aimg="$3"
+    local line key val want_name="" want_len="" want_sha="" got_len got_sha
+
+    if [[ ! -f "$zs" ]]; then
+        skip_row "$label" "no .zsync published alongside this AppImage"
+        return
+    fi
+    # The header is text terminated by a blank line, and the block sums
+    # after it are binary, so the loop breaks on that line and never reads
+    # into them.
+    while IFS= read -r line; do
+        line="${line%$'\r'}"
+        [[ -z "$line" ]] && break
+        key="${line%%: *}"
+        val="${line#*: }"
+        case "$key" in
+            Filename) want_name="$val" ;;
+            Length)   want_len="$val"  ;;
+            SHA-1)    want_sha="$val"  ;;
+        esac
+    done < "$zs"
+
+    got_len=$( wc -c < "$aimg" | tr -d ' ' )
+    got_sha=$( sha1sum "$aimg" | cut -d' ' -f1 )
+
+    if [[ "$want_name" != "${aimg##*/}" ]]; then
+        fail_row "$label" "zsync names $want_name, but it sits beside ${aimg##*/}"
+    elif [[ "$want_len" != "$got_len" ]]; then
+        fail_row "$label" "zsync length=$want_len, artifact=$got_len"
+    elif [[ "$want_sha" != "$got_sha" ]]; then
+        fail_row "$label" "zsync SHA-1=$want_sha, artifact=$got_sha"
+    else
+        pass_row "$label" "zsync matches artifact (sha1=${got_sha:0:12})"
     fi
 }
 
@@ -193,7 +270,7 @@ run_check() {
     [[ "$platform" == "linux/arm64" ]] && want_arch="aarch64"
 
     if (( ! DOCKER_OK )) && [[ "$want_arch" != "$HOST_ARCH" ]]; then
-        RESULTS+=( "SKIP  $label  no container runtime and cross-arch: not run at all" )
+        skip_row "$label" "no container runtime and cross-arch: not run at all"
         SKIPPED_NO_DOCKER=$(( SKIPPED_NO_DOCKER + 1 ))
         return
     fi
@@ -229,14 +306,11 @@ run_check() {
     # real version is the last non-empty line.
     version=$( echo "$out" | awk 'NF{last=$0} END{print last}' )
     if [[ $rc -ne 0 || -z "$version" ]]; then
-        RESULTS+=( "FAIL  $label  rc=$rc out=$out" )
-        FAIL=$(( FAIL + 1 ))
+        fail_row "$label" "rc=$rc out=$out"
     elif [[ "$version" != "$expected" ]]; then
-        RESULTS+=( "FAIL  $label  --version=$version but the filename says $expected" )
-        FAIL=$(( FAIL + 1 ))
+        fail_row "$label" "--version=$version but the filename says $expected"
     else
-        RESULTS+=( "PASS  $label  --version=$version$note" )
-        PASS=$(( PASS + 1 ))
+        pass_row "$label" "--version=$version$note"
     fi
 }
 
@@ -273,11 +347,12 @@ for aimg in "${APPIMAGES[@]}"; do
         *x86_64*)  aimg_arch="x86_64";  platform="linux/amd64" ;;
         *)         aimg_arch="unknown"; platform="linux/amd64" ;;
     esac
-    # Reads the file directly, so it runs for every AppImage including the
-    # cross-arch ones skipped below.
+    # Both read the files directly, so they run for every AppImage including
+    # the cross-arch ones skipped below.
     check_update_channel "appimage $stem" "$WORK_DIR/$aimg"
+    check_zsync "appimage $stem" "$WORK_DIR/$aimg.zsync" "$WORK_DIR/$aimg"
     if [[ "$aimg_arch" != "$HOST_ARCH" ]]; then
-        RESULTS+=( "SKIP  appimage $stem  cross-arch AppImage (host=$HOST_ARCH, image=$aimg_arch) — qemu-user can't run AppImage runtime stub" )
+        skip_row "appimage $stem" "cross-arch AppImage (host=$HOST_ARCH, image=$aimg_arch) — qemu-user can't run AppImage runtime stub"
         continue
     fi
     # Native arch — extract on the host (AppImage runtime stub runs
@@ -288,8 +363,7 @@ for aimg in "${APPIMAGES[@]}"; do
     mkdir -p "$WORK_DIR/$extract_dir"
     chmod +x "$aimg"
     if ! ( cd "$WORK_DIR/$extract_dir" && "$WORK_DIR/$aimg" --appimage-extract >/dev/null 2>&1 ); then
-        RESULTS+=( "FAIL  appimage $stem  --appimage-extract failed on host" )
-        FAIL=$(( FAIL + 1 ))
+        fail_row "appimage $stem" "--appimage-extract failed on host"
         continue
     fi
     # AppStream metainfo, at the path AppImageHub and desktop-integration
@@ -298,11 +372,9 @@ for aimg in "${APPIMAGES[@]}"; do
     # that stopped copying it in would leave every other check green.
     metainfo=( "$WORK_DIR/$extract_dir"/squashfs-root/usr/share/metainfo/*.metainfo.xml )
     if [[ -f "${metainfo[0]}" ]]; then
-        RESULTS+=( "PASS  appimage $stem  metainfo=${metainfo[0]##*/}" )
-        PASS=$(( PASS + 1 ))
+        pass_row "appimage $stem" "metainfo=${metainfo[0]##*/}"
     else
-        RESULTS+=( "FAIL  appimage $stem  no usr/share/metainfo/*.metainfo.xml in the AppDir" )
-        FAIL=$(( FAIL + 1 ))
+        fail_row "appimage $stem" "no usr/share/metainfo/*.metainfo.xml in the AppDir"
     fi
 
     run_check \
@@ -311,6 +383,326 @@ for aimg in "${APPIMAGES[@]}"; do
         "ro" \
         "/test/$extract_dir/squashfs-root/AppRun --version" \
         "$( version_from_name "$aimg" )"
+done
+
+# The Windows ZIP. Two signals, and only the second needs a Windows.
+#
+# VERSIONINFO is a resource block inside the PE holding the strings
+# Explorer shows under Properties > Details. It is UTF-16LE, so dropping the
+# NUL bytes turns it back into greppable text, on the same reasoning as the
+# AppImage .upd_info check: no binutils requirement for one string.
+#
+# Then the binary is run. WSL registers a binfmt handler for PE images, so a
+# Windows .exe launched from a Linux path executes as a real Windows
+# process, which makes this the cheapest platform here to verify rather than
+# the most expensive. It also exercises the claim that the ZIP is complete,
+# since a missing runtime DLL shows up as a launch failure. Off WSL, or with
+# the handler shadowed, the row says so and the metadata check still stands.
+for zip in "${WIN_ZIPS[@]}"; do
+    stem="${zip%.zip}"
+    label="windows $stem"
+    expected="$( version_from_name "$zip" )"
+
+    if ! command -v unzip >/dev/null 2>&1; then
+        skip_row "$label" "unzip not installed, ZIP not opened"
+        continue
+    fi
+    extract_dir="windows-$stem"
+    mkdir -p "$WORK_DIR/$extract_dir"
+    if ! unzip -q -o "$zip" -d "$WORK_DIR/$extract_dir" 2>/dev/null; then
+        fail_row "$label" "unzip failed"
+        continue
+    fi
+    # -print -quit rather than `| head -1`: under pipefail, head closing the
+    # pipe early can make the whole substitution fail, and under set -e that
+    # ends the run.
+    exe=$( find "$WORK_DIR/$extract_dir" -name 'lba2cc.exe' -type f -print -quit )
+    if [[ -z "$exe" ]]; then
+        fail_row "$label" "no lba2cc.exe in the ZIP"
+        continue
+    fi
+
+    # Drop the NULs once, into a file. Grepping a file rather than a pipe
+    # matters here: `grep -q` stops at the first match, which closes the pipe
+    # under it, and pipefail then reports the whole pipeline as failed.
+    pe_text="$WORK_DIR/$extract_dir/pe-strings.txt"
+    tr -d '\0' < "$exe" > "$pe_text"
+
+    # Anchored on the key name, so this can't pass on a version that happens
+    # to appear elsewhere in the image. The trailing byte after the value is
+    # the next record's length field, so match a prefix rather than equality.
+    if ! grep -a -q -F "FileVersion$expected" "$pe_text"; then
+        found=$( grep -a -o -m1 'FileVersion[0-9][ -~]\{0,32\}' "$pe_text" || true )
+        fail_row "$label" "VERSIONINFO ${found:-carries no FileVersion}, filename says $expected"
+    elif ! grep -a -q 'FileDescription[ -~]\{4,\}' "$pe_text"; then
+        fail_row "$label" "VERSIONINFO has FileVersion=$expected but no FileDescription"
+    else
+        pass_row "$label" "VERSIONINFO FileVersion=$expected, FileDescription set"
+    fi
+
+    chmod +x "$exe"
+    win_run=( "$exe" --version )
+    # A release binary that hangs must not hang the verification.
+    command -v timeout >/dev/null 2>&1 && win_run=( timeout 60 "${win_run[@]}" )
+    if out=$( "${win_run[@]}" 2>&1 ); then rc=0; else rc=$?; fi
+    out=$( printf '%s' "$out" | tr -d '\r' )
+    version=$( printf '%s\n' "$out" | awk 'NF{last=$0} END{print last}' )
+
+    # Tell "this host can't launch PE binaries" apart from "the binary is
+    # broken". The first is a property of the workstation and has to read as
+    # SKIP; the second is exactly what this script exists to catch, so
+    # anything that isn't a recognised handler failure counts as a FAIL.
+    if [[ $rc -eq 126 ]] || [[ "$out" == *"Exec format error"* ]] \
+       || [[ "$out" == *"run-detectors"* ]] || [[ "$out" == *"binfmt"* ]]; then
+        # First line only, without the path it ends in: which file failed to
+        # launch says nothing here, and it swamps the row.
+        reason="${out%%$'\n'*}"
+        reason="${reason%% for /*}"
+        skip_row "$label" "host cannot launch PE binaries: ${reason:0:70}"
+    elif [[ $rc -ne 0 || -z "$version" ]]; then
+        fail_row "$label" "rc=$rc out=$out"
+    elif [[ "$version" != "$expected" ]]; then
+        fail_row "$label" "--version=$version but the filename says $expected"
+    else
+        pass_row "$label" "--version=$version (ran as a Windows process)"
+    fi
+done
+
+# The macOS DMG. Nothing here can execute it, so this reads what it
+# declares about itself, which is most of what a packaging mistake breaks.
+#
+# 7z opens the disk image with no loopback mount and no root. The Info.plist
+# inside is the file Finder, Launch Services and Gatekeeper read, so a wrong
+# version or an empty copyright field is visible to every macOS user and to
+# nobody else. The Mach-O's load commands then name every library the binary
+# expects to find at runtime: anything outside /usr/lib and /System/Library
+# is something the .app would have to carry, so an empty list is how the
+# "SDL3 is linked statically" claim gets checked without a Mac.
+for dmg in "${MAC_DMGS[@]}"; do
+    stem="${dmg%.dmg}"
+    label="macos $stem"
+    expected="$( version_from_name "$dmg" )"
+    case "$dmg" in
+        *arm64*)  want_arch="arm64" ;;
+        *x86_64*) want_arch="x86_64" ;;
+        *)        want_arch="" ;;
+    esac
+
+    sevenzip=""
+    for candidate in 7z 7zz 7za; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            sevenzip="$candidate"
+            break
+        fi
+    done
+    if [[ -z "$sevenzip" ]]; then
+        skip_row "$label" "no 7z on this host, disk image not opened"
+        continue
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        skip_row "$label" "no python3 on this host, Info.plist not read"
+        continue
+    fi
+
+    extract_dir="macos-$stem"
+    mkdir -p "$WORK_DIR/$extract_dir"
+    if ! "$sevenzip" x -y -o"$WORK_DIR/$extract_dir" "$dmg" >/dev/null 2>&1; then
+        fail_row "$label" "$sevenzip could not open the disk image"
+        continue
+    fi
+    plist=$( find "$WORK_DIR/$extract_dir" -path '*/Contents/Info.plist' -print -quit )
+    if [[ -z "$plist" ]]; then
+        fail_row "$label" "no .app bundle with a Contents/Info.plist in the disk image"
+        continue
+    fi
+
+    # plistlib reads both the XML and the binary plist format, and four bytes
+    # of the Mach-O header give the architecture, so the bundle answers for
+    # itself without a Mach-O aware objdump being installed.
+    mac_version=""; mac_id=""; mac_copyright=""; mac_arch=""; mac_exec=""
+    while IFS=$'\t' read -r key value; do
+        case "$key" in
+            version)   mac_version="$value"   ;;
+            id)        mac_id="$value"        ;;
+            copyright) mac_copyright="$value" ;;
+            arch)      mac_arch="$value"      ;;
+            exec)      mac_exec="$value"      ;;
+        esac
+    done < <(python3 - "$plist" <<'PY'
+import os
+import plistlib
+import struct
+import sys
+
+plist_path = sys.argv[1]
+with open(plist_path, "rb") as handle:
+    info = plistlib.load(handle)
+
+
+def emit(key, value):
+    print(f"{key}\t{value}")
+
+
+emit("version", info.get("CFBundleShortVersionString", ""))
+emit("id", info.get("CFBundleIdentifier", ""))
+emit("copyright", info.get("NSHumanReadableCopyright", ""))
+
+executable = os.path.join(os.path.dirname(plist_path), "MacOS",
+                          info.get("CFBundleExecutable", ""))
+if not os.path.isfile(executable):
+    emit("exec", "")
+    sys.exit(0)
+emit("exec", executable)
+
+with open(executable, "rb") as handle:
+    header = handle.read(8)
+magic = struct.unpack("<I", header[:4])[0]
+if magic in (0xFEEDFACF, 0xFEEDFACE):
+    cpu = struct.unpack("<I", header[4:8])[0]
+elif magic in (0xCFFAEDFE, 0xCEFAEDFE):
+    cpu = struct.unpack(">I", header[4:8])[0]
+elif magic in (0xBEBAFECA, 0xCAFEBABE):
+    cpu = "universal"          # several slices, so no single cputype
+else:
+    cpu = "not a Mach-O"
+emit("arch", {0x0100000C: "arm64", 0x01000007: "x86_64"}.get(cpu, cpu))
+PY
+    )
+
+    if [[ -z "$mac_exec" ]]; then
+        fail_row "$label" "Info.plist names no executable that exists in the bundle"
+        continue
+    fi
+    if [[ "$mac_version" != "$expected" ]]; then
+        fail_row "$label" "Info.plist says $mac_version, the filename says $expected"
+    elif [[ -z "$mac_id" ]]; then
+        fail_row "$label" "bundle carries no CFBundleIdentifier"
+    elif [[ "$mac_copyright" != *Copyright* ]]; then
+        fail_row "$label" "NSHumanReadableCopyright is not a copyright line: ${mac_copyright:-empty}"
+    else
+        pass_row "$label" "$mac_id $mac_version, copyright set"
+    fi
+
+    if [[ -n "$want_arch" && "$mac_arch" != "$want_arch" ]]; then
+        fail_row "$label" "Mach-O is $mac_arch, the filename says $want_arch"
+    else
+        pass_row "$label" "Mach-O arch=$mac_arch"
+    fi
+
+    otool=""
+    for candidate in llvm-otool otool; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            otool="$candidate"
+            break
+        fi
+    done
+    if [[ -z "$otool" ]]; then
+        # Packaged per LLVM release rather than on PATH on most distros.
+        otool=$( ls -d /usr/lib/llvm-*/bin/llvm-otool 2>/dev/null | sort -V | tail -1 || true )
+    fi
+    if [[ -z "$otool" ]]; then
+        skip_row "$label" "no llvm-otool on this host, linked libraries not read"
+    else
+        outside=$( "$otool" -L "$mac_exec" 2>/dev/null \
+            | awk 'NR > 1 { print $1 }' \
+            | grep -v -E '^(/usr/lib/|/System/Library/)' || true )
+        if [[ -n "$outside" ]]; then
+            fail_row "$label" "links libraries the bundle does not carry: ${outside//$'\n'/ }"
+        else
+            pass_row "$label" "every linked library is a system one"
+        fi
+    fi
+done
+
+# The Android APKs. An APK can't be run here either, but the three things
+# that stop one installing or loading are all readable: the manifest, the
+# signature, and 16 KB page alignment.
+#
+# The tools ship with the SDK rather than the distro, and an SDK install
+# doesn't put them on PATH, so they are resolved from ANDROID_HOME (or the
+# usual install location) instead of being required.
+android_sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+android_build_tools=$( ls -d "$android_sdk"/build-tools/*/ 2>/dev/null | sort -V | tail -1 || true )
+android_ndk="${ANDROID_NDK:-}"
+if [[ -z "$android_ndk" ]]; then
+    android_ndk=$( ls -d "$android_sdk"/ndk/*/ 2>/dev/null | sort -V | tail -1 || true )
+fi
+# apksigner is a JVM tool. Prefer whatever the caller has set up, then the
+# JDK an SDK install usually sits next to.
+android_java_home="${JAVA_HOME:-}"
+if [[ -z "$android_java_home" ]] && command -v java >/dev/null 2>&1; then
+    android_java_home=$( dirname "$( dirname "$( command -v java )" )" )
+fi
+if [[ -z "$android_java_home" ]]; then
+    android_java_home=$( ls -d "$android_sdk"/../jbr "$HOME"/Android/jdk-*/ 2>/dev/null | sort -V | tail -1 || true )
+fi
+
+for apk in "${APKS[@]}"; do
+    stem="${apk%.apk}"
+    label="android $stem"
+    expected="$( version_from_name "$apk" )"
+
+    if [[ -z "$android_build_tools" ]]; then
+        skip_row "$label" "no SDK build-tools under $android_sdk, APK not read"
+        continue
+    fi
+    aapt2="${android_build_tools}aapt2"
+    apksigner="${android_build_tools}apksigner"
+
+    if [[ ! -x "$aapt2" ]]; then
+        skip_row "$label" "no aapt2 in $android_build_tools, manifest not read"
+    else
+        badging=$( "$aapt2" dump badging "$apk" 2>/dev/null || true )
+        package_line=$( printf '%s\n' "$badging" | grep -m1 '^package:' || true )
+        apk_version=$( printf '%s' "$package_line" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" )
+        apk_code=$( printf '%s' "$package_line" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p" )
+        apk_abi=$( printf '%s\n' "$badging" | sed -n "s/^native-code: '\([^']*\)'.*/\1/p" )
+        if [[ -z "$package_line" ]]; then
+            fail_row "$label" "aapt2 could not read the manifest"
+        elif [[ "$apk_version" != "$expected" ]]; then
+            fail_row "$label" "manifest versionName=$apk_version, the filename says $expected"
+        elif [[ -n "$apk_abi" && "$apk" != *"$apk_abi"* ]]; then
+            fail_row "$label" "manifest native-code=$apk_abi, which the filename does not name"
+        else
+            pass_row "$label" "versionName=$apk_version versionCode=$apk_code abi=$apk_abi"
+        fi
+    fi
+
+    if [[ ! -x "$apksigner" ]]; then
+        skip_row "$label" "no apksigner in $android_build_tools, signature not checked"
+    elif [[ -z "$android_java_home" ]]; then
+        skip_row "$label" "no JVM found for apksigner, signature not checked"
+    else
+        if signing=$( JAVA_HOME="$android_java_home" "$apksigner" verify --verbose "$apk" 2>&1 ); then
+            schemes=""
+            [[ "$signing" == *"(JAR signing): true"* ]] && schemes="v1"
+            [[ "$signing" == *"Scheme v2): true"* ]] && schemes="${schemes:+$schemes+}v2"
+            [[ "$signing" == *"Scheme v3): true"* ]] && schemes="${schemes:+$schemes+}v3"
+            # v1 alone is refused by every Android since 11, so a release
+            # that lost its v2 signature installs nowhere current.
+            if [[ "$schemes" == *v2* || "$schemes" == *v3* ]]; then
+                pass_row "$label" "signature verifies ($schemes)"
+            else
+                fail_row "$label" "signature verifies with ${schemes:-no known scheme}, needs v2 or better"
+            fi
+        else
+            fail_row "$label" "signature does not verify: ${signing%%$'\n'*}"
+        fi
+    fi
+
+    # 16 KB pages are an arm64 concern (Android 15+). A 32-bit ABI legitimately
+    # aligns to 4 KB, so running the check there would report a failure that
+    # isn't one.
+    if [[ "$apk" != *arm64* ]]; then
+        skip_row "$label" "16 KB page check does not apply to a 32-bit ABI"
+    elif [[ -z "$android_ndk" ]]; then
+        skip_row "$label" "no NDK under $android_sdk, 16 KB page safety not checked"
+    elif ANDROID_NDK="$android_ndk" ANDROID_HOME="$android_sdk" \
+         bash "$SCRIPT_DIR/check-16k-align.sh" "$apk" >/dev/null 2>&1; then
+        pass_row "$label" "16 KB-safe"
+    else
+        fail_row "$label" "not 16 KB-safe, see scripts/dev/check-16k-align.sh $apk"
+    fi
 done
 
 echo
