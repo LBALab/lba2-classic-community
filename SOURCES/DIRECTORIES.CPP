@@ -11,6 +11,8 @@
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
 
+#include <stdio.h>
+
 #include <dirent.h>
 
 #include <assert.h>
@@ -67,6 +69,9 @@ static char directoriesUserDirOverride[ADELINE_MAX_PATH] = "";
 /* Named profile, or empty for the default one, which is the user directory
    itself. See GetDefaultUserDir. */
 static char directoriesProfile[ADELINE_MAX_PATH] = "";
+/* The marker that put this run in a portable tree, so its one key can be read
+   back after the root is settled. Empty when no marker chose the root. */
+static char directoriesPortableMarkerPath[ADELINE_MAX_PATH] = "";
 /* How the user directory got resolved, for the boot banner. Set once, by
    GetDefaultUserDir. */
 static const char *directoriesUserDirSource = "default";
@@ -391,6 +396,60 @@ bool Directories_ResolveUserDir(char *outDir, U16 outMax,
     return true;
 }
 
+/* The one key the marker carries. A bundle that is somebody's GOG setup can say
+   so, which is the only thing about a portable tree that no flag can express: a
+   flag belongs to a run, this belongs to the tree and travels with it.
+
+   Parsed here rather than through DefFile, which needs a buffer and sets module
+   state this early in the boot, for one key in a file that is usually empty.
+   Everything else in it is still reserved and still unread. */
+static bool ReadPortableProfile(const char *markerPath, char *outName, U16 outMax) {
+    FILE *f = fopen(markerPath, "rb");
+    if (f == NULL) {
+        return false;
+    }
+
+    char line[ADELINE_MAX_PATH];
+    bool found = false;
+    while (!found && (fgets(line, (int)sizeof(line), f) != NULL)) {
+        char *p = line;
+        while ((*p == ' ') || (*p == '\t')) {
+            p++;
+        }
+        if (SDL_strncasecmp(p, "profile", 7) != 0) {
+            continue;
+        }
+        p += 7;
+        while ((*p == ' ') || (*p == '\t')) {
+            p++;
+        }
+        if ((*p != ':') && (*p != '=')) {
+            continue; // a longer word starting "profile", not the key
+        }
+        p++;
+        while ((*p == ' ') || (*p == '\t')) {
+            p++;
+        }
+        /* To end of line, then back over trailing blanks. */
+        char *end = p;
+        while ((*end != '\0') && (*end != '\r') && (*end != '\n')) {
+            end++;
+        }
+        while ((end > p) && ((end[-1] == ' ') || (end[-1] == '\t'))) {
+            end--;
+        }
+        *end = '\0';
+        if (p != end) {
+            strncpy(outName, p, outMax);
+            outName[outMax - 1] = '\0'; // Guarantee
+            found = true;
+        }
+    }
+
+    fclose(f);
+    return found;
+}
+
 bool Directories_PortableUserDir(char *outDir, U16 outMax, const char *baseDir) {
     assert((outDir != NULL) && (outMax > 0));
 
@@ -426,7 +485,19 @@ bool Directories_PortableUserDir(char *outDir, U16 outMax, const char *baseDir) 
                  ADELINE_PATH_SEP) >= (int)outMax) {
         return false;
     }
+
+    strncpy(directoriesPortableMarkerPath, markerPath, ADELINE_MAX_PATH);
+    directoriesPortableMarkerPath[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
     return true;
+}
+
+bool Directories_PortableProfile(char *outName, U16 outMax) {
+    assert((outName != NULL) && (outMax > 0));
+
+    if (directoriesPortableMarkerPath[0] == '\0') {
+        return false; // no marker chose this run's root
+    }
+    return ReadPortableProfile(directoriesPortableMarkerPath, outName, outMax);
 }
 
 void GetDefaultUserDir(char *outDir) {
@@ -478,6 +549,25 @@ void GetDefaultUserDir(char *outDir) {
                         userDir[ADELINE_MAX_PATH - 1] = '\0';
                         SDL_free(sdlUserPath);
                     }
+                }
+            }
+        }
+
+        /* A tree that names its own profile gets it when nothing else did. The
+           marker belongs to the tree, so it sits below both the flag and the
+           environment, which belong to a run. A name it cannot use stops the
+           boot rather than quietly landing in the default profile: writing
+           somewhere other than the file asked for is the failure this whole
+           path exists to prevent. */
+        if ((userDir[0] != '\0') && (directoriesProfile[0] == '\0')) {
+            char fromMarker[ADELINE_MAX_PATH];
+            if (Directories_PortableProfile(fromMarker, ADELINE_MAX_PATH)) {
+                if (Directories_IsValidProfileName(fromMarker)) {
+                    Directories_SetProfileOverride(fromMarker);
+                } else {
+                    Log_Error("%s names '%s', which is not a usable profile name",
+                              ADELINE_PORTABLE_MARKER, fromMarker);
+                    userDir[0] = '\0';
                 }
             }
         }

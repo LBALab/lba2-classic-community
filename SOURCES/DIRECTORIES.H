@@ -3,7 +3,8 @@
 #include <SYSTEM/ADELINE_TYPES.H>
 
 /// The marker that makes a tree self-contained. An empty file beside the binary
-/// is the whole feature; its contents are reserved and nothing parses them.
+/// is the whole switch. It may carry one key, `profile:`, naming the profile
+/// that tree uses by default; anything else in it is reserved and unread.
 #define ADELINE_PORTABLE_MARKER "portable.txt"
 /// The folder it names, which then holds one directory per build, keyed the same
 /// way the per-user path is: `User/LBA2/` mirrors `Twinsen/LBA2/`. A tree holding
@@ -103,6 +104,14 @@ bool Directories_ResolveUserDir(char *outDir, U16 outMax,
 /// directory: a shortcut, a file manager and a launcher each set a different
 /// working directory, and the one thing this file has to be is stable.
 bool Directories_PortableUserDir(char *outDir, U16 outMax, const char *baseDir);
+
+/// The profile a portable tree names for itself, from a `profile:` line in the
+/// marker. The one key the file carries: a bundle that is somebody's GOG setup
+/// can say so, which is the only thing about a tree that no flag can express.
+///
+/// False when no marker chose this run's root, or the marker names no profile.
+/// Only meaningful after GetDefaultUserDir has resolved the root.
+bool Directories_PortableProfile(char *outName, U16 outMax);
 
 // --- Interface ---------------------------------------------------------------
 void GetCurrentRunningDir(char *outDir); ///< Path where application was run

@@ -76,7 +76,9 @@ profile inside it. A name is a folder name, so it cannot contain `/` or `\` or s
 
 An empty file called `portable.txt` beside the binary makes the whole tree self-contained: the user
 folder becomes `User/LBA2/` next to the binary (`User/LBA2-Demo/` for a demo build), so a copy on a
-USB stick carries its saves and settings with it, and a tree holding both builds keeps them apart. The file's contents are reserved and nothing reads them.
+USB stick carries its saves and settings with it, and a tree holding both builds keeps them apart.
+A `profile: <name>` line in that file names the profile the tree uses by default, so a bundle can be
+somebody's GOG setup without anyone typing a flag. Anything you pass still wins over it. The file's contents are reserved and nothing reads them.
 `--user-dir` and `LBA2_USER_DIR` still win over it, so a marker cannot override something you typed,
 and a tree that cannot be written to stops the boot naming the folder rather than quietly writing
 elsewhere. Release bundles do not ship the marker; it is something you add.

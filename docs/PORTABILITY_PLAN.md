@@ -128,11 +128,12 @@ follows.
 
 ### Layer 4: portable marker
 
-Built. The metadata question below stayed open and nothing parses the file.
+Built, with `profile:` as the one key the file carries.
 
 **The rule.** A file named `portable.txt` beside the binary makes the tree self-contained: the user
 directory becomes `User/<build>/` next to the binary instead of the per-user path SDL picks, where
-`<build>` is the same token the per-user path uses, so `User/LBA2/` mirrors `Twinsen/LBA2/`. An empty file
+`<build>` is the same token the per-user path uses, so `User/LBA2/` mirrors `Twinsen/LBA2/`. An empty
+file is the whole switch; a `profile:` line names the profile that tree uses by default. An empty file
 is the whole feature. Dolphin uses exactly this name and shape, and ScummVM does the same thing by
 looking for its ini beside the binary, so it is a convention players already recognise.
 
@@ -175,11 +176,13 @@ candidates, and what each is actually worth:
 | `disc:` | which image in the bundle to mount | Weak. Same reasoning, and `--disc` covers the case of several |
 | `userDir:` | somewhere other than `User/` | Argues against itself. A portable tree that writes elsewhere is not portable, and `--user-dir` already says that better |
 
-So the recommendation is to **ship the switch alone and reserve the contents**: parse nothing at
-first, document that the file's contents are reserved, and add `profile:` only when someone actually
-wants a bundle that names its own profile. Every other key on that list duplicates a flag that
-already exists, and a config file whose keys are all flag aliases is a second way to say the same
-thing that then has to be kept in step.
+`profile:` is in. The rest of that list is not, and stays out: each duplicates a flag, and a file
+whose keys are all flag aliases is a second way to say the same thing that then has to be kept in
+step.
+
+It sits below both the flag and the environment, because the marker belongs to the tree while those
+belong to a run. A name the marker cannot use stops the boot rather than landing quietly in the
+default profile. Anything else in the file is still reserved and still unread.
 
 If keys do arrive, they should read through the same layered mechanism as everything else rather
 than growing a private parser.
