@@ -132,6 +132,10 @@ set(LBA2_PRODUCT_NAME_DEMO  "LBA2 Twinsen's Odyssey Demo"   CACHE STRING "Displa
 set(LBA2_PRODUCT_DESCRIPTION "A community source port of Little Big Adventure 2"
                                                             CACHE STRING "One-line description (.desktop Comment, AppStream summary)")
 set(LBA2_DESKTOP_ID         "lba2cc"                        CACHE STRING "Desktop file basename and icon ID")
+# Wording follows the Copyright section of README.md. The macOS About box is
+# the only consumer today; the Windows resource has no LegalCopyright entry.
+set(LBA2_COPYRIGHT          "Copyright [2.21]. Originally developed by Adeline Software International. Engine source under GPL-2.0-only."
+                                                            CACHE STRING "Copyright line shown in platform About boxes")
 set(LBA2_BUNDLE_IDENTIFIER  "org.lbalab.lba2cc"             CACHE STRING "Reverse-DNS app identifier (macOS bundle ID, AppStream component ID)")
 
 # Build info header (timestamp from compile, flags from configure,
