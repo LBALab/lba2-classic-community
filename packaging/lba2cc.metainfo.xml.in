@@ -25,15 +25,10 @@ Keep <categories> in sync with the Categories= line in lba2cc.desktop.in.
   <project_license>GPL-2.0-only</project_license>
 
   <description>
-    <p>
-      A community source port of Little Big Adventure 2 (Twinsen's Odyssey),
-      built from the original Adeline Software sources released by LBALab. It
-      keeps the 1997 game intact while making it run on current systems.
-    </p>
-    <p>
-      This is the engine only. It needs the data files from a copy of the game
-      you already own: the original discs, or the GOG or Steam release.
-    </p>
+    <!-- Indentation inside <p> survives into the catalog data verbatim, so
+         these stay flush left however odd they look next to the rest. -->
+<p>A community source port of Little Big Adventure 2 (Twinsen's Odyssey), built from the original Adeline Software sources released by LBALab. It keeps the 1997 game intact while making it run on current systems.</p>
+<p>This is the engine only. It needs the data files from a copy of the game you already own: the original discs, or the GOG or Steam release.</p>
   </description>
 
   <categories>
