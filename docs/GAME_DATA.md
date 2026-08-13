@@ -75,8 +75,8 @@ nothing existing moves. The two compose: `--user-dir` says where the root is, `-
 profile inside it. A name is a folder name, so it cannot contain `/` or `\` or step up with `..`.
 
 An empty file called `portable.txt` beside the binary makes the whole tree self-contained: the user
-folder becomes `User/` next to the binary (`User-Demo/` for a demo build), so a copy on a USB stick
-carries its saves and settings with it. The file's contents are reserved and nothing reads them.
+folder becomes `User/LBA2/` next to the binary (`User/LBA2-Demo/` for a demo build), so a copy on a
+USB stick carries its saves and settings with it, and a tree holding both builds keeps them apart. The file's contents are reserved and nothing reads them.
 `--user-dir` and `LBA2_USER_DIR` still win over it, so a marker cannot override something you typed,
 and a tree that cannot be written to stops the boot naming the folder rather than quietly writing
 elsewhere. Release bundles do not ship the marker; it is something you add.

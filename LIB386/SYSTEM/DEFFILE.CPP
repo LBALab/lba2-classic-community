@@ -107,6 +107,27 @@ static inline S32 ReadBufferString(const char *identificateur) {
 }
 
 //══════════════════════════════════════════════════════════════════════════
+/* Close the read window: trim trailing blanks, then lay the terminator the
+   reader stops on. ReadBufferString scans while ptr < EndPtrDef and steps over
+   runs of sub-space bytes, so the 0/32/0 past the end is what stops it walking
+   into whatever the buffer held before. Every path that moves EndPtrDef ends
+   here, so the invariant has one definition. */
+static void SealBuffer(void) {
+    do {
+        EndPtrDef--;
+        if (EndPtrDef < OrgPtrDef) {
+            break;
+        }
+    } while ((U8)*EndPtrDef <= 32);
+
+    EndPtrDef++;
+
+    EndPtrDef[0] = 0;
+    EndPtrDef[1] = 32;
+    EndPtrDef[2] = 0;
+}
+
+//══════════════════════════════════════════════════════════════════════════
 S32 DefFileBufferInit(char *file, void *buffer, S32 maxsize) {
     S32 buffersize;
 
@@ -188,39 +209,12 @@ S32 DefFileBufferInit(char *file, void *buffer, S32 maxsize) {
     LayersAttached = FALSE; // a fresh load owns exactly what FileName holds
     OrgPtrDef = (char *)buffer;
     EndPtrDef = OrgPtrDef + buffersize;
-    do {
-        EndPtrDef--;
-        if (EndPtrDef < OrgPtrDef) {
-            break;
-        }
-    } while ((U8)*EndPtrDef <= 32);
-
-    EndPtrDef++;
-
-    EndPtrDef[0] = 0;
-    EndPtrDef[1] = 32; // Rajoute une ligne avec un espace tout à la fin
-    EndPtrDef[2] = 0;
+    SealBuffer(); // trailing trim, then the 0/32/0 the read loop stops on
 
     return TRUE;
 }
 
 //══════════════════════════════════════════════════════════════════════════
-/* Trim trailing blanks off the read window and re-lay the end sentinels, the
-   way DefFileBufferInit leaves them. */
-static void SealBuffer(void) {
-    do {
-        EndPtrDef--;
-        if (EndPtrDef < OrgPtrDef) {
-            break;
-        }
-    } while ((U8)*EndPtrDef <= 32);
-
-    EndPtrDef++;
-
-    EndPtrDef[0] = 0;
-    EndPtrDef[1] = 32;
-    EndPtrDef[2] = 0;
-}
 
 /* Room for a separator, `size` bytes of layer, and the three end sentinels. */
 static S32 LayerFits(S32 size) {
@@ -281,14 +275,15 @@ S32 DefFileBufferAppendFile(const char *file) {
        copied twice. Its own line, so the last key above cannot run into the
        first key here.
 
-       The window is sized from what Load actually read, not from the FileSize
-       above. The two can disagree -- removable media, an image remounted, the
-       file rewritten between the two calls -- and trusting the stat would pull
-       whatever the buffer already held into the read window as config text. */
+       Read with a bound rather than a bare Load, and size the window from what
+       came back rather than from the FileSize above. The two can disagree --
+       removable media, an image remounted, the file rewritten between the stat
+       and the read -- and an unbounded read of a file that grew would be past
+       the end of the space LayerFits approved before anything could notice. */
     char *layer = EndPtrDef + 1;
-    const S32 loaded = (S32)Load((char *)file, layer);
-    if ((loaded <= 0) || (loaded > size)) {
-        return FALSE; // nothing read, or more than the bound that was checked
+    const S32 loaded = LoadSize((char *)file, layer, size);
+    if (loaded <= 0) {
+        return FALSE;
     }
     if (!LayerIsClean(layer, loaded)) {
         return FALSE; // EndPtrDef untouched, so the window still excludes it

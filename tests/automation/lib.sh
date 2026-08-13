@@ -38,7 +38,7 @@ fi
 
 SKIP_RC=77 # autotools convention: a skipped test
 
-# user_dir — the folder the engine writes to for this run: saves, lba2.cfg,
+# user_dir -- the folder the engine writes to for this run: saves, lba2.cfg,
 # adeline.log, last_game_dir.txt. LBA2_USER_DIR when a test has isolated itself,
 # otherwise the per-user default SDL picks.
 #

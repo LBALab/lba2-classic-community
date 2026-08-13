@@ -2529,6 +2529,11 @@ void ReadConfigFile(void) {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 void WriteConfigFile(void) {
+    /* Writes go to the file this run owns, alone: DefFileBufferInit clears any
+       layer, because rewriting a layered buffer would fold the game data's
+       config into the player's. The layer is put back at the end, since this is
+       also called mid-run (the options menu, a resolution switch) and every read
+       afterwards would otherwise lose the keys only the game data defines. */
     DefFileBufferInit(PathConfigFile, ScreenAux, (640 * 480 + RECOVER_AREA));
 
     // Batch the whole save into one fsync + atomic rename. Without this, each of
@@ -2612,6 +2617,14 @@ void WriteConfigFile(void) {
 
     if (batched) {
         DefFileBufferEndBatch();
+    }
+
+    /* Re-stack the game data's config under the file just written. Reads after
+       this point see what the boot assembled. */
+    {
+        char dataCfg[ADELINE_MAX_PATH];
+        GetDefaultCfgPath(dataCfg, ADELINE_MAX_PATH, CFG_NAME);
+        DefFileBufferAppendFile(dataCfg);
     }
 }
 

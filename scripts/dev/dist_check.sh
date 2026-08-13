@@ -47,6 +47,8 @@ OUT="${1:-${TMPDIR:-/tmp}/lba2-dist-check}"
 mkdir -p "$OUT"
 
 # name:path — edit for your machine, or set LBA2_DIST_LIST to override.
+# Set LBA2_PREF_APP=LBA2-Demo when sweeping a demo build, so ISOLATION watches
+# the folder that build actually writes to.
 DEFAULT_LIST="steam:$ROOT/../LBA2/Common
 gog:$ROOT/../LBA2-GOG
 twinsen-rip:$ROOT/../TWINSEN"
@@ -90,9 +92,13 @@ declared_version() { # declared_version <dir>
 # real saves and cfg live here, and a sweep that touched them would be doing the
 # very thing the profiles exist to prevent.
 default_user_dir() {
+    # Keyed on the build under test, not a fixed name: a demo build writes to
+    # Twinsen/LBA2-Demo, and watching Twinsen/LBA2 for it would report ok
+    # whether or not the isolation held.
+    local app="${LBA2_PREF_APP:-LBA2}"
     case "$(uname -s)" in
-        Darwin) printf '%s\n' "$HOME/Library/Application Support/Twinsen/LBA2" ;;
-        *)      printf '%s\n' "${XDG_DATA_HOME:-$HOME/.local/share}/Twinsen/LBA2" ;;
+        Darwin) printf '%s\n' "$HOME/Library/Application Support/Twinsen/$app" ;;
+        *)      printf '%s\n' "${XDG_DATA_HOME:-$HOME/.local/share}/Twinsen/$app" ;;
     esac
 }
 
@@ -294,9 +300,9 @@ else
     rlog="$OUT/rebind.log"
     rprof="$OUT/profile-rebind"; rm -rf "$rprof"
 
-    run "$rprof" "$a_dir" --exec "distrib" --tick 2 --exit > "$rlog"
+    run "$rprof" "$a_dir" --tick 2 --exit > "$rlog"
     got_a="$(distrib_of "$rlog")"
-    run "$rprof" "$b_dir" --exec "distrib" --tick 2 --exit > "$rlog.b"
+    run "$rprof" "$b_dir" --tick 2 --exit > "$rlog.b"
     got_b="$(distrib_of "$rlog.b")"
 
     if [ "$got_a" != "$a_want" ]; then

@@ -380,11 +380,8 @@ bool Directories_ResolveUserDir(char *outDir, U16 outMax,
     /* Every Get*Path builds its result as baseDir + name with no separator of
        its own, and SDL_GetPrefPath always hands back a trailing one, so a path
        typed without it has to be brought to the same shape or the first append
-       lands a sibling file instead of a child.
-
-       A path with no room left for the separator is returned as it stands. It
-       cannot be made to work, and returning it verbatim means the boot error
-       quotes back what was actually asked for. */
+       lands a sibling file instead of a child. The length guard above means
+       there is always room for it. */
     const size_t len = strlen(outDir);
     if ((len > 0) && (outDir[len - 1] != '/') &&
         (outDir[len - 1] != ADELINE_PATH_SEP_CHAR)) {
@@ -447,32 +444,40 @@ void GetDefaultUserDir(char *outDir) {
            a fall back to the default: a run that quietly wrote somewhere other
            than where it was told is the failure this flag exists to prevent, so
            the unusable path stays and InitDirectories stops the boot naming it. */
+        const char *env = getenv("LBA2_USER_DIR");
+        const bool asked = (directoriesUserDirOverride[0] != '\0') ||
+                           ((env != NULL) && (env[0] != '\0'));
         if (directoriesUserDirOverride[0] != '\0') {
             directoriesUserDirSource = "--user-dir";
-        } else {
-            const char *env = getenv("LBA2_USER_DIR");
-            if ((env != NULL) && (env[0] != '\0')) {
-                directoriesUserDirSource = "LBA2_USER_DIR";
-            }
+        } else if (asked) {
+            directoriesUserDirSource = "LBA2_USER_DIR";
         }
 
         if (!Directories_ResolveUserDir(userDir, ADELINE_MAX_PATH,
-                                        directoriesUserDirOverride,
-                                        getenv("LBA2_USER_DIR"))) {
-            /* A marker beside the binary makes the tree self-contained. It sits
-               below both explicit inputs on purpose, so it changes only the
-               fallback: a file the player may have forgotten about must not
-               override something they typed.
-
-               SDL3 hands back an internal cached pointer here; do not free it. */
-            if (Directories_PortableUserDir(userDir, ADELINE_MAX_PATH, SDL_GetBasePath())) {
-                directoriesUserDirSource = ADELINE_PORTABLE_MARKER;
+                                        directoriesUserDirOverride, env)) {
+            /* Somebody named a folder and it could not be made into one, which
+               is the case this flag exists to make loud. Falling through to the
+               per-user default here would write the run's saves somewhere other
+               than where it was told while the banner still named the override.
+               Empty stops the boot in InitDirectories instead. */
+            if (asked) {
+                userDir[0] = '\0';
             } else {
-                char *sdlUserPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
-                if (sdlUserPath != NULL) {
-                    strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
-                    userDir[ADELINE_MAX_PATH - 1] = '\0';
-                    SDL_free(sdlUserPath);
+                /* A marker beside the binary makes the tree self-contained. It
+                   sits below both explicit inputs on purpose, so it changes only
+                   the fallback: a file the player may have forgotten about must
+                   not override something they typed.
+
+                   SDL3 hands back an internal cached pointer; do not free it. */
+                if (Directories_PortableUserDir(userDir, ADELINE_MAX_PATH, SDL_GetBasePath())) {
+                    directoriesUserDirSource = ADELINE_PORTABLE_MARKER;
+                } else {
+                    char *sdlUserPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
+                    if (sdlUserPath != NULL) {
+                        strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
+                        userDir[ADELINE_MAX_PATH - 1] = '\0';
+                        SDL_free(sdlUserPath);
+                    }
                 }
             }
         }
@@ -483,7 +488,7 @@ void GetDefaultUserDir(char *outDir) {
            than a "default" folder under it, so an install that never names one
            keeps writing exactly where it always did and there is nothing to
            migrate. */
-        if (directoriesProfile[0] != '\0') {
+        if ((directoriesProfile[0] != '\0') && (userDir[0] != '\0')) {
             char root[ADELINE_MAX_PATH];
             strncpy(root, userDir, ADELINE_MAX_PATH);
             root[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
@@ -572,6 +577,7 @@ void Directories_SeedSavesFromGameData(void) {
     }
 
     S32 copied = 0;
+    S32 failed = 0;
     struct dirent *entry;
     while ((entry = readdir(dirp)) != NULL) {
         const char *name = entry->d_name;
@@ -596,12 +602,21 @@ void Directories_SeedSavesFromGameData(void) {
         }
         if (Copy(srcPath, destPath)) {
             copied++;
+        } else {
+            Log_Warn("Saves      could not copy %s out of the game data", name);
+            failed++;
         }
     }
     closedir(dirp);
 
     if (copied > 0) {
         Log_Info("Saves      %d shipped with the game data, copied in", copied);
+    } else if (failed > 0) {
+        /* The folder was created for a copy that never landed, and its presence
+           is what says this profile has been used. Leaving it would retire the
+           seeding for good on the first bad run, so take it back and let the
+           next launch try again. */
+        SDL_RemovePath(destDir); // empty, so this succeeds and the next launch retries
     }
 }
 

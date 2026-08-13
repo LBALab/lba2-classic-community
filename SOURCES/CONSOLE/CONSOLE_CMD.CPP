@@ -776,14 +776,6 @@ static void cmd_slide(int argc, const char *argv[]) {
    would be more confusing than just "takes effect on next launch". */
 /* The name/value mapping lives in VERSION.H, shared with the boot banner. */
 
-static const char *distrib_name_for(S32 ver) {
-    for (size_t i = 0; i < (size_t)DistribNameCount; i++) {
-        if (DistribNames[i].version == ver)
-            return DistribNames[i].name;
-    }
-    return "?";
-}
-
 /* Report what the disc-image source is working with. The boot banner is
    deliberately one line, which is not enough to answer the question a rip
    actually raises: my music is silent, why? Everything the answer needs is
@@ -886,7 +878,7 @@ static void cmd_disc(int argc, const char *argv[]) {
 
 static void cmd_distrib(int argc, const char *argv[]) {
     if (argc < 2) {
-        Console_Print("Current: %d (%s)", (int)DistribVersion, distrib_name_for(DistribVersion));
+        Console_Print("Current: %d (%s)", (int)DistribVersion, Distrib_Name(DistribVersion));
         Console_Print("Available:");
         for (size_t i = 0; i < (size_t)DistribNameCount; i++) {
             Console_Print("  %d  %s", (int)DistribNames[i].version, DistribNames[i].name);
@@ -931,7 +923,7 @@ static void cmd_distrib(int argc, const char *argv[]) {
         return;
     }
     Console_Print("Version %d (%s) (next launch)",
-                  (int)newVer, distrib_name_for(newVer));
+                  (int)newVer, Distrib_Name(newVer));
 }
 
 static void cmd_listvideos(int argc, const char *argv[]) {

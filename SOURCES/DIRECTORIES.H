@@ -89,7 +89,9 @@ bool Directories_ResolveUserDir(char *outDir, U16 outMax,
                                 const char *overridePath, const char *envPath);
 
 /// The user directory a portable tree writes to, given the folder the binary
-/// sits in: `<baseDir>/User/`, or `User-Demo/` for the demo build.
+/// sits in: `<baseDir>/User/<build>/`, where `<build>` is ADELINE_PREF_APP, so
+/// `User/LBA2/` mirrors `Twinsen/LBA2/` and a tree holding more than one build
+/// gives each its own.
 ///
 /// Returns false when \p baseDir names nothing, when no marker sits beside the
 /// binary, or when the composed path will not fit, leaving \p outDir untouched.

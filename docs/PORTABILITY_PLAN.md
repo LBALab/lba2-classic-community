@@ -152,7 +152,7 @@ environment, argues that a stick should keep its data with it whatever the host 
 reading is defensible and it is a worse default: it makes a file the player may have forgotten about
 override something they typed.
 
-`--profile` composes as it does with `--user-dir`, giving `User/profiles/<name>/`.
+`--profile` composes as it does with `--user-dir`, giving `User/<build>/profiles/<name>/`.
 
 **What happens when the tree is read only.** A marker on a CD, a read-only mount or a system install
 directory names a folder that cannot be created. The rule already set for `--user-dir` applies: stop
