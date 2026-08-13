@@ -21,12 +21,28 @@
 
    common = shown in plain `--help`, the handful a player setting up a run actually reaches
    for. Everything else is automation or a self-test and appears only under `--help-all`, so
-   the player-facing help isn't a wall of flags they'll never type. */
+   the player-facing help isn't a wall of flags they'll never type.
+
+   writes = the flag may change the settings and saves in the user directory, and is allowed
+   to. Almost nothing may: a flag names a mode for one run, and a run told to do something
+   differently must not leave that behind for the next one. The exceptions are the flags
+   whose whole job is to act on stored state, where persisting is the point rather than a
+   side effect.
+
+   The distinction is not decoration. --fixed-timestep and --language each overrode a setting
+   the config write serialises out of a global, so one run with either changed it for good;
+   --resolution wrote the size a harness pinned for a screenshot over the one the player
+   picked. Each contradicted its own help text, and nothing noticed, because a leaked setting
+   only shows up as the next run behaving differently for no visible reason.
+   tests/automation/test_cli_flag_contract.sh holds every flag to the column: the ones marked
+   0 must leave the settings byte-identical, and the ones marked 1 must actually write, or a
+   flag that quietly stopped working would read as a passing contract. */
 typedef struct {
     const char *name;
     int nvalues;
     int nocase;
     int common;
+    int writes;
     const char *section; /* NULL to continue the previous one */
     const char *args;
     const char *help;
@@ -37,62 +53,72 @@ typedef struct {
 #define CLI_HELP_COL 29
 
 static const T_CLI_FLAG CliFlags[] = {
-    {"--help", 0, 0, 0, "Playing", "", "print this help and exit"},
-    {"-h", 0, 0, 0, NULL, "", "same as --help"},
-    {"--resolution", 1, 0, 1, NULL, "<WxH>", "render resolution, e.g. 1280x720. If the picture\n"
-                                             "ever comes up wrong, 640x480 always works"},
-    {"--language", 1, 0, 1, NULL, "<name>", "language for this run (English, Francais, ...)"},
-    {"--no-audio", 0, 0, 1, NULL, "", "start with sound and music off"},
-    {"--game-dir", 1, 1, 1, NULL, "<dir>", "folder holding the game data, the one with the\n"
-                                           "HQR files in it (often Common/)"},
-    {"--data-dir", 1, 1, 0, NULL, "<dir>", "same as --game-dir"},
-    {"--user-dir", 1, 0, 1, NULL, "<dir>", "folder for this run's saves, settings and log,\n"
-                                           "created if missing. LBA2_USER_DIR does the same.\n"
-                                           "Use it to keep two installs apart, or to run\n"
-                                           "against a fresh folder"},
-    {"--profile", 1, 0, 1, NULL, "<name>", "keep this run's saves and settings under a name of\n"
-                                           "their own, so several installs don't share them.\n"
-                                           "LBA2_PROFILE does the same. No name means the\n"
-                                           "usual folder"},
-    {"--disc", 1, 1, 0, NULL, "<file>", "mount this disc image instead of picking one\n"
-                                        "from the game folder. Takes an image or a cue\n"
-                                        "(the cue names its image). Use it when a folder\n"
-                                        "holds more than one, or the image lives\n"
-                                        "elsewhere"},
-    {"--pick-game-dir", 0, 1, 0, NULL, "", "choose the game-data folder, ignoring any\n"
-                                           "remembered one"},
-    {"--version", 0, 0, 1, NULL, "", "print the engine version and exit"},
-    {"--help-all", 0, 0, 1, NULL, "", "list every option, including automation and\n"
-                                      "engine self-tests"},
+    {"--help", 0, 0, 0, 0, "Playing", "", "print this help and exit"},
+    {"-h", 0, 0, 0, 0, NULL, "", "same as --help"},
+    {"--resolution", 1, 0, 1, 0, NULL, "<WxH>", "render resolution, e.g. 1280x720. If the picture\n"
+                                                "ever comes up wrong, 640x480 always works"},
+    {"--language", 1, 0, 1, 0, NULL, "<name>", "language for this run (English, Francais, ...)"},
+    {"--no-audio", 0, 0, 1, 0, NULL, "", "start with sound and music off"},
+    {"--game-dir", 1, 1, 1, 0, NULL, "<dir>", "folder holding the game data, the one with the\n"
+                                              "HQR files in it (often Common/)"},
+    {"--data-dir", 1, 1, 0, 0, NULL, "<dir>", "same as --game-dir"},
+    /* Selects which directory the run writes to; it does not add writes of its own. */
+    {"--user-dir", 1, 0, 1, 0, NULL, "<dir>", "folder for this run's saves, settings and log,\n"
+                                              "created if missing. LBA2_USER_DIR does the same.\n"
+                                              "Use it to keep two installs apart, or to run\n"
+                                              "against a fresh folder"},
+    /* Creates the profile on first use and records the install it was given, which is what
+       lets a later run name the profile alone. Recording is the feature, so: writes. */
+    {"--profile", 1, 0, 1, 1, NULL, "<name>", "keep this run's saves and settings under a name of\n"
+                                              "their own, so several installs don't share them.\n"
+                                              "LBA2_PROFILE does the same. No name means the\n"
+                                              "usual folder"},
+    {"--disc", 1, 1, 0, 0, NULL, "<file>", "mount this disc image instead of picking one\n"
+                                           "from the game folder. Takes an image or a cue\n"
+                                           "(the cue names its image). Use it when a folder\n"
+                                           "holds more than one, or the image lives\n"
+                                           "elsewhere"},
+    /* Picking a folder is the act of choosing the one to remember. */
+    {"--pick-game-dir", 0, 1, 0, 1, NULL, "", "choose the game-data folder, ignoring any\n"
+                                              "remembered one"},
+    {"--version", 0, 0, 1, 0, NULL, "", "print the engine version and exit"},
+    {"--help-all", 0, 0, 1, 0, NULL, "", "list every option, including automation and\n"
+                                         "engine self-tests"},
 
-    {"--headless", 0, 0, 0, "Automation", "", "no window, no audio device. Use this to drive the\n"
-                                              "game from a script: a visible window pauses the\n"
-                                              "game whenever it loses focus, which makes a run\n"
-                                              "unreproducible. Implies --no-audio."},
-    {"--no-autosave", 0, 0, 0, NULL, "", "don't write autosaves. Without this, walking the\n"
-                                         "hero into a new scene rewrites your autosave.\n"
-                                         "Saving from the menu still works."},
-    {"--load", 1, 0, 0, NULL, "<slot>", "restore a save before the run starts"},
-    {"--exec", 1, 0, 0, NULL, "<cmds>", "run ';'-separated console commands on the first tick"},
-    {"--exec-at", 2, 0, 0, NULL, "<tick> <cmds>", "run console commands at tick <tick>; repeatable.\n"
-                                                  "Use this when a command depends on a scene change\n"
-                                                  "having settled, which --exec cannot wait for."},
-    {"--tick", 1, 0, 0, NULL, "<n>", "advance n simulation ticks"},
-    {"--exit", 0, 0, 0, NULL, "", "quit once the tick budget is spent"},
-    {"--fixed-dt", 1, 0, 0, NULL, "<ms>", "advance the clock by a constant <ms> per tick, so a\n"
-                                          "run reproduces exactly (needs --headless)"},
-    {"--fixed-timestep", 1, 0, 0, NULL, "<ms>", "set the sim throttle for this run only (0 = off)"},
-    {"--screenshot", 1, 0, 0, NULL, "<path>", "write a PNG of the rendered frame"},
-    {"--dump-state", 1, 0, 0, NULL, "<path>", "write the engine state as JSON"},
-    {"--demo", 0, 0, 0, NULL, "", "attract/demo mode (only does anything on a demo scene)"},
-    {"--log-level", 1, 0, 0, NULL, "<level>", "debug | info | warn | error (default info)"},
-    {"--verbose", 0, 0, 0, NULL, "", "log scene and hero state as the run proceeds"},
+    {"--headless", 0, 0, 0, 0, "Automation", "", "no window, no audio device. Use this to drive the\n"
+                                                 "game from a script: a visible window pauses the\n"
+                                                 "game whenever it loses focus, which makes a run\n"
+                                                 "unreproducible. Implies --no-audio."},
+    {"--no-autosave", 0, 0, 0, 0, NULL, "", "don't write autosaves. Without this, walking the\n"
+                                            "hero into a new scene rewrites your autosave.\n"
+                                            "Saving from the menu still works."},
+    /* Restoring a save makes its player the current one, which the config records in
+       LastSave exactly as loading from the menu does. */
+    {"--load", 1, 0, 0, 1, NULL, "<slot>", "restore a save before the run starts"},
+    /* The console is the engine's imperative channel: `vsync off` and `fixedtimestep 40`
+       are the player choosing, and they persist whether typed in-game or sent from here.
+       That is the whole distinction this column draws, so these two are the flags that
+       carry commands rather than name a mode. */
+    {"--exec", 1, 0, 0, 1, NULL, "<cmds>", "run ';'-separated console commands on the first tick"},
+    {"--exec-at", 2, 0, 0, 1, NULL, "<tick> <cmds>", "run console commands at tick <tick>; repeatable.\n"
+                                                     "Use this when a command depends on a scene change\n"
+                                                     "having settled, which --exec cannot wait for."},
+    {"--tick", 1, 0, 0, 0, NULL, "<n>", "advance n simulation ticks"},
+    {"--exit", 0, 0, 0, 0, NULL, "", "quit once the tick budget is spent"},
+    {"--fixed-dt", 1, 0, 0, 0, NULL, "<ms>", "advance the clock by a constant <ms> per tick, so a\n"
+                                             "run reproduces exactly (needs --headless)"},
+    {"--fixed-timestep", 1, 0, 0, 0, NULL, "<ms>", "set the sim throttle for this run only (0 = off)"},
+    {"--screenshot", 1, 0, 0, 0, NULL, "<path>", "write a PNG of the rendered frame"},
+    {"--dump-state", 1, 0, 0, 0, NULL, "<path>", "write the engine state as JSON"},
+    {"--demo", 0, 0, 0, 0, NULL, "", "attract/demo mode (only does anything on a demo scene)"},
+    {"--log-level", 1, 0, 0, 0, NULL, "<level>", "debug | info | warn | error (default info)"},
+    {"--verbose", 0, 0, 0, 0, NULL, "", "log scene and hero state as the run proceeds"},
 
-    {"--polyrec", 1, 0, 0, "Engine self-tests", "<path>", "record polygon draw calls (ENABLE_POLY_RECORDING builds)"},
-    {"--capture-projection", 1, 0, 0, NULL, "<path>", "capture projection records"},
-    {"--projection-hash", 1, 0, 0, NULL, "<path>", "write the projection hash"},
-    {"--res-switch-test", 1, 0, 0, NULL, "<spec>", "runtime resolution-switch self-test"},
-    {"--save-load-test", 1, 0, 0, NULL, "<path>", "save/load round-trip self-test"},
+    {"--polyrec", 1, 0, 0, 0, "Engine self-tests", "<path>", "record polygon draw calls (ENABLE_POLY_RECORDING builds)"},
+    {"--capture-projection", 1, 0, 0, 0, NULL, "<path>", "capture projection records"},
+    {"--projection-hash", 1, 0, 0, 0, NULL, "<path>", "write the projection hash"},
+    {"--res-switch-test", 1, 0, 0, 0, NULL, "<spec>", "runtime resolution-switch self-test"},
+    {"--save-load-test", 1, 0, 0, 0, NULL, "<path>", "save/load round-trip self-test"},
 };
 
 static const int CliFlagCount = (int)(sizeof(CliFlags) / sizeof(CliFlags[0]));
@@ -150,6 +176,13 @@ static void PrintFlagLine(FILE *out, const T_CLI_FLAG *flag) {
         fprintf(out, "\n%*s", CLI_HELP_COL, "");
     }
     PrintHelpText(out, flag->help);
+    /* Said out loud, because the alternative is a player discovering it by finding a setting
+       changed. Everything unmarked applies to the one run and leaves the settings alone,
+       which is worth being able to rely on rather than assume. Also the one machine-readable
+       copy of the `writes` column, which is what test_cli_flag_contract.sh checks itself
+       against, so a new flag cannot be added to the table without the test seeing it. */
+    if (flag->writes)
+        fprintf(out, "%*s[keeps this in your settings]\n", CLI_HELP_COL, "");
 }
 
 void Cli_PrintUsage(const char *exeName, int full) {
