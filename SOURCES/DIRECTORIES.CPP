@@ -330,6 +330,23 @@ bool Directories_IsValidProfileName(const char *name) {
     if (strcmp(name, ".") == 0) {
         return false;
     }
+
+    /* Refused on every platform, for the same reason both separators are: a
+       name has to mean the same folder wherever the tree is opened.
+
+       A colon is a drive or a stream on Windows, so `C:` resolves to somewhere
+       else entirely and the run dies later with a path nobody typed. A trailing
+       dot or space is dropped by the Windows path parser, which quietly makes
+       "gog." and "gog" one profile while the player believes they have two.
+       Both accepted here on Linux would be a name that stops working when the
+       stick is carried across. */
+    if (strchr(name, ':')) {
+        return false;
+    }
+    const size_t len = strlen(name);
+    if ((name[len - 1] == '.') || (name[len - 1] == ' ')) {
+        return false;
+    }
     return true;
 }
 

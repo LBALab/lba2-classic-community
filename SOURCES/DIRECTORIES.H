@@ -75,8 +75,11 @@ const char *Directories_GetProfile(void);
 const char *Directories_GetUserDirSource(void);
 
 /// True when \p name can be a profile directory: not empty, no path separator
-/// in either spelling, no parent-directory hop, not a bare dot. A profile lives
-/// inside the user directory and has to stay there.
+/// in either spelling, no parent-directory hop, not a bare dot, no colon, and
+/// no trailing dot or space. A profile lives inside the user directory and has
+/// to stay there, and has to name the same folder on every platform: a colon is
+/// a drive on Windows, and a trailing dot or space is dropped there, which would
+/// silently make two names one profile.
 bool Directories_IsValidProfileName(const char *name);
 
 /// The precedence rule behind GetDefaultUserDir, without the caching or the

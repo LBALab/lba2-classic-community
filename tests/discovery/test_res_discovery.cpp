@@ -895,10 +895,16 @@ static bool test_profile_name_rules() {
      * all. Both separators are refused whatever the host, so a name written on
      * one platform is refused on the other rather than quietly meaning
      * something different. ".." is rejected wherever it appears, which also
-     * costs a name like "v1..2"; that is the intended trade. */
+     * costs a name like "v1..2"; that is the intended trade.
+     *
+     * A colon and a trailing dot or space go the same way. Windows reads a
+     * colon as a drive and drops a trailing dot or space, so "gog." and "gog"
+     * would be one profile there and two here. Verified on Windows: before this
+     * rule, --profile 'trailing.' and --profile 'trailing' shared a folder. */
     static const char *const evil[] = {"", "/", "\\", "a/b", "a\\b", "..",
                                        "../escape", "escape/..", ".", "a..b",
-                                       "/etc", "C:\\Windows"};
+                                       "/etc", "C:\\Windows", "C:", "a:b",
+                                       "trailing.", "trailing "};
     for (size_t i = 0; i < sizeof evil / sizeof evil[0]; i++) {
         if (Directories_IsValidProfileName(evil[i])) {
             printf("FAIL profile: accepted the unusable name '%s'\n", evil[i]);
