@@ -10,7 +10,36 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `--user-dir <dir>` (or `LBA2_USER_DIR`) chooses the folder a run writes its
+  saves, settings and log to, created if missing. Previously that folder was
+  fixed per user, so every install on a machine shared one.
+- `--profile <name>` (or `LBA2_PROFILE`) keeps a run's saves and settings under
+  a name of their own, in `profiles/<name>/` inside the user folder. A profile
+  remembers the install it was given, so naming it is enough after the first
+  time. Running without one writes where the game always did, so nothing
+  existing moves.
+- An empty file called `portable.txt` beside the binary makes the whole tree
+  self-contained: the user folder becomes `User/<build>/` next to the binary, so
+  a copy on a USB stick carries its saves with it. A `profile:` line in that file
+  names the profile the tree uses by default. Anything passed on the command line
+  still wins over it.
+- The boot banner says how the run chose where to write, and which release it
+  believes it is: a `Writes:` line naming the profile and the mechanism, and a
+  `Release` line stating the declared publisher and whether anything declared it.
+
 ### Fixed
+
+- Saves shipped with an install are handed to a profile the first time it is
+  used. The 1997 demo ships the three sections its fixed save slots load, in
+  `SAVE/` beside the game data, and nothing looked there, so those slots pointed
+  at files that did not exist and the sections were unreachable.
+- The config shipped beside the game data is read as a layer under the one a run
+  owns, instead of being copied into it once. A profile seeded from one release
+  and later pointed at another kept reporting the first, so the distributor
+  splash, the new-game panel sprite and the CD voice folder disagreed with the
+  medium.
 
 - `scripts/dev/verify-release.sh` keeps checking `--version` against the
   filename on a host with no container runtime, by running same-arch

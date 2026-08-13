@@ -47,8 +47,9 @@ static const T_CLI_FLAG CliFlags[] = {
                                            "HQR files in it (often Common/)"},
     {"--data-dir", 1, 1, 0, NULL, "<dir>", "same as --game-dir"},
     {"--user-dir", 1, 0, 1, NULL, "<dir>", "folder for this run's saves, settings and log,\n"
-                                           "created if missing. Use it to keep two installs\n"
-                                           "apart, or to run against a fresh folder"},
+                                           "created if missing. LBA2_USER_DIR does the same.\n"
+                                           "Use it to keep two installs apart, or to run\n"
+                                           "against a fresh folder"},
     {"--profile", 1, 0, 1, NULL, "<name>", "keep this run's saves and settings under a name of\n"
                                            "their own, so several installs don't share them.\n"
                                            "LBA2_PROFILE does the same. No name means the\n"

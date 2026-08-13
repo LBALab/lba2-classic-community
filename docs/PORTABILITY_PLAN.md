@@ -112,7 +112,7 @@ read uses the smaller transient buffer.
 
 ### Layer 3: profiles
 
-`--profile <name>` resolving to `<userDir>/profiles/<name>/`, with its own `save/`, `lba2.cfg`,
+`--profile <name>`, or `LBA2_PROFILE`, resolving to `<userDir>/profiles/<name>/`, with its own `save/`, `lba2.cfg`,
 `adeline.log` and `last_game_dir.txt`. The default profile stays at the root of `userDir` so no
 existing install moves and no player's saves appear to vanish. That asymmetry is deliberate and is
 what ScummVM does with its global section.
