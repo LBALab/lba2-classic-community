@@ -587,6 +587,27 @@ The keystone is `test_tick.sh`: it loads, advances 1 vs 60 ticks, and asserts th
 clock and the hero's idle-animation frame both advanced — proving the loop steps the
 simulation, not just a counter.
 
+### Driving the opening (`test_walkthrough_opening.sh`)
+
+The walkthrough e2e: cold boot into Twinsen's house, out through the front door, then a
+walk under injected input, all of it from a new game with no save in play. Four properties
+of the opening shape it, and each one is a way for a test written in there to look like it
+proves something it does not (all four measured, not assumed; see issue #447).
+
+| | |
+|---|---|
+| The new game is stamped on frame one | The hero's own Life script sets game vars 94 (`FLAG_DINO_VOYAGE`) and 253 (`FLAG_CHAPTER`) during the first simulated tick, before any state a test can dump. No cold-boot test can watch those go 0 to 1, so they serve as a boot assertion and never as a probe. The first flags that do flip during the run are 164 and 165, set by cube 49's script on arrival |
+| A tick-0 `teleport` is undone | `--exec` fires on the first tick, ahead of the opening script placing the hero, which then puts him back. The console reports the move and the run behaves as though nothing happened. Use `--exec-at 1` for anything positional |
+| The house opening owns the hero | He walks his opening track with no input at all, so a displacement test in the house passes on the script alone, and injected input moves him not at all. The first place input actually walks him is outside, in cube 49 |
+| The house talks after ~200 ticks | The opening dialogue opens a modal and the loop stops ticking. A house run either stays short of it or passes `skipmodals on` |
+
+Nothing inside the house advances quest state on its own, which is why the walkthrough's
+first quest event is the door: a teleport into any of the cube's scenaric boxes latches the
+hero's `ZoneSce` and stops there, and the giver boxes still want the grounded action edge no
+headless run has driven (see `zonelist` above). Every number the fixture asserts is identical
+on each retail master (Activision and EA, disc rips and the re-releases alike), so a failure
+is the engine rather than the install.
+
 ## Roadmap
 
 The harness is built so these are additive, not rewrites. Ordered by dependency — each step
