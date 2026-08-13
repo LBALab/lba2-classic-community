@@ -153,6 +153,12 @@ PASS=0
 FAIL=0
 declare -a RESULTS
 
+# One row of the result table. Every check ends in exactly one of these, so
+# the tally and the printed table can't drift apart.
+pass_row() { RESULTS+=( "PASS  $1  $2" ); PASS=$(( PASS + 1 )); }
+fail_row() { RESULTS+=( "FAIL  $1  $2" ); FAIL=$(( FAIL + 1 )); }
+skip_row() { RESULTS+=( "SKIP  $1  $2" ); }
+
 # Version embedded in an artifact filename, which is always
 # lba2cc-<version>-<platform>-<arch>.<ext>. Strip the prefix and the two
 # trailing fields. <version> itself contains dashes (`0.13.0-dev`), so peel
@@ -172,17 +178,14 @@ check_update_channel() {
     local upd channel
     upd=$( grep -a -o -m1 'gh-releases-zsync|[^|]*|[^|]*|[^|]*|' "$aimg" || true )
     if [[ -z "$upd" ]]; then
-        RESULTS+=( "FAIL  $label  carries no gh-releases-zsync update information" )
-        FAIL=$(( FAIL + 1 ))
+        fail_row "$label" "carries no gh-releases-zsync update information"
         return
     fi
     channel=$( printf '%s' "$upd" | cut -d'|' -f4 )
     if [[ "$channel" == "$EXPECT_CHANNEL" ]]; then
-        RESULTS+=( "PASS  $label  update-channel=$channel" )
-        PASS=$(( PASS + 1 ))
+        pass_row "$label" "update-channel=$channel"
     else
-        RESULTS+=( "FAIL  $label  update-channel=$channel, expected $EXPECT_CHANNEL on tag $TAG" )
-        FAIL=$(( FAIL + 1 ))
+        fail_row "$label" "update-channel=$channel, expected $EXPECT_CHANNEL on tag $TAG"
     fi
 }
 
@@ -193,7 +196,7 @@ run_check() {
     [[ "$platform" == "linux/arm64" ]] && want_arch="aarch64"
 
     if (( ! DOCKER_OK )) && [[ "$want_arch" != "$HOST_ARCH" ]]; then
-        RESULTS+=( "SKIP  $label  no container runtime and cross-arch: not run at all" )
+        skip_row "$label" "no container runtime and cross-arch: not run at all"
         SKIPPED_NO_DOCKER=$(( SKIPPED_NO_DOCKER + 1 ))
         return
     fi
@@ -229,14 +232,11 @@ run_check() {
     # real version is the last non-empty line.
     version=$( echo "$out" | awk 'NF{last=$0} END{print last}' )
     if [[ $rc -ne 0 || -z "$version" ]]; then
-        RESULTS+=( "FAIL  $label  rc=$rc out=$out" )
-        FAIL=$(( FAIL + 1 ))
+        fail_row "$label" "rc=$rc out=$out"
     elif [[ "$version" != "$expected" ]]; then
-        RESULTS+=( "FAIL  $label  --version=$version but the filename says $expected" )
-        FAIL=$(( FAIL + 1 ))
+        fail_row "$label" "--version=$version but the filename says $expected"
     else
-        RESULTS+=( "PASS  $label  --version=$version$note" )
-        PASS=$(( PASS + 1 ))
+        pass_row "$label" "--version=$version$note"
     fi
 }
 
@@ -277,7 +277,7 @@ for aimg in "${APPIMAGES[@]}"; do
     # cross-arch ones skipped below.
     check_update_channel "appimage $stem" "$WORK_DIR/$aimg"
     if [[ "$aimg_arch" != "$HOST_ARCH" ]]; then
-        RESULTS+=( "SKIP  appimage $stem  cross-arch AppImage (host=$HOST_ARCH, image=$aimg_arch) — qemu-user can't run AppImage runtime stub" )
+        skip_row "appimage $stem" "cross-arch AppImage (host=$HOST_ARCH, image=$aimg_arch) — qemu-user can't run AppImage runtime stub"
         continue
     fi
     # Native arch — extract on the host (AppImage runtime stub runs
@@ -288,8 +288,7 @@ for aimg in "${APPIMAGES[@]}"; do
     mkdir -p "$WORK_DIR/$extract_dir"
     chmod +x "$aimg"
     if ! ( cd "$WORK_DIR/$extract_dir" && "$WORK_DIR/$aimg" --appimage-extract >/dev/null 2>&1 ); then
-        RESULTS+=( "FAIL  appimage $stem  --appimage-extract failed on host" )
-        FAIL=$(( FAIL + 1 ))
+        fail_row "appimage $stem" "--appimage-extract failed on host"
         continue
     fi
     # AppStream metainfo, at the path AppImageHub and desktop-integration
@@ -298,11 +297,9 @@ for aimg in "${APPIMAGES[@]}"; do
     # that stopped copying it in would leave every other check green.
     metainfo=( "$WORK_DIR/$extract_dir"/squashfs-root/usr/share/metainfo/*.metainfo.xml )
     if [[ -f "${metainfo[0]}" ]]; then
-        RESULTS+=( "PASS  appimage $stem  metainfo=${metainfo[0]##*/}" )
-        PASS=$(( PASS + 1 ))
+        pass_row "appimage $stem" "metainfo=${metainfo[0]##*/}"
     else
-        RESULTS+=( "FAIL  appimage $stem  no usr/share/metainfo/*.metainfo.xml in the AppDir" )
-        FAIL=$(( FAIL + 1 ))
+        fail_row "appimage $stem" "no usr/share/metainfo/*.metainfo.xml in the AppDir"
     fi
 
     run_check \
