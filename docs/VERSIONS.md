@@ -269,7 +269,9 @@ never read. A format version the loader chose not to check.
 [RELEASING.md](RELEASING.md).
 
 The name collides with the `Version` config key and with `DistribVersion`'s comment header, which is
-worth knowing when grepping.
+worth knowing when grepping. The two are kept in separate files for the same reason:
+[VERSION.CPP](../SOURCES/VERSION.CPP) is the build string and nothing else, and the publisher names
+live in [DISTRIB.CPP](../SOURCES/DISTRIB.CPP).
 
 ## Build variants
 

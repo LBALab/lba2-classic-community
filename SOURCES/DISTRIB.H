@@ -6,8 +6,13 @@
 extern "C" {
 #endif
 
-/// The publisher DistribVersion declares, as a name. Six values, documented in
-/// docs/VERSIONS.md, and the mapping lives here so the console command that
+/// The publisher `DistribVersion` declares, as a name.
+///
+/// Nothing here is about the engine's own version. `Version` the build string
+/// lives in VERSION.CPP and is a different thing that happens to share the
+/// word; docs/VERSIONS.md separates the six that do.
+///
+/// Six values, and the mapping lives in one place so the console command that
 /// parses these names and the boot banner that prints one cannot disagree.
 typedef struct {
     const char *name;

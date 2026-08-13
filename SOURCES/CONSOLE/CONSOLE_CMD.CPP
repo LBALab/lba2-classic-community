@@ -5,7 +5,7 @@
 #include "../COMMON.H"
 #include "../ZONE_GEOM.H" // ZonePointInBox (zonelist shares the engine's zone box test)
 #include "../DIRECTORIES.H"
-#include "../VERSION.H"
+#include "../DISTRIB.H"
 #include "../PLAYACF.H"
 #include <POLYGON/POLYFILT.H>
 
@@ -774,7 +774,7 @@ static void cmd_slide(int argc, const char *argv[]) {
    derived globals (MessageNoCD, music track table, etc.) are computed
    from it once at startup and won't refresh — partial live application
    would be more confusing than just "takes effect on next launch". */
-/* The name/value mapping lives in VERSION.H, shared with the boot banner. */
+/* The name/value mapping lives in DISTRIB.H, shared with the boot banner. */
 
 /* Report what the disc-image source is working with. The boot banner is
    deliberately one line, which is not enough to answer the question a rip

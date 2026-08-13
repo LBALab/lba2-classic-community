@@ -7,7 +7,7 @@ extern S32 GfxDitherShading;
 #include "BUILD_INFO.h" /* LBA2_VERSION_STRING (for --version flag) */
 #include "INITADEL.H"
 #include "DIRECTORIES.H"
-#include "VERSION.H"
+#include "DISTRIB.H"
 #include "RES_DISCOVERY.H"
 #include "RES_PICKER.H"
 #include "INPUT.H"
