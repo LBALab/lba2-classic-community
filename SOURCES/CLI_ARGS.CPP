@@ -81,6 +81,10 @@ static const T_CLI_FLAG CliFlags[] = {
     /* Picking a folder is the act of choosing the one to remember. */
     {"--pick-game-dir", 0, 1, 0, 1, NULL, "", "choose the game-data folder, ignoring any\n"
                                               "remembered one"},
+    /* Moving a profile to a different install is its own act, because --game-dir alone is
+       for the run that names it. Recording the move is the point, so: writes. */
+    {"--bind-game-dir", 0, 1, 0, 1, NULL, "", "point this profile at the folder named on this\n"
+                                              "command line, replacing the one it remembers"},
     {"--version", 0, 0, 1, 0, NULL, "", "print the engine version and exit"},
     {"--help-all", 0, 0, 1, 0, NULL, "", "list every option, including automation and\n"
                                          "engine self-tests"},

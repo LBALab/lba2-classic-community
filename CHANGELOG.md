@@ -18,8 +18,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `--profile <name>` (or `LBA2_PROFILE`) keeps a run's saves and settings under
   a name of their own, in `profiles/<name>/` inside the user folder. A profile
   remembers the install it was given, so naming it is enough after the first
-  time. Running without one writes where the game always did, so nothing
-  existing moves.
+  time. It binds once: naming another folder later runs against it and leaves the
+  binding alone, and `--bind-game-dir` is what moves it, so trying a second
+  install for one run cannot replace the setup the profile holds. Running without
+  a profile writes where the game always did, so nothing existing moves.
 - An empty file called `portable.txt` beside the binary makes the whole tree
   self-contained: the user folder becomes `User/<build>/` next to the binary, so
   a copy on a USB stick carries its saves with it. A `profile:` line in that file

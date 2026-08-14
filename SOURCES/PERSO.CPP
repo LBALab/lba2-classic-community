@@ -3171,9 +3171,12 @@ int main(int argc, char *argv[]) {
            no extracted data, and both should be looking at the same disc. */
         char discImagePath[ADELINE_MAX_PATH] = "";
         bool explicitGameDir = (getenv("LBA2_GAME_DIR") != NULL);
+        bool bindGameDir = false;
         for (int i = 1; i < argc; i++) {
             if (!strcasecmp(argv[i], "--game-dir") || !strcasecmp(argv[i], "--data-dir"))
                 explicitGameDir = true;
+            if (!strcasecmp(argv[i], "--bind-game-dir"))
+                bindGameDir = true;
             if (strcasecmp(argv[i], "--disc") != 0 || i + 1 >= argc)
                 continue;
             /* Accept the cue as readily as the image: pointing tools at the cue
@@ -3248,18 +3251,49 @@ int main(int argc, char *argv[]) {
            without this rule, `--profile gog` on its own would happily settle on
            whatever install happened to sit beside the binary and remember it.
 
+           It binds once. A later --game-dir runs against that folder and leaves
+           the binding alone, because the two readings of a second folder are
+           opposites and only one of them is recoverable: "just this run" read as
+           "from now on" silently discards the setup the profile existed to hold,
+           while "from now on" read as "just this run" costs one more flag. So
+           moving a profile says so, with --bind-game-dir.
+
            The default profile keeps its old behaviour, where an explicit
            --game-dir is for this run only. Naming a profile is what says "this
-           is my setup"; running without one is not. */
-        if (Directories_GetProfile()[0] != '\0' && Res_ResolvedFromUserInput()) {
+           is my setup"; running without one is not.
+
+           Asks the resolved profile rather than the --profile seen while
+           scanning argv above, so LBA2_PROFILE binds exactly as the flag does. */
+        const bool haveProfile = Directories_GetProfile()[0] != '\0';
+        if (haveProfile && Res_ResolvedFromUserInput()) {
             char boundPath[ADELINE_MAX_PATH] = "";
-            const bool alreadyBound =
-                ReadPersistedGameDir(boundPath, ADELINE_MAX_PATH) &&
-                strcmp(boundPath, resFolderPath) == 0;
-            if (!alreadyBound && WritePersistedGameDir(resFolderPath)) {
-                Log_Info("Profile    '%s' now points at %s",
-                         Directories_GetProfile(), resFolderPath);
+            const bool bound = ReadPersistedGameDir(boundPath, ADELINE_MAX_PATH);
+            if (!bound || strcmp(boundPath, resFolderPath) != 0) {
+                if (!bound || bindGameDir) {
+                    if (WritePersistedGameDir(resFolderPath)) {
+                        Log_Info("Profile    '%s' now points at %s",
+                                 Directories_GetProfile(), resFolderPath);
+                    } else if (bound) {
+                        /* The write says why it failed; this says what it means,
+                           which is that the next run boots the old install. */
+                        Log_Warn("Profile    '%s' still points at %s: the move could "
+                                 "not be written",
+                                 Directories_GetProfile(), boundPath);
+                    }
+                } else {
+                    /* Said out loud, because the folder this run uses and the one
+                       the profile keeps now differ, and nothing else would show
+                       it until a later run booted the other install. */
+                    Log_Info("Profile    '%s' stays bound to %s; this run uses %s "
+                             "(--bind-game-dir moves it)",
+                             Directories_GetProfile(), boundPath, resFolderPath);
+                }
             }
+        } else if (bindGameDir) {
+            /* Nothing to bind, and a flag that quietly does nothing is how the
+               setting it was meant to move goes unnoticed. */
+            Log_Warn("--bind-game-dir needs a named profile (--profile) and a folder "
+                     "you named (--game-dir or LBA2_GAME_DIR); nothing was bound");
         }
 
         InitDirectories(userFolderPath, resFolderPath, userFolderPath, "",
