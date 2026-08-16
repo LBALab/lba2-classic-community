@@ -146,6 +146,15 @@
 
 #define A_SPACE SDLK_SPACE
 #define A_RETURN SDLK_RETURN
+#define A_NUMPAD_ENTER SDLK_KP_ENTER
+
+/* True when a keycode stands for a character. Keys that do not produce one --
+   Enter, the arrows, Home/End, the function row, the whole keypad -- carry
+   SDLK_SCANCODE_MASK instead, and the low byte underneath is an unrelated
+   letter: keypad Enter's is 'X', Up's is 'R', keypad 1's is 'Y'. Text entry
+   must ask this before treating a keycode as a character, because truncating
+   one to its low byte types that letter rather than doing nothing. */
+#define A_IS_CHARACTER(akey) (((akey) & SDLK_SCANCODE_MASK) == 0)
 
 #define A_SUPPR SDLK_DELETE
 #define A_INS SDLK_INSERT
