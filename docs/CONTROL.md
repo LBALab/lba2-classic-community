@@ -704,6 +704,56 @@ The keystone is `test_tick.sh`: it loads, advances 1 vs 60 ticks, and asserts th
 clock and the hero's idle-animation frame both advanced — proving the loop steps the
 simulation, not just a counter.
 
+### Running them on Windows
+
+The suite runs under MSYS2 (UCRT64) against a native build. One rule accounts for most
+of what goes wrong there: **MSYS2 rewrites a standalone path argument on its way to a
+native binary, but not a path inside a longer string.** So `--dump-state "$out"` arrives
+as `D:/...` and works, while `--exec "ui menu-main $out"` arrives verbatim and the engine
+cannot create the file. The same applies to `python3`, which is also a native binary:
+pass paths as `sys.argv` entries, never spliced into the text of `python3 -c`. Use
+`engine_path` from `lib.sh` where a path has to travel inside a longer argument; it is
+`cygpath -m` on Windows and the identity everywhere else.
+
+Two more shapes, both handled in `lib.sh` rather than per test. A path the engine wrote
+comes back in the engine's own spelling, ending with the platform separator and with CRLF
+line endings, so compare folders with `norm_path` rather than as strings. And a glob
+expands in the locale's collating order, which is byte order under a typical Linux locale
+and case-insensitive under MSYS2, so `LC_COLLATE=C` is pinned there to keep a corpus walk
+in one order on both platforms.
+
+`pip install Pillow` (or `pacman -S mingw-w64-ucrt-x86_64-python-pillow`) for the
+`test_ui_*_wide.sh` pair, which skip without it.
+
+Two divergences are the platform rather than the harness, and are expected to fail there
+until someone decides what they should be:
+
+- Six `ui_*` goldens differ in a single band, the plasma fire bar at the top of the menu
+  panel. Stable across repeated Windows runs, so the goldens are Linux-specific rather
+  than the capture being unreliable.
+- `test_projection_corpus.sh` differs on 25 of its 50 saves: 19 by hash alone, which is
+  the rounding the `long double` + `lrintl` x87 emulation exists to pin, and 6 by event
+  count, which is a different path through the replay and not explained by rounding.
+
+`test_res_catalog_sweep.sh` is a third case, and a different kind: the engine segfaults
+on Windows at the sub-640 widths, intermittently, so the sweep passes or fails depending
+on the run. Ten captures per mode, same build, same verb:
+
+| mode | Windows | Linux |
+| --- | --- | --- |
+| 320x200 | 3/10 crashed | 0/10 |
+| 320x240 | 2/10 crashed | 0/10 |
+| 640x480 | 0/10 | 0/10 |
+
+Not the fixture, and not a golden that needs deciding: an intermittent crash in a real
+mode the resolution catalogue offers. Reproduce with a bare capture at that size rather
+than through the sweep, which only reports which modes failed:
+
+```bash
+lba2cc --headless --no-autosave --resolution 320x200 \
+       --exec "ui resolution D:/cap.png" --tick 6 --exit
+```
+
 `test_cli_flag_contract.sh` is the one that keeps the harness honest about the machine it
 runs on. A flag names a mode for one run, so a run told to render at 640x480 or throttle the
 sim must leave the player's settings exactly as it found them; the exceptions are the flags
