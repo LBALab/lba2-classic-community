@@ -18,7 +18,9 @@ extern S32 GfxDitherShading;
 #include "../DISKFUNC.H"
 #include "../SAVEGAME.H"
 #include "../INPUT.H"
-#include "../CONTROL.H" // Control_Input* harness input timeline
+#include "../CONTROL.H" // Control_Input* harness timeline, Control_KeyHold
+// K_* scancodes for the `key` command's name table.
+#include <SYSTEM/KEYBOARD_KEYS.H>
 #include "../JOYSTICK.H"
 /* HOLO.H lacks include guards and is pulled in transitively by DEFINES.H. */
 #include "../INVENT.H"
@@ -289,6 +291,60 @@ static void cmd_screenshot(int argc, const char *argv[]) {
     GetShootPath(path, ADELINE_MAX_PATH, filename);
     Console_RequestScreenshot(path, 1); /* 1 = PNG via SavePNG in game */
     Console_Print("Screenshot (no console): %s", path);
+}
+
+/* Scancode names for `key`. Only the ones a harness actually reaches for: the two
+   Menus bindings the main loop tests, the menu Validate/Cancel keys, and the pad
+   equivalents. Anything else can be given as a raw number. */
+static const struct {
+    const char *name;
+    U32 scancode;
+} kKeyNames[] = {
+    {"esc", K_ESC},
+    {"menus", K_F10}, /* the default I_MENUS keyboard binding */
+    {"enter", K_ENTER},
+    {"space", K_SPACE},
+    {"action", K_W},
+    {"up", K_GRAY_UP},
+    {"down", K_GRAY_DOWN},
+    {"left", K_GRAY_LEFT},
+    {"right", K_GRAY_RIGHT},
+    {"pad-start", K_GAMEPAD_START}, /* the default I_MENUS pad binding */
+    {"pad-a", K_GAMEPAD_A},
+    {"pad-b", K_GAMEPAD_B},
+    {"pad-x", K_GAMEPAD_X},
+    {"pad-y", K_GAMEPAD_Y},
+};
+
+/* Parse a non-negative count, rejecting trailing garbage and anything below `least`. */
+static int console_parse_count(const char *s, long *out, long least) {
+    char *end = NULL;
+    long v = strtol(s, &end, 10);
+    if (end == s || *end != '\0' || v < least)
+        return 0;
+    *out = v;
+    return 1;
+}
+
+/* Resolve a `key` name or a raw scancode. Returns 0 for unknown, which is also the
+   rejected scancode (SDL_SCANCODE_UNKNOWN), so callers can treat 0 as "no key".
+   Factored out of the `key` command so other verbs can take a key by name too. */
+static U32 Console_ScancodeFromName(const char *s) {
+    if (!s || !s[0])
+        return 0;
+    char *end = NULL;
+    long raw = strtol(s, &end, 0);
+    if (end != s && *end == '\0') {
+        /* Range-check here rather than leaving it to Control_KeyHold: a rejected arm is
+           a silent no-press, and the caller has already been told the key was scheduled. */
+        if (raw <= 0 || raw >= CONTROL_KEY_MAX_SCANCODE)
+            return 0;
+        return (U32)raw;
+    }
+    for (size_t i = 0; i < sizeof(kKeyNames) / sizeof(kKeyNames[0]); i++)
+        if (!strcasecmp(s, kKeyNames[i].name))
+            return kKeyNames[i].scancode;
+    return 0;
 }
 
 /* ui <surface> <path> — open a UI modal in headless-harness mode, capture a
@@ -1989,6 +2045,62 @@ static void cmd_input(int argc, const char *argv[]) {
     Console_Print("input: 0x%X for %ld sim tick(s)", (unsigned)bits, ticks);
 }
 
+/* key <name|scancode> [polls] [delay] | key off
+   Hold a key down at the keyboard layer for `polls` input polls, starting `delay` polls
+   from now. Unlike `input`, this reaches modal loops -- menus, dialogue, the choice list --
+   because it applies where every MyGetInput reads rather than where MainLoop writes.
+
+   Durations are input polls (one MyGetInput), not sim ticks: a modal advances no ticks, so
+   a tick-based delay inside one never elapses. In MainLoop a poll is a rendered frame.
+
+   The delay is what makes a press land INSIDE a modal that has not opened yet, and it is
+   usually necessary rather than optional. A menu latches whatever is already held when it
+   opens (InitWaitNoInput), so a key held from before the modal starts is deliberately
+   masked; arm it to land a few polls after. Examples:
+     key menus 60          hold F10 for 60 polls, starting now
+     key pad-start 200 4   press pad Start 4 polls from now, hold it for 200
+     key esc 30 8          press Esc 8 polls from now (past a menu's entry latch) */
+static void cmd_key(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Usage: key <name|scancode> [polls] [delay] | key off");
+        Console_Print("Names: esc menus enter space action up down left right");
+        Console_Print("       pad-start pad-a pad-b pad-x pad-y (or a raw scancode)");
+        Console_Print("Polls are MyGetInput calls, so this reaches modals; `input` does not.");
+        return;
+    }
+    if (!strcasecmp(argv[1], "off")) {
+        Control_KeyClear();
+        Console_Print("key: cleared");
+        return;
+    }
+
+    U32 sc = Console_ScancodeFromName(argv[1]);
+    if (!sc) {
+        Console_Print("key: unknown key '%s' (run `key` for the list)", argv[1]);
+        return;
+    }
+
+    /* strtol with the end pointer, not atol: `key menus sixty` would otherwise mean
+       zero, clamp to one poll, and report success having pressed nothing. */
+    long polls = 1, delay = 0;
+    if (argc >= 3 && !console_parse_count(argv[2], &polls, 1)) {
+        Console_Print("key: bad poll count '%s' (want a positive integer)", argv[2]);
+        return;
+    }
+    if (argc >= 4 && !console_parse_count(argv[3], &delay, 0)) {
+        Console_Print("key: bad delay '%s' (want a non-negative integer)", argv[3]);
+        return;
+    }
+
+    if (!Control_KeyHold(sc, (U32)delay, (U32)polls)) {
+        Console_Print("key: could not schedule (scancode %u out of range, or too many holds)",
+                      (unsigned)sc);
+        return;
+    }
+    Console_Print("key: scancode %u for %ld poll(s) after %ld (now %u)", (unsigned)sc, polls,
+                  delay, (unsigned)Control_KeyPollCount());
+}
+
 /*──────────────────────────────────────────────────────────────────────────*/
 /* Registration */
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -2117,6 +2229,14 @@ void Console_RegisterAll(void) {
                               "holomap, combine with +) for N SIM ticks, so the harness can walk/turn/act "
                               "the hero the same way at any --fixed-timestep. seq schedules a sim-tick "
                               "timeline; fseq schedules it in rendered frames (to land an edge on a skip frame).");
+    Console_RegisterCommandEx("key", cmd_key, "Hold a key down, including inside a modal",
+                              "key <name|scancode> [polls] [delay] | key off",
+                              "Holds a raw scancode in TabKeys for N input polls (one per "
+                              "MyGetInput), so unlike `input` it reaches menus, dialogue and the "
+                              "choice list. Names: esc menus enter space action up down left right "
+                              "pad-start pad-a pad-b pad-x pad-y. Use [delay] to land a press "
+                              "inside a modal that has not opened yet: a menu masks whatever was "
+                              "already held when it opened.");
     Console_RegisterCommandEx("zonelist", cmd_zonelist, "List the cube's scene zones (boxes+type)",
                               "zonelist [type]",
                               "Prints each ListZone box, Type (cube/camera/scenaric/giver/message/...), "

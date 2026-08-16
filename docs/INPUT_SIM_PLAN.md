@@ -202,7 +202,16 @@ is a real guard, and it confirms #407's melee fix that was never auto-tested.
   `CheckKey`/`SpellKeyDown`, not the `Input` bitfield, so they are outside both the whitelist and
   the latch. Confirm whether they need their own handling or are genuinely out of scope.
 - Modal frames (menus, dialogue) sample input differently; a timeline that crosses a modal needs
-  care, and `skipmodals` may be the right pairing.
+  care, and `skipmodals` may be the right pairing. **Resolved for presses inside a modal:** the
+  timeline ORs its mask into `Input` from `MainLoop`, which a modal spinning in its own
+  `MyGetInput` loop never reaches, so it could not press anything in a menu at all. The `key`
+  command holds a raw scancode in `TabKeys` from the `ApplyHarnessKeys` hook in
+  `LIB386/SYSTEM/KEYBOARD.CPP`, which every `ManageKeyboard` runs and therefore every modal
+  loop sees. Metered in **input polls**, one per `ManageKeyboard`, rather than sim ticks, because a
+  modal advances no ticks and a tick-based delay inside one would never elapse. Note that a menu
+  latches whatever is already held when it opens (`InitWaitNoInput`), so a press must be armed to
+  land *after* the modal starts, not before; `tests/automation/test_askchoice_menus_consume.sh`
+  is the worked example.
 - The latch delays an edge by up to one sim period (it is seen at the next step, not forced
   immediately). That is the fixed-timestep-correct behaviour and a no-op at `--fixed-dt 16`;
   confirm it does not regress feel on a real high-refresh device.
