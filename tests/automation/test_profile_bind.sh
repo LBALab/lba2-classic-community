@@ -27,14 +27,36 @@ mkdir -p "$alt"
 for f in "$LBA2_GAME_DIR"/*; do
     ln -s "$f" "$alt/" 2>/dev/null
 done
+# An empty tree is not a second install. Where symlinks cannot be created --
+# Windows without the privilege, a TMPDIR on a filesystem without them -- every
+# ln above fails quietly, and the run that follows finds no game data to boot.
+# That is an environment this test cannot run in, not a binding that went wrong,
+# and reporting it as the latter sends the reader after a bug that is not there.
+[ -n "$(ls -A "$alt" 2>/dev/null)" ] ||
+    skip "cannot symlink the game data (needs privileges on Windows)"
 A="${LBA2_GAME_DIR%/}"
 B="$alt"
 u="$tmp/user"
 
 # stdin comes from /dev/null so a child cannot eat the rest of this script.
+#
+# A run that never started is indistinguishable, downstream, from a binding that
+# never happened: every check below reads a file the engine writes, and an engine
+# that exited on an unknown flag, missing data or a crash writes none of them. So
+# the status is checked here, while the engine can still say why, rather than left
+# to surface later as a confident wrong answer about binding.
+#
+# The engine says why it stopped on one line, either its own argument error or a
+# logged one, so that line is what gets quoted. The tail is the fallback for the
+# ways a run ends without saying anything: a timeout, or a signal.
 run() { # run <extra args...>
+    local rc=0 why
     ctl --user-dir "$u" --no-audio --language English --fixed-dt 16 --tick 2 --exit \
-        "$@" >/dev/null 2>&1 </dev/null
+        "$@" > "$tmp/run.out" 2>&1 </dev/null || rc=$?
+    [ "$rc" -eq 0 ] && return 0
+    why=$(tr -d '\r' < "$tmp/run.out" | grep -aE '^(error:|\[ERROR\])' | head -2)
+    [ -n "$why" ] || why=$(tr -d '\r' < "$tmp/run.out" | tail -3)
+    fail "the run exited $rc: $(printf '%s' "$why" | tr '\n' ' ')"
 }
 # The engine stores the path with a trailing separator; the comparison is about
 # which folder, not how it was spelled.
