@@ -19,7 +19,7 @@ ties both tiers together — path filtering, the docs-only gate, and the
 
 | Workflow | Tier | Trigger | Job(s) | What it does |
 |---|---|---|---|---|
-| `linux.yml` | Validation | push, PR, dispatch | `build` | Configure (`linux` preset), build `lba2cc` + `host_tests`, run `ctest -L host_quick` |
+| `linux.yml` | Validation | push, PR, dispatch | `build`, `build-demo`, `sanitize` | Configure (`linux` preset), build `lba2cc` + `host_tests`, run `ctest -L host_quick`; the same for the demo SKU; and the host tests once more under AddressSanitizer |
 | `macos.yml` | Validation | push, PR, dispatch | `build` | Same, on `macos-latest` (`macos_arm64` preset) |
 | `windows.yml` | Validation | push, PR, dispatch | `build` | Same, on Windows MSYS2 UCRT64 (`windows_ucrt64` preset) |
 | `test.yml` | Validation | push, PR, dispatch | `test` | Docker: `./run_tests_docker.sh` — full ASM↔C++ equivalence suite (Linux only, slow) |
@@ -33,6 +33,13 @@ ties both tiers together — path filtering, the docs-only gate, and the
 Host build jobs (`linux`/`macos`/`windows`) need neither retail game
 files nor Docker. The Docker job (`test.yml`) builds a 32-bit UASM image
 and replays polyrec captures; it does not run the host discovery tests.
+
+`linux.yml`'s `sanitize` job re-runs the host tests against the
+`linux_sanitize` preset. The suite was clean under AddressSanitizer when
+the job landed, so a red result there means a change introduced a heap
+overflow, a use-after-free, or a leak. It builds `host_tests` only: the
+`build` job already covers the game target, and no CI job has the retail
+data needed to run it.
 
 ## Triggers: push and pull request
 
