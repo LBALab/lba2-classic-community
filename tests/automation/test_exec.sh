@@ -3,7 +3,7 @@
 # command splitting. NOTE: only non-modal commands work headless — commands that open
 # a cinematic/video/dialogue (give <item>, playvideo, credits, slide) block a --exit run
 # because nothing dismisses them. `cube` and `give clover` are non-modal.
-TESTNAME=exec
+TESTNAME="exec"
 . "$(dirname "$0")/lib.sh"
 precheck
 need_save

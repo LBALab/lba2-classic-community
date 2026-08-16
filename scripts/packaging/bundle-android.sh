@@ -180,8 +180,9 @@ if [[ -n "$ALL_JAVA_FILES" && -x "$D8" ]]; then
     javac -d "$STAGING/obj" \
         -classpath "$SDK_ROOT/platforms/android-34/android.jar" \
         $ALL_JAVA_FILES 2>&1
+    mapfile -t CLASS_FILES < <(find "$STAGING/obj" -name '*.class')
     "$D8" --lib "$SDK_ROOT/platforms/android-34/android.jar" \
-        --output "$STAGING" $(find "$STAGING/obj" -name '*.class') 2>&1
+        --output "$STAGING" "${CLASS_FILES[@]}" 2>&1
     rm -rf "$STAGING/obj"
 fi
 

@@ -1,0 +1,16 @@
+# ruff settings for the scripts under scripts/ and tests/.
+#
+# The selection is pinned rather than left at ruff's default, because that
+# default has grown between releases: taking it as given means a ruff upgrade
+# can turn a branch red without anyone here changing a line.
+
+[lint]
+# F is pyflakes: undefined names, unused imports, unused locals, f-strings with
+# nothing to interpolate. E9 is the errors that stop a file being parsed at all.
+# Both find bugs.
+#
+# The style rules (E4/E7 spacing and statement layout, line length, import
+# order) stay out on purpose. This repo has never adopted a Python formatter,
+# and the dev scripts lean on dense one-liners while decoding a format; turning
+# those rules on would be a reformat, not a lint.
+select = ["F", "E9"]

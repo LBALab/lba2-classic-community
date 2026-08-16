@@ -30,7 +30,7 @@ Examples:
   iso_bin.py LBA2.GOG --tree | grep -i '\\.HQR$'
   iso_bin.py GAME.GOG --extract /STAGE00/RUN0/SCENE.HQR out.hqr
 """
-import struct, sys, argparse
+import struct, argparse
 
 SECTOR = 2352
 USER = 2048
@@ -96,7 +96,7 @@ def parse_dir_records(data):
                 break
             i = nxt
             continue
-        ext_attr = data[i + 1]
+        _ext_attr = data[i + 1]  # extended attribute length, unused by this reader
         lba = struct.unpack_from("<I", data, i + 2)[0]
         size = struct.unpack_from("<I", data, i + 10)[0]
         flags = data[i + 25]

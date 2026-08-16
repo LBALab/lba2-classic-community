@@ -11,7 +11,7 @@ HQR format (see LIB386/SYSTEM/HQFILE.CPP, HQR.H):
 Usage:
   hqr_inspect.py <file.hqr> [--entry N] [--limit N] [--dump OUT]
 """
-import struct, sys, argparse
+import struct, argparse
 
 def expand_lz(src, decomp_size, min_bloc):
     """Port of ExpandLZ (LIB386/SYSTEM/LZ.CPP). min_bloc = CompressMethod + 1."""

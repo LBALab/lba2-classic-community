@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Shared helpers for the CLI control-harness tests.
 #
 # These drive the real engine binary, so they need retail game data and a display.
@@ -239,7 +240,7 @@ seed_menu_save_dir() {
 # An empty LBA2_TEST_SAVE runs without --load, for the one surface whose subject
 # is the absence of a save: the main menu a new install shows.
 ui_compare() {
-    local args="" golden="" out= shaA shaB rc=0
+    local args="" golden="" out="" shaA shaB rc=0
     while [ $# -gt 1 ]; do args="${args:+$args }$1"; shift; done
     golden="$1"
     out="$(mktemp -t "${TESTNAME:-ui}.XXXXXX.png")"
@@ -286,7 +287,7 @@ ui_compare() {
 # truth, there is no per-width golden to regenerate.
 ui_compare_wide() {
     local res="$1"; shift
-    local args="" golden="" out= py_rc
+    local args="" golden="" out="" py_rc
     while [ $# -gt 1 ]; do args="${args:+$args }$1"; shift; done
     golden="$1"
     python3 -c "from PIL import Image" 2>/dev/null \

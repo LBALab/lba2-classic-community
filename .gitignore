@@ -5,6 +5,10 @@ out/
 build/
 # Demo SKU: a separate configure, so a second tree beside build/ (GAME_DATA.md)
 build-demo/
+# AddressSanitizer host tests: linux_sanitize is a different build type again
+build-asan/
+# Second front end: linux_clang, kept beside build/ so both stay warm
+build-clang/
 dist/
 
 # Local retail drop (symlink or copy classic data here; never commit assets)
