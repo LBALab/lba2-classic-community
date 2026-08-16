@@ -1927,6 +1927,58 @@ S32 GereMouseMovements(S32 boutons) {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 #ifndef LBA_EDITOR
+/* Last frame's ManualCameraOrbitActive. The flag itself is cleared once per frame
+ * before the manual sources are driven, so it cannot tell a new orbit gesture from
+ * one already under way; this remembers that across the frame boundary. */
+static S32 ManualCameraOrbitPrev = FALSE;
+
+/* The orbit speed still to be spent after the player stops driving. Set from the
+ * last nudge, decayed once per frame, and fed back through the same nudge so the
+ * follow-through is the gesture continuing rather than a second mechanism. */
+static S32 ManualCameraGlideBeta = 0;
+
+/* Abandon whatever orbit gesture was in flight: the tail still to be spent, the
+ * flags that say a gesture is under way, and any pending console nudge.
+ *
+ * Everything above is per-frame state that only means anything while the player
+ * is driving the exterior Auto camera frame after frame. A camera zone, a
+ * cutscene, an interior or a re-centre all take the camera away mid-gesture, and
+ * without this the state waits instead of ending: the tail resumes on the first
+ * frame back and pans a camera the player has since re-centred, and the stale
+ * "gesture already under way" flag makes the next nudge skip its realign,
+ * reintroducing the very snap the realign exists to prevent -- at the worst
+ * moment, since an authored shot leaves BetaCam furthest from the hero-relative
+ * angle. Callers are the places that own such a discontinuity. */
+void FollowCamForgetManualGesture(void) {
+    ManualCameraGlideBeta = 0;
+    ManualCameraOrbitActive = FALSE;
+    ManualCameraOrbitPrev = FALSE;
+    DbgCamNudgeFrames = 0;
+}
+
+/* Start of an orbit gesture: fold the rotation the hero accumulated while the
+ * camera was holding its angle into AddBetaCam, so the target the follow update
+ * recomputes still comes out at the angle the camera is actually sitting at.
+ *
+ * AddBetaCam is an offset *from the hero's facing*, so a held BetaCam and a hero
+ * who turns under it drift apart with nothing to discharge the difference. The
+ * next nudge would inherit that whole stale delta and, because orbiting also
+ * selects the tight manual divisor, spend half of it in a single frame -- a 1-unit
+ * stick touch snapping the view three quarters of a turn (#450). Realigning first
+ * means the stick delta applies from where the camera is.
+ *
+ * With the camera already on target this changes nothing. With it still lerping
+ * toward one, the pending catch-up is dropped as well -- a few degrees at most,
+ * and the point: an orbit should start from the angle actually on screen. */
+static void AbsorbHeroTurnIntoPan(void) {
+    T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
+
+    /* The inverse of the follow update's target rule: it derives the target from
+     * (AddBetaCam + hero Beta), so solving that for the current BetaCam gives the
+     * offset that leaves the camera where it stands. */
+    AddBetaCam = (2048 - BetaCam - ptr3d->Beta) & 4095;
+}
+
 /* Apply a per-frame manual camera nudge from an analog source (mouse drag or
  * right stick).  dBeta orbits horizontally (AddBetaCam), dAlpha tilts elevation
  * (AlphaCam), dZoom dollies the arm (FollowCamBaseDist; positive zooms in).
@@ -1940,6 +1992,20 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
     S32 changed = 0;
 
     if (dBeta != 0) {
+        /* Remember the speed the player is orbiting at, so releasing can ease out
+         * from it rather than stop on the spot. */
+        ManualCameraGlideBeta = dBeta;
+
+        /* Only on the gesture's first frame: once orbiting, AddBetaCam has to keep
+         * accumulating so the stick moves the camera by what the player asked for
+         * rather than by half of it every frame. Only where the follow update that
+         * owns this target rule actually runs, too -- inside a camera zone or a
+         * cutscene BetaCam belongs to the authored shot, and realigning to it would
+         * be reaching into a path this knows nothing about. */
+        if (!ManualCameraOrbitActive AND !ManualCameraOrbitPrev
+                AND CubeMode == CUBE_EXTERIEUR AND !CameraZone AND !CinemaMode)
+            AbsorbHeroTurnIntoPan();
+
         AddBetaCam = (AddBetaCam - dBeta) & 4095;
         ManualCameraOrbitActive = TRUE;
         FirstTime = AFF_ALL_FLIP;
@@ -2323,6 +2389,7 @@ S32 GereExtKeys(U32 key)
         }
 
         /* --- Manual camera: mouse drag orbit, elevation, wheel zoom, recenter --- */
+        ManualCameraOrbitPrev = ManualCameraOrbitActive;
         ManualCameraOrbitActive = FALSE;
         {
             /* Relative mouse mode: deltas keep flowing past window edge.
@@ -2385,6 +2452,52 @@ S32 GereExtKeys(U32 key)
                 dAlpha = -dAlpha;
             if (dBeta != 0 OR dAlpha != 0)
                 flag |= ApplyManualCameraNudge(dBeta, dAlpha, 0);
+        }
+
+        /* Console `camnudge`: stand in for the stick/mouse so a headless run can
+         * drive the analog camera. Same nudge entry point and same point in the
+         * frame as the real sources, so it reproduces their ordering exactly. */
+        if (DbgCamNudgeFrames > 0) {
+            flag |= ApplyManualCameraNudge(DbgCamNudgeBeta, DbgCamNudgeAlpha, 0);
+            DbgCamNudgeFrames--;
+        }
+
+        /* Orbit follow-through. The lerp eases the camera up to the stick's speed
+         * over several frames but has nothing to ease it back down: on the frame
+         * the stick centres, the orbit stops dead from full speed. Decaying the
+         * last speed and feeding it back through the same nudge spends the tail
+         * over a few frames instead, so the two ends of a gesture match.
+         *
+         * It runs only when no source drove this frame, and it moves AddBetaCam
+         * exactly as the player's own input would, so the angle the camera ends
+         * up holding is the one the follow update recomputes. Nothing is left
+         * owed. A camera zone, a cutscene or a re-centre ends the gesture through
+         * FollowCamForgetManualGesture rather than being tested for here: this
+         * runs only where the exterior Auto camera already has the camera, so a
+         * check for those states here would never be true.
+         *
+         * Tuned for the stick, which springs back to centre, so "no input this
+         * frame" reliably means the player let go. A mouse held still reports the
+         * same thing while very much still being driven, so a paused drag coasts
+         * and a flick overshoots where the pointer stopped. Wrong for the mouse,
+         * and worth splitting the two sources apart; left shared for now because
+         * the pad is the one that has to be right, being the only control some
+         * setups have. */
+        if (!ManualCameraOrbitActive AND ManualCameraGlideBeta != 0) {
+            /* The console sets cvars without going through the config's range
+             * check, so clamp where it is used: at 100 the tail is a fixed point
+             * that never decays, and beyond that it grows without bound. */
+            S32 keep = FollowCamOrbitGlide;
+            if (keep < 0)
+                keep = 0;
+            if (keep > FOLLOW_CAM_ORBIT_GLIDE_MAX)
+                keep = FOLLOW_CAM_ORBIT_GLIDE_MAX;
+
+            ManualCameraGlideBeta = ManualCameraGlideBeta * keep / 100;
+            if (ManualCameraGlideBeta > -FOLLOW_CAM_ORBIT_GLIDE_STOP AND ManualCameraGlideBeta < FOLLOW_CAM_ORBIT_GLIDE_STOP)
+                ManualCameraGlideBeta = 0;
+            else
+                flag |= ApplyManualCameraNudge(ManualCameraGlideBeta, 0, 0);
         }
     }
 #endif

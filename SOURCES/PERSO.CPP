@@ -243,6 +243,8 @@ static void UpdateFollowCameraExt(void) {
                          * to avoid jitter when very close. */
         FollowCamTargetBeta = (2048 - newbeta) & 4095;
 
+        S32 traceBetaBefore = BetaCam;
+
         if (manualPan) {
             BetaCam = FollowCamTargetBeta;
         } else if (ManualCameraOrbitActive OR FollowCamReengageDelay == 0) {
@@ -280,6 +282,21 @@ static void UpdateFollowCameraExt(void) {
             } else {
                 BetaCam = FollowCamTargetBeta;
             }
+        }
+
+        /* camtrace: one line per follow-cam update. `step` is what BetaCam moved
+         * this frame -- a large value with orbit=1 right after the hero turned in
+         * place is the camera snapping through rotation it never tracked. */
+        if (DbgCamTrace) {
+            S32 traceStep = BetaCam - traceBetaBefore;
+            if (traceStep > 2048)
+                traceStep -= 4096;
+            if (traceStep < -2048)
+                traceStep += 4096;
+            Log_Info("[cam] heroBeta %4d add %4d beta %4d target %4d step %5d delay %3d orbit %d moving %d",
+                     (int)ptr3d->Beta, (int)AddBetaCam, (int)BetaCam, (int)FollowCamTargetBeta,
+                     (int)traceStep, (int)FollowCamReengageDelay, (int)ManualCameraOrbitActive,
+                     (int)heroMoving);
         }
 
         /* --- Zoom distance: converge FollowCamEffectiveDist toward
@@ -2196,6 +2213,15 @@ restartloop:
         /*-------------------------------------------------------------------------*/
         /* recentre sur hero (numobjfollow) */
 
+        /* An orbit only means something while the exterior Auto camera is the one
+         * being driven, frame after frame. The moment anything else owns the view
+         * -- a camera zone, a cutscene, an interior, or the player turning the Auto
+         * camera off -- the gesture is over, and the state describing it has to end
+         * with it rather than wait for the camera to come back. GereExtKeys cannot
+         * do this itself: it is not called at all in those states. */
+        if (CameraZone OR CinemaMode OR CubeMode != CUBE_EXTERIEUR OR !FollowCamera)
+            FollowCamForgetManualGesture();
+
         if (!CameraZone) {
             if (!CinemaMode) {
                 // AlphaCam (touches '+' et '-' *)
@@ -2583,6 +2609,12 @@ void ReadConfigFile(void) {
     if (MouseCameraDivisor > 16)
         MouseCameraDivisor = 16;
 
+    FollowCamOrbitGlide = DefFileBufferReadValueDefault("FollowCamOrbitGlide", FOLLOW_CAM_ORBIT_GLIDE_DEFAULT);
+    if (FollowCamOrbitGlide < 0)
+        FollowCamOrbitGlide = 0;
+    if (FollowCamOrbitGlide > FOLLOW_CAM_ORBIT_GLIDE_MAX)
+        FollowCamOrbitGlide = FOLLOW_CAM_ORBIT_GLIDE_MAX;
+
     ManualCameraSmoothing = DefFileBufferReadValueDefault("ManualCameraSmoothing", MOUSE_CAM_SMOOTHING_DEFAULT);
     if (ManualCameraSmoothing < 1)
         ManualCameraSmoothing = 1;
@@ -2716,6 +2748,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("MouseInvertY", MouseCameraInvertY);
     DefFileBufferWriteValue("MouseCameraDivisor", MouseCameraDivisor);
     DefFileBufferWriteValue("ManualCameraSmoothing", ManualCameraSmoothing);
+    DefFileBufferWriteValue("FollowCamOrbitGlide", FollowCamOrbitGlide);
     DefFileBufferWriteValue("FollowCamReengageFrames", FollowCamReengageFrames);
     DefFileBufferWriteValue("FollowCamDriftDivisor", FollowCamDriftDivisor);
     DefFileBufferWriteValue("FollowCamHDRecompose", FollowCamHDRecompose);
