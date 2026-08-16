@@ -1056,10 +1056,10 @@ void MenuGamepadConfig(void) {
         MyKey = MenuKey_NumpadToNav(MyKey);
 
         switch (MyKey) {
-        /* This screen's own aliases. Left and Right are absent from the list
-           below on purpose: the gamepad rows have no horizontal axis, so the
-           keypad's 4 and 6 fall through to the default and are swallowed the
-           same as any other unused key. */
+        /* This screen's own aliases. Left and Right are missing from the list
+           below, which leaves the Key1/Key2 column switch at the bottom of the
+           loop reachable only from the pad itself. Kept as-is here so this
+           stays a mapping change; see the tracking issue for the gap. */
         case K_BACKSPACE:
             MyKey = K_SUPPR;
             break;
@@ -1387,6 +1387,7 @@ S32 ConfirmMenu(char *ask, char *ok, char *cancel) {
             flag = select;
             break;
 
+        // pave numerique
         // touches de controle
         case K_UP:
         case K_DOWN:

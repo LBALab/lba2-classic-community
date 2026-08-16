@@ -69,6 +69,11 @@
 #define K_NUMPAD_ENTER SDL_SCANCODE_KP_ENTER
 
 #define K_NUMPAD_POINT SDL_SCANCODE_KP_DECIMAL
+/* The keypad's own period/Delete key. A standard PC keypad reports
+   SDL_SCANCODE_KP_PERIOD (99) for it; SDL_SCANCODE_KP_DECIMAL (220) is a
+   separate scancode from the extended keypad block, so code that wants the key
+   under the player's finger has to accept both. */
+#define K_NUMPAD_PERIOD SDL_SCANCODE_KP_PERIOD
 
 #define K_NUMPAD_DIV SDL_SCANCODE_KP_DIVIDE
 #define K_NUMPAD_MUL SDL_SCANCODE_KP_MULTIPLY

@@ -22,6 +22,7 @@ S32 MenuKey_NumpadToNav(S32 key) {
         return K_PAGE_DOWN;
     case K_NUMPAD_0:
         return K_INSER;
+    case K_NUMPAD_PERIOD:
     case K_NUMPAD_POINT:
         return K_SUPPR;
     case K_NUMPAD_ENTER:

@@ -7,6 +7,7 @@
 #include "PERSO.H" /* WriteConfigFile (persist on resolution change) */
 #include "RES_MENU.H"
 #include "RES_SWITCH.H" /* Res_Switch (apply on cycle) */
+#include "MENU_KEYNAV.H"
 #include "SAVENAME_VALIDATION.H"
 #include "CONSOLE/CONSOLE.H"
 #include "MESSAGE.H"
@@ -1532,6 +1533,13 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
             MyGetInput();
         }
 
+        /* This loop compares MyKey against the navigation cluster directly, so
+           the keypad legend has to be resolved before any of those tests. Page
+           Up/Down, Home, End and Delete have no Input action to arrive through,
+           which would otherwise leave the list unreachable from a keyboard
+           without a dedicated navigation block. */
+        MyKey = MenuKey_NumpadToNav(MyKey);
+
         /* Suppress nav keys outside the repeat window; translate gamepad
            D-pad / stick to K_GRAY_UP/DOWN when the window is open.
            Edge-only for gamepad: fire on direction change so a deflected
@@ -1863,7 +1871,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                     strcpy(memoname, GamePathname);
                 }
 
-                while (Input & I_FIRE OR MyKey == K_ENTER)
+                while (Input & I_FIRE OR MenuKey_NumpadToNav(MyKey) == K_ENTER)
                     MyGetInput();
 
                 // Non-keyboard routing: unless the last input was a physical
@@ -1980,7 +1988,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                     retval = 2;
                     break;
                 } else {
-                    while (Input & I_FIRE OR MyKey == K_ENTER)
+                    while (Input & I_FIRE OR MenuKey_NumpadToNav(MyKey) == K_ENTER)
                         MyGetInput();
                     if (select == nb - 1)
                         strcpy(PlayerName, NewGameTxt);
