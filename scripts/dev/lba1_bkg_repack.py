@@ -118,8 +118,8 @@ def main():
            "Brk_Start": brk_start, "Max_Brk": brks}
     print(f"  synthesized T_BKG_HEADER: Gri_Start={gri_start} Grm_Start={grm_start} "
           f"Bll_Start={bll_start} Brk_Start={brk_start} Max_Brk={brks} (total {total} entries)")
-    print(f"  per-grid T_GRI_HEADER: My_Bll = grid index (style N <-> grid N), My_Grm = none, "
-          f"UsedBlock[32] = computed from the grid's block usage")
+    print("  per-grid T_GRI_HEADER: My_Bll = grid index (style N <-> grid N), My_Grm = none, "
+          "UsedBlock[32] = computed from the grid's block usage")
     # validate the arithmetic + a sample resolution
     ok_layout = (gri_start <= grm_start <= bll_start <= brk_start < total
                  and brk_start == grids + 0 + blls and syn["Max_Brk"] == brks)

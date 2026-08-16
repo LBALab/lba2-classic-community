@@ -1,0 +1,98 @@
+name: Lint
+
+# The non-C++ surface: the shell scripts that build, package and verify every
+# release, the Python that decodes game formats, and the workflow YAML that runs
+# all of it. Nothing checked any of it before this workflow, which is backwards:
+# these are the tools the C++ gates stand on.
+#
+# paths set (not paths-ignore, unlike the build workflows): the jobs here read
+# nothing else, so a C++ or docs change has no reason to spend a runner on them.
+on:
+  push:
+    paths: &lint-paths
+      - '**.sh'
+      - '**.py'
+      - '.github/workflows/**'
+      - '.shellcheckrc'
+      - 'ruff.toml'
+  pull_request:
+    paths: *lint-paths
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+# Versions are pinned rather than taken from the runner image or a floating
+# latest. A linter that changes its mind on someone else's release schedule
+# turns a green branch red for reasons nobody in this repo touched, and the
+# first thing that teaches contributors is to stop reading it.
+env:
+  SHELLCHECK_VERSION: '0.9.0'
+  ACTIONLINT_VERSION: '1.7.12'
+  RUFF_VERSION: '0.16.3'
+
+jobs:
+  # Rule selection and the two suppressions live in .shellcheckrc so a local run
+  # matches. Severity is the exception: shellcheck only takes it from the
+  # command line.
+  shellcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v5
+
+      - name: Install shellcheck
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJ -C "$HOME/.local/bin" --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/shellcheck" --version
+
+      - name: Lint shell scripts
+        run: git ls-files -z -- '*.sh' | xargs -0 shellcheck -S warning -f gcc
+
+  # actionlint shells out to shellcheck for the body of every `run:` block, so
+  # it needs the same pinned binary the job above uses. Without it the workflow
+  # shell would be checked by whatever version the runner image happens to ship.
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v5
+
+      - name: Install shellcheck and actionlint
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJ -C "$HOME/.local/bin" --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C "$HOME/.local/bin" actionlint
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/actionlint" --version
+
+      - name: Lint workflows
+        run: actionlint -color
+
+  # Rule selection lives in ruff.toml, pinned there for the same reason the
+  # version is pinned here.
+  ruff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v5
+
+      - name: Install ruff
+        run: |
+          pipx install "ruff==${RUFF_VERSION}"
+          ruff --version
+
+      - name: Lint Python scripts
+        run: git ls-files -z -- '*.py' | xargs -0 ruff check --no-cache --output-format=concise

@@ -16,7 +16,7 @@ CPP_BIN="${3:-./replay_polyrec_cpp}"
 
 ASM_OUT=$(mktemp /tmp/polyrec_bisect_asm_XXXXXX.raw)
 CPP_OUT=$(mktemp /tmp/polyrec_bisect_cpp_XXXXXX.raw)
-trap "rm -f '$ASM_OUT' '$CPP_OUT'" EXIT
+trap 'rm -f "$ASM_OUT" "$CPP_OUT"' EXIT
 
 # Helper: replay N draw calls and compare
 compare_at() {

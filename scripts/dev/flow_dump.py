@@ -23,7 +23,6 @@ def main():
     assert len(d) % REC.size == 0, f"{len(d)} not a multiple of {REC.size}"
     n = len(d) // REC.size
     print(f"{len(d)} bytes, {n} flows ({REC.size} bytes each)")
-    used = {}
     for i in range(n):
         v = REC.unpack_from(d, i * REC.size)
         s16s, coul, rng, flags = v[:15], v[15], v[16], v[17]

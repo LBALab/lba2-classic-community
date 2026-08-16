@@ -44,7 +44,7 @@
       "name": "linux_clang",
       "inherits": "linux",
       "displayName": "Linux (Clang)",
-      "description": "Same as linux but with clang/clang++ — use locally to compare warnings vs GCC (not CI default).",
+      "description": "Same as linux but with clang/clang++. Runs in CI as the build-clang job, and locally to compare warnings against GCC.",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++"

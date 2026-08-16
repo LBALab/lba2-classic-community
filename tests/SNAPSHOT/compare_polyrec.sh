@@ -13,7 +13,7 @@ CPP_BIN="${3:-./replay_polyrec_cpp}"
 
 ASM_OUT=$(mktemp /tmp/polyrec_asm_XXXXXX.raw)
 CPP_OUT=$(mktemp /tmp/polyrec_cpp_XXXXXX.raw)
-trap "rm -f '$ASM_OUT' '$CPP_OUT'" EXIT
+trap 'rm -f "$ASM_OUT" "$CPP_OUT"' EXIT
 
 echo "=== Polygon recording replay comparison ==="
 echo "Recording: $REC"

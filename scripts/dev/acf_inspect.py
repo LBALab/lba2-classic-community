@@ -14,7 +14,7 @@ Chunks are contiguous (next tag immediately follows the previous payload).
 Usage:
   acf_inspect.py <file.acf> [--max N] [--dump-palette OUT] [--dump TAG:N OUT]
 """
-import struct, sys, argparse
+import struct, argparse
 from collections import Counter
 
 def walk(data):

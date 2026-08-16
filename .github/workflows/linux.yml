@@ -87,6 +87,48 @@ jobs:
       - name: Verify Binary
         run: test -f build/SOURCES/lba2cc && echo "Build successful"
 
+  # The same sources through a second front end. gcc and clang disagree about
+  # enough C++98 corners that gcc accepting a change is not evidence clang will,
+  # and the only other clang in the matrix is AppleClang on the macOS leg, where
+  # a front-end break reads as a platform failure and gets diagnosed as one.
+  # The linux_clang preset already existed for local warning comparisons;
+  # nothing ran it.
+  build-clang:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v5
+
+      - name: Install SDL3
+        uses: libsdl-org/setup-sdl@4ebea449684c989388fe6bcea0460e300d13a5ae # main @ 2025-12-20
+        id: sdl
+        with:
+          install-linux-dependencies: true
+          version: 3-latest
+          build-type: ${{ env.BUILD_TYPE }}
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-clang \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
+            -DLBA2_BUILD_TESTS=ON \
+            -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF \
+            --preset linux_clang
+
+      - name: Build
+        run: |
+          cmake --build build-clang --target lba2cc
+          cmake --build build-clang --target host_tests
+
+      - name: Host tests
+        run: cd build-clang && ctest -L host_quick --output-on-failure
+
+      - name: Verify Binary
+        run: test -f build-clang/SOURCES/lba2cc && echo "Clang build successful"
+
   # AddressSanitizer over the same host tests the build job runs. The suite was
   # already clean when this job was added, so it can only ever fail on something
   # new: a heap overflow, a use-after-free, or a leak introduced by a change.

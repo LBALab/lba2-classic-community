@@ -70,7 +70,7 @@ cmake -S "${REPO_DIR}" -B "${BUILD_DIR}" \
     -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
 
 # ---- Step 2: Build native library ----------------------------------------
-cmake --build "${BUILD_DIR}" -- -j$(nproc)
+cmake --build "${BUILD_DIR}" -- -j"$(nproc)"
 
 echo ""
 echo "=== Native library built ==="

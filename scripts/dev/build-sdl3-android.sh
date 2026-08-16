@@ -52,7 +52,7 @@ cmake -S "${SDL3_SRC}" -B "${SDL3_BUILD}" -G Ninja \
     -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
 
 # Build
-cmake --build "${SDL3_BUILD}" -- -j$(nproc)
+cmake --build "${SDL3_BUILD}" -- -j"$(nproc)"
 
 # Install
 cmake --install "${SDL3_BUILD}" --prefix "${SDL3_INSTALL}"

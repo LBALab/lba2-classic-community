@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Shared helpers for the follow-camera fixtures.
 #
 # The Auto camera is analog, so what needs asserting is rarely a single end state: it is the

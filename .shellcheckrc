@@ -1,0 +1,19 @@
+# shellcheck settings for this repo.
+#
+# Kept here rather than as flags on the CI invocation so that running
+# `shellcheck scripts/dev/whatever.sh` by hand reports what the Lint workflow
+# reports. The one exception is severity, which shellcheck only takes from the
+# command line: CI passes `-S warning`, so add that locally to match. See
+# docs/CI.md.
+#
+# Info and style findings stay out of the gate. Clearing them would be a
+# rewrite of 65 scripts rather than a lint; raise the bar once that backlog is
+# worth working through.
+
+# SC1091 (cannot follow sourced file): the sourced paths are computed at run
+# time, so a static check cannot resolve them.
+#
+# SC2034 (variable appears unused): the control-harness tests set TESTNAME and
+# friends for tests/automation/lib.sh to read after the source. Checked one file
+# at a time, every one of those reads as a dead assignment.
+disable=SC1091,SC2034

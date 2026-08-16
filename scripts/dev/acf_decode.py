@@ -18,7 +18,7 @@ relative motion, 8x8 and 4x4) plus optional residual 'update' passes.
 Usage:
   acf_decode.py <file.acf> [--frame N] [--out OUT.png] [--all DIR]
 """
-import struct, sys, argparse, importlib.util
+import struct, argparse, importlib.util
 from PIL import Image
 
 _spec = importlib.util.spec_from_file_location("acf", __file__.replace("acf_decode.py","acf_inspect.py"))
@@ -271,8 +271,10 @@ class Frame:
                 nonlocal ui, flag, last
                 if flag: last = pad[ui] >> 4; flag = 0; ui += 1
                 else: last = pad[ui] & 15; flag += 1
-            base_ui = ui  # bank byte already read at ui; advance past it lazily like C
-            # C reads bank from *unaligned_stream (no advance) then nibbles advance; trailing fixup
+            # bank byte already read at ui; advance past it lazily like C, which
+            # reads bank from *unaligned_stream (no advance) then lets the nibbles
+            # advance, with a trailing fixup
+
             ui += 0
             def emit(setter):
                 nonlocal flag
@@ -306,7 +308,6 @@ class Frame:
                 if flag[0]: last = pad[ui] >> 4; flag[0] = 0; ui += 1
                 else: last = pad[ui] & 15; flag[0] += 1
             # bank uses pad[start_ui]; nibbles read from start_ui (same byte!) — matches C aliasing
-            seq = []
             if order in ('h','v'):
                 outer = range(8)
                 for o in outer:
