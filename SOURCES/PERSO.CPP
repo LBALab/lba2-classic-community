@@ -2142,6 +2142,22 @@ restartloop:
                 DoLife(i);
             }
 
+            // objtrace: where this object ended up after track, animation and life ran. The clock
+            // leads, because a trace without one cannot be aligned against anything else and
+            // cannot show whether two entries are two passes over one tick or two ticks.
+            if (DbgObjTraceObj >= 0 && i == DbgObjTraceObj)
+                Log_Info("[obj] t=%u obj=%d pos=%d,%d,%d rot=%d,%d,%d step=%d,%d,%d "
+                         "anim=%d frame=%d track=%d label=%d comport=%d move=%d flags=%u",
+                         (unsigned)TimerRefHR,
+                         (int)i, (int)ptrobj->Obj.X, (int)ptrobj->Obj.Y, (int)ptrobj->Obj.Z,
+                         (int)ptrobj->Obj.Alpha, (int)ptrobj->Obj.Beta, (int)ptrobj->Obj.Gamma,
+                         (int)ptrobj->Obj.LastAnimStepX, (int)ptrobj->Obj.LastAnimStepY,
+                         (int)ptrobj->Obj.LastAnimStepZ,
+                         (int)ptrobj->Obj.Anim.Num, (int)ptrobj->Obj.NextFrame,
+                         (int)ptrobj->OffsetTrack, (int)ptrobj->LabelTrack,
+                         (int)ptrobj->MemoComportement, (int)ptrobj->Move,
+                         (unsigned)ptrobj->WorkFlags);
+
             if (FlagTheEnd != -1)
                 return FlagTheEnd; // mmm violent
 
