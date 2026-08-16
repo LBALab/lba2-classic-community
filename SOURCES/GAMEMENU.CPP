@@ -4251,6 +4251,14 @@ void GameAskChoice(S32 nummess) {
     while (TestSpeak() AND(MyKey != K_ESC AND !(Input & I_MENUS)))
         MyGetInput(); // Wait until silence
     StopSpeak();      // Security
+
+    // Swallow the press that ended the line. Without this the same held Menus/Esc is
+    // read a second time by the main loop once the life script unwinds, so skipping the
+    // line also opens the main menu. Dial() and MyDial() consume after their identical
+    // skip loops; this path only armed before Speak(), and that arm cannot cover a key
+    // pressed later -- NoRepeatInput masks a bit only while it stays held.
+    InitWaitNoKey();
+    InitWaitNoInput(I_FIRE | I_ACTION | I_MENUS);
 #endif
 }
 
