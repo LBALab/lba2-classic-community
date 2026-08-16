@@ -82,6 +82,19 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     endif()
 endif()
 
+# Type-based alias analysis has to stay off. The 1997 sources read a struct
+# field back through a pointer of another type to get at its packed halves --
+# `*(U32 *)&current->V_MapU` in the polygon clipper, the same shape in the
+# object renderer and the HQR loader. Watcom defined that; ISO C++ does not, so
+# gcc and clang are entitled to reorder or fold those loads once optimisation is
+# on, and Release builds here run at -O2 or above with LTO. Eleven sites do it,
+# spread across the code least tolerant of a silent codegen change, so the build
+# opts out rather than rewriting them one at a time. The flag costs almost
+# nothing on this workload.
+if(NOT MSVC)
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-fno-strict-aliasing>)
+endif()
+
 if(LBA2_NATIVE_ARCH)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64|i[3-6]86")
         add_compile_options(-march=native)
