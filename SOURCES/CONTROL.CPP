@@ -786,6 +786,20 @@ static void control_dump_state(const char *path) {
             (int)hero->Move, (int)hero->ZoneSce, (unsigned int)hero->Flags,
             (unsigned int)hero->WorkFlags);
 
+    /* Where the camera is and who is deciding that. `zone`, `forced` and `cine` say
+     * whether an authored shot or a cutscene holds the view rather than the player's
+     * own camera, which is the difference between a fixture asserting on what it set
+     * up and one asserting on a shot it never noticed taking over. */
+    fprintf(f,
+            "  \"camera\": { \"beta\": %d, \"alpha\": %d, \"gamma\": %d, \"add_beta\": %d, "
+            "\"distance\": %d, \"offset_x\": %d, \"offset_y\": %d, \"offset_z\": %d, "
+            "\"follow\": %d, \"hold_angle\": %d, \"base_dist\": %d, \"view\": %d, "
+            "\"zone\": %d, \"forced\": %d, \"cine\": %d },\n",
+            (int)BetaCam, (int)AlphaCam, (int)GammaCam, (int)AddBetaCam,
+            (int)VueDistance, (int)VueOffsetX, (int)VueOffsetY, (int)VueOffsetZ,
+            (int)FollowCamera, (int)FollowCamHoldAngle, (int)FollowCamBaseDist, (int)VueCamera,
+            (int)CameraZone, (int)FlagCameraForcee, (int)CinemaMode);
+
     fprintf(f,
             "  \"inventory\": { \"magic_level\": %d, \"magic_point\": %d, "
             "\"gold\": %d, \"zlitos\": %d, \"keys\": %d, \"clover_boxes\": %d },\n",
