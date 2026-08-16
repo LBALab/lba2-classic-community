@@ -57,4 +57,28 @@ moved="$(cam_col "$orbit" beta | tail -1)"
 [ "$moved" != "$auto_beta" ] \
     || fail "the camera would not orbit away from the authored angle ($moved): the shot is stuck, not held"
 
-pass "both cameras left the shot at $auto_beta, and the stick still moved it to $moved"
+# How long the shot survives is cam_hold_angle's decision, and both of its answers have to keep
+# working. On (the default) is the free camera: the angle is held until the player moves it, which
+# is what the runs above cover. Off is the classic lazy drift, where the shot should be handed
+# back as the hero walks on rather than kept. Adopting the angle is what makes the second possible
+# at all: the drift acts on AddBetaCam, so a shot the Auto camera never adopted is a shot it has
+# no way to give back gradually.
+drift="$(mktemp)"
+ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
+    --exec "cube 90" \
+    --exec-at 15 "camtrace 1; cam_follow 1; cam_hold_angle 0" \
+    --exec-at 40 "teleport 18000 3900 8000" \
+    --exec-at 70 "teleport 13000 4000 8000" \
+    --exec-at 90 "input up 200" \
+    --tick 300 --exit > "$drift" 2>&1 || fail "drift run failed: exit $?"
+
+peak="$(cam_col "$drift" add | awk '{ a = $1; if (a > 2048) a -= 4096; if (a < 0) a = -a; if (a > m) m = a } END { print m + 0 }')"
+left="$(cam_col "$drift" add | tail -1 | awk '{ a = $1; if (a > 2048) a -= 4096; print (a < 0) ? -a : a }')"
+rm -f "$drift"
+
+[ "$peak" -gt 200 ] \
+    || fail "the shot never moved the camera off the hero-relative angle ($peak units): nothing to hand back"
+[ "$left" -lt 100 ] \
+    || fail "with cam_hold_angle off the shot was still $left units off centre after walking (never handed back)"
+
+pass "both cameras left the shot at $auto_beta, the stick moved it to $moved, and drift mode handed $peak units back to $left"
