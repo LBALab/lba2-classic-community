@@ -19,7 +19,7 @@ ties both tiers together — path filtering, the docs-only gate, and the
 
 | Workflow | Tier | Trigger | Job(s) | What it does |
 |---|---|---|---|---|
-| `linux.yml` | Validation | push, PR, dispatch | `build`, `build-clang`, `build-demo`, `sanitize` | Configure (`linux` preset), build `lba2cc` + `host_tests`, run `ctest -L host_quick`; the same through clang and for the demo SKU; and the host tests once more under AddressSanitizer |
+| `linux.yml` | Validation | push, PR, dispatch | `build`, `build-clang`, `build-demo`, `sanitize` | Configure (`linux` preset), build `lba2cc` + `host_tests`, run `ctest -L host_quick`; the same through clang and for the demo SKU; and the host tests once more under Address + UndefinedBehavior sanitizers |
 | `macos.yml` | Validation | push, PR, dispatch | `build` | Same, on `macos-latest` (`macos_arm64` preset) |
 | `windows.yml` | Validation | push, PR, dispatch | `build` | Same, on Windows MSYS2 UCRT64 (`windows_ucrt64` preset) |
 | `test.yml` | Validation | push, PR, dispatch | `test` | Docker: `./run_tests_docker.sh` — full ASM↔C++ equivalence suite (Linux only, slow) |
@@ -36,11 +36,33 @@ files nor Docker. The Docker job (`test.yml`) builds a 32-bit UASM image
 and replays polyrec captures; it does not run the host discovery tests.
 
 `linux.yml`'s `sanitize` job re-runs the host tests against the
-`linux_sanitize` preset. The suite was clean under AddressSanitizer when
-the job landed, so a red result there means a change introduced a heap
-overflow, a use-after-free, or a leak. It builds `host_tests` only: the
-`build` job already covers the game target, and no CI job has the retail
-data needed to run it.
+`linux_sanitize` preset, which builds under AddressSanitizer and
+UndefinedBehaviorSanitizer together. The suite was clean under both when
+the job landed, so a red result means a change introduced a heap overflow,
+a use-after-free, a leak, or undefined arithmetic. It builds `host_tests`
+only: the `build` job already covers the game target, and no CI job has the
+retail data needed to run it.
+
+Two flags in that preset are load-bearing and worth not "tidying away".
+
+`-fno-sanitize-recover=undefined` turns a UBSan finding into an abort.
+UBSan's default is to print a diagnostic and continue, which exits zero:
+the run stays green and the finding scrolls past in the log. Without this
+flag the job is a decoration rather than a gate. If you want to *explore*
+rather than gate, rebuild without it so a run reports every site instead of
+stopping at the first.
+
+`-fno-sanitize=alignment` switches off the misaligned-access check. That
+one is not noise-suppression, it is a deferred decision: a headless
+playthrough under UBSan reports 326 distinct misaligned load/store/member
+sites, and every one of them is the same 1997 pattern of reading a packed
+file or bytecode buffer through a cast pointer. `LbaReadWord` and friends in
+`SAVEGAME.CPP`, `GET_S16` in `DISKFUNC.CPP` and `FICHE.CPP`, and structs
+overlaid directly onto scene data in `OBJECT.CPP`. Fixing them is a real
+piece of work with no observed x86 symptom, so the check stays off until
+someone takes the class on deliberately; leaving it on would mean the gate
+could never be green. Everything else UBSan checks is on, and the
+playthrough found zero of it.
 
 ## Triggers: push and pull request
 
