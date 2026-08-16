@@ -36,6 +36,35 @@ fi
 
 : "${LBA2_TEST_TIMEOUT:=90}"
 
+# A folder of this test's own, unless the test named one first.
+#
+# The engine reads its settings from the player's lba2.cfg with the install's stacked
+# underneath, so a fixture that doesn't isolate is comparing against whatever the
+# developer plays with. Every key a surface displays or a camera consults is then an
+# input the golden never declared: FollowCamera and DetailLevel move the projection
+# corpus, DisplayFullScreen and VSync move the Display submenu. The goldens are all
+# reproducible from a fresh folder, which is the state they were captured in, so
+# handing each test one is what makes them mean anything on someone else's machine.
+#
+# Isolating here rather than per test because the rule only holds if it cannot be
+# forgotten: a new fixture is isolated by existing, not by remembering to say so.
+if [ -z "${LBA2_USER_DIR:-}" ]; then
+    LBA2_USER_DIR="$(mktemp -d -t "lba2-${TESTNAME:-auto}-XXXXXX")"
+    _LIB_OWNS_USER_DIR="$LBA2_USER_DIR"
+fi
+export LBA2_USER_DIR
+
+# A test that installs its own EXIT trap replaces this one, in which case the folder
+# is left under TMPDIR rather than removed. That is the harmless direction: those
+# tests name their own folder anyway, so there is usually nothing here to remove, and
+# a leaked temp dir costs less than a cleanup that fought the test's own restore.
+_lib_cleanup() {
+    local rc=$?
+    [ -n "${_LIB_OWNS_USER_DIR:-}" ] && rm -rf "$_LIB_OWNS_USER_DIR"
+    return $rc
+}
+trap _lib_cleanup EXIT
+
 SKIP_RC=77 # autotools convention: a skipped test
 
 # user_dir -- the folder the engine writes to for this run: saves, lba2.cfg,

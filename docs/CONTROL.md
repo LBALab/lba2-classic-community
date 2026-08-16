@@ -426,29 +426,44 @@ inventory, on an island whose dialogue bank has known text-ids).
 
 #### Environmental hygiene
 
-The `ui_*` captures are state-sensitive in three ways the `--load` argument doesn't cover:
+A fixture reads more than `--load` gives it. The engine takes its settings from the
+player's `lba2.cfg` with the install's stacked underneath, so every key a surface
+displays, and every key a camera or the sim consults, is an input the golden depends on
+without declaring. On someone else's machine those keys hold something else and the
+capture diverges, which is indistinguishable from a rendering regression by the time you
+see it as a hash.
 
-- **Language.** The engine reads `Language` from the developer's local `lba2.cfg`. A
-  golden captured under one language doesn't match captures on a machine with any other
-  language. `ctl_headless` (in `tests/automation/lib.sh`) pins `--language English`
-  for every UI capture — matches the in-repo `LBA2.CFG` default, makes goldens portable.
-- **Settings a surface prints.** A menu that shows a setting reads it from the same local
-  `lba2.cfg`, so the surface is only as reproducible as the keys it displays. The Display
-  submenu prints the vsync state, which made `ui_display` fail for anyone running with
-  `VSync: 0`, on a golden that was correct. That is the expensive way for this to surface:
-  a divergence that looks exactly like a regression. `ctl_headless` pins
-  `--vsync on` alongside `--language` and `--resolution`. A new surface that prints a
-  setting needs the same treatment, or a golden nobody else can reproduce.
-- **`current.lba` thumbnail.** `ui_menu_main` renders a small save-thumbnail at the top
-  of the main menu that the engine reads from
-  `~/.local/share/Twinsen/LBA2/save/current.lba`, *not* from `--load`. That file evolves
-  on every play session. `test_ui_menu_main.sh` wraps its run in `with_menu_main_fixture`
-  (also in `lib.sh`), which copies the corpus `Anon1.LBA` into `current.lba`, runs the
-  test, and restores the original on EXIT.
+**`lib.sh` gives each test a `LBA2_USER_DIR` of its own** unless the test named one
+first, so the profile a fixture reads is one it just created rather than the one the
+developer plays with. That is what makes the goldens mean anything off this machine: they
+were captured against a fresh profile, so a fresh profile is what reproduces them. It is
+done in `lib.sh` rather than per test because the rule only holds if it cannot be
+forgotten: a new fixture is isolated by existing.
 
-If you add a new `ui_*` surface that touches `~/.local/share/Twinsen/LBA2/` for any
-reason, wrap its `ui_compare` call in `with_menu_main_fixture` or write a sibling
-helper following the same backup/restore-on-trap pattern.
+Measured after the language and resolution pins were in place, four keys still moved a
+capture, and each is the developer's own preference rather than anything a test set:
+
+| key | what it moved |
+|-----|---------------|
+| `DisplayFullScreen` | the Display submenu's `Fullscreen` / `Windowed` row |
+| `VSync` | the Display submenu's `Vsync ON` / `Vsync OFF` row |
+| `FollowCamera` | the projection corpus, every save |
+| `DetailLevel` | the projection corpus, every save |
+
+Chasing that list with one flag per key does not converge, since it grows with every
+setting the game gains. A folder of its own covers the keys nobody has thought of yet.
+
+`ctl_headless` still pins `--language English`, `--resolution 640x480` and `--vsync on`
+on top. Isolation makes the rest of the profile irrelevant; the pins state the values the
+goldens actually assume, so a capture that needs a different one says so on the command
+line instead of in whoever's settings happened to be there. `--language` in particular
+still does real work: a fresh profile inherits the install's layer, and a French install
+ships `Language: Français`.
+
+A fresh profile is not an empty one. It is engine defaults plus the install's layered
+`lba2.cfg`, which is where `DisplayFullScreen: 1` comes from, since the engine's own
+default for that key is `FALSE`. That layer is a separate problem: values in it become the
+player's own settings on first exit, which is #495.
 
 ### Adding a new UI surface — the family pattern
 
