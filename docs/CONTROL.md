@@ -196,6 +196,37 @@ Console output is mirrored to stdout, so any command's output is readable from a
   `give <item>` (the found-object cinematic), `playvideo`, `credits`, and `slide`. Use
   non-modal commands: `cube`, `give clover`, `timer`, cvars, `status`. (`give clover`
   takes a different code path with no cinematic.)
+- **A fresh start walks into a modal on its own, at about 4s of sim time.** The point above
+  is about modals *you* open. The opening scene opens one by itself: object 4's Life script
+  runs a `MESSAGE` opcode roughly four seconds in, `Dial` spins in `SpeakAnimation` waiting
+  for a dismiss that headless never sends, and because that loop retires no ticks, `--tick N`
+  never reaches N. The run does not fail, it spins on one core until the timeout.
+
+  It is the clock that decides, not the tick count, so raising `--fixed-dt` does not buy
+  headroom: the wall is ~3.9s of simulated time either way (244 ticks at `--fixed-dt 16`
+  survive, 248 do not; 480 at dt 8 survive, 520 do not).
+
+  Three ways past it:
+
+  ```bash
+  # Start somewhere else: --load lands in another cube and never meets the script.
+  lba2cc --headless --load "021 Palace" --fixed-dt 16 --tick 600 --exit
+
+  # Let the demo reel auto-advance its modals.
+  lba2cc --headless --demo --fixed-dt 16 --tick 300 --exit
+
+  # Or dismiss it: arm esc just before the dialogue opens.
+  lba2cc --headless --fixed-dt 16 --exec-at 240 "key esc 40" --tick 300 --exit
+  ```
+
+  Arming the key early does **not** work. `--exec "key esc 400"` from tick 1 still hangs:
+  the modal latches on entry through `InitWaitNoInput`, and a key already held when it opens
+  never registers as a press. The press has to land *inside* the modal, which is what the
+  `polls` argument is for. `key return` does not dismiss a dialogue; `esc` does.
+
+  Run with `--verbose` and the last line before the hang names the modal
+  (`[control] modal: Dial(...)`), which is faster than reaching for a debugger. Those markers
+  go to **stderr**, not `adeline.log`.
 - **`--exec` fires on the first tick, which races a scene change.** A `cube` change applies
   on the *next* frame, so `--exec "cube 154; teleport actor 3"` runs the teleport in the
   **old** cube and the pending change then resets the hero to the new cube's spawn. Nothing
