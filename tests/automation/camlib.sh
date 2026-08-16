@@ -46,7 +46,13 @@ cam_run() {
 cam_tsv() {
     python3 - "$1" <<'PY'
 import sys
-KEYS = ("heroBeta", "add", "beta", "target", "step", "delay", "orbit", "moving")
+# Every field the trace carries. Values are taken from the token after their label, so the order
+# here is the column order and not an assumption about the line, but a field the trace emits and
+# this does not name is simply invisible to the fixtures: a query for it comes back empty and
+# reads as "the thing never happened" rather than as an error. Keep this in step with the
+# Log_Info call in PERSO.CPP.
+KEYS = ("heroBeta", "add", "beta", "target", "step", "delay", "orbit", "moving",
+        "zone", "forced", "cine", "follow", "ext", "vue", "alpha", "dist")
 print("\t".join(KEYS))
 for line in open(sys.argv[1], errors="replace"):
     if not line.startswith("[INFO] [cam]"):

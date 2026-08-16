@@ -1963,10 +1963,23 @@ static void cmd_zonelist(int argc, const char *argv[]) {
             continue;
         int inside = ZonePointInBox(hero->Obj.X, hero->Obj.Y, hero->Obj.Z, ptrz->X0, ptrz->Y0,
                                     ptrz->Z0, ptrz->X1, ptrz->Y1, ptrz->Z1);
-        Console_Print("  [%2d] %-8s Num=%-4d box=(%d,%d,%d)-(%d,%d,%d) info=%d,%d,%d,%d%s",
+        /* Info7 is the flag word that decides whether a zone does anything, and for a camera
+           zone it decides how often: ZONE_ON is the enable, ZONE_OBLIGATOIRE re-aims the camera
+           every frame the hero is inside, and without it the zone fires once and latches
+           ZONE_ACTIVE until he leaves. Printing the raw byte as well as the names, since a zone
+           may carry bits this does not name. */
+        char flags[64];
+        snprintf(flags, sizeof(flags), "%s%s%s%s",
+                 (ptrz->Info7 & ZONE_INIT_ON) ? "init_on " : "",
+                 (ptrz->Info7 & ZONE_ON) ? "on " : "",
+                 (ptrz->Info7 & ZONE_ACTIVE) ? "active " : "",
+                 (ptrz->Info7 & ZONE_OBLIGATOIRE) ? "forced " : "");
+
+        Console_Print("  [%2d] %-8s Num=%-4d box=(%d,%d,%d)-(%d,%d,%d) info=%d,%d,%d,%d flags=0x%02x %s%s",
                       (int)n, ZoneTypeName(ptrz->Type), (int)ptrz->Num, (int)ptrz->X0, (int)ptrz->Y0,
                       (int)ptrz->Z0, (int)ptrz->X1, (int)ptrz->Y1, (int)ptrz->Z1, (int)ptrz->Info0,
-                      (int)ptrz->Info1, (int)ptrz->Info2, (int)ptrz->Info3, inside ? "  <-- HERO" : "");
+                      (int)ptrz->Info1, (int)ptrz->Info2, (int)ptrz->Info3, (unsigned)ptrz->Info7,
+                      flags, inside ? " <-- HERO" : "");
     }
 }
 
