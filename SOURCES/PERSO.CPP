@@ -2213,6 +2213,15 @@ restartloop:
         /*-------------------------------------------------------------------------*/
         /* recentre sur hero (numobjfollow) */
 
+        /* An orbit only means something while the exterior Auto camera is the one
+         * being driven, frame after frame. The moment anything else owns the view
+         * -- a camera zone, a cutscene, an interior, or the player turning the Auto
+         * camera off -- the gesture is over, and the state describing it has to end
+         * with it rather than wait for the camera to come back. GereExtKeys cannot
+         * do this itself: it is not called at all in those states. */
+        if (CameraZone OR CinemaMode OR CubeMode != CUBE_EXTERIEUR OR !FollowCamera)
+            FollowCamForgetManualGesture();
+
         if (!CameraZone) {
             if (!CinemaMode) {
                 // AlphaCam (touches '+' et '-' *)

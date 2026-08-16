@@ -332,6 +332,16 @@ void CameraCenter(S32 flagbeta) {
     T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
     S32 newbeta;
 
+    /* Every re-aim of the camera lands here: the Center camera control, the
+     * script's own camera orders, and the scene changes that reset the view. Each
+     * of them decides where the camera points, so an orbit still being spent by
+     * the player's last stick movement has no claim on it any more and would pan
+     * straight back off the angle just chosen. Dropping it here covers all three
+     * without each having to remember. flagbeta 0 and 3 only re-run the camera
+     * functions and leave the angle alone, so they leave the gesture alone too. */
+    if (flagbeta == 1 OR flagbeta == 2)
+        FollowCamForgetManualGesture();
+
     switch (flagbeta) {
     case 2:
 #ifdef LBA_EDITOR

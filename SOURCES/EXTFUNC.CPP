@@ -1937,6 +1937,25 @@ static S32 ManualCameraOrbitPrev = FALSE;
  * follow-through is the gesture continuing rather than a second mechanism. */
 static S32 ManualCameraGlideBeta = 0;
 
+/* Abandon whatever orbit gesture was in flight: the tail still to be spent, the
+ * flags that say a gesture is under way, and any pending console nudge.
+ *
+ * Everything above is per-frame state that only means anything while the player
+ * is driving the exterior Auto camera frame after frame. A camera zone, a
+ * cutscene, an interior or a re-centre all take the camera away mid-gesture, and
+ * without this the state waits instead of ending: the tail resumes on the first
+ * frame back and pans a camera the player has since re-centred, and the stale
+ * "gesture already under way" flag makes the next nudge skip its realign,
+ * reintroducing the very snap the realign exists to prevent -- at the worst
+ * moment, since an authored shot leaves BetaCam furthest from the hero-relative
+ * angle. Callers are the places that own such a discontinuity. */
+void FollowCamForgetManualGesture(void) {
+    ManualCameraGlideBeta = 0;
+    ManualCameraOrbitActive = FALSE;
+    ManualCameraOrbitPrev = FALSE;
+    DbgCamNudgeFrames = 0;
+}
+
 /* Start of an orbit gesture: fold the rotation the hero accumulated while the
  * camera was holding its angle into AddBetaCam, so the target the follow update
  * recomputes still comes out at the angle the camera is actually sitting at.
@@ -2452,12 +2471,29 @@ S32 GereExtKeys(U32 key)
          * It runs only when no source drove this frame, and it moves AddBetaCam
          * exactly as the player's own input would, so the angle the camera ends
          * up holding is the one the follow update recomputes. Nothing is left
-         * owed. Inside a camera zone or a cutscene the shot is authored, so the
-         * tail is dropped rather than carried across. */
-        if (CubeMode != CUBE_EXTERIEUR OR CameraZone OR CinemaMode) {
-            ManualCameraGlideBeta = 0;
-        } else if (!ManualCameraOrbitActive AND ManualCameraGlideBeta != 0) {
-            ManualCameraGlideBeta = ManualCameraGlideBeta * FollowCamOrbitGlide / 100;
+         * owed. A camera zone, a cutscene or a re-centre ends the gesture through
+         * FollowCamForgetManualGesture rather than being tested for here: this
+         * runs only where the exterior Auto camera already has the camera, so a
+         * check for those states here would never be true.
+         *
+         * Tuned for the stick, which springs back to centre, so "no input this
+         * frame" reliably means the player let go. A mouse held still reports the
+         * same thing while very much still being driven, so a paused drag coasts
+         * and a flick overshoots where the pointer stopped. Wrong for the mouse,
+         * and worth splitting the two sources apart; left shared for now because
+         * the pad is the one that has to be right, being the only control some
+         * setups have. */
+        if (!ManualCameraOrbitActive AND ManualCameraGlideBeta != 0) {
+            /* The console sets cvars without going through the config's range
+             * check, so clamp where it is used: at 100 the tail is a fixed point
+             * that never decays, and beyond that it grows without bound. */
+            S32 keep = FollowCamOrbitGlide;
+            if (keep < 0)
+                keep = 0;
+            if (keep > FOLLOW_CAM_ORBIT_GLIDE_MAX)
+                keep = FOLLOW_CAM_ORBIT_GLIDE_MAX;
+
+            ManualCameraGlideBeta = ManualCameraGlideBeta * keep / 100;
             if (ManualCameraGlideBeta > -FOLLOW_CAM_ORBIT_GLIDE_STOP AND ManualCameraGlideBeta < FOLLOW_CAM_ORBIT_GLIDE_STOP)
                 ManualCameraGlideBeta = 0;
             else

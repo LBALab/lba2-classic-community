@@ -16,11 +16,25 @@ cam_precheck
 log="$(mktemp)"
 trap 'rm -f "$log"' EXIT
 
-# pan_at <log> <frames-from-end> -- how far the manual pan still sits from centre (AddBetaCam
-# taken the shortest way round, so a pan that has drifted back through zero reads as small).
-pan_at() {
-    cam_col "$1" add | tail -"$2" | head -1 | awk '
-        { a = $1; if (a > 2048) a -= 4096; print (a < 0) ? -a : a }'
+# pan_off_centre <log> <standing|walking> -- how far the manual pan sits from centre (AddBetaCam
+# the shortest way round, so a pan that has drifted back through zero reads as small), sampled
+# either on the last frame before the hero moves or on the final frame.
+#
+# The sample is found by the trace's own `moving` column rather than by counting rows back from
+# the end: camtrace emits on dirty frames, not on ticks, so a row offset is not a point in time
+# and any change to how long the camera settles moves it somewhere else entirely.
+pan_off_centre() {
+    cam_tsv "$1" | awk -v want="$2" '
+        NR == 1 { next }
+        { a = $2; if (a > 2048) a -= 4096; if (a < 0) a = -a
+          # Wait for the pan to exist before looking for the walk: the hero is already
+          # settling on the frames after a load, and taking the first moving frame of the
+          # run would sample from before the pan was ever applied.
+          if (a > 0) panned = 1
+          if (panned && $8 != 0) walking = 1
+          if (panned && !walking) standing = a
+          final = a }
+        END { print (want == "standing") ? standing + 0 : final + 0 }'
 }
 
 # Pan off centre, stand still for 60 ticks, then walk for 200. The grace window is 60 frames of
@@ -30,8 +44,8 @@ cam_run "$log" "cam_hold_angle 0;" \
     --exec-at 110 "input up 200" \
     --tick 330
 
-standing="$(pan_at "$log" 210)" # just before the walk starts
-walked="$(cam_col "$log" add | tail -1 | awk '{ a = $1; if (a > 2048) a -= 4096; print (a < 0) ? -a : a }')"
+standing="$(pan_off_centre "$log" standing)"
+walked="$(pan_off_centre "$log" walking)"
 
 [ "$standing" -gt 200 ] \
     || fail "manual pan collapsed to $standing units while the hero stood still (recentred unasked)"
