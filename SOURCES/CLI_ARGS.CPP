@@ -112,6 +112,8 @@ static const T_CLI_FLAG CliFlags[] = {
     {"--fixed-dt", 1, 0, 0, 0, NULL, "<ms>", "advance the clock by a constant <ms> per tick, so a\n"
                                              "run reproduces exactly (needs --headless)"},
     {"--fixed-timestep", 1, 0, 0, 0, NULL, "<ms>", "set the sim throttle for this run only (0 = off)"},
+    {"--vsync", 1, 0, 0, 0, NULL, "<on|off>", "set the vsync setting for this run only, so a\n"
+                                              "capture reads it instead of the local one"},
     {"--screenshot", 1, 0, 0, 0, NULL, "<path>", "write a PNG of the rendered frame"},
     {"--dump-state", 1, 0, 0, 0, NULL, "<path>", "write the engine state as JSON"},
     {"--demo", 0, 0, 0, 0, NULL, "", "attract/demo mode (only does anything on a demo scene)"},

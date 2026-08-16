@@ -7,6 +7,10 @@
 # launch, and one --language Deutsch to check the German text made German the
 # setting. Their own help text and their comments said the opposite.
 #
+# --vsync joins them for the same reason it exists: the Display submenu prints
+# the setting, so a UI capture has to be able to name it, and a run that named
+# it must not leave the player's own choice replaced.
+#
 # Both halves are asserted, because either one alone passes on a broken engine.
 # "Does not persist" is satisfied by a flag that does nothing at all, and "takes
 # effect" is satisfied by one that changes the setting for good. The chosen-value
@@ -36,13 +40,16 @@ run >/dev/null
 [ -f "$user/lba2.cfg" ] || fail "no config was written at all"
 base_step=$(value_of FixedTimestep)
 base_lang=$(value_of Language)
-[ -n "$base_step" ] && [ -n "$base_lang" ] \
-    || fail "config is missing the keys under test (FixedTimestep='$base_step' Language='$base_lang')"
+base_vsync=$(value_of VSync)
+[ -n "$base_step" ] && [ -n "$base_lang" ] && [ -n "$base_vsync" ] \
+    || fail "config is missing the keys under test (FixedTimestep='$base_step' Language='$base_lang' VSync='$base_vsync')"
 
 # Probe values that differ from the baseline, or the run would override a setting
 # to what it already was and every assertion below would hold for free.
 probe_step=100; [ "$base_step" = "100" ] && probe_step=50
 probe_lang=Deutsch; [ "$base_lang" = "Deutsch" ] && probe_lang=Italiano
+probe_vsync=off; want_vsync=OFF
+[ "$base_vsync" = "0" ] && { probe_vsync=on; want_vsync=ON; }
 
 # --- --fixed-timestep: in force for the run, absent from the config -----------
 out=$(run --fixed-timestep "$probe_step" --exec-at 1 "fixedtimestep")
@@ -60,6 +67,17 @@ got=$(value_of Language)
 [ "$got" = "$base_lang" ] \
     || fail "--language $probe_lang persisted: config says '$got', was '$base_lang'"
 
+# --- --vsync: same, and the console reports the state it forced ---------------
+# Asked for through the console rather than a banner line because the setting has
+# no other visible spelling, and `vsync` with no argument prints it without
+# writing anything (unlike `vsync on`, which is the player choosing).
+out=$(run --vsync "$probe_vsync" --exec-at 1 "vsync")
+printf '%s' "$out" | grep -aqE "Vsync: $want_vsync" \
+    || fail "--vsync $probe_vsync did not take effect: $(printf '%s' "$out" | grep -aoE 'Vsync: .*' | head -1)"
+got=$(value_of VSync)
+[ "$got" = "$base_vsync" ] \
+    || fail "--vsync $probe_vsync persisted: config says '$got', was '$base_vsync'"
+
 # --- a setting the player chose is a different thing, and does persist --------
 # Without this the two assertions above would also pass on an engine that had
 # stopped writing the config, or stopped honouring the key.
@@ -69,6 +87,15 @@ got=$(value_of FixedTimestep)
 [ "$got" = "$chosen" ] \
     || fail "the console's own 'fixedtimestep $chosen' did not persist: config says '$got'"
 
+# Vsync is the case worth stating on its own: the Display menu's toggle flips the
+# global and writes nothing itself, so the exit write is the only thing that keeps
+# a player's choice. `vsync $probe_vsync` reaches that same write with the same
+# values the toggle would, so a per-run override swallowing it would show up here.
+run --exec "vsync $probe_vsync" >/dev/null
+chosen_vsync=$(value_of VSync)
+[ "$chosen_vsync" != "$base_vsync" ] \
+    || fail "the console's own 'vsync $probe_vsync' did not persist: config still says '$chosen_vsync'"
+
 # --- and a later overridden run leaves that choice alone ----------------------
 # The regression this test exists for: the harness runs constantly on developer
 # machines, and each run used to overwrite whatever the player had set.
@@ -77,8 +104,14 @@ got=$(value_of FixedTimestep)
 [ "$got" = "$chosen" ] \
     || fail "--fixed-timestep $probe_step overwrote the chosen $chosen: config says '$got'"
 
+# Same for the vsync the player chose, against the pin every UI capture now passes.
+run --vsync "$base_vsync" >/dev/null
+got=$(value_of VSync)
+[ "$got" = "$chosen_vsync" ] \
+    || fail "--vsync $base_vsync overwrote the chosen $chosen_vsync: config says '$got'"
+
 out=$(run --exec-at 1 "fixedtimestep")
 printf '%s' "$out" | grep -aqE "FixedTimestep: ON \($chosen ms" \
     || fail "the chosen $chosen ms is not in force next launch: $(printf '%s' "$out" | grep -aoE 'FixedTimestep: .*' | head -1)"
 
-pass "--fixed-timestep and --language apply without persisting; a chosen $chosen ms survives both"
+pass "--fixed-timestep, --language and --vsync apply without persisting; a chosen $chosen ms and VSync $chosen_vsync survive them"

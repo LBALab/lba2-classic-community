@@ -65,6 +65,8 @@ static int s_have_fixed_dt = 0;
 static long s_fixed_dt = 0;
 static int s_have_fixed_timestep = 0;
 static long s_fixed_timestep = 0;
+static int s_have_vsync = 0;
+static int s_vsync = 0;
 static int s_have_dump = 0;
 static char s_dump_path[ADELINE_MAX_PATH];
 static int s_have_shot = 0;
@@ -235,6 +237,30 @@ void Control_ParseArgs(int *argc, char *argv[]) {
                 s_have_fixed_timestep = 1;
             }
             s_active = 1;
+            read += 2;
+            continue;
+        }
+        if (!strcmp(a, "--vsync") && has_val) {
+            /* Pin DisplayVSync for this run only, without persisting to lba2.cfg (unlike the
+               `vsync` console verb and the Display menu's own toggle). The Display submenu
+               prints the setting as a row, so a UI capture inherits whatever the local cfg
+               holds unless the run says which one it wants.
+
+               The setting, not the frame pacing: Control_Begin drops the presentation cap for
+               every --exit run regardless, so pinning this on doesn't put a harness run back
+               behind a ~60 fps wait. */
+            const char *val = argv[read + 1];
+            /* Same spellings the `vsync` console verb takes, so knowing one tells you the
+               other. */
+            if (!strcasecmp(val, "on") || !strcmp(val, "1")) {
+                s_vsync = 1;
+                s_have_vsync = 1;
+            } else if (!strcasecmp(val, "off") || !strcmp(val, "0")) {
+                s_vsync = 0;
+                s_have_vsync = 1;
+            } else {
+                fprintf(stderr, "[control] --vsync: invalid '%s' (use on|off)\n", val);
+            }
             read += 2;
             continue;
         }
@@ -524,6 +550,14 @@ int Control_HasFixedTimestep(void) {
 
 long Control_GetFixedTimestep(void) {
     return s_fixed_timestep;
+}
+
+int Control_HasVSync(void) {
+    return s_have_vsync;
+}
+
+int Control_GetVSync(void) {
+    return s_vsync;
 }
 
 int Control_NoAudio(void) {

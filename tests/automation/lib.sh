@@ -85,9 +85,10 @@ ctl() {
 }
 
 # ctl_headless <args...> — same as ctl but also pins SDL_VIDEODRIVER=dummy,
-# Language to English, and the render resolution to 640x480. Used by UI
-# capture tests where the committed goldens were rendered under the dummy
-# video driver, English UI, and the engine's default 640x480 framebuffer.
+# Language to English, the render resolution to 640x480, and vsync on. Used
+# by UI capture tests where the committed goldens were rendered under the
+# dummy video driver, English UI, the engine's default 640x480 framebuffer
+# and the engine's default vsync setting.
 #
 # --language English: without this, tests fail on machines whose local
 # lba2.cfg has any other Language: key (typically Français, which is also
@@ -106,9 +107,16 @@ ctl() {
 # Goldens are rendering-only (no audio sampling), so dropping audio init
 # doesn't affect them — verified by re-running the suite with this in
 # place and confirming all eight ui_* goldens stay byte-identical.
+#
+# --vsync on: the Display submenu prints the setting as one of its rows, so
+# without this the capture reads the developer's own cfg and a machine with
+# VSync: 0 fails ui_display on a golden that is correct. Pinning the setting
+# doesn't slow the run down, because a --exit run drops the presentation cap
+# either way (Control_Begin).
 ctl_headless() {
     timeout "$LBA2_TEST_TIMEOUT" \
-        "$LBA2_BIN" --headless --no-autosave --language English --resolution 640x480 "$@"
+        "$LBA2_BIN" --headless --no-autosave --language English --resolution 640x480 \
+        --vsync on "$@"
 }
 
 # ctl_headless_cfg_driven <args...> — same as ctl_headless but does NOT
@@ -126,7 +134,7 @@ ctl_headless_cfg_driven() {
 ctl_headless_at() {
     local res="$1"; shift
     SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" \
-        "$LBA2_BIN" --language English --no-audio --resolution "$res" "$@"
+        "$LBA2_BIN" --language English --no-audio --resolution "$res" --vsync on "$@"
 }
 
 # seed_menu_save_dir <user-dir> <fresh|returning> [save-file]

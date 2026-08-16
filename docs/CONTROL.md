@@ -55,6 +55,10 @@ lba2cc --help                 print the player-facing flag list and exit (an unk
                               but only in a --headless run)
        --fixed-timestep <ms>  set the sim throttle (FixedTimestep) for this run only, no cfg
                               persist (0 = off); combine with a small --fixed-dt to force skips
+       --vsync <on|off>       set the vsync setting (DisplayVSync) for this run only, no cfg
+                              persist. The setting, not the frame pacing: a --exit run drops
+                              the presentation cap either way. Pin it for any capture of a
+                              surface that prints the setting, such as the Display submenu
        --language <name>      override Language at boot (English | Français | Deutsch |
                               Español | Italiano | Portugues; or EN | FR | DE | SP | IT | PO)
        --no-audio             skip InitAIL() and InitSampleDriver() at boot — bypasses
@@ -88,8 +92,8 @@ All flags are optional and composable. With none, the game launches normally. Pa
 flag that *asks the engine to do something* (`--load`, `--exec`, `--exec-at`, `--tick`,
 `--dump-state`, `--screenshot`, `--exit`, …) takes the automated boot path and skips the
 distributor/Adeline logos. Flags that only describe the environment (`--headless`,
-`--no-autosave`, `--resolution`, `--language`, `--no-audio`) do not, so `lba2cc --headless`
-on its own is still just the game, with no window.
+`--no-autosave`, `--resolution`, `--language`, `--no-audio`, `--vsync`) do not, so
+`lba2cc --headless` on its own is still just the game, with no window.
 
 Order of operations: `--load` (or a fresh start) → first tick runs `--exec` →
 advance to N ticks → `--dump-state` + `--screenshot` → `--exit`.
@@ -158,7 +162,9 @@ Console output is mirrored to stdout, so any command's output is readable from a
 - **Vsync is off under the harness.** A `--exit` run disables the renderer's vsync cap so
   the loop runs flat-out instead of at ~60 fps — a long `--tick N` run is ~10-14x faster
   (e.g. 2000 ticks: ~34 s to ~2.5 s here). Presentation only: the dumped state and rendered
-  pixels are identical (verified 0 drift over the save corpus).
+  pixels are identical (verified 0 drift over the save corpus). The `DisplayVSync` *setting*
+  is a separate thing, still read from the cfg and still printed by the Display submenu;
+  `--vsync <on|off>` pins it for the run without touching the cfg.
 - **A tick is one main-loop iteration, normally one rendered frame.** In a settled scene
   the two are identical. The exception is a cube transition: when a script (or a `cube`
   command) changes the scene, the loop restarts its body to load the new cube, which counts
@@ -420,12 +426,19 @@ inventory, on an island whose dialogue bank has known text-ids).
 
 #### Environmental hygiene
 
-The `ui_*` captures are state-sensitive in two ways the `--load` argument doesn't cover:
+The `ui_*` captures are state-sensitive in three ways the `--load` argument doesn't cover:
 
 - **Language.** The engine reads `Language` from the developer's local `lba2.cfg`. A
   golden captured under one language doesn't match captures on a machine with any other
   language. `ctl_headless` (in `tests/automation/lib.sh`) pins `--language English`
   for every UI capture — matches the in-repo `LBA2.CFG` default, makes goldens portable.
+- **Settings a surface prints.** A menu that shows a setting reads it from the same local
+  `lba2.cfg`, so the surface is only as reproducible as the keys it displays. The Display
+  submenu prints the vsync state, which made `ui_display` fail for anyone running with
+  `VSync: 0`, on a golden that was correct. That is the expensive way for this to surface:
+  a divergence that looks exactly like a regression. `ctl_headless` pins
+  `--vsync on` alongside `--language` and `--resolution`. A new surface that prints a
+  setting needs the same treatment, or a golden nobody else can reproduce.
 - **`current.lba` thumbnail.** `ui_menu_main` renders a small save-thumbnail at the top
   of the main menu that the engine reads from
   `~/.local/share/Twinsen/LBA2/save/current.lba`, *not* from `--load`. That file evolves
