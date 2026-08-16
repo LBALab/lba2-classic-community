@@ -225,6 +225,7 @@ extern S32 MouseCameraDivisor;
 extern S32 ManualCameraSmoothing;
 extern S32 ManualCameraOrbitActive; /* raised by EXTFUNC while a manual camera source (mouse/stick) orbits */
 extern S32 FollowCamReengageDelay;
+extern S32 FollowCamOrbitGlide;       /* % of orbit speed kept per frame after the player lets go */
 extern S32 GamepadCameraAnalog;       /* right stick drives the camera analog in Auto cam (1=on) */
 extern S32 GamepadCameraSensX;        /* right-stick orbit sensitivity (1-10) */
 extern S32 GamepadCameraSensY;        /* right-stick elevation sensitivity (1-10) */

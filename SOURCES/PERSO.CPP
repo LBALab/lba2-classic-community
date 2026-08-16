@@ -2600,6 +2600,12 @@ void ReadConfigFile(void) {
     if (MouseCameraDivisor > 16)
         MouseCameraDivisor = 16;
 
+    FollowCamOrbitGlide = DefFileBufferReadValueDefault("FollowCamOrbitGlide", FOLLOW_CAM_ORBIT_GLIDE_DEFAULT);
+    if (FollowCamOrbitGlide < 0)
+        FollowCamOrbitGlide = 0;
+    if (FollowCamOrbitGlide > FOLLOW_CAM_ORBIT_GLIDE_MAX)
+        FollowCamOrbitGlide = FOLLOW_CAM_ORBIT_GLIDE_MAX;
+
     ManualCameraSmoothing = DefFileBufferReadValueDefault("ManualCameraSmoothing", MOUSE_CAM_SMOOTHING_DEFAULT);
     if (ManualCameraSmoothing < 1)
         ManualCameraSmoothing = 1;
@@ -2733,6 +2739,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("MouseInvertY", MouseCameraInvertY);
     DefFileBufferWriteValue("MouseCameraDivisor", MouseCameraDivisor);
     DefFileBufferWriteValue("ManualCameraSmoothing", ManualCameraSmoothing);
+    DefFileBufferWriteValue("FollowCamOrbitGlide", FollowCamOrbitGlide);
     DefFileBufferWriteValue("FollowCamReengageFrames", FollowCamReengageFrames);
     DefFileBufferWriteValue("FollowCamDriftDivisor", FollowCamDriftDivisor);
     DefFileBufferWriteValue("FollowCamHDRecompose", FollowCamHDRecompose);

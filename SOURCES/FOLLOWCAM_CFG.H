@@ -47,6 +47,14 @@
 /* Horizontal pan keys [ ] ---------------------------------------------------*/
 #define FOLLOW_CAM_PAN_STEP 30 /* AddBetaCam change per [ / ] key press per frame */
 
+/* Orbit follow-through ------------------------------------------------------*/
+/* Percentage of the orbit speed that survives each frame once the player stops
+ * driving: the camera eases to a stop over a few frames instead of halting on
+ * the frame the stick centres. 0 disables it (halt on release). */
+#define FOLLOW_CAM_ORBIT_GLIDE_DEFAULT 75
+#define FOLLOW_CAM_ORBIT_GLIDE_MAX 95 /* above this the tail outstays its welcome */
+#define FOLLOW_CAM_ORBIT_GLIDE_STOP 2 /* drop the tail once it decays below this (units/frame) */
+
 /* Mouse camera --------------------------------------------------------------*/
 #define MOUSE_CAM_DIVISOR_DEFAULT 4   /* pixel-to-angle scaling (lower = faster) */
 #define MOUSE_CAM_SMOOTHING_DEFAULT 2 /* BetaCam lerp divisor during orbit (1=snap, higher=laggier) */

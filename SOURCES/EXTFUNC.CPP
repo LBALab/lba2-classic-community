@@ -1932,6 +1932,11 @@ S32 GereMouseMovements(S32 boutons) {
  * one already under way; this remembers that across the frame boundary. */
 static S32 ManualCameraOrbitPrev = FALSE;
 
+/* The orbit speed still to be spent after the player stops driving. Set from the
+ * last nudge, decayed once per frame, and fed back through the same nudge so the
+ * follow-through is the gesture continuing rather than a second mechanism. */
+static S32 ManualCameraGlideBeta = 0;
+
 /* Start of an orbit gesture: fold the rotation the hero accumulated while the
  * camera was holding its angle into AddBetaCam, so the target the follow update
  * recomputes still comes out at the angle the camera is actually sitting at.
@@ -1968,6 +1973,10 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
     S32 changed = 0;
 
     if (dBeta != 0) {
+        /* Remember the speed the player is orbiting at, so releasing can ease out
+         * from it rather than stop on the spot. */
+        ManualCameraGlideBeta = dBeta;
+
         /* Only on the gesture's first frame: once orbiting, AddBetaCam has to keep
          * accumulating so the stick moves the camera by what the player asked for
          * rather than by half of it every frame. Only where the follow update that
@@ -2432,6 +2441,27 @@ S32 GereExtKeys(U32 key)
         if (DbgCamNudgeFrames > 0) {
             flag |= ApplyManualCameraNudge(DbgCamNudgeBeta, DbgCamNudgeAlpha, 0);
             DbgCamNudgeFrames--;
+        }
+
+        /* Orbit follow-through. The lerp eases the camera up to the stick's speed
+         * over several frames but has nothing to ease it back down: on the frame
+         * the stick centres, the orbit stops dead from full speed. Decaying the
+         * last speed and feeding it back through the same nudge spends the tail
+         * over a few frames instead, so the two ends of a gesture match.
+         *
+         * It runs only when no source drove this frame, and it moves AddBetaCam
+         * exactly as the player's own input would, so the angle the camera ends
+         * up holding is the one the follow update recomputes. Nothing is left
+         * owed. Inside a camera zone or a cutscene the shot is authored, so the
+         * tail is dropped rather than carried across. */
+        if (CubeMode != CUBE_EXTERIEUR OR CameraZone OR CinemaMode) {
+            ManualCameraGlideBeta = 0;
+        } else if (!ManualCameraOrbitActive AND ManualCameraGlideBeta != 0) {
+            ManualCameraGlideBeta = ManualCameraGlideBeta * FollowCamOrbitGlide / 100;
+            if (ManualCameraGlideBeta > -FOLLOW_CAM_ORBIT_GLIDE_STOP AND ManualCameraGlideBeta < FOLLOW_CAM_ORBIT_GLIDE_STOP)
+                ManualCameraGlideBeta = 0;
+            else
+                flag |= ApplyManualCameraNudge(ManualCameraGlideBeta, 0, 0);
         }
     }
 #endif

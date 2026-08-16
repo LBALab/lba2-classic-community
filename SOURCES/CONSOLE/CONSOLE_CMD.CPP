@@ -2186,6 +2186,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCvar("cam_mouse_invert", &MouseCameraInvertY, CONSOLE_CVAR_BOOL, "Invert mouse elevation");
     Console_RegisterCvar("cam_mouse_div", &MouseCameraDivisor, CONSOLE_CVAR_INT, "Mouse pixel-to-angle divisor (1-16, lower = faster)");
     Console_RegisterCvar("cam_smooth", &ManualCameraSmoothing, CONSOLE_CVAR_INT, "Manual orbit lerp divisor (1 = snap, higher = laggier)");
+    Console_RegisterCvar("cam_glide", &FollowCamOrbitGlide, CONSOLE_CVAR_INT, "Orbit follow-through: % of orbit speed kept per frame after release (0 = stop dead)");
     Console_RegisterCvar("cam_recenter_delay", &FollowCamReengageFrames, CONSOLE_CVAR_INT, "Frames before auto-cam re-centers after a manual pan");
     Console_RegisterCvar("cam_recenter_drift", &FollowCamDriftDivisor, CONSOLE_CVAR_INT, "Auto-cam re-center drift divisor (higher = gentler)");
     Console_RegisterCvar("cam_follow", &FollowCamera, CONSOLE_CVAR_BOOL, "Auto camera (third-person follow) enable");
