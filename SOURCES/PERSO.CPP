@@ -112,6 +112,71 @@ static S32 FollowCamHDExcess(void) {
     return e;
 }
 
+/* camtrace: one line per frame describing where the camera is and who is deciding
+ * that.
+ *
+ * Emitted from the main loop rather than from the Auto camera's own update, which
+ * runs only while the Auto camera holds the view: a trace written from in there
+ * can never report a camera zone, a cutscene, an interior or the classic camera,
+ * because it does not run in any of them. Those are most of the camera system and
+ * all of the moments it changes hands.
+ *
+ * `step` is BetaCam's movement since the previous frame, so it counts whoever
+ * moved it -- the Auto camera's lerp, a zone's authored angle, a scripted order,
+ * or the classic camera's quarter turns -- rather than only the one writer the
+ * old placement could see. `zone` and `forced` separate the frame a camera zone
+ * re-aims the view from the state of being under its shot. */
+static void CamTrace(void) {
+    static S32 prevBeta = 0;
+    static S32 prevX = 0;
+    static S32 prevZ = 0;
+    static S32 primed = FALSE;
+
+    T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
+    S32 step;
+    S32 moving;
+
+    if (!DbgCamTrace) {
+        /* Keep the references current while the trace is off, so switching it on
+         * mid-run reports a real step rather than the distance back to whenever
+         * it was last on. */
+        prevBeta = BetaCam;
+        prevX = ptr3d->X;
+        prevZ = ptr3d->Z;
+        primed = TRUE;
+        return;
+    }
+
+    /* The first traced frame has nothing to measure against, and reporting the
+     * distance from an unset reference would put a step of a couple of thousand
+     * units at the top of the run -- which is the shape of the very defects these
+     * traces are read for, and would be picked up by anything scanning for the
+     * largest movement. */
+    step = 0;
+    moving = 0;
+    if (primed) {
+        step = BetaCam - prevBeta;
+        if (step > 2048)
+            step -= 4096;
+        if (step < -2048)
+            step += 4096;
+
+        moving = (ptr3d->X != prevX OR ptr3d->Z != prevZ);
+    }
+    primed = TRUE;
+
+    Log_Info("[cam] heroBeta %4d add %4d beta %4d target %4d step %5d delay %3d orbit %d moving %d "
+             "zone %d forced %d cine %d follow %d ext %d vue %d alpha %4d dist %6d",
+             (int)ptr3d->Beta, (int)AddBetaCam, (int)BetaCam, (int)FollowCamTargetBeta,
+             (int)step, (int)FollowCamReengageDelay, (int)ManualCameraOrbitActive, (int)moving,
+             (int)CameraZone, (int)FlagCameraForcee, (int)CinemaMode, (int)FollowCamera,
+             (int)(CubeMode == CUBE_EXTERIEUR), (int)VueCamera, (int)AlphaCam, (int)VueDistance);
+
+    prevBeta = BetaCam;
+    prevX = ptr3d->X;
+    prevZ = ptr3d->Z;
+}
+
 /* The follow camera re-renders when the hero moved or turned, the player panned,
  * BetaCam still has catch-up pending, the zoom/elevation changed, or the
  * ground-lift / manual-hold are still settling (the last two keep this true so
@@ -243,8 +308,6 @@ static void UpdateFollowCameraExt(void) {
                          * to avoid jitter when very close. */
         FollowCamTargetBeta = (2048 - newbeta) & 4095;
 
-        S32 traceBetaBefore = BetaCam;
-
         if (manualPan) {
             BetaCam = FollowCamTargetBeta;
         } else if (ManualCameraOrbitActive OR FollowCamReengageDelay == 0) {
@@ -282,21 +345,6 @@ static void UpdateFollowCameraExt(void) {
             } else {
                 BetaCam = FollowCamTargetBeta;
             }
-        }
-
-        /* camtrace: one line per follow-cam update. `step` is what BetaCam moved
-         * this frame -- a large value with orbit=1 right after the hero turned in
-         * place is the camera snapping through rotation it never tracked. */
-        if (DbgCamTrace) {
-            S32 traceStep = BetaCam - traceBetaBefore;
-            if (traceStep > 2048)
-                traceStep -= 4096;
-            if (traceStep < -2048)
-                traceStep += 4096;
-            Log_Info("[cam] heroBeta %4d add %4d beta %4d target %4d step %5d delay %3d orbit %d moving %d",
-                     (int)ptr3d->Beta, (int)AddBetaCam, (int)BetaCam, (int)FollowCamTargetBeta,
-                     (int)traceStep, (int)FollowCamReengageDelay, (int)ManualCameraOrbitActive,
-                     (int)heroMoving);
         }
 
         /* --- Zoom distance: converge FollowCamEffectiveDist toward
@@ -2258,7 +2306,11 @@ restartloop:
                 if (FollowCamera AND CubeMode == CUBE_EXTERIEUR)
                     UpdateFollowCameraExt();
             }
+        }
 
+        CamTrace();
+
+        if (!CameraZone) {
             if (FirstTime == AFF_OBJETS_FLIP) {
                 T_OBJET *ptrobj;
 
