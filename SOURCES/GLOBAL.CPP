@@ -314,6 +314,11 @@ S32 InventoryAction = -1;
 // Console `lifetrace <objN>`: object index whose Life script to trace (comportement/track/zone state
 // each frame + every condition it evaluates), or -1 for off. Headless-debug aid, no gameplay effect.
 S32 DbgLifeTraceObj = -1;
+// Console `objtrace <objN>`: object index whose world position to log each simulated frame, or -1
+// for off. A Life script says what an object decided; this says where it ended up, which is what a
+// "the path is offset" report needs to be turned into numbers. Headless-debug aid, no gameplay
+// effect.
+S32 DbgObjTraceObj = -1;
 // Console `useitem`: inject a one-frame inventory item-use headlessly (mimics what MenuInventory
 // sets), so the give-item path (LF_USE_INVENTORY) can be driven and tested without menu input.
 // Inject = item number, InjectN = frames to inject over, InjectDelay = frames to wait first (settle

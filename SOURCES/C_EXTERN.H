@@ -356,6 +356,7 @@ extern U8 Bulle;
 extern U8 ActionNormal;
 extern S32 InventoryAction;
 extern S32 DbgLifeTraceObj;       // console `lifetrace`: Life-script trace target object, -1 = off
+extern S32 DbgObjTraceObj;        // console `objtrace`: per-frame position trace target, -1 = off
 extern S32 DbgUseItemInject;      // console `useitem`: item number to inject, -1 = none
 extern S32 DbgUseItemInjectN;     // console `useitem`: frames to inject over
 extern S32 DbgUseItemInjectDelay; // console `useitem`: frames to wait before injecting

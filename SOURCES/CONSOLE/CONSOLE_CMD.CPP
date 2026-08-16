@@ -1724,6 +1724,21 @@ static void cmd_lifetrace(int argc, const char *argv[]) {
         Console_Print("lifetrace: off");
 }
 
+/* objtrace <objN> | off: log object N's world position, animation and track state every simulated
+   frame. `lifetrace` answers what a script decided; this answers where the object actually went,
+   which is what turns "its path is offset upwards" into a number that can be diffed against a
+   known-good run. */
+static void cmd_objtrace(int argc, const char *argv[]) {
+    if (argc >= 2 && !strcasecmp(argv[1], "off"))
+        DbgObjTraceObj = -1;
+    else if (argc >= 2)
+        DbgObjTraceObj = atoi(argv[1]);
+    if (DbgObjTraceObj >= 0)
+        Console_Print("objtrace: object %d", DbgObjTraceObj);
+    else
+        Console_Print("objtrace: off");
+}
+
 /* useitem <n> [frames] [delay] | useitem trace <0|1>: inject a one-frame inventory item-use of
    var-game item n (as MenuInventory would), so an NPC's give-item check (LF_USE_INVENTORY) can be
    driven headlessly. `frames` injects over N frames, `delay` waits N frames first (land past a load
@@ -2079,6 +2094,11 @@ void Console_RegisterAll(void) {
                               "lifetrace <objN> | lifetrace off",
                               "Logs the object's comportement/track/zone each frame and every LF_ "
                               "condition it evaluates.");
+    Console_RegisterCommandEx("objtrace", cmd_objtrace, "Trace an object's position each frame",
+                              "objtrace <objN> | objtrace off",
+                              "Logs the object's X/Y/Z, animation and track offset every simulated "
+                              "frame. Pairs with lifetrace: that says what the script chose, this "
+                              "says where the object ended up.");
     Console_RegisterCommandEx("useitem", cmd_useitem, "Inject an inventory item-use (headless)",
                               "useitem <n> [frames] [delay] | useitem trace <0|1>",
                               "Injects InventoryAction=n (drives LF_USE_INVENTORY without menu input); "
