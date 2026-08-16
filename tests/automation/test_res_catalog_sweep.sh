@@ -54,7 +54,9 @@ for m in $modes; do
     h="${m#*x}"
     rm -f "$tmp"
 
-    if ! ctl_headless_at "$m" --exec "ui resolution $tmp" --tick 6 --exit \
+    # engine_path: the capture path is inside the --exec string, which MSYS2 hands
+    # to a native binary verbatim, so it has to be named in the engine's own terms.
+    if ! ctl_headless_at "$m" --exec "ui resolution $(engine_path "$tmp")" --tick 6 --exit \
         >/dev/null 2>&1; then
         bad="$bad $m(exit)"
         continue

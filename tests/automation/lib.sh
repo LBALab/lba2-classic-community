@@ -14,6 +14,15 @@
 
 set -u
 
+# Collation is pinned so that a glob expands in one order everywhere. Bash sorts
+# the matches by the locale's collating sequence, which is byte order under a
+# typical Linux locale and case-insensitive under MSYS2, so `for save in *.LBA`
+# walks a corpus in two different orders on the two platforms. A fixture that
+# writes one line per file then differs from its golden by line order alone, and
+# reports it as the values having changed. Only collation is pinned, not LC_ALL:
+# the character encoding a test reads its fixtures in is not this file's business.
+export LC_COLLATE=C
+
 _LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd "$_LIB_DIR/../.." && pwd)"
 
@@ -111,12 +120,26 @@ skip() { echo "SKIP: ${TESTNAME:-test}: $*"; exit $SKIP_RC; }
 fail() { echo "FAIL: ${TESTNAME:-test}: $*"; exit 1; }
 pass() { echo "PASS: ${TESTNAME:-test}${1:+ — $1}"; exit 0; }
 
+# have_display -- whether the engine can bring a window up here.
+#
+# Only X11 and Wayland have to be looked for. Windows and macOS hand a process
+# its window server, with no environment variable to say so, so asking for
+# DISPLAY there skipped every test on a machine that has a display. That is how
+# the suite came to be Linux-only without anyone deciding it should be: the
+# result on Windows was a clean run of nothing, which reads the same as a pass.
+have_display() {
+    case "$(uname -s)" in
+        MINGW* | MSYS* | CYGWIN* | Darwin) return 0 ;;
+    esac
+    [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ] \
+        || [ "${SDL_VIDEODRIVER:-}" = "dummy" ]
+}
+
 precheck() {
     [ -n "$LBA2_BIN" ] && [ -x "$LBA2_BIN" ] || skip "no binary (build it, or set LBA2_BIN)"
     [ -n "$LBA2_GAME_DIR" ] || skip "LBA2_GAME_DIR unset"
     [ -e "$LBA2_GAME_DIR" ] || skip "LBA2_GAME_DIR not found: $LBA2_GAME_DIR"
-    { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ] \
-        || [ "${SDL_VIDEODRIVER:-}" = "dummy" ]; } \
+    have_display \
         || skip "no display (engine needs a window, or set SDL_VIDEODRIVER=dummy)"
 }
 
@@ -266,16 +289,24 @@ ui_compare() {
     while [ $# -gt 1 ]; do args="${args:+$args }$1"; shift; done
     golden="$1"
     out="$(mktemp -t "${TESTNAME:-ui}.XXXXXX.png")"
-    # the verb takes the capture path as its last arg
+    # The verb takes the capture path as its last arg, and opens it itself, so it
+    # has to be named the way the engine can open it: MSYS2 rewrites a standalone
+    # path argument on its way to a native binary but not one buried in a longer
+    # --exec string, which arrives verbatim as /tmp/... and cannot be created.
     if [ -n "${LBA2_TEST_SAVE:-}" ]; then
         ctl_headless --load "$LBA2_TEST_SAVE" \
-            --exec "ui $args $out" --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 || rc=$?
+            --exec "ui $args $(engine_path "$out")" \
+            --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 || rc=$?
     else
         ctl_headless \
-            --exec "ui $args $out" --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 || rc=$?
+            --exec "ui $args $(engine_path "$out")" \
+            --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 || rc=$?
     fi
     [ "$rc" = 0 ] || { rm -f "$out"; fail "verb 'ui $args' returned non-zero ($rc)"; }
-    [ -f "$out" ] || fail "no capture written for 'ui $args'"
+    # Empty, not merely present: mktemp has already created the file, so -f is
+    # true whether or not the engine wrote a capture into it, and the compare
+    # below would go on to hash nothing and report it as a golden mismatch.
+    [ -s "$out" ] || fail "no capture written for 'ui $args'"
     if [ "${LBA2_UI_REGEN:-}" = "1" ]; then
         mkdir -p "$(dirname "$golden")"
         cp "$out" "$golden"
@@ -317,9 +348,9 @@ ui_compare_wide() {
     [ -f "$golden" ] || skip "640 golden missing — run the 640 test first: $golden"
     out="$(mktemp -t "${TESTNAME:-ui}.XXXXXX.png")"
     ctl_headless_at "$res" --load "$LBA2_TEST_SAVE" \
-        --exec "ui $args $out" --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 \
+        --exec "ui $args $(engine_path "$out")" --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 \
         || { rc=$?; rm -f "$out"; fail "verb 'ui $args' at $res returned non-zero ($rc)"; }
-    [ -f "$out" ] || fail "no capture written for 'ui $args' at $res"
+    [ -s "$out" ] || fail "no capture written for 'ui $args' at $res"
     python3 - "$golden" "$out" <<'PY'
 import sys
 from PIL import Image
