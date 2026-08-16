@@ -1956,9 +1956,14 @@ void FollowCamForgetManualGesture(void) {
     DbgCamNudgeFrames = 0;
 }
 
-/* Start of an orbit gesture: fold the rotation the hero accumulated while the
- * camera was holding its angle into AddBetaCam, so the target the follow update
- * recomputes still comes out at the angle the camera is actually sitting at.
+/* Hand the Auto camera the angle the camera is currently at, so the target it
+ * recomputes comes out there rather than somewhere it will travel to.
+ *
+ * Two callers, one need. An orbit gesture starting: fold in the rotation the hero
+ * accumulated while the camera held its angle. A camera zone firing: adopt the
+ * angle the authored shot just chose. Both write BetaCam directly, and the follow
+ * update knows nothing of either, so without this it reads the difference as
+ * catch-up and spends it.
  *
  * AddBetaCam is an offset *from the hero's facing*, so a held BetaCam and a hero
  * who turns under it drift apart with nothing to discharge the difference. The
@@ -1970,7 +1975,7 @@ void FollowCamForgetManualGesture(void) {
  * With the camera already on target this changes nothing. With it still lerping
  * toward one, the pending catch-up is dropped as well -- a few degrees at most,
  * and the point: an orbit should start from the angle actually on screen. */
-static void AbsorbHeroTurnIntoPan(void) {
+void FollowCamAdoptAngle(void) {
     T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
 
     /* The inverse of the follow update's target rule: it derives the target from
@@ -2004,7 +2009,7 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
          * be reaching into a path this knows nothing about. */
         if (!ManualCameraOrbitActive AND !ManualCameraOrbitPrev
                 AND CubeMode == CUBE_EXTERIEUR AND !CameraZone AND !CinemaMode)
-            AbsorbHeroTurnIntoPan();
+            FollowCamAdoptAngle();
 
         AddBetaCam = (AddBetaCam - dBeta) & 4095;
         ManualCameraOrbitActive = TRUE;

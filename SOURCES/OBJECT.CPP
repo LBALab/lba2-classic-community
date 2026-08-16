@@ -6291,6 +6291,15 @@ void SetZoneCamera(T_ZONE *ptrz) {
             GammaCam = ptrz->Info5;
             VueDistance = ptrz->Info6;
 
+            /* Tell the Auto camera the shot has taken the view, or it takes it
+             * straight back. Most camera zones re-aim once on entry and then latch,
+             * leaving the angle where they put it, which is what the classic camera
+             * shows. The Auto camera derives its own target from the hero's facing
+             * and never learns of this write, so it reads the authored angle as
+             * catch-up owed and lerps out of the shot over the next second. */
+            if (FollowCamera)
+                FollowCamAdoptAngle();
+
             SaveCamera();
 
             CameraCenter(0);

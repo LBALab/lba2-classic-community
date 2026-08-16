@@ -227,6 +227,7 @@ extern S32 ManualCameraOrbitActive; /* raised by EXTFUNC while a manual camera s
 extern S32 FollowCamReengageDelay;
 extern S32 FollowCamOrbitGlide;                 /* % of orbit speed kept per frame after the player lets go */
 extern void FollowCamForgetManualGesture(void); /* drop the in-flight orbit: nothing is owed across a discontinuity */
+extern void FollowCamAdoptAngle(void);          /* point the Auto camera's target at the angle the camera is already at */
 extern S32 GamepadCameraAnalog;                 /* right stick drives the camera analog in Auto cam (1=on) */
 extern S32 GamepadCameraSensX;                  /* right-stick orbit sensitivity (1-10) */
 extern S32 GamepadCameraSensY;                  /* right-stick elevation sensitivity (1-10) */
