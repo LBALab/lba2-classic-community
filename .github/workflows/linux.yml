@@ -129,6 +129,36 @@ jobs:
       - name: Verify Binary
         run: test -f build-clang/SOURCES/lba2cc && echo "Clang build successful"
 
+  # The warning ratchet. -Wall -Wextra is not on in any normal build: 222
+  # diagnostics would drown the one a contributor just introduced, and nobody
+  # reads a wall of pre-existing noise. Instead this job builds with them on and
+  # compares against scripts/ci/warnings-baseline.txt, so the count can fall but
+  # not rise.
+  #
+  # The baseline is keyed on (file, flag), never on line numbers: those move
+  # whenever anything above them is edited, and a baseline that goes stale on
+  # contact teaches people to regenerate it without reading it.
+  warnings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v5
+
+      - name: Install SDL3
+        uses: libsdl-org/setup-sdl@4ebea449684c989388fe6bcea0460e300d13a5ae # main @ 2025-12-20
+        id: sdl
+        with:
+          install-linux-dependencies: true
+          version: 3-latest
+          build-type: ${{ env.BUILD_TYPE }}
+
+      - name: Compare warnings against the baseline
+        env:
+          CMAKE_PREFIX_PATH: ${{ steps.sdl.outputs.prefix }}
+        run: bash ./scripts/ci/warning-baseline.sh
+
   # Address and UndefinedBehavior sanitizers over the same host tests the build
   # job runs. The suite was clean under both when this job was written, so it can
   # only ever fail on something new: a heap overflow, a use-after-free, a leak,

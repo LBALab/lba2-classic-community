@@ -19,7 +19,7 @@ ties both tiers together — path filtering, the docs-only gate, and the
 
 | Workflow | Tier | Trigger | Job(s) | What it does |
 |---|---|---|---|---|
-| `linux.yml` | Validation | push, PR, dispatch | `build`, `build-clang`, `build-demo`, `sanitize` | Configure (`linux` preset), build `lba2cc` + `host_tests`, run `ctest -L host_quick`; the same through clang and for the demo SKU; and the host tests once more under Address + UndefinedBehavior sanitizers |
+| `linux.yml` | Validation | push, PR, dispatch | `build`, `build-clang`, `build-demo`, `sanitize`, `warnings` | Configure (`linux` preset), build `lba2cc` + `host_tests`, run `ctest -L host_quick`; the same through clang and for the demo SKU; the host tests once more under Address + UndefinedBehavior sanitizers; and a `-Wall -Wextra` build compared against the warning baseline |
 | `macos.yml` | Validation | push, PR, dispatch | `build` | Same, on `macos-latest` (`macos_arm64` preset) |
 | `windows.yml` | Validation | push, PR, dispatch | `build` | Same, on Windows MSYS2 UCRT64 (`windows_ucrt64` preset) |
 | `test.yml` | Validation | push, PR, dispatch | `test` | Docker: `./run_tests_docker.sh` — full ASM↔C++ equivalence suite (Linux only, slow) |
@@ -63,6 +63,47 @@ piece of work with no observed x86 symptom, so the check stays off until
 someone takes the class on deliberately; leaving it on would mean the gate
 could never be green. Everything else UBSan checks is on, and the
 playthrough found zero of it.
+
+## The warning baseline
+
+`-Wall -Wextra` is not enabled in any normal build. Turning it on reports 222
+diagnostics, and a contributor who has just introduced the 223rd will never
+find it in that list; a wall of pre-existing noise trains people to stop
+reading warnings at all.
+
+So `linux.yml`'s `warnings` job builds with them on and compares the result
+against [`scripts/ci/warnings-baseline.txt`](../scripts/ci/warnings-baseline.txt).
+The count can fall. It cannot rise. Clearing entries out of that file is the
+unit of cleanup work: small, reviewable, and visibly monotonic.
+
+```bash
+scripts/ci/warning-baseline.sh            # compare (what CI runs)
+scripts/ci/warning-baseline.sh --update   # regenerate after fixing warnings
+```
+
+Three decisions in that script are worth knowing before changing it.
+
+**The baseline is keyed on (file, flag), never on line numbers.** A line-keyed
+baseline is invalidated by any edit above a warning, so it would need
+regenerating constantly, and a file people regenerate without reading is not a
+gate. A per-file count only moves when the number of warnings in that file
+actually moves.
+
+**Counting is over unique `file:line:column:flag`, not over raw output lines.**
+A warning in a header is re-reported by every translation unit that includes it,
+so the raw count changes when an unrelated file adds an include.
+
+**Three checks are suppressed**, with the count each contributed when the
+baseline was introduced: `unknown-pragmas` (138, Watcom `#pragma aux` register
+conventions, dead text to gcc and clang), `unused-parameter` (72, a faithful
+port keeps a signature even where this build ignores an argument), and
+`missing-field-initializers` (10, deliberate partial aggregate initialisation).
+Everything else `-Wall -Wextra` reports is gated.
+
+Warning sets move between compiler releases, so the baseline records the gcc it
+was generated with and the script says so when the current compiler differs.
+A version mismatch shows up as a wall of `NEW` lines that look like a
+regression and are not one.
 
 ## Triggers: push and pull request
 
