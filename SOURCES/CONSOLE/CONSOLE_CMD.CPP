@@ -328,7 +328,7 @@ static int console_parse_count(const char *s, long *out, long least) {
 
 /* Resolve a `key` name or a raw scancode. Returns 0 for unknown, which is also the
    rejected scancode (SDL_SCANCODE_UNKNOWN), so callers can treat 0 as "no key".
-   Factored out of the `key` command so other verbs can take a key by name too. */
+   Shared by the `key` command and `ui askchoice --press`. */
 static U32 Console_ScancodeFromName(const char *s) {
     if (!s || !s[0])
         return 0;
@@ -539,6 +539,64 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
         Console_Print("ui config -> %s", argv[2]);
         return;
     }
+    if (argc >= 4 && !strcmp(argv[1], "askchoice")) {
+        /* Dialogue choice list, opened the way LM_ASK_CHOICE does (GERELIFE.CPP):
+           fill GameListChoice / GameNbChoices, then call GameAskChoice, which asks
+           the question through MyDial, runs DoGameMenu over the options, and speaks
+           the chosen line. <question> and each <choice> are text ids in the loaded
+           dialogue bank.
+
+              ui askchoice [--press <key>] <question-id> <choice-id>...
+
+           The option list is picked automatically (Enter, once DoGameMenu is up), the
+           way the other verbs auto-exit their modal, because a selection scheduled from
+           out here cannot know when the question line ends. --press names a key held
+           from just after the chosen line starts playing: the only moment a Menus or Esc
+           press is a fresh one mid-playback, which is the state issue #451 is about.
+
+           Reports MyKey and Input on return, so a caller can see what the modal left
+           behind rather than inferring it from what the game does next. */
+        int arg = 2;
+        U32 press = 0;
+        if (argc >= 4 && !strcmp(argv[arg], "--press")) {
+            press = Console_ScancodeFromName(argv[arg + 1]);
+            if (!press) {
+                Console_Print("ui askchoice: unknown key '%s' (run `key` for the list)",
+                              argv[arg + 1]);
+                return;
+            }
+            arg += 2;
+        }
+        if (argc - arg < 2) {
+            Console_Print("Usage: ui askchoice [--press <key>] <question-id> <choice-id>...");
+            return;
+        }
+        S32 question = (S32)atoi(argv[arg++]);
+        GameNbChoices = 0;
+        /* GameListChoice is S16[10] (GLOBAL.CPP), normally at most 7 in a real script. */
+        for (; arg < argc && GameNbChoices < 7; arg++)
+            GameListChoice[GameNbChoices++] = (S16)atoi(argv[arg]);
+        /* Restored below: NumObjDial decides who a later dialogue bubble points at, so
+           leaving it on the hero would follow the run around. `ui holoplan` saves and
+           restores HoloMode/Island for the same reason. */
+        S32 saved_objdial = NumObjDial;
+        NumObjDial = NUM_PERSO;
+        Console_Print("ui askchoice: question=%d choices=%d press=%u", (int)question,
+                      (int)GameNbChoices, (unsigned)press);
+        AskChoice_RequestDrive(K_ENTER, press);
+        U32 polls0 = Control_KeyPollCount();
+        GameAskChoice(question);
+        GameNbChoices = 0;
+        NumObjDial = (U8)saved_objdial;
+        /* linepolls is the chosen line's own wait, which is what a press cuts short; polls
+           is the whole modal, most of it the spoken question. Comparing the line alone is
+           what lets a caller tell "the press was consumed" from "the press never arrived"
+           without depending on the answer outlasting the question in that bank. */
+        Console_Print("ui askchoice done: chose=%d polls=%u linepolls=%u MyKey=%d Input=0x%X",
+                      (int)GameChoice, (unsigned)(Control_KeyPollCount() - polls0),
+                      (unsigned)AskChoice_LastLinePolls(), (int)MyKey, (unsigned)Input);
+        return;
+    }
     if (argc >= 4 && !strcmp(argv[1], "found-object")) {
         /* DoFoundObj(numvar) opens the found-object cinematic: 3D rotation
            of the discovered item alongside a typewriter dialogue.  numvar
@@ -565,6 +623,7 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
     Console_Print("       ui slideshow <path>");
     Console_Print("       ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal]");
     Console_Print("       ui found-object <numvar> <path>");
+    Console_Print("       ui askchoice [--press <key>] <question-id> <choice-id>...");
 }
 
 /* Strip optional `--black-bg` prefix, set the capture-mode flag for the
@@ -2162,7 +2221,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui {inventory|holomap|menu-options|menu-main|config|slideshow} <path> | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal]",
+                              "ui {inventory|holomap|menu-options|menu-main|config|slideshow} <path> | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal] | ui askchoice [--press <key>] <question-id> <choice-id>...",
                               "Composite verb for UI regression fixtures: opens a UI modal "
                               "with a deterministic auto-exit, writes the settled frame to <path> "
                               "via SavePNG, then closes.  Compose with --load / --exec to drive "
