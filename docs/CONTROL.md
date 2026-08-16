@@ -389,6 +389,31 @@ has loaded (`START_FILE_ISLAND + Island`); ids invalid for that bank cause `Dial
 return early with no capture. `numvar` for `ui found-object` is the `TabInv` slot index
 (0 is Holomap, 1 is the magic ball, etc.).
 
+### Driving a modal instead of photographing it
+
+`ui askchoice [--press <key>] <question-id> <choice-id>...` is the odd one out: it opens the
+dialogue choice list the way `LM_ASK_CHOICE` does and reports state rather than writing a PNG.
+
+```bash
+lba2cc --load mysave.lba --exec-at 40 "ui askchoice --press menus 1 2 3" --tick 120 --exit
+# -> ui askchoice done: chose=2 polls=37099 MyKey=0 Input=0x0
+```
+
+The option row is picked automatically once `DoGameMenu` is up, the way the capture verbs
+auto-exit their modal, because a selection scheduled from outside cannot know when the
+question line ends. `--press` names a key held from just after the *chosen* line starts
+playing: the one moment a Menus or Esc press is a fresh press mid-playback, which is the
+state that mattered for issue #451.
+
+`polls` is how long the modal ran, so a press that lands shows up as a run far shorter than
+the same one without it. `MyKey` and `Input` are what the modal left behind: both must be
+clear, or the main loop reads the same press again and opens the menu.
+
+This verb needs a voice line to be playing, so it is the one place that cannot use the
+`--headless` helpers, which imply `--no-audio`. `IsSamplePlaying` is then always false and
+every wait-for-the-line loop falls straight through. `ctl_voice` in `tests/automation/lib.sh`
+is the windowless-but-audible pairing; see `test_askchoice_menus_consume.sh`.
+
 ### Test fixtures and goldens
 
 Ten `tests/automation/test_ui_*.sh` fixtures byte-compare each verb's output against a

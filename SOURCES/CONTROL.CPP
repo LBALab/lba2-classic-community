@@ -1073,6 +1073,132 @@ int Control_InputPending(void) {
     return s_input_tick < s_input_last || s_input_frame < s_input_last_frame;
 }
 
+/* ===== Harness key holds (docs/INPUT_SIM_PLAN.md) ==========================
+ *
+ * The timeline above ORs its mask into Input from MainLoop, which is everything a
+ * test driving the hero needs and nothing a test driving a MENU can use: a modal
+ * spins in its own MyGetInput loop and never returns to MainLoop until it is done.
+ * These hold a raw scancode in TabKeys instead, from the ApplyHarnessKeys hook that
+ * every ManageKeyboard runs, so the press reaches whichever loop is asking.
+ *
+ * Metered in input polls, one per ManageKeyboard, rather than ticks: a modal advances
+ * no ticks, so a tick-based delay inside one would never elapse. Note that a poll is
+ * NOT the same as a MyGetInput call. InitWaitNoInput(x) is GetInput(x) (INPUT.H), and
+ * every one of those runs ManageKeyboard too, so a path that arms and then latches
+ * consumes more polls than it makes MyGetInput calls. In MainLoop, where nothing else
+ * is polling, a poll is a rendered frame.
+ */
+
+#define CONTROL_KEY_MAX_HOLDS 8
+
+typedef struct {
+    U32 scancode;
+    U32 start; /* first poll the key is down (inclusive) */
+    U32 end;   /* first poll it is up (exclusive)        */
+} T_ControlKeyHold;
+
+static T_ControlKeyHold s_key_holds[CONTROL_KEY_MAX_HOLDS];
+static int s_key_hold_count = 0;
+static U32 s_key_poll = 0;
+
+/* Set or clear a scancode in TabKeys, with the index/bit split CheckKey uses: a byte
+   per key below 256, packed bits above for the joystick tail. */
+static void control_key_poke(U32 sc, int down) {
+    if (sc < 256) {
+        if (down)
+            TabKeys[sc] |= 0x80;
+        else
+            TabKeys[sc] &= (U8)~0x80;
+    } else {
+        U8 bit = (U8)(1 << (sc & 7));
+        U32 idx = 256 - 32 + (sc >> 3);
+        if (down)
+            TabKeys[idx] |= bit;
+        else
+            TabKeys[idx] &= (U8)~bit;
+    }
+}
+
+void Control_KeyClear(void) {
+    int i;
+    /* Lift anything still down. The tail especially: UpdateKeyboardState only memsets
+       TabKeys[0..255], so a pad bit left set outlives the clear until the next GetJoys. */
+    for (i = 0; i < s_key_hold_count; i++)
+        control_key_poke(s_key_holds[i].scancode, 0);
+    s_key_hold_count = 0;
+}
+
+U32 Control_KeyPollCount(void) {
+    return s_key_poll;
+}
+
+int Control_KeyHold(U32 scancode, U32 delayPolls, U32 durPolls) {
+    int r, w = 0;
+
+    /* Scancode 0 is SDL_SCANCODE_UNKNOWN, and it is also the filler in every unset
+       DefKeys/GamepadKeys Key2 slot, so holding it would light up most of the input
+       table at once. Reject rather than surprise the caller. */
+    if (scancode == 0 || scancode >= CONTROL_KEY_MAX_SCANCODE || durPolls == 0)
+        return 0;
+
+    /* Drop elapsed holds so a test that arms repeatedly cannot fill the table. */
+    for (r = 0; r < s_key_hold_count; r++)
+        if (s_key_holds[r].end > s_key_poll)
+            s_key_holds[w++] = s_key_holds[r];
+    s_key_hold_count = w;
+
+    if (s_key_hold_count >= CONTROL_KEY_MAX_HOLDS)
+        return 0;
+
+    s_key_holds[s_key_hold_count].scancode = scancode;
+    /* +1 because s_key_poll counts polls already taken: the earliest poll this hold can
+       be seen on is the next one. Without it a delay of 0 loses its first poll and a
+       one-poll hold never fires at all. */
+    s_key_holds[s_key_hold_count].start = s_key_poll + delayPolls + 1;
+    s_key_holds[s_key_hold_count].end = s_key_poll + delayPolls + 1 + durPolls;
+    s_key_hold_count++;
+    return 1;
+}
+
+/* Strong override of the weak hook in LIB386/SYSTEM/KEYBOARD.CPP. Runs inside
+   UpdateKeyboardState, after it has rebuilt TabKeys[0..255] from SDL and after
+   GetJoys has written the joystick tail, and before GetInput's CheckKey scan. */
+extern "C" void ApplyHarnessKeys(void) {
+    int i, w = 0;
+
+    s_key_poll++;
+
+    for (i = 0; i < s_key_hold_count; i++) {
+        U32 sc = s_key_holds[i].scancode;
+
+        if (s_key_poll >= s_key_holds[i].end) {
+            /* Expired. Lift it explicitly rather than just stopping: below 256 the next
+               UpdateKeyboardState memset would do it, but the tail is cleared only by
+               ClearGamepadBits inside UpdateJoystick, which runs from GetJoys and so only
+               on a MyGetInput. A bare GetInput (InitWaitNoInput) in between would still
+               read the bit as held. */
+            control_key_poke(sc, 0);
+            continue; /* and drop it from the table */
+        }
+
+        s_key_holds[w++] = s_key_holds[i];
+
+        if (s_key_poll < s_key_holds[i].start)
+            continue;
+
+        control_key_poke(sc, 1);
+
+        /* UpdateKeyboardState takes the first held scancode into Key, which MyGetInput
+           passes to MyKey; mirror that so the MyKey == K_ESC paths see an injected Esc.
+           Pad buttons deliberately do not: MyGetInput sources those through
+           JoystickFirstPressedScancode, and their scancodes never land in Key. */
+        if (Key == 0 && sc < 256)
+            Key = (S32)sc;
+    }
+
+    s_key_hold_count = w;
+}
+
 void Control_InputTrace(int on) {
     s_input_trace = on ? 1 : 0;
 }

@@ -1,5 +1,6 @@
 #include "C_EXTERN.H"
 #include "CONFIG.H"
+#include "CONTROL.H" /* Control_KeyHold (AskChoice_RequestDrive) */
 #include "DIRECTORIES.H"
 #include "DISTRIB.H"
 #include "INPUT.H"
@@ -20,6 +21,7 @@
 #include <SYSTEM/ANDROID.H>
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/LOG.H> /* Log_Warn (askchoice drive hook) */
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 #include <SYSTEM/MOUSE.H>
@@ -4211,6 +4213,25 @@ S32 MainGameMenu(S32 load) {
 /*──────────────────────────────────────────────────────────────────────────*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
+/* Long enough to outlast any chosen line, so the press is still down when the main loop
+   next polls; Control_KeyClear below ends it rather than letting it run out. */
+#define ASKCHOICE_PRESS_POLLS 100000
+
+/* Harness drive state -- see AskChoice_RequestDrive() in GAMEMENU.H. Both zero in
+   normal play, which is every path that does not go through `ui askchoice`. */
+static U32 s_askchoice_pick_key = 0;
+static U32 s_askchoice_press_key = 0;
+static U32 s_askchoice_line_polls = 0;
+
+U32 AskChoice_LastLinePolls(void) {
+    return s_askchoice_line_polls;
+}
+
+void AskChoice_RequestDrive(U32 pickScancode, U32 pressScancode) {
+    s_askchoice_pick_key = pickScancode;
+    s_askchoice_press_key = pressScancode;
+}
+
 void GameAskChoice(S32 nummess) {
     S32 n;
 
@@ -4226,6 +4247,14 @@ void GameAskChoice(S32 nummess) {
     InitPlasmaMenu();
 
     MenuMouseAcquire();
+
+    /* Land the pick a few polls in: DoGameMenu latches whatever is held when it
+       opens, so a key already down when we get here would be masked, not seen.
+       A refused arm would leave DoGameMenu waiting for a selection that never comes,
+       which surfaces as a hung run rather than a diagnosis, so say so here. */
+    if (s_askchoice_pick_key && !Control_KeyHold(s_askchoice_pick_key, 8, 6))
+        Log_Warn("askchoice: could not arm the pick key (scancode %u)",
+                 (unsigned)s_askchoice_pick_key);
 
     if (DoGameMenu(GameChoiceMenu) != 1000)
         GameChoice = GameListChoice[GameChoiceMenu[0]]; // ret num mess
@@ -4248,10 +4277,36 @@ void GameAskChoice(S32 nummess) {
     NumObjSpeak = NUM_PERSO;
     Speak(GameChoice);
     MyGetInput();
+    /* A fresh press, mid-line: held from just after playback starts, past the arm
+       above, and long enough to still be down when the main loop next polls. Released
+       below rather than left to expire, so it does not stay down for the rest of the
+       session on a run that keeps going. */
+    if (s_askchoice_press_key && !Control_KeyHold(s_askchoice_press_key, 4, ASKCHOICE_PRESS_POLLS))
+        Log_Warn("askchoice: could not arm the press key (scancode %u)",
+                 (unsigned)s_askchoice_press_key);
+    U32 linepolls = Control_KeyPollCount();
     while (TestSpeak() AND(MyKey != K_ESC AND !(Input & I_MENUS)))
         MyGetInput(); // Wait until silence
     StopSpeak();      // Security
+    /* Below StopSpeak so the two aligned trailing comments above stay adjacent; it costs
+       nothing, since StopSpeak does not poll input. */
+    s_askchoice_line_polls = Control_KeyPollCount() - linepolls;
+
+    // Swallow the press that ended the line. Without this the same held Menus/Esc is
+    // read a second time by the main loop once the life script unwinds, so skipping the
+    // line also opens the main menu. Dial() and MyDial() consume after their identical
+    // skip loops; this path only armed before Speak(), and that arm cannot cover a key
+    // pressed later -- NoRepeatInput masks a bit only while it stays held.
+    InitWaitNoKey();
+    InitWaitNoInput(I_FIRE | I_ACTION | I_MENUS);
 #endif
+
+    /* One scenario per arming, like the capture hooks. Control_KeyClear lifts the press
+       as well as forgetting it: the hold is deliberately longer than the line, so without
+       this the key stays down after the verb returns. */
+    if (s_askchoice_pick_key || s_askchoice_press_key)
+        Control_KeyClear();
+    AskChoice_RequestDrive(0, 0);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*

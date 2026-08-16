@@ -18,7 +18,9 @@ extern S32 GfxDitherShading;
 #include "../DISKFUNC.H"
 #include "../SAVEGAME.H"
 #include "../INPUT.H"
-#include "../CONTROL.H" // Control_Input* harness input timeline
+#include "../CONTROL.H" // Control_Input* harness timeline, Control_KeyHold
+// K_* scancodes for the `key` command's name table.
+#include <SYSTEM/KEYBOARD_KEYS.H>
 #include "../JOYSTICK.H"
 /* HOLO.H lacks include guards and is pulled in transitively by DEFINES.H. */
 #include "../INVENT.H"
@@ -291,6 +293,60 @@ static void cmd_screenshot(int argc, const char *argv[]) {
     Console_Print("Screenshot (no console): %s", path);
 }
 
+/* Scancode names for `key`. Only the ones a harness actually reaches for: the two
+   Menus bindings the main loop tests, the menu Validate/Cancel keys, and the pad
+   equivalents. Anything else can be given as a raw number. */
+static const struct {
+    const char *name;
+    U32 scancode;
+} kKeyNames[] = {
+    {"esc", K_ESC},
+    {"menus", K_F10}, /* the default I_MENUS keyboard binding */
+    {"enter", K_ENTER},
+    {"space", K_SPACE},
+    {"action", K_W},
+    {"up", K_GRAY_UP},
+    {"down", K_GRAY_DOWN},
+    {"left", K_GRAY_LEFT},
+    {"right", K_GRAY_RIGHT},
+    {"pad-start", K_GAMEPAD_START}, /* the default I_MENUS pad binding */
+    {"pad-a", K_GAMEPAD_A},
+    {"pad-b", K_GAMEPAD_B},
+    {"pad-x", K_GAMEPAD_X},
+    {"pad-y", K_GAMEPAD_Y},
+};
+
+/* Parse a non-negative count, rejecting trailing garbage and anything below `least`. */
+static int console_parse_count(const char *s, long *out, long least) {
+    char *end = NULL;
+    long v = strtol(s, &end, 10);
+    if (end == s || *end != '\0' || v < least)
+        return 0;
+    *out = v;
+    return 1;
+}
+
+/* Resolve a `key` name or a raw scancode. Returns 0 for unknown, which is also the
+   rejected scancode (SDL_SCANCODE_UNKNOWN), so callers can treat 0 as "no key".
+   Shared by the `key` command and `ui askchoice --press`. */
+static U32 Console_ScancodeFromName(const char *s) {
+    if (!s || !s[0])
+        return 0;
+    char *end = NULL;
+    long raw = strtol(s, &end, 0);
+    if (end != s && *end == '\0') {
+        /* Range-check here rather than leaving it to Control_KeyHold: a rejected arm is
+           a silent no-press, and the caller has already been told the key was scheduled. */
+        if (raw <= 0 || raw >= CONTROL_KEY_MAX_SCANCODE)
+            return 0;
+        return (U32)raw;
+    }
+    for (size_t i = 0; i < sizeof(kKeyNames) / sizeof(kKeyNames[0]); i++)
+        if (!strcasecmp(s, kKeyNames[i].name))
+            return kKeyNames[i].scancode;
+    return 0;
+}
+
 /* ui <surface> <path> — open a UI modal in headless-harness mode, capture a
    PNG of a settled frame, then auto-exit.  The first regression surface for
    the widescreen / UI-layout work, designed so each new surface (holomap,
@@ -483,6 +539,64 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
         Console_Print("ui config -> %s", argv[2]);
         return;
     }
+    if (argc >= 4 && !strcmp(argv[1], "askchoice")) {
+        /* Dialogue choice list, opened the way LM_ASK_CHOICE does (GERELIFE.CPP):
+           fill GameListChoice / GameNbChoices, then call GameAskChoice, which asks
+           the question through MyDial, runs DoGameMenu over the options, and speaks
+           the chosen line. <question> and each <choice> are text ids in the loaded
+           dialogue bank.
+
+              ui askchoice [--press <key>] <question-id> <choice-id>...
+
+           The option list is picked automatically (Enter, once DoGameMenu is up), the
+           way the other verbs auto-exit their modal, because a selection scheduled from
+           out here cannot know when the question line ends. --press names a key held
+           from just after the chosen line starts playing: the only moment a Menus or Esc
+           press is a fresh one mid-playback, which is the state issue #451 is about.
+
+           Reports MyKey and Input on return, so a caller can see what the modal left
+           behind rather than inferring it from what the game does next. */
+        int arg = 2;
+        U32 press = 0;
+        if (argc >= 4 && !strcmp(argv[arg], "--press")) {
+            press = Console_ScancodeFromName(argv[arg + 1]);
+            if (!press) {
+                Console_Print("ui askchoice: unknown key '%s' (run `key` for the list)",
+                              argv[arg + 1]);
+                return;
+            }
+            arg += 2;
+        }
+        if (argc - arg < 2) {
+            Console_Print("Usage: ui askchoice [--press <key>] <question-id> <choice-id>...");
+            return;
+        }
+        S32 question = (S32)atoi(argv[arg++]);
+        GameNbChoices = 0;
+        /* GameListChoice is S16[10] (GLOBAL.CPP), normally at most 7 in a real script. */
+        for (; arg < argc && GameNbChoices < 7; arg++)
+            GameListChoice[GameNbChoices++] = (S16)atoi(argv[arg]);
+        /* Restored below: NumObjDial decides who a later dialogue bubble points at, so
+           leaving it on the hero would follow the run around. `ui holoplan` saves and
+           restores HoloMode/Island for the same reason. */
+        S32 saved_objdial = NumObjDial;
+        NumObjDial = NUM_PERSO;
+        Console_Print("ui askchoice: question=%d choices=%d press=%u", (int)question,
+                      (int)GameNbChoices, (unsigned)press);
+        AskChoice_RequestDrive(K_ENTER, press);
+        U32 polls0 = Control_KeyPollCount();
+        GameAskChoice(question);
+        GameNbChoices = 0;
+        NumObjDial = (U8)saved_objdial;
+        /* linepolls is the chosen line's own wait, which is what a press cuts short; polls
+           is the whole modal, most of it the spoken question. Comparing the line alone is
+           what lets a caller tell "the press was consumed" from "the press never arrived"
+           without depending on the answer outlasting the question in that bank. */
+        Console_Print("ui askchoice done: chose=%d polls=%u linepolls=%u MyKey=%d Input=0x%X",
+                      (int)GameChoice, (unsigned)(Control_KeyPollCount() - polls0),
+                      (unsigned)AskChoice_LastLinePolls(), (int)MyKey, (unsigned)Input);
+        return;
+    }
     if (argc >= 4 && !strcmp(argv[1], "found-object")) {
         /* DoFoundObj(numvar) opens the found-object cinematic: 3D rotation
            of the discovered item alongside a typewriter dialogue.  numvar
@@ -509,6 +623,7 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
     Console_Print("       ui slideshow <path>");
     Console_Print("       ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal]");
     Console_Print("       ui found-object <numvar> <path>");
+    Console_Print("       ui askchoice [--press <key>] <question-id> <choice-id>...");
 }
 
 /* Strip optional `--black-bg` prefix, set the capture-mode flag for the
@@ -1989,6 +2104,62 @@ static void cmd_input(int argc, const char *argv[]) {
     Console_Print("input: 0x%X for %ld sim tick(s)", (unsigned)bits, ticks);
 }
 
+/* key <name|scancode> [polls] [delay] | key off
+   Hold a key down at the keyboard layer for `polls` input polls, starting `delay` polls
+   from now. Unlike `input`, this reaches modal loops -- menus, dialogue, the choice list --
+   because it applies where every MyGetInput reads rather than where MainLoop writes.
+
+   Durations are input polls (one MyGetInput), not sim ticks: a modal advances no ticks, so
+   a tick-based delay inside one never elapses. In MainLoop a poll is a rendered frame.
+
+   The delay is what makes a press land INSIDE a modal that has not opened yet, and it is
+   usually necessary rather than optional. A menu latches whatever is already held when it
+   opens (InitWaitNoInput), so a key held from before the modal starts is deliberately
+   masked; arm it to land a few polls after. Examples:
+     key menus 60          hold F10 for 60 polls, starting now
+     key pad-start 200 4   press pad Start 4 polls from now, hold it for 200
+     key esc 30 8          press Esc 8 polls from now (past a menu's entry latch) */
+static void cmd_key(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Usage: key <name|scancode> [polls] [delay] | key off");
+        Console_Print("Names: esc menus enter space action up down left right");
+        Console_Print("       pad-start pad-a pad-b pad-x pad-y (or a raw scancode)");
+        Console_Print("Polls are MyGetInput calls, so this reaches modals; `input` does not.");
+        return;
+    }
+    if (!strcasecmp(argv[1], "off")) {
+        Control_KeyClear();
+        Console_Print("key: cleared");
+        return;
+    }
+
+    U32 sc = Console_ScancodeFromName(argv[1]);
+    if (!sc) {
+        Console_Print("key: unknown key '%s' (run `key` for the list)", argv[1]);
+        return;
+    }
+
+    /* strtol with the end pointer, not atol: `key menus sixty` would otherwise mean
+       zero, clamp to one poll, and report success having pressed nothing. */
+    long polls = 1, delay = 0;
+    if (argc >= 3 && !console_parse_count(argv[2], &polls, 1)) {
+        Console_Print("key: bad poll count '%s' (want a positive integer)", argv[2]);
+        return;
+    }
+    if (argc >= 4 && !console_parse_count(argv[3], &delay, 0)) {
+        Console_Print("key: bad delay '%s' (want a non-negative integer)", argv[3]);
+        return;
+    }
+
+    if (!Control_KeyHold(sc, (U32)delay, (U32)polls)) {
+        Console_Print("key: could not schedule (scancode %u out of range, or too many holds)",
+                      (unsigned)sc);
+        return;
+    }
+    Console_Print("key: scancode %u for %ld poll(s) after %ld (now %u)", (unsigned)sc, polls,
+                  delay, (unsigned)Control_KeyPollCount());
+}
+
 /*──────────────────────────────────────────────────────────────────────────*/
 /* Registration */
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -2050,7 +2221,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui {inventory|holomap|menu-options|menu-main|config|slideshow} <path> | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal]",
+                              "ui {inventory|holomap|menu-options|menu-main|config|slideshow} <path> | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal] | ui askchoice [--press <key>] <question-id> <choice-id>...",
                               "Composite verb for UI regression fixtures: opens a UI modal "
                               "with a deterministic auto-exit, writes the settled frame to <path> "
                               "via SavePNG, then closes.  Compose with --load / --exec to drive "
@@ -2117,6 +2288,14 @@ void Console_RegisterAll(void) {
                               "holomap, combine with +) for N SIM ticks, so the harness can walk/turn/act "
                               "the hero the same way at any --fixed-timestep. seq schedules a sim-tick "
                               "timeline; fseq schedules it in rendered frames (to land an edge on a skip frame).");
+    Console_RegisterCommandEx("key", cmd_key, "Hold a key down, including inside a modal",
+                              "key <name|scancode> [polls] [delay] | key off",
+                              "Holds a raw scancode in TabKeys for N input polls (one per "
+                              "MyGetInput), so unlike `input` it reaches menus, dialogue and the "
+                              "choice list. Names: esc menus enter space action up down left right "
+                              "pad-start pad-a pad-b pad-x pad-y. Use [delay] to land a press "
+                              "inside a modal that has not opened yet: a menu masks whatever was "
+                              "already held when it opened.");
     Console_RegisterCommandEx("zonelist", cmd_zonelist, "List the cube's scene zones (boxes+type)",
                               "zonelist [type]",
                               "Prints each ListZone box, Type (cube/camera/scenaric/giver/message/...), "

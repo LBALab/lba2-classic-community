@@ -148,6 +148,46 @@ ctl_headless() {
         --vsync on "$@"
 }
 
+# ctl_voice <args...> — windowless like ctl, but with the audio device left open.
+#
+# Every other helper here disables audio, either through --headless (which implies
+# --no-audio) or explicitly, because the goldens are rendering-only and the dummy
+# driver's nanosleep pacing is most of a run's sys time. A test about voice playback
+# cannot use any of them: with no audio device IsSamplePlaying is always false, so
+# Speak() has nothing to play and every wait-for-the-line-to-finish loop falls
+# straight through. That reads as a passing test of a window that never opened.
+#
+# SDL's dummy audio driver is what makes this cheap: no hardware, no sound, but it
+# consumes the stream at real-time pace, so a sample "plays" for its natural length
+# and the loops behave as they do for a player. Dummy video keeps the run windowless,
+# which is the other half of what --headless was giving us.
+#
+# Slower than the silent helpers by however long the voice lines are, so reach for it
+# only when the behaviour under test is timed against one.
+ctl_voice() {
+    SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+        timeout "$LBA2_TEST_TIMEOUT" \
+        "$LBA2_BIN" --no-autosave --language English --resolution 640x480 "$@"
+}
+
+# have_voice — true when the resolved data dir carries the per-scene VOX banks.
+#
+# A VOX folder holding only <LANG>_GAM.VOX (menu voices) is a real and common state
+# of an incomplete copy, and it plays menu lines while every scene line stays silent,
+# so testing for the folder is not enough. Looks for a numbered bank.
+have_voice() {
+    local d f
+    for d in "$LBA2_GAME_DIR"/VOX "$LBA2_GAME_DIR"/Common/VOX "$LBA2_GAME_DIR"/../VOX; do
+        [ -d "$d" ] || continue
+        # One match is enough, and every language ships its own, so this cannot be a
+        # single -f test: the glob expands to all of them.
+        for f in "$d"/*_000.VOX "$d"/*_000.vox; do
+            [ -f "$f" ] && return 0
+        done
+    done
+    return 1
+}
+
 # ctl_headless_cfg_driven <args...> — same as ctl_headless but does NOT
 # pin --resolution. For tests that verify lba2.cfg's ResolutionX/Y is the
 # actual boot-resolution source (test_res_switch_cfg.sh). Every other

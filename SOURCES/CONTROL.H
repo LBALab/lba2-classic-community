@@ -136,6 +136,35 @@ int Control_InputSchedule(U32 startTick, U32 durTicks, U32 mask);
    drops it. Builds `input fseq`. */
 int Control_InputScheduleFrame(U32 startFrame, U32 durFrames, U32 mask);
 
+/* --- Harness key holds (console `key`) -------------------------------------
+ *
+ * Hold a raw scancode down at the keyboard layer, which is the only injection point a
+ * MODAL sees: the timeline above reaches Input from MainLoop, and a menu or dialogue
+ * spinning in its own MyGetInput loop never gets back there. Every such loop does pass
+ * through ManageKeyboard, where ApplyHarnessKeys applies these.
+ *
+ * Durations are input polls, one per ManageKeyboard, not sim ticks: a modal advances no
+ * ticks and a tick-based delay inside one would never elapse. A poll is not the same as
+ * a MyGetInput call, since InitWaitNoInput(x) is GetInput(x) and that runs ManageKeyboard
+ * too. In MainLoop, where nothing else polls, one poll is one rendered frame.
+ */
+
+/* One past the highest scancode the packed joystick tail can address. CheckKey indexes
+   the tail as 256 - 32 + (sc >> 3), so the array bound, not the bit count, fixes this. */
+#define CONTROL_KEY_MAX_SCANCODE ((TABKEYS_NUM_KEYS - (256 - 32)) * 8)
+
+/* Hold `scancode` for `durPolls` polls, starting `delayPolls` polls from now. Returns 1,
+   or 0 if the scancode is out of range or the hold table is full. Scancode 0 is rejected:
+   it is SDL_SCANCODE_UNKNOWN and also the filler in every unset binding slot. Gamepad
+   scancodes (K_GAMEPAD_*) are accepted and land in the joystick tail. */
+int Control_KeyHold(U32 scancode, U32 delayPolls, U32 durPolls);
+
+/* Drop every scheduled hold (console `key off`). */
+void Control_KeyClear(void);
+
+/* Polls elapsed so far, so a caller can report timing against the same clock. */
+U32 Control_KeyPollCount(void);
+
 /* Replace the timeline with a single hold of `mask` for `durTicks` ticks
    (console `input <flags> [ticks]`). */
 void Control_InputHold(U32 mask, U32 durTicks);

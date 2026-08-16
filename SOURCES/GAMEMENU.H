@@ -102,6 +102,24 @@ extern S32 IsFirstGameLaunched(void);
 extern S32 MainGameMenu(S32 load);
 /*--------------------------------------------------------------------------*/
 extern void GameAskChoice(S32 nummess);
+/* Harness hook: drive GameAskChoice's two modal waits with held keys, so a
+   headless run can reach the state a player reaches by hand. `pick` is pressed
+   once the option list is up, past DoGameMenu's entry latch, which selects a row
+   and gives the verb a deterministic exit the way the capture hooks give the
+   other UI modals one. `press` is held from just after the chosen line starts
+   speaking, which is the only moment a Menus/Esc press can be a FRESH one during
+   playback -- the arm before Speak() masks anything already held, so an
+   externally scheduled key cannot land in that window on its own.
+
+   Scancodes, not input bits: this goes through Control_KeyHold, the only
+   injection point a modal loop reads. Either may be 0 for "leave that wait
+   alone". Disarmed on return. Used by the console `ui askchoice` verb. */
+extern void AskChoice_RequestDrive(U32 pickScancode, U32 pressScancode);
+/* Polls spent waiting on the chosen line in the last GameAskChoice, i.e. the skip loop
+   alone. The whole modal is dominated by MyDial speaking the QUESTION, so a caller
+   asking "did the press cut the line short" has to compare this and not the total:
+   whether the answer outlasts the question is a property of the dialogue bank. */
+extern U32 AskChoice_LastLinePolls(void);
 /*--------------------------------------------------------------------------*/
 extern void GameOver(void);
 /*--------------------------------------------------------------------------*/

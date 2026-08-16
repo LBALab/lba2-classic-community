@@ -34,6 +34,18 @@ S32 LastInputWasKeyboard = 0;
 void ApplyVirtualKeys(void);
 __attribute__((weak)) void ApplyVirtualKeys(void) {}
 
+// Weak hook for the control harness to hold a key down, on the same terms.
+// Separate from ApplyVirtualKeys so the touch overlay and the harness do not
+// have to know about each other; both run before the CheckKey scan below, so
+// either can put a key into this frame's state.
+//
+// This is the only injection point that a modal loop sees. The `input` timeline
+// ORs its mask into Input from MainLoop (PERSO.CPP), which a menu or dialogue
+// spinning in its own MyGetInput loop never reaches; every one of those loops
+// does pass through here.
+void ApplyHarnessKeys(void);
+__attribute__((weak)) void ApplyHarnessKeys(void) {}
+
 // --- Private functions -------------------------------------------------------
 void UpdateKeyboardState() {
     ManageEvents();
@@ -54,6 +66,7 @@ void UpdateKeyboardState() {
     }
 
     ApplyVirtualKeys();
+    ApplyHarnessKeys();
 }
 
 // --- Initialization ----------------------------------------------------------
