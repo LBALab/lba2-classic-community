@@ -87,6 +87,15 @@ got=$(value_of FixedTimestep)
 [ "$got" = "$chosen" ] \
     || fail "the console's own 'fixedtimestep $chosen' did not persist: config says '$got'"
 
+# Vsync is the case worth stating on its own: the Display menu's toggle flips the
+# global and writes nothing itself, so the exit write is the only thing that keeps
+# a player's choice. `vsync $probe_vsync` reaches that same write with the same
+# values the toggle would, so a per-run override swallowing it would show up here.
+run --exec "vsync $probe_vsync" >/dev/null
+chosen_vsync=$(value_of VSync)
+[ "$chosen_vsync" != "$base_vsync" ] \
+    || fail "the console's own 'vsync $probe_vsync' did not persist: config still says '$chosen_vsync'"
+
 # --- and a later overridden run leaves that choice alone ----------------------
 # The regression this test exists for: the harness runs constantly on developer
 # machines, and each run used to overwrite whatever the player had set.
@@ -95,8 +104,14 @@ got=$(value_of FixedTimestep)
 [ "$got" = "$chosen" ] \
     || fail "--fixed-timestep $probe_step overwrote the chosen $chosen: config says '$got'"
 
+# Same for the vsync the player chose, against the pin every UI capture now passes.
+run --vsync "$base_vsync" >/dev/null
+got=$(value_of VSync)
+[ "$got" = "$chosen_vsync" ] \
+    || fail "--vsync $base_vsync overwrote the chosen $chosen_vsync: config says '$got'"
+
 out=$(run --exec-at 1 "fixedtimestep")
 printf '%s' "$out" | grep -aqE "FixedTimestep: ON \($chosen ms" \
     || fail "the chosen $chosen ms is not in force next launch: $(printf '%s' "$out" | grep -aoE 'FixedTimestep: .*' | head -1)"
 
-pass "--fixed-timestep, --language and --vsync apply without persisting; a chosen $chosen ms survives them"
+pass "--fixed-timestep, --language and --vsync apply without persisting; a chosen $chosen ms and VSync $chosen_vsync survive them"
