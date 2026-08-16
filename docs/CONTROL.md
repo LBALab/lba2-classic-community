@@ -295,7 +295,12 @@ lba2cc --load X --tick 30 --exit 2>&1 1>/dev/null   # log only (stdout is data)
 ```
 
 `stdout` stays a pure data channel (`--dump-state`, the `--exec` result mirror),
-so redirect the two separately. Debug lines are off by default; add
+so redirect the two separately. Merging them with a bare `2>&1 | grep ...` is
+worse than untidy: a line emitted while the console is driving the run reaches
+both the stderr sink and the console's stdout mirror, so the merged capture holds
+every line twice, interleaved from two differently-buffered streams. On a
+per-frame trace that shows up as repeated timestamps and lines out of order,
+which reads exactly like the game clock jumping backwards. Capture one sink. Debug lines are off by default; add
 `--log-level debug` to surface them for the run (inline on stderr and in
 `adeline.log`). The `--dump-state` `log` field still captures only the last
 handful of *console* scrollback lines; stderr is the full stream.
