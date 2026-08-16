@@ -20,6 +20,7 @@
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 #include "GAMEMENU.H"
+#include "MENU_KEYNAV.H"
 
 #include <FILEIO/SAVEPNG.H>
 
@@ -724,37 +725,16 @@ void MenuConfig(void) {
         DetectJoys();
         MyGetInput();
 
+        MyKey = MenuKey_NumpadToNav(MyKey);
+
         switch (MyKey) {
-        case K_NUMPAD_8:
-            MyKey = K_UP;
-            break;
-        case K_NUMPAD_2:
-            MyKey = K_DOWN;
-            break;
-        case K_NUMPAD_4:
-            MyKey = K_LEFT;
-            break;
-        case K_NUMPAD_6:
+        /* This screen's own aliases, on top of the keypad legend. */
         case K_TAB:
             MyKey = K_RIGHT;
             break;
-        case K_NUMPAD_9:
-            MyKey = K_PAGE_UP;
-            break;
-        case K_NUMPAD_3:
-            MyKey = K_PAGE_DOWN;
-            break;
-        case K_NUMPAD_7:
-            MyKey = K_HOME;
-            break;
-        case K_NUMPAD_1:
-            MyKey = K_END;
-            break;
-        case K_NUMPAD_POINT:
         case K_BACKSPACE:
             MyKey = K_SUPPR;
             break;
-        case K_NUMPAD_ENTER:
         case K_SPACE:
             MyKey = K_ENTER;
             break;
@@ -1073,30 +1053,16 @@ void MenuGamepadConfig(void) {
         DetectJoys();
         MyGetInput();
 
+        MyKey = MenuKey_NumpadToNav(MyKey);
+
         switch (MyKey) {
-        case K_NUMPAD_8:
-            MyKey = K_UP;
-            break;
-        case K_NUMPAD_2:
-            MyKey = K_DOWN;
-            break;
-        case K_NUMPAD_9:
-            MyKey = K_PAGE_UP;
-            break;
-        case K_NUMPAD_3:
-            MyKey = K_PAGE_DOWN;
-            break;
-        case K_NUMPAD_7:
-            MyKey = K_HOME;
-            break;
-        case K_NUMPAD_1:
-            MyKey = K_END;
-            break;
-        case K_NUMPAD_POINT:
+        /* This screen's own aliases. Left and Right are missing from the list
+           below, which leaves the Key1/Key2 column switch at the bottom of the
+           loop reachable only from the pad itself. Kept as-is here so this
+           stays a mapping change; see the tracking issue for the gap. */
         case K_BACKSPACE:
             MyKey = K_SUPPR;
             break;
-        case K_NUMPAD_ENTER:
         case K_SPACE:
             MyKey = K_ENTER;
             break;
@@ -1409,6 +1375,8 @@ S32 ConfirmMenu(char *ask, char *ok, char *cancel) {
     while (flag == -1) {
         MyGetInput();
 
+        MyKey = MenuKey_NumpadToNav(MyKey);
+
         switch (MyKey) {
         case K_ESC:
             flag = 1;
@@ -1420,20 +1388,13 @@ S32 ConfirmMenu(char *ask, char *ok, char *cancel) {
             break;
 
         // pave numerique
+        // touches de controle
         case K_UP:
         case K_DOWN:
         case K_PAGE_UP:
         case K_PAGE_DOWN:
         case K_HOME:
         case K_END:
-
-        // touches de controle
-        case K_NUMPAD_8:
-        case K_NUMPAD_2:
-        case K_NUMPAD_9:
-        case K_NUMPAD_3:
-        case K_NUMPAD_7:
-        case K_NUMPAD_1:
         case K_TAB:
             select ^= 1;
             break;

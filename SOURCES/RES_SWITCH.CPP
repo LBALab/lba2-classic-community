@@ -14,6 +14,7 @@
 #include "DIRECTORIES.H" /* CFG_NAME */
 #include "FLOW.H"
 #include "GAMEMENU.H"
+#include "MENU_KEYNAV.H"
 #include "INTEXT.H" /* CameraCenter, SaveCamera / RestoreCamera */
 #include "INVENT.H" /* BackupScreen / RestoreScreen / DrawCadre / ALL_ANGLES */
 #include "PERSO.H"  /* WriteConfigFile (persist on dialog Keep) */
@@ -718,6 +719,11 @@ ResRevertChoice Res_RunRevertDialogIfPending(void) {
         Timer_FixedDtPump();
         ManageTime();
         MyGetInput();
+
+        /* The explicit key shortcuts below are what make this dialog answerable
+           whatever the player has bound, so they have to see the keypad legend
+           rather than only the twins the default bindings happen to carry. */
+        MyKey = MenuKey_NumpadToNav(MyKey);
 
         /* Directional input toggles focus between the two stacked buttons.
            UP / DOWN matches the rest of the engine's menus (NPC choice
