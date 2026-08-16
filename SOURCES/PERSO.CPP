@@ -2351,6 +2351,7 @@ static S32 StoredTexFilter = 0;
 static S32 EnvTexFilter = -1;
 static S32 StoredFixedTimestep = 16;
 static S32 StoredLanguage = 0;
+static S32 StoredVSync = TRUE;
 
 /* The value to write for such a setting: the stored preference while the live
    value is still the one the override forced, otherwise the live value, because
@@ -2372,6 +2373,10 @@ static S32 ForcedFixedTimestep(void) {
 
 static S32 ForcedLanguage(void) {
     return Control_HasLanguage() ? (S32)Control_GetLanguage() : -1;
+}
+
+static S32 ForcedVSync(void) {
+    return Control_HasVSync() ? (S32)Control_GetVSync() : -1;
 }
 
 void ReadConfigFile(void) {
@@ -2452,6 +2457,12 @@ void ReadConfigFile(void) {
 
     if (DisplayVSync < 0 OR DisplayVSync > 1)
         DisplayVSync = TRUE;
+
+    /* Same precedence the language uses: an explicit request for this run beats the stored
+       preference, and the preference is kept so WriteConfigFile can tell the two apart. */
+    StoredVSync = DisplayVSync;
+    if (Control_HasVSync())
+        DisplayVSync = (S32)Control_GetVSync();
 
     /* Renderer exists by now (SetWindowFullscreen above operates on the same
        window/renderer pair), so this applies the saved choice immediately.
@@ -2652,7 +2663,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("DetailLevel", DetailLevel);
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
-    DefFileBufferWriteValue("VSync", DisplayVSync);
+    DefFileBufferWriteValue("VSync", ValueToPersist(DisplayVSync, StoredVSync, ForcedVSync()));
     DefFileBufferWriteValue("DitherShading", GfxDitherShading);
     /* An environment override is for the run that asked for it: persisting the
        live value would turn `LBA2_TEXFILTER=2 ./lba2cc` into a permanent

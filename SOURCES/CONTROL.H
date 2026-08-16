@@ -72,6 +72,18 @@ int Control_GetLanguage(void);
 int Control_HasFixedTimestep(void);
 long Control_GetFixedTimestep(void);
 
+/* Vsync override via --vsync <on|off>. Returns 1 if the flag was supplied (use
+   Control_GetVSync for the forced value, 0 or 1), 0 otherwise (the engine reads the
+   cfg's VSync key as normal). Applied in PERSO.CPP where ReadConfigFile takes that key;
+   WriteConfigFile reads these back so the forced value is not persisted, unlike the
+   `vsync` console verb and the Display menu's toggle.
+
+   This is the setting the Display submenu prints, which is why a UI capture needs to be
+   able to name it. Frame pacing is a separate matter: Control_Begin drops the
+   presentation cap for every --exit run whatever this says. */
+int Control_HasVSync(void);
+int Control_GetVSync(void);
+
 /* --no-audio: skip InitAIL() and InitSampleDriver() at boot. Returns 1 if the flag
    was supplied, 0 otherwise. With audio init skipped, the SDL audio subsystem
    never opens a stream and the dummy driver's nanosleep pacing (~74% of sys time

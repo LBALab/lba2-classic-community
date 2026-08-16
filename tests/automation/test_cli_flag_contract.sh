@@ -52,6 +52,7 @@ MODES="
 --exit|--exit
 --fixed-dt|--fixed-dt 16
 --fixed-timestep|--fixed-timestep 100
+--vsync|--vsync off
 --screenshot|--screenshot \"$tmp/shot.png\"
 --dump-state|--dump-state \"$tmp/dump.json\"
 --demo|--demo
