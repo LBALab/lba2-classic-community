@@ -1241,7 +1241,10 @@ S32 InputPlayerName(S32 choice, char *name) {
         do {
             akey = GetAscii();
 
-            if (!IsValidChar(akey))
+            /* The illegal-filename set is a set of characters, so only ask it
+               about keycodes that are one. A keycode carrying the scancode mask
+               would be tested on the unrelated letter in its low byte. */
+            if (A_IS_CHARACTER(akey) AND !IsValidChar(akey))
                 akey = 0;
 
             switch (akey) {
@@ -1251,7 +1254,10 @@ S32 InputPlayerName(S32 choice, char *name) {
                 flag = -1;
                 break;
 
+            /* Retail treats keypad Enter as a universal confirm here: it commits
+               the name whether or not the player has it bound to anything. */
             case A_RETURN:
+            case A_NUMPAD_ENTER:
                 if (IsDatetimeReservedShape(PlayerName)) {
                     // Reserved shape: refuse and bounce back to the prior name.
                     PlayErrorSample();
@@ -1280,7 +1286,13 @@ S32 InputPlayerName(S32 choice, char *name) {
                 break;
 
             default:
-                akey &= 0xFF;
+                /* Only a character belongs in the name. A keycode standing for
+                   any other key carries the scancode mask, and the low byte
+                   under it is an unrelated letter (keypad Enter's is 'X', Up's
+                   is 'R'), so such a key is dropped rather than truncated into
+                   the field. */
+                if (!A_IS_CHARACTER(akey))
+                    break;
 
                 /* Max input cursor X = original 550 = centre(320) + 230 px. Keep the
                    same 230 px half-width at any resolution so the name-entry field
