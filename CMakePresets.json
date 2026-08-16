@@ -68,14 +68,14 @@
     {
       "name": "linux_sanitize",
       "inherits": "linux",
-      "displayName": "Linux (host tests, AddressSanitizer)",
-      "description": "64-bit host tests built with AddressSanitizer -- a host stand-in for Android MTE on heap-overflow / use-after-free.",
+      "displayName": "Linux (host tests, Address + UndefinedBehavior sanitizers)",
+      "description": "64-bit host tests under ASan (a host stand-in for Android MTE on heap-overflow / use-after-free) and UBSan. Alignment checking is off on purpose: see the CMAKE_C_FLAGS comment in docs/CI.md.",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "LBA2_BUILD_TESTS": "ON",
-        "CMAKE_C_FLAGS": "-fsanitize=address -fno-omit-frame-pointer -g",
-        "CMAKE_CXX_FLAGS": "-fsanitize=address -fno-omit-frame-pointer -g",
-        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address"
+        "CMAKE_C_FLAGS": "-fsanitize=address,undefined -fno-sanitize=alignment -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-sanitize=alignment -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
       }
     },
     {

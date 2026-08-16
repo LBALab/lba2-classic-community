@@ -129,11 +129,16 @@ jobs:
       - name: Verify Binary
         run: test -f build-clang/SOURCES/lba2cc && echo "Clang build successful"
 
-  # AddressSanitizer over the same host tests the build job runs. The suite was
-  # already clean when this job was added, so it can only ever fail on something
-  # new: a heap overflow, a use-after-free, or a leak introduced by a change.
-  # That also makes it a host stand-in for Android MTE, which is what the
-  # linux_sanitize preset was written for.
+  # Address and UndefinedBehavior sanitizers over the same host tests the build
+  # job runs. The suite was clean under both when this job was written, so it can
+  # only ever fail on something new: a heap overflow, a use-after-free, a leak,
+  # or the undefined arithmetic UBSan covers. ASan here is also a host stand-in
+  # for Android MTE, which is what the linux_sanitize preset was written for.
+  #
+  # The preset compiles with -fno-sanitize-recover=undefined on purpose. UBSan's
+  # default is to print a diagnostic and carry on, which exits zero and makes the
+  # gate a decoration: findings scroll past in a green run. With recovery off, a
+  # finding aborts the test and ctest goes red.
   #
   # host_tests only, not lba2cc. The build job already proves the game target
   # compiles, and nothing here can run it without retail data, so a second full
@@ -167,7 +172,9 @@ jobs:
       - name: Build
         run: cmake --build build-asan --target host_tests
 
-      - name: Host tests under AddressSanitizer
+      - name: Host tests under Address + UndefinedBehavior sanitizers
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1
         run: cd build-asan && ctest -L host_quick --output-on-failure
 
   # The demo SKU compiles a different set of sources: ~60 #ifdef DEMO sites the
