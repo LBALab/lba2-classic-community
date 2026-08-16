@@ -85,6 +85,28 @@ user_dir() {
     fi
 }
 
+# engine_path -- the spelling the engine itself uses for a folder a test named.
+#
+# MSYS2 converts a standalone path argument on its way to a native binary, so a
+# folder passed as /e/LBA2/Common is opened, recorded and reported as
+# E:/LBA2/Common. A test that compares what the engine wrote down against the
+# string it passed is then comparing two spellings of one folder. Elsewhere this
+# is the identity, so call sites need no platform test of their own.
+engine_path() { # engine_path <path>
+    if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s\n' "$1"; fi
+}
+
+# norm_path -- a folder's shape, for comparing two spellings of one path.
+#
+# Three differences that are not differences of folder: the engine ends a path
+# with the platform's separator, so a Windows run answers with a trailing
+# backslash for a folder named with forward slashes; it appends components with
+# a backslash there, so mixed separators are normal in its output; and text it
+# writes carries CRLF, so a line read back ends in a stray CR.
+norm_path() { # norm_path <path>
+    printf '%s\n' "$1" | tr -d '\r' | tr '\\' '/' | sed 's|/*$||'
+}
+
 skip() { echo "SKIP: ${TESTNAME:-test}: $*"; exit $SKIP_RC; }
 fail() { echo "FAIL: ${TESTNAME:-test}: $*"; exit 1; }
 pass() { echo "PASS: ${TESTNAME:-test}${1:+ — $1}"; exit 0; }
