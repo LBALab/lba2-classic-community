@@ -134,6 +134,20 @@ interactions were previously unreachable headlessly. Four console commands close
 let a single `--exec` line reproduce an interaction (position, quest flags, and script
 observability) that would otherwise need a specific playthrough save.
 
+**Driving the camera.** The Auto camera's analog orbit answers only to a mouse or a gamepad in
+front of the screen, which puts the whole free-camera path beyond the harness's reach.
+`camnudge` feeds the same per-frame nudge those devices feed, at the same point in the frame,
+and `camtrace` logs the camera's angle state on every follow-cam update. A camera bug
+that reads as "the view tore from one angle to another" becomes a scripted run with numbers:
+
+```bash
+# Orbit away, turn the hero in place while the camera holds, then touch the stick.
+lba2cc --headless --load mysave --fixed-dt 16 \
+    --exec "cam_follow 1; cam_hold_angle 1; camtrace 1" \
+    --exec-at 30 "camnudge 40 0 10" --exec-at 100 "input left 60" \
+    --exec-at 170 "camnudge 1 0 1" --tick 200 --exit
+```
+
 `--load` resolves its argument as a direct file path first, then as a save name in the
 save directory, then with a `.lba` suffix — so both `--load "021 Palace"` and
 `--load /full/path/021 Palace.LBA` work. Note the *name* form looks in the user save

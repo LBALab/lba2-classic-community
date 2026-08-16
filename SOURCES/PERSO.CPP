@@ -243,6 +243,8 @@ static void UpdateFollowCameraExt(void) {
                          * to avoid jitter when very close. */
         FollowCamTargetBeta = (2048 - newbeta) & 4095;
 
+        S32 traceBetaBefore = BetaCam;
+
         if (manualPan) {
             BetaCam = FollowCamTargetBeta;
         } else if (ManualCameraOrbitActive OR FollowCamReengageDelay == 0) {
@@ -280,6 +282,21 @@ static void UpdateFollowCameraExt(void) {
             } else {
                 BetaCam = FollowCamTargetBeta;
             }
+        }
+
+        /* camtrace: one line per follow-cam update. `step` is what BetaCam moved
+         * this frame -- a large value with orbit=1 right after the hero turned in
+         * place is the camera snapping through rotation it never tracked. */
+        if (DbgCamTrace) {
+            S32 traceStep = BetaCam - traceBetaBefore;
+            if (traceStep > 2048)
+                traceStep -= 4096;
+            if (traceStep < -2048)
+                traceStep += 4096;
+            Log_Info("[cam] heroBeta %4d add %4d beta %4d target %4d step %5d delay %3d orbit %d moving %d",
+                     (int)ptr3d->Beta, (int)AddBetaCam, (int)BetaCam, (int)FollowCamTargetBeta,
+                     (int)traceStep, (int)FollowCamReengageDelay, (int)ManualCameraOrbitActive,
+                     (int)heroMoving);
         }
 
         /* --- Zoom distance: converge FollowCamEffectiveDist toward

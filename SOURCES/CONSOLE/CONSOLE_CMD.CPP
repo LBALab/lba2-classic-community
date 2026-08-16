@@ -1771,6 +1771,31 @@ static void cmd_cubetrace(int argc, const char *argv[]) {
     Console_Print("cubetrace: %s", DbgCubeTrace ? "ON" : "OFF");
 }
 
+/* camtrace <0|1>: log the Auto-camera angle state on every follow-cam update, so a headless run can
+   show frame by frame what the camera did while the hero turned and the player orbited. */
+static void cmd_camtrace(int argc, const char *argv[]) {
+    if (argc >= 2)
+        DbgCamTrace = atoi(argv[1]) ? 1 : 0;
+    Console_Print("camtrace: %s", DbgCamTrace ? "ON" : "OFF");
+}
+
+/* camnudge <dBeta> [dAlpha] [frames]: drive the analog camera without a mouse or a gamepad. Feeds
+   the same per-frame nudge the right stick and the mouse drag feed, for `frames` frames (default 1,
+   i.e. a single-frame stick touch). Positive dBeta orbits the way a right-stick push does. */
+static void cmd_camnudge(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Usage: camnudge <dBeta> [dAlpha] [frames]");
+        return;
+    }
+    DbgCamNudgeBeta = atoi(argv[1]);
+    DbgCamNudgeAlpha = (argc >= 3) ? atoi(argv[2]) : 0;
+    DbgCamNudgeFrames = (argc >= 4) ? atoi(argv[3]) : 1;
+    if (DbgCamNudgeFrames < 0)
+        DbgCamNudgeFrames = 0;
+    Console_Print("camnudge: dBeta %d dAlpha %d over %d frame(s)", DbgCamNudgeBeta, DbgCamNudgeAlpha,
+                  DbgCamNudgeFrames);
+}
+
 /* skipmodals <0|1>: abort dialogue modals immediately so a headless run does not hang on a
    give/talk dialog (a modal spins waiting for a keypress while the main tick loop is stalled). */
 static void cmd_skipmodals(int argc, const char *argv[]) {
@@ -2107,6 +2132,14 @@ void Console_RegisterAll(void) {
                               "cubetrace <0|1>",
                               "Logs island + from -> to cube on each ChangeCube, tracing the game's "
                               "cube-to-cube flow across a playthrough or the demo reel.");
+    Console_RegisterCommandEx("camtrace", cmd_camtrace, "Log the Auto-camera angle state each update",
+                              "camtrace <0|1>",
+                              "Logs hero Beta, AddBetaCam, BetaCam and its target, the re-engage "
+                              "countdown and the manual-orbit flag on every follow-cam update.");
+    Console_RegisterCommandEx("camnudge", cmd_camnudge, "Inject a manual camera nudge (stick/mouse stand-in)",
+                              "camnudge <dBeta> [dAlpha] [frames]",
+                              "Feeds the same per-frame nudge the gamepad right stick and the mouse "
+                              "drag feed, so the analog camera can be driven headlessly.");
     Console_RegisterCommandEx("skipmodals", cmd_skipmodals, "Auto-advance dialogue modals (headless)",
                               "skipmodals <0|1>",
                               "Aborts dialogue modals immediately so a headless run does not hang on a "

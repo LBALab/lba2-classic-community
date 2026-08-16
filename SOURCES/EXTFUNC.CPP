@@ -2386,6 +2386,14 @@ S32 GereExtKeys(U32 key)
             if (dBeta != 0 OR dAlpha != 0)
                 flag |= ApplyManualCameraNudge(dBeta, dAlpha, 0);
         }
+
+        /* Console `camnudge`: stand in for the stick/mouse so a headless run can
+         * drive the analog camera. Same nudge entry point and same point in the
+         * frame as the real sources, so it reproduces their ordering exactly. */
+        if (DbgCamNudgeFrames > 0) {
+            flag |= ApplyManualCameraNudge(DbgCamNudgeBeta, DbgCamNudgeAlpha, 0);
+            DbgCamNudgeFrames--;
+        }
     }
 #endif
 

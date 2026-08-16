@@ -330,6 +330,16 @@ S32 DbgUseItemTrace = 0;
 // Console `cubetrace <0|1>`: log every cube transition (island + from -> to cube) as it happens,
 // so a playthrough or the demo reel traces out the game's cube-to-cube flow. No gameplay effect.
 S32 DbgCubeTrace = 0;
+// Console `camtrace <0|1>`: log the Auto-camera angle state (hero Beta, AddBetaCam, BetaCam, its
+// target, the re-engage countdown and whether a manual orbit is driving) on every follow-cam
+// update, so a headless run can show what the camera did frame by frame. No gameplay effect.
+S32 DbgCamTrace = 0;
+// Console `camnudge <dBeta> [dAlpha] [frames]`: inject a manual camera nudge for the next N frames
+// through the same path the mouse drag and the gamepad right stick use, so the analog camera can be
+// driven without a device. Counts down to 0 and stops. No gameplay effect.
+S32 DbgCamNudgeBeta = 0;
+S32 DbgCamNudgeAlpha = 0;
+S32 DbgCamNudgeFrames = 0;
 // Console `skipmodals <0|1>`: abort dialogue modals immediately (as if Esc) so a headless run does
 // not hang on a give/talk dialog. The script continues past the dialog; no quest-state change.
 S32 DbgSkipModals = 0;
