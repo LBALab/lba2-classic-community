@@ -26,6 +26,9 @@
  * control wins while the player is driving and the assist fades back in after.
  * Seeds the runtime FollowCamManualHoldFrames global (cvar cam_manual_hold). */
 #define FOLLOW_CAM_MANUAL_HOLD_DEFAULT 45 /* frames the auto-assist yields after a manual camera nudge (~0.75s) */
+/* Ceiling on the above. Ten seconds at 60fps, matching the re-engage delay's
+ * bound, and low enough that the fade's `hold * 100` cannot leave S32. */
+#define FOLLOW_CAM_MANUAL_HOLD_MAX 600
 
 /* Hold-angle (free-camera) mode ---------------------------------------------*/
 /* When on, the manual camera rotation (AddBetaCam) is never auto-recentered

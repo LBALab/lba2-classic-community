@@ -207,9 +207,21 @@ void UpdateFollowCameraExt(void) {
                          * 100 (full assist) when no hold. */
         if (FollowCamManualHold > 0)
             FollowCamManualHold--;
+        /* The console sets cvars without going through the config's range check,
+         * so clamp where it is used, as the orbit glide does in EXTFUNC. Both
+         * bounds are load-bearing here rather than tidiness: the hold counter is
+         * seeded from the frame count, so an unbounded cam_manual_hold makes
+         * `hold * 100` leave S32, and the negative product that follows drives
+         * the fade to full assist exactly when the player has asked for none. */
+        S32 holdFrames = FollowCamManualHoldFrames;
+        if (holdFrames > FOLLOW_CAM_MANUAL_HOLD_MAX)
+            holdFrames = FOLLOW_CAM_MANUAL_HOLD_MAX;
+        S32 hold = FollowCamManualHold;
+        if (hold > holdFrames)
+            hold = holdFrames;
         S32 autoFactor = 100;
-        if (FollowCamManualHoldFrames > 0)
-            autoFactor = 100 - FollowCamManualHold * 100 / FollowCamManualHoldFrames;
+        if (holdFrames > 0)
+            autoFactor = 100 - hold * 100 / holdFrames;
         if (autoFactor < 0)
             autoFactor = 0;
         if (autoFactor > 100)
@@ -471,6 +483,8 @@ void FollowCam_ReadConfig(void) {
     FollowCamManualHoldFrames = DefFileBufferReadValueDefault("FollowCamManualHoldFrames", FOLLOW_CAM_MANUAL_HOLD_DEFAULT);
     if (FollowCamManualHoldFrames < 0)
         FollowCamManualHoldFrames = 0;
+    if (FollowCamManualHoldFrames > FOLLOW_CAM_MANUAL_HOLD_MAX)
+        FollowCamManualHoldFrames = FOLLOW_CAM_MANUAL_HOLD_MAX;
     FollowCamHoldAngle = DefFileBufferReadValueDefault("FollowCamHoldAngle", FOLLOW_CAM_HOLD_ANGLE_DEFAULT) ? TRUE : FALSE;
 }
 
