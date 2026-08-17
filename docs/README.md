@@ -11,6 +11,7 @@ Index of documentation in this repository.
 | [GLOSSARY.md](GLOSSARY.md) | Domain terms (Cube, Zone, T_OBJET, scripts, hero, collision, enums) with code locations. |
 | [LIFECYCLES.md](LIFECYCLES.md) | Main loop order, scene load, object/hero/animation lifecycles and where they live in code. |
 | [SCENES.md](SCENES.md) | All 223 cubes by island with location names; interior/exterior; object and zone counts. |
+| [ZONES.md](ZONES.md) | The scene trigger layer: what each of the ten zone types reads from its eight opaque `Info` slots, the `Info7` flag word, camera zones and the authored shot they carry (and which parts of it the Auto camera honours), and inspecting zones with `zonelist`. |
 | [IMPACT_SCRIPTS.md](IMPACT_SCRIPTS.md) | Effects subsystem: IMPACT bytecode + FLOW particle emitters + POF wireframe shapes — runtimes (`DoImpact`, `CreateParticleFlow`, `PofDisplay3DExt`), the on-disk formats, the shipped data, and decoder/compiler tools (`scripts/dev/impact_disasm.py`, `flow_dump.py`, `pof_dump.py`). |
 | [MENU.md](MENU.md) | Game menu flow, layout, localization, submenus, and entry points. |
 | [TEXT.md](TEXT.md) | Text and localization: the `TEXT.HQR` format (language x bank entry pairs, order/text banks, the attribute byte), id resolution, the two fonts and their codepages, the dialogue engine, and why community strings must live in source. |
