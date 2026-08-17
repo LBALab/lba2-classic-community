@@ -15,7 +15,7 @@ went. An identifier found nowhere is more likely prose than a defect, so it is r
 and does not fail the run.
 
   scripts/ci/check-docs-symbols.py            # check every doc
-  scripts/ci/check-docs-symbols.py docs/X.md  # check some
+  scripts/ci/check-docs-symbols.py docs/CONFIG.md   # check some
 """
 import os
 import re
