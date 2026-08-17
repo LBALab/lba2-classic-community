@@ -59,6 +59,11 @@ cmake -B build
 cmake --build build
 ```
 
+To find out what your machine is missing before you hit it, run
+`./scripts/dev/check-tooling.sh` (or `make check-tooling`). It probes every
+external tool the repo uses and exits non-zero only when the clone genuinely
+cannot build; the full tiered index is in [docs/TOOLING.md](docs/TOOLING.md).
+
 The default build includes SDL3-based audio and Smacker FMV playback. Override with `-DSOUND_BACKEND=null -DMVIDEO_BACKEND=null` for a minimal build; see the build options table in the README.
 
 To run the game you need retail data (not in the repo); see [docs/GAME_DATA.md](docs/GAME_DATA.md).

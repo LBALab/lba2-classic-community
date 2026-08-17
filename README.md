@@ -86,6 +86,8 @@ Download the `lba2cc-<version>-android-arm64-v8a.apk` (or `armeabi-v7a`). Requir
 
 On macOS, install with `brew install ninja sdl3`.
 
+Run `./scripts/dev/check-tooling.sh` to see what your machine is missing. That covers the build; the tools needed for testing, linting, packaging, Android, and releasing are indexed by tier in [docs/TOOLING.md](docs/TOOLING.md).
+
 ### First clone
 
 1. `make` or `make help` — lists convenience targets (`build`, `run`, `clean`, `test`, …).
