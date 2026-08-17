@@ -332,7 +332,7 @@ if have docker; then
     if docker info >/dev/null 2>&1; then
         row ok "container runtime" "docker daemon reachable — ./run_tests_docker.sh"
     else
-        row gap "container runtime" "docker resolves but the daemon is unreachable; the ASM suite cannot run"
+        row gap "container runtime" "docker resolves but the daemon is unreachable; on WSL check Docker Desktop's WSL integration (docs/TOOLING.md)"
     fi
 elif have podman; then
     # Podman speaks every subcommand run_tests_docker.sh uses, but the script
