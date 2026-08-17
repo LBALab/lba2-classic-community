@@ -1,4 +1,4 @@
-/* Phase 1 anchor (docs/SAVE_WIRE_PLAN.md, layer 4a): pin the 32-bit retail wire
+/* Phase 1 anchor (docs/plan/SAVE_WIRE_PLAN.md, layer 4a): pin the 32-bit retail wire
  * layout of the three pointer-bearing save structs, independently of the wire
  * structs themselves, and prove the ...FromWire32 readers decode that layout to
  * the right native fields.  This is the non-circular anchor that makes ...FromWire32
@@ -16,7 +16,7 @@
 #include <string.h>
 
 /* ── layer 4a-i: static size / offset locks, justified by the derivation table
- * in docs/SAVE_WIRE_PLAN.md (140 scalar prefix + 136 wire Obj = 276 stride). ── */
+ * in docs/plan/SAVE_WIRE_PLAN.md (140 scalar prefix + 136 wire Obj = 276 stride). ── */
 static_assert(sizeof(T_OBJ_3D_WIRE32) == 136, "wire T_OBJ_3D must be 136 bytes");
 static_assert(sizeof(T_EXTRA_WIRE32) == 68, "wire T_EXTRA must be 68 bytes");
 static_assert(sizeof(S_PART_FLOW_WIRE32) == 60, "wire S_PART_FLOW must be 60 bytes");

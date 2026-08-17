@@ -1,4 +1,4 @@
-/* Host test for the Phase 1 log core + file sink (docs/BOOT_LOG_PLAN.md).
+/* Host test for the Phase 1 log core + file sink (docs/plan/BOOT_LOG_PLAN.md).
  *
  * Built with -DLBA_LOG_NO_SDL, so the log core's format-then-dispatch goes
  * straight to the fan-out with no SDL_Init — the file sink is exercised

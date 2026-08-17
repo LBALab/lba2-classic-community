@@ -24,7 +24,7 @@ accidentally perturb the simulation."* The screenshots are the visual the human 
 ## Comparison rules
 
 Two tiers, from the measured determinism of the engine (see
-[docs/AUTOMATION_PLAN.md](../../../../docs/AUTOMATION_PLAN.md)):
+[docs/plan/AUTOMATION_PLAN.md](../../../../docs/plan/AUTOMATION_PLAN.md)):
 
 - **Structural (fails the baseline):** scene, `vars`, hero discrete fields, inventory,
   per-actor `index`/`body`/`life`/`move`/`flags`, and all counts. These are timing-invariant

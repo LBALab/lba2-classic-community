@@ -9,7 +9,7 @@
 **Status:** In progress. U1 (relocate core to `LIB386`) and U2 (shim
 `LogPrintf`/`LogPuts` onto the fan-out) merged; U3 (severity pass) and an
 SDL-spine test are in review. Builds on the structured boot log
-(#269/#270/#272 — see [BOOT_LOG_PLAN.md](BOOT_LOG_PLAN.md)). This unifies the
+(#269/#270/#272 — see [BOOT_LOG_PLAN.md](plan/BOOT_LOG_PLAN.md)). This unifies the
 legacy `LogPrintf`/`LogPuts` path into that same fan-out so there is one logging
 system, not two coexisting ones.
 
@@ -176,7 +176,7 @@ in slices rather than one sweep:
 - The MILES backend's logs (dead in `SOUND_BACKEND=sdl` builds) unless it's
   reactivated.
 - Async/threaded logging, log rotation, overlay colour (unchanged from
-  BOOT_LOG_PLAN.md non-goals).
+  [BOOT_LOG_PLAN.md](plan/BOOT_LOG_PLAN.md) non-goals).
 
 ## Verification (whole campaign)
 

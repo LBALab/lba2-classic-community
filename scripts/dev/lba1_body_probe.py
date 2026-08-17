@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Feasibility spike: transcode an LBA1 body to the lba2cc engine's format (docs/LBA1_PORT_PLAN.md §6).
+"""Feasibility spike: transcode an LBA1 body to the lba2cc engine's format (docs/plan/LBA1_PORT_PLAN.md §6).
 
 Source of truth for the LBA1 format is ../lba1-classic (the original Adeline source):
   - body stream walk: LIB386/LIB_3D/P_OBJET.ASM  (AffObjet / AnimNuage / RotateNuage /

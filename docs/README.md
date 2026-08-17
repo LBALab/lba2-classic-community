@@ -10,7 +10,6 @@ Index of documentation in this repository.
 |-----|-------------|
 | [GLOSSARY.md](GLOSSARY.md) | Domain terms (Cube, Zone, T_OBJET, scripts, hero, collision, enums) with code locations. |
 | [LIFECYCLES.md](LIFECYCLES.md) | Main loop order, scene load, object/hero/animation lifecycles and where they live in code. |
-| [INIT_RESEARCH.md](INIT_RESEARCH.md) | Initialisation path from `main` to a running scene: boot phases, new-game vs load-save, timing/speed model, cleanup candidates, verbatim TODO inventory. |
 | [SCENES.md](SCENES.md) | All 223 cubes by island with location names; interior/exterior; object and zone counts. |
 | [IMPACT_SCRIPTS.md](IMPACT_SCRIPTS.md) | Effects subsystem: IMPACT bytecode + FLOW particle emitters + POF wireframe shapes — runtimes (`DoImpact`, `CreateParticleFlow`, `PofDisplay3DExt`), the on-disk formats, the shipped data, and decoder/compiler tools (`scripts/dev/impact_disasm.py`, `flow_dump.py`, `pof_dump.py`). |
 | [MENU.md](MENU.md) | Game menu flow, layout, localization, submenus, and entry points. |
@@ -37,7 +36,6 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 | [ENGINE_GAME_INTERFACE.md](ENGINE_GAME_INTERFACE.md) | The engine↔game membrane: the Life/Track per-object script VM. |
 | [ENGINE_FILE_FORMATS.md](ENGINE_FILE_FORMATS.md) | Data contract: the Adeline on-disk formats (HQR, LZ, body, anim, sprite, samples, XMIDI, XCF), each with its cross-title version timeline. |
 | [LBA1_PORTING_SURFACE.md](LBA1_PORTING_SURFACE.md) | Per-subsystem cost of hosting LBA1 on this engine; verified against LBA1 retail data. |
-| [LBA1_PORT_PLAN.md](LBA1_PORT_PLAN.md) | Plan (awaiting go/no-go): how to bring LBA1 to this groundwork. Costs three paths (native port / host on lba2cc / hybrid repo), recommends hosting LBA1 content on the lba2cc engine in-repo behind a game-id, with an agnostic-menu/shell design, twin-e as oracle, and a feasibility-spike ladder. |
 
 ## Build & debug
 
@@ -46,8 +44,6 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 | [WINDOWS.md](WINDOWS.md) | Building on Windows with MSYS2; game files, toolchain. |
 | [ANDROID.md](ANDROID.md) | Building, packaging, and running on Android (arm64-v8a / armeabi-v7a): NDK + SDL3 cross-build, APK bundler, 16 KB pages, game-data placement, touch overlay. |
 | [GAME_DATA.md](GAME_DATA.md) | Retail game files: `LBA2_GAME_DIR`, `--game-dir`, discovery order, dev layouts. |
-| [PORTABILITY_PLAN.md](PORTABILITY_PLAN.md) | Keeping several installs out of each other's saves and settings: `--user-dir`, `--profile`, the `portable.txt` marker, the config read as a chain rather than a copy, and what the boot banner says about where a run is reading and writing. |
-| [RELEASE_DETECTION_PLAN.md](RELEASE_DETECTION_PLAN.md) | Why the release is read off the data as well as the config: what `DistribVersion` actually decides, why `0` is the right answer for a re-release, the one case that rendered wrong without it, and separating the publisher splash from the release identity. |
 | [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md) | Reading retail assets straight from a raw ISO/BIN disc image (GOG `LBA2.GOG`): ISO9660 reader, mount + `OpenRead` fallback, in-image music. Plus the retail CD assessment (US "Twinsen's Odyssey" rip) and the plan for CD-DA music, other containers and multi-track cues. |
 | [DEBUG.md](DEBUG.md) | Original Adeline debug tools (DEBUG_TOOLS=ON): overlay, F9 screenshot, bug save/load, cheats, scene selection. |
 | [CONSOLE.md](CONSOLE.md) | Quake-style debug console (always available): backtick/F12, commands and cvars. |
@@ -88,7 +84,30 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 | [WIDESCREEN_PROJECTION_AUDIT.md](WIDESCREEN_PROJECTION_AUDIT.md) | Projection 4:3 audit: where projection hardcodes the screen centre and 640, culling/preclip sites, and what PR #134 did and did not route. |
 | [ABI.md](ABI.md) | Rule for reading 32-bit DOS-era data on 64-bit hosts; catalogue of fat types; compile-time guards. |
 | [PLATFORM.md](PLATFORM.md) | High-level map of host assumptions (pointer ABI, endianness, FP precision, ASM, OS boundary) with status badges and next-step pointers. |
-| [PLATFORM_PAL_PLAN.md](PLATFORM_PAL_PLAN.md) | Plan (awaiting go/no-go): in-place Platform Abstraction Layer decoupling the engine from direct SDL3. SDL-surface audit, RFC #120 contract reconciliation, and a PR-sequenced, behavior-preserving extraction plan with a headless backend. |
+
+## Plans & research
+
+Design trails, in [plan/](plan/). A plan is written before the work and kept afterwards as
+the record of why it was built that way; the reference docs above describe what the engine
+does today, and are the ones to read first. **Implemented** means the plan landed and the
+doc is now history: where it disagrees with the code, the code wins.
+
+| Doc | Status | Description |
+|-----|--------|-------------|
+| [AUTOMATION_RESEARCH.md](plan/AUTOMATION_RESEARCH.md) | Implemented | Phase 1 findings behind the CLI harness: what could be driven from outside the game loop, and at what cost. |
+| [AUTOMATION_PLAN.md](plan/AUTOMATION_PLAN.md) | Implemented | Design trail for the `CONTROL` module (`--load`, `--exec`, `--tick`, `--dump-state`), with as-built notes on where the implementation diverged. See [CONTROL.md](CONTROL.md) for usage. |
+| [FIXED_DT_RESEARCH.md](plan/FIXED_DT_RESEARCH.md) | Implemented | Phase 1 mapping of the engine's loop classes and which of them wall-clock timing makes irreproducible. |
+| [FIXED_DT_PLAN.md](plan/FIXED_DT_PLAN.md) | Implemented | Design for `--fixed-dt <ms>`, the harness-only virtual clock that makes `--dump-state` byte-reproducible. See [TIMING.md](TIMING.md) for the clocks as they stand. |
+| [INPUT_SIM_PLAN.md](plan/INPUT_SIM_PLAN.md) | Implemented | Design for driving the hero headlessly with sustained, combinable input (`input seq` / `fseq`), and the throttle-drop regression class it exists to catch. |
+| [SAVE_WIRE_PLAN.md](plan/SAVE_WIRE_PLAN.md) | Implemented | Derivation of the bit-exact 32-bit save wire format (276-byte stride) and the four layout decisions behind `SAVEGAME_WIRE`. |
+| [PORTABILITY_PLAN.md](plan/PORTABILITY_PLAN.md) | Implemented | Keeping several installs out of each other's saves and settings: `--user-dir`, `--profile`, the `portable.txt` marker, and the config read as a chain rather than a copy. |
+| [RELEASE_DETECTION_PLAN.md](plan/RELEASE_DETECTION_PLAN.md) | Implemented | Why the release is read off the data as well as the config: what `DistribVersion` decides, and separating the publisher splash from the release identity. See [VERSIONS.md](VERSIONS.md). |
+| [BOOT_LOG_PLAN.md](plan/BOOT_LOG_PLAN.md) | Implemented, partly superseded | Boot log and exit screen. Its per-sink severity model was reworked into the single global log level described in [LOGGING_UNIFICATION.md](LOGGING_UNIFICATION.md). |
+| [INIT_RESEARCH.md](plan/INIT_RESEARCH.md) | Research | Initialisation path from `main` to a running scene: boot phases, new-game vs load-save, timing/speed model, cleanup candidates, verbatim TODO inventory. |
+| [INPUT_REPLAY_RESEARCH.md](plan/INPUT_REPLAY_RESEARCH.md) | Research | Capturing input per tick and replaying a session as a gameplay-regression net, the counterpart to the draw-call [polyrec](POLYREC.md). No implementation. |
+| [LBA1_PORT_PLAN.md](plan/LBA1_PORT_PLAN.md) | Proposed | Awaiting go/no-go: how to bring LBA1 to this groundwork. Costs three paths, recommends hosting LBA1 content on the lba2cc engine behind a game-id, with a feasibility-spike ladder. Companion to [LBA1_PORTING_SURFACE.md](LBA1_PORTING_SURFACE.md). |
+| [PLATFORM_PAL_PLAN.md](plan/PLATFORM_PAL_PLAN.md) | Proposed | Awaiting go/no-go: in-place Platform Abstraction Layer decoupling the engine from direct SDL3. SDL-surface audit, RFC #120 reconciliation, PR-sequenced extraction with a headless backend. |
+| [RENDER_INTERP_PLAN.md](plan/RENDER_INTERP_PLAN.md) | Proposed | Smooth motion above the sim rate (#412), building on the fixed-timestep sim in [MOVEMENT_FRAMERATE.md](MOVEMENT_FRAMERATE.md). Nothing landed. |
 
 ## External resources
 

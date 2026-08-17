@@ -260,7 +260,7 @@ source from `TimerSystemHR`:
   already pump the clock for the harness (`Timer_FixedDtPresent`/`Timer_FixedDtPump`, the
   `SaveTimer`/`RestoreTimer` modals in `MESSAGE.CPP`/`INVENT.CPP`/`AMBIANCE.CPP`).
 
-This generalizes the existing fixed-dt overlay ([FIXED_DT_PLAN.md](FIXED_DT_PLAN.md)): the
+This generalizes the existing fixed-dt overlay ([FIXED_DT_PLAN.md](plan/FIXED_DT_PLAN.md)): the
 harness case is this same model with `TimerSystemHR` *also* virtual for determinism. Because
 the harness path is unchanged, `--fixed-dt 16` stays bit-identical and the projection golden
 and ASM-equivalence tests are untouched. The refactor is contained to `TIMER.CPP` (a
@@ -335,5 +335,5 @@ Test level must match the fix level. The fix is in the main loop, so:
 
 - [TIMING.md](TIMING.md): the two clocks, `ManageTime`, and the fixed-dt primitives this
   fix promotes to a gameplay mode.
-- [FIXED_DT_PLAN.md](FIXED_DT_PLAN.md): the harness-only virtual clock the fix builds on.
+- [FIXED_DT_PLAN.md](plan/FIXED_DT_PLAN.md): the harness-only virtual clock the fix builds on.
 - [CONTROL.md](CONTROL.md): `--fixed-dt`, `--tick`, `--dump-state`.

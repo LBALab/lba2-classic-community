@@ -1022,7 +1022,7 @@ restartloop:
 
         MyGetInput();
 
-        // Harness input timeline (docs/INPUT_SIM_PLAN.md): OR the currently-held injected bits into
+        // Harness input timeline (docs/plan/INPUT_SIM_PLAN.md): OR the currently-held injected bits into
         // this frame's Input so the harness drives the hero without a keyboard. A `seq` hold is
         // metered in SIM ticks (Control_InputAdvance below, once per sim-running frame) so the
         // throttle cannot gobble it; an `fseq` event is metered in RENDERED frames (the frame clock
@@ -2048,7 +2048,7 @@ restartloop:
                 goto skip_simulation; // high-fps skip (remainder carries) or clock rewind (re-anchored)
         }
 
-        /* Advance the harness input timeline by this frame's sim ticks (docs/INPUT_SIM_PLAN.md).
+        /* Advance the harness input timeline by this frame's sim ticks (docs/plan/INPUT_SIM_PLAN.md).
            Metered in sim ticks, not rendered frames, so a hold means the same across
            --fixed-timestep settings; a skipped frame goto's above and never reaches here, so it
            consumes no tick. nSimSteps is 1 when unthrottled. */
@@ -3009,7 +3009,7 @@ void TheEndInfo() {
        PROGRAM_OK (2) only when TheEnd(PROGRAM_OK, ...) ran; crash/error paths
        set other codes and early exits leave it at -1, so this never fires on a
        non-clean exit. Separate module — does not touch the log; silent unless
-       stdout is a real TTY. See docs/BOOT_LOG_PLAN.md Phase 6. */
+       stdout is a real TTY. See docs/plan/BOOT_LOG_PLAN.md Phase 6. */
     if (End_Num == PROGRAM_OK) {
         PrintExitScreen();
     }

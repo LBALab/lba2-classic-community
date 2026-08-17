@@ -1,4 +1,4 @@
-/* Writer-side round-trip (docs/SAVE_WIRE_PLAN.md, layer 4b).
+/* Writer-side round-trip (docs/plan/SAVE_WIRE_PLAN.md, layer 4b).
  *
  * Contract exercised here:
  *   native -> ...ToWire32 -> ...FromWire32 -> native' , with native' == native for

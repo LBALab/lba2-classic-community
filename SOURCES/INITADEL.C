@@ -131,7 +131,7 @@ void InitAdeline(S32 argc, char *argv[]) {
 
         /* The structured log + file/terminal sinks are already up: main() starts
            them before game-data discovery so the discovery/picker diagnostics are
-           captured (docs/BOOT_LOG_PLAN.md). Add the in-engine F12 console sink now
+           captured (docs/plan/BOOT_LOG_PLAN.md). Add the in-engine F12 console sink now
            — it has no surface until we're past early boot, so it joins here rather
            than at Log_Init. The file sink reuses adeline.log (CreateLog truncated
            it for this launch); both it and the legacy LogPrintf sites share it. */

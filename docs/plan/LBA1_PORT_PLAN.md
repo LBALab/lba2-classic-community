@@ -11,8 +11,8 @@ passes too: LBA1's 3 background HQRs re-index into LBA2's merged container by of
 The §6.6 audio spike (`scripts/dev/lba1_voc_probe.py`) confirms LBA1 VOC audio is drop-in through
 lba2cc's existing VOC decoder (one-line gate widening needed for 4 `0x01`-prefixed voice entries).
 This is the **plan**; the per-subsystem **cost survey** it builds on is
-[LBA1_PORTING_SURFACE.md](LBA1_PORTING_SURFACE.md), and the **north-star** it serves is
-[ARCHITECTURE.md](ARCHITECTURE.md) ("one engine, two games").
+[LBA1_PORTING_SURFACE.md](../LBA1_PORTING_SURFACE.md), and the **north-star** it serves is
+[ARCHITECTURE.md](../ARCHITECTURE.md) ("one engine, two games").
 
 **Scope:** Decide *how* to bring LBA1 to this groundwork, cost the candidate paths against
 each other, and de-risk the recommended path with cheap spikes. Three end-states were
@@ -296,7 +296,7 @@ LBA1 body stream (`lba1-classic/LIB386/LIB_3D/P_OBJET.ASM:211-248`, `AffObjet`):
 → ZV bbox (12 B = 6×`s16`) → `U16` zone-info size + that many bytes → point/normal/group cloud
 (consumed by `RotateNuage`/`AnimNuage`) → `U16` nb polys + poly records → lines → spheres.
 Per-poly records and the n-gon/material encoding are specified in
-[LBA1_PORTING_SURFACE.md](LBA1_PORTING_SURFACE.md) (§ "Per-poly record").
+[LBA1_PORTING_SURFACE.md](../LBA1_PORTING_SURFACE.md) (§ "Per-poly record").
 
 LBA2 target (`LIB386/H/OBJECT/AFF_OBJ.H:96-122`, `T_BODY_HEADER`, 96 B): `S32 Info`,
 `S16 SizeHeader`/`Dummy`, 6×`S32` bbox, then count/offset pairs for
@@ -531,9 +531,9 @@ per-game video/music drivers. Assets stay native throughout.
    (not just opcode renumbering), the trickiest correctness point.
 6. **Spikes:** confirm the §6 ladder (body → opcode/flag → scene; VOC optional) as the
    de-risking sequence before any committed PR plan.
-7. **Doc home:** this doc is the plan; keep [LBA1_PORTING_SURFACE.md](LBA1_PORTING_SURFACE.md)
-   as the cost survey and extend [ENGINE_GAME_INTERFACE.md](ENGINE_GAME_INTERFACE.md) /
-   [ENGINE_FILE_FORMATS.md](ENGINE_FILE_FORMATS.md) with the remap table + format deltas as
+7. **Doc home:** this doc is the plan; keep [LBA1_PORTING_SURFACE.md](../LBA1_PORTING_SURFACE.md)
+   as the cost survey and extend [ENGINE_GAME_INTERFACE.md](../ENGINE_GAME_INTERFACE.md) /
+   [ENGINE_FILE_FORMATS.md](../ENGINE_FILE_FORMATS.md) with the remap table + format deltas as
    they are pinned. Confirm.
 8. **Script path: transcode vs dual-table VM** (§6.4, raised by `../lba2remake`): run LBA1 Life
    scripts by either **(A) transcode** LBA1 bytecode to LBA2 bytecode so the existing `GERELIFE`

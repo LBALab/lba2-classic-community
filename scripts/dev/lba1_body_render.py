@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Standalone visual gut-check for the LBA1 body decoder + skeleton (docs/LBA1_PORT_PLAN.md §6).
+"""Standalone visual gut-check for the LBA1 body decoder + skeleton (docs/plan/LBA1_PORT_PLAN.md §6).
 
 Renders decoded LBA1 body geometry to a grayscale PNG with a tiny built-in software rasteriser
 (stdlib only). No engine build, no deps. Reuses the validated decoder in lba1_body_probe.py.

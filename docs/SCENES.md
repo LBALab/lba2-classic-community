@@ -355,7 +355,7 @@ indefinitely. They are stations the reel passes through (cubes 193, 194, and 196
 visit them as part of their chain), but each transition requires state set up by the
 preceding scene; entered cold (no preceding scene), no transition fires.
 
-Survey data + methodology: see `docs/CONTROL.md` and `docs/FIXED_DT_RESEARCH.md`.
+Survey data + methodology: see `docs/CONTROL.md` and `docs/plan/FIXED_DT_RESEARCH.md`.
 
 
 | Cube | Scene                                               | Mode     | Obj | Zones |

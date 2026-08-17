@@ -32,7 +32,7 @@ does not expire.
 
 - Examples: the save wire format, on-disk asset formats (HQR, body, anim, sprite,
   samples), disc-image reads, the 32-bit data ABI.
-- Docs: [SAVE_WIRE_PLAN.md](SAVE_WIRE_PLAN.md), [SAVEGAME.md](SAVEGAME.md),
+- Docs: [SAVE_WIRE_PLAN.md](plan/SAVE_WIRE_PLAN.md), [SAVEGAME.md](SAVEGAME.md),
   [ENGINE_FILE_FORMATS.md](ENGINE_FILE_FORMATS.md), [GAME_DATA.md](GAME_DATA.md),
   [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md), [ABI.md](ABI.md).
 - Test: read retail, write ours, the diff must be empty; or round-trip a file

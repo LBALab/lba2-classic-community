@@ -2086,7 +2086,7 @@ static int parse_and_schedule_seq(const char *spec, int frameBased) {
 
 /* input <flags> [ticks] | input seq <t:flags:dur[/...]> | input fseq <f:flags:dur[/...]>
    | input trace <0|1> | input off
-   Drive the hero headlessly. seq durations are SIM ticks (docs/INPUT_SIM_PLAN.md) so a hold means
+   Drive the hero headlessly. seq durations are SIM ticks (docs/plan/INPUT_SIM_PLAN.md) so a hold means
    the same gameplay across --fixed-timestep settings (a throttle-skipped frame consumes no tick).
    fseq durations are RENDERED frames, so a press can be placed on a throttle-skipped frame to
    reproduce the input-edge drop. Flags combine with + or , (or a raw 0xNNN mask). Examples:

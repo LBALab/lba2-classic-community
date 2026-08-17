@@ -26,7 +26,7 @@ S32 SaveLoadValidateCompressedStaging(const U8 *screen_base, U32 screen_cap,
  * canonical-first reader (SAVEGAME.CPP LoadContexte): the reader reads the
  * canonical 32-bit wire first and falls back to the legacy native stride only on
  * validation failure, so no first-guess heuristic is needed. See
- * SAVEGAME_LOAD_BOUNDS.CPP and docs/SAVE_WIRE_PLAN.md. */
+ * SAVEGAME_LOAD_BOUNDS.CPP and docs/plan/SAVE_WIRE_PLAN.md. */
 
 #ifdef __cplusplus
 }

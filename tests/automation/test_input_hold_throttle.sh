@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 1 harness regression (docs/INPUT_SIM_PLAN.md): a sustained `input` hold is metered in SIM
+# Phase 1 harness regression (docs/plan/INPUT_SIM_PLAN.md): a sustained `input` hold is metered in SIM
 # ticks and OR'd into Input every rendered frame, so it is consumed on every sim step and drives the
 # hero the same over equal game-time whatever the fixed-timestep throttle does. This is the harness
 # gobble the old render-frame count produced: `input up 30` walked full distance at --fixed-timestep

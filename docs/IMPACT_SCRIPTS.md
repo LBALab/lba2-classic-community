@@ -5,7 +5,7 @@ explosions, hits, thrown debris, particle bursts, positional sounds. It referenc
 resources by index: **FLOW** (particle-emitter definitions) and **POF** (2D wireframe shapes).
 Together they are the effects layer — *not* gameplay or input, and distinct from the per-object
 Life (`LM_*`) and Track (`TM_*`) scripts. Reversed during the input-replay research
-(`docs/INPUT_REPLAY_RESEARCH.md`); this documents all three formats and the tooling.
+(`docs/plan/INPUT_REPLAY_RESEARCH.md`); this documents all three formats and the tooling.
 
 The reference graph is fully resolved: an IMPACT command points at a FLOW (`flow=N`), a POF
 (`pof=N`), or a sprite/sample/body — all by index. FLOW and POF are reversed below; sprite,

@@ -78,7 +78,7 @@ investigation, not just this corpus.
 fixed number of ticks, and captures a normalized `--dump-state` snapshot as a committed
 golden under `baselines/`. The world-space dump is the guardrail that rendering /
 projection changes do not perturb the simulation; screenshots (gitignored) are captured
-alongside for human review. See `docs/CONTROL.md` and `docs/FIXED_DT_PLAN.md`.
+alongside for human review. See `docs/CONTROL.md` and `docs/plan/FIXED_DT_PLAN.md`.
 
 ```bash
 # Compare current run against committed goldens (exits non-zero on drift)

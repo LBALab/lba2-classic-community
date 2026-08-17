@@ -62,7 +62,7 @@ tile), `font` (glyph atlas, drawn at game-chosen coords), `manifest`
 ## Widescreen relevance, by category
 
 **`font` (1 entry)** — `RESS_FONT_GPM`. Glyphs are drawn at game-chosen XY
-via `Font(x, y, str)` → [LIB386/SYSTEM/SYSFONT.CPP](../../LIB386/SYSTEM/SYSFONT.CPP).
+via `Font(x, y, str)` → [LIB386/SVGA/FONT.CPP](../../LIB386/SVGA/FONT.CPP).
 The font *bitmap* is fine for widescreen; what needs auditing is the
 hardcoded XY positions of text calls (separate effort, not asset-side).
 

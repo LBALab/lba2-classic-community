@@ -1,4 +1,4 @@
-/* Host test for the REAL SDL_Log spine (docs/BOOT_LOG_PLAN.md).
+/* Host test for the REAL SDL_Log spine (docs/plan/BOOT_LOG_PLAN.md).
  *
  * Unlike test_log (which compiles with -DLBA_LOG_NO_SDL and dispatches straight
  * to the sinks), this target builds LOG.CPP *with* the SDL spine and links SDL3.

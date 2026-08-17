@@ -1010,7 +1010,7 @@ void Control_TickHook(void) {
         control_finalize();
 }
 
-/* ===== Harness input timeline (docs/INPUT_SIM_PLAN.md) ====================== */
+/* ===== Harness input timeline (docs/plan/INPUT_SIM_PLAN.md) ====================== */
 
 #define CONTROL_INPUT_MAX_EVENTS 16
 
@@ -1087,7 +1087,7 @@ int Control_InputPending(void) {
     return s_input_tick < s_input_last || s_input_frame < s_input_last_frame;
 }
 
-/* ===== Harness key holds (docs/INPUT_SIM_PLAN.md) ==========================
+/* ===== Harness key holds (docs/plan/INPUT_SIM_PLAN.md) ==========================
  *
  * The timeline above ORs its mask into Input from MainLoop, which is everything a
  * test driving the hero needs and nothing a test driving a MENU can use: a modal

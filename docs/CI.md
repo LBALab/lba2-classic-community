@@ -27,6 +27,7 @@ ties both tiers together — path filtering, the docs-only gate, and the
 | `lint.yml` | Validation | push, PR (shell/Python/workflow paths), dispatch | `shellcheck`, `actionlint`, `ruff` | Lints the non-C++ surface. Settings live in `.shellcheckrc` and `ruff.toml`; tool versions are pinned in the workflow |
 | `pr-title.yml` | Validation | PR | `lint` | Conventional-commit lint on the PR title |
 | `docs-gate.yml` | Validation | push, PR | `build`, `test` | No-op stand-ins for the required `build`/`test` checks on docs-only changes — see [below](#docs-only-gate) |
+| `docs-links.yml` | Validation | push, PR, weekly | `links`, `external` | `scripts/ci/check-docs-links.sh`. Not path-filtered: a doc reference breaks from either side, since renaming a doc breaks source comments. `external` is weekly-only; see [below](#documentation-links) |
 | `release-*.yml` | Release | `v*` tags, dispatch | `build` → `release` | Per-platform tag releases |
 | `reusable-build-*.yml` | Release | `workflow_call` | `build` | Shared build+package steps, called by the release workflows |
 | `release-latest.yml` | Release | push to `main` | build legs → `release` | Rolling `latest` pre-release |
@@ -149,6 +150,33 @@ still gates the merge — the no-op gate run cannot mask a real failure.
 When you change the shared `paths-ignore` set, change `docs-gate.yml`'s
 `paths:` list to match. They are inverses of the same set and drift
 between them reopens the blocked-PR hole.
+
+## Documentation links
+
+`docs-links.yml` runs [scripts/ci/check-docs-links.sh](../scripts/ci/check-docs-links.sh),
+which covers two breakage classes that need two different tools:
+
+- **Markdown links and `#anchors`,** via `lychee` over tracked `.md`.
+- **`docs/<name>.md` paths named by bare path** in source comments, tests,
+  scripts and CMake. That is not link syntax, so a link checker cannot see it,
+  and moving a doc breaks those references silently. Markdown is excluded from
+  this half on purpose: prose names docs that do not exist yet and paths
+  belonging to other repositories, and both would read as failures.
+
+Two deliberate choices:
+
+- **No path filter.** A reference breaks from either side: renaming a doc
+  breaks the source comments that point at it, and the build workflows skip
+  docs paths while `docs-gate.yml` skips everything else. Neither trigger alone
+  covers it, and the check costs a few seconds.
+- **External URLs are weekly, not per-PR.** The tree holds roughly 580 external
+  URLs, 446 of them `github.com`. Unauthenticated checking trips GitHub's rate
+  limit well before it finishes, so a per-PR run would fail for reasons that
+  have nothing to do with the PR, and people would learn to ignore it. A rotted
+  URL is still worth knowing about, which is what the Monday run is for.
+
+Run it locally with `make docs-links`. Without `lychee` installed the link half
+is skipped with a notice and the path half still runs.
 
 ## Caching and upstream dependencies
 

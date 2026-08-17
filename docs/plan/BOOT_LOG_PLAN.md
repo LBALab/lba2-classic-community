@@ -209,7 +209,7 @@ of `CHEATCOD.CPP`).
 > constraint was lifted by injecting the console printer (a `LogLineFn` passed to
 > `Log_MakeConsoleBufferSink`), so the core carries no SOURCES dependency and
 > `LogPrintf` (also in LIB386) can shim onto it. See
-> [LOGGING_UNIFICATION.md](LOGGING_UNIFICATION.md).
+> [LOGGING_UNIFICATION.md](../LOGGING_UNIFICATION.md).
 
 Build targets: GCC (`linux` preset) and MinGW (`cross_linux2win` /
 `windows_ucrt64`). **There is no MSVC preset.** No `-Werror` in the build.
@@ -553,7 +553,7 @@ it before the quote, re-add the Windows VT enable
 - **Placement:** `SOURCES/EXIT_SCREEN.cpp` (no `src/`). The log core started in
   `SOURCES/LOG/` and later moved to `LIB386/SYSTEM/LOG.{H,CPP}` — see the
   superseding note under "How to work on this" and
-  [LOGGING_UNIFICATION.md](LOGGING_UNIFICATION.md).
+  [LOGGING_UNIFICATION.md](../LOGGING_UNIFICATION.md).
 - **API surface:** flat `extern "C"` `Log_*` functions (mirrors `Console_*` /
   `RES_PICKER.CPP`), anon-namespace internals, C++-only `ScopedSection` helper.
   C++98 — plain `enum`, no `enum class`, no named public namespace. Aligns with

@@ -4,7 +4,7 @@ Phase 2 design for a harness-only `--fixed-dt <ms>` flag that advances the simul
 constant time step per tick instead of by wall-clock, making `--dump-state` fully
 reproducible and unblocking faithful input record/replay. Builds on
 [FIXED_DT_RESEARCH.md](FIXED_DT_RESEARCH.md) (Phase 1) and the existing CLI control harness
-([CONTROL.md](CONTROL.md), [../SOURCES/CONTROL.CPP](../SOURCES/CONTROL.CPP)).
+([CONTROL.md](../CONTROL.md), [../SOURCES/CONTROL.CPP](../../SOURCES/CONTROL.CPP)).
 
 Hard constraint carried throughout: the mode is opt-in and must not change default-build or
 normal gameplay timing. It is only ever active when the harness drives it. Line numbers were
@@ -38,12 +38,12 @@ Why this dominates raw (a) and (b):
   sees the *same* value. Each such call computes `delta = FixedDtNow - LastTime`, which is `0`
   after the first — so the internal calls contribute nothing to `TimerRefHR`. The single `DT`
   step advanced at the hook is banked exactly once, by the first unlocked `ManageTime()` after
-  the hook (the steady-state call at [`PERSO.CPP:578`](../SOURCES/PERSO.CPP)). No per-call
+  the hook (the steady-state call at [`PERSO.CPP:578`](../../SOURCES/PERSO.CPP)). No per-call
   gating, no "which `ManageTime` is the real one" bookkeeping.
 - **The hook-ordering question disappears.** Advancing `FixedDtNow` at the hook (`:551`,
   *before* `ManageTime()` at `:578`) is exactly right: the hook arms the step and the very next
   unlocked `ManageTime()` banks it into `TimerRefHR`. The movers at
-  [`PERSO.CPP:1471-1476`](../SOURCES/PERSO.CPP) (`GetDeltaMove`) and the animation interpolator
+  [`PERSO.CPP:1471-1476`](../../SOURCES/PERSO.CPP) (`GetDeltaMove`) and the animation interpolator
   `ObjectSetInterDep` both read `TimerRefHR` *after* `:578`, so they observe exactly `+DT`
   versus the previous tick. (Confirmed: `MyGetInput()` at `:577` does not call `ManageTime` —
   grep of `SOURCES/INPUT.CPP`/`CONFIG/INPUT.CPP` shows no timer touch — so `:578` is the first
@@ -83,7 +83,7 @@ void ManageTime() {
 
 ## 2. FollowCam timer re-add — neutralised for free
 
-The research's top hazard ([`PERSO.CPP:1877-1889`](../SOURCES/PERSO.CPP)):
+The research's top hazard ([`PERSO.CPP:1877-1889`](../../SOURCES/PERSO.CPP)):
 
 ```c
 U32 FollowCamTimerBefore = 0;
@@ -116,7 +116,7 @@ since it is the research's flagged correctness hazard.
 ## 3. DT semantics, canonical value, Save/Restore interaction
 
 - **Units.** `--fixed-dt <ms>` takes an integer count of milliseconds — the same unit as
-  `TimerRefHR` and the `delta` in `GetDeltaMove` ([`MOVE.CPP:64-78`](../LIB386/3D/MOVE.CPP)).
+  `TimerRefHR` and the `delta` in `GetDeltaMove` ([`MOVE.CPP:64-78`](../../LIB386/3D/MOVE.CPP)).
   One tick advances `TimerRefHR` by exactly that many ms.
 - **Canonical value: 16 ms — and no engine default.** No hardcoded target-frame-ms constant
   exists in the engine (re-confirmed by grep of `TIMER.CPP`/`PERSO.CPP`), so the canonical value
@@ -149,13 +149,13 @@ since it is the research's flagged correctness hazard.
 ## 4. RNG — clock pin is sufficient, verify don't reseed
 
 The only seed in the game is `srand(TimerRefHR)` in `ChangeCube()`
-([`OBJECT.CPP:1171`](../SOURCES/OBJECT.CPP)) — confirmed single hit in research §4. For the
+([`OBJECT.CPP:1171`](../../SOURCES/OBJECT.CPP)) — confirmed single hit in research §4. For the
 `--load X --tick N` workflow, `TimerRefHR` on the load path is the restored save value (a fixed
 number for a given save), so the seed is already deterministic across runs — consistent with the
 measured "the `srand(TimerRefHR)` reseed produced no observable divergence" (CONTROL.md
 determinism section).
 
-`ChangeCube()` at [`PERSO.CPP:540`](../SOURCES/PERSO.CPP) runs *before* the hook (`:551`). For a
+`ChangeCube()` at [`PERSO.CPP:540`](../../SOURCES/PERSO.CPP) runs *before* the hook (`:551`). For a
 mid-run cube change on tick N, the seed is `TimerRefHR` as banked by tick N-1, i.e.
 `base + (N-1)*DT` — deterministic under a working clock pin. **Decision: no explicit reseed.**
 The clock pin determinises the seed for both the load path and mid-run transitions. This is a
@@ -171,8 +171,8 @@ the existing measurement both indicate it is unnecessary.
 > fallback this section anticipated: `Timer_EnableFixedDt()` now resets `TimerRefHR = 0`
 > alongside its `FixedDtNow`/`LastTime` seeding, so the seed is canonical on the fresh-start
 > path. The `--load` path is unaffected (the save's clock overrides `TimerRefHR` after the
-> reset). See PR #175 commit and `docs/FIXED_DT_RESEARCH.md` §7. The misdiagnosis trail is
-> recorded in `docs/INPUT_REPLAY_RESEARCH.md` §2d.
+> reset). See PR #175 commit and `docs/plan/FIXED_DT_RESEARCH.md` §7. The misdiagnosis trail is
+> recorded in `docs/plan/INPUT_REPLAY_RESEARCH.md` §2d.
 
 ---
 
@@ -235,7 +235,7 @@ Per research §5/§6, the promotion is **same-platform exact**, not cross-platfo
 double` + `lrintl()` projection rounds differently on Linux x86_64 (80-bit) vs Windows/macOS-ARM
 (64-bit), and fixed-dt removes *temporal* nondeterminism only, not that *spatial* difference.
 
-Plan for [`tests/savegame/corpus/baseline_harness.py`](../tests/savegame/corpus/baseline_harness.py):
+Plan for [`tests/savegame/corpus/baseline_harness.py`](../../tests/savegame/corpus/baseline_harness.py):
 
 1. **Pass the flag.** Add `--fixed-dt $CANONICAL_DT_MS` to the `cmd` list in `run_save`
    (`:59-60`), where `CANONICAL_DT_MS = 16` is a module constant (the single named definition,
@@ -305,7 +305,7 @@ Stated as concrete, runnable checks (research §6):
    byte-for-byte unchanged vs the current binary (A/B dump on a non-fixed-dt run). Proves the
    `FixedDtActive ? … : SDL_GetTicks()` branch is inert when off.
 6. **Simulation still advances.** Extend the spirit of
-   [`tests/automation/test_tick.sh`](../tests/automation/test_tick.sh): under fixed-dt the clock
+   [`tests/automation/test_tick.sh`](../../tests/automation/test_tick.sh): under fixed-dt the clock
    advances by exactly `N*DT` and the hero idle-anim frame advances deterministically — a
    stronger assertion than today's "advanced at all."
 7. **Residual time-read audit.** Grep `GERELIFE.CPP`/`GERETRAK.CPP` for branch-on-`TimerRefHR`

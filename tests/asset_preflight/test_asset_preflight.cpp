@@ -1,4 +1,4 @@
-/* Host test for the boot asset preflight (docs/BOOT_LOG_PLAN.md).
+/* Host test for the boot asset preflight (docs/plan/BOOT_LOG_PLAN.md).
  *
  * Builds a fake game-data tree, runs AssetPreflight against it via a capturing
  * file sink, and asserts the required/optional classification, the per-category

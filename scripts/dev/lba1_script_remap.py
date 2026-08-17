@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Feasibility spike 2: run LBA1 Life-script bytecode on the LBA2 VM (docs/LBA1_PORT_PLAN.md §6).
+"""Feasibility spike 2: run LBA1 Life-script bytecode on the LBA2 VM (docs/plan/LBA1_PORT_PLAN.md §6).
 
 Source of truth for LBA1 opcode numbers is ../lba1-classic/SOURCES/COMMON.H; the LBA2 numbers
 are this repo's SOURCES/COMMON.H. twin-e is only a name legend, not consulted here.

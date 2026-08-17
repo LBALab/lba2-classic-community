@@ -34,7 +34,8 @@ const char *const kRequiredHqr[] = {
 
 /* Loaded on demand (holomap screen, per-cube scenes, menu backdrops); missing
  * only matters if that feature is used — warn, don't block boot. (Making these
- * degrade gracefully at use-time is a separate change; see BOOT_LOG_PLAN.md.) */
+ * degrade gracefully at use-time is a separate change; see
+ * docs/plan/BOOT_LOG_PLAN.md.) */
 const char *const kOptionalHqr[] = {
     HOLO_HQR_NAME,
     SCENE_HQR_NAME,

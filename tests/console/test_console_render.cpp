@@ -1,4 +1,4 @@
-/* Host test for the console render path (docs/BOOT_LOG_PLAN.md boot-log shape):
+/* Host test for the console render path (docs/plan/BOOT_LOG_PLAN.md boot-log shape):
  * per-line severity colour and UTF-8 -> CP437 transliteration.
  *
  * The real renderer (AffStringToBuffer) is replaced by a recording stub that
