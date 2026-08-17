@@ -15,4 +15,6 @@ GOLDEN="$REPO/tests/savegame/corpus/baselines/ui/menu_options_Anon1.png"
 
 [ -f "$LBA2_TEST_SAVE" ] || skip "fixture save missing: $LBA2_TEST_SAVE"
 
-ui_compare_wide "768x480" "--black-bg menu-options" "$GOLDEN"
+# Same plasma-strip exclusion as test_ui_menu_options.sh, in the 640 golden's
+# coordinates: the centred crop has already put both images on one origin.
+ui_compare_wide "768x480" --exclude 46,71,549,49 "--black-bg menu-options" "$GOLDEN"

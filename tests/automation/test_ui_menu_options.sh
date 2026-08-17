@@ -13,4 +13,6 @@ GOLDEN="$REPO/tests/savegame/corpus/baselines/ui/menu_options_Anon1.png"
 
 [ -f "$LBA2_TEST_SAVE" ] || skip "fixture save missing: $LBA2_TEST_SAVE"
 
-ui_compare "--black-bg menu-options" "$GOLDEN"
+# Plasma strip excluded, as in test_ui_menu_main.sh. --black-bg does not suppress
+# it: the cleanroom composite is about what is behind the panel, not on it.
+ui_compare --exclude 46,71,549,49 "--black-bg menu-options" "$GOLDEN"

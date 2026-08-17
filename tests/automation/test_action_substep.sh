@@ -89,10 +89,15 @@ ctl --fixed-timestep 16 --fixed-dt 16 --load "$SAVE" \
     --exec "$ARM; input throw 60" --tick 40 --dump-state "$on" --exit >/dev/null 2>&1 || fail "throttle-on run failed"
 ctl --fixed-timestep 0  --fixed-dt 16 --load "$SAVE" \
     --exec "$ARM; input throw 60" --tick 40 --dump-state "$off" --exit >/dev/null 2>&1 || fail "throttle-off run failed"
+# Paths come in as arguments, not spliced into the program text, because python3
+# under MSYS2 is a native Windows binary: a standalone path argument is rewritten
+# on its way to it, one inside a longer string is not. Spliced, the two opens
+# raised FileNotFoundError, python exited non-zero, and this read as the two paths
+# having diverged -- a diagnosis of the engine for a fault in the plumbing.
 if ! python3 -c "
 import json,sys
-a=json.load(open('$on'))['hero']; b=json.load(open('$off'))['hero']
-sys.exit(0 if a==b else 1)"; then
+a=json.load(open(sys.argv[1]))['hero']; b=json.load(open(sys.argv[2]))['hero']
+sys.exit(0 if a==b else 1)" "$on" "$off"; then
     fail "60 fps throttled path diverges from the historical (throttle-off) path — the fix perturbed the reference"
 fi
 echo "  60fps: throttled path == throttle-off path (fix is a no-op at one sub-step)"
