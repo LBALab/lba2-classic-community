@@ -2380,15 +2380,22 @@ S32 GereExtKeys(U32 key)
             flag = 1;
         }
         /* Zoom: numpad / = closer, numpad * = further */
+        /* Clamp after stepping, not before. Testing the limit first lets the last step cross it
+         * by up to a step's worth, so the boom settles a little inside the hero at one end and
+         * past the far limit at the other. The mouse and stick reach the same value through
+         * ApplyManualCameraNudge, which clamps after, so the two routes disagreed about how far
+         * zoom goes. */
         if (CheckKey(K_NUMPAD_DIV)) {
-            if (FollowCamBaseDist > FOLLOW_CAM_DIST_MIN)
-                FollowCamBaseDist -= FOLLOW_CAM_ZOOM_STEP;
+            FollowCamBaseDist -= FOLLOW_CAM_ZOOM_STEP;
+            if (FollowCamBaseDist < FOLLOW_CAM_DIST_MIN)
+                FollowCamBaseDist = FOLLOW_CAM_DIST_MIN;
             FirstTime = AFF_ALL_FLIP;
             flag = 1;
         }
         if (CheckKey(K_NUMPAD_MUL)) {
-            if (FollowCamBaseDist < FOLLOW_CAM_DIST_MAX)
-                FollowCamBaseDist += FOLLOW_CAM_ZOOM_STEP;
+            FollowCamBaseDist += FOLLOW_CAM_ZOOM_STEP;
+            if (FollowCamBaseDist > FOLLOW_CAM_DIST_MAX)
+                FollowCamBaseDist = FOLLOW_CAM_DIST_MAX;
             FirstTime = AFF_ALL_FLIP;
             flag = 1;
         }
