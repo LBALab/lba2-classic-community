@@ -163,6 +163,12 @@ squash, or rebase), so the title has to follow
 <type>(<optional scope>): <summary>
 ```
 
+**`main` takes merge commits by default.** A branch's own commits land on
+`main` and stay there, so write each one for a reader who arrives at it from
+`git blame` with no memory of the PR. Squash is the exception rather than the
+rule: reach for it when a branch's individual commits are not worth keeping
+(fixup churn, "address review" churn), and it collapses them into the PR title.
+
 Allowed types:
 
 | Type       | Use for                                                     |
@@ -181,8 +187,10 @@ Allowed types:
 Scope is optional but useful (`fix(credits): ...`, `port(SORT): ...`).
 
 A lightweight CI check (`.github/workflows/pr-title.yml`) verifies the PR
-title format. **Individual commits inside the PR can be free-form** — only
-the PR title is enforced. Contributors do not need to edit `CHANGELOG.md`;
+title format. **Individual commits inside the PR are not format-checked:**
+only the PR title is enforced. That is about enforcement, not about care:
+under the default merge mode those commits are what `main` keeps.
+Contributors do not need to edit `CHANGELOG.md`;
 it is regenerated at release time. Use `chore:` for any PR you want kept
 out of the public changelog (formatting, tooling, internal cleanups).
 See [docs/RELEASING.md](docs/RELEASING.md).

@@ -35,9 +35,14 @@ jobs:
             ci
             chore
           requireScope: false
-          # Title must start with a type prefix; squash-merge turns the PR
-          # title into the single commit on main, so this is the only
-          # convention contributors need to follow.
+          # Title must start with a type prefix: git-cliff renders one
+          # changelog entry per PR from it, whatever the merge mode.
+          #
+          # main takes merge commits by default, so a branch's own commits
+          # land on it and their messages matter as much as this title.
+          # Squash is for a branch whose individual commits are not worth
+          # keeping (fixup churn), and it collapses them into the title.
+          # See docs/RELEASING.md "What git-cliff reads".
           subjectPattern: '^[A-Za-z0-9].+$'
           subjectPatternError: |
             The PR title subject (after the type prefix) must not be empty
