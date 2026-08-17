@@ -148,7 +148,7 @@ T_ANIM_3DS *ListAnim3DS;
 
 /*--------- disk ---------------------------*/
 
-char PleaseWait[60];
+char PleaseWait[MULTI_TEXT_MAX];
 
 //char	ProgDrive[_MAX_DRIVE] ;
 //char	ProgDir[_MAX_DIR] ;

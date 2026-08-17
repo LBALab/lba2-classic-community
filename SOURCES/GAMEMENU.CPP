@@ -98,7 +98,7 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_TYPE_TEXT_LANGUAGE 8
 #define MENU_TYPE_VOICE_LANGUAGE 9
 
-char NewGameTxt[20]; // ATTENTION: max 19 chars
+char NewGameTxt[MULTI_TEXT_MAX];
 
 U16 GameMainMenu[4 + MAX_MAIN_MENUS * 2];
 
@@ -5045,7 +5045,7 @@ S32 BumperLogo(void) {
 
 #ifdef DEMO
 void DemoLogo(void) {
-    char string[30];
+    char string[MULTI_TEXT_MAX];
     S32 x0, y0, x1, y1;
     S32 endtimer;
 
