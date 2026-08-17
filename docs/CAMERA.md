@@ -40,8 +40,26 @@ All functions live behind `extern "C"` and are shared by both interior and exter
 | `GammaCam`       | Roll (usually 0)                              | `DEFAULT_GAMMA_CAM` (0)                      |
 | `VueDistance`    | Zoom / distance                               | `DefVueDistance[VueCamera]` (10500 or 17000) |
 | `VueOffsetX/Y/Z` | Camera target (world coords)                  | Derived from hero position + `Rotate`        |
-| `AddBetaCam`     | Player camera-cycle offset (0/1024/2048/3024) | 0; cycled by `I_CAMERA` in steps of 1024     |
+| `AddBetaCam`     | Camera rotation as an offset from the hero's facing | 0; see below                           |
 
+
+### AddBetaCam, and why the camera has two owners
+
+`BetaCam` is a **world** angle: the view's yaw, which everything downstream renders from. `AddBetaCam` is not. It is an offset **from the hero's facing**, and the two are tied together by one rule, applied wherever the camera is aimed at the hero:
+
+```
+BetaCam = (2048 - (AddBetaCam + heroBeta)) & 4095
+```
+
+In the original game `AddBetaCam` only ever holds quarter turns: `I_CAMERA` adds 1024, and the Life opcode `LM_CAMERA_CENTER` sets `num * 1024` for an authored orientation. The Auto camera reuses it for continuous player orbit, so it now holds any value.
+
+That reuse is worth understanding before changing anything here, because it is the source of the camera's characteristic bug. The rule above is re-evaluated every frame the Auto camera runs, so **any code that writes `BetaCam` directly, without also updating `AddBetaCam`, has created a difference the Auto camera will read as catch-up owed and spend.** Three writers have done exactly that:
+
+- the hero turning while the camera holds an angle, which made a stick touch snap the view three quarters of a turn (#450);
+- an orbit interrupted by a camera zone, cutscene or the Auto camera being switched off, whose leftover state made the next touch skip its realign;
+- a camera zone's authored angle, which the Auto camera unwound over the following second (#518).
+
+`FollowCamAdoptAngle()` ([EXTFUNC.CPP](../SOURCES/EXTFUNC.CPP)) is the shared answer: it solves the rule above for the current `BetaCam`, so the target comes out where the camera already is and nothing is owed. Call it after writing `BetaCam` on a path the Auto camera might be running under. `FollowCamForgetManualGesture()` is its companion for the other direction: it drops an in-flight orbit when something else takes the camera.
 
 ### Off-screen recenter (original behavior)
 
@@ -78,6 +96,43 @@ After the switch, `CameraCenter` calls:
 
 Probes terrain and decors along the camera-to-target line to find an unoccluded position. Iterates from near (1000) to `VueDistance` in 512-unit steps, checking `CalculAltitudeObjet` and `NbObjDecors` bounding boxes. Cost is proportional to `(VueDistance - 1000) / 512 * NbObjDecors`.
 
+## Camera zones (authored shots)
+
+A zone of type 1 re-aims the camera when the hero is inside its box. `SetZoneCamera` ([OBJECT.CPP](../SOURCES/OBJECT.CPP)) applies the zone's `Info0`–`Info2` as the render anchor (`Start*Cube`) and, in exteriors, its `Info3`–`Info6` as `AlphaCam` / `BetaCam` / `GammaCam` / `VueDistance`, then raises `CameraZone` and `FlagCameraForcee`.
+
+### Two shapes, decided by Info7
+
+`Info7` is the zone's flag word, and for a camera zone it decides not just whether the zone fires but how often. The dispatch fires when the hero is `NumObjFollow` and `ZONE_ON` is set, and then only if one of:
+
+| condition | effect |
+| --- | --- |
+| `ZONE_OBLIGATOIRE` | fires **every frame** the hero is inside: the shot holds the view for as long as he stays |
+| `CubeMode == CUBE_INTERIEUR` | same, every frame: this is how interior cameras work at all |
+| `!ZONE_ACTIVE AND AllCameras` | fires **once**, then latches `ZONE_ACTIVE` and stops |
+
+`ZONE_ON` comes from `ZONE_INIT_ON` at scene load ([DISKFUNC.CPP](../SOURCES/DISKFUNC.CPP)); a zone without it never fires, however the hero moves. `ZONE_ACTIVE` is cleared when the hero is outside the box, so leaving and re-entering re-arms the zone; a Life script can also clear it ([GERELIFE.CPP](../SOURCES/GERELIFE.CPP)).
+
+The latching shape is by far the more common in the shipped data. `CameraZone` is therefore true for one frame per entry on most zones, and for the whole visit on forced ones. Both are pinned by `test_camzone_model.sh`.
+
+`zonelist` prints `Info7` with its bits named, which is the quickest way to tell which shape a given zone is.
+
+### What a camera zone also switches off
+
+The angle is the visible part, but `CameraZone` gates three other behaviours, and anything that suppresses or bypasses zones inherits all four:
+
+- **The hidden-hero recovery.** When the hero is completely masked by geometry, the engine recentres the camera, unless `CameraZone` is set ([OBJECT.CPP](../SOURCES/OBJECT.CPP)). An authored shot is assumed deliberate, including when it hides him.
+- **HD recompose.** Skipped in zones ([PERSO.CPP](../SOURCES/PERSO.CPP)), so hand-composed framing is not adjusted at tall render heights.
+- **The recentre input.** `I_RETURN` is a no-op inside a zone.
+
+`FlagCameraForcee` outlives the zone: the off-screen path clears it and restores `AlphaCam` / `GammaCam` / `VueDistance` to the `VueCamera` presets, which is how a forced shot's parameters are given back.
+
+### Interaction with the Auto camera
+
+A zone writes `BetaCam` directly, so it is one of the writers described above and needs `FollowCamAdoptAngle` to keep its angle. With that in place, how long the shot survives is `cam_hold_angle`'s decision, and both answers are intentional:
+
+- **on** (default): the shot is held until the player orbits away or the scene changes, like any angle they set themselves.
+- **off**: the pan drift returns the camera behind the hero as he walks on, handing the shot back gradually. This is only possible because the angle was adopted; a shot the Auto camera never took ownership of cannot be given back smoothly, only snatched back.
+
 ## Auto camera (`FollowCamera` — community addition, not in the original game)
 
 Config key `FollowCamera` (0 = classic, 1 = auto; default 0). Also reads legacy key `AutoCameraCenter` for backward compatibility. Toggled in Options → Advanced options ("Auto camera" / "Classic camera" — localized). Off by default so the original camera behavior is preserved.
@@ -98,6 +153,20 @@ Branch history tried heavier correction (terrain penetration along the boom, LOS
 
 - **Rotation lag:** `BetaCam` lerps toward “behind the hero” with distance-scaled inertia (`FollowCamEffectiveDist` / `FollowCamBaseDist` feeds the divisor) — closer zoom = snappier orbit, longer arm = lazier drift.
 - **Pan drift:** `[` / `]` adjust `AddBetaCam`; drift back toward center only while the hero is walking; standing still preserves pan. Disabled by **hold-angle mode** (`cam_hold_angle`, default on): the manual rotation is then held indefinitely, like a free third-person camera, and only re-centers when the scene changes or the player hits Center camera (Enter / gamepad B); both go through `CameraCenter(1)`, which zeroes `AddBetaCam`. `cam_hold_angle 0` restores the classic lazy drift-back.
+
+### Orbit gestures (mouse drag, right stick)
+
+Every analog camera source goes through `ApplyManualCameraNudge` ([EXTFUNC.CPP](../SOURCES/EXTFUNC.CPP)) so they clamp each axis identically. Horizontal orbit is the axis with state attached, and a gesture has three parts:
+
+- **Start.** The first frame of a gesture calls `FollowCamAdoptAngle`, so the stick's delta applies from the angle on screen rather than from wherever the hero-relative target had drifted to. Only the first frame: doing it every frame would halve the stick's travel, since the lerp's steady-state lag is what the following frames are spending.
+- **Drive.** Orbiting selects a tight lerp divisor (`cam_smooth`, default 2) instead of the auto-follow's distance-scaled one, and re-arms `FollowCamReengageDelay` each frame. In steady state the camera moves at the speed asked for, lagging the target by twice the per-frame step.
+- **Release.** The lerp ramps *up* to the stick's speed over about four frames and has nothing to ramp it back down, so the orbit would otherwise stop dead from full speed. The last speed is decayed by `cam_glide` percent per frame and fed back through the same nudge, spending the tail over several frames. Because it goes through the nudge, `AddBetaCam` moves with it and the angle the camera settles on is the one the follow update recomputes.
+
+`FollowCamForgetManualGesture()` ends a gesture outright, called from the per-frame check for camera zone / cutscene / interior / camera-off and from `CameraCenter`. Without it the tail resumes on a camera the player has since re-aimed, and the stale "gesture under way" flag makes the next nudge skip its realign.
+
+The follow-through is tuned for the stick, which springs back to centre so "no input this frame" reliably means released. A mouse held still reports the same thing while still being driven, which is #514.
+
+**Timing is in frames, not milliseconds.** The lerp divisors and the glide decay are per-frame, so a gesture's ease-in and tail last the same number of frames at any rate and therefore a different wall-clock time: the release tail measures about 112 ms at 60 fps and 198 ms at 30. This is the existing convention rather than something the follow-through introduced, but it means any test asserting a duration has to pin `--fixed-dt`.
 
 ### Apply path
 
@@ -140,10 +209,38 @@ The HD recompose steepens pitch and the ground-clearance re-aims the eye, both o
 
 See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu entry.
 
+## Observing and testing the camera
+
+The camera resisted iteration for a long time because nothing about it was asserted: a change was judged by playing, and a regression arrived as a field report. A 75 degree snap from a 1 unit stick touch survived two releases that way.
+
+**`camtrace <0|1>`** logs one line per frame: the angles, how far `BetaCam` moved and who moved it, the re-engage countdown, whether an orbit is driving, and `zone` / `forced` / `cine` / `follow` / `ext` / `vue` / `alpha` / `dist` for which camera holds the view. It is emitted from the main loop rather than from the Auto camera's update, so it reports camera zones, cutscenes, interiors and the classic camera, none of which run that update. `target` is maintained by the Auto camera alone and reads stale when `follow` is 0.
+
+**`camnudge <dBeta> [dAlpha] [frames]`** feeds the same per-frame nudge the mouse drag and the right stick feed, at the same point in the frame, so the analog camera can be driven without a device.
+
+**`--dump-state`** carries a `camera` block for end-state assertions, and **`zonelist`** prints each zone's box and `Info7`, which turns "get into a camera zone" into a concrete `cube` plus `teleport`.
+
+Fixtures live in `tests/automation/`, with `camlib.sh` turning a run into a per-frame table so each asserts on the shape of a motion rather than one end state:
+
+| fixture | what it pins |
+| --- | --- |
+| `autocam_orbit_snap` | a 1-unit touch moves the camera 1 unit, with a turn's worth of rotation pending |
+| `followcam_hold` | the angle survives the hero turning underneath it |
+| `followcam_release` | letting go eases down instead of halting |
+| `followcam_tracking` | the camera orbits at the speed asked for |
+| `followcam_recenter` | the classic camera drifts back while walking, not while standing |
+| `followcam_interrupt` | an interrupted gesture ends instead of resuming |
+| `camzone_model` | the two shapes a camera zone comes in |
+| `camzone_hold` | both cameras leave an authored shot in the same place |
+
+Two habits are worth keeping when adding to these. **Run a new fixture against a build without the thing it guards** and confirm it fails there; several of these passed at first because their setup never happened rather than because the engine was right. And **assert the cause when the symptom is unobservable**: the realign runs in the input pass, before the camera update logs anything, so on a working engine the divergence it corrects leaves no trace at all.
+
 ### Future work
 
 - **Rendering architecture:** A faster terrain path (GPU or structural changes) would reduce the CPU cost of per-frame `RefreshGrille`.
-- **Gamepad / rebinding:** Dual-stick camera; optional rebinding of zoom/tilt/pan (today numpad-heavy) for laptops and alternate layouts.
+- **Rebinding:** optional rebinding of zoom/tilt/pan (today numpad-heavy) for laptops and alternate layouts. The right stick already drives orbit and elevation (`cam_stick_*`).
+- **Hero-relative hold:** an angle held as an offset from the hero's facing cannot express a held world heading, which is what makes turning while the stick is down still drag the camera. #351 proposes anchoring horizontal rotation to the overworld instead, retiring that whole class rather than correcting instances of it.
+- **Mouse follow-through:** the release tail suits a stick that springs back to centre, not a pointer held still (#514).
+- **Decor occlusion and clipping:** #363.
 - **Auto camera vs terrain / decor:** the eased ground/occlusion clearance above now ports the terrain half of `SearchCameraPos` (an earlier always-on snap was reverted for fighting the orbit; easing fixes that). Still open: decor/scenery occlusion (the classic path also tests `TestZVDecors`), and the eye leaving the cube on far authored cameras (the clearance is skipped there, matching the classic out-of-cube guard).
 - **Decor occlusion:** the ground clearance clears terrain only; the classic path also tests scenery boxes (`TestZVDecors`). Porting that would let the camera clear buildings/props too, not just landscape.
 - **Manual camera at tall heights:** the recompose runs on every apply, including while mouse/stick-orbiting, so the manual cam inherits the HD framing fix. Widening the manual `AlphaCam`/`FollowCamBaseDist` clamps with `k` and normalizing raw mouse deltas by render height are open refinements for fine manual control at 1080p+.
@@ -165,6 +262,9 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 | Follow cam tuning       | SOURCES/FOLLOWCAM_CFG.H    | All `FOLLOW_CAM_*` build-time constants                                             |
 | Auto cam HD recompose   | SOURCES/PERSO.CPP, FOLLOWCAM_CFG.H | `FollowCamHDExcess`, `FollowCamHD{Recompose,PitchGain,DistGain,LeanGain}`, `cam_hd*` cvars |
 | Ground/occlusion clearance | SOURCES/PERSO.CPP, FOLLOWCAM_CFG.H | `FollowCamEyeLift`, `FollowCamGroundSettling`, `FollowCamGround`, `FollowCamGroundClearance`, `cam_ground*` cvars |
+| Orbit gesture state     | SOURCES/EXTFUNC.CPP        | `FollowCamAdoptAngle`, `FollowCamForgetManualGesture`, `ApplyManualCameraNudge`, `cam_glide` |
+| Camera zone dispatch    | SOURCES/OBJECT.CPP         | `SetZoneCamera`, `ZONE_ON` / `ZONE_ACTIVE` / `ZONE_OBLIGATOIRE` (COMMON.H), `AllCameras` |
+| Camera trace            | SOURCES/PERSO.CPP          | `CamTrace`, `camtrace` / `camnudge` console commands |
 | Manual-override fade    | SOURCES/PERSO.CPP, SOURCES/EXTFUNC.CPP | `FollowCamManualHold`, `FollowCamManualHoldFrames`, `autoFactor`, `cam_manual_hold` cvar |
 | Config read/write       | SOURCES/PERSO.CPP          | `ReadConfigFile`, `WriteConfigFile`                                                 |
 | Menu toggle             | SOURCES/GAMEMENU.CPP       | `GereAdvancedOptionsMenu`                                                           |
@@ -176,4 +276,6 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 - [MENU.md](MENU.md) — Advanced options menu entry
 - [GLOSSARY.md](GLOSSARY.md) — Zone type 1 = camera zone; `AllCameras`
 - [LIFECYCLES.md](LIFECYCLES.md) — Scene load phase 6: initialize camera; main loop step 7: `AffScene`
+- [CONSOLE.md](CONSOLE.md): `camtrace`, `camnudge`, `zonelist`, and the `cam_*` cvars
+- [CONTROL.md](CONTROL.md): driving the camera headlessly
 
