@@ -14,15 +14,16 @@
 #include "test_harness.h"
 
 /* A row per rule, matching real declarations: DetailLevel clamps, FullScreen treats out of range
- * as unset, the Auto camera's toggles take any non-zero as on, AllCameras has no range at all. */
-static S32 storage;
-
+ * as unset, the Auto camera's toggles take any non-zero as on, AllCameras has no range at all.
+ *
+ * value is set to NULL: Settings_Coerce answers from the row alone and never dereferences it,
+ * which is exactly what makes it reachable from here with no engine to link. */
 static T_SETTING row(T_SETTING_TYPE type, S32 def, S32 min, S32 max) {
     T_SETTING s;
     s.key = "K";
     s.legacy = NULL;
     s.cvar = NULL;
-    s.value = &storage;
+    s.value = NULL;
     s.type = type;
     s.def = def;
     s.min = min;

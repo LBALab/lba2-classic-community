@@ -500,6 +500,10 @@ static const T_SETTING FollowCamSettings[] = {
     {"FollowCamHoldAngle", NULL, "cam_hold_angle", &FollowCamHoldAngle, SETTING_TRUTHY,
      FOLLOW_CAM_HOLD_ANGLE_DEFAULT, 0, 1, NULL, NULL,
      "Hold the manual camera rotation (free-camera); off = classic auto-recenter drift"},
+    /* cvar only, and it must stay that way. FollowCamera's cfg row lives in
+       CONFIG_FILE.CPP's table, which reads it with the legacy AutoCameraCenter
+       fallback and its own rule; giving this row a key would read the same
+       global twice under two rules, and this table runs last. */
     {NULL, NULL, "cam_follow", &FollowCamera, SETTING_TRUTHY, FALSE, 0, 1, NULL, NULL,
      "Auto camera (third-person follow) enable"},
 };
