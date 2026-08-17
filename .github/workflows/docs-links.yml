@@ -43,6 +43,11 @@ jobs:
       - name: Check documentation references
         run: ./scripts/ci/check-docs-links.sh
 
+      # Paths resolving is not the same as the doc being right: after a function moves
+      # file, the link still works and the prose still names the old one.
+      - name: Check documented symbols are where the docs say
+        run: ./scripts/ci/check-docs-symbols.py
+
   external:
     name: External URLs
     # Weekly only. ~580 external URLs, 446 of them github.com; running this per
