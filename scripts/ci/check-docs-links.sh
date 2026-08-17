@@ -6,9 +6,14 @@ set -euo pipefail
 # two different breakage classes and neither tool sees the other's.
 #
 #   1. lychee over tracked markdown: relative links and #anchors. Offline by
-#      default -- the tree holds ~580 external URLs, 446 of them github.com,
-#      and an unauthenticated run trips GitHub's rate limit long before it
-#      finishes. Pass --external to check those instead (the weekly job does).
+#      default -- the tree holds ~350 unique external URLs, 332 of them
+#      github.com. Checking those needs the network and can only fail for
+#      reasons outside the change under review, so it is not a PR gate. Pass
+#      --external to check them instead (the weekly job does).
+#
+#      Shared settings live in lychee.toml at the repo root, so a bare lychee
+#      run in a terminal behaves the same way. Only --offline and
+#      --no-progress are set here, because only those should differ.
 #
 #   2. A grep for docs/<name>.md paths mentioned in NON-markdown files. Source
 #      comments, tests, scripts and CMake point at docs by bare path, which is
@@ -29,7 +34,7 @@ status=0
 
 # --- 1. markdown links and anchors ------------------------------------------
 if command -v lychee >/dev/null 2>&1; then
-    lychee_args=(--no-progress --include-fragments)
+    lychee_args=(--no-progress)
     if [ "$external" -eq 1 ]; then
         echo "Checking external URLs (slow, network-dependent)..."
     else
