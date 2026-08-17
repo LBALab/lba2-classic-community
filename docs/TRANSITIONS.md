@@ -224,6 +224,17 @@ two failure modes are:
 - **Letterbox timer** (#354): the cutscene black bars (`FixeCinemaMode`, a clip
   window, not a palette fade) stuck then snapped; same subsystem, different
   mechanism.
+- **Half-composed page presented** (#410): menu page transitions restored the clean
+  backdrop, flipped it, then drew the new page and flipped again. On the original
+  hardware both blits landed inside one refresh; under SDL a flip presents the whole
+  `Log` and waits for vsync, so the bare backdrop got a displayed frame to itself.
+  On the waves menu that backdrop is open sea, which read as a white flash between
+  pages. The same
+  shape one level down: `DrawSingleString` flipped a page header before its rows
+  existed, and the main menu's save preview was drawn after the rows had already
+  been flipped. Fixed by marking the backdrop dirty (`BoxStaticAdd`) and letting the
+  page's own draw flip. The rule: when several draws make up one visual step, flip
+  after the last one, not after each.
 
 ## Observing a transition
 

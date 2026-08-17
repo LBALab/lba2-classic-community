@@ -1102,9 +1102,10 @@ void DrawSingleString(S32 x, S32 y, char *string) {
     ColorFont(CoulTextMenu);
     Font(x0, y - 18, string);
 
-    // flip
+    // No flip, like DrawOneString: a page header goes up with the rows under
+    // it, and flipping here showed the header alone over a bare backdrop for a
+    // frame. Both callers flip once the page is composed.
     BoxStaticAdd(x0, y0, x1, y1);
-    BoxUpdate();
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -1376,7 +1377,11 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
     mess &= 0x3FFFFFFF;
 #endif
 
-    BoxStaticFullflip();
+    // Backdrop only: the list draws over it below and flips then. Flipping here
+    // would put the bare plate on screen for a frame, which on the waves
+    // background is a white flash of open sea. Same shape as GereVolumeMenu and
+    // the other sub-pages.
+    BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
     if (FlagShadeMenu)
         PaletteSync(PtrPalNormal);
 
@@ -1796,7 +1801,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
             CopyScreen(Screen, Log);
             if (FlagShadeMenu)
                 ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
-            BoxStaticFullflip();
+            BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
 
             if (DeleteSavedGame()) {
                 if (nb > 1 AND select < nb - 1) {
@@ -1825,7 +1830,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
             CopyScreen(Screen, Log);
             if (FlagShadeMenu)
                 ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
-            BoxStaticFullflip();
+            BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
 
             flag = 1; // redraw menu
             timerdraw = TimerRefHR + TEMPO_SCREEN_SAVE;
@@ -2501,8 +2506,9 @@ static void GameMenuApplyMouseWheelDoGameMenu(U16 *ptrmenu, S16 selected, S32 wy
     }
 }
 
-/* Forward decl -- defined further down in this file. */
+/* Forward decls -- defined further down in this file. */
 void BuildGameMainMenu(S32 firstloop);
+static void DrawScreenSaveNoFlip(U8 *ptr, S32 x, S32 y);
 
 /* Harness one-shot capture of the boot-time main game menu -- the screen a
    player sees at launch with Resume / New Game / Load / Options / Quit.
@@ -2874,8 +2880,11 @@ S32 DoGameMenu(U16 *ptrmenu) {
             InitShakeChoice(); //     NEW
             TimerSample = 0;
             ptrmenu[0] = selected;
-            DrawGameMenu(ptrmenu, FALSE);
 
+            // Preview box first, without flipping: DrawGameMenu below flips
+            // once the rows are down, so the page arrives whole. Drawn after
+            // the rows it landed a frame later, and the menu showed up without
+            // its preview for that frame.
             if (ptrmenu == GameMainMenu) {
                 U8 memonumversion = NumVersion;
                 char memoplayername[256];
@@ -2892,13 +2901,15 @@ S32 DoGameMenu(U16 *ptrmenu) {
                     // Main-menu current-save preview box. Float it with the menu
                     // list (both use UI_VCENTER_OFS) so the box-to-menu gap stays
                     // as authored on a taller framebuffer. No-op at 480.
-                    DrawScreenSave(ptr, SAVE_THUMB_X, 10 + UI_VCENTER_OFS);
+                    DrawScreenSaveNoFlip(ptr, SAVE_THUMB_X, 10 + UI_VCENTER_OFS);
 
                 strcpy(GamePathname, memogamepathname);
                 strcpy(PlayerName, memoplayername);
                 NumVersion = memonumversion;
                 NewCube = -1;
             }
+
+            DrawGameMenu(ptrmenu, FALSE);
 
             if (FadeMenu) {
                 FadeToPal(PtrPalNormal);
@@ -3455,7 +3466,7 @@ S32 OptionsMenu(S32 flagflip) {
 */
     if (FlagShadeMenu) {
         ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
-        BoxStaticFullflip();
+        BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
         PaletteSync(PtrPalNormal);
     }
 
@@ -3507,8 +3518,11 @@ S32 OptionsMenu(S32 flagflip) {
     SetDetailLevel(); // prise en compte des différentes options
 
     if (flagflip) {
+        // Backdrop only. The caller's menu loop draws over it and flips on its
+        // next pass; flipping here shows the bare plate, and WaitNoInput below
+        // holds it there for as long as the key is down.
         CopyScreen(Screen, Log);
-        BoxStaticFullflip();
+        BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
     } else {
         // on vient du jeu
         RestoreClipWindow();
@@ -3604,7 +3618,8 @@ void ZoomSavedGame(S32 x, S32 y) {
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-void DrawScreenSave(U8 *ptr, S32 x, S32 y) {
+// Preview box without the flip, for callers that draw it as part of a page.
+static void DrawScreenSaveNoFlip(U8 *ptr, S32 x, S32 y) {
     S32 x1, y1;
 
     x1 = x + SCREEN_SAVE_WIDTH - 1;
@@ -3616,6 +3631,11 @@ void DrawScreenSave(U8 *ptr, S32 x, S32 y) {
     DrawCadre(x - 1, y - 1, x1 + 1, y1 + 1, ALL_ANGLES);
     RestoreAngles(x - 1, y - 1, x1 + 1, y1 + 1);
     BoxStaticAdd(x - 1, y - 1, x1 + 1, y1 + 1);
+}
+
+/*──────────────────────────────────────────────────────────────────────────*/
+void DrawScreenSave(U8 *ptr, S32 x, S32 y) {
+    DrawScreenSaveNoFlip(ptr, x, y);
     BoxUpdate();
 }
 
@@ -3903,6 +3923,10 @@ S32 MainGameMenu(S32 load) {
             UnsetClipWindow();
 
             ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
+            // Kept as a flip, unlike the page transitions below: the menu the
+            // player just asked for is assembled behind a save-directory scan, a
+            // text-bank load and a CD track start, and dimming the scene now is
+            // the only sign the key registered while that runs.
             BoxStaticFullflip();
 
             if (!FadeMenu)
@@ -4051,7 +4075,7 @@ S32 MainGameMenu(S32 load) {
                 CopyScreen(Screen, Log);
                 if (FlagShadeMenu)
                     ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
-                BoxStaticFullflip();
+                BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
                 break;
 
             default: // load game
@@ -4115,14 +4139,14 @@ S32 MainGameMenu(S32 load) {
 
                 ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
                 NewCube = savenewcube;
-                BoxStaticFullflip();
+                BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
                 RestoreTimer();
             }
             break;
 
         case 74: // Options
             CopyScreen(Screen, Log);
-            BoxStaticFullflip();
+            BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
             OptionsMenu(TRUE);
             break;
 
