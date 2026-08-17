@@ -6,26 +6,30 @@ ignores the rest, so wherever two camera boxes overlap in x, y AND z, list index
 silently decides which camera wins. Nothing in the scene data advertises that.
 
 Restarts the engine and carries on where it left off, because walking many cubes in
-one process crashes intermittently (see probe_cube_crash.py) and a sweep that dies
+one process crashes intermittently, in AffGraph on an out-of-range brick, and a sweep that dies
 at the first fault covers almost nothing.
 
 Usage: probe_cube_overlap.py [first] [last]
 """
+import os
 import subprocess
 import sys
+import tempfile
 import time
 
 sys.path.insert(0, "scripts/dev")
-from lba2ctl import Control
+from lba2ctl import Control, engine_binary, env_path, game_dir
 from probe_zones import read_zones
 
-SCRATCH = ("/tmp/claude-1000/-home-noctonca-code-lba-hacking-lba2-classic-community/"
-           "08cebabc-9e6d-4a53-ac8f-09a3ba677474/scratchpad")
-BIN = "./build-ctl/SOURCES/lba2cc"
+BIN = engine_binary()
+SAVE = env_path("LBA2_SAVE", "a save to boot into, as a full path")
+# A scratch user dir per run, so a sweep cannot inherit settings from the last one
+# or leave its own behind. See the config-leak note in docs/CONTROL.md.
+USER_DIR = tempfile.mkdtemp(prefix="lba2-probe-")
 ARGS = ["--headless", "--no-audio",
-        "--game-dir", "/home/noctonca/code/lba-hacking/LBA2-GOG",
-        "--user-dir", f"{SCRATCH}/probe", "--no-autosave",
-        "--load", f"{SCRATCH}/probe/save/Spaceship.LBA", "--listen", "4444"]
+        "--game-dir", game_dir(),
+        "--user-dir", USER_DIR, "--no-autosave",
+        "--load", SAVE, "--listen", "4444"]
 SETTLE = 0.25
 
 FIRST = int(sys.argv[1]) if len(sys.argv) > 1 else 0
@@ -33,7 +37,7 @@ LAST = int(sys.argv[2]) if len(sys.argv) > 2 else 255
 
 
 def start_engine():
-    log = open(f"{SCRATCH}/sweep.log", "wb")
+    log = open(os.path.join(USER_DIR, "engine.log"), "wb")
     p = subprocess.Popen([BIN] + ARGS, stdout=log, stderr=log)
     for _ in range(120):
         time.sleep(0.25)

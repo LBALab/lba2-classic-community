@@ -4,14 +4,18 @@
 Each save runs twice under identical conditions, once with `input up N` injected
 and once without. Same final position both ways means the injection did nothing.
 """
+import os
 import re
 import subprocess
 import sys
 import tempfile
 
-BIN = "./build-ctl/SOURCES/lba2cc"
-GAME_DIR = "/home/noctonca/code/lba-hacking/LBA2-GOG"
-SAVE_DIR = "/home/noctonca/.local/share/Twinsen/LBA2/save"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lba2ctl import engine_binary, env_path, game_dir
+
+BIN = engine_binary()
+GAME_DIR = game_dir()
+SAVE_DIR = env_path("LBA2_SAVE_DIR", "the folder holding the saves named below")
 SAVES = ["Desert Island", "Spaceship", "Emerald Moon", "School of Magic", "Undergas"]
 HOLD = int(sys.argv[1]) if len(sys.argv) > 1 else 60
 

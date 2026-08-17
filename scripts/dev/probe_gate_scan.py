@@ -7,28 +7,32 @@ only gate is exactly that, which is why walking from there took no transitions.
 
 Writes one line per cube so a walk can start somewhere that can actually move.
 """
+import os
 import subprocess
 import sys
+import tempfile
 import time
 
 sys.path.insert(0, "scripts/dev")
-from lba2ctl import Control
+from lba2ctl import Control, engine_binary, env_path, game_dir
 from probe_zones import read_zones
 
-SCRATCH = ("/tmp/claude-1000/-home-noctonca-code-lba-hacking-lba2-classic-community/"
-           "08cebabc-9e6d-4a53-ac8f-09a3ba677474/scratchpad")
-BIN = "./build-ctl/SOURCES/lba2cc"
+BIN = engine_binary()
+SAVE = env_path("LBA2_SAVE", "a save to boot into, as a full path")
+# A scratch user dir per run, so a sweep cannot inherit settings from the last one
+# or leave its own behind. See the config-leak note in docs/CONTROL.md.
+USER_DIR = tempfile.mkdtemp(prefix="lba2-probe-")
 ARGS = ["--headless", "--no-audio",
-        "--game-dir", "/home/noctonca/code/lba-hacking/LBA2-GOG",
-        "--user-dir", f"{SCRATCH}/probe", "--no-autosave",
-        "--load", f"{SCRATCH}/probe/save/Spaceship.LBA", "--listen", "4444"]
+        "--game-dir", game_dir(),
+        "--user-dir", USER_DIR, "--no-autosave",
+        "--load", SAVE, "--listen", "4444"]
 ZONE_ON = 2
 FIRST = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 LAST = int(sys.argv[2]) if len(sys.argv) > 2 else 220
 
 
 def start():
-    log = open(f"{SCRATCH}/gatescan.log", "wb")
+    log = open(os.path.join(USER_DIR, "engine.log"), "wb")
     p = subprocess.Popen([BIN] + ARGS, stdout=log, stderr=log)
     for _ in range(160):
         time.sleep(0.25)

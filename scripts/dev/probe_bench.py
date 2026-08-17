@@ -14,11 +14,11 @@ import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lba2ctl import Control
+from lba2ctl import Control, engine_binary, env_path, game_dir
 
-BIN = "./build-ctl/SOURCES/lba2cc"
-GAME_DIR = "/home/noctonca/code/lba-hacking/LBA2-GOG"
-SAVE = "/home/noctonca/.local/share/Twinsen/LBA2/save/Desert Island.LBA"
+BIN = engine_binary()
+GAME_DIR = game_dir()
+SAVE = env_path("LBA2_SAVE", "a save to boot into, as a full path")
 PORT = 4444
 VALUES = [0, 20, 40, 60, 80, 100, 120, 140]
 

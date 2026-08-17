@@ -34,12 +34,37 @@ before a reply can be written.
 """
 
 import argparse
+import os
 import socket
 import sys
 
 TERMINATOR = "<<END>>"
 EVENT_PREFIX = "! "
 DEFAULT_PORT = 4444
+
+
+def env_path(name, what):
+    """Read a path from the environment, or say which one is missing.
+
+    The sweeps below spawn their own engines, so they need a binary, game data
+    and a save. None of those have a location this repository can assume, and a
+    default pointing at one machine is worse than no default: it fails somewhere
+    further in, as a missing file rather than as a missing setting.
+    """
+    value = os.environ.get(name)
+    if not value:
+        raise SystemExit(f"set {name} to {what}")
+    return value
+
+
+def engine_binary():
+    """Path to an lba2cc built with -DLBA2_CONTROL_SERVER=ON."""
+    return env_path("LBA2_BIN", "an lba2cc built with -DLBA2_CONTROL_SERVER=ON")
+
+
+def game_dir():
+    """Path to the retail game data (see docs/GAME_DATA.md)."""
+    return env_path("LBA2_GAME_DIR", "the retail game data directory")
 
 
 class Control:
