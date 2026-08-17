@@ -156,6 +156,15 @@ static long s_commands = 0;
    output to stdout through one). Held only for the duration of that command. */
 static Console_LineSinkFn s_prev_sink = NULL;
 
+/* Non-zero while a command is running. Servicing the socket from the pre-present
+   chain is what keeps it answering inside a modal, and it also means a command
+   that presents frames (anything opening a cinematic, a dialogue or a UI capture)
+   re-enters this file from inside itself. A second command must not start there:
+   it would reset the response buffer the outer one is still filling, and hand the
+   outer sink back as its own predecessor, so the first line printed would recurse
+   until the stack ran out. */
+static int s_in_command = 0;
+
 /* `stream on`: the log fan-out feeds this ring, and Poll drains it to the client.
    The log callback never touches the socket, for two reasons: a trace firing
    mid-frame must not be able to block the game on a slow reader, and a write from
@@ -174,7 +183,10 @@ static long s_event_dropped = 0;
    agent's commands should still be visible where the run is being watched. */
 static void resp_sink(const char *line) {
     int n = (int)strlen(line);
-    if (s_prev_sink)
+    /* s_in_command already stops this sink displacing itself. Checked again here
+       because the failure that would follow is unbounded recursion, which takes
+       the process out with no diagnostic worth reading. */
+    if (s_prev_sink && s_prev_sink != resp_sink)
         s_prev_sink(line);
     if (s_resp_len + n + 1 > RESP_MAX - 1) {
         s_resp_over = 1;
@@ -363,6 +375,7 @@ static void run_line(char *line) {
 
     Console_EnsureRegistered();
 
+    s_in_command = 1;
     s_prev_sink = Console_SetLineSinkForTests(resp_sink);
     while (p && *p) {
         seg = p;
@@ -383,6 +396,7 @@ static void run_line(char *line) {
     }
     Console_SetLineSinkForTests(s_prev_sink);
     s_prev_sink = NULL;
+    s_in_command = 0;
 
     if (s_resp_over)
         resp_addf("[ctlsrv] output truncated at %d bytes", RESP_MAX);
@@ -514,6 +528,13 @@ void ControlServer_Poll(void) {
     int n;
 
     if (!sock_valid(s_listen_fd))
+        return;
+
+    /* Re-entered from inside a command that is presenting frames. Do nothing at
+       all here: not the accept, not the read, not the event flush. The command
+       owns the response buffer and the displaced line sink until it returns, and
+       everything below would take one or both from it. */
+    if (s_in_command)
         return;
 
     if (!sock_valid(s_client_fd)) {
