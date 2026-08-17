@@ -57,7 +57,15 @@ T_MEM ListMem[] = {
 void Mem_ConfigureScreenBuffers(U32 resX, U32 resY) {
     const S32 pixels = (S32)resX * (S32)resY;
     ListMem[MEM_PTR_ZBUFFER].Size = pixels * 2; // Z-buffer: 2 bytes per pixel
+    /* The holomap bump-allocates its globe, mapping and text resources out of
+       ScreenAux (InitHoloMalloc points PtHoloMalloc straight at it) against a
+       budget of the historical 640x480 framebuffer. That budget does not shrink
+       with the render resolution, so hold a floor under ScreenAux or opening
+       the holomap at one of the catalog's smaller modes walks off the end of it
+       and into the buffer that follows. */
     ListMem[MEM_SCREEN_AUX].Size = pixels + RECOVER_AREA;
+    if (ListMem[MEM_SCREEN_AUX].Size < (S32)(640L * 480L + RECOVER_AREA))
+        ListMem[MEM_SCREEN_AUX].Size = (S32)(640L * 480L + RECOVER_AREA);
     ListMem[MEM_BUFSPEAK].Size = pixels + RECOVER_AREA;
     ListMem[MEM_SCREEN].Size = pixels + RECOVER_AREA;
 }
