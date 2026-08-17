@@ -9,7 +9,7 @@
  * Design intent: Phase 1 of the widescreen plan (docs/WIDESCREEN.md). The
  * file is the regression net that lets Phase 2 prove its 640x480 changes
  * are byte-identical, before the engine renders any wider frame. See
- * docs/widescreen/projrec.md for the workflow.
+ * tests/projection/README.md for the workflow.
  *
  * Default: inactive (zero cost). Active only when Projrec_BeginCapture()
  * is called with a path, typically via the --capture-projection harness
