@@ -1941,8 +1941,12 @@ static const char *ZoneTypeName(S32 t) {
         return "message";
     case 6:
         return "ladder";
+    case 7:
+        return "escalator"; // conveyor: Info2 picks the direction
     case 8:
         return "hit";
+    case 9:
+        return "rail";
     default:
         return "?";
     }
@@ -1975,10 +1979,17 @@ static void cmd_zonelist(int argc, const char *argv[]) {
                  (ptrz->Info7 & ZONE_ACTIVE) ? "active " : "",
                  (ptrz->Info7 & ZONE_OBLIGATOIRE) ? "forced " : "");
 
-        Console_Print("  [%2d] %-8s Num=%-4d box=(%d,%d,%d)-(%d,%d,%d) info=%d,%d,%d,%d flags=0x%02x %s%s",
+        /* All seven Info slots. Which of them carry meaning depends on the type (docs/ZONES.md
+           has the per-type map), and the four beyond Info3 are where the interesting authored
+           values live: a camera zone keeps its whole shot there, and Info4..Info6 are its
+           BetaCam, GammaCam and VueDistance. Printing only Info0..Info3 hid those entirely, so
+           anything comparing what a shot asks for against what the camera actually does had to
+           rebuild this command first. */
+        Console_Print("  [%2d] %-9s Num=%-4d box=(%d,%d,%d)-(%d,%d,%d) info=%d,%d,%d,%d,%d,%d,%d flags=0x%02x %s%s",
                       (int)n, ZoneTypeName(ptrz->Type), (int)ptrz->Num, (int)ptrz->X0, (int)ptrz->Y0,
                       (int)ptrz->Z0, (int)ptrz->X1, (int)ptrz->Y1, (int)ptrz->Z1, (int)ptrz->Info0,
-                      (int)ptrz->Info1, (int)ptrz->Info2, (int)ptrz->Info3, (unsigned)ptrz->Info7,
+                      (int)ptrz->Info1, (int)ptrz->Info2, (int)ptrz->Info3, (int)ptrz->Info4,
+                      (int)ptrz->Info5, (int)ptrz->Info6, (unsigned)ptrz->Info7,
                       flags, inside ? " <-- HERO" : "");
     }
 }
