@@ -1357,11 +1357,12 @@ void AffAllCar() {
     T_STACKCAR *pt;
     S32 i, c;
 
-    pt = &StackCar[NbCar - 1];
-
     c = MinDegrade;
 
-    for (i = NbCar - 1; i >= 0; i--, pt--) {
+    //	pt calculé dans la boucle: NbCar == 0 formait &StackCar[-1]
+    for (i = NbCar - 1; i >= 0; i--) {
+        pt = &StackCar[i];
+
         AffOneCar(pt->x, pt->y, pt->c, c);
 
         if (c < MaxDegrade)
