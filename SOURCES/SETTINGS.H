@@ -94,6 +94,19 @@ static inline S32 Settings_Coerce(const T_SETTING *s, S32 value) {
     }
 }
 
+/* Which value to persist for a setting a flag may be forcing this run: the
+ * stored preference while the live value is still the one the flag forced,
+ * otherwise the live value, because then something changed it on purpose.
+ * `forced` is -1 for a run that did not use the flag.
+ *
+ * Header-side and free of engine state for the same reason as the coercion
+ * above: this is the rule that decides whether `--fixed-timestep 100` or
+ * `LBA2_TEXFILTER=2` leaks permanently into a player's lba2.cfg, and getting it
+ * backwards is invisible to any check that reads back a cfg the engine wrote. */
+static inline S32 Settings_ValueToPersist(S32 live, S32 stored, S32 forced) {
+    return (forced >= 0 && live == forced) ? stored : live;
+}
+
 /* Apply the cfg to every row that names a key, clamped. */
 extern void Settings_ReadConfig(const T_SETTING *table, S32 count);
 

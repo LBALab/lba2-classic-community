@@ -59,11 +59,7 @@ void ConfigFile_NoteBootLanguage(S32 language) {
     StoredLanguage = language;
 }
 
-static S32 ValueToPersist(S32 live, S32 stored, S32 forced) {
-    return (forced >= 0 && live == forced) ? stored : live;
-}
-
-/* -1 when the run was not given the flag, which is what ValueToPersist wants. */
+/* -1 when the run was not given the flag, which is what Settings_ValueToPersist wants. */
 static S32 ForcedFixedTimestep(void) {
     return Control_HasFixedTimestep() ? (S32)Control_GetFixedTimestep() : -1;
 }
@@ -309,7 +305,7 @@ void WriteConfigFile(void) {
     WriteVolumeSettings(); // Sauve volumes dans LBA2.CFG
 
     DefFileBufferWriteString(
-        "Language", GetLanguageName(ValueToPersist(Language, StoredLanguage, ForcedLanguage())));
+        "Language", GetLanguageName(Settings_ValueToPersist(Language, StoredLanguage, ForcedLanguage())));
 #ifdef CDROM
     DefFileBufferWriteString("LanguageCD", GetLanguageName(LanguageCD));
 #endif

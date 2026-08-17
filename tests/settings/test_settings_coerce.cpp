@@ -130,6 +130,43 @@ static void test_the_unbounded_sentinels_clamp_to_nothing(void) {
     ASSERT_EQ_INT(SETTING_MIN_NONE, Settings_Coerce(&s, SETTING_MIN_NONE));
 }
 
+/* A run the flag was not given persists whatever the setting holds. This is every setting on a
+ * normal launch, so getting it wrong would stop the options menu saving anything. */
+static void test_an_unforced_run_persists_the_live_value(void) {
+    ASSERT_EQ_INT(33, Settings_ValueToPersist(33, 16, -1));
+    ASSERT_EQ_INT(0, Settings_ValueToPersist(0, 16, -1));
+    ASSERT_EQ_INT(16, Settings_ValueToPersist(16, 16, -1));
+}
+
+/* A flag that says "this run only" must not leave its value behind. `--fixed-timestep 100` on a
+ * cfg holding 16 has to persist 16, or one harness run silently throttles every later launch. */
+static void test_a_forced_value_is_not_left_behind(void) {
+    ASSERT_EQ_INT(16, Settings_ValueToPersist(100, 16, 100));
+    ASSERT_EQ_INT(1, Settings_ValueToPersist(0, 1, 0)); /* --vsync off over a cfg holding on */
+    ASSERT_EQ_INT(0, Settings_ValueToPersist(2, 0, 2)); /* LBA2_TEXFILTER=2 over a cfg holding off */
+}
+
+/* Changing the setting during an overridden run does persist: the live value has moved off what
+ * the flag forced, so it is the player's choice rather than the flag's. */
+static void test_changing_it_during_an_overridden_run_persists(void) {
+    ASSERT_EQ_INT(50, Settings_ValueToPersist(50, 16, 100));
+    ASSERT_EQ_INT(2, Settings_ValueToPersist(2, 0, 1));
+}
+
+/* The known limit, pinned so it stays a decision rather than a surprise: the comparison is on the
+ * value, so setting a setting back to exactly what the flag forced is indistinguishable from
+ * leaving it alone, and does not persist. Settings have no on-change hook to tell the two apart. */
+static void test_setting_it_to_the_forced_value_cannot_be_told_apart(void) {
+    ASSERT_EQ_INT(16, Settings_ValueToPersist(100, 16, 100));
+}
+
+/* A forced value of 0 is still a forced value: -1 is the only "not forced". Treating 0 as absent
+ * would make `--vsync off` persist every time. */
+static void test_zero_is_a_real_forced_value(void) {
+    ASSERT_EQ_INT(1, Settings_ValueToPersist(0, 1, 0));
+    ASSERT_EQ_INT(0, Settings_ValueToPersist(0, 1, -1));
+}
+
 int main(void) {
     RUN_TEST(test_every_rule_passes_an_in_range_value_through);
     RUN_TEST(test_clamp_moves_to_the_nearer_bound);
@@ -138,6 +175,11 @@ int main(void) {
     RUN_TEST(test_raw_keeps_whatever_the_cfg_held);
     RUN_TEST(test_the_settings_that_a_collapsed_rule_moved);
     RUN_TEST(test_the_unbounded_sentinels_clamp_to_nothing);
+    RUN_TEST(test_an_unforced_run_persists_the_live_value);
+    RUN_TEST(test_a_forced_value_is_not_left_behind);
+    RUN_TEST(test_changing_it_during_an_overridden_run_persists);
+    RUN_TEST(test_setting_it_to_the_forced_value_cannot_be_told_apart);
+    RUN_TEST(test_zero_is_a_real_forced_value);
     TEST_SUMMARY();
     return test_failures != 0;
 }

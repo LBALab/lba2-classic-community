@@ -37,11 +37,8 @@ void Settings_WriteConfig(const T_SETTING *table, S32 count) {
             continue;
 
         value = *s->value;
-        if (s->stored != NULL AND s->forced != NULL) {
-            const S32 forced = s->forced();
-            if (forced >= 0 AND value == forced)
-                value = *s->stored;
-        }
+        if (s->stored != NULL AND s->forced != NULL)
+            value = Settings_ValueToPersist(value, *s->stored, s->forced());
         DefFileBufferWriteValue(s->key, value);
     }
 }
