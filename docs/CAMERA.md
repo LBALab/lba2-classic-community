@@ -45,11 +45,13 @@ All functions live behind `extern "C"` and are shared by both interior and exter
 
 ### AddBetaCam, and why the camera has two owners
 
-`BetaCam` is a **world** angle: the view's yaw, which everything downstream renders from. `AddBetaCam` is not. It is an offset **from the hero's facing**, and the two are tied together by one rule, applied wherever the camera is aimed at the hero:
+`BetaCam` is a **world** angle: the view's yaw, which everything downstream renders from. `AddBetaCam` is not. It is an offset **from the hero's facing**, and the two are tied together by one rule:
 
 ```
 BetaCam = (2048 - (AddBetaCam + heroBeta)) & 4095
 ```
+
+The rule is what the camera is aimed *by*, not a property it always has. It holds the instant something aims the camera at the hero and for as long as the Auto camera is converged, and at no other time: the classic camera keeps whatever angle it was left with until a control re-aims it, and a loaded save restores an angle satisfying no such relationship. Read it as the thing the code maintains at particular moments rather than as an invariant to assert on a given frame.
 
 In the original game `AddBetaCam` only ever holds quarter turns: `I_CAMERA` adds 1024, and the Life opcode `LM_CAMERA_CENTER` sets `num * 1024` for an authored orientation. The Auto camera reuses it for continuous player orbit, so it now holds any value.
 
@@ -59,7 +61,7 @@ That reuse is worth understanding before changing anything here, because it is t
 - an orbit interrupted by a camera zone, cutscene or the Auto camera being switched off, whose leftover state made the next touch skip its realign;
 - a camera zone's authored angle, which the Auto camera unwound over the following second (#518).
 
-`FollowCamAdoptAngle()` ([EXTFUNC.CPP](../SOURCES/EXTFUNC.CPP)) is the shared answer: it solves the rule above for the current `BetaCam`, so the target comes out where the camera already is and nothing is owed. Call it after writing `BetaCam` on a path the Auto camera might be running under. `FollowCamForgetManualGesture()` is its companion for the other direction: it drops an in-flight orbit when something else takes the camera.
+The rule and its inverse live in [FOLLOWCAM_MATH.H](../SOURCES/FOLLOWCAM_MATH.H), along with the shortest-way-round difference and one frame of the rotation lerp, so the arithmetic has one home rather than a copy at each site that needs it. `FollowCamAdoptAngle()` ([EXTFUNC.CPP](../SOURCES/EXTFUNC.CPP)) is the shared answer: it solves the rule above for the current `BetaCam`, so the target comes out where the camera already is and nothing is owed. Call it after writing `BetaCam` on a path the Auto camera might be running under. `FollowCamForgetManualGesture()` is its companion for the other direction: it drops an in-flight orbit when something else takes the camera.
 
 ### Off-screen recenter (original behavior)
 
@@ -219,6 +221,8 @@ The camera resisted iteration for a long time because nothing about it was asser
 
 **`--dump-state`** carries a `camera` block for end-state assertions, and **`zonelist`** prints each zone's box and `Info7`, which turns "get into a camera zone" into a concrete `cube` plus `teleport`.
 
+The camera is guarded in two places, and it is worth knowing which is which before relying on either. The behavioural fixtures below drive the real engine, so they need retail data and a display and run in **no CI workflow**: every platform runs `ctest -L host_quick` and nothing else. What CI does see is `tests/camera/test_followcam_math.cpp`, which covers the angle arithmetic from `FOLLOWCAM_MATH.H` over its whole domain, links nothing, and needs no data. A change to the camera that CI passes has had its arithmetic checked and its behaviour not.
+
 Fixtures live in `tests/automation/`, with `camlib.sh` turning a run into a per-frame table so each asserts on the shape of a motion rather than one end state:
 
 | fixture | what it pins |
@@ -265,6 +269,7 @@ Two habits are worth keeping when adding to these. **Run a new fixture against a
 | Orbit gesture state     | SOURCES/EXTFUNC.CPP        | `FollowCamAdoptAngle`, `FollowCamForgetManualGesture`, `ApplyManualCameraNudge`, `cam_glide` |
 | Camera zone dispatch    | SOURCES/OBJECT.CPP         | `SetZoneCamera`, `ZONE_ON` / `ZONE_ACTIVE` / `ZONE_OBLIGATOIRE` (COMMON.H), `AllCameras` |
 | Camera trace            | SOURCES/PERSO.CPP          | `CamTrace`, `camtrace` / `camnudge` console commands |
+| Angle arithmetic        | SOURCES/FOLLOWCAM_MATH.H   | `FollowCamAngleDiff`, `FollowCamTargetBetaFor`, `FollowCamPanForAngle`, `FollowCamRotStep`; host test in tests/camera |
 | Manual-override fade    | SOURCES/PERSO.CPP, SOURCES/EXTFUNC.CPP | `FollowCamManualHold`, `FollowCamManualHoldFrames`, `autoFactor`, `cam_manual_hold` cvar |
 | Config read/write       | SOURCES/PERSO.CPP          | `ReadConfigFile`, `WriteConfigFile`                                                 |
 | Menu toggle             | SOURCES/GAMEMENU.CPP       | `GereAdvancedOptionsMenu`                                                           |

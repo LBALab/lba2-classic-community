@@ -31,6 +31,7 @@ extern S32 GfxDitherShading;
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include "FOLLOWCAM_CFG.H"
+#include "FOLLOWCAM_MATH.H"
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 
@@ -243,16 +244,9 @@ static void UpdateFollowCameraExt(void) {
                      * orbits behind the hero whether running, turning in place,
                      * or standing.  Smoothness comes from the lerp speed, not
                      * from skipping updates. */
-    S32 catchupDiff = FollowCamTargetBeta - BetaCam;
-    if (catchupDiff > 2048)
-        catchupDiff -= 4096;
-    if (catchupDiff < -2048)
-        catchupDiff += 4096;
+    S32 catchupDiff = FollowCamAngleDiff(FollowCamTargetBeta, BetaCam);
 
     if (FollowCamNeedsUpdate(ptr3d, catchupDiff)) {
-        S32 newbeta = AddBetaCam + ptr3d->Beta;
-        newbeta &= 4095;
-
         /* HD recompose strength (kExcess): 0 in camera zones, at
                          * 480, or when disabled. Shared by the forward-lean cut
                          * here and the boom pull-in + pitch steepen at the apply
@@ -306,7 +300,7 @@ static void UpdateFollowCameraExt(void) {
                          * (arm shortened near terrain) → tighter follow; full
                          * distance → lazy, cinematic drift.  Floor at divisor/3
                          * to avoid jitter when very close. */
-        FollowCamTargetBeta = (2048 - newbeta) & 4095;
+        FollowCamTargetBeta = FollowCamTargetBetaFor(AddBetaCam, ptr3d->Beta);
 
         if (manualPan) {
             BetaCam = FollowCamTargetBeta;
@@ -327,20 +321,11 @@ static void UpdateFollowCameraExt(void) {
                     if (dynamicDiv < FOLLOW_CAM_ROT_DIVISOR / 3)
                         dynamicDiv = FOLLOW_CAM_ROT_DIVISOR / 3;
                 }
-                S32 step = diff / dynamicDiv;
-                // Clamp to a minimum magnitude toward the target. Integer
-                // division truncates to 0 whenever |diff| < dynamicDiv (e.g.
-                // diff -13 / div 36 = 0), and diff is still past the snap
-                // threshold here, so without this the camera neither steps
-                // nor snaps: BetaCam sticks ~threshold..dynamicDiv units off
-                // target forever, the dirty check keeps firing, and the
-                // exterior re-renders the full terrain (AFF_ALL_FLIP) every
-                // idle frame. Handle step == 0 too, not just the < MIN_STEP
-                // cases, so the camera always closes the gap and settles.
-                if (step >= 0 AND step < FOLLOW_CAM_ROT_MIN_STEP)
-                    step = (diff > 0) ? FOLLOW_CAM_ROT_MIN_STEP : -FOLLOW_CAM_ROT_MIN_STEP;
-                else if (step<0 AND step> - FOLLOW_CAM_ROT_MIN_STEP)
-                    step = -FOLLOW_CAM_ROT_MIN_STEP;
+                /* The minimum step is what stops integer division truncating to zero
+                 * a few units short of the target, where the camera would neither
+                 * step nor snap: it would sit off target for ever with the dirty
+                 * check firing and the exterior re-rendering every idle frame. */
+                S32 step = FollowCamRotStep(diff, dynamicDiv, FOLLOW_CAM_ROT_MIN_STEP);
                 BetaCam = (BetaCam + step) & 4095;
             } else {
                 BetaCam = FollowCamTargetBeta;
