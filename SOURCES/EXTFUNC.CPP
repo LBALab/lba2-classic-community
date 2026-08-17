@@ -17,6 +17,7 @@
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/WINDOW.H>
+#include "FOLLOWCAM.H"
 #include "FOLLOWCAM_CFG.H"
 #include "FOLLOWCAM_MATH.H"
 #include "JOYSTICK.H"

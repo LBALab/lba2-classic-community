@@ -20,7 +20,7 @@ All functions live behind `extern "C"` and are shared by both interior and exter
 - Projection: `SetIsoProjection` / `LongProjectPoint` — no perspective divide, fixed camera orientation.
 - `PtrProjectPoint` calls `LongProjectPoint` directly ([SOURCES/INTEXT.CPP](../SOURCES/INTEXT.CPP) line 313).
 - Camera position is `SetPosCamera(StartXCube * SIZE_BRICK_XZ, ...)` — tile-grid aligned.
-- **Smooth follow:** When the hero goes off-screen, the main loop interpolates `StartXCube` / `StartZCube` toward the hero's brick with `xm + (xm - StartXCube) / 2` ([SOURCES/PERSO.CPP](../SOURCES/PERSO.CPP) lines 1621–1626). This half-step convergence keeps scrolling gentle.
+- **Smooth follow:** When the hero goes off-screen, the main loop interpolates `StartXCube` / `StartZCube` toward the hero's brick with `xm + (xm - StartXCube) / 2` (`MainLoop` in [SOURCES/PERSO.CPP](../SOURCES/PERSO.CPP)). This half-step convergence keeps scrolling gentle.
 - Enter (`I_RETURN`) recenters the camera by snapping to the hero's tile position.
 
 ## Exterior (perspective)
@@ -65,14 +65,14 @@ The rule and its inverse live in [FOLLOWCAM_MATH.H](../SOURCES/FOLLOWCAM_MATH.H)
 
 ### Off-screen recenter (original behavior)
 
-When the hero projects outside the screen clip bounds ([PERSO.CPP](../SOURCES/PERSO.CPP) lines 1609–1656):
+When the hero projects outside the screen clip bounds (`MainLoop` in [PERSO.CPP](../SOURCES/PERSO.CPP)):
 
 - **Exterior:** `StartXCube`/`StartZCube` snap to the hero's rotated position (no interpolation). Then `CameraCenter(0)` applies the new position without reorienting `BetaCam`.
 - **Interior:** uses half-step interpolation (see above).
 
 ### Manual controls
 
-- **Enter (`I_RETURN`):** calls `CameraCenter(1)` — full reorient behind the hero ([PERSO.CPP](../SOURCES/PERSO.CPP) lines 1386–1408).
+- **Enter (`I_RETURN`):** calls `CameraCenter(1)` for a full reorient behind the hero (`MainLoop` in [PERSO.CPP](../SOURCES/PERSO.CPP), which then calls `FollowCamResetToView`).
 - **Camera cycle (`I_CAMERA`):** rotates `AddBetaCam` by 90° (1024 units). **Classic:** `CameraCenter(2)` (preset `AlphaCam` / `VueDistance`). **Auto camera (`FollowCamera`, exterior):** recomputes `VueOffset*` / `BetaCam` from the hero and `AddBetaCam` only, then `CameraCenter(3)` — zoom and numpad elevation are not reset.
 - **`GereExtKeys`:** keyboard-driven `AlphaCam` / `BetaCam` adjustment ([SOURCES/EXTFUNC.CPP](../SOURCES/EXTFUNC.CPP) line 1910+).
 
@@ -123,7 +123,7 @@ The latching shape is by far the more common in the shipped data. `CameraZone` i
 The angle is the visible part, but `CameraZone` gates three other behaviours, and anything that suppresses or bypasses zones inherits all four:
 
 - **The hidden-hero recovery.** When the hero is completely masked by geometry, the engine recentres the camera, unless `CameraZone` is set ([OBJECT.CPP](../SOURCES/OBJECT.CPP)). An authored shot is assumed deliberate, including when it hides him.
-- **HD recompose.** Skipped in zones ([PERSO.CPP](../SOURCES/PERSO.CPP)), so hand-composed framing is not adjusted at tall render heights.
+- **HD recompose.** Skipped in zones ([FOLLOWCAM.CPP](../SOURCES/FOLLOWCAM.CPP)), so hand-composed framing is not adjusted at tall render heights.
 - **The recentre input.** `I_RETURN` is a no-op inside a zone.
 
 `FlagCameraForcee` outlives the zone: the off-screen path clears it and restores `AlphaCam` / `GammaCam` / `VueDistance` to the `VueCamera` presets, which is how a forced shot's parameters are given back.
@@ -139,14 +139,14 @@ A zone writes `BetaCam` directly, so it is one of the writers described above an
 
 Config key `FollowCamera` (0 = classic, 1 = auto; default 0). Also reads legacy key `AutoCameraCenter` for backward compatibility. Toggled in Options → Advanced options ("Auto camera" / "Classic camera" — localized). Off by default so the original camera behavior is preserved.
 
-When enabled in exterior mode (and not in a camera zone or cinema), the implementation is a third-person follow with several coupled pieces (tuning in `FOLLOWCAM_CFG.H`, logic in `PERSO.CPP` / `EXTFUNC.CPP`):
+When enabled in exterior mode (and not in a camera zone or cinema), the implementation is a third-person follow with several coupled pieces (tuning in `FOLLOWCAM_CFG.H`, logic in [SOURCES/FOLLOWCAM.CPP](../SOURCES/FOLLOWCAM.CPP) / `EXTFUNC.CPP`):
 
 ### Spring arm (zoom)
 
 Zoom is not a single distance: the player sets a target arm length, and the camera smoothly converges toward it each frame — a standard spring-arm pattern:
 
 - **`FollowCamBaseDist`** — target distance (numpad `/` closer, `*` farther; clamped `FOLLOW_CAM_DIST_MIN`–`FOLLOW_CAM_DIST_MAX`).
-- **`FollowCamEffectiveDist`** — smoothed length (static state in `PERSO.CPP`); moves toward `FollowCamBaseDist` by `FOLLOW_CAM_SPRING_RECOVER` per frame whether the arm is too short or too long.
+- **`FollowCamEffectiveDist`:** smoothed length (private state in `FOLLOWCAM.CPP`); moves toward `FollowCamBaseDist` by `FOLLOW_CAM_SPRING_RECOVER` per frame whether the arm is too short or too long.
 - **`VueDistance`** is set from **`FollowCamEffectiveDist`** before `CameraCenter(3)`, so terrain render matches the eased distance.
 
 Branch history tried heavier correction (terrain penetration along the boom, LOS samples); those were removed to keep behavior predictable and the PR focused — so there is no lens pull-through-terrain and no classic `SearchCameraPos` on this path (see below).
@@ -178,7 +178,7 @@ The follow-through is tuned for the stick, which springs back to centre so "no i
 
 **Zoom input:** numpad `/` and `*`, or the mouse wheel, update `FollowCamBaseDist` every frame while held; idle zoom/tilt still apply (dirty check includes base distance and `AlphaCam`). Unlike elevation, zoom and pan read raw scancodes through `CheckKey` in `GereExtKeys`, so they are not rebindable and the numpad is the only keyboard route to zoom.
 
-**Zoom is per-session.** `FollowCamBaseDist` is neither persisted to `lba2.cfg` nor exposed as a console cvar. Only two things write the resting value: the first-frame init, and Center camera (Enter / gamepad B), which snaps it back to `FOLLOW_CAM_INITIAL_DIST`, the midpoint of the two `DefVueDistance` presets. Walking between scenes does not reset it. Changing the resting zoom therefore means editing that constant in `PERSO.CPP`; at tall render heights the HD recompose below also pulls the boom in, and that gain *is* live and persisted (`cam_hd_dist`).
+**Zoom is per-session.** `FollowCamBaseDist` is neither persisted to `lba2.cfg` nor exposed as a console cvar. Only two things write the resting value: the first-frame init, and Center camera (Enter / gamepad B), which snaps it back to `FOLLOW_CAM_INITIAL_DIST`, the midpoint of the two `DefVueDistance` presets. Walking between scenes does not reset it. Changing the resting zoom therefore means editing `FOLLOW_CAM_INITIAL_DIST` in `FOLLOWCAM_CFG.H`; at tall render heights the HD recompose below also pulls the boom in, and that gain *is* live and persisted (`cam_hd_dist`).
 
 ### HD recompose (tall render heights)
 
@@ -188,7 +188,7 @@ The Auto camera answers this with a render-time recompose ("recompose, not crop"
 
 - **Render-time only.** The player's logical `AlphaCam` and `FollowCamBaseDist` are read, adjusted for the `CameraCenter(3)` call, and restored, so manual tilt/zoom and the spring arm keep their logical values.
 - **Auto path only, never in a camera zone.** Authored / scripted shots (`CameraZone`) and the classic camera are untouched, as are isometric interiors.
-- **Tunable live**, then baked into `FOLLOWCAM_CFG.H`: `cam_hd` (master), `cam_hd_pitch`, `cam_hd_dist`, `cam_hd_lean` console cvars. `FollowCamHDExcess()` ([PERSO.CPP](../SOURCES/PERSO.CPP)) returns the `k`-excess the apply path scales by.
+- **Tunable live**, then baked into `FOLLOWCAM_CFG.H`: `cam_hd` (master), `cam_hd_pitch`, `cam_hd_dist`, `cam_hd_lean` console cvars. `FollowCamHDExcess()` ([FOLLOWCAM.CPP](../SOURCES/FOLLOWCAM.CPP)) returns the `k`-excess the apply path scales by.
 
 Pitch is the binding lever and saturates at the `AlphaCam` clamp (600 ≈ 53°), so on an open vista the recompose brings the subject back to a good size but leaves a natural widescreen horizon band rather than a 4:3-tight sky.
 
@@ -196,7 +196,7 @@ Pitch is the binding lever and saturates at the `AlphaCam` clamp (600 ≈ 53°),
 
 ### Ground / occlusion clearance
 
-A smooth port of the classic `SearchCameraPos` terrain awareness onto the follow path (`cam_ground`, default on; clearance `cam_ground_clear`). After `CameraCenter(3)` positions the eye, a few points are sampled along the eye-to-hero line (`FollowCamHDExcess`-style, in `PERSO.CPP`). Where terrain there would rise above the line of sight (a hill between the camera and the hero, or the eye sinking into rising ground), the eye is raised just enough to clear the worst occluder and re-aimed at the hero via the same `SetPosCamera` / `SetTargetCamera` calls the classic recenter uses.
+A smooth port of the classic `SearchCameraPos` terrain awareness onto the follow path (`cam_ground`, default on; clearance `cam_ground_clear`). After `CameraCenter(3)` positions the eye, a few points are sampled along the eye-to-hero line (`FollowCamHDExcess`-style, in `FOLLOWCAM.CPP`). Where terrain there would rise above the line of sight (a hill between the camera and the hero, or the eye sinking into rising ground), the eye is raised just enough to clear the worst occluder and re-aimed at the hero via the same `SetPosCamera` / `SetTargetCamera` calls the classic recenter uses.
 
 The difference from the classic path is that the lift **eases** toward its target every frame (`FollowCamEyeLift`, tuned by `FOLLOW_CAM_GROUND_*`) instead of snapping. An earlier always-on snap fought the orbit and was reverted; easing is what makes it safe to run every frame. A `FollowCamGroundSettling` flag keeps the dirty check live until the lift converges, so it finishes even while the hero stands still. Active at every resolution (world awareness, not HD-specific), skipped in camera zones and when the eye leaves the cube (where `CalculAltitudeObjet` is invalid). It clears terrain only; decor/scenery occlusion is not yet handled.
 
@@ -261,16 +261,17 @@ Two habits are worth keeping when adding to these. **Run a new fixture against a
 | SearchCameraPos         | SOURCES/3DEXT/MAPTOOLS.CPP | `SearchCameraPos(x, y, z, objbeta, mode)`                                           |
 | Exterior init           | SOURCES/EXTFUNC.CPP        | `Init3DExtView`, `Init3DExtGame`                                                    |
 | Camera level keys       | SOURCES/EXTFUNC.CPP        | `GereExtKeys` — preset switch (classic) or free `AlphaCam` tilt (auto `FollowCamera`) |
-| Main loop follow cam    | SOURCES/PERSO.CPP          | Off-screen check, Enter key recentre, follow camera block                            |
-| FollowCamera state      | SOURCES/GLOBAL.CPP, PERSO  | `FollowCamera`, `FollowCamBaseDist`; `FollowCamEffectiveDist` (spring arm, static in `PERSO.CPP`) |
+| Main loop follow cam    | SOURCES/PERSO.CPP          | Off-screen check, Enter key recentre; calls into the Auto camera below               |
+| Auto camera update      | SOURCES/FOLLOWCAM.CPP      | `UpdateFollowCameraExt`, `FollowCamResetToView`, `FollowCamSyncTarget`; interface in `FOLLOWCAM.H` |
+| FollowCamera state      | SOURCES/FOLLOWCAM.CPP      | `FollowCamera`, `FollowCamBaseDist`; `FollowCamEffectiveDist` (spring arm, private to the file) |
 | Follow cam tuning       | SOURCES/FOLLOWCAM_CFG.H    | All `FOLLOW_CAM_*` build-time constants                                             |
-| Auto cam HD recompose   | SOURCES/PERSO.CPP, FOLLOWCAM_CFG.H | `FollowCamHDExcess`, `FollowCamHD{Recompose,PitchGain,DistGain,LeanGain}`, `cam_hd*` cvars |
-| Ground/occlusion clearance | SOURCES/PERSO.CPP, FOLLOWCAM_CFG.H | `FollowCamEyeLift`, `FollowCamGroundSettling`, `FollowCamGround`, `FollowCamGroundClearance`, `cam_ground*` cvars |
+| Auto cam HD recompose   | SOURCES/FOLLOWCAM.CPP, FOLLOWCAM_CFG.H | `FollowCamHDExcess`, `FollowCamHD{Recompose,PitchGain,DistGain,LeanGain}`, `cam_hd*` cvars |
+| Ground/occlusion clearance | SOURCES/FOLLOWCAM.CPP, FOLLOWCAM_CFG.H | `FollowCamEyeLift`, `FollowCamGroundSettling`, `FollowCamGround`, `FollowCamGroundClearance`, `cam_ground*` cvars |
 | Orbit gesture state     | SOURCES/EXTFUNC.CPP        | `FollowCamAdoptAngle`, `FollowCamForgetManualGesture`, `ApplyManualCameraNudge`, `cam_glide` |
 | Camera zone dispatch    | SOURCES/OBJECT.CPP         | `SetZoneCamera`, `ZONE_ON` / `ZONE_ACTIVE` / `ZONE_OBLIGATOIRE` (COMMON.H), `AllCameras` |
-| Camera trace            | SOURCES/PERSO.CPP          | `CamTrace`, `camtrace` / `camnudge` console commands |
+| Camera trace            | SOURCES/FOLLOWCAM.CPP      | `FollowCamTrace`, `camtrace` / `camnudge` console commands |
 | Angle arithmetic        | SOURCES/FOLLOWCAM_MATH.H   | `FollowCamAngleDiff`, `FollowCamTargetBetaFor`, `FollowCamPanForAngle`, `FollowCamRotStep`; host test in tests/camera |
-| Manual-override fade    | SOURCES/PERSO.CPP, SOURCES/EXTFUNC.CPP | `FollowCamManualHold`, `FollowCamManualHoldFrames`, `autoFactor`, `cam_manual_hold` cvar |
+| Manual-override fade    | SOURCES/FOLLOWCAM.CPP, SOURCES/EXTFUNC.CPP | `FollowCamManualHold`, `FollowCamManualHoldFrames`, `autoFactor`, `cam_manual_hold` cvar |
 | Config read/write       | SOURCES/PERSO.CPP          | `ReadConfigFile`, `WriteConfigFile`                                                 |
 | Menu toggle             | SOURCES/GAMEMENU.CPP       | `GereAdvancedOptionsMenu`                                                           |
 
