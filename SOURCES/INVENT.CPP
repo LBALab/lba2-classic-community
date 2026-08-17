@@ -2306,9 +2306,31 @@ void GereArdoise() {
 
 //──────────────────────────────────────────────────────────────────────────
 
+/*	Les 4 angles se lisent/ecrivent directement dans Log, 5 lignes par angle.
+    The UI is authored on a 640x480 canvas and centred rather than scaled, so
+    below that size the frame coordinates fall outside the framebuffer:
+    INV_LEFT_OFFSET is (ModeDesiredX - 640) / 2, which goes negative, and the
+    inner height is a fixed 413. At 320x240 the inventory frame spans x
+    -152..471, y 8..421 against a 240-line buffer, and these corner copies walk
+    off Log. Skip the save and the restore together when the frame does not fit,
+    which is a no-op at every size the layout was authored for. */
+static S32 AnglesFitInLog(S32 x0, S32 y0, S32 x1, S32 y1) {
+    if (x0 < 0 OR y0 < 0)
+        return FALSE;
+    if (x1 >= (S32)ModeDesiredX OR y1 >= (S32)ModeDesiredY)
+        return FALSE;
+    if (x1 < 4 OR y1 < 4) //	les angles bas/droite partent de x1-4 et y1-4
+        return FALSE;
+
+    return TRUE;
+}
+
 void BackupAngles(S32 x0, S32 y0, S32 x1, S32 y1) {
     U8 *dest = PtrBackupAngles;
     U8 *src;
+
+    if (!AnglesFitInLog(x0, y0, x1, y1))
+        return;
     // Log row pitch — was hardcoded 640 (correct at the original 4:3 framebuffer);
     // now derive from TabOffLine so the per-row arithmetic below tracks the
     // back buffer's actual width. Phase 3 Tier-1 fix; see
@@ -2384,6 +2406,10 @@ void RestoreAngles(S32 x0, S32 y0, S32 x1, S32 y1) {
     U8 *src = PtrBackupAngles;
     U8 *dest;
     const S32 stride = TabOffLine[1]; // Log row pitch — see BackupAngles above.
+
+    //	Meme test que BackupAngles: sans sauvegarde, rien a restaurer
+    if (!AnglesFitInLog(x0, y0, x1, y1))
+        return;
 
     //----- Angle Superieur Gauche
     dest = (U8 *)Log + TabOffLine[y0] + x0;
