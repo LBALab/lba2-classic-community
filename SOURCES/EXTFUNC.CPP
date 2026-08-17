@@ -18,6 +18,7 @@
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/WINDOW.H>
 #include "FOLLOWCAM_CFG.H"
+#include "FOLLOWCAM_MATH.H"
 #include "JOYSTICK.H"
 
 extern S32 Nxw, Nyw, Nzw;
@@ -1981,7 +1982,7 @@ void FollowCamAdoptAngle(void) {
     /* The inverse of the follow update's target rule: it derives the target from
      * (AddBetaCam + hero Beta), so solving that for the current BetaCam gives the
      * offset that leaves the camera where it stands. */
-    AddBetaCam = (2048 - BetaCam - ptr3d->Beta) & 4095;
+    AddBetaCam = FollowCamPanForAngle(BetaCam, ptr3d->Beta);
 }
 
 /* Apply a per-frame manual camera nudge from an analog source (mouse drag or
