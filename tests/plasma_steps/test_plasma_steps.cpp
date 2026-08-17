@@ -128,4 +128,5 @@ int main(void) {
     RUN_TEST(test_plasma_steps_are_pinned);
     RUN_TEST(test_plasma_steps_are_repeatable);
     TEST_SUMMARY();
+    return test_failures != 0;
 }

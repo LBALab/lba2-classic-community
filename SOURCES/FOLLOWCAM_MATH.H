@@ -94,4 +94,31 @@ static inline S32 FollowCamRotStep(S32 diff, S32 divisor, S32 minStep) {
     return step;
 }
 
+/* HD recompose strength: the hundredths by which the render height exceeds the
+ * 480 the game was composed for. 0 at 480, 125 at 1080.
+ *
+ * The apply path scales its boom pull-in, pitch steepen and forward-lean cut by
+ * this, so the whole recompose is an exact no-op wherever this returns 0. Two
+ * things make it 0: a render height at or below 480, and the recompose being
+ * switched off. Camera zones pass 0 separately, so an authored shot is never
+ * recomposed.
+ *
+ * The correction grows linearly with height, which over-steepens at 1080p. `cap`
+ * bounds the result so tall resolutions converge on a fixed correction instead
+ * of growing without bound; 0 disables the cap and keeps it linear. */
+static inline S32 FollowCamHDExcessFor(S32 recompose, S32 modeY, S32 cap) {
+    S32 k100, e;
+
+    if (!recompose)
+        return 0;
+
+    k100 = modeY * 100 / 480;
+    e = (k100 > 100) ? (k100 - 100) : 0;
+
+    if (cap > 0 && e > cap)
+        e = cap;
+
+    return e;
+}
+
 #endif /* FOLLOWCAM_MATH_H */

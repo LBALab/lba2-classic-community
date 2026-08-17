@@ -52,25 +52,11 @@ static S32 FollowCamPrevAlphaCam = -1;  /* dirty: numpad +/- elevation while fol
 static S32 FollowCamEyeLift = 0;        /* ground clearance: eased eye lift above terrain */
 static S32 FollowCamGroundSettling = 0; /* ground clearance: lift still easing (keeps the dirty check live while the hero stands still) */
 
-/* HD vertical-FOV recompose strength for the Auto camera (community).  Returns
- * kExcess = ModeDesiredY*100/480 - 100: the hundredths by which the render
- * height exceeds the original 480 (0 at 480, 125 at 1080).  The follow-cam apply
- * path scales its boom pull-in, pitch steepen, and forward-lean cut by this, so
- * every recompose term is an exact no-op at 480.  Returns 0 when the recompose
- * is disabled (cam_hd 0); callers also pass 0 inside camera zones so authored /
- * scripted shots are never recomposed.  Tuning in FOLLOWCAM_CFG.H. */
+/* This file's live settings, applied to the rule in FOLLOWCAM_MATH.H (which the
+ * host test covers). Callers pass 0 instead inside a camera zone, so an authored
+ * shot is never recomposed. Tuning in FOLLOWCAM_CFG.H. */
 static S32 FollowCamHDExcess(void) {
-    if (!FollowCamHDRecompose)
-        return 0;
-    S32 k100 = (S32)ModeDesiredY * 100 / 480;
-    S32 e = (k100 > 100) ? (k100 - 100) : 0;
-    /* The correction grows linearly with render height, which over-steepens at
-     * 1080p (it reads as stronger than 720p). Cap the effective excess so tall
-     * resolutions converge to a fixed correction rather than growing without
-     * bound. cam_hd_cap 0 disables the cap (pure linear). */
-    if (FollowCamHDExcessCap > 0 AND e > FollowCamHDExcessCap)
-        e = FollowCamHDExcessCap;
-    return e;
+    return FollowCamHDExcessFor(FollowCamHDRecompose, (S32)ModeDesiredY, FollowCamHDExcessCap);
 }
 
 /* camtrace: one line per frame describing where the camera is and who is deciding
