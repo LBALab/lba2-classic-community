@@ -26,4 +26,6 @@ export LBA2_USER_DIR="$tmp/user"
 LBA2_TEST_SAVE=""
 seed_menu_save_dir "$LBA2_USER_DIR" fresh
 
-ui_compare "menu-main" "$GOLDEN"
+# Plasma strip excluded, as in test_ui_menu_main.sh; four rows higher here,
+# because a fresh install's menu has one entry fewer and the panel sits up.
+ui_compare --exclude 46,170,549,49 "menu-main" "$GOLDEN"

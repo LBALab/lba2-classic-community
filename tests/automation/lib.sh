@@ -285,7 +285,8 @@ seed_menu_save_dir() {
 # An empty LBA2_TEST_SAVE runs without --load, for the one surface whose subject
 # is the absence of a save: the main menu a new install shows.
 ui_compare() {
-    local args="" golden="" out="" shaA shaB rc=0
+    local args="" golden="" out="" shaA shaB rc=0 exclude=""
+    if [ "${1:-}" = "--exclude" ]; then exclude="$2"; shift 2; fi
     while [ $# -gt 1 ]; do args="${args:+$args }$1"; shift; done
     golden="$1"
     out="$(mktemp -t "${TESTNAME:-ui}.XXXXXX.png")"
@@ -314,8 +315,21 @@ ui_compare() {
         pass "regenerated golden: $(basename "$golden")"
     fi
     [ -f "$golden" ] || { rm -f "$out"; fail "golden not committed yet: $golden"; }
-    shaA=$(sha256sum "$out" | awk '{print $1}')
-    shaB=$(sha256sum "$golden" | awk '{print $1}')
+    if [ -n "$exclude" ]; then
+        # Decoded pixels with the band blanked, rather than the file's bytes, so
+        # one golden serves both platforms. png_hash refuses an exclusion that no
+        # longer fits the image, which is the case where the band has moved and
+        # the mask would otherwise start hiding a surface it was never aimed at.
+        command -v python3 >/dev/null 2>&1 \
+            || skip "python3 needed to compare 'ui $args' (its capture is masked)"
+        shaA=$(python3 "$REPO/scripts/dev/png_hash.py" "$out" --exclude "$exclude") \
+            || fail "could not hash the capture for 'ui $args'"
+        shaB=$(python3 "$REPO/scripts/dev/png_hash.py" "$golden" --exclude "$exclude") \
+            || fail "could not hash the golden for 'ui $args'"
+    else
+        shaA=$(sha256sum "$out" | awk '{print $1}')
+        shaB=$(sha256sum "$golden" | awk '{print $1}')
+    fi
     if [ "$shaA" = "$shaB" ]; then
         rm -f "$out"
         pass "ui $args matches golden ($(basename "$golden"))"
@@ -340,7 +354,8 @@ ui_compare() {
 # truth, there is no per-width golden to regenerate.
 ui_compare_wide() {
     local res="$1"; shift
-    local args="" golden="" out="" py_rc
+    local args="" golden="" out="" py_rc exclude=""
+    if [ "${1:-}" = "--exclude" ]; then exclude="$2"; shift 2; fi
     while [ $# -gt 1 ]; do args="${args:+$args }$1"; shift; done
     golden="$1"
     python3 -c "from PIL import Image" 2>/dev/null \
@@ -351,11 +366,12 @@ ui_compare_wide() {
         --exec "ui $args $(engine_path "$out")" --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 \
         || { rc=$?; rm -f "$out"; fail "verb 'ui $args' at $res returned non-zero ($rc)"; }
     [ -s "$out" ] || fail "no capture written for 'ui $args' at $res"
-    python3 - "$golden" "$out" <<'PY'
+    python3 - "$golden" "$out" "$exclude" <<'PY'
 import sys
-from PIL import Image
+from PIL import Image, ImageDraw
 golden = Image.open(sys.argv[1]).convert("RGB")
 capture = Image.open(sys.argv[2]).convert("RGB")
+exclude = sys.argv[3] if len(sys.argv) > 3 else ""
 gw, gh = golden.size
 cw, ch = capture.size
 if cw < gw or ch < gh:
@@ -363,6 +379,15 @@ if cw < gw or ch < gh:
     sys.exit(2)
 dx, dy = (cw - gw) // 2, (ch - gh) // 2
 cropped = capture.crop((dx, dy, dx + gw, dy + gh))
+# Blank the excluded band in both, in the golden's own coordinates: the crop has
+# already put the capture on the same origin, so one rectangle covers both.
+if exclude:
+    x, y, w, h = (int(v) for v in exclude.split(","))
+    if x + w > gw or y + h > gh:
+        sys.stderr.write(f"exclusion {exclude} falls outside the {gw}x{gh} golden\n")
+        sys.exit(2)
+    for im in (golden, cropped):
+        ImageDraw.Draw(im).rectangle([x, y, x + w - 1, y + h - 1], fill=(0, 0, 0))
 gpx = golden.tobytes()
 cpx = cropped.tobytes()
 if gpx == cpx:

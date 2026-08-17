@@ -33,4 +33,9 @@ trap 'rm -rf "$tmp"' EXIT
 export LBA2_USER_DIR="$tmp/user"
 seed_menu_save_dir "$LBA2_USER_DIR" returning
 
-ui_compare "menu-main" "$GOLDEN"
+# The plasma strip across the top of the panel is left out of the comparison: it
+# settles at a different state on Windows than on Linux and stays there, so a
+# golden that includes it can only ever match one platform. Everything else in
+# the frame -- layout, text, colours -- is still compared byte for byte.
+# Re-measure with a diff of a failing capture against the golden if the panel moves.
+ui_compare --exclude 46,174,549,49 "menu-main" "$GOLDEN"
