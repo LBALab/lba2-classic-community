@@ -30,6 +30,11 @@ extern S32 WriteConfigValue(const char *ident, S32 value);
  * the player's own language back rather than persisting the override. */
 extern void ConfigFile_NoteBootLanguage(S32 language);
 
+/* The console cvars these settings own, registered from Console_RegisterAll.
+ * Their ranges and rules travel with them, so the console cannot set a value the
+ * config file would reject. */
+extern void ConfigFile_RegisterCvars(void);
+
 /* The declaration for a boot key, by its lba2.cfg name, or NULL for a key this
  * file does not own. For anything that has to state a setting's range or default
  * outside the table: ask, rather than writing the numbers down in a second place

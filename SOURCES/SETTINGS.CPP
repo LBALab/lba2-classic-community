@@ -62,12 +62,18 @@ void Settings_RegisterCvars(const T_SETTING *table, S32 count) {
         const T_SETTING *s = &table[i];
         if (s->cvar == NULL)
             continue;
-        /* A toggle reads as a bool in the console (no arg toggles it); everything
-         * else takes a number. The console hands the typed value here rather than
-         * interpreting it, so a setting answers the console and the config file
-         * the same way. */
+        /* A setting with two states reads as a bool in the console, so a bare
+         * `name` toggles it and `help` says 0|1. That is a question about how
+         * many values it has, not about which rule coerces them: a row that
+         * treats out of range as unset is still a toggle when its range is 0..1,
+         * and typing it as an integer would silently turn its toggle into a
+         * print. Everything else takes a number.
+         *
+         * The console hands the typed value here rather than interpreting it, so
+         * a setting answers the console and the config file the same way. */
+        const S32 two_valued = (s->type == SETTING_TRUTHY) OR(s->min == 0 AND s->max == 1);
         Console_RegisterCvarCoerced(s->cvar, s->value,
-                                    (s->type == SETTING_TRUTHY) ? CONSOLE_CVAR_BOOL : CONSOLE_CVAR_INT,
+                                    two_valued ? CONSOLE_CVAR_BOOL : CONSOLE_CVAR_INT,
                                     Settings_ApplyFromConsole, (void *)s, s->help);
     }
 }

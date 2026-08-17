@@ -2391,6 +2391,5 @@ void Console_RegisterAll(void) {
     Console_RegisterCvar("cam_smooth", &ManualCameraSmoothing, CONSOLE_CVAR_INT, "Manual orbit lerp divisor (1 = snap, higher = laggier)");
     Console_RegisterCvar("cam_glide", &FollowCamOrbitGlide, CONSOLE_CVAR_INT, "Orbit follow-through: % of orbit speed kept per frame after release (0 = stop dead)");
     FollowCam_RegisterCvars();
-    Console_RegisterCvar("gfx_dither", &GfxDitherShading, CONSOLE_CVAR_BOOL, "Ordered dither on Gouraud shade rows (softens 16-step banding)");
-    Console_RegisterCvar("gfx_texfilter", &PolyTexFilter, CONSOLE_CVAR_INT, "Texture filtering: 0 off, 1 horizontal, 2 bilinear");
+    ConfigFile_RegisterCvars();
 }

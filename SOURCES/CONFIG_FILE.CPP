@@ -81,12 +81,6 @@ static S32 ForcedTexFilter(void) {
 /* The boot and display settings, declared once. Row order is the cfg's key
  * order, which is user-visible: lba2.cfg is rewritten in this order.
  *
- * No cvar column: these are still registered by hand in CONSOLE/CONSOLE_CMD.CPP,
- * so naming them here as well would declare a cvar nothing registers and put a
- * second copy of each help string in the tree. Moving them over means deciding
- * what the console should do with a value the row's rule would reject, which is
- * its own change.
- *
  * Three of these can be forced for one run by a flag, and must not be left
  * behind for the next: the stored column keeps what the cfg held and the writer
  * persists that instead. Language is not here because it is written as a name
@@ -102,13 +96,19 @@ static const T_SETTING BootSettings[] = {
     {"FullScreen", NULL, NULL, &VideoFullScreen, SETTING_OR_DEFAULT, TRUE, 0, 1, NULL, NULL, NULL},
     {"DisplayFullScreen", NULL, NULL, &DisplayFullScreen, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL, NULL},
     {"VSync", NULL, NULL, &DisplayVSync, SETTING_OR_DEFAULT, TRUE, 0, 1, &StoredVSync, ForcedVSync, NULL},
-    {"DitherShading", NULL, NULL, &GfxDitherShading, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL, NULL},
-    {"TextureFilter", NULL, NULL, &PolyTexFilter, SETTING_OR_DEFAULT, POLY_TEX_FILTER_OFF,
-     POLY_TEX_FILTER_OFF, POLY_TEX_FILTER_BILINEAR, &StoredTexFilter, ForcedTexFilter, NULL},
+    {"DitherShading", NULL, "gfx_dither", &GfxDitherShading, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL,
+     "Ordered dither on Gouraud shade rows (softens 16-step banding)"},
+    {"TextureFilter", NULL, "gfx_texfilter", &PolyTexFilter, SETTING_OR_DEFAULT, POLY_TEX_FILTER_OFF,
+     POLY_TEX_FILTER_OFF, POLY_TEX_FILTER_BILINEAR, &StoredTexFilter, ForcedTexFilter,
+     "Texture filtering: 0 off, 1 horizontal, 2 bilinear"},
     {"FixedTimestep", NULL, NULL, &FixedTimestep, SETTING_OR_DEFAULT, 16, 0, 100,
      &StoredFixedTimestep, ForcedFixedTimestep, NULL},
 };
 #define BOOT_SETTING_COUNT ((S32)(sizeof(BootSettings) / sizeof(BootSettings[0])))
+
+void ConfigFile_RegisterCvars(void) {
+    Settings_RegisterCvars(BootSettings, BOOT_SETTING_COUNT);
+}
 
 const T_SETTING *ConfigFile_Setting(const char *key) {
     S32 i;
