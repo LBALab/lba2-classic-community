@@ -726,12 +726,23 @@ in one order on both platforms.
 `test_ui_*_wide.sh` pair, which skip without it.
 
 The menu goldens carry a per-surface `--exclude` rectangle covering the plasma strip at
-the top of the panel, which is what lets one golden serve both platforms: the strip
-settles at a different state on Windows and stays there, while the rest of those frames
-is byte-identical across the two. See `ui_compare` and `png_hash.py --exclude`. The
-rectangle's `y` follows the panel, whose height follows the entry count, so it lives in
-each test beside its golden and needs re-measuring if a menu gains or loses a row. A
-diff of a failing capture against the golden gives it directly.
+the top of the panel, which is what lets one golden serve both platforms. The strip seeds
+its vertices and speeds from `Rnd()`, which is `rand() % n`, and libc's `rand()` is a
+different algorithm with a different `RAND_MAX` on each platform (#530), so the strip
+starts somewhere else on Windows and stays there. Everything else in those frames is
+byte-identical across the two, which is why excluding one band is enough.
+
+Nothing else about the strip differs: it is stepped the same number of times on both
+(30 steps over a capture, measured), and `Do_Plasma`'s evolution is pure integer and
+pinned bit-for-bit by `tests/plasma_steps/`, which passes with the same digest on both
+platforms. Only the starting state is unportable.
+
+The rectangle's `y` follows the panel, whose height follows the entry count, so it lives
+in each test beside its golden and needs re-measuring if a menu gains or loses a row. A
+diff of a failing capture against the golden gives it directly. The excluded band is not
+left unwatched: `ui_compare` asserts it still holds between 8 and 64 distinct colours,
+which a drawn strip does (16 or 17), a strip that failed to draw does not (1 to 3), and
+the uninitialised texture `InitPlasmaMenu` exists to prevent does not either (hundreds).
 
 Two divergences are the platform rather than the harness, and are expected to fail there:
 

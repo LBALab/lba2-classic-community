@@ -55,6 +55,7 @@ add_subdirectory(cdda)
 add_subdirectory(render)
 add_subdirectory(movement)
 add_subdirectory(zone)
+add_subdirectory(plasma_steps)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)

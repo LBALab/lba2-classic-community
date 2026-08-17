@@ -322,6 +322,18 @@ ui_compare() {
         # the mask would otherwise start hiding a surface it was never aimed at.
         command -v python3 >/dev/null 2>&1 \
             || skip "python3 needed to compare 'ui $args' (its capture is masked)"
+        # The excluded band is not left unwatched. Its exact pixels cannot be
+        # pinned across platforms, but its shape can: the plasma strip is a ramp
+        # of a dozen or so colours, a strip that failed to draw is one or two,
+        # and the uninitialised texture InitPlasmaMenu exists to prevent is
+        # hundreds. Any of those three is a different number.
+        local band_colours
+        band_colours=$(python3 "$REPO/scripts/dev/png_hash.py" "$out" \
+            --count-colours "$exclude") \
+            || fail "could not read the excluded band for 'ui $args'"
+        if [ "$band_colours" -lt 8 ] || [ "$band_colours" -gt 64 ]; then
+            fail "the excluded band of 'ui $args' holds $band_colours colours, outside 8..64: it is not a drawn plasma strip (capture at $out)"
+        fi
         shaA=$(python3 "$REPO/scripts/dev/png_hash.py" "$out" --exclude "$exclude") \
             || fail "could not hash the capture for 'ui $args'"
         shaB=$(python3 "$REPO/scripts/dev/png_hash.py" "$golden" --exclude "$exclude") \

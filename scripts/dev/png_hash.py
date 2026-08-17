@@ -18,10 +18,17 @@ the hash, which is what lets one golden serve both platforms.
 
     png_hash.py shot.png
     png_hash.py shot.png --exclude 46,174,549,49     # x,y,w,h; repeatable
+    png_hash.py shot.png --count-colours 46,174,549,49
 
 Excluded pixels are zeroed rather than skipped, so the hash still depends on
 where the exclusion is: moving the band changes the digest instead of silently
 comparing a different picture.
+
+`--count-colours` prints how many distinct values a region holds, instead of a
+hash. It is what is left to say about a region once its exact pixels are
+excluded: a bar that failed to draw collapses to one value, and the junk
+InitPlasmaMenu exists to prevent is a great many. Neither is a number the strip
+can produce.
 
 Python 3 standard library only, matching the other dev scripts.
 """
@@ -115,25 +122,53 @@ def zero_rects(width, height, channels, pixels, rects):
     return bytes(buf)
 
 
+def count_colours(width, height, channels, pixels, rect):
+    """How many distinct pixel values a rectangle holds."""
+    x, y, w, h = rect
+    if x + w > width or y + h > height:
+        raise ValueError(
+            "region %d,%d,%d,%d falls outside the %dx%d image"
+            % (x, y, w, h, width, height))
+    stride = width * channels
+    seen = set()
+    for row in range(y, y + h):
+        start = row * stride + x * channels
+        line = pixels[start:start + w * channels]
+        for col in range(0, len(line), channels):
+            seen.add(line[col:col + channels])
+    return len(seen)
+
+
 def main(argv):
     if len(argv) < 2:
         print(__doc__)
         return 2
     path = argv[1]
     rects = []
+    region = None
     i = 2
     try:
         while i < len(argv):
-            if argv[i] != "--exclude" or i + 1 >= len(argv):
+            if i + 1 >= len(argv):
+                raise ValueError("%s needs a rectangle" % argv[i])
+            if argv[i] == "--exclude":
+                rects.append(parse_rect(argv[i + 1]))
+            elif argv[i] == "--count-colours":
+                region = parse_rect(argv[i + 1])
+            else:
                 raise ValueError("unexpected argument %r" % argv[i])
-            rects.append(parse_rect(argv[i + 1]))
             i += 2
+        if region and rects:
+            raise ValueError("--count-colours describes a region; it does not hash")
     except ValueError as exc:
         print("-")
         print("png_hash: %s" % exc, file=sys.stderr)
         return 2
     try:
         width, height, channels, pixels = decode(path)
+        if region:
+            print(count_colours(width, height, channels, pixels, region))
+            return 0
         if rects:
             pixels = zero_rects(width, height, channels, pixels, rects)
     except Exception as exc:  # a missing or odd capture should not abort a sweep
