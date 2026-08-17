@@ -43,6 +43,13 @@ void Settings_WriteConfig(const T_SETTING *table, S32 count) {
     }
 }
 
+/* The console's side of a setting: it parses, this decides. Registered as the
+ * setter for every row that names a cvar. */
+static void Settings_ApplyFromConsole(void *ctx, int value) {
+    const T_SETTING *s = (const T_SETTING *)ctx;
+    *s->value = Settings_Coerce(s, (S32)value);
+}
+
 void Settings_RegisterCvars(const T_SETTING *table, S32 count) {
     S32 i;
 
@@ -51,9 +58,11 @@ void Settings_RegisterCvars(const T_SETTING *table, S32 count) {
         if (s->cvar == NULL)
             continue;
         /* A toggle reads as a bool in the console (no arg toggles it); everything
-         * else takes a number, whatever its coercion does with an odd one. */
-        Console_RegisterCvarRanged(s->cvar, s->value,
-                                   (s->type == SETTING_TRUTHY) ? CONSOLE_CVAR_BOOL : CONSOLE_CVAR_INT,
-                                   s->min, s->max, s->help);
+         * else takes a number. The console hands the typed value here rather than
+         * interpreting it, so a setting answers the console and the config file
+         * the same way. */
+        Console_RegisterCvarCoerced(s->cvar, s->value,
+                                    (s->type == SETTING_TRUTHY) ? CONSOLE_CVAR_BOOL : CONSOLE_CVAR_INT,
+                                    Settings_ApplyFromConsole, (void *)s, s->help);
     }
 }
