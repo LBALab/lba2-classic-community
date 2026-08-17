@@ -3,6 +3,8 @@
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
+#include "SETTINGS.H"
+
 /* lba2.cfg: reading the player's settings at boot and writing them back.
  *
  * Unlike a subsystem module, this file owns almost none of what it touches: its
@@ -27,5 +29,11 @@ extern S32 WriteConfigValue(const char *ident, S32 value);
  * before --language may replace it for this run. WriteConfigFile needs it to put
  * the player's own language back rather than persisting the override. */
 extern void ConfigFile_NoteBootLanguage(S32 language);
+
+/* The declaration for a boot key, by its lba2.cfg name, or NULL for a key this
+ * file does not own. For anything that has to state a setting's range or default
+ * outside the table: ask, rather than writing the numbers down in a second place
+ * the table cannot keep in step. */
+extern const T_SETTING *ConfigFile_Setting(const char *key);
 
 #endif /* CONFIG_FILE_H */
