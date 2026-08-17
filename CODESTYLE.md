@@ -25,6 +25,23 @@ Within that, which features to reach for depends on the zone you are in:
 
 Rule of thumb: if a file has an ASM counterpart or a line-for-line ancestor in the original, it stays C. If you are writing something new that never existed in 1997, idiomatic (but conservative) C++98 is fine.
 
+## Where new code goes
+
+The zone rule above only decides anything if a file belongs to one zone, and the overriding "match the file you are editing" only helps if the file has one style to match. An original file that has accumulated new infrastructure has neither. [SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) is the cautionary case: it is 1997 code that happens to hold `main()`, so ten months of camera, console, path, config and boot work landed beside the entry point and took it from 2477 lines to 3999. Inside a file like that both halves of the dialect rule apply at once and neither wins.
+
+Two rules keep it from recurring.
+
+**A new subsystem gets its own translation unit.** Do not grow an original file with something that never existed in 1997. When the natural call site is inside original code, put the call there and the implementation in a new `.CPP`. The Auto camera is the worked example: [SOURCES/FOLLOWCAM.CPP](SOURCES/FOLLOWCAM.CPP), driven from the main loop through four named entry points, with its tunables in `FOLLOWCAM_CFG.H` and its arithmetic in `FOLLOWCAM_MATH.H`.
+
+**A module owns its own state.** A new module's globals are defined in its own `.CPP` and declared in its own `.H`, never in [SOURCES/C_EXTERN.H](SOURCES/C_EXTERN.H) and [SOURCES/GLOBAL.CPP](SOURCES/GLOBAL.CPP). The rule is mechanical, so it is checkable: *the header declares exactly what the `.CPP` defines*. It also makes callers admit what they use. Moving the Auto camera's settings out of the god-header put `#include "FOLLOWCAM.H"` in the seven files that genuinely read or write camera state, and stopped the other ninety-odd from being able to touch it by accident.
+
+Corollaries:
+
+- **Group by filename prefix, not by directory.** `RES_*`, `SAVEGAME_*`, `MENU_*`, `FOLLOWCAM_*` are the existing clusters. Subdirectories under `SOURCES/` are reserved for genuinely separate things (`CONSOLE/`, `3DEXT/`, `WIN/`); a new prefix costs nothing and matches what the tree already does.
+- **Original files keep their paths.** Do not relocate 1997 code to mark it as original. `git log --follow` on those files is the evidence trail the bit-exactness work depends on, and the original/new split is per-line inside them anyway. A file is new because it has no ancestor in the initial import, not because of where it sits.
+- **Boot-time work is not exempt.** New infrastructure gravitates to the entry point because `main()` is there. It still does not belong there: config file I/O, path and profile resolution, asset discovery and fatal-error plumbing each want their own TU.
+- **State that is genuinely shared stays shared.** The rule is about ownership, not about emptying the god-header for its own sake. A global that several subsystems write (the camera angles themselves, `FirstTime`, the cube coordinates) has no single owner to move it to yet; leave it until one exists. See [docs/ARCHITECTURE_GLOBALS.md](docs/ARCHITECTURE_GLOBALS.md) for the wider plan.
+
 ## Layout and naming
 
 - **Indentation:** 4 spaces in C/C++. Tabs are preserved in ASM. The original used tabs; there is an ongoing migration to 4 spaces, so new contributions use 4 spaces.
