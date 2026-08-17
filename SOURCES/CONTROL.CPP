@@ -1052,8 +1052,14 @@ void Control_TickHook(void) {
     /* A --listen run with no tick budget is driven by whoever connects, so it must
        not end itself: without this the default budget of zero finalizes on the
        first tick, disarming the hook that services the socket. An explicit --tick
-       still wins, because that is the caller asking for a bounded run. */
-    if (s_have_listen && !s_have_tick)
+       still wins, because that is the caller asking for a bounded run.
+       Only while there is actually a socket to be driven from. The flag parses on
+       every build, and the listener is a stub without LBA2_CONTROL_SERVER and can
+       fail on a taken port, so keying this on the flag alone left `--listen 4444
+       --exit` waiting forever for a driver that could never arrive. Before the
+       first attempt nothing is known yet, and ending the run there would be worse
+       than waiting one frame. */
+    if (s_have_listen && !s_have_tick && (!s_listen_started || ControlServer_IsRunning()))
         return;
     if ((s_hook_calls - 1) >= control_effective_ticks())
         control_finalize();
