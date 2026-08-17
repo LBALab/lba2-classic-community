@@ -449,3 +449,54 @@ void FollowCamResetToView(void) {
 void FollowCamSyncTarget(void) {
     FollowCamTargetBeta = BetaCam;
 }
+
+/* The cfg keys this module owns. Declared in FOLLOWCAM.H, called by
+ * CONFIG_FILE.CPP. Every clamp here sits in the same file as the arithmetic
+ * that needs it: FollowCamGroundClearance's ceiling, for one, exists to keep
+ * (g + clearance - hy) * 100 inside S32 in the occlusion march below. */
+void FollowCam_ReadConfig(void) {
+    FollowCamReengageFrames = DefFileBufferReadValueDefault("FollowCamReengageFrames", FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT);
+    if (FollowCamReengageFrames < 0)
+        FollowCamReengageFrames = 0;
+    if (FollowCamReengageFrames > 600)
+        FollowCamReengageFrames = 600;
+
+    FollowCamDriftDivisor = DefFileBufferReadValueDefault("FollowCamDriftDivisor", FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT);
+    if (FollowCamDriftDivisor < 1)
+        FollowCamDriftDivisor = 1;
+    if (FollowCamDriftDivisor > 200)
+        FollowCamDriftDivisor = 200;
+
+    /* Auto-camera HD recompose + ground-clearance + manual-override tuning. */
+    FollowCamHDRecompose = DefFileBufferReadValueDefault("FollowCamHDRecompose", FOLLOW_CAM_HD_RECOMPOSE_DEFAULT) ? TRUE : FALSE;
+    FollowCamHDExcessCap = DefFileBufferReadValueDefault("FollowCamHDExcessCap", FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT);
+    if (FollowCamHDExcessCap < 0)
+        FollowCamHDExcessCap = 0;
+    FollowCamHDPitchGain = DefFileBufferReadValueDefault("FollowCamHDPitchGain", FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT);
+    FollowCamHDDistGain = DefFileBufferReadValueDefault("FollowCamHDDistGain", FOLLOW_CAM_HD_DIST_GAIN_DEFAULT);
+    FollowCamHDLeanGain = DefFileBufferReadValueDefault("FollowCamHDLeanGain", FOLLOW_CAM_HD_LEAN_GAIN_DEFAULT);
+    FollowCamGround = DefFileBufferReadValueDefault("FollowCamGround", FOLLOW_CAM_GROUND_DEFAULT) ? TRUE : FALSE;
+    FollowCamGroundClearance = DefFileBufferReadValueDefault("FollowCamGroundClearance", FOLLOW_CAM_GROUND_CLEARANCE_DEFAULT);
+    if (FollowCamGroundClearance < 0)
+        FollowCamGroundClearance = 0;
+    if (FollowCamGroundClearance > 20000) /* keep (g+clear-hy)*100 well inside S32 in the occlusion march */
+        FollowCamGroundClearance = 20000;
+    FollowCamManualHoldFrames = DefFileBufferReadValueDefault("FollowCamManualHoldFrames", FOLLOW_CAM_MANUAL_HOLD_DEFAULT);
+    if (FollowCamManualHoldFrames < 0)
+        FollowCamManualHoldFrames = 0;
+    FollowCamHoldAngle = DefFileBufferReadValueDefault("FollowCamHoldAngle", FOLLOW_CAM_HOLD_ANGLE_DEFAULT) ? TRUE : FALSE;
+}
+
+void FollowCam_WriteConfig(void) {
+    DefFileBufferWriteValue("FollowCamReengageFrames", FollowCamReengageFrames);
+    DefFileBufferWriteValue("FollowCamDriftDivisor", FollowCamDriftDivisor);
+    DefFileBufferWriteValue("FollowCamHDRecompose", FollowCamHDRecompose);
+    DefFileBufferWriteValue("FollowCamHDExcessCap", FollowCamHDExcessCap);
+    DefFileBufferWriteValue("FollowCamHDPitchGain", FollowCamHDPitchGain);
+    DefFileBufferWriteValue("FollowCamHDDistGain", FollowCamHDDistGain);
+    DefFileBufferWriteValue("FollowCamHDLeanGain", FollowCamHDLeanGain);
+    DefFileBufferWriteValue("FollowCamGround", FollowCamGround);
+    DefFileBufferWriteValue("FollowCamGroundClearance", FollowCamGroundClearance);
+    DefFileBufferWriteValue("FollowCamManualHoldFrames", FollowCamManualHoldFrames);
+    DefFileBufferWriteValue("FollowCamHoldAngle", FollowCamHoldAngle);
+}
