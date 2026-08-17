@@ -1,4 +1,4 @@
-# Save wire-format host tests (docs/SAVE_WIRE_PLAN.md, Phase 1).
+# Save wire-format host tests (docs/plan/SAVE_WIRE_PLAN.md, Phase 1).
 # Bit-exact retail save serialization: the ...ToWire32 / ...FromWire32 converters.
 # No retail data - golden byte-vectors only, runs in public CI.
 

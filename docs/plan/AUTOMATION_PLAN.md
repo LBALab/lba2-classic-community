@@ -1,7 +1,7 @@
 # Automation control surface — plan
 
 > **Status: implemented in PR #162** as the `CONTROL` module. This document is the design
-> trail; for usage see [CONTROL.md](CONTROL.md), and see "As-built notes" at the end for
+> trail; for usage see [CONTROL.md](../CONTROL.md), and see "As-built notes" at the end for
 > where the implementation diverged from this plan.
 
 Phase 2 design, built on `AUTOMATION_RESEARCH.md`. Read the research doc first; this plan
@@ -331,7 +331,7 @@ step N ticks of real sim+render → observe → clean exit.
 ## As-built notes (PR #162)
 
 Where the implementation differs from the plan above. The user guide
-[CONTROL.md](CONTROL.md) is canonical for behaviour.
+[CONTROL.md](../CONTROL.md) is canonical for behaviour.
 
 - **Load does its own `ChangeCube`, not via `MainLoop`'s `NewCube`.** The plan's "one code
   path through `MainLoop`" framing was wrong on one detail: `MainLoop` clears `FlagLoadGame`

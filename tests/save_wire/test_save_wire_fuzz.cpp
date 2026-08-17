@@ -1,4 +1,4 @@
-/* Phase 1 fuzz (docs/SAVE_WIRE_PLAN.md): randomized round-trip over the three
+/* Phase 1 fuzz (docs/plan/SAVE_WIRE_PLAN.md): randomized round-trip over the three
  * wire converters. For thousands of random native structs, assert:
  *
  *   1. ToWire32 then FromWire32 then ToWire32 reproduces the first wire bytes

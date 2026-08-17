@@ -8,7 +8,7 @@ extern "C" {
 /* Structured logging: one call fans out to every registered sink, each
  * rendering the record its own way. Built on an SDL_Log spine (a single
  * SDL_SetLogOutputFunction owns the fan-out); host tests compile with
- * -DLBA_LOG_NO_SDL to bypass SDL entirely. See docs/BOOT_LOG_PLAN.md.
+ * -DLBA_LOG_NO_SDL to bypass SDL entirely. See docs/plan/BOOT_LOG_PLAN.md.
  *
  * Sinks: file (always), ANSI terminal (TTY-gated), and the in-engine console
  * buffer. The boot path wires all three in InitAdeline. */
@@ -116,7 +116,7 @@ int Log_HasSinks(void);
 }
 
 /* C++-only RAII over Log_BeginSection / Log_EndSection. Best-effort: the boot
- * path exit()s on init failure without unwinding (see docs/BOOT_LOG_PLAN.md),
+ * path exit()s on init failure without unwinding (see docs/plan/BOOT_LOG_PLAN.md),
  * so don't rely on the destructor for log correctness — the file sink flushes
  * per line, so a section left unclosed by exit() still has its records on disk. */
 class ScopedSection {

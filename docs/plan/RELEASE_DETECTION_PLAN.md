@@ -1,7 +1,7 @@
 # Release detection plan
 
 `DistribVersion` is declared by the `Version` key in `lba2.cfg` and believed. Nothing detects it.
-[docs/VERSIONS.md](VERSIONS.md) records that as one of the six things called a version, and
+[docs/VERSIONS.md](../VERSIONS.md) records that as one of the six things called a version, and
 [#485](https://github.com/LBALab/lba2-classic-community/issues/485) proposes closing the gap by
 fingerprinting the data.
 
@@ -14,12 +14,12 @@ Six sites branch on `DistribVersion`. Five of them put `UNKNOWN` and `EA` on the
 
 | Site | at `0` unknown | at `3` ea | at `1` activision |
 |---|---|---|---|
-| [GAMEMENU.CPP:1114](../SOURCES/GAMEMENU.CPP#L1114) new-game panel | sprite 11 | sprite 11 | sprite 16 |
-| [OBJECT.CPP:6131](../SOURCES/OBJECT.CPP#L6131) attract-mode corner logo | sprite 11 | sprite 11 | sprite 16 |
-| [CONFIG.CPP:1474](../SOURCES/CONFIG.CPP#L1474) `AskForCD` wording | text 7 | text 7 | text 6 |
-| [PERSO.CPP:3383](../SOURCES/PERSO.CPP#L3383) CD volume label | `LBA2` | `LBA2` | `TWINSEN` |
-| [MUSIC.CPP:230](../SOURCES/MUSIC.CPP#L230) CD track table | EU | EU | US |
-| [GAMEMENU.CPP:4876](../SOURCES/GAMEMENU.CPP#L4876) `DistribLogo` | draws nothing | EA splash | Activision splash |
+| [GAMEMENU.CPP:1114](../../SOURCES/GAMEMENU.CPP#L1114) new-game panel | sprite 11 | sprite 11 | sprite 16 |
+| [OBJECT.CPP:6131](../../SOURCES/OBJECT.CPP#L6131) attract-mode corner logo | sprite 11 | sprite 11 | sprite 16 |
+| [CONFIG.CPP:1474](../../SOURCES/CONFIG.CPP#L1474) `AskForCD` wording | text 7 | text 7 | text 6 |
+| [PERSO.CPP:3383](../../SOURCES/PERSO.CPP#L3383) CD volume label | `LBA2` | `LBA2` | `TWINSEN` |
+| [MUSIC.CPP:230](../../SOURCES/MUSIC.CPP#L230) CD track table | EU | EU | US |
+| [GAMEMENU.CPP:4876](../../SOURCES/GAMEMENU.CPP#L4876) `DistribLogo` | draws nothing | EA splash | Activision splash |
 
 So the six-value enum is doing two unrelated jobs. Five sites ask one bit, European master or
 American one, and the sixth picks a publisher splash. `ACTIVISION_SUD`, `VIRGIN` and `VIRGIN_ASIA`
@@ -27,7 +27,7 @@ exist only to land on the American arm and to name a splash; no site distinguish
 `ACTIVISION` in any other way.
 
 `DistribLogo` matching no case at `0` is not an oversight to be repaired. `AdelineLogo` is a separate
-call at [PERSO.CPP:3466](../SOURCES/PERSO.CPP#L3466) and runs either way, so `0` means the Adeline
+call at [PERSO.CPP:3466](../../SOURCES/PERSO.CPP#L3466) and runs either way, so `0` means the Adeline
 bumper and no publisher splash.
 
 ## What no declaration means today
@@ -56,7 +56,7 @@ That is the whole problem worth solving. Everything else about `0` is already co
 
 Three banks separate the releases by byte size, but folded together they hide which axis each one
 measures. `scripts/dev/fingerprint_distro.py` reports them separately and
-[VERSIONS.md](VERSIONS.md#reading-it-off-the-data-instead) records the corpus. In short:
+[VERSIONS.md](../VERSIONS.md#reading-it-off-the-data-instead) records the corpus. In short:
 
 | Bank | Values across the corpus | What it measures |
 |---|---|---|
@@ -72,7 +72,7 @@ why a locale change does not move it.
 That is exactly the bit the five behavioural sites ask for, and it is the only question the data can
 answer. Which publisher's logo a release was licensed to show is not a fact about the assets.
 
-Cost is one `stat`. [FILES.CPP:118](../LIB386/SYSTEM/FILES.CPP#L118) routes `FileSize` through
+Cost is one `stat`. [FILES.CPP:118](../../LIB386/SYSTEM/FILES.CPP#L118) routes `FileSize` through
 `OpenRead`, so a mounted disc image is sized from its directory record with no data read, and
 detection reaches inside an image as readily as a folder.
 
@@ -134,7 +134,7 @@ another's data, exiting 0 the whole time.
 ## While in here: a dead key
 
 `Version_US` is read from the config into a global that nothing consumes, and
-[VERSIONS.md](VERSIONS.md#version_us) has the full account: it was already dead in `lba1-classic`
+[VERSIONS.md](../VERSIONS.md#version_us) has the full account: it was already dead in `lba1-classic`
 before being copied forward, and because the read uses the no-default variant it reliably replaces
 its `TRUE` initialiser with -1 on every launch.
 
@@ -158,16 +158,16 @@ folder, capture the attract frame with a pinned clock, remove the config, captur
 
 ## What is built
 
-All of the design above, in [DISTRIB.CPP](../SOURCES/DISTRIB.CPP), with the boot-time measurement in
+All of the design above, in [DISTRIB.CPP](../../SOURCES/DISTRIB.CPP), with the boot-time measurement in
 `ReadConfigFile` and the splash gate in `DistribLogo`. The rules are pinned by
-[tests/distrib](../tests/distrib/test_distrib_resolve.cpp), which needs no assets and runs in CI, and
-by [test_release_detection.sh](../tests/automation/test_release_detection.sh), which needs an install
+[tests/distrib](../../tests/distrib/test_distrib_resolve.cpp), which needs no assets and runs in CI, and
+by [test_release_detection.sh](../../tests/automation/test_release_detection.sh), which needs an install
 and checks that the measurement happens at all, reaches inside a mounted disc image, and is compared
 against a declaration rather than standing in for one.
 
 `scripts/dev/dist_check.sh` gains a `DATA` column beside `DISTRIB` and a sixth assertion, `MASTER`,
 so an install whose assets contradict its own config fails the sweep instead of being a line in a
-log. [VERSIONS.md](VERSIONS.md#reading-it-off-the-data-instead) is the reference; this document is
+log. [VERSIONS.md](../VERSIONS.md#reading-it-off-the-data-instead) is the reference; this document is
 the reasoning behind it.
 
 ## Left out

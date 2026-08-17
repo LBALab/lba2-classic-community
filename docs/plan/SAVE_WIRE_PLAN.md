@@ -5,7 +5,7 @@ resolved). What shipped:
 
 - **Writer.** `SaveContexte` serializes the three pointer-bearing structs through
   fixed 32-bit wire mirrors (`Savegame{Obj3d,Extra,Flow}ToWire32` in
-  [SOURCES/SAVEGAME_WIRE.CPP](../SOURCES/SAVEGAME_WIRE.CPP)), so a 64-bit build
+  [SOURCES/SAVEGAME_WIRE.CPP](../../SOURCES/SAVEGAME_WIRE.CPP)), so a 64-bit build
   emits the same object/extra/flow bytes a 32-bit build did.
 - **Reader.** `LoadContexte` is native-first: a v36 save has no wire-vs-native
   version signal, so it reads the wider native stride first (which fails-safe on
@@ -31,9 +31,9 @@ finish the writer-side `...ToWire32` conversion so a 64-bit build emits the same
 bytes a 32-bit build does, then retire the ABI stride heuristic from the canonical
 path. Driven test-first (red then green then refactor).
 
-Related docs: [SAVEGAME.md](SAVEGAME.md) (field map, version 36, lifecycle),
-[ABI.md](ABI.md) (the "never `sizeof(T)`-as-stride for fat structs" rule this work
-enforces), [TESTING.md](TESTING.md).
+Related docs: [SAVEGAME.md](../SAVEGAME.md) (field map, version 36, lifecycle),
+[ABI.md](../ABI.md) (the "never `sizeof(T)`-as-stride for fat structs" rule this work
+enforces), [TESTING.md](../TESTING.md).
 
 ## TL;DR findings
 
@@ -52,7 +52,7 @@ enforces), [TESTING.md](TESTING.md).
   `T_EXTRA` = 68 B, `S_PART_FLOW` = 60 B. The per-object stride is
   **140 (scalar prefix) + 136 (wire Obj) = 276 B**, not the `278` the heuristic
   hardcodes. This is already known and empirically confirmed in the repo
-  ([SAVEGAME.md](SAVEGAME.md) "Empirical note (probe)" and
+  ([SAVEGAME.md](../SAVEGAME.md) "Empirical note (probe)" and
   `scripts/save_probe.py`, which walk 276/304). The `142`/`278` constants in
   `SAVEGAME_LOAD_BOUNDS.CPP` are wrong-but-harmless (used only for a bounds
   pre-check and a sniff hint; the real read is field-by-field). The
@@ -272,7 +272,7 @@ just defers to the validate-and-retry path). The 50-save corpus loading cleanly
 via 276-consuming reads is itself proof that retail wrote 276: a 278 stride would
 drift 2 bytes per object and fail `IndexFile3D` validation within a dozen
 objects. Already documented as the "Empirical note (probe)" in
-[SAVEGAME.md](SAVEGAME.md); `scripts/save_probe.py` walks 276/304.
+[SAVEGAME.md](../SAVEGAME.md); `scripts/save_probe.py` walks 276/304.
 
 **Lock target: 276 / 140 / 136. Never 278 / 142.** Phase 1's corpus round-trip
 proves it byte-exact; Phase 3 corrects or retires the 142/278 constants.
@@ -322,7 +322,7 @@ gold/zlitos `S32` modelled as two `U16`, a `ScenePosZ`/`ScenePosY` typo, the
 Use for this task: validate that the section map's field *meanings* are right and
 name `ListVarGame` slots when we surface them; do not use it to derive or check
 byte offsets (that is the corpus + struct-source job). This split is already the
-convention in [SAVEGAME.md](SAVEGAME.md), which annotates every wiki label as
+convention in [SAVEGAME.md](../SAVEGAME.md), which annotates every wiki label as
 "semantics only". The plan's byte layout comes from the frozen struct source and
 the corpus; the wiki rides alongside as the meaning layer.
 
@@ -400,7 +400,7 @@ Retail is `NUM_VERSION 36`. Community 64-bit builds may already emit "v36" with 
   them apart by version alone (must rely on the existing stride sniff for legacy).
 - (b) Bump canonical to v37; keep v36 readable under a legacy branch. Clean
   version dispatch (v37 = always retail-wire, heuristic-free; v36 = legacy path).
-  [SAVEGAME.md](SAVEGAME.md) already names v37 as "the redesign target". Cost: a
+  [SAVEGAME.md](../SAVEGAME.md) already names v37 as "the redesign target". Cost: a
   version bump and a documented compatibility matrix.
 
 Recommendation to consider: (b), because it gives the reader an unambiguous
@@ -497,7 +497,7 @@ Detail is deferred until the four decisions land; outline only.
 - **Phase 3 (REFACTOR).** Apply the version decision (dispatch the reader so the
   canonical path is heuristic-free); retain or quarantine `stride64_host` per
   decision 2; land the static_assert locks (with 140/276, not 142/278); update
-  [SAVEGAME.md](SAVEGAME.md), this doc's outcomes, and `CHANGELOG.md` via PR
+  [SAVEGAME.md](../SAVEGAME.md), this doc's outcomes, and `CHANGELOG.md` via PR
   title. Small commits: converters / writer swap / version dispatch / locks.
 
 ## Risks and open questions

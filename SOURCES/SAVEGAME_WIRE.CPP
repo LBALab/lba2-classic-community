@@ -1,5 +1,5 @@
 /* Wire-format converters for the save payload's pointer-bearing structs.
- * Layout and rationale: SAVEGAME_WIRE.H + docs/SAVE_WIRE_PLAN.md.
+ * Layout and rationale: SAVEGAME_WIRE.H + docs/plan/SAVE_WIRE_PLAN.md.
  *
  * The readers (...FromWire32) decode a 32-bit wire struct into the native
  * struct; the writers (...ToWire32) are their exact inverses.  Both are unit
@@ -106,7 +106,7 @@ void SavegameFlowFromWire32(const S_PART_FLOW_WIRE32 *s, S_PART_FLOW *d) {
  *     PtrListDot -> restored externally) are written as 0.  This makes our
  *     output deterministic and byte-stable across write->read->write, at the
  *     cost of not byte-matching a 32-bit build that memcpy'd a live pointer's
- *     low word here.  See docs/SAVE_WIRE_PLAN.md decision 4.
+ *     low word here.  See docs/plan/SAVE_WIRE_PLAN.md decision 4.
  *   - Slots the reader PRESERVES (LastOfsFrame, NextOfsFrame; cast wire<->ptr)
  *     are written as the low 32 bits of the native value, so the offset the
  *     game needs after load round-trips exactly.

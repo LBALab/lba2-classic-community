@@ -5,7 +5,7 @@
  * payload serializes: T_OBJ_3D (per-object tail), T_EXTRA, and S_PART_FLOW.
  * These pin the on-disk layout the 32-bit retail engine wrote, independent of
  * host word size, so a 64-bit build reads and writes the same bytes a 32-bit
- * build did.  See docs/SAVE_WIRE_PLAN.md (derivation + section map) and
+ * build did.  See docs/plan/SAVE_WIRE_PLAN.md (derivation + section map) and
  * docs/ABI.md (the "never sizeof(T)-as-stride for fat structs" rule).
  *
  * Retail 32-bit wire sizes: T_OBJ_3D_WIRE32 = 136, T_EXTRA_WIRE32 = 68,
@@ -103,7 +103,7 @@ typedef struct {
  * The scalar prefix is the sum of the explicit-width writes in SaveContexte's
  * object loop (140 B, host-independent by construction); the wire Obj is 136 B,
  * so the retail per-object stride is 276 B.  Derivation and the correction of
- * the old 142/278 figures: docs/SAVE_WIRE_PLAN.md. */
+ * the old 142/278 figures: docs/plan/SAVE_WIRE_PLAN.md. */
 #define SAVEGAME_OBJ_SCALAR_PREFIX 140
 
 /* Compile-time size locks: struct drift breaks the build, not a user's save.

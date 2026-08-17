@@ -7,7 +7,7 @@
 # (I_ACTION_EDGE, PERSO.CPP) fixes it -- but the melee case was only "covered by construction" and
 # never auto-tested. This is that test.
 #
-# It uses the frame-precise injector (docs/INPUT_SIM_PLAN.md): `input fseq` places the action press
+# It uses the frame-precise injector (docs/plan/INPUT_SIM_PLAN.md): `input fseq` places the action press
 # on an exact rendered frame. At --fixed-dt 8 --fixed-timestep 24 the sim steps every 3 frames, so
 # frame 30 is a step and frame 31 a skip. The melee must fire on BOTH -- the skip-frame case is the
 # regression -- observed as a GEN_ANIM_COUP (17/18/19) in the per-sim-tick input trace.

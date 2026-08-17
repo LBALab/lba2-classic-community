@@ -12,7 +12,7 @@
  * sequence for --load, SavePNG for --screenshot, and plain global reads for
  * --dump-state. The only engine intrusions are the three call sites in PERSO.CPP
  * (parse, boot branch, and the one tick hook in MainLoop). See docs/CONTROL.md and
- * docs/AUTOMATION_PLAN.md.
+ * docs/plan/AUTOMATION_PLAN.md.
  */
 
 #include <SYSTEM/ADELINE_TYPES.H>
@@ -113,7 +113,7 @@ void Control_TickHook(void);
    the harness is not active, or no capture flag was supplied. */
 void Control_End(void);
 
-/* --- Harness input timeline (docs/INPUT_SIM_PLAN.md) -----------------------
+/* --- Harness input timeline (docs/plan/INPUT_SIM_PLAN.md) -----------------------
  *
  * Drives the hero from the console `input` command / --exec with holds and sequences metered in
  * SIM TICKS, not rendered frames. That is the point: a rendered frame the fixed-timestep throttle

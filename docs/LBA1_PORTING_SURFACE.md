@@ -18,9 +18,9 @@ integrating GPLv2 FLA/MIDI decoders** (both exist upstream — see verdict 7) �
 re-architecting any subsystem.
 
 **Platform-layer note.** The I/O wrappers, media stack, and rendering capability that this
-divergence concentrates in are exactly what the [Platform Abstraction Layer plan](PLATFORM_PAL_PLAN.md)
+divergence concentrates in are exactly what the [Platform Abstraction Layer plan](plan/PLATFORM_PAL_PLAN.md)
 isolates behind one seam. That work keeps its provenance back to `lba2-classic` explicit (see
-[PLATFORM_PAL_PLAN.md](PLATFORM_PAL_PLAN.md) §5.2), so this cross-title content surface and the
+[PLATFORM_PAL_PLAN.md](plan/PLATFORM_PAL_PLAN.md) §5.2), so this cross-title content surface and the
 upstream source lineage stay distinct concerns.
 
 ## Per-subsystem verdict
@@ -125,7 +125,7 @@ to the **format transcoders** (body, scene), now fully specified above.
 ### 8. Script VM — opcode-remap shim
 
 > **Correction (2026-06-17, `[verified-from-code]` via `scripts/dev/lba1_script_remap.py`; see
-> `LBA1_PORT_PLAN.md` §6.4):** the claim below that the `LM_*` tables are "numerically identical
+> [LBA1_PORT_PLAN.md](plan/LBA1_PORT_PLAN.md) §6.4):** the claim below that the `LM_*` tables are "numerically identical
 > for 0–56" is **wrong**. Diffing `lba1-classic/SOURCES/COMMON.H` against this repo's: of LBA1's
 > 101 Life ops, 68 are identical-slot, 2 are FLAG->VAR renames (31, 36), and 30 collide, with
 > collisions **inside 0..56**: `LM_LABEL`(10)->`LM_PALETTE`, `LM_SET_LIFE`(21)->`LM_SET_CAMERA`,

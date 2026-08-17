@@ -10,7 +10,7 @@ extern "C" {
  * never leaks into logs or the control harness). Standalone module — no
  * dependency on the logging subsystem. Called from TheEndInfo() guarded by
  * End_Num == PROGRAM_OK; not an atexit handler, never on crash/error exits.
- * See docs/BOOT_LOG_PLAN.md Phase 6. */
+ * See docs/plan/BOOT_LOG_PLAN.md Phase 6. */
 void PrintExitScreen(void);
 
 #ifdef __cplusplus

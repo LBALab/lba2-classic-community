@@ -1,8 +1,8 @@
 # Render interpolation: smooth motion above the sim rate (#412)
 
 Plan of record for the render-interpolation half of #412. Companion to
-[MOVEMENT_FRAMERATE.md](MOVEMENT_FRAMERATE.md) (the #358 fixed-timestep sim this builds on),
-[TIMING.md](TIMING.md) (the clocks), and [CONTROL.md](CONTROL.md) (the `--fixed-dt` harness that
+[MOVEMENT_FRAMERATE.md](../MOVEMENT_FRAMERATE.md) (the #358 fixed-timestep sim this builds on),
+[TIMING.md](../TIMING.md) (the clocks), and [CONTROL.md](../CONTROL.md) (the `--fixed-dt` harness that
 measures it). The plan is phased so each step is independently validated and ships behind an
 off-by-default flag, so no phase can regress the game.
 
@@ -36,7 +36,7 @@ only the *presentation* judders.
 
 ## The target already exists in the engine
 
-The behaviour menu ([COMPORTE.CPP](../SOURCES/COMPORTE.CPP) `MenuComportement`) renders the hero
+The behaviour menu ([COMPORTE.CPP](../../SOURCES/COMPORTE.CPP) `MenuComportement`) renders the hero
 perfectly smoothly at any refresh, because its modal loop does two things every rendered frame:
 
 - `ObjectSetInterAnim` -- advances the animation pose off the real clock (keyframe interpolation).
@@ -71,11 +71,11 @@ Classic "fix your timestep" interpolation. Per rendered frame:
 
 - `prevStepPos` = position after the previous sim step, `curStepPos` = position after the latest.
   Both already persist on the object across skip frames: `OldPos{X,Y,Z}` (set at each sim-step start
-  = post previous step) and `Obj.{X,Y,Z}` (post latest step), [PERSO.CPP:2065](../SOURCES/PERSO.CPP).
+  = post previous step) and `Obj.{X,Y,Z}` (post latest step), [PERSO.CPP:2065](../../SOURCES/PERSO.CPP).
   Whether to reuse those or snapshot a dedicated pair is a Phase 2 decision (see risks).
 - `alpha` comes from the throttle's own carry: on a skip frame `LastSimRefHR` is frozen while
   `TimerRefHR` advances, so `alpha` sweeps 0→1 across the gap and resets when the next step runs
-  ([TIMER.CPP](../LIB386/SYSTEM/TIMER.CPP) `Timer_PlanSimSteps`).
+  ([TIMER.CPP](../../LIB386/SYSTEM/TIMER.CPP) `Timer_PlanSimSteps`).
 - **Render-only**: overwrite the drawn position before `AffScene`, restore the true sim position
   after. The sim never sees the interpolated value.
 - Inherent **~1 sim-step (16 ms) of visual latency** -- interpolation always shows the last
@@ -92,17 +92,17 @@ scope, and the architecture question came back sound.
    sound pan fresh every frame from the source arrays, and `T_OBJ_3D` caches no screen coords, so
    nothing position-derived survives the restore -- *except* two narrow writes, both handled by
    **excluding a small object class** from interpolation (no change inside AffScene):
-   - `OBJ_BACKGROUND` bake into the `Screen` plate ([OBJECT.CPP:4966](../SOURCES/OBJECT.CPP), the
+   - `OBJ_BACKGROUND` bake into the `Screen` plate ([OBJECT.CPP:4966](../../SOURCES/OBJECT.CPP), the
      #424/#432 path). Background objects are static and only bake on `AFF_ALL_FLIP` frames → skip
      interpolation for `OBJ_BACKGROUND` objects and on full-flip frames. (The driveable buggy is not
      background -- verified.)
-   - `WAIT_COORD` extra-origin write-back ([OBJECT.CPP:4994](../SOURCES/OBJECT.CPP)) writes sim state
+   - `WAIT_COORD` extra-origin write-back ([OBJECT.CPP:4994](../../SOURCES/OBJECT.CPP)) writes sim state
      from the drawn position → skip interpolation for `WAIT_COORD`-pending objects (one frame).
    No deeper injection point is needed.
 
 2. **The clock mechanism is correct.** `alpha = (TimerRefHR - LastSimRefHR) / FixedTimestep` sweeps a
    clean sawtooth in [0,1): on a skip frame `LastSimRefHR` is frozen
-   ([TIMER.CPP:200](../LIB386/SYSTEM/TIMER.CPP) returns 0 without writing it) while `TimerRefHR`
+   ([TIMER.CPP:200](../../LIB386/SYSTEM/TIMER.CPP) returns 0 without writing it) while `TimerRefHR`
    advances (`ManageTime` runs every frame). Gate on `FixedTimestep > 0`.
 
 3. **Endpoints need a dedicated snapshot + a teleport guard (new hard requirement).** `OldPos` is a
@@ -133,7 +133,7 @@ scope, and the architecture question came back sound.
    pose freeze *together* on skip frames (rigid stutter, no sliding feet), so position-only
    interpolation would move the body while the walk pose holds -- introducing slight sliding feet that
    does not exist today. The fix is cheap: the render already tweens the pose (`ObjectSetInterFrame`,
-   [OBJECT.CPP:4905](../SOURCES/OBJECT.CPP)) from `obj->Interpolator`, which the sim freezes on skip
+   [OBJECT.CPP:4905](../../SOURCES/OBJECT.CPP)) from `obj->Interpolator`, which the sim freezes on skip
    frames. Overriding `Interpolator` with its value at the interpolated render clock before that call
    tweens the pose to match, with no translation double-count (InterFrame writes only limb angles,
    never `Obj.X`). Driving the position lerp and the pose `Interpolator` from the **same alpha** makes
@@ -197,7 +197,7 @@ built is the instrument: capture the position actually used for projection, per 
 
 Position-only interpolation moves the body while the walk pose holds (slight sliding feet), because
 today position and pose freeze together. The spike (assumption 6) found this cheap to fix and *not* a
-rewrite: the render already tweens the pose via `ObjectSetInterFrame` ([OBJECT.CPP:4905](../SOURCES/OBJECT.CPP))
+rewrite: the render already tweens the pose via `ObjectSetInterFrame` ([OBJECT.CPP:4905](../../SOURCES/OBJECT.CPP))
 from `obj->Interpolator`, which the sim freezes on skip frames. Override `Interpolator` with its value
 at the interpolated render clock (recompute from `obj->LastTimer`/`NextTimer`) before that call, driven
 by the **same alpha** as the position lerp -- both are linear within a keyframe interval, so feet plant

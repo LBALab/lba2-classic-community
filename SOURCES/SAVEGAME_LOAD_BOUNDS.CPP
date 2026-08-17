@@ -3,7 +3,7 @@
  * canonical 32-bit wire on every host: the reader now tries that layout first and
  * only falls back to the legacy native stride on validation failure, so it no
  * longer needs a heuristic to pick a first guess. See SAVEGAME.CPP LoadContexte
- * and docs/SAVE_WIRE_PLAN.md. What remains here is the compressed-staging bounds
+ * and docs/plan/SAVE_WIRE_PLAN.md. What remains here is the compressed-staging bounds
  * validation, which is orthogonal. */
 
 #include "SAVEGAME_LOAD_BOUNDS.H"

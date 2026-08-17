@@ -537,10 +537,10 @@ default, exterior scenes only) filled out further this cycle.
   tripwire)
   ([#414](https://github.com/LBALab/lba2-classic-community/pull/414)).
 - Plans of record: the portable save format
-  ([docs/SAVE_WIRE_PLAN.md](docs/SAVE_WIRE_PLAN.md)), harness input
-  simulation ([docs/INPUT_SIM_PLAN.md](docs/INPUT_SIM_PLAN.md)), and
+  ([docs/plan/SAVE_WIRE_PLAN.md](docs/plan/SAVE_WIRE_PLAN.md)), harness input
+  simulation ([docs/plan/INPUT_SIM_PLAN.md](docs/plan/INPUT_SIM_PLAN.md)), and
   render interpolation
-  ([docs/RENDER_INTERP_PLAN.md](docs/RENDER_INTERP_PLAN.md)), the last
+  ([docs/plan/RENDER_INTERP_PLAN.md](docs/plan/RENDER_INTERP_PLAN.md)), the last
   parked on merge because the fixed-timestep work already fixed the
   problem it targeted
   ([#386](https://github.com/LBALab/lba2-classic-community/pull/386), [#438](https://github.com/LBALab/lba2-classic-community/pull/438), [#439](https://github.com/LBALab/lba2-classic-community/pull/439), [#440](https://github.com/LBALab/lba2-classic-community/pull/440)).
@@ -555,9 +555,9 @@ default, exterior scenes only) filled out further this cycle.
   isometric-renderer hardcoded-pixel audit
   ([docs/ISO_SPACE_AUDIT.md](docs/ISO_SPACE_AUDIT.md)), an in-place
   Platform Abstraction Layer audit and extraction plan
-  ([docs/PLATFORM_PAL_PLAN.md](docs/PLATFORM_PAL_PLAN.md)), a plan for
+  ([docs/plan/PLATFORM_PAL_PLAN.md](docs/plan/PLATFORM_PAL_PLAN.md)), a plan for
   hosting LBA1 on the lba2cc engine
-  ([docs/LBA1_PORT_PLAN.md](docs/LBA1_PORT_PLAN.md)), the gamepad camera
+  ([docs/plan/LBA1_PORT_PLAN.md](docs/plan/LBA1_PORT_PLAN.md)), the gamepad camera
   controls ([docs/CONTROLLER.md](docs/CONTROLLER.md)), and a note on the
   video seam's two halves
   ([#312](https://github.com/LBALab/lba2-classic-community/pull/312), [#317](https://github.com/LBALab/lba2-classic-community/pull/317), [#319](https://github.com/LBALab/lba2-classic-community/pull/319), [#327](https://github.com/LBALab/lba2-classic-community/pull/327)).

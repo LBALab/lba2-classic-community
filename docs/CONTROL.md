@@ -8,8 +8,9 @@ and for record/replay regression nets.
 This is an outside-in harness. It reuses existing engine seams — the
 [console command bus](CONSOLE.md) for `--exec`, the normal save-load sequence for
 `--load`, the existing `SavePNG` for `--screenshot` — rather than changing game logic. It
-is not an IPC/REPL and not a scripting runtime. See `AUTOMATION_RESEARCH.md` and
-`AUTOMATION_PLAN.md` for the design.
+is not an IPC/REPL and not a scripting runtime. See
+[AUTOMATION_RESEARCH.md](plan/AUTOMATION_RESEARCH.md) and
+[AUTOMATION_PLAN.md](plan/AUTOMATION_PLAN.md) for the design.
 
 > **Pass `--headless` for any automated run.** Without it the engine opens a window, and
 > **the game pauses when that window loses focus** (by design, for players). A run that
@@ -406,7 +407,7 @@ Modal and fade loops also advance the fixed-dt clock — necessary because they 
 main-loop tick hooks and would otherwise spin forever on a clock deadline. The main loop's
 single render per tick stays free of double-counting, so non-modal ticks (including the
 whole savegame baseline corpus) are byte-identical to the merged behaviour. See
-[FIXED_DT_RESEARCH.md §7](FIXED_DT_RESEARCH.md) for the loop classes and the design.
+[FIXED_DT_RESEARCH.md §7](plan/FIXED_DT_RESEARCH.md) for the loop classes and the design.
 
 ## UI capture
 
@@ -745,14 +746,14 @@ non-deterministic base.
    committed save corpus, living alongside it at `tests/savegame/corpus/baselines/`. A
    regression net for the widescreen / projection work: the world-space dump is the
    guardrail that rendering changes don't perturb the simulation; screenshots are the
-   human-reviewed visual. See `docs/AUTOMATION_PLAN.md`.
+   human-reviewed visual. See `docs/plan/AUTOMATION_PLAN.md`.
 2. **`--fixed-dt` deterministic mode** *(done)*. Pin the per-tick timer step so the simulation
    is independent of wall-clock — the determinism measurements pointed at variable dt as the
    lever. The only RNG seed (`srand(TimerRefHR)` at `OBJECT.CPP:1171`) is pinned by the
    restored save clock on `--load`; on the fresh-start path `Timer_EnableFixedDt()` also
    resets `TimerRefHR` so the seed is deterministic there too. This upgrades the baseline
    tolerance to exact (same-platform) and is the prerequisite for replay. See
-   `docs/FIXED_DT_PLAN.md`.
+   `docs/plan/FIXED_DT_PLAN.md`.
 3. **Canned playthroughs.** Replay a whole session as a regression fixture — the
    gameplay-regression counterpart to the existing draw-call polyrec. There are two paths:
    - *Demo playthrough (effectively achieved).* The game's built-in attract reel is a

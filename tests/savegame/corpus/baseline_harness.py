@@ -16,7 +16,7 @@ byte-identical run-to-run including timer_ref_hr and the kinematic fields (x/y/z
 anim/last_frame). The comparison is therefore exact on all of those; only fps and log are
 dropped as run-specific.
 
-Two requirements for that exactness (see docs/CONTROL.md and docs/FIXED_DT_PLAN.md):
+Two requirements for that exactness (see docs/CONTROL.md and docs/plan/FIXED_DT_PLAN.md):
   - The binary must be built with -DSOUND_BACKEND=null. SDL_AUDIODRIVER=dummy alone is not
     enough: the SDL audio backend services exterior ambient samples on a wall-clock thread,
     which branches the simulation. The null backend removes that path.

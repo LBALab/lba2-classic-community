@@ -9,15 +9,15 @@ provenance makes the arrangement legible: every path the engine resolved, and ho
 stated once at boot, so a wrong pairing is visible in a pasted log instead of showing up later as a
 wrong splash or a save that will not load.
 
-Related docs: [GAME_DATA.md](GAME_DATA.md) (what an install holds),
-[VERSIONS.md](VERSIONS.md) (`DistribVersion` is declared, never detected),
-[SAVEGAME.md](SAVEGAME.md) (wire format, version 36),
-[BIT_EXACTNESS.md](BIT_EXACTNESS.md) (the default-keep rule this plan obeys),
-[CONFIG.md](CONFIG.md), [TESTING.md](TESTING.md).
+Related docs: [GAME_DATA.md](../GAME_DATA.md) (what an install holds),
+[VERSIONS.md](../VERSIONS.md) (`DistribVersion` is declared, never detected),
+[SAVEGAME.md](../SAVEGAME.md) (wire format, version 36),
+[BIT_EXACTNESS.md](../BIT_EXACTNESS.md) (the default-keep rule this plan obeys),
+[CONFIG.md](../CONFIG.md), [TESTING.md](../TESTING.md).
 
 ## What the tree does today
 
-`InitDirectories` ([DIRECTORIES.CPP](../SOURCES/DIRECTORIES.CPP)) takes three directories. Only one
+`InitDirectories` ([DIRECTORIES.CPP](../../SOURCES/DIRECTORIES.CPP)) takes three directories. Only one
 of them is genuinely variable.
 
 | Directory | Resolved by | Overridable |
@@ -40,7 +40,7 @@ same file each launch. The demo SKU took its own pref path for exactly this reas
 per-build fix for what is really a per-install problem.
 
 **The config is copied once and never revisited.** On first run, if the profile has no `lba2.cfg`,
-[INITADEL.C](../SOURCES/INITADEL.C) copies the one sitting beside the game data, or falls back to the
+[INITADEL.C](../../SOURCES/INITADEL.C) copies the one sitting beside the game data, or falls back to the
 built-in template. Whichever install you first ran against therefore configures you permanently, and
 re-pointing `--game-dir` at a different release leaves the old release's `Version` in place. The
 splash, the new-game panel sprite and the CD voice folder then disagree with the medium.
@@ -74,7 +74,7 @@ CLI > cfg > default rule the resolution path already uses.
 
 Resolved before the first `GetDefaultUserDir` call, which happens early in `main` before the log is
 up. Two call sites take it: `GetDefaultUserDir` and `BuildPersistedGameDirPath`
-([RES_DISCOVERY.CPP](../SOURCES/RES_DISCOVERY.CPP)), the latter of which reaches `SDL_GetPrefPath`
+([RES_DISCOVERY.CPP](../../SOURCES/RES_DISCOVERY.CPP)), the latter of which reaches `SDL_GetPrefPath`
 directly rather than through `directoriesUserDir` and so is a second source of truth today.
 
 This alone gives the harness a clean room on all three platforms and retires the `XDG_DATA_HOME`
@@ -254,7 +254,7 @@ One token, `ADELINE_PREF_APP`, keys both. A second game is another value of it a
 scheme.
 
 **The ordering is the real constraint.** The user directory is resolved at
-[PERSO.CPP:3018](../SOURCES/PERSO.CPP#L3018), the log opens at 3032, and the game data is not
+[PERSO.CPP:3018](../../SOURCES/PERSO.CPP#L3018), the log opens at 3032, and the game data is not
 discovered until 3070. So the token has to be known before anything has looked at a single asset.
 That is free while it is compile-time, and it is the fork worth deciding deliberately:
 
@@ -294,7 +294,7 @@ that", asked of a pasted log.
 
 The banner already does half of it. `Res_GetDiscoverySource` names which probe won the game
 directory, for the stated reason that "the engine booted the wrong install" and "the engine ignored
-what I set" otherwise look identical in a bug report ([INITADEL.C](../SOURCES/INITADEL.C)). That
+what I set" otherwise look identical in a bug report ([INITADEL.C](../../SOURCES/INITADEL.C)). That
 reasoning applies just as well to the writable side, which today prints a bare path.
 
 So: **every resolved path says how it was resolved, and the identity the run operates under is
@@ -374,7 +374,7 @@ confirms nothing outside it moved.
 
 **Why it stops at the log.** Marking the files themselves was considered and dropped. A save cannot
 carry an appendix: the compressed load path derives its payload size from `FileSize(GamePathname)`
-minus the header ([SAVEGAME.CPP:624](../SOURCES/SAVEGAME.CPP#L624)) and copies that many bytes into a
+minus the header ([SAVEGAME.CPP:624](../../SOURCES/SAVEGAME.CPP#L624)) and copies that many bytes into a
 buffer sized from the header's own `sizefile`, so trailing bytes inflate the copy. Changing the
 payload instead is excluded by the default-keep rule in BIT_EXACTNESS.md. That leaves sidecar files
 and a mismatch policy, which is a much larger surface than the problem currently justifies. If
@@ -410,7 +410,7 @@ filesystem rather than inside a disc image had their mtime stamped by playing th
 cache keeping a last-used mark so the oldest copy could be evicted when the disk filled, still
 firing on voices that were never copied and cannot be evicted. Content untouched, only the
 timestamp, which is why nothing had noticed. Fixed in
-[MESSAGE.CPP](../SOURCES/MESSAGE.CPP), and the row is green.
+[MESSAGE.CPP](../../SOURCES/MESSAGE.CPP), and the row is green.
 
 That is the case for the check rather than an aside. It cost a directory hash before and after each
 install and found a live defect the same day, in code nobody was reading.

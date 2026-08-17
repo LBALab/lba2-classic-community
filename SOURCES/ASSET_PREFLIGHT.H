@@ -13,7 +13,7 @@ extern "C" {
  * Returns the number of *required* assets missing. The caller should abort the
  * boot when this is non-zero (fail fast with a clear log, rather than dying
  * later at an arbitrary load). Graceful runtime degradation for the optional
- * set is a separate change (see docs/BOOT_LOG_PLAN.md).
+ * set is a separate change (see docs/plan/BOOT_LOG_PLAN.md).
  *
  * Call once at boot, after InitDirectories and Log_Init. */
 int AssetPreflight(void);

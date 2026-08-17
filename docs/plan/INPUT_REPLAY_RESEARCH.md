@@ -28,7 +28,7 @@ for step 3, so the systems are inventoried below.
 
 What was checked and ruled out:
 
-- **No recorded-input subsystem.** `MyGetInput()` ([`INPUT.CPP:258`](../SOURCES/INPUT.CPP))
+- **No recorded-input subsystem.** `MyGetInput()` ([`INPUT.CPP:258`](../../SOURCES/INPUT.CPP))
   reads live keyboard/joystick (`GetJoys`, `GetInput`, `ApplyGamepadBindings`) and writes the
   `Input`/`Key`/`MyKey` globals. There is no branch that sources those from a buffer or file. A
   broad grep for record/replay/playback and the French equivalents (`magneto`, `enregistre`,
@@ -50,26 +50,26 @@ What was checked and ruled out:
 Three distinct HQR-stored "script" systems exist; only the first drives gameplay.
 
 **Life / Track scripts (gameplay).** The canonical Adeline scene scripting. Per-object
-bytecode loaded from the scene HQR ([`DISKFUNC.CPP:60,314`](../SOURCES/DISKFUNC.CPP);
+bytecode loaded from the scene HQR ([`DISKFUNC.CPP:60,314`](../../SOURCES/DISKFUNC.CPP);
 `ptrobj->PtrLife = PtrSce` at `:140,219`), executed every frame by `DoLife()`
-([`GERELIFE.CPP`](../SOURCES/GERELIFE.CPP), `LM_*` opcodes) and `DoTrack()`
-([`GERETRAK.CPP`](../SOURCES/GERETRAK.CPP), `TM_*` opcodes). This is what makes a scene "play
+([`GERELIFE.CPP`](../../SOURCES/GERELIFE.CPP), `LM_*` opcodes) and `DoTrack()`
+([`GERETRAK.CPP`](../../SOURCES/GERETRAK.CPP), `TM_*` opcodes). This is what makes a scene "play
 itself": NPC AI, scripted hero/actor movement along tracks, dialogue and state triggers. See
 `docs/GLOSSARY.md` (Life Script / Track Script) and `docs/LIFECYCLES.md`. **This is the closest
 thing to "canned recordings that come with the game"** — every retail scene carries it.
 
-**IMPACT (effects).** [`IMPACT.CPP`](../SOURCES/IMPACT.CPP). A compiled command stream
+**IMPACT (effects).** [`IMPACT.CPP`](../../SOURCES/IMPACT.CPP). A compiled command stream
 (`SAMPLE`, `FLOW`, `THROW`, `THROW_OBJ`, `THROW_POF`, `SPRITE`, `FLOW_*`) run by
 `DoImpact(num, x, y, z, owner)`, loaded from `RESS_IMPACT`
-([`PERSO.CPP:2592`](../SOURCES/PERSO.CPP), buffer sized in `MEM.CPP:219`). It spawns particles,
+([`PERSO.CPP:2592`](../../SOURCES/PERSO.CPP), buffer sized in `MEM.CPP:219`). It spawns particles,
 thrown extras, and positional sounds at an impact point — the *visual-effects* layer. This is
 the "impact script" Adeline used, but it plays *effects*, not gameplay or input. The format is
-fully reversed (and recompilable) — see [IMPACT_SCRIPTS.md](IMPACT_SCRIPTS.md).
+fully reversed (and recompilable) — see [IMPACT_SCRIPTS.md](../IMPACT_SCRIPTS.md).
 
-**FLOW (effects).** [`FLOW.CPP:112`](../SOURCES/FLOW.CPP) loads `RESS_FLOW`; particle-flow
+**FLOW (effects).** [`FLOW.CPP:112`](../../SOURCES/FLOW.CPP) loads `RESS_FLOW`; particle-flow
 data referenced by IMPACT's `FLOW*` commands.
 
-**ACF (cutscenes).** `PlayAcf()` ([`PLAYACF.CPP:321`](../SOURCES/PLAYACF.CPP)) plays
+**ACF (cutscenes).** `PlayAcf()` ([`PLAYACF.CPP:321`](../../SOURCES/PLAYACF.CPP)) plays
 pre-rendered movies — canned *cinematic* playback, not gameplay.
 
 Net: the engine "replays" **scripts** (deterministic logic) and **movies** (pre-rendered), but
@@ -354,14 +354,14 @@ extends the existing `--dump-state` baseline from an 8-tick settled scene to a l
 run, exercising AI, tracks, animation, scene transitions, and effects.
 
 Caveat: a long run is more likely to touch the residual non-dt nondeterminism already catalogued
-(`project`/`docs/FIXED_DT_PLAN.md`: dying-enemy spin `beta`, uninitialised bodiless-extra
+(`project`/`docs/plan/FIXED_DT_PLAN.md`: dying-enemy spin `beta`, uninitialised bodiless-extra
 positions — the ~9 FLAKY corpus saves), so frame it as crash/soak + deterministic-where-it-is,
 not long golden-exact, until that source is fixed.
 
 ### (b) Input record/replay — the literal roadmap item, built from scratch
 
 What the roadmap names: capture the *player's* resolved per-tick input and replay it. The seam
-already exists — `Control_TickHook()` ([`CONTROL.CPP`](../SOURCES/CONTROL.CPP), at
+already exists — `Control_TickHook()` ([`CONTROL.CPP`](../../SOURCES/CONTROL.CPP), at
 `PERSO.CPP:551`, before `MyGetInput()`/`ManageTime()` at `:577-578`). Sketch:
 
 - **Record:** after `MyGetInput()` each tick, append the resolved input state

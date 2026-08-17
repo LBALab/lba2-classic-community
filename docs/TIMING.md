@@ -3,7 +3,7 @@
 Clocks, locks, and the game-clock vs wall-clock distinction. Read this before touching
 `LIB386/SYSTEM/TIMER.CPP` or adding a `LockTimer`/`SaveTimer` call site. Companion to
 [LIFECYCLES.md](LIFECYCLES.md) (which gives the main-loop call order) and
-[FIXED_DT_PLAN.md](FIXED_DT_PLAN.md) (which is the harness-only deterministic overlay).
+[FIXED_DT_PLAN.md](plan/FIXED_DT_PLAN.md) (which is the harness-only deterministic overlay).
 
 Truth hierarchy: code > this document > external sources.
 
@@ -18,7 +18,7 @@ The engine maintains two parallel `U32` millisecond clocks (`LIB386/SYSTEM/TIMER
 
 The distinction matters: any pause/render/modal subloop that should freeze game time pauses
 `TimerRefHR` but lets `TimerSystemHR` keep ticking. The fixed-dt deterministic mode
-([FIXED_DT_PLAN.md](FIXED_DT_PLAN.md)) replaces `SDL_GetTicks()` with a virtual clock that
+([FIXED_DT_PLAN.md](plan/FIXED_DT_PLAN.md)) replaces `SDL_GetTicks()` with a virtual clock that
 only advances on explicit tick events, so both `TimerSystemHR` and `TimerRefHR` become
 reproducible byte-for-byte.
 
@@ -32,7 +32,7 @@ reproducible byte-for-byte.
 | `CmptMemoTimerRef` | `SaveTimer/RestoreTimer` nesting counter. Only the outermost pair runs the snapshot/restore. |
 | `LastEvaluate` | Sliding-window anchor for the FPS calc inside `ManageTime` (window is `FPS_EVAL_WINDOW_MS`, 250 ms, so `NbFramePerSecond` recomputes ~4×/s). Independent of `LastTime`. A backwards clock jump relative to this anchor re-anchors it rather than freezing the counter. |
 
-`FixedDt*` state (off by default; see [FIXED_DT_PLAN.md](FIXED_DT_PLAN.md)) overlays a
+`FixedDt*` state (off by default; see [FIXED_DT_PLAN.md](plan/FIXED_DT_PLAN.md)) overlays a
 virtual clock source on `TimerSystemHR` for harness determinism.
 
 ## Lock vs Save — they are *not* the same
@@ -105,7 +105,7 @@ Inert in default builds. When `Timer_EnableFixedDt(dt_ms)` is called (from
   busy-waits.
 
 Result: `--dump-state` is byte-identical across repeated harness runs. The host wall
-clock has zero influence. See [FIXED_DT_PLAN.md](FIXED_DT_PLAN.md) for the design rationale
+clock has zero influence. See [FIXED_DT_PLAN.md](plan/FIXED_DT_PLAN.md) for the design rationale
 and [CONTROL.md](CONTROL.md) for the CLI surface.
 
 ## History — the 1997 `ManageTime` bug
@@ -194,9 +194,9 @@ When adding code that touches the timer, in rough order of how often you'll need
   per-tick sequence.
 - [CONTROL.md](CONTROL.md) — the CLI control harness; `--fixed-dt`, `--tick`,
   `--dump-state`.
-- [FIXED_DT_PLAN.md](FIXED_DT_PLAN.md) — the deterministic-clock design that overlays the
+- [FIXED_DT_PLAN.md](plan/FIXED_DT_PLAN.md) — the deterministic-clock design that overlays the
   virtual time source on `TimerSystemHR`.
-- [FIXED_DT_RESEARCH.md](FIXED_DT_RESEARCH.md) — Phase 1 research mapping loop classes
+- [FIXED_DT_RESEARCH.md](plan/FIXED_DT_RESEARCH.md) — Phase 1 research mapping loop classes
   and inventorying every site that reads `TimerRefHR`/`TimerSystemHR`.
 - `LIB386/SYSTEM/TIMER.CPP`, `LIB386/H/SYSTEM/TIMER.H` — source of truth for
   everything above.

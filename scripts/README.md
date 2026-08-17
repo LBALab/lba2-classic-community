@@ -89,7 +89,7 @@ for reproducibility; cited from the format and effects docs.
 
 ## LBA1 feasibility spikes (`dev/`)
 
-Read-only investigations backing [LBA1_PORT_PLAN.md](../docs/LBA1_PORT_PLAN.md); each
+Read-only investigations backing [LBA1_PORT_PLAN.md](../docs/plan/LBA1_PORT_PLAN.md); each
 confirms one axis of hosting LBA1 content on this engine.
 
 | Script | What it does | Invoked by |
