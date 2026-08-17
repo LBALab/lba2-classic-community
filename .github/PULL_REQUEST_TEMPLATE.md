@@ -2,7 +2,8 @@
 PR title format: `<type>(<scope>): <summary>`
 Types: feat | fix | port | perf | refactor | docs | test | build | ci | chore
 Scope is optional. Example: `fix(credits): preserve gameplay state across console-invoked credits`
-The PR title becomes the squash-merged commit on main, so it lands in the changelog as-is.
+The PR title drives the changelog whatever the merge mode. `main` takes merge commits by
+default, so your own commit messages land on it too and are worth writing.
 See AGENTS.md "Commit & PR conventions".
 -->
 
