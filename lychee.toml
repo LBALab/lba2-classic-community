@@ -2,7 +2,7 @@
 #
 # lychee picks this up automatically when it runs from the repo root, which
 # scripts/ci/check-docs-links.sh guarantees with a cd. So a bare `lychee
-# docs/FOO.md` in a terminal applies the same rules CI does, and there is one
+# README.md` in a terminal applies the same rules CI does, and there is one
 # place to change them.
 #
 # Checking semantics belong here. The script keeps only the flags that should
