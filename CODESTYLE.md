@@ -42,6 +42,17 @@ Corollaries:
 - **Boot-time work is not exempt.** New infrastructure gravitates to the entry point because `main()` is there. It still does not belong there: config file I/O, path and profile resolution, asset discovery and fatal-error plumbing each want their own TU.
 - **State that is genuinely shared stays shared.** The rule is about ownership, not about emptying the god-header for its own sake. A global that several subsystems write (the camera angles themselves, `FirstTime`, the cube coordinates) has no single owner to move it to yet; leave it until one exists. See [docs/ARCHITECTURE_GLOBALS.md](docs/ARCHITECTURE_GLOBALS.md) for the wider plan.
 
+### Cross-cutting files invert the second rule
+
+Some files exist precisely to touch everyone else's state: the cfg reader and writer, the save serialiser, a `--dump-state` report. "Own your state" says nothing useful to them, because owning none of it is the job. Applied naively it produces a file that gives itself the first rule's benefit and none of the second's: one translation unit naming three dozen globals belonging to five different owners.
+
+Invert it there. **The cross-cutting file must not name another module's settings; the module exposes an entry point and the cross-cutting file calls it.** [SOURCES/FOLLOWCAM.CPP](SOURCES/FOLLOWCAM.CPP) has `FollowCam_ReadConfig` / `FollowCam_WriteConfig` for its own cfg keys, and the config file module calls them without knowing a key name. Adding a camera setting is then one file, not two, and a clamp cannot end up in a different translation unit from the arithmetic that requires it.
+
+Two things to expect when doing this:
+
+- **A serialised format's ordering can outrank the rule.** `lba2.cfg` is rewritten in key order, so a module can only take a contiguous run of keys without reordering every player's file. Where a key sits apart from its module's block, leave it and say why, as `FollowCamera` is left in FOLLOWCAM.H. Cosmetic churn in a user's file is a worse outcome than an imperfect boundary.
+- **A module's private state usually has one leak.** Both extractions found exactly one: the main loop assigning the camera's smoothing state, and boot assigning the cfg reader's `StoredLanguage`. Give it a named entry point rather than widening the header to expose the variable. The name is the documentation for a coupling that was previously invisible.
+
 ## Layout and naming
 
 - **Indentation:** 4 spaces in C/C++. Tabs are preserved in ASM. The original used tabs; there is an ongoing migration to 4 spaces, so new contributions use 4 spaces.
