@@ -17,13 +17,15 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 
 ## Lifecycle
 
-- **Read**: `ReadConfigFile()` in [SOURCES/PERSO.CPP](../SOURCES/PERSO.CPP) (line 1701), invoked from `InitProgram()` at line 1825
-- **Write**: `WriteConfigFile()` in PERSO.CPP (line 1757), called from `TheEndInfo()` (line 1955)
+- **Read**: `ReadConfigFile()` in [SOURCES/CONFIG_FILE.CPP](../SOURCES/CONFIG_FILE.CPP), invoked from `InitProgram()`
+- **Write**: `WriteConfigFile()` in the same file, called from `TheEndInfo()`
+- Not to be confused with [SOURCES/CONFIG.CPP](../SOURCES/CONFIG.CPP), which is the in-game key-binding menu
 - Options menu changes globals only; config is written once at exit. No intermediate saves when changing options.
 - **A setting forced for one run is not written back.** The write serialises globals, so without this a
   flag whose own help says "this run only" would leave its value in the player's config for every later
-  launch. `--fixed-timestep`, `--language`, `--vsync` and `LBA2_TEXFILTER` go through `ValueToPersist` in PERSO.CPP,
-  which puts the stored preference back while the live value is still the one that was forced.
+  launch. `--fixed-timestep`, `--language`, `--vsync` and `LBA2_TEXFILTER` go through
+  `Settings_ValueToPersist` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H), which puts the stored preference back
+  while the live value is still the one that was forced. Host test: [`tests/settings/`](../tests/settings/).
   `--resolution` reaches the same end differently: `Res_ResolutionShouldPersist` is false for it, so
   `WriteConfigFile` leaves `ResolutionX/Y` as it found them. Only two things make a resolution a
   preference to keep, the config's own value and a resolution picked during the run (Display submenu,
@@ -105,12 +107,54 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | FollowCamera | Auto camera for exterior scenes (0=classic, 1=auto). Community addition, not in original game; menu label is "Auto camera" / "Classic camera" | ReadConfigFile / WriteConfigFile | Options → Advanced options |
 | TextureFilter, DitherShading | Software-rasterizer smoothing, both off by default. Console cvars `gfx_texfilter` / `gfx_dither` | ReadConfigFile / WriteConfigFile | console only |
 
+## How a key is declared
+
+A key is one row in a table, in the module that owns the setting. The cfg reader, the cfg writer and
+the console's cvar table all read that table rather than naming the setting, so adding a key is a
+single row and its range reaches every surface that can write it. The row type is `T_SETTING` in
+[SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H).
+
+Two tables exist today: `BootSettings` in [SOURCES/CONFIG_FILE.CPP](../SOURCES/CONFIG_FILE.CPP) for the boot and
+display keys, and `FollowCamSettings` in [SOURCES/FOLLOWCAM.CPP](../SOURCES/FOLLOWCAM.CPP) for the Auto camera's.
+**Row order is the file's key order**, which players see: the config is rewritten in table order, so
+moving a row reorders every existing `lba2.cfg` on the next save.
+
+**A row states what happens to a value outside its range**, because the engine does not do one thing
+here, it does four. This is the vocabulary behind the "Clamping / notes" column above:
+
+| Rule | Meaning | Example key |
+|------|---------|-------------|
+| `SETTING_CLAMP` | move it to the nearer bound | DetailLevel |
+| `SETTING_OR_DEFAULT` | out of range counts as unset, so the default stands | FullScreen, TextureFilter |
+| `SETTING_TRUTHY` | any non-zero is on | FollowCamHDRecompose |
+| `SETTING_RAW` | no range at all; whatever the file said stands | AllCameras, ReverseStereo |
+
+Picking the wrong one is invisible to a normal config: a file the engine wrote holds only in-range
+values, so the rules can only differ on a value the engine did not write. They are covered by a host
+test in [`tests/settings/`](../tests/settings/) rather than by any read-write comparison.
+
+Two further columns, both optional:
+
+- **`legacy`** names an older spelling to read when the current key is absent, so a renamed key keeps
+  working and moves to its new name on the next write. `FollowCamera` reads `AutoCameraCenter` this way.
+- **`stored` / `forced`** mark a key some flag can force for one run. The reader keeps what the file
+  held, and the writer puts that back rather than the forced value, which is what stops
+  `--fixed-timestep` or `--vsync` leaving a one-run choice behind. See the lifecycle note above.
+
+Not everything is a row. Keys that are not a single integer stay hand-written: `LastSave` and
+`Language` are strings, the key bindings and volumes have their own blocks
+(`ReadInputConfig` / `ReadVolumeSettings`), and `ResolutionX/Y` follow the separate rule described
+above. Side effects of a setting, applying fullscreen or swapping stereo, run after the table has
+loaded the values rather than inside it.
+
 ## Code reference
 
 
 | Concept            | File                      | Function/Symbol                                            |
 | ------------------ | ------------------------- | ---------------------------------------------------------- |
-| Config read/write  | PERSO.CPP                 | ReadConfigFile, WriteConfigFile                            |
+| Config read/write  | CONFIG_FILE.CPP           | ReadConfigFile, WriteConfigFile, BootSettings              |
+| Setting declaration| SETTINGS.H                | T_SETTING, Settings_Coerce, Settings_ValueToPersist        |
+| Per-module tables  | FOLLOWCAM.CPP             | FollowCamSettings, FollowCam_ReadConfig / _WriteConfig     |
 | Volume persistence | AMBIANCE.CPP              | ReadVolumeSettings, WriteVolumeSettings                    |
 | Input persistence  | INPUT.CPP                 | ReadInputConfig, WriteInputConfig                          |
 | Config path        | DIRECTORIES.CPP           | GetCfgPath, GetDefaultCfgPath                              |
