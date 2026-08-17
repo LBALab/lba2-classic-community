@@ -1582,7 +1582,24 @@ static void Console_SubmitLine(void) {
     input_clear();
 }
 
+static int s_executing = 0;
+
+int Console_IsExecuting(void) {
+    return s_executing;
+}
+
+/* Wrapped rather than flagged inline: the body returns from a dozen places, and a
+   flag that has to be cleared at each of them is one `return` away from wedging
+   every later command out of the console. */
+static void console_execute_body(const char *line);
+
 void Console_Execute(const char *line) {
+    s_executing++;
+    console_execute_body(line);
+    s_executing--;
+}
+
+static void console_execute_body(const char *line) {
     static char buf[CONSOLE_LINE_MAX];
     static const char *argv[CONSOLE_MAX_ARGV];
     int argc = 0;

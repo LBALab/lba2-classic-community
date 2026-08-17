@@ -47,11 +47,16 @@
  * throttle for a probe session (`fixedtimestep 40` over the socket, or
  * --fixed-timestep on the command line) and read timings against that.
  *
- * Threading: none. Control_TickHook polls it once per tick, so commands run on
- * the game thread at the same point --exec-at fires and reads of engine globals
- * are exactly as safe as they are there. The cost is that a modal inner loop
- * (cinematic, dialogue, menu) does not reach the hook, so the socket goes quiet
- * until the main loop resumes.
+ * Threading: none. PERSO.CPP's pre-present chain polls it once per presented
+ * frame, so commands run on the game thread and reads of engine globals are
+ * exactly as safe as they are in Control_TickHook. The present path rather than
+ * that hook because the hook has one call site inside MainLoop, and a modal
+ * inner loop (cinematic, dialogue, menu) never reaches it; every mode presents.
+ *
+ * Which means a command that itself presents frames re-enters this file from
+ * inside itself, and the poll refuses to do anything when it finds that. Beyond
+ * this module's own response buffer, Console_Execute parses into static storage,
+ * so a nested command would overwrite the argv of the one that is still running.
  */
 
 #ifdef __cplusplus

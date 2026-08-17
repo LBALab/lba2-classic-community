@@ -168,8 +168,16 @@ static int s_in_command = 0;
 /* `stream on`: the log fan-out feeds this ring, and Poll drains it to the client.
    The log callback never touches the socket, for two reasons: a trace firing
    mid-frame must not be able to block the game on a slow reader, and a write from
-   inside a command would interleave with that command's own response. */
+   inside a command would interleave with that command's own response.
+
+   The sink is made once and kept for the process, with s_streaming deciding
+   whether records are kept, rather than registered and unregistered per `stream
+   on`. Log_RemoveSink takes a sink off the dispatch list without releasing its
+   pool slot, and the pool is eight deep with three gone at boot, so a handful of
+   on/off cycles would have quietly used up the last one and taken the next
+   subsystem's sink with it. */
 static LogSink *s_log_sink = NULL;
+static int s_streaming = 0;
 static char s_events[EVENT_SLOTS][EVENT_LINE_MAX];
 static int s_event_head = 0; /* next slot to write */
 static int s_event_count = 0;
@@ -212,7 +220,7 @@ static void resp_addf(const char *fmt, ...) {
 static void event_push(const char *line, LogSeverity sev, LogLineKind kind) {
     (void)sev;
     (void)kind;
-    if (!line)
+    if (!s_streaming || !line)
         return;
     if (s_event_count == EVENT_SLOTS) {
         /* Full: the oldest line goes, not the newest. A driver that fell behind
@@ -236,22 +244,22 @@ static void event_reset(void) {
 }
 
 static void stream_stop(void) {
-    if (s_log_sink) {
-        Log_RemoveSink(s_log_sink);
-        s_log_sink = NULL;
-    }
+    s_streaming = 0;
     event_reset();
 }
 
 static void stream_start(void) {
-    if (s_log_sink)
+    if (s_streaming)
         return;
     event_reset();
-    /* LOG_DEBUG as the sink's own floor: the global level (`loglevel`) is the knob
-       a driver actually turns, and this must not sit above it. */
-    s_log_sink = Log_MakeCallbackSink(event_push, LOG_DEBUG);
-    if (s_log_sink)
-        Log_AddSink(s_log_sink);
+    if (!s_log_sink) {
+        /* LOG_DEBUG as the sink's own floor: the global level (`loglevel`) is the
+           knob a driver actually turns, and this must not sit above it. */
+        s_log_sink = Log_MakeCallbackSink(event_push, LOG_DEBUG);
+        if (s_log_sink)
+            Log_AddSink(s_log_sink);
+    }
+    s_streaming = (s_log_sink != NULL);
 }
 
 /* --- Client I/O ------------------------------------------------------------- */
@@ -305,7 +313,7 @@ static void flush_events(void) {
     char out[EVENT_LINE_MAX + 32];
     int sent;
 
-    if (!s_log_sink || !sock_valid(s_client_fd))
+    if (!s_streaming || !sock_valid(s_client_fd))
         return;
 
     if (s_event_dropped > 0) {
@@ -339,8 +347,8 @@ static void flush_events(void) {
 static int run_server_verb(const char *line) {
     if (strcmp(line, "stream on") == 0) {
         stream_start();
-        resp_addf(s_log_sink ? "stream: on (log records follow, prefixed \"%s\")"
-                             : "stream: could not register a log sink",
+        resp_addf(s_streaming ? "stream: on (log records follow, prefixed \"%s\")"
+                              : "stream: could not register a log sink",
                   EVENT_PREFIX);
         return 1;
     }
@@ -350,7 +358,7 @@ static int run_server_verb(const char *line) {
         return 1;
     }
     if (strcmp(line, "stream") == 0) {
-        resp_addf("stream: %s. Use `stream on` / `stream off`.", s_log_sink ? "on" : "off");
+        resp_addf("stream: %s. Use `stream on` / `stream off`.", s_streaming ? "on" : "off");
         resp_addf("  Streams the engine log, which is where the trace verbs write:");
         resp_addf("  objtrace / lifetrace / cubetrace / camtrace / input trace.");
         resp_addf("  Set `loglevel debug` for the traces that log at debug severity.");
@@ -398,8 +406,20 @@ static void run_line(char *line) {
     s_prev_sink = NULL;
     s_in_command = 0;
 
-    if (s_resp_over)
-        resp_addf("[ctlsrv] output truncated at %d bytes", RESP_MAX);
+    /* Not through resp_sink: the buffer it would append to is the one that just
+       refused a line, so the notice would be dropped exactly when it is the only
+       thing telling the reader the response is short. Take the room back from the
+       tail instead. */
+    if (s_resp_over) {
+        char mark[64];
+        int mn = snprintf(mark, sizeof(mark), "[ctlsrv] output truncated at %d bytes\n", RESP_MAX);
+        if (mn > 0 && mn < (int)sizeof(mark)) {
+            if (s_resp_len + mn > RESP_MAX)
+                s_resp_len = RESP_MAX - mn;
+            memcpy(s_resp + s_resp_len, mark, (size_t)mn);
+            s_resp_len += mn;
+        }
+    }
 
     if (send_all(s_resp, s_resp_len) != 0 ||
         send_all(TERMINATOR, (int)strlen(TERMINATOR)) != 0)
@@ -533,8 +553,12 @@ void ControlServer_Poll(void) {
     /* Re-entered from inside a command that is presenting frames. Do nothing at
        all here: not the accept, not the read, not the event flush. The command
        owns the response buffer and the displaced line sink until it returns, and
-       everything below would take one or both from it. */
-    if (s_in_command)
+       everything below would take one or both from it.
+       Console_IsExecuting covers the case this module cannot see for itself: the
+       command presenting frames may have come from F12 or --exec-at rather than
+       the socket, and Console_Execute parses into static storage, so starting a
+       queued line here would overwrite the argv it is still reading. */
+    if (s_in_command || Console_IsExecuting())
         return;
 
     if (!sock_valid(s_client_fd)) {
@@ -576,12 +600,16 @@ void ControlServer_Poll(void) {
         }
     }
     if (n > 0) {
-        int room = RAW_MAX - s_raw_len;
-        int take = (int)n < room ? (int)n : room;
-        if (take > 0) {
-            memcpy(s_raw + s_raw_len, buf, (size_t)take);
-            s_raw_len += take;
+        /* Dropping the excess would splice the bytes either side of the gap into
+           one command, so a driver that overran once would go on getting answers
+           to things it never sent. Close instead: the stream cannot be trusted
+           from here, and saying so is the only recoverable outcome. */
+        if ((int)n > RAW_MAX - s_raw_len) {
+            client_close("input overran the buffer; stream out of step");
+            return;
         }
+        memcpy(s_raw + s_raw_len, buf, (size_t)n);
+        s_raw_len += (int)n;
     }
     /* Events first: anything the last command set in motion reaches the driver
        before the next command's response, and never inside one. */
