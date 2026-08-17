@@ -7,6 +7,7 @@
 #if defined(LBA2_CONTROL_SERVER)
 
 #include "CONSOLE/CONSOLE.H"
+#include "CONTROL_PROTO.H" /* the buffers, and the host tests that hold them still */
 
 #include <SYSTEM/LOG.H>
 
@@ -113,30 +114,10 @@ static void sock_platform_shutdown(void) {
 
 #endif
 
-/* One command in, one response out. The response holds whatever the command
-   printed, so the ceiling is set by the chattiest of them (`help` and `cmdlist`
-   list every registered command); 64K leaves room to spare. */
-#define RESP_MAX 65536
-/* Matches CONSOLE_LINE_MAX: a longer line could not be executed anyway. */
-#define IN_LINE_MAX 256
 #define READ_CHUNK 4096
-/* Room for several queued commands: a driver may write a burst in one go, and only
-   one of them is run per frame (see run_one_pending). */
-#define RAW_MAX 8192
-
-/* Event ring for `stream on`. Sized for roughly a fifth of a second of the
-   chattiest trace at an uncapped frame rate, which is far more than the flush
-   below needs to keep up with; it exists so a driver that stalls briefly loses
-   the oldest lines instead of stalling the game. */
-#define EVENT_SLOTS 256
-#define EVENT_LINE_MAX 192
 /* Cap the work one frame will do flushing, so a large backlog cannot turn into a
    visible hitch. Comfortably above the per-frame production rate of any trace. */
 #define EVENT_FLUSH_PER_POLL 64
-/* Marks a pushed line, so a driver can tell an asynchronous event from the output
-   of the command it just sent. Command output stays bare. */
-#define EVENT_PREFIX "! "
-#define TERMINATOR "<<END>>\n"
 
 /* A client that has stopped reading must not stall the frame. Give a full send
    this many 1ms poll waits, then drop the connection rather than wait longer:
@@ -146,11 +127,8 @@ static void sock_platform_shutdown(void) {
 
 static sock_t s_listen_fd = SOCK_INVALID;
 static sock_t s_client_fd = SOCK_INVALID;
-static char s_raw[RAW_MAX];
-static int s_raw_len = 0;
-static char s_resp[RESP_MAX];
-static int s_resp_len = 0;
-static int s_resp_over = 0;
+static T_PROTO_IN s_in;
+static T_PROTO_RESP s_resp;
 static long s_commands = 0;
 /* Whatever sink was installed when a command started (the harness echoes console
    output to stdout through one). Held only for the duration of that command. */
@@ -178,10 +156,7 @@ static int s_in_command = 0;
    subsystem's sink with it. */
 static LogSink *s_log_sink = NULL;
 static int s_streaming = 0;
-static char s_events[EVENT_SLOTS][EVENT_LINE_MAX];
-static int s_event_head = 0; /* next slot to write */
-static int s_event_count = 0;
-static long s_event_dropped = 0;
+static T_PROTO_RING s_ring;
 
 /* --- Response buffer -------------------------------------------------------- */
 
@@ -190,23 +165,16 @@ static long s_event_dropped = 0;
    in the terminal. With someone watching the game while an agent drives it, the
    agent's commands should still be visible where the run is being watched. */
 static void resp_sink(const char *line) {
-    int n = (int)strlen(line);
     /* s_in_command already stops this sink displacing itself. Checked again here
        because the failure that would follow is unbounded recursion, which takes
        the process out with no diagnostic worth reading. */
     if (s_prev_sink && s_prev_sink != resp_sink)
         s_prev_sink(line);
-    if (s_resp_len + n + 1 > RESP_MAX - 1) {
-        s_resp_over = 1;
-        return;
-    }
-    memcpy(s_resp + s_resp_len, line, (size_t)n);
-    s_resp_len += n;
-    s_resp[s_resp_len++] = '\n';
+    Proto_RespAddLine(&s_resp, line);
 }
 
 static void resp_addf(const char *fmt, ...) {
-    char buf[IN_LINE_MAX];
+    char buf[PROTO_LINE_MAX];
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
@@ -220,27 +188,13 @@ static void resp_addf(const char *fmt, ...) {
 static void event_push(const char *line, LogSeverity sev, LogLineKind kind) {
     (void)sev;
     (void)kind;
-    if (!s_streaming || !line)
+    if (!s_streaming)
         return;
-    if (s_event_count == EVENT_SLOTS) {
-        /* Full: the oldest line goes, not the newest. A driver that fell behind
-           wants what just happened, not what happened first. */
-        s_event_head = (s_event_head + 1) % EVENT_SLOTS;
-        s_event_count--;
-        s_event_dropped++;
-    }
-    {
-        int slot = (s_event_head + s_event_count) % EVENT_SLOTS;
-        strncpy(s_events[slot], line, EVENT_LINE_MAX - 1);
-        s_events[slot][EVENT_LINE_MAX - 1] = '\0';
-        s_event_count++;
-    }
+    Proto_RingPush(&s_ring, line);
 }
 
 static void event_reset(void) {
-    s_event_head = 0;
-    s_event_count = 0;
-    s_event_dropped = 0;
+    Proto_RingReset(&s_ring);
 }
 
 static void stream_stop(void) {
@@ -270,7 +224,7 @@ static void client_close(const char *why) {
     stream_stop(); /* before the log line below, or it queues for a dead client */
     sock_close(s_client_fd);
     s_client_fd = SOCK_INVALID;
-    s_raw_len = 0;
+    Proto_InReset(&s_in);
     Log_Info("[ctlsrv] client gone (%s)", why);
 }
 
@@ -310,26 +264,30 @@ static int send_all(const char *buf, int len) {
 /* Drain queued events to the client. Called from Poll only, never from inside a
    command, so a pushed line can never land in the middle of a response. */
 static void flush_events(void) {
-    char out[EVENT_LINE_MAX + 32];
+    char out[PROTO_EVENT_LINE_MAX + 32];
+    long dropped;
     int sent;
 
     if (!s_streaming || !sock_valid(s_client_fd))
         return;
 
-    if (s_event_dropped > 0) {
-        int n = snprintf(out, sizeof(out), EVENT_PREFIX "[ctlsrv] dropped %ld line(s)\n",
-                         s_event_dropped);
-        s_event_dropped = 0;
+    dropped = Proto_RingTakeDropped(&s_ring);
+    if (dropped > 0) {
+        int n = snprintf(out, sizeof(out), PROTO_EVENT_PREFIX "[ctlsrv] dropped %ld line(s)\n",
+                         dropped);
         if (send_all(out, n) != 0) {
             client_close("event send failed");
             return;
         }
     }
 
-    for (sent = 0; sent < EVENT_FLUSH_PER_POLL && s_event_count > 0; sent++) {
-        int n = snprintf(out, sizeof(out), EVENT_PREFIX "%s\n", s_events[s_event_head]);
-        s_event_head = (s_event_head + 1) % EVENT_SLOTS;
-        s_event_count--;
+    for (sent = 0; sent < EVENT_FLUSH_PER_POLL; sent++) {
+        const char *line = Proto_RingTake(&s_ring);
+        int n;
+
+        if (!line)
+            break;
+        n = snprintf(out, sizeof(out), PROTO_EVENT_PREFIX "%s\n", line);
         if (send_all(out, n) != 0) {
             client_close("event send failed");
             return;
@@ -349,7 +307,7 @@ static int run_server_verb(const char *line) {
         stream_start();
         resp_addf(s_streaming ? "stream: on (log records follow, prefixed \"%s\")"
                               : "stream: could not register a log sink",
-                  EVENT_PREFIX);
+                  PROTO_EVENT_PREFIX);
         return 1;
     }
     if (strcmp(line, "stream off") == 0) {
@@ -371,12 +329,11 @@ static void run_line(char *line) {
     char *p = line;
     char *seg;
 
-    s_resp_len = 0;
-    s_resp_over = 0;
+    Proto_RespReset(&s_resp);
 
     if (run_server_verb(line)) {
-        if (send_all(s_resp, s_resp_len) != 0 ||
-            send_all(TERMINATOR, (int)strlen(TERMINATOR)) != 0)
+        if (send_all(s_resp.buf, s_resp.len) != 0 ||
+            send_all(PROTO_TERMINATOR, (int)strlen(PROTO_TERMINATOR)) != 0)
             client_close("send failed");
         return;
     }
@@ -406,40 +363,26 @@ static void run_line(char *line) {
     s_prev_sink = NULL;
     s_in_command = 0;
 
-    /* Not through resp_sink: the buffer it would append to is the one that just
-       refused a line, so the notice would be dropped exactly when it is the only
-       thing telling the reader the response is short. Take the room back from the
-       tail instead. */
-    if (s_resp_over) {
-        char mark[64];
-        int mn = snprintf(mark, sizeof(mark), "[ctlsrv] output truncated at %d bytes\n", RESP_MAX);
-        if (mn > 0 && mn < (int)sizeof(mark)) {
-            if (s_resp_len + mn > RESP_MAX)
-                s_resp_len = RESP_MAX - mn;
-            memcpy(s_resp + s_resp_len, mark, (size_t)mn);
-            s_resp_len += mn;
-        }
-    }
+    Proto_RespFinish(&s_resp);
 
-    if (send_all(s_resp, s_resp_len) != 0 ||
-        send_all(TERMINATOR, (int)strlen(TERMINATOR)) != 0)
+    if (send_all(s_resp.buf, s_resp.len) != 0 ||
+        send_all(PROTO_TERMINATOR, (int)strlen(PROTO_TERMINATOR)) != 0)
         client_close("send failed");
 }
 
 /* Reply to a command that never reached the console. */
 static void reply_error(const char *fmt, ...) {
     va_list ap;
-    char buf[IN_LINE_MAX];
+    char buf[PROTO_LINE_MAX];
 
     va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
 
-    s_resp_len = 0;
-    s_resp_over = 0;
+    Proto_RespReset(&s_resp);
     resp_sink(buf);
-    if (send_all(s_resp, s_resp_len) != 0 ||
-        send_all(TERMINATOR, (int)strlen(TERMINATOR)) != 0)
+    if (send_all(s_resp.buf, s_resp.len) != 0 ||
+        send_all(PROTO_TERMINATOR, (int)strlen(PROTO_TERMINATOR)) != 0)
         client_close("send failed");
 }
 
@@ -455,42 +398,22 @@ static void reply_error(const char *fmt, ...) {
  * Returns 1 if a line ran, 0 if none was complete.
  */
 static int run_one_pending(void) {
-    char line[IN_LINE_MAX];
-    int i, n, consumed;
+    char line[PROTO_LINE_MAX];
 
-    for (i = 0; i < s_raw_len; i++) {
-        if (s_raw[i] != '\n')
-            continue;
-
-        n = i;
-        if (n > 0 && s_raw[n - 1] == '\r')
-            n--;
-        consumed = i + 1;
-
-        /* Drop the bytes before running: the command may close the connection
-           (`exit` never returns), and leaving them queued would replay them. */
-        if (n < IN_LINE_MAX) {
-            memcpy(line, s_raw, (size_t)n);
-            line[n] = '\0';
-        }
-        memmove(s_raw, s_raw + consumed, (size_t)(s_raw_len - consumed));
-        s_raw_len -= consumed;
-
-        if (n >= IN_LINE_MAX) {
-            reply_error("[ctlsrv] command longer than %d bytes, ignored", IN_LINE_MAX - 1);
-            return 1;
-        }
+    switch (Proto_InTakeLine(&s_in, line, (int)sizeof(line))) {
+    case PROTO_TAKE_LINE:
         run_line(line);
         return 1;
-    }
-
-    /* No newline and the buffer is full: the peer is not speaking the protocol. */
-    if (s_raw_len >= RAW_MAX) {
-        s_raw_len = 0;
-        reply_error("[ctlsrv] %d bytes with no newline, input dropped", RAW_MAX);
+    case PROTO_TAKE_TOO_LONG:
+        reply_error("[ctlsrv] command longer than %d bytes, ignored", PROTO_LINE_MAX - 1);
         return 1;
+    case PROTO_TAKE_NO_NEWLINE:
+        reply_error("[ctlsrv] %d bytes with no newline, input dropped", PROTO_RAW_MAX);
+        return 1;
+    case PROTO_TAKE_NONE:
+    default:
+        return 0;
     }
-    return 0;
 }
 
 /* --- Public API ------------------------------------------------------------- */
@@ -574,14 +497,14 @@ void ControlServer_Poll(void) {
             setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, SOCK_OPTVAL(&yes), sizeof(yes));
         }
         s_client_fd = fd;
-        s_raw_len = 0;
+        Proto_InReset(&s_in);
         Log_Info("[ctlsrv] client connected");
         /* Greet, so a driver can block on the first <<END>> and know the engine
            is past boot and polling rather than guess with a sleep. */
-        s_resp_len = 0;
+        Proto_RespReset(&s_resp);
         resp_addf("lba2cc control server ready");
-        if (send_all(s_resp, s_resp_len) != 0 ||
-            send_all(TERMINATOR, (int)strlen(TERMINATOR)) != 0) {
+        if (send_all(s_resp.buf, s_resp.len) != 0 ||
+            send_all(PROTO_TERMINATOR, (int)strlen(PROTO_TERMINATOR)) != 0) {
             client_close("greeting failed");
             return;
         }
@@ -600,16 +523,13 @@ void ControlServer_Poll(void) {
         }
     }
     if (n > 0) {
-        /* Dropping the excess would splice the bytes either side of the gap into
-           one command, so a driver that overran once would go on getting answers
-           to things it never sent. Close instead: the stream cannot be trusted
-           from here, and saying so is the only recoverable outcome. */
-        if ((int)n > RAW_MAX - s_raw_len) {
+        /* Refused rather than clamped: dropping the excess would splice the bytes
+           either side of the gap into one command, so a driver that overran once
+           would go on getting answers to things it never sent. */
+        if (Proto_InAppend(&s_in, buf, (int)n) != 0) {
             client_close("input overran the buffer; stream out of step");
             return;
         }
-        memcpy(s_raw + s_raw_len, buf, (size_t)n);
-        s_raw_len += (int)n;
     }
     /* Events first: anything the last command set in motion reaches the driver
        before the next command's response, and never inside one. */
