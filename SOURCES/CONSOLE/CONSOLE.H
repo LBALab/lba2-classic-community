@@ -108,8 +108,11 @@ void Console_EnsureRegistered(void);
 
 /* Internal command execution entry point; used by host-only parser tests. */
 void Console_Execute(const char *line);
-/* Test hook: receives each console output line after it is pushed to scrollback. */
-void Console_SetLineSinkForTests(Console_LineSinkFn sink);
+/* Receives each console output line after it is pushed to scrollback. Used by the
+   host tests and by the control socket, which installs it around one command to
+   capture that command's output. Returns the previous sink so a caller can nest
+   without clobbering one already installed; pass NULL to detach. */
+Console_LineSinkFn Console_SetLineSinkForTests(Console_LineSinkFn sink);
 
 /* Copy up to max recent scrollback line pointers (chronological, newest last) into
    out[]; returns the count. Pointers are valid until the next console output. */

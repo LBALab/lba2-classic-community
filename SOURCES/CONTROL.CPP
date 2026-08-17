@@ -12,6 +12,7 @@
 #include "RES_SWITCH.H"  /* Res_Switch for --res-switch-test */
 #include "SAVEGAME.H"    /* Save_SetAutoDisabled for --no-autosave */
 #include "CONSOLE/CONSOLE.H"
+#include "CONTROL_SERVER.H" /* --listen: interactive command socket */
 
 #include <3D/PROJREC.H> /* Projrec_BeginCapture / Projrec_EndCapture */
 #include <FILEIO/SAVEPNG.H>
@@ -37,6 +38,9 @@ extern "C" {
 
 static int s_active = 0;
 static int s_armed = 0;
+static int s_have_listen = 0;
+static long s_listen_port = 0;
+static int s_listen_started = 0;
 
 static const char *s_load_name = NULL; /* --load value (NULL = none) */
 static int s_have_exec = 0;
@@ -194,6 +198,20 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             }
             s_active = 1;
             read += 3;
+            continue;
+        }
+        if (!strcmp(a, "--listen") && has_val) {
+            char *end = NULL;
+            long v = strtol(argv[read + 1], &end, 0);
+            if (end == argv[read + 1] || *end != '\0' || v < 1 || v > 65535) {
+                fprintf(stderr, "[control] --listen: invalid port '%s' (skipping)\n",
+                        argv[read + 1]);
+            } else {
+                s_listen_port = v;
+                s_have_listen = 1;
+            }
+            s_active = 1;
+            read += 2;
             continue;
         }
         if (!strcmp(a, "--tick") && has_val) {
@@ -661,6 +679,26 @@ int Control_Begin(void) {
     return 1;
 }
 
+void Control_DumpStateTo(const char *path) {
+    if (!path || !path[0])
+        return;
+    control_dump_state(path);
+}
+
+void Control_ServiceListen(void) {
+    if (!s_have_listen)
+        return;
+    /* Opened on the first present rather than the first tick: the menu and every
+       cinematic run their own loop, so a listener that waited for MainLoop would
+       never open at all for a run that starts at the menu. Both calls below are
+       non-blocking: with nobody connected this is one failed accept(). */
+    if (!s_listen_started) {
+        s_listen_started = 1;
+        ControlServer_Start((int)s_listen_port);
+    }
+    ControlServer_Poll();
+}
+
 /* --- Tick driver ------------------------------------------------------------ */
 static long control_effective_ticks(void) {
     long n = s_have_tick ? s_tick : 0;
@@ -893,6 +931,10 @@ static void control_capture(void) {
 static void control_finalize(void) {
     control_capture();
 
+    /* The tick budget is spent, so the hook that polls the socket is about to stop
+       running. Close it rather than leave a listener nothing will ever answer. */
+    ControlServer_Stop();
+
     if (s_exit) {
         /* An --exec-at whose tick the run never reached did not do what the command line
            asked for, so it must not pass for a clean run. This is where an --exit run ends,
@@ -1007,6 +1049,12 @@ void Control_TickHook(void) {
         SnapshotRequested = 1;
     }
 #endif
+    /* A --listen run with no tick budget is driven by whoever connects, so it must
+       not end itself: without this the default budget of zero finalizes on the
+       first tick, disarming the hook that services the socket. An explicit --tick
+       still wins, because that is the caller asking for a bounded run. */
+    if (s_have_listen && !s_have_tick)
+        return;
     if ((s_hook_calls - 1) >= control_effective_ticks())
         control_finalize();
 }

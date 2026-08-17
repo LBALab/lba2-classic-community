@@ -376,8 +376,10 @@ void Console_PrintColored(int colour, const char *fmt, ...) {
     console_push_multiline(buf, (U8)colour);
 }
 
-void Console_SetLineSinkForTests(Console_LineSinkFn sink) {
+Console_LineSinkFn Console_SetLineSinkForTests(Console_LineSinkFn sink) {
+    Console_LineSinkFn prev = s_line_sink_for_tests;
     s_line_sink_for_tests = sink;
+    return prev;
 }
 
 int Console_GetScrollback(const char **out, int max) {

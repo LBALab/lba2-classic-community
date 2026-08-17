@@ -74,7 +74,10 @@ WRITERS="
 --exec|--exec \"vsync off\"
 --exec-at|--exec-at 1 \"vsync off\"
 "
-NOT_RUN="--help -h --version --help-all --pick-game-dir --disc"
+# --listen declares that it writes because it carries console commands, exactly as
+# --exec does. Proving it needs a client on the socket sending one, which is the
+# control server's own test rather than this one's job.
+NOT_RUN="--help -h --version --help-all --pick-game-dir --disc --listen"
 
 settings_snapshot() { # settings_snapshot <user-dir> <out-file>
     ( cd "$1" 2>/dev/null && find . -type f ! -name 'adeline.log' | sort | while read -r f; do
