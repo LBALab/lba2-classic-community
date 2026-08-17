@@ -185,6 +185,58 @@ static void test_a_zero_divisor_is_survivable(void) {
     ASSERT_EQ_INT(-100, FollowCamRotStep(-100, -5, MIN_STEP));
 }
 
+/* The HD recompose's whole promise: at the height the game was composed for it does nothing at
+ * all. Every recompose term scales by this, so a non-zero result at 480 would tilt and dolly the
+ * camera on the one resolution that must look exactly as it shipped. Checked at 480 and below,
+ * because a render height under 480 must not push the correction negative either. */
+static void test_hd_recompose_is_a_no_op_at_the_authored_height(void) {
+    S32 y, bad = 0;
+
+    for (y = 1; y <= 480; y++) {
+        if (FollowCamHDExcessFor(TRUE, y, 0) != 0)
+            bad++;
+    }
+    ASSERT_EQ_INT(0, bad);
+}
+
+/* Off means off, whatever the height. */
+static void test_hd_recompose_disabled_is_always_zero(void) {
+    ASSERT_EQ_INT(0, FollowCamHDExcessFor(FALSE, 720, 0));
+    ASSERT_EQ_INT(0, FollowCamHDExcessFor(FALSE, 1080, 0));
+    ASSERT_EQ_INT(0, FollowCamHDExcessFor(FALSE, 2160, 70));
+}
+
+/* The documented values: 0 at 480, 125 at 1080. These are what the tuning defaults in
+ * FOLLOWCAM_CFG.H were chosen against, so a change to the formula that keeps the no-op at 480 but
+ * moves 1080 would silently retune every HD gain. */
+static void test_hd_recompose_matches_the_documented_scale(void) {
+    ASSERT_EQ_INT(0, FollowCamHDExcessFor(TRUE, 480, 0));
+    ASSERT_EQ_INT(50, FollowCamHDExcessFor(TRUE, 720, 0));
+    ASSERT_EQ_INT(125, FollowCamHDExcessFor(TRUE, 1080, 0));
+}
+
+/* The cap is what stops the linear correction over-steepening at tall heights: past it, taller
+ * resolutions converge on one fixed correction. 0 means no cap, which must stay linear rather
+ * than clamping everything to zero. */
+static void test_hd_recompose_cap_bounds_tall_heights(void) {
+    S32 y, bad = 0;
+
+    ASSERT_EQ_INT(70, FollowCamHDExcessFor(TRUE, 1080, 70));
+    ASSERT_EQ_INT(70, FollowCamHDExcessFor(TRUE, 2160, 70));
+    /* Below the cap the value is untouched. */
+    ASSERT_EQ_INT(50, FollowCamHDExcessFor(TRUE, 720, 70));
+    /* Cap 0 is "no cap", not "always zero". */
+    ASSERT_EQ_INT(125, FollowCamHDExcessFor(TRUE, 1080, 0));
+
+    /* Monotonic and never above the cap, across the range a player can reach. */
+    for (y = 480; y <= 2160; y++) {
+        S32 e = FollowCamHDExcessFor(TRUE, y, 70);
+        if (e < 0 || e > 70)
+            bad++;
+    }
+    ASSERT_EQ_INT(0, bad);
+}
+
 int main(void) {
     RUN_TEST(test_pan_round_trips_for_every_angle);
     RUN_TEST(test_angles_stay_within_the_turn);
@@ -195,5 +247,10 @@ int main(void) {
     RUN_TEST(test_no_step_when_already_on_target);
     RUN_TEST(test_stepping_settles_without_a_snap_threshold);
     RUN_TEST(test_a_zero_divisor_is_survivable);
+    RUN_TEST(test_hd_recompose_is_a_no_op_at_the_authored_height);
+    RUN_TEST(test_hd_recompose_disabled_is_always_zero);
+    RUN_TEST(test_hd_recompose_matches_the_documented_scale);
+    RUN_TEST(test_hd_recompose_cap_bounds_tall_heights);
     TEST_SUMMARY();
+    return test_failures != 0;
 }
