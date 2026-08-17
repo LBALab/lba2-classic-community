@@ -283,15 +283,95 @@ static void cmd_status(int argc, const char *argv[]) {
     Console_Print("Pos: (%d,%d,%d)", Nxw, Nyw, Nzw);
 }
 
+/* Per-capture-kind numbering state for unique_shoot_path. */
+typedef struct {
+    unsigned long stamp;
+    int seq;
+} T_CAPTURE_SEQ;
+
+/* Build a name under shoot/ that no capture has taken.
+ *
+ * The stamp has one-second resolution, which is finer than anyone can press a key
+ * twice and far coarser than a driver on the control socket can ask: two captures
+ * in the same second resolved to one name, and the second quietly replaced the
+ * first while reporting success and a path that existed either way. Repeats within
+ * a second are numbered from a counter rather than by probing the filesystem,
+ * because a screenshot is written during a later present: the first file does not
+ * exist yet when the second is named. The probe is the backstop for a second
+ * process capturing into the same folder in the same second. */
+static void unique_shoot_path(const char *prefix, const char *ext, T_CAPTURE_SEQ *st,
+                              char *path, int path_max) {
+    char filename[64];
+    unsigned long stamp = (unsigned long)time(NULL);
+    int spare;
+
+    if (stamp == st->stamp) {
+        st->seq++;
+    } else {
+        st->stamp = stamp;
+        st->seq = 0;
+    }
+
+    for (spare = 0; spare < 100; spare++) {
+        if (st->seq + spare == 0)
+            snprintf(filename, sizeof(filename), "%s_%lu.%s", prefix, stamp, ext);
+        else
+            snprintf(filename, sizeof(filename), "%s_%lu_%d.%s", prefix, stamp,
+                     st->seq + spare, ext);
+        GetShootPath(path, path_max, filename);
+        if (!ExistsFileOrDir(path))
+            break;
+    }
+    st->seq += spare;
+}
+
 static void cmd_screenshot(int argc, const char *argv[]) {
     (void)argc;
     (void)argv;
-    char filename[64];
+    static T_CAPTURE_SEQ seq = {0, 0};
     char path[ADELINE_MAX_PATH];
-    snprintf(filename, sizeof(filename), "shot_%lu.png", (unsigned long)time(NULL));
-    GetShootPath(path, ADELINE_MAX_PATH, filename);
+
+    unique_shoot_path("shot", "png", &seq, path, ADELINE_MAX_PATH);
     Console_RequestScreenshot(path, 1); /* 1 = PNG via SavePNG in game */
     Console_Print("Screenshot (no console): %s", path);
+}
+
+#ifdef ENABLE_POLY_RECORDING
+/* polyrec [path]: arm the polygon draw-call recorder for the next frame, the same
+   one-shot request Alt+F9 and --polyrec make, reachable mid-session. --polyrec fires
+   once at a tick chosen before boot, so comparing two moments meant two runs; from
+   here both come from one, with everything else about the process held fixed.
+   The buffer is static because AffScene reads SnapshotName on a later frame. */
+static void cmd_polyrec(int argc, const char *argv[]) {
+    static char path[ADELINE_MAX_PATH];
+    static T_CAPTURE_SEQ seq = {0, 0};
+
+    if (argc >= 2 && argv[1][0])
+        snprintf(path, sizeof(path), "%s", argv[1]);
+    else
+        unique_shoot_path("polyrec", "lba2polyrec", &seq, path, ADELINE_MAX_PATH);
+
+    SnapshotName = path;
+    SnapshotRequested = 1;
+    Console_Print("polyrec: recording next frame to %s", path);
+}
+#endif
+
+/* dumpstate [path]: the JSON snapshot --dump-state writes, on demand. The flag
+   captures once as a bounded run ends; a session driven from outside wants one per
+   probe, to diff two moments against each other rather than two whole runs. */
+static void cmd_dumpstate(int argc, const char *argv[]) {
+    static T_CAPTURE_SEQ seq = {0, 0};
+    char path[ADELINE_MAX_PATH];
+
+    if (argc >= 2 && argv[1][0]) {
+        Control_DumpStateTo(argv[1]);
+        Console_Print("dumpstate: wrote %s", argv[1]);
+        return;
+    }
+    unique_shoot_path("state", "json", &seq, path, ADELINE_MAX_PATH);
+    Control_DumpStateTo(path);
+    Console_Print("dumpstate: wrote %s", path);
 }
 
 /* Scancode names for `key`. Only the ones a harness actually reaches for: the two
@@ -2262,6 +2342,17 @@ void Console_RegisterAll(void) {
                               "Snapshot of current game state.");
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
+#ifdef ENABLE_POLY_RECORDING
+    Console_RegisterCommandEx("polyrec", cmd_polyrec, "Record the next frame's polygon draw calls",
+                              "polyrec [path]",
+                              "ENABLE_POLY_RECORDING builds only. Without a path, writes "
+                              "polyrec_<time>.lba2polyrec under shoot/.");
+#endif
+    Console_RegisterCommandEx("dumpstate", cmd_dumpstate, "Write the engine state as JSON",
+                              "dumpstate [path]",
+                              "Same snapshot as --dump-state, on demand rather than once at exit. "
+                              "Without a path, writes state_<time>.json under shoot/. Diffing two "
+                              "dumps from one session says what changed between two moments.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
                               "ui {inventory|holomap|menu-options|menu-main|config|slideshow} <path> | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal] | ui askchoice [--press <key>] <question-id> <choice-id>...",
                               "Composite verb for UI regression fixtures: opens a UI modal "
