@@ -194,11 +194,15 @@ void UpdateFollowCameraExt(void) {
     S32 catchupDiff = FollowCamAngleDiff(FollowCamTargetBeta, BetaCam);
 
     if (FollowCamNeedsUpdate(ptr3d, catchupDiff)) {
-        /* HD recompose strength (kExcess): 0 in camera zones, at
-                         * 480, or when disabled. Shared by the forward-lean cut
-                         * here and the boom pull-in + pitch steepen at the apply
-                         * below, so the whole recompose is a no-op at 480. */
-        S32 hdExcess = CameraZone ? 0 : FollowCamHDExcess();
+        /* HD recompose strength (kExcess): 0 at 480 or when disabled. Shared by
+                         * the forward-lean cut here and the boom pull-in + pitch steepen at
+                         * the apply below, so the whole recompose is a no-op at 480.
+                         *
+                         * Not gated on CameraZone. This function has one caller and it sits
+                         * inside `if (!CameraZone)`, so a camera zone never reaches here to
+                         * be tested for: it keeps the follow camera from running at all,
+                         * rather than running it with the correction switched off. */
+        S32 hdExcess = FollowCamHDExcess();
 
         /* Manual-override fade: a manual nudge set FollowCamManualHold
                          * (EXTFUNC), driving the auto-assist strength to 0 so the

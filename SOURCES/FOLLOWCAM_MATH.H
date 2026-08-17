@@ -100,8 +100,14 @@ static inline S32 FollowCamRotStep(S32 diff, S32 divisor, S32 minStep) {
  * The apply path scales its boom pull-in, pitch steepen and forward-lean cut by
  * this, so the whole recompose is an exact no-op wherever this returns 0. Two
  * things make it 0: a render height at or below 480, and the recompose being
- * switched off. Camera zones pass 0 separately, so an authored shot is never
- * recomposed.
+ * switched off.
+ *
+ * Those are the only two. An authored camera shot is not exempt: the frame a
+ * camera zone claims the view is one the follow camera does not run on at all, so
+ * the zone's own write reaches the screen as authored, and every frame the shot
+ * holds after that is recomposed like any other. Exempting an authored shot for
+ * real would mean keeping it out of the apply path for as long as it holds the
+ * view, which is not what happens today.
  *
  * The correction grows linearly with height, which over-steepens at 1080p. `cap`
  * bounds the result so tall resolutions converge on a fixed correction instead
