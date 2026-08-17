@@ -33,6 +33,23 @@ not maintained tooling.
 | [dev/build-sdl3-android.sh](dev/build-sdl3-android.sh) | Cross-build SDL3 for Android and install it to a known prefix (prerequisite for `build-android.sh`). | manual ([ANDROID.md](../docs/ANDROID.md)) |
 | [dev/check-16k-align.sh](dev/check-16k-align.sh) | Verify an Android APK is safe on 16 KB memory-page devices (segment alignment + uncompressed `.so`). | CI (android), [ANDROID.md](../docs/ANDROID.md) |
 
+## Driving a running engine (`dev/`)
+
+Clients and sweeps for the `--listen` command socket, which needs a
+`-DLBA2_CONTROL_SERVER=ON` build; see
+[CONTROL.md](../docs/CONTROL.md#driving-a-running-engine---listen). The sweeps import
+`lba2ctl` and are restart-tolerant where they need to be, because walking many cubes in
+one process faults and a sweep that stops at the first fault covers almost nothing.
+
+| Script | What it does | Invoked by |
+|--------|--------------|------------|
+| [dev/lba2ctl.py](dev/lba2ctl.py) | Speak the line protocol: a REPL for looking around, a `Control` class for scripting a probe loop. Its docstring carries the traps that cost the most to rediscover. | manual, and imported by the sweeps below |
+| [dev/probe_bench.py](dev/probe_bench.py) | Measure one probe over the socket against the process-per-probe it replaces. | manual |
+| [dev/probe_zones.py](dev/probe_zones.py) | Parse `zonelist` into structured zones, including which cube gates wait on a door collision. Imported by the two sweeps below. | manual |
+| [dev/probe_gate_scan.py](dev/probe_gate_scan.py) | Sweep every cube for transition gates that are enabled, separating ones switched off from ones waiting on a door collision: `zonelist` reports the two identically and they want opposite fixes. | manual |
+| [dev/probe_cube_overlap.py](dev/probe_cube_overlap.py) | Sweep every cube for camera zones overlapping in all three axes, where list order alone decides which shot wins. | manual |
+| [dev/probe_input_matrix.py](dev/probe_input_matrix.py) | A/B whether injected input moves the hero, across several saves. | manual |
+
 ## Release dry-runs (`dev/`)
 
 Local wrappers that build a release binary and then delegate to the matching

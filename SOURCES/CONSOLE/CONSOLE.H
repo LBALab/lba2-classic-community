@@ -118,8 +118,21 @@ void Console_EnsureRegistered(void);
 
 /* Internal command execution entry point; used by host-only parser tests. */
 void Console_Execute(const char *line);
-/* Test hook: receives each console output line after it is pushed to scrollback. */
-void Console_SetLineSinkForTests(Console_LineSinkFn sink);
+
+/* Non-zero while Console_Execute is running, including from a nested call.
+ *
+ * The parser writes the line and its argv into static storage, so a second
+ * command started while the first is still on the stack overwrites the arguments
+ * the first is using. That is reachable: a command that presents frames (a UI
+ * capture, a cinematic, a video) runs the pre-present chain from inside itself,
+ * and anything that dispatches commands from there has to know not to. The
+ * control socket asks this before running a queued line. */
+int Console_IsExecuting(void);
+/* Receives each console output line after it is pushed to scrollback. Used by the
+   host tests and by the control socket, which installs it around one command to
+   capture that command's output. Returns the previous sink so a caller can nest
+   without clobbering one already installed; pass NULL to detach. */
+Console_LineSinkFn Console_SetLineSinkForTests(Console_LineSinkFn sink);
 
 /* Copy up to max recent scrollback line pointers (chronological, newest last) into
    out[]; returns the count. Pointers are valid until the next console output. */

@@ -2319,6 +2319,22 @@ static bool ProfileNameOrExit(const char *name, const char *source) {
     return false;
 }
 
+/* Pre-present chain: service the --listen socket, then draw the console overlay.
+ *
+ * The socket is polled from here rather than only from Control_TickHook because
+ * that hook has a single call site inside MainLoop, and a cinematic, dialogue or
+ * menu runs its own inner loop that never reaches it. A driver connected over the
+ * socket would go dark for the whole modal, which is precisely when it most wants
+ * to look. Every mode presents frames, so this is the one point that is always
+ * reached. Executing a console command from here is what the console itself
+ * already does when it is open during a modal, so it is no new exposure.
+ */
+static void ControlPrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
+                              const U8 *palette_rgb) {
+    Control_ServiceListen();
+    Console_PrePresent(frameBuffer, pitch, width, height, palette_rgb);
+}
+
 int main(int argc, char *argv[]) {
     /* --version: print resolved engine version (from VERSION file at the
      * repo root, optionally suffixed with -dirty) and exit. Handled before
@@ -2632,7 +2648,7 @@ int main(int argc, char *argv[]) {
 
     /* Console hooks: keyboard toggle/input interception + final-frame overlay compositing. */
     SetEventFilter(Console_FeedEvent);
-    SetPrePresentCallback(Console_PrePresent);
+    SetPrePresentCallback(ControlPrePresent);
 
     /* Touch virtual gamepad (Android / mobile). Init before Perftrace so
        timing callbacks nest correctly. No-op on non-Android builds. */

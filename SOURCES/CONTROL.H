@@ -32,6 +32,17 @@ int Control_IsActive(void);
 /* Non-zero if --headless was supplied: no window, no audio device. */
 int Control_IsHeadless(void);
 
+/* Write the same JSON snapshot --dump-state writes, to \a path, right now. The flag
+   captures once as the run ends, which is all a bounded run needs; a session driven
+   from outside wants one per probe, so the console `dumpstate` verb routes here. */
+void Control_DumpStateTo(const char *path);
+
+/* --listen: open the command socket if this run asked for one, then service it.
+   Call once per presented frame (PERSO.CPP's pre-present chain) rather than per
+   tick, because the tick hook does not run inside a modal's own loop, which is where a
+   connected driver would otherwise go silent. No-op without --listen. */
+void Control_ServiceListen(void);
+
 /* Number of --exec-at entries whose tick the run never reached, reported on stderr as a
    side effect. Non-zero means the run did not do what was asked of it. */
 int Control_UnfiredExecAt(void);

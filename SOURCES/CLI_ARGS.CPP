@@ -107,6 +107,12 @@ static const T_CLI_FLAG CliFlags[] = {
     {"--exec-at", 2, 0, 0, 1, NULL, "<tick> <cmds>", "run console commands at tick <tick>; repeatable.\n"
                                                      "Use this when a command depends on a scene change\n"
                                                      "having settled, which --exec cannot wait for."},
+    /* Same command bus again, but open-ended: --exec and --exec-at need the whole
+       plan before boot, and a probe loop whose next step depends on the last one
+       cannot be written that way. Requires a build with LBA2_CONTROL_SERVER. */
+    {"--listen", 1, 0, 0, 1, NULL, "<port>", "accept console commands on 127.0.0.1:<port> while\n"
+                                             "the run proceeds, for probing a live engine rather\n"
+                                             "than scripting the run in advance. Debug builds only"},
     {"--tick", 1, 0, 0, 0, NULL, "<n>", "advance n simulation ticks"},
     {"--exit", 0, 0, 0, 0, NULL, "", "quit once the tick budget is spent"},
     {"--fixed-dt", 1, 0, 0, 0, NULL, "<ms>", "advance the clock by a constant <ms> per tick, so a\n"

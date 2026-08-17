@@ -104,6 +104,15 @@ LogSink *Log_MakeTerminalSink(LogSeverity min_severity);
  * appears in the console exactly when it appears in the file and terminal. */
 LogSink *Log_MakeConsoleBufferSink(LogLineFn printer);
 
+/* Generic per-record sink: hands each admitted record to \a printer. This is what
+ * the console buffer sink is underneath, named for what it does so a non-console
+ * consumer (the control socket streams records to a connected driver) does not
+ * have to pretend to be a console. Note that \a min_severity can only raise this
+ * sink's floor above the global level, never below it: Log_SetLevel drops a
+ * record for every sink before any sink's own threshold is consulted.
+ * Records raised off the main thread are dropped, as for the console. */
+LogSink *Log_MakeCallbackSink(LogLineFn printer, LogSeverity min_severity);
+
 void Log_AddSink(LogSink *sink);
 void Log_RemoveSink(LogSink *sink);
 

@@ -494,16 +494,20 @@ LogSink *Log_MakeTerminalSink(LogSeverity min_severity) {
     return s;
 }
 
-LogSink *Log_MakeConsoleBufferSink(LogLineFn printer) {
+LogSink *Log_MakeCallbackSink(LogLineFn printer, LogSeverity min_severity) {
     LogSink *s = alloc_sink();
     if (!s)
         return 0;
-    /* Admit everything; the global level (Log_SetLevel) is the sole gate, so the
-     * console shows debug exactly when the file and terminal do. */
-    s->min_severity = LOG_DEBUG;
+    s->min_severity = min_severity;
     s->write = console_sink_write;
     s->line_fn = printer;
     return s;
+}
+
+LogSink *Log_MakeConsoleBufferSink(LogLineFn printer) {
+    /* Admit everything; the global level (Log_SetLevel) is the sole gate, so the
+     * console shows debug exactly when the file and terminal do. */
+    return Log_MakeCallbackSink(printer, LOG_DEBUG);
 }
 
 void Log_SetLevel(LogSeverity min_severity) { g_min_severity = min_severity; }

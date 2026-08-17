@@ -53,6 +53,15 @@ if(DEBUG_TOOLS)
     add_compile_definitions(DEBUG_TOOLS=1)
 endif()
 
+# Interactive control socket (--listen). Runs arbitrary console commands for
+# whoever connects, so it stays out of any binary a player might run: OFF here,
+# and off again at runtime unless --listen names a port. It binds loopback only.
+# See SOURCES/CONTROL_SERVER.H for what it is and is not for.
+option(LBA2_CONTROL_SERVER "Enable the --listen console command socket (debug builds only)" OFF)
+if(LBA2_CONTROL_SERVER)
+    add_compile_definitions(LBA2_CONTROL_SERVER=1)
+endif()
+
 # The 1997 playable demo. A separate SKU, not a mode: the demo build has three
 # fixed save slots instead of free saves, chains them on cube exit, permanently
 # overlays the title logo, and ships neither voices nor cutscenes. Its data set

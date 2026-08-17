@@ -87,6 +87,8 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 | **video** ... | Video commands: `video log <0|1>`. Toggle PlayAcf diagnostic logging (video name, path, language for INTRO). |
 | **loglevel** [debug\|info\|warn\|error] | Show or set the master log level. It gates every sink at once (this console, `adeline.log`, and the terminal), so lowering it to `debug` reveals `Log_Debug` detail everywhere. No args prints the current level. Default `info`; also set at launch with `--log-level` or the `LBA2_LOG_LEVEL` env var. |
 | **resolution** [&lt;n&gt; \| WxH \| native \| --all] | Runtime render-resolution switch (see [RUNTIME_RESOLUTION.md](RUNTIME_RESOLUTION.md)). No args = list recommended modes + current. Numeric picks by index from that list; `WxH` is arbitrary (W%8==0, range 320x200..1920x1080); `native` snaps to the current display; `--all` expands to the advanced catalog. After a successful switch, a 15 s keep/revert dialog appears: Keep persists to `lba2.cfg` ResolutionX/Y; Revert / timeout restores the previous mode. |
+| **dumpstate** [path] | Write the engine state as JSON, the same snapshot `--dump-state` takes. The flag captures once as a bounded run ends; this takes one whenever asked, so two moments in a single session can be diffed against each other instead of two whole runs. Without a path, writes `state_<time>.json` under `shoot/`. |
+| **polyrec** [path] | Record the next frame's polygon draw calls, the same one-shot request `Alt+F9` and `--polyrec` make. `ENABLE_POLY_RECORDING` builds only. Without a path, writes `polyrec_<time>.lba2polyrec` under `shoot/`. |
 | **exit**      | Exit the game immediately (clean shutdown). |
 
 ## CVars
@@ -113,6 +115,7 @@ Get/set with `varname` (print value) or `varname value` (set).
 - **Module**: `SOURCES/CONSOLE/` – `CONSOLE.H`, `CONSOLE.CPP` (core), `CONSOLE_CMD.CPP` (commands/cvars). Core links only LIB386 (AFFSTR for text) and SDL for events; no dependency on game `Log` or dirty-box.
 - **Gameplay integration**: Commands call existing engine functions (`LoadGameNumCube`, `PlayAcf`, `DoFoundObj`, etc.) rather than introducing console-only code paths. Cube changes no longer trigger autosave to keep debug teleports tidy; other save behavior is unchanged.
 - **External call sites** (outside `SOURCES/CONSOLE/`): `INPUT.CPP` (input path when open), `PLAYACF.CPP` (stall ACF while open), `PERSO.CPP` (event filter, pre-present, screenshot handoff), `GAMEMENU.CPP` (slide-show gate). Cheat names live in `CHEATCOD.CPP`. Build wiring: `SOURCES/CMakeLists.txt`, `SOURCES/CONSOLE/CMakeLists.txt`, `tests/console/`. A one-line map also lives in `CONSOLE.H` above the public API.
+- **Second front-end**: `Console_Execute` is also what the `--listen` command socket feeds, so every verb here answers a driver outside the process on a debug build (see [CONTROL.md](CONTROL.md#driving-a-running-engine---listen)). The socket installs the line sink around one command to capture its output, which is why `Console_SetLineSinkForTests` returns the sink it displaced instead of overwriting it.
 
 ### Extending commands and cheats
 
