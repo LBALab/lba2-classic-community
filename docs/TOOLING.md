@@ -114,6 +114,26 @@ Two things about the container:
   on `PATH` in WSL that resolves fine and then fails at exec, which
   [verify-release.sh](../scripts/dev/verify-release.sh#L73) documents and
   `check-tooling.sh` mirrors by calling `docker info`.
+  [run_tests_docker.sh](../run_tests_docker.sh) checks the same thing before it
+  does any work, because otherwise a setup problem surfaces as a confusing
+  failure from the first real docker call.
+
+  On WSL the usual cause is that **Docker Desktop is running fine and its WSL
+  integration is off for your distro.** `/mnt/wsl/docker-desktop/cli-tools` is
+  mounted whatever the setting, so `docker` resolves and prints client info,
+  but no `/var/run/docker.sock` is created and the daemon is unreachable:
+
+  ```
+  failed to connect to the docker API at unix:///var/run/docker.sock
+  ```
+
+  Confirm the daemon itself is healthy through the Windows binary —
+  `"/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" info` — then fix
+  it in Docker Desktop under Settings > Resources > WSL Integration, enabling
+  your distro. A working integration leaves `/var/run/docker.sock` owned by the
+  `docker` group. Pointing `DOCKER_HOST` at the proxy socket under
+  `shared-sockets/host-services/` looks tempting and is a dead end: it is
+  `root:root`, and being in the `docker` group does not reach it.
 - **Podman is not a drop-in.** Both scripts invoke `docker` by name, so podman
   needs a shim or alias on `PATH`. The commands themselves are compatible —
   [run_tests_docker.sh](../run_tests_docker.sh) only uses `images -q`,

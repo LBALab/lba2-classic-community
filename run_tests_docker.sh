@@ -72,6 +72,25 @@ if [ "${RENDER_INDIVIDUALLY}" = "true" ] && [ "${RENDER_MODE}" != "true" ]; then
     exit 1
 fi
 
+# Resolving on PATH is not enough to know docker works. On WSL the CLI is a
+# symlink into Docker Desktop's mounted cli-tools, so it resolves and even
+# prints client info while integration is switched off for the distro and no
+# /var/run/docker.sock exists at all. Without this check that surfaces as a
+# confusing failure from the first real docker call, which reads as a problem
+# with the test suite rather than with the setup.
+if ! command -v docker >/dev/null 2>&1; then
+    echo "ERROR: docker is not on PATH. See docs/TOOLING.md." >&2
+    exit 1
+fi
+if ! docker info >/dev/null 2>&1; then
+    echo "ERROR: docker is installed but not usable ('docker info' failed)." >&2
+    echo "  On WSL, check that Docker Desktop's WSL integration is enabled for" >&2
+    echo "  this distro (Settings > Resources > WSL Integration); the CLI" >&2
+    echo "  resolves even when it is off. Otherwise start the daemon." >&2
+    echo "  Diagnose with: docker info" >&2
+    exit 1
+fi
+
 # ── Build Docker image (skip if already cached) ──────────────────────────────
 IMAGE_EXISTS=$(docker images -q "${IMAGE_NAME}" 2>/dev/null)
 if [ "$FORCE_REBUILD" = true ] || [ -z "$IMAGE_EXISTS" ]; then
