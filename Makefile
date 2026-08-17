@@ -1,5 +1,5 @@
 # Convenience targets — delegate to CMake and scripts (see docs/GAME_DATA.md).
-.PHONY: help clean build run build-run test tests test-docker format-check save-probe-lz-selftest savegame-corpus
+.PHONY: help clean build run build-run test tests test-docker format-check docs-links save-probe-lz-selftest savegame-corpus
 
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 REPO_ROOT := $(shell "$(MAKEFILE_DIR)scripts/dev/repo_root.sh" 2>/dev/null || echo "$(MAKEFILE_DIR)")
@@ -19,6 +19,7 @@ help:
 	@echo "  make test | tests   - configure with tests, build host_tests, run CTest -L host_quick (no Docker, no retail files)"
 	@echo "  make test-docker    - ./run_tests_docker.sh (ASM suite; requires Docker)"
 	@echo "  make format-check   - scripts/ci/check-format.sh"
+	@echo "  make docs-links     - scripts/ci/check-docs-links.sh (needs lychee for the link half)"
 	@echo "  make save-probe-lz-selftest - build save_decompress + run LZ golden self-test"
 	@echo "  make savegame-corpus - run bundled save corpus harness (retail game data required)"
 
@@ -44,6 +45,9 @@ test-docker:
 
 format-check:
 	@bash "$(REPO_ROOT)/scripts/ci/check-format.sh"
+
+docs-links:
+	@bash "$(REPO_ROOT)/scripts/ci/check-docs-links.sh"
 
 save-probe-lz-selftest:
 	$(CMAKE) -S "$(REPO_ROOT)" -B "$(BUILD_DIR)" -G Ninja -DCMAKE_BUILD_TYPE=Debug \

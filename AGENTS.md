@@ -145,7 +145,7 @@ For tone and engineering principles, see [CONTRIBUTING.md "Doing good work here"
 - Quoting a C identifier or string literal is different from naming a file. `HQR_NAMES.H` spells its constants lower case (`RESS_HQR_NAME "ress.hqr"`), and a doc quoting that source should match the source. Upper case is for "this file is on your disk"; the literal's own case is for "this is what the code says".
 - Directory names have no single truth, so leave them alone: Steam ships `Music/` but `VIDEO/` and `VOX/`, and other installs differ. Case discovery handles it.
 - Verify file paths, line numbers, function names, and command flags against the working tree before believing them.
-- From `docs/`, links to `SOURCES/` or `LIB386/` need the `../` prefix (`[…](../SOURCES/X.CPP)`). Common breakage spot. One level deeper (`docs/plan/`, `docs/widescreen/`) it is `../../SOURCES/...`, and a sibling doc back up in `docs/` is `../CONTROL.md`. Nothing in CI checks links, so resolve them by hand.
+- From `docs/`, links to `SOURCES/` or `LIB386/` need the `../` prefix (`[…](../SOURCES/X.CPP)`). Common breakage spot. One level deeper (`docs/plan/`, `docs/widescreen/`) it is `../../SOURCES/...`, and a sibling doc back up in `docs/` is `../CONTROL.md`. `make docs-links` checks these, plus `#anchors` and the `docs/<name>.md` paths named in source comments; CI runs it on every change.
 - Cross-check claims about CMake options, presets, and CI workflows against `CMakeLists.txt`, `CMakePresets.json`, and `.github/workflows/`.
 
 **Special cases:**

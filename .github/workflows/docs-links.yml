@@ -1,0 +1,67 @@
+name: Docs links
+
+# Verifies that documentation references resolve: markdown links and #anchors
+# via lychee, plus docs/<name>.md paths named by bare path in source comments,
+# tests, scripts and CMake. See scripts/ci/check-docs-links.sh for why both.
+#
+# Deliberately NOT path-filtered. docs-gate.yml fires on doc paths and the
+# build workflows fire on everything else, but a doc reference can break from
+# either side -- renaming a doc breaks source comments, and editing a comment
+# breaks nothing visible until someone follows the path. The check costs a few
+# seconds, so it runs on every change rather than guessing which half moved.
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Mondays 04:17 UTC. Off the hour: GitHub drops scheduled runs that pile up
+    # on popular minutes.
+    - cron: '17 4 * * 1'
+
+permissions:
+  contents: read
+
+env:
+  LYCHEE_VERSION: v0.24.2
+
+jobs:
+  links:
+    name: Local links and anchors
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install lychee
+        run: |
+          curl -fsSL -o lychee.tar.gz \
+            "https://github.com/lycheeverse/lychee/releases/download/lychee-${LYCHEE_VERSION}/lychee-x86_64-unknown-linux-gnu.tar.gz"
+          tar xzf lychee.tar.gz
+          sudo install -m755 lychee-x86_64-unknown-linux-gnu/lychee /usr/local/bin/lychee
+          lychee --version
+
+      - name: Check documentation references
+        run: ./scripts/ci/check-docs-links.sh
+
+  external:
+    name: External URLs
+    # Weekly only. ~580 external URLs, 446 of them github.com; running this per
+    # PR trips the unauthenticated rate limit and trains people to ignore a red
+    # check. A rotted URL is worth knowing about, just not on every push.
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install lychee
+        run: |
+          curl -fsSL -o lychee.tar.gz \
+            "https://github.com/lycheeverse/lychee/releases/download/lychee-${LYCHEE_VERSION}/lychee-x86_64-unknown-linux-gnu.tar.gz"
+          tar xzf lychee.tar.gz
+          sudo install -m755 lychee-x86_64-unknown-linux-gnu/lychee /usr/local/bin/lychee
+
+      - name: Check external URLs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/ci/check-docs-links.sh --external
