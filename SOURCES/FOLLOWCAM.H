@@ -1,14 +1,22 @@
 #ifndef FOLLOWCAM_H
 #define FOLLOWCAM_H
 
+#include <SYSTEM/ADELINE_TYPES.H>
+
 /* The Auto camera (user-facing name; config key FollowCamera, legacy
  * AutoCameraCenter): the third-person camera that tracks the hero in exterior
- * cubes.  Its per-frame update and the state that update carries between frames
- * live here; the tunables are in FOLLOWCAM_CFG.H and the angle arithmetic in
- * FOLLOWCAM_MATH.H.
+ * cubes.  Its per-frame update, the state that update carries between frames,
+ * and the settings that tune it live in FOLLOWCAM.CPP; the tunable defaults are
+ * in FOLLOWCAM_CFG.H and the angle arithmetic in FOLLOWCAM_MATH.H.
  *
- * The main loop drives this through the four calls below rather than touching
- * the smoothing state directly, so that state stays private to the module. */
+ * This header declares exactly what FOLLOWCAM.CPP defines, so a caller that
+ * reaches for Auto-camera state includes this and the dependency is visible in
+ * its include list.  The manual camera sources that feed it (mouse drag,
+ * gamepad right stick) are EXTFUNC.CPP's, and their globals are still declared
+ * in C_EXTERN.H.
+ *
+ * The main loop drives the camera through the four calls below rather than
+ * touching the smoothing state directly; that state stays private to the .CPP. */
 
 /* Per-frame update, exterior only. Spring-arm zoom, lazy orbit and pan drift,
  * HD recompose, terrain occlusion clearance, and the manual-override fade. */
@@ -29,7 +37,37 @@ extern void FollowCamResetToView(void);
 
 /* Adopt the current BetaCam as the rotation target, for a caller that has just
  * set BetaCam itself (the quarter-turn camera key). Skipping this leaves the
- * lerp pulling back toward the pre-turn angle. */
-extern void FollowCamAdoptCurrentAngle(void);
+ * lerp pulling back toward the pre-turn angle.
+ *
+ * Not to be confused with EXTFUNC's FollowCamAdoptAngle(), which solves the
+ * other way round: it writes AddBetaCam so the pan offset matches where the
+ * camera already is. This one writes the target the lerp is heading for. */
+extern void FollowCamSyncTarget(void);
+
+/* Settings. Read from the cfg by ReadConfigFile and written back by
+ * WriteConfigFile (both PERSO.CPP); most are also console cvars. Defaults in
+ * FOLLOWCAM_CFG.H. */
+extern S32 FollowCamera;              /* the Auto camera is on (config key FollowCamera) */
+extern S32 FollowCamOrbitGlide;       /* % of orbit speed kept per frame after the player lets go */
+extern S32 FollowCamReengageFrames;   /* frames before auto-cam re-centers after a manual pan */
+extern S32 FollowCamDriftDivisor;     /* auto-cam re-center drift divisor (higher = gentler) */
+extern S32 FollowCamHDRecompose;      /* pull-in+steepen recompose at tall render heights (1=on) */
+extern S32 FollowCamHDExcessCap;      /* cap on the recompose kExcess so tall res converges (0 = no cap) */
+extern S32 FollowCamHDPitchGain;      /* HD recompose pitch gain (AlphaCam units per 1.0 of k-1) */
+extern S32 FollowCamHDDistGain;       /* HD recompose distance pull (% boom per 1.0 of k-1) */
+extern S32 FollowCamHDLeanGain;       /* HD recompose forward-lean cut (% per 1.0 of k-1) */
+extern S32 FollowCamGround;           /* smooth terrain ground-clearance lift (1=on) */
+extern S32 FollowCamGroundClearance;  /* keep the eye this far above the ground under it */
+extern S32 FollowCamManualHoldFrames; /* manual-override hold length (cvar cam_manual_hold) */
+extern S32 FollowCamHoldAngle;        /* hold manual rotation, no auto-recenter drift (cvar cam_hold_angle) */
+
+/* Live state other TUs read or write. The rest of the smoothing state is
+ * private to FOLLOWCAM.CPP. */
+extern S32 FollowCamBaseDist;      /* player's chosen zoom distance (0 = uninitialised) */
+extern S32 FollowCamReengageDelay; /* frames before auto-center resumes after manual pan */
+extern S32 FollowCamManualHold;    /* frames the pitch/distance auto-assist yields after a manual nudge */
+
+/* Console `camtrace`: log the Auto-camera angle state each frame. */
+extern S32 DbgCamTrace;
 
 #endif /* FOLLOWCAM_H */

@@ -3,6 +3,7 @@
 #include "CONTROL.H" /* Control_KeyHold (AskChoice_RequestDrive) */
 #include "DIRECTORIES.H"
 #include "DISTRIB.H"
+#include "FOLLOWCAM.H" /* FollowCamera (Auto/Classic camera menu label) */
 #include "INPUT.H"
 #include "JOYSTICK.H"
 #include "PERSO.H" /* WriteConfigFile (persist on resolution change) */

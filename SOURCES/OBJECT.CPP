@@ -3,6 +3,7 @@
 #include <POLYGON/POLYFILT.H>
 
 #include "DEMO_SEED.H"
+#include "FOLLOWCAM.H" /* FollowCamera: camera zones re-aim the Auto camera */
 #include "SAVEGAME.H"
 #include "ZONE_GEOM.H" // ZonePointInBox -- single source of truth for the zone box test
 

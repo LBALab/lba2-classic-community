@@ -1,5 +1,6 @@
 #include "C_EXTERN.H"
 
+#include "FOLLOWCAM.H" /* FollowCamera: the right stick only drives the Auto camera */
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOG.H>

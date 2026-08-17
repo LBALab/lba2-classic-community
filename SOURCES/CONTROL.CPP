@@ -7,6 +7,7 @@
 #include "GAMEMENU.H" /* BeginDemoSlide */
 #include "PATCH.H"    /* NbPatches */
 #include "DIRECTORIES.H"
+#include "FOLLOWCAM.H"   /* Auto-camera state in the --dump-state report */
 #include "RES_CATALOG.H" /* RES_MIN_W / RES_MAX_W / RES_MIN_H / RES_MAX_H bounds */
 #include "RES_SWITCH.H"  /* Res_Switch for --res-switch-test */
 #include "SAVEGAME.H"    /* Save_SetAutoDisabled for --no-autosave */

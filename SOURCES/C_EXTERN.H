@@ -214,8 +214,6 @@ extern S32 Island;
 extern S32 Planet;
 
 extern S32 AllCameras;
-extern S32 FollowCamera;
-extern S32 FollowCamBaseDist;
 extern S32 FlagMouseCamera;
 extern S32 FlagMouseCameraDrag;
 extern S32 MouseCameraSensX;
@@ -223,9 +221,7 @@ extern S32 MouseCameraSensY;
 extern S32 MouseCameraInvertY;
 extern S32 MouseCameraDivisor;
 extern S32 ManualCameraSmoothing;
-extern S32 ManualCameraOrbitActive; /* raised by EXTFUNC while a manual camera source (mouse/stick) orbits */
-extern S32 FollowCamReengageDelay;
-extern S32 FollowCamOrbitGlide;                 /* % of orbit speed kept per frame after the player lets go */
+extern S32 ManualCameraOrbitActive;             /* raised by EXTFUNC while a manual camera source (mouse/stick) orbits */
 extern void FollowCamForgetManualGesture(void); /* drop the in-flight orbit: nothing is owed across a discontinuity */
 extern void FollowCamAdoptAngle(void);          /* point the Auto camera's target at the angle the camera is already at */
 extern S32 GamepadCameraAnalog;                 /* right stick drives the camera analog in Auto cam (1=on) */
@@ -234,18 +230,6 @@ extern S32 GamepadCameraSensY;                  /* right-stick elevation sensiti
 extern S32 GamepadCameraInvertY;                /* invert right-stick elevation axis */
 extern S32 GamepadCamMaxBeta;                   /* right-stick orbit speed ceiling (units/frame at sens 10) */
 extern S32 GamepadCamMaxAlpha;                  /* right-stick elevation speed ceiling (units/frame at sens 10) */
-extern S32 FollowCamReengageFrames;             /* frames before auto-cam re-centers after a manual pan */
-extern S32 FollowCamDriftDivisor;               /* auto-cam re-center drift divisor (higher = gentler) */
-extern S32 FollowCamHDRecompose;                /* Auto cam: pull-in+steepen recompose at tall render heights (1=on) */
-extern S32 FollowCamHDExcessCap;                /* cap on the recompose kExcess so tall res converges (0 = no cap) */
-extern S32 FollowCamHDPitchGain;                /* HD recompose pitch gain (AlphaCam units per 1.0 of k-1) */
-extern S32 FollowCamHDDistGain;                 /* HD recompose distance pull (% boom per 1.0 of k-1) */
-extern S32 FollowCamHDLeanGain;                 /* HD recompose forward-lean cut (% per 1.0 of k-1) */
-extern S32 FollowCamGround;                     /* Auto cam: smooth terrain ground-clearance lift (1=on) */
-extern S32 FollowCamGroundClearance;            /* keep the eye this far above the ground under it */
-extern S32 FollowCamManualHold;                 /* frames the pitch/distance auto-assist yields after a manual nudge */
-extern S32 FollowCamManualHoldFrames;           /* manual-override hold length (cvar cam_manual_hold) */
-extern S32 FollowCamHoldAngle;                  /* free-camera mode: hold manual rotation, no auto-recenter drift (cvar cam_hold_angle) */
 extern S32 ReverseStereo;
 
 extern S32 ScaleFactorSprite;
@@ -365,7 +349,6 @@ extern S32 DbgUseItemInjectN;     // console `useitem`: frames to inject over
 extern S32 DbgUseItemInjectDelay; // console `useitem`: frames to wait before injecting
 extern S32 DbgUseItemTrace;       // console `useitem trace`: log each LF_USE_INVENTORY result
 extern S32 DbgCubeTrace;          // console `cubetrace`: log every cube transition
-extern S32 DbgCamTrace;           // console `camtrace`: log the Auto-camera angle state each update
 extern S32 DbgCamNudgeBeta;       // console `camnudge`: orbit units to inject per frame (stick/mouse stand-in)
 extern S32 DbgCamNudgeAlpha;      // console `camnudge`: elevation units to inject per frame
 extern S32 DbgCamNudgeFrames;     // console `camnudge`: frames of injection left

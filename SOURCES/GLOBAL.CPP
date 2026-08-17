@@ -211,8 +211,6 @@ S32 CubeStartX, CubeStartY, CubeStartZ;
 S32 ExtraConque = -1; // Numero extra visant Twinsen (avec Conque)
 
 S32 AllCameras = TRUE;
-S32 FollowCamera = FALSE;
-S32 FollowCamBaseDist = 0; /* player's chosen zoom distance (0 = uninitialised) */
 S32 FlagMouseCamera = TRUE;
 S32 FlagMouseCameraDrag = TRUE; /* 0=free orbit on move, 1=require right-drag */
 S32 MouseCameraSensX = MOUSE_CAM_SENS_DEFAULT;
@@ -221,24 +219,12 @@ S32 MouseCameraInvertY = FALSE;
 S32 MouseCameraDivisor = MOUSE_CAM_DIVISOR_DEFAULT;
 S32 ManualCameraSmoothing = MOUSE_CAM_SMOOTHING_DEFAULT;
 S32 ManualCameraOrbitActive = FALSE;
-S32 FollowCamOrbitGlide = FOLLOW_CAM_ORBIT_GLIDE_DEFAULT;
 S32 GamepadCameraAnalog = TRUE;
 S32 GamepadCameraSensX = GAMEPAD_CAM_SENS_DEFAULT;
 S32 GamepadCameraSensY = GAMEPAD_CAM_SENS_DEFAULT;
 S32 GamepadCameraInvertY = FALSE;
 S32 GamepadCamMaxBeta = GAMEPAD_CAM_BETA_MAX_DEFAULT;
 S32 GamepadCamMaxAlpha = GAMEPAD_CAM_ALPHA_MAX_DEFAULT;
-S32 FollowCamReengageFrames = FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT;
-S32 FollowCamDriftDivisor = FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT;
-S32 FollowCamHDRecompose = FOLLOW_CAM_HD_RECOMPOSE_DEFAULT;
-S32 FollowCamHDExcessCap = FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT;
-S32 FollowCamHDPitchGain = FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT;
-S32 FollowCamHDDistGain = FOLLOW_CAM_HD_DIST_GAIN_DEFAULT;
-S32 FollowCamHDLeanGain = FOLLOW_CAM_HD_LEAN_GAIN_DEFAULT;
-S32 FollowCamGround = FOLLOW_CAM_GROUND_DEFAULT;
-S32 FollowCamGroundClearance = FOLLOW_CAM_GROUND_CLEARANCE_DEFAULT;
-S32 FollowCamManualHoldFrames = FOLLOW_CAM_MANUAL_HOLD_DEFAULT;
-S32 FollowCamHoldAngle = FOLLOW_CAM_HOLD_ANGLE_DEFAULT;
 S32 ReverseStereo = FALSE;
 S32 Island = 0;
 S32 Planet = 0;
@@ -334,7 +320,6 @@ S32 DbgCubeTrace = 0;
 // Console `camtrace <0|1>`: log the Auto-camera angle state (hero Beta, AddBetaCam, BetaCam, its
 // target, the re-engage countdown and whether a manual orbit is driving) on every follow-cam
 // update, so a headless run can show what the camera did frame by frame. No gameplay effect.
-S32 DbgCamTrace = 0;
 // Console `camnudge <dBeta> [dAlpha] [frames]`: inject a manual camera nudge for the next N frames
 // through the same path the mouse drag and the gamepad right stick use, so the analog camera can be
 // driven without a device. Counts down to 0 and stops. No gameplay effect.

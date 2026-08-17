@@ -17,6 +17,31 @@
 /* Default resting distance for the spring arm: midpoint of the two VueCamera
  * presets (DefVueDistance[0]=10500, DefVueDistance[1]=17000). */
 #define FOLLOW_CAM_INITIAL_DIST ((DefVueDistance[0] + DefVueDistance[1]) / 2)
+
+/* Settings, read from the cfg and mostly exposed as console cvars. Defaults in
+ * FOLLOWCAM_CFG.H. Declared in FOLLOWCAM.H. */
+S32 FollowCamera = FALSE;
+S32 FollowCamOrbitGlide = FOLLOW_CAM_ORBIT_GLIDE_DEFAULT;
+S32 FollowCamReengageFrames = FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT;
+S32 FollowCamDriftDivisor = FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT;
+S32 FollowCamHDRecompose = FOLLOW_CAM_HD_RECOMPOSE_DEFAULT;
+S32 FollowCamHDExcessCap = FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT;
+S32 FollowCamHDPitchGain = FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT;
+S32 FollowCamHDDistGain = FOLLOW_CAM_HD_DIST_GAIN_DEFAULT;
+S32 FollowCamHDLeanGain = FOLLOW_CAM_HD_LEAN_GAIN_DEFAULT;
+S32 FollowCamGround = FOLLOW_CAM_GROUND_DEFAULT;
+S32 FollowCamGroundClearance = FOLLOW_CAM_GROUND_CLEARANCE_DEFAULT;
+S32 FollowCamManualHoldFrames = FOLLOW_CAM_MANUAL_HOLD_DEFAULT;
+S32 FollowCamHoldAngle = FOLLOW_CAM_HOLD_ANGLE_DEFAULT;
+
+/* Console `camtrace`. */
+S32 DbgCamTrace = 0;
+
+/* Live state. The public half is declared in FOLLOWCAM.H; everything below the
+ * blank line is private to this file and reached only through the four entry
+ * points. */
+S32 FollowCamBaseDist = 0; /* player's chosen zoom distance (0 = uninitialised) */
+
 static S32 FollowCamPrevHeroX = 0;
 static S32 FollowCamPrevHeroY = 0;
 static S32 FollowCamPrevHeroZ = 0;
@@ -426,6 +451,6 @@ void FollowCamResetToView(void) {
     FollowCamGroundSettling = 0;
 }
 
-void FollowCamAdoptCurrentAngle(void) {
+void FollowCamSyncTarget(void) {
     FollowCamTargetBeta = BetaCam;
 }

@@ -1864,7 +1864,7 @@ restartloop:
                         StartYCube = VueOffsetY / SIZE_BRICK_Y;
                         StartZCube = VueOffsetZ / SIZE_BRICK_XZ;
                         BetaCam = (2048 - newbeta_cc) & 4095;
-                        FollowCamAdoptCurrentAngle();
+                        FollowCamSyncTarget();
                         CameraCenter(3);
                     } else {
                         CameraCenter(2);

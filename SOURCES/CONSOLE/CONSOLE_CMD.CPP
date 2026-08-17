@@ -6,6 +6,7 @@
 #include "../ZONE_GEOM.H" // ZonePointInBox (zonelist shares the engine's zone box test)
 #include "../DIRECTORIES.H"
 #include "../DISTRIB.H"
+#include "../FOLLOWCAM.H" // cam_* cvars and the camtrace toggle
 #include "../PLAYACF.H"
 #include <POLYGON/POLYFILT.H>
 
