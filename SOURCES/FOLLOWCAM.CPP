@@ -14,14 +14,9 @@
  * to TimerRefHR by ManageTime() after the LIB386/SYSTEM/TIMER.CPP generalised
  * fix; see docs/TIMING.md. Vsync naturally caps terrain refreshes at the
  * display rate (~60 Hz). When the hero is idle, all work is skipped entirely. */
-/* Default resting distance for the spring arm: midpoint of the two VueCamera
- * presets (DefVueDistance[0]=10500, DefVueDistance[1]=17000). */
-#define FOLLOW_CAM_INITIAL_DIST ((DefVueDistance[0] + DefVueDistance[1]) / 2)
-
 /* Settings, read from the cfg and mostly exposed as console cvars. Defaults in
  * FOLLOWCAM_CFG.H. Declared in FOLLOWCAM.H. */
 S32 FollowCamera = FALSE;
-S32 FollowCamOrbitGlide = FOLLOW_CAM_ORBIT_GLIDE_DEFAULT;
 S32 FollowCamReengageFrames = FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT;
 S32 FollowCamDriftDivisor = FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT;
 S32 FollowCamHDRecompose = FOLLOW_CAM_HD_RECOMPOSE_DEFAULT;
@@ -91,7 +86,7 @@ static S32 FollowCamHDExcess(void) {
  * or the classic camera's quarter turns -- rather than only the one writer the
  * old placement could see. `zone` and `forced` separate the frame a camera zone
  * re-aims the view from the state of being under its shot. */
-void CamTrace(void) {
+void FollowCamTrace(void) {
     static S32 prevBeta = 0;
     static S32 prevX = 0;
     static S32 prevZ = 0;
@@ -441,7 +436,7 @@ void UpdateFollowCameraExt(void) {
 void FollowCamResetToView(void) {
     FollowCamBaseDist = FOLLOW_CAM_INITIAL_DIST;
     FollowCamEffectiveDist = FollowCamBaseDist;
-    FollowCamTargetBeta = BetaCam;
+    FollowCamSyncTarget();
     FollowCamReengageDelay = 0;
     FollowCamPrevBaseDist = FollowCamBaseDist;
     FollowCamPrevAlphaCam = AlphaCam;

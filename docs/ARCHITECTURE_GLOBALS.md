@@ -56,6 +56,12 @@ Cross-boundary readers are the domains (beyond the owner) that consume the value
 Array/cluster groups are collapsed to one row. `—` means single-owner / no significant
 cross-read found at v0.
 
+The tables below list what is still on the bus, so a global that has since moved into a
+module of its own is absent rather than marked. The Auto camera is the first set to leave:
+its settings and live state are declared in [SOURCES/FOLLOWCAM.H](../SOURCES/FOLLOWCAM.H)
+and defined in `FOLLOWCAM.CPP`, so only the callers that need them can see them. The
+convention that produced that is in [CODESTYLE.md "Where new code goes"](../CODESTYLE.md#where-new-code-goes).
+
 ### Gameplay / simulation (~55)
 
 | Global | Role | Cross-boundary readers |
@@ -94,7 +100,7 @@ cross-read found at v0.
 | `IdxPalette`, `LastIdxPalette` | Current/previous palette index | Resources |
 | `PtrNuances` | Gouraud shading ramp | — |
 | `Shadow`, `ShadowX/Y/Z`, `ShadowCol`, `ShadowLevel` | Drop-shadow state | — |
-| `AllCameras`, `FollowCamera`, `FollowCamBaseDist` | Camera mode | World |
+| `AllCameras` | Camera mode | World |
 | `VueCamera`, `FlagCameraForcee`, `AddBetaCam`, `CameraZone`, `DefVueDistance[]`, `DefAlphaCam[]` | Camera view / forced cam | Gameplay |
 | `ScaleFactorSprite`, `SpriteX`, `SpriteY` | Sprite display transform | — |
 | `CinemaMode`, `TimerCinema`, `LastYCinema`, `DebCycleCinema`, `DureeCycleCinema` | Cutscene letterbox framing | Orchestration |

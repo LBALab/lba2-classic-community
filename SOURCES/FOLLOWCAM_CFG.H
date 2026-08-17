@@ -43,6 +43,12 @@
 #define FOLLOW_CAM_ZOOM_STEP 200  /* distance change per frame while key held */
 #define FOLLOW_CAM_DIST_MIN 7000  /* closest the player can zoom in (must clear hero mesh) */
 #define FOLLOW_CAM_DIST_MAX 20000 /* furthest the player can zoom out */
+/* Resting arm length: the midpoint of the two VueCamera presets
+ * (DefVueDistance[0]=10500, DefVueDistance[1]=17000). Set on the first frame and
+ * restored by Center camera, so this is the zoom a player returns to. Unlike the
+ * rest of this header it expands to engine state, so it is usable only where
+ * DefVueDistance is declared. */
+#define FOLLOW_CAM_INITIAL_DIST ((DefVueDistance[0] + DefVueDistance[1]) / 2)
 
 /* Horizontal pan keys [ ] ---------------------------------------------------*/
 #define FOLLOW_CAM_PAN_STEP 30 /* AddBetaCam change per [ / ] key press per frame */

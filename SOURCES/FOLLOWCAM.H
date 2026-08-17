@@ -27,12 +27,18 @@ extern void UpdateFollowCameraExt(void);
  * update above: the update runs only while the Auto camera holds the view, so a
  * trace written from in there could never report a camera zone, a cutscene, an
  * interior or the classic camera. */
-extern void CamTrace(void);
+extern void FollowCamTrace(void);
 
 /* Re-sync the smoothing state to the camera as it stands, after the view has
  * been recentred from outside (scene reset). Without this the arm length, the
  * rotation target and the ground lift are all left describing the old position,
- * and the first frame back glides in from it. */
+ * and the first frame back glides in from it.
+ *
+ * This also puts the arm back to FOLLOW_CAM_INITIAL_DIST, discarding whatever
+ * the player had zoomed to. That is what Center camera is expected to do, but it
+ * makes this the wrong call for anything that merely wants the smoothing state
+ * re-synced: a cube transition using it would reset every player's zoom on every
+ * scene change. */
 extern void FollowCamResetToView(void);
 
 /* Adopt the current BetaCam as the rotation target, for a caller that has just
@@ -48,7 +54,6 @@ extern void FollowCamSyncTarget(void);
  * WriteConfigFile (both PERSO.CPP); most are also console cvars. Defaults in
  * FOLLOWCAM_CFG.H. */
 extern S32 FollowCamera;              /* the Auto camera is on (config key FollowCamera) */
-extern S32 FollowCamOrbitGlide;       /* % of orbit speed kept per frame after the player lets go */
 extern S32 FollowCamReengageFrames;   /* frames before auto-cam re-centers after a manual pan */
 extern S32 FollowCamDriftDivisor;     /* auto-cam re-center drift divisor (higher = gentler) */
 extern S32 FollowCamHDRecompose;      /* pull-in+steepen recompose at tall render heights (1=on) */

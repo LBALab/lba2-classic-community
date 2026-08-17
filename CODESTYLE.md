@@ -27,7 +27,7 @@ Rule of thumb: if a file has an ASM counterpart or a line-for-line ancestor in t
 
 ## Where new code goes
 
-The zone rule above only decides anything if a file belongs to one zone, and the overriding "match the file you are editing" only helps if the file has one style to match. An original file that has accumulated new infrastructure has neither. [SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) is the cautionary case: it is 1997 code that happens to hold `main()`, so ten months of camera, console, path, config and boot work landed beside the entry point and took it from 2477 lines to 3999. Inside a file like that both halves of the dialect rule apply at once and neither wins.
+The zone rule above only decides anything if a file belongs to one zone, and the overriding "match the file you are editing" only helps if the file has one style to match. An original file that has accumulated new infrastructure has neither. [SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) is the cautionary case: it is 1997 code that happens to hold `main()`, so camera, console, path, config and boot work landed beside the entry point until roughly a third of the file was code with no 1997 ancestor. Inside a file like that both halves of the dialect rule apply at once and neither wins.
 
 Two rules keep it from recurring.
 

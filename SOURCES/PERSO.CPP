@@ -1879,7 +1879,7 @@ restartloop:
             }
         }
 
-        CamTrace();
+        FollowCamTrace();
 
         if (!CameraZone) {
             if (FirstTime == AFF_OBJETS_FLIP) {
