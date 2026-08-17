@@ -14,8 +14,13 @@ void Settings_ReadConfig(const T_SETTING *table, S32 count) {
         if (s->key == NULL)
             continue;
 
-        /* A renamed key reads its old spelling as the default, so an existing
-         * cfg keeps working and the next write moves it to the current name. */
+        /* A renamed key reads its old spelling as the default, so an existing cfg
+         * keeps working and the next write moves it to the current name.
+         *
+         * The old value is then coerced by the current row, not carried through
+         * as-is: a rename means the setting kept its meaning and changed its
+         * spelling, so what was out of range under the old name is out of range
+         * under the new one, and lands on the default rather than on itself. */
         def = (s->legacy != NULL) ? DefFileBufferReadValueDefault(s->legacy, s->def) : s->def;
         *s->value = Settings_Coerce(s, DefFileBufferReadValueDefault(s->key, def));
 

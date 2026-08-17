@@ -111,7 +111,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 
 A key is one row in a table, in the module that owns the setting. The cfg reader, the cfg writer and
 the console's cvar table all read that table rather than naming the setting, so adding a key is a
-single row and its range reaches every surface that can write it. The row type is `T_SETTING` in
+single row and its rule, not merely its range, reaches every surface that can write it: the console hands a typed value to the setting's owner rather than deciding for itself, so a key answers the console and the config file the same way. The row type is `T_SETTING` in
 [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H).
 
 Two tables exist today: `BootSettings` in [SOURCES/CONFIG_FILE.CPP](../SOURCES/CONFIG_FILE.CPP) for the boot and
