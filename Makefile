@@ -1,5 +1,5 @@
 # Convenience targets — delegate to CMake and scripts (see docs/GAME_DATA.md).
-.PHONY: help clean build run build-run test tests test-docker format-check docs-links check-tooling save-probe-lz-selftest savegame-corpus
+.PHONY: help clean build run build-run test tests test-docker format-check docs-links docs-symbols check-tooling save-probe-lz-selftest savegame-corpus
 
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 REPO_ROOT := $(shell "$(MAKEFILE_DIR)scripts/dev/repo_root.sh" 2>/dev/null || echo "$(MAKEFILE_DIR)")
@@ -20,6 +20,7 @@ help:
 	@echo "  make test-docker    - ./run_tests_docker.sh (ASM suite; requires Docker)"
 	@echo "  make format-check   - scripts/ci/check-format.sh"
 	@echo "  make docs-links     - scripts/ci/check-docs-links.sh (needs lychee for the link half)"
+	@echo "  make docs-symbols   - scripts/ci/check-docs-symbols.py (a doc names a symbol; is it in that file?)"
 	@echo "  make check-tooling  - report which external tools this clone has (docs/TOOLING.md)"
 	@echo "  make save-probe-lz-selftest - build save_decompress + run LZ golden self-test"
 	@echo "  make savegame-corpus - run bundled save corpus harness (retail game data required)"
@@ -49,6 +50,9 @@ format-check:
 
 docs-links:
 	@bash "$(REPO_ROOT)/scripts/ci/check-docs-links.sh"
+
+docs-symbols:
+	@python3 "$(REPO_ROOT)/scripts/ci/check-docs-symbols.py"
 
 check-tooling:
 	@bash "$(REPO_ROOT)/scripts/dev/check-tooling.sh"

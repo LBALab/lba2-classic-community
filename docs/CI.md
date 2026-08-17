@@ -27,7 +27,7 @@ ties both tiers together — path filtering, the docs-only gate, and the
 | `lint.yml` | Validation | push, PR (shell/Python/workflow paths), dispatch | `shellcheck`, `actionlint`, `ruff` | Lints the non-C++ surface. Settings live in `.shellcheckrc` and `ruff.toml`; tool versions are pinned in the workflow |
 | `pr-title.yml` | Validation | PR | `lint` | Conventional-commit lint on the PR title |
 | `docs-gate.yml` | Validation | push, PR | `build`, `test` | No-op stand-ins for the required `build`/`test` checks on docs-only changes — see [below](#docs-only-gate) |
-| `docs-links.yml` | Validation | push, PR, weekly | `links`, `external` | `scripts/ci/check-docs-links.sh`. Not path-filtered: a doc reference breaks from either side, since renaming a doc breaks source comments. `external` is weekly-only; see [below](#documentation-links) |
+| `docs-links.yml` | Validation | push, PR, weekly | `links`, `external` | `scripts/ci/check-docs-links.sh` and `scripts/ci/check-docs-symbols.py`. Not path-filtered: a doc reference breaks from either side, since renaming a doc breaks source comments. `external` is weekly-only; see [below](#documentation-links) |
 | `release-*.yml` | Release | `v*` tags, dispatch | `build` → `release` | Per-platform tag releases |
 | `reusable-build-*.yml` | Release | `workflow_call` | `build` | Shared build+package steps, called by the release workflows |
 | `release-latest.yml` | Release | push to `main` | build legs → `release` | Rolling `latest` pre-release |
@@ -162,6 +162,25 @@ which covers two breakage classes that need two different tools:
   and moving a doc breaks those references silently. Markdown is excluded from
   this half on purpose: prose names docs that do not exist yet and paths
   belonging to other repositories, and both would read as failures.
+
+The same job then runs [scripts/ci/check-docs-symbols.py](../scripts/ci/check-docs-symbols.py),
+which covers a third class the first two cannot: a link that still resolves to a
+file the code has left. When a function moves the path stays valid and the prose
+keeps naming the old file, so both checks above stay green while the doc sends a
+reader to grep a file that no longer has it.
+
+It reads the shapes a doc uses to make that claim. `` `Foo()` in [FILE] `` says
+where Foo lives, so Foo must be *defined* there; a mention is not enough, since
+the call site usually stays behind when a function moves. `` `Foo` ([FILE]) ``
+and file-map table rows point at a place Foo appears, so a mention satisfies
+them. Shared globals and header-only macros, types and constants are skipped,
+being read everywhere by design. Anything looser was measured and rejected:
+treating every symbol on a line with a link as a claim reported 38 references,
+nearly all of them true and meaningless.
+
+Run either half locally with `make docs-links` / `make docs-symbols`. The link
+half needs `lychee` on PATH and **skips silently without it**, still exiting 0,
+so check its `Total ... Errors` summary line actually printed.
 
 Two deliberate choices:
 
