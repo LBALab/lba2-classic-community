@@ -1,6 +1,7 @@
 #include "C_EXTERN.H"
 
 #include "CONFIG_FILE.H"
+#include "SETTINGS.H"
 #include "CONSOLE/CONSOLE.H" /* Console_SetToggleScancode */
 #include "CONTROL.H"         /* Control_Has* / Control_Get*: the per-run overrides */
 #include "DIRECTORIES.H"     /* the cfg's path */
@@ -75,6 +76,40 @@ static S32 ForcedVSync(void) {
     return Control_HasVSync() ? (S32)Control_GetVSync() : -1;
 }
 
+/* The texture filter is forced by an environment variable rather than a flag,
+   so its "was it forced" answer is a variable the read path already sets. */
+static S32 ForcedTexFilter(void) {
+    return EnvTexFilter;
+}
+
+/* The boot and display settings, declared once. Row order is the cfg's key
+ * order, which is user-visible: lba2.cfg is rewritten in this order.
+ *
+ * Three of these can be forced for one run by a flag, and must not be left
+ * behind for the next: the stored column keeps what the cfg held and the writer
+ * persists that instead. Language is not here because it is written as a name
+ * rather than a number; its override is still handled by hand below. */
+static const T_SETTING BootSettings[] = {
+    {"Shadow", NULL, NULL, &Shadow, SETTING_RAW, 3, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL},
+    {"AllCameras", NULL, NULL, &AllCameras, SETTING_RAW, TRUE, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL},
+    /* User-facing name: "Auto camera" (menu/docs); the legacy spelling is read
+       so an existing cfg keeps working. The camera module owns its cvar. */
+    {"FollowCamera", "AutoCameraCenter", NULL, &FollowCamera, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL, NULL},
+    {"ReverseStereo", NULL, NULL, &ReverseStereo, SETTING_RAW, FALSE, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL},
+    {"DetailLevel", NULL, NULL, &DetailLevel, SETTING_CLAMP, MAX_DETAIL_LEVEL, 0, MAX_DETAIL_LEVEL, NULL, NULL, NULL},
+    {"FullScreen", NULL, NULL, &VideoFullScreen, SETTING_OR_DEFAULT, TRUE, 0, 1, NULL, NULL, NULL},
+    {"DisplayFullScreen", NULL, NULL, &DisplayFullScreen, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL, NULL},
+    {"VSync", NULL, NULL, &DisplayVSync, SETTING_OR_DEFAULT, TRUE, 0, 1, &StoredVSync, ForcedVSync, NULL},
+    {"DitherShading", NULL, "gfx_dither", &GfxDitherShading, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL,
+     "Ordered dither on Gouraud shade rows (softens 16-step banding)"},
+    {"TextureFilter", NULL, "gfx_texfilter", &PolyTexFilter, SETTING_OR_DEFAULT, POLY_TEX_FILTER_OFF,
+     POLY_TEX_FILTER_OFF, POLY_TEX_FILTER_BILINEAR, &StoredTexFilter, ForcedTexFilter,
+     "Texture filtering: 0 off, 1 horizontal, 2 bilinear"},
+    {"FixedTimestep", NULL, NULL, &FixedTimestep, SETTING_OR_DEFAULT, 16, 0, 100,
+     &StoredFixedTimestep, ForcedFixedTimestep, NULL},
+};
+#define BOOT_SETTING_COUNT ((S32)(sizeof(BootSettings) / sizeof(BootSettings[0])))
+
 void ReadConfigFile(void) {
     const char *ptr;
 
@@ -95,52 +130,16 @@ void ReadConfigFile(void) {
     if (ptr AND strcmp(ptr, ""))
         strcpy(PlayerName, ptr);
 
-    Shadow = DefFileBufferReadValueDefault("Shadow", 3);
-    AllCameras = DefFileBufferReadValueDefault("AllCameras", TRUE);
-    /* User-facing name: "Auto camera" (menu/docs); config key FollowCamera; legacy AutoCameraCenter */
-    FollowCamera = DefFileBufferReadValueDefault("FollowCamera",
-                                                 DefFileBufferReadValueDefault("AutoCameraCenter", FALSE));
+    Settings_ReadConfig(BootSettings, BOOT_SETTING_COUNT);
 
-    if (FollowCamera < 0 OR FollowCamera > 1)
-        FollowCamera = FALSE;
-
-    ReverseStereo = DefFileBufferReadValueDefault("ReverseStereo", FALSE);
-
+    /* The settings above are values; these are the side effects taking them. */
     InverseStereoSample(ReverseStereo);
-
-    DetailLevel = DefFileBufferReadValueDefault("DetailLevel", MAX_DETAIL_LEVEL);
-
-    if (DetailLevel < 0)
-        DetailLevel = 0;
-    if (DetailLevel > MAX_DETAIL_LEVEL)
-        DetailLevel = MAX_DETAIL_LEVEL;
-
-    VideoFullScreen = DefFileBufferReadValueDefault("FullScreen", TRUE);
-
-    if (VideoFullScreen < 0 OR VideoFullScreen > 1)
-        VideoFullScreen = TRUE;
-
-    DisplayFullScreen = DefFileBufferReadValueDefault("DisplayFullScreen", FALSE);
-
-    if (DisplayFullScreen < 0 OR DisplayFullScreen > 1)
-        DisplayFullScreen = FALSE;
-
     SetWindowFullscreen(DisplayFullScreen != FALSE);
 
-    DisplayVSync = DefFileBufferReadValueDefault("VSync", TRUE);
-
-    GfxDitherShading = DefFileBufferReadValueDefault("DitherShading", FALSE);
-    if (GfxDitherShading < 0 OR GfxDitherShading > 1)
-        GfxDitherShading = FALSE;
-
-    PolyTexFilter = DefFileBufferReadValueDefault("TextureFilter", POLY_TEX_FILTER_OFF);
-    if (PolyTexFilter < POLY_TEX_FILTER_OFF || PolyTexFilter > POLY_TEX_FILTER_BILINEAR)
-        PolyTexFilter = POLY_TEX_FILTER_OFF;
-    StoredTexFilter = PolyTexFilter;
+    /* An explicit request for this run beats the stored preference, the same
+       precedence the resolution and the language use. */
     EnvTexFilter = -1;
     {
-        /* Same precedence the resolution uses: an explicit request for this
-           run beats the stored preference. */
         const char *env = getenv("LBA2_TEXFILTER");
         if (env != NULL) {
             const S32 v = (S32)atoi(env);
@@ -150,9 +149,6 @@ void ReadConfigFile(void) {
             }
         }
     }
-
-    if (DisplayVSync < 0 OR DisplayVSync > 1)
-        DisplayVSync = TRUE;
 
     /* Same precedence the language uses: an explicit request for this run beats the stored
        preference, and the preference is kept so WriteConfigFile can tell the two apart. */
@@ -165,16 +161,6 @@ void ReadConfigFile(void) {
        Unlike fullscreen there's no visible boot-flash to avoid, so no early
        Res_LoadBoot* pre-read is needed. */
     Window_SetVSync(DisplayVSync);
-
-    /* #358 fixed-timestep throttle. Default 16 ms (~60 Hz sim) so movement is frame-rate
-       independent above 60 fps; 0 restores the historical per-frame simulation. Clamp to a
-       sane range (a value near a frame time; 0 = off). See docs/MOVEMENT_FRAMERATE.md. */
-    FixedTimestep = DefFileBufferReadValueDefault("FixedTimestep", 16);
-    if (FixedTimestep < 0 OR FixedTimestep > 100)
-        FixedTimestep = 16;
-    /* Before Control_TickHook applies any --fixed-timestep, so this is the
-       player's own setting rather than the throttle a harness run forced. */
-    StoredFixedTimestep = FixedTimestep;
 
     /* Console toggle scancode (SDL scancode integer); invalid values fall back to F12 in console module. */
     Console_SetToggleScancode(DefFileBufferReadValueDefault("ConsoleToggleKey", K_F12));
@@ -329,23 +315,7 @@ void WriteConfigFile(void) {
 
     DefFileBufferWriteString("LastSave", PlayerName);
 
-    DefFileBufferWriteValue("Shadow", Shadow);
-    DefFileBufferWriteValue("AllCameras", AllCameras);
-    DefFileBufferWriteValue("FollowCamera", FollowCamera);
-    DefFileBufferWriteValue("ReverseStereo", ReverseStereo);
-    DefFileBufferWriteValue("DetailLevel", DetailLevel);
-    DefFileBufferWriteValue("FullScreen", VideoFullScreen);
-    DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
-    DefFileBufferWriteValue("VSync", ValueToPersist(DisplayVSync, StoredVSync, ForcedVSync()));
-    DefFileBufferWriteValue("DitherShading", GfxDitherShading);
-    /* An environment override is for the run that asked for it: persisting the
-       live value would turn `LBA2_TEXFILTER=2 ./lba2cc` into a permanent
-       setting nobody chose. */
-    DefFileBufferWriteValue("TextureFilter",
-                            ValueToPersist(PolyTexFilter, StoredTexFilter, EnvTexFilter));
-    DefFileBufferWriteValue(
-        "FixedTimestep",
-        ValueToPersist(FixedTimestep, StoredFixedTimestep, ForcedFixedTimestep()));
+    Settings_WriteConfig(BootSettings, BOOT_SETTING_COUNT);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
     /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >
        auto-detect > compile-time default), but only two of those four are a
