@@ -725,12 +725,20 @@ in one order on both platforms.
 `pip install Pillow` (or `pacman -S mingw-w64-ucrt-x86_64-python-pillow`) for the
 `test_ui_*_wide.sh` pair, which skip without it.
 
-Two divergences are the platform rather than the harness, and are expected to fail there
-until someone decides what they should be:
+The menu goldens carry a per-surface `--exclude` rectangle covering the plasma strip at
+the top of the panel, which is what lets one golden serve both platforms: the strip
+settles at a different state on Windows and stays there, while the rest of those frames
+is byte-identical across the two. See `ui_compare` and `png_hash.py --exclude`. The
+rectangle's `y` follows the panel, whose height follows the entry count, so it lives in
+each test beside its golden and needs re-measuring if a menu gains or loses a row. A
+diff of a failing capture against the golden gives it directly.
 
-- Six `ui_*` goldens differ in a single band, the plasma fire bar at the top of the menu
-  panel. Stable across repeated Windows runs, so the goldens are Linux-specific rather
-  than the capture being unreliable.
+Two divergences are the platform rather than the harness, and are expected to fail there:
+
+- `test_ui_found_object.sh` differs in the item model on the right of the frame, not the
+  strip: a handful of pixels across an identical 88-colour palette, which is the same
+  projection rounding as below rather than anything about the surface. Masking it would
+  remove what the test is for.
 - `test_projection_corpus.sh` differs on 25 of its 50 saves: 19 by hash alone, which is
   the rounding the `long double` + `lrintl` x87 emulation exists to pin, and 6 by event
   count, which is a different path through the replay and not explained by rounding.
