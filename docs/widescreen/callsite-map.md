@@ -47,7 +47,7 @@ Callers and their entries:
 
 | Caller | Entry loaded | Notes |
 |---|---|---|
-| [GAMEMENU.CPP:4437](../../SOURCES/GAMEMENU.CPP) `DistribLogo()` (`#ifdef DEMO`) | `3*2 = 6` (`PCR_ARDOISE`) | Likely a stale demo stub — entry 6 is the slate |
+| [GAMEMENU.CPP:4437](../../SOURCES/GAMEMENU.CPP) `DistribLogo()` (`#ifdef DEMO`) | `3*2 = 6`, the slate entry ([`PCR_ARDOISE`](../../SOURCES/COMMON.H)) | Likely a stale demo stub; entry 6 is the slate |
 | [GAMEMENU.CPP:4443](../../SOURCES/GAMEMENU.CPP) `DistribLogo()` | `PCR_ACTIVISION` (72) | US versions |
 | [GAMEMENU.CPP:4447](../../SOURCES/GAMEMENU.CPP) `DistribLogo()` | `PCR_EA` (74) | EA version |
 | [GAMEMENU.CPP:4452](../../SOURCES/GAMEMENU.CPP) `DistribLogo()` | `PCR_VIRGIN` (76) | Virgin versions |

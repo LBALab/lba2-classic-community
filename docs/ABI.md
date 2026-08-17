@@ -26,7 +26,7 @@ Existing example: most of [`SaveContexte` / `LoadContexte`](../SOURCES/SAVEGAME.
 
 **Pattern (3) — Tolerant read with stride retry.** When the writer's ABI is fundamentally unknown at read time — typically player-authored saves spanning eras (32-bit DOS retail, 32-bit modern, 64-bit modern) — pick a candidate stride, read at it, validate a discriminating field per record, rewind and retry the alternate stride on mismatch. Only fail if every candidate fails.
 
-Existing example: `LoadContexteReadObjectsAtStride` + `SaveLoadGuessObjectWireStride` in [`SOURCES/SAVEGAME.CPP`](../SOURCES/SAVEGAME.CPP) (#63). Validates `IndexFile3D` per object as the discriminator.
+Existing example: `LoadContexteReadObjectsAtStride` in [`SOURCES/SAVEGAME.CPP`](../SOURCES/SAVEGAME.CPP), with `SaveLoadGuessObjectWireStride` in [`SOURCES/SAVEGAME_LOAD_BOUNDS.CPP`](../SOURCES/SAVEGAME_LOAD_BOUNDS.CPP) (#63). Validates `IndexFile3D` per object as the discriminator.
 
 This is not a fallback for sloppy parsing — it's the right answer when player saves authored by older binaries must remain loadable. New formats should use pattern (2) and avoid the need entirely.
 
