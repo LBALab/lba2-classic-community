@@ -22,12 +22,21 @@
  * over every angle pair, and that the lerp always converges.
  */
 
-/* Shortest way round: the signed difference between two angles, in (-2048, 2048].
- * Written out at a dozen sites before this, each doing its own pair of wraps. */
+/* Shortest way round: the signed difference between two angles, in [-2048, 2048].
+ * Written out at several sites before this, each doing its own pair of wraps.
+ *
+ * Both inputs are expected already inside the turn, which is what every caller
+ * holds. The half turn keeps the sign of the subtraction rather than resolving
+ * one way, so a target exactly opposite is approached in the direction the
+ * arithmetic fell out at, and the two callers agree with each other. Masking the
+ * subtraction first would look tidier and would flip that direction at the
+ * antipode, on exactly the 2048 pairs where the two are furthest apart. */
 static inline S32 FollowCamAngleDiff(S32 to, S32 from) {
-    S32 d = (to - from) & 4095;
+    S32 d = to - from;
     if (d > 2048)
         d -= 4096;
+    if (d < -2048)
+        d += 4096;
     return d;
 }
 
@@ -60,8 +69,13 @@ static inline S32 FollowCamRotStep(S32 diff, S32 divisor, S32 minStep) {
     if (divisor < 1)
         divisor = 1;
 
+    if (diff == 0)
+        return 0; /* already there: promoting this to a minimum step would walk the
+                   * camera off the target and back, for ever, which is the failure
+                   * the minimum step exists to prevent rather than to cause */
+
     step = diff / divisor;
-    if (step >= 0 && step < minStep)
+    if (step >= 0 && step < minStep) /* >= 0: a truncated-to-zero step is the case this is for */
         step = (diff > 0) ? minStep : -minStep;
     else if (step < 0 && step > -minStep)
         step = -minStep;

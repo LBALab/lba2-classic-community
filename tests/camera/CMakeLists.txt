@@ -5,7 +5,7 @@
 add_executable(test_followcam_math test_followcam_math.cpp)
 
 target_include_directories(test_followcam_math PRIVATE
-    ${CMAKE_SOURCE_DIR}/SOURCES     # FOLLOWCAM_MATH.H
+    ${CMAKE_SOURCE_DIR}/SOURCES     # FOLLOWCAM_MATH.H, FOLLOWCAM_CFG.H
     ${CMAKE_SOURCE_DIR}/LIB386/H    # SYSTEM/ADELINE_TYPES.H (S32)
     ${CMAKE_SOURCE_DIR}/tests       # test_harness.h
 )

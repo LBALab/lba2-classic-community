@@ -6,12 +6,16 @@
  * relationships every camera fix so far has turned on, checked over their whole domain rather
  * than at the a few points a scripted run happens to visit.
  */
+#include "FOLLOWCAM_CFG.H" /* the constants the engine actually runs with */
 #include "FOLLOWCAM_MATH.H"
 #include "test_harness.h"
 
 #define TURN 4096
-#define SNAP_THRESHOLD 10 /* FOLLOW_CAM_ROT_THRESHOLD: callers snap within this */
-#define MIN_STEP 3        /* FOLLOW_CAM_ROT_MIN_STEP */
+/* Taken from the config header rather than repeated here: the interesting failures are what
+ * happens when these two are retuned relative to each other, and a copy would keep testing the
+ * pair the engine no longer uses. */
+#define SNAP_THRESHOLD FOLLOW_CAM_ROT_THRESHOLD
+#define MIN_STEP FOLLOW_CAM_ROT_MIN_STEP
 
 /* The relationship the whole camera rests on: aiming at the angle the camera already holds must
  * leave it there. Three shipped bugs were a writer of BetaCam breaking this, so it is checked for
@@ -55,8 +59,11 @@ static void test_angle_diff_takes_the_short_way(void) {
     /* Across the wrap: 10 units apart, not 4086. */
     ASSERT_EQ_INT(20, FollowCamAngleDiff(10, 4086));
     ASSERT_EQ_INT(-20, FollowCamAngleDiff(4086, 10));
-    /* The half turn is the boundary and resolves one way, not both. */
+    /* At the half turn the sign of the subtraction is kept rather than resolved to one
+     * direction, so the two ways round are opposites. Both callers share this, which is what
+     * matters: a target exactly opposite is approached the same way by each of them. */
     ASSERT_EQ_INT(2048, FollowCamAngleDiff(2048, 0));
+    ASSERT_EQ_INT(-2048, FollowCamAngleDiff(0, 2048));
 }
 
 static void test_angle_diff_is_always_within_a_half_turn(void) {
@@ -66,7 +73,8 @@ static void test_angle_diff_is_always_within_a_half_turn(void) {
     for (a = 0; a < TURN && !bad; a += 13) {
         for (b = 0; b < TURN; b += 7) {
             S32 d = FollowCamAngleDiff(a, b);
-            if (d <= -2048 || d > 2048 || ((b + d) & 4095) != a)
+            /* Both ends inclusive: the half turn is reachable with either sign. */
+            if (d < -2048 || d > 2048 || ((b + d) & 4095) != a)
                 bad = 1;
         }
     }
@@ -138,6 +146,40 @@ static void test_stepping_always_reaches_the_target(void) {
 
 /* A divisor of zero would be a division fault rather than a slow camera, and the console can set
  * the cvars these come from to anything. */
+/* Standing on the target is not a reason to move. Promoting a zero step to the minimum would
+ * walk the camera off by that much and back, for ever: the perpetual dirty frame the minimum step
+ * exists to prevent, caused by the minimum step. Reachable only if a caller lowers its snap
+ * threshold to zero, which is the kind of guarantee this function is meant not to depend on. */
+static void test_no_step_when_already_on_target(void) {
+    S32 div;
+
+    for (div = 1; div <= 64; div++)
+        ASSERT_EQ_INT(0, FollowCamRotStep(0, div, MIN_STEP));
+}
+
+/* The same, run as the caller would: from anywhere, with no threshold to hide behind, stepping
+ * must come to rest rather than oscillate around the target. */
+static void test_stepping_settles_without_a_snap_threshold(void) {
+    S32 diff, div;
+    S32 bad = 0;
+
+    for (div = 1; div <= 64 && !bad; div++) {
+        for (diff = -600; diff <= 600; diff += 7) {
+            S32 left = diff;
+            S32 frames = 0;
+
+            while (left != 0) {
+                left -= FollowCamRotStep(left, div, MIN_STEP);
+                if (++frames > 4096) {
+                    bad = 1;
+                    break;
+                }
+            }
+        }
+    }
+    ASSERT_EQ_INT(0, bad);
+}
+
 static void test_a_zero_divisor_is_survivable(void) {
     ASSERT_EQ_INT(100, FollowCamRotStep(100, 0, MIN_STEP));
     ASSERT_EQ_INT(-100, FollowCamRotStep(-100, -5, MIN_STEP));
@@ -150,6 +192,8 @@ int main(void) {
     RUN_TEST(test_angle_diff_is_always_within_a_half_turn);
     RUN_TEST(test_step_moves_toward_the_target_without_overshooting);
     RUN_TEST(test_stepping_always_reaches_the_target);
+    RUN_TEST(test_no_step_when_already_on_target);
+    RUN_TEST(test_stepping_settles_without_a_snap_threshold);
     RUN_TEST(test_a_zero_divisor_is_survivable);
     TEST_SUMMARY();
 }

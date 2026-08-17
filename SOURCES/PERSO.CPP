@@ -244,16 +244,9 @@ static void UpdateFollowCameraExt(void) {
                      * orbits behind the hero whether running, turning in place,
                      * or standing.  Smoothness comes from the lerp speed, not
                      * from skipping updates. */
-    S32 catchupDiff = FollowCamTargetBeta - BetaCam;
-    if (catchupDiff > 2048)
-        catchupDiff -= 4096;
-    if (catchupDiff < -2048)
-        catchupDiff += 4096;
+    S32 catchupDiff = FollowCamAngleDiff(FollowCamTargetBeta, BetaCam);
 
     if (FollowCamNeedsUpdate(ptr3d, catchupDiff)) {
-        S32 newbeta = AddBetaCam + ptr3d->Beta;
-        newbeta &= 4095;
-
         /* HD recompose strength (kExcess): 0 in camera zones, at
                          * 480, or when disabled. Shared by the forward-lean cut
                          * here and the boom pull-in + pitch steepen at the apply
