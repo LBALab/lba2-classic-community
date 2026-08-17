@@ -161,7 +161,9 @@ which covers two breakage classes that need two different tools:
   scripts and CMake. That is not link syntax, so a link checker cannot see it,
   and moving a doc breaks those references silently. Markdown is excluded from
   this half on purpose: prose names docs that do not exist yet and paths
-  belonging to other repositories, and both would read as failures.
+  belonging to other repositories, and both would read as failures. A
+  placeholder path in a non-markdown file reads as a real reference, so name a
+  doc that exists when writing a usage example in a comment or a config.
 
 The same job then runs [scripts/ci/check-docs-symbols.py](../scripts/ci/check-docs-symbols.py),
 which covers a third class the first two cannot: a link that still resolves to a
@@ -182,20 +184,29 @@ Run either half locally with `make docs-links` / `make docs-symbols`. The link
 half needs `lychee` on PATH and **skips silently without it**, still exiting 0,
 so check its `Total ... Errors` summary line actually printed.
 
+All three checks read tracked files only, so a file you have just created is
+invisible to them until it is staged. Run them after `git add`, not only after
+editing, or CI will see references your local run could not.
+
+lychee's own settings live in [lychee.toml](../lychee.toml) at the repo root,
+which lychee discovers on its own. The script passes only the flags that should
+differ between a terminal and a CI log, so a bare `lychee README.md` applies the
+same rules CI does. Excludes and per-host throttles belong in that file, where
+both paths pick them up.
+
 Two deliberate choices:
 
 - **No path filter.** A reference breaks from either side: renaming a doc
   breaks the source comments that point at it, and the build workflows skip
   docs paths while `docs-gate.yml` skips everything else. Neither trigger alone
   covers it, and the check costs a few seconds.
-- **External URLs are weekly, not per-PR.** The tree holds roughly 580 external
-  URLs, 446 of them `github.com`. Unauthenticated checking trips GitHub's rate
-  limit well before it finishes, so a per-PR run would fail for reasons that
-  have nothing to do with the PR, and people would learn to ignore it. A rotted
-  URL is still worth knowing about, which is what the Monday run is for.
-
-Run it locally with `make docs-links`. Without `lychee` installed the link half
-is skipped with a notice and the path half still runs.
+- **External URLs are weekly, not per-PR.** Not for cost: the tree holds
+  roughly 350 unique external URLs, 332 of them `github.com`, and a full
+  unauthenticated pass takes about 30 seconds without drawing a single 429,
+  because lychee caps concurrent requests per host and spaces them out. The
+  reason is that a third-party host being down would fail a PR that never
+  touched it, and people would learn to ignore a red check. A rotted URL is
+  still worth knowing about, which is what the Monday run is for.
 
 ## Caching and upstream dependencies
 
