@@ -19,6 +19,9 @@ dist/
 /build_logs/
 .tmp/
 
+# lychee --cache writes this; useful locally, never worth committing
+.lycheecache
+
 # Python (e.g. scripts/save_probe.py)
 __pycache__/
 *.py[cod]

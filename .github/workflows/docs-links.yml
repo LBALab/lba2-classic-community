@@ -45,9 +45,11 @@ jobs:
 
   external:
     name: External URLs
-    # Weekly only. ~580 external URLs, 446 of them github.com; running this per
-    # PR trips the unauthenticated rate limit and trains people to ignore a red
-    # check. A rotted URL is worth knowing about, just not on every push.
+    # Weekly only. Not for speed -- the full run takes about 30 seconds and
+    # stays well inside GitHub's rate limit even unauthenticated. It is that a
+    # third-party host being down would fail a PR that did not touch it, which
+    # trains people to ignore a red check. A rotted URL is worth knowing
+    # about, just not on every push.
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 15
