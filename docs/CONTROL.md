@@ -8,9 +8,16 @@ and for record/replay regression nets.
 This is an outside-in harness. It reuses existing engine seams — the
 [console command bus](CONSOLE.md) for `--exec`, the normal save-load sequence for
 `--load`, the existing `SavePNG` for `--screenshot` — rather than changing game logic. It
-is not an IPC/REPL and not a scripting runtime. See
+is not a scripting runtime. See
 [AUTOMATION_RESEARCH.md](plan/AUTOMATION_RESEARCH.md) and
 [AUTOMATION_PLAN.md](plan/AUTOMATION_PLAN.md) for the design.
+
+Everything above is one invocation: the whole plan is fixed before boot, and the run
+either does it or does not. That covers automation and regression, which is most of what
+the harness is for. It does not cover a probe loop whose next step depends on what the
+last one showed. There is an opt-in socket for that; see
+[Driving a running engine](#driving-a-running-engine---listen). It is a debug build only,
+and off by default there too.
 
 > **Pass `--headless` for any automated run.** Without it the engine opens a window, and
 > **the game pauses when that window loses focus** (by design, for players). A run that
@@ -354,6 +361,78 @@ which reads exactly like the game clock jumping backwards. Capture one sink. Deb
 `--log-level debug` to surface them for the run (inline on stderr and in
 `adeline.log`). The `--dump-state` `log` field still captures only the last
 handful of *console* scrollback lines; stderr is the full stream.
+
+## Driving a running engine (`--listen`)
+
+`--exec` and `--exec-at` need the whole plan before boot. A probe loop whose next step
+depends on what the last one showed cannot be written that way, so every observation costs
+a boot, a load, and a walk back to the scene. Searching the camera cvars for a value that
+fixes a behaviour is that shape.
+
+`--listen <port>` puts a line server in front of the same console command bus, so the verbs
+and cvars already there answer a driver outside the process while the run proceeds.
+Measured against the alternative on one fixture: **0.6–1.2 ms** per command, against
+**282 ms** for a boot-per-probe, and **1–2 ms** for a mid-session `load` to reset the scene.
+
+### Build and run
+
+Not in a normal build. It runs arbitrary console commands for whoever connects, so it is
+kept out of any binary a player might run:
+
+```bash
+cmake -S . -B build-ctl -DLBA2_CONTROL_SERVER=ON
+./build-ctl/SOURCES/lba2cc --headless --no-audio --user-dir /tmp/probe --no-autosave \
+    --load "$SAVE" --listen 4444
+```
+
+Off again at runtime unless `--listen` names a port, and bound to `127.0.0.1` only. Both
+gates are deliberate; neither is a substitute for the other.
+
+```bash
+scripts/dev/lba2ctl.py status          # one command
+scripts/dev/lba2ctl.py                 # a REPL
+```
+
+### Protocol
+
+One command per line in; that command's console output back verbatim, terminated by a line
+reading `<<END>>`. Anything the engine logs while the command runs lands in the response
+too, since the log fans out to the console. `stream on` additionally pushes every log
+record as it happens, each prefixed `! `, which is how the trace verbs (`objtrace`,
+`lifetrace`, `cubetrace`, `camtrace`, `input trace`) reach a driver live rather than only
+`adeline.log`. One client at a time; `exit` shuts the engine down and is the last command a
+connection gets an answer to.
+
+### Two traps worth knowing before reading any number off a session
+
+- **A command runs once per presented frame, not once per simulation tick.** Presents
+  outnumber ticks by one to two orders of magnitude here, so a command that changes
+  simulation state and a command that reads the consequences can both land inside one tick,
+  and the read returns what was true *before* the write. It does not look like a race: it
+  looks like a stable, repeatable measurement of the wrong thing. Let a tick elapse
+  whenever the read depends on anything the object loop computes: zones, collision,
+  animation, position.
+- **An uncapped session is a regime no player sees.** Headless with nothing capping the
+  loop the engine renders on the order of 1500 frames a second, while harness input is
+  metered in sim ticks, so `input up 120` spends itself far faster than wall-clock suggests
+  and anything rate-coupled behaves accordingly. Send `fixedtimestep 40` first.
+
+### Notes and limits
+
+- **Not deterministic, by construction.** Commands arrive at whatever tick the driver sent
+  them, so a session does not replay. That is the trade for reacting to what you see; when
+  a run needs to be reproducible, `--exec-at` is still the tool, and CI should stay on it.
+- **`--listen` alone does not end the run.** Without `--tick`, the run is driven by whoever
+  connects rather than by a budget. An explicit `--tick` still wins and closes the socket
+  when the budget is spent.
+- **The console tokenizer does not understand quotes.** Save names with spaces go
+  unquoted: `load Desert Island`, never `load "Desert Island"`.
+- **An isolated `--user-dir` hides your saves.** `listsaves` returns nothing and a
+  mid-session `load` finds nothing until a save is copied into `<user-dir>/save/`. That
+  matters because the mid-session reload is what makes a sweep cheap.
+- **A driver that stops reading loses lines, and never stalls the game.** Sends are
+  bounded; a client that will not drain is dropped rather than allowed to hold a frame.
+  Pushed events queue in a ring that discards oldest-first and says how many it dropped.
 
 ## Determinism
 

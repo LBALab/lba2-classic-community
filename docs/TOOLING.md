@@ -273,6 +273,7 @@ degrade to a skip when absent.
 | Edit a script or workflow | 1 + shellcheck / ruff / actionlint | run `shellcheck -S warning` to match the gate |
 | Edit docs only | lychee | `make docs-links`; the [docs-only CI gate](CI.md) covers `build` and `test`, but the link check still runs |
 | Run the control harness | 1 | retail data; Pillow for image asserts — [CONTROL.md](CONTROL.md) |
+| Drive a running engine | 1 + Python 3 | retail data; a `-DLBA2_CONTROL_SERVER=ON` build; see [CONTROL.md](CONTROL.md#driving-a-running-engine---listen) |
 | Build for Android | 1 + Android lane | — |
 | Cut a release | 1 + releasing + the target platform's bundler | [RELEASING.md](RELEASING.md) |
 | Poke at disc images or HQR data | 1 + Python 3 | stdlib only; the two art scripts and the ACF decoder need Pillow |
