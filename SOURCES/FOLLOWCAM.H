@@ -75,4 +75,15 @@ extern S32 FollowCamManualHold;    /* frames the pitch/distance auto-assist yiel
 /* Console `camtrace`: log the Auto-camera angle state each frame. */
 extern S32 DbgCamTrace;
 
+/* The cfg keys this module owns: read them into the settings above, clamped, and
+ * write them back. CONFIG_FILE.CPP calls these instead of naming the keys
+ * itself, so a setting added here needs no edit there and its clamp cannot end
+ * up in a different file from the arithmetic that requires it.
+ *
+ * Not the whole set: the `FollowCamera` master toggle keeps its own position in
+ * the file, because these run as one contiguous block and moving it would
+ * reorder every player's lba2.cfg on the next write. */
+extern void FollowCam_ReadConfig(void);
+extern void FollowCam_WriteConfig(void);
+
 #endif /* FOLLOWCAM_H */
