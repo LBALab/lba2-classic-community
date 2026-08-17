@@ -37,7 +37,7 @@ Two rules keep it from recurring.
 
 Corollaries:
 
-- **Group by filename prefix, not by directory.** `RES_*`, `SAVEGAME_*`, `MENU_*`, `FOLLOWCAM_*` are the existing clusters. Subdirectories under `SOURCES/` are reserved for genuinely separate things (`CONSOLE/`, `3DEXT/`, `WIN/`); a new prefix costs nothing and matches what the tree already does.
+- **Group by filename prefix, not by directory.** `RES_*`, `SAVEGAME_*`, `MENU_*`, `FOLLOWCAM_*` are the existing clusters. A new prefix costs nothing and matches what the tree already does. A module earns a subdirectory when it acquires a boundary the flat namespace cannot express, which is not a line count. Two count: a **privacy boundary**, where some of its files have no includer outside the module, and a **link boundary**, where part of it builds on its own. [SOURCES/CONSOLE/](SOURCES/CONSOLE/) has both: `CONSOLE_STATE.H` and `CONSOLE_GIVE.H` are included nowhere outside the directory while `CONSOLE.H` is the public face, and the core builds as its own library with its own compile definitions. Every `FOLLOWCAM_*` file, by contrast, is included from outside, so a directory there would name a boundary that does not exist.
 - **Original files keep their paths.** Do not relocate 1997 code to mark it as original. `git log --follow` on those files is the evidence trail the bit-exactness work depends on, and the original/new split is per-line inside them anyway. A file is new because it has no ancestor in the initial import, not because of where it sits.
 - **Boot-time work is not exempt.** New infrastructure gravitates to the entry point because `main()` is there. It still does not belong there: config file I/O, path and profile resolution, asset discovery and fatal-error plumbing each want their own TU.
 - **State that is genuinely shared stays shared.** The rule is about ownership, not about emptying the god-header for its own sake. A global that several subsystems write (the camera angles themselves, `FirstTime`, the cube coordinates) has no single owner to move it to yet; leave it until one exists. See [docs/ARCHITECTURE_GLOBALS.md](docs/ARCHITECTURE_GLOBALS.md) for the wider plan.
@@ -78,6 +78,10 @@ Two things worth knowing before applying this:
 - **The payoff is composability, and it is already load-bearing.** Because the console is a surface rather than a set of special cases, the camera can be driven through it without a camera-specific test hook: the fixtures in `tests/automation` orbit the camera with `--exec "camnudge ..."`, which is CLI into control into console into the feature. A feature that meets its surfaces properly becomes testable for free.
 
 The rule is about ownership of storage, not about forbidding reads. `GAMEMENU.CPP` reading `FollowCamera` through FOLLOWCAM.H to choose a menu label is a plain use of a public setting and needs no hook.
+
+**The same split runs inside a feature.** [SOURCES/CONSOLE/](SOURCES/CONSOLE/) shows the mature form: its core builds as a library that touches no game state, while `CONSOLE_CMD.CPP`, which binds console verbs to game globals, is deliberately left out of that library and compiled with the game. Generic mechanism on one side of a link boundary, game-specific bindings on the other.
+
+That split is worth reaching for because it is the same line as the testable one. Code that runs free of engine globals can be linked into a host test and run in CI on every platform; code that reads `ListObjet` and writes `BetaCam` can only be exercised by a fixture that boots the engine and needs retail data. [SOURCES/FOLLOWCAM_MATH.H](SOURCES/FOLLOWCAM_MATH.H) is the camera sitting on that line already: it is the angle arithmetic with no engine state, it has a host test, and it is the only part of the camera CI can see. When deciding what to pull out of a feature next, pull along that line first.
 
 ## Layout and naming
 
