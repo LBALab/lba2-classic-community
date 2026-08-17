@@ -152,9 +152,9 @@ loaded the values rather than inside it.
 
 | Concept            | File                      | Function/Symbol                                            |
 | ------------------ | ------------------------- | ---------------------------------------------------------- |
-| Config read/write  | CONFIG_FILE.CPP           | ReadConfigFile, WriteConfigFile, BootSettings              |
-| Setting declaration| SETTINGS.H                | T_SETTING, Settings_Coerce, Settings_ValueToPersist        |
-| Per-module tables  | FOLLOWCAM.CPP             | FollowCamSettings, FollowCam_ReadConfig / _WriteConfig     |
+| Config read/write  | [CONFIG_FILE.CPP](../SOURCES/CONFIG_FILE.CPP) | `ReadConfigFile`, `WriteConfigFile`, `BootSettings` |
+| Setting declaration | [SETTINGS.H](../SOURCES/SETTINGS.H) | `T_SETTING`, `Settings_Coerce`, `Settings_ValueToPersist` |
+| Per-module tables | [FOLLOWCAM.CPP](../SOURCES/FOLLOWCAM.CPP) | `FollowCamSettings`, `FollowCam_ReadConfig`, `FollowCam_WriteConfig` |
 | Volume persistence | AMBIANCE.CPP              | ReadVolumeSettings, WriteVolumeSettings                    |
 | Input persistence  | INPUT.CPP                 | ReadInputConfig, WriteInputConfig                          |
 | Config path        | DIRECTORIES.CPP           | GetCfgPath, GetDefaultCfgPath                              |
