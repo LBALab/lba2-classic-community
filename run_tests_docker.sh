@@ -158,7 +158,15 @@ docker run --rm \
         fi
         uasm -? </dev/null 2>&1 | head -1 || true
 
-        cp -a ${CONTAINER_SRC} /tmp/lba2
+        # Copy the source in, minus any build tree the host happens to have.
+        # A host build/ carries a CMakeCache.txt naming its host path, and cmake
+        # refuses to reuse a cache from a different directory -- so copying one
+        # in makes the configure below fail before a single test compiles. CI
+        # never hits this because it checks out fresh; a contributor who has
+        # ever run `make build` hits it every time.
+        mkdir -p /tmp/lba2
+        tar -C ${CONTAINER_SRC} --exclude=./build --exclude='./build-*' -cf - . \
+            | tar -C /tmp/lba2 -xf -
         cd /tmp/lba2
 
         AVAILABLE_PRESETS="$(cmake --list-presets 2>/dev/null || true)"
