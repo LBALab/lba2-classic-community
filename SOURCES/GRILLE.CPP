@@ -552,8 +552,48 @@ void CopyMapToCube() {
     }
 }
 /*──────────────────────────────────────────────────────────────────────────*/
+//	Plus grande SizeFile sur une plage de fiches HQR.
+//
+//	HQF_LoadClose() pose la lecture compressée à ptrdest + SizeFile -
+//	CompressedSizeFile + RECOVER_AREA, donc une destination doit tenir
+//	SizeFile + RECOVER_AREA octets, pas SizeFile. Sizing a buffer from the
+//	background header's declared maximum assumes that maximum is true of the
+//	data, and it is not: the GOG master's largest map is 27153 bytes against a
+//	Max_Size_Gri of 27151, which puts the tail of that read one byte into
+//	TabBlock, the region that follows BufMap. Measure the fiches instead.
+static U32 MaxResSize(const char *name, U32 first, U32 last) {
+    COMPRESSED_HEADER header;
+    U32 handle, offset, i;
+    U32 biggest = 0;
+    S32 tablesize = 0;
+
+    handle = OpenRead(name);
+    if (!handle)
+        return 0;
+
+    Read(handle, &tablesize, 4); //	le premier offset donne la taille de la table
+
+    for (i = first; i < last && (S32)(i * 4) < tablesize; i++) {
+        Seek(handle, i * 4, SEEK_FROM_START);
+        Read(handle, &offset, 4);
+        if (!offset)
+            continue;
+
+        Seek(handle, offset, SEEK_FROM_START);
+        Read(handle, &header, sizeof(header));
+
+        if (header.SizeFile > biggest)
+            biggest = header.SizeFile;
+    }
+
+    Close(handle);
+
+    return biggest;
+}
+/*──────────────────────────────────────────────────────────────────────────*/
 void InitBufferCube() {
     S32 intmem;
+    U32 realgri, realbll;
     char tmpFilePath[ADELINE_MAX_PATH];
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, BKG_HQR_NAME);
@@ -575,9 +615,17 @@ void InitBufferCube() {
     if (intmem > ListMem[MEM_PTR_ZBUFFER].Size)
         ListMem[MEM_PTR_ZBUFFER].Size = intmem;
 
+    realgri = MaxResSize(tmpFilePath, BkgHeader.Gri_Start, BkgHeader.Grm_Start);
+    if (realgri < BkgHeader.Max_Size_Gri)
+        realgri = BkgHeader.Max_Size_Gri;
+
+    realbll = MaxResSize(tmpFilePath, BkgHeader.Bll_Start, BkgHeader.Brk_Start);
+    if (realbll < BkgHeader.Max_Size_Bll)
+        realbll = BkgHeader.Max_Size_Bll;
+
     ListMem[MEM_BUFFER_MASK_BRICK].Size = BkgHeader.Max_Size_Mask_Brick_Cube;
-    ListMem[MEM_BUF_MAP].Size = BkgHeader.Max_Size_Gri + RECOVER_AREA;
-    ListMem[MEM_TAB_BLOCK].Size = BkgHeader.Max_Size_Bll + RECOVER_AREA;
+    ListMem[MEM_BUF_MAP].Size = realgri + RECOVER_AREA;
+    ListMem[MEM_TAB_BLOCK].Size = realbll + RECOVER_AREA;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
