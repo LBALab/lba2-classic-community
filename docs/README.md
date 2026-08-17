@@ -41,6 +41,7 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 
 | Doc | Description |
 |-----|-------------|
+| [TOOLING.md](TOOLING.md) | Every external tool the repo expects, tiered by what breaks without it: build & run, pass review, per lane, nice to have. Version floors are cited, never restated. `scripts/dev/check-tooling.sh` probes the lot. |
 | [WINDOWS.md](WINDOWS.md) | Building on Windows with MSYS2; game files, toolchain. |
 | [ANDROID.md](ANDROID.md) | Building, packaging, and running on Android (arm64-v8a / armeabi-v7a): NDK + SDL3 cross-build, APK bundler, 16 KB pages, game-data placement, touch overlay. |
 | [GAME_DATA.md](GAME_DATA.md) | Retail game files: `LBA2_GAME_DIR`, `--game-dir`, discovery order, dev layouts. |

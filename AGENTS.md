@@ -95,6 +95,7 @@ Apply these behavior rules on every non-trivial task:
 | New subsystem or reference doc | Create docs/<name>.md; add to docs/README.md; update in same commit | docs/README.md |
 | Writing a plan, design trail, or research writeup before the work | Put it in `docs/plan/`, not `docs/`. Add it to the "Plans & research" table in docs/README.md with a status. `docs/` is what the engine does today; `docs/plan/` is what was proposed and why. When a plan lands, mark it Implemented and fold the durable parts into the reference doc; a plan must never be the only description of shipped behaviour | docs/README.md "Plans & research" |
 | Adding, moving, or removing a script under scripts/ | Add or update its row in scripts/README.md in the same commit | scripts/README.md |
+| Making a script or workflow depend on a new external tool | Add its row to docs/TOOLING.md **and** a probe to `scripts/dev/check-tooling.sh` in the same commit. Never restate a version in the doc — cite the file that pins it | docs/TOOLING.md |
 | Any code that affects documented behavior | Update the doc in the same commit | Principle 1 |
 | Fixing a bug | If the affected logic is pure-data, extract it to a pure function and add a host test. Otherwise add a manual repro hook (console command, debug flag) | CONTRIBUTING.md "Doing good work here" |
 | Editing docs (any `.md`) | Sentence-case headings; bold for structure only (list-item / paragraph leads, table row labels), not mid-sentence emphasis; verify file/line refs; from `docs/`, link to source with `../SOURCES/...` / `../LIB386/...` | "Editing docs" below; CONTRIBUTING.md "Doing good work here" |
@@ -212,3 +213,4 @@ both: e.g. `fix(credits): ... (#65) (#66)`. Reference issues in the PR
 - [docs/FEATURE_WORKFLOW.md](docs/FEATURE_WORKFLOW.md) — Reasoning and docs for big features (console, headless, menu, camera)
 - [docs/README.md](docs/README.md) — Full documentation index
 - [scripts/README.md](scripts/README.md) — Catalogue of developer, CI, and packaging scripts (maintained vs. spike)
+- [docs/TOOLING.md](docs/TOOLING.md) — External tools the repo expects, tiered by what breaks without them; `scripts/dev/check-tooling.sh` probes them
