@@ -4,27 +4,6 @@
 #include "CONSOLE/CONSOLE.H"
 #include <SYSTEM/DEFFILE.H>
 
-S32 Settings_Coerce(const T_SETTING *s, S32 value) {
-    switch (s->type) {
-    case SETTING_TRUTHY:
-        return value ? TRUE : FALSE;
-
-    case SETTING_RAW:
-        return value;
-
-    case SETTING_OR_DEFAULT:
-        return (value<s->min OR value> s->max) ? s->def : value;
-
-    case SETTING_CLAMP:
-    default:
-        if (value < s->min)
-            value = s->min;
-        if (value > s->max)
-            value = s->max;
-        return value;
-    }
-}
-
 void Settings_ReadConfig(const T_SETTING *table, S32 count) {
     S32 i;
 

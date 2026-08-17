@@ -65,9 +65,34 @@ typedef struct {
     const char *help; /* console help text */
 } T_SETTING;
 
-/* Bring `value` inside [min, max], and for a bool to exactly TRUE or FALSE. The
- * one place a setting's range is enforced. */
-extern S32 Settings_Coerce(const T_SETTING *s, S32 value);
+/* What the cfg said, turned into what the setting may hold. The one place a
+ * range is enforced, and the only part of this file free of engine state, so the
+ * host test in tests/settings covers it without booting anything.
+ *
+ * Worth having covered: reducing these four rules to two silently moved six
+ * settings to a different value on an out-of-range cfg, and no oracle that reads
+ * back a cfg the engine itself wrote can see that, because those values are all
+ * in range by construction. */
+static inline S32 Settings_Coerce(const T_SETTING *s, S32 value) {
+    switch (s->type) {
+    case SETTING_TRUTHY:
+        return value ? 1 : 0;
+
+    case SETTING_RAW:
+        return value;
+
+    case SETTING_OR_DEFAULT:
+        return (value < s->min || value > s->max) ? s->def : value;
+
+    case SETTING_CLAMP:
+    default:
+        if (value < s->min)
+            value = s->min;
+        if (value > s->max)
+            value = s->max;
+        return value;
+    }
+}
 
 /* Apply the cfg to every row that names a key, clamped. */
 extern void Settings_ReadConfig(const T_SETTING *table, S32 count);

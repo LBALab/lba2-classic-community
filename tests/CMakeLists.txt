@@ -57,6 +57,7 @@ add_subdirectory(movement)
 add_subdirectory(zone)
 add_subdirectory(plasma_steps)
 add_subdirectory(camera)
+add_subdirectory(settings)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)
