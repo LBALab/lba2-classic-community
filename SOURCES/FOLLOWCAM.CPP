@@ -1,5 +1,6 @@
 #include "C_EXTERN.H"
 
+#include "CONSOLE/CONSOLE.H" /* Console_RegisterCvar, for this module's own cvars */
 #include "FOLLOWCAM.H"
 #include "FOLLOWCAM_CFG.H"
 #include "FOLLOWCAM_MATH.H"
@@ -499,4 +500,47 @@ void FollowCam_WriteConfig(void) {
     DefFileBufferWriteValue("FollowCamGroundClearance", FollowCamGroundClearance);
     DefFileBufferWriteValue("FollowCamManualHoldFrames", FollowCamManualHoldFrames);
     DefFileBufferWriteValue("FollowCamHoldAngle", FollowCamHoldAngle);
+}
+
+/* The console cvars this module owns. Declared in FOLLOWCAM.H, called by
+ * Console_RegisterAll. Registration order is not observable: `varlist` and
+ * `help` sort by name, so grouping these here changes nothing a player sees.
+ *
+ * cam_glide is not here. FollowCamOrbitGlide is read by the manual-orbit
+ * follow-through in EXTFUNC.CPP and defined in GLOBAL.CPP, so it is that
+ * path's cvar, not the Auto camera's. */
+void FollowCam_RegisterCvars(void) {
+    Console_RegisterCvar("cam_recenter_delay", &FollowCamReengageFrames, CONSOLE_CVAR_INT, "Frames before auto-cam re-centers after a manual pan");
+    Console_RegisterCvar("cam_recenter_drift", &FollowCamDriftDivisor, CONSOLE_CVAR_INT, "Auto-cam re-center drift divisor (higher = gentler)");
+    Console_RegisterCvar("cam_follow", &FollowCamera, CONSOLE_CVAR_BOOL, "Auto camera (third-person follow) enable");
+    Console_RegisterCvar("cam_hd", &FollowCamHDRecompose, CONSOLE_CVAR_BOOL, "Auto cam HD recompose: pull in + steepen at tall render heights");
+    Console_RegisterCvar("cam_hd_cap", &FollowCamHDExcessCap, CONSOLE_CVAR_INT, "Cap on recompose strength so tall res converges (0 = pure linear; 70 ~= 816p)");
+    Console_RegisterCvar("cam_hd_pitch", &FollowCamHDPitchGain, CONSOLE_CVAR_INT, "HD recompose pitch gain (AlphaCam units per 1.0 of k-1)");
+    Console_RegisterCvar("cam_hd_dist", &FollowCamHDDistGain, CONSOLE_CVAR_INT, "HD recompose distance pull (% of boom per 1.0 of k-1)");
+    Console_RegisterCvar("cam_hd_lean", &FollowCamHDLeanGain, CONSOLE_CVAR_INT, "HD recompose forward-lean cut (% per 1.0 of k-1)");
+    Console_RegisterCvar("cam_ground", &FollowCamGround, CONSOLE_CVAR_BOOL, "Auto cam: smooth terrain ground-clearance lift");
+    Console_RegisterCvar("cam_ground_clear", &FollowCamGroundClearance, CONSOLE_CVAR_INT, "Ground clearance: keep the eye this far above the ground under it");
+    Console_RegisterCvar("cam_manual_hold", &FollowCamManualHoldFrames, CONSOLE_CVAR_INT, "Frames the pitch/distance auto-assist yields after a manual camera nudge");
+    Console_RegisterCvar("cam_hold_angle", &FollowCamHoldAngle, CONSOLE_CVAR_BOOL, "Hold the manual camera rotation (free-camera); off = classic auto-recenter drift");
+}
+
+/* The console commands this module owns, registered from Console_RegisterAll
+ * beside its cvars.
+ *
+ * camnudge is not here. It writes DbgCamNudge*, which EXTFUNC.CPP's manual
+ * camera path consumes, so it belongs to that path and stays with the other
+ * bus state until that path has a module of its own. */
+/* camtrace <0|1>: log the Auto-camera angle state on every follow-cam update, so a headless run can
+   show frame by frame what the camera did while the hero turned and the player orbited. */
+static void cmd_camtrace(int argc, const char *argv[]) {
+    if (argc >= 2)
+        DbgCamTrace = atoi(argv[1]) ? 1 : 0;
+    Console_Print("camtrace: %s", DbgCamTrace ? "ON" : "OFF");
+}
+
+void FollowCam_RegisterCommands(void) {
+    Console_RegisterCommandEx("camtrace", cmd_camtrace, "Log the Auto-camera angle state each update",
+                              "camtrace <0|1>",
+                              "Logs hero Beta, AddBetaCam, BetaCam and its target, the re-engage "
+                              "countdown and the manual-orbit flag on every follow-cam update.");
 }

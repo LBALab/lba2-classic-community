@@ -86,4 +86,11 @@ extern S32 DbgCamTrace;
 extern void FollowCam_ReadConfig(void);
 extern void FollowCam_WriteConfig(void);
 
+/* The console cvars and commands this module owns, registered from
+ * Console_RegisterAll. Same reason as the cfg pair: a setting added here is
+ * added in one file, and the console does not need to know the name of a camera
+ * variable to expose it. */
+extern void FollowCam_RegisterCvars(void);
+extern void FollowCam_RegisterCommands(void);
+
 #endif /* FOLLOWCAM_H */

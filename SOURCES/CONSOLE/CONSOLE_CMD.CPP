@@ -1887,14 +1887,6 @@ static void cmd_cubetrace(int argc, const char *argv[]) {
     Console_Print("cubetrace: %s", DbgCubeTrace ? "ON" : "OFF");
 }
 
-/* camtrace <0|1>: log the Auto-camera angle state on every follow-cam update, so a headless run can
-   show frame by frame what the camera did while the hero turned and the player orbited. */
-static void cmd_camtrace(int argc, const char *argv[]) {
-    if (argc >= 2)
-        DbgCamTrace = atoi(argv[1]) ? 1 : 0;
-    Console_Print("camtrace: %s", DbgCamTrace ? "ON" : "OFF");
-}
-
 /* camnudge <dBeta> [dAlpha] [frames]: drive the analog camera without a mouse or a gamepad. Feeds
    the same per-frame nudge the right stick and the mouse drag feed, for `frames` frames (default 1,
    i.e. a single-frame stick touch). Positive dBeta orbits the way a right-stick push does. */
@@ -2317,10 +2309,7 @@ void Console_RegisterAll(void) {
                               "cubetrace <0|1>",
                               "Logs island + from -> to cube on each ChangeCube, tracing the game's "
                               "cube-to-cube flow across a playthrough or the demo reel.");
-    Console_RegisterCommandEx("camtrace", cmd_camtrace, "Log the Auto-camera angle state each update",
-                              "camtrace <0|1>",
-                              "Logs hero Beta, AddBetaCam, BetaCam and its target, the re-engage "
-                              "countdown and the manual-orbit flag on every follow-cam update.");
+    FollowCam_RegisterCommands();
     Console_RegisterCommandEx("camnudge", cmd_camnudge, "Inject a manual camera nudge (stick/mouse stand-in)",
                               "camnudge <dBeta> [dAlpha] [frames]",
                               "Feeds the same per-frame nudge the gamepad right stick and the mouse "
@@ -2380,18 +2369,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCvar("cam_mouse_div", &MouseCameraDivisor, CONSOLE_CVAR_INT, "Mouse pixel-to-angle divisor (1-16, lower = faster)");
     Console_RegisterCvar("cam_smooth", &ManualCameraSmoothing, CONSOLE_CVAR_INT, "Manual orbit lerp divisor (1 = snap, higher = laggier)");
     Console_RegisterCvar("cam_glide", &FollowCamOrbitGlide, CONSOLE_CVAR_INT, "Orbit follow-through: % of orbit speed kept per frame after release (0 = stop dead)");
-    Console_RegisterCvar("cam_recenter_delay", &FollowCamReengageFrames, CONSOLE_CVAR_INT, "Frames before auto-cam re-centers after a manual pan");
-    Console_RegisterCvar("cam_recenter_drift", &FollowCamDriftDivisor, CONSOLE_CVAR_INT, "Auto-cam re-center drift divisor (higher = gentler)");
-    Console_RegisterCvar("cam_follow", &FollowCamera, CONSOLE_CVAR_BOOL, "Auto camera (third-person follow) enable");
+    FollowCam_RegisterCvars();
     Console_RegisterCvar("gfx_dither", &GfxDitherShading, CONSOLE_CVAR_BOOL, "Ordered dither on Gouraud shade rows (softens 16-step banding)");
     Console_RegisterCvar("gfx_texfilter", &PolyTexFilter, CONSOLE_CVAR_INT, "Texture filtering: 0 off, 1 horizontal, 2 bilinear");
-    Console_RegisterCvar("cam_hd", &FollowCamHDRecompose, CONSOLE_CVAR_BOOL, "Auto cam HD recompose: pull in + steepen at tall render heights");
-    Console_RegisterCvar("cam_hd_cap", &FollowCamHDExcessCap, CONSOLE_CVAR_INT, "Cap on recompose strength so tall res converges (0 = pure linear; 70 ~= 816p)");
-    Console_RegisterCvar("cam_hd_pitch", &FollowCamHDPitchGain, CONSOLE_CVAR_INT, "HD recompose pitch gain (AlphaCam units per 1.0 of k-1)");
-    Console_RegisterCvar("cam_hd_dist", &FollowCamHDDistGain, CONSOLE_CVAR_INT, "HD recompose distance pull (% of boom per 1.0 of k-1)");
-    Console_RegisterCvar("cam_hd_lean", &FollowCamHDLeanGain, CONSOLE_CVAR_INT, "HD recompose forward-lean cut (% per 1.0 of k-1)");
-    Console_RegisterCvar("cam_ground", &FollowCamGround, CONSOLE_CVAR_BOOL, "Auto cam: smooth terrain ground-clearance lift");
-    Console_RegisterCvar("cam_ground_clear", &FollowCamGroundClearance, CONSOLE_CVAR_INT, "Ground clearance: keep the eye this far above the ground under it");
-    Console_RegisterCvar("cam_manual_hold", &FollowCamManualHoldFrames, CONSOLE_CVAR_INT, "Frames the pitch/distance auto-assist yields after a manual camera nudge");
-    Console_RegisterCvar("cam_hold_angle", &FollowCamHoldAngle, CONSOLE_CVAR_BOOL, "Hold the manual camera rotation (free-camera); off = classic auto-recenter drift");
 }
