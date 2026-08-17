@@ -51,6 +51,8 @@ struct cvar_entry {
     const char *name;
     void *ptr;
     Console_CvarType type;
+    int min; /* assignment is clamped to [min, max]; the unranged register call */
+    int max; /* passes the full int range, which clamps to nothing */
     const char *help;
 };
 
@@ -1533,7 +1535,8 @@ void Console_RegisterCommand(const char *name, Console_CmdFn callback, const cha
     Console_RegisterCommandEx(name, callback, help, NULL, NULL);
 }
 
-void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, const char *help) {
+void Console_RegisterCvarRanged(const char *name, void *ptr, Console_CvarType type,
+                                int min, int max, const char *help) {
     if (s_cvar_count >= CONSOLE_MAX_CVARS) {
         fprintf(stderr, "console: cvar table full (%d), dropped '%s' (raise CONSOLE_MAX_CVARS)\n",
                 CONSOLE_MAX_CVARS, name ? name : "(null)");
@@ -1542,8 +1545,14 @@ void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, co
     s_cvars[s_cvar_count].name = name;
     s_cvars[s_cvar_count].ptr = ptr;
     s_cvars[s_cvar_count].type = type;
+    s_cvars[s_cvar_count].min = min;
+    s_cvars[s_cvar_count].max = max;
     s_cvars[s_cvar_count].help = help;
     s_cvar_count++;
+}
+
+void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, const char *help) {
+    Console_RegisterCvarRanged(name, ptr, type, (-2147483647 - 1), 2147483647, help);
 }
 
 void Console_Execute(const char *line);
@@ -1682,7 +1691,14 @@ void Console_Execute(const char *line) {
             continue;
         if (argc >= 2 && argv[1][0] != '\0') {
             if (s_cvars[i].type == CONSOLE_CVAR_INT) {
-                *(int *)s_cvars[i].ptr = (int)strtol(argv[1], NULL, 0);
+                {
+                    long raw = strtol(argv[1], NULL, 0);
+                    if (raw < (long)s_cvars[i].min)
+                        raw = (long)s_cvars[i].min;
+                    if (raw > (long)s_cvars[i].max)
+                        raw = (long)s_cvars[i].max;
+                    *(int *)s_cvars[i].ptr = (int)raw;
+                }
                 Console_Print("%s = %d", s_cvars[i].name, *(int *)s_cvars[i].ptr);
             } else if (s_cvars[i].type == CONSOLE_CVAR_BOOL) {
                 int v = (argv[1][0] == '1' || argv[1][0] == 'y' || argv[1][0] == 'Y' || (argv[1][0] == 'o' && argv[1][1] == 'n'));

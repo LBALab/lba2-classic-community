@@ -4,6 +4,7 @@
 #include "FOLLOWCAM.H"
 #include "FOLLOWCAM_CFG.H"
 #include "FOLLOWCAM_MATH.H"
+#include "SETTINGS.H"
 #include "INPUT.H"
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOG.H>
@@ -453,75 +454,71 @@ void FollowCamSyncTarget(void) {
  * CONFIG_FILE.CPP. Every clamp here sits in the same file as the arithmetic
  * that needs it: FollowCamGroundClearance's ceiling, for one, exists to keep
  * (g + clearance - hy) * 100 inside S32 in the occlusion march below. */
+/* Every tunable this module owns, declared once. The cfg reader, the cfg writer
+ * and the console all read this rather than naming a setting, so adding one is a
+ * single row and its range travels with it to whichever surface writes it.
+ *
+ * Row order is the cfg's key order, which is user-visible: lba2.cfg is rewritten
+ * in this order, and reordering rows would reorder every player's file.
+ *
+ * cam_follow has no key here. FollowCamera is persisted by CONFIG_FILE.CPP at its
+ * own position in the file, apart from this block. */
+static const T_SETTING FollowCamSettings[] = {
+    {"FollowCamReengageFrames", NULL, "cam_recenter_delay", &FollowCamReengageFrames, SETTING_CLAMP,
+     FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT, 0, 600, NULL, NULL,
+     "Frames before auto-cam re-centers after a manual pan"},
+    {"FollowCamDriftDivisor", NULL, "cam_recenter_drift", &FollowCamDriftDivisor, SETTING_CLAMP,
+     FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT, 1, 200, NULL, NULL,
+     "Auto-cam re-center drift divisor (higher = gentler)"},
+    {"FollowCamHDRecompose", NULL, "cam_hd", &FollowCamHDRecompose, SETTING_TRUTHY,
+     FOLLOW_CAM_HD_RECOMPOSE_DEFAULT, 0, 1, NULL, NULL,
+     "Auto cam HD recompose: pull in + steepen at tall render heights"},
+    {"FollowCamHDExcessCap", NULL, "cam_hd_cap", &FollowCamHDExcessCap, SETTING_CLAMP,
+     FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT, 0, SETTING_MAX_NONE, NULL, NULL,
+     "Cap on recompose strength so tall res converges (0 = pure linear; 70 ~= 816p)"},
+    {"FollowCamHDPitchGain", NULL, "cam_hd_pitch", &FollowCamHDPitchGain, SETTING_CLAMP,
+     FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL,
+     "HD recompose pitch gain (AlphaCam units per 1.0 of k-1)"},
+    {"FollowCamHDDistGain", NULL, "cam_hd_dist", &FollowCamHDDistGain, SETTING_CLAMP,
+     FOLLOW_CAM_HD_DIST_GAIN_DEFAULT, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL,
+     "HD recompose distance pull (% of boom per 1.0 of k-1)"},
+    {"FollowCamHDLeanGain", NULL, "cam_hd_lean", &FollowCamHDLeanGain, SETTING_CLAMP,
+     FOLLOW_CAM_HD_LEAN_GAIN_DEFAULT, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL,
+     "HD recompose forward-lean cut (% per 1.0 of k-1)"},
+    {"FollowCamGround", NULL, "cam_ground", &FollowCamGround, SETTING_TRUTHY,
+     FOLLOW_CAM_GROUND_DEFAULT, 0, 1, NULL, NULL,
+     "Auto cam: smooth terrain ground-clearance lift"},
+    /* The ceiling keeps (g + clearance - hy) * 100 inside S32 in the occlusion
+     * march below, which is why it is stated with the setting rather than at the
+     * one surface that used to check it. */
+    {"FollowCamGroundClearance", NULL, "cam_ground_clear", &FollowCamGroundClearance, SETTING_CLAMP,
+     FOLLOW_CAM_GROUND_CLEARANCE_DEFAULT, 0, 20000, NULL, NULL,
+     "Ground clearance: keep the eye this far above the ground under it"},
+    {"FollowCamManualHoldFrames", NULL, "cam_manual_hold", &FollowCamManualHoldFrames, SETTING_CLAMP,
+     FOLLOW_CAM_MANUAL_HOLD_DEFAULT, 0, FOLLOW_CAM_MANUAL_HOLD_MAX, NULL, NULL,
+     "Frames the pitch/distance auto-assist yields after a manual camera nudge"},
+    {"FollowCamHoldAngle", NULL, "cam_hold_angle", &FollowCamHoldAngle, SETTING_TRUTHY,
+     FOLLOW_CAM_HOLD_ANGLE_DEFAULT, 0, 1, NULL, NULL,
+     "Hold the manual camera rotation (free-camera); off = classic auto-recenter drift"},
+    /* cvar only, and it must stay that way. FollowCamera's cfg row lives in
+       CONFIG_FILE.CPP's table, which reads it with the legacy AutoCameraCenter
+       fallback and its own rule; giving this row a key would read the same
+       global twice under two rules, and this table runs last. */
+    {NULL, NULL, "cam_follow", &FollowCamera, SETTING_TRUTHY, FALSE, 0, 1, NULL, NULL,
+     "Auto camera (third-person follow) enable"},
+};
+#define FOLLOW_CAM_SETTING_COUNT ((S32)(sizeof(FollowCamSettings) / sizeof(FollowCamSettings[0])))
+
 void FollowCam_ReadConfig(void) {
-    FollowCamReengageFrames = DefFileBufferReadValueDefault("FollowCamReengageFrames", FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT);
-    if (FollowCamReengageFrames < 0)
-        FollowCamReengageFrames = 0;
-    if (FollowCamReengageFrames > 600)
-        FollowCamReengageFrames = 600;
-
-    FollowCamDriftDivisor = DefFileBufferReadValueDefault("FollowCamDriftDivisor", FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT);
-    if (FollowCamDriftDivisor < 1)
-        FollowCamDriftDivisor = 1;
-    if (FollowCamDriftDivisor > 200)
-        FollowCamDriftDivisor = 200;
-
-    /* Auto-camera HD recompose + ground-clearance + manual-override tuning. */
-    FollowCamHDRecompose = DefFileBufferReadValueDefault("FollowCamHDRecompose", FOLLOW_CAM_HD_RECOMPOSE_DEFAULT) ? TRUE : FALSE;
-    FollowCamHDExcessCap = DefFileBufferReadValueDefault("FollowCamHDExcessCap", FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT);
-    if (FollowCamHDExcessCap < 0)
-        FollowCamHDExcessCap = 0;
-    FollowCamHDPitchGain = DefFileBufferReadValueDefault("FollowCamHDPitchGain", FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT);
-    FollowCamHDDistGain = DefFileBufferReadValueDefault("FollowCamHDDistGain", FOLLOW_CAM_HD_DIST_GAIN_DEFAULT);
-    FollowCamHDLeanGain = DefFileBufferReadValueDefault("FollowCamHDLeanGain", FOLLOW_CAM_HD_LEAN_GAIN_DEFAULT);
-    FollowCamGround = DefFileBufferReadValueDefault("FollowCamGround", FOLLOW_CAM_GROUND_DEFAULT) ? TRUE : FALSE;
-    FollowCamGroundClearance = DefFileBufferReadValueDefault("FollowCamGroundClearance", FOLLOW_CAM_GROUND_CLEARANCE_DEFAULT);
-    if (FollowCamGroundClearance < 0)
-        FollowCamGroundClearance = 0;
-    if (FollowCamGroundClearance > 20000) /* keep (g+clear-hy)*100 well inside S32 in the occlusion march */
-        FollowCamGroundClearance = 20000;
-    FollowCamManualHoldFrames = DefFileBufferReadValueDefault("FollowCamManualHoldFrames", FOLLOW_CAM_MANUAL_HOLD_DEFAULT);
-    if (FollowCamManualHoldFrames < 0)
-        FollowCamManualHoldFrames = 0;
-    if (FollowCamManualHoldFrames > FOLLOW_CAM_MANUAL_HOLD_MAX)
-        FollowCamManualHoldFrames = FOLLOW_CAM_MANUAL_HOLD_MAX;
-    FollowCamHoldAngle = DefFileBufferReadValueDefault("FollowCamHoldAngle", FOLLOW_CAM_HOLD_ANGLE_DEFAULT) ? TRUE : FALSE;
+    Settings_ReadConfig(FollowCamSettings, FOLLOW_CAM_SETTING_COUNT);
 }
 
 void FollowCam_WriteConfig(void) {
-    DefFileBufferWriteValue("FollowCamReengageFrames", FollowCamReengageFrames);
-    DefFileBufferWriteValue("FollowCamDriftDivisor", FollowCamDriftDivisor);
-    DefFileBufferWriteValue("FollowCamHDRecompose", FollowCamHDRecompose);
-    DefFileBufferWriteValue("FollowCamHDExcessCap", FollowCamHDExcessCap);
-    DefFileBufferWriteValue("FollowCamHDPitchGain", FollowCamHDPitchGain);
-    DefFileBufferWriteValue("FollowCamHDDistGain", FollowCamHDDistGain);
-    DefFileBufferWriteValue("FollowCamHDLeanGain", FollowCamHDLeanGain);
-    DefFileBufferWriteValue("FollowCamGround", FollowCamGround);
-    DefFileBufferWriteValue("FollowCamGroundClearance", FollowCamGroundClearance);
-    DefFileBufferWriteValue("FollowCamManualHoldFrames", FollowCamManualHoldFrames);
-    DefFileBufferWriteValue("FollowCamHoldAngle", FollowCamHoldAngle);
+    Settings_WriteConfig(FollowCamSettings, FOLLOW_CAM_SETTING_COUNT);
 }
 
-/* The console cvars this module owns. Declared in FOLLOWCAM.H, called by
- * Console_RegisterAll. Registration order is not observable: `varlist` and
- * `help` sort by name, so grouping these here changes nothing a player sees.
- *
- * cam_glide is not here. FollowCamOrbitGlide is read by the manual-orbit
- * follow-through in EXTFUNC.CPP and defined in GLOBAL.CPP, so it is that
- * path's cvar, not the Auto camera's. */
 void FollowCam_RegisterCvars(void) {
-    Console_RegisterCvar("cam_recenter_delay", &FollowCamReengageFrames, CONSOLE_CVAR_INT, "Frames before auto-cam re-centers after a manual pan");
-    Console_RegisterCvar("cam_recenter_drift", &FollowCamDriftDivisor, CONSOLE_CVAR_INT, "Auto-cam re-center drift divisor (higher = gentler)");
-    Console_RegisterCvar("cam_follow", &FollowCamera, CONSOLE_CVAR_BOOL, "Auto camera (third-person follow) enable");
-    Console_RegisterCvar("cam_hd", &FollowCamHDRecompose, CONSOLE_CVAR_BOOL, "Auto cam HD recompose: pull in + steepen at tall render heights");
-    Console_RegisterCvar("cam_hd_cap", &FollowCamHDExcessCap, CONSOLE_CVAR_INT, "Cap on recompose strength so tall res converges (0 = pure linear; 70 ~= 816p)");
-    Console_RegisterCvar("cam_hd_pitch", &FollowCamHDPitchGain, CONSOLE_CVAR_INT, "HD recompose pitch gain (AlphaCam units per 1.0 of k-1)");
-    Console_RegisterCvar("cam_hd_dist", &FollowCamHDDistGain, CONSOLE_CVAR_INT, "HD recompose distance pull (% of boom per 1.0 of k-1)");
-    Console_RegisterCvar("cam_hd_lean", &FollowCamHDLeanGain, CONSOLE_CVAR_INT, "HD recompose forward-lean cut (% per 1.0 of k-1)");
-    Console_RegisterCvar("cam_ground", &FollowCamGround, CONSOLE_CVAR_BOOL, "Auto cam: smooth terrain ground-clearance lift");
-    Console_RegisterCvar("cam_ground_clear", &FollowCamGroundClearance, CONSOLE_CVAR_INT, "Ground clearance: keep the eye this far above the ground under it");
-    Console_RegisterCvar("cam_manual_hold", &FollowCamManualHoldFrames, CONSOLE_CVAR_INT, "Frames the pitch/distance auto-assist yields after a manual camera nudge");
-    Console_RegisterCvar("cam_hold_angle", &FollowCamHoldAngle, CONSOLE_CVAR_BOOL, "Hold the manual camera rotation (free-camera); off = classic auto-recenter drift");
+    Settings_RegisterCvars(FollowCamSettings, FOLLOW_CAM_SETTING_COUNT);
 }
 
 /* The console commands this module owns, registered from Console_RegisterAll

@@ -91,6 +91,14 @@ void Console_RegisterCommand(const char *name, Console_CmdFn callback, const cha
 void Console_RegisterCommandEx(const char *name, Console_CmdFn callback, const char *help, const char *usage, const char *context);
 void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, const char *help);
 
+/* As above, but the cvar carries the range its owner declared, and the console
+ * clamps to it on assignment. Without this the console writes straight through
+ * the pointer, so a value set here skips whatever range check the cfg applies,
+ * which is why several owners clamp again at the point of use. Registering
+ * through the unranged call above leaves a cvar unbounded, as before. */
+void Console_RegisterCvarRanged(const char *name, void *ptr, Console_CvarType type,
+                                int min, int max, const char *help);
+
 /* Called from CONSOLE_CMD.CPP to register all commands/cvars */
 void Console_RegisterAll(void);
 
