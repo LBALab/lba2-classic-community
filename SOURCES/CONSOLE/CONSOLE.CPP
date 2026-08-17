@@ -51,8 +51,8 @@ struct cvar_entry {
     const char *name;
     void *ptr;
     Console_CvarType type;
-    int min; /* assignment is clamped to [min, max]; the unranged register call */
-    int max; /* passes the full int range, which clamps to nothing */
+    Console_CvarSetFn set; /* NULL: write through ptr, as before. Otherwise the owner */
+    void *ctx;             /* decides what the typed value means for this setting. */
     const char *help;
 };
 
@@ -1535,8 +1535,8 @@ void Console_RegisterCommand(const char *name, Console_CmdFn callback, const cha
     Console_RegisterCommandEx(name, callback, help, NULL, NULL);
 }
 
-void Console_RegisterCvarRanged(const char *name, void *ptr, Console_CvarType type,
-                                int min, int max, const char *help) {
+void Console_RegisterCvarCoerced(const char *name, void *ptr, Console_CvarType type,
+                                 Console_CvarSetFn set, void *ctx, const char *help) {
     if (s_cvar_count >= CONSOLE_MAX_CVARS) {
         fprintf(stderr, "console: cvar table full (%d), dropped '%s' (raise CONSOLE_MAX_CVARS)\n",
                 CONSOLE_MAX_CVARS, name ? name : "(null)");
@@ -1545,14 +1545,14 @@ void Console_RegisterCvarRanged(const char *name, void *ptr, Console_CvarType ty
     s_cvars[s_cvar_count].name = name;
     s_cvars[s_cvar_count].ptr = ptr;
     s_cvars[s_cvar_count].type = type;
-    s_cvars[s_cvar_count].min = min;
-    s_cvars[s_cvar_count].max = max;
+    s_cvars[s_cvar_count].set = set;
+    s_cvars[s_cvar_count].ctx = ctx;
     s_cvars[s_cvar_count].help = help;
     s_cvar_count++;
 }
 
 void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, const char *help) {
-    Console_RegisterCvarRanged(name, ptr, type, (-2147483647 - 1), 2147483647, help);
+    Console_RegisterCvarCoerced(name, ptr, type, NULL, NULL, help);
 }
 
 void Console_Execute(const char *line);
@@ -1690,15 +1690,17 @@ void Console_Execute(const char *line) {
         if (strcmp(s_cvars[i].name, argv[0]) != 0)
             continue;
         if (argc >= 2 && argv[1][0] != '\0') {
-            if (s_cvars[i].type == CONSOLE_CVAR_INT) {
-                {
-                    long raw = strtol(argv[1], NULL, 0);
-                    if (raw < (long)s_cvars[i].min)
-                        raw = (long)s_cvars[i].min;
-                    if (raw > (long)s_cvars[i].max)
-                        raw = (long)s_cvars[i].max;
-                    *(int *)s_cvars[i].ptr = (int)raw;
-                }
+            if (s_cvars[i].set != NULL) {
+                /* The owner's rule decides. Parsed as an integer whatever the display
+                   type, so a value the owner would accept is not lost to a stricter
+                   parse here; the reply shows what the setting became. */
+                s_cvars[i].set(s_cvars[i].ctx, (int)strtol(argv[1], NULL, 0));
+                if (s_cvars[i].type == CONSOLE_CVAR_INT)
+                    Console_Print("%s = %d", s_cvars[i].name, *(int *)s_cvars[i].ptr);
+                else
+                    Console_Print("%s = %s", s_cvars[i].name, *(int *)s_cvars[i].ptr ? "1" : "0");
+            } else if (s_cvars[i].type == CONSOLE_CVAR_INT) {
+                *(int *)s_cvars[i].ptr = (int)strtol(argv[1], NULL, 0);
                 Console_Print("%s = %d", s_cvars[i].name, *(int *)s_cvars[i].ptr);
             } else if (s_cvars[i].type == CONSOLE_CVAR_BOOL) {
                 int v = (argv[1][0] == '1' || argv[1][0] == 'y' || argv[1][0] == 'Y' || (argv[1][0] == 'o' && argv[1][1] == 'n'));
@@ -1715,8 +1717,11 @@ void Console_Execute(const char *line) {
                 Console_Print("%s = %d", s_cvars[i].name, *(int *)s_cvars[i].ptr);
             else if (s_cvars[i].type == CONSOLE_CVAR_BOOL) {
                 int v = *(int *)s_cvars[i].ptr ? 0 : 1;
-                *(int *)s_cvars[i].ptr = v;
-                Console_Print("%s = %s", s_cvars[i].name, v ? "1" : "0");
+                if (s_cvars[i].set != NULL)
+                    s_cvars[i].set(s_cvars[i].ctx, v);
+                else
+                    *(int *)s_cvars[i].ptr = v;
+                Console_Print("%s = %s", s_cvars[i].name, *(int *)s_cvars[i].ptr ? "1" : "0");
             } else if (s_cvars[i].type == CONSOLE_CVAR_BOOL_U8) {
                 unsigned char v = *(unsigned char *)s_cvars[i].ptr ? (unsigned char)0 : (unsigned char)1;
                 *(unsigned char *)s_cvars[i].ptr = v;

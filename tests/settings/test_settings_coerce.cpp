@@ -167,6 +167,19 @@ static void test_zero_is_a_real_forced_value(void) {
     ASSERT_EQ_INT(0, Settings_ValueToPersist(0, 1, -1));
 }
 
+/* A row whose default sits outside its own range is a declaration mistake, and falling back to it
+ * would hand out exactly the value this rule refuses. The fallback is bounded too, so a bad row
+ * cannot produce an out-of-range live setting. */
+static void test_a_default_outside_the_range_is_contained(void) {
+    const T_SETTING high = row(SETTING_OR_DEFAULT, 999, 0, 2);
+    const T_SETTING low = row(SETTING_OR_DEFAULT, -5, 0, 2);
+
+    ASSERT_EQ_INT(2, Settings_Coerce(&high, 99));
+    ASSERT_EQ_INT(0, Settings_Coerce(&low, 99));
+    /* An in-range value is still returned untouched, bad default or not. */
+    ASSERT_EQ_INT(1, Settings_Coerce(&high, 1));
+}
+
 int main(void) {
     RUN_TEST(test_every_rule_passes_an_in_range_value_through);
     RUN_TEST(test_clamp_moves_to_the_nearer_bound);
@@ -180,6 +193,7 @@ int main(void) {
     RUN_TEST(test_changing_it_during_an_overridden_run_persists);
     RUN_TEST(test_setting_it_to_the_forced_value_cannot_be_told_apart);
     RUN_TEST(test_zero_is_a_real_forced_value);
+    RUN_TEST(test_a_default_outside_the_range_is_contained);
     TEST_SUMMARY();
     return test_failures != 0;
 }

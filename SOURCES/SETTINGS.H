@@ -82,7 +82,17 @@ static inline S32 Settings_Coerce(const T_SETTING *s, S32 value) {
         return value;
 
     case SETTING_OR_DEFAULT:
-        return (value < s->min || value > s->max) ? s->def : value;
+        if (value >= s->min && value <= s->max)
+            return value;
+        /* Falling back to a default the row itself puts out of range would hand
+         * back exactly the kind of value this rule exists to refuse, so the
+         * default is held to the same bounds. A row declared that way is a
+         * mistake; this contains it rather than propagating it. */
+        if (s->def < s->min)
+            return s->min;
+        if (s->def > s->max)
+            return s->max;
+        return s->def;
 
     case SETTING_CLAMP:
     default:

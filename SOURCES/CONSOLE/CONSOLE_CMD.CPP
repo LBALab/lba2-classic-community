@@ -5,6 +5,7 @@
 #include "../COMMON.H"
 #include "../ZONE_GEOM.H" // ZonePointInBox (zonelist shares the engine's zone box test)
 #include "../DIRECTORIES.H"
+#include "../CONFIG_FILE.H"
 #include "../DISTRIB.H"
 #include "../FOLLOWCAM.H" // cam_* cvars and the camtrace toggle
 #include "../PLAYACF.H"
@@ -1699,21 +1700,30 @@ static void cmd_vsync(int argc, const char *argv[]) {
    up or freezing above 60 fps (vsync off, high-refresh). off/0 restores per-frame sim.
    Default is on (16); persists to lba2.cfg (FixedTimestep key). See docs/MOVEMENT_FRAMERATE.md. */
 static void cmd_fixedtimestep(int argc, const char *argv[]) {
+    /* Range and default come from the declaration rather than being written down
+       again here: a verb repeating them drifts the moment the row is retuned, and
+       these two already disagreed about whether 0 is a value or a rejection. */
+    const T_SETTING *decl = ConfigFile_Setting("FixedTimestep");
+    const int lo = (decl != NULL) ? (int)decl->min : 0;
+    const int hi = (decl != NULL) ? (int)decl->max : 100;
+    const int on = (decl != NULL) ? (int)decl->def : 16;
+
     if (argc >= 2) {
         const char *arg = argv[1];
         if (!strcasecmp(arg, "on")) {
-            FixedTimestep = 16;
-        } else if (!strcasecmp(arg, "off") || !strcmp(arg, "0")) {
+            FixedTimestep = on;
+        } else if (!strcasecmp(arg, "off")) {
             FixedTimestep = 0;
         } else if (!strcasecmp(arg, "toggle")) {
-            FixedTimestep = FixedTimestep > 0 ? 0 : 16;
+            FixedTimestep = FixedTimestep > 0 ? 0 : on;
         } else {
-            int ms = atoi(arg);
-            if (ms < 1 || ms > 100) {
-                Console_Print("fixedtimestep: bad arg '%s' (use on|off|toggle|1..100).", arg);
+            char *end = NULL;
+            const long ms = strtol(arg, &end, 10);
+            if (end == arg || *end != '\0' || ms < (long)lo || ms > (long)hi) {
+                Console_Print("fixedtimestep: bad arg '%s' (use on|off|toggle|%d..%d).", arg, lo, hi);
                 return;
             }
-            FixedTimestep = ms;
+            FixedTimestep = (S32)ms;
         }
         if (!WriteConfigValue("FixedTimestep", FixedTimestep)) {
             Console_Print("(this run only: could not write cfg)");
@@ -1726,7 +1736,7 @@ static void cmd_fixedtimestep(int argc, const char *argv[]) {
         Console_Print("FixedTimestep: OFF (per-frame simulation)");
     }
     if (argc < 2) {
-        Console_Print("Usage: fixedtimestep <on|off|toggle|MS>");
+        Console_Print("Usage: fixedtimestep <on|off|toggle|%d..%d>", lo, hi);
     }
 }
 

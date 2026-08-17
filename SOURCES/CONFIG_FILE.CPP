@@ -110,6 +110,16 @@ static const T_SETTING BootSettings[] = {
 };
 #define BOOT_SETTING_COUNT ((S32)(sizeof(BootSettings) / sizeof(BootSettings[0])))
 
+const T_SETTING *ConfigFile_Setting(const char *key) {
+    S32 i;
+
+    for (i = 0; i < BOOT_SETTING_COUNT; i++) {
+        if (BootSettings[i].key != NULL AND !strcmp(BootSettings[i].key, key))
+            return &BootSettings[i];
+    }
+    return NULL;
+}
+
 void ReadConfigFile(void) {
     const char *ptr;
 

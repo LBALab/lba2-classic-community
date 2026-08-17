@@ -91,13 +91,23 @@ void Console_RegisterCommand(const char *name, Console_CmdFn callback, const cha
 void Console_RegisterCommandEx(const char *name, Console_CmdFn callback, const char *help, const char *usage, const char *context);
 void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, const char *help);
 
-/* As above, but the cvar carries the range its owner declared, and the console
- * clamps to it on assignment. Without this the console writes straight through
- * the pointer, so a value set here skips whatever range check the cfg applies,
- * which is why several owners clamp again at the point of use. Registering
- * through the unranged call above leaves a cvar unbounded, as before. */
-void Console_RegisterCvarRanged(const char *name, void *ptr, Console_CvarType type,
-                                int min, int max, const char *help);
+/* Hand a value to the cvar's owner rather than writing it through the pointer.
+ *
+ * A range is not enough: what a setting does with a value outside it is the
+ * owner's rule, and there is more than one. Clamping to the nearer bound where
+ * the owner treats out of range as unset gives the console a different answer
+ * from the config file for the same input, which is the divergence the whole
+ * arrangement exists to remove. So the console parses and the owner decides.
+ *
+ * The value reaches `set` as the integer typed, before any interpretation: a
+ * bool-displayed cvar whose owner takes any non-zero as on must see the 2 the
+ * player typed, not a 0 from a stricter parse here. \a ctx is passed back
+ * unchanged. A cvar registered through the plain call above has no owner: the
+ * console writes the parsed value straight through the pointer, unchecked. */
+typedef void (*Console_CvarSetFn)(void *ctx, int value);
+
+void Console_RegisterCvarCoerced(const char *name, void *ptr, Console_CvarType type,
+                                 Console_CvarSetFn set, void *ctx, const char *help);
 
 /* Called from CONSOLE_CMD.CPP to register all commands/cvars */
 void Console_RegisterAll(void);
