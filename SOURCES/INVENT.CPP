@@ -1765,7 +1765,11 @@ void DoFoundObj(S32 numvar) {
 
         MyGetInput();
 
-        if (!DemoSlide AND(MyKey == K_ESC OR Input & I_MENUS) AND !flag) {
+        /* Console `skipmodals`: the found-object cinematic waits on a keypress
+           that a headless run never sends, so `give` hangs the whole session.
+           Treat it as Esc, exactly as the dialogue modal does in MESSAGE.CPP;
+           the put-away animation then drives flag to 2 on its own timer. */
+        if (!DemoSlide AND(MyKey == K_ESC OR Input & I_MENUS OR DbgSkipModals) AND !flag) {
             //			esc  = TRUE 				;
             StopSpeak();
             flag = 1;
