@@ -42,9 +42,13 @@
  * space the UI literals live in. They differ whenever the player is not at
  * 640x480, which is the whole reason this header exists.
  *
- * There is no width twin because nothing needs one: X centres on the framebuffer
- * at every size, so the authored 640 never enters the arithmetic. */
+ * Most X placement centres on the framebuffer at every size, so the authored
+ * width never enters that arithmetic. The surfaces that are laid out as a whole
+ * 4:3 block rather than centred per element (the inventory, the letterboxed
+ * dialogue box) do need it, which is what UI_CANVAS_W and UiCanvasOriginX are
+ * for. */
 #define UI_CANVAS_H 480
+#define UI_CANVAS_W 640
 
 /* Where the canvas starts inside a framebuffer `modeH` tall, and the same pinned
  * to the bottom edge for the surfaces authored against it (the dialogue box, the
@@ -55,6 +59,15 @@
  * bottom (origin 0) and indexing the row table out of bounds. */
 static inline S32 UiCanvasOriginY(S32 modeH) {
     return modeH > UI_CANVAS_H ? (modeH - UI_CANVAS_H) / 2 : 0;
+}
+
+/* X twin of UiCanvasOriginY, and clamped for the same reason. Below the canvas
+ * width the authored block does not fit, and a negative origin puts its left
+ * edge off-screen, which is how the frame corner copies in INVENT.CPP came to
+ * index outside Log at 320 wide. Clipping at the left edge instead keeps the
+ * visible part on screen and the arithmetic in bounds. */
+static inline S32 UiCanvasOriginX(S32 modeW) {
+    return modeW > UI_CANVAS_W ? (modeW - UI_CANVAS_W) / 2 : 0;
 }
 
 static inline S32 UiCanvasBottomOfsY(S32 modeH) {
@@ -81,5 +94,6 @@ static inline S32 UiCenterX(S32 modeW) {
 #define UI_VCENTER_OFS UiCanvasOriginY((S32)ModeDesiredY)
 #define UI_VBOTTOM_OFS UiCanvasBottomOfsY((S32)ModeDesiredY)
 #define UI_CENTER_X UiCenterX((S32)ModeDesiredX)
+#define UI_HCANVAS_OFS UiCanvasOriginX((S32)ModeDesiredX)
 
 #endif /* UI_LAYOUT_H */

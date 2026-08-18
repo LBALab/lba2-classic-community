@@ -1618,6 +1618,14 @@ static void res_do_switch(U32 newW, U32 newH) {
         Console_Close();
     }
     Console_Print("Resolution: %ux%u", newW, newH);
+
+    /* The UI is authored on a 640x480 canvas and centred rather than scaled, so
+       below that the menus, inventory and holomap lay out past the screen edge.
+       The world still renders correctly, which is what these modes are for, so
+       they stay selectable and we say what to expect instead. */
+    if (newW < UI_CANVAS_W || newH < UI_CANVAS_H)
+        Console_Print("  note: below %ux%u the UI is clipped; world render is unaffected.",
+                      (unsigned)UI_CANVAS_W, (unsigned)UI_CANVAS_H);
 }
 
 static void cmd_perftrace_print_sink(const char *line) {
