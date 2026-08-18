@@ -367,6 +367,23 @@ void GetShadow(S32 xw, S32 yw, S32 zw) {
         ym = SIZE_CUBE_Y - 1;
     }
 
+    /*	Seul le plafond etait borne. xm et zm servaient tels quels, donc une
+        position hors de la grille du cube faisait pointer ptc hors de BufCube,
+        et le bloc lu la donnait un GetAdrBlock() n'importe ou. On borne comme
+        pour ym: a l'interieur de la grille, ces tests ne changent rien. */
+    if (xm < 0)
+        xm = 0;
+    if (xm >= SIZE_CUBE_X)
+        xm = SIZE_CUBE_X - 1;
+
+    if (zm < 0)
+        zm = 0;
+    if (zm >= SIZE_CUBE_Z)
+        zm = SIZE_CUBE_Z - 1;
+
+    if (ym < 0)
+        ym = 0;
+
     ptc = BufCube + ym * 2 + (xm * SIZE_CUBE_Y * 2) + (zm * SIZE_CUBE_X * SIZE_CUBE_Y * 2);
 
     for (y = ym; y > 0; y--) {

@@ -287,7 +287,7 @@ void GetKeyText(char *string, U32 scan) {
     } else {
         S32 joy;
         S32 button;
-        char rest[30];
+        char rest[MULTI_TEXT_MAX];
 
         scan -= 256;
 
@@ -352,7 +352,7 @@ void InitKeyStrings(void) {
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 void DrawOneConfig(S32 n) {
-    char string[100];
+    char string[MULTI_TEXT_MAX];
     S32 y = CFG_Y0 + 30 + n * 10;
     S32 x = ACTION_X;
     S32 x0, y0, x1, y1;
@@ -452,7 +452,7 @@ void DrawOneConfig(S32 n) {
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 void DrawOneConfigMenu(S32 n) {
-    char txt[100];
+    char txt[MULTI_TEXT_MAX];
     S32 x0, y0, x1, y1;
     S32 y;
 
@@ -517,7 +517,7 @@ void DrawCadreConfig(S32 x0, S32 y0, S32 x1, S32 y1, S32 flagclean) {
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 void DrawStatusConfig(S32 num) {
-    char txt[100];
+    char txt[MULTI_TEXT_MAX];
 
     if (num == STATUS_MENU && s_ConfigGamepadTripleFooter) {
         char lineBuf[220];
@@ -571,7 +571,7 @@ void DrawStatusConfig(S32 num) {
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 void DrawScreenConfig(S32 gamepadTripleFooter) {
     S32 n;
-    char string[100];
+    char string[MULTI_TEXT_MAX];
 
     s_ConfigGamepadTripleFooter = gamepadTripleFooter;
 
@@ -1423,9 +1423,9 @@ S32 ConfirmMenu(char *ask, char *ok, char *cancel) {
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 S32 AskForCD(void) {
     S32 ret;
-    char ask_txt[255];
-    char ok_txt[20];
-    char cancel_txt[20];
+    char ask_txt[MULTI_TEXT_MAX];
+    char ok_txt[MULTI_TEXT_MAX];
+    char cancel_txt[MULTI_TEXT_MAX];
     char tmpFilePath[ADELINE_MAX_PATH];
 
     // ATTENTION: pour entrer là, le InitDial(0) doit etre fait avant !

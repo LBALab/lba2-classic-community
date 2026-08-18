@@ -79,7 +79,7 @@ void Line_ZBuffer(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
                     return;
                 }
 
-                Z1 += (ClipYMin - y0) * DZ / diffY;
+                Z1 += (S32)((S64)(ClipYMin - y0) * DZ / diffY);
                 y0 = ClipYMin;
                 continue;
             }
@@ -90,21 +90,21 @@ void Line_ZBuffer(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
                     return;
                 }
 
-                Z1 += (ClipYMax - y0) * DZ / diffY;
+                Z1 += (S32)((S64)(ClipYMax - y0) * DZ / diffY);
                 y0 = ClipYMax;
                 continue;
             }
 
             // @@DX_Y1b:
             if (y1 < ClipYMin) {
-                Z2 += (ClipYMin - y1) * DZ / diffY;
+                Z2 += (S32)((S64)(ClipYMin - y1) * DZ / diffY);
                 y1 = ClipYMin;
                 continue;
             }
 
             // @@DX_Y2:
             if (y1 > ClipYMax) {
-                Z2 += (ClipYMax - y1) * DZ / diffY;
+                Z2 += (S32)((S64)(ClipYMax - y1) * DZ / diffY);
                 y1 = ClipYMax;
                 continue;
             }
@@ -120,7 +120,7 @@ void Line_ZBuffer(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
                     return;
                 }
 
-                Z1 -= (x0 - ClipXMin) * DZ / diffX;
+                Z1 -= (S32)((S64)(x0 - ClipXMin) * DZ / diffX);
                 x0 = ClipXMin;
                 continue;
             }
@@ -131,21 +131,21 @@ void Line_ZBuffer(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
                     return;
                 }
 
-                Z1 -= (x0 - ClipXMax) * DZ / diffX;
+                Z1 -= (S32)((S64)(x0 - ClipXMax) * DZ / diffX);
                 x0 = ClipXMax;
                 continue;
             }
 
             // @@DY_X1b:
             if (x1 < ClipXMin) {
-                Z2 -= (x1 - ClipXMin) * DZ / diffX;
+                Z2 -= (S32)((S64)(x1 - ClipXMin) * DZ / diffX);
                 x1 = ClipXMin;
                 continue;
             }
 
             // @@DY_X2:
             if (x1 > ClipXMax) {
-                Z2 -= (x1 - ClipXMax) * DZ / diffX;
+                Z2 -= (S32)((S64)(x1 - ClipXMax) * DZ / diffX);
                 x1 = ClipXMax;
                 continue;
             }
@@ -154,7 +154,7 @@ void Line_ZBuffer(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
                 return;
             }
 
-            Z1 -= (x0 - ClipXMin) * DZ / diffX;
+            Z1 -= (S32)((S64)(x0 - ClipXMin) * DZ / diffX);
             y0 -= (x0 - ClipXMin) * diffY / diffX;
             x0 = ClipXMin;
             continue;
@@ -165,21 +165,21 @@ void Line_ZBuffer(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
                 return;
             }
 
-            Z1 -= (x0 - ClipXMax) * DZ / diffX;
+            Z1 -= (S32)((S64)(x0 - ClipXMax) * DZ / diffX);
             y0 -= (x0 - ClipXMax) * diffY / diffX;
             x0 = ClipXMax;
             continue;
         }
         // @@Clip_X1:
         else if (x1 < ClipXMin) {
-            Z2 -= (x1 - ClipXMin) * DZ / diffX;
+            Z2 -= (S32)((S64)(x1 - ClipXMin) * DZ / diffX);
             y1 -= (x1 - ClipXMin) * diffY / diffX;
             x1 = ClipXMin;
             continue;
         }
         // @@Clip_X2:
         else if (x1 > ClipXMax) {
-            Z2 -= (x1 - ClipXMax) * DZ / diffX;
+            Z2 -= (S32)((S64)(x1 - ClipXMax) * DZ / diffX);
             y1 -= (x1 - ClipXMax) * diffY / diffX;
             x1 = ClipXMax;
             continue;
@@ -189,7 +189,7 @@ void Line_ZBuffer(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
             if (y1 < ClipYMin) {
                 return;
             }
-            Z1 += (ClipYMin - y0) * DZ / diffY;
+            Z1 += (S32)((S64)(ClipYMin - y0) * DZ / diffY);
             x0 += (ClipYMin - y0) * diffX / diffY;
             y0 = ClipYMin;
             continue;
@@ -200,21 +200,21 @@ void Line_ZBuffer(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
                 return;
             }
 
-            Z1 += (ClipYMax - y0) * DZ / diffY;
+            Z1 += (S32)((S64)(ClipYMax - y0) * DZ / diffY);
             x0 += (ClipYMax - y0) * diffX / diffY;
             y0 = ClipYMax;
             continue;
         }
         // @@Clip_Y1:
         else if (y1 < ClipYMin) {
-            Z2 += (ClipYMin - y1) * DZ / diffY;
+            Z2 += (S32)((S64)(ClipYMin - y1) * DZ / diffY);
             x1 += (ClipYMin - y1) * diffX / diffY;
             y1 = ClipYMin;
             continue;
         }
         // @@Clip_Y2:
         else if (y1 > ClipYMax) {
-            Z2 += (ClipYMax - y1) * DZ / diffY;
+            Z2 += (S32)((S64)(ClipYMax - y1) * DZ / diffY);
             x1 += (ClipYMax - y1) * diffX / diffY;
             y1 = ClipYMax;
             continue;
@@ -385,7 +385,7 @@ void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
                     return;
                 }
 
-                Z1 += (ClipYMin - y0) * DZ / diffY;
+                Z1 += (S32)((S64)(ClipYMin - y0) * DZ / diffY);
                 y0 = ClipYMin;
                 continue;
             }
@@ -396,21 +396,21 @@ void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
                     return;
                 }
 
-                Z1 += (ClipYMax - y0) * DZ / diffY;
+                Z1 += (S32)((S64)(ClipYMax - y0) * DZ / diffY);
                 y0 = ClipYMax;
                 continue;
             }
 
             // @@DX_Y1b:
             if (y1 < ClipYMin) {
-                Z2 += (ClipYMin - y1) * DZ / diffY;
+                Z2 += (S32)((S64)(ClipYMin - y1) * DZ / diffY);
                 y1 = ClipYMin;
                 continue;
             }
 
             // @@DX_Y2:
             if (y1 > ClipYMax) {
-                Z2 += (ClipYMax - y1) * DZ / diffY;
+                Z2 += (S32)((S64)(ClipYMax - y1) * DZ / diffY);
                 y1 = ClipYMax;
                 continue;
             }
@@ -426,7 +426,7 @@ void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
                     return;
                 }
 
-                Z1 -= (x0 - ClipXMin) * DZ / diffX;
+                Z1 -= (S32)((S64)(x0 - ClipXMin) * DZ / diffX);
                 x0 = ClipXMin;
                 continue;
             }
@@ -437,21 +437,21 @@ void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
                     return;
                 }
 
-                Z1 -= (x0 - ClipXMax) * DZ / diffX;
+                Z1 -= (S32)((S64)(x0 - ClipXMax) * DZ / diffX);
                 x0 = ClipXMax;
                 continue;
             }
 
             // @@DY_X1b:
             if (x1 < ClipXMin) {
-                Z2 -= (x1 - ClipXMin) * DZ / diffX;
+                Z2 -= (S32)((S64)(x1 - ClipXMin) * DZ / diffX);
                 x1 = ClipXMin;
                 continue;
             }
 
             // @@DY_X2:
             if (x1 > ClipXMax) {
-                Z2 -= (x1 - ClipXMax) * DZ / diffX;
+                Z2 -= (S32)((S64)(x1 - ClipXMax) * DZ / diffX);
                 x1 = ClipXMax;
                 continue;
             }
@@ -460,7 +460,7 @@ void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
                 return;
             }
 
-            Z1 -= (x0 - ClipXMin) * DZ / diffX;
+            Z1 -= (S32)((S64)(x0 - ClipXMin) * DZ / diffX);
             y0 -= (x0 - ClipXMin) * diffY / diffX;
             x0 = ClipXMin;
             continue;
@@ -471,21 +471,21 @@ void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
                 return;
             }
 
-            Z1 -= (x0 - ClipXMax) * DZ / diffX;
+            Z1 -= (S32)((S64)(x0 - ClipXMax) * DZ / diffX);
             y0 -= (x0 - ClipXMax) * diffY / diffX;
             x0 = ClipXMax;
             continue;
         }
         // @@Clip_X1:
         else if (x1 < ClipXMin) {
-            Z2 -= (x1 - ClipXMin) * DZ / diffX;
+            Z2 -= (S32)((S64)(x1 - ClipXMin) * DZ / diffX);
             y1 -= (x1 - ClipXMin) * diffY / diffX;
             x1 = ClipXMin;
             continue;
         }
         // @@Clip_X2:
         else if (x1 > ClipXMax) {
-            Z2 -= (x1 - ClipXMax) * DZ / diffX;
+            Z2 -= (S32)((S64)(x1 - ClipXMax) * DZ / diffX);
             y1 -= (x1 - ClipXMax) * diffY / diffX;
             x1 = ClipXMax;
             continue;
@@ -495,7 +495,7 @@ void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
             if (y1 < ClipYMin) {
                 return;
             }
-            Z1 += (ClipYMin - y0) * DZ / diffY;
+            Z1 += (S32)((S64)(ClipYMin - y0) * DZ / diffY);
             x0 += (ClipYMin - y0) * diffX / diffY;
             y0 = ClipYMin;
             continue;
@@ -506,21 +506,21 @@ void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
                 return;
             }
 
-            Z1 += (ClipYMax - y0) * DZ / diffY;
+            Z1 += (S32)((S64)(ClipYMax - y0) * DZ / diffY);
             x0 += (ClipYMax - y0) * diffX / diffY;
             y0 = ClipYMax;
             continue;
         }
         // @@Clip_Y1:
         else if (y1 < ClipYMin) {
-            Z2 += (ClipYMin - y1) * DZ / diffY;
+            Z2 += (S32)((S64)(ClipYMin - y1) * DZ / diffY);
             x1 += (ClipYMin - y1) * diffX / diffY;
             y1 = ClipYMin;
             continue;
         }
         // @@Clip_Y2:
         else if (y1 > ClipYMax) {
-            Z2 += (ClipYMax - y1) * DZ / diffY;
+            Z2 += (S32)((S64)(ClipYMax - y1) * DZ / diffY);
             x1 += (ClipYMax - y1) * diffX / diffY;
             y1 = ClipYMax;
             continue;

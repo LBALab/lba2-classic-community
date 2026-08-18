@@ -2,6 +2,7 @@
 #define GAMEMENU_H
 
 #include "MENU_LABELS.H"
+#include "UI_LAYOUT.H" /* UI_CENTER_X */
 
 #ifdef DEMO
 extern S32 FlagShowEndDemo;
@@ -21,14 +22,15 @@ extern void InitMenuIncrustText(const char *text, S32 sprite, S32 time);
 extern void DrawFireBar(S32 xmin, S32 ymin, S32 xmax, S32 ymax, S32 coul);
 /*--------------------------------------------------------------------------*/
 /* Plasma/fire highlight bar on the active menu option. Sits horizontally
-   centred on the screen, LargeurMenu wide. The bar's x-range mirrors the
-   DrawOneString/DrawOneChoice box (x ± LargeurMenu/2) — those callers
-   already centre at ModeDesiredX/2 post-C2, so this macro tracks the same
-   anchor or the highlight slides off the menu items at wider widths. */
-#define DrawFire(y, coul) DrawFireBar((S32)ModeDesiredX / 2 - LargeurMenu / 2, \
-                                      y,                                       \
-                                      (S32)ModeDesiredX / 2 + LargeurMenu / 2, \
-                                      y + HAUTEUR_STANDARD,                    \
+   centred, LargeurMenu wide. The bar's x-range mirrors the
+   DrawOneString/DrawOneChoice box (x ± LargeurMenu/2), and those callers centre
+   on UI_CENTER_X, so this macro has to use the same anchor or the highlight
+   slides off the menu items. LargeurMenu is 550, so in the sub-640 modes both
+   ends of the bar hang off the screen and SetClip trims them. */
+#define DrawFire(y, coul) DrawFireBar(UI_CENTER_X - LargeurMenu / 2, \
+                                      y,                             \
+                                      UI_CENTER_X + LargeurMenu / 2, \
+                                      y + HAUTEUR_STANDARD,          \
                                       coul)
 /*--------------------------------------------------------------------------*/
 extern int my_sort_function(const void *a, const void *b);

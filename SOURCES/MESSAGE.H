@@ -111,6 +111,13 @@ extern void Dial(S32 text, S32 drawscene);
    "" to disarm.  Used by the console "ui dialog <text-id> <path>" verb. */
 extern void Dial_RequestCapture(const char *path);
 extern S32 MyDial(S32 nummess);
+/*	GetMultiText() copies up to 255 bytes of the entry and always terminates at
+    dst[255] when the entry is that long, so a destination is 256 bytes or it
+    gets written past. The entry lengths are whatever TEXT.HQR holds for the
+    player's language, so a buffer that fits the English string can still
+    overflow on a translation. Size destinations with this. */
+#define MULTI_TEXT_MAX 256
+
 extern char *GetMultiText(S32 text, char *dst);
 extern void CleanMessage(char *string, S32 flag);
 extern void LoadListMessages(S32 file);

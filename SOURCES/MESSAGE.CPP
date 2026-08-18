@@ -22,6 +22,7 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include "DIRECTORIES.H"
+#include "UI_LAYOUT.H" /* UI_VCENTER_OFS, UI_VBOTTOM_OFS */
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/STRING.H>
@@ -156,7 +157,7 @@ static S32 SizeWord;
 
 /*-------------------------------------------------------------------------*/
 
-static char BufferMultiText[256];
+static char BufferMultiText[MULTI_TEXT_MAX];
 static S32 FileMultiText = -1;
 static S32 NumMultiText = -1;
 
@@ -1357,11 +1358,12 @@ void AffAllCar() {
     T_STACKCAR *pt;
     S32 i, c;
 
-    pt = &StackCar[NbCar - 1];
-
     c = MinDegrade;
 
-    for (i = NbCar - 1; i >= 0; i--, pt--) {
+    //	pt calculé dans la boucle: NbCar == 0 formait &StackCar[-1]
+    for (i = NbCar - 1; i >= 0; i--) {
+        pt = &StackCar[i];
+
         AffOneCar(pt->x, pt->y, pt->c, c);
 
         if (c < MaxDegrade)
@@ -1509,8 +1511,17 @@ S32 GereFlagDial(S32 text) {
 
         // Optimisation : mise a jour des globales servant a
         // GetMultiText pour ne pas charger le texte 2 fois
-        memmove(BufferMultiText, PtText, SizeText);
-        BufferMultiText[SizeText - 1] = 0;
+        /*	Meme troncature que GetMultiText(), qui ne recopie jamais plus de
+            MULTI_TEXT_MAX octets. Sans cela le cache garde la chaine entiere
+            alors que le chemin non cache la coupe, donc le meme texte sort
+            different selon qu'il vient du cache ou non, et une ligne plus
+            longue que le buffer deborde. Les donnees retail en comptent 483
+            au-dela de 255 octets, la plus longue faisant 1133. */
+        S32 cached = SizeText - 1;
+        if (cached > MULTI_TEXT_MAX - 1)
+            cached = MULTI_TEXT_MAX - 1;
+        memmove(BufferMultiText, PtText, cached);
+        BufferMultiText[cached] = 0;
         NumMultiText = text;
         FileMultiText = LastFileInit;
 

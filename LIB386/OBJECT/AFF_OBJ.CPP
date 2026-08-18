@@ -1065,8 +1065,12 @@ S32 Sphere(U32 typePoly, void *poly) {
         S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
         if (z + PosZWr == 0) // ASM @@SkipSphere: point on the camera Z plane
             return 0;
-        radius *= LFactorX;
-        radius /= z + PosZWr;
+        // ASM: one-operand `imul [LFactorX]` puts the product in EDX:EAX and
+        // `idiv ebp` consumes all 64 bits. Shipping focal lengths (600..1024)
+        // keep this inside 32 bits for any real radius, so this is the same
+        // arithmetic in practice, but match the original's width rather than
+        // rely on that. Same class as the clip products in POLYLINE.CPP.
+        radius = (S32)((S64)radius * LFactorX / (z + PosZWr));
     }
 
     // @@Return_Radius:
@@ -1121,8 +1125,12 @@ S32 Sphere_Transp(U32 typePoly, void *poly) {
         S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
         if (z + PosZWr == 0) // ASM @@SkipSphere: point on the camera Z plane
             return 0;
-        radius *= LFactorX;
-        radius /= z + PosZWr;
+        // ASM: one-operand `imul [LFactorX]` puts the product in EDX:EAX and
+        // `idiv ebp` consumes all 64 bits. Shipping focal lengths (600..1024)
+        // keep this inside 32 bits for any real radius, so this is the same
+        // arithmetic in practice, but match the original's width rather than
+        // rely on that. Same class as the clip products in POLYLINE.CPP.
+        radius = (S32)((S64)radius * LFactorX / (z + PosZWr));
     }
 
     TYPE_PT p1 = Obj_ListProjectedPoints[sphere->P1];

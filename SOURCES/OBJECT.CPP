@@ -87,7 +87,7 @@ T_COMPORTEMENT ListComportement[MAX_COMPORTEMENTS] = {
     {7, -1, NULL, CF_HOLOMAP}, // Squelette
 };
 
-char DefSysText[4][20] = {
+char DefSysText[4][MULTI_TEXT_MAX] = {
     "Normal",
     "Sportif",
     "Aggressif",

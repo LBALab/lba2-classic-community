@@ -104,10 +104,13 @@ This phase had two strands. The UI strand is done; the HD strand moved to its ow
 
 The C2 campaign above centred the 2D UI horizontally (`ModeDesiredX/2`) for a *wider* frame. It left UI height at the authored 480, so vertical positions stayed authored-pixel. This sweep (branch `fix/ui-vertical-centre`) does the Y axis, so the UI is also correct in a *taller* frame (`ModeDesiredY > 480`, reachable via `--resolution` and the `resolution` console verb even though the shipped widescreen modes stay 480-tall).
 
-The model is one 480-tall authored canvas floated into the live framebuffer. Two macros in `SOURCES/DEFINES.H`, both read live (never cache; they must survive a runtime `Res_Switch`) and both `0` at `ModeDesiredY == 480` so every site is behaviour-preserving at the classic resolution:
+The model is one 480-tall authored canvas floated into the live framebuffer. Two macros in [`SOURCES/UI_LAYOUT.H`](../SOURCES/UI_LAYOUT.H), both read live (never cache; they must survive a runtime `Res_Switch`) and both `0` at `ModeDesiredY == 480` so every site is behaviour-preserving at the classic resolution:
 
-- `UI_VCENTER_OFS = ((S32)ModeDesiredY - 480) / 2`, to float the canvas to the vertical middle.
-- `UI_VBOTTOM_OFS = (S32)ModeDesiredY - 480`, to pin to the bottom edge.
+- `UI_VCENTER_OFS = ((S32)ModeDesiredY - 480) / 2` where `ModeDesiredY > 480`, else `0`, to float the canvas to the vertical middle.
+- `UI_VBOTTOM_OFS = (S32)ModeDesiredY - 480` where `ModeDesiredY > 480`, else `0`, to pin to the bottom edge.
+
+Both clamps matter: without them a 200- or 240-tall framebuffer gives a negative
+offset, and the reason that is worse than a UI drawn off the bottom is below.
 
 Each surface's anchor mode mirrors how it reads on the 4:3 canvas:
 
@@ -128,6 +131,40 @@ Notes:
 - `INV_TOP_OFFSET` is the vertical twin of the pre-existing `INV_LEFT_OFFSET`. The slate's `PLAN_Y` overlays now track the slate art, which `DrawArdoise` already loads vertically centred via `Image_LoadCentered`; previously the art floated while the overlays stayed at the top.
 - `DialLetterboxInsetY` is the vertical twin of `DialLetterboxInset`. When a centred PCX backdrop is up (`Dial_Letterbox`), the text is inset to the picture on both axes instead of spilling into the letterbox bars. The backdrop stays a 640x480 centred letterbox (the project's cinematic convention), not scaled, since a fixed 4:3 pixel-art image cannot fill a taller frame without distortion or cropping.
 - Mouse hit-test: `GameMenuHitTestRow` is a separate copy of the `DrawGameMenu` layout math. It carried a hardcoded `320` X centre (a pre-existing widescreen bug the X campaign missed, so clicks missed the menu at any width other than 640) and no Y offset. Both now mirror the draw (`ModeDesiredX/2` plus `UI_VCENTER_OFS`). When floating a menu's draw, check for a duplicate hit-test doing the same math separately.
+
+
+#### Where the rule lives, and why the two axes differ
+
+Both halves of the placement rule are now in [`SOURCES/UI_LAYOUT.H`](../SOURCES/UI_LAYOUT.H),
+with a host test in `tests/ui_layout/` that CI runs on every platform. The
+horizontal anchor has a name there too, `UI_CENTER_X`, which is the same
+`ModeDesiredX / 2` the sites spelled inline; the game menu uses it, the other
+surfaces still spell it out.
+
+The axes are deliberately not symmetric, and the asymmetry is the part worth
+knowing before touching either:
+
+| | Above the canvas | Below the canvas |
+|---|---|---|
+| X | centres on the framebuffer | still centres on the framebuffer; wide panels hang off both edges and `SetClip` trims them |
+| Y | centres, or pins to the bottom | falls back to the canvas-top origin, never a negative offset |
+
+The Y clamp exists because a negative Y reaches `TabOffLine[]`, which
+`BackupAngles` and the pixel-shift macros index without a bounds check, so it is a
+write outside the framebuffer rather than a draw off the edge of it. X has no
+equivalent: a negative x goes through `SetClip`, which clamps it to
+`ClipWindowXMin`.
+
+Clamping X the same way was tried and reverted. It anchors the canvas at 0, which
+puts its centre at 320, off the right edge of a 320-wide framebuffer: the menu
+highlight bar starts at x=45 and runs past the right edge, and the item text goes
+with it. Captured at 320x240 before reverting. The narrow modes look correct as
+they are; the negative left edges (`-115` for the 550-wide menu bar, `-150` for
+the 620-wide keybinding panel) are clipped, not written.
+
+That leaves the intermittent sub-640 segfault reported in
+[CONTROL.md](CONTROL.md) unexplained: it is Windows-only, it does not reproduce
+on Linux at either narrow mode, and it is not this arithmetic.
 
 Verification: every site is `0` at 640x480 by construction and the host suite stays green. At tall res, captures confirm the menu block, holomap planet, and inventory wheel each translate by exactly `UI_VCENTER_OFS`, the holomap strip and dialogue box pin to the bottom, and the end-game text lands on its backdrop. The ask-choice list, action menu, found-object appear phase, and mouse hit-test have no headless capture path and were verified in-game.
 
@@ -246,6 +283,20 @@ the centred 640×480 crop of the wide capture is byte-identical to the existing 
 golden (`ui_compare_wide` in `lib.sh`). No per-resolution goldens; the 640 golden
 stays the single source of truth, which keeps the test honest against future
 projection or UI changes.
+
+**Tall coverage.** `test_ui_menu_options_hd.sh` and `test_ui_menu_options_uhd.sh`
+run the same comparison at 1280×720 and 1920×1080. They exist because 480 was the
+tallest frame anything asserted against: `ui_compare_wide` already took a
+resolution argument, but every caller passed a 480-tall one, so nothing exercised
+the vertical float at all. Adding 3 lines to `UI_VCENTER_OFS` leaves the 640 and
+768 fixtures green and turns both of these red, which is the coverage they add.
+1080 is worth its own rung as the `ADELINE_MAX_Y_RES` boundary, where the float is
+300 lines rather than 120.
+
+`menu-main` is deliberately not covered above 640 at any height. It composites over
+the live sky rather than `--black-bg`, and a taller or wider frame shows more of
+that scene: the crop differs by ~133k pixels at 768×480 before anything about the
+UI has moved. Only the cleanroom captures can be compared this way.
 
 **Still not protected** at wider widths:
 
