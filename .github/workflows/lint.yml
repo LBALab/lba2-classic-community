@@ -57,6 +57,22 @@ jobs:
       - name: Lint shell scripts
         run: git ls-files -z -- '*.sh' | xargs -0 shellcheck -S warning -f gcc
 
+      # The step above only sees files named *.sh, and actionlint (next job)
+      # only walks .github/workflows. The shell inside a composite action is in
+      # neither set, so it was checked by nothing. Same shellcheck, same
+      # severity, so a finding here means what a finding there means.
+      #
+      # The self-test runs first, and on the same runner: the checker parses
+      # block scalars by hand to stay stdlib-only, and a parser that drifts
+      # reports "clean" rather than failing. The suite pins that direction, so
+      # running it after the check would be reading the result before the
+      # instrument.
+      - name: Self-test the composite-action shell checker
+        run: python3 scripts/ci/check-action-shell-selftest.py
+
+      - name: Lint the shell in composite actions
+        run: python3 scripts/ci/check-action-shell.py
+
   # actionlint shells out to shellcheck for the body of every `run:` block, so
   # it needs the same pinned binary the job above uses. Without it the workflow
   # shell would be checked by whatever version the runner image happens to ship.
