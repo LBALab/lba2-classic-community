@@ -22,7 +22,15 @@
 // I_* bits, one per slot); the last four are the spell bits of a second word,
 // which is why they cannot share the folded table -- I_PINGOUIN is (1 << 0),
 // the same bit as I_UP. PERSO.CPP reads those four with a direct CheckKey.
-#define MAX_INPUT 36
+//
+// Not spelled MAX_INPUT: that name belongs to POSIX. <linux/limits.h> gives it
+// the value 255, the size of the terminal type-ahead buffer, and Bionic reaches
+// it through <limits.h> where desktop glibc does not. A translation unit that
+// includes this header ahead of a system header would then declare these tables
+// at one size and define them at another, which the compiler reports as a
+// redefinition with a different type. A name this module owns cannot be
+// clobbered by include order, and that, rather than the number, is the point.
+#define MAX_INPUT_SLOTS 36
 
 typedef struct {
     U32 Key1;
@@ -32,23 +40,23 @@ typedef struct {
 // The Windows 95 default layout: what RestoreInput installs, and the value a
 // binding the config file leaves unset falls back to. Const like the pad table
 // below it, since a default nothing may edit is the point of having one.
-extern const T_DEF_KEY DefKeysDefault95[MAX_INPUT + 1];
+extern const T_DEF_KEY DefKeysDefault95[MAX_INPUT_SLOTS + 1];
 
-extern T_DEF_KEY DefKeys[MAX_INPUT + 1];
-extern T_DEF_KEY MemoDefKeys[MAX_INPUT + 1];
+extern T_DEF_KEY DefKeys[MAX_INPUT_SLOTS + 1];
+extern T_DEF_KEY MemoDefKeys[MAX_INPUT_SLOTS + 1];
 
 // tableau de configuration des touches utilisé au cours du jeu
 // Read by nothing in this build: the combined table InitInput hands to
 // DefineInputKeys replaced it. Moved with the tables it belongs to rather than
 // dropped, so the move stays a move.
-extern U32 TabInputBit[MAX_INPUT * 2 + 1];
+extern U32 TabInputBit[MAX_INPUT_SLOTS * 2 + 1];
 
 // Parallel gamepad binding table: Key1 / Key2 are alternate bindings (OR),
 // same semantics as DefKeys (see KEYBOARD_KEYS.H for K_GAMEPAD_*). 0 =
 // unbound. Folded into the combined input table by InitInput() alongside
 // DefKeys, so the pad flows through GetInput()'s NoRepeatInput edge-filter.
-extern T_DEF_KEY GamepadKeys[MAX_INPUT];
-extern const T_DEF_KEY GamepadKeysDefault[MAX_INPUT];
+extern T_DEF_KEY GamepadKeys[MAX_INPUT_SLOTS];
+extern const T_DEF_KEY GamepadKeysDefault[MAX_INPUT_SLOTS];
 
 // How many entries InitInput() handed to DefineInputKeys.
 extern U32 NbInput;

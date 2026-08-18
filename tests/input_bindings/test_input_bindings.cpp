@@ -34,7 +34,7 @@
 #include <SYSTEM/INPUT.H>         // Input, GetInput, ClearNoRepeatInput
 #include <SYSTEM/KEYBOARD_KEYS.H> // K_*
 
-#include "INPUT.H" // SOURCES/INPUT.H: T_DEF_KEY, MAX_INPUT, InitInput, RestoreInput
+#include "INPUT.H" // SOURCES/INPUT.H: T_DEF_KEY, MAX_INPUT_SLOTS, InitInput, RestoreInput
 
 #include "held_keys.h"
 
@@ -115,9 +115,9 @@ const int kFoldedSlots = 32;
 
 // --- 1. The layout, as data -------------------------------------------------
 void CheckRetailLayout(void) {
-    CHECK(kRetailCount == MAX_INPUT,
-          "expected list covers %d slots, MAX_INPUT is %d", kRetailCount,
-          (int)MAX_INPUT);
+    CHECK(kRetailCount == MAX_INPUT_SLOTS,
+          "expected list covers %d slots, MAX_INPUT_SLOTS is %d", kRetailCount,
+          (int)MAX_INPUT_SLOTS);
 
     RestoreInput();
 
@@ -135,7 +135,7 @@ void CheckRetailLayout(void) {
 
     // RestoreInput restores the pad in the same breath, so a restore-defaults
     // from the options screen cannot leave the two tables from different eras.
-    for (int i = 0; i < MAX_INPUT; i++) {
+    for (int i = 0; i < MAX_INPUT_SLOTS; i++) {
         CHECK(GamepadKeys[i].Key1 == GamepadKeysDefault[i].Key1 &&
                   GamepadKeys[i].Key2 == GamepadKeysDefault[i].Key2,
               "slot %d: RestoreInput left the pad binding unrestored", i);
@@ -148,21 +148,21 @@ void CheckRetailLayout(void) {
 void CheckNoSharedKeys(void) {
     RestoreInput();
 
-    for (int a = 0; a < MAX_INPUT; a++) {
+    for (int a = 0; a < MAX_INPUT_SLOTS; a++) {
         const U32 mine[2] = {DefKeys[a].Key1, DefKeys[a].Key2};
         for (int m = 0; m < 2; m++) {
             if (!mine[m])
                 continue;
             CHECK(!(m == 1 && mine[0] == mine[1]),
                   "slot %d binds the same key twice (%u)", a, mine[0]);
-            for (int b = a + 1; b < MAX_INPUT; b++) {
+            for (int b = a + 1; b < MAX_INPUT_SLOTS; b++) {
                 CHECK(DefKeys[b].Key1 != mine[m] && DefKeys[b].Key2 != mine[m],
                       "key %u binds both slot %d (%s) and slot %d", mine[m], a,
                       kRetail[a].action, b);
             }
             // The pad shares the one table with the keyboard, so a collision
             // across the two would be the same bug.
-            for (int b = 0; b < MAX_INPUT; b++) {
+            for (int b = 0; b < MAX_INPUT_SLOTS; b++) {
                 CHECK(GamepadKeys[b].Key1 != mine[m] &&
                           GamepadKeys[b].Key2 != mine[m],
                       "key %u binds keyboard slot %d and pad slot %d", mine[m],
@@ -217,7 +217,7 @@ void CheckSpellSlotsStayOut(void) {
     InitInput();
 
     // With the defaults: N, J, C and F reach Input as nothing at all.
-    for (int slot = kFoldedSlots; slot < MAX_INPUT; slot++) {
+    for (int slot = kFoldedSlots; slot < MAX_INPUT_SLOTS; slot++) {
         const U32 keys[2] = {DefKeys[slot].Key1, DefKeys[slot].Key2};
         for (int k = 0; k < 2; k++) {
             if (!keys[k])

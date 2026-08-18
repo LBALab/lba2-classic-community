@@ -60,7 +60,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | MusicVolume | int | 0–127 | 127 | Music/jingle volume (stored as JingleVolume in code) |
 | CDVolume | int | 0–127 | 66 | CD audio volume (no-op when no CD); still supported in config but no longer shown in the in-game volume submenu |
 | MasterVolume | int | 0–127 | 127 | Master volume, scales samples and music |
-| Input0_1..Input35_2 | int | Key scancodes | DefKeysDefault95 | 36 inputs × 2 keys each (`MAX_INPUT` in INPUT_BINDINGS.H). Only read when WinMode=1 |
+| Input0_1..Input35_2 | int | Key scancodes | DefKeysDefault95 | 36 inputs × 2 keys each (`MAX_INPUT_SLOTS` in INPUT_BINDINGS.H). Only read when WinMode=1 |
 | WinMode | int | 0, 1 | 0 | 0=ignore Input* keys, use defaults; 1=read Input* keys. WriteInputConfig always writes WinMode=1 |
 | CompressSave | int | 0, 1 | 1 | 0=uncompressed saves, 1=compressed |
 | Version | int | 0–5, distributor ID | 0 (UNKNOWN_VERSION) | Which publisher's edition this is (`DistribVersion`): Activision, EA, Virgin, regional variants. Installer-written; set via the `distrib` console command. See [VERSIONS.md](VERSIONS.md) |

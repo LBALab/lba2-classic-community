@@ -51,7 +51,7 @@ void ReadInputConfig(void) {
         // On peut identifier chaque input avec un tableau de chaine,
         // mais bon, bof !!!
 
-        for (n = 0; n < MAX_INPUT; n++) {
+        for (n = 0; n < MAX_INPUT_SLOTS; n++) {
             snprintf(id, sizeof(id), "Input%d_1", n);
             DefKeys[n].Key1 = DefFileBufferReadValueDefault(id, DEFKEYSDEFAULT[n].Key1);
 
@@ -74,7 +74,7 @@ void ReadInputConfig(void) {
            than from GamepadKeys: ReadGamepadConfig runs after this function, so
            the live table still holds whatever preceded it. */
         if (!initkeys) {
-            for (n = 0; n < MAX_INPUT; n++) {
+            for (n = 0; n < MAX_INPUT_SLOTS; n++) {
                 /* Defaulted exactly as ReadGamepadConfig will default them, so
                    the probe asks what the pad bindings are going to BE, not
                    what the file happens to spell out. A cfg predating gamepad
@@ -121,7 +121,7 @@ void WriteInputConfig(void) {
     // On peut identifier chaque input avec un tableau de chaine,
     // mais bon, bof !!!
 
-    for (n = 0; n < MAX_INPUT; n++) {
+    for (n = 0; n < MAX_INPUT_SLOTS; n++) {
         snprintf(id, sizeof(id), "Input%d_1", n);
         DefFileBufferWriteValue(id, DefKeys[n].Key1);
 
@@ -175,7 +175,7 @@ void ReadGamepadConfig(void) {
         GamepadCamMaxAlpha = 100;
 
     char id[32];
-    for (S32 n = 0; n < MAX_INPUT; n++) {
+    for (S32 n = 0; n < MAX_INPUT_SLOTS; n++) {
         snprintf(id, sizeof(id), "Gamepad%d", n);
         GamepadKeys[n].Key1 =
             DefFileBufferReadValueDefault(id, GamepadKeysDefault[n].Key1);
@@ -204,7 +204,7 @@ void WriteGamepadConfig(void) {
     DefFileBufferWriteValue("GamepadCamMaxAlpha", GamepadCamMaxAlpha);
 
     char id[32];
-    for (S32 n = 0; n < MAX_INPUT; n++) {
+    for (S32 n = 0; n < MAX_INPUT_SLOTS; n++) {
         snprintf(id, sizeof(id), "Gamepad%d", n);
         DefFileBufferWriteValue(id, GamepadKeys[n].Key1);
         snprintf(id, sizeof(id), "Gamepad%d_2", n);
