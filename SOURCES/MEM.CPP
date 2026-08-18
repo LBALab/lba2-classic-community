@@ -205,6 +205,36 @@ void InitMainBuffer(void) {
         SizeOfMemAllocated += ptrm->Size;
     }
 
+    /* LBA2_DBG_ISOLATE: hand every region its own allocation instead of slicing
+       them out of one block.
+
+       The single-allocation layout below is what ships, and it hides a whole
+       class of bug: a write that runs off the end of one region lands in its
+       neighbour without leaving the allocation, so no sanitizer ever reports
+       it, and the damage surfaces later as garbage data somewhere unrelated.
+       Under this flag the gaps between regions become real redzones and ASan
+       names the code that wrote past.
+
+       Off unless the environment variable is set, so shipping behaviour and
+       memory layout are unchanged. The deliberate aliases are preserved
+       (BufCube and BufferBrick live inside PtrZBuffer), and each region gets a
+       little slack because the original ASM touches one element past a box
+       edge on purpose, which would otherwise mask the spill being hunted.
+       See docs/BUG_HUNTING.md. */
+    if (getenv("LBA2_DBG_ISOLATE")) {
+        ptrm = ListMem;
+        for (t = 0; t < NB_MEM_ELTS; t++, ptrm++) {
+            *ptrm->AdrPtr = (U8 *)Malloc(ptrm->Size + 256);
+            if (!*ptrm->AdrPtr)
+                TheEnd(NOT_ENOUGH_MEM, "MainBuffer");
+        }
+        MainBuffer = (U8 *)*ListMem[0].AdrPtr;
+        BufCube = (U8 *)*ListMem[MEM_PTR_ZBUFFER].AdrPtr;
+        BufferBrick = BufCube + (SIZE_CUBE_X * SIZE_CUBE_Y * SIZE_CUBE_Z * 2L);
+        fprintf(stderr, "[dbg] regions isolated for ASan\n");
+        return;
+    }
+
     // Alloue gros buffer
 
     MainBuffer = (U8 *)Malloc(SizeOfMemAllocated);
