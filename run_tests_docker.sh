@@ -98,8 +98,11 @@ if [ "$FORCE_REBUILD" = true ] || [ -z "$IMAGE_EXISTS" ]; then
     # One pin for every SDL3 path in the repo. Read rather than repeated, for
     # the same reason UASM_VERSION is read out of the Dockerfile below: a
     # second copy is a second thing to forget when bumping.
-    SDL3_VERSION=$(tr -d '[:space:]' < "${SCRIPT_DIR}/.github/sdl3-version.txt")
-    if [ -z "$SDL3_VERSION" ]; then
+    # Read and check in one step. A bare assignment would abort under `set -e`
+    # the moment the file is missing, so the named message below would only
+    # ever be reached for a file that exists and is blank.
+    if ! SDL3_VERSION=$(tr -d '[:space:]' < "${SCRIPT_DIR}/.github/sdl3-version.txt" 2>/dev/null) \
+       || [ -z "$SDL3_VERSION" ]; then
         echo "ERROR: could not read the SDL3 pin from .github/sdl3-version.txt" >&2
         exit 1
     fi

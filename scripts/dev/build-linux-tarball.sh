@@ -99,8 +99,8 @@ error. Build SDL3 from source and re-run with CMAKE_PREFIX_PATH set:
     CMAKE_PREFIX_PATH=/tmp/sdl3-static-prefix \
         bash scripts/dev/build-linux-tarball.sh
 
-CI does the same dance via libsdl-org/setup-sdl in
-.github/workflows/release-linux-tarball.yml.
+CI does the same dance via .github/actions/setup-sdl3 (link: static) in
+.github/workflows/reusable-build-linux-tarball.yml.
 EOF
     exit 1
 fi

@@ -56,16 +56,21 @@ jobs:
           # needs at the lba2cc link step come from the setup-sdl3 action
           # below, which installs them unconditionally for link: static.
           for attempt in 1 2 3; do
-            if timeout -k 30 120 sudo apt-get "${apt_opts[@]}" update \
-              && timeout -k 30 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends \
+            # Killing apt mid-transaction leaves dpkg interrupted, and every
+            # later attempt aborts on that before fetching anything.
+            sudo dpkg --configure -a || true
+            if timeout -k 30 90 sudo apt-get "${apt_opts[@]}" update \
+              && timeout -k 30 240 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends \
                 cmake ninja-build build-essential; then
               exit 0
+            fi
+            if [ "${attempt}" = 3 ]; then
+              echo "apt failed after 3 attempts" >&2
+              exit 1
             fi
             echo "apt attempt ${attempt} failed or timed out; retrying in 10s"
             sleep 10
           done
-          echo "apt failed after 3 attempts" >&2
-          exit 1
 
       - name: Install SDL3 (static build)
         # link: static forces SDL_STATIC=ON/SDL_SHARED=OFF, so find_package

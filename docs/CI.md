@@ -278,10 +278,17 @@ Four rules follow from that, and the workflows apply them:
    whole AppImage script (which fetches from Arch mirrors and a GitHub
    release through tooling we do not control).
 3. **Put a wall clock on it as well.** A retry count only covers the
-   first shape above. Every fetch that can stall also carries a `timeout`
-   and per-connection limits, so the second shape fails in bounded time
-   with a named cause. See [apt is bounded, not just
-   retried](#apt-is-bounded-not-just-retried).
+   first shape above, so a fetch that can stall also wants a `timeout`
+   and per-connection limits to fail in bounded time with a named cause.
+   See [apt is bounded, not just
+   retried](#apt-is-bounded-not-just-retried). This is applied to the apt
+   phases in `linux.yml`, `reusable-build-linux-tarball.yml` and
+   `.github/actions/setup-sdl3`, and to the SDL3 clones. It is *not* yet
+   applied to `pacman -Syu` and the appimagetool download in
+   `scripts/packaging/make-appimage.sh` (three attempts, no wall clock),
+   the apt in `docker/Dockerfile.test` (neither), or the UASM `curl`
+   there (`--retry` but no `--max-time`). Those keep the exposure this
+   section describes; add the bound when you next touch one.
 4. **Bound every job.** All jobs carry `timeout-minutes`, so nothing can
    burn the six-hour default. Treat this as the backstop, not the bound:
    when it is what stops a job, the log ends mid-step with no diagnosis,

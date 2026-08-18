@@ -52,14 +52,17 @@ from source.
 | SDL3 | `find_package(SDL3 CONFIG)`; shared by default, static for release packaging | see note below | `brew install sdl3`, `pacman -S mingw-w64-ucrt-x86_64-SDL3`; most distros need a source build |
 | git | the format and clang-tidy scripts enumerate files with `git ls-files` | — | distro package |
 
-**SDL3 has no single version owner.** The release-build pin is duplicated across
-four code sites — [docker/Dockerfile.test](../docker/Dockerfile.test#L32),
-[reusable-build-android.yml](../.github/workflows/reusable-build-android.yml#L126),
-[build-linux-tarball.sh](../scripts/dev/build-linux-tarball.sh#L91), and
-[build-sdl3-android.sh](../scripts/dev/build-sdl3-android.sh#L39) — and the
-Dockerfile comment asks you to keep the four in sync when bumping. Local
-development builds against whatever SDL3 your system provides and does not care
-about the pin; only bundled and containerised builds do.
+**The SDL3 pin lives in one file.**
+[.github/sdl3-version.txt](../.github/sdl3-version.txt) holds the tag, and every
+path that builds SDL3 from source reads it: the
+[setup-sdl3 action](../.github/actions/setup-sdl3/action.yml) used by the CI and
+release workflows, the
+[Android leg](../.github/workflows/reusable-build-android.yml),
+[docker/Dockerfile.test](../docker/Dockerfile.test) via a required
+`SDL3_VERSION` build arg, and the `scripts/dev/` helpers. Bumping SDL3 is an
+edit to that one file. Local development builds against whatever SDL3 your
+system provides and does not care about the pin; only bundled and containerised
+builds do.
 
 GNU Make is not in the table: it only drives the [Makefile](../Makefile)
 shortcuts, and plain `cmake` works without it.

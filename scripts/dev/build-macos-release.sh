@@ -39,7 +39,7 @@ while [[ $# -gt 0 ]]; do
             # .icns, hdiutil DMG layout) so you can iterate on packaging
             # logic — but the binary references SDL3.dylib at runtime and
             # is NOT a release-quality artifact. CI release builds remain
-            # static (CI uses libsdl-org/setup-sdl, which provides static).
+            # static (CI uses .github/actions/setup-sdl3 with link: static).
             LINK_STATIC="OFF"
             shift
             ;;
@@ -90,8 +90,8 @@ fi
 # install — Apple Silicon brew's prefix is /opt/homebrew, Intel brew's
 # is /usr/local; CMake doesn't search either by default. Prepended to
 # CMAKE_PREFIX_PATH so brew SDL3 wins over anything else on the host.
-# CI doesn't need this — it uses libsdl-org/setup-sdl with an explicit
-# prefix — so this hint is local-dev-only.
+# CI doesn't need this: it uses .github/actions/setup-sdl3 with an
+# explicit prefix, so this hint is local-dev-only.
 if command -v brew >/dev/null 2>&1; then
     BREW_PREFIX="$(brew --prefix 2>/dev/null || true)"
     if [[ -n "$BREW_PREFIX" ]]; then

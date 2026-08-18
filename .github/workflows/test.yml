@@ -77,7 +77,17 @@ jobs:
       # a CI run build the same image.
       - name: Read the SDL3 pin
         id: sdl
-        run: echo "version=$(tr -d '[:space:]' < .github/sdl3-version.txt)" >> "$GITHUB_OUTPUT"
+        run: |
+          # Assign first, then check. Inlining the substitution into `echo`
+          # would let a missing or blank pin write `version=` and exit 0, and
+          # the failure would surface minutes later inside the image build,
+          # blamed on the Dockerfile rather than on the pin.
+          version="$(tr -d '[:space:]' < .github/sdl3-version.txt)"
+          if [ -z "$version" ]; then
+            echo "ERROR: .github/sdl3-version.txt is empty" >&2
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       # run_tests_docker.sh builds the image itself when it isn't already in
       # the local daemon, which on a fresh runner means apt, two SDL3 source

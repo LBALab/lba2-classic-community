@@ -125,12 +125,21 @@ jobs:
 
           if [ ! -d "$SDL3_DIR" ]; then
             for i in 1 2 3; do
-              git clone --depth 1 --branch "$SDL3_VERSION" \
+              # Bounded, not just retried: a stalled endpoint returns no error
+              # for the retry count to see, and would sit here until the job
+              # timeout cancelled the leg with nothing in the log.
+              timeout -k 30 300 git clone --depth 1 --branch "$SDL3_VERSION" \
                 https://github.com/libsdl-org/SDL.git "$SDL3_DIR" 2>&1 && break
               echo "SDL3 clone attempt $i failed, retrying..."
               rm -rf "$SDL3_DIR"
               sleep 2
             done
+            # Without this the loop falls through on three failures and the
+            # next cmake reports a missing source dir instead of a bad clone.
+            if [ ! -d "$SDL3_DIR" ]; then
+              echo "SDL3 clone failed after 3 attempts" >&2
+              exit 1
+            fi
           fi
 
           if [ ! -f "${SDL3_INSTALL}/lib/libSDL3.so" ]; then

@@ -51,16 +51,41 @@ runs:
     - name: Resolve the pin
       id: plan
       shell: bash
+      # Inputs arrive through the environment rather than interpolated into
+      # the script body, so a value can never terminate a quote and become
+      # shell.
+      env:
+        LINK: ${{ inputs.link }}
+        BUILD_TYPE: ${{ inputs.build-type }}
+        OS: ${{ runner.os }}
+        ARCH: ${{ runner.arch }}
       run: |
         set -euo pipefail
+        # Reject anything but the two known values. Left unchecked, `Static`
+        # or `static-only` skips the dev packages, builds shared anyway, and
+        # caches it under a static-looking key, which then surfaces far away
+        # as find_package not finding SDL3::SDL3-static.
+        case "${LINK}" in
+          shared|static) ;;
+          *) echo "setup-sdl3: link must be 'shared' or 'static', got '${LINK}'" >&2; exit 1 ;;
+        esac
         version="$(tr -d '[:space:]' < "${GITHUB_WORKSPACE}/.github/sdl3-version.txt")"
-        prefix="${RUNNER_TEMP}/sdl3-${{ inputs.link }}"
+        if [ -z "${version}" ]; then
+          echo "setup-sdl3: .github/sdl3-version.txt is empty" >&2
+          exit 1
+        fi
+        # The key covers the recipe as well as the tag. Without the recipe
+        # hash, editing the cmake flags below restores a prefix built with the
+        # old ones and every leg goes green against an SDL3 that no longer
+        # matches the tree. The Android leg hashes its workflow for the same
+        # reason.
+        recipe="$(git -C "${GITHUB_WORKSPACE}" hash-object .github/actions/setup-sdl3/action.yml)"
         {
           echo "version=${version}"
-          echo "prefix=${prefix}"
+          echo "prefix=${RUNNER_TEMP}/sdl3-${LINK}"
           echo "src=${RUNNER_TEMP}/sdl3-src"
           echo "build=${RUNNER_TEMP}/sdl3-build"
-          echo "key=sdl3-${version}-${{ runner.os }}-${{ runner.arch }}-${{ inputs.link }}-${{ inputs.build-type }}"
+          echo "key=sdl3-${version}-${OS}-${ARCH}-${LINK}-${BUILD_TYPE}-${recipe:0:12}"
         } >> "$GITHUB_OUTPUT"
 
     - name: Restore SDL3 from the cache
@@ -86,10 +111,15 @@ runs:
         #
         # So bound both ends: per-connection timeouts, and a wall clock on
         # each phase, retried. A bad mirror now costs a retry rather than the
-        # job, and a mirror that is down for good fails the leg in about 21
+        # job, and a mirror that is down for good fails the leg in about 17
         # minutes with a named cause instead of going quiet until the job
         # timeout. For scale, a healthy runner does `update` in ~5s and this
         # package set in ~30-60s.
+        #
+        # The budgets are deliberately well under a third of the job timeout:
+        # linux.yml's build job runs this and a second apt phase in series,
+        # and two full budgets plus a cold SDL3 build have to fit inside 45
+        # minutes for the named cause to be what the reader sees.
         apt_opts=(
           -o Acquire::Retries=5
           -o Acquire::http::Timeout=15
@@ -99,8 +129,13 @@ runs:
         # the shipped build actually uses, and they match what the release
         # tarball links against, so CI and release agree on one SDL3.
         for attempt in 1 2 3; do
-          if timeout -k 30 120 sudo apt-get "${apt_opts[@]}" update \
-            && timeout -k 30 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends \
+          # Killing apt mid-transaction leaves dpkg interrupted, and every
+          # later attempt then aborts with "dpkg was interrupted" before it
+          # fetches anything. Without this the wall clock converts a stall
+          # into a hard failure rather than into the retry it is there for.
+          sudo dpkg --configure -a || true
+          if timeout -k 30 90 sudo apt-get "${apt_opts[@]}" update \
+            && timeout -k 30 240 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends \
               libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
               libxinerama-dev libxxf86vm-dev libxss-dev libxtst-dev \
               libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
@@ -108,11 +143,13 @@ runs:
               libudev-dev libdbus-1-dev; then
             exit 0
           fi
+          if [ "${attempt}" = 3 ]; then
+            echo "apt failed after 3 attempts" >&2
+            exit 1
+          fi
           echo "apt attempt ${attempt} failed or timed out; retrying in 10s"
           sleep 10
         done
-        echo "apt failed after 3 attempts" >&2
-        exit 1
 
     - name: Build SDL3
       if: steps.restore.outputs.cache-hit != 'true'
@@ -128,9 +165,22 @@ runs:
         set -euo pipefail
         # Same reasoning as the apt phase: a stalled clone is bounded by the
         # wall clock, not by the retry count.
+        #
+        # `timeout` is GNU coreutils. It is always there on the Linux runners,
+        # but macOS ships no such command (Homebrew's coreutils installs it
+        # g-prefixed), and an unguarded call would exit 127 on every attempt
+        # and report a clone failure that never happened. So bound the clone
+        # where the tool exists and run it plain where it does not; the retry
+        # loop still covers the error shape on both.
+        if command -v timeout >/dev/null 2>&1; then
+          bounded_clone() { timeout -k 30 300 git clone "$@"; }
+        else
+          echo "note: no timeout(1) on this runner, cloning unbounded"
+          bounded_clone() { git clone "$@"; }
+        fi
         rm -rf "${SDL3_SRC}"
         for i in 1 2 3; do
-          timeout -k 30 300 git clone --depth 1 --branch "${SDL3_VERSION}" \
+          bounded_clone --depth 1 --branch "${SDL3_VERSION}" \
             https://github.com/libsdl-org/SDL.git "${SDL3_SRC}" && break
           echo "SDL3 clone attempt ${i} failed, retrying..."
           rm -rf "${SDL3_SRC}"

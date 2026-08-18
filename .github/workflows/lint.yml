@@ -13,6 +13,8 @@ on:
       - '**.sh'
       - '**.py'
       - '.github/workflows/**'
+      # Composite actions are workflow surface too, and they carry shell.
+      - '.github/actions/**'
       - '.shellcheckrc'
       - 'ruff.toml'
   pull_request:
