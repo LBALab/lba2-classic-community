@@ -156,7 +156,7 @@ void TheEndInfo() {
 #endif
     StopMusic();
 
-    /* No version/build footer here — the boot header already stamps version,
+    /* No version/build footer here: the boot header already stamps version,
        build, platform, and backends at the top of every log. */
 
 #if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)
@@ -195,7 +195,7 @@ void TheEndInfo() {
     /* Exit-screen easter egg: only on a genuine clean shutdown. End_Num is
        PROGRAM_OK (2) only when TheEnd(PROGRAM_OK, ...) ran; crash/error paths
        set other codes and early exits leave it at -1, so this never fires on a
-       non-clean exit. Separate module — does not touch the log; silent unless
+       non-clean exit. A separate module that does not touch the log, silent unless
        stdout is a real TTY. See docs/plan/BOOT_LOG_PLAN.md Phase 6. */
     if (End_Num == PROGRAM_OK) {
         PrintExitScreen();
