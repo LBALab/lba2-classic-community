@@ -140,7 +140,8 @@ authored with it.
 
 ### Verified against the retail asset
 
-Decoding `Common/TEXT.HQR` (442,979 bytes) with the format above:
+Decoding `Common/TEXT.HQR` (442,979 bytes) with the format above, which
+`scripts/dev/text_dump.py` implements (`text_dump.py <TEXT.HQR> --lang N --bank sys --range LO:HI`):
 
 | Check | Result |
 |---|---|
