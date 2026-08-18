@@ -253,15 +253,21 @@ Two deliberate choices:
 
 Nothing in this repo is vendored: every run rebuilds its toolchain from
 somewhere else on the internet. That makes third-party availability the
-single largest source of red CI, ahead of actual test failures. Both
-failures in the recent run history were upstream 5xx responses, not code:
+single largest source of red CI, ahead of actual test failures. The
+failures in the run history are all upstream, and they come in two
+shapes:
 
-- `curl` of the UASM release zip returned 503, failing the ASM suite
-  before a single test compiled.
-- `appimagetool`'s download exhausted its own five internal retries,
+- **An error comes back.** `curl` of the UASM release zip returned 503,
+  failing the ASM suite before a single test compiled.
+  `appimagetool`'s download exhausted its own five internal retries,
   failing an AppImage release leg.
+- **Nothing comes back.** `azure.archive.ubuntu.com` `Ign:`'d every line,
+  apt fell back to the public archive, and `apt-get update` then went
+  silent for 29 minutes until the job timeout cancelled the leg. This
+  shape is the nastier one: retry counts do not see it, because there is
+  no error to retry on.
 
-Three rules follow from that, and the workflows apply them:
+Four rules follow from that, and the workflows apply them:
 
 1. **Bake, don't fetch.** Anything that can live in a cached image or a
    cached prefix goes there. UASM is unpacked in `docker/Dockerfile.test`
@@ -271,9 +277,15 @@ Three rules follow from that, and the workflows apply them:
    `apt-get -o Acquire::Retries=5`, and a three-attempt loop around the
    whole AppImage script (which fetches from Arch mirrors and a GitHub
    release through tooling we do not control).
-3. **Bound every job.** All jobs carry `timeout-minutes`. Without it a
-   hung mirror connection burns the six-hour default before the job is
-   marked failed.
+3. **Put a wall clock on it as well.** A retry count only covers the
+   first shape above. Every fetch that can stall also carries a `timeout`
+   and per-connection limits, so the second shape fails in bounded time
+   with a named cause. See [apt is bounded, not just
+   retried](#apt-is-bounded-not-just-retried).
+4. **Bound every job.** All jobs carry `timeout-minutes`, so nothing can
+   burn the six-hour default. Treat this as the backstop, not the bound:
+   when it is what stops a job, the log ends mid-step with no diagnosis,
+   which is exactly the 29-minute case above.
 
 ### What is cached
 
@@ -281,8 +293,8 @@ Three rules follow from that, and the workflows apply them:
 |---|---|---|---|
 | SDL3 build | `.github/actions/setup-sdl3` | pinned SDL tag + `runner.os` + `runner.arch` + link mode + build type | ~2 MB prefix, seconds |
 | MSYS2 install + pacman packages | `msys2/setup-msys2` (`cache: true` default) | package list + config hash | ~177 MB |
-| ASM test image layers | `docker/build-push-action`, `type=gha` | `docker/Dockerfile.test` content | the whole image, ~300 MB; written by `main` only |
-| SDL3 for Android | `actions/cache` | ABI + SDL tag + NDK version | source tree + install prefix |
+| ASM test image layers | `docker/build-push-action`, `type=gha` | `docker/Dockerfile.test` content + the `SDL3_VERSION` build arg | the whole image, ~300 MB; written by `main` only |
+| SDL3 for Android | `actions/cache` | ABI + hash of the workflow and `.github/sdl3-version.txt` | source tree + install prefix |
 
 The ASM test image is the one that matters most. `run_tests_docker.sh`
 builds it whenever it is not already in the local daemon, which on a
@@ -310,11 +322,54 @@ Note that the image's 64-bit SDL3 install is unused by CI: the
 the layers cached its build cost is only paid when the Dockerfile
 changes.
 
-**ccache is deliberately absent.** The compile steps are 14 s (macOS),
-18 s (Linux) and 70 s (Windows); only Windows is worth attacking, and a
+**ccache is deliberately absent.** The compile steps are 20s (Linux), 32s
+(macOS) and 56s (Windows). Only Windows would be worth attacking, and a
 ccache directory that churns on every run would compete with the image
 layers for the repository's 10 GB Actions cache budget. Revisit if the
 Windows build grows or the cache budget frees up.
+
+### Where the time goes
+
+Compilation is not the bill. Measured on a warm push, with every cache
+hitting, per workflow (they run in parallel, so the gate is the slowest
+one, not the sum):
+
+| Workflow | Wall clock | Largest step | What that step is |
+|---|---|---|---|
+| Windows | 146s | Setup MSYS2, 65s | package restore |
+| Linux | 90s | Validate packaging metadata, 45s | `apt-get install appstream` |
+| ASM Docker tests | 57-73s | image restore, 16-30s | Docker layer cache |
+| macOS | 57s | Build, 32s | compilation |
+| Format | 43s | check-format, 18s | clang-format |
+| Lint | 23s | | |
+
+So on three of the four build workflows the biggest single step is
+acquiring dependencies, not using them. That is the pattern to check
+first whenever a leg feels slow: read the step timings before assuming
+the build got heavier.
+
+Two things are worth attacking if CI time becomes a problem again, in
+this order. Neither is urgent, and neither has been done.
+
+1. **`Validate packaging metadata` in `linux.yml`, 45s.** It apt-installs
+   `desktop-file-utils` and `appstream` so two validators can spend about
+   a second checking two generated files, and it does this on every push
+   including the overwhelming majority that touch nothing in `packaging/`.
+   Gating it on its inputs would take the Linux workflow to roughly 45s,
+   at which point `build-clang` becomes the critical path and there is
+   nothing left there worth cutting. The catch to handle: the files are
+   generated from CMake variables (`LBA2_DESKTOP_ID` and friends), so any
+   trigger has to cover the CMake that templates them, and a
+   validation-only job still needs a configured build tree.
+2. **`Setup MSYS2` on Windows, 65s.** The largest non-compile step in the
+   gate once the above is gone. Nobody has measured whether that is the
+   ~177 MB cache restore or the pacman work after it, and the answer
+   decides whether there is anything to do.
+
+The ASM Docker image is already handled and is not on this list: it looks
+expensive on a PR that edits `docker/Dockerfile.test`, because only `main`
+writes that cache scope, so such a PR rebuilds on every run until it
+merges.
 
 ### One SDL3 pin
 
