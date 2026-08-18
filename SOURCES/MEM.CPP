@@ -223,8 +223,14 @@ void InitMainBuffer(void) {
        edge on purpose, which would otherwise mask the spill being hunted.
        See docs/BUG_HUNTING.md. */
     if (getenv("LBA2_DBG_ISOLATE")) {
+        /*	NB_MEM_ELTS is sizeof/sizeof, so it is unsigned; a S32 counter here
+            compares signed against unsigned. Its own counter, rather than
+            retyping the shared t, so the loops that came before keep the shape
+            they have. */
+        size_t i;
+
         ptrm = ListMem;
-        for (t = 0; t < NB_MEM_ELTS; t++, ptrm++) {
+        for (i = 0; i < NB_MEM_ELTS; i++, ptrm++) {
             *ptrm->AdrPtr = (U8 *)Malloc(ptrm->Size + 256);
             if (!*ptrm->AdrPtr)
                 TheEnd(NOT_ENOUGH_MEM, "MainBuffer");
