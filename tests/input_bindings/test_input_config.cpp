@@ -103,28 +103,28 @@ std::string Line(const char *fmt, ...) {
 // A layout that is nobody's default, so a value that survives the trip can only
 // have come from the file. Every slot gets a distinct pair.
 void SetProbeLayout(void) {
-    for (int n = 0; n < MAX_INPUT; n++) {
+    for (int n = 0; n < MAX_INPUT_SLOTS; n++) {
         DefKeys[n].Key1 = (U32)(100 + n);
         DefKeys[n].Key2 = (U32)(200 + n);
     }
 }
 
 void ScribbleBindings(void) {
-    for (int n = 0; n < MAX_INPUT; n++) {
+    for (int n = 0; n < MAX_INPUT_SLOTS; n++) {
         DefKeys[n].Key1 = 0xDEAD;
         DefKeys[n].Key2 = 0xBEEF;
     }
 }
 
 void ScribblePad(void) {
-    for (int n = 0; n < MAX_INPUT; n++) {
+    for (int n = 0; n < MAX_INPUT_SLOTS; n++) {
         GamepadKeys[n].Key1 = 0xDEAD;
         GamepadKeys[n].Key2 = 0xBEEF;
     }
 }
 
 bool PadIsDefault(void) {
-    for (int n = 0; n < MAX_INPUT; n++) {
+    for (int n = 0; n < MAX_INPUT_SLOTS; n++) {
         if (GamepadKeys[n].Key1 != GamepadKeysDefault[n].Key1 ||
             GamepadKeys[n].Key2 != GamepadKeysDefault[n].Key2)
             return false;
@@ -133,7 +133,7 @@ bool PadIsDefault(void) {
 }
 
 bool BindingsAreProbeLayout(void) {
-    for (int n = 0; n < MAX_INPUT; n++) {
+    for (int n = 0; n < MAX_INPUT_SLOTS; n++) {
         if (DefKeys[n].Key1 != (U32)(100 + n) || DefKeys[n].Key2 != (U32)(200 + n))
             return false;
     }
@@ -143,8 +143,8 @@ bool BindingsAreProbeLayout(void) {
 // Compares against the defaults without leaving either live table disturbed:
 // RestoreInput writes both, and later checks in the same case still read them.
 bool BindingsAreDefaults(void) {
-    T_DEF_KEY savedKeys[MAX_INPUT];
-    T_DEF_KEY savedPad[MAX_INPUT];
+    T_DEF_KEY savedKeys[MAX_INPUT_SLOTS];
+    T_DEF_KEY savedPad[MAX_INPUT_SLOTS];
     std::memcpy(savedKeys, DefKeys, sizeof savedKeys);
     std::memcpy(savedPad, GamepadKeys, sizeof savedPad);
 
@@ -217,7 +217,7 @@ void CheckFirstExitCreatesFile(void) {
 // ReadGamepadConfig would install.
 std::string ClearedPad(int boundSlot) {
     std::string cfg;
-    for (int n = 0; n < MAX_INPUT; n++) {
+    for (int n = 0; n < MAX_INPUT_SLOTS; n++) {
         if (n == boundSlot) {
             cfg += Line("Gamepad%d: %u\nGamepad%d_2: 0\n", n,
                         (U32)K_GAMEPAD_A, n);
@@ -233,7 +233,7 @@ std::string ClearedPad(int boundSlot) {
 // the same way.
 void CheckAllZeroGuard(void) {
     std::string clearedKeyboard = "WinMode: 1\n";
-    for (int n = 0; n < MAX_INPUT; n++)
+    for (int n = 0; n < MAX_INPUT_SLOTS; n++)
         clearedKeyboard += Line("Input%d_1: 0\nInput%d_2: 0\n", n, n);
 
     // (a) Nothing bound anywhere. No key moves the hero, and the remap screen
@@ -249,7 +249,7 @@ void CheckAllZeroGuard(void) {
     LoadCfg(clearedKeyboard + ClearedPad(8));
     CHECK(!BindingsAreDefaults(),
           "a pad-only layout must not be mistaken for a corrupt cfg");
-    for (int n = 0; n < MAX_INPUT; n++) {
+    for (int n = 0; n < MAX_INPUT_SLOTS; n++) {
         CHECK(DefKeys[n].Key1 == 0 && DefKeys[n].Key2 == 0,
               "slot %d: the cleared keyboard binding must stay cleared", n);
     }
@@ -261,7 +261,7 @@ void CheckAllZeroGuard(void) {
     LoadCfg(clearedKeyboard);
     CHECK(!BindingsAreDefaults(),
           "a pre-gamepad cfg must not be mistaken for a corrupt cfg");
-    for (int n = 0; n < MAX_INPUT; n++) {
+    for (int n = 0; n < MAX_INPUT_SLOTS; n++) {
         CHECK(DefKeys[n].Key1 == 0 && DefKeys[n].Key2 == 0,
               "slot %d: a pre-gamepad cfg's cleared keyboard must stay cleared",
               n);
@@ -280,7 +280,7 @@ void CheckAllZeroGuard(void) {
 
     // (d) One keyboard binding left is enough on its own, pad or no pad.
     std::string oneKey = "WinMode: 1\n";
-    for (int n = 0; n < MAX_INPUT; n++)
+    for (int n = 0; n < MAX_INPUT_SLOTS; n++)
         oneKey += Line("Input%d_1: %u\nInput%d_2: 0\n", n,
                        n == 7 ? (U32)K_SPACE : 0u, n);
     LoadCfg(oneKey + ClearedPad(-1));
@@ -291,7 +291,7 @@ void CheckAllZeroGuard(void) {
 // --- 4. No WinMode ----------------------------------------------------------
 void CheckWinModeAbsentTakesDefaults(void) {
     std::string noWinMode;
-    for (int n = 0; n < MAX_INPUT; n++)
+    for (int n = 0; n < MAX_INPUT_SLOTS; n++)
         noWinMode += Line("Input%d_1: %d\nInput%d_2: 0\n", n, 100 + n, n);
 
     LoadCfg(noWinMode);
@@ -315,7 +315,7 @@ void CheckGamepadRoundTrip(void) {
     RemoveCfg();
     OpenCfg();
 
-    for (int n = 0; n < MAX_INPUT; n++) {
+    for (int n = 0; n < MAX_INPUT_SLOTS; n++) {
         GamepadKeys[n].Key1 = (U32)(300 + n);
         GamepadKeys[n].Key2 = (U32)(400 + n);
     }
@@ -324,7 +324,7 @@ void CheckGamepadRoundTrip(void) {
     ScribblePad();
     ReadGamepadConfig();
 
-    for (int n = 0; n < MAX_INPUT; n++) {
+    for (int n = 0; n < MAX_INPUT_SLOTS; n++) {
         CHECK(GamepadKeys[n].Key1 == (U32)(300 + n) &&
                   GamepadKeys[n].Key2 == (U32)(400 + n),
               "slot %d: pad binding did not survive the round trip", n);

@@ -117,7 +117,7 @@ static void Res_SceneTarget(U32 baseW, U32 baseH, U32 *outW, U32 *outH) {
 
 /* Scratch-buffer size for the transient, heap-free boot reads of lba2.cfg
    (Res_LoadBootDimensions / Res_LoadBootFullscreen). A fully-populated valid
-   cfg is already ~6 KB (72 keyboard + 72 gamepad bindings from MAX_INPUT, plus
+   cfg is already ~6 KB (72 keyboard + 72 gamepad bindings from MAX_INPUT_SLOTS, plus
    ~70 settings/camera/audio keys), so the old 8 KB left almost no headroom and
    any bloat -- a corrupt over-long line, future keys -- tips DefFileBufferInit
    into its "buffer too small" reject, dropping the cfg's ResolutionX/Y and

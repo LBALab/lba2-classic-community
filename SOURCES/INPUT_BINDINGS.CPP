@@ -8,7 +8,7 @@
 // The 1997 source carried two default layouts, DefKeysDefault for DOS and this
 // one for Windows 95. Only the second was ported. A binding set is where the
 // first would come back if anyone wants it.
-const T_DEF_KEY DefKeysDefault95[MAX_INPUT + 1] =
+const T_DEF_KEY DefKeysDefault95[MAX_INPUT_SLOTS + 1] =
     {
         {K_GRAY_UP, K_NUMPAD_8},    // I_UP
         {K_GRAY_DOWN, K_NUMPAD_2},  // I_DOWN
@@ -49,11 +49,11 @@ const T_DEF_KEY DefKeysDefault95[MAX_INPUT + 1] =
         {K_F, 0},                           // I_FOUDRE
 };
 
-T_DEF_KEY MemoDefKeys[MAX_INPUT + 1];
-T_DEF_KEY DefKeys[MAX_INPUT + 1];
+T_DEF_KEY MemoDefKeys[MAX_INPUT_SLOTS + 1];
+T_DEF_KEY DefKeys[MAX_INPUT_SLOTS + 1];
 
 // tableau de configuration des touches utilisé au cours du jeux
-U32 TabInputBit[MAX_INPUT * 2 + 1];
+U32 TabInputBit[MAX_INPUT_SLOTS * 2 + 1];
 
 // Combined keyboard+gamepad key/mask table handed to GetInput(). Folding the
 // gamepad in here (instead of OR-ing it into Input afterward) makes it a
@@ -65,9 +65,9 @@ U32 TabInputBit[MAX_INPUT * 2 + 1];
 static U32 CombinedInputKeys[INPUT_TABLE_SLOTS * 4];
 static U32 CombinedInputMasks[INPUT_TABLE_SLOTS * 4];
 
-T_DEF_KEY GamepadKeys[MAX_INPUT];
+T_DEF_KEY GamepadKeys[MAX_INPUT_SLOTS];
 
-const T_DEF_KEY GamepadKeysDefault[MAX_INPUT] = {
+const T_DEF_KEY GamepadKeysDefault[MAX_INPUT_SLOTS] = {
     {K_GAMEPAD_RTRIGGER, 0},                         // 0  I_UP
     {K_GAMEPAD_LTRIGGER, 0},                         // 1  I_DOWN
     {K_GAMEPAD_LSTICK_LEFT, 0},                      // 2  I_LEFT
@@ -106,7 +106,7 @@ const T_DEF_KEY GamepadKeysDefault[MAX_INPUT] = {
     {K_GAMEPAD_DPAD_LEFT, 0},                        // 35 I_FOUDRE
 };
 
-U32 NbInput = MAX_INPUT;
+U32 NbInput = MAX_INPUT_SLOTS;
 
 //-------------------------------------------------------------------------
 void InitInput(void) {
@@ -137,6 +137,6 @@ void RestoreInput() {
     const T_DEF_KEY *DEFKEYSDEFAULT;
     DEFKEYSDEFAULT = DefKeysDefault95;
 
-    memcpy(DefKeys, DEFKEYSDEFAULT, sizeof(T_DEF_KEY) * MAX_INPUT);
+    memcpy(DefKeys, DEFKEYSDEFAULT, sizeof(T_DEF_KEY) * MAX_INPUT_SLOTS);
     memcpy(GamepadKeys, GamepadKeysDefault, sizeof(GamepadKeys));
 }

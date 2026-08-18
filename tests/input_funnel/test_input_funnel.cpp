@@ -31,7 +31,7 @@
 #include <SYSTEM/KEYBOARD_KEYS.H> // K_GAMEPAD_*, K_ENTER, K_F10
 #include <SYSTEM/INPUT.H>         // Input, GetInput, DefineInputKeys, ClearNoRepeatInput
 
-#include "INPUT.H" // SOURCES/INPUT.H: I_* masks, T_DEF_KEY, MAX_INPUT, InitWaitNoInput
+#include "INPUT.H" // SOURCES/INPUT.H: I_* masks, T_DEF_KEY, MAX_INPUT_SLOTS, InitWaitNoInput
 
 #include <cstdio>
 #include <set>
@@ -61,11 +61,11 @@ static void hold2(U32 a, U32 b) {
 
 // --- Minimal binding tables for the inputs under test. Indexed by input slot,
 // mirroring SOURCES/INPUT.CPP's DefKeys / GamepadKeys layout. ---
-static T_DEF_KEY kbd[MAX_INPUT];
-static T_DEF_KEY pad[MAX_INPUT];
+static T_DEF_KEY kbd[MAX_INPUT_SLOTS];
+static T_DEF_KEY pad[MAX_INPUT_SLOTS];
 
-static U32 combinedKeys[MAX_INPUT * 4];
-static U32 combinedMasks[MAX_INPUT * 4];
+static U32 combinedKeys[MAX_INPUT_SLOTS * 4];
+static U32 combinedMasks[MAX_INPUT_SLOTS * 4];
 
 static void setBinding(int slot, U32 kbd1, U32 kbd2, U32 pad1, U32 pad2) {
     kbd[slot].Key1 = kbd1;
