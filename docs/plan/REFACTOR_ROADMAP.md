@@ -66,6 +66,32 @@ The other standing figure: [SOURCES/C_EXTERN.H](../../SOURCES/C_EXTERN.H) declar
 and is included by 58 files, so most of these globals are reachable from most of the tree
 without any file saying it uses them.
 
+## The prerequisite most areas share
+
+Ownership moves have two halves. The mechanical one is that a module's header
+declares what its `.CPP` defines. The one worth having is that a caller reaching for
+the module's state must include that header, so the dependency shows up in its
+include list and everyone else loses the ability to touch it by accident.
+
+The second half is currently unavailable to almost every module here.
+[SOURCES/DEFINES.H](../../SOURCES/DEFINES.H) aggregates 46 local headers, 42 of them
+modules with a matching `.CPP`; [SOURCES/C_EXTERN.H](../../SOURCES/C_EXTERN.H)
+includes DEFINES.H; 58 files include that. Every module header is therefore already
+in front of every translation unit, so moving declarations into one changes where
+the text sits and nothing else.
+
+The Auto camera did get the benefit, which is why this was not obvious: FOLLOWCAM.H
+was a new file that DEFINES.H had never heard of. Every module that predates the
+aggregation needs it removed first.
+
+Measured once, on audio: about a dozen explicit includes, plus making the module
+header self-contained, because an aggregated header can name types it never
+included. AMBIANCE.H went from 3 explicit includers to 25. Budget the same for any
+other module, and read it as roughly a day's work rather than a campaign.
+
+This changes what areas 1, 3, 6 and 8 cost, since each of them is an ownership move
+against a pre-existing module. It does not change their order.
+
 ---
 
 ## The areas
@@ -91,8 +117,13 @@ ownership, in isolation.
 and `CubeJingle` are written per cube by gameplay, and CODESTYLE's "state that is genuinely
 shared stays shared" rule applies to them until an owner exists.
 
-**Verdict: do this first.** Best ratio in the list, and it ends with a documented statement about
-where the gameplay-to-audio coupling actually sits.
+**Verdict: done, in PR #563.** It cost more than this section estimated, in two ways worth
+carrying forward. The coverage audit that step 1 of the recipe now demands turned up a real
+defect before any code moved: a negative `MusicVolume` in the cfg read back as 127, the loudest
+setting, because `JingleVolume` is `U32` where its three siblings and the cfg reader are `S32`.
+And the ownership move needed the de-aggregation above first, or it would have been bookkeeping.
+Fourteen globals moved, five stayed on the shared bus with the header saying why, and the god
+header went from 266 externs to 252.
 
 ### 2. Boot and fatal-error plumbing
 
@@ -239,3 +270,14 @@ two things at once, and a smaller god header.
 
 Running underneath all of it: every one of these should raise the 5% figure at the top. A proposed
 refactor that does not raise it needs a different justification.
+
+## How this doc changes
+
+It is expected to be wrong in places and is edited as areas are done, not rewritten at the end.
+Two kinds of edit have happened already and both are the point: an area's cost being corrected
+once someone measured it, and a prerequisite being discovered that none of the areas had listed.
+
+A finding that generalises past this roadmap graduates out of it. The de-aggregation order above
+is a rule about how to do an ownership move at all, not a fact about the audio module, so it
+also lives in [CODESTYLE.md](../../CODESTYLE.md) under the ownership rule. When something here
+starts reading like a rule rather than a plan, move it there and link back.

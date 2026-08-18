@@ -7,9 +7,12 @@
 
 ## Why this exists
 
-The engine communicates almost entirely through ~200 global variables declared in
+The engine communicates almost entirely through global variables declared in
 `SOURCES/C_EXTERN.H` and defined in `SOURCES/GLOBAL.CPP` (plus a handful defined in
-`KEYBOARD.CPP`, `MESSAGE.CPP`, `OBJECT.CPP`). There is no encapsulation boundary, so a
+`KEYBOARD.CPP`, `MESSAGE.CPP`, `OBJECT.CPP`). The count is 252 extern declarations and
+falling: modules have begun taking their own state, so a domain's globals may now live
+in that module's header instead. `FOLLOWCAM.H` and `AMBIANCE.H` are the two so far, and
+the tables below mark what has left the bus. There is no encapsulation boundary, so a
 function cannot be reasoned about in isolation: to know what `HitObj` does you must know
 `GodMode` gates it, and to change `GodMode` safely you must know everyone who reads it.
 That is a web, not a tree, and webs do not fit in one's head.
@@ -141,10 +144,10 @@ convention that produced that is in [CODESTYLE.md "Where new code goes"](../CODE
 
 | Global | Role | Cross-boundary readers |
 |---|---|---|
-| `SampleAmbiance[]`, `SampleRepeat[]`, `SampleRnd[]`, `SampleFreq[]`, `SampleVol[]` | Ambiance scheduler config | Gameplay (writes per cube) |
-| `SamplePlayed`, `TimerNextAmbiance`, `SecondEcart`, `SecondMin` | Ambiance scheduling state | Gameplay |
-| `CubeJingle`, `SampleAlwaysMove` | Per-cube jingle / always-on sample | World, Gameplay |
-| `SampleVolume`, `VoiceVolume`, `MasterVolume`, `SamplesEnable` | Mix levels / enable | Platform, Orchestration (save) |
+| `SampleAmbiance[]`, `SampleRepeat[]`, `SampleRnd[]`, `SampleFreq[]`, `SampleVol[]` | Ambiance scheduler config | Gameplay (writes per cube). **Owned by `AMBIANCE.H`** |
+| `SamplePlayed`, `TimerNextAmbiance`, `SecondEcart`, `SecondMin` | Ambiance scheduling state | Gameplay. **Owned by `AMBIANCE.H`** |
+| `CubeJingle`, `SampleAlwaysMove` | Per-cube jingle / always-on sample | World, Gameplay. Still on the bus: written by the scene loader, read by gameplay, no audio TU touches either |
+| `SampleVolume`, `VoiceVolume`, `MasterVolume`, `SamplesEnable` | Mix levels / enable | Platform, Orchestration (save). **Owned by `AMBIANCE.H`** |
 | `ParmSampleVolume`, `ParmSampleDecalage`, `ParmSampleFrequence` | Saved sample params | Orchestration (save) |
 | `RestartMusic`, `BufSpeak` | Music restart / speech buffer | UI |
 | `ReverseStereo` | Stereo channel swap | Platform |
@@ -152,6 +155,13 @@ convention that produced that is in [CODESTYLE.md "Where new code goes"](../CODE
 > The ambiance scheduler is the clearest example of the seed taxonomy being wrong: it is
 > gameplay *scheduling* audio *playback*. Splitting it out names the gameplay↔audio
 > coupling instead of burying it in Platform.
+>
+> Fourteen of these now live in `AMBIANCE.H`, and which five did not is the useful part:
+> `ReverseStereo` moved because the audio module is where an audio setting belongs, while
+> the three `ParmSample*` and `CubeJingle` / `SampleAlwaysMove` stayed because gameplay and
+> the scene loader write them and no audio translation unit does. The coupling this note
+> predicted is exactly what stopped them, so it is now visible in the header rather than
+> inferred from a table.
 
 ### Platform / IO (~15)
 
