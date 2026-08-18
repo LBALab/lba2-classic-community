@@ -100,6 +100,18 @@ other module, and read it as roughly a day's work rather than a campaign.
 This changes what areas 1, 3, 6 and 8 cost, since each of them is an ownership move
 against a pre-existing module. It does not change their order.
 
+Progress on it is measured rather than asserted. `check-arch.py` ratchets the *text*
+of the two headers, which both the Auto camera and the cfg reader satisfied while
+still opening with `C_EXTERN.H` and pulling ~190 headers apiece. The number that
+moves when the aggregation actually recedes is how many translation units end up
+with `DEFINES.H` in front of them, and it needs a compiled tree to see:
+
+```bash
+scripts/ci/check-build-graph.py --report   # 57 TUs today; median TU pulls 5 headers
+```
+
+`linux.yml`'s build job runs it on every push, so the figure cannot quietly rot.
+
 ---
 
 ## The areas
