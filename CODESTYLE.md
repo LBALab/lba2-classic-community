@@ -89,11 +89,23 @@ The rule is about ownership of storage, not about forbidding reads. `GAMEMENU.CP
 
 That split is worth reaching for because it is the same line as the testable one. Code that runs free of engine globals can be linked into a host test and run in CI on every platform; code that reads `ListObjet` and writes `BetaCam` can only be exercised by a fixture that boots the engine and needs retail data. [SOURCES/FOLLOWCAM_MATH.H](SOURCES/FOLLOWCAM_MATH.H) is the camera sitting on that line already: it is the angle arithmetic with no engine state, it has a host test, and it is the only part of the camera CI can see. When deciding what to pull out of a feature next, pull along that line first.
 
+## Layers
+
+[LIB386/](LIB386/) is the engine kernel and the platform backends; [SOURCES/](SOURCES/) is the game. [docs/ENGINE_GAME_SEAM.md](docs/ENGINE_GAME_SEAM.md) labels every module and [docs/PLATFORM.md](docs/PLATFORM.md) gives the host seam. Two directions across those boundaries are load-bearing enough to be checked on every push.
+
+**The engine never includes the game.** No file under `LIB386/` includes a header from `SOURCES/`. Where the kernel needs something only the game can answer, it declares a hook and the game fills it in: the console library declares `Console_SetVerbClaim`, and `CONSOLE_CMD.CPP`, compiled with the game rather than into the library, supplies the cheat-code lookup. A static archive links with undefined symbols either way, so this boundary never announces itself as a build failure and has to be checked.
+
+**Platform conditionals live in the platform layer.** Callers stay `#ifdef`-free. A module that needs to know which host it is on gets a backend under one of the platform directories, with a stub for the hosts that lack it, and everyone else reaches the host through that. [LIB386/SYSTEM/ANDROID.CPP](LIB386/SYSTEM/ANDROID.CPP) is the narrowest form: one translation unit includes `<jni.h>` and nothing else in the tree knows Android exists. A new backend directory joins the platform-layer list in [scripts/ci/check-arch.py](scripts/ci/check-arch.py), which names the list when it fails, and owes a row in the per-module table in the seam doc, in the same diff.
+
 ## Layout and naming
 
 - **Indentation:** 4 spaces in C/C++. Tabs are preserved in ASM. The original used tabs; there is an ongoing migration to 4 spaces, so new contributions use 4 spaces.
 - **Types:** use the fixed-width aliases `S32`/`U32`/`S16`/`U16`/`U8` from [`LIB386/H/SYSTEM/ADELINE_TYPES.H`](LIB386/H/SYSTEM/ADELINE_TYPES.H), not bare `int`/`unsigned`, in ported and engine code.
 - **Standard:** C++98 for engine and game code; tests may use C11/C++11.
+
+## Strings a player reads
+
+Help text, console command descriptions, log lines, on-screen messages and dialogs reach people who have only the binary. **No user-facing string names the repository:** no `docs/*.md`, no source paths, no issue numbers. Point at `README.txt`, which ships, or better, say the thing itself. `--help` in particular is read by players, not only by agents driving the harness.
 
 ## Preservation of original code
 

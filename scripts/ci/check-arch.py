@@ -506,7 +506,8 @@ RULES = (
     Rule(
         1,
         "LIB386 must not include SOURCES",
-        'AGENTS.md: "LIB386 must not include SOURCES/"',
+        'CODESTYLE.md "Layers": "The engine never includes the game. No file under '
+        'LIB386/ includes a header from SOURCES/."',
         rule_engine_never_includes_game,
     ),
     Rule(
@@ -518,7 +519,8 @@ RULES = (
     Rule(
         3,
         "platform conditionals live in the platform layer",
-        'AGENTS.md: "keep callers #ifdef-free". docs/PLATFORM.md gives the seam.',
+        'CODESTYLE.md "Layers": "Platform conditionals live in the platform layer. '
+        'Callers stay #ifdef-free." docs/PLATFORM.md gives the seam.',
         rule_platform_ifdefs,
         remedy=(
             "move the conditional behind the seam. If the directory is platform layer "
@@ -530,7 +532,9 @@ RULES = (
     Rule(
         4,
         "the shared-state bus only shrinks",
-        'CODESTYLE.md: "do not declare a new module\'s state in C_EXTERN.H / GLOBAL.CPP"',
+        'CODESTYLE.md "Where new code goes": "A new module\'s globals are defined in its '
+        'own .CPP and declared in its own .H, never in SOURCES/C_EXTERN.H and '
+        'SOURCES/GLOBAL.CPP."',
         rule_god_header_only_shrinks,
     ),
     Rule(
@@ -549,8 +553,8 @@ RULES = (
     Rule(
         7,
         "no string a player reads may name the repository",
-        'AGENTS.md: "Never point a user-facing string at the repo [...] no docs/*.md, '
-        'no source paths, no issue numbers."',
+        'CODESTYLE.md "Strings a player reads": "No user-facing string names the '
+        'repository: no docs/*.md, no source paths, no issue numbers."',
         rule_no_repo_reference_in_strings,
     ),
 )

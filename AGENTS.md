@@ -17,7 +17,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 ## Never
 
 - Never relax equivalence tests or add approximate comparisons
-- Never point a user-facing string at the repo. Help text, console command descriptions, log lines, on-screen messages and dialogs reach people who have only the binary: no `docs/*.md`, no source paths, no issue numbers. Point at `README.txt` (it ships) or, better, say the thing itself. `--help` in particular is read by players, not only by agents driving the harness.
+- Never point a user-facing string at the repo: no `docs/*.md`, no source paths, no issue numbers. Point at `README.txt` (it ships) or, better, say the thing itself. See [CODESTYLE.md "Strings a player reads"](CODESTYLE.md#strings-a-player-reads).
 - Never leak the session into a comment. Comments state the constraint or intent that outlives the merge, in the present tense, as if the code had always looked this way. No "used to", no "the old code assumed", no narrating the change you just made or the evidence that motivated it: that belongs in the commit message and the PR body, which is where a reader goes looking for it. Stripping the story must not strip the *why*, so keep the invariant, the hazard, or the non-obvious coupling the code can't show on its own. Bad: `/* a spelling that used to work would now be rejected */`. Good: `/* RES_DISCOVERY parses these with strcasecmp, so the validator must too, or it would reject a spelling that parser accepts. */`
 - Never remove French comments or ASCII art
 - Never add `__asm__` / inline x86 in LIB386 C++ files
@@ -82,7 +82,7 @@ Apply these behavior rules on every non-trivial task:
 | SOURCES/3DEXT/ | Same as LIB386; check ASM_TO_CPP_REFERENCE | docs/ASM_TO_CPP_REFERENCE.md |
 | Adding ASM↔CPP test | Use `add_asm_cpp_test()`, include stress test, update `docs/ASM_VALIDATION_PROGRESS.md`; check `docs/ASM_TEST_COVERAGE_AUDIT.md` for the coverage rubric | docs/TESTING.md, docs/ASM_TEST_COVERAGE_AUDIT.md, .github/copilot-instructions.md |
 | Audio/video | AIL in LIB386/AIL/; backends SDL, Miles, null | docs/AUDIO.md |
-| Android-specific behaviour (JNI, TV detection, storage permission) | Put it behind `LIB386/SYSTEM/ANDROID.{CPP,H}` with a stub-on-desktop; keep callers `#ifdef`-free; `<jni.h>` in that TU only; LIB386 must not include `SOURCES/` | docs/ANDROID.md, docs/PLATFORM.md §8 |
+| Android-specific behaviour (JNI, TV detection, storage permission) | Put it behind `LIB386/SYSTEM/ANDROID.{CPP,H}` with a stub-on-desktop; `<jni.h>` in that TU only. The two layer rules this is a case of, callers stay `#ifdef`-free and LIB386 never includes `SOURCES/`, are in CODESTYLE.md "Layers" | CODESTYLE.md, docs/ANDROID.md, docs/PLATFORM.md §8 |
 | Adding a platform conditional, a global, an STL include, or a `DEFINES.H` include | `make arch-check` refuses all four outside the layer that owns them. A file that genuinely belongs in the platform layer joins a named list in the checker, and owes a label in the per-module table | scripts/ci/check-arch.py, docs/plan/ARCH_RULES_PLAN.md, docs/ENGINE_GAME_SEAM.md |
 | Debug tools | DEBUG_TOOLS (console is always available) | docs/DEBUG.md, docs/CONSOLE.md |
 | Verifying a runtime change (scene, hero, inventory, render) | Drive the engine non-interactively and assert on dumped state / a screenshot instead of manual play | docs/CONTROL.md |
