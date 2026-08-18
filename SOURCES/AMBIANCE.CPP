@@ -831,23 +831,23 @@ static void ApplyCDVolume(S32 value) { SetVolumeCD(value); }
 static void ApplyReverseStereo(S32 value) { InverseStereoSample(value); }
 
 static const T_SETTING AudioSettings[] = {
-    {"WaveVolume", NULL, "snd_wave", &SampleVolume, SETTING_CLAMP, DEF_SAMPLE_VOLUME, 0, 127, NULL, NULL, NULL,
+    {"WaveVolume", NULL, "snd_wave", &SampleVolume, SETTING_CLAMP, DEF_SAMPLE_VOLUME, 0, 127, NULL, NULL, NULL, NULL,
      "Sound-effect volume (0-127)"},
-    {"VoiceVolume", NULL, "snd_voice", &VoiceVolume, SETTING_CLAMP, DEF_VOICE_VOLUME, 0, 127, NULL, NULL, NULL,
+    {"VoiceVolume", NULL, "snd_voice", &VoiceVolume, SETTING_CLAMP, DEF_VOICE_VOLUME, 0, 127, NULL, NULL, NULL, NULL,
      "Speech volume (0-127)"},
     {"MusicVolume", NULL, "snd_music", &JingleVolume, SETTING_CLAMP, DEF_JINGLE_VOLUME, 0, 127, NULL, NULL,
-     ApplyJingleVolume, "Music volume (0-127)"},
+     ApplyJingleVolume, NULL, "Music volume (0-127)"},
 #ifdef CDROM
-    {"CDVolume", NULL, "snd_cd", &CDVolume, SETTING_CLAMP, DEF_CD_VOLUME, 0, 127, NULL, NULL, ApplyCDVolume,
+    {"CDVolume", NULL, "snd_cd", &CDVolume, SETTING_CLAMP, DEF_CD_VOLUME, 0, 127, NULL, NULL, ApplyCDVolume, NULL,
      "CD audio volume (0-127)"},
 #endif
     {"MasterVolume", NULL, "snd_master", &MasterVolume, SETTING_CLAMP, DEF_MASTER_VOLUME, 0, 127, NULL, NULL,
-     ApplyMasterVolume, "Master volume (0-127), scales the others"},
+     ApplyMasterVolume, NULL, "Master volume (0-127), scales the others"},
     /* ReverseStereo lives here rather than in CONFIG_FILE.CPP's table now that
        audio has one: it is an audio setting, and its apply belongs beside the
        others rather than being repeated by whichever surface writes it. */
     {"ReverseStereo", NULL, "snd_reverse_stereo", &ReverseStereo, SETTING_TRUTHY, FALSE, 0, 1, NULL, NULL,
-     ApplyReverseStereo, "Swap the left and right sample channels"},
+     ApplyReverseStereo, NULL, "Swap the left and right sample channels"},
 };
 
 #define AUDIO_SETTING_COUNT ((S32)(sizeof(AudioSettings) / sizeof(AudioSettings[0])))

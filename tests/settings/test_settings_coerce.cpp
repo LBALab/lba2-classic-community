@@ -31,6 +31,7 @@ static T_SETTING row(T_SETTING_TYPE type, S32 def, S32 min, S32 max) {
     s.stored = NULL;
     s.forced = NULL;
     s.on_change = NULL;
+    s.source = NULL;
     s.help = NULL;
     return s;
 }
@@ -243,6 +244,57 @@ static void test_a_setting_without_a_hook_just_stores(void) {
     ASSERT_EQ_INT(0, s_applied_calls);
 }
 
+/* --- what a forced run leaves behind, once the source is known ------------ */
+
+/* The case the value comparison cannot answer. A run forced to 0 by a flag, where
+   the player's own setting is also 0, and the run set it by hand: the values are
+   identical, so only the source can say the run touched it. */
+static void test_setting_it_to_the_forced_value_is_now_told_apart(void) {
+    /* untouched: the flag's value goes back to what the player had */
+    ASSERT_EQ_INT(1, Settings_ValueToPersistFrom(0, 1, 0, SETTING_FROM_PROFILE));
+    /* set by hand to the same value: the run meant it, so it persists */
+    ASSERT_EQ_INT(0, Settings_ValueToPersistFrom(0, 1, 0, SETTING_FROM_RUNTIME));
+    /* which the old rule cannot separate: both are the same call */
+    ASSERT_EQ_INT(1, Settings_ValueToPersist(0, 1, 0));
+}
+
+/* A run no flag touched keeps its live value whatever the source says. */
+static void test_an_unforced_run_ignores_the_source(void) {
+    ASSERT_EQ_INT(7, Settings_ValueToPersistFrom(7, 3, -1, SETTING_FROM_DEFAULT));
+    ASSERT_EQ_INT(7, Settings_ValueToPersistFrom(7, 3, -1, SETTING_FROM_DATA));
+    ASSERT_EQ_INT(7, Settings_ValueToPersistFrom(7, 3, -1, SETTING_FROM_RUNTIME));
+}
+
+/* Every source that is not the run itself is treated the same by a forced run:
+   the player's stored value goes back, because none of them is this run's doing. */
+static void test_only_a_runtime_write_survives_a_forced_run(void) {
+    const T_SETTING_SOURCE inherited[] = {SETTING_FROM_DEFAULT, SETTING_FROM_DATA, SETTING_FROM_PROFILE,
+                                          SETTING_FROM_FLAG};
+    S32 i;
+    S32 bad = 0;
+
+    for (i = 0; i < (S32)(sizeof(inherited) / sizeof(inherited[0])); i++) {
+        if (Settings_ValueToPersistFrom(5, 9, 5, inherited[i]) != 9)
+            bad++;
+    }
+    ASSERT_EQ_INT(0, bad);
+    ASSERT_EQ_INT(5, Settings_ValueToPersistFrom(5, 9, 5, SETTING_FROM_RUNTIME));
+}
+
+/* Settings_Apply records the write, so a row with a source needs nothing else
+   wired for the rule above to see it. */
+static void test_apply_marks_the_value_as_this_run(void) {
+    S32 live = 0;
+    T_SETTING_SOURCE src = SETTING_FROM_PROFILE;
+    T_SETTING s = row(SETTING_CLAMP, 3, 0, 10);
+    s.value = &live;
+    s.source = &src;
+
+    Settings_Apply(&s, 4);
+    ASSERT_EQ_INT(4, live);
+    ASSERT_EQ_INT((S32)SETTING_FROM_RUNTIME, (S32)src);
+}
+
 int main(void) {
     RUN_TEST(test_every_rule_passes_an_in_range_value_through);
     RUN_TEST(test_clamp_moves_to_the_nearer_bound);
@@ -260,6 +312,10 @@ int main(void) {
     RUN_TEST(test_the_hook_is_told_the_stored_value);
     RUN_TEST(test_the_hook_fires_on_every_write);
     RUN_TEST(test_a_setting_without_a_hook_just_stores);
+    RUN_TEST(test_setting_it_to_the_forced_value_is_now_told_apart);
+    RUN_TEST(test_an_unforced_run_ignores_the_source);
+    RUN_TEST(test_only_a_runtime_write_survives_a_forced_run);
+    RUN_TEST(test_apply_marks_the_value_as_this_run);
     TEST_SUMMARY();
     return test_failures != 0;
 }

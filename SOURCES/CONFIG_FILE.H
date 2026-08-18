@@ -41,4 +41,10 @@ extern void ConfigFile_RegisterCvars(void);
  * the table cannot keep in step. */
 extern const T_SETTING *ConfigFile_Setting(const char *key);
 
-#endif /* CONFIG_FILE_H */
+/* Tell the settings table that this run set VSync, for the console's `vsync`
+   command, which takes on/off/toggle and so assigns the value itself rather than
+   going through the cvar path. Without it a --vsync run that the player then
+   changed by hand would be written back as untouched. */
+extern void ConfigFile_MarkVSyncSetThisRun(void);
+
+#endif #endif /* CONFIG_FILE_H */

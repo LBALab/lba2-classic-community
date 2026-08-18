@@ -465,46 +465,46 @@ void FollowCamSyncTarget(void) {
  * own position in the file, apart from this block. */
 static const T_SETTING FollowCamSettings[] = {
     {"FollowCamReengageFrames", NULL, "cam_recenter_delay", &FollowCamReengageFrames, SETTING_CLAMP,
-     FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT, 0, 600, NULL, NULL, NULL,
+     FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT, 0, 600, NULL, NULL, NULL, NULL,
      "Frames before auto-cam re-centers after a manual pan"},
     {"FollowCamDriftDivisor", NULL, "cam_recenter_drift", &FollowCamDriftDivisor, SETTING_CLAMP,
-     FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT, 1, 200, NULL, NULL, NULL,
+     FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT, 1, 200, NULL, NULL, NULL, NULL,
      "Auto-cam re-center drift divisor (higher = gentler)"},
     {"FollowCamHDRecompose", NULL, "cam_hd", &FollowCamHDRecompose, SETTING_TRUTHY,
-     FOLLOW_CAM_HD_RECOMPOSE_DEFAULT, 0, 1, NULL, NULL, NULL,
+     FOLLOW_CAM_HD_RECOMPOSE_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Auto cam HD recompose: pull in + steepen at tall render heights"},
     {"FollowCamHDExcessCap", NULL, "cam_hd_cap", &FollowCamHDExcessCap, SETTING_CLAMP,
-     FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT, 0, SETTING_MAX_NONE, NULL, NULL, NULL,
+     FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT, 0, SETTING_MAX_NONE, NULL, NULL, NULL, NULL,
      "Cap on recompose strength so tall res converges (0 = pure linear; 70 ~= 816p)"},
     {"FollowCamHDPitchGain", NULL, "cam_hd_pitch", &FollowCamHDPitchGain, SETTING_CLAMP,
-     FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL,
+     FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL, NULL,
      "HD recompose pitch gain (AlphaCam units per 1.0 of k-1)"},
     {"FollowCamHDDistGain", NULL, "cam_hd_dist", &FollowCamHDDistGain, SETTING_CLAMP,
-     FOLLOW_CAM_HD_DIST_GAIN_DEFAULT, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL,
+     FOLLOW_CAM_HD_DIST_GAIN_DEFAULT, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL, NULL,
      "HD recompose distance pull (% of boom per 1.0 of k-1)"},
     {"FollowCamHDLeanGain", NULL, "cam_hd_lean", &FollowCamHDLeanGain, SETTING_CLAMP,
-     FOLLOW_CAM_HD_LEAN_GAIN_DEFAULT, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL,
+     FOLLOW_CAM_HD_LEAN_GAIN_DEFAULT, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL, NULL,
      "HD recompose forward-lean cut (% per 1.0 of k-1)"},
     {"FollowCamGround", NULL, "cam_ground", &FollowCamGround, SETTING_TRUTHY,
-     FOLLOW_CAM_GROUND_DEFAULT, 0, 1, NULL, NULL, NULL,
+     FOLLOW_CAM_GROUND_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Auto cam: smooth terrain ground-clearance lift"},
     /* The ceiling keeps (g + clearance - hy) * 100 inside S32 in the occlusion
      * march below, which is why it is stated with the setting rather than at the
      * one surface that used to check it. */
     {"FollowCamGroundClearance", NULL, "cam_ground_clear", &FollowCamGroundClearance, SETTING_CLAMP,
-     FOLLOW_CAM_GROUND_CLEARANCE_DEFAULT, 0, 20000, NULL, NULL, NULL,
+     FOLLOW_CAM_GROUND_CLEARANCE_DEFAULT, 0, 20000, NULL, NULL, NULL, NULL,
      "Ground clearance: keep the eye this far above the ground under it"},
     {"FollowCamManualHoldFrames", NULL, "cam_manual_hold", &FollowCamManualHoldFrames, SETTING_CLAMP,
-     FOLLOW_CAM_MANUAL_HOLD_DEFAULT, 0, FOLLOW_CAM_MANUAL_HOLD_MAX, NULL, NULL, NULL,
+     FOLLOW_CAM_MANUAL_HOLD_DEFAULT, 0, FOLLOW_CAM_MANUAL_HOLD_MAX, NULL, NULL, NULL, NULL,
      "Frames the pitch/distance auto-assist yields after a manual camera nudge"},
     {"FollowCamHoldAngle", NULL, "cam_hold_angle", &FollowCamHoldAngle, SETTING_TRUTHY,
-     FOLLOW_CAM_HOLD_ANGLE_DEFAULT, 0, 1, NULL, NULL, NULL,
+     FOLLOW_CAM_HOLD_ANGLE_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Hold the manual camera rotation (free-camera); off = classic auto-recenter drift"},
     /* cvar only, and it must stay that way. FollowCamera's cfg row lives in
        CONFIG_FILE.CPP's table, which reads it with the legacy AutoCameraCenter
        fallback and its own rule; giving this row a key would read the same
        global twice under two rules, and this table runs last. */
-    {NULL, NULL, "cam_follow", &FollowCamera, SETTING_TRUTHY, FALSE, 0, 1, NULL, NULL, NULL,
+    {NULL, NULL, "cam_follow", &FollowCamera, SETTING_TRUTHY, FALSE, 0, 1, NULL, NULL, NULL, NULL,
      "Auto camera (third-person follow) enable"},
 };
 #define FOLLOW_CAM_SETTING_COUNT ((S32)(sizeof(FollowCamSettings) / sizeof(FollowCamSettings[0])))

@@ -1554,6 +1554,7 @@ static void cmd_vsync(int argc, const char *argv[]) {
         return;
     }
 
+    ConfigFile_MarkVSyncSetThisRun();
     Window_SetVSync(DisplayVSync);
     /* Applied either way; say so separately from whether it was stored, rather
        than reporting a setting that will not survive the run. */

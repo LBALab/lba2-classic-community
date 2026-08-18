@@ -24,6 +24,27 @@ void Settings_ReadConfig(const T_SETTING *table, S32 count) {
         def = (s->legacy != NULL) ? DefFileBufferReadValueDefault(s->legacy, s->def) : s->def;
         *s->value = Settings_Coerce(s, DefFileBufferReadValueDefault(s->key, def));
 
+        /* Which of the stacked configs answered, asked under the current key and
+           then the legacy one, since a renamed key is still the player's if their
+           file spells it the old way. */
+        if (s->source != NULL) {
+            T_DEFFILE_ORIGIN from = DefFileBufferKeyOrigin(s->key);
+            if (from == DEFFILE_ORIGIN_ABSENT && s->legacy != NULL)
+                from = DefFileBufferKeyOrigin(s->legacy);
+
+            switch (from) {
+            case DEFFILE_ORIGIN_OWNED:
+                *s->source = SETTING_FROM_PROFILE;
+                break;
+            case DEFFILE_ORIGIN_LAYER:
+                *s->source = SETTING_FROM_DATA;
+                break;
+            default:
+                *s->source = SETTING_FROM_DEFAULT;
+                break;
+            }
+        }
+
         /* Captured before anything applies a per-run override, so this is the
          * player's own setting rather than what a flag forced. */
         if (s->stored != NULL)
@@ -42,8 +63,11 @@ void Settings_WriteConfig(const T_SETTING *table, S32 count) {
             continue;
 
         value = *s->value;
-        if (s->stored != NULL AND s->forced != NULL)
-            value = Settings_ValueToPersist(value, *s->stored, s->forced());
+        if (s->stored != NULL AND s->forced != NULL) {
+            value = (s->source != NULL)
+                        ? Settings_ValueToPersistFrom(value, *s->stored, s->forced(), *s->source)
+                        : Settings_ValueToPersist(value, *s->stored, s->forced());
+        }
         DefFileBufferWriteValue(s->key, value);
     }
 }
