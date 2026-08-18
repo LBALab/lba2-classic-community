@@ -147,6 +147,20 @@ DEFINES_AGGREGATED = frozenset(
     """.split()
 )
 
+# --- rule 7: what a string reaching a player may name ------------------------
+
+# A player has the binary and nothing else. Each pattern is one way a string can
+# assume otherwise.
+REPO_REFERENCE = (
+    (re.compile(r"\bdocs/"), "a path in the repository"),
+    (re.compile(r"\.md\b"), "a markdown file, which does not ship"),
+    (re.compile(r"\b(?:SOURCES|LIB386)/"), "a source path"),
+    (re.compile(r"github\.com"), "the repository itself"),
+    # Narrow on purpose. "#1024-GH" in the exit screen's joke is not an issue
+    # reference, so the number has to end the token rather than run into a suffix.
+    (re.compile(r"(?:^|\s)#\d{2,5}(?=[\s.,;:)\]]|$)"), "an issue number"),
+)
+
 INCLUDE_RE = re.compile(r'#\s*include\s*[<"]([^">]+)[">]')
 
 # Quoted form only. DEFINES.H reaches LIB386 through <OBJECT.H> and the game's own
@@ -415,6 +429,22 @@ def rule_defines_aggregation_only_shrinks(sources: list[Source]) -> list[Violati
     return found
 
 
+def rule_no_repo_reference_in_strings(sources: list[Source]) -> list[Violation]:
+    found = []
+    for source in sources:
+        for line, literal in source.literals:
+            # An #include's target is a literal too, and naming a header is its job.
+            if INCLUDE_RE.match(source.code[line - 1].lstrip()):
+                continue
+            for pattern, what in REPO_REFERENCE:
+                if pattern.search(literal):
+                    found.append(
+                        Violation(source.path, line, f'"{literal.strip()}" names {what}')
+                    )
+                    break
+    return found
+
+
 @dataclass(frozen=True)
 class Rule:
     number: int
@@ -453,6 +483,13 @@ RULES = (
         "DEFINES.H must not aggregate a module header again",
         "CODESTYLE.md \"Where new code goes\": aggregation is what makes ownership inert.",
         rule_defines_aggregation_only_shrinks,
+    ),
+    Rule(
+        7,
+        "no string a player reads may name the repository",
+        'AGENTS.md: "Never point a user-facing string at the repo [...] no docs/*.md, '
+        'no source paths, no issue numbers."',
+        rule_no_repo_reference_in_strings,
     ),
 )
 

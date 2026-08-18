@@ -2159,7 +2159,8 @@ void Console_RegisterAll(void) {
                               "resolution [<n> | WxH | native | --all]",
                               "No args lists recommended modes; <n> picks by index; WxH is arbitrary "
                               "(W%8==0, range 320x200..1920x1024); native snaps to the current display; "
-                              "--all expands the list with advanced modes. See docs/RUNTIME_RESOLUTION.md.");
+                              "--all expands the list with advanced modes. The switch applies to this "
+                              "run only; lba2.cfg keeps the resolution the game boots at.");
 
     Console_RegisterCommandEx("vsync", cmd_vsync,
                               "Toggle vertical sync (no args = show state)",
@@ -2240,7 +2241,7 @@ void Console_RegisterAll(void) {
                               "`start` enables capture, `stop` halts it, `dump` writes a summary file "
                               "(default /tmp/perftrace.txt) with iso vs exterior breakdown. "
                               "`autodump` arms a dump on process exit (useful for headless --exec runs). "
-                              "Cost when active is ~1 us/frame; zero when inactive. See docs/PERFTRACE.md.");
+                              "Cost when active is ~1 us/frame; zero when inactive.");
 
     Console_RegisterCvar("fps", &DebugFps, CONSOLE_CVAR_BOOL, "Frame rate display");
     Console_RegisterCvar("horizon", (void *)&FlagDrawHorizon, CONSOLE_CVAR_BOOL_U8, "Draw horizon/cubes around");
