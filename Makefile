@@ -1,5 +1,5 @@
 # Convenience targets — delegate to CMake and scripts (see docs/GAME_DATA.md).
-.PHONY: help clean build run build-run test tests test-docker format-check arch-check docs-links docs-symbols action-shell-check action-shell-selftest build-graph-check build-graph-selftest check-tooling save-probe-lz-selftest savegame-corpus
+.PHONY: help clean build run build-run test tests test-docker format-check arch-check docs-links docs-symbols action-shell-check action-shell-selftest build-graph-check build-graph-selftest automation-index check-tooling save-probe-lz-selftest savegame-corpus
 
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 REPO_ROOT := $(shell "$(MAKEFILE_DIR)scripts/dev/repo_root.sh" 2>/dev/null || echo "$(MAKEFILE_DIR)")
@@ -26,6 +26,7 @@ help:
 	@echo "  make action-shell-selftest - self-test for the above"
 	@echo "  make build-graph-check - scripts/ci/check-build-graph.py (rules that need a built tree)"
 	@echo "  make build-graph-selftest - self-test for the above"
+	@echo "  make automation-index - regenerate tests/automation/README.md from the fixtures"
 	@echo "  make check-tooling  - report which external tools this clone has (docs/TOOLING.md)"
 	@echo "  make save-probe-lz-selftest - build save_decompress + run LZ golden self-test"
 	@echo "  make savegame-corpus - run bundled save corpus harness (retail game data required)"
@@ -73,6 +74,9 @@ build-graph-check:
 
 build-graph-selftest:
 	@python3 "$(REPO_ROOT)/scripts/ci/check-build-graph-selftest.py"
+
+automation-index:
+	@python3 "$(REPO_ROOT)/scripts/ci/gen-automation-index.py"
 
 check-tooling:
 	@bash "$(REPO_ROOT)/scripts/dev/check-tooling.sh"

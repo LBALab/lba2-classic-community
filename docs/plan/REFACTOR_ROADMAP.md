@@ -31,7 +31,7 @@ that flag is set inside the container rather than in their YAML.
 | `SOURCES/` | 73,664 | 4,716 (**6%**), of 90 files | yes, host tests on 3 platforms |
 | `LIB386/` | 43,230 | 7,290 (**16%**) | yes, host tests plus ASM equivalence |
 | ASM equivalence (153 tests) | n/a | n/a | **yes**, `test.yml`, Docker, every push and PR |
-| `tests/automation` (60 fixtures) | n/a | n/a | **no workflow references it** |
+| [`tests/automation`](../../tests/automation/README.md) | n/a | n/a | **no workflow references it**, and none can |
 
 Two things follow, and they shape every section below.
 
@@ -40,7 +40,7 @@ reachable from a host test. The 6% is `CLI_ARGS`, `RES_*`, `SAVEGAME_WIRE`, `AUD
 their neighbours, all written in this fork. What does cover 1997 code is the ASM equivalence suite,
 and it covers `LIB386/` rather than the game logic in `SOURCES/`.
 
-**One real gap is left, and it is the fixtures.** The 60 in `tests/automation` drive a real engine
+**One real gap is left, and it is the fixtures.** Those in [`tests/automation`](../../tests/automation/README.md) drive a real engine
 and catch what nothing else can, but they need retail data and a display, so they run when someone
 remembers. That is the coverage an area can look well served by on paper while being unguarded in
 practice.
