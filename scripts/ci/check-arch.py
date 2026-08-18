@@ -393,7 +393,8 @@ def rule_god_header_only_shrinks(sources: list[Source]) -> list[Violation]:
                 GOD_HEADER,
                 0,
                 f"{count} extern declarations, up from {GOD_HEADER_EXTERNS}. "
-                "A new module declares its own state in its own header.",
+                "A new module declares its own state in its own header. Raising "
+                "GOD_HEADER_EXTERNS is not a fix: this ceiling only falls.",
             )
         ]
     if count < GOD_HEADER_EXTERNS:
@@ -495,6 +496,10 @@ class Rule:
     title: str
     source: str
     check: object
+    # What to do about it. A failure that names the offending line but not the
+    # legitimate fix leaves the cheapest green as the likeliest one, and for most of
+    # these rules the cheapest green is editing this file's own allowlists.
+    remedy: str = ""
 
 
 RULES = (
@@ -515,6 +520,12 @@ RULES = (
         "platform conditionals live in the platform layer",
         'AGENTS.md: "keep callers #ifdef-free". docs/PLATFORM.md gives the seam.',
         rule_platform_ifdefs,
+        remedy=(
+            "move the conditional behind the seam. If the directory is platform layer "
+            "itself, add it to PLATFORM_DIRS and give it a row in "
+            "docs/ENGINE_GAME_SEAM.md in the same diff. KNOWN_EXCEPTIONS is for engine "
+            "code awaiting cleanup, not for a new backend."
+        ),
     ),
     Rule(
         4,
@@ -565,6 +576,8 @@ def main() -> int:
         failures += 1
         print(f"\nrule {rule.number}: {rule.title}")
         print(f"  {rule.source}")
+        if rule.remedy:
+            print(f"  fix: {rule.remedy}")
         for violation in violations:
             where = f"{violation.path}:{violation.line}" if violation.line else violation.path
             print(f"    {where}")
