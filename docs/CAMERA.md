@@ -123,7 +123,12 @@ The latching shape is by far the more common in the shipped data. `CameraZone` i
 The angle is the visible part, but `CameraZone` gates three other behaviours, and anything that suppresses or bypasses zones inherits all four:
 
 - **The hidden-hero recovery.** When the hero is completely masked by geometry, the engine recentres the camera, unless `CameraZone` is set ([OBJECT.CPP](../SOURCES/OBJECT.CPP)). An authored shot is assumed deliberate, including when it hides him.
-- **HD recompose.** Skipped in zones ([FOLLOWCAM.CPP](../SOURCES/FOLLOWCAM.CPP)), so hand-composed framing is not adjusted at tall render heights.
+- **The follow update, for that one frame.** `UpdateFollowCameraExt` is called from inside `if (!CameraZone)`
+  ([PERSO.CPP](../SOURCES/PERSO.CPP)), so on the frame a zone claims the view the Auto camera does not run at
+  all and the zone's own writes reach the screen untouched. Note what this is *not*: an authored shot is not
+  exempt from the HD recompose. It escapes it for that single frame and is recomposed like anything else for
+  every frame it holds afterwards. A boom written raw there is the one frame in the sequence rendered without
+  the correction its neighbours have, which at 1080p is a third of the boom in and straight back out.
 - **The recentre input.** `I_RETURN` is a no-op inside a zone.
 
 `FlagCameraForcee` outlives the zone: the off-screen path clears it and restores `AlphaCam` / `GammaCam` / `VueDistance` to the `VueCamera` presets, which is how a forced shot's parameters are given back.
@@ -194,11 +199,24 @@ Pitch is the binding lever and saturates at the `AlphaCam` clamp (600 ≈ 53°),
 
 **Status: tuned for ~720p; 1080p is experimental.** The strength scales linearly with render height, which over-reaches at 1080p: the subject can feel too far and terrain near-clipping is more visible (the height-scaled near clip reduces it but does not fully solve it; a per-cell near-plane clip of the terrain grid is the real fix). The `cam_hd_*` cvars (and `cam_hd_cap`, which caps the strength so tall resolutions converge) let you tune it, and `cam_hd 0` disables it. Refining the 1080p framing and the terrain near-clip is left to a focused follow-up.
 
+**480 and 1080 are different regimes, so a camera change verified at one is not verified.** Every recompose
+term is an exact no-op at 480, which means a fix measured only there has not met the correction at all, and
+one measured only at 1080 has not met the original framing. A change to the boom that removed a 14% jump at
+480 introduced a 49% one at 1080, because the frame it corrected is the one frame the recompose never
+reaches. Capture both, and treat a result from one height as half an answer.
+
 ### Ground / occlusion clearance
 
 A smooth port of the classic `SearchCameraPos` terrain awareness onto the follow path (`cam_ground`, default on; clearance `cam_ground_clear`). After `CameraCenter(3)` positions the eye, a few points are sampled along the eye-to-hero line (`FollowCamHDExcess`-style, in `FOLLOWCAM.CPP`). Where terrain there would rise above the line of sight (a hill between the camera and the hero, or the eye sinking into rising ground), the eye is raised just enough to clear the worst occluder and re-aimed at the hero via the same `SetPosCamera` / `SetTargetCamera` calls the classic recenter uses.
 
 The difference from the classic path is that the lift **eases** toward its target every frame (`FollowCamEyeLift`, tuned by `FOLLOW_CAM_GROUND_*`) instead of snapping. An earlier always-on snap fought the orbit and was reverted; easing is what makes it safe to run every frame. A `FollowCamGroundSettling` flag keeps the dirty check live until the lift converges, so it finishes even while the hero stands still. Active at every resolution (world awareness, not HD-specific), skipped in camera zones and when the eye leaves the cube (where `CalculAltitudeObjet` is invalid). It clears terrain only; decor/scenery occlusion is not yet handled.
+
+**Eased state is self-correcting; latched state is not.** The distinction decides what a discontinuity
+(a scene change, a camera zone, a recentre) has to reset. `FollowCamEyeLift` and the spring arm converge on
+whatever the new situation asks for a frame at a time, so carrying a stale value across costs a short glide
+and zeroing it costs a jump of thousands of units. `FollowCamTargetBeta`, the re-engage and manual-hold
+counters and the orbit follow-through do not converge on their own: nothing retires them, so they discharge
+against a situation they were never measured in. Drop what latches, leave what eases.
 
 ### Manual-override fade
 

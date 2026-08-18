@@ -120,6 +120,13 @@ that is spelled inline at many call sites into one place, without changing behav
    workflow, and `LBA2_BUILD_ASM_EQUIV_TESTS` is `OFF` in all of them. So for most of the tree
    the honest starting position is that nothing would catch you.
 
+   **A test you found is not yet an oracle: check it can fail.** A binary that calls `TEST_SUMMARY()` and
+   falls off the end of `main` exits 0 whatever failed, and ctest reads that as a pass; two in this tree
+   did until `test(camera): put the HD recompose rule under CI` fixed them, and the way that was
+   established was to break the formula on purpose and watch the run stay green. Do that once, to the
+   test you are about to lean on, before you lean on it. Coverage that cannot fail is worse than none,
+   because it is quoted in the PR.
+
    **If nothing covers it, building that cover is the first commit of the refactor, not a later
    one.** Not a full suite: one host test over the part that can be reached without engine
    state, or one fixture pinning the surface as it behaves today. Everything below assumes it
@@ -154,6 +161,13 @@ that is spelled inline at many call sites into one place, without changing behav
    [SOURCES/GLOBAL.CPP](../SOURCES/GLOBAL.CPP). The mechanical test is the include list: after the
    move, the files that genuinely use the module are the ones that had to add the include. For the
    camera that was seven, against the ninety-odd that could previously reach it by accident.
+
+   **A guard whose caller already decides it reads as intentional and moves with the code.** The include
+   list proves what compiles, not what is reachable. `FollowCamHDExcess` was called as
+   `CameraZone ? 0 : ...` inside a function whose only caller sits in `if (!CameraZone)`, so the test could
+   never be true; it survived a whole extraction and had its non-existent behaviour written up in a fresh
+   header on the way. When a conditional moves, check who calls it now, and delete the ones the caller
+   already answers rather than carrying them into the new file.
 
 7. **Then surfaces, one entry point each.** The cfg reader, the console, the CLI table and the
    options menu call into the module rather than naming its variables. Expect exactly one leak of
