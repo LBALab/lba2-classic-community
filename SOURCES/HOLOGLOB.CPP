@@ -420,8 +420,14 @@ void DrawListHoloGlobe(S32 pos) {
 
     timer = TimerRefHR * 2;
 
-    if ((NumObjectif != OldObjectif)
-            AND(DecalTimerRef[NumObjectif] == 3072)) {
+    /*	NumObjectif carries two values that are not slots in DecalTimerRef: -1
+        for no objective (its initial value, and what SetObjectif resets it to)
+        and 1000 for Twinsen. Both index outside the table here, -1 just before
+        it and 1000 far past its 305 entries, on the read and again on the
+        write. The rest of the file already special-cases the two. */
+    if ((NumObjectif != OldObjectif) AND(NumObjectif >= 0)
+            AND(NumObjectif < MAX_OBJECTIF + MAX_CUBE)
+                AND(DecalTimerRef[NumObjectif] == 3072)) {
         DecalTimerRef[NumObjectif] -= timer;
     }
 

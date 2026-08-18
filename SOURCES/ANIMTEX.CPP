@@ -5,7 +5,11 @@
 
 /*══════════════════════════════════════════════════════════════════════════*/
 #define DEF_EFFECT 1
-#define MAX_TEX_EFFECTS 10
+/*	Les scenes en declarent jusqu'a 10, et InitPlasmaMenu en ajoute un par
+    dessus pour le fond anime des menus (PlasmaMenuIndex = NbTexEffects). Il
+    faut donc une place de plus que ce qu'une scene peut occuper, sinon ouvrir
+    le menu dans une scene pleine indexe hors du tableau. */
+#define MAX_TEX_EFFECTS 12
 
 /*══════════════════════════════════════════════════════════════════════════*/
 typedef struct
@@ -31,6 +35,11 @@ void ScanTextureAnimation(U8 *ptrtex, S32 nbscanlines) {
             S32 effectnum;
             S32 x1, x2;
             S32 n;
+
+            //	rien ne bornait NbTexEffects: une texture qui declare plus
+            //	d'effets que le tableau n'en tient ecrivait au dela
+            if (NbTexEffects >= MAX_TEX_EFFECTS)
+                break;
 
             // effet trouvé
             effectnum = ptrtex[1 + 2 * 256];
@@ -281,6 +290,9 @@ void InitPlasmaMenu(void) {
     U8 *ptr;
     U8 *texdest;
     U8 *ptrorg;
+
+    if (NbTexEffects >= MAX_TEX_EFFECTS)
+        return; //	plus de place pour le plasma du menu
 
     if (!TexEffectList[NbTexEffects].PtrStruct) {
         ptrorg = (U8 *)(SkySeaTexture + 256 * (128 + 64));

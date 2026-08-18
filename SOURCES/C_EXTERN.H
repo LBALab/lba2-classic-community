@@ -34,7 +34,7 @@ extern U8 SavingEnable;
 extern U8 FlagPlayAcf;
 extern U8 RainEnable;
 
-extern char NewGameTxt[20]; // ATTENTION: max 19 chars
+extern char NewGameTxt[MULTI_TEXT_MAX];
 
 #ifdef DEMO
 extern U8 FlagSlideShow;
