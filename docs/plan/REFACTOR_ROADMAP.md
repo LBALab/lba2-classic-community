@@ -19,30 +19,38 @@ cover, and the area costs more than its line count suggests.
 
 ## What CI can see today
 
-| Scope | Lines | Linked into a host test | Runs in CI |
+The ASM equivalence suite runs from a workflow of its own,
+[.github/workflows/test.yml](../../.github/workflows/test.yml), which builds the cached image and
+runs `run_tests_docker.sh` on every push and pull request, about 80 seconds on a cache hit. Worth
+knowing before measuring what CI covers: grepping the three platform workflows for
+`LBA2_BUILD_ASM_EQUIV_TESTS` finds it `OFF` in all of them and answers a different question, since
+that flag is set inside the container rather than in their YAML.
+
+| Scope | Lines | Linked into a test | Runs in CI |
 |---|---|---|---|
-| `SOURCES/` | 73,499 | 4,171 (**5%**), 19 files | yes, every push, 3 platforms |
-| `LIB386/` | 43,222 | 7,238 (**16%**), 25 files | yes |
-| `tests/automation` (59 fixtures) | n/a | n/a | **no workflow references it** |
-| ASM equivalence tests | n/a | n/a | **no**, `LBA2_BUILD_ASM_EQUIV_TESTS` is OFF everywhere |
+| `SOURCES/` | 73,664 | 4,716 (**6%**), of 90 files | yes, host tests on 3 platforms |
+| `LIB386/` | 43,230 | 7,290 (**16%**) | yes, host tests plus ASM equivalence |
+| ASM equivalence (153 tests) | n/a | n/a | **yes**, `test.yml`, Docker, every push and PR |
+| `tests/automation` (60 fixtures) | n/a | n/a | **no workflow references it** |
 
 Two things follow, and they shape every section below.
 
 **Every host-tested file in `SOURCES/` is a community TU.** Not one line of 1997 game logic is
-reachable from a test CI runs. The 5% is `CLI_ARGS`, `RES_*`, `SAVEGAME_WIRE`, `AUDIO_BALANCE`
-and their neighbours, all written in this fork.
+reachable from a host test. The 6% is `CLI_ARGS`, `RES_*`, `SAVEGAME_WIRE`, `AUDIO_BALANCE` and
+their neighbours, all written in this fork. What does cover 1997 code is the ASM equivalence suite,
+and it covers `LIB386/` rather than the game logic in `SOURCES/`.
 
-**The best coverage in the repo does not run anywhere automatic.** The 59 fixtures drive a real
-engine and catch real regressions, but they need retail data and a display, so they run when
-someone remembers. The ASM equivalence suite is stronger still and needs Docker and a 32-bit
-toolchain. Both are opt-in, which is why an area can be well covered on paper and unguarded in
+**One real gap is left, and it is the fixtures.** The 60 in `tests/automation` drive a real engine
+and catch what nothing else can, but they need retail data and a display, so they run when someone
+remembers. That is the coverage an area can look well served by on paper while being unguarded in
 practice.
 
 Reproduce:
 
 ```bash
-grep -rhoE "SOURCES/[A-Z_0-9]+\.CPP" tests/*/CMakeLists.txt | sort -u   # what a host test links
-grep -rn "LBA2_BUILD_ASM_EQUIV_TESTS" .github/workflows/                # OFF in all of them
+grep -rhoE "(SOURCES|LIB386)/[A-Za-z_0-9/]+\.CPP" tests/*/CMakeLists.txt | sort -u  # what a test links
+grep -rln "run_tests_docker.sh\|ctest" .github/workflows/                           # what CI runs
+grep -rln "tests/automation" .github/workflows/                                      # nothing
 ```
 
 ## Growth since the 1997 import
@@ -124,6 +132,16 @@ setting, because `JingleVolume` is `U32` where its three siblings and the cfg re
 And the ownership move needed the de-aggregation above first, or it would have been bookkeeping.
 Fourteen globals moved, five stayed on the shared bus with the header saying why, and the god
 header went from 266 externs to 252.
+
+Finished in #568 and #570, which did the step this section forgot to list: surfaces. The console
+verbs moved to the module (#568), and the volumes became a declarative table with cvars (#570),
+so audio now meets the cfg reader, the cfg writer and the console the way the camera does. Both
+turned up further defects the same way the first did, by writing the coverage first: the console's
+reverse-stereo verb applied without recording, and the CD volume carried the same wrap as the music
+volume two lines below it.
+
+The lesson for the sections below is that an area is not done at ownership. Every one of them
+should read "and then its surfaces".
 
 ### 2. Boot and fatal-error plumbing
 
@@ -213,19 +231,25 @@ equivalence tests are the oracle, which means Docker.
 ### 7. Rendering
 
 **What.** [SOURCES/OBJECT.CPP](../../SOURCES/OBJECT.CPP), 6,787 lines, the only big original file
-that has shrunk.
+that has shrunk, plus the `LIB386/` libraries under it.
 
-**Coverage today.** On paper the best in the repo: ASM equivalence suites for OBJECT, SVGA, 3D,
-ANIM and pol_work, plus `tests/render`, `pol_work`, `texfilter`, `present_rect`. **In practice
-none of the equivalence tests run in CI.**
+**Coverage today.** The best in the repo, and it runs. The ASM equivalence suites for OBJECT, SVGA,
+3D, ANIM and pol_work go through CI on every push and pull request, 153 tests in about 80 seconds,
+alongside `tests/render`, `pol_work`, `texfilter` and `present_rect` as host tests.
 
-**What it buys.** Nothing yet, and this is the important entry. The prerequisite is not a
-refactor: it is getting the equivalence tests to run automatically, or a documented subset of
-them. Until then any restructuring here is guarded by a suite someone has to remember to run in
-Docker.
+**What it buys.** Rendering sits near the top of this list for one reason: it is the only area
+whose 1997 code has an automatic, byte-exact oracle. A refactor here is checkable in a way
+that a refactor of gameplay or the menu simply is not.
 
-**Verdict: blocked, and the block is a CI question rather than a code one.** Raise it separately;
-the open work on gating compiler warnings in CI is the nearest neighbour.
+**What it costs.** The constraint is bit-exactness rather than absent coverage, which is a
+different and more tractable problem. The equivalence tests define what may not change, so the
+work is bounded by a rule that can be checked rather than by judgement. Read
+[BIT_EXACTNESS.md](../BIT_EXACTNESS.md) before starting: the three kinds of change it names decide
+what is even allowed here.
+
+**Verdict: viable, and better covered than anything else on this list.** What it does not have is a
+*reason* yet, since no open bug points here; pick it when one does, or when the engine and game
+split needs the rendering line drawn.
 
 ### 8. Gameplay and simulation
 
@@ -242,6 +266,41 @@ eventually be drawn. In practice nothing safely, today.
 engine and game split, the LBA1 plan is the cheaper route to it (see below).
 
 ---
+
+## The surfaces themselves: config and console
+
+The areas above are features. The cfg reader, the console and the CLI are not, and they need
+reading differently, because their size measures something other than their own design.
+
+**Both are already the right shape.** The console core is a library
+([SOURCES/CONSOLE/](../../SOURCES/CONSOLE/)) that touches no game state, with `CONSOLE_CMD.CPP`
+as the game-bound half compiled separately, which is the split CODESTYLE points at as mature. The
+cfg reader has the declarative table. Neither needs restructuring.
+
+**What is left in them is a waiting room.** `CONSOLE_CMD.CPP` still holds 47 commands and names 14
+engine globals directly; `BootSettings` still holds 10 rows naming 13. Those numbers do not measure
+how badly the surfaces are built. They measure how many *features* have no module to own them:
+`teleport`, `varcube`, `vargame`, `behaviour`, `weapon` and `lifetrace` are gameplay, which is area
+8, and `Shadow`, `DetailLevel`, `TextureFilter` want a graphics module that does not exist. Audio's
+rows and verbs left when audio got one. So both files shrink as a *consequence* of the areas above,
+and "refactor the console" is the wrong goal.
+
+Two things are worth doing without waiting for anything:
+
+**Fourteen commands already have an owner.** `playmusic`, `playjingle`, `listjingles` and
+`listmusic` to [SOURCES/MUSIC.CPP](../../SOURCES/MUSIC.CPP); `resolution` and `vsync` to
+[SOURCES/RES_SWITCH.CPP](../../SOURCES/RES_SWITCH.CPP); `input` and `key` to
+[SOURCES/INPUT.CPP](../../SOURCES/INPUT.CPP); plus `perftrace`, `distrib`, `credits`, `playvideo`,
+`listvideos` and `buildinfo`. Each is the move #568 did for audio, small and independent, and each
+shrinks the waiting room now.
+
+**A setting cannot say where its value came from.** This is the one place the surfaces genuinely
+interact rather than merely coexist, and the one gap that is theirs rather than a feature's. CLI
+beats cfg beats default, implemented through the `stored` and `forced` columns, but
+[SOURCES/SETTINGS.H](../../SOURCES/SETTINGS.H) admits the comparison is on the value rather than on
+who wrote it: setting a value by hand to what a flag already forced cannot be told from not
+touching it. The `on_change` hook added in #569 fires on every runtime write, which is the hook a
+writer could record itself through. That would make the flag contract exact instead of heuristic.
 
 ## What none of this buys
 
@@ -262,11 +321,18 @@ two things at once, and a smaller god header.
 
 ## Order
 
-1. **Audio ownership.** Small, well covered, proves the pattern generalises.
+1. **Audio ownership.** Done: #563, #568, #570.
 2. **Boot and fatal-error plumbing.** Small, low risk, makes a failure path testable.
-3. **The game menu.** Largest payoff, wants a dedicated run at it.
-4. **World and cube**, once #555 lands and if the crash is still open.
-5. Everything else is opportunistic, blocked on CI, or better left alone.
+3. **Setting provenance.** Small, closes the one gap that belongs to the surfaces rather than to a
+   feature, and the hook it needs now exists.
+4. **The game menu.** Largest payoff, wants a dedicated run at it.
+5. **Rendering**, whenever a reason appears. It is the best covered area in the tree, which the
+   first pass of this document got backwards.
+6. **World and cube**, if the cube-change crash is still open.
+
+Running alongside, in any order and by anyone: de-aggregating one module header from `DEFINES.H`,
+and moving one of the fourteen owned console commands. Both are single-sitting jobs that make the
+next area cheaper.
 
 Running underneath all of it: every one of these should raise the 5% figure at the top. A proposed
 refactor that does not raise it needs a different justification.
@@ -274,8 +340,16 @@ refactor that does not raise it needs a different justification.
 ## How this doc changes
 
 It is expected to be wrong in places and is edited as areas are done, not rewritten at the end.
-Two kinds of edit have happened already and both are the point: an area's cost being corrected
-once someone measured it, and a prerequisite being discovered that none of the areas had listed.
+Three kinds of edit have happened already and all three are the point: an area's cost being
+corrected once someone measured it, a prerequisite being discovered that none of the areas had
+listed, and a fact being simply wrong.
+
+The wrong one is worth keeping visible rather than quietly fixing, because of how it happened. The
+first pass said the ASM equivalence tests do not run in CI, and ranked rendering last on the
+strength of it. The evidence was one grep of the platform workflows for a build flag, which found
+it off in all three. Those workflows are not where that suite runs. A whole area was mis-ranked by
+reading a silence as an answer, and nothing in the checks could have caught it, because a
+plan that is confidently wrong still passes every linter.
 
 A finding that generalises past this roadmap graduates out of it. The de-aggregation order above
 is a rule about how to do an ownership move at all, not a fact about the audio module, so it
