@@ -36,7 +36,7 @@
 
 #include "INPUT.H" // SOURCES/INPUT.H: T_DEF_KEY, MAX_INPUT, InitInput, RestoreInput
 
-#include "engine_stubs.h"
+#include "held_keys.h"
 
 static int fails = 0;
 

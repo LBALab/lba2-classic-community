@@ -67,7 +67,7 @@ but never said what comes out, so this section says it.
 
 **Step 1 of [FEATURE_WORKFLOW.md](../FEATURE_WORKFLOW.md) Example 5 is to count what CI can see of
 the code about to move, before anything else.** Measured on
-[SOURCES/INPUT.CPP](../../SOURCES/INPUT.CPP), 447 lines, of which none is under any test:
+[SOURCES/INPUT.CPP](../../SOURCES/INPUT.CPP), 446 lines, of which none is under any test:
 
 | Part | Lines | Reads engine globals or IO |
 |---|---|---|
@@ -81,7 +81,8 @@ the code about to move, before anything else.** Measured on
 | `WaitNoInput` / `WaitInput` | 24 | polls |
 
 **The testable line is therefore clean**, and the extraction is 150 lines: the tables and the fold
-come out, the config IO and the polling stay. Proposed name `INPUT_BINDINGS.{H,CPP}`, on the naming
+come out, the config IO and the polling stay. (Done in increment 0, and 132 lines once the blank
+lines the estimate counted are taken out.) Proposed name `INPUT_BINDINGS.{H,CPP}`, on the naming
 pattern of `AUDIO_BALANCE`, `SAVEGAME_WIRE` and `RES_DISCOVERY`. The layout half of increment 4
 grows out of [MENU_KEYNAV.CPP](../../SOURCES/MENU_KEYNAV.CPP), which area 8 already calls the first
 piece of it.
@@ -98,7 +99,8 @@ much, and it is a stronger claim than the percentage.
 A detail worth keeping while the table is being moved: the 1997 file carried **two** default
 layouts, `DefKeysDefault` and `DefKeysDefault95`, a DOS set and a Windows 95 set. This port kept
 only the second. An extracted table is the natural place to record that, and a binding set
-(increment 6) is the natural place for the first one to come back if anyone wants it.
+(increment 6) is the natural place for the first one to come back if anyone wants it. It is
+recorded above `DefKeysDefault95` in the extracted file.
 
 ### Which increment does which step of the recipe
 
@@ -232,6 +234,29 @@ increment after this one edit a tested module rather than 1997 code in place.
 **What it decides.** The deferred test-investment question. If covering the pure layers leaves the
 fixtures as the obvious bottleneck for the increments below, replay earns a second look; if not,
 it does not.
+
+**Landed.** [tests/input_bindings/](../../tests/input_bindings/) holds the two, and
+[SOURCES/INPUT_BINDINGS.{H,CPP}](../../SOURCES/INPUT_BINDINGS.CPP) holds what came out. Three
+things came out of doing it.
+
+*The move was 132 lines, not the 150 estimated above.* The difference is the blank lines and the
+banner comment the estimate counted; the code is the same code, and a diff of the moved text
+against its old home is empty. `INPUT.CPP` is 446 lines to 314.
+
+*The layout differs from the 1997 import in exactly one cell.* `I_CAMERA`'s second binding was
+`K_CARRE`, the backtick, and the console toggle took that key. Every other cell of
+`DefKeysDefault95` is the 1997 table unchanged, which is a stronger parity claim than this doc
+made and is now the test's to keep.
+
+*The fold is provable through `GetInput` alone.* Holding one scancode and reading `Input` covers
+the whole combined table without inspecting it, which means increments 3 and 4 can change how the
+table is built and keep the same assertions. That is also how the 32-slot ceiling finally got
+stated: rebinding the four spell slots to unused scancodes shows the ceiling follows the slot, not
+the key.
+
+*On the test-investment question it decides:* the fixtures were not the bottleneck here, because
+these layers need none. What the layers below the fold need is a different thing, and increment 1
+is what measures it.
 
 ### 1. Watch the signal flow, and record the combos before anything moves
 

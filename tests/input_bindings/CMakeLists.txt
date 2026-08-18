@@ -1,31 +1,26 @@
 # The binding table and the fold that builds Input from it. Driven through the
-# real GetInput(), so LIB386/SYSTEM/INPUT.CPP links alongside; CheckKey and
-# ManageKeyboard are stubbed, which is what keeps SDL and the game stack out.
+# real GetInput(), so LIB386/SYSTEM/INPUT.CPP links alongside; the two keyboard
+# hooks are stubbed, which is what keeps SDL and the game stack out. Nothing
+# else links: that is what the extraction bought.
 add_executable(test_input_bindings
     test_input_bindings.cpp
-    engine_stubs.cpp
-    ${CMAKE_SOURCE_DIR}/SOURCES/INPUT.CPP
-    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP
-    # SOURCES/INPUT.CPP is one TU holding both the binding layer and the config
-    # IO, so the config half's dependencies link even for the table tests. The
-    # extraction in the next commit is what separates them.
-    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DEFFILE.CPP
-    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/FILES.CPP
-    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DISCIMG.CPP
-    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ISO9660.CPP
-    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOADSAVE.CPP
-    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOGPRINT.CPP
-    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP
-    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ITOA.CPP)
+    held_keys.cpp
+    ${CMAKE_SOURCE_DIR}/SOURCES/INPUT_BINDINGS.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP)
 
 # Bindings through the config file, on a temp cfg in the test's own directory.
+# SOURCES/INPUT.CPP still holds the polling loop, so this one carries the stubs.
 add_executable(test_input_config
     test_input_config.cpp
+    held_keys.cpp
     engine_stubs.cpp
     ${CMAKE_SOURCE_DIR}/SOURCES/INPUT.CPP
+    ${CMAKE_SOURCE_DIR}/SOURCES/INPUT_BINDINGS.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DEFFILE.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/FILES.CPP
+    # FILES.CPP falls back to the disc-image source; pull in its (unexercised
+    # here) implementation and the ISO9660 reader it needs so the link resolves.
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DISCIMG.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ISO9660.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOADSAVE.CPP

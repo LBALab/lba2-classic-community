@@ -1,6 +1,10 @@
 #ifndef INPUT_H
 #define INPUT_H
 
+// The binding tables and the fold that builds Input from them. Included here so
+// that every file which already includes INPUT.H sees them where it did.
+#include "INPUT_BINDINGS.H"
+
 // Touches clavier du jeu
 
 // Input
@@ -49,8 +53,6 @@
 #define I_PROTECTION (1 << 2) // 'C'		Sort de Protection
 #define I_FOUDRE (1 << 3)     // 'F'		Sort de Foudre
 
-#define MAX_INPUT 36
-
 #define I_JOY (I_UP | I_DOWN | I_LEFT | I_RIGHT)
 #define I_FIRE (I_ACTION_M | I_INVENTORY | I_RETURN | I_THROW | I_COMPORTEMENT)
 #define I_ACTION (I_ACTION_M | I_ACTION_ALWAYS)
@@ -68,7 +70,6 @@
 
 // Input
 extern U32 LastInput;
-extern U32 NbInput;
 extern U32 WaitNoKey;
 
 #define ClearWaitNoInput() ClearNoRepeatInput()
@@ -89,24 +90,6 @@ extern U32 WaitNoClick;
     }
 #endif
 
-typedef struct {
-    U32 Key1;
-    U32 Key2;
-} T_DEF_KEY;
-
-extern T_DEF_KEY DefKeys[MAX_INPUT + 1];
-extern T_DEF_KEY MemoDefKeys[MAX_INPUT + 1];
-
-// tableau de configuration des touches utilisé au cours du jeu
-extern U32 TabInputBit[MAX_INPUT * 2 + 1];
-
-// Parallel gamepad binding table: Key1 / Key2 are alternate bindings (OR),
-// same semantics as DefKeys (see KEYBOARD_KEYS.H for K_GAMEPAD_*). 0 =
-// unbound. Folded into the combined input table by InitInput() alongside
-// DefKeys, so the pad flows through GetInput()'s NoRepeatInput edge-filter.
-extern T_DEF_KEY GamepadKeys[MAX_INPUT];
-extern const T_DEF_KEY GamepadKeysDefault[MAX_INPUT];
-
 /*══════════════════════════════════════════════════════════════════════════*
 			██████┐ ██┐ ██┐ ██████┐ ██████┐
 			└─██┌─┘ ███┐██│ └─██┌─┘ └─██┌─┘
@@ -116,10 +99,6 @@ extern const T_DEF_KEY GamepadKeysDefault[MAX_INPUT];
 			└─────┘ └─┘ └─┘ └─────┘   └─┘
  *══════════════════════════════════════════════════════════════════════════*/
 
-//-------------------------------------------------------------------------
-extern void InitInput(void);
-//-------------------------------------------------------------------------
-extern void RestoreInput(void);
 //-------------------------------------------------------------------------
 extern void ReadInputConfig(void);
 //-------------------------------------------------------------------------

@@ -43,7 +43,7 @@
 
 #include "INPUT.H" // SOURCES/INPUT.H
 
-#include "engine_stubs.h"
+#include "held_keys.h"
 
 static int fails = 0;
 

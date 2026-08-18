@@ -1,24 +1,16 @@
-/* Stubs for the engine symbols SOURCES/INPUT.CPP drags in but the binding
- * layer never touches.
+/* Stubs for the engine symbols SOURCES/INPUT.CPP drags in but the config round
+ * trip never touches.
  *
- * The file under test is one translation unit holding two unrelated things:
- * the binding tables and the fold that builds Input from them (pure lookups,
- * what these tests are about), and MyGetInput / WaitInput / WaitNoInput, which
- * poll the keyboard, the pad and the console. Only the second half needs any
- * of the symbols below, and none of them is reachable from the code the tests
- * drive -- they exist so the link resolves.
+ * What is left in that translation unit after the binding layer moved out is
+ * the config IO and MyGetInput / WaitInput / WaitNoInput, which poll the
+ * keyboard, the pad and the console. Only the second group needs any of the
+ * symbols below, and none of it is reachable from the code this test drives --
+ * they exist so the link resolves.
  *
- * That is the case for the extraction: once the tables and the fold live in
- * their own TU, its test links DefineInputKeys and nothing else.
- *
- * The two keyboard hooks are different in kind. CheckKey and ManageKeyboard
- * are what GetInput() calls to sample key state, so the tests do drive them:
- * held keys are a set the test controls, exactly as tests/input_funnel does,
- * which is what lets the fold be probed one key at a time with no SDL and no
- * game stack underneath.
+ * tests/input_bindings needs none of this now, which is what the extraction
+ * bought: that test links INPUT_BINDINGS.CPP, DefineInputKeys and the two
+ * keyboard hooks, and nothing else.
  */
-#include <set>
-
 #include <SYSTEM/ADELINE_TYPES.H>
 #include <SYSTEM/KEYBOARD.H>
 #include <SVGA/DIRTYBOX.H>
@@ -26,22 +18,6 @@
 
 #include "CONSOLE/CONSOLE.H"
 #include "JOYSTICK.H"
-
-#include "engine_stubs.h"
-
-// --- The held-key set GetInput() samples ------------------------------------
-static std::set<U32> g_held;
-
-void HoldNone(void) { g_held.clear(); }
-void HoldOnly(U32 key) {
-    g_held.clear();
-    g_held.insert(key);
-}
-
-extern "C" {
-void ManageKeyboard(void) {}
-S32 CheckKey(U32 key) { return g_held.count(key) ? 1 : 0; }
-}
 
 // --- Keyboard state MyGetInput() copies out; unreachable from these tests ----
 S32 Key = 0;
