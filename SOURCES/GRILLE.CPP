@@ -811,6 +811,44 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
 
 /*--------------------------------------------------------------------------*/
 
+/*--------------------------------------------------------------------------*/
+/*	Un bloc contient dx*dy*dz entrees de 4 octets apres son entete. Rien ne
+    bornait l'index brick des cellules, et une cellule qui pointe au dela lit
+    l'entete du bloc suivant: le U16 recupere n'est pas un index de brique
+    remappe, donc AffGraph() calcule bankgraph + un offset arbitraire.
+
+    Les cellules de la carte tiennent toujours dans leur bloc. Celles qu'une GRM
+    incruste, non: sur le cube 38 pres de la moitie des cellules non vides
+    designent une brique au dela de son bloc, ce qui reste inexplique. En un
+    seul gros bloc memoire, comme sur DOS, l'offset arbitraire retombait dans de
+    la memoire allouee et dessinait n'importe quoi sans planter. Ici il sort. */
+/*	Le banc de briques du cube commence par sa table d'offsets, donc son premier
+    U32 vaut (nbbrick + 1) * 4: le compte se relit comme NbBlock se relit depuis
+    TabBlock. Une entree de bloc qui n'a pas ete renumerotee garde un identifiant
+    global (jusqu'a Max_Brk), qui depasse ce compte et envoie AffGraph lire une
+    table d'offsets hors du banc. */
+static S32 BrickInBank(S32 numbrick) {
+    S32 packed;
+
+    if (!BufferBrick)
+        return FALSE;
+
+    packed = (S32)((*(U32 *)BufferBrick) / 4) - 1;
+
+    return numbrick >= 1 && numbrick <= packed;
+}
+
+static S32 BrickInsideBlock(const U8 *blockadr, S32 brick) {
+    S32 extent;
+
+    if (brick < 0)
+        return FALSE;
+
+    extent = (S32)blockadr[DXBLOCK] * (S32)blockadr[DYBLOCK] * (S32)blockadr[DZBLOCK];
+
+    return brick < extent;
+}
+/*--------------------------------------------------------------------------*/
 void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     U8 *adr;
     S32 nb, col;
@@ -819,6 +857,10 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     U8 brickcol;
 
     adr = GetAdrBlock(block);
+
+    if (!BrickInsideBlock(adr, brick))
+        return; //	cellule hors de son bloc: rien de defini a dessiner
+
     adr += HEADER_BLOCK;
 
     adr += (brick << 2); /* 4 Bytes to Jump	*/
@@ -827,7 +869,7 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
 
     numbrick = *(U16 *)adr; /* & 32767 */
 
-    if (numbrick AND numbrick != ForbidenBrick) {
+    if (numbrick AND numbrick != ForbidenBrick AND BrickInBank(numbrick)) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
 
         // Left clip is -47 (one full brick width minus a pixel), not -24 (half-brick).
@@ -917,6 +959,10 @@ void AffBrickBlockColon(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     U8 brickcol;
 
     adr = GetAdrBlock(block);
+
+    if (!BrickInsideBlock(adr, brick))
+        return; //	cellule hors de son bloc: rien de defini a dessiner
+
     adr += HEADER_BLOCK;
 
     adr += (brick << 2); /* 4 Bytes to Jump	*/
@@ -925,7 +971,7 @@ void AffBrickBlockColon(S32 block, S32 brick, S16 x, S16 y, S16 z) {
 
     numbrick = *(U16 *)adr; /* & 32767 */
 
-    if (numbrick AND numbrick != ForbidenBrick) {
+    if (numbrick AND numbrick != ForbidenBrick AND BrickInBank(numbrick)) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
 
         if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
@@ -1000,6 +1046,10 @@ void AffBrickBlockOnly(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     S32 numbrick;
 
     adr = GetAdrBlock(block);
+
+    if (!BrickInsideBlock(adr, brick))
+        return; //	cellule hors de son bloc: rien de defini a dessiner
+
     adr += HEADER_BLOCK;
 
     adr += (brick << 2); /* 4 Bytes to Jump	*/
@@ -1007,7 +1057,7 @@ void AffBrickBlockOnly(S32 block, S32 brick, S16 x, S16 y, S16 z) {
 
     numbrick = *(U16 *)adr; /* & 32767 */
 
-    if (numbrick AND numbrick != ForbidenBrick) {
+    if (numbrick AND numbrick != ForbidenBrick AND BrickInBank(numbrick)) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
 
         if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
