@@ -27,9 +27,16 @@ RUN dpkg --add-architecture i386 \
 # Pin to a release tag, not main: the image rebuilds on every CI run, so an
 # unpinned clone rides the tip of SDL's dev branch and breaks the build the
 # moment upstream regresses (e.g. SDL_UDEV=OFF no longer dropping the -ludev
-# link dep on the 32-bit build). release-3.2.16 matches the pin already used by
-# the Android and linux-tarball builds; keep the four in sync when bumping.
-RUN git clone --depth 1 --branch release-3.2.16 https://github.com/libsdl-org/SDL.git /tmp/SDL \
+# link dep on the 32-bit build).
+#
+# The tag comes from .github/sdl3-version.txt, the one pin every SDL3 path in
+# the repo reads, so it cannot drift from what CI and the release builds link
+# against. No default: both callers (run_tests_docker.sh and test.yml) pass it,
+# and a hand-run `docker build` that forgets should say so rather than bake a
+# stale version into the image.
+ARG SDL3_VERSION
+RUN : "${SDL3_VERSION:?build-arg SDL3_VERSION is required (see .github/sdl3-version.txt)}" \
+    && git clone --depth 1 --branch "${SDL3_VERSION}" https://github.com/libsdl-org/SDL.git /tmp/SDL \
     && cmake -S /tmp/SDL -B /tmp/SDL/build64 -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr/local \

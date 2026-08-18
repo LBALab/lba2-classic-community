@@ -168,8 +168,13 @@ failures can be diagnosed without rebuilding:
 
 ```bash
 docker build --platform linux/amd64 -t lba2-test -f docker/Dockerfile.test . \
+    --build-arg "SDL3_VERSION=$(cat .github/sdl3-version.txt)" \
     2>&1 | tee build_logs/docker_build_$(date +%Y%m%d_%H%M%S).log
 ```
+
+`SDL3_VERSION` is required and has no default, so the image cannot be built
+against a version other than the one `.github/sdl3-version.txt` names.
+`./run_tests_docker.sh` passes it for you.
 
 Key constraints for the Docker image:
 - **UASM must be installed at container runtime**, not during `docker build`.

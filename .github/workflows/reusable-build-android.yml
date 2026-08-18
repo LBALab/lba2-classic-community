@@ -100,35 +100,46 @@ jobs:
       # absolute paths baked into SDL3Config.cmake stay valid across runs.
       #
       # The key hashes this whole file rather than naming the inputs, because
-      # everything that changes the output lives here: the SDL tag, the NDK
-      # version, ANDROID_PLATFORM, ANDROID_STL, the SHARED/STATIC split and the
-      # 16 KB page-size linker flags. A hand-written list would be a second
-      # thing to keep in sync, and forgetting to extend it links a stale SDL3
-      # into a shipped APK rather than merely wasting time. An unrelated edit
-      # to this file costs one 45s rebuild per ABI, which is the right way
-      # round to be wrong.
+      # almost everything that changes the output lives here: the NDK version,
+      # ANDROID_PLATFORM, ANDROID_STL, the SHARED/STATIC split and the 16 KB
+      # page-size linker flags. A hand-written list would be a second thing to
+      # keep in sync, and forgetting to extend it links a stale SDL3 into a
+      # shipped APK rather than merely wasting time. An unrelated edit to this
+      # file costs one 45s rebuild per ABI, which is the right way round to be
+      # wrong. The one input that lives elsewhere is the SDL tag, so the pin
+      # file is hashed alongside it.
       - name: Cache SDL3 for Android
         uses: actions/cache@v6
         with:
           path: |
             ${{ runner.temp }}/SDL3
             ${{ runner.temp }}/sdl3-install
-          key: sdl3-android-${{ matrix.abi }}-${{ hashFiles('.github/workflows/reusable-build-android.yml') }}
+          key: sdl3-android-${{ matrix.abi }}-${{ hashFiles('.github/workflows/reusable-build-android.yml', '.github/sdl3-version.txt') }}
 
       - name: Build SDL3 for Android
         run: |
           SDL3_DIR="${RUNNER_TEMP}/SDL3"
           SDL3_BUILD="${RUNNER_TEMP}/sdl3-build"
           SDL3_INSTALL="${RUNNER_TEMP}/sdl3-install"
+          SDL3_VERSION="$(tr -d '[:space:]' < .github/sdl3-version.txt)"
 
           if [ ! -d "$SDL3_DIR" ]; then
             for i in 1 2 3; do
-              git clone --depth 1 --branch release-3.2.16 \
+              # Bounded, not just retried: a stalled endpoint returns no error
+              # for the retry count to see, and would sit here until the job
+              # timeout cancelled the leg with nothing in the log.
+              timeout -k 30 300 git clone --depth 1 --branch "$SDL3_VERSION" \
                 https://github.com/libsdl-org/SDL.git "$SDL3_DIR" 2>&1 && break
               echo "SDL3 clone attempt $i failed, retrying..."
               rm -rf "$SDL3_DIR"
               sleep 2
             done
+            # Without this the loop falls through on three failures and the
+            # next cmake reports a missing source dir instead of a bad clone.
+            if [ ! -d "$SDL3_DIR" ]; then
+              echo "SDL3 clone failed after 3 attempts" >&2
+              exit 1
+            fi
           fi
 
           if [ ! -f "${SDL3_INSTALL}/lib/libSDL3.so" ]; then

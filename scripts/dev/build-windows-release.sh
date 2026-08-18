@@ -9,8 +9,8 @@
 #                                 Useful for iterating on packaging logic;
 #                                 requires mingw-w64 toolchain + SDL3 for
 #                                 the cross-arch (most distros only ship
-#                                 SDL3 for the host arch — CI uses
-#                                 setup-sdl to handle this).
+#                                 SDL3 for the host arch, and no CI job
+#                                 takes this path).
 #
 # Override the auto-detection with --preset <name>, e.g. for testing the
 # 64-bit MinGW preset on MSYS2 instead of UCRT64.

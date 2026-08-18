@@ -253,15 +253,21 @@ Two deliberate choices:
 
 Nothing in this repo is vendored: every run rebuilds its toolchain from
 somewhere else on the internet. That makes third-party availability the
-single largest source of red CI, ahead of actual test failures. Both
-failures in the recent run history were upstream 5xx responses, not code:
+single largest source of red CI, ahead of actual test failures. The
+failures in the run history are all upstream, and they come in two
+shapes:
 
-- `curl` of the UASM release zip returned 503, failing the ASM suite
-  before a single test compiled.
-- `appimagetool`'s download exhausted its own five internal retries,
+- **An error comes back.** `curl` of the UASM release zip returned 503,
+  failing the ASM suite before a single test compiled.
+  `appimagetool`'s download exhausted its own five internal retries,
   failing an AppImage release leg.
+- **Nothing comes back.** `azure.archive.ubuntu.com` `Ign:`'d every line,
+  apt fell back to the public archive, and `apt-get update` then went
+  silent for 29 minutes until the job timeout cancelled the leg. This
+  shape is the nastier one: retry counts do not see it, because there is
+  no error to retry on.
 
-Three rules follow from that, and the workflows apply them:
+Four rules follow from that, and the workflows apply them:
 
 1. **Bake, don't fetch.** Anything that can live in a cached image or a
    cached prefix goes there. UASM is unpacked in `docker/Dockerfile.test`
@@ -271,18 +277,31 @@ Three rules follow from that, and the workflows apply them:
    `apt-get -o Acquire::Retries=5`, and a three-attempt loop around the
    whole AppImage script (which fetches from Arch mirrors and a GitHub
    release through tooling we do not control).
-3. **Bound every job.** All jobs carry `timeout-minutes`. Without it a
-   hung mirror connection burns the six-hour default before the job is
-   marked failed.
+3. **Put a wall clock on it as well.** A retry count only covers the
+   first shape above, so a fetch that can stall also wants a `timeout`
+   and per-connection limits to fail in bounded time with a named cause.
+   See [apt is bounded, not just
+   retried](#apt-is-bounded-not-just-retried). This is applied to the apt
+   phases in `linux.yml`, `reusable-build-linux-tarball.yml` and
+   `.github/actions/setup-sdl3`, and to the SDL3 clones. It is *not* yet
+   applied to `pacman -Syu` and the appimagetool download in
+   `scripts/packaging/make-appimage.sh` (three attempts, no wall clock),
+   the apt in `docker/Dockerfile.test` (neither), or the UASM `curl`
+   there (`--retry` but no `--max-time`). Those keep the exposure this
+   section describes; add the bound when you next touch one.
+4. **Bound every job.** All jobs carry `timeout-minutes`, so nothing can
+   burn the six-hour default. Treat this as the backstop, not the bound:
+   when it is what stops a job, the log ends mid-step with no diagnosis,
+   which is exactly the 29-minute case above.
 
 ### What is cached
 
 | Cache | Owner | Key | Restores |
 |---|---|---|---|
-| SDL3 build | `libsdl-org/setup-sdl` (built in) | resolved SDL git hash + `runner.os`/`arch` | ~2 MB prefix, seconds |
+| SDL3 build | `.github/actions/setup-sdl3` | pinned SDL tag + `runner.os` + `runner.arch` + link mode + build type | ~2 MB prefix, seconds |
 | MSYS2 install + pacman packages | `msys2/setup-msys2` (`cache: true` default) | package list + config hash | ~177 MB |
-| ASM test image layers | `docker/build-push-action`, `type=gha` | `docker/Dockerfile.test` content | the whole image, ~300 MB; written by `main` only |
-| SDL3 for Android | `actions/cache` | ABI + SDL tag + NDK version | source tree + install prefix |
+| ASM test image layers | `docker/build-push-action`, `type=gha` | `docker/Dockerfile.test` content + the `SDL3_VERSION` build arg | the whole image, ~300 MB; written by `main` only |
+| SDL3 for Android | `actions/cache` | ABI + hash of the workflow and `.github/sdl3-version.txt` | source tree + install prefix |
 
 The ASM test image is the one that matters most. `run_tests_docker.sh`
 builds it whenever it is not already in the local daemon, which on a
@@ -310,37 +329,117 @@ Note that the image's 64-bit SDL3 install is unused by CI: the
 the layers cached its build cost is only paid when the Dockerfile
 changes.
 
-**ccache is deliberately absent.** The compile steps are 14 s (macOS),
-18 s (Linux) and 70 s (Windows); only Windows is worth attacking, and a
+**ccache is deliberately absent.** The compile steps are 20s (Linux), 32s
+(macOS) and 56s (Windows). Only Windows would be worth attacking, and a
 ccache directory that churns on every run would compete with the image
 layers for the repository's 10 GB Actions cache budget. Revisit if the
 Windows build grows or the cache budget frees up.
 
+### Where the time goes
+
+Compilation is not the bill. Measured on a warm push, with every cache
+hitting, per workflow (they run in parallel, so the gate is the slowest
+one, not the sum):
+
+| Workflow | Wall clock | Largest step | What that step is |
+|---|---|---|---|
+| Windows | 146s | Setup MSYS2, 65s | package restore |
+| Linux | 90s | Validate packaging metadata, 45s | `apt-get install appstream` |
+| ASM Docker tests | 57-73s | image restore, 16-30s | Docker layer cache |
+| macOS | 57s | Build, 32s | compilation |
+| Format | 43s | check-format, 18s | clang-format |
+| Lint | 23s | | |
+
+So on three of the four build workflows the biggest single step is
+acquiring dependencies, not using them. That is the pattern to check
+first whenever a leg feels slow: read the step timings before assuming
+the build got heavier.
+
+Two things are worth attacking if CI time becomes a problem again, in
+this order. Neither is urgent, and neither has been done.
+
+1. **`Validate packaging metadata` in `linux.yml`, 45s.** It apt-installs
+   `desktop-file-utils` and `appstream` so two validators can spend about
+   a second checking two generated files, and it does this on every push
+   including the overwhelming majority that touch nothing in `packaging/`.
+   Gating it on its inputs would take the Linux workflow to roughly 45s,
+   at which point `build-clang` becomes the critical path and there is
+   nothing left there worth cutting. The catch to handle: the files are
+   generated from CMake variables (`LBA2_DESKTOP_ID` and friends), so any
+   trigger has to cover the CMake that templates them, and a
+   validation-only job still needs a configured build tree.
+2. **`Setup MSYS2` on Windows, 65s.** The largest non-compile step in the
+   gate once the above is gone. Nobody has measured whether that is the
+   ~177 MB cache restore or the pacman work after it, and the answer
+   decides whether there is anything to do.
+
+The ASM Docker image is already handled and is not on this list: it looks
+expensive on a PR that edits `docker/Dockerfile.test`, because only `main`
+writes that cache scope, so such a PR rebuilds on every run until it
+merges.
+
+### One SDL3 pin
+
+`.github/sdl3-version.txt` holds the SDL3 tag, and every path that
+acquires SDL3 from source reads it: `.github/actions/setup-sdl3` (used by
+`linux.yml`, `macos.yml`, `reusable-build-linux-tarball.yml` and
+`reusable-build-macos.yml`), `reusable-build-android.yml`,
+`docker/Dockerfile.test` via a `SDL3_VERSION` build arg, and the
+`scripts/dev/` helpers. Bumping SDL3 is an edit to that one file, and it
+invalidates every SDL3 cache key in the repo on its own.
+
+Two paths stay outside it, because their SDL3 is a distro package rather
+than a source build: MSYS2's `mingw-w64-ucrt-x86_64-sdl3` on the Windows
+legs, and Arch's `sdl3` inside the AppImage container. Those track what
+their distro ships. Consolidating them would mean building SDL3 from
+source under MSYS2 and inside the container, which costs more than the
+drift does.
+
+### apt is bounded, not just retried
+
+Every `apt-get` in the Linux workflows runs under a wall clock and a
+retry loop, not `Acquire::Retries` alone. `Retries` only re-tries a
+request that came back with an error; a mirror that accepts the
+connection and then stalls produces no error and apt has no default
+timeout of its own. Observed on a cold `linux.yml` leg:
+`azure.archive.ubuntu.com` returned `Ign:` on every line, apt fell back
+to `archive.ubuntu.com`, and `apt-get update` then went silent for 29
+minutes until the job timeout cancelled it.
+
+So each phase carries `Acquire::http::Timeout`/`https::Timeout=15`, a
+`timeout -k 30` wall clock (120s for `update`, 300s for `install`), and
+three attempts. A mirror that is down for good now fails the leg in about
+21 minutes with a named cause rather than going quiet until the timeout.
+For scale, a healthy runner does `update` in ~5s. The job timeouts on
+`linux.yml` and `macos.yml` are 45 minutes, matching the release legs:
+30 was sized for a world where SDL3 was always a cache hit, and a genuine
+cold build has to fit too.
+
+`.github/actions/setup-sdl3` owns its cache rather than delegating to
+`libsdl-org/setup-sdl`. The reason is in the action's own header comment:
+setup-sdl's `install-linux-dependencies` runs before it knows whether the
+cache hit, so the Linux legs paid an apt-get of 86 dev packages on every
+run for a source build that never happened. Median 64s, worst case 19
+minutes, against a game build of 11-27s. Owning the cache is what makes
+that install conditional. It also puts `runner.arch` in the key, which is
+what the tarball workflow previously needed a `discriminator` for.
+
 ### Where the toolchain still floats
 
-Two versions are resolved at run time rather than pinned:
-
-- `libsdl-org/setup-sdl` is called with `version: 3-latest` in
-  `linux.yml`, `macos.yml`, `reusable-build-linux-tarball.yml`, and
-  `reusable-build-macos.yml`, while `docker/Dockerfile.test`,
-  `reusable-build-android.yml`, and the `scripts/dev/` helpers pin
-  `release-3.2.16`. A new SDL3 release therefore invalidates the setup-sdl
-  cache and changes what CI links against with no commit in this repo.
-- `msys2/setup-msys2` runs with `update: true`, so the MinGW toolchain
-  advances whenever MSYS2 publishes.
-
-Both are deliberate, in that they surface upstream breakage early rather
-than letting it accumulate, but they are the reason a green run yesterday
-is not proof of a green run today.
+`msys2/setup-msys2` runs with `update: true`, so the MinGW toolchain
+advances whenever MSYS2 publishes. That is deliberate, in that it
+surfaces upstream breakage early rather than letting it accumulate, but
+it is the reason a green Windows run yesterday is not proof of a green
+one today.
 
 ### Action pinning
 
-`libsdl-org/setup-sdl` is pinned to a commit SHA. Everything else uses a
-mutable major tag (`@v2`…`@v7`), and the container image for the AppImage
-build is `ghcr.io/pkgforge-dev/archlinux:latest`. That is the usual
-trade-off between supply-chain exposure and maintenance load; if it is
-ever tightened, do it with Dependabot's `github-actions` ecosystem so the
-pins have something keeping them current.
+Third-party actions use a mutable major tag (`@v2`…`@v7`), and the
+container image for the AppImage build is
+`ghcr.io/pkgforge-dev/archlinux:latest`. That is the usual trade-off
+between supply-chain exposure and maintenance load; if it is ever
+tightened, do it with Dependabot's `github-actions` ecosystem so the pins
+have something keeping them current.
 
 ## Release tier
 

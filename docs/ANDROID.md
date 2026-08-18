@@ -18,8 +18,9 @@ You need:
 ### 1. Build SDL3 for Android
 
 ```bash
-# arm64-v8a: clones SDL (release-3.2.16) to out/android/SDL3, installs to
-# out/android/sdl3-install, and applies the 16 KB-page linker flags.
+# arm64-v8a: clones SDL at the tag in .github/sdl3-version.txt to
+# out/android/SDL3, installs to out/android/sdl3-install, and applies the
+# 16 KB-page linker flags.
 bash scripts/dev/build-sdl3-android.sh
 ```
 

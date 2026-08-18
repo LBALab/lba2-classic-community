@@ -18,6 +18,7 @@ name: Tests (Docker ASM equivalence)
 # Do NOT add:
 #  - this workflow itself (test.yml)
 #  - run_tests_docker.sh, docker/Dockerfile.test (the runner + image)
+#  - .github/sdl3-version.txt (the SDL3 the image builds from)
 #  - CMakeLists.txt, CMakePresets.json, cmake/** (linux_test preset, build glue)
 #  - SOURCES/**, LIB386/**, tests/** (test sources, fixtures, linked code)
 on:
@@ -70,12 +71,31 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
+      # The image's SDL3 tag is not baked into the Dockerfile: it comes from
+      # .github/sdl3-version.txt, the one pin every SDL3 path in the repo
+      # reads. run_tests_docker.sh passes the same value, so a local run and
+      # a CI run build the same image.
+      - name: Read the SDL3 pin
+        id: sdl
+        run: |
+          # Assign first, then check. Inlining the substitution into `echo`
+          # would let a missing or blank pin write `version=` and exit 0, and
+          # the failure would surface minutes later inside the image build,
+          # blamed on the Dockerfile rather than on the pin.
+          version="$(tr -d '[:space:]' < .github/sdl3-version.txt)"
+          if [ -z "$version" ]; then
+            echo "ERROR: .github/sdl3-version.txt is empty" >&2
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
       # run_tests_docker.sh builds the image itself when it isn't already in
       # the local daemon, which on a fresh runner means apt, two SDL3 source
       # builds and the UASM download every single run (~2m10s, three upstream
       # services on the critical path). Building it here instead puts those
-      # layers in the Actions cache, keyed by the Dockerfile's content: the
-      # image is only really rebuilt when docker/Dockerfile.test changes.
+      # layers in the Actions cache, keyed by the Dockerfile's content plus
+      # the SDL3 build arg: the image is only really rebuilt when
+      # docker/Dockerfile.test or the SDL3 pin changes.
       #
       # The tag is what run_tests_docker.sh looks for, so it finds the loaded
       # image and skips its own build. Keep the two names in sync.
@@ -92,6 +112,8 @@ jobs:
           platforms: linux/amd64
           tags: lba2-test:latest
           load: true
+          build-args: |
+            SDL3_VERSION=${{ steps.sdl.outputs.version }}
           cache-from: type=gha,scope=asm-test-image
           # Export from main only. Actions cache scopes are per-ref: a
           # pull_request run reads its own scope and the base branch, never a

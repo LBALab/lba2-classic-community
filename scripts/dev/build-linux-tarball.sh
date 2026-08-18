@@ -18,7 +18,8 @@
 # -DSDL_STATIC=ON -DSDL_SHARED=OFF and pass its prefix via the
 # CMAKE_PREFIX_PATH env var (CMake picks it up natively):
 #
-#     git clone --depth 1 --branch release-3.2.16 https://github.com/libsdl-org/SDL /tmp/SDL
+#     git clone --depth 1 --branch "$(cat .github/sdl3-version.txt)" \
+#           https://github.com/libsdl-org/SDL /tmp/SDL
 #     cmake -S /tmp/SDL -B /tmp/SDL/build -G Ninja \
 #           -DCMAKE_BUILD_TYPE=Release \
 #           -DSDL_STATIC=ON -DSDL_SHARED=OFF \
@@ -26,8 +27,8 @@
 #     cmake --build /tmp/SDL/build && cmake --install /tmp/SDL/build
 #     CMAKE_PREFIX_PATH=/tmp/sdl3-static-prefix bash scripts/dev/build-linux-tarball.sh
 #
-# CI does the same dance via libsdl-org/setup-sdl in
-# .github/workflows/release-linux-tarball.yml.
+# CI does the same dance via .github/actions/setup-sdl3 (link: static) in
+# .github/workflows/reusable-build-linux-tarball.yml.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -88,7 +89,7 @@ ship SDL3 as a shared library only — so find_package(SDL3) would fail
 several minutes from now with an unhelpful "SDL3_FOUND set to FALSE"
 error. Build SDL3 from source and re-run with CMAKE_PREFIX_PATH set:
 
-    git clone --depth 1 --branch release-3.2.16 \
+    git clone --depth 1 --branch "$(cat .github/sdl3-version.txt)" \
         https://github.com/libsdl-org/SDL /tmp/SDL
     cmake -S /tmp/SDL -B /tmp/SDL/build -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
@@ -98,8 +99,8 @@ error. Build SDL3 from source and re-run with CMAKE_PREFIX_PATH set:
     CMAKE_PREFIX_PATH=/tmp/sdl3-static-prefix \
         bash scripts/dev/build-linux-tarball.sh
 
-CI does the same dance via libsdl-org/setup-sdl in
-.github/workflows/release-linux-tarball.yml.
+CI does the same dance via .github/actions/setup-sdl3 (link: static) in
+.github/workflows/reusable-build-linux-tarball.yml.
 EOF
     exit 1
 fi
