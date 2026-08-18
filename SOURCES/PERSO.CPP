@@ -33,7 +33,8 @@ extern S32 GfxDitherShading;
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include "FOLLOWCAM.H"
 #include "FOLLOWCAM_CFG.H" /* the *_DEFAULT tunables, read and written by the cfg below */
-#include "UI_LAYOUT.H"     /* UI_VCENTER_OFS */
+#include "BOOT_EXIT.H"
+#include "UI_LAYOUT.H" /* UI_VCENTER_OFS */
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 
@@ -2005,24 +2006,11 @@ restartloop:
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
-static S32 End_Num = -1;
-static const char *End_Error;
-
 /*══════════════════════════════════════════════════════════════════════════*/
 
 // Erreur dans le HQRGet() qui appel cette fonction: on sort violemment
 
 HQR_GET_CALLBACK ErrorHQRGet;
-
-void ErrorHQRGet(char *name, S32 index) {
-    char errstring[256];
-
-    snprintf(errstring, sizeof(errstring), "HQR_Get(%s): buffer trop petit (index %d)", name, index);
-
-    TheEnd(NOT_ENOUGH_MEM, errstring);
-}
-
-/*══════════════════════════════════════════════════════════════════════════*/
 
 void InitProgram() {
     BoxInit(MAX_BOXES);
@@ -2041,208 +2029,6 @@ void InitProgram() {
 #endif
 
     ReadConfigFile();
-}
-
-/*══════════════════════════════════════════════════════════════════════════*/
-LBA_NORETURN void TheEndCheckFile(const char *filename) {
-    if (FileSize(filename))
-        End_Num = NOT_ENOUGH_MEM;
-    else
-        End_Num = ERROR_NOT_FOUND_FILE;
-
-    End_Error = filename;
-
-    /* Always an error path -> non-zero so launchers/scripts/Steam can tell.
-       (The visible message for GUI launches is shown by TheEndInfo.) */
-    exit(EXIT_FAILURE);
-}
-
-/*══════════════════════════════════════════════════════════════════════════*/
-void InitTheEnd(S32 num, char *error) {
-    End_Num = num;
-    End_Error = error;
-}
-
-/*══════════════════════════════════════════════════════════════════════════*/
-void TheEnd(S32 num, const char *error) {
-    End_Num = num;
-    End_Error = error;
-
-    /* Clean exit only for PROGRAM_OK; every other End_Num is a failure. */
-    exit(num == PROGRAM_OK ? 0 : EXIT_FAILURE);
-}
-
-/*══════════════════════════════════════════════════════════════════════════*/
-#if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)
-void DebugHQR(const char *titre, T_HQR_HEADER *hqr) {
-    /* One call per line: titre is a %s argument (not the format), so it is
-       safe and stays on the same line as its stats under the line-oriented
-       log fan-out (see docs/LOGGING_UNIFICATION.md). */
-    if (hqr) {
-        LogPrintf("%s: %7ld - used: %7ld - MaxIndex: %4ld - NbIndex: %4ld\n", titre, hqr->MaxSize, hqr->MaxSize - hqr->FreeSize, hqr->MaxIndex, hqr->NbIndex);
-    } else {
-        LogPrintf("%s: xxxxxxx - used: xxxxxxx - MaxIndex: xxxx - NbIndex: xxxx\n", titre);
-    }
-}
-#endif
-
-/*══════════════════════════════════════════════════════════════════════════*/
-
-// Trouver le moyen de cleaner cette @#&? de fonction !!!!!!
-
-void V_ColorLine(U8 text, U8 back, U16 ncars) {
-    text = text;
-    back = back;
-    ncars = ncars;
-}
-
-/*══════════════════════════════════════════════════════════════════════════*/
-/* Native fatal-error dialog for terminal-less launches (double-clicked
-   .app/.exe, Steam Deck), where the log/terminal is invisible. No-op on a dev
-   terminal run (the log is right there), under the control harness (never block
-   automation), or when no display is available (headless -> log only). Mirrors
-   the no-game-data dialog in RES_PICKER. */
-static void ShowFatalErrorDialog(const char *title, const char *message) {
-    if (isatty(fileno(stderr)))
-        return;
-    if (Control_IsActive())
-        return;
-    if (!SDL_WasInit(SDL_INIT_VIDEO) && !SDL_InitSubSystem(SDL_INIT_VIDEO))
-        return;
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, message, NULL);
-}
-
-/*══════════════════════════════════════════════════════════════════════════*/
-/* Fatal exit for InitAdeline init failures -- see PERSO.H for why these can't
-   go through TheEnd/TheEndInfo. Logs the reason, surfaces the native dialog on
-   terminal-less launches, exits non-zero. No teardown: the failing subsystem
-   never finished coming up, so there is nothing safe to tear down. */
-LBA_NORETURN void BootFatal(const char *fmt, ...) {
-    char reason[512];
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(reason, sizeof reason, fmt, ap);
-    va_end(ap);
-
-    Log_Error("%s", reason);
-
-    char logPath[ADELINE_MAX_PATH] = "";
-    GetLogPath(logPath, ADELINE_MAX_PATH, LOG_NAME);
-    char msg[ADELINE_MAX_PATH + 640];
-    snprintf(msg, sizeof msg, "%s\n\nThe game can't start.\nDetails: %s", reason,
-             logPath);
-    ShowFatalErrorDialog("LBA2: cannot start", msg);
-
-    exit(EXIT_FAILURE);
-}
-
-/*══════════════════════════════════════════════════════════════════════════*/
-void TheEndInfo() {
-    S32 err = FALSE;
-
-#ifdef CDROM
-    ClearVoiceFile();
-#endif
-    StopMusic();
-
-    /* No version/build footer here — the boot header already stamps version,
-       build, platform, and backends at the top of every log. */
-
-#if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)
-    LogPrintf("* Start Extended Memory was %ld\n", MemoMemory);
-    LogPrintf("* Start Dos Memory was %ld\n", MemoDosMemory);
-    LogPrintf("* Min Dos Memory was %ld\n", MemoMinDosMemory);
-    LogPrintf("* Size PtrZBuffer: %ld\n", ListMem[MEM_PTR_ZBUFFER].Size);
-
-    DebugHQR("* HQR Sprite     ", HQRPtrSprite);
-    DebugHQR("      Sprite raw ", HQRPtrSpriteRaw);
-    DebugHQR("    Anim 3DS     ", HQRPtrAnim3DS);
-    DebugHQR("      Sample     ", HQR_Samples);
-    DebugHQR("        Anim     ", HQR_Anims);
-    DebugHQR("        Body     ", HQR_Bodys);
-    DebugHQR("      ObjFix     ", HQR_ObjFix);
-    DebugHQR("  HQR_Isle_Obj   ", HQR_Isle_Obj);
-    DebugHQR("  HQR_CubeInfos  ", HQR_CubeInfos);
-    DebugHQR("  HQR_ListDecors ", HQR_ListDecors);
-    DebugHQR("  HQR_MapPGround ", HQR_MapPGround);
-    DebugHQR("  HQR_ListTexDef ", HQR_ListTexDef);
-    DebugHQR("  HQR_MapSommetY ", HQR_MapSommetY);
-    DebugHQR("  HQR_MapIntens  ", HQR_MapIntensity);
-
-    LogPrintf("* End Extended Memory was %ld\n", MemEnd);
-    LogPrintf("* Total Extended Memory used: %ld\n", MemoMemory - MemEnd);
-
-    LogPrintf("\nNbTexEffects= %d\n", NbTexEffects);
-    if (PtrPolySea)
-        LogPrintf("Animated Sea Enable.\n");
-    else
-        LogPrintf("Animated Sea Disable.\n");
-#endif
-
-    LogPrintf("\n");
-
-    /* Exit-screen easter egg: only on a genuine clean shutdown. End_Num is
-       PROGRAM_OK (2) only when TheEnd(PROGRAM_OK, ...) ran; crash/error paths
-       set other codes and early exits leave it at -1, so this never fires on a
-       non-clean exit. Separate module — does not touch the log; silent unless
-       stdout is a real TTY. See docs/plan/BOOT_LOG_PLAN.md Phase 6. */
-    if (End_Num == PROGRAM_OK) {
-        PrintExitScreen();
-    }
-
-    switch (End_Num) {
-    case ERROR_NOT_FOUND_FILE:
-        V_ColorLine(14, 0, 130);
-        LogPrintf("*** ERROR-> File not found: %s\n\n", End_Error);
-        V_ColorLine(7, 0, 130);
-        break;
-
-    case NAME_NOT_FOUND:
-        V_ColorLine(14, 0, 130);
-        LogPrintf("*** ERROR-> Critical error: ident name not found: %s\n\n", End_Error);
-        V_ColorLine(7, 0, 130);
-        break;
-
-    case NOT_ENOUGH_MEM:
-        V_ColorLine(14, 0, 130);
-        LogPrintf("*** ERROR-> Not Enough Memory: %s (SEE README.TXT)\n\n", End_Error);
-        V_ColorLine(7, 0, 130);
-        break;
-
-    case PROGRAM_OK:
-#ifdef DEBUG_TOOLS
-        if (NbNbf) {
-            LogPrintf("* Frame speed status:\n");
-            LogPrintf("  Maximal frame rate occured: %d\n", MaxNbf);
-            LogPrintf("  Average frame rate was %d\n", TotalNbf / NbNbf);
-            LogPrintf("%s\n", End_Error);
-        }
-#endif
-        if (End_Error && End_Error[0])
-            LogPrintf("%s\n", End_Error);
-        LogPrintf("OK.\n");
-        break;
-    }
-
-    /* Make fatal errors visible when there's no terminal to read the log. */
-    if (End_Num == ERROR_NOT_FOUND_FILE || End_Num == NAME_NOT_FOUND ||
-        End_Num == NOT_ENOUGH_MEM) {
-        char logPath[ADELINE_MAX_PATH] = "";
-        GetLogPath(logPath, ADELINE_MAX_PATH, LOG_NAME);
-        const char *headline =
-            (End_Num == NOT_ENOUGH_MEM)   ? "The game ran out of memory."
-            : (End_Num == NAME_NOT_FOUND) ? "A required game object is missing."
-                                          : "Game data is missing or unreadable.";
-        char msg[ADELINE_MAX_PATH + 256];
-        snprintf(msg, sizeof msg,
-                 "%s\n\n%s\n\nThe game can't continue.\nDetails: %s", headline,
-                 End_Error ? End_Error : "", logPath);
-        ShowFatalErrorDialog("LBA2: cannot start", msg);
-    }
-
-    WriteConfigFile();
-
-    Clear3dExt();
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
@@ -2640,7 +2426,7 @@ int main(int argc, char *argv[]) {
     Mem_ConfigureScreenBuffers(reqResX, reqResY);
     InitMainBuffer(); // Alloue gros buffer pour tous les pointeurs
 
-    End_Error = PathConfigFile;
+    BootExit_NoteContext(PathConfigFile);
 
     InitAdeline(argc, argv);
 
@@ -2665,7 +2451,7 @@ int main(int argc, char *argv[]) {
 
     atexit(TheEndInfo);
 
-    End_Error = "";
+    BootExit_NoteContext(""); /* past the cfg: a later failure names itself */
 
     InitProgram();
     InitMemory(); // Alloue petits buffers

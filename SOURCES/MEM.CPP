@@ -11,6 +11,7 @@
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/RESOLUTION.H>
 #include "DIRECTORIES.H"
+#include "BOOT_EXIT.H"
 
 extern U8 *BufferSmack; // tempo ?
 

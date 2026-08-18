@@ -2,6 +2,7 @@
 
 #include "DIRECTORIES.H"
 #include "AMBIANCE.H"
+#include "BOOT_EXIT.H"
 
 extern S32 Nxw, Nyw, Nzw; // Object.c
 

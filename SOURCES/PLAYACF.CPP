@@ -40,6 +40,7 @@ int VideoLogIsEnabled(void) {
 #include <stdio.h>
 #include <string.h>
 #include "CONSOLE/CONSOLE.H"
+#include "BOOT_EXIT.H"
 #endif
 
 char PathAcf[ADELINE_MAX_PATH];
