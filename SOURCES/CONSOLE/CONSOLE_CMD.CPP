@@ -4,6 +4,7 @@
 #include "CONSOLE_GIVE.H"
 #include "../C_EXTERN.H"
 #include "../COMMON.H"
+#include "../CHEATCOD.H"  // TryExecuteCheatByName, the one verb claim the console offers
 #include "../ZONE_GEOM.H" // ZonePointInBox (zonelist shares the engine's zone box test)
 #include "../DIRECTORIES.H"
 #include "../CONFIG_FILE.H"
@@ -2084,6 +2085,11 @@ static void cmd_key(int argc, const char *argv[]) {
 /*──────────────────────────────────────────────────────────────────────────*/
 
 void Console_RegisterAll(void) {
+    /* The cheat names are game content, so the console core cannot know them.
+       It offers each typed verb here first and dispatches its own table only if
+       nothing claims it. */
+    Console_SetVerbClaim(TryExecuteCheatByName);
+
     Console_RegisterCommandEx("cube", cmd_cube, "Go to cube N (e.g. cube 5)", "cube <number>",
                               "Any state; closes console. Cube change applies next frame.");
     Console_RegisterCommandEx("load", cmd_load, "Load save by player name or file name", "load <save_name>",
@@ -2159,7 +2165,8 @@ void Console_RegisterAll(void) {
                               "resolution [<n> | WxH | native | --all]",
                               "No args lists recommended modes; <n> picks by index; WxH is arbitrary "
                               "(W%8==0, range 320x200..1920x1024); native snaps to the current display; "
-                              "--all expands the list with advanced modes. See docs/RUNTIME_RESOLUTION.md.");
+                              "--all expands the list with advanced modes. The switch applies to this "
+                              "run only; lba2.cfg keeps the resolution the game boots at.");
 
     Console_RegisterCommandEx("vsync", cmd_vsync,
                               "Toggle vertical sync (no args = show state)",
@@ -2240,7 +2247,7 @@ void Console_RegisterAll(void) {
                               "`start` enables capture, `stop` halts it, `dump` writes a summary file "
                               "(default /tmp/perftrace.txt) with iso vs exterior breakdown. "
                               "`autodump` arms a dump on process exit (useful for headless --exec runs). "
-                              "Cost when active is ~1 us/frame; zero when inactive. See docs/PERFTRACE.md.");
+                              "Cost when active is ~1 us/frame; zero when inactive.");
 
     Console_RegisterCvar("fps", &DebugFps, CONSOLE_CVAR_BOOL, "Frame rate display");
     Console_RegisterCvar("horizon", (void *)&FlagDrawHorizon, CONSOLE_CVAR_BOOL_U8, "Draw horizon/cubes around");

@@ -23,7 +23,7 @@ ties both tiers together — path filtering, the docs-only gate, and the
 | `macos.yml` | Validation | push, PR, dispatch | `build` | Same, on `macos-latest` (`macos_arm64` preset) |
 | `windows.yml` | Validation | push, PR, dispatch | `build` | Same, on Windows MSYS2 UCRT64 (`windows_ucrt64` preset) |
 | `test.yml` | Validation | push, PR, dispatch | `test` | Docker: `./run_tests_docker.sh` — full ASM↔C++ equivalence suite (Linux only, slow) |
-| `format.yml` | Validation | push, PR, dispatch | `check-format` | `scripts/ci/check-format.sh` (clang-format) |
+| `format.yml` | Validation | push, PR, dispatch | `check-format`, `check-arch` | `scripts/ci/check-format.sh` (clang-format), and `scripts/ci/check-arch.py` for the architecture boundaries CODESTYLE.md and AGENTS.md state. Deliberately unfiltered: see the header comment there for why the architecture check is not in `lint.yml` |
 | `lint.yml` | Validation | push, PR (shell/Python/workflow paths), dispatch | `shellcheck`, `actionlint`, `ruff` | Lints the non-C++ surface. Settings live in `.shellcheckrc` and `ruff.toml`; tool versions are pinned in the workflow |
 | `pr-title.yml` | Validation | PR | `lint` | Conventional-commit lint on the PR title |
 | `docs-gate.yml` | Validation | push, PR | `build`, `test` | No-op stand-ins for the required `build`/`test` checks on docs-only changes — see [below](#docs-only-gate) |

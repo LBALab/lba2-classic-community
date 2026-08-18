@@ -1,4 +1,14 @@
 name: Format
+#
+# Two whole-tree static checks over the C and C++ sources: how the code is
+# written, and which boundaries it is allowed to cross.
+#
+# The architecture check lives here rather than in lint.yml because lint.yml
+# filters on `paths` (shell, Python, workflows) so a C++ change spends no runner
+# there, and GitHub applies path filters per workflow rather than per job: adding
+# SOURCES/** would fire shellcheck, actionlint and ruff on every engine commit to
+# reach one job. This workflow is unfiltered, which also keeps it clear of the
+# skipped-workflow-reports-no-check trap that docs-gate.yml exists to work around.
 on: [push, pull_request, workflow_dispatch]
 
 concurrency:
@@ -24,3 +34,16 @@ jobs:
 
       - name: Check formatting
         run: bash ./scripts/ci/check-format.sh
+
+  # Standard-library Python over the tracked sources, so no toolchain to install
+  # and nothing to pin. Rules and their rationale: docs/plan/ARCH_RULES_PLAN.md.
+  check-arch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v5
+
+      - name: Check architecture boundaries
+        run: python3 ./scripts/ci/check-arch.py

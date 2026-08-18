@@ -112,6 +112,7 @@ doc is now history: where it disagrees with the code, the code wins.
 | [LBA1_PORT_PLAN.md](plan/LBA1_PORT_PLAN.md) | Proposed | Awaiting go/no-go: how to bring LBA1 to this groundwork. Costs three paths, recommends hosting LBA1 content on the lba2cc engine behind a game-id, with a feasibility-spike ladder. Companion to [LBA1_PORTING_SURFACE.md](LBA1_PORTING_SURFACE.md). |
 | [PLATFORM_PAL_PLAN.md](plan/PLATFORM_PAL_PLAN.md) | Proposed | Awaiting go/no-go: in-place Platform Abstraction Layer decoupling the engine from direct SDL3. SDL-surface audit, RFC #120 reconciliation, PR-sequenced extraction with a headless backend. |
 | [REFACTOR_ROADMAP.md](plan/REFACTOR_ROADMAP.md) | Living | Which areas are worth restructuring and what each one buys, ordered by what tests cover them rather than by how untidy they are. Measures what CI can actually see: 5% of `SOURCES/`, and no 1997 game logic at all. Companion to [FEATURE_WORKFLOW.md](FEATURE_WORKFLOW.md) Example 5. |
+| [ARCH_RULES_PLAN.md](plan/ARCH_RULES_PLAN.md) | Implemented | Checking the boundaries the docs already state: seven rules from CODESTYLE and AGENTS.md, each measured against the tree, plus the four candidates deliberately left out. Companion to [REFACTOR_ROADMAP.md](plan/REFACTOR_ROADMAP.md). |
 | [RENDER_INTERP_PLAN.md](plan/RENDER_INTERP_PLAN.md) | Proposed | Smooth motion above the sim rate (#412), building on the fixed-timestep sim in [MOVEMENT_FRAMERATE.md](MOVEMENT_FRAMERATE.md). Nothing landed. |
 
 ## External resources

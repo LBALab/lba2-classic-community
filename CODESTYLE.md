@@ -14,7 +14,7 @@ The `.CPP`/`.H` extensions and `extern "C"` blocks are a compilation and linkage
 
 - Reach for a language feature only when it earns its keep; prefer the simplest construct that does the job.
 - Plain structs and value semantics over object hierarchies. No deep inheritance, no RTTI, no exceptions.
-- No STL in shipped or per-frame code. If a container is unavoidable, keep it explicit and allocation-aware.
+- No STL in shipped or per-frame code. If a container is unavoidable, keep it explicit and allocation-aware. [scripts/ci/check-arch.py](scripts/ci/check-arch.py) holds `SOURCES/` and `LIB386/` to this on every push; `tests/` is exempt, as above.
 - Optimise for readability and predictable performance, not for abstraction.
 
 Within that, which features to reach for depends on the zone you are in:
@@ -38,6 +38,8 @@ Two rules keep it from recurring.
 **That second benefit has a precondition, and for most modules it is not met yet.** A caller's include list only says something when the header is not already in front of it. [SOURCES/DEFINES.H](SOURCES/DEFINES.H) aggregates 46 local headers, 42 of which are modules with a matching `.CPP`, and [SOURCES/C_EXTERN.H](SOURCES/C_EXTERN.H) includes DEFINES.H, and 58 files include that. So every one of those module headers is in front of every translation unit in the game. Moving a global from the god-header into such a module's header still satisfies the mechanical half, but nothing has to admit it uses the module and nothing is stopped from reaching it by accident.
 
 The camera escaped this only because FOLLOWCAM.H was a new file DEFINES.H had never heard of. For a module that predates the aggregation, the order is: make the module header self-contained (an aggregated header can name types it never included, because DEFINES.H only ever included it after they had arrived), remove it from DEFINES.H, add the include to the files that use it, and only then move the state. [SOURCES/AMBIANCE.H](SOURCES/AMBIANCE.H) is the worked example: three explicit includers before, 25 after, and about a dozen include lines to get there. Doing it the other way round produces a diff that looks like the rule and buys none of it.
+
+**Both halves are held, so neither can be undone by accident.** [scripts/ci/check-arch.py](scripts/ci/check-arch.py) refuses a rise in C_EXTERN.H's extern count, and refuses a module header returning to DEFINES.H once it has left. The figures live in that script as constants beside the rule, so a move that earns a lower one lowers it in the same diff. Nothing there demands a decrease: a global that several subsystems write has no owner to move it to, and the ratchet says nothing about it.
 
 Corollaries:
 
@@ -83,15 +85,27 @@ Two things worth knowing before applying this:
 
 The rule is about ownership of storage, not about forbidding reads. `GAMEMENU.CPP` reading `FollowCamera` through FOLLOWCAM.H to choose a menu label is a plain use of a public setting and needs no hook.
 
-**The same split runs inside a feature.** [SOURCES/CONSOLE/](SOURCES/CONSOLE/) shows the mature form: its core builds as a library that touches no game state, while `CONSOLE_CMD.CPP`, which binds console verbs to game globals, is deliberately left out of that library and compiled with the game. Generic mechanism on one side of a link boundary, game-specific bindings on the other.
+**The same split runs inside a feature.** [SOURCES/CONSOLE/](SOURCES/CONSOLE/) shows the mature form: its core builds as a library that touches no game state, while `CONSOLE_CMD.CPP`, which binds console verbs to game globals, is deliberately left out of that library and compiled with the game. Generic mechanism on one side of a link boundary, game-specific bindings on the other. The cheat codes are the worked example of a verb the core cannot know: the library declares `Console_SetVerbClaim` and the binding file fills it in, so the name resolution runs the game's way round. [scripts/ci/check-arch.py](scripts/ci/check-arch.py) holds the library's files to including nothing outside the module, reading the file list from the CMake target rather than a list of its own. Note that a static archive links with undefined symbols, so this boundary has to be checked; it does not announce itself as a build failure.
 
 That split is worth reaching for because it is the same line as the testable one. Code that runs free of engine globals can be linked into a host test and run in CI on every platform; code that reads `ListObjet` and writes `BetaCam` can only be exercised by a fixture that boots the engine and needs retail data. [SOURCES/FOLLOWCAM_MATH.H](SOURCES/FOLLOWCAM_MATH.H) is the camera sitting on that line already: it is the angle arithmetic with no engine state, it has a host test, and it is the only part of the camera CI can see. When deciding what to pull out of a feature next, pull along that line first.
+
+## Layers
+
+[LIB386/](LIB386/) is the engine kernel and the platform backends; [SOURCES/](SOURCES/) is the game. [docs/ENGINE_GAME_SEAM.md](docs/ENGINE_GAME_SEAM.md) labels every module and [docs/PLATFORM.md](docs/PLATFORM.md) gives the host seam. Two directions across those boundaries are load-bearing enough to be checked on every push.
+
+**The engine never includes the game.** No file under `LIB386/` includes a header from `SOURCES/`. Where the kernel needs something only the game can answer, it declares a hook and the game fills it in: the console library declares `Console_SetVerbClaim`, and `CONSOLE_CMD.CPP`, compiled with the game rather than into the library, supplies the cheat-code lookup. A static archive links with undefined symbols either way, so this boundary never announces itself as a build failure and has to be checked.
+
+**Platform conditionals live in the platform layer.** Callers stay `#ifdef`-free. A module that needs to know which host it is on gets a backend under one of the platform directories, with a stub for the hosts that lack it, and everyone else reaches the host through that. [LIB386/SYSTEM/ANDROID.CPP](LIB386/SYSTEM/ANDROID.CPP) is the narrowest form: one translation unit includes `<jni.h>` and nothing else in the tree knows Android exists. A new backend directory joins the platform-layer list in [scripts/ci/check-arch.py](scripts/ci/check-arch.py), which names the list when it fails, and owes a row in the per-module table in the seam doc, in the same diff.
 
 ## Layout and naming
 
 - **Indentation:** 4 spaces in C/C++. Tabs are preserved in ASM. The original used tabs; there is an ongoing migration to 4 spaces, so new contributions use 4 spaces.
 - **Types:** use the fixed-width aliases `S32`/`U32`/`S16`/`U16`/`U8` from [`LIB386/H/SYSTEM/ADELINE_TYPES.H`](LIB386/H/SYSTEM/ADELINE_TYPES.H), not bare `int`/`unsigned`, in ported and engine code.
 - **Standard:** C++98 for engine and game code; tests may use C11/C++11.
+
+## Strings a player reads
+
+Help text, console command descriptions, log lines, on-screen messages and dialogs reach people who have only the binary. **No user-facing string names the repository:** no `docs/*.md`, no source paths, no issue numbers. Point at `README.txt`, which ships, or better, say the thing itself. `--help` in particular is read by players, not only by agents driving the harness.
 
 ## Preservation of original code
 

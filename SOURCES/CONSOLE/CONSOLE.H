@@ -80,6 +80,17 @@ void Console_ClearPendingScreenshot(void);
 typedef void (*Console_CmdFn)(int argc, const char *argv[]);
 typedef void (*Console_LineSinkFn)(const char *line);
 
+/* Offer each typed verb to the game before the console dispatches it itself.
+ *
+ * The console core links as a library that names no game state, so a word that
+ * means something to gameplay cannot be known here. The game hands over a claim
+ * function and the console asks it first; a non-zero return means the verb was
+ * consumed and dispatch stops. The cheat codes are the only caller. Asking
+ * before the console's own table, rather than after it, is what keeps a cheat
+ * name working if a command of the same name is added later. */
+typedef int (*Console_VerbClaimFn)(const char *verb);
+void Console_SetVerbClaim(Console_VerbClaimFn claim);
+
 typedef enum {
     CONSOLE_CVAR_INT,
     CONSOLE_CVAR_BOOL,
