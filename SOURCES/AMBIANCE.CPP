@@ -836,10 +836,17 @@ void ReadVolumeSettings() {
 
     //---------------------------------------------------------------
 #ifdef CDROM
-    CDVolume = DefFileBufferReadValueDefault("CDVolume", DEF_CD_VOLUME);
+    /* Same shape as MusicVolume above, and for the same reason: CDVolume is U32
+       while the reader is S32, so a negative in the cfg wraps and the > 127 test
+       turns it into the loudest setting. Read signed, bound, then assign. */
+    S32 cdvol = DefFileBufferReadValueDefault("CDVolume", DEF_CD_VOLUME);
 
-    if (CDVolume > 127)
-        CDVolume = 127;
+    if (cdvol < 0)
+        cdvol = 0;
+    if (cdvol > 127)
+        cdvol = 127;
+
+    CDVolume = (U32)cdvol;
 #endif
 
     //---------------------------------------------------------------
