@@ -21,6 +21,7 @@
 #include "FOLLOWCAM_CFG.H"
 #include "FOLLOWCAM_MATH.H"
 #include "JOYSTICK.H"
+#include "BOOT_EXIT.H"
 
 extern S32 Nxw, Nyw, Nzw;
 extern S32 SaveNxw, SaveNzw;

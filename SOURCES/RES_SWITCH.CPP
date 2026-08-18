@@ -40,6 +40,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "BOOT_EXIT.H"
 
 /* Bounds (RES_MIN_W / RES_MAX_W / RES_MIN_H / RES_MAX_H) and the multiple-of-8
    width rule live in RES_CATALOG.H: the same limits the --resolution CLI, the

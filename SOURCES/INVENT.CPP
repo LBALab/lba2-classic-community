@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "AMBIANCE.H"
+#include "BOOT_EXIT.H"
 
 #define SHADE_INVENT_LVL 8
 

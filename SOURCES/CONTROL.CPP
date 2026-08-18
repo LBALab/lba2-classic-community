@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "BOOT_EXIT.H"
 
 #ifdef __cplusplus
 extern "C" {

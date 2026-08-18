@@ -33,6 +33,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include "AMBIANCE.H"
+#include "BOOT_EXIT.H"
 
 S32 FlagRestoreCD = 0;
 

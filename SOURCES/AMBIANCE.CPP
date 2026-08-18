@@ -10,6 +10,7 @@
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/WINDOW.H>
 #include "AMBIANCE.H"
+#include "BOOT_EXIT.H"
 
 /* Declared in AMBIANCE.H; see there for what is deliberately not here. */
 S32 SampleVolume = DEF_SAMPLE_VOLUME;

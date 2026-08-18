@@ -5,6 +5,7 @@
 
 #include <errno.h>
 #include "AMBIANCE.H"
+#include "BOOT_EXIT.H"
 
 U8 *PtrSce;
 U8 *PtrScene;

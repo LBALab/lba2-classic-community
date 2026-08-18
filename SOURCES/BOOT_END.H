@@ -22,8 +22,8 @@
 #include <stdio.h>
 
 /* The exit codes, from COMMON.H. Repeated rather than included because that
-   header pulls the game in; the static assert in BOOT_END.CPP keeps the two
-   from drifting. */
+   header pulls the game in; the compile-time check in BOOT_EXIT.CPP keeps
+   the two from drifting. */
 #define BOOT_END_FILE_NOT_FOUND 0
 #define BOOT_END_NOT_ENOUGH_MEM 1
 #define BOOT_END_PROGRAM_OK 2

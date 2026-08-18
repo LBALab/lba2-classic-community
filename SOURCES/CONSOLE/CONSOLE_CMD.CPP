@@ -50,6 +50,7 @@ extern S32 GfxDitherShading;
 #include <time.h>
 #include <SYSTEM/TIMER.H>
 #include <SYSTEM/DEFFILE.H>
+#include "../BOOT_EXIT.H"
 
 /* libconsole cannot include COMMON.H; keep CONSOLE_STATE.H sentinels in sync (compile fails if they drift). */
 #if NUM_CUBE_PHANTOM != CONSOLE_NUM_CUBE_PHANTOM_DEFAULT

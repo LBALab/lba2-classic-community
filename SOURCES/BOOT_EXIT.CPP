@@ -38,6 +38,20 @@
 
    -1 until something sets it: an early exit has neither failed nor succeeded,
    and BootEnd_IsFailure treats it as neither. */
+/* BOOT_END.H repeats the four exit codes rather than including COMMON.H, which
+   would pull the game into a header the host test compiles alone. This is where
+   the two are held together: a code renumbered in COMMON.H stops the build here
+   rather than silently changing which message a failing boot shows.
+
+   C++98 has no static_assert, so a negative array size is the stand-in: the
+   typedef is never used and costs nothing. */
+typedef char BootEndCodesMatchCommon[(BOOT_END_FILE_NOT_FOUND == ERROR_NOT_FOUND_FILE &&
+                                      BOOT_END_NOT_ENOUGH_MEM == NOT_ENOUGH_MEM &&
+                                      BOOT_END_PROGRAM_OK == PROGRAM_OK &&
+                                      BOOT_END_NAME_NOT_FOUND == NAME_NOT_FOUND)
+                                         ? 1
+                                         : -1];
+
 static S32 End_Num = -1;
 static const char *End_Error;
 

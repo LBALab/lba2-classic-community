@@ -17,6 +17,7 @@
 
 #include <stdint.h>
 #include "AMBIANCE.H"
+#include "BOOT_EXIT.H"
 
 #define ULTRA -1L
 #define ALWAYS ULTRA

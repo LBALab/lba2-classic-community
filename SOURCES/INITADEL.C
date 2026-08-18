@@ -68,6 +68,7 @@ int WriteEmbeddedDefaultLba2Cfg(const char *destPath);
 
 // -----------------------------------------------------------------------------
 #include "BUILD_INFO.h"
+#include "BOOT_EXIT.H"
 #ifdef DEMO
 #define APPNAME LBA2_PRODUCT_NAME_DEMO " " LBA2_VERSION_STRING
 #else // DEMO
