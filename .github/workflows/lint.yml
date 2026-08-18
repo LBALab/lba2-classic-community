@@ -61,6 +61,15 @@ jobs:
       # only walks .github/workflows. The shell inside a composite action is in
       # neither set, so it was checked by nothing. Same shellcheck, same
       # severity, so a finding here means what a finding there means.
+      #
+      # The self-test runs first, and on the same runner: the checker parses
+      # block scalars by hand to stay stdlib-only, and a parser that drifts
+      # reports "clean" rather than failing. The suite pins that direction, so
+      # running it after the check would be reading the result before the
+      # instrument.
+      - name: Self-test the composite-action shell checker
+        run: python3 scripts/ci/check-action-shell-selftest.py
+
       - name: Lint the shell in composite actions
         run: python3 scripts/ci/check-action-shell.py
 
