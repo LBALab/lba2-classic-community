@@ -217,6 +217,7 @@ both: e.g. `fix(credits): ... (#65) (#66)`. Reference issues in the PR
 - [CONTRIBUTING.md](CONTRIBUTING.md) — Contribution workflow, formatter mechanics, PR workflow
 - [.github/copilot-instructions.md](.github/copilot-instructions.md) — Detailed ASM↔CPP workflow, polyrec debugging, test patterns, common pitfalls
 - [docs/FEATURE_WORKFLOW.md](docs/FEATURE_WORKFLOW.md) — Reasoning and docs for big features (console, headless, menu, camera)
+- [docs/BUG_HUNTING.md](docs/BUG_HUNTING.md): finding defects nobody reported, with socket-driven fuzzing under sanitizers and the oracle checks that make a green result mean something
 - [docs/README.md](docs/README.md) — Full documentation index
 - [scripts/README.md](scripts/README.md) — Catalogue of developer, CI, and packaging scripts (maintained vs. spike)
 - [docs/TOOLING.md](docs/TOOLING.md) — External tools the repo expects, tiered by what breaks without them; `scripts/dev/check-tooling.sh` probes them
