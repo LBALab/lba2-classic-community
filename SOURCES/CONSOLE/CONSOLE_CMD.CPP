@@ -1681,7 +1681,81 @@ static void cmd_vargame(int argc, const char *argv[]) {
     }
     if (argc >= 3)
         ListVarGame[n] = (S16)atoi(argv[2]);
-    Console_Print("vargame[%d] = %d", n, (int)ListVarGame[n]);
+    /* Name the index when the game names it, from the table `give` already resolves
+       against: reading `vargame[30] = 1` tells you nothing on its own. The formatting
+       is a pure function with a test on it, because the line is parsed and the name
+       has to go after the value -- see the contract on Console_FormatVarGameLine. */
+    char line[96];
+    Console_FormatVarGameLine(line, sizeof(line), n, (S32)ListVarGame[n],
+                              Console_GiveItemName(n));
+    Console_Print("%s", line);
+}
+
+/* The named game variables that are not inventory items, so are not in the `give`
+   table. Unlike that table these are the real COMMON.H constants rather than mirrored
+   literals -- this file includes COMMON.H, so there is nothing here that can drift and
+   nothing for an #error guard to pin. Every FLAG_* the header names is listed except
+   FLAG_CHAPTER, which cmd_flags prints on its own line, and FLAG_DONT_USE, which the
+   header itself marks as not a flag. */
+typedef struct {
+    S32 index;
+    const char *name;
+} QuestFlag;
+
+static const QuestFlag s_questFlags[] = {
+    /* Not inventory: the header calls it a "magouille", a scenario var standing in
+       because the diving suit is not an inventory item. */
+    {FLAG_SCAPHANDRE, "divingsuit"},
+    {FLAG_CELEBRATION, "celebration"},
+    {FLAG_DINO_VOYAGE, "dinovoyage"},
+    {FLAG_ACF, "acf1"}, /* cutscene-seen bitmasks, not booleans */
+    {FLAG_ACF2, "acf2"},
+    {FLAG_ACF3, "acf3"},
+    {FLAG_ESC, "scenarsignal"}, /* OBJECT.CPP sets it to "previent scenar" */
+    {FLAG_VEHICULE_PRIS, "vehicletaken"},
+    {FLAG_PLANETE_ESMER, "esmerplanet"},
+};
+
+/* flags [all]: dump every named game Life variable with its value.
+   The quest state a save carries is spread over ListVarGame[], and the indices that
+   matter have names in COMMON.H -- FLAG_DIPLOME, the four FLAG_DMKEY_*, FLAG_CHAPTER.
+   Answering "what has this save done" meant reading --dump-state's bare integers
+   against the header by hand, or forty `vargame` calls. This is one command.
+   Nonzero rows only by default, since that is the set that says what has happened;
+   `flags all` includes the zeros, for confirming something is genuinely unset. */
+static const char *quest_flag_name(S32 index) {
+    for (U32 i = 0; i < sizeof(s_questFlags) / sizeof(s_questFlags[0]); i++) {
+        if (s_questFlags[i].index == index)
+            return s_questFlags[i].name;
+    }
+    return NULL;
+}
+
+static void cmd_flags(int argc, const char *argv[]) {
+    int showAll = (argc >= 2 && strcasecmp(argv[1], "all") == 0);
+    int shown = 0;
+
+    Console_Print("chapter = %d", (int)ListVarGame[FLAG_CHAPTER]);
+
+    /* Walk the array rather than the tables, so rows come out in index order and an
+       aliased index (FLAG_DISQUE_ROUTE / FLAG_VISIONNEUSE both being 24) prints once. */
+    for (S32 index = 0; index < MAX_VARS_GAME; index++) {
+        if (index == FLAG_CHAPTER)
+            continue;
+        const char *name = Console_GiveItemName(index);
+        if (name == NULL)
+            name = quest_flag_name(index);
+        if (name == NULL)
+            continue;
+        S32 value = (S32)ListVarGame[index];
+        if (value == 0 && !showAll)
+            continue;
+        Console_Print("  [%3d] %-16s %d", (int)index, name, (int)value);
+        shown++;
+    }
+
+    if (shown == 0)
+        Console_Print("  (no named flag is set; `flags all` lists the zeros too)");
 }
 
 /* behaviour [n] | comportement [n]: read or set the hero behaviour (0=Normal 1=Sportif 2=Aggressive
@@ -2198,7 +2272,13 @@ void Console_RegisterAll(void) {
                               "Reads the cube var, or sets it with a value. Drives quest state.");
     Console_RegisterCommandEx("vargame", cmd_vargame, "Read/set a game Life variable",
                               "vargame <n> [value]",
-                              "Reads the game var, or sets it with a value. Drives quest/inventory state.");
+                              "Reads the game var, or sets it with a value. Drives quest/inventory state. "
+                              "Names the index when the game names it.");
+    Console_RegisterCommandEx("flags", cmd_flags, "Dump the named game flags with their values",
+                              "flags [all]",
+                              "The quest state a save carries: chapter, plus every ListVarGame index "
+                              "that has a name (diploma, the four dark-monk keys, inventory). Nonzero "
+                              "only; 'all' includes the zeros.");
     Console_RegisterCommandEx("lifetrace", cmd_lifetrace, "Trace an object's Life script",
                               "lifetrace <objN> | lifetrace off",
                               "Logs the object's comportement/track/zone each frame and every LF_ "

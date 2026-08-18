@@ -39,3 +39,14 @@ void Console_FormatStatusIslandLine_FromState(char *buf, size_t buflen,
     snprintf(buf, buflen, "Island: %d  Cube: %d  Chapter: %d", (int)island, (int)num_cube, chapter);
     buf[buflen - 1] = '\0';
 }
+
+void Console_FormatVarGameLine(char *buf, size_t buflen, S32 index, S32 value,
+                               const char *name) {
+    if (buflen == 0)
+        return;
+    if (name != NULL && name[0] != '\0')
+        snprintf(buf, buflen, "vargame[%d] = %d (%s)", (int)index, (int)value, name);
+    else
+        snprintf(buf, buflen, "vargame[%d] = %d", (int)index, (int)value);
+    buf[buflen - 1] = '\0';
+}

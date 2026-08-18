@@ -71,6 +71,28 @@ int main(void) {
     Console_FormatStatusIslandLine_FromState(buf, sizeof(buf), 1, 2, NULL, CONSOLE_LISTVAR_FLAG_CHAPTER);
     assert(strcmp(buf, "Island: 1  Cube: 2  Chapter: 0") == 0);
 
+    /* The `vargame` read line. The prefix is a parsed contract: a harness matching
+       `vargame[<n>] = <v>` must keep working whether or not the index has a name, so
+       the name is appended and never spliced in front of the value. Moving it broke
+       an out-of-tree driver silently, which is why this is pinned rather than trusted. */
+    Console_FormatVarGameLine(buf, sizeof(buf), 30, 1, "diploma");
+    assert(strcmp(buf, "vargame[30] = 1 (diploma)") == 0);
+
+    Console_FormatVarGameLine(buf, sizeof(buf), 120, 0, NULL);
+    assert(strcmp(buf, "vargame[120] = 0") == 0);
+
+    Console_FormatVarGameLine(buf, sizeof(buf), 8, -32392, "");
+    assert(strcmp(buf, "vargame[8] = -32392") == 0);
+
+    /* Whatever follows, the value still parses out of the same place. */
+    Console_FormatVarGameLine(buf, sizeof(buf), 3, 1, "sendellball");
+    assert(strncmp(buf, "vargame[3] = 1", strlen("vargame[3] = 1")) == 0);
+
+    /* Truncation must not run off the buffer. */
+    char tiny[8];
+    Console_FormatVarGameLine(tiny, sizeof(tiny), 253, 10, "chapter");
+    assert(tiny[sizeof(tiny) - 1] == '\0');
+
     assert_avail_matches_in_scene_predicate(0, NULL, 1, 94);
     assert_avail_matches_in_scene_predicate(0, (void *)0x1, 94, 94);
     assert_avail_matches_in_scene_predicate(1, (void *)0x1, 3, 94);
