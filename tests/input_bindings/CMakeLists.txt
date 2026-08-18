@@ -1,0 +1,57 @@
+# The binding table and the fold that builds Input from it. Driven through the
+# real GetInput(), so LIB386/SYSTEM/INPUT.CPP links alongside; CheckKey and
+# ManageKeyboard are stubbed, which is what keeps SDL and the game stack out.
+add_executable(test_input_bindings
+    test_input_bindings.cpp
+    engine_stubs.cpp
+    ${CMAKE_SOURCE_DIR}/SOURCES/INPUT.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP
+    # SOURCES/INPUT.CPP is one TU holding both the binding layer and the config
+    # IO, so the config half's dependencies link even for the table tests. The
+    # extraction in the next commit is what separates them.
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DEFFILE.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/FILES.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DISCIMG.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ISO9660.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOADSAVE.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOGPRINT.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ITOA.CPP)
+
+# Bindings through the config file, on a temp cfg in the test's own directory.
+add_executable(test_input_config
+    test_input_config.cpp
+    engine_stubs.cpp
+    ${CMAKE_SOURCE_DIR}/SOURCES/INPUT.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DEFFILE.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/FILES.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DISCIMG.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ISO9660.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOADSAVE.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOGPRINT.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ITOA.CPP)
+
+foreach(target test_input_bindings test_input_config)
+    target_include_directories(${target} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/LIB386/H
+        ${CMAKE_SOURCE_DIR}/SOURCES
+    )
+
+    # KEYBOARD_KEYS.H pulls in <SDL3/SDL_keycode.h>; link SDL3 for its include
+    # dirs. Matches tests/input_funnel.
+    target_link_libraries(${target} PRIVATE SDL3::SDL3)
+
+    # LogPrintf routes through the structured log core; bypass the SDL_Log spine
+    # so the log calls in the code under test need no SDL runtime.
+    target_compile_definitions(${target} PRIVATE LBA_LOG_NO_SDL)
+
+    # Both tests use variadic macros and vsnprintf, which are C++11; the project
+    # default is C++98. Pinned as the other host tests that need it are.
+    set_target_properties(${target} PROPERTIES CXX_STANDARD 11)
+
+    add_test(NAME ${target} COMMAND ${target})
+    register_host_test(${target})
+endforeach()
