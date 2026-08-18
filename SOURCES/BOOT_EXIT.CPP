@@ -163,8 +163,6 @@ LBA_NORETURN void BootFatal(const char *fmt, ...) {
 
 /*══════════════════════════════════════════════════════════════════════════*/
 void TheEndInfo() {
-    S32 err = FALSE;
-
 #ifdef CDROM
     ClearVoiceFile();
 #endif
