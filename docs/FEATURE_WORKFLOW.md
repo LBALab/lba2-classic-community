@@ -162,6 +162,19 @@ that is spelled inline at many call sites into one place, without changing behav
    move, the files that genuinely use the module are the ones that had to add the include. For the
    camera that was seven, against the ninety-odd that could previously reach it by accident.
 
+   **The include list is directional, so check both ends.** It proves who can reach the module,
+   which is the win the camera got: seven includers against ninety. It says nothing about what the
+   new file itself drags in, and `FOLLOWCAM.CPP` opens with `C_EXTERN.H` and pulls 184 headers,
+   against a median translation unit's 5. Ask the build:
+
+   ```bash
+   scripts/ci/check-build-graph.py --report   # near the median decoupled; near the top did not
+   ```
+
+   Landing heavy is not a blocker, and no extraction so far has avoided it. It is the difference
+   between having moved the code and having moved the coupling, and it is worth knowing which one
+   the PR did.
+
    **A guard whose caller already decides it reads as intentional and moves with the code.** The include
    list proves what compiles, not what is reachable. `FollowCamHDExcess` was called as
    `CameraZone ? 0 : ...` inside a function whose only caller sits in `if (!CameraZone)`, so the test could
