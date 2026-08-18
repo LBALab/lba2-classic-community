@@ -52,7 +52,7 @@ void Settings_WriteConfig(const T_SETTING *table, S32 count) {
  * setter for every row that names a cvar. */
 static void Settings_ApplyFromConsole(void *ctx, int value) {
     const T_SETTING *s = (const T_SETTING *)ctx;
-    *s->value = Settings_Coerce(s, (S32)value);
+    Settings_Apply(s, (S32)value);
 }
 
 void Settings_RegisterCvars(const T_SETTING *table, S32 count) {
