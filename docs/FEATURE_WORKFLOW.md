@@ -104,46 +104,67 @@ that is spelled inline at many call sites into one place, without changing behav
 
 **Reasoning:**
 
-1. **CODESTYLE.md first:** ["Where new code goes"](../CODESTYLE.md#where-new-code-goes) and
+1. **Count what CI can see of the code you are about to move, before anything else.** A
+   refactor promises the behaviour is unchanged, and that promise is only worth what the tests
+   backing it are worth. Find out which they are first:
+
+   ```bash
+   # is any of it linked into a host test (the only thing CI runs on every push)?
+   grep -rn "SOURCES/YOUR_FILE.CPP" tests/*/CMakeLists.txt
+   # is there a fixture that drives it? (local only: needs retail data and a display)
+   grep -rln "your-verb\|YourFunc" tests/automation/
+   ```
+
+   Expect the answer to be no. Roughly **5% of `SOURCES` is linked into a host test**, and every
+   file that is has no 1997 ancestor; the 59 fixtures in `tests/automation` are referenced by no
+   workflow, and `LBA2_BUILD_ASM_EQUIV_TESTS` is `OFF` in all of them. So for most of the tree
+   the honest starting position is that nothing would catch you.
+
+   **If nothing covers it, building that cover is the first commit of the refactor, not a later
+   one.** Not a full suite: one host test over the part that can be reached without engine
+   state, or one fixture pinning the surface as it behaves today. Everything below assumes it
+   exists, and none of it is safe without it. [docs/TESTING.md](TESTING.md) has what runs where.
+
+2. **CODESTYLE.md next:** ["Where new code goes"](../CODESTYLE.md#where-new-code-goes) and
    ["Features and surfaces"](../CODESTYLE.md#features-and-surfaces) say what the result has to look
    like: a new subsystem gets its own TU, a module owns its own state, and a surface must not name a
    feature's variables. What follows is the order to get there in, distilled from the two extractions
    that have been done this way (the Auto camera, PRs #533/#540/#542/#544, and the cfg reader, #541).
 
-2. **Cut along the testable line first.** The part that reads no engine globals comes out before
+3. **Cut along the testable line first.** The part that reads no engine globals comes out before
    anything moves, as a header with a host test. From then on the refactor has an oracle that runs on
    every platform with no retail data. [SOURCES/FOLLOWCAM_MATH.H](../SOURCES/FOLLOWCAM_MATH.H) is the
    worked example, tested by `tests/camera/test_followcam_math.cpp`, and it landed a full PR before
    the module itself moved. If you cannot name that part, you are not ready to start.
 
-3. **Make the extracted part correct on its own terms.** A helper lifted out of one call site leans
+4. **Make the extracted part correct on its own terms.** A helper lifted out of one call site leans
    on guarantees that caller happened to provide. Restore them inside the helper even where they are
    inert today, and say in the comment that they are inert and why:
    [`FollowCamRotStep`](../SOURCES/FOLLOWCAM_MATH.H) carries an overshoot clamp its two callers can
    never trigger, because a later change to either constant would otherwise walk the camera past its
    target.
 
-4. **Move before you change.** The commit that creates the file is a move: same lines, new home, no
+5. **Move before you change.** The commit that creates the file is a move: same lines, new home, no
    edits. `refactor(camera): give the Auto camera its own file` is 472 insertions against 420
    deletions across four files, and reviewing it is checking that nothing changed. What you want to
    fix on the way gets its own commit afterwards.
 
-5. **Then ownership.** The header declares exactly what the `.CPP` defines, and the module's globals
+6. **Then ownership.** The header declares exactly what the `.CPP` defines, and the module's globals
    come out of [SOURCES/C_EXTERN.H](../SOURCES/C_EXTERN.H) and
    [SOURCES/GLOBAL.CPP](../SOURCES/GLOBAL.CPP). The mechanical test is the include list: after the
    move, the files that genuinely use the module are the ones that had to add the include. For the
    camera that was seven, against the ninety-odd that could previously reach it by accident.
 
-6. **Then surfaces, one entry point each.** The cfg reader, the console, the CLI table and the
+7. **Then surfaces, one entry point each.** The cfg reader, the console, the CLI table and the
    options menu call into the module rather than naming its variables. Expect exactly one leak of
    private state and give it a named entry point instead of widening the header; both extractions so
    far found exactly one.
 
-7. **Bugs found on the way are not part of the refactor.** They get their own commit, test first and
+8. **Bugs found on the way are not part of the refactor.** They get their own commit, test first and
    allowed to fail, as in `test(camera): put the HD recompose rule under CI, and let two tests fail`
    followed by the fix. A behaviour change buried in a move commit is invisible to review.
 
-8. **Write the rule down as you find it.** Three `docs(style)` commits landed inside those PRs, each
+9. **Write the rule down as you find it.** Three `docs(style)` commits landed inside those PRs, each
    recording something the extraction had just taught. Later means never.
 
 **Docs to update:** the subsystem's own doc if the layout it describes moved, and
@@ -168,9 +189,11 @@ exactly what that check exists to catch.
 The list above is feature-shaped: it assumes new behaviour and asks what to document. A refactor
 promises the opposite, so its risks are different.
 
-1. **Get an oracle before touching anything.** A refactor with no way to say "same as before" is a
-   rewrite. Host tests are the cheapest (no retail data, every platform); the UI goldens in
-   `tests/automation` and the projection corpus cover what needs a booted engine.
+1. **Get an oracle before touching anything**, per step 1 of Example 5. A refactor with no way to
+   say "same as before" is a rewrite, and in this tree the default is that no such way exists.
+   Host tests are the cheapest (no retail data, every platform); the UI goldens in
+   `tests/automation` and the projection corpus cover what needs a booted engine, at the price
+   of not running in CI.
 2. **No behaviour change inside a refactor commit.** If a commit both moves code and fixes
    something, split it. This repo reviews per commit rather than splitting PRs, and that only works
    when each commit answers one question.
