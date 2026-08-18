@@ -640,6 +640,16 @@ void InitBufferCube() {
     if (realbll < BkgHeader.Max_Size_Bll)
         realbll = BkgHeader.Max_Size_Bll;
 
+    /*	LoadUsedBrick() scratches its brick renumbering table into Screen at a
+        fixed offset (OFFSET_BUFFER_FLAG), from a time when the framebuffer was
+        always 640x480. The render resolution is now a player setting, and the
+        catalog offers 320x200, 320x240 and 400x300, all of them smaller than
+        where that table ends. Floor the framebuffer allocation so the table
+        stays inside it, otherwise the memset runs off the end of Screen and
+        into BufferMaskBrick, BufMap and TabBlock on every cube load. */
+    if (ListMem[MEM_SCREEN].Size < (S32)(OFFSET_BUFFER_FLAG + MAX_BRICK_GAME * 2L))
+        ListMem[MEM_SCREEN].Size = (S32)(OFFSET_BUFFER_FLAG + MAX_BRICK_GAME * 2L);
+
     ListMem[MEM_BUFFER_MASK_BRICK].Size = BkgHeader.Max_Size_Mask_Brick_Cube;
     ListMem[MEM_BUF_MAP].Size = realgri + RECOVER_AREA;
     ListMem[MEM_TAB_BLOCK].Size = realbll + RECOVER_AREA;

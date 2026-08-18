@@ -785,7 +785,11 @@ U8 *LoadHoloMalloc_HQR(const char *name, S32 index) {
 
     size = HQF_ResSize(name, index);
 
-    pt = HoloMalloc(size);
+    /*	HQF_LoadClose() lands the compressed read at ptrdest + SizeFile -
+        CompressedSizeFile + RECOVER_AREA, so the destination has to hold
+        SizeFile + RECOVER_AREA, not SizeFile. Without the margin each load
+        runs past its own slot, and the last one past ScreenAux entirely. */
+    pt = HoloMalloc(size + RECOVER_AREA);
 
     if (!Load_HQR(name, pt, index))
         TheEndCheckFile(name);
