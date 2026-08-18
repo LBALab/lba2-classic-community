@@ -13,6 +13,10 @@
 
 void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2);
 extern "C" void asm_Line(S32 x0, S32 y0, S32 x1, S32 y1, S32 col);
+extern "C" void asm_LineZBuf(S32 x0, S32 y0, S32 z0,
+                             S32 x1, S32 y1, S32 z1,
+                             S32 col);
+void Line_ZBuffer(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2);
 extern "C" void asm_LineZBufNZW(S32 x0, S32 y0, S32 z0,
                                 S32 x1, S32 y1, S32 z1,
                                 S32 col);
@@ -200,6 +204,63 @@ static void test_asm_equiv_random(void) {
     }
 }
 
+/* zrange bounds the endpoint depths. Line_ZBuffer shifts them to 16.16, so
+   DZ is (z2-z1)<<16 and the clip multiplies that by an overshoot of up to 300.
+   For the product to stay inside 32 bits the depths have to be tiny: 300 *
+   (100<<16) is already 2.0e9. A "small" range of +-32768 therefore overflows
+   just as hard as an engine-scale one, which is the trap. */
+static int linezbuf_sweep(S32 zrange, const char *label) {
+    const U8 fogged_color = 0xA7;
+    static U16 asm_zbuf[LINEZBUFNZW_SIZE];
+    static U16 cpp_zbuf[LINEZBUFNZW_SIZE];
+    int diffs = 0;
+
+    rng_seed(0x5A17C0DE);
+
+    for (int i = 0; i < 300; i++) {
+        S32 x0 = (S32)(rng_next() % (LINEZBUFNZW_W + 600)) - 300;
+        S32 y0 = (S32)(rng_next() % (LINEZBUFNZW_H + 600)) - 300;
+        S32 x1 = (S32)(rng_next() % (LINEZBUFNZW_W + 600)) - 300;
+        S32 y1 = (S32)(rng_next() % (LINEZBUFNZW_H + 600)) - 300;
+
+        S32 z0 = zrange ? ((S32)(rng_next() % (U32)(2 * zrange)) - zrange) : 0;
+        S32 z1 = zrange ? ((S32)(rng_next() % (U32)(2 * zrange)) - zrange) : 0;
+
+        setup_linezbufnzw_screen(fogged_color);
+        Fill_Flag_NZW = FALSE;
+        for (U32 k = 0; k < LINEZBUFNZW_SIZE; k++)
+            linezbufnzw_zbuffer[k] = (U16)((k * 2654435761u) >> 17);
+        Line_ZBuffer(x0, y0, x1, y1, 302, z0, z1);
+        memcpy(cpp_linezbufnzw_buf, (U8 *)Log, LINEZBUFNZW_SIZE);
+        memcpy(cpp_zbuf, linezbufnzw_zbuffer, sizeof(cpp_zbuf));
+
+        setup_linezbufnzw_screen(fogged_color);
+        Fill_Flag_NZW = FALSE;
+        for (U32 k = 0; k < LINEZBUFNZW_SIZE; k++)
+            linezbufnzw_zbuffer[k] = (U16)((k * 2654435761u) >> 17);
+        asm_LineZBuf(x0, y0, z0, x1, y1, z1, 302);
+        memcpy(asm_linezbufnzw_buf, (U8 *)Log, LINEZBUFNZW_SIZE);
+        memcpy(asm_zbuf, linezbufnzw_zbuffer, sizeof(asm_zbuf));
+
+        if (memcmp(asm_linezbufnzw_buf, cpp_linezbufnzw_buf, LINEZBUFNZW_SIZE) != 0 ||
+            memcmp(asm_zbuf, cpp_zbuf, sizeof(asm_zbuf)) != 0)
+            diffs++;
+    }
+
+    printf("    [%-22s] zrange=%-8d diverging: %d/300\n", label, (int)zrange, diffs);
+    return diffs;
+}
+
+static void test_asm_equiv_linezbuf_z(void) {
+    /* Graded on purpose. The first two ran green before the clip products were
+       widened to 64 bits and the last two did not, so a regression here says
+       which side of the 32-bit boundary broke. */
+    ASSERT_EQ_INT(0, linezbuf_sweep(0, "zero Z"));
+    ASSERT_EQ_INT(0, linezbuf_sweep(50, "tiny Z, no overflow"));
+    ASSERT_EQ_INT(0, linezbuf_sweep(2000, "moderate Z"));
+    ASSERT_EQ_INT(0, linezbuf_sweep(32768, "large Z"));
+}
+
 int main(void) {
     RUN_TEST(test_horizontal);
     RUN_TEST(test_vertical);
@@ -211,6 +272,7 @@ int main(void) {
     RUN_TEST(test_asm_equiv_clipped);
     RUN_TEST(test_asm_equiv_linezbufnzw_vertical_polyrec_0013_dc4333);
     RUN_TEST(test_asm_equiv_random);
+    RUN_TEST(test_asm_equiv_linezbuf_z);
     TEST_SUMMARY();
     return test_failures != 0;
 }
