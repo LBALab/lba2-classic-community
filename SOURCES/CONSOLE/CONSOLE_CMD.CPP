@@ -4,6 +4,7 @@
 #include "CONSOLE_GIVE.H"
 #include "../C_EXTERN.H"
 #include "../COMMON.H"
+#include "../CHEATCOD.H"  // TryExecuteCheatByName, the one verb claim the console offers
 #include "../ZONE_GEOM.H" // ZonePointInBox (zonelist shares the engine's zone box test)
 #include "../DIRECTORIES.H"
 #include "../CONFIG_FILE.H"
@@ -2084,6 +2085,11 @@ static void cmd_key(int argc, const char *argv[]) {
 /*──────────────────────────────────────────────────────────────────────────*/
 
 void Console_RegisterAll(void) {
+    /* The cheat names are game content, so the console core cannot know them.
+       It offers each typed verb here first and dispatches its own table only if
+       nothing claims it. */
+    Console_SetVerbClaim(TryExecuteCheatByName);
+
     Console_RegisterCommandEx("cube", cmd_cube, "Go to cube N (e.g. cube 5)", "cube <number>",
                               "Any state; closes console. Cube change applies next frame.");
     Console_RegisterCommandEx("load", cmd_load, "Load save by player name or file name", "load <save_name>",

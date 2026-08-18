@@ -147,6 +147,11 @@ DEFINES_AGGREGATED = frozenset(
     """.split()
 )
 
+# --- rule 6: the console's link boundary -------------------------------------
+
+CONSOLE_DIR = "SOURCES/CONSOLE/"
+CONSOLE_CMAKE = CONSOLE_DIR + "CMakeLists.txt"
+
 # --- rule 7: what a string reaching a player may name ------------------------
 
 # A player has the binary and nothing else. Each pattern is one way a string can
@@ -429,6 +434,45 @@ def rule_defines_aggregation_only_shrinks(sources: list[Source]) -> list[Violati
     return found
 
 
+def console_library_files() -> list[str]:
+    """The translation units in the `console` static library.
+
+    Read from the CMake target rather than listed here, so a fourth file joining the
+    library is covered the day it joins rather than the day someone remembers.
+    """
+    with open(CONSOLE_CMAKE, "r", encoding="utf-8") as handle:
+        match = re.search(r"add_library\s*\(\s*console\s+([^)]*)\)", handle.read())
+    if not match:
+        return []
+    return [f"{CONSOLE_DIR}{name}" for name in match.group(1).split()]
+
+
+def rule_console_library_names_no_game(sources: list[Source]) -> list[Violation]:
+    by_path = {source.path: source for source in sources}
+    found = []
+    for path in console_library_files():
+        source = by_path.get(path)
+        if source is None:
+            found.append(Violation(CONSOLE_CMAKE, 0, f"{path} is in the library but not in the tree"))
+            continue
+        for line, text in source.lines():
+            match = LOCAL_INCLUDE_RE.search(text)
+            if not match:
+                continue
+            target = match.group(1)
+            if target.rsplit("/", 1)[-1].upper().startswith("CONSOLE"):
+                continue
+            found.append(
+                Violation(
+                    source.path,
+                    line,
+                    f'"{target}" is game code, and this file is in the console library. '
+                    "The game fills in a hook the library declares; it does not reach the other way.",
+                )
+            )
+    return found
+
+
 def rule_no_repo_reference_in_strings(sources: list[Source]) -> list[Violation]:
     found = []
     for source in sources:
@@ -483,6 +527,13 @@ RULES = (
         "DEFINES.H must not aggregate a module header again",
         "CODESTYLE.md \"Where new code goes\": aggregation is what makes ownership inert.",
         rule_defines_aggregation_only_shrinks,
+    ),
+    Rule(
+        6,
+        "the console library names no game code",
+        'CODESTYLE.md: "its core builds as a library that touches no game state, while '
+        'CONSOLE_CMD.CPP [...] is deliberately left out of that library."',
+        rule_console_library_names_no_game,
     ),
     Rule(
         7,

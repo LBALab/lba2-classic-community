@@ -189,10 +189,21 @@ The fix is the pattern the same document prescribes: the feature registers with 
 A `Console_SetUnknownCommandHandler`, filled in by the cheat module, inverts the dependency and
 leaves the library self-contained.
 
-That is worth doing for a reason beyond the rule. Once the library links alone, the boundary is
-enforced by the linker on every build rather than by a script in CI, which is a stronger and
-cheaper guarantee than anything this plan can offer. The rule then guards a property the build
-already has.
+**The linker does not finish the job, and the symbol table is how you find that out.** The hope
+was that a self-contained library would make the boundary the linker's business rather than a
+script's. `nm -u` on the built archive says otherwise: with the cheat include gone, the console
+core still leaves `Console_RegisterAll` undefined, because the core calls the game's
+registration function through `Console_EnsureRegistered`.
+
+That edge is the intended one and the difference is the whole point. `TryExecuteCheatByName`
+arrived through `CHEATCOD.H`, a game module's header, so the library had the game's vocabulary
+in scope. `Console_RegisterAll` is declared in `CONSOLE.H`, the library's own header: the
+library states the contract and the game implements it. A static archive links either way, so
+neither shows up as a build failure.
+
+So the checkable rule is the include, not the link: no file in the `console` target may include
+a header from outside the console module. The file list comes from the CMake target rather than
+from a list in the checker, so a fourth file joining the library is covered the day it joins.
 
 ### 7. No repo reference in a user-facing string
 

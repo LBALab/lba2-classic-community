@@ -1,5 +1,4 @@
 #include "CONSOLE.H"
-#include "CHEATCOD.H"
 #include <ctype.h>
 
 #include <stdarg.h>
@@ -57,6 +56,7 @@ struct cvar_entry {
 };
 
 static int s_console_open = 0;
+static Console_VerbClaimFn s_verb_claim = NULL;
 static struct cmd_entry s_cmds[CONSOLE_MAX_CMDS];
 static int s_cmd_count = 0;
 static struct cvar_entry s_cvars[CONSOLE_MAX_CVARS];
@@ -208,6 +208,10 @@ void Console_SetToggleScancode(int scancode) {
 
 int Console_GetToggleScancode(void) {
     return s_toggle_scancode;
+}
+
+void Console_SetVerbClaim(Console_VerbClaimFn claim) {
+    s_verb_claim = claim;
 }
 
 void Console_RequestScreenshot(const char *path, int use_png) {
@@ -1624,7 +1628,7 @@ static void console_execute_body(const char *line) {
     if (argc == 0)
         return;
 
-    if (TryExecuteCheatByName(argv[0]))
+    if (s_verb_claim != NULL && s_verb_claim(argv[0]))
         return;
 
     /* Built-in: help, cmdlist, varlist */
