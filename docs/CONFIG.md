@@ -82,13 +82,13 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | LastSave | Player name for quick load | ReadConfigFile / WriteConfigFile | (implicit) |
 | Shadow | Shadow quality (1–3) | ReadConfigFile / WriteConfigFile | Options → Detail |
 | AllCameras | Scenario cameras ON/OFF | ReadConfigFile / WriteConfigFile | Options |
-| ReverseStereo | Stereo invert | ReadConfigFile / WriteConfigFile | Options |
+| ReverseStereo | Stereo invert | ReadVolumeSettings / WriteVolumeSettings | Options, cvar `snd_reverse_stereo` |
 | DetailLevel | Graphics detail (0–3) | ReadConfigFile / WriteConfigFile | Options |
 | FullScreen | Video playback size | ReadConfigFile / WriteConfigFile | Options → Advanced options |
 | DisplayFullScreen | Window/display fullscreen toggle | ReadConfigFile / WriteConfigFile | Options → Advanced options |
 | FlagDisplayText | Show subtitles during voice | ReadConfigFile / WriteConfigFile | Options → Advanced options |
-| WaveVolume, VoiceVolume, MusicVolume, MasterVolume | Volume sliders | ReadVolumeSettings / WriteVolumeSettings | Options → Sound volume |
-| CDVolume | CD audio volume | ReadVolumeSettings / WriteVolumeSettings | config only |
+| WaveVolume, VoiceVolume, MusicVolume, MasterVolume | Volume sliders | ReadVolumeSettings / WriteVolumeSettings | Options → Sound volume, cvars `snd_wave` `snd_voice` `snd_music` `snd_master` |
+| CDVolume | CD audio volume | ReadVolumeSettings / WriteVolumeSettings | config only, cvar `snd_cd` |
 | Input0_1..Input35_2, WinMode | Keyboard mappings | ReadInputConfig / WriteInputConfig | Options → Keyboard |
 | CompressSave | Save compression format | ReadConfigFile | (installer) |
 | Version | Distributor edition (`DistribVersion`) | ReadConfigFile / `distrib` console | (installer; `distrib` console) |
@@ -114,8 +114,9 @@ the console's cvar table all read that table rather than naming the setting, so 
 single row and its rule, not merely its range, reaches every surface that can write it: the console hands a typed value to the setting's owner rather than deciding for itself, so a key answers the console and the config file the same way. The row type is `T_SETTING` in
 [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H).
 
-Two tables exist today: `BootSettings` in [SOURCES/CONFIG_FILE.CPP](../SOURCES/CONFIG_FILE.CPP) for the boot and
-display keys, and `FollowCamSettings` in [SOURCES/FOLLOWCAM.CPP](../SOURCES/FOLLOWCAM.CPP) for the Auto camera's.
+Three tables exist today: `BootSettings` in [SOURCES/CONFIG_FILE.CPP](../SOURCES/CONFIG_FILE.CPP) for the boot and
+display keys, `FollowCamSettings` in [SOURCES/FOLLOWCAM.CPP](../SOURCES/FOLLOWCAM.CPP) for the Auto camera's, and
+`AudioSettings` in [SOURCES/AMBIANCE.CPP](../SOURCES/AMBIANCE.CPP) for the volumes and the stereo swap.
 **Row order is the file's key order**, which players see: the config is rewritten in table order, so
 moving a row reorders every existing `lba2.cfg` on the next save.
 
@@ -127,7 +128,7 @@ here, it does four. This is the vocabulary behind the "Clamping / notes" column 
 | `SETTING_CLAMP` | move it to the nearer bound | DetailLevel |
 | `SETTING_OR_DEFAULT` | out of range counts as unset, so the default stands | FullScreen, TextureFilter |
 | `SETTING_TRUTHY` | any non-zero is on | FollowCamHDRecompose |
-| `SETTING_RAW` | no range at all; whatever the file said stands | AllCameras, ReverseStereo |
+| `SETTING_RAW` | no range at all; whatever the file said stands | AllCameras, Shadow |
 
 Picking the wrong one is invisible to a normal config: a file the engine wrote holds only in-range
 values, so the rules can only differ on a value the engine did not write. They are covered by a host

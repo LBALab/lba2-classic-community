@@ -859,12 +859,12 @@ static const T_SETTING AudioSettings[] = {
 void ReadVolumeSettings() {
     Settings_ReadConfig(AudioSettings, AUDIO_SETTING_COUNT);
 
-    SetMasterVolumeSample(MasterVolume);
-    SetVolumeJingle(JingleVolume);
-#ifdef CDROM
-    SetVolumeCD(CDVolume);
-#endif
-    InverseStereoSample(ReverseStereo);
+    /* The same two hooks the cvar route fires, called once the whole table is in
+       rather than per row. Calling them rather than repeating their bodies is
+       what stops boot and the console drifting apart. ApplyMasterVolume re-tells
+       the music paths, so it covers the jingle and CD volumes too. */
+    ApplyMasterVolume(MasterVolume);
+    ApplyReverseStereo(ReverseStereo);
 }
 
 /*--------------------------------------------------------------------------*/

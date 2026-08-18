@@ -7,8 +7,6 @@
 
 #include <stddef.h>
 
-#include <SYSTEM/ADELINE_TYPES.H>
-
 /* One declaration per setting, read by every surface that exposes it.
  *
  * A tunable reaches the player through three generic files: the cfg reader, the
