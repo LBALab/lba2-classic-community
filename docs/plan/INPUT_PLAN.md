@@ -254,6 +254,21 @@ table is built and keep the same assertions. That is also how the 32-slot ceilin
 stated: rebinding the four spell slots to unused scancodes shows the ceiling follows the slot, not
 the key.
 
+*The cut is measurable in the dependency graph, not just in line counts.* `ninja -t deps` reports
+what a translation unit actually pulled in:
+
+```
+ninja -C build -t deps SOURCES/CMakeFiles/lba2cc.dir/INPUT.CPP.o          | grep -c '^    '
+ninja -C build -t deps SOURCES/CMakeFiles/lba2cc.dir/INPUT_BINDINGS.CPP.o | grep -c '^    '
+```
+
+`INPUT.CPP` pulls 285 headers, 182 of them from this tree. `INPUT_BINDINGS.CPP` pulls 48, of which
+five are ours: itself, its header, `ADELINE_TYPES.H`, LIB386's `INPUT.H` for `DefineInputKeys`, and
+`KEYBOARD_KEYS.H` for the key names. **182 to 5** is what cutting along the testable line bought,
+and it is the reason the test that travelled with the tables needs no stubs at all. Dropping the
+include the move left dead took a further 12 headers off `INPUT.CPP`, the six SDL ones among them,
+so the half that keeps the polling no longer reaches SDL.
+
 *On the test-investment question it decides:* the fixtures were not the bottleneck here, because
 these layers need none. What the layers below the fold need is a different thing, and increment 1
 is what measures it.
@@ -278,6 +293,33 @@ sampling loses anything in practice, which the research left open.
 
 `input trace` is not this. It logs the *injected* mask and hero state per sim tick, which serves
 the simulator; this counts the *real* signal at each layer and reports disagreement.
+
+**A fourth boundary, found while doing increment 0 and deliberately not scheduled here.** Manual
+camera has four sources and only two of them cross a seam anything can count:
+
+| Source | Route | Visible to `camtrace`'s `orbit` |
+|---|---|---|
+| keyboard `[` and `]` | writes `AddBetaCam` directly | no |
+| keyboard numpad `/` and `*` | writes `FollowCamBaseDist` directly | no |
+| mouse | `ApplyManualCameraNudge` | yes |
+| right stick | `ApplyManualCameraNudge` | yes |
+
+`ManualCameraOrbitActive` is set inside the nudge, and it is the `orbit` column `FollowCamTrace`
+reports, so the trace can say that some analog source moved the camera and never which one, while
+the two keyboard routes do not appear in it at all. `step` counts every writer summed. Naming the
+four costs about what the counting above already does.
+
+The bypass has already cost something, and the tree records it: the comment above the zoom keys
+says the keyboard route clamped before stepping and the nudge route after, so the two disagreed
+about how far zoom goes. That is one divergence per source that re-implements the conversion in
+front of the seam, and there are two such sources.
+
+So whoever next touches that block should take the conversion out first, the way the camera's angle
+arithmetic came out. `StickAxisToCamStep` is one parameter away from being a `FOLLOWCAM_MATH.H`
+sibling, since it reads the `JoystickDeadzone` global rather than taking it, and the mouse's three
+lines are a sibling beside it. [tests/camera](../../tests/camera/) links no engine sources, so
+covering both costs a test file and nothing else. Doing it that way puts the two conversion curves
+in one file, where whether they should be one thing is a read rather than an argument.
 
 *Combo fixtures, recorded as a baseline.* The `fseq` verb from
 [INPUT_SIM_PLAN.md](INPUT_SIM_PLAN.md) Phase 1 already places an edge on a chosen frame, which is
