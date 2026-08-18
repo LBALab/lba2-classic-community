@@ -181,6 +181,23 @@ that is spelled inline at many call sites into one place, without changing behav
 9. **Write the rule down as you find it.** Three `docs(style)` commits landed inside those PRs, each
    recording something the extraction had just taught. Later means never.
 
+10. **Re-read every doc that describes what you moved, then have the change reviewed.** A refactor
+    produces false documentation in bulk, and CI cannot see any of it:
+    `scripts/ci/check-docs-symbols.py` catches a doc naming a symbol in a file it has left, not a
+    statement about behaviour that has become untrue. One audio change here left six false claims
+    across three docs with every check green.
+
+    Grep the docs for each identifier you moved and each surface you changed. Treat any list that
+    claims to be complete as a defect until you have re-counted it: "all current call sites are
+    covered", "two tables exist today", and a type named as the example for a rule it no longer
+    follows were the three that went stale, and each reads as authoritative while being wrong.
+
+    The review pass is not optional on a change like this, and not because the build might break.
+    Its two catches are the doc that still describes the old shape, and the site of the same class
+    you did not convert: the negative-volume clamp fixed for one key and missed for its neighbour
+    two lines below, the stereo setting routed through two surfaces of three. Tests found none of
+    those. Review found all of them.
+
 **Docs to update:** the subsystem's own doc if the layout it describes moved, and
 [CODESTYLE.md](../CODESTYLE.md) if the extraction taught a rule that generalises. Run
 `scripts/ci/check-docs-symbols.py` afterwards: a doc naming a symbol in the file it has just left is
@@ -219,5 +236,10 @@ promises the opposite, so its risks are different.
    helper because they spell the same global would invent a relationship the code does not have.
 5. **Landing early is fine.** The rule having one home is the win; every caller reaching it is not a
    precondition for merging. An unconverted site is a known cost, not a regression.
-6. **Before pushing:** `scripts/ci/check-format.sh`, `scripts/ci/check-docs-links.sh` and
-   `scripts/ci/check-docs-symbols.py` are what CI will run, and all three run locally.
+6. **Assume you converted all of a class and did not.** Every miss on the changes this file
+   describes has been the same shape: a sibling two lines away, a third surface where two were
+   checked. After the last commit, grep for the pattern you were fixing rather than for the sites
+   you remember fixing.
+7. **Before pushing:** `scripts/ci/check-format.sh`, `scripts/ci/check-docs-links.sh` and
+   `scripts/ci/check-docs-symbols.py` are what CI will run, and all three run locally. None of them
+   can see a doc that is merely wrong.
