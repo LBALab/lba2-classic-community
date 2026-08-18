@@ -9,6 +9,8 @@ build-demo/
 build-asan/
 # Second front end: linux_clang, kept beside build/ so both stay warm
 build-clang/
+# Throwaway tree for scripts/ci/warning-baseline.sh (always a clean rebuild)
+build-warnings/
 dist/
 
 # Local retail drop (symlink or copy classic data here; never commit assets)
