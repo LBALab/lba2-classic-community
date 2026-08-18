@@ -261,12 +261,25 @@ equivalence tests are the oracle, which means Docker.
 
 ### 7. Rendering
 
-**What.** [SOURCES/OBJECT.CPP](../../SOURCES/OBJECT.CPP), 6,787 lines, the only big original file
-that has shrunk, plus the `LIB386/` libraries under it.
+**What.** Two layers with two different situations, which the first pass of this entry ran
+together. The *primitives* are the `LIB386/` rendering libraries: the rasteriser, the 3D maths,
+the blits. The *composition* is [SOURCES/OBJECT.CPP](../../SOURCES/OBJECT.CPP)'s `AffScene` and
+`AffOneObject`, which decide what to draw.
 
-**Coverage today.** The best in the repo, and it runs. The ASM equivalence suites for OBJECT, SVGA,
-3D, ANIM and pol_work go through CI on every push and pull request, 153 tests in about 80 seconds,
-alongside `tests/render`, `pol_work`, `texfilter` and `present_rect` as host tests.
+OBJECT.CPP is not a rendering file. Of its 6,788 lines, the `Aff*` render path is 1,434; the
+rest is the per-frame actor update (`Do*`, 1,440), collision and zones (`Check*`, 980), world
+transitions (378) and 2,241 of everything else. It is the per-object frame loop, and rendering
+is a fifth of it.
+
+**Coverage today.** Excellent for the primitives, thinner than it looks for the composition. The
+ASM equivalence suites run in CI on every push and pull request, but they are `LIB386` unit
+equivalence: they assemble the original ASM and compare it against its C++ port, routine by
+routine. **No ASM-equivalence test links `SOURCES/OBJECT.CPP`.**
+
+What covers the composition is polyrec, which records the exact draw-call stream of a frame.
+It has been used to compare the ASM and C++ fillers, but the stream it records is equally a
+before-and-after oracle: a refactor that preserves behaviour produces an identical stream, byte
+for byte, without rendering anything twice. That is the check a composition split would run on.
 
 **What it buys.** Rendering sits near the top of this list for one reason: it is the only area
 whose 1997 code has an automatic, byte-exact oracle. A refactor here is checkable in a way
@@ -278,11 +291,61 @@ work is bounded by a rule that can be checked rather than by judgement. Read
 [BIT_EXACTNESS.md](../BIT_EXACTNESS.md) before starting: the three kinds of change it names decide
 what is even allowed here.
 
-**Verdict: viable, and better covered than anything else on this list.** What it does not have is a
-*reason* yet, since no open bug points here; pick it when one does, or when the engine and game
-split needs the rendering line drawn.
+**A reason has since appeared.** #525: on Windows six corpus saves replay a *different number* of
+projection events over a fixed replay, in both directions and across two orders of magnitude. A
+different count is a different path through the work, which the `long double` rounding that
+explains the other 19 does not account for. That is a diagnosis job needing a Windows machine
+rather than a refactor, but it is the first thing to point here.
 
-### 8. Gameplay and simulation
+**Verdict: the composition split is well shaped and still unmotivated; the divergence in #525 is
+the thing to look at first.** Splitting OBJECT.CPP along its own seams (render, actor update,
+collision) is a real piece of work with a real oracle, but nothing is currently costing anyone
+because those four concerns share a file.
+
+### 8. Input bindings: layout against preference
+
+**What.** [SOURCES/INPUT.CPP](../../SOURCES/INPUT.CPP)'s `DefKeysDefault95` pairs every action with
+an alternate, and that one pair is doing two unrelated jobs. `{K_GRAY_UP, K_NUMPAD_8}` is a layout
+fact, one action reachable two ways. `{K_W, K_GRAY_END}` is a preference. Because they share a
+slot, rebinding an action silently drops its keypad twin.
+
+The consequence is visible in how the tree reads input. Gameplay asks the binding layer, 164 sites
+of `Input &`. The menus, modals and config screens compare raw scancodes instead, about 80 sites
+across twelve files, most of them in `GAMEMENU.CPP` (37), `PERSO.CPP` (16) and `CONFIG.CPP` (14).
+Every one of those has to remember the keypad legend itself, and #507 records three that did not.
+
+**Coverage today.** The layers either side are host-tested and the one in the middle is not:
+`tests/input_device` links `LIB386/SYSTEM/KEYBOARD.CPP` and `MOUSE.CPP`, `tests/input_funnel`
+links `LIB386/SYSTEM/INPUT.CPP`, and `tests/menu_keynav` links `SOURCES/MENU_KEYNAV.CPP`, which is
+the first piece of the layout layer, added by #506. **`SOURCES/INPUT.CPP`, the binding table
+itself, is linked into no test.** Two automation fixtures drive input end to end.
+
+**What it buys.** More open issues than anything else on this list, and one of them is a lock:
+
+- #509, the disc prompt cannot be answered with a gamepad, and a pad-only player sits in
+  `while (flag == -1)` with no way out. `CDROM` is unconditional in the default build.
+- #508, the Key2 column is unreachable from the keyboard and the keypad period cannot be bound.
+- #507 itself, which is the rationale rather than a defect, with #497 and #506 as its evidence.
+- #495's remaining third: the gamepad bindings are the settings the provenance work could not
+  reach, because they are written by `WriteGamepadConfig` rather than declared in a table.
+- #4 and #372, LBA1-style controls and the omnidirectional scheme, both of which are profile
+  features and both blocked on this split.
+
+**What it costs.** The most of any area here, and the reason is testability rather than size.
+Input is the hardest part of the engine to test after the camera, because most of it only means
+anything once a human is holding something down.
+
+The way through is the same one the camera took: find the line CI can see. Which physical keys
+carry which intent, and which action a profile puts where, are both pure lookups over a table, so
+they can come out as a header with a host test in the way the camera's angle arithmetic did. What
+cannot follow is the consumption, and roughly eighty raw-key sites have to be converted a surface
+at a time behind the golden captures and the two input fixtures.
+
+**Verdict: do this next.** It is the only area where the issue tracker, rather than this document,
+is asking for the work, and the pure part of it is reachable by exactly the pattern that has
+already worked twice.
+
+### 9. Gameplay and simulation
 
 **What.** GERELIFE, EXTRA, EXTFUNC, and the roughly 55 gameplay globals.
 
@@ -353,17 +416,23 @@ two things at once, and a smaller god header.
 ## Order
 
 1. **Audio ownership.** Done: #563, #568, #570.
-2. **Boot and fatal-error plumbing.** Small, low risk, makes a failure path testable.
-3. **Setting provenance.** Small, closes the one gap that belongs to the surfaces rather than to a
-   feature, and the hook it needs now exists.
-4. **The game menu.** Largest payoff, wants a dedicated run at it.
-5. **Rendering**, whenever a reason appears. It is the best covered area in the tree, which the
-   first pass of this document got backwards.
+2. **Boot and fatal-error plumbing.** Done: #577. Setting provenance landed with it (#574), which
+   is the mechanism #495 asked for.
+3. **Input bindings.** Next. The only area the issue tracker is asking for rather than this
+   document, and it carries a lock (#509) plus the part of #495 the provenance work could not
+   reach.
+4. **The game menu.** Largest single payoff, wants a dedicated run at it, and shrinks once input
+   stops being read raw in 37 places inside it.
+5. **Rendering**, once #525 says what the Windows divergence is.
 6. **World and cube**, if the cube-change crash is still open.
 
 Running alongside, in any order and by anyone: de-aggregating one module header from `DEFINES.H`,
 and moving one of the fourteen owned console commands. Both are single-sitting jobs that make the
 next area cheaper.
+
+The order above changed once the open issues were read against it rather than the other way round,
+and that is the better direction. An area this document ranks highly and nothing is asking for is a
+worse candidate than one with a lock filed against it, however untidy the first looks.
 
 Running underneath all of it: every one of these should raise the 5% figure at the top. A proposed
 refactor that does not raise it needs a different justification.
