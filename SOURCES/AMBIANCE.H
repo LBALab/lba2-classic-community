@@ -115,6 +115,12 @@ extern void FadeToPalIndex(U8 num);
 /*--------------------------------------------------------------------------*/
 extern void PaletteIndex(U8 num);
 /*--------------------------------------------------------------------------*/
+/* Set the stereo swap and apply it together. The surfaces that expose this
+   setting (the cfg table, the console) call this instead of assigning
+   ReverseStereo and calling InverseStereoSample themselves, which is how the two
+   came to disagree. */
+extern void Audio_SetReverseStereo(S32 on);
+/*--------------------------------------------------------------------------*/
 extern void ReadVolumeSettings(void);
 /*--------------------------------------------------------------------------*/
 extern void WriteVolumeSettings(void);

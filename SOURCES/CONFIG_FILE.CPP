@@ -144,7 +144,7 @@ void ReadConfigFile(void) {
     Settings_ReadConfig(BootSettings, BOOT_SETTING_COUNT);
 
     /* The settings above are values; these are the side effects taking them. */
-    InverseStereoSample(ReverseStereo);
+    Audio_SetReverseStereo(ReverseStereo);
     SetWindowFullscreen(DisplayFullScreen != FALSE);
 
     /* An explicit request for this run beats the stored preference, the same

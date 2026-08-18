@@ -1375,7 +1375,7 @@ static void cmd_audio(int argc, const char *argv[]) {
         if (strcmp(action, "reset") == 0) {
             HQ_StopSample();
             StopMusic();
-            InverseStereoSample(ReverseStereo);
+            Audio_SetReverseStereo(ReverseStereo);
             Console_Print("Audio reset (samples stopped, music stopped, stereo reapplied)");
             return;
         }
@@ -1385,7 +1385,7 @@ static void cmd_audio(int argc, const char *argv[]) {
                 return;
             }
             S32 flag = (S32)strtol(argv[3], NULL, 0) ? 1 : 0;
-            InverseStereoSample(flag);
+            Audio_SetReverseStereo(flag);
             Console_Print("Reverse stereo: %s", flag ? "ON" : "OFF");
             return;
         }
