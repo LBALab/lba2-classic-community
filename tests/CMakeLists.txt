@@ -58,6 +58,7 @@ add_subdirectory(movement)
 add_subdirectory(zone)
 add_subdirectory(plasma_steps)
 add_subdirectory(camera)
+add_subdirectory(precision_paths)
 add_subdirectory(ui_layout)
 add_subdirectory(settings)
 
