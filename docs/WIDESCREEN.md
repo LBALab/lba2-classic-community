@@ -284,6 +284,20 @@ golden (`ui_compare_wide` in `lib.sh`). No per-resolution goldens; the 640 golde
 stays the single source of truth, which keeps the test honest against future
 projection or UI changes.
 
+**Tall coverage.** `test_ui_menu_options_hd.sh` and `test_ui_menu_options_uhd.sh`
+run the same comparison at 1280×720 and 1920×1080. They exist because 480 was the
+tallest frame anything asserted against: `ui_compare_wide` already took a
+resolution argument, but every caller passed a 480-tall one, so nothing exercised
+the vertical float at all. Adding 3 lines to `UI_VCENTER_OFS` leaves the 640 and
+768 fixtures green and turns both of these red, which is the coverage they add.
+1080 is worth its own rung as the `ADELINE_MAX_Y_RES` boundary, where the float is
+300 lines rather than 120.
+
+`menu-main` is deliberately not covered above 640 at any height. It composites over
+the live sky rather than `--black-bg`, and a taller or wider frame shows more of
+that scene: the crop differs by ~133k pixels at 768×480 before anything about the
+UI has moved. Only the cleanroom captures can be compared this way.
+
 **Still not protected** at wider widths:
 
 - Dialog. The dialog text strip is full-framebuffer-width by design (it scales with
