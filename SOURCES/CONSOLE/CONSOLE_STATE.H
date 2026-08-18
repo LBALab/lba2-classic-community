@@ -42,6 +42,19 @@ void Console_FormatStatusIslandLine_FromState(char *buf, size_t buflen,
                                               const S16 *list_var_game,
                                               int flag_chapter_index);
 
+/**
+ * The `vargame <n>` read line: "vargame[<n>] = <value>", with " (<name>)" appended
+ * when \a name is non-NULL.
+ *
+ * Pure, and pinned by a test, because this line is parsed. Harness scripts match
+ * `vargame[<n>] = <v>`, so the value must stay directly after the `=` and anything
+ * added must go after it. A name spliced into that prefix breaks those matches
+ * silently: the parse yields nothing, the caller reads it as an unset variable, and
+ * a driver waits forever on a flag that was set all along.
+ */
+void Console_FormatVarGameLine(char *buf, size_t buflen, S32 index, S32 value,
+                               const char *name);
+
 #ifdef __cplusplus
 }
 #endif

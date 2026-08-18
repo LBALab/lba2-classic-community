@@ -125,6 +125,38 @@ static void test_parse_unknown_item(void) {
     ASSERT_TRUE(err != NULL);
 }
 
+/*
+ * `flags` and `vargame` both label an index by asking this table for its name, so a
+ * wrong literal here mislabels a flag rather than failing. Only MONEY, CLOVER and
+ * CHAPTER are #error-guarded against COMMON.H; the rest of the indices are unguarded
+ * mirrors, so pin the ones that decide quest progression.
+ *
+ * Round-tripping name -> index -> name also catches a duplicated index, which would
+ * otherwise make one row unreachable by name.
+ */
+static void test_quest_flag_indices(void) {
+    ASSERT_EQ_INT(3, Console_GiveResolveItem("sendellball"));
+    ASSERT_EQ_INT(5, Console_GiveResolveItem("pearl"));
+    ASSERT_EQ_INT(15, Console_GiveResolveItem("gazogem"));
+    ASSERT_EQ_INT(30, Console_GiveResolveItem("diploma"));
+    ASSERT_EQ_INT(31, Console_GiveResolveItem("knartakey"));
+    ASSERT_EQ_INT(32, Console_GiveResolveItem("supkey"));
+    ASSERT_EQ_INT(33, Console_GiveResolveItem("mosquikey"));
+    ASSERT_EQ_INT(34, Console_GiveResolveItem("blafardkey"));
+}
+
+static void test_every_row_round_trips(void) {
+    S32 rows = Console_GiveItemRowCount();
+    ASSERT_TRUE(rows > 0);
+    for (S32 row = 0; row < rows; row++) {
+        const char *name = Console_GiveItemNameByRow(row);
+        ASSERT_TRUE(name != NULL);
+        S32 index = Console_GiveResolveItem(name);
+        ASSERT_TRUE(index >= 0);
+        ASSERT_TRUE(Console_GiveItemName(index) != NULL);
+    }
+}
+
 int main(void) {
     RUN_TEST(test_resolve_by_name);
     RUN_TEST(test_resolve_case_insensitive);
@@ -142,6 +174,8 @@ int main(void) {
     RUN_TEST(test_parse_count_too_low);
     RUN_TEST(test_parse_count_not_a_number);
     RUN_TEST(test_parse_unknown_item);
+    RUN_TEST(test_quest_flag_indices);
+    RUN_TEST(test_every_row_round_trips);
     TEST_SUMMARY();
     return test_failures != 0;
 }
