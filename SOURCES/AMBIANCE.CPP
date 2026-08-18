@@ -802,11 +802,20 @@ void ReadVolumeSettings() {
         VoiceVolume = 127;
 
     //---------------------------------------------------------------
-    JingleVolume = DefFileBufferReadValueDefault("MusicVolume", DEF_JINGLE_VOLUME);
+    /* Read into a signed temporary before assigning. JingleVolume is U32 while
+       its three siblings here, and DefFileBufferReadValueDefault itself, are S32,
+       so a negative value in the cfg wraps on the assignment; the > 127 test then
+       matches and turns it into the loudest setting rather than the quietest. The
+       menu sliders cannot produce one (they stop at 0), but a hand-edited or
+       corrupted cfg can, and that is the path this guards. */
+    S32 jingle = DefFileBufferReadValueDefault("MusicVolume", DEF_JINGLE_VOLUME);
 
-    if (JingleVolume > 127) {
-        JingleVolume = 127;
-    }
+    if (jingle < 0)
+        jingle = 0;
+    if (jingle > 127)
+        jingle = 127;
+
+    JingleVolume = (U32)jingle;
 
     //---------------------------------------------------------------
 #ifdef CDROM
