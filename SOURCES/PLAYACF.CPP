@@ -8,8 +8,11 @@
 
 #include <string.h>
 
-#ifdef USE_MVIDEO_SMACKER
+/* PlayAllAcf fades between cutscenes whatever the video backend is, so the audio
+   module's header belongs outside the backend guard below. */
 #include "AMBIANCE.H"
+
+#ifdef USE_MVIDEO_SMACKER
 #include "INPUT.H"
 #include "MESSAGE.H"
 #include <AIL/VIDEO_AUDIO.H>
