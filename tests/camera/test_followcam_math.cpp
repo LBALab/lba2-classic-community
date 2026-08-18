@@ -237,6 +237,75 @@ static void test_hd_recompose_cap_bounds_tall_heights(void) {
     ASSERT_EQ_INT(0, bad);
 }
 
+/* The recompose is defined to be an exact no-op at the height the game was composed for, and the
+ * boom is where that matters most: a length that came back one unit short at 480 would move the
+ * camera on the one resolution that must look as it shipped. Checked over a wide spread of lengths
+ * and tunings rather than at the two the engine currently runs with. */
+static void test_hd_shrink_is_an_exact_identity_at_no_excess(void) {
+    S32 len, gain, bad = 0;
+
+    for (len = 0; len <= 50000; len += 137)
+        for (gain = 0; gain <= 100; gain += 25)
+            if (FollowCamHDShrink(len, 0, gain, 50) != len)
+                bad++;
+
+    ASSERT_EQ_INT(0, bad);
+}
+
+/* A negative excess is not reachable through FollowCamHDExcessFor, which floors at 0, but the rule
+ * has to hold on its own terms: the recompose only ever shortens, and arithmetic on a negative
+ * would lengthen the boom. Pinned so a later change to how the excess is derived cannot quietly
+ * invert the correction. */
+static void test_hd_shrink_never_lengthens_on_a_negative_excess(void) {
+    ASSERT_EQ_INT(13750, FollowCamHDShrink(13750, -1, 27, 50));
+    ASSERT_EQ_INT(13750, FollowCamHDShrink(13750, -125, 27, 50));
+}
+
+/* The documented working point: at 1080 the excess is 125, which at the shipped distance gain is a
+ * 33% pull, taking the resting boom to 9212. The lean uses the same rule with its own tuning. */
+static void test_hd_shrink_matches_the_documented_working_point(void) {
+    S32 excess = FollowCamHDExcessFor(TRUE, 1080, FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT);
+
+    ASSERT_EQ_INT(125, excess);
+    ASSERT_EQ_INT(9212, FollowCamHDShrink(13750, excess,
+                                          FOLLOW_CAM_HD_DIST_GAIN_DEFAULT,
+                                          FOLLOW_CAM_HD_DIST_MAX_PULL));
+    ASSERT_EQ_INT(7035, FollowCamHDShrink(10500, excess,
+                                          FOLLOW_CAM_HD_DIST_GAIN_DEFAULT,
+                                          FOLLOW_CAM_HD_DIST_MAX_PULL));
+}
+
+/* Scaling then dividing once is not the same as subtracting the reduction: at the working point
+ * above the two disagree by a unit. Both call sites have to round the same way, or the frame a
+ * camera zone owns is a unit off the frames either side of it. This pins which one it is. */
+static void test_hd_shrink_truncates_once_rather_than_subtracting(void) {
+    S32 len = 13750, pull = 33;
+
+    ASSERT_EQ_INT(len * (100 - pull) / 100, FollowCamHDShrink(len, 125, 27, 50));
+    /* the other order, spelled out, is a different number */
+    ASSERT_EQ_INT(9213, len - len * pull / 100);
+    ASSERT_EQ_INT(9212, FollowCamHDShrink(len, 125, 27, 50));
+}
+
+/* The ceiling bounds the reduction, not the excess, so past it a taller frame converges on one
+ * length instead of shrinking without bound. It must also never grow a length. */
+static void test_hd_shrink_is_bounded_and_never_grows(void) {
+    S32 excess, bad = 0, grew = 0;
+
+    ASSERT_EQ_INT(6875, FollowCamHDShrink(13750, 100000, 27, 50)); /* pinned at the 50% ceiling */
+
+    for (excess = 0; excess <= 4000; excess += 7) {
+        S32 got = FollowCamHDShrink(13750, excess, 27, FOLLOW_CAM_HD_DIST_MAX_PULL);
+        if (got < 13750 * (100 - FOLLOW_CAM_HD_DIST_MAX_PULL) / 100)
+            bad++;
+        if (got > 13750)
+            grew++;
+    }
+
+    ASSERT_EQ_INT(0, bad);
+    ASSERT_EQ_INT(0, grew);
+}
+
 int main(void) {
     RUN_TEST(test_pan_round_trips_for_every_angle);
     RUN_TEST(test_angles_stay_within_the_turn);
@@ -251,6 +320,11 @@ int main(void) {
     RUN_TEST(test_hd_recompose_disabled_is_always_zero);
     RUN_TEST(test_hd_recompose_matches_the_documented_scale);
     RUN_TEST(test_hd_recompose_cap_bounds_tall_heights);
+    RUN_TEST(test_hd_shrink_is_an_exact_identity_at_no_excess);
+    RUN_TEST(test_hd_shrink_never_lengthens_on_a_negative_excess);
+    RUN_TEST(test_hd_shrink_matches_the_documented_working_point);
+    RUN_TEST(test_hd_shrink_truncates_once_rather_than_subtracting);
+    RUN_TEST(test_hd_shrink_is_bounded_and_never_grows);
     TEST_SUMMARY();
     return test_failures != 0;
 }

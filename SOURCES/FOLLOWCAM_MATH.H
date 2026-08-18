@@ -127,4 +127,34 @@ static inline S32 FollowCamHDExcessFor(S32 recompose, S32 modeY, S32 cap) {
     return e;
 }
 
+/* One recompose length, shrunk. The boom pull-in and the forward-lean cut are the same rule with
+ * different tuning: reduce a length in proportion to how much taller the frame is than the 480 the
+ * game was composed for, and stop reducing at `maxPercent` so a very tall frame converges instead
+ * of collapsing the length to nothing. `gain` is percent of the length per 1.00 of excess;
+ * `maxPercent` is the ceiling on the reduction, not on the excess.
+ *
+ * An exact identity at `hdExcess` 0, which is what makes the whole recompose a no-op at 480: the
+ * pull is 0 and `length * 100 / 100` is `length` for every value it is given. The early return is
+ * therefore inert for 0 and earns its place on negatives, which FollowCamHDExcessFor cannot
+ * currently produce; without it a negative excess would lengthen the boom instead of shortening
+ * it, which is the one direction this rule must never move.
+ *
+ * The order of operations is load-bearing and not interchangeable with subtracting the reduction.
+ * Scaling first and dividing once truncates a single time; taking `length * pull / 100` away
+ * truncates the part being removed instead, which rounds the other way and lands a unit out on
+ * boom lengths the camera actually uses. Whichever this is, both callers have to agree, or the
+ * frame a camera zone owns disagrees with the frames either side of it by that unit. */
+static inline S32 FollowCamHDShrink(S32 length, S32 hdExcess, S32 gain, S32 maxPercent) {
+    S32 pull;
+
+    if (hdExcess <= 0)
+        return length;
+
+    pull = hdExcess * gain / 100;
+    if (pull > maxPercent)
+        pull = maxPercent;
+
+    return length * (100 - pull) / 100;
+}
+
 #endif /* FOLLOWCAM_MATH_H */
