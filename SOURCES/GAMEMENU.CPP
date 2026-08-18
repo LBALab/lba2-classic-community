@@ -28,6 +28,7 @@
 #include <SYSTEM/MOUSE.H>
 
 #include "GAMEMENU_MOUSE.H"
+#include "UI_LAYOUT.H" /* UI_VCENTER_OFS / UI_VBOTTOM_OFS: authored-canvas placement */
 
 #include <dirent.h>
 #include <stdint.h>

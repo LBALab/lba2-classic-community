@@ -104,7 +104,7 @@ This phase had two strands. The UI strand is done; the HD strand moved to its ow
 
 The C2 campaign above centred the 2D UI horizontally (`ModeDesiredX/2`) for a *wider* frame. It left UI height at the authored 480, so vertical positions stayed authored-pixel. This sweep (branch `fix/ui-vertical-centre`) does the Y axis, so the UI is also correct in a *taller* frame (`ModeDesiredY > 480`, reachable via `--resolution` and the `resolution` console verb even though the shipped widescreen modes stay 480-tall).
 
-The model is one 480-tall authored canvas floated into the live framebuffer. Two macros in `SOURCES/DEFINES.H`, both read live (never cache; they must survive a runtime `Res_Switch`) and both `0` at `ModeDesiredY == 480` so every site is behaviour-preserving at the classic resolution:
+The model is one 480-tall authored canvas floated into the live framebuffer. Two macros in [`SOURCES/UI_LAYOUT.H`](../SOURCES/UI_LAYOUT.H), both read live (never cache; they must survive a runtime `Res_Switch`) and both `0` at `ModeDesiredY == 480` so every site is behaviour-preserving at the classic resolution:
 
 - `UI_VCENTER_OFS = ((S32)ModeDesiredY - 480) / 2`, to float the canvas to the vertical middle.
 - `UI_VBOTTOM_OFS = (S32)ModeDesiredY - 480`, to pin to the bottom edge.

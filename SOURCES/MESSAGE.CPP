@@ -22,6 +22,7 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include "DIRECTORIES.H"
+#include "UI_LAYOUT.H" /* UI_VCENTER_OFS, UI_VBOTTOM_OFS */
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/STRING.H>

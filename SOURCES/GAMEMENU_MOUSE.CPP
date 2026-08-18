@@ -1,6 +1,7 @@
 #include "GAMEMENU_MOUSE.H"
 
 #include "C_EXTERN.H"
+#include "UI_LAYOUT.H" /* UI_VCENTER_OFS / UI_VBOTTOM_OFS: authored-canvas placement */
 
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/WINDOW.H>

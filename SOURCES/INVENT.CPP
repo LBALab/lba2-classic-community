@@ -4,6 +4,7 @@
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 #include "IMAGE_LOAD.H"
+#include "UI_LAYOUT.H" /* UI_VCENTER_OFS */
 
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
