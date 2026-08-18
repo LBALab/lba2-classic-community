@@ -49,6 +49,8 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 | [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md) | Reading retail assets straight from a raw ISO/BIN disc image (GOG `LBA2.GOG`): ISO9660 reader, mount + `OpenRead` fallback, in-image music. Plus the retail CD assessment (US "Twinsen's Odyssey" rip) and the plan for CD-DA music, other containers and multi-track cues. |
 | [DEBUG.md](DEBUG.md) | Original Adeline debug tools (DEBUG_TOOLS=ON): overlay, F9 screenshot, bug save/load, cheats, scene selection. |
 | [CONSOLE.md](CONSOLE.md) | Quake-style debug console (always available): backtick/F12, commands and cvars. |
+| [CRASH_INVESTIGATION.md](CRASH_INVESTIGATION.md) | Runbook for a crash you already have: ASan builds (preload or static link), inspecting state at the fault, reading ASan output, pointer-arithmetic traps, and pinning the fix with a regression test. |
+| [BUG_HUNTING.md](BUG_HUNTING.md) | Runbook for finding defects nobody has reported: driving the control socket through player-shaped sequences under ASan/UBSan, un-merging the memory arena so spills are visible at all, and the oracle discipline that decides whether a green result means anything. |
 | [CONTROL.md](CONTROL.md) | CLI control harness: drive the engine non-interactively (`--load`/`--exec`/`--tick`/`--dump-state`/`--screenshot`/`--exit`) for automation and regression. |
 | [RELEASING.md](RELEASING.md) | Maintainer recipe for cutting a release: versioning, the `1.0` bar, `git-cliff`, engine version vs `NUM_VERSION`. |
 | [CI.md](CI.md) | GitHub Actions workflows: validation vs release tiers, triggers, path filtering, the docs-only gate, branch protection. |

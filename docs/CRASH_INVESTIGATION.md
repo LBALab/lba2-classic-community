@@ -49,6 +49,19 @@ Run via `gdb --args ./build-asan/SOURCES/lba2cc --game-dir /path/to/data`.
 
 Without `abort_on_error=1`, ASan prints its report and calls `exit()`, which gdb passes through — you lose the live stack. With it, gdb stops at the moment of the bad access so you can interrogate state in place.
 
+### What ASan cannot see here
+
+`InitMainBuffer()` in SOURCES/MEM.CPP hands eleven buffers (`PtrZBuffer`, `ScreenAux`, `BufSpeak`,
+`Screen`, `BufferMaskBrick`, `BufMap`, `TabBlock`, ...) out of one `Malloc`. A write that runs off
+the end of one region lands in its neighbour without ever leaving that allocation, so **ASan reports
+nothing** and the corruption surfaces later as garbage data somewhere unrelated.
+
+If a fault looks like corrupted engine data rather than a bad pointer, allocate the regions
+separately and re-run: the redzones between them become real and the writer gets named on the first
+sweep. `BufCube` and `BufferBrick` deliberately live inside `PtrZBuffer`, and `tabflag` inside
+`Screen`, so keep those aliases or the isolation invents faults. Full recipe in
+[BUG_HUNTING.md](BUG_HUNTING.md#the-rig).
+
 ## Inspecting state at the crash
 
 When SIGSEGV hits, the cheap interrogation:
