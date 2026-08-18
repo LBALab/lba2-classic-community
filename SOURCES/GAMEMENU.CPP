@@ -28,6 +28,7 @@
 #include <SYSTEM/MOUSE.H>
 
 #include "GAMEMENU_MOUSE.H"
+#include "UI_LAYOUT.H" /* UI_CENTER_X, UI_VCENTER_OFS */
 
 #include <dirent.h>
 #include <stdint.h>
@@ -54,7 +55,7 @@
 /* Top-left X of the SCREEN_SAVE_WIDTH-wide save thumbnail when it should be
    horizontally centred on the framebuffer. At 640 this resolves to 240 (the
    historical literal); at wider widths it tracks ModeDesiredX/2. */
-#define SAVE_THUMB_X ((S32)ModeDesiredX / 2 - SCREEN_SAVE_WIDTH / 2)
+#define SAVE_THUMB_X (UI_CENTER_X - SCREEN_SAVE_WIDTH / 2)
 /* Top of the save thumbnail on the save/load list screen (ChoosePlayerName).
    The historical literal is 50, on the 480-tall canvas; UI_VCENTER_OFS floats
    it with the rest of that screen on a taller framebuffer (0 at 480). The
@@ -1130,7 +1131,7 @@ void DrawCadreNewGame(void) {
 
     DrawCadreSave(SAVE_THUMB_X, SAVE_THUMB_Y);
 
-    x = (S32)ModeDesiredX / 2 - dx / 2;
+    x = UI_CENTER_X - dx / 2;
     y = SAVE_THUMB_Y + (SCREEN_SAVE_HEIGHT) / 2 - dy / 2;
 
     AffGraph(0, x, y, ptr);
@@ -1146,8 +1147,8 @@ void DrawCadreNewGame(void) {
 
 static S32 GameMenuSaveListHitTest(U32 mx, U32 my, S32 nb, S32 start, S32 *outSel) {
     S32 n;
-    S32 x0 = (S32)ModeDesiredX / 2 - GM_MENU_HALF_WIDTH_SAVE;
-    S32 x1 = (S32)ModeDesiredX / 2 + GM_MENU_HALF_WIDTH_SAVE;
+    S32 x0 = UI_CENTER_X - GM_MENU_HALF_WIDTH_SAVE;
+    S32 x1 = UI_CENTER_X + GM_MENU_HALF_WIDTH_SAVE;
 
     for (n = 0; n < NB_GAME_CHOICE; n++) {
         S32 y;
@@ -1204,7 +1205,7 @@ S32 InputPlayerName(S32 choice, char *name) {
 
     len = strlen(PlayerName);
 
-    x = (S32)ModeDesiredX / 2;
+    x = UI_CENTER_X;
     y = Y_START_CHOICE + choice * 60;
 
     ManageTime();
@@ -1235,11 +1236,11 @@ S32 InputPlayerName(S32 choice, char *name) {
                 CursorActif = FALSE;
         }
 
-        DrawOneString((S32)ModeDesiredX / 2, y, PlayerName, 1);
+        DrawOneString(UI_CENTER_X, y, PlayerName, 1);
         BoxUpdate();
 
         if (flag == 1) {
-            x = (S32)ModeDesiredX / 2 + SizeFont(PlayerName) / 2;
+            x = UI_CENTER_X + SizeFont(PlayerName) / 2;
             flag = 0;
         }
 
@@ -1302,10 +1303,10 @@ S32 InputPlayerName(S32 choice, char *name) {
                 /* Max input cursor X = original 550 = centre(320) + 230 px. Keep the
                    same 230 px half-width at any resolution so the name-entry field
                    visible area stays at its authored 460 px width. */
-                if (x < (S32)ModeDesiredX / 2 + 230 AND akey >= 32 AND akey <= 122) {
+                if (x < UI_CENTER_X + 230 AND akey >= 32 AND akey <= 122) {
                     PlayerName[len++] = (char)akey;
                     PlayerName[len] = '\0';
-                    x = (S32)ModeDesiredX / 2 + SizeFont(PlayerName) / 2;
+                    x = UI_CENTER_X + SizeFont(PlayerName) / 2;
                 }
                 break;
             }
@@ -1452,7 +1453,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
         ManageTime();
 
         if (flag == 3) {
-            DrawSingleString((S32)ModeDesiredX / 2, 25 + UI_VCENTER_OFS, (char *)GetMultiText(mess, string));
+            DrawSingleString(UI_CENTER_X, 25 + UI_VCENTER_OFS, (char *)GetMultiText(mess, string));
             flag = 1;
         }
 
@@ -1475,7 +1476,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                 else if ((start + NB_GAME_CHOICE < nb) AND(n == NB_GAME_CHOICE - 1))
                     draw |= ARROW_ID;
 
-                DrawOneString((S32)ModeDesiredX / 2, Y_START_CHOICE + 60 * n, ptrlist[n + start], draw);
+                DrawOneString(UI_CENTER_X, Y_START_CHOICE + 60 * n, ptrlist[n + start], draw);
             }
 
             draw = 1;
@@ -1507,7 +1508,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                     sdraw |= ARROW_SG;
                 else if ((start + NB_GAME_CHOICE < nb) AND(sn == NB_GAME_CHOICE - 1))
                     sdraw |= ARROW_ID;
-                DrawOneString((S32)ModeDesiredX / 2, Y_START_CHOICE + 60 * sn, ptrlist[select], sdraw);
+                DrawOneString(UI_CENTER_X, Y_START_CHOICE + 60 * sn, ptrlist[select], sdraw);
             }
         }
 
@@ -1630,7 +1631,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                             start++;
                         }
                     } else {
-                        DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[select - 1], (draw & 0xFFFFFFFE));
+                        DrawOneString(UI_CENTER_X, ys, ptrlist[select - 1], (draw & 0xFFFFFFFE));
                     }
                     flag = 1;
 
@@ -1649,7 +1650,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                     if (select < start) {
                         start--;
                     } else {
-                        DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[select + 1], (draw & 0xFFFFFFFE));
+                        DrawOneString(UI_CENTER_X, ys, ptrlist[select + 1], (draw & 0xFFFFFFFE));
                     }
                     flag = 1;
                     if (flagnew AND select == nb - 1)
@@ -1662,7 +1663,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
             }
         }
 
-        DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[select], draw);
+        DrawOneString(UI_CENTER_X, ys, ptrlist[select], draw);
         BoxUpdate();
 
         if (Input & I_DOWN OR MyKey == K_GRAY_DOWN) {
@@ -1673,7 +1674,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                         start++;
                     }
                 } else {
-                    DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[select - 1], (draw & 0xFFFFFFFE));
+                    DrawOneString(UI_CENTER_X, ys, ptrlist[select - 1], (draw & 0xFFFFFFFE));
                 }
                 flag = 1;
 
@@ -1692,7 +1693,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                 if (select < start) {
                     start--;
                 } else {
-                    DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[select + 1], (draw & 0xFFFFFFFE));
+                    DrawOneString(UI_CENTER_X, ys, ptrlist[select + 1], (draw & 0xFFFFFFFE));
                 }
                 flag = 1;
                 if (flagnew AND select == nb - 1)
@@ -1719,7 +1720,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                         if (start >= (nb - (NB_GAME_CHOICE - 1)))
                             start = nb - NB_GAME_CHOICE;
                     } else {
-                        DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
+                        DrawOneString(UI_CENTER_X, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
                     }
                     flag = 1;
 
@@ -1742,7 +1743,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                     if (select < start) {
                         start = select;
                     } else {
-                        DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
+                        DrawOneString(UI_CENTER_X, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
                     }
                     flag = 1;
                     if (flagnew AND select == nb - 1)
@@ -1760,7 +1761,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                     select = 0;
 
                     if (start == 0) {
-                        DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
+                        DrawOneString(UI_CENTER_X, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
                     } else
                         start = 0;
 
@@ -1781,7 +1782,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                 select = nb - 1;
 
                 if (start == (nb - NB_GAME_CHOICE)) {
-                    DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
+                    DrawOneString(UI_CENTER_X, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
                 } else {
                     start = nb - NB_GAME_CHOICE;
                     if (start < 0)
@@ -2026,7 +2027,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
 
         for (n = 0; n < NB_GAME_CHOICE; n++) {
             if ((n + start) != select) {
-                ClearOneString((S32)ModeDesiredX / 2, Y_START_CHOICE + 60 * n);
+                ClearOneString(UI_CENTER_X, Y_START_CHOICE + 60 * n);
             }
         }
     }
@@ -2348,10 +2349,10 @@ void DrawGameMenu(U16 *ptrmenu, S32 justone) {
             // when set, the green marker row, so the marker persists and animates
             // between full redraws instead of being drawn once and cleared.
             if (n == selected || n == s_menuMarkRow) {
-                DrawOneChoice((S32)ModeDesiredX / 2, y, type, num, sel);
+                DrawOneChoice(UI_CENTER_X, y, type, num, sel);
             }
         } else {
-            DrawOneChoice((S32)ModeDesiredX / 2, y, type, num, sel);
+            DrawOneChoice(UI_CENTER_X, y, type, num, sel);
         }
 
         y += HAUTEUR_STANDARD + MENU_SPACE;
@@ -3545,7 +3546,7 @@ S32 DeleteSavedGame(void) {
 
     // Delete-save confirmation: float the name + preview with SavedConfirmMenu
     // (which floats via DrawGameMenu) so the whole screen stays coherent. No-op at 480.
-    DrawOneString((S32)ModeDesiredX / 2, 80 + UI_VCENTER_OFS, PlayerName, 2);
+    DrawOneString(UI_CENTER_X, 80 + UI_VCENTER_OFS, PlayerName, 2);
     ptr = LoadGameScreen();
     if (ptr)
         DrawScreenSave(ptr, SAVE_THUMB_X, 130 + UI_VCENTER_OFS);
@@ -5059,8 +5060,8 @@ void DemoLogo(void) {
     ColorFont(LBAWHITE);
 
     // cadre
-    x0 = (S32)ModeDesiredX / 2 - SizeFont(string) / 2 - 50;
-    x1 = (S32)ModeDesiredX / 2 + SizeFont(string) / 2 + 50;
+    x0 = UI_CENTER_X - SizeFont(string) / 2 - 50;
+    x1 = UI_CENTER_X + SizeFont(string) / 2 + 50;
     y0 = (S32)ModeDesiredY / 2 - 25;
     y1 = (S32)ModeDesiredY / 2 + 25;
     //      ShadeBoxBlk( 0, 0, 639, 479, SCREEN_SHADE_LVL ) ;

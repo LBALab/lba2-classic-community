@@ -74,7 +74,7 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 |-----|-------------|
 | [BIT_EXACTNESS.md](BIT_EXACTNESS.md) | What "bit exact" / "byte identical" actually means here: the three kinds (format contract, ASM-parity oracle, regression tripwire), when byte-identity is the goal vs a proxy, and the rule for when a byte diff is acceptable. |
 | [CONTROLLER.md](CONTROLLER.md) | Manual camera (orbit, elevation, zoom) and the input sources that drive it: keyboard, mouse, gamepad. |
-| [FEATURE_WORKFLOW.md](FEATURE_WORKFLOW.md) | Reasoning and docs for big features: console commands, headless mode, menu changes, camera. |
+| [FEATURE_WORKFLOW.md](FEATURE_WORKFLOW.md) | Reasoning and docs for big features: console commands, headless mode, menu changes, camera. Plus the order to run a refactor in, and what a refactor has to promise. |
 | [AUDIO.md](AUDIO.md) | Audio system: AIL contract, SDL backend, sound scripting patterns, known issues. |
 | [MUSIC.md](MUSIC.md) | Music state machine: track routing, the `PlayMusic` decision + `NextMusic` deferred-switch queue, the two-layer pause/park model + `STREAM_PARK.H` seam, WAV vs OGG decode/cache, and the host test coverage. |
 | [ASM_TO_CPP_REFERENCE.md](ASM_TO_CPP_REFERENCE.md) | Which modules are ported from ASM to C++ in this fork. |

@@ -1,6 +1,8 @@
 #ifndef INVENT_H
 #define INVENT_H
 
+#include "UI_LAYOUT.H" /* UI_VCENTER_OFS */
+
 /*#ifdef	LBA_EDITOR
 #define	BODY_SORT_PROTECT    "F:\\projet\\lba2\\graph\\3D\\throw\\protect1.O4D"
 #else
@@ -30,7 +32,7 @@
    literal (10/8/0/...). The iso-relative INV_ZOOM box centres on
    ModeDesiredX/2 - 3 (matches the historical 317 anchor at 640). */
 #define INV_LEFT_OFFSET (((S32)ModeDesiredX - 640) / 2)
-#define INV_TOP_OFFSET UI_VCENTER_OFS // vertical twin of INV_LEFT_OFFSET; shared with the other UI surfaces (DEFINES.H, clamped >= 0)
+#define INV_TOP_OFFSET UI_VCENTER_OFS // vertical twin of INV_LEFT_OFFSET; shared with the other UI surfaces (UI_LAYOUT.H, clamped >= 0)
 #define INV_START_X (INV_START_X_MARGIN + INV_LEFT_OFFSET)
 #define INV_START_Y (INV_START_Y_MARGIN + INV_TOP_OFFSET)
 

@@ -33,6 +33,7 @@ extern S32 GfxDitherShading;
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include "FOLLOWCAM.H"
 #include "FOLLOWCAM_CFG.H" /* the *_DEFAULT tunables, read and written by the cfg below */
+#include "UI_LAYOUT.H"     /* UI_VCENTER_OFS */
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 

@@ -1,6 +1,7 @@
 #include "GAMEMENU_MOUSE.H"
 
 #include "C_EXTERN.H"
+#include "UI_LAYOUT.H" /* UI_CENTER_X, UI_VCENTER_OFS */
 
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/WINDOW.H>
@@ -10,10 +11,11 @@ extern U16 GameMainMenu[];
 
 #define GM_HAUTEUR_STANDARD 50
 #define GM_MENU_SPACE 6
-// Menu centre X. Must track DrawGameMenu's draw (DrawOneChoice at
-// ModeDesiredX/2); was hardcoded 320, so mouse clicks missed the menu at any
-// width != 640. Matches GameMenuSaveListHitTest's ModeDesiredX/2 convention.
-#define GM_MENU_XMID ((S32)ModeDesiredX / 2)
+// Menu centre X. Must track DrawGameMenu's draw (DrawOneChoice at the same
+// anchor); was hardcoded 320, so mouse clicks missed the menu at any width
+// != 640. UI_CENTER_X is that anchor named once in UI_LAYOUT.H, so the hit
+// test cannot drift from the draw again.
+#define GM_MENU_XMID UI_CENTER_X
 #define GM_MENU_HALF_WIDTH 275
 
 static int s_menuMouseRefCount = 0;

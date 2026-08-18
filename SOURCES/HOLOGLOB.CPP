@@ -5,6 +5,7 @@
 #include "C_EXTERN.H" // include LBA2
 #include "DIRECTORIES.H"
 #include "INPUT.H"
+#include "UI_LAYOUT.H" /* UI_VCENTER_OFS */
 
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
