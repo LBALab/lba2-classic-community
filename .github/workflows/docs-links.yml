@@ -34,7 +34,8 @@ jobs:
 
       - name: Install lychee
         run: |
-          curl -fsSL -o lychee.tar.gz \
+          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors --retry-max-time 120 --connect-timeout 10 --max-time 60 \
+            -o lychee.tar.gz \
             "https://github.com/lycheeverse/lychee/releases/download/lychee-${LYCHEE_VERSION}/lychee-x86_64-unknown-linux-gnu.tar.gz"
           tar xzf lychee.tar.gz
           sudo install -m755 lychee-x86_64-unknown-linux-gnu/lychee /usr/local/bin/lychee
@@ -63,7 +64,8 @@ jobs:
 
       - name: Install lychee
         run: |
-          curl -fsSL -o lychee.tar.gz \
+          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors --retry-max-time 120 --connect-timeout 10 --max-time 60 \
+            -o lychee.tar.gz \
             "https://github.com/lycheeverse/lychee/releases/download/lychee-${LYCHEE_VERSION}/lychee-x86_64-unknown-linux-gnu.tar.gz"
           tar xzf lychee.tar.gz
           sudo install -m755 lychee-x86_64-unknown-linux-gnu/lychee /usr/local/bin/lychee

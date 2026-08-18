@@ -73,6 +73,7 @@ RUN : "${SDL3_VERSION:?build-arg SDL3_VERSION is required (see .github/sdl3-vers
 ARG UASM_VERSION=2.57r
 ARG UASM_ARCHIVE=uasm257_linux64.zip
 RUN curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors \
+        --retry-max-time 300 --connect-timeout 15 --max-time 300 \
         -o /tmp/uasm.zip \
         "https://github.com/Terraspace/UASM/releases/download/v${UASM_VERSION}/${UASM_ARCHIVE}" \
     && unzip -oq /tmp/uasm.zip -d /usr/local/bin \

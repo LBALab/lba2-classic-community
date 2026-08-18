@@ -62,6 +62,7 @@ jobs:
           if [ ! -f "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" ]; then
             CLI_ZIP="${RUNNER_TEMP}/cmdline-tools.zip"
             curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors \
+              --retry-max-time 300 --connect-timeout 15 --max-time 300 \
               -o "$CLI_ZIP" \
               "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
             unzip -qo "$CLI_ZIP" -d "${RUNNER_TEMP}/cmdline-tools-unzip"
