@@ -72,15 +72,9 @@ S32 DureeCycleCinema = 500; // en TimerRefHR
 
 S32 TimerProto;
 
-S32 SampleVolume = DEF_SAMPLE_VOLUME;
-S32 VoiceVolume = DEF_VOICE_VOLUME;
-S32 MasterVolume = DEF_MASTER_VOLUME;
-
 U32 ParmSampleVolume = 127; // a sauver dans les sauvegardes
 U32 ParmSampleDecalage = 0;
 U32 ParmSampleFrequence = 0;
-
-S32 SamplesEnable = FALSE;
 
 S32 DetailLevel = MAX_DETAIL_LEVEL;
 
@@ -226,7 +220,6 @@ S32 GamepadCameraSensY = GAMEPAD_CAM_SENS_DEFAULT;
 S32 GamepadCameraInvertY = FALSE;
 S32 GamepadCamMaxBeta = GAMEPAD_CAM_BETA_MAX_DEFAULT;
 S32 GamepadCamMaxAlpha = GAMEPAD_CAM_ALPHA_MAX_DEFAULT;
-S32 ReverseStereo = FALSE;
 S32 Island = 0;
 S32 Planet = 0;
 
@@ -260,15 +253,6 @@ U8 *BufferFile3D;
 T_SORT ListTri[MAX_TRI];
 
 /*--------- ambiance ----------------------------*/
-S16 SampleAmbiance[4];
-S16 SampleRepeat[4];
-S16 SampleRnd[4];
-S16 SampleFreq[4];
-S16 SampleVol[4];
-S32 SamplePlayed = 0;
-U32 TimerNextAmbiance = 0;
-S32 SecondEcart = 30;
-S32 SecondMin = 10;
 S32 CubeJingle = 255;
 
 /*--------- brick iso ----------------------------*/

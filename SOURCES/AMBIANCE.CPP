@@ -10,6 +10,22 @@
 #include <SYSTEM/WINDOW.H>
 #include "AMBIANCE.H"
 
+/* Declared in AMBIANCE.H; see there for what is deliberately not here. */
+S32 SampleVolume = DEF_SAMPLE_VOLUME;
+S32 VoiceVolume = DEF_VOICE_VOLUME;
+S32 MasterVolume = DEF_MASTER_VOLUME;
+S32 SamplesEnable = FALSE;
+S32 ReverseStereo = FALSE;
+S16 SampleAmbiance[4];
+S16 SampleRepeat[4];
+S16 SampleRnd[4];
+S16 SampleFreq[4];
+S16 SampleVol[4];
+S32 SamplePlayed = 0;
+U32 TimerNextAmbiance = 0;
+S32 SecondEcart = 30;
+S32 SecondMin = 10;
+
 #define BCL_FADE 50
 #define FADE_DELAY 200
 

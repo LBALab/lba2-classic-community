@@ -101,12 +101,6 @@ extern S32 DureeCycleCinema; // en TimerRefHR
 
 extern S32 TimerProto;
 
-extern S32 SampleVolume;
-extern S32 VoiceVolume;
-extern S32 MasterVolume;
-
-extern S32 SamplesEnable;
-
 extern U32 ParmSampleVolume; // a sauver dans les sauvegardes
 extern U32 ParmSampleDecalage;
 extern U32 ParmSampleFrequence;
@@ -231,7 +225,6 @@ extern S32 GamepadCameraSensY;                  /* right-stick elevation sensiti
 extern S32 GamepadCameraInvertY;                /* invert right-stick elevation axis */
 extern S32 GamepadCamMaxBeta;                   /* right-stick orbit speed ceiling (units/frame at sens 10) */
 extern S32 GamepadCamMaxAlpha;                  /* right-stick elevation speed ceiling (units/frame at sens 10) */
-extern S32 ReverseStereo;
 
 extern S32 ScaleFactorSprite;
 
@@ -276,15 +269,6 @@ extern U8 *BufferFile3D;
 extern T_SORT ListTri[];
 
 /*--------- ambiance ----------------------------*/
-extern S16 SampleAmbiance[];
-extern S16 SampleRepeat[];
-extern S16 SampleRnd[];
-extern S16 SampleFreq[];
-extern S16 SampleVol[];
-extern S32 SamplePlayed;
-extern U32 TimerNextAmbiance;
-extern S32 SecondEcart;
-extern S32 SecondMin;
 extern S32 CubeJingle;
 
 /*-------- Brick ISO ---------------------------------------------*/
