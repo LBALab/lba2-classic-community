@@ -242,10 +242,8 @@ void UpdateFollowCameraExt(void) {
         if (hdExcess) {
             /* Shorten the forward lean so the hero is not pushed
                              * toward the bottom edge of the taller frame. */
-            S32 cut = hdExcess * FollowCamHDLeanGain / 100;
-            if (cut > FOLLOW_CAM_HD_LEAN_MAX_CUT)
-                cut = FOLLOW_CAM_HD_LEAN_MAX_CUT;
-            leanDist = DISTANCE_VISEE * (100 - cut) / 100;
+            leanDist = FollowCamHDShrink(DISTANCE_VISEE, hdExcess,
+                                         FollowCamHDLeanGain, FOLLOW_CAM_HD_LEAN_MAX_CUT);
         }
         Rotate(0, leanDist, leanBeta);
 
@@ -319,10 +317,8 @@ void UpdateFollowCameraExt(void) {
             S32 renderDist = FollowCamEffectiveDist;
             S32 saveAlphaCam = AlphaCam;
             if (hdExcess) {
-                S32 pull = hdExcess * FollowCamHDDistGain / 100;
-                if (pull > FOLLOW_CAM_HD_DIST_MAX_PULL)
-                    pull = FOLLOW_CAM_HD_DIST_MAX_PULL;
-                renderDist = FollowCamEffectiveDist * (100 - pull) / 100;
+                renderDist = FollowCamHDShrink(FollowCamEffectiveDist, hdExcess,
+                                               FollowCamHDDistGain, FOLLOW_CAM_HD_DIST_MAX_PULL);
 
                 /* Only the pitch steepen fades under manual control
                                  * (autoFactor): it is what fights the player's tilt.
