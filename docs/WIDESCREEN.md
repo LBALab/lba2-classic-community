@@ -137,34 +137,46 @@ Notes:
 
 Both halves of the placement rule are now in [`SOURCES/UI_LAYOUT.H`](../SOURCES/UI_LAYOUT.H),
 with a host test in `tests/ui_layout/` that CI runs on every platform. The
-horizontal anchor has a name there too, `UI_CENTER_X`, which is the same
-`ModeDesiredX / 2` the sites spelled inline; the game menu uses it, the other
-surfaces still spell it out.
+horizontal anchor has two names there, because 2D surfaces are placed in two
+different ways. `UI_CENTER_X` is the same `ModeDesiredX / 2` the centred sites
+spelled inline; the game menu uses it, the other centred surfaces still spell it
+out. `UI_HCANVAS_OFS` is where the authored canvas starts, for the surfaces laid
+out as one 4:3 block rather than centred: the inventory and the letterboxed
+dialogue box.
 
 The axes are deliberately not symmetric, and the asymmetry is the part worth
 knowing before touching either:
 
 | | Above the canvas | Below the canvas |
 |---|---|---|
-| X | centres on the framebuffer | still centres on the framebuffer; wide panels hang off both edges and `SetClip` trims them |
+| X, centred content | centres on the framebuffer | still centres on the framebuffer; wide panels hang off both edges and `SetClip` trims them |
+| X, block-anchored surfaces | canvas origin, `(ModeDesiredX - 640) / 2` | falls back to the canvas-left origin, never a negative offset |
 | Y | centres, or pins to the bottom | falls back to the canvas-top origin, never a negative offset |
 
-The Y clamp exists because a negative Y reaches `TabOffLine[]`, which
-`BackupAngles` and the pixel-shift macros index without a bounds check, so it is a
-write outside the framebuffer rather than a draw off the edge of it. X has no
-equivalent: a negative x goes through `SetClip`, which clamps it to
-`ClipWindowXMin`.
+Both clamps exist for the same reason, and it is not symmetry for its own sake. A
+negative coordinate reaches the row lookup `TabOffLine[]`, which `BackupAngles`
+and the pixel-shift macros index without a bounds check, so it is a write outside
+the framebuffer rather than a draw off the edge of it. The frame corner copies
+indexing outside `Log` in the sub-640 modes came from exactly that, on the X side.
 
-Clamping X the same way was tried and reverted. It anchors the canvas at 0, which
-puts its centre at 320, off the right edge of a 320-wide framebuffer: the menu
-highlight bar starts at x=45 and runs past the right edge, and the item text goes
-with it. Captured at 320x240 before reverting. The narrow modes look correct as
-they are; the negative left edges (`-115` for the 550-wide menu bar, `-150` for
-the 620-wide keybinding panel) are clipped, not written.
+What must **not** be clamped is the centre anchor. Anchoring the canvas rather
+than the framebuffer for centred content puts the centre at 320, off the right
+edge of a 320-wide framebuffer: the menu highlight bar starts at x=45 and runs
+past the right edge, and the item text goes with it. That was captured at 320x240
+and reverted, and the host test pins it so it cannot come back.
 
-That leaves the intermittent sub-640 segfault reported in
-[CONTROL.md](CONTROL.md) unexplained: it is Windows-only, it does not reproduce
-on Linux at either narrow mode, and it is not this arithmetic.
+So the two answers are not in tension, they belong to different kinds of surface.
+Centred content stays on the framebuffer centre and is trimmed by `SetClip`; the
+negative left edges it produces (`-115` for the 550-wide menu bar, `-150` for the
+620-wide keybinding panel) are clipped, not written. A surface laid out as a whole
+authored block uses the clamped canvas origin, so its left edge stays on screen.
+Below the canvas the block still runs past the right edge, which no offset fixes
+without scaling the art.
+
+The intermittent sub-640 segfault reported in [CONTROL.md](CONTROL.md) is
+Windows-only and does not reproduce on Linux at either narrow mode. The
+block-origin fix above removes one route to an out-of-bounds write there, so
+whether anything is left is worth re-measuring on Windows before assuming so.
 
 Verification: every site is `0` at 640x480 by construction and the host suite stays green. At tall res, captures confirm the menu block, holomap planet, and inventory wheel each translate by exactly `UI_VCENTER_OFS`, the holomap strip and dialogue box pin to the bottom, and the end-game text lands on its backdrop. The ask-choice list, action menu, found-object appear phase, and mouse hit-test have no headless capture path and were verified in-game.
 
