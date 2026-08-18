@@ -1,0 +1,44 @@
+name: Android
+
+# Validation tier: compile the Android native library on every push and PR.
+#
+# Android is the one target whose toolchain disagrees with the desktop three
+# about more than instruction set: a different libc (Bionic), a different STL,
+# 32-bit as well as 64-bit, and a clang the other legs do not use. Until this
+# workflow existed, none of that ran until a `v*` tag, so a change could pass
+# every check, merge, and break the release build with nobody looking.
+#
+# It calls the same reusable file the release workflows do, with bundle: false
+# so the SDK packaging and artifact upload stay on the release tier. The compile
+# is the part that gates.
+#
+# Both ABIs run. armv7a is the project's only 32-bit build anywhere in CI, which
+# makes it the one leg that can see a pointer-size or alignment assumption, and
+# this tree has a documented history of those.
+
+on:
+  push:
+    paths-ignore: &doc-paths
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.vscode/**'
+      - '.editorconfig'
+      - '.git-blame-ignore-revs'
+      - 'cliff.toml'
+  pull_request:
+    paths-ignore: *doc-paths
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: Native library
+    uses: ./.github/workflows/reusable-build-android.yml
+    with:
+      bundle: false

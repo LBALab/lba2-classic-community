@@ -22,6 +22,7 @@ ties both tiers together — path filtering, the docs-only gate, and the
 | `linux.yml` | Validation | push, PR, dispatch | `build`, `build-clang`, `build-demo`, `sanitize`, `warnings` | Configure (`linux` preset), build `lba2cc` + `host_tests`, run `ctest -L host_quick`; the same through clang and for the demo SKU; the host tests once more under Address + UndefinedBehavior sanitizers; and a `-Wall -Wextra` build compared against the warning baseline |
 | `macos.yml` | Validation | push, PR, dispatch | `build` | Same, on `macos-latest` (`macos_arm64` preset) |
 | `windows.yml` | Validation | push, PR, dispatch | `build` | Same, on Windows MSYS2 UCRT64 (`windows_ucrt64` preset) |
+| `android.yml` | Validation | push, PR, dispatch | `native` | Compiles the Android native library for both ABIs through `reusable-build-android.yml` with `bundle: false`. The only leg on a different libc (Bionic) and the only 32-bit build anywhere in CI |
 | `test.yml` | Validation | push, PR, dispatch | `test` | Docker: `./run_tests_docker.sh` — full ASM↔C++ equivalence suite (Linux only, slow) |
 | `format.yml` | Validation | push, PR, dispatch | `check-format`, `check-arch` | `scripts/ci/check-format.sh` (clang-format), and `scripts/ci/check-arch.py` for the architecture boundaries CODESTYLE.md and AGENTS.md state. Deliberately unfiltered: see the header comment there for why the architecture check is not in `lint.yml` |
 | `lint.yml` | Validation | push, PR (shell/Python/workflow/action paths), dispatch | `shellcheck`, `actionlint`, `ruff` | Lints the non-C++ surface. Settings live in `.shellcheckrc` and `ruff.toml`; tool versions are pinned in the workflow. The `shellcheck` job covers `*.sh` and, via `scripts/ci/check-action-shell.py`, the `run:` blocks of composite actions, which neither it nor actionlint would otherwise see. That checker hand-rolls a block-scalar parser to stay stdlib-only, so `check-action-shell-selftest.py` runs first on the same runner: a drifted parser reports clean rather than failing, and the suite is what pins that direction |
@@ -29,7 +30,7 @@ ties both tiers together — path filtering, the docs-only gate, and the
 | `docs-gate.yml` | Validation | push, PR | `build`, `test` | No-op stand-ins for the required `build`/`test` checks on docs-only changes — see [below](#docs-only-gate) |
 | `docs-links.yml` | Validation | push, PR, weekly | `links`, `external` | `scripts/ci/check-docs-links.sh` and `scripts/ci/check-docs-symbols.py`. Not path-filtered: a doc reference breaks from either side, since renaming a doc breaks source comments. `external` is weekly-only; see [below](#documentation-links) |
 | `release-*.yml` | Release | `v*` tags, dispatch | `build` → `release` | Per-platform tag releases |
-| `reusable-build-*.yml` | Release | `workflow_call` | `build` | Shared build+package steps, called by the release workflows |
+| `reusable-build-*.yml` | Release | `workflow_call` | `build` | Shared build+package steps, called by the release workflows. `reusable-build-android.yml` also serves the validation tier: `bundle: false` stops it after the compile |
 | `release-latest.yml` | Release | push to `main` | build legs → `release` | Rolling `latest` pre-release |
 
 Host build jobs (`linux`/`macos`/`windows`) need neither retail game
@@ -343,6 +344,33 @@ changes.
 ccache directory that churns on every run would compete with the image
 layers for the repository's 10 GB Actions cache budget. Revisit if the
 Windows build grows or the cache budget frees up.
+
+### Why Android is a validation leg
+
+Every other target CI builds is glibc on a desktop. Android is not: Bionic
+rather than glibc, `c++_shared` rather than libstdc++, an NDK clang the
+other legs do not use, and `armeabi-v7a` is the only 32-bit build anywhere
+in this repository. Those are four independent ways for a change to be
+correct on the desktop three and wrong here.
+
+It used to build on `v*` tags only, which meant a change could pass every
+check, merge, and break the release. That is not hypothetical: `MAX_INPUT`
+was a POSIX name that `<linux/limits.h>` gives the value 255, reachable on
+Bionic through `<limits.h>` and not on desktop glibc, so a header that
+defined it as 36 compiled everywhere except Android. The desktop legs, the
+sanitizers and review all passed it.
+
+The job compiles and does not package. `bundle: false` skips the APK
+assembly, the 16 KB alignment check that reads the packaged APK, and the
+artifact upload, because the compile is what gates and an artifact per push
+is one nobody reads.
+
+**What to measure on the first few runs, before tuning anything.** The SDK
+step installs `platforms`, `build-tools` and `platform-tools` alongside the
+NDK, and only the NDK compiles; whether splitting that is worth doing
+depends on numbers this workflow has never produced, since it ran on tags
+until now. SDL3 is cached per ABI, the NDK is not. Read the step timings
+first, as with everything else in this section.
 
 ### Where the time goes
 

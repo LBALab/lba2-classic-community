@@ -1,9 +1,13 @@
 name: Build Android APK (reusable)
 
-# Reusable build steps for the Android APK target. Called by
-# release-android.yml (tag-triggered) and release-latest.yml (rolling
-# pre-release). Produces a `dist/` directory with the debug-signed APK
-# and uploads it as a workflow artifact named `<artifact-prefix>-<arch>`.
+# Reusable build steps for the Android target. Called by release-android.yml
+# (tag-triggered) and release-latest.yml (rolling pre-release), which package,
+# and by android.yml on every push and PR, which does not.
+#
+# With bundle: true (the default) it produces a `dist/` directory with the
+# debug-signed APK and uploads it as a workflow artifact named
+# `<artifact-prefix>-<arch>`. With bundle: false it stops after the native
+# library, which is the part a validation run needs.
 #
 # Requires the Android SDK + NDK on the runner. The job installs them
 # via the command-line tools if not already present.
@@ -19,9 +23,18 @@ on:
           Prefix for the upload-artifact name. Caller appends -<arch>.
           Tag releases pass "Android" (default); release-latest passes
           "latest-android" so its download-artifact pattern picks them up.
+          Unused when bundle is false.
         type: string
         required: false
         default: Android
+      bundle:
+        description: >-
+          Package the APK and upload it. Release callers leave this true.
+          The push/PR caller passes false: the native compile is what gates,
+          and packaging on every push would upload artifacts nobody reads.
+        type: boolean
+        required: false
+        default: true
 
 jobs:
   build:
@@ -177,6 +190,7 @@ jobs:
           cmake --build --preset ${{ matrix.preset }} -- -j"$(nproc)" 2>&1
 
       - name: Bundle APK
+        if: ${{ inputs.bundle }}
         run: |
           BUILD_DIR="out/build/${{ matrix.preset }}"
           VERSION=$(cat "$BUILD_DIR/VERSION.txt")
@@ -198,13 +212,18 @@ jobs:
             --cxx-shared-lib "$CXX_SHARED_LIB" \
             --output-dir dist
 
+      # Reads the packaged APK, so it goes with the packaging. The alignment it
+      # checks comes from linker flags in the android_common preset, which a
+      # validation run does exercise; what it cannot see there is whether the
+      # bundling step preserved them.
       - name: Verify 16 KB page alignment (arm64-v8a)
-        if: matrix.arch == 'arm64-v8a'
+        if: ${{ inputs.bundle && matrix.arch == 'arm64-v8a' }}
         run: |
           APK=$(find dist -maxdepth 1 -name '*-arm64-v8a.apk' | sort | head -1)
           bash scripts/dev/check-16k-align.sh "$APK"
 
       - name: Upload temporary artifact
+        if: ${{ inputs.bundle }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact-prefix }}-${{ matrix.arch }}

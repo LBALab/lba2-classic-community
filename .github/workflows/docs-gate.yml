@@ -17,8 +17,11 @@ name: CI gate (docs-only)
 # still gates the merge.
 #
 # Keep the paths list below in sync with the paths-ignore list in
-# linux.yml (mirrored in macos.yml, windows.yml, test.yml, and the
-# push: branches:[main] trigger of release-latest.yml).
+# linux.yml (mirrored in macos.yml, windows.yml, android.yml, test.yml,
+# and the push: branches:[main] trigger of release-latest.yml).
+#
+# android.yml needs no stand-in here: its check is not a required context,
+# so a docs-only PR that never fires it is not left waiting on one.
 on:
   push:
     paths: &doc-paths
