@@ -59,6 +59,24 @@ typedef S32 (*T_SETTING_FORCED_FN)(void);
  * of them. */
 typedef void (*T_SETTING_APPLY_FN)(S32 value);
 
+/* Where a setting's live value came from.
+ *
+ * The value alone does not say, and three of these are written back differently.
+ * A value the player's own file gave is theirs and is persisted. One the game
+ * data's config gave is real for this run and is not a preference: writing it
+ * back would make the install's choice outlive the install. One a per-run flag
+ * forced is not a preference either, which the stored column already handles.
+ *
+ * Ordered so a later source beats an earlier one, which is the order they are
+ * applied in during boot. */
+typedef enum {
+    SETTING_FROM_DEFAULT = 0, /* nothing named it; the row's compiled default */
+    SETTING_FROM_DATA,        /* the config shipped with the game data */
+    SETTING_FROM_PROFILE,     /* the file this run owns: the player's own choice */
+    SETTING_FROM_FLAG,        /* a per-run command-line override */
+    SETTING_FROM_RUNTIME      /* set during the run: console, socket or menu */
+} T_SETTING_SOURCE;
+
 typedef struct {
     const char *key;    /* lba2.cfg key; NULL if this surface does not persist it */
     const char *legacy; /* older key to fall back to when `key` is absent; NULL if none */
@@ -73,13 +91,14 @@ typedef struct {
      * writer persists that instead whenever the live value is still the one the
      * flag forced. Both NULL for a setting no flag can override.
      *
-     * The comparison is on the value, not on who last wrote it: settings reached
-     * through cvars have no on-change hook, so setting the same value by hand
-     * during an overridden run cannot be told from not touching it. Setting a
-     * different one persists, which is the case that matters. */
+     * A row that also tracks its source answers this exactly: the run set it or
+     * it did not, whatever the values happen to be. Without one the comparison
+     * falls back to the value, which cannot tell setting a value by hand from
+     * never touching it when the two agree. */
     S32 *stored;
     T_SETTING_FORCED_FN forced;
     T_SETTING_APPLY_FN on_change; /* told the new value after a runtime write; NULL if nothing to do */
+    T_SETTING_SOURCE *source;     /* where the live value came from; NULL to not track it */
     const char *help;             /* console help text */
 } T_SETTING;
 
@@ -138,6 +157,10 @@ static inline S32 Settings_Coerce(const T_SETTING *s, S32 value) {
 
 static inline void Settings_Apply(const T_SETTING *s, S32 value) {
     *s->value = Settings_Coerce(s, value);
+    /* Recorded before the hook runs, so a hook that reads the source sees the
+       write it is being told about rather than the one before it. */
+    if (s->source != NULL)
+        *s->source = SETTING_FROM_RUNTIME;
     if (s->on_change != NULL)
         s->on_change(*s->value);
 }
@@ -153,6 +176,42 @@ static inline void Settings_Apply(const T_SETTING *s, S32 value) {
  * backwards is invisible to any check that reads back a cfg the engine wrote. */
 static inline S32 Settings_ValueToPersist(S32 live, S32 stored, S32 forced) {
     return (forced >= 0 && live == forced) ? stored : live;
+}
+
+/* Record that this run set a setting, for a writer that does not go through
+ * Settings_Apply. The console exposes some settings as commands rather than as
+ * cvars, because they take words rather than numbers, and those assign the live
+ * value themselves. Without this they would look untouched to the rule below and
+ * a forced run would put the player's old value back over the player's own
+ * choice. */
+static inline void Settings_MarkSetThisRun(T_SETTING_SOURCE *source) {
+    if (source != NULL)
+        *source = SETTING_FROM_RUNTIME;
+}
+
+/* What a row persists, given where its live value came from.
+ *
+ * The rule the value comparison was reaching for: a run that set the value keeps
+ * it, a run that merely inherited one does not. Only the flag case needs the
+ * source to decide, which is why a row without one still gets the old answer
+ * rather than a worse one.
+ *
+ * Left alone deliberately: a value from the game data's config is returned as it
+ * stands. Not writing it back is the fix for an install's settings becoming the
+ * player's, and it is a change to what the file ends up holding rather than to
+ * this arithmetic. */
+static inline S32 Settings_ValueToPersistFrom(S32 live, S32 stored, S32 forced, T_SETTING_SOURCE source) {
+    if (forced < 0)
+        return live; /* no flag touched it */
+    if (live != forced)
+        return live; /* moved off what the flag forced, so the run changed it */
+    /* Sitting on the forced value, which is the case the value cannot answer:
+       either the run set it there or nothing touched it. Only here does the
+       source decide, which keeps this a refinement of the comparison rather than
+       a replacement for it. A writer that assigns the global without marking the
+       run therefore behaves exactly as it did before, rather than losing its
+       change. */
+    return (source == SETTING_FROM_RUNTIME) ? live : stored;
 }
 
 /* Apply the cfg to every row that names a key, clamped. */

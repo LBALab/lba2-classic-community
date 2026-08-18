@@ -53,6 +53,28 @@ S32 DefFileBufferReadValue2(const char *ident, S32 *result);
 // which clears the layer.
 S32 DefFileBufferAppendFile(const char *file);
 
+// Which source answered a key, for a caller that has to tell a value the run
+// owns from one it merely inherited.
+//
+// The buffer holds the owned file with any appended layers below it, and a read
+// stops at the first match, so the value alone cannot say which one supplied it.
+// A setting read from a layer is real for this run and is not the player's
+// preference: writing it back into the owned file would make the install's
+// choice outlive the install. Telling them apart is what this is for.
+//
+// Presence alone is already answerable: DefFileBufferReadValue2 returns FALSE for
+// a key the buffer does not hold. This adds the part that is not, which source
+// held it, and folds presence in so a caller needs one call rather than two.
+//
+// With no layer attached every key present is OWNED.
+typedef enum {
+    DEFFILE_ORIGIN_ABSENT = 0, // no such key; the caller's default answers
+    DEFFILE_ORIGIN_OWNED,      // the file this run owns
+    DEFFILE_ORIGIN_LAYER       // a lower-priority layer appended beneath it
+} T_DEFFILE_ORIGIN;
+
+T_DEFFILE_ORIGIN DefFileBufferKeyOrigin(const char *ident);
+
 // Save and restore the whole read window, for a caller that needs a transient
 // read against a buffer of its own without disturbing the one the boot
 // assembled. Without it, any such read silently drops the layers for everything
@@ -62,6 +84,7 @@ typedef struct {
     char *end;
     S32 bufferSize;
     S32 layersAttached;
+    char *layerStart;
     char fileName[ADELINE_MAX_PATH];
 } T_DEFFILE_STATE;
 

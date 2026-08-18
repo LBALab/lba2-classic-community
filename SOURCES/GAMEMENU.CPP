@@ -28,7 +28,8 @@
 #include <SYSTEM/MOUSE.H>
 
 #include "GAMEMENU_MOUSE.H"
-#include "UI_LAYOUT.H" /* UI_CENTER_X, UI_VCENTER_OFS */
+#include "CONFIG_FILE.H" /* ConfigFile_MarkVSyncSetThisRun */
+#include "UI_LAYOUT.H"   /* UI_CENTER_X, UI_VCENTER_OFS */
 
 #include <dirent.h>
 #include <stdint.h>
@@ -3306,6 +3307,7 @@ S32 GereDisplayMenu(void) {
 
         case MENU_ID_DISPLAY_VSYNC:
             DisplayVSync ^= 1;
+            ConfigFile_MarkVSyncSetThisRun();
             Window_SetVSync(DisplayVSync);
             break;
         }

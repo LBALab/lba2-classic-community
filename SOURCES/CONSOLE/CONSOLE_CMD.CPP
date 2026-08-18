@@ -1554,6 +1554,7 @@ static void cmd_vsync(int argc, const char *argv[]) {
         return;
     }
 
+    ConfigFile_MarkVSyncSetThisRun();
     Window_SetVSync(DisplayVSync);
     /* Applied either way; say so separately from whether it was stored, rather
        than reporting a setting that will not survive the run. */
@@ -1593,6 +1594,9 @@ static void cmd_fixedtimestep(int argc, const char *argv[]) {
             }
             FixedTimestep = (S32)ms;
         }
+        /* After every accepted path and none of the rejected ones, so a bad
+           argument does not claim the run set anything. */
+        ConfigFile_MarkFixedTimestepSetThisRun();
         if (!WriteConfigValue("FixedTimestep", FixedTimestep)) {
             Console_Print("(this run only: could not write cfg)");
         }

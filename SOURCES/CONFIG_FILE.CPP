@@ -47,6 +47,13 @@ static S32 StoredFixedTimestep = 16;
 static S32 StoredLanguage = 0;
 static S32 StoredVSync = TRUE;
 
+/* Where the live value came from, for the three rows a per-run flag can force.
+   Only those need it: the rule a source decides is what a forced run leaves
+   behind, and a row no flag touches keeps its value either way. */
+static T_SETTING_SOURCE SourceTexFilter = SETTING_FROM_DEFAULT;
+static T_SETTING_SOURCE SourceFixedTimestep = SETTING_FROM_DEFAULT;
+static T_SETTING_SOURCE SourceVSync = SETTING_FROM_DEFAULT;
+
 /* The value to write for such a setting: the stored preference while the live
    value is still the one the override forced, otherwise the live value, because
    then something during the run changed it on purpose.
@@ -95,14 +102,14 @@ static const T_SETTING BootSettings[] = {
     {"DetailLevel", NULL, NULL, &DetailLevel, SETTING_CLAMP, MAX_DETAIL_LEVEL, 0, MAX_DETAIL_LEVEL, NULL, NULL, NULL},
     {"FullScreen", NULL, NULL, &VideoFullScreen, SETTING_OR_DEFAULT, TRUE, 0, 1, NULL, NULL, NULL},
     {"DisplayFullScreen", NULL, NULL, &DisplayFullScreen, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL, NULL},
-    {"VSync", NULL, NULL, &DisplayVSync, SETTING_OR_DEFAULT, TRUE, 0, 1, &StoredVSync, ForcedVSync, NULL},
-    {"DitherShading", NULL, "gfx_dither", &GfxDitherShading, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL, NULL,
+    {"VSync", NULL, NULL, &DisplayVSync, SETTING_OR_DEFAULT, TRUE, 0, 1, &StoredVSync, ForcedVSync, NULL, &SourceVSync},
+    {"DitherShading", NULL, "gfx_dither", &GfxDitherShading, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL, NULL, NULL,
      "Ordered dither on Gouraud shade rows (softens 16-step banding)"},
     {"TextureFilter", NULL, "gfx_texfilter", &PolyTexFilter, SETTING_OR_DEFAULT, POLY_TEX_FILTER_OFF,
-     POLY_TEX_FILTER_OFF, POLY_TEX_FILTER_BILINEAR, &StoredTexFilter, ForcedTexFilter, NULL,
+     POLY_TEX_FILTER_OFF, POLY_TEX_FILTER_BILINEAR, &StoredTexFilter, ForcedTexFilter, NULL, &SourceTexFilter,
      "Texture filtering: 0 off, 1 horizontal, 2 bilinear"},
     {"FixedTimestep", NULL, NULL, &FixedTimestep, SETTING_OR_DEFAULT, 16, 0, 100,
-     &StoredFixedTimestep, ForcedFixedTimestep, NULL},
+     &StoredFixedTimestep, ForcedFixedTimestep, NULL, &SourceFixedTimestep},
 };
 #define BOOT_SETTING_COUNT ((S32)(sizeof(BootSettings) / sizeof(BootSettings[0])))
 
@@ -118,6 +125,14 @@ const T_SETTING *ConfigFile_Setting(const char *key) {
             return &BootSettings[i];
     }
     return NULL;
+}
+
+void ConfigFile_MarkVSyncSetThisRun(void) {
+    Settings_MarkSetThisRun(&SourceVSync);
+}
+
+void ConfigFile_MarkFixedTimestepSetThisRun(void) {
+    Settings_MarkSetThisRun(&SourceFixedTimestep);
 }
 
 void ReadConfigFile(void) {

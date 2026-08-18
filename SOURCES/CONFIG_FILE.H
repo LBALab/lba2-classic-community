@@ -41,4 +41,15 @@ extern void ConfigFile_RegisterCvars(void);
  * the table cannot keep in step. */
 extern const T_SETTING *ConfigFile_Setting(const char *key);
 
+/* Tell the settings table that this run set one of these, for the writers that
+   assign the global themselves rather than going through the cvar path: the
+   console's `vsync` and `fixedtimestep` commands, which take words rather than
+   numbers, and the Display menu's Vsync row.
+   
+   Only matters when the run also carried the matching flag and the value landed
+   back on what the flag forced. Without the mark that reads as untouched, and
+   the player's stored value is written back over their own change. */
+extern void ConfigFile_MarkVSyncSetThisRun(void);
+extern void ConfigFile_MarkFixedTimestepSetThisRun(void);
+
 #endif /* CONFIG_FILE_H */
