@@ -162,7 +162,38 @@ Also the item CODESTYLE explicitly still names as owed, now that config file IO 
 **What it costs.** Small, and low risk: it is a surface, so nothing depends on its state and the
 dependency direction is trivial.
 
+**What it does not include, and why.** The obvious next thought is that boot should own
+`main()` and call into the game, rather than boot work accreting inside a 1997 file. That is the
+right long-term shape, and this is deliberately not a step toward it.
+
+Three things make the scope decidable. `main()` was in PERSO.CPP in 1997 as well, already 410
+lines of boot work against today's 867, so its placement is original rather than accretion.
+[ENGINE_GAME_SEAM.md](../ENGINE_GAME_SEAM.md) classifies `PERSO` as **engine**, not game: it is
+the main loop and entity framework, and LBA1 has one too. So the layering is boot, then engine,
+then a game selected by id; boot would host the engine, and PERSO's main loop is the part that
+does not vary between titles.
+
+Against that, today's `main()` is three separate things:
+
+| | Examples | Belongs to |
+|---|---|---|
+| Platform bring-up | `Mem_ConfigureScreenBuffers`, `Res_LoadBootDimensions`, `SetEventFilter`, `Perftrace_Init` | boot, and game-neutral today |
+| Asset acquisition | fourteen `GetResPath` calls, `Load_HQR`, `InitDial`, `LoadListAnim3DS` | the game-id dispatch point |
+| Handoff | `MainGameMenu()` | one line |
+
+The first and third can move without anyone deciding who owns the entry point. The second must
+not: [LBA1_PORT_PLAN.md](LBA1_PORT_PLAN.md) section 5 calls `GameId`/`GameProfile` the keystone
+and the one dispatch point that selects per-game asset loading, and says it does not exist yet. A
+boot module hardcoding LBA2's asset list would be building the wrong side of that seam.
+
+Inverting control needs an interface that is not there either: the only "run the game" entry
+today is `MainGameMenu()`, and defining what boot would call instead *is* the GameProfile. The
+hosting question and the game-id question are one question, so neither is answered here.
+
 **Verdict: do this second**, or first if a smaller blast radius matters more than the domain win.
+Take the fatal-error and platform-bring-up halves; leave the asset half and the entry point for
+whenever a game-id exists for a real reason. The cheapest route to that is the LBA1 feasibility
+spikes, which touch no LBA2 code.
 
 ### 3. The game menu
 
