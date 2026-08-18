@@ -95,10 +95,19 @@ fi
 IMAGE_EXISTS=$(docker images -q "${IMAGE_NAME}" 2>/dev/null)
 if [ "$FORCE_REBUILD" = true ] || [ -z "$IMAGE_EXISTS" ]; then
     DOCKER_BUILD_LOG="${LOG_DIR}/docker_build_$(date +%Y%m%d_%H%M%S).log"
-    echo "==> Building Docker image '${IMAGE_NAME}' (linux/amd64) …"
+    # One pin for every SDL3 path in the repo. Read rather than repeated, for
+    # the same reason UASM_VERSION is read out of the Dockerfile below: a
+    # second copy is a second thing to forget when bumping.
+    SDL3_VERSION=$(tr -d '[:space:]' < "${SCRIPT_DIR}/.github/sdl3-version.txt")
+    if [ -z "$SDL3_VERSION" ]; then
+        echo "ERROR: could not read the SDL3 pin from .github/sdl3-version.txt" >&2
+        exit 1
+    fi
+    echo "==> Building Docker image '${IMAGE_NAME}' (linux/amd64, SDL3 ${SDL3_VERSION}) …"
     echo "    Build log: ${DOCKER_BUILD_LOG}"
     if ! docker build --platform linux/amd64 \
             -t "${IMAGE_NAME}" \
+            --build-arg "SDL3_VERSION=${SDL3_VERSION}" \
             -f "${SCRIPT_DIR}/docker/Dockerfile.test" \
             "${SCRIPT_DIR}" \
             2>&1 | tee "${DOCKER_BUILD_LOG}"; then

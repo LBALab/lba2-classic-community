@@ -496,16 +496,13 @@ script + a reusable build workflow + a thin caller + one matrix leg in
    `name: ${{ inputs.artifact-prefix }}-${{ matrix.arch }}` — that's the
    contract the release jobs rely on.
 
-   If your target uses `libsdl-org/setup-sdl` **and** has a multi-arch
-   matrix, set `discriminator: ${{ runner.arch }}` under the `with:`
-   block. setup-sdl's cache key only includes `os.platform()` (Linux /
-   MacOS / Windows), not arch, so multi-arch runners on the same OS
-   collide on the cache and one leg pulls a wrong-arch `libSDL3.a`,
-   breaking the link step. The Linux tarball reusable already does this;
-   it's the only current target that hits the multi-arch-with-setup-sdl
-   shape (AppImage uses an Arch container, Windows uses MSYS2 pacman,
-   macOS is single-arch arm64). Re-add to macOS if a universal2 / Intel
-   leg lands; same for any AppImage variant that drops the container.
+   If your target needs SDL3 from source, use
+   `uses: ./.github/actions/setup-sdl3` with `link: static` for a release
+   build, and pass its `prefix` output to `CMAKE_PREFIX_PATH`. It reads
+   the tag from `.github/sdl3-version.txt` and keys its cache on
+   `runner.arch`, so a multi-arch matrix needs nothing extra. (The
+   targets that don't use it take SDL3 from a distro package: AppImage
+   from the Arch container, Windows from MSYS2 pacman.)
 5. **Thin caller** — `.github/workflows/release-<platform>.yml`:
    `on: push: tags: ['v*'] + workflow_dispatch`, a `build` job that just
    `uses:` the reusable, and a `release` job gated by
@@ -663,7 +660,7 @@ same flags CI uses and pass its prefix via `CMAKE_PREFIX_PATH` (CMake
 picks it up natively from the environment):
 
 ```bash
-git clone --depth 1 --branch release-3.2.16 \
+git clone --depth 1 --branch "$(cat .github/sdl3-version.txt)" \
     https://github.com/libsdl-org/SDL /tmp/SDL
 cmake -S /tmp/SDL -B /tmp/SDL/build -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
@@ -675,8 +672,8 @@ CMAKE_PREFIX_PATH=/tmp/sdl3-static-prefix \
     bash scripts/dev/build-linux-tarball.sh
 ```
 
-CI does the same dance via `libsdl-org/setup-sdl` with `-DSDL_STATIC=ON
--DSDL_SHARED=OFF` (see `.github/workflows/release-linux-tarball.yml`).
+CI does the same dance via `.github/actions/setup-sdl3` with `link:
+static` (see `.github/workflows/reusable-build-linux-tarball.yml`).
 A genuinely-static tarball's `ldd` output shows only `linux-vdso`,
 `libc`, `libm`, and the loader — no SDL3, no libsmacker.
 
@@ -700,8 +697,8 @@ and `iconutil` (`.icns` packaging). All three ship with Xcode CLI tools.
 SDL3 needs to be discoverable. The simplest setup: `brew install sdl3`. The
 script auto-detects the Homebrew prefix and prepends it to `CMAKE_PREFIX_PATH`
 so `find_package(SDL3)` resolves cleanly on both Apple Silicon (`/opt/homebrew`)
-and Intel (`/usr/local`). CI uses `libsdl-org/setup-sdl` instead and points at
-its own prefix — different machinery, same outcome.
+and Intel (`/usr/local`). CI uses `.github/actions/setup-sdl3` instead and
+points at its own prefix: different machinery, same outcome.
 
 DMG mounts as volume "LBA2 Classic Community <version>" with the items
 at the volume root (no wrapping directory):
@@ -733,7 +730,7 @@ bash scripts/dev/build-windows-release.sh
 The script auto-detects the build environment:
 
 - **MSYS2 (UCRT64 / MINGW64)** — uses the matching native preset, produces an `x64` artifact. This is the recommended local path because it's bit-for-bit the same toolchain the CI release workflow (B2) uses, and SDL3 is straightforward (`pacman -S mingw-w64-ucrt-x86_64-SDL3`).
-- **Linux (incl. WSL)** — falls back to the `cross_linux2win` preset, produces an `i686` (32-bit) artifact. Cheap if you have `mingw-w64` already installed, but **also requires SDL3 for the i686 cross-arch**, which most distros don't ship by default. CI handles this via `setup-sdl`; on a dev box you'd typically just use MSYS2 instead.
+- **Linux (incl. WSL)** — falls back to the `cross_linux2win` preset, produces an `i686` (32-bit) artifact. Cheap if you have `mingw-w64` already installed, but **also requires SDL3 for the i686 cross-arch**, which most distros don't ship by default. No CI job takes this path, since the Windows release leg builds natively under MSYS2, so on a dev box you'd typically just use MSYS2 too.
 
 Override the preset explicitly with `--preset windows_ucrt64`, `--preset windows_mingw64`, etc. if you want to test a specific configuration regardless of host environment.
 

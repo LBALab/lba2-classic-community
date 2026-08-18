@@ -1,0 +1,145 @@
+name: Set up SDL3
+description: >-
+  Restore the pinned SDL3 from the Actions cache, building it from source only
+  on a miss, and export its install prefix for CMAKE_PREFIX_PATH.
+
+# Why this exists rather than a call to libsdl-org/setup-sdl:
+#
+# setup-sdl caches the SDL build correctly (a 2 MB restore, under a second),
+# but its install-linux-dependencies option runs unconditionally, before it
+# knows whether the cache hit. On the Linux legs that meant an apt-get of 86
+# dev packages on every run to satisfy a source build that never happened:
+# a 64s median and a 19-minute worst case, against a game build of 11-27s.
+# Ownership of the cache is what makes the dependency install conditional,
+# and owning the cache means owning the build.
+#
+# Two other things fall out of it. The cache key carries runner.arch, so the
+# x86_64 and aarch64 Linux legs stop colliding (setup-sdl keys on platform
+# only, which the tarball workflow had to work around with a discriminator).
+# And on a hit nothing outside GitHub is contacted at all, so an upstream
+# outage can only affect the run that deliberately bumps the pin.
+
+inputs:
+  link:
+    description: >-
+      "shared" or "static". Static also installs the X11/Wayland/audio dev
+      packages unconditionally: a statically linked SDL3 leaves its transitive
+      -lX11 and friends for the lba2cc link step to resolve, so they are needed
+      even when SDL itself came from the cache.
+    required: false
+    default: shared
+  build-type:
+    description: CMake build type for SDL3 itself (not for our code).
+    required: false
+    default: Release
+
+outputs:
+  prefix:
+    description: Root of the SDL3 install. Pass to CMAKE_PREFIX_PATH.
+    value: ${{ steps.plan.outputs.prefix }}
+  version:
+    description: The pinned SDL3 tag that was restored or built.
+    value: ${{ steps.plan.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    # RUNNER_TEMP rather than a workspace path: SDL3Config.cmake bakes absolute
+    # paths at install time, and the cache is restored to whatever path it was
+    # saved from. RUNNER_TEMP is fixed on hosted runners, the workspace is not
+    # guaranteed to be.
+    - name: Resolve the pin
+      id: plan
+      shell: bash
+      run: |
+        set -euo pipefail
+        version="$(tr -d '[:space:]' < "${GITHUB_WORKSPACE}/.github/sdl3-version.txt")"
+        prefix="${RUNNER_TEMP}/sdl3-${{ inputs.link }}"
+        {
+          echo "version=${version}"
+          echo "prefix=${prefix}"
+          echo "src=${RUNNER_TEMP}/sdl3-src"
+          echo "build=${RUNNER_TEMP}/sdl3-build"
+          echo "key=sdl3-${version}-${{ runner.os }}-${{ runner.arch }}-${{ inputs.link }}-${{ inputs.build-type }}"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Restore SDL3 from the cache
+      id: restore
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.plan.outputs.prefix }}
+        key: ${{ steps.plan.outputs.key }}
+
+    # Static needs these whether or not SDL came from the cache; shared needs
+    # them only to build SDL, so on a hit the whole apt leg disappears.
+    - name: Install SDL3 build dependencies
+      if: runner.os == 'Linux' && (inputs.link == 'static' || steps.restore.outputs.cache-hit != 'true')
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Acquire::Retries so a mirror hiccup costs a retry, not the leg.
+        sudo apt-get -o Acquire::Retries=5 update
+        # Curated rather than SDL's own suggested set: these are the backends
+        # the shipped build actually uses, and they match what the release
+        # tarball links against, so CI and release agree on one SDL3.
+        sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
+          libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
+          libxinerama-dev libxxf86vm-dev libxss-dev libxtst-dev \
+          libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
+          libasound2-dev libpulse-dev \
+          libudev-dev libdbus-1-dev
+
+    - name: Build SDL3
+      if: steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        SDL3_VERSION: ${{ steps.plan.outputs.version }}
+        SDL3_SRC: ${{ steps.plan.outputs.src }}
+        SDL3_BUILD: ${{ steps.plan.outputs.build }}
+        SDL3_PREFIX: ${{ steps.plan.outputs.prefix }}
+        SDL3_LINK: ${{ inputs.link }}
+        SDL3_BUILD_TYPE: ${{ inputs.build-type }}
+      run: |
+        set -euo pipefail
+        rm -rf "${SDL3_SRC}"
+        for i in 1 2 3; do
+          git clone --depth 1 --branch "${SDL3_VERSION}" \
+            https://github.com/libsdl-org/SDL.git "${SDL3_SRC}" && break
+          echo "SDL3 clone attempt ${i} failed, retrying..."
+          rm -rf "${SDL3_SRC}"
+          sleep 5
+        done
+        test -d "${SDL3_SRC}"
+
+        if [ "${SDL3_LINK}" = "static" ]; then
+          link_args="-DSDL_STATIC=ON -DSDL_SHARED=OFF"
+        else
+          link_args="-DSDL_STATIC=OFF -DSDL_SHARED=ON"
+        fi
+
+        # Ninja to match how SDL3 is built everywhere else in the repo
+        # (Dockerfile.test, the Android leg). Both hosted runner images ship
+        # it, and the tarball job apt-installs it before this action runs.
+        #
+        # shellcheck disable=SC2086 # link_args is a deliberate word split.
+        cmake -S "${SDL3_SRC}" -B "${SDL3_BUILD}" -G Ninja \
+          -DCMAKE_BUILD_TYPE="${SDL3_BUILD_TYPE}" \
+          -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF \
+          ${link_args}
+        cmake --build "${SDL3_BUILD}" --parallel
+        cmake --install "${SDL3_BUILD}" --prefix "${SDL3_PREFIX}"
+
+    # Explicit save rather than actions/cache's post step, so a hit never
+    # re-uploads what it just restored.
+    #
+    # The jobs in linux.yml share one key, so a pin bump has all four missing
+    # and building concurrently, and three of the four saves lose the race.
+    # actions/cache/save treats an already-reserved key as a warning, not a
+    # failure, so this is wasted work on the bump run only and never a red
+    # leg. setup-sdl behaved the same way.
+    - name: Save SDL3 to the cache
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.plan.outputs.prefix }}
+        key: ${{ steps.plan.outputs.key }}

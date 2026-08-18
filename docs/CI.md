@@ -279,7 +279,7 @@ Three rules follow from that, and the workflows apply them:
 
 | Cache | Owner | Key | Restores |
 |---|---|---|---|
-| SDL3 build | `libsdl-org/setup-sdl` (built in) | resolved SDL git hash + `runner.os`/`arch` | ~2 MB prefix, seconds |
+| SDL3 build | `.github/actions/setup-sdl3` | pinned SDL tag + `runner.os` + `runner.arch` + link mode + build type | ~2 MB prefix, seconds |
 | MSYS2 install + pacman packages | `msys2/setup-msys2` (`cache: true` default) | package list + config hash | ~177 MB |
 | ASM test image layers | `docker/build-push-action`, `type=gha` | `docker/Dockerfile.test` content | the whole image, ~300 MB; written by `main` only |
 | SDL3 for Android | `actions/cache` | ABI + SDL tag + NDK version | source tree + install prefix |
@@ -316,31 +316,48 @@ ccache directory that churns on every run would compete with the image
 layers for the repository's 10 GB Actions cache budget. Revisit if the
 Windows build grows or the cache budget frees up.
 
+### One SDL3 pin
+
+`.github/sdl3-version.txt` holds the SDL3 tag, and every path that
+acquires SDL3 from source reads it: `.github/actions/setup-sdl3` (used by
+`linux.yml`, `macos.yml`, `reusable-build-linux-tarball.yml` and
+`reusable-build-macos.yml`), `reusable-build-android.yml`,
+`docker/Dockerfile.test` via a `SDL3_VERSION` build arg, and the
+`scripts/dev/` helpers. Bumping SDL3 is an edit to that one file, and it
+invalidates every SDL3 cache key in the repo on its own.
+
+Two paths stay outside it, because their SDL3 is a distro package rather
+than a source build: MSYS2's `mingw-w64-ucrt-x86_64-sdl3` on the Windows
+legs, and Arch's `sdl3` inside the AppImage container. Those track what
+their distro ships. Consolidating them would mean building SDL3 from
+source under MSYS2 and inside the container, which costs more than the
+drift does.
+
+`.github/actions/setup-sdl3` owns its cache rather than delegating to
+`libsdl-org/setup-sdl`. The reason is in the action's own header comment:
+setup-sdl's `install-linux-dependencies` runs before it knows whether the
+cache hit, so the Linux legs paid an apt-get of 86 dev packages on every
+run for a source build that never happened. Median 64s, worst case 19
+minutes, against a game build of 11-27s. Owning the cache is what makes
+that install conditional. It also puts `runner.arch` in the key, which is
+what the tarball workflow previously needed a `discriminator` for.
+
 ### Where the toolchain still floats
 
-Two versions are resolved at run time rather than pinned:
-
-- `libsdl-org/setup-sdl` is called with `version: 3-latest` in
-  `linux.yml`, `macos.yml`, `reusable-build-linux-tarball.yml`, and
-  `reusable-build-macos.yml`, while `docker/Dockerfile.test`,
-  `reusable-build-android.yml`, and the `scripts/dev/` helpers pin
-  `release-3.2.16`. A new SDL3 release therefore invalidates the setup-sdl
-  cache and changes what CI links against with no commit in this repo.
-- `msys2/setup-msys2` runs with `update: true`, so the MinGW toolchain
-  advances whenever MSYS2 publishes.
-
-Both are deliberate, in that they surface upstream breakage early rather
-than letting it accumulate, but they are the reason a green run yesterday
-is not proof of a green run today.
+`msys2/setup-msys2` runs with `update: true`, so the MinGW toolchain
+advances whenever MSYS2 publishes. That is deliberate, in that it
+surfaces upstream breakage early rather than letting it accumulate, but
+it is the reason a green Windows run yesterday is not proof of a green
+one today.
 
 ### Action pinning
 
-`libsdl-org/setup-sdl` is pinned to a commit SHA. Everything else uses a
-mutable major tag (`@v2`…`@v7`), and the container image for the AppImage
-build is `ghcr.io/pkgforge-dev/archlinux:latest`. That is the usual
-trade-off between supply-chain exposure and maintenance load; if it is
-ever tightened, do it with Dependabot's `github-actions` ecosystem so the
-pins have something keeping them current.
+Third-party actions use a mutable major tag (`@v2`…`@v7`), and the
+container image for the AppImage build is
+`ghcr.io/pkgforge-dev/archlinux:latest`. That is the usual trade-off
+between supply-chain exposure and maintenance load; if it is ever
+tightened, do it with Dependabot's `github-actions` ecosystem so the pins
+have something keeping them current.
 
 ## Release tier
 

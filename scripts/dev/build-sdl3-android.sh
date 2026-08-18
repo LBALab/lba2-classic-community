@@ -19,6 +19,9 @@ OUT_DIR="${REPO_DIR}/out/android"
 SDL3_SRC="${OUT_DIR}/SDL3"
 SDL3_BUILD="${OUT_DIR}/sdl3-build"
 SDL3_INSTALL="${OUT_DIR}/sdl3-install"
+# One pin for every SDL3 path in the repo, so a local Android build links the
+# same SDL3 the CI leg does.
+SDL3_VERSION="$(tr -d '[:space:]' < "${REPO_DIR}/.github/sdl3-version.txt")"
 
 ANDROID_NDK="${ANDROID_NDK:-${HOME}/Android/Sdk/ndk/28.2.13676358}"
 
@@ -30,13 +33,14 @@ fi
 
 echo "=== Building SDL3 for Android ==="
 echo "  NDK:       ${ANDROID_NDK}"
+echo "  Version:   ${SDL3_VERSION}"
 echo "  Source:    ${SDL3_SRC}"
 echo "  Install:   ${SDL3_INSTALL}"
 
 # Clone SDL3 if not present
 if [ ! -d "${SDL3_SRC}" ]; then
     echo "Cloning SDL3..."
-    git clone --depth 1 --branch release-3.2.16 https://github.com/libsdl-org/SDL.git "${SDL3_SRC}"
+    git clone --depth 1 --branch "${SDL3_VERSION}" https://github.com/libsdl-org/SDL.git "${SDL3_SRC}"
 fi
 
 # Configure
