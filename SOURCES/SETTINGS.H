@@ -203,6 +203,14 @@ static inline void Settings_MarkSetThisRun(T_SETTING_SOURCE *source) {
 static inline S32 Settings_ValueToPersistFrom(S32 live, S32 stored, S32 forced, T_SETTING_SOURCE source) {
     if (forced < 0)
         return live; /* no flag touched it */
+    if (live != forced)
+        return live; /* moved off what the flag forced, so the run changed it */
+    /* Sitting on the forced value, which is the case the value cannot answer:
+       either the run set it there or nothing touched it. Only here does the
+       source decide, which keeps this a refinement of the comparison rather than
+       a replacement for it. A writer that assigns the global without marking the
+       run therefore behaves exactly as it did before, rather than losing its
+       change. */
     return (source == SETTING_FROM_RUNTIME) ? live : stored;
 }
 

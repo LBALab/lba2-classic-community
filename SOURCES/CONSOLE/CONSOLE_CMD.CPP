@@ -1594,6 +1594,9 @@ static void cmd_fixedtimestep(int argc, const char *argv[]) {
             }
             FixedTimestep = (S32)ms;
         }
+        /* After every accepted path and none of the rejected ones, so a bad
+           argument does not claim the run set anything. */
+        ConfigFile_MarkFixedTimestepSetThisRun();
         if (!WriteConfigValue("FixedTimestep", FixedTimestep)) {
             Console_Print("(this run only: could not write cfg)");
         }

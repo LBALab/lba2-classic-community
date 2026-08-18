@@ -265,6 +265,17 @@ static void test_an_unforced_run_ignores_the_source(void) {
     ASSERT_EQ_INT(7, Settings_ValueToPersistFrom(7, 3, -1, SETTING_FROM_RUNTIME));
 }
 
+/* A value that moved off what the flag forced is the run's doing whatever the
+   source says, which is what keeps this a refinement rather than a replacement.
+   A writer that assigns the global without marking the run is no worse off than
+   it was before the source existed. */
+static void test_moving_off_the_forced_value_needs_no_marker(void) {
+    ASSERT_EQ_INT(33, Settings_ValueToPersistFrom(33, 16, 100, SETTING_FROM_PROFILE));
+    ASSERT_EQ_INT(33, Settings_ValueToPersistFrom(33, 16, 100, SETTING_FROM_DEFAULT));
+    /* and the old rule agrees, which is the point */
+    ASSERT_EQ_INT(33, Settings_ValueToPersist(33, 16, 100));
+}
+
 /* Every source that is not the run itself is treated the same by a forced run:
    the player's stored value goes back, because none of them is this run's doing. */
 static void test_only_a_runtime_write_survives_a_forced_run(void) {
@@ -314,6 +325,7 @@ int main(void) {
     RUN_TEST(test_a_setting_without_a_hook_just_stores);
     RUN_TEST(test_setting_it_to_the_forced_value_is_now_told_apart);
     RUN_TEST(test_an_unforced_run_ignores_the_source);
+    RUN_TEST(test_moving_off_the_forced_value_needs_no_marker);
     RUN_TEST(test_only_a_runtime_write_survives_a_forced_run);
     RUN_TEST(test_apply_marks_the_value_as_this_run);
     TEST_SUMMARY();

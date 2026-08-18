@@ -131,6 +131,10 @@ void ConfigFile_MarkVSyncSetThisRun(void) {
     Settings_MarkSetThisRun(&SourceVSync);
 }
 
+void ConfigFile_MarkFixedTimestepSetThisRun(void) {
+    Settings_MarkSetThisRun(&SourceFixedTimestep);
+}
+
 void ReadConfigFile(void) {
     const char *ptr;
 
