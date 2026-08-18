@@ -18,6 +18,8 @@ void HoldOnly(U32 key) {
     g_held.clear();
     g_held.insert(key);
 }
+void HoldAdd(U32 key) { g_held.insert(key); }
+void HoldRemove(U32 key) { g_held.erase(key); }
 
 extern "C" {
 void ManageKeyboard(void) {}

@@ -8,6 +8,15 @@ add_executable(test_input_bindings
     ${CMAKE_SOURCE_DIR}/SOURCES/INPUT_BINDINGS.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP)
 
+# NoRepeatInput, the latch that turns a held key into one press. Same lean link
+# as the table test: the rules live in LIB386/SYSTEM/INPUT.CPP and the bindings
+# it masks come from the extracted module.
+add_executable(test_input_suppression
+    test_input_suppression.cpp
+    held_keys.cpp
+    ${CMAKE_SOURCE_DIR}/SOURCES/INPUT_BINDINGS.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP)
+
 # Bindings through the config file, on a temp cfg in the test's own directory.
 # SOURCES/INPUT.CPP still holds the polling loop, so this one carries the stubs.
 add_executable(test_input_config
@@ -28,7 +37,7 @@ add_executable(test_input_config
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ITOA.CPP)
 
-foreach(target test_input_bindings test_input_config)
+foreach(target test_input_bindings test_input_suppression test_input_config)
     target_include_directories(${target} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_SOURCE_DIR}/LIB386/H
