@@ -33,7 +33,8 @@ extern S32 GfxDitherShading;
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include "FOLLOWCAM.H"
 #include "FOLLOWCAM_CFG.H" /* the *_DEFAULT tunables, read and written by the cfg below */
-#include "UI_LAYOUT.H"     /* UI_VCENTER_OFS */
+#include "BOOT_END.H"
+#include "UI_LAYOUT.H" /* UI_VCENTER_OFS */
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 
@@ -2014,6 +2015,20 @@ static const char *End_Error;
 
 HQR_GET_CALLBACK ErrorHQRGet;
 
+/* BOOT_END.H repeats the four exit codes rather than including COMMON.H, which
+   would pull the game into a header the host test compiles alone. This is where
+   the two are held together: a code renumbered in COMMON.H stops the build here
+   rather than silently changing which message a failing boot shows.
+
+   C++98 has no static_assert, so a negative array size is the stand-in: the
+   typedef is never used and costs nothing. */
+typedef char BootEndCodesMatchCommon[(BOOT_END_FILE_NOT_FOUND == ERROR_NOT_FOUND_FILE &&
+                                      BOOT_END_NOT_ENOUGH_MEM == NOT_ENOUGH_MEM &&
+                                      BOOT_END_PROGRAM_OK == PROGRAM_OK &&
+                                      BOOT_END_NAME_NOT_FOUND == NAME_NOT_FOUND)
+                                         ? 1
+                                         : -1];
+
 void ErrorHQRGet(char *name, S32 index) {
     char errstring[256];
 
@@ -2190,25 +2205,13 @@ void TheEndInfo() {
         PrintExitScreen();
     }
 
+    if (BootEnd_IsFailure(End_Num)) {
+        V_ColorLine(14, 0, 130);
+        LogPrintf(BootEnd_LogFormat(End_Num), End_Error);
+        V_ColorLine(7, 0, 130);
+    }
+
     switch (End_Num) {
-    case ERROR_NOT_FOUND_FILE:
-        V_ColorLine(14, 0, 130);
-        LogPrintf("*** ERROR-> File not found: %s\n\n", End_Error);
-        V_ColorLine(7, 0, 130);
-        break;
-
-    case NAME_NOT_FOUND:
-        V_ColorLine(14, 0, 130);
-        LogPrintf("*** ERROR-> Critical error: ident name not found: %s\n\n", End_Error);
-        V_ColorLine(7, 0, 130);
-        break;
-
-    case NOT_ENOUGH_MEM:
-        V_ColorLine(14, 0, 130);
-        LogPrintf("*** ERROR-> Not Enough Memory: %s (SEE README.TXT)\n\n", End_Error);
-        V_ColorLine(7, 0, 130);
-        break;
-
     case PROGRAM_OK:
 #ifdef DEBUG_TOOLS
         if (NbNbf) {
@@ -2225,19 +2228,13 @@ void TheEndInfo() {
     }
 
     /* Make fatal errors visible when there's no terminal to read the log. */
-    if (End_Num == ERROR_NOT_FOUND_FILE || End_Num == NAME_NOT_FOUND ||
-        End_Num == NOT_ENOUGH_MEM) {
+    if (BootEnd_IsFailure(End_Num)) {
         char logPath[ADELINE_MAX_PATH] = "";
-        GetLogPath(logPath, ADELINE_MAX_PATH, LOG_NAME);
-        const char *headline =
-            (End_Num == NOT_ENOUGH_MEM)   ? "The game ran out of memory."
-            : (End_Num == NAME_NOT_FOUND) ? "A required game object is missing."
-                                          : "Game data is missing or unreadable.";
         char msg[ADELINE_MAX_PATH + 256];
-        snprintf(msg, sizeof msg,
-                 "%s\n\n%s\n\nThe game can't continue.\nDetails: %s", headline,
-                 End_Error ? End_Error : "", logPath);
-        ShowFatalErrorDialog("LBA2: cannot start", msg);
+
+        GetLogPath(logPath, ADELINE_MAX_PATH, LOG_NAME);
+        if (BootEnd_FormatMessage(msg, sizeof msg, End_Num, End_Error, logPath) > 0)
+            ShowFatalErrorDialog("LBA2: cannot start", msg);
     }
 
     WriteConfigFile();
