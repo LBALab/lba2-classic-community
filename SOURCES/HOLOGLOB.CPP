@@ -11,6 +11,7 @@
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <string.h>
+#include "AMBIANCE.H"
 
 // Globe planet vertical centre. CENTERY (220) is authored on the 480-tall UI
 // canvas; UI_VCENTER_OFS floats the whole globe to the vertical middle on a

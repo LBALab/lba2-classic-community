@@ -21,6 +21,7 @@
 #include <SYSTEM/HQFILE.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <stdint.h>
+#include "AMBIANCE.H"
 
 extern S32 FlagAnimWhoSpeak; // MESSAGE.CPP
 

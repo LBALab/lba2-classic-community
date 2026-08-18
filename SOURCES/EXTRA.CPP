@@ -1,6 +1,7 @@
 #include	"C_EXTERN.H"
 
 #include <stdint.h>
+#include "AMBIANCE.H"
 
 #define	CONE_GANT	2048
 #define	RND_BETA_BONUS	300	// Angle aléatoire rajouter

@@ -1,6 +1,48 @@
 #ifndef AMBIANCE_H
 #define AMBIANCE_H
 
+/* Self-contained by requirement: this header is included directly by each file
+   that uses audio, in whatever order that file includes things, so it cannot
+   rely on S32, SAMPLE_PLAYING or HQR_GET_CALLBACK having arrived ahead of it. */
+#include <AIL/SAMPLE.H>           /* SAMPLE_PLAYING */
+#include <SYSTEM/ADELINE_TYPES.H> /* S32, U8, U32 */
+#include <SYSTEM/HQRRESS.H>       /* HQR_GET_CALLBACK */
+
+/* The audio module's own state, defined in AMBIANCE.CPP. Declared here rather
+   than in C_EXTERN.H so that a file reaching for a volume or for the ambiance
+   scheduler's table has to include this header, and its include list says so.
+
+   Not the whole of the game's audio state. ParmSampleVolume, ParmSampleDecalage
+   and ParmSampleFrequence are written by gameplay from several places and are
+   saved with the game, CubeJingle and SampleAlwaysMove are written by the scene
+   loader and read by gameplay without this module touching either, and
+   RestartMusic is read only by the save and the main loop. None has a single
+   owner to move to, so all stay on the shared bus until one exists. */
+
+/* The audio settings, which do not all arrive the same way. The three volumes
+   are 0 to 127, read from the cfg by ReadVolumeSettings below and moved by the
+   options-menu sliders. SamplesEnable is a boolean the boot path sets from
+   whether a sample driver came up, and a cheat toggles; it is in no cfg key.
+   ReverseStereo is a boolean owned here but read from the cfg by the settings
+   table in CONFIG_FILE.CPP, which is also where it is applied. */
+extern S32 SampleVolume;
+extern S32 VoiceVolume;
+extern S32 MasterVolume;
+extern S32 SamplesEnable;
+extern S32 ReverseStereo;
+
+/* The ambiance scheduler's per-cube table: which samples a cube plays, how they
+   repeat, and how often. Filled by the scene loader, consumed by GereAmbiance. */
+extern S16 SampleAmbiance[4];
+extern S16 SampleRepeat[4];
+extern S16 SampleRnd[4];
+extern S16 SampleFreq[4];
+extern S16 SampleVol[4];
+extern S32 SamplePlayed;
+extern U32 TimerNextAmbiance;
+extern S32 SecondEcart;
+extern S32 SecondMin;
+
 extern S32 RestartRainSample;
 
 #define MAX_PLAYING_SAMPLES 32

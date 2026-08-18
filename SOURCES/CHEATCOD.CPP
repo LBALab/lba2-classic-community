@@ -6,6 +6,7 @@
 #include <string.h>
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include "AMBIANCE.H"
 
 #define TAILLE_MAX_CHEAT_CODE 10
 

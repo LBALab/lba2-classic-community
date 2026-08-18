@@ -22,6 +22,7 @@ extern S32 GfxDitherShading; /* defined in POLYFILT's caller; no header declares
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "AMBIANCE.H"
 
 /*══════════════════════════════════════════════════════════════════════════*
                       █▀▀▀▀ █▀▀▀█ ██▄ █ █▀▀▀▀  █    █▀▀▀▀

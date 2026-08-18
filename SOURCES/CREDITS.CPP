@@ -15,6 +15,7 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD.H>
+#include "AMBIANCE.H"
 
 /* The on-disk record layout (S_CRED_OBJ_2_DISK), the size assertions, and
  * the parser itself all live in CREDITS_PARSE.{H,CPP} so tests/credits/ can

@@ -7,6 +7,7 @@
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <string.h>
+#include "AMBIANCE.H"
 
 #define ZOOM_A 2048 //	Big Islands
 #define ZOOM_B 1024 //	Islands with 4 cubes

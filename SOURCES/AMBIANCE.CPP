@@ -8,6 +8,23 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/WINDOW.H>
+#include "AMBIANCE.H"
+
+/* Declared in AMBIANCE.H; see there for what is deliberately not here. */
+S32 SampleVolume = DEF_SAMPLE_VOLUME;
+S32 VoiceVolume = DEF_VOICE_VOLUME;
+S32 MasterVolume = DEF_MASTER_VOLUME;
+S32 SamplesEnable = FALSE;
+S32 ReverseStereo = FALSE;
+S16 SampleAmbiance[4];
+S16 SampleRepeat[4];
+S16 SampleRnd[4];
+S16 SampleFreq[4];
+S16 SampleVol[4];
+S32 SamplePlayed = 0;
+U32 TimerNextAmbiance = 0;
+S32 SecondEcart = 30;
+S32 SecondMin = 10;
 
 #define BCL_FADE 50
 #define FADE_DELAY 200
@@ -802,18 +819,34 @@ void ReadVolumeSettings() {
         VoiceVolume = 127;
 
     //---------------------------------------------------------------
-    JingleVolume = DefFileBufferReadValueDefault("MusicVolume", DEF_JINGLE_VOLUME);
+    /* Read into a signed temporary before assigning. JingleVolume is U32 while
+       its three siblings here, and DefFileBufferReadValueDefault itself, are S32,
+       so a negative value in the cfg wraps on the assignment; the > 127 test then
+       matches and turns it into the loudest setting rather than the quietest. The
+       menu sliders cannot produce one (they stop at 0), but a hand-edited or
+       corrupted cfg can, and that is the path this guards. */
+    S32 jingle = DefFileBufferReadValueDefault("MusicVolume", DEF_JINGLE_VOLUME);
 
-    if (JingleVolume > 127) {
-        JingleVolume = 127;
-    }
+    if (jingle < 0)
+        jingle = 0;
+    if (jingle > 127)
+        jingle = 127;
+
+    JingleVolume = (U32)jingle;
 
     //---------------------------------------------------------------
 #ifdef CDROM
-    CDVolume = DefFileBufferReadValueDefault("CDVolume", DEF_CD_VOLUME);
+    /* Same shape as MusicVolume above, and for the same reason: CDVolume is U32
+       while the reader is S32, so a negative in the cfg wraps and the > 127 test
+       turns it into the loudest setting. Read signed, bound, then assign. */
+    S32 cdvol = DefFileBufferReadValueDefault("CDVolume", DEF_CD_VOLUME);
 
-    if (CDVolume > 127)
-        CDVolume = 127;
+    if (cdvol < 0)
+        cdvol = 0;
+    if (cdvol > 127)
+        cdvol = 127;
+
+    CDVolume = (U32)cdvol;
 #endif
 
     //---------------------------------------------------------------
