@@ -91,7 +91,7 @@ static void test_truthy_maps_every_non_zero_to_one(void) {
 }
 
 /* No range at all: whatever the cfg held stands, including values a reader might call absurd.
- * AllCameras and ReverseStereo are declared this way because that is what the engine does with
+ * AllCameras and AllCameras are declared this way because that is what the engine does with
  * them, and quietly normalising them would change what an existing cfg boots into. */
 static void test_raw_keeps_whatever_the_cfg_held(void) {
     const T_SETTING s = row(SETTING_RAW, 1, SETTING_MIN_NONE, SETTING_MAX_NONE);

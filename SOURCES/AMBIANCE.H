@@ -121,6 +121,11 @@ extern void PaletteIndex(U8 num);
    came to disagree. */
 extern void Audio_SetReverseStereo(S32 on);
 /*--------------------------------------------------------------------------*/
+/* The console cvars this module owns, registered from Console_RegisterAll. The
+   volumes and the stereo swap are declared once in AMBIANCE.CPP and handed to
+   the cfg reader, the cfg writer and the console from there. */
+extern void Audio_RegisterCvars(void);
+/*--------------------------------------------------------------------------*/
 extern void ReadVolumeSettings(void);
 /*--------------------------------------------------------------------------*/
 extern void WriteVolumeSettings(void);

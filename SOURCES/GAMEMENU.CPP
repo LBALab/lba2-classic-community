@@ -3344,8 +3344,7 @@ S32 GereAdvancedOptionsMenu(void) {
             break;
 
         case MENU_ID_STEREO_CHANNELS:
-            ReverseStereo ^= 1;
-            InverseStereoSample(ReverseStereo);
+            Audio_SetReverseStereo(ReverseStereo ^ 1);
             break;
 
         case MENU_ID_MOVIE_CAMERA:

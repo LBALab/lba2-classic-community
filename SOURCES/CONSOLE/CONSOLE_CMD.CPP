@@ -2266,4 +2266,5 @@ void Console_RegisterAll(void) {
     Console_RegisterCvar("cam_glide", &FollowCamOrbitGlide, CONSOLE_CVAR_INT, "Orbit follow-through: % of orbit speed kept per frame after release (0 = stop dead)");
     FollowCam_RegisterCvars();
     ConfigFile_RegisterCvars();
+    Audio_RegisterCvars();
 }

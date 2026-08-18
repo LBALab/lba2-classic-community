@@ -261,7 +261,7 @@ Without the Island check, loading or warping to Desert (or other exterior cubes)
 
 ### Master volume and stream coupling
 
-In the original Miles wrapper (`LIB386/AIL/MILES/SAMPLE.CPP`), `SetMasterVolumeSample` called `ChangeVolumeStream(GetVolumeStream())` to re-apply stream volume whenever master changed. The SDL backend does NOT do this -- master volume for streams is applied at the engine level via the `SetVolumeJingle` macro (which embeds `MasterVolume` scaling). This means any call to `SetMasterVolumeSample` must be paired with `SetVolumeJingle(JingleVolume)` at the call site, or the stream volume won't update. All current call sites are covered (`ReadVolumeSettings`, master slider in `GAMEMENU.CPP`). Adding the coupling inside the backend would require including engine headers, violating the architecture.
+In the original Miles wrapper (`LIB386/AIL/MILES/SAMPLE.CPP`), `SetMasterVolumeSample` called `ChangeVolumeStream(GetVolumeStream())` to re-apply stream volume whenever master changed. The SDL backend does NOT do this -- master volume for streams is applied at the engine level via the `SetVolumeJingle` macro (which embeds `MasterVolume` scaling). This means any call to `SetMasterVolumeSample` must be paired with `SetVolumeJingle(JingleVolume)` at the call site, or the stream volume won't update. All current call sites are covered (`ApplyMasterVolume`, which the settings table fires on a master write and `ReadVolumeSettings` calls at boot, and the master slider in `GAMEMENU.CPP`). Adding the coupling inside the backend would require including engine headers, violating the architecture.
 
 ### Music pause and resume are a reversible pair
 

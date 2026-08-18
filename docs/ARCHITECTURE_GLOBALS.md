@@ -148,7 +148,7 @@ convention that produced that is in [CODESTYLE.md "Where new code goes"](../CODE
 | `SamplePlayed`, `TimerNextAmbiance`, `SecondEcart`, `SecondMin` | Ambiance scheduling state | Gameplay. **Owned by `AMBIANCE.H`** |
 | `CubeJingle`, `SampleAlwaysMove` | Per-cube jingle / always-on sample | World, Gameplay. Still on the bus: written by the scene loader, read by gameplay, no audio TU touches either |
 | `SampleVolume`, `VoiceVolume`, `MasterVolume`, `SamplesEnable` | Mix levels / enable | Platform, Orchestration (save). **Owned by `AMBIANCE.H`** |
-| `ReverseStereo` | Stereo channel swap | Platform. **Owned by `AMBIANCE.H`**, though the cfg table in `CONFIG_FILE.CPP` still reads and applies it |
+| `ReverseStereo` | Stereo channel swap | Platform. **Owned by `AMBIANCE.H`**, declared in its settings table and applied through it |
 | `ParmSampleVolume`, `ParmSampleDecalage`, `ParmSampleFrequence` | Saved sample params | Orchestration (save) |
 | `RestartMusic`, `BufSpeak` | Music restart / speech buffer | UI |
 
