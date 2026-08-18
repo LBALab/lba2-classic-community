@@ -39,7 +39,8 @@ decompressing an entry.
 | Scene / grid / island | `SYSTEM`+`3DEXT` | HQR / `.ILE`/`.OBL` | all | compatible model, repackaged |
 
 Tooling for all of the below lives in `scripts/dev/`: `hqr_inspect.py` (HQR + LZ),
-`acf_inspect.py` / `acf_decode.py` (XCF), `iso_bin.py` (read a raw CD-image / `.gog`/`.bin`).
+`text_dump.py` (TEXT.HQR banks), `acf_inspect.py` / `acf_decode.py` (XCF), `iso_bin.py` (read a
+raw CD-image / `.gog`/`.bin`).
 
 ---
 

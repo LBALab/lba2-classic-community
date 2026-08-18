@@ -68,6 +68,7 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 | Doc | Description |
 |-----|-------------|
 | [FRENCH_COMMENTS.md](FRENCH_COMMENTS.md) | Curated French comments from the codebase with English translations. |
+| [SPEEDRUN_MECHANICS.md](SPEEDRUN_MECHANICS.md) | Why the movement techniques used in runs work, read from the engine: the behaviour-switch animation rewind, the take-off foot chosen by animation keyframe events, hold versus re-press, simultaneous-opposite resolution, and what preserving the original behaviour alongside fixes would take. |
 | [ASCII_ART.md](ASCII_ART.md) | Catalog of ASCII art banners in the original source files. |
 
 ## Porting & technical
@@ -109,6 +110,9 @@ doc is now history: where it disagrees with the code, the code wins.
 | [BOOT_LOG_PLAN.md](plan/BOOT_LOG_PLAN.md) | Implemented, partly superseded | Boot log and exit screen. Its per-sink severity model was reworked into the single global log level described in [LOGGING_UNIFICATION.md](LOGGING_UNIFICATION.md). |
 | [INIT_RESEARCH.md](plan/INIT_RESEARCH.md) | Research | Initialisation path from `main` to a running scene: boot phases, new-game vs load-save, timing/speed model, cleanup candidates, verbatim TODO inventory. |
 | [INPUT_REPLAY_RESEARCH.md](plan/INPUT_REPLAY_RESEARCH.md) | Research | Capturing input per tick and replaying a session as a gameplay-regression net, the counterpart to the draw-call [polyrec](POLYREC.md). No implementation. |
+| [INPUT_RESEARCH.md](plan/INPUT_RESEARCH.md) | Research | The input system as a whole: the two funnels and which devices depend on the unbindable one, what each device can and cannot express, the open issues clustered, and nine gaps no issue records. |
+| [INPUT_DOOM3_RESEARCH.md](plan/INPUT_DOOM3_RESEARCH.md) | Research | Doom 3's input path read from the GPL release, and which of its decisions apply here: fixed sample rate, impulses off level bits, per-subsystem inhibit, and command demos with a consistency hash. |
+| [INPUT_PLAN.md](plan/INPUT_PLAN.md) | Proposed | Awaiting go/no-go: seven increments making input a subsystem, ordered so each de-risks the next. Scope excludes a new control scheme, with the reason measured rather than preferred. Companion to [SPEEDRUN_MECHANICS.md](SPEEDRUN_MECHANICS.md). |
 | [LBA1_PORT_PLAN.md](plan/LBA1_PORT_PLAN.md) | Proposed | Awaiting go/no-go: how to bring LBA1 to this groundwork. Costs three paths, recommends hosting LBA1 content on the lba2cc engine behind a game-id, with a feasibility-spike ladder. Companion to [LBA1_PORTING_SURFACE.md](LBA1_PORTING_SURFACE.md). |
 | [PLATFORM_PAL_PLAN.md](plan/PLATFORM_PAL_PLAN.md) | Proposed | Awaiting go/no-go: in-place Platform Abstraction Layer decoupling the engine from direct SDL3. SDL-surface audit, RFC #120 reconciliation, PR-sequenced extraction with a headless backend. |
 | [REFACTOR_ROADMAP.md](plan/REFACTOR_ROADMAP.md) | Living | Which areas are worth restructuring and what each one buys, ordered by what tests cover them rather than by how untidy they are. Measures what CI can actually see: 5% of `SOURCES/`, and no 1997 game logic at all. Companion to [FEATURE_WORKFLOW.md](FEATURE_WORKFLOW.md) Example 5. |
