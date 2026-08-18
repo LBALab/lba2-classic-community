@@ -38,8 +38,11 @@ U8 ColorY = 0x12;
 
 // TODO: Verify
 void Line_ZBuffer(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
-    Z1 = z1 << 16;
-    Z2 = z2 << 16;
+    /*	ASM: `shl edi,16` / `shl esi,16`, qui deborde en silence. En C le
+        decalage d'un S32 dans le bit de signe est indefini, donc on passe par
+        U32 pour rendre l'enroulement explicite. Resultat identique. */
+    Z1 = (S32)((U32)z1 << 16);
+    Z2 = (S32)((U32)z2 << 16);
 
     S32 color = col;
     col &= 0xFF;
@@ -50,7 +53,8 @@ void Line_ZBuffer(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
 
     while (true) {
         // @@Trace_Still:
-        DZ = Z2 - Z1;
+        //	ASM: `sub esi,edi`, soustraction 32 bits qui s'enroule
+        DZ = (S32)((U32)Z2 - (U32)Z1);
 
         S32 diffX = x1 - x0;
         S32 diffY = y1 - y0;
@@ -345,8 +349,11 @@ void Line_ZBuffer(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
 
 // TODO: Verify
 void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
-    Z1 = z1 << 16;
-    Z2 = z2 << 16;
+    /*	ASM: `shl edi,16` / `shl esi,16`, qui deborde en silence. En C le
+        decalage d'un S32 dans le bit de signe est indefini, donc on passe par
+        U32 pour rendre l'enroulement explicite. Resultat identique. */
+    Z1 = (S32)((U32)z1 << 16);
+    Z2 = (S32)((U32)z2 << 16);
 
     S32 color = col;
     col &= 0xFF;
@@ -356,7 +363,8 @@ void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
     Color = color;
     while (true) {
         // @@Trace_Still:
-        DZ = Z2 - Z1;
+        //	ASM: `sub esi,edi`, soustraction 32 bits qui s'enroule
+        DZ = (S32)((U32)Z2 - (U32)Z1);
 
         S32 diffX = x1 - x0;
         S32 diffY = y1 - y0;
