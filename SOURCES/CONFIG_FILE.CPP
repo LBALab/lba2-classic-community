@@ -92,7 +92,6 @@ static const T_SETTING BootSettings[] = {
     /* User-facing name: "Auto camera" (menu/docs); the legacy spelling is read
        so an existing cfg keeps working. The camera module owns its cvar. */
     {"FollowCamera", "AutoCameraCenter", NULL, &FollowCamera, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL, NULL},
-    {"ReverseStereo", NULL, NULL, &ReverseStereo, SETTING_RAW, FALSE, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL},
     {"DetailLevel", NULL, NULL, &DetailLevel, SETTING_CLAMP, MAX_DETAIL_LEVEL, 0, MAX_DETAIL_LEVEL, NULL, NULL, NULL},
     {"FullScreen", NULL, NULL, &VideoFullScreen, SETTING_OR_DEFAULT, TRUE, 0, 1, NULL, NULL, NULL},
     {"DisplayFullScreen", NULL, NULL, &DisplayFullScreen, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL, NULL},
@@ -144,7 +143,6 @@ void ReadConfigFile(void) {
     Settings_ReadConfig(BootSettings, BOOT_SETTING_COUNT);
 
     /* The settings above are values; these are the side effects taking them. */
-    Audio_SetReverseStereo(ReverseStereo);
     SetWindowFullscreen(DisplayFullScreen != FALSE);
 
     /* An explicit request for this run beats the stored preference, the same

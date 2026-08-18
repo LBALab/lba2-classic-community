@@ -2,6 +2,7 @@
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
 #include "MUSIC.H"
+#include "SETTINGS.H"
 
 #include <AIL/STREAM.H>
 #include <SVGA/DIRTYBOX.H>
@@ -799,84 +800,85 @@ void PaletteIndex(U8 num) {
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
-void ReadVolumeSettings() {
-    //---------------------------------------------------------------
-    //      Read config file (LBA2.CFG)
-    //---------------------------------------------------------------
-    SampleVolume = DefFileBufferReadValueDefault("WaveVolume", DEF_SAMPLE_VOLUME);
-
-    if (SampleVolume < 0)
-        SampleVolume = 0;
-    if (SampleVolume > 127)
-        SampleVolume = 127;
-
-    //---------------------------------------------------------------
-    VoiceVolume = DefFileBufferReadValueDefault("VoiceVolume", DEF_VOICE_VOLUME);
-
-    if (VoiceVolume < 0)
-        VoiceVolume = 0;
-    if (VoiceVolume > 127)
-        VoiceVolume = 127;
-
-    //---------------------------------------------------------------
-    /* Read into a signed temporary before assigning. JingleVolume is U32 while
-       its three siblings here, and DefFileBufferReadValueDefault itself, are S32,
-       so a negative value in the cfg wraps on the assignment; the > 127 test then
-       matches and turns it into the loudest setting rather than the quietest. The
-       menu sliders cannot produce one (they stop at 0), but a hand-edited or
-       corrupted cfg can, and that is the path this guards. */
-    S32 jingle = DefFileBufferReadValueDefault("MusicVolume", DEF_JINGLE_VOLUME);
-
-    if (jingle < 0)
-        jingle = 0;
-    if (jingle > 127)
-        jingle = 127;
-
-    JingleVolume = (U32)jingle;
-
-    //---------------------------------------------------------------
-#ifdef CDROM
-    /* Same shape as MusicVolume above, and for the same reason: CDVolume is U32
-       while the reader is S32, so a negative in the cfg wraps and the > 127 test
-       turns it into the loudest setting. Read signed, bound, then assign. */
-    S32 cdvol = DefFileBufferReadValueDefault("CDVolume", DEF_CD_VOLUME);
-
-    if (cdvol < 0)
-        cdvol = 0;
-    if (cdvol > 127)
-        cdvol = 127;
-
-    CDVolume = (U32)cdvol;
-#endif
-
-    //---------------------------------------------------------------
-    MasterVolume = DefFileBufferReadValueDefault("MasterVolume", DEF_MASTER_VOLUME);
-
-    if (MasterVolume < 0)
-        MasterVolume = 0;
-    if (MasterVolume > 127)
-        MasterVolume = 127;
-
-    SetMasterVolumeSample(MasterVolume);
+/* The audio settings, declared once and handed to each surface.
+ *
+ * The cfg keys are not the variable names and never have been: WaveVolume is
+ * SampleVolume and MusicVolume is JingleVolume. Declaring the pair here is what
+ * keeps a rename on either side from silently costing the player their settings.
+ *
+ * All five volumes are 0 to 127 and clamp, which is what the hand-written bounds
+ * this replaces did, except that MusicVolume and CDVolume only bounded the top
+ * because their variables were unsigned and a negative had already wrapped.
+ *
+ * The three that reach the mixer immediately carry an on_change, so a console
+ * write is audible rather than merely stored. SampleVolume and VoiceVolume have
+ * none: nothing caches them, each play reads them as they are. */
+static void ApplyMasterVolume(S32 value) {
+    SetMasterVolumeSample(value);
+    /* The music paths scale by MasterVolume, so moving it has to re-tell them. */
     SetVolumeJingle(JingleVolume);
 #ifdef CDROM
     SetVolumeCD(CDVolume);
 #endif
 }
 
-/*──────────────────────────────────────────────────────────────────────────*/
+static void ApplyJingleVolume(S32 value) { SetVolumeJingle(value); }
 
-/* Set the stereo swap and apply it in one call.
+#ifdef CDROM
+static void ApplyCDVolume(S32 value) { SetVolumeCD(value); }
+#endif
+
+static void ApplyReverseStereo(S32 value) { InverseStereoSample(value); }
+
+static const T_SETTING AudioSettings[] = {
+    {"WaveVolume", NULL, "snd_wave", &SampleVolume, SETTING_CLAMP, DEF_SAMPLE_VOLUME, 0, 127, NULL, NULL, NULL,
+     "Sound-effect volume (0-127)"},
+    {"VoiceVolume", NULL, "snd_voice", &VoiceVolume, SETTING_CLAMP, DEF_VOICE_VOLUME, 0, 127, NULL, NULL, NULL,
+     "Speech volume (0-127)"},
+    {"MusicVolume", NULL, "snd_music", &JingleVolume, SETTING_CLAMP, DEF_JINGLE_VOLUME, 0, 127, NULL, NULL,
+     ApplyJingleVolume, "Music volume (0-127)"},
+#ifdef CDROM
+    {"CDVolume", NULL, "snd_cd", &CDVolume, SETTING_CLAMP, DEF_CD_VOLUME, 0, 127, NULL, NULL, ApplyCDVolume,
+     "CD audio volume (0-127)"},
+#endif
+    {"MasterVolume", NULL, "snd_master", &MasterVolume, SETTING_CLAMP, DEF_MASTER_VOLUME, 0, 127, NULL, NULL,
+     ApplyMasterVolume, "Master volume (0-127), scales the others"},
+    /* ReverseStereo lives here rather than in CONFIG_FILE.CPP's table now that
+       audio has one: it is an audio setting, and its apply belongs beside the
+       others rather than being repeated by whichever surface writes it. */
+    {"ReverseStereo", NULL, "snd_reverse_stereo", &ReverseStereo, SETTING_TRUTHY, FALSE, 0, 1, NULL, NULL,
+     ApplyReverseStereo, "Swap the left and right sample channels"},
+};
+
+#define AUDIO_SETTING_COUNT ((S32)(sizeof(AudioSettings) / sizeof(AudioSettings[0])))
+
+/* Read at boot, then applied once. Settings_ReadConfig deliberately does not run
+   the on_change hooks (see SETTINGS.H): at boot the whole table is read before
+   anything is told, because the mixer is brought up around this point and a hook
+   firing mid-read would talk to a driver that may not be there yet. */
+void ReadVolumeSettings() {
+    Settings_ReadConfig(AudioSettings, AUDIO_SETTING_COUNT);
+
+    SetMasterVolumeSample(MasterVolume);
+    SetVolumeJingle(JingleVolume);
+#ifdef CDROM
+    SetVolumeCD(CDVolume);
+#endif
+    InverseStereoSample(ReverseStereo);
+}
+
+/*--------------------------------------------------------------------------*/
+
+/* Set the stereo swap and apply it in one call, for the console verb that takes
+ * a value directly rather than through the cvar.
  *
  * Both halves or neither: applying without storing leaves the driver swapped and
- * the setting saying it is not, so the choice is not written to the cfg, the next
- * reapply undoes it, and the options menu shows the opposite of what is audible.
- * The surfaces that expose this setting call here rather than reaching for
- * InverseStereoSample themselves.
+ * the setting saying it is not, so the choice is not written to the cfg and the
+ * next reapply undoes it. The cvar route gets the same guarantee from the
+ * table's on_change hook, which is the general form of this.
  *
- * The value is stored as it arrives. The cfg key is declared SETTING_RAW, so a
- * hand-edited value outside 0 and 1 keeps round-tripping as it did; callers that
- * have a boolean normalise it before calling. */
+ * The value is stored as it arrives. Callers that have a boolean normalise it
+ * first, as the console verb does. */
 void Audio_SetReverseStereo(S32 on) {
     ReverseStereo = on;
     InverseStereoSample(on);
@@ -885,13 +887,16 @@ void Audio_SetReverseStereo(S32 on) {
 /*--------------------------------------------------------------------------*/
 
 void WriteVolumeSettings() {
-    DefFileBufferWriteValue("WaveVolume", SampleVolume);
-    DefFileBufferWriteValue("VoiceVolume", VoiceVolume);
-    DefFileBufferWriteValue("MusicVolume", JingleVolume);
-#ifdef CDROM
-    DefFileBufferWriteValue("CDVolume", CDVolume);
-#endif
-    DefFileBufferWriteValue("MasterVolume", MasterVolume);
+    Settings_WriteConfig(AudioSettings, AUDIO_SETTING_COUNT);
+}
+
+/*--------------------------------------------------------------------------*/
+
+/* The console cvars this module owns, registered from Console_RegisterAll. A
+   volume set here is applied through the same hook the table declares, so it is
+   audible at once and written to the cfg on exit like any other setting. */
+void Audio_RegisterCvars(void) {
+    Settings_RegisterCvars(AudioSettings, AUDIO_SETTING_COUNT);
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/

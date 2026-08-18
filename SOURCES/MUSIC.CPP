@@ -14,7 +14,7 @@
 
 #ifdef CDROM
 const char *CDDrive = "Z"; // Z by default
-U32 CDVolume = DEF_CD_VOLUME;
+S32 CDVolume = DEF_CD_VOLUME;
 
 #ifndef LBA_EDITOR
 void InitTabTracks(void); // voir plus bas...
@@ -45,7 +45,7 @@ S32 InitCD(char *name) {
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
-U32 JingleVolume = DEF_JINGLE_VOLUME;
+S32 JingleVolume = DEF_JINGLE_VOLUME;
 
 #define FIRST_JINGLE 2
 #define LAST_JINGLE 26
