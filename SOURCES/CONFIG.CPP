@@ -31,6 +31,7 @@
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/STRING.H>
+#include "AMBIANCE.H"
 
 #define CONFIG_SHADE_LVL MENU_SHADE_LVL
 

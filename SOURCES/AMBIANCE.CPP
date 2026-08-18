@@ -8,6 +8,7 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/WINDOW.H>
+#include "AMBIANCE.H"
 
 #define BCL_FADE 50
 #define FADE_DELAY 200

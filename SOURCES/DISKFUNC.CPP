@@ -4,6 +4,7 @@
 #include <SYSTEM/ADELINE.H>
 
 #include <errno.h>
+#include "AMBIANCE.H"
 
 U8 *PtrSce;
 U8 *PtrScene;

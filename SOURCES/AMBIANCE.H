@@ -1,6 +1,13 @@
 #ifndef AMBIANCE_H
 #define AMBIANCE_H
 
+/* Self-contained by requirement: this header is included directly by each file
+   that uses audio, in whatever order that file includes things, so it cannot
+   rely on S32, SAMPLE_PLAYING or HQR_GET_CALLBACK having arrived ahead of it. */
+#include <AIL/SAMPLE.H>           /* SAMPLE_PLAYING */
+#include <SYSTEM/ADELINE_TYPES.H> /* S32, U8, U32 */
+#include <SYSTEM/HQRRESS.H>       /* HQR_GET_CALLBACK */
+
 extern S32 RestartRainSample;
 
 #define MAX_PLAYING_SAMPLES 32

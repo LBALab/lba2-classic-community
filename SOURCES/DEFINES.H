@@ -516,7 +516,10 @@ typedef struct
 #include "GERELIFE.H"
 #include "GAMEMENU.H"
 #include "FIRE.H"
-#include "AMBIANCE.H"
+/* AMBIANCE.H is deliberately not here. Aggregating a module header into
+   DEFINES.H puts it in front of all 58 files that reach C_EXTERN.H, so no
+   caller ever has to say it uses audio and the ownership rule in CODESTYLE
+   has nothing to bite on. The files that use it include it. */
 #include "INCRUST.H"
 #include "EXTRA.H"
 #include "LZSS.H"

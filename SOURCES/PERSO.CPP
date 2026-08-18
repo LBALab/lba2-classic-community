@@ -52,6 +52,7 @@ static inline U32 DosAvailableMem(void) { return 0; }
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "AMBIANCE.H"
 
 /*#ifndef DEMO
 #define THOMAS  1

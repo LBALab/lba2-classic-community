@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include "AMBIANCE.H"
 
 //
 // Uniquement en version Outil: interprétation des impacts

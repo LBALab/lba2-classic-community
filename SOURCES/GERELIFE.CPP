@@ -5,6 +5,7 @@
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOG.H> // lifetrace
+#include "AMBIANCE.H"
 
 U8 *PtrPrg;
 U8 TypeAnswer;

@@ -13,6 +13,7 @@
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <stdint.h>
 #include <string.h>
+#include "AMBIANCE.H"
 
 #define SHADE_INVENT_LVL 8
 

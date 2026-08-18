@@ -28,6 +28,7 @@
 #include <OBJECT/AFF_OBJ.H>
 
 #include "SAVEGAME_WIRE.H" // wire structs + FromWire32 / ToWire32 converters
+#include "AMBIANCE.H"
 
 extern char PlayerName[MAX_SIZE_PLAYER_NAME + 1];
 

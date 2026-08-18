@@ -1,6 +1,7 @@
 #include "C_EXTERN.H"
 
 #include "DIRECTORIES.H"
+#include "AMBIANCE.H"
 
 extern S32 Nxw, Nyw, Nzw; // Object.c
 
