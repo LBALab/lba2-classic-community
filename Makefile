@@ -1,5 +1,5 @@
 # Convenience targets — delegate to CMake and scripts (see docs/GAME_DATA.md).
-.PHONY: help clean build run build-run test tests test-docker format-check docs-links docs-symbols check-tooling save-probe-lz-selftest savegame-corpus
+.PHONY: help clean build run build-run test tests test-docker format-check arch-check docs-links docs-symbols check-tooling save-probe-lz-selftest savegame-corpus
 
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 REPO_ROOT := $(shell "$(MAKEFILE_DIR)scripts/dev/repo_root.sh" 2>/dev/null || echo "$(MAKEFILE_DIR)")
@@ -19,6 +19,7 @@ help:
 	@echo "  make test | tests   - configure with tests, build host_tests, run CTest -L host_quick (no Docker, no retail files)"
 	@echo "  make test-docker    - ./run_tests_docker.sh (ASM suite; requires Docker)"
 	@echo "  make format-check   - scripts/ci/check-format.sh"
+	@echo "  make arch-check     - scripts/ci/check-arch.py (the boundaries CODESTYLE and AGENTS state)"
 	@echo "  make docs-links     - scripts/ci/check-docs-links.sh (needs lychee for the link half)"
 	@echo "  make docs-symbols   - scripts/ci/check-docs-symbols.py (a doc names a symbol; is it in that file?)"
 	@echo "  make check-tooling  - report which external tools this clone has (docs/TOOLING.md)"
@@ -47,6 +48,9 @@ test-docker:
 
 format-check:
 	@bash "$(REPO_ROOT)/scripts/ci/check-format.sh"
+
+arch-check:
+	@python3 "$(REPO_ROOT)/scripts/ci/check-arch.py"
 
 docs-links:
 	@bash "$(REPO_ROOT)/scripts/ci/check-docs-links.sh"

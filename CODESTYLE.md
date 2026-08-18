@@ -14,7 +14,7 @@ The `.CPP`/`.H` extensions and `extern "C"` blocks are a compilation and linkage
 
 - Reach for a language feature only when it earns its keep; prefer the simplest construct that does the job.
 - Plain structs and value semantics over object hierarchies. No deep inheritance, no RTTI, no exceptions.
-- No STL in shipped or per-frame code. If a container is unavoidable, keep it explicit and allocation-aware.
+- No STL in shipped or per-frame code. If a container is unavoidable, keep it explicit and allocation-aware. [scripts/ci/check-arch.py](scripts/ci/check-arch.py) holds `SOURCES/` and `LIB386/` to this on every push; `tests/` is exempt, as above.
 - Optimise for readability and predictable performance, not for abstraction.
 
 Within that, which features to reach for depends on the zone you are in:
@@ -38,6 +38,8 @@ Two rules keep it from recurring.
 **That second benefit has a precondition, and for most modules it is not met yet.** A caller's include list only says something when the header is not already in front of it. [SOURCES/DEFINES.H](SOURCES/DEFINES.H) aggregates 46 local headers, 42 of which are modules with a matching `.CPP`, and [SOURCES/C_EXTERN.H](SOURCES/C_EXTERN.H) includes DEFINES.H, and 58 files include that. So every one of those module headers is in front of every translation unit in the game. Moving a global from the god-header into such a module's header still satisfies the mechanical half, but nothing has to admit it uses the module and nothing is stopped from reaching it by accident.
 
 The camera escaped this only because FOLLOWCAM.H was a new file DEFINES.H had never heard of. For a module that predates the aggregation, the order is: make the module header self-contained (an aggregated header can name types it never included, because DEFINES.H only ever included it after they had arrived), remove it from DEFINES.H, add the include to the files that use it, and only then move the state. [SOURCES/AMBIANCE.H](SOURCES/AMBIANCE.H) is the worked example: three explicit includers before, 25 after, and about a dozen include lines to get there. Doing it the other way round produces a diff that looks like the rule and buys none of it.
+
+**Both halves are held, so neither can be undone by accident.** [scripts/ci/check-arch.py](scripts/ci/check-arch.py) refuses a rise in C_EXTERN.H's extern count, and refuses a module header returning to DEFINES.H once it has left. The figures live in that script as constants beside the rule, so a move that earns a lower one lowers it in the same diff. Nothing there demands a decrease: a global that several subsystems write has no owner to move it to, and the ratchet says nothing about it.
 
 Corollaries:
 
