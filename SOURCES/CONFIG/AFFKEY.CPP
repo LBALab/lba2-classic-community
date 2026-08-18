@@ -1,6 +1,6 @@
 #include "C_EXTERN.H"
 
-char ConfigTxt[MAX_INPUT][100] = {
+char ConfigTxt[MAX_INPUT_SLOTS][100] = {
     "Avancer",
     "Reculer",
     "Tourner à Gauche",

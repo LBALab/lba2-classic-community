@@ -102,6 +102,7 @@ That split is worth reaching for because it is the same line as the testable one
 - **Indentation:** 4 spaces in C/C++. Tabs are preserved in ASM. The original used tabs; there is an ongoing migration to 4 spaces, so new contributions use 4 spaces.
 - **Types:** use the fixed-width aliases `S32`/`U32`/`S16`/`U16`/`U8` from [`LIB386/H/SYSTEM/ADELINE_TYPES.H`](LIB386/H/SYSTEM/ADELINE_TYPES.H), not bare `int`/`unsigned`, in ported and engine code.
 - **Standard:** C++98 for engine and game code; tests may use C11/C++11.
+- **Macro names:** a macro this project defines must not take a name the C or POSIX standard headers own. `MAX_INPUT` was ours for the 36 bindable actions and is also POSIX's, where `<linux/limits.h>` gives it the value 255; Bionic reaches it through `<limits.h>` and desktop glibc does not, so the collision compiled on every host but Android and surfaced only when someone cut a release. Whether it bites at all depends on include order, which makes it a landmine rather than a build failure. Names are cheap: `MAX_INPUT_SLOTS` costs nothing and cannot be clobbered.
 
 ## Strings a player reads
 
