@@ -30,8 +30,15 @@
    moves as a unit; INV_DELTA_X stays fixed at the authored inner width (623).
    At 640 INV_LEFT_OFFSET is 0 and every macro resolves to the historical
    literal (10/8/0/...). The iso-relative INV_ZOOM box centres on
-   ModeDesiredX/2 - 3 (matches the historical 317 anchor at 640). */
-#define INV_LEFT_OFFSET (((S32)ModeDesiredX - 640) / 2)
+   ModeDesiredX/2 - 3 (matches the historical 317 anchor at 640).
+
+   Below 640 the offset clamps to 0 rather than going negative (UI_LAYOUT.H,
+   same rule as the vertical twin). The authored 623-wide block cannot fit, so
+   the choice is where to clip it: anchored at the left edge the first column
+   and the selection stay on screen, and the X coordinates stay inside the
+   framebuffer. A negative origin put the block's left edge off-screen and is
+   how the frame corner copies came to index outside Log. */
+#define INV_LEFT_OFFSET UI_HCANVAS_OFS
 #define INV_TOP_OFFSET UI_VCENTER_OFS // vertical twin of INV_LEFT_OFFSET; shared with the other UI surfaces (UI_LAYOUT.H, clamped >= 0)
 #define INV_START_X (INV_START_X_MARGIN + INV_LEFT_OFFSET)
 #define INV_START_Y (INV_START_Y_MARGIN + INV_TOP_OFFSET)

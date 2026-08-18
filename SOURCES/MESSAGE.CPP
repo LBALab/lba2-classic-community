@@ -132,7 +132,7 @@ S32 Dial_ForceFlag = 0;
 /* Horizontal inset to apply when Dial_Letterbox is set: half the gap between
    the framebuffer's width and the authored 640 px PCX width. Zero at 640. */
 static S32 DialLetterboxInset(void) {
-    return Dial_Letterbox ? (((S32)ModeDesiredX - 640) / 2) : 0;
+    return Dial_Letterbox ? UI_HCANVAS_OFS : 0;
 }
 
 /* Vertical twin of DialLetterboxInset (== UI_VCENTER_OFS when letterboxed):
