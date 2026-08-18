@@ -30,6 +30,7 @@ static T_SETTING row(T_SETTING_TYPE type, S32 def, S32 min, S32 max) {
     s.max = max;
     s.stored = NULL;
     s.forced = NULL;
+    s.on_change = NULL;
     s.help = NULL;
     return s;
 }
@@ -180,6 +181,68 @@ static void test_a_default_outside_the_range_is_contained(void) {
     ASSERT_EQ_INT(1, Settings_Coerce(&high, 1));
 }
 
+/* --- Settings_Apply: storing a value and telling its owner ---------------- */
+
+/* A hook that records what it was told, so a test can ask whether it ran, how
+   often, and with which value. */
+static S32 s_applied_calls = 0;
+static S32 s_applied_value = -1;
+
+static void record_apply(S32 value) {
+    s_applied_calls++;
+    s_applied_value = value;
+}
+
+static void reset_apply(void) {
+    s_applied_calls = 0;
+    s_applied_value = -1;
+}
+
+/* The hook is told what the setting holds, not what arrived. A hook handed the
+   raw value would apply something the setting does not hold, which for a driver
+   means the two disagree in the direction this exists to prevent. */
+static void test_the_hook_is_told_the_stored_value(void) {
+    S32 live = 0;
+    T_SETTING s = row(SETTING_CLAMP, 3, 0, 10);
+    s.value = &live;
+    s.on_change = record_apply;
+
+    reset_apply();
+    Settings_Apply(&s, 99);
+    ASSERT_EQ_INT(10, live);
+    ASSERT_EQ_INT(1, s_applied_calls);
+    ASSERT_EQ_INT(10, s_applied_value);
+}
+
+/* Fires once per write, including when the value did not move. A setting reapplied
+   to what it already held still has to reach whatever caches it: the console's
+   reverse-stereo verb run twice must leave the driver swapped, not toggled. */
+static void test_the_hook_fires_on_every_write(void) {
+    S32 live = 0;
+    T_SETTING s = row(SETTING_RAW, 0, SETTING_MIN_NONE, SETTING_MAX_NONE);
+    s.value = &live;
+    s.on_change = record_apply;
+
+    reset_apply();
+    Settings_Apply(&s, 1);
+    Settings_Apply(&s, 1);
+    ASSERT_EQ_INT(2, s_applied_calls);
+    ASSERT_EQ_INT(1, live);
+}
+
+/* Most settings have no hook, and storing must not care. */
+static void test_a_setting_without_a_hook_just_stores(void) {
+    S32 live = 0;
+    T_SETTING s = row(SETTING_CLAMP, 3, 0, 10);
+    s.value = &live;
+    s.on_change = NULL;
+
+    reset_apply();
+    Settings_Apply(&s, 7);
+    ASSERT_EQ_INT(7, live);
+    ASSERT_EQ_INT(0, s_applied_calls);
+}
+
 int main(void) {
     RUN_TEST(test_every_rule_passes_an_in_range_value_through);
     RUN_TEST(test_clamp_moves_to_the_nearer_bound);
@@ -194,6 +257,9 @@ int main(void) {
     RUN_TEST(test_setting_it_to_the_forced_value_cannot_be_told_apart);
     RUN_TEST(test_zero_is_a_real_forced_value);
     RUN_TEST(test_a_default_outside_the_range_is_contained);
+    RUN_TEST(test_the_hook_is_told_the_stored_value);
+    RUN_TEST(test_the_hook_fires_on_every_write);
+    RUN_TEST(test_a_setting_without_a_hook_just_stores);
     TEST_SUMMARY();
     return test_failures != 0;
 }

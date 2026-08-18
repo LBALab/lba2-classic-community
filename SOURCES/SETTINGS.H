@@ -1,6 +1,12 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+/* Self-contained: the host test includes this on its own, so it cannot rely on
+   NULL or S32 having arrived from whatever included it first. */
+#include <SYSTEM/ADELINE_TYPES.H>
+
+#include <stddef.h>
+
 #include <SYSTEM/ADELINE_TYPES.H>
 
 /* One declaration per setting, read by every surface that exposes it.
@@ -42,6 +48,19 @@ typedef enum {
  * it. Wraps whichever Control_HasX / Control_GetX pair belongs to the flag. */
 typedef S32 (*T_SETTING_FORCED_FN)(void);
 
+/* Told what the setting now holds, after it has been stored and coerced.
+ *
+ * A setting whose value has to reach something else (a driver, a surface that
+ * caches it) cannot be served by a bare pointer: whoever writes the pointer has
+ * to remember the second half, and every writer has to remember it separately.
+ * That is how the console's reverse-stereo verb came to swap the sample driver
+ * without recording the setting, so the choice was never saved and the next
+ * reapply undid it.
+ *
+ * NULL for a setting that is only ever read by whoever needs it, which is most
+ * of them. */
+typedef void (*T_SETTING_APPLY_FN)(S32 value);
+
 typedef struct {
     const char *key;    /* lba2.cfg key; NULL if this surface does not persist it */
     const char *legacy; /* older key to fall back to when `key` is absent; NULL if none */
@@ -62,8 +81,23 @@ typedef struct {
      * different one persists, which is the case that matters. */
     S32 *stored;
     T_SETTING_FORCED_FN forced;
-    const char *help; /* console help text */
+    T_SETTING_APPLY_FN on_change; /* told the new value after a runtime write; NULL if nothing to do */
+    const char *help;             /* console help text */
 } T_SETTING;
+
+/* Store a value into a setting and tell its owner, which is what "setting" a
+ * setting means at runtime. One place, so every writer coerces and notifies
+ * alike rather than each remembering both halves.
+ *
+ * The hook is handed the stored value, not the one that arrived, so it sees what
+ * the setting actually holds after coercion. A hook that was told the raw value
+ * would apply something the setting does not hold.
+ *
+ * Deliberately not used by Settings_ReadConfig. At boot the table is read before
+ * the subsystems a hook would talk to are up, and the boot path already applies
+ * what it needs once the whole table is in. Firing there would call into a
+ * driver that does not exist yet, to no purpose. */
+static inline void Settings_Apply(const T_SETTING *s, S32 value);
 
 /* What the cfg said, turned into what the setting may hold. The one place a
  * range is enforced, and the only part of this file free of engine state, so the
@@ -102,6 +136,12 @@ static inline S32 Settings_Coerce(const T_SETTING *s, S32 value) {
             value = s->max;
         return value;
     }
+}
+
+static inline void Settings_Apply(const T_SETTING *s, S32 value) {
+    *s->value = Settings_Coerce(s, value);
+    if (s->on_change != NULL)
+        s->on_change(*s->value);
 }
 
 /* Which value to persist for a setting a flag may be forcing this run: the
