@@ -67,3 +67,11 @@ jobs:
 
       - name: Check architecture boundaries
         run: python3 ./scripts/ci/check-arch.py
+
+      # The control-harness fixtures cannot run here: they need retail game data, and
+      # run.sh reports a missing prerequisite as SKIP and exits 0, so a job that ran
+      # them would go green having run nothing. What can be checked without data is
+      # that the index of them is honest, which it was not: two docs quoted 60 and 59
+      # fixtures against an actual 62. Same job because this needs no toolchain either.
+      - name: Check the control-harness index is current
+        run: python3 ./scripts/ci/gen-automation-index.py --check

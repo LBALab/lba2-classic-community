@@ -116,7 +116,7 @@ that is spelled inline at many call sites into one place, without changing behav
    ```
 
    Expect the answer to be no. Roughly **5% of `SOURCES` is linked into a host test**, and every
-   file that is has no 1997 ancestor; the 59 fixtures in `tests/automation` are referenced by no
+   file that is has no 1997 ancestor; the fixtures in [`tests/automation`](../tests/automation/README.md) are referenced by no
    workflow, and `LBA2_BUILD_ASM_EQUIV_TESTS` is `OFF` in all of them. So for most of the tree
    the honest starting position is that nothing would catch you.
 
