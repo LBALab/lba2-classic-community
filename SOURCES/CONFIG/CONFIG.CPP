@@ -1,7 +1,7 @@
 #include "C_EXTERN.H"
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-char ConfigTxt[MAX_INPUT][100] = {
+char ConfigTxt[MAX_INPUT_SLOTS][100] = {
     "Avancer",
     "Reculer",
     "Tourner à Gauche",
@@ -156,7 +156,7 @@ S32 SelectKey = 0;
 #define CFG_X0 10
 #define CFG_Y0 10
 #define CFG_X1 630
-#define CFG_Y1 (CFG_Y0 + MAX_INPUT * 10 + 35)
+#define CFG_Y1 (CFG_Y0 + MAX_INPUT_SLOTS * 10 + 35)
 
 #define ACTION_X (CFG_X0 + 20)
 #define KEY1_X (CFG_X0 + 390)
@@ -269,7 +269,7 @@ void DrawScreenConfig(void) {
 
     DrawStatusConfig(STATUS_MENU);
 
-    for (n = 0; n < MAX_INPUT; n++) {
+    for (n = 0; n < MAX_INPUT_SLOTS; n++) {
         DrawOneConfig(n);
     }
 }
@@ -278,7 +278,7 @@ void DrawScreenConfig(void) {
 S32 CheckKeyConfig(S32 key) {
     S32 n;
 
-    for (n = 0; n < MAX_INPUT; n++) {
+    for (n = 0; n < MAX_INPUT_SLOTS; n++) {
         if (DefKeys[n].Key1 == key OR DefKeys[n].Key2 == key) {
             return n;
         }
@@ -310,7 +310,7 @@ void MenuConfig(void) {
         if (akey == A_UP) {
             SelectConfig--;
             if (SelectConfig < 0)
-                SelectConfig = MAX_INPUT - 1;
+                SelectConfig = MAX_INPUT_SLOTS - 1;
 
             DrawOneConfig(oldselect);
             DrawOneConfig(SelectConfig);
@@ -320,7 +320,7 @@ void MenuConfig(void) {
 
         if (akey == A_DOWN) {
             SelectConfig++;
-            if (SelectConfig >= MAX_INPUT)
+            if (SelectConfig >= MAX_INPUT_SLOTS)
                 SelectConfig = 0;
 
             DrawOneConfig(oldselect);
@@ -342,8 +342,8 @@ void MenuConfig(void) {
 
         if (akey == A_PGDN) {
             SelectConfig += 10;
-            if (SelectConfig >= MAX_INPUT)
-                SelectConfig = MAX_INPUT - 1;
+            if (SelectConfig >= MAX_INPUT_SLOTS)
+                SelectConfig = MAX_INPUT_SLOTS - 1;
 
             DrawOneConfig(oldselect);
             DrawOneConfig(SelectConfig);
@@ -361,7 +361,7 @@ void MenuConfig(void) {
         }
 
         if (akey == A_END) {
-            SelectConfig = MAX_INPUT - 1;
+            SelectConfig = MAX_INPUT_SLOTS - 1;
 
             DrawOneConfig(oldselect);
             DrawOneConfig(SelectConfig);

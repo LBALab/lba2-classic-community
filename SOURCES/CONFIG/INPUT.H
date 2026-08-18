@@ -49,7 +49,7 @@
 #define I_PROTECTION (1 << 2) // 'C'		Sort de Protection
 #define I_FOUDRE (1 << 3)     // 'F'		Sort de Foudre
 
-#define MAX_INPUT 36
+#define MAX_INPUT_SLOTS 36
 
 #define I_JOY (I_UP | I_DOWN | I_LEFT | I_RIGHT)
 #define I_FIRE (I_ACTION_M | I_INVENTORY | I_RETURN | I_THROW | I_COMPORTEMENT)
@@ -84,10 +84,10 @@ typedef struct {
     U32 Key2;
 } T_DEF_KEY;
 
-extern T_DEF_KEY DefKeys[MAX_INPUT + 1];
+extern T_DEF_KEY DefKeys[MAX_INPUT_SLOTS + 1];
 
 // tableau de configuration des touches utilisé au cours du jeu
-extern U32 TabInputBit[MAX_INPUT + 1];
+extern U32 TabInputBit[MAX_INPUT_SLOTS + 1];
 
 /*══════════════════════════════════════════════════════════════════════════*
 			██████┐ ██┐ ██┐ ██████┐ ██████┐

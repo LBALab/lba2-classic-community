@@ -223,9 +223,41 @@ The check reads string literals only, so a comment naming a doc stays legal, whi
 numbers need the pattern anchored tightly enough to leave
 [EXIT_SCREEN.CPP](../../SOURCES/EXIT_SCREEN.CPP)'s "RULE #1024-GH" joke alone.
 
+### 8. No macro takes a name the standard headers own
+
+CODESTYLE.md, "Layout and naming": "a macro this project defines must not take a name the C or
+POSIX standard headers own."
+
+One live case, fixed in #589 before the rule landed: `MAX_INPUT` named this project's 36 bindable
+actions and also names POSIX's terminal type-ahead buffer, which
+[`<linux/limits.h>`](https://man7.org/linux/man-pages/man0/limits.h.0p.html) gives the value 255.
+Bionic reaches it through `<limits.h>`; desktop glibc on the same path does not. The collision
+therefore compiled on Linux, macOS and Windows, under clang and gcc, and under both sanitizers,
+and broke only Android.
+
+**Why a rule and not a compiler warning.** Whether it bites depends on include order. The name was
+wrong for twenty-nine years and harmless for all of them, because `INPUT.H` happened to be included
+after the system headers everywhere it mattered. The first translation unit to include its own
+header first turned it into six errors. A gate that only fires when the ordering is unlucky is not
+a gate, which is why this one reads the name rather than the outcome.
+
+**The list is embedded, not read from the host.** `RESERVED_MACRO_NAMES` holds what the `<limits.h>`
+family defines on glibc, with the regeneration command beside it. Asking the local libc at check
+time would give a macOS laptop a different answer from the CI runner, and a gate that moves with
+the host is not one. A name arriving in a future libc is something to add deliberately, in a diff
+someone reads.
+
+**The portability idiom is allowed.** A define whose own `#ifndef` guards it is supplying a name
+the host omitted, which is the opposite of taking one. Nothing in the tree does that today; a rule
+that fired on it would be telling people not to write correct code.
+
+`SOURCES/CONFIG/` is renamed along with the rest even though nothing builds it. An exception for
+one directory would be a hole in the rule worth more than the dead tree's likeness to its 1997
+self, and the same argument the `VENDORED` comment makes about convenient exemptions applies here.
+
 ## What is deliberately not a rule
 
-Four candidates that failed one of the three tests. Recording them matters as much as the list
+Five candidates that failed one of the three tests. Recording them matters as much as the list
 above, because each will look attractive again later.
 
 **A surface must not name a feature's variables.** Load-bearing, and the reason
@@ -249,6 +281,15 @@ version: GAMEMENU.CPP is +1,771 lines since the import and PERSO.CPP +643. As a 
 every bug fix in those files to discourage new subsystems, which is not the behaviour the
 roadmap asks for. The ownership ratchets in rules 4 and 5 catch the same drift at the place it
 actually causes harm.
+
+**Reserved name *patterns*, as opposed to names.** POSIX reserves whole shapes, not just the
+entries in `<limits.h>`: `E[0-9A-Z]*` for errno, `SIG[A-Z]*`, `LC_[A-Z]*`, `str[a-z]*`, `mem[a-z]*`,
+and a leading underscore for the implementation. Checking those would be the more complete rule and
+it fails the third test: the tree defines 50 macros starting with `E` (`EOP`, `END_READ`,
+`ERROR_FILE_NOT_CREATED`) and 8 with a leading underscore, all of them resource-script leftovers.
+Every one is a false positive, so the rule would land red and teach people to skip it. The other
+four shapes are at zero today and could be added if a real collision ever appears; that would be
+enforcement earned by an incident, which is how rule 8 arrived.
 
 ## Where the check runs
 

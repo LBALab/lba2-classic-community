@@ -48,6 +48,44 @@ VENDORED = (
     "LIB386/FILEIO/stb_image_write.h",
 )
 
+# --- rule 8: macro names the standard headers already own -------------------
+
+# Names the C and POSIX standard headers define, taken from the <limits.h> family
+# on a glibc host:
+#
+#   for h in /usr/include/limits.h /usr/include/linux/limits.h \
+#            /usr/include/*/bits/posix1_lim.h /usr/include/*/bits/posix2_lim.h \
+#            /usr/include/*/bits/local_lim.h; do
+#       sed -n 's/^[[:space:]]*#[[:space:]]*define[[:space:]]\+\([A-Z][A-Z0-9_]*\).*/\1/p' "$h"
+#   done | sort -u
+#
+# Embedded rather than read at check time on purpose: a rule that asks the local
+# libc what it defines gives a different answer on a macOS laptop than on the CI
+# runner, and a gate that moves with the host is not a gate. Regenerating it is
+# the command above; a name arriving in a future libc is a thing to add here
+# deliberately, in a diff someone reads.
+#
+# Underscore-prefixed names are left out. Those belong to the implementation
+# rather than to a caller, nothing here defines one, and the four resource-script
+# leftovers that do (_APS_NEXT_*) would be noise rather than a finding.
+RESERVED_MACRO_NAMES = frozenset(
+    """
+    AIO_PRIO_DELTA_MAX ARG_MAX BC_BASE_MAX BC_DIM_MAX BC_SCALE_MAX BC_STRING_MAX
+    BOOL_MAX BOOL_WIDTH CHARCLASS_NAME_MAX CHAR_BIT CHAR_MAX CHAR_MIN CHAR_WIDTH
+    COLL_WEIGHTS_MAX DELAYTIMER_MAX EXPR_NEST_MAX HOST_NAME_MAX INT_MAX INT_MIN
+    INT_WIDTH LINE_MAX LINK_MAX LLONG_MAX LLONG_MIN LLONG_WIDTH LOGIN_NAME_MAX
+    LONG_MAX LONG_MIN LONG_WIDTH MAX_CANON MAX_INPUT MB_LEN_MAX MQ_PRIO_MAX
+    NAME_MAX NGROUPS_MAX NR_OPEN PATH_MAX PIPE_BUF PTHREAD_DESTRUCTOR_ITERATIONS
+    PTHREAD_KEYS_MAX RE_DUP_MAX RTSIG_MAX SCHAR_MAX SCHAR_MIN SCHAR_WIDTH
+    SEM_VALUE_MAX SHRT_MAX SHRT_MIN SHRT_WIDTH SSIZE_MAX TTY_NAME_MAX UCHAR_MAX
+    UCHAR_WIDTH UINT_MAX UINT_WIDTH ULLONG_MAX ULLONG_WIDTH ULONG_MAX ULONG_WIDTH
+    USHRT_MAX USHRT_WIDTH XATTR_LIST_MAX XATTR_NAME_MAX XATTR_SIZE_MAX
+    """.split()
+)
+
+DEFINE_RE = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z0-9_]*)")
+IFNDEF_RE = re.compile(r"^\s*#\s*ifndef\s+([A-Za-z_][A-Za-z0-9_]*)")
+
 # --- rule 3: where a platform conditional may live --------------------------
 
 PLATFORM_MACROS = (
@@ -474,6 +512,39 @@ def rule_console_library_names_no_game(sources: list[Source]) -> list[Violation]
     return found
 
 
+def rule_no_reserved_macro_names(sources: list[Source]) -> list[Violation]:
+    """Flag a #define that takes a name the standard headers own.
+
+    The portability idiom is allowed: a define whose own #ifndef guards it is
+    supplying the name where the host did not, which is the opposite of taking it.
+    Nothing in the tree does that today, and a rule that fired on it would be
+    telling people not to write correct code.
+    """
+    found = []
+    for source in sources:
+        guarded = None
+        for line, text in source.lines():
+            ifndef = IFNDEF_RE.match(text)
+            if ifndef:
+                guarded = ifndef.group(1)
+                continue
+            match = DEFINE_RE.match(text)
+            if not match:
+                continue
+            name = match.group(1)
+            if name in RESERVED_MACRO_NAMES and name != guarded:
+                found.append(
+                    Violation(
+                        source.path,
+                        line,
+                        f"{name} is defined by the standard headers "
+                        f"(<limits.h> and friends); pick a name of this project's own",
+                    )
+                )
+            guarded = None
+    return found
+
+
 def rule_no_repo_reference_in_strings(sources: list[Source]) -> list[Violation]:
     found = []
     for source in sources:
@@ -549,6 +620,19 @@ RULES = (
         'CODESTYLE.md: "its core builds as a library that touches no game state, while '
         'CONSOLE_CMD.CPP [...] is deliberately left out of that library."',
         rule_console_library_names_no_game,
+    ),
+    Rule(
+        8,
+        "no macro takes a name the standard headers own",
+        'CODESTYLE.md "Layout and naming": "a macro this project defines must not take '
+        'a name the C or POSIX standard headers own."',
+        rule_no_reserved_macro_names,
+        remedy=(
+            "rename the macro. Whether a collision breaks the build depends on include "
+            "order and on which libc the host uses, so a tree that compiles today is no "
+            "evidence. If instead you are supplying a name the host omitted, guard the "
+            "define with its own #ifndef and this rule steps aside."
+        ),
     ),
     Rule(
         7,
