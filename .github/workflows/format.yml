@@ -27,10 +27,30 @@ jobs:
       - name: Install clang-format
         # Keep this major version in sync with CLANG_FORMAT_MAJOR in
         # scripts/ci/clang-format-select.sh (the single source of truth).
-        # Acquire::Retries so a mirror hiccup costs a retry, not the run.
         run: |
-          sudo apt-get -o Acquire::Retries=5 update
-          sudo apt-get -o Acquire::Retries=5 install -y clang-format-18
+          # Retries alone do not cover the failure that matters here: a mirror
+          # that accepts the connection and then stalls returns no error to
+          # retry on, and apt has no wall clock of its own. See docs/CI.md.
+          apt_opts=(
+            -o Acquire::Retries=5
+            -o Acquire::http::Timeout=15
+            -o Acquire::https::Timeout=15
+          )
+          for attempt in 1 2 3; do
+            # A killed apt leaves dpkg interrupted, and the next attempt would
+            # abort on that before fetching anything.
+            sudo dpkg --configure -a || true
+            if timeout -k 30 90 sudo apt-get "${apt_opts[@]}" update \
+              && timeout -k 30 240 sudo apt-get "${apt_opts[@]}" install -y clang-format-18; then
+              exit 0
+            fi
+            if [ "${attempt}" = 3 ]; then
+              echo "apt failed after 3 attempts" >&2
+              exit 1
+            fi
+            echo "apt attempt ${attempt} failed or timed out; retrying in 10s"
+            sleep 10
+          done
 
       - name: Check formatting
         run: bash ./scripts/ci/check-format.sh

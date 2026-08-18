@@ -49,7 +49,8 @@ jobs:
       - name: Install shellcheck
         run: |
           mkdir -p "$HOME/.local/bin"
-          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors --retry-max-time 120 --connect-timeout 10 --max-time 60 \
+            "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
             | tar -xJ -C "$HOME/.local/bin" --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/shellcheck" --version
@@ -87,9 +88,11 @@ jobs:
       - name: Install shellcheck and actionlint
         run: |
           mkdir -p "$HOME/.local/bin"
-          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors --retry-max-time 120 --connect-timeout 10 --max-time 60 \
+            "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
             | tar -xJ -C "$HOME/.local/bin" --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
-          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors --retry-max-time 120 --connect-timeout 10 --max-time 60 \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
             | tar -xz -C "$HOME/.local/bin" actionlint
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/actionlint" --version
