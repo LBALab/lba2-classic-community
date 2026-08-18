@@ -1,6 +1,7 @@
 #include <SYSTEM/INPUT.H>
 
 #include <SYSTEM/ADELINE_TYPES.H>
+#include <SYSTEM/INPUT_FLOW.H>
 #include <SYSTEM/KEYBOARD.H>
 
 //***************************************************************************
@@ -48,6 +49,11 @@ void GetInput(U32 norepeat) {
 
     // update NoRepeatInput
     NoRepeatInput = norepeat;
+
+    /* Boundary 2, with the table GetInput actually walked and the Input it
+       produced. `norepeat` at this point is what the edge filter withheld,
+       which is suppression working rather than a rise going missing. */
+    InputFlow_NoteInputRebuilt(Input, norepeat);
 }
 
 //***************************************************************************

@@ -1,6 +1,7 @@
 #include <SYSTEM/KEYBOARD.H>
 
 #include <SYSTEM/EVENTS.H>
+#include <SYSTEM/INPUT_FLOW.H>
 
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keyboard.h>
@@ -65,8 +66,17 @@ void UpdateKeyboardState() {
         }
     }
 
+    /* Boundary 1's state side, taken here rather than after the two hooks
+       below: they put keys into TabKeys that no SDL event produced, and those
+       would read as presses the event side had lost. */
+    InputFlow_NotePollSampled(TabKeys);
+
     ApplyVirtualKeys();
     ApplyHarnessKeys();
+
+    /* Boundary 2's key side, after the hooks: an injected key is a real key as
+       far as the binding table is concerned. */
+    InputFlow_NotePollFinal(TabKeys);
 }
 
 // --- Initialization ----------------------------------------------------------
@@ -130,6 +140,14 @@ void HandleEventsKeyboard(const void *event) {
     if (ev->type == SDL_EVENT_KEY_DOWN) {
         LastInputWasKeyboard = 1;
     }
+
+    /* Boundary 1's event side. Auto-repeat is excluded: a held key repeats at
+       the desktop's rate and none of those repeats is a press, so counting them
+       would swamp the one number this boundary exists to produce. */
+    if (ev->type == SDL_EVENT_KEY_DOWN && !ev->key.repeat)
+        InputFlow_NoteKeyEvent(TRUE);
+    else if (ev->type == SDL_EVENT_KEY_UP)
+        InputFlow_NoteKeyEvent(FALSE);
 }
 
 // =============================================================================

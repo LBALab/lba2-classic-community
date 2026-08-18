@@ -1,4 +1,6 @@
 #include "C_EXTERN.H"
+
+#include <SYSTEM/INPUT_FLOW.H>
 #include <POLYGON/POLYFILT.H>
 
 extern S32 GfxDitherShading;
@@ -1619,9 +1621,18 @@ restartloop:
                                                  (InventoryAction >= 0) || (FirstTime == AFF_ALL_FLIP) || (((Input ^ LastInput) & I_ACTION_EDGE) != 0),
                                                  TimerRefHR, FixedTimestep, &simBaseRef, &nextLastSim);
             LastSimRefHR = nextLastSim;
-            if (nSimSteps <= 0)
+            if (nSimSteps <= 0) {
+                /* Boundary 3 (SYSTEM/INPUT_FLOW.H): this frame carried an input
+                   edge and the simulation is about to not see it. Counted on
+                   both arms rather than once below the block, so that a
+                   diagnostic adds lines and moves none: the goto leaves from
+                   inside here, and hoisting it out to share one call would edit
+                   the throttle to measure it. */
+                InputFlow_NoteSimFrame(Input ^ LastInput, I_ACTION_EDGE, FALSE);
                 goto skip_simulation; // high-fps skip (remainder carries) or clock rewind (re-anchored)
+            }
         }
+        InputFlow_NoteSimFrame(Input ^ LastInput, I_ACTION_EDGE, TRUE);
 
         /* Advance the harness input timeline by this frame's sim ticks (docs/plan/INPUT_SIM_PLAN.md).
            Metered in sim ticks, not rendered frames, so a hold means the same across
