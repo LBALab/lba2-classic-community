@@ -148,18 +148,19 @@ convention that produced that is in [CODESTYLE.md "Where new code goes"](../CODE
 | `SamplePlayed`, `TimerNextAmbiance`, `SecondEcart`, `SecondMin` | Ambiance scheduling state | Gameplay. **Owned by `AMBIANCE.H`** |
 | `CubeJingle`, `SampleAlwaysMove` | Per-cube jingle / always-on sample | World, Gameplay. Still on the bus: written by the scene loader, read by gameplay, no audio TU touches either |
 | `SampleVolume`, `VoiceVolume`, `MasterVolume`, `SamplesEnable` | Mix levels / enable | Platform, Orchestration (save). **Owned by `AMBIANCE.H`** |
+| `ReverseStereo` | Stereo channel swap | Platform. **Owned by `AMBIANCE.H`**, though the cfg table in `CONFIG_FILE.CPP` still reads and applies it |
 | `ParmSampleVolume`, `ParmSampleDecalage`, `ParmSampleFrequence` | Saved sample params | Orchestration (save) |
 | `RestartMusic`, `BufSpeak` | Music restart / speech buffer | UI |
-| `ReverseStereo` | Stereo channel swap | Platform |
 
 > The ambiance scheduler is the clearest example of the seed taxonomy being wrong: it is
 > gameplay *scheduling* audio *playback*. Splitting it out names the gameplay↔audio
 > coupling instead of burying it in Platform.
 >
-> Fourteen of these now live in `AMBIANCE.H`, and which five did not is the useful part:
+> Fourteen of these now live in `AMBIANCE.H`, and which seven did not is the useful part:
 > `ReverseStereo` moved because the audio module is where an audio setting belongs, while
 > the three `ParmSample*` and `CubeJingle` / `SampleAlwaysMove` stayed because gameplay and
-> the scene loader write them and no audio translation unit does. The coupling this note
+> the scene loader write them and no audio translation unit does, and `RestartMusic` and
+> `BufSpeak` stayed for the same reason on the music and speech side. The coupling this note
 > predicted is exactly what stopped them, so it is now visible in the header rather than
 > inferred from a table.
 

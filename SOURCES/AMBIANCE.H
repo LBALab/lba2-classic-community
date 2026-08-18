@@ -19,8 +19,12 @@
    RestartMusic is read only by the save and the main loop. None has a single
    owner to move to, so all stay on the shared bus until one exists. */
 
-/* Mix levels and the sample-driver enable, read from the cfg by
-   ReadVolumeSettings below and moved by the options-menu sliders. 0 to 127. */
+/* The audio settings, which do not all arrive the same way. The three volumes
+   are 0 to 127, read from the cfg by ReadVolumeSettings below and moved by the
+   options-menu sliders. SamplesEnable is a boolean the boot path sets from
+   whether a sample driver came up, and a cheat toggles; it is in no cfg key.
+   ReverseStereo is a boolean owned here but read from the cfg by the settings
+   table in CONFIG_FILE.CPP, which is also where it is applied. */
 extern S32 SampleVolume;
 extern S32 VoiceVolume;
 extern S32 MasterVolume;
