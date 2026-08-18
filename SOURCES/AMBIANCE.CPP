@@ -866,6 +866,24 @@ void ReadVolumeSettings() {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
+/* Set the stereo swap and apply it in one call.
+ *
+ * Both halves or neither: applying without storing leaves the driver swapped and
+ * the setting saying it is not, so the choice is not written to the cfg, the next
+ * reapply undoes it, and the options menu shows the opposite of what is audible.
+ * The surfaces that expose this setting call here rather than reaching for
+ * InverseStereoSample themselves.
+ *
+ * The value is stored as it arrives. The cfg key is declared SETTING_RAW, so a
+ * hand-edited value outside 0 and 1 keeps round-tripping as it did; callers that
+ * have a boolean normalise it before calling. */
+void Audio_SetReverseStereo(S32 on) {
+    ReverseStereo = on;
+    InverseStereoSample(on);
+}
+
+/*--------------------------------------------------------------------------*/
+
 void WriteVolumeSettings() {
     DefFileBufferWriteValue("WaveVolume", SampleVolume);
     DefFileBufferWriteValue("VoiceVolume", VoiceVolume);
