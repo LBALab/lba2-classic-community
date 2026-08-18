@@ -31,7 +31,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Code Checkout
@@ -67,8 +67,28 @@ jobs:
       # the launcher entry under the wrong menu, on the machines that have one.
       - name: Validate packaging metadata
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends desktop-file-utils appstream
+          # Bounded and retried for the same reason as the apt in
+          # .github/actions/setup-sdl3: a stalled Ubuntu mirror gives no error
+          # to retry on and no wall clock of its own, so it goes quiet until
+          # the job timeout fires.
+          apt_opts=(
+            -o Acquire::Retries=5
+            -o Acquire::http::Timeout=15
+            -o Acquire::https::Timeout=15
+          )
+          for attempt in 1 2 3; do
+            if timeout -k 30 120 sudo apt-get "${apt_opts[@]}" update \
+              && timeout -k 30 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends \
+                desktop-file-utils appstream; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "apt failed after 3 attempts" >&2
+              exit 1
+            fi
+            echo "apt attempt ${attempt} failed or timed out; retrying in 10s"
+            sleep 10
+          done
           # Globbed rather than named so renaming LBA2_DESKTOP_ID or
           # LBA2_BUNDLE_IDENTIFIER doesn't quietly validate nothing.
           desktop-file-validate build/packaging/*.desktop
@@ -93,7 +113,7 @@ jobs:
   # nothing ran it.
   build-clang:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Code Checkout
@@ -136,7 +156,7 @@ jobs:
   # contact teaches people to regenerate it without reading it.
   warnings:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Code Checkout
@@ -169,7 +189,7 @@ jobs:
   # link buys no coverage. The tests themselves take about three seconds.
   sanitize:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Code Checkout
@@ -212,7 +232,7 @@ jobs:
   # a file no demo install has.
   build-demo:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Code Checkout

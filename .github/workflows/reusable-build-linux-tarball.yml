@@ -44,13 +44,28 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          # Acquire::Retries so a mirror hiccup costs a retry, not the leg.
-          sudo apt-get -o Acquire::Retries=5 update
+          # Timeouts as well as retries: Acquire::Retries only covers a fetch
+          # that returned an error, and a stalled mirror has hung `update`
+          # for 29 minutes. See .github/actions/setup-sdl3 for the incident.
+          apt_opts=(
+            -o Acquire::Retries=5
+            -o Acquire::http::Timeout=15
+            -o Acquire::https::Timeout=15
+          )
           # Toolchain only. The X11/Wayland/ALSA dev packages a static SDL3
-          # needs at our link step come from the setup-sdl3 action below,
-          # which installs them unconditionally for link: static.
-          sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
-            cmake ninja-build build-essential
+          # needs at the lba2cc link step come from the setup-sdl3 action
+          # below, which installs them unconditionally for link: static.
+          for attempt in 1 2 3; do
+            if timeout -k 30 120 sudo apt-get "${apt_opts[@]}" update \
+              && timeout -k 30 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends \
+                cmake ninja-build build-essential; then
+              exit 0
+            fi
+            echo "apt attempt ${attempt} failed or timed out; retrying in 10s"
+            sleep 10
+          done
+          echo "apt failed after 3 attempts" >&2
+          exit 1
 
       - name: Install SDL3 (static build)
         # link: static forces SDL_STATIC=ON/SDL_SHARED=OFF, so find_package

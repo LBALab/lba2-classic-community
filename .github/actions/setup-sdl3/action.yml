@@ -77,17 +77,42 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        # Acquire::Retries so a mirror hiccup costs a retry, not the leg.
-        sudo apt-get -o Acquire::Retries=5 update
+        # The failure mode here is a stalled mirror, not a failed fetch.
+        # Acquire::Retries only re-tries a request that came back with an
+        # error; a hung connection just sits, and apt has no default wall
+        # clock. Observed: azure.archive.ubuntu.com Ign'd every line, apt
+        # fell back to archive.ubuntu.com, and `update` then went silent for
+        # 29 minutes until the 30-minute job timeout cancelled the leg.
+        #
+        # So bound both ends: per-connection timeouts, and a wall clock on
+        # each phase, retried. A bad mirror now costs a retry rather than the
+        # job, and a mirror that is down for good fails the leg in about 21
+        # minutes with a named cause instead of going quiet until the job
+        # timeout. For scale, a healthy runner does `update` in ~5s and this
+        # package set in ~30-60s.
+        apt_opts=(
+          -o Acquire::Retries=5
+          -o Acquire::http::Timeout=15
+          -o Acquire::https::Timeout=15
+        )
         # Curated rather than SDL's own suggested set: these are the backends
         # the shipped build actually uses, and they match what the release
         # tarball links against, so CI and release agree on one SDL3.
-        sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
-          libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
-          libxinerama-dev libxxf86vm-dev libxss-dev libxtst-dev \
-          libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
-          libasound2-dev libpulse-dev \
-          libudev-dev libdbus-1-dev
+        for attempt in 1 2 3; do
+          if timeout -k 30 120 sudo apt-get "${apt_opts[@]}" update \
+            && timeout -k 30 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends \
+              libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
+              libxinerama-dev libxxf86vm-dev libxss-dev libxtst-dev \
+              libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
+              libasound2-dev libpulse-dev \
+              libudev-dev libdbus-1-dev; then
+            exit 0
+          fi
+          echo "apt attempt ${attempt} failed or timed out; retrying in 10s"
+          sleep 10
+        done
+        echo "apt failed after 3 attempts" >&2
+        exit 1
 
     - name: Build SDL3
       if: steps.restore.outputs.cache-hit != 'true'
@@ -101,9 +126,11 @@ runs:
         SDL3_BUILD_TYPE: ${{ inputs.build-type }}
       run: |
         set -euo pipefail
+        # Same reasoning as the apt phase: a stalled clone is bounded by the
+        # wall clock, not by the retry count.
         rm -rf "${SDL3_SRC}"
         for i in 1 2 3; do
-          git clone --depth 1 --branch "${SDL3_VERSION}" \
+          timeout -k 30 300 git clone --depth 1 --branch "${SDL3_VERSION}" \
             https://github.com/libsdl-org/SDL.git "${SDL3_SRC}" && break
           echo "SDL3 clone attempt ${i} failed, retrying..."
           rm -rf "${SDL3_SRC}"

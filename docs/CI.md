@@ -333,6 +333,26 @@ their distro ships. Consolidating them would mean building SDL3 from
 source under MSYS2 and inside the container, which costs more than the
 drift does.
 
+### apt is bounded, not just retried
+
+Every `apt-get` in the Linux workflows runs under a wall clock and a
+retry loop, not `Acquire::Retries` alone. `Retries` only re-tries a
+request that came back with an error; a mirror that accepts the
+connection and then stalls produces no error and apt has no default
+timeout of its own. Observed on a cold `linux.yml` leg:
+`azure.archive.ubuntu.com` returned `Ign:` on every line, apt fell back
+to `archive.ubuntu.com`, and `apt-get update` then went silent for 29
+minutes until the job timeout cancelled it.
+
+So each phase carries `Acquire::http::Timeout`/`https::Timeout=15`, a
+`timeout -k 30` wall clock (120s for `update`, 300s for `install`), and
+three attempts. A mirror that is down for good now fails the leg in about
+21 minutes with a named cause rather than going quiet until the timeout.
+For scale, a healthy runner does `update` in ~5s. The job timeouts on
+`linux.yml` and `macos.yml` are 45 minutes, matching the release legs:
+30 was sized for a world where SDL3 was always a cache hit, and a genuine
+cold build has to fit too.
+
 `.github/actions/setup-sdl3` owns its cache rather than delegating to
 `libsdl-org/setup-sdl`. The reason is in the action's own header comment:
 setup-sdl's `install-linux-dependencies` runs before it knows whether the
