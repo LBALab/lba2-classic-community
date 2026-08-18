@@ -45,7 +45,7 @@ void ReadInputConfig(void) {
     if (!winmode) {
         RestoreInput();
     } else {
-        T_DEF_KEY *DEFKEYSDEFAULT;
+        const T_DEF_KEY *DEFKEYSDEFAULT;
         DEFKEYSDEFAULT = DefKeysDefault95;
 
         // On peut identifier chaque input avec un tableau de chaine,

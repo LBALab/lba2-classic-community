@@ -8,7 +8,7 @@
 // The 1997 source carried two default layouts, DefKeysDefault for DOS and this
 // one for Windows 95. Only the second was ported. A binding set is where the
 // first would come back if anyone wants it.
-T_DEF_KEY DefKeysDefault95[MAX_INPUT + 1] =
+const T_DEF_KEY DefKeysDefault95[MAX_INPUT + 1] =
     {
         {K_GRAY_UP, K_NUMPAD_8},    // I_UP
         {K_GRAY_DOWN, K_NUMPAD_2},  // I_DOWN
@@ -134,7 +134,7 @@ void InitInput(void) {
 
 //-------------------------------------------------------------------------
 void RestoreInput() {
-    T_DEF_KEY *DEFKEYSDEFAULT;
+    const T_DEF_KEY *DEFKEYSDEFAULT;
     DEFKEYSDEFAULT = DefKeysDefault95;
 
     memcpy(DefKeys, DEFKEYSDEFAULT, sizeof(T_DEF_KEY) * MAX_INPUT);

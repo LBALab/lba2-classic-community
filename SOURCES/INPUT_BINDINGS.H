@@ -30,8 +30,9 @@ typedef struct {
 } T_DEF_KEY;
 
 // The Windows 95 default layout: what RestoreInput installs, and the value a
-// binding the config file leaves unset falls back to.
-extern T_DEF_KEY DefKeysDefault95[MAX_INPUT + 1];
+// binding the config file leaves unset falls back to. Const like the pad table
+// below it, since a default nothing may edit is the point of having one.
+extern const T_DEF_KEY DefKeysDefault95[MAX_INPUT + 1];
 
 extern T_DEF_KEY DefKeys[MAX_INPUT + 1];
 extern T_DEF_KEY MemoDefKeys[MAX_INPUT + 1];
