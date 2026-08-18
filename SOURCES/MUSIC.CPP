@@ -411,9 +411,13 @@ void ResumeMusic(S32 fade) {
 
 void FadeOutVolumeMusic(void) {
     S32 timer;
-    U32 startjvol, jvolume, oldjvol;
+    /* Signed to match JingleVolume and CDVolume, which these are compared and
+       assigned against. They were unsigned while those globals were, and the two
+       have to agree or the comparison converts one side behind the reader's
+       back. */
+    S32 startjvol, jvolume, oldjvol;
 #ifdef CDROM
-    U32 startcdvol, cdvolume, oldcdvol;
+    S32 startcdvol, cdvolume, oldcdvol;
 #endif
 
     ManageTime();
@@ -464,9 +468,13 @@ void FadeOutVolumeMusic(void) {
 
 void FadeInVolumeMusic(void) {
     S32 timer;
-    U32 startjvol, jvolume, oldjvol;
+    /* Signed to match JingleVolume and CDVolume, which these are compared and
+       assigned against. They were unsigned while those globals were, and the two
+       have to agree or the comparison converts one side behind the reader's
+       back. */
+    S32 startjvol, jvolume, oldjvol;
 #ifdef CDROM
-    U32 startcdvol, cdvolume, oldcdvol;
+    S32 startcdvol, cdvolume, oldcdvol;
 #endif
 
     ManageTime();
