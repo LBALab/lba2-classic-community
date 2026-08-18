@@ -26,11 +26,11 @@ Three parts, and the third is the one people miss.
 
 3. **Un-merge the arena.** `InitMainBuffer()` in SOURCES/MEM.CPP hands eleven buffers out of a
    single `Malloc`. A spill from one region into its neighbour never leaves that allocation, so
-   **no sanitizer will ever report it**. Give each region its own allocation behind a debug env
-   var and the redzones become real. Keep the deliberate aliases intact (`BufCube` and
-   `BufferBrick` live inside `PtrZBuffer`; `tabflag` is `Screen + OFFSET_BUFFER_FLAG`) or the
-   isolation invents faults that do not exist. Add a little slack per region: the original ASM
-   deliberately touches one element past a box edge, and that known quirk otherwise masks the
+   **no sanitizer will ever report it**. Set `LBA2_DBG_ISOLATE=1` and each region gets its own
+   allocation, which turns the gaps into real redzones and names the writer. Off by default, so
+   shipping layout is unchanged. It preserves the deliberate aliases (`BufCube` and `BufferBrick`
+   live inside `PtrZBuffer`) and leaves a little slack per region, because the original ASM
+   touches one element past a box edge on purpose and that known quirk would otherwise mask the
    spill you are hunting.
 
 Neighbour order matters when reading a symptom. `TabBlock` sits immediately after `BufMap`, so a
@@ -58,6 +58,35 @@ handles the dialogue and found-object paths; if you add a new modal, extend it.
 **Match the configuration to what people run.** Resolutions below 640x480 are catalogued but
 essentially unused, and a driver that spends a third of its budget there produces real bugs nobody
 will ever hit. Classic, widescreen and HD are where the risk is.
+
+## The driver
+
+`scripts/dev/probe_fuzzy_hunt.py` is the harness the above describes. One engine per run over
+`--listen`, a randomised sequence of player-shaped actions, and the log of any run that dies or
+reports:
+
+```
+export LBA2_BIN=./build-san/SOURCES/lba2cc
+export LBA2_GAME_DIR=/path/to/retail
+export LBA2_SAVE=/path/to/save/Spaceship.LBA
+python3 scripts/dev/probe_fuzzy_hunt.py 8 45 700     # runs, actions per run, first seed
+```
+
+Build the binary with both sanitizers and run with `LBA2_DBG_ISOLATE=1`, or the arena hides the
+interesting half of what it finds.
+
+Everything is seeded from the run index, so a finding replays exactly:
+
+```
+python3 scripts/dev/probe_fuzzy_hunt.py 1 45 704     # just seed 704, same actions
+```
+
+That replay is the A/B. Point `LBA2_BIN` at a pre-fix binary and it reproduces; point it at the
+fixed one and it goes quiet. Keep a copy of the binary you were hunting with, since rebuilding
+under a running sweep will break it.
+
+Two knobs worth changing per campaign: `RESOLUTIONS`, which should hold the modes people actually
+run, and the weights in `actions_for()`, which decide where the budget goes.
 
 ## Oracle discipline
 
