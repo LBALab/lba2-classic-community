@@ -35,6 +35,12 @@ static char BatchFinalPath[ADELINE_MAX_PATH];
 // it. See the API comment in DEFFILE.H.
 static S32 LayersAttached = FALSE;
 
+// Where the first appended layer begins. Everything from here to EndPtrDef came
+// from a lower-priority source, so a key matched at or past it was inherited
+// rather than owned. NULL while nothing is layered, which makes every present
+// key owned, as it should be.
+static char *LayerStart = NULL;
+
 //══════════════════════════════════════════════════════════════════════════
 static inline S32 ReadBufferString(const char *identificateur) {
     char *ptrdef;
@@ -207,6 +213,7 @@ S32 DefFileBufferInit(char *file, void *buffer, S32 maxsize) {
 
     BufferSize = maxsize;
     LayersAttached = FALSE; // a fresh load owns exactly what FileName holds
+    LayerStart = NULL;      // and the boundary with it, or it would point into the old buffer
     OrgPtrDef = (char *)buffer;
     EndPtrDef = OrgPtrDef + buffersize;
     SealBuffer(); // trailing trim, then the 0/32/0 the read loop stops on
@@ -241,6 +248,7 @@ void DefFileBufferSaveState(T_DEFFILE_STATE *out) {
     out->end = EndPtrDef;
     out->bufferSize = BufferSize;
     out->layersAttached = LayersAttached;
+    out->layerStart = LayerStart;
     strcpy(out->fileName, FileName);
 }
 
@@ -253,6 +261,7 @@ void DefFileBufferRestoreState(const T_DEFFILE_STATE *in) {
     EndPtrDef = in->end;
     BufferSize = in->bufferSize;
     LayersAttached = in->layersAttached;
+    LayerStart = in->layerStart;
     strcpy(FileName, in->fileName);
 }
 
@@ -293,7 +302,25 @@ S32 DefFileBufferAppendFile(const char *file) {
     EndPtrDef = layer + loaded;
     SealBuffer();
     LayersAttached = TRUE;
+    /* Only the first append moves the boundary: a second layer goes below the
+       first, and both are equally not-owned. */
+    if (LayerStart == NULL) {
+        LayerStart = layer;
+    }
     return TRUE;
+}
+
+//══════════════════════════════════════════════════════════════════════════
+T_DEFFILE_ORIGIN DefFileBufferKeyOrigin(const char *ident) {
+    if (ident == NULL || !ReadBufferString(ident)) {
+        return DEFFILE_ORIGIN_ABSENT;
+    }
+    /* ReadBufferString leaves PtrEndIdent just past the key's separator, which
+       is the match position the scan stopped at. */
+    if (LayerStart != NULL && PtrEndIdent >= LayerStart) {
+        return DEFFILE_ORIGIN_LAYER;
+    }
+    return DEFFILE_ORIGIN_OWNED;
 }
 
 //══════════════════════════════════════════════════════════════════════════

@@ -138,6 +138,75 @@ int main() {
     // The restored state still knows it is layered, so writes still refuse.
     CHECK(!DefFileBufferWriteString("Shadow", "2"));
 
+    // --- which source answered ----------------------------------------------
+    // The value alone cannot say. A setting inherited from the layer is real for
+    // this run and is not the player's preference, so a writer has to be able to
+    // tell the two apart before deciding what to persist.
+    //
+    // Both files written here rather than inherited: the steps above rewrite them
+    // for their own purposes, and a block that reads whatever they happened to
+    // leave is asserting against the previous test rather than against this one.
+    WriteFile(kOwnPath, "Language: English\nShadow: 3\n");
+    WriteFile(kDataPath, "Language: Francais\nVersion: 3\nPathInstall: C:\\LBA2\n");
+    LoadLayered(true);
+    // Own file: Language, Shadow. Layer: Language (shadowed), Version, PathInstall.
+    CHECK(DefFileBufferKeyOrigin("Language") == DEFFILE_ORIGIN_OWNED);
+    CHECK(DefFileBufferKeyOrigin("Shadow") == DEFFILE_ORIGIN_OWNED);
+    CHECK(DefFileBufferKeyOrigin("Version") == DEFFILE_ORIGIN_LAYER);
+    CHECK(DefFileBufferKeyOrigin("PathInstall") == DEFFILE_ORIGIN_LAYER);
+    CHECK(DefFileBufferKeyOrigin("NoSuchKey") == DEFFILE_ORIGIN_ABSENT);
+    CHECK(DefFileBufferKeyOrigin(NULL) == DEFFILE_ORIGIN_ABSENT);
+    // The shadowed key reads the owned value, and reports the source that gave it.
+    CHECK(ReadKey("Language") == "English");
+
+    // Presence agrees with the reader that already answers it, so the two cannot
+    // drift: ABSENT exactly when DefFileBufferReadValue2 says the key is not there.
+    // A key set to zero is present, which is the case a bare ReadValue confuses
+    // with a missing one only because its sentinel for missing is -1.
+    WriteFile(kOwnPath, "Zero: 0\n");
+    LoadLayered(false);
+    S32 probe = 123;
+    CHECK(DefFileBufferKeyOrigin("Zero") == DEFFILE_ORIGIN_OWNED);
+    CHECK(DefFileBufferReadValue2("Zero", &probe));
+    CHECK(probe == 0);
+    CHECK(DefFileBufferKeyOrigin("Missing") == DEFFILE_ORIGIN_ABSENT);
+    CHECK(!DefFileBufferReadValue2("Missing", &probe));
+
+    // With no layer attached, everything present is owned.
+    WriteFile(kOwnPath, "Language: English\nShadow: 3\n");
+    LoadLayered(false);
+    CHECK(DefFileBufferKeyOrigin("Language") == DEFFILE_ORIGIN_OWNED);
+    CHECK(DefFileBufferKeyOrigin("Version") == DEFFILE_ORIGIN_ABSENT);
+
+    // A re-load clears the boundary. Without that the stale pointer sits in the
+    // middle of whatever the next buffer holds, and every key past that offset
+    // reports itself inherited from a layer that is no longer attached.
+    //
+    // Catching it needs the second file to be longer than the first was, so that
+    // its later keys land past where the old layer began. A short file re-loaded
+    // over a long one keeps all its keys below the stale mark and passes either
+    // way, which is the version of this check that proves nothing.
+    WriteFile(kOwnPath, "A: 1\n");
+    WriteFile(kDataPath, "Version: 3\n");
+    LoadLayered(true); // boundary lands just past "A: 1\n"
+    CHECK(DefFileBufferKeyOrigin("Version") == DEFFILE_ORIGIN_LAYER);
+
+    WriteFile(kOwnPath, "A: 1\nB: 2\nC: 3\nD: 4\nE: 5\nF: 6\nG: 7\nH: 8\n");
+    LoadLayered(false);
+    CHECK(DefFileBufferKeyOrigin("A") == DEFFILE_ORIGIN_OWNED);
+    CHECK(DefFileBufferKeyOrigin("H") == DEFFILE_ORIGIN_OWNED); // well past the old mark
+
+    // And save/restore carries it, so a transient read cannot lose it.
+    WriteFile(kOwnPath, "Language: English\nShadow: 3\n");
+    WriteFile(kDataPath, "Language: Francais\nVersion: 3\nPathInstall: C:\\LBA2\n");
+    LoadLayered(true);
+    T_DEFFILE_STATE savedOrigin;
+    DefFileBufferSaveState(&savedOrigin);
+    CHECK(DefFileBufferInit((char *)kDataPath, g_other, (S32)sizeof g_other));
+    CHECK(DefFileBufferKeyOrigin("Version") == DEFFILE_ORIGIN_OWNED); // its own file now
+    DefFileBufferRestoreState(&savedOrigin);
+    CHECK(DefFileBufferKeyOrigin("Version") == DEFFILE_ORIGIN_LAYER); // layered again
+
     std::remove(kOwnPath);
     std::remove(kDataPath);
     std::printf("test_deffile_layers: OK\n");
