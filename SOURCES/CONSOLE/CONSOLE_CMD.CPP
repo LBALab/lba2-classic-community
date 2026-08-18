@@ -1216,11 +1216,6 @@ static void cmd_playsample(int argc, const char *argv[]) {
                   num, freq, decal, repeat, volume, pan);
 }
 
-static void cmd_listsamples(int argc, const char *argv[]) {
-    (void)argc;
-    (void)argv;
-}
-
 static void cmd_audio_help_sample(void) {
     Console_Print("audio sample commands:");
     Console_Print("  audio sample play <id> [freq] [decal] [repeat] [volume] [pan]");
