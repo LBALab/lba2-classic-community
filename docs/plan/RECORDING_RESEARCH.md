@@ -24,9 +24,13 @@ simulation state stored beside each tick.
 That is one function, and the hook that replays it already exists there for another reason. It
 covers the whole digital funnel and three analog values sit outside it, priced below.
 
+Record the console commands the session was driven with alongside the input, or a recording
+cannot stand in for a harness-driven fixture.
+
 Built and measured: a session driven by real key presses replayed bit-for-bit from the file, a
-modal carrying 453 polls inside one tick replayed in order, and a perturbed replay reported the
-tick it stopped matching. 76 added lines across 9 existing files, plus one module.
+modal carrying 453 polls inside one tick replayed in order, an existing fixture's trajectory
+replayed four times faster than the fixture runs, and a perturbed replay reported the tick it
+stopped matching. 82 added lines across 10 existing files, plus one module.
 
 ## The four layers a recording could sit at
 
@@ -274,15 +278,17 @@ which is new on every poll the mouse is moving; that has not been measured under
 A working recorder and replayer was built to test the design above rather than argue it. It is
 not committed and is not proposed for merge; what follows is what it measured.
 
-**Size of the thing.** 76 added lines across 9 existing files, plus a 622-line module. The engine
-side is small because the seam was already there: a call at the tail of `UpdateKeyboardState`
-beside the two existing weak hooks, a call at the tail of `ManageMouse`, a call in
-`Control_TickHook`, one console verb, and three accessors for state that had no getter.
+**Size of the thing.** 82 added lines across 10 existing files, plus a 779-line module. The
+engine side is small because the seam was already there: a call at the tail of
+`UpdateKeyboardState` beside the two existing weak hooks, a call at the tail of `ManageMouse`, a
+call in `Control_TickHook`, a call at the top of `Console_Execute`, one console verb, and three
+accessors for state that had no getter.
 
 **What it does.** `rec start <path>` and `rec stop` record; `rec play <path>` replays;
 `rec info [path]` reports the live run's mode, or reads a recording's header and names every line
-that differs from the run about to replay it. The file is a text header, a blank line, then a
-record stream where a poll that changed nothing costs one byte.
+that differs from the run about to replay it; `rec squeeze <path>` reports what the engine's own
+LZSS would give. The file is a text header, a blank line, then a record stream of three kinds:
+polls, console commands, and per-tick state hashes. A poll that changed nothing costs one byte.
 
 ### What it proved
 
@@ -295,6 +301,7 @@ record stream where a poll that changed nothing costs one byte.
 | Replay a `--fixed-dt 16` recording under `--fixed-dt 20` | `rec info` named 3 differing lines; clock mismatch at poll 1, hash mismatch at tick 4 |
 | Record over the socket, headless | 438 polls captured live across 2.3 s of driving |
 | Record over the socket, windowed | works, with the focus caveat below |
+| Record and replay the walkthrough fixture's trajectory | 129 ticks, 0 mismatches, reaching cube 49 with vars 164/165 set |
 
 The second row is the design's central claim: a session driven by real key state through the
 binding layer was reproduced bit-for-bit from the file alone, with nothing driving the engine but
@@ -313,8 +320,9 @@ and replayed in the right order.
 So the change-only encoding works: recording what the player did costs about a byte per poll, and
 the per-tick state hash costs thirteen times more. At 60 Hz that is roughly 61 bytes a second of
 input against 780 of oracle, so an hour of play is about 220 KB of input and 2.7 MB of hash. The
-lever is the oracle, not the samples: a 32-bit digest, or one hash every N ticks, changes the
-file size by nearly an order of magnitude and nothing else does. The text header was 319 bytes.
+lever is the oracle, not the samples, and the compression section below measures how far pulling
+it goes: a 32-bit digest every tenth tick took the same session from 13,396 bytes to 2,545, and
+LZSS then took the payload to 932. The text header was 319 bytes.
 
 **Replay is authoritative at the funnel, and that is a boundary worth knowing.** Injecting
 `key action` into a running replay changed nothing, because `ApplyHarnessKeys` runs before the
@@ -375,6 +383,89 @@ documentation and has no case where it is wrong, so the flag is for everything e
 Driving with a head matters for this specific feature in a way it does not for the rest of the
 harness, because watching a replay is how a person judges whether it reproduced something a hash
 does not cover.
+
+### Console commands belong in the recording
+
+A real fixture exposes a gap the reading missed.
+[test_walkthrough_opening.sh](../../tests/automation/test_walkthrough_opening.sh) drives the
+opening of the game with `teleport`, which is a console command, not a key. No amount of recorded
+input brings that back, so a recording of input alone desyncs on the first command.
+
+Capturing at `Console_Execute` closes it: a command record carries the tick it was issued on, and
+replay runs it at the same point in the tick. That makes a recording a superset of the input
+stream rather than only the input stream, and it is what lets one replay stand in for a
+harness-driven session.
+
+### Recording a real fixture
+
+The walkthrough's trajectory, recorded once and replayed with nothing driving the engine:
+
+| | Result |
+|---|---|
+| Replay | 129 ticks checked, 0 hash and 0 clock mismatches, 2 commands replayed from the file |
+| Reached | cube 49, game vars 164 and 165 set, which are the fixture's own beat 3 and beat 4 assertions |
+| Fixture as written | 3.86 s, five cold boots |
+| Same beats as one replay | 0.94 s, one boot |
+
+Four times faster, and the assertion comes with the file instead of being maintained beside it.
+
+**Two things it does not replace.** A recording collapses a *sequence* into one
+run; it cannot collapse a *comparison*. The walkthrough's beat 2 asserts that held input moves the
+hero not at all during the house opening, which is two runs diffed against each other, and no
+single timeline expresses it. And the fixture fails with a sentence: "did not transition through
+the door: cube=0 (want 49)". A recording fails with a tick number. The recording is the better
+regression net and the worse diagnosis, so the two belong together rather than one replacing the
+other.
+
+### Compression is the wrong first lever, then the right second one
+
+The engine ships LZSS ([SOURCES/LZSS.CPP](../../SOURCES/LZSS.CPP)), used for savegames and the HQR
+containers, so the obvious answer to file size was to reuse it. Measured on three recordings, it
+recovers almost nothing:
+
+| Recording | Payload | After LZSS |
+|---|---|---|
+| walkthrough, 129 ticks | 1,864 B | 1,828 B (98.0%) |
+| interior, 399 ticks | 5,626 B | 5,172 B (91.9%) |
+| demo reel, 897 ticks | 13,042 B | 10,245 B (78.5%) |
+
+The reason is structural rather than a property of LZSS: eight of every thirteen bytes in a tick
+record are a digest, and a digest is incompressible by construction. Compressing a file that is
+mostly hash cannot work, whatever the coder.
+
+Thinning the oracle does work, and then compression starts working too. The same 900-tick demo
+reel session, recorded four ways:
+
+| Oracle | File |
+|---|---|
+| 64-bit digest, every tick | 13,396 B |
+| 32-bit digest, every tick | 9,808 B |
+| 64-bit digest, every 10th tick | 2,905 B |
+| 32-bit digest, every 10th tick | 2,545 B |
+
+LZSS on that last one takes its 2,191-byte payload to 932 bytes, 42.5%, because what is left is
+structured rather than random. End to end that is 13,396 bytes down to about 1,300.
+
+**What thinning costs is precision, and only precision.** A `teleport` perturbation at tick 400
+was reported at recorded tick 398 by the every-tick oracle and at 400 by the every-tenth one:
+located to within the hash interval instead of exactly. Both caught it. So the interval is a dial
+between file size and how tightly a failure is pinned, which is a better thing to have than a
+compressor.
+
+**One control, and it changes the reading of the row above.** The first perturbation tried
+against the thinned oracle was `input up 30`, and it was not caught. It was not caught by the full
+oracle either: under `DemoSlide` the hero is script-driven and injected input
+changes nothing the hash covers. A perturbation that changes nothing is invisible at any digest
+width, which is the "evidence, not proof" caveat above arriving as a measurement rather than a
+caution.
+
+### Metadata the fixtures argued for
+
+Two lines were added to the header after this pass. `data.master` and `data.distrib`, from
+`Distrib_GetMaster()` and `Distrib_Name()`, because a recording made against one data lineage
+replayed against another diverges for a reason that is not the engine, and
+[the RESS fingerprint](../VERSIONS.md) is what distinguishes them. The header now runs to fifteen
+lines.
 
 ### What the prototype does not do
 
@@ -476,8 +567,9 @@ two this doc spends its measurements on.
 
 3. **What belongs in the hash?** The `--dump-state` field set was used here because it exists and
    is already the baseline corpus's notion of state. It excludes extras, projectiles and sound
-   state. Whether it catches the regressions worth catching or trips on noise is decidable by
-   running it against the existing corpus rather than by choosing.
+   state. The prototype showed the cost of getting it wrong is silence rather than noise: an
+   injected input that changed nothing in the field set was invisible at any digest width. Running
+   it against the existing corpus decides it; choosing does not.
 
 4. **How does a recording interact with `--fixed-timestep`?** The throttle makes one rendered
    frame drive zero or many sim steps, and `Timer_ForceStepIfPending` promotes a would-skip frame
