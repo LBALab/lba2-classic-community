@@ -1096,6 +1096,77 @@ Three things the reverse direction has to answer that the forward one does not:
 in general: the console toggle, the developer block, and the key-rebinding screen itself, which is
 the sharp case, since a recording of a player rebinding keys cannot be expressed in bindings.
 
+### The reverse lookup, measured against the tables it would run on
+
+The forward direction is `held(slot)` = `CheckKey` over up to four keys, and the reverse has to
+produce a key table a second `held()` reads back identically. Three things decide whether that is
+sound, and all three are readable from the tables rather than arguable.
+
+**The predicate is already uniform across all 36 slots.** `SpellKeyDown`
+([SOURCES/PERSO.CPP](../../SOURCES/PERSO.CPP)) is the same OR of `DefKeys` Key1/Key2 and
+`GamepadKeys` Key1/Key2 that the combined table performs for slots 0 to 31. The only difference is
+that the spells have no `Input` bit to live in: `INPUT_TABLE_SLOTS` is 32, `Input` uses all 32 bits
+(`I_UP` through `I_WEAPON_7`), and `I_PINGOUIN` through `I_FOUDRE` are a *second* mask that starts
+again at bit 0. So an action unit is 36 bits and one rule, not 32 bits plus a special case.
+
+**The shipped table is injective, so the naive reverse is exact on it.** Read off the cfg the
+engine writes:
+
+| | |
+|---|---|
+| slots with at least one key | 36 of 36 |
+| distinct keys used | 49 |
+| keys bound to more than one slot | **none** |
+| slots with no key at all | **none** |
+
+So "press the first bound key of every held slot" round-trips exactly through `held()` for the
+layout every player starts from.
+
+**It is not injective by construction, and both failures are visible before a replay starts.** A
+cfg may put one key on two slots, in which case pressing it for the held slot also raises the other;
+and a cfg may leave a slot with all four keys zero, in which case a held slot cannot be expressed at
+all. Both are a scan of the table, which is why the reverse belongs in the bindings module as a
+checked function that can refuse, rather than as a best-effort helper that quietly produces a
+different frame.
+
+### What a residual channel has to carry, and why it is already portable
+
+Across every raw scancode comparison in `SOURCES`, 47 distinct keys are compared literally and 24
+of them are in no slot of the default table. `K_ESC` alone accounts for 24 of the 93 sites, and it
+is live: `if (MyKey == K_ESC OR Input & I_MENUS)` is the cinema and menu cancel.
+
+Most of the rest are the developer block. Of `PERSO.CPP`'s 19 sites, 15 sit behind `DEBUG_TOOLS`,
+`TEST_TOOLS` or `ENABLE_POLY_RECORDING`; the four a release build reaches are `K_F9` twice (the
+screenshot), `K_T` under `DemoSlide`, and the `K_ESC` above.
+
+**And here is the part that makes the hybrid worth having: a key compared literally in the source
+cannot be rebound, so it means the same thing on every machine and under every cfg.** There is
+nothing to translate. A recording of 36 action bits plus a residual set of raw scancodes is
+therefore fully portable *without carrying a dictionary at all*, where today's file is portable
+only because it carries one. That also means the move does not have to be all or nothing: the
+bound half becomes actions, the hardcoded half stays raw, and each is portable for its own reason.
+
+A recording made with `K_ESC` bound to a slot carries it twice, once as the action and once as the
+residual, and both re-express to the same key. That is consistent rather than a conflict.
+
+### Where it belongs, and what it is worth on its own
+
+`INPUT_BINDINGS.{H,CPP}` is where the tables already live, extracted by
+[INPUT_PLAN.md](INPUT_PLAN.md) increment 0 precisely because it is pure and host-testable, and it
+is the module that owns `InitInput`'s forward fold. `KeysFromBinding` and `BindingFromKey` are
+already a take in [INPUT_DOOM3_RESEARCH.md](INPUT_DOOM3_RESEARCH.md) item C, wanted by the controls
+screen (which indexes `DefKeys` positionally today) and by a profile system, neither of which is
+this recorder. So the reverse lookup is shared work with an existing customer, and a recording
+format is its second reader rather than its reason.
+
+The shape that covers both readers, and the injectivity check the recorder is the one that needs:
+
+```c
+S32 Bindings_KeysForSlot(S32 slot, U32 *out, S32 max); /* keyboard pair first, then pad */
+S32 Bindings_SlotForKey(U32 key);                      /* -1 when the key carries no slot */
+S32 Bindings_CheckReversible(S32 *badSlot, U32 *badKey); /* the two failures above */
+```
+
 ### The sequencing, and what shipped
 
 Item D above already states the property that settles the order: **the frame intent is a pure
