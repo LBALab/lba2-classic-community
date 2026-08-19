@@ -107,7 +107,7 @@ void Timer_EnableFixedDt(U32 dt_ms) {
     FixedDtSkipPresent = 0;
 }
 
-/* PROTOTYPE (docs/plan/RECORDING_RESEARCH.md): a replay supplies the clock source
+/* Session recording (docs/RECORDING.md): a replay supplies the clock source
    per input poll, so a session recorded at a variable frame rate replays at whatever
    rate the replaying host runs at. Unlike Timer_EnableFixedDt this keeps TimerRefHR
    and only takes over the source ManageTime reads. Timer_FixedDtAdvance and
@@ -272,7 +272,7 @@ S32 Timer_ForceStepIfPending(S32 plannedSteps, S32 pending, U32 now, S32 dt, U32
     return 1;
 }
 
-/* PROTOTYPE session recorder: the clock is captured where it is read, not where it
+/* Session recording: the clock is captured where it is read, not where it
    is convenient. Sampling it at the input poll and replaying that is close but never
    exact, and pinning it at record time makes the recorder change the run it is meant
    to observe. Weak, so libsys.a still links without the recorder. */

@@ -23,7 +23,7 @@
 #include <SYSTEM/WINDOW.H> /* Window_SetVSync */
 
 #include <SDL3/SDL.h>     /* SDL_SetHint for --headless (must precede SDL_Init) */
-#include "RECORD.H"       /* PROTOTYPE session recorder */
+#include "RECORD.H"       /* --record / --replay */
 #include <SYSTEM/FILES.H> /* ExistsFileOrDir */
 #include <SYSTEM/LOG.H>   /* LogSeverity, Log_ParseLevel for --log-level */
 
@@ -123,8 +123,8 @@ static const char *kControlLanguageShort[CONTROL_LANG_COUNT] = {
    gate. */
 static int s_no_audio = 0;
 static int s_headless = 0;
-static int s_ignore_focus = 0; /* PROTOTYPE: --ignore-focus */
-/* PROTOTYPE: --record / --replay. The `rec` console verbs are the other lever and
+static int s_ignore_focus = 0; /* --ignore-focus */
+/* --record / --replay. The `rec` console verbs are the other lever and
    answer a different question: a verb starts where the player chooses, mid-session,
    with no boot or menu in the file. These start at the first tick, so a recording
    covers the menu, the loading path and the scene entry, which is where the fixtures
@@ -542,7 +542,7 @@ void Control_ParseArgs(int *argc, char *argv[]) {
     /* A batch run (one that advances ticks or quits on its own) has nobody watching the
        window, so never let focus loss stop its clock.
 
-       PROTOTYPE (docs/plan/RECORDING_RESEARCH.md): --listen joins that set, and
+       --listen joins that set, and
        --ignore-focus states it outright. A socket-driven run has a driver, and the
        driver is in another window by definition, so a windowed --listen session
        froze the moment the operator alt-tabbed to type at it. */

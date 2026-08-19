@@ -11,8 +11,8 @@ ships with the game and left the seam, the record unit and the file format open.
 answers those three.
 
 Every figure below was measured against the working tree, first with an instrumented build and
-then with a working record and replay prototype. The prototype is committed on this branch but
-is not proposed for merge; it exists so the design was tested rather than argued. The commands are at
+then with a working record and replay implementation, built so the design was tested rather than
+argued. What shipped from it, and how to use it, is in [../RECORDING.md](../RECORDING.md). The commands are at
 the end. Re-run them rather than trusting a number that has aged.
 
 ## The short answer
@@ -328,8 +328,8 @@ which is new on every poll the mouse is moving; that has not been measured under
 
 ## The prototype
 
-A working recorder and replayer was built to test the design above rather than argue it. It is
-committed on this branch but is not proposed for merge; what follows is what it measured.
+A working recorder and replayer was built to test the design above rather than argue it. What
+follows is what it measured; [../RECORDING.md](../RECORDING.md) is the reference for using it.
 
 **Size of the thing.** 82 added lines across 10 existing files, plus a 779-line module. The
 engine side is small because the seam was already there: a call at the tail of

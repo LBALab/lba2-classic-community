@@ -23,7 +23,7 @@ extern S32 GfxDitherShading;
 #include "../SAVEGAME.H"
 #include "../INPUT.H"
 #include "../CONTROL.H" // Control_Input* harness timeline, Control_KeyHold
-#include "../RECORD.H"  // PROTOTYPE session recorder
+#include "../RECORD.H"  // session recorder: the `rec` verbs
 // K_* scancodes for the `key` command's name table.
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include "../JOYSTICK.H"
@@ -362,7 +362,7 @@ static void cmd_polyrec(int argc, const char *argv[]) {
 }
 #endif
 
-/* PROTOTYPE session recorder (docs/plan/RECORDING_RESEARCH.md).
+/* Session recording (docs/RECORDING.md).
    rec start <path> | rec stop | rec play <path> | rec info [path] */
 static void cmd_rec(int argc, const char *argv[]) {
     if (argc < 2) {
@@ -2259,7 +2259,7 @@ void Console_RegisterAll(void) {
                               "ENABLE_POLY_RECORDING builds only. Without a path, writes "
                               "polyrec_<time>.lba2polyrec under shoot/.");
 #endif
-    Console_RegisterCommandEx("rec", cmd_rec, "Session recorder (prototype)",
+    Console_RegisterCommandEx("rec", cmd_rec, "Record a session, or replay one",
                               "rec start <path> | rec stop | rec play <path> | rec info [path]",
                               "rec info");
     Console_RegisterCommandEx("dumpstate", cmd_dumpstate, "Write the engine state as JSON",

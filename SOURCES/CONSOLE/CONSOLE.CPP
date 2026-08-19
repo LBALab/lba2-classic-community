@@ -1597,7 +1597,7 @@ int Console_IsExecuting(void) {
    every later command out of the console. */
 static void console_execute_body(const char *line);
 
-/* PROTOTYPE session recorder (docs/plan/RECORDING_RESEARCH.md). Weak so the console
+/* Session recording (docs/RECORDING.md). Weak so the console
    library still links into the host tests, which have no recorder, on the same terms
    as ApplyVirtualKeys and ApplyHarnessKeys in the keyboard module. */
 extern "C" void Record_CommandHook(const char *line);

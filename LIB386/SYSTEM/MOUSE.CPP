@@ -148,7 +148,7 @@ void SetMouseBox(U32 x0, U32 y0, U32 x1, U32 y1) {
 
 void ClearMouseBox() { SetMouseBox(0, 0, ModeDesiredX - 1, ModeDesiredY - 1); }
 
-/* PROTOTYPE session recorder: the drain below would zero what replay injected. */
+/* Session recording: the drain below would zero what replay injected. */
 void Record_MouseHook(void);
 __attribute__((weak)) void Record_MouseHook(void) {}
 

@@ -1,4 +1,5 @@
-/* PROTOTYPE. Not for merge. See docs/plan/RECORDING_RESEARCH.md.
+/* Session recording. Usage and limits in docs/RECORDING.md; the design work and what
+ * it measured, in docs/plan/RECORDING_RESEARCH.md.
  *
  * File layout: a text header of key=value lines, a blank line, then a binary record
  * stream. The header is text so `rec info` can report what a recording was made under

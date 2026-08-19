@@ -1,7 +1,7 @@
 #ifndef LBA2_RECORD_H
 #define LBA2_RECORD_H
 
-/* PROTOTYPE. Not for merge. Session recorder for docs/plan/RECORDING_RESEARCH.md.
+/* Session recording. Usage and limits in docs/RECORDING.md.
  *
  * Records the polled device state at the tail of UpdateKeyboardState(), indexed by
  * input poll, and replays it back through the same site so every consumer (MainLoop,
