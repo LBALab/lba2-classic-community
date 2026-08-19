@@ -728,6 +728,32 @@ there and reseeds nothing.
 **What this cost in scope.** One header flag was the plan and two lines was the outcome, because
 the seed is part of what a mid-session reload sets up and nothing else in the file carries it.
 
+**Two limits, both measured, both to solve later.**
+
+*A mid-session recording does not yet reproduce in an exterior scene.* Same save, no cube jump,
+three runs each:
+
+| Path | Scene | Result |
+|---|---|---|
+| `--record` / `--replay` | interior (cube 3) | clean |
+| `--record` / `--replay` | exterior (cube 48, Downtown) | clean |
+| `rec start` / `rec play` | interior (cube 3) | clean, 397 ticks |
+| `rec start` / `rec play` | exterior (cube 48, Downtown) | **diverges at tick 296** |
+
+Deterministic three runs out of three, with the clock in step and the stream in step, so it is
+state rather than timing. The flag path is clean in the same scene, which rules out the scene and
+points at what the reload restores: a save re-derives moving actors from their scripts, and an
+exterior has actors an interior does not. Tick 296 of 397 is a long way in, which fits a script
+reaching a decision point at a different position rather than a value being wrong at tick 0.
+
+*An active recording cannot cross a cube change.* The same run completes without `--record` and
+hangs with it. `Record_ClockHook` pins `ManageTime` to the last input poll, and
+`FadeToPalAndSamples` ([SOURCES/AMBIANCE.CPP](../../SOURCES/AMBIANCE.CPP)) loops on `ManageTime`
+plus `Timer_FixedDtPump` without polling input, so with the clock held the fade never reaches
+`FADE_DELAY`. This is the same reason `--record` from boot with no `--load` hangs: the first scene
+fade after the menus. The reload path escapes it only because recording has not started yet when
+its own `ChangeCube` runs. Until it is fixed, a recording holds one scene.
+
 **Two things about `FlagLoadGame` still decide any future attempt, and both are easy to get
 wrong.**
 
@@ -869,6 +895,118 @@ It also carries the mouse at the keyboard poll index rather than at `ManageMouse
 mouse delta a sample holds is the one drained on the previous frame. Consistent between record
 and replay, and wrong if anything ever reads the two at different rates. A real format would give
 the mouse its own index or move the drain.
+
+## Settings, and what a recording owes them
+
+A recording reproduces the input and the savegame reproduces the game state. The cfg is the third
+input to a run and the file carries almost none of it, so this section measures which settings a
+replay is actually sensitive to, and settles what the recording should do about them.
+
+**The recommendation, first.** Record the settings as metadata and do not apply them on replay.
+Record only what differs from its default, so a cfg key added later does not invalidate a file
+written before it existed, and so the line stays short on the overwhelmingly common run where the
+player changed two things. A replay that lands differently can then be diffed against what it was
+recorded under, one setting at a time, as the need arises. Two exceptions are named below, and the
+input bindings are the one that has to be acted on rather than reported.
+
+### Which settings actually break a replay
+
+Measured on a clean baseline: an exterior recording (Downtown, cube 48, auto camera on, hero
+walking 150 ticks), `--record` then `--replay`, no mismatch over 301 ticks. Each row changes one
+cfg key on the replay side only:
+
+| Setting | Changed | First hash mismatch |
+|---|---|---|
+| `FollowCamera` (Auto camera) | 1 to 0 | **tick 0** |
+| `DetailLevel` | 3 to 0 | **tick 235** |
+| `Input0_1` (rebind forward) | 82 to 26 | **tick 33** |
+| `FollowCamDriftDivisor` | 24 to 8 | none |
+| `FollowCamOrbitGlide` | 75 to 20 | none |
+| `FollowCamGroundClearance` | 600 to 100 | none |
+| `FollowCamHDRecompose` | 1 to 0 | none |
+| `FollowCamHDPitchGain` | 180 to 600 | none |
+| `FollowCamHoldAngle` | 1 to 0 | none |
+| `ManualCameraSmoothing` | 2 to 8 | none |
+| `MouseSensitivityX` | 4 to 10 | none |
+| `Shadow` | 3 to 0 | none |
+| `AllCameras` | 1 to 0 | none |
+| `FlagDisplayText` | ON to OFF | none |
+
+`FollowCamera` is in the state hash directly, so it fails on the first tick it is compared.
+`Input0_1` fails at the tick the recorded key press starts, and `bindings.digest` already catches
+it before the run.
+
+**`DetailLevel` is the one worth understanding, because it is a graphics setting that moves the
+simulation.** `SetDetailLevel` ([SOURCES/GAMEMENU.CPP:632](../../SOURCES/GAMEMENU.CPP)) maps it
+onto `MaxPolySea`, `Shadow`, `RainEnable` and `FlagDrawHorizon`. At 0 rain is off, and rain is a
+particle system drawing from the one shared `rand()` stream everything else draws from, so the
+stream offsets and the simulation follows. Deterministic at tick 235 three runs out of three.
+
+That also explains a "none" that is not evidence of anything: `Shadow` on its own changes nothing
+because `SetDetailLevel` runs at `MainLoop` entry ([SOURCES/PERSO.CPP:455](../../SOURCES/PERSO.CPP))
+and overwrites `Shadow` from `DetailLevel` before the cfg value is ever read.
+
+**The rest of the "none" column is unexercised, not proven harmless.** The recorded session walks
+forward and nothing else. Every camera-shaping value in that list needs an orbit gesture, and the
+mouse ones need a mouse; a recording that has one is the test that would price them. Two earlier
+sweeps produced a whole column of "none" for exactly this reason and had to be thrown away: the
+first ran in cube 3, and the auto camera is exterior-only, so nothing camera-related could fire.
+
+### What the engine already knows about defaults
+
+`T_SETTING` ([SOURCES/SETTINGS.H](../../SOURCES/SETTINGS.H)) carries a `def` per row, so
+"non-default" is a comparison the engine can already make rather than a list a recording has to
+maintain. Three tables declare rows:
+
+| Table | Rows | Owns |
+|---|---|---|
+| `BootSettings` ([SOURCES/CONFIG_FILE.CPP](../../SOURCES/CONFIG_FILE.CPP)) | 11 | Shadow, AllCameras, FollowCamera, DetailLevel, fullscreen, VSync, dither, texture filter, FixedTimestep |
+| `FollowCamSettings` ([SOURCES/FOLLOWCAM.CPP](../../SOURCES/FOLLOWCAM.CPP)) | 12 | the auto camera's recenter, HD recompose and ground-clearance block |
+| `AudioSettings` ([SOURCES/AMBIANCE.CPP](../../SOURCES/AMBIANCE.CPP)) | 6 | the volumes and reverse stereo |
+
+Both settings that broke the replay are tabulated, so a non-default capture would have named both.
+
+**Ten settings are read by hand and are not in any table**, so they carry no declared default and a
+generic sweep does not see them: `ConsoleToggleKey`, `MenuMouse`, `MouseCamera`, `MouseCameraDrag`,
+`MouseSensitivityX`, `MouseSensitivityY`, `MouseInvertY`, `MouseCameraDivisor`,
+`FollowCamOrbitGlide` and `ManualCameraSmoothing`. That set is almost exactly the mouse-camera
+block, which is to say the settings a mouse-driven recording would be most sensitive to are the
+ones a table walk would miss. Tabulating them is the cheaper half of this work and is worth doing
+before the capture, not after.
+
+Outside the tables entirely: `Language`, `LanguageCD`, `FlagKeepVoice`, `FlagDisplayText`,
+`CompressSave`, the resolution pair, and the `Input*` and `Gamepad*` binding blocks. Language and
+resolution are already header lines.
+
+### The input bindings are the exception that has to be acted on
+
+A replay injects `TabKeys` at the funnel, and `GetInput` rebuilds `Input` from that table *and* the
+binding table. So the bindings are not context a replay can note and carry on with: they are half
+of the function that turns the recording into actions, and the measurement above puts the cost of
+getting them wrong at the first recorded key press.
+
+`bindings.digest` detects the difference and cannot repair it. The repair is for the recording to
+carry the table and the replay to install it for the duration, restoring the player's own on the
+way out, which is the same borrow-and-return the snapshot reload already does for `PlayerName` and
+`GamePathname`. `MAX_INPUT_SLOTS` keyboard pairs plus the gamepad pairs is a few hundred bytes
+once, against a file measured in tens of kilobytes.
+
+### Demo playback should behave like the demo reel
+
+`Demo_RngSeed(demo_slide, timer_ref_hr, new_cube)` ([SOURCES/DEMO_SEED.CPP](../../SOURCES/DEMO_SEED.CPP))
+returns the cube number while the reel is running and `TimerRefHR` otherwise, and issue #176 is the
+record of why: seeding a reel from the clock made RNG-driven wanderers branch on host speed.
+
+A replay wants that property for the same reason, and the mid-session reload already demonstrates
+it. The two ends reached the same `ChangeCube` on cube 3 with `TimerRefHR` 4268125 and 4268141, a
+single step apart, which is what `setup.rng_seed` exists to paper over. Under the reel's rule both
+would have seeded 3 and the header line would be unnecessary.
+
+So the better shape is that a session being recorded or replayed seeds every cube change the way
+the reel does, not just the one the reload performs. That generalises to cube changes inside a
+session, which `setup.rng_seed` does not reach, and it removes a header line rather than adding
+one. It cannot be tested today for the reason the previous section gives: a recording cannot cross
+a cube change yet.
 
 ## What this buys beyond reproducing input
 
@@ -1030,6 +1168,20 @@ lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 16 --tick 500 \
 # Give the replay more ticks than the recording holds. Ending on --tick before the stream
 # runs out means the summary never prints, and a run that reported nothing reads as a run
 # that passed.
+
+# Which settings break a replay. Needs an exterior scene with the auto camera on, or the
+# camera code under test never runs: cube 3 is an interior and a whole sweep there comes
+# back clean for that reason alone. Baseline first, then one cfg key per run.
+lba2cc --headless --no-autosave --user-dir U --load "$DOWNTOWN" --fixed-dt 16 --tick 300 \
+    --record dt.rec --exec-at 30 "key up 150 2" --exit
+sed -i 's/^DetailLevel:.*/DetailLevel: 0/' U2/lba2.cfg
+lba2cc --headless --no-autosave --user-dir U2 --load "$DOWNTOWN" --fixed-dt 16 --tick 400 \
+    --replay dt.rec --exit
+
+# The cube-change wedge: the first completes, the second hangs.
+lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 16 --tick 320 --exec "cube 49" --exit
+lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 16 --tick 320 --exec "cube 49" \
+    --record w.rec --exit
 
 # The modal: 453 polls inside one tick, recorded and replayed.
 lba2cc --headless --no-autosave --demo --exec "cube 193" --fixed-dt 16 --tick 900 \
