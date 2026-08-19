@@ -1126,6 +1126,20 @@ void Control_TickHook(void) {
     if (s_have_listen && !s_have_tick && (!s_listen_started || ControlServer_IsRunning()))
         return;
 
+    /* Same for a run that is recording or replaying with no tick budget: it is driven by
+       whoever is playing, and finalizing here would disarm the hook that calls
+       Timer_FixedDtAdvance. Under --fixed-dt that is what makes a tick worth exactly one
+       step (it banks the step and lets the tick's own present through for free); without
+       it the virtual clock is left to the present path alone, so a tick that presents
+       nothing banks nothing. The recording then carries a stalled tick that a replay,
+       which does keep its hook armed, never reproduces, and the two run one step apart
+       from there on. Measured on a real play session: one stall at tick 2 and a state
+       mismatch at tick 14.
+       Not when --exit was asked for: that is the caller asking for a bounded run, and
+       without the test `--record out.rec --exit` would wait for a quit that never comes. */
+    if ((Record_IsRecording() || Record_IsReplaying()) && !s_have_tick && !s_exit)
+        return;
+
     if ((s_hook_calls - 1) >= control_effective_ticks())
         control_finalize();
 }
