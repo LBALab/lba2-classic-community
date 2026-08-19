@@ -156,8 +156,20 @@ opens it. Two consequences, both found by replaying a real session and both now 
   would have pressed them into the game. The recorder now records what gameplay is given, which is
   nothing while the console is up.
 
+- A command typed at the console is written where it ran, which is the input path, so it lands
+  after the last poll of the tick and before that tick's own record. The reader expected commands
+  only after the tick record, gave up on the tick when it found one, and then read the tick record
+  as a poll: a replay ended on the first command a player typed. Both readers now step over
+  commands and run them at the tick boundary.
+
 Recordings made before those fixes still diverge where the console was opened: the doubled clock is
 in the file, and no replay reproduces it.
+
+Worth knowing about the coverage: `--exec-at` writes a command straight after the tick record, so
+the automation fixture exercises the harness layout and not this one. The console layout cannot be
+produced headlessly, because the toggle is an SDL key event. It is covered by a real recorded
+session that opens the console, types, closes it and plays on, which replays with no mismatch and
+no clock drift.
 
 **The mode has to match.** A recording made windowed with audio does not replay headless with the
 null backend, because a live audio thread branches the simulation. `rec info` will say so.

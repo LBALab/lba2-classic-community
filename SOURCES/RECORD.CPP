@@ -1213,36 +1213,74 @@ static int replay_poll(void) {
         s_eof = 1;
         return 0;
     }
-    if (flags == REC_KEY) {
-        /* Diagnosis rather than input: read past it and take the next record as this
-           poll. The tick path reads the ones it is interested in. */
-        U32 kt, kv;
-        S32 k;
-        if (!get32(&kt))
-            return 0;
-        for (k = 0; k < KF_COUNT; k++) {
-            if (!get32(&kv))
+    long stepped = -1;
+
+    /* Records that are not a poll can sit anywhere between two polls, so step over each
+       and take the next record as this poll rather than reading one as input.
+       A keyframe and its telemetry follow a tick record and the tick path reads them
+       there; a command is written where it was issued, which for the harness is just
+       after the tick record and for anything typed at the console is in the middle of a
+       poll run, because the console executes from the input path. Treating that as the
+       stream being out of step ended a replay on the first command the player typed. */
+    for (;;) {
+        if (flags == REC_KEY) {
+            U32 kt, kv;
+            S32 k;
+            if (!get32(&kt))
                 return 0;
-        }
-        return 1;
-    }
-    if (flags == REC_TELE) {
-        U32 tt, tv;
-        U16 tn, k;
-        if (!get32(&tt) || !get16(&tn))
-            return 0;
-        for (k = 0; k < tn; k++) {
-            if (!get32(&tv))
+            for (k = 0; k < KF_COUNT; k++) {
+                if (!get32(&kv))
+                    return 0;
+            }
+        } else if (flags == REC_TELE) {
+            U32 tt, tv;
+            U16 tn, k;
+            if (!get32(&tt) || !get16(&tn))
                 return 0;
+            for (k = 0; k < tn; k++) {
+                if (!get32(&tv))
+                    return 0;
+            }
+        } else if (flags == 0x40) {
+            /* Queued rather than run here: executing a command inside the keyboard path
+               re-enters this reader. It runs at the next tick boundary instead, so a
+               command typed during a tick lands one tick later than it did live. */
+            U32 ct;
+            U16 n, j;
+            char line[sizeof s_cmds[0].line];
+            if (!get32(&ct) || !get16(&n))
+                return 0;
+            for (j = 0; j < n; j++) {
+                U8 c;
+                if (!get8(&c))
+                    return 0;
+                if (j + 1 < sizeof line)
+                    line[j] = (char)c;
+            }
+            line[(n + 1 < sizeof line) ? n : sizeof line - 1] = 0;
+            if (s_nCmds < REC_CMD_MAX) {
+                s_cmds[s_nCmds].tick = ct;
+                snprintf(s_cmds[s_nCmds].line, sizeof s_cmds[s_nCmds].line, "%s", line);
+                s_nCmds++;
+            }
+        } else {
+            break;
         }
-        return 1;
-    }
-    if (flags == 0x40) {
-        /* A command record where a poll was expected: the stream is out of step, and
-           guessing past it produces confident nonsense. Stop. */
-        fprintf(stderr, "[rec] stream out of step at poll %ld\n", s_polls);
-        s_eof = 1;
-        return 0;
+        stepped = ftell(s_f);
+        if (!get8(&flags)) {
+            s_eof = 1;
+            return 0;
+        }
+        if (!replay_take_sync(&flags)) {
+            s_eof = 1;
+            return 0;
+        }
+        /* Uncovered this tick's own record. It belongs to the tick path, so put it back
+           and let this poll pass with the input unchanged. */
+        if ((flags & 0x80) && stepped >= 0) {
+            fseek(s_f, stepped, SEEK_SET);
+            return 1;
+        }
     }
     if (flags & 0x80) {
         /* A tick record where a poll was expected means the two streams have
@@ -1651,6 +1689,37 @@ void Record_TickHook(void) {
             return;
         if (!replay_take_sync(&flags))
             return;
+        /* A command issued from the console is written where it ran, which is the input
+           path, so it lands after the last poll of the tick and before the tick's own
+           record. Step over it here rather than giving up on the tick: giving up left the
+           tick unchecked and the record was then read as a poll, which lost the stream on
+           the first command a player typed. It runs at the bottom of this tick with the
+           rest. */
+        while (flags == 0x40) {
+            U32 ct;
+            U16 n, j;
+            char line[sizeof s_cmds[0].line];
+            if (!get32(&ct) || !get16(&n))
+                return;
+            for (j = 0; j < n; j++) {
+                U8 c;
+                if (!get8(&c))
+                    return;
+                if (j + 1 < sizeof line)
+                    line[j] = (char)c;
+            }
+            line[(n + 1 < sizeof line) ? n : sizeof line - 1] = 0;
+            if (s_nCmds < REC_CMD_MAX) {
+                s_cmds[s_nCmds].tick = ct;
+                snprintf(s_cmds[s_nCmds].line, sizeof s_cmds[s_nCmds].line, "%s", line);
+                s_nCmds++;
+            }
+            pos = ftell(s_f);
+            if (!get8(&flags))
+                return;
+            if (!replay_take_sync(&flags))
+                return;
+        }
         if (!(flags & 0x80)) {
             fseek(s_f, pos, SEEK_SET);
             return;
@@ -1816,6 +1885,15 @@ void Record_TickHook(void) {
             line[j] = 0;
             s_cmdsReplayed++;
             Console_Execute(line);
+        }
+
+        /* Anything the poll reader queued: a command typed at the console is written
+           mid-poll, and running it there would re-enter the stream reader. */
+        while (s_cmdRead < s_nCmds) {
+            const char *queued = s_cmds[s_cmdRead].line;
+            s_cmdRead++;
+            s_cmdsReplayed++;
+            Console_Execute(queued);
         }
     }
 }
