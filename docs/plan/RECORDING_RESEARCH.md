@@ -673,22 +673,31 @@ snapshot back, so the recording begins from the same post-load state a replay wi
 scene reload where recording starts, which is a visible hitch for something a person asked for
 deliberately.
 
-**It does not work, and the reason is the savegame rather than the sequencing.** Reloading at
-`rec start` was built: snapshot, load it back, wait for the cube change the loop performs just
-before the tick hook, clear `FlagLoadGame`, begin recording on the far side. Mechanically it does
-what it says. The replay still parts at tick 0.
+**The savegame is sufficient. What matters is that both ends take the same load path.**
 
-Measured directly, a **mid-session reload and a boot load of the same file land in different
-states**, differing in five fields: the x, z and beta of the same two actors that were moving.
-A savegame is not a state snapshot. It restores the scene, the hero and the variables, and actor
-kinematics are re-derived on load, so how far those actors have been carried depends on which load
-path ran. Reloading therefore cannot converge on what a replay will see, however it is sequenced,
-and the attempt is not kept.
+A save restores the scene, the hero and the variables, and actor kinematics are re-derived on
+load. So the state a load lands in depends on which load path ran, and two measurements bound it:
 
-What would close it is a real snapshot: actor kinematics captured rather than re-derived. That is
-a format question rather than a recorder one, and it is the thing to weigh against what mid-session
-recording already delivers, which is the hero, the scene and every quest variable exact with the
-moving actors reported adrift.
+| Compared | Fields differing |
+|---|---|
+| A mid-session reload against a boot load of the same file | 5, the x, z and beta of the two moving actors |
+| The same file loaded mid-session at tick 100 and at tick 200 | **0** |
+
+The second is the one that matters. **A mid-session load is independent of what preceded it**, so
+it is a reproducible starting point even though it is not the same one a boot load reaches. The
+route to a mid-session recording that replays exactly is therefore for both ends to go through it:
+the recording loads its own snapshot back before the first recorded frame, and the replay loads the
+same snapshot the same way before the first replayed one. Neither end uses `--load` for that,
+because `--load` is the other path.
+
+That is setup and teardown belonging to the replay itself rather than to the command line, which is
+also what makes it composable with the console's own `load` and `cube` verbs: a recording's setup
+is a thing the engine can perform, not a thing the caller has to remember.
+
+**Built, and not landed.** The record half works. Doing the same on the replay half needs the
+header to say whether the recording reloaded at all, because a from-boot recording did not and must
+not be made to: replaying every recording through a reload breaks the from-boot path that is
+otherwise clean. That flag is the missing piece and is the whole of what remains.
 
 **Two things about `FlagLoadGame` still decide any future attempt, and both are easy to get
 wrong.**
