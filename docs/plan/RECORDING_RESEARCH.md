@@ -738,17 +738,29 @@ the tick they landed on, so an exploratory session becomes a file that replays. 
 socket and recording what happened is a better division than choosing between reacting and
 reproducing.
 
-**In practice it does not work yet, and this is now the blocking item rather than a curiosity.** A
-session driven over the socket with the step pinned, recorded and replayed from its own snapshot,
-fails at tick 28, four ticks after the one console command it carried. That is the same failure as
-the console verb measured above, which parts at tick 41 at the release edge of the key it was
-given, where the same session started by the flag replays clean. So a command that arrives through
-the bus is not yet reproduced faithfully enough to replay, and until it is, the socket cannot be
-the substrate for anything that has to reproduce.
+**In practice it does not work yet, and the reason is not the commands.** A session driven over the
+socket, recorded and replayed from its own snapshot, fails. So does one that carried no command at
+all, with a nonsense tick number, which is the reader misaligned rather than the simulation
+diverging. Meanwhile a recording started and replayed through the console verbs, carrying the same
+`key` command, is clean: 299 polls and 299 ticks on both sides, 299 ticks checked, no mismatch. So
+commands through the bus reproduce, and something else about a socket session does not.
 
-Fixing that is worth more than it looked when it was only a note about a console verb. It is what
-would let fixtures be written as driver scripts that react to what they see, and be reproducible
-because they were recorded rather than because they were planned in advance.
+The mechanism that fits is the one the socket is built on. It is serviced from the pre-present
+chain, so it runs once per *presented* frame, and presents outnumber ticks by one to two orders of
+magnitude here. Under a pinned step `Timer_FixedDtPresent` advances the virtual clock on every
+present beyond the one the tick already paid for, which is what lets a modal inner loop make
+progress. A replay has no socket and so presents differently, the tick and poll streams interleave
+differently, and a stream that is positional cannot survive that. It is the same fragility the
+clock stream had, arriving through presents instead of through `ManageTime` calls.
+
+That makes the fix the same fix: records that are addressed rather than positional. Until then the
+socket cannot carry anything that has to reproduce, which is most of what it would be wanted for.
+
+**A correction, since an earlier reading of this is committed.** The console verb was recorded here
+as failing at tick 41 where the flag path was clean, and the blocking item was written up as
+commands not replaying. Re-measured after the snapshot work landed, the console path replays clean
+and the flag path does too. Whatever the tick-41 failure was, it is gone, and the surviving
+difference is the socket rather than the verb.
 
 ### What the prototype does not do
 
