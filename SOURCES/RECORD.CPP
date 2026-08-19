@@ -228,10 +228,14 @@ static unsigned long long state_hash(void) {
    the polled state plus the bindings, so a recording that carries them can be
    re-expressed as a stream of actions later, without being recorded again, on the day
    the reverse lookup exists. A recording that does not carry them cannot. */
-static T_DEF_KEY s_savedDefKeys[MAX_INPUT_SLOTS + 1];
-static T_DEF_KEY s_savedGamepadKeys[MAX_INPUT_SLOTS + 1];
-static T_DEF_KEY s_recDefKeys[MAX_INPUT_SLOTS + 1];
-static T_DEF_KEY s_recGamepadKeys[MAX_INPUT_SLOTS + 1];
+/* Sized to MAX_INPUT_SLOTS, which is every slot the header carries and every slot
+   InitInput and RestoreInput touch. Not to the live tables: DefKeys is declared with a
+   spare entry and GamepadKeys is not, so a copy sized off one of them overruns the
+   other by exactly one T_DEF_KEY. */
+static T_DEF_KEY s_savedDefKeys[MAX_INPUT_SLOTS];
+static T_DEF_KEY s_savedGamepadKeys[MAX_INPUT_SLOTS];
+static T_DEF_KEY s_recDefKeys[MAX_INPUT_SLOTS];
+static T_DEF_KEY s_recGamepadKeys[MAX_INPUT_SLOTS];
 static int s_haveRecBindings = 0;
 static int s_bindingsInstalled = 0;
 
@@ -270,8 +274,8 @@ static int bindings_parse(const char *hdr, const char *key, T_DEF_KEY *tab) {
 static void bindings_install(void) {
     if (!s_haveRecBindings || s_bindingsInstalled)
         return;
-    memcpy(s_savedDefKeys, DefKeys, sizeof s_savedDefKeys);
-    memcpy(s_savedGamepadKeys, GamepadKeys, sizeof s_savedGamepadKeys);
+    memcpy(s_savedDefKeys, DefKeys, MAX_INPUT_SLOTS * sizeof DefKeys[0]);
+    memcpy(s_savedGamepadKeys, GamepadKeys, MAX_INPUT_SLOTS * sizeof GamepadKeys[0]);
     memcpy(DefKeys, s_recDefKeys, MAX_INPUT_SLOTS * sizeof DefKeys[0]);
     memcpy(GamepadKeys, s_recGamepadKeys, MAX_INPUT_SLOTS * sizeof GamepadKeys[0]);
     /* The combined (key, mask) table is what CheckKey scans; changing the two source
@@ -283,8 +287,8 @@ static void bindings_install(void) {
 static void bindings_restore(void) {
     if (!s_bindingsInstalled)
         return;
-    memcpy(DefKeys, s_savedDefKeys, sizeof s_savedDefKeys);
-    memcpy(GamepadKeys, s_savedGamepadKeys, sizeof s_savedGamepadKeys);
+    memcpy(DefKeys, s_savedDefKeys, MAX_INPUT_SLOTS * sizeof DefKeys[0]);
+    memcpy(GamepadKeys, s_savedGamepadKeys, MAX_INPUT_SLOTS * sizeof GamepadKeys[0]);
     InitInput();
     s_bindingsInstalled = 0;
 }
