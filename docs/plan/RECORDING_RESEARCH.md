@@ -619,9 +619,30 @@ that is to be replayed has to be recorded on a fixed timestep.** Doom 3 reached 
 `USERCMD_HZ` and deleting the frame-time arithmetic that a variable rate had needed; here the
 equivalent is that recording pins the timestep rather than trying to capture a loose one.
 
-That is a product decision rather than a limitation to work around. The engine already has a
-fixed-timestep simulation for [movement frame-rate independence](../MOVEMENT_FRAMERATE.md), so a
-recording mode that pins the step is asking the game for something it can already do.
+That is not a limitation to work around, it is what recording means. A recording is a session
+somebody intends to reproduce, so quantising its time is inherent to the act rather than a cost
+imposed on it, and the engine already has a fixed-timestep simulation for
+[movement frame-rate independence](../MOVEMENT_FRAMERATE.md).
+
+**Two things a recording mode has to get right, both measured.**
+
+*Pace the frames.* A pinned step alone makes game speed a function of frame rate, because there
+is no frame limiter in the engine and only vsync paces the loop: 600 ticks at a 16 ms step is
+9,600 ms of game time and took 3.53 s of wall time. Holding each frame to the step brings that
+back to real time, measured at 4,800 ms of game time in 4.85 s. Without it a recording session is
+unplayable on any machine whose frame rate is not exactly the step.
+
+*Arm the step where the determinism work already established it belongs.* `Timer_EnableFixedDt`
+is called at the top of `Control_Begin`, before `InitGame` and `ChangeCube`, so that boot's own
+`ManageTime` calls freeze and the base clock is the restored save value exactly. Arming anywhere
+else was tried, both at the first input poll and immediately after the command line is parsed, and
+neither reproduces: boot wall-clock leaks into the base, and the frames either side of the
+handover run on different clocks, which parts a recording from its replay within a couple of
+ticks. Under the established arming point the same test is clean four times out of four with the
+final state identical.
+
+So `--record` should route through that arming path rather than introduce another. Passing
+`--fixed-dt` alongside it is what does that today.
 
 ### What the prototype does not do
 
