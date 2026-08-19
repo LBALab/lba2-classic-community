@@ -22,6 +22,7 @@
 #include "DIRECTORIES.H"
 #include "DISTRIB.H"
 #include "INPUT_BINDINGS.H"
+#include "RECORD_FORMAT.H"
 #include "LZSS.H"
 #include "FOLLOWCAM.H"
 #include "JOYSTICK.H"
@@ -238,38 +239,6 @@ static T_DEF_KEY s_recDefKeys[MAX_INPUT_SLOTS];
 static T_DEF_KEY s_recGamepadKeys[MAX_INPUT_SLOTS];
 static int s_haveRecBindings = 0;
 static int s_bindingsInstalled = 0;
-
-/* One line per table: `k1:k2,k1:k2,...`, MAX_INPUT_SLOTS pairs. Text like the rest of
-   the header, so a recording stays readable without a decoder. */
-static void bindings_write(char *out, size_t n, const T_DEF_KEY *tab, const char *key) {
-    size_t at = (size_t)snprintf(out, n, "%s=", key);
-    S32 i;
-    for (i = 0; i < MAX_INPUT_SLOTS && at < n; i++)
-        at += (size_t)snprintf(out + at, n - at, "%s%u:%u", i ? "," : "",
-                               (unsigned)tab[i].Key1, (unsigned)tab[i].Key2);
-    if (at < n)
-        snprintf(out + at, n - at, "\n");
-}
-
-static int bindings_parse(const char *hdr, const char *key, T_DEF_KEY *tab) {
-    const char *p = strstr(hdr, key);
-    S32 i;
-    if (!p)
-        return 0;
-    p += strlen(key);
-    for (i = 0; i < MAX_INPUT_SLOTS; i++) {
-        unsigned a = 0, b = 0;
-        if (sscanf(p, "%u:%u", &a, &b) != 2)
-            return 0;
-        tab[i].Key1 = (U32)a;
-        tab[i].Key2 = (U32)b;
-        p = strchr(p, ',');
-        if (!p)
-            return i == MAX_INPUT_SLOTS - 1;
-        p++;
-    }
-    return 1;
-}
 
 static void bindings_install(void) {
     if (!s_haveRecBindings || s_bindingsInstalled)
@@ -594,10 +563,15 @@ static int record_begin(const char *path, int haveSnapshot) {
            installs, not a mode a reader compares, and bindings.digest above is the
            comparison. */
         char tab[512];
-        bindings_write(tab, sizeof tab, DefKeys, "bindings.keyboard");
-        fputs(tab, s_f);
-        bindings_write(tab, sizeof tab, GamepadKeys, "bindings.gamepad");
-        fputs(tab, s_f);
+        /* A refused write means the table did not fit, and a short one parses as a
+           different set of bindings rather than as an error, so drop the line
+           instead: a replay without it says so and borrows the live tables. */
+        if (RecFmt_WriteBindings(tab, sizeof tab, DefKeys, MAX_INPUT_SLOTS,
+                                 "bindings.keyboard="))
+            fputs(tab, s_f);
+        if (RecFmt_WriteBindings(tab, sizeof tab, GamepadKeys, MAX_INPUT_SLOTS,
+                                 "bindings.gamepad="))
+            fputs(tab, s_f);
     }
     fputc('\n', s_f);
 
@@ -1023,17 +997,19 @@ int Record_Play(const char *path) {
        ticks later. Applied on the first poll instead, where the frame clock already
        holds the recording's value and the banked delta is zero. */
     {
-        const char *k = strstr(s_headerBuf, "clock.timer_ref_hr=");
-        unsigned v = 0;
+        U32 v = 0;
         s_pendingBaseline = 0;
-        if (k && sscanf(k + 19, "%u", &v) == 1) {
-            s_baseline = (U32)v;
+        if (RecFmt_ReadU32(s_headerBuf, "clock.timer_ref_hr=", &v)) {
+            s_baseline = v;
             s_pendingBaseline = 1;
         }
     }
 
-    s_haveRecBindings = bindings_parse(s_headerBuf, "bindings.keyboard=", s_recDefKeys) &&
-                        bindings_parse(s_headerBuf, "bindings.gamepad=", s_recGamepadKeys);
+    s_haveRecBindings =
+        RecFmt_ParseBindings(s_headerBuf, "bindings.keyboard=", s_recDefKeys,
+                             MAX_INPUT_SLOTS) &&
+        RecFmt_ParseBindings(s_headerBuf, "bindings.gamepad=", s_recGamepadKeys,
+                             MAX_INPUT_SLOTS);
     if (!s_haveRecBindings)
         Console_Print("rec: %s carries no binding table; replaying through this run's own", path);
 
@@ -1043,15 +1019,13 @@ int Record_Play(const char *path) {
        recording that did not reload begins wherever its command line put it, and
        reloading here would break a path that reproduces exactly as it stands. */
     {
-        const char *k = strstr(s_headerBuf, "setup.reloaded=");
-        int v = 0;
-        if (k && sscanf(k + 15, "%d", &v) == 1 && v) {
-            const char *s = strstr(s_headerBuf, "setup.snapshot=");
+        S32 v = 0;
+        if (RecFmt_ReadInt(s_headerBuf, "setup.reloaded=", &v) && v) {
             char snap[ADELINE_MAX_PATH];
-            if (s && sscanf(s + 15, "%1023[^\n]", snap) == 1 && strcmp(snap, "-") != 0) {
-                const char *c = strstr(s_headerBuf, "setup.reload_clock=");
-                unsigned clk = 0;
-                if (c && sscanf(c + 19, "%u", &clk) == 1)
+            if (RecFmt_ReadStr(s_headerBuf, "setup.snapshot=", snap, sizeof snap) &&
+                strcmp(snap, "-") != 0) {
+                U32 clk = 0;
+                if (RecFmt_ReadU32(s_headerBuf, "setup.reload_clock=", &clk))
                     s_reloadClock = clk;
                 record_reload_request(snap, "", 1);
                 Console_Print("rec: reloading %s; replay starts from the post-load state", snap);
