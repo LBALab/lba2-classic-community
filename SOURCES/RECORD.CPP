@@ -19,11 +19,13 @@
 #include "C_EXTERN.H"
 #include "CONTROL.H"
 #include "CONSOLE/CONSOLE.H"
+#include "DIRECTORIES.H"
 #include "DISTRIB.H"
 #include "INPUT_BINDINGS.H"
 #include "LZSS.H"
 #include "FOLLOWCAM.H"
 #include "JOYSTICK.H"
+#include "SAVEGAME.H"
 #include "MESSAGE.H"
 
 #include <SYSTEM/KEYBOARD.H>
@@ -96,6 +98,8 @@ static U32 s_prevMt = 0;
 static long s_mtCalls = 0;
 static U32 s_frameClock = 0;
 static U32 s_baseline = 0;
+static char s_snapshot[ADELINE_MAX_PATH] = "-";
+static char s_recPath[ADELINE_MAX_PATH] = "";
 /* Frame pacing while recording. A pinned step makes game time advance by a constant
    per frame, and the engine has no frame limiter, so without holding each frame back
    the session runs at whatever rate it renders at: 600 ticks of a 16 ms step took
@@ -263,6 +267,7 @@ static void write_mode_lines(char *out, size_t n) {
              "setup.island=%d\n"
              "setup.cube=%d\n"
              "setup.demoslide=%d\n"
+             "setup.snapshot=%s\n"
              "clock.timer_ref_hr=%u\n"
              "data.master=%s\n"
              "data.distrib=%s\n"
@@ -276,6 +281,7 @@ static void write_mode_lines(char *out, size_t n) {
              (unsigned)ModeDesiredX, (unsigned)ModeDesiredY,
              (int)Language,
              (int)Island, (int)NumCube, (int)DemoSlide,
+             s_snapshot,
              (unsigned)TimerRefHR,
              Distrib_MasterName(Distrib_GetMaster()),
              Distrib_Name(DistribVersion),
@@ -316,6 +322,43 @@ void Record_ArmReplay(const char *path) {
     s_replayFromCli = 1;
 }
 
+/* A recording that starts mid-session has no setup: replaying it would need the whole
+   run before it reproduced first. A savegame beside the recording is that setup, and
+   the engine's own serialiser already writes one. Measured, a save restores everything
+   the state hash covers except the position and heading of actors that were moving,
+   which are re-derived from their scripts on load, so a replay from the snapshot is
+   faithful for the hero, the scene, quest state and every static actor, and the hash
+   reports where the moving ones part company.
+
+   The player's own save context is put back afterwards, because recording must not
+   disturb the run it observes. */
+static void record_save_to(const char *out) {
+    char savedName[MAX_SIZE_PLAYER_NAME + 1];
+    char savedPath[ADELINE_MAX_PATH];
+    S32 savedVersion = NumVersion;
+
+    strncpy(savedName, PlayerName, sizeof savedName - 1);
+    savedName[sizeof savedName - 1] = 0;
+    strncpy(savedPath, GamePathname, sizeof savedPath - 1);
+    savedPath[sizeof savedPath - 1] = 0;
+
+    snprintf(GamePathname, ADELINE_MAX_PATH, "%s", out);
+    strncpy(PlayerName, "rec", MAX_SIZE_PLAYER_NAME);
+    PlayerName[MAX_SIZE_PLAYER_NAME] = 0;
+    NumVersion = NUM_VERSION | SAVE_COMPRESS;
+    SaveGame(TRUE);
+
+    strncpy(PlayerName, savedName, MAX_SIZE_PLAYER_NAME);
+    PlayerName[MAX_SIZE_PLAYER_NAME] = 0;
+    snprintf(GamePathname, ADELINE_MAX_PATH, "%s", savedPath);
+    NumVersion = savedVersion;
+}
+
+static void record_write_snapshot(const char *recPath, char *out, size_t n) {
+    snprintf(out, n, "%s.lba", recPath);
+    record_save_to(out);
+}
+
 static void record_flush_at_exit(void) { Record_Stop(); }
 
 int Record_Start(const char *path) {
@@ -329,7 +372,9 @@ int Record_Start(const char *path) {
         return 0;
     }
 
-    char mode[1024];
+    char mode[1400];
+    snprintf(s_recPath, sizeof s_recPath, "%s", path);
+    record_write_snapshot(path, s_snapshot, sizeof s_snapshot);
     /* A player quits through the menu, a crash does not quit at all: flush on any exit
        rather than only on `rec stop`. */
     atexit(record_flush_at_exit);
@@ -371,12 +416,29 @@ int Record_Start(const char *path) {
 }
 
 int Record_Stop(void) {
+    int wasRecording = s_recording;
+    char endPath[ADELINE_MAX_PATH];
+
     if (!s_f)
         return 0;
     fclose(s_f);
     s_f = NULL;
     s_recording = 0;
     s_replaying = 0;
+
+    /* A second snapshot where the recording ends, on the same mechanics as the one at
+       the start. The per-tick hash says which tick a replay stopped matching; this says
+       what it ended up with, in fields rather than in a digest, and it is the thing a
+       replay's final state can be diffed against directly.
+     *
+     * Only while a scene is live, and only for a recording: a run that ended in a crash
+     * leaves no end snapshot, which is the correct outcome rather than a gap to paper
+     * over. Its absence says the session did not finish, which is exactly what a crash
+     * repro wants to record. */
+    if (wasRecording && NumCube >= 0 && NbObjets > 0) {
+        snprintf(endPath, sizeof endPath, "%s.end.lba", s_recPath);
+        record_save_to(endPath);
+    }
     return 1;
 }
 
@@ -648,7 +710,10 @@ void Record_PollHook(void) {
                     "clock drift max %ld ms\n",
                     s_polls, s_ticksChecked, s_hashMismatchTick, s_refDriftMax);
             Record_Stop();
-            if (s_replayFromCli)
+            /* Only when nothing else is driving the run. With the harness armed it has
+               a tick budget and artifacts to write, and exiting from here would skip
+               the --dump-state the caller asked for. */
+            if (s_replayFromCli && !Control_IsActive())
                 exit(s_hashMismatchTick < 0 ? 0 : 2);
         }
         /* Progress, so a long replay is not a silent one. */

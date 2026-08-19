@@ -645,6 +645,48 @@ So `--record` should route through that arming path rather than introduce anothe
 `--fixed-dt` alongside it is what does that today, and recording now paces its frames to the step
 whenever both are on, which is what makes such a session playable rather than merely reproducible.
 
+### Mid-session recordings, and the snapshot that makes them replayable
+
+A recording that starts mid-session has no setup, so replaying it would need everything before it
+reproduced first. The engine already writes the setup: a savegame.
+
+**How faithful a save is as a snapshot, measured.** Take one mid-session, load it back, and diff
+against the state at the moment it was taken: **six fields differ**. One is the clock. The other
+five are the x, z and beta of the two actors that were moving, which are re-derived from their
+scripts on load rather than restored. Everything else, the hero, the scene, every quest variable,
+the inventory and every static actor, comes back exactly.
+
+So `rec start` writes a snapshot beside the recording and names it in the header, and a
+mid-session recording replays through the proven `--load` path:
+
+```bash
+lba2cc --load session.rec.lba --fixed-dt 16 --replay session.rec
+```
+
+**What that reproduces, over a 200-tick mid-session replay:** the hero identical, the scene
+identical, every quest variable identical, and ten fields adrift, all of them the moving actors
+plus a debug counter. The hash reports the divergence at tick 0, immediately, because the replay
+starts from the post-load state while the recording continued from the live one.
+
+Closing that last gap is one change rather than a new mechanism: `rec start` should load its own
+snapshot back, so the recording begins from the same post-load state a replay will. The cost is a
+scene reload where recording starts, which is a visible hitch for something a person asked for
+deliberately.
+
+### A snapshot at both ends
+
+The same mechanics at `rec stop` give a recording a second oracle, and the two answer different
+questions. The per-tick hash says *which tick* a replay stopped matching. The end snapshot says
+*what it ended up with*, in named fields rather than a digest, so a replay's final state can be
+diffed against it directly. Verified: the end snapshot's hero position, animation, scene and quest
+variables match the state at the moment recording stopped.
+
+It is written whenever the recording is stopped, including through a clean shutdown, and a scene
+has to be live for it to mean anything. **A hard crash leaves it absent, and that is the right
+outcome rather than a gap to paper over:** its absence says the session did not finish, which is
+exactly what a crash repro wants to record. Confirmed by killing a recording run outright, which
+leaves the recording and its opening snapshot intact, per-tick flushed, and no end snapshot.
+
 ### The two ways in are not equivalent, and only one reproduces
 
 The flag and the console verb start a recording at different points, and it shows:
