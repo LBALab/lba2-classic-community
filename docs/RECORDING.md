@@ -171,6 +171,21 @@ produced headlessly, because the toggle is an SDL key event. It is covered by a 
 session that opens the console, types, closes it and plays on, which replays with no mismatch and
 no clock drift.
 
+**Audio used to move the answer, and that is now fixed at the source.** The ambience system draws
+its random pan from the one `rand()` stream actor behaviour uses, and only `if
+(!IsSamplePlaying(...))`. The SDL mixer answers that from the audio device's clock, which no replay
+reproduces, so one draw either way offset the stream and the next actor to reach a "turn to a random
+angle" instruction turned differently. Measured: a walking session diverged at tick 1410 on
+`obj[11].Beta`, with zero clock drift, and the same walk recorded `--no-audio` replayed clean.
+
+Under `--fixed-dt` a sample's playing state is now answered from its own length on the game clock
+rather than from the mixer, so the simulation sees the same answer in both runs. The mixer is
+untouched: this only changes what the simulation is told, and only in a mode no player runs.
+
+This is also why the bug survived so long. Every fixture runs `--headless`, which uses the null
+audio backend, so nothing in the suite had ever exercised the audio path. A recording is the first
+fixture that runs with sound.
+
 **The mode has to match.** A recording made windowed with audio does not replay headless with the
 null backend, because a live audio thread branches the simulation. `rec info` will say so.
 

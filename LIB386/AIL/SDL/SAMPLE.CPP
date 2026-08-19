@@ -182,9 +182,14 @@ struct Voice {
     S32 repeatCount;
     U32 handle;
     U32 timer;
+    /* When this voice stops being audible to the *simulation*, on the game clock.
+       0 = nothing playing, SAMPLE_SIM_ENDLESS = repeats forever. See VoiceHeardBySim. */
+    U32 simEndMs;
     bool active;
     void *ownedBuf;
 };
+
+#define SAMPLE_SIM_ENDLESS 0xFFFFFFFFu
 
 static SDL_AudioStream *sampleStream = NULL;
 static Voice voices[NUM_VOICES];
@@ -200,6 +205,32 @@ S32 sampleVolume = 0;
 static int sfxLogEnabled = 0;
 
 extern volatile U32 TimerSystemHR;
+extern "C" S32 Timer_FixedDtActive(void);
+
+/* Is this voice still playing, as far as the simulation is concerned?
+ *
+ * Normally that is the mixer's own flag, which is the truth: the voice stops when the
+ * audio device has consumed the sample. Under fixed-dt it cannot be, because the mixer
+ * runs on the device's clock and the game runs on a virtual one, so how far a sample has
+ * got by a given tick depends on the host. The simulation reads this: SOURCES/AMBIANCE.CPP
+ * only draws its random pan `if (!IsSamplePlaying(...))`, and that draw comes from the one
+ * rand() stream actor behaviour uses. One draw either way and the next actor to reach
+ * TM_ANGLE_RND turns to a different angle. That is measured, not theorised: a recorded
+ * session diverged from its own replay at tick 1410 on obj[11].Beta, and the same session
+ * recorded with --no-audio replayed clean.
+ *
+ * So under fixed-dt the answer comes from the sample's own length on the game clock. The
+ * mixer still stops the voice when the data runs out; this only changes what the
+ * simulation is told, and only in a mode no player runs. */
+static bool VoiceHeardBySim(const Voice *V) {
+    if (!Timer_FixedDtActive())
+        return V->active;
+    if (V->simEndMs == 0)
+        return false;
+    if (V->simEndMs == SAMPLE_SIM_ENDLESS)
+        return true;
+    return (S32)(TimerSystemHR - V->simEndMs) < 0;
+}
 
 static void LockVoices(void) {
     if (sampleStream)
@@ -517,6 +548,7 @@ U32 PlaySample(void *buffer, S32 sizeBytes, U32 userhandle, S32 pitchbend,
     Voice *V = &voices[slot];
     FreeVoiceBuf(V);
     V->active = false;
+    V->simEndMs = 0;
 
     if (hadWav && fmtTag == 17 && blkAlign > 0) {
         S32 decodedSamples = 0;
@@ -559,6 +591,24 @@ U32 PlaySample(void *buffer, S32 sizeBytes, U32 userhandle, S32 pitchbend,
     V->repeatCount = 0;
     V->handle = nextHandle | ((userhandle & 0xFFFF) << 8) | (slot & 0xFF);
     V->timer = TimerSystemHR;
+    /* How long this will play, in game-clock milliseconds. The mixer walks `maxSamples`
+       source samples at `stepSamples` per output frame and repeats `repeat` times, or
+       forever when repeat is 0 (see the mixer above), so the length follows from the same
+       three numbers it uses. */
+    {
+        S32 maxSamples = V->is8bit ? V->sizeBytes : (V->sizeBytes / 2);
+        if (V->repeat == 0) {
+            V->simEndMs = SAMPLE_SIM_ENDLESS;
+        } else if (maxSamples <= 0 || V->stepSamples <= 0.0f) {
+            V->simEndMs = 0;
+        } else {
+            double frames = ((double)maxSamples / (double)V->stepSamples) * (double)V->repeat;
+            double ms = frames * 1000.0 / (double)SAMPLE_RATE;
+            V->simEndMs = TimerSystemHR + (U32)(ms + 0.5);
+            if (V->simEndMs == 0 || V->simEndMs == SAMPLE_SIM_ENDLESS)
+                V->simEndMs = 1; /* never collide with the two reserved values */
+        }
+    }
     nextHandle += 0x1000000;
     if (nextHandle == 0)
         nextHandle = 0x1000000;
@@ -603,6 +653,11 @@ void StopOneSample(U32 sample) {
     if (i >= 0) {
         FreeVoiceBuf(&voices[i]);
         voices[i].active = false;
+        /* Cleared here and in StopSamples, but deliberately not where the mixer reaches
+           the end of the data: a stop is the simulation's own decision and falls the same
+           way in a replay, while the mixer finishing is exactly the wall-clock event this
+           is keeping out of the simulation. */
+        voices[i].simEndMs = 0;
     }
     UnlockVoices();
 }
@@ -614,6 +669,7 @@ void StopSamples() {
     for (int i = 0; i < NUM_VOICES; i++) {
         FreeVoiceBuf(&voices[i]);
         voices[i].active = false;
+        voices[i].simEndMs = 0;
     }
     nextHandle = 0x1000000;
     samplesPaused = 0;
@@ -649,8 +705,19 @@ S32 GetSamplesPausedCount() {
 
 U32 IsSamplePlaying(U32 sample) {
     LockVoices();
-    int i = VoiceIndexFromHandle(sample);
-    U32 result = (i >= 0) ? voices[i].timer : (U32)FALSE;
+    U32 result = (U32)FALSE;
+    /* The one place the simulation asks about audio, so the one place that has to answer
+       from the game clock under fixed-dt. Everything else here (stop, volume, pan) only
+       reaches the mixer, and reads the mixer's own flag as before. */
+    for (int i = 0; i < NUM_VOICES; i++) {
+        bool matches = (sample < 0x1000000)
+                           ? (((voices[i].handle >> 8) & 0xFFFF) == sample)
+                           : (voices[i].handle == sample && (sample & 0xFF) == (U32)i);
+        if (!matches || !VoiceHeardBySim(&voices[i]))
+            continue;
+        result = voices[i].timer ? voices[i].timer : 1u;
+        break;
+    }
     UnlockVoices();
     return result;
 }
