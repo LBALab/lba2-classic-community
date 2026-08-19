@@ -11,8 +11,8 @@ ships with the game and left the seam, the record unit and the file format open.
 answers those three.
 
 Every figure below was measured against the working tree, first with an instrumented build and
-then with a working record and replay prototype. The prototype is not committed and is not
-proposed for merge; it exists so the design was tested rather than argued. The commands are at
+then with a working record and replay prototype. The prototype is committed on this branch but
+is not proposed for merge; it exists so the design was tested rather than argued. The commands are at
 the end. Re-run them rather than trusting a number that has aged.
 
 ## The short answer
@@ -36,6 +36,54 @@ reports the tick it stopped matching.
 Under a clock sampled from the host, which is what real play uses, replay is not reliably exact.
 Extending the proven configuration to a player's own session means generating the clock while
 recording rather than reconstructing it afterwards.
+
+## What the work has found so far
+
+The design argument is what this doc is for, but building the prototype to test it turned up
+defects that reading could not have. They are listed here because they are the case for having
+built it, and because the first two are live bugs on paths that have nothing to do with
+recording.
+
+### In the engine and the harness
+
+These predate the recorder and are not about it.
+
+| Defect | Where | What surfaced it |
+| --- | --- | --- |
+| `--load` never uploads the video palette, so every present maps a correctly composed `Log` through an all-black table: a black window with audio and simulation running normally | `Control_Begin`, [SOURCES/CONTROL.CPP](../../SOURCES/CONTROL.CPP) | trying to record a session from a save |
+| A run with no `--tick` finalises on its first tick and disarms the hook that calls `Timer_FixedDtAdvance`, leaving the `--fixed-dt` clock to the present path alone, so a tick that presents nothing banks nothing | `Control_TickHook`, [SOURCES/CONTROL.CPP](../../SOURCES/CONTROL.CPP) | a player's recording diverging from its own replay at tick 14 |
+| `--ignore-focus` on an otherwise interactive run hangs before printing its banner. Open, not diagnosed | | isolating the one above |
+| A from-boot headless run blocks on the opening dialogue, and the `skipmodals` gate is console-only with no CLI flag. Documented, not changed | | recording from boot |
+
+The palette one deserves its own line, because **no screenshot in this codebase could have caught
+it**. `--shot` and the console `screenshot` verb write `SavePNG(Log, PtrPal)`, reading the game's
+palette rather than the video one, so screenshots came out correct while the window showed
+nothing. Only a readback of the presented frame separates the two.
+
+### In the prototype, caught by its own oracle
+
+The per-tick state hash found every one of these, which is the argument for a recording carrying
+one.
+
+| Defect | What it took to reach |
+| --- | --- |
+| The clock baseline was sampled one bank early: `SetTimerHR`'s `LockTimer` banks the frame's pending delta a line before the assignment discards it | any mid-session replay, at tick 1 |
+| Both ends have to take a mid-session load at the same clock reading. A save re-derives state stamped from the clock, so the two leave the load looking identical and part company 300 ticks later | an exterior scene, at tick 296 of 397, on one actor's `beta`: 758 against 512 |
+| Pinning the clock wedged `FadeToPalAndSamples`, which loops on `ManageTime` plus `Timer_FixedDtPump` and never polls input | recording from boot, and recording across a scene load |
+| A replay started from `--replay` had never registered the console's command table, so every recorded command dispatched to nothing, silently | a recording containing a cube change |
+| `bindings_restore` wrote 296 bytes into the 288-byte `GamepadKeys` and glibc aborted the process | a session ended through the console rather than the game menu |
+
+The last two are the ones no fixture could have produced. Replays had always been driven through
+`--exec "rec play"`, which registers the command table on the way in, and every fixture ends by
+running out of ticks rather than by stopping mid-session. Both needed a person playing.
+
+### Traps the work documented rather than changed
+
+`DefKeys` is declared `[MAX_INPUT_SLOTS + 1]` and `GamepadKeys` `[MAX_INPUT_SLOTS]`, so a copy
+sized off either one overruns the other. `ChangeCube` is the engine's only `srand` and seeds from
+`TimerRefHR` outside the demo reel, which is what makes a cube change anywhere in a session
+clock-sensitive. The console `cube` verb is the one route that leaves `FlagChgCube` zero and so
+skips the `SaveTimer` lock, which made it the quiet path to have built a test on.
 
 ## The four layers a recording could sit at
 
@@ -281,7 +329,7 @@ which is new on every poll the mouse is moving; that has not been measured under
 ## The prototype
 
 A working recorder and replayer was built to test the design above rather than argue it. It is
-not committed and is not proposed for merge; what follows is what it measured.
+committed on this branch but is not proposed for merge; what follows is what it measured.
 
 **Size of the thing.** 82 added lines across 10 existing files, plus a 779-line module. The
 engine side is small because the seam was already there: a call at the tail of
