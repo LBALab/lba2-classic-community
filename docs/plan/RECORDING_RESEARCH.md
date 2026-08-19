@@ -42,7 +42,7 @@ recording rather than reconstructing it afterwards.
 | Layer | Unit | Complete? | Verdict |
 |---|---|---|---|
 | A. SDL events | `SDL_Event` | no | reject, measured below |
-| B. Polled device state | `TabKeys[384]` + `Key` | digital yes, analog no | **take**, plus 20 bytes |
+| B. Polled device state | `TabKeys[384]` + `Key` | digital yes, analog no | **take**, plus 20 bytes and the binding table |
 | C. Resolved action bits | `Input`, `MyKey` | no | keep as trace, not as record |
 | D. Frame-intent struct | a `usercmd_t` equivalent | n/a | the destination, not the start |
 
@@ -1096,17 +1096,35 @@ Three things the reverse direction has to answer that the forward one does not:
 in general: the console toggle, the developer block, and the key-rebinding screen itself, which is
 the sharp case, since a recording of a player rebinding keys cannot be expressed in bindings.
 
-### The sequencing, which is the recommendation
+### The sequencing, and what shipped
 
 Item D above already states the property that settles the order: **the frame intent is a pure
 function of the polled state plus the binding table**. So a recording that carries the binding
-table can be converted to an action stream offline, later, without being re-recorded.
+table can be converted to an action stream offline, later, without being re-recorded, on the day
+the reverse lookup exists. One that does not carry them cannot.
 
-That makes carrying the table the first move rather than a competing one. It is a few hundred
-bytes, it makes today's recordings portable across players by installing the recorded bindings for
-the replay's duration, and it keeps every file written between now and then convertible. Moving
-the record unit first would put the format behind the reverse lookup, the residual channel and the
-`MyKey` synthesis, and would strand every recording made before it.
+That makes carrying the table the first move rather than a competing one, and it is what the
+format now does. `bindings.keyboard` and `bindings.gamepad` hold the two tables as
+`k1:k2` pairs, one line each, and a replay installs them before its first replayed poll and puts
+the player's own back when it stops. Format version 7.
+
+Measured, replaying one recording under a cfg that moved the bindings:
+
+| Replaying run's bindings | Result |
+|---|---|
+| the recording's own | clean, three runs out of three |
+| forward moved from UP to W | **clean, three runs out of three** (was: failed at tick 33) |
+| forward, back, left and right all moved | clean |
+
+And the borrow returns. Reading `bindings.digest` off the live run at three moments in the same
+rebound session: `be9bc958` before the replay, `f5e20ec4` (the recording's) during it, `be9bc958`
+again after it ends.
+
+**What it does not buy.** The file still says "scancode 82 was down" rather than "the player asked
+to move forward", so it is portable because it carries its own dictionary, not because it stopped
+needing one. A recording is still tied to this engine's scancode meanings and to the 36-slot
+binding layout. That is the part moving the record unit would fix, and the part this defers rather
+than solves.
 
 ## What this buys beyond reproducing input
 

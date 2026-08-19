@@ -43,7 +43,7 @@ extern "C" {
 /* ---- live state ---------------------------------------------------------- */
 
 #define REC_MAGIC "LBA2REC"
-#define REC_VERSION 6
+#define REC_VERSION 7
 
 /* Sync markers, on the same idea as the socket protocol's <<END>>: a reader that has
  * lost its place needs something it can find again. Without them a stream that goes out
@@ -210,6 +210,81 @@ static unsigned long long state_hash(void) {
     for (i = 0; i < MAX_VARS_CUBE; i++)
         M(ListVarCube[i]);
     return s_h;
+}
+
+/* ---- the binding table the recording was resolved through ----------------- */
+
+/* A replay injects the key table, and `GetInput` rebuilds `Input` from that table *and*
+   the bindings, so the bindings are half of the function that turns a recording into
+   actions rather than context to note beside it: rebinding one key breaks a replay at
+   the tick of the first recorded press. The digest below detects that and cannot repair
+   it, so the recording carries the table itself and a replay borrows it for its own
+   duration, returning the player's own on the way out, on the same borrow-and-return
+   the snapshot reload uses for the save context.
+
+   It is also what keeps this file convertible. The frame intent is a pure function of
+   the polled state plus the bindings, so a recording that carries them can be
+   re-expressed as a stream of actions later, without being recorded again, on the day
+   the reverse lookup exists. A recording that does not carry them cannot. */
+static T_DEF_KEY s_savedDefKeys[MAX_INPUT_SLOTS + 1];
+static T_DEF_KEY s_savedGamepadKeys[MAX_INPUT_SLOTS + 1];
+static T_DEF_KEY s_recDefKeys[MAX_INPUT_SLOTS + 1];
+static T_DEF_KEY s_recGamepadKeys[MAX_INPUT_SLOTS + 1];
+static int s_haveRecBindings = 0;
+static int s_bindingsInstalled = 0;
+
+/* One line per table: `k1:k2,k1:k2,...`, MAX_INPUT_SLOTS pairs. Text like the rest of
+   the header, so a recording stays readable without a decoder. */
+static void bindings_write(char *out, size_t n, const T_DEF_KEY *tab, const char *key) {
+    size_t at = (size_t)snprintf(out, n, "%s=", key);
+    S32 i;
+    for (i = 0; i < MAX_INPUT_SLOTS && at < n; i++)
+        at += (size_t)snprintf(out + at, n - at, "%s%u:%u", i ? "," : "",
+                               (unsigned)tab[i].Key1, (unsigned)tab[i].Key2);
+    if (at < n)
+        snprintf(out + at, n - at, "\n");
+}
+
+static int bindings_parse(const char *hdr, const char *key, T_DEF_KEY *tab) {
+    const char *p = strstr(hdr, key);
+    S32 i;
+    if (!p)
+        return 0;
+    p += strlen(key);
+    for (i = 0; i < MAX_INPUT_SLOTS; i++) {
+        unsigned a = 0, b = 0;
+        if (sscanf(p, "%u:%u", &a, &b) != 2)
+            return 0;
+        tab[i].Key1 = (U32)a;
+        tab[i].Key2 = (U32)b;
+        p = strchr(p, ',');
+        if (!p)
+            return i == MAX_INPUT_SLOTS - 1;
+        p++;
+    }
+    return 1;
+}
+
+static void bindings_install(void) {
+    if (!s_haveRecBindings || s_bindingsInstalled)
+        return;
+    memcpy(s_savedDefKeys, DefKeys, sizeof s_savedDefKeys);
+    memcpy(s_savedGamepadKeys, GamepadKeys, sizeof s_savedGamepadKeys);
+    memcpy(DefKeys, s_recDefKeys, MAX_INPUT_SLOTS * sizeof DefKeys[0]);
+    memcpy(GamepadKeys, s_recGamepadKeys, MAX_INPUT_SLOTS * sizeof GamepadKeys[0]);
+    /* The combined (key, mask) table is what CheckKey scans; changing the two source
+       tables without rebuilding it changes nothing. */
+    InitInput();
+    s_bindingsInstalled = 1;
+}
+
+static void bindings_restore(void) {
+    if (!s_bindingsInstalled)
+        return;
+    memcpy(DefKeys, s_savedDefKeys, sizeof s_savedDefKeys);
+    memcpy(GamepadKeys, s_savedGamepadKeys, sizeof s_savedGamepadKeys);
+    InitInput();
+    s_bindingsInstalled = 0;
 }
 
 /* Digest of the binding table, so a recording knows which bindings resolved it. */
@@ -500,7 +575,18 @@ static int record_begin(const char *path, int haveSnapshot) {
     s_frameClockValid = 1;
     ManageTime();
     write_mode_lines(mode, sizeof mode);
-    fprintf(s_f, "%s %d\n%s\n", REC_MAGIC, REC_VERSION, mode);
+    fprintf(s_f, "%s %d\n%s", REC_MAGIC, REC_VERSION, mode);
+    {
+        /* Their own lines rather than part of the mode block: they are payload a replay
+           installs, not a mode a reader compares, and bindings.digest above is the
+           comparison. */
+        char tab[512];
+        bindings_write(tab, sizeof tab, DefKeys, "bindings.keyboard");
+        fputs(tab, s_f);
+        bindings_write(tab, sizeof tab, GamepadKeys, "bindings.gamepad");
+        fputs(tab, s_f);
+    }
+    fputc('\n', s_f);
 
     memset(s_prevKeys, 0, sizeof s_prevKeys);
     s_prevKey = 0;
@@ -586,6 +672,7 @@ int Record_Stop(void) {
     s_f = NULL;
     s_recording = 0;
     s_replaying = 0;
+    bindings_restore();
 
     /* A second snapshot where the recording ends, on the same mechanics as the one at
        the start. The per-tick hash says which tick a replay stopped matching; this says
@@ -864,11 +951,12 @@ static void replay_begin(void) {
     s_clockMismatchPoll = -1;
     s_hashMismatchTick = -1;
     s_eof = 0;
+    bindings_install();
     s_replaying = 1;
 }
 
 int Record_Play(const char *path) {
-    char line[256];
+    char line[640]; /* a binding table is one line and does not fit in 256 */
     char buf[512];
 
     if (s_recording || s_replaying)
@@ -925,6 +1013,11 @@ int Record_Play(const char *path) {
             s_pendingBaseline = 1;
         }
     }
+
+    s_haveRecBindings = bindings_parse(s_headerBuf, "bindings.keyboard=", s_recDefKeys) &&
+                        bindings_parse(s_headerBuf, "bindings.gamepad=", s_recGamepadKeys);
+    if (!s_haveRecBindings)
+        Console_Print("rec: %s carries no binding table; replaying through this run's own", path);
 
     /* The one header line that decides whether this replay reloads. A recording that
        reloaded its own snapshot begins from the post-load state, so a replay reaches
@@ -1294,7 +1387,7 @@ void Record_Report(const char *path) {
     /* Read the header of a recording and name every line that differs from this run. */
     {
         FILE *f = fopen(path, "rb");
-        char line[256];
+        char line[640];
         char hdr[1024];
         int diffs = 0;
         if (!f) {
@@ -1311,6 +1404,11 @@ void Record_Report(const char *path) {
             nl = strchr(line, '\n');
             if (nl)
                 *nl = 0;
+            if (!strncmp(line, "bindings.keyboard=", 18) || !strncmp(line, "bindings.gamepad=", 17)) {
+                /* Payload rather than mode: a few hundred characters of table that
+                   bindings.digest above already answers for. */
+                continue;
+            }
             Console_Print("  %s", line);
             strncat(hdr, line, sizeof hdr - strlen(hdr) - 1);
             strncat(hdr, "\n", sizeof hdr - strlen(hdr) - 1);
