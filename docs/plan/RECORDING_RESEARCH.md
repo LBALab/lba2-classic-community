@@ -10,8 +10,10 @@ with a consistency hash as the replay design worth taking, and
 ships with the game and left the seam, the record unit and the file format open. This doc
 answers those three.
 
-Every figure below was measured against the working tree with a temporary instrumented build.
-The commands are at the end. Re-run them rather than trusting a number that has aged.
+Every figure below was measured against the working tree, first with an instrumented build and
+then with a working record and replay prototype. The prototype is not committed and is not
+proposed for merge; it exists so the design was tested rather than argued. The commands are at
+the end. Re-run them rather than trusting a number that has aged.
 
 ## The short answer
 
@@ -21,6 +23,10 @@ simulation state stored beside each tick.
 
 That is one function, and the hook that replays it already exists there for another reason. It
 covers the whole digital funnel and three analog values sit outside it, priced below.
+
+Built and measured: a session driven by real key presses replayed bit-for-bit from the file, a
+modal carrying 453 polls inside one tick replayed in order, and a perturbed replay reported the
+tick it stopped matching. 76 added lines across 9 existing files, plus one module.
 
 ## The four layers a recording could sit at
 
@@ -256,12 +262,131 @@ inside 1997 code. Increment 3, named keys, would make the pinned table readable 
 instead of a block of scancodes. Neither is a blocker; the second is a clear improvement.
 
 **Size.** 384 bytes of `TabKeys`, a 4-byte `Key` and the 20 bytes of analog and pad-edge state
-above is 408 bytes per poll, and gameplay was measured at exactly one poll per rendered frame, so
-a raw stream is about 24 KB per second at 60 fps. A change-only encoding is the obvious fix for the table, which is unchanged on the
-large majority of polls in any real session. It does nothing for the mouse deltas, which are new
-on every poll the mouse is moving, so the analog 20 bytes are close to the floor rather than
-close to free. No compression figure is quoted here because the change rate in real play has not
-been measured. It is listed as an open question.
+above is 408 bytes per poll raw, and gameplay was measured at exactly one poll per rendered
+frame, so a raw stream would be about 24 KB per second at 60 fps. A change-only encoding brings
+that down by more than two orders of magnitude: the prototype measured **1.02 to 1.10 bytes per
+poll** across two sessions. What actually costs is the per-tick hash, at 13 bytes a tick. The
+numbers are in the prototype section. The one part that will not compress is the mouse delta,
+which is new on every poll the mouse is moving; that has not been measured under a real mouse.
+
+## The prototype
+
+A working recorder and replayer was built to test the design above rather than argue it. It is
+not committed and is not proposed for merge; what follows is what it measured.
+
+**Size of the thing.** 76 added lines across 9 existing files, plus a 622-line module. The engine
+side is small because the seam was already there: a call at the tail of `UpdateKeyboardState`
+beside the two existing weak hooks, a call at the tail of `ManageMouse`, a call in
+`Control_TickHook`, one console verb, and three accessors for state that had no getter.
+
+**What it does.** `rec start <path>` and `rec stop` record; `rec play <path>` replays;
+`rec info [path]` reports the live run's mode, or reads a recording's header and names every line
+that differs from the run about to replay it. The file is a text header, a blank line, then a
+record stream where a poll that changed nothing costs one byte.
+
+### What it proved
+
+| Test | Result |
+|---|---|
+| Record 400 ticks interior, replay | 399 polls, 399 ticks checked, 0 hash and 0 clock mismatches |
+| Record real key presses (`key up 120`, `key action 20`), replay with no key command at all | 0 mismatches over 399 ticks |
+| Record and replay through the 453-poll modal (demo reel cube 193, 900 ticks) | 1349 polls over 897 ticks, 453 in one tick, 0 mismatches |
+| Perturb a replay after the funnel (`input up 30` at tick 300) | consistency failure reported at tick 300 |
+| Replay a `--fixed-dt 16` recording under `--fixed-dt 20` | `rec info` named 3 differing lines; clock mismatch at poll 1, hash mismatch at tick 4 |
+| Record over the socket, headless | 438 polls captured live across 2.3 s of driving |
+| Record over the socket, windowed | works, with the focus caveat below |
+
+The second row is the design's central claim: a session driven by real key state through the
+binding layer was reproduced bit-for-bit from the file alone, with nothing driving the engine but
+the recording. The third row is the reason the index is polls: 453 samples landed inside one tick
+and replayed in the right order.
+
+### Three findings the prototype produced that the reading did not
+
+**The oracle is the file, not the input.** Measured on two sessions:
+
+| Session | Input stream | Hash stream |
+|---|---|---|
+| 400 ticks, interior, keyboard-driven | 439 bytes over 399 polls (1.10 B/poll) | 5,187 bytes over 399 ticks (13 B/tick) |
+| 900 ticks, demo reel with the modal | 1,381 bytes over 1,349 polls (1.02 B/poll) | 11,661 bytes over 897 ticks (13 B/tick) |
+
+So the change-only encoding works: recording what the player did costs about a byte per poll, and
+the per-tick state hash costs thirteen times more. At 60 Hz that is roughly 61 bytes a second of
+input against 780 of oracle, so an hour of play is about 220 KB of input and 2.7 MB of hash. The
+lever is the oracle, not the samples: a 32-bit digest, or one hash every N ticks, changes the
+file size by nearly an order of magnitude and nothing else does. The text header was 319 bytes.
+
+**Replay is authoritative at the funnel, and that is a boundary worth knowing.** Injecting
+`key action` into a running replay changed nothing, because `ApplyHarnessKeys` runs before the
+replay hook and the hook overwrites the whole table. A replay therefore cannot be perturbed by
+live input, the touch overlay, or a real keyboard, which is the right default for a fixture and
+means nudging a replay mid-flight needs an explicit takeover rather than just pressing a key. The
+authority stops at the funnel: `input`, which ORs into `Input` from `MainLoop`, does perturb a
+replay, which is how the oracle row above was produced.
+
+**The recorded clock is a faster detector than the state hash.** Replaying a 16 ms recording at
+20 ms was caught at poll 1 by the clock delta and only at tick 4 by the hash. Comparing one
+recorded integer per poll costs nothing and fires before any state has had time to drift, so the
+clock check earns its place beside the hash rather than being redundant with it.
+
+### The mode header, and what it is for
+
+`rec info` against a mismatched run named exactly the lines that differed:
+
+```
+rec: MISMATCH mode.fixed_dt=16
+rec: MISMATCH mode.resolution=640x480
+rec: MISMATCH clock.timer_ref_hr=4268109
+rec: 3 mode line(s) differ; replay may not reproduce
+```
+
+The header the prototype writes is engine version, headless, fixed dt, fixed timestep, vsync,
+build flags (which carry the sound backend, the one that decides exterior determinism),
+resolution, language, island, cube, `DemoSlide`, the clock at start, and a digest of the binding
+table. That last one matters for the reason [INPUT_PLAN.md](INPUT_PLAN.md) increment 0 makes it
+cheap: `Input` is a function of the key table *and* the bindings, so the same samples under a
+different `lba2.cfg` resolve to different actions.
+
+Reporting the mode is most of what makes a recording safe to accept from someone else. A bug
+report that replays differently should say which of thirteen lines differ before it says
+anything about the game.
+
+### The socket drives with a head and without
+
+Both work, and the windowed case needed one change. `Timer_SetIgnoreFocus(1)` was armed only for
+a run that is headless, has a tick budget, or exits on its own. A `--listen` run has none of
+those, so a windowed session froze the moment the operator moved focus to the terminal they were
+driving it from, which is the only place they could be. Measured, with focus changed by hand
+during the run:
+
+| Windowed `--listen` run | Game clock over 3 s of wall time |
+|---|---|
+| focus loss handled as for a player | 0 ms |
+| focus loss ignored | 3,011 ms |
+
+`SDL_EVENT_WINDOW_FOCUS_LOST` calls `LockTimer()`
+([LIB386/SYSTEM/TIMER.CPP](../../LIB386/SYSTEM/TIMER.CPP)), which is right for a player and wrong
+for a driven session. Three ways to close it, and the prototype implements the first two:
+`--listen` implies ignoring focus, since a socket-driven run has a driver and the driver is in
+another window by definition; an explicit `--ignore-focus` for the general windowed case; or a
+cfg key for anyone who wants it always. Inferring it from `--listen` is the one that needs no
+documentation and has no case where it is wrong, so the flag is for everything else.
+
+Driving with a head matters for this specific feature in a way it does not for the rest of the
+harness, because watching a replay is how a person judges whether it reproduced something a hash
+does not cover.
+
+### What the prototype does not do
+
+Variable-dt replay. It records the clock delta and verifies it, which is what produced the
+poll-1 detection above, but it does not yet drive the clock from the recording, so both record
+and replay were run under `--fixed-dt`. Driving `FixedDt` from the stream is the next step and
+is the one that decides open question 2.
+
+It also carries the mouse at the keyboard poll index rather than at `ManageMouse`'s own, so the
+mouse delta a sample holds is the one drained on the previous frame. Consistent between record
+and replay, and wrong if anything ever reads the two at different rates. A real format would give
+the mouse its own index or move the drain.
 
 ## What this buys beyond reproducing input
 
@@ -338,9 +463,10 @@ two this doc spends its measurements on.
 
 ## Open questions
 
-1. **What is the sample change rate in real play?** It decides the encoding and the file size,
-   and it has not been measured. A recorded session of ordinary play, counting polls where
-   `TabKeys` differs from the previous poll, answers it directly.
+1. **What is the sample change rate under a real player?** The prototype answers this for
+   harness-driven play, where key presses are sparse and a poll costs about a byte. A human on a
+   keyboard and a mouse is a different signal, and the mouse is the part that will not compress.
+   Recording an ordinary play session and reading the same counters answers it.
 
 2. **Does a recording made under real play conditions replay?** Everything above says the clock
    is handled and the audio thread is not. The experiment is cheap once record and replay exist:
@@ -392,6 +518,30 @@ cmake --build build-instr -j"$(nproc)"
 ./build-instr/SOURCES/lba2cc --headless --no-autosave \
     --load "$LBA2_TEST_SAVE" --fixed-dt 16 --tick 600 \
     --exec-at 300 "input up 60" --exit
+```
+
+The prototype's own results came from a `-DLBA2_CONTROL_SERVER=ON` build carrying an
+uncommitted `SOURCES/RECORD.{H,CPP}` plus hooks at the three sites named above:
+
+```bash
+# Record a session driven through the binding layer, then replay it with nothing driving it.
+lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 16 --tick 400 \
+    --exec "rec start s.rec" --exec-at 50 "key up 120 2" --exec-at 399 "rec stop" --exit
+lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 16 --tick 400 \
+    --exec "rec play s.rec" --exec-at 399 "rec info" --exit
+
+# The modal: 453 polls inside one tick, recorded and replayed.
+lba2cc --headless --no-autosave --demo --exec "cube 193" --fixed-dt 16 --tick 900 \
+    --exec-at 2 "rec start modal.rec" --exec-at 899 "rec stop" --exit
+
+# Mode mismatch: named before the run, then caught at poll 1 and tick 4.
+lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 20 --tick 400 \
+    --exec "rec play s.rec" --exec-at 399 "rec info" --exit
+
+# Windowed, driven over the socket. Without --listen implying it, moving focus to the
+# driving terminal stops the clock.
+lba2cc --no-autosave --load "$SAVE" --listen 4444
+scripts/dev/lba2ctl.py 4444
 ```
 
 Figures read straight from the tree, no build needed:
