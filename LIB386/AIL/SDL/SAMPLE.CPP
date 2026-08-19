@@ -653,11 +653,22 @@ void StopOneSample(U32 sample) {
     if (i >= 0) {
         FreeVoiceBuf(&voices[i]);
         voices[i].active = false;
-        /* Cleared here and in StopSamples, but deliberately not where the mixer reaches
-           the end of the data: a stop is the simulation's own decision and falls the same
-           way in a replay, while the mixer finishing is exactly the wall-clock event this
-           is keeping out of the simulation. */
-        voices[i].simEndMs = 0;
+    }
+    /* Separately, and over every slot rather than the one the mixer still calls active:
+       VoiceIndexFromHandle only finds a voice the mixer has not finished, so on a host
+       where the sample had already played out this clear was skipped and the modelled
+       lifetime kept reporting a stopped sample as playing. That is the wall-clock
+       dependency this whole mechanism exists to remove, reintroduced by the lookup.
+
+       Cleared on an explicit stop but deliberately not where the mixer reaches the end
+       of the data: a stop is the simulation's own decision and falls the same way in a
+       replay, while the mixer finishing is the event being kept out of the simulation. */
+    for (int v = 0; v < NUM_VOICES; v++) {
+        bool matches = (sample < 0x1000000)
+                           ? (((voices[v].handle >> 8) & 0xFFFF) == sample)
+                           : (voices[v].handle == sample && (sample & 0xFF) == (U32)v);
+        if (matches)
+            voices[v].simEndMs = 0;
     }
     UnlockVoices();
 }

@@ -84,8 +84,9 @@ extern "C" {
    3700-tick session. */
 #define REC_KEY 0x50
 #define REC_KEY_EVERY 32
-/* Upper bound for a stack keyframe buffer. The harness owns the real count; this only
-   has to be no smaller, and a mismatch is caught below rather than assumed away. */
+/* Upper bound for the stack keyframe buffers. The harness owns the real count, so this
+   only has to be no smaller -- and record_keyframe_fit() checks that rather than
+   trusting it, because the failure would be a silent write past a stack array. */
 #define REC_KF_MAX 64
 
 /* Verbose telemetry: every value the digest mixes, stored raw beside it.
@@ -453,7 +454,46 @@ static void record_write_snapshot(const char *recPath, char *out, size_t n) {
     record_save_to(out);
 }
 
-static void record_flush_at_exit(void) { Record_Stop(); }
+/* Registered by both a recording and a replay, and it does two things rather than one.
+ *
+ * Record_Stop flushes the stream, which is why a recording wants it: a crash runs no
+ * atexit handler but a menu quit does, and one tick of loss beats a whole session.
+ *
+ * The binding restore is why a *replay* needs it, and that one is not housekeeping. A
+ * replay installs the recording's key tables so the file resolves against the bindings
+ * it was made under. If the run ends before the stream does -- `--tick N --exit`, the
+ * window closed, anything -- Record_Stop never runs, and the normal exit path writes
+ * lba2.cfg from whatever DefKeys holds. That is the recording's bindings, written
+ * permanently over the player's own. Restored here unconditionally, because Record_Stop
+ * returns early once the stream is closed and would skip it. */
+static void record_flush_at_exit(void) {
+    Record_Stop();
+    bindings_restore();
+}
+
+/* atexit once per run, whichever end armed it first. */
+/* Refuse to write or compare a keyframe the local buffers cannot hold. Says so once:
+   the alternative is either a stack overrun or a silent stop, and a keyframe is
+   diagnosis, so losing it costs nothing else. */
+static int record_keyframe_fit(void) {
+    static int said = 0;
+    if (Control_KeyframeCount() <= REC_KF_MAX)
+        return 1;
+    if (!said) {
+        said = 1;
+        fprintf(stderr, "[rec] keyframe has %d fields, this build holds %d; not recording it\n",
+                (int)Control_KeyframeCount(), (int)REC_KF_MAX);
+    }
+    return 0;
+}
+
+static void record_arm_atexit(void) {
+    static int armed = 0;
+    if (!armed) {
+        armed = 1;
+        atexit(record_flush_at_exit);
+    }
+}
 
 /* ---- the reload, which both ends of a mid-session recording go through ------ */
 
@@ -541,7 +581,7 @@ static int record_begin(const char *path, int haveSnapshot) {
         record_write_snapshot(path, s_snapshot, sizeof s_snapshot);
     /* A player quits through the menu, a crash does not quit at all: flush on any exit
        rather than only on `rec stop`. */
-    atexit(record_flush_at_exit);
+    record_arm_atexit();
     /* The header's clock baseline has to be the clock the first recorded frame runs on,
        not the one the frame arrived with. A replay applies it through SetTimerHR, whose
        LockTimer banks the frame's pending delta a line before the assignment throws it
@@ -784,6 +824,25 @@ static void record_poll(void) {
    `--tick` is to guess: guess low and the run ends before the stream does, which prints
    no summary and reads exactly like a pass, and guess high and it is minutes of waiting
    to find that out. */
+/* Is `line` present in `hay` as a whole line? `strstr` alone says yes for
+   `setup.cube=1` inside `setup.cube=12`, and reports a genuine mode difference as
+   matching -- exactly the wrong way round for a check whose job is to warn. */
+static int line_present(const char *hay, const char *line) {
+    size_t len = strlen(line);
+    const char *p = hay;
+
+    if (len == 0)
+        return 1;
+    while ((p = strstr(p, line)) != NULL) {
+        int startsLine = (p == hay) || (p[-1] == '\n');
+        char after = p[len];
+        if (startsLine && (after == 0 || after == '\n'))
+            return 1;
+        p += len;
+    }
+    return 0;
+}
+
 /* Lines whose difference is not a warning. Everything else in the header describes
    something a replay depends on, so the default is to report it. */
 static int mode_line_ignored(const char *line) {
@@ -831,7 +890,7 @@ static void replay_report_mode(void) {
         /* The magic line has no `=`, and neither would anything else that is not a
            field; there is nothing to compare it against. */
         eq = strchr(p, '=');
-        if (eq == NULL || mode_line_ignored(p) || strstr(live, p) != NULL)
+        if (eq == NULL || mode_line_ignored(p) || line_present(live, p))
             continue;
 
         /* Name what this run has instead, so the line is a comparison rather than an
@@ -953,8 +1012,27 @@ static int replay_take_sync(U8 *flags) {
     return 1;
 }
 
+/* Put the state the file last described back over whatever UpdateKeyboardState just
+   read from the host. Every consumer downstream of the funnel reads these and cannot
+   tell they were replayed.
+ *
+ * Called on the paths that return without decoding a poll record too. Those frames
+ * still run: skipping the injection leaves the live keyboard in place, so a replay
+ * silently takes the operator's input for a frame, which is the one thing a replay must
+ * never do. They do not advance s_polls, because no poll was consumed from the file. */
+static void replay_inject(void) {
+    memcpy(TabKeys, s_prevKeys, sizeof s_prevKeys);
+    Key = s_prevKey;
+    Joystick_SetReplayState(s_padFirst, s_rsx, s_rsy);
+    MouseXDep = s_mdx;
+    MouseYDep = s_mdy;
+    Click = s_click;
+}
+
 static int replay_poll(void) {
     U8 flags;
+    long atFlags = ftell(s_f);
+    long stepped = -1;
 
     if (!get8(&flags)) {
         s_eof = 1;
@@ -966,13 +1044,13 @@ static int replay_poll(void) {
             s_eof = 1;
             return 0;
         }
+        replay_inject();
         return 1;
     }
     if (!replay_take_sync(&flags)) {
         s_eof = 1;
         return 0;
     }
-    long stepped = -1;
 
     /* Records that are not a poll can sit anywhere between two polls, so step over each
        and take the next record as this poll rather than reading one as input.
@@ -1038,16 +1116,18 @@ static int replay_poll(void) {
            and let this poll pass with the input unchanged. */
         if ((flags & 0x80) && stepped >= 0) {
             fseek(s_f, stepped, SEEK_SET);
+            replay_inject();
             return 1;
         }
     }
     if (flags & 0x80) {
-        /* A tick record where a poll was expected means the two streams have
-           drifted apart, which is itself the desync signal. */
-        U32 t;
-        unsigned long long h;
-        get32(&t);
-        get64(&h);
+        /* A tick record where a poll was expected: the engine has polled fewer times
+           than the recording did. Put it back rather than read it here -- it is the
+           tick path's record, it is 16 bytes rather than the 12 this once consumed,
+           and reading it 4 bytes short left the reader decoding hash bytes as input
+           until the next sync marker. */
+        fseek(s_f, atFlags, SEEK_SET);
+        replay_inject();
         return 1;
     }
 
@@ -1113,14 +1193,7 @@ static int replay_poll(void) {
         SetTimerHR(s_baseline);
     }
 
-    /* Inject. This is the whole point: every consumer downstream of the funnel
-       reads these and cannot tell they were replayed. */
-    memcpy(TabKeys, s_prevKeys, sizeof s_prevKeys);
-    Key = s_prevKey;
-    Joystick_SetReplayState(s_padFirst, s_rsx, s_rsy);
-    MouseXDep = s_mdx;
-    MouseYDep = s_mdy;
-    Click = s_click;
+    replay_inject();
 
     s_polls++;
     s_pollsThisTick++;
@@ -1149,6 +1222,7 @@ static void replay_begin(void) {
     s_clockMismatchPoll = -1;
     s_hashMismatchTick = -1;
     s_eof = 0;
+    record_arm_atexit();
     bindings_install();
     /* The recorded commands are executed through the console, and a run that never used
        --exec has never registered its table: every replayed command then dispatches to
@@ -1404,7 +1478,7 @@ void Record_TickHook(void) {
             put32((U32)(h ^ (h >> 32)));
         else
             put64(h);
-        if ((s_ticks % REC_KEY_EVERY) == 0) {
+        if ((s_ticks % REC_KEY_EVERY) == 0 && record_keyframe_fit()) {
             S32 kf[REC_KF_MAX];
             S32 nkf = Control_KeyframeCount();
             S32 k;
@@ -1529,7 +1603,7 @@ void Record_TickHook(void) {
             long pk = ftell(s_f);
             U8 fk;
             if (get8(&fk)) {
-                if (fk == REC_KEY) {
+                if (fk == REC_KEY && record_keyframe_fit()) {
                     U32 kt;
                     S32 live[REC_KF_MAX];
                     S32 nkf = Control_KeyframeCount();
@@ -1780,8 +1854,13 @@ void Record_Report(const char *path) {
     {
         FILE *f = fopen(path, "rb");
         char line[640];
-        char hdr[1024];
+        /* Sized against the buffer the header is built in rather than a round number:
+           the header grows whenever a setting joins it, and a `hdr` that silently
+           dropped the tail would leave those lines out of the comparison and report a
+           match for settings it never looked at. */
+        char hdr[sizeof live];
         int diffs = 0;
+        size_t used = 0;
         if (!f) {
             Console_Print("rec: cannot open %s", path);
             return;
@@ -1806,8 +1885,19 @@ void Record_Report(const char *path) {
                 continue;
             }
             Console_Print("  %s", line);
-            strncat(hdr, line, sizeof hdr - strlen(hdr) - 1);
-            strncat(hdr, "\n", sizeof hdr - strlen(hdr) - 1);
+            {
+                size_t want = strlen(line) + 1;
+                if (used + want + 1 > sizeof hdr) {
+                    Console_Print("rec: header longer than this build can compare; "
+                                  "the lines after `%s` are not checked",
+                                  line);
+                    break;
+                }
+                memcpy(hdr + used, line, want - 1);
+                used += want - 1;
+                hdr[used++] = '\n';
+                hdr[used] = 0;
+            }
         }
         fclose(f);
 
@@ -1816,7 +1906,7 @@ void Record_Report(const char *path) {
             char *p = hdr, *nl;
             while ((nl = strchr(p, '\n')) != NULL) {
                 *nl = 0;
-                if (p[0] && !strstr(live, p)) {
+                if (p[0] && !line_present(live, p)) {
                     Console_Print("rec: MISMATCH %s", p);
                     diffs++;
                 }
