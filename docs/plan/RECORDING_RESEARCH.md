@@ -27,10 +27,15 @@ covers the whole digital funnel and three analog values sit outside it, priced b
 Record the console commands the session was driven with alongside the input, or a recording
 cannot stand in for a harness-driven fixture.
 
-Built and measured: a session driven by real key presses replayed bit-for-bit from the file, a
-modal carrying 453 polls inside one tick replayed in order, an existing fixture's trajectory
-replayed four times faster than the fixture runs, and a perturbed replay reported the tick it
-stopped matching. 82 added lines across 10 existing files, plus one module.
+Built and measured. Under a generated clock the design works: sessions replay with no state
+mismatch and no clock drift, serially and four at once under load, including the console commands
+that drove them. A modal carrying 453 polls inside one tick replays in order, an existing
+fixture's trajectory replays four times faster than the fixture runs, and a perturbed replay
+reports the tick it stopped matching.
+
+Under a clock sampled from the host, which is what real play uses, replay is not reliably exact.
+Extending the proven configuration to a player's own session means generating the clock while
+recording rather than reconstructing it afterwards.
 
 ## The four layers a recording could sit at
 
@@ -519,10 +524,9 @@ against 5.5 MB of clock. Recording a player is cheap; recording time is not.
 
 ### The recorder has to be passive, and proving it is a test
 
-Pinning the game clock to one sample per input poll at record time makes variable-rate replay
-exact. It also arms the harness virtual clock on a normal player session, where it stops input
-responding at the boot banner, which is how far a recorder can be from passive while still
-looking like it works.
+Pinning the game clock to one sample per input poll at record time arms the harness virtual clock
+on a normal player session, where it stops input responding at the boot banner, which is how far
+a recorder can be from passive while still looking like it works.
 
 The measurement that settles it is one A/B: run the same scripted session with and without the
 recorder and diff the state. Pinned, hero animation state differs. With the capture inside
@@ -531,18 +535,44 @@ recorder and diff the state. Pinned, hero animation state differs. With the capt
 That test belongs beside the format, not in a commit message. A recorder that perturbs the run it
 observes produces recordings of a game nobody played.
 
-### The clock stream is positional, and that is the flaw to fix first
+### A generated clock replays; a sampled one does not
 
-Capturing the clock at `ManageTime` is right: it is where the engine reads it, it keeps the
-recorder passive, and it makes an input-only session replay exactly. Measured, three times over:
-no hash mismatch across 300 ticks, at most 1 ms of game-clock drift.
+This is the result the rest of the section is in service of, and it separates cleanly.
+
+**Generated.** Recorded and replayed under `--fixed-dt`, where the clock is produced by the
+engine rather than read from the host:
+
+| | First hash mismatch | Clock drift |
+|---|---|---|
+| 4 sessions, run serially | none | 0 ms |
+| the same file replayed 4 times at once | none | 0 ms |
+
+Exact, and exact under load, including the console commands that drove the sessions. That is the
+viable configuration and it is enough to say the design works.
+
+**Sampled.** Recorded in real time, where the clock is read from the host, replay is *not*
+reliably exact. Three runs early on came back clean and a later four did not, on the same code:
+the difference is machine load, because the replay only reproduces the recording while it makes
+the same number of `ManageTime` calls, and load changes that. Any exactness claim for the sampled
+path in this document that is not on this line was measured on a quiet machine and does not
+generalise.
+
+The two differ because a generated clock is a property of the session and a sampled one is a
+property of the host, which is Doom 3's `USERCMD_HZ` argument arriving from the other direction.
+
+### The clock stream is positional, and that is why the sampled path fails
+
+Capturing the clock at `ManageTime` is right in one respect: it is where the engine reads it, and
+it keeps the recorder passive.
 
 Writing those samples inline in the same stream as the polls is wrong. The stream is then
 positional, so it holds only while the replay makes exactly as many `ManageTime` calls as the
 recording did. Two things break that immediately:
 
-- **A recorded console command.** Running one changes control flow, and therefore the call count.
-  A recording carrying a `teleport` stops at poll 3 with the streams parted.
+- **A recorded console command**, on the sampled path. Running one changes control flow, and
+  therefore the call count. A recording carrying a `teleport` stops at poll 3 with the streams
+  parted. Under a generated clock the same recording replays exactly, because the call count no
+  longer decides anything.
 - **A different environment.** A session recorded windowed with audio and replayed headless
   parts at the first scene load, with 582 surplus and 387 deficit samples across the transition.
 
@@ -551,12 +581,20 @@ appearance of working: the clock the simulation then reads is not the recorded o
 starts failing several ticks later for a reason that no longer points at the cause. Measured, the
 tolerant reader turned three exact replays into three that failed at tick 8.
 
-**The fix is to stop making the clock positional**, and the size measurement points at the same
-answer. 99.4% of clock samples are a zero delta, because every call inside one frame reads the
-same millisecond. So one sample per poll, held for that frame, is close to lossless, collapses
-5.46 million records into the 242 thousand the poll stream already carries, and leaves nothing
-that can drift out of step. That is one change that fixes the fragility and the file size
-together, and it is the next thing this prototype wants.
+**The fix is to stop making the clock positional**, and the size measurement points the same way.
+99.4% of clock samples are a zero delta, because every call inside one frame reads the same
+millisecond, so one sample per poll collapses 5.46 million records into the 242 thousand the poll
+stream already carries.
+
+Carrying one sample per poll was built and measured. It is robust, it is passive, and it is not
+exact: the 0.6% of calls that do move the clock inside a frame are lost, and the hash starts
+failing around tick 8. Quantising at record time as well, so the recording and the replay agree
+by construction, removes the clock drift entirely but leaves a residual the run did not close.
+
+So the honest position is that the sampled path needs the clock *generated* during recording
+rather than sampled and then reconstructed, which is what the fixed-dt result already
+demonstrates. Making a player's session run on a generated clock while it records is the bounded
+piece of work that would extend the proven configuration to real play.
 
 ### What the prototype does not do
 
@@ -657,11 +695,12 @@ two this doc spends its measurements on.
    keyboard and a mouse is a different signal, and the mouse is the part that will not compress.
    Recording an ordinary play session and reading the same counters answers it.
 
-2. **Does a recording made under real play conditions replay?** Half answered. A real windowed
-   session with audio replays its entire menu portion, 76,587 polls, with no hash mismatch, and
-   then fails at tick 2 of the first scene load. What is not yet separated is whether that is the
-   environment or the format, because a replay with the audio thread alive could not be run on
-   the machine that recorded it. Running one is what closes this.
+2. **Does a recording made under real play conditions replay?** Not as built, and the reason is
+   now specific rather than suspected: real play reads the clock from the host, and a
+   reconstructed host clock does not reproduce reliably under load. A real windowed session did
+   replay its entire menu portion, 76,587 polls, with no hash mismatch, before parting at the
+   first scene load. The question this leaves is narrower and answerable: does a player's session
+   recorded on a generated clock replay the way the harness sessions already do?
 
 3. **What belongs in the hash?** The `--dump-state` field set was used here because it exists and
    is already the baseline corpus's notion of state. It excludes extras, projectiles and sound
