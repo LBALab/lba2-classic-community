@@ -86,4 +86,39 @@ bounded="$CHECKED"
 record_and_replay "without --tick" --exec-at 300 "rec stop; exit"
 unbounded="$CHECKED"
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without"
+# Verbose telemetry. A plain recording carries one digest a tick, which can say that a
+# tick stopped matching and never which of ~1300 values moved; --verbose stores them all.
+# Recorded once and replayed twice: once expecting clean, and once with a variable
+# deliberately changed part-way through. The second run is the point. A reporter that
+# printed nothing would pass the first check exactly like one that works, and this is a
+# diagnostic whose whole job is to be believed on the day something real diverges.
+rm -f "$rec" "$rec".lba "$rec".end.lba
+
+ctl --verbose --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$rec" \
+    --exec-at 30 "key up 60 2" --tick 300 --exit >/dev/null 2>&1 ||
+    fail "verbose: recording run exited non-zero ($?) — hang or crash"
+
+vout="$(ctl --verbose --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$rec" --tick 400 --exit 2>&1)" ||
+    fail "verbose: replay run exited non-zero ($?) — hang or crash"
+case "$vout" in
+*"consistency failure"*)
+    fail "verbose: $(printf '%s\n' "$vout" | grep -m1 'consistency failure')"
+    ;;
+esac
+
+# Changing a game variable under the replay is a divergence the recording cannot know
+# about, so the report has to come from comparing the stored values against the live
+# ones. Exits non-zero by design: the run diverged.
+bout="$(ctl --verbose --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$rec" --tick 400 \
+    --exec-at 200 "vargame 77 42" --exit 2>&1 || true)"
+case "$bout" in
+*"var.game[77]"*) ;;
+*)
+    # Which half failed matters: a divergence reported but unnamed is the telemetry,
+    # no divergence at all is the injection.
+    fail "verbose: the replay did not name var.game[77]; $(printf '%s\n' "$bout" |
+        grep -m1 -e 'consistency failure' -e 'state differs' || echo 'no divergence reported')"
+    ;;
+esac
+
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; telemetry named the injected change"

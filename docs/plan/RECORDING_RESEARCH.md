@@ -294,6 +294,31 @@ State that the hash covers can diverge and re-converge, and state it does not co
 without ever showing. What the hash buys is the property Doom 3 bought: a replay does not have to
 be provably faithful to be useful if it can say when it stopped being faithful.
 
+### The digest says when, and a session nobody can re-record needs what
+
+The caveat above has a practical edge. For a fixture the digest is enough: it names the tick, and
+the run can be recorded again with `--dump-state` either side of it and the two dumps diffed. For a
+session a person played once there is no second run to diff against, and the tick is all there is:
+roughly 1300 values go into the digest and it names none of them.
+
+Two things narrow that, at different costs:
+
+- **A keyframe every 32 ticks**, 23 named fields: the hero, the camera, and the open modal. Cheap
+  enough to be unconditional, and it covers most of what goes wrong. It covers no other actor and
+  none of the 336 script variables.
+- **`--verbose`, which stores every value the digest mixes, every tick.** About 2 KB a tick, so it
+  is a deliberate second recording rather than the default. The first rejected tick then names the
+  fields, along with the two ticks after it, which distinguishes a value that moved once from one
+  that is drifting.
+
+The names come from the expression the digest mixes rather than from a parallel list, which is the
+part worth keeping: a field cannot be hashed under one name and reported under another, and a field
+added to the digest is named without anyone remembering to name it.
+
+The reason to build this rather than more keyframe fields: choosing which fields to name is
+guessing at which bug will happen next, and each guess that misses costs another recording from
+the person who played the session.
+
 ## What the file has to carry to be self-describing
 
 A recording that only holds samples is a trap, because the same samples resolve differently under
@@ -1070,6 +1095,48 @@ forward and nothing else. Every camera-shaping value in that list needs an orbit
 mouse ones need a mouse; a recording that has one is the test that would price them. Two earlier
 sweeps produced a whole column of "none" for exactly this reason and had to be thrown away: the
 first ran in cube 3, and the auto camera is exterior-only, so nothing camera-related could fire.
+
+### A "none" was already wrong, and how far the value moved is why
+
+A second sweep, on a real played session (Desert Island, the player's own cfg, one key removed at a
+time so it falls back to its default) put a number on that warning:
+
+| Setting | Changed | First hash mismatch |
+|---|---|---|
+| `FollowCamera` | removed (1 to 0) | **tick 0** |
+| `FollowCamGroundClearance` | removed (20000 to 600) | **tick 2** |
+| every other `FollowCam*` key | removed | none |
+| `AllCameras`, `Mouse*`, `Shadow`, `DetailLevel` | removed | none |
+
+`FollowCamGroundClearance` is in the table above with "none" against it, measured at 600 to 100.
+Here it breaks the replay on the third tick, at 20000 to 600. Both measurements are right: the
+setting's effect is not a property of the key but of the distance the value moved, and this
+player's config sits at 20000, which is the maximum the row declares. A sweep that nudges a value
+near its default prices the key at its least sensitive point.
+
+So a sweep answers "does this key matter at these two values", never "does this key matter". The
+practical consequence is that the recording carries the settings rather than the sweep deciding
+which ones are safe to leave out.
+
+### What ships: the settings are carried and compared, not applied
+
+Following the direction that settings are metadata rather than something a replay installs, the
+header carries the Auto camera's block plus `DetailLevel`, one `settings.<cfg key>=<value>` line
+each, and a replay diffs them against the live run as it starts:
+
+```
+[rec] mode differs: settings.FollowCamGroundClearance=20000 (this run: 600)
+[rec] 1 mode line(s) differ; this replay may not reproduce
+```
+
+Named by cfg key so the line names what the player would edit. The comparison is the whole header,
+not just the settings, so `mode.fixed_dt`, `mode.resolution`, `data.master` and the rest are checked
+by the same pass; the lines a replay is expected to differ on (the clock baseline, the snapshot
+name, the binding payload) are named in one skip list in `SOURCES/RECORD.CPP`.
+
+This is what `rec info` already did on demand. The change is that it now runs unasked, because the
+question "did my config change since I recorded this" is not one a person knows to ask, and the
+answer used to arrive as a divergence a few hundred ticks in.
 
 ### What the engine already knows about defaults
 

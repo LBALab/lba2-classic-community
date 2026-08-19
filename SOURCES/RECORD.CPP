@@ -54,7 +54,14 @@ extern "C" {
 /* ---- live state ---------------------------------------------------------- */
 
 #define REC_MAGIC "LBA2REC"
-#define REC_VERSION 9
+#define REC_VERSION 10
+
+/* The oldest format this build still reads. Every version since has only added record
+   types the reader probes for and steps over, so an older recording reads the same as
+   it always did -- and a recording of a session someone played once is worth more than
+   the tidiness of a single supported version. A change that alters what an existing
+   record *means* moves this up to REC_VERSION; a change that only adds one does not. */
+#define REC_VERSION_MIN 9
 
 /* Sync markers, on the same idea as the socket protocol's <<END>>: a reader that has
  * lost its place needs something it can find again. Without them a stream that goes out
@@ -73,6 +80,32 @@ extern "C" {
    3700-tick session. */
 #define REC_KEY 0x50
 #define REC_KEY_EVERY 32
+
+/* Verbose telemetry: every value the digest mixes, stored raw beside it.
+ *
+ * The digest is lossy by construction -- it answers "did this tick match" and nothing
+ * else -- so a divergence in a session nobody can re-record leaves ~1300 candidate
+ * fields and no way to choose between them. The keyframe narrowed that to 23 named
+ * fields every 32 ticks, which covers the hero and the open modal and misses the other
+ * actors and all 336 script variables entirely. This carries the lot, every tick, so
+ * the first mismatching tick names the field that moved.
+ *
+ * About 5 KB a tick, so it is opt-in (--verbose) rather than the default: a diagnostic
+ * recording, made once, to answer a question a normal one cannot.
+ */
+#define REC_TELE 0x51
+#define TELE_MAX (64 + 9 * MAX_OBJETS + MAX_VARS_GAME + MAX_VARS_CUBE)
+
+/* Filled by state_hash on every tick, whether or not it is being written: the replay
+   needs its own copy to compare against, and collecting costs less than the hashing
+   it rides along with. */
+static S32 s_tele[TELE_MAX];
+static const char *s_teleName[TELE_MAX];
+static S16 s_teleIdx[TELE_MAX];
+static S32 s_teleN = 0;
+static int s_teleWrite = 0;    /* this session records telemetry */
+static int s_teleReported = 0; /* divergences named so far */
+static int s_teleSaid = 0;     /* the one-off "telemetry on" line */
 
 static FILE *s_f = NULL;
 static int s_recording = 0;
@@ -165,11 +198,38 @@ static void mix(const void *p, unsigned n) {
         s_h *= 1099511628211ULL;
     }
 }
-#define M(v)                 \
-    do {                     \
-        S32 t_ = (S32)(v);   \
-        mix(&t_, sizeof t_); \
+/* Mix a value into the digest and keep it, named, for the telemetry. The name is the
+   expression itself, which is what stops the two drifting apart: a field cannot be
+   hashed under one name and reported under another, and a field added to the digest is
+   named without anyone remembering to name it. Scalars carry index -1; the loops below
+   pass the array index they are on. */
+#define M(v) MI(#v, -1, v)
+#define MI(nm, ix, v)                       \
+    do {                                    \
+        S32 t_ = (S32)(v);                  \
+        mix(&t_, sizeof t_);                \
+        if (s_teleN < TELE_MAX) {           \
+            s_teleName[s_teleN] = (nm);     \
+            s_teleIdx[s_teleN] = (S16)(ix); \
+            s_tele[s_teleN++] = t_;         \
+        }                                   \
     } while (0)
+
+/* "hero->Obj.X", "var.game[77]", or "obj[12].Anim" for the actor tables, which are the
+   one indexed thing a person reads with the index in the middle. */
+static void tele_name(S32 k, char *out, size_t n) {
+    const char *nm = s_teleName[k];
+
+    if (s_teleIdx[k] < 0) {
+        snprintf(out, n, "%s", nm);
+        return;
+    }
+    if (!strncmp(nm, "obj.", 4)) {
+        snprintf(out, n, "obj[%d].%s", (int)s_teleIdx[k], nm + 4);
+        return;
+    }
+    snprintf(out, n, "%s[%d]", nm, (int)s_teleIdx[k]);
+}
 
 /* The keyframe's fields, named once. Writer, reader and reporter all walk this table,
    so a field cannot be added to one and missed by another, and the name a divergence
@@ -243,6 +303,7 @@ static unsigned long long state_hash(void) {
     T_OBJET *hero = &ListObjet[NUM_PERSO];
     S32 i;
     s_h = 14695981039346656037ULL;
+    s_teleN = 0;
     M(Island);
     M(NumCube);
     M(CubeMode);
@@ -283,15 +344,15 @@ static unsigned long long state_hash(void) {
     M(NbLittleKeys);
     for (i = 0; i < NbObjets; i++) {
         T_OBJET *o = &ListObjet[i];
-        M(o->Obj.X);
-        M(o->Obj.Y);
-        M(o->Obj.Z);
-        M(o->Obj.Beta);
-        M(o->LifePoint);
-        M(o->Obj.Body.Num);
-        M(o->Obj.Anim.Num);
-        M(o->Move);
-        M(o->Flags);
+        MI("obj.X", i, o->Obj.X);
+        MI("obj.Y", i, o->Obj.Y);
+        MI("obj.Z", i, o->Obj.Z);
+        MI("obj.Beta", i, o->Obj.Beta);
+        MI("obj.Life", i, o->LifePoint);
+        MI("obj.Body", i, o->Obj.Body.Num);
+        MI("obj.Anim", i, o->Obj.Anim.Num);
+        MI("obj.Move", i, o->Move);
+        MI("obj.Flags", i, o->Flags);
     }
     /* Modal and menu state. Without these a replay that opens a menu the recording
        never opened stays "matching" until the menu changes something else, which can
@@ -303,9 +364,9 @@ static unsigned long long state_hash(void) {
     M(FlagFade);
     M(FlagBlackPal);
     for (i = 0; i < MAX_VARS_GAME; i++)
-        M(ListVarGame[i]);
+        MI("var.game", i, ListVarGame[i]);
     for (i = 0; i < MAX_VARS_CUBE; i++)
-        M(ListVarCube[i]);
+        MI("var.cube", i, ListVarCube[i]);
     return s_h;
 }
 
@@ -456,40 +517,88 @@ static void snapshot_beside(const char *recPath, const char *name, char *out, si
     snprintf(out, n, "%.*s%s", (int)(leaf - recPath), recPath, name);
 }
 
-static void write_mode_lines(char *out, size_t n) {
-    snprintf(out, n,
-             "engine=%s\n"
-             "mode.headless=%d\n"
-             "mode.fixed_dt=%d\n"
-             "mode.fixed_timestep=%d\n"
-             "mode.vsync=%d\n"
-             "build.flags=%s\n"
-             "mode.resolution=%ux%u\n"
-             "mode.language=%d\n"
-             "setup.island=%d\n"
-             "setup.cube=%d\n"
-             "setup.demoslide=%d\n"
-             "setup.snapshot=%s\n"
-             "setup.reloaded=%d\n"
-             "setup.reload_clock=%u\n"
-             "clock.timer_ref_hr=%u\n"
-             "data.master=%s\n"
-             "data.distrib=%s\n"
-             "bindings.digest=%016llx\n",
-             LBA2_VERSION_STRING,
-             Control_IsHeadless(),
-             (int)Timer_FixedDtValue(),
-             (int)FixedTimestep,
-             (int)DisplayVSync,
-             BUILD_FLAGS_STR,
-             (unsigned)ModeDesiredX, (unsigned)ModeDesiredY,
-             (int)Language,
-             (int)Island, (int)NumCube, (int)DemoSlide,
-             path_leaf(s_snapshot), s_reloaded, s_reloadClock,
-             (unsigned)TimerRefHR,
-             Distrib_MasterName(Distrib_GetMaster()),
-             Distrib_Name(DistribVersion),
-             bindings_digest());
+/* The mode a recording was made under, and the settings that decide whether it can be
+   reproduced. Written into the header and rebuilt live for comparison, so the two can
+   never be assembled from different lists.
+
+   The settings block is the Auto camera's, and it is there because it was measured:
+   replaying a session against a config missing FollowCamera diverges at tick 0, and one
+   missing FollowCamGroundClearance at tick 2 -- the camera rests at a different
+   distance, and the digest covers the camera. Removing AllCameras, the mouse settings,
+   Shadow or DetailLevel from the same config changed nothing. So the boundary is the
+   Auto camera's own block rather than the whole of the config, and a setting joins it
+   when a replay is shown to turn on it.
+
+   One line per key rather than a digest: `rec info` diffs the header line by line, so a
+   named line reports the key that differs, and a digest could only report that
+   something did.
+
+   Returns 0 if the buffer was too small, because a truncated header silently drops the
+   lines at the end of it, and the reader would report the setting as absent rather than
+   as unread. */
+static S32 write_mode_lines(char *out, size_t n) {
+    int wrote = snprintf(out, n,
+                         "engine=%s\n"
+                         "mode.headless=%d\n"
+                         "mode.fixed_dt=%d\n"
+                         "mode.fixed_timestep=%d\n"
+                         "mode.vsync=%d\n"
+                         "mode.verbose=%d\n"
+                         "build.flags=%s\n"
+                         "mode.resolution=%ux%u\n"
+                         "mode.language=%d\n"
+                         "setup.island=%d\n"
+                         "setup.cube=%d\n"
+                         "setup.demoslide=%d\n"
+                         "setup.snapshot=%s\n"
+                         "setup.reloaded=%d\n"
+                         "setup.reload_clock=%u\n"
+                         "clock.timer_ref_hr=%u\n"
+                         "data.master=%s\n"
+                         "data.distrib=%s\n"
+                         "bindings.digest=%016llx\n"
+                         "settings.FollowCamera=%d\n"
+                         "settings.FollowCamGround=%d\n"
+                         "settings.FollowCamGroundClearance=%d\n"
+                         "settings.FollowCamReengageFrames=%d\n"
+                         "settings.FollowCamDriftDivisor=%d\n"
+                         "settings.FollowCamManualHoldFrames=%d\n"
+                         "settings.FollowCamHoldAngle=%d\n"
+                         "settings.FollowCamHDRecompose=%d\n"
+                         "settings.FollowCamHDExcessCap=%d\n"
+                         "settings.FollowCamHDPitchGain=%d\n"
+                         "settings.FollowCamHDDistGain=%d\n"
+                         "settings.FollowCamHDLeanGain=%d\n"
+                         "settings.DetailLevel=%d\n",
+                         LBA2_VERSION_STRING,
+                         Control_IsHeadless(),
+                         (int)Timer_FixedDtValue(),
+                         (int)FixedTimestep,
+                         (int)DisplayVSync,
+                         Control_IsVerbose(),
+                         BUILD_FLAGS_STR,
+                         (unsigned)ModeDesiredX, (unsigned)ModeDesiredY,
+                         (int)Language,
+                         (int)Island, (int)NumCube, (int)DemoSlide,
+                         path_leaf(s_snapshot), s_reloaded, s_reloadClock,
+                         (unsigned)TimerRefHR,
+                         Distrib_MasterName(Distrib_GetMaster()),
+                         Distrib_Name(DistribVersion),
+                         bindings_digest(),
+                         (int)FollowCamera,
+                         (int)FollowCamGround,
+                         (int)FollowCamGroundClearance,
+                         (int)FollowCamReengageFrames,
+                         (int)FollowCamDriftDivisor,
+                         (int)FollowCamManualHoldFrames,
+                         (int)FollowCamHoldAngle,
+                         (int)FollowCamHDRecompose,
+                         (int)FollowCamHDExcessCap,
+                         (int)FollowCamHDPitchGain,
+                         (int)FollowCamHDDistGain,
+                         (int)FollowCamHDLeanGain,
+                         (int)DetailLevel);
+    return wrote > 0 && (size_t)wrote < n;
 }
 
 /* ---- record --------------------------------------------------------------- */
@@ -667,7 +776,7 @@ static int record_begin(const char *path, int haveSnapshot) {
         return 0;
     }
 
-    char mode[1400];
+    char mode[2048];
     snprintf(s_recPath, sizeof s_recPath, "%s", path);
     if (!haveSnapshot)
         record_write_snapshot(path, s_snapshot, sizeof s_snapshot);
@@ -686,7 +795,8 @@ static int record_begin(const char *path, int haveSnapshot) {
     s_frameClock = Timer_ClockSource();
     s_frameClockValid = 1;
     ManageTime();
-    write_mode_lines(mode, sizeof mode);
+    if (!write_mode_lines(mode, sizeof mode))
+        fprintf(stderr, "[rec] header did not fit; the mode lines at the end of it are missing\n");
     fprintf(s_f, "%s %d\n%s", REC_MAGIC, REC_VERSION, mode);
     {
         /* Their own lines rather than part of the mode block: they are payload a replay
@@ -735,6 +845,11 @@ static int record_begin(const char *path, int haveSnapshot) {
         if (s_hashEvery < 1)
             s_hashEvery = 1;
     }
+    /* Telemetry follows --verbose: it is a diagnostic recording, several megabytes
+       larger, made deliberately when a plain one has already said a tick and cannot
+       say a field. */
+    s_teleWrite = Control_IsVerbose();
+    s_teleSaid = 0;
     s_recording = 1;
     return 1;
 }
@@ -888,6 +1003,76 @@ static void record_poll(void) {
    `--tick` is to guess: guess low and the run ends before the stream does, which prints
    no summary and reads exactly like a pass, and guess high and it is minutes of waiting
    to find that out. */
+/* Lines whose difference is not a warning. Everything else in the header describes
+   something a replay depends on, so the default is to report it. */
+static int mode_line_ignored(const char *line) {
+    static const char *const skip[] = {
+        "clock.timer_ref_hr=", /* the recorded baseline: restored, not matched */
+        "setup.snapshot=",     /* the file it started from, named per recording */
+        "setup.reloaded=",     /* how it started, which the reader acts on rather than matches */
+        "setup.reload_clock=",
+        "bindings.keyboard=", /* payload a replay installs; bindings.digest is the comparison */
+        "bindings.gamepad=",
+        "mode.verbose=", /* telemetry is diagnosis, and does not reach the simulation */
+    };
+    S32 i;
+
+    for (i = 0; i < (S32)(sizeof skip / sizeof skip[0]); i++) {
+        if (!strncmp(line, skip[i], strlen(skip[i])))
+            return 1;
+    }
+    return 0;
+}
+
+/* What this run does not match about the recording, said at the point the replay
+   starts rather than left to be discovered as a divergence a thousand ticks later.
+   `rec info` answers the same question on demand; this is the same comparison for
+   somebody who never thought to ask it, which is the common case: the settings a
+   session was played under are not part of the save, and a config edited between the
+   recording and the replay reads as the simulation diverging. */
+static void replay_report_mode(void) {
+    char live[2048];
+    char hdr[2048];
+    char *p, *nl;
+    S32 diffs = 0;
+
+    if (!write_mode_lines(live, sizeof live))
+        return;
+    snprintf(hdr, sizeof hdr, "%s", s_headerBuf);
+
+    for (p = hdr; (nl = strchr(p, '\n')) != NULL; p = nl + 1) {
+        char key[64];
+        char mine[128];
+        const char *eq;
+        size_t klen;
+
+        *nl = 0;
+        /* The magic line has no `=`, and neither would anything else that is not a
+           field; there is nothing to compare it against. */
+        eq = strchr(p, '=');
+        if (eq == NULL || mode_line_ignored(p) || strstr(live, p) != NULL)
+            continue;
+
+        /* Name what this run has instead, so the line is a comparison rather than an
+           accusation the reader has to go and check. */
+        klen = (size_t)(eq - p) + 1;
+        if (klen >= sizeof key) {
+            snprintf(mine, sizeof mine, "?");
+        } else {
+            memcpy(key, p, klen);
+            key[klen] = 0;
+            if (!RecFmt_ReadStr(live, key, mine, sizeof mine))
+                snprintf(mine, sizeof mine, "absent");
+        }
+        fprintf(stderr, "[rec] mode differs: %s (this run: %s)\n", p, mine);
+        diffs++;
+    }
+
+    if (diffs)
+        fprintf(stderr, "[rec] %d mode line(s) differ; this replay may not reproduce\n",
+                (int)diffs);
+}
+
 static void report_extent(void) {
     long here = ftell(s_f);
     long end, from, n, i;
@@ -994,7 +1179,8 @@ static int replay_poll(void) {
         s_eof = 1;
         return 0;
     }
-    if (flags > 0x0F && flags != REC_SYNC && flags != REC_KEY && flags != 0x40 && !(flags & 0x80)) {
+    if (flags > 0x0F && flags != REC_SYNC && flags != REC_KEY && flags != REC_TELE &&
+        flags != 0x40 && !(flags & 0x80)) {
         if (!replay_resync()) {
             s_eof = 1;
             return 0;
@@ -1014,6 +1200,17 @@ static int replay_poll(void) {
             return 0;
         for (k = 0; k < KF_COUNT; k++) {
             if (!get32(&kv))
+                return 0;
+        }
+        return 1;
+    }
+    if (flags == REC_TELE) {
+        U32 tt, tv;
+        U16 tn, k;
+        if (!get32(&tt) || !get16(&tn))
+            return 0;
+        for (k = 0; k < tn; k++) {
+            if (!get32(&tv))
                 return 0;
         }
         return 1;
@@ -1121,6 +1318,7 @@ static void replay_begin(void) {
     s_replaySrc = Timer_ClockSource();
     s_refDriftMax = 0;
     s_refDriftFirstTick = -1;
+    s_teleReported = 0;
     s_syncDriftPoll = -1;
     s_polls = s_ticks = s_ticksChecked = 0;
     s_bytesTicks = s_maxPollsInTick = s_pollsThisTick = 0;
@@ -1167,14 +1365,15 @@ int Record_Play(const char *path) {
             s_f = NULL;
             return 0;
         }
-        if (ver != REC_VERSION) {
+        if (ver < REC_VERSION_MIN || ver > REC_VERSION) {
             /* To stderr as well as the console: a run driven from the command line has
                no console to read, and the caller's fallback line is "cannot open",
                which sends the reader looking for a missing file rather than an old
                recording. */
-            Console_Print("rec: %s is format %d, this build reads %d", path, ver, REC_VERSION);
-            fprintf(stderr, "[rec] %s is format %d, this build reads %d; re-record it\n",
-                    path, ver, REC_VERSION);
+            Console_Print("rec: %s is format %d, this build reads %d..%d", path, ver,
+                          REC_VERSION_MIN, REC_VERSION);
+            fprintf(stderr, "[rec] %s is format %d, this build reads %d..%d; re-record it\n",
+                    path, ver, REC_VERSION_MIN, REC_VERSION);
             fclose(s_f);
             s_f = NULL;
             return 0;
@@ -1207,6 +1406,7 @@ int Record_Play(const char *path) {
     }
 
     report_extent();
+    replay_report_mode();
 
     s_haveRecBindings =
         RecFmt_ParseBindings(s_headerBuf, "bindings.keyboard=", s_recDefKeys,
@@ -1279,9 +1479,9 @@ void Record_PollHook(void) {
                was waiting for will never arrive. Say what happened and leave. */
             fprintf(stderr,
                     "[rec] replay ended at poll %ld: %ld ticks checked, first hash mismatch %ld, "
-                    "clock drift max %ld ms, stream drift first at poll %ld\n",
+                    "clock drift max %ld ms first at tick %ld, stream drift first at poll %ld\n",
                     s_polls, s_ticksChecked, s_hashMismatchTick, s_refDriftMax,
-                    s_syncDriftPoll);
+                    s_refDriftFirstTick, s_syncDriftPoll);
             Record_Stop();
             /* Only when nothing else is driving the run. With the harness armed it has
                a tick budget and artifacts to write, and exiting from here would skip
@@ -1394,6 +1594,20 @@ void Record_TickHook(void) {
             for (k = 0; k < KF_COUNT; k++)
                 put32((U32)kf[k]);
         }
+        if (s_teleWrite) {
+            /* s_tele was filled by the state_hash call above, so this is the state the
+               digest just committed to rather than a second read of it. */
+            S32 k;
+            put8(REC_TELE);
+            put32((U32)s_ticks);
+            put16((U16)s_teleN);
+            for (k = 0; k < s_teleN; k++)
+                put32((U32)s_tele[k]);
+            if (!s_teleSaid) {
+                s_teleSaid = 1;
+                fprintf(stderr, "[rec] verbose telemetry: %d values a tick\n", (int)s_teleN);
+            }
+        }
         s_bytesTicks += s_bytes - before;
         /* Flush every tick. A recording is most wanted when the run ended badly, and a
            crash runs no atexit handler. One tick of loss beats a whole session of it. */
@@ -1492,6 +1706,64 @@ void Record_TickHook(void) {
                     }
                 } else {
                     fseek(s_f, pk, SEEK_SET);
+                }
+            }
+        }
+
+        /* Verbose telemetry, if the recording carries it: the same values the digest
+           mixed, so the tick that failed can name the fields that moved instead of
+           leaving ~1300 of them to choose between. Reported only on a tick the digest
+           already rejected -- before that a difference here would be a telemetry bug,
+           and after the first few every later tick differs. */
+        {
+            long pt = ftell(s_f);
+            U8 ft;
+            if (get8(&ft)) {
+                if (ft == REC_TELE) {
+                    U32 tt;
+                    U16 tn, k;
+                    S32 shown = 0;
+                    /* The first rejected tick, and the two after it: one tick says
+                       what moved, three say whether it is spreading. */
+                    int say = (s_hashMismatchTick >= 0 && s_teleReported < 3);
+                    if (get32(&tt) && get16(&tn)) {
+                        if (say && (S32)tn != s_teleN) {
+                            /* A different number of values is a different world: the
+                               actor list is not the same length, and comparing them
+                               position by position would report nonsense. */
+                            fprintf(stderr,
+                                    "[rec] tick %u holds %d values, this run has %d: "
+                                    "the actor list differs\n",
+                                    (unsigned)tt, (int)tn, (int)s_teleN);
+                            s_teleReported++;
+                            say = 0;
+                        }
+                        for (k = 0; k < tn; k++) {
+                            U32 rv = 0;
+                            if (!get32(&rv))
+                                break;
+                            if (!say || (S32)k >= s_teleN)
+                                continue;
+                            if ((S32)rv == s_tele[k])
+                                continue;
+                            if (shown >= 8)
+                                continue;
+                            {
+                                char nm[64];
+                                tele_name((S32)k, nm, sizeof nm);
+                                if (!shown)
+                                    fprintf(stderr, "[rec] tick %u state differs:", (unsigned)tt);
+                                fprintf(stderr, " %s %d/%d", nm, (int)(S32)rv, (int)s_tele[k]);
+                            }
+                            shown++;
+                        }
+                        if (shown) {
+                            fprintf(stderr, "  (recorded/replayed)\n");
+                            s_teleReported++;
+                        }
+                    }
+                } else {
+                    fseek(s_f, pt, SEEK_SET);
                 }
             }
         }
@@ -1610,7 +1882,7 @@ unsigned long Record_Squeeze(const char *path) {
 /* ---- reporting ------------------------------------------------------------ */
 
 void Record_Report(const char *path) {
-    char live[1024];
+    char live[2048];
     write_mode_lines(live, sizeof live);
 
     if (!path || !path[0]) {
