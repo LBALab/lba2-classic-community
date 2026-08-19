@@ -43,7 +43,7 @@ extern "C" {
 /* ---- live state ---------------------------------------------------------- */
 
 #define REC_MAGIC "LBA2REC"
-#define REC_VERSION 7
+#define REC_VERSION 8
 
 /* Sync markers, on the same idea as the socket protocol's <<END>>: a reader that has
  * lost its place needs something it can find again. Without them a stream that goes out
@@ -119,9 +119,11 @@ static char s_recPath[ADELINE_MAX_PATH] = "";
    made to. The flag is what keeps those two apart on the replay side: reloading a
    from-boot recording would break a path that reproduces exactly as it is. */
 static int s_reloaded = 0;
-/* The seed the reload's cube change left the RNG on. Nothing outside the reload path
-   sets it, so a from-boot recording carries a zero here and reseeds nothing. */
-static unsigned s_rngSeed = 0;
+/* The game clock the reload was performed at. The load stamps state from it that the
+   state hash does not cover, so the two ends have to take the load at the same reading
+   or they part company later, long after the load looks identical. Measured: one step
+   apart, and worth an actor's heading 300 ticks on. */
+static unsigned s_reloadClock = 0;
 /* Frame pacing while recording. A pinned step makes game time advance by a constant
    per frame, and the engine has no frame limiter, so without holding each frame back
    the session runs at whatever rate it renders at: 600 ticks of a 16 ms step took
@@ -366,7 +368,7 @@ static void write_mode_lines(char *out, size_t n) {
              "setup.demoslide=%d\n"
              "setup.snapshot=%s\n"
              "setup.reloaded=%d\n"
-             "setup.rng_seed=%u\n"
+             "setup.reload_clock=%u\n"
              "clock.timer_ref_hr=%u\n"
              "data.master=%s\n"
              "data.distrib=%s\n"
@@ -380,7 +382,7 @@ static void write_mode_lines(char *out, size_t n) {
              (unsigned)ModeDesiredX, (unsigned)ModeDesiredY,
              (int)Language,
              (int)Island, (int)NumCube, (int)DemoSlide,
-             s_snapshot, s_reloaded, s_rngSeed,
+             s_snapshot, s_reloaded, s_reloadClock,
              (unsigned)TimerRefHR,
              Distrib_MasterName(Distrib_GetMaster()),
              Distrib_Name(DistribVersion),
@@ -505,6 +507,17 @@ static void record_reload_request(const char *save, const char *then, int forPla
 }
 
 static void record_reload_issue(void) {
+    /* Before the load, because the load is what reads it. A savegame restores the
+       fields the hash covers and re-derives the rest, and some of what it re-derives is
+       stamped from the game clock; the two ends do not arrive here with the same
+       reading, since writing the snapshot costs the recording a frame the replay never
+       spends. Same state at tick 0 either way, and one actor's heading apart 300 ticks
+       later, which is what this closes. */
+    if (s_reloadForPlay)
+        SetTimerHR((U32)s_reloadClock);
+    else
+        s_reloadClock = (unsigned)TimerRefHR;
+
     strncpy(s_reloadSavedName, PlayerName, sizeof s_reloadSavedName - 1);
     s_reloadSavedName[sizeof s_reloadSavedName - 1] = 0;
     snprintf(s_reloadSavedPath, sizeof s_reloadSavedPath, "%s", GamePathname);
@@ -522,17 +535,13 @@ static void record_reload_landed(void) {
        the object loop branch on it. Clearing it here is what makes the two match. */
     FlagLoadGame = FALSE;
 
-    /* ChangeCube is the engine's only srand call, and outside the demo reel it seeds
-       from TimerRefHR (SOURCES/OBJECT.CPP). The reload's own cube change is therefore
-       the last thing either end does before the session starts, and the two ends do not
-       arrive at it with the same clock: writing the snapshot costs the recording a
-       present the replay never makes, measured at one step. Same state at tick 0,
-       different RNG stream, and they part company on the first tick that draws a random
-       number. So the recording picks the seed and names it, and the replay takes the one
-       it was given. A from-boot recording reaches none of this. */
-    if (!s_reloadForPlay)
-        s_rngSeed = (unsigned)TimerRefHR;
-    srand(s_rngSeed);
+    /* Deliberately no reseed here. ChangeCube is the engine's only srand and outside
+       the demo reel it seeds from TimerRefHR (SOURCES/OBJECT.CPP), so two ends that
+       reach the cube change at different readings draw different streams. Pinning the
+       clock before the load settles that at its cause: both ends reach the cube change
+       at the same TimerRefHR, so the seed follows without being carried. That also holds
+       for cube changes later in a session, which a seed named in the header could not
+       reach. */
 
     /* The recorder does not get to change which save the session is on. */
     strncpy(PlayerName, s_reloadSavedName, MAX_SIZE_PLAYER_NAME);
@@ -1031,10 +1040,10 @@ int Record_Play(const char *path) {
             const char *s = strstr(s_headerBuf, "setup.snapshot=");
             char snap[ADELINE_MAX_PATH];
             if (s && sscanf(s + 15, "%1023[^\n]", snap) == 1 && strcmp(snap, "-") != 0) {
-                const char *r = strstr(s_headerBuf, "setup.rng_seed=");
-                unsigned seed = 0;
-                if (r && sscanf(r + 15, "%u", &seed) == 1)
-                    s_rngSeed = seed;
+                const char *c = strstr(s_headerBuf, "setup.reload_clock=");
+                unsigned clk = 0;
+                if (c && sscanf(c + 19, "%u", &clk) == 1)
+                    s_reloadClock = clk;
                 record_reload_request(snap, "", 1);
                 Console_Print("rec: reloading %s; replay starts from the post-load state", snap);
                 return 1;

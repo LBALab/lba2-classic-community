@@ -717,34 +717,45 @@ zero, because the first recorded poll is the run's first poll, so the flag path 
 after a reload it is one step, and it was worth 16 ms of drift. Arming the frame clock and letting
 `ManageTime` settle it before the header is written closes it, and changes nothing from boot.
 
-The second is the RNG. `ChangeCube` is the engine's only `srand`, and outside the demo reel it
-seeds from `TimerRefHR` ([SOURCES/OBJECT.CPP](../../SOURCES/OBJECT.CPP)) -- so the reload's own cube
-change reseeds, and the two ends do not reach it with the same clock, because writing the snapshot
-costs the recording a present the replay never makes. Measured, the seeds were 4268125 and 4268141:
-one step apart, same state, different stream. The recording therefore names its seed in
-`setup.rng_seed` and the replay takes the one it was given. A from-boot recording carries a zero
-there and reseeds nothing.
+The second is the clock the load itself is taken at, and it accounts for the whole of the rest.
+The two ends do not reach the load with the same reading, because writing the snapshot costs the
+recording a frame the replay never spends: measured, `TimerRefHR` 6798097 against 6798113, one step
+apart. A savegame restores the fields the state hash covers and re-derives the rest, and some of
+what it re-derives is stamped from that reading, so the two ends come out of the load looking
+identical and drift later. `setup.reload_clock` carries it, and the replay sets the clock there
+before issuing its own load.
 
-**What this cost in scope.** One header flag was the plan and two lines was the outcome, because
-the seed is part of what a mid-session reload sets up and nothing else in the file carries it.
+That subsumes the RNG. `ChangeCube` is the engine's only `srand` and outside the demo reel it seeds
+from `TimerRefHR` ([SOURCES/OBJECT.CPP](../../SOURCES/OBJECT.CPP)), so two ends reaching the cube
+change at different readings draw different streams. With the clock pinned before the load both
+reach it at the same `TimerRefHR` and the seed follows without being carried, which settles it at
+the cause rather than the symptom, and it holds for cube changes later in a session where a seed
+named in the header could not reach. Verified by removing the reseed: both scenes stay clean.
+
+**What this cost in scope.** One header flag was the plan and two lines is the outcome, because a
+mid-session reload sets up a clock as well as a scene and nothing else in the file carried it.
 
 **Two limits, both measured, both to solve later.**
 
-*A mid-session recording does not yet reproduce in an exterior scene.* Same save, no cube jump,
-three runs each:
+*Closed: a mid-session recording in an exterior scene.* It diverged at tick 296 of 397, three runs
+out of three, with the clock in step and the stream in step. How it was localised is worth keeping,
+because a digest says when and never what: dumping named state either side of the tick and diffing
+came back with **one field**, actor 8's `beta`, 758 against 512, on an actor that never moves. A
+tick-by-tick trace then showed the recording turning it from tick 299 and the replay never turning
+it at all, with its Life script tracing identically at both ends, which ruled out the script and
+left the state the load had stamped. The cause is the reload clock above, and pinning it closes it.
+All four combinations replay clean three runs out of three:
 
 | Path | Scene | Result |
 |---|---|---|
-| `--record` / `--replay` | interior (cube 3) | clean |
-| `--record` / `--replay` | exterior (cube 48, Downtown) | clean |
+| `--record` / `--replay` | interior (cube 3) | clean, 401 ticks |
+| `--record` / `--replay` | exterior (cube 48, Downtown) | clean, 401 ticks |
 | `rec start` / `rec play` | interior (cube 3) | clean, 397 ticks |
-| `rec start` / `rec play` | exterior (cube 48, Downtown) | **diverges at tick 296** |
+| `rec start` / `rec play` | exterior (cube 48, Downtown) | clean, 397 ticks |
 
-Deterministic three runs out of three, with the clock in step and the stream in step, so it is
-state rather than timing. The flag path is clean in the same scene, which rules out the scene and
-points at what the reload restores: a save re-derives moving actors from their scripts, and an
-exterior has actors an interior does not. Tick 296 of 397 is a long way in, which fits a script
-reaching a decision point at a different position rather than a value being wrong at tick 0.
+**A trap worth not repeating.** The exterior flag-path run that first read as "clean" stopped at
+tick 300, and the divergence is at 299. A control that ends where the fault begins is not a
+control, and the flag path had to be re-run to 401 ticks before the comparison meant anything.
 
 *An active recording cannot cross a cube change.* The same run completes without `--record` and
 hangs with it. `Record_ClockHook` pins `ManageTime` to the last input poll, and
