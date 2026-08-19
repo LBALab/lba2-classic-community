@@ -673,6 +673,15 @@ snapshot back, so the recording begins from the same post-load state a replay wi
 scene reload where recording starts, which is a visible hitch for something a person asked for
 deliberately.
 
+**The obvious way to do it does not work, which is worth knowing before trying again.** Driving
+the load the way the console's own `load` verb does, by pointing `GamePathname` at the snapshot,
+setting `FlagLoadGame` and calling `LoadGameNumCube()`, then waiting for `FlagLoadGame` to clear
+before beginning the recording, never completes: the flag stays set and the deferred start never
+fires. The console verb reaches that code from the command bus during a frame, and a recorder
+reaching it from the input poll or the tick hook is at a different point in the loop than the
+sequence expects. Whatever drives the reload has to run where `MainLoop` is willing to finish it,
+and finding that point is the work, not the load call itself.
+
 ### A snapshot at both ends
 
 The same mechanics at `rec stop` give a recording a second oracle, and the two answer different
