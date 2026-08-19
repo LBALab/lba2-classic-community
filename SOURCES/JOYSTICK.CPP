@@ -372,6 +372,15 @@ U32 JoystickFirstPressedScancode(void) {
     return s_firstPressedThisFrame;
 }
 
+/* PROTOTYPE (docs/plan/RECORDING_RESEARCH.md). These three are derived in
+   UpdateJoystick during GetJoys, which runs before GetInput reaches the replay
+   hook, so a replayed TabKeys arrives too late to reconstruct them. */
+void Joystick_SetReplayState(U32 firstPressed, S16 rsx, S16 rsy) {
+    s_firstPressedThisFrame = firstPressed;
+    s_rstickX = rsx;
+    s_rstickY = rsy;
+}
+
 //***************************************************************************
 // True if a gamepad *button* was newly pressed this frame -- face buttons,
 // Start/Back/Guide, shoulders, D-pad, or a stick-click. Excludes the analog

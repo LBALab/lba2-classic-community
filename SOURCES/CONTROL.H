@@ -117,6 +117,7 @@ int Control_Begin(void);
    effective ticks finalizes (--dump-state, --screenshot) and, if --exit, exits via
    TheEnd(). */
 void Control_TickHook(void);
+void Control_ArmRecording(void); /* prototype: --record / --replay */
 
 /* Capture final --dump-state / --screenshot when MainLoop returns naturally (e.g. the
    demo script reaches LM_THE_END before the --tick budget). Call once between MainLoop()

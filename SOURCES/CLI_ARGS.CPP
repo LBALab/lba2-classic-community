@@ -126,6 +126,13 @@ static const T_CLI_FLAG CliFlags[] = {
     {"--log-level", 1, 0, 0, 0, NULL, "<level>", "debug | info | warn | error (default info)"},
     {"--verbose", 0, 0, 0, 0, NULL, "", "log scene and hero state as the run proceeds"},
 
+    {"--record", 1, 0, 0, 0, NULL, "<path>", "record the session from the first tick, menus and\n"
+                                             "loading included (the `rec` console verb starts\n"
+                                             "mid-session instead)"},
+    {"--replay", 1, 0, 0, 0, NULL, "<path>", "replay a recording and report where it stops matching"},
+    {"--ignore-focus", 0, 0, 0, 0, NULL, "", "keep the clock running when the window loses focus\n"
+                                             "(--listen implies this)"},
+
     {"--polyrec", 1, 0, 0, 0, "Engine self-tests", "<path>", "record polygon draw calls (ENABLE_POLY_RECORDING builds)"},
     {"--capture-projection", 1, 0, 0, 0, NULL, "<path>", "capture projection records"},
     {"--projection-hash", 1, 0, 0, 0, NULL, "<path>", "write the projection hash"},

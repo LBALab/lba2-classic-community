@@ -23,6 +23,7 @@ extern S32 GfxDitherShading;
 #include "../SAVEGAME.H"
 #include "../INPUT.H"
 #include "../CONTROL.H" // Control_Input* harness timeline, Control_KeyHold
+#include "../RECORD.H"  // PROTOTYPE session recorder
 // K_* scancodes for the `key` command's name table.
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include "../JOYSTICK.H"
@@ -360,6 +361,38 @@ static void cmd_polyrec(int argc, const char *argv[]) {
     Console_Print("polyrec: recording next frame to %s", path);
 }
 #endif
+
+/* PROTOTYPE session recorder (docs/plan/RECORDING_RESEARCH.md).
+   rec start <path> | rec stop | rec play <path> | rec info [path] */
+static void cmd_rec(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Record_Report(NULL);
+        return;
+    }
+    if (!strcmp(argv[1], "start") && argc >= 3) {
+        Console_Print(Record_Start(argv[2]) ? "rec: recording to %s" : "rec: cannot record to %s",
+                      argv[2]);
+        return;
+    }
+    if (!strcmp(argv[1], "stop")) {
+        Record_Report(NULL);
+        Console_Print(Record_Stop() ? "rec: stopped" : "rec: not active");
+        return;
+    }
+    if (!strcmp(argv[1], "play") && argc >= 3) {
+        Console_Print(Record_Play(argv[2]) ? "rec: replaying %s" : "rec: cannot open %s", argv[2]);
+        return;
+    }
+    if (!strcmp(argv[1], "squeeze") && argc >= 3) {
+        Record_Squeeze(argv[2]);
+        return;
+    }
+    if (!strcmp(argv[1], "info")) {
+        Record_Report(argc >= 3 ? argv[2] : NULL);
+        return;
+    }
+    Console_Print("rec: start <path> | stop | play <path> | info [path]");
+}
 
 /* dumpstate [path]: the JSON snapshot --dump-state writes, on demand. The flag
    captures once as a bounded run ends; a session driven from outside wants one per
@@ -2226,6 +2259,9 @@ void Console_RegisterAll(void) {
                               "ENABLE_POLY_RECORDING builds only. Without a path, writes "
                               "polyrec_<time>.lba2polyrec under shoot/.");
 #endif
+    Console_RegisterCommandEx("rec", cmd_rec, "Session recorder (prototype)",
+                              "rec start <path> | rec stop | rec play <path> | rec info [path]",
+                              "rec info");
     Console_RegisterCommandEx("dumpstate", cmd_dumpstate, "Write the engine state as JSON",
                               "dumpstate [path]",
                               "Same snapshot as --dump-state, on demand rather than once at exit. "

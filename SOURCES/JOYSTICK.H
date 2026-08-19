@@ -27,6 +27,7 @@ S32 JoystickIsPresent(void);
 // UpdateJoystick. Writes 0,0 when no pad is open. Used by the analog camera
 // (EXTFUNC) when it owns the right stick.
 void JoystickGetRightStick(S16 *x, S16 *y);
+void Joystick_SetReplayState(U32 firstPressed, S16 rsx, S16 rsy); /* prototype */
 
 // Human-readable controller name for the boot log, or "not detected".
 const char *JoystickGetName(void);

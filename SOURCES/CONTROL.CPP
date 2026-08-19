@@ -22,6 +22,7 @@
 #include <SYSTEM/WINDOW.H> /* Window_SetVSync */
 
 #include <SDL3/SDL.h>     /* SDL_SetHint for --headless (must precede SDL_Init) */
+#include "RECORD.H"       /* PROTOTYPE session recorder */
 #include <SYSTEM/FILES.H> /* ExistsFileOrDir */
 #include <SYSTEM/LOG.H>   /* LogSeverity, Log_ParseLevel for --log-level */
 
@@ -121,6 +122,14 @@ static const char *kControlLanguageShort[CONTROL_LANG_COUNT] = {
    gate. */
 static int s_no_audio = 0;
 static int s_headless = 0;
+static int s_ignore_focus = 0; /* PROTOTYPE: --ignore-focus */
+/* PROTOTYPE: --record / --replay. The `rec` console verbs are the other lever and
+   answer a different question: a verb starts where the player chooses, mid-session,
+   with no boot or menu in the file. These start at the first tick, so a recording
+   covers the menu, the loading path and the scene entry, which is where the fixtures
+   are thinnest and where a verb can never reach. */
+static const char *s_record_path = NULL;
+static const char *s_replay_path = NULL;
 
 /* --res-switch-test WxH@TICK: harness validation for the runtime
    resolution-switch orchestrator (see docs/RUNTIME_RESOLUTION.md and
@@ -211,7 +220,10 @@ void Control_ParseArgs(int *argc, char *argv[]) {
                 s_listen_port = v;
                 s_have_listen = 1;
             }
-            s_active = 1;
+            /* Deliberately not s_active. The socket is a transport: it says how the run
+               is driven, not what the run is. Arming here bypassed the menu, so the one
+               thing a live driver most wants to reach was the one thing it could not.
+               Pass --load or --tick alongside it to get the batch boot path. */
             read += 2;
             continue;
         }
@@ -464,6 +476,23 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 2;
             continue;
         }
+        /* Deliberately not s_active: recording observes a run, it does not drive one.
+           Arming the harness here would bypass the menu and boot straight into a scene,
+           which is the opposite of what a flag that exists to capture the menu wants. */
+        if (!strcmp(a, "--record") && read + 1 < *argc) {
+            s_record_path = argv[read + 1];
+            read += 2;
+            continue;
+        }
+        if (!strcmp(a, "--replay") && read + 1 < *argc) {
+            s_replay_path = argv[read + 1];
+            read += 2;
+            continue;
+        }
+        if (!strcmp(a, "--ignore-focus")) {
+            s_ignore_focus = 1;
+            continue;
+        }
         if (!strcmp(a, "--headless")) {
             /* No window and no audio device: the supported way to run automation. A visible
                window pauses the game on focus loss (HandleEventsTimer) and a live audio thread
@@ -509,8 +538,13 @@ void Control_ParseArgs(int *argc, char *argv[]) {
     *argc = write;
 
     /* A batch run (one that advances ticks or quits on its own) has nobody watching the
-       window, so never let focus loss stop its clock. */
-    if (s_headless || s_have_tick || s_exit) {
+       window, so never let focus loss stop its clock.
+
+       PROTOTYPE (docs/plan/RECORDING_RESEARCH.md): --listen joins that set, and
+       --ignore-focus states it outright. A socket-driven run has a driver, and the
+       driver is in another window by definition, so a windowed --listen session
+       froze the moment the operator alt-tabbed to type at it. */
+    if (s_headless || s_have_tick || s_exit || s_have_listen || s_ignore_focus) {
         Timer_SetIgnoreFocus(1);
     }
 
@@ -520,6 +554,15 @@ void Control_ParseArgs(int *argc, char *argv[]) {
                 "and a live audio thread branches the simulation, so results (screenshots, "
                 "--dump-state) may not reproduce. Pass --headless.\n");
     }
+}
+
+/* Called from main once the CLI is parsed. The recorder starts itself on its first
+   input poll, which happens in every mode including the menus. */
+void Control_ArmRecording(void) {
+    if (s_record_path)
+        Record_ArmRecord(s_record_path);
+    else if (s_replay_path)
+        Record_ArmReplay(s_replay_path);
 }
 
 int Control_IsActive(void) {
@@ -983,6 +1026,10 @@ int Control_UnfiredExecAt(void) {
 }
 
 void Control_TickHook(void) {
+    /* Ahead of the armed check: a player recording their own session has passed no
+       harness flag at all, so the hook is otherwise dead for exactly the run that
+       matters most. */
+    Record_TickHook();
     if (!s_armed)
         return;
     s_hook_calls++;
@@ -1062,6 +1109,7 @@ void Control_TickHook(void) {
        than waiting one frame. */
     if (s_have_listen && !s_have_tick && (!s_listen_started || ControlServer_IsRunning()))
         return;
+
     if ((s_hook_calls - 1) >= control_effective_ticks())
         control_finalize();
 }

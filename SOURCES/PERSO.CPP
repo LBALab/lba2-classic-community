@@ -2158,6 +2158,7 @@ int main(int argc, char *argv[]) {
 
     parse_save_load_test_flag(&argc, argv);
     Control_ParseArgs(&argc, argv);
+    Control_ArmRecording(); /* prototype: --record / --replay */
 
 #ifdef DEBUG_TOOLS
     MemoMemory = AvailableMem();       // memory at start

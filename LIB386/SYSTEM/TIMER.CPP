@@ -107,7 +107,55 @@ void Timer_EnableFixedDt(U32 dt_ms) {
     FixedDtSkipPresent = 0;
 }
 
+/* PROTOTYPE (docs/plan/RECORDING_RESEARCH.md): a replay supplies the clock source
+   per input poll, so a session recorded at a variable frame rate replays at whatever
+   rate the replaying host runs at. Unlike Timer_EnableFixedDt this keeps TimerRefHR
+   and only takes over the source ManageTime reads. Timer_FixedDtAdvance and
+   Timer_FixedDtPresent stay inert because FixedDtTicking is never set. */
+/* The expression ManageTime reads, evaluated now. Recording SDL_GetTicks() directly is
+   wrong under fixed-dt, where the game runs on the virtual clock and the wall clock is
+   unrelated to it. */
+static S32 ReplayDriven = 0;
+
+U32 Timer_ClockSource(void) {
+    return FixedDtActive ? FixedDtNow : SDL_GetTicks();
+}
+
+/* Recording pins the clock to one sample per input poll, so the value the simulation
+   used is the value the file holds. Without this the recorder writes SDL_GetTicks() at
+   the poll and ManageTime reads it again microseconds later, and a replay driven from
+   the file is close but never exact. Inert under fixed-dt, which already has one
+   sample per tick. */
+void Timer_RecordPin(U32 now) {
+    if (!FixedDtActive) {
+        FixedDtActive = 1;
+        FixedDtTicking = 0;
+        FixedDtSkipPresent = 0;
+        LastTime = now;
+        LastEvaluate = now;
+    }
+    FixedDtNow = now;
+}
+
+void Timer_ReplayClock(U32 now) {
+    ReplayDriven = 1;
+    if (!FixedDtActive) {
+        FixedDtActive = 1;
+        FixedDtTicking = 0;
+        FixedDtSkipPresent = 0;
+        LastTime = now; /* first replayed poll banks nothing */
+        LastEvaluate = now;
+    }
+    FixedDtNow = now;
+}
+
+S32 Timer_FixedDtValue(void) {
+    return FixedDtActive ? (S32)FixedDt : 0;
+}
+
 void Timer_FixedDtAdvance() {
+    if (ReplayDriven)
+        return;
     // One fixed step per tick. The next unlocked ManageTime() banks it into TimerRefHR;
     // every other ManageTime() in the tick sees an unchanged FixedDtNow and adds nothing.
     if (FixedDtActive) {
@@ -121,6 +169,8 @@ void Timer_FixedDtAdvance() {
 }
 
 void Timer_FixedDtPresent() {
+    if (ReplayDriven)
+        return;
     if (FixedDtActive && FixedDtTicking) {
         if (FixedDtSkipPresent) {
             FixedDtSkipPresent = 0;
@@ -222,8 +272,17 @@ S32 Timer_ForceStepIfPending(S32 plannedSteps, S32 pending, U32 now, S32 dt, U32
     return 1;
 }
 
+/* PROTOTYPE session recorder: the clock is captured where it is read, not where it
+   is convenient. Sampling it at the input poll and replaying that is close but never
+   exact, and pinning it at record time makes the recorder change the run it is meant
+   to observe. Weak, so libsys.a still links without the recorder. */
+void Record_ClockHook(U32 *now);
+__attribute__((weak)) void Record_ClockHook(U32 *now) { (void)now; }
+
 void ManageTime() {
-    TimerSystemHR = FixedDtActive ? FixedDtNow : SDL_GetTicks();
+    U32 nowSample = FixedDtActive ? FixedDtNow : SDL_GetTicks();
+    Record_ClockHook(&nowSample);
+    TimerSystemHR = nowSample;
 
     if (!TimerLock) {
         TimerRefHR += TimerSystemHR - LastTime;

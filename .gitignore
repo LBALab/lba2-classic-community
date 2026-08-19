@@ -9,6 +9,9 @@ build-demo/
 build-asan/
 # Second front end: linux_clang, kept beside build/ so both stay warm
 build-clang/
+# Control socket and recorder prototype trees (docs/plan/RECORDING_RESEARCH.md)
+build-ctl/
+build-play/
 # Throwaway tree for scripts/ci/warning-baseline.sh (always a clean rebuild)
 build-warnings/
 dist/

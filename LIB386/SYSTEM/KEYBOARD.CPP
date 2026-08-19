@@ -46,6 +46,11 @@ __attribute__((weak)) void ApplyVirtualKeys(void) {}
 void ApplyHarnessKeys(void);
 __attribute__((weak)) void ApplyHarnessKeys(void) {}
 
+/* PROTOTYPE session recorder (docs/plan/RECORDING_RESEARCH.md). Weak so libsys.a
+   still links into the host tests, which have no recorder. */
+void Record_PollHook(void);
+__attribute__((weak)) void Record_PollHook(void) {}
+
 // --- Private functions -------------------------------------------------------
 void UpdateKeyboardState() {
     ManageEvents();
@@ -67,6 +72,8 @@ void UpdateKeyboardState() {
 
     ApplyVirtualKeys();
     ApplyHarnessKeys();
+    /* PROTOTYPE: the session recorder, on the same terms as the two hooks above. */
+    Record_PollHook();
 }
 
 // --- Initialization ----------------------------------------------------------

@@ -34,7 +34,11 @@ void SetTimerHR(U32 time);
 // does not call Timer_EnableFixedDt() are byte-for-byte unaffected. See docs/CONTROL.md.
 void Timer_EnableFixedDt(U32 dt_ms); // arm fixed-dt; seeds the virtual clock to now
 void Timer_FixedDtAdvance();         // advance the virtual clock by dt_ms (once per tick)
-S32 Timer_FixedDtActive();           // non-zero while fixed-dt is armed (guards wall-clock paths)
+S32 Timer_FixedDtActive();
+S32 Timer_FixedDtValue(void);    // armed step in ms, 0 when not armed (prototype)
+void Timer_ReplayClock(U32 now); // replay drives the clock source itself (prototype)
+U32 Timer_ClockSource(void);     // what ManageTime would read right now (prototype)
+void Timer_RecordPin(U32 now);   // recording pins one clock sample per poll (prototype)           // non-zero while fixed-dt is armed (guards wall-clock paths)
 // Called once per presented frame (BoxBlit). The first present after each
 // Timer_FixedDtAdvance() is free (it is the main-loop render the tick already paid
 // for); every additional present in the same tick steps the virtual clock by dt_ms.
