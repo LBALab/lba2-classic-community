@@ -43,8 +43,29 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `distrib logo <on|off>` in the console sets that key without changing which
   release the engine thinks it is running.
 
+- Session recording. `--record <path>` writes a play session to a file, and
+  `--replay <path>` plays it back into the same simulation and reports the first
+  tick where the two stop matching, so a bug found in play can be handed to
+  someone else as a file that reproduces it. A recording carries the input, the
+  console commands, the binding tables, a savegame at each end, and a per-tick
+  digest of the simulation, which is what lets a replay check rather than merely
+  re-press the keys. `--verbose` adds every value behind that digest, so a
+  divergence names the field that moved instead of only the tick. Requires
+  `--fixed-dt`, and `docs/RECORDING.md` says why. Console verbs `rec
+  start|stop|play|info` do the same from a point you choose.
+
 ### Fixed
 
+- The game clock ran at double speed while the F12 console was open under
+  `--fixed-dt`. The console redraws every frame so typing is visible, and that
+  redraw counted as a second presented frame, so animation, script waits and
+  fades all advanced twice per tick for as long as the console was up.
+- Ambient sound could change what happened in the game. The ambience system
+  picks a random stereo position only when a sample is not already playing, and
+  it draws that from the same random stream actor behaviour draws from, so
+  whether the audio device had finished a sound decided what an actor did next.
+  Under `--fixed-dt` a sample's playing state is now answered from its own
+  length on the game clock, which makes a run reproducible with sound on.
 - `--resolution` wrote the size it was given into `lba2.cfg`, so asking for one
   launch at a different resolution replaced the one you had picked, and any
   script that pinned a size for a screenshot rewrote your setting. It now renders
