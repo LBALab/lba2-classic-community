@@ -49,6 +49,7 @@ suite still passes, since CI cannot say so.
 | [test_followcam_recenter.sh](test_followcam_recenter.sh) | The classic camera (cam_hold_angle 0) drifts back behind the hero after a manual pan, but only once he is walking and only after a grace window. | - |
 | [test_followcam_release.sh](test_followcam_release.sh) | Letting go of the stick should ease the camera to a stop, not halt it from full speed. | - |
 | [test_followcam_tracking.sh](test_followcam_tracking.sh) | What the player asks the camera for is what the camera should do: hold the stick at a given orbit speed and, once the lerp has caught up, the camera turns at that speed. | - |
+| [test_input_combos.sh](test_input_combos.sh) | Contradictory input: what the engine does when two inputs ask for opposite things. | - |
 | [test_input_hold_throttle.sh](test_input_hold_throttle.sh) | Phase 1 harness regression (docs/plan/INPUT_SIM_PLAN.md): a sustained `input` hold is metered in SIM ticks and OR'd into Input every rendered frame, so it is consumed on every sim step and drives the hero the same over equal game-time whatever the fixed-timestep throttle does. | - |
 | [test_input_injection.sh](test_input_injection.sh) | `input` console command: the harness can drive the hero's input without a keyboard. | - |
 | [test_item_use_throttle.sh](test_item_use_throttle.sh) | #392 regression: the fixed-timestep throttle must not drop a one-frame inventory item-use. | - |

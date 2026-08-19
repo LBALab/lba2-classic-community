@@ -2,10 +2,10 @@
 
 # Control-harness last run
 
-- when: 2026-08-18 23:18 UTC
-- commit: `a7727e02`
+- when: 2026-08-19 07:03 UTC
+- commit: `df4d6043` (working tree dirty)
 - host: Linux x86_64
-- result: **47 passed, 15 skipped, 0 failed**
+- result: **48 passed, 15 skipped, 0 failed**
 
 A skip means a prerequisite was missing, not that the fixture agreed with the
 engine. Only the passes are evidence.
@@ -38,6 +38,7 @@ engine. Only the passes are evidence.
 | test_followcam_recenter.sh | pass |
 | test_followcam_release.sh | pass |
 | test_followcam_tracking.sh | pass |
+| test_input_combos.sh | pass |
 | test_input_hold_throttle.sh | pass |
 | test_input_injection.sh | pass |
 | test_item_use_throttle.sh | pass |

@@ -138,6 +138,22 @@ answer (record commands, replay, compare a per-tic state hash) is genuinely enab
 most plausible candidate for overengineering here. **Increments 0 and 1 answer it**, by covering the pure layers and then measuring whether the
 fixtures plus the flow counters catch what the later increments could break.
 
+**What would settle the replay question, and what would not.** Speed is not the argument. The
+control socket's latency is one presented frame, flat: measured at 4.6 ms per command on a loaded
+scene, unchanged across `fixedtimestep` 0, 16, 40 and 100, and unchanged whether the reply is one
+line or three. The sim rate does not move it because the server drains the socket once per present.
+So an engine-side fixture tier, compiled in behind a build option, would remove a round trip and
+still wait for the same frames, and the probes it could speed up are the ones that do not need the
+world to advance, which host tests already cover with no engine at all. At 217 probes a second a
+combo wanting fifty of them costs a quarter of a second against a boot of 282 ms; the small term is
+not the one to attack, and a build nobody's CI configures turns its fixtures into skips.
+
+What engine-side machinery would buy is **fidelity, not latency**: recording a per-tick input and
+state stream, replaying it in process, and comparing a hash per tick answers "did this change the
+simulation" bit for bit, where any external driver samples. That is the case to argue, and the
+increment below is what supplies the evidence for it: if the counters plus the combo fixtures catch
+what increments 2 to 7 could break, replay stays unbuilt.
+
 ## Injection: the harness is not a device
 
 Four things put input into this engine and only three of them are injection paths, which is worth
