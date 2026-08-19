@@ -65,6 +65,15 @@ so a replay under a different `--fixed-dt` is reported rather than silently wron
 The header is `key=value` text, so a recording is readable without a decoder. `SOURCES/RECORD_FORMAT.H`
 owns the field readers and the binding-table lines; `tests/record_format` covers them.
 
+`scripts/dev/dump_recording.py` reads the record stream without the engine, which is how to look at
+a session the engine cannot be run against. Its keyframe output is a delta per line, so a session
+reads as what changed:
+
+```
+kf  1600: cube 60->35  cubemode 1->0  hero.x 19483->4078  blackpal 1->0
+kf  1728: dial.obj 0->2
+```
+
 ## Verbose telemetry
 
 A plain recording carries one 64-bit digest a tick. That is enough to detect a divergence and can
