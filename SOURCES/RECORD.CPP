@@ -1108,14 +1108,24 @@ void Record_PollHook(void) {
     }
 }
 
-/* Every ManageTime call inside a frame reads the value that frame's input poll
-   sampled, while recording as well as while replaying, so the recording and the replay
-   agree by construction instead of by the two runs happening to call ManageTime the
-   same number of times. Recording therefore quantises game time to one sample per
-   input poll. It touches no mode flag, so nothing else in the engine behaves
-   differently. */
+/* Quantise game time to one sample per input poll, so every ManageTime call inside a
+   frame reads what that frame's poll sampled and the two ends agree by construction
+   rather than by happening to call ManageTime the same number of times. It touches no
+   mode flag, so nothing else in the engine behaves differently.
+
+   Not under a generated clock, and that exception is the whole of it. `--fixed-dt`
+   already produces one value per tick, and the engine steps it deliberately in the
+   places that wait without polling: `FadeToPalAndSamples`
+   (SOURCES/AMBIANCE.CPP) loops on `Timer_FixedDtPump` plus `ManageTime` until the
+   fade reaches FADE_DELAY, and never polls input. Holding the clock at the last poll
+   there means the fade never completes and the loop never ends, which is why a
+   recording could not cross a scene load and why recording from boot hung on the first
+   fade after the menus. Under a clock sampled from the host there is no such pump and
+   the quantisation is what makes a replay possible at all, so it stays. */
 void Record_ClockHook(U32 *now) {
     s_mtCalls++;
+    if (Timer_FixedDtActive())
+        return;
     if (s_frameClockValid)
         *now = s_frameClock;
 }

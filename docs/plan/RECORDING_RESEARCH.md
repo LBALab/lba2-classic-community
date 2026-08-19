@@ -757,13 +757,33 @@ All four combinations replay clean three runs out of three:
 tick 300, and the divergence is at 299. A control that ends where the fault begins is not a
 control, and the flag path had to be re-run to 401 ticks before the comparison meant anything.
 
-*An active recording cannot cross a cube change.* The same run completes without `--record` and
-hangs with it. `Record_ClockHook` pins `ManageTime` to the last input poll, and
-`FadeToPalAndSamples` ([SOURCES/AMBIANCE.CPP](../../SOURCES/AMBIANCE.CPP)) loops on `ManageTime`
-plus `Timer_FixedDtPump` without polling input, so with the clock held the fade never reaches
-`FADE_DELAY`. This is the same reason `--record` from boot with no `--load` hangs: the first scene
-fade after the menus. The reload path escapes it only because recording has not started yet when
-its own `ChangeCube` runs. Until it is fixed, a recording holds one scene.
+*Closed: recording could not survive a scene fade.* `Record_ClockHook` held `ManageTime` at the
+last input poll, and `FadeToPalAndSamples` ([SOURCES/AMBIANCE.CPP](../../SOURCES/AMBIANCE.CPP))
+loops on `ManageTime` plus `Timer_FixedDtPump` until the fade reaches `FADE_DELAY` and never polls
+input, so the fade never completed and the loop never ended. The same run finished without
+`--record` and hung with it, which is what named the recorder rather than the scene.
+
+The fix is to stop quantising under a generated clock. `--fixed-dt` already produces one value per
+tick and steps it deliberately in exactly the places that wait without polling, so the pin has
+nothing to add there and only takes the pump away. Under a clock sampled from the host there is no
+pump and the quantisation is what makes a replay possible at all, so it stays. That is a one-line
+exception, and it buys two things:
+
+| | Before | After |
+|---|---|---|
+| `--record` from boot, no `--load` | hangs at the first fade after the menus | records, and **replays clean three runs out of three** |
+| a recording containing a cube change | hangs | records and replays, and diverges at the change |
+
+The first is the bigger of the two: recording from boot is the case a player's own session takes,
+and it could not be captured at all.
+
+*Open: a recording does not reproduce across a cube change.* It no longer hangs, so the limit is now
+measurable rather than fatal: a cube change at tick 40 replays to a consistency failure at tick 41,
+three runs out of three, with **656 ms of clock drift**. That figure is the diagnosis in itself. The
+pin existed to make game time a function of the poll index rather than of how many times the engine
+happened to touch the clock, and a scene load is precisely where the two ends touch it a different
+number of times, with no poll in between to resynchronise them. The reload path settles the same
+problem by naming the clock in the header and setting it, which is the shape a fix here would take.
 
 **Two things about `FlagLoadGame` still decide any future attempt, and both are easy to get
 wrong.**
