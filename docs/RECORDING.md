@@ -143,6 +143,22 @@ settings, and `Shadow` (`SetDetailLevel` overwrites it at MainLoop entry anyway)
 empirical rather than principled: a setting joins the block when a replay is shown to turn on it,
 and a sweep that came back clean was run on one session rather than on every path.
 
+**The console is not recorded, and used to take the clock with it.** Its toggle arrives as an
+SDL key event rather than through the polled key table the recorder samples, so a replay never
+opens it. Two consequences, both found by replaying a real session and both now fixed:
+
+- Its every-frame redraw was a second present, and under `--fixed-dt` every present past the first
+  steps the virtual clock, so the game clock ran at double rate while the console was open. The
+  redraw is now marked as an overlay ([TIMING.md](TIMING.md)).
+- The keys typed into it were recorded as gameplay input, because the recorder samples upstream of
+  where `SOURCES/INPUT.CPP` clears them. Typing `exit` put scancodes 8, 12, 23, 27 and 40 into the
+  file, two of them bound to actions in that player's config, and a replay with no console open
+  would have pressed them into the game. The recorder now records what gameplay is given, which is
+  nothing while the console is up.
+
+Recordings made before those fixes still diverge where the console was opened: the doubled clock is
+in the file, and no replay reproduces it.
+
 **The mode has to match.** A recording made windowed with audio does not replay headless with the
 null backend, because a live audio thread branches the simulation. `rec info` will say so.
 

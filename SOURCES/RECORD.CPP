@@ -929,23 +929,42 @@ static void record_poll(void) {
     U16 i;
     U32 src = Timer_ClockSource();
     U32 delta = src - s_prevSrc;
+    S32 mute;
+    S32 key;
     s_frameClock = src;
     s_frameClockValid = 1;
 
+    /* Record what gameplay is about to be given, which is nothing while the console is
+       open: SOURCES/INPUT.CPP clears keys, pad and mouse so typing cannot drive the hero.
+       This hook samples upstream of that, so without the mute a recording carries the
+       keystrokes of whatever was typed at the console, and a replay -- which has no
+       console open to swallow them -- presses them into the game. Measured on a real
+       session: typing `exit` and Return went into the file as scancodes 8, 12, 23, 27 and
+       40, two of them bound to actions in that player's own config. */
+    mute = Console_IsOpen();
+    key = mute ? 0 : Key;
+
     for (i = 0; i < TABKEYS_NUM_KEYS; i++) {
-        if (TabKeys[i] != s_prevKeys[i]) {
+        U8 v = mute ? (U8)0 : TabKeys[i];
+        if (v != s_prevKeys[i]) {
             changed[nchg++] = i;
         }
     }
     if (nchg)
         flags |= 0x01;
-    if (Key != s_prevKey)
+    if (key != s_prevKey)
         flags |= 0x02;
 
     S16 rsx = 0, rsy = 0;
     JoystickGetRightStick(&rsx, &rsy);
     U32 padFirst = JoystickFirstPressedScancode();
-    if (rsx || rsy || padFirst || MouseXDep || MouseYDep || Click)
+    S32 mdx = MouseXDep, mdy = MouseYDep, click = Click;
+    if (mute) {
+        rsx = rsy = 0;
+        padFirst = 0;
+        mdx = mdy = click = 0;
+    }
+    if (rsx || rsy || padFirst || mdx || mdy || click)
         flags |= 0x04;
     if (delta != s_prevSrcDelta)
         flags |= 0x08;
@@ -959,18 +978,18 @@ static void record_poll(void) {
             fprintf(stderr, "[rec] warning: %u key changes in one poll, truncated\n", nchg);
         for (i = 0; i < nchg && i < 255; i++) {
             put16(changed[i]);
-            put8(TabKeys[changed[i]]);
+            put8(mute ? (U8)0 : TabKeys[changed[i]]);
         }
     }
     if (flags & 0x02)
-        put32((U32)Key);
+        put32((U32)key);
     if (flags & 0x04) {
         put16((U16)rsx);
         put16((U16)rsy);
         put32(padFirst);
-        put32((U32)MouseXDep);
-        put32((U32)MouseYDep);
-        put32((U32)Click);
+        put32((U32)mdx);
+        put32((U32)mdy);
+        put32((U32)click);
     }
     if (flags & 0x08)
         put32(delta);
@@ -978,8 +997,11 @@ static void record_poll(void) {
     if (flags == 0)
         s_quietPolls++;
 
-    memcpy(s_prevKeys, TabKeys, sizeof s_prevKeys);
-    s_prevKey = Key;
+    if (mute)
+        memset(s_prevKeys, 0, sizeof s_prevKeys);
+    else
+        memcpy(s_prevKeys, TabKeys, sizeof s_prevKeys);
+    s_prevKey = key;
     s_prevSrcDelta = delta;
     s_prevSrc = src;
     s_polls++;

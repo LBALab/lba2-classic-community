@@ -103,6 +103,26 @@ Inert in default builds. When `Timer_EnableFixedDt(dt_ms)` is called (from
   subloops avoid deadlocking on a `TimerRefHR` deadline.
 - `Timer_FixedDtPump()` advances `FixedDtNow` without a present, for non-presenting
   busy-waits.
+- `Timer_FixedDtOverlayPresent()` marks the next present as an overlay refresh, so it
+  neither advances `FixedDtNow` nor spends the tick's free present.
+
+### An overlay is not a frame
+
+The console redraws every frame while it is open, so typing is visible
+([SOURCES/INPUT.CPP](../SOURCES/INPUT.CPP)). That redraw is a `BoxUpdate`, and every
+`BoxBlit` is a present, so a tick with the console up presented twice and **the game clock
+ran at double rate for as long as the console was open**. Anything driven by `TimerRefHR`
+(animation frames, script waits, fades) ran twice as fast with it.
+
+Found through a session recording, which stores the clock per tick and so states the
+problem outright: 16 ms a tick until the console opened, 32 ms a tick from there to the
+end of the session.
+
+Hence the overlay marker. Both halves of it matter: an overlay present must not advance
+the clock, and it must not spend the free present either, because the main-loop render
+still follows and would then pay the step the overlay dodged. `tests/timer` covers both,
+including that a real modal present in the same tick still advances the clock, so nothing
+that relied on the clock moving inside an inner loop changed.
 
 Result: `--dump-state` is byte-identical across repeated harness runs. The host wall
 clock has zero influence. See [FIXED_DT_PLAN.md](plan/FIXED_DT_PLAN.md) for the design rationale

@@ -259,8 +259,12 @@ void MyGetInput() {
 #ifdef LBA_EDITOR
         MyClick = 0;
 #endif
-        /* Force present so console updates (keypress, Enter/new line) are visible every frame. */
+        /* Force present so console updates (keypress, Enter/new line) are visible every frame.
+           Marked as an overlay so it does not step the fixed-dt virtual clock: the main-loop
+           render still presents this tick, and counting both ran the game clock at double
+           rate for as long as the console was open. */
         BoxStaticAdd(0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1));
+        Timer_FixedDtOverlayPresent();
         BoxUpdate();
         return;
     }

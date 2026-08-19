@@ -39,8 +39,9 @@ U32 LastEvaluate;
 static S32 FixedDtActive = 0;
 static U32 FixedDt = 0;
 static U32 FixedDtNow = 0;
-static S32 FixedDtTicking = 0;     // set on the first tick advance; gates present-stepping past boot
-static S32 FixedDtSkipPresent = 0; // makes the first present after each tick advance free
+static S32 FixedDtTicking = 0;        // set on the first tick advance; gates present-stepping past boot
+static S32 FixedDtSkipPresent = 0;    // makes the first present after each tick advance free
+static S32 FixedDtOverlayPresent = 0; // the next present draws an overlay, not a frame
 
 // --- Initialization ----------------------------------------------------------
 void InitTimer() {
@@ -168,9 +169,18 @@ void Timer_FixedDtAdvance() {
     }
 }
 
+void Timer_FixedDtOverlayPresent() { FixedDtOverlayPresent = 1; }
+
 void Timer_FixedDtPresent() {
     if (ReplayDriven)
         return;
+    /* An overlay refresh is not a frame the simulation asked for, so it neither steps the
+       clock nor spends the tick's free present. Spending it would be as wrong as stepping:
+       the main-loop render still follows, and it would pay the step the overlay dodged. */
+    if (FixedDtOverlayPresent) {
+        FixedDtOverlayPresent = 0;
+        return;
+    }
     if (FixedDtActive && FixedDtTicking) {
         if (FixedDtSkipPresent) {
             FixedDtSkipPresent = 0;
