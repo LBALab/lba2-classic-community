@@ -1435,6 +1435,19 @@ lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 16 --tick 300 \
 lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 16 --tick 400 --replay f.rec --exit
 # expect: first hash mismatch -1, clock drift max 0 ms
 
+# The same from boot, with no --load at all. Headless it needs skipmodals: cube 0 reaches
+# the opening house dialogue around tick 200, and that waits on a keypress no headless run
+# sends. DemoSlide would also clear it, but --demo reseeds ChangeCube's srand and so changes
+# what is being recorded. Run with --verbose if it hangs anyway: the modal marker names the
+# blocker, and no [control] line at all means it never reached the first tick.
+lba2cc --headless --no-autosave --fixed-dt 16 --tick 300 --exec "skipmodals 1" \
+    --record b.rec --exec-at 30 "key up 60 2" --exit
+lba2cc --headless --no-autosave --fixed-dt 16 --tick 300 --replay b.rec --exit
+
+# A recording made under a boot-time --load is not self-contained: setup.reloaded is 0,
+# because that flag means the recording reloaded its own snapshot mid-session. Replay it
+# with the same --load or it starts from cube 0 and mismatches at tick 0.
+
 # The same for a mid-session recording, which is the path that reloads its own snapshot.
 lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 16 --tick 400 \
     --exec "rec start m.rec" --exec-at 50 "key up 120 2" --exec-at 399 "rec stop" --exit
