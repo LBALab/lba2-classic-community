@@ -57,7 +57,8 @@ so a replay under a different `--fixed-dt` is reported rather than silently wron
 | The console commands the session was driven with | Otherwise a recording cannot stand in for a harness-driven fixture |
 | The keyboard and gamepad binding tables | A replay borrows them for its duration, so a recording is not tied to the cfg it was made under, and returns the player's own on the way out |
 | A snapshot at each end | `<path>.lba` is where the session started, `<path>.end.lba` where it finished |
-| An FNV-1a digest of simulation state, per tick | Scene, hero, camera, the other actors, and all 336 script variables |
+| An FNV-1a digest of simulation state, per tick | Scene, hero, camera, the other actors, the open modal, and all 336 script variables |
+| A keyframe of named state, every 32 ticks | The digest says *when* a replay stopped matching; this says *what* moved |
 
 The header is `key=value` text, so a recording is readable without a decoder. `SOURCES/RECORD_FORMAT.H`
 owns the field readers and the binding-table lines; `tests/record_format` covers them.
@@ -66,7 +67,12 @@ owns the field readers and the binding-table lines; `tests/record_format` covers
 
 **Give the replay more ticks than the recording holds.** Ending on `--tick` before the stream runs
 out means the summary never prints, and a run that reported nothing reads exactly like a run that
-passed.
+passed. A replay says how much the file holds as it starts, so the number does not have to be
+guessed:
+
+```
+[rec] holds about 3699 ticks over 134410 polls; give --tick more than that
+```
 
 **A replay needs the same `--load` the recording ran under.** For a recording made with a
 boot-time `--load` that is unsurprising: `setup.reloaded` records whether the session reloaded its
@@ -94,7 +100,16 @@ keypress that a headless run never sends.
 
 ## Diagnosing a divergence
 
-The state digest names a tick, not a field. What has worked:
+A mismatch reports the tick, and the next keyframe reports the fields:
+
+```
+[rec] consistency failure at tick 101: recorded 782c3059…, replayed d69a8ed8…
+[rec] tick 128 differs: hero.anim 0/1  (recorded/replayed)
+```
+
+The keyframe covers the hero, the camera and the open modal, which is most of what goes wrong. When
+what moved is outside it (another actor, or a script variable), the tick is still the starting
+point:
 
 1. **Compare the recorded clock, not just the hashes.** Each tick record carries `TimerRefHR`
    alongside the digest. Dumping both from each end and putting them side by side distinguishes "the
