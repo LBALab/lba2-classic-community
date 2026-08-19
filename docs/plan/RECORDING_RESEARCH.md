@@ -322,7 +322,9 @@ the per-tick state hash costs thirteen times more. At 60 Hz that is roughly 61 b
 input against 780 of oracle, so an hour of play is about 220 KB of input and 2.7 MB of hash. The
 lever is the oracle, not the samples, and the compression section below measures how far pulling
 it goes: a 32-bit digest every tenth tick took the same session from 13,396 bytes to 2,545, and
-LZSS then took the payload to 932. The text header was 319 bytes.
+LZSS then took the payload to 932. The text header was 319 bytes. A real play session, measured
+later, reorders this: capturing the clock at every `ManageTime` call costs more than the oracle
+and the input together.
 
 **Replay is authoritative at the funnel, and that is a boundary worth knowing.** Injecting
 `key action` into a running replay changed nothing, because `ApplyHarnessKeys` runs before the
@@ -467,12 +469,80 @@ replayed against another diverges for a reason that is not the engine, and
 [the RESS fingerprint](../VERSIONS.md) is what distinguishes them. The header now runs to fifteen
 lines.
 
+### A real play session
+
+A recorded session of ordinary windowed play with audio, 47 seconds of game time, is what the
+headless measurements above could not stand in for.
+
+| | |
+|---|---|
+| Polls | 242,280 |
+| Ticks | 17,219 |
+| ManageTime clock samples | 5,464,135 |
+| File | 6.1 MB |
+
+**The clock stream is 90% of the file, and capturing it where the engine reads it is why.**
+`ManageTime` was called **22.6 times per input poll**. Headless the same figure is 1.0, so every
+size estimate taken headless understates a real session by more than twenty times.
+
+99.4% of those samples are a zero delta, because the calls inside one frame read the same
+millisecond. Run-length encoding just the zeros takes the clock stream from 5.46 MB to about
+89 KB and the file to roughly 700 KB, which is a bigger win than the digest thinning above and
+does not cost precision. It is the first thing to do to this format.
+
+**Interleaving the clock samples with the poll samples was a mistake.** One `ManageTime` call more
+or less on replay than on record leaves a clock record where a poll is expected, and the reader
+had no way through it. Consuming the surplus and counting it, rather than stopping, is a patch;
+the fix is a clock stream that is addressed independently so a difference in call count is a
+reported divergence instead of a parse failure.
+
+**What the session replayed.** Headless, against a recording made windowed with audio:
+
+- the whole menu portion, 76,587 polls, with **no hash mismatch**
+- then a consistency failure at tick 2 of the first scene, with 582 surplus and 387 deficit clock
+  samples across the transition
+
+So the menu reproduces and the first scene load does not. Whether that is the environment
+(windowed with a live audio thread, replayed headless without one) or the format is not yet
+separated: a replay with audio alive could not be run here, because SDL audio initialisation
+hangs in a headless-with-audio run on this machine. That is the next experiment and it is the one
+that decides open question 2.
+
+**Two things the session confirmed that were argued for rather than measured.** The player's
+`bindings.digest` differed from the shipped default, so a recording replayed against default
+bindings really would resolve different actions, which is what the field exists to catch. And the
+session used no analog input at all: 0 polls carried mouse or stick data, so the 20 analog bytes
+are free for a keyboard player and only a mouse-camera player pays them.
+
+**The input itself stays almost free.** 1.32 bytes per poll, 320 KB across the whole session,
+against 5.5 MB of clock. Recording a player is cheap; recording time is not.
+
+### The recorder has to be passive, and proving it is a test
+
+Pinning the game clock to one sample per input poll at record time makes variable-rate replay
+exact. It also arms the harness virtual clock on a normal player session, where it stops input
+responding at the boot banner, which is how far a recorder can be from passive while still
+looking like it works.
+
+The measurement that settles it is one A/B: run the same scripted session with and without the
+recorder and diff the state. Pinned, hero animation state differs. With the capture inside
+`ManageTime`, every field is identical.
+
+That test belongs beside the format, not in a commit message. A recorder that perturbs the run it
+observes produces recordings of a game nobody played.
+
 ### What the prototype does not do
 
-Variable-dt replay. It records the clock delta and verifies it, which is what produced the
-poll-1 detection above, but it does not yet drive the clock from the recording, so both record
-and replay were run under `--fixed-dt`. Driving `FixedDt` from the stream is the next step and
-is the one that decides open question 2.
+Replay a real play session past its first scene load, as above.
+
+Run-length encode the clock stream, which is the single change that would most reduce a
+recording, and give that stream an index of its own so a difference in `ManageTime` call count is
+reported rather than survived.
+
+Verify anything in the menus. The state hash is written from `Control_TickHook`, which only runs
+in `MainLoop`, so a 25-second menu recording carries 19,736 polls and zero ticks. Menu navigation
+records and replays; nothing checks it. The existing UI capture goldens are the oracle that
+would.
 
 It also carries the mouse at the keyboard poll index rather than at `ManageMouse`'s own, so the
 mouse delta a sample holds is the one drained on the previous frame. Consistent between record
@@ -559,11 +629,11 @@ two this doc spends its measurements on.
    keyboard and a mouse is a different signal, and the mouse is the part that will not compress.
    Recording an ordinary play session and reading the same counters answers it.
 
-2. **Does a recording made under real play conditions replay?** Everything above says the clock
-   is handled and the audio thread is not. The experiment is cheap once record and replay exist:
-   record windowed with audio, replay headless with the null backend, and read the tick the hash
-   first disagrees at. That number is the answer, and it is more useful than any argument about
-   it.
+2. **Does a recording made under real play conditions replay?** Half answered. A real windowed
+   session with audio replays its entire menu portion, 76,587 polls, with no hash mismatch, and
+   then fails at tick 2 of the first scene load. What is not yet separated is whether that is the
+   environment or the format, because a replay with the audio thread alive could not be run on
+   the machine that recorded it. Running one is what closes this.
 
 3. **What belongs in the hash?** The `--dump-state` field set was used here because it exists and
    is already the baseline corpus's notion of state. It excludes extras, projectiles and sound
