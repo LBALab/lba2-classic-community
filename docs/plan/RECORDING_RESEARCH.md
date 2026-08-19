@@ -753,8 +753,32 @@ progress. A replay has no socket and so presents differently, the tick and poll 
 differently, and a stream that is positional cannot survive that. It is the same fragility the
 clock stream had, arriving through presents instead of through `ManageTime` calls.
 
-That makes the fix the same fix: records that are addressed rather than positional. Until then the
-socket cannot carry anything that has to reproduce, which is most of what it would be wanted for.
+That makes the fix the same fix: records that are addressed rather than positional.
+
+**Sync markers are that fix, on the socket protocol's own idea.** The protocol terminates a
+response with `<<END>>` so a driver that has lost its place has something to find again, and a
+recording needs the same. One marker every 64 polls carries the poll and the tick the recording
+was on, at about 0.2 bytes a poll. A reader checks each against its own counters, says once where
+the two parted, and adopts the file's; a reader that meets a record it cannot parse scans forward
+for the next marker and picks the stream up there.
+
+What that changes for the socket case: a session that previously reported a consistency failure at
+tick 4,248,410,325, which was the reader lost in whatever the bytes happened to say, now reports
+that it resynced at the marker for poll 64 and ended at poll 75, the file's real length. The
+session still diverges, and the presents are still why, but the difference between a diagnosis and
+a nonsense number is the difference between a next step and a shrug.
+
+Both readers have to step over a marker, because one lands between a poll and the tick record that
+follows it and whichever reads next meets it first. Handling it in the poll reader alone silently
+put the tick stream one record behind, which read as a consistency failure at tick 10,706,741 on a
+path that had been clean.
+
+### The recorder does not depend on the socket
+
+The socket is a debug-build-only feature and recording is not. `RECORD.CPP`
+names nothing from the control server, and with `LBA2_CONTROL_SERVER=OFF` a session recorded and
+replayed through the `rec` console verbs is clean three runs out of three with the final state
+identical. The socket is something a recording works well alongside, not something it needs.
 
 **A correction, since an earlier reading of this is committed.** The console verb was recorded here
 as failing at tick 41 where the flag path was clean, and the blocking item was written up as

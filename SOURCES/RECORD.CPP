@@ -43,7 +43,18 @@ extern "C" {
 /* ---- live state ---------------------------------------------------------- */
 
 #define REC_MAGIC "LBA2REC"
-#define REC_VERSION 5
+#define REC_VERSION 6
+
+/* Sync markers, on the same idea as the socket protocol's <<END>>: a reader that has
+ * lost its place needs something it can find again. Without them a stream that goes out
+ * of step reads on into whatever the bytes happen to say, and reports a consistency
+ * failure at a nonsense tick, which looks like the simulation diverging rather than the
+ * reader being lost. One every REC_SYNC_EVERY polls carries the poll and tick the
+ * recording was on, so a replay can say where it drifted and pick the stream back up.
+ * 13 bytes per marker against a poll that costs about one, so roughly 0.2 bytes a poll. */
+#define REC_SYNC 0x60
+#define REC_SYNC_MAGIC 0x53594E43u /* "SYNC" */
+#define REC_SYNC_EVERY 64
 
 static FILE *s_f = NULL;
 static int s_recording = 0;
@@ -59,6 +70,7 @@ static U32 s_replaySrc = 0;
    one failed. */
 static long s_refDriftMax = 0;
 static long s_refDriftFirstTick = -1;
+static long s_syncDriftPoll = -1;
 
 static long s_polls = 0;
 static long s_ticks = 0;
@@ -504,14 +516,88 @@ static void record_poll(void) {
     s_prevSrc = src;
     s_polls++;
     s_pollsThisTick++;
+
+    if ((s_polls % REC_SYNC_EVERY) == 0) {
+        put8(REC_SYNC);
+        put32(REC_SYNC_MAGIC);
+        put32((U32)s_polls);
+        put32((U32)s_ticks);
+    }
 }
 
 /* ---- replay --------------------------------------------------------------- */
+
+/* Scan forward for the next sync marker and pick the stream up there. Only reached
+   when the reader has already lost its place, so losing whatever lies between is the
+   point rather than a cost. */
+static int replay_resync(void) {
+    U32 magic, poll, tick;
+    U8 b;
+    while (get8(&b)) {
+        if (b != REC_SYNC)
+            continue;
+        {
+            long pos = ftell(s_f);
+            if (!get32(&magic))
+                return 0;
+            if (magic != REC_SYNC_MAGIC) {
+                fseek(s_f, pos, SEEK_SET);
+                continue;
+            }
+        }
+        if (!get32(&poll) || !get32(&tick))
+            return 0;
+        fprintf(stderr, "[rec] resynced at the marker for poll %u, tick %u\n",
+                (unsigned)poll, (unsigned)tick);
+        s_polls = (long)poll;
+        s_ticks = (long)tick;
+        return 1;
+    }
+    return 0;
+}
+
+/* Step over a sync marker and check what it says. Both readers need this: a marker
+   lands between a poll and the tick record that follows it, so whichever reads next
+   meets it first. */
+static int replay_take_sync(U8 *flags) {
+    U32 magic, poll, tick;
+    while (*flags == REC_SYNC) {
+        if (!get32(&magic) || magic != REC_SYNC_MAGIC)
+            return 0;
+        if (!get32(&poll) || !get32(&tick))
+            return 0;
+        if ((long)poll != s_polls || (long)tick != s_ticks) {
+            if (s_syncDriftPoll < 0) {
+                s_syncDriftPoll = s_polls;
+                fprintf(stderr,
+                        "[rec] stream drifted: this run is at poll %ld tick %ld, the "
+                        "recording was at poll %u tick %u\n",
+                        s_polls, s_ticks, (unsigned)poll, (unsigned)tick);
+            }
+            s_polls = (long)poll;
+            s_ticks = (long)tick;
+        }
+        if (!get8(flags))
+            return 0;
+    }
+    return 1;
+}
 
 static int replay_poll(void) {
     U8 flags;
 
     if (!get8(&flags)) {
+        s_eof = 1;
+        return 0;
+    }
+    if (flags > 0x0F && flags != REC_SYNC && flags != 0x40 && !(flags & 0x80)) {
+        if (!replay_resync()) {
+            s_eof = 1;
+            return 0;
+        }
+        return 1;
+    }
+    if (!replay_take_sync(&flags)) {
         s_eof = 1;
         return 0;
     }
@@ -673,6 +759,7 @@ int Record_Play(const char *path) {
     s_replaySrc = Timer_ClockSource();
     s_refDriftMax = 0;
     s_refDriftFirstTick = -1;
+    s_syncDriftPoll = -1;
     s_polls = s_ticks = s_ticksChecked = 0;
     s_bytesTicks = s_maxPollsInTick = s_pollsThisTick = 0;
     s_nCmds = s_cmdRead = 0;
@@ -707,8 +794,9 @@ void Record_PollHook(void) {
                was waiting for will never arrive. Say what happened and leave. */
             fprintf(stderr,
                     "[rec] replay ended at poll %ld: %ld ticks checked, first hash mismatch %ld, "
-                    "clock drift max %ld ms\n",
-                    s_polls, s_ticksChecked, s_hashMismatchTick, s_refDriftMax);
+                    "clock drift max %ld ms, stream drift first at poll %ld\n",
+                    s_polls, s_ticksChecked, s_hashMismatchTick, s_refDriftMax,
+                    s_syncDriftPoll);
             Record_Stop();
             /* Only when nothing else is driving the run. With the harness armed it has
                a tick budget and artifacts to write, and exiting from here would skip
@@ -798,6 +886,8 @@ void Record_TickHook(void) {
         U32 t;
         unsigned long long rh;
         if (!get8(&flags))
+            return;
+        if (!replay_take_sync(&flags))
             return;
         if (!(flags & 0x80)) {
             fseek(s_f, pos, SEEK_SET);
