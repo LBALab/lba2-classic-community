@@ -326,6 +326,41 @@ static int get64(unsigned long long *v) {
 /* ---- the mode header ------------------------------------------------------ */
 
 /* The "what am I running under" report. Everything a replay could trip over. */
+/* The file part of a path, for the header. The snapshot is written beside the
+   recording, so naming it by path would put the recorder's home directory into a file
+   meant to be handed to someone else, and the path would be wrong on their machine
+   anyway. */
+static const char *path_leaf(const char *path) {
+    const char *slash = strrchr(path, '/');
+    const char *back = strrchr(path, '\\');
+    /* Nested rather than one condition: `AND (` reformats to `AND(`, the macro reading
+       as a call as soon as a parenthesised group follows it. */
+    if (back != NULL) {
+        if (slash == NULL OR back > slash)
+            slash = back;
+    }
+    return (slash != NULL) ? slash + 1 : path;
+}
+
+/* The other direction, at replay: put the header's name back beside the recording it
+   came with. A name that already carries a separator is left alone, which is what lets
+   a recording written before the header held a leaf still find its snapshot. */
+static void snapshot_beside(const char *recPath, const char *name, char *out, size_t n) {
+    const char *leaf;
+
+    if (strchr(name, '/') != NULL OR strchr(name, '\\') != NULL) {
+        snprintf(out, n, "%s", name);
+        return;
+    }
+
+    leaf = path_leaf(recPath);
+    if (leaf == recPath) {
+        snprintf(out, n, "%s", name); /* the recording is in the working directory too */
+        return;
+    }
+    snprintf(out, n, "%.*s%s", (int)(leaf - recPath), recPath, name);
+}
+
 static void write_mode_lines(char *out, size_t n) {
     snprintf(out, n,
              "engine=%s\n"
@@ -355,7 +390,7 @@ static void write_mode_lines(char *out, size_t n) {
              (unsigned)ModeDesiredX, (unsigned)ModeDesiredY,
              (int)Language,
              (int)Island, (int)NumCube, (int)DemoSlide,
-             s_snapshot, s_reloaded, s_reloadClock,
+             path_leaf(s_snapshot), s_reloaded, s_reloadClock,
              (unsigned)TimerRefHR,
              Distrib_MasterName(Distrib_GetMaster()),
              Distrib_Name(DistribVersion),
@@ -1021,9 +1056,11 @@ int Record_Play(const char *path) {
     {
         S32 v = 0;
         if (RecFmt_ReadInt(s_headerBuf, "setup.reloaded=", &v) && v) {
+            char named[ADELINE_MAX_PATH];
             char snap[ADELINE_MAX_PATH];
-            if (RecFmt_ReadStr(s_headerBuf, "setup.snapshot=", snap, sizeof snap) &&
-                strcmp(snap, "-") != 0) {
+            if (RecFmt_ReadStr(s_headerBuf, "setup.snapshot=", named, sizeof named) &&
+                strcmp(named, "-") != 0 &&
+                (snapshot_beside(path, named, snap, sizeof snap), 1)) {
                 U32 clk = 0;
                 if (RecFmt_ReadU32(s_headerBuf, "setup.reload_clock=", &clk))
                     s_reloadClock = clk;
