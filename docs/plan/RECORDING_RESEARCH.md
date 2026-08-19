@@ -592,8 +592,7 @@ failing around tick 8. Quantising at record time as well, so the recording and t
 by construction, removes the clock drift entirely but leaves a residual the run did not close.
 
 Quantising the sampled clock at record time was then built, so that recording and replay agree by
-construction. It closes the clock question and not the whole one, and the residual is narrow
-enough to hand on:
+construction. It closes the clock question and not the whole one:
 
 | Between record and replay | Result |
 |---|---|
@@ -603,15 +602,26 @@ enough to hand on:
 | State hash | first mismatch at tick 6 |
 | The whole difference at that point | `actors[12].anim`, 221 against 220 |
 
-One actor's animation number, off by one, from a state that was identical five ticks earlier,
-with the same clock and the same input. The engine is not at fault: three plain runs of the same
-command with no recorder involved produce 221 every time, so this is the recorder's residual, not
-the known non-fixed-dt jitter.
+Chasing that field is what produced the answer. Over longer runs the divergence is not one
+animation but a moving actor: `actors[5]` drifting in `x`, `y`, `z` and `beta` together, which is
+the signature the determinism work already recorded for an unpinned dt, where "the two actors that
+were actively walking" were the only things that moved between runs.
 
-That is where this stops. The configuration that is proven is the generated clock; the sampled
-path reproduces the clock, the schedule and the input exactly and still loses one animation
-selection, which is a specific enough finding to resume from without re-deriving any of the
-above.
+**So a reconstructed clock is not enough, and cannot be made enough.** The engine's determinism
+does not need a clock that is *reproduced*, it needs one that is *constant*: movement is
+integrated per sub-step from `GetDeltaMove`, and pinning the value at tick boundaries leaves the
+integration free. Reproducing the source, pinning the derived game clock at every tick, and
+deferring the baseline restore past the clock arm were each built and each measured, and none of
+them closes it, because none of them changes that.
+
+That is why `--fixed-dt` exists, and it is the same conclusion from the other side: **a session
+that is to be replayed has to be recorded on a fixed timestep.** Doom 3 reached this by fixing
+`USERCMD_HZ` and deleting the frame-time arithmetic that a variable rate had needed; here the
+equivalent is that recording pins the timestep rather than trying to capture a loose one.
+
+That is a product decision rather than a limitation to work around. The engine already has a
+fixed-timestep simulation for [movement frame-rate independence](../MOVEMENT_FRAMERATE.md), so a
+recording mode that pins the step is asking the game for something it can already do.
 
 ### What the prototype does not do
 
@@ -712,12 +722,12 @@ two this doc spends its measurements on.
    keyboard and a mouse is a different signal, and the mouse is the part that will not compress.
    Recording an ordinary play session and reading the same counters answers it.
 
-2. **Does a recording made under real play conditions replay?** Not as built, and the reason is
-   now specific rather than suspected: real play reads the clock from the host, and a
-   reconstructed host clock does not reproduce reliably under load. A real windowed session did
-   replay its entire menu portion, 76,587 polls, with no hash mismatch, before parting at the
-   first scene load. The question this leaves is narrower and answerable: does a player's session
-   recorded on a generated clock replay the way the harness sessions already do?
+2. **Does a recording made under real play conditions replay?** Answered: not on a clock read
+   from the host, and no amount of reconstruction fixes it, because the engine needs a constant
+   dt rather than a reproduced one. A session recorded on a fixed timestep replays exactly, four
+   times over and four at once under load. So the question for a player's session is not whether
+   it can be captured but whether pinning the timestep while recording is acceptable to play on,
+   which is a design call rather than an open measurement.
 
 3. **What belongs in the hash?** The `--dump-state` field set was used here because it exists and
    is already the baseline corpus's notion of state. It excludes extras, projectiles and sound

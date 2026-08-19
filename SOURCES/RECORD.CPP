@@ -95,6 +95,8 @@ static long s_cmdsReplayed = 0;
 static U32 s_prevMt = 0;
 static long s_mtCalls = 0;
 static U32 s_frameClock = 0;
+static U32 s_baseline = 0;
+static int s_pendingBaseline = 0;
 static int s_frameClockValid = 0;
 static int s_hash32 = 0;    /* LBA2_REC_HASH32: store a 32-bit digest */
 static int s_hashEvery = 1; /* LBA2_REC_HASH_EVERY: hash one tick in N */
@@ -508,6 +510,10 @@ static int replay_poll(void) {
     s_replaySrc += s_prevSrcDelta;
     s_frameClock = s_replaySrc;
     s_frameClockValid = 1;
+    if (s_pendingBaseline) {
+        s_pendingBaseline = 0;
+        SetTimerHR(s_baseline);
+    }
 
     /* Inject. This is the whole point: every consumer downstream of the funnel
        reads these and cannot tell they were replayed. */
@@ -566,14 +572,20 @@ int Record_Play(const char *path) {
     }
 
     /* Everything before the first poll (boot, the save load) ran on the host clock in
-       both runs, so without restoring the recorded baseline the two start from
-       different game clocks and srand(TimerRefHR) at the next cube change draws a
-       different stream. */
+       both runs, so the recorded baseline has to be restored. Not here though:
+       SetTimerHR unlocks through ManageTime, which banks a delta, and with the frame
+       clock not yet armed that delta comes off the host clock. One millisecond of it
+       is enough for actors to reach an animation change a tick apart a few hundred
+       ticks later. Applied on the first poll instead, where the frame clock already
+       holds the recording's value and the banked delta is zero. */
     {
         const char *k = strstr(s_headerBuf, "clock.timer_ref_hr=");
         unsigned v = 0;
-        if (k && sscanf(k + 19, "%u", &v) == 1)
-            SetTimerHR((U32)v);
+        s_pendingBaseline = 0;
+        if (k && sscanf(k + 19, "%u", &v) == 1) {
+            s_baseline = (U32)v;
+            s_pendingBaseline = 1;
+        }
     }
 
     memset(s_prevKeys, 0, sizeof s_prevKeys);
