@@ -19,12 +19,13 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-63 fixtures.
+64 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
 | [test_action_substep.sh](test_action_substep.sh) | Hero action input is frame-rate independent under fixed-timestep sub-stepping (issue #456). | - |
 | [test_askchoice_menus_consume.sh](test_askchoice_menus_consume.sh) | Skipping a post-choice dialogue line must skip the line and nothing else. | save fixture, voice data |
+| [test_attack_melee.sh](test_attack_melee.sh) | The Aggressive melee attack: that it fires, and that a held press keeps the same blow. | - |
 | [test_autocam_orbit_snap.sh](test_autocam_orbit_snap.sh) | Auto camera: touching the stick must not snap the view through rotation the hero accumulated while turning in place (#450). | - |
 | [test_blowgun_release_throttle.sh](test_blowgun_release_throttle.sh) | #407 regression: the fixed-timestep throttle must not drop a hero input EDGE. | - |
 | [test_camera_axes.sh](test_camera_axes.sh) | Elevation and zoom: the two Auto-camera axes that are not orbit. | - |
