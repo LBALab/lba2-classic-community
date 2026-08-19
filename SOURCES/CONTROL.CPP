@@ -933,11 +933,17 @@ static void control_dump_state(const char *path) {
             T_OBJET *o = &ListObjet[i];
             fprintf(f,
                     "%s\n    { \"index\": %d, \"x\": %d, \"y\": %d, \"z\": %d, \"beta\": %d, "
-                    "\"life\": %d, \"body\": %d, \"anim\": %d, \"move\": %d, \"flags\": %u }",
+                    "\"life\": %d, \"body\": %d, \"anim\": %d, \"move\": %d, \"flags\": %u, "
+                    "\"armure\": %d, \"nb_bonus\": %d }",
                     i ? "," : "", (int)i,
                     (int)o->Obj.X, (int)o->Obj.Y, (int)o->Obj.Z, (int)o->Obj.Beta,
                     (int)o->LifePoint, (int)o->Obj.Body.Num, (int)o->Obj.Anim.Num,
-                    (int)o->Move, (unsigned int)o->Flags);
+                    (int)o->Move, (unsigned int)o->Flags,
+                    /* What separates a combatant from a body standing in a room.
+                       Armure is damage resistance; NbBonus is what it drops when
+                       killed. Neither is proof on its own, which is why the survey
+                       that uses them confirms a candidate by hitting it. */
+                    (int)o->Armure, (int)o->NbBonus);
         }
     }
     fprintf(f, "%s],\n", NbObjets ? "\n  " : "");
