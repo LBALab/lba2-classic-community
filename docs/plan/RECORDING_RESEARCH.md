@@ -1118,6 +1118,28 @@ So a sweep answers "does this key matter at these two values", never "does this 
 practical consequence is that the recording carries the settings rather than the sweep deciding
 which ones are safe to leave out.
 
+### Every way the simulation can ask about audio, and which of them mattered
+
+Having found one, the question is whether it was the only one. Four query families reach
+`SOURCES/` from the audio layer:
+
+| Query | Call sites | Reaches the simulation? |
+|---|---|---|
+| `IsSamplePlaying` | 33 | **Yes.** Ambience's random pan, actor scripts restarting a looping sample (`GERETRAK`, `GERELIFE`), the dialogue voice (`MESSAGE`, `SPEAK_SAMPLE`), inventory, the buggy |
+| `IsStreamPlaying` | 5 | No. Music scheduling decides when the next track starts (`MUSIC.CPP`), the options menu previews a volume, and one wait loop in `AdelineLogo` |
+| `IsCDPlaying` | 3 | No. The same two music and menu contexts |
+| `GetMusic*` | 8 | No. Reads which track is selected |
+
+So the sample query was the whole of it on the gameplay path, and fixing it fixes the class rather
+than one instance.
+
+The one wait loop that gates on audio, `while ((TimerRefHR <= endtimer OR IsStreamPlaying()) AND
+!MyKey)` in `AdelineLogo`, would be a real leak, because a loop that runs for as long as a stream
+plays runs a different number of times on a different host. It is unreachable here: `AdelineLogo` is
+called behind `!Control_IsActive()` ([SOURCES/PERSO.CPP](../../SOURCES/PERSO.CPP)), and `--fixed-dt`
+sets that flag, so no recording ever reaches it. Worth knowing rather than worth changing, and worth
+rechecking if that gate ever moves.
+
 ### What ships: the settings are carried and compared, not applied
 
 Following the direction that settings are metadata rather than something a replay installs, the
