@@ -134,8 +134,8 @@ do", which is a different question from "what did the device report".
 
 ### D. The frame-intent struct is where this lands, not where it starts
 
-[INPUT_PLAN.md](INPUT_PLAN.md) item F names one small struct saying what the player asked for
-this tick, built at one place, as the destination the input increments head toward. A recording
+[INPUT_DOOM3_RESEARCH.md](INPUT_DOOM3_RESEARCH.md) item F names one small struct saying what the
+player asked for this tick, built at one place, as the destination the input increments head toward. A recording
 built on B does not compete with that and does not delay it: D is a pure function of B plus the
 binding table, so a recording file written today can be re-expressed as a stream of D later
 without changing what a recording means.
@@ -1007,6 +1007,106 @@ the reel does, not just the one the reload performs. That generalises to cube ch
 session, which `setup.rng_seed` does not reach, and it removes a header line rather than adding
 one. It cannot be tested today for the reason the previous section gives: a recording cannot cross
 a cube change yet.
+
+## Portability, and playback by action
+
+The bindings finding above is a symptom of something larger: a recording of device state is a
+recording made against one player's cfg. This section prices moving the record unit to the action,
+which is the `usercmd_t` shape [INPUT_DOOM3_RESEARCH.md](INPUT_DOOM3_RESEARCH.md) item F names as
+the destination, and says what would have to exist first.
+
+### What non-portability is, exactly
+
+One thing, measured: the binding table. Rebinding forward broke a replay at the tick of the first
+recorded press. `bindings.digest` detects that and cannot repair it, because a replay injects
+`TabKeys` and `GetInput` rebuilds `Input` from that table *and* the bindings. Layout is not a
+second problem: scancodes are positional, so a different keyboard layout reports the same codes.
+
+### The action layer would be lossless for a real session's input
+
+Read from the two committed real play recordings, one menu session and one 47-second play session
+of 17,213 ticks over 242,000 polls:
+
+| Key | Presses | Polls held | Binding slot |
+|---|---|---|---|
+| ENTER | 11 | 16,811 | 9, camera recenter |
+| RIGHT | 11 | 1,773 | 3 |
+| UP | 9 | 4,654 | 0 |
+| LEFT | 7 | 467 | 2 |
+| DOWN | 4 | 314 | 1 |
+| LCTRL | 2 | 396 | 5, behaviour menu |
+| W | 2 | 119 | 8, dialogue/search |
+| SPACE | 1 | 75 | 7, behaviour action |
+
+Eight distinct scancodes, and every one of them is a bound slot. Nothing in a real session, menus
+and dialogue included, touched a key with no action behind it. So the residual an action stream
+would have to carry alongside itself is, for that session, empty.
+
+**And the raw-scancode sites are mostly not gameplay.** Of the 93 counted above:
+
+| File | Sites | What it is |
+|---|---|---|
+| `GAMEMENU.CPP` | 38 | the menus |
+| `PERSO.CPP` | 19 | the main loop |
+| `CONFIG.CPP` | 14 | the key-rebinding screen |
+| `INVENT.CPP` | 7 | the inventory |
+| everything else | 15 | camera, dialogue, holomap, resolution switch |
+
+The 19 in the main loop are the interesting ones, and they are almost all inside
+`#if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)`: the developer key block. The live gameplay site
+is `if (MyKey == K_ESC OR Input & I_MENUS)` ([SOURCES/PERSO.CPP](../../SOURCES/PERSO.CPP)), which
+already reads the action bit beside the scancode.
+
+### The shape it would take, and it is not injecting `Input`
+
+Layer C was rejected as a record unit for a reason that still holds: `Input` is ORed in from
+`MainLoop`, so a modal spinning in its own `MyGetInput` loop never sees it, and the measured
+453-poll modal is exactly the case a recording has to carry. Playback by action does not mean
+injecting `Input`. It means:
+
+> record the action bits; on replay re-express them into `TabKeys` through the *replaying* run's
+> binding table, and inject at the same funnel as today.
+
+Everything downstream is then unchanged, because the injection point is still layer B. The modal
+sees a key table. The 93 raw-scancode sites see a key table. What changes is that the file says
+"the player asked to move forward" rather than "scancode 82 was down", so a player bound to WASD
+replays a recording made on the arrow keys.
+
+### What does not exist yet
+
+**The reverse lookup.** `InitInput` folds `DefKeys` and `GamepadKeys` into one flat
+(key, mask) table scanned to build `Input`. Nothing goes the other way; a grep for an
+action-to-key direction returns nothing. `KeysFromBinding` and `BindingFromKey` are named as a
+take in [INPUT_DOOM3_RESEARCH.md](INPUT_DOOM3_RESEARCH.md) item C, for the controls screen and for
+profiles, so this is a shared prerequisite rather than recorder-specific work.
+
+Three things the reverse direction has to answer that the forward one does not:
+
+- **A slot has up to four keys** (`DefKeys` Key1/Key2 plus the gamepad pair) and re-expression
+  picks one. That is where bit-exact device replay is given up: the recording stops being a record
+  of what the device reported and becomes a record of what the player asked for. Doom 3 made the
+  same trade deliberately, and it is the reason a `.cdemo` is portable where a journal is not.
+- **`MyKey` is a raw scancode that menus compare**, so it has to be synthesised alongside the
+  table rather than falling out of it.
+- **Slots 32 to 35, the spells, never reach `Input`** and are read through
+  `CheckKey(DefKeys[..])` in `PERSO.CPP`. An action unit is therefore 36 slots wide, not `Input`'s
+  30 bits.
+
+**A residual channel for unbound keys.** Empty for the play session measured above, and not empty
+in general: the console toggle, the developer block, and the key-rebinding screen itself, which is
+the sharp case, since a recording of a player rebinding keys cannot be expressed in bindings.
+
+### The sequencing, which is the recommendation
+
+Item D above already states the property that settles the order: **the frame intent is a pure
+function of the polled state plus the binding table**. So a recording that carries the binding
+table can be converted to an action stream offline, later, without being re-recorded.
+
+That makes carrying the table the first move rather than a competing one. It is a few hundred
+bytes, it makes today's recordings portable across players by installing the recorded bindings for
+the replay's duration, and it keeps every file written between now and then convertible. Moving
+the record unit first would put the format behind the reverse lookup, the residual channel and the
+`MyKey` synthesis, and would strand every recording made before it.
 
 ## What this buys beyond reproducing input
 
