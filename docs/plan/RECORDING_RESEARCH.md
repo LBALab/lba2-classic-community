@@ -717,6 +717,39 @@ what the recording would cost. Both produce a file the inspector reads; only one
 the engine can play back faithfully. `rec start` now says so when the step is not pinned at all,
 which is the case where nothing about the recording could reproduce.
 
+### Where this points the harness
+
+The socket is the better driving mechanism, and building the recorder is what made that clear
+rather than being a separate opinion about it.
+
+`--exec-at` needs the whole plan before boot, so anything whose next step depends on what the last
+one showed costs a boot per observation: **282 ms against 0.6 to 1.2 ms** over the socket, on the
+figures [CONTROL.md](../CONTROL.md) already carries. It is also serviced from the pre-present
+chain, which every mode reaches, where `Control_TickHook` has a single call site inside `MainLoop`
+and is dark for the whole of a menu or a cinematic. Every awkward moment in building this recorder
+was that same gap: the tick hook cannot see a menu, so the recorder had to start from the input
+poll instead; and the reload that would make a mid-session recording exact fails precisely because
+it is driven from a point in the loop that cannot finish it.
+
+The objection to the socket has been that a session driven over it does not replay, which
+[CONTROL.md](../CONTROL.md) states as a property: commands arrive at whatever tick the driver sent
+them. **A recorder removes that objection in principle**, because it captures those commands with
+the tick they landed on, so an exploratory session becomes a file that replays. Driving with the
+socket and recording what happened is a better division than choosing between reacting and
+reproducing.
+
+**In practice it does not work yet, and this is now the blocking item rather than a curiosity.** A
+session driven over the socket with the step pinned, recorded and replayed from its own snapshot,
+fails at tick 28, four ticks after the one console command it carried. That is the same failure as
+the console verb measured above, which parts at tick 41 at the release edge of the key it was
+given, where the same session started by the flag replays clean. So a command that arrives through
+the bus is not yet reproduced faithfully enough to replay, and until it is, the socket cannot be
+the substrate for anything that has to reproduce.
+
+Fixing that is worth more than it looked when it was only a note about a console verb. It is what
+would let fixtures be written as driver scripts that react to what they see, and be reproducible
+because they were recorded rather than because they were planned in advance.
+
 ### What the prototype does not do
 
 Replay anything whose control flow differs from the recording's, for the reason above. Input-only
