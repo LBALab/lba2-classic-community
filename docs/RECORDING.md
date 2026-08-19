@@ -68,10 +68,16 @@ owns the field readers and the binding-table lines; `tests/record_format` covers
 out means the summary never prints, and a run that reported nothing reads exactly like a run that
 passed.
 
-**A recording made under a boot-time `--load` is not self-contained.** `setup.reloaded` records
-whether the session reloaded its own snapshot, and a `--load` at boot is not that, so the replay
-needs the same `--load` on its command line. A mid-session `rec start` does reload, and replays on
-its own.
+**A replay needs the same `--load` the recording ran under.** For a recording made with a
+boot-time `--load` that is unsurprising: `setup.reloaded` records whether the session reloaded its
+own snapshot, a `--load` at boot is not that, and so nothing in the file restores the start state.
+
+A mid-session `rec start` does reload its own snapshot, and still needs it. Measured: the same
+mid-session recording replays with no mismatch when the replay is given the same `--load`, and
+diverges at tick 4 without it, from both `--replay` and `rec play`. So something the reload does
+not restore differs between a run that booted into the save and one that booted fresh, and a
+mid-session recording is not yet self-contained either. Naming the save the session started from is
+the outstanding work; until then, pass it.
 
 **The mode has to match.** A recording made windowed with audio does not replay headless with the
 null backend, because a live audio thread branches the simulation. `rec info` will say so.
