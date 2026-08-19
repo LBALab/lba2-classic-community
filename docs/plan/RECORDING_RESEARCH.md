@@ -1159,13 +1159,29 @@ screen (which indexes `DefKeys` positionally today) and by a profile system, nei
 this recorder. So the reverse lookup is shared work with an existing customer, and a recording
 format is its second reader rather than its reason.
 
-The shape that covers both readers, and the injectivity check the recorder is the one that needs:
+Built, in [SOURCES/INPUT_BINDINGS.H](../../SOURCES/INPUT_BINDINGS.H), with
+[tests/input_bindings/test_input_reverse.cpp](../../tests/input_bindings/test_input_reverse.cpp)
+beside it:
 
 ```c
 S32 Bindings_KeysForSlot(S32 slot, U32 *out, S32 max); /* keyboard pair first, then pad */
 S32 Bindings_SlotForKey(U32 key);                      /* -1 when the key carries no slot */
 S32 Bindings_CheckReversible(S32 *badSlot, U32 *badKey); /* the two failures above */
 ```
+
+The test's central claim is that the two directions agree rather than that either is
+self-consistent: for every slot the retail layout binds, a key the reverse hands back is one the
+forward fold raises that slot's bit for and no other's, driven through the real `GetInput`. It also
+pins the deliberate differences. The reverse covers all 36 slots where the fold stops at 32, since
+the spells are bound the same way and a lookup that inherited the ceiling would report the penguin
+as unbound. It reads the source tables rather than the folded one, so a rebind is visible to it
+before `InitInput` runs and not to the fold, which is a real difference a caller can trip on. And
+both reversibility failures are refused with the offender named, with the empty slot outranking a
+sharing pair further down the table, because "this action has no key" is the answer someone is
+looking for and burying it under a later fault hides it.
+
+Nothing consumes the reverse yet. It is the piece an action-shaped recording would rest on, and
+the controls screen and a profile system are the readers that wanted it first.
 
 ### The sequencing, and what shipped
 
