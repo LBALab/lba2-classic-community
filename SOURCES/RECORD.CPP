@@ -12,6 +12,15 @@
  *   bit2  analog block present:  s16 rsx, s16 rsy, u32 padFirst, s32 mdx, s32 mdy, s32 click
  *   bit3  clock delta changed:   u32
  * A poll where nothing changed is one byte.
+ *
+ * Two record types stand outside that encoding. 0x60 is a sync marker (see below), and
+ * 0x50 is a keyframe: u32 tick, then one s32 per named field of `s_kfNames`.
+ *
+ * The keyframe exists because the per-tick hash says *when* a replay stopped matching
+ * and nothing about *what*. For a fixture that is enough, since the run can be recorded
+ * again and the two dumps diffed; for a session a person played it is not, because
+ * there is no second run to diff against. So a recording carries a little named state
+ * of its own, and a divergence can name the field that moved.
  */
 
 #include "RECORD.H"
@@ -45,7 +54,7 @@ extern "C" {
 /* ---- live state ---------------------------------------------------------- */
 
 #define REC_MAGIC "LBA2REC"
-#define REC_VERSION 8
+#define REC_VERSION 9
 
 /* Sync markers, on the same idea as the socket protocol's <<END>>: a reader that has
  * lost its place needs something it can find again. Without them a stream that goes out
@@ -57,6 +66,13 @@ extern "C" {
 #define REC_SYNC 0x60
 #define REC_SYNC_MAGIC 0x53594E43u /* "SYNC" */
 #define REC_SYNC_EVERY 64
+
+/* Keyframe: named state beside the digest, so a mismatch can say which field moved.
+   Every 32 ticks rather than every tick because it is diagnosis rather than detection
+   -- the hash already catches the tick -- and one every 32 costs about 8 KB over a
+   3700-tick session. */
+#define REC_KEY 0x50
+#define REC_KEY_EVERY 32
 
 static FILE *s_f = NULL;
 static int s_recording = 0;
@@ -155,6 +171,74 @@ static void mix(const void *p, unsigned n) {
         mix(&t_, sizeof t_); \
     } while (0)
 
+/* The keyframe's fields, named once. Writer, reader and reporter all walk this table,
+   so a field cannot be added to one and missed by another, and the name a divergence
+   reports is the name the table gives. Ordered as a person would read it: where the
+   hero is, what he is doing, where the camera is, and what modal is up. */
+static const char *const s_kfNames[] = {
+    /* where */
+    "cube",
+    "cubemode",
+    "hero.x",
+    "hero.y",
+    "hero.z",
+    "hero.beta",
+
+    /* doing what */
+    "hero.anim",
+    "hero.body",
+    "hero.move",
+    "hero.life",
+    "hero.zone",
+    "comportement",
+    "weapon",
+
+    /* seen how */
+    "cam.beta",
+    "cam.alpha",
+    "cam.addbeta",
+    "cam.dist",
+
+    /* and what is up in front of it */
+    "cinema",
+    "dial.obj",
+    "choice",
+    "choices",
+    "fade",
+    "blackpal",
+};
+#define KF_COUNT ((S32)(sizeof s_kfNames / sizeof s_kfNames[0]))
+
+/* Live values for the table above, in its order. */
+static void keyframe_fill(S32 *v) {
+    T_OBJET *hero = &ListObjet[NUM_PERSO];
+    S32 i = 0;
+
+    v[i++] = (S32)NumCube;
+    v[i++] = (S32)CubeMode;
+    v[i++] = (S32)hero->Obj.X;
+    v[i++] = (S32)hero->Obj.Y;
+    v[i++] = (S32)hero->Obj.Z;
+    v[i++] = (S32)hero->Obj.Beta;
+    v[i++] = (S32)hero->Obj.Anim.Num;
+    v[i++] = (S32)hero->Obj.Body.Num;
+    v[i++] = (S32)hero->Move;
+    v[i++] = (S32)hero->LifePoint;
+    v[i++] = (S32)hero->ZoneSce;
+    v[i++] = (S32)Comportement;
+    v[i++] = (S32)Weapon;
+    v[i++] = (S32)BetaCam;
+    v[i++] = (S32)AlphaCam;
+    v[i++] = (S32)AddBetaCam;
+    v[i++] = (S32)VueDistance;
+    v[i++] = (S32)CinemaMode;
+    v[i++] = (S32)NumObjDial;
+    v[i++] = (S32)GameChoice;
+    v[i++] = (S32)GameNbChoices;
+    v[i++] = (S32)FlagFade;
+    v[i++] = (S32)FlagBlackPal;
+}
+
 static unsigned long long state_hash(void) {
     T_OBJET *hero = &ListObjet[NUM_PERSO];
     S32 i;
@@ -209,6 +293,15 @@ static unsigned long long state_hash(void) {
         M(o->Move);
         M(o->Flags);
     }
+    /* Modal and menu state. Without these a replay that opens a menu the recording
+       never opened stays "matching" until the menu changes something else, which can
+       be hundreds of ticks later and in a field that looks unrelated. */
+    M(CinemaMode);
+    M(NumObjDial);
+    M(GameChoice);
+    M(GameNbChoices);
+    M(FlagFade);
+    M(FlagBlackPal);
     for (i = 0; i < MAX_VARS_GAME; i++)
         M(ListVarGame[i]);
     for (i = 0; i < MAX_VARS_CUBE; i++)
@@ -240,6 +333,7 @@ static T_DEF_KEY s_recDefKeys[MAX_INPUT_SLOTS];
 static T_DEF_KEY s_recGamepadKeys[MAX_INPUT_SLOTS];
 static int s_haveRecBindings = 0;
 static int s_bindingsInstalled = 0;
+static int s_kfReported = 0; /* keyframes reported since the mismatch, capped */
 
 static void bindings_install(void) {
     if (!s_haveRecBindings || s_bindingsInstalled)
@@ -789,6 +883,57 @@ static void record_poll(void) {
 /* Scan forward for the next sync marker and pick the stream up there. Only reached
    when the reader has already lost its place, so losing whatever lies between is the
    point rather than a cost. */
+/* How much the file holds, read off the last sync marker rather than by scanning the
+   whole stream. Printed when a replay starts, because otherwise the only way to size
+   `--tick` is to guess: guess low and the run ends before the stream does, which prints
+   no summary and reads exactly like a pass, and guess high and it is minutes of waiting
+   to find that out. */
+static void report_extent(void) {
+    long here = ftell(s_f);
+    long end, from, n, i;
+    unsigned char *buf;
+    long bestPoll = -1, bestTick = -1;
+
+    if (fseek(s_f, 0, SEEK_END) != 0)
+        return;
+    end = ftell(s_f);
+    from = (end > 65536) ? end - 65536 : 0;
+    n = end - from;
+    if (n < 13) {
+        fseek(s_f, here, SEEK_SET);
+        return;
+    }
+
+    buf = (unsigned char *)malloc((size_t)n);
+    if (buf == NULL) {
+        fseek(s_f, here, SEEK_SET);
+        return;
+    }
+    fseek(s_f, from, SEEK_SET);
+    n = (long)fread(buf, 1, (size_t)n, s_f);
+
+    /* Last marker wins, so walk forward and keep overwriting. */
+    for (i = 0; i + 12 < n; i++) {
+        U32 magic;
+        if (buf[i] != REC_SYNC)
+            continue;
+        magic = (U32)buf[i + 1] | ((U32)buf[i + 2] << 8) | ((U32)buf[i + 3] << 16) |
+                ((U32)buf[i + 4] << 24);
+        if (magic != REC_SYNC_MAGIC)
+            continue;
+        bestPoll = (long)((U32)buf[i + 5] | ((U32)buf[i + 6] << 8) | ((U32)buf[i + 7] << 16) |
+                          ((U32)buf[i + 8] << 24));
+        bestTick = (long)((U32)buf[i + 9] | ((U32)buf[i + 10] << 8) | ((U32)buf[i + 11] << 16) |
+                          ((U32)buf[i + 12] << 24));
+    }
+    free(buf);
+    fseek(s_f, here, SEEK_SET);
+
+    if (bestTick >= 0)
+        fprintf(stderr, "[rec] holds about %ld ticks over %ld polls; give --tick more than that\n",
+                bestTick, bestPoll);
+}
+
 static int replay_resync(void) {
     U32 magic, poll, tick;
     U8 b;
@@ -849,7 +994,7 @@ static int replay_poll(void) {
         s_eof = 1;
         return 0;
     }
-    if (flags > 0x0F && flags != REC_SYNC && flags != 0x40 && !(flags & 0x80)) {
+    if (flags > 0x0F && flags != REC_SYNC && flags != REC_KEY && flags != 0x40 && !(flags & 0x80)) {
         if (!replay_resync()) {
             s_eof = 1;
             return 0;
@@ -859,6 +1004,19 @@ static int replay_poll(void) {
     if (!replay_take_sync(&flags)) {
         s_eof = 1;
         return 0;
+    }
+    if (flags == REC_KEY) {
+        /* Diagnosis rather than input: read past it and take the next record as this
+           poll. The tick path reads the ones it is interested in. */
+        U32 kt, kv;
+        S32 k;
+        if (!get32(&kt))
+            return 0;
+        for (k = 0; k < KF_COUNT; k++) {
+            if (!get32(&kv))
+                return 0;
+        }
+        return 1;
     }
     if (flags == 0x40) {
         /* A command record where a poll was expected: the stream is out of step, and
@@ -1004,12 +1162,19 @@ int Record_Play(const char *path) {
         char magic[16] = {0};
         if (fscanf(s_f, "%15s %d", magic, &ver) != 2 || strcmp(magic, REC_MAGIC) != 0) {
             Console_Print("rec: %s is not a recording", path);
+            fprintf(stderr, "[rec] %s is not a recording\n", path);
             fclose(s_f);
             s_f = NULL;
             return 0;
         }
         if (ver != REC_VERSION) {
+            /* To stderr as well as the console: a run driven from the command line has
+               no console to read, and the caller's fallback line is "cannot open",
+               which sends the reader looking for a missing file rather than an old
+               recording. */
             Console_Print("rec: %s is format %d, this build reads %d", path, ver, REC_VERSION);
+            fprintf(stderr, "[rec] %s is format %d, this build reads %d; re-record it\n",
+                    path, ver, REC_VERSION);
             fclose(s_f);
             s_f = NULL;
             return 0;
@@ -1040,6 +1205,8 @@ int Record_Play(const char *path) {
             s_pendingBaseline = 1;
         }
     }
+
+    report_extent();
 
     s_haveRecBindings =
         RecFmt_ParseBindings(s_headerBuf, "bindings.keyboard=", s_recDefKeys,
@@ -1218,6 +1385,15 @@ void Record_TickHook(void) {
             put32((U32)(h ^ (h >> 32)));
         else
             put64(h);
+        if ((s_ticks % REC_KEY_EVERY) == 0) {
+            S32 kf[KF_COUNT];
+            S32 k;
+            keyframe_fill(kf);
+            put8(REC_KEY);
+            put32((U32)s_ticks);
+            for (k = 0; k < KF_COUNT; k++)
+                put32((U32)kf[k]);
+        }
         s_bytesTicks += s_bytes - before;
         /* Flush every tick. A recording is most wanted when the run ended badly, and a
            crash runs no atexit handler. One tick of loss beats a whole session of it. */
@@ -1279,6 +1455,46 @@ void Record_TickHook(void) {
                     (unsigned)t, rh, h);
         }
         s_ticks++;
+
+        /* A keyframe, if this tick carries one: compare it field by field and name what
+           moved. The hash has already said whether this tick matches; this says why,
+           which is the part a session nobody can re-record otherwise cannot answer. */
+        {
+            long pk = ftell(s_f);
+            U8 fk;
+            if (get8(&fk)) {
+                if (fk == REC_KEY) {
+                    U32 kt;
+                    S32 live[KF_COUNT];
+                    S32 k, shown = 0;
+                    get32(&kt);
+                    keyframe_fill(live);
+                    for (k = 0; k < KF_COUNT; k++) {
+                        U32 rv = 0;
+                        if (!get32(&rv))
+                            break;
+                        if ((S32)rv == live[k])
+                            continue;
+                        /* Only once the run has stopped matching. Before that a
+                           difference here would be a keyframe bug, and after the first
+                           report every later keyframe differs, so cap the noise. */
+                        if (s_hashMismatchTick < 0 || s_kfReported >= 3)
+                            continue;
+                        if (!shown) {
+                            fprintf(stderr, "[rec] tick %u differs:", (unsigned)kt);
+                            shown = 1;
+                        }
+                        fprintf(stderr, " %s %d/%d", s_kfNames[k], (int)rv, (int)live[k]);
+                    }
+                    if (shown) {
+                        fprintf(stderr, "  (recorded/replayed)\n");
+                        s_kfReported++;
+                    }
+                } else {
+                    fseek(s_f, pk, SEEK_SET);
+                }
+            }
+        }
 
         /* Commands run from here, not from the poll hook: executing one inside the
            keyboard path re-enters the stream reader. A command issued while no tick is
