@@ -492,6 +492,7 @@ void Control_ParseArgs(int *argc, char *argv[]) {
         }
         if (!strcmp(a, "--ignore-focus")) {
             s_ignore_focus = 1;
+            read += 1;
             continue;
         }
         if (!strcmp(a, "--headless")) {
