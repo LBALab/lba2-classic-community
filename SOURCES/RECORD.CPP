@@ -1254,10 +1254,10 @@ static int replay_poll(void) {
                 U8 c;
                 if (!get8(&c))
                     return 0;
-                if (j + 1 < sizeof line)
+                if ((size_t)(j + 1) < sizeof line)
                     line[j] = (char)c;
             }
-            line[(n + 1 < sizeof line) ? n : sizeof line - 1] = 0;
+            line[((size_t)(n + 1) < sizeof line) ? n : sizeof line - 1] = 0;
             if (s_nCmds < REC_CMD_MAX) {
                 s_cmds[s_nCmds].tick = ct;
                 snprintf(s_cmds[s_nCmds].line, sizeof s_cmds[s_nCmds].line, "%s", line);
@@ -1705,10 +1705,10 @@ void Record_TickHook(void) {
                 U8 c;
                 if (!get8(&c))
                     return;
-                if (j + 1 < sizeof line)
+                if ((size_t)(j + 1) < sizeof line)
                     line[j] = (char)c;
             }
-            line[(n + 1 < sizeof line) ? n : sizeof line - 1] = 0;
+            line[((size_t)(n + 1) < sizeof line) ? n : sizeof line - 1] = 0;
             if (s_nCmds < REC_CMD_MAX) {
                 s_cmds[s_nCmds].tick = ct;
                 snprintf(s_cmds[s_nCmds].line, sizeof s_cmds[s_nCmds].line, "%s", line);
@@ -1876,7 +1876,7 @@ void Record_TickHook(void) {
             }
             if (!get32(&ct) || !get16(&n))
                 break;
-            for (j = 0; j < n && j + 1 < sizeof line; j++) {
+            for (j = 0; j < n && (size_t)(j + 1) < sizeof line; j++) {
                 U8 c;
                 if (!get8(&c))
                     break;
@@ -2023,7 +2023,11 @@ void Record_Report(const char *path) {
             return;
         }
         hdr[0] = 0;
-        fgets(line, sizeof line, f); /* magic */
+        if (!fgets(line, sizeof line, f)) { /* magic */
+            Console_Print("rec: %s is empty", path);
+            fclose(f);
+            return;
+        }
         Console_Print("rec: %s header --", path);
         while (fgets(line, sizeof line, f)) {
             char *nl;
