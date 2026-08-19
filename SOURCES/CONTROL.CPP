@@ -7,6 +7,7 @@
 #include "GAMEMENU.H" /* BeginDemoSlide */
 #include "PATCH.H"    /* NbPatches */
 #include "DIRECTORIES.H"
+#include "DISTRIB.H"     /* Distrib_Name, for the state description */
 #include "FOLLOWCAM.H"   /* Auto-camera state in the --dump-state report */
 #include "RES_CATALOG.H" /* RES_MIN_W / RES_MAX_W / RES_MIN_H / RES_MAX_H bounds */
 #include "RES_SWITCH.H"  /* Res_Switch for --res-switch-test */
@@ -1371,6 +1372,357 @@ void Control_InputAdvance(int simTicks) {
     if (simTicks > 0)
         s_input_tick += (U32)simTicks;
 }
+
+/* Filled by Control_StateDigest on every call, whether or not anything wants the
+   values: a replay needs its own copy to compare against, and collecting costs less
+   than the hashing it rides along with. */
+#define TELE_MAX (64 + 9 * MAX_OBJETS + MAX_VARS_GAME + MAX_VARS_CUBE)
+static S32 s_tele[TELE_MAX];
+static const char *s_teleName[TELE_MAX];
+static S16 s_teleIdx[TELE_MAX];
+static S32 s_teleN = 0;
+/* ---- the game state the harness reads ------------------------------------- */
+/*
+ * Reading the engine's state belongs here rather than in whatever wants it. This module
+ * already reaches for the globals to write --dump-state, and it is the one place that
+ * includes C_EXTERN.H for that purpose; a second module doing the same would double a
+ * dependency the build graph deliberately holds down (scripts/ci/check-build-graph.py
+ * rule 2). So the recorder asks for a digest, a keyframe and a state description, and
+ * never sees a game global.
+ *
+ * Three views of the same walk, which is why they share one:
+ *   - a 64-bit digest, for "did this tick match"
+ *   - the values behind it, named, for "which field moved"
+ *   - a short keyframe of the fields a person reads first
+ */
+
+static unsigned long long s_h;
+static void mix(const void *p, unsigned n) {
+    const unsigned char *b = (const unsigned char *)p;
+    unsigned i;
+    for (i = 0; i < n; i++) {
+        s_h ^= b[i];
+        s_h *= 1099511628211ULL;
+    }
+}
+/* Mix a value into the digest and keep it, named, for the telemetry. The name is the
+   expression itself, which is what stops the two drifting apart: a field cannot be
+   hashed under one name and reported under another, and a field added to the digest is
+   named without anyone remembering to name it. Scalars carry index -1; the loops below
+   pass the array index they are on. */
+#define M(v) MI(#v, -1, v)
+#define MI(nm, ix, v)                       \
+    do {                                    \
+        S32 t_ = (S32)(v);                  \
+        mix(&t_, sizeof t_);                \
+        if (s_teleN < TELE_MAX) {           \
+            s_teleName[s_teleN] = (nm);     \
+            s_teleIdx[s_teleN] = (S16)(ix); \
+            s_tele[s_teleN++] = t_;         \
+        }                                   \
+    } while (0)
+
+/* "hero->Obj.X", "var.game[77]", or "obj[12].Anim" for the actor tables, which are the
+   one indexed thing a person reads with the index in the middle. */
+void Control_StateValueName(S32 k, char *out, size_t n) {
+    const char *nm = s_teleName[k];
+
+    if (s_teleIdx[k] < 0) {
+        snprintf(out, n, "%s", nm);
+        return;
+    }
+    if (!strncmp(nm, "obj.", 4)) {
+        snprintf(out, n, "obj[%d].%s", (int)s_teleIdx[k], nm + 4);
+        return;
+    }
+    snprintf(out, n, "%s[%d]", nm, (int)s_teleIdx[k]);
+}
+
+/* The keyframe's fields, named once. Writer, reader and reporter all walk this table,
+   so a field cannot be added to one and missed by another, and the name a divergence
+   reports is the name the table gives. Ordered as a person would read it: where the
+   hero is, what he is doing, where the camera is, and what modal is up. */
+static const char *const s_kfNames[] = {
+    /* where */
+    "cube",
+    "cubemode",
+    "hero.x",
+    "hero.y",
+    "hero.z",
+    "hero.beta",
+
+    /* doing what */
+    "hero.anim",
+    "hero.body",
+    "hero.move",
+    "hero.life",
+    "hero.zone",
+    "comportement",
+    "weapon",
+
+    /* seen how */
+    "cam.beta",
+    "cam.alpha",
+    "cam.addbeta",
+    "cam.dist",
+
+    /* and what is up in front of it */
+    "cinema",
+    "dial.obj",
+    "choice",
+    "choices",
+    "fade",
+    "blackpal",
+};
+#define KF_COUNT ((S32)(sizeof s_kfNames / sizeof s_kfNames[0]))
+
+/* Live values for the table above, in its order. */
+void Control_KeyframeFill(S32 *v) {
+    T_OBJET *hero = &ListObjet[NUM_PERSO];
+    S32 i = 0;
+
+    v[i++] = (S32)NumCube;
+    v[i++] = (S32)CubeMode;
+    v[i++] = (S32)hero->Obj.X;
+    v[i++] = (S32)hero->Obj.Y;
+    v[i++] = (S32)hero->Obj.Z;
+    v[i++] = (S32)hero->Obj.Beta;
+    v[i++] = (S32)hero->Obj.Anim.Num;
+    v[i++] = (S32)hero->Obj.Body.Num;
+    v[i++] = (S32)hero->Move;
+    v[i++] = (S32)hero->LifePoint;
+    v[i++] = (S32)hero->ZoneSce;
+    v[i++] = (S32)Comportement;
+    v[i++] = (S32)Weapon;
+    v[i++] = (S32)BetaCam;
+    v[i++] = (S32)AlphaCam;
+    v[i++] = (S32)AddBetaCam;
+    v[i++] = (S32)VueDistance;
+    v[i++] = (S32)CinemaMode;
+    v[i++] = (S32)NumObjDial;
+    v[i++] = (S32)GameChoice;
+    v[i++] = (S32)GameNbChoices;
+    v[i++] = (S32)FlagFade;
+    v[i++] = (S32)FlagBlackPal;
+}
+
+unsigned long long Control_StateDigest(void) {
+    T_OBJET *hero = &ListObjet[NUM_PERSO];
+    S32 i;
+    s_h = 14695981039346656037ULL;
+    s_teleN = 0;
+    M(Island);
+    M(NumCube);
+    M(CubeMode);
+    M(NbObjets);
+    M(NbZones);
+    M(hero->Obj.X);
+    M(hero->Obj.Y);
+    M(hero->Obj.Z);
+    M(hero->Obj.Alpha);
+    M(hero->Obj.Beta);
+    M(hero->Obj.Gamma);
+    M(hero->LifePoint);
+    M(Comportement);
+    M(Weapon);
+    M(hero->Obj.Body.Num);
+    M(hero->Obj.Anim.Num);
+    M(hero->GenAnim);
+    M(hero->Obj.LastFrame);
+    M(hero->Move);
+    M(hero->ZoneSce);
+    M(hero->Flags);
+    M(hero->WorkFlags);
+    M(BetaCam);
+    M(AlphaCam);
+    M(GammaCam);
+    M(AddBetaCam);
+    M(VueDistance);
+    M(VueOffsetX);
+    M(VueOffsetY);
+    M(VueOffsetZ);
+    M(FollowCamera);
+    M(VueCamera);
+    M(CameraZone);
+    M(CinemaMode);
+    M(MagicLevel);
+    M(MagicPoint);
+    M(NbGoldPieces);
+    M(NbLittleKeys);
+    for (i = 0; i < NbObjets; i++) {
+        T_OBJET *o = &ListObjet[i];
+        MI("obj.X", i, o->Obj.X);
+        MI("obj.Y", i, o->Obj.Y);
+        MI("obj.Z", i, o->Obj.Z);
+        MI("obj.Beta", i, o->Obj.Beta);
+        MI("obj.Life", i, o->LifePoint);
+        MI("obj.Body", i, o->Obj.Body.Num);
+        MI("obj.Anim", i, o->Obj.Anim.Num);
+        MI("obj.Move", i, o->Move);
+        MI("obj.Flags", i, o->Flags);
+    }
+    /* Modal and menu state. Without these a replay that opens a menu the recording
+       never opened stays "matching" until the menu changes something else, which can
+       be hundreds of ticks later and in a field that looks unrelated. */
+    M(CinemaMode);
+    M(NumObjDial);
+    M(GameChoice);
+    M(GameNbChoices);
+    M(FlagFade);
+    M(FlagBlackPal);
+    for (i = 0; i < MAX_VARS_GAME; i++)
+        MI("var.game", i, ListVarGame[i]);
+    for (i = 0; i < MAX_VARS_CUBE; i++)
+        MI("var.cube", i, ListVarCube[i]);
+    return s_h;
+}
+
+S32 Control_StateValueCount(void) { return s_teleN; }
+
+S32 Control_StateValue(S32 k) { return (k >= 0 && k < s_teleN) ? s_tele[k] : 0; }
+
+S32 Control_KeyframeCount(void) { return KF_COUNT; }
+
+const char *Control_KeyframeName(S32 k) {
+    return (k >= 0 && k < KF_COUNT) ? s_kfNames[k] : "";
+}
+
+/* Is there a scene loaded to read? Boot and the menus have no cube and no actors, and
+   a caller that snapshots or digests there gets a description of nothing. */
+S32 Control_HasLiveScene(void) { return NumCube >= 0 && NbObjets > 0; }
+
+/* The part of a run's description that comes from the engine rather than from whoever
+   is describing it: where the game is, and the settings a replay has been shown to
+   turn on. `key=value` lines, one per line, appended to whatever the caller already has.
+
+   The settings are empirical rather than mechanical, which is why this is a hand-written
+   list and not a walk of the T_SETTING tables. Two sweeps so far, each changing one cfg
+   key at a time on the replay side of a recorded session:
+
+     FollowCamera missing                  diverges at tick 0   (it is in the digest)
+     FollowCamGroundClearance missing                  tick 2   (the camera rests further out)
+     DetailLevel 3 -> 0                                tick 235 (SetDetailLevel turns RainEnable
+                                                                 off, and rain draws from the one
+                                                                 shared rand() stream)
+
+   Named by their lba2.cfg keys, so a mismatch names the line the player would edit. */
+S32 Control_DescribeState(char *out, size_t n) {
+    int wrote = snprintf(out, n,
+                         "mode.fixed_timestep=%d\n"
+                         "mode.vsync=%d\n"
+                         "setup.island=%d\n"
+                         "setup.cube=%d\n"
+                         "setup.demoslide=%d\n"
+                         "data.distrib=%s\n"
+                         "settings.FollowCamera=%d\n"
+                         "settings.FollowCamGround=%d\n"
+                         "settings.FollowCamGroundClearance=%d\n"
+                         "settings.FollowCamReengageFrames=%d\n"
+                         "settings.FollowCamDriftDivisor=%d\n"
+                         "settings.FollowCamManualHoldFrames=%d\n"
+                         "settings.FollowCamHoldAngle=%d\n"
+                         "settings.FollowCamHDRecompose=%d\n"
+                         "settings.FollowCamHDExcessCap=%d\n"
+                         "settings.FollowCamHDPitchGain=%d\n"
+                         "settings.FollowCamHDDistGain=%d\n"
+                         "settings.FollowCamHDLeanGain=%d\n"
+                         "settings.DetailLevel=%d\n",
+                         (int)FixedTimestep,
+                         (int)DisplayVSync,
+                         (int)Island, (int)NumCube, (int)DemoSlide,
+                         Distrib_Name(DistribVersion),
+                         (int)FollowCamera,
+                         (int)FollowCamGround,
+                         (int)FollowCamGroundClearance,
+                         (int)FollowCamReengageFrames,
+                         (int)FollowCamDriftDivisor,
+                         (int)FollowCamManualHoldFrames,
+                         (int)FollowCamHoldAngle,
+                         (int)FollowCamHDRecompose,
+                         (int)FollowCamHDExcessCap,
+                         (int)FollowCamHDPitchGain,
+                         (int)FollowCamHDDistGain,
+                         (int)FollowCamHDLeanGain,
+                         (int)DetailLevel);
+    return wrote > 0 && (size_t)wrote < n;
+}
+
+/* ---- snapshots, and the dance the 1997 serialiser requires ------------------ */
+
+/* SaveGame writes "the current game", so writing one anywhere else means briefly
+   becoming that game: the save context is the player's name, path and version, and
+   there is no parameterised form. Borrow the three, write, put them back. Kept here
+   with the rest of the engine handling rather than in whoever wants a snapshot, so the
+   borrowing happens once and is restored on the one path.
+
+   Measured, a save restores everything the state digest covers except the position and
+   heading of actors that were moving, which are re-derived from their scripts on load. */
+/* The save context is the player's name, the path and the format version. Writing a
+   save anywhere but "here" means borrowing all three, and so does driving a load, so the
+   borrow lives in one place with one saved copy. Not reentrant on purpose: nothing here
+   nests, and a stack of saved contexts would hide a leak rather than prevent one. */
+static char s_ctxName[MAX_SIZE_PLAYER_NAME + 1];
+static char s_ctxPath[ADELINE_MAX_PATH];
+static S32 s_ctxVersion = 0;
+static S32 s_ctxHeld = 0;
+
+void Control_BorrowSaveContext(void) {
+    if (s_ctxHeld)
+        return;
+    strncpy(s_ctxName, PlayerName, sizeof s_ctxName - 1);
+    s_ctxName[sizeof s_ctxName - 1] = 0;
+    snprintf(s_ctxPath, sizeof s_ctxPath, "%s", GamePathname);
+    s_ctxVersion = NumVersion;
+    s_ctxHeld = 1;
+}
+
+void Control_ReturnSaveContext(void) {
+    if (!s_ctxHeld)
+        return;
+    strncpy(PlayerName, s_ctxName, MAX_SIZE_PLAYER_NAME);
+    PlayerName[MAX_SIZE_PLAYER_NAME] = 0;
+    snprintf(GamePathname, ADELINE_MAX_PATH, "%s", s_ctxPath);
+    NumVersion = s_ctxVersion;
+    s_ctxHeld = 0;
+}
+
+S32 Control_WriteSnapshot(const char *path) {
+    if (path == NULL || path[0] == 0)
+        return 0;
+
+    Control_BorrowSaveContext();
+    snprintf(GamePathname, ADELINE_MAX_PATH, "%s", path);
+    strncpy(PlayerName, "rec", MAX_SIZE_PLAYER_NAME);
+    PlayerName[MAX_SIZE_PLAYER_NAME] = 0;
+    NumVersion = NUM_VERSION | SAVE_COMPRESS;
+    SaveGame(TRUE);
+    Control_ReturnSaveContext();
+    return 1;
+}
+
+/* MainLoop clears FlagLoadGame at `restartloop`, which it passes through on entry and
+   on a restart, not once per iteration. A load driven from outside never returns there,
+   so the flag stays set where a fresh --load's would be clear, and several places in the
+   object loop branch on it. */
+void Control_ClearLoadFlag(void) { FlagLoadGame = FALSE; }
+
+/* Ask the engine to load a save. It lands on MainLoop's own `NewCube != -1` block at
+   the top of the next tick, which is why the caller needs Control_LoadSettled to know
+   when it has. */
+void Control_RequestLoad(const char *path) {
+    if (path == NULL || path[0] == 0)
+        return;
+    snprintf(GamePathname, ADELINE_MAX_PATH, "%s", path);
+    FlagLoadGame = TRUE;
+    LoadGameNumCube();
+}
+
+/* ChangeCube has consumed the pending load. */
+S32 Control_LoadSettled(void) { return NewCube == -1; }
+
+S32 Control_SaveVersion(void) { return NumVersion; }
+
+void Control_SetSaveVersion(S32 v) { NumVersion = v; }
 
 #ifdef __cplusplus
 }

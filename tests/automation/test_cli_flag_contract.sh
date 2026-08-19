@@ -63,7 +63,15 @@ MODES="
 --projection-hash|--projection-hash \"$tmp/proj.hash\"
 --res-switch-test|--res-switch-test 2:1280x720
 --save-load-test|--save-load-test \"$tmp/slt.lba\"
+--ignore-focus|--ignore-focus
+--record|--record \"$tmp/contract.rec\"
+--replay|--replay \"$tmp/contract.rec\"
 "
+# --replay reads the file the --record case above just wrote, so the order of those
+# two lines is load-bearing: a replay of a file that does not exist reports and
+# carries on, which would pass this test for the wrong reason. Both are modes rather
+# than writers -- a recording is written where the flag was pointed, and neither
+# touches the player's settings, which is exactly what is asserted here.
 # --bind-game-dir is checked here only for what this test asks of every writer,
 # that it writes. Its own behaviour, moving a binding rather than setting a fresh
 # one, needs a second run to be visible at all and lives in test_profile_bind.sh.

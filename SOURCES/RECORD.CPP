@@ -14,7 +14,7 @@
  * A poll where nothing changed is one byte.
  *
  * Two record types stand outside that encoding. 0x60 is a sync marker (see below), and
- * 0x50 is a keyframe: u32 tick, then one s32 per named field of `s_kfNames`.
+ * 0x50 is a keyframe: u32 tick, then one s32 per named field of the harness keyframe.
  *
  * The keyframe exists because the per-tick hash says *when* a replay stopped matching
  * and nothing about *what*. For a fixture that is enough, since the run can be recorded
@@ -26,15 +26,19 @@
 #include "RECORD.H"
 
 #include "BUILD_INFO.h"
-#include "C_EXTERN.H"
 #include "CONTROL.H"
 #include "CONSOLE/CONSOLE.H"
 #include "DIRECTORIES.H"
 #include "DISTRIB.H"
 #include "INPUT_BINDINGS.H"
 #include "RECORD_FORMAT.H"
+
+/* Narrow on purpose. This module reads no game state: it asks CONTROL.H for the digest,
+   the keyframe and the state description, so it does not pull C_EXTERN.H and with it
+   the DEFINES.H aggregation (scripts/ci/check-build-graph.py rule 2). */
+#include <SVGA/SCREEN.H>   /* ModeDesiredX / ModeDesiredY for the mode header */
+#include <SYSTEM/LIMITS.H> /* ADELINE_MAX_PATH */
 #include "LZSS.H"
-#include "FOLLOWCAM.H"
 #include "JOYSTICK.H"
 #include "SAVEGAME.H"
 #include "MESSAGE.H"
@@ -80,6 +84,9 @@ extern "C" {
    3700-tick session. */
 #define REC_KEY 0x50
 #define REC_KEY_EVERY 32
+/* Upper bound for a stack keyframe buffer. The harness owns the real count; this only
+   has to be no smaller, and a mismatch is caught below rather than assumed away. */
+#define REC_KF_MAX 64
 
 /* Verbose telemetry: every value the digest mixes, stored raw beside it.
  *
@@ -94,15 +101,7 @@ extern "C" {
  * recording, made once, to answer a question a normal one cannot.
  */
 #define REC_TELE 0x51
-#define TELE_MAX (64 + 9 * MAX_OBJETS + MAX_VARS_GAME + MAX_VARS_CUBE)
 
-/* Filled by state_hash on every tick, whether or not it is being written: the replay
-   needs its own copy to compare against, and collecting costs less than the hashing
-   it rides along with. */
-static S32 s_tele[TELE_MAX];
-static const char *s_teleName[TELE_MAX];
-static S16 s_teleIdx[TELE_MAX];
-static S32 s_teleN = 0;
 static int s_teleWrite = 0;    /* this session records telemetry */
 static int s_teleReported = 0; /* divergences named so far */
 static int s_teleSaid = 0;     /* the one-off "telemetry on" line */
@@ -187,189 +186,6 @@ static int s_frameClockValid = 0;
 static int s_hash32 = 0;    /* LBA2_REC_HASH32: store a 32-bit digest */
 static int s_hashEvery = 1; /* LBA2_REC_HASH_EVERY: hash one tick in N */
 
-/* ---- the state hash ------------------------------------------------------ */
-
-static unsigned long long s_h;
-static void mix(const void *p, unsigned n) {
-    const unsigned char *b = (const unsigned char *)p;
-    unsigned i;
-    for (i = 0; i < n; i++) {
-        s_h ^= b[i];
-        s_h *= 1099511628211ULL;
-    }
-}
-/* Mix a value into the digest and keep it, named, for the telemetry. The name is the
-   expression itself, which is what stops the two drifting apart: a field cannot be
-   hashed under one name and reported under another, and a field added to the digest is
-   named without anyone remembering to name it. Scalars carry index -1; the loops below
-   pass the array index they are on. */
-#define M(v) MI(#v, -1, v)
-#define MI(nm, ix, v)                       \
-    do {                                    \
-        S32 t_ = (S32)(v);                  \
-        mix(&t_, sizeof t_);                \
-        if (s_teleN < TELE_MAX) {           \
-            s_teleName[s_teleN] = (nm);     \
-            s_teleIdx[s_teleN] = (S16)(ix); \
-            s_tele[s_teleN++] = t_;         \
-        }                                   \
-    } while (0)
-
-/* "hero->Obj.X", "var.game[77]", or "obj[12].Anim" for the actor tables, which are the
-   one indexed thing a person reads with the index in the middle. */
-static void tele_name(S32 k, char *out, size_t n) {
-    const char *nm = s_teleName[k];
-
-    if (s_teleIdx[k] < 0) {
-        snprintf(out, n, "%s", nm);
-        return;
-    }
-    if (!strncmp(nm, "obj.", 4)) {
-        snprintf(out, n, "obj[%d].%s", (int)s_teleIdx[k], nm + 4);
-        return;
-    }
-    snprintf(out, n, "%s[%d]", nm, (int)s_teleIdx[k]);
-}
-
-/* The keyframe's fields, named once. Writer, reader and reporter all walk this table,
-   so a field cannot be added to one and missed by another, and the name a divergence
-   reports is the name the table gives. Ordered as a person would read it: where the
-   hero is, what he is doing, where the camera is, and what modal is up. */
-static const char *const s_kfNames[] = {
-    /* where */
-    "cube",
-    "cubemode",
-    "hero.x",
-    "hero.y",
-    "hero.z",
-    "hero.beta",
-
-    /* doing what */
-    "hero.anim",
-    "hero.body",
-    "hero.move",
-    "hero.life",
-    "hero.zone",
-    "comportement",
-    "weapon",
-
-    /* seen how */
-    "cam.beta",
-    "cam.alpha",
-    "cam.addbeta",
-    "cam.dist",
-
-    /* and what is up in front of it */
-    "cinema",
-    "dial.obj",
-    "choice",
-    "choices",
-    "fade",
-    "blackpal",
-};
-#define KF_COUNT ((S32)(sizeof s_kfNames / sizeof s_kfNames[0]))
-
-/* Live values for the table above, in its order. */
-static void keyframe_fill(S32 *v) {
-    T_OBJET *hero = &ListObjet[NUM_PERSO];
-    S32 i = 0;
-
-    v[i++] = (S32)NumCube;
-    v[i++] = (S32)CubeMode;
-    v[i++] = (S32)hero->Obj.X;
-    v[i++] = (S32)hero->Obj.Y;
-    v[i++] = (S32)hero->Obj.Z;
-    v[i++] = (S32)hero->Obj.Beta;
-    v[i++] = (S32)hero->Obj.Anim.Num;
-    v[i++] = (S32)hero->Obj.Body.Num;
-    v[i++] = (S32)hero->Move;
-    v[i++] = (S32)hero->LifePoint;
-    v[i++] = (S32)hero->ZoneSce;
-    v[i++] = (S32)Comportement;
-    v[i++] = (S32)Weapon;
-    v[i++] = (S32)BetaCam;
-    v[i++] = (S32)AlphaCam;
-    v[i++] = (S32)AddBetaCam;
-    v[i++] = (S32)VueDistance;
-    v[i++] = (S32)CinemaMode;
-    v[i++] = (S32)NumObjDial;
-    v[i++] = (S32)GameChoice;
-    v[i++] = (S32)GameNbChoices;
-    v[i++] = (S32)FlagFade;
-    v[i++] = (S32)FlagBlackPal;
-}
-
-static unsigned long long state_hash(void) {
-    T_OBJET *hero = &ListObjet[NUM_PERSO];
-    S32 i;
-    s_h = 14695981039346656037ULL;
-    s_teleN = 0;
-    M(Island);
-    M(NumCube);
-    M(CubeMode);
-    M(NbObjets);
-    M(NbZones);
-    M(hero->Obj.X);
-    M(hero->Obj.Y);
-    M(hero->Obj.Z);
-    M(hero->Obj.Alpha);
-    M(hero->Obj.Beta);
-    M(hero->Obj.Gamma);
-    M(hero->LifePoint);
-    M(Comportement);
-    M(Weapon);
-    M(hero->Obj.Body.Num);
-    M(hero->Obj.Anim.Num);
-    M(hero->GenAnim);
-    M(hero->Obj.LastFrame);
-    M(hero->Move);
-    M(hero->ZoneSce);
-    M(hero->Flags);
-    M(hero->WorkFlags);
-    M(BetaCam);
-    M(AlphaCam);
-    M(GammaCam);
-    M(AddBetaCam);
-    M(VueDistance);
-    M(VueOffsetX);
-    M(VueOffsetY);
-    M(VueOffsetZ);
-    M(FollowCamera);
-    M(VueCamera);
-    M(CameraZone);
-    M(CinemaMode);
-    M(MagicLevel);
-    M(MagicPoint);
-    M(NbGoldPieces);
-    M(NbLittleKeys);
-    for (i = 0; i < NbObjets; i++) {
-        T_OBJET *o = &ListObjet[i];
-        MI("obj.X", i, o->Obj.X);
-        MI("obj.Y", i, o->Obj.Y);
-        MI("obj.Z", i, o->Obj.Z);
-        MI("obj.Beta", i, o->Obj.Beta);
-        MI("obj.Life", i, o->LifePoint);
-        MI("obj.Body", i, o->Obj.Body.Num);
-        MI("obj.Anim", i, o->Obj.Anim.Num);
-        MI("obj.Move", i, o->Move);
-        MI("obj.Flags", i, o->Flags);
-    }
-    /* Modal and menu state. Without these a replay that opens a menu the recording
-       never opened stays "matching" until the menu changes something else, which can
-       be hundreds of ticks later and in a field that looks unrelated. */
-    M(CinemaMode);
-    M(NumObjDial);
-    M(GameChoice);
-    M(GameNbChoices);
-    M(FlagFade);
-    M(FlagBlackPal);
-    for (i = 0; i < MAX_VARS_GAME; i++)
-        MI("var.game", i, ListVarGame[i]);
-    for (i = 0; i < MAX_VARS_CUBE; i++)
-        MI("var.cube", i, ListVarCube[i]);
-    return s_h;
-}
-
 /* ---- the binding table the recording was resolved through ----------------- */
 
 /* A replay injects the key table, and `GetInput` rebuilds `Input` from that table *and*
@@ -418,17 +234,29 @@ static void bindings_restore(void) {
     s_bindingsInstalled = 0;
 }
 
-/* Digest of the binding table, so a recording knows which bindings resolved it. */
-static unsigned long long bindings_digest(void) {
-    S32 i;
-    s_h = 14695981039346656037ULL;
-    for (i = 0; i < MAX_INPUT_SLOTS; i++) {
-        M(DefKeys[i].Key1);
-        M(DefKeys[i].Key2);
-        M(GamepadKeys[i].Key1);
-        M(GamepadKeys[i].Key2);
+/* Digest of the binding table, so a recording knows which bindings resolved it.
+   Its own FNV rather than the harness's state digest: this hashes the tables the file
+   carries, not the game, and the two must be able to change without disturbing each
+   other. */
+static void bindings_mix(unsigned long long *h, S32 v) {
+    const unsigned char *b = (const unsigned char *)&v;
+    unsigned i;
+    for (i = 0; i < sizeof v; i++) {
+        *h ^= b[i];
+        *h *= 1099511628211ULL;
     }
-    return s_h;
+}
+
+static unsigned long long bindings_digest(void) {
+    unsigned long long h = 14695981039346656037ULL;
+    S32 i;
+    for (i = 0; i < MAX_INPUT_SLOTS; i++) {
+        bindings_mix(&h, (S32)DefKeys[i].Key1);
+        bindings_mix(&h, (S32)DefKeys[i].Key2);
+        bindings_mix(&h, (S32)GamepadKeys[i].Key1);
+        bindings_mix(&h, (S32)GamepadKeys[i].Key2);
+    }
+    return h;
 }
 
 /* ---- little-endian scalars ----------------------------------------------- */
@@ -541,64 +369,31 @@ static S32 write_mode_lines(char *out, size_t n) {
                          "engine=%s\n"
                          "mode.headless=%d\n"
                          "mode.fixed_dt=%d\n"
-                         "mode.fixed_timestep=%d\n"
-                         "mode.vsync=%d\n"
                          "mode.verbose=%d\n"
                          "build.flags=%s\n"
                          "mode.resolution=%ux%u\n"
                          "mode.language=%d\n"
-                         "setup.island=%d\n"
-                         "setup.cube=%d\n"
-                         "setup.demoslide=%d\n"
                          "setup.snapshot=%s\n"
                          "setup.reloaded=%d\n"
                          "setup.reload_clock=%u\n"
                          "clock.timer_ref_hr=%u\n"
                          "data.master=%s\n"
-                         "data.distrib=%s\n"
-                         "bindings.digest=%016llx\n"
-                         "settings.FollowCamera=%d\n"
-                         "settings.FollowCamGround=%d\n"
-                         "settings.FollowCamGroundClearance=%d\n"
-                         "settings.FollowCamReengageFrames=%d\n"
-                         "settings.FollowCamDriftDivisor=%d\n"
-                         "settings.FollowCamManualHoldFrames=%d\n"
-                         "settings.FollowCamHoldAngle=%d\n"
-                         "settings.FollowCamHDRecompose=%d\n"
-                         "settings.FollowCamHDExcessCap=%d\n"
-                         "settings.FollowCamHDPitchGain=%d\n"
-                         "settings.FollowCamHDDistGain=%d\n"
-                         "settings.FollowCamHDLeanGain=%d\n"
-                         "settings.DetailLevel=%d\n",
+                         "bindings.digest=%016llx\n",
                          LBA2_VERSION_STRING,
                          Control_IsHeadless(),
                          (int)Timer_FixedDtValue(),
-                         (int)FixedTimestep,
-                         (int)DisplayVSync,
                          Control_IsVerbose(),
                          BUILD_FLAGS_STR,
                          (unsigned)ModeDesiredX, (unsigned)ModeDesiredY,
                          (int)Language,
-                         (int)Island, (int)NumCube, (int)DemoSlide,
                          path_leaf(s_snapshot), s_reloaded, s_reloadClock,
                          (unsigned)TimerRefHR,
                          Distrib_MasterName(Distrib_GetMaster()),
-                         Distrib_Name(DistribVersion),
-                         bindings_digest(),
-                         (int)FollowCamera,
-                         (int)FollowCamGround,
-                         (int)FollowCamGroundClearance,
-                         (int)FollowCamReengageFrames,
-                         (int)FollowCamDriftDivisor,
-                         (int)FollowCamManualHoldFrames,
-                         (int)FollowCamHoldAngle,
-                         (int)FollowCamHDRecompose,
-                         (int)FollowCamHDExcessCap,
-                         (int)FollowCamHDPitchGain,
-                         (int)FollowCamHDDistGain,
-                         (int)FollowCamHDLeanGain,
-                         (int)DetailLevel);
-    return wrote > 0 && (size_t)wrote < n;
+                         bindings_digest());
+    if (wrote <= 0 || (size_t)wrote >= n)
+        return 0;
+    /* The rest comes from the engine, which this module deliberately cannot see. */
+    return Control_DescribeState(out + wrote, n - (size_t)wrote);
 }
 
 /* ---- record --------------------------------------------------------------- */
@@ -651,27 +446,7 @@ void Record_ArmReplay(const char *path) {
 
    The player's own save context is put back afterwards, because recording must not
    disturb the run it observes. */
-static void record_save_to(const char *out) {
-    char savedName[MAX_SIZE_PLAYER_NAME + 1];
-    char savedPath[ADELINE_MAX_PATH];
-    S32 savedVersion = NumVersion;
-
-    strncpy(savedName, PlayerName, sizeof savedName - 1);
-    savedName[sizeof savedName - 1] = 0;
-    strncpy(savedPath, GamePathname, sizeof savedPath - 1);
-    savedPath[sizeof savedPath - 1] = 0;
-
-    snprintf(GamePathname, ADELINE_MAX_PATH, "%s", out);
-    strncpy(PlayerName, "rec", MAX_SIZE_PLAYER_NAME);
-    PlayerName[MAX_SIZE_PLAYER_NAME] = 0;
-    NumVersion = NUM_VERSION | SAVE_COMPRESS;
-    SaveGame(TRUE);
-
-    strncpy(PlayerName, savedName, MAX_SIZE_PLAYER_NAME);
-    PlayerName[MAX_SIZE_PLAYER_NAME] = 0;
-    snprintf(GamePathname, ADELINE_MAX_PATH, "%s", savedPath);
-    NumVersion = savedVersion;
-}
+static void record_save_to(const char *out) { Control_WriteSnapshot(out); }
 
 static void record_write_snapshot(const char *recPath, char *out, size_t n) {
     snprintf(out, n, "%s.lba", recPath);
@@ -694,9 +469,6 @@ static void record_flush_at_exit(void) { Record_Stop(); }
  * runs after it. */
 static char s_reloadSave[ADELINE_MAX_PATH];
 static char s_reloadThen[ADELINE_MAX_PATH];
-static char s_reloadSavedPath[ADELINE_MAX_PATH];
-static char s_reloadSavedName[MAX_SIZE_PLAYER_NAME + 1];
-static S32 s_reloadSavedVersion = 0;
 static int s_reloadForPlay = 0; /* 0 = begin recording after it lands, 1 = begin replay */
 static int s_reloadState = 0;   /* 1 = asked for, 2 = issued and waiting for the cube */
 /* The tick hook sees the load land; the poll hook is where the session begins. Keeping
@@ -730,22 +502,12 @@ static void record_reload_issue(void) {
     else
         s_reloadClock = (unsigned)TimerRefHR;
 
-    strncpy(s_reloadSavedName, PlayerName, sizeof s_reloadSavedName - 1);
-    s_reloadSavedName[sizeof s_reloadSavedName - 1] = 0;
-    snprintf(s_reloadSavedPath, sizeof s_reloadSavedPath, "%s", GamePathname);
-    s_reloadSavedVersion = NumVersion;
-
-    snprintf(GamePathname, ADELINE_MAX_PATH, "%s", s_reloadSave);
-    FlagLoadGame = TRUE;
-    LoadGameNumCube();
+    Control_BorrowSaveContext();
+    Control_RequestLoad(s_reloadSave);
 }
 
 static void record_reload_landed(void) {
-    /* MainLoop clears FlagLoadGame at `restartloop`, which it passes through on entry
-       and on a restart, not once per iteration. A mid-session load never returns there,
-       so the flag stays set where a fresh --load's would be clear, and several places in
-       the object loop branch on it. Clearing it here is what makes the two match. */
-    FlagLoadGame = FALSE;
+    Control_ClearLoadFlag();
 
     /* Deliberately no reseed here. ChangeCube is the engine's only srand and outside
        the demo reel it seeds from TimerRefHR (SOURCES/OBJECT.CPP), so two ends that
@@ -756,10 +518,7 @@ static void record_reload_landed(void) {
        reach. */
 
     /* The recorder does not get to change which save the session is on. */
-    strncpy(PlayerName, s_reloadSavedName, MAX_SIZE_PLAYER_NAME);
-    PlayerName[MAX_SIZE_PLAYER_NAME] = 0;
-    snprintf(GamePathname, ADELINE_MAX_PATH, "%s", s_reloadSavedPath);
-    NumVersion = s_reloadSavedVersion;
+    Control_ReturnSaveContext();
 }
 
 /* `haveSnapshot` for the reload path, which wrote and then loaded the snapshot before
@@ -867,7 +626,7 @@ int Record_Start(const char *path) {
        first post-load one, so a replay reading this file lands where this run did.
        The marker describes this start, not the run: a session that recorded from the
        flag and then stopped can still start a second, mid-session recording by hand. */
-    if (s_recordFromCli || NumCube < 0 || NbObjets <= 0) {
+    if (s_recordFromCli || !Control_HasLiveScene()) {
         s_recordFromCli = 0;
         s_reloaded = 0;
         return record_begin(path, 0);
@@ -915,7 +674,7 @@ int Record_Stop(void) {
      * leaves no end snapshot, which is the correct outcome rather than a gap to paper
      * over. Its absence says the session did not finish, which is exactly what a crash
      * repro wants to record. */
-    if (wasRecording && NumCube >= 0 && NbObjets > 0) {
+    if (wasRecording && Control_HasLiveScene()) {
         snprintf(endPath, sizeof endPath, "%s.end.lba", s_recPath);
         record_save_to(endPath);
     }
@@ -1228,7 +987,7 @@ static int replay_poll(void) {
             S32 k;
             if (!get32(&kt))
                 return 0;
-            for (k = 0; k < KF_COUNT; k++) {
+            for (k = 0; k < Control_KeyframeCount(); k++) {
                 if (!get32(&kv))
                     return 0;
             }
@@ -1601,7 +1360,7 @@ void Record_TickHook(void) {
             s_reloadState = 2;
             return;
         }
-        if (NewCube != -1)
+        if (!Control_LoadSettled())
             return; /* ChangeCube has not consumed it yet */
         record_reload_landed();
         s_reloadState = 0;
@@ -1614,7 +1373,7 @@ void Record_TickHook(void) {
 
     if (!s_recording && !s_replaying)
         return;
-    h = state_hash();
+    h = Control_StateDigest();
 
     if (s_recording && Timer_FixedDtActive()) {
         U32 step = (U32)Timer_FixedDtValue();
@@ -1646,26 +1405,28 @@ void Record_TickHook(void) {
         else
             put64(h);
         if ((s_ticks % REC_KEY_EVERY) == 0) {
-            S32 kf[KF_COUNT];
+            S32 kf[REC_KF_MAX];
+            S32 nkf = Control_KeyframeCount();
             S32 k;
-            keyframe_fill(kf);
+            Control_KeyframeFill(kf);
             put8(REC_KEY);
             put32((U32)s_ticks);
-            for (k = 0; k < KF_COUNT; k++)
+            for (k = 0; k < nkf; k++)
                 put32((U32)kf[k]);
         }
         if (s_teleWrite) {
-            /* s_tele was filled by the state_hash call above, so this is the state the
+            /* Filled by the Control_StateDigest call above, so this is the state the
                digest just committed to rather than a second read of it. */
-            S32 k;
+            S32 k, n = Control_StateValueCount();
             put8(REC_TELE);
             put32((U32)s_ticks);
-            put16((U16)s_teleN);
-            for (k = 0; k < s_teleN; k++)
-                put32((U32)s_tele[k]);
+            put16((U16)n);
+            for (k = 0; k < n; k++)
+                put32((U32)Control_StateValue(k));
             if (!s_teleSaid) {
                 s_teleSaid = 1;
-                fprintf(stderr, "[rec] verbose telemetry: %d values a tick\n", (int)s_teleN);
+                fprintf(stderr, "[rec] verbose telemetry: %d values a tick\n",
+                        (int)Control_StateValueCount());
             }
         }
         s_bytesTicks += s_bytes - before;
@@ -1770,11 +1531,12 @@ void Record_TickHook(void) {
             if (get8(&fk)) {
                 if (fk == REC_KEY) {
                     U32 kt;
-                    S32 live[KF_COUNT];
+                    S32 live[REC_KF_MAX];
+                    S32 nkf = Control_KeyframeCount();
                     S32 k, shown = 0;
                     get32(&kt);
-                    keyframe_fill(live);
-                    for (k = 0; k < KF_COUNT; k++) {
+                    Control_KeyframeFill(live);
+                    for (k = 0; k < nkf; k++) {
                         U32 rv = 0;
                         if (!get32(&rv))
                             break;
@@ -1789,7 +1551,7 @@ void Record_TickHook(void) {
                             fprintf(stderr, "[rec] tick %u differs:", (unsigned)kt);
                             shown = 1;
                         }
-                        fprintf(stderr, " %s %d/%d", s_kfNames[k], (int)rv, (int)live[k]);
+                        fprintf(stderr, " %s %d/%d", Control_KeyframeName(k), (int)rv, (int)live[k]);
                     }
                     if (shown) {
                         fprintf(stderr, "  (recorded/replayed)\n");
@@ -1814,18 +1576,19 @@ void Record_TickHook(void) {
                     U32 tt;
                     U16 tn, k;
                     S32 shown = 0;
+                    S32 nlive = Control_StateValueCount();
                     /* The first rejected tick, and the two after it: one tick says
                        what moved, three say whether it is spreading. */
                     int say = (s_hashMismatchTick >= 0 && s_teleReported < 3);
                     if (get32(&tt) && get16(&tn)) {
-                        if (say && (S32)tn != s_teleN) {
+                        if (say && (S32)tn != nlive) {
                             /* A different number of values is a different world: the
                                actor list is not the same length, and comparing them
                                position by position would report nonsense. */
                             fprintf(stderr,
                                     "[rec] tick %u holds %d values, this run has %d: "
                                     "the actor list differs\n",
-                                    (unsigned)tt, (int)tn, (int)s_teleN);
+                                    (unsigned)tt, (int)tn, (int)nlive);
                             s_teleReported++;
                             say = 0;
                         }
@@ -1833,18 +1596,19 @@ void Record_TickHook(void) {
                             U32 rv = 0;
                             if (!get32(&rv))
                                 break;
-                            if (!say || (S32)k >= s_teleN)
+                            if (!say || (S32)k >= nlive)
                                 continue;
-                            if ((S32)rv == s_tele[k])
+                            if ((S32)rv == Control_StateValue((S32)k))
                                 continue;
                             if (shown >= 8)
                                 continue;
                             {
                                 char nm[64];
-                                tele_name((S32)k, nm, sizeof nm);
+                                Control_StateValueName((S32)k, nm, sizeof nm);
                                 if (!shown)
                                     fprintf(stderr, "[rec] tick %u state differs:", (unsigned)tt);
-                                fprintf(stderr, " %s %d/%d", nm, (int)(S32)rv, (int)s_tele[k]);
+                                fprintf(stderr, " %s %d/%d", nm, (int)(S32)rv,
+                                        (int)Control_StateValue((S32)k));
                             }
                             shown++;
                         }

@@ -17,6 +17,8 @@
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
+#include <stddef.h> /* size_t, for the state-value name buffer */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -199,6 +201,70 @@ void Control_InputFrameTick(void);
 /* Toggle a per-sim-tick trace of the injected mask + hero gen_anim/pos to the debug log
    (console `input trace <0|1>`), so a headless run can watch the hero respond. */
 void Control_InputTrace(int on);
+
+/* ---- the game state the harness reads --------------------------------------
+ *
+ * This module already reads the engine's globals to write --dump-state, and it is the
+ * one place that includes C_EXTERN.H for that. Everything else asks through here, so a
+ * second module does not double a dependency the build graph holds down
+ * (scripts/ci/check-build-graph.py rule 2), and so the walk over the state exists once.
+ *
+ * Three views of one walk. The digest answers "did this tick match"; the values behind
+ * it, named, answer "which field moved"; the keyframe is the short list a person reads
+ * first. Calling the digest refills the values, so the two always describe the same
+ * moment. */
+
+/* FNV-1a over scene, hero, camera, every other actor, the open modal, and all script
+   variables. Refills the value table below as it goes. */
+unsigned long long Control_StateDigest(void);
+
+/* The values the digest just mixed, in the order it mixed them. Valid until the next
+   Control_StateDigest call. */
+S32 Control_StateValueCount(void);
+S32 Control_StateValue(S32 k);
+/* "hero->Obj.X", "var.game[77]", "obj[12].Anim". The name comes from the expression the
+   digest mixes, so a field cannot be hashed under one name and reported under another. */
+void Control_StateValueName(S32 k, char *out, size_t n);
+
+/* The short named keyframe: where the hero is, what he is doing, where the camera is,
+   and what modal is up. */
+S32 Control_KeyframeCount(void);
+void Control_KeyframeFill(S32 *v);
+const char *Control_KeyframeName(S32 k);
+
+/* Is there a scene loaded to read? Boot and the menus have neither cube nor actors. */
+S32 Control_HasLiveScene(void);
+
+/* The part of a run's description that comes from the engine: where the game is, and
+   the settings a replay has been shown to turn on, as `key=value` lines. */
+S32 Control_DescribeState(char *out, size_t n);
+
+/* ---- savegames the harness drives ------------------------------------------ */
+
+/* Write a savegame to `path` without disturbing the run: SaveGame writes "the current
+   game", so this borrows the save context and puts it back. Returns 0 for a path it
+   will not write. */
+S32 Control_WriteSnapshot(const char *path);
+
+/* The same borrow, for a caller that drives a load itself and has to put the run's own
+   save identity back afterwards. Borrow is idempotent; return is a no-op if nothing is
+   held. */
+void Control_BorrowSaveContext(void);
+void Control_ReturnSaveContext(void);
+
+/* Clear the engine's pending-load flag after a load driven from outside MainLoop's
+   restart path, which is the only thing that would otherwise clear it. */
+void Control_ClearLoadFlag(void);
+
+/* Ask the engine to load `path`. It lands on MainLoop's `NewCube != -1` block at the
+   top of the next tick, so poll Control_LoadSettled to know when it has. */
+void Control_RequestLoad(const char *path);
+S32 Control_LoadSettled(void);
+
+/* The save-format version the engine is holding, for a caller that has to restore it
+   around a load it drove. */
+S32 Control_SaveVersion(void);
+void Control_SetSaveVersion(S32 v);
 
 #ifdef __cplusplus
 }
