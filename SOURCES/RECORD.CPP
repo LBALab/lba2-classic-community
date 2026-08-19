@@ -96,6 +96,13 @@ static U32 s_prevMt = 0;
 static long s_mtCalls = 0;
 static U32 s_frameClock = 0;
 static U32 s_baseline = 0;
+/* Frame pacing while recording. A pinned step makes game time advance by a constant
+   per frame, and the engine has no frame limiter, so without holding each frame back
+   the session runs at whatever rate it renders at: 600 ticks of a 16 ms step took
+   3.53 s of wall clock rather than 9.6. Only while recording, and only when the step
+   is pinned; a replay wants to go as fast as it can. */
+static U32 s_paceAnchor = 0;
+static U32 s_paceFrames = 0;
 static int s_pendingBaseline = 0;
 static int s_frameClockValid = 0;
 static int s_hash32 = 0;    /* LBA2_REC_HASH32: store a 32-bit digest */
@@ -333,6 +340,16 @@ int Record_Start(const char *path) {
     s_prevKey = 0;
     s_prevSrcDelta = 0xFFFFFFFFu;
     s_prevSrc = Timer_ClockSource();
+    /* Say so at the moment of recording rather than leaving it to be discovered on
+       replay. The step is pinned at the top of Control_Begin, so a run that did not ask
+       for it there cannot have it now, and a session simulated on a loose step will not
+       replay exactly however faithfully its input was captured. */
+    if (!Timer_FixedDtActive())
+        Console_Print("rec: warning, the simulation step is not pinned, so this "
+                      "recording will not replay exactly. Relaunch with --fixed-dt 16.");
+
+    s_paceAnchor = SDL_GetTicks();
+    s_paceFrames = 0;
     s_polls = s_ticks = s_bytes = s_quietPolls = 0;
     s_bytesTicks = s_maxPollsInTick = s_pollsThisTick = 0;
     s_nCmds = s_cmdRead = 0;
@@ -668,6 +685,21 @@ void Record_TickHook(void) {
     if (!s_recording && !s_replaying)
         return;
     h = state_hash();
+
+    if (s_recording && Timer_FixedDtActive()) {
+        U32 step = (U32)Timer_FixedDtValue();
+        U32 now, target;
+        s_paceFrames++;
+        target = s_paceAnchor + s_paceFrames * step;
+        now = SDL_GetTicks();
+        if (now < target)
+            SDL_Delay(target - now);
+        else if (now - target > 1000) {
+            /* A long stall gives up the time rather than sprinting to win it back. */
+            s_paceAnchor = now;
+            s_paceFrames = 0;
+        }
+    }
 
     if (s_recording) {
         long before = s_bytes;

@@ -642,7 +642,29 @@ ticks. Under the established arming point the same test is clean four times out 
 final state identical.
 
 So `--record` should route through that arming path rather than introduce another. Passing
-`--fixed-dt` alongside it is what does that today.
+`--fixed-dt` alongside it is what does that today, and recording now paces its frames to the step
+whenever both are on, which is what makes such a session playable rather than merely reproducible.
+
+### The two ways in are not equivalent, and only one reproduces
+
+The flag and the console verb start a recording at different points, and it shows:
+
+| Started by | Replays |
+|---|---|
+| `--record` / `--replay` | clean, three runs out of three |
+| `rec start` / `rec play` on the first tick, same pinned step | fails at tick 41, three runs out of three |
+
+The console failure is at the same tick every time, which is the release edge of a key held across
+it, so this is a systematic offset rather than noise. A console command runs from the tick hook,
+which is after that tick's input poll, so a verb-started recording begins a poll later in the
+frame than the flag does; arming the verb to the next poll boundary was tried and does not close
+it, so the offset is not the whole story.
+
+**What that means in practice.** `--record` is for anything that has to replay. `rec start` is for
+capturing a session to look at: what was pressed, how long the frames were, where the modals sat,
+what the recording would cost. Both produce a file the inspector reads; only one produces a file
+the engine can play back faithfully. `rec start` now says so when the step is not pinned at all,
+which is the case where nothing about the recording could reproduce.
 
 ### What the prototype does not do
 
