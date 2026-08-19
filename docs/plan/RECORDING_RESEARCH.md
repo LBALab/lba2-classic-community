@@ -19,14 +19,15 @@ Record the polled device state at the tail of `UpdateKeyboardState()`, indexed b
 rather than by tick, with the clock delta stored beside each sample and an FNV-1a hash of
 simulation state stored beside each tick.
 
-That is one function, and the hook that replays it already exists there for another reason.
+That is one function, and the hook that replays it already exists there for another reason. It
+covers the whole digital funnel and three analog values sit outside it, priced below.
 
 ## The four layers a recording could sit at
 
 | Layer | Unit | Complete? | Verdict |
 |---|---|---|---|
 | A. SDL events | `SDL_Event` | no | reject, measured below |
-| B. Polled device state | `TabKeys[384]` + `Key` | yes | **take** |
+| B. Polled device state | `TabKeys[384]` + `Key` | digital yes, analog no | **take**, plus 20 bytes |
 | C. Resolved action bits | `Input`, `MyKey` | no | keep as trace, not as record |
 | D. Frame-intent struct | a `usercmd_t` equivalent | n/a | the destination, not the start |
 
@@ -50,10 +51,10 @@ measured that this boundary cannot be observed headless at all: there are no SDL
 without a window. Every fixture in this repo runs headless. A recording layer that is invisible
 in the only mode the test suite uses is not a candidate.
 
-### B. The polled state is a complete waist, and it is one function wide
+### B. The polled state is the digital waist, and it is one function wide
 
-After `ManageKeyboard()` returns, the pair `TabKeys[TABKEYS_NUM_KEYS]` and `Key` determines
-every input-derived value in the engine. Read from the code rather than assumed:
+After `ManageKeyboard()` returns, the pair `TabKeys[TABKEYS_NUM_KEYS]` and `Key` determines every
+digital input-derived value in the engine. Read from the code rather than assumed:
 
 - `GetInput` ([LIB386/SYSTEM/INPUT.CPP](../../LIB386/SYSTEM/INPUT.CPP), 59 lines) calls
   `ManageKeyboard()`, then rebuilds `Input` from nothing but `CheckKey()` over the combined
@@ -84,9 +85,27 @@ comparison and every `CheckKey` site sees a replayed sample without knowing it i
 That is the id principle, and this engine reaches it without the `usercmd_t` refactor, because
 it already has a single funnel where Doom 3 had to build one.
 
+**Three values do not pass through this table**, and a recording that leaves them out reproduces
+the keyboard and every digital pad button while quietly dropping both analog cameras:
+
+| Value | Type | Read by | Why it misses the table |
+|---|---|---|---|
+| `s_firstPressedThisFrame` | `U32` | `MyKey`'s pad fallback, via `JoystickFirstPressedScancode()` | computed in `UpdateJoystick` from `TabKeys` edges against its own previous copy, and `GetJoys` runs *before* `GetInput` reaches the hook, so a replayed table arrives too late |
+| `s_rstickX`, `s_rstickY` | `S16` each | the analog camera at [SOURCES/EXTFUNC.CPP:2463](../../SOURCES/EXTFUNC.CPP) | raw SDL axes, never quantised into a scancode when the analog camera owns the stick |
+| `MouseXDep`, `MouseYDep`, `Click` | `S32`, `S32`, `U32` | the mouse camera at [SOURCES/EXTFUNC.CPP:1901](../../SOURCES/EXTFUNC.CPP) | `ManageMouse()` is a separate device path with no scancode representation |
+
+The mouse one is not an edge case: `FlagMouseCamera` defaults to `TRUE`
+([SOURCES/GLOBAL.CPP](../../SOURCES/GLOBAL.CPP)), so orbiting with the mouse is ordinary play.
+
+The fix is 20 bytes on the sample and a companion restore beside `ApplyHarnessKeys`, not a
+different seam. The precedent already exists: the `camnudge` console verb stands in for the stick
+and the mouse so a headless run can drive the analog camera, and its comment states that it uses
+"the same nudge entry point and same point in the frame as the real sources, so it reproduces
+their ordering exactly". A replay wants that property and can reuse that entry point.
+
 ### C. The action bits are the wrong record unit and the right trace unit
 
-`Input` plus `MyKey` is 12 bytes against 388, which is the whole attraction. It is incomplete
+`Input` plus `MyKey` is 12 bytes against 408, which is the whole attraction. It is incomplete
 in three ways that are counted rather than estimated: 93 sites compare a raw scancode outside
 INPUT.CPP, 21 sites call `CheckKey` directly, and binding slots 32 to 35 (the four spells) never
 reach `Input` at all and are read through `CheckKey(DefKeys[..])` in PERSO.CPP.
@@ -223,7 +242,7 @@ a different setup. The minimum:
 | Setup: save name or cube, plus `DemoSlide` | replay has to start where recording did |
 | RNG seed | `srand` runs once per cube change, from `Demo_RngSeed(DemoSlide, TimerRefHR, NewCube)` |
 | The binding table | see below |
-| Per poll: dt, and the changed key bits | the sample stream |
+| Per poll: dt, the changed key bits, and the analog values | the sample stream |
 | Per tick: the state hash | the oracle |
 
 **The binding table is the non-obvious one.** `Input` is a function of `TabKeys` *and* the
@@ -236,11 +255,13 @@ the tables plus the fold live in `INPUT_BINDINGS.{H,CPP}` as a module with host 
 inside 1997 code. Increment 3, named keys, would make the pinned table readable in the file
 instead of a block of scancodes. Neither is a blocker; the second is a clear improvement.
 
-**Size.** 384 bytes of `TabKeys` plus a 4-byte `Key` is 388 bytes per poll, and gameplay was
-measured at exactly one poll per rendered frame, so a raw stream is about 23 KB per second at
-60 fps. A change-only encoding is the obvious fix, since the table is unchanged on the large
-majority of polls in any real session, but no compression figure is quoted here because the
-change rate in real play has not been measured. It is listed as an open question.
+**Size.** 384 bytes of `TabKeys`, a 4-byte `Key` and the 20 bytes of analog and pad-edge state
+above is 408 bytes per poll, and gameplay was measured at exactly one poll per rendered frame, so
+a raw stream is about 24 KB per second at 60 fps. A change-only encoding is the obvious fix for the table, which is unchanged on the
+large majority of polls in any real session. It does nothing for the mouse deltas, which are new
+on every poll the mouse is moving, so the analog 20 bytes are close to the floor rather than
+close to free. No compression figure is quoted here because the change rate in real play has not
+been measured. It is listed as an open question.
 
 ## What this buys beyond reproducing input
 
@@ -382,4 +403,6 @@ grep -rnE '(MyKey|Key) *== *K_' --include=*.CPP SOURCES | grep -v INPUT.CPP | wc
 grep -rn 'CheckKey(' --include=*.CPP SOURCES | wc -l           # 21
 grep -rn 'MyGetInput()' --include=*.CPP SOURCES | wc -l        # 81
 ls tests/automation/test_*.sh | wc -l                          # the fixture count
+grep -n 'JoystickGetRightStick' SOURCES/EXTFUNC.CPP             # the analog camera read
+grep -n 'FlagMouseCamera = ' SOURCES/GLOBAL.CPP                 # TRUE by default
 ```
