@@ -531,13 +531,41 @@ recorder and diff the state. Pinned, hero animation state differs. With the capt
 That test belongs beside the format, not in a commit message. A recorder that perturbs the run it
 observes produces recordings of a game nobody played.
 
+### The clock stream is positional, and that is the flaw to fix first
+
+Capturing the clock at `ManageTime` is right: it is where the engine reads it, it keeps the
+recorder passive, and it makes an input-only session replay exactly. Measured, three times over:
+no hash mismatch across 300 ticks, at most 1 ms of game-clock drift.
+
+Writing those samples inline in the same stream as the polls is wrong. The stream is then
+positional, so it holds only while the replay makes exactly as many `ManageTime` calls as the
+recording did. Two things break that immediately:
+
+- **A recorded console command.** Running one changes control flow, and therefore the call count.
+  A recording carrying a `teleport` stops at poll 3 with the streams parted.
+- **A different environment.** A session recorded windowed with audio and replayed headless
+  parts at the first scene load, with 582 surplus and 387 deficit samples across the transition.
+
+Consuming the surplus to keep going is worse than stopping. It trades exactness for the
+appearance of working: the clock the simulation then reads is not the recorded one, and the hash
+starts failing several ticks later for a reason that no longer points at the cause. Measured, the
+tolerant reader turned three exact replays into three that failed at tick 8.
+
+**The fix is to stop making the clock positional**, and the size measurement points at the same
+answer. 99.4% of clock samples are a zero delta, because every call inside one frame reads the
+same millisecond. So one sample per poll, held for that frame, is close to lossless, collapses
+5.46 million records into the 242 thousand the poll stream already carries, and leaves nothing
+that can drift out of step. That is one change that fixes the fragility and the file size
+together, and it is the next thing this prototype wants.
+
 ### What the prototype does not do
 
-Replay a real play session past its first scene load, as above.
+Replay anything whose control flow differs from the recording's, for the reason above. Input-only
+sessions in a matching environment replay exactly; a recorded console command or a changed
+environment does not.
 
-Run-length encode the clock stream, which is the single change that would most reduce a
-recording, and give that stream an index of its own so a difference in `ManageTime` call count is
-reported rather than survived.
+Carry the clock as one sample per poll rather than one per `ManageTime` call, which is the single
+change that would fix both the fragility and the file size.
 
 Verify anything in the menus. The state hash is written from `Control_TickHook`, which only runs
 in `MainLoop`, so a 25-second menu recording carries 19,736 polls and zero ticks. Menu navigation
