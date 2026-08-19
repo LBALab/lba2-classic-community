@@ -591,10 +591,27 @@ exact: the 0.6% of calls that do move the clock inside a frame are lost, and the
 failing around tick 8. Quantising at record time as well, so the recording and the replay agree
 by construction, removes the clock drift entirely but leaves a residual the run did not close.
 
-So the honest position is that the sampled path needs the clock *generated* during recording
-rather than sampled and then reconstructed, which is what the fixed-dt result already
-demonstrates. Making a player's session run on a generated clock while it records is the bounded
-piece of work that would extend the proven configuration to real play.
+Quantising the sampled clock at record time was then built, so that recording and replay agree by
+construction. It closes the clock question and not the whole one, and the residual is narrow
+enough to hand on:
+
+| Between record and replay | Result |
+|---|---|
+| Game clock at every tick | identical, 0 ms drift |
+| Polls, ticks, polls per tick | identical: 40, 40, 1 |
+| Recorded input | identical by construction |
+| State hash | first mismatch at tick 6 |
+| The whole difference at that point | `actors[12].anim`, 221 against 220 |
+
+One actor's animation number, off by one, from a state that was identical five ticks earlier,
+with the same clock and the same input. The engine is not at fault: three plain runs of the same
+command with no recorder involved produce 221 every time, so this is the recorder's residual, not
+the known non-fixed-dt jitter.
+
+That is where this stops. The configuration that is proven is the generated clock; the sampled
+path reproduces the clock, the schedule and the input exactly and still loses one animation
+selection, which is a specific enough finding to resume from without re-deriving any of the
+above.
 
 ### What the prototype does not do
 
