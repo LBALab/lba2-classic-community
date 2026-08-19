@@ -17,6 +17,7 @@
 #include <3D/PROJREC.H> /* Projrec_BeginCapture / Projrec_EndCapture */
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>   /* Screen, ModeDesiredX/Y */
+#include <SVGA/VIDEO.H>    /* Palette() */
 #include <SYSTEM/STRING.H> /* EqualsIgnoringCaseAndEncoding for --language */
 #include <SYSTEM/TIMER.H>  /* TimerRefHR, NbFramePerSecond */
 #include <SYSTEM/WINDOW.H> /* Window_SetVSync */
@@ -706,6 +707,21 @@ int Control_Begin(void) {
         InitGame(-1);
         ChangeCube();
         FlagFade = FALSE;
+        /* Upload the scene palette by hand, because clearing FlagFade above is
+           what stops it happening on its own. Nothing in the engine sets the
+           video palette as its own step: the menu's load path gets it from
+           ZoomSavedGame's closing PaletteSync, and the in-game path gets it from
+           the fade-in FlagFade arms. A batch run wants neither animation, so
+           both palette uploads go with them and every present maps a correctly
+           composed Log through an all-black table -- a black window, with audio
+           and simulation running normally.
+
+           Invisible to the harness's own eyes, which is why it could sit here:
+           --shot writes SavePNG(Log, PtrPal), reading the game's palette rather
+           than the video one, so screenshots came out correct while the window
+           showed nothing. Only a readback of the presented frame separates the
+           two. */
+        Palette(PtrPal);
     } else {
         /* Fresh start; mirrors the proven debug cube-select path (InitGame(1) then
            MainLoop, whose first iteration loads NewCube == 0). */
