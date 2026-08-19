@@ -112,6 +112,16 @@ static U32 s_frameClock = 0;
 static U32 s_baseline = 0;
 static char s_snapshot[ADELINE_MAX_PATH] = "-";
 static char s_recPath[ADELINE_MAX_PATH] = "";
+/* Whether this session reloaded the snapshot before its first recorded or replayed
+   frame, and the header line that says so. A mid-session recording does, because a
+   save restores actor kinematics by re-deriving them and only a run that took the same
+   load path lands in the same state; a from-boot recording does not, and must not be
+   made to. The flag is what keeps those two apart on the replay side: reloading a
+   from-boot recording would break a path that reproduces exactly as it is. */
+static int s_reloaded = 0;
+/* The seed the reload's cube change left the RNG on. Nothing outside the reload path
+   sets it, so a from-boot recording carries a zero here and reseeds nothing. */
+static unsigned s_rngSeed = 0;
 /* Frame pacing while recording. A pinned step makes game time advance by a constant
    per frame, and the engine has no frame limiter, so without holding each frame back
    the session runs at whatever rate it renders at: 600 ticks of a 16 ms step took
@@ -280,6 +290,8 @@ static void write_mode_lines(char *out, size_t n) {
              "setup.cube=%d\n"
              "setup.demoslide=%d\n"
              "setup.snapshot=%s\n"
+             "setup.reloaded=%d\n"
+             "setup.rng_seed=%u\n"
              "clock.timer_ref_hr=%u\n"
              "data.master=%s\n"
              "data.distrib=%s\n"
@@ -293,7 +305,7 @@ static void write_mode_lines(char *out, size_t n) {
              (unsigned)ModeDesiredX, (unsigned)ModeDesiredY,
              (int)Language,
              (int)Island, (int)NumCube, (int)DemoSlide,
-             s_snapshot,
+             s_snapshot, s_reloaded, s_rngSeed,
              (unsigned)TimerRefHR,
              Distrib_MasterName(Distrib_GetMaster()),
              Distrib_Name(DistribVersion),
@@ -319,10 +331,16 @@ static const char *expand_home(const char *path, char *buf, size_t n) {
     return buf;
 }
 
+static int s_recordFromCli = 0;
+
 void Record_ArmRecord(const char *path) {
     snprintf(s_armRecord, sizeof s_armRecord, "%s", path ? path : "");
     s_armReplay[0] = 0;
     s_armed = 1;
+    /* The flag records from the first poll of a run whose whole setup is on the command
+       line, so the setup reproduces by being typed again. Nothing to reload, and a
+       reload here would land the recording somewhere the replay's boot never reaches. */
+    s_recordFromCli = 1;
 }
 
 static int s_replayFromCli = 0;
@@ -373,7 +391,85 @@ static void record_write_snapshot(const char *recPath, char *out, size_t n) {
 
 static void record_flush_at_exit(void) { Record_Stop(); }
 
-int Record_Start(const char *path) {
+/* ---- the reload, which both ends of a mid-session recording go through ------ */
+
+/* A mid-session load is not the load `--load` performs, and the difference is not
+   cosmetic: measured, the same file loaded at boot and loaded mid-session part company
+   on the position and heading of every actor that was moving, while the same file
+   loaded mid-session at two different ticks parts company on nothing. So the load is a
+   reproducible starting point only if both ends take this path, which is why the setup
+   belongs to the recording rather than to the command line.
+ *
+ * Deferred rather than done here. `LoadGameNumCube` only names the cube; the load lands
+ * at the next `ChangeCube` in MainLoop's body, and the tick hook is the one place that
+ * runs after it. */
+static char s_reloadSave[ADELINE_MAX_PATH];
+static char s_reloadThen[ADELINE_MAX_PATH];
+static char s_reloadSavedPath[ADELINE_MAX_PATH];
+static char s_reloadSavedName[MAX_SIZE_PLAYER_NAME + 1];
+static S32 s_reloadSavedVersion = 0;
+static int s_reloadForPlay = 0; /* 0 = begin recording after it lands, 1 = begin replay */
+static int s_reloadState = 0;   /* 1 = asked for, 2 = issued and waiting for the cube */
+/* The tick hook sees the load land; the poll hook is where the session begins. Keeping
+   that split matters for one measured reason: the header's clock baseline is sampled
+   where recording starts and re-applied where replay starts, so the two have to be the
+   same point in the frame. Beginning at the hook instead cost 16 ms of clock drift --
+   exactly one step -- and a state mismatch at tick 1. */
+static int s_beginAtPoll = 0; /* 0 = nothing pending, 1 = record, 2 = replay */
+/* Stopped after the load was issued. It cannot be taken back -- the engine is going to
+   change cube either way -- and dropping the state machine there would strand
+   FlagLoadGame set, which is the one thing about this path that must not be got wrong.
+   So the reload still lands and still cleans up; only the session is called off. */
+static int s_reloadAbort = 0;
+
+static void record_reload_request(const char *save, const char *then, int forPlay) {
+    snprintf(s_reloadSave, sizeof s_reloadSave, "%s", save);
+    snprintf(s_reloadThen, sizeof s_reloadThen, "%s", then);
+    s_reloadForPlay = forPlay;
+    s_reloadState = 1;
+}
+
+static void record_reload_issue(void) {
+    strncpy(s_reloadSavedName, PlayerName, sizeof s_reloadSavedName - 1);
+    s_reloadSavedName[sizeof s_reloadSavedName - 1] = 0;
+    snprintf(s_reloadSavedPath, sizeof s_reloadSavedPath, "%s", GamePathname);
+    s_reloadSavedVersion = NumVersion;
+
+    snprintf(GamePathname, ADELINE_MAX_PATH, "%s", s_reloadSave);
+    FlagLoadGame = TRUE;
+    LoadGameNumCube();
+}
+
+static void record_reload_landed(void) {
+    /* MainLoop clears FlagLoadGame at `restartloop`, which it passes through on entry
+       and on a restart, not once per iteration. A mid-session load never returns there,
+       so the flag stays set where a fresh --load's would be clear, and several places in
+       the object loop branch on it. Clearing it here is what makes the two match. */
+    FlagLoadGame = FALSE;
+
+    /* ChangeCube is the engine's only srand call, and outside the demo reel it seeds
+       from TimerRefHR (SOURCES/OBJECT.CPP). The reload's own cube change is therefore
+       the last thing either end does before the session starts, and the two ends do not
+       arrive at it with the same clock: writing the snapshot costs the recording a
+       present the replay never makes, measured at one step. Same state at tick 0,
+       different RNG stream, and they part company on the first tick that draws a random
+       number. So the recording picks the seed and names it, and the replay takes the one
+       it was given. A from-boot recording reaches none of this. */
+    if (!s_reloadForPlay)
+        s_rngSeed = (unsigned)TimerRefHR;
+    srand(s_rngSeed);
+
+    /* The recorder does not get to change which save the session is on. */
+    strncpy(PlayerName, s_reloadSavedName, MAX_SIZE_PLAYER_NAME);
+    PlayerName[MAX_SIZE_PLAYER_NAME] = 0;
+    snprintf(GamePathname, ADELINE_MAX_PATH, "%s", s_reloadSavedPath);
+    NumVersion = s_reloadSavedVersion;
+}
+
+/* `haveSnapshot` for the reload path, which wrote and then loaded the snapshot before
+   getting here: re-saving it now would name a file the replay never loads, and the
+   state a replay has to reach is the one this run reached from the file it took. */
+static int record_begin(const char *path, int haveSnapshot) {
     char buf[512];
     if (s_recording || s_replaying)
         return 0;
@@ -386,10 +482,23 @@ int Record_Start(const char *path) {
 
     char mode[1400];
     snprintf(s_recPath, sizeof s_recPath, "%s", path);
-    record_write_snapshot(path, s_snapshot, sizeof s_snapshot);
+    if (!haveSnapshot)
+        record_write_snapshot(path, s_snapshot, sizeof s_snapshot);
     /* A player quits through the menu, a crash does not quit at all: flush on any exit
        rather than only on `rec stop`. */
     atexit(record_flush_at_exit);
+    /* The header's clock baseline has to be the clock the first recorded frame runs on,
+       not the one the frame arrived with. A replay applies it through SetTimerHR, whose
+       LockTimer banks the frame's pending delta a line before the assignment throws it
+       away, so a baseline sampled ahead of that bank leaves the replay one frame of
+       clock behind the recording. Arm the frame clock and let ManageTime settle it.
+       On the flag path the pending delta is zero, since the first recorded poll is the
+       run's first poll, and this changes nothing. After a mid-session reload it is one
+       step, and that step was the whole of a 16 ms drift and a state mismatch at
+       tick 1. */
+    s_frameClock = Timer_ClockSource();
+    s_frameClockValid = 1;
+    ManageTime();
     write_mode_lines(mode, sizeof mode);
     fprintf(s_f, "%s %d\n%s\n", REC_MAGIC, REC_VERSION, mode);
 
@@ -427,9 +536,49 @@ int Record_Start(const char *path) {
     return 1;
 }
 
+int Record_Start(const char *path) {
+    char buf[512];
+    char snap[ADELINE_MAX_PATH];
+
+    if (s_recording || s_replaying || s_reloadState)
+        return 0;
+
+    /* From the flag, and from anywhere there is no live scene to snapshot, record where
+       we stand. Everything else is a mid-session start, which has no setup unless it
+       makes one: write the snapshot, reload it, and let the first recorded frame be the
+       first post-load one, so a replay reading this file lands where this run did.
+       The marker describes this start, not the run: a session that recorded from the
+       flag and then stopped can still start a second, mid-session recording by hand. */
+    if (s_recordFromCli || NumCube < 0 || NbObjets <= 0) {
+        s_recordFromCli = 0;
+        s_reloaded = 0;
+        return record_begin(path, 0);
+    }
+
+    path = expand_home(path, buf, sizeof buf);
+    record_write_snapshot(path, snap, sizeof snap);
+    snprintf(s_snapshot, sizeof s_snapshot, "%s", snap);
+    record_reload_request(snap, path, 0);
+    Console_Print("rec: reloading %s; recording starts from the post-load state", snap);
+    return 1;
+}
+
 int Record_Stop(void) {
     int wasRecording = s_recording;
     char endPath[ADELINE_MAX_PATH];
+
+    /* Stopped between asking for the reload and the session beginning. Nothing is
+       recording yet, and the file for the record half is not even open, so the early
+       return below would leave the request armed to start a session nobody wants. */
+    if (s_reloadState || s_beginAtPoll) {
+        if (s_reloadState == 2)
+            s_reloadAbort = 1; /* already issued: let it land, then drop it */
+        else
+            s_reloadState = 0;
+        s_beginAtPoll = 0;
+        if (!s_f)
+            return 1;
+    }
 
     if (!s_f)
         return 0;
@@ -694,6 +843,30 @@ static int replay_poll(void) {
     return 1;
 }
 
+/* The counters, sampled where the replay actually starts rather than where it was
+   asked for: a replay that reloads first takes a scene load between the two, and the
+   clock it compares against has to be the one it begins on. */
+static void replay_begin(void) {
+    memset(s_prevKeys, 0, sizeof s_prevKeys);
+    s_prevKey = 0;
+    s_prevSrcDelta = 0;
+    s_replaySrc = Timer_ClockSource();
+    s_refDriftMax = 0;
+    s_refDriftFirstTick = -1;
+    s_syncDriftPoll = -1;
+    s_polls = s_ticks = s_ticksChecked = 0;
+    s_bytesTicks = s_maxPollsInTick = s_pollsThisTick = 0;
+    s_nCmds = s_cmdRead = 0;
+    s_cmdsRecorded = 0;
+    s_cmdsReplayed = 0;
+    s_prevMt = Timer_ClockSource();
+    s_mtCalls = 0;
+    s_clockMismatchPoll = -1;
+    s_hashMismatchTick = -1;
+    s_eof = 0;
+    s_replaying = 1;
+}
+
 int Record_Play(const char *path) {
     char line[256];
     char buf[512];
@@ -753,24 +926,32 @@ int Record_Play(const char *path) {
         }
     }
 
-    memset(s_prevKeys, 0, sizeof s_prevKeys);
-    s_prevKey = 0;
-    s_prevSrcDelta = 0;
-    s_replaySrc = Timer_ClockSource();
-    s_refDriftMax = 0;
-    s_refDriftFirstTick = -1;
-    s_syncDriftPoll = -1;
-    s_polls = s_ticks = s_ticksChecked = 0;
-    s_bytesTicks = s_maxPollsInTick = s_pollsThisTick = 0;
-    s_nCmds = s_cmdRead = 0;
-    s_cmdsRecorded = 0;
-    s_cmdsReplayed = 0;
-    s_prevMt = Timer_ClockSource();
-    s_mtCalls = 0;
-    s_clockMismatchPoll = -1;
-    s_hashMismatchTick = -1;
-    s_eof = 0;
-    s_replaying = 1;
+    /* The one header line that decides whether this replay reloads. A recording that
+       reloaded its own snapshot begins from the post-load state, so a replay reaches
+       that state the same way or it is comparing against a run it never made; a
+       recording that did not reload begins wherever its command line put it, and
+       reloading here would break a path that reproduces exactly as it stands. */
+    {
+        const char *k = strstr(s_headerBuf, "setup.reloaded=");
+        int v = 0;
+        if (k && sscanf(k + 15, "%d", &v) == 1 && v) {
+            const char *s = strstr(s_headerBuf, "setup.snapshot=");
+            char snap[ADELINE_MAX_PATH];
+            if (s && sscanf(s + 15, "%1023[^\n]", snap) == 1 && strcmp(snap, "-") != 0) {
+                const char *r = strstr(s_headerBuf, "setup.rng_seed=");
+                unsigned seed = 0;
+                if (r && sscanf(r + 15, "%u", &seed) == 1)
+                    s_rngSeed = seed;
+                record_reload_request(snap, "", 1);
+                Console_Print("rec: reloading %s; replay starts from the post-load state", snap);
+                return 1;
+            }
+            Console_Print("rec: %s reloaded a snapshot it does not name; replaying without it",
+                          path);
+        }
+    }
+
+    replay_begin();
     return 1;
 }
 
@@ -785,6 +966,20 @@ void Record_PollHook(void) {
         else if (s_armReplay[0])
             fprintf(stderr, "[rec] %s %s\n",
                     Record_Play(s_armReplay) ? "replaying" : "cannot open", s_armReplay);
+    }
+    /* A reload has landed and this is the first poll after it. Beginning here rather
+       than at the tick hook that saw it puts the mid-session start on the same point in
+       the frame as the flag's, which is where the clock baseline is sampled. */
+    if (s_beginAtPoll) {
+        int forPlay = (s_beginAtPoll == 2);
+        s_beginAtPoll = 0;
+        s_reloaded = 1;
+        if (forPlay) {
+            replay_begin();
+        } else if (!record_begin(s_reloadThen, 1)) {
+            s_reloaded = 0;
+            fprintf(stderr, "[rec] cannot record to %s\n", s_reloadThen);
+        }
     }
     if (s_recording)
         record_poll();
@@ -834,6 +1029,28 @@ void Record_MouseHook(void) {
 
 void Record_TickHook(void) {
     unsigned long long h;
+
+    /* Ahead of everything else, including the idle check: while a reload is in flight
+       the session is neither recording nor replaying, and this hook is what carries it
+       through. Issue the load on one tick, let MainLoop's own `NewCube != -1` block run
+       ChangeCube at the top of the next, then begin on the tick after that -- so the
+       first recorded or replayed frame is the first post-load one at both ends. */
+    if (s_reloadState) {
+        if (s_reloadState == 1) {
+            record_reload_issue();
+            s_reloadState = 2;
+            return;
+        }
+        if (NewCube != -1)
+            return; /* ChangeCube has not consumed it yet */
+        record_reload_landed();
+        s_reloadState = 0;
+        if (s_reloadAbort)
+            s_reloadAbort = 0;
+        else
+            s_beginAtPoll = s_reloadForPlay ? 2 : 1;
+        return;
+    }
 
     if (!s_recording && !s_replaying)
         return;
