@@ -777,13 +777,53 @@ exception, and it buys two things:
 The first is the bigger of the two: recording from boot is the case a player's own session takes,
 and it could not be captured at all.
 
-*Open: a recording does not reproduce across a cube change.* It no longer hangs, so the limit is now
-measurable rather than fatal: a cube change at tick 40 replays to a consistency failure at tick 41,
-three runs out of three, with **656 ms of clock drift**. That figure is the diagnosis in itself. The
-pin existed to make game time a function of the poll index rather than of how many times the engine
-happened to touch the clock, and a scene load is precisely where the two ends touch it a different
-number of times, with no poll in between to resynchronise them. The reload path settles the same
-problem by naming the clock in the header and setting it, which is the shape a fix here would take.
+*Closed, and it was not the clock.* With the fade fixed, a cube change at tick 40 still failed at
+tick 41 with 656 ms of drift, which reads exactly like a clock problem and is not one. Probing the
+cube number at both ends says why in one line: **the recording changed cube and the replay never
+did.** The drift is the consequence, since one end spent a scene load the other never performed.
+
+The cause is that a replay executes its recorded console commands through `Console_Execute`, and a
+run driven only by `--replay` has never registered the console's command table: the harness calls
+`Console_EnsureRegistered` before its own `--exec` and the recorder did not. Every recorded command
+therefore dispatched to nothing, silently, on that path. It is not specific to `cube`; the reason it
+had not been noticed is that the fixture work that established commands replay at all drove the
+replay with `--exec "rec play"`, which registers the table on the way in.
+
+Recording the console commands is what makes a recording a superset of the input stream, so this had
+quietly removed the property that section claims. With the registration done where the replay
+begins, a recording that crosses a cube change replays clean three runs out of three with no drift,
+by either way in, and **a real zone-triggered transition does too**: walking out of Downtown crosses
+from cube 48 to 42 at tick 788 on its own, and that session replays clean over 901 ticks.
+
+### How the game changes cube, and what the save has to do with it
+
+Two of the three faults above live in this window, and a third route through it is still untested.
+
+Every route sets `NewCube` and lands at the same `ChangeCube`, but they are not equivalent, and
+`FlagChgCube` is what separates them:
+
+| Route | `FlagChgCube` | Where |
+|---|---|---|
+| a zone the hero walks into | 1, position taken relative to the zone | [SOURCES/OBJECT.CPP](../../SOURCES/OBJECT.CPP) |
+| walking off the island map | 1, into the phantom cube | [SOURCES/EXTFUNC.CPP](../../SOURCES/EXTFUNC.CPP) |
+| a Life script instruction | 2, positioned on the saved start | [SOURCES/GERELIFE.CPP](../../SOURCES/GERELIFE.CPP) |
+| the `cube` console verb | **0** | [SOURCES/CONSOLE/CONSOLE_CMD.CPP](../../SOURCES/CONSOLE/CONSOLE_CMD.CPP) |
+
+`ChangeCube` runs `SaveTimer()` only when the flag is set, and branches on it again for the camera
+and the start position, so the console verb is the one route that skips the timer lock. A test built
+on it is testing the quiet path. That is why the real transition above was recorded as well.
+
+**The savegame carries the clock, and that is the detail the reload fix turns on.**
+`SaveContexte(savetimerrefhr)` writes `TimerRefHR` into the file and `LoadGame` restores it with
+`SetTimerHR` ([SOURCES/SAVEGAME.CPP](../../SOURCES/SAVEGAME.CPP)), so both ends of a reload come out
+of the load holding the same game clock. The gap is upstream of that: `ChangeCube` seeds the RNG
+from `TimerRefHR` *before* it reaches `LoadGame`, so the seed and anything else stamped in that
+window come from the clock the run walked in with, not the one the file restores. That window is
+exactly what `setup.reload_clock` closes, and it is why the save carrying a clock did not close it
+by itself.
+
+Also in that window: `SaveValidePos` is skipped while `FlagChgCube` is set, on the comment "on ne
+sauve pas le contexte", so a transition deliberately does not checkpoint mid-flight.
 
 **Two things about `FlagLoadGame` still decide any future attempt, and both are easy to get
 wrong.**

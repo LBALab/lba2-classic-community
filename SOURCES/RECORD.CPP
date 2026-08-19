@@ -961,6 +961,11 @@ static void replay_begin(void) {
     s_hashMismatchTick = -1;
     s_eof = 0;
     bindings_install();
+    /* The recorded commands are executed through the console, and a run that never used
+       --exec has never registered its table: every replayed command then dispatches to
+       nothing, silently, and the replay diverges wherever the recording relied on one.
+       The harness does this before its own --exec for the same reason. */
+    Console_EnsureRegistered();
     s_replaying = 1;
 }
 
