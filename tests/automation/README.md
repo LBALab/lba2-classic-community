@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-65 fixtures.
+66 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -55,6 +55,7 @@ suite still passes, since CI cannot say so.
 | [test_input_hold_throttle.sh](test_input_hold_throttle.sh) | Phase 1 harness regression (docs/plan/INPUT_SIM_PLAN.md): a sustained `input` hold is metered in SIM ticks and OR'd into Input every rendered frame, so it is consumed on every sim step and drives the hero the same over equal game-time whatever the fixed-timestep throttle does. | - |
 | [test_input_injection.sh](test_input_injection.sh) | `input` console command: the harness can drive the hero's input without a keyboard. | - |
 | [test_item_use_throttle.sh](test_item_use_throttle.sh) | #392 regression: the fixed-timestep throttle must not drop a one-frame inventory item-use. | - |
+| [test_jump_takeoff_foot.sh](test_jump_takeoff_foot.sh) | The running jump takes off from whichever foot is down, and the press frame decides which. | - |
 | [test_load.sh](test_load.sh) | --load: restore a save before the loop, then advance and dump. | save fixture |
 | [test_melee_throttle.sh](test_melee_throttle.sh) | The fixed-timestep throttle must not drop the hero's melee press EDGE (#407 case 1). | - |
 | [test_move_framerate.sh](test_move_framerate.sh) | High-frame-rate movement invariance (issue #358). | save fixture |

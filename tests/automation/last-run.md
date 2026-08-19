@@ -2,10 +2,10 @@
 
 # Control-harness last run
 
-- when: 2026-08-19 08:32 UTC
-- commit: `6bf0dccc` (working tree dirty)
+- when: 2026-08-19 08:53 UTC
+- commit: `da622fae` (working tree dirty)
 - host: Linux x86_64
-- result: **50 passed, 15 skipped, 0 failed**
+- result: **51 passed, 15 skipped, 0 failed**
 
 A skip means a prerequisite was missing, not that the fixture agreed with the
 engine. Only the passes are evidence.
@@ -44,6 +44,7 @@ engine. Only the passes are evidence.
 | test_input_hold_throttle.sh | pass |
 | test_input_injection.sh | pass |
 | test_item_use_throttle.sh | pass |
+| test_jump_takeoff_foot.sh | pass |
 | test_load.sh | skip |
 | test_melee_throttle.sh | pass |
 | test_move_framerate.sh | skip |
