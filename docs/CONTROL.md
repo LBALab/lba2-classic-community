@@ -661,6 +661,26 @@ SavePNGs and triggers the exit sentinel; a `cmd_ui` dispatcher branch; one
 `test_ui_modal.sh` + one committed golden PNG under
 `tests/savegame/corpus/baselines/ui/`.
 
+## Session recording
+
+`--record <path>` captures a session and `--replay <path>` plays it back, checking a per-tick
+digest of simulation state and naming the first tick that stops matching. Where `--exec` and
+`--input` drive the engine from a script, this drives it from what a person actually did, and it
+records the console commands alongside the input so a recording can stand in for a fixture.
+
+| Flag | What it does |
+|---|---|
+| `--record <path>` | Record from the first input poll, menus included. Writes `<path>`, plus `<path>.lba` and `<path>.end.lba` snapshots |
+| `--replay <path>` | Replay a recording and report where it stops matching |
+
+Both need `--fixed-dt`: on the host-sampled clock a replay is not exact, which was measured rather
+than assumed. Give the replay more ticks than the recording holds, or it ends on `--tick` before
+the stream runs out and the summary never prints, which reads exactly like a pass.
+
+The `rec` console verb does the same mid-session, and unlike the flags it snapshots and reloads
+first so the recording starts where a replay can arrive the same way. Full reference, including the
+limits worth knowing before trusting a result, in [RECORDING.md](RECORDING.md).
+
 ## Projection capture
 
 Two flags record what the projection pipeline produced during a harness run, so the

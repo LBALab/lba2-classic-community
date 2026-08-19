@@ -52,6 +52,7 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 | [CRASH_INVESTIGATION.md](CRASH_INVESTIGATION.md) | Runbook for a crash you already have: ASan builds (preload or static link), inspecting state at the fault, reading ASan output, pointer-arithmetic traps, and pinning the fix with a regression test. |
 | [BUG_HUNTING.md](BUG_HUNTING.md) | Runbook for finding defects nobody has reported: driving the control socket through player-shaped sequences under ASan/UBSan, un-merging the memory arena so spills are visible at all, and the oracle discipline that decides whether a green result means anything. |
 | [CONTROL.md](CONTROL.md) | CLI control harness: drive the engine non-interactively (`--load`/`--exec`/`--tick`/`--dump-state`/`--screenshot`/`--exit`) for automation and regression. |
+| [RECORDING.md](RECORDING.md) | Session recording: capture a played session and replay it into the same simulation, with a per-tick state digest naming the first tick that stops matching. |
 | [RELEASING.md](RELEASING.md) | Maintainer recipe for cutting a release: versioning, the `1.0` bar, `git-cliff`, engine version vs `NUM_VERSION`. |
 | [CI.md](CI.md) | GitHub Actions workflows: validation vs release tiers, triggers, path filtering, the docs-only gate, branch protection. |
 
