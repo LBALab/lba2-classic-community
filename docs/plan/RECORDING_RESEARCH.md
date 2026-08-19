@@ -694,10 +694,39 @@ That is setup and teardown belonging to the replay itself rather than to the com
 also what makes it composable with the console's own `load` and `cube` verbs: a recording's setup
 is a thing the engine can perform, not a thing the caller has to remember.
 
-**Built, and not landed.** The record half works. Doing the same on the replay half needs the
-header to say whether the recording reloaded at all, because a from-boot recording did not and must
-not be made to: replaying every recording through a reload breaks the from-boot path that is
-otherwise clean. That flag is the missing piece and is the whole of what remains.
+**Built, and landed.** `setup.reloaded` is the header line that keeps the two ways in apart: a
+mid-session `rec start` writes its snapshot, reloads it, and records from the first post-load frame;
+a from-boot recording reloads nothing and says so, and a replay reloads only when the recording did.
+Both ends go through the tick hook, which is the one place in the loop body that runs after
+`ChangeCube`. Measured, on a 400-tick session from the same save:
+
+| Started by | Replays |
+|---|---|
+| `--record` / `--replay`, from boot | clean, three runs out of three |
+| `rec start` / `rec play`, mid-session | clean, three runs out of three |
+| `rec start`, replayed through `--replay` | clean, because the flag is read rather than assumed |
+
+**Two things had to be true before the reload reproduced, and neither is about the load.** Both
+showed as the same symptom -- identical state at tick 0, divergence at tick 1 -- which is what a
+setup difference looks like when the setup is a savegame.
+
+The first is the clock. The header's baseline is applied on replay through `SetTimerHR`, whose
+`LockTimer` banks the frame's pending delta one line before the assignment throws it away. Sampling
+the baseline before that bank leaves the replay one frame of clock behind. From boot the delta is
+zero, because the first recorded poll is the run's first poll, so the flag path never showed it;
+after a reload it is one step, and it was worth 16 ms of drift. Arming the frame clock and letting
+`ManageTime` settle it before the header is written closes it, and changes nothing from boot.
+
+The second is the RNG. `ChangeCube` is the engine's only `srand`, and outside the demo reel it
+seeds from `TimerRefHR` ([SOURCES/OBJECT.CPP](../../SOURCES/OBJECT.CPP)) -- so the reload's own cube
+change reseeds, and the two ends do not reach it with the same clock, because writing the snapshot
+costs the recording a present the replay never makes. Measured, the seeds were 4268125 and 4268141:
+one step apart, same state, different stream. The recording therefore names its seed in
+`setup.rng_seed` and the replay takes the one it was given. A from-boot recording carries a zero
+there and reseeds nothing.
+
+**What this cost in scope.** One header flag was the plan and two lines was the outcome, because
+the seed is part of what a mid-session reload sets up and nothing else in the file carries it.
 
 **Two things about `FlagLoadGame` still decide any future attempt, and both are easy to get
 wrong.**
@@ -984,6 +1013,23 @@ lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 16 --tick 400 \
     --exec "rec start s.rec" --exec-at 50 "key up 120 2" --exec-at 399 "rec stop" --exit
 lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 16 --tick 400 \
     --exec "rec play s.rec" --exec-at 399 "rec info" --exit
+
+# The regression, and the one to run first: record a session, replay it, expect no
+# consistency failure. Two runs, and the second one's summary is the whole result.
+lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 16 --tick 300 \
+    --record f.rec --exec-at 30 "key up 60 2" --exit
+lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 16 --tick 400 --replay f.rec --exit
+# expect: first hash mismatch -1, clock drift max 0 ms
+
+# The same for a mid-session recording, which is the path that reloads its own snapshot.
+lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 16 --tick 400 \
+    --exec "rec start m.rec" --exec-at 50 "key up 120 2" --exec-at 399 "rec stop" --exit
+lba2cc --headless --no-autosave --load "$SAVE" --fixed-dt 16 --tick 500 \
+    --exec "rec play m.rec" --exit
+
+# Give the replay more ticks than the recording holds. Ending on --tick before the stream
+# runs out means the summary never prints, and a run that reported nothing reads as a run
+# that passed.
 
 # The modal: 453 polls inside one tick, recorded and replayed.
 lba2cc --headless --no-autosave --demo --exec "cube 193" --fixed-dt 16 --tick 900 \
