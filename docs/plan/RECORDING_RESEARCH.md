@@ -673,14 +673,20 @@ snapshot back, so the recording begins from the same post-load state a replay wi
 scene reload where recording starts, which is a visible hitch for something a person asked for
 deliberately.
 
-**The obvious way to do it does not work, which is worth knowing before trying again.** Driving
-the load the way the console's own `load` verb does, by pointing `GamePathname` at the snapshot,
-setting `FlagLoadGame` and calling `LoadGameNumCube()`, then waiting for `FlagLoadGame` to clear
-before beginning the recording, never completes: the flag stays set and the deferred start never
-fires. The console verb reaches that code from the command bus during a frame, and a recorder
-reaching it from the input poll or the tick hook is at a different point in the loop than the
-sequence expects. Whatever drives the reload has to run where `MainLoop` is willing to finish it,
-and finding that point is the work, not the load call itself.
+**Two things about `FlagLoadGame` decide how to do it, and both are easy to get wrong.**
+
+It is cleared at `MainLoop`'s `restartloop` label ([SOURCES/PERSO.CPP:460](../../SOURCES/PERSO.CPP)),
+which the loop passes through on entry and on a restart, and not once per iteration. `InitGame(-1)`
+sets it, and the load itself lands at the next `ChangeCube`
+([SOURCES/OBJECT.CPP:1374](../../SOURCES/OBJECT.CPP)). So waiting for the flag to clear before
+beginning a recording never fires: a mid-session load leaves it set, because nothing on that path
+returns to the label. The signal to wait on is the cube change having happened, and the tick hook
+already runs after it in the loop body.
+
+And it stays set, where a fresh `--load` reaches `MainLoop` and clears it. A recording made after a
+mid-session reload would therefore run with the flag set while its replay runs with it clear, and
+several places in the object loop branch on it. Clearing it as part of the reload is what makes the
+two match, and is the part to get right rather than the load call.
 
 ### A snapshot at both ends
 
@@ -745,13 +751,16 @@ diverging. Meanwhile a recording started and replayed through the console verbs,
 `key` command, is clean: 299 polls and 299 ticks on both sides, 299 ticks checked, no mismatch. So
 commands through the bus reproduce, and something else about a socket session does not.
 
-The mechanism that fits is the one the socket is built on. It is serviced from the pre-present
-chain, so it runs once per *presented* frame, and presents outnumber ticks by one to two orders of
-magnitude here. Under a pinned step `Timer_FixedDtPresent` advances the virtual clock on every
-present beyond the one the tick already paid for, which is what lets a modal inner loop make
-progress. A replay has no socket and so presents differently, the tick and poll streams interleave
-differently, and a stream that is positional cannot survive that. It is the same fragility the
-clock stream had, arriving through presents instead of through `ManageTime` calls.
+**The socket is not the variable. Where the recording starts is.** Every socket session tested
+had its recording started mid-session over the socket, and mid-session is the case that already
+had a known cost. Controlled for: a mid-session recording started from the console, on a build
+with the socket compiled out entirely, fails at tick 0 in both runs, while a from-boot recording
+on that same build is clean. So the failures attributed to the socket are the mid-session snapshot
+gap, and nothing here demonstrates a problem with the socket at all.
+
+That gap is the one measured earlier: a replay loads the snapshot and starts from the post-load
+state, while the recording carried on from the live one, and the two differ in exactly the actors
+that were moving. Tick 0 is when the hash first looks, so tick 0 is where it says so.
 
 That makes the fix the same fix: records that are addressed rather than positional.
 
