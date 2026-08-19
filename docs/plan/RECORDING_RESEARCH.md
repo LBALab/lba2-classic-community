@@ -673,7 +673,25 @@ snapshot back, so the recording begins from the same post-load state a replay wi
 scene reload where recording starts, which is a visible hitch for something a person asked for
 deliberately.
 
-**Two things about `FlagLoadGame` decide how to do it, and both are easy to get wrong.**
+**It does not work, and the reason is the savegame rather than the sequencing.** Reloading at
+`rec start` was built: snapshot, load it back, wait for the cube change the loop performs just
+before the tick hook, clear `FlagLoadGame`, begin recording on the far side. Mechanically it does
+what it says. The replay still parts at tick 0.
+
+Measured directly, a **mid-session reload and a boot load of the same file land in different
+states**, differing in five fields: the x, z and beta of the same two actors that were moving.
+A savegame is not a state snapshot. It restores the scene, the hero and the variables, and actor
+kinematics are re-derived on load, so how far those actors have been carried depends on which load
+path ran. Reloading therefore cannot converge on what a replay will see, however it is sequenced,
+and the attempt is not kept.
+
+What would close it is a real snapshot: actor kinematics captured rather than re-derived. That is
+a format question rather than a recorder one, and it is the thing to weigh against what mid-session
+recording already delivers, which is the hero, the scene and every quest variable exact with the
+moving actors reported adrift.
+
+**Two things about `FlagLoadGame` still decide any future attempt, and both are easy to get
+wrong.**
 
 It is cleared at `MainLoop`'s `restartloop` label ([SOURCES/PERSO.CPP:460](../../SOURCES/PERSO.CPP)),
 which the loop passes through on entry and on a restart, and not once per iteration. `InitGame(-1)`
