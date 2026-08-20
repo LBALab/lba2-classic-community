@@ -335,10 +335,10 @@ Two things narrow that, at different costs:
 - **A keyframe every 32 ticks**, 23 named fields: the hero, the camera, and the open modal. Cheap
   enough to be unconditional, and it covers most of what goes wrong. It covers no other actor and
   none of the 336 script variables.
-- **`--verbose`, which stores every value the digest mixes, every tick.** About 2 KB a tick, so it
-  is a deliberate second recording rather than the default. The first rejected tick then names the
-  fields, along with the two ticks after it, which distinguishes a value that moved once from one
-  that is drifting.
+- **`--record-telemetry`, which stores every value the digest mixes, every tick.** About 2 KB a
+  tick, so it is a deliberate second recording rather than the default. The first rejected tick
+  then names the fields, along with the two ticks after it, which distinguishes a value that moved
+  once from one that is drifting.
 
 The names come from the expression the digest mixes rather than from a parallel list, which is the
 part worth keeping: a field cannot be hashed under one name and reported under another, and a field
@@ -773,8 +773,8 @@ a repeatable reproducer rather than a flaky one, which is what the loose path ha
 The qualifier is not decoration: with `IsSamplePlaying` still answered from the mixer, one file
 replayed five times gives clean on some runs and the same divergence on others, and a single replay
 cannot tell a race from a reproducer. Replay a file five times before reading a verdict off it.
-Chasing one with `--verbose` names the field, and that is the next step for anyone who wants the
-requirement gone.
+Chasing one with `--record-telemetry` names the field, and that is the next step for anyone who
+wants the requirement gone.
 
 What this retires is the direction, not the goal: reproducing the clock more faithfully is finished
 as an idea, and the residual behind tick 850 is the whole of what remains.

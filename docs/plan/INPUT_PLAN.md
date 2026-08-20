@@ -168,10 +168,10 @@ express one.
 limit.** `Control_StateDigest` mixes `hero->GenAnim`, so a change to the general animation is
 caught; the keyframe's 23 names did not include it, so a non-verbose replay reported the concrete
 `hero.anim` instead and left the reader translating. Every combo below is stated in `GenAnim`
-terms, so the keyframe now names it too and a divergence reads `hero.gen_anim 0->18`. `--verbose`
-named it all along, from the expression the digest mixes. The lesson is that the record format is
-this project's to shape: where a replay cannot say what moved, the answer is to teach it the name,
-not to work around it.
+terms, so the keyframe now names it too and a divergence reads `hero.gen_anim 0->18`. The per-tick
+telemetry (`--record-telemetry`) named it all along, from the expression the digest mixes. The
+lesson is that the record format is this project's to shape: where a replay cannot say what moved,
+the answer is to teach it the name, not to work around it.
 
 Adding a field wants both readers touched. The C table carries a comment saying writer, reader and
 reporter all walk it so a field cannot be added to one and missed by another, and that holds inside
