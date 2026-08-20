@@ -271,10 +271,27 @@ found by changing one cfg key at a time on the replay side of a recorded session
 | `MouseSensitivityY` 4 to 8 | tick 131 | Same, on the first gesture with a Y component |
 | `MouseInvertY` 0 to 1 | tick 131 | Same motion, opposite sign |
 | `FollowCamOrbitGlide` 75 to 20 | tick 101 | Where a gesture ends and the glide takes over |
+| `GamepadCameraAnalog` 1 to 0 | tick 61 | The recorded axes are not read at all |
+| `GamepadCameraSensX` 5 to 9 | tick 61 | Same deflection, different orbit speed |
+| `GamepadCamMaxBeta` 36 to 72 | tick 61 | The ceiling that speed scales to |
+| `GamepadDeadzone` 8000 to 12000 | tick 61 | Decides whether a deflection registers |
+| `GamepadCameraSensY` 5 to 9 | tick 131 | Same, on the gesture with a Y component |
+| `GamepadCameraInvertY` 0 to 1 | tick 131 | Same deflection, opposite sign |
+| `GamepadCamMaxAlpha` 10 to 20 | tick 131 | The elevation ceiling |
 
-The mouse rows needed a session that orbits. Two earlier sweeps drove the keyboard and returned a
+The analog rows needed a session that orbits. Two earlier sweeps drove the keyboard and returned a
 column of "none" for all of them, which is why the tick each one fires on is worth reading: it is
-the gesture that setting shapes, not an arbitrary point in a session that would diverge anyway.
+the gesture that setting shapes, not an arbitrary point in a session that would diverge anyway. The
+mouse and stick rows split by axis in exactly the same way, X keys on the X gesture and Y keys on
+the first gesture with a Y component.
+
+`GamepadDeadzone` is the widest of the set and the likeliest to differ between two players, being
+what a stick with drift gets tuned on. It is not only a camera setting: `SOURCES/JOYSTICK.CPP`
+applies it to the left stick's axis-to-scancode conversion too, so it decides what a recorded
+deflection means for movement as well.
+
+The gamepad keys are read in `SOURCES/INPUT.CPP` rather than `SOURCES/CONFIG_FILE.CPP`, which is
+worth knowing before concluding that a sweep has seen the whole config.
 
 The header carries all of these, and a replay names the ones that differ as it starts, by the key
 the player would edit:
