@@ -285,18 +285,20 @@ case "$lsummary" in
 esac
 
 # Verbose telemetry. A plain recording carries one digest a tick, which can say that a
-# tick stopped matching and never which of ~1300 values moved; --verbose stores them all.
+# tick stopped matching and never which of ~1300 values moved; --record-telemetry stores
+# them all. Only the recording run needs it: the replay's reporter reads the values out of
+# the file, so a replay that passed the flag would be arming nothing.
 # Recorded once and replayed twice: once expecting clean, and once with a variable
 # deliberately changed part-way through. The second run is the point. A reporter that
 # printed nothing would pass the first check exactly like one that works, and this is a
 # diagnostic whose whole job is to be believed on the day something real diverges.
 rm -f "$rec" "$rec".lba "$rec".end.lba
 
-ctl --verbose --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$rec" \
+ctl --record-telemetry --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$rec" \
     --exec-at 30 "key up 60 2" --tick 300 --exit >/dev/null 2>&1 ||
     fail "verbose: recording run exited non-zero ($?) — hang or crash"
 
-vout="$(ctl --verbose --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$rec" --tick 400 --exit 2>&1)" ||
+vout="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$rec" --tick 400 --exit 2>&1)" ||
     fail "verbose: replay run exited non-zero ($?) — hang or crash"
 case "$vout" in
 *"consistency failure"*)
@@ -310,7 +312,7 @@ esac
 # that diverges under --tick still exits 0: the exit code carries the replay's verdict
 # only on the path that has no tick budget (SOURCES/RECORD.CPP, Record_PollHook). The
 # `|| true` is there for that path rather than this one.
-bout="$(ctl --verbose --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$rec" --tick 400 \
+bout="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$rec" --tick 400 \
     --exec-at 200 "vargame 77 42" --exit 2>&1 || true)"
 case "$bout" in
 *"var.game[77]"*) ;;
@@ -339,7 +341,7 @@ assert len(n) == len(d) and n != d, "the flip has to be one byte and has to chan
 open(sys.argv[2], "wb").write(n)
 EOF
 
-aout="$(ctl --verbose --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$flipped" \
+aout="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$flipped" \
     --tick 400 --exit 2>&1)" ||
     fail "audio: replay run exited non-zero ($?): hang or crash"
 rm -f "$flipped"
@@ -466,12 +468,12 @@ esac
 
 # `rec start verbose`: the diagnostic recording, asked for from inside the game.
 #
-# --verbose arms the same telemetry for a whole run, and that is the wrong shape for the
-# case that wants it. A player watching something go wrong cannot go back and relaunch
-# with the flag, and by the time they have, the session that showed it is gone. The word
-# on the command is the same telemetry from the middle of a session, and it has one thing
-# to prove: that the ask survives the snapshot-and-reload a mid-session start goes
-# through, which lands a couple of ticks after the command that made it.
+# --record-telemetry arms the same telemetry for a whole run, and that is the wrong shape
+# for the case that wants it. A player watching something go wrong cannot go back and
+# relaunch with the flag, and by the time they have, the session that showed it is gone.
+# The word on the command is the same telemetry from the middle of a session, and it has
+# one thing to prove: that the ask survives the snapshot-and-reload a mid-session start
+# goes through, which lands a couple of ticks after the command that made it.
 #
 # Read back with no engine in the loop, because the question is what the file carries.
 # The console saying it armed something and the stream holding the records are separate

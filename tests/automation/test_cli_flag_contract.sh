@@ -65,6 +65,7 @@ MODES="
 --save-load-test|--save-load-test \"$tmp/slt.lba\"
 --ignore-focus|--ignore-focus
 --record|--record \"$tmp/contract.rec\"
+--record-telemetry|--record-telemetry
 --replay|--replay \"$tmp/contract.rec\"
 "
 # --replay reads the file the --record case above just wrote, so the order of those

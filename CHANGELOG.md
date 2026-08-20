@@ -49,8 +49,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   someone else as a file that reproduces it. A recording carries the input, the
   console commands, the binding tables, a savegame at each end, and a per-tick
   digest of the simulation, which is what lets a replay check rather than merely
-  re-press the keys. `--verbose` adds every value behind that digest, so a
-  divergence names the field that moved instead of only the tick. Requires
+  re-press the keys. `--record-telemetry` adds every value behind that digest, so
+  a divergence names the field that moved instead of only the tick. Requires
   `--fixed-dt`, and `docs/RECORDING.md` says why. Console verbs `rec
   start|stop|play|info` do the same from a point you choose.
 
