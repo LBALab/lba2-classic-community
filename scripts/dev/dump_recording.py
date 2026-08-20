@@ -380,7 +380,8 @@ def show_tele(teles, changing_only, header=""):
     reports a divergence for at most three ticks and eight values, and before this the
     offline reader counted them without printing any."""
     if not teles:
-        print("no verbose telemetry in this recording (record with --verbose)")
+        print("no verbose telemetry in this recording "
+              "(record with --record-telemetry, or `rec start verbose`)")
         return
     teles.sort()
     n = len(teles[0][1])
