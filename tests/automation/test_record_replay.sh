@@ -560,8 +560,17 @@ if [ "$idle_xz" = "$rec_xz" ]; then
     fail "movement: the hero is at $rec_xz with input and $idle_xz without it — the recorded session never moved, so a clean replay of it would prove nothing"
 fi
 
-moveout="$(LBA2_USER_DIR="$movedir" ctl --load "$movesave" \
-    --exec-at 20 "rec play" --tick 900 --dump-state "$movedir/play.json" --exit 2>&1)" ||
+# Replayed through --replay rather than the console `rec play`, because this arm asks
+# where the replay *left* the hero and `rec play` no longer leaves him there: a
+# console-driven playback saves the player's session first and puts it back when the
+# replay ends, so the state at exit would be the restore rather than the replay. The flag
+# path takes no return point -- that run exists to replay and exit -- so it is the one
+# that can still be asked this question. The restore has an arm of its own below.
+moverec="$(ls "$movedir"/recordings/*.rec 2>/dev/null | head -1)"
+[ -n "$moverec" ] || fail "movement: the recording run wrote no recording to $movedir/recordings"
+
+moveout="$(LBA2_USER_DIR="$movedir" ctl --load "$movesave" --replay "$moverec" \
+    --tick 900 --dump-state "$movedir/play.json" --exit 2>&1)" ||
     fail "movement: the replay run exited non-zero ($?) — hang or crash"
 
 case "$moveout" in
@@ -627,5 +636,56 @@ case "$flagarmed" in
     ;;
 esac
 
+# Watching a recording must not cost the player their game.
+#
+# A playback loads the recording's world over the live one. Before this it was one-way:
+# the replay ended and the player was left standing wherever the recording finished, in
+# its world rather than theirs. Measured over the control socket, a player who walked away
+# from the recording's end point and then watched it back was put at the recording's end,
+# 1585 units from where they had been.
+#
+# The arm has to prove the two destinations are actually different, or it passes on a
+# coincidence. So the hero walks one way while recording and a different way afterwards,
+# and all three positions come out of one run: `dumpstate` at a chosen tick for the two
+# mid-run ones, `--dump-state` for the last.
+#
+# Not the flag path. `--replay` takes no return point by design -- that run exists to
+# replay and exit, and has no player session to protect -- so the question only means
+# something for a playback started from inside a session.
+retdir="$(mktemp -d)"
+trap 'rm -rf "$here" "$loopdir" "$emptydir" "$movedir" "$stepdir" "$retdir"' EXIT
+
+LBA2_USER_DIR="$retdir" ctl --load "$movesave" \
+    --exec-at 20 "rec start" --exec-at 200 "key up 250" --exec-at 520 "rec stop" \
+    --exec-at 560 "dumpstate $retdir/recend.json" \
+    --exec-at 600 "key down 250" \
+    --exec-at 920 "dumpstate $retdir/before.json" \
+    --exec-at 960 "rec play" \
+    --tick 2000 --dump-state "$retdir/after.json" --exit >/dev/null 2>&1 ||
+    fail "return: the run exited non-zero ($?) — hang or crash"
+
+for f in recend before after; do
+    [ -s "$retdir/$f.json" ] || fail "return: no $f state dump was written"
+done
+recend_xz="$(hero_xz "$retdir/recend.json")" || fail "return: could not read the recording's end"
+before_xz="$(hero_xz "$retdir/before.json")" || fail "return: could not read the pre-playback state"
+after_xz="$(hero_xz "$retdir/after.json")" || fail "return: could not read the post-playback state"
+
+# Without this the arm below passes whenever the two happen to coincide, which is most of
+# the ways it could be broken.
+[ "$recend_xz" != "$before_xz" ] ||
+    fail "return: the hero is at $before_xz both at the recording's end and when playback started, so this arm cannot tell a restore from doing nothing"
+
+[ "$after_xz" = "$before_xz" ] ||
+    fail "return: playback started with the hero at $before_xz and left him at $after_xz (the recording ended at $recend_xz) — the player's session was not put back"
+
+# The return point is scratch and belongs to the recorder, not to the player's save folder,
+# and it has to be gone once it has been read.
+for leftover in "$retdir"/recordings/*.return.lba "$retdir"/recordings/*.staging.lba; do
+    if [ -e "$leftover" ]; then
+        fail "return: $leftover was left behind"
+    fi
+done
+
 pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
-'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone"
+'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them"
