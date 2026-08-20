@@ -1040,6 +1040,14 @@ static void replay_inject(void) {
     memcpy(TabKeys, s_prevKeys, sizeof s_prevKeys);
     Key = s_prevKey;
     Joystick_SetReplayState(s_padFirst, s_rsx, s_rsy);
+    /* Restoring the axes is only half of it: the analog camera asks whether a pad is
+       there before it reads them, so a pad session replayed on a machine with none put
+       the values back into a run that never looked. Presence is taken from the axes
+       rather than carried in the header, because the header is written before the
+       session starts and the only thing gated on presence does nothing with a centred
+       stick, so a poll that carries no deflection and a poll with no pad behind it are
+       the same poll as far as the game is concerned. */
+    Joystick_SetVirtualPad(s_rsx != 0 || s_rsy != 0);
     /* Where a motion event would have put it, so ManageMouse drains it on this frame's
        own schedule. Overwrites rather than adds: a mouse moved over the window during a
        replay must not reach the game. */

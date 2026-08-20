@@ -4,6 +4,7 @@
 
 #include <SYSTEM/INPUT_FLOW.H>
 #include <SYSTEM/MOUSE.H> /* the harness mouse writes where a motion event does */
+#include "JOYSTICK.H"     /* and the harness stick where the pad poll does */
 #include "COMMON.H"
 #include "PERSO.H"    /* InitGame, MainLoop, TheEnd */
 #include "OBJECT.H"   /* ChangeCube */
@@ -1376,6 +1377,50 @@ int Control_MouseMove(S32 dx, S32 dy, U32 buttons, U32 delayPolls, U32 durPolls)
     return 1;
 }
 
+/* The right stick, on the same clock and in the same window. UpdateJoystick clears the
+   cached axes on every poll before the hooks below run, so a stand-in re-applies rather
+   than sets once, exactly as a real pad's poll would.
+
+   Presence comes with it. The analog camera asks whether a pad is there before it reads
+   the axes, so without that the injected values would be restored into a run that never
+   looks at them. */
+static S16 s_stick_x = 0, s_stick_y = 0;
+static U32 s_stick_start = 0;
+static U32 s_stick_end = 0;
+
+void Control_StickClear(void) {
+    s_stick_x = s_stick_y = 0;
+    s_stick_end = 0;
+    Joystick_SetVirtualPad(0);
+}
+
+int Control_StickHold(S16 x, S16 y, U32 delayPolls, U32 durPolls) {
+    if (durPolls == 0)
+        return 0;
+    Control_StickClear();
+    s_stick_x = x;
+    s_stick_y = y;
+    s_stick_start = s_key_poll + delayPolls + 1;
+    s_stick_end = s_key_poll + delayPolls + 1 + durPolls;
+    return 1;
+}
+
+static void control_stick_apply(void) {
+    if (s_stick_end == 0)
+        return;
+    if (s_key_poll >= s_stick_end) {
+        Control_StickClear();
+        return;
+    }
+    if (s_key_poll < s_stick_start)
+        return;
+
+    /* Through the recording seam, and carrying the first-pressed scancode across
+       unchanged: the stick is not a button and must not claim to be one. */
+    Joystick_SetVirtualPad(1);
+    Joystick_SetReplayState(JoystickFirstPressedScancode(), s_stick_x, s_stick_y);
+}
+
 static void control_mouse_apply(void) {
     S32 dx, dy;
 
@@ -1401,6 +1446,7 @@ extern "C" void ApplyHarnessKeys(void) {
 
     s_key_poll++;
     control_mouse_apply();
+    control_stick_apply();
 
     for (i = 0; i < s_key_hold_count; i++) {
         U32 sc = s_key_holds[i].scancode;

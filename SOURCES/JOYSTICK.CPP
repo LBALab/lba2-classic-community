@@ -39,6 +39,8 @@ static StickDir s_prevRightDir = DIR_NEUTRAL;
 // JoystickGetRightStick for the analog camera. 0,0 when no pad is open.
 static S16 s_rstickX = 0;
 static S16 s_rstickY = 0;
+/* A pad the session is standing in for: a replayed one, or the `stick` command. */
+static S32 s_virtualPad = 0;
 
 //***************************************************************************
 S32 JoystickDeadzone = 8000;
@@ -381,6 +383,18 @@ void Joystick_SetReplayState(U32 firstPressed, S16 rsx, S16 rsy) {
     s_rstickY = rsy;
 }
 
+/* Restoring the axes is not enough on its own: the analog camera asks whether a pad is
+   there before it reads them, so a pad session replayed on a machine with none put the
+   values back and then skipped the code that reads them. Presence is a property of the
+   session, so a recording carries it and a replay reports what the recording had. */
+void Joystick_SetVirtualPad(S32 present) {
+    s_virtualPad = present ? 1 : 0;
+}
+
+S32 Joystick_IsVirtualPad(void) {
+    return s_virtualPad;
+}
+
 //***************************************************************************
 // True if a gamepad *button* was newly pressed this frame -- face buttons,
 // Start/Back/Guide, shoulders, D-pad, or a stick-click. Excludes the analog
@@ -409,7 +423,7 @@ S32 JoystickButtonPressed(void) {
 
 //***************************************************************************
 S32 JoystickIsPresent(void) {
-    return (s_gamepad != NULL) ? 1 : 0;
+    return (s_gamepad != NULL || s_virtualPad) ? 1 : 0;
 }
 
 //***************************************************************************

@@ -170,9 +170,14 @@ lba2cc --headless --load mysave --fixed-dt 16 --exec "cam_follow 1" \
     --exec-at 40 "mouse 20 0 60" --tick 200 --exit
 ```
 
-Reach for `camnudge` when the camera is the subject and for `mouse` when the path into it is:
-a session recording carries the second and not the first, because a recording captures device
-state and `camnudge` never touches a device.
+`stick <x> <y> [polls]` is the pad's half of the same thing, in SDL axis units, and it reports a
+pad present for as long as it runs because the analog camera checks for one before it reads the
+axes. Only the right stick: the left one reaches the game as scancodes, which `key` already
+covers.
+
+Reach for `camnudge` when the camera is the subject and for `mouse` or `stick` when the path into
+it is: a session recording carries the two devices and not the nudge, because a recording captures
+device state and `camnudge` never touches a device.
 
 `--load` resolves its argument as a direct file path first, then as a save name in the
 save directory, then with a `.lba` suffix — so both `--load "021 Palace"` and

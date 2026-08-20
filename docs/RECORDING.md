@@ -215,10 +215,13 @@ sample stream that had stopped working. A session someone played has no commands
 there the samples are all there is. What tells the two apart is a replay run driven the other way
 at the same time: the file has to win, and `test_record_analog.sh` is built on that.
 
-**A replayed right stick moves nothing without a pad plugged in.** The analog camera is gated on
-`JoystickIsPresent()`, so a pad session replayed on a machine with no pad restores the axes and
-then skips the code that reads them. The mouse has no such gate and the digital pad buttons ride
-the key table, so this is the one input a recording carries and cannot always deliver.
+**A replay reports a pad present on the polls that carry a deflected stick.** The analog camera
+asks whether a pad is there before it reads the axes, so restoring the axes alone left a pad
+session replaying on a pad-less machine with the values put back and the code that reads them
+skipped. Presence is taken from the axes rather than from a header field, because the header is
+written before the session starts and the only thing gated on presence does nothing with a centred
+stick: a poll with no deflection and a poll with no pad behind it are the same poll as far as the
+game is concerned.
 
 ## Testing
 

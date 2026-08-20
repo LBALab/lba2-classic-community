@@ -191,6 +191,17 @@ int Control_MouseMove(S32 dx, S32 dy, U32 buttons, U32 delayPolls, U32 durPolls)
 /* Stop the motion and lift the buttons it held (console `mouse off`). */
 void Control_MouseClear(void);
 
+/* Hold the right stick at (x, y) in SDL axis units for `durPolls` polls, starting
+   `delayPolls` polls from now, reporting a pad present for as long as it runs. Returns
+   1, or 0 for a zero-length hold. One at a time, as with the mouse.
+
+   The axes are cleared and rederived on every poll, so this re-applies on each rather
+   than setting once, and a real pad plugged in at the same time will overwrite it. */
+int Control_StickHold(S16 x, S16 y, U32 delayPolls, U32 durPolls);
+
+/* Centre it and stop reporting a pad (console `stick off`). */
+void Control_StickClear(void);
+
 /* Replace the timeline with a single hold of `mask` for `durTicks` ticks
    (console `input <flags> [ticks]`). */
 void Control_InputHold(U32 mask, U32 durTicks);

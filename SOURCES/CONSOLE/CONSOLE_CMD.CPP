@@ -1952,6 +1952,48 @@ static void cmd_mouse(int argc, const char *argv[]) {
                   polls, buttons, (unsigned)Control_KeyPollCount());
 }
 
+/* stick <x> <y> [polls] | stick off: hold the gamepad right stick, in SDL axis units
+   (-32767..32767, deadzone in JoystickDeadzone). Reports a pad present while it runs,
+   because the analog camera asks before it reads the axes. The left stick is not here:
+   it reaches the game as scancodes in the key table, which `key` already covers. */
+static void cmd_stick(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Usage: stick <x> <y> [polls] | stick off");
+        Console_Print("SDL axis units, -32767..32767. Right stick only (the left is keys).");
+        return;
+    }
+    if (!strcasecmp(argv[1], "off")) {
+        Control_StickClear();
+        Console_Print("stick: centred");
+        return;
+    }
+    if (argc < 3) {
+        Console_Print("stick: want a y as well (run `stick` for the usage)");
+        return;
+    }
+
+    long x = 0, y = 0, polls = 1;
+    if (!console_parse_signed(argv[1], &x) || !console_parse_signed(argv[2], &y)) {
+        Console_Print("stick: bad axis (want two integers)");
+        return;
+    }
+    if (x < -32767 || x > 32767 || y < -32767 || y > 32767) {
+        Console_Print("stick: axis out of range (want -32767..32767)");
+        return;
+    }
+    if (argc >= 4 && !console_parse_count(argv[3], &polls, 1)) {
+        Console_Print("stick: bad poll count '%s' (want a positive integer)", argv[3]);
+        return;
+    }
+
+    if (!Control_StickHold((S16)x, (S16)y, 0, (U32)polls)) {
+        Console_Print("stick: could not schedule");
+        return;
+    }
+    Console_Print("stick: (%ld, %ld) for %ld poll(s) (now %u)", x, y, polls,
+                  (unsigned)Control_KeyPollCount());
+}
+
 /* inputflow [reset]: the per-boundary input counters (SYSTEM/INPUT_FLOW.H).
  *
  * One line per boundary, both sides of each, because the number that matters is
@@ -2423,6 +2465,12 @@ void Console_RegisterAll(void) {
                               "reports the gap: events against polled state, polled state against "
                               "action bits, action edges against frames the simulation stepped.");
 
+    Console_RegisterCommandEx("stick", cmd_stick, "Hold the gamepad right stick",
+                              "stick <x> <y> [polls] | stick off",
+                              "SDL axis units (-32767..32767) held for N input polls, with a "
+                              "pad reported present for as long as it runs, which is what the "
+                              "analog camera checks before it reads the axes. Right stick only: "
+                              "the left one reaches the game as scancodes, so `key` covers it.");
     Console_RegisterCommandEx("mouse", cmd_mouse, "Move the mouse, as a device does",
                               "mouse <dx> <dy> [polls] [buttons] | mouse off",
                               "Pixels per poll into the accumulator ManageMouse drains, with "
