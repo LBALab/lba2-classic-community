@@ -1611,6 +1611,22 @@ symptom: the `DetailLevel` 3 to 0 divergence at tick 235, which is rain and noth
 ambience half of the audio problem, which is currently answered by taking `IsSamplePlaying` off the
 mixer under `--fixed-dt` and so holds only in a mode no player runs.
 
+Measured since, and it bounds what the split is worth. The instrument is not in the tree yet: a
+draw counter added to the digest for the pinned-step work, `Rnd_Draws()` surfaced as `rng.draws`.
+It shows both ends of an audio-on session drawing the same number of times at and before a
+divergence that reproduces five times out of five. That one is not a stream offset, so
+two streams would leave it exactly where it is. The two failures above are stream offsets and the
+split would kill them; the audio divergence still open is a different animal. The split is the
+right shape and it is not what unblocks the pinned step, which is worth knowing before anyone pays
+the price in the next paragraph for it.
+
+One bound on that counter, because it is easy to read as proving more than it does. The play path
+in `HQ_MixSample` draws where the early return does not, `MyRnd(decalage)` inside the branch the
+re-trigger guard skips, so a matching count proves the `IsSamplePlaying` predicate agreed on a tick
+where a script had set `ParmSampleDecalage`. That defaults to zero and is written by one Track
+opcode and two Life ones, so on an ordinary tick both paths draw identically and the counter cannot
+see a predicate divergence at all. The right instrument, with a blind spot.
+
 The cost is why this is not a line item in the section above. Removing 17 draws from the shared
 ring changes the sequence every other draw sees, so it invalidates every committed baseline, corpus
 digest and existing recording on one commit. That is a decision about
