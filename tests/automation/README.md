@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-67 fixtures.
+68 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -65,6 +65,7 @@ suite still passes, since CI cannot say so.
 | [test_profile_bind.sh](test_profile_bind.sh) | A named profile binds to one install, and moving it has to say so. | - |
 | [test_projection_corpus.sh](test_projection_corpus.sh) | projection corpus: capture the per-save projection-pipeline FNV-1a digest for every committed save in tests/savegame/corpus/, byte-compare to the committed golden. | - |
 | [test_projection_demo.sh](test_projection_demo.sh) | projection demo: capture the projection-pipeline FNV-1a digest of a 30000-tick attract-mode snapshot, byte-compare to the committed golden. | - |
+| [test_record_analog.sh](test_record_analog.sh) | The analog camera survives a recording: mouse motion and buttons round-trip. | - |
 | [test_record_replay.sh](test_record_replay.sh) | Session recorder: a recording replays into the same simulation it captured. | save fixture |
 | [test_release_detection.sh](test_release_detection.sh) | The release line reports what the config declared and what the data measures as. | - |
 | [test_res_catalog_sweep.sh](test_res_catalog_sweep.sh) | Resolution catalog sweep: boot the engine at every resolution the catalog can offer and confirm each one boots, renders the resolution sub-page, and writes a frame at exactly that size. | - |

@@ -11,6 +11,7 @@ divergence.
     scripts/dev/dump_recording.py session.rec keys       # keyframe deltas only
     scripts/dev/dump_recording.py session.rec cmds       # console commands only
     scripts/dev/dump_recording.py session.rec ticks      # tick, TimerRefHR, hash
+    scripts/dev/dump_recording.py session.rec analog     # polls carrying mouse or stick
 
 Keyframe output is a delta per line, so a session reads as what changed:
 
@@ -50,6 +51,9 @@ def parse(path):
 
     polls = 0
     ticks, keys, cmds, teles = [], [], [], []
+    # One entry per poll that carried mouse or stick data. Empty for a keyboard-only
+    # session, which every session was until the mouse could be driven headlessly.
+    analog = []
     syncs = 0
 
     while p < n:
@@ -102,6 +106,7 @@ def parse(path):
                 if flags & 0x02:      # Key
                     p += 4
                 if flags & 0x04:      # analog block
+                    analog.append((polls,) + struct.unpack_from("<hhIiii", data, p))
                     p += 20
                 if flags & 0x08:      # clock delta
                     p += 4
@@ -109,7 +114,7 @@ def parse(path):
             print("truncated at byte %d" % start)
             break
 
-    return header, polls, ticks, keys, cmds, teles, syncs
+    return header, polls, ticks, keys, cmds, teles, syncs, analog
 
 
 def main(argv):
@@ -117,12 +122,12 @@ def main(argv):
         raise SystemExit(__doc__)
     path = argv[1]
     what = argv[2] if len(argv) > 2 else "all"
-    header, polls, ticks, keys, cmds, teles, syncs = parse(path)
+    header, polls, ticks, keys, cmds, teles, syncs, analog = parse(path)
 
     if what == "all":
         print(header)
-    print("polls=%d ticks=%d keyframes=%d telemetry=%d cmds=%d syncs=%d"
-          % (polls, len(ticks), len(keys), len(teles), len(cmds), syncs))
+    print("polls=%d ticks=%d keyframes=%d telemetry=%d cmds=%d syncs=%d analog=%d"
+          % (polls, len(ticks), len(keys), len(teles), len(cmds), syncs, len(analog)))
     if teles:
         print("verbose telemetry: %d values a tick" % teles[0][1])
 
@@ -145,6 +150,11 @@ def main(argv):
     if what == "ticks":
         for tick, ref, h in ticks:
             print("%d %d %016x" % (tick, ref, h))
+
+    if what == "analog":
+        for poll, rsx, rsy, pad, mdx, mdy, click in analog:
+            print("poll %d rsx %d rsy %d padfirst %d mdx %d mdy %d click %d"
+                  % (poll, rsx, rsy, pad, mdx, mdy, click))
 
 
 if __name__ == "__main__":

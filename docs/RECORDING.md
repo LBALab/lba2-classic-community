@@ -75,6 +75,14 @@ kf  1600: cube 60->35  cubemode 1->0  hero.x 19483->4078  blackpal 1->0
 kf  1728: dial.obj 0->2
 ```
 
+`analog` reports the polls that carried a mouse or a stick, which is the one part of a session
+that reads as nothing at all when it is missing:
+
+```
+$ scripts/dev/dump_recording.py session.rec analog
+poll 42 rsx 0 rsy 0 padfirst 0 mdx 20 mdy 0 click 2
+```
+
 ## Verbose telemetry
 
 A plain recording carries one 64-bit digest a tick. That is enough to detect a divergence and can
@@ -205,7 +213,7 @@ carrier.** A replay re-executes every console command the session was driven wit
 fixture means `key`, `input` or `mouse` reproduces the input a second time and would cover for a
 sample stream that had stopped working. A session someone played has no commands behind it, so
 there the samples are all there is. What tells the two apart is a replay run driven the other way
-at the same time: the file has to win.
+at the same time: the file has to win, and `test_record_analog.sh` is built on that.
 
 **A replayed right stick moves nothing without a pad plugged in.** The analog camera is gated on
 `JoystickIsPresent()`, so a pad session replayed on a machine with no pad restores the axes and
@@ -218,6 +226,7 @@ the key table, so this is the one input a recording carries and cannot always de
 |---|---|
 | `tests/record_format` | Header field lookup and binding round trips. Host test, no retail data, runs in CI |
 | `tests/automation/test_record_replay.sh` | A real engine records and replays, with and without a tick budget, and with verbose telemetry. Needs retail data, so it does not run in CI |
+| `tests/automation/test_record_analog.sh` | The mouse camera round trips: the file carries the motion at the poll it happened, and beats a mouse moving under the replay. Needs retail data and the exterior corpus save |
 
 The telemetry arm changes a game variable part-way through a replay and requires the report to name
 it. A reporter that printed nothing would pass a clean-replay check exactly like one that works, and
