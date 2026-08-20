@@ -32,6 +32,10 @@
 
 #include <SYSTEM/RANDOM.H>
 
+/* For the Rnd(n) macro itself. The aggregator is headers only here: nothing below
+   calls into it except through Rnd, which resolves to Rnd_Next. */
+#include <SYSTEM.H>
+
 /* FNV-1a over the little-endian bytes of each draw. A digest rather than more
  * literals because the failure this guards against (a wrong ring index, a wrong
  * discard count) shows up across the whole run, not in the first few values. */
@@ -142,6 +146,37 @@ static void test_unseeded_default(void) {
         ASSERT_EQ_INT(VECTORS[1].first[i], Rnd_Next());
 }
 
+/* `Rnd(n)` is what the engine actually calls, and the whole of the portability
+ * fix is which generator that macro resolves to. Everything above tests
+ * Rnd_Next; this tests the wiring, which is the line that would silently undo
+ * the fix if it were changed back. A build whose Rnd went to libc rand() would
+ * pass every other test in this file and still play a different game on Windows.
+ *
+ * 1804289383 is the first draw from seed 1, so the modulus of it is what the
+ * macro has to produce. */
+static void test_rnd_macro_is_wired_to_the_engine_generator(void) {
+    Rnd_Seed(1);
+    ASSERT_EQ_INT(1804289383 % 1000, Rnd(1000));
+    Rnd_Seed(1);
+    ASSERT_EQ_INT(1804289383 % 7, Rnd(7));
+    Rnd_Seed(1);
+    ASSERT_EQ_INT(0, Rnd(1)); /* modulus 1 is always 0, whatever the draw */
+
+    /* And it stays inside the range its callers index arrays with. */
+    {
+        int i;
+        Rnd_Seed(99);
+        for (i = 0; i < 20000; i++) {
+            S32 v = Rnd(37);
+            if (v < 0 || v >= 37) {
+                ASSERT_TRUE(v >= 0 && v < 37);
+                return;
+            }
+        }
+        ASSERT_TRUE(1);
+    }
+}
+
 #ifdef __GLIBC__
 /* The other oracle: the committed vector is glibc's own sequence.
  *
@@ -182,6 +217,7 @@ int main(void) {
     RUN_TEST(test_committed_vector);
     RUN_TEST(test_zero_seed_is_one);
     RUN_TEST(test_range);
+    RUN_TEST(test_rnd_macro_is_wired_to_the_engine_generator);
 #ifdef __GLIBC__
     RUN_TEST(test_matches_system_glibc);
 #else
