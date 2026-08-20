@@ -48,8 +48,11 @@ record_and_replay() { # record_and_replay <label> [extra record args...]
     # lets a replay on another platform open by naming what it disagrees about instead
     # of diverging in the middle. A missing line is silent: the reader treats an absent
     # field as nothing to compare, so the warning disappears rather than failing.
+    # tr drops the NULs before the substitution sees them: the header is text but the
+    # records after it are not, and bash warns and discards on a null byte in command
+    # substitution, which puts a warning in the suite output for every run.
     local head
-    head="$(head -c 2048 "$rec")"
+    head="$(head -c 2048 "$rec" | tr -d '\0')"
     case "$head" in
     *"numeric.rng="*) ;;
     *) fail "$label: the header does not declare numeric.rng" ;;
