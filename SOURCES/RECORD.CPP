@@ -850,7 +850,26 @@ static void record_reload_request(const char *save, const char *then, int forPla
     s_reloadState = 1;
 }
 
+/* The step a recording pins when the run did not ask for one. 16 ms is what the harness
+   and every fixture use, and what docs/RECORDING.md tells a player to pass. */
+#define REC_DEFAULT_DT 16
+
 static void record_reload_issue(void) {
+    /* Pin the step here, which is the one place a mid-session recording can.
+     *
+     * Timer_EnableFixedDt zeroes TimerRefHR, and that is only safe where a load follows
+     * to put the clock back -- which is exactly what this function is about to do. It is
+     * the same order Control_Begin uses on the --load path (arm, then load), and it is
+     * why arming here works where the two points that were tried before did not: the
+     * first input poll and the end of argument parsing have no load behind them, so the
+     * zeroed clock is what the session then runs on.
+     *
+     * Both ends, so a recording and its replay reach the load the same way. Only when the
+     * run did not already ask for a step: re-arming an active one would reset the clock
+     * of a session that is already pinned and reproducing. */
+    if (!Timer_FixedDtActive())
+        Timer_EnableFixedDt(REC_DEFAULT_DT);
+
     /* Before the load, because the load is what reads it. A savegame restores the
        fields the hash covers and re-derives the rest, and some of what it re-derives is
        stamped from the game clock; the two ends do not arrive here with the same
