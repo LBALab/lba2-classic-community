@@ -206,7 +206,13 @@ rm -f "$recdir/$bare"
 # Removed by a trap rather than at the end of the arm: `fail` exits the shell, so every
 # assertion below is a way out of here that never reaches an inline rm.
 here="$(mktemp -d)"
-trap 'rm -rf "$here"' EXIT
+# Every temp directory this file makes goes on one list, and the trap reads the list.
+# The alternative, which this replaced, was a fresh trap per arm repeating every
+# directory before it: seven of them by the end, each a chance to drop one. One was
+# dropped, and the leak it left is invisible to every check the suite runs.
+CLEAN="$here"
+clean_add() { CLEAN="$CLEAN $1"; }
+trap 'rm -rf $CLEAN' EXIT
 
 (cd "$here" && ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$bare" --tick 200 --exit) \
     >/dev/null 2>&1 ||
@@ -399,7 +405,7 @@ esac
 # already put files in the suite's own, and "exactly one recording" is what says the
 # auto-name landed where it belongs rather than somewhere that already had a file.
 loopdir="$(mktemp -d)"
-trap 'rm -rf "$here" "$loopdir"' EXIT
+clean_add "$loopdir"
 
 LBA2_USER_DIR="$loopdir" ctl --load "$LBA2_TEST_SAVE" \
     --exec-at 20 "rec start" --exec-at 120 "key up 60 2" \
@@ -447,7 +453,7 @@ esac
 # Nothing to play. Reported rather than silent, and naming the folder it looked in:
 # without that the answer is indistinguishable from a replay that started and did nothing.
 emptydir="$(mktemp -d)"
-trap 'rm -rf "$here" "$loopdir" "$emptydir"' EXIT
+clean_add "$emptydir"
 emptyout="$(LBA2_USER_DIR="$emptydir" ctl --load "$LBA2_TEST_SAVE" \
     --exec-at 20 "rec play" --tick 60 --exit 2>&1)" ||
     fail "console loop: the empty-folder run exited non-zero ($?) — hang or crash"
@@ -469,7 +475,7 @@ esac
 # The console saying it armed something and the stream holding the records are separate
 # claims, and only the second one is any use a week later.
 verbdir="$(mktemp -d)"
-trap 'rm -rf "$here" "$loopdir" "$emptydir" "$verbdir"' EXIT
+clean_add "$verbdir"
 
 LBA2_USER_DIR="$verbdir" ctl --load "$LBA2_TEST_SAVE" \
     --exec-at 20 "rec start verbose" --exec-at 120 "key up 60 2" \
@@ -519,7 +525,7 @@ movesave="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Anon1.LBA"
 [ -f "$movesave" ] || fail "movement: the corpus save is missing from $movesave"
 
 movedir="$(mktemp -d)"
-trap 'rm -rf "$here" "$loopdir" "$emptydir" "$verbdir" "$movedir"' EXIT
+clean_add "$movedir"
 
 # hero_xz <state.json> -- the engine's own dump, because `status` reports Nxw/Nyw/Nzw,
 # which are collision scratch and not the hero.
@@ -604,7 +610,7 @@ play_xz="$(hero_xz "$movedir/play.json")" || fail "movement: could not read the 
 # `rec info` reports the live run's mode, which makes this a question about a printed
 # number rather than about elapsed time.
 stepdir="$(mktemp -d)"
-trap 'rm -rf "$here" "$loopdir" "$emptydir" "$verbdir" "$movedir" "$stepdir"' EXIT
+clean_add "$stepdir"
 
 # Through a file rather than a pipeline. The suite does not set `pipefail`, so a pipeline
 # carries the status of its last command -- `tr` here, which succeeds whatever the engine
@@ -653,7 +659,7 @@ esac
 # replay and exit, and has no player session to protect -- so the question only means
 # something for a playback started from inside a session.
 retdir="$(mktemp -d)"
-trap 'rm -rf "$here" "$loopdir" "$emptydir" "$verbdir" "$movedir" "$stepdir" "$retdir"' EXIT
+clean_add "$retdir"
 
 LBA2_USER_DIR="$retdir" ctl --load "$movesave" \
     --exec-at 20 "rec start" --exec-at 200 "key up 250" --exec-at 520 "rec stop" \
@@ -712,6 +718,97 @@ for stopat in 961 1100; do
     [ "$early_after" = "$early_before" ] ||
         fail "return: a playback stopped at tick $stopat started with the hero at $early_before and left him at $early_after — stopping a playback has to put the player back too"
 done
+
+# --- recording does not perturb the run -------------------------------------------
+#
+# The claim the recorder rests on, and until this arm nothing checked it. Every other arm
+# here runs --fixed-dt 16, and under a pinned step the question cannot even be asked: the
+# game advances 16 ms per tick whatever the frame cost, so a recorder that doubled the
+# frame time would show up as the run taking longer and not as the game behaving
+# differently.
+#
+# Asked as a rate rather than as a state diff, and that is not a shortcut. On a loose
+# clock two runs of the same scripted session legitimately part -- game time is a function
+# of how long each frame took -- so diffing their states would be flaky from the first run
+# and the obvious repair would be to pin the step, which is the thing the arm exists to
+# rule out.
+#
+# Two questions, because either alone passes for the wrong reason. Whether each run is
+# real time catches a step pinned when it should not be: --fixed-dt 16 with no recorder at
+# all runs 600 ticks of game time in a fraction of the wall time they describe, measured
+# at 3.49x. Whether the two runs agree catches the recorder costing time without changing
+# the clock it reports.
+ratedir="$(mktemp -d)"
+clean_add "$ratedir"
+
+rate_of() { # rate_of <label> [extra args...] -- game seconds per wall second, on stdout
+    local label="$1"
+    shift
+    local ud="$ratedir/$label"
+    mkdir -p "$ud"
+    local t0 t1
+    t0="$(date +%s.%N)"
+    LBA2_USER_DIR="$ud" ctl --load "$LBA2_TEST_SAVE" \
+        --exec-at 20 "dumpstate $ud/before.json" \
+        --exec-at 40 "key up 800" \
+        --tick 900 --dump-state "$ud/after.json" --exit "$@" >/dev/null 2>&1 || return 1
+    t1="$(date +%s.%N)"
+    python3 -c "
+import json, sys
+b = json.load(open('$ud/before.json'))['timer_ref_hr']
+a = json.load(open('$ud/after.json'))['timer_ref_hr']
+game = (a - b) / 1000.0
+wall = $t1 - $t0
+if wall <= 0 or game <= 0:
+    sys.exit(1)
+print('%.3f' % (game / wall))"
+}
+
+# Not in a command substitution that swallows it: `fail` ends the shell it runs in, so a
+# failure inside $( ) would kill the subshell and let the caller print PASS over the top.
+rate_ctl="$(rate_of control)" ||
+    fail "rate: the control run exited non-zero or dumped no clock — hang, crash, or a stopped clock"
+rate_rec="$(rate_of recording --record "$ratedir/recording/s.rec")" ||
+    fail "rate: the recording run exited non-zero or dumped no clock — hang, crash, or a stopped clock"
+
+# The band is wide on purpose. It is sized to separate real time from a pinned step
+# (3.49x), not to measure the host: this suite shares a machine with whatever else is
+# running on it, and boot is inside the wall time while it is outside the game time, so
+# the honest floor is well under 1.
+for pair in "control:$rate_ctl" "recording:$rate_rec"; do
+    lbl="${pair%%:*}"
+    val="${pair#*:}"
+    ok="$(python3 -c "print(1 if 0.5 <= $val <= 1.6 else 0)")"
+    [ "$ok" = 1 ] ||
+        fail "rate: the $lbl run advanced ${val}s of game time per wall second, which is not real time — a step pinned here would read about 3.5"
+done
+
+# Between the two, where the recorder is the only difference. Machine load moves both, so
+# the ratio is the part that is about recording.
+rate_gap="$(python3 -c "print('%.3f' % ($rate_rec / $rate_ctl))")"
+gap_ok="$(python3 -c "print(1 if 0.7 <= $rate_gap <= 1.3 else 0)")"
+[ "$gap_ok" = 1 ] ||
+    fail "rate: recording ran at $rate_rec game seconds a wall second against $rate_ctl without it (${rate_gap}x) — recording is costing the run time"
+
+# The claim above is conditional, and this is the condition. RECORD.CPP writes a 20-byte
+# analog block per poll whenever any of the stick, pad, mouse or click fields is non-zero,
+# and on a host where the mouse delta never drains to zero that gate is always true: a
+# contributed 90,692-tick session came back 96.7 MB, of which 89.5 MB was an analog block
+# on every one of 4.5 million polls, against about 7 MB without. So "recording is free" is
+# free on the cheap side of that gate, and a run that quietly crossed it would still pass
+# the rate checks on a fast enough machine while describing nothing. Assert the side we
+# are on rather than let it go unsaid.
+ratecounts="$(python3 "$REPO/scripts/dev/dump_recording.py" "$ratedir/recording/s.rec" |
+    grep -m1 '^polls=')" ||
+    fail "rate: could not read the recording back"
+ratepolls="$(printf '%s\n' "$ratecounts" | sed 's/.*polls=\([0-9]*\).*/\1/')"
+rateanalog="$(printf '%s\n' "$ratecounts" | sed 's/.*analog=\([0-9]*\).*/\1/')"
+# Counted rather than inferred from the file size: a short session is mostly header and
+# the two savegames it carries, so bytes a poll says more about those than about the
+# analog gate.
+analog_ok="$(python3 -c "print(1 if $rateanalog <= $ratepolls // 10 else 0)")"
+[ "$analog_ok" = 1 ] ||
+    fail "rate: $rateanalog of $ratepolls polls carry an analog block, so the gate at RECORD.CPP is firing on most of them — the rate result above is not describing an ordinary recording"
 
 pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
 'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out"
