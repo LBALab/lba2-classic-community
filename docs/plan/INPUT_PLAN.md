@@ -138,43 +138,58 @@ answer (record commands, replay, compare a per-tic state hash) is genuinely enab
 most plausible candidate for overengineering here. **Increments 0 and 1 answer it**, by covering the pure layers and then measuring whether the
 fixtures plus the flow counters catch what the later increments could break.
 
-**Settled: the recorder landed, and it is the A/B this campaign needs.** The question was never
-speed. The control socket's latency is one presented frame, flat: 4.6 ms per command on a loaded
-scene, unchanged across `fixedtimestep` 0, 16, 40 and 100, and unchanged whether the reply is one
-line or three, because the server drains the socket once per present. An engine-side fixture tier
-would remove a round trip and wait for the same frames.
+**Settled, and not the way it was framed.** The question was never speed: the control socket's
+latency is one presented frame, flat at 4.6 ms whatever the sim rate, so an engine-side fixture
+tier would remove a round trip and wait for the same frames. What machinery buys is fidelity, and
+[RECORDING.md](../RECORDING.md) supplies it: a per-tick FNV-1a digest of scene, hero, camera, the
+other actors and all 336 script variables, so a replay names the first tick that stops matching.
 
-What machinery buys is fidelity, and [RECORDING.md](../RECORDING.md) now supplies it. A recording
-carries an FNV-1a digest of scene, hero, camera, the other actors and all 336 script variables, per
-tick, so a replay names the first tick that stops matching and the keyframe names the field.
+**A recording and a fixture catch different things, and the difference was measured, not reasoned
+about.** Two mutations, both real behaviour changes, against the same five recorded combos:
 
-Measured against the fixtures below, on the take-off-foot combo. Swapping `DO_LEFT_JUMP` and
-`DO_RIGHT_JUMP` in `OBJECT.CPP`, then replaying a recording made before the change:
-
-```
-[rec] consistency failure at tick 81: recorded 0906a1bd…, replayed 30118ff9…
-[rec] tick 96 differs: hero.anim 73/74 cam.alpha 864/861  (recorded/replayed)
-```
-
-The fixture for that combo samples `GenAnim` at tick 120 and would also have caught this one. The
-recording caught it **39 ticks earlier, named the field, and needed nobody to have guessed which
-tick to look at** -- and it would equally have caught a change that perturbed a script variable or
-another actor, which no sampled fixture here looks at.
-
-So the two are not alternatives and the campaign wants both:
-
-| | says | survives an intentional change |
+| Mutation | recorded replay | the combo fixture |
 |---|---|---|
-| a combo fixture | what the rule *is*: Left beats Right, the press frame picks the foot | yes, unless the rule itself moved |
-| a recording replayed | that *nothing* moved, and where | no, and that is the point |
+| swap `DO_LEFT_JUMP` / `DO_RIGHT_JUMP` | **caught, tick 81**, named `hero.anim 73/74` | caught, at the tick 120 sample |
+| swap `I_LEFT` / `I_RIGHT` in the turn block | **all five clean** | **caught** |
 
-**How increments 2 to 7 should use it.** Record the combo set before touching anything, replay
-after, and read the tick. That is a better before-and-after than the fixtures alone, because the
-fixtures assert what somebody thought to assert. The committed fixtures stay as the statement of
-the rule; the recording is the net. Note that `tests/automation/test_record_replay.sh` records and
-replays inside one run, which proves reproducibility rather than stability, and that no recording
-is committed to the tree: a recording pins everything and would fail on every deliberate change, so
-it belongs in a working directory beside a refactor rather than in the suite.
+The second row is the useful one. Holding both directions, the mutated condition is *also* true, so
+the same branch body runs and the session genuinely does not change. A recording of that session is
+right to report clean. The fixture catches it because it asserts nothing about the
+combo alone: it asserts that holding both lands exactly where holding the winner alone lands, and
+that comparison is between three sessions.
+
+Recording left alone and replaying it against the same mutation is caught **at tick 1**.
+
+So the rule, in one line: **a recording pins a session; a fixture pins a relationship between
+sessions.** Precedence, dominance and "identical to" are relationships, and no single recording can
+express one.
+
+**The digest already detects more than the keyframe can name, and that is fixable rather than a
+limit.** `Control_StateDigest` mixes `hero->GenAnim`, so a change to the general animation is
+caught; the keyframe's 23 names did not include it, so a non-verbose replay reported the concrete
+`hero.anim` instead and left the reader translating. Every combo below is stated in `GenAnim`
+terms, so the keyframe now names it too and a divergence reads `hero.gen_anim 0->18`. `--verbose`
+named it all along, from the expression the digest mixes. The lesson is that the record format is
+this project's to shape: where a replay cannot say what moved, the answer is to teach it the name,
+not to work around it.
+
+Adding a field wants both readers touched. The C table carries a comment saying writer, reader and
+reporter all walk it so a field cannot be added to one and missed by another, and that holds inside
+the engine; `scripts/dev/dump_recording.py` keeps its own copy of the same list and does not walk
+it, so it mislabels every field after the insertion point until it is updated too.
+
+**What that means for committing recordings.** They are cheap enough: a non-verbose combo recording
+is 5.2 KB and replays against a corpus save already in the tree, so the whole set is about 26 KB and
+needs no snapshot committed beside it. The earlier claim here that a recording should never be
+committed was wrong on its premise, and the same objection applies to the UI golden PNGs this repo
+does commit and regenerate deliberately. The real constraint is different: **a recorded set has to
+include the controls, not just the interesting case**, or it pins the one session where the rule
+under test happens not to matter.
+
+**How increments 2 to 7 should use it.** Record the combo set *and its controls* before touching
+anything, replay after, read the tick. The committed fixtures stay as the statement of the rule and
+are what a reviewer reads; the recording is the net that catches what nobody thought to assert,
+including a script variable or another actor moving, which no fixture here looks at.
 
 ## Injection: the harness is not a device
 

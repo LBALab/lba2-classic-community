@@ -1478,6 +1478,7 @@ static const char *const s_kfNames[] = {
 
     /* doing what */
     "hero.anim",
+    "hero.gen_anim",
     "hero.body",
     "hero.move",
     "hero.life",
@@ -1513,6 +1514,12 @@ void Control_KeyframeFill(S32 *v) {
     v[i++] = (S32)hero->Obj.Z;
     v[i++] = (S32)hero->Obj.Beta;
     v[i++] = (S32)hero->Obj.Anim.Num;
+    /* The general animation the object loop selected, as against the concrete one
+       playing. Every input combo this repo pins is stated in these terms -- which
+       blow, which take-off foot, which dodge -- so a divergence that reports only
+       the concrete number makes the reader translate. The digest already mixes it;
+       this is the keyframe learning to say its name. */
+    v[i++] = (S32)hero->GenAnim;
     v[i++] = (S32)hero->Obj.Body.Num;
     v[i++] = (S32)hero->Move;
     v[i++] = (S32)hero->LifePoint;
