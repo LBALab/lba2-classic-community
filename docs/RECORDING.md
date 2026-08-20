@@ -75,6 +75,7 @@ so a replay under a different `--fixed-dt` is reported rather than silently wron
 | Part | Why |
 |---|---|
 | Polled device state, one sample per input poll | Indexed by poll rather than by tick, because a modal can spin thousands of polls inside a single tick |
+| The mouse, the right stick and the pad's first-pressed scancode | None of the three has a scancode, so none rides the key table the rest of the input rides. Twenty bytes on the polls that carry any of them, nothing on the polls that do not |
 | The console commands the session was driven with | Otherwise a recording cannot stand in for a harness-driven fixture |
 | The keyboard and gamepad binding tables | A replay borrows them for its duration, so a recording is not tied to the cfg it was made under, and returns the player's own on the way out |
 | A savegame at each end | Where the session started, and where it finished. Both inside the file |
@@ -323,6 +324,21 @@ null backend, because a live audio thread branches the simulation. `rec info` wi
 
 **Recording from boot headlessly needs `--exec "skipmodals 1"`.** The opening dialogue waits for a
 keypress that a headless run never sends.
+
+**A harness-driven recording carries its own commands, so the sample stream is not its only
+carrier.** A replay re-executes every console command the session was driven with, which for a
+fixture means `key`, `input` or `mouse` reproduces the input a second time and would cover for a
+sample stream that had stopped working. A session someone played has no commands behind it, so
+there the samples are all there is. What tells the two apart is a replay run driven the other way
+at the same time: the file has to win.
+
+**A replay reports a pad present on the polls that carry a deflected stick.** The analog camera
+asks whether a pad is there before it reads the axes, so restoring the axes alone leaves a pad
+session replaying on a pad-less machine with the values put back and the code that reads them
+skipped. Presence is taken from the axes rather than from a header field, because the header is
+written before the session starts and the only thing gated on presence does nothing with a centred
+stick: a poll with no deflection and a poll with no pad behind it are the same poll as far as the
+game is concerned.
 
 ## Testing
 

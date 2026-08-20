@@ -70,7 +70,7 @@ extern "C" {
 /* ---- live state ---------------------------------------------------------- */
 
 #define REC_MAGIC "LBA2REC"
-#define REC_VERSION 11
+#define REC_VERSION 12
 
 /* The oldest format this build still reads. Every version since has only added record
    types the reader probes for and steps over, so an older recording reads the same as
@@ -85,7 +85,17 @@ extern "C" {
    the replacement reproduces glibc, so the recordings that exist still replay and there
    was nothing for a version gate to protect. The header's `numeric.` lines are what
    report that class of difference, per recording, rather than a version refusing the
-   whole file. */
+   whole file.
+
+   12 changes a meaning and still leaves the floor at 9, which is the case the rule does
+   not cover: a reader that can tell the versions apart can read both. The analog block's
+   mouse pair went from the motion the last ManageMouse delivered to the motion the next
+   one will, a frame apart, and nothing in the bytes tells the two readings apart. Only a
+   session recorded with a mouse camera reads differently, and no such session can have
+   replayed, because both ends of an earlier pair read the stale value and diverge on the
+   tick the orbit starts. Every recording that replays clean is keyboard-only, where the
+   pair is 0 under either reading and the file is bit-identical. Refusing them would give
+   up sessions that work to protect sessions that never did. */
 #define REC_VERSION_MIN 9
 
 /* Sync markers, on the same idea as the socket protocol's <<END>>: a reader that has
@@ -1094,7 +1104,13 @@ static void record_poll(void) {
     S16 rsx = 0, rsy = 0;
     JoystickGetRightStick(&rsx, &rsy);
     U32 padFirst = JoystickFirstPressedScancode();
-    S32 mdx = MouseXDep, mdy = MouseYDep, click = Click;
+    S32 mdx, mdy, click = Click;
+    /* The motion ManageMouse has yet to deliver, not the motion it delivered last time.
+       This hook runs after ManageEvents has pumped the frame's events and before the
+       camera's ManageMouse drains them, so MouseXDep here is still the previous frame's:
+       capturing it records every mouse movement one poll late, and a replay orbits a
+       frame behind the session it is reproducing. */
+    PeekMouseMotion(&mdx, &mdy);
     if (mute) {
         rsx = rsy = 0;
         padFirst = 0;
@@ -1393,8 +1409,18 @@ static void replay_inject(void) {
     memcpy(TabKeys, s_prevKeys, sizeof s_prevKeys);
     Key = s_prevKey;
     Joystick_SetReplayState(s_padFirst, s_rsx, s_rsy);
-    MouseXDep = s_mdx;
-    MouseYDep = s_mdy;
+    /* Restoring the axes is only half of it: the analog camera asks whether a pad is
+       there before it reads them, so a pad session replayed on a machine with none puts
+       the values back into a run that never looks. Presence is taken from the axes
+       rather than carried in the header, because the header is written before the
+       session starts and the only thing gated on presence does nothing with a centred
+       stick, so a poll that carries no deflection and a poll with no pad behind it are
+       the same poll as far as the game is concerned. */
+    Joystick_SetVirtualPad(s_rsx != 0 || s_rsy != 0);
+    /* Where a motion event would have put it, so ManageMouse drains it on this frame's
+       own schedule. Overwrites rather than adds: a mouse moved over the window during a
+       replay must not reach the game. */
+    SetMouseMotion(s_mdx, s_mdy);
     Click = s_click;
 }
 
@@ -1844,15 +1870,6 @@ void Record_ClockHook(U32 *now) {
         return;
     if (s_frameClockValid)
         *now = s_frameClock;
-}
-
-void Record_MouseHook(void) {
-    /* ManageMouse drains the event accumulator into MouseXDep/MouseYDep, which would
-       zero what replay_poll injected. Re-apply. */
-    if (s_replaying) {
-        MouseXDep = s_mdx;
-        MouseYDep = s_mdy;
-    }
 }
 
 void Record_TickHook(void) {
