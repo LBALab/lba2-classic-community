@@ -341,4 +341,37 @@ case "$aout" in
     ;;
 esac
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; a flipped mode.audio was reported"
+# Neither arm above can tell the engine writes anything but 0. Every other run in this
+# file is headless, so `mode.audio=0` is also exactly what an accessor stuck at 0 would
+# produce, and the flip is an edit to a file rather than something the engine said. This
+# one opens a real sample device and asks for the other answer.
+#
+# Not `ctl`, which pins --headless, and --headless is the thing under test. SDL's dummy
+# drivers give a device without needing a screen or a speaker. A box that will not start
+# SDL with them is not a recording defect, so skip, and name the reason so a skip cannot
+# quietly become the normal outcome.
+withaudio="$(user_dir)/with-audio.rec"
+rm -f "$withaudio"
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+    timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" --no-autosave --load "$LBA2_TEST_SAVE" \
+    --record "$withaudio" --tick 60 --exit >/dev/null 2>&1 ||
+    skip "SDL would not start under its dummy video and audio drivers, so no recording can be made with a device up"
+[ -s "$withaudio" ] || skip "the run with a sample device wrote no recording"
+
+grep -aq 'mode.audio=1' "$withaudio" ||
+    fail "audio: a run with a sample device up still recorded mode.audio=0, so the line reports something other than the driver"
+
+# The case the line exists for, end to end. Only the mode line is asserted: this
+# recording pins no step, so what it diverges on afterwards is the clock rather than the
+# audio, and the warning is the part that has to arrive either way.
+wout="$(ctl --replay "$withaudio" --tick 200 --exit 2>&1 || true)"
+rm -f "$withaudio"
+case "$wout" in
+*"mode differs: mode.audio=1"*) ;;
+*)
+    fail "audio: a recording made with a device up replayed headless without a word; $(
+        printf '%s\n' "$wout" | grep -m1 'mode differs' || echo 'no mode line differed at all')"
+    ;;
+esac
+
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways"

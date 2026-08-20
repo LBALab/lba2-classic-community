@@ -152,6 +152,24 @@ void ResumeSamples(void);
 U32 IsSamplePlaying(U32 sample);
 
 //--------------------------------------------------------------------------
+//	Sample_DriverPlaysSound :	can IsSamplePlaying above ever answer yes?
+//
+//	Not the same question as Sample_Driver_Enabled, which says the driver
+//	initialised. The null backend initialises and then returns FALSE from
+//	IsSamplePlaying for every sample, so a caller reading the flag would be
+//	told there is audio on a build that has none.
+//
+//	The simulation branches on IsSamplePlaying: the ambience pan is drawn
+//	only when it says no, and a dialogue with the text off runs until it does.
+//	So a run that can never hear a voice computes a different game, and this
+//	is how a caller asks which of the two it is on without knowing which
+//	backend it was built with.
+//
+//	Returns	:			TRUE if samples reach the simulation
+//--------------------------------------------------------------------------
+S32 Sample_DriverPlaysSound(void);
+
+//--------------------------------------------------------------------------
 //	SfxLogEnable :			toggle diagnostic logging in the backend
 //
 //			  enable :	1 = on, 0 = off

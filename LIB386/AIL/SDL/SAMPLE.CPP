@@ -733,6 +733,9 @@ U32 IsSamplePlaying(U32 sample) {
     return result;
 }
 
+/* The SDL backend really plays: the flag and this answer agree. */
+S32 Sample_DriverPlaysSound(void) { return Sample_Driver_Enabled; }
+
 void SfxLogEnable(int enable) {
     sfxLogEnabled = (enable != 0) ? 1 : 0;
     MusicLogEnable(sfxLogEnabled);

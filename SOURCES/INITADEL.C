@@ -345,6 +345,11 @@ void InitAdeline(S32 argc, char *argv[]) {
                in projection_demo); a player whose audio device fails just
                loses sound instead of being unable to launch the game. */
             Log_Warn("Audio      none - running silently");
+        } else if (!Sample_DriverPlaysSound()) {
+            /* The null backend initialises and reports success, then plays nothing.
+               Saying "44100 Hz stereo" there sends anyone debugging silence, or a
+               replay that diverges on audio, to look at the device. */
+            Log_Info("Audio      none - built without a sound backend");
         } else {
             Log_Info("Audio      44100 Hz stereo");
         }

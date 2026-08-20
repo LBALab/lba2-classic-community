@@ -317,9 +317,14 @@ Under `--fixed-dt` a sample's playing state is now answered from its own length 
 rather than from the mixer, so the simulation sees the same answer in both runs. The mixer is
 untouched: this only changes what the simulation is told, and only in a mode no player runs.
 
-This is also why the bug survived so long. Every fixture runs `--headless`, which uses the null
-audio backend, so nothing in the suite had ever exercised the audio path. A recording is the first
-fixture that runs with sound.
+This is also why the bug survived so long. Every fixture runs `--headless`, which skips
+`InitSampleDriver` altogether, so nothing in the suite had ever exercised the audio path. A
+recording fixture is the only one that runs with a sample device up.
+
+Skipping the driver is not the same as building the null backend, and the difference matters to
+anything asking whether a run had audio. `--headless` leaves `Sample_Driver_Enabled` false;
+`SOUND_BACKEND=null` initialises, sets it true, and then returns `FALSE` from every
+`IsSamplePlaying`. Ask `Sample_DriverPlaysSound()` instead, which each backend answers for itself.
 
 **Time spent in a modal is not checked.** The digest fires once per tick, and a modal that waits
 for input spins polls without advancing one: a recorded session that sat in a dialogue choice held

@@ -20,7 +20,7 @@
 #include "CONTROL_SERVER.H" /* --listen: interactive command socket */
 
 #include <3D/PROJREC.H> /* Projrec_BeginCapture / Projrec_EndCapture */
-#include <AIL/SAMPLE.H> /* Sample_Driver_Enabled: whether audio actually came up */
+#include <AIL/SAMPLE.H> /* Sample_DriverPlaysSound: whether audio actually came up */
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>   /* Screen, ModeDesiredX/Y */
 #include <SVGA/VIDEO.H>    /* Palette() */
@@ -636,10 +636,14 @@ int Control_NoAudio(void) {
 }
 
 /* The flag says what was asked for; this says what the run got, and the simulation reads
-   the second one. Backend-independent: every AIL backend defines the same symbol, and
-   the NULL one leaves it FALSE. */
+   the second one.
+
+   Not `Sample_Driver_Enabled`, which answers a question one backend answers misleadingly:
+   the null backend initialises, sets the flag, and then returns FALSE from every
+   IsSamplePlaying, so reading the flag would report audio on a build with none. The
+   backends answer for themselves instead. */
 int Control_AudioActive(void) {
-    return Sample_Driver_Enabled ? 1 : 0;
+    return Sample_DriverPlaysSound() ? 1 : 0;
 }
 
 /* --- Boot ------------------------------------------------------------------- */
