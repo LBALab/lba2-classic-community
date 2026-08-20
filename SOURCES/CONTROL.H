@@ -179,6 +179,18 @@ void Control_KeyClear(void);
 /* Polls elapsed so far, so a caller can report timing against the same clock. */
 U32 Control_KeyPollCount(void);
 
+/* Move the mouse by (dx, dy) every poll for `durPolls` polls, starting `delayPolls`
+   polls from now, with `buttons` held down over the same span (the Click mask: 1 left,
+   2 right, 4 middle). Returns 1, or 0 for a zero-length hold. One at a time: a second
+   call replaces the first, because the accumulator has no notion of two mice.
+
+   The analog camera is the reason this exists. It reads MouseXDep/MouseYDep and Click,
+   none of which is a scancode, so Control_KeyHold cannot reach it. */
+int Control_MouseMove(S32 dx, S32 dy, U32 buttons, U32 delayPolls, U32 durPolls);
+
+/* Stop the motion and lift the buttons it held (console `mouse off`). */
+void Control_MouseClear(void);
+
 /* Replace the timeline with a single hold of `mask` for `durTicks` ticks
    (console `input <flags> [ticks]`). */
 void Control_InputHold(U32 mask, U32 durTicks);

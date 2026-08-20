@@ -445,6 +445,18 @@ static int console_parse_count(const char *s, long *out, long least) {
     return 1;
 }
 
+/* Parse a signed integer, rejecting trailing garbage. A mouse delta is signed, so it
+   cannot go through console_parse_count: `mouse -8 0` would be a bad count rather than a
+   leftward drag. */
+static int console_parse_signed(const char *s, long *out) {
+    char *end = NULL;
+    long v = strtol(s, &end, 10);
+    if (end == s || *end != '\0')
+        return 0;
+    *out = v;
+    return 1;
+}
+
 /* Resolve a `key` name or a raw scancode. Returns 0 for unknown, which is also the
    rejected scancode (SDL_SCANCODE_UNKNOWN), so callers can treat 0 as "no key".
    Shared by the `key` command and `ui askchoice --press`. */
@@ -1895,6 +1907,51 @@ static void cmd_camnudge(int argc, const char *argv[]) {
                   DbgCamNudgeFrames);
 }
 
+/* mouse <dx> <dy> [polls] [buttons] | mouse off: move the mouse, as a device does.
+   Feeds the accumulator ManageMouse drains, so the analog camera, the recorder and the
+   menus all see an ordinary mouse. `buttons` is the Click mask (1 left, 2 right, 4
+   middle) held for the same span, and defaults to 2, because FlagMouseCameraDrag ships
+   on and the orbit only runs while the right button is down. `camnudge` is the shortcut
+   past all of this, straight to the nudge; this is the long way round on purpose. */
+static void cmd_mouse(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Usage: mouse <dx> <dy> [polls] [buttons] | mouse off");
+        Console_Print("Pixels per poll. Buttons: 1 left, 2 right, 4 middle (default 2).");
+        Console_Print("Polls are MyGetInput calls, the same clock `key` counts.");
+        return;
+    }
+    if (!strcasecmp(argv[1], "off")) {
+        Control_MouseClear();
+        Console_Print("mouse: cleared");
+        return;
+    }
+    if (argc < 3) {
+        Console_Print("mouse: want a dy as well (run `mouse` for the usage)");
+        return;
+    }
+
+    long dx = 0, dy = 0, polls = 1, buttons = 2;
+    if (!console_parse_signed(argv[1], &dx) || !console_parse_signed(argv[2], &dy)) {
+        Console_Print("mouse: bad delta (want two integers)");
+        return;
+    }
+    if (argc >= 4 && !console_parse_count(argv[3], &polls, 1)) {
+        Console_Print("mouse: bad poll count '%s' (want a positive integer)", argv[3]);
+        return;
+    }
+    if (argc >= 5 && !console_parse_count(argv[4], &buttons, 0)) {
+        Console_Print("mouse: bad button mask '%s' (want a non-negative integer)", argv[4]);
+        return;
+    }
+
+    if (!Control_MouseMove((S32)dx, (S32)dy, (U32)buttons, 0, (U32)polls)) {
+        Console_Print("mouse: could not schedule");
+        return;
+    }
+    Console_Print("mouse: (%ld, %ld) per poll for %ld poll(s), buttons 0x%lX (now %u)", dx, dy,
+                  polls, buttons, (unsigned)Control_KeyPollCount());
+}
+
 /* inputflow [reset]: the per-boundary input counters (SYSTEM/INPUT_FLOW.H).
  *
  * One line per boundary, both sides of each, because the number that matters is
@@ -2366,6 +2423,14 @@ void Console_RegisterAll(void) {
                               "reports the gap: events against polled state, polled state against "
                               "action bits, action edges against frames the simulation stepped.");
 
+    Console_RegisterCommandEx("mouse", cmd_mouse, "Move the mouse, as a device does",
+                              "mouse <dx> <dy> [polls] [buttons] | mouse off",
+                              "Pixels per poll into the accumulator ManageMouse drains, with "
+                              "the Click mask held over the same span (1 left, 2 right, 4 "
+                              "middle; default 2, which is what the drag orbit wants). Drives "
+                              "the analog camera through the mouse rather than past it, so a "
+                              "session recording carries the motion. `camnudge` is the shortcut "
+                              "straight to the nudge.");
     Console_RegisterCommandEx("camnudge", cmd_camnudge, "Inject a manual camera nudge (stick/mouse stand-in)",
                               "camnudge <dBeta> [dAlpha] [frames]",
                               "Feeds the same per-frame nudge the gamepad right stick and the mouse "

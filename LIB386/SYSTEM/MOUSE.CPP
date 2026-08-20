@@ -162,6 +162,18 @@ void ManageMouse() {
     Record_MouseHook();
 }
 
+void PeekMouseMotion(S32 *dx, S32 *dy) {
+    if (dx != NULL)
+        *dx = LibMouseXDep;
+    if (dy != NULL)
+        *dy = LibMouseYDep;
+}
+
+void SetMouseMotion(S32 dx, S32 dy) {
+    LibMouseXDep = dx;
+    LibMouseYDep = dy;
+}
+
 void HandleEventsMouse(const void *event) {
     assert(event != NULL);
 

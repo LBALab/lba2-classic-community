@@ -42,6 +42,14 @@ void ClearMouseBox();                             ///< Reset mouse position limi
 void ManageMouse();
 void HandleEventsMouse(const void *event);
 
+/// Relative motion the next ManageMouse will deliver, i.e. what has arrived since the
+/// last drain. Read between the event pump and the drain, which is where the input poll
+/// sits: MouseXDep at that point is still the previous frame's.
+void PeekMouseMotion(S32 *dx, S32 *dy);
+/// Replace it. A harness mouse adds to what it read; a replay overwrites, so a device
+/// moved during a replay cannot reach the game.
+void SetMouseMotion(S32 dx, S32 dy);
+
 /// Returns accumulated vertical wheel motion since last call and clears the accumulator.
 S32 ConsumeMouseWheelY(void);
 

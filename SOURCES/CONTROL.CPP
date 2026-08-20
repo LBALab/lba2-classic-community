@@ -3,6 +3,7 @@
 #include "C_EXTERN.H" /* pulls DEFINES.H (T_OBJET) + game globals */
 
 #include <SYSTEM/INPUT_FLOW.H>
+#include <SYSTEM/MOUSE.H> /* the harness mouse writes where a motion event does */
 #include "COMMON.H"
 #include "PERSO.H"    /* InitGame, MainLoop, TheEnd */
 #include "OBJECT.H"   /* ChangeCube */
@@ -1335,6 +1336,63 @@ int Control_KeyHold(U32 scancode, U32 delayPolls, U32 durPolls) {
     return 1;
 }
 
+/* The mouse, on the same poll clock. The analog camera reads MouseXDep/MouseYDep and
+   Click, and neither is a scancode, so the key holds above cannot reach it: a headless
+   run has no way to orbit with the mouse, and a recording of one carries an analog block
+   that nothing ever filled.
+ *
+ * Written where a motion event writes, into the accumulator ManageMouse drains, rather
+ * than into MouseXDep directly. The drain, the recorder and every consumer then see the
+ * same thing they see for a device, in the same order. `camnudge` stands in one step
+ * further down, at the nudge the camera applies, so it drives the camera without ever
+ * touching the mouse; this drives the mouse. */
+static S32 s_mouse_dx = 0, s_mouse_dy = 0;
+static U32 s_mouse_buttons = 0;
+/* The span, on the same half-open terms as a key hold: start inclusive, end exclusive.
+   An end of 0 is "nothing armed", which no live span can be, because every one of them
+   is at least s_key_poll + 1. */
+static U32 s_mouse_start = 0;
+static U32 s_mouse_end = 0;
+
+void Control_MouseClear(void) {
+    s_mouse_dx = s_mouse_dy = 0;
+    s_mouse_end = 0;
+    if (s_mouse_buttons)
+        Click &= (S32)~s_mouse_buttons;
+    s_mouse_buttons = 0;
+}
+
+int Control_MouseMove(S32 dx, S32 dy, U32 buttons, U32 delayPolls, U32 durPolls) {
+    if (durPolls == 0)
+        return 0;
+    Control_MouseClear();
+    s_mouse_dx = dx;
+    s_mouse_dy = dy;
+    s_mouse_buttons = buttons;
+    /* +1 for the same reason the key holds carry one: s_key_poll counts polls already
+       taken, so the earliest this can be seen on is the next. */
+    s_mouse_end = s_key_poll + delayPolls + 1 + durPolls;
+    s_mouse_start = s_key_poll + delayPolls + 1;
+    return 1;
+}
+
+static void control_mouse_apply(void) {
+    S32 dx, dy;
+
+    if (s_mouse_end == 0)
+        return;
+    if (s_key_poll >= s_mouse_end) {
+        Control_MouseClear();
+        return;
+    }
+    if (s_key_poll < s_mouse_start)
+        return;
+
+    PeekMouseMotion(&dx, &dy);
+    SetMouseMotion(dx + s_mouse_dx, dy + s_mouse_dy);
+    Click |= (S32)s_mouse_buttons;
+}
+
 /* Strong override of the weak hook in LIB386/SYSTEM/KEYBOARD.CPP. Runs inside
    UpdateKeyboardState, after it has rebuilt TabKeys[0..255] from SDL and after
    GetJoys has written the joystick tail, and before GetInput's CheckKey scan. */
@@ -1342,6 +1400,7 @@ extern "C" void ApplyHarnessKeys(void) {
     int i, w = 0;
 
     s_key_poll++;
+    control_mouse_apply();
 
     for (i = 0; i < s_key_hold_count; i++) {
         U32 sc = s_key_holds[i].scancode;
