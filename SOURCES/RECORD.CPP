@@ -1033,8 +1033,9 @@ static int replay_keyframe_count(S32 *out) {
     }
     if (!get16(&n))
         return 0;
-    if (n > REC_KF_MAX)
-        return 0;
+    /* Whatever it says, including more than this build has names or room for. A count
+       is how many values follow, not how many are wanted, and a reader that takes fewer
+       leaves the rest to be read as the next record. */
     *out = (S32)n;
     return 1;
 }
@@ -1665,20 +1666,22 @@ void Record_TickHook(void) {
                     S32 live[REC_KF_MAX];
                     S32 nkf = 0;
                     S32 k, shown = 0;
+                    S32 shared;
                     get32(&kt);
                     if (!replay_keyframe_count(&nkf))
                         nkf = 0;
-                    /* A file may name fewer fields than this build has, or more. Compare
-                       the ones both ends agree on by position and step the rest: the
-                       names line up from the front because a field is appended, and the
-                       alternative is reading the tail of the record as the next one. */
-                    if (nkf > Control_KeyframeCount())
-                        nkf = Control_KeyframeCount();
+                    /* Read every field the record says it holds and compare the ones
+                       both ends have. Fields are appended, so the names line up from the
+                       front; what must not happen is reading fewer than were written,
+                       which leaves the tail of this record to be taken as the next one. */
+                    shared = nkf < Control_KeyframeCount() ? nkf : Control_KeyframeCount();
                     Control_KeyframeFill(live);
                     for (k = 0; k < nkf; k++) {
                         U32 rv = 0;
                         if (!get32(&rv))
                             break;
+                        if (k >= shared)
+                            continue;
                         if ((S32)rv == live[k])
                             continue;
                         /* Only once the run has stopped matching. Before that a
