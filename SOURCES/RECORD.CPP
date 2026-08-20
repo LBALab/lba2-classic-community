@@ -2309,9 +2309,17 @@ void Record_TickHook(void) {
             return; /* ChangeCube has not consumed it yet */
         record_reload_landed();
         s_reloadState = 0;
-        if (s_reloadAbort)
+        if (s_reloadAbort) {
             s_reloadAbort = 0;
-        else
+            /* A playback stopped between `rec play` and its reload landing. The load
+               cannot be taken back -- the engine changes cube either way -- so the player
+               is standing in the recording's world with the session called off, and
+               Record_Stop could not ask for the way back because this reload was still in
+               flight when it ran. Measured: stopping in that window left the hero at the
+               recording's start rather than where the playback found him. Ask here
+               instead, where the state machine is free again. */
+            record_restore_player();
+        } else
             s_beginAtPoll = (s_reloadForPlay == REC_RELOAD_RESTORE)
                                 ? 0
                                 : (s_reloadForPlay == REC_RELOAD_PLAY ? 2 : 1);

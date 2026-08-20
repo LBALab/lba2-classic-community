@@ -687,5 +687,31 @@ for leftover in "$retdir"/recordings/*.return.lba "$retdir"/recordings/*.staging
     fi
 done
 
+# Stopping a playback early has to return the player too, and the narrow window is the one
+# that got this wrong: between `rec play` and the reload it asks for landing, two ticks
+# later. The load cannot be taken back once issued -- the engine changes cube either way --
+# so the player is standing in the recording's world with the session called off, and
+# Record_Stop cannot ask for the way back because that reload is still in flight when it
+# runs. Measured before it was handled: the hero was left at the recording's start.
+#
+# `rec stop` one tick after `rec play` lands in that window; the arm below it stops well
+# clear of it, so the two together cover the abort path and the ordinary one.
+for stopat in 961 1100; do
+    LBA2_USER_DIR="$retdir/early$stopat" ctl --load "$movesave" \
+        --exec-at 20 "rec start" --exec-at 200 "key up 250" --exec-at 520 "rec stop" \
+        --exec-at 600 "key down 250" \
+        --exec-at 920 "dumpstate $retdir/early$stopat-before.json" \
+        --exec-at 960 "rec play" --exec-at "$stopat" "rec stop" \
+        --tick 1600 --dump-state "$retdir/early$stopat-after.json" --exit >/dev/null 2>&1 ||
+        fail "return: the early-stop run (stop at $stopat) exited non-zero ($?) — hang or crash"
+
+    early_before="$(hero_xz "$retdir/early$stopat-before.json")" ||
+        fail "return: could not read the pre-playback state for stop at $stopat"
+    early_after="$(hero_xz "$retdir/early$stopat-after.json")" ||
+        fail "return: could not read the post-stop state for stop at $stopat"
+    [ "$early_after" = "$early_before" ] ||
+        fail "return: a playback stopped at tick $stopat started with the hero at $early_before and left him at $early_after — stopping a playback has to put the player back too"
+done
+
 pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
-'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them"
+'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out"
