@@ -16,7 +16,8 @@ python3 - "$json" <<'PY' || fail "schema/shape check failed"
 import json, sys
 d = json.load(open(sys.argv[1]))
 assert d.get("schema") == 1, "schema != 1"
-for k in ("tick", "timer_ref_hr", "fps", "scene", "hero", "inventory", "actors", "vars", "log"):
+for k in ("tick", "timer_ref_hr", "wall_ms", "clock_src_ms", "fps", "scene", "hero",
+          "inventory", "actors", "vars", "log"):
     assert k in d, "missing top-level key: " + k
 for k in ("island", "cube", "cube_mode", "num_objects"):
     assert k in d["scene"], "missing scene." + k
@@ -26,4 +27,4 @@ assert isinstance(d["actors"], list)
 assert "nonzero" in d["vars"]
 PY
 
-pass "valid JSON, schema=1, required keys present"
+pass "valid JSON, schema=1, required keys present including the wall and clock-source pair"

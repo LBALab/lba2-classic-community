@@ -895,6 +895,21 @@ static void control_dump_state(const char *path) {
     fprintf(f, "  \"schema\": 1,\n");
     fprintf(f, "  \"tick\": %ld,\n", ticks_done);
     fprintf(f, "  \"timer_ref_hr\": %u,\n", (unsigned int)TimerRefHR);
+    /* The wall clock beside the game clock, so a reader can ask how fast the game ran
+       between two dumps rather than only how far it got. Over a whole run that question
+       answers itself badly -- boot is inside the wall time and outside the game time --
+       so the pair is only worth much across a window, which is exactly what it takes to
+       see a modal: a fade or a dialogue box advances game time in its own loop, and
+       whether it spends real time on it is invisible in any figure averaged over a
+       session. Unrelated to the pinned clock: always the host's. */
+    fprintf(f, "  \"wall_ms\": %u,\n", (unsigned int)SDL_GetTicks());
+    /* What ManageTime would read right now: the pinned clock when one is armed, the host
+       clock otherwise. Beside wall_ms this gives the rate the game is running at, which
+       timer_ref_hr cannot -- that one is the accumulated play time and moves backwards
+       through a scene change or a load, so a window bracketing one reads negative. This
+       is monotonic while the clock is armed, and on a run with no pinned clock it is the
+       wall clock, so the ratio is 1 by construction and the check still means something. */
+    fprintf(f, "  \"clock_src_ms\": %u,\n", (unsigned int)Timer_ClockSource());
     fprintf(f, "  \"fps\": %d,\n", (int)NbFramePerSecond);
     fprintf(f, "  \"throws\": %d,\n", (int)DbgHeroThrows);
     fprintf(f, "  \"action_resets\": %d,\n", (int)DbgHeroActionResets);
