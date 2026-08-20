@@ -76,6 +76,27 @@ record_and_replay() { # record_and_replay <label> [extra record args...]
     CHECKED="$checked"
 }
 
+# A recording this build cannot make: version 10, written before the keyframe carried a
+# length, so the reader has to know that a version 10 keyframe is 23 fields and no count.
+# Everything else here records and replays with the same build, which cannot catch a
+# change that breaks both ends together. That is exactly how the keyframe grew a field
+# with no version bump: every earlier recording then read four bytes long at its first
+# keyframe and reported garbage ticks, and no test here noticed.
+legacy="$REPO/tests/automation/recordings/legacy-v10.rec"
+legacy_save="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Wannies fragment.LBA"
+if [ -f "$legacy" ] && [ -f "$legacy_save" ]; then
+    lout="$(ctl --fixed-dt 16 --load "$legacy_save" --replay "$legacy" --tick 300 --exit 2>&1)" ||
+        fail "legacy: replay run exited non-zero ($?)"
+    case "$lout" in
+    *"first hash mismatch -1"*) ;;
+    *)
+        fail "legacy: $(printf '%s\n' "$lout" |
+            grep -m1 -e 'replay ended' -e 'consistency failure' -e 'too old' ||
+            echo 'the version 10 recording did not replay')"
+        ;;
+    esac
+fi
+
 record_and_replay "with --tick" --tick 300 --exit
 bounded="$CHECKED"
 
@@ -121,4 +142,4 @@ case "$bout" in
     ;;
 esac
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; telemetry named the injected change"
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; the version 10 recording still reads; telemetry named the injected change"
