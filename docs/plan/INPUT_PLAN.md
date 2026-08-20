@@ -510,6 +510,15 @@ No fixture is written for this. Asserting invariance would fail, and asserting t
 would pin a port regression as though it were the design. It belongs to the movement campaign,
 where the class already has a name, and it is recorded here because this is where it was measured.
 
+**The compiled pad defaults are not what a fresh run uses, and it is not yet clear what is.**
+`ReadGamepadConfig` reads `Gamepad<n>` from the config with `GamepadKeysDefault[n].Key1` as the
+fallback, so a settings folder with no such key should take the compiled entry. It does not:
+putting a sentinel in slot 2's compiled default and booting into an empty settings folder still
+writes the shipped scancode to `Gamepad2`, and the pad still turns the way it always did. The
+config is authoritative once written, which the pad fixture is validated against, but where a
+fresh run's values come from is unanswered. Increment 4 splits that table and should settle it
+first: a default nobody can change from the source is a default nobody can review.
+
 **Write these over the control socket, not as a boot per combo.** Most of the suite predates
 `--listen` and pays a process boot per observation. Measured on this fixture set: **4.7 ms** per
 command against a socket session already at the scene, against **282 ms** for a boot-per-probe as

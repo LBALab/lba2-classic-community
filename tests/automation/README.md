@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-73 fixtures.
+74 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -65,6 +65,7 @@ suite still passes, since CI cannot say so.
 | [test_move_framerate.sh](test_move_framerate.sh) | High-frame-rate movement invariance (issue #358). | save fixture |
 | [test_move_substep.sh](test_move_substep.sh) | Low-frame-rate movement invariance (issue #358, phase 2). | save fixture |
 | [test_negative.sh](test_negative.sh) | Robustness: a bad --load path must fail gracefully (clean exit + message), not hang or crash. | - |
+| [test_pad_bindings.sh](test_pad_bindings.sh) | The gamepad's binding table resolves to the same actions the keyboard's does. | - |
 | [test_polyrec.sh](test_polyrec.sh) | --polyrec: trigger the existing polygon draw-call recorder at a scripted --load/--tick state (instead of the manual Alt+F9). | save fixture |
 | [test_profile_bind.sh](test_profile_bind.sh) | A named profile binds to one install, and moving it has to say so. | - |
 | [test_projection_corpus.sh](test_projection_corpus.sh) | projection corpus: capture the per-save projection-pipeline FNV-1a digest for every committed save in tests/savegame/corpus/, byte-compare to the committed golden. | - |
