@@ -11,6 +11,7 @@ divergence.
     scripts/dev/dump_recording.py session.rec keys       # keyframe deltas only
     scripts/dev/dump_recording.py session.rec cmds       # console commands only
     scripts/dev/dump_recording.py session.rec ticks      # tick, TimerRefHR, hash
+    scripts/dev/dump_recording.py session.rec analog     # polls carrying mouse or stick
     scripts/dev/dump_recording.py session.rec saves      # write out the savegames it carries
 
 Keyframe output is a delta per line, so a session reads as what changed:
@@ -80,6 +81,9 @@ def parse(path):
     p, n = split + 2, len(data)
 
     polls = 0
+    # One entry per poll that carried mouse or stick data. Empty for a keyboard-only
+    # session, which every session is until the two devices can be driven headlessly.
+    analog = []
     ticks, keys, cmds, teles = [], [], [], []
     syncs = 0
     snaps = {}
@@ -91,7 +95,7 @@ def parse(path):
         got = read_chunk(data, p)
         if got is None:
             print("start snapshot at byte %d does not close; the rest is unreadable" % p)
-            return header, polls, ticks, keys, cmds, teles, syncs, snaps
+            return header, polls, ticks, keys, cmds, teles, syncs, snaps, analog
         snaps["start"] = got[1]
         p = got[2]
 
@@ -155,6 +159,7 @@ def parse(path):
                 if flags & 0x02:      # Key
                     p += 4
                 if flags & 0x04:      # analog block
+                    analog.append((polls,) + struct.unpack_from("<hhIiii", data, p))
                     p += 20
                 if flags & 0x08:      # clock delta
                     p += 4
@@ -162,7 +167,7 @@ def parse(path):
             print("truncated at byte %d" % start)
             break
 
-    return header, polls, ticks, keys, cmds, teles, syncs, snaps
+    return header, polls, ticks, keys, cmds, teles, syncs, snaps, analog
 
 
 def write_saves(path, snaps):
@@ -190,7 +195,7 @@ def main(argv):
         raise SystemExit(__doc__)
     path = argv[1]
     what = argv[2] if len(argv) > 2 else "all"
-    header, polls, ticks, keys, cmds, teles, syncs, snaps = parse(path)
+    header, polls, ticks, keys, cmds, teles, syncs, snaps, analog = parse(path)
 
     if what == "saves":
         write_saves(path, snaps)
@@ -198,8 +203,8 @@ def main(argv):
 
     if what == "all":
         print(header)
-    print("polls=%d ticks=%d keyframes=%d telemetry=%d cmds=%d syncs=%d"
-          % (polls, len(ticks), len(keys), len(teles), len(cmds), syncs))
+    print("polls=%d ticks=%d keyframes=%d telemetry=%d cmds=%d syncs=%d analog=%d"
+          % (polls, len(ticks), len(keys), len(teles), len(cmds), syncs, len(analog)))
     # No end snapshot means the session did not stop cleanly, which is worth saying
     # rather than leaving to be noticed.
     print("savegames: start %s, end %s"
@@ -223,6 +228,11 @@ def main(argv):
                          for i in range(len(KF)) if prev[i] != vals[i]]
                 print("kf %5d: %s" % (tick, "  ".join(moved) if moved else "(no change)"))
             prev = vals
+
+    if what == "analog":
+        for poll, rsx, rsy, pad, mdx, mdy, click in analog:
+            print("poll %d rsx %d rsy %d padfirst %d mdx %d mdy %d click %d"
+                  % (poll, rsx, rsy, pad, mdx, mdy, click))
 
     if what == "ticks":
         for tick, ref, h in ticks:

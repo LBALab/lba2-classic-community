@@ -145,6 +145,14 @@ kf  1600: cube 60->35  cubemode 1->0  hero.x 19483->4078  blackpal 1->0
 kf  1728: dial.obj 0->2
 ```
 
+`analog` reports the polls that carried a mouse or a stick, which is the one part of a session
+that reads as nothing at all when it is missing:
+
+```
+$ scripts/dev/dump_recording.py session.rec analog
+poll 42 rsx 0 rsy 0 padfirst 0 mdx 20 mdy 0 click 2
+```
+
 ## Replaying on another platform
 
 A recording made on Linux replays on Windows, and one made on Windows replays on Linux. One file,
@@ -330,7 +338,7 @@ carrier.** A replay re-executes every console command the session was driven wit
 fixture means `key`, `input` or `mouse` reproduces the input a second time and would cover for a
 sample stream that had stopped working. A session someone played has no commands behind it, so
 there the samples are all there is. What tells the two apart is a replay run driven the other way
-at the same time: the file has to win.
+at the same time: the file has to win, and `test_record_analog.sh` is built on that.
 
 **A replay reports a pad present on the polls that carry a deflected stick.** The analog camera
 asks whether a pad is there before it reads the axes, so restoring the axes alone leaves a pad
@@ -346,6 +354,7 @@ game is concerned.
 |---|---|
 | `tests/record_format` | Header field lookup and binding round trips. Host test, no retail data, runs in CI |
 | `tests/automation/test_record_replay.sh` | A real engine records and replays, with and without a tick budget, and with verbose telemetry. Needs retail data, so it does not run in CI |
+| `tests/automation/test_record_analog.sh` | The mouse and the stick round trip: the file carries the input at the poll it happened, and beats a device moving under the replay. Needs retail data and the exterior corpus save |
 
 The telemetry arm changes a game variable part-way through a replay and requires the report to name
 it. A reporter that printed nothing would pass a clean-replay check exactly like one that works, and
