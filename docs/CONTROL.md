@@ -670,7 +670,7 @@ records the console commands alongside the input so a recording can stand in for
 
 | Flag | What it does |
 |---|---|
-| `--record <path>` | Record from the first input poll, menus included. Writes `<path>`, plus `<path>.lba` and `<path>.end.lba` snapshots |
+| `--record <path>` | Record from the first input poll, menus included. One file: the savegames at each end of the session are carried inside it |
 | `--replay <path>` | Replay a recording and report where it stops matching |
 
 Both need `--fixed-dt`: on the host-sampled clock a replay is not exact, which was measured rather

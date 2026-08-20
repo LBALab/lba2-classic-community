@@ -28,6 +28,11 @@
  *     a caller pre-set a default and is the difference between an old recording
  *     replaying with sane defaults and one replaying with zeroes.
  *
+ *   - That no prefix of a snapshot chunk reads as a whole one. A recording carries the
+ *     savegames it starts and ends at inside itself, written by a process that can be
+ *     killed at any byte, and a half-written savegame that still parses is worse than
+ *     one that is missing: the replay starts from a state the session never reached.
+ *
  * The field readers exist at all because the hand-written form they replaced,
  * sscanf(strstr(hdr, "setup.reloaded=") + 15, ...), carries the key's length as a
  * literal that has to be recounted whenever the key is renamed. The offset test below
@@ -293,6 +298,131 @@ void CheckValueAtEndOfBuffer() {
           "and so does its string form, got `%s`", s);
 }
 
+/* The chunk frame, which is what makes a one-file recording safe to write.
+ *
+ * A savegame in the stream is written by a process that may be killed at any byte of
+ * it, and the failure that matters is not losing the snapshot: it is a snapshot that
+ * survives half-written and still reads as a savegame. The engine's loader would take
+ * it, and the replay would start from a state the session never had, which surfaces as
+ * a divergence with no cause in it.
+ *
+ * So the property tested here is not the round trip. It is that no prefix of a complete
+ * chunk is accepted as one. */
+
+/* What a reader does with `n` bytes of what should be a chunk: head, payload, tail.
+   Returns the payload length when the frame is whole, and 0 for every other answer. */
+U32 ReadChunk(const U8 *buf, size_t n, U8 want) {
+    U8 op = 0;
+    U32 len = 0;
+
+    if (!RecFmt_GetChunkHead(buf, n, &op, &len) || op != want)
+        return 0;
+    if (n < (size_t)REC_CHUNK_HEAD + len + REC_CHUNK_TAIL)
+        return 0;
+    if (!RecFmt_ChunkTailOk(buf + REC_CHUNK_HEAD + len, REC_CHUNK_TAIL, len))
+        return 0;
+    return len;
+}
+
+/* A frame around `len` bytes of payload, each byte different from its neighbours so a
+   shifted read cannot come back looking right. */
+size_t BuildChunk(U8 *out, size_t n, U8 op, U32 len) {
+    size_t total = (size_t)REC_CHUNK_HEAD + len + REC_CHUNK_TAIL;
+    U32 i;
+
+    if (n < total)
+        return 0;
+    RecFmt_PutChunkHead(out, n, op, len);
+    for (i = 0; i < len; i++)
+        out[REC_CHUNK_HEAD + i] = (U8)(i * 7 + 1);
+    RecFmt_PutChunkTail(out + REC_CHUNK_HEAD + len, REC_CHUNK_TAIL, len);
+    return total;
+}
+
+void CheckChunkRoundTrip() {
+    U8 buf[256];
+    size_t total = BuildChunk(buf, sizeof buf, 0x70, 100);
+
+    CHECK(total == (size_t)REC_CHUNK_HEAD + 100 + REC_CHUNK_TAIL,
+          "a 100 byte payload frames to %u bytes", (unsigned)total);
+    CHECK(ReadChunk(buf, total, 0x70) == 100, "a whole chunk reads back its length");
+    CHECK(ReadChunk(buf, total, 0x71) == 0, "and only under the opcode it was written with");
+}
+
+/* The one that matters. A writer killed part way through leaves a prefix; every prefix
+   has to be refused, including the ones that stop inside the tail. */
+void CheckEveryTruncationIsRefused() {
+    U8 buf[512];
+    size_t total = BuildChunk(buf, sizeof buf, 0x70, 300);
+    size_t cut;
+    int accepted = 0;
+
+    for (cut = 0; cut < total; cut++) {
+        if (ReadChunk(buf, cut, 0x70) != 0) {
+            CHECK(0, "a chunk cut to %u of %u bytes was accepted", (unsigned)cut,
+                  (unsigned)total);
+            accepted++;
+        }
+    }
+    CHECK(accepted == 0, "%d truncations of a chunk read as whole", accepted);
+    CHECK(ReadChunk(buf, total, 0x70) == 300,
+          "and the whole one still reads, so the loop above was not vacuous");
+}
+
+/* A payload one byte short slides the tail forward, so the length no longer matches
+   even though the magic is still somewhere in the buffer. Checking both halves is what
+   catches it; checking the magic alone would not. */
+void CheckShiftedTailIsRefused() {
+    U8 buf[256];
+    size_t total = BuildChunk(buf, sizeof buf, 0x70, 64);
+    U8 shifted[256];
+
+    std::memcpy(shifted, buf, total);
+    /* Claim one more byte than was written: the tail is read one byte early. */
+    RecFmt_PutChunkHead(shifted, sizeof shifted, 0x70, 65);
+    CHECK(ReadChunk(shifted, total, 0x70) == 0,
+          "a length that does not match the payload is refused");
+
+    std::memcpy(shifted, buf, total);
+    shifted[total - 1] ^= 0xFF; /* the magic's top byte */
+    CHECK(ReadChunk(shifted, total, 0x70) == 0, "a damaged magic is refused");
+
+    std::memcpy(shifted, buf, total);
+    shifted[REC_CHUNK_HEAD + 64] ^= 0xFF; /* the repeated length */
+    CHECK(ReadChunk(shifted, total, 0x70) == 0, "a damaged length is refused");
+}
+
+/* A reader working backwards from the end of a file, which is how the end snapshot is
+   told apart from the record stream in front of it. */
+void CheckTailIsFoundFromTheEnd() {
+    U8 buf[256];
+    size_t total = BuildChunk(buf, sizeof buf, 0x71, 80);
+    U32 len = 0;
+
+    CHECK(RecFmt_ReadChunkTailLen(buf + total - REC_CHUNK_TAIL, REC_CHUNK_TAIL, &len) == 1 &&
+              len == 80,
+          "the trailer names its own length (got %u)", (unsigned)len);
+
+    len = 0xABCD;
+    CHECK(RecFmt_ReadChunkTailLen(buf, REC_CHUNK_TAIL, &len) == 0 && len == 0xABCD,
+          "and reports nothing where there is no trailer, leaving the caller's value");
+}
+
+/* A buffer smaller than the frame is a caller bug, and the answer is a refusal rather
+   than a write past the end of it. */
+void CheckShortBuffersAreRefused() {
+    U8 buf[16];
+    U8 op = 0;
+    U32 len = 0;
+
+    CHECK(RecFmt_PutChunkHead(buf, REC_CHUNK_HEAD - 1, 0x70, 4) == 0,
+          "a head does not fit in one byte less than it needs");
+    CHECK(RecFmt_PutChunkTail(buf, REC_CHUNK_TAIL - 1, 4) == 0, "nor does a tail");
+    CHECK(RecFmt_GetChunkHead(buf, REC_CHUNK_HEAD - 1, &op, &len) == 0,
+          "and neither is read out of one");
+    CHECK(RecFmt_ChunkTailOk(buf, REC_CHUNK_TAIL - 1, 4) == 0, "or checked in one");
+}
+
 } // namespace
 
 int main() {
@@ -309,6 +439,11 @@ int main() {
     CheckOversizedValueIsRefused();
     CheckNonNumericValue();
     CheckValueAtEndOfBuffer();
+    CheckChunkRoundTrip();
+    CheckEveryTruncationIsRefused();
+    CheckShiftedTailIsRefused();
+    CheckTailIsFoundFromTheEnd();
+    CheckShortBuffersAreRefused();
 
     if (fails == 0) {
         std::printf("test_record_format: all checks passed\n");

@@ -35,6 +35,9 @@ record_and_replay() { # record_and_replay <label> [extra record args...]
     local label="$1"
     shift
 
+    # The siblings too, which nothing writes: a recording is one file, and the check
+    # below would otherwise report a leftover from another build as this run having
+    # written one.
     rm -f "$rec" "$rec".lba "$rec".end.lba
 
     ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$rec" \
@@ -43,6 +46,24 @@ record_and_replay() { # record_and_replay <label> [extra record args...]
         fail "$label: recording run exited non-zero ($?) — hang or crash"
 
     [ -s "$rec" ] || fail "$label: no recording written to $rec"
+
+    # One file, and it carries the savegames at both ends of the session. Both halves
+    # are checked because either alone passes for the wrong reason: a recorder that
+    # stopped writing snapshots altogether would leave no siblings either, and a
+    # recorder that wrote them beside the file as well would still carry them inside.
+    for sibling in "$rec".lba "$rec".end.lba; do
+        if [ -e "$sibling" ]; then
+            fail "$label: a recording is one file, but $sibling was written"
+        fi
+    done
+    local saves
+    saves="$(python3 "$REPO/scripts/dev/dump_recording.py" "$rec" |
+        grep -m1 '^savegames:')" ||
+        fail "$label: could not read the recording back"
+    case "$saves" in
+    *"start none"*) fail "$label: the recording carries no start savegame ($saves)" ;;
+    *"end none"*) fail "$label: the recording carries no end savegame ($saves)" ;;
+    esac
 
     # The header has to declare the arithmetic the session ran on, because that is what
     # lets a replay on another platform open by naming what it disagrees about instead
