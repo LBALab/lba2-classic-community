@@ -171,6 +171,15 @@ void GetLogPath(char *outPath, U16 pathMaxSize, const char *logFilename);
 void GetLogPathInDir(char *outPath, U16 pathMaxSize, const char *userDir,
                      const char *logFilename);
 
+/// Make \p path a directory, creating any missing parent, and report whether one
+/// is there when this returns. False for a path that exists and is not a
+/// directory, so a caller can tell a name it cannot have from one it now owns.
+///
+/// Lives here rather than with its callers so a host test can reach it: the
+/// walk this replaced was wrong on Windows for two years without a test that
+/// could fail, because the only thing linking it was the engine.
+U8 AddDirIfNot(const char *path);
+
 // =============================================================================
 #ifdef __cplusplus
 }

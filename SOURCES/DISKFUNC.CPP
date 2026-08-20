@@ -5,7 +5,6 @@
 #include <SYSTEM/LOG.H>
 
 #include <SDL3/SDL_error.h>
-#include <SDL3/SDL_filesystem.h>
 
 #include "AMBIANCE.H"
 #include "BOOT_EXIT.H"
@@ -354,40 +353,6 @@ S32 LoadSceneCubeXY(S32 numcube, S32 *cubex, S32 *cubey) {
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-
-/* Make `path` a directory, creating any missing parent on the way, and report whether
-   one is there when this returns.
-
-   SDL rather than a walk over the separators, which is what this was. That walk had a
-   Windows-shaped hole: the first component of an absolute path there is a drive spec,
-   and `_mkdir("C:")` asks for the current directory *of drive C*, which is refused
-   outright when the process sits on another drive or on that drive's root. The walk
-   stopped at the refusal, skipped the mkdir it existed to perform, and returned a
-   failure no caller read, so the folder was simply absent and the first write into it
-   failed instead -- naming a file, in a message that could not say the folder above it
-   was never made. Neither side of the tree reproduced it: an absolute path on Linux
-   begins with the separator, whose empty first component the walk skipped, and a
-   Windows run whose build tree and user directory share a drive resolves `C:` to a
-   directory that exists.
-
-   SDL_CreateDirectory creates the parents itself, reports success when the directory is
-   already there, and knows what a drive spec is. It also creates with 0770 against the
-   0754 asked for here before, so a folder made from now on is one group-readable step
-   tighter and matches the user directory above it, which SDL has always made. */
-U8 AddDirIfNot(const char *path) {
-    /* So that a caller reporting a failure reads this attempt's reason rather than
-       whatever last set one, which under SDL is as likely to be a call that succeeded. */
-    SDL_ClearError();
-
-    /* Ahead of the create, so a path that exists as a file still answers no. That is
-       what a caller testing this return has always been told, and SDL is not asked to
-       have an opinion about it. */
-    if (ExistsFileOrDir(path)) {
-        return IsDirectory(path);
-    }
-
-    return SDL_CreateDirectory(path) ? TRUE : FALSE;
-}
 
 /* A folder the engine needs, made here or named here.
 
