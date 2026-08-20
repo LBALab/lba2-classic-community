@@ -604,7 +604,7 @@ play_xz="$(hero_xz "$movedir/play.json")" || fail "movement: could not read the 
 # `rec info` reports the live run's mode, which makes this a question about a printed
 # number rather than about elapsed time.
 stepdir="$(mktemp -d)"
-trap 'rm -rf "$here" "$loopdir" "$emptydir" "$movedir" "$stepdir"' EXIT
+trap 'rm -rf "$here" "$loopdir" "$emptydir" "$verbdir" "$movedir" "$stepdir"' EXIT
 
 # Through a file rather than a pipeline. The suite does not set `pipefail`, so a pipeline
 # carries the status of its last command -- `tr` here, which succeeds whatever the engine
@@ -653,7 +653,7 @@ esac
 # replay and exit, and has no player session to protect -- so the question only means
 # something for a playback started from inside a session.
 retdir="$(mktemp -d)"
-trap 'rm -rf "$here" "$loopdir" "$emptydir" "$movedir" "$stepdir" "$retdir"' EXIT
+trap 'rm -rf "$here" "$loopdir" "$emptydir" "$verbdir" "$movedir" "$stepdir" "$retdir"' EXIT
 
 LBA2_USER_DIR="$retdir" ctl --load "$movesave" \
     --exec-at 20 "rec start" --exec-at 200 "key up 250" --exec-at 520 "rec stop" \

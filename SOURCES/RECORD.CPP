@@ -154,8 +154,10 @@ extern "C" {
  * actors and all 336 script variables entirely. This carries the lot, every tick, so
  * the first mismatching tick names the field that moved.
  *
- * About 5 KB a tick, so it is opt-in (--verbose) rather than the default: a diagnostic
- * recording, made once, to answer a question a normal one cannot.
+ * About 2 KB a tick, so it is opt-in (--verbose) rather than the default: a diagnostic
+ * recording, made once, to answer a question a normal one cannot. The bytes are the
+ * cost and the time is not -- measured, 0.10 ms of CPU a tick, which is the loop that
+ * marshals the values rather than the write.
  */
 #define REC_TELE 0x51
 
@@ -1119,6 +1121,10 @@ static int record_begin(const char *path, int haveSnapshot) {
     s_f = fopen(path, "wb");
     if (!s_f) {
         Console_Print("rec: cannot write %s", path);
+        /* With the ask that came in, for the same reason the refusal in Record_Start
+           clears it: a start that did not happen must not leave `verbose` behind for the
+           next one, which would then record telemetry nobody asked it for. */
+        s_teleAsked = 0;
         return 0;
     }
     /* Behind the open, so Record_Path never names a session that does not exist. On the
@@ -1265,6 +1271,7 @@ int Record_Start(const char *path, int verbose) {
            wrote is how a failed save becomes a scene change nobody asked for. */
         Console_Print("rec: cannot write the starting snapshot; not recording");
         s_recPath[0] = 0;
+        s_teleAsked = 0;
         return 0;
     }
     snprintf(s_snapshot, sizeof s_snapshot, "%s", snap);
