@@ -50,13 +50,11 @@ KF = [
 ]
 
 # The leading fixed values of Control_StateDigest, in the order CONTROL.CPP mixes them.
-# Only the prefix: the per-actor block and the script variables follow, and their length
-# depends on how many actors the scene holds, so everything past this list is reported by
-# index. Same treatment as KF above, and for the same reason: a file may carry a field
-# this list does not name yet, and reporting it by index beats dropping it. SOURCES/
-# CONTROL.CPP is the authority; a build that mixes different values makes this prefix
-# wrong rather than short, so check it there before trusting a name.
-TELE_PREFIX = [
+# This list stops at NbLittleKeys deliberately: the per-actor loop runs next, and only
+# after it come the modal fields and the two variable tables. So everything past index 37
+# sits at an offset that depends on how many actors the scene holds, and cannot be named
+# from a fixed list. tele_layout() derives the rest from the file.
+TELE_FIXED = [
     "Island", "NumCube", "CubeMode", "NbObjets", "NbZones",
     "hero->Obj.X", "hero->Obj.Y", "hero->Obj.Z",
     "hero->Obj.Alpha", "hero->Obj.Beta", "hero->Obj.Gamma",
@@ -68,13 +66,49 @@ TELE_PREFIX = [
     "VueDistance", "VueOffsetX", "VueOffsetY", "VueOffsetZ",
     "FollowCamera", "VueCamera", "CameraZone", "CinemaMode",
     "MagicLevel", "MagicPoint", "NbGoldPieces", "NbLittleKeys",
-    "CinemaMode", "NumObjDial", "GameChoice", "GameNbChoices",
-    "FlagFade", "FlagBlackPal",
 ]
+TELE_ACTOR = ["obj.X", "obj.Y", "obj.Z", "obj.Beta", "obj.Life",
+              "obj.Body", "obj.Anim", "obj.Move", "obj.Flags"]
+TELE_MODAL = ["CinemaMode", "NumObjDial", "GameChoice", "GameNbChoices",
+              "FlagFade", "FlagBlackPal"]
+MAX_VARS_GAME, MAX_VARS_CUBE = 256, 80
 
 
-def tele_name(k):
-    return TELE_PREFIX[k] if k < len(TELE_PREFIX) else "value[%d]" % k
+def tele_layout(header, vals):
+    """Names for one tick's telemetry, or None when the layout cannot be established.
+
+    The actor block's length is NbObjets * 9, and NbObjets is itself in the file at
+    index 3, so the layout solves rather than being assumed. The solve is the check: if
+    the arithmetic does not come out exactly, this is not the field set named above and
+    the honest answer is to report by index rather than to print confident wrong names.
+
+    A build with a different field set says so with `numeric.digest`, and any value of it
+    means a layout this reader does not know. Refusing there is the point: a name that is
+    plausible and wrong is worse than an index."""
+    if "numeric.digest=" in header:
+        return None
+    n = len(vals)
+    tail = len(TELE_MODAL) + MAX_VARS_GAME + MAX_VARS_CUBE
+    if n <= len(TELE_FIXED) + tail:
+        return None
+    nb = vals[3]  # NbObjets, mixed fourth
+    body = n - len(TELE_FIXED) - tail
+    if nb <= 0 or body <= 0 or body != nb * len(TELE_ACTOR):
+        return None
+
+    names = list(TELE_FIXED)
+    for i in range(nb):
+        names.extend("%s[%d]" % (f, i) for f in TELE_ACTOR)
+    names.extend(TELE_MODAL)
+    names.extend("var.game[%d]" % i for i in range(MAX_VARS_GAME))
+    names.extend("var.cube[%d]" % i for i in range(MAX_VARS_CUBE))
+    return names
+
+
+def tele_name(names, k):
+    if names is not None and k < len(names):
+        return names[k]
+    return TELE_FIXED[k] if k < len(TELE_FIXED) else "value[%d]" % k
 
 
 REC_KEY = 0x50   # keyframe: u32 tick, u16 count (v12+), then count * s32
@@ -312,7 +346,7 @@ def show_analog(analog, polls):
                   % (name, len(nz), max(abs(v) for v in nz), len(distinct)))
 
 
-def show_tele(teles, changing_only):
+def show_tele(teles, changing_only, header=""):
     """The values the digest mixes, per tick. Nothing else can read these: the recorder
     reports a divergence for at most three ticks and eight values, and before this the
     offline reader counted them without printing any."""
@@ -321,7 +355,16 @@ def show_tele(teles, changing_only):
         return
     teles.sort()
     n = len(teles[0][1])
+    names = tele_layout(header, teles[0][1])
     print("%d ticks, %d values a tick" % (len(teles), n))
+    if names is None:
+        # Say so rather than let indexed output pass for named output.
+        print("layout not established for this file; reporting past index %d by index"
+              % (len(TELE_FIXED) - 1))
+    else:
+        print("layout: %d fixed, %d actors x %d, %d modal, %d vars"
+              % (len(TELE_FIXED), teles[0][1][3], len(TELE_ACTOR),
+                 len(TELE_MODAL), MAX_VARS_GAME + MAX_VARS_CUBE))
 
     if changing_only:
         # Which values ever move. A field that is constant across a whole session is
@@ -337,17 +380,17 @@ def show_tele(teles, changing_only):
         for k in sorted(moved)[:40]:
             lo = min(v[1][k] for v in teles if k < len(v[1]))
             hi = max(v[1][k] for v in teles if k < len(v[1]))
-            print("  %-24s %d .. %d" % (tele_name(k), lo, hi))
+            print("  %-24s %d .. %d" % (tele_name(names, k), lo, hi))
         return
 
     prev = None
     for tick, vals in teles:
         if prev is None:
             print("tele %5d: %s" % (tick, "  ".join(
-                "%s=%d" % (tele_name(i), vals[i]) for i in range(min(24, len(vals))))))
+                "%s=%d" % (tele_name(names, i), vals[i]) for i in range(min(24, len(vals))))))
         else:
             shared = min(len(prev), len(vals))
-            moved = ["%s %d->%d" % (tele_name(i), prev[i], vals[i])
+            moved = ["%s %d->%d" % (tele_name(names, i), prev[i], vals[i])
                      for i in range(shared) if prev[i] != vals[i]]
             if moved:
                 print("tele %5d: %s" % (tick, "  ".join(moved)))
@@ -403,7 +446,7 @@ def main(argv):
         show_clock(ticks)
 
     if what in ("tele", "tele-changing"):
-        show_tele(teles, what == "tele-changing")
+        show_tele(teles, what == "tele-changing", header)
 
     if what == "analog":
         show_analog(analog, polls)
