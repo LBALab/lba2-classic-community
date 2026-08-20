@@ -100,7 +100,7 @@ gap; today's target (`../LBA2-GOG`) ships the HQRs extracted, so discovery succe
 media comes from the image.
 
 ## Boot log
-Today's happy-path banner is a header block (`Assets:/Saves:/Config:/Log:`) then an aligned status
+Today's happy-path banner is a header block (`Assets:/Saves:/Recs:/Config:/Log:`) then an aligned status
 block (`Events/Joystick/Audio/Display/Assets/Language`) and a `Ready in ...` line. The mount is
 **visible only when it happens, silent otherwise**:
 
