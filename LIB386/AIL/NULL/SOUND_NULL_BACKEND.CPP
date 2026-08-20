@@ -47,6 +47,9 @@ void StopSamples() {}
 void PauseSamples() {}
 void ResumeSamples() {}
 U32 IsSamplePlaying(U32 sample) { return FALSE; }
+/* Never, whatever the driver flag says: the line above is unconditional, and the
+   simulation branches on it. */
+S32 Sample_DriverPlaysSound(void) { return FALSE; }
 void SfxLogEnable(int enable) { (void)enable; }
 int SfxLogIsEnabled(void) { return 0; }
 S32 GetSamplesPausedCount(void) { return 0; }

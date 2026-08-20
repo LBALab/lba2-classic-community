@@ -20,6 +20,7 @@
 #include "CONTROL_SERVER.H" /* --listen: interactive command socket */
 
 #include <3D/PROJREC.H> /* Projrec_BeginCapture / Projrec_EndCapture */
+#include <AIL/SAMPLE.H> /* Sample_DriverPlaysSound: whether audio actually came up */
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>   /* Screen, ModeDesiredX/Y */
 #include <SVGA/VIDEO.H>    /* Palette() */
@@ -634,6 +635,17 @@ int Control_NoAudio(void) {
     return s_no_audio;
 }
 
+/* The flag says what was asked for; this says what the run got, and the simulation reads
+   the second one.
+
+   Not `Sample_Driver_Enabled`, which answers a question one backend answers misleadingly:
+   the null backend initialises, sets the flag, and then returns FALSE from every
+   IsSamplePlaying, so reading the flag would report audio on a build with none. The
+   backends answer for themselves instead. */
+int Control_AudioActive(void) {
+    return Sample_DriverPlaysSound() ? 1 : 0;
+}
+
 /* --- Boot ------------------------------------------------------------------- */
 /* Resolve a --load name into GamePathname. Mirrors the ArgV[1] resolution in main():
    try as a direct path, then the save directory, then with a .lba suffix. */
@@ -935,11 +947,17 @@ static void control_dump_state(const char *path) {
             T_OBJET *o = &ListObjet[i];
             fprintf(f,
                     "%s\n    { \"index\": %d, \"x\": %d, \"y\": %d, \"z\": %d, \"beta\": %d, "
-                    "\"life\": %d, \"body\": %d, \"anim\": %d, \"move\": %d, \"flags\": %u }",
+                    "\"life\": %d, \"body\": %d, \"anim\": %d, \"move\": %d, \"flags\": %u, "
+                    "\"armure\": %d, \"nb_bonus\": %d }",
                     i ? "," : "", (int)i,
                     (int)o->Obj.X, (int)o->Obj.Y, (int)o->Obj.Z, (int)o->Obj.Beta,
                     (int)o->LifePoint, (int)o->Obj.Body.Num, (int)o->Obj.Anim.Num,
-                    (int)o->Move, (unsigned int)o->Flags);
+                    (int)o->Move, (unsigned int)o->Flags,
+                    /* What separates a combatant from a body standing in a room.
+                       Armure is damage resistance; NbBonus is what it drops when
+                       killed. Neither is proof on its own, which is why the survey
+                       that uses them confirms a candidate by hitting it. */
+                    (int)o->Armure, (int)o->NbBonus);
         }
     }
     fprintf(f, "%s],\n", NbObjets ? "\n  " : "");
@@ -1604,6 +1622,7 @@ static const char *const s_kfNames[] = {
 
     /* doing what */
     "hero.anim",
+    "hero.gen_anim",
     "hero.body",
     "hero.move",
     "hero.life",
@@ -1639,6 +1658,12 @@ void Control_KeyframeFill(S32 *v) {
     v[i++] = (S32)hero->Obj.Z;
     v[i++] = (S32)hero->Obj.Beta;
     v[i++] = (S32)hero->Obj.Anim.Num;
+    /* The general animation the object loop selected, as against the concrete one
+       playing. Every input combo this repo pins is stated in these terms -- which
+       blow, which take-off foot, which dodge -- so a divergence that reports only
+       the concrete number makes the reader translate. The digest already mixes it;
+       this is the keyframe learning to say its name. */
+    v[i++] = (S32)hero->GenAnim;
     v[i++] = (S32)hero->Obj.Body.Num;
     v[i++] = (S32)hero->Move;
     v[i++] = (S32)hero->LifePoint;

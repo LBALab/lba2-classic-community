@@ -132,6 +132,7 @@ wrong.
 | A keyframe of named state, every 32 ticks | The digest says *when* a replay stopped matching; this says *what* moved |
 | Every value the digest mixes, per tick, with `--verbose` | The keyframe names 23 fields. This names all of them, so a divergence in another actor or a script variable is named too |
 | The settings a replay is known to turn on | They are not in the save, and a config edited in between reads as the simulation diverging |
+| The mode the session ran in, audio included | Whether a sample driver came up decides what the simulation computes, and no save or config records it |
 
 The header is `key=value` text, so a recording is readable without a decoder. `SOURCES/RECORD_FORMAT.H`
 owns the field readers, the binding-table lines and the frame around an inline savegame;
@@ -367,9 +368,14 @@ Under `--fixed-dt` a sample's playing state is now answered from its own length 
 rather than from the mixer, so the simulation sees the same answer in both runs. The mixer is
 untouched: this only changes what the simulation is told, and only in a mode no player runs.
 
-This is also why the bug survived so long. Every fixture runs `--headless`, which uses the null
-audio backend, so nothing in the suite had ever exercised the audio path. A recording is the first
-fixture that runs with sound.
+This is also why the bug survived so long. Every fixture runs `--headless`, which skips
+`InitSampleDriver` altogether, so nothing in the suite had ever exercised the audio path. A
+recording fixture is the only one that runs with a sample device up.
+
+Skipping the driver is not the same as building the null backend, and the difference matters to
+anything asking whether a run had audio. `--headless` leaves `Sample_Driver_Enabled` false;
+`SOUND_BACKEND=null` initialises, sets it true, and then returns `FALSE` from every
+`IsSamplePlaying`. Ask `Sample_DriverPlaysSound()` instead, which each backend answers for itself.
 
 **Time spent in a modal is not checked.** The digest fires once per tick, and a modal that waits
 for input spins polls without advancing one: a recorded session that sat in a dialogue choice held
@@ -378,8 +384,35 @@ all. "1472 ticks checked, mismatch -1" means the simulation matched on every tic
 nothing about the forty seconds spent in the menu, and a replay that behaved differently in there
 would still report clean.
 
-**The mode has to match.** A recording made windowed with audio does not replay headless with the
-null backend, because a live audio thread branches the simulation. `rec info` will say so.
+**The mode has to match, and audio is the half of it that is not fixed at the source.** The fix
+above makes two runs that both have audio agree. It does nothing for a recording made with sound and
+replayed without it, because `--no-audio` skips `InitSampleDriver` entirely: `IsSamplePlaying` is
+then an unconditional no rather than a differently timed yes, which is a different branch and not a
+quieter one. It reaches further than the ambience draw, too. A dialogue with the text off spins on
+`TestSpeak()` until the voice sample ends, so the same line holds the game for hundreds of ticks in
+one run and none in the other. `--headless` implies `--no-audio`, so every replay driven that way is
+silent.
+
+A replay does not have to be driven that way, though, and since the recorder pins its own step there
+is no longer a flag pulling it there either: `--fixed-dt` sets the control harness active but does
+not require `--headless`, and a mid-session `rec start` needs no flag at all. Measured, with a sample
+device up on both ends and neither run headless or given a step -- `rec start`, `rec stop`, then
+`rec play` in a second run -- the recording carries `mode.audio=1` and replays at `first hash
+mismatch -1` with no mode line differing. So a session recorded with sound is reproducible by a
+session replayed with sound; what stays broken is mixing the two, which is what the line reports.
+That round trip has no fixture behind it, because the arms that could run it are the ones that have
+to skip where SDL will not open a dummy device.
+
+So the header carries `mode.audio`, and a replay names it as it starts:
+
+```
+[rec] mode differs: mode.audio=1 (this run: 0)
+```
+
+It records whether a sample driver actually came up rather than which flag was passed, because
+`--no-audio`, `--headless` and a host whose audio device fails to open all land in the same place
+and the last of those is nobody's choice. A recording written before that line existed carries no
+answer, and a replay compares only the lines the file has.
 
 **Recording from boot headlessly needs `--exec "skipmodals 1"`.** The opening dialogue waits for a
 keypress that a headless run never sends.
