@@ -33,12 +33,14 @@ void JoystickGetRightStick(S16 *x, S16 *y);
 // read, which is where the input poll's hooks sit.
 void Joystick_SetReplayState(U32 firstPressed, S16 rsx, S16 rsy);
 
+// Put the cached axes back after UpdateJoystick has cleared them, without touching the
+// first-pressed scancode: a stick is not a button and must not claim to be one.
+void Joystick_SetRightStick(S16 x, S16 y);
+
 // Report a pad as present without one being plugged in. The analog camera is the only
 // thing gated on presence, so this is what lets a replayed or injected right stick
-// reach it; a recording carries the presence it was made with, and a run with a real
-// pad open reports present whatever this says.
+// reach it. A run with a real pad open reports present whatever this says.
 void Joystick_SetVirtualPad(S32 present);
-S32 Joystick_IsVirtualPad(void);
 
 // Human-readable controller name for the boot log, or "not detected".
 const char *JoystickGetName(void);

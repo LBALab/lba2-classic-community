@@ -1907,6 +1907,9 @@ static void cmd_camnudge(int argc, const char *argv[]) {
                   DbgCamNudgeFrames);
 }
 
+/* Bound on an injected mouse delta, in pixels a poll. */
+#define MOUSE_INJECT_MAX 10000
+
 /* mouse <dx> <dy> [polls] [buttons] | mouse off: move the mouse, as a device does.
    Feeds the accumulator ManageMouse drains, so the analog camera, the recorder and the
    menus all see an ordinary mouse. `buttons` is the Click mask (1 left, 2 right, 4
@@ -1935,6 +1938,15 @@ static void cmd_mouse(int argc, const char *argv[]) {
         Console_Print("mouse: bad delta (want two integers)");
         return;
     }
+    /* A screen's worth of pixels a poll is already absurd, and the accumulator this
+       feeds is an S32 that a held motion adds to on every poll: bound it here rather
+       than let a typo wrap it into a camera that orbits backwards. */
+    if (dx < -MOUSE_INJECT_MAX || dx > MOUSE_INJECT_MAX || dy < -MOUSE_INJECT_MAX ||
+        dy > MOUSE_INJECT_MAX) {
+        Console_Print("mouse: delta out of range (want -%d..%d pixels a poll)",
+                      MOUSE_INJECT_MAX, MOUSE_INJECT_MAX);
+        return;
+    }
     if (argc >= 4 && !console_parse_count(argv[3], &polls, 1)) {
         Console_Print("mouse: bad poll count '%s' (want a positive integer)", argv[3]);
         return;
@@ -1944,7 +1956,7 @@ static void cmd_mouse(int argc, const char *argv[]) {
         return;
     }
 
-    if (!Control_MouseMove((S32)dx, (S32)dy, (U32)buttons, 0, (U32)polls)) {
+    if (!Control_MouseMove((S32)dx, (S32)dy, (U32)buttons, (U32)polls)) {
         Console_Print("mouse: could not schedule");
         return;
     }
@@ -1986,7 +1998,7 @@ static void cmd_stick(int argc, const char *argv[]) {
         return;
     }
 
-    if (!Control_StickHold((S16)x, (S16)y, 0, (U32)polls)) {
+    if (!Control_StickHold((S16)x, (S16)y, (U32)polls)) {
         Console_Print("stick: could not schedule");
         return;
     }

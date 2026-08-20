@@ -379,8 +379,12 @@ U32 JoystickFirstPressedScancode(void) {
    hook, so a replayed TabKeys arrives too late to reconstruct them. */
 void Joystick_SetReplayState(U32 firstPressed, S16 rsx, S16 rsy) {
     s_firstPressedThisFrame = firstPressed;
-    s_rstickX = rsx;
-    s_rstickY = rsy;
+    Joystick_SetRightStick(rsx, rsy);
+}
+
+void Joystick_SetRightStick(S16 x, S16 y) {
+    s_rstickX = x;
+    s_rstickY = y;
 }
 
 /* Restoring the axes is not enough on its own: the analog camera asks whether a pad is
@@ -389,10 +393,6 @@ void Joystick_SetReplayState(U32 firstPressed, S16 rsx, S16 rsy) {
    session, so a recording carries it and a replay reports what the recording had. */
 void Joystick_SetVirtualPad(S32 present) {
     s_virtualPad = present ? 1 : 0;
-}
-
-S32 Joystick_IsVirtualPad(void) {
-    return s_virtualPad;
 }
 
 //***************************************************************************

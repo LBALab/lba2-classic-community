@@ -2,10 +2,10 @@
 
 # Control-harness last run
 
-- when: 2026-08-20 00:50 UTC
-- commit: `bfd1cc8e` (working tree dirty)
+- when: 2026-08-20 01:45 UTC
+- commit: `ef697fe5` (working tree dirty)
 - host: Linux x86_64
-- result: **51 passed, 16 skipped, 0 failed**
+- result: **66 passed, 2 skipped, 0 failed**
 
 A skip means a prerequisite was missing, not that the fixture agreed with the
 engine. Only the passes are evidence.
@@ -13,7 +13,7 @@ engine. Only the passes are evidence.
 | Fixture | Result |
 |---|---|
 | test_action_substep.sh | pass |
-| test_askchoice_menus_consume.sh | skip |
+| test_askchoice_menus_consume.sh | pass |
 | test_attack_melee.sh | pass |
 | test_attack_repress.sh | pass |
 | test_autocam_orbit_snap.sh | pass |
@@ -23,7 +23,7 @@ engine. Only the passes are evidence.
 | test_camzone_hold.sh | pass |
 | test_camzone_model.sh | pass |
 | test_classiccam_controls.sh | pass |
-| test_cli_contract.sh | skip |
+| test_cli_contract.sh | pass |
 | test_cli_flag_contract.sh | pass |
 | test_cli_override_persistence.sh | pass |
 | test_config_upgrade.sh | pass |
@@ -33,8 +33,8 @@ engine. Only the passes are evidence.
 | test_console_config_write.sh | pass |
 | test_demo.sh | pass |
 | test_demo_behaviour_menu.sh | pass |
-| test_dump.sh | skip |
-| test_exec.sh | skip |
+| test_dump.sh | pass |
+| test_exec.sh | pass |
 | test_followcam_hold.sh | pass |
 | test_followcam_interrupt.sh | pass |
 | test_followcam_recenter.sh | pass |
@@ -45,25 +45,26 @@ engine. Only the passes are evidence.
 | test_input_injection.sh | pass |
 | test_item_use_throttle.sh | pass |
 | test_jump_takeoff_foot.sh | pass |
-| test_load.sh | skip |
+| test_load.sh | pass |
 | test_melee_throttle.sh | pass |
-| test_move_framerate.sh | skip |
-| test_move_substep.sh | skip |
+| test_move_framerate.sh | pass |
+| test_move_substep.sh | pass |
 | test_negative.sh | pass |
 | test_polyrec.sh | skip |
 | test_profile_bind.sh | pass |
 | test_projection_corpus.sh | pass |
 | test_projection_demo.sh | skip |
-| test_record_replay.sh | skip |
+| test_record_analog.sh | pass |
+| test_record_replay.sh | pass |
 | test_release_detection.sh | pass |
 | test_res_catalog_sweep.sh | pass |
-| test_res_switch.sh | skip |
-| test_res_switch_cfg.sh | skip |
-| test_res_switch_console.sh | skip |
-| test_res_switch_dialog.sh | skip |
-| test_screenshot.sh | skip |
+| test_res_switch.sh | pass |
+| test_res_switch_cfg.sh | pass |
+| test_res_switch_console.sh | pass |
+| test_res_switch_dialog.sh | pass |
+| test_screenshot.sh | pass |
 | test_skip_modals.sh | pass |
-| test_tick.sh | skip |
+| test_tick.sh | pass |
 | test_ui_dialog.sh | pass |
 | test_ui_display.sh | pass |
 | test_ui_found_object.sh | pass |

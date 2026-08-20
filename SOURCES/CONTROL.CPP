@@ -1337,105 +1337,132 @@ int Control_KeyHold(U32 scancode, U32 delayPolls, U32 durPolls) {
     return 1;
 }
 
-/* The mouse, on the same poll clock. The analog camera reads MouseXDep/MouseYDep and
-   Click, and neither is a scancode, so the key holds above cannot reach it: a headless
-   run has no way to orbit with the mouse, and a recording of one carries an analog block
-   that nothing ever filled.
+/* The two analog devices, on the same poll clock as the key holds above.
  *
- * Written where a motion event writes, into the accumulator ManageMouse drains, rather
- * than into MouseXDep directly. The drain, the recorder and every consumer then see the
- * same thing they see for a device, in the same order. `camnudge` stands in one step
- * further down, at the nudge the camera applies, so it drives the camera without ever
- * touching the mouse; this drives the mouse. */
+ * The analog camera reads MouseXDep/MouseYDep, Click and the cached stick axes. None of
+ * them is a scancode, so the key holds cannot reach any of them: a headless run had no
+ * way to orbit with either device, and a recording of one carried an analog block that
+ * nothing ever filled.
+ *
+ * Both write where the device writes, one step above what reads them: the mouse into the
+ * accumulator ManageMouse drains, the stick into the axes UpdateJoystick caches. The
+ * drain, the recorder and every consumer then see what they see for a device, in the same
+ * order. `camnudge` stands in one step further down, at the nudge the camera applies, so
+ * it drives the camera without touching a device; these drive the devices. */
+
+/* A hold measured in input polls, half-open: live from `start` up to but not including
+   `end`. An `end` of 0 is "nothing armed", which no live span can be, because arming
+   always lands at least one poll ahead. The key holds keep the same pair inline, one per
+   entry, because several of them run at once; these two have one each. */
+typedef struct {
+    U32 start;
+    U32 end;
+} T_ControlSpan;
+
+typedef enum {
+    SPAN_IDLE = 0, /* nothing armed */
+    SPAN_PENDING,  /* armed, not started */
+    SPAN_LIVE,     /* running this poll */
+    SPAN_ENDED     /* ran, and this is the poll after */
+} T_ControlSpanPhase;
+
+static void span_arm(T_ControlSpan *span, U32 durPolls) {
+    /* +1 because s_key_poll counts polls already taken, so the earliest a hold can be
+       seen on is the next one. Without it a one-poll hold never fires at all. */
+    span->start = s_key_poll + 1;
+    span->end = s_key_poll + 1 + durPolls;
+}
+
+static T_ControlSpanPhase span_phase(const T_ControlSpan *span) {
+    if (span->end == 0)
+        return SPAN_IDLE;
+    if (s_key_poll >= span->end)
+        return SPAN_ENDED;
+    if (s_key_poll < span->start)
+        return SPAN_PENDING;
+    return SPAN_LIVE;
+}
+
 static S32 s_mouse_dx = 0, s_mouse_dy = 0;
 static U32 s_mouse_buttons = 0;
-/* The span, on the same half-open terms as a key hold: start inclusive, end exclusive.
-   An end of 0 is "nothing armed", which no live span can be, because every one of them
-   is at least s_key_poll + 1. */
-static U32 s_mouse_start = 0;
-static U32 s_mouse_end = 0;
+static T_ControlSpan s_mouse_span;
 
 void Control_MouseClear(void) {
     s_mouse_dx = s_mouse_dy = 0;
-    s_mouse_end = 0;
+    s_mouse_span.end = 0;
+    /* Lift the buttons rather than leaving them for something else to notice: Click is a
+       level, not an edge, and nothing clears it but a button-up event that will never
+       come for one this put down. */
     if (s_mouse_buttons)
         Click &= (S32)~s_mouse_buttons;
     s_mouse_buttons = 0;
 }
 
-int Control_MouseMove(S32 dx, S32 dy, U32 buttons, U32 delayPolls, U32 durPolls) {
+int Control_MouseMove(S32 dx, S32 dy, U32 buttons, U32 durPolls) {
     if (durPolls == 0)
         return 0;
     Control_MouseClear();
     s_mouse_dx = dx;
     s_mouse_dy = dy;
     s_mouse_buttons = buttons;
-    /* +1 for the same reason the key holds carry one: s_key_poll counts polls already
-       taken, so the earliest this can be seen on is the next. */
-    s_mouse_end = s_key_poll + delayPolls + 1 + durPolls;
-    s_mouse_start = s_key_poll + delayPolls + 1;
+    span_arm(&s_mouse_span, durPolls);
     return 1;
-}
-
-/* The right stick, on the same clock and in the same window. UpdateJoystick clears the
-   cached axes on every poll before the hooks below run, so a stand-in re-applies rather
-   than sets once, exactly as a real pad's poll would.
-
-   Presence comes with it. The analog camera asks whether a pad is there before it reads
-   the axes, so without that the injected values would be restored into a run that never
-   looks at them. */
-static S16 s_stick_x = 0, s_stick_y = 0;
-static U32 s_stick_start = 0;
-static U32 s_stick_end = 0;
-
-void Control_StickClear(void) {
-    s_stick_x = s_stick_y = 0;
-    s_stick_end = 0;
-    Joystick_SetVirtualPad(0);
-}
-
-int Control_StickHold(S16 x, S16 y, U32 delayPolls, U32 durPolls) {
-    if (durPolls == 0)
-        return 0;
-    Control_StickClear();
-    s_stick_x = x;
-    s_stick_y = y;
-    s_stick_start = s_key_poll + delayPolls + 1;
-    s_stick_end = s_key_poll + delayPolls + 1 + durPolls;
-    return 1;
-}
-
-static void control_stick_apply(void) {
-    if (s_stick_end == 0)
-        return;
-    if (s_key_poll >= s_stick_end) {
-        Control_StickClear();
-        return;
-    }
-    if (s_key_poll < s_stick_start)
-        return;
-
-    /* Through the recording seam, and carrying the first-pressed scancode across
-       unchanged: the stick is not a button and must not claim to be one. */
-    Joystick_SetVirtualPad(1);
-    Joystick_SetReplayState(JoystickFirstPressedScancode(), s_stick_x, s_stick_y);
 }
 
 static void control_mouse_apply(void) {
     S32 dx, dy;
 
-    if (s_mouse_end == 0)
-        return;
-    if (s_key_poll >= s_mouse_end) {
+    switch (span_phase(&s_mouse_span)) {
+    case SPAN_ENDED:
         Control_MouseClear();
         return;
-    }
-    if (s_key_poll < s_mouse_start)
+    case SPAN_LIVE:
+        break;
+    default:
         return;
+    }
 
     PeekMouseMotion(&dx, &dy);
     SetMouseMotion(dx + s_mouse_dx, dy + s_mouse_dy);
     Click |= (S32)s_mouse_buttons;
+}
+
+static S16 s_stick_x = 0, s_stick_y = 0;
+static T_ControlSpan s_stick_span;
+
+void Control_StickClear(void) {
+    s_stick_x = s_stick_y = 0;
+    s_stick_span.end = 0;
+    Joystick_SetVirtualPad(0);
+}
+
+int Control_StickHold(S16 x, S16 y, U32 durPolls) {
+    if (durPolls == 0)
+        return 0;
+    Control_StickClear();
+    s_stick_x = x;
+    s_stick_y = y;
+    span_arm(&s_stick_span, durPolls);
+    return 1;
+}
+
+static void control_stick_apply(void) {
+    switch (span_phase(&s_stick_span)) {
+    case SPAN_ENDED:
+        Control_StickClear();
+        return;
+    case SPAN_LIVE:
+        break;
+    default:
+        return;
+    }
+
+    /* UpdateJoystick clears the cached axes on every poll before this runs, so this
+       re-applies on each rather than setting once, which is what a real pad's poll does.
+       Presence comes with it: the analog camera asks whether a pad is there before it
+       reads the axes, so without it the values would land in a run that never looks. */
+    Joystick_SetVirtualPad(1);
+    Joystick_SetRightStick(s_stick_x, s_stick_y);
 }
 
 /* Strong override of the weak hook in LIB386/SYSTEM/KEYBOARD.CPP. Runs inside
