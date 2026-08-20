@@ -298,7 +298,10 @@ esac
 
 # Changing a game variable under the replay is a divergence the recording cannot know
 # about, so the report has to come from comparing the stored values against the live
-# ones. Exits non-zero by design: the run diverged.
+# ones. The check is on the output and not on the exit code, because measured, a replay
+# that diverges under --tick still exits 0: the exit code carries the replay's verdict
+# only on the path that has no tick budget (SOURCES/RECORD.CPP, Record_PollHook). The
+# `|| true` is there for that path rather than this one.
 bout="$(ctl --verbose --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$rec" --tick 400 \
     --exec-at 200 "vargame 77 42" --exit 2>&1 || true)"
 case "$bout" in
@@ -374,4 +377,79 @@ case "$wout" in
     ;;
 esac
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways"
+# The loop a player can drive: record in one session, replay in the next, with nothing
+# typed at either end and no flags at all.
+#
+# Two runs rather than one, and that is the whole point of the arm. In a single process
+# `rec play` inherits a step the earlier `rec start` already pinned and a scene it is
+# already in, so it cannot see either of the things this checks. A second process starts
+# with neither, which is what a player does and what every check below turns on.
+#
+# No --fixed-dt. Every arm above pins the step on the command line, so none of them can
+# see whether a session already in progress pins its own -- the difference between a
+# recorder a harness drives and one a player can reach, since a player is already playing
+# and cannot be sent back to a command line to relaunch.
+#
+# No path either. `rec start` names the session after the time of day, and `rec play` in
+# the second run has no recording of its own to remember, so it goes and finds the most
+# recent one in the folder. That is the cross-session half of the no-argument form, and
+# only a second process exercises it.
+#
+# Its own user directory, so the recordings folder starts empty: the arms above have
+# already put files in the suite's own, and "exactly one recording" is what says the
+# auto-name landed where it belongs rather than somewhere that already had a file.
+loopdir="$(mktemp -d)"
+trap 'rm -rf "$here" "$loopdir"' EXIT
+
+LBA2_USER_DIR="$loopdir" ctl --load "$LBA2_TEST_SAVE" \
+    --exec-at 20 "rec start" --exec-at 120 "key up 60 2" \
+    --exec-at 220 "rec stop" --tick 300 --exit >/dev/null 2>&1 ||
+    fail "console loop: the recording run exited non-zero ($?) — hang or crash"
+
+# Counted with -e per entry, because the shell hands back the pattern itself when nothing
+# matches it: an unmatched glob would otherwise count as one file named `session-*.rec`,
+# which is the case this assertion exists to catch.
+loopcount=0
+for f in "$loopdir"/recordings/session-*.rec; do
+    if [ -e "$f" ]; then loopcount=$((loopcount + 1)); fi
+done
+[ "$loopcount" -eq 1 ] ||
+    fail "console loop: expected one auto-named recording in $loopdir/recordings, found $loopcount"
+
+loopout="$(LBA2_USER_DIR="$loopdir" ctl --load "$LBA2_TEST_SAVE" \
+    --exec-at 20 "rec play" --tick 600 --exit 2>&1)" ||
+    fail "console loop: the replay run exited non-zero ($?) — hang or crash"
+
+case "$loopout" in
+*"first hash mismatch -1"*) ;;
+*)
+    fail "console loop: $(printf '%s\n' "$loopout" |
+        grep -m1 -e 'replay ended' -e 'cannot open' -e 'recordings in' ||
+        echo 'the replay said nothing')"
+    ;;
+esac
+
+# The replay pins its step and loads its scene after the file is opened, so a mode
+# comparison made at open time reports the step of the run that has not armed one yet --
+# a warning that this replay may not reproduce, on a replay that reproduces exactly, every
+# time. A warning is worth having only if it stays quiet when nothing is wrong, and this
+# is the run that can tell: the check above has already said the two agreed on every tick.
+case "$loopout" in
+*"mode differs"*)
+    fail "console loop: $(printf '%s\n' "$loopout" | grep -m1 'mode differs') — but the replay was clean"
+    ;;
+esac
+
+# Nothing to play. Reported rather than silent, and naming the folder it looked in:
+# without that the answer is indistinguishable from a replay that started and did nothing.
+emptydir="$(mktemp -d)"
+trap 'rm -rf "$here" "$loopdir" "$emptydir"' EXIT
+emptyout="$(LBA2_USER_DIR="$emptydir" ctl --load "$LBA2_TEST_SAVE" \
+    --exec-at 20 "rec play" --tick 60 --exit 2>&1)" ||
+    fail "console loop: the empty-folder run exited non-zero ($?) — hang or crash"
+case "$emptyout" in
+*"no .rec recordings in"*) ;;
+*) fail "console loop: 'rec play' with no recordings to play said nothing about it" ;;
+esac
+
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths"

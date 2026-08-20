@@ -32,10 +32,28 @@ Mid-session, from the console (F12), which records from a point you choose rathe
 
 | Command | What it does |
 |---|---|
-| `rec start <name>` | Write a snapshot, reload it, and start recording from the post-load state |
+| `rec start [name]` | Write a snapshot, reload it, and start recording from the post-load state |
 | `rec stop` | Stop and flush |
-| `rec play <name>` | Replay a recording into the running engine |
+| `rec play [name]` | Replay a recording into the running engine |
 | `rec info [name]` | Report the current session, or compare a file's mode lines against this run |
+
+The name is optional at both ends, and without one nothing has to be typed or kept track of:
+
+```
+> rec start
+rec: recording to /home/you/.local/share/Twinsen/LBA2/recordings/session-20260820-150408.rec
+> rec stop
+rec: stopped
+> rec play
+rec: replaying /home/you/.local/share/Twinsen/LBA2/recordings/session-20260820-150408.rec
+```
+
+`rec start` names the session after the time of day. `rec play` takes the recording this run
+recorded, and in a session that has recorded nothing -- the next launch, say -- the most recently
+written one in the folder.
+
+Neither command needs a flag either. A mid-session `rec start` pins the simulation step itself, on
+the reload it already performs, so the recipe below is for the from-boot flags and not for this.
 
 ## Where recordings live
 
@@ -58,7 +76,7 @@ directory. It cannot pick the wrong file, because a folder that has the name win
 `--user-dir` and `--profile` move the folder with the rest of the profile, so recordings made under
 one profile are the ones that profile replays.
 
-## `--fixed-dt` is required, not an optimisation
+## The pinned step is required, not an optimisation
 
 A session recorded on the host-sampled clock does not replay exactly. Movement integrates per
 sub-step from `GetDeltaMove`, so two runs that reach a tick with the same clock reading but a
@@ -67,8 +85,39 @@ replay reproducible, and it was arrived at by measurement: reproducing the sampl
 reconstructing it, and pinning the derived game clock every tick were each built and none of them
 worked.
 
-The header records the mode, and `rec info` compares a recording's mode lines against the live run,
-so a replay under a different `--fixed-dt` is reported rather than silently wrong.
+Who pins it depends on where the recording starts, and the split is not a convenience:
+
+- **From boot, with `--record`,** the run has no load to hide a clock reset behind, so the step has
+  to be on the command line: `--fixed-dt 16`.
+- **Mid-session, with `rec start`,** the recorder pins it. It can, because it already writes a
+  snapshot and reloads it, and `Timer_EnableFixedDt` zeroes `TimerRefHR` -- which is safe only where
+  a load follows to put the clock back. A player whose session is already in progress cannot be
+  told to relaunch, so this is the path that makes recording something they can reach.
+
+A replay pins whatever step the recording's header names, so a session played at some other step
+replays at that one rather than at the default.
+
+**Both ends have to arm it the same way, and matching values is not enough.** Arming at boot and
+arming at the reload are different points in the run, and `Timer_EnableFixedDt` reseeds the clock
+where it is called, so a recording made one way and replayed the other diverges even at the same
+step. Measured on the same save and the same 16 ms step:
+
+| Recorded | Replayed | Result |
+|---|---|---|
+| `--fixed-dt 16` | `--fixed-dt 16` | clean, `first hash mismatch -1` |
+| no flag, `rec start` pins it | no flag, `rec play` pins it | clean, `first hash mismatch -1` |
+| `--fixed-dt 16` | no flag | diverges at tick 1, 3152 ms of clock drift |
+| no flag, `rec start` pins it | `--fixed-dt 16` | diverges at tick 1, 3152 ms of clock drift |
+
+So a session recorded with the flag is replayed with the flag, and one recorded without it is
+replayed without it. The header records the step but not where it was armed, so the mode comparison
+cannot yet report the two bottom rows: after arming, both ends say `mode.fixed_dt=16` and the
+comparison is looking at the same number on both sides. Recording where the step was armed, so a
+replay can name that difference the way it names the others, is the open piece.
+
+The header records the mode either way, and `rec info` compares a recording's mode lines against the
+live run, so a replay under a step the recording was not made at is reported rather than silently
+wrong.
 
 ## What a recording contains
 
@@ -127,10 +176,12 @@ The savegames come back out with `scripts/dev/dump_recording.py session.rec save
 `session.start.lba` and `session.end.lba` and needs no engine.
 
 The one place a snapshot still touches the filesystem is on its way past: the engine's save layer
-works in paths at both ends, so `rec start` stages the savegame at `recordings/staging.lba` and a replay
-that reloads stages it back. One fixed name, removed once the load has read it. Not the save
-folder, which is the obvious place and the wrong one -- the load menu lists every `.LBA` it finds
-there, and a staging file would show up as a save nobody made.
+works in paths at both ends, so `rec start` stages the savegame beside the recording as
+`<name>.staging.lba` and a replay that reloads stages it back. Removed once the load has read it,
+and named after the recording rather than shared, so two engines on one user directory cannot
+overwrite each other's starting state. Not the save folder, which is the obvious place and the
+wrong one -- the load menu lists every `.LBA` it finds there, and a staging file would show up as a
+save nobody made.
 
 A recording in an older format carries neither savegame and names a sibling in `setup.snapshot=`.
 Both readers take that path too, which is why the oldest format the build reads is older than the
@@ -339,8 +390,18 @@ replayed without it, because `--no-audio` skips `InitSampleDriver` entirely: `Is
 then an unconditional no rather than a differently timed yes, which is a different branch and not a
 quieter one. It reaches further than the ambience draw, too. A dialogue with the text off spins on
 `TestSpeak()` until the voice sample ends, so the same line holds the game for hundreds of ticks in
-one run and none in the other. And since `--headless` implies `--no-audio` while `--fixed-dt`
-requires `--headless`, that is every replay today.
+one run and none in the other. `--headless` implies `--no-audio`, so every replay driven that way is
+silent.
+
+A replay does not have to be driven that way, though, and since the recorder pins its own step there
+is no longer a flag pulling it there either: `--fixed-dt` sets the control harness active but does
+not require `--headless`, and a mid-session `rec start` needs no flag at all. Measured, with a sample
+device up on both ends and neither run headless or given a step -- `rec start`, `rec stop`, then
+`rec play` in a second run -- the recording carries `mode.audio=1` and replays at `first hash
+mismatch -1` with no mode line differing. So a session recorded with sound is reproducible by a
+session replayed with sound; what stays broken is mixing the two, which is what the line reports.
+That round trip has no fixture behind it, because the arms that could run it are the ones that have
+to skip where SDL will not open a dummy device.
 
 So the header carries `mode.audio`, and a replay names it as it starts:
 
