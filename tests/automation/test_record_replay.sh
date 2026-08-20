@@ -17,6 +17,11 @@
 # --fixed-dt is not a convenience here. A recording made on a host-sampled clock does
 # not replay exactly (docs/plan/RECORDING_RESEARCH.md), so the pinned step is part of
 # what is under test rather than a way to make the test quicker.
+#
+# One arm is not a record-and-replay at all. recordings/legacy-v10.rec was captured by
+# an older engine, in a format this build reads and does not write, and is replayed as it
+# stands: a same-binary round trip cannot see a change that breaks the writer and the
+# reader together.
 TESTNAME="record_replay"
 . "$(dirname "$0")/lib.sh"
 precheck
@@ -158,6 +163,52 @@ case "$bareout" in
     ;;
 esac
 
+# A recording this build does not write.
+#
+# Every arm above records and replays with the same binary, which cannot catch a change
+# that breaks both ends together -- and that is the class the format has already been
+# bitten by. legacy-v10.rec is a format-10 session, captured once and never regenerated;
+# tests/automation/recordings/README.md says why not.
+#
+# Two properties, and they fail differently. The tick count says the reader walked the
+# stream correctly, which is what a record whose layout moved would break. The clean
+# result says the sibling savegame was found and loaded, which is the only coverage the
+# pre-single-file snapshot path has: measured, the same file with its .rec.lba moved
+# away diverges at tick 0.
+legacy="$REPO/tests/automation/recordings/legacy-v10.rec"
+legacy_save="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Anon1.LBA"
+if [ ! -f "$legacy" ] || [ ! -f "$legacy".lba ]; then
+    fail "the legacy recording is missing from $REPO/tests/automation/recordings"
+fi
+[ -f "$legacy_save" ] || skip "fixture save missing: $legacy_save"
+
+lout="$(ctl --fixed-dt 16 --load "$legacy_save" --replay "$legacy" --tick 300 --exit 2>&1)" ||
+    fail "legacy: replay run exited non-zero ($?) — hang or crash"
+
+case "$lout" in
+*"is format"*)
+    fail "legacy: $(printf '%s\n' "$lout" | grep -m1 'is format')"
+    ;;
+esac
+
+lsummary="$(printf '%s\n' "$lout" | grep -m1 'replay ended')" ||
+    fail "legacy: the replay printed no summary; it cannot be said to have read the file"
+
+lchecked="$(printf '%s\n' "$lsummary" | sed -n 's/.*: \([0-9]*\) ticks checked.*/\1/p')"
+[ "$lchecked" = "198" ] ||
+    fail "legacy: read ${lchecked:-0} ticks, the file holds 198 — the reader has lost the stream"
+
+case "$lsummary" in
+*"first hash mismatch -1"*) ;;
+*)
+    # Every differing mode line, not the first: a divergence from different retail data
+    # reads exactly like a reader bug, and the line that says so can sit behind an
+    # engine version that differs on any working tree.
+    fail "legacy: $lsummary; $(printf '%s\n' "$lout" | grep 'mode differs' | tr '\n' ';' ||
+        echo 'no mode line differed, so this is the format path')"
+    ;;
+esac
+
 # Verbose telemetry. A plain recording carries one digest a tick, which can say that a
 # tick stopped matching and never which of ~1300 values moved; --verbose stores them all.
 # Recorded once and replayed twice: once expecting clean, and once with a variable
@@ -193,4 +244,4 @@ case "$bout" in
     ;;
 esac
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; telemetry named the injected change"
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change"
