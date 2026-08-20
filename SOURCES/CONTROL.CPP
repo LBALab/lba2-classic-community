@@ -1,6 +1,8 @@
 #include "CONTROL.H"
 
 #include "C_EXTERN.H" /* pulls DEFINES.H (T_OBJET) + game globals */
+
+#include <SYSTEM/INPUT_FLOW.H>
 #include "COMMON.H"
 #include "PERSO.H"    /* InitGame, MainLoop, TheEnd */
 #include "OBJECT.H"   /* ChangeCube */
@@ -864,6 +866,23 @@ static void control_dump_state(const char *path) {
     fprintf(f, "  \"fps\": %d,\n", (int)NbFramePerSecond);
     fprintf(f, "  \"throws\": %d,\n", (int)DbgHeroThrows);
     fprintf(f, "  \"action_resets\": %d,\n", (int)DbgHeroActionResets);
+
+    /* Per-boundary input flow (SYSTEM/INPUT_FLOW.H). Counts, not rates: a
+       reader compares the two sides of a boundary and the gap is what that
+       layer lost. Cumulative for the run, so a harness reads it once at the
+       end rather than sampling. */
+    fprintf(f,
+            "  \"input_flow\": { \"key_down_events\": %u, \"key_up_events\": %u, "
+            "\"polled_rises\": %u, \"polls\": %u, "
+            "\"tabkey_rises\": %u, \"input_rises\": %u, \"input_rises_masked\": %u, "
+            "\"frames_with_edge\": %u, \"frames_with_edge_skipped\": %u, "
+            "\"action_edges_skipped\": %u },\n",
+            (unsigned)InputFlow.KeyDownEvents, (unsigned)InputFlow.KeyUpEvents,
+            (unsigned)InputFlow.PolledRises, (unsigned)InputFlow.PollsSampled,
+            (unsigned)InputFlow.TabKeyRises, (unsigned)InputFlow.InputRises,
+            (unsigned)InputFlow.InputRisesMasked,
+            (unsigned)InputFlow.FramesWithEdge, (unsigned)InputFlow.FramesWithEdgeSkipped,
+            (unsigned)InputFlow.ActionEdgesSkipped);
 
     fprintf(f,
             "  \"scene\": { \"island\": %d, \"cube\": %d, \"cube_mode\": \"%s\", "

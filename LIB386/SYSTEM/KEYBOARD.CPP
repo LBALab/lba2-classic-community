@@ -1,6 +1,7 @@
 #include <SYSTEM/KEYBOARD.H>
 
 #include <SYSTEM/EVENTS.H>
+#include <SYSTEM/INPUT_FLOW.H>
 
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keyboard.h>
@@ -70,10 +71,21 @@ void UpdateKeyboardState() {
         }
     }
 
+    /* Boundary 1's state side, taken here rather than after the two hooks
+       below: they put keys into TabKeys that no SDL event produced, and those
+       would read as presses the event side had lost. */
+    InputFlow_NotePollSampled(TabKeys);
+
     ApplyVirtualKeys();
     ApplyHarnessKeys();
     /* The session recorder, on the same terms as the two hooks above. */
     Record_PollHook();
+
+    /* Boundary 2's key side, after the hooks: an injected key is a real key as
+       far as the binding table is concerned. That includes a replayed one, which
+       is why this comes after the recorder rather than before it: a replay puts
+       the file's keys here, and the count has to be of what the game will read. */
+    InputFlow_NotePollFinal(TabKeys);
 }
 
 // --- Initialization ----------------------------------------------------------
@@ -137,6 +149,14 @@ void HandleEventsKeyboard(const void *event) {
     if (ev->type == SDL_EVENT_KEY_DOWN) {
         LastInputWasKeyboard = 1;
     }
+
+    /* Boundary 1's event side. Auto-repeat is excluded: a held key repeats at
+       the desktop's rate and none of those repeats is a press, so counting them
+       would swamp the one number this boundary exists to produce. */
+    if (ev->type == SDL_EVENT_KEY_DOWN && !ev->key.repeat)
+        InputFlow_NoteKeyEvent(TRUE);
+    else if (ev->type == SDL_EVENT_KEY_UP)
+        InputFlow_NoteKeyEvent(FALSE);
 }
 
 // =============================================================================

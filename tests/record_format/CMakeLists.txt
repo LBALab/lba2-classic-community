@@ -7,6 +7,7 @@ add_executable(test_record_format
     ${CMAKE_SOURCE_DIR}/SOURCES/RECORD_FORMAT.CPP
     ${CMAKE_SOURCE_DIR}/SOURCES/INPUT_BINDINGS.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT_FLOW.CPP
     # INPUT.CPP's two keyboard hooks, stubbed. Shared with tests/input_bindings so
     # there is one stub rather than a second that can drift from it.
     ${CMAKE_SOURCE_DIR}/tests/input_bindings/held_keys.cpp)
