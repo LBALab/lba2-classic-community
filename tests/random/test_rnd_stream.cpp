@@ -104,19 +104,20 @@ static void test_zero_seed_is_one(void) {
         ASSERT_EQ_INT(fromZero[i], Rnd_Next());
 }
 
-/* Every draw is a non-negative 31 bit value, which is what `Rnd(n) = Rnd_Next()
- * % n` needs to stay in range for a positive n. */
+/* Every draw is non-negative, which is what `Rnd(n) = Rnd_Next() % n` needs to
+ * stay in range for a positive n. A negative draw would come back as a negative
+ * index, and the upper bound needs no test: the shift that produces the value
+ * leaves 31 bits, so S32's own maximum is the bound. */
 static void test_range(void) {
+    S32 worst = 0;
     int i;
     Rnd_Seed(20250820u);
     for (i = 0; i < 200000; i++) {
         S32 v = Rnd_Next();
-        if (v < 0 || v > 2147483647) {
-            ASSERT_TRUE(v >= 0 && v <= 2147483647);
-            return;
-        }
+        if (v < worst)
+            worst = v;
     }
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(0, worst);
 }
 
 #ifdef __GLIBC__

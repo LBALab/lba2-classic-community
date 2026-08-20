@@ -67,7 +67,16 @@ extern "C" {
    types the reader probes for and steps over, so an older recording reads the same as
    it always did -- and a recording of a session someone played once is worth more than
    the tidiness of a single supported version. A change that alters what an existing
-   record *means* moves this up to REC_VERSION; a change that only adds one does not. */
+   record *means* moves this up to REC_VERSION; a change that only adds one does not.
+
+   A change to what the engine *computes* is a third case, and it does not belong here
+   either way: the format still means what it meant, and whether an old recording still
+   reproduces is a question about the engine, not about the reader. Moving Rnd off libc
+   is the worked example. It changed every draw on Windows and none on Linux, because
+   the replacement reproduces glibc, so the recordings that exist still replay and there
+   was nothing for a version gate to protect. The header's `numeric.` lines are what
+   report that class of difference, per recording, rather than a version refusing the
+   whole file. */
 #define REC_VERSION_MIN 9
 
 /* Sync markers, on the same idea as the socket protocol's <<END>>: a reader that has

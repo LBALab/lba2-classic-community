@@ -15,6 +15,12 @@
 // bits and the arithmetic below is exact in S32 without a wider type. Then 310
 // draws are discarded to let the additive recurrence mix the ring.
 //
+// Not thread-safe, where libc's rand() is: the state below carries no lock. That
+// holds because every draw in the engine is on the simulation thread (the RNG
+// consumers are all in SOURCES/, and the one worker thread, STREAM.CPP's OGG
+// decoder, does not draw). A draw added from another thread needs a lock here, and
+// would also break replay determinism, which is the louder of the two problems.
+//
 // The two index constants are glibc's degree and separation for TYPE_3.
 #define RND_DEG 31
 #define RND_SEP 3
