@@ -321,12 +321,22 @@ static void test_vector(void) {
  * the run above measures, and these still fail if the arithmetic is broken
  * rather than merely different. */
 
+/* Distance needs its own, smaller, coordinate set. kCoords runs out to 16777217
+   for the rotations, where the products go through long double and are fine, but
+   DISTANCE.CPP squares in `int` first, so feeding it those values is the
+   overflow described above rather than a test of anything. Every combination
+   below stays inside the domain: the largest sum of three squares here is
+   3 * 15000^2, well under the 2147483647 that would wrap. */
+static const S32 kDistCoords[] = {0, 1, -1, 511, -512, 4096, -4096, 15000, -15000};
+
+#define NDIST ((int)(sizeof kDistCoords / sizeof kDistCoords[0]))
+
 static void test_distance_properties(void) {
     int i;
     /* A point is no distance from itself, and distance does not care which way
        round its arguments are. */
-    for (i = 0; i < (int)(sizeof kCoords / sizeof kCoords[0]); i++) {
-        S32 x = kCoords[i], y = kCoords[(i + 3) % 10], z = kCoords[(i + 7) % 10];
+    for (i = 0; i < NDIST; i++) {
+        S32 x = kDistCoords[i], y = kDistCoords[(i + 3) % NDIST], z = kDistCoords[(i + 7) % NDIST];
         ASSERT_EQ_UINT(0u, Distance3D(x, y, z, x, y, z));
         ASSERT_EQ_UINT(0u, Distance2D(x, y, x, y));
         ASSERT_EQ_UINT(Distance3D(x, y, z, 0, 0, 0), Distance3D(0, 0, 0, x, y, z));
