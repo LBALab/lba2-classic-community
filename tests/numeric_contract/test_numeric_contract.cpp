@@ -307,11 +307,23 @@ static void test_vector(void) {
     ASSERT_EQ_INT(NEXPECTED, g_idx);
 
 #if !HAS_X87_LONG_DOUBLE
-    printf("# long double is %d mantissa bits here, not 64: the vector above is\n",
+    printf("# long double is %d mantissa bits here, not 64, so the vector is reported\n",
            (int)LDBL_MANT_DIG);
-    printf("# reported, not asserted. Largest difference %ld, at %s.\n", g_maxDelta,
-           g_worstLabel);
-    printf("# A recording made on x86-64 does not replay here until that is 0.\n");
+    printf("# rather than asserted. Largest difference %ld, at %s.\n", g_maxDelta, g_worstLabel);
+    if (g_maxDelta == 0) {
+        /* Do not let a zero here be read as "ARM replay works". It is one
+           necessary condition out of several, and these cases are not evenly
+           discriminating: a 25-bit coordinate times a 24-bit float mantissa is
+           exact in a 53-bit double, so most of the rotation products cannot
+           differ whatever the host, and the rotation matrix is a Z-rotation
+           whose third row copies its input. The eight projections are the cases
+           that carry a real division, and so the ones with something to say. */
+        printf("# Zero is necessary for an x86-64 recording to replay here, and a long\n");
+        printf("# way from sufficient: five functions of LIB386/3D, and most of these\n");
+        printf("# products are exact in a double whatever the host.\n");
+    } else {
+        printf("# A recording made on x86-64 does not replay here while that is not 0.\n");
+    }
 #endif
 }
 
