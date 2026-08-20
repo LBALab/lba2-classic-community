@@ -44,6 +44,21 @@ record_and_replay() { # record_and_replay <label> [extra record args...]
 
     [ -s "$rec" ] || fail "$label: no recording written to $rec"
 
+    # The header has to declare the arithmetic the session ran on, because that is what
+    # lets a replay on another platform open by naming what it disagrees about instead
+    # of diverging in the middle. A missing line is silent: the reader treats an absent
+    # field as nothing to compare, so the warning disappears rather than failing.
+    local head
+    head="$(head -c 2048 "$rec")"
+    case "$head" in
+    *"numeric.rng="*) ;;
+    *) fail "$label: the header does not declare numeric.rng" ;;
+    esac
+    case "$head" in
+    *"numeric.long_double_bits="*) ;;
+    *) fail "$label: the header does not declare numeric.long_double_bits" ;;
+    esac
+
     # More ticks than the recording holds, so the stream runs out and the summary
     # prints. Ending on --tick first means no summary at all, and a run that reported
     # nothing reads exactly like a run that passed.
