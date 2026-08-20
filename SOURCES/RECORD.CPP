@@ -164,10 +164,10 @@ extern "C" {
  * actors and all 336 script variables entirely. This carries the lot, every tick, so
  * the first mismatching tick names the field that moved.
  *
- * About 2 KB a tick, so it is opt-in (--verbose) rather than the default: a diagnostic
- * recording, made once, to answer a question a normal one cannot. The bytes are the
- * cost and the time is not -- measured, 0.10 ms of CPU a tick, which is the loop that
- * marshals the values rather than the write.
+ * About 2.8 KB a tick, so it is opt-in (--record-telemetry, or `rec start verbose`)
+ * rather than the default: a diagnostic recording, made once, to answer a question a
+ * normal one cannot. The bytes are the cost and the time is not -- measured, 0.10 ms of
+ * CPU a tick, which is the loop that marshals the values rather than the write.
  */
 #define REC_TELE 0x51
 
