@@ -1768,6 +1768,31 @@ S32 Control_HasLiveScene(void) { return NumCube >= 0 && NbObjets > 0; }
                                                                  off, and rain draws from the one
                                                                  shared random stream)
 
+   The mouse block came from a third sweep, over a session that orbits rather than walks,
+   because the two before it drove the keyboard and could not have moved any of these. A
+   recording stores the raw motion the frame will deliver, and the *replaying* run's
+   config is what scales it (SOURCES/EXTFUNC.CPP, MouseCameraSensX / MouseCameraDivisor),
+   so the same bytes turn the camera by a different amount and the camera is in the digest:
+
+     MouseCamera 1 -> 0                    diverges at tick 61  (the motion is discarded)
+     MouseSensitivityX 4 -> 8                          tick 61  (the first gesture is X-only)
+     MouseCameraDivisor 4 -> 2                         tick 61
+     MouseSensitivityY 4 -> 8                          tick 131 (the first gesture with a Y)
+     MouseInvertY 0 -> 1                               tick 131
+     FollowCamOrbitGlide 75 -> 20                      tick 101 (where the first gesture ends
+                                                                 and the glide takes over)
+     MouseCameraDrag 1 -> 0                            tick 61  (on a second session, whose
+                                                                 motion holds no button: with
+                                                                 one held both settings orbit
+                                                                 and nothing can tell them apart)
+
+   Each tick is the gesture that setting shapes, which is the check that these are the
+   settings moving the camera rather than a session that diverges anyway.
+
+   Still out, and unexercised rather than shown harmless: ManualCameraSmoothing read clean
+   on both sessions, and reaching it needs an orbit that leaves FollowCamTargetBeta far
+   enough from BetaCam to take the stepped branch in SOURCES/FOLLOWCAM.CPP.
+
    Named by their lba2.cfg keys, so a mismatch names the line the player would edit. */
 S32 Control_DescribeState(char *out, size_t n) {
     int wrote = snprintf(out, n,
@@ -1789,6 +1814,13 @@ S32 Control_DescribeState(char *out, size_t n) {
                          "settings.FollowCamHDPitchGain=%d\n"
                          "settings.FollowCamHDDistGain=%d\n"
                          "settings.FollowCamHDLeanGain=%d\n"
+                         "settings.FollowCamOrbitGlide=%d\n"
+                         "settings.MouseCamera=%d\n"
+                         "settings.MouseCameraDrag=%d\n"
+                         "settings.MouseSensitivityX=%d\n"
+                         "settings.MouseSensitivityY=%d\n"
+                         "settings.MouseInvertY=%d\n"
+                         "settings.MouseCameraDivisor=%d\n"
                          "settings.DetailLevel=%d\n",
                          (int)FixedTimestep,
                          (int)DisplayVSync,
@@ -1806,6 +1838,13 @@ S32 Control_DescribeState(char *out, size_t n) {
                          (int)FollowCamHDPitchGain,
                          (int)FollowCamHDDistGain,
                          (int)FollowCamHDLeanGain,
+                         (int)FollowCamOrbitGlide,
+                         (int)FlagMouseCamera,
+                         (int)FlagMouseCameraDrag,
+                         (int)MouseCameraSensX,
+                         (int)MouseCameraSensY,
+                         (int)MouseCameraInvertY,
+                         (int)MouseCameraDivisor,
                          (int)DetailLevel);
     return wrote > 0 && (size_t)wrote < n;
 }
