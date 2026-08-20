@@ -1,4 +1,5 @@
 #include "../AUDIO_CONSOLE.H"
+#include <SYSTEM/INPUT_FLOW.H>
 #include "CONSOLE.H"
 #include "CONSOLE_STATE.H"
 #include "CONSOLE_GIVE.H"
@@ -1861,6 +1862,32 @@ static void cmd_camnudge(int argc, const char *argv[]) {
                   DbgCamNudgeFrames);
 }
 
+/* inputflow [reset]: the per-boundary input counters (SYSTEM/INPUT_FLOW.H).
+ *
+ * One line per boundary, both sides of each, because the number that matters is
+ * the gap between them rather than either column alone. `reset` zeroes them so a
+ * socket session can measure one scenario at a time from a running engine
+ * instead of paying a boot per measurement. */
+static void cmd_inputflow(int argc, const char *argv[]) {
+    if (argc >= 2 && !strcmp(argv[1], "reset")) {
+        InputFlow_Reset();
+        Console_Print("inputflow: reset");
+        return;
+    }
+
+    Console_Print("b1 sdl->polled: down %u up %u -> rises %u over %u poll(s), gap %d",
+                  (unsigned)InputFlow.KeyDownEvents, (unsigned)InputFlow.KeyUpEvents,
+                  (unsigned)InputFlow.PolledRises, (unsigned)InputFlow.PollsSampled,
+                  (int)InputFlow.KeyDownEvents - (int)InputFlow.PolledRises);
+    Console_Print("b2 polled->input: keys %u -> actions %u (masked %u), gap %d",
+                  (unsigned)InputFlow.TabKeyRises, (unsigned)InputFlow.InputRises,
+                  (unsigned)InputFlow.InputRisesMasked,
+                  (int)InputFlow.TabKeyRises - (int)InputFlow.InputRises);
+    Console_Print("b3 input->sim: %u frame(s) with an edge, %u skipped, %u of those action edges",
+                  (unsigned)InputFlow.FramesWithEdge, (unsigned)InputFlow.FramesWithEdgeSkipped,
+                  (unsigned)InputFlow.ActionEdgesSkipped);
+}
+
 /* skipmodals <0|1>: abort dialogue modals immediately so a headless run does not hang on a
    give/talk dialog (a modal spins waiting for a keypress while the main tick loop is stalled). */
 static void cmd_skipmodals(int argc, const char *argv[]) {
@@ -2297,6 +2324,12 @@ void Console_RegisterAll(void) {
                               "Logs island + from -> to cube on each ChangeCube, tracing the game's "
                               "cube-to-cube flow across a playthrough or the demo reel.");
     FollowCam_RegisterCommands();
+    Console_RegisterCommandEx("inputflow", cmd_inputflow, "Per-boundary input flow counters",
+                              "inputflow | inputflow reset",
+                              "Counts the input signal on both sides of each layer it crosses and "
+                              "reports the gap: events against polled state, polled state against "
+                              "action bits, action edges against frames the simulation stepped.");
+
     Console_RegisterCommandEx("camnudge", cmd_camnudge, "Inject a manual camera nudge (stick/mouse stand-in)",
                               "camnudge <dBeta> [dAlpha] [frames]",
                               "Feeds the same per-frame nudge the gamepad right stick and the mouse "

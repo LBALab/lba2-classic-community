@@ -1,6 +1,7 @@
 add_executable(test_input_funnel
     test_input_funnel.cpp
-    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP)
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT_FLOW.CPP)
 
 target_include_directories(test_input_funnel PRIVATE
     ${CMAKE_SOURCE_DIR}/LIB386/H

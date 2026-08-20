@@ -11,6 +11,9 @@ build-asan/
 build-clang/
 # Throwaway tree for scripts/ci/warning-baseline.sh (always a clean rebuild)
 build-warnings/
+# Control socket: LBA2_CONTROL_SERVER is off in any binary a player might run, so
+# the socket needs a tree of its own. docs/CONTROL.md names this one.
+build-ctl/
 dist/
 
 # Local retail drop (symlink or copy classic data here; never commit assets)

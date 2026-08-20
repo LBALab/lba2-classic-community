@@ -321,6 +321,41 @@ lines are a sibling beside it. [tests/camera](../../tests/camera/) links no engi
 covering both costs a test file and nothing else. Doing it that way puts the two conversion curves
 in one file, where whether they should be one thing is a read rather than an argument.
 
+**The counter half landed.** [LIB386/SYSTEM/INPUT_FLOW.CPP](../../LIB386/SYSTEM/INPUT_FLOW.CPP)
+holds the counters, `inputflow` reports them from the console and `--dump-state` carries them as
+`input_flow`, with the counting rules covered by [tests/input_flow](../../tests/input_flow/) which
+links the module and nothing else. Four things came out of doing it.
+
+*The force-step works, and that is now a number.* Across five scenarios driven through one engine,
+`action_edges_skipped` is **0** every time, including a frame carrying both a held movement key and
+an action tap. Movement edges are skipped freely, which is the throttle doing what it is designed
+to do. Increment 5 asked whether a static whitelist is still needed or whether the counter is the
+guard; this is the first evidence, and it points at the counter.
+
+| Scenario | b2 keys to actions | b3 edges / skipped / action |
+|---|---|---|
+| idle | 0 to 0 | 0 / 0 / 0 |
+| one key held 40 polls | 1 to 1 | 2 / 2 / 0 |
+| three key taps | 3 to 3 | 6 / 4 / 0 |
+| injected bits (`input up 40`) | 0 to 0 | 1 / 1 / 0 |
+| held key plus action tap | 2 to 2 | 3 / 1 / 0 |
+
+*The `input` verb bypasses boundary 2 entirely.* It ORs its bits into `Input` from the main loop,
+after `GetInput` has rebuilt, so the row above shows a frame edge with no key rise and no action
+rise behind it. That is the same shape as the gamepad post-OR bolt-on `tests/input_funnel` was
+written about. It is correct for a simulator and it means an `input`-driven fixture cannot exercise
+the binding layer; `key`, which goes through `TabKeys`, can.
+
+*Boundary 1 cannot be measured headless.* There are no SDL key events without a window, so the
+event side reads zero and the gap is meaningless. It needs a windowed session and a person, which
+is the one measurement here that a harness cannot take.
+
+*Take each count from where that state is written, not from where it is read.* `GetInput` reaches
+the table only through `CheckKey`, so having it report the key side would mean naming `TabKeys`
+inside the funnel: that couples the funnel to the keyboard module and obliges every test driving it
+with stubs to supply a table it never needed. The key side belongs in `KEYBOARD.CPP`, sampled
+twice, before the injection hooks for boundary 1 and after them for boundary 2.
+
 *Combo fixtures, recorded as a baseline.* The `fseq` verb from
 [INPUT_SIM_PLAN.md](INPUT_SIM_PLAN.md) Phase 1 already places an edge on a chosen frame, which is
 what these need. The speedrunning community supplied the first group; the rest came from reading
@@ -367,6 +402,14 @@ change could flip without anyone noticing.
 | Direction held plus a spell | the spell keys bypass `Input` entirely through `SpellKeyDown`, so this probes the hole in the binding table | PERSO.CPP:1361-1407 |
 | Walk and turn together | the arc: turning is velocity times dt and frame-rate independent, walking is animation-driven and is not, so the radius may change with frame rate | INPUT_RESEARCH open question 6 |
 | Any of the above in the buggy | `BUGGY.CPP:277` carries its own copy of the re-press test, so vehicle input is a second path with the same shape | BUGGY.CPP:277 |
+
+**Write these over the control socket, not as a boot per combo.** Most of the suite predates
+`--listen` and pays a process boot per observation. Measured on this fixture set: **4.7 ms** per
+command against a socket session already at the scene, against **282 ms** for a boot-per-probe as
+[CONTROL.md](../CONTROL.md) records. Fourteen combos, each wanting several probes, is the workload
+that difference was made for, and `inputflow reset` between them is what lets one session measure
+them one at a time. The existing fixtures are passing and are not worth rewriting for its own sake;
+this applies to the ones still to be written.
 
 **Two constraints these carry.**
 
