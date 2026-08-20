@@ -549,7 +549,7 @@ void DoTrack(U8 numobj) {
 
                 if (Value == -1) {
                     Value = *(S16 *)ptrtrack;
-                    if (rand() & 1) {
+                    if (Rnd_Next() & 1) {
                         Value = (ptrobj->Obj.Beta + MyRnd(Value)) & (MAX_ANGLE - 1);
                     } else {
                         Value = (ptrobj->Obj.Beta - MyRnd(Value)) & (MAX_ANGLE - 1);

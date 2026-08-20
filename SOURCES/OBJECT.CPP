@@ -1191,7 +1191,7 @@ void ChangeCube() {
     // SHIFT+D / idle-attract path, and later cube transitions keep diverging).
     // Demo_RngSeed swaps the source to NewCube while DemoSlide -- canonical per
     // cube, deterministic on every host. Normal play unchanged. See issue #176.
-    srand(Demo_RngSeed(DemoSlide, TimerRefHR, NewCube));
+    Rnd_Seed(Demo_RngSeed(DemoSlide, TimerRefHR, NewCube));
 
     if (FlagChgCube)
         SaveTimer();
@@ -1511,7 +1511,7 @@ void HitObj(U8 numhitter, U8 num, S32 hitforce, S32 beta) {
                                    beta);
             }
 
-            if (!(rand() & 1))
+            if (!(Rnd_Next() & 1))
                 InitAnim(GEN_ANIM_CHOC, ANIM_ALL_THEN, num);
             else
                 InitAnim(GEN_ANIM_CHOC2, ANIM_ALL_THEN, num);

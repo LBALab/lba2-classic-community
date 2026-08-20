@@ -283,9 +283,12 @@ what `--fixed-dt` already provides for testing. Preserving "the original" here m
 between original *code paths*, which is reproducible, and original *outcomes*, which were never a
 property of the game alone.
 
-**And one limit no compatibility mode removes:** the RNG is a single shared libc `rand()` stream
-whose sequence differs by platform (#530), so a recording is not guaranteed to replay on a
-different operating system regardless of how faithful the game logic is.
+**The limit that used to sit here has moved.** The RNG was a single shared libc `rand()` stream
+whose sequence differed by platform (#530), so a recording could not replay on another operating
+system however faithful the game logic was. The engine now carries the generator itself, and a
+recording crosses between Linux and Windows unchanged. What remains is the arithmetic: `LIB386/3D`
+rounds in `long double`, which is 80-bit on x86-64 and 64-bit on ARM, so macOS and Android are not
+yet in the set. See [RECORDING.md](RECORDING.md).
 
 None of this argues for building the switch now. It argues that the switch can be built whenever
 someone wants it, that the fixtures in [plan/INPUT_PLAN.md](plan/INPUT_PLAN.md) are already the

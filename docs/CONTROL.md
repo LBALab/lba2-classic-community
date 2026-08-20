@@ -826,16 +826,19 @@ in one order on both platforms.
 `test_ui_*_wide.sh` pair, which skip without it.
 
 The menu goldens carry a per-surface `--exclude` rectangle covering the plasma strip at
-the top of the panel, which is what lets one golden serve both platforms. The strip seeds
-its vertices and speeds from `Rnd()`, which is `rand() % n`, and libc's `rand()` is a
-different algorithm with a different `RAND_MAX` on each platform (#530), so the strip
-starts somewhere else on Windows and stays there. Everything else in those frames is
-byte-identical across the two, which is why excluding one band is enough.
+the top of the panel. It is vestigial: the strip seeded its vertices and speeds from
+`Rnd()`, which was `rand() % n`, and libc's `rand()` was a different algorithm with a
+different `RAND_MAX` on each platform (#530), so the strip started somewhere else on
+Windows and stayed there. The engine now carries its own generator
+(`LIB386/SYSTEM/RANDOM.CPP`), and a `ui menu-main` capture is byte-identical on the two
+platforms with the strip included, measured. The rectangles can come out whenever
+somebody wants to re-verify the five goldens on both hosts; leaving them in only costs
+that band its coverage.
 
-Nothing else about the strip differs: it is stepped the same number of times on both
-(30 steps over a capture, measured), and `Do_Plasma`'s evolution is pure integer and
+Nothing else about the strip ever differed: it is stepped the same number of times on
+both (30 steps over a capture, measured), and `Do_Plasma`'s evolution is pure integer and
 pinned bit-for-bit by `tests/plasma_steps/`, which passes with the same digest on both
-platforms. Only the starting state is unportable.
+platforms. Only the starting state was unportable.
 
 The rectangle's `y` follows the panel, whose height follows the entry count, so it lives
 in each test beside its golden and needs re-measuring if a menu gains or loses a row. A

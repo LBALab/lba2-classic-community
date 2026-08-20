@@ -7,13 +7,13 @@
 extern "C" {
 #endif
 
-/* Selects the value passed to srand() inside ChangeCube (SOURCES/OBJECT.CPP).
+/* Selects the value passed to Rnd_Seed() inside ChangeCube (SOURCES/OBJECT.CPP).
  *
- * Retail engine (and our default play): srand(TimerRefHR). The seed is a wall-
+ * Retail engine (and our default play): seed from TimerRefHR. The seed is a wall-
  * clock interval, which is fine in interactive play (any RNG state is fine —
  * humans don't notice).
  *
- * Demo / attract reel (DemoSlide == TRUE): srand((U32)new_cube). The wall-clock
+ * Demo / attract reel (DemoSlide == TRUE): seed from (U32)new_cube. The wall-clock
  * branch made every cube entry in the reel reseed from "ms accumulated since
  * the last ManageTime that updated TimerRefHR", which varied by host speed —
  * the visible symptom was the Desert Island bat hitting Twinsen on macOS but
