@@ -672,7 +672,7 @@ int Control_Begin(void) {
     /* Attract/demo mode: the scene's scripts drive the hero along authored tracks (a
        "canned playthrough"), and dialogues/choices auto-advance on the game clock instead
        of waiting for input. BeginDemoSlide() sets DemoSlide = TRUE; that flag routes
-       ChangeCube's srand through Demo_RngSeed (SOURCES/OBJECT.CPP), which seeds from the
+       ChangeCube's seeding through Demo_RngSeed (SOURCES/OBJECT.CPP), which seeds from the
        cube number instead of TimerRefHR -- so the demo reel reproduces on every host
        (Linux/macOS/Windows) regardless of how much wall-clock elapses between
        BeginDemoSlide() and the first ChangeCube. Opt-in; default gameplay is unaffected.
@@ -1767,7 +1767,7 @@ S32 Control_HasLiveScene(void) { return NumCube >= 0 && NbObjets > 0; }
      FollowCamGroundClearance missing                  tick 2   (the camera rests further out)
      DetailLevel 3 -> 0                                tick 235 (SetDetailLevel turns RainEnable
                                                                  off, and rain draws from the one
-                                                                 shared rand() stream)
+                                                                 shared random stream)
 
    Named by their lba2.cfg keys, so a mismatch names the line the player would edit. */
 S32 Control_DescribeState(char *out, size_t n) {

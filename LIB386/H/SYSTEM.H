@@ -34,6 +34,7 @@
 #include <SYSTEM/LOGPRINT.H>
 #include <SYSTEM/ITOA.H>
 #include <SYSTEM/CMDLINE.H>
+#include <SYSTEM/RANDOM.H>
 
 //──────────────────────────────────────────────────────────────────────────
 #define INIT_VIDEO (1 << 0)
@@ -56,7 +57,10 @@
 #define INIT_QUIET (1 << 18)
 
 //──────────────────────────────────────────────────────────────────────────
-#define Rnd(n) (rand() % (n))
+// Rnd_Next rather than rand(): libc's generator is a different function on each
+// platform, so drawing from it makes one seed a different game on Linux and on
+// Windows. SYSTEM/RANDOM.H has the measurements and the reasoning.
+#define Rnd(n) (Rnd_Next() % (n))
 
 //──────────────────────────────────────────────────────────────────────────
 S32 MULDIV64(S32 x, S32 mul, S32 div); // (x*mul)/div

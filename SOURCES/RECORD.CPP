@@ -54,10 +54,13 @@
 
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/MOUSE.H>
+#include <SYSTEM/PLATFORM.H> /* Sys_PlatformName, so this file carries no #ifdef chain */
+#include <SYSTEM/RANDOM.H>   /* Rnd_StreamName for the numeric contract in the header */
 #include <SYSTEM/TIMER.H>
 
 #include <SDL3/SDL_timer.h>
 
+#include <float.h> /* LDBL_MANT_DIG, one half of the numeric contract */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -74,21 +77,28 @@ extern "C" {
    it always did -- and a recording of a session someone played once is worth more than
    the tidiness of a single supported version. A change that alters what an existing
    record *means* moves this up to REC_VERSION; a change that only adds one does not.
- *
- * 11 changes two meanings and still leaves this at 9, which is the case that rule does
- * not cover: a reader that can tell the versions apart can read both.
- *
- * The keyframe gained its length prefix. Versions 9 and 10 wrote 23 fields and no count,
- * which is what REC_KF_LEGACY_FIELDS below is for, and 9 is where the record was
- * introduced, so there is no older shape to handle.
- *
- * The analog block's mouse pair went from the motion the last ManageMouse delivered to
- * the motion the next one will, a frame apart, and nothing in the bytes tells the two
- * readings apart. Only a session recorded with a mouse camera reads differently, and no
- * such session ever replayed: both ends of a version 10 pair read the stale value and
- * diverged on the tick the orbit started. Every recording that has replayed clean is
- * keyboard-only, where the pair is 0 under either reading and the file is bit-identical.
- * So refusing them would give up sessions that work to protect sessions that never did. */
+
+   11 changes two meanings and still leaves this at 9, which is the case that rule does
+   not cover: a reader that can tell the versions apart can read both. The keyframe
+   gained its length prefix, and versions 9 and 10 wrote 23 fields and no count, which is
+   what REC_KF_LEGACY_FIELDS below is for; 9 is where the record was introduced, so there
+   is no older shape to handle. The analog block's mouse pair went from the motion the
+   last ManageMouse delivered to the motion the next one will, a frame apart, and nothing
+   in the bytes tells the two readings apart -- but only a session recorded with a mouse
+   camera reads differently, and no such session ever replayed, because both ends of a
+   version 10 pair read the stale value and diverged on the tick the orbit started. Every
+   recording that has replayed clean is keyboard-only, where the pair is 0 under either
+   reading and the file is bit-identical. Refusing them would give up sessions that work
+   to protect sessions that never did.
+
+   A change to what the engine *computes* is a third case, and it does not belong here
+   either way: the format still means what it meant, and whether an old recording still
+   reproduces is a question about the engine, not about the reader. Moving Rnd off libc
+   is the worked example. It changed every draw on Windows and none on Linux, because
+   the replacement reproduces glibc, so the recordings that exist still replay and there
+   was nothing for a version gate to protect. The header's `numeric.` lines are what
+   report that class of difference, per recording, rather than a version refusing the
+   whole file. */
 #define REC_VERSION_MIN 9
 
 /* Versions 9 and 10 wrote the keyframe with no count and exactly this many fields. */
@@ -380,6 +390,25 @@ static void snapshot_beside(const char *recPath, const char *name, char *out, si
    reproduced. Written into the header and rebuilt live for comparison, so the two can
    never be assembled from different lists.
 
+   The `numeric.` lines are the arithmetic a replay has to agree with, and they are
+   named traits rather than a platform because the platform is not what decides it.
+   Two of them so far:
+
+   `numeric.rng` is the generator behind Rnd. Two builds drawing from different ones
+   cannot reproduce each other, and libc's rand() is a different sequence with a
+   different RAND_MAX per platform, which on its own is enough to make a recording
+   unreplayable anywhere but the machine that made it.
+
+   `numeric.long_double_bits` is LDBL_MANT_DIG, and it is here ahead of needing it. The
+   projection, rotation and distance paths (LIB386/3D) compute in `long double` and
+   round with lrintl, chosen to match x87's 80 bit registers: 64 mantissa bits on both
+   x86-64 hosts, which is why Linux and Windows agree on them. ARM has no x87, so on
+   macOS and Android `long double` is a plain double and the same expressions round
+   differently. Recording the trait means such a replay opens by naming the arithmetic
+   it disagrees about, instead of diverging somewhere in the middle and reading like a
+   bug in the simulation. Making that case actually replay is a separate job, and it is
+   a bigger one: it means taking those paths off the host's extended precision.
+
    The settings block is the Auto camera's, and it is there because it was measured:
    replaying a session against a config missing FollowCamera diverges at tick 0, and one
    missing FollowCamGroundClearance at tick 2 -- the camera rests at a different
@@ -402,6 +431,9 @@ static S32 write_mode_lines(char *out, size_t n) {
                          "mode.fixed_dt=%d\n"
                          "mode.verbose=%d\n"
                          "build.flags=%s\n"
+                         "build.platform=%s\n"
+                         "numeric.rng=%s\n"
+                         "numeric.long_double_bits=%d\n"
                          "mode.resolution=%ux%u\n"
                          "mode.language=%d\n"
                          "setup.snapshot=%s\n"
@@ -415,6 +447,9 @@ static S32 write_mode_lines(char *out, size_t n) {
                          (int)Timer_FixedDtValue(),
                          Control_IsVerbose(),
                          BUILD_FLAGS_STR,
+                         Sys_PlatformName(),
+                         Rnd_StreamName(),
+                         (int)LDBL_MANT_DIG,
                          (unsigned)ModeDesiredX, (unsigned)ModeDesiredY,
                          (int)Language,
                          path_leaf(s_snapshot), s_reloaded, s_reloadClock,
@@ -579,7 +614,7 @@ static void record_reload_issue(void) {
 static void record_reload_landed(void) {
     Control_ClearLoadFlag();
 
-    /* Deliberately no reseed here. ChangeCube is the engine's only srand and outside
+    /* Deliberately no reseed here. ChangeCube is the engine's only Rnd_Seed and outside
        the demo reel it seeds from TimerRefHR (SOURCES/OBJECT.CPP), so two ends that
        reach the cube change at different readings draw different streams. Pinning the
        clock before the load settles that at its cause: both ends reach the cube change
@@ -890,6 +925,10 @@ static int mode_line_ignored(const char *line) {
         "bindings.keyboard=", /* payload a replay installs; bindings.digest is the comparison */
         "bindings.gamepad=",
         "mode.verbose=", /* telemetry is diagnosis, and does not reach the simulation */
+        /* Provenance, not contract. A cross-platform replay is the point, so this line
+           differing is the expected case; the `numeric.` lines are what decide whether
+           the two platforms compute the same game. */
+        "build.platform=",
     };
     S32 i;
 

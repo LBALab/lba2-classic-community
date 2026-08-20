@@ -138,7 +138,7 @@ extern void SlideShow_RequestCapture(const char *path);
 /*--------------------------------------------------------------------------*/
 extern void SlideDemo(int argc, char *argv[]);
 /*--------------------------------------------------------------------------*/
-/* Enter canned-demo mode: set DemoSlide = TRUE so ChangeCube's srand is seeded
+/* Enter canned-demo mode: set DemoSlide = TRUE so ChangeCube's Rnd_Seed is seeded
    from the cube number via Demo_RngSeed (canonical per cube, host-independent).
    See issue #176. */
 extern void BeginDemoSlide(void);

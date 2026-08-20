@@ -280,6 +280,10 @@ data. It does not close the other two:
   between glibc and the Windows CRT (issue #530). A recording will not replay across platforms,
   and no format choice fixes that. [SPEEDRUN_MECHANICS.md](../SPEEDRUN_MECHANICS.md) reaches the
   same conclusion from the compatibility-mode direction.
+  **Resolved since.** The last sentence was right about the format and wrong about the
+  conclusion: nothing in the file could fix it, but moving the generator into the engine could.
+  `LIB386/SYSTEM/RANDOM.CPP` reimplements glibc's, so both platforms draw the same numbers and a
+  recording crosses either way. See [RECORDING.md](../RECORDING.md).
 
 So a recording made in normal windowed play with audio on is not bit-replayable today. The
 hash below does not make it replayable. It makes the failure visible and located, which is a
@@ -1484,6 +1488,12 @@ names that as the limit no compatibility mode removes: a recording is not guaran
 a different operating system however faithful the game logic is. A hash timeline does not fix
 that, but it turns a detected difference into a located one, naming the first tick where two
 platforms stop agreeing.
+
+That is how the fix was checked, and the check was worth as much as the fix. With the engine's own
+generator, a Linux recording replays on Windows for 301 of 301 ticks with no hash mismatch. With
+libc `rand()` put back on the Windows side and nothing else changed, the same recording fails at
+tick 2. Without the second run the first proves very little: a short session in a quiet scene
+would pass whether or not the RNG was portable.
 
 ## What not to take from Doom 3
 

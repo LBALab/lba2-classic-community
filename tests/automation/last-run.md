@@ -2,10 +2,10 @@
 
 # Control-harness last run
 
-- when: 2026-08-20 02:17 UTC
-- commit: `239014c9`
+- when: 2026-08-20 01:42 UTC
+- commit: `fe1bb886`
 - host: Linux x86_64
-- result: **66 passed, 2 skipped, 0 failed**
+- result: **61 passed, 2 skipped, 0 failed**
 
 A skip means a prerequisite was missing, not that the fixture agreed with the
 engine. Only the passes are evidence.
@@ -14,8 +14,6 @@ engine. Only the passes are evidence.
 |---|---|
 | test_action_substep.sh | pass |
 | test_askchoice_menus_consume.sh | pass |
-| test_attack_melee.sh | pass |
-| test_attack_repress.sh | pass |
 | test_autocam_orbit_snap.sh | pass |
 | test_blowgun_release_throttle.sh | pass |
 | test_camera_axes.sh | pass |
@@ -40,11 +38,9 @@ engine. Only the passes are evidence.
 | test_followcam_recenter.sh | pass |
 | test_followcam_release.sh | pass |
 | test_followcam_tracking.sh | pass |
-| test_input_combos.sh | pass |
 | test_input_hold_throttle.sh | pass |
 | test_input_injection.sh | pass |
 | test_item_use_throttle.sh | pass |
-| test_jump_takeoff_foot.sh | pass |
 | test_load.sh | pass |
 | test_melee_throttle.sh | pass |
 | test_move_framerate.sh | pass |
@@ -54,7 +50,6 @@ engine. Only the passes are evidence.
 | test_profile_bind.sh | pass |
 | test_projection_corpus.sh | pass |
 | test_projection_demo.sh | skip |
-| test_record_analog.sh | pass |
 | test_record_replay.sh | pass |
 | test_release_detection.sh | pass |
 | test_res_catalog_sweep.sh | pass |
