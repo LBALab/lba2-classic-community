@@ -89,13 +89,27 @@ Who pins it depends on where the recording starts, and the split is not a conven
 
 - **From boot, with `--record`,** the run has no load to hide a clock reset behind, so the step has
   to be on the command line: `--fixed-dt 16`.
-- **Mid-session, with `rec start`,** the recorder pins it. It can, because it already writes a
+- **Mid-session, with `rec start`,** the recorder pins it, and gives it back on `rec stop`
+  or when a replay ends. It can, because it already writes a
   snapshot and reloads it, and `Timer_EnableFixedDt` zeroes `TimerRefHR` -- which is safe only where
   a load follows to put the clock back. A player whose session is already in progress cannot be
   told to relaunch, so this is the path that makes recording something they can reach.
 
 A replay pins whatever step the recording's header names, so a session played at some other step
 replays at that one rather than at the default.
+
+The step is given back where it was taken. A pinned step advances game time by dt per rendered
+frame rather than by wall clock, and frames are paced to match only while a recording is running,
+so a session that kept the step afterwards ran at whatever rate it rendered at -- measured
+headless, 1.00x real time before a recording and 3.12x after one. `rec stop` and the end of a
+replay hand it back, and a run given `--fixed-dt` keeps its own: that step belongs to the whole
+run and to whoever asked for it.
+
+A recording whose step the recorder pinned carries `setup.reload_clock=0`, where one made
+under the flag carries the real reading. That is not a defect and not worth reconciling:
+`Timer_EnableFixedDt` zeroes `TimerRefHR`, so on that path the reload genuinely is
+performed at clock 0, on both ends, every time. The post-load `clock.timer_ref_hr` is
+identical either way, because the savegame is what restores it.
 
 **Both ends have to arm it the same way, and matching values is not enough.** Arming at boot and
 arming at the reload are different points in the run, and `Timer_EnableFixedDt` reseeds the clock

@@ -1087,6 +1087,16 @@ void Control_TickHook(void) {
        harness flag at all, so the hook is otherwise dead for exactly the run that
        matters most. */
     Record_TickHook();
+    /* The recorder arms the fixed-dt clock itself for a mid-session `rec start`, and
+       nothing else was advancing it. s_have_fixed_dt is set by --fixed-dt and by nothing
+       else, and the advance that reads it sits below the armed check, so a run that armed
+       the step any other way was left with a virtual clock that was armed and frozen.
+       Game time stopped: the hero stopped walking, and the recording still replayed clean
+       because both ends agreed about a stopped game. The step comes from whoever armed
+       it, so this cannot double-advance the harness path -- record_reload_issue only arms
+       when Timer_FixedDtActive() is false. */
+    if (!s_have_fixed_dt && Timer_FixedDtActive())
+        Timer_FixedDtAdvance();
     if (!s_armed)
         return;
     s_hook_calls++;

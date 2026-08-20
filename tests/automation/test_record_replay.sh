@@ -452,4 +452,133 @@ case "$emptyout" in
 *) fail "console loop: 'rec play' with no recordings to play said nothing about it" ;;
 esac
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths"
+# Did the session do anything?
+#
+# Every arm above asserts that a replay agrees with its recording, and none asserts that
+# there was anything to agree about. A recording of a hero who never moved replays clean
+# and says nothing, and that is not hypothetical here: LBA2_TEST_SAVE is the game opening,
+# where the scene's own script owns the hero and injected input is inert, so those arms
+# record a stationary session and the per-tick digest faithfully confirms that one
+# stationary session reproduces another. A bug that froze the game clock outright -- hero
+# unable to walk, game time not advancing at all -- passed every one of them.
+#
+# So this arm walks the hero and asks three separate questions: did he move while
+# recording, did the replay move him, and did it put him in the same place.
+#
+# The in-tree corpus save rather than LBA2_TEST_SAVE, because the answer has to come from
+# a scene where input reaches the hero and that cannot depend on which save a machine
+# happens to point at. No --fixed-dt either: the step the recorder pins for itself is the
+# path the frozen clock was on, and the flag hid it.
+movesave="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Anon1.LBA"
+[ -f "$movesave" ] || fail "movement: the corpus save is missing from $movesave"
+
+movedir="$(mktemp -d)"
+trap 'rm -rf "$here" "$loopdir" "$emptydir" "$movedir"' EXIT
+
+# hero_xz <state.json> -- the engine's own dump, because `status` reports Nxw/Nyw/Nzw,
+# which are collision scratch and not the hero.
+hero_xz() {
+    python3 -c "
+import json, sys
+h = json.load(open(sys.argv[1]))['hero']
+print(h['x'], h['z'])" "$1"
+}
+
+# The control is the same command line with the input taken out, rather than a plain idle
+# run: `rec start` pins the step and a run without it free-runs on the host clock, so a
+# control missing both would be answering about two variables at once and could pass on
+# the wrong one. Here the only difference between the two runs is the key.
+#
+# `key` rather than `input`, and that is not interchangeable. `key` holds a raw scancode in
+# TabKeys, which is where a player's input arrives and what the recorder captures at the
+# poll hook. `input` is OR'd straight into Input by MainLoop and never touches TabKeys, so
+# a recording only reproduces it because the console command itself was recorded and runs
+# again -- which would leave this arm passing while testing command replay rather than
+# input replay.
+# Its own profile, so the folder the replay below reads holds exactly one recording and
+# `rec play` with no argument cannot pick the control's by accident.
+LBA2_USER_DIR="$movedir/control" ctl --load "$movesave" \
+    --exec-at 20 "rec start" --exec-at 620 "rec stop" \
+    --tick 700 --dump-state "$movedir/idle.json" --exit >/dev/null 2>&1 ||
+    fail "movement: the control run exited non-zero ($?) — hang or crash"
+
+LBA2_USER_DIR="$movedir" ctl --load "$movesave" \
+    --exec-at 20 "rec start" --exec-at 200 "key up 300" --exec-at 620 "rec stop" \
+    --tick 700 --dump-state "$movedir/rec.json" --exit >/dev/null 2>&1 ||
+    fail "movement: the recording run exited non-zero ($?) — hang or crash"
+
+idle_xz="$(hero_xz "$movedir/idle.json")" || fail "movement: could not read the control state dump"
+rec_xz="$(hero_xz "$movedir/rec.json")" || fail "movement: could not read the recorded state dump"
+
+if [ "$idle_xz" = "$rec_xz" ]; then
+    fail "movement: the hero is at $rec_xz with input and $idle_xz without it — the recorded session never moved, so a clean replay of it would prove nothing"
+fi
+
+moveout="$(LBA2_USER_DIR="$movedir" ctl --load "$movesave" \
+    --exec-at 20 "rec play" --tick 900 --dump-state "$movedir/play.json" --exit 2>&1)" ||
+    fail "movement: the replay run exited non-zero ($?) — hang or crash"
+
+case "$moveout" in
+*"first hash mismatch -1"*) ;;
+*)
+    fail "movement: $(printf '%s\n' "$moveout" |
+        grep -m1 -e 'replay ended' -e 'cannot open' -e 'recordings in' ||
+        echo 'the replay said nothing')"
+    ;;
+esac
+
+play_xz="$(hero_xz "$movedir/play.json")" || fail "movement: could not read the replayed state dump"
+[ "$play_xz" = "$rec_xz" ] ||
+    fail "movement: the recording left the hero at $rec_xz and the replay left him at $play_xz — the digest matched every tick, so this is the replay ending somewhere else, not diverging"
+
+# Giving the step back.
+#
+# A mid-session `rec start` pins the simulation step, and a pinned step advances game time
+# by dt per rendered frame rather than by wall clock. The recorder paces frames to match
+# only while it is actually recording, so a session that kept the step afterwards ran at
+# whatever rate it rendered at: measured headless, 1.00x real time before a recording and
+# 3.12x after one. On a vsynced 60 Hz window that reads as roughly right and on a 144 Hz
+# one as more than twice too fast, which is the worse of the two -- it looks like the game,
+# only wrong.
+#
+# A run given --fixed-dt is the other case and must not be touched: there the step belongs
+# to the whole run and to whoever asked for it. So both directions are asserted here, and
+# the arm is the reason: a release that fired for everyone would silently unpin every
+# harness fixture in this file.
+#
+# `rec info` reports the live run's mode, which makes this a question about a printed
+# number rather than about elapsed time.
+stepdir="$(mktemp -d)"
+trap 'rm -rf "$here" "$loopdir" "$emptydir" "$movedir" "$stepdir"' EXIT
+
+# Through a file rather than a pipeline. The suite does not set `pipefail`, so a pipeline
+# carries the status of its last command -- `tr` here, which succeeds whatever the engine
+# did -- and a `|| fail ... exited non-zero` hung off one can never fire. Run, check, then
+# read.
+step_after_stop() { # step_after_stop <extra ctl args...>
+    LBA2_USER_DIR="$stepdir" ctl --load "$movesave" "$@" \
+        --exec-at 20 "rec start" --exec-at 300 "rec stop" --exec-at 320 "rec info" \
+        --tick 400 --exit > "$stepdir/out.txt" 2>&1 || return $?
+    # The last one: `rec stop` prints this same block itself, before it stops.
+    grep 'mode.fixed_dt=' "$stepdir/out.txt" | tail -1 | tr -d ' '
+}
+
+recarmed="$(step_after_stop)" ||
+    fail "step: the recorder-armed run exited non-zero ($?) — hang or crash"
+case "$recarmed" in
+*"mode.fixed_dt=0") ;;
+*)
+    fail "step: the recorder pinned the step and still held it after rec stop ($recarmed) — the session keeps running at frame rate instead of wall clock"
+    ;;
+esac
+
+flagarmed="$(step_after_stop --fixed-dt 16)" ||
+    fail "step: the flag-armed run exited non-zero ($?) — hang or crash"
+case "$flagarmed" in
+*"mode.fixed_dt=16") ;;
+*)
+    fail "step: --fixed-dt 16 was given and rec stop unpinned it anyway ($flagarmed) — the recorder is releasing a step it did not take"
+    ;;
+esac
+
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone"
