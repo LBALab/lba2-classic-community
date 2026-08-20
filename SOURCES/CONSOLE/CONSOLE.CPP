@@ -23,8 +23,17 @@
 #define CONSOLE_WRAP_WIDTH 78
 #define CONSOLE_PANEL_HEIGHT 140
 #define CONSOLE_LINE_HEIGHT 9
-#define CONSOLE_MAX_CMDS 48  /* ~27 registered today; headroom before the loud drop */
-#define CONSOLE_MAX_CVARS 48 /* ~28 registered today; headroom before the loud drop */
+/* Table sizes for the registered commands and cvars. `cmdlist` and `varlist`
+ * print what is actually in each table, so occupancy is one console line away
+ * and never has to be taken from a comment.
+ *
+ * Bumped from 48, which the command table had reached: `zonelist` and
+ * `perftrace` register last, were dropped, and were absent from every build
+ * while the documentation went on describing them. The drop was reported all
+ * along, but only on a boot-time stderr line, which is why it went unseen; it
+ * now also lands in the scrollback, beside the `cmdlist` that shows the gap. */
+#define CONSOLE_MAX_CMDS 96
+#define CONSOLE_MAX_CVARS 96
 #define CONSOLE_MAX_ARGV 16
 #define CONSOLE_KEY_QUEUE_SIZE 32
 /* Sentinel scancode for a queued text-input character (vs a physical key). */
@@ -1527,6 +1536,8 @@ void Console_RegisterCommandEx(const char *name, Console_CmdFn callback, const c
     if (s_cmd_count >= CONSOLE_MAX_CMDS) {
         fprintf(stderr, "console: command table full (%d), dropped '%s' (raise CONSOLE_MAX_CMDS)\n",
                 CONSOLE_MAX_CMDS, name ? name : "(null)");
+        Console_PrintColored(CONSOLE_COL_ERROR, "command table full (%d), dropped '%s' (raise CONSOLE_MAX_CMDS)",
+                             CONSOLE_MAX_CMDS, name ? name : "(null)");
         return;
     }
     s_cmds[s_cmd_count].name = name;
@@ -1546,6 +1557,8 @@ void Console_RegisterCvarCoerced(const char *name, void *ptr, Console_CvarType t
     if (s_cvar_count >= CONSOLE_MAX_CVARS) {
         fprintf(stderr, "console: cvar table full (%d), dropped '%s' (raise CONSOLE_MAX_CVARS)\n",
                 CONSOLE_MAX_CVARS, name ? name : "(null)");
+        Console_PrintColored(CONSOLE_COL_ERROR, "cvar table full (%d), dropped '%s' (raise CONSOLE_MAX_CVARS)",
+                             CONSOLE_MAX_CVARS, name ? name : "(null)");
         return;
     }
     s_cvars[s_cvar_count].name = name;
