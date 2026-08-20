@@ -26,6 +26,10 @@ TESTNAME="record_replay"
 . "$(dirname "$0")/lib.sh"
 precheck
 need_save
+# Three arms read the recording back with the reader that needs no engine. A box without
+# an interpreter is not a recording defect, so skip rather than fail, as lib.sh does for
+# its own python steps.
+command -v python3 >/dev/null 2>&1 || skip "no python3 (needed to read a recording back)"
 
 rec="$(user_dir)/session.rec"
 
@@ -130,6 +134,58 @@ bounded="$CHECKED"
 record_and_replay "without --tick" --exec-at 300 "rec stop; exit"
 unbounded="$CHECKED"
 
+# A recording cut off mid-snapshot, which is what a process killed while writing one
+# leaves behind. The frame's refusal is the whole safety argument for keeping the
+# savegames inside the file, and tests/record_format proves it over a buffer through a
+# reader written for the test. This drives the engine's own reader over a real file, so
+# the two cannot drift: cut inside the start chunk, the replay has to say so and check
+# nothing, rather than hand the save loader a savegame that stops early.
+torn="$(user_dir)/torn.rec"
+
+# Two ways a chunk fails to close. `cut` stops inside the payload, which is what a
+# process killed mid-write leaves, and the reader has several ways to notice it: the
+# short payload, the missing tail, and the tail comparison all refuse it, so this arm
+# shows the behaviour rather than isolating one check. `magic` keeps every byte and
+# damages the word behind them, which nothing but the tail comparison can see -- that
+# one fails the moment the comparison is removed, which is what makes it the oracle for
+# the claim the single-file layout rests on.
+damage_recording() { # damage_recording <how> <src> <dst>
+    python3 - "$1" "$2" "$3" <<'EOF'
+import struct, sys
+how, src, dst = sys.argv[1], sys.argv[2], sys.argv[3]
+d = open(src, "rb").read()
+at = d.find(b"\n\n") + 2
+length = struct.unpack_from("<I", d, at + 1)[0]
+if how == "cut":
+    out = d[:at + 5 + length // 2]
+else:
+    out = bytearray(d)
+    out[at + 5 + length + 7] ^= 0xFF  # the magic's top byte
+open(dst, "wb").write(bytes(out))
+EOF
+}
+
+for how in cut magic; do
+    damage_recording "$how" "$rec" "$torn" || fail "torn/$how: could not build the file"
+
+    tout="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$torn" --tick 300 --exit 2>&1)" ||
+        fail "torn/$how: replay run exited non-zero ($?) — hang or crash"
+
+    case "$tout" in
+    *"incomplete"*) ;;
+    *)
+        fail "torn/$how: a recording whose snapshot does not close was not refused; $(
+            printf '%s\n' "$tout" | grep -m1 'replay ended' || echo 'the replay said nothing')"
+        ;;
+    esac
+    # And refused means refused: a reader that reported the damage and then carried on
+    # into the savegame would check ticks out of bytes that are not a stream.
+    tchecked="$(printf '%s\n' "$tout" | sed -n 's/.*: \([0-9]*\) ticks checked.*/\1/p')"
+    [ "${tchecked:-0}" = "0" ] ||
+        fail "torn/$how: refused the snapshot and then checked $tchecked ticks anyway"
+done
+rm -f "$torn"
+
 # The default home. A name with no directory in it is a name in <userDir>/recordings/,
 # and the point of that is symmetry: the name a session was recorded under is the name it
 # replays under, from whatever directory the run happens to start in. Recorded and replayed from
@@ -138,7 +194,10 @@ unbounded="$CHECKED"
 bare="bare-name.rec"
 recdir="$(user_dir)/recordings"
 rm -f "$recdir/$bare"
+# Removed by a trap rather than at the end of the arm: `fail` exits the shell, so every
+# assertion below is a way out of here that never reaches an inline rm.
 here="$(mktemp -d)"
+trap 'rm -rf "$here"' EXIT
 
 (cd "$here" && ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$bare" --tick 200 --exit) \
     >/dev/null 2>&1 ||
@@ -153,7 +212,6 @@ fi
 bareout="$(cd "$here" && ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$bare" \
     --tick 300 --exit 2>&1)" ||
     fail "bare name: replay run exited non-zero ($?) — hang or crash"
-rm -rf "$here"
 
 case "$bareout" in
 *"first hash mismatch -1"*) ;;
@@ -244,4 +302,4 @@ case "$bout" in
     ;;
 esac
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change"
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change"

@@ -507,7 +507,9 @@ static const char *expand_home(const char *path, char *buf, size_t n) {
  * does not have, but the working directory does, is taken from the working directory.
  * It cannot pick the wrong one, because it only applies where the folder has nothing.
  *
- * `buf` holds at least ADELINE_MAX_PATH, which is what GetRecordingsPath writes into. */
+ * `n` is the size of `buf`, and is passed on rather than assumed: every caller here
+ * hands over more than GetRecordingsPath will write, and the first one that does not
+ * should get a short path rather than a smashed stack. */
 static const char *rec_resolve(const char *path, char *buf, size_t n, int forWrite) {
     char home[512];
     char here[ADELINE_MAX_PATH];
@@ -521,7 +523,7 @@ static const char *rec_resolve(const char *path, char *buf, size_t n, int forWri
     }
 
     snprintf(here, sizeof here, "%s", path);
-    GetRecordingsPath(buf, ADELINE_MAX_PATH, here);
+    GetRecordingsPath(buf, (U16)((n < ADELINE_MAX_PATH) ? n : ADELINE_MAX_PATH), here);
     if (!forWrite && !ExistsFileOrDir(buf) && ExistsFileOrDir(here))
         snprintf(buf, n, "%s", here);
     return buf;
@@ -570,18 +572,40 @@ static void record_save_to(const char *out) { Control_WriteSnapshot(out); }
  *
  * The recordings folder rather than the save folder, which is the obvious place and the
  * wrong one: the load menu lists every .LBA it finds there (SOURCES/GAMEMENU.CPP), so a
- * staging file would appear to the player as a save nobody made. One fixed name,
- * overwritten each time, so a run that dies holding it leaves one stale file rather than
- * a directory filling up. */
+ * staging file would appear to the player as a save nobody made.
+ *
+ * Named for the recording it belongs to, which is the property the sibling savegames
+ * had and the one thing keeping two engines on one user directory out of each other's
+ * way. A single shared name lets a second engine overwrite the savegame the first is
+ * about to reload, and a savegame from somebody else's session is a far quieter failure
+ * than a missing file. Two runs recording to the same name are already contending for
+ * the recording itself, so there is nothing left for this to protect. */
 static void record_scratch_path(char *out, size_t n) {
     char p[ADELINE_MAX_PATH];
-    GetRecordingsPath(p, ADELINE_MAX_PATH, "staging.lba");
+    char name[ADELINE_MAX_PATH];
+    snprintf(name, sizeof name, "%s.staging.lba",
+             s_recPath[0] ? path_leaf(s_recPath) : "rec");
+    GetRecordingsPath(p, ADELINE_MAX_PATH, name);
     snprintf(out, n, "%s", p);
 }
 
-static void record_write_snapshot(char *out, size_t n) {
+/* Stage a snapshot, and report whether one is actually there.
+ *
+ * The check is the point. Control_WriteSnapshot returns 1 whatever SaveGame did with
+ * it, so a save that failed is indistinguishable from one that worked -- and the caller
+ * goes on to reload the path it was given. Removing any earlier file first is what turns
+ * that into a failure rather than a surprise: without it a run whose save failed reloads
+ * whatever a previous run left behind, which is a live session replaced by an unrelated
+ * one. */
+static S32 record_write_snapshot(char *out, size_t n) {
     record_scratch_path(out, n);
+    remove(out);
     record_save_to(out);
+    if (ExistsFileOrDir(out))
+        return 1;
+    fprintf(stderr, "[rec] could not write the snapshot at %s\n", out);
+    out[0] = 0;
+    return 0;
 }
 
 /* Copy a staged snapshot into the stream as a chunk, and drop the staging file.
@@ -600,6 +624,7 @@ static S32 record_write_chunk(U8 op, const char *file) {
     char *buf;
     long len = 0; /* named in the failure line below, which a short-circuiting fseek reaches */
     size_t got;
+    S32 ok;
 
     if (!s_f)
         return 0;
@@ -629,11 +654,19 @@ static S32 record_write_chunk(U8 op, const char *file) {
 
     RecFmt_PutChunkHead(head, sizeof head, op, (U32)len);
     RecFmt_PutChunkTail(tail, sizeof tail, (U32)len);
-    fwrite(head, 1, sizeof head, s_f);
-    fwrite(buf, 1, (size_t)len, s_f);
-    fwrite(tail, 1, sizeof tail, s_f);
-    fflush(s_f);
+    ok = fwrite(head, 1, sizeof head, s_f) == sizeof head &&
+         fwrite(buf, 1, (size_t)len, s_f) == (size_t)len &&
+         fwrite(tail, 1, sizeof tail, s_f) == sizeof tail && fflush(s_f) == 0;
     free(buf);
+    if (!ok) {
+        /* The staged copy stays. A chunk the disk refused leaves a torn frame the
+           reader will reject, and deleting the only other copy of that state would
+           turn a recording missing its snapshot into one that never had it. */
+        fprintf(stderr, "[rec] could not write the snapshot into the recording; "
+                        "the staged copy is at %s\n",
+                file);
+        return 0;
+    }
     remove(file);
     return 1;
 }
@@ -834,17 +867,24 @@ static int record_begin(const char *path, int haveSnapshot) {
     if (s_recording || s_replaying)
         return 0;
     path = rec_resolve(path, buf, sizeof buf, 1);
-    snprintf(s_recPath, sizeof s_recPath, "%s", path);
     s_f = fopen(path, "wb");
     if (!s_f) {
         Console_Print("rec: cannot write %s", path);
         return 0;
     }
+    /* Behind the open, so Record_Path never names a session that does not exist. On the
+       mid-session path Record_Start has already set this to the same string, which is
+       where the staging savegame took its name from. */
+    snprintf(s_recPath, sizeof s_recPath, "%s", path);
 
     char mode[2048];
     if (!haveSnapshot)
         record_write_snapshot(s_snapshot, sizeof s_snapshot);
     s_snapInline = 1;
+    /* Not fatal here, unlike the mid-session path above: a from-boot recording reloads
+       nothing, so a snapshot it could not write costs it the state it started from and
+       not the session. record_write_chunk says so and the header still records that the
+       recording claims to carry one, which is what the reader reports finding absent. */
     /* A player quits through the menu, a crash does not quit at all: flush on any exit
        rather than only on `rec stop`. */
     record_arm_atexit();
@@ -945,10 +985,17 @@ int Record_Start(const char *path) {
     }
 
     path = rec_resolve(path, buf, sizeof buf, 1);
-    /* Before the reload rather than after, because record_begin runs a tick later and
-       the caller reports where it is recording as soon as this returns. */
+    /* Before the snapshot, which is named after it, and before the reload: record_begin
+       runs a tick later and the caller reports where it is recording as soon as this
+       returns. */
     snprintf(s_recPath, sizeof s_recPath, "%s", path);
-    record_write_snapshot(snap, sizeof snap);
+    if (!record_write_snapshot(snap, sizeof snap)) {
+        /* No reload without a snapshot to reload. Handing the load path a name nothing
+           wrote is how a failed save becomes a scene change nobody asked for. */
+        Console_Print("rec: cannot write the starting snapshot; not recording");
+        s_recPath[0] = 0;
+        return 0;
+    }
     snprintf(s_snapshot, sizeof s_snapshot, "%s", snap);
     record_reload_request(snap, path, 0);
     Console_Print("rec: reloading %s; recording starts from the post-load state", snap);
@@ -992,8 +1039,8 @@ int Record_Stop(void) {
      * last poll written and the close that would otherwise have committed it. */
     if (wasRecording && Control_HasLiveScene()) {
         fflush(s_f);
-        record_write_snapshot(endPath, sizeof endPath);
-        record_write_chunk(REC_SNAP_END, endPath);
+        if (record_write_snapshot(endPath, sizeof endPath))
+            record_write_chunk(REC_SNAP_END, endPath);
     }
 
     fclose(s_f);
@@ -1001,6 +1048,7 @@ int Record_Stop(void) {
     s_recording = 0;
     s_replaying = 0;
     s_snapInline = 0;
+    s_recPath[0] = 0;
     bindings_restore();
     return 1;
 }
@@ -1220,11 +1268,20 @@ static void report_extent(void) {
     {
         U8 tail[REC_CHUNK_TAIL];
         U32 len = 0;
+        /* REC_SNAP_MAX before the cast, because `long` is 32 bits on Windows and a
+           length above 2^31 out of a damaged file would turn into a negative offset and
+           push `end` past EOF. Every other chunk read here bounds the length the same
+           way; this one is reached from the end of the file rather than from a head, so
+           it has no opcode in front of it to disagree with first. */
         if (end > (long)sizeof tail && fseek(s_f, end - (long)sizeof tail, SEEK_SET) == 0 &&
             fread(tail, 1, sizeof tail, s_f) == sizeof tail &&
-            RecFmt_ReadChunkTailLen(tail, sizeof tail, &len)) {
+            RecFmt_ReadChunkTailLen(tail, sizeof tail, &len) && len <= REC_SNAP_MAX) {
             long at = end - (long)sizeof tail - (long)len - REC_CHUNK_HEAD;
-            if (at > 0)
+            U8 op = 0;
+            /* And the head has to be where the tail says it is, so a stream that
+               happens to end in the magic does not move the scan. */
+            if (at > 0 && fseek(s_f, at, SEEK_SET) == 0 && fread(&op, 1, 1, s_f) == 1 &&
+                op == REC_SNAP_END)
                 end = at;
         }
     }
@@ -1435,6 +1492,16 @@ static int replay_poll(void) {
             s_eof = 1;
             return 0;
         }
+        /* The same end-of-stream test as the one above, because this is a second place
+           the flags byte is read and the end chunk can land behind any record this loop
+           steps over. Without it 0x71 falls out of the loop into the poll decoder, and
+           `flags & 0x01` is true of 0x71: the chunk's length bytes would be read as a
+           count of changed keys and the savegame behind them as the keys themselves,
+           which is a replay pressing input the recording never held. */
+        if (flags == REC_SNAP_END) {
+            s_eof = 1;
+            return 0;
+        }
         if (!replay_take_sync(&flags)) {
             s_eof = 1;
             return 0;
@@ -1566,12 +1633,12 @@ int Record_Play(const char *path) {
     if (s_recording || s_replaying)
         return 0;
     path = rec_resolve(path, buf, sizeof buf, 0);
-    snprintf(s_recPath, sizeof s_recPath, "%s", path);
     s_f = fopen(path, "rb");
     if (!s_f) {
         Console_Print("rec: cannot open %s", path);
         return 0;
     }
+    snprintf(s_recPath, sizeof s_recPath, "%s", path);
 
     /* Refuse a file this build cannot read. Growing the tick record without bumping
        this turns an old recording into plausible garbage, which reads as a consistency
@@ -2168,7 +2235,7 @@ unsigned long Record_Squeeze(const char *path) {
             hdr += REC_CHUNK_HEAD + (long)len + REC_CHUNK_TAIL;
         if (total > (long)sizeof frame && fseek(f, total - (long)sizeof frame, SEEK_SET) == 0 &&
             fread(frame, 1, sizeof frame, f) == sizeof frame &&
-            RecFmt_ReadChunkTailLen(frame, sizeof frame, &len)) {
+            RecFmt_ReadChunkTailLen(frame, sizeof frame, &len) && len <= REC_SNAP_MAX) {
             long at = total - (long)sizeof frame - (long)len - REC_CHUNK_HEAD;
             if (at > hdr)
                 total = at;

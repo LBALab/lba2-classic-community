@@ -758,12 +758,17 @@ five are the x, z and beta of the two actors that were moving, which are re-deri
 scripts on load rather than restored. Everything else, the hero, the scene, every quest variable,
 the inventory and every static actor, comes back exactly.
 
-So `rec start` writes a snapshot beside the recording and names it in the header, and a
-mid-session recording replays through the proven `--load` path:
+So `rec start` writes a snapshot and names it in the header, and a mid-session recording
+replays through the proven `--load` path. In format 10, which this section measured, the
+snapshot is a file beside the recording and is named on the command line:
 
 ```bash
 lba2cc --load session.rec.lba --fixed-dt 16 --replay session.rec
 ```
+
+From format 11 the snapshot is carried in the recording and the replay finds it there.
+[RECORDING.md](../RECORDING.md) is the current form; the measurement below is unchanged
+by where the savegame is kept.
 
 **What that reproduces, over a 200-tick mid-session replay:** the hero identical, the scene
 identical, every quest variable identical, and ten fields adrift, all of them the moving actors

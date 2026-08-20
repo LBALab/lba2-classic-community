@@ -377,9 +377,14 @@ void CheckShiftedTailIsRefused() {
     size_t total = BuildChunk(buf, sizeof buf, 0x70, 64);
     U8 shifted[256];
 
+    /* Claim one byte fewer than was written, so the tail is read one byte early. Fewer
+       rather than more on purpose: claiming more fails the size guard before the tail is
+       looked at, and an assertion that never reaches the code it names is one that keeps
+       passing when that code is deleted. This reaches the tail, though either half of it
+       refuses the result; the case that pins the length half on its own is the damaged
+       length below. */
     std::memcpy(shifted, buf, total);
-    /* Claim one more byte than was written: the tail is read one byte early. */
-    RecFmt_PutChunkHead(shifted, sizeof shifted, 0x70, 65);
+    RecFmt_PutChunkHead(shifted, sizeof shifted, 0x70, 63);
     CHECK(ReadChunk(shifted, total, 0x70) == 0,
           "a length that does not match the payload is refused");
 

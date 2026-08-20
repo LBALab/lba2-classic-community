@@ -28,6 +28,7 @@ with the magic behind it, so a session killed mid-write leaves a chunk that fail
 close and is reported rather than written out as a savegame that stops early.
 """
 
+import os
 import struct
 import sys
 
@@ -171,10 +172,17 @@ def write_saves(path, snaps):
         print("no savegames in this recording")
         return
     for which in ("start", "end"):
-        if which in snaps:
-            out = "%s.%s.lba" % (stem, which)
-            open(out, "wb").write(snaps[which])
-            print("wrote %s (%d bytes)" % (out, len(snaps[which])))
+        if which not in snaps:
+            continue
+        out = "%s.%s.lba" % (stem, which)
+        if os.path.exists(out):
+            print("%s exists; not overwriting it" % out)
+            continue
+        # Closed rather than left to the interpreter: an unclosed handle is a savegame
+        # that stops early, which is the one failure this whole format is built to avoid.
+        with open(out, "wb") as fh:
+            fh.write(snaps[which])
+        print("wrote %s (%d bytes)" % (out, len(snaps[which])))
 
 
 def main(argv):
