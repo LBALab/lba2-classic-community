@@ -166,6 +166,12 @@ To run only the console suite: `ctest -R test_console_ --output-on-failure`.
 
 `tests/savegame/corpus/` holds the Layer-3 driver scripts (`run_harness.py`, `build_manifest.py`) that exercise the real `lba2cc --save-load-test` flag against a directory of `.lba` saves; requires retail game data so it runs locally only. See `tests/savegame/corpus/README.md`.
 
+### 7. Host tests — user directories (`tests/user_dirs`)
+
+`tests/user_dirs/test_user_dirs.cpp` links [SOURCES/DIRECTORIES.CPP](../SOURCES/DIRECTORIES.CPP) and exercises `AddDirIfNot`, which every user-writable folder is made through: a nested path with a trailing separator, a second call on a folder already there, and a name taken by a file.
+
+The last case is why it is a host test rather than a fixture. It moves the process to the root of the volume the folder is going on and creates from there, which on Windows makes the first component of an absolute path (`C:`) resolve to a directory that cannot be created. That is the shape that silently created nothing for years, and `tests/automation/test_user_dirs.sh` can only reach it on a Windows machine somebody runs it on by hand. This one runs in `ctest -L host_quick`, including the Windows PR job.
+
 ## Test harness
 
 `tests/test_harness.h` provides a minimal TAP-style harness with no external

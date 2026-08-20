@@ -20,7 +20,6 @@ extern S32 GfxDitherShading;
 #include "../MUSIC.H"
 #include "../AMBIANCE.H"
 #include <AIL/SAMPLE.H>
-#include "../DISKFUNC.H"
 #include "../SAVEGAME.H"
 #include "../INPUT.H"
 #include "../CONTROL.H" // Control_Input* harness timeline, Control_KeyHold
