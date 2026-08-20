@@ -2145,6 +2145,29 @@ int Record_Play(const char *path) {
                 from = snap;
             }
 
+            /* A recording that reloads needs a game to reload into, and the reload is
+               issued from MainLoop's tick hook. The menu runs its own loop and never
+               reaches that hook, so a playback asked for from the main menu sat armed
+               forever while the two lines below reported it had started, and left the
+               staged snapshot behind. Measured: `rec info` still said idle six seconds
+               later and the scene was still Cube -1, Obj 0.
+
+               Refused here rather than made to work. Playing into the menu means starting
+               a game from the recording's snapshot and putting the menu back afterwards,
+               which is the demo reel's shape and a larger piece than a guard. */
+            if (from != NULL && !Control_HasLiveScene()) {
+                Console_Print("rec: %s replays into a game, and none is in progress", path);
+                fprintf(stderr, "[rec] %s replays into a game, and none is in progress\n", path);
+                if (s_inlineSnap[0]) {
+                    remove(s_inlineSnap);
+                    s_inlineSnap[0] = 0;
+                }
+                fclose(s_f);
+                s_f = NULL;
+                s_recPath[0] = 0;
+                return 0;
+            }
+
             if (from != NULL) {
                 U32 clk = 0;
                 if (RecFmt_ReadU32(s_headerBuf, "setup.reload_clock=", &clk))
