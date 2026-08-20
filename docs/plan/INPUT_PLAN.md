@@ -138,6 +138,59 @@ answer (record commands, replay, compare a per-tic state hash) is genuinely enab
 most plausible candidate for overengineering here. **Increments 0 and 1 answer it**, by covering the pure layers and then measuring whether the
 fixtures plus the flow counters catch what the later increments could break.
 
+**Settled, and not the way it was framed.** The question was never speed: the control socket's
+latency is one presented frame, flat at 4.6 ms whatever the sim rate, so an engine-side fixture
+tier would remove a round trip and wait for the same frames. What machinery buys is fidelity, and
+[RECORDING.md](../RECORDING.md) supplies it: a per-tick FNV-1a digest of scene, hero, camera, the
+other actors and all 336 script variables, so a replay names the first tick that stops matching.
+
+**A recording and a fixture catch different things, and the difference was measured, not reasoned
+about.** Two mutations, both real behaviour changes, against the same five recorded combos:
+
+| Mutation | recorded replay | the combo fixture |
+|---|---|---|
+| swap `DO_LEFT_JUMP` / `DO_RIGHT_JUMP` | **caught, tick 81**, named `hero.anim 73/74` | caught, at the tick 120 sample |
+| swap `I_LEFT` / `I_RIGHT` in the turn block | **all five clean** | **caught** |
+
+The second row is the useful one. Holding both directions, the mutated condition is *also* true, so
+the same branch body runs and the session genuinely does not change. A recording of that session is
+right to report clean. The fixture catches it because it asserts nothing about the
+combo alone: it asserts that holding both lands exactly where holding the winner alone lands, and
+that comparison is between three sessions.
+
+Recording left alone and replaying it against the same mutation is caught **at tick 1**.
+
+So the rule, in one line: **a recording pins a session; a fixture pins a relationship between
+sessions.** Precedence, dominance and "identical to" are relationships, and no single recording can
+express one.
+
+**The digest already detects more than the keyframe can name, and that is fixable rather than a
+limit.** `Control_StateDigest` mixes `hero->GenAnim`, so a change to the general animation is
+caught; the keyframe's 23 names did not include it, so a non-verbose replay reported the concrete
+`hero.anim` instead and left the reader translating. Every combo below is stated in `GenAnim`
+terms, so the keyframe now names it too and a divergence reads `hero.gen_anim 0->18`. `--verbose`
+named it all along, from the expression the digest mixes. The lesson is that the record format is
+this project's to shape: where a replay cannot say what moved, the answer is to teach it the name,
+not to work around it.
+
+Adding a field wants both readers touched. The C table carries a comment saying writer, reader and
+reporter all walk it so a field cannot be added to one and missed by another, and that holds inside
+the engine; `scripts/dev/dump_recording.py` keeps its own copy of the same list and does not walk
+it, so it mislabels every field after the insertion point until it is updated too.
+
+**What that means for committing recordings.** They are cheap enough: a non-verbose combo recording
+is 5.2 KB and replays against a corpus save already in the tree, so the whole set is about 26 KB and
+needs no snapshot committed beside it. The earlier claim here that a recording should never be
+committed was wrong on its premise, and the same objection applies to the UI golden PNGs this repo
+does commit and regenerate deliberately. The real constraint is different: **a recorded set has to
+include the controls, not just the interesting case**, or it pins the one session where the rule
+under test happens not to matter.
+
+**How increments 2 to 7 should use it.** Record the combo set *and its controls* before touching
+anything, replay after, read the tick. The committed fixtures stay as the statement of the rule and
+are what a reviewer reads; the recording is the net that catches what nobody thought to assert,
+including a script variable or another actor moving, which no fixture here looks at.
+
 ## Injection: the harness is not a device
 
 Four things put input into this engine and only three of them are injection paths, which is worth
@@ -148,7 +201,36 @@ settling before increment 7 treats them alike.
 | `ApplyVirtualKeys` (touch overlay) | scancodes in `TabKeys` | inside `UpdateKeyboardState`, before the scan | held while the finger is down |
 | `ApplyHarnessKeys` (`key` verb) | scancodes in `TabKeys` | same hook site, immediately after | **input polls**, one per `ManageKeyboard` |
 | `DbgInjectInput` (`input` verb) | action bits in `Input` | `MainLoop`, after `MyGetInput` | **sim ticks** |
+| `mouse` / `stick` verbs | device state (`LibMouseXDep`, `Click`, the cached axes) | same hook site, beside the key holds | **input polls** |
 | `--listen` socket | nothing | `Control_ServiceListen`, in front of the console bus | **presents** |
+
+**The analog pair are a path of their own, and they are why the recorder's analog block finally
+got tested.** They are not scancodes and never become any: the analog camera reads `MouseXDep`,
+`Click` and the cached stick axes directly, so `key` cannot reach them and neither can `input`.
+`camnudge` covered the camera by standing in one step further down, at the nudge, which is the
+right depth for a camera test and the wrong one for anything asking how input arrives. Writing
+where the device writes instead put the whole chain under test at once, and it found two things a
+year of keyboard sessions could not:
+
+| | |
+|---|---|
+| The mouse was recorded a poll late | The poll hook read `MouseXDep`, which at that point still holds what the *previous* frame's `ManageMouse` delivered. Every movement went into the file one poll behind, and a replay orbited a frame behind the session |
+| A replayed stick moved nothing | The analog camera asks `JoystickIsPresent()` before it reads the axes, so a pad session replayed on a pad-less machine restored the values into a run that never looked at them |
+
+Both were live in the shipped recorder and neither was reachable, because no session had ever
+filled the block: measured at **0 analog polls** across every recording made. The general form is
+worth keeping: a field that nothing can write is a field nothing checks, and adding it to a format
+is not the same as covering it.
+
+**The masking that shaped the fixture.** A replay re-executes every console command the session
+was driven with, so a harness-driven recording reproduces its own input twice over and the sample
+stream is not the only carrier. Dropping the analog restore entirely still replays clean. What
+separates them is a replay driven the other way at the same time: the file has to win. For the
+stick the live one has to let go early as well, because presence is a boolean that the live stick
+also sets, so only the polls after it centres can answer where presence came from.
+
+This applies to every fixture here, not just the analog one, and it is the reason the combo
+recordings above are worth committing beside the fixtures rather than instead of them.
 
 **The socket is a transport, not a fourth path.** It delivers the same `key` and `input` verbs a
 `--exec` line would. What it adds is a third clock: a command *arrives* on a present, and then
@@ -400,8 +482,54 @@ change could flip without anyone noticing.
 |---|---|---|
 | Direction plus `I_ESQUIVE` | selects the four `GEN_ANIM_ESQUIVE_*` variants, with a separate branch for sidestep plus a turn | OBJECT.CPP:4383 |
 | Direction held plus a spell | the spell keys bypass `Input` entirely through `SpellKeyDown`, so this probes the hole in the binding table | PERSO.CPP:1361-1407 |
-| Walk and turn together | the arc: turning is velocity times dt and frame-rate independent, walking is animation-driven and is not, so the radius may change with frame rate | INPUT_RESEARCH open question 6 |
+| Walk and turn together | the arc changes with the simulation step, and it is the **turn** that moves rather than the walk. Measured below | INPUT_RESEARCH open question 6 |
 | Any of the above in the buggy | `BUGGY.CPP:277` carries its own copy of the re-press test, so vehicle input is a second path with the same shape | BUGGY.CPP:277 |
+
+**The arc is measured, and it is not a fixture.** Over 3840 ms of game time from the corpus save,
+holding a direction from idle:
+
+| simulation step | units turned |
+|---|---|
+| 8 ms | 16 |
+| 16 ms | 16 |
+| 24 ms | 131 |
+| 32 ms | 294 |
+| 40 ms | 431 |
+
+Walking the same game time is invariant over the same range: the hero's Z is identical to the unit
+at 8, 16 and 32 ms. So the two halves of the arc do not behave alike, and the half that moves is the
+turn, which is the opposite way round from how the row above used to read.
+
+It follows from which branch a turn takes. A direction from idle starts `GEN_ANIM_GAUCHE` or
+`GEN_ANIM_DROITE` and is animation-driven; the `Beta += GetDeltaMove(...)` branch, which is velocity
+times dt, is reached only once `GenAnim != GEN_ANIM_RIEN`. So a turn in place is animation-driven
+and couples to the step exactly as [MOVEMENT_FRAMERATE.md](../MOVEMENT_FRAMERATE.md) describes for
+locomotion.
+
+No fixture is written for this. Asserting invariance would fail, and asserting the numbers above
+would pin a port regression as though it were the design. It belongs to the movement campaign,
+where the class already has a name, and it is recorded here because this is where it was measured.
+
+**What a modal input fixture needs, and does not have.** Increment 2's discard rule, that input
+accumulated while a screen is inhibited is dropped rather than banked, wants a fixture holding a
+direction across a modal and asserting the hero does not lurch on the way out. Entry is already
+measurable: opening the main menu 40 polls into a held walk stops the hero at 240 units where the
+same walk uninterrupted covers 1900. The exit is the problem. Esc does not close the menu from
+`key` in a headless run, so the session stays inside it and the hero never gets the chance to
+lurch, and a run that asserted on that would be asserting on a modal it never left.
+`test_askchoice_menus_consume.sh` covers the other half already, that the skip press is consumed
+rather than left live. So what is missing is a way to drive a menu from open to closed headlessly,
+which is a piece of harness work rather than a fixture, and it belongs with increment 2 rather than
+in front of it.
+
+**The compiled pad defaults are not what a fresh run uses, and it is not yet clear what is.**
+`ReadGamepadConfig` reads `Gamepad<n>` from the config with `GamepadKeysDefault[n].Key1` as the
+fallback, so a settings folder with no such key should take the compiled entry. It does not:
+putting a sentinel in slot 2's compiled default and booting into an empty settings folder still
+writes the shipped scancode to `Gamepad2`, and the pad still turns the way it always did. The
+config is authoritative once written, which the pad fixture is validated against, but where a
+fresh run's values come from is unanswered. Increment 4 splits that table and should settle it
+first: a default nobody can change from the source is a default nobody can review.
 
 **Write these over the control socket, not as a boot per combo.** Most of the suite predates
 `--listen` and pays a process boot per observation. Measured on this fixture set: **4.7 ms** per

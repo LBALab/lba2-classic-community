@@ -1,10 +1,36 @@
-# Recordings in formats this build reads and does not write
+# Committed recordings
+
+Two kinds, kept for two different reasons: one format this build reads and does not write,
+and a baseline of what the engine did before the input work started moving it.
+
+## The input baseline
+
+`combo-set.rec` and `combo-controls.rec` are 661 ticks each of the same scripted session
+against `steam_classic_2023/Wannies fragment.LBA`, one driving the input *combinations*
+the fixtures assert on and one driving each input on its own. Both replay clean, and
+`test_combo_baseline.sh` requires it.
+
+They exist because a fixture only looks where someone thought to look. The eight combo
+fixtures assert the hero's animation and position; the digest behind these two covers
+every actor and all 336 script variables, so a change that moves something nobody
+asserted is caught here and nowhere else.
+
+**Both, not just the combination.** Swapping `I_LEFT` and `I_RIGHT` in the turn block is
+caught by the control at tick 21 and by the combination at tick 201, because a frame
+holding both directions runs the same branch either way and says nothing until the
+session presses one on its own. A combination without its control pins the one session
+where the rule under test happens not to matter.
+
+Regenerate only for a deliberate format change, and never to make a failing replay pass:
+a baseline re-recorded against the build it is meant to be judging has stopped being one.
+
+## The format file
 
 `legacy-v10.rec` is a session recorded by a format-10 engine, kept so a build that
 reads that format is asked to prove it. `tests/automation/test_record_replay.sh` replays
 it.
 
-## Why a committed file rather than one the test makes
+### Why a committed file rather than one the test makes
 
 Every other arm of that fixture records a session and replays it with the same binary,
 which cannot catch a change that breaks both ends together. That is not a hypothetical
@@ -17,7 +43,7 @@ So the rule is simple: **never re-record this.** Regenerating it against the cur
 build turns it back into the same-build check it exists to replace. If it fails, the
 build has stopped reading format 10, and that is the finding.
 
-## What it holds
+### What it holds
 
 | | |
 |---|---|
@@ -39,7 +65,7 @@ digest covers and `lib.sh` gives every fixture a `mktemp` user directory. A file
 recorded with it set diverges at tick 0 for a reason that has nothing to do with the
 format.
 
-## If it fails on your machine
+### If it fails on your machine
 
 The header names what the session ran under, and the replay reports every mode line that
 differs from the live run before it starts. `data.master=LBA2` and `numeric.rng` are the

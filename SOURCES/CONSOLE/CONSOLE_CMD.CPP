@@ -2537,6 +2537,12 @@ void Console_RegisterAll(void) {
     Console_RegisterCvar("horizon", (void *)&FlagDrawHorizon, CONSOLE_CVAR_BOOL_U8, "Draw horizon/cubes around");
     Console_RegisterCvar("zv", &DrawZVObjets, CONSOLE_CVAR_BOOL, "Draw ZV boxes");
 
+    /* The cheat code's toggle, reachable without typing the cheat. A fixture that
+       stands next to something hostile is otherwise racing the hero's health, and
+       a hero taking damage plays the hit animation over whatever the fixture came
+       to watch. */
+    Console_RegisterCvar("godmode", &GodMode, CONSOLE_CVAR_BOOL, "Hero takes no damage");
+
     /* Camera tuning (see docs/CONTROLLER.md). No clamp on set, so values can be
      * pushed past the official ranges while tuning; cfg load clamps and changes
      * persist on exit. */

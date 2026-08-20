@@ -40,7 +40,7 @@ import sys
 KF_LEGACY_FIELDS = 23
 KF = [
     "cube", "cubemode", "hero.x", "hero.y", "hero.z", "hero.beta",
-    "hero.anim", "hero.body", "hero.move", "hero.life", "hero.zone",
+    "hero.anim", "hero.gen_anim", "hero.body", "hero.move", "hero.life", "hero.zone",
     "comportement", "weapon",
     "cam.beta", "cam.alpha", "cam.addbeta", "cam.dist",
     "cinema", "dial.obj", "choice", "choices", "fade", "blackpal",
