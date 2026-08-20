@@ -844,9 +844,14 @@ ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$modaldir/s.rec" \
     --exec-at 300 "cube 154" \
     --exec-at 340 "dumpstate $modaldir/w1.json" \
     --tick 600 --exit >/dev/null 2>&1 ||
-    fail "modal pacing: the scene-change run exited non-zero"
+    fail "modal pacing: the scene-change run exited non-zero ($?) — hang or crash"
 [ -s "$modaldir/w0.json" ] && [ -s "$modaldir/w1.json" ] ||
     fail "modal pacing: the run dumped no window — it never reached the scene change"
+# Before the rate is read, and not merely for tidiness: pacing is armed by a recording
+# starting, so a run whose --record never opened is unpaced for a reason that has nothing
+# to do with modal loops. It would fail the rate check below with a message blaming them.
+[ -s "$modaldir/s.rec" ] ||
+    fail "modal pacing: the run wrote no recording, so nothing armed the pacing and the rate below would describe the wrong fault"
 
 # Two numbers out of one reader, so the window is described once.
 modalout="$(python3 -c "
@@ -858,6 +863,8 @@ wall = b['wall_ms'] - a['wall_ms']
 ticks = b['tick'] - a['tick']
 if wall <= 0 or game <= 0 or ticks <= 0:
     raise SystemExit(1)
+# The 16 is the --fixed-dt above. Written twice on one command, so it is the one thing
+# here that has to move in step if the arm is ever re-pinned.
 print('%.3f %d %d' % (game / wall, game, ticks * 16))")" ||
     fail "modal pacing: the window dumped no usable clock — a stopped clock, or a bracket that caught nothing"
 
