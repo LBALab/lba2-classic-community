@@ -726,6 +726,73 @@ somebody intends to reproduce, so quantising its time is inherent to the act rat
 imposed on it, and the engine already has a fixed-timestep simulation for
 [movement frame-rate independence](../MOVEMENT_FRAMERATE.md).
 
+### The finer clock, and why it is the wrong direction
+
+The conclusion above invites an obvious objection: every attempt listed worked at poll or tick
+granularity, which is coarser than the thing it was reproducing, so perhaps none of them failed for
+the reason given. Storing one sample per `ManageTime` call would settle it, and the seam is already
+there -- `Record_ClockHook` sits at the one point the host clock enters the engine, and a record
+written from it lands in stream order the way a console command does.
+
+Built, behind an environment variable, and measured. **It makes a replay worse.** The comparison is
+one recording replayed twice, with the stored samples honoured and with them stepped over, because
+two loose recordings of one scene are two different sessions and cannot be compared:
+
+| Scene | Samples honoured | Samples stepped over |
+|---|---|---|
+| cube 3, interior | first mismatch at tick 133 | clean |
+| cube 48, Downtown | first mismatch at tick 191 | clean |
+
+So the quantisation is not an approximation the earlier attempts settled for. **It is the
+mechanism.** A clock that is constant within a frame is what `GetDeltaMove` needs, because each
+`MOVE` carries its own `LastTimer` and attributes elapsed time to whatever `Speed` was current when
+that call read the clock. Feeding the true intra-frame movement back reintroduces exactly the
+variation the quantisation removes, and the reads only have to fall out of step once -- measured, 2
+of 312 -- for everything after to be attributed against the wrong call.
+
+### What `--fixed-dt` is actually for
+
+Three measurements that together move the requirement somewhere other than where it looks.
+
+**The recording side is already quantised.** `Record_ClockHook` has no `s_recording` guard, so a
+loose *recording* also gets one clock value per frame, applied to every `ManageTime` call in it.
+Record-time quantisation is not a proposal; it is what the hook does.
+
+**A loose recording reproduces the clock exactly.** Three loose 1000-tick Downtown runs, hero
+walking: clock drift max **0 ms** in all three. Two of the three still diverged in state, at ticks
+850 and 851. So the clock is not what is left.
+
+**And it mostly replays.** Eight loose record-and-replay pairs, 800 ticks, same scene and input:
+seven clean, one diverging at tick 407. `--fixed-dt` buys the last tenth rather than the capability,
+which is a smaller claim than "required, not an optimisation" reads as.
+
+**A divergence is deterministic.** A recording that diverges does so at the same tick on every
+replay -- 850, three times over. That makes a loose recording that fails a repeatable reproducer
+rather than a flaky one, which is what the loose path has never had. Chasing one with `--verbose`
+names the field, and that is the next step for anyone who wants the requirement gone.
+
+What this retires is the direction, not the goal: reproducing the clock more faithfully is finished
+as an idea, and the residual behind tick 850 is the whole of what remains.
+
+### Interpolation is the other half, and it is not this half
+
+Interpolation cannot remove the fixed step, because the step is what makes the run reproducible.
+What it removes is the reason to want the step gone. A pinned simulation presents a new pose only
+when it advances, so a display faster than the step re-presents the frozen one and held movement
+staircases; that is what makes a pinned session feel wrong to play rather than merely slow.
+[RENDER_INTERP_PLAN.md](RENDER_INTERP_PLAN.md) measures it at 75% of rendered frames repeating the
+previous position at 240 Hz emulation.
+
+Interpolating the presentation while the simulation stays pinned separates the two: the recording
+stays exactly as reproducible as it is now, and the session it captures is one somebody would want
+to play. That plan's phases 0 to 2 are implemented on `feat/render-interp` and its sim `--dump-state`
+is byte-identical to `main` with the flag off, which is the property that matters here -- an
+interpolation that touched the simulation would be a third way to break a replay.
+
+It is parked because the staircase was not perceptible in ordinary play. Recording is a second
+reason to want it, and a different one: not that the judder is visible, but that pinning the step is
+the price of a recording and interpolation is what makes that price payable.
+
 **Two things a recording mode has to get right, both measured.**
 
 *Pace the frames.* A pinned step alone makes game speed a function of frame rate, because there
