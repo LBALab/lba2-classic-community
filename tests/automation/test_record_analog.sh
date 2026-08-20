@@ -1,26 +1,29 @@
 #!/usr/bin/env bash
-# The analog camera survives a recording: mouse motion and buttons round-trip.
+# The analog camera survives a recording: mouse and right stick both round-trip.
 #
-# The recorder carries three values that never reach TabKeys -- the mouse delta pair
-# and Click, the right stick, and the pad's first-pressed scancode -- because none of
-# them has a scancode to be carried as. Everything else in a recording rides the key
-# table, so those twenty bytes are the only part of the format that no keyboard session
-# exercises, and until the mouse could be driven from the console no session exercised
-# them at all. A block that is never filled is a block that is never checked.
+# The recorder carries values that never reach TabKeys -- the mouse delta pair and
+# Click, the right stick, and the pad's first-pressed scancode -- because none of them
+# has a scancode to be carried as. Everything else in a recording rides the key table,
+# so those twenty bytes are the only part of the format that no keyboard session
+# exercises, and until the two devices could be driven from the console no session
+# exercised them at all. A block that is never filled is a block that is never checked.
 #
-# Two properties, because each catches what the other cannot:
+# Two properties per device, because each catches what the other cannot:
 #
-#   The file carries the motion, at the poll it happened. A recording samples device
+#   The file carries the input, at the poll it happened. A recording samples device
 #   state at the input poll, which sits after the frame's events are pumped and before
-#   ManageMouse drains them, so the pair to sample is the motion still pending and not
-#   the motion delivered last time. Sampling the delivered one records every movement a
-#   poll late and replays the orbit a frame behind the session.
+#   ManageMouse drains them, so the mouse pair to sample is the motion still pending and
+#   not the motion delivered last time. Sampling the delivered one records every
+#   movement a poll late and replays the orbit a frame behind the session.
 #
-#   The file beats a live device. A replay run whose own mouse is moving the other way
-#   has to reproduce the recording, not the room. Without this the test cannot tell a
-#   replayed sample from the recorded `mouse` command being re-executed: both put the
-#   same motion in the same place, so a replay that dropped the analog block entirely
-#   would still pass.
+#   The file beats a live device. A replay run whose own mouse or stick is moving has to
+#   reproduce the recording, not the room. Without this the test cannot tell a replayed
+#   sample from the recorded `mouse` or `stick` command being re-executed: both put the
+#   same values in the same place, so a replay that dropped the analog block entirely
+#   would still pass. For the stick the live one lets go early, which is what isolates
+#   the pad-presence half: the analog camera asks whether a pad is there before it reads
+#   the axes, and the polls after the live stick centres are the only ones where that
+#   answer can come from nowhere but the file.
 #
 # Runs in an exterior, where the Auto camera and its analog orbit live. The default
 # config wants the right button held for the drag orbit, which is why the injected
@@ -37,7 +40,6 @@ case "$(ctl_headless --exec 'help mouse' --tick 2 --exit 2>/dev/null)" in
 esac
 
 rec="$(user_dir)/analog.rec"
-rm -f "$rec" "$rec".lba "$rec".end.lba
 
 # The Auto camera off a run of its own, not off the recording's --exec. `cam_follow` is
 # a cvar, so setting it writes it back: a recording run that switched it on would boot
@@ -46,31 +48,30 @@ rm -f "$rec" "$rec".lba "$rec".end.lba
 ctl --fixed-dt 16 --load "$SAVE" --exec "cam_follow 1" --tick 2 --exit >/dev/null 2>&1 ||
     fail "could not switch the Auto camera on ($?)"
 
-# 20 pixels a poll for 60 polls with the right button down: past the 2px dead zone by
-# enough that the orbit is unmistakable, and short of anything that would wrap.
-ctl --fixed-dt 16 --load "$SAVE" --record "$rec" \
-    --exec "skipmodals 1" --exec-at 40 "mouse 20 0 60" --tick 200 --exit \
-    >/dev/null 2>&1 || fail "recording run exited non-zero ($?): hang or crash"
-[ -s "$rec" ] || fail "no recording written to $rec"
+record() { # record <label> <driving command>
+    rm -f "$rec" "$rec".lba "$rec".end.lba
+    ctl --fixed-dt 16 --load "$SAVE" --record "$rec" \
+        --exec "skipmodals 1" --exec-at 40 "$2" --tick 200 --exit \
+        >/dev/null 2>&1 || fail "$1: recording run exited non-zero ($?): hang or crash"
+    [ -s "$rec" ] || fail "$1: no recording written to $rec"
+}
 
-# --- the file carries it -----------------------------------------------------------
 # The dump prints its summary line first whatever mode it is asked for, so take the
 # per-poll lines by their own prefix rather than by position.
-analog="$(python3 "$REPO/scripts/dev/dump_recording.py" "$rec" analog | grep '^poll ')" ||
-    fail "the recording carries no analog polls at all"
-count="$(printf '%s\n' "$analog" | grep -c . || true)"
-[ "$count" -ge 50 ] ||
-    fail "the recording carries $count analog polls; 60 polls of mouse motion went in"
+CARRIED=""
+carried() { # carried <label> <expected tail of the first poll line>
+    local analog
+    analog="$(python3 "$REPO/scripts/dev/dump_recording.py" "$rec" analog | grep '^poll ')" ||
+        fail "$1: the recording carries no analog polls at all"
+    CARRIED="$(printf '%s\n' "$analog" | grep -c . || true)"
+    [ "$CARRIED" -ge 50 ] ||
+        fail "$1: the recording carries $CARRIED analog polls; 60 polls of input went in"
+    case "$(printf '%s\n' "$analog" | head -1)" in
+    *"$2") ;;
+    *) fail "$1: first analog poll is '$(printf '%s\n' "$analog" | head -1)'; want it to end '$2'" ;;
+    esac
+}
 
-# The first one is the alignment check. It has to hold the motion, not a zero left over
-# from reading the field ManageMouse had already drained.
-first="$(printf '%s\n' "$analog" | head -1)"
-case "$first" in
-*"mdx 20 mdy 0 click 2"*) ;;
-*) fail "first analog poll is '$first'; want mdx 20 mdy 0 click 2 (a poll late reads mdx 0)" ;;
-esac
-
-# --- it replays ---------------------------------------------------------------------
 # Reports through CHECKED rather than stdout, and is called directly rather than in a
 # command substitution: `fail` ends the shell it runs in, which inside $( ) is only the
 # subshell, and the caller carries on and prints over the top of the failure.
@@ -91,17 +92,27 @@ replay() { # replay <label> [extra replay args...]
     *) fail "$label: $summary" ;;
     esac
     CHECKED="$(printf '%s\n' "$summary" | sed -n 's/.*: \([0-9]*\) ticks checked.*/\1/p')"
+    [ -n "$CHECKED" ] && [ "$CHECKED" -gt 100 ] ||
+        fail "$label: only ${CHECKED:-0} ticks checked, so the oracle barely ran"
 }
 
-replay "plain"
-checked="$CHECKED"
-[ -n "$checked" ] && [ "$checked" -gt 100 ] ||
-    fail "only ${checked:-0} ticks checked, so the oracle barely ran"
+# --- the mouse ---------------------------------------------------------------------
+# 20 pixels a poll for 60 polls with the right button down: past the 2px dead zone by
+# enough that the orbit is unmistakable, and short of anything that would wrap. A poll
+# late reads mdx 0, which is what the first line is checked for.
+record "mouse" "mouse 20 0 60"
+carried "mouse" "mdx 20 mdy 0 click 2"
+mousepolls="$CARRIED"
+replay "mouse"
+replay "mouse contested" --exec-at 40 "mouse -60 40 60"
 
-# The same recording against a mouse dragging the other way over the same polls. The
-# recorded motion has to win, or the replay is reproducing the room.
-replay "contested" --exec-at 40 "mouse -60 40 60"
-[ "$CHECKED" = "$checked" ] ||
-    fail "contested replay checked $CHECKED ticks, plain checked $checked"
+# --- the right stick ---------------------------------------------------------------
+# Well past JoystickDeadzone, and a live one that lets go after 20 of the file's 60
+# polls: from there on the only thing that can report a pad present is the replay.
+record "stick" "stick 24000 0 60"
+carried "stick" "rsx 24000 rsy 0 padfirst 0 mdx 0 mdy 0 click 0"
+stickpolls="$CARRIED"
+replay "stick"
+replay "stick contested" --exec-at 40 "stick -30000 12000 20"
 
-pass "analog round-trip: $count polls of mouse motion, $checked ticks matched, and the file beat a live mouse"
+pass "mouse $mousepolls polls, stick $stickpolls polls, $CHECKED ticks matched each, and the file beat a live device"
