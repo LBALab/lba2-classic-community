@@ -97,6 +97,24 @@ Who pins it depends on where the recording starts, and the split is not a conven
 A replay pins whatever step the recording's header names, so a session played at some other step
 replays at that one rather than at the default.
 
+**Both ends have to arm it the same way, and matching values is not enough.** Arming at boot and
+arming at the reload are different points in the run, and `Timer_EnableFixedDt` reseeds the clock
+where it is called, so a recording made one way and replayed the other diverges even at the same
+step. Measured on the same save and the same 16 ms step:
+
+| Recorded | Replayed | Result |
+|---|---|---|
+| `--fixed-dt 16` | `--fixed-dt 16` | clean, `first hash mismatch -1` |
+| no flag, `rec start` pins it | no flag, `rec play` pins it | clean, `first hash mismatch -1` |
+| `--fixed-dt 16` | no flag | diverges at tick 1, 3152 ms of clock drift |
+| no flag, `rec start` pins it | `--fixed-dt 16` | diverges at tick 1, 3152 ms of clock drift |
+
+So a session recorded with the flag is replayed with the flag, and one recorded without it is
+replayed without it. The header records the step but not where it was armed, so the mode comparison
+cannot yet report the two bottom rows: after arming, both ends say `mode.fixed_dt=16` and the
+comparison is looking at the same number on both sides. Recording where the step was armed, so a
+replay can name that difference the way it names the others, is the open piece.
+
 The header records the mode either way, and `rec info` compares a recording's mode lines against the
 live run, so a replay under a step the recording was not made at is reported rather than silently
 wrong.

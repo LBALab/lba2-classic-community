@@ -516,6 +516,12 @@ static S32 write_mode_lines(char *out, size_t n) {
 
 static char s_armRecord[512];
 static char s_armReplay[512];
+/* Which of the two the flag asked for, rather than which of the two strings is not
+   empty. The strings cannot answer it: an empty name is a name the recorder now picks
+   for itself, so dispatching on `s_armRecord[0]` made `--record ""` arm the recorder and
+   then match neither branch -- the run recorded nothing, said nothing, and exited 0.
+   `--replay ""` was the worse half of the same bug, because a clean replay also exits 0,
+   so a harness could not tell the two apart. 0 = nothing armed, 1 = record, 2 = replay. */
 static int s_armed = 0;
 
 /* The console tokenizer hands paths through verbatim and fopen has never known what
@@ -672,7 +678,7 @@ static int s_replayFromCli = 0;
 void Record_ArmReplay(const char *path) {
     snprintf(s_armReplay, sizeof s_armReplay, "%s", path ? path : "");
     s_armRecord[0] = 0;
-    s_armed = 1;
+    s_armed = 2;
     s_replayFromCli = 1;
 }
 
@@ -943,6 +949,13 @@ static void record_reload_request(const char *save, const char *then, int forPla
     snprintf(s_reloadSave, sizeof s_reloadSave, "%s", save);
     snprintf(s_reloadThen, sizeof s_reloadThen, "%s", then);
     s_reloadForPlay = forPlay;
+    /* Cleared here so the step belongs to the request rather than to the run: a session
+       that replays a recording and then starts one of its own would otherwise still be
+       holding the replayed recording's step. Nothing reads it on this path today --
+       Timer_FixedDtActive() is true by then and the arming is skipped -- so this is
+       keeping the invariant local rather than resting it on a guard somewhere else.
+       Record_Play sets it from the header immediately after calling this. */
+    s_reloadDt = 0;
     s_reloadState = 1;
 }
 
@@ -1857,8 +1870,11 @@ int Record_Play(const char *path) {
         } else {
             char dir[ADELINE_MAX_PATH];
             GetRecordingsPath(dir, ADELINE_MAX_PATH, NULL);
-            Console_Print("rec: no recordings in %s", dir);
-            fprintf(stderr, "[rec] no recordings in %s\n", dir);
+            /* Names what it looked for, not just where. The scan takes `.rec` only,
+               so a session someone saved under another extension is sitting in that
+               folder while this says there is nothing in it. */
+            Console_Print("rec: no .rec recordings in %s", dir);
+            fprintf(stderr, "[rec] no .rec recordings in %s\n", dir);
             return 0;
         }
     }
@@ -1980,9 +1996,11 @@ int Record_Play(const char *path) {
                 U32 clk = 0;
                 if (RecFmt_ReadU32(s_headerBuf, "setup.reload_clock=", &clk))
                     s_reloadClock = clk;
-                s_reloadDt = 0;
-                RecFmt_ReadInt(s_headerBuf, "mode.fixed_dt=", &s_reloadDt);
                 record_reload_request(from, "", 1);
+                /* After the request, which clears it: the step this replay pins comes
+                   from the recording's header, and a session played at some other
+                   --fixed-dt reproduces on that one and on nothing else. */
+                RecFmt_ReadInt(s_headerBuf, "mode.fixed_dt=", &s_reloadDt);
                 Console_Print("rec: reloading %s; replay starts from the post-load state", from);
                 return 1;
             }
@@ -1999,18 +2017,20 @@ int Record_Play(const char *path) {
 
 void Record_PollHook(void) {
     if (s_armed) {
+        int kind = s_armed;
         s_armed = 0;
         /* The resolved path on success, the string the player typed on failure: one
            says where the file went, the other is the only thing left to report when
-           there is no file. */
-        if (s_armRecord[0]) {
+           there is no file -- and where the flag was given no name at all, saying so is
+           the only thing left. */
+        if (kind == 1) {
             int ok = Record_Start(s_armRecord);
             fprintf(stderr, "[rec] %s %s\n", ok ? "recording to" : "cannot record to",
-                    ok ? Record_Path() : s_armRecord);
-        } else if (s_armReplay[0]) {
+                    ok ? Record_Path() : (s_armRecord[0] ? s_armRecord : "(no name given)"));
+        } else {
             int ok = Record_Play(s_armReplay);
             fprintf(stderr, "[rec] %s %s\n", ok ? "replaying" : "cannot open",
-                    ok ? Record_Path() : s_armReplay);
+                    ok ? Record_Path() : (s_armReplay[0] ? s_armReplay : "(no name given)"));
         }
     }
     /* A reload has landed and this is the first poll after it. Beginning here rather

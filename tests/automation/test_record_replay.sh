@@ -289,7 +289,10 @@ esac
 
 # Changing a game variable under the replay is a divergence the recording cannot know
 # about, so the report has to come from comparing the stored values against the live
-# ones. Exits non-zero by design: the run diverged.
+# ones. The check is on the output and not on the exit code, because measured, a replay
+# that diverges under --tick still exits 0: the exit code carries the replay's verdict
+# only on the path that has no tick budget (SOURCES/RECORD.CPP, Record_PollHook). The
+# `|| true` is there for that path rather than this one.
 bout="$(ctl --verbose --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$rec" --tick 400 \
     --exec-at 200 "vargame 77 42" --exit 2>&1 || true)"
 case "$bout" in
@@ -349,7 +352,7 @@ case "$loopout" in
 *"first hash mismatch -1"*) ;;
 *)
     fail "console loop: $(printf '%s\n' "$loopout" |
-        grep -m1 -e 'replay ended' -e 'cannot open' -e 'no recordings' ||
+        grep -m1 -e 'replay ended' -e 'cannot open' -e 'recordings in' ||
         echo 'the replay said nothing')"
     ;;
 esac
@@ -373,7 +376,7 @@ emptyout="$(LBA2_USER_DIR="$emptydir" ctl --load "$LBA2_TEST_SAVE" \
     --exec-at 20 "rec play" --tick 60 --exit 2>&1)" ||
     fail "console loop: the empty-folder run exited non-zero ($?) — hang or crash"
 case "$emptyout" in
-*"no recordings in"*) ;;
+*"no .rec recordings in"*) ;;
 *) fail "console loop: 'rec play' with no recordings to play said nothing about it" ;;
 esac
 
