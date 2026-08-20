@@ -43,6 +43,7 @@ static U32 FixedDtNow = 0;
 static S32 FixedDtTicking = 0;        // set on the first tick advance; gates present-stepping past boot
 static S32 FixedDtSkipPresent = 0;    // makes the first present after each tick advance free
 static S32 FixedDtOverlayPresent = 0; // the next present draws an overlay, not a frame
+static S32 SimAudioClock = 0;         // see Timer_SimAudioClock (TIMER.H)
 
 // --- Initialization ----------------------------------------------------------
 void InitTimer() {
@@ -179,6 +180,14 @@ void Timer_FixedDtPump() {
 
 S32 Timer_FixedDtActive() {
     return FixedDtActive;
+}
+
+void Timer_SetSimAudioClock(S32 on) {
+    SimAudioClock = on ? 1 : 0;
+}
+
+S32 Timer_SimAudioClock(void) {
+    return FixedDtActive || SimAudioClock;
 }
 
 S32 Timer_FixedStepCount(U32 *accMs, U32 elapsedMs, U32 dt, S32 maxSteps) {

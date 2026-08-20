@@ -1227,6 +1227,13 @@ static int record_begin(const char *path, int haveSnapshot) {
         if (s_hashEvery < 1)
             s_hashEvery = 1;
     }
+    /* Answer the simulation's sample-playing question from the game clock for the whole
+       session. Without it a voice's lifetime is the audio device's, which no replay
+       reproduces, and AMBIANCE.CPP's `if (!IsSamplePlaying(...))` pan draw comes off the
+       one random stream actor behaviour uses. Armed for a host-sampled session too, not
+       just a pinned one: a loose recording needs it more, having nothing else holding the
+       two ends together. */
+    Timer_SetSimAudioClock(1);
     s_recording = 1;
     return 1;
 }
@@ -1304,6 +1311,7 @@ static void record_release_step(void) {
        two cannot come apart again. */
     s_frameClock = 0;
     s_frameClockValid = 0;
+    Timer_SetSimAudioClock(0);
 
     if (!s_recArmedDt)
         return;
@@ -1975,6 +1983,7 @@ static int replay_poll(void) {
    asked for: a replay that reloads first takes a scene load between the two, and the
    clock it compares against has to be the one it begins on. */
 static void replay_begin(void) {
+    Timer_SetSimAudioClock(1);
     memset(s_prevKeys, 0, sizeof s_prevKeys);
     s_prevKey = 0;
     s_prevSrcDelta = 0;

@@ -205,7 +205,7 @@ S32 sampleVolume = 0;
 static int sfxLogEnabled = 0;
 
 extern volatile U32 TimerSystemHR;
-extern "C" S32 Timer_FixedDtActive(void);
+extern "C" S32 Timer_SimAudioClock(void);
 
 /* Is this voice still playing, as far as the simulation is concerned?
  *
@@ -219,11 +219,13 @@ extern "C" S32 Timer_FixedDtActive(void);
  * session diverged from its own replay at tick 1410 on obj[11].Beta, and the same session
  * recorded with --no-audio replayed clean.
  *
- * So under fixed-dt the answer comes from the sample's own length on the game clock. The
+ * So for any run that has to reproduce, the answer comes from the sample's own length on
+ * the game clock. That is the pinned clock, and also a recording or replay on a
+ * host-sampled one, which needs it more: nothing else holds its two ends together. The
  * mixer still stops the voice when the data runs out; this only changes what the
- * simulation is told, and only in a mode no player runs. */
+ * simulation is told. */
 static bool VoiceHeardBySim(const Voice *V) {
-    if (!Timer_FixedDtActive())
+    if (!Timer_SimAudioClock())
         return V->active;
     if (V->simEndMs == 0)
         return false;

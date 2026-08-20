@@ -65,6 +65,15 @@ void Timer_FixedDtOverlayPresent();
 // Unlike Timer_FixedDtPresent() there is no free first step. Inert outside fixed-dt.
 void Timer_FixedDtPump();
 
+// Answer the simulation's "is this voice still playing" from the sample's own length on
+// the game clock instead of from the mixer. True whenever the pinned clock is armed, and
+// separately settable by the recorder, which needs the same answer on a host-sampled
+// clock: SOURCES/AMBIANCE.CPP draws its random pan only `if (!IsSamplePlaying(...))`, and
+// that draw comes from the one random stream actor behaviour uses, so a voice that
+// outlives its recording by a frame moves every actor decision after it.
+void Timer_SetSimAudioClock(S32 on);
+S32 Timer_SimAudioClock(void);
+
 // --- Fixed simulation timestep (production, issue #358) ----------------------
 // Movement/animation is only correct near ~60 fps because locomotion is baked into
 // animation keyframes advanced once per rendered frame (see docs/MOVEMENT_FRAMERATE.md).
