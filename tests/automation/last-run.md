@@ -2,10 +2,10 @@
 
 # Control-harness last run
 
-- when: 2026-08-20 01:42 UTC
-- commit: `fe1bb886`
+- when: 2026-08-20 11:12 UTC
+- commit: `29639136`
 - host: Linux x86_64
-- result: **61 passed, 2 skipped, 0 failed**
+- result: **62 passed, 2 skipped, 0 failed**
 
 A skip means a prerequisite was missing, not that the fixture agreed with the
 engine. Only the passes are evidence.
@@ -50,6 +50,7 @@ engine. Only the passes are evidence.
 | test_profile_bind.sh | pass |
 | test_projection_corpus.sh | pass |
 | test_projection_demo.sh | skip |
+| test_record_analog.sh | pass |
 | test_record_replay.sh | pass |
 | test_release_detection.sh | pass |
 | test_res_catalog_sweep.sh | pass |
