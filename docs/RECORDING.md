@@ -307,27 +307,57 @@ mid-session recording is not yet self-contained either. Naming the save the sess
 the outstanding work; until then, pass it.
 
 **Some settings have to match, and they are not in the save.** A replay reads the live config, so a
-config edited between recording and replay reads as the simulation diverging. Three are known to do
-it, each found by changing one cfg key at a time on the replay side:
+config edited between recording and replay reads as the simulation diverging. Each of these was
+found by changing one cfg key at a time on the replay side of a recorded session:
 
 | Setting | Diverges at | Why |
 |---|---|---|
 | `FollowCamera` | tick 0 | The camera is in the digest |
 | `FollowCamGroundClearance` | tick 2 | The camera settles at a different distance |
 | `DetailLevel` 3 to 0 | tick 235 | `SetDetailLevel` turns `RainEnable` off, and rain draws from the one shared `rand()` stream |
+| `MouseCamera` 1 to 0 | tick 61 | The recorded motion is discarded instead of turning the camera |
+| `MouseCameraDrag` 1 to 0 | tick 61 | Orbits on motion the recording made with no button held |
+| `MouseSensitivityX` 4 to 8 | tick 61 | The recording stores raw motion; the replay scales it |
+| `MouseCameraDivisor` 4 to 2 | tick 61 | The other half of that scaling |
+| `MouseSensitivityY` 4 to 8 | tick 131 | Same, on the first gesture with a Y component |
+| `MouseInvertY` 0 to 1 | tick 131 | Same motion, opposite sign |
+| `FollowCamOrbitGlide` 75 to 20 | tick 101 | Where a gesture ends and the glide takes over |
+| `GamepadCameraAnalog` 1 to 0 | tick 61 | The recorded axes are not read at all |
+| `GamepadCameraSensX` 5 to 9 | tick 61 | Same deflection, different orbit speed |
+| `GamepadCamMaxBeta` 36 to 72 | tick 61 | The ceiling that speed scales to |
+| `GamepadDeadzone` 8000 to 12000 | tick 61 | Decides whether a deflection registers |
+| `GamepadCameraSensY` 5 to 9 | tick 131 | Same, on the gesture with a Y component |
+| `GamepadCameraInvertY` 0 to 1 | tick 131 | Same deflection, opposite sign |
+| `GamepadCamMaxAlpha` 10 to 20 | tick 131 | The elevation ceiling |
 
-The header carries those and the rest of the Auto camera's block, and a replay names the ones that
-differ as it starts, by the key the player would edit:
+The analog rows needed a session that orbits. Two earlier sweeps drove the keyboard and returned a
+column of "none" for all of them, which is why the tick each one fires on is worth reading: it is
+the gesture that setting shapes, not an arbitrary point in a session that would diverge anyway. The
+mouse and stick rows split by axis in exactly the same way, X keys on the X gesture and Y keys on
+the first gesture with a Y component.
+
+`GamepadDeadzone` is the widest of the set and the likeliest to differ between two players, being
+what a stick with drift gets tuned on. It is not only a camera setting: `SOURCES/JOYSTICK.CPP`
+applies it to the left stick's axis-to-scancode conversion too, so it decides what a recorded
+deflection means for movement as well.
+
+The gamepad keys are read in `SOURCES/INPUT.CPP` rather than `SOURCES/CONFIG_FILE.CPP`, which is
+worth knowing before concluding that a sweep has seen the whole config.
+
+The header carries all of these, and a replay names the ones that differ as it starts, by the key
+the player would edit:
 
 ```
-[rec] mode differs: settings.FollowCamGroundClearance=20000 (this run: 600)
+[rec] mode differs: settings.MouseSensitivityX=4 (this run: 8)
 [rec] 1 mode line(s) differ; this replay may not reproduce
 ```
 
-Clean on the sessions swept so far, and so deliberately not carried: `AllCameras`, the mouse
-settings, and `Shadow` (`SetDetailLevel` overwrites it at MainLoop entry anyway). The boundary is
-empirical rather than principled: a setting joins the block when a replay is shown to turn on it,
-and a sweep that came back clean was run on one session rather than on every path.
+Not carried, and the distinction matters: `Shadow` is inert because `SetDetailLevel` overwrites it
+at MainLoop entry, while `AllCameras`, `ManualCameraSmoothing` and `FlagDisplayText` have only read
+clean on the sessions swept so far. `ManualCameraSmoothing` needs an orbit that leaves the camera
+far enough from its target to take the stepped branch in `SOURCES/FOLLOWCAM.CPP`, and
+`FlagDisplayText` needs a dialogue, which none of these sessions has. The boundary is empirical
+rather than principled: a setting joins the block when a replay is shown to turn on it.
 
 **The console is not recorded, and used to take the clock with it.** Its toggle arrives as an
 SDL key event rather than through the polled key table the recorder samples, so a replay never

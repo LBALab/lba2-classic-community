@@ -111,6 +111,15 @@ extern "C" {
    up sessions that work to protect sessions that never did. */
 #define REC_VERSION_MIN 9
 
+/* Every buffer the text header passes through, named once so growing it is one decision
+   rather than five. A real header runs about 1.6 KB: the mode block, the settings, and
+   two binding tables that scale with how much the player has rebound. It grows whenever a
+   setting is shown to move a replay, and the failure at the far end is quiet in both
+   directions -- the writer drops the lines at the end of it, and the reader truncates
+   mid-binding-table and installs a partial one -- so the margin is deliberate rather than
+   a round number that happened to fit. */
+#define REC_HEADER_MAX 4096
+
 /* Versions 9 to 11 wrote the keyframe with no count and exactly this many fields. */
 #define REC_KF_LEGACY_FIELDS 23
 
@@ -209,7 +218,7 @@ static long s_hashMismatchTick = -1;
 static long s_ticksChecked = 0;
 static int s_eof = 0;
 
-static char s_headerBuf[2048];
+static char s_headerBuf[REC_HEADER_MAX];
 
 /* Console commands issued during the session. A recording that carries only input
    cannot reproduce a harness-driven fixture: the walkthrough drives with `teleport`,
@@ -1062,7 +1071,7 @@ static int record_begin(const char *path, int haveSnapshot) {
        and two short recordings can share one. */
     snprintf(s_lastRecorded, sizeof s_lastRecorded, "%s", path);
 
-    char mode[2048];
+    char mode[REC_HEADER_MAX];
     if (!haveSnapshot)
         record_write_snapshot(s_snapshot, sizeof s_snapshot);
     s_snapInline = 1;
@@ -1408,13 +1417,18 @@ static int mode_line_ignored(const char *line) {
    session was played under are not part of the save, and a config edited between the
    recording and the replay reads as the simulation diverging. */
 static void replay_report_mode(void) {
-    char live[2048];
-    char hdr[2048];
+    char live[REC_HEADER_MAX];
+    char hdr[REC_HEADER_MAX];
     char *p, *nl;
     S32 diffs = 0;
 
-    if (!write_mode_lines(live, sizeof live))
+    /* Said rather than returned quietly. This is the run's whole account of what it does
+       not match, so skipping it looks exactly like a run with nothing to report. */
+    if (!write_mode_lines(live, sizeof live)) {
+        fprintf(stderr, "[rec] this run's header did not fit, so nothing was compared "
+                        "against the recording's\n");
         return;
+    }
     snprintf(hdr, sizeof hdr, "%s", s_headerBuf);
 
     for (p = hdr; (nl = strchr(p, '\n')) != NULL; p = nl + 1) {
@@ -2547,7 +2561,7 @@ unsigned long Record_Squeeze(const char *path) {
 /* ---- reporting ------------------------------------------------------------ */
 
 void Record_Report(const char *path) {
-    char live[2048];
+    char live[REC_HEADER_MAX];
     write_mode_lines(live, sizeof live);
 
     if (!path || !path[0]) {
