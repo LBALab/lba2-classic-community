@@ -184,7 +184,7 @@ wrong.
 | A savegame at each end | Where the session started, and where it finished. Both inside the file |
 | An FNV-1a digest of simulation state, per tick | Scene, hero, camera, the other actors, the open modal, and all 336 script variables |
 | A keyframe of named state, every 32 ticks | The digest says *when* a replay stopped matching; this says *what* moved |
-| Every value the digest mixes, per tick, with `--verbose` or `rec start verbose` | The keyframe names 23 fields. This names all of them, so a divergence in another actor or a script variable is named too |
+| Every value the digest mixes, per tick, with `--record-telemetry` or `rec start verbose` | The keyframe names 23 fields. This names all of them, so a divergence in another actor or a script variable is named too |
 | The settings a replay is known to turn on | They are not in the save, and a config edited in between reads as the simulation diverging |
 | The mode the session ran in, audio included | Whether a sample driver came up decides what the simulation computes, and no save or config records it |
 
@@ -321,8 +321,8 @@ never explain one: roughly 1300 values go into it and the digest names none of t
 narrows that to 23 named fields every 32 ticks, which covers the hero, the camera and the open
 modal, and covers no other actor and none of the 336 script variables.
 
-`--verbose` on the recording run, or `rec start verbose` on the command, stores every value the
-digest mixes, every tick, so the first rejected tick names the fields that moved:
+`--record-telemetry` on the recording run, or `rec start verbose` on the command, stores every
+value the digest mixes, every tick, so the first rejected tick names the fields that moved:
 
 ```
 [rec] verbose telemetry: 668 values a tick
@@ -345,11 +345,12 @@ the per-tick flush is absorbed by the page cache, and the 0.10 ms is the loop th
 values rather than the write. So the question of whether to record it is about the size of the file
 somebody has to keep or send, and not about what the run does while it is being made.
 
-The two ways of asking differ in when you can ask. `--verbose` is a decision made before the run
-starts, which is the wrong moment for a bug you have just watched happen: relaunching to arm the
-flag costs you the session that showed it. `verbose` on the command arms the same telemetry from
+The two ways of asking differ in when you can ask. `--record-telemetry` is a decision made before
+the run starts, which is the wrong moment for a bug you have just watched happen: relaunching to arm
+the flag costs you the session that showed it. `verbose` on the command arms the same telemetry from
 wherever you are, and the header records which recordings carry it, so `rec info` on a file from
-last week still says. Nothing else about the recording changes -- telemetry is written beside the
+last week still says. Only the recording run needs either: a replay reads the values out of the
+file, so passing the flag to a replay arms nothing. Nothing else about the recording changes -- telemetry is written beside the
 digest and read back by the replay's reporter, and never reaches the simulation.
 
 ## Limits worth knowing before you trust a result
@@ -560,8 +561,9 @@ A mismatch reports the tick, and the next keyframe reports the fields:
 ```
 
 The keyframe covers the hero, the camera and the open modal, which is most of what goes wrong. When
-what moved is outside it (another actor, or a script variable), a recording made with `--verbose`
-or `rec start verbose` names it directly and the rest of this section is unnecessary. Without one,
+what moved is outside it (another actor, or a script variable), a recording made with
+`--record-telemetry` or `rec start verbose` names it directly and the rest of this section is
+unnecessary. Without one,
 the tick is still the starting point:
 
 1. **Compare the recorded clock, not just the hashes.** Each tick record carries `TimerRefHR`

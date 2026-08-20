@@ -58,8 +58,17 @@ void Control_ServiceListen(void);
 int Control_UnfiredExecAt(void);
 
 /* Non-zero if --verbose was supplied: log scene/hero progress and modal entries to stderr,
-   so a headless run is self-explaining and a hang shows what blocked it. */
+   so a headless run is self-explaining and a hang shows what blocked it. This is all it
+   does -- the recording telemetry has its own flag below, because the two have nothing to
+   do with each other and one of them costs megabytes. */
 int Control_IsVerbose(void);
+
+/* Non-zero if --record-telemetry was supplied: a recording made by this run stores every
+   value the state digest mixes, every tick, so a divergence names the field rather than
+   only the tick. About 2 KB a tick (docs/RECORDING.md). Named for the recording rather
+   than called --telemetry on its own, which in a game reads as phone-home analytics and
+   is not what this is: nothing leaves the machine. */
+int Control_RecordTelemetry(void);
 
 /* Log verbosity via --log-level <debug|info|warn|error>. Control_HasLogLevel is
    non-zero if the flag was supplied; Control_GetLogLevel returns the LogSeverity

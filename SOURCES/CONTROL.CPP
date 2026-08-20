@@ -94,6 +94,7 @@ static char s_projrec_hash_path[ADELINE_MAX_PATH];
 static int s_exit = 0;
 static int s_demo = 0;
 static int s_verbose = 0;
+static int s_record_telemetry = 0;
 static int s_have_log_level = 0;
 static LogSeverity s_log_level = LOG_INFO;
 
@@ -357,6 +358,12 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 1;
             continue;
         }
+        if (!strcmp(a, "--record-telemetry")) {
+            s_record_telemetry = 1;
+            s_active = 1;
+            read += 1;
+            continue;
+        }
         if (!strcmp(a, "--log-level") && has_val) {
             /* Master log level for every sink (file, terminal, F12 console).
                Applied in PERSO.CPP right after Log_Init. Not a harness flag, so
@@ -592,6 +599,10 @@ void Control_SetDigestVersion(S32 v) {
 
 int Control_IsVerbose(void) {
     return s_verbose;
+}
+
+int Control_RecordTelemetry(void) {
+    return s_record_telemetry;
 }
 
 int Control_HasLogLevel(void) {

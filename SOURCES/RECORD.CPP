@@ -558,7 +558,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          Control_IsHeadless(),
                          Control_AudioActive(),
                          (int)Timer_FixedDtValue(),
-                         s_teleWrite || Control_IsVerbose(),
+                         s_teleWrite || Control_RecordTelemetry(),
                          BUILD_FLAGS_STR,
                          Sys_PlatformName(),
                          Rnd_StreamName(),
@@ -1178,9 +1178,9 @@ static int record_begin(const char *path, int haveSnapshot) {
     ManageTime();
     /* Telemetry is a diagnostic recording, several megabytes larger, made deliberately
        when a plain one has already said a tick and cannot say a field. Either way of
-       asking arms it: --verbose for the whole run, `rec start verbose` for this session.
-       Before the header, because the header reports it. */
-    s_teleWrite = s_teleAsked || Control_IsVerbose();
+       asking arms it: --record-telemetry for the whole run, `rec start verbose` for this
+       session. Before the header, because the header reports it. */
+    s_teleWrite = s_teleAsked || Control_RecordTelemetry();
     s_teleAsked = 0;
     s_teleSaid = 0;
     if (!write_mode_lines(mode, sizeof mode))

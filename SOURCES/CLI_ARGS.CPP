@@ -130,6 +130,9 @@ static const T_CLI_FLAG CliFlags[] = {
                                              "loading included; a bare name lands in the\n"
                                              "recordings folder (the `rec` console verb\n"
                                              "starts mid-session)"},
+    {"--record-telemetry", 0, 0, 0, 0, NULL, "", "store every value the state digest mixes, every\n"
+                                                 "tick, so a divergence names the field and not\n"
+                                                 "only the tick; about 2 KB a tick"},
     {"--replay", 1, 0, 0, 0, NULL, "<name>", "replay a recording and report where it stops matching"},
     {"--ignore-focus", 0, 0, 0, 0, NULL, "", "keep the clock running when the window loses focus\n"
                                              "(--listen implies this)"},
