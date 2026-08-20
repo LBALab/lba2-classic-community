@@ -22,7 +22,16 @@
  * A poll where nothing changed is one byte.
  *
  * Two record types stand outside that encoding. 0x60 is a sync marker (see below), and
- * 0x50 is a keyframe: u32 tick, then one s32 per named field of the harness keyframe.
+ * 0x50 is a keyframe: u32 tick, u16 count, then count * s32.
+ *
+ * The count is what keeps that record readable across builds, and it is not decoration.
+ * A reader that sizes a keyframe by asking the *live* build how many fields it names is
+ * reading one number out of the file and another out of itself, so the day the field
+ * list grows, every recording written before it reads past the end of its first keyframe
+ * and takes the rest of the stream from the wrong place. That surfaces as a consistency
+ * failure at an enormous tick with hundreds of thousands of seconds of clock drift: the
+ * plausible garbage the version check exists to prevent, arriving with no version change
+ * to catch it. Nothing else in the stream may be sized this way either.
  *
  * The keyframe exists because the per-tick hash says *when* a replay stopped matching
  * and nothing about *what*. For a fixture that is enough, since the run can be recorded
@@ -70,7 +79,7 @@ extern "C" {
 /* ---- live state ---------------------------------------------------------- */
 
 #define REC_MAGIC "LBA2REC"
-#define REC_VERSION 11
+#define REC_VERSION 12
 
 /* The oldest format this build still reads. Every version since has only added record
    types the reader probes for and steps over, so an older recording reads the same as
@@ -85,8 +94,21 @@ extern "C" {
    the replacement reproduces glibc, so the recordings that exist still replay and there
    was nothing for a version gate to protect. The header's `numeric.` lines are what
    report that class of difference, per recording, rather than a version refusing the
-   whole file. */
+   whole file.
+
+   12 changes a meaning and still leaves the floor at 9, which is the case the rule does
+   not cover: a reader that can tell the versions apart can read both. The analog block's
+   mouse pair went from the motion the last ManageMouse delivered to the motion the next
+   one will, a frame apart, and nothing in the bytes tells the two readings apart. Only a
+   session recorded with a mouse camera reads differently, and no such session can have
+   replayed, because both ends of an earlier pair read the stale value and diverge on the
+   tick the orbit starts. Every recording that replays clean is keyboard-only, where the
+   pair is 0 under either reading and the file is bit-identical. Refusing them would give
+   up sessions that work to protect sessions that never did. */
 #define REC_VERSION_MIN 9
+
+/* Versions 9 to 11 wrote the keyframe with no count and exactly this many fields. */
+#define REC_KF_LEGACY_FIELDS 23
 
 /* Sync markers, on the same idea as the socket protocol's <<END>>: a reader that has
  * lost its place needs something it can find again. Without them a stream that goes out
@@ -196,6 +218,9 @@ typedef struct {
 static T_RecCmd s_cmds[REC_CMD_MAX];
 static int s_nCmds = 0;
 static int s_cmdRead = 0;
+/* The version the file being replayed was written at, for the records whose shape it
+   decides. Set before the range check, so a refused file never reaches a reader. */
+static int s_recVersion = REC_VERSION;
 static long s_cmdsRecorded = 0;
 static long s_cmdsReplayed = 0;
 static U32 s_prevMt = 0;
@@ -1094,7 +1119,13 @@ static void record_poll(void) {
     S16 rsx = 0, rsy = 0;
     JoystickGetRightStick(&rsx, &rsy);
     U32 padFirst = JoystickFirstPressedScancode();
-    S32 mdx = MouseXDep, mdy = MouseYDep, click = Click;
+    S32 mdx, mdy, click = Click;
+    /* The motion ManageMouse has yet to deliver, not the motion it delivered last time.
+       This hook runs after ManageEvents has pumped the frame's events and before the
+       camera's ManageMouse drains them, so MouseXDep here is still the previous frame's:
+       capturing it records every mouse movement one poll late, and a replay orbits a
+       frame behind the session it is reproducing. */
+    PeekMouseMotion(&mdx, &mdy);
     if (mute) {
         rsx = rsy = 0;
         padFirst = 0;
@@ -1354,6 +1385,25 @@ static int replay_resync(void) {
     return 0;
 }
 
+/* How many fields this file's keyframe carries. Versions 9 to 11 wrote no count and
+   always 23; 12 writes one, so a field can be added to the keyframe from here on without
+   changing what a reader has to know. Consumes the count when the file has one, so the
+   caller is left positioned on the first field either way. */
+static int replay_keyframe_count(S32 *out) {
+    U16 n;
+    if (s_recVersion < 12) {
+        *out = REC_KF_LEGACY_FIELDS;
+        return 1;
+    }
+    if (!get16(&n))
+        return 0;
+    /* Whatever it says, including more than this build has names or room for. A count is
+       how many values follow, not how many are wanted, and a reader that takes fewer
+       leaves the rest to be read as the next record. */
+    *out = (S32)n;
+    return 1;
+}
+
 /* Step over a sync marker and check what it says. Both readers need this: a marker
    lands between a poll and the tick record that follows it, so whichever reads next
    meets it first. */
@@ -1393,8 +1443,18 @@ static void replay_inject(void) {
     memcpy(TabKeys, s_prevKeys, sizeof s_prevKeys);
     Key = s_prevKey;
     Joystick_SetReplayState(s_padFirst, s_rsx, s_rsy);
-    MouseXDep = s_mdx;
-    MouseYDep = s_mdy;
+    /* Restoring the axes is only half of it: the analog camera asks whether a pad is
+       there before it reads them, so a pad session replayed on a machine with none puts
+       the values back into a run that never looks. Presence is taken from the axes
+       rather than carried in the header, because the header is written before the
+       session starts and the only thing gated on presence does nothing with a centred
+       stick, so a poll that carries no deflection and a poll with no pad behind it are
+       the same poll as far as the game is concerned. */
+    Joystick_SetVirtualPad(s_rsx != 0 || s_rsy != 0);
+    /* Where a motion event would have put it, so ManageMouse drains it on this frame's
+       own schedule. Overwrites rather than adds: a mouse moved over the window during a
+       replay must not reach the game. */
+    SetMouseMotion(s_mdx, s_mdy);
     Click = s_click;
 }
 
@@ -1440,10 +1500,10 @@ static int replay_poll(void) {
     for (;;) {
         if (flags == REC_KEY) {
             U32 kt, kv;
-            S32 k;
-            if (!get32(&kt))
+            S32 n, k;
+            if (!get32(&kt) || !replay_keyframe_count(&n))
                 return 0;
-            for (k = 0; k < Control_KeyframeCount(); k++) {
+            for (k = 0; k < n; k++) {
                 if (!get32(&kv))
                     return 0;
             }
@@ -1658,6 +1718,7 @@ int Record_Play(const char *path) {
             s_f = NULL;
             return 0;
         }
+        s_recVersion = ver;
         if (ver < REC_VERSION_MIN || ver > REC_VERSION) {
             /* To stderr as well as the console: a run driven from the command line has
                no console to read, and the caller's fallback line is "cannot open",
@@ -1846,15 +1907,6 @@ void Record_ClockHook(U32 *now) {
         *now = s_frameClock;
 }
 
-void Record_MouseHook(void) {
-    /* ManageMouse drains the event accumulator into MouseXDep/MouseYDep, which would
-       zero what replay_poll injected. Re-apply. */
-    if (s_replaying) {
-        MouseXDep = s_mdx;
-        MouseYDep = s_mdy;
-    }
-}
-
 void Record_TickHook(void) {
     unsigned long long h;
 
@@ -1920,6 +1972,7 @@ void Record_TickHook(void) {
             Control_KeyframeFill(kf);
             put8(REC_KEY);
             put32((U32)s_ticks);
+            put16((U16)nkf);
             for (k = 0; k < nkf; k++)
                 put32((U32)kf[k]);
         }
@@ -2041,14 +2094,23 @@ void Record_TickHook(void) {
                 if (fk == REC_KEY && record_keyframe_fit()) {
                     U32 kt;
                     S32 live[REC_KF_MAX];
-                    S32 nkf = Control_KeyframeCount();
+                    S32 nkf = 0, shared;
                     S32 k, shown = 0;
                     get32(&kt);
+                    if (!replay_keyframe_count(&nkf))
+                        nkf = 0;
+                    /* Read every field the record says it holds and compare the ones both
+                       ends have. Fields are appended, so the names line up from the front;
+                       what must not happen is reading fewer than were written, which leaves
+                       the tail of this record to be taken as the next one. */
+                    shared = nkf < Control_KeyframeCount() ? nkf : Control_KeyframeCount();
                     Control_KeyframeFill(live);
                     for (k = 0; k < nkf; k++) {
                         U32 rv = 0;
                         if (!get32(&rv))
                             break;
+                        if (k >= shared)
+                            continue;
                         if ((S32)rv == live[k])
                             continue;
                         /* Only once the run has stopped matching. Before that a

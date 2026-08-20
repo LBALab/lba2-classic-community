@@ -61,7 +61,10 @@ stick, `UpdateJoystick` ([SOURCES/JOYSTICK.CPP](../SOURCES/JOYSTICK.CPP)) stops
 emitting the digital `RSTICK_*` scancodes so the analog path and the bindings
 never double-drive. Outside Auto camera (the classic fixed cameras) the stick
 falls back to the digital bindings: left/right cycle the camera (`I_CAMERA`),
-up/down change the camera preset (`I_CAMERA_LEVEL`). Tunables in `lba2.cfg`:
+up/down change the camera preset (`I_CAMERA_LEVEL`). The orbit is gated on a pad
+being present, which the console `stick` command and a session replay both report
+on their own behalf, so neither needs a device plugged in
+([CONTROL.md](CONTROL.md), [RECORDING.md](RECORDING.md)). Tunables in `lba2.cfg`:
 
 | Key | Default | Description |
 |-----|---------|-------------|

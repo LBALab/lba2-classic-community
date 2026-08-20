@@ -179,6 +179,30 @@ void Control_KeyClear(void);
 /* Polls elapsed so far, so a caller can report timing against the same clock. */
 U32 Control_KeyPollCount(void);
 
+/* Move the mouse by (dx, dy) every poll for the next `durPolls` polls, with `buttons`
+   held down over the same span (the Click mask: 1 left, 2 right, 4 middle). Returns 1,
+   or 0 for a zero-length hold. One at a time: a second call replaces the first, because
+   the accumulator has no notion of two mice. No delay argument, unlike the key holds:
+   --exec-at already places a command on a tick, and nothing wanted a second way.
+
+   The analog camera is the reason this exists. It reads MouseXDep/MouseYDep and Click,
+   none of which is a scancode, so Control_KeyHold cannot reach it. */
+int Control_MouseMove(S32 dx, S32 dy, U32 buttons, U32 durPolls);
+
+/* Stop the motion and lift the buttons it held (console `mouse off`). */
+void Control_MouseClear(void);
+
+/* Hold the right stick at (x, y) in SDL axis units for the next `durPolls` polls,
+   reporting a pad present for as long as it runs. Returns 1, or 0 for a zero-length
+   hold. One at a time, as with the mouse.
+
+   The axes are cleared and rederived on every poll, so this re-applies on each rather
+   than setting once, and a real pad plugged in at the same time will overwrite it. */
+int Control_StickHold(S16 x, S16 y, U32 durPolls);
+
+/* Centre it and stop reporting a pad (console `stick off`). */
+void Control_StickClear(void);
+
 /* Replace the timeline with a single hold of `mask` for `durTicks` ticks
    (console `input <flags> [ticks]`). */
 void Control_InputHold(U32 mask, U32 durTicks);

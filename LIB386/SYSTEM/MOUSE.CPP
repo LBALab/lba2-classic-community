@@ -148,18 +148,24 @@ void SetMouseBox(U32 x0, U32 y0, U32 x1, U32 y1) {
 
 void ClearMouseBox() { SetMouseBox(0, 0, ModeDesiredX - 1, ModeDesiredY - 1); }
 
-/* Session recording: the drain below would zero what replay injected. */
-void Record_MouseHook(void);
-__attribute__((weak)) void Record_MouseHook(void) {}
-
 void ManageMouse() {
     MouseXDep = LibMouseXDep;
     MouseYDep = LibMouseYDep;
 
     LibMouseXDep = 0;
     LibMouseYDep = 0;
+}
 
-    Record_MouseHook();
+void PeekMouseMotion(S32 *dx, S32 *dy) {
+    if (dx != NULL)
+        *dx = LibMouseXDep;
+    if (dy != NULL)
+        *dy = LibMouseYDep;
+}
+
+void SetMouseMotion(S32 dx, S32 dy) {
+    LibMouseXDep = dx;
+    LibMouseYDep = dy;
 }
 
 void HandleEventsMouse(const void *event) {
