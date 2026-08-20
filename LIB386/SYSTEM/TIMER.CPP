@@ -164,7 +164,8 @@ S32 Timer_FixedDtValue(void) {
    step, so the error does not accumulate: a step that overruns is paid for by the next
    one arriving early rather than by every later step sliding. */
 static void FixedDtStep(void) {
-    U32 target, now;
+    U32 target;
+    S32 ahead;
 
     FixedDtNow += FixedDt;
 
@@ -173,13 +174,20 @@ static void FixedDtStep(void) {
 
     PaceSteps++;
     target = PaceAnchor + PaceSteps * FixedDt;
-    now = SDL_GetTicks();
-    if (now < target)
-        SDL_Delay(target - now);
-    else if (now - target > PACE_GIVEUP_MS) {
+    /* A signed difference of two unsigned readings, not a comparison of their magnitudes.
+       Both wrap -- the host clock every 49.7 days, and the anchor plus the step count with
+       it -- and either one wrapping first makes a magnitude test read the gap as nearly
+       2^32 ms, so the sleep below would be weeks rather than milliseconds. The subtraction
+       wraps to the true small difference and survives it. */
+    ahead = (S32)(target - (U32)SDL_GetTicks());
+    if (ahead > 0)
+        SDL_Delay((U32)ahead);
+    else if (ahead < -PACE_GIVEUP_MS) {
         /* Too far behind to catch up. Give the time up rather than sprint to win it
-           back, which would run the game fast to make up for having run it slow. */
-        PaceAnchor = now;
+           back, which would run the game fast to make up for having run it slow. The
+           ordinary way to reach this is a window that lost focus: the clock stops, the
+           wall clock does not, and the run resumes owing more time than it can repay. */
+        PaceAnchor = (U32)SDL_GetTicks();
         PaceSteps = 0;
     }
 }
