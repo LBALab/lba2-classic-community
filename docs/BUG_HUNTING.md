@@ -91,7 +91,19 @@ run, and the weights in `actions_for()`, which decide where the budget goes.
 ## Oracle discipline
 
 This is the part that decides whether the campaign is worth anything. Every check must be shown
-capable of failing before its silence means a thing. Concretely, from this engine:
+capable of failing before its silence means a thing -- and **shown to fail for each thing it claims
+to detect, not for the first one**. A check usually makes several claims, and breaking the obvious
+one proves only the obvious one.
+
+The specimen, from a recording fixture: an arm asserted that a scripted scene change had actually
+happened by reading the recording back for it, written as `grep -c "cube 3->154"` guarded by
+`|| fail "could not read the recording back"`. **`grep -c` exits 1 when it counts nothing**, so the
+single failure that check existed for -- the scene change not arriving, leaving the arm testing
+nothing -- reported the *reader* as broken, and the count comparison underneath it was unreachable.
+The arm had been validated by breaking the engine and watching it go red, and never by breaking the
+precondition. Break each branch: with the change, without it, and with an unreadable file.
+
+Concretely, the other shapes, from this engine:
 
 - **A validator that reports nothing.** Poison one entry on purpose behind a debug env var and
   confirm it fires. A load-time check over the cube map read clean on every cube, and only a
@@ -135,6 +147,137 @@ never see what it said:
 - **A branch nothing compiles.** Code behind a platform predicate is never built on the platform you
   are sitting at. Force the predicate locally and build it, or it ships unexecuted and the first
   machine to reach it is a CI runner.
+
+There is a third family, and it is the hardest to see, because the check ran and the answer looked
+like an answer. **Where the honest result was "I do not know" or "I stopped looking", something
+confident, specific and wrong was produced instead.** All of these are from the session recorder
+work, and each was found by somebody walking into it rather than by looking:
+
+- **A truncation that reads as completeness.** `Control_StateDigest` mixes unconditionally and
+  stores behind `if (s_teleN < TELE_MAX)`, so past the cap the digest keeps judging correctly while
+  the report silently stops naming fields. A short list then reads as "nothing else differs". Same
+  shape: a replay that ends before its summary prints looks exactly like one that passed, and a
+  divergence report capped at three ticks by eight fields names 24 values however broad the failure.
+
+- **A batch of edits that stopped part way, and a commit message written from the intent.** Six
+  edits were applied from one script; it stopped at the first hunk that did not match, so the fifth
+  and sixth never ran. The failing hunk was then fixed by hand and the script never re-run. `git add`
+  over three files where only one had changed committed cleanly and said nothing. The message claimed
+  four fixes; the diff carried two, and it merged that way. **A commit message is a claim about a
+  diff, not a description of one** -- and the code is fixable afterwards where the merged message is
+  not. `git show --stat` before believing your own message costs one command and would have shown one
+  file against a message naming three.
+
+- **A `head` on an exhaustive question.** `grep -rn 'SaveTimer()' ... | head -40` stopped inside one
+  file; the two files sorting after it were never seen, and their absence was reasoned from as an
+  answer. A pipe that samples a "find every call site" query is a silent answer to a question that
+  had a complete one. Count the matches, or drop the pipe.
+
+- **A rewind that restores one of a pair.** `RestoreTimer` puts `TimerRefHR` back and never touches
+  `LastTime`, which is what `ManageTime` banks the next delta against. The clock the caller compares
+  looks restored; the clock's own memory of where it was does not come back, and the residual leaks
+  into the next tick. Whenever state is saved and restored, ask what else the restored value is read
+  against.
+
+- **A diagnosis chosen when none was available.** A telemetry comparison whose two sides hold
+  different counts reports "the actor list differs" by name. A truncation on one side is then given
+  a specific, confident, wrong cause. "Counts differ, no diagnosis possible" is the honest output.
+
+- **A verdict whose preconditions were never met.** A replay given no save to load into used to
+  diverge and report a tick rather than refuse, and four measurements were published off it before
+  anyone noticed. A settings mismatch the tool had already detected and named still ran 901 ticks
+  and reported `first hash mismatch 0`. **A check that cannot establish its own preconditions must
+  refuse and name the precondition, never proceed and report a number.**
+
+- **A local measurement of a tree that is not the judging tree.** A build-graph improvement was
+  claimed from a count taken with `LBA2_BUILD_TESTS` off, one translation unit short of what CI
+  measures. It reached a commit message, a PR body and two docs before CI caught it. "I measured it
+  locally" is a specific claim about a tree that may not be the one that judges you.
+
+- **A check scoped to one change, read as a property of the tree.** "My diff moved no line numbers"
+  is not "the line numbers are current", and the more carefully the check is scoped the more
+  authoritative its wrong answer sounds. Re-grep on a schedule, not when something plausibly
+  relevant merges.
+
+- **A stack that says where a run stopped, read as saying it should not have been there.** A
+  from-boot headless run with no `--load`, no `--demo` and no `skipmodals` stops retiring ticks once
+  simulated time passes about four seconds, in `DoLife` -> `Dial` -> `SpeakAnimation`. That is the
+  opening dialogue waiting for a keypress, it is engine-correct, and it is documented. An arm asking
+  for 800 ticks at 16 ms is 12.8 seconds of game time, so it walks into it every time. The evidence
+  read as a defect: a reproducible timeout, a clean A/B across two builds, and a real stack. The
+  correct reading was that the arm was misconfigured in a way this repo wrote up months ago.
+  **Before reading a stack as a bug, check whether the run was configured to reach the state you
+  think it is stuck in.** The stack tells you where it stopped, never whether it belonged there.
+
+- **A timeout that cannot tell slow from stuck.** A paced run and a stalled run both exit 124, and
+  only wall time or progress separates them. `tests/automation/lib.sh` applies one
+  `LBA2_TEST_TIMEOUT`, 90 seconds by default, to every arm, and states that a timeout is reported as
+  a failure rather than as a blocked terminal. So an arm whose runtime changes for a legitimate
+  reason -- a recorded run pacing itself to real time rather than fast-forwarding, say -- wants its
+  cap resized deliberately rather than inherited. Measured after that change landed: 31 engine runs
+  in the recording suite, longest single run 14.7 s against the 90 s cap, next four 13.0, 12.9, 10.2
+  and 10.1. A sixfold margin, so nothing is near flaky today; the hazard is the shared cap, not the
+  current numbers. **The cheap way to check is a wrapper**: point `LBA2_BIN` at a script that times
+  the real binary and appends to a log, and the suite reports its own distribution without being
+  modified.
+
+- **An impossibility concluded from one failed approach.** `gdb -p` cannot attach here because
+  `ptrace_scope` is 1, and that was read as "no stack is available". Running the binary *under* gdb
+  works: `timeout --foreground -s INT 25 gdb -batch -nx -ex run -ex "bt 40" -ex kill --args ...`,
+  where `--foreground` is what stops `timeout` signalling the inferior instead of gdb.
+
+Two more about evidence rather than about tools, because both cost a couple of minutes and both
+nearly landed in published work here:
+
+- **A citation supports the sentence it is attached to, not the paragraph around it.** A true line
+  about `FlagChgCube` and the `SaveTimer` lock was read as licensing a claim about which fades run
+  at a scene change. The two are unrelated: the fade gate is a different predicate entirely. Both
+  statements were true and the chain between them was invented. The same shape catches a reader who
+  cites one clause of a two-clause sentence and never sees the second.
+
+- **A peer's citation is exactly as much evidence as your own grep, and it arrives sounding
+  pre-verified.** Reading it back cost two minutes and split it: the quote held, the inference beside
+  it did not, and the replacement site offered instead dissolved on a second read as well. Work
+  received from someone careful is the easiest to publish unchecked, which is what makes it worth
+  the two minutes.
+
+Three of those arrived in a single change: a truncated grep, a `grep -c` whose zero-count exit fired
+the wrong branch, and a patch script that stopped early. Each time the tool reported that it had
+stopped and the output was read as the whole answer. That is the family in miniature, and it is why
+the remedies below are worth more than the individual entries.
+
+Two habits fall out of the family, and they are cheaper than the individual lessons:
+
+**Prefer the reading that has no preconditions.** An offline reader of a file has no save to forget,
+no settings to match and no run to get wrong, so it cannot produce this class of answer at all. In
+the recorder work every finding that survived came from reading a file or the source, and every one
+withdrawn came from a replay whose preconditions had not been established.
+
+**Ask what a tool says where it cannot answer.** If the answer is a specific claim rather than a
+refusal, that is the next instance, and it can be found by looking rather than by being bitten.
+
+### What a gate can and cannot reach
+
+Worth separating, because the pessimistic version of the above stops people building the half that
+is cheap.
+
+**Structure is gateable, and this repo already does it.** `scripts/ci/check-docs-symbols.py` parses
+prose, pulls the backticked identifiers off a line that links a source file, and asserts each is in
+that file. Pointed at a sample output it would compare key sets and catch a field added, renamed or
+removed without the doc following. Better still, generate the sample from a real run rather than
+writing it by hand, so the derivation is the check.
+
+**Values are not.** A `--dump-state` sample once printed `clock_src_ms` equal to `timer_ref_hr` when
+the two read 4792 and 4,272,829. The field was right, the test was right, CI was green, and only the
+example was wrong. A plausible integer beside another plausible integer is checkable against
+nothing, because the checker would have to know what the number means. Every measured figure in
+every doc here is that half.
+
+**And some defects live in a pair, where neither artefact is wrong.** An advice string in
+`dump_recording.py` was correct when written and made wrong hours later by a flag rename that never
+touched it. The dependency runs backwards through time: tests, types and review all point forwards,
+and none of them ask who is already depending on a meaning about to change. A whole-tree grep on the
+name of anything being renamed is the blunt instrument that works.
 
 ## From a report to a cause
 
@@ -188,3 +331,5 @@ Two things worth adding when the bug was a numeric boundary:
 - [DEBUG.md](DEBUG.md): debug keys, bug saves, cheat codes
 - [TESTING.md](TESTING.md): test harnesses, ASM-vs-CPP builds, polyrec
 - [PLATFORM.md](PLATFORM.md): the hazard classes this port keeps hitting
+- [plan/RECORDER_OBSERVER_REVIEW.md](plan/RECORDER_OBSERVER_REVIEW.md): where the third family above
+  was collected, and what it says about a tool whose whole value is being believed
