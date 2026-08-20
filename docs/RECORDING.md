@@ -89,14 +89,39 @@ directory. It cannot pick the wrong file, because a folder that has the name win
 `--user-dir` and `--profile` move the folder with the rest of the profile, so recordings made under
 one profile are the ones that profile replays.
 
-## The pinned step is required, not an optimisation
+## The pinned step is still required, and not for the reason it looks like
 
-A session recorded on the host-sampled clock does not replay exactly. Movement integrates per
-sub-step from `GetDeltaMove`, so two runs that reach a tick with the same clock reading but a
-different number of steps inside it end up in different places. Pinning the step is what makes a
-replay reproducible, and it was arrived at by measurement: reproducing the sampled clock,
-reconstructing it, and pinning the derived game clock every tick were each built and none of them
-worked.
+A session recorded on the host-sampled clock does not yet replay reliably, so record and replay
+with `--fixed-dt 16`. The reason is not the clock.
+
+A loose recording reproduces `TimerRefHR` at **0 ms drift at every tick, in every run measured**,
+so the host clock is not what a replay fails to reproduce. What `--fixed-dt` does is make every
+frame delta exactly 16 ms, which makes every value derived from frame timing trivially equal at
+both ends. That is a masking mechanism rather than a determinism one, and what it masks is
+simulation state no save, digest or recording carries. Each such value found is one less thing the
+pinned step has to hide, and the day the list is empty the step can go.
+
+Two are closed, both invisible under a pinned step by construction:
+
+- `LastSimRefHR`, the [#358](MOVEMENT_FRAMERATE.md) sub-step carry, decides where a frame's
+  sub-step boundaries fall. A replay that begins on its own boot's value rather than the
+  recording's diverges at tick 1 by a millisecond, and an actor is on a different animation two
+  hundred ticks later. At a constant 16 ms `Timer_PlanSimSteps` always returns one step and the
+  carry cannot matter, which is why a pinned session cannot see it either way. It lives in
+  `TIMER.H` beside `TimerRefHR`, the recording declares it as `clock.sim_carry`, and a replay
+  restores it beside the baseline.
+- `VoiceHeardBySim` answers from the sample's own length on the game clock for any run that has to
+  reproduce, not only a pinned one. Gated on the step, a loose session asks the mixer instead, whose
+  clock no replay reproduces. See "Audio used to move the answer" below.
+
+One is open: `InitAnim` stamps the hero's animation anchors during boot, from wall-clock time, and
+the load then moves the game clock without moving them. Every other actor is stamped from the
+restored clock and matches exactly.
+
+Reproducing the clock more faithfully is finished as a direction. Storing one sample per
+`ManageTime` call was built and measured and makes replays *worse*. What is left is
+finding the state, and the digest names it: see `numeric.digest` and the `sim.carry`,
+`obj.LastTimer`, `obj.NextTimer` and `rng.draws` fields.
 
 Who pins it depends on where the recording starts, and the split is not a convenience:
 
@@ -435,9 +460,14 @@ reproduces, so one draw either way offset the stream and the next actor to reach
 angle" instruction turned differently. Measured: a walking session diverged at tick 1410 on
 `obj[11].Beta`, with zero clock drift, and the same walk recorded `--no-audio` replayed clean.
 
-Under `--fixed-dt` a sample's playing state is now answered from its own length on the game clock
-rather than from the mixer, so the simulation sees the same answer in both runs. The mixer is
-untouched: this only changes what the simulation is told, and only in a mode no player runs.
+A sample's playing state is answered from its own length on the game clock rather than from the
+mixer for any run that has to reproduce, which is a pinned run and also a recording or a replay on
+a host-sampled one. The loose path needs it more, having nothing else holding its two ends
+together. The mixer is untouched: this only changes what the simulation is told.
+
+Measured on the loose path, audio on: one recording replayed five times went from clean on some
+runs and diverging on others to clean on all five, and a sweep of eight fresh record-and-replay
+pairs went from none clean to three.
 
 This is also why the bug survived so long. Every fixture runs `--headless`, which skips
 `InitSampleDriver` altogether, so nothing in the suite had ever exercised the audio path. A
