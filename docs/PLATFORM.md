@@ -61,7 +61,9 @@ The engine assumes little-endian throughout. HQR readers cast raw bytes through 
 
 ## 3. Floating-point precision and FPU semantics &nbsp;&nbsp;&nbsp;&nbsp; ⚠ partial
 
-Projection and rotation paths use `long double` + `lrintl()` to match the original x87 FPU's round-to-nearest `fistp` behavior. `long double` is 80-bit on Linux x86_64, 64-bit on macOS arm64 and Windows MSYS2. The result is small but real per-platform divergence in screen coordinates and Z values. Mitigated where it matters (projection, rotation, polygon slopes); tested in `tests/fpu_precision/`.
+Projection and rotation paths use `long double` + `lrintl()` to match the original x87 FPU's round-to-nearest `fistp` behavior.
+
+The split is between architectures, not between operating systems. Both x86-64 hosts carry a 64-bit mantissa (`LDBL_MANT_DIG`), Linux and Windows MSYS2 alike, because MinGW-w64 GCC keeps x87 extended precision; MSVC is the compiler that would not, and this tree does not build with it. ARM has no x87, so on macOS arm64 and Android `long double` is a plain double with a 53-bit mantissa. Measured on each toolchain rather than inferred: `lrintl`, `sqrtl` and the projection factor-and-round shape are bit-identical across the two x86-64 hosts, including at ties and near-ties.
 
 - `LongProjectPoint3D` — `LIB386/3D/LPROJ3DF.CPP:25-28`
 - `LongRotatePointF` — `LIB386/3D/LROT3DF.CPP:13-15`
@@ -69,7 +71,20 @@ Projection and rotation paths use `long double` + `lrintl()` to match the origin
 - FPU control word reference (test) — `tests/fpu_precision/fpu_ops.asm:15-16`
 - `volatile` barrier rationale (forces FPU stack → memory round-trip) — `tests/fpu_precision/test_fpu_precision.cpp:109,125`
 
-**Next:** Consolidate the `lrintl(long double)` callers behind a single helper TU (`lba_round_to_int`) so the platform divergence has one place to live. Quantify the per-platform delta in a regression test.
+`tests/numeric_contract` is what pins the values, and it runs on every platform: 161 results across
+`Distance2D`/`Distance3D`, the two rotations, `LongProjectPoint3D` and `LongRotate`, asserted where
+the mantissa is 64 bits and reported where it is not, so the macOS job log says how far ARM sits
+from the x86-64 numbers. Read that file's own header before drawing a conclusion from the figure:
+most of its cases cannot discriminate, and it says which ones can. `tests/fpu_precision` answers a
+different question, ASM against C, and needs the 32-bit toolchain, so it runs only in the Docker
+leg; `tests/precision_paths` drives these paths under the sanitizers without asserting values.
+
+Why it matters beyond the picture: a recorded session declares the mantissa width it was made under
+(`numeric.long_double_bits`, see [RECORDING.md](RECORDING.md)), because a replay cannot reproduce a
+simulation whose arithmetic rounds differently. `Distance` is the one entry point here that the
+simulation reads rather than the renderer.
+
+**Next:** Consolidate the `lrintl(long double)` callers behind a single helper TU (`lba_round_to_int`) so the platform divergence has one place to live.
 
 ---
 

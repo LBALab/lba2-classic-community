@@ -119,6 +119,23 @@ capable of failing before its silence means a thing. Concretely, from this engin
 The habit that catches all of these: after any green result, ask what would have to be broken for
 this to go red, then break it.
 
+Those are all checks that could not fail. There is a second family, where the check is sound and you
+never see what it said:
+
+- **A build that cannot observe the fault.** A Release build has no sanitizers. A test written to
+  document the `DISTANCE.CPP` integer overflow walked into it, and the Release run was green: only
+  the `linux_sanitize` leg went red. Anything touching arithmetic wants
+  `cmake --preset linux_sanitize` and `ctest -L host_quick` before it is believed.
+
+- **A result nobody prints.** `ctest` shows nothing for a test that passes. A test that *measures*
+  rather than asserts, which is what a platform whose arithmetic differs needs, is therefore
+  invisible while reporting success. It needs `ctest -R <name> -V`, or the measurement it exists to
+  produce never reaches the log.
+
+- **A branch nothing compiles.** Code behind a platform predicate is never built on the platform you
+  are sitting at. Force the predicate locally and build it, or it ships unexecuted and the first
+  machine to reach it is a CI runner.
+
 ## From a report to a cause
 
 **Bisect the trigger before diagnosing.** A fault that arrived after two resolution switches and a
