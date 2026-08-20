@@ -66,6 +66,17 @@ so a replay under a different `--fixed-dt` is reported rather than silently wron
 The header is `key=value` text, so a recording is readable without a decoder. `SOURCES/RECORD_FORMAT.H`
 owns the field readers and the binding-table lines; `tests/record_format` covers them.
 
+**Every record carries its own length, and a reader must never take one from the live build.** A
+keyframe says how many fields it holds, as the verbose telemetry does, so a field can be added to
+the keyframe without a reader needing to know. The alternative, sizing the record by asking this
+build how many fields it names, silently changes the size of an existing record whenever the field
+list grows: recordings written before the change then read past the end of their first keyframe and
+take everything after it from the wrong place, which surfaces as a consistency failure at an
+enormous tick number with hundreds of thousands of seconds of clock drift. That is the plausible
+garbage the version check exists to prevent, and it arrives without a version change to catch it.
+`tests/automation/recordings/legacy-v10.rec` is a recording from a version with no count, kept so
+the suite replays one.
+
 `scripts/dev/dump_recording.py` reads the record stream without the engine, which is how to look at
 a session the engine cannot be run against. Its keyframe output is a delta per line, so a session
 reads as what changed:

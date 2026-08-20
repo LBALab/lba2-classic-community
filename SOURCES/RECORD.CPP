@@ -14,7 +14,16 @@
  * A poll where nothing changed is one byte.
  *
  * Two record types stand outside that encoding. 0x60 is a sync marker (see below), and
- * 0x50 is a keyframe: u32 tick, then one s32 per named field of the harness keyframe.
+ * 0x50 is a keyframe: u32 tick, u16 count, then count * s32.
+ *
+ * The count is what keeps that record readable across builds, and it is not decoration.
+ * A reader that sizes a keyframe by asking the *live* build how many fields it names is
+ * reading one number out of the file and another out of itself, so the day the field list
+ * grows, every recording written before it reads past the end of its first keyframe and
+ * takes the rest of the stream from the wrong place. That surfaces as a consistency
+ * failure at an enormous tick with hundreds of thousands of seconds of clock drift: the
+ * plausible garbage the version check exists to prevent, arriving with no version change
+ * to catch it. Nothing else in the stream may be sized this way either.
  *
  * The keyframe exists because the per-tick hash says *when* a replay stopped matching
  * and nothing about *what*. For a fixture that is enough, since the run can be recorded
@@ -66,16 +75,24 @@ extern "C" {
    the tidiness of a single supported version. A change that alters what an existing
    record *means* moves this up to REC_VERSION; a change that only adds one does not.
  *
- * 11 changes a meaning and still leaves this at 9, which is the one case that rule does
- * not cover. The analog block's mouse pair went from the motion the last ManageMouse
- * delivered to the motion the next one will, a frame apart, and nothing in the bytes
- * tells the two readings apart. What decides it is which files that reaches: only a
- * session recorded with a mouse camera, and no such session ever replayed, because both
- * ends of a version 10 pair read the stale value and diverged on the tick the orbit
- * started. Every recording that has ever replayed clean is keyboard-only, where the pair
- * is 0 under either reading and the file is bit-identical. So refusing them would give up
- * sessions that work to protect sessions that never did. */
+ * 11 changes two meanings and still leaves this at 9, which is the case that rule does
+ * not cover: a reader that can tell the versions apart can read both.
+ *
+ * The keyframe gained its length prefix. Versions 9 and 10 wrote 23 fields and no count,
+ * which is what REC_KF_LEGACY_FIELDS below is for, and 9 is where the record was
+ * introduced, so there is no older shape to handle.
+ *
+ * The analog block's mouse pair went from the motion the last ManageMouse delivered to
+ * the motion the next one will, a frame apart, and nothing in the bytes tells the two
+ * readings apart. Only a session recorded with a mouse camera reads differently, and no
+ * such session ever replayed: both ends of a version 10 pair read the stale value and
+ * diverged on the tick the orbit started. Every recording that has replayed clean is
+ * keyboard-only, where the pair is 0 under either reading and the file is bit-identical.
+ * So refusing them would give up sessions that work to protect sessions that never did. */
 #define REC_VERSION_MIN 9
+
+/* Versions 9 and 10 wrote the keyframe with no count and exactly this many fields. */
+#define REC_KF_LEGACY_FIELDS 23
 
 /* Sync markers, on the same idea as the socket protocol's <<END>>: a reader that has
  * lost its place needs something it can find again. Without them a stream that goes out
@@ -165,6 +182,9 @@ typedef struct {
 static T_RecCmd s_cmds[REC_CMD_MAX];
 static int s_nCmds = 0;
 static int s_cmdRead = 0;
+/* The version the file being replayed was written at, for the records whose shape it
+   decides. Set before the range check, so a refused file never reaches a reader. */
+static int s_recVersion = REC_VERSION;
 static long s_cmdsRecorded = 0;
 static long s_cmdsReplayed = 0;
 static U32 s_prevMt = 0;
@@ -1001,6 +1021,24 @@ static int replay_resync(void) {
     return 0;
 }
 
+/* How many fields this file's keyframe carries. Versions 9 and 10 wrote no count and
+   always 23; 11 writes one, so a field can be added to the keyframe from here on without
+   changing what a reader has to know. Consumes the count when the file has one, so the
+   caller is left positioned on the first field either way. */
+static int replay_keyframe_count(S32 *out) {
+    U16 n;
+    if (s_recVersion < 11) {
+        *out = REC_KF_LEGACY_FIELDS;
+        return 1;
+    }
+    if (!get16(&n))
+        return 0;
+    if (n > REC_KF_MAX)
+        return 0;
+    *out = (S32)n;
+    return 1;
+}
+
 /* Step over a sync marker and check what it says. Both readers need this: a marker
    lands between a poll and the tick record that follows it, so whichever reads next
    meets it first. */
@@ -1088,10 +1126,10 @@ static int replay_poll(void) {
     for (;;) {
         if (flags == REC_KEY) {
             U32 kt, kv;
-            S32 k;
-            if (!get32(&kt))
+            S32 n, k;
+            if (!get32(&kt) || !replay_keyframe_count(&n))
                 return 0;
-            for (k = 0; k < Control_KeyframeCount(); k++) {
+            for (k = 0; k < n; k++) {
                 if (!get32(&kv))
                     return 0;
             }
@@ -1284,6 +1322,7 @@ int Record_Play(const char *path) {
             s_f = NULL;
             return 0;
         }
+        s_recVersion = ver;
         if (ver < REC_VERSION_MIN || ver > REC_VERSION) {
             /* To stderr as well as the console: a run driven from the command line has
                no console to read, and the caller's fallback line is "cannot open",
@@ -1502,6 +1541,7 @@ void Record_TickHook(void) {
             Control_KeyframeFill(kf);
             put8(REC_KEY);
             put32((U32)s_ticks);
+            put16((U16)nkf);
             for (k = 0; k < nkf; k++)
                 put32((U32)kf[k]);
         }
@@ -1623,9 +1663,17 @@ void Record_TickHook(void) {
                 if (fk == REC_KEY && record_keyframe_fit()) {
                     U32 kt;
                     S32 live[REC_KF_MAX];
-                    S32 nkf = Control_KeyframeCount();
+                    S32 nkf = 0;
                     S32 k, shown = 0;
                     get32(&kt);
+                    if (!replay_keyframe_count(&nkf))
+                        nkf = 0;
+                    /* A file may name fewer fields than this build has, or more. Compare
+                       the ones both ends agree on by position and step the rest: the
+                       names line up from the front because a field is appended, and the
+                       alternative is reading the tail of the record as the next one. */
+                    if (nkf > Control_KeyframeCount())
+                        nkf = Control_KeyframeCount();
                     Control_KeyframeFill(live);
                     for (k = 0; k < nkf; k++) {
                         U32 rv = 0;

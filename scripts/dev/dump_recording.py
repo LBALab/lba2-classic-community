@@ -25,7 +25,11 @@ line, then records with a flags byte each. Little-endian throughout.
 import struct
 import sys
 
-# The keyframe fields, in the order RECORD.CPP writes them (s_kfNames).
+# The keyframe fields, in the order RECORD.CPP writes them (s_kfNames). From version 11
+# the record says how many it carries, so this list only supplies the *names*; a file
+# with more fields than are named here reads them and reports them by index. Versions 9
+# and 10 wrote no count and always the first 23 of these.
+KF_LEGACY_FIELDS = 23
 KF = [
     "cube", "cubemode", "hero.x", "hero.y", "hero.z", "hero.beta",
     "hero.anim", "hero.gen_anim", "hero.body", "hero.move", "hero.life", "hero.zone",
@@ -34,7 +38,7 @@ KF = [
     "cinema", "dial.obj", "choice", "choices", "fade", "blackpal",
 ]
 
-REC_KEY = 0x50   # keyframe: u32 tick, then one s32 per KF entry
+REC_KEY = 0x50   # keyframe: u32 tick, u16 count (v11+), then count * s32
 REC_TELE = 0x51  # verbose telemetry: u32 tick, u16 count, then count * s32
 REC_CMD = 0x40   # console command: u32 tick, u16 len, then len bytes
 REC_SYNC = 0x60  # sync marker: u32 magic, u32 poll, u32 tick
@@ -48,6 +52,12 @@ def parse(path):
         raise SystemExit("%s: no header (not a recording?)" % path)
     header = data[:split].decode("latin1")
     p, n = split + 2, len(data)
+
+    # "LBA2REC <ver>" is the first line, and the keyframe's shape depends on it.
+    try:
+        version = int(header.split("\n", 1)[0].split()[1])
+    except (IndexError, ValueError):
+        version = 0
 
     polls = 0
     ticks, keys, cmds, teles = [], [], [], []
@@ -72,8 +82,13 @@ def parse(path):
             elif flags == REC_KEY:
                 tick = struct.unpack_from("<I", data, p)[0]
                 p += 4
-                vals = list(struct.unpack_from("<%di" % len(KF), data, p))
-                p += 4 * len(KF)
+                if version >= 11:
+                    count = struct.unpack_from("<H", data, p)[0]
+                    p += 2
+                else:
+                    count = KF_LEGACY_FIELDS
+                vals = list(struct.unpack_from("<%di" % count, data, p))
+                p += 4 * count
                 keys.append((tick, vals))
             elif flags == REC_TELE:
                 tick, count = struct.unpack_from("<IH", data, p)
@@ -136,14 +151,20 @@ def main(argv):
             print("  cmd @tick %d: %s" % (tick, line))
 
     if what in ("all", "keys"):
+        def kfname(i):
+            # A file may carry a field this list does not name yet, and reporting it by
+            # index beats dropping it or shifting every name after it along.
+            return KF[i] if i < len(KF) else "field[%d]" % i
+
         prev = None
         for tick, vals in keys:
             if prev is None:
                 print("kf %5d: %s" % (tick, "  ".join(
-                    "%s=%d" % (KF[i], vals[i]) for i in range(len(KF)))))
+                    "%s=%d" % (kfname(i), vals[i]) for i in range(len(vals)))))
             else:
-                moved = ["%s %d->%d" % (KF[i], prev[i], vals[i])
-                         for i in range(len(KF)) if prev[i] != vals[i]]
+                shared = min(len(prev), len(vals))
+                moved = ["%s %d->%d" % (kfname(i), prev[i], vals[i])
+                         for i in range(shared) if prev[i] != vals[i]]
                 print("kf %5d: %s" % (tick, "  ".join(moved) if moved else "(no change)"))
             prev = vals
 
