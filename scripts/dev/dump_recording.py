@@ -73,33 +73,62 @@ TELE_MODAL = ["CinemaMode", "NumObjDial", "GameChoice", "GameNbChoices",
               "FlagFade", "FlagBlackPal"]
 MAX_VARS_GAME, MAX_VARS_CUBE = 256, 80
 
+# What each digest version adds, from the `s_digestVersion >= N` blocks in
+# Control_StateDigest. A recording made before the header carried `numeric.digest`
+# is version 1. An unlisted version is one this reader does not know, and it says so
+# rather than naming from the nearest table it has.
+TELE_VERSIONS = {
+    1: {"actor": [], "probe": []},
+    2: {"actor": ["obj.Sample", "obj.LastFrame", "obj.LastTimer", "obj.NextTimer"],
+        # sim.carry is hashed, rng.draws is report-only, but both take a slot in the
+        # stream, which is all that matters for reading positions back out.
+        "probe": ["sim.carry", "rng.draws"]},
+}
+
+
+def tele_version(header):
+    """The digest version the header declares. Absent means 1: the field was added after
+    the format was, so an older recording carries no line and holds the original set."""
+    at = header.find("numeric.digest=")
+    if at < 0:
+        return 1
+    try:
+        return int(header[at + len("numeric.digest="):].split("\n", 1)[0].strip())
+    except ValueError:
+        return -1
+
 
 def tele_layout(header, vals):
     """Names for one tick's telemetry, or None when the layout cannot be established.
 
-    The actor block's length is NbObjets * 9, and NbObjets is itself in the file at
-    index 3, so the layout solves rather than being assumed. The solve is the check: if
-    the arithmetic does not come out exactly, this is not the field set named above and
-    the honest answer is to report by index rather than to print confident wrong names.
+    Two things have to line up. The digest version says which fields exist, and it comes
+    from `numeric.digest` in the header (absent means 1, from before the line existed).
+    The actor block's length then depends on NbObjets, which is itself in the stream at
+    index 3, so the layout solves rather than being assumed.
 
-    A build with a different field set says so with `numeric.digest`, and any value of it
-    means a layout this reader does not know. Refusing there is the point: a name that is
-    plausible and wrong is worse than an index."""
-    if "numeric.digest=" in header:
+    The solve is the check: if the arithmetic does not come out exactly, this is not the
+    field set it claims and the honest answer is to report by index. A version this
+    reader does not know is refused for the same reason -- naming from the nearest table
+    to hand is how six fields got the wrong names in the first place."""
+    spec = TELE_VERSIONS.get(tele_version(header))
+    if spec is None:
         return None
+
+    actor = TELE_ACTOR + spec["actor"]
+    tail = len(TELE_MODAL) + len(spec["probe"]) + MAX_VARS_GAME + MAX_VARS_CUBE
     n = len(vals)
-    tail = len(TELE_MODAL) + MAX_VARS_GAME + MAX_VARS_CUBE
     if n <= len(TELE_FIXED) + tail:
         return None
     nb = vals[3]  # NbObjets, mixed fourth
     body = n - len(TELE_FIXED) - tail
-    if nb <= 0 or body <= 0 or body != nb * len(TELE_ACTOR):
+    if nb <= 0 or body <= 0 or body != nb * len(actor):
         return None
 
     names = list(TELE_FIXED)
     for i in range(nb):
-        names.extend("%s[%d]" % (f, i) for f in TELE_ACTOR)
+        names.extend("%s[%d]" % (f, i) for f in actor)
     names.extend(TELE_MODAL)
+    names.extend(spec["probe"])
     names.extend("var.game[%d]" % i for i in range(MAX_VARS_GAME))
     names.extend("var.cube[%d]" % i for i in range(MAX_VARS_CUBE))
     return names
@@ -362,9 +391,11 @@ def show_tele(teles, changing_only, header=""):
         print("layout not established for this file; reporting past index %d by index"
               % (len(TELE_FIXED) - 1))
     else:
-        print("layout: %d fixed, %d actors x %d, %d modal, %d vars"
-              % (len(TELE_FIXED), teles[0][1][3], len(TELE_ACTOR),
-                 len(TELE_MODAL), MAX_VARS_GAME + MAX_VARS_CUBE))
+        print("layout: digest v%d, %d fixed, %d actors x %d, %d modal+probe, %d vars"
+              % (tele_version(header), len(TELE_FIXED), teles[0][1][3],
+                 len(TELE_ACTOR) + len(TELE_VERSIONS[tele_version(header)]["actor"]),
+                 len(TELE_MODAL) + len(TELE_VERSIONS[tele_version(header)]["probe"]),
+                 MAX_VARS_GAME + MAX_VARS_CUBE))
 
     if changing_only:
         # Which values ever move. A field that is constant across a whole session is
