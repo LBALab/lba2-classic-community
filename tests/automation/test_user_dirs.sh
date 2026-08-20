@@ -92,6 +92,13 @@ case "$out" in
         printf '%s' "$out" | grep -m1 'could not create')" ;;
 esac
 
+# The banner names the folder, beside the saves. A recording named without a directory
+# lands there and nowhere else, so a pasted log has to be enough to find it.
+recline="$(printf '%s' "$out" | sed -n 's/^Recs:  *//p' | head -1)"
+[ -n "$recline" ] || fail "the banner did not name the recordings folder"
+[ "$(norm_path "$recline")" = "$(norm_path "$fresh/recordings")" ] \
+    || fail "the banner named '$recline' as the recordings folder, not $fresh/recordings"
+
 # --- a folder that cannot be made is named at boot -------------------------------------
 # A file where save/ belongs, which is what a stray download or a half-restored backup
 # leaves behind. The point is the timing: the run has to say it here, with the folder in
@@ -108,4 +115,4 @@ printf '%s' "$blockedout" | grep -q "could not create.*save.*: ." \
 [ -d "$blocked/recordings" ] \
     || fail "one folder it could not make stopped it making the others"
 
-pass "a boot from $root created save/, save/shoot/ and recordings/ in a fresh user directory; a blocked save/ was named at boot with its reason"
+pass "a boot from $root created save/, save/shoot/ and recordings/ in a fresh user directory and named the recordings folder in the banner; a blocked save/ was named at boot with its reason"

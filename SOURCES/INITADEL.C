@@ -122,11 +122,13 @@ void InitAdeline(S32 argc, char *argv[]) {
     {
         char resFolderPath[ADELINE_MAX_PATH] = "";
         char saveFolderPath[ADELINE_MAX_PATH] = "";
+        char recFolderPath[ADELINE_MAX_PATH] = "";
         char cfgFilePath[ADELINE_MAX_PATH] = "";
         char logFilePath[ADELINE_MAX_PATH] = "";
 
         GetResPath(resFolderPath, ADELINE_MAX_PATH, NULL);
         GetSavePath(saveFolderPath, ADELINE_MAX_PATH, NULL);
+        GetRecordingsPath(recFolderPath, ADELINE_MAX_PATH, NULL);
         GetCfgPath(cfgFilePath, ADELINE_MAX_PATH, CFG_NAME);
         GetLogPath(logFilePath, ADELINE_MAX_PATH, LOG_NAME);
 
@@ -175,6 +177,11 @@ void InitAdeline(S32 argc, char *argv[]) {
             }
         }
         Log_Raw("Saves:  %s", saveFolderPath);
+        /* Beside the saves rather than under them, so a player looking for what they
+           just recorded does not find it by opening save/. A recording named without a
+           directory lands here, which is what `rec` with no argument does, so the one
+           place the name has to be resolvable from is a pasted banner. */
+        Log_Raw("Recs:   %s", recFolderPath);
         Log_Raw("Config: %s", cfgFilePath);
         Log_Raw("Log:    %s", logFilePath);
         /* Where the three above came from. The Assets line names the probe that

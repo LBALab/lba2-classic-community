@@ -57,7 +57,15 @@ the reload it already performs, so the recipe below is for the from-boot flags a
 
 ## Where recordings live
 
-`<userDir>/recordings/`, beside `save/`. An argument with no directory in it is a name in there, which is
+`<userDir>/recordings/`, beside `save/`. The boot banner names it, under `Saves:`, so a pasted log
+says where a run's recordings went without anyone having to know the layout:
+
+```
+Saves:  /home/you/.local/share/Twinsen/LBA2/save/
+Recs:   /home/you/.local/share/Twinsen/LBA2/recordings/
+```
+
+An argument with no directory in it is a name in there, which is
 why the commands above take a name and not a path: a session recorded as `session.rec` replays as
 `session.rec`, from whatever directory the run is started in.
 
