@@ -64,6 +64,19 @@ void Timer_FixedDtOverlayPresent();
 // inside them, so they would spin forever. Call this once per iteration of such a loop.
 // Unlike Timer_FixedDtPresent() there is no free first step. Inert outside fixed-dt.
 void Timer_FixedDtPump();
+// Hold the pinned clock to real time: every step the clock hands out costs a step of wall
+// time, wherever it is handed out from. Off by default, which is what a batch run wants --
+// the point of --fixed-dt for the harness is to finish sooner than real time. A player
+// recording a session wants the opposite, because the recording has to be of the game as
+// it plays, and a session that races is not one.
+//
+// Armed here rather than in the caller because pacing per tick, which is the only unit a
+// caller outside the timer can see, covers the main loop and misses every modal: a fade,
+// a menu or a dialogue runs its own loop that presents and pumps without reaching the
+// main-loop tick, and takes as much virtual time as it wants for free. That is the
+// too-fast transitions, the menus that scroll several entries a keypress and the dialogue
+// that skips itself. Inert outside fixed-dt. Cleared when the clock is disarmed.
+void Timer_SetFixedDtPaced(S32 on);
 
 // Answer the simulation's "is this voice still playing" from the sample's own length on
 // the game clock instead of from the mixer. True whenever the pinned clock is armed, and
