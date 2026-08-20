@@ -97,6 +97,12 @@ Who pins it depends on where the recording starts, and the split is not a conven
 A replay pins whatever step the recording's header names, so a session played at some other step
 replays at that one rather than at the default.
 
+A recording whose step the recorder pinned carries `setup.reload_clock=0`, where one made
+under the flag carries the real reading. That is not a defect and not worth reconciling:
+`Timer_EnableFixedDt` zeroes `TimerRefHR`, so on that path the reload genuinely is
+performed at clock 0, on both ends, every time. The post-load `clock.timer_ref_hr` is
+identical either way, because the savegame is what restores it.
+
 **Both ends have to arm it the same way, and matching values is not enough.** Arming at boot and
 arming at the reload are different points in the run, and `Timer_EnableFixedDt` reseeds the clock
 where it is called, so a recording made one way and replayed the other diverges even at the same

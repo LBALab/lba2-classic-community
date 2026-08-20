@@ -484,18 +484,30 @@ h = json.load(open(sys.argv[1]))['hero']
 print(h['x'], h['z'])" "$1"
 }
 
-# Idle control: the same save, the same length of run, no input. This is what 'the hero
-# moved' is measured against, so that no coordinate has to be written down here.
-LBA2_USER_DIR="$movedir" ctl --load "$movesave" --tick 700 \
-    --dump-state "$movedir/idle.json" --exit >/dev/null 2>&1 ||
-    fail "movement: the idle control run exited non-zero ($?) — hang or crash"
+# The control is the same command line with the input taken out, rather than a plain idle
+# run: `rec start` pins the step and a run without it free-runs on the host clock, so a
+# control missing both would be answering about two variables at once and could pass on
+# the wrong one. Here the only difference between the two runs is the key.
+#
+# `key` rather than `input`, and that is not interchangeable. `key` holds a raw scancode in
+# TabKeys, which is where a player's input arrives and what the recorder captures at the
+# poll hook. `input` is OR'd straight into Input by MainLoop and never touches TabKeys, so
+# a recording only reproduces it because the console command itself was recorded and runs
+# again -- which would leave this arm passing while testing command replay rather than
+# input replay.
+# Its own profile, so the folder the replay below reads holds exactly one recording and
+# `rec play` with no argument cannot pick the control's by accident.
+LBA2_USER_DIR="$movedir/control" ctl --load "$movesave" \
+    --exec-at 20 "rec start" --exec-at 620 "rec stop" \
+    --tick 700 --dump-state "$movedir/idle.json" --exit >/dev/null 2>&1 ||
+    fail "movement: the control run exited non-zero ($?) — hang or crash"
 
 LBA2_USER_DIR="$movedir" ctl --load "$movesave" \
     --exec-at 20 "rec start" --exec-at 200 "key up 300" --exec-at 620 "rec stop" \
     --tick 700 --dump-state "$movedir/rec.json" --exit >/dev/null 2>&1 ||
     fail "movement: the recording run exited non-zero ($?) — hang or crash"
 
-idle_xz="$(hero_xz "$movedir/idle.json")" || fail "movement: could not read the idle state dump"
+idle_xz="$(hero_xz "$movedir/idle.json")" || fail "movement: could not read the control state dump"
 rec_xz="$(hero_xz "$movedir/rec.json")" || fail "movement: could not read the recorded state dump"
 
 if [ "$idle_xz" = "$rec_xz" ]; then
