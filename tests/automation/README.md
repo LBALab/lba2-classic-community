@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-71 fixtures.
+72 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -38,6 +38,7 @@ suite still passes, since CI cannot say so.
 | [test_cli_contract.sh](test_cli_contract.sh) | The CLI contract that automation depends on (#433). | save fixture |
 | [test_cli_flag_contract.sh](test_cli_flag_contract.sh) | Every flag against the contract its own table declares. | - |
 | [test_cli_override_persistence.sh](test_cli_override_persistence.sh) | A flag that says "this run only" leaves nothing behind, and still takes effect. | - |
+| [test_combo_baseline.sh](test_combo_baseline.sh) | The input baseline: what the engine did before the input work started moving it. | - |
 | [test_config_upgrade.sh](test_config_upgrade.sh) | An lba2.cfg that already exists keeps working across an engine update. | - |
 | [test_config_volumes.sh](test_config_volumes.sh) | The volume keys survive a boot, and an out-of-range one is brought into range rather than passed through. | - |
 | [test_console_audio_cvars.sh](test_console_audio_cvars.sh) | The audio cvars are the same settings the cfg holds, from the other end. | - |
