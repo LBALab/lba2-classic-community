@@ -12,6 +12,9 @@ divergence.
     scripts/dev/dump_recording.py session.rec cmds       # console commands only
     scripts/dev/dump_recording.py session.rec ticks      # tick, TimerRefHR, hash
     scripts/dev/dump_recording.py session.rec analog     # polls carrying mouse or stick
+    scripts/dev/dump_recording.py session.rec clock      # what the game clock did, per tick
+    scripts/dev/dump_recording.py session.rec tele       # the values the digest mixes
+    scripts/dev/dump_recording.py session.rec tele-changing   # only the ones that ever move
     scripts/dev/dump_recording.py session.rec saves      # write out the savegames it carries
 
 Keyframe output is a delta per line, so a session reads as what changed:
@@ -45,6 +48,34 @@ KF = [
     "cam.beta", "cam.alpha", "cam.addbeta", "cam.dist",
     "cinema", "dial.obj", "choice", "choices", "fade", "blackpal",
 ]
+
+# The leading fixed values of Control_StateDigest, in the order CONTROL.CPP mixes them.
+# Only the prefix: the per-actor block and the script variables follow, and their length
+# depends on how many actors the scene holds, so everything past this list is reported by
+# index. Same treatment as KF above, and for the same reason: a file may carry a field
+# this list does not name yet, and reporting it by index beats dropping it. SOURCES/
+# CONTROL.CPP is the authority; a build that mixes different values makes this prefix
+# wrong rather than short, so check it there before trusting a name.
+TELE_PREFIX = [
+    "Island", "NumCube", "CubeMode", "NbObjets", "NbZones",
+    "hero->Obj.X", "hero->Obj.Y", "hero->Obj.Z",
+    "hero->Obj.Alpha", "hero->Obj.Beta", "hero->Obj.Gamma",
+    "hero->LifePoint", "Comportement", "Weapon",
+    "hero->Obj.Body.Num", "hero->Obj.Anim.Num", "hero->GenAnim",
+    "hero->Obj.LastFrame", "hero->Move", "hero->ZoneSce",
+    "hero->Flags", "hero->WorkFlags",
+    "BetaCam", "AlphaCam", "GammaCam", "AddBetaCam",
+    "VueDistance", "VueOffsetX", "VueOffsetY", "VueOffsetZ",
+    "FollowCamera", "VueCamera", "CameraZone", "CinemaMode",
+    "MagicLevel", "MagicPoint", "NbGoldPieces", "NbLittleKeys",
+    "CinemaMode", "NumObjDial", "GameChoice", "GameNbChoices",
+    "FlagFade", "FlagBlackPal",
+]
+
+
+def tele_name(k):
+    return TELE_PREFIX[k] if k < len(TELE_PREFIX) else "value[%d]" % k
+
 
 REC_KEY = 0x50   # keyframe: u32 tick, u16 count (v12+), then count * s32
 REC_TELE = 0x51  # verbose telemetry: u32 tick, u16 count, then count * s32
@@ -136,8 +167,9 @@ def parse(path):
             elif flags == REC_TELE:
                 tick, count = struct.unpack_from("<IH", data, p)
                 p += 6
+                vals = list(struct.unpack_from("<%di" % count, data, p))
                 p += 4 * count
-                teles.append((tick, count))
+                teles.append((tick, vals))
             elif flags == REC_CMD:
                 tick, length = struct.unpack_from("<IH", data, p)
                 p += 6
@@ -205,6 +237,123 @@ def write_saves(path, snaps):
         print("wrote %s (%d bytes)" % (out, len(snaps[which])))
 
 
+def show_clock(ticks):
+    """What the game clock did, per tick.
+
+    A pinned step should give one delta and nothing else. Anything else is the clock
+    moving in a way the session did not ask for, and a *negative* delta is the game
+    clock going backwards: the savegame carries TimerRefHR (SOURCES/SAVEGAME.CPP), so
+    every load reinstalls that save's baseline. On a session that reloads often this is
+    the dominant term, and it is invisible in a summary that only reports a maximum."""
+    if len(ticks) < 2:
+        print("fewer than two ticks; nothing to compare")
+        return
+    ticks.sort()
+    deltas = {}
+    jumps = []
+    for i in range(1, len(ticks)):
+        d = ticks[i][1] - ticks[i - 1][1]
+        deltas[d] = deltas.get(d, 0) + 1
+        if d != 16:
+            jumps.append((ticks[i][0], d, ticks[i - 1][1], ticks[i][1]))
+
+    span = ticks[-1][1] - ticks[0][1]
+    print("ticks %d, clock ref %d -> %d" % (len(ticks), ticks[0][1], ticks[-1][1]))
+    print("span %d ms (%.1f min); at 16 ms a tick it would be %d ms (%.1f min)"
+          % (span, span / 60000.0,
+             16 * (len(ticks) - 1), 16 * (len(ticks) - 1) / 60000.0))
+    print("deltas that are not 16 ms: %d of %d" % (len(jumps), len(ticks) - 1))
+
+    back = [j for j in jumps if j[1] < 0]
+    if back:
+        # Every backward jump landing on one value is a restore rather than drift, and
+        # saying which value turns "the clock is noisy" into "something reinstalls this".
+        lands = {}
+        for _, _, _, to in back:
+            lands[to] = lands.get(to, 0) + 1
+        worst = min(back, key=lambda j: j[1])
+        print("  BACKWARDS: %d, worst %+d ms at tick %d (%d -> %d)"
+              % (len(back), worst[1], worst[0], worst[2], worst[3]))
+        common = sorted(lands.items(), key=lambda kv: -kv[1])[:3]
+        print("  they land on: %s"
+              % ", ".join("%d (x%d)" % (v, n) for v, n in common))
+
+    print("delta histogram:")
+    for d, n in sorted(deltas.items(), key=lambda kv: -kv[1])[:14]:
+        print("  %+8d ms x %d" % (d, n))
+
+
+def show_analog(analog, polls):
+    """A summary before the rows, because the interesting thing about analog is usually
+    a value that never changes rather than one that does. The format writes this block
+    only on polls that carry something (RECORD.CPP), so an axis that is never zero
+    defeats that and puts 20 bytes on every poll."""
+    if not analog:
+        print("no analog samples")
+        return
+    fields = [("rsx", 1), ("rsy", 2), ("padfirst", 3), ("mdx", 4), ("mdy", 5), ("click", 6)]
+    print("analog blocks: %d of %d polls (%.1f%%), %d bytes"
+          % (len(analog), polls, 100.0 * len(analog) / polls if polls else 0,
+             20 * len(analog)))
+    for name, i in fields:
+        vals = [a[i] for a in analog]
+        nz = [v for v in vals if v]
+        if not nz:
+            print("  %-9s always zero" % name)
+            continue
+        distinct = set(nz)
+        if len(distinct) == 1 and len(nz) == len(vals):
+            # The case worth shouting about: a constant on every sample is a stuck
+            # input, and it is what makes the block unskippable.
+            print("  %-9s CONSTANT %d on every sample -- this alone defeats the "
+                  "per-poll skip" % (name, nz[0]))
+        else:
+            print("  %-9s nonzero on %d, |max| %d, %d distinct"
+                  % (name, len(nz), max(abs(v) for v in nz), len(distinct)))
+
+
+def show_tele(teles, changing_only):
+    """The values the digest mixes, per tick. Nothing else can read these: the recorder
+    reports a divergence for at most three ticks and eight values, and before this the
+    offline reader counted them without printing any."""
+    if not teles:
+        print("no verbose telemetry in this recording (record with --verbose)")
+        return
+    teles.sort()
+    n = len(teles[0][1])
+    print("%d ticks, %d values a tick" % (len(teles), n))
+
+    if changing_only:
+        # Which values ever move. A field that is constant across a whole session is
+        # either genuinely static or stuck, and the two look identical in one tick.
+        first = teles[0][1]
+        moved = set()
+        for _, vals in teles:
+            for k in range(min(n, len(vals))):
+                if vals[k] != first[k]:
+                    moved.add(k)
+        print("values that change at least once: %d of %d" % (len(moved), n))
+        print("constant for the whole session: %d" % (n - len(moved)))
+        for k in sorted(moved)[:40]:
+            lo = min(v[1][k] for v in teles if k < len(v[1]))
+            hi = max(v[1][k] for v in teles if k < len(v[1]))
+            print("  %-24s %d .. %d" % (tele_name(k), lo, hi))
+        return
+
+    prev = None
+    for tick, vals in teles:
+        if prev is None:
+            print("tele %5d: %s" % (tick, "  ".join(
+                "%s=%d" % (tele_name(i), vals[i]) for i in range(min(24, len(vals))))))
+        else:
+            shared = min(len(prev), len(vals))
+            moved = ["%s %d->%d" % (tele_name(i), prev[i], vals[i])
+                     for i in range(shared) if prev[i] != vals[i]]
+            if moved:
+                print("tele %5d: %s" % (tick, "  ".join(moved)))
+        prev = vals
+
+
 def main(argv):
     if len(argv) < 2:
         raise SystemExit(__doc__)
@@ -226,7 +375,7 @@ def main(argv):
           % tuple("%d bytes" % len(snaps[k]) if k in snaps else "none"
                   for k in ("start", "end")))
     if teles:
-        print("verbose telemetry: %d values a tick" % teles[0][1])
+        print("verbose telemetry: %d values a tick" % len(teles[0][1]))
 
     if what in ("all", "cmds"):
         for tick, line in cmds:
@@ -250,7 +399,15 @@ def main(argv):
                 print("kf %5d: %s" % (tick, "  ".join(moved) if moved else "(no change)"))
             prev = vals
 
+    if what == "clock":
+        show_clock(ticks)
+
+    if what in ("tele", "tele-changing"):
+        show_tele(teles, what == "tele-changing")
+
     if what == "analog":
+        show_analog(analog, polls)
+        print()
         for poll, rsx, rsy, pad, mdx, mdy, click in analog:
             print("poll %d rsx %d rsy %d padfirst %d mdx %d mdy %d click %d"
                   % (poll, rsx, rsy, pad, mdx, mdy, click))
