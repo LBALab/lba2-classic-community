@@ -182,6 +182,11 @@ extern "C" {
 static int s_teleWrite = 0;    /* this session records telemetry */
 static int s_teleReported = 0; /* divergences named so far */
 static int s_teleSaid = 0;     /* the one-off "telemetry on" line */
+/* Asked for by this start rather than by the run. A mid-session start writes a snapshot
+   and reloads, so the session begins a couple of ticks after the command that asked for
+   it and the intent has to cross that gap; Record_Start sets it and record_begin is the
+   only reader. */
+static int s_teleAsked = 0;
 
 static FILE *s_f = NULL;
 static int s_recording = 0;
@@ -488,6 +493,12 @@ static void snapshot_beside(const char *recPath, const char *name, char *out, si
    sample driver both answers are an unconditional no, which is a different branch and
    not a quieter one.
 
+   `mode.verbose` is the same kind of answer for telemetry: whether this recording
+   carries it, rather than whether the command line asked for it, since `rec start
+   verbose` arms one session and the flag arms the run. Read outside a session -- `rec
+   info` with no path -- there is no recording carrying anything, and it reports what one
+   started now would carry.
+
    It records what the run got rather than what was asked for, because three routes
    reach the same place: `--no-audio`, `--headless` (which implies it), and a host where
    InitSampleDriver fails and the run continues silently. A recording made with sound
@@ -525,7 +536,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          Control_IsHeadless(),
                          Control_AudioActive(),
                          (int)Timer_FixedDtValue(),
-                         Control_IsVerbose(),
+                         s_teleWrite || Control_IsVerbose(),
                          BUILD_FLAGS_STR,
                          Sys_PlatformName(),
                          Rnd_StreamName(),
@@ -1100,6 +1111,13 @@ static int record_begin(const char *path, int haveSnapshot) {
     s_frameClock = Timer_ClockSource();
     s_frameClockValid = 1;
     ManageTime();
+    /* Telemetry is a diagnostic recording, several megabytes larger, made deliberately
+       when a plain one has already said a tick and cannot say a field. Either way of
+       asking arms it: --verbose for the whole run, `rec start verbose` for this session.
+       Before the header, because the header reports it. */
+    s_teleWrite = s_teleAsked || Control_IsVerbose();
+    s_teleAsked = 0;
+    s_teleSaid = 0;
     if (!write_mode_lines(mode, sizeof mode))
         fprintf(stderr, "[rec] header did not fit; the mode lines at the end of it are missing\n");
     fprintf(s_f, "%s %d\n%s", REC_MAGIC, REC_VERSION, mode);
@@ -1156,22 +1174,21 @@ static int record_begin(const char *path, int haveSnapshot) {
         if (s_hashEvery < 1)
             s_hashEvery = 1;
     }
-    /* Telemetry follows --verbose: it is a diagnostic recording, several megabytes
-       larger, made deliberately when a plain one has already said a tick and cannot
-       say a field. */
-    s_teleWrite = Control_IsVerbose();
-    s_teleSaid = 0;
     s_recording = 1;
     return 1;
 }
 
-int Record_Start(const char *path) {
+int Record_Start(const char *path, int verbose) {
     char buf[512];
     char snap[ADELINE_MAX_PATH];
     char named[ADELINE_MAX_PATH];
 
     if (s_recording || s_replaying || s_reloadState)
         return 0;
+
+    /* After the refusal above, so a start that was turned away does not leave the ask
+       behind for the next one to pick up. */
+    s_teleAsked = verbose;
 
     /* No name means one of ours. Here rather than in the console, because every way of
        asking for a recording arrives through this function and they should all land in
@@ -1289,6 +1306,9 @@ int Record_Stop(void) {
     s_f = NULL;
     s_recording = 0;
     s_replaying = 0;
+    /* With the session, not with the run: the next `rec start` decides for itself, and a
+       header written from outside a session should not still be reporting this one's. */
+    s_teleWrite = 0;
     s_snapInline = 0;
     s_recPath[0] = 0;
     bindings_restore();
@@ -2095,7 +2115,7 @@ void Record_PollHook(void) {
            there is no file -- and where the flag was given no name at all, saying so is
            the only thing left. */
         if (kind == 1) {
-            int ok = Record_Start(s_armRecord);
+            int ok = Record_Start(s_armRecord, 0);
             fprintf(stderr, "[rec] %s %s\n", ok ? "recording to" : "cannot record to",
                     ok ? Record_Path() : (s_armRecord[0] ? s_armRecord : "(no name given)"));
         } else {

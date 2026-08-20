@@ -410,8 +410,12 @@ LBA2_USER_DIR="$loopdir" ctl --load "$LBA2_TEST_SAVE" \
 # matches it: an unmatched glob would otherwise count as one file named `session-*.rec`,
 # which is the case this assertion exists to catch.
 loopcount=0
+looprec=""
 for f in "$loopdir"/recordings/session-*.rec; do
-    if [ -e "$f" ]; then loopcount=$((loopcount + 1)); fi
+    if [ -e "$f" ]; then
+        loopcount=$((loopcount + 1))
+        looprec="$f"
+    fi
 done
 [ "$loopcount" -eq 1 ] ||
     fail "console loop: expected one auto-named recording in $loopdir/recordings, found $loopcount"
@@ -452,6 +456,48 @@ case "$emptyout" in
 *) fail "console loop: 'rec play' with no recordings to play said nothing about it" ;;
 esac
 
+# `rec start verbose`: the diagnostic recording, asked for from inside the game.
+#
+# --verbose arms the same telemetry for a whole run, and that is the wrong shape for the
+# case that wants it. A player watching something go wrong cannot go back and relaunch
+# with the flag, and by the time they have, the session that showed it is gone. The word
+# on the command is the same telemetry from the middle of a session, and it has one thing
+# to prove: that the ask survives the snapshot-and-reload a mid-session start goes
+# through, which lands a couple of ticks after the command that made it.
+#
+# Read back with no engine in the loop, because the question is what the file carries.
+# The console saying it armed something and the stream holding the records are separate
+# claims, and only the second one is any use a week later.
+verbdir="$(mktemp -d)"
+trap 'rm -rf "$here" "$loopdir" "$emptydir" "$verbdir"' EXIT
+
+LBA2_USER_DIR="$verbdir" ctl --load "$LBA2_TEST_SAVE" \
+    --exec-at 20 "rec start verbose" --exec-at 120 "key up 60 2" \
+    --exec-at 220 "rec stop" --tick 300 --exit >/dev/null 2>&1 ||
+    fail "verbose console: the recording run exited non-zero ($?) — hang or crash"
+
+verbrec=""
+for f in "$verbdir"/recordings/session-*.rec; do
+    if [ -e "$f" ]; then verbrec="$f"; fi
+done
+[ -n "$verbrec" ] || fail "verbose console: nothing recorded under $verbdir/recordings"
+
+verbcounts="$(python3 "$REPO/scripts/dev/dump_recording.py" "$verbrec" | grep -m1 '^polls=')" ||
+    fail "verbose console: could not read $verbrec back"
+case "$verbcounts" in
+*"telemetry=0 "*) fail "verbose console: 'rec start verbose' recorded no telemetry ($verbcounts)" ;;
+esac
+
+# The control, and it is what makes the check above mean anything: the console loop
+# recorded the same scene without the word, so a recorder that wrote telemetry for every
+# session would pass the assertion above and fail here.
+loopcounts="$(python3 "$REPO/scripts/dev/dump_recording.py" "$looprec" | grep -m1 '^polls=')" ||
+    fail "verbose console: could not read $looprec back"
+case "$loopcounts" in
+*"telemetry=0 "*) ;;
+*) fail "verbose console: a plain 'rec start' recorded telemetry anyway ($loopcounts)" ;;
+esac
+
 # Did the session do anything?
 #
 # Every arm above asserts that a replay agrees with its recording, and none asserts that
@@ -473,7 +519,7 @@ movesave="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Anon1.LBA"
 [ -f "$movesave" ] || fail "movement: the corpus save is missing from $movesave"
 
 movedir="$(mktemp -d)"
-trap 'rm -rf "$here" "$loopdir" "$emptydir" "$movedir"' EXIT
+trap 'rm -rf "$here" "$loopdir" "$emptydir" "$verbdir" "$movedir"' EXIT
 
 # hero_xz <state.json> -- the engine's own dump, because `status` reports Nxw/Nyw/Nzw,
 # which are collision scratch and not the hero.
@@ -581,4 +627,5 @@ case "$flagarmed" in
     ;;
 esac
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone"
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
+'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone"
