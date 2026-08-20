@@ -79,24 +79,24 @@ kf  1728: dial.obj 0->2
 A recording made on Linux replays on Windows, and one made on Windows replays on Linux. Same file,
 same snapshot beside it, no conversion.
 
-That was not true when the recorder shipped. The engine drew every random number from libc
-`rand()`, and libc `rand()` is not one function:
+That rests on the engine carrying its own random number generator
+(`LIB386/SYSTEM/RANDOM.CPP`), because libc's `rand()` is not one function:
 
 | | `srand(0)` first draws | `RAND_MAX` |
 |---|---|---|
 | glibc (Linux) | 1804289383, 846930886, 1681692777 | 2147483647 |
 | UCRT (Windows) | 38, 7719, 21238 | 32767 |
 
-Different order, and a different range, so `rand() % n` came out differently distributed as well as
+Different order, and a different range, so `rand() % n` is differently distributed as well as
 differently ordered. One shared stream feeds rain, ambient sound, animated textures, particle
-scatter, track AI and the `LF_RND` script opcode, so the two platforms parted company within a few
-ticks of any scene with something moving in it. The engine now carries the generator itself
-(`LIB386/SYSTEM/RANDOM.CPP`), so every platform draws the same numbers.
+scatter, track AI and the `LF_RND` script opcode, so drawing from libc means two platforms part
+company within a few ticks of any scene with something moving in it.
 
-It reproduces glibc's generator specifically. That choice is what made the change free: every
-committed baseline, corpus save and reference recording in this repository was made on Linux, and
-matching glibc leaves all of them describing the same engine while moving Windows onto it. It is
-not the retail sequence, which was Watcom's and which no port of this engine has ever reproduced.
+The generator reproduces glibc's, specifically, and that is the choice that costs nothing: every
+committed baseline, corpus save and reference recording in this repository was made on Linux, so
+matching glibc leaves all of them describing the same engine while putting every other platform on
+it too. It is not the retail sequence, which was Watcom's and which no port of this engine
+reproduces.
 
 ### What a recording declares about arithmetic
 
