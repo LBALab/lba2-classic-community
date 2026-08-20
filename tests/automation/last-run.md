@@ -2,10 +2,10 @@
 
 # Control-harness last run
 
-- when: 2026-08-20 11:32 UTC
-- commit: `93298ab8`
+- when: 2026-08-20 13:03 UTC
+- commit: `b7a5846a`
 - host: Linux x86_64
-- result: **69 passed, 2 skipped, 0 failed**
+- result: **72 passed, 2 skipped, 0 failed**
 
 A skip means a prerequisite was missing, not that the fixture agreed with the
 engine. Only the passes are evidence.
@@ -27,6 +27,7 @@ engine. Only the passes are evidence.
 | test_cli_contract.sh | pass |
 | test_cli_flag_contract.sh | pass |
 | test_cli_override_persistence.sh | pass |
+| test_combo_baseline.sh | pass |
 | test_config_upgrade.sh | pass |
 | test_config_volumes.sh | pass |
 | test_console_audio_cvars.sh | pass |
@@ -53,6 +54,7 @@ engine. Only the passes are evidence.
 | test_move_framerate.sh | pass |
 | test_move_substep.sh | pass |
 | test_negative.sh | pass |
+| test_pad_bindings.sh | pass |
 | test_polyrec.sh | skip |
 | test_profile_bind.sh | pass |
 | test_projection_corpus.sh | pass |
@@ -67,6 +69,7 @@ engine. Only the passes are evidence.
 | test_res_switch_dialog.sh | pass |
 | test_screenshot.sh | pass |
 | test_skip_modals.sh | pass |
+| test_spell_keys_bypass.sh | pass |
 | test_tick.sh | pass |
 | test_ui_dialog.sh | pass |
 | test_ui_display.sh | pass |

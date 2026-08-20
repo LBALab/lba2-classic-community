@@ -510,6 +510,18 @@ No fixture is written for this. Asserting invariance would fail, and asserting t
 would pin a port regression as though it were the design. It belongs to the movement campaign,
 where the class already has a name, and it is recorded here because this is where it was measured.
 
+**What a modal input fixture needs, and does not have.** Increment 2's discard rule, that input
+accumulated while a screen is inhibited is dropped rather than banked, wants a fixture holding a
+direction across a modal and asserting the hero does not lurch on the way out. Entry is already
+measurable: opening the main menu 40 polls into a held walk stops the hero at 240 units where the
+same walk uninterrupted covers 1900. The exit is the problem. Esc does not close the menu from
+`key` in a headless run, so the session stays inside it and the hero never gets the chance to
+lurch, and a run that asserted on that would be asserting on a modal it never left.
+`test_askchoice_menus_consume.sh` covers the other half already, that the skip press is consumed
+rather than left live. So what is missing is a way to drive a menu from open to closed headlessly,
+which is a piece of harness work rather than a fixture, and it belongs with increment 2 rather than
+in front of it.
+
 **The compiled pad defaults are not what a fresh run uses, and it is not yet clear what is.**
 `ReadGamepadConfig` reads `Gamepad<n>` from the config with `GamepadKeysDefault[n].Key1` as the
 fallback, so a settings folder with no such key should take the compiled entry. It does not:
