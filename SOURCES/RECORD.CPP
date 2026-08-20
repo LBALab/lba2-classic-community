@@ -111,6 +111,16 @@ extern "C" {
    up sessions that work to protect sessions that never did. */
 #define REC_VERSION_MIN 9
 
+/* Which set of fields Control_StateDigest hashes. Not REC_VERSION: the rule above puts a
+   change to what the engine computes in a third case that the format version does not
+   cover, because the bytes still mean what they meant and the reader can still read them.
+   What such a change does break is the comparison, and silently -- a recording whose
+   digests were computed over fewer fields mismatches on tick 0 and reads as a session
+   that diverged immediately. Declaring it puts that in the mode diff beside the
+   `numeric.` lines, where a replay names what it disagrees about instead of failing as
+   though the run came apart. Move it whenever a field is added to or removed from the
+   digest. */
+
 /* Every buffer the text header passes through, named once so growing it is one decision
    rather than five. A real header runs about 1.6 KB: the mode block, the settings, and
    two binding tables that scale with how much the player has rebound. It grows whenever a
@@ -533,6 +543,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          "build.flags=%s\n"
                          "build.platform=%s\n"
                          "numeric.rng=%s\n"
+                         "numeric.digest=%d\n"
                          "numeric.long_double_bits=%d\n"
                          "mode.resolution=%ux%u\n"
                          "mode.language=%d\n"
@@ -551,6 +562,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          BUILD_FLAGS_STR,
                          Sys_PlatformName(),
                          Rnd_StreamName(),
+                         CONTROL_DIGEST_VERSION,
                          (int)LDBL_MANT_DIG,
                          (unsigned)ModeDesiredX, (unsigned)ModeDesiredY,
                          (int)Language,
@@ -2125,6 +2137,12 @@ int Record_Play(const char *path) {
        holds the recording's value and the banked delta is zero. */
     {
         U32 v = 0;
+        /* Absent means a recording written before the digest declared itself, which is
+           the one field set that predates the line: version 1. Selected before the first
+           tick is checked, so the very first comparison is against the set the file was
+           written with rather than against this build's. */
+        Control_SetDigestVersion(RecFmt_ReadU32(s_headerBuf, "numeric.digest=", &v) ? (S32)v : 1);
+        v = 0;
         s_pendingBaseline = 0;
         if (RecFmt_ReadU32(s_headerBuf, "clock.timer_ref_hr=", &v)) {
             s_baseline = v;

@@ -35,6 +35,7 @@ static S32 s_state[RND_DEG];
 static S32 s_front;
 static S32 s_rear;
 static S32 s_seeded;
+static U32 s_draws;
 
 //──────────────────────────────────────────────────────────────────────────
 void Rnd_Seed(U32 seed) {
@@ -76,11 +77,18 @@ const char *Rnd_StreamName(void) {
 }
 
 //──────────────────────────────────────────────────────────────────────────
+U32 Rnd_Draws(void) {
+    return s_draws;
+}
+
+//──────────────────────────────────────────────────────────────────────────
 S32 Rnd_Next(void) {
     U32 val;
 
     if (!s_seeded)
         Rnd_Seed(1);
+
+    s_draws++;
 
     // Unsigned so the sum wraps rather than overflowing a signed type.
     val = (U32)s_state[s_front] + (U32)s_state[s_rear];

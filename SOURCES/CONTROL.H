@@ -34,6 +34,14 @@ int Control_IsActive(void);
 /* Non-zero if --headless was supplied: no window, no audio device. */
 int Control_IsHeadless(void);
 
+/* Which set of fields Control_StateDigest hashes. A replay sets it from the recording's
+   `numeric.digest` line so a file written against the older set still compares against
+   the set it was written with; a recording always uses the current one. Fields added
+   since are appended, never interleaved, so selecting the older version reproduces its
+   sequence exactly rather than approximating it. */
+#define CONTROL_DIGEST_VERSION 2
+void Control_SetDigestVersion(S32 v);
+
 /* Write the same JSON snapshot --dump-state writes, to \a path, right now. The flag
    captures once as the run ends, which is all a bounded run needs; a session driven
    from outside wants one per probe, so the console `dumpstate` verb routes here. */

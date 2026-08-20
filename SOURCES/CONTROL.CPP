@@ -579,8 +579,15 @@ int Control_IsActive(void) {
 
 /* Read by PERSO.CPP: a headless run must not open the modal game-data folder picker,
    which would hang forever with nobody to answer it. */
+/* See Control_SetDigestVersion. Current unless a replay lowers it. */
+static S32 s_digestVersion = CONTROL_DIGEST_VERSION;
+
 int Control_IsHeadless(void) {
     return s_headless;
+}
+
+void Control_SetDigestVersion(S32 v) {
+    s_digestVersion = (v > 0) ? v : 1;
 }
 
 int Control_IsVerbose(void) {
@@ -1555,11 +1562,23 @@ void Control_InputAdvance(int simTicks) {
 /* Filled by Control_StateDigest on every call, whether or not anything wants the
    values: a replay needs its own copy to compare against, and collecting costs less
    than the hashing it rides along with. */
-#define TELE_MAX (64 + 9 * MAX_OBJETS + MAX_VARS_GAME + MAX_VARS_CUBE)
+/* Per-object fields in the digest's actor loop below. Keep the two in step: the digest
+   mixes every value regardless, but the telemetry array silently stops collecting once
+   it is full, and the values that fall off the end are the ones written last -- the
+   script variables. Undersized, the hash still matches and the report just stops
+   naming the fields it can no longer see, which reads as "nothing else differs". */
+#define TELE_PER_OBJ 13
+#define TELE_MAX (64 + TELE_PER_OBJ * MAX_OBJETS + MAX_VARS_GAME + MAX_VARS_CUBE)
 static S32 s_tele[TELE_MAX];
 static const char *s_teleName[TELE_MAX];
 static S16 s_teleIdx[TELE_MAX];
 static S32 s_teleN = 0;
+/* Values the array had no room for. Counted rather than ignored: a full array reports a
+   shorter list and nothing about it looks wrong, so an undersized TELE_MAX would read as
+   "no other field differs" instead of "I stopped looking". */
+static S32 s_teleDropped = 0;
+extern "C" U32 Rnd_Draws(void);
+
 /* ---- the game state the harness reads ------------------------------------- */
 /*
  * Reading the engine's state belongs here rather than in whatever wants it. This module
@@ -1590,6 +1609,20 @@ static void mix(const void *p, unsigned n) {
    named without anyone remembering to name it. Scalars carry index -1; the loops below
    pass the array index they are on. */
 #define M(v) MI(#v, -1, v)
+/* Collected and named like MI, but never mixed: a field that describes how a divergence
+   happened rather than being part of what diverged. It shows up in every report and
+   changes no verdict. */
+#define R(nm, v)                        \
+    do {                                \
+        S32 t_ = (S32)(v);              \
+        if (s_teleN < TELE_MAX) {       \
+            s_teleName[s_teleN] = (nm); \
+            s_teleIdx[s_teleN] = -1;    \
+            s_tele[s_teleN++] = t_;     \
+        } else {                        \
+            s_teleDropped++;            \
+        }                               \
+    } while (0)
 #define MI(nm, ix, v)                       \
     do {                                    \
         S32 t_ = (S32)(v);                  \
@@ -1598,6 +1631,8 @@ static void mix(const void *p, unsigned n) {
             s_teleName[s_teleN] = (nm);     \
             s_teleIdx[s_teleN] = (S16)(ix); \
             s_tele[s_teleN++] = t_;         \
+        } else {                            \
+            s_teleDropped++;                \
         }                                   \
     } while (0)
 
@@ -1746,6 +1781,12 @@ unsigned long long Control_StateDigest(void) {
         MI("obj.Anim", i, o->Obj.Anim.Num);
         MI("obj.Move", i, o->Move);
         MI("obj.Flags", i, o->Flags);
+        if (s_digestVersion >= 2) {
+            MI("obj.Sample", i, (S32)o->SampleAlways);
+            MI("obj.LastFrame", i, o->Obj.LastFrame);
+            MI("obj.LastTimer", i, (S32)o->Obj.LastTimer);
+            MI("obj.NextTimer", i, (S32)o->Obj.NextTimer);
+        }
     }
     /* Modal and menu state. Without these a replay that opens a menu the recording
        never opened stays "matching" until the menu changes something else, which can
@@ -1756,6 +1797,14 @@ unsigned long long Control_StateDigest(void) {
     M(GameNbChoices);
     M(FlagFade);
     M(FlagBlackPal);
+    /* Probe: the two pieces of per-frame state a recording does not carry. */
+    if (s_digestVersion >= 2) {
+        /* The carry is hashed: it decides where the next frame's sub-step boundaries
+           fall, so two runs that disagree on it are already simulating differently. The
+           draw count is not, for the reason on R above. */
+        MI("sim.carry", -1, (S32)LastSimRefHR);
+        R("rng.draws", Rnd_Draws());
+    }
     for (i = 0; i < MAX_VARS_GAME; i++)
         MI("var.game", i, ListVarGame[i]);
     for (i = 0; i < MAX_VARS_CUBE; i++)
@@ -1763,7 +1812,19 @@ unsigned long long Control_StateDigest(void) {
     return s_h;
 }
 
-S32 Control_StateValueCount(void) { return s_teleN; }
+S32 Control_StateValueCount(void) {
+    if (s_teleDropped) {
+        static S32 said = 0;
+        if (!said) {
+            said = 1;
+            fprintf(stderr,
+                    "[control] telemetry array full: %d value(s) not collected. "
+                    "Raise TELE_PER_OBJ/TELE_MAX in SOURCES/CONTROL.CPP.\n",
+                    (int)s_teleDropped);
+        }
+    }
+    return s_teleN;
+}
 
 S32 Control_StateValue(S32 k) { return (k >= 0 && k < s_teleN) ? s_tele[k] : 0; }
 
