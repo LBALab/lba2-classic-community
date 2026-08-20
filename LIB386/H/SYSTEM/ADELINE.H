@@ -1,12 +1,5 @@
 #pragma once
 
-#ifdef _WIN32          // Portability - mkdir has different includes and signature
-#include <direct.h>    // For ADELINE_MKDIR
-#else                  // _WIN32
-#include <sys/stat.h>  // For ADELINE_MKDIR
-#include <sys/types.h> // For ADELINE_MKDIR
-#endif                 // _WIN32
-
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
@@ -41,14 +34,6 @@ extern "C" {
 #else // _WIN32
 #define ADELINE_PATH_SEP "/"
 #define ADELINE_PATH_SEP_CHAR '/'
-#endif // _WIN32
-
-// -----------------------------------------------------------------------------
-// There is no single portable mkdir function
-#ifdef _WIN32 // Portability - mkdir has different includes and signature
-#define ADELINE_MKDIR(path) _mkdir(path)
-#else // _WIN32
-#define ADELINE_MKDIR(path) mkdir(path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH)
 #endif // _WIN32
 
 // =============================================================================

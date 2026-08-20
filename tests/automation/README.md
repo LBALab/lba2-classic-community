@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-74 fixtures.
+75 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -96,4 +96,5 @@ suite still passes, since CI cannot say so.
 | [test_ui_menu_options_uhd.sh](test_ui_menu_options_uhd.sh) | ui menu-options @ 1920x1080: the tallest framebuffer the engine accepts (ADELINE_MAX_Y_RES, which sizes TabOffLine[]), and so the largest vertical float the authored canvas ever sits at: UI_VCENTER_OFS is 300 here against 120 at 720. | UI goldens |
 | [test_ui_menu_options_wide.sh](test_ui_menu_options_wide.sh) | ui menu-options @ 768x480: re-renders the in-game options/pause menu at the Steam Deck render width and asserts the centred 640x480 crop of the capture is byte-identical to the existing 640 golden. | UI goldens |
 | [test_ui_video.sh](test_ui_video.sh) | ui video: capture the first composited frame of the INTRO cinematic, byte- compare to the committed golden. | UI goldens |
+| [test_user_dirs.sh](test_user_dirs.sh) | The folders the engine writes into have to exist before it writes into them, and it has to say so when one cannot be made. | - |
 | [test_walkthrough_opening.sh](test_walkthrough_opening.sh) | Walkthrough e2e: drive the OPENING of the game through the engine, from a cold boot, with no savegame. | - |
