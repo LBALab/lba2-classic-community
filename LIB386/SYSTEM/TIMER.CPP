@@ -16,6 +16,7 @@ volatile U32 TimerSystemHR;
 volatile U32 TimerRefHR;
 volatile S32 CmptFrame;
 volatile S32 NbFramePerSecond;
+U32 LastSimRefHR = 0; // #358 sub-step carry; see TIMER.H
 
 // --- Private state -----------------------------------------------------------
 volatile S32 TimerLock;

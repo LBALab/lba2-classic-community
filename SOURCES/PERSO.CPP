@@ -448,8 +448,6 @@ S32 MainLoop() {
     U8 i;
     S32 pansample;
 
-    // #358 fixed-timestep simulation: game-clock time of the last simulated sub-step.
-    static U32 LastSimRefHR = 0;
     // Cap on sub-steps per rendered frame (spiral-of-death guard). Below ~8 fps the sim
     // stops fully catching up and slows in a bounded way rather than freezing on catch-up.
     const S32 FIXED_TIMESTEP_MAX_STEPS = 8;

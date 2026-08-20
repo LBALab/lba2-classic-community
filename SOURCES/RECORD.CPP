@@ -247,6 +247,7 @@ static U32 s_prevMt = 0;
 static long s_mtCalls = 0;
 static U32 s_frameClock = 0;
 static U32 s_baseline = 0;
+static U32 s_baselineCarry = 0;
 static char s_snapshot[ADELINE_MAX_PATH] = "-";
 /* Whether the snapshot named above is going into the file rather than beside it. The
    header says which, so a reader that finds no chunk knows whether to look for a
@@ -539,6 +540,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          "setup.reloaded=%d\n"
                          "setup.reload_clock=%u\n"
                          "clock.timer_ref_hr=%u\n"
+                         "clock.sim_carry=%u\n"
                          "data.master=%s\n"
                          "bindings.digest=%016llx\n",
                          LBA2_VERSION_STRING,
@@ -555,6 +557,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          s_snapInline ? "(inline)" : path_leaf(s_snapshot),
                          s_reloaded, s_reloadClock,
                          (unsigned)TimerRefHR,
+                         (unsigned)LastSimRefHR,
                          Distrib_MasterName(Distrib_GetMaster()),
                          bindings_digest());
     if (wrote <= 0 || (size_t)wrote >= n)
@@ -1518,6 +1521,7 @@ static int line_present(const char *hay, const char *line) {
 static int mode_line_ignored(const char *line) {
     static const char *const skip[] = {
         "clock.timer_ref_hr=", /* the recorded baseline: restored, not matched */
+        "clock.sim_carry=",    /* the sub-step carry: restored with it */
         "setup.snapshot=",     /* the file it started from, named per recording */
         "setup.reloaded=",     /* how it started, which the reader acts on rather than matches */
         "setup.reload_clock=",
@@ -1957,6 +1961,7 @@ static int replay_poll(void) {
     if (s_pendingBaseline) {
         s_pendingBaseline = 0;
         SetTimerHR(s_baseline);
+        LastSimRefHR = s_baselineCarry;
     }
 
     replay_inject();
@@ -2116,6 +2121,18 @@ int Record_Play(const char *path) {
             s_baseline = v;
             s_pendingBaseline = 1;
         }
+        /* The sub-step carry goes back with the clock it is measured against, and for
+           the same reason: TimerRefHR says what time it is, this says where inside the
+           step the simulation last stopped. Restoring one without the other lands the
+           replay's sub-step boundaries a millisecond off the recording's, which is
+           invisible for a couple of hundred ticks and then is an actor on a different
+           animation. Absent in a recording written before this line existed, which
+           leaves the carry as the replay's own -- the behaviour those files were
+           recorded under. */
+        if (RecFmt_ReadU32(s_headerBuf, "clock.sim_carry=", &v))
+            s_baselineCarry = v;
+        else
+            s_baselineCarry = LastSimRefHR;
     }
 
     report_extent();
