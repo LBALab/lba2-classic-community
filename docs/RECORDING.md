@@ -323,7 +323,7 @@ modal, and covers no other actor and none of the 336 script variables.
 digest mixes, every tick, so the first rejected tick names the fields that moved:
 
 ```
-[rec] verbose telemetry: 578 values a tick
+[rec] verbose telemetry: 668 values a tick
 [rec] consistency failure at tick 201: recorded 2060ee23…, replayed ab660bc5…
 [rec] tick 201 state differs: var.game[77] 0/42  (recorded/replayed)
 ```
@@ -333,9 +333,9 @@ same name: `hero->Obj.LastFrame`, `obj[12].Anim`, `var.cube[7]`. A field added t
 named without anyone having to name it.
 
 The first rejected tick is reported along with the two after it, which is usually enough to tell a
-value that moved once from one that is drifting. About 2 KB a tick -- measured at 2319 bytes a tick
-over a 198-tick session -- so it is recorded deliberately rather than by default: roughly 4 MB for a
-session of a few thousand ticks, and about 200 MB of telemetry alone on a half-hour one.
+value that moved once from one that is drifting. About 2.8 KB a tick -- measured at 2787 bytes a
+tick over a 198-tick session -- so it is recorded deliberately rather than by default: roughly 5 MB
+for a session of a few thousand ticks, and about 240 MB of telemetry alone on a half-hour one.
 
 The bytes are the cost, and the time is not: writing them adds 0.10 ms of CPU a tick, measured
 against the same build without them, which is 0.6% of a 16 ms step. System time does not move --
