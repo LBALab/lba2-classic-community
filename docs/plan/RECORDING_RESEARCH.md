@@ -764,12 +764,17 @@ walking: clock drift max **0 ms** in all three. Two of the three still diverged 
 
 **And it mostly replays.** Eight loose record-and-replay pairs, 800 ticks, same scene and input:
 seven clean, one diverging at tick 407. `--fixed-dt` buys the last tenth rather than the capability,
-which is a smaller claim than "required, not an optimisation" reads as.
+which is a smaller claim than the requirement reads as.
 
-**A divergence is deterministic.** A recording that diverges does so at the same tick on every
-replay -- 850, three times over. That makes a loose recording that fails a repeatable reproducer
-rather than a flaky one, which is what the loose path has never had. Chasing one with `--verbose`
-names the field, and that is the next step for anyone who wants the requirement gone.
+**A divergence is deterministic, once audio is out of the way.** A recording that diverges does so
+at the same tick on every replay -- 850, three times over. That makes a loose recording that fails
+a repeatable reproducer rather than a flaky one, which is what the loose path has never had.
+
+The qualifier is not decoration: with `IsSamplePlaying` still answered from the mixer, one file
+replayed five times gives clean on some runs and the same divergence on others, and a single replay
+cannot tell a race from a reproducer. Replay a file five times before reading a verdict off it.
+Chasing one with `--verbose` names the field, and that is the next step for anyone who wants the
+requirement gone.
 
 What this retires is the direction, not the goal: reproducing the clock more faithfully is finished
 as an idea, and the residual behind tick 850 is the whole of what remains.
@@ -1608,8 +1613,8 @@ much argument: FLOW (17), GERETRAK (5), GERELIFE (5), EXTRA (5), OBJECT (4) and 
 RAIN (5), AMBIANCE (4), ANIMTEX (3), GAMEMENU (3) and CREDITS (2). Moving that second column, 17
 sites, to a second stream would remove two documented failures at the source rather than per
 symptom: the `DetailLevel` 3 to 0 divergence at tick 235, which is rain and nothing else, and the
-ambience half of the audio problem, which is currently answered by taking `IsSamplePlaying` off the
-mixer under `--fixed-dt` and so holds only in a mode no player runs.
+ambience half of the audio problem, which is answered by taking `IsSamplePlaying` off the mixer for
+any run that has to reproduce -- a pinned one, and a recording or replay on a host-sampled clock.
 
 Measured since, and it bounds what the split is worth. The instrument is not in the tree yet: a
 draw counter added to the digest for the pinned-step work, `Rnd_Draws()` surfaced as `rng.draws`.

@@ -56,6 +56,12 @@ S32 Rnd_Next(void);
 // than a divergence a thousand ticks in. Change it whenever the sequence changes.
 const char *Rnd_StreamName(void);
 
+// How many draws this stream has served, seeding discards included. Not the state,
+// just the position: two runs that agree on every other field but disagree here have
+// taken a different number of draws, which is the one thing that moves actor decisions
+// without moving anything a digest already covers.
+U32 Rnd_Draws(void);
+
 #ifdef __cplusplus
 }
 #endif

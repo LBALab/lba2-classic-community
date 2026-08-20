@@ -729,6 +729,43 @@ S32 LoadGame(void) {
 
     CameraCenter(0);
     SetTimerHR(savetimerrefhr);
+
+    /* Put the hero's animation on the clock the rest of the scene is on.
+     *
+     * `InitAnim` stamps `LastTimer` from `TimerRefHR` where it runs, and for the hero that
+     * is during boot, before the line above installs the save's clock. Every other actor
+     * is stamped after it and comes out on the restored reading; the hero is left on
+     * whatever the wall clock said between process start and scene init, which is a
+     * different number on every run of the same save. Measured: two runs of one save land
+     * two to three milliseconds apart here, and that is enough for him to reach an
+     * animation transition a tick apart a couple of hundred ticks later.
+     *
+     * Shifted rather than assigned, so the interval survives: `NextTimer` is `LastTimer`
+     * plus the current frame's own duration, and moving both by one delta keeps that
+     * duration while moving where it starts. `Time` goes with them, being the same clock
+     * read by the interpolator.
+     *
+     * Not a loop over every object. The others are already right, and shifting them by
+     * this delta is wrong twice over: it moves anchors that are on the correct timeline,
+     * and the delta itself is the distance between two saved baselines, which for the
+     * shipped saves is tens of minutes and takes whichever sign the two files happen to
+     * give it. Measured, that shift takes tick 0 from one diverging object to four. */
+    {
+        T_OBJ_3D *heroanim = &ListObjet[NUM_PERSO].Obj;
+
+        /* Unsigned throughout. The shift is a difference between two clock readings and
+           wraps rather than overflowing, where routing it through S32 would be undefined
+           for the large deltas this can legitimately carry: the gap between two saved
+           baselines runs to tens of minutes in either direction. */
+        U32 shift = (U32)TimerRefHR - heroanim->LastTimer;
+
+        if (shift) {
+            heroanim->LastTimer += shift;
+            heroanim->NextTimer += shift;
+            heroanim->Time += shift;
+        }
+    }
+
     SaveTimer();
 
     return flaginit;

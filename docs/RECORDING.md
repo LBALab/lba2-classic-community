@@ -89,14 +89,41 @@ directory. It cannot pick the wrong file, because a folder that has the name win
 `--user-dir` and `--profile` move the folder with the rest of the profile, so recordings made under
 one profile are the ones that profile replays.
 
-## The pinned step is required, not an optimisation
+## The pinned step is still required, and not for the reason it looks like
 
-A session recorded on the host-sampled clock does not replay exactly. Movement integrates per
-sub-step from `GetDeltaMove`, so two runs that reach a tick with the same clock reading but a
-different number of steps inside it end up in different places. Pinning the step is what makes a
-replay reproducible, and it was arrived at by measurement: reproducing the sampled clock,
-reconstructing it, and pinning the derived game clock every tick were each built and none of them
-worked.
+A session recorded on the host-sampled clock does not yet replay reliably, so record and replay
+with `--fixed-dt 16`. The reason is not the clock.
+
+A loose recording reproduces `TimerRefHR` at **0 ms drift at every tick, in every run measured**,
+so the host clock is not what a replay fails to reproduce. What `--fixed-dt` does is make every
+frame delta exactly 16 ms, which makes every value derived from frame timing trivially equal at
+both ends. That is a masking mechanism rather than a determinism one, and what it masks is
+simulation state no save, digest or recording carries. Each such value found is one less thing the
+pinned step has to hide, and the day the list is empty the step can go.
+
+Two are closed, both invisible under a pinned step by construction:
+
+- `LastSimRefHR`, the [#358](MOVEMENT_FRAMERATE.md) sub-step carry, decides where a frame's
+  sub-step boundaries fall. A replay that begins on its own boot's value rather than the
+  recording's diverges at tick 1 by a millisecond, and an actor is on a different animation two
+  hundred ticks later. At a constant 16 ms `Timer_PlanSimSteps` always returns one step and the
+  carry cannot matter, which is why a pinned session cannot see it either way. It lives in
+  `TIMER.H` beside `TimerRefHR`, the recording declares it as `clock.sim_carry`, and a replay
+  restores it beside the baseline.
+- `VoiceHeardBySim` answers from the sample's own length on the game clock for any run that has to
+  reproduce, not only a pinned one. Gated on the step, a loose session asks the mixer instead, whose
+  clock no replay reproduces. See "Audio used to move the answer" below.
+
+A third was the same shape and is closed with them: `InitAnim` stamps the hero's animation anchors
+during boot, from wall-clock time, and `LoadGame` installs the save's clock afterwards. Every other
+actor is stamped after that line and comes out on the restored reading, so the hero alone carried
+whatever the wall clock said between process start and scene init. `LoadGame` now puts him on the
+restored clock with his frame interval intact.
+
+Reproducing the clock more faithfully is finished as a direction. Storing one sample per
+`ManageTime` call was built and measured and makes replays *worse*. What is left is
+finding the state, and the digest names it: see `numeric.digest` and the `sim.carry`,
+`obj.LastTimer`, `obj.NextTimer` and `rng.draws` fields.
 
 Who pins it depends on where the recording starts, and the split is not a convenience:
 
@@ -298,7 +325,7 @@ modal, and covers no other actor and none of the 336 script variables.
 digest mixes, every tick, so the first rejected tick names the fields that moved:
 
 ```
-[rec] verbose telemetry: 578 values a tick
+[rec] verbose telemetry: 668 values a tick
 [rec] consistency failure at tick 201: recorded 2060ee23…, replayed ab660bc5…
 [rec] tick 201 state differs: var.game[77] 0/42  (recorded/replayed)
 ```
@@ -308,9 +335,9 @@ same name: `hero->Obj.LastFrame`, `obj[12].Anim`, `var.cube[7]`. A field added t
 named without anyone having to name it.
 
 The first rejected tick is reported along with the two after it, which is usually enough to tell a
-value that moved once from one that is drifting. About 2 KB a tick -- measured at 2319 bytes a tick
-over a 198-tick session -- so it is recorded deliberately rather than by default: roughly 4 MB for a
-session of a few thousand ticks, and about 200 MB of telemetry alone on a half-hour one.
+value that moved once from one that is drifting. About 2.8 KB a tick -- measured at 2787 bytes a
+tick over a 198-tick session -- so it is recorded deliberately rather than by default: roughly 5 MB
+for a session of a few thousand ticks, and about 240 MB of telemetry alone on a half-hour one.
 
 The bytes are the cost, and the time is not: writing them adds 0.10 ms of CPU a tick, measured
 against the same build without them, which is 0.6% of a 16 ms step. System time does not move --
@@ -435,9 +462,14 @@ reproduces, so one draw either way offset the stream and the next actor to reach
 angle" instruction turned differently. Measured: a walking session diverged at tick 1410 on
 `obj[11].Beta`, with zero clock drift, and the same walk recorded `--no-audio` replayed clean.
 
-Under `--fixed-dt` a sample's playing state is now answered from its own length on the game clock
-rather than from the mixer, so the simulation sees the same answer in both runs. The mixer is
-untouched: this only changes what the simulation is told, and only in a mode no player runs.
+A sample's playing state is answered from its own length on the game clock rather than from the
+mixer for any run that has to reproduce, which is a pinned run and also a recording or a replay on
+a host-sampled one. The loose path needs it more, having nothing else holding its two ends
+together. The mixer is untouched: this only changes what the simulation is told.
+
+Measured on the loose path, audio on: one recording replayed five times went from clean on some
+runs and diverging on others to clean on all five, and a sweep of eight fresh record-and-replay
+pairs went from none clean to three.
 
 This is also why the bug survived so long. Every fixture runs `--headless`, which skips
 `InitSampleDriver` altogether, so nothing in the suite had ever exercised the audio path. A

@@ -65,6 +65,15 @@ void Timer_FixedDtOverlayPresent();
 // Unlike Timer_FixedDtPresent() there is no free first step. Inert outside fixed-dt.
 void Timer_FixedDtPump();
 
+// Answer the simulation's "is this voice still playing" from the sample's own length on
+// the game clock instead of from the mixer. True whenever the pinned clock is armed, and
+// separately settable by the recorder, which needs the same answer on a host-sampled
+// clock: SOURCES/AMBIANCE.CPP draws its random pan only `if (!IsSamplePlaying(...))`, and
+// that draw comes from the one random stream actor behaviour uses, so a voice that
+// outlives its recording by a frame moves every actor decision after it.
+void Timer_SetSimAudioClock(S32 on);
+S32 Timer_SimAudioClock(void);
+
 // --- Fixed simulation timestep (production, issue #358) ----------------------
 // Movement/animation is only correct near ~60 fps because locomotion is baked into
 // animation keyframes advanced once per rendered frame (see docs/MOVEMENT_FRAMERATE.md).
@@ -77,6 +86,14 @@ void Timer_FixedDtPump();
 // `*accMs` and return the step count, clamped to `maxSteps` (a spiral-of-death guard;
 // pass a negative value for no clamp). On clamp the backlog beyond the clamp is dropped,
 // keeping only the sub-dt remainder. Post-condition: `*accMs < dt`. Unit-tested directly.
+// #358: the game clock the last simulated sub-step ran at -- the accumulator
+// Timer_PlanSimSteps carries between frames. Simulation state, not a clock reading: it
+// decides where this frame's sub-step boundaries fall, so two runs that agree on
+// TimerRefHR to the millisecond still simulate differently if they disagree here. Lives
+// beside TimerRefHR because a session that hands over one has to hand over both, and
+// because the function that owns it is in this file.
+extern U32 LastSimRefHR;
+
 S32 Timer_FixedStepCount(U32 *accMs, U32 elapsedMs, U32 dt, S32 maxSteps);
 
 // Plan one rendered frame of the production sub-step loop (SOURCES/PERSO.CPP MainLoop). Pure:

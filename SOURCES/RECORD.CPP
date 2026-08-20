@@ -111,6 +111,16 @@ extern "C" {
    up sessions that work to protect sessions that never did. */
 #define REC_VERSION_MIN 9
 
+/* The header declares CONTROL_DIGEST_VERSION (SOURCES/CONTROL.H), which is the set of
+   fields Control_StateDigest hashes, and it is deliberately not REC_VERSION: the rule
+   above puts a change to what the engine computes in a third case the format version does
+   not cover, because the bytes still mean what they meant and the reader can still read
+   them. What such a change does break is the comparison, and silently -- a recording whose
+   digests were computed over fewer fields mismatches on tick 0 and reads as a session that
+   diverged immediately. Declaring it puts that in the mode diff beside the `numeric.`
+   lines, where a replay names what it disagrees about instead of failing as though the run
+   came apart. */
+
 /* Every buffer the text header passes through, named once so growing it is one decision
    rather than five. A real header runs about 1.6 KB: the mode block, the settings, and
    two binding tables that scale with how much the player has rebound. It grows whenever a
@@ -247,6 +257,7 @@ static U32 s_prevMt = 0;
 static long s_mtCalls = 0;
 static U32 s_frameClock = 0;
 static U32 s_baseline = 0;
+static U32 s_baselineCarry = 0;
 static char s_snapshot[ADELINE_MAX_PATH] = "-";
 /* Whether the snapshot named above is going into the file rather than beside it. The
    header says which, so a reader that finds no chunk knows whether to look for a
@@ -532,6 +543,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          "build.flags=%s\n"
                          "build.platform=%s\n"
                          "numeric.rng=%s\n"
+                         "numeric.digest=%d\n"
                          "numeric.long_double_bits=%d\n"
                          "mode.resolution=%ux%u\n"
                          "mode.language=%d\n"
@@ -539,6 +551,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          "setup.reloaded=%d\n"
                          "setup.reload_clock=%u\n"
                          "clock.timer_ref_hr=%u\n"
+                         "clock.sim_carry=%u\n"
                          "data.master=%s\n"
                          "bindings.digest=%016llx\n",
                          LBA2_VERSION_STRING,
@@ -549,12 +562,14 @@ static S32 write_mode_lines(char *out, size_t n) {
                          BUILD_FLAGS_STR,
                          Sys_PlatformName(),
                          Rnd_StreamName(),
+                         CONTROL_DIGEST_VERSION,
                          (int)LDBL_MANT_DIG,
                          (unsigned)ModeDesiredX, (unsigned)ModeDesiredY,
                          (int)Language,
                          s_snapInline ? "(inline)" : path_leaf(s_snapshot),
                          s_reloaded, s_reloadClock,
                          (unsigned)TimerRefHR,
+                         (unsigned)LastSimRefHR,
                          Distrib_MasterName(Distrib_GetMaster()),
                          bindings_digest());
     if (wrote <= 0 || (size_t)wrote >= n)
@@ -1224,6 +1239,19 @@ static int record_begin(const char *path, int haveSnapshot) {
         if (s_hashEvery < 1)
             s_hashEvery = 1;
     }
+    /* Answer the simulation's sample-playing question from the game clock for the whole
+       session. Without it a voice's lifetime is the audio device's, which no replay
+       reproduces, and AMBIANCE.CPP's `if (!IsSamplePlaying(...))` pan draw comes off the
+       one random stream actor behaviour uses. Armed for a host-sampled session too, not
+       just a pinned one: a loose recording needs it more, having nothing else holding the
+       two ends together. */
+    Timer_SetSimAudioClock(1);
+    /* Back to this build's field set. A replay lowers it to whatever the file it opened
+       declared, and a session that played an old recording and then started a new one
+       would otherwise write numeric.digest=2 in the header over hashes computed the old
+       way -- a file that lies about itself, and mismatches on tick 0 of its own replay
+       forever. */
+    Control_SetDigestVersion(CONTROL_DIGEST_VERSION);
     s_recording = 1;
     return 1;
 }
@@ -1301,6 +1329,7 @@ static void record_release_step(void) {
        two cannot come apart again. */
     s_frameClock = 0;
     s_frameClockValid = 0;
+    Timer_SetSimAudioClock(0);
 
     if (!s_recArmedDt)
         return;
@@ -1518,6 +1547,7 @@ static int line_present(const char *hay, const char *line) {
 static int mode_line_ignored(const char *line) {
     static const char *const skip[] = {
         "clock.timer_ref_hr=", /* the recorded baseline: restored, not matched */
+        "clock.sim_carry=",    /* the sub-step carry: restored with it */
         "setup.snapshot=",     /* the file it started from, named per recording */
         "setup.reloaded=",     /* how it started, which the reader acts on rather than matches */
         "setup.reload_clock=",
@@ -1957,6 +1987,7 @@ static int replay_poll(void) {
     if (s_pendingBaseline) {
         s_pendingBaseline = 0;
         SetTimerHR(s_baseline);
+        LastSimRefHR = s_baselineCarry;
     }
 
     replay_inject();
@@ -1970,6 +2001,7 @@ static int replay_poll(void) {
    asked for: a replay that reloads first takes a scene load between the two, and the
    clock it compares against has to be the one it begins on. */
 static void replay_begin(void) {
+    Timer_SetSimAudioClock(1);
     memset(s_prevKeys, 0, sizeof s_prevKeys);
     s_prevKey = 0;
     s_prevSrcDelta = 0;
@@ -2111,11 +2143,29 @@ int Record_Play(const char *path) {
        holds the recording's value and the banked delta is zero. */
     {
         U32 v = 0;
+        /* Absent means a recording written before the digest declared itself, which is
+           the one field set that predates the line: version 1. Selected before the first
+           tick is checked, so the very first comparison is against the set the file was
+           written with rather than against this build's. */
+        Control_SetDigestVersion(RecFmt_ReadU32(s_headerBuf, "numeric.digest=", &v) ? (S32)v : 1);
+        v = 0;
         s_pendingBaseline = 0;
         if (RecFmt_ReadU32(s_headerBuf, "clock.timer_ref_hr=", &v)) {
             s_baseline = v;
             s_pendingBaseline = 1;
         }
+        /* The sub-step carry goes back with the clock it is measured against, and for
+           the same reason: TimerRefHR says what time it is, this says where inside the
+           step the simulation last stopped. Restoring one without the other lands the
+           replay's sub-step boundaries a millisecond off the recording's, which is
+           invisible for a couple of hundred ticks and then is an actor on a different
+           animation. Absent in a recording written before this line existed, which
+           leaves the carry as the replay's own -- the behaviour those files were
+           recorded under. */
+        if (RecFmt_ReadU32(s_headerBuf, "clock.sim_carry=", &v))
+            s_baselineCarry = v;
+        else
+            s_baselineCarry = LastSimRefHR;
     }
 
     report_extent();
