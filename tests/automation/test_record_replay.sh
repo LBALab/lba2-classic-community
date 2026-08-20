@@ -91,6 +91,15 @@ record_and_replay() { # record_and_replay <label> [extra record args...]
     *"numeric.long_double_bits="*) ;;
     *) fail "$label: the header does not declare numeric.long_double_bits" ;;
     esac
+    # Whether audio came up is a simulation input rather than a presentation detail: the
+    # ambience pan is drawn only `if (!IsSamplePlaying(...))`, from the one stream actor
+    # behaviour draws from, and a dialogue with the text off runs until the voice sample
+    # ends. Asserted as 0 rather than merely present, because every run in this file is
+    # headless and a line that reported the flag instead of the driver would say so.
+    case "$head" in
+    *"mode.audio=0"*) ;;
+    *) fail "$label: the header does not declare mode.audio=0, and this run is headless" ;;
+    esac
 
     # More ticks than the recording holds, so the stream runs out and the summary
     # prints. Ending on --tick first means no summary at all, and a run that reported
@@ -302,4 +311,34 @@ case "$bout" in
     ;;
 esac
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change"
+# The other half of the mode.audio check above. That one shows the line is written; this
+# shows the replay acts on it, which is the half that decides whether a recording made
+# with sound is caught or reported as the simulation diverging. With no sample driver
+# `IsSamplePlaying` is an unconditional no rather than a differently timed yes, so the
+# two runs take different branches and the line is the only warning there is.
+#
+# Flipping the recorded answer is what shows the comparison can fail. One byte, so the
+# stream behind the header is untouched and the replay still runs to the end.
+flipped="$(user_dir)/audio-flipped.rec"
+python3 - "$rec" "$flipped" <<'EOF' || fail "audio: could not flip the recorded audio state"
+import sys
+d = open(sys.argv[1], "rb").read()
+n = d.replace(b"mode.audio=0", b"mode.audio=1", 1)
+assert len(n) == len(d) and n != d, "the flip has to be one byte and has to change something"
+open(sys.argv[2], "wb").write(n)
+EOF
+
+aout="$(ctl --verbose --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$flipped" \
+    --tick 400 --exit 2>&1)" ||
+    fail "audio: replay run exited non-zero ($?): hang or crash"
+rm -f "$flipped"
+
+case "$aout" in
+*"mode differs: mode.audio=1"*) ;;
+*)
+    fail "audio: a recording made with sound replayed silently without a word; $(
+        printf '%s\n' "$aout" | grep -m1 'mode differs' || echo 'no mode line differed at all')"
+    ;;
+esac
+
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; a flipped mode.audio was reported"

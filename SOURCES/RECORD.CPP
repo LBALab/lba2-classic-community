@@ -454,6 +454,22 @@ static void snapshot_beside(const char *recPath, const char *name, char *out, si
    Auto camera's own block rather than the whole of the config, and a setting joins it
    when a replay is shown to turn on it.
 
+   `mode.audio` is there because whether audio came up decides what the simulation
+   computes, in two places. SOURCES/AMBIANCE.CPP draws its random pan only
+   `if (!IsSamplePlaying(...))`, from the one stream actor behaviour draws from, so one
+   draw either way and the next actor to reach TM_ANGLE_RND turns to a different angle.
+   And a dialogue with the text off spins on `TestSpeak()` until the voice sample ends
+   (SOURCES/MESSAGE.CPP), which is worth hundreds of ticks rather than one draw. With no
+   sample driver both answers are an unconditional no, which is a different branch and
+   not a quieter one.
+
+   It records what the run got rather than what was asked for, because three routes
+   reach the same place: `--no-audio`, `--headless` (which implies it), and a host where
+   InitSampleDriver fails and the run continues silently. A recording made with sound
+   cannot be reproduced by a replay without it, and since `--fixed-dt` requires
+   `--headless` today, that is every replay. Naming the line is what turns that into a
+   sentence at the top of the run instead of a divergence to be diagnosed.
+
    One line per key rather than a digest: `rec info` diffs the header line by line, so a
    named line reports the key that differs, and a digest could only report that
    something did.
@@ -465,6 +481,7 @@ static S32 write_mode_lines(char *out, size_t n) {
     int wrote = snprintf(out, n,
                          "engine=%s\n"
                          "mode.headless=%d\n"
+                         "mode.audio=%d\n"
                          "mode.fixed_dt=%d\n"
                          "mode.verbose=%d\n"
                          "build.flags=%s\n"
@@ -481,6 +498,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          "bindings.digest=%016llx\n",
                          LBA2_VERSION_STRING,
                          Control_IsHeadless(),
+                         Control_AudioActive(),
                          (int)Timer_FixedDtValue(),
                          Control_IsVerbose(),
                          BUILD_FLAGS_STR,
