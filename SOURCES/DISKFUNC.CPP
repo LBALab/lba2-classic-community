@@ -2,8 +2,11 @@
 #include "DIRECTORIES.H"
 
 #include <SYSTEM/ADELINE.H>
+#include <SYSTEM/LOG.H>
 
-#include <errno.h>
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_filesystem.h>
+
 #include "AMBIANCE.H"
 #include "BOOT_EXIT.H"
 
@@ -352,41 +355,62 @@ S32 LoadSceneCubeXY(S32 numcube, S32 *cubex, S32 *cubey) {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
+/* Make `path` a directory, creating any missing parent on the way, and report whether
+   one is there when this returns.
+
+   SDL rather than a walk over the separators, which is what this was. That walk had a
+   Windows-shaped hole: the first component of an absolute path there is a drive spec,
+   and `_mkdir("C:")` asks for the current directory *of drive C*, which is refused
+   outright when the process sits on another drive or on that drive's root. The walk
+   stopped at the refusal, skipped the mkdir it existed to perform, and returned a
+   failure no caller read, so the folder was simply absent and the first write into it
+   failed instead -- naming a file, in a message that could not say the folder above it
+   was never made. Neither side of the tree reproduced it: an absolute path on Linux
+   begins with the separator, whose empty first component the walk skipped, and a
+   Windows run whose build tree and user directory share a drive resolves `C:` to a
+   directory that exists.
+
+   SDL_CreateDirectory creates the parents itself, reports success when the directory is
+   already there, and knows what a drive spec is. It also creates with 0770 against the
+   0754 asked for here before, so a folder made from now on is one group-readable step
+   tighter and matches the user directory above it, which SDL has always made. */
 U8 AddDirIfNot(const char *path) {
+    /* So that a caller reporting a failure reads this attempt's reason rather than
+       whatever last set one, which under SDL is as likely to be a call that succeeded. */
+    SDL_ClearError();
+
+    /* Ahead of the create, so a path that exists as a file still answers no. That is
+       what a caller testing this return has always been told, and SDL is not asked to
+       have an opinion about it. */
     if (ExistsFileOrDir(path)) {
         return IsDirectory(path);
     }
 
-    char *copypath = strdup(path);
+    return SDL_CreateDirectory(path) ? TRUE : FALSE;
+}
 
-    { // If path ends in separator, remove it
-        size_t copyLen = strlen(copypath);
-        if ((copyLen > 0) && (copypath[copyLen - 1] == ADELINE_PATH_SEP_CHAR)) {
-            copypath[copyLen - 1] = '\0';
-        }
+/* A folder the engine needs, made here or named here.
+
+   Reporting it is the whole point of the wrapper. A folder that cannot be created is a
+   failure the run survives and the player meets much later, at whatever first tried to
+   write into it, in a message about a file. Saying it once at boot, next to the paths
+   the banner has just printed, is the difference between "the recordings folder could
+   not be created" and "unable to save game to <a path that reads as fine>". */
+static void AddDirOrWarn(const char *path) {
+    if (AddDirIfNot(path)) {
+        return;
     }
 
-    int status = 0;
-    char *pp = copypath;
-    char *sp;
-    while ((status == 0 || errno == EEXIST) &&
-           ((sp = strchr(pp, ADELINE_PATH_SEP_CHAR)) != NULL)) {
-        if (sp != pp) {
-            *sp = '\0';
-            status = ADELINE_MKDIR(copypath);
-            *sp = ADELINE_PATH_SEP_CHAR;
-        }
-        pp = sp + 1;
-    }
+    /* With the reason. "Could not create" alone sends a player to check permissions and
+       free space whichever of them it was, and the two that actually happen -- a name
+       already taken, and no permission to write there -- want opposite answers.
 
-    if (status == 0 || errno == EEXIST) {
-        errno = 0;
-        status = ADELINE_MKDIR(path);
-    }
-
-    free(copypath);
-
-    return (status == 0);
+       Empty is itself one of the two failures rather than a missing message: AddDirIfNot
+       answers a path that exists and is not a directory without reaching SDL, and clears
+       the error on the way in so this cannot report an older one. */
+    const char *why = SDL_GetError();
+    Log_Warn("Folders    could not create %s: %s", path,
+             (why[0] != '\0') ? why : "the name is taken by something that is not a folder");
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -395,18 +419,25 @@ void CreateLbaDirectories(void) {
     char tmpDirPath[ADELINE_MAX_PATH];
 
 #ifndef DEMO
+    /* Silent, unlike the rest, because this one is under the game data rather than the
+       user directory and cannot tell a real failure from an ordinary install. The
+       folder ships with the data, so this is a no-op wherever the voices exist; an
+       install on read-only media is a normal thing to have; and with a disc image
+       mounted, ExistsFileOrDir answers for this path out of the image (DISCIMG maps
+       anything under the install dir), so a folder that is only in the image reads as
+       present and not a directory. A warning here would fire on a healthy install. */
     GetVoicePath(tmpDirPath, ADELINE_MAX_PATH, NULL);
     AddDirIfNot(tmpDirPath);
 #endif
 
     GetSavePath(tmpDirPath, ADELINE_MAX_PATH, NULL);
-    AddDirIfNot(tmpDirPath);
+    AddDirOrWarn(tmpDirPath);
 
     GetShootPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
-    AddDirIfNot(tmpDirPath);
+    AddDirOrWarn(tmpDirPath);
 
     GetRecordingsPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
-    AddDirIfNot(tmpDirPath);
+    AddDirOrWarn(tmpDirPath);
 
 #ifdef DEBUG_TOOLS
     GetBugPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
@@ -418,7 +449,7 @@ void CreateLbaDirectories(void) {
 #endif
 
     GetLogPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
-    AddDirIfNot(tmpDirPath);
+    AddDirOrWarn(tmpDirPath);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/

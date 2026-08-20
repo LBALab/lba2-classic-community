@@ -106,9 +106,10 @@ x86 assembly is opt-in via the `ENABLE_ASM` CMake option (default OFF). Every AS
 
 ## 5. OS boundary (filesystem, conditionals, SDL3) &nbsp;&nbsp;&nbsp;&nbsp; ✓ contained
 
-Operating-system contact is concentrated in a thin layer. SDL3 wraps window, events, audio, video, and timer. Path manipulation is gated by `_WIN32` for the separator character and `mkdir` signature. Asset and save discovery uses `SDL_GetBasePath` plus `LBA2_GAME_DIR` plus a candidate walk. Case-insensitivity on macOS APFS bit us once (`<version>` vs the build's `VERSION` text file) and is now sidestepped by writing `VERSION.txt` instead.
+Operating-system contact is concentrated in a thin layer. SDL3 wraps window, events, audio, video, and timer. Path manipulation is gated by `_WIN32` for the separator character; directory creation is SDL's. Asset and save discovery uses `SDL_GetBasePath` plus `LBA2_GAME_DIR` plus a candidate walk. Case-insensitivity on macOS APFS bit us once (`<version>` vs the build's `VERSION` text file) and is now sidestepped by writing `VERSION.txt` instead.
 
-- `_WIN32` mkdir signature + path separator — `LIB386/H/SYSTEM/ADELINE.H:38-44`
+- `_WIN32` path separator — `LIB386/H/SYSTEM/ADELINE.H:31-37`
+- Directory creation goes through `SDL_CreateDirectory`, which creates parents and understands a drive spec — `SOURCES/DISKFUNC.CPP` (`AddDirIfNot`), `SOURCES/DIRECTORIES.CPP`
 - `ADELINE_PATH_SEP` usage — `SOURCES/RES_DISCOVERY.CPP`
 - macOS case-insensitivity hazard (with explanation) — `cmake/git_version.cmake:15-20`
 - SDL3 window — `LIB386/SYSTEM/WINDOW.CPP:5,89`
