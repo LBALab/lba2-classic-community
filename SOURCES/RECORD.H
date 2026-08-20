@@ -20,10 +20,6 @@ extern "C" {
 /* Tail of UpdateKeyboardState(): capture or inject this poll's device state. */
 void Record_PollHook(void);
 
-/* Tail of ManageMouse(): the mouse drains on a different schedule from the keyboard
-   poll, so replay has to re-apply there or the drain zeroes what was injected. */
-void Record_MouseHook(void);
-
 /* ManageTime(): capture or supply the clock where the engine actually reads it. */
 void Record_ClockHook(U32 *now);
 

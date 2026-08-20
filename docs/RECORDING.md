@@ -54,6 +54,7 @@ so a replay under a different `--fixed-dt` is reported rather than silently wron
 | Part | Why |
 |---|---|
 | Polled device state, one sample per input poll | Indexed by poll rather than by tick, because a modal can spin thousands of polls inside a single tick |
+| The mouse, the right stick and the pad's first-pressed scancode | None of the three has a scancode, so none rides the key table the rest of the input rides. Twenty bytes on the polls that carry any of them, nothing on the polls that do not |
 | The console commands the session was driven with | Otherwise a recording cannot stand in for a harness-driven fixture |
 | The keyboard and gamepad binding tables | A replay borrows them for its duration, so a recording is not tied to the cfg it was made under, and returns the player's own on the way out |
 | A snapshot at each end | `<path>.lba` is where the session started, `<path>.end.lba` where it finished |
@@ -198,6 +199,18 @@ null backend, because a live audio thread branches the simulation. `rec info` wi
 
 **Recording from boot headlessly needs `--exec "skipmodals 1"`.** The opening dialogue waits for a
 keypress that a headless run never sends.
+
+**A harness-driven recording carries its own commands, so the sample stream is not its only
+carrier.** A replay re-executes every console command the session was driven with, which for a
+fixture means `key`, `input` or `mouse` reproduces the input a second time and would cover for a
+sample stream that had stopped working. A session someone played has no commands behind it, so
+there the samples are all there is. What tells the two apart is a replay run driven the other way
+at the same time: the file has to win.
+
+**A replayed right stick moves nothing without a pad plugged in.** The analog camera is gated on
+`JoystickIsPresent()`, so a pad session replayed on a machine with no pad restores the axes and
+then skips the code that reads them. The mouse has no such gate and the digital pad buttons ride
+the key table, so this is the one input a recording carries and cannot always deliver.
 
 ## Testing
 
