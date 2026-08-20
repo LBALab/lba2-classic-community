@@ -64,6 +64,7 @@ add_subdirectory(plasma_steps)
 add_subdirectory(boot_end)
 add_subdirectory(camera)
 add_subdirectory(precision_paths)
+add_subdirectory(numeric_contract)
 add_subdirectory(ui_layout)
 add_subdirectory(settings)
 

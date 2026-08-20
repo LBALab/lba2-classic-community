@@ -126,10 +126,11 @@ static const T_CLI_FLAG CliFlags[] = {
     {"--log-level", 1, 0, 0, 0, NULL, "<level>", "debug | info | warn | error (default info)"},
     {"--verbose", 0, 0, 0, 0, NULL, "", "log scene and hero state as the run proceeds"},
 
-    {"--record", 1, 0, 0, 0, NULL, "<path>", "record the session from the first tick, menus and\n"
-                                             "loading included (the `rec` console verb starts\n"
-                                             "mid-session instead)"},
-    {"--replay", 1, 0, 0, 0, NULL, "<path>", "replay a recording and report where it stops matching"},
+    {"--record", 1, 0, 0, 0, NULL, "<name>", "record the session from the first tick, menus and\n"
+                                             "loading included; a bare name lands in the\n"
+                                             "recordings folder (the `rec` console verb\n"
+                                             "starts mid-session)"},
+    {"--replay", 1, 0, 0, 0, NULL, "<name>", "replay a recording and report where it stops matching"},
     {"--ignore-focus", 0, 0, 0, 0, NULL, "", "keep the clock running when the window loses focus\n"
                                              "(--listen implies this)"},
 

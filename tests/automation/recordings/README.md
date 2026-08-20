@@ -1,19 +1,50 @@
-# Committed recordings
+# Recordings in formats this build reads and does not write
 
-Recordings that a build cannot make for itself, kept so the reader can be held to them.
+`legacy-v10.rec` is a session recorded by a format-10 engine, kept so a build that
+reads that format is asked to prove it. `tests/automation/test_record_replay.sh` replays
+it.
 
-| File | Why it is here |
+## Why a committed file rather than one the test makes
+
+Every other arm of that fixture records a session and replays it with the same binary,
+which cannot catch a change that breaks both ends together. That is not a hypothetical
+class: a keyframe record grew a field, the reader took the field count from the live
+build instead of from the file, and both halves agreed with each other while every
+recording made before the change had become unreadable. A file captured before a change
+is the only thing that notices.
+
+So the rule is simple: **never re-record this.** Regenerating it against the current
+build turns it back into the same-build check it exists to replace. If it fails, the
+build has stopped reading format 10, and that is the finding.
+
+## What it holds
+
+| | |
 |---|---|
-| `legacy-v10.rec` | Written by a build from before the keyframe carried a length. Version 10, 23 keyframe fields, 200 ticks of the Wannies exterior with no input. The only way to check that this build still reads a version it can no longer write |
+| Format | 10, which keeps its savegames in files beside the stream |
+| Session | 198 ticks, mid-session `rec start`, so `setup.reloaded=1` |
+| Save | `tests/savegame/corpus/saves/steam_classic_2023/Anon1.LBA`, committed alongside |
+| Files | The stream, plus `.rec.lba` and `.rec.end.lba` beside it |
 
-A recording made by the current build proves the round trip and nothing about the past:
-record and replay move together, so a change that breaks both at once passes. That is how
-the keyframe grew a field without a version bump, which left every earlier recording
-reading four bytes long at its first keyframe. What that cost is in
-[docs/RECORDING.md](../../../docs/RECORDING.md); what stops it recurring is the length
-prefix, and this file.
+The two savegames beside it are the whole point. A format-10 recording keeps its
+starting state in a sibling file named in `setup.snapshot=`, and the replay finds it by
+name through `snapshot_beside`. That path has no other coverage, and it is not
+decorative: with the sibling the replay reports `first hash mismatch -1`, and with the
+sibling moved away it diverges at tick 0. `.rec.end.lba` is never read, by that build or
+this one, and is kept because a format-10 recording is three files and half an artefact
+would misrepresent the format it stands for.
 
-Replayed by `test_record_replay.sh` against
-`tests/savegame/corpus/saves/steam_classic_2023/Wannies fragment.LBA`. It carries no
-snapshot of its own and does not need one: it did not reload, so the `--load` supplies the
-start state. Do not re-record it. A file the current build wrote is not a legacy file.
+Recorded against a fresh settings folder, because `cam_follow` is a cvar the state
+digest covers and `lib.sh` gives every fixture a `mktemp` user directory. A file
+recorded with it set diverges at tick 0 for a reason that has nothing to do with the
+format.
+
+## If it fails on your machine
+
+The header names what the session ran under, and the replay reports every mode line that
+differs from the live run before it starts. `data.master=LBA2` and `numeric.rng` are the
+two worth checking first: the recording was made against one retail data set, and a
+simulation divergence from different game data reads the same as a reader bug until the
+mode lines are compared.
+
+    scripts/dev/dump_recording.py tests/automation/recordings/legacy-v10.rec

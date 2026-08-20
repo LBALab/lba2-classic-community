@@ -2,10 +2,10 @@
 
 # Control-harness last run
 
-- when: 2026-08-20 09:09 UTC
-- commit: `3c58f359`
+- when: 2026-08-20 11:12 UTC
+- commit: `29639136`
 - host: Linux x86_64
-- result: **69 passed, 2 skipped, 0 failed**
+- result: **62 passed, 2 skipped, 0 failed**
 
 A skip means a prerequisite was missing, not that the fixture agreed with the
 engine. Only the passes are evidence.
@@ -14,10 +14,7 @@ engine. Only the passes are evidence.
 |---|---|
 | test_action_substep.sh | pass |
 | test_askchoice_menus_consume.sh | pass |
-| test_attack_melee.sh | pass |
-| test_attack_repress.sh | pass |
 | test_autocam_orbit_snap.sh | pass |
-| test_behaviour_cancels_jump.sh | pass |
 | test_blowgun_release_throttle.sh | pass |
 | test_camera_axes.sh | pass |
 | test_camera_interior.sh | pass |
@@ -34,7 +31,6 @@ engine. Only the passes are evidence.
 | test_console_config_write.sh | pass |
 | test_demo.sh | pass |
 | test_demo_behaviour_menu.sh | pass |
-| test_dodge_direction.sh | pass |
 | test_dump.sh | pass |
 | test_exec.sh | pass |
 | test_followcam_hold.sh | pass |
@@ -42,12 +38,9 @@ engine. Only the passes are evidence.
 | test_followcam_recenter.sh | pass |
 | test_followcam_release.sh | pass |
 | test_followcam_tracking.sh | pass |
-| test_input_combos.sh | pass |
 | test_input_hold_throttle.sh | pass |
 | test_input_injection.sh | pass |
 | test_item_use_throttle.sh | pass |
-| test_jump_hold_repress.sh | pass |
-| test_jump_takeoff_foot.sh | pass |
 | test_load.sh | pass |
 | test_melee_throttle.sh | pass |
 | test_move_framerate.sh | pass |

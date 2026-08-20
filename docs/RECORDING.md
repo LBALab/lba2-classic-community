@@ -32,10 +32,31 @@ Mid-session, from the console (F12), which records from a point you choose rathe
 
 | Command | What it does |
 |---|---|
-| `rec start <path>` | Write a snapshot, reload it, and start recording from the post-load state |
+| `rec start <name>` | Write a snapshot, reload it, and start recording from the post-load state |
 | `rec stop` | Stop and flush |
-| `rec play <path>` | Replay a recording into the running engine |
-| `rec info [path]` | Report the current session, or compare a file's mode lines against this run |
+| `rec play <name>` | Replay a recording into the running engine |
+| `rec info [name]` | Report the current session, or compare a file's mode lines against this run |
+
+## Where recordings live
+
+`<userDir>/recordings/`, beside `save/`. An argument with no directory in it is a name in there, which is
+why the commands above take a name and not a path: a session recorded as `session.rec` replays as
+`session.rec`, from whatever directory the run is started in.
+
+Anything with a separator in it is a path and is used as given, so `./session.rec` is still the one
+here and `/tmp/x.rec` is still `/tmp/x.rec`. The run prints the file it resolved to, which is the
+one to go and find:
+
+```
+[rec] recording to /home/you/.local/share/Twinsen/LBA2/recordings/session.rec
+```
+
+Reading has one more rule, and it fires only where the folder has nothing: a bare name the
+recordings folder does not have, but the working directory does, is taken from the working
+directory. It cannot pick the wrong file, because a folder that has the name wins.
+
+`--user-dir` and `--profile` move the folder with the rest of the profile, so recordings made under
+one profile are the ones that profile replays.
 
 ## `--fixed-dt` is required, not an optimisation
 
@@ -57,25 +78,63 @@ so a replay under a different `--fixed-dt` is reported rather than silently wron
 | The mouse, the right stick and the pad's first-pressed scancode | None of the three has a scancode, so none rides the key table the rest of the input rides. Twenty bytes on the polls that carry any of them, nothing on the polls that do not |
 | The console commands the session was driven with | Otherwise a recording cannot stand in for a harness-driven fixture |
 | The keyboard and gamepad binding tables | A replay borrows them for its duration, so a recording is not tied to the cfg it was made under, and returns the player's own on the way out |
-| A snapshot at each end | `<path>.lba` is where the session started, `<path>.end.lba` where it finished |
+| A savegame at each end | Where the session started, and where it finished. Both inside the file |
 | An FNV-1a digest of simulation state, per tick | Scene, hero, camera, the other actors, the open modal, and all 336 script variables |
 | A keyframe of named state, every 32 ticks | The digest says *when* a replay stopped matching; this says *what* moved |
 | Every value the digest mixes, per tick, with `--verbose` | The keyframe names 23 fields. This names all of them, so a divergence in another actor or a script variable is named too |
 | The settings a replay is known to turn on | They are not in the save, and a config edited in between reads as the simulation diverging |
 
 The header is `key=value` text, so a recording is readable without a decoder. `SOURCES/RECORD_FORMAT.H`
-owns the field readers and the binding-table lines; `tests/record_format` covers them.
+owns the field readers, the binding-table lines and the frame around an inline savegame;
+`tests/record_format` covers them.
 
-**Every record carries its own length, and a reader must never take one from the live build.** A
-keyframe says how many fields it holds, as the verbose telemetry does, so a field can be added to
-the keyframe without a reader needing to know. The alternative, sizing the record by asking this
-build how many fields it names, silently changes the size of an existing record whenever the field
-list grows: recordings written before the change then read past the end of their first keyframe and
-take everything after it from the wrong place, which surfaces as a consistency failure at an
-enormous tick number with hundreds of thousands of seconds of clock drift. That is the plausible
-garbage the version check exists to prevent, and it arrives without a version change to catch it.
-`tests/automation/recordings/legacy-v10.rec` is a recording from a version with no count, kept so
-the suite replays one.
+## One file
+
+A recording is a single `.rec`. A stream with two savegames beside it would be a recording only
+while nothing separated them, and nothing keeps a set of files together: copy one and leave the
+others, and the replay reloads from somewhere the session never was. The savegames are 4 to 17 KB
+against a stream of megabytes, so carrying them costs nothing worth that.
+
+They are framed so a run that dies mid-write leaves a file that still reads up to the last thing it
+finished writing:
+
+```
+LBA2REC 11 + key=value header lines, ending in a blank line
+[0x70][u32 len][savegame][u32 len][magic]   the state the session started from
+... polls, ticks, keyframes, telemetry, commands, sync markers, flushed every tick ...
+[0x71][u32 len][savegame][u32 len][magic]   the state it ended at
+```
+
+Three properties do the work, and each of them is a rule about the *writer*:
+
+- **Nothing is written that has to be corrected later.** Both savegames exist whole before their
+  chunk is written, so the length goes down ahead of the payload and is never revisited. A file cut
+  part way through a chunk is short of its tail; it never claims bytes that are not there.
+- **The tail is the length again, then a magic word.** This is the check the frame exists for. A
+  half-written savegame is a valid savegame right up to where it stops, and the save loader would
+  take it: the replay would then start from a state the session never reached, and report a
+  divergence with no cause in it. A chunk that does not close is refused by name instead.
+- **The end savegame is a trailer, so its absence still means what it meant.** `rec stop` writes it
+  only while a scene is live, so a run that crashed carries no end state, and that is the record of
+  the session not having finished. Everything before it still replays.
+
+Measured against real truncations of a real recording: cut inside the start savegame, the replay
+says so and checks nothing; cut mid-session, it replays the 125 ticks that reached the disk; cut
+inside the end savegame, it replays all 298 and stops there.
+
+The savegames come back out with `scripts/dev/dump_recording.py session.rec saves`, which writes
+`session.start.lba` and `session.end.lba` and needs no engine.
+
+The one place a snapshot still touches the filesystem is on its way past: the engine's save layer
+works in paths at both ends, so `rec start` stages the savegame at `recordings/staging.lba` and a replay
+that reloads stages it back. One fixed name, removed once the load has read it. Not the save
+folder, which is the obvious place and the wrong one -- the load menu lists every `.LBA` it finds
+there, and a staging file would show up as a save nobody made.
+
+A recording in an older format carries neither savegame and names a sibling in `setup.snapshot=`.
+Both readers take that path too, which is why the oldest format the build reads is older than the
+one it writes: those are sessions somebody played, and there is no second run of them to replace
+them with.
 
 `scripts/dev/dump_recording.py` reads the record stream without the engine, which is how to look at
 a session the engine cannot be run against. Its keyframe output is a delta per line, so a session
@@ -96,8 +155,8 @@ poll 42 rsx 0 rsy 0 padfirst 0 mdx 20 mdy 0 click 2
 
 ## Replaying on another platform
 
-A recording made on Linux replays on Windows, and one made on Windows replays on Linux. Same file,
-same snapshot beside it, no conversion.
+A recording made on Linux replays on Windows, and one made on Windows replays on Linux. One file,
+no conversion.
 
 That rests on the engine carrying its own random number generator
 (`LIB386/SYSTEM/RANDOM.CPP`), because libc's `rand()` is not one function:
@@ -282,7 +341,7 @@ there the samples are all there is. What tells the two apart is a replay run dri
 at the same time: the file has to win, and `test_record_analog.sh` is built on that.
 
 **A replay reports a pad present on the polls that carry a deflected stick.** The analog camera
-asks whether a pad is there before it reads the axes, so restoring the axes alone left a pad
+asks whether a pad is there before it reads the axes, so restoring the axes alone leaves a pad
 session replaying on a pad-less machine with the values put back and the code that reads them
 skipped. Presence is taken from the axes rather than from a header field, because the header is
 written before the session starts and the only thing gated on presence does nothing with a centred
@@ -295,7 +354,7 @@ game is concerned.
 |---|---|
 | `tests/record_format` | Header field lookup and binding round trips. Host test, no retail data, runs in CI |
 | `tests/automation/test_record_replay.sh` | A real engine records and replays, with and without a tick budget, and with verbose telemetry. Needs retail data, so it does not run in CI |
-| `tests/automation/test_record_analog.sh` | The mouse camera round trips: the file carries the motion at the poll it happened, and beats a mouse moving under the replay. Needs retail data and the exterior corpus save |
+| `tests/automation/test_record_analog.sh` | The mouse and the stick round trip: the file carries the input at the poll it happened, and beats a device moving under the replay. Needs retail data and the exterior corpus save |
 
 The telemetry arm changes a game variable part-way through a replay and requires the report to name
 it. A reporter that printed nothing would pass a clean-replay check exactly like one that works, and

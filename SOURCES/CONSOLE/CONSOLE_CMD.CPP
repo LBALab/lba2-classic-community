@@ -371,8 +371,11 @@ static void cmd_rec(int argc, const char *argv[]) {
         return;
     }
     if (!strcmp(argv[1], "start") && argc >= 3) {
-        Console_Print(Record_Start(argv[2]) ? "rec: recording to %s" : "rec: cannot record to %s",
-                      argv[2]);
+        /* Record_Path rather than argv[2]: a name with no directory in it is a name in
+           the recordings folder, and the resolved path is the one to go and find. */
+        int started = Record_Start(argv[2]);
+        Console_Print(started ? "rec: recording to %s" : "rec: cannot record to %s",
+                      started ? Record_Path() : argv[2]);
         return;
     }
     if (!strcmp(argv[1], "stop")) {
@@ -381,7 +384,9 @@ static void cmd_rec(int argc, const char *argv[]) {
         return;
     }
     if (!strcmp(argv[1], "play") && argc >= 3) {
-        Console_Print(Record_Play(argv[2]) ? "rec: replaying %s" : "rec: cannot open %s", argv[2]);
+        int playing = Record_Play(argv[2]);
+        Console_Print(playing ? "rec: replaying %s" : "rec: cannot open %s",
+                      playing ? Record_Path() : argv[2]);
         return;
     }
     if (!strcmp(argv[1], "squeeze") && argc >= 3) {
