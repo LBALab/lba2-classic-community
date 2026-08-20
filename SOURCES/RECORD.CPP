@@ -45,6 +45,7 @@
    the keyframe and the state description, so it does not pull C_EXTERN.H and with it
    the DEFINES.H aggregation (scripts/ci/check-build-graph.py rule 2). */
 #include <SVGA/SCREEN.H>   /* ModeDesiredX / ModeDesiredY for the mode header */
+#include <SYSTEM/FILES.H>  /* ExistsFileOrDir, for resolving a bare recording name */
 #include <SYSTEM/LIMITS.H> /* ADELINE_MAX_PATH */
 #include "LZSS.H"
 #include "JOYSTICK.H"
@@ -210,6 +211,10 @@ static int s_snapInline = 0;
    none. Held rather than rebuilt because the reload happens a tick after the file is
    read, and the path is what says the reload has a staged file to clean up. */
 static char s_inlineSnap[ADELINE_MAX_PATH] = "";
+/* The file this session is on, after a bare name has been resolved to the recordings
+   folder. Reported rather than the string the player typed: with a default home, the
+   two are usually not the same and only one of them says where to look. */
+static char s_recPath[ADELINE_MAX_PATH] = "";
 /* Whether this session reloaded the snapshot before its first recorded or replayed
    frame, and the header line that says so. A mid-session recording does, because a
    save restores actor kinematics by re-deriving them and only a run that took the same
@@ -489,6 +494,39 @@ static const char *expand_home(const char *path, char *buf, size_t n) {
     return buf;
 }
 
+/* Where a recording lives when the player did not say.
+ *
+ * A name with no directory in it is a name in the recordings folder, which sits beside
+ * the saves. That is the whole rule, and it runs the same way for reading and for
+ * writing: a recording made as `session.rec` is replayed as `session.rec`, from
+ * wherever the run happens to be started. Anything with a separator in it is a path and
+ * is left alone, so `./session.rec` still means the one here.
+ *
+ * The exception is for reading only, and it is there because the alternative is a
+ * "cannot open" for a file the player is looking straight at: a bare name the folder
+ * does not have, but the working directory does, is taken from the working directory.
+ * It cannot pick the wrong one, because it only applies where the folder has nothing.
+ *
+ * `buf` holds at least ADELINE_MAX_PATH, which is what GetRecordingsPath writes into. */
+static const char *rec_resolve(const char *path, char *buf, size_t n, int forWrite) {
+    char home[512];
+    char here[ADELINE_MAX_PATH];
+
+    path = expand_home(path, home, sizeof home);
+    if (!path || !path[0])
+        return path;
+    if (strchr(path, '/') != NULL OR strchr(path, '\\') != NULL) {
+        snprintf(buf, n, "%s", path);
+        return buf;
+    }
+
+    snprintf(here, sizeof here, "%s", path);
+    GetRecordingsPath(buf, ADELINE_MAX_PATH, here);
+    if (!forWrite && !ExistsFileOrDir(buf) && ExistsFileOrDir(here))
+        snprintf(buf, n, "%s", here);
+    return buf;
+}
+
 static int s_recordFromCli = 0;
 
 void Record_ArmRecord(const char *path) {
@@ -530,14 +568,14 @@ static void record_save_to(const char *out) { Control_WriteSnapshot(out); }
  * tidier answer and a far larger change, in the one part of the tree where the wire
  * format is pinned bit for bit.
  *
- * The user directory rather than the save folder, which is the obvious place and the
+ * The recordings folder rather than the save folder, which is the obvious place and the
  * wrong one: the load menu lists every .LBA it finds there (SOURCES/GAMEMENU.CPP), so a
  * staging file would appear to the player as a save nobody made. One fixed name,
  * overwritten each time, so a run that dies holding it leaves one stale file rather than
  * a directory filling up. */
 static void record_scratch_path(char *out, size_t n) {
     char p[ADELINE_MAX_PATH];
-    GetLogPath(p, ADELINE_MAX_PATH, "rec-snapshot.lba");
+    GetRecordingsPath(p, ADELINE_MAX_PATH, "staging.lba");
     snprintf(out, n, "%s", p);
 }
 
@@ -795,7 +833,8 @@ static int record_begin(const char *path, int haveSnapshot) {
     char buf[512];
     if (s_recording || s_replaying)
         return 0;
-    path = expand_home(path, buf, sizeof buf);
+    path = rec_resolve(path, buf, sizeof buf, 1);
+    snprintf(s_recPath, sizeof s_recPath, "%s", path);
     s_f = fopen(path, "wb");
     if (!s_f) {
         Console_Print("rec: cannot write %s", path);
@@ -905,7 +944,10 @@ int Record_Start(const char *path) {
         return record_begin(path, 0);
     }
 
-    path = expand_home(path, buf, sizeof buf);
+    path = rec_resolve(path, buf, sizeof buf, 1);
+    /* Before the reload rather than after, because record_begin runs a tick later and
+       the caller reports where it is recording as soon as this returns. */
+    snprintf(s_recPath, sizeof s_recPath, "%s", path);
     record_write_snapshot(snap, sizeof snap);
     snprintf(s_snapshot, sizeof s_snapshot, "%s", snap);
     record_reload_request(snap, path, 0);
@@ -1523,7 +1565,8 @@ int Record_Play(const char *path) {
 
     if (s_recording || s_replaying)
         return 0;
-    path = expand_home(path, buf, sizeof buf);
+    path = rec_resolve(path, buf, sizeof buf, 0);
+    snprintf(s_recPath, sizeof s_recPath, "%s", path);
     s_f = fopen(path, "rb");
     if (!s_f) {
         Console_Print("rec: cannot open %s", path);
@@ -1657,12 +1700,18 @@ int Record_Play(const char *path) {
 void Record_PollHook(void) {
     if (s_armed) {
         s_armed = 0;
-        if (s_armRecord[0])
-            fprintf(stderr, "[rec] %s %s\n",
-                    Record_Start(s_armRecord) ? "recording to" : "cannot record to", s_armRecord);
-        else if (s_armReplay[0])
-            fprintf(stderr, "[rec] %s %s\n",
-                    Record_Play(s_armReplay) ? "replaying" : "cannot open", s_armReplay);
+        /* The resolved path on success, the string the player typed on failure: one
+           says where the file went, the other is the only thing left to report when
+           there is no file. */
+        if (s_armRecord[0]) {
+            int ok = Record_Start(s_armRecord);
+            fprintf(stderr, "[rec] %s %s\n", ok ? "recording to" : "cannot record to",
+                    ok ? Record_Path() : s_armRecord);
+        } else if (s_armReplay[0]) {
+            int ok = Record_Play(s_armReplay);
+            fprintf(stderr, "[rec] %s %s\n", ok ? "replaying" : "cannot open",
+                    ok ? Record_Path() : s_armReplay);
+        }
     }
     /* A reload has landed and this is the first poll after it. Beginning here rather
        than at the tick hook that saw it puts the mid-session start on the same point in
@@ -2073,6 +2122,7 @@ void Record_CommandHook(const char *line) {
     }
 }
 
+const char *Record_Path(void) { return s_recPath; }
 int Record_IsReplaying(void) { return s_replaying; }
 int Record_IsRecording(void) { return s_recording; }
 
@@ -2084,7 +2134,7 @@ int Record_IsRecording(void) { return s_recording; }
 unsigned long Record_Squeeze(const char *path) {
     char pbuf[512];
     FILE *f;
-    path = expand_home(path, pbuf, sizeof pbuf);
+    path = rec_resolve(path, pbuf, sizeof pbuf, 0);
     f = fopen(path, "rb");
     long total, hdr = 0, payload;
     char *in, *out;
@@ -2190,7 +2240,8 @@ void Record_Report(const char *path) {
 
     /* Read the header of a recording and name every line that differs from this run. */
     {
-        FILE *f = fopen(path, "rb");
+        char pbuf[512];
+        FILE *f;
         char line[640];
         /* Sized against the buffer the header is built in rather than a round number:
            the header grows whenever a setting joins it, and a `hdr` that silently
@@ -2199,6 +2250,8 @@ void Record_Report(const char *path) {
         char hdr[sizeof live];
         int diffs = 0;
         size_t used = 0;
+        path = rec_resolve(path, pbuf, sizeof pbuf, 0);
+        f = fopen(path, "rb");
         if (!f) {
             Console_Print("rec: cannot open %s", path);
             return;

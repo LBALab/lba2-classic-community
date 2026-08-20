@@ -125,6 +125,39 @@ bounded="$CHECKED"
 record_and_replay "without --tick" --exec-at 300 "rec stop; exit"
 unbounded="$CHECKED"
 
+# The default home. A name with no directory in it is a name in <userDir>/recordings/,
+# and the point of that is symmetry: the name a session was recorded under is the name it
+# replays under, from whatever directory the run happens to start in. Recorded and replayed from
+# a directory that holds no recording of its own, so a pass cannot come from the working
+# directory answering instead of the folder.
+bare="bare-name.rec"
+recdir="$(user_dir)/recordings"
+rm -f "$recdir/$bare"
+here="$(mktemp -d)"
+
+(cd "$here" && ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$bare" --tick 200 --exit) \
+    >/dev/null 2>&1 ||
+    fail "bare name: recording run exited non-zero ($?) — hang or crash"
+
+[ -s "$recdir/$bare" ] ||
+    fail "bare name: nothing at $recdir/$bare; a name with no directory in it belongs there"
+if [ -e "$here/$bare" ]; then
+    fail "bare name: written to the working directory instead of $recdir"
+fi
+
+bareout="$(cd "$here" && ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$bare" \
+    --tick 300 --exit 2>&1)" ||
+    fail "bare name: replay run exited non-zero ($?) — hang or crash"
+rm -rf "$here"
+
+case "$bareout" in
+*"first hash mismatch -1"*) ;;
+*)
+    fail "bare name: $(printf '%s\n' "$bareout" |
+        grep -m1 -e 'replay ended' -e 'cannot open' || echo 'the replay said nothing')"
+    ;;
+esac
+
 # Verbose telemetry. A plain recording carries one digest a tick, which can say that a
 # tick stopped matching and never which of ~1300 values moved; --verbose stores them all.
 # Recorded once and replayed twice: once expecting clean, and once with a variable

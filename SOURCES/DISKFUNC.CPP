@@ -405,6 +405,9 @@ void CreateLbaDirectories(void) {
     GetShootPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
     AddDirIfNot(tmpDirPath);
 
+    GetRecordingsPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+    AddDirIfNot(tmpDirPath);
+
 #ifdef DEBUG_TOOLS
     GetBugPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
     if (!ExistsFileOrDir(tmpDirPath)) {

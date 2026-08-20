@@ -32,10 +32,31 @@ Mid-session, from the console (F12), which records from a point you choose rathe
 
 | Command | What it does |
 |---|---|
-| `rec start <path>` | Write a snapshot, reload it, and start recording from the post-load state |
+| `rec start <name>` | Write a snapshot, reload it, and start recording from the post-load state |
 | `rec stop` | Stop and flush |
-| `rec play <path>` | Replay a recording into the running engine |
-| `rec info [path]` | Report the current session, or compare a file's mode lines against this run |
+| `rec play <name>` | Replay a recording into the running engine |
+| `rec info [name]` | Report the current session, or compare a file's mode lines against this run |
+
+## Where recordings live
+
+`<userDir>/recordings/`, beside `save/`. An argument with no directory in it is a name in there, which is
+why the commands above take a name and not a path: a session recorded as `session.rec` replays as
+`session.rec`, from whatever directory the run is started in.
+
+Anything with a separator in it is a path and is used as given, so `./session.rec` is still the one
+here and `/tmp/x.rec` is still `/tmp/x.rec`. The run prints the file it resolved to, which is the
+one to go and find:
+
+```
+[rec] recording to /home/you/.local/share/Twinsen/LBA2/recordings/session.rec
+```
+
+Reading has one more rule, and it fires only where the folder has nothing: a bare name the
+recordings folder does not have, but the working directory does, is taken from the working
+directory. It cannot pick the wrong file, because a folder that has the name wins.
+
+`--user-dir` and `--profile` move the folder with the rest of the profile, so recordings made under
+one profile are the ones that profile replays.
 
 ## `--fixed-dt` is required, not an optimisation
 
@@ -104,7 +125,7 @@ The savegames come back out with `scripts/dev/dump_recording.py session.rec save
 `session.start.lba` and `session.end.lba` and needs no engine.
 
 The one place a snapshot still touches the filesystem is on its way past: the engine's save layer
-works in paths at both ends, so `rec start` stages the savegame in the user directory and a replay
+works in paths at both ends, so `rec start` stages the savegame at `recordings/staging.lba` and a replay
 that reloads stages it back. One fixed name, removed once the load has read it. Not the save
 folder, which is the obvious place and the wrong one -- the load menu lists every `.LBA` it finds
 there, and a staging file would show up as a save nobody made.

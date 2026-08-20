@@ -191,4 +191,4 @@ This separation ensured QA testers could see debug information without having ac
 - `SOURCES/SAVEGAME.CPP` - Save/load implementation. See [SAVEGAME.md](SAVEGAME.md) for format and lifecycle.
 - `SOURCES/CHEATCOD.CPP` - Cheat code handling
 - `SOURCES/DIRECTORIES.CPP` - File path resolution (screenshots, saves, bugs)
-- `SOURCES/DISKFUNC.CPP` - Directory creation (save, shoot, bugs)
+- `SOURCES/DISKFUNC.CPP` - Directory creation (save, shoot, bugs, recordings)
