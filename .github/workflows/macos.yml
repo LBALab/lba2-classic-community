@@ -58,6 +58,18 @@ jobs:
       - name: Host tests
         run: cd build && ctest -L host_quick --output-on-failure
 
+      # tests/numeric_contract measures rather than asserts where long double is
+      # not 80-bit, which is every Apple target. That measurement is the reason
+      # it runs here at all: it says how far this host's projection, rotation and
+      # distance rounding sits from the x86-64 numbers a recording is replayed
+      # against, and nobody needs a Mac to read it.
+      #
+      # A second, verbose run because `--output-on-failure` shows nothing for a
+      # test that passes, and this one passes on purpose. Costs a hundredth of a
+      # second and is the only place the ARM figures appear.
+      - name: Report the ARM numeric measurement
+        run: cd build && ctest -R test_numeric_contract -V
+
       - name: Verify Binary
         # CMake's MACOSX_BUNDLE wiring (in SOURCES/CMakeLists.txt) puts the
         # binary inside an .app bundle. The bundle dir is named after
