@@ -56,6 +56,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Linux and Windows played the same game differently. Every random number came
+  from libc `rand()`, which is a different algorithm with a different range on
+  each platform, and one shared stream feeds rain, ambient sound, animated
+  textures, particle scatter and the random branches in scene scripts. The
+  engine now carries the generator itself, so a scene plays out the same way on
+  both. It reproduces the sequence Linux already had, so nothing there changes.
+  A recorded session now replays on the other platform as well as its own.
 - The game clock ran at double speed while the F12 console was open under
   `--fixed-dt`. The console redraws every frame so typing is visible, and that
   redraw counted as a second presented frame, so animation, script waits and

@@ -94,7 +94,7 @@ void Timer_EnableFixedDt(U32 dt_ms) {
     // wall-clock interval banked during boot/load leaks into the first tick. Also reset
     // TimerRefHR -- the existing accumulated value before this call carries whatever
     // wall-clock interval elapsed between InitTimer() at engine boot and the harness
-    // arming fixed-dt, and that residual would otherwise reach srand(TimerRefHR) at
+    // arming fixed-dt, and that residual would otherwise reach Rnd_Seed(TimerRefHR) at
     // ChangeCube (OBJECT.CPP) and seed RNG-driven wanderers differently each run on the
     // fresh-start path (--demo without --load). The --load path overrides TimerRefHR from
     // the save after this, so save-loaded runs are unaffected. From here the clock only

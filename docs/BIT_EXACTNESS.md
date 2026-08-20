@@ -114,6 +114,26 @@ Name the kind first:
 
 If you cannot name the kind, you are assuming the term rather than using it.
 
+## A worked example: the random number generator
+
+Replacing libc `rand()` with the engine's own generator (`LIB386/SYSTEM/RANDOM.CPP`) looks at
+first like it must break something, and naming the kind is what shows it does not.
+
+Nothing reads the stream but the game, so it is not kind 1. There is no ASM to be faithful to:
+retail used Watcom's `rand()`, a third implementation again, which no port of this engine has ever
+reproduced and no committed golden describes. So it is kind 3, a tripwire, and the question is
+only whether anything drifted against the baselines we actually hold.
+
+The answer was to make the drift zero by construction. Every baseline, corpus save and reference
+recording here was made on Linux against glibc, so the replacement reproduces glibc's generator
+exactly rather than being a nicer one: `tests/random` checks it against the system `rand()` over
+2.4 million draws across twelve seeds. Linux keeps every baseline it had, and Windows joins them,
+which is the point. Picking a better generator would have been the same amount of code and would
+have invalidated all of them at once.
+
+The lesson is the ordering. "It must stay bit-exact" would have blocked the change; "bit-exact
+against what, and read by whom" turned it into a free one.
+
 ## At a glance
 
 | Kind | Bytes read by | Byte-identity is | Exit allowed? | Exemplar docs |

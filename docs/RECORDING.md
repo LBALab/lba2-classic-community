@@ -74,6 +74,61 @@ kf  1600: cube 60->35  cubemode 1->0  hero.x 19483->4078  blackpal 1->0
 kf  1728: dial.obj 0->2
 ```
 
+## Replaying on another platform
+
+A recording made on Linux replays on Windows, and one made on Windows replays on Linux. Same file,
+same snapshot beside it, no conversion.
+
+That rests on the engine carrying its own random number generator
+(`LIB386/SYSTEM/RANDOM.CPP`), because libc's `rand()` is not one function:
+
+| | `srand(0)` first draws | `RAND_MAX` |
+|---|---|---|
+| glibc (Linux) | 1804289383, 846930886, 1681692777 | 2147483647 |
+| UCRT (Windows) | 38, 7719, 21238 | 32767 |
+
+Different order, and a different range, so `rand() % n` is differently distributed as well as
+differently ordered. One shared stream feeds rain, ambient sound, animated textures, particle
+scatter, track AI and the `LF_RND` script opcode, so drawing from libc means two platforms part
+company within a few ticks of any scene with something moving in it.
+
+The generator reproduces glibc's, specifically, and that is the choice that costs nothing: every
+committed baseline, corpus save and reference recording in this repository was made on Linux, so
+matching glibc leaves all of them describing the same engine while putting every other platform on
+it too. It is not the retail sequence, which was Watcom's and which no port of this engine
+reproduces.
+
+### What a recording declares about arithmetic
+
+Two header lines say what a replay has to agree with, and they name traits rather than platforms,
+because the platform is not what decides it:
+
+| Line | Meaning |
+|---|---|
+| `numeric.rng` | Which generator `Rnd` draws from. A recording made against another one cannot reproduce. |
+| `numeric.long_double_bits` | `LDBL_MANT_DIG`. 64 on both x86-64 hosts, which is why they agree on projection and distance. |
+
+`build.platform` is recorded too, but deliberately not compared: a cross-platform replay is the
+point, and a diff that flagged the platform every time would teach a reader to ignore the report.
+
+The second line is there ahead of needing it. `LIB386/3D` computes projection, rotation and
+distance in `long double` and rounds with `lrintl`, chosen to match x87's 80-bit registers. Both
+x86-64 hosts have those registers, so Linux and Windows agree. ARM does not, so on macOS and
+Android `long double` is a plain `double` and the same expressions round differently. A recording
+from an x86-64 host will not reproduce there yet, and because the trait is in the header, such a
+replay opens by naming the arithmetic it disagrees about instead of diverging in the middle and
+reading like a bug in the simulation. Making that case replay means taking those paths off the
+host's extended precision, which is a separate and larger job.
+
+### Checking it
+
+`tests/random` is the oracle, and it is two oracles doing different jobs. A committed vector of
+draws runs on every platform and is what actually pins portability: reproduce it and you draw the
+same numbers, whatever the local libc does. A live comparison against the system `rand()` builds
+only on glibc, and checks the other half, that the committed vector really is glibc's sequence
+rather than one agreed among ourselves. It is compiled out elsewhere rather than skipped at
+runtime, because a skipped check exits 0 and reads exactly like a passing one.
+
 ## Verbose telemetry
 
 A plain recording carries one 64-bit digest a tick. That is enough to detect a divergence and can
