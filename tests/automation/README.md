@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-69 fixtures.
+70 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -44,6 +44,7 @@ suite still passes, since CI cannot say so.
 | [test_console_config_write.sh](test_console_config_write.sh) | The console verbs that persist a setting actually persist it. | - |
 | [test_demo.sh](test_demo.sh) | --demo: deterministic scripted-playthrough fixture. | - |
 | [test_demo_behaviour_menu.sh](test_demo_behaviour_menu.sh) | #358 regression: the fixed-timestep throttle must not skip a full-scene-flip frame. | - |
+| [test_dodge_direction.sh](test_dodge_direction.sh) | The dodge is a modifier: it changes what a direction means rather than doing anything itself. | - |
 | [test_dump.sh](test_dump.sh) | --dump-state: the hand-written JSON is well-formed and has the expected shape. | save fixture |
 | [test_exec.sh](test_exec.sh) | --exec: console commands mutate observable state. | save fixture |
 | [test_followcam_hold.sh](test_followcam_hold.sh) | Hold-angle is the free-camera contract: once the player has set an angle, the camera keeps it while the hero turns underneath, and gives it up only on a scene change or Center camera. | - |
