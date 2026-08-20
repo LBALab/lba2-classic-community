@@ -32,10 +32,28 @@ Mid-session, from the console (F12), which records from a point you choose rathe
 
 | Command | What it does |
 |---|---|
-| `rec start <name>` | Write a snapshot, reload it, and start recording from the post-load state |
+| `rec start [name]` | Write a snapshot, reload it, and start recording from the post-load state |
 | `rec stop` | Stop and flush |
-| `rec play <name>` | Replay a recording into the running engine |
+| `rec play [name]` | Replay a recording into the running engine |
 | `rec info [name]` | Report the current session, or compare a file's mode lines against this run |
+
+The name is optional at both ends, and without one nothing has to be typed or kept track of:
+
+```
+> rec start
+rec: recording to /home/you/.local/share/Twinsen/LBA2/recordings/session-20260820-150408.rec
+> rec stop
+rec: stopped
+> rec play
+rec: replaying /home/you/.local/share/Twinsen/LBA2/recordings/session-20260820-150408.rec
+```
+
+`rec start` names the session after the time of day. `rec play` takes the recording this run
+recorded, and in a session that has recorded nothing -- the next launch, say -- the most recently
+written one in the folder.
+
+Neither command needs a flag either. A mid-session `rec start` pins the simulation step itself, on
+the reload it already performs, so the recipe below is for the from-boot flags and not for this.
 
 ## Where recordings live
 
@@ -58,7 +76,7 @@ directory. It cannot pick the wrong file, because a folder that has the name win
 `--user-dir` and `--profile` move the folder with the rest of the profile, so recordings made under
 one profile are the ones that profile replays.
 
-## `--fixed-dt` is required, not an optimisation
+## The pinned step is required, not an optimisation
 
 A session recorded on the host-sampled clock does not replay exactly. Movement integrates per
 sub-step from `GetDeltaMove`, so two runs that reach a tick with the same clock reading but a
@@ -67,8 +85,21 @@ replay reproducible, and it was arrived at by measurement: reproducing the sampl
 reconstructing it, and pinning the derived game clock every tick were each built and none of them
 worked.
 
-The header records the mode, and `rec info` compares a recording's mode lines against the live run,
-so a replay under a different `--fixed-dt` is reported rather than silently wrong.
+Who pins it depends on where the recording starts, and the split is not a convenience:
+
+- **From boot, with `--record`,** the run has no load to hide a clock reset behind, so the step has
+  to be on the command line: `--fixed-dt 16`.
+- **Mid-session, with `rec start`,** the recorder pins it. It can, because it already writes a
+  snapshot and reloads it, and `Timer_EnableFixedDt` zeroes `TimerRefHR` -- which is safe only where
+  a load follows to put the clock back. A player whose session is already in progress cannot be
+  told to relaunch, so this is the path that makes recording something they can reach.
+
+A replay pins whatever step the recording's header names, so a session played at some other step
+replays at that one rather than at the default.
+
+The header records the mode either way, and `rec info` compares a recording's mode lines against the
+live run, so a replay under a step the recording was not made at is reported rather than silently
+wrong.
 
 ## What a recording contains
 
@@ -126,10 +157,12 @@ The savegames come back out with `scripts/dev/dump_recording.py session.rec save
 `session.start.lba` and `session.end.lba` and needs no engine.
 
 The one place a snapshot still touches the filesystem is on its way past: the engine's save layer
-works in paths at both ends, so `rec start` stages the savegame at `recordings/staging.lba` and a replay
-that reloads stages it back. One fixed name, removed once the load has read it. Not the save
-folder, which is the obvious place and the wrong one -- the load menu lists every `.LBA` it finds
-there, and a staging file would show up as a save nobody made.
+works in paths at both ends, so `rec start` stages the savegame beside the recording as
+`<name>.staging.lba` and a replay that reloads stages it back. Removed once the load has read it,
+and named after the recording rather than shared, so two engines on one user directory cannot
+overwrite each other's starting state. Not the save folder, which is the obvious place and the
+wrong one -- the load menu lists every `.LBA` it finds there, and a staging file would show up as a
+save nobody made.
 
 A recording in an older format carries neither savegame and names a sibling in `setup.snapshot=`.
 Both readers take that path too, which is why the oldest format the build reads is older than the

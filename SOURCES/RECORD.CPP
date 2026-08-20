@@ -65,14 +65,18 @@
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/PLATFORM.H> /* Sys_PlatformName, so this file carries no #ifdef chain */
 #include <SYSTEM/RANDOM.H>   /* Rnd_StreamName for the numeric contract in the header */
+#include <SYSTEM/STRING.H>   /* ade_strcasestr, for the .rec suffix test */
 #include <SYSTEM/TIMER.H>
 
 #include <SDL3/SDL_timer.h>
 
-#include <float.h> /* LDBL_MANT_DIG, one half of the numeric contract */
+#include <dirent.h> /* the recordings folder, for `rec play` with no argument */
+#include <float.h>  /* LDBL_MANT_DIG, one half of the numeric contract */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <time.h> /* the stamp in an auto-named recording */
 
 extern "C" {
 
@@ -240,6 +244,9 @@ static char s_inlineSnap[ADELINE_MAX_PATH] = "";
    folder. Reported rather than the string the player typed: with a default home, the
    two are usually not the same and only one of them says where to look. */
 static char s_recPath[ADELINE_MAX_PATH] = "";
+/* The last recording this run wrote, which is not s_recPath: that one moves to whatever
+   was replayed last. Empty in a session that has only replayed. */
+static char s_lastRecorded[ADELINE_MAX_PATH] = "";
 /* Whether this session reloaded the snapshot before its first recorded or replayed
    frame, and the header line that says so. A mid-session recording does, because a
    save restores actor kinematics by re-deriving them and only a run that took the same
@@ -252,6 +259,11 @@ static int s_reloaded = 0;
    or they part company later, long after the load looks identical. Measured: one step
    apart, and worth an actor's heading 300 ticks on. */
 static unsigned s_reloadClock = 0;
+/* The step the recorded session ran on, for a replay to pin the same one. 0 until a
+   replay reads it out of the header. Carried rather than assumed, because a session
+   recorded under `--fixed-dt 20` reproduces on 20 and on nothing else, and the default
+   below would silently replay it at a different rate. */
+static S32 s_reloadDt = 0;
 /* Frame pacing while recording. A pinned step makes game time advance by a constant
    per frame, and the engine has no frame limiter, so without holding each frame back
    the session runs at whatever rate it renders at: 600 ticks of a 16 ms step took
@@ -557,6 +569,90 @@ static const char *rec_resolve(const char *path, char *buf, size_t n, int forWri
     if (!forWrite && !ExistsFileOrDir(buf) && ExistsFileOrDir(here))
         snprintf(buf, n, "%s", here);
     return buf;
+}
+
+/* A name for a recording nobody named.
+ *
+ * Pressing record must not require thinking of a filename first. That is true of the
+ * console with no argument and it is the whole shape of the in-game button this is
+ * groundwork for, which has nowhere to type one at all.
+ *
+ * Local time rather than a counter, so what accumulates in the folder reads as sessions
+ * and sorts as they were played. Repeats inside one second are numbered rather than
+ * left to collide: a driver on the control socket can ask twice faster than the stamp
+ * moves, and the second recording would otherwise replace the first while both reported
+ * success -- the same failure `unique_shoot_path` exists to prevent for screenshots.
+ * Falling out of the loop leaves the last candidate, which is a hundred recordings in
+ * one second and not a case worth a failure path. */
+static void rec_auto_name(char *out, size_t n) {
+    char stamp[32];
+    char name[64];
+    time_t now = time(NULL);
+    struct tm *lt = localtime(&now);
+    int spare;
+
+    if (lt == NULL || strftime(stamp, sizeof stamp, "%Y%m%d-%H%M%S", lt) == 0)
+        snprintf(stamp, sizeof stamp, "%lu", (unsigned long)now);
+
+    for (spare = 0; spare < 100; spare++) {
+        if (spare == 0)
+            snprintf(name, sizeof name, "session-%s.rec", stamp);
+        else
+            snprintf(name, sizeof name, "session-%s-%d.rec", stamp, spare + 1);
+        GetRecordingsPath(out, (U16)((n < ADELINE_MAX_PATH) ? n : ADELINE_MAX_PATH), name);
+        if (!ExistsFileOrDir(out))
+            return;
+    }
+}
+
+/* The most recently written recording in the folder, for `rec play` with no argument.
+ *
+ * Modification time rather than the name. The auto-named ones happen to sort by time,
+ * but a recording someone named sorts wherever its name puts it, and "play the one I
+ * just made" has to mean the one just made or the no-argument form is a trap.
+ *
+ * Only names ending `.rec`, which is what the auto-name writes and what the docs use.
+ * The staging savegame beside a live recording is `<leaf>.staging.lba` and does not
+ * match, which is the point: it is in this folder precisely so the load menu cannot
+ * see it, and it must not become something a player can replay either. */
+static S32 rec_newest(char *out, size_t n) {
+    char dir[ADELINE_MAX_PATH];
+    char path[ADELINE_MAX_PATH];
+    struct dirent *ent;
+    DIR *d;
+    time_t best = 0;
+    S32 found = 0;
+
+    GetRecordingsPath(dir, ADELINE_MAX_PATH, NULL);
+    d = opendir(dir);
+    if (d == NULL)
+        return 0;
+    while ((ent = readdir(d)) != NULL) {
+        struct stat st;
+        size_t len = strlen(ent->d_name);
+
+        /* Searched in the last four characters alone, so this is a suffix test rather
+           than a contains test: `notes.recovered.lba` holds `.rec` and is not one. */
+        if (len < 4 || ade_strcasestr(ent->d_name + len - 4, ".rec") == NULL)
+            continue;
+        GetRecordingsPath(path, ADELINE_MAX_PATH, ent->d_name);
+        if (stat(path, &st) != 0 || !S_ISREG(st.st_mode))
+            continue;
+        /* A modification time is accurate to the second, so two recordings can share
+           one. Break that by name, which does not identify the later of the two and
+           does give the same answer every time this is asked: a folder that picked a
+           different recording on each run would be the worse failure. Within one
+           session the tie does not arise, because a recording this run made is
+           preferred by name in Record_Play. */
+        if (found && (st.st_mtime < best ||
+                      (st.st_mtime == best && strcmp(path, out) <= 0)))
+            continue;
+        best = st.st_mtime;
+        found = 1;
+        snprintf(out, n, "%s", path);
+    }
+    closedir(d);
+    return found;
 }
 
 static int s_recordFromCli = 0;
@@ -866,9 +962,12 @@ static void record_reload_issue(void) {
      *
      * Both ends, so a recording and its replay reach the load the same way. Only when the
      * run did not already ask for a step: re-arming an active one would reset the clock
-     * of a session that is already pinned and reproducing. */
+     * of a session that is already pinned and reproducing.
+     *
+     * The replay takes the step out of the recording's header rather than the default,
+     * so a session played at some other step replays at that one. */
     if (!Timer_FixedDtActive())
-        Timer_EnableFixedDt(REC_DEFAULT_DT);
+        Timer_EnableFixedDt((U32)(s_reloadDt > 0 ? s_reloadDt : REC_DEFAULT_DT));
 
     /* Before the load, because the load is what reads it. A savegame restores the
        fields the hash covers and re-derives the rest, and some of what it re-derives is
@@ -925,6 +1024,12 @@ static int record_begin(const char *path, int haveSnapshot) {
        mid-session path Record_Start has already set this to the same string, which is
        where the staging savegame took its name from. */
     snprintf(s_recPath, sizeof s_recPath, "%s", path);
+    /* What `rec play` with no argument means, when this session made one: the recording
+       this run recorded, exactly, rather than the newest file that happens to be in the
+       folder. Both answer the same in the ordinary case; this one cannot be wrong about
+       it, and the scan can, because a modification time is only accurate to the second
+       and two short recordings can share one. */
+    snprintf(s_lastRecorded, sizeof s_lastRecorded, "%s", path);
 
     char mode[2048];
     if (!haveSnapshot)
@@ -1017,9 +1122,19 @@ static int record_begin(const char *path, int haveSnapshot) {
 int Record_Start(const char *path) {
     char buf[512];
     char snap[ADELINE_MAX_PATH];
+    char named[ADELINE_MAX_PATH];
 
     if (s_recording || s_replaying || s_reloadState)
         return 0;
+
+    /* No name means one of ours. Here rather than in the console, because every way of
+       asking for a recording arrives through this function and they should all land in
+       the same place: the command with no argument, the flag with no value, and the
+       button that has no argument to give. */
+    if (path == NULL || path[0] == 0) {
+        rec_auto_name(named, sizeof named);
+        path = named;
+    }
 
     /* From the flag, and from anywhere there is no live scene to snapshot, record where
        we stand. Everything else is a mid-session start, which has no setup unless it
@@ -1707,15 +1822,47 @@ static void replay_begin(void) {
        nothing, silently, and the replay diverges wherever the recording relied on one.
        The harness does this before its own --exec for the same reason. */
     Console_EnsureRegistered();
+    /* Here rather than where the file was opened, because this is the first moment the
+       live run is the run that will do the replaying. A recording that reloads pins its
+       step and loads its scene between those two points, so comparing at open time
+       reported the step and the cube of the session that asked for the replay -- three
+       lines of difference, on the reader's own screen, about state the next few frames
+       were about to put right. A warning that cries wolf on every mid-session replay is
+       worse than no warning, because the one time it is real it reads the same. */
+    replay_report_mode();
     s_replaying = 1;
 }
 
 int Record_Play(const char *path) {
     char line[640]; /* a binding table is one line and does not fit in 256 */
     char buf[512];
+    char newest[ADELINE_MAX_PATH];
 
     if (s_recording || s_replaying)
         return 0;
+
+    /* No name means the last one recorded, which is what closes the loop: record, stop,
+       play, without a path being typed at either end.
+     *
+     * This run's own recording first, and the folder only when it has none -- a session
+     * that starts by replaying something has nothing of its own to prefer. The existence
+     * check is for the file being moved or deleted between the two commands, which is a
+     * player tidying up rather than a fault, and the scan is a better answer than a
+     * "cannot open" naming a file that is gone. */
+    if (path == NULL || path[0] == 0) {
+        if (s_lastRecorded[0] && ExistsFileOrDir(s_lastRecorded)) {
+            path = s_lastRecorded;
+        } else if (rec_newest(newest, sizeof newest)) {
+            path = newest;
+        } else {
+            char dir[ADELINE_MAX_PATH];
+            GetRecordingsPath(dir, ADELINE_MAX_PATH, NULL);
+            Console_Print("rec: no recordings in %s", dir);
+            fprintf(stderr, "[rec] no recordings in %s\n", dir);
+            return 0;
+        }
+    }
+
     path = rec_resolve(path, buf, sizeof buf, 0);
     s_f = fopen(path, "rb");
     if (!s_f) {
@@ -1796,7 +1943,6 @@ int Record_Play(const char *path) {
     }
 
     report_extent();
-    replay_report_mode();
 
     s_haveRecBindings =
         RecFmt_ParseBindings(s_headerBuf, "bindings.keyboard=", s_recDefKeys,
@@ -1834,6 +1980,8 @@ int Record_Play(const char *path) {
                 U32 clk = 0;
                 if (RecFmt_ReadU32(s_headerBuf, "setup.reload_clock=", &clk))
                     s_reloadClock = clk;
+                s_reloadDt = 0;
+                RecFmt_ReadInt(s_headerBuf, "mode.fixed_dt=", &s_reloadDt);
                 record_reload_request(from, "", 1);
                 Console_Print("rec: reloading %s; replay starts from the post-load state", from);
                 return 1;

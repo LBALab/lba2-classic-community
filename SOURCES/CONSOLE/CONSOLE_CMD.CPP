@@ -364,18 +364,27 @@ static void cmd_polyrec(int argc, const char *argv[]) {
 #endif
 
 /* Session recording (docs/RECORDING.md).
-   rec start <path> | rec stop | rec play <path> | rec info [path] */
+   rec start [path] | rec stop | rec play [path] | rec info [path]
+
+   The path is optional at both ends, which is what makes this a loop somebody can drive
+   rather than a pair of commands with filenames to keep track of: `rec start` names the
+   session after the time of day, and `rec play` takes the last one recorded. The names
+   go through RECORD.CPP rather than being built here, so the in-game button this is
+   groundwork for gets the same behaviour without a console. */
 static void cmd_rec(int argc, const char *argv[]) {
     if (argc < 2) {
         Record_Report(NULL);
         return;
     }
-    if (!strcmp(argv[1], "start") && argc >= 3) {
-        /* Record_Path rather than argv[2]: a name with no directory in it is a name in
-           the recordings folder, and the resolved path is the one to go and find. */
-        int started = Record_Start(argv[2]);
+    if (!strcmp(argv[1], "start")) {
+        /* Record_Path rather than the argument: a name with no directory in it is a
+           name in the recordings folder, and with no argument at all there is nothing
+           else to report. The argument is still what a failure names, because on that
+           side there is no resolved path to point at. */
+        const char *asked = (argc >= 3) ? argv[2] : NULL;
+        int started = Record_Start(asked);
         Console_Print(started ? "rec: recording to %s" : "rec: cannot record to %s",
-                      started ? Record_Path() : argv[2]);
+                      started ? Record_Path() : (asked ? asked : "the recordings folder"));
         return;
     }
     if (!strcmp(argv[1], "stop")) {
@@ -383,10 +392,15 @@ static void cmd_rec(int argc, const char *argv[]) {
         Console_Print(Record_Stop() ? "rec: stopped" : "rec: not active");
         return;
     }
-    if (!strcmp(argv[1], "play") && argc >= 3) {
-        int playing = Record_Play(argv[2]);
-        Console_Print(playing ? "rec: replaying %s" : "rec: cannot open %s",
-                      playing ? Record_Path() : argv[2]);
+    if (!strcmp(argv[1], "play")) {
+        const char *asked = (argc >= 3) ? argv[2] : NULL;
+        int playing = Record_Play(asked);
+        /* Nothing on the no-argument failure: Record_Play has already said which folder
+           it found nothing in, which is the more useful half of the answer. */
+        if (playing)
+            Console_Print("rec: replaying %s", Record_Path());
+        else if (asked)
+            Console_Print("rec: cannot open %s", asked);
         return;
     }
     if (!strcmp(argv[1], "squeeze") && argc >= 3) {
@@ -397,7 +411,7 @@ static void cmd_rec(int argc, const char *argv[]) {
         Record_Report(argc >= 3 ? argv[2] : NULL);
         return;
     }
-    Console_Print("rec: start <path> | stop | play <path> | info [path]");
+    Console_Print("rec: start [path] | stop | play [path] | info [path]");
 }
 
 /* dumpstate [path]: the JSON snapshot --dump-state writes, on demand. The flag
@@ -2403,8 +2417,9 @@ void Console_RegisterAll(void) {
                               "polyrec_<time>.lba2polyrec under shoot/.");
 #endif
     Console_RegisterCommandEx("rec", cmd_rec, "Record a session, or replay one",
-                              "rec start <path> | rec stop | rec play <path> | rec info [path]",
-                              "rec info");
+                              "rec start [path] | rec stop | rec play [path] | rec info [path]",
+                              "Without a path, `start` names the session after the time of day "
+                              "under recordings/ and `play` takes the last one recorded.");
     Console_RegisterCommandEx("dumpstate", cmd_dumpstate, "Write the engine state as JSON",
                               "dumpstate [path]",
                               "Same snapshot as --dump-state, on demand rather than once at exit. "
