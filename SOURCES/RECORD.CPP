@@ -261,6 +261,13 @@ static char s_recPath[ADELINE_MAX_PATH] = "";
 /* The last recording this run wrote, which is not s_recPath: that one moves to whatever
    was replayed last. Empty in a session that has only replayed. */
 static char s_lastRecorded[ADELINE_MAX_PATH] = "";
+/* The player's own session, saved where a playback takes it over, empty when there is
+   nothing to go back to (a replay from the flag, which owns the whole run, or one started
+   with no scene live). */
+static char s_returnPoint[ADELINE_MAX_PATH] = "";
+/* Set once the run is on its way out, so the teardown does not ask for work that needs a
+   tick to happen in. */
+static int s_atExit = 0;
 /* Whether this session reloaded the snapshot before its first recorded or replayed
    frame, and the header line that says so. A mid-session recording does, because a
    save restores actor kinematics by re-deriving them and only a run that took the same
@@ -754,13 +761,20 @@ static void record_save_to(const char *out) { Control_WriteSnapshot(out); }
  * about to reload, and a savegame from somebody else's session is a far quieter failure
  * than a missing file. Two runs recording to the same name are already contending for
  * the recording itself, so there is nothing left for this to protect. */
-static void record_scratch_path(char *out, size_t n) {
+/* Staging under a name of the recording's, with `suffix` separating the two kinds: the
+   snapshot a session is loaded from, and the player's own game held while a playback runs
+   over it. Two names because a playback needs both at once and one file cannot be both. */
+static void record_scratch_path_as(char *out, size_t n, const char *suffix) {
     char p[ADELINE_MAX_PATH];
     char name[ADELINE_MAX_PATH];
-    snprintf(name, sizeof name, "%s.staging.lba",
-             s_recPath[0] ? path_leaf(s_recPath) : "rec");
+    snprintf(name, sizeof name, "%s.%s.lba",
+             s_recPath[0] ? path_leaf(s_recPath) : "rec", suffix);
     GetRecordingsPath(p, ADELINE_MAX_PATH, name);
     snprintf(out, n, "%s", p);
+}
+
+static void record_scratch_path(char *out, size_t n) {
+    record_scratch_path_as(out, n, "staging");
 }
 
 /* Stage a snapshot, and report whether one is actually there.
@@ -771,8 +785,8 @@ static void record_scratch_path(char *out, size_t n) {
  * that into a failure rather than a surprise: without it a run whose save failed reloads
  * whatever a previous run left behind, which is a live session replaced by an unrelated
  * one. */
-static S32 record_write_snapshot(char *out, size_t n) {
-    record_scratch_path(out, n);
+static S32 record_write_snapshot_as(char *out, size_t n, const char *suffix) {
+    record_scratch_path_as(out, n, suffix);
     remove(out);
     record_save_to(out);
     if (ExistsFileOrDir(out))
@@ -780,6 +794,10 @@ static S32 record_write_snapshot(char *out, size_t n) {
     fprintf(stderr, "[rec] could not write the snapshot at %s\n", out);
     out[0] = 0;
     return 0;
+}
+
+static S32 record_write_snapshot(char *out, size_t n) {
+    return record_write_snapshot_as(out, n, "staging");
 }
 
 /* Copy a staged snapshot into the stream as a chunk, and drop the staging file.
@@ -923,6 +941,11 @@ static S32 replay_read_chunk(U8 want, char *outPath, size_t n) {
  * permanently over the player's own. Restored here unconditionally, because Record_Stop
  * returns early once the stream is closed and would skip it. */
 static void record_flush_at_exit(void) {
+    /* No ticks left, so nothing can issue a reload and there is no game to return to.
+       Without this the exit path asks for one anyway and says so, which is a line
+       promising something that will not happen. The return point is removed below
+       instead. */
+    s_atExit = 1;
     Record_Stop();
     bindings_restore();
     /* A replay that ended before its reload landed still has the snapshot staged. The
@@ -932,6 +955,13 @@ static void record_flush_at_exit(void) {
     if (s_inlineSnap[0]) {
         remove(s_inlineSnap);
         s_inlineSnap[0] = 0;
+    }
+    /* The player's session, if the run ends before it could be put back. Removing it is
+       all that is left to do here: there are no more ticks, so the reload Record_Stop
+       asked for is never going to be issued. */
+    if (s_returnPoint[0]) {
+        remove(s_returnPoint);
+        s_returnPoint[0] = 0;
     }
 }
 
@@ -973,8 +1003,15 @@ static void record_arm_atexit(void) {
  * runs after it. */
 static char s_reloadSave[ADELINE_MAX_PATH];
 static char s_reloadThen[ADELINE_MAX_PATH];
-static int s_reloadForPlay = 0; /* 0 = begin recording after it lands, 1 = begin replay */
-static int s_reloadState = 0;   /* 1 = asked for, 2 = issued and waiting for the cube */
+/* 0 = begin recording after it lands, 1 = begin replay, 2 = restore and begin nothing.
+   The third is the way back out of a playback: a replay loads the recording's world over
+   the player's, and the player's has to be put back afterwards or watching a recording
+   costs them their session. */
+#define REC_RELOAD_RECORD 0
+#define REC_RELOAD_PLAY 1
+#define REC_RELOAD_RESTORE 2
+static int s_reloadForPlay = REC_RELOAD_RECORD;
+static int s_reloadState = 0; /* 1 = asked for, 2 = issued and waiting for the cube */
 /* The tick hook sees the load land; the poll hook is where the session begins. Keeping
    that split matters for one measured reason: the header's clock baseline is sampled
    where recording starts and re-applied where replay starts, so the two have to be the
@@ -1021,7 +1058,7 @@ static void record_reload_issue(void) {
      *
      * The replay takes the step out of the recording's header rather than the default,
      * so a session played at some other step replays at that one. */
-    if (!Timer_FixedDtActive()) {
+    if (s_reloadForPlay != REC_RELOAD_RESTORE && !Timer_FixedDtActive()) {
         Timer_EnableFixedDt((U32)(s_reloadDt > 0 ? s_reloadDt : REC_DEFAULT_DT));
         s_recArmedDt = 1;
     }
@@ -1032,9 +1069,11 @@ static void record_reload_issue(void) {
        reading, since writing the snapshot costs the recording a frame the replay never
        spends. Same state at tick 0 either way, and one actor's heading apart 300 ticks
        later, which is what this closes. */
-    if (s_reloadForPlay)
+    /* A restore is going back to ordinary play, where the clock is the host's again and
+       nothing is being reproduced, so it neither carries a reading nor stamps one. */
+    if (s_reloadForPlay == REC_RELOAD_PLAY)
         SetTimerHR((U32)s_reloadClock);
-    else
+    else if (s_reloadForPlay == REC_RELOAD_RECORD)
         s_reloadClock = (unsigned)TimerRefHR;
 
     Control_BorrowSaveContext();
@@ -1061,6 +1100,11 @@ static void record_reload_landed(void) {
     if (s_inlineSnap[0] && !strcmp(s_reloadSave, s_inlineSnap)) {
         remove(s_inlineSnap);
         s_inlineSnap[0] = 0;
+    }
+    /* Same for the player's own session once it has been put back. */
+    if (s_returnPoint[0] && !strcmp(s_reloadSave, s_returnPoint)) {
+        remove(s_returnPoint);
+        s_returnPoint[0] = 0;
     }
 }
 
@@ -1224,7 +1268,7 @@ int Record_Start(const char *path, int verbose) {
         return 0;
     }
     snprintf(s_snapshot, sizeof s_snapshot, "%s", snap);
-    record_reload_request(snap, path, 0);
+    record_reload_request(snap, path, REC_RELOAD_RECORD);
     Console_Print("rec: reloading %s; recording starts from the post-load state", snap);
     return 1;
 }
@@ -1255,6 +1299,23 @@ static void record_release_step(void) {
         return;
     s_recArmedDt = 0;
     Timer_DisableFixedDt();
+}
+
+/* Put the player back where the playback found them.
+ *
+ * The same pair `rec start` uses, in the other direction: a snapshot, then a reload. It
+ * runs from Record_Stop, so it covers both ways a playback ends -- the replay reaching
+ * the end of its stream, and the player stopping it.
+ *
+ * Not while another reload is in flight. The state machine holds one request, and a
+ * playback stopped before its own reload landed is already committed to that load; a
+ * second request would replace the first and strand FlagLoadGame, which is the one thing
+ * about this path that must not be got wrong. The file is left for the exit cleanup. */
+static void record_restore_player(void) {
+    if (!s_returnPoint[0] || s_reloadState || s_atExit)
+        return;
+    record_reload_request(s_returnPoint, "", REC_RELOAD_RESTORE);
+    Console_Print("rec: returning to your game");
 }
 
 int Record_Stop(void) {
@@ -1313,6 +1374,7 @@ int Record_Stop(void) {
     s_recPath[0] = 0;
     bindings_restore();
     record_release_step();
+    record_restore_player();
     return 1;
 }
 
@@ -2083,11 +2145,61 @@ int Record_Play(const char *path) {
                 from = snap;
             }
 
+            /* A recording that reloads needs a game to reload into, and the reload is
+               issued from MainLoop's tick hook. The menu runs its own loop and never
+               reaches that hook, so a playback asked for from the main menu sat armed
+               forever while the two lines below reported it had started, and left the
+               staged snapshot behind. Measured: `rec info` still said idle six seconds
+               later and the scene was still Cube -1, Obj 0.
+
+               Refused here rather than made to work. Playing into the menu means starting
+               a game from the recording's snapshot and putting the menu back afterwards,
+               which is the demo reel's shape and a larger piece than a guard. */
+            if (from != NULL && !Control_HasLiveScene()) {
+                Console_Print("rec: %s replays into a game, and none is in progress", path);
+                fprintf(stderr, "[rec] %s replays into a game, and none is in progress\n", path);
+                if (s_inlineSnap[0]) {
+                    remove(s_inlineSnap);
+                    s_inlineSnap[0] = 0;
+                }
+                fclose(s_f);
+                s_f = NULL;
+                s_recPath[0] = 0;
+                return 0;
+            }
+
             if (from != NULL) {
                 U32 clk = 0;
                 if (RecFmt_ReadU32(s_headerBuf, "setup.reload_clock=", &clk))
                     s_reloadClock = clk;
-                record_reload_request(from, "", 1);
+                /* Save the player's own session before the recording's world is loaded
+                   over it. Without this a playback is one-way: the replay ends and the
+                   player is left standing wherever the recording finished, in its world
+                   rather than theirs. Measured before it existed -- a player who walked
+                   away from the recording's end point and then watched it back was put
+                   at the recording's end, 1585 units from where they had been.
+
+                   Not for a replay armed from the flag: that run has no player session
+                   to protect, it exists to replay and exit. And not where no scene is
+                   live, since there is nothing to save. A failure here is reported and
+                   the playback still runs, because refusing to play a recording is a
+                   worse answer than playing it and saying the way back is missing. */
+                s_returnPoint[0] = 0;
+                /* s_replayFromCli stays set for the life of the run, unlike its
+                   recording counterpart, which clears on use: the replay's exit code is
+                   decided from it when the stream ends. So a run given --replay that
+                   later plays something from the console takes no return point either.
+                   That run is a harness run with no player session in it, and clearing
+                   the flag here to change that would take the exit code with it. */
+                if (!s_replayFromCli && Control_HasLiveScene()) {
+                    char ret[ADELINE_MAX_PATH];
+                    if (record_write_snapshot_as(ret, sizeof ret, "return"))
+                        snprintf(s_returnPoint, sizeof s_returnPoint, "%s", ret);
+                    else
+                        Console_Print("rec: could not save your session; "
+                                      "playback will not return to it");
+                }
+                record_reload_request(from, "", REC_RELOAD_PLAY);
                 /* After the request, which clears it: the step this replay pins comes
                    from the recording's header, and a session played at some other
                    --fixed-dt reproduces on that one and on nothing else. */
@@ -2203,10 +2315,20 @@ void Record_TickHook(void) {
             return; /* ChangeCube has not consumed it yet */
         record_reload_landed();
         s_reloadState = 0;
-        if (s_reloadAbort)
+        if (s_reloadAbort) {
             s_reloadAbort = 0;
-        else
-            s_beginAtPoll = s_reloadForPlay ? 2 : 1;
+            /* A playback stopped between `rec play` and its reload landing. The load
+               cannot be taken back -- the engine changes cube either way -- so the player
+               is standing in the recording's world with the session called off, and
+               Record_Stop could not ask for the way back because this reload was still in
+               flight when it ran. Measured: stopping in that window left the hero at the
+               recording's start rather than where the playback found him. Ask here
+               instead, where the state machine is free again. */
+            record_restore_player();
+        } else
+            s_beginAtPoll = (s_reloadForPlay == REC_RELOAD_RESTORE)
+                                ? 0
+                                : (s_reloadForPlay == REC_RELOAD_PLAY ? 2 : 1);
         return;
     }
 

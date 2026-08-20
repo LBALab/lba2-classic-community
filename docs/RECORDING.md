@@ -34,7 +34,7 @@ Mid-session, from the console (F12), which records from a point you choose rathe
 |---|---|
 | `rec start [name] [verbose]` | Write a snapshot, reload it, and start recording from the post-load state. `verbose` adds the telemetry below |
 | `rec stop` | Stop and flush |
-| `rec play [name]` | Replay a recording into the running engine |
+| `rec play [name]` | Replay a recording into the running engine, then put your game back |
 | `rec info [name]` | Report the current session, or compare a file's mode lines against this run |
 
 The name is optional at both ends, and without one nothing has to be typed or kept track of:
@@ -47,6 +47,11 @@ rec: stopped
 > rec play
 rec: replaying /home/you/.local/share/Twinsen/LBA2/recordings/session-20260820-150408.rec
 ```
+
+Playback borrows the session and gives it back. `rec play` saves where you are before it loads
+the recording's world over yours, and returns you there when the replay ends or you stop it, so
+watching a recording does not cost you your game. `--replay` does not, and does not need to: that
+run exists to replay and exit, and has no session to protect.
 
 `rec start` names the session after the time of day. `rec play` takes the recording this run
 recorded, and in a session that has recorded nothing -- the next launch, say -- the most recently
