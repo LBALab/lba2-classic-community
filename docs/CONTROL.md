@@ -670,8 +670,8 @@ records the console commands alongside the input so a recording can stand in for
 
 | Flag | What it does |
 |---|---|
-| `--record <path>` | Record from the first input poll, menus included. Writes `<path>`, plus `<path>.lba` and `<path>.end.lba` snapshots |
-| `--replay <path>` | Replay a recording and report where it stops matching |
+| `--record <name>` | Record from the first input poll, menus included. One file, holding the savegames at each end of the session. A name with no directory in it lands in `<userDir>/recordings/` |
+| `--replay <name>` | Replay a recording and report where it stops matching. Resolved the same way |
 
 Both need `--fixed-dt`: on the host-sampled clock a replay is not exact, which was measured rather
 than assumed. Give the replay more ticks than the recording holds, or it ends on `--tick` before

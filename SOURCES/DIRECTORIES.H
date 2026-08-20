@@ -153,6 +153,11 @@ void GetSavePath(char *outPath, U16 pathMaxSize, const char *saveFilename);
 /// does nothing; the 1997 demo ships the three its fixed slots load.
 /// Call before anything creates the save folder.
 void Directories_SeedSavesFromGameData(void);
+/// The recordings folder, beside the saves. A `--record`/`--replay` argument with
+/// no directory in it is a name in here. Spelt out rather than shortened: an abbreviated
+/// form of this sits one letter from GetResPath below, with the same signature, and the
+/// two name a folder the player writes to and the folder the game was installed into.
+void GetRecordingsPath(char *outPath, U16 pathMaxSize, const char *recFilename);
 void GetShootPath(char *outPath, U16 pathMaxSize, const char *shootFilename);
 void GetBugPath(char *outPath, U16 pathMaxSize, const char *bugFilename);
 void GetJinglePath(char *outPath, U16 pathMaxSize, const char *jingleFilename);

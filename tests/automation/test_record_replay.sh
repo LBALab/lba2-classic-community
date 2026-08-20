@@ -17,10 +17,19 @@
 # --fixed-dt is not a convenience here. A recording made on a host-sampled clock does
 # not replay exactly (docs/plan/RECORDING_RESEARCH.md), so the pinned step is part of
 # what is under test rather than a way to make the test quicker.
+#
+# One arm is not a record-and-replay at all. recordings/legacy-v10.rec was captured by
+# an older engine, in a format this build reads and does not write, and is replayed as it
+# stands: a same-binary round trip cannot see a change that breaks the writer and the
+# reader together.
 TESTNAME="record_replay"
 . "$(dirname "$0")/lib.sh"
 precheck
 need_save
+# Three arms read the recording back with the reader that needs no engine. A box without
+# an interpreter is not a recording defect, so skip rather than fail, as lib.sh does for
+# its own python steps.
+command -v python3 >/dev/null 2>&1 || skip "no python3 (needed to read a recording back)"
 
 rec="$(user_dir)/session.rec"
 
@@ -35,6 +44,9 @@ record_and_replay() { # record_and_replay <label> [extra record args...]
     local label="$1"
     shift
 
+    # The siblings too, which nothing writes: a recording is one file, and the check
+    # below would otherwise report a leftover from another build as this run having
+    # written one.
     rm -f "$rec" "$rec".lba "$rec".end.lba
 
     ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$rec" \
@@ -43,6 +55,24 @@ record_and_replay() { # record_and_replay <label> [extra record args...]
         fail "$label: recording run exited non-zero ($?) — hang or crash"
 
     [ -s "$rec" ] || fail "$label: no recording written to $rec"
+
+    # One file, and it carries the savegames at both ends of the session. Both halves
+    # are checked because either alone passes for the wrong reason: a recorder that
+    # stopped writing snapshots altogether would leave no siblings either, and a
+    # recorder that wrote them beside the file as well would still carry them inside.
+    for sibling in "$rec".lba "$rec".end.lba; do
+        if [ -e "$sibling" ]; then
+            fail "$label: a recording is one file, but $sibling was written"
+        fi
+    done
+    local saves
+    saves="$(python3 "$REPO/scripts/dev/dump_recording.py" "$rec" |
+        grep -m1 '^savegames:')" ||
+        fail "$label: could not read the recording back"
+    case "$saves" in
+    *"start none"*) fail "$label: the recording carries no start savegame ($saves)" ;;
+    *"end none"*) fail "$label: the recording carries no end savegame ($saves)" ;;
+    esac
 
     # The header has to declare the arithmetic the session ran on, because that is what
     # lets a replay on another platform open by naming what it disagrees about instead
@@ -104,6 +134,139 @@ bounded="$CHECKED"
 record_and_replay "without --tick" --exec-at 300 "rec stop; exit"
 unbounded="$CHECKED"
 
+# A recording cut off mid-snapshot, which is what a process killed while writing one
+# leaves behind. The frame's refusal is the whole safety argument for keeping the
+# savegames inside the file, and tests/record_format proves it over a buffer through a
+# reader written for the test. This drives the engine's own reader over a real file, so
+# the two cannot drift: cut inside the start chunk, the replay has to say so and check
+# nothing, rather than hand the save loader a savegame that stops early.
+torn="$(user_dir)/torn.rec"
+
+# Two ways a chunk fails to close. `cut` stops inside the payload, which is what a
+# process killed mid-write leaves, and the reader has several ways to notice it: the
+# short payload, the missing tail, and the tail comparison all refuse it, so this arm
+# shows the behaviour rather than isolating one check. `magic` keeps every byte and
+# damages the word behind them, which nothing but the tail comparison can see -- that
+# one fails the moment the comparison is removed, which is what makes it the oracle for
+# the claim the single-file layout rests on.
+damage_recording() { # damage_recording <how> <src> <dst>
+    python3 - "$1" "$2" "$3" <<'EOF'
+import struct, sys
+how, src, dst = sys.argv[1], sys.argv[2], sys.argv[3]
+d = open(src, "rb").read()
+at = d.find(b"\n\n") + 2
+length = struct.unpack_from("<I", d, at + 1)[0]
+if how == "cut":
+    out = d[:at + 5 + length // 2]
+else:
+    out = bytearray(d)
+    out[at + 5 + length + 7] ^= 0xFF  # the magic's top byte
+open(dst, "wb").write(bytes(out))
+EOF
+}
+
+for how in cut magic; do
+    damage_recording "$how" "$rec" "$torn" || fail "torn/$how: could not build the file"
+
+    tout="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$torn" --tick 300 --exit 2>&1)" ||
+        fail "torn/$how: replay run exited non-zero ($?) — hang or crash"
+
+    case "$tout" in
+    *"incomplete"*) ;;
+    *)
+        fail "torn/$how: a recording whose snapshot does not close was not refused; $(
+            printf '%s\n' "$tout" | grep -m1 'replay ended' || echo 'the replay said nothing')"
+        ;;
+    esac
+    # And refused means refused: a reader that reported the damage and then carried on
+    # into the savegame would check ticks out of bytes that are not a stream.
+    tchecked="$(printf '%s\n' "$tout" | sed -n 's/.*: \([0-9]*\) ticks checked.*/\1/p')"
+    [ "${tchecked:-0}" = "0" ] ||
+        fail "torn/$how: refused the snapshot and then checked $tchecked ticks anyway"
+done
+rm -f "$torn"
+
+# The default home. A name with no directory in it is a name in <userDir>/recordings/,
+# and the point of that is symmetry: the name a session was recorded under is the name it
+# replays under, from whatever directory the run happens to start in. Recorded and replayed from
+# a directory that holds no recording of its own, so a pass cannot come from the working
+# directory answering instead of the folder.
+bare="bare-name.rec"
+recdir="$(user_dir)/recordings"
+rm -f "$recdir/$bare"
+# Removed by a trap rather than at the end of the arm: `fail` exits the shell, so every
+# assertion below is a way out of here that never reaches an inline rm.
+here="$(mktemp -d)"
+trap 'rm -rf "$here"' EXIT
+
+(cd "$here" && ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$bare" --tick 200 --exit) \
+    >/dev/null 2>&1 ||
+    fail "bare name: recording run exited non-zero ($?) — hang or crash"
+
+[ -s "$recdir/$bare" ] ||
+    fail "bare name: nothing at $recdir/$bare; a name with no directory in it belongs there"
+if [ -e "$here/$bare" ]; then
+    fail "bare name: written to the working directory instead of $recdir"
+fi
+
+bareout="$(cd "$here" && ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$bare" \
+    --tick 300 --exit 2>&1)" ||
+    fail "bare name: replay run exited non-zero ($?) — hang or crash"
+
+case "$bareout" in
+*"first hash mismatch -1"*) ;;
+*)
+    fail "bare name: $(printf '%s\n' "$bareout" |
+        grep -m1 -e 'replay ended' -e 'cannot open' || echo 'the replay said nothing')"
+    ;;
+esac
+
+# A recording this build does not write.
+#
+# Every arm above records and replays with the same binary, which cannot catch a change
+# that breaks both ends together -- and that is the class the format has already been
+# bitten by. legacy-v10.rec is a format-10 session, captured once and never regenerated;
+# tests/automation/recordings/README.md says why not.
+#
+# Two properties, and they fail differently. The tick count says the reader walked the
+# stream correctly, which is what a record whose layout moved would break. The clean
+# result says the sibling savegame was found and loaded, which is the only coverage the
+# pre-single-file snapshot path has: measured, the same file with its .rec.lba moved
+# away diverges at tick 0.
+legacy="$REPO/tests/automation/recordings/legacy-v10.rec"
+legacy_save="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Anon1.LBA"
+if [ ! -f "$legacy" ] || [ ! -f "$legacy".lba ]; then
+    fail "the legacy recording is missing from $REPO/tests/automation/recordings"
+fi
+[ -f "$legacy_save" ] || skip "fixture save missing: $legacy_save"
+
+lout="$(ctl --fixed-dt 16 --load "$legacy_save" --replay "$legacy" --tick 300 --exit 2>&1)" ||
+    fail "legacy: replay run exited non-zero ($?) — hang or crash"
+
+case "$lout" in
+*"is format"*)
+    fail "legacy: $(printf '%s\n' "$lout" | grep -m1 'is format')"
+    ;;
+esac
+
+lsummary="$(printf '%s\n' "$lout" | grep -m1 'replay ended')" ||
+    fail "legacy: the replay printed no summary; it cannot be said to have read the file"
+
+lchecked="$(printf '%s\n' "$lsummary" | sed -n 's/.*: \([0-9]*\) ticks checked.*/\1/p')"
+[ "$lchecked" = "198" ] ||
+    fail "legacy: read ${lchecked:-0} ticks, the file holds 198 — the reader has lost the stream"
+
+case "$lsummary" in
+*"first hash mismatch -1"*) ;;
+*)
+    # Every differing mode line, not the first: a divergence from different retail data
+    # reads exactly like a reader bug, and the line that says so can sit behind an
+    # engine version that differs on any working tree.
+    fail "legacy: $lsummary; $(printf '%s\n' "$lout" | grep 'mode differs' | tr '\n' ';' ||
+        echo 'no mode line differed, so this is the format path')"
+    ;;
+esac
+
 # Verbose telemetry. A plain recording carries one digest a tick, which can say that a
 # tick stopped matching and never which of ~1300 values moved; --verbose stores them all.
 # Recorded once and replayed twice: once expecting clean, and once with a variable
@@ -139,4 +302,4 @@ case "$bout" in
     ;;
 esac
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; telemetry named the injected change"
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change"

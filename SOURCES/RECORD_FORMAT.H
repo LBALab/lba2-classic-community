@@ -1,8 +1,9 @@
 #ifndef LBA2_RECORD_FORMAT_H
 #define LBA2_RECORD_FORMAT_H
 
-/* The text header of a recording: the fields a reader looks up by name, and the two
- * binding tables the header carries.
+/* The on-disk shape of a recording: the header fields a reader looks up by name, the
+ * two binding tables the header carries, and the frame around a savegame the file
+ * carries inline.
  *
  * Pure string and table work. No engine state, no file IO, no globals, which is the
  * line this module is cut along and what lets tests/record_format drive it with
@@ -48,5 +49,45 @@ extern S32 RecFmt_ParseBindings(const char *hdr, const char *key, T_DEF_KEY *tab
 extern S32 RecFmt_ReadU32(const char *hdr, const char *key, U32 *out);
 extern S32 RecFmt_ReadInt(const char *hdr, const char *key, S32 *out);
 extern S32 RecFmt_ReadStr(const char *hdr, const char *key, char *out, size_t n);
+
+/* Chunk framing, for the savegames a recording carries inline.
+ *
+ * A recording is one file: the snapshot it starts from and the one it ends at sit in
+ * the stream rather than beside it. Both are framed the same way, and the frame is
+ * built for a writer that may be killed in the middle of it:
+ *
+ *     [op][u32 len][len bytes][u32 len][u32 magic]
+ *
+ * The length is known before the payload is written, so nothing is ever seeked back to
+ * and patched -- a file that stops part way through a chunk stops with bytes missing
+ * off the end, never with a length that claims more than is there. The repeated length
+ * and the magic word are what make that detectable: a torn chunk has no valid tail, so
+ * it is refused rather than handed to the save loader as a short savegame.
+ *
+ * The tail is also what lets the end chunk be found from the end of the file, which is
+ * how a reader tells the trailer apart from the record stream in front of it.
+ *
+ * Buffer work only, like everything else here. RECORD.CPP does the file IO around it. */
+#define REC_CHUNK_HEAD 5 /* op, then the length */
+#define REC_CHUNK_TAIL 8 /* the length again, then the magic */
+
+/* Build the two ends of a frame. Return 0 if the buffer is smaller than the constant
+ * above says, which is a caller bug rather than a runtime condition. */
+extern S32 RecFmt_PutChunkHead(U8 *out, size_t n, U8 op, U32 len);
+extern S32 RecFmt_PutChunkTail(U8 *out, size_t n, U32 len);
+
+/* Read a head. Returns 1 and fills `op` and `len` when `n` is large enough. */
+extern S32 RecFmt_GetChunkHead(const U8 *in, size_t n, U8 *op, U32 *len);
+
+/* Whether a tail closes a chunk of `len` bytes: the length written twice and the magic
+ * behind it. This is the whole of the torn-write check, so it is the one function here
+ * whose failure case is the interesting one. */
+extern S32 RecFmt_ChunkTailOk(const U8 *in, size_t n, U32 len);
+
+/* The length a tail claims, for a reader working backwards from the end of a file: the
+ * end chunk's payload starts REC_CHUNK_TAIL + len bytes before the tail, and its head
+ * REC_CHUNK_HEAD bytes before that. Returns 0 when the magic is not there, which is the
+ * ordinary case for a recording that never reached its end chunk. */
+extern S32 RecFmt_ReadChunkTailLen(const U8 *in, size_t n, U32 *len);
 
 #endif /* LBA2_RECORD_FORMAT_H */

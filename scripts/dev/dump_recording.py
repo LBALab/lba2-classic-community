@@ -11,6 +11,7 @@ divergence.
     scripts/dev/dump_recording.py session.rec keys       # keyframe deltas only
     scripts/dev/dump_recording.py session.rec cmds       # console commands only
     scripts/dev/dump_recording.py session.rec ticks      # tick, TimerRefHR, hash
+    scripts/dev/dump_recording.py session.rec saves      # write out the savegames it carries
 
 Keyframe output is a delta per line, so a session reads as what changed:
 
@@ -18,9 +19,16 @@ Keyframe output is a delta per line, so a session reads as what changed:
     kf  1728: dial.obj 0->2
 
 Format: SOURCES/RECORD.CPP is the authority. A text header of key=value lines, a blank
-line, then records with a flags byte each. Little-endian throughout.
+line, the savegame the session started from, then records with a flags byte each, and
+the savegame it ended at. Little-endian throughout.
+
+A recording is one file, so `saves` is how the savegames come back out of it without
+running the engine. A chunk is [op][u32 len][payload][u32 len][magic]: the length twice
+with the magic behind it, so a session killed mid-write leaves a chunk that fails to
+close and is reported rather than written out as a savegame that stops early.
 """
 
+import os
 import struct
 import sys
 
@@ -38,6 +46,29 @@ REC_TELE = 0x51  # verbose telemetry: u32 tick, u16 count, then count * s32
 REC_CMD = 0x40   # console command: u32 tick, u16 len, then len bytes
 REC_SYNC = 0x60  # sync marker: u32 magic, u32 poll, u32 tick
 SYNC_MAGIC = 0x53594E43  # "SYNC"
+REC_SNAP_START = 0x70  # the savegame the session started from
+REC_SNAP_END = 0x71    # the one it ended at, absent if it did not finish
+SNAP_MAGIC = 0x534E4150  # "SNAP"
+CHUNK_HEAD, CHUNK_TAIL = 5, 8
+
+
+def read_chunk(data, at):
+    """The payload at `at`, or None when the chunk does not close there.
+
+    Returns (op, payload, next_offset). A chunk whose tail is missing or does not match
+    its length is a torn write: everything from `at` on is unusable, and saying so is
+    the point of the frame."""
+    if at + CHUNK_HEAD > len(data):
+        return None
+    op = data[at]
+    length = struct.unpack_from("<I", data, at + 1)[0]
+    end = at + CHUNK_HEAD + length
+    if end + CHUNK_TAIL > len(data):
+        return None
+    again, magic = struct.unpack_from("<II", data, end)
+    if again != length or magic != SNAP_MAGIC:
+        return None
+    return op, data[at + CHUNK_HEAD:end], end + CHUNK_TAIL
 
 
 def parse(path):
@@ -51,6 +82,18 @@ def parse(path):
     polls = 0
     ticks, keys, cmds, teles = [], [], [], []
     syncs = 0
+    snaps = {}
+
+    # The start snapshot sits between the header and the first record. A recording made
+    # before the format carried one starts straight into the stream, so this is a probe
+    # rather than an expectation.
+    if p < n and data[p] == REC_SNAP_START:
+        got = read_chunk(data, p)
+        if got is None:
+            print("start snapshot at byte %d does not close; the rest is unreadable" % p)
+            return header, polls, ticks, keys, cmds, teles, syncs, snaps
+        snaps["start"] = got[1]
+        p = got[2]
 
     while p < n:
         start = p
@@ -81,6 +124,16 @@ def parse(path):
                 p += 6
                 cmds.append((tick, data[p:p + length].decode("latin1")))
                 p += length
+            elif flags in (REC_SNAP_START, REC_SNAP_END):
+                got = read_chunk(data, start)
+                if got is None:
+                    print("snapshot at byte %d does not close; the session that wrote it "
+                          "did not finish" % start)
+                    break
+                snaps["end" if flags == REC_SNAP_END else "start"] = got[1]
+                p = got[2]
+                if flags == REC_SNAP_END:
+                    break  # the trailer: the record stream ends here
             elif flags & 0x80:
                 # 0xC0 carries a 32-bit hash, 0x80 a 64-bit one.
                 tick, ref = struct.unpack_from("<II", data, p)
@@ -109,7 +162,27 @@ def parse(path):
             print("truncated at byte %d" % start)
             break
 
-    return header, polls, ticks, keys, cmds, teles, syncs
+    return header, polls, ticks, keys, cmds, teles, syncs, snaps
+
+
+def write_saves(path, snaps):
+    """The savegames, back out as files the engine can be pointed at."""
+    stem = path[:-4] if path.endswith(".rec") else path
+    if not snaps:
+        print("no savegames in this recording")
+        return
+    for which in ("start", "end"):
+        if which not in snaps:
+            continue
+        out = "%s.%s.lba" % (stem, which)
+        if os.path.exists(out):
+            print("%s exists; not overwriting it" % out)
+            continue
+        # Closed rather than left to the interpreter: an unclosed handle is a savegame
+        # that stops early, which is the one failure this whole format is built to avoid.
+        with open(out, "wb") as fh:
+            fh.write(snaps[which])
+        print("wrote %s (%d bytes)" % (out, len(snaps[which])))
 
 
 def main(argv):
@@ -117,12 +190,21 @@ def main(argv):
         raise SystemExit(__doc__)
     path = argv[1]
     what = argv[2] if len(argv) > 2 else "all"
-    header, polls, ticks, keys, cmds, teles, syncs = parse(path)
+    header, polls, ticks, keys, cmds, teles, syncs, snaps = parse(path)
+
+    if what == "saves":
+        write_saves(path, snaps)
+        return
 
     if what == "all":
         print(header)
     print("polls=%d ticks=%d keyframes=%d telemetry=%d cmds=%d syncs=%d"
           % (polls, len(ticks), len(keys), len(teles), len(cmds), syncs))
+    # No end snapshot means the session did not stop cleanly, which is worth saying
+    # rather than leaving to be noticed.
+    print("savegames: start %s, end %s"
+          % tuple("%d bytes" % len(snaps[k]) if k in snaps else "none"
+                  for k in ("start", "end")))
     if teles:
         print("verbose telemetry: %d values a tick" % teles[0][1])
 

@@ -139,3 +139,70 @@ S32 RecFmt_ReadStr(const char *hdr, const char *key, char *out, size_t n) {
     out[len] = 0;
     return 1;
 }
+
+//-------------------------------------------------------------------------
+/* Reads S,N,A,P left to right in the constant, on the same convention as the stream's
+   own sync marker. It is behind the payload rather than in front of it because that is
+   where a torn write shows: a head that was written and a payload that was not leaves
+   the tail missing, and a reader that only checked the front would have believed it. */
+#define REC_CHUNK_MAGIC 0x534E4150u /* "SNAP" */
+
+static void put_le32(U8 *out, U32 v) {
+    out[0] = (U8)(v & 0xFFu);
+    out[1] = (U8)((v >> 8) & 0xFFu);
+    out[2] = (U8)((v >> 16) & 0xFFu);
+    out[3] = (U8)((v >> 24) & 0xFFu);
+}
+
+static U32 get_le32(const U8 *in) {
+    return (U32)in[0] | ((U32)in[1] << 8) | ((U32)in[2] << 16) | ((U32)in[3] << 24);
+}
+
+//-------------------------------------------------------------------------
+S32 RecFmt_PutChunkHead(U8 *out, size_t n, U8 op, U32 len) {
+    if (out == NULL OR n < REC_CHUNK_HEAD)
+        return 0;
+    out[0] = op;
+    put_le32(out + 1, len);
+    return 1;
+}
+
+//-------------------------------------------------------------------------
+S32 RecFmt_PutChunkTail(U8 *out, size_t n, U32 len) {
+    if (out == NULL OR n < REC_CHUNK_TAIL)
+        return 0;
+    put_le32(out, len);
+    put_le32(out + 4, REC_CHUNK_MAGIC);
+    return 1;
+}
+
+//-------------------------------------------------------------------------
+S32 RecFmt_GetChunkHead(const U8 *in, size_t n, U8 *op, U32 *len) {
+    if (in == NULL OR op == NULL OR len == NULL OR n < REC_CHUNK_HEAD)
+        return 0;
+    *op = in[0];
+    *len = get_le32(in + 1);
+    return 1;
+}
+
+//-------------------------------------------------------------------------
+S32 RecFmt_ChunkTailOk(const U8 *in, size_t n, U32 len) {
+    if (in == NULL OR n < REC_CHUNK_TAIL)
+        return 0;
+    /* Both halves, not just the magic. A payload written one byte short would slide the
+       magic into place off the following bytes only if those bytes existed, and the
+       length is what says they are the ones this chunk claimed. */
+    if (get_le32(in) != len)
+        return 0;
+    return (get_le32(in + 4) == REC_CHUNK_MAGIC) ? 1 : 0;
+}
+
+//-------------------------------------------------------------------------
+S32 RecFmt_ReadChunkTailLen(const U8 *in, size_t n, U32 *len) {
+    if (in == NULL OR len == NULL OR n < REC_CHUNK_TAIL)
+        return 0;
+    if (get_le32(in + 4) != REC_CHUNK_MAGIC)
+        return 0;
+    *len = get_le32(in);
+    return 1;
+}

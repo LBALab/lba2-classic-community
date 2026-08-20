@@ -39,6 +39,10 @@ void Record_CommandHook(const char *line);
 void Record_ArmRecord(const char *path);
 void Record_ArmReplay(const char *path);
 unsigned long Record_Squeeze(const char *path);
+/* The file the last Record_Start / Record_Play resolved to. A bare name is a name in
+   the recordings folder, so this is where it actually went, which is not the string the
+   caller passed. Empty before either has run. */
+const char *Record_Path(void);
 int Record_IsReplaying(void);
 int Record_IsRecording(void);
 

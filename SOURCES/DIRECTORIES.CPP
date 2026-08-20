@@ -34,6 +34,7 @@ extern "C" {
 // -----------------------------------------------------------------------------
 #define DIR_NAME_PROFILES "profiles" ADELINE_PATH_SEP
 #define DIR_NAME_SAVE "save" ADELINE_PATH_SEP
+#define DIR_NAME_RECORDINGS "recordings" ADELINE_PATH_SEP
 #define DIR_NAME_SHOOT "shoot" ADELINE_PATH_SEP
 #define DIR_NAME_BUGS "bugs" ADELINE_PATH_SEP
 #define DIR_NAME_JINGLE "music" ADELINE_PATH_SEP
@@ -752,6 +753,24 @@ void Directories_SeedSavesFromGameData(void) {
     }
 }
 
+/* Beside the saves rather than under them, because a recording is a thing the player
+   made rather than something about a save: it carries its own savegames, and one
+   recording stands in for a whole session. `shoot` and `bugs` sit inside `save` because
+   they are debris from a run; this is not. */
+void GetRecordingsPath(char *outPath, U16 pathMaxSize, const char *recFilename) {
+    assert(directoriesInitialized);
+    assert((outPath != NULL) && (pathMaxSize > 0));
+
+    static bool initialized = false;
+    static char recordingsPath[ADELINE_MAX_PATH] = "";
+    if (!initialized) {
+        DiscoverEndingAndAppend(recordingsPath, ADELINE_MAX_PATH, directoriesUserDir,
+                                DIR_NAME_RECORDINGS);
+        initialized = true;
+    }
+
+    DiscoverEndingAndAppend(outPath, pathMaxSize, recordingsPath, recFilename);
+}
 void GetShootPath(char *outPath, U16 pathMaxSize, const char *shootFilename) {
     assert(directoriesInitialized);
     assert((outPath != NULL) && (pathMaxSize > 0));
