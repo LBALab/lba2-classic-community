@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-72 fixtures.
+73 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -79,6 +79,7 @@ suite still passes, since CI cannot say so.
 | [test_res_switch_dialog.sh](test_res_switch_dialog.sh) | Revert dialog: the keep/revert modal that appears after every successful `resolution` console verb (per docs/RUNTIME_RESOLUTION.md). | save fixture |
 | [test_screenshot.sh](test_screenshot.sh) | --screenshot: writes a real PNG of the rendered frame. | save fixture |
 | [test_skip_modals.sh](test_skip_modals.sh) | `skipmodals` console command: a headless run gets past a give/talk dialog instead of hanging. | - |
+| [test_spell_keys_bypass.sh](test_spell_keys_bypass.sh) | The spell keys reach the game without reaching Input, and this is what that costs. | - |
 | [test_tick.sh](test_tick.sh) | --tick: the keystone differential test. | save fixture |
 | [test_ui_dialog.sh](test_ui_dialog.sh) | ui dialog: capture the dialogue bubble + portrait + typewriter text for a known text-id, byte-compare to the committed golden. | UI goldens |
 | [test_ui_display.sh](test_ui_display.sh) | ui display: capture the Display options modal (the Phase 2 menu surface for runtime resolution switching) and byte-compare to the committed golden. | UI goldens |
