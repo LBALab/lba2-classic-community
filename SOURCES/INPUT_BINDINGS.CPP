@@ -133,6 +133,82 @@ void InitInput(void) {
 }
 
 //-------------------------------------------------------------------------
+// The reverse of the fold above. Pure lookups over the two tables, in the same
+// order InitInput reads them, so a key this hands back is one the forward
+// direction would have folded into that slot's mask.
+S32 Bindings_KeysForSlot(S32 slot, U32 *out, S32 max) {
+    S32 n = 0;
+
+    if (slot < 0 OR slot >= MAX_INPUT_SLOTS OR out == NULL)
+        return 0;
+
+    const U32 candidates[4] = {DefKeys[slot].Key1, DefKeys[slot].Key2,
+                               GamepadKeys[slot].Key1, GamepadKeys[slot].Key2};
+    for (S32 i = 0; i < 4 AND n < max; i++) {
+        if (candidates[i] != 0)
+            out[n++] = candidates[i];
+    }
+    return n;
+}
+
+//-------------------------------------------------------------------------
+S32 Bindings_SlotForKey(U32 key) {
+    // Zero is the unbound marker in both tables, not a key. Answering the
+    // question for it would report every empty cell as a match.
+    if (key == 0)
+        return -1;
+
+    // Through the same helper rather than a second copy of the four-cell read,
+    // so the two directions cannot drift apart on which cells count.
+    for (S32 i = 0; i < MAX_INPUT_SLOTS; i++) {
+        U32 keys[4];
+        S32 n = Bindings_KeysForSlot(i, keys, 4);
+        for (S32 k = 0; k < n; k++) {
+            if (keys[k] == key)
+                return i;
+        }
+    }
+    return -1;
+}
+
+//-------------------------------------------------------------------------
+S32 Bindings_CheckReversible(S32 *badSlot, U32 *badKey) {
+    // Unbound first: a slot with no key is the answer to "why did this action
+    // not come back", and reporting a sharing pair from further down the table
+    // would bury it.
+    for (S32 i = 0; i < MAX_INPUT_SLOTS; i++) {
+        U32 keys[4];
+        if (Bindings_KeysForSlot(i, keys, 4) == 0) {
+            if (badSlot)
+                *badSlot = i;
+            if (badKey)
+                *badKey = 0;
+            return BINDINGS_REVERSE_UNBOUND;
+        }
+    }
+
+    for (S32 i = 0; i < MAX_INPUT_SLOTS; i++) {
+        U32 keys[4];
+        S32 n = Bindings_KeysForSlot(i, keys, 4);
+        for (S32 k = 0; k < n; k++) {
+            // The lookup scans in slot order, so a key names the lowest slot
+            // that binds it. A key of this slot naming a different one is the
+            // sharing case, and it is this slot that cannot be expressed.
+            S32 owner = Bindings_SlotForKey(keys[k]);
+            if (owner != i) {
+                if (badSlot)
+                    *badSlot = i;
+                if (badKey)
+                    *badKey = keys[k];
+                return BINDINGS_REVERSE_SHARED;
+            }
+        }
+    }
+
+    return BINDINGS_REVERSE_OK;
+}
+
+//-------------------------------------------------------------------------
 void RestoreInput() {
     const T_DEF_KEY *DEFKEYSDEFAULT;
     DEFKEYSDEFAULT = DefKeysDefault95;

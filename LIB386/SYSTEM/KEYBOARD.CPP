@@ -47,6 +47,11 @@ __attribute__((weak)) void ApplyVirtualKeys(void) {}
 void ApplyHarnessKeys(void);
 __attribute__((weak)) void ApplyHarnessKeys(void) {}
 
+/* Session recording (docs/RECORDING.md). Weak so libsys.a
+   still links into the host tests, which have no recorder. */
+void Record_PollHook(void);
+__attribute__((weak)) void Record_PollHook(void) {}
+
 // --- Private functions -------------------------------------------------------
 void UpdateKeyboardState() {
     ManageEvents();
@@ -73,9 +78,13 @@ void UpdateKeyboardState() {
 
     ApplyVirtualKeys();
     ApplyHarnessKeys();
+    /* The session recorder, on the same terms as the two hooks above. */
+    Record_PollHook();
 
     /* Boundary 2's key side, after the hooks: an injected key is a real key as
-       far as the binding table is concerned. */
+       far as the binding table is concerned. That includes a replayed one, which
+       is why this comes after the recorder rather than before it: a replay puts
+       the file's keys here, and the count has to be of what the game will read. */
     InputFlow_NotePollFinal(TabKeys);
 }
 

@@ -39,8 +39,9 @@ U32 LastEvaluate;
 static S32 FixedDtActive = 0;
 static U32 FixedDt = 0;
 static U32 FixedDtNow = 0;
-static S32 FixedDtTicking = 0;     // set on the first tick advance; gates present-stepping past boot
-static S32 FixedDtSkipPresent = 0; // makes the first present after each tick advance free
+static S32 FixedDtTicking = 0;        // set on the first tick advance; gates present-stepping past boot
+static S32 FixedDtSkipPresent = 0;    // makes the first present after each tick advance free
+static S32 FixedDtOverlayPresent = 0; // the next present draws an overlay, not a frame
 
 // --- Initialization ----------------------------------------------------------
 void InitTimer() {
@@ -107,6 +108,17 @@ void Timer_EnableFixedDt(U32 dt_ms) {
     FixedDtSkipPresent = 0;
 }
 
+/* The expression ManageTime reads, evaluated now. Recording SDL_GetTicks() directly is
+   wrong under fixed-dt, where the game runs on the virtual clock and the wall clock is
+   unrelated to it. */
+U32 Timer_ClockSource(void) {
+    return FixedDtActive ? FixedDtNow : SDL_GetTicks();
+}
+
+S32 Timer_FixedDtValue(void) {
+    return FixedDtActive ? (S32)FixedDt : 0;
+}
+
 void Timer_FixedDtAdvance() {
     // One fixed step per tick. The next unlocked ManageTime() banks it into TimerRefHR;
     // every other ManageTime() in the tick sees an unchanged FixedDtNow and adds nothing.
@@ -120,7 +132,16 @@ void Timer_FixedDtAdvance() {
     }
 }
 
+void Timer_FixedDtOverlayPresent() { FixedDtOverlayPresent = 1; }
+
 void Timer_FixedDtPresent() {
+    /* An overlay refresh is not a frame the simulation asked for, so it neither steps the
+       clock nor spends the tick's free present. Spending it would be as wrong as stepping:
+       the main-loop render still follows, and it would pay the step the overlay dodged. */
+    if (FixedDtOverlayPresent) {
+        FixedDtOverlayPresent = 0;
+        return;
+    }
     if (FixedDtActive && FixedDtTicking) {
         if (FixedDtSkipPresent) {
             FixedDtSkipPresent = 0;
@@ -222,8 +243,17 @@ S32 Timer_ForceStepIfPending(S32 plannedSteps, S32 pending, U32 now, S32 dt, U32
     return 1;
 }
 
+/* Session recording: the clock is captured where it is read, not where it
+   is convenient. Sampling it at the input poll and replaying that is close but never
+   exact, and pinning it at record time makes the recorder change the run it is meant
+   to observe. Weak, so libsys.a still links without the recorder. */
+void Record_ClockHook(U32 *now);
+__attribute__((weak)) void Record_ClockHook(U32 *now) { (void)now; }
+
 void ManageTime() {
-    TimerSystemHR = FixedDtActive ? FixedDtNow : SDL_GetTicks();
+    U32 nowSample = FixedDtActive ? FixedDtNow : SDL_GetTicks();
+    Record_ClockHook(&nowSample);
+    TimerSystemHR = nowSample;
 
     if (!TimerLock) {
         TimerRefHR += TimerSystemHR - LastTime;

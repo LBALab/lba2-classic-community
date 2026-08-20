@@ -34,7 +34,9 @@ void SetTimerHR(U32 time);
 // does not call Timer_EnableFixedDt() are byte-for-byte unaffected. See docs/CONTROL.md.
 void Timer_EnableFixedDt(U32 dt_ms); // arm fixed-dt; seeds the virtual clock to now
 void Timer_FixedDtAdvance();         // advance the virtual clock by dt_ms (once per tick)
-S32 Timer_FixedDtActive();           // non-zero while fixed-dt is armed (guards wall-clock paths)
+S32 Timer_FixedDtActive();
+S32 Timer_FixedDtValue(void); // armed step in ms, 0 when not armed
+U32 Timer_ClockSource(void);  // what ManageTime would read right now
 // Called once per presented frame (BoxBlit). The first present after each
 // Timer_FixedDtAdvance() is free (it is the main-loop render the tick already paid
 // for); every additional present in the same tick steps the virtual clock by dt_ms.
@@ -43,6 +45,13 @@ S32 Timer_FixedDtActive();           // non-zero while fixed-dt is armed (guards
 // deadlocking on a TimerRefHR deadline. Inert until the first tick advance, so boot
 // presents do not move the clock. Non-fixed-dt runs are byte-for-byte unaffected.
 void Timer_FixedDtPresent();
+// Mark the next present as an overlay refresh rather than a simulation frame, so it does
+// not step the virtual clock. The console redraws every frame while it is open so typing
+// is visible (SOURCES/INPUT.CPP); without this that redraw is an extra present and the
+// game clock runs at twice the rate for as long as the console is up. Measured in a real
+// recorded session: 16 ms a tick until the console opened, 32 ms a tick after it.
+// Consumed by the next Timer_FixedDtPresent(). Inert outside fixed-dt.
+void Timer_FixedDtOverlayPresent();
 // Step the virtual clock by dt_ms for a non-presenting busy-wait. Some loops (the music
 // volume fades in MUSIC.CPP) spin only on ManageTime() with no frame present, waiting for
 // TimerRefHR to cross a deadline; under fixed-dt neither the tick hook nor a present fires

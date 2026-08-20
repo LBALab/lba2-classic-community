@@ -19,6 +19,17 @@ add_executable(test_input_suppression
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT_FLOW.CPP)
 
+# The other direction: which keys carry a slot, and which slot a key carries.
+# Driven through the real GetInput() as the table test is, because the claim
+# worth pinning is that the two directions agree rather than that either is
+# self-consistent.
+add_executable(test_input_reverse
+    test_input_reverse.cpp
+    held_keys.cpp
+    ${CMAKE_SOURCE_DIR}/SOURCES/INPUT_BINDINGS.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT_FLOW.CPP)
+
 # Bindings through the config file, on a temp cfg in the test's own directory.
 # SOURCES/INPUT.CPP still holds the polling loop, so this one carries the stubs.
 add_executable(test_input_config
@@ -40,7 +51,7 @@ add_executable(test_input_config
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ITOA.CPP)
 
-foreach(target test_input_bindings test_input_suppression test_input_config)
+foreach(target test_input_bindings test_input_suppression test_input_reverse test_input_config)
     target_include_directories(${target} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_SOURCE_DIR}/LIB386/H

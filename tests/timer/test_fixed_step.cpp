@@ -292,6 +292,48 @@ static void test_fixed_dt_present_first_free_then_steps(void) {
     ASSERT_EQ_UINT(base + 64, TimerSystemHR);
 }
 
+/* The console redraws every frame while it is open (SOURCES/INPUT.CPP), which is a second
+ * present in a tick that already renders one. Counted as a frame it doubles the virtual
+ * clock rate for as long as the console is up, which is how a recorded session came to run
+ * its last 160 ticks at 32 ms each and diverge from its own replay. */
+static void test_fixed_dt_overlay_present_does_not_move_the_clock(void) {
+    Timer_EnableFixedDt(16);
+    ManageTime();
+    U32 base = TimerSystemHR;
+
+    Timer_FixedDtAdvance(); /* one tick: +16, arms the free present */
+    ManageTime();
+    ASSERT_EQ_UINT(base + 16, TimerSystemHR);
+
+    /* The overlay refresh comes first in the frame, before the main-loop render. It must
+     * not step the clock. */
+    Timer_FixedDtOverlayPresent();
+    Timer_FixedDtPresent();
+    ManageTime();
+    ASSERT_EQ_UINT(base + 16, TimerSystemHR);
+
+    /* And it must not have spent the tick's free present either, or the render that
+     * follows pays the step the overlay dodged and the tick still costs 32. This is the
+     * case that separates a fix from a fix that moves the bug one line down. */
+    Timer_FixedDtPresent();
+    ManageTime();
+    ASSERT_EQ_UINT(base + 16, TimerSystemHR);
+
+    /* A real modal present in the same tick still steps, so nothing that relied on the
+     * clock moving inside an inner loop is affected. */
+    Timer_FixedDtPresent();
+    ManageTime();
+    ASSERT_EQ_UINT(base + 32, TimerSystemHR);
+
+    /* Two ticks with the console up cost exactly two ticks. */
+    Timer_FixedDtAdvance();
+    Timer_FixedDtOverlayPresent();
+    Timer_FixedDtPresent(); /* console */
+    Timer_FixedDtPresent(); /* main-loop render, free */
+    ManageTime();
+    ASSERT_EQ_UINT(base + 48, TimerSystemHR);
+}
+
 static void test_fixed_dt_pump_steps_every_call(void) {
     Timer_EnableFixedDt(16);
     ManageTime();
@@ -326,6 +368,7 @@ int main(void) {
     RUN_TEST(test_plan_sim_steps_frame_invariance);
     RUN_TEST(test_force_step_if_pending);
     RUN_TEST(test_fixed_dt_present_first_free_then_steps);
+    RUN_TEST(test_fixed_dt_overlay_present_does_not_move_the_clock);
     RUN_TEST(test_fixed_dt_pump_steps_every_call);
     TEST_SUMMARY();
     return test_failures != 0;

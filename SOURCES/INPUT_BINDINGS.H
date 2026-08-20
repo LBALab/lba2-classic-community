@@ -67,4 +67,45 @@ extern void InitInput(void);
 extern void RestoreInput(void);
 //-------------------------------------------------------------------------
 
+// The other direction: which keys carry a slot, and which slot a key carries.
+//
+// InitInput folds the two tables into the flat (key, mask) array GetInput scans,
+// which answers "is this slot held" and nothing else. Three readers want the
+// question the other way round and each does it by hand today: the key-config
+// screen indexes DefKeys positionally to say what a slot is bound to, a profile
+// system would need the same to name a binding, and anything re-expressing an
+// action as a key press needs a key to press.
+//
+// Slot indices run 0..MAX_INPUT_SLOTS-1 and cover the spells at 32-35, which the
+// combined table stops short of: they have no Input bit (see INPUT_TABLE_SLOTS
+// in the .CPP) but they are bound the same way and PERSO.CPP polls them with the
+// same OR of four keys. The reverse direction has no reason to inherit that
+// ceiling, so it does not.
+
+// Keys bound to `slot`, written to `out` in the order the forward fold reads
+// them: keyboard Key1, keyboard Key2, pad Key1, pad Key2, skipping unbound
+// zeroes. Returns how many were written, so 0 means the slot cannot be
+// expressed as a key press at all.
+extern S32 Bindings_KeysForSlot(S32 slot, U32 *out, S32 max);
+
+// The slot `key` is bound to, or -1 for a key no slot claims. The first match in
+// slot order when a table binds one key twice, which Bindings_CheckReversible
+// is what refuses.
+extern S32 Bindings_SlotForKey(U32 key);
+
+// Whether the live tables can be read backwards without changing meaning, which
+// is not a property the forward direction needs and not one a cfg guarantees.
+// Two ways it fails, and each is a different repair, so they are reported apart:
+//
+//   BINDINGS_REVERSE_SHARED   one key on two slots, so pressing it for the slot
+//                             that is held also raises the slot that is not.
+//   BINDINGS_REVERSE_UNBOUND  a slot with all four keys zero, so a held slot has
+//                             no key to press.
+//
+// `badSlot` and `badKey` receive the first offender, either may be NULL.
+#define BINDINGS_REVERSE_OK 0
+#define BINDINGS_REVERSE_SHARED 1
+#define BINDINGS_REVERSE_UNBOUND 2
+extern S32 Bindings_CheckReversible(S32 *badSlot, U32 *badKey);
+
 #endif // INPUT_BINDINGS_H

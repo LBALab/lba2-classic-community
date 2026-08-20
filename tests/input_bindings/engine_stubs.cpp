@@ -31,6 +31,9 @@ U32 ModeDesiredY = 480;
 extern "C" {
 void BoxStaticAdd(S32, S32, S32, S32) {}
 void BoxUpdate(void) {}
+/* The console's redraw marks itself as an overlay so it does not step the fixed-dt
+   clock; the clock itself is not linked here. tests/timer covers the behaviour. */
+void Timer_FixedDtOverlayPresent(void) {}
 
 int Console_IsOpen(void) { return 0; }
 void Console_Update(void) {}
