@@ -363,7 +363,7 @@ static void cmd_polyrec(int argc, const char *argv[]) {
 #endif
 
 /* Session recording (docs/RECORDING.md).
-   rec start [path] | rec stop | rec play [path] | rec info [path]
+   rec start [path] [verbose] | rec stop | rec play [path] | rec info [path]
 
    The path is optional at both ends, which is what makes this a loop somebody can drive
    rather than a pair of commands with filenames to keep track of: `rec start` names the
@@ -380,10 +380,30 @@ static void cmd_rec(int argc, const char *argv[]) {
            name in the recordings folder, and with no argument at all there is nothing
            else to report. The argument is still what a failure names, because on that
            side there is no resolved path to point at. */
-        const char *asked = (argc >= 3) ? argv[2] : NULL;
-        int started = Record_Start(asked);
+        const char *asked = NULL;
+        int verbose = 0;
+        int started;
+        int i;
+        /* A word in any position rather than a flag in a fixed one: the console splits
+           a line on spaces and has no option parser, so `rec start verbose` and
+           `rec start walk.rec verbose` both have to read. The cost is that a recording
+           cannot be called `verbose`, which is a name nobody wants over a word that
+           says what it does. */
+        for (i = 2; i < argc; i++) {
+            if (!strcmp(argv[i], "verbose"))
+                verbose = 1;
+            else if (asked == NULL)
+                asked = argv[i];
+        }
+        started = Record_Start(asked, verbose);
         Console_Print(started ? "rec: recording to %s" : "rec: cannot record to %s",
                       started ? Record_Path() : (asked ? asked : "the recordings folder"));
+        /* Said here rather than left to the one-off line the recorder prints on its
+           first tick: that one goes to stderr, and a player who typed this into the
+           console is not reading stderr. */
+        if (started && verbose)
+            Console_Print("rec: verbose telemetry on; every value the digest mixes, "
+                          "every tick");
         return;
     }
     if (!strcmp(argv[1], "stop")) {
@@ -410,7 +430,7 @@ static void cmd_rec(int argc, const char *argv[]) {
         Record_Report(argc >= 3 ? argv[2] : NULL);
         return;
     }
-    Console_Print("rec: start [path] | stop | play [path] | info [path]");
+    Console_Print("rec: start [path] [verbose] | stop | play [path] | info [path]");
 }
 
 /* dumpstate [path]: the JSON snapshot --dump-state writes, on demand. The flag
@@ -2416,9 +2436,12 @@ void Console_RegisterAll(void) {
                               "polyrec_<time>.lba2polyrec under shoot/.");
 #endif
     Console_RegisterCommandEx("rec", cmd_rec, "Record a session, or replay one",
-                              "rec start [path] | rec stop | rec play [path] | rec info [path]",
+                              "rec start [path] [verbose] | rec stop | rec play [path] | rec "
+                              "info [path]",
                               "Without a path, `start` names the session after the time of day "
-                              "under recordings/ and `play` takes the last one recorded.");
+                              "under recordings/ and `play` takes the last one recorded. "
+                              "`verbose` records every value the state digest mixes, so a "
+                              "divergence names the field and not only the tick.");
     Console_RegisterCommandEx("dumpstate", cmd_dumpstate, "Write the engine state as JSON",
                               "dumpstate [path]",
                               "Same snapshot as --dump-state, on demand rather than once at exit. "

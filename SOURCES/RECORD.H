@@ -26,7 +26,12 @@ void Record_ClockHook(U32 *now);
 /* Control_TickHook(): one state hash per tick, the recording's own oracle. */
 void Record_TickHook(void);
 
-int Record_Start(const char *path);
+/* `verbose` records the telemetry --verbose asks for: every value the digest mixes,
+   every tick, so a divergence names the field rather than only the tick. It costs a few
+   kilobytes a tick, so it belongs to the session that asked for it rather than to the
+   run -- a player who has just seen the bug can start a diagnostic recording without
+   relaunching. */
+int Record_Start(const char *path, int verbose);
 int Record_Stop(void);
 int Record_Play(const char *path);
 void Record_CommandHook(const char *line);
