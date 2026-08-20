@@ -91,6 +91,15 @@ record_and_replay() { # record_and_replay <label> [extra record args...]
     *"numeric.long_double_bits="*) ;;
     *) fail "$label: the header does not declare numeric.long_double_bits" ;;
     esac
+    # Whether audio came up is a simulation input rather than a presentation detail: the
+    # ambience pan is drawn only `if (!IsSamplePlaying(...))`, from the one stream actor
+    # behaviour draws from, and a dialogue with the text off runs until the voice sample
+    # ends. Asserted as 0 rather than merely present, because every run in this file is
+    # headless and a line that reported the flag instead of the driver would say so.
+    case "$head" in
+    *"mode.audio=0"*) ;;
+    *) fail "$label: the header does not declare mode.audio=0, and this run is headless" ;;
+    esac
 
     # More ticks than the recording holds, so the stream runs out and the summary
     # prints. Ending on --tick first means no summary at all, and a run that reported
@@ -302,4 +311,67 @@ case "$bout" in
     ;;
 esac
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change"
+# The other half of the mode.audio check above. That one shows the line is written; this
+# shows the replay acts on it, which is the half that decides whether a recording made
+# with sound is caught or reported as the simulation diverging. With no sample driver
+# `IsSamplePlaying` is an unconditional no rather than a differently timed yes, so the
+# two runs take different branches and the line is the only warning there is.
+#
+# Flipping the recorded answer is what shows the comparison can fail. One byte, so the
+# stream behind the header is untouched and the replay still runs to the end.
+flipped="$(user_dir)/audio-flipped.rec"
+python3 - "$rec" "$flipped" <<'EOF' || fail "audio: could not flip the recorded audio state"
+import sys
+d = open(sys.argv[1], "rb").read()
+n = d.replace(b"mode.audio=0", b"mode.audio=1", 1)
+assert len(n) == len(d) and n != d, "the flip has to be one byte and has to change something"
+open(sys.argv[2], "wb").write(n)
+EOF
+
+aout="$(ctl --verbose --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$flipped" \
+    --tick 400 --exit 2>&1)" ||
+    fail "audio: replay run exited non-zero ($?): hang or crash"
+rm -f "$flipped"
+
+case "$aout" in
+*"mode differs: mode.audio=1"*) ;;
+*)
+    fail "audio: a recording made with sound replayed silently without a word; $(
+        printf '%s\n' "$aout" | grep -m1 'mode differs' || echo 'no mode line differed at all')"
+    ;;
+esac
+
+# Neither arm above can tell the engine writes anything but 0. Every other run in this
+# file is headless, so `mode.audio=0` is also exactly what an accessor stuck at 0 would
+# produce, and the flip is an edit to a file rather than something the engine said. This
+# one opens a real sample device and asks for the other answer.
+#
+# Not `ctl`, which pins --headless, and --headless is the thing under test. SDL's dummy
+# drivers give a device without needing a screen or a speaker. A box that will not start
+# SDL with them is not a recording defect, so skip, and name the reason so a skip cannot
+# quietly become the normal outcome.
+withaudio="$(user_dir)/with-audio.rec"
+rm -f "$withaudio"
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+    timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" --no-autosave --load "$LBA2_TEST_SAVE" \
+    --record "$withaudio" --tick 60 --exit >/dev/null 2>&1 ||
+    skip "SDL would not start under its dummy video and audio drivers, so no recording can be made with a device up"
+[ -s "$withaudio" ] || skip "the run with a sample device wrote no recording"
+
+grep -aq 'mode.audio=1' "$withaudio" ||
+    fail "audio: a run with a sample device up still recorded mode.audio=0, so the line reports something other than the driver"
+
+# The case the line exists for, end to end. Only the mode line is asserted: this
+# recording pins no step, so what it diverges on afterwards is the clock rather than the
+# audio, and the warning is the part that has to arrive either way.
+wout="$(ctl --replay "$withaudio" --tick 200 --exit 2>&1 || true)"
+rm -f "$withaudio"
+case "$wout" in
+*"mode differs: mode.audio=1"*) ;;
+*)
+    fail "audio: a recording made with a device up replayed headless without a word; $(
+        printf '%s\n' "$wout" | grep -m1 'mode differs' || echo 'no mode line differed at all')"
+    ;;
+esac
+
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways"

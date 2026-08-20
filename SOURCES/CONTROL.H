@@ -107,6 +107,13 @@ int Control_GetVSync(void);
    this flag. */
 int Control_NoAudio(void);
 
+/* Whether a sample driver is actually up, which is not the same question as the flag
+   above: --headless implies --no-audio, and InitSampleDriver can fail on a host with no
+   audio device and let the run continue silently (SOURCES/INITADEL.C). All three land in
+   the same place, and the simulation reads that place, so a recording carries this
+   answer rather than the flag that usually produces it. */
+int Control_AudioActive(void);
+
 /* Set up the boot path and arm the tick hook. Call once, instead of MainGameMenu(),
    when active: applies --load (InitGame(-1) + ChangeCube while FlagLoadGame is set)
    or a fresh InitGame(1), then arms Control_TickHook. Returns 1 on success (caller
