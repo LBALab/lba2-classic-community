@@ -108,6 +108,24 @@ void Timer_EnableFixedDt(U32 dt_ms) {
     FixedDtSkipPresent = 0;
 }
 
+void Timer_DisableFixedDt(void) {
+    if (!FixedDtActive)
+        return;
+    FixedDtActive = 0;
+    FixedDtTicking = 0;
+    FixedDtSkipPresent = 0;
+    FixedDtOverlayPresent = 0;
+    // Resync LastTime to the wall clock before any of it can be banked. The two clocks
+    // have been running at different rates since the arm -- the virtual one moves dt per
+    // frame, the wall one moves in wall time -- so by now they are far apart, and the
+    // first ManageTime() after this would bank the whole difference into TimerRefHR:
+    // forwards if the wall clock is ahead, and much further if it is behind, since the
+    // subtraction is unsigned. Re-anchor the FPS window for the same reason.
+    LastTime = SDL_GetTicks();
+    LastEvaluate = LastTime;
+    CmptFrame = 0;
+}
+
 /* The expression ManageTime reads, evaluated now. Recording SDL_GetTicks() directly is
    wrong under fixed-dt, where the game runs on the virtual clock and the wall clock is
    unrelated to it. */

@@ -531,4 +531,54 @@ play_xz="$(hero_xz "$movedir/play.json")" || fail "movement: could not read the 
 [ "$play_xz" = "$rec_xz" ] ||
     fail "movement: the recording left the hero at $rec_xz and the replay left him at $play_xz — the digest matched every tick, so this is the replay ending somewhere else, not diverging"
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; a recorded walk moved the hero and the replay walked it again"
+# Giving the step back.
+#
+# A mid-session `rec start` pins the simulation step, and a pinned step advances game time
+# by dt per rendered frame rather than by wall clock. The recorder paces frames to match
+# only while it is actually recording, so a session that kept the step afterwards ran at
+# whatever rate it rendered at: measured headless, 1.00x real time before a recording and
+# 3.12x after one. On a vsynced 60 Hz window that reads as roughly right and on a 144 Hz
+# one as more than twice too fast, which is the worse of the two -- it looks like the game,
+# only wrong.
+#
+# A run given --fixed-dt is the other case and must not be touched: there the step belongs
+# to the whole run and to whoever asked for it. So both directions are asserted here, and
+# the arm is the reason: a release that fired for everyone would silently unpin every
+# harness fixture in this file.
+#
+# `rec info` reports the live run's mode, which makes this a question about a printed
+# number rather than about elapsed time.
+stepdir="$(mktemp -d)"
+trap 'rm -rf "$here" "$loopdir" "$emptydir" "$movedir" "$stepdir"' EXIT
+
+# Through a file rather than a pipeline. The suite does not set `pipefail`, so a pipeline
+# carries the status of its last command -- `tr` here, which succeeds whatever the engine
+# did -- and a `|| fail ... exited non-zero` hung off one can never fire. Run, check, then
+# read.
+step_after_stop() { # step_after_stop <extra ctl args...>
+    LBA2_USER_DIR="$stepdir" ctl --load "$movesave" "$@" \
+        --exec-at 20 "rec start" --exec-at 300 "rec stop" --exec-at 320 "rec info" \
+        --tick 400 --exit > "$stepdir/out.txt" 2>&1 || return $?
+    # The last one: `rec stop` prints this same block itself, before it stops.
+    grep 'mode.fixed_dt=' "$stepdir/out.txt" | tail -1 | tr -d ' '
+}
+
+recarmed="$(step_after_stop)" ||
+    fail "step: the recorder-armed run exited non-zero ($?) — hang or crash"
+case "$recarmed" in
+*"mode.fixed_dt=0") ;;
+*)
+    fail "step: the recorder pinned the step and still held it after rec stop ($recarmed) — the session keeps running at frame rate instead of wall clock"
+    ;;
+esac
+
+flagarmed="$(step_after_stop --fixed-dt 16)" ||
+    fail "step: the flag-armed run exited non-zero ($?) — hang or crash"
+case "$flagarmed" in
+*"mode.fixed_dt=16") ;;
+*)
+    fail "step: --fixed-dt 16 was given and rec stop unpinned it anyway ($flagarmed) — the recorder is releasing a step it did not take"
+    ;;
+esac
+
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone"

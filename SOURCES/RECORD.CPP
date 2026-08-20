@@ -273,6 +273,10 @@ static unsigned s_reloadClock = 0;
    recorded under `--fixed-dt 20` reproduces on 20 and on nothing else, and the default
    below would silently replay it at a different rate. */
 static S32 s_reloadDt = 0;
+/* Whether the step in force is one the recorder armed. Only then is it the recorder's to
+   put back: a run given --fixed-dt is pinned for its whole length by something that is
+   not this. */
+static int s_recArmedDt = 0;
 /* Frame pacing while recording. A pinned step makes game time advance by a constant
    per frame, and the engine has no frame limiter, so without holding each frame back
    the session runs at whatever rate it renders at: 600 ticks of a 16 ms step took
@@ -1006,8 +1010,10 @@ static void record_reload_issue(void) {
      *
      * The replay takes the step out of the recording's header rather than the default,
      * so a session played at some other step replays at that one. */
-    if (!Timer_FixedDtActive())
+    if (!Timer_FixedDtActive()) {
         Timer_EnableFixedDt((U32)(s_reloadDt > 0 ? s_reloadDt : REC_DEFAULT_DT));
+        s_recArmedDt = 1;
+    }
 
     /* Before the load, because the load is what reads it. A savegame restores the
        fields the hash covers and re-derives the rest, and some of what it re-derives is
@@ -1206,6 +1212,34 @@ int Record_Start(const char *path) {
     return 1;
 }
 
+/* Give the simulation step back, if it was the recorder that took it.
+ *
+ * A pinned step advances game time by dt per rendered frame rather than by wall clock,
+ * and the recorder paces frames to match only while it is recording. So a session that
+ * kept the step after `rec stop` ran at whatever rate it rendered at: measured headless,
+ * 1.00x real time before a recording and 3.12x after one. On a vsynced 60 Hz window it
+ * would read as roughly right and on a 144 Hz one as more than twice too fast, which is
+ * the worse failure of the two -- it looks like the game, only wrong.
+ *
+ * Not for a run given --fixed-dt: there the step belongs to the whole run and to whoever
+ * asked for it, and this is only ever putting back what a mid-session `rec start` took. */
+static void record_release_step(void) {
+    /* The frame clock belongs to the session rather than to the step, and it has to go
+       first. While fixed-dt is armed Record_ClockHook returns before ever reading it, so
+       a stale one is invisible -- until the step is handed back, and then it pins
+       ManageTime at whatever reading the session ended on and game time stops dead.
+       Measured on the way to this: 3.12x real time before clearing it, 0.00x after
+       handing back the step without. Cleared for every session, armed or not, so the
+       two cannot come apart again. */
+    s_frameClock = 0;
+    s_frameClockValid = 0;
+
+    if (!s_recArmedDt)
+        return;
+    s_recArmedDt = 0;
+    Timer_DisableFixedDt();
+}
+
 int Record_Stop(void) {
     int wasRecording = s_recording;
     char endPath[ADELINE_MAX_PATH];
@@ -1219,12 +1253,16 @@ int Record_Stop(void) {
         else
             s_reloadState = 0;
         s_beginAtPoll = 0;
-        if (!s_f)
+        if (!s_f) {
+            record_release_step();
             return 1;
+        }
     }
 
-    if (!s_f)
+    if (!s_f) {
+        record_release_step();
         return 0;
+    }
 
     /* A second snapshot where the recording ends, on the same mechanics as the one at
        the start. The per-tick hash says which tick a replay stopped matching; this says
@@ -1254,6 +1292,7 @@ int Record_Stop(void) {
     s_snapInline = 0;
     s_recPath[0] = 0;
     bindings_restore();
+    record_release_step();
     return 1;
 }
 

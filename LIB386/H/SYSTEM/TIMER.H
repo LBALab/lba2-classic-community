@@ -33,7 +33,13 @@ void SetTimerHR(U32 time);
 // carries no default step (the caller supplies it). Default builds and any run that
 // does not call Timer_EnableFixedDt() are byte-for-byte unaffected. See docs/CONTROL.md.
 void Timer_EnableFixedDt(U32 dt_ms); // arm fixed-dt; seeds the virtual clock to now
-void Timer_FixedDtAdvance();         // advance the virtual clock by dt_ms (once per tick)
+// Hand the clock back to SDL_GetTicks(). For a step armed mid-session by something that
+// ends -- a recording -- rather than by a flag that owns the whole run: without it the
+// session keeps advancing game time by dt per frame with nothing pacing it, so the game
+// runs at whatever rate it renders at for as long as it lasts. TimerRefHR is left where
+// it has reached; only the source of new time changes. Inert if not armed.
+void Timer_DisableFixedDt(void);
+void Timer_FixedDtAdvance(); // advance the virtual clock by dt_ms (once per tick)
 S32 Timer_FixedDtActive();
 S32 Timer_FixedDtValue(void); // armed step in ms, 0 when not armed
 U32 Timer_ClockSource(void);  // what ManageTime would read right now
