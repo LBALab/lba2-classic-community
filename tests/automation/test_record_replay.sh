@@ -210,9 +210,11 @@ here="$(mktemp -d)"
 # The alternative, which this replaced, was a fresh trap per arm repeating every
 # directory before it: seven of them by the end, each a chance to drop one. One was
 # dropped, and the leak it left is invisible to every check the suite runs.
-CLEAN="$here"
-clean_add() { CLEAN="$CLEAN $1"; }
-trap 'rm -rf $CLEAN' EXIT
+# An array, and quoted in the trap. A plain string would word-split, so a TMPDIR with a
+# space in it would hand `rm -rf` the pieces rather than the path.
+CLEAN=("$here")
+clean_add() { CLEAN+=("$1"); }
+trap 'rm -rf "${CLEAN[@]}"' EXIT
 
 (cd "$here" && ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$bare" --tick 200 --exit) \
     >/dev/null 2>&1 ||
@@ -747,12 +749,14 @@ rate_of() { # rate_of <label> [extra args...] -- game seconds per wall second, o
     local ud="$ratedir/$label"
     mkdir -p "$ud"
     local t0 t1
-    t0="$(date +%s.%N)"
+    # python rather than `date +%s.%N`: %N is GNU-only, and a BSD date passes the literal
+    # N through to the arithmetic below, where the arm fails as though the run had hung.
+    t0="$(python3 -c 'import time; print(time.time())')"
     LBA2_USER_DIR="$ud" ctl --load "$LBA2_TEST_SAVE" \
         --exec-at 20 "dumpstate $ud/before.json" \
         --exec-at 40 "key up 800" \
         --tick 900 --dump-state "$ud/after.json" --exit "$@" >/dev/null 2>&1 || return 1
-    t1="$(date +%s.%N)"
+    t1="$(python3 -c 'import time; print(time.time())')"
     python3 -c "
 import json, sys
 b = json.load(open('$ud/before.json'))['timer_ref_hr']
@@ -771,14 +775,16 @@ rate_ctl="$(rate_of control)" ||
 rate_rec="$(rate_of recording --record "$ratedir/recording/s.rec")" ||
     fail "rate: the recording run exited non-zero or dumped no clock — hang, crash, or a stopped clock"
 
-# The band is wide on purpose. It is sized to separate real time from a pinned step
-# (3.49x), not to measure the host: this suite shares a machine with whatever else is
-# running on it, and boot is inside the wall time while it is outside the game time, so
-# the honest floor is well under 1.
+# The band is wide on purpose, and the floor especially. It has one job -- separate real
+# time from a pinned step, which reads about 3.5 -- and two reasons not to be tight: boot
+# sits inside the wall time while it is outside the game time, and this suite shares a
+# machine with whatever else is running on it. A tight floor would fail the control arm on
+# a busy host and say nothing about recording. The ratio check below is the part that is
+# actually about the recorder, and it is not affected by either.
 for pair in "control:$rate_ctl" "recording:$rate_rec"; do
     lbl="${pair%%:*}"
     val="${pair#*:}"
-    ok="$(python3 -c "print(1 if 0.5 <= $val <= 1.6 else 0)")"
+    ok="$(python3 -c "print(1 if 0.25 <= $val <= 2.0 else 0)")"
     [ "$ok" = 1 ] ||
         fail "rate: the $lbl run advanced ${val}s of game time per wall second, which is not real time — a step pinned here would read about 3.5"
 done

@@ -1817,9 +1817,12 @@ S32 Control_StateValueCount(void) {
         static S32 said = 0;
         if (!said) {
             said = 1;
+            /* No source path in the text: a player reads this one too, and a string
+               naming the repository is what rule 7 of check-arch is for. The comment on
+               TELE_PER_OBJ above says where to raise it. */
             fprintf(stderr,
-                    "[control] telemetry array full: %d value(s) not collected. "
-                    "Raise TELE_PER_OBJ/TELE_MAX in SOURCES/CONTROL.CPP.\n",
+                    "[control] telemetry array full: %d value(s) not collected, so a "
+                    "divergence report will not name every field that moved\n",
                     (int)s_teleDropped);
         }
     }

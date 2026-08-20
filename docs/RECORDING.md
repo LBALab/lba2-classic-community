@@ -114,9 +114,11 @@ Two are closed, both invisible under a pinned step by construction:
   reproduce, not only a pinned one. Gated on the step, a loose session asks the mixer instead, whose
   clock no replay reproduces. See "Audio used to move the answer" below.
 
-One is open: `InitAnim` stamps the hero's animation anchors during boot, from wall-clock time, and
-the load then moves the game clock without moving them. Every other actor is stamped from the
-restored clock and matches exactly.
+A third was the same shape and is closed with them: `InitAnim` stamps the hero's animation anchors
+during boot, from wall-clock time, and `LoadGame` installs the save's clock afterwards. Every other
+actor is stamped after that line and comes out on the restored reading, so the hero alone carried
+whatever the wall clock said between process start and scene init. `LoadGame` now puts him on the
+restored clock with his frame interval intact.
 
 Reproducing the clock more faithfully is finished as a direction. Storing one sample per
 `ManageTime` call was built and measured and makes replays *worse*. What is left is

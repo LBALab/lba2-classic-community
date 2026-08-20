@@ -753,12 +753,16 @@ S32 LoadGame(void) {
     {
         T_OBJ_3D *heroanim = &ListObjet[NUM_PERSO].Obj;
 
-        if (heroanim->LastTimer != TimerRefHR) {
-            S32 shift = (S32)((U32)TimerRefHR - heroanim->LastTimer);
+        /* Unsigned throughout. The shift is a difference between two clock readings and
+           wraps rather than overflowing, where routing it through S32 would be undefined
+           for the large deltas this can legitimately carry: the gap between two saved
+           baselines runs to tens of minutes in either direction. */
+        U32 shift = (U32)TimerRefHR - heroanim->LastTimer;
 
-            heroanim->LastTimer = (U32)((S32)heroanim->LastTimer + shift);
-            heroanim->NextTimer = (U32)((S32)heroanim->NextTimer + shift);
-            heroanim->Time = (U32)((S32)heroanim->Time + shift);
+        if (shift) {
+            heroanim->LastTimer += shift;
+            heroanim->NextTimer += shift;
+            heroanim->Time += shift;
         }
     }
 

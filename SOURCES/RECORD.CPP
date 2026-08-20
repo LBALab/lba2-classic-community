@@ -111,15 +111,15 @@ extern "C" {
    up sessions that work to protect sessions that never did. */
 #define REC_VERSION_MIN 9
 
-/* Which set of fields Control_StateDigest hashes. Not REC_VERSION: the rule above puts a
-   change to what the engine computes in a third case that the format version does not
-   cover, because the bytes still mean what they meant and the reader can still read them.
-   What such a change does break is the comparison, and silently -- a recording whose
-   digests were computed over fewer fields mismatches on tick 0 and reads as a session
-   that diverged immediately. Declaring it puts that in the mode diff beside the
-   `numeric.` lines, where a replay names what it disagrees about instead of failing as
-   though the run came apart. Move it whenever a field is added to or removed from the
-   digest. */
+/* The header declares CONTROL_DIGEST_VERSION (SOURCES/CONTROL.H), which is the set of
+   fields Control_StateDigest hashes, and it is deliberately not REC_VERSION: the rule
+   above puts a change to what the engine computes in a third case the format version does
+   not cover, because the bytes still mean what they meant and the reader can still read
+   them. What such a change does break is the comparison, and silently -- a recording whose
+   digests were computed over fewer fields mismatches on tick 0 and reads as a session that
+   diverged immediately. Declaring it puts that in the mode diff beside the `numeric.`
+   lines, where a replay names what it disagrees about instead of failing as though the run
+   came apart. */
 
 /* Every buffer the text header passes through, named once so growing it is one decision
    rather than five. A real header runs about 1.6 KB: the mode block, the settings, and
@@ -1246,6 +1246,12 @@ static int record_begin(const char *path, int haveSnapshot) {
        just a pinned one: a loose recording needs it more, having nothing else holding the
        two ends together. */
     Timer_SetSimAudioClock(1);
+    /* Back to this build's field set. A replay lowers it to whatever the file it opened
+       declared, and a session that played an old recording and then started a new one
+       would otherwise write numeric.digest=2 in the header over hashes computed the old
+       way -- a file that lies about itself, and mismatches on tick 0 of its own replay
+       forever. */
+    Control_SetDigestVersion(CONTROL_DIGEST_VERSION);
     s_recording = 1;
     return 1;
 }
