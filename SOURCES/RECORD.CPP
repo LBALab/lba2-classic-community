@@ -586,7 +586,7 @@ static void record_reload_issue(void) {
 static void record_reload_landed(void) {
     Control_ClearLoadFlag();
 
-    /* Deliberately no reseed here. ChangeCube is the engine's only srand and outside
+    /* Deliberately no reseed here. ChangeCube is the engine's only Rnd_Seed and outside
        the demo reel it seeds from TimerRefHR (SOURCES/OBJECT.CPP), so two ends that
        reach the cube change at different readings draw different streams. Pinning the
        clock before the load settles that at its cause: both ends reach the cube change

@@ -4762,7 +4762,7 @@ S32 SlideShow(void) {
 // Enter "canned demo" mode (SHIFT+D from the main menu, the idle attract trigger, the
 // SlideDemo debug entry, and the harness --demo flag all funnel through here). The
 // actual RNG-seed pinning happens in ChangeCube via Demo_RngSeed(DemoSlide, ..., NewCube)
-// -- while DemoSlide is set, the cube number is the srand seed instead of TimerRefHR,
+// -- while DemoSlide is set, the cube number is the seed instead of TimerRefHR,
 // so the reel reproduces on every host regardless of wall-clock pace. The earlier
 // "zero TimerRefHR here" approach (PR #249) only worked under --fixed-dt because
 // ManageTime() runs between this call and the first ChangeCube on the SHIFT+D /

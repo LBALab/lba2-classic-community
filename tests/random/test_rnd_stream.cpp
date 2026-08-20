@@ -54,7 +54,14 @@ struct Vector {
     U32 digest; /* of the 100000 draws after those eight */
 };
 
-/* Generated from glibc and checked against it by the live comparison below. */
+/* Generated from glibc and checked against it by the live comparison below.
+ *
+ * If you are here because you changed the generator and this failed: that is the
+ * test working. Regenerating these numbers is not the whole job. A recording
+ * declares the stream it was made against by name, so Rnd_StreamName() in
+ * RANDOM.CPP has to change in the same commit, or recordings made against the old
+ * sequence will claim to be compatible with the new one and diverge silently on
+ * replay instead of saying why. */
 static const Vector VECTORS[] = {
     {0u,
      {1804289383, 846930886, 1681692777, 1714636915, 1957747793, 424238335, 719885386, 1649760492},
@@ -120,6 +127,21 @@ static void test_range(void) {
     ASSERT_EQ_INT(0, worst);
 }
 
+/* With no Rnd_Seed at all the stream reads as if seeded with 1, which is what a
+ * C program gets from rand() before any srand. Nothing seeds before the first
+ * ChangeCube, so this is the state the boot path actually draws from, including
+ * the menu plasma. Checked against the committed vector rather than against the
+ * system rand() so that it runs everywhere: the boot state is not a property to
+ * verify only on the one host that happens to have glibc. */
+static void test_unseeded_default(void) {
+    int i;
+    /* Deliberately no Rnd_Seed. Runs first, before any other test touches the
+     * module, which is what makes it a test of the initial state. */
+    ASSERT_EQ_UINT(1u, VECTORS[1].seed); /* pins the index this reads from */
+    for (i = 0; i < 8; i++)
+        ASSERT_EQ_INT(VECTORS[1].first[i], Rnd_Next());
+}
+
 #ifdef __GLIBC__
 /* The other oracle: the committed vector is glibc's own sequence.
  *
@@ -152,27 +174,11 @@ static void test_matches_system_glibc(void) {
     ASSERT_EQ_INT(0, (int)mismatches);
 }
 
-/* With no Rnd_Seed at all the stream reads as if seeded with 1, which is what a
- * C program gets from rand() before any srand. Nothing seeds before the first
- * ChangeCube, so this is the state the boot path actually draws from. */
-static void test_unseeded_default(void) {
-    /* Deliberately no Rnd_Seed here. Runs first, before any other test touches
-     * the module, which is what makes it a test of the initial state. */
-    S32 ours[8];
-    int i;
-    for (i = 0; i < 8; i++)
-        ours[i] = Rnd_Next();
-    srand(1);
-    for (i = 0; i < 8; i++)
-        ASSERT_EQ_INT(rand(), ours[i]);
-}
 #endif
 
 int main(void) {
-#ifdef __GLIBC__
     /* First, while the module is still untouched. */
     RUN_TEST(test_unseeded_default);
-#endif
     RUN_TEST(test_committed_vector);
     RUN_TEST(test_zero_seed_is_one);
     RUN_TEST(test_range);

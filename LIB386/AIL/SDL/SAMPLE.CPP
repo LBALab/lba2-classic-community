@@ -214,7 +214,7 @@ extern "C" S32 Timer_FixedDtActive(void);
  * runs on the device's clock and the game runs on a virtual one, so how far a sample has
  * got by a given tick depends on the host. The simulation reads this: SOURCES/AMBIANCE.CPP
  * only draws its random pan `if (!IsSamplePlaying(...))`, and that draw comes from the one
- * rand() stream actor behaviour uses. One draw either way and the next actor to reach
+ * random stream actor behaviour uses. One draw either way and the next actor to reach
  * TM_ANGLE_RND turns to a different angle. That is measured, not theorised: a recorded
  * session diverged from its own replay at tick 1410 on obj[11].Beta, and the same session
  * recorded with --no-audio replayed clean.
