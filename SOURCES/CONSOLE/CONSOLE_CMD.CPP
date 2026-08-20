@@ -450,6 +450,18 @@ static int console_parse_count(const char *s, long *out, long least) {
     return 1;
 }
 
+/* Parse a signed integer, rejecting trailing garbage. A mouse delta is signed, so it
+   cannot go through console_parse_count: `mouse -8 0` would be a bad count rather than a
+   leftward drag. */
+static int console_parse_signed(const char *s, long *out) {
+    char *end = NULL;
+    long v = strtol(s, &end, 10);
+    if (end == s || *end != '\0')
+        return 0;
+    *out = v;
+    return 1;
+}
+
 /* Resolve a `key` name or a raw scancode. Returns 0 for unknown, which is also the
    rejected scancode (SDL_SCANCODE_UNKNOWN), so callers can treat 0 as "no key".
    Shared by the `key` command and `ui askchoice --press`. */
@@ -1900,6 +1912,105 @@ static void cmd_camnudge(int argc, const char *argv[]) {
                   DbgCamNudgeFrames);
 }
 
+/* Bound on an injected mouse delta, in pixels a poll. */
+#define MOUSE_INJECT_MAX 10000
+
+/* mouse <dx> <dy> [polls] [buttons] | mouse off: move the mouse, as a device does.
+   Feeds the accumulator ManageMouse drains, so the analog camera, the recorder and the
+   menus all see an ordinary mouse. `buttons` is the Click mask (1 left, 2 right, 4
+   middle) held for the same span, and defaults to 2, because FlagMouseCameraDrag ships
+   on and the orbit only runs while the right button is down. `camnudge` is the shortcut
+   past all of this, straight to the nudge; this is the long way round on purpose. */
+static void cmd_mouse(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Usage: mouse <dx> <dy> [polls] [buttons] | mouse off");
+        Console_Print("Pixels per poll. Buttons: 1 left, 2 right, 4 middle (default 2).");
+        Console_Print("Polls are MyGetInput calls, the same clock `key` counts.");
+        return;
+    }
+    if (!strcasecmp(argv[1], "off")) {
+        Control_MouseClear();
+        Console_Print("mouse: cleared");
+        return;
+    }
+    if (argc < 3) {
+        Console_Print("mouse: want a dy as well (run `mouse` for the usage)");
+        return;
+    }
+
+    long dx = 0, dy = 0, polls = 1, buttons = 2;
+    if (!console_parse_signed(argv[1], &dx) || !console_parse_signed(argv[2], &dy)) {
+        Console_Print("mouse: bad delta (want two integers)");
+        return;
+    }
+    /* A screen's worth of pixels a poll is already absurd, and the accumulator this
+       feeds is an S32 that a held motion adds to on every poll: bound it here rather
+       than let a typo wrap it into a camera that orbits backwards. */
+    if (dx < -MOUSE_INJECT_MAX || dx > MOUSE_INJECT_MAX || dy < -MOUSE_INJECT_MAX ||
+        dy > MOUSE_INJECT_MAX) {
+        Console_Print("mouse: delta out of range (want -%d..%d pixels a poll)",
+                      MOUSE_INJECT_MAX, MOUSE_INJECT_MAX);
+        return;
+    }
+    if (argc >= 4 && !console_parse_count(argv[3], &polls, 1)) {
+        Console_Print("mouse: bad poll count '%s' (want a positive integer)", argv[3]);
+        return;
+    }
+    if (argc >= 5 && !console_parse_count(argv[4], &buttons, 0)) {
+        Console_Print("mouse: bad button mask '%s' (want a non-negative integer)", argv[4]);
+        return;
+    }
+
+    if (!Control_MouseMove((S32)dx, (S32)dy, (U32)buttons, (U32)polls)) {
+        Console_Print("mouse: could not schedule");
+        return;
+    }
+    Console_Print("mouse: (%ld, %ld) per poll for %ld poll(s), buttons 0x%lX (now %u)", dx, dy,
+                  polls, buttons, (unsigned)Control_KeyPollCount());
+}
+
+/* stick <x> <y> [polls] | stick off: hold the gamepad right stick, in SDL axis units
+   (-32767..32767, deadzone in JoystickDeadzone). Reports a pad present while it runs,
+   because the analog camera asks before it reads the axes. The left stick is not here:
+   it reaches the game as scancodes in the key table, which `key` already covers. */
+static void cmd_stick(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Usage: stick <x> <y> [polls] | stick off");
+        Console_Print("SDL axis units, -32767..32767. Right stick only (the left is keys).");
+        return;
+    }
+    if (!strcasecmp(argv[1], "off")) {
+        Control_StickClear();
+        Console_Print("stick: centred");
+        return;
+    }
+    if (argc < 3) {
+        Console_Print("stick: want a y as well (run `stick` for the usage)");
+        return;
+    }
+
+    long x = 0, y = 0, polls = 1;
+    if (!console_parse_signed(argv[1], &x) || !console_parse_signed(argv[2], &y)) {
+        Console_Print("stick: bad axis (want two integers)");
+        return;
+    }
+    if (x < -32767 || x > 32767 || y < -32767 || y > 32767) {
+        Console_Print("stick: axis out of range (want -32767..32767)");
+        return;
+    }
+    if (argc >= 4 && !console_parse_count(argv[3], &polls, 1)) {
+        Console_Print("stick: bad poll count '%s' (want a positive integer)", argv[3]);
+        return;
+    }
+
+    if (!Control_StickHold((S16)x, (S16)y, (U32)polls)) {
+        Console_Print("stick: could not schedule");
+        return;
+    }
+    Console_Print("stick: (%ld, %ld) for %ld poll(s) (now %u)", x, y, polls,
+                  (unsigned)Control_KeyPollCount());
+}
+
 /* inputflow [reset]: the per-boundary input counters (SYSTEM/INPUT_FLOW.H).
  *
  * One line per boundary, both sides of each, because the number that matters is
@@ -2371,6 +2482,20 @@ void Console_RegisterAll(void) {
                               "reports the gap: events against polled state, polled state against "
                               "action bits, action edges against frames the simulation stepped.");
 
+    Console_RegisterCommandEx("stick", cmd_stick, "Hold the gamepad right stick",
+                              "stick <x> <y> [polls] | stick off",
+                              "SDL axis units (-32767..32767) held for N input polls, with a "
+                              "pad reported present for as long as it runs, which is what the "
+                              "analog camera checks before it reads the axes. Right stick only: "
+                              "the left one reaches the game as scancodes, so `key` covers it.");
+    Console_RegisterCommandEx("mouse", cmd_mouse, "Move the mouse, as a device does",
+                              "mouse <dx> <dy> [polls] [buttons] | mouse off",
+                              "Pixels per poll into the accumulator ManageMouse drains, with "
+                              "the Click mask held over the same span (1 left, 2 right, 4 "
+                              "middle; default 2, which is what the drag orbit wants). Drives "
+                              "the analog camera through the mouse rather than past it, so a "
+                              "session recording carries the motion. `camnudge` is the shortcut "
+                              "straight to the nudge.");
     Console_RegisterCommandEx("camnudge", cmd_camnudge, "Inject a manual camera nudge (stick/mouse stand-in)",
                               "camnudge <dBeta> [dAlpha] [frames]",
                               "Feeds the same per-frame nudge the gamepad right stick and the mouse "

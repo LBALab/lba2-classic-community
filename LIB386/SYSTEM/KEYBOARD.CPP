@@ -44,6 +44,13 @@ __attribute__((weak)) void ApplyVirtualKeys(void) {}
 // ORs its mask into Input from MainLoop (PERSO.CPP), which a menu or dialogue
 // spinning in its own MyGetInput loop never reaches; every one of those loops
 // does pass through here.
+//
+// Keys are what it was named for and no longer all it carries: the harness's
+// mouse and right stick ride the same hook, because they want the same clock
+// (one application per poll) and the same window (after the devices have been
+// sampled and cleared, before anything reads them). Kept under the old name
+// rather than renamed, since the name is quoted across the input plans and the
+// recording research as the seam they were written against.
 void ApplyHarnessKeys(void);
 __attribute__((weak)) void ApplyHarnessKeys(void) {}
 

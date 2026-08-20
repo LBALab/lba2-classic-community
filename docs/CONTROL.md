@@ -143,7 +143,9 @@ let a single `--exec` line reproduce an interaction (position, quest flags, and 
 observability) that would otherwise need a specific playthrough save.
 
 **Driving the camera.** The Auto camera's analog orbit answers only to a mouse or a gamepad in
-front of the screen, which puts the whole free-camera path beyond the harness's reach.
+front of the screen, which puts the whole free-camera path beyond the harness's reach. Two
+commands reach it, at different depths, and which one you want depends on what you are testing.
+
 `camnudge` feeds the same per-frame nudge those devices feed, at the same point in the frame,
 and `camtrace` logs the camera's angle state on every follow-cam update. A camera bug
 that reads as "the view tore from one angle to another" becomes a scripted run with numbers:
@@ -155,6 +157,27 @@ lba2cc --headless --load mysave --fixed-dt 16 \
     --exec-at 30 "camnudge 40 0 10" --exec-at 100 "input left 60" \
     --exec-at 170 "camnudge 1 0 1" --tick 200 --exit
 ```
+
+`mouse` goes in one step further up, at the device: it adds to the accumulator `ManageMouse`
+drains and holds the `Click` mask over the same span, so the dead zone, the sensitivity, the
+drag gate and the recorder all see an ordinary mouse rather than a nudge that arrived from
+nowhere. The default config wants the right button held for the orbit, which is why the button
+mask defaults to 2.
+
+```bash
+# Drag-orbit right for 60 polls, the long way round through MouseXDep.
+lba2cc --headless --load mysave --fixed-dt 16 --exec "cam_follow 1" \
+    --exec-at 40 "mouse 20 0 60" --tick 200 --exit
+```
+
+`stick <x> <y> [polls]` is the pad's half of the same thing, in SDL axis units, and it reports a
+pad present for as long as it runs because the analog camera checks for one before it reads the
+axes. Only the right stick: the left one reaches the game as scancodes, which `key` already
+covers.
+
+Reach for `camnudge` when the camera is the subject and for `mouse` or `stick` when the path into
+it is: a session recording carries the two devices and not the nudge, because a recording captures
+device state and `camnudge` never touches a device.
 
 `--load` resolves its argument as a direct file path first, then as a save name in the
 save directory, then with a `.lba` suffix — so both `--load "021 Palace"` and
