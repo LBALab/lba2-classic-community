@@ -452,4 +452,71 @@ case "$emptyout" in
 *) fail "console loop: 'rec play' with no recordings to play said nothing about it" ;;
 esac
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths"
+# Did the session do anything?
+#
+# Every arm above asserts that a replay agrees with its recording, and none asserts that
+# there was anything to agree about. A recording of a hero who never moved replays clean
+# and says nothing, and that is not hypothetical here: LBA2_TEST_SAVE is the game opening,
+# where the scene's own script owns the hero and injected input is inert, so those arms
+# record a stationary session and the per-tick digest faithfully confirms that one
+# stationary session reproduces another. A bug that froze the game clock outright -- hero
+# unable to walk, game time not advancing at all -- passed every one of them.
+#
+# So this arm walks the hero and asks three separate questions: did he move while
+# recording, did the replay move him, and did it put him in the same place.
+#
+# The in-tree corpus save rather than LBA2_TEST_SAVE, because the answer has to come from
+# a scene where input reaches the hero and that cannot depend on which save a machine
+# happens to point at. No --fixed-dt either: the step the recorder pins for itself is the
+# path the frozen clock was on, and the flag hid it.
+movesave="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Anon1.LBA"
+[ -f "$movesave" ] || fail "movement: the corpus save is missing from $movesave"
+
+movedir="$(mktemp -d)"
+trap 'rm -rf "$here" "$loopdir" "$emptydir" "$movedir"' EXIT
+
+# hero_xz <state.json> -- the engine's own dump, because `status` reports Nxw/Nyw/Nzw,
+# which are collision scratch and not the hero.
+hero_xz() {
+    python3 -c "
+import json, sys
+h = json.load(open(sys.argv[1]))['hero']
+print(h['x'], h['z'])" "$1"
+}
+
+# Idle control: the same save, the same length of run, no input. This is what 'the hero
+# moved' is measured against, so that no coordinate has to be written down here.
+LBA2_USER_DIR="$movedir" ctl --load "$movesave" --tick 700 \
+    --dump-state "$movedir/idle.json" --exit >/dev/null 2>&1 ||
+    fail "movement: the idle control run exited non-zero ($?) — hang or crash"
+
+LBA2_USER_DIR="$movedir" ctl --load "$movesave" \
+    --exec-at 20 "rec start" --exec-at 200 "key up 300" --exec-at 620 "rec stop" \
+    --tick 700 --dump-state "$movedir/rec.json" --exit >/dev/null 2>&1 ||
+    fail "movement: the recording run exited non-zero ($?) — hang or crash"
+
+idle_xz="$(hero_xz "$movedir/idle.json")" || fail "movement: could not read the idle state dump"
+rec_xz="$(hero_xz "$movedir/rec.json")" || fail "movement: could not read the recorded state dump"
+
+if [ "$idle_xz" = "$rec_xz" ]; then
+    fail "movement: the hero is at $rec_xz with input and $idle_xz without it — the recorded session never moved, so a clean replay of it would prove nothing"
+fi
+
+moveout="$(LBA2_USER_DIR="$movedir" ctl --load "$movesave" \
+    --exec-at 20 "rec play" --tick 900 --dump-state "$movedir/play.json" --exit 2>&1)" ||
+    fail "movement: the replay run exited non-zero ($?) — hang or crash"
+
+case "$moveout" in
+*"first hash mismatch -1"*) ;;
+*)
+    fail "movement: $(printf '%s\n' "$moveout" |
+        grep -m1 -e 'replay ended' -e 'cannot open' -e 'recordings in' ||
+        echo 'the replay said nothing')"
+    ;;
+esac
+
+play_xz="$(hero_xz "$movedir/play.json")" || fail "movement: could not read the replayed state dump"
+[ "$play_xz" = "$rec_xz" ] ||
+    fail "movement: the recording left the hero at $rec_xz and the replay left him at $play_xz — the digest matched every tick, so this is the replay ending somewhere else, not diverging"
+
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; a recorded walk moved the hero and the replay walked it again"
