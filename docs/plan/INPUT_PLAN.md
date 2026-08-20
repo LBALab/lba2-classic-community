@@ -482,8 +482,33 @@ change could flip without anyone noticing.
 |---|---|---|
 | Direction plus `I_ESQUIVE` | selects the four `GEN_ANIM_ESQUIVE_*` variants, with a separate branch for sidestep plus a turn | OBJECT.CPP:4383 |
 | Direction held plus a spell | the spell keys bypass `Input` entirely through `SpellKeyDown`, so this probes the hole in the binding table | PERSO.CPP:1361-1407 |
-| Walk and turn together | the arc: turning is velocity times dt and frame-rate independent, walking is animation-driven and is not, so the radius may change with frame rate | INPUT_RESEARCH open question 6 |
+| Walk and turn together | the arc changes with the simulation step, and it is the **turn** that moves rather than the walk. Measured below | INPUT_RESEARCH open question 6 |
 | Any of the above in the buggy | `BUGGY.CPP:277` carries its own copy of the re-press test, so vehicle input is a second path with the same shape | BUGGY.CPP:277 |
+
+**The arc is measured, and it is not a fixture.** Over 3840 ms of game time from the corpus save,
+holding a direction from idle:
+
+| simulation step | units turned |
+|---|---|
+| 8 ms | 16 |
+| 16 ms | 16 |
+| 24 ms | 131 |
+| 32 ms | 294 |
+| 40 ms | 431 |
+
+Walking the same game time is invariant over the same range: the hero's Z is identical to the unit
+at 8, 16 and 32 ms. So the two halves of the arc do not behave alike, and the half that moves is the
+turn, which is the opposite way round from how the row above used to read.
+
+It follows from which branch a turn takes. A direction from idle starts `GEN_ANIM_GAUCHE` or
+`GEN_ANIM_DROITE` and is animation-driven; the `Beta += GetDeltaMove(...)` branch, which is velocity
+times dt, is reached only once `GenAnim != GEN_ANIM_RIEN`. So a turn in place is animation-driven
+and couples to the step exactly as [MOVEMENT_FRAMERATE.md](../MOVEMENT_FRAMERATE.md) describes for
+locomotion.
+
+No fixture is written for this. Asserting invariance would fail, and asserting the numbers above
+would pin a port regression as though it were the design. It belongs to the movement campaign,
+where the class already has a name, and it is recorded here because this is where it was measured.
 
 **Write these over the control socket, not as a boot per combo.** Most of the suite predates
 `--listen` and pays a process boot per observation. Measured on this fixture set: **4.7 ms** per
