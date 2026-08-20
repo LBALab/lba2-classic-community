@@ -2185,6 +2185,12 @@ int Record_Play(const char *path) {
                    the playback still runs, because refusing to play a recording is a
                    worse answer than playing it and saying the way back is missing. */
                 s_returnPoint[0] = 0;
+                /* s_replayFromCli stays set for the life of the run, unlike its
+                   recording counterpart, which clears on use: the replay's exit code is
+                   decided from it when the stream ends. So a run given --replay that
+                   later plays something from the console takes no return point either.
+                   That run is a harness run with no player session in it, and clearing
+                   the flag here to change that would take the exit code with it. */
                 if (!s_replayFromCli && Control_HasLiveScene()) {
                     char ret[ADELINE_MAX_PATH];
                     if (record_write_snapshot_as(ret, sizeof ret, "return"))
