@@ -515,8 +515,13 @@ static const char *rec_resolve(const char *path, char *buf, size_t n, int forWri
     char here[ADELINE_MAX_PATH];
 
     path = expand_home(path, home, sizeof home);
-    if (!path || !path[0])
-        return path;
+    if (path == NULL OR path[0] == 0) {
+        /* Through `buf` rather than straight back out. `path` may be pointing at `home`
+           by now, and handing a caller the address of a local that is about to go is a
+           different kind of wrong from the empty name it was asked to resolve. */
+        buf[0] = 0;
+        return buf;
+    }
     if (strchr(path, '/') != NULL OR strchr(path, '\\') != NULL) {
         snprintf(buf, n, "%s", path);
         return buf;
