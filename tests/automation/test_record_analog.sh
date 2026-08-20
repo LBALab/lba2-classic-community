@@ -4,9 +4,9 @@
 # The recorder carries values that never reach TabKeys -- the mouse delta pair and
 # Click, the right stick, and the pad's first-pressed scancode -- because none of them
 # has a scancode to be carried as. Everything else in a recording rides the key table,
-# so those twenty bytes are the only part of the format that no keyboard session
-# exercises, and until the two devices could be driven from the console no session
-# exercised them at all. A block that is never filled is a block that is never checked.
+# so those twenty bytes are the only part of the format a keyboard session leaves empty,
+# and a keyboard session is the whole of what an automated run can make without the
+# `mouse` and `stick` commands. A block nothing fills is a block nothing checks.
 #
 # Two properties per device, because each catches what the other cannot:
 #
