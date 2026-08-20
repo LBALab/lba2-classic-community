@@ -15,6 +15,13 @@ off-by-default flag, so no phase can regress the game.
 > `feat/render-interp` (the probe shows the staircase drop from ~77% to ~11% zero-delta frames, and
 > the sim `--dump-state` is byte-identical to `main` when the flag is off), kept as resumable WIP.
 > Revisit if a real, perceptible high-refresh case surfaces. Tracked in #412.
+>
+> **A second reason, of a different kind.** A session recorded for replay has to run on a pinned
+> step, because that is what makes it reproducible
+> ([RECORDING_RESEARCH.md](RECORDING_RESEARCH.md)). Pinning is therefore not optional there and the
+> staircase is not incidental: it is the price of recording at all. Interpolation is what makes that
+> price payable, and the flag-off `--dump-state` equality above is the property that lets it, since
+> an interpolation that touched the simulation would break a replay rather than smooth one.
 
 ## The problem, measured
 

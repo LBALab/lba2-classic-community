@@ -726,6 +726,73 @@ somebody intends to reproduce, so quantising its time is inherent to the act rat
 imposed on it, and the engine already has a fixed-timestep simulation for
 [movement frame-rate independence](../MOVEMENT_FRAMERATE.md).
 
+### The finer clock, and why it is the wrong direction
+
+The conclusion above invites an obvious objection: every attempt listed worked at poll or tick
+granularity, which is coarser than the thing it was reproducing, so perhaps none of them failed for
+the reason given. Storing one sample per `ManageTime` call would settle it, and the seam is already
+there -- `Record_ClockHook` sits at the one point the host clock enters the engine, and a record
+written from it lands in stream order the way a console command does.
+
+Built, behind an environment variable, and measured. **It makes a replay worse.** The comparison is
+one recording replayed twice, with the stored samples honoured and with them stepped over, because
+two loose recordings of one scene are two different sessions and cannot be compared:
+
+| Scene | Samples honoured | Samples stepped over |
+|---|---|---|
+| cube 3, interior | first mismatch at tick 133 | clean |
+| cube 48, Downtown | first mismatch at tick 191 | clean |
+
+So the quantisation is not an approximation the earlier attempts settled for. **It is the
+mechanism.** A clock that is constant within a frame is what `GetDeltaMove` needs, because each
+`MOVE` carries its own `LastTimer` and attributes elapsed time to whatever `Speed` was current when
+that call read the clock. Feeding the true intra-frame movement back reintroduces exactly the
+variation the quantisation removes, and the reads only have to fall out of step once -- measured, 2
+of 312 -- for everything after to be attributed against the wrong call.
+
+### What `--fixed-dt` is actually for
+
+Three measurements that together move the requirement somewhere other than where it looks.
+
+**The recording side is already quantised.** `Record_ClockHook` has no `s_recording` guard, so a
+loose *recording* also gets one clock value per frame, applied to every `ManageTime` call in it.
+Record-time quantisation is not a proposal; it is what the hook does.
+
+**A loose recording reproduces the clock exactly.** Three loose 1000-tick Downtown runs, hero
+walking: clock drift max **0 ms** in all three. Two of the three still diverged in state, at ticks
+850 and 851. So the clock is not what is left.
+
+**And it mostly replays.** Eight loose record-and-replay pairs, 800 ticks, same scene and input:
+seven clean, one diverging at tick 407. `--fixed-dt` buys the last tenth rather than the capability,
+which is a smaller claim than "required, not an optimisation" reads as.
+
+**A divergence is deterministic.** A recording that diverges does so at the same tick on every
+replay -- 850, three times over. That makes a loose recording that fails a repeatable reproducer
+rather than a flaky one, which is what the loose path has never had. Chasing one with `--verbose`
+names the field, and that is the next step for anyone who wants the requirement gone.
+
+What this retires is the direction, not the goal: reproducing the clock more faithfully is finished
+as an idea, and the residual behind tick 850 is the whole of what remains.
+
+### Interpolation is the other half, and it is not this half
+
+Interpolation cannot remove the fixed step, because the step is what makes the run reproducible.
+What it removes is the reason to want the step gone. A pinned simulation presents a new pose only
+when it advances, so a display faster than the step re-presents the frozen one and held movement
+staircases; that is what makes a pinned session feel wrong to play rather than merely slow.
+[RENDER_INTERP_PLAN.md](RENDER_INTERP_PLAN.md) measures it at 75% of rendered frames repeating the
+previous position at 240 Hz emulation.
+
+Interpolating the presentation while the simulation stays pinned separates the two: the recording
+stays exactly as reproducible as it is now, and the session it captures is one somebody would want
+to play. That plan's phases 0 to 2 are implemented on `feat/render-interp` and its sim `--dump-state`
+is byte-identical to `main` with the flag off, which is the property that matters here -- an
+interpolation that touched the simulation would be a third way to break a replay.
+
+It is parked because the staircase was not perceptible in ordinary play. Recording is a second
+reason to want it, and a different one: not that the judder is visible, but that pinning the step is
+the price of a recording and interpolation is what makes that price payable.
+
 **Two things a recording mode has to get right, both measured.**
 
 *Pace the frames.* A pinned step alone makes game speed a function of frame rate, because there
@@ -1534,6 +1601,82 @@ the index or the clock question, and it compares one artifact at the end rather 
 A session recorder is the same idea extended along time, and the two questions time adds are the
 two this doc spends its measurements on.
 
+## What would make a playback survive more
+
+Four things break a replay that is otherwise sound. They are not the same kind of problem and
+they do not cost the same, so the ordering below is the point rather than the list. The limits as
+they stand are in [RECORDING.md](../RECORDING.md); this is what closing each of them would take.
+
+### The settings are carried and never applied
+
+`write_mode_lines` writes thirteen `settings.*` keys and `replay_report_mode` only prints the
+ones that differ. The values are in the file, the fields are plain `extern S32` globals, and the
+cost of a mismatch is measured: `FollowCamera` diverges at tick 0, `FollowCamGroundClearance` at
+tick 2, `DetailLevel` 3 to 0 at tick 235. A replay that read its own header could reproduce all
+three.
+
+The shape to copy is in the same file. `bindings_install` and `bindings_restore` borrow the
+recording's key tables for the replay's duration and return the player's on the way out, on the
+same borrow-and-return the snapshot reload uses for the save context. Settings are that shape and
+simpler, because there is no combined table to rebuild afterwards.
+
+Worth doing as one table of key and pointer rather than a second hand-written list. The header
+writer and the installer then cannot disagree about what a setting is, which is the argument the
+mode block already makes for being built from one place: a setting that joins the header has to
+be remembered once, not twice.
+
+Twelve of the thirteen are values a write settles. `DetailLevel` is not: `SetDetailLevel`
+(SOURCES/GAMEMENU.CPP) derives `RainEnable` and `Shadow` from it and runs at MainLoop entry, which
+is why `Shadow` is deliberately not carried. Installing that one means calling through it rather
+than assigning the field, and getting the order wrong would leave a replay reporting the setting
+as matched while the state it drives does not.
+
+This is the cheapest of the four and the only one with measured failures already behind it.
+
+### A replay still needs the `--load` the recording ran under
+
+A recording carries the savegame it started from, and a replay that reloads it still diverges at
+tick 4 without the same `--load`. So something the reload does not restore differs between a run
+that booted into the save and one that booted fresh, and a switch that skipped the `--load` would
+move that divergence rather than remove it.
+
+This is the highest-value item here and the one that needs a measurement session rather than an
+afternoon. The comparison sets up from the file alone: `scripts/dev/dump_recording.py <rec> saves`
+writes the starting savegame back out, so booting into it and booting fresh and reloading it can
+be diffed with `--dump-state` without re-recording anything.
+
+### A truncated check reads like a pass
+
+The replay reports what the file holds as it opens, and ends itself when the stream runs out. What
+it cannot see is the tick budget, so a run bounded below the extent prints no summary at all --
+and a run that reported nothing looks exactly like a run that passed. The extent is already
+computed; comparing it against the budget needs one accessor and a line at open time.
+
+### A divergence is one number
+
+`Record_TickHook` records the first mismatching tick and then keeps checking without saying
+anything else. Counting what matched and what did not after that point separates a value that
+moved once from a run that has parted, and the summary currently cannot tell them apart. A few
+lines, and it improves every diagnosis rather than one.
+
+### What the chunk format now makes possible
+
+A playback cannot start part way through. The keyframes every 32 ticks are diagnosis rather than
+state: 23 named fields, enough to say what moved and not enough to restore anything. A chunk
+stream carries periodic savegames as easily as it carries two, which would give seek and resume,
+and a replay of tick 3000 without the 3000 ticks in front of it.
+
+The cost is a savegame every N ticks and the work of showing that a resumed replay reaches what a
+run-through one reaches. Not now, but it is a format question rather than an architectural one,
+which is the part that decides how expensive it would be to change one's mind about.
+
+### And one that is not a fragility
+
+Time spent in a modal has no oracle. The digest fires once per tick and a modal spins polls
+without advancing one, so a recorded session that sat in a dialogue choice held 707,624 polls
+against 1,472 ticks. Nothing about that makes a replay fail; it makes a pass mean less, and it is
+the one item here that a more forgiving playback would make worse rather than better.
+
 ## Open questions
 
 1. **What is the sample change rate under a real player?** The prototype answers this for
@@ -1561,10 +1704,11 @@ two this doc spends its measurements on.
    function of `Input`, which is a function of what was recorded. Worth confirming rather than
    assuming.
 
-5. **Should a recording be able to start from a mid-session state rather than a save?** Attaching
-   a `--dump-state` snapshot as the setup would let a recording start anywhere. It would also mean
-   the format carries a second, larger notion of state that has to stay in step with the engine.
-   Probably not worth it, but it is the question a scenario library would ask first.
+5. **Should a recording be able to start from a mid-session state rather than a save?** Settled
+   the other way: the setup is a savegame, and the recording carries it inside itself rather than
+   beside it. That keeps the format on the one notion of state the engine already serialises,
+   instead of a second and larger one that would have to stay in step with it. What a scenario
+   library would ask next is seek and resume, which is the last part of the section above.
 
 ## Reproduce
 
