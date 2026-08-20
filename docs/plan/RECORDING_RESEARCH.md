@@ -1586,6 +1586,58 @@ is one layer to build.
 a consumer that falls behind reads the commands it missed. Nothing here falls behind: the
 consumer is the same loop that produced the sample, in the same iteration.
 
+## What Doom's demo system does differently
+
+Doom 3 is the model for the layer this recorder sits at. The original Doom is a different kind of
+comparison: a lockstep simulation whose demo is thirteen header bytes and four bytes per player per
+tic, carrying no state at all. Most of it is unavailable here, because its index is the tic and
+input is sampled exactly once per tic, where a modal here spins hundreds of polls inside one. Three
+of its choices transfer anyway.
+
+Read from `id-Software/DOOM` at `a77dfb9`, the linuxdoom-1.10 source: `g_game.c` for the demo
+functions and the tick loop, `m_random.c`, `d_ticcmd.h`.
+
+**Two random streams, and only one of them is the simulation.** `m_random.c` holds one 256-byte
+table and two indices into it. `P_Random` draws on `prndindex` and is the simulation; `M_Random`
+draws on `rndindex` and is everything else, sound pitch included. The comment above the pair is
+`// Which one is deterministic?`. Audio cannot perturb gameplay because it cannot reach the index
+gameplay draws from.
+
+This engine has one stream. `Rnd_Next` is drawn from 54 sites and they divide by domain without
+much argument: FLOW (17), GERETRAK (5), GERELIFE (5), EXTRA (5), OBJECT (4) and PERSO (1) against
+RAIN (5), AMBIANCE (4), ANIMTEX (3), GAMEMENU (3) and CREDITS (2). Moving that second column, 17
+sites, to a second stream would remove two documented failures at the source rather than per
+symptom: the `DetailLevel` 3 to 0 divergence at tick 235, which is rain and nothing else, and the
+ambience half of the audio problem, which is currently answered by taking `IsSamplePlaying` off the
+mixer under `--fixed-dt` and so holds only in a mode no player runs.
+
+The cost is why this is not a line item in the section above. Removing 17 draws from the shared
+ring changes the sequence every other draw sees, so it invalidates every committed baseline, corpus
+digest and existing recording on one commit. That is a decision about
+[BIT_EXACTNESS.md](../BIT_EXACTNESS.md) rather than about recording, and the split above is a count
+of call sites rather than a reading of them: `EXTRA` is thrown objects and arguably simulation, and
+not all four `AMBIANCE` draws are the pan.
+
+**The record path consumes what it wrote.** `G_WriteDemoTiccmd` packs the command into four bytes,
+rewinds the pointer, and calls `G_ReadDemoTiccmd` back over the live command, under the comment
+`// make SURE it is exactly the same`. The recording session therefore runs on the same truncated
+`angleturn` the playback will, so a lossy encoding cannot be a divergence source. The price is
+coarser turning while recording, which later ports undid by widening the field rather than by
+dropping the read-back.
+
+`Record_PollHook` does not do this. The capture path writes the poll and leaves the live state
+alone, while `replay_inject` substitutes a reconstruction, and the two differ in one field: pad
+presence is `s_rsx != 0 || s_rsy != 0` on the replay side and `JoystickIsPresent()` on the
+recording side. The comment at that site defends it by inspecting the only consumer,
+`GamepadCameraAnalog AND JoystickIsPresent()` in SOURCES/EXTFUNC.CPP, and concluding that a poll
+with no deflection and a poll with no pad behind it are the same poll. That is true, and it is an
+argument about one call site staying the only one. Calling `replay_inject` at the tail of the
+capture path makes it structural instead, and covers whatever field is added next without a second
+argument being needed for it.
+
+**A cheap per-sample checksum, put where a demo cannot use it.** Under the modal, in the section
+below, along with what Doom got wrong about where to put it.
+
 ## Prior art inside this tree
 
 Polyrec ([POLYREC.md](../POLYREC.md)) is a record and replay system at the draw-call layer,
@@ -1603,7 +1655,7 @@ two this doc spends its measurements on.
 
 ## What would make a playback survive more
 
-Four things break a replay that is otherwise sound. They are not the same kind of problem and
+Five things break a replay that is otherwise sound. They are not the same kind of problem and
 they do not cost the same, so the ordering below is the point rather than the list. The limits as
 they stand are in [RECORDING.md](../RECORDING.md); this is what closing each of them would take.
 
@@ -1631,7 +1683,7 @@ is why `Shadow` is deliberately not carried. Installing that one means calling t
 than assigning the field, and getting the order wrong would leave a replay reporting the setting
 as matched while the state it drives does not.
 
-This is the cheapest of the four and the only one with measured failures already behind it.
+This is the cheapest of the five and the only one with measured failures already behind it.
 
 ### A replay still needs the `--load` the recording ran under
 
@@ -1659,6 +1711,31 @@ anything else. Counting what matched and what did not after that point separates
 moved once from a run that has parted, and the summary currently cannot tell them apart. A few
 lines, and it improves every diagnosis rather than one.
 
+### A recording does not say which simulation it was made against
+
+`numeric.rng` and `numeric.long_double_bits` name the traits a replay has to agree with, which is a
+better answer than a version number: they say what must match rather than when the file was
+written. What no line covers is a change to the simulation itself. `engine=` carries
+`LBA2_VERSION_STRING`, which `cmake/write_version.cmake` resolves from the checked-in `VERSION`
+file plus a `-dirty` marker, deliberately without `git describe` so no tag history is needed. Two
+builds either side of a gameplay-affecting fix therefore read identical.
+
+That is not hypothetical. Fixing the `Distance2D`/`Distance3D` overflow past 46340 (#600) changes
+what actors do at range, and every recording made before it would diverge with nothing in the
+header naming the cause. The report says a tick, and the reader goes looking for a bug in the
+recorder.
+
+Doom's answer was a version byte and a refusal, `G_DoPlayDemo` printing "Demo is from a different
+game version!" on any mismatch. That was too coarse to survive: the source ports that outlived it
+settled on what they call a compatibility level, naming the behaviour rather than the build,
+because a fix and a format change are not the same event. A hand-bumped `sim.compat=N`, raised when a change is known
+to move the simulation, is that idea at this scale, and `replay_report_mode` already reports a
+differing line without further work.
+
+The judgement is in the bump, which is also the argument for one number rather than a set of named
+traits: one line to forget, not twelve. Cheap to add and cheap to be wrong about, which puts it
+below the settings and above the rest.
+
 ### What the chunk format now makes possible
 
 A playback cannot start part way through. The keyframes every 32 ticks are diagnosis rather than
@@ -1676,6 +1753,22 @@ Time spent in a modal has no oracle. The digest fires once per tick and a modal 
 without advancing one, so a recorded session that sat in a dialogue choice held 707,624 polls
 against 1,472 ticks. Nothing about that makes a replay fail; it makes a pass mean less, and it is
 the one item here that a more forgiving playback would make worse rather than better.
+
+What would close it is not a second digest. The tick digest mixes roughly 1300 values, and running
+that per poll would cost more than the recording it protects. Doom's netcode makes the cheaper
+choice at exactly this seam: `ticcmd_t` carries a two-byte `consistancy` field, and `G_Ticker`
+fills it from `players[i].mo->x`, so what a peer actually compares is the low sixteen bits of a
+fixed-point coordinate -- the sub-unit fraction, which is the part that moves first. A mismatch is
+`I_Error` on the spot.
+
+The same field fits here. Two bytes a poll over the modal's own state, which item is highlighted
+and what has been chosen, is about 1.4 MB across the 707,624 polls above, against a stream already
+measured in megabytes. It would not check what the modal drew or how long it took, only that both
+runs were at the same place in it, which is the whole of what is missing.
+
+Worth knowing that Doom did not do this for demos. The check is guarded on `netgame && !netdemo`,
+so a demo carries no oracle at all and a desynced one plays out silently, which is the failure this
+recorder exists not to have. The field is worth taking; its placement is the thing to avoid.
 
 ## Open questions
 
