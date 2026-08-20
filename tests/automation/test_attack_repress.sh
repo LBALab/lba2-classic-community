@@ -41,16 +41,21 @@ FIX="$(dirname "$0")/../savegame/corpus/saves/steam_classic_2023/Wannies fragmen
 SPACE=44; AGGRESSIVE=2
 out=$(mktemp -d); trap 'rm -rf "$out"' EXIT
 
-sample() { # name, exec, tick -> prints GenAnim
+# Reports through BLOW and is called directly, never as `x=$(sample ...)`: `fail` ends the shell
+# it runs in, which inside $( ) is only the subshell, so a run that crashed would come back as an
+# empty string and be reported as the wrong blow rather than as a crash.
+BLOW=""
+sample() { # name, exec, tick -> sets BLOW to the hero's GenAnim
     ctl_headless --load "$FIX" --fixed-dt 16 --exec "$2" --tick "$3" \
         --dump-state "$out/$1$3.json" --exit >/dev/null 2>&1 || fail "$1 at tick $3: exit $?"
-    python3 -c "import json;print(json.load(open('$out/$1$3.json'))['hero']['gen_anim'])"
+    BLOW=$(python3 -c "import json;print(json.load(open('$out/$1$3.json'))['hero']['gen_anim'])")
+    [ -n "$BLOW" ] || fail "$1 at tick $3: no hero animation in the dump"
 }
 
 # --- held: one press, no chance to redraw -----------------------------------
 HELD="skipmodals 1; behaviour $AGGRESSIVE; key $SPACE 900 30"
 held=""
-for t in 50 80 110 140; do held="$held $(sample held "$HELD" $t)"; done
+for t in 50 80 110 140; do sample held "$HELD" $t; held="$held $BLOW"; done
 
 first=$(echo $held | cut -d' ' -f1)
 case "$first" in
@@ -67,9 +72,9 @@ done
 TAPS="skipmodals 1; behaviour $AGGRESSIVE; key $SPACE 40 30; key $SPACE 40 110; key $SPACE 40 190; key $SPACE 40 270"
 seen_idle=0; seen_blow=0
 for t in 50 70 90 110 130 150; do
-    g=$(sample taps "$TAPS" $t)
-    [ "$g" = "0" ] && seen_idle=1
-    case "$g" in 17|18|19) seen_blow=1 ;; esac
+    sample taps "$TAPS" $t
+    [ "$BLOW" = "0" ] && seen_idle=1
+    case "$BLOW" in 17|18|19) seen_blow=1 ;; esac
 done
 
 [ "$seen_blow" = "1" ] || fail "re-pressed taps never produced a blow"

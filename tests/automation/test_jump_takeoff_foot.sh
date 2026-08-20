@@ -38,17 +38,23 @@ SAUTE=14; SAUTE_GAUCHE=25; SAUTE_DROIT=26
 out=$(mktemp -d); trap 'rm -rf "$out"' EXIT
 
 # Walk from tick 0, press action `polls` in, and read the take-off at tick 120.
+#
+# Reports through TAKEOFF and is called directly, never as `x=$(jump_at ...)`: `fail` ends the
+# shell it runs in, which inside $( ) is only the subshell, so a run that crashed would come back
+# as an empty string and be reported as the wrong take-off rather than as a crash.
+TAKEOFF=""
 jump_at() {
     local at="$1"
     ctl_headless --load "$FIX" --fixed-dt 16 \
         --exec "skipmodals 1; behaviour $SPORTY; key $UP 900 20; key $SPACE 12 $at" \
         --tick 120 --dump-state "$out/$at.json" --exit >/dev/null 2>&1 || fail "press at $at: exit $?"
-    python3 -c "import json;print(json.load(open('$out/$at.json'))['hero']['gen_anim'])"
+    TAKEOFF=$(python3 -c "import json;print(json.load(open('$out/$at.json'))['hero']['gen_anim'])")
+    [ -n "$TAKEOFF" ] || fail "press at $at: no hero animation in the dump"
 }
 
-early=$(jump_at 60)   # before either foot flag is up
-left=$(jump_at 80)
-right=$(jump_at 100)
+jump_at 60; early="$TAKEOFF"   # before either foot flag is up
+jump_at 80; left="$TAKEOFF"
+jump_at 100; right="$TAKEOFF"
 
 [ "$early" = "$SAUTE" ] \
     || fail "pressing before a foot is down should give the plain jump ($SAUTE), got $early"
