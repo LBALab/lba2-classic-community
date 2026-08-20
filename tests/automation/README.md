@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-66 fixtures.
+67 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|

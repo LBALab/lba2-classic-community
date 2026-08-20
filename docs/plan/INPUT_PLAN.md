@@ -138,21 +138,43 @@ answer (record commands, replay, compare a per-tic state hash) is genuinely enab
 most plausible candidate for overengineering here. **Increments 0 and 1 answer it**, by covering the pure layers and then measuring whether the
 fixtures plus the flow counters catch what the later increments could break.
 
-**What would settle the replay question, and what would not.** Speed is not the argument. The
-control socket's latency is one presented frame, flat: measured at 4.6 ms per command on a loaded
+**Settled: the recorder landed, and it is the A/B this campaign needs.** The question was never
+speed. The control socket's latency is one presented frame, flat: 4.6 ms per command on a loaded
 scene, unchanged across `fixedtimestep` 0, 16, 40 and 100, and unchanged whether the reply is one
-line or three. The sim rate does not move it because the server drains the socket once per present.
-So an engine-side fixture tier, compiled in behind a build option, would remove a round trip and
-still wait for the same frames, and the probes it could speed up are the ones that do not need the
-world to advance, which host tests already cover with no engine at all. At 217 probes a second a
-combo wanting fifty of them costs a quarter of a second against a boot of 282 ms; the small term is
-not the one to attack, and a build nobody's CI configures turns its fixtures into skips.
+line or three, because the server drains the socket once per present. An engine-side fixture tier
+would remove a round trip and wait for the same frames.
 
-What engine-side machinery would buy is **fidelity, not latency**: recording a per-tick input and
-state stream, replaying it in process, and comparing a hash per tick answers "did this change the
-simulation" bit for bit, where any external driver samples. That is the case to argue, and the
-increment below is what supplies the evidence for it: if the counters plus the combo fixtures catch
-what increments 2 to 7 could break, replay stays unbuilt.
+What machinery buys is fidelity, and [RECORDING.md](../RECORDING.md) now supplies it. A recording
+carries an FNV-1a digest of scene, hero, camera, the other actors and all 336 script variables, per
+tick, so a replay names the first tick that stops matching and the keyframe names the field.
+
+Measured against the fixtures below, on the take-off-foot combo. Swapping `DO_LEFT_JUMP` and
+`DO_RIGHT_JUMP` in `OBJECT.CPP`, then replaying a recording made before the change:
+
+```
+[rec] consistency failure at tick 81: recorded 0906a1bd…, replayed 30118ff9…
+[rec] tick 96 differs: hero.anim 73/74 cam.alpha 864/861  (recorded/replayed)
+```
+
+The fixture for that combo samples `GenAnim` at tick 120 and would also have caught this one. The
+recording caught it **39 ticks earlier, named the field, and needed nobody to have guessed which
+tick to look at** -- and it would equally have caught a change that perturbed a script variable or
+another actor, which no sampled fixture here looks at.
+
+So the two are not alternatives and the campaign wants both:
+
+| | says | survives an intentional change |
+|---|---|---|
+| a combo fixture | what the rule *is*: Left beats Right, the press frame picks the foot | yes, unless the rule itself moved |
+| a recording replayed | that *nothing* moved, and where | no, and that is the point |
+
+**How increments 2 to 7 should use it.** Record the combo set before touching anything, replay
+after, and read the tick. That is a better before-and-after than the fixtures alone, because the
+fixtures assert what somebody thought to assert. The committed fixtures stay as the statement of
+the rule; the recording is the net. Note that `tests/automation/test_record_replay.sh` records and
+replays inside one run, which proves reproducibility rather than stability, and that no recording
+is committed to the tree: a recording pins everything and would fail on every deliberate change, so
+it belongs in a working directory beside a refactor rather than in the suite.
 
 ## Injection: the harness is not a device
 
