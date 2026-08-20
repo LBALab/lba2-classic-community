@@ -201,7 +201,36 @@ settling before increment 7 treats them alike.
 | `ApplyVirtualKeys` (touch overlay) | scancodes in `TabKeys` | inside `UpdateKeyboardState`, before the scan | held while the finger is down |
 | `ApplyHarnessKeys` (`key` verb) | scancodes in `TabKeys` | same hook site, immediately after | **input polls**, one per `ManageKeyboard` |
 | `DbgInjectInput` (`input` verb) | action bits in `Input` | `MainLoop`, after `MyGetInput` | **sim ticks** |
+| `mouse` / `stick` verbs | device state (`LibMouseXDep`, `Click`, the cached axes) | same hook site, beside the key holds | **input polls** |
 | `--listen` socket | nothing | `Control_ServiceListen`, in front of the console bus | **presents** |
+
+**The analog pair are a path of their own, and they are why the recorder's analog block finally
+got tested.** They are not scancodes and never become any: the analog camera reads `MouseXDep`,
+`Click` and the cached stick axes directly, so `key` cannot reach them and neither can `input`.
+`camnudge` covered the camera by standing in one step further down, at the nudge, which is the
+right depth for a camera test and the wrong one for anything asking how input arrives. Writing
+where the device writes instead put the whole chain under test at once, and it found two things a
+year of keyboard sessions could not:
+
+| | |
+|---|---|
+| The mouse was recorded a poll late | The poll hook read `MouseXDep`, which at that point still holds what the *previous* frame's `ManageMouse` delivered. Every movement went into the file one poll behind, and a replay orbited a frame behind the session |
+| A replayed stick moved nothing | The analog camera asks `JoystickIsPresent()` before it reads the axes, so a pad session replayed on a pad-less machine restored the values into a run that never looked at them |
+
+Both were live in the shipped recorder and neither was reachable, because no session had ever
+filled the block: measured at **0 analog polls** across every recording made. The general form is
+worth keeping: a field that nothing can write is a field nothing checks, and adding it to a format
+is not the same as covering it.
+
+**The masking that shaped the fixture.** A replay re-executes every console command the session
+was driven with, so a harness-driven recording reproduces its own input twice over and the sample
+stream is not the only carrier. Dropping the analog restore entirely still replays clean. What
+separates them is a replay driven the other way at the same time: the file has to win. For the
+stick the live one has to let go early as well, because presence is a boolean that the live stick
+also sets, so only the polls after it centres can answer where presence came from.
+
+This applies to every fixture here, not just the analog one, and it is the reason the combo
+recordings above are worth committing beside the fixtures rather than instead of them.
 
 **The socket is a transport, not a fourth path.** It delivers the same `key` and `input` verbs a
 `--exec` line would. What it adds is a third clock: a command *arrives* on a present, and then
