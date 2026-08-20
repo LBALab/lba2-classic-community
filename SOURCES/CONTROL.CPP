@@ -1443,6 +1443,16 @@ static U32 s_mouse_buttons = 0;
 static T_ControlSpan s_mouse_span;
 
 void Control_MouseClear(void) {
+    /* The accumulator too, not only this module's copy of what it was feeding.
+       control_mouse_apply writes through SetMouseMotion, which is a store rather than
+       a queue, and the only thing that empties LibMouseXDep is ManageMouse -- which a
+       shipping build reaches only from GereExtKeys, past a return that fires when the
+       cube is interior or when no key is held and the Auto camera is off. So a span
+       that ends leaves its last value sitting there, and every later poll reads it
+       back: `mouse 8 0 1` on an interior save leaves 8 in the accumulator for the rest
+       of the run, which a recording captures on all 280 remaining polls. Clearing what
+       this put there is this function's job whatever the engine does about the rest. */
+    SetMouseMotion(0, 0);
     s_mouse_dx = s_mouse_dy = 0;
     s_mouse_span.end = 0;
     /* Lift the buttons rather than leaving them for something else to notice: Click is a
