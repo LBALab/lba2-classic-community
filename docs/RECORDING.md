@@ -186,6 +186,13 @@ This is also why the bug survived so long. Every fixture runs `--headless`, whic
 audio backend, so nothing in the suite had ever exercised the audio path. A recording is the first
 fixture that runs with sound.
 
+**Time spent in a modal is not checked.** The digest fires once per tick, and a modal that waits
+for input spins polls without advancing one: a recorded session that sat in a dialogue choice held
+707,624 polls against 1,472 ticks, so roughly 580,000 of those polls had no oracle behind them at
+all. "1472 ticks checked, mismatch -1" means the simulation matched on every tick it took. It says
+nothing about the forty seconds spent in the menu, and a replay that behaved differently in there
+would still report clean.
+
 **The mode has to match.** A recording made windowed with audio does not replay headless with the
 null backend, because a live audio thread branches the simulation. `rec info` will say so.
 

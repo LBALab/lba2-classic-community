@@ -85,6 +85,31 @@ sized off either one overruns the other. `ChangeCube` is the engine's only `sran
 clock-sensitive. The console `cube` verb is the one route that leaves `FlagChgCube` zero and so
 skips the `SaveTimer` lock, which made it the quiet path to have built a test on.
 
+## What this makes possible next
+
+Worth writing down while it is fresh, because the recorder is a tool for other work rather than an
+end in itself.
+
+**A refactor can now be checked rather than argued about.** A pure refactor is one that leaves the
+simulation identical, and a corpus of recordings replayed against the new build says exactly that,
+per tick, by name. That is the oracle the globals work in
+[ARCHITECTURE_GLOBALS.md](../ARCHITECTURE_GLOBALS.md) has not had: moving a global into a bounded
+context is precisely the change that should be invisible to every recording. The refactor that moved
+state reading into CONTROL was verified this way, against three recordings and their exact hashes.
+
+**`Control_StateDigest` is a general "is the simulation the same" primitive.** It exists for the
+recorder, but nothing about it is recorder-specific: `--dump-state`, the control socket and any
+future fixture can ask the same question, and adding a field to the digest gives every one of them
+the field for free.
+
+**The settings block is an argument for provenance.** It is a hand-written list because the evidence
+is a hand-run sweep, and the two keys in it were found by a replay rather than by reasoning. A
+settings table that recorded where each value came from would let that list be derived instead of
+maintained.
+
+**Modal time is the next gap in the oracle**, and it is the largest one: a session can spend more
+polls in a menu than it spends ticks in the world, and none of them are checked.
+
 ## The four layers a recording could sit at
 
 | Layer | Unit | Complete? | Verdict |
