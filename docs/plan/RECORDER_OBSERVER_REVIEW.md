@@ -476,7 +476,7 @@ The shape problem: the digest is supposed to answer "did the simulation reach th
 its membership was chosen as *interesting things* rather than *state a load restores*. Those are
 different sets and nothing enforces the difference.
 
-### The camera fields are a load-path asymmetry, which is heavier than a membership defect
+### The camera fields are two callers of one function disagreeing
 
 On an exterior cube a mid-session `rec start` cannot replay clean at tick 0, and the fields that
 differ belong to the rule's first category rather than to none of them. `BetaCam`
@@ -485,12 +485,16 @@ differ belong to the rule's first category rather than to none of them. `BetaCam
 its camera block ([SAVEGAME.CPP:1314](../../SOURCES/SAVEGAME.CPP#L1314) and
 [:1973](../../SOURCES/SAVEGAME.CPP#L1973)). The save carries them, so comparing them is correct.
 
-What the measurement shows instead is **two load paths disagreeing about one file**. Cold-loading
-the exact snapshot the recorder wrote -- one tick, no recorder in the loop -- gives `BetaCam` 2414
-and offsets 11512/170/30421, which is what the replay has. The recording side, reloading those same
-bytes through the recorder's own path, has 2404 and 11264/0/30208 at tick 0 *(measured elsewhere)*.
-Which of the two is faithful to the file is open, and the bytes cannot settle it directly, because
-saves are compressed and `CompressSave: 0` does not reach the snapshot writer.
+**The file is faithful and so is every load of it.** Printed at the save's camera read site, both
+paths read the same eight values out of the same snapshot: `BetaCam` 2414, offsets 11512/170/30421.
+What differs is written afterwards. A watchpoint on `VueOffsetY` names `ChangeCube`, which calls
+`CameraCenter` twice with different arguments and gets different answers: the branch at
+[INTEXT.CPP:389](../../SOURCES/INTEXT.CPP#L389) sets it to the hero's Y, the branch at
+[:400](../../SOURCES/INTEXT.CPP#L400) sets it to the cube's start height, and the two calls sit at
+[OBJECT.CPP:1346](../../SOURCES/OBJECT.CPP#L1346) and
+[:1352](../../SOURCES/OBJECT.CPP#L1352) *(measured elsewhere)*. A CLI load reaches `ChangeCube` from
+`Control_Begin` and the recorder's reload reaches it from `MainLoop`, so the two arrive on different
+branches and end on different state from identical bytes. Filed as #642.
 
 The control is one save on one box, build and cfg: recording at the load gives `first hash mismatch
 -1` and drift 0, and recording 200 ticks in gives `tick 0 state differs: VueOffsetX 11264/11512
@@ -499,11 +503,14 @@ resolution reproduces it byte for byte with every mode line matching, so it is n
 audio and not the platform. It needs a save with an exterior camera, which is why the shipped tests
 never see it.
 
-**A membership defect is a comparison reading something it should not. This is a load path building
-a different world from the same bytes**, which is worse, and it would have stayed hidden behind the
-membership reading if the save format had not been checked. `FlagBlackPal` is the field in that
-recording that does belong to the class -- 0 against 1 at tick 0 in all six -- and it is the
-measured instance the rule needed.
+**A membership defect is a comparison reading something it should not. This is one function
+answering differently depending on who called it**, which is worse, and it took two corrections to
+get to: first the save format, which showed the fields are carried, then the read site, which showed
+both loads agree. Each correction moved the fault one layer further from the digest, and the reason
+it kept moving is that a tick-0 difference in a compared field looks like a comparison problem from
+every distance until someone reads the writer. `FlagBlackPal` is the field in that recording that
+does belong to the membership class -- 0 against 1 at tick 0 in all six -- and it is the measured
+instance the rule needed.
 
 ### The report has two strings for three outcomes
 
