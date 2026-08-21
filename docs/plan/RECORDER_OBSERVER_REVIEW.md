@@ -614,6 +614,12 @@ resolution reproduces it byte for byte with every mode line matching, so it is n
 audio and not the platform. It needs a save with an exterior camera, which is why the shipped tests
 never see it.
 
+**The path is bounded, which is what makes #642 actionable.** Across nine recordings, all seven
+made with `FollowCamera=1` differ on a camera field at tick 0 and neither of the two with
+`FollowCamera=0` differs in any field at any tick; where it does happen it converges, by keyframe 64
+to 240, rather than persisting *(measured elsewhere)*. A fault that is present on one path, absent
+on the other and self-correcting is a much smaller thing to chase than a camera that is wrong.
+
 **A membership defect is a comparison reading something it should not. This is one function
 answering differently depending on who called it**, which is worse, and it took two corrections to
 get to: first the save format, which showed the fields are carried, then the read site, which showed
@@ -623,24 +629,42 @@ every distance until someone reads the writer. `FlagBlackPal` is the field in th
 does belong to the membership class -- 0 against 1 at tick 0 in all six -- and it is the measured
 instance the rule needed.
 
-### The report has two strings for three outcomes
+### The report has two strings for three outcomes, and the caps hid which one you had
 
-Six of those recordings replay their **entire session** and print `first hash mismatch 0`, which is
-also what a run that fell apart at the first tick prints. That the sessions really do reproduce was
-verified from the other end rather than inferred from the keyframes: replayed to the end and dumped
-against the savegame the recording carries, the hero matches in every field but an animation
-sub-frame -- x 2108, y 1131, z 10574, beta 4087, anim 66, life 253 -- and all 256 game variables
-match, after 4852 ticks *(measured elsewhere)*. So a verdict string meaning "wrong from tick 0" is
-printed over eighty seconds of perfect reproduction.
+Six of those recordings replay their entire session and print `first hash mismatch 0`, which is also
+what a run that fell apart at the first tick prints. **Under the report's caps, all six print three
+lines and exit 0.** Lifted -- the keyframe, telemetry and shown-field caps all raised behind a
+temporary switch -- the six separate into four different outcomes: two clean, one where the hero
+leaves the recorded path at keyframe 1376 and **ends 20,302 units away**, one leaving at 2720 with
+`hero.life` two apart, one leaving at 2496 by 246 units, and one deadlock *(measured elsewhere)*.
 
-A seventh wedges the replay outright, at 99% CPU after tick 64, with the stack in `MainLoop` ->
+**A 20,302-unit divergence and a clean replay produced the same output.** That is the caps argument
+in one line, and it is stronger than the case item 4 makes on principle: this is not a report that
+is thin, it is a report that cannot distinguish reproduction from total failure.
+
+A large part of the difference has a measured cause rather than a mysterious one, and it is entry
+conditions again. All six carry `mode.audio=1`, and `--headless` implies `--no-audio`
+([CLI_ARGS.CPP:95](../../SOURCES/CLI_ARGS.CPP#L95)), so every one of those replays was run without
+the audio the recording was made with. Re-run with audio on: 246 units becomes clean, and 20,302 at
+keyframe 1376 becomes 176 at keyframe 4224. Three runs each, identical every time, so this is not
+the audio thread's own noise *(measured elsewhere)*. One recording is unchanged to the digit under
+audio, reproducible four times over, and that one is a genuine divergence rather than a mode
+mismatch -- which makes it the best fixture the reproduction rate has.
+
+The seventh wedges the replay outright, at 99% CPU after tick 64, with the stack in `MainLoop` ->
 `DoLife` -> `Dial` -> `SpeakAnimation` -> `PresentFrame`: a dialogue box presenting forever. That
 one prints no verdict at all.
 
-**Three outcomes, two strings.** A replay that diverged at the first tick and stayed wrong, a replay
-that differed at tick 0 and then reproduced the session, and a replay that never finished are worth
-distinguishing before any of them is acted on. The fix is the same shape as the entry-condition
-argument: the outcome type needs the values the outcomes actually have.
+**Three outcomes, two strings.** A replay that diverged and stayed wrong, a replay that differed at
+tick 0 and then reproduced the session, and a replay that never finished are worth distinguishing
+before any of them is acted on. The fix is the same shape as the entry-condition argument: the
+outcome type needs the values the outcomes actually have.
+
+**And the first reading of these six was that all of them reproduced**, taken in good faith from
+capped output and repeated in this document before it was checked. The correction came from lifting
+the caps and re-running, not from doubting the files. A report that clears everything deserves the
+same suspicion as one that condemns everything, and the caps are exactly the kind of instrument that
+produces the first.
 
 ### A contributor wrote the finding down first, without knowing it
 
