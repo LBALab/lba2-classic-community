@@ -129,6 +129,13 @@ Concretely, the other shapes, from this engine:
   check compares. Counting the files, or even counting the commands, says covered; only reading what
   they contain says otherwise.
 
+- **Assert what the run produced, not that it finished.** A fixture for a screen that hangs a replay
+  could have asserted termination, and would have passed on a binary that never reached the screen:
+  the run ends cleanly, exits 0, and writes a save with a generated name instead of the typed one.
+  The arm asserts the resulting file's name, which is the only thing that separates "the fix works"
+  from "the path was never taken". Where a bug is a hang, termination is the tempting oracle and
+  almost always the weak one.
+
 - **A result that clears everything is a fault in the harness too.** The suspicion usually runs one
   way: a check that condemns everything is distrusted, a check that passes everything is filed as
   good news. Six recordings were reported as reproducing their full sessions, and lifting the
