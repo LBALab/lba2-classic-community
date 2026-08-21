@@ -83,7 +83,7 @@ extern "C" {
 /* ---- live state ---------------------------------------------------------- */
 
 #define REC_MAGIC "LBA2REC"
-#define REC_VERSION 12
+#define REC_VERSION 13
 
 /* The oldest format this build still reads. Every version since has only added record
    types the reader probes for and steps over, so an older recording reads the same as
@@ -205,6 +205,12 @@ static int s_recording = 0;
 static int s_replaying = 0;
 
 static U8 s_prevKeys[TABKEYS_NUM_KEYS];
+/* The analog block's last WRITTEN value, so a poll whose analog state did not move can
+   be skipped. Compared against, never against zero: a held button and a held stick are
+   levels rather than edges, so the poll that RELEASES one differs from the last written
+   block and must be written, where comparing against zero would drop it and leave the
+   button down for the rest of the replay. */
+static S32 s_prevAnalog[6];
 static S32 s_prevKey = 0;
 static U32 s_prevSrcDelta = 0xFFFFFFFFu;
 static U32 s_prevSrc = 0;
@@ -1203,6 +1209,7 @@ static int record_begin(const char *path, int haveSnapshot) {
     record_write_chunk(REC_SNAP_START, s_snapshot);
 
     memset(s_prevKeys, 0, sizeof s_prevKeys);
+    memset(s_prevAnalog, 0, sizeof s_prevAnalog);
     s_prevKey = 0;
     s_prevSrcDelta = 0xFFFFFFFFu;
     s_prevSrc = Timer_ClockSource();
@@ -1462,8 +1469,22 @@ static void record_poll(void) {
         padFirst = 0;
         mdx = mdy = click = 0;
     }
-    if (rsx || rsy || padFirst || mdx || mdy || click)
-        flags |= 0x04;
+    {
+        /* Written when the block CHANGES, not when it is non-zero. A value that is merely
+           constant then costs one block instead of one per poll: a contributed 30 minute
+           session carried an unchanging mouse delta on 4,472,955 of its 4,473,043 polls,
+           89.5 MB of a 96.7 MB file, which this takes to 20 bytes. Input that actually
+           varies still writes every poll, because a varying tuple differs every time.
+
+           It is also the rule the rest of this record already follows: the key table
+           writes the keys that changed and `key` is written only when it differs. The
+           analog block was the last group keyed on content rather than on change. */
+        const S32 now[6] = {rsx, rsy, (S32)padFirst, mdx, mdy, click};
+        if (memcmp(now, s_prevAnalog, sizeof now) != 0) {
+            flags |= 0x04;
+            memcpy(s_prevAnalog, now, sizeof now);
+        }
+    }
     if (delta != s_prevSrcDelta)
         flags |= 0x08;
 
@@ -1966,7 +1987,13 @@ static int replay_poll(void) {
         s_mdx = (S32)mx;
         s_mdy = (S32)my;
         s_click = (S32)cl;
-    } else {
+    } else if (s_recVersion < 13) {
+        /* Before 13 the writer emitted a block whenever any field was non-zero, so an
+           absent block meant every field was zero on this poll. From 13 it emits on
+           change, so absent means unchanged and the previous values stand. Same bytes,
+           opposite meaning, which is why the version moved: an old file read under the
+           new rule would hold inputs that had ended, and a new file read under the old
+           one would release inputs that were still held. Neither fails to parse. */
         s_rsx = s_rsy = 0;
         s_padFirst = 0;
         s_mdx = s_mdy = s_click = 0;
@@ -2004,6 +2031,9 @@ static void replay_begin(void) {
     Timer_SetSimAudioClock(1);
     memset(s_prevKeys, 0, sizeof s_prevKeys);
     s_prevKey = 0;
+    s_rsx = s_rsy = 0;
+    s_padFirst = 0;
+    s_mdx = s_mdy = s_click = 0;
     s_prevSrcDelta = 0;
     s_replaySrc = Timer_ClockSource();
     s_refDriftMax = 0;
