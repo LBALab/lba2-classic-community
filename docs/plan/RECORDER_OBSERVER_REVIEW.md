@@ -141,7 +141,7 @@ overlay --------|                                      |
 | Presents-never-mint deadlocks | the modal loops and the clock | #641 merged |
 | Two `GereArdoise` waits with no pump | the modal loops and the clock | #641 merged |
 | A command replayed a tick early | the console, the recorder and the main loop | item 12 |
-| The save-name stall | input and the recorder, on a channel outside the tap | open |
+| The save-name stall | input and the recorder, on a channel outside the tap | `f9bca648` merged |
 | The camera at tick 0 | save/load and `ChangeCube`'s two callers | #642 |
 | Digest membership | the digest and what a load restores | open |
 | Three outcomes, two strings | the recorder and its own verdict | #640 |
@@ -754,6 +754,9 @@ and the tooling for it already exists, unlanded.
 
 ## One input channel is not sampled at all, and a replay stops on it
 
+**Closed on main as `f9bca648`**, and the exact statement of what that shipped is below the
+mechanism, because it closes less than it looks like it closes.
+
 Reported from a real replay rather than a harness: the inventory replays correctly, item use and
 selection included, and the session then **sits indefinitely on the save-name screen with the cursor
 blinking**. That is a complete argument from the source rather than a lead.
@@ -869,6 +872,28 @@ Two consequences, and the second is worse than the stall.
 This is a third shape alongside the two above, not a repeat of either. The console seam is input in
 the file the game never saw; the `GetAscii` seam is input the game saw and the file never carried;
 this is a **fact about the device** that the game reads and the file was never designed to hold.
+
+**What shipped, stated exactly.** The stall is gone -- a replay reaching that screen went from
+killed at a 45-second timeout to finishing in 6 seconds with `201 ticks checked, first hash mismatch
+-1`. The screen is in the stream at all, where it contributed nothing before, at 1.21 bytes a poll
+and nothing for a session that never opens it. And cheat-code entry, which read the same function
+and which nothing had ever tried to drive, works from an injector for the first time
+*(measured elsewhere)*.
+
+**What it did not close**, both carried above: the accessibility limitation, because touch writes
+`TabKeys` and never `Key` and a pad button never becomes a scancode at all; and
+`LastInputWasKeyboard`, which still decides whether a replay reaches the screen in the first place.
+The source's own TODO now names which injectors reach the screen and which do not, which is the
+smallest useful form of that.
+
+**And one property of the format survives the fix: a replayed keystroke reproduces the key, not the
+character.** The poll record carries a scancode, and `GetAscii` resolves it through the *replaying*
+machine's keymap, so a name typed on a French layout replays through a US one as different letters
+-- the same keys, a different file on disk, and a `PlayerName` the recording did not end with. That
+is consistent rather than accidental: the format is scancodes throughout, and the binding tables
+travel with the file while the keymap does not. **It is a third member of the membership rule's
+defect class**, beside the five uncarried globals and `LastInputWasKeyboard`: something the game
+reads, that no savegame restores and no header carries.
 
 **The rule underneath decides the next case as well as this one.**
 Input the player gave the *game* belongs in the file as input; input the player gave the *console*
