@@ -1264,29 +1264,47 @@ Ordered by what makes the next thing safe, not by size.
    modal one step ahead of the recording.** A tick number is a place to look; a field and a delta
    are a lead.
 
-   **The cause is command scheduling in the recorder, and it is not a clock problem at all.** A
-   trace of the modal's mints against the tick counter puts the modal at tick 60 on the recording
-   side and tick 59 on the replay side: **a console command replays one tick out of position**, and
-   everything downstream -- the carry, the actor timers, the positions -- is that one tick
-   *(measured elsewhere)*. The two entry points are different points in the frame. While recording,
-   a command runs from `Control_TickHook` ([PERSO.CPP:585](../../SOURCES/PERSO.CPP#L585)), before
-   that tick's input poll. While replaying, it runs from the stream reader inside the poll
-   ([RECORD.CPP:2622](../../SOURCES/RECORD.CPP#L2622)).
+   **The cause is where a command runs inside the tick, and it is not a clock problem at all.**
+   Instrumented at both ends, printing the tick counter and the clock at the moment the command
+   runs: both sides run it on the **same tick**, `s_ticks` 61, and from the **same function**,
+   `Control_TickHook`. What differs is the position inside that function. The recording runs it from
+   `control_run_exec_at`, which sits *below* the tick's `Timer_FixedDtAdvance`; the replay ran it
+   from `Record_TickHook`, which is `Control_TickHook`'s first statement and therefore *above* that
+   advance. Measured against each side's own tick-60 baseline, the command sees clock 1026 on the
+   recording side and 1010 on the replay side *(measured elsewhere)*. **So it is one minted clock
+   step out of position, not one tick.** Absolute clock values compare only within a pair, because
+   `Timer_EnableFixedDt` seeds the virtual clock from the host clock and the seed varies per
+   process.
 
-   **The control is what proves it rather than merely agreeing with it.** The same trace on the
-   clean `cube 154` session puts the fade's mints at tick 61 on *both* sides. So the question was
-   never "why does the modal shift" but "why does the fade not", and the answer names the cause:
+   A mint trace taken before that instrumentation read as "the modal runs at tick 60 recording and
+   tick 59 replaying", and the two observations are the same fact seen from different sides: running
+   above the advance puts the command's presents under the previous tick number. The tick-attributed
+   reading is the one to distrust, because the thing being attributed is what moved.
+
+   **"Any inline-working verb shows it" is false, and the arm has to be chosen more carefully than
+   that.** On the `--exec-at` layout, `teleport actor 1`, `varcube 0 7` and `behaviour 2` all do
+   their work inline, all move digest fields, and all replay clean; only `ui inventory` reproduces
+   *(measured elsewhere)*. A one-step position error is visible only to a verb that **spends clock**
+   inline, and a modal spends it because its inner loop presents and every present is a step. The
+   control that makes this a fact rather than an absence: with command execution disabled entirely,
+   `teleport` goes red at tick 61 while a quiet session stays clean, so the verb does move the
+   digest and the arm can see it when it is not run at all.
+
+   **And there are two defects, failing in opposite directions.** A command that arrives at the tick
+   boundary replays a step early. A command that arrives **mid-frame** -- the console's own layout,
+   where the record lands after that frame's poll -- replays a whole tick **late**: recorded at
+   `s_ticks` 155, replayed at 156, reported as a consistency failure at tick 155 with 0 ms of drift
+   *(measured elsewhere)*. The console cannot be driven headlessly, so that was measured through the
+   control socket, which runs a command from the present path and so lands mid-frame in the same
+   way. **The two layouts are separated by which verbs can see them**: any digest-moving verb sees
+   the mid-frame one, and only a clock-spending verb sees the tick-boundary one. `varcube` is clean
+   on the first layout and red on the second, which is the cleanest demonstration that they are two
+   faults and not one.
+
+   `cube 154` stays clean throughout, and the reason is still the one the fade first suggested:
    `cube` sets `NewCube`, whose work happens at the top of the next main-loop iteration
-   ([PERSO.CPP:525](../../SOURCES/PERSO.CPP#L525)), so a command arriving a tick early is
-   re-synchronised to a tick boundary before it does anything. **A verb that does its work inline is
-   not.** The modals are only how this becomes visible, because they are the commands that do enough
-   work inside one tick to move the digest.
-
-   Which changes what to build. **The arm is not a modal fixture**; any inline-working verb at any
-   tick should show it, and that is far cheaper to drive and far easier to read. It also kills a lead
-   that reads well and points nowhere: that the fade differs because it reaches its steps through
-   `Timer_FixedDtPump` while the others reach theirs through the present. That is a real difference
-   on the wrong axis. The fade differs in *when its work happens*, not in how its clock moves.
+   ([PERSO.CPP:525](../../SOURCES/PERSO.CPP#L525)), so a command out of position is re-synchronised
+   to a tick boundary before it does anything.
 
    Two earlier readings died before this one, both plausible and both cheap to reach. It is not the
    `ui` capture verbs, though they save a PNG and `MenuInventory` carries a capture-only budget
@@ -1578,13 +1596,27 @@ Ordered by what makes the next thing safe, not by size.
     complete argument from the source plus a test of the shape is worth more than a driven
     reproduction here**, because the surface is unreachable by every driver the project has.
 
-12. **Run a replayed command where the recording ran it.** The cause found under item 6, and the
-    smallest statement of the fix: a command executes from `Control_TickHook` while recording and
-    from the stream reader inside the poll while replaying, so it lands a tick early on the replay
-    and any verb that does its work inline does that work in the wrong tick. The fix is a position
-    in the frame, not a clock change, and the arm that proves it is any inline-working verb rather
-    than a modal. Worth doing before item 6's oracle half, because a consistency field would
-    otherwise be measuring this.
+12. **Run a replayed command where the recording ran it.** The cause found under item 6, and two
+    defects rather than one. A command recorded at the tick boundary replays one minted clock step
+    early, because the replay's drain sits above the tick's advance and the recording's execution
+    point sits below it. A command recorded mid-frame replays a whole tick late. They fail in
+    opposite directions and are seen by different verbs, so an arm that covers one says nothing
+    about the other.
+
+    The fix is a position in the frame and needs no format change: **the readers stage and never
+    execute**, and each drain runs what is staged from the point the recording ran it -- one above
+    `control_run_exec_at` for the tick-boundary layout, one at the tail of the poll hook after the
+    poll's own record has been consumed, for the mid-frame layout.
+
+    Two limits belong with it rather than after it. The drain on the unarmed path is reasoned rather
+    than measured, since a console-started `rec play` has no headless fixture. And the two drains
+    cannot currently be separated by experiment: with the tick-boundary drain disabled the poll
+    drain runs the command one poll later in the same tick, and around a headless modal every poll
+    record carries the same input, so nothing observes the difference. It is kept because it is the
+    position the recording used, which is an argument and not a measurement.
+
+    Ahead of item 6's oracle half, because a consistency field added first would spend its bytes
+    measuring this.
 
 Items 2 and 7 landed in #625 while this was being written and are struck through rather than
 removed, so the ordering argument stays readable. Of what is left, items 1, 3, 4, 5, 8 and 9 are
