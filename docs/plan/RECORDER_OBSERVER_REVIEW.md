@@ -986,16 +986,26 @@ Telemetry is opt-in, armed by `--record-telemetry` or `rec start verbose`. A bra
 default
 was built, measured and then parked, and **the reason it was parked is the best argument in this
 review for the caps being a real defect rather than a nuisance.** Telemetry runs to a couple of
-kilobytes a tick against a baseline of roughly 101 bytes, and writing it costs about 0.10 ms of CPU
-a tick.
+kilobytes a tick against a baseline of about **20 bytes a tick**, and CPU is not the constraint at
+all. Both halves of that were stated wrongly here before they were measured by slope. The 101 bytes
+this document quoted as the plain baseline is the size of a *keyframe record*, and a keyframe is one
+tick in 32, so amortised it is about 3.2 bytes a tick; recording the same session at 200 and 800
+ticks and taking the difference -- which cancels the fixed header and the two inline savegames --
+gives 19.8 bytes a tick plain against 2698.8 with telemetry *(measured elsewhere)*. On CPU, five
+repeats of each give 4.4090 ms a tick plain against 4.4900 recording, so the digest, the keyframe and
+the file write together cost at most 0.081 ms a tick, about 1.8%. **Bytes are the constraint and
+cycles are not**, which decides how any future field earns its place.
 
 **Any single figure for that is a figure about one scene, which is worth getting right because this
 document has quoted two of them as constants.** The count is written per tick -- `u32 tick, u16
 count, count * s32` -- and the digest mixes per-actor fields, so a cube with more actors in it is a
-longer tick. Read out of seven telemetry recordings, the per-record count ranges **434 to 733**, and
-a single file takes up to five distinct values as the player moves between cubes
-*(measured elsewhere)*. At four bytes a value plus a six-byte record head that is **1742 to 2938
-bytes a tick**. A transcript showing 668 values is an honest record of what one run printed in one
+longer tick. Two sweeps over overlapping but different sets of contributed files give **434 to 733**
+across seven and **434 to 956** across five, with up to **seven** distinct widths inside a single
+file
+*(measured elsewhere)*. At four bytes a value plus a six-byte record head that is roughly **1750 to
+3830 bytes a tick**, against 2698.8 measured by slope on one session. That two people sweeping "the
+contributed recordings" measured different file sets is its own small instance of the coverage point
+above. A transcript showing 668 values is an honest record of what one run printed in one
 scene; it becomes wrong only when it is lifted out and cited as the format's width, which is what
 happened here twice.
 
@@ -1019,16 +1029,16 @@ Correct for it and the telemetry arithmetic changes character:
 | | Size | Multiple |
 |---|---|---|
 | As measured, telemetry off | 96.7 MB | -- |
-| As measured, telemetry on | ~255 to ~363 MB | 2.6x to 3.8x |
+| As measured, telemetry on | ~255 to ~444 MB | 2.6x to 4.6x |
 | Analog fixed, telemetry off | ~7.3 MB | -- |
-| Analog fixed, telemetry on | ~165 to ~274 MB | **22x to 37x** |
+| Analog fixed, telemetry on | ~166 to ~355 MB | **23x to 48x** |
 
-(The telemetry rows are ranges because the per-tick width is: 1742 to 2938 bytes over 90,692 ticks
-is 158 to 266 MB on top of the recording. A single scene's figure would give a tighter answer to a
+(The telemetry rows are ranges because the per-tick width is: 1750 to 3830 bytes over 90,692 ticks
+is 159 to 347 MB on top of the recording. A single scene's figure would give a tighter answer to a
 question nobody asked, since a half-hour session crosses many cubes.)
 
 So **fixing the stuck axis does not shrink the telemetry problem, it stops hiding it.** A 3x
-overhead is arguable; twenty to forty times on a file that would otherwise be 7 MB is not, and the
+overhead is arguable; twenty to fifty times on a file that would otherwise be 7 MB is not, and the
 range is what the default has to be held against. Both fixes are worth having and the order matters only for the
 arithmetic: nobody should size compression work, or conclude recordings are inherently large,
 against a 97 MB figure that is 89 MB of padding.
