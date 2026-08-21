@@ -310,10 +310,12 @@ static S32 s_reloadDt = 0;
 static int s_recArmedDt = 0;
 static int s_pendingBaseline = 0;
 static int s_frameClockValid = 0;
-/* One step of held clock per iteration of a wait loop, and the run of them since the last
-   poll. 16 ms is the engine's nominal frame and the default --fixed-dt hands the very same
-   loops. Fixed rather than measured: see Record_WaitHook. */
-#define REC_WAIT_STEP_MS 16
+/* This recorder's nominal frame, in two places: the step a recording pins when the run did
+   not ask for one, and the step a wait loop mints under a clock this file is holding. 16 ms
+   is what the harness and every fixture use, and what docs/RECORDING.md tells a player to
+   pass. The two want the same number, so they read the same one. */
+#define REC_DEFAULT_DT 16
+/* Wait steps minted since the last poll, and the wall clock the run of them began at. */
 static U32 s_waitSteps = 0;
 static U32 s_waitAnchor = 0;
 static int s_hash32 = 0;    /* LBA2_REC_HASH32: store a 32-bit digest */
@@ -1067,10 +1069,6 @@ static void record_reload_request(const char *save, const char *then, int forPla
     s_reloadDt = 0;
     s_reloadState = 1;
 }
-
-/* The step a recording pins when the run did not ask for one. 16 ms is what the harness
-   and every fixture use, and what docs/RECORDING.md tells a player to pass. */
-#define REC_DEFAULT_DT 16
 
 static void record_reload_issue(void) {
     /* Pin the step here, which is the one place a mid-session recording can.
@@ -2417,8 +2415,16 @@ void Record_ClockHook(U32 *now) {
    Paid for in real time, because a step minted is a step the run has not spent. Without
    that a recorded fade would end in the time it takes to render thirteen frames rather
    than in FADE_DELAY, which is the too-fast transitions the pinned clock is paced to
-   avoid, arriving by the other road. Recording and replay alike: a wait costs what it represents either way, and the
-   few hundred milliseconds a replay spends on a fade buy the same fade a player saw. */
+   avoid, arriving by the other road. Recording and replay alike: a wait costs what it
+   represents either way, and the few hundred milliseconds a replay spends on a fade buy
+   the same fade a player saw.
+
+   What it does cost is frames. A recorded fade ramps in ceil(FADE_DELAY / step) steps
+   whatever the display can draw, thirteen at 16 ms, where the same fade unrecorded ramps
+   in as many as the frame rate allows -- measured at 47 under the dummy video driver. The
+   duration is unchanged either way, measured at 1.22s against a 1.21s unrecorded control,
+   and the coarser ramp is the price of both ends running the same number of iterations. It
+   is the trade --fixed-dt already makes for the same loops. */
 void Record_WaitHook(void) {
     /* Under a generated clock the engine mints the step itself, which is the whole of
        why these loops terminate there today. */
@@ -2433,8 +2439,8 @@ void Record_WaitHook(void) {
     if (!s_waitSteps)
         s_waitAnchor = Timer_ClockSource();
     s_waitSteps++;
-    s_frameClock += REC_WAIT_STEP_MS;
-    Timer_SleepUntil(s_waitAnchor + s_waitSteps * REC_WAIT_STEP_MS);
+    s_frameClock += REC_DEFAULT_DT;
+    Timer_SleepUntil(s_waitAnchor + s_waitSteps * REC_DEFAULT_DT);
 }
 
 void Record_TickHook(void) {
