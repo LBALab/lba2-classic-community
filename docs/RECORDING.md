@@ -139,11 +139,41 @@ A replay pins whatever step the recording's header names, so a session played at
 replays at that one rather than at the default.
 
 The step is given back where it was taken. A pinned step advances game time by dt per rendered
-frame rather than by wall clock, and frames are paced to match only while a recording is running,
-so a session that kept the step afterwards ran at whatever rate it rendered at -- measured
-headless, 1.00x real time before a recording and 3.12x after one. `rec stop` and the end of a
-replay hand it back, and a run given `--fixed-dt` keeps its own: that step belongs to the whole
-run and to whoever asked for it.
+frame rather than by wall clock, and the clock is held to real time only while a recording is
+running, so a session that kept the step afterwards ran at whatever rate it rendered at --
+measured headless, 1.00x real time before a recording and 3.12x after one. `rec stop` and the end
+of a replay hand it back, and a run given `--fixed-dt` keeps its own: that step belongs to the
+whole run and to whoever asked for it.
+
+## Holding a recorded session to real time
+
+A pinned clock hands out its step from three places, not one: the tick advance, an extra present
+inside a frame, and a non-presenting pump. `Timer_SetFixedDtPaced` makes each of them cost a step
+of wall time, because the pacing lives at the single point in `TIMER.CPP` that all three go
+through.
+
+Not per tick, which is the only unit a caller outside the timer can see and the one unit that
+misses every modal. A fade, a menu, a dialogue box and an inventory screen each run their own loop
+that presents and pumps without ever reaching the main-loop tick, so a pacer sitting on the tick
+leaves all of them free to draw as much game time as they like at no cost in real time.
+`FadeToBlack` (`SOURCES/AMBIANCE.CPP`) waits out `FADE_DELAY`, 200 ms of game time; paced at the
+tick it spends 26 ms of wall clock doing so, eight times real speed. That is what the too-fast
+transitions are, along with the save menu that scrolls several entries to a keypress, the loading
+that fast-forwards and the dialogue that skips itself before its voice line finishes. Paced at the
+mint site the same fade spends 208 ms of wall for 208 ms of clock.
+
+None of this moves the step *sequence*. Each of the three sites mints the same number of steps
+whether the clock is held to real time or not, which is what makes pacing safe for a format that
+compares per-tick hashes: it spends wall time and changes no value the simulation reads.
+
+Off unless a recording asks for it. A batch run under `--fixed-dt` wants the opposite, and
+outrunning real time is most of why the harness has the flag.
+
+Two things it does not cover. A **replay** is not paced, which is right for verifying a recording
+and wrong for a player watching one back with `rec play`, where it races. And `FadeToBlack` pumps
+*and* presents on each iteration, so it mints 32 ms a time rather than 16 and renders half the
+frames it should; pacing gives it the right duration but not the frames, and correcting the double
+step moves the clock sequence, so it wants its own change.
 
 A recording whose step the recorder pinned carries `setup.reload_clock=0`, where one made
 under the flag carries the real reading. That is not a defect and not worth reconciling:

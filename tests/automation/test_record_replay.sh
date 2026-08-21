@@ -818,5 +818,76 @@ analog_ok="$(python3 -c "print(1 if $rateanalog <= $ratepolls // 10 else 0)")"
 [ "$analog_ok" = 1 ] ||
     fail "rate: $rateanalog of $ratepolls polls carry an analog block, so the gate at RECORD.CPP is firing on most of them — the rate result above is not describing an ordinary recording"
 
+# --- a modal loop is held to real time too -------------------------------------------
+#
+# The arm above asks the question over a whole run, and over a whole run it cannot see
+# this. A fade, a menu or a dialogue box advances the game clock inside its own loop, and
+# that loop is short: measured, FadeToBlack (SOURCES/AMBIANCE.CPP) took 208 ms of game
+# clock in 26 ms of wall, eight times real speed, inside a session whose overall rate read
+# 1.02x because the paced main loop averaged the spike away. Every figure averaged over a
+# session has that blind spot, so this one is asked over a window instead.
+#
+# Read from clock_src_ms and not timer_ref_hr: timer_ref_hr is accumulated play time and
+# moves backwards through a scene change -- measured -4096 ms across this very window --
+# so a bracket around a transition reads negative. clock_src_ms is what ManageTime would
+# read, which is the pinned clock while one is armed and the host clock otherwise.
+#
+# One-sided on purpose. A slow or loaded machine only ever pushes the rate down, so a
+# ceiling cannot fail for being busy; the failure it is looking for is the game running
+# faster than the player, which is the whole complaint.
+#
+# The ceiling is 1.15 because the two states it separates are 1.00 and 1.31, measured on
+# this window. Pacing can only ever sleep, never hurry, so the passing side is bounded
+# above by 1.00 and the 15% is headroom for timer granularity rather than a tolerance
+# anything is expected to use.
+modaldir="$(mktemp -d)"
+clean_add "$modaldir"
+
+ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$modaldir/s.rec" \
+    --exec-at 40 "key up 200" \
+    --exec-at 295 "dumpstate $modaldir/w0.json" \
+    --exec-at 300 "cube 154" \
+    --exec-at 340 "dumpstate $modaldir/w1.json" \
+    --tick 600 --exit >/dev/null 2>&1 ||
+    fail "modal pacing: the scene-change run exited non-zero ($?) — hang or crash"
+[ -s "$modaldir/w0.json" ] && [ -s "$modaldir/w1.json" ] ||
+    fail "modal pacing: the run dumped no window — it never reached the scene change"
+# Before the rate is read, and not merely for tidiness: pacing is armed by a recording
+# starting, so a run whose --record never opened is unpaced for a reason that has nothing
+# to do with modal loops. It would fail the rate check below with a message blaming them.
+[ -s "$modaldir/s.rec" ] ||
+    fail "modal pacing: the run wrote no recording, so nothing armed the pacing and the rate below would describe the wrong fault"
+
+# Two numbers out of one reader, so the window is described once.
+modalout="$(python3 -c "
+import json
+a = json.load(open('$modaldir/w0.json'))
+b = json.load(open('$modaldir/w1.json'))
+game = b['clock_src_ms'] - a['clock_src_ms']
+wall = b['wall_ms'] - a['wall_ms']
+ticks = b['tick'] - a['tick']
+if wall <= 0 or game <= 0 or ticks <= 0:
+    raise SystemExit(1)
+# The 16 is the --fixed-dt above. Written twice on one command, so it is the one thing
+# here that has to move in step if the arm is ever re-pinned.
+print('%.3f %d %d' % (game / wall, game, ticks * 16))")" ||
+    fail "modal pacing: the window dumped no usable clock — a stopped clock, or a bracket that caught nothing"
+
+modalrate="${modalout%% *}"
+modalgame="$(printf '%s\n' "$modalout" | cut -d" " -f2)"
+modalticks="$(printf '%s\n' "$modalout" | cut -d" " -f3)"
+
+# The condition the check rests on: that this window holds a modal at all. Ticks mint dt
+# each and nothing else in a quiet window does, so a window whose clock advanced no
+# further than its ticks account for never entered one -- and would pass the rate check
+# below by having nothing in it to fail. Without this the arm quietly stops testing the
+# moment the scripted scene change stops landing.
+[ "$modalgame" -gt "$modalticks" ] ||
+    fail "modal pacing: the window advanced ${modalgame} ms over ticks worth ${modalticks} ms, so no modal ran inside it — the scene change did not land and this arm tested nothing"
+
+modal_ok="$(python3 -c "print(1 if $modalrate <= 1.15 else 0)")"
+[ "$modal_ok" = 1 ] ||
+    fail "modal pacing: a window holding a scene change advanced ${modalrate}s of game time per wall second while recording — the modal loops are minting clock they do not pay for, which is the too-fast transitions players report"
+
 pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
-'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out"
+'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster"

@@ -302,13 +302,6 @@ static S32 s_reloadDt = 0;
    put back: a run given --fixed-dt is pinned for its whole length by something that is
    not this. */
 static int s_recArmedDt = 0;
-/* Frame pacing while recording. A pinned step makes game time advance by a constant
-   per frame, and the engine has no frame limiter, so without holding each frame back
-   the session runs at whatever rate it renders at: 600 ticks of a 16 ms step took
-   3.53 s of wall clock rather than 9.6. Only while recording, and only when the step
-   is pinned; a replay wants to go as fast as it can. */
-static U32 s_paceAnchor = 0;
-static U32 s_paceFrames = 0;
 static int s_pendingBaseline = 0;
 static int s_frameClockValid = 0;
 static int s_hash32 = 0;    /* LBA2_REC_HASH32: store a 32-bit digest */
@@ -1221,8 +1214,11 @@ static int record_begin(const char *path, int haveSnapshot) {
         Console_Print("rec: warning, the simulation step is not pinned, so this "
                       "recording will not replay exactly. Relaunch with --fixed-dt 16.");
 
-    s_paceAnchor = SDL_GetTicks();
-    s_paceFrames = 0;
+    /* Hold the game to real time for as long as this recording lasts. Asked of the timer
+       rather than done here per tick: the clock hands out a step from three places and
+       only one of them is the tick, so pacing from this hook left every modal loop --
+       fades, menus, dialogue -- taking virtual time for free. */
+    Timer_SetFixedDtPaced(1);
     s_polls = s_ticks = s_bytes = s_quietPolls = 0;
     s_bytesTicks = s_maxPollsInTick = s_pollsThisTick = 0;
     s_nCmds = s_cmdRead = 0;
@@ -1330,6 +1326,10 @@ static void record_release_step(void) {
     s_frameClock = 0;
     s_frameClockValid = 0;
     Timer_SetSimAudioClock(0);
+    /* Unconditionally, like the two above and for the same reason: a run given --fixed-dt
+       keeps the step after `rec stop` but has no reason to keep being held to real time,
+       and leaving it armed would slow a harness run to a crawl with nothing saying why. */
+    Timer_SetFixedDtPaced(0);
 
     if (!s_recArmedDt)
         return;
@@ -2392,21 +2392,6 @@ void Record_TickHook(void) {
     if (!s_recording && !s_replaying)
         return;
     h = Control_StateDigest();
-
-    if (s_recording && Timer_FixedDtActive()) {
-        U32 step = (U32)Timer_FixedDtValue();
-        U32 now, target;
-        s_paceFrames++;
-        target = s_paceAnchor + s_paceFrames * step;
-        now = SDL_GetTicks();
-        if (now < target)
-            SDL_Delay(target - now);
-        else if (now - target > 1000) {
-            /* A long stall gives up the time rather than sprinting to win it back. */
-            s_paceAnchor = now;
-            s_paceFrames = 0;
-        }
-    }
 
     if (s_recording) {
         long before = s_bytes;

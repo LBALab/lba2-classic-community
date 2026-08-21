@@ -35,14 +35,20 @@ U32 LastEvaluate;
 // unchanged.
 #define FPS_EVAL_WINDOW_MS 250
 
+// How far behind real time the paced clock may fall before it stops trying to catch up.
+#define PACE_GIVEUP_MS 1000
+
 // Fixed-dt deterministic clock (harness-only). Inert unless Timer_EnableFixedDt() is
 // called: while active, ManageTime() reads FixedDtNow instead of SDL_GetTicks().
 static S32 FixedDtActive = 0;
 static U32 FixedDt = 0;
-static U32 FixedDtNow = 0;
+static U32 FixedDtNow = 0;            // minted only by FixedDtStep(); seeded by Timer_EnableFixedDt
 static S32 FixedDtTicking = 0;        // set on the first tick advance; gates present-stepping past boot
 static S32 FixedDtSkipPresent = 0;    // makes the first present after each tick advance free
 static S32 FixedDtOverlayPresent = 0; // the next present draws an overlay, not a frame
+static S32 FixedDtPaced = 0;          // spend real time per step; see Timer_SetFixedDtPaced
+static U32 PaceAnchor = 0;            // wall clock when pacing was armed or last re-anchored
+static U32 PaceSteps = 0;             // steps minted since then
 static S32 SimAudioClock = 0;         // see Timer_SimAudioClock (TIMER.H)
 
 // --- Initialization ----------------------------------------------------------
@@ -108,6 +114,7 @@ void Timer_EnableFixedDt(U32 dt_ms) {
     FixedDtActive = 1;
     FixedDtTicking = 0;
     FixedDtSkipPresent = 0;
+    FixedDtPaced = 0;
 }
 
 void Timer_DisableFixedDt(void) {
@@ -117,6 +124,7 @@ void Timer_DisableFixedDt(void) {
     FixedDtTicking = 0;
     FixedDtSkipPresent = 0;
     FixedDtOverlayPresent = 0;
+    FixedDtPaced = 0;
     // Resync LastTime to the wall clock before any of it can be banked. The two clocks
     // have been running at different rates since the arm -- the virtual one moves dt per
     // frame, the wall one moves in wall time -- so by now they are far apart, and the
@@ -139,11 +147,56 @@ S32 Timer_FixedDtValue(void) {
     return FixedDtActive ? (S32)FixedDt : 0;
 }
 
+/* Mint one step of virtual time, and -- when something is holding the clock to real time
+   -- spend a step of real time on it.
+
+   Every dt the pinned clock hands out passes through here, from all three sites that
+   hand one out: the tick advance, an extra present, and a non-presenting pump. That is
+   the whole point of the funnel. Pacing per tick instead covers the main loop and misses
+   the other two, which are exactly the modal ones: a fade, a menu or a dialogue box runs
+   its own loop that presents and pumps without ever reaching the main-loop tick, so it
+   would draw as much virtual time as it liked at no cost in wall time. Measured on the
+   FadeToBlack path (SOURCES/AMBIANCE.CPP), which waits out FADE_DELAY of game time:
+   208 ms of clock in 26 ms of wall, eight times real speed, inside a run whose overall
+   rate read 1.02x because the paced main loop averaged the spike away.
+
+   The target is computed from the anchor and the step count rather than from the last
+   step, so the error does not accumulate: a step that overruns is paid for by the next
+   one arriving early rather than by every later step sliding. */
+static void FixedDtStep(void) {
+    U32 target;
+    S32 ahead;
+
+    FixedDtNow += FixedDt;
+
+    if (!FixedDtPaced)
+        return;
+
+    PaceSteps++;
+    target = PaceAnchor + PaceSteps * FixedDt;
+    /* A signed difference of two unsigned readings, not a comparison of their magnitudes.
+       Both wrap -- the host clock every 49.7 days, and the anchor plus the step count with
+       it -- and either one wrapping first makes a magnitude test read the gap as nearly
+       2^32 ms, so the sleep below would be weeks rather than milliseconds. The subtraction
+       wraps to the true small difference and survives it. */
+    ahead = (S32)(target - (U32)SDL_GetTicks());
+    if (ahead > 0)
+        SDL_Delay((U32)ahead);
+    else if (ahead < -PACE_GIVEUP_MS) {
+        /* Too far behind to catch up. Give the time up rather than sprint to win it
+           back, which would run the game fast to make up for having run it slow. The
+           ordinary way to reach this is a window that lost focus: the clock stops, the
+           wall clock does not, and the run resumes owing more time than it can repay. */
+        PaceAnchor = (U32)SDL_GetTicks();
+        PaceSteps = 0;
+    }
+}
+
 void Timer_FixedDtAdvance() {
     // One fixed step per tick. The next unlocked ManageTime() banks it into TimerRefHR;
     // every other ManageTime() in the tick sees an unchanged FixedDtNow and adds nothing.
     if (FixedDtActive) {
-        FixedDtNow += FixedDt;
+        FixedDtStep();
         FixedDtTicking = 1;
         // The main-loop render that follows this advance presents one frame; let it pass
         // for free so a normal tick stays exactly +dt. Extra presents in this tick come
@@ -166,7 +219,7 @@ void Timer_FixedDtPresent() {
         if (FixedDtSkipPresent) {
             FixedDtSkipPresent = 0;
         } else {
-            FixedDtNow += FixedDt;
+            FixedDtStep();
         }
     }
 }
@@ -174,12 +227,20 @@ void Timer_FixedDtPresent() {
 void Timer_FixedDtPump() {
     // No free first step: a non-presenting wait loop owns every iteration's time.
     if (FixedDtActive && FixedDtTicking) {
-        FixedDtNow += FixedDt;
+        FixedDtStep();
     }
 }
 
 S32 Timer_FixedDtActive() {
     return FixedDtActive;
+}
+
+void Timer_SetFixedDtPaced(S32 on) {
+    FixedDtPaced = on ? 1 : 0;
+    /* Anchor on the arm, not on the first step: the caller arms this at the moment it
+       wants real time to start counting from. */
+    PaceAnchor = SDL_GetTicks();
+    PaceSteps = 0;
 }
 
 void Timer_SetSimAudioClock(S32 on) {
