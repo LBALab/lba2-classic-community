@@ -2,10 +2,10 @@
 
 # Control-harness last run
 
-- when: 2026-08-20 13:03 UTC
-- commit: `b7a5846a`
+- when: 2026-08-21 14:35 UTC
+- commit: `e41857bd`
 - host: Linux x86_64
-- result: **72 passed, 2 skipped, 0 failed**
+- result: **73 passed, 2 skipped, 1 failed**
 
 A skip means a prerequisite was missing, not that the fixture agreed with the
 engine. Only the passes are evidence.
@@ -33,7 +33,7 @@ engine. Only the passes are evidence.
 | test_console_audio_cvars.sh | pass |
 | test_console_audio_stereo.sh | pass |
 | test_console_config_write.sh | pass |
-| test_demo.sh | pass |
+| test_demo.sh | **FAIL** |
 | test_demo_behaviour_menu.sh | pass |
 | test_dodge_direction.sh | pass |
 | test_dump.sh | pass |
@@ -43,6 +43,7 @@ engine. Only the passes are evidence.
 | test_followcam_recenter.sh | pass |
 | test_followcam_release.sh | pass |
 | test_followcam_tracking.sh | pass |
+| test_getascii_text_input.sh | pass |
 | test_input_combos.sh | pass |
 | test_input_hold_throttle.sh | pass |
 | test_input_injection.sh | pass |
@@ -85,4 +86,5 @@ engine. Only the passes are evidence.
 | test_ui_menu_options_uhd.sh | pass |
 | test_ui_menu_options_wide.sh | pass |
 | test_ui_video.sh | pass |
+| test_user_dirs.sh | pass |
 | test_walkthrough_opening.sh | pass |
