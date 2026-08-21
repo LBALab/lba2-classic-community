@@ -644,6 +644,27 @@ reporting a tick-0 mismatch, and anyone measuring the camera fix by that string 
 improvement and conclude wrongly. Nine of nine is also the strongest measured instance the
 membership rule has -- not an argument that the class exists, a count.
 
+### What the contributed corpus can and cannot show
+
+Every measurement above rests on player recordings, so what the sample is made of decides what any
+sweep over it can find. Fifteen exist on one machine -- nine from Windows and six from macOS, plus a
+96 MB Any% session. Three properties of that set decide what is findable in it
+*(measured elsewhere)*.
+
+- **Seven carry full telemetry and eight do not.** The rest give a keyframe every 32 ticks and
+  nothing between. Which kind a file is decides whether a divergence can be attributed to a field or
+  only to a tick, and it is not visible from the filename or the size.
+- **The two platforms exercise different halves of the poll record.** Every macOS file has
+  `analog=0` with no analog block at all; every Windows file carries them. So a claim measured on one
+  platform's files is not a claim about the format.
+- **Two macOS sessions carry a console command**, which is the player-layout command case, and
+  neither is among the nine that have been judged.
+
+The nine judged files are all Windows. The six macOS ones are inventory rather than verdicts: two
+have been replayed and four have never been run. **A corpus is not a sample until someone says which
+part of it has been looked at**, and the difference between fifteen files existing and nine files
+judged is exactly the gap that makes a coverage claim wrong without anybody lying.
+
 ### The report has two strings for three outcomes, and the caps hid which one you had
 
 Six of those recordings replay their entire session and print `first hash mismatch 0`, which is also
