@@ -2,8 +2,8 @@
 
 # Control-harness last run
 
-- when: 2026-08-21 14:35 UTC
-- commit: `e41857bd`
+- when: 2026-08-21 15:37 UTC
+- commit: `673d0932`
 - host: Linux x86_64
 - result: **73 passed, 2 skipped, 1 failed**
 
