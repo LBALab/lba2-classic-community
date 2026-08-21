@@ -1082,8 +1082,44 @@ Ordered by what makes the next thing safe, not by size.
    and off by default so a batch run still outruns real time. Measured after: the same fade takes
    208 ms of wall for 208 ms of clock, and step counts are byte-identical either way, which is the
    determinism argument -- pacing spends wall time and touches no arithmetic the simulation reads.
-   The oracle half is unclaimed, and the fixture that would prove either is the same one -- a
-   recording that opens a fade, a menu or a dialogue, which no arm currently does.
+   **The fixture that would prove either now exists, and it fails.** Recording 300 pinned ticks with
+   a modal opened at tick 60 and replaying it: a quiet session and a fade both check 301 ticks with
+   no mismatch and 0 ms drift, while the inventory, a dialogue, the main menu, found-object, the
+   holomap and a slide all report their first hash mismatch at **tick 61**, the first digest after
+   the modal, at 16 ms of drift and repeating exactly across runs *(measured elsewhere)*. So this
+   is deterministic rather than the wide-interval problem, and it is pre-existing: the same numbers
+   come back from `bd64e680` with the files checked out and the tree rebuilt.
+
+   Telemetry names the field, which is item 4 arguing its own case: the summary says tick 61, and
+   the telemetry says `sim.carry` 4268109 against 4268125 -- `LastSimRefHR`, one 16 ms sub-step,
+   with actor timers and then positions downstream of it at tick 62. **The replay comes out of the
+   modal one step ahead of the recording.** A tick number is a place to look; a field and a delta
+   are a lead.
+
+   **The cause is not known, and two readings that look right are dead.** It is not the `ui` capture
+   verbs, though they save a PNG and `MenuInventory` carries a capture-only budget extension: a
+   `slide` is not a capture verb and behaves identically. And it is not the missing `SaveTimer`
+   bracket, which is a genuine asymmetry worth knowing about on its own -- `MenuInventory` is
+   entered bracketed from the player path and unbracketed from the console, and its own
+   `RestoreTimer` is a no-op behind `if (CmptMemoTimerRef)`, so the console path keeps the modal's
+   minted time where the player path discards it -- because the slide command *does* bracket its
+   modal and diverges just the same *(measured elsewhere)*.
+
+   **Why the fade is clean is the lead worth following.** The fade mints 14 extra steps in a tick
+   and reproduces; the inventory mints 63 and does not; the slide mints a couple of hundred and does
+   not. So the discriminator is not how much clock a modal makes. The fade is the one that reaches
+   its steps through `Timer_FixedDtPump`, and the others reach theirs through the present.
+
+   **Two limits keep the headline smaller than it wants to be.** Every modal above is opened by a
+   console verb, because a player-path modal cannot be driven headlessly -- the inventory opens on
+   an input the driver can supply and closes on `MyKey`, which the key-hold path does not reach --
+   so whether a *player-opened* modal diverges is untested, and the claim is that a recording which
+   opens a modal *through a console verb* does not replay. And the slide row exists only because a
+   loose end of item 10 was fixed: that wait cannot terminate under a pinned clock on main, so there
+   was nothing there to replay before, and the fix turned a hang into a divergence.
+
+   This is not an automation arm yet, and should not become one until the cause is known: an arm
+   that fails on main is a broken suite rather than a finding.
    Two things that work deliberately leaves behind, both wanting their own change: `FadeToBlack`
    pumps *and* presents each iteration, so it mints 32 ms of clock per iteration rather than 16 and
    renders half the frames it should -- correct in duration once paced, wrong in smoothness, and

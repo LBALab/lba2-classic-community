@@ -295,6 +295,12 @@ example was wrong. A plausible integer beside another plausible integer is check
 nothing, because the checker would have to know what the number means. Every measured figure in
 every doc here is that half.
 
+**A line number is not a citation, and it can be checked like one.** Verify each by reading the
+cited line back and matching a substring of what the prose claims is there. A rebase across a few
+merges moved three citations in one branch, one of them by 72 lines, and every one of those still
+pointed at real code -- which is why nothing complained. The number is the part that rots; the text
+on the line is the part that means something.
+
 **And some defects live in a pair, where neither artefact is wrong.** An advice string in
 `dump_recording.py` was correct when written and made wrong hours later by a flag rename that never
 touched it. The dependency runs backwards through time: tests, types and review all point forwards,
