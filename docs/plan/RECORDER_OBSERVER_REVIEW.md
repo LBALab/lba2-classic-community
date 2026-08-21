@@ -472,29 +472,53 @@ The shape problem: the digest is supposed to answer "did the simulation reach th
 its membership was chosen as *interesting things* rather than *state a load restores*. Those are
 different sets and nothing enforces the difference.
 
-### The same defect, measured, on a save the shipped tests do not have
+### The camera fields are a load-path asymmetry, which is heavier than a membership defect
 
-A second instance was found independently and from the other direction. On an exterior cube a
-mid-session `rec start` cannot replay clean at tick 0. `BetaCam`
+On an exterior cube a mid-session `rec start` cannot replay clean at tick 0, and the fields that
+differ belong to the rule's first category rather than to none of them. `BetaCam`
 ([CONTROL.CPP:1722](../../SOURCES/CONTROL.CPP#L1722)) and `VueOffsetX`, `VueOffsetY`, `VueOffsetZ`
-(:1727-1729) are digest members; the recorder's own in-session snapshot reload leaves them where the
-session had them, and the replay's cold `--load` initialises them, so the two ends disagree before a
-tick has run. Recorded `VueOffsetY` 0 against a replayed 170, which is the hero's Y.
+(:1727-1729) are digest members, and the savegame writes and reads all of them unconditionally in
+its camera block ([SAVEGAME.CPP:1314](../../SOURCES/SAVEGAME.CPP#L1314) and
+[:1973](../../SOURCES/SAVEGAME.CPP#L1973)). The save carries them, so comparing them is correct.
 
-The control is one save on one box, build and cfg *(measured elsewhere)*: recording at the load
-gives `first hash mismatch -1` and drift 0, and recording 200 ticks in gives `tick 0 state differs:
-VueOffsetX 11264/11512 VueOffsetY 0/170 VueOffsetZ 30208/30421`. Replaying one windowed, with audio,
-at the recorded resolution reproduces it byte for byte with every mode line matching, so it is not
-headless, not audio and not the platform. It needs a save with an exterior camera, which is why the
-shipped tests never see it.
+What the measurement shows instead is **two load paths disagreeing about one file**. Cold-loading
+the exact snapshot the recorder wrote -- one tick, no recorder in the loop -- gives `BetaCam` 2414
+and offsets 11512/170/30421, which is what the replay has. The recording side, reloading those same
+bytes through the recorder's own path, has 2404 and 11264/0/30208 at tick 0 *(measured elsewhere)*.
+Which of the two is faithful to the file is open, and the bytes cannot settle it directly, because
+saves are compressed and `CompressSave: 0` does not reach the snapshot writer.
 
-Two things follow. The membership rule is **not a tidiness argument**: it is the difference between
-a clean tick 0 and a false one on any save of that shape. And the report cannot tell the reader
-which it has -- six such recordings replay their whole session and print `first hash mismatch 0`,
-which is exactly what a run that fell apart at the first tick prints. **A verdict that names the
-first mismatching tick and nothing about what followed it collapses "wrong before it started" and
-"wrong throughout" into one number**, which is the same gap the entry-condition argument makes
-about preconditions: two different outcomes are being reported as one.
+The control is one save on one box, build and cfg: recording at the load gives `first hash mismatch
+-1` and drift 0, and recording 200 ticks in gives `tick 0 state differs: VueOffsetX 11264/11512
+VueOffsetY 0/170 VueOffsetZ 30208/30421`. Replaying one windowed, with audio, at the recorded
+resolution reproduces it byte for byte with every mode line matching, so it is not headless, not
+audio and not the platform. It needs a save with an exterior camera, which is why the shipped tests
+never see it.
+
+**A membership defect is a comparison reading something it should not. This is a load path building
+a different world from the same bytes**, which is worse, and it would have stayed hidden behind the
+membership reading if the save format had not been checked. `FlagBlackPal` is the field in that
+recording that does belong to the class -- 0 against 1 at tick 0 in all six -- and it is the
+measured instance the rule needed.
+
+### The report has two strings for three outcomes
+
+Six of those recordings replay their **entire session** and print `first hash mismatch 0`, which is
+also what a run that fell apart at the first tick prints. That the sessions really do reproduce was
+verified from the other end rather than inferred from the keyframes: replayed to the end and dumped
+against the savegame the recording carries, the hero matches in every field but an animation
+sub-frame -- x 2108, y 1131, z 10574, beta 4087, anim 66, life 253 -- and all 256 game variables
+match, after 4852 ticks *(measured elsewhere)*. So a verdict string meaning "wrong from tick 0" is
+printed over eighty seconds of perfect reproduction.
+
+A seventh wedges the replay outright, at 99% CPU after tick 64, with the stack in `MainLoop` ->
+`DoLife` -> `Dial` -> `SpeakAnimation` -> `PresentFrame`: a dialogue box presenting forever. That
+one prints no verdict at all.
+
+**Three outcomes, two strings.** A replay that diverged at the first tick and stayed wrong, a replay
+that differed at tick 0 and then reproduced the session, and a replay that never finished are worth
+distinguishing before any of them is acted on. The fix is the same shape as the entry-condition
+argument: the outcome type needs the values the outcomes actually have.
 
 ### A contributor wrote the finding down first, without knowing it
 
