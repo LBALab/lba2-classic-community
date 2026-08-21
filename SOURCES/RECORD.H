@@ -23,6 +23,10 @@ void Record_PollHook(void);
 /* ManageTime(): capture or supply the clock where the engine actually reads it. */
 void Record_ClockHook(U32 *now);
 
+/* Timer_FixedDtPump(): mint a step of the held clock, so a wait loop that never polls
+   still ends. */
+void Record_WaitHook(void);
+
 /* Control_TickHook(): one state hash per tick, the recording's own oracle. */
 void Record_TickHook(void);
 

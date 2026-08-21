@@ -78,6 +78,11 @@ void Timer_FixedDtPump();
 // that skips itself. Inert outside fixed-dt. Cleared when the clock is disarmed.
 void Timer_SetFixedDtPaced(S32 on);
 
+/* Sleep until the wall clock reaches `target`; answers how far ahead of it the call was,
+   negative when it was already past. For anything that mints a step of clock and has to
+   spend the real time the step stands for. */
+S32 Timer_SleepUntil(U32 target);
+
 // Answer the simulation's "is this voice still playing" from the sample's own length on
 // the game clock instead of from the mixer. True whenever the pinned clock is armed, and
 // separately settable by the recorder, which needs the same answer on a host-sampled

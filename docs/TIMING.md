@@ -102,7 +102,8 @@ Inert in default builds. When `Timer_EnableFixedDt(dt_ms)` is called (from
   additional present in the same tick advances `FixedDtNow` by `dt` — that's how modal
   subloops avoid deadlocking on a `TimerRefHR` deadline.
 - `Timer_FixedDtPump()` advances `FixedDtNow` without a present, for non-presenting
-  busy-waits.
+  busy-waits. It is also where a session recording mints a step of the clock it is holding,
+  for the same reason and to the same end: see [RECORDING.md](RECORDING.md).
 - `Timer_FixedDtOverlayPresent()` marks the next present as an overlay refresh, so it
   neither advances `FixedDtNow` nor spends the tick's free present.
 
@@ -199,7 +200,9 @@ When adding code that touches the timer, in rough order of how often you'll need
    pumps animation): pre-2026-05 fix, this silently discarded the wall time. Post-fix it
    doesn't, but the standing rule is the same — only pump `ManageTime` inside loops that
    need the game clock to actually move, and call `Timer_FixedDtPump`/`Timer_FixedDtPresent`
-   alongside if the loop should also terminate under fixed-dt.
+   alongside if the loop should also terminate under fixed-dt. The pump is what ends such a
+   loop under a session recording too, which holds the clock at the last input poll: a wait
+   that does not poll and does not pump never ends there.
 4. **Adding a new modal/wait loop?** Mirror `SOURCES/MUSIC.CPP:312` (`PauseMusic`,
    fade-out): `SaveTimer()`, loop with `ManageTime()` + `Timer_FixedDtPump()`,
    `RestoreTimer()`.

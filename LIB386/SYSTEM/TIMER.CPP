@@ -147,6 +147,23 @@ S32 Timer_FixedDtValue(void) {
     return FixedDtActive ? (S32)FixedDt : 0;
 }
 
+/* Sleep until the wall clock reaches `target`, and answer how far ahead of it this call
+   was. Shared by everything that mints a step of clock and then has to pay for it, so the
+   arithmetic below is written once.
+
+   That arithmetic is a signed difference of two unsigned readings, not a comparison of
+   their magnitudes. Both wrap -- the host clock every 49.7 days, and any anchor plus a
+   step count with it -- and either one wrapping first makes a magnitude test read the gap
+   as nearly 2^32 ms, so the sleep would be weeks rather than milliseconds. The subtraction
+   wraps to the true small difference and survives it. */
+S32 Timer_SleepUntil(U32 target) {
+    S32 ahead = (S32)(target - (U32)SDL_GetTicks());
+
+    if (ahead > 0)
+        SDL_Delay((U32)ahead);
+    return ahead;
+}
+
 /* Mint one step of virtual time, and -- when something is holding the clock to real time
    -- spend a step of real time on it.
 
@@ -164,7 +181,6 @@ S32 Timer_FixedDtValue(void) {
    step, so the error does not accumulate: a step that overruns is paid for by the next
    one arriving early rather than by every later step sliding. */
 static void FixedDtStep(void) {
-    U32 target;
     S32 ahead;
 
     FixedDtNow += FixedDt;
@@ -173,16 +189,8 @@ static void FixedDtStep(void) {
         return;
 
     PaceSteps++;
-    target = PaceAnchor + PaceSteps * FixedDt;
-    /* A signed difference of two unsigned readings, not a comparison of their magnitudes.
-       Both wrap -- the host clock every 49.7 days, and the anchor plus the step count with
-       it -- and either one wrapping first makes a magnitude test read the gap as nearly
-       2^32 ms, so the sleep below would be weeks rather than milliseconds. The subtraction
-       wraps to the true small difference and survives it. */
-    ahead = (S32)(target - (U32)SDL_GetTicks());
-    if (ahead > 0)
-        SDL_Delay((U32)ahead);
-    else if (ahead < -PACE_GIVEUP_MS) {
+    ahead = Timer_SleepUntil(PaceAnchor + PaceSteps * FixedDt);
+    if (ahead < -PACE_GIVEUP_MS) {
         /* Too far behind to catch up. Give the time up rather than sprint to win it
            back, which would run the game fast to make up for having run it slow. The
            ordinary way to reach this is a window that lost focus: the clock stops, the
@@ -224,11 +232,22 @@ void Timer_FixedDtPresent() {
     }
 }
 
+/* Session recording: a loop that waits on the clock without polling input gets no new
+   reading from the clock hook below, because there is no poll to take one at. Weak, so
+   libsys.a still links without the recorder. */
+void Record_WaitHook(void);
+__attribute__((weak)) void Record_WaitHook(void) {}
+
+/* A wait that ends on the clock and does not poll input. The caller has nothing to do but
+   let time pass, so whatever is minting time for this run has to mint it here: the step
+   below under --fixed-dt, and the wait hook under a clock the recorder is holding. A run
+   with neither reads the host clock directly and needs nothing from this. */
 void Timer_FixedDtPump() {
     // No free first step: a non-presenting wait loop owns every iteration's time.
     if (FixedDtActive && FixedDtTicking) {
         FixedDtStep();
     }
+    Record_WaitHook();
 }
 
 S32 Timer_FixedDtActive() {
