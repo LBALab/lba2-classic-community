@@ -731,6 +731,17 @@ array is in neither list.** So the loop's exit condition is a keystroke that can
 physically pressed key, the recording carries nothing about the name that was typed, and the replay
 waits for a key that will never arrive.
 
+**And the screen polls zero times while it is open.** Its loop presents and calls `GetAscii` and
+never reaches `MyGetInput`, so `Record_PollHook` -- which is called from `UpdateKeyboardState`
+([KEYBOARD.CPP:89](../../LIB386/SYSTEM/KEYBOARD.CPP#L89)) -- does not run for the whole time the
+name screen is up. **A recording carries no polls at all across it, so a replay has nothing to
+inject even in principle** *(measured elsewhere)*. That is what decides the shape of the fix:
+reading the polled sample in place would read one frozen value forever, and the poll itself has to
+be refreshed per iteration. The control harness is on the same clock, which is how this reproduces
+without a recording at all -- a `key` hold is metered in polls
+([CONTROL.CPP:1539](../../SOURCES/CONTROL.CPP#L1539)), so a hold scheduled with any delay never
+starts and never expires while the screen is open.
+
 Three things follow, and the third is the reason this sits above the sequencing rather than in it.
 
 - **It is not a divergence, it is a stall**, so no digest reports it and no exit code carries it.
@@ -749,9 +760,46 @@ proceed the logo, select a menu row, dismiss a dialogue -- so a recording carrie
 that is already carried: menus read the `Input` bits and `MyKey`, `MyKey` is `Key`
 ([INPUT.CPP:223](../../SOURCES/INPUT.CPP#L223)), and a replay restores `Key` along with the key
 table, the pad and the mouse. Logo, menu and dialogue navigation all read through the tap already.
-Exactly one screen reads around it, and routing that screen through the tap closes the stall and the
-`GetAscii` accessibility limitation the source already carries a note about, in one change instead
-of a verb family.
+Exactly one screen reads around it, and routing that screen through the tap closes the stall in one
+change instead of a verb family.
+
+**It does not close the accessibility limitation the source carries a note about, and the reason is
+worth reading before anyone claims it does.** Routing the screen through the polled sample reaches
+every injector that writes `Key`, which is the recorder's replay
+([RECORD.CPP:1890](../../SOURCES/RECORD.CPP#L1890)) and the control harness
+([CONTROL.CPP:1567](../../SOURCES/CONTROL.CPP#L1567), which sets it deliberately and says so). It
+does not reach the other two. `ApplyVirtualKeys`
+([TOUCH_INPUT.CPP:207](../../SOURCES/TOUCH_INPUT.CPP#L207)) sets `TabKeys` and never `Key`, and a
+pad button lands in the joystick tail at `TabKeys[256]` and above
+([INPUT.CPP:220](../../SOURCES/INPUT.CPP#L220)), never in the first 256 and never in `Key`
+*(measured elsewhere)*. **Two injectors that write the same array are not two injectors that write
+the same field**, and a fix justified by "everything writes `TabKeys`" would ship believing it had
+closed a limitation it had not touched.
+
+**A second device fact sits in front of this one, and it decides whether the screen is reached at
+all.** `ChoosePlayerName` calls `InputPlayerName` only when `LastInputWasKeyboard`
+([GAMEMENU.CPP:1903](../../SOURCES/GAMEMENU.CPP#L1903)), and that flag is set only by a real
+`SDL_EVENT_KEY_DOWN` ([KEYBOARD.CPP:157](../../LIB386/SYSTEM/KEYBOARD.CPP#L157)). It is in the
+digest under no category, and no poll record carries it. So under `--headless`, and under any replay
+where nobody has touched the keyboard, **the save-name screen is not reached**: the run takes the
+other branch and writes a datetime name instead *(measured elsewhere)*.
+
+Two consequences, and the second is worse than the stall.
+
+- **The stall is conditional on the operator.** It requires a key to have been pressed during
+  playback, which `rec play` typed at a console guarantees and `--replay` from a shell does not. "A
+  replay reaches the save-name screen" is a coin flip rather than a property, which is exactly the
+  kind of thing that makes a bug report irreproducible for the person receiving it.
+- **A replay can write a different save name than the recording did, silently.** The recording took
+  the typed branch and the replay takes the datetime branch, the two files differ by name, and
+  **nothing reports it**: a save slot is in none of the digest's three categories, so no tick
+  mismatch is raised and the replay exits clean. That is the membership rule's defect with a
+  user-visible consequence attached, and it is the strongest argument in this document for stating
+  the rule rather than leaving it implied.
+
+This is a third shape alongside the two above, not a repeat of either. The console seam is input in
+the file the game never saw; the `GetAscii` seam is input the game saw and the file never carried;
+this is a **fact about the device** that the game reads and the file was never designed to hold.
 
 **The rule underneath decides the next case as well as this one.**
 Input the player gave the *game* belongs in the file as input; input the player gave the *console*
