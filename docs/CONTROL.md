@@ -325,7 +325,7 @@ Schema-versioned, hand-written, all-integer fields:
   "tick": 30,
   "timer_ref_hr": 41234,
   "wall_ms": 8231,
-  "clock_src_ms": 41234,
+  "clock_src_ms": 8229,
   "fps": 60,
   "scene": { "island": 4, "cube": 154, "cube_mode": "interior",
              "num_objects": 13, "num_zones": 4, "num_tracks": 5, "num_patches": 16 },
@@ -356,9 +356,12 @@ Schema-versioned, hand-written, all-integer fields:
   change or a load installs a clock rather than advancing one, so it moves backwards
   through both, measured at -4096 ms across a single `cube` change. Its advance is
   meaningful within a stretch of ordinary play, not across a transition.
-- `wall_ms`: the host clock (`SDL_GetTicks`), unaffected by `--fixed-dt`.
-- `clock_src_ms`: what `ManageTime` would read right now, which is the pinned clock when
-  one is armed and the host clock otherwise. Against `wall_ms` across two dumps this gives
+- `wall_ms` is the host clock (`SDL_GetTicks`), unaffected by `--fixed-dt`. Note the scale
+  against `timer_ref_hr` above: this one counts from process start, that one from whatever
+  play time the save carried, so the two are unrelated numbers and only their *deltas*
+  belong in the same sentence.
+- `clock_src_ms` is what `ManageTime` would read right now, which is the pinned clock when
+  one is armed and the host clock otherwise. It tracks `wall_ms`, not `timer_ref_hr`. Against `wall_ms` across two dumps this gives
   the rate the game ran at over that window, and a window is the only way to see a modal.
   A fade or a dialogue box advances the clock inside its own loop, and whether it spent
   real time doing so disappears into any figure averaged over a session. Unlike

@@ -835,6 +835,11 @@ analog_ok="$(python3 -c "print(1 if $rateanalog <= $ratepolls // 10 else 0)")"
 # One-sided on purpose. A slow or loaded machine only ever pushes the rate down, so a
 # ceiling cannot fail for being busy; the failure it is looking for is the game running
 # faster than the player, which is the whole complaint.
+#
+# The ceiling is 1.15 because the two states it separates are 1.00 and 1.31, measured on
+# this window. Pacing can only ever sleep, never hurry, so the passing side is bounded
+# above by 1.00 and the 15% is headroom for timer granularity rather than a tolerance
+# anything is expected to use.
 modaldir="$(mktemp -d)"
 clean_add "$modaldir"
 
