@@ -105,30 +105,37 @@ void EndKeyboard() {
 }
 
 // --- Interface ---------------------------------------------------------------
-/* The character behind this poll's first held key, once per press.
+/* The character behind the last poll's first held key, once per press.
  *
- * Takes the poll rather than reading SDL again: `Key` is the same first-held
- * scancode, off the same array, scanned in the same order, so a player at a
- * keyboard is answered exactly as before. What changes is everything that puts
- * a key there without a device. Whatever writes `Key` reaches the screens that
- * read characters, and a replayed recording and the control harness both do --
- * which is what a reader of its own made unreachable. Not every injector does:
- * the touch overlay writes TabKeys and leaves `Key` alone, and a pad button
- * never becomes a scancode at all, so those two still cannot type.
+ * Reads `Key` rather than SDL's array again: it is the same first-held scancode,
+ * off the same array, scanned in the same order, so a player at a keyboard is
+ * answered exactly as before. What changes is everything that puts a key there
+ * without a device. Whatever writes `Key` reaches the screens that read
+ * characters, and a replayed recording and the control harness both do -- which
+ * is what a reader of its own made unreachable. Not every injector does: the
+ * touch overlay writes TabKeys and leaves `Key` alone, and a pad button never
+ * becomes a scancode at all, so those two still cannot type.
  *
- * It reads the sample and does not take it. Taking one here would consume a
- * recorded poll wherever a character is read, and one of the two callers --
- * cheat-code entry, from the menu loop -- already sits inside a frame that
- * polled. Adding a second consumed the stream faster than the session that
- * wrote it, so the menu closed sooner on the replay than it had live, and every
- * actor came out 128 ms behind: a recording made before that change replayed
- * clean and after it did not. The screen that has no poll of its own takes one
- * for itself instead (`InputPlayerName`, SOURCES/GAMEMENU.CPP), which is the
- * only place where a poll is genuinely missing.
+ * THE RULE FOR A NEW CALLER: this reads the sample and does not take it, so call
+ * it only from a frame that has polled -- one that reaches MyGetInput, or one
+ * that calls ManageKeyboard itself. A loop that does neither reads one sample
+ * for as long as it runs, which for `while (GetAscii())` is forever. That shape
+ * is not hypothetical: `InputString` (LIB386/MENU/MENUFUNC.CPP) is written that
+ * way already, and is saved only by not being linked.
  *
- * A held key still yields one character: the edge is remembered rather than
- * read off the device, because a poll cannot tell a key held from a key struck
- * again on the next frame. */
+ * Taking the poll here instead was tried and reverted. It consumes a recorded
+ * poll wherever a character is read, and cheat-code entry already sits inside a
+ * frame that polled; the second poll consumed the stream faster than the session
+ * that wrote it, so a replayed menu closed sooner than it had live and every
+ * actor came out 128 ms behind. A poll is a unit of the recording, so adding one
+ * anywhere a recording already covers rewrites what that recording means. The
+ * screen that has no poll of its own takes one for itself instead
+ * (`InputPlayerName`, SOURCES/GAMEMENU.CPP), which is the only place one is
+ * genuinely missing.
+ *
+ * A held key still yields one character: the edge is remembered rather than read
+ * off the device, because a poll cannot tell a key held from a key struck again
+ * on the next frame. */
 S32 GetAscii() {
     static SDL_Keycode lastReturnedAscii = 0;
 
