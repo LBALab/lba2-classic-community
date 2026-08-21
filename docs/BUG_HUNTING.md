@@ -129,6 +129,14 @@ Concretely, the other shapes, from this engine:
   check compares. Counting the files, or even counting the commands, says covered; only reading what
   they contain says otherwise.
 
+- **A result that clears everything is a fault in the harness too.** The suspicion usually runs one
+  way: a check that condemns everything is distrusted, a check that passes everything is filed as
+  good news. Six recordings were reported as reproducing their full sessions, and lifting the
+  report's own caps separated them into two clean, three diverging -- one ending twenty thousand
+  units off the recorded path -- and one deadlock. The capped output for a total failure and for a
+  perfect replay was identical. Ask of a clean sweep what you would ask of a red one: could this
+  instrument have said anything else?
+
 - **A sweep that does not take each input's own settings measures the sweep.** Replaying a corpus of
   recordings without giving each one the step it was recorded at reported divergence at tick 0 on
   files that replay clean under the suite. The arm was wrong, not the files. Read the mode the
