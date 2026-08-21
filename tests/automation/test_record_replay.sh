@@ -187,11 +187,39 @@ for how in cut magic; do
             printf '%s\n' "$tout" | grep -m1 'replay ended' || echo 'the replay said nothing')"
         ;;
     esac
-    # And refused means refused: a reader that reported the damage and then carried on
-    # into the savegame would check ticks out of bytes that are not a stream.
+    # What "refused" costs the rest of the file, which is not the same answer for the two
+    # damages and is the reason they are both here.
+    #
+    # `cut` takes the bytes away, so the length in the chunk head points past the end and
+    # there is no stream behind it: the reader has to check nothing rather than read a
+    # savegame's bytes as input.
+    #
+    # `magic` keeps every byte and damages only the word behind them, so the chunk is
+    # stepped over by its own length and the records after it are intact. The refusal is
+    # of the snapshot, not of the file, and the ticks behind it check normally: measured,
+    # 301 of them with no mismatch. That is worth knowing rather than asserting away --
+    # a replay that has refused the state the recording started from is answering from a
+    # precondition it could not establish, which is the shape
+    # [RECORDER_OBSERVER_REVIEW.md]'s first item is about. It is not a regression: the
+    # same file checked the same 301 ticks before the verdict was printed from every exit,
+    # and the count was invisible rather than zero.
     tchecked="$(printf '%s\n' "$tout" | sed -n 's/.*: \([0-9]*\) ticks checked.*/\1/p')"
-    [ "${tchecked:-0}" = "0" ] ||
-        fail "torn/$how: refused the snapshot and then checked $tchecked ticks anyway"
+    case "$how" in
+    cut)
+        [ "${tchecked:-0}" = "0" ] ||
+            fail "torn/cut: the bytes are gone, but the reader checked $tchecked ticks out of them"
+        ;;
+    magic)
+        # The positive half, and it is the one that would catch a reader stepping over the
+        # chunk by anything other than its own length: every byte is present, so the stream
+        # behind the damage has to still be a stream. A reader that lost its place here
+        # would check a handful of ticks out of savegame bytes, or none, rather than the
+        # whole file. Bounded below rather than pinned to the recording's exact length, so
+        # the arm does not have to move when the runs above change their tick count.
+        [ -n "$tchecked" ] && [ "$tchecked" -gt 100 ] ||
+            fail "torn/magic: every byte is present, but the reader checked only ${tchecked:-0} ticks behind the damaged chunk — it did not step over it by its length"
+        ;;
+    esac
 done
 rm -f "$torn"
 
