@@ -2072,14 +2072,31 @@ static int replay_poll(void) {
         s_prevSrcDelta = d;
     }
 
-    /* The clock this frame runs on, from the file. */
-    s_replaySrc += s_prevSrcDelta;
-    record_hold_clock(s_replaySrc);
+    /* Before this frame's delta rather than after it, because the recording banks that
+       delta and a replay installing the baseline on top of it does not. `record_begin`
+       settles the clock on the reading it takes the baseline from, and the first
+       `record_poll` then holds the next reading, so the interval between the two is one
+       the recorded run spent and wrote down. Installed after the hold, `SetTimerHR`
+       assigns straight over it, and the two ends part by exactly that interval.
+
+       Measured on a failing file, each end at its own tick 1: `TimerRefHR` 4268111
+       recorded against 4268110 replayed, with `sim.carry` and the first stamped actor's
+       animation anchors carrying the same millisecond. Forced by holding the first poll
+       three milliseconds back, it is not intermittent at all: fifteen recordings out of
+       fifteen failed before this and one of fourteen after.
+
+       Under `--fixed-dt` the two readings are the same and there is nothing to discard,
+       which is the whole reason only a host-sampled run shows it. */
     if (s_pendingBaseline) {
         s_pendingBaseline = 0;
+        record_hold_clock(s_replaySrc);
         SetTimerHR(s_baseline);
         LastSimRefHR = s_baselineCarry;
     }
+
+    /* The clock this frame runs on, from the file. */
+    s_replaySrc += s_prevSrcDelta;
+    record_hold_clock(s_replaySrc);
 
     replay_inject();
 
