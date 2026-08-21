@@ -16,6 +16,14 @@
  * whole-file compile pulls in even though this test only exercises the scheduler). */
 bool AppActive = true;
 
+/* The session recorder's wait hook. TIMER.CPP carries a weak no-op so libsys.a links
+ * without the recorder; a strong definition here overrides it, which is the only way a
+ * host test can see which of the two pumps reaches it. */
+static long waitHookCalls = 0;
+extern "C" void Record_WaitHook(void) {
+    waitHookCalls++;
+}
+
 /* Feed a per-frame elapsed pattern through the scheduler and return the total steps. */
 static long total_steps(const U32 *elapsed, int nFrames, U32 dt, S32 maxSteps) {
     U32 acc = 0;
@@ -452,6 +460,67 @@ static void test_a_clock_wait_with_no_source_cannot_advance(void) {
     ASSERT_EQ_UINT(start + 16, TimerRefHR);
 }
 
+/* The two pumps differ in one thing and it is not the step. Timer_FixedDtPump() drives the
+ * recorder's wait hook, which is what ends a non-polling wait under a host-sampled clock the
+ * recorder is holding; Timer_FixedDtPumpPolled() does not, because a loop that polls input
+ * every iteration already gets a fresh reading and a second step there is one the loop never
+ * asked for -- and the hook pays real time for every step it mints, so the cost is a stall
+ * rather than a rounding error. Measured before the two were separated: a loose-clock
+ * recording that replayed in 8 s had not reached its first progress line after 60.
+ *
+ * Both must still step the pinned clock identically, or the polled form would not fix the
+ * hang it exists for. */
+static void test_only_the_unpolled_pump_reaches_the_wait_hook(void) {
+    U32 base;
+
+    Timer_EnableFixedDt(16);
+    Timer_FixedDtAdvance(); /* arm ticking, so both pumps are live */
+    ManageTime();
+    base = TimerSystemHR;
+
+    waitHookCalls = 0;
+    Timer_FixedDtPumpPolled();
+    ManageTime();
+    ASSERT_EQ_UINT(base + 16, TimerSystemHR);
+    ASSERT_EQ_INT(0, (int)waitHookCalls);
+
+    Timer_FixedDtPump();
+    ManageTime();
+    ASSERT_EQ_UINT(base + 32, TimerSystemHR);
+    ASSERT_EQ_INT(1, (int)waitHookCalls);
+
+    /* And neither steps before the first tick advance, so a boot-time wait cannot move the
+     * clock whichever one it calls. */
+    Timer_EnableFixedDt(16);
+    ManageTime();
+    base = TimerSystemHR;
+    Timer_FixedDtPumpPolled();
+    Timer_FixedDtPump();
+    ManageTime();
+    ASSERT_EQ_UINT(base, TimerSystemHR);
+}
+
+/* Timer_EnableFixedDt has to leave no flag behind, or a mid-session arm inherits one. The
+ * overlay flag is the one that outlived a re-arm: set but unconsumed, it swallows the step
+ * of the first present after the next arm, which is a tick of simulation time that silently
+ * does not happen. */
+static void test_arming_clears_a_pending_overlay(void) {
+    U32 base;
+
+    Timer_EnableFixedDt(16);
+    Timer_FixedDtOverlayPresent(); /* claimed, then never presented */
+
+    Timer_EnableFixedDt(16);
+    Timer_FixedDtAdvance();
+    ManageTime();
+    base = TimerSystemHR;
+
+    Timer_FixedDtPresent(); /* the tick's own render: free, and not swallowed */
+    Timer_FixedDtPresent(); /* a modal present: must step */
+    ManageTime();
+    ASSERT_EQ_UINT(base + 16, TimerSystemHR);
+}
+
 int main(void) {
     RUN_TEST(test_step_count_is_pacing_invariant);
     RUN_TEST(test_high_and_low_frame_rate);
@@ -466,6 +535,8 @@ int main(void) {
     RUN_TEST(test_a_fade_iteration_costs_two_steps);
     RUN_TEST(test_a_modal_loop_can_have_no_clock_but_its_present);
     RUN_TEST(test_a_clock_wait_with_no_source_cannot_advance);
+    RUN_TEST(test_only_the_unpolled_pump_reaches_the_wait_hook);
+    RUN_TEST(test_arming_clears_a_pending_overlay);
     TEST_SUMMARY();
     return test_failures != 0;
 }

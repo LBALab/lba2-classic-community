@@ -231,7 +231,7 @@ Both run to a timeout where the control exits 0. So step A as stated is not a co
 a deadlock, and it is not behaviour-neutral.
 
 The consolidation half is already done: every millisecond the pinned clock hands out goes through
-`FixedDtStep` ([TIMER.CPP:183](../../LIB386/SYSTEM/TIMER.CPP#L183)), which #630 finished. The
+`FixedDtStep` ([TIMER.CPP:184](../../LIB386/SYSTEM/TIMER.CPP#L184)), which #630 finished. The
 deletions cannot happen until every clock-terminated loop has a call of its own to advance the
 clock with, and giving them one is step B. So the two are not consecutive: **the deletion half of
 step A is step B**, and the ordering below has them the wrong way round. The recorder's frame-clock

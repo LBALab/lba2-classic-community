@@ -114,6 +114,7 @@ void Timer_EnableFixedDt(U32 dt_ms) {
     FixedDtActive = 1;
     FixedDtTicking = 0;
     FixedDtSkipPresent = 0;
+    FixedDtOverlayPresent = 0;
     FixedDtPaced = 0;
 }
 
@@ -242,11 +243,19 @@ __attribute__((weak)) void Record_WaitHook(void) {}
    let time pass, so whatever is minting time for this run has to mint it here: the step
    below under --fixed-dt, and the wait hook under a clock the recorder is holding. A run
    with neither reads the host clock directly and needs nothing from this. */
-void Timer_FixedDtPump() {
+void Timer_FixedDtPumpPolled() {
     // No free first step: a non-presenting wait loop owns every iteration's time.
     if (FixedDtActive && FixedDtTicking) {
         FixedDtStep();
     }
+}
+
+void Timer_FixedDtPump() {
+    Timer_FixedDtPumpPolled();
+    /* Only for a loop that does not poll. A loop that does gets a fresh reading from the
+       clock hook every iteration, so the wait hook would be minting a step on top of one
+       the loop already has -- and paying real time for it, which is what makes the
+       difference visible rather than merely wrong. */
     Record_WaitHook();
 }
 

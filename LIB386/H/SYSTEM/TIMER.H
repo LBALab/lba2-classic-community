@@ -58,12 +58,23 @@ void Timer_FixedDtPresent();
 // recorded session: 16 ms a tick until the console opened, 32 ms a tick after it.
 // Consumed by the next Timer_FixedDtPresent(). Inert outside fixed-dt.
 void Timer_FixedDtOverlayPresent();
-// Step the virtual clock by dt_ms for a non-presenting busy-wait. Some loops (the music
-// volume fades in MUSIC.CPP) spin only on ManageTime() with no frame present, waiting for
-// TimerRefHR to cross a deadline; under fixed-dt neither the tick hook nor a present fires
-// inside them, so they would spin forever. Call this once per iteration of such a loop.
-// Unlike Timer_FixedDtPresent() there is no free first step. Inert outside fixed-dt.
+// Step the virtual clock by dt_ms for a non-presenting busy-wait that does NOT poll input.
+// Some loops (the music volume fades in MUSIC.CPP) spin only on ManageTime() with no frame
+// present, waiting for TimerRefHR to cross a deadline; under fixed-dt neither the tick hook
+// nor a present fires inside them, so they would spin forever. Call this once per iteration
+// of such a loop. Unlike Timer_FixedDtPresent() there is no free first step. Inert outside
+// fixed-dt, except that it also drives the session recorder's wait hook, which is what ends
+// the same loops under a host-sampled clock the recorder is holding.
 void Timer_FixedDtPump();
+// The same step for a wait loop that DOES poll input every iteration, which is most of the
+// timed screens in GAMEMENU.CPP. Genuinely inert outside fixed-dt, and that is the whole
+// difference: the recorder's wait hook exists for a loop that never polls, because nothing
+// else hands it a new clock reading, and a loop that polls already gets one per iteration.
+// Calling the hook there mints a second step the loop did not need and sleeps out the real
+// time it stands for, in loops that run thousands of iterations a second on a host clock --
+// measured as a recording that replayed in under a minute before and had not reached its
+// first progress line after one.
+void Timer_FixedDtPumpPolled();
 // Hold the pinned clock to real time: every step the clock hands out costs a step of wall
 // time, wherever it is handed out from. Off by default, which is what a batch run wants --
 // the point of --fixed-dt for the harness is to finish sooner than real time. A player

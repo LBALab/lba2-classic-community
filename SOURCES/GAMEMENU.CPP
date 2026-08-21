@@ -3715,12 +3715,13 @@ static void ShowSaveConfirmation(enum MenuLocalizedLabel label) {
         while (TimerRefHR <= timer AND !MyKey
                                  AND !(Input & (I_FIRE | I_ACTION | I_MENUS))) {
             /* A wait on the game clock that draws nothing has no clock of its own under
-               --fixed-dt or a session recording, where time comes from the tick advance
-               in Control_TickHook and a modal loop never reaches it. Without the pump
-               ManageTime() reads the same virtual time forever and the wait cannot end.
-               A no-op in wall-clock play, where ManageTime() advances TimerRefHR from
-               SDL_GetTicks(). See docs/TIMING.md. */
-            Timer_FixedDtPump();
+               --fixed-dt, where time comes from the tick advance in Control_TickHook and
+               a modal loop never reaches it: ManageTime() reads the same virtual time
+               forever and the wait cannot end. The polled form because this loop calls
+               MyGetInput() every iteration, which is what keeps it moving under a
+               recorder-held clock; the unpolled Timer_FixedDtPump() would mint a second
+               step there and sleep for it. Inert in ordinary play. See docs/TIMING.md. */
+            Timer_FixedDtPumpPolled();
             ManageTime();
             MyGetInput();
         }
@@ -4420,6 +4421,10 @@ void GameOver() {
     MyGetInput();
 
     while ((MyKey != K_ESC AND !(Input & I_MENUS)) AND(TimerRefHR - chrono <= GAMEOVER_ZOOM_TEMPO)) {
+        /* The BoxUpdate below sits inside two conditionals, so it is not a clock source
+           this loop can rely on: with the body fully clipped nothing presents and the
+           deadline never arrives. Mint the step here instead (docs/TIMING.md). */
+        Timer_FixedDtPumpPolled();
         ManageTime();
         MyGetInput();
 
@@ -4459,8 +4464,8 @@ void GameOver() {
 
     chrono = TimerRefHR + GAMEOVER_TEMPO;
     while ((TimerRefHR < chrono) AND(MyKey != K_ESC AND !(Input & I_MENUS))) {
-        /* Non-presenting wait on the game clock: mint its own time (docs/TIMING.md). */
-        Timer_FixedDtPump();
+        /* Non-presenting wait that polls: mint its own time (docs/TIMING.md). */
+        Timer_FixedDtPumpPolled();
         ManageTime();
         MyGetInput();
     }
@@ -4732,8 +4737,8 @@ S32 SlideShow(void) {
         endtimer = TimerRefHR + 4 * 1000;
 
         while ((TimerRefHR < endtimer) AND !MyKey) {
-            /* Non-presenting wait on the game clock: mint its own time (docs/TIMING.md). */
-            Timer_FixedDtPump();
+            /* Non-presenting wait that polls: mint its own time (docs/TIMING.md). */
+            Timer_FixedDtPumpPolled();
             ManageTime();
             MyGetInput();
         }
@@ -4966,8 +4971,8 @@ S32 ShowLogo(S32 numscr, S32 nsec) {
         endtimer = TimerRefHR + nsec * 1000; // wait nsec
 
         while (TimerRefHR <= endtimer AND !MyKey) {
-            /* Non-presenting wait on the game clock: mint its own time (docs/TIMING.md). */
-            Timer_FixedDtPump();
+            /* Non-presenting wait that polls: mint its own time (docs/TIMING.md). */
+            Timer_FixedDtPumpPolled();
             ManageTime();
             MyGetInput();
             if (FlagMenuMouse && (Click & 1))
@@ -5097,8 +5102,8 @@ void DemoLogo(void) {
 
     // wait a key or tempo
     while (TimerRefHR <= endtimer AND !MyKey) {
-        /* Non-presenting wait on the game clock: mint its own time (docs/TIMING.md). */
-        Timer_FixedDtPump();
+        /* Non-presenting wait that polls: mint its own time (docs/TIMING.md). */
+        Timer_FixedDtPumpPolled();
         ManageTime();
         MyGetInput();
     }

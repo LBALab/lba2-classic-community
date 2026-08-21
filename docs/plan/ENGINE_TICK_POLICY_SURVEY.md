@@ -3,7 +3,7 @@
 Step A of the ladder in [ENGINE_RENDER_SPLIT_RESEARCH.md](ENGINE_RENDER_SPLIT_RESEARCH.md) is
 "a tick the engine owns". That doc prices it as small, behaviour-neutral, and mostly a
 consolidation. The consolidation already happened: every millisecond the pinned clock hands out
-goes through `FixedDtStep` ([TIMER.CPP:183](../../LIB386/SYSTEM/TIMER.CPP#L183)), which #630
+goes through `FixedDtStep` ([TIMER.CPP:184](../../LIB386/SYSTEM/TIMER.CPP#L184)), which #630
 finished. What did not happen is one place where the *decision* to hand one out is made, and there
 are four different answers to that question.
 
@@ -20,10 +20,10 @@ produced every number are at the end; re-run them rather than trusting a figure 
 
 | Function | Where | Says |
 |---|---|---|
-| `Timer_FixedDtAdvance` | [TIMER.CPP:203](../../LIB386/SYSTEM/TIMER.CPP#L203) | the main loop iterated |
-| `Timer_FixedDtPresent` | [TIMER.CPP:218](../../LIB386/SYSTEM/TIMER.CPP#L218) | a frame reached the screen |
-| `Timer_FixedDtPump` | [TIMER.CPP:245](../../LIB386/SYSTEM/TIMER.CPP#L245) | a wait loop iterated without drawing |
-| `Timer_FixedDtOverlayPresent` | [TIMER.CPP:216](../../LIB386/SYSTEM/TIMER.CPP#L216) | the next present is not a frame |
+| `Timer_FixedDtAdvance` | [TIMER.CPP:204](../../LIB386/SYSTEM/TIMER.CPP#L204) | the main loop iterated |
+| `Timer_FixedDtPresent` | [TIMER.CPP:219](../../LIB386/SYSTEM/TIMER.CPP#L219) | a frame reached the screen |
+| `Timer_FixedDtPump` | [TIMER.CPP:253](../../LIB386/SYSTEM/TIMER.CPP#L253) | a wait loop iterated without drawing |
+| `Timer_FixedDtOverlayPresent` | [TIMER.CPP:217](../../LIB386/SYSTEM/TIMER.CPP#L217) | the next present is not a frame |
 
 Only the first is triggered by a loop iteration. The other three are about a *present*: two of them
 say a present is a tick, and the third takes it back for one caller.
@@ -214,7 +214,7 @@ clock and does not present, pump or delay. Under a pinned clock such a loop has 
 all, so it cannot terminate.
 
 The argument is complete rather than suggestive. `ManageTime` reads `FixedDtNow`
-([TIMER.CPP:362](../../LIB386/SYSTEM/TIMER.CPP#L362)); `FixedDtNow` moves only in `FixedDtStep`;
+([TIMER.CPP:371](../../LIB386/SYSTEM/TIMER.CPP#L371)); `FixedDtNow` moves only in `FixedDtStep`;
 `FixedDtStep` is called only from the three minting policies; none of the three is reachable from a
 body whose statements are `ManageTime()` and an input poll. There is no path.
 
@@ -223,12 +223,12 @@ Seven such loops are reachable while the clock is pinned:
 | Site | Function | Reached by |
 |---|---|---|
 | [GAMEMENU.CPP:3715](../../SOURCES/GAMEMENU.CPP#L3715) | `ShowSaveConfirmation` | saving from the menu |
-| [GAMEMENU.CPP:4461](../../SOURCES/GAMEMENU.CPP#L4461) | `GameOver` | dying |
-| [GAMEMENU.CPP:4734](../../SOURCES/GAMEMENU.CPP#L4734) | `SlideShow` | the end-of-game slides |
-| [GAMEMENU.CPP:4968](../../SOURCES/GAMEMENU.CPP#L4968) | `ShowLogo` | the `slide` console verb |
+| [GAMEMENU.CPP:4466](../../SOURCES/GAMEMENU.CPP#L4466) | `GameOver` | dying |
+| [GAMEMENU.CPP:4739](../../SOURCES/GAMEMENU.CPP#L4739) | `SlideShow` | the end-of-game slides |
+| [GAMEMENU.CPP:4973](../../SOURCES/GAMEMENU.CPP#L4973) | `ShowLogo` | the `slide` console verb |
 | [INVENT.CPP:2261](../../SOURCES/INVENT.CPP#L2261) | `GereArdoise` | flipping a slate page left |
 | [INVENT.CPP:2282](../../SOURCES/INVENT.CPP#L2282) | `GereArdoise` | flipping a slate page right |
-| [GAMEMENU.CPP:5099](../../SOURCES/GAMEMENU.CPP#L5099) | `DemoLogo` | a demo-SKU save change |
+| [GAMEMENU.CPP:5104](../../SOURCES/GAMEMENU.CPP#L5104) | `DemoLogo` | a demo-SKU save change |
 
 `DemoLogo` is the odd one: it is `#ifdef DEMO`, so it is compiled only into the demo SKU, but there
 it is called from `MainLoop` ([PERSO.CPP:528](../../SOURCES/PERSO.CPP#L528)) and is as mid-session
@@ -255,14 +255,48 @@ tree does. `DemoLogo` needs the demo SKU and its own data. So: mechanism proven,
 unreachable, and said rather than counted as six more reproductions.
 
 This is not the present-as-tick class. It is the class #635 closed for the fade loops, arriving
-from the other side: `Record_WaitHook` is called from one place, `Timer_FixedDtPump`
-([TIMER.CPP:250](../../LIB386/SYSTEM/TIMER.CPP#L250)), so a loop with no pump call gets neither the
+from the other side: `Record_WaitHook` is reached from `Timer_FixedDtPump`
+([TIMER.CPP:254](../../LIB386/SYSTEM/TIMER.CPP#L254)), so a loop with no pump call gets neither the
 pinned-clock step nor the recorder's wait hook. #635 added pump calls to the ten loops that needed
 them; these seven were not among them because they do not fade.
 
 [TIMING.md](../TIMING.md) already carries the rule they break: "only pump `ManageTime` inside loops
 that need the game clock to actually move, and call `Timer_FixedDtPump`/`Timer_FixedDtPresent`
 alongside if the loop should also terminate under fixed-dt." The rule postdates the loops.
+
+### The pump a polling wait needs is not the pump a silent one needs
+
+Five of the seven poll input every iteration, and for those the wait hook is not merely unnecessary
+but harmful. The hook exists because a loop that never polls gets no new reading from the clock
+hook, there being no poll to take one at; a loop that polls gets one per iteration already. Minting
+a second step there ends the wait early, and `Record_WaitHook` sleeps out the real time for every
+step it mints ([RECORD.CPP:2515](../../SOURCES/RECORD.CPP#L2515)), in loops that run thousands of
+iterations a second on a host clock.
+
+Measured on a loose-clock recording that crosses `ShowLogo`, 534,570 polls over 258 ticks, replayed
+three ways:
+
+| Binary | Result |
+|---|---|
+| before any of this | clean in 8 s: 301 ticks checked, no mismatch, 0 ms drift |
+| with `Timer_FixedDtPump` in the polling waits | had not reached its first progress line after 60 s |
+| with `Timer_FixedDtPumpPolled` in them | clean in 8 s, identical numbers to the first row |
+
+So the two are split. `Timer_FixedDtPump` mints and drives the wait hook, and is for a wait that
+does not poll: the two `GereArdoise` loops here, and the ten loops #635 fixed.
+`Timer_FixedDtPumpPolled` ([TIMER.CPP:246](../../LIB386/SYSTEM/TIMER.CPP#L246)) mints only, and is
+for a wait that does. Outside `--fixed-dt` the polled form is genuinely inert; the unpolled one is
+inert only when nothing is recording.
+
+### What the scan counts as a clock source, and what it should
+
+The scan treats a present anywhere in a loop body as a clock source. A present under a condition is
+not one. `GameOver`'s zoom loop ([GAMEMENU.CPP:4423](../../SOURCES/GAMEMENU.CPP#L4423)) is the
+instance: its only `BoxUpdate` sits inside `if (BodyDisplay(...))` and a clip test, so with the body
+fully clipped nothing presents, the deadline never arrives, and it is the same defect as the wait
+thirty lines below it that the scan did catch. It now mints its own step. Every other loop the scan
+cleared on the strength of a present was re-read for the same shape and none has it, but the scan
+cannot be trusted to find the next one.
 
 ## A modal recording does not replay, and the cause is not the clock
 
@@ -344,14 +378,24 @@ survey measures and stalls anyway. The modal loops are not only a clock problem.
 
 The collapse itself is step B, so only these carry:
 
-- The seven `Timer_FixedDtPump()` calls above. Off the pinned clock the call is two branch tests and
-  a weak no-op hook, so a shipping run is unaffected; on it, a loop that could not terminate now
-  does. No existing recording can contain one of these loops, because a loop that hangs under a
-  pinned clock never got recorded.
-- Three tests in [test_fixed_step.cpp](../../tests/timer/test_fixed_step.cpp): the fade's
+- Eight minted steps: the seven waits above, plus `GameOver`'s zoom loop. Two take
+  `Timer_FixedDtPump` and six the polled form, on the split described above. Off the pinned clock
+  the polled form compiles to two branch tests, so a shipping run is unaffected; on it, a loop that
+  could not terminate now does.
+
+  The safety argument has one real limit. "No existing recording can contain one of these loops"
+  holds only for the two `GereArdoise` waits: the other five poll, so they run to completion in a
+  loose-clock recording and can be in files recorded before this. That is the case the polled form
+  exists for, and it is measured above rather than argued.
+- Five tests in [test_fixed_step.cpp](../../tests/timer/test_fixed_step.cpp): the fade's
   two-mints-per-iteration shape, so a collapse that fixes it fails loudly rather than silently;
   a clock-terminated modal loop whose only clock is its own present, which is the counterexample in
-  miniature; and a clock wait with no source, which is the class above.
+  miniature; a clock wait with no source, which is the class above; that only the unpolled pump
+  reaches the wait hook, which is the split; and that arming the pinned clock clears a pending
+  overlay claim, which it did not.
+- `Timer_EnableFixedDt` now clears `FixedDtOverlayPresent` along with the other flags. An overlay
+  claimed and never presented used to outlive a re-arm and swallow the step of the first present
+  after it, which is a tick of simulation time that silently does not happen.
 - A correction to step A in [ENGINE_RENDER_SPLIT_RESEARCH.md](ENGINE_RENDER_SPLIT_RESEARCH.md).
 
 ## Where this disagrees with the ladder doc
