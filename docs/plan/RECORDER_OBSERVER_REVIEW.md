@@ -459,8 +459,10 @@ The best design finding of this review, and it is not mine.
 
 `Control_StateDigest` mixes five globals that no savegame carries: `NumObjDial`, `GameChoice`,
 `GameNbChoices`, `FlagFade`, `FlagBlackPal`
-([CONTROL.CPP:1688-1692](../../SOURCES/CONTROL.CPP#L1688), and again in the telemetry names at
-:1754). They survive the recorder's own reload inside the recording process and start at their
+([CONTROL.CPP:1754-1758](../../SOURCES/CONTROL.CPP#L1754)), where the `M` macro hashes and names in
+one expression, so each is a digest member and a telemetry field at once. The same five fill the
+keyframe vector at :1688-1692, which is a separate consumer and not the digest.
+They survive the recorder's own reload inside the recording process and start at their
 `GLOBAL.CPP` initialiser in a fresh replay, so they can mismatch at tick 0 without anything having
 diverged. `dial.obj` is already documented as a false positive; it is one of five, and no rule
 stops a sixth being added tomorrow. This one is read out of the source rather than measured, which
@@ -469,6 +471,30 @@ is why it survived the retractions above intact.
 The shape problem: the digest is supposed to answer "did the simulation reach the same state", and
 its membership was chosen as *interesting things* rather than *state a load restores*. Those are
 different sets and nothing enforces the difference.
+
+### The same defect, measured, on a save the shipped tests do not have
+
+A second instance was found independently and from the other direction. On an exterior cube a
+mid-session `rec start` cannot replay clean at tick 0. `BetaCam`
+([CONTROL.CPP:1722](../../SOURCES/CONTROL.CPP#L1722)) and `VueOffsetX`, `VueOffsetY`, `VueOffsetZ`
+(:1727-1729) are digest members; the recorder's own in-session snapshot reload leaves them where the
+session had them, and the replay's cold `--load` initialises them, so the two ends disagree before a
+tick has run. Recorded `VueOffsetY` 0 against a replayed 170, which is the hero's Y.
+
+The control is one save on one box, build and cfg *(measured elsewhere)*: recording at the load
+gives `first hash mismatch -1` and drift 0, and recording 200 ticks in gives `tick 0 state differs:
+VueOffsetX 11264/11512 VueOffsetY 0/170 VueOffsetZ 30208/30421`. Replaying one windowed, with audio,
+at the recorded resolution reproduces it byte for byte with every mode line matching, so it is not
+headless, not audio and not the platform. It needs a save with an exterior camera, which is why the
+shipped tests never see it.
+
+Two things follow. The membership rule is **not a tidiness argument**: it is the difference between
+a clean tick 0 and a false one on any save of that shape. And the report cannot tell the reader
+which it has -- six such recordings replay their whole session and print `first hash mismatch 0`,
+which is exactly what a run that fell apart at the first tick prints. **A verdict that names the
+first mismatching tick and nothing about what followed it collapses "wrong before it started" and
+"wrong throughout" into one number**, which is the same gap the entry-condition argument makes
+about preconditions: two different outcomes are being reported as one.
 
 ### A contributor wrote the finding down first, without knowing it
 
