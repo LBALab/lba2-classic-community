@@ -1098,25 +1098,74 @@ Ordered by what makes the next thing safe, not by size.
    line because of the measurement behind it: one stuck axis accounted for 92% of a real
    contributed recording. Cheap, and it should precede any work sized against how large recordings
    currently are.
-10. **Step A of the engine-tick ladder, with its deliverable restated.**
+10. **Step A of the engine-tick ladder deadlocks as specified, and that is measured.**
     [ENGINE_RENDER_SPLIT_RESEARCH.md](ENGINE_RENDER_SPLIT_RESEARCH.md) prices step A as small and
-    behaviour-neutral and names three deletions as its output. **Someone who has been inside those
-    three functions says the deletions are not step A's to make**, and the reason is worth carrying
-    into the item rather than discovering halfway through it. The funnel gives one place where
-    virtual time is *created*; it does not give one place where the *decision* to create it is made,
-    and that policy differs at each site: `Timer_FixedDtAdvance` mints and then sets
-    `FixedDtSkipPresent` ([TIMER.CPP:43](../../LIB386/SYSTEM/TIMER.CPP#L43), set at
-    [:151](../../LIB386/SYSTEM/TIMER.CPP#L151)) so the render that follows is free;
+    behaviour-neutral -- "one entry point advances the game clock; presents never do" -- and names
+    three deletions as its output. Built and driven, it is not a consolidation. It is a hang.
+
+    The experiment is one binary with an env-gated branch in `Timer_FixedDtPresent` that skips the
+    mint, arm and control differing by nothing else. Under `--fixed-dt 16 --headless --load` with
+    `--exec-at 60 "ui inventory"`, the control exits 0 and the arm exits 124 at the 60-second
+    timeout *(measured elsewhere)*.
+
+    The site is `OpenInventory`'s box-opening animation
+    ([INVENT.CPP:901](../../SOURCES/INVENT.CPP#L901)). It runs `while (x1 != INV_END_X)`, where
+    `x1` comes from `BoundRegleTrois` over `TimerRefHR - savetimer`, so **the loop terminates when
+    the game clock has moved 300 ms and on no other condition**. It does not call
+    `Timer_FixedDtPump`, it polls no input, and the tick hook is not reachable from inside it. Under
+    a pinned clock the only thing that moves the clock in that loop is its own `BoxUpdate`. Take the
+    present's mint away and the exit condition can never become true.
+
+    **The blast radius is bounded from both sides, and neither side is "the modals hang".** Driven,
+    four of five surfaces still exit 0 under the same arm: idle, a cube change (its fade loops call
+    `Timer_FixedDtPump`, which still mints), the main menu and the holomap. One confirmed hang of
+    five surfaces driven. Statically, 29 loops across `SOURCES` and `LIB386` contain both a present
+    and a read of `TimerRefHR` or `TimerSystemHR`, brace-matched to 400 lines and so a floor;
+    exactly one of them calls `Timer_FixedDtPump`, and of the other 28, eight have no input poll in
+    the body either, which makes the clock their only exit condition
+    ([CONFIG.CPP:833](../../SOURCES/CONFIG.CPP#L833) and :1157,
+    [CREDITS.CPP:358](../../SOURCES/CREDITS.CPP#L358),
+    [GAMEMENU.CPP:1218](../../SOURCES/GAMEMENU.CPP#L1218) and :3602,
+    [HOLOPLAN.CPP:861](../../SOURCES/HOLOPLAN.CPP#L861),
+    [INVENT.CPP:901](../../SOURCES/INVENT.CPP#L901) and :2279) *(measured elsewhere)*. The purest
+    of them is `INVENT.CPP:2279`, `while (TimerRefHR < savetimer + 10 * 20) ManageTime();`, whose
+    present is hoisted above the loop so the body does not even mint. Those seven are the same
+    shape, not seven more confirmed hangs.
+
+    **So step B is not after step A, it is inside it.** The modal loops are load-bearing on
+    present-mints rather than inconvenienced by it, and no entry point can stop presents minting
+    until those loops have a clock source that is not the present. The ladder's own ordering has
+    them the other way round. What survives of step A alone is the single mint point, which #630
+    has already done.
+
+    **And the same measurement prices the modal draw, which is a perturbation finding rather than
+    an architecture one.** One main-loop tick mints 1 step idle, 15 across a cube change, 63 in the
+    main menu, 64 in the inventory and 83 in the holomap; the inventory's 64 decompose as 20 for the
+    box-opening loop above, 40 for `DrawOneInventory`'s `BoxUpdate` -- of which 35 are
+    `DrawInventoryScreen` walking the inventory slots for one draw of a static grid -- and 4
+    elsewhere. Under a recording the pacer sleeps every one of them: 300 paced ticks cost 4957,
+    4955 and 4962 ms with no modal against 5987, 5903 and 5958 ms with the inventory, a delta of
+    ~991 ms against 1008 ms predicted from the mint count *(measured elsewhere)*. **That is the
+    console double-clock again and an order of magnitude worse**, and unlike the console it is not
+    a bug in one caller: it is what "a present is a tick" costs when a screen draws itself in
+    pieces.
+
+    **One note on reading this item against the pin.** Its subject is a commit that landed after
+    `c00a0406`: the single mint point arrives with #630, and at the pin `FixedDtNow +=` appears
+    three times, at TIMER.CPP:144, :167 and :175. The prose here describes the merged code and the
+    line numbers below are the pinned ones, so a reader who follows them to check "one place where
+    virtual time is created" sees it contradicted. This is the one item in the document whose
+    subject postdates the pin, and it is called out rather than quietly repinned.
+
+    The policy inventory that argument rests on, at the pin: `Timer_FixedDtAdvance` mints and then
+    sets `FixedDtSkipPresent` ([TIMER.CPP:43](../../LIB386/SYSTEM/TIMER.CPP#L43), set at
+    [:149](../../LIB386/SYSTEM/TIMER.CPP#L149)) so the render that follows is free;
     `Timer_FixedDtPresent` mints unless that free present is owed or an overlay has claimed it
-    ([:155](../../LIB386/SYSTEM/TIMER.CPP#L155), the overlay claim at :160 and the owed present at
-    :166); `Timer_FixedDtPump` mints unconditionally, because
-    a non-presenting wait owns every iteration. `Timer_FixedDtOverlayPresent` is a fourth answer.
-    Collapsing four policies into one means giving the modal loops a shared pump that can express
-    all of them, **which is step B** -- so the deletion half depends on step B rather than preceding
-    it. What step A can take on its own is the consolidation, and item 6 has already done that for
-    free. The honest deliverable is therefore: the single mint point (done) plus **a survey of
-    whether the four policies can collapse at all** (not done, and the answer may be no). Filed here
-    so nobody picks this up expecting three deletions.
+    ([:155](../../LIB386/SYSTEM/TIMER.CPP#L155), the overlay claim at :160, the owed present at
+    :164, the mint at :167); `Timer_FixedDtPump` mints unconditionally, because a non-presenting
+    wait owns every iteration; and `Timer_FixedDtOverlayPresent` is a fourth answer. Whether those
+    four can collapse into one is still open, but it is now a question about what replaces the
+    present as a clock source, not about tidying four functions into one.
 11. **The loose-clock fade hang.** A loose-clock recording hangs at the first fade after a scene
     change, exit 124, reproducing on main independently of any branch. Measured against three
     controls, all `--headless` at cube 154: loose without `--record` exits 0, pinned with `--record`
@@ -1133,13 +1182,13 @@ Ordered by what makes the next thing safe, not by size.
     hard floor under the whole loose-clock effort. The second: it costs nothing, because every one
     of these fade loops runs inside `SaveTimer()`/`RestoreTimer()`
     ([AMBIANCE.CPP:688 and :716](../../SOURCES/AMBIANCE.CPP#L688)) and `RestoreTimer` assigns
-    `TimerRefHR = MemoTimerRefHR` ([TIMER.CPP:84](../../LIB386/SYSTEM/TIMER.CPP#L84)), discarding
+    `TimerRefHR = MemoTimerRefHR` ([TIMER.CPP:80](../../LIB386/SYSTEM/TIMER.CPP#L80)), discarding
     whatever the loop did to the clock.
 
     The bracket is real and the second answer stops one step short of it. Telemetry named the leak;
     no amount of reading the bracket would have. **`RestoreTimer` rewinds `TimerRefHR` and does not rewind
     `LastTime`**, which is the reading `ManageTime` banks the next delta against:
-    `TimerRefHR += TimerSystemHR - LastTime` ([TIMER.CPP:348](../../LIB386/SYSTEM/TIMER.CPP#L348)).
+    `TimerRefHR += TimerSystemHR - LastTime` ([TIMER.CPP:277](../../LIB386/SYSTEM/TIMER.CPP#L277)).
     So a wait that ran a few milliseconds longer on one end than the other puts those milliseconds
     into the game clock *after* the rewind, and a few milliseconds is enough for
     `Timer_PlanSimSteps` to plan one extra sub-step. Reported as `sim.carry` 16 ms apart and one
