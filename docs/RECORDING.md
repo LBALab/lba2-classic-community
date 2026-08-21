@@ -236,8 +236,18 @@ and no digest reported it, because a replay that is waiting is not a replay that
 `GetAscii` takes the poll now, so the screen is in the stream like any other. The general form is
 worth more than the case: **a loop that takes no input and advances no tick is invisible to the
 recorder in both directions** -- a replay cannot inject into it, and a command staged for it has
-neither a poll nor a tick to run at. Finding one means finding a screen with no seam in it, and the
-fix is to give it the seam rather than to teach the recorder about the screen.
+neither a poll nor a tick to run at. The fix is to give such a loop the seam the recorder needs
+rather than to teach the recorder about the screen.
+
+**That is a statement about the recorder and not about the harness, and the difference is the whole
+of the `--listen` socket.** `Control_ServiceListen` is called from `ControlPrePresent`
+([SOURCES/PERSO.CPP](../SOURCES/PERSO.CPP)), which is registered as the pre-present callback and
+runs inside the one present routine ([LIB386/SVGA/SDL.CPP](../LIB386/SVGA/SDL.CPP)). Every mode
+presents frames, so a driver on the socket reaches any loop that draws -- including this one,
+before the change above. So a modal with no poll and no tick still has a seam; it is not one the
+recorder can record through, because a command arriving on a present has no position in a stream
+indexed by polls and ticks. Read the sentence above as "the file cannot carry it", never as "the
+harness cannot reach it".
 
 **What it reproduces is the keys, not the characters.** The poll record carries `Key`, a scancode,
 and `GetAscii` resolves it through the *replaying* machine's keymap. So a name typed as `azerty` on
