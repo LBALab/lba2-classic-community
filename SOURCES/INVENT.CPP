@@ -2258,8 +2258,11 @@ void GereArdoise() {
             BoxBlit();
             BoxReset();
 
-            while (TimerRefHR < savetimer + 10 * 20)
+            while (TimerRefHR < savetimer + 10 * 20) {
+                /* Non-presenting wait on the game clock: mint its own time (docs/TIMING.md). */
+                Timer_FixedDtPump();
                 ManageTime();
+            }
 
             InitWaitNoInput(Input);
 
@@ -2276,8 +2279,11 @@ void GereArdoise() {
             BoxBlit();
             BoxReset();
 
-            while (TimerRefHR < savetimer + 10 * 20)
+            while (TimerRefHR < savetimer + 10 * 20) {
+                /* Non-presenting wait on the game clock: mint its own time (docs/TIMING.md). */
+                Timer_FixedDtPump();
                 ManageTime();
+            }
 
             InitWaitNoInput(Input);
 

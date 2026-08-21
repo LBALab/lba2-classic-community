@@ -359,6 +359,99 @@ static void test_fixed_dt_pump_steps_every_call(void) {
     ASSERT_EQ_UINT(base + 48, TimerSystemHR);
 }
 
+/* --- What the four mint policies cost together ---------------------------------------
+ * The three tests above exercise one policy each. The engine never uses them one at a
+ * time: a modal loop reaches whichever of them its own body happens to call, and the
+ * shapes below are what that produces. They pin current behaviour rather than desired
+ * behaviour, so a change that collapses the policies fails here and says so, instead of
+ * moving every recording's clock sequence quietly.
+ * See docs/plan/ENGINE_TICK_POLICY_SURVEY.md.
+ */
+
+/* A palette fade calls Timer_FixedDtPump() for the wait and then, through FadePal, the
+ * present inside BoxBlit (SOURCES/AMBIANCE.CPP). Neither stepper knows about the other,
+ * so one pass of the loop costs two steps and the fade ramps in half the frames its
+ * FADE_DELAY would buy: measured at seven iterations across a scene change where 16 ms
+ * an iteration gives thirteen. One call per iteration is what a shared modal pump would
+ * mint; two is what the current arrangement mints. */
+static void test_a_fade_iteration_costs_two_steps(void) {
+    const int ITERATIONS = 4;
+    Timer_EnableFixedDt(16);
+    ManageTime();
+    U32 base = TimerSystemHR;
+
+    Timer_FixedDtAdvance(); /* the tick the fade was entered from */
+    ManageTime();
+    ASSERT_EQ_UINT(base + 16, TimerSystemHR);
+
+    for (int i = 0; i < ITERATIONS; i++) {
+        Timer_FixedDtPump();    /* the wait */
+        Timer_FixedDtPresent(); /* FadePal's BoxBlit */
+        ManageTime();
+    }
+
+    /* The tick, plus two steps an iteration -- less the one free present the tick armed,
+     * which the first iteration's BoxBlit spends. */
+    ASSERT_EQ_UINT(base + 16 + (U32)(2 * ITERATIONS - 1) * 16, TimerSystemHR);
+}
+
+/* OpenInventory's box-opening animation (SOURCES/INVENT.CPP) waits for the game clock to
+ * move 15 * 20 ms and has no input poll and no pump: its own BoxUpdate is the only thing
+ * that moves the clock it is waiting on. Measured on the engine, with the step removed
+ * from Timer_FixedDtPresent and nothing else changed, `ui inventory` runs to a 60 s
+ * timeout where the same command exits 0. So a present is not only counted as a tick
+ * here, it is load-bearing, and this is the shape a shared modal pump has to keep
+ * working before the present can stop minting. */
+static void test_a_modal_loop_can_have_no_clock_but_its_present(void) {
+    const U32 TARGET = 15 * 20;
+    const int LIMIT = 1000; /* a bound, so a regression fails instead of hanging */
+    U32 start;
+    int iterations = 0;
+
+    Timer_EnableFixedDt(16);
+    Timer_FixedDtAdvance();
+    ManageTime();
+    start = TimerRefHR;
+
+    while (TimerRefHR - start < TARGET && iterations < LIMIT) {
+        Timer_FixedDtPresent();
+        ManageTime();
+        iterations++;
+    }
+
+    /* The first present is the free one the tick armed and mints nothing; after it the
+     * loop needs ceil(300 / 16) = 19 more, each minting a step. */
+    ASSERT_TRUE(iterations < LIMIT);
+    ASSERT_EQ_INT(1 + 19, iterations);
+}
+
+/* And the same loop with nothing in it at all. Several waits in GAMEMENU.CPP and
+ * INVENT.CPP were written as `while (TimerRefHR < deadline) ManageTime();` with the
+ * present hoisted out above the loop, which under a pinned clock leaves them no clock
+ * source of any kind: ManageTime reads FixedDtNow, FixedDtNow moves only in
+ * FixedDtStep, and FixedDtStep is called only from the three minting policies. This
+ * asserts that, so the pump calls those loops now carry cannot be removed as redundant.
+ */
+static void test_a_clock_wait_with_no_source_cannot_advance(void) {
+    U32 start;
+    int i;
+
+    Timer_EnableFixedDt(16);
+    Timer_FixedDtAdvance();
+    ManageTime();
+    start = TimerRefHR;
+
+    for (i = 0; i < 1000; i++) {
+        ManageTime();
+    }
+    ASSERT_EQ_UINT(start, TimerRefHR);
+
+    /* One pump is the whole difference. */
+    Timer_FixedDtPump();
+    ManageTime();
+    ASSERT_EQ_UINT(start + 16, TimerRefHR);
+}
+
 int main(void) {
     RUN_TEST(test_step_count_is_pacing_invariant);
     RUN_TEST(test_high_and_low_frame_rate);
@@ -370,6 +463,9 @@ int main(void) {
     RUN_TEST(test_fixed_dt_present_first_free_then_steps);
     RUN_TEST(test_fixed_dt_overlay_present_does_not_move_the_clock);
     RUN_TEST(test_fixed_dt_pump_steps_every_call);
+    RUN_TEST(test_a_fade_iteration_costs_two_steps);
+    RUN_TEST(test_a_modal_loop_can_have_no_clock_but_its_present);
+    RUN_TEST(test_a_clock_wait_with_no_source_cannot_advance);
     TEST_SUMMARY();
     return test_failures != 0;
 }

@@ -3714,6 +3714,13 @@ static void ShowSaveConfirmation(enum MenuLocalizedLabel label) {
         timer = TimerRefHR + 1000;
         while (TimerRefHR <= timer AND !MyKey
                                  AND !(Input & (I_FIRE | I_ACTION | I_MENUS))) {
+            /* A wait on the game clock that draws nothing has no clock of its own under
+               --fixed-dt or a session recording, where time comes from the tick advance
+               in Control_TickHook and a modal loop never reaches it. Without the pump
+               ManageTime() reads the same virtual time forever and the wait cannot end.
+               A no-op in wall-clock play, where ManageTime() advances TimerRefHR from
+               SDL_GetTicks(). See docs/TIMING.md. */
+            Timer_FixedDtPump();
             ManageTime();
             MyGetInput();
         }
@@ -4452,6 +4459,8 @@ void GameOver() {
 
     chrono = TimerRefHR + GAMEOVER_TEMPO;
     while ((TimerRefHR < chrono) AND(MyKey != K_ESC AND !(Input & I_MENUS))) {
+        /* Non-presenting wait on the game clock: mint its own time (docs/TIMING.md). */
+        Timer_FixedDtPump();
         ManageTime();
         MyGetInput();
     }
@@ -4723,6 +4732,8 @@ S32 SlideShow(void) {
         endtimer = TimerRefHR + 4 * 1000;
 
         while ((TimerRefHR < endtimer) AND !MyKey) {
+            /* Non-presenting wait on the game clock: mint its own time (docs/TIMING.md). */
+            Timer_FixedDtPump();
             ManageTime();
             MyGetInput();
         }
@@ -4955,6 +4966,8 @@ S32 ShowLogo(S32 numscr, S32 nsec) {
         endtimer = TimerRefHR + nsec * 1000; // wait nsec
 
         while (TimerRefHR <= endtimer AND !MyKey) {
+            /* Non-presenting wait on the game clock: mint its own time (docs/TIMING.md). */
+            Timer_FixedDtPump();
             ManageTime();
             MyGetInput();
             if (FlagMenuMouse && (Click & 1))
@@ -5084,6 +5097,8 @@ void DemoLogo(void) {
 
     // wait a key or tempo
     while (TimerRefHR <= endtimer AND !MyKey) {
+        /* Non-presenting wait on the game clock: mint its own time (docs/TIMING.md). */
+        Timer_FixedDtPump();
         ManageTime();
         MyGetInput();
     }
