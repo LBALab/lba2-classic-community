@@ -271,7 +271,7 @@ def parse(path):
                     p += 4
                 if flags & 0x04:      # analog block
                     held = struct.unpack_from("<hhIiii", data, p)
-                    analog.append((polls,) + held)
+                    analog.append((polls,) + held + (True,))
                     p += 20
                 elif version >= 13:
                     # From 13 the writer emits a block only when the analog state
@@ -280,8 +280,14 @@ def parse(path):
                     # is carried forward for an older file. Reporting a held input as
                     # absent would make a sustained stick or a held button look like it
                     # ended, which is the divergence this version exists to prevent.
+                    #
+                    # The trailing flag says which of the two a row is. Both belong in
+                    # the list -- a held poll is as much a poll carrying that input as
+                    # a written one -- but only a written one costs 20 bytes, and a
+                    # count that mixes them prices the file at up to a poll's worth of
+                    # analog on every poll of a session that wrote a few hundred blocks.
                     if held is not None:
-                        analog.append((polls,) + held)
+                        analog.append((polls,) + held + (False,))
                 if flags & 0x08:      # clock delta
                     p += 4
         except (IndexError, struct.error):
@@ -358,32 +364,56 @@ def show_clock(ticks):
 
 
 def show_analog(analog, polls):
-    """A summary before the rows, because the interesting thing about analog is usually
-    a value that never changes rather than one that does. The format writes this block
-    only on polls that carry something (RECORD.CPP), so an axis that is never zero
-    defeats that and puts 20 bytes on every poll."""
+    """What the analog stream costs, and which field is paying for it.
+
+    From version 13 a block is written only when a field changes, so the count that
+    means anything is the written one: a stick held for a minute is one block, not one
+    a poll. The held polls are rows here too, because a held input is still that input,
+    but counting them as blocks reports bytes the file does not contain.
+
+    Which field moved is the other half. A block costs the same 20 bytes whatever put
+    it there, so one jittering axis can carry an entire file on its own."""
     if not analog:
         print("no analog samples")
         return
     fields = [("rsx", 1), ("rsy", 2), ("padfirst", 3), ("mdx", 4), ("mdy", 5), ("click", 6)]
-    print("analog blocks: %d of %d polls (%.1f%%), %d bytes"
-          % (len(analog), polls, 100.0 * len(analog) / polls if polls else 0,
-             20 * len(analog)))
+    written = [a for a in analog if a[7]]
+    print("analog blocks: %d written of %d polls (%.1f%%), %d bytes; %d further polls "
+          "hold the previous block"
+          % (len(written), polls, 100.0 * len(written) / polls if polls else 0,
+             20 * len(written), len(analog) - len(written)))
+
+    churn, repeats, prev = {}, 0, None
+    for a in written:
+        cur = a[1:7]
+        if prev is not None:
+            moved = [n for n, i in fields if cur[i - 1] != prev[i - 1]]
+            for n in moved:
+                churn[n] = churn.get(n, 0) + 1
+            if not moved:
+                repeats += 1
+        prev = cur
+    if repeats:
+        # No two written blocks can be equal: the writer compares against the last one
+        # it wrote. A repeat means the gate did not hold, and the file is paying for it.
+        print("  %d written blocks repeat the previous one exactly -- the change gate "
+              "in RECORD.CPP is not holding" % repeats)
+
     for name, i in fields:
-        vals = [a[i] for a in analog]
+        vals = [a[i] for a in written]
         nz = [v for v in vals if v]
         if not nz:
             print("  %-9s always zero" % name)
             continue
         distinct = set(nz)
         if len(distinct) == 1 and len(nz) == len(vals):
-            # The case worth shouting about: a constant on every sample is a stuck
-            # input, and it is what makes the block unskippable.
-            print("  %-9s CONSTANT %d on every sample -- this alone defeats the "
-                  "per-poll skip" % (name, nz[0]))
+            # Worth shouting about whatever it costs: an input that is never once zero
+            # over a whole session is stuck, not held.
+            print("  %-9s CONSTANT %d, never once zero" % (name, nz[0]))
         else:
-            print("  %-9s nonzero on %d, |max| %d, %d distinct"
-                  % (name, len(nz), max(abs(v) for v in nz), len(distinct)))
+            print("  %-9s nonzero on %d of %d, |max| %d, %d distinct, moved %d times"
+                  % (name, len(nz), len(vals), max(abs(v) for v in nz), len(distinct),
+                     churn.get(name, 0)))
 
 
 def show_tele(teles, changing_only, header=""):
@@ -453,8 +483,15 @@ def main(argv):
 
     if what == "all":
         print(header)
-    print("polls=%d ticks=%d keyframes=%d telemetry=%d cmds=%d syncs=%d analog=%d"
-          % (polls, len(ticks), len(keys), len(teles), len(cmds), syncs, len(analog)))
+    # analog counts the blocks the file carries. The polls that repeat the previous
+    # block are counted apart from them: they cost nothing, and a reader that adds the
+    # two together makes a session that wrote a few hundred blocks look like one that
+    # wrote one on nearly every poll.
+    wrote = sum(1 for a in analog if a[7])
+    print("polls=%d ticks=%d keyframes=%d telemetry=%d cmds=%d syncs=%d analog=%d "
+          "analog_held=%d"
+          % (polls, len(ticks), len(keys), len(teles), len(cmds), syncs, wrote,
+             len(analog) - wrote))
     # No end snapshot means the session did not stop cleanly, which is worth saying
     # rather than leaving to be noticed.
     print("savegames: start %s, end %s"
@@ -494,9 +531,9 @@ def main(argv):
     if what == "analog":
         show_analog(analog, polls)
         print()
-        for poll, rsx, rsy, pad, mdx, mdy, click in analog:
-            print("poll %d rsx %d rsy %d padfirst %d mdx %d mdy %d click %d"
-                  % (poll, rsx, rsy, pad, mdx, mdy, click))
+        for poll, rsx, rsy, pad, mdx, mdy, click, wrote in analog:
+            print("poll %d rsx %d rsy %d padfirst %d mdx %d mdy %d click %d%s"
+                  % (poll, rsx, rsy, pad, mdx, mdy, click, "" if wrote else "  (held)"))
 
     if what == "ticks":
         for tick, ref, h in ticks:
