@@ -616,18 +616,30 @@ never see it.
 
 **The path is bounded, which is what makes #642 actionable.** Across nine recordings, all seven
 made with `FollowCamera=1` differ on a camera field at tick 0 and neither of the two with
-`FollowCamera=0` differs in any field at any tick; where it does happen it converges, by keyframe 64
-to 240, rather than persisting *(measured elsewhere)*. A fault that is present on one path, absent
-on the other and self-correcting is a much smaller thing to chase than a camera that is wrong.
+`FollowCamera=0` differs in any field at any tick *(measured elsewhere)*. Five of the seven
+converge, by keyframe 64 to 240; the other two still differ on a camera field at the last keyframe
+of the session, 4992 and 3712, and those two are also the only two whose hero leaves the recorded
+path, so the late difference may
+be downstream of the hero being somewhere else rather than the tick-0 cause persisting. That
+separation has not been made, so **five of seven converge and two are unresolved** is the honest
+statement. The 7-of-7 against 0-of-2 split is unaffected by it, and a fault present on one path and
+absent on the other is a much smaller thing to chase than a camera that is wrong.
 
 **A membership defect is a comparison reading something it should not. This is one function
 answering differently depending on who called it**, which is worse, and it took two corrections to
 get to: first the save format, which showed the fields are carried, then the read site, which showed
 both loads agree. Each correction moved the fault one layer further from the digest, and the reason
 it kept moving is that a tick-0 difference in a compared field looks like a comparison problem from
-every distance until someone reads the writer. `FlagBlackPal` is the field in that recording that
-does belong to the membership class -- 0 against 1 at tick 0 in all six -- and it is the measured
-instance the rule needed.
+every distance until someone reads the writer.
+
+**The camera is not the only cause of that tick-0 mismatch, and the other one is the membership
+rule's.** `FlagBlackPal` differs 0 against 1 at tick 0 in **all nine** of those recordings, follow
+camera or not, and it is mixed into the digest. The two `FollowCamera=0` sessions report `first hash
+mismatch 0` with no camera divergence anywhere in them: that is `FlagBlackPal` on its own
+*(measured elsewhere)*. So a fix to the camera path would leave every one of those nine still
+reporting a tick-0 mismatch, and anyone measuring the camera fix by that string would read no
+improvement and conclude wrongly. Nine of nine is also the strongest measured instance the
+membership rule has -- not an argument that the class exists, a count.
 
 ### The report has two strings for three outcomes, and the caps hid which one you had
 
