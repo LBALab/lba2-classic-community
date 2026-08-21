@@ -280,6 +280,8 @@ static int s_cmdRead = 0;
 /* Non-zero while a staged command is running. One of them can open a modal, whose inner
    loop polls, and that poll drains the queue again. */
 static int s_cmdDepth = 0;
+/* The replay's verdict has been said, so the next path out does not repeat it. */
+static int s_endSaid = 0;
 /* The version the file being replayed was written at, for the records whose shape it
    decides. Set before the range check, so a refused file never reaches a reader. */
 static int s_recVersion = REC_VERSION;
@@ -1320,6 +1322,7 @@ static int record_begin(const char *path, int haveSnapshot) {
     s_polls = s_ticks = s_bytes = s_quietPolls = 0;
     s_bytesTicks = s_maxPollsInTick = s_pollsThisTick = 0;
     s_nCmds = s_cmdRead = 0;
+    s_endSaid = 0;
     s_cmdsRecorded = 0;
     s_cmdsReplayed = 0;
     s_prevMt = Timer_ClockSource();
@@ -1452,6 +1455,34 @@ static void record_restore_player(void) {
     Console_Print("rec: returning to your game");
 }
 
+/* The replay's verdict. Said once, from wherever the replay stops rather than from the
+   one path that runs out of stream: a recording whose session ended at the console ends
+   the replay there too, and a run that reported nothing reads exactly like a run that
+   matched. */
+/* What the verdict line carries that the stall line does not: ticks checked, both clock
+   drift figures and the stream drift poll. Said under its own prefix rather than the
+   verdict's, because `replay ended ... first hash mismatch -1` is the string a caller
+   greps to mean the replay reproduced and a stalled run must never print it. The drift
+   pair is the reason this exists at all: a stall is a symptom of a divergence that
+   happened earlier, so where the clock first moved is where to start looking. */
+static void replay_report_figures(void) {
+    fprintf(stderr, "[rec] at the stall: %ld ticks checked, clock drift max %ld ms first at "
+                    "tick %ld, stream drift first at poll %ld\n",
+            s_ticksChecked, s_refDriftMax, s_refDriftFirstTick, s_syncDriftPoll);
+}
+
+static void replay_report_end(void) {
+    if (s_endSaid)
+        return;
+    s_endSaid = 1;
+    fprintf(stderr,
+            "[rec] replay ended at poll %ld: %ld ticks checked, first hash mismatch %ld, "
+            "clock drift max %ld ms first at tick %ld, stream drift first at poll %ld, "
+            "longest stale run %ld\n",
+            s_polls, s_ticksChecked, s_hashMismatchTick, s_refDriftMax, s_refDriftFirstTick,
+            s_syncDriftPoll, s_stalePeak);
+}
+
 int Record_Stop(void) {
     int wasRecording = s_recording;
     char endPath[ADELINE_MAX_PATH];
@@ -1474,6 +1505,23 @@ int Record_Stop(void) {
     if (!s_f) {
         record_release_step();
         return 0;
+    }
+
+    /* The verdict, before the flags below drop it. Every way out of a replay comes
+       through here -- the stream running out, a `rec stop`, a command in the recording
+       that ends the run, and the atexit handler for the tick budget -- and the one that
+       reports is the one the run happened to take.
+
+       Except behind a stall. The line below reads `first hash mismatch -1` on a run that
+       never diverged, and that is what a caller greps for to mean the replay reproduced:
+       printing it after a stall would put a pass-shaped line on a run that ended by giving
+       up. The figures it carries beyond the stall's own four are still worth having, so
+       they go out under a prefix that cannot be read as a verdict. */
+    if (s_replaying) {
+        if (s_staleReported)
+            replay_report_figures();
+        else
+            replay_report_end();
     }
 
     /* A second snapshot where the recording ends, on the same mechanics as the one at
@@ -2231,6 +2279,7 @@ static void replay_begin(void) {
     s_staleReported = 0;
     s_bytesTicks = s_maxPollsInTick = s_pollsThisTick = 0;
     s_nCmds = s_cmdRead = 0;
+    s_endSaid = 0;
     s_cmdsRecorded = 0;
     s_cmdsReplayed = 0;
     s_prevMt = Timer_ClockSource();
@@ -2577,12 +2626,7 @@ void Record_PollHook(void) {
         } else {
             /* The engine is mid-session with nothing left to drive it, and whatever it
                was waiting for will never arrive. Say what happened and leave. */
-            fprintf(stderr,
-                    "[rec] replay ended at poll %ld: %ld ticks checked, first hash mismatch %ld, "
-                    "clock drift max %ld ms first at tick %ld, stream drift first at poll %ld, "
-                    "longest stale run %ld\n",
-                    s_polls, s_ticksChecked, s_hashMismatchTick, s_refDriftMax,
-                    s_refDriftFirstTick, s_syncDriftPoll, s_stalePeak);
+            replay_report_end();
             Record_Stop();
             /* Only when nothing else is driving the run. With the harness armed it has
                a tick budget and artifacts to write, and exiting from here would skip
