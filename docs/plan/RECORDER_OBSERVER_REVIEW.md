@@ -1663,6 +1663,15 @@ Ordered by what makes the next thing safe, not by size.
     record carries the same input, so nothing observes the difference. It is kept because it is the
     position the recording used, which is an argument and not a measurement.
 
+    **The corpus contains both layouts and exercises neither, which is why this sat unnoticed.** Of
+    25 recordings kept on one machine, 16 carry at least one command and 9 carry none, and the split
+    by layout is total with no file mixing the two: 7 harness files hold 45 tick-boundary commands,
+    and 9 player sessions hold 16 mid-frame ones. But those 16 are `exit` (7 of them, on the last
+    tick or the one before), `help`, and five lines of prose typed as notes *(measured elsewhere)*.
+    **Not one of them can move a digest, whatever tick it runs on.** A corpus that contains the case
+    without exercising it looks exactly like a corpus that covers it, and counting files -- or even
+    counting commands -- would have said this was covered.
+
     Ahead of item 6's oracle half, because a consistency field added first would spend its bytes
     measuring this.
 
