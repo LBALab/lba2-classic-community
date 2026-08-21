@@ -1172,10 +1172,16 @@ static S32 GameMenuSaveListHitTest(U32 mx, U32 my, S32 nb, S32 start, S32 *outSe
     return 0;
 }
 
-// TODO(input): uses GetAscii() (keyboard-only) — non-keyboard users cannot enter
-// save/profile names. They are routed past this function inside ChoosePlayerName:
-// new-game slot gets a datetime stem, existing slot keeps its current name
-// (overwrite). See the !LastInputWasKeyboard branch there.
+// TODO(input): a pad or a touch overlay still cannot type a name. GetAscii reads
+// the polled sample, so anything that writes Key reaches this screen, and a
+// replayed recording and the control harness both do. Neither device does: the
+// touch overlay writes TabKeys and leaves Key alone (ApplyVirtualKeys,
+// TOUCH_INPUT.CPP), and a pad button lands in the joystick tail above
+// TabKeys[256] rather than becoming a scancode at all. Two injectors writing the
+// same array are not two injectors writing the same field. Until one of them
+// does, both are routed past this function inside ChoosePlayerName: new-game slot
+// gets a datetime stem, existing slot keeps its current name (overwrite). See the
+// !LastInputWasKeyboard branch there.
 S32 InputPlayerName(S32 choice, char *name) {
     char memoplayername[255];
     S32 flag = 1;

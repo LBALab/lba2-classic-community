@@ -363,16 +363,25 @@ was nothing to replay.
 ### A modal can stall a replay with no clock in it anywhere
 
 Enumerating modal loops by their clock source misses the one a player is most likely to hit.
-`InputPlayerName` ([GAMEMENU.CPP:1251](../../SOURCES/GAMEMENU.CPP#L1251)) reads its characters from
-`GetAscii`, and `GetAscii` reads `SDL_GetKeyboardState(NULL)` directly
-([KEYBOARD.CPP:113](../../LIB386/SYSTEM/KEYBOARD.CPP#L113)) rather than the polled key table the
-recorder samples. `replay_inject` ([RECORD.CPP:1865](../../SOURCES/RECORD.CPP#L1865)) writes
-`TabKeys`, `Key`, the pad state, mouse motion and `Click`; SDL's own keyboard array is not among
-them. So the save-name screen's exit condition is a keystroke that only a physically pressed key can
-produce, and a replay of it waits for one that never comes.
+`InputPlayerName` ([GAMEMENU.CPP](../../SOURCES/GAMEMENU.CPP)) reads its characters from
+`GetAscii`, which used to read `SDL_GetKeyboardState(NULL)` directly rather than the polled key
+table the recorder samples. `replay_inject` ([RECORD.CPP](../../SOURCES/RECORD.CPP)) writes
+`TabKeys`, `Key`, the pad state, mouse motion and `Click`; SDL's own keyboard array was not among
+them. So the save-name screen's exit condition was a keystroke that only a physically pressed key
+could produce, and a replay of it waited for one that never came.
 
-That loop has a present, a clock read and a sane clock source, so it is clean on every axis this
-survey measures and stalls anyway. The modal loops are not only a clock problem.
+That loop has a present, a clock read and a sane clock source, so it was clean on every axis this
+survey measures and stalled anyway. The modal loops are not only a clock problem.
+
+`GetAscii` now takes the poll instead, which closes it. What the case leaves behind is the reason
+it was worth enumerating: **the loop reached neither of the recorder's two seams, in either
+direction.** It never called `MyGetInput`, so no poll hook ran and a replay had nothing to inject
+into it; and a modal blocks `MainLoop`, so no tick hook ran and a command staged for it had nowhere
+to land. A wait loop that takes no input and advances no tick is invisible to a poll-counting
+deadlock detector as well, which is why the stall was reported as a hang rather than named by the
+engine. Measured on one recording that reaches the screen, replayed at `--fixed-dt 16`: before the
+change the run was killed at the 45s timeout with no recorder complaint in the log; after it, 6s,
+`201 ticks checked, first hash mismatch -1, longest stale run 0`.
 
 ## What is safe without step B
 

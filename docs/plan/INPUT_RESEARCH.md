@@ -32,7 +32,7 @@ keeps being written into it, and three devices depend on it by design**:
 
 - the touch overlay presses hardcoded scancodes into `TabKeys`
 - the gamepad synthesises hardcoded scancodes for menu navigation
-- text entry reads `GetAscii` and never touches either funnel
+- text entry reads `GetAscii`, which takes the raw path and is not bindable
 
 So "route the raw-key sites through the binding layer" is not a cleanup of old code. It is a
 question about how three current devices work.
@@ -110,9 +110,15 @@ buttons press *default* scancodes, and nothing rebuilds them when bindings chang
 
 ### Text entry
 
-`GetAscii`, read directly, bypassing both funnels. Three call sites in the game build: the
-save-name field twice and the cheat code reader. There is no virtual keyboard, and
-[GAMEMENU.CPP:1175](../../SOURCES/GAMEMENU.CPP) says so in a `TODO(input)`: non-keyboard users
+`GetAscii`, on the raw path: it converts `Key`, the poll's first held scancode, and consults no
+binding. Three call sites in the game build, in two functions: the save-name field twice and the
+cheat code reader. It read SDL's keyboard array directly until it was found to be a third path
+rather than one of the two -- outside the poll, so no injected key reached it, and outside the
+recorder, so a session sitting on the save-name screen wrote no polls at all and a replay of it
+waited there forever.
+
+There is still no virtual keyboard, and [GAMEMENU.CPP](../../SOURCES/GAMEMENU.CPP) says so in a
+`TODO(input)`: neither the touch overlay nor a pad writes `Key`, so non-keyboard users still
 cannot enter save or profile names, and are routed around the field entirely by the
 `!LastInputWasKeyboard` branch in `ChoosePlayerName`, which gives a new slot a datetime stem and
 overwrites an existing one.
