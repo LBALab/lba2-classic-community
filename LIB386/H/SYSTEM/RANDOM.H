@@ -62,6 +62,10 @@ const char *Rnd_StreamName(void);
 // without moving anything a digest already covers.
 U32 Rnd_Draws(void);
 
+// The value the stream was last seeded with, after the zero substitution, so a caller
+// that has to reproduce a stream can record the seed rather than the state.
+U32 Rnd_LastSeed(void);
+
 #ifdef __cplusplus
 }
 #endif

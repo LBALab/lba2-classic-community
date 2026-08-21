@@ -36,6 +36,7 @@ static S32 s_front;
 static S32 s_rear;
 static S32 s_seeded;
 static U32 s_draws;
+static U32 s_lastSeed;
 
 //──────────────────────────────────────────────────────────────────────────
 void Rnd_Seed(U32 seed) {
@@ -51,6 +52,8 @@ void Rnd_Seed(U32 seed) {
     // `int32_t word = seed` does. Schrage's identities hold either way: the
     // quotient and remainder both take the sign of the dividend, so the two
     // products stay inside S32 and the result stays inside the modulus.
+    s_lastSeed = seed;
+
     word = (S32)seed;
     s_state[0] = word;
     for (i = 1; i < RND_DEG; i++) {
@@ -79,6 +82,11 @@ const char *Rnd_StreamName(void) {
 //──────────────────────────────────────────────────────────────────────────
 U32 Rnd_Draws(void) {
     return s_draws;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+U32 Rnd_LastSeed(void) {
+    return s_lastSeed;
 }
 
 //──────────────────────────────────────────────────────────────────────────

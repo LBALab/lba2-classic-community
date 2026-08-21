@@ -27,6 +27,9 @@ void Record_ClockHook(U32 *now);
    still ends. */
 void Record_WaitHook(void);
 
+/* ChangeCube(): supply the seed a replay's first scene load has to run on. */
+void Record_SeedHook(U32 *seed);
+
 /* Control_TickHook(): one state hash per tick, the recording's own oracle. */
 void Record_TickHook(void);
 
