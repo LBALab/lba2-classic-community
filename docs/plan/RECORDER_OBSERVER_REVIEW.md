@@ -1116,10 +1116,10 @@ Ordered by what makes the next thing safe, not by size.
     a pinned clock the only thing that moves the clock in that loop is its own `BoxUpdate`. Take the
     present's mint away and the exit condition can never become true.
 
-    **The blast radius is bounded from both sides, and neither side is "the modals hang".** Driven,
-    four of five surfaces still exit 0 under the same arm: idle, a cube change (its fade loops call
-    `Timer_FixedDtPump`, which still mints), the main menu and the holomap. One confirmed hang of
-    five surfaces driven. Statically, 29 loops across `SOURCES` and `LIB386` contain both a present
+    **The blast radius is bounded from both sides, and neither side is "the modals hang".** Ten
+    surfaces driven twice each under the same arm -- inventory, holomap, holoplan, the main menu,
+    options, display, config, the slideshow, a dialogue and found-object -- and only the inventory
+    wedges. **One confirmed hang out of ten** *(measured elsewhere)*. Statically, 29 loops across `SOURCES` and `LIB386` contain both a present
     and a read of `TimerRefHR` or `TimerSystemHR`, brace-matched to 400 lines and so a floor;
     exactly one of them calls `Timer_FixedDtPump`, and of the other 28, eight have no input poll in
     the body either, which makes the clock their only exit condition
@@ -1130,7 +1130,42 @@ Ordered by what makes the next thing safe, not by size.
     [INVENT.CPP:901](../../SOURCES/INVENT.CPP#L901) and :2279) *(measured elsewhere)*. The purest
     of them is `INVENT.CPP:2279`, `while (TimerRefHR < savetimer + 10 * 20) ManageTime();`, whose
     present is hoisted above the loop so the body does not even mint. Those seven are the same
-    shape, not seven more confirmed hangs.
+    shape, not seven more confirmed hangs -- and two of them turn out to hang already, on main,
+    which item 11 carries because the cause is item 11's rather than this one's.
+
+    **Why the other nine survive is the part that sharpens the rule.** Attributed by site on the
+    control arm, the surviving modals mint 39 to 60 steps in a tick and every one of them is a
+    poll-driven loop that presents about once per iteration and exits on a key: `DoGameMenu`,
+    `MenuConfig`, `SpeakAnimation`, `DoFoundObj`, `HoloGlobe`, `HoloPlan` *(measured elsewhere)*.
+    For those, "a present is a tick" is approximately right, and taking the mint away costs them
+    smoothness rather than termination. **The heuristic is not wrong by some factor across the
+    board; it is right at every poll-driven modal and wrong at exactly two shapes**: a draw loop
+    that presents per drawn element, which is `DrawInventoryScreen` at 35 presents in one pass over
+    the inventory slots, and a wait loop that pumps and presents on the same iteration, which is
+    every `AMBIANCE` fade at two mints a pass. Naming the two shapes is more useful than naming a
+    range, because a shape can be searched for.
+
+    **The four policies do collapse, and the collapse is not in `TIMER.CPP`.** One call that mints a
+    step per loop iteration, whoever's loop it is, retires `Timer_FixedDtPresent`,
+    `Timer_FixedDtOverlayPresent` and the `FixedDtSkipPresent` flag together, because all three
+    exist only to arbitrate a present that should not have been minting; `Timer_FixedDtPump` and
+    `Timer_FixedDtAdvance` become the same call, and what survives is `FixedDtTicking`, which is
+    shared state rather than a policy. But no site except `MainLoop` currently knows where an
+    iteration boundary is -- 29 loops, one `Timer_FixedDtPump` call between them -- so the collapse
+    has to be written into the loop bodies. That is step B. **The deletion half of step A is not
+    blocked by step B; it is step B** *(measured elsewhere)*. Until then the minimum stable set is
+    all four: drop `Timer_FixedDtOverlayPresent` and the console double-clock returns, drop
+    `Timer_FixedDtPresent` and `OpenInventory` deadlocks.
+
+    **One constraint on that collapse belongs to the recorder, and it is the reason this item sits
+    in this document.** A collapsed mint must not also collapse *a step of clock was minted* with
+    *a simulation tick happened*. `Record_TickHook` is called from `Control_TickHook`
+    ([CONTROL.CPP:1089](../../SOURCES/CONTROL.CPP#L1089)), which runs once per `MainLoop` iteration
+    ([PERSO.CPP:585](../../SOURCES/PERSO.CPP#L585)), so the recorder's tick number and its per-tick
+    digest are indexed on main-loop iterations specifically. If step B makes every modal iteration a
+    tick, that index changes meaning and every existing recording's tick numbering moves under it --
+    which is discovered, if it is not designed for, at the point where all the recordings stop
+    matching at once. Two concepts, one of which the recorder counts and hashes.
 
     **So step B is not after step A, it is inside it.** The modal loops are load-bearing on
     present-mints rather than inconvenienced by it, and no entry point can stop presents minting
@@ -1287,6 +1322,29 @@ Ordered by what makes the next thing safe, not by size.
     two ends still part. That makes it the same shape as the replay-disagreement column rather than
     a weaker version of the seed case -- something outside the file is moving, which is a bounded
     search -- and it is a strictly different open item from the one #637 closed.
+
+    **Two loops of this class are still open on main, and they were found by looking for item 10's
+    shape rather than this one's.** `GereArdoise`'s slate page-flip runs
+    `while (TimerRefHR < savetimer + 10 * 20) ManageTime();` once per arrow
+    ([INVENT.CPP:2261](../../SOURCES/INVENT.CPP#L2261) and
+    [:2279](../../SOURCES/INVENT.CPP#L2279)), with the present that feeds the clock hoisted above
+    the loop. Under `--fixed-dt` they cannot terminate, and the argument is complete rather than
+    suggestive: `ManageTime` reads `FixedDtNow`, `FixedDtNow` moves only inside `FixedDtStep`, and
+    `FixedDtStep` is reached only from the advance, the present and the pump, none of which a body
+    whose only statement is `ManageTime()` can reach. Under a recorder-held loose clock they wedge
+    for this item's reason exactly: the wait hook that #635 introduced sits behind
+    `Timer_FixedDtPump`, and #635 closed the wedge by adding pump calls to the loops that needed
+    them. These two have no pump call, so they received neither half of that fix.
+
+    **Not driven, and the reason is worth as much as the finding.** `useitem` does not open the
+    slate: the switch runs only after `MenuInventory` returns from an inventory press, and the
+    page-flip additionally needs a second slate page, which no console verb sets. Four instrumented
+    attempts across two corpus saves never entered `GereArdoise`, at zero modal presents recorded
+    *(measured elsewhere)*. So the mechanism is proven by reading and the surface is not reproduced,
+    which is the honest pair to report -- and the way out is a host test that runs the loop's shape
+    under an armed clock, which proves the mechanism without needing the surface at all. **A
+    complete argument from the source plus a test of the shape is worth more than a driven
+    reproduction here**, because the surface is unreachable by every driver the project has.
 
 Items 2 and 7 landed in #625 while this was being written and are struck through rather than
 removed, so the ordering argument stays readable. Of what is left, items 1, 3, 4, 5, 8 and 9 are
