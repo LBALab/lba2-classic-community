@@ -138,8 +138,8 @@ overlay --------|                                      |
 | A first-poll delta assigned over | the recorder and the clock | #638 |
 | The loose-clock fade wedge | the recorder's held clock and the wait loops | #635, #636 |
 | The console double-clock | the console, the present and the clock | closed, as a fourth policy |
-| Presents-never-mint deadlocks | the modal loops and the clock | #641 |
-| Two `GereArdoise` waits with no pump | the modal loops and the clock | #641 |
+| Presents-never-mint deadlocks | the modal loops and the clock | #641 merged |
+| Two `GereArdoise` waits with no pump | the modal loops and the clock | #641 merged |
 | A command replayed a tick early | the console, the recorder and the main loop | item 12 |
 | The save-name stall | input and the recorder, on a channel outside the tap | open |
 | The camera at tick 0 | save/load and `ChangeCube`'s two callers | #642 |
@@ -1623,7 +1623,8 @@ removed, so the ordering argument stays readable. Of what is left, items 1, 3, 4
 small and independent. Item 6's pacing half merged as #630 while this was being written; its oracle
 half is still open, and **item 12 comes first**, because a consistency field added before the
 command position is fixed would spend its bytes measuring that. Item 10 is the one this
-review was slowest to arrive at and least sure of the scope of -- read it together with 6, since 6
+review was slowest to arrive at and least sure of the scope of, and its measurement half landed in
+#641 (`01ccb118`). Read it together with 6, since 6
 built the part of 10 that is already done. **Item 11 bounds a campaign rather than a feature**, and is
 claimed with a fix measured and one question outstanding.
 
@@ -1702,7 +1703,9 @@ ctl --load "$LBA2_TEST_SAVE" --exec-at 5 "input seq ..." --record probe.rec \
 - [RECORDING.md](../RECORDING.md) -- how to use it, and the limits as they stand
 - [plan/RECORDING_RESEARCH.md](RECORDING_RESEARCH.md) -- the design work and what was measured
 - [plan/ENGINE_RENDER_SPLIT_RESEARCH.md](ENGINE_RENDER_SPLIT_RESEARCH.md) -- why the observer had to
-  build a clock
+  build a clock; its step A row now reads as not separable from step B
+- [plan/ENGINE_TICK_POLICY_SURVEY.md](ENGINE_TICK_POLICY_SURVEY.md) -- the four mint policies driven
+  and measured, and the deadlock that prices step A
 - [TIMING.md](../TIMING.md), [MOVEMENT_FRAMERATE.md](../MOVEMENT_FRAMERATE.md) -- the clock the
   recorder pins
 - [BIT_EXACTNESS.md](../BIT_EXACTNESS.md) -- where the RNG split decision belongs

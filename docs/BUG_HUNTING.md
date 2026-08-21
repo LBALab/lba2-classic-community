@@ -307,6 +307,13 @@ merges moved three citations in one branch, one of them by 72 lines, and every o
 pointed at real code -- which is why nothing complained. The number is the part that rots; the text
 on the line is the part that means something.
 
+**A stale working copy announces itself as a modification, not as stale.** A long-lived worktree
+whose base moved reports every file the new base changed as modified, and the diff reads as somebody
+else's work reversed. That is indistinguishable at a glance from a clobber, and it invites reporting
+one. Before believing `git status`, ask `git log <base>..HEAD -- <file>` whether your branch has
+touched the file at all. Same root cause as the drift below: the base moved and the worktree did
+not.
+
 **A document that cites the code it changes drifts against itself inside one branch.** Inserting a
 line above a cited one rots the citation with no rebase and no external event to prompt a re-check,
 and the doc and the code are in the same diff. One branch moved four of its own citations by 7 to 11
