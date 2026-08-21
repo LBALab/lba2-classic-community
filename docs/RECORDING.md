@@ -141,6 +141,17 @@ so both ends reach the seed on the same reading -- measured, they match every ru
 reproduces badly for its own reasons, which are not this and are not fixed here, so a loose
 recording reproducing is still a claim about `--load` rather than about recording generally.
 
+A fifth is the mirror of the fourth, on the reading side. The recording banks the interval
+between the reading it takes its baseline from and the reading its first poll holds --
+`record_begin` settles the clock, and the first `record_poll` then holds the next one -- and
+it writes that interval down as the first poll's delta. A replay that installs the baseline
+*after* holding that delta assigns straight over it, so the two ends part by exactly that
+interval. It is a millisecond, and a millisecond is one animation sub-step on the first actor
+stamped. Forcing the first poll three milliseconds back makes it deterministic rather than
+occasional: **fifteen recordings out of fifteen failed before the baseline was moved ahead of
+the delta, and one of fourteen after**. `--fixed-dt` takes both readings from the same
+generated step, so there is nothing to discard and no pinned run has ever shown it.
+
 A third was the same shape and is closed with them: `InitAnim` stamps the hero's animation anchors
 during boot, from wall-clock time, and `LoadGame` installs the save's clock afterwards. Every other
 actor is stamped after that line and comes out on the restored reading, so the hero alone carried
