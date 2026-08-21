@@ -222,6 +222,29 @@ static long s_refDriftMax = 0;
 static long s_refDriftFirstTick = -1;
 static long s_syncDriftPoll = -1;
 
+/* Polls that took no input from the file, because the next record belongs to the tick
+   path and the reader hands back the previous poll's input rather than read it here.
+   Ordinary in principle: the engine's poll count for a tick need not match the
+   recording's. Unbounded is a deadlock, and one thing produces it -- the engine is
+   inside a modal it can only leave on input, the input it needs is behind a tick it
+   cannot reach, and neither end can move. The run then holds a core and prints nothing
+   until something outside kills it.
+
+   Measured, the run is not merely bounded on a healthy replay, it is zero: nine of them
+   -- five contributed sessions plus pinned, contested, loose-clock and mismatched-step
+   arms -- produced no stale poll at all, because two runs of one file poll alike and
+   the reader takes one record per poll. So the limit below is not a line drawn through
+   a distribution. It is headroom over a measurement of zero, set high enough that any
+   legitimate case yet to be found has room, and low enough that a deadlocked run says
+   so in under a second instead of after a timeout.
+
+   Counted rather than timed on purpose: the count means the same thing on a slow
+   machine and a fast one, and a timeout does not. */
+#define REC_STALE_LIMIT 5000
+static long s_stalePolls = 0;
+static long s_stalePeak = 0;
+static int s_staleReported = 0;
+
 static long s_polls = 0;
 static long s_ticks = 0;
 static long s_bytes = 0;
@@ -1881,6 +1904,15 @@ static void replay_inject(void) {
     Click = s_click;
 }
 
+/* One poll that handed back the previous poll's input instead of reading the file.
+   Kept as a run rather than a total: what distinguishes a deadlock from a rate
+   difference is that the run never ends. */
+static void replay_note_stale(void) {
+    s_stalePolls++;
+    if (s_stalePolls > s_stalePeak)
+        s_stalePeak = s_stalePolls;
+}
+
 static int replay_poll(void) {
     U8 flags;
     long atFlags = ftell(s_f);
@@ -1999,6 +2031,7 @@ static int replay_poll(void) {
         if ((flags & 0x80) && stepped >= 0) {
             fseek(s_f, stepped, SEEK_SET);
             replay_inject();
+            replay_note_stale();
             return 1;
         }
     }
@@ -2010,6 +2043,7 @@ static int replay_poll(void) {
            until the next sync marker. */
         fseek(s_f, atFlags, SEEK_SET);
         replay_inject();
+        replay_note_stale();
         return 1;
     }
 
@@ -2100,6 +2134,8 @@ static int replay_poll(void) {
 
     replay_inject();
 
+    /* A poll that took input is progress, whatever else diverged. */
+    s_stalePolls = 0;
     s_polls++;
     s_pollsThisTick++;
     return 1;
@@ -2122,6 +2158,8 @@ static void replay_begin(void) {
     s_teleReported = 0;
     s_syncDriftPoll = -1;
     s_polls = s_ticks = s_ticksChecked = 0;
+    s_stalePolls = s_stalePeak = 0;
+    s_staleReported = 0;
     s_bytesTicks = s_maxPollsInTick = s_pollsThisTick = 0;
     s_nCmds = s_cmdRead = 0;
     s_cmdsRecorded = 0;
@@ -2426,15 +2464,40 @@ void Record_PollHook(void) {
                was waiting for will never arrive. Say what happened and leave. */
             fprintf(stderr,
                     "[rec] replay ended at poll %ld: %ld ticks checked, first hash mismatch %ld, "
-                    "clock drift max %ld ms first at tick %ld, stream drift first at poll %ld\n",
+                    "clock drift max %ld ms first at tick %ld, stream drift first at poll %ld, "
+                    "longest stale run %ld\n",
                     s_polls, s_ticksChecked, s_hashMismatchTick, s_refDriftMax,
-                    s_refDriftFirstTick, s_syncDriftPoll);
+                    s_refDriftFirstTick, s_syncDriftPoll, s_stalePeak);
             Record_Stop();
             /* Only when nothing else is driving the run. With the harness armed it has
                a tick budget and artifacts to write, and exiting from here would skip
                the --dump-state the caller asked for. */
             if (s_replayFromCli && !Control_IsActive())
                 exit(s_hashMismatchTick < 0 ? 0 : 2);
+        } else if (s_stalePolls >= REC_STALE_LIMIT && !s_staleReported) {
+            /* Ends the run the same way the stream running out does, and for the same
+               reason: there is nothing left that can drive it. Saying so is the whole
+               of the fix -- the deadlock is a symptom of a divergence that happened
+               earlier, and the tick named here is where to start looking, not where
+               the fault is. */
+            s_staleReported = 1;
+            fprintf(stderr,
+                    "[rec] replay stalled at poll %ld, tick %ld: %ld polls in a row took no "
+                    "input from the recording. The run is waiting on input the recording "
+                    "does not contain -- it has diverged into a screen it can only leave on "
+                    "a key. First hash mismatch %ld.\n",
+                    s_polls, s_ticks, s_stalePolls, s_hashMismatchTick);
+            Record_Stop();
+            /* Unlike the stream running out, this leaves regardless of the harness. The
+               reason the end-of-stream path defers to it -- a tick budget still to spend
+               and artifacts still to write -- cannot apply here: no tick will retire
+               again, so the budget is unreachable and every later --exec-at is too. A
+               run that cannot advance has nothing left to defer to, and deferring is
+               what makes this a report about a hang rather than the end of one.
+               Measured: without this the detector printed and the run went on holding a
+               core until an outside timeout, which is the behaviour it exists to fix. */
+            if (s_replayFromCli)
+                exit(2);
         }
         /* Progress, so a long replay is not a silent one. */
         if ((s_polls % 20000) == 0)
