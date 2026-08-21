@@ -28,10 +28,11 @@
 #include <SYSTEM/TIMER.H>  /* TimerRefHR, NbFramePerSecond */
 #include <SYSTEM/WINDOW.H> /* Window_SetVSync */
 
-#include <SDL3/SDL.h>     /* SDL_SetHint for --headless (must precede SDL_Init) */
-#include "RECORD.H"       /* --record / --replay */
-#include <SYSTEM/FILES.H> /* ExistsFileOrDir */
-#include <SYSTEM/LOG.H>   /* LogSeverity, Log_ParseLevel for --log-level */
+#include <SDL3/SDL.h>      /* SDL_SetHint for --headless (must precede SDL_Init) */
+#include "RECORD.H"        /* --record / --replay */
+#include "RECORD_FORMAT.H" /* RecFmt_ReadInt, for the `state.` header lines */
+#include <SYSTEM/FILES.H>  /* ExistsFileOrDir */
+#include <SYSTEM/LOG.H>    /* LogSeverity, Log_ParseLevel for --log-level */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -593,8 +594,15 @@ int Control_IsHeadless(void) {
     return s_headless;
 }
 
-void Control_SetDigestVersion(S32 v) {
+S32 Control_SetDigestVersion(S32 v) {
+    /* A version this build has no fields for cannot be approximated by hashing the set
+       it does have: the hashes would differ on every tick and the run would report a
+       simulation that came apart at tick 0. Refused here so the caller can say which
+       version it does not know. */
+    if (v > CONTROL_DIGEST_VERSION)
+        return 0;
     s_digestVersion = (v > 0) ? v : 1;
+    return 1;
 }
 
 int Control_IsVerbose(void) {
@@ -1620,6 +1628,11 @@ void Control_InputAdvance(int simTicks) {
 static S32 s_tele[TELE_MAX];
 static const char *s_teleName[TELE_MAX];
 static S16 s_teleIdx[TELE_MAX];
+/* The class each collected value was declared with, so a reader can tell a field that
+   is part of the verdict from one that is only beside it. Without this the report says
+   "state differs" over a field the hash never compared, which puts the false alarm back
+   in the prose after the digest has stopped raising it. */
+static S8 s_teleClass[TELE_MAX];
 static S32 s_teleN = 0;
 /* Values the array had no room for. Counted rather than ignored: a full array reports a
    shorter list and nothing about it looks wrong, so an undersized TELE_MAX would read as
@@ -1656,32 +1669,30 @@ static void mix(const void *p, unsigned n) {
    hashed under one name and reported under another, and a field added to the digest is
    named without anyone remembering to name it. Scalars carry index -1; the loops below
    pass the array index they are on. */
-#define M(v) MI(#v, -1, v)
-/* Collected and named like MI, but never mixed: a field that describes how a divergence
-   happened rather than being part of what diverged. It shows up in every report and
-   changes no verdict. */
-#define R(nm, v)                        \
-    do {                                \
-        S32 t_ = (S32)(v);              \
-        if (s_teleN < TELE_MAX) {       \
-            s_teleName[s_teleN] = (nm); \
-            s_teleIdx[s_teleN] = -1;    \
-            s_tele[s_teleN++] = t_;     \
-        } else {                        \
-            s_teleDropped++;            \
-        }                               \
-    } while (0)
-#define MI(nm, ix, v)                       \
-    do {                                    \
-        S32 t_ = (S32)(v);                  \
-        mix(&t_, sizeof t_);                \
-        if (s_teleN < TELE_MAX) {           \
-            s_teleName[s_teleN] = (nm);     \
-            s_teleIdx[s_teleN] = (S16)(ix); \
-            s_tele[s_teleN++] = t_;         \
-        } else {                            \
-            s_teleDropped++;                \
-        }                                   \
+#define M(cls, v) MI(cls, #v, -1, v)
+/* Does a field of this class take part in the verdict? Only DIGEST_SAVED and
+   DIGEST_CARRIED are state a replay can be made to start from, so only those two can
+   answer "did the simulation reach the same state". Nothing is DIGEST_LOOSE today, and
+   moving a field there is a membership change: it removes a value from the hash, so
+   every recording made before it would compare against a set that no longer exists and
+   has to be given CONTROL_DIGEST_VERSION to select. Adding a field is the cheap
+   direction; taking one away is not. */
+static int digest_mixes(S32 cls) {
+    return cls != DIGEST_LOOSE && cls != DIGEST_PROBE;
+}
+#define MI(cls, nm, ix, v)                    \
+    do {                                      \
+        S32 t_ = (S32)(v);                    \
+        if (digest_mixes(cls))                \
+            mix(&t_, sizeof t_);              \
+        if (s_teleN < TELE_MAX) {             \
+            s_teleName[s_teleN] = (nm);       \
+            s_teleIdx[s_teleN] = (S16)(ix);   \
+            s_teleClass[s_teleN] = (S8)(cls); \
+            s_tele[s_teleN++] = t_;           \
+        } else {                              \
+            s_teleDropped++;                  \
+        }                                     \
     } while (0)
 
 /* "hero->Obj.X", "var.game[77]", or "obj[12].Anim" for the actor tables, which are the
@@ -1700,42 +1711,48 @@ void Control_StateValueName(S32 k, char *out, size_t n) {
     snprintf(out, n, "%s[%d]", nm, (int)s_teleIdx[k]);
 }
 
-/* The keyframe's fields, named once. Writer, reader and reporter all walk this table,
-   so a field cannot be added to one and missed by another, and the name a divergence
-   reports is the name the table gives. Ordered as a person would read it: where the
-   hero is, what he is doing, where the camera is, and what modal is up. */
-static const char *const s_kfNames[] = {
+/* The keyframe's fields, named and classed once. Writer, reader and reporter all walk
+   this table, so a field cannot be added to one and missed by another, the name a
+   divergence reports is the name the table gives, and the class decides whether a
+   difference in it is part of the verdict or context beside it -- the same question the
+   digest's own macro asks, asked once here for the short list a person reads first.
+   Ordered as a person would read it: where the hero is, what he is doing, where the
+   camera is, and what modal is up. */
+static const struct {
+    const char *name;
+    S8 cls;
+} s_kfNames[] = {
     /* where */
-    "cube",
-    "cubemode",
-    "hero.x",
-    "hero.y",
-    "hero.z",
-    "hero.beta",
+    {"cube", DIGEST_SAVED},
+    {"cubemode", DIGEST_SAVED},
+    {"hero.x", DIGEST_SAVED},
+    {"hero.y", DIGEST_SAVED},
+    {"hero.z", DIGEST_SAVED},
+    {"hero.beta", DIGEST_SAVED},
 
     /* doing what */
-    "hero.anim",
-    "hero.gen_anim",
-    "hero.body",
-    "hero.move",
-    "hero.life",
-    "hero.zone",
-    "comportement",
-    "weapon",
+    {"hero.anim", DIGEST_SAVED},
+    {"hero.gen_anim", DIGEST_SAVED},
+    {"hero.body", DIGEST_SAVED},
+    {"hero.move", DIGEST_SAVED},
+    {"hero.life", DIGEST_SAVED},
+    {"hero.zone", DIGEST_SAVED},
+    {"comportement", DIGEST_SAVED},
+    {"weapon", DIGEST_SAVED},
 
     /* seen how */
-    "cam.beta",
-    "cam.alpha",
-    "cam.addbeta",
-    "cam.dist",
+    {"cam.beta", DIGEST_SAVED},
+    {"cam.alpha", DIGEST_SAVED},
+    {"cam.addbeta", DIGEST_SAVED},
+    {"cam.dist", DIGEST_SAVED},
 
     /* and what is up in front of it */
-    "cinema",
-    "dial.obj",
-    "choice",
-    "choices",
-    "fade",
-    "blackpal",
+    {"cinema", DIGEST_SAVED},
+    {"dial.obj", DIGEST_CARRIED},
+    {"choice", DIGEST_CARRIED},
+    {"choices", DIGEST_CARRIED},
+    {"fade", DIGEST_CARRIED},
+    {"blackpal", DIGEST_CARRIED},
 };
 #define KF_COUNT ((S32)(sizeof s_kfNames / sizeof s_kfNames[0]))
 
@@ -1780,83 +1797,112 @@ unsigned long long Control_StateDigest(void) {
     S32 i;
     s_h = 14695981039346656037ULL;
     s_teleN = 0;
-    M(Island);
-    M(NumCube);
-    M(CubeMode);
-    M(NbObjets);
-    M(NbZones);
-    M(hero->Obj.X);
-    M(hero->Obj.Y);
-    M(hero->Obj.Z);
-    M(hero->Obj.Alpha);
-    M(hero->Obj.Beta);
-    M(hero->Obj.Gamma);
-    M(hero->LifePoint);
-    M(Comportement);
-    M(Weapon);
-    M(hero->Obj.Body.Num);
-    M(hero->Obj.Anim.Num);
-    M(hero->GenAnim);
-    M(hero->Obj.LastFrame);
-    M(hero->Move);
-    M(hero->ZoneSce);
-    M(hero->Flags);
-    M(hero->WorkFlags);
-    M(BetaCam);
-    M(AlphaCam);
-    M(GammaCam);
-    M(AddBetaCam);
-    M(VueDistance);
-    M(VueOffsetX);
-    M(VueOffsetY);
-    M(VueOffsetZ);
-    M(FollowCamera);
-    M(VueCamera);
-    M(CameraZone);
-    M(CinemaMode);
-    M(MagicLevel);
-    M(MagicPoint);
-    M(NbGoldPieces);
-    M(NbLittleKeys);
+    /* Scene identity. The savegame carries NumCube; the load recomputes the rest from
+       the cube's own data file (SOURCES/DISKFUNC.CPP, Island and CubeMode), so they are
+       restored without being bytes in the save. */
+    M(DIGEST_SAVED, Island);
+    M(DIGEST_SAVED, NumCube);
+    M(DIGEST_SAVED, CubeMode);
+    M(DIGEST_SAVED, NbObjets);
+    M(DIGEST_SAVED, NbZones);
+    /* The hero. The save writes the whole T_OBJ_3D rather than field by field
+       (SOURCES/SAVEGAME.CPP), which is why the angles and the animation are carried
+       even though their names do not appear in it. */
+    M(DIGEST_SAVED, hero->Obj.X);
+    M(DIGEST_SAVED, hero->Obj.Y);
+    M(DIGEST_SAVED, hero->Obj.Z);
+    M(DIGEST_SAVED, hero->Obj.Alpha);
+    M(DIGEST_SAVED, hero->Obj.Beta);
+    M(DIGEST_SAVED, hero->Obj.Gamma);
+    M(DIGEST_SAVED, hero->LifePoint);
+    M(DIGEST_SAVED, Comportement);
+    M(DIGEST_SAVED, Weapon);
+    M(DIGEST_SAVED, hero->Obj.Body.Num);
+    M(DIGEST_SAVED, hero->Obj.Anim.Num);
+    M(DIGEST_SAVED, hero->GenAnim);
+    M(DIGEST_SAVED, hero->Obj.LastFrame);
+    M(DIGEST_SAVED, hero->Move);
+    M(DIGEST_SAVED, hero->ZoneSce);
+    M(DIGEST_SAVED, hero->Flags);
+    M(DIGEST_SAVED, hero->WorkFlags);
+    /* The camera. Written and read unconditionally in the save's camera block. */
+    M(DIGEST_SAVED, BetaCam);
+    M(DIGEST_SAVED, AlphaCam);
+    M(DIGEST_SAVED, GammaCam);
+    M(DIGEST_SAVED, AddBetaCam);
+    M(DIGEST_SAVED, VueDistance);
+    M(DIGEST_SAVED, VueOffsetX);
+    M(DIGEST_SAVED, VueOffsetY);
+    M(DIGEST_SAVED, VueOffsetZ);
+    /* A cfg setting, not game state: SOURCES/CONFIG_FILE.CPP binds it to the
+       `FollowCamera` key. The recording carries it as a `settings.` header line and the
+       replay reports the difference without installing it, so it is compared against a
+       value the replay has not been given. Left compared for now because the mode diff
+       names it, which is more than the loose globals below get; carrying and installing
+       it the way the binding tables are carried is what moves it to DIGEST_CARRIED. */
+    M(DIGEST_SAVED, FollowCamera);
+    M(DIGEST_SAVED, VueCamera);
+    M(DIGEST_SAVED, CameraZone);
+    M(DIGEST_SAVED, CinemaMode);
+    M(DIGEST_SAVED, MagicLevel);
+    M(DIGEST_SAVED, MagicPoint);
+    M(DIGEST_SAVED, NbGoldPieces);
+    M(DIGEST_SAVED, NbLittleKeys);
+    /* Every other actor, out of the same per-object block of the save. */
     for (i = 0; i < NbObjets; i++) {
         T_OBJET *o = &ListObjet[i];
-        MI("obj.X", i, o->Obj.X);
-        MI("obj.Y", i, o->Obj.Y);
-        MI("obj.Z", i, o->Obj.Z);
-        MI("obj.Beta", i, o->Obj.Beta);
-        MI("obj.Life", i, o->LifePoint);
-        MI("obj.Body", i, o->Obj.Body.Num);
-        MI("obj.Anim", i, o->Obj.Anim.Num);
-        MI("obj.Move", i, o->Move);
-        MI("obj.Flags", i, o->Flags);
+        MI(DIGEST_SAVED, "obj.X", i, o->Obj.X);
+        MI(DIGEST_SAVED, "obj.Y", i, o->Obj.Y);
+        MI(DIGEST_SAVED, "obj.Z", i, o->Obj.Z);
+        MI(DIGEST_SAVED, "obj.Beta", i, o->Obj.Beta);
+        MI(DIGEST_SAVED, "obj.Life", i, o->LifePoint);
+        MI(DIGEST_SAVED, "obj.Body", i, o->Obj.Body.Num);
+        MI(DIGEST_SAVED, "obj.Anim", i, o->Obj.Anim.Num);
+        MI(DIGEST_SAVED, "obj.Move", i, o->Move);
+        MI(DIGEST_SAVED, "obj.Flags", i, o->Flags);
         if (s_digestVersion >= 2) {
-            MI("obj.Sample", i, (S32)o->SampleAlways);
-            MI("obj.LastFrame", i, o->Obj.LastFrame);
-            MI("obj.LastTimer", i, (S32)o->Obj.LastTimer);
-            MI("obj.NextTimer", i, (S32)o->Obj.NextTimer);
+            MI(DIGEST_SAVED, "obj.Sample", i, (S32)o->SampleAlways);
+            MI(DIGEST_SAVED, "obj.LastFrame", i, o->Obj.LastFrame);
+            MI(DIGEST_SAVED, "obj.LastTimer", i, (S32)o->Obj.LastTimer);
+            MI(DIGEST_SAVED, "obj.NextTimer", i, (S32)o->Obj.NextTimer);
         }
     }
     /* Modal and menu state. Without these a replay that opens a menu the recording
        never opened stays "matching" until the menu changes something else, which can
-       be hundreds of ticks later and in a field that looks unrelated. */
-    M(CinemaMode);
-    M(NumObjDial);
-    M(GameChoice);
-    M(GameNbChoices);
-    M(FlagFade);
-    M(FlagBlackPal);
-    /* Probe: the two pieces of per-frame state a recording does not carry. */
+       be hundreds of ticks later and in a field that looks unrelated.
+
+       All five reach the simulation and no savegame carries any of them, so a replay
+       that only loads the snapshot starts them at their GLOBAL.CPP initialiser and they
+       mismatch on tick 0 with nothing having diverged. That is why they are
+       DIGEST_CARRIED rather than DIGEST_SAVED: the recording writes them as `state.`
+       header lines and the replay installs them for its duration, on the borrow-and-
+       return the binding tables already use.
+
+       Dropping them from the comparison instead would remove the false alarm by
+       removing the ability to see a real one. GameChoice is read as an LF_CHOICE
+       conditional (SOURCES/GERELIFE.CPP), so a stale one takes a different script
+       branch in silence; FlagFade and FlagBlackPal decide whether a fade runs at all
+       (SOURCES/GERETRAK.CPP, SOURCES/AMBIANCE.CPP), which pumps the clock under a
+       pinned step. */
+    M(DIGEST_SAVED, CinemaMode);
+    M(DIGEST_CARRIED, NumObjDial);
+    M(DIGEST_CARRIED, GameChoice);
+    M(DIGEST_CARRIED, GameNbChoices);
+    M(DIGEST_CARRIED, FlagFade);
+    M(DIGEST_CARRIED, FlagBlackPal);
     if (s_digestVersion >= 2) {
-        /* The carry is hashed: it decides where the next frame's sub-step boundaries
-           fall, so two runs that disagree on it are already simulating differently. The
-           draw count is not, for the reason on R above. */
-        MI("sim.carry", -1, (S32)LastSimRefHR);
-        R("rng.draws", Rnd_Draws());
+        /* The carry is compared: it decides where the next frame's sub-step boundaries
+           fall, so two runs that disagree on it are already simulating differently, and
+           the recording carries it as `clock.sim_carry` for the replay to restore. The
+           draw count is not state at all -- it says how a divergence happened rather
+           than being part of what diverged. */
+        MI(DIGEST_CARRIED, "sim.carry", -1, (S32)LastSimRefHR);
+        MI(DIGEST_PROBE, "rng.draws", -1, Rnd_Draws());
     }
     for (i = 0; i < MAX_VARS_GAME; i++)
-        MI("var.game", i, ListVarGame[i]);
+        MI(DIGEST_SAVED, "var.game", i, ListVarGame[i]);
     for (i = 0; i < MAX_VARS_CUBE; i++)
-        MI("var.cube", i, ListVarCube[i]);
+        MI(DIGEST_SAVED, "var.cube", i, ListVarCube[i]);
     return s_h;
 }
 
@@ -1879,15 +1925,131 @@ S32 Control_StateValueCount(void) {
 
 S32 Control_StateValue(S32 k) { return (k >= 0 && k < s_teleN) ? s_tele[k] : 0; }
 
+S32 Control_StateValueCompared(S32 k) {
+    return (k >= 0 && k < s_teleN) ? digest_mixes((S32)s_teleClass[k]) : 0;
+}
+
 S32 Control_KeyframeCount(void) { return KF_COUNT; }
 
 const char *Control_KeyframeName(S32 k) {
-    return (k >= 0 && k < KF_COUNT) ? s_kfNames[k] : "";
+    return (k >= 0 && k < KF_COUNT) ? s_kfNames[k].name : "";
+}
+
+S32 Control_KeyframeCompared(S32 k) {
+    return (k >= 0 && k < KF_COUNT) ? digest_mixes((S32)s_kfNames[k].cls) : 0;
 }
 
 /* Is there a scene loaded to read? Boot and the menus have no cube and no actors, and
    a caller that snapshots or digests there gets a description of nothing. */
 S32 Control_HasLiveScene(void) { return NumCube >= 0 && NbObjets > 0; }
+
+/* ---- the state a savegame does not carry ----------------------------------- */
+
+/* Five globals the simulation reads that no savegame restores. Every one of them is
+   mixed into the digest, so a replay that is not given them compares against a value it
+   had no way to reach and reports a divergence on tick 0 with nothing having diverged.
+   Measured over the nine contributed recordings: seven differ on FlagBlackPal at tick
+   0, three on NumObjDial and one on GameChoice.
+
+   The repair is the one `bindings.digest` already uses for the key tables, which live
+   outside the savegame for the same reason: the file carries the values, the replay
+   installs them for its duration, and the run's own are put back on the way out.
+
+   A table rather than five pairs of hand-written lines, because the writer, the
+   installer and the restore all have to name the same five: a key added to one and
+   missed by another is a field that is written and never installed, which looks exactly
+   like the defect this exists to close. The digest's own fields are not a table for the
+   opposite reason -- there the name is the expression, which is what stops those two
+   drifting, and a table of pointers would give that up. */
+enum { UC_U8,
+       UC_U16,
+       UC_S32 };
+static const struct {
+    const char *key; /* header key, including the '=' */
+    void *slot;
+    S8 type;
+} s_uncarried[] = {
+    {"state.dial_obj=", &NumObjDial, UC_U8},
+    {"state.choice=", &GameChoice, UC_U16},
+    {"state.choices=", &GameNbChoices, UC_U16},
+    {"state.fade=", &FlagFade, UC_S32},
+    {"state.blackpal=", &FlagBlackPal, UC_S32},
+};
+#define UNCARRIED_COUNT ((S32)(sizeof s_uncarried / sizeof s_uncarried[0]))
+
+static S32 s_uncarriedSaved[UNCARRIED_COUNT];
+static S32 s_uncarriedHeld = 0;
+
+static S32 uncarried_get(S32 i) {
+    switch (s_uncarried[i].type) {
+    case UC_U8:
+        return (S32) * (U8 *)s_uncarried[i].slot;
+    case UC_U16:
+        return (S32) * (U16 *)s_uncarried[i].slot;
+    default:
+        return *(S32 *)s_uncarried[i].slot;
+    }
+}
+
+static void uncarried_set(S32 i, S32 v) {
+    switch (s_uncarried[i].type) {
+    case UC_U8:
+        *(U8 *)s_uncarried[i].slot = (U8)v;
+        break;
+    case UC_U16:
+        *(U16 *)s_uncarried[i].slot = (U16)v;
+        break;
+    default:
+        *(S32 *)s_uncarried[i].slot = v;
+        break;
+    }
+}
+
+S32 Control_WriteUncarried(char *out, size_t n) {
+    size_t at = 0;
+    S32 i;
+
+    for (i = 0; i < UNCARRIED_COUNT; i++) {
+        int wrote = snprintf(out + at, n - at, "%s%d\n", s_uncarried[i].key,
+                             (int)uncarried_get(i));
+        if (wrote <= 0 || (size_t)wrote >= n - at)
+            return 0;
+        at += (size_t)wrote;
+    }
+    return 1;
+}
+
+S32 Control_InstallUncarried(const char *hdr) {
+    S32 want[UNCARRIED_COUNT];
+    S32 i;
+
+    if (s_uncarriedHeld)
+        return 1;
+    /* All or nothing. A file from before these lines existed carries none of them, and
+       installing the ones that happen to parse would leave the rest at this run's
+       values -- a state neither the recording nor the replay was ever in, and one no
+       report would name. */
+    for (i = 0; i < UNCARRIED_COUNT; i++) {
+        if (!RecFmt_ReadInt(hdr, s_uncarried[i].key, &want[i]))
+            return 0;
+    }
+    for (i = 0; i < UNCARRIED_COUNT; i++) {
+        s_uncarriedSaved[i] = uncarried_get(i);
+        uncarried_set(i, want[i]);
+    }
+    s_uncarriedHeld = 1;
+    return 1;
+}
+
+void Control_RestoreUncarried(void) {
+    S32 i;
+
+    if (!s_uncarriedHeld)
+        return;
+    for (i = 0; i < UNCARRIED_COUNT; i++)
+        uncarried_set(i, s_uncarriedSaved[i]);
+    s_uncarriedHeld = 0;
+}
 
 /* The part of a run's description that comes from the engine rather than from whoever
    is describing it: where the game is, and the settings a replay has been shown to
