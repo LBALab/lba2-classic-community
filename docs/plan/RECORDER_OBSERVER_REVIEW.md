@@ -80,6 +80,78 @@ The practical consequence: **stop trying to make the recorder passive by improvi
 Name each borrowed responsibility and give them back one at a time. One of the three is already half-returned, and the
 measurement behind it says the trade the recorder was built on may not have been necessary.
 
+## Where the seams are
+
+Every system this review touches, and where the recorder reaches into each.
+
+```
+   console verb                                      player keys / pad / mouse
+        |                                                        |
+        v                                                        v
++-------------------+                                +-----------------------+
+|  CONSOLE          |                                |  INPUT                |
+|  Console_Execute  |                                |  MyGetInput           |
+|  verbs, overlay   |                                |  TabKeys . Key . pad  |
++---------+---------+                                +-----------+-----------+
+          | Record_CommandHook                                   | Record_PollHook
+          v                                                      v
+ +=======================================================================+
+ |                      RECORDER   (SOURCES/RECORD.CPP)                  |
+ |         poll . clock . tick . command . wait  hooks                   |
+ |         observer  +  scheduler  +  session manager                    |
+ +===+===================+========================+===========+==========+
+     |                   |                        |           |
+     v                   v                        v           v
+ .rec file          CLOCK (TIMER)          DIGEST (CONTROL)  savegame
+                                                             (SAVEGAME)
+
+                +--------------------------------------+
+ tick advance --|                                      |
+extra present --|   FixedDtStep()   one mint point     |--> TimerRefHR
+non-present ----|   four policies, one funnel          |
+overlay --------|                                      |
+                +--------------------------------------+
+                        ^                    ^
+                        |                    |
+              +---------+--------+  +--------+----------+
+              |  PRESENT         |  |  MODAL LOOPS      |
+              |  BoxUpdate/Blit  |  |  INVENT GAMEMENU  |
+              |  a present IS a  |  |  AMBIANCE MESSAGE |
+              |  tick            |  |  HOLOPLAN CONFIG  |
+              +---------+--------+  +-------------------+
+                        |
+              +---------+--------------------------------+
+              |  MainLoop (PERSO)   one iteration =      |
+              |  one tick = one digest                   |
+              +------------------------------------------+
+
+  ChangeCube (OBJECT) --> Rnd_Seed(TimerRefHR) --> RNG, one shared stream
+                      \-> CameraCenter (INTEXT) x2 --> camera state
+  LoadGame (SAVEGAME) --> restores clock and world
+```
+
+**Every finding in this document sits on an edge of that picture rather than inside a box.**
+
+| Finding | The seam it sits on | State |
+|---|---|---|
+| The boot `ChangeCube` seed | save/load and the RNG, through the clock | #637 |
+| A first-poll delta assigned over | the recorder and the clock | #638 |
+| The loose-clock fade wedge | the recorder's held clock and the wait loops | #635, #636 |
+| The console double-clock | the console, the present and the clock | closed, as a fourth policy |
+| Presents-never-mint deadlocks | the modal loops and the clock | #641 |
+| Two `GereArdoise` waits with no pump | the modal loops and the clock | #641 |
+| A command replayed a tick early | the console, the recorder and the main loop | item 12 |
+| The save-name stall | input and the recorder, on a channel outside the tap | open |
+| The camera at tick 0 | save/load and `ChangeCube`'s two callers | #642 |
+| Digest membership | the digest and what a load restores | open |
+| Three outcomes, two strings | the recorder and its own verdict | #640 |
+
+Not one of them is a module wrong on its own terms. Each is two systems disagreeing about a shared
+assumption at the line between them, and three assumptions account for most of the list: **a present
+is a tick**, **the clock is the only thing a loop waits on**, and **input is whatever the polled
+tables hold**. Each is a label on an arrow above, which is why the borrowed roles show up here and
+not inside the recorder.
+
 ## The failure mode is plausible wrong answers
 
 Four measured findings this review was nearly built on were artefacts. Before PR #616, a replay with
