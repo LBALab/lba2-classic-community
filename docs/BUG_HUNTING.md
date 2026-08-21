@@ -129,6 +129,14 @@ Concretely, the other shapes, from this engine:
   check compares. Counting the files, or even counting the commands, says covered; only reading what
   they contain says otherwise.
 
+- **A recorded pass is not a current pass.** A suite writes its result to a file, and that file is
+  often the only record that the suite ever passes at all. One said 72 passed and 0 failed, and was
+  days old; a regression had landed behind it, and every reader who checked the file rather than the
+  suite came away reassured. The file even said "only the passes are evidence" -- correctly, and
+  about a run that was no longer the tree. A stored result answers *did it pass then*; the question
+  is always *does it pass now*. Date the record, and treat a red arm nobody owns as the thing that
+  stops a suite being evidence.
+
 - **An absent value parsed as zero passes as a measurement.** A suite arm asserted that a refused
   recording checked zero ticks. The parse found no summary line at all, the shell defaulted the
   variable to 0, and the comparison succeeded -- while the replay behind it had checked 301 ticks
