@@ -129,6 +129,12 @@ Concretely, the other shapes, from this engine:
   check compares. Counting the files, or even counting the commands, says covered; only reading what
   they contain says otherwise.
 
+- **A two-run self-diff has exactly one failure mode, and that is both its strength and its limit.**
+  An arm that runs one binary twice and diffs the two dumps cannot be fooled by a stale expectation
+  -- a change that legitimately altered the behaviour moves both runs identically and leaves the
+  diff empty -- and it cannot report anything except run-to-run variance. Knowing which of the two
+  an arm is tells you what a red result can possibly mean before anyone starts bisecting.
+
 - **A bisect must build only what the question is about.** Checking a whole tree out at an old
   commit and building everything dies at the first commit whose engine predates today's tests -- two
   missing symbols were enough -- and that death reads as *this commit is broken*, with total

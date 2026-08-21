@@ -817,6 +817,13 @@ they sit on the screen: 1500 extra polls for 1810 bytes, so about 1.21 bytes a p
 minute spent on that screen. A session that never opens it is byte-identical, 201 polls and 18,625
 bytes either way *(measured elsewhere)*. The extra polls appear only where the screen runs.
 
+**And a negative result worth keeping, because the next person to add a poll will want it.** Those
+extra polls change what a harness `key` hold covers, since a hold is metered in polls and the menu
+frames now take one or two more of them each -- roughly halving the menu frames a hold spans. That
+was expected to move a fixture and moved none: the choice-menu, skip-modal and all eight menu-UI
+arms stay green *(measured elsewhere)*. The poll metering has more slack in it than the arithmetic
+suggests.
+
 **The fix is the tap, not a second channel.** The tempting answer is a console verb per UI action --
 proceed the logo, select a menu row, dismiss a dialogue -- so a recording carries intents. Most of
 that is already carried: menus read the `Input` bits and `MyKey`, `MyKey` is `Key`
