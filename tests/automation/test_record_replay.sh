@@ -915,11 +915,14 @@ ctl --load "$LBA2_TEST_SAVE" --record "$loosedir/s.rec" \
 # the arm keeps passing on the day the scripted `cube` stops arriving, having crossed no
 # fade and tested nothing. The keyframe records the cube it changed to, so the reader can
 # be asked rather than the exit code trusted.
-loosekf="$(python3 "$REPO/scripts/dev/dump_recording.py" "$loosedir/s.rec" |
-    grep -c "cube 3->154")" ||
+# Matched with `case` rather than counted with `grep -c`, which exits 1 on no match: the
+# `||` would then report the reader as broken on the one failure this check is here for.
+loosedump="$(python3 "$REPO/scripts/dev/dump_recording.py" "$loosedir/s.rec")" ||
     fail "loose clock: could not read the recording back"
-[ "$loosekf" -ge 1 ] ||
-    fail "loose clock: the recording carries no cube 3->154 keyframe, so the run never crossed a scene change and this arm tested nothing"
+case "$loosedump" in
+*"cube 3->154"*) ;;
+*) fail "loose clock: the recording carries no cube 3->154 keyframe, so the run never crossed a scene change and this arm tested nothing" ;;
+esac
 
 pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
 'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster; a recording on a host-sampled clock crossed a scene change instead of wedging in the fade"
