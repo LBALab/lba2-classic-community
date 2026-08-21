@@ -290,6 +290,16 @@ explain it.
 which is which keeps a report honest. A 16.16 depth delta overflows at ordinary values; a sphere
 radius needs two million model units against a focal of 600 and never happens.
 
+**Price a hypothesis by what it costs to kill, not by how likely it is.** Two rounds of a recorder
+determinism hunt were each decided by a wrong hypothesis that came with a cheap discriminator. The
+first was that a wait-loop clock leak drove the reproduction rate; the negative was one measurement,
+`Timer_FixedDtPump` called zero times on the path in question, and it bounded the search to what the
+recording file does not carry, where the cause was. The second was that a tick-1 mismatch was the
+digest reading globals no savegame carries; the discriminator was one run, because the telemetry
+names which field moved. It named an actor's animation anchors and the sub-step carry, one
+millisecond apart, which is a real divergence and not a membership defect. A likelier hypothesis
+with no cheap way to kill it would have decided neither.
+
 **Watch for the observer.** A per-frame checksum over 200 KB perturbs timing enough that a
 one-in-three intermittent fault stops appearing. A clean run under heavy instrumentation is not the
 same as a fixed bug.
