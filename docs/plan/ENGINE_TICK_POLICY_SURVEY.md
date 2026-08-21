@@ -264,6 +264,82 @@ them; these seven were not among them because they do not fade.
 that need the game clock to actually move, and call `Timer_FixedDtPump`/`Timer_FixedDtPresent`
 alongside if the loop should also terminate under fixed-dt." The rule postdates the loops.
 
+## A modal recording does not replay, and the cause is not the clock
+
+Whatever step B does to the modal loops will move their clock sequence, so it is worth knowing
+what that sequence reproduces today. It does not, and the reason has nothing to do with which
+policy minted what.
+
+Record 300 ticks with a modal opened at tick 60 by a console verb, then replay. The fade path is
+clean and every modal is not:
+
+| Session | Replay |
+|---|---|
+| quiet, no modal | 301 ticks checked, no mismatch, 0 ms drift |
+| `cube 154` (a scene change, so a fade) | 301 ticks checked, no mismatch, 0 ms drift |
+| `ui inventory` | first hash mismatch tick 61, 16 ms drift at tick 61 |
+| `ui dialog 1` | first hash mismatch tick 61, 16 ms drift at tick 61 |
+| `ui menu-main` | first hash mismatch tick 61, 16 ms drift at tick 61 |
+| `ui found-object 0` | first hash mismatch tick 61, 16 ms drift at tick 61 |
+| `ui holomap` | first hash mismatch tick 61, 0 ms drift |
+| `slide activision` | first hash mismatch tick 61, 16 ms drift at tick 61 |
+
+Tick 61 is the first digest after the modal in every case and the numbers repeat exactly, so this
+is deterministic. Telemetry names the field: `sim.carry` 4268109 recorded against 4268125 replayed,
+which is `LastSimRefHR` exactly one 16 ms sub-step apart, with actor `LastTimer`/`NextTimer` and
+then positions downstream of it.
+
+**The modal runs in a different tick on the two sides.** Tracing every call into the three policies,
+with the tick number the advance is counting, the `ui inventory` modal's 64 presents land at tick 60
+while recording and at tick 59 while replaying. `cube 154`'s fade lands at tick 61 on both.
+
+That is the whole of it, and the fade is what proves it: `cube` sets `NewCube` and its work happens
+at the top of the next `MainLoop` iteration ([PERSO.CPP:523](../../SOURCES/PERSO.CPP#L523)), so a
+command that arrives a tick early is re-synchronised to a tick boundary before it does anything.
+A verb that does its work inline is not. On the recording side a console command runs from
+`Control_TickHook` ([PERSO.CPP:583](../../SOURCES/PERSO.CPP#L583)), before that tick's input poll;
+on the replaying side it runs from the stream reader inside the poll
+([RECORD.CPP:2846](../../SOURCES/RECORD.CPP#L2846)). Two different points in the frame, one tick
+apart in effect.
+
+So this is a command-scheduling defect in the recorder and not a clock defect, and the modals are
+only how it becomes visible: they are the commands that do enough work inside one tick to move the
+digest.
+
+**Three readings that suggest themselves are all wrong**, and each is recorded as dead because
+each is reachable by a plausible route. It is not the `ui` capture verbs, because `slide` is
+not one and behaves identically. It is not the missing `SaveTimer` bracket, which is a real
+asymmetry -- `MenuInventory` is entered from [PERSO.CPP:1142](../../SOURCES/PERSO.CPP#L1142) inside
+one and from [CONSOLE_CMD.CPP:539](../../SOURCES/CONSOLE/CONSOLE_CMD.CPP#L539) without one -- but
+`cmd_slide` brackets its modal ([CONSOLE_CMD.CPP:1027](../../SOURCES/CONSOLE/CONSOLE_CMD.CPP#L1027)
+and [:1048](../../SOURCES/CONSOLE/CONSOLE_CMD.CPP#L1048)) and diverges just the same. And it is not
+the two ends disagreeing about whether the tick's free present had been spent when the modal opened:
+the trace carries `FixedDtSkipPresent` at every call and it reads 1 on the tick's own render and 0
+on every extra present, identically on both sides.
+
+Two limits on the claim. Every modal above is opened by a console verb, because a player-path modal
+cannot be driven headlessly: the inventory opens on `I_INVENTORY`, which `input` can supply, and
+closes on `MyKey == K_ESC`, which comes from `Key` and not from the `TabKeys` that `key` pokes
+([CONTROL.CPP:1338](../../SOURCES/CONTROL.CPP#L1338)). A player-opened modal has no console command
+behind it, and a hand-played session that opens the inventory, selects and uses an item does replay
+correctly, so the divergence above is a claim about the console entry path and not about modals.
+And the `slide` row exists only because that wait now terminates under a pinned clock; before, there
+was nothing to replay.
+
+### A modal can stall a replay with no clock in it anywhere
+
+Enumerating modal loops by their clock source misses the one a player is most likely to hit.
+`InputPlayerName` ([GAMEMENU.CPP:1251](../../SOURCES/GAMEMENU.CPP#L1251)) reads its characters from
+`GetAscii`, and `GetAscii` reads `SDL_GetKeyboardState(NULL)` directly
+([KEYBOARD.CPP:113](../../LIB386/SYSTEM/KEYBOARD.CPP#L113)) rather than the polled key table the
+recorder samples. `replay_inject` ([RECORD.CPP:1865](../../SOURCES/RECORD.CPP#L1865)) writes
+`TabKeys`, `Key`, the pad state, mouse motion and `Click`; SDL's own keyboard array is not among
+them. So the save-name screen's exit condition is a keystroke that only a physically pressed key can
+produce, and a replay of it waits for one that never comes.
+
+That loop has a present, a clock read and a sane clock source, so it is clean on every axis this
+survey measures and stalls anyway. The modal loops are not only a clock problem.
+
 ## What is safe without step B
 
 The collapse itself is step B, so only these carry:
