@@ -116,12 +116,15 @@ void EndKeyboard() {
  * the touch overlay writes TabKeys and leaves `Key` alone, and a pad button
  * never becomes a scancode at all, so those two still cannot type.
  *
- * The poll is why this calls UpdateKeyboardState and not just ManageEvents.
- * The name-entry screen runs a frame of its own -- it presents, it waits, and
- * it never calls MyGetInput -- so `Key` would hold whatever the last poll
- * outside it left, for as long as it ran. Polling here also gives that screen a
- * place in the recorded poll stream, which it had none of before: a session
- * sitting on it wrote nothing at all, and a replay had nothing to hand back.
+ * It reads the sample and does not take it. Taking one here would consume a
+ * recorded poll wherever a character is read, and one of the two callers --
+ * cheat-code entry, from the menu loop -- already sits inside a frame that
+ * polled. Adding a second consumed the stream faster than the session that
+ * wrote it, so the menu closed sooner on the replay than it had live, and every
+ * actor came out 128 ms behind: a recording made before that change replayed
+ * clean and after it did not. The screen that has no poll of its own takes one
+ * for itself instead (`InputPlayerName`, SOURCES/GAMEMENU.CPP), which is the
+ * only place where a poll is genuinely missing.
  *
  * A held key still yields one character: the edge is remembered rather than
  * read off the device, because a poll cannot tell a key held from a key struck
@@ -129,7 +132,7 @@ void EndKeyboard() {
 S32 GetAscii() {
     static SDL_Keycode lastReturnedAscii = 0;
 
-    UpdateKeyboardState();
+    ManageEvents();
 
     if (Key) {
         SDL_Keycode asciiValue = SDL_GetKeyFromScancode((SDL_Scancode)Key, SDL_KMOD_NONE, true);

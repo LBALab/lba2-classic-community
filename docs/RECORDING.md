@@ -233,7 +233,13 @@ as long as that screen was open **the recording carried no polls whatsoever** --
 not the frames, nothing. A replay reaching it had nothing to hand back and waited there forever,
 and no digest reported it, because a replay that is waiting is not a replay that is wrong.
 
-`GetAscii` takes the poll now, so the screen is in the stream like any other. The general form is
+The screen takes a poll of its own now, so it is in the stream like any other. The poll is
+deliberately at the screen rather than inside `GetAscii`: a reader that takes its own poll consumes
+a recorded one wherever it is called, and the other caller -- cheat-code entry -- already sits in a
+frame that polled. Putting it there consumed the stream faster than the session that wrote it, so a
+recording made beforehand replayed 128 ms behind and every actor's animation anchor moved with it.
+**A poll is a unit of the recording, so adding one anywhere a recording already covers rewrites what
+that recording means.** The general form is
 worth more than the case: **a loop that takes no input and advances no tick is invisible to the
 recorder in both directions** -- a replay cannot inject into it, and a command staged for it has
 neither a poll nor a tick to run at. The fix is to give such a loop the seam the recorder needs

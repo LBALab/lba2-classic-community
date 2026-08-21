@@ -1222,6 +1222,10 @@ S32 InputPlayerName(S32 choice, char *name) {
     CursorActif = TRUE;
 
     while (flag != -1) {
+        /* The one screen that reads characters and never reaches MyGetInput, so the
+           sample it reads has to be taken here. */
+        ManageKeyboard();
+
         ManageTime();
         if (TimerRefHR < timeraff) {
             CursorX = x - 4;
