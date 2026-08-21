@@ -38,9 +38,45 @@ int Control_IsHeadless(void);
    `numeric.digest` line so a file written against the older set still compares against
    the set it was written with; a recording always uses the current one. Fields added
    since are appended, never interleaved, so selecting the older version reproduces its
-   sequence exactly rather than approximating it. */
+   sequence exactly rather than approximating it, and a field that stops being compared
+   stays compared at the versions that compared it. */
 #define CONTROL_DIGEST_VERSION 2
-void Control_SetDigestVersion(S32 v);
+/* Select the set to hash. A version above CONTROL_DIGEST_VERSION is one this build does
+   not have the fields for; returns 0 for it and leaves the selection alone, so a caller
+   can refuse the file by name instead of hashing today's set under tomorrow's number and
+   reporting the difference as a simulation that diverged on its first tick. */
+S32 Control_SetDigestVersion(S32 v);
+
+/* What a digest field is, and therefore whether a mismatch in it is a divergence.
+ *
+ * The digest answers "did the simulation reach the same state", so a field belongs in
+ * the comparison only if a replay can be made to start from the same value. For every
+ * field, one of these has to be true:
+ *
+ *   DIGEST_SAVED    the replay's load restores it -- either the savegame carries the
+ *                   bytes, or the load recomputes it from what it does carry, which is
+ *                   how Island, CubeMode, NbObjets and NbZones arrive
+ *   DIGEST_CARRIED  the savegame does not restore it, so the recording carries it
+ *                   beside the savegame and the replay installs it for its duration
+ *   DIGEST_LOOSE    nothing establishes it in the replay, which starts it at its
+ *                   GLOBAL.CPP initialiser: collected and named, never compared
+ *   DIGEST_PROBE    not state at all -- a measurement of how the run got here, such as
+ *                   the RNG draw count. Reported beside the fields, never compared
+ *
+ * A field in none of these is the defect the classes exist to stop: it is compared
+ * against a value no replay can establish, so it reports a divergence with nothing
+ * having diverged, and an oracle that cries wolf gets ignored. The class is an argument
+ * to the mixing macro rather than a comment beside it because that is what stops the
+ * next field being added without the question being answered.
+ *
+ * DIGEST_LOOSE is a diagnosis and not a destination. A field lands there because it
+ * reaches the simulation and nothing carries it, which is a gap in the recording rather
+ * than a property of the field; the repair is to carry it and move it to
+ * DIGEST_CARRIED, on the same borrow-and-return the binding tables already use. */
+#define DIGEST_SAVED 1
+#define DIGEST_CARRIED 2
+#define DIGEST_LOOSE 3
+#define DIGEST_PROBE 4
 
 /* Write the same JSON snapshot --dump-state writes, to \a path, right now. The flag
    captures once as the run ends, which is all a bounded run needs; a session driven
@@ -270,6 +306,11 @@ unsigned long long Control_StateDigest(void);
    Control_StateDigest call. */
 S32 Control_StateValueCount(void);
 S32 Control_StateValue(S32 k);
+/* Non-zero if value \a k is part of the verdict at the version being compared, rather
+   than collected beside it. A reporter that does not ask this says "state differs" over
+   a field the hash never looked at, which is the false alarm the classes exist to end,
+   moved from the digest into the text. */
+S32 Control_StateValueCompared(S32 k);
 /* "hero->Obj.X", "var.game[77]", "obj[12].Anim". The name comes from the expression the
    digest mixes, so a field cannot be hashed under one name and reported under another. */
 void Control_StateValueName(S32 k, char *out, size_t n);
@@ -279,6 +320,9 @@ void Control_StateValueName(S32 k, char *out, size_t n);
 S32 Control_KeyframeCount(void);
 void Control_KeyframeFill(S32 *v);
 const char *Control_KeyframeName(S32 k);
+/* Non-zero if keyframe field \a k is part of the verdict, on the same question
+   Control_StateValueCompared answers for the digest's own values. */
+S32 Control_KeyframeCompared(S32 k);
 
 /* Is there a scene loaded to read? Boot and the menus have neither cube nor actors. */
 S32 Control_HasLiveScene(void);
@@ -286,6 +330,24 @@ S32 Control_HasLiveScene(void);
 /* The part of a run's description that comes from the engine: where the game is, and
    the settings a replay has been shown to turn on, as `key=value` lines. */
 S32 Control_DescribeState(char *out, size_t n);
+
+/* ---- the state a savegame does not carry ------------------------------------ */
+
+/* The DIGEST_CARRIED globals, as `state.` header lines. Returns 0 if the buffer was too
+   small, on the same argument as the rest of the header: a truncated set installs some
+   of the fields and leaves the others at this run's values, which is a state neither
+   the recording nor the replay was ever in. */
+S32 Control_WriteUncarried(char *out, size_t n);
+
+/* Install those values out of a recording's header for the replay's duration, keeping
+   the run's own to hand back. All or nothing: returns 0 for a header that does not
+   carry the whole set, which is every recording written before it existed, and installs
+   nothing in that case. Idempotent, so a re-arm does not overwrite the held copy with
+   the values it installed last time. */
+S32 Control_InstallUncarried(const char *hdr);
+
+/* Hand the run's own back. A no-op if nothing is held. */
+void Control_RestoreUncarried(void);
 
 /* ---- savegames the harness drives ------------------------------------------ */
 
