@@ -189,6 +189,7 @@ def parse(path):
     # session, which every session is until the two devices can be driven headlessly.
     analog = []
     ticks, keys, cmds, teles = [], [], [], []
+    held = None  # last analog tuple written, for the version >= 13 hold-last rule
     syncs = 0
     snaps = {}
 
@@ -269,8 +270,18 @@ def parse(path):
                 if flags & 0x02:      # Key
                     p += 4
                 if flags & 0x04:      # analog block
-                    analog.append((polls,) + struct.unpack_from("<hhIiii", data, p))
+                    held = struct.unpack_from("<hhIiii", data, p)
+                    analog.append((polls,) + held)
                     p += 20
+                elif version >= 13:
+                    # From 13 the writer emits a block only when the analog state
+                    # changes, so an absent block means the previous values still stand.
+                    # Before 13 absent meant every field was zero, which is why nothing
+                    # is carried forward for an older file. Reporting a held input as
+                    # absent would make a sustained stick or a held button look like it
+                    # ended, which is the divergence this version exists to prevent.
+                    if held is not None:
+                        analog.append((polls,) + held)
                 if flags & 0x08:      # clock delta
                     p += 4
         except (IndexError, struct.error):
