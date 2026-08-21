@@ -920,6 +920,23 @@ travel with the file while the keymap does not. **It is a third member of the me
 defect class**, beside the five uncarried globals and `LastInputWasKeyboard`: something the game
 reads, that no savegame restores and no header carries.
 
+**A read-path change can move the poll count, and the poll count is part of the contract even when
+the poll record is not.** Routing that screen through the polled sample means every caller of the
+same reader now takes a poll where it took none, and one of them -- cheat-code entry -- runs
+whenever a key is pressed in the in-game menu. During a replay a poll is a record consumed from the
+file, so a build that polls more often than the build that recorded can run past the end of what the
+file holds, in a session where the player did nothing unusual. Whether that reproduces on real
+recordings is being measured; the principle does not wait on the answer, because the reasoning that
+declined a format bump -- *a read path changes no field* -- is true and insufficient. **The stream's
+shape is a contract in its own right**, and this is the membership rule's sibling: the rule asks
+what state both ends must agree on, and this asks what the two ends must agree on about the
+*sequence*, which nothing declares either.
+
+The instrument for it is the stream-drift field rather than the hash. A small over-consumption
+resynchronises at the next sync marker and may never reach a digest, so a run can carry drift and
+still report no mismatch -- which means a sweep that reads only the verdict would clear this and be
+wrong.
+
 **The rule underneath decides the next case as well as this one.**
 Input the player gave the *game* belongs in the file as input; input the player gave the *console*
 belongs in it as a command. A command is the player's intent and is correct to replay as intent. A
