@@ -1130,8 +1130,14 @@ void Control_TickHook(void) {
        when Timer_FixedDtActive() is false. */
     if (!s_have_fixed_dt && Timer_FixedDtActive())
         Timer_FixedDtAdvance();
-    if (!s_armed)
+    if (!s_armed) {
+        /* A replay's commands still have to run, and everything below is dead for a
+           session played back from the console, which has passed no harness flag at
+           all. The step above is minted either way, so this is the same point in the
+           frame as the drain below. */
+        Record_ExecHook();
         return;
+    }
     s_hook_calls++;
     /* Apply --fixed-timestep once, on the first tick: it must land after ReadConfigFile (which
        set FixedTimestep from lba2.cfg during boot) so the flag overrides the cfg for this run
@@ -1163,6 +1169,12 @@ void Control_TickHook(void) {
             last_move = h->Move;
         }
     }
+    /* Where the recording ran its own: --exec-at fires from the line below, once this
+       tick's step has been minted, so that is the point in the frame a replay has to run
+       what it read. The recorder's own tick hook is above that advance, and a command run
+       from there is one minted step early -- which nothing shows until a verb spends
+       clock inline, because a modal's inner loop presents and every present is a step. */
+    Record_ExecHook();
     if (s_hook_calls == 1)
         control_run_exec();
     control_run_exec_at(s_hook_calls - 1);

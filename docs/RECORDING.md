@@ -584,8 +584,8 @@ opens it. Two consequences, both found by replaying a real session and both now 
 - A command typed at the console is written where it ran, which is the input path, so it lands
   after the last poll of the tick and before that tick's own record. The reader expected commands
   only after the tick record, gave up on the tick when it found one, and then read the tick record
-  as a poll: a replay ended on the first command a player typed. Both readers now step over
-  commands and run them at the tick boundary.
+  as a poll: a replay ended on the first command a player typed. Both readers now take a command
+  wherever it sits.
 
 Recordings made before those fixes still diverge where the console was opened: the doubled clock is
 in the file, and no replay reproduces it.
@@ -595,6 +595,36 @@ the automation fixture exercises the harness layout and not this one. The consol
 produced headlessly, because the toggle is an SDL key event. It is covered by a real recorded
 session that opens the console, types, closes it and plays on, which replays with no mismatch and
 no clock drift.
+
+### Where a replayed command runs
+
+Reading a command off the stream and running it are two different points in the frame, and the
+second one is what has to match. The reader meets a command wherever the record before it left off;
+the session ran it somewhere else entirely, and the difference is what a digest sees.
+
+So the reader stages, and two drains run what it staged, each from the point in the frame the
+recording ran it from:
+
+| Written | By | Replayed from |
+|---|---|---|
+| Straight after the tick record | `--exec-at`, from the tick hook, once that tick's step is minted | `Record_ExecHook`, beside `--exec-at` |
+| After a poll record | The console, which runs from the input path | The tail of that poll |
+
+Run both at the next tick boundary instead, which is simply the next place the reader is called
+from, and each is out of position in its own direction. A harness command lands one minted step
+early, above `Timer_FixedDtAdvance` rather than below it. That is invisible to a verb that does not
+spend clock -- `teleport actor 1`, `varcube 0 7` and `behaviour 2` all replay clean over 301 ticks
+with it -- and a modal sees it, because a modal's inner loop presents and every present is a step:
+`ui inventory` at tick 60 diverges at tick 61, `sim.carry` one 16 ms sub-step apart. A console
+command lands a whole tick late, which any verb that moves the digest can see. The console cannot be
+driven headlessly, so that half is measured through the control socket, which issues from the present
+path and writes into the same layout: `varcube 0 7` recorded at tick 155 ran at 156, and the digest
+failed at 155 -- the same verb that is clean in the other layout.
+
+`cube` sees neither, and that is the control that names the mechanism rather than merely agreeing
+with it. It sets `NewCube`, whose work happens at the top of the next main-loop iteration, so a
+command that arrives out of position is re-synchronised to a tick boundary before it does anything.
+A verb that does its work inline is not.
 
 **Audio used to move the answer, and that is now fixed at the source.** The ambience system draws
 its random pan from the one `rand()` stream actor behaviour uses, and only `if

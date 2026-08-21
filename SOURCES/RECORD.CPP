@@ -277,6 +277,11 @@ typedef struct {
 static T_RecCmd s_cmds[REC_CMD_MAX];
 static int s_nCmds = 0;
 static int s_cmdRead = 0;
+/* Non-zero while a staged command is running. One of them can open a modal, whose inner
+   loop polls, and that poll drains the queue again. */
+static int s_cmdDepth = 0;
+/* The replay's verdict has been said, so the next path out does not repeat it. */
+static int s_endSaid = 0;
 /* The version the file being replayed was written at, for the records whose shape it
    decides. Set before the range check, so a refused file never reaches a reader. */
 static int s_recVersion = REC_VERSION;
@@ -1317,6 +1322,7 @@ static int record_begin(const char *path, int haveSnapshot) {
     s_polls = s_ticks = s_bytes = s_quietPolls = 0;
     s_bytesTicks = s_maxPollsInTick = s_pollsThisTick = 0;
     s_nCmds = s_cmdRead = 0;
+    s_endSaid = 0;
     s_cmdsRecorded = 0;
     s_cmdsReplayed = 0;
     s_prevMt = Timer_ClockSource();
@@ -1449,6 +1455,34 @@ static void record_restore_player(void) {
     Console_Print("rec: returning to your game");
 }
 
+/* The replay's verdict. Said once, from wherever the replay stops rather than from the
+   one path that runs out of stream: a recording whose session ended at the console ends
+   the replay there too, and a run that reported nothing reads exactly like a run that
+   matched. */
+/* What the verdict line carries that the stall line does not: ticks checked, both clock
+   drift figures and the stream drift poll. Said under its own prefix rather than the
+   verdict's, because `replay ended ... first hash mismatch -1` is the string a caller
+   greps to mean the replay reproduced and a stalled run must never print it. The drift
+   pair is the reason this exists at all: a stall is a symptom of a divergence that
+   happened earlier, so where the clock first moved is where to start looking. */
+static void replay_report_figures(void) {
+    fprintf(stderr, "[rec] at the stall: %ld ticks checked, clock drift max %ld ms first at "
+                    "tick %ld, stream drift first at poll %ld\n",
+            s_ticksChecked, s_refDriftMax, s_refDriftFirstTick, s_syncDriftPoll);
+}
+
+static void replay_report_end(void) {
+    if (s_endSaid)
+        return;
+    s_endSaid = 1;
+    fprintf(stderr,
+            "[rec] replay ended at poll %ld: %ld ticks checked, first hash mismatch %ld, "
+            "clock drift max %ld ms first at tick %ld, stream drift first at poll %ld, "
+            "longest stale run %ld\n",
+            s_polls, s_ticksChecked, s_hashMismatchTick, s_refDriftMax, s_refDriftFirstTick,
+            s_syncDriftPoll, s_stalePeak);
+}
+
 int Record_Stop(void) {
     int wasRecording = s_recording;
     char endPath[ADELINE_MAX_PATH];
@@ -1471,6 +1505,23 @@ int Record_Stop(void) {
     if (!s_f) {
         record_release_step();
         return 0;
+    }
+
+    /* The verdict, before the flags below drop it. Every way out of a replay comes
+       through here -- the stream running out, a `rec stop`, a command in the recording
+       that ends the run, and the atexit handler for the tick budget -- and the one that
+       reports is the one the run happened to take.
+
+       Except behind a stall. The line below reads `first hash mismatch -1` on a run that
+       never diverged, and that is what a caller greps for to mean the replay reproduced:
+       printing it after a stall would put a pass-shaped line on a run that ended by giving
+       up. The figures it carries beyond the stall's own four are still worth having, so
+       they go out under a prefix that cannot be read as a verdict. */
+    if (s_replaying) {
+        if (s_staleReported)
+            replay_report_figures();
+        else
+            replay_report_end();
     }
 
     /* A second snapshot where the recording ends, on the same mechanics as the one at
@@ -1913,6 +1964,71 @@ static void replay_note_stale(void) {
         s_stalePeak = s_stalePolls;
 }
 
+/* Read every command sitting at this point in the stream and hold it, leaving the file
+   on the first record that is not one -- so a caller that finds none has not moved.
+   Reading and running are two different points in the frame: the writer put a command
+   where it ran, and the reader meets it wherever the record before it left off, which
+   is not the same place. The two drains below run what this stages, each from the point
+   in the frame the recording ran it from. */
+static void replay_stage_commands(void) {
+    for (;;) {
+        long back = ftell(s_f);
+        U8 flags;
+        U32 tick;
+        U16 n, j;
+        char line[sizeof s_cmds[0].line];
+
+        if (!get8(&flags) || !replay_take_sync(&flags)) {
+            fseek(s_f, back, SEEK_SET);
+            return;
+        }
+        /* Whatever take_sync stopped on begins one byte back. Markers are stepped over
+           for good rather than put back with the record: each carries the poll and tick
+           the recording was on, and reading one twice is taking the same drift check
+           twice. */
+        back = ftell(s_f) - 1;
+        if (flags != 0x40) {
+            fseek(s_f, back, SEEK_SET);
+            return;
+        }
+        if (!get32(&tick) || !get16(&n))
+            return;
+        for (j = 0; j < n; j++) {
+            U8 c;
+            if (!get8(&c))
+                return;
+            if ((size_t)(j + 1) < sizeof line)
+                line[j] = (char)c;
+        }
+        line[((size_t)(n + 1) < sizeof line) ? n : sizeof line - 1] = 0;
+        if (s_nCmds < REC_CMD_MAX) {
+            s_cmds[s_nCmds].tick = tick;
+            snprintf(s_cmds[s_nCmds].line, sizeof s_cmds[s_nCmds].line, "%s", line);
+            s_nCmds++;
+        }
+    }
+}
+
+/* Run what is staged, in the order the session ran it. Taken one at a time off the read
+   cursor rather than over a count read up front: a command can open a modal whose inner
+   loop polls, and that poll stages and runs the next command before this call returns.
+   Advancing the cursor before the call is what stops a nested drain running the same
+   line twice, and the queue is only emptied by the outermost one. */
+static void replay_run_staged(void) {
+    s_cmdDepth++;
+    /* `s_replaying` per line rather than once: a command can poll, that poll can find the
+       replay stalled, and the stall tears the session down from under this loop. The rest
+       of the queue belongs to a replay that is no longer running. */
+    while (s_replaying && s_cmdRead < s_nCmds) {
+        const char *line = s_cmds[s_cmdRead].line;
+        s_cmdRead++;
+        s_cmdsReplayed++;
+        Console_Execute(line);
+    }
+    if (--s_cmdDepth == 0)
+        s_nCmds = s_cmdRead = 0;
+}
+
 static int replay_poll(void) {
     U8 flags;
     long atFlags = ftell(s_f);
@@ -1983,9 +2099,10 @@ static int replay_poll(void) {
                 return 0;
             }
         } else if (flags == 0x40) {
-            /* Queued rather than run here: executing a command inside the keyboard path
-               re-enters this reader. It runs at the next tick boundary instead, so a
-               command typed during a tick lands one tick later than it did live. */
+            /* Held rather than run here: this reader is part-way through finding this
+               poll's record, and executing a command from inside it re-enters it. The
+               tail of the poll runs what this holds, which is the nearest point in the
+               frame to where the session issued it. */
             U32 ct;
             U16 n, j;
             char line[sizeof s_cmds[0].line];
@@ -2162,6 +2279,7 @@ static void replay_begin(void) {
     s_staleReported = 0;
     s_bytesTicks = s_maxPollsInTick = s_pollsThisTick = 0;
     s_nCmds = s_cmdRead = 0;
+    s_endSaid = 0;
     s_cmdsRecorded = 0;
     s_cmdsReplayed = 0;
     s_prevMt = Timer_ClockSource();
@@ -2459,45 +2577,62 @@ void Record_PollHook(void) {
     if (s_recording)
         record_poll();
     else if (s_replaying) {
-        if (!replay_poll()) {
+        if (replay_poll()) {
+            /* The tail of the poll, which is where the console issues from: it runs
+               from the input path, so a line typed during this poll was written just
+               after this poll's record. Run it here rather than at the next tick
+               boundary -- that is simply the next place the reader is called from, and
+               it put a line typed during a tick a whole tick after the session ran it.
+               It is also the answer to a line issued while no tick is advancing at all,
+               which is the whole of menu time: polls carry on, so there is a point in
+               the frame for it either way.
+
+               Ahead of the stall check below, and not only because that check closes the
+               file this one reads from. A run with nothing left to take from the stream
+               is exactly the run a staged command might still move: a command held
+               through menu time is held precisely because no tick came to drain it. It
+               gets its chance before the run is called stuck. */
+            replay_stage_commands();
+            replay_run_staged();
+            /* Still replaying, because the drain above can have ended it: a recording
+               whose session finished at the console carries the command that finished
+               it, and a run that stopped deliberately is not a run that stalled. */
+            if (s_replaying && s_stalePolls >= REC_STALE_LIMIT && !s_staleReported) {
+                /* Ends the run the same way the stream running out does, and for the
+                   same reason: there is nothing left that can drive it. Saying so is the
+                   whole of the fix -- the deadlock is a symptom of a divergence that
+                   happened earlier, and the tick named here is where to start looking,
+                   not where the fault is. */
+                s_staleReported = 1;
+                fprintf(stderr,
+                        "[rec] replay stalled at poll %ld, tick %ld: %ld polls in a row took no "
+                        "input from the recording. The run is waiting on input the recording "
+                        "does not contain -- it has diverged into a screen it can only leave on "
+                        "a key. First hash mismatch %ld.\n",
+                        s_polls, s_ticks, s_stalePolls, s_hashMismatchTick);
+                Record_Stop();
+                /* Unlike the stream running out, this leaves regardless of the harness.
+                   The reason the end-of-stream path defers to it -- a tick budget still
+                   to spend and artifacts still to write -- cannot apply here: no tick
+                   will retire again, so the budget is unreachable and every later
+                   --exec-at is too. A run that cannot advance has nothing left to defer
+                   to, and deferring is what makes this a report about a hang rather than
+                   the end of one. Measured: without this the detector printed and the run
+                   went on holding a core until an outside timeout, which is the behaviour
+                   it exists to fix. */
+                if (s_replayFromCli)
+                    exit(2);
+            }
+        } else {
             /* The engine is mid-session with nothing left to drive it, and whatever it
                was waiting for will never arrive. Say what happened and leave. */
-            fprintf(stderr,
-                    "[rec] replay ended at poll %ld: %ld ticks checked, first hash mismatch %ld, "
-                    "clock drift max %ld ms first at tick %ld, stream drift first at poll %ld, "
-                    "longest stale run %ld\n",
-                    s_polls, s_ticksChecked, s_hashMismatchTick, s_refDriftMax,
-                    s_refDriftFirstTick, s_syncDriftPoll, s_stalePeak);
+            replay_report_end();
             Record_Stop();
             /* Only when nothing else is driving the run. With the harness armed it has
                a tick budget and artifacts to write, and exiting from here would skip
                the --dump-state the caller asked for. */
             if (s_replayFromCli && !Control_IsActive())
                 exit(s_hashMismatchTick < 0 ? 0 : 2);
-        } else if (s_stalePolls >= REC_STALE_LIMIT && !s_staleReported) {
-            /* Ends the run the same way the stream running out does, and for the same
-               reason: there is nothing left that can drive it. Saying so is the whole
-               of the fix -- the deadlock is a symptom of a divergence that happened
-               earlier, and the tick named here is where to start looking, not where
-               the fault is. */
-            s_staleReported = 1;
-            fprintf(stderr,
-                    "[rec] replay stalled at poll %ld, tick %ld: %ld polls in a row took no "
-                    "input from the recording. The run is waiting on input the recording "
-                    "does not contain -- it has diverged into a screen it can only leave on "
-                    "a key. First hash mismatch %ld.\n",
-                    s_polls, s_ticks, s_stalePolls, s_hashMismatchTick);
-            Record_Stop();
-            /* Unlike the stream running out, this leaves regardless of the harness. The
-               reason the end-of-stream path defers to it -- a tick budget still to spend
-               and artifacts still to write -- cannot apply here: no tick will retire
-               again, so the budget is unreachable and every later --exec-at is too. A
-               run that cannot advance has nothing left to defer to, and deferring is
-               what makes this a report about a hang rather than the end of one.
-               Measured: without this the detector printed and the run went on holding a
-               core until an outside timeout, which is the behaviour it exists to fix. */
-            if (s_replayFromCli)
-                exit(2);
         }
         /* Progress, so a long replay is not a silent one. */
         if ((s_polls % 20000) == 0)
@@ -2691,45 +2826,21 @@ void Record_TickHook(void) {
 
     /* Replay: the next record should be this tick's hash. */
     {
-        long pos = ftell(s_f);
+        long pos;
         U8 flags;
         U32 t;
         unsigned long long rh;
+        /* A command written before this tick's record was issued from a poll that has
+           already gone by -- the console runs from the input path, so a line typed
+           during a tick lands after that tick's last poll. Take it here rather than give
+           up on the tick: giving up left the tick unchecked and the record was then read
+           as a poll, which lost the stream on the first command a player typed. */
+        replay_stage_commands();
+        pos = ftell(s_f);
         if (!get8(&flags))
             return;
         if (!replay_take_sync(&flags))
             return;
-        /* A command issued from the console is written where it ran, which is the input
-           path, so it lands after the last poll of the tick and before the tick's own
-           record. Step over it here rather than giving up on the tick: giving up left the
-           tick unchecked and the record was then read as a poll, which lost the stream on
-           the first command a player typed. It runs at the bottom of this tick with the
-           rest. */
-        while (flags == 0x40) {
-            U32 ct;
-            U16 n, j;
-            char line[sizeof s_cmds[0].line];
-            if (!get32(&ct) || !get16(&n))
-                return;
-            for (j = 0; j < n; j++) {
-                U8 c;
-                if (!get8(&c))
-                    return;
-                if ((size_t)(j + 1) < sizeof line)
-                    line[j] = (char)c;
-            }
-            line[((size_t)(n + 1) < sizeof line) ? n : sizeof line - 1] = 0;
-            if (s_nCmds < REC_CMD_MAX) {
-                s_cmds[s_nCmds].tick = ct;
-                snprintf(s_cmds[s_nCmds].line, sizeof s_cmds[s_nCmds].line, "%s", line);
-                s_nCmds++;
-            }
-            pos = ftell(s_f);
-            if (!get8(&flags))
-                return;
-            if (!replay_take_sync(&flags))
-                return;
-        }
         if (!(flags & 0x80)) {
             fseek(s_f, pos, SEEK_SET);
             return;
@@ -2881,43 +2992,21 @@ void Record_TickHook(void) {
             }
         }
 
-        /* Commands run from here, not from the poll hook: executing one inside the
-           keyboard path re-enters the stream reader. A command issued while no tick is
-           advancing, which is all of menu time, therefore has nowhere to land. */
-        for (;;) {
-            U32 ct;
-            U16 n, j;
-            char line[96];
-            U8 f2;
-            long p2 = ftell(s_f);
-            if (!get8(&f2))
-                break;
-            if (f2 != 0x40) {
-                fseek(s_f, p2, SEEK_SET);
-                break;
-            }
-            if (!get32(&ct) || !get16(&n))
-                break;
-            for (j = 0; j < n && (size_t)(j + 1) < sizeof line; j++) {
-                U8 c;
-                if (!get8(&c))
-                    break;
-                line[j] = (char)c;
-            }
-            line[j] = 0;
-            s_cmdsReplayed++;
-            Console_Execute(line);
-        }
-
-        /* Anything the poll reader queued: a command typed at the console is written
-           mid-poll, and running it there would re-enter the stream reader. */
-        while (s_cmdRead < s_nCmds) {
-            const char *queued = s_cmds[s_cmdRead].line;
-            s_cmdRead++;
-            s_cmdsReplayed++;
-            Console_Execute(queued);
-        }
+        /* The commands the harness issued on this tick, which is where --exec-at
+           writes them: straight after the tick record, because that is where it runs
+           them. Read here and run from Record_ExecHook, which is the point in the frame
+           the harness runs its own from -- after the tick's step has been minted.
+           Running them here instead put them one minted step earlier than the session
+           had them. */
+        replay_stage_commands();
     }
+}
+
+/* Control_TickHook(), beside the harness's own --exec-at and after the tick's step:
+   run the commands read off the stream, where the session ran them. */
+void Record_ExecHook(void) {
+    if (s_replaying)
+        replay_run_staged();
 }
 
 /* Console_Execute: capture what the session was driven with, alongside what it was

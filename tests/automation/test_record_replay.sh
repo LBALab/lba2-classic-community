@@ -187,11 +187,39 @@ for how in cut magic; do
             printf '%s\n' "$tout" | grep -m1 'replay ended' || echo 'the replay said nothing')"
         ;;
     esac
-    # And refused means refused: a reader that reported the damage and then carried on
-    # into the savegame would check ticks out of bytes that are not a stream.
+    # What "refused" costs the rest of the file, which is not the same answer for the two
+    # damages and is the reason they are both here.
+    #
+    # `cut` takes the bytes away, so the length in the chunk head points past the end and
+    # there is no stream behind it: the reader has to check nothing rather than read a
+    # savegame's bytes as input.
+    #
+    # `magic` keeps every byte and damages only the word behind them, so the chunk is
+    # stepped over by its own length and the records after it are intact. The refusal is
+    # of the snapshot, not of the file, and the ticks behind it check normally: measured,
+    # 301 of them with no mismatch. That is worth knowing rather than asserting away --
+    # a replay that has refused the state the recording started from is answering from a
+    # precondition it could not establish, which is the shape
+    # [RECORDER_OBSERVER_REVIEW.md]'s first item is about. It is not a regression: the
+    # same file checked the same 301 ticks before the verdict was printed from every exit,
+    # and the count was invisible rather than zero.
     tchecked="$(printf '%s\n' "$tout" | sed -n 's/.*: \([0-9]*\) ticks checked.*/\1/p')"
-    [ "${tchecked:-0}" = "0" ] ||
-        fail "torn/$how: refused the snapshot and then checked $tchecked ticks anyway"
+    case "$how" in
+    cut)
+        [ "${tchecked:-0}" = "0" ] ||
+            fail "torn/cut: the bytes are gone, but the reader checked $tchecked ticks out of them"
+        ;;
+    magic)
+        # The positive half, and it is the one that would catch a reader stepping over the
+        # chunk by anything other than its own length: every byte is present, so the stream
+        # behind the damage has to still be a stream. A reader that lost its place here
+        # would check a handful of ticks out of savegame bytes, or none, rather than the
+        # whole file. Bounded below rather than pinned to the recording's exact length, so
+        # the arm does not have to move when the runs above change their tick count.
+        [ -n "$tchecked" ] && [ "$tchecked" -gt 100 ] ||
+            fail "torn/magic: every byte is present, but the reader checked only ${tchecked:-0} ticks behind the damaged chunk — it did not step over it by its length"
+        ;;
+    esac
 done
 rm -f "$torn"
 
@@ -924,5 +952,72 @@ case "$loosedump" in
 *) fail "loose clock: the recording carries no cube 3->154 keyframe, so the run never crossed a scene change and this arm tested nothing" ;;
 esac
 
+# --- a command runs where the recording ran it ----------------------------------------
+#
+# A command is written where it ran, so a replay has to run it there too. Both ends run
+# it on the same tick and from the same function, Control_TickHook; what differs is the
+# position inside it. The harness fires --exec-at below `Timer_FixedDtAdvance`
+# (SOURCES/CONTROL.CPP), and a replay that ran the line from the recorder's own tick hook
+# ran it above that advance -- one minted step earlier than the session had it.
+#
+# Which is why the verb here opens a modal, and that is not a claim about modals. A step
+# of clock is invisible to a verb that does not spend one: measured on this same shape,
+# `teleport actor 1`, `varcube 0 7` and `behaviour 2` all replay clean over 301 ticks with
+# the command a step out of position. A modal's inner loop presents, and every present is
+# a step, so it is the cheapest verb that can see the difference at all.
+#
+# command_position <label> <verb> [artifact] -- record with the verb fired mid-session,
+# replay past the end of the stream, and require no mismatch. The artifact, where the verb
+# writes one, is asserted after both runs: a clean digest says the two ends agree, and
+# only the file says the replay ran the command rather than skipping it.
+command_position() {
+    local label="$1" verb="$2" artifact="${3:-}" out summary checked
+
+    rm -f "$rec" "$rec".lba "$rec".end.lba "$artifact"
+    ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$rec" \
+        --exec-at 60 "$verb" --tick 150 --exit >/dev/null 2>&1 ||
+        fail "command position ($label): the recording run exited non-zero ($?) — hang or crash"
+    [ -s "$rec" ] || fail "command position ($label): the run wrote no recording"
+    if [ -n "$artifact" ] && [ ! -s "$artifact" ]; then
+        fail "command position ($label): '$verb' left nothing at $artifact, so the recording never ran it and this arm tested nothing"
+    fi
+
+    rm -f "$artifact"
+    out="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$rec" --tick 250 --exit 2>&1)" ||
+        fail "command position ($label): the replay run exited non-zero ($?) — hang or crash"
+    if [ -n "$artifact" ] && [ ! -s "$artifact" ]; then
+        fail "command position ($label): the replay left nothing at $artifact, so it never ran '$verb'"
+    fi
+
+    summary="$(printf '%s\n' "$out" | grep -m1 'replay ended')" ||
+        fail "command position ($label): the replay printed no summary; it cannot be said to have matched"
+    checked="$(printf '%s\n' "$summary" | sed -n 's/.*: \([0-9]*\) ticks checked.*/\1/p')"
+    [ -n "$checked" ] && [ "$checked" -gt 100 ] ||
+        fail "command position ($label): only ${checked:-0} ticks checked — the run ended before the command ($summary)"
+    case "$summary" in
+    *"first hash mismatch -1"*) ;;
+    *) fail "command position ($label): $summary" ;;
+    esac
+}
+
+# Its own short directory, and that is load-bearing rather than tidiness: a recorded
+# command line is stored in 96 bytes (`T_RecCmd`, SOURCES/RECORD.CPP) and clipped
+# to fit, so a capture path long enough to push the line past that replays as a verb
+# writing somewhere else -- the modal still runs and the digest still matches, and only
+# the missing file says so. Measured: a 137-character path came back clipped at 95.
+cmdposdir="$(mktemp -d)"
+clean_add "$cmdposdir"
+
+command_position "inline verb" "ui inventory $cmdposdir/ui.png" "$cmdposdir/ui.png"
+
+# The control, and it is what makes the arm above a measurement rather than an assertion.
+# `cube` sets NewCube and the work happens at the top of the next main-loop iteration
+# (SOURCES/PERSO.CPP), so it is re-synchronised to a tick boundary before it does
+# anything and a command a step out of position cannot move it. It was clean before the
+# position was fixed and has to stay clean after: a fix that moved execution somewhere
+# the deferred work no longer lands would show here and nowhere else.
+command_position "deferred verb" "cube 154"
+
 pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
-'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster; a recording on a host-sampled clock crossed a scene change instead of wedging in the fade"
+'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster; a recording on a host-sampled clock crossed a scene change instead of wedging in the fade; \
+a command ran where the recording ran it, for an inline verb and for a deferred one"
