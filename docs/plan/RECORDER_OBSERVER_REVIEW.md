@@ -224,9 +224,37 @@ of 12, and **the disagreement column from 5 of 12 to zero**, Fisher two-sided p 
 *(measured elsewhere)*. The disagreement column is the stronger of the two, and it is the one to
 watch on any measurement of this kind: a replay takes its input, its clock, its step and its
 bindings from the file, so two replays of one fixed file disagreeing says it is reading something
-the file does not carry. That is a bounded search rather than an open one. The two recordings that
-still fail mismatch at tick 1 and give the same answer twice, so what is left of the rate is
-recording-side and deterministic, which is a narrower question than the one this section opened on.
+the file does not carry. That is a bounded search rather than an open one.
+
+### What is left of the rate is the header's own baseline
+
+With the seed carried, 1 recording of 16 still fails, the same file giving the same verdict twice.
+The digest names `obj[1].LastTimer`, `obj[1].NextTimer` and `sim.carry` -- an actor's animation
+anchors and the sub-step carry, all **one millisecond apart** *(measured elsewhere)*. So the
+residual is a real divergence rather than a digest reading state nothing carries, and the field
+names are what settled which: none of the five globals named below appears in it.
+
+The cause is the header. The failing recording declares `clock.timer_ref_hr=4268110` while its own
+first tick was digested at 4268111, and a recording that reproduces declares 4268111 and matches
+*(measured elsewhere)*. The replay installs the declared baseline faithfully and therefore cannot
+match a digest taken a millisecond later. The file is internally inconsistent and the replay is
+doing as it is told.
+
+`record_begin` describes this exact failure in its own comment and closes half of it
+([RECORD.CPP:1146](../../SOURCES/RECORD.CPP#L1146)): the baseline "has to be the clock the first
+recorded frame runs on, not the one the frame arrived with", and the fix arms the frame clock and
+lets `ManageTime` settle it. The comment then reasons that the flag path needs nothing further,
+because the run's first poll is the first recorded poll. That holds while the clock cannot move
+between the arm and the digest. On the loose path it moves.
+
+**Which is the seed's shape a second time**: a fault that exists only where time keeps running,
+invisible to every pinned measurement, sitting under a line that reads as though it had been
+handled. The list of what `--fixed-dt` masks is not a list of per-frame timing state. It is a list
+of everything that is a race only when the clock is live. The seed is a constant substituted for a
+variable, since `Timer_EnableFixedDt` zeroes `TimerRefHR` and every pinned run therefore seeds with
+0; the baseline is a sample taken a beat early, on a clock that stops moving the moment the pin goes
+in. Neither is per-frame state and neither can appear in a pinned measurement, which is the whole
+of why they went unfound for as long as they did.
 
 ## The perturbation ledger
 
