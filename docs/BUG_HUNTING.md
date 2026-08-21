@@ -300,6 +300,20 @@ names which field moved. It named an actor's animation anchors and the sub-step 
 millisecond apart, which is a real divergence and not a membership defect. A likelier hypothesis
 with no cheap way to kill it would have decided neither.
 
+**A bug that fires five percent of the time is usually not a five percent bug.** It is a certain bug
+behind a rare precondition, and the two want completely different experiments. Name the precondition,
+instrument it so every run is a labelled sample, force it, and report the conditional; the natural
+rate then follows from how often the precondition holds, and needs no large K. A recorder
+determinism fault measured this way went from an unreadable 1 failure against 1 at K=25 to 15 of 15
+before and 1 of 14 after, on the same number of runs, once the condition it needs was held open
+deliberately.
+
+**The tell is that one input always gives one verdict.** What varies is then a gate upstream that
+has not been identified, not the thing under test. This is the exact complement of the rule that a
+stochastic pipeline needs K fresh inputs each processed more than once, and the two are easy to
+confuse: ask whether one fixed input can give two answers. If it can, raise K. If it cannot, stop
+raising K and go find the gate.
+
 **Watch for the observer.** A per-frame checksum over 200 KB perturbs timing enough that a
 one-in-three intermittent fault stops appearing. A clean run under heavy instrumentation is not the
 same as a fixed bug.
