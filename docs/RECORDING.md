@@ -125,6 +125,39 @@ Reproducing the clock more faithfully is finished as a direction. Storing one sa
 finding the state, and the digest names it: see `numeric.digest` and the `sim.carry`,
 `obj.LastTimer`, `obj.NextTimer` and `rng.draws` fields.
 
+### A wait loop that never polls needs a clock that moves
+
+`Record_ClockHook` holds `ManageTime` at the last input poll, so a loop that ends on the clock and
+does not poll reads one value for as long as it runs. `FadeToPalAndSamples`
+([SOURCES/AMBIANCE.CPP](../SOURCES/AMBIANCE.CPP)) is exactly that shape: it ends when the reading
+has moved `FADE_DELAY`, and it never polls. Held, it does not end at all, and the run spins at a
+full core presenting a frame an iteration until something kills it. That is the first scene change
+of any recording on the host clock, and the first fade after the menus when recording from boot.
+
+The wait loops already declare themselves. `Timer_FixedDtPump()` marks the ten places that end on
+the clock without polling, and under `--fixed-dt` it is what mints the step that ends them, which
+is why the pinned clock never meets it. A recording on the host clock mints one there too:
+a fixed 16 ms per iteration, with the real time that step stands for slept out, so the fade lasts
+what it lasts and the loop ends.
+
+Fixed rather than measured, and that is the part worth keeping. Advancing the held reading by real
+elapsed time also ends the loop, and the fade itself is transparent either way, because these loops
+sit inside `SaveTimer`/`RestoreTimer` and `TimerRefHR` is rewound whatever the loop did to it. What
+is not transparent is the last reading the loop leaves behind. `ManageTime` banks the next delta
+against it, so a fade that ran a few milliseconds longer on one end than on the other puts those
+milliseconds into the game clock after the rewind, which is enough to plan one more simulation
+sub-step. Measured with a measured step: `sim.carry` 16 ms apart and `obj[2].X` 32 units apart at
+the first tick after the scene change, in seven replays out of ten. With a fixed step both ends run
+the same number of iterations and leave the same reading, so there is no difference to bank.
+
+All ten sites are bracketed, `MUSIC.CPP`'s two volume fades and `RES_SWITCH.CPP`'s dialog included,
+so the rewind is not what separates them. What survives a rewind is `LastTime`, and nothing restores
+that: a rewind that puts back one of a pair of coupled variables is not a rewind.
+
+**This makes such a session recordable, and does not make it reproduce.** See the rate below: a
+loose recording reproduces some of the time whether or not it crosses a fade, and the wedge was
+hiding the scene-change half of that question rather than answering it.
+
 Who pins it depends on where the recording starts, and the split is not a convenience:
 
 - **From boot, with `--record`,** the run has no load to hide a clock reset behind, so the step has
