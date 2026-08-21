@@ -1333,6 +1333,16 @@ Ordered by what makes the next thing safe, not by size.
    probably the `settings.*` prefix on its own. Splitting `SOUND_BACKEND` out of `build.flags`
    belongs here rather than later, since it is the same question asked of a key that cannot
    currently answer it.
+
+   **The suite already contains an instance, and it was passing for the wrong reason.** An arm
+   asserted that a recording whose start snapshot is refused checks zero ticks. It does not check
+   zero: the damage used keeps every byte and corrupts only the tail word, so the chunk is stepped
+   over by its own length and the 301 ticks behind it check clean. The arm passed because the parse
+   found no summary line and the shell defaulted the count to 0 *(measured elsewhere)*. So the
+   measured behaviour is a replay that **refused the state its recording started from and answered
+   anyway**, which is this item's argument with an artefact attached rather than a principle. The
+   arm now splits its assertion by damage kind and carries the measurement; the refusal policy
+   itself is still this item's to decide.
 2. ~~**The loose-clock passivity arm, as a rate assertion.**~~ **Done**, in #625: a rate arm in
    `test_record_replay.sh` carrying the "the obvious test does not work" reasoning in its comment,
    and validated by breaking it. Recorded here rather than removed, because the reasoning is the
@@ -1728,11 +1738,25 @@ Ordered by what makes the next thing safe, not by size.
     **The corpus contains both layouts and exercises neither, which is why this sat unnoticed.** Of
     25 recordings kept on one machine, 16 carry at least one command and 9 carry none, and the split
     by layout is total with no file mixing the two: 7 harness files hold 45 tick-boundary commands,
-    and 9 player sessions hold 16 mid-frame ones. But those 16 are `exit` (7 of them, on the last
-    tick or the one before), `help`, and five lines of prose typed as notes *(measured elsewhere)*.
-    **Not one of them can move a digest, whatever tick it runs on.** A corpus that contains the case
-    without exercising it looks exactly like a corpus that covers it, and counting files -- or even
-    counting commands -- would have said this was covered.
+    and 9 player sessions hold 16 mid-frame ones. Censused, **not one of the 61 can show either
+    defect** *(measured elsewhere)*. The tick-boundary error is one minted clock step, and the
+    harness commands are `key`, `skipmodals`, `behaviour` -- none of which spends a step -- plus
+    `load`, which is deferred to the next iteration exactly as `cube` is. The mid-frame error is a
+    whole tick, and the player commands are `exit` nine times, `help` once and six lines of prose
+    typed as notes: inert or terminal to a one.
+
+    A corpus that contains the case without exercising it looks exactly like a corpus that covers
+    it, and counting files -- or even counting commands -- would have said this was covered. It also
+    predicts the sweep: a before-and-after over all 25 moves **no verdict in either direction**,
+    which is the corpus reporting that it never exercised the fault rather than the fix doing
+    nothing.
+
+    **A recorded `exit` is the reason the verdict had to move in the same change.** Running a command
+    where the session ran it means a recorded `exit` ends the replay there, and nine of the corpus's
+    mid-frame commands are `exit`; four replays lose their summary line as a direct result. Printing
+    the verdict from every exit rather than only from the path that runs out of stream is therefore
+    part of the fix and not scope creep -- without it the change quietly removes the verdict from
+    the commonest shape a player records.
 
     Ahead of item 6's oracle half, because a consistency field added first would spend its bytes
     measuring this.
