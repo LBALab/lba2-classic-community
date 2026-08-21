@@ -924,5 +924,72 @@ case "$loosedump" in
 *) fail "loose clock: the recording carries no cube 3->154 keyframe, so the run never crossed a scene change and this arm tested nothing" ;;
 esac
 
+# --- a command runs where the recording ran it ----------------------------------------
+#
+# A command is written where it ran, so a replay has to run it there too. Both ends run
+# it on the same tick and from the same function, Control_TickHook; what differs is the
+# position inside it. The harness fires --exec-at below `Timer_FixedDtAdvance`
+# (SOURCES/CONTROL.CPP), and a replay that ran the line from the recorder's own tick hook
+# ran it above that advance -- one minted step earlier than the session had it.
+#
+# Which is why the verb here opens a modal, and that is not a claim about modals. A step
+# of clock is invisible to a verb that does not spend one: measured on this same shape,
+# `teleport actor 1`, `varcube 0 7` and `behaviour 2` all replay clean over 301 ticks with
+# the command a step out of position. A modal's inner loop presents, and every present is
+# a step, so it is the cheapest verb that can see the difference at all.
+#
+# command_position <label> <verb> [artifact] -- record with the verb fired mid-session,
+# replay past the end of the stream, and require no mismatch. The artifact, where the verb
+# writes one, is asserted after both runs: a clean digest says the two ends agree, and
+# only the file says the replay ran the command rather than skipping it.
+command_position() {
+    local label="$1" verb="$2" artifact="${3:-}" out summary checked
+
+    rm -f "$rec" "$rec".lba "$rec".end.lba "$artifact"
+    ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$rec" \
+        --exec-at 60 "$verb" --tick 150 --exit >/dev/null 2>&1 ||
+        fail "command position ($label): the recording run exited non-zero ($?) — hang or crash"
+    [ -s "$rec" ] || fail "command position ($label): the run wrote no recording"
+    if [ -n "$artifact" ] && [ ! -s "$artifact" ]; then
+        fail "command position ($label): '$verb' left nothing at $artifact, so the recording never ran it and this arm tested nothing"
+    fi
+
+    rm -f "$artifact"
+    out="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$rec" --tick 250 --exit 2>&1)" ||
+        fail "command position ($label): the replay run exited non-zero ($?) — hang or crash"
+    if [ -n "$artifact" ] && [ ! -s "$artifact" ]; then
+        fail "command position ($label): the replay left nothing at $artifact, so it never ran '$verb'"
+    fi
+
+    summary="$(printf '%s\n' "$out" | grep -m1 'replay ended')" ||
+        fail "command position ($label): the replay printed no summary; it cannot be said to have matched"
+    checked="$(printf '%s\n' "$summary" | sed -n 's/.*: \([0-9]*\) ticks checked.*/\1/p')"
+    [ -n "$checked" ] && [ "$checked" -gt 100 ] ||
+        fail "command position ($label): only ${checked:-0} ticks checked — the run ended before the command ($summary)"
+    case "$summary" in
+    *"first hash mismatch -1"*) ;;
+    *) fail "command position ($label): $summary" ;;
+    esac
+}
+
+# Its own short directory, and that is load-bearing rather than tidiness: a recorded
+# command line is stored in 96 bytes (`T_RecCmd`, SOURCES/RECORD.CPP) and clipped
+# to fit, so a capture path long enough to push the line past that replays as a verb
+# writing somewhere else -- the modal still runs and the digest still matches, and only
+# the missing file says so. Measured: a 137-character path came back clipped at 95.
+cmdposdir="$(mktemp -d)"
+clean_add "$cmdposdir"
+
+command_position "inline verb" "ui inventory $cmdposdir/ui.png" "$cmdposdir/ui.png"
+
+# The control, and it is what makes the arm above a measurement rather than an assertion.
+# `cube` sets NewCube and the work happens at the top of the next main-loop iteration
+# (SOURCES/PERSO.CPP), so it is re-synchronised to a tick boundary before it does
+# anything and a command a step out of position cannot move it. It was clean before the
+# position was fixed and has to stay clean after: a fix that moved execution somewhere
+# the deferred work no longer lands would show here and nowhere else.
+command_position "deferred verb" "cube 154"
+
 pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
-'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster; a recording on a host-sampled clock crossed a scene change instead of wedging in the fade"
+'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster; a recording on a host-sampled clock crossed a scene change instead of wedging in the fade; \
+a command ran where the recording ran it, for an inline verb and for a deferred one"
