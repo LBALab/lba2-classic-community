@@ -16,8 +16,11 @@ a number in this position is the first thing here to go stale. **#621** (`5de091
 struck through rather than deleted, so the ordering argument stays readable. **#626** (`79981ad5`)
 taught the offline reader to name digest version 2. **#623** (`c7617da8`) closed the
 `--verbose` double duty discussed below. Later still, **#630** consolidated the clock pacing,
-**#635** and **#636** (`8b34304c`) closed the loose-clock fade wedge, and **#637** (`952e77b3`) and
-**#638** (`51fe3890`) closed the reproduction-rate causes named in the sequencing. Open work is
+**#635** and **#636** (`8b34304c`) closed the loose-clock fade wedge, **#637** (`952e77b3`) and
+**#638** (`51fe3890`) closed the reproduction-rate causes named in the sequencing, **#641**
+(`01ccb118`) measured the modal clock waits and priced step A, **#643** (`04da39cc`) gave a wedged
+replay a verdict, **#644** (`8459d94b`) closed item 12, and **#646** (`f9bca648`) closed the input
+channel this document opens on. Open work is
 named with its number and state where it changes a conclusion; nothing here depends on any of it
 landing.
 
@@ -140,11 +143,11 @@ overlay --------|                                      |
 | The console double-clock | the console, the present and the clock | closed, as a fourth policy |
 | Presents-never-mint deadlocks | the modal loops and the clock | #641 merged |
 | Two `GereArdoise` waits with no pump | the modal loops and the clock | #641 merged |
-| A command replayed a tick early | the console, the recorder and the main loop | item 12 |
+| A command replayed a tick early | the console, the recorder and the main loop | #644 merged |
 | The save-name stall | input and the recorder, on a channel outside the tap | `f9bca648` merged |
-| The camera at tick 0 | save/load and `ChangeCube`'s two callers | #642 |
+| The camera at tick 0 | save/load and `ChangeCube`'s two callers | #642 open |
 | Digest membership | the digest and what a load restores | open |
-| Three outcomes, two strings | the recorder and its own verdict | #640 |
+| Three outcomes, two strings | the recorder and its own verdict | #643 merged |
 
 Not one of them is a module wrong on its own terms. Each is two systems disagreeing about a shared
 assumption at the line between them, and three assumptions account for most of the list: **a present
@@ -665,7 +668,8 @@ mismatch -- which makes it the best fixture the reproduction rate has.
 
 The seventh wedges the replay outright, at 99% CPU after tick 64, with the stack in `MainLoop` ->
 `DoLife` -> `Dial` -> `SpeakAnimation` -> `PresentFrame`: a dialogue box presenting forever. That
-one prints no verdict at all.
+one prints no verdict at all -- which is what #643 (`04da39cc`) closes, by naming a replay that is
+waiting for input that will never come rather than letting it hang in silence.
 
 **Three outcomes, two strings.** A replay that diverged and stayed wrong, a replay that differed at
 tick 0 and then reproduced the session, and a replay that never finished are worth distinguishing
@@ -1748,7 +1752,9 @@ Ordered by what makes the next thing safe, not by size.
     complete argument from the source plus a test of the shape is worth more than a driven
     reproduction here**, because the surface is unreachable by every driver the project has.
 
-12. **Run a replayed command where the recording ran it.** The cause found under item 6, and two
+12. **Run a replayed command where the recording ran it.** **Done**, #644 (`8459d94b`), with all
+    twelve arms clean and the fix validated by disabling execution outright. The cause found under
+    item 6, and two
     defects rather than one. A command recorded at the tick boundary replays one minted clock step
     early, because the replay's drain sits above the tick's advance and the recording's execution
     point sits below it. A command recorded mid-frame replays a whole tick late. They fail in
@@ -1790,13 +1796,14 @@ Ordered by what makes the next thing safe, not by size.
     part of the fix and not scope creep -- without it the change quietly removes the verdict from
     the commonest shape a player records.
 
-    Ahead of item 6's oracle half, because a consistency field added first would spend its bytes
-    measuring this.
+    It landed ahead of item 6's oracle half, because a consistency field added first would have
+    spent its bytes measuring this.
 
 Items 2 and 7 landed in #625 while this was being written and are struck through rather than
 removed, so the ordering argument stays readable. Of what is left, items 1, 3, 4, 5, 8 and 9 are
 small and independent. Item 6's pacing half merged as #630 while this was being written; its oracle
-half is still open, and **item 12 comes first**, because a consistency field added before the
+half is still open; **item 12 came first**, merged as #644 (`8459d94b`), because a consistency
+field added before the
 command position is fixed would spend its bytes measuring that. Item 10 is the one this
 review was slowest to arrive at and least sure of the scope of, and its measurement half landed in
 #641 (`01ccb118`). Read it together with 6, since 6
