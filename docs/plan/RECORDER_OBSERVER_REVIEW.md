@@ -205,9 +205,28 @@ anyone applied it.
 The fix shape exists in the tree for the sibling case. `SOURCES/RECORD.CPP` says of the mid-session
 path that two ends reaching the cube change at different readings draw different streams, and that
 pinning the clock before the load settles it at its cause. The boot `--record` and `--replay` path
-has no equivalent: either install the recording's clock baseline before the boot load's `ChangeCube`
-rather than at the first poll, or take that seed off wall time the way `Demo_RngSeed` already does
-for the reel.
+has no equivalent, and one constraint rules out the obvious version of it: **a replay cannot ask the
+file for the seed at the moment the seed is used.** The recorder arms on its first input poll, which
+is after the boot load, and by then the stream is seeded and drawn from. No later correction reaches
+it, so the one field has to be read where the flag is parsed, ahead of the load.
+
+That is the shape #637 takes. The header carries `clock.rng_seed`, `--replay` peeks that single
+field at arm time while everything else still waits for the recording to be opened properly, and a
+seed hook hands it to `ChangeCube` for the first load only; every later cube change seeds from the
+clock the savegame restored, which both ends already agree on. Additive, so a file without the field
+replays exactly as before.
+
+The mechanism was re-derived from the source independently rather than taken from here, and
+instrumented at the seed site: 14 replays of one byte-identical file, seed 40 -- the recording's own
+-- clean 11 times of 11, seed 41 diverging at tick 225 three times of three, no seed giving two
+answers. Twelve fresh recordings replayed twice each move the reproduced column from 4 of 12 to 10
+of 12, and **the disagreement column from 5 of 12 to zero**, Fisher two-sided p = 0.036 and 0.037
+*(measured elsewhere)*. The disagreement column is the stronger of the two, and it is the one to
+watch on any measurement of this kind: a replay takes its input, its clock, its step and its
+bindings from the file, so two replays of one fixed file disagreeing says it is reading something
+the file does not carry. That is a bounded search rather than an open one. The two recordings that
+still fail mismatch at tick 1 and give the same answer twice, so what is left of the rate is
+recording-side and deterministic, which is a narrower question than the one this section opened on.
 
 ## The perturbation ledger
 
@@ -1091,7 +1110,8 @@ Ordered by what makes the next thing safe, not by size.
     -- noise, and necessarily so, because `Timer_FixedDtPump` is called **zero** times in a quiet
     recording and zero times in its replay *(measured elsewhere)*. The fix cannot move a path it does
     not run on. That is a clean separation of two problems that had been read as one, and it is worth
-    more than a partial result on either.
+    more than a partial result on either. The rate half has since been fixed on its own path and
+    against its own cause, in review as #637.
 
 Items 2 and 7 landed in #625 while this was being written and are struck through rather than
 removed, so the ordering argument stays readable. Of what is left, items 1, 3, 4, 5, 8 and 9 are
