@@ -1105,10 +1105,11 @@ Ordered by what makes the next thing safe, not by size.
     into the item rather than discovering halfway through it. The funnel gives one place where
     virtual time is *created*; it does not give one place where the *decision* to create it is made,
     and that policy differs at each site: `Timer_FixedDtAdvance` mints and then sets
-    `FixedDtSkipPresent` ([TIMER.CPP:44](../../LIB386/SYSTEM/TIMER.CPP#L44), set at
+    `FixedDtSkipPresent` ([TIMER.CPP:43](../../LIB386/SYSTEM/TIMER.CPP#L43), set at
     [:151](../../LIB386/SYSTEM/TIMER.CPP#L151)) so the render that follows is free;
     `Timer_FixedDtPresent` mints unless that free present is owed or an overlay has claimed it
-    ([:166](../../LIB386/SYSTEM/TIMER.CPP#L166)); `Timer_FixedDtPump` mints unconditionally, because
+    ([:155](../../LIB386/SYSTEM/TIMER.CPP#L155), the overlay claim at :160 and the owed present at
+    :166); `Timer_FixedDtPump` mints unconditionally, because
     a non-presenting wait owns every iteration. `Timer_FixedDtOverlayPresent` is a fourth answer.
     Collapsing four policies into one means giving the modal loops a shared pump that can express
     all of them, **which is step B** -- so the deletion half depends on step B rather than preceding
