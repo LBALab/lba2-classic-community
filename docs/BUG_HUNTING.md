@@ -123,6 +123,13 @@ Concretely, the other shapes, from this engine:
   `--fixed-dt 16`, or you are diffing noise. Verify by running the *same* binary twice before you
   compare two binaries.
 
+- **A harness exercises the form a script writes, not the form a person types.** A fix to the
+  replay path was measured working over a dozen runs and did nothing at all for `--replay <bare
+  name>`, because every arm passed an absolute path -- which is what a script writes and not what a
+  player types. The same blind spot showed up from the other side the same evening, in six
+  player-made recordings that were all started with no path. List the argument forms a real user
+  produces and make sure one arm covers each.
+
 - **A guard whose quantity moved under it.** A test asserts that at most a tenth of a recording's
   polls carry an analog block, reading the count out of `dump_recording.py`. The reader gained a
   hold-last branch that synthesises a row for every poll without a block, so the number the guard
@@ -321,6 +328,13 @@ has not been identified, not the thing under test. This is the exact complement 
 stochastic pipeline needs K fresh inputs each processed more than once, and the two are easy to
 confuse: ask whether one fixed input can give two answers. If it can, raise K. If it cannot, stop
 raising K and go find the gate.
+
+**Moving a lookup earlier can poison the lookup it was copied from.** A name had to be resolved
+before the load ran, so the resolver was called at flag-parse time as well. It did not merely fail
+there: resolving before the directories were up left the later call unable to open the same name at
+all, turning a diverging replay into one that could not start. Fix by moving the work to its
+consumer rather than moving the dependency earlier, and check what the original call site does after
+your new one has run.
 
 **Watch for the observer.** A per-frame checksum over 200 KB perturbs timing enough that a
 one-in-three intermittent fault stops appearing. A clean run under heavy instrumentation is not the

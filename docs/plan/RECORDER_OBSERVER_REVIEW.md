@@ -6,16 +6,20 @@ session a player can replay themselves. Judged on three properties those uses ne
 on the session observed, telemetry good enough to explain a failure, and a file that travels. It
 proposes an ordering and commits nothing.
 
-Pinned to `c00a0406`, which was `origin/main` when it was written. Six PRs have landed since and
-all are cited as merged. **#621** (`5de09158`) put the telemetry cost figures into
+Pinned to `c00a0406`, which was `origin/main` when it was written. Merged work since then is cited
+by number and SHA wherever it bears on a conclusion, and the count is deliberately not stated, since
+a number in this position is the first thing here to go stale. **#621** (`5de09158`) put the telemetry cost figures into
 [RECORDING.md](../RECORDING.md), so they are cited from a file rather than a session. **#622**
 (`4aaf7bd1`) taught `dump_recording.py` to read telemetry, clock and analog offline. **#624**
 (`eb786441`) is discussed below as the clearest example of the fix shape this review recommends. **#625**
 (`32a8db9f`) closed two of this document's own sequencing items while it was being written; they are
 struck through rather than deleted, so the ordering argument stays readable. **#626** (`79981ad5`)
 taught the offline reader to name digest version 2. **#623** (`c7617da8`) closed the
-`--verbose` double duty discussed below. Open work is named with its number and state where it
-changes a conclusion; nothing here depends on any of it landing.
+`--verbose` double duty discussed below. Later still, **#630** consolidated the clock pacing,
+**#635** and **#636** (`8b34304c`) closed the loose-clock fade wedge, and **#637** (`952e77b3`) and
+**#638** (`51fe3890`) closed the reproduction-rate causes named in the sequencing. Open work is
+named with its number and state where it changes a conclusion; nothing here depends on any of it
+landing.
 
 Line numbers were read from the working tree at that commit. Measurements marked *(measured
 elsewhere)* were made by another session against the same commit and are cited rather than
@@ -210,7 +214,7 @@ file for the seed at the moment the seed is used.** The recorder arms on its fir
 is after the boot load, and by then the stream is seeded and drawn from. No later correction reaches
 it, so the one field has to be read where the flag is parsed, ahead of the load.
 
-That is the shape #637 takes. The header carries `clock.rng_seed`, `--replay` peeks that single
+That is the shape #637 took (`952e77b3`). The header carries `clock.rng_seed`, `--replay` peeks that single
 field at arm time while everything else still waits for the recording to be opened properly, and a
 seed hook hands it to `ChangeCube` for the first load only; every later cube change seeds from the
 clock the savegame restored, which both ends already agree on. Additive, so a file without the field
@@ -241,7 +245,7 @@ first poll's delta. The replay adds that delta to `s_replaySrc`
 ([RECORD.CPP:1947](../../SOURCES/RECORD.CPP#L1947)) and then calls `SetTimerHR` with the baseline
 five lines later, which assigns straight over it. The two ends part by exactly that interval, and
 the interval is only ever non-zero while the clock is live. Installing the baseline before the
-advance, so the replay banks the same first interval the recording did, is #638.
+advance, so the replay banks the same first interval the recording did, is #638 (`51fe3890`).
 
 **Two hypotheses died on the way, and why each was reached transfers further than the answer
 does.** The first is that the header's declared baseline is stale
@@ -1149,7 +1153,8 @@ Ordered by what makes the next thing safe, not by size.
     The shape that follows from the leak is to mint a **fixed** step per wait iteration -- the 16 ms
     `--fixed-dt` has been handing these same loops all along, which is why the pinned path never had
     this -- and sleep out the real time it stands for, so both ends run the same iteration count and
-    leave the same reading behind. In review as #635.
+    leave the same reading behind. Merged as #635, with the two fixes it reported and did not
+    carry following in #636 (`8b34304c`).
 
     **What that trades is frames, not duration, and it is the same trade the pinned path already
     pays.** A recorded fade ramps in 13 steps whatever the display could draw, where the same fade
@@ -1210,8 +1215,18 @@ Ordered by what makes the next thing safe, not by size.
     -- noise, and necessarily so, because `Timer_FixedDtPump` is called **zero** times in a quiet
     recording and zero times in its replay *(measured elsewhere)*. The fix cannot move a path it does
     not run on. That is a clean separation of two problems that had been read as one, and it is worth
-    more than a partial result on either. The rate half has since been fixed on its own path and
-    against its own cause, in review as #637.
+    more than a partial result on either. The rate half is fixed against its own cause, merged as
+    #637 (`952e77b3`) and #638 (`51fe3890`).
+
+    **Read the scope of that with care, because the figures sound wider than they go.** Every
+    measurement behind those two -- 4 of 12 to 10 of 12 reproduced, 5 of 12 to zero on the
+    disagreement column, 15 of 15 to 1 of 14 under the forced hold -- is the `--load` path. From
+    boot with no `--load` the seed field is never read and does not need to be: by the time cube 0
+    loads, a replay is already taking its clock from the file, so both ends reach the seed on the
+    same reading, at 8 of 8 seeds equal *(measured elsewhere)*. **That path reproduces 1 clean of 8,
+    for reasons of its own, and nothing above touches it.** So "a loose recording reproduces" is now
+    a claim about `--load` rather than about recording generally, and the from-boot rate is the open
+    item those figures can be misread as having closed.
 
 Items 2 and 7 landed in #625 while this was being written and are struck through rather than
 removed, so the ordering argument stays readable. Of what is left, items 1, 3, 4, 5, 8 and 9 are
