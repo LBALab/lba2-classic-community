@@ -301,6 +301,13 @@ merges moved three citations in one branch, one of them by 72 lines, and every o
 pointed at real code -- which is why nothing complained. The number is the part that rots; the text
 on the line is the part that means something.
 
+**A document that cites the code it changes drifts against itself inside one branch.** Inserting a
+line above a cited one rots the citation with no rebase and no external event to prompt a re-check,
+and the doc and the code are in the same diff. One branch moved four of its own citations by 7 to 11
+lines that way, every one still landing on real code. So the rule is not "re-check after a rebase",
+it is **re-check after anything that changes line counts in a file you cite, including your own
+diff**.
+
 **And some defects live in a pair, where neither artefact is wrong.** An advice string in
 `dump_recording.py` was correct when written and made wrong hours later by a flag rename that never
 touched it. The dependency runs backwards through time: tests, types and review all point forwards,
