@@ -2580,6 +2580,13 @@ void Console_RegisterAll(void) {
        to watch. */
     Console_RegisterCvar("godmode", &GodMode, CONSOLE_CVAR_BOOL, "Hero takes no damage");
 
+    /* Which device the last input came from, which the save menu reads to decide
+       between typing a name and synthesising one (ChoosePlayerName, GAMEMENU.CPP).
+       Only a real key event sets it, so neither branch is reachable from a driven
+       run without saying which one is under test. */
+    Console_RegisterCvar("input_keyboard", &LastInputWasKeyboard, CONSOLE_CVAR_BOOL,
+                         "Last input came from a physical keyboard");
+
     /* Camera tuning (see docs/CONTROLLER.md). No clamp on set, so values can be
      * pushed past the official ranges while tuning; cfg load clamps and changes
      * persist on exit. */
