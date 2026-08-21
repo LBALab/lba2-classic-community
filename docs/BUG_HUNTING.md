@@ -352,7 +352,9 @@ every doc here is that half.
 **A line number is not a citation, and it can be checked like one.** Verify each by reading the
 cited line back and matching a substring of what the prose claims is there. A number counted off a
 printed range is a claim; a number the tool printed beside the line is a reading. `grep -n` on the
-text you are about to quote costs nothing and removes the whole class. A rebase across a few
+text you are about to quote costs nothing and removes the whole class. And when comparing two trees,
+hold the line number fixed and let the content vary: printing line 25 of one tree beside line 26 of
+the other shows different text whether or not anything moved, so it can only come out one way. A rebase across a few
 merges moved three citations in one branch, one of them by 72 lines, and every one of those still
 pointed at real code -- which is why nothing complained. The number is the part that rots; the text
 on the line is the part that means something.
