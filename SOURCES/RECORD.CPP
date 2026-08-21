@@ -761,7 +761,7 @@ static int s_replayFromCli = 0;
 static U32 s_peekSeed = 0;
 static int s_havePeekSeed = 0;
 
-/* Read one field out of the header now, long before the replay itself starts.
+/* Read one field out of the header before the replay itself starts.
  *
  * ChangeCube seeds the shared RNG from TimerRefHR (SOURCES/OBJECT.CPP), and on the
  * --load path it does so about two hundred lines before LoadGame installs the savegame's
@@ -770,13 +770,18 @@ static int s_havePeekSeed = 0;
  * eleven times and seed 41 three times, and the one-millisecond difference decided the
  * verdict every time, clean at 40 and diverging at tick 225 at 41.
  *
- * A replay cannot ask the file for that seed when it needs it. The recorder starts on
- * the first input poll, which is after the boot scene load, and by then the stream has
- * been seeded and drawn from and no later correction can reach it. So the seed is read
- * here, where the flag is parsed and the load has not happened yet, and Record_SeedHook
- * hands it over when the load asks. Everything else in the header still waits for
- * Record_Play. */
+ * A replay cannot ask the file for that seed through the usual path. The recorder starts
+ * on the first input poll, which is after the boot scene load, and by then the stream has
+ * been seeded and drawn from and no later correction can reach it. So this runs from
+ * Record_SeedHook, at the load itself: late enough that the recordings folder resolves,
+ * early enough that the seed is still the one being asked for. Everything else in the
+ * header still waits for Record_Play.
+ *
+ * Not from Record_ArmReplay, which is where the flag is parsed. rec_resolve reads the
+ * recordings folder, and calling it that early does not merely fail to find a bare name
+ * -- it leaves Record_Play unable to open the same name later. */
 static void replay_peek_seed(const char *path) {
+    char resolved[ADELINE_MAX_PATH];
     char buf[2048];
     size_t got;
     FILE *f;
@@ -784,6 +789,14 @@ static void replay_peek_seed(const char *path) {
 
     s_havePeekSeed = 0;
     if (!path || !path[0])
+        return;
+    /* Through the same resolver Record_Play uses, because a bare name is a recording in the
+       recordings folder rather than one in the working directory, and opening the raw string
+       finds nothing. Measured before this went through it: the same file replayed clean when
+       named by its path and diverged at tick 223 when named `bare.rec`, which is the whole
+       fix silently not applying to the shorter of the two ways of asking. */
+    path = rec_resolve(path, resolved, sizeof resolved, 0);
+    if (!path[0])
         return;
     f = fopen(path, "rb");
     if (!f)
@@ -802,7 +815,6 @@ void Record_ArmReplay(const char *path) {
     s_armRecord[0] = 0;
     s_armed = 2;
     s_replayFromCli = 1;
-    replay_peek_seed(s_armReplay);
 }
 
 /* A recording that starts mid-session has no setup: replaying it would need the whole
@@ -2495,6 +2507,12 @@ void Record_WaitHook(void) {
    seed with a stale one. A recording made without the field -- any file written before it
    existed -- leaves the seed alone and replays exactly as it did before. */
 void Record_SeedHook(U32 *seed) {
+    static int peeked = 0;
+
+    if (!peeked && s_armed == 2) {
+        peeked = 1;
+        replay_peek_seed(s_armReplay);
+    }
     if (!s_havePeekSeed)
         return;
     s_havePeekSeed = 0;
