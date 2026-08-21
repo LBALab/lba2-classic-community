@@ -791,6 +791,32 @@ Three things follow, and the third is the reason this sits above the sequencing 
   never saw; this one leaves input out of the file that the game did see. Both are the sampling
   point being in the wrong place for a screen that reads input its own way.
 
+**The unifying statement is broader than this screen, and it joins this finding to the command one.**
+A loop that takes no input and advances no tick is **invisible to the recorder in both directions**:
+a replay cannot inject into it, because injection happens at a poll that never comes, and a command
+staged for it has neither a poll nor a tick to run at. That sentence lives in
+[RECORDING.md](../RECORDING.md) and the tick survey rather than here, next to the code that makes it
+true. It is the same property seen from the input side in this section and from the command side in
+item 12, which is why both arrived at it independently.
+
+**The detector cannot see this class.** A stale-poll counter reports polls where the reader handed
+back the previous input; here the engine is not polling at all, so the counter never moves and the
+log carries no complaint *(measured elsewhere)*. An instrument that counts a thing happening wrongly
+is blind to the thing not happening, and this stall is the second kind.
+
+**And the sibling caller was equally unreachable, which nobody had noticed because nothing had ever
+tried to drive it.** Cheat-code entry reads the same function, so `box` typed at the pause menu
+moved no game variable at all before the fix and sets `vargame[251]` to 3 after
+*(measured elsewhere)*. It carries a quieter defect closed by the same change:
+[CHEATCOD.CPP:204](../../SOURCES/CHEATCOD.CPP#L204) stores `(U8)Key` beside the character `GetAscii`
+has just returned, and those were two separate reads of the device that agreed by luck. One read by
+construction is the stronger property, and it was not the reason for the change.
+
+**The cost is measured and it is small where it lands.** Two recordings differing only in how long
+they sit on the screen: 1500 extra polls for 1810 bytes, so about 1.21 bytes a poll and 4.5 KB per
+minute spent on that screen. A session that never opens it is byte-identical, 201 polls and 18,625
+bytes either way *(measured elsewhere)*. The extra polls appear only where the screen runs.
+
 **The fix is the tap, not a second channel.** The tempting answer is a console verb per UI action --
 proceed the logo, select a menu row, dismiss a dialogue -- so a recording carries intents. Most of
 that is already carried: menus read the `Input` bits and `MyKey`, `MyKey` is `Key`
