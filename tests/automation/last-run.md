@@ -2,10 +2,10 @@
 
 # Control-harness last run
 
-- when: 2026-08-21 15:37 UTC
-- commit: `673d0932`
+- when: 2026-08-21 23:35 UTC
+- commit: `ecfdf336`
 - host: Linux x86_64
-- result: **73 passed, 2 skipped, 1 failed**
+- result: **74 passed, 2 skipped, 0 failed**
 
 A skip means a prerequisite was missing, not that the fixture agreed with the
 engine. Only the passes are evidence.
@@ -33,7 +33,7 @@ engine. Only the passes are evidence.
 | test_console_audio_cvars.sh | pass |
 | test_console_audio_stereo.sh | pass |
 | test_console_config_write.sh | pass |
-| test_demo.sh | **FAIL** |
+| test_demo.sh | pass |
 | test_demo_behaviour_menu.sh | pass |
 | test_dodge_direction.sh | pass |
 | test_dump.sh | pass |
