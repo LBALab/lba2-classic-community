@@ -221,5 +221,8 @@ When adding code that touches the timer, in rough order of how often you'll need
   virtual time source on `TimerSystemHR`.
 - [FIXED_DT_RESEARCH.md](plan/FIXED_DT_RESEARCH.md) — Phase 1 research mapping loop classes
   and inventorying every site that reads `TimerRefHR`/`TimerSystemHR`.
+- [ENGINE_TICK_POLICY_SURVEY.md](plan/ENGINE_TICK_POLICY_SURVEY.md) -- the four policies that
+  decide when the pinned clock mints, measured per modal surface, and the waits that have no
+  clock source without one.
 - `LIB386/SYSTEM/TIMER.CPP`, `LIB386/H/SYSTEM/TIMER.H` — source of truth for
   everything above.
