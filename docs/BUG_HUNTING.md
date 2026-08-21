@@ -123,6 +123,13 @@ Concretely, the other shapes, from this engine:
   `--fixed-dt 16`, or you are diffing noise. Verify by running the *same* binary twice before you
   compare two binaries.
 
+- **A control that is silently a second arm.** An A/B over an env-gated branch set the control's
+  variable to the empty string, and the gate read `getenv(...) ? 1 : 0`, so empty-but-set was on
+  and both arms were the arm. Every surface failed in both, which reads as a far larger finding
+  than the real one. Unset the variable rather than emptying it, and prove the switch by breaking
+  it on purpose in both directions: a control that cannot be shown to differ from the arm is not a
+  control.
+
 - **A harness exercises the form a script writes, not the form a person types.** A fix to the
   replay path was measured working over a dozen runs and did nothing at all for `--replay <bare
   name>`, because every arm passed an absolute path -- which is what a script writes and not what a
