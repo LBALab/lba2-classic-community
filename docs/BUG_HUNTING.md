@@ -129,6 +129,13 @@ Concretely, the other shapes, from this engine:
   check compares. Counting the files, or even counting the commands, says covered; only reading what
   they contain says otherwise.
 
+- **A bisect must build only what the question is about.** Checking a whole tree out at an old
+  commit and building everything dies at the first commit whose engine predates today's tests -- two
+  missing symbols were enough -- and that death reads as *this commit is broken*, with total
+  confidence and no flake to warn anyone. Check out only the directories the question concerns onto
+  today's tests, and build only the target the arm runs. Otherwise the bisect names a commit and the
+  name belongs to the harness.
+
 - **A recorded pass is not a current pass.** A suite writes its result to a file, and that file is
   often the only record that the suite ever passes at all. One said 72 passed and 0 failed, and was
   days old; a regression had landed behind it, and every reader who checked the file rather than the
