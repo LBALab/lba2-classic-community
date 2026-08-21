@@ -134,6 +134,13 @@ recordings replayed twice each: **reproduced 4 of 12 before and 10 of 12 after**
 replays of one file disagreed on **5 of 12 before and 0 of 12 after** (Fisher two-sided
 p = 0.036 and p = 0.037).
 
+All of that is the `--load` path, which is the one where the scene load happens before the
+recorder holds the clock. **From boot with no `--load` the field is not read at all**, and does
+not need to be: by the time cube 0 loads, a replay is already taking its clock from the file,
+so both ends reach the seed on the same reading -- measured, they match every run. That path
+reproduces badly for its own reasons, which are not this and are not fixed here, so a loose
+recording reproducing is still a claim about `--load` rather than about recording generally.
+
 A third was the same shape and is closed with them: `InitAnim` stamps the hero's animation anchors
 during boot, from wall-clock time, and `LoadGame` installs the save's clock afterwards. Every other
 actor is stamped after that line and comes out on the restored reading, so the hero alone carried
