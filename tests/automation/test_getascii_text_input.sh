@@ -33,7 +33,24 @@ TESTNAME=getascii_text_input
 precheck
 need_save
 
-save_dir="$(user_dir)/save"
+# A folder of this test's own, per arm. lib.sh only makes one when the caller has
+# not named one, so a run with LBA2_USER_DIR already pointing at a real profile
+# would otherwise have this fixture writing saves into it -- and every arm here
+# wants an empty save folder, which is not something to arrange by deleting a
+# folder somebody else named.
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+# Sets LBA2_USER_DIR and save_dir rather than echoing one: an export inside a
+# command substitution lands in the subshell and dies there, so `$(arm_dir x)`
+# would leave every run writing to the folder lib.sh made and every check looking
+# at an empty one.
+arm_dir() { # arm_dir <name> -- point the next run at a fresh user folder
+    LBA2_USER_DIR="$tmp/$1"
+    export LBA2_USER_DIR
+    save_dir="$LBA2_USER_DIR/save"
+    mkdir -p "$save_dir"
+}
 
 # Scancodes rather than names, because `key` names no letters: a=4, b=5, c=6, and
 # F2 (59) is I_SAVE's first binding (SOURCES/INPUT_BINDINGS.CPP). The delays are
@@ -44,10 +61,10 @@ save_dir="$(user_dir)/save"
 # name. Between them, three letters with a poll's gap each.
 TYPE_ABC='key 59 2; key enter 6 60; key 4 6 400; key 5 6 500; key 6 6 600; key enter 6 800'
 
-rec="$(user_dir)/getascii.rec"
+rec="$tmp/getascii.rec"
 
 # --- Arm 1: a driven keyboard reaches the name screen, and the name lands. -------
-rm -rf "$save_dir"
+arm_dir record
 ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$rec" \
     --exec "input_keyboard 1" --exec-at 20 "$TYPE_ABC" \
     --tick 200 --exit >/dev/null 2>&1 ||
@@ -65,7 +82,7 @@ ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$rec" \
 # driven.
 [ -s "$rec" ] || fail "no recording written to $rec"
 
-rm -rf "$save_dir"
+arm_dir replay
 out="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$rec" --tick 400 --exit 2>&1)" ||
     fail "replay run exited non-zero ($?) — the replay stalled on the name screen"
 
@@ -87,14 +104,29 @@ esac
 
 # --- Arm 3: the other reader, the cheat codes. -----------------------------------
 # GereCheatCode runs from the in-game menu, so F4 (I_OPTIONS) opens it and Esc closes
-# it. b=5, o=18, x=27 spell the clover-box cheat, which raises ListVarGame[251]; the
-# variable is zeroed first so the check cannot pass on whatever the save carried.
-# Read with `vargame`, which prints; a bool cvar with no argument toggles instead of
-# printing, which is a way to write this arm so that it reports the opposite.
-rm -rf "$save_dir"
+# it. c=6 l=15 o=18 v=25 e=8 r=21 spell the clover cheat.
+#
+# Eight holds, which is exactly CONTROL_KEY_MAX_HOLDS (SOURCES/CONTROL.CPP): a
+# longer cheat does not fit, and the holds that do not fit are refused one line at
+# a time while the run carries on, so the symptom is the menu never closing rather
+# than anything naming the cap. Do not add a key here without removing one.
+#
+# That cheat because it is the only short one with no guard on it:
+# `ListVarGame[FLAG_CLOVER] = NbCloverBox` (SOURCES/CHEATCOD.CPP), an assignment
+# rather than an increment. Seeding 99 -- outside the 0..10 the source can produce
+# -- makes the check independent of what the save carried, where zeroing would only
+# have proved the cheat fired if that save's box count happened to be non-zero.
+# The clover-box and penguin cheats are both guarded on a value this cannot set, so
+# a save at the ceiling makes them no-ops and the arm would report that as the keys
+# never arriving.
+#
+# Read back with `vargame`, which prints. A bool cvar with no argument *toggles*
+# instead of printing, so reading the god-mode flag that way reports the run that
+# fired the cheat and the run that did not as each other.
+arm_dir cheat
 cheat="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" \
-    --exec "vargame 251 0" \
-    --exec-at 20 "key 61 2; key 5 4 40; key 18 4 60; key 27 4 80; key esc 4 200" \
+    --exec "vargame 251 99" \
+    --exec-at 20 "key 61 2; key 6 4 40; key 15 4 60; key 18 4 80; key 25 4 100; key 8 4 120; key 21 4 140; key esc 4 220" \
     --exec-at 40 "vargame 251" --tick 200 --exit 2>&1)" ||
     fail "cheat run exited non-zero ($?)"
 
@@ -103,6 +135,7 @@ after="$(printf '%s\n' "$cheat" | grep 'vargame\[251\]' | tail -1 |
 case "$after" in
 '' | *[!0-9]*) fail "no readable vargame[251] line: $(printf '%s\n' "$cheat" | tail -3)" ;;
 esac
-[ "$after" -ne 0 ] || fail "typing the cheat in the menu changed nothing (vargame[251] still $after)"
+[ "$after" -ne 99 ] ||
+    fail "typing the cheat in the menu did not fire it (vargame[251] is still the seeded 99)"
 
-pass "typed name lands live and on replay; cheat entry reaches vargame[251] = $after"
+pass "typed name lands live and on replay; cheat entry set vargame[251] = $after"
