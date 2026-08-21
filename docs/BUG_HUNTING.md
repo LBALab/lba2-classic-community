@@ -123,6 +123,14 @@ Concretely, the other shapes, from this engine:
   `--fixed-dt 16`, or you are diffing noise. Verify by running the *same* binary twice before you
   compare two binaries.
 
+- **A guard whose quantity moved under it.** A test asserts that at most a tenth of a recording's
+  polls carry an analog block, reading the count out of `dump_recording.py`. The reader gained a
+  hold-last branch that synthesises a row for every poll without a block, so the number the guard
+  reads counts held rows alongside written ones, and it passes only because the sessions it runs on
+  report zero analog blocks, where the two happen to agree. A check that reads its quantity from a
+  tool it does not own has to be re-validated when that tool changes, and one that is currently
+  vacuous cannot tell you it has stopped meaning anything.
+
 - **A grep that finds sites but proves nothing.** Both misses in the 64-bit multiply sweep sat
   beside code that already knew the hazard, one of them two lines under a previous fix for the same
   function, with a test whose reference model was correct and whose inputs were too small to
