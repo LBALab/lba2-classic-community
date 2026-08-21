@@ -123,6 +123,18 @@ Concretely, the other shapes, from this engine:
   `--fixed-dt 16`, or you are diffing noise. Verify by running the *same* binary twice before you
   compare two binaries.
 
+- **A corpus that contains the case without exercising it.** A sweep for a command-ordering fault
+  had 16 of 25 recordings carrying commands, which reads as good coverage. The commands were `exit`,
+  `help` and lines of prose typed as notes -- inert or terminal, and none able to move the state the
+  check compares. Counting the files, or even counting the commands, says covered; only reading what
+  they contain says otherwise.
+
+- **A sweep that does not take each input's own settings measures the sweep.** Replaying a corpus of
+  recordings without giving each one the step it was recorded at reported divergence at tick 0 on
+  files that replay clean under the suite. The arm was wrong, not the files. Read the mode the
+  artefact declares and hand it back, and treat a result that condemns everything as a fault in the
+  harness until shown otherwise.
+
 - **A scan that counts a construct without checking it is reached.** A sweep for loops that carry
   their own clock source counted a present anywhere in the body, and a present sitting behind a
   condition is not a clock source: one loop reaches its only redraw through a display call and a clip
