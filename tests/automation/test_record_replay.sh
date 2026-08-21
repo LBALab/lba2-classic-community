@@ -889,5 +889,37 @@ modal_ok="$(python3 -c "print(1 if $modalrate <= 1.15 else 0)")"
 [ "$modal_ok" = 1 ] ||
     fail "modal pacing: a window holding a scene change advanced ${modalrate}s of game time per wall second while recording — the modal loops are minting clock they do not pay for, which is the too-fast transitions players report"
 
+# --- a recording on a host-sampled clock survives a scene change ----------------------
+#
+# Every arm above pins the step, and the pin hides this one completely: under a generated
+# clock the engine mints time inside a wait loop itself, so a fade there ends whatever the
+# recorder is doing. On a host-sampled clock the recorder holds the clock at the last
+# input poll, and FadeToPalAndSamples (SOURCES/AMBIANCE.CPP) ends when that clock has
+# moved FADE_DELAY while never polling input. Held, it never ends: the run spins at a full
+# core presenting a frame an iteration, against 2.1s for the same run unrecorded.
+#
+# Termination is the whole assertion, deliberately. On a host-sampled clock two runs do
+# not reach identical state, so a replay comparison here would be flaky by construction,
+# and the way to settle it would be to pin the step -- the one thing this arm exists to
+# run without.
+loosedir="$(mktemp -d)"
+clean_add "$loosedir"
+
+ctl --load "$LBA2_TEST_SAVE" --record "$loosedir/s.rec" \
+    --exec-at 40 "cube 154" --tick 200 --exit >/dev/null 2>&1 ||
+    fail "loose clock: a recording across a scene change did not finish (exit $?) — a wait loop is reading a clock the recorder is holding still"
+[ -s "$loosedir/s.rec" ] ||
+    fail "loose clock: the run finished but wrote no recording, so nothing here was recorded and the run ended for its own reasons"
+
+# That the scene change actually landed, and not merely that the run ended. Without this
+# the arm keeps passing on the day the scripted `cube` stops arriving, having crossed no
+# fade and tested nothing. The keyframe records the cube it changed to, so the reader can
+# be asked rather than the exit code trusted.
+loosekf="$(python3 "$REPO/scripts/dev/dump_recording.py" "$loosedir/s.rec" |
+    grep -c "cube 3->154")" ||
+    fail "loose clock: could not read the recording back"
+[ "$loosekf" -ge 1 ] ||
+    fail "loose clock: the recording carries no cube 3->154 keyframe, so the run never crossed a scene change and this arm tested nothing"
+
 pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
-'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster"
+'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster; a recording on a host-sampled clock crossed a scene change instead of wedging in the fade"
