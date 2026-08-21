@@ -329,12 +329,35 @@ while recording and at tick 59 while replaying. `cube 154`'s fade lands at tick 
 
 That is the whole of it, and the fade is what proves it: `cube` sets `NewCube` and its work happens
 at the top of the next `MainLoop` iteration ([PERSO.CPP:523](../../SOURCES/PERSO.CPP#L523)), so a
-command that arrives a tick early is re-synchronised to a tick boundary before it does anything.
-A verb that does its work inline is not. On the recording side a console command runs from
-`Control_TickHook` ([PERSO.CPP:583](../../SOURCES/PERSO.CPP#L583)), before that tick's input poll;
-on the replaying side it runs from the stream reader inside the poll
-([RECORD.CPP:2846](../../SOURCES/RECORD.CPP#L2846)). Two different points in the frame, one tick
-apart in effect.
+command that arrives out of position is re-synchronised to a tick boundary before it does anything.
+A verb that does its work inline is not.
+
+**The two positions are inside one function, and they are one minted step apart rather than one
+tick.** The reading above is a tick attribution, and the thing being attributed is what moved.
+Instrumenting both ends to print the tick counter and the clock at the moment the command runs, with
+every tick-hook entry as a per-run baseline, puts them on the same tick:
+
+| | recording | replay |
+|---|---|---|
+| tick-hook entry, tick 60 | clock 1010 | clock 1010 |
+| the command runs | clock 1026 | clock 1010 |
+| tick-hook entry, tick 61 | clock 2034, `sim.carry` 4268109 | clock 2018, `sim.carry` 4268125 |
+
+Both run it with the recorder's tick counter at 61 and both from `Control_TickHook`
+([PERSO.CPP:583](../../SOURCES/PERSO.CPP#L583)). The recording runs it from `control_run_exec_at`,
+which is below `Timer_FixedDtAdvance` ([CONTROL.CPP:1149](../../SOURCES/CONTROL.CPP#L1149)); the
+replay ran it from `Record_TickHook`, which is that function's first statement, above the advance.
+Running above the advance is exactly what puts the modal's presents under the previous tick number
+in the trace above, so the two readings are one fact from two sides. Absolute clock values compare
+only within a pair: `Timer_EnableFixedDt` seeds `FixedDtNow` from `TimerSystemHR`
+([TIMER.CPP:112](../../LIB386/SYSTEM/TIMER.CPP#L112)), so the seed moves per process.
+
+**Not every verb that works inline shows it**, which the sentence above invites. On the same shape,
+`teleport actor 1`, `varcube 0 7` and `behaviour 2` each replay clean over 301 ticks with the command
+a step out of position, and all three move fields the digest mixes: with command execution disabled
+outright, `teleport` goes red at tick 61 and a quiet session stays clean, so the arm can see them.
+A step of clock is invisible to a verb that does not spend one, and a modal spends it through the
+presents of its inner loop. The table above is a table of clock-spending verbs rather than of modals.
 
 So this is a command-scheduling defect in the recorder and not a clock defect, and the modals are
 only how it becomes visible: they are the commands that do enough work inside one tick to move the
@@ -359,6 +382,32 @@ behind it, and a hand-played session that opens the inventory, selects and uses 
 correctly, so the divergence above is a claim about the console entry path and not about modals.
 And the `slide` row exists only because that wait now terminates under a pinned clock; before, there
 was nothing to replay.
+
+### The position is now the recording's, and the table is clean
+
+The readers stage a command and neither of them runs it; two drains run what they staged, each from
+the point in the frame the recording ran it from -- `Record_ExecHook` from `Control_TickHook` beside
+`--exec-at`, and the tail of the poll. No format change: the writer already puts a command where it
+ran, so the stream position says which of the two a command is in. Re-measured on the same shape,
+`--exec-at 60`, 300 pinned ticks, replayed with `--tick 400`:
+
+| Session | Replay |
+|---|---|
+| quiet, no modal | 301 ticks checked, no mismatch, 0 ms drift |
+| `cube 154` | 301 ticks checked, no mismatch, 0 ms drift |
+| `ui inventory` | 301 ticks checked, no mismatch, 0 ms drift |
+| `ui dialog 1` | 301 ticks checked, no mismatch, 0 ms drift |
+| `ui menu-main` | 301 ticks checked, no mismatch, 0 ms drift |
+| `ui found-object 0` | 301 ticks checked, no mismatch, 0 ms drift |
+| `ui holomap` | 301 ticks checked, no mismatch, 0 ms drift |
+| `slide activision` | 301 ticks checked, no mismatch, 0 ms drift |
+
+The other half of the same defect runs in the opposite direction and is not visible from this
+table at all, because every row here is a command written at a tick boundary. A command written
+mid-frame -- which is where the console writes, since it runs from the input path -- replayed a
+whole tick late, and that one any digest-moving verb can see: driven through `--listen`, which
+issues from the present path and lands in the same on-disk layout, `varcube 0 7` recorded at tick
+155 ran at 156 and the digest failed at 155. The same verb is clean in the layout above.
 
 ### A modal can stall a replay with no clock in it anywhere
 
