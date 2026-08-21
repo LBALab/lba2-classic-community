@@ -4,6 +4,7 @@
 
 #include "DEMO_SEED.H"
 #include "FOLLOWCAM.H" /* FollowCamera: camera zones re-aim the Auto camera */
+#include "RECORD.H"    /* Record_SeedHook: the boot scene load's seed on a replay */
 #include "SAVEGAME.H"
 #include "ZONE_GEOM.H" // ZonePointInBox -- single source of truth for the zone box test
 
@@ -1191,7 +1192,15 @@ void ChangeCube() {
     // SHIFT+D / idle-attract path, and later cube transitions keep diverging).
     // Demo_RngSeed swaps the source to NewCube while DemoSlide -- canonical per
     // cube, deterministic on every host. Normal play unchanged. See issue #176.
-    Rnd_Seed(Demo_RngSeed(DemoSlide, TimerRefHR, NewCube));
+    {
+        /* On the --load path TimerRefHR here is boot-elapsed wall time, because LoadGame
+           installs the savegame's clock further down this function. A replay therefore
+           cannot reach this line on the reading the recording reached it on, and asks the
+           recorder for the seed instead. Outside a replay this changes nothing. */
+        U32 seed = Demo_RngSeed(DemoSlide, TimerRefHR, NewCube);
+        Record_SeedHook(&seed);
+        Rnd_Seed(seed);
+    }
 
     if (FlagChgCube)
         SaveTimer();

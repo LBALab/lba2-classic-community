@@ -114,6 +114,26 @@ Two are closed, both invisible under a pinned step by construction:
   reproduce, not only a pinned one. Gated on the step, a loose session asks the mixer instead, whose
   clock no replay reproduces. See "Audio used to move the answer" below.
 
+A fourth is closed and is **not** the same shape as the others, which is what makes it worth
+reading. Everything above is per-frame timing state. This is a **seed**. `ChangeCube`
+([SOURCES/OBJECT.CPP](../SOURCES/OBJECT.CPP)) seeds the one shared `rand()` stream from
+`TimerRefHR`, and on the `--load` path it does so about two hundred lines before `LoadGame`
+installs the savegame's clock, so the seed is **how many milliseconds the process took to
+boot**. Two runs do not boot in the same number of them. Measured on one byte-identical
+recording replayed fourteen times on an idle machine: seed 40 eleven times and seed 41 three
+times, and the one-millisecond difference decided the verdict every time, clean at 40 and
+diverging at tick 225 at 41. `--fixed-dt` hides it completely, because `Timer_EnableFixedDt`
+zeroes `TimerRefHR` and every pinned run therefore seeds with 0.
+
+A replay cannot ask the file for that seed at the moment it needs it: the recorder starts on
+the first input poll, which is after the boot scene load, and by then the stream has been
+seeded and drawn from. So the recording carries it as `clock.rng_seed`, `--replay` reads that
+one field when the flag is parsed, and `Record_SeedHook` hands it over when the load asks.
+A recording without the field replays exactly as it did before. Measured over twelve fresh
+recordings replayed twice each: **reproduced 4 of 12 before and 10 of 12 after**, and the two
+replays of one file disagreed on **5 of 12 before and 0 of 12 after** (Fisher two-sided
+p = 0.036 and p = 0.037).
+
 A third was the same shape and is closed with them: `InitAnim` stamps the hero's animation anchors
 during boot, from wall-clock time, and `LoadGame` installs the save's clock afterwards. Every other
 actor is stamped after that line and comes out on the restored reading, so the hero alone carried

@@ -567,6 +567,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          "setup.reload_clock=%u\n"
                          "clock.timer_ref_hr=%u\n"
                          "clock.sim_carry=%u\n"
+                         "clock.rng_seed=%u\n"
                          "data.master=%s\n"
                          "bindings.digest=%016llx\n",
                          LBA2_VERSION_STRING,
@@ -585,6 +586,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          s_reloaded, s_reloadClock,
                          (unsigned)TimerRefHR,
                          (unsigned)LastSimRefHR,
+                         (unsigned)Rnd_LastSeed(),
                          Distrib_MasterName(Distrib_GetMaster()),
                          bindings_digest());
     if (wrote <= 0 || (size_t)wrote >= n)
@@ -755,12 +757,52 @@ void Record_ArmRecord(const char *path) {
 }
 
 static int s_replayFromCli = 0;
+/* The boot scene load's seed, read out of the header at arm time; see replay_peek_seed. */
+static U32 s_peekSeed = 0;
+static int s_havePeekSeed = 0;
+
+/* Read one field out of the header now, long before the replay itself starts.
+ *
+ * ChangeCube seeds the shared RNG from TimerRefHR (SOURCES/OBJECT.CPP), and on the
+ * --load path it does so about two hundred lines before LoadGame installs the savegame's
+ * clock -- so the seed is how many milliseconds this process took to boot. Measured on
+ * one byte-identical recording replayed fourteen times on an idle machine: seed 40
+ * eleven times and seed 41 three times, and the one-millisecond difference decided the
+ * verdict every time, clean at 40 and diverging at tick 225 at 41.
+ *
+ * A replay cannot ask the file for that seed when it needs it. The recorder starts on
+ * the first input poll, which is after the boot scene load, and by then the stream has
+ * been seeded and drawn from and no later correction can reach it. So the seed is read
+ * here, where the flag is parsed and the load has not happened yet, and Record_SeedHook
+ * hands it over when the load asks. Everything else in the header still waits for
+ * Record_Play. */
+static void replay_peek_seed(const char *path) {
+    char buf[2048];
+    size_t got;
+    FILE *f;
+    U32 v;
+
+    s_havePeekSeed = 0;
+    if (!path || !path[0])
+        return;
+    f = fopen(path, "rb");
+    if (!f)
+        return; /* Record_Play reports a file it cannot open; this one stays quiet. */
+    got = fread(buf, 1, sizeof buf - 1, f);
+    fclose(f);
+    buf[got] = 0;
+    if (RecFmt_ReadU32(buf, "clock.rng_seed=", &v)) {
+        s_peekSeed = v;
+        s_havePeekSeed = 1;
+    }
+}
 
 void Record_ArmReplay(const char *path) {
     snprintf(s_armReplay, sizeof s_armReplay, "%s", path ? path : "");
     s_armRecord[0] = 0;
     s_armed = 2;
     s_replayFromCli = 1;
+    replay_peek_seed(s_armReplay);
 }
 
 /* A recording that starts mid-session has no setup: replaying it would need the whole
@@ -1579,6 +1621,7 @@ static int mode_line_ignored(const char *line) {
     static const char *const skip[] = {
         "clock.timer_ref_hr=", /* the recorded baseline: restored, not matched */
         "clock.sim_carry=",    /* the sub-step carry: restored with it */
+        "clock.rng_seed=",     /* the boot scene load's seed: installed, not matched */
         "setup.snapshot=",     /* the file it started from, named per recording */
         "setup.reloaded=",     /* how it started, which the reader acts on rather than matches */
         "setup.reload_clock=",
@@ -2441,6 +2484,21 @@ void Record_WaitHook(void) {
     s_waitSteps++;
     s_frameClock += REC_DEFAULT_DT;
     Timer_SleepUntil(s_waitAnchor + s_waitSteps * REC_DEFAULT_DT);
+}
+
+/* The first scene load of a replay runs on the seed the recording ran on, because on the
+   --load path that seed is this process's boot time in milliseconds and the two ends do
+   not boot in the same number of them. See replay_peek_seed for the measurement.
+
+   Once, for the first load only. Every later ChangeCube seeds from the clock the savegame
+   restored, which both ends agree on, and overriding those would replace a reproducible
+   seed with a stale one. A recording made without the field -- any file written before it
+   existed -- leaves the seed alone and replays exactly as it did before. */
+void Record_SeedHook(U32 *seed) {
+    if (!s_havePeekSeed)
+        return;
+    s_havePeekSeed = 0;
+    *seed = s_peekSeed;
 }
 
 void Record_TickHook(void) {
