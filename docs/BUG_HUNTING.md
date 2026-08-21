@@ -325,6 +325,15 @@ explain it.
 which is which keeps a report honest. A 16.16 depth delta overflows at ordinary values; a sphere
 radius needs two million model units against a focal of 600 and never happens.
 
+**When you can name the wrong value, watch the write instead of reading the readers.** A camera
+field differing at tick 0 between two runs of one save was read as a digest membership defect, then
+as a load-path asymmetry, then correctly as one function answering differently depending on its
+caller. Three reads of the source, three wrong answers, and a watchpoint on the field named the
+writer immediately. **A wrong value in a compared field looks like a comparison problem from every
+distance**, so the layers between the comparison and the write all read as plausible causes. A
+watchpoint skips them rather than walking down them one theory at a time, and it costs less than the
+first theory did.
+
 **Price a hypothesis by what it costs to kill, not by how likely it is.** Two rounds of a recorder
 determinism hunt were each decided by a wrong hypothesis that came with a cheap discriminator. The
 first was that a wait-loop clock leak drove the reproduction rate; the negative was one measurement,
