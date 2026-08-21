@@ -239,6 +239,16 @@ recorder in both directions** -- a replay cannot inject into it, and a command s
 neither a poll nor a tick to run at. Finding one means finding a screen with no seam in it, and the
 fix is to give it the seam rather than to teach the recorder about the screen.
 
+**What it reproduces is the keys, not the characters.** The poll record carries `Key`, a scancode,
+and `GetAscii` resolves it through the *replaying* machine's keymap. So a name typed as `azerty` on
+a French layout replays as `qwerty` on a US one: same keys, different file on disk, and a
+`PlayerName` the recording did not end with. That is consistent with the rest of the format --
+scancodes throughout, and the binding tables carried so a replay is not tied to the cfg it was made
+under -- but the keymap is not one of the tables carried, so it is the layout that decides. A
+recording replayed on the layout it was made on is unaffected, which is every same-machine replay
+and most others. Carrying the resolved character alongside the scancode is what would close it, and
+that is a format change rather than a read-path one.
+
 What it costs is small and was measured rather than assumed. Between two recordings differing only
 in how long they sit on that screen, 1500 extra polls cost **1810 bytes over 23.97s of wall clock**
 -- 1.21 bytes a poll at 62.6 polls a second, so about **4.5 KB per minute** spent there, against a

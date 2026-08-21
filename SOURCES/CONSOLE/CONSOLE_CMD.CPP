@@ -2332,7 +2332,7 @@ static void cmd_key(int argc, const char *argv[]) {
         Console_Print("Usage: key <name|scancode> [polls] [delay] | key off");
         Console_Print("Names: esc menus enter space action up down left right");
         Console_Print("       pad-start pad-a pad-b pad-x pad-y (or a raw scancode)");
-        Console_Print("Polls are MyGetInput calls, so this reaches modals; `input` does not.");
+        Console_Print("Polls are keyboard samples, not frames, so this reaches modals; `input` does not.");
         return;
     }
     if (!strcasecmp(argv[1], "off")) {
@@ -2549,8 +2549,8 @@ void Console_RegisterAll(void) {
                               "timeline; fseq schedules it in rendered frames (to land an edge on a skip frame).");
     Console_RegisterCommandEx("key", cmd_key, "Hold a key down, including inside a modal",
                               "key <name|scancode> [polls] [delay] | key off",
-                              "Holds a raw scancode in TabKeys for N input polls (one per "
-                              "MyGetInput), so unlike `input` it reaches menus, dialogue and the "
+                              "Holds a raw scancode in TabKeys for N input polls, so unlike "
+                              "`input` it reaches menus, dialogue and the "
                               "choice list. Names: esc menus enter space action up down left right "
                               "pad-start pad-a pad-b pad-x pad-y. Use [delay] to land a press "
                               "inside a modal that has not opened yet: a menu masks whatever was "
