@@ -636,8 +636,10 @@ it kept moving is that a tick-0 difference in a compared field looks like a comp
 every distance until someone reads the writer.
 
 **The camera is not the only cause of that tick-0 mismatch, and the other one is the membership
-rule's.** `FlagBlackPal` differs 0 against 1 at tick 0 in **all nine** of those recordings, follow
-camera or not, and it is mixed into the digest. The two `FollowCamera=0` sessions report `first hash
+rule's.** `FlagBlackPal` differs 0 against 1 at tick 0 in **seven of the nine** recordings, follow
+camera or not, and it is mixed into the digest. The two exceptions are the two Linux files, which
+already carry `blackpal=1` -- predicted offline from their recorded keyframes and then confirmed by
+replaying all nine *(measured elsewhere)*. The two `FollowCamera=0` sessions report `first hash
 mismatch 0` with no camera divergence anywhere in them: that is `FlagBlackPal` on its own
 *(measured elsewhere)*. So a fix to the camera path would leave every one of those nine still
 reporting a tick-0 mismatch, and anyone measuring the camera fix by that string would read no
@@ -737,6 +739,14 @@ simulation reads, **one of three has to be true**:
 The defect is state in none of the three, and the five globals are in none of the three. So are the
 cursor positions. So are the save slots on disk.
 
+**Two more members turned up by applying the rule rather than by reading for it.** `FollowCamera` is
+a configuration setting that the digest mixes and the replay never installs, so it is reported in
+the mode diff and compared anyway -- a settings key wearing category 1's clothes. And the digest
+version itself: the setter accepts any value, so a recording declaring a version this build does not
+know silently hashes the version-2 set and reports a divergence, where the honest answer is a
+refusal naming the version *(measured elsewhere)*. That second one is the entry-condition argument
+turning up inside the digest's own plumbing, and it is the cheapest of all of these to fix.
+
 Category 2 is not hypothetical and does not need designing: **`bindings.digest` is already it.** The
 format hashes the keyboard and gamepad tables precisely because they live outside the savegame, the
 replay installs them for its duration and hands the player's own back on the way out. The shape of
@@ -749,6 +759,22 @@ header is strictly better than a contributor having to discover it and write it 
 simulation, which is a question with an answer rather than a judgement call. That is the whole point
 of having the rule: a field added to category 1 that the savegame does not carry becomes a bug in
 exactly one of the two, and someone has to say which.
+
+**Asked properly, the answer is category 2, and it is not close.** The Life-script interpreter reads
+`GameChoice` as a conditional ([GERELIFE.CPP:238](../../SOURCES/GERELIFE.CPP#L238), `case
+LF_CHOICE`), so a stale value takes a different script branch and moves actor state. The track
+interpreter reads `FlagFade` ([GERETRAK.CPP:229](../../SOURCES/GERETRAK.CPP#L229)) to decide whether
+the fade runs at all, and that fade pumps the clock, so a stale value changes how many steps get
+minted; `FlagBlackPal` gates the same thing at
+[AMBIANCE.CPP:541](../../SOURCES/AMBIANCE.CPP#L541). And `SAVEGAME.CPP` mentions none of the five,
+anywhere. So they reach the simulation and no savegame restores them: **the file has to carry them
+and the replay has to install them**, on the `bindings.digest` shape.
+
+Which retires the tempting cheap fix. Dropping them out of the hash would remove a false divergence
+by removing the oracle's ability to see a real one -- a stale `GameChoice` would then take a
+different branch in silence. Worth measuring as a ceiling on what membership alone can buy, worth
+shipping never. **The rule earned itself here**: the same question that exposed the defect also
+refused the wrong repair, and neither reading was available to anyone arguing from taste.
 
 It also gives the refactor-oracle use what it needs, which is a category-1 set that is *complete* --
 the excluded extras, projectiles and sound state named as open question 3 in the research doc become
