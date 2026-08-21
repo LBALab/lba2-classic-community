@@ -123,6 +123,12 @@ Concretely, the other shapes, from this engine:
   `--fixed-dt 16`, or you are diffing noise. Verify by running the *same* binary twice before you
   compare two binaries.
 
+- **A scan that counts a construct without checking it is reached.** A sweep for loops that carry
+  their own clock source counted a present anywhere in the body, and a present sitting behind a
+  condition is not a clock source: one loop reaches its only redraw through a display call and a clip
+  test, so a fully clipped subject leaves it with no clock at all. The count is a floor from an
+  instrument known to miss, not a census, and a scan should say which of the two it is.
+
 - **A control that is silently a second arm.** An A/B over an env-gated branch set the control's
   variable to the empty string, and the gate read `getenv(...) ? 1 : 0`, so empty-but-set was on
   and both arms were the arm. Every surface failed in both, which reads as a far larger finding

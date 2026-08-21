@@ -469,6 +469,45 @@ recording shows 16.5 ms a tick, so game time is not globally inflated. Whatever 
 it is not a uniform speed-up. This headless walking scene has no modals, which is why the suite has
 never seen it either -- and is the argument for a fixture that opens one.
 
+### The repair mechanism is itself a perturbation, and its precondition is unstated
+
+The wait hook exists because a loop that waits on the clock without polling gets no fresh reading,
+so the recorder mints one for it. That is a repair, and it is the seventh entry the ledger above
+should have: **in a loop that does poll, the same repair does harm.** The reading is already fresh,
+the mint lands on top of it, and the recorder then sleeps out the real time for a step it invented.
+
+Measured on one pre-existing loose recording that crosses `ShowLogo`, 534,570 polls over 258 ticks:
+it replays clean in 8 seconds, and with the hook reached from polling waits it had not printed its
+first progress line after 60 seconds. That line prints every 20,000 polls, so fewer than 20,000
+against 534,570 *(measured elsewhere)*. Not a subtle desync; an existing recording becomes
+unreplayable, and it surfaces as a replay that appears to hang, naming nothing about the recorder.
+
+**The precondition is real and lives nowhere in the code.** `Record_WaitHook` is reached from exactly
+one place, `Timer_FixedDtPump`, and the pump reads as "call this in a wait loop". *This loop takes no
+input poll* is in neither the name nor the signature, only in the reasoning of a comment, so any
+later pump call in a polling loop reintroduces this silently. Splitting the pump into a
+minting-only form for waits that poll and a hook-driving form for waits that do not puts the
+precondition in the name, which is the only place it survives being read quickly.
+
+For a document about minimal impact on the session observed, this is the sharpest case available:
+**the observer's own repair mechanism perturbed the session harder than the fault it repaired.**
+
+### An overlay claim outlives a re-arm
+
+`Timer_EnableFixedDt` clears `FixedDtActive`, `FixedDtTicking` and `FixedDtSkipPresent` and leaves
+`FixedDtOverlayPresent` alone, while `Timer_DisableFixedDt`
+([TIMER.CPP:111](../../LIB386/SYSTEM/TIMER.CPP#L111)) clears all four. So an overlay claimed and
+never presented survives a re-arm and swallows the step of the first present after it: a tick of
+simulation time that does not happen and that nothing reports. The reachable route is a mid-session
+`rec start` with the console open, the console being the only caller that sets the flag.
+
+**The asymmetry between the two functions is the tell**, and it is worth more than the bug: the
+disable path already knew the flag needed clearing. This flag is also examined from the other end
+in this document and found safe there -- the console's own path always consumes it, because
+`BoxUpdate` calls `BoxBlit` unconditionally and the hook is `BoxBlit`'s first statement.
+That is a sound claim about one path and it is not a claim about the flag, which is exactly the
+distinction that let the re-arm case sit unnoticed underneath it.
+
 ## Giving the scheduler back
 
 The recorder pins the step because a recording has to be reproducible, and the explanation this
@@ -1308,7 +1347,12 @@ Ordered by what makes the next thing safe, not by size.
     surfaces driven twice each under the same arm -- inventory, holomap, holoplan, the main menu,
     options, display, config, the slideshow, a dialogue and found-object -- and only the inventory
     wedges. **One confirmed hang out of ten** *(measured elsewhere)*. Statically, 29 loops across `SOURCES` and `LIB386` contain both a present
-    and a read of `TimerRefHR` or `TimerSystemHR`, brace-matched to 400 lines and so a floor;
+    and a read of `TimerRefHR` or `TimerSystemHR`, brace-matched to 400 lines and a floor for a
+    second reason as well -- **a present under a condition is not a clock source, and the scan
+    counted one anyway**. `GameOver`'s zoom loop reaches its only `BoxUpdate` through a body-display
+    call and a clip test, so a fully clipped body leaves it with no clock at all, which is the same
+    defect as the wait below it that the scan did catch. Treat the numbers as a floor produced by an
+    instrument that is known to miss, not as a census;
     exactly one of them calls `Timer_FixedDtPump`, and of the other 28, eight have no input poll in
     the body either, which makes the clock their only exit condition
     ([CONFIG.CPP:833](../../SOURCES/CONFIG.CPP#L833) and :1157,
