@@ -191,8 +191,8 @@ the right patch for a design where a present is a tick. See
 The harness reached for the present as a tick source because the engine has no tick of its own to
 hook. The recorder then had to undo it: `Record_ClockHook`
 ([TIMER.CPP:268](../../LIB386/SYSTEM/TIMER.CPP#L268), called from `ManageTime` at line 273 and
-implemented at [RECORD.CPP:2292](../../SOURCES/RECORD.CPP#L2292)) latches one clock reading per
-frame ([RECORD.CPP:1390](../../SOURCES/RECORD.CPP#L1390)) so that every `ManageTime` call in a
+implemented at [RECORD.CPP:2448](../../SOURCES/RECORD.CPP#L2448)) latches one clock reading per
+frame ([RECORD.CPP:1419](../../SOURCES/RECORD.CPP#L1419)) so that every `ManageTime` call in a
 frame reads the same value. That latch is a per-frame tick, built inside the recorder, for want of
 one in the engine.
 
@@ -236,7 +236,7 @@ deletions cannot happen until every clock-terminated loop has a call of its own 
 clock with, and giving them one is step B. So the two are not consecutive: **the deletion half of
 step A is step B**, and the ordering below has them the wrong way round. The recorder's frame-clock
 latch is a third question again: `Record_ClockHook` returns before reading anything while the
-pinned clock is armed ([RECORD.CPP:2462](../../SOURCES/RECORD.CPP#L2462)), so it exists for the
+pinned clock is armed ([RECORD.CPP:2658](../../SOURCES/RECORD.CPP#L2658)), so it exists for the
 host-sampled clock, where an engine tick would give it a better place to latch than the input poll
 but would not retire it.
 

@@ -34,7 +34,7 @@ Direct callers of the four, complete:
 
 | Policy | Call sites |
 |---|---|
-| Advance | [CONTROL.CPP:1132](../../SOURCES/CONTROL.CPP#L1132) (recorder-armed), [:1144](../../SOURCES/CONTROL.CPP#L1144) (`--fixed-dt`) |
+| Advance | [CONTROL.CPP:1132](../../SOURCES/CONTROL.CPP#L1132) (recorder-armed), [:1150](../../SOURCES/CONTROL.CPP#L1150) (`--fixed-dt`) |
 | Present | [DIRTYBOX.CPP:403](../../LIB386/SVGA/DIRTYBOX.CPP#L403), inside `BoxBlit` |
 | Overlay | [INPUT.CPP:267](../../SOURCES/INPUT.CPP#L267), the console |
 | Pump | [AMBIANCE.CPP:549](../../SOURCES/AMBIANCE.CPP#L549), [:577](../../SOURCES/AMBIANCE.CPP#L577), [:602](../../SOURCES/AMBIANCE.CPP#L602), [:627](../../SOURCES/AMBIANCE.CPP#L627), [:659](../../SOURCES/AMBIANCE.CPP#L659), [:702](../../SOURCES/AMBIANCE.CPP#L702), [:741](../../SOURCES/AMBIANCE.CPP#L741); [MUSIC.CPP:439](../../SOURCES/MUSIC.CPP#L439), [:496](../../SOURCES/MUSIC.CPP#L496); [RES_SWITCH.CPP:720](../../SOURCES/RES_SWITCH.CPP#L720) |
@@ -118,7 +118,7 @@ A range cannot be searched for. Those two shapes can.
 
 ### What it costs a player
 
-Every recording arms pacing ([RECORD.CPP:1293](../../SOURCES/RECORD.CPP#L1293)), so during a
+Every recording arms pacing ([RECORD.CPP:1321](../../SOURCES/RECORD.CPP#L1321)), so during a
 recording each minted step is slept out in real time. Clean build of `main`, 300 ticks, N=3:
 
 | Run | Wall time (ms) | Delta | Predicted from mint count |
@@ -270,7 +270,7 @@ Five of the seven poll input every iteration, and for those the wait hook is not
 but harmful. The hook exists because a loop that never polls gets no new reading from the clock
 hook, there being no poll to take one at; a loop that polls gets one per iteration already. Minting
 a second step there ends the wait early, and `Record_WaitHook` sleeps out the real time for every
-step it mints ([RECORD.CPP:2515](../../SOURCES/RECORD.CPP#L2515)), in loops that run thousands of
+step it mints ([RECORD.CPP:2713](../../SOURCES/RECORD.CPP#L2713)), in loops that run thousands of
 iterations a second on a host clock.
 
 Measured on a loose-clock recording that crosses `ShowLogo`, 534,570 polls over 258 ticks, replayed
@@ -345,12 +345,12 @@ every tick-hook entry as a per-run baseline, puts them on the same tick:
 
 Both run it with the recorder's tick counter at 61 and both from `Control_TickHook`
 ([PERSO.CPP:583](../../SOURCES/PERSO.CPP#L583)). The recording runs it from `control_run_exec_at`,
-which is below `Timer_FixedDtAdvance` ([CONTROL.CPP:1149](../../SOURCES/CONTROL.CPP#L1149)); the
+which is below `Timer_FixedDtAdvance` ([CONTROL.CPP:1150](../../SOURCES/CONTROL.CPP#L1150)); the
 replay ran it from `Record_TickHook`, which is that function's first statement, above the advance.
 Running above the advance is exactly what puts the modal's presents under the previous tick number
 in the trace above, so the two readings are one fact from two sides. Absolute clock values compare
 only within a pair: `Timer_EnableFixedDt` seeds `FixedDtNow` from `TimerSystemHR`
-([TIMER.CPP:112](../../LIB386/SYSTEM/TIMER.CPP#L112)), so the seed moves per process.
+([TIMER.CPP:111](../../LIB386/SYSTEM/TIMER.CPP#L111)), so the seed moves per process.
 
 **Not every verb that works inline shows it**, which the sentence above invites. On the same shape,
 `teleport actor 1`, `varcube 0 7` and `behaviour 2` each replay clean over 301 ticks with the command
@@ -377,7 +377,7 @@ on every extra present, identically on both sides.
 Two limits on the claim. Every modal above is opened by a console verb, because a player-path modal
 cannot be driven headlessly: the inventory opens on `I_INVENTORY`, which `input` can supply, and
 closes on `MyKey == K_ESC`, which comes from `Key` and not from the `TabKeys` that `key` pokes
-([CONTROL.CPP:1338](../../SOURCES/CONTROL.CPP#L1338)). A player-opened modal has no console command
+([CONTROL.CPP:1350](../../SOURCES/CONTROL.CPP#L1350)). A player-opened modal has no console command
 behind it, and a hand-played session that opens the inventory, selects and uses an item does replay
 correctly, so the divergence above is a claim about the console entry path and not about modals.
 And the `slide` row exists only because that wait now terminates under a pinned clock; before, there
@@ -469,7 +469,7 @@ they matter:
    The ladder's ordering has the two the wrong way round.
 3. **The recorder's frame-clock latch is not step A's to retire either, and for a different
    reason.** `Record_ClockHook` returns before reading anything while the pinned clock is armed
-   ([RECORD.CPP:2462](../../SOURCES/RECORD.CPP#L2462)); it exists for the host-sampled clock, where
+   ([RECORD.CPP:2658](../../SOURCES/RECORD.CPP#L2658)); it exists for the host-sampled clock, where
    there is no tick to hook either. An engine tick would give it a better place to latch than the
    input poll, but the latch itself is what makes a loose replay possible and it does not go away.
    "Moves" rather than "retires".
