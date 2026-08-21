@@ -598,6 +598,39 @@ settles whether a divergence is a draw offset -- `rng.draws` in the digest -- wa
 independently on the loose-clock branch for a different question. A contributor named the symptom
 and the tooling for it already exists, unlanded.
 
+## One input channel is not sampled at all, and a replay stops on it
+
+Reported from a real replay rather than a harness: the inventory replays correctly, item use and
+selection included, and the session then **sits indefinitely on the save-name screen with the cursor
+blinking**. That is a complete argument from the source rather than a lead.
+
+`InputPlayerName` reads its characters from `GetAscii`
+([GAMEMENU.CPP:1251](../../SOURCES/GAMEMENU.CPP#L1251)), and `GetAscii`
+([KEYBOARD.CPP:108](../../LIB386/SYSTEM/KEYBOARD.CPP#L108)) reads `SDL_GetKeyboardState(NULL)`
+directly. The recorder samples the polled key table, and a replay injects `TabKeys`, `Key`, the pad
+axes, mouse motion and `Click` ([RECORD.CPP:1742](../../SOURCES/RECORD.CPP#L1742)). **SDL's keyboard
+array is in neither list.** So the loop's exit condition is a keystroke that can only come from a
+physically pressed key, the recording carries nothing about the name that was typed, and the replay
+waits for a key that will never arrive.
+
+Three things follow, and the third is the reason this sits above the sequencing rather than in it.
+
+- **It is not a divergence, it is a stall**, so no digest reports it and no exit code carries it.
+  The replay is not wrong about anything; it is waiting.
+- **It cannot be fixed by recording more of what is already sampled.** The channel is outside the
+  sampling point by construction, which makes it a question about where the recorder taps input
+  rather than about what it stores.
+- **The console has the mirror image of this same seam.** Keys typed at the console were recorded as
+  gameplay input until the recorder learned to mute while it is open, because the recorder samples
+  upstream of where `SOURCES/INPUT.CPP` clears them. One path put input into the file that the game
+  never saw; this one leaves input out of the file that the game did see. Both are the sampling
+  point being in the wrong place for a screen that reads input its own way.
+
+**And it bounds the modal finding in the sequencing below.** A player-opened inventory replays; a
+console-verb-opened one diverges at the first digest after it. Those are different claims about
+different entry paths, and the player-path evidence here is what keeps the second from being read as
+the first.
+
 ## Telemetry, and what it costs
 
 "Great telemetry" is the second principle, and the digest-plus-verbose design serves it well: a
@@ -1113,8 +1146,11 @@ Ordered by what makes the next thing safe, not by size.
    **Two limits keep the headline smaller than it wants to be.** Every modal above is opened by a
    console verb, because a player-path modal cannot be driven headlessly -- the inventory opens on
    an input the driver can supply and closes on `MyKey`, which the key-hold path does not reach --
-   so whether a *player-opened* modal diverges is untested, and the claim is that a recording which
-   opens a modal *through a console verb* does not replay. And the slide row exists only because a
+   so whether a *player-opened* modal diverges is untested by that harness. It is not untested in
+   the field: a player-opened inventory, item use and selection included, replays correctly, which
+   is reported above with the stall that follows it. The claim here is therefore about a recording
+   that opens a modal *through a console verb*, and it should not be read as a claim about playing
+   with the inventory. And the slide row exists only because a
    loose end of item 10 was fixed: that wait cannot terminate under a pinned clock on main, so there
    was nothing there to replay before, and the fix turned a hang into a divergence.
 
