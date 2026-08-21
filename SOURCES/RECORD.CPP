@@ -310,8 +310,22 @@ static S32 s_reloadDt = 0;
 static int s_recArmedDt = 0;
 static int s_pendingBaseline = 0;
 static int s_frameClockValid = 0;
+/* One step of held clock per iteration of a wait loop, and the run of them since the last
+   poll. 16 ms is the engine's nominal frame and the default --fixed-dt hands the very same
+   loops. Fixed rather than measured: see Record_WaitHook. */
+#define REC_WAIT_STEP_MS 16
+static U32 s_waitSteps = 0;
+static U32 s_waitAnchor = 0;
 static int s_hash32 = 0;    /* LBA2_REC_HASH32: store a 32-bit digest */
 static int s_hashEvery = 1; /* LBA2_REC_HASH_EVERY: hash one tick in N */
+
+/* Hold ManageTime at `src` until the next poll. A poll ends whatever run of wait steps
+   preceded it, so the two are set together. */
+static void record_hold_clock(U32 src) {
+    s_frameClock = src;
+    s_frameClockValid = 1;
+    s_waitSteps = 0;
+}
 
 /* ---- the binding table the recording was resolved through ----------------- */
 
@@ -1172,8 +1186,7 @@ static int record_begin(const char *path, int haveSnapshot) {
        run's first poll, and this changes nothing. After a mid-session reload it is one
        step, and that step was the whole of a 16 ms drift and a state mismatch at
        tick 1. */
-    s_frameClock = Timer_ClockSource();
-    s_frameClockValid = 1;
+    record_hold_clock(Timer_ClockSource());
     ManageTime();
     /* Telemetry is a diagnostic recording, several megabytes larger, made deliberately
        when a plain one has already said a tick and cannot say a field. Either way of
@@ -1430,8 +1443,7 @@ static void record_poll(void) {
     U32 delta = src - s_prevSrc;
     S32 mute;
     S32 key;
-    s_frameClock = src;
-    s_frameClockValid = 1;
+    record_hold_clock(src);
 
     /* Record what gameplay is about to be given, which is nothing while the console is
        open: SOURCES/INPUT.CPP clears keys, pad and mouse so typing cannot drive the hero.
@@ -2009,8 +2021,7 @@ static int replay_poll(void) {
 
     /* The clock this frame runs on, from the file. */
     s_replaySrc += s_prevSrcDelta;
-    s_frameClock = s_replaySrc;
-    s_frameClockValid = 1;
+    record_hold_clock(s_replaySrc);
     if (s_pendingBaseline) {
         s_pendingBaseline = 0;
         SetTimerHR(s_baseline);
@@ -2382,6 +2393,48 @@ void Record_ClockHook(U32 *now) {
         return;
     if (s_frameClockValid)
         *now = s_frameClock;
+}
+
+/* The hold above lasts until the next input poll, and a loop that waits on the clock
+   without polling therefore reads one value for as long as it runs. `FadeToPalAndSamples`
+   (SOURCES/AMBIANCE.CPP) ends when that value has moved FADE_DELAY, so under the hold it
+   never ends: the run spins at a full core, presenting a frame an iteration, until
+   something kills it. Mint a step here and the loop ends, one iteration per step, exactly
+   as it does under `--fixed-dt` -- which is where the shape comes from, and why the
+   pinned clock has never had this problem.
+
+   A FIXED step rather than the real time that has passed, and that is the whole of why
+   this reproduces. Real elapsed time makes the iteration count a property of the machine,
+   and although the fade itself is transparent -- these loops sit inside SaveTimer /
+   RestoreTimer, so TimerRefHR is rewound whatever the loop did to it -- the last reading
+   the loop leaves behind is not. ManageTime banks the next delta against it, so a fade
+   that ran 3 ms longer on one end than the other puts 3 ms into the game clock afterwards,
+   which is enough to plan one more simulation sub-step. Measured before the step was
+   fixed: `sim.carry` 16 ms apart and `obj[2].X` 32 units apart at the first tick after a
+   scene change, seven replays in ten. With a fixed step both ends run the same number of
+   iterations and leave the same reading, and the difference is not there to bank.
+
+   Paid for in real time, because a step minted is a step the run has not spent. Without
+   that a recorded fade would end in the time it takes to render thirteen frames rather
+   than in FADE_DELAY, which is the too-fast transitions the pinned clock is paced to
+   avoid, arriving by the other road. Recording and replay alike: a wait costs what it represents either way, and the
+   few hundred milliseconds a replay spends on a fade buy the same fade a player saw. */
+void Record_WaitHook(void) {
+    /* Under a generated clock the engine mints the step itself, which is the whole of
+       why these loops terminate there today. */
+    if (Timer_FixedDtActive())
+        return;
+    if (!s_frameClockValid)
+        return;
+
+    /* Anchored on the first step of the run rather than on the poll before it: the frame's
+       own work sits in between, and charging the wait for that would make it sleep less
+       than the time it is minting. */
+    if (!s_waitSteps)
+        s_waitAnchor = Timer_ClockSource();
+    s_waitSteps++;
+    s_frameClock += REC_WAIT_STEP_MS;
+    Timer_SleepUntil(s_waitAnchor + s_waitSteps * REC_WAIT_STEP_MS);
 }
 
 void Record_TickHook(void) {

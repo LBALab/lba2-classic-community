@@ -232,11 +232,22 @@ void Timer_FixedDtPresent() {
     }
 }
 
+/* Session recording: a loop that waits on the clock without polling input gets no new
+   reading from the clock hook below, because there is no poll to take one at. Weak, so
+   libsys.a still links without the recorder. */
+void Record_WaitHook(void);
+__attribute__((weak)) void Record_WaitHook(void) {}
+
+/* A wait that ends on the clock and does not poll input. The caller has nothing to do but
+   let time pass, so whatever is minting time for this run has to mint it here: the step
+   below under --fixed-dt, and the wait hook under a clock the recorder is holding. A run
+   with neither reads the host clock directly and needs nothing from this. */
 void Timer_FixedDtPump() {
     // No free first step: a non-presenting wait loop owns every iteration's time.
     if (FixedDtActive && FixedDtTicking) {
         FixedDtStep();
     }
+    Record_WaitHook();
 }
 
 S32 Timer_FixedDtActive() {
