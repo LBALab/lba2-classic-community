@@ -1228,6 +1228,16 @@ Ordered by what makes the next thing safe, not by size.
     a claim about `--load` rather than about recording generally, and the from-boot rate is the open
     item those figures can be misread as having closed.
 
+    **Carry the framing with the figure, because the figure alone invites the wrong reading.** The
+    two forms are inverted in the trace, which is ordering rather than inference: on `--load` the
+    seed hook fires before the recorder has read anything, and from boot the first `ChangeCube`
+    happens with the recording already being replayed, header read, bindings installed and the clock
+    fed from the file *(measured elsewhere)*. So the from-boot 1 of 8 is a divergence on the path
+    where **the recorder is already in full control**: everything it installs is installed, and the
+    two ends still part. That makes it the same shape as the replay-disagreement column rather than
+    a weaker version of the seed case -- something outside the file is moving, which is a bounded
+    search -- and it is a strictly different open item from the one #637 closed.
+
 Items 2 and 7 landed in #625 while this was being written and are struck through rather than
 removed, so the ordering argument stays readable. Of what is left, items 1, 3, 4, 5, 8 and 9 are
 small and independent. Item 6's pacing half merged as #630 while this was being written; its oracle
