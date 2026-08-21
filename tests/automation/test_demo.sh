@@ -38,15 +38,36 @@ ctl --exec "cube $DEMO_CUBE" --demo --tick $TICKS --fixed-dt 16 --dump-state "$c
     || fail "demo tick $TICKS rerun: non-zero exit ($?)"
 
 # Determinism: the two $TICKS runs must agree on all simulation state including timer_ref_hr.
-# Drop only fps (wall-clock-derived) and the console log (run-specific).
+#
+# Dropped are the fields no two runs can agree on: fps and the two clock readings are
+# taken from the host, and the console log carries paths and boot timings. Everything
+# else is compared, which is the point -- timer_ref_hr is in the comparison and is the
+# field that says the simulation advanced the same way twice.
+#
+# The drop list is the part of this arm that ages. It is a list of what a dump holds
+# that is run-specific, written when the dump held fewer fields, and --dump-state has
+# gained fields since: wall_ms and clock_src_ms arrived together and the arm went red
+# on every run without either the engine or the arm changing. `clock_src_ms` is not
+# obviously wall-clock at a glance, which is what made it hard to see -- under a pinned
+# step it reads FixedDtNow, which Timer_EnableFixedDt seeds from TimerSystemHR
+# (LIB386/SYSTEM/TIMER.CPP), so it is host-derived after all. A field added to the dump
+# has to be classified here as well as there, and if it cannot be, the diff is what
+# says so.
 python3 - "$b" "$c" <<'PY' || fail "scripted playthrough not reproducible (runs differ)"
 import json, sys
 def norm(p):
     d = json.load(open(p))
-    for k in ("fps", "log"):
+    for k in ("fps", "log", "wall_ms", "clock_src_ms"):
         d.pop(k, None)
     return d
-sys.exit(0 if norm(sys.argv[1]) == norm(sys.argv[2]) else 1)
+a, b = norm(sys.argv[1]), norm(sys.argv[2])
+if a != b:
+    # Name the fields rather than the verdict: "runs differ" sent two readers into the
+    # engine looking for a regression that was a stale drop list.
+    for k in sorted(set(a) | set(b)):
+        if a.get(k) != b.get(k):
+            print("differs: %s  %r vs %r" % (k, a.get(k), b.get(k)), file=sys.stderr)
+    sys.exit(1)
 PY
 
 # Liveness: the simulation advanced between tick 1 and tick $TICKS (scripts ran, not frozen).
