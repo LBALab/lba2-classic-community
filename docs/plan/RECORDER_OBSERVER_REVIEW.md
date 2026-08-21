@@ -942,15 +942,26 @@ to drift. That part is right, and the caps discussed above are the part that is 
 Telemetry is opt-in, armed by `--record-telemetry` or `rec start verbose`. A branch that made it the
 default
 was built, measured and then parked, and **the reason it was parked is the best argument in this
-review for the caps being a real defect rather than a nuisance.** Telemetry is 2787 bytes a tick
-against roughly 101, and writing it costs 0.10 ms of CPU a tick -- figures in
-[RECORDING.md](../RECORDING.md) rather than in anyone's transcript, since #621. Cite them with their
-basis, **668 values a tick**, and not by the byte count alone. That is the second value of each in
-two days: the digest gained fields in #625 and the bytes went 2319 to 2787 with them, re-measured
-rather than scaled. So the value count is what tells a reader which regime a figure is from, and the
-byte count is the part that ages. The per-tick cost is flat however long the session runs, so this
-is a transfer problem rather than a perturbation one -- and transfer is what the
-attach-it-to-a-bug-report use depends on.
+review for the caps being a real defect rather than a nuisance.** Telemetry runs to a couple of
+kilobytes a tick against a baseline of roughly 101 bytes, and writing it costs about 0.10 ms of CPU
+a tick.
+
+**Any single figure for that is a figure about one scene, which is worth getting right because this
+document has quoted two of them as constants.** The count is written per tick -- `u32 tick, u16
+count, count * s32` -- and the digest mixes per-actor fields, so a cube with more actors in it is a
+longer tick. Read out of seven telemetry recordings, the per-record count ranges **434 to 733**, and
+a single file takes up to five distinct values as the player moves between cubes
+*(measured elsewhere)*. At four bytes a value plus a six-byte record head that is **1742 to 2938
+bytes a tick**. A transcript showing 668 values is an honest record of what one run printed in one
+scene; it becomes wrong only when it is lifted out and cited as the format's width, which is what
+happened here twice.
+
+So the rule this review kept stating -- cite the byte count with its value count, because the value
+count says which regime the figure is from -- was half right and is worth correcting rather than
+quietly dropping. **The value count is not a constant either.** It is a property of the scene, and a
+per-tick cost quoted without the range it came from cannot be compared against another one. The
+per-tick cost is at least flat in session length, so this is a transfer problem rather than a
+perturbation one, and transfer is what the attach-it-to-a-bug-report use depends on.
 
 **The size of that problem was badly understated until this week, by a bug that happened to be the
 same order of magnitude as the thing it was hiding.** A real contributed session of 90,692 ticks is
@@ -965,17 +976,17 @@ Correct for it and the telemetry arithmetic changes character:
 | | Size | Multiple |
 |---|---|---|
 | As measured, telemetry off | 96.7 MB | -- |
-| As measured, telemetry on | ~307 MB | 3.17x |
+| As measured, telemetry on | ~255 to ~363 MB | 2.6x to 3.8x |
 | Analog fixed, telemetry off | ~7.3 MB | -- |
-| Analog fixed, telemetry on | ~260 MB | **35.6x** |
+| Analog fixed, telemetry on | ~165 to ~274 MB | **22x to 37x** |
 
-(The last row moved with the digest: 2787 bytes a tick over 90,692 ticks is ~253 MB of telemetry on
-top of a ~7.3 MB recording. At the previous 2319 it was 29.8x. Same conclusion, slightly worse, and
-a second illustration of why the byte count wants its value count beside it.)
+(The telemetry rows are ranges because the per-tick width is: 1742 to 2938 bytes over 90,692 ticks
+is 158 to 266 MB on top of the recording. A single scene's figure would give a tighter answer to a
+question nobody asked, since a half-hour session crosses many cubes.)
 
 So **fixing the stuck axis does not shrink the telemetry problem, it stops hiding it.** A 3x
-overhead is arguable; 30x on a file that would otherwise be 7 MB is not, and it is the honest number
-to hold the default against. Both fixes are worth having and the order matters only for the
+overhead is arguable; twenty to forty times on a file that would otherwise be 7 MB is not, and the
+range is what the default has to be held against. Both fixes are worth having and the order matters only for the
 arithmetic: nobody should size compression work, or conclude recordings are inherently large,
 against a 97 MB figure that is 89 MB of padding.
 
