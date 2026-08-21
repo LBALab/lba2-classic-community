@@ -208,21 +208,37 @@ fire edges). A command built per tick removes the class rather than the three in
 
 ## What each step would take
 
-Ordered by cost. The first three are the ones that carry no behavioural risk.
+Ordered by cost. B and C carry no behavioural risk; A was listed here as the third such step and
+is not one, which the note under it explains.
 
 | | Work | Cost | Changes behaviour |
 |---|---|---|---|
-| A | A tick the engine owns | small | no |
+| A | A tick the engine owns | not separable from B | deadlocks as stated |
 | B | One pump for the modal loops | medium | no |
 | C | Housekeeping out of `AffScene` | medium | no |
 | D | One input command per tick | medium to large | fixes bugs |
 | E | Gamestate tickers | large | yes |
 
-**A. A tick the engine owns.** One entry point advances the game clock; presents never do. That
-retires `Timer_FixedDtPresent`, `Timer_FixedDtOverlayPresent` and the recorder's frame-clock latch,
-and it is mostly a consolidation of machinery that already exists in
-[TIMER.CPP](../../LIB386/SYSTEM/TIMER.CPP). It ends the present-equals-tick class outright, which
-is the class the console double-clock came from.
+**A. A tick the engine owns.** One entry point advances the game clock; presents never do. It ends
+the present-equals-tick class outright, which is the class the console double-clock came from.
+
+The costing above was written before anyone tried it, and it is wrong on all three counts.
+[ENGINE_TICK_POLICY_SURVEY.md](ENGINE_TICK_POLICY_SURVEY.md) surveys the four policies that decide
+when to mint, and measures what happens when presents stop minting. **Presents that never mint
+deadlock the game**: `OpenInventory` waits for the game clock to move 300 ms with its own
+`BoxUpdate` as the only thing that moves it, and the end credits scroll on the same arrangement.
+Both run to a timeout where the control exits 0. So step A as stated is not a consolidation, it is
+a deadlock, and it is not behaviour-neutral.
+
+The consolidation half is already done: every millisecond the pinned clock hands out goes through
+`FixedDtStep` ([TIMER.CPP:184](../../LIB386/SYSTEM/TIMER.CPP#L184)), which #630 finished. The
+deletions cannot happen until every clock-terminated loop has a call of its own to advance the
+clock with, and giving them one is step B. So the two are not consecutive: **the deletion half of
+step A is step B**, and the ordering below has them the wrong way round. The recorder's frame-clock
+latch is a third question again: `Record_ClockHook` returns before reading anything while the
+pinned clock is armed ([RECORD.CPP:2462](../../SOURCES/RECORD.CPP#L2462)), so it exists for the
+host-sampled clock, where an engine tick would give it a better place to latch than the input poll
+but would not retire it.
 
 **B. One pump for the modal loops.** Replace the hand-rolled bodies with a shared call that pumps
 events, advances the clock by one tick, and presents. No control flow moves, no loop is unrolled,
@@ -285,6 +301,9 @@ prerequisite for anything here.
   rates differ.
 - [RECORDING_RESEARCH.md](RECORDING_RESEARCH.md): the per-tick input command, from the recorder's
   side.
+- [ENGINE_TICK_POLICY_SURVEY.md](ENGINE_TICK_POLICY_SURVEY.md): step A, surveyed and measured.
+  Whether the four mint policies collapse, what a present costs at each surface, and the two loops
+  that deadlock if presents stop minting.
 - [ENGINE_GAME_SEAM.md](../ENGINE_GAME_SEAM.md): the other axis of the same separation, engine
   against game rather than simulation against render.
 

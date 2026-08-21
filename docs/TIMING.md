@@ -202,7 +202,12 @@ When adding code that touches the timer, in rough order of how often you'll need
    need the game clock to actually move, and call `Timer_FixedDtPump`/`Timer_FixedDtPresent`
    alongside if the loop should also terminate under fixed-dt. The pump is what ends such a
    loop under a session recording too, which holds the clock at the last input poll: a wait
-   that does not poll and does not pump never ends there.
+   that does not poll and does not pump never ends there. **Which pump depends on whether the
+   loop polls.** `Timer_FixedDtPump` also drives the recorder's wait hook and is for a loop
+   that does not poll; a loop calling `MyGetInput` every iteration already gets a fresh
+   reading per iteration and wants `Timer_FixedDtPumpPolled`, which mints the fixed-dt step
+   and nothing else. Giving a polling wait the unpolled form makes it end early under a
+   recording and sleep 16 ms an iteration in a loop that runs thousands a second.
 4. **Adding a new modal/wait loop?** Mirror `SOURCES/MUSIC.CPP:312` (`PauseMusic`,
    fade-out): `SaveTimer()`, loop with `ManageTime()` + `Timer_FixedDtPump()`,
    `RestoreTimer()`.
@@ -221,5 +226,8 @@ When adding code that touches the timer, in rough order of how often you'll need
   virtual time source on `TimerSystemHR`.
 - [FIXED_DT_RESEARCH.md](plan/FIXED_DT_RESEARCH.md) — Phase 1 research mapping loop classes
   and inventorying every site that reads `TimerRefHR`/`TimerSystemHR`.
+- [ENGINE_TICK_POLICY_SURVEY.md](plan/ENGINE_TICK_POLICY_SURVEY.md) -- the four policies that
+  decide when the pinned clock mints, measured per modal surface, and the waits that have no
+  clock source without one.
 - `LIB386/SYSTEM/TIMER.CPP`, `LIB386/H/SYSTEM/TIMER.H` — source of truth for
   everything above.
