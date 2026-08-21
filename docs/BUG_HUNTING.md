@@ -129,6 +129,12 @@ Concretely, the other shapes, from this engine:
   check compares. Counting the files, or even counting the commands, says covered; only reading what
   they contain says otherwise.
 
+- **An absent value parsed as zero passes as a measurement.** A suite arm asserted that a refused
+  recording checked zero ticks. The parse found no summary line at all, the shell defaulted the
+  variable to 0, and the comparison succeeded -- while the replay behind it had checked 301 ticks
+  clean. Absence and zero are different answers and shells do not distinguish them. Assert that the
+  line was found before asserting what it says.
+
 - **Assert what the run produced, not that it finished.** A fixture for a screen that hangs a replay
   could have asserted termination, and would have passed on a binary that never reached the screen:
   the run ends cleanly, exits 0, and writes a save with a generated name instead of the typed one.
