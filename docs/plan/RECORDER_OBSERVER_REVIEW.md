@@ -633,6 +633,23 @@ Three things follow, and the third is the reason this sits above the sequencing 
   never saw; this one leaves input out of the file that the game did see. Both are the sampling
   point being in the wrong place for a screen that reads input its own way.
 
+**The fix is the tap, not a second channel.** The tempting answer is a console verb per UI action --
+proceed the logo, select a menu row, dismiss a dialogue -- so a recording carries intents. Most of
+that is already carried: menus read the `Input` bits and `MyKey`, `MyKey` is `Key`
+([INPUT.CPP:223](../../SOURCES/INPUT.CPP#L223)), and a replay restores `Key` along with the key
+table, the pad and the mouse. Logo, menu and dialogue navigation all read through the tap already.
+Exactly one screen reads around it, and routing that screen through the tap closes the stall and the
+`GetAscii` accessibility limitation the source already carries a note about, in one change instead
+of a verb family.
+
+**The rule underneath decides the next case as well as this one.**
+Input the player gave the *game* belongs in the file as input; input the player gave the *console*
+belongs in it as a command. A command is the player's intent and is correct to replay as intent. A
+menu keystroke is not an intent, it is what happened, and replaying it as "select the third row"
+would quietly do something else the day the menu gains a row -- which is precisely the property a
+recording exists to not have. Verbs are the right tool for *driving* the game, in tests and
+repro cases, and the wrong tool for *recording* it.
+
 **And it bounds the modal finding in the sequencing below.** A player-opened inventory replays; a
 console-verb-opened one diverges at the first digest after it. Those are different claims about
 different entry paths, and the player-path evidence here is what keeps the second from being read as
