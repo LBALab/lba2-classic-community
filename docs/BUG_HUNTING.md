@@ -129,6 +129,16 @@ Concretely, the other shapes, from this engine:
   check compares. Counting the files, or even counting the commands, says covered; only reading what
   they contain says otherwise.
 
+- **A normalising comparison is only as good as its drop list, and a drop list ages.** A fixture
+  diffed two dumps of one binary after removing the fields it knew were run-specific. The dump later
+  gained two diagnostic fields -- a wall-clock reading and the clock source -- which cannot agree
+  between two processes by construction, and the arm went red. Neither the engine nor the arm had
+  changed: the thing being normalised grew, and the arm's idea of run-specific was written before
+  the growth. It reads as a regression in whatever the dump is about, and a bisect lands on the
+  commit that added the fields, which is as confident and as wrong as it sounds. **When an arm that
+  compares says "they differ", the first question is which keys differ, not which commit did it** --
+  the drop list is usually three lines above the comparison.
+
 - **A two-run self-diff has exactly one failure mode, and that is both its strength and its limit.**
   An arm that runs one binary twice and diffs the two dumps cannot be fooled by a stale expectation
   -- a change that legitimately altered the behaviour moves both runs identically and leaves the
@@ -144,7 +154,7 @@ Concretely, the other shapes, from this engine:
 
 - **A recorded pass is not a current pass.** A suite writes its result to a file, and that file is
   often the only record that the suite ever passes at all. One said 72 passed and 0 failed, and was
-  days old; a regression had landed behind it, and every reader who checked the file rather than the
+  days old; the suite had gone red behind it, and every reader who checked the file rather than the
   suite came away reassured. The file even said "only the passes are evidence" -- correctly, and
   about a run that was no longer the tree. A stored result answers *did it pass then*; the question
   is always *does it pass now*. Date the record, and treat a red arm nobody owns as the thing that
