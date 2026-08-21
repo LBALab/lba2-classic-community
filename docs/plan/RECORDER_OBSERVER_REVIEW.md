@@ -732,9 +732,20 @@ simulation reads, **one of three has to be true**:
 
 | | Where it lives | Behaviour |
 |---|---|---|
-| 1 | The savegame carries it | Hashed and compared. A mismatch is a divergence |
+| 1 | **A load restores it** | Hashed and compared. A mismatch is a divergence |
 | 2 | The file carries it separately, and the replay installs it | Hashed and compared |
 | 3 | It genuinely does not reach the simulation | Recorded and reported, never compared |
+
+**Category 1 is "a load restores it" and not "the savegame carries it", and the difference is not
+pedantry.** `Island`, `CubeMode`, `NbObjets` and `NbZones` appear in no savegame and are not defects:
+the cube's own data file supplies them on load ([DISKFUNC.CPP:77](../../SOURCES/DISKFUNC.CPP#L77)
+onwards). Read the narrower way, four legitimate fields become findings. The test also has to be the
+load and not a name search, because the save writes the hero's object as a whole struct rather than
+field by field ([SAVEGAME.CPP:1729](../../SOURCES/SAVEGAME.CPP#L1729) sizes it from
+`sizeof(T_OBJ_3D)`), so grepping for `Obj.Alpha` finds nothing and clears a carried field for the
+wrong reason. **Both errors point the same way -- a name-grep over `SAVEGAME.CPP` is not the
+instrument** -- and they point in opposite directions, one manufacturing defects and one hiding
+them.
 
 The defect is state in none of the three, and the five globals are in none of the three. So are the
 cursor positions. So are the save slots on disk.
@@ -779,6 +790,41 @@ refused the wrong repair, and neither reading was available to anyone arguing fr
 It also gives the refactor-oracle use what it needs, which is a category-1 set that is *complete* --
 the excluded extras, projectiles and sound state named as open question 3 in the research doc become
 candidates to test against a rule instead of a matter of taste.
+
+### The rule prototyped, and what building it settled
+
+Built on a branch and measured, the rule becomes four declared classes -- **restored by a load**,
+**carried by the file and installed by the replay**, **loose**, meaning nothing establishes it so it
+is collected and never compared, and **probe**, meaning not simulation state at all. Making the
+class a required argument at the point where a field is hashed is the whole mechanism: a field
+cannot be added without answering the question, which is what nothing enforced before.
+
+Three results are worth carrying whatever happens to the branch.
+
+- **The class-2 repair works and costs 78 bytes once per file.** The fixture replays clean with all
+  five globals still compared, and the install was validated by breaking it in both directions:
+  rewriting the carried value makes tick 0 fail naming the field, and deleting one line makes the
+  all-or-nothing install refuse by name *(measured elsewhere)*.
+- **The cheap version helps nobody.** Dropping the five out of the hash clears the fixture and then
+  changes nothing at all on real files: all nine replay to output identical to the baseline, line
+  for line. So the ceiling on what membership alone can buy, on this corpus, is zero -- which is a
+  stronger reason not to ship it than the argument from blinding the oracle, and it was only
+  available by building it.
+- **Repairing a field is not a membership change.** A field moved from wrongly-uncarried to properly
+  carried was already hashed and still is, so the digest version does not move; the recording gains
+  a line the older reader ignores. That distinction is what keeps a fix like this from invalidating
+  every recording on disk, against an instinct that says bump.
+
+The versioning answer the prototype settles: **refuse politely upward, support every known version
+downward**, validated by rewriting a file's declared digest version to one no build knows.
+
+**And the work found two false alarms in the reporting rather than in the digest.** The report
+printed uncompared fields under a `state differs` heading, so `rng.draws` -- deliberately reported
+and never hashed -- has been reading as a divergence since it was added. Separately, within an hour
+of there being two tables, the digest table and the keyframe table disagreed about the same five
+fields, and the report said the digest was not comparing a field it was comparing. **That is the
+argument for one table rather than a declaration at each site, demonstrated by accidentally
+introducing the drift it predicts.**
 
 `Control_StateDigest` is already a general primitive with three consumers (`--dump-state`, the
 socket, the recorder). The membership rule is the piece it is missing, and every consumer gets it.

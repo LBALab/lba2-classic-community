@@ -359,6 +359,10 @@ that file. Pointed at a sample output it would compare key sets and catch a fiel
 removed without the doc following. Better still, generate the sample from a real run rather than
 writing it by hand, so the derivation is the check.
 
+**And a gate can only see what the repository knows about.** The documentation checkers enumerate
+their inputs with `git ls-files`, so a new document that has not been added is skipped in silence
+and reads as passing. Check a new file is tracked before believing a green checker about it.
+
 **Values are not.** A `--dump-state` sample once printed `clock_src_ms` equal to `timer_ref_hr` when
 the two read 4792 and 4,272,829. The field was right, the test was right, CI was green, and only the
 example was wrong. A plausible integer beside another plausible integer is checkable against
