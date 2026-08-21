@@ -33,6 +33,12 @@ void Record_SeedHook(U32 *seed);
 /* Control_TickHook(): one state hash per tick, the recording's own oracle. */
 void Record_TickHook(void);
 
+/* Control_TickHook() again, further down: run the commands a replay has read off the
+   stream. Its own seam because reading one and running it are two different points in
+   the frame -- the reader meets a command where the record before it left off, and the
+   session ran it after that tick's step was minted, beside --exec-at. */
+void Record_ExecHook(void);
+
 /* `verbose` records the telemetry --record-telemetry asks for: every value the digest
    mixes, every tick, so a divergence names the field rather than only the tick. It costs
    a few kilobytes a tick, so it belongs to the session that asked for it rather than to
