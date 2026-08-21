@@ -1129,28 +1129,48 @@ Ordered by what makes the next thing safe, not by size.
    modal one step ahead of the recording.** A tick number is a place to look; a field and a delta
    are a lead.
 
-   **The cause is not known, and two readings that look right are dead.** It is not the `ui` capture
-   verbs, though they save a PNG and `MenuInventory` carries a capture-only budget extension: a
-   `slide` is not a capture verb and behaves identically. And it is not the missing `SaveTimer`
-   bracket, which is a genuine asymmetry worth knowing about on its own -- `MenuInventory` is
-   entered bracketed from the player path and unbracketed from the console, and its own
-   `RestoreTimer` is a no-op behind `if (CmptMemoTimerRef)`, so the console path keeps the modal's
-   minted time where the player path discards it -- because the slide command *does* bracket its
-   modal and diverges just the same *(measured elsewhere)*.
+   **The cause is command scheduling in the recorder, and it is not a clock problem at all.** A
+   trace of the modal's mints against the tick counter puts the modal at tick 60 on the recording
+   side and tick 59 on the replay side: **a console command replays one tick out of position**, and
+   everything downstream -- the carry, the actor timers, the positions -- is that one tick
+   *(measured elsewhere)*. The two entry points are different points in the frame. While recording,
+   a command runs from `Control_TickHook` ([PERSO.CPP:585](../../SOURCES/PERSO.CPP#L585)), before
+   that tick's input poll. While replaying, it runs from the stream reader inside the poll
+   ([RECORD.CPP:2622](../../SOURCES/RECORD.CPP#L2622)).
 
-   **Why the fade is clean is the lead worth following.** The fade mints 14 extra steps in a tick
-   and reproduces; the inventory mints 63 and does not; the slide mints a couple of hundred and does
-   not. So the discriminator is not how much clock a modal makes. The fade is the one that reaches
-   its steps through `Timer_FixedDtPump`, and the others reach theirs through the present.
+   **The control is what proves it rather than merely agreeing with it.** The same trace on the
+   clean `cube 154` session puts the fade's mints at tick 61 on *both* sides. So the question was
+   never "why does the modal shift" but "why does the fade not", and the answer names the cause:
+   `cube` sets `NewCube`, whose work happens at the top of the next main-loop iteration
+   ([PERSO.CPP:525](../../SOURCES/PERSO.CPP#L525)), so a command arriving a tick early is
+   re-synchronised to a tick boundary before it does anything. **A verb that does its work inline is
+   not.** The modals are only how this becomes visible, because they are the commands that do enough
+   work inside one tick to move the digest.
+
+   Which changes what to build. **The arm is not a modal fixture**; any inline-working verb at any
+   tick should show it, and that is far cheaper to drive and far easier to read. It also kills a lead
+   that reads well and points nowhere: that the fade differs because it reaches its steps through
+   `Timer_FixedDtPump` while the others reach theirs through the present. That is a real difference
+   on the wrong axis. The fade differs in *when its work happens*, not in how its clock moves.
+
+   Two earlier readings died before this one, both plausible and both cheap to reach. It is not the
+   `ui` capture verbs, though they save a PNG and `MenuInventory` carries a capture-only budget
+   extension: a `slide` is not a capture verb and behaves identically. And it is not the missing
+   `SaveTimer` bracket, which is a genuine asymmetry worth knowing about on its own -- `MenuInventory`
+   is entered bracketed from the player path and unbracketed from the console, and its own
+   `RestoreTimer` is a no-op behind `if (CmptMemoTimerRef)` -- because the slide command *does*
+   bracket its modal and diverges just the same *(measured elsewhere)*.
+
+   **The mechanism made a prediction and the field confirmed it.** A player-opened modal has no
+   console command behind it, so on this mechanism it should be immune; a player-opened inventory,
+   item use and selection included, replays correctly. A mechanism that predicts an independent
+   observation is worth more than the trace alone.
 
    **Two limits keep the headline smaller than it wants to be.** Every modal above is opened by a
    console verb, because a player-path modal cannot be driven headlessly -- the inventory opens on
    an input the driver can supply and closes on `MyKey`, which the key-hold path does not reach --
-   so whether a *player-opened* modal diverges is untested by that harness. It is not untested in
-   the field: a player-opened inventory, item use and selection included, replays correctly, which
-   is reported above with the stall that follows it. The claim here is therefore about a recording
-   that opens a modal *through a console verb*, and it should not be read as a claim about playing
-   with the inventory. And the slide row exists only because a
+   so nothing here is a claim about playing with the inventory: it is a claim about a recording that
+   opens a modal *through a console verb*, which is also what the mechanism above says it is. And the slide row exists only because a
    loose end of item 10 was fixed: that wait cannot terminate under a pinned clock on main, so there
    was nothing there to replay before, and the fix turned a hang into a divergence.
 
@@ -1418,10 +1438,19 @@ Ordered by what makes the next thing safe, not by size.
     complete argument from the source plus a test of the shape is worth more than a driven
     reproduction here**, because the surface is unreachable by every driver the project has.
 
+12. **Run a replayed command where the recording ran it.** The cause found under item 6, and the
+    smallest statement of the fix: a command executes from `Control_TickHook` while recording and
+    from the stream reader inside the poll while replaying, so it lands a tick early on the replay
+    and any verb that does its work inline does that work in the wrong tick. The fix is a position
+    in the frame, not a clock change, and the arm that proves it is any inline-working verb rather
+    than a modal. Worth doing before item 6's oracle half, because a consistency field would
+    otherwise be measuring this.
+
 Items 2 and 7 landed in #625 while this was being written and are struck through rather than
 removed, so the ordering argument stays readable. Of what is left, items 1, 3, 4, 5, 8 and 9 are
 small and independent. Item 6's pacing half merged as #630 while this was being written; its oracle
-half is still open and is the part that makes a modal replay mean anything. Item 10 is the one this
+half is still open, and **item 12 comes first**, because a consistency field added before the
+command position is fixed would spend its bytes measuring that. Item 10 is the one this
 review was slowest to arrive at and least sure of the scope of -- read it together with 6, since 6
 built the part of 10 that is already done. **Item 11 bounds a campaign rather than a feature**, and is
 claimed with a fix measured and one question outstanding.
