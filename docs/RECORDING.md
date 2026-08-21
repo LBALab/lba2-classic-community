@@ -223,6 +223,38 @@ measured headless, 1.00x real time before a recording and 3.12x after one. `rec 
 of a replay hand it back, and a run given `--fixed-dt` keeps its own: that step belongs to the
 whole run and to whoever asked for it.
 
+### A screen that reads input its own way wrote nothing at all
+
+The wait loops above end on the clock. One screen ends on a keystroke and polls for it in its own
+way, and that is a different failure with the same shape. `InputPlayerName`
+([SOURCES/GAMEMENU.CPP](../SOURCES/GAMEMENU.CPP)) presents a frame and asks `GetAscii` for a
+character, and never calls `MyGetInput`. `Record_PollHook` hangs off `UpdateKeyboardState`, so for
+as long as that screen was open **the recording carried no polls whatsoever** -- not the typing,
+not the frames, nothing. A replay reaching it had nothing to hand back and waited there forever,
+and no digest reported it, because a replay that is waiting is not a replay that is wrong.
+
+`GetAscii` takes the poll now, so the screen is in the stream like any other. The general form is
+worth more than the case: **a loop that takes no input and advances no tick is invisible to the
+recorder in both directions** -- a replay cannot inject into it, and a command staged for it has
+neither a poll nor a tick to run at. Finding one means finding a screen with no seam in it, and the
+fix is to give it the seam rather than to teach the recorder about the screen.
+
+**What it reproduces is the keys, not the characters.** The poll record carries `Key`, a scancode,
+and `GetAscii` resolves it through the *replaying* machine's keymap. So a name typed as `azerty` on
+a French layout replays as `qwerty` on a US one: same keys, different file on disk, and a
+`PlayerName` the recording did not end with. That is consistent with the rest of the format --
+scancodes throughout, and the binding tables carried so a replay is not tied to the cfg it was made
+under -- but the keymap is not one of the tables carried, so it is the layout that decides. A
+recording replayed on the layout it was made on is unaffected, which is every same-machine replay
+and most others. Carrying the resolved character alongside the scancode is what would close it, and
+that is a format change rather than a read-path one.
+
+What it costs is small and was measured rather than assumed. Between two recordings differing only
+in how long they sit on that screen, 1500 extra polls cost **1810 bytes over 23.97s of wall clock**
+-- 1.21 bytes a poll at 62.6 polls a second, so about **4.5 KB per minute** spent there, against a
+paced 16 ms step. A session that never opens the screen is unchanged: 201 polls and 18,625 bytes
+either way, byte-identical counts.
+
 ## Holding a recorded session to real time
 
 A pinned clock hands out its step from three places, not one: the tick advance, an extra present

@@ -258,6 +258,13 @@ Console output is mirrored to stdout, so any command's output is readable from a
   Run with `--verbose` and the last line before the hang names the modal
   (`[control] modal: Dial(...)`), which is faster than reaching for a debugger. Those markers
   go to **stderr**, not `adeline.log`.
+- **The typed save-name screen has to be asked for.** `ChoosePlayerName` offers text entry
+  only when the last input came from a physical keyboard, and only a real SDL key event sets
+  that, so a `--headless` run never has it and a replay has it only if whoever is watching
+  happened to press something. Without it the run neither hangs nor complains: it takes the
+  other branch, names the slot after the date and time, and writes a save under a name nothing
+  asked for. Set `input_keyboard 1` before the key that opens the screen, and say in the
+  fixture that you are forcing the branch rather than reaching it.
 - **`--exec` fires on the first tick, which races a scene change.** A `cube` change applies
   on the *next* frame, so `--exec "cube 154; teleport actor 3"` runs the teleport in the
   **old** cube and the pending change then resets the hero to the new cube's spawn. Nothing

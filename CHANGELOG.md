@@ -56,6 +56,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Replaying a recorded session stopped on the save-name screen and never went
+  further, cursor blinking. That screen read its characters straight from the
+  keyboard hardware instead of from the input the rest of the game reads, so
+  nothing a replay handed back could reach it, and the recording carried nothing
+  about what had been typed there either. It reads the same input as everything
+  else now, so the keys reach it and the screen is in the recording. The cheat
+  codes typed at the pause menu came off the same reader and were equally out of
+  reach; they work in a replay too. Whether a replay reaches that screen at all
+  is a separate matter still open: the save menu offers typing only when the last
+  input came from a keyboard, and no recording carries that.
 - Linux and Windows played the same game differently. Every random number came
   from libc `rand()`, which is a different algorithm with a different range on
   each platform, and one shared stream feeds rain, ambient sound, animated

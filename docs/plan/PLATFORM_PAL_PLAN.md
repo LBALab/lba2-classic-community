@@ -236,11 +236,12 @@ default `SOUND_BACKEND=null`.)
   `HandleEventsTimer/Mouse/Keyboard/Joystick/Touch/Video/Window`. It also already has a
   function-pointer interception hook `s_eventFilter` (`EVENTS.CPP:37,74`, used by the debug
   console).
-- **Three direct state-poll sites** (outside the event pump, all in the system layer, not
-  game code): `UpdateKeyboardState()` and `GetAscii()` call `SDL_GetKeyboardState`
-  (`LIB386/SYSTEM/KEYBOARD.CPP:44–46, 74–75`); `UpdateJoystick()` calls
-  `SDL_GetGamepadButton/Axis` (`SOURCES/JOYSTICK.CPP:304–339`). Game code never calls SDL
-  input directly.
+- **Two direct state-poll sites** (outside the event pump, both in the system layer, not
+  game code): `UpdateKeyboardState()` calls `SDL_GetKeyboardState`
+  (`LIB386/SYSTEM/KEYBOARD.CPP`); `UpdateJoystick()` calls
+  `SDL_GetGamepadButton/Axis` (`SOURCES/JOYSTICK.CPP:304–339`). `GetAscii()` was a third
+  and is not: it takes `UpdateKeyboardState`'s own sample, so the seam has one keyboard read
+  behind it rather than two that have to agree. Game code never calls SDL input directly.
 - **The central input datum is `TabKeys[]`**: a bit-packed key-state array
   (`LIB386/SYSTEM/KEYBOARD.CPP:21`), indexed via `KeyIndex()/KeyBit()` (`:15–16`).
   `CheckKey()`/`GetInput()` read it. Keyboard constants **are SDL scancodes**:

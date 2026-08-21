@@ -2332,7 +2332,7 @@ static void cmd_key(int argc, const char *argv[]) {
         Console_Print("Usage: key <name|scancode> [polls] [delay] | key off");
         Console_Print("Names: esc menus enter space action up down left right");
         Console_Print("       pad-start pad-a pad-b pad-x pad-y (or a raw scancode)");
-        Console_Print("Polls are MyGetInput calls, so this reaches modals; `input` does not.");
+        Console_Print("Polls are keyboard samples, not frames, so this reaches modals; `input` does not.");
         return;
     }
     if (!strcasecmp(argv[1], "off")) {
@@ -2549,8 +2549,8 @@ void Console_RegisterAll(void) {
                               "timeline; fseq schedules it in rendered frames (to land an edge on a skip frame).");
     Console_RegisterCommandEx("key", cmd_key, "Hold a key down, including inside a modal",
                               "key <name|scancode> [polls] [delay] | key off",
-                              "Holds a raw scancode in TabKeys for N input polls (one per "
-                              "MyGetInput), so unlike `input` it reaches menus, dialogue and the "
+                              "Holds a raw scancode in TabKeys for N input polls, so unlike "
+                              "`input` it reaches menus, dialogue and the "
                               "choice list. Names: esc menus enter space action up down left right "
                               "pad-start pad-a pad-b pad-x pad-y. Use [delay] to land a press "
                               "inside a modal that has not opened yet: a menu masks whatever was "
@@ -2579,6 +2579,13 @@ void Console_RegisterAll(void) {
        a hero taking damage plays the hit animation over whatever the fixture came
        to watch. */
     Console_RegisterCvar("godmode", &GodMode, CONSOLE_CVAR_BOOL, "Hero takes no damage");
+
+    /* Which device the last input came from, which the save menu reads to decide
+       between typing a name and synthesising one (ChoosePlayerName, GAMEMENU.CPP).
+       Only a real key event sets it, so neither branch is reachable from a driven
+       run without saying which one is under test. */
+    Console_RegisterCvar("input_keyboard", &LastInputWasKeyboard, CONSOLE_CVAR_BOOL,
+                         "Last input came from a physical keyboard");
 
     /* Camera tuning (see docs/CONTROLLER.md). No clamp on set, so values can be
      * pushed past the official ranges while tuning; cfg load clamps and changes

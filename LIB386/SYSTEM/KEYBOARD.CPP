@@ -105,23 +105,41 @@ void EndKeyboard() {
 }
 
 // --- Interface ---------------------------------------------------------------
+/* The character behind this poll's first held key, once per press.
+ *
+ * Takes the poll rather than reading SDL again: `Key` is the same first-held
+ * scancode, off the same array, scanned in the same order, so a player at a
+ * keyboard is answered exactly as before. What changes is everything that puts
+ * a key there without a device. Whatever writes `Key` reaches the screens that
+ * read characters, and a replayed recording and the control harness both do --
+ * which is what a reader of its own made unreachable. Not every injector does:
+ * the touch overlay writes TabKeys and leaves `Key` alone, and a pad button
+ * never becomes a scancode at all, so those two still cannot type.
+ *
+ * The poll is why this calls UpdateKeyboardState and not just ManageEvents.
+ * The name-entry screen runs a frame of its own -- it presents, it waits, and
+ * it never calls MyGetInput -- so `Key` would hold whatever the last poll
+ * outside it left, for as long as it ran. Polling here also gives that screen a
+ * place in the recorded poll stream, which it had none of before: a session
+ * sitting on it wrote nothing at all, and a replay had nothing to hand back.
+ *
+ * A held key still yields one character: the edge is remembered rather than
+ * read off the device, because a poll cannot tell a key held from a key struck
+ * again on the next frame. */
 S32 GetAscii() {
     static SDL_Keycode lastReturnedAscii = 0;
 
-    ManageEvents();
+    UpdateKeyboardState();
 
-    const bool *keystate = SDL_GetKeyboardState(NULL);
-    for (int keyIndex = 0; keyIndex < SDL_SCANCODE_COUNT; keyIndex++) {
-        if (keystate[keyIndex]) {
-            SDL_Keycode asciiValue = SDL_GetKeyFromScancode((SDL_Scancode)keyIndex, SDL_KMOD_NONE, true);
+    if (Key) {
+        SDL_Keycode asciiValue = SDL_GetKeyFromScancode((SDL_Scancode)Key, SDL_KMOD_NONE, true);
 
-            if (lastReturnedAscii == asciiValue) {
-                return 0;
-            }
-
-            lastReturnedAscii = asciiValue;
-            return asciiValue;
+        if (lastReturnedAscii == asciiValue) {
+            return 0;
         }
+
+        lastReturnedAscii = asciiValue;
+        return asciiValue;
     }
 
     lastReturnedAscii = 0;
