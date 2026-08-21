@@ -154,6 +154,13 @@ All ten sites are bracketed, `MUSIC.CPP`'s two volume fades and `RES_SWITCH.CPP`
 so the rewind is not what separates them. What survives a rewind is `LastTime`, and nothing restores
 that: a rewind that puts back one of a pair of coupled variables is not a rewind.
 
+What the fixed step costs is frames, not duration. A recorded fade ramps in thirteen steps whatever
+the display can draw, where the same fade unrecorded ramps in as many as the frame rate allows,
+measured at 47 under the dummy video driver. The duration is unchanged, measured at 1.22s against a
+1.21s unrecorded control, and on a 60 Hz display the two counts are the same anyway. It is the trade
+`--fixed-dt` already makes for these loops, and it is the same shape as the pacing note above:
+the right duration, not the right frames.
+
 **This makes such a session recordable, and does not make it reproduce.** See the rate below: a
 loose recording reproduces some of the time whether or not it crosses a fade, and the wedge was
 hiding the scene-change half of that question rather than answering it.
