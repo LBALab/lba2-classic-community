@@ -386,6 +386,13 @@ merges moved three citations in one branch, one of them by 72 lines, and every o
 pointed at real code -- which is why nothing complained. The number is the part that rots; the text
 on the line is the part that means something.
 
+**A diff that does not touch a constant says nothing about that constant's value.** The base supplies
+it, and the base moves. A change was tested against a build whose format version was 13, and a merge
+underneath it took the version to 14 without altering a line of the change: the behaviour the test
+had measured -- an older build reading the file and complaining about five fields -- became an older
+build refusing the file outright. Nothing in the diff predicted that, and nothing in the diff was
+wrong. Test a claim about a constant by building the tree, not by reading the change.
+
 **A stale working copy announces itself as a modification, not as stale.** A long-lived worktree
 whose base moved reports every file the new base changed as modified, and the diff reads as somebody
 else's work reversed. That is indistinguishable at a glance from a clobber, and it invites reporting
