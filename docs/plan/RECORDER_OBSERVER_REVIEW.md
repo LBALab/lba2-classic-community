@@ -758,9 +758,25 @@ in `SAVEGAME.CPP` and nothing reads a `settings.` line back, so no load and no i
 it *(measured elsewhere)*: **it is the one field in the digest that no replay can be made to start
 from.** Writing the classes down does not decide it, and it should not be decided quietly -- the
 honest options are opposed. Declaring it uncompared is truthful and removes a value from the hash,
-which moves the digest version; carrying it is truthful and cheap and adds a sixth header key
-duplicating a `settings.` line the file already has, and changes what a replay does with the
-reader's own configuration. And the digest
+which moves the digest version; carrying it is truthful and adds a sixth header key duplicating a
+`settings.` line the file already has, which leaves someone to say which of the two wins.
+
+**And carrying it is not as cheap as the other five, because it is the only one with a file behind
+it.** The five are in-memory globals, so borrowing and returning them is a process-lifetime concern
+and nothing on disk knows they existed. `FollowCamera` has a configuration row
+([CONFIG_FILE.CPP:101](../../SOURCES/CONFIG_FILE.CPP#L101)) and the configuration is written back on
+the exit path ([BOOT_EXIT.CPP:248](../../SOURCES/BOOT_EXIT.CPP#L248)), so a replay that ends without
+restoring first -- a crash, a recorded `exit`, a tick budget running out -- writes the borrowed
+value into the player's own configuration and it persists into their next real game.
+
+**Which reframes the question, and the better frame is the general one: settings a replay touches
+should be ephemeral.** The precedent is in the tree and is the same one the membership rule already
+borrows from -- the binding tables are installed for the session's duration and handed back on the
+way out. A third option nobody has priced follows from it: rather than adding a `state.` key, make
+the `settings.` line the file already carries installable and ephemeral, which answers this field
+and every setting a replay is later shown to turn on. That is a piece of design work rather than a
+class choice, so **this field is deferred to it deliberately rather than left undecided by
+accident**. And the digest
 version itself: the setter accepts any value, so a recording declaring a version this build does not
 know silently hashes the version-2 set and reports a divergence, where the honest answer is a
 refusal naming the version *(measured elsewhere)*. That second one is the entry-condition argument
