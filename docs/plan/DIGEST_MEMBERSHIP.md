@@ -9,7 +9,7 @@ Comes out of the digest-membership finding in the recorder architecture review (
 named the defect class and proposed a three-way rule. Two parts of that proposal are wrong and
 this document says where, with the measurements that show it.
 
-Written against `5678c7ca`. Every line number below was read with `grep -n` and re-checked
+Written against `edce7663`. Every line number below was read with `grep -n` and re-checked
 after the diff this document describes.
 
 ## The short answer
