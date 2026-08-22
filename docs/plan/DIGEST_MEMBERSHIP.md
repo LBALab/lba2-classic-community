@@ -189,7 +189,7 @@ Cost: **78 bytes, once per file**, against a header of about 1.6 KB and a savega
 ## Two more members, found by applying the rule
 
 **`FollowCamera` is a cfg setting inside the hash.**
-[CONTROL.CPP:1843](../../SOURCES/CONTROL.CPP#L1843) mixes it;
+[CONTROL.CPP:1859](../../SOURCES/CONTROL.CPP#L1859) mixes it;
 [CONFIG_FILE.CPP:101](../../SOURCES/CONFIG_FILE.CPP#L101) binds it to the `FollowCamera` key. The
 recording carries the value as a `settings.` line and the replay reports the difference without
 installing it, so the digest compares a value the replay was never given. It is the whole of the

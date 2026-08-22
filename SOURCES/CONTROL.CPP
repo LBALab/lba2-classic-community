@@ -1837,9 +1837,25 @@ unsigned long long Control_StateDigest(void) {
     /* A cfg setting, not game state: SOURCES/CONFIG_FILE.CPP binds it to the
        `FollowCamera` key. The recording carries it as a `settings.` header line and the
        replay reports the difference without installing it, so it is compared against a
-       value the replay has not been given. Left compared for now because the mode diff
-       names it, which is more than the loose globals below get; carrying and installing
-       it the way the binding tables are carried is what moves it to DIGEST_CARRIED. */
+       value the replay has not been given.
+
+       The class is untrue of this one field, and is left that way deliberately rather
+       than quietly: no load restores it, so DIGEST_SAVED claims something nothing does.
+       It is the counter-example to the rule the column exists to enforce, and it is named
+       here so that reading the column is still enough to know which fields are sound.
+
+       Both honest alternatives cost more than saying so. DIGEST_LOOSE takes a value out
+       of the hash, which is a membership change and moves CONTROL_DIGEST_VERSION, so
+       every recording made before it compares against a set that no longer exists.
+       DIGEST_CARRIED needs an install, and this is the only borrowed value with a file
+       behind it: the cfg row means the configuration is written back on the way out, so
+       an install without a guaranteed restore leaves a borrowed value in the player's
+       own configuration. The precedent for borrowing exists either way -- the binding
+       tables are installed for a replay's duration and handed back -- and there is a
+       third shape nobody has priced, which is to make the `settings.` line the file
+       already carries installable rather than adding a `state.` key beside it.
+
+       Issue #652 carries that design. Until it lands, the honest thing is the comment. */
     M(DIGEST_SAVED, FollowCamera);
     M(DIGEST_SAVED, VueCamera);
     M(DIGEST_SAVED, CameraZone);
