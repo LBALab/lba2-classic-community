@@ -145,6 +145,7 @@ overlay --------|                                      |
 | Two `GereArdoise` waits with no pump | the modal loops and the clock | #641 merged |
 | A command replayed a tick early | the console, the recorder and the main loop | #644 merged |
 | The save-name stall | input and the recorder, on a channel outside the tap | #646, repaired by #649 |
+| The device fact that gates it | the format and what it declares | to be carried |
 | The camera at tick 0 | save/load and `ChangeCube`'s two callers | #642 open |
 | Digest membership | the digest and what a load restores | open |
 | Three outcomes, two strings | the recorder and its own verdict | #643 merged |
@@ -966,6 +967,19 @@ Two consequences, and the second is worse than the stall.
   user-visible consequence attached, and it is the strongest argument in this document for stating
   the rule rather than leaving it implied.
 
+**This one is being carried**, which is the decision the second consequence earned. Both points
+above outlive it and are the reason it was found rather than the fact of it: a defect whose
+reproduction depends on whether the operator happened to touch a key is irreproducible for whoever
+receives the report, and that is a property of the missing field rather than of the reporter; and
+nothing raised it, because a save slot is in none of the three categories, so the divergence exits
+clean. **The rule predicted which defects would be silent and this was one of them**, which is what
+a description does and an opinion does not.
+
+Carrying it does not close the class or even the section. The keymap sibling below is untouched by
+it, and the console seam is a different mechanism again. **One of the three members is closed by
+adding a field and the other two are not**, which is the evidence that the class is about what the
+format declares rather than about any single omission.
+
 This is a third shape alongside the two above, not a repeat of either. The console seam is input in
 the file the game never saw; the `GetAscii` seam is input the game saw and the file never carried;
 this is a **fact about the device** that the game reads and the file was never designed to hold.
@@ -979,7 +993,8 @@ and which nothing had ever tried to drive, works from an injector for the first 
 
 **What it did not close**, both carried above: the accessibility limitation, because touch writes
 `TabKeys` and never `Key` and a pad button never becomes a scancode at all; and
-`LastInputWasKeyboard`, which still decides whether a replay reaches the screen in the first place.
+`LastInputWasKeyboard`, which decides whether a replay reaches the screen in the first place and is
+to be carried in the file rather than left to the operator's keyboard.
 The source's own TODO now names which injectors reach the screen and which do not, which is the
 smallest useful form of that.
 
