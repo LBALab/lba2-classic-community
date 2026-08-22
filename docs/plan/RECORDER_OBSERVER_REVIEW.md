@@ -825,6 +825,15 @@ cannot be added without answering the question, which is what nothing enforced b
 
 Three results are worth carrying whatever happens to the branch.
 
+- **Installing them changes what the simulation does, which is the claim under the class.** On an
+  old-format file the replay's draw count differs from the recording's by 311 at tick 0 and matches
+  once the values are installed, reproduced twice, with the digest hash byte-identical either way
+  because the draw count is reported and never mixed *(measured elsewhere)*. The mechanism is
+  untested and one reading fits: `FadeToBlack` returns immediately when `FlagBlackPal` is set
+  ([AMBIANCE.CPP:539](../../SOURCES/AMBIANCE.CPP#L539)) and otherwise runs a loop that pumps the
+  clock, so a replay starting the flag wrong runs a fade the recording did not, mints steps for it,
+  and draws on them. The discriminator is cheap and the files to run it on already exist: the effect
+  should be absent on the two recordings that already carry the flag set.
 - **The class-2 repair works and costs 78 bytes once per file.** The fixture replays clean with all
   five globals still compared, and the install was validated by breaking it in both directions:
   rewriting the carried value makes tick 0 fail naming the field, and deleting one line makes the
