@@ -1291,6 +1291,49 @@ fades in. A field in none of the three categories, producing a false positive al
 in a report a reader has to separate by hand. That is the clearest single illustration of why the
 membership rule is worth having.
 
+## A reader cannot step over a record it does not know, and three items follow from that
+
+Every record is `[flags][payload]` with the payload's length implicit in its type: a poll's length
+is in its own flag bits, a tick record is a fixed size, and the keyframe, telemetry and command
+records each carry their count or length *inside* the payload, findable only by a reader that
+already knows the layout. **So a reader meeting an unknown type byte cannot find where that record
+ends.** Unrecognised does not mean skippable; it means lost, and recoverable only at the next sync
+marker up to 64 polls later.
+
+That is why the dispatch is a whitelist rather than a default case
+([RECORD.CPP:1779](../../SOURCES/RECORD.CPP#L1779)) and why its fallback is a resync rather than a
+step-over.
+
+**The file contains its own counter-example, with the reasoning already written down.** The snapshot
+chunk is framed `[op][len][payload][len][magic]`, and the comment beside it
+([:1821](../../SOURCES/RECORD.CPP#L1821)) says why that is better: "the length is right there, so
+skipping it costs nothing and keeps a reader that meets an unexpected chunk on the stream instead of
+hunting for the next sync marker 64 polls later". One record type is self-delimiting, for the one
+case where a torn write was the live risk, and the argument for generalising it is in the tree in
+the author's own words.
+
+Three things this document already carries separately are consequences of it:
+
+- **Adding a record type costs six sites** -- the whitelist and the step-over chain, which have to
+  agree and are not made to; two positional probes after the tick record; the tick hook's leading
+  scan; and `dump_recording.py`, a second implementation with its own copy of the table and no
+  compiler to notice it going stale.
+- **Missing one fails three ways, and one has happened.** The comment at
+  [:1862](../../SOURCES/RECORD.CPP#L1862) records `0x71` falling out of the chain into the poll
+  decoder, where `flags & 0x01` is true of it, so the chunk's length bytes were read as a count of
+  changed keys and the savegame behind them as the keys: "a replay pressing input the recording
+  never held".
+- **The sync markers exist because the reader can get lost**, which is the compensation pattern this
+  review names elsewhere, arriving in the format layer rather than in the clock.
+
+**What follows is narrower than the finding.** Giving every record the snapshot's framing is a
+strong format break, so it belongs at a version bump someone is making anyway rather than on its
+own. And the cost is unmeasured: a poll record is about a byte today, so a per-record length could
+be a material fraction of the file. **Nobody has that number**, and it should be got before the
+decision rather than after. The five-minute version, if the answer is not now, is writing the
+property down where the next person meets it, because it is nowhere in the tree and it is what makes
+someone design into a wall.
+
 ## Three clock facts worth keeping separate
 
 `TimerRefHR` is non-monotonic, and each time it has been measured the scale has grown. In a
