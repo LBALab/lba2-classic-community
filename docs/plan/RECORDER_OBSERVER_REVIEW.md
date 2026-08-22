@@ -753,7 +753,14 @@ cursor positions. So are the save slots on disk.
 
 **Two more members turned up by applying the rule rather than by reading for it.** `FollowCamera` is
 a configuration setting that the digest mixes and the replay never installs, so it is reported in
-the mode diff and compared anyway -- a settings key wearing category 1's clothes. And the digest
+the mode diff and compared anyway -- a settings key wearing category 1's clothes. It appears nowhere
+in `SAVEGAME.CPP` and nothing reads a `settings.` line back, so no load and no install establishes
+it *(measured elsewhere)*: **it is the one field in the digest that no replay can be made to start
+from.** Writing the classes down does not decide it, and it should not be decided quietly -- the
+honest options are opposed. Declaring it uncompared is truthful and removes a value from the hash,
+which moves the digest version; carrying it is truthful and cheap and adds a sixth header key
+duplicating a `settings.` line the file already has, and changes what a replay does with the
+reader's own configuration. And the digest
 version itself: the setter accepts any value, so a recording declaring a version this build does not
 know silently hashes the version-2 set and reports a divergence, where the honest answer is a
 refusal naming the version *(measured elsewhere)*. That second one is the entry-condition argument
