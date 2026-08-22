@@ -825,15 +825,16 @@ cannot be added without answering the question, which is what nothing enforced b
 
 Three results are worth carrying whatever happens to the branch.
 
-- **Installing them changes what the simulation does, which is the claim under the class.** On an
-  old-format file the replay's draw count differs from the recording's by 311 at tick 0 and matches
-  once the values are installed, reproduced twice, with the digest hash byte-identical either way
-  because the draw count is reported and never mixed *(measured elsewhere)*. The mechanism is
-  untested and one reading fits: `FadeToBlack` returns immediately when `FlagBlackPal` is set
-  ([AMBIANCE.CPP:539](../../SOURCES/AMBIANCE.CPP#L539)) and otherwise runs a loop that pumps the
-  clock, so a replay starting the flag wrong runs a fade the recording did not, mints steps for it,
-  and draws on them. The discriminator is cheap and the files to run it on already exist: the effect
-  should be absent on the two recordings that already carry the flag set.
+- **Splitting the report moves fields onto a new line, and that is a parsed contract.** The
+  uncompared fields now print under `also differs in N field(s) the digest does not compare` rather
+  than under `state differs`, so anything grepping the old heading silently stops seeing them. That
+  is not hypothetical: an independent test of the change read the absence of `rng.draws` from the
+  old heading as the value having changed, and reported a 311-draw difference that does not exist
+  *(retracted elsewhere)*. `rng.draws` is reported and never hashed
+  ([CONTROL.CPP:1854](../../SOURCES/CONTROL.CPP#L1854) uses the report-only macro), so no digest was
+  ever evidence about it in either direction. **A correct fix to an output moved a field a reader
+  was matching on, and the failure was silent** -- which is the parsed-output rule arriving inside
+  the change that makes the output honest.
 - **The class-2 repair works and costs 78 bytes once per file.** The fixture replays clean with all
   five globals still compared, and the install was validated by breaking it in both directions:
   rewriting the carried value makes tick 0 fail naming the field, and deleting one line makes the

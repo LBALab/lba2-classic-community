@@ -160,6 +160,13 @@ Concretely, the other shapes, from this engine:
   is always *does it pass now*. Date the record, and treat a red arm nobody owns as the thing that
   stops a suite being evidence.
 
+- **The absence of a line you know about is not evidence about a value you did not read.** A
+  reviewer grepped one heading, found a field missing from it, and reported the field's value as
+  changed. The change had moved that field to a second heading, where the original value was sitting
+  in the same log, unread. Two further legs of the finding were then built on it, including a
+  byte-identical hash cited as a constraint on a field the hash never covered. Read the value you are
+  about to report, from the line it is actually on.
+
 - **An absent value parsed as zero passes as a measurement.** A suite arm asserted that a refused
   recording checked zero ticks. The parse found no summary line at all, the shell defaulted the
   variable to 0, and the comparison succeeded -- while the replay behind it had checked 301 ticks
