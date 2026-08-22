@@ -56,6 +56,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Replaying a recorded session saved under a different name than the session
+  had typed. Whether the save menu offers a text field or names the slot after
+  the island and the date depends on which device the player last used, and that
+  was in no recording: a replay took whichever branch the keyboard in front of it
+  happened to select. A recording now carries the device, so a replay saves under
+  the name the session typed. Recordings made before this do not carry it and
+  replay as they did.
 - Replaying a recorded session stopped on the save-name screen and never went
   further, cursor blinking. That screen read its characters straight from the
   keyboard hardware instead of from the input the rest of the game reads, so
