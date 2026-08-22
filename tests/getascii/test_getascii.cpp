@@ -50,6 +50,16 @@ static void expect(S32 got, S32 want, const char *label) {
     }
 }
 
+/* What every caller does: take the sample, then read the character out of it.
+   InputPlayerName does exactly this per iteration; the menu loop's poll is
+   MyGetInput's. Split here rather than folded into GetAscii, because a reader
+   that takes its own poll consumes a recorded one wherever it is called, and
+   the callers already sit inside frames that poll. */
+static S32 pollThenGetAscii(void) {
+    ManageKeyboard();
+    return GetAscii();
+}
+
 static SDL_Keycode keycodeOf(U32 scancode) {
     return SDL_GetKeyFromScancode((SDL_Scancode)scancode, SDL_KMOD_NONE, true);
 }
@@ -73,13 +83,13 @@ int main() {
 
     // Nothing held: no character, and the sample says so too.
     g_injected = 0;
-    expect(GetAscii(), 0, "idle poll yields no character");
+    expect(pollThenGetAscii(), 0, "idle poll yields no character");
     expect(Key, 0, "idle poll leaves Key clear");
 
     // An injected key is a key. This is the whole change: before it, the answer
     // came from SDL and a run with no physical keyboard got 0 here forever.
     g_injected = kA;
-    expect(GetAscii(), (S32)keycodeOf(kA), "injected key yields its character");
+    expect(pollThenGetAscii(), (S32)keycodeOf(kA), "injected key yields its character");
 
     /* The poll ran rather than the answer coming from somewhere stale: the
        injected scancode is in this poll's table and in this poll's Key.
@@ -92,18 +102,18 @@ int main() {
 
     // Held, not struck again: one character per press.
     g_injected = kA;
-    expect(GetAscii(), 0, "a held key yields nothing further");
-    expect(GetAscii(), 0, "still nothing while it stays down");
+    expect(pollThenGetAscii(), 0, "a held key yields nothing further");
+    expect(pollThenGetAscii(), 0, "still nothing while it stays down");
 
     // A different key is a fresh press even with no gap between them.
     g_injected = kB;
-    expect(GetAscii(), (S32)keycodeOf(kB), "a different key yields its character");
+    expect(pollThenGetAscii(), (S32)keycodeOf(kB), "a different key yields its character");
 
     // Released and struck again: the edge is re-armed by the empty poll.
     g_injected = 0;
-    expect(GetAscii(), 0, "release yields nothing");
+    expect(pollThenGetAscii(), 0, "release yields nothing");
     g_injected = kA;
-    expect(GetAscii(), (S32)keycodeOf(kA), "the same key struck again yields its character");
+    expect(pollThenGetAscii(), (S32)keycodeOf(kA), "the same key struck again yields its character");
 
     /* Taking the poll must not put anything back that a caller upstream took
        away. SOURCES/INPUT.CPP clears Key, TabKeys and Input while the console is
@@ -117,15 +127,15 @@ int main() {
         DefineInputKeys(1, keys, masks);
 
         g_injected = 0;
-        GetAscii(); // re-arm the edge
+        pollThenGetAscii(); // re-arm the edge
         g_injected = kA;
 
         GetInput(0);
         expect((S32)Input, 1, "the funnel does turn that key into an action bit");
 
         Input = 0; // what MyGetInput does with the console open
-        GetAscii();
-        expect((S32)Input, 0, "GetAscii rebuilds no action bits");
+        pollThenGetAscii();
+        expect((S32)Input, 0, "reading a character rebuilds no action bits");
         expect(CheckKey(kA) ? 1 : 0, 1, "...though it does sample the key again");
 
         DefineInputKeys(0, NULL, NULL);
