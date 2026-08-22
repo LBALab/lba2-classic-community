@@ -30,9 +30,10 @@
  * nibble being full is only the first half.
  *
  * A record is [flags][payload] and nothing says how long the payload is. The poll's
- * length is in its own flag bits, a tick record is a fixed 16 bytes or 12, a marker 13,
- * and a keyframe, a telemetry block and a command each carry their count or length
- * *inside* the payload, where only a reader that already knows the layout can find it.
+ * length is in its own flag bits, a tick record's payload is a fixed 16 bytes or 12, a
+ * marker's 12, and a keyframe, a telemetry block and a command each carry their count or
+ * length *inside* the payload, where only a reader that already knows the layout can
+ * find it.
  * So a reader meeting a type it does not know cannot step past it: it does not know
  * where the record ends. Unrecognised means lost, not skippable, and the only recovery
  * is hunting for the next sync marker up to REC_SYNC_EVERY polls away. That is why the
@@ -224,6 +225,17 @@ extern "C" {
 
 /* Which device the player last used, as one byte behind the flags: 1 after a real
  * key-down, 0 after the mouse, the pad or the touch overlay.
+ *
+ * The type is named for the dimension; the payload answers one question of it, which is
+ * whether that device was a keyboard. The header says the same thing in the same words,
+ * `input.keyboard=`, and between them that is the whole of what is stored. "Not
+ * keyboard" is not a device: it is three of them, and nothing here tells them apart.
+ *
+ * The payload carries no count, so it cannot grow. A reader has no way to tell the one
+ * byte written today from the first byte of a wider record written later, which is the
+ * failure the keyframe's count exists to prevent and the reason nothing in this stream
+ * may be sized from the live build. So a later need to distinguish the mouse from the
+ * pad from the touch overlay wants a type of its own rather than more bytes here.
  *
  * It has to be carried rather than derived, and the stream looks for a moment as though
  * it already holds it. It does not. Touch pokes TabKeys directly, so a tap and a
