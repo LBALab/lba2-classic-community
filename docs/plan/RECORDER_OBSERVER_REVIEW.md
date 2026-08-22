@@ -144,7 +144,7 @@ overlay --------|                                      |
 | Presents-never-mint deadlocks | the modal loops and the clock | #641 merged |
 | Two `GereArdoise` waits with no pump | the modal loops and the clock | #641 merged |
 | A command replayed a tick early | the console, the recorder and the main loop | #644 merged |
-| The save-name stall | input and the recorder, on a channel outside the tap | `f9bca648` merged |
+| The save-name stall | input and the recorder, on a channel outside the tap | #646, repaired by #649 |
 | The camera at tick 0 | save/load and `ChangeCube`'s two callers | #642 open |
 | Digest membership | the digest and what a load restores | open |
 | Three outcomes, two strings | the recorder and its own verdict | #643 merged |
@@ -851,8 +851,8 @@ and the tooling for it already exists, unlanded.
 
 ## One input channel is not sampled at all, and a replay stops on it
 
-**Closed on main as `f9bca648`**, and the exact statement of what that shipped is below the
-mechanism, because it closes less than it looks like it closes.
+**Closed on main as `f9bca648`, repaired by `861e1201`**, and the exact statement of what that
+shipped is below the mechanism, because it closes less than it looks like it closes.
 
 Reported from a real replay rather than a harness: the inventory replays correctly, item use and
 selection included, and the session then **sits indefinitely on the save-name screen with the cursor
@@ -997,17 +997,27 @@ the poll record is not.** Routing that screen through the polled sample means ev
 same reader now takes a poll where it took none, and one of them -- cheat-code entry -- runs
 whenever a key is pressed in the in-game menu. During a replay a poll is a record consumed from the
 file, so a build that polls more often than the build that recorded can run past the end of what the
-file holds, in a session where the player did nothing unusual. Whether that reproduces on real
-recordings is being measured; the principle does not wait on the answer, because the reasoning that
-declined a format bump -- *a read path changes no field* -- is true and insufficient. **The stream's
-shape is a contract in its own right**, and this is the membership rule's sibling: the rule asks
-what state both ends must agree on, and this asks what the two ends must agree on about the
-*sequence*, which nothing declares either.
+file holds, in a session where the player did nothing unusual. **It reproduced.** One recording made
+before the change, replayed on both binaries, three runs each and deterministic: `first hash
+mismatch -1` with 0 ms of drift before, and `first hash mismatch 21` with 128 ms of drift at tick 21
+after *(measured elsewhere)*. Telemetry named it rather than leaving it to be inferred --
+`obj[0].LastTimer` 128 apart, and the same 128 on three other actors. The animation anchors, not the
+simulation: the menu closed sooner than it had live, fewer presents minted fewer steps, and every
+actor was stamped off the moved clock. Repaired by putting the poll at the screen that genuinely
+lacks one instead of in the shared reader.
 
-The instrument for it is the stream-drift field rather than the hash. A small over-consumption
-resynchronises at the next sync marker and may never reach a digest, so a run can carry drift and
-still report no mismatch -- which means a sweep that reads only the verdict would clear this and be
-wrong.
+So the reasoning that declined a format bump -- *a read path changes no field* -- is true and
+insufficient. **The stream's shape is a contract in its own right**, and this is the membership
+rule's sibling: the rule asks what state both ends must agree on, and this asks what they must agree
+on about the *sequence*, which nothing declares either.
+
+**And it hid from the field built to catch exactly this.** Both runs report `stream drift first at
+poll -1` and both end at poll 505, the file's own count: the sync markers are sparse,
+`replay_take_sync` resynchronises after reporting, and the stream is consumed whole either way. What
+moved was **how many polls fall between two ticks**, which nothing reports directly. The digest
+caught it and the drift counter did not, which is the reverse of what the instrument was named for
+-- so a sweep aimed at the drift field would have cleared this, and reading the verdict is what
+found it.
 
 **The rule underneath decides the next case as well as this one.**
 Input the player gave the *game* belongs in the file as input; input the player gave the *console*
