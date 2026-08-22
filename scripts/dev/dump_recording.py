@@ -12,6 +12,7 @@ divergence.
     scripts/dev/dump_recording.py session.rec cmds       # console commands only
     scripts/dev/dump_recording.py session.rec ticks      # tick, TimerRefHR, hash
     scripts/dev/dump_recording.py session.rec analog     # polls carrying mouse or stick
+    scripts/dev/dump_recording.py session.rec device     # where the input device changed
     scripts/dev/dump_recording.py session.rec clock      # what the game clock did, per tick
     scripts/dev/dump_recording.py session.rec tele       # the values the digest mixes
     scripts/dev/dump_recording.py session.rec tele-changing   # only the ones that ever move
@@ -143,6 +144,7 @@ def tele_name(names, k):
 REC_KEY = 0x50   # keyframe: u32 tick, u16 count (v12+), then count * s32
 REC_TELE = 0x51  # verbose telemetry: u32 tick, u16 count, then count * s32
 REC_CMD = 0x40   # console command: u32 tick, u16 len, then len bytes
+REC_DEVICE = 0x52  # input device changed: u8, the new LastInputWasKeyboard
 REC_SYNC = 0x60  # sync marker: u32 magic, u32 poll, u32 tick
 SYNC_MAGIC = 0x53594E43  # "SYNC"
 REC_SNAP_START = 0x70  # the savegame the session started from
@@ -189,6 +191,9 @@ def parse(path):
     # session, which every session is until the two devices can be driven headlessly.
     analog = []
     ticks, keys, cmds, teles = [], [], [], []
+    # (poll, value) each time LastInputWasKeyboard changed. The value the session
+    # started on is in the header, not here, so an empty list means it never moved.
+    devices = []
     held = None  # last analog tuple written, for the version >= 13 hold-last rule
     syncs = 0
     snaps = {}
@@ -200,7 +205,8 @@ def parse(path):
         got = read_chunk(data, p)
         if got is None:
             print("start snapshot at byte %d does not close; the rest is unreadable" % p)
-            return header, polls, ticks, keys, cmds, teles, syncs, snaps, analog
+            return (header, polls, ticks, keys, cmds, teles, syncs, snaps, analog,
+                    devices)
         snaps["start"] = got[1]
         p = got[2]
 
@@ -234,6 +240,9 @@ def parse(path):
                 vals = list(struct.unpack_from("<%di" % count, data, p))
                 p += 4 * count
                 teles.append((tick, vals))
+            elif flags == REC_DEVICE:
+                devices.append((polls, data[p]))
+                p += 1
             elif flags == REC_CMD:
                 tick, length = struct.unpack_from("<IH", data, p)
                 p += 6
@@ -294,7 +303,7 @@ def parse(path):
             print("truncated at byte %d" % start)
             break
 
-    return header, polls, ticks, keys, cmds, teles, syncs, snaps, analog
+    return header, polls, ticks, keys, cmds, teles, syncs, snaps, analog, devices
 
 
 def write_saves(path, snaps):
@@ -475,7 +484,8 @@ def main(argv):
         raise SystemExit(__doc__)
     path = argv[1]
     what = argv[2] if len(argv) > 2 else "all"
-    header, polls, ticks, keys, cmds, teles, syncs, snaps, analog = parse(path)
+    (header, polls, ticks, keys, cmds, teles, syncs, snaps, analog,
+     devices) = parse(path)
 
     if what == "saves":
         write_saves(path, snaps)
@@ -489,9 +499,9 @@ def main(argv):
     # wrote one on nearly every poll.
     wrote = sum(1 for a in analog if a[7])
     print("polls=%d ticks=%d keyframes=%d telemetry=%d cmds=%d syncs=%d analog=%d "
-          "analog_held=%d"
+          "analog_held=%d devices=%d"
           % (polls, len(ticks), len(keys), len(teles), len(cmds), syncs, wrote,
-             len(analog) - wrote))
+             len(analog) - wrote, len(devices)))
     # No end snapshot means the session did not stop cleanly, which is worth saying
     # rather than leaving to be noticed.
     print("savegames: start %s, end %s"
@@ -499,6 +509,14 @@ def main(argv):
                   for k in ("start", "end")))
     if teles:
         print("verbose telemetry: %d values a tick" % len(teles[0][1]))
+
+    if what in ("all", "device"):
+        # The value the session started on is the header's `input.keyboard=`, so a file
+        # with no lines here is one where the device never changed, not one that says
+        # nothing about it.
+        for poll, value in devices:
+            print("  device @poll %d: %s"
+                  % (poll, "keyboard" if value else "not keyboard"))
 
     if what in ("all", "cmds"):
         for tick, line in cmds:

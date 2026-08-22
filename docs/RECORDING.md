@@ -279,6 +279,41 @@ in how long they sit on that screen, 1500 extra polls cost **1810 bytes over 23.
 paced 16 ms step. A session that never opens the screen is unchanged: 201 polls and 18,625 bytes
 either way, byte-identical counts.
 
+### Which device the player was on is carried, and older recordings do not have it
+
+Reaching that screen at all depends on a fact that is in none of the input the recorder captures.
+`ChoosePlayerName` ([SOURCES/GAMEMENU.CPP](../SOURCES/GAMEMENU.CPP)) offers a text field when
+`LastInputWasKeyboard` is set and an `<island> - <datetime>` stem when it is not, and that flag is
+maintained from SDL key, mouse, pad and touch events rather than from anything a poll record holds.
+A replay of a session that typed a name therefore took whichever branch the *operator's* keyboard
+had last selected, and wrote a different save file when it took the other one -- silently, because
+a save slot is in none of the categories the per-tick digest hashes, so the run diverged and still
+exited 0.
+
+It cannot be reconstructed from the stream, which is worth saying because the stream looks for a
+moment as though it holds it. The touch overlay pokes `TabKeys` directly, so a tap and a keystroke
+are the same bytes in a poll record and the flag is the only thing that tells them apart -- which is
+the case it exists for. The mouse wheel and the left stick move it and appear in no poll. And a poll
+taken while the console is open records zeroes, though the keys typed into it still counted as
+keyboard. Deriving it would get the accessibility case exactly backwards.
+
+So the file carries it, in two halves:
+
+| | |
+|---|---|
+| `input.keyboard=` in the header | The value the session started on |
+| A `0x52` record in the stream | Each later change, at the poll it happened |
+
+Both are needed. The header alone freezes a session that flipped part-way; the records alone leave a
+session that never flipped carrying nothing at all, and a player who used the keyboard from boot to
+quit -- which is most of them -- never flips.
+
+**A recording made before the field existed does not carry it, and a replay of one leaves the flag
+to the live run exactly as it did before.** That is the pre-existing behaviour rather than a
+default: nothing in those files can recover the value, and driving them to a guess would silently
+change what every one of them does at that screen. In practice: an older recording of a typed save
+name still writes whatever branch the operator's keyboard selects, so re-record it if that matters.
+
 ## Holding a recorded session to real time
 
 A pinned clock hands out its step from three places, not one: the tick advance, an extra present
@@ -349,6 +384,7 @@ wrong.
 | An FNV-1a digest of simulation state, per tick | Scene, hero, camera, the other actors, the open modal, and all 336 script variables |
 | A keyframe of named state, every 32 ticks | The digest says *when* a replay stopped matching; this says *what* moved |
 | Every value the digest mixes, per tick, with `--record-telemetry` or `rec start verbose` | The keyframe names 23 fields. This names all of them, so a divergence in another actor or a script variable is named too |
+| Which device the player was last on | The save menu offers a text field to a keyboard and an auto-generated name to anything else, so a replay that does not know writes a differently named file |
 | The settings a replay is known to turn on | They are not in the save, and a config edited in between reads as the simulation diverging |
 | The mode the session ran in, audio included | Whether a sample driver came up decides what the simulation computes, and no save or config records it |
 
@@ -737,6 +773,7 @@ game is concerned.
 | `tests/record_format` | Header field lookup and binding round trips. Host test, no retail data, runs in CI |
 | `tests/automation/test_record_replay.sh` | A real engine records and replays, with and without a tick budget, and with verbose telemetry. Needs retail data, so it does not run in CI |
 | `tests/automation/test_record_analog.sh` | The mouse and the stick round trip: the file carries the input at the poll it happened, and beats a device moving under the replay. Needs retail data and the exterior corpus save |
+| `tests/automation/test_record_input_device.sh` | The device flag round trips in both halves, a control says the arm measures the flag rather than the screen, and a committed pre-field recording still does what it did. Needs retail data and a save fixture |
 
 The telemetry arm changes a game variable part-way through a replay and requires the report to name
 it. A reporter that printed nothing would pass a clean-replay check exactly like one that works, and

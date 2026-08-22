@@ -21,8 +21,48 @@
  *   bit3  clock delta changed:   u32
  * A poll where nothing changed is one byte.
  *
- * Two record types stand outside that encoding. 0x60 is a sync marker (see below), and
- * 0x50 is a keyframe: u32 tick, u16 count, then count * s32.
+ * Records that stand outside that encoding are told apart by the flags byte being
+ * above 0x0F. 0x60 is a sync marker (see below), 0x50 is a keyframe: u32 tick, u16
+ * count, then count * s32, and 0x52 is the input device: u8, the new value of
+ * LastInputWasKeyboard.
+ *
+ * What a new record type costs, because the shape of it is not obvious and the low
+ * nibble being full is only the first half.
+ *
+ * A record is [flags][payload] and nothing says how long the payload is. The poll's
+ * length is in its own flag bits, a tick record is a fixed 16 bytes or 12, a marker 13,
+ * and a keyframe, a telemetry block and a command each carry their count or length
+ * *inside* the payload, where only a reader that already knows the layout can find it.
+ * So a reader meeting a type it does not know cannot step past it: it does not know
+ * where the record ends. Unrecognised means lost, not skippable, and the only recovery
+ * is hunting for the next sync marker up to REC_SYNC_EVERY polls away. That is why the
+ * dispatch in replay_poll is a whitelist rather than a default-skip.
+ *
+ * The consequence is that adding a type means registering it in four places, and missing
+ * one fails a different way. The whitelist and the step-over chain in replay_poll are one
+ * reader split into recognise-then-skip: they must agree, nothing enforces it, and a type
+ * in the whitelist alone falls out of the chain and is decoded as a poll. The other two
+ * are in scripts/dev/dump_recording.py, a second implementation with its own copy of the
+ * table and no compiler to notice it is stale.
+ *
+ * A type in the chain alone is the one to watch, because it is not simply broken. The
+ * whitelist is tested before replay_take_sync runs and REC_SYNC is on it, so a marker
+ * passes and take_sync hands the chain the flags of the record *behind* it -- which never
+ * meets the whitelist at all. Such a type therefore works whenever it happens to follow a
+ * marker and loses the stream when it does not, at a rate set by REC_SYNC_EVERY. A test
+ * that writes one record has a one-in-64 chance of pinning the wrong answer, so a fixture
+ * for a new type wants records on both sides of a marker by construction. The two paths
+ * through this reader are chosen by byte position, not by content.
+ *
+ * The keyframe and telemetry probes on the tick path look like a fifth and sixth and are
+ * not: each reads one byte, matches its own type, and seeks back on anything else, so an
+ * unknown record makes both rewind and the next replay_poll steps over it.
+ *
+ * The snapshot chunks are the exception, and they are framed the way everything here
+ * could have been: [op][u32 len][payload][u32 len][magic], length on the outside, so a
+ * reader steps over one without knowing anything about it. Giving every record that
+ * frame is a strong break -- every recording that exists is in the old shape -- so it
+ * belongs to a version bump made for it rather than to one made for something else.
  *
  * The count is what keeps that record readable across builds, and it is not decoration.
  * A reader that sizes a keyframe by asking the *live* build how many fields it names is
@@ -70,6 +110,11 @@
 
 #include <SDL3/SDL_timer.h>
 
+/* Named here rather than taken from C_EXTERN.H, which this file does not include and
+   which would bring the DEFINES.H aggregation with it. Defined in
+   LIB386/SYSTEM/KEYBOARD.CPP; MOUSE.CPP and TOUCH_INPUT.CPP declare it the same way. */
+extern S32 LastInputWasKeyboard;
+
 #include <dirent.h> /* the recordings folder, for `rec play` with no argument */
 #include <float.h>  /* LDBL_MANT_DIG, one half of the numeric contract */
 #include <stdio.h>
@@ -83,13 +128,19 @@ extern "C" {
 /* ---- live state ---------------------------------------------------------- */
 
 #define REC_MAGIC "LBA2REC"
-#define REC_VERSION 13
+#define REC_VERSION 14
 
 /* The oldest format this build still reads. Every version since has only added record
    types the reader probes for and steps over, so an older recording reads the same as
    it always did -- and a recording of a session someone played once is worth more than
    the tidiness of a single supported version. A change that alters what an existing
    record *means* moves this up to REC_VERSION; a change that only adds one does not.
+
+   That is a claim about a new reader meeting an old file, and only that one. It reads
+   like forward compatibility and is not: the dispatch in replay_poll is a whitelist, so
+   an older build meeting a record type added after it was written does not step over it,
+   it loses its place and resyncs. What protects that build is the version refusal below,
+   which declines the file outright rather than replaying most of it.
 
    A change to what the engine *computes* is a third case, and it does not belong here
    either way: the format still means what it meant, and whether an old recording still
@@ -170,6 +221,30 @@ extern "C" {
  * CPU a tick, which is the loop that marshals the values rather than the write.
  */
 #define REC_TELE 0x51
+
+/* Which device the player last used, as one byte behind the flags: 1 after a real
+ * key-down, 0 after the mouse, the pad or the touch overlay.
+ *
+ * It has to be carried rather than derived, and the stream looks for a moment as though
+ * it already holds it. It does not. Touch pokes TabKeys directly, so a tap and a
+ * keystroke are the same bytes here and the flag is the only thing that tells them
+ * apart -- which is the case it exists for. The mouse wheel and the left stick move it
+ * and appear nowhere in a poll. And a poll taken while the console is open records
+ * zeroes, though the keys that were typed still counted as keyboard. Reconstructing it
+ * would get the accessibility case exactly backwards.
+ *
+ * Written when it changes, on top of a start value in the header, because both halves
+ * are load-bearing: the header alone freezes a session that flipped mid-way, and change
+ * records alone leave a session that never flipped -- a player who used the keyboard
+ * from boot to quit, which is most of them -- carrying nothing at all and replaying as
+ * the default. A session that never flips costs one header line and no stream bytes.
+ *
+ * What reads it is ChoosePlayerName (SOURCES/GAMEMENU.CPP), which offers a text field to
+ * a keyboard and an "<island> - <datetime>" stem to everything else. Without this a
+ * replay of a session that typed a save name takes the other branch and writes a
+ * different file, and nothing reports it: a save slot is in none of the categories the
+ * digest hashes, so the run diverges silently and still exits clean. */
+#define REC_DEVICE 0x52
 
 /* The savegames the file carries: the state the session started from, written once
  * between the header and the first record, and the state it finished at, appended when
@@ -257,6 +332,23 @@ static long s_pollsThisTick = 0;
 static S16 s_rsx = 0, s_rsy = 0;
 static U32 s_padFirst = 0;
 static S32 s_mdx = 0, s_mdy = 0, s_click = 0;
+/* The device the recording says the player was last on, and what the writer last wrote.
+   The replay side holds between records the way the key table does: nothing in a replay
+   generates the SDL events that maintain the live flag, so a value applied once would be
+   overwritten by whatever the operator did at the keyboard during playback.
+
+   -1 is a recording that does not say, which is every recording written before the
+   format carried it. Those are left to the live flag rather than driven to a default:
+   the file has nothing to recover the value from, and a replay that forced one would
+   silently change what the existing corpus does at the save-name screen, including the
+   recordings that reached it by setting the cvar from the console. */
+static S32 s_device = -1;
+static S32 s_prevDevice = 0;
+/* The live value from before a replay installed the recording's, and whether there is
+   one to put back. Same reasoning as the binding tables: a replay installs the file's
+   and the player gets theirs back when it stops. -1 is "nothing installed", so a stop
+   without a start puts nothing anywhere. */
+static S32 s_deviceSaved = -1;
 
 /* Replay verification. */
 static long s_clockMismatchPoll = -1;
@@ -590,6 +682,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          "numeric.long_double_bits=%d\n"
                          "mode.resolution=%ux%u\n"
                          "mode.language=%d\n"
+                         "input.keyboard=%d\n"
                          "setup.snapshot=%s\n"
                          "setup.reloaded=%d\n"
                          "setup.reload_clock=%u\n"
@@ -610,6 +703,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          (int)LDBL_MANT_DIG,
                          (unsigned)ModeDesiredX, (unsigned)ModeDesiredY,
                          (int)Language,
+                         LastInputWasKeyboard ? 1 : 0,
                          s_snapInline ? "(inline)" : path_leaf(s_snapshot),
                          s_reloaded, s_reloadClock,
                          (unsigned)TimerRefHR,
@@ -1278,6 +1372,12 @@ static int record_begin(const char *path, int haveSnapshot) {
     if (!write_mode_lines(mode, sizeof mode))
         fprintf(stderr, "[rec] header did not fit; the mode lines at the end of it are missing\n");
     fprintf(s_f, "%s %d\n%s", REC_MAGIC, REC_VERSION, mode);
+    /* Beside the line that wrote it, not with the other resets below. The header holds
+       the device the session started on and this holds what the writer last wrote, so
+       the first change record is the first change *after* the header -- and the two are
+       the same number only for as long as nothing between them can move the flag.
+       Nothing can today; keeping them adjacent is what makes that not need checking. */
+    s_prevDevice = LastInputWasKeyboard ? 1 : 0;
     {
         /* Their own lines rather than part of the mode block: they are payload a replay
            installs, not a mode a reader compares, and bindings.digest above is the
@@ -1555,6 +1655,16 @@ int Record_Stop(void) {
     s_snapInline = 0;
     s_recPath[0] = 0;
     bindings_restore();
+    /* The device the player was on before the replay borrowed the slot. Without this a
+       replay leaves the recording's answer behind and the save menu offers whichever
+       branch the file ended on -- measured: a recording ending on a keyboard leaves the
+       flag set 139 ticks after the stream ran out. Self-correcting on the next real
+       key or click, which is why it is untidiness rather than a defect, but `rec play`
+       says it puts your game back. */
+    if (s_deviceSaved >= 0) {
+        LastInputWasKeyboard = s_deviceSaved;
+        s_deviceSaved = -1;
+    }
     record_release_step();
     record_restore_player();
     return 1;
@@ -1625,6 +1735,23 @@ static void record_poll(void) {
     }
     if (delta != s_prevSrcDelta)
         flags |= 0x08;
+
+    /* Ahead of the poll's own flags byte, so the reader steps over it and has it in
+       hand for the poll it belongs to.
+
+       Not muted with the rest of the sample, unlike every value above. The mute exists
+       so a replay does not press what was typed at the console into the game; this
+       reaches no gameplay at all, and "the player is at a keyboard" is as true of a line
+       typed at the console as of one typed at the save menu. Muting it would drop the
+       flip on the session most likely to have one. */
+    {
+        S32 dev = LastInputWasKeyboard ? 1 : 0;
+        if (dev != s_prevDevice) {
+            s_prevDevice = dev;
+            put8(REC_DEVICE);
+            put8((U8)dev);
+        }
+    }
 
     put8(flags);
     if (flags & 0x01) {
@@ -1718,6 +1845,11 @@ static int mode_line_ignored(const char *line) {
            differing is the expected case; the `numeric.` lines are what decide whether
            the two platforms compute the same game. */
         "build.platform=",
+        /* The device the player was last on: installed like the seed above, and a live
+           run differs from the recording here whenever the operator has touched
+           anything -- which is every run that started its replay by typing at the
+           console. */
+        "input.keyboard=",
     };
     S32 i;
 
@@ -1953,6 +2085,14 @@ static void replay_inject(void) {
        replay must not reach the game. */
     SetMouseMotion(s_mdx, s_mdy);
     Click = s_click;
+    /* Re-applied every poll like the rest, and for the reason this function exists: a
+       key pressed at the machine running the replay still reaches the SDL event loop and
+       still sets this, so a value applied once at the header would be the operator's a
+       frame later. It decides which branch the save menu takes, so that is a replay
+       writing a differently named file depending on whether anyone touched the
+       keyboard while it ran. */
+    if (s_device >= 0)
+        LastInputWasKeyboard = s_device;
 }
 
 /* One poll that handed back the previous poll's input instead of reading the file.
@@ -2048,7 +2188,8 @@ static int replay_poll(void) {
         return 0;
     }
     if (flags > 0x0F && flags != REC_SYNC && flags != REC_KEY && flags != REC_TELE &&
-        flags != 0x40 && flags != REC_SNAP_START && !(flags & 0x80)) {
+        flags != REC_DEVICE && flags != 0x40 && flags != REC_SNAP_START &&
+        !(flags & 0x80)) {
         if (!replay_resync()) {
             s_eof = 1;
             return 0;
@@ -2087,6 +2228,11 @@ static int replay_poll(void) {
                 if (!get32(&tv))
                     return 0;
             }
+        } else if (flags == REC_DEVICE) {
+            U8 d;
+            if (!get8(&d))
+                return 0;
+            s_device = d ? 1 : 0;
         } else if (flags == REC_SNAP_START) {
             /* Not where one is written, and stepped over rather than resynced past all
                the same: the length is right there, so skipping it costs nothing and
@@ -2289,6 +2435,11 @@ static void replay_begin(void) {
     s_eof = 0;
     record_arm_atexit();
     bindings_install();
+    /* Taken here rather than where the header was read, so it pairs with the restore
+       below whichever way the replay ends -- and after the reload, which does not touch
+       the flag but is the last thing that could. */
+    if (s_device >= 0 && s_deviceSaved < 0)
+        s_deviceSaved = LastInputWasKeyboard ? 1 : 0;
     /* The recorded commands are executed through the console, and a run that never used
        --exec has never registered its table: every replayed command then dispatches to
        nothing, silently, and the replay diverges wherever the recording relied on one.
@@ -2433,6 +2584,16 @@ int Record_Play(const char *path) {
             s_baselineCarry = v;
         else
             s_baselineCarry = LastSimRefHR;
+        /* The device the session started on, before any record moves it. Absent in a
+           recording written before the line existed, and 0 is then a default rather than
+           a measurement: such a recording of a typed save name replays down the
+           auto-name branch and writes a differently named file. There is nothing in
+           those files to recover it from, so the replay leaves the flag to the live run
+           exactly as it did before the line existed, and docs/RECORDING.md names that as
+           their limit rather than this inventing a value for them. */
+        s_device = -1;
+        if (RecFmt_ReadInt(s_headerBuf, "input.keyboard=", &s_device))
+            s_device = s_device ? 1 : 0;
     }
 
     report_extent();
@@ -3207,7 +3368,15 @@ void Record_Report(const char *path) {
             char *p = hdr, *nl;
             while ((nl = strchr(p, '\n')) != NULL) {
                 *nl = 0;
-                if (p[0] && !line_present(live, p)) {
+                /* Shown with the rest of the header above, but not counted: a replay
+                   installs the device the player was on rather than matching it, so a
+                   live run differing here says nothing about whether the recording
+                   reproduces -- and it differs on every run whose operator has touched
+                   anything, which is most of them. This list is not the one
+                   mode_line_ignored keeps; that one filters what a starting replay
+                   warns about, and the two have never had the same contents. */
+                if (p[0] && strncmp(p, "input.keyboard=", 15) != 0 &&
+                    !line_present(live, p)) {
                     Console_Print("rec: MISMATCH %s", p);
                     diffs++;
                 }

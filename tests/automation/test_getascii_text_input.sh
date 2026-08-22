@@ -21,10 +21,12 @@
 #
 # The keyboard gate is forced rather than earned. ChoosePlayerName offers typed
 # entry only when the last input came from a physical keyboard, a fact set by a real
-# SDL key event alone and carried in no recording; under --headless it is never set,
-# so without `input_keyboard 1` this fixture would silently exercise the datetime
-# branch instead. Forcing it tests the fix rather than the path a player walks to
-# reach it -- which is the honest description of what an automated arm can do here.
+# SDL key event alone; under --headless it is never set, so without
+# `input_keyboard 1` this fixture would silently exercise the datetime branch
+# instead. Forcing it tests the fix rather than the path a player walks to reach it
+# -- which is the honest description of what an automated arm can do here. That the
+# recording carries the gate is a separate property with a fixture of its own,
+# test_record_input_device.sh; here it is a precondition rather than the subject.
 #
 # Local-only (needs retail data and a save fixture). Not in host_quick CI. The
 # same function's contract is covered without an engine by tests/getascii.

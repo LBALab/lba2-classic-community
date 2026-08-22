@@ -24,11 +24,20 @@ where the rule under test happens not to matter.
 Regenerate only for a deliberate format change, and never to make a failing replay pass:
 a baseline re-recorded against the build it is meant to be judging has stopped being one.
 
-## The format file
+## The format files
 
 `legacy-v10.rec` is a session recorded by a format-10 engine, kept so a build that
 reads that format is asked to prove it. `tests/automation/test_record_replay.sh` replays
 it.
+
+`legacy-v13.rec` is a format-13 session that reaches the save-name screen, from the
+commit before the header carried which device the player was on.
+`tests/automation/test_record_input_device.sh` replays it and checks the name it saves
+under. It is there for a narrower reason than its sibling: it reaches that screen by
+setting the cvar from the console, so the command record in its stream is what carries
+the keyboard there, and a reader that drove the flag to a default because the file did
+not name one would stamp on that command and write the other name. The obvious way to
+write that reader passes every same-binary arm and fails this file.
 
 ### Why a committed file rather than one the test makes
 
