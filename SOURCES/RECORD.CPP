@@ -620,7 +620,15 @@ static S32 write_mode_lines(char *out, size_t n) {
     if (wrote <= 0 || (size_t)wrote >= n)
         return 0;
     /* The rest comes from the engine, which this module deliberately cannot see. */
-    return Control_DescribeState(out + wrote, n - (size_t)wrote);
+    if (!Control_DescribeState(out + wrote, n - (size_t)wrote))
+        return 0;
+    /* The globals no savegame carries, which the replay installs rather than compares.
+       Written last because they are payload rather than description, and appended to
+       whatever the two calls above have already put in the buffer. */
+    {
+        size_t at = strlen(out);
+        return Control_WriteUncarried(out + at, n - at);
+    }
 }
 
 /* ---- record --------------------------------------------------------------- */
@@ -1062,6 +1070,7 @@ static void record_flush_at_exit(void) {
     s_atExit = 1;
     Record_Stop();
     bindings_restore();
+    Control_RestoreUncarried();
     /* A replay that ended before its reload landed still has the snapshot staged. The
        reload path drops it as soon as the load has read it; this is the other way out,
        and it is here for the same reason the binding restore is: the run can stop at
@@ -1555,6 +1564,7 @@ int Record_Stop(void) {
     s_snapInline = 0;
     s_recPath[0] = 0;
     bindings_restore();
+    Control_RestoreUncarried();
     record_release_step();
     record_restore_player();
     return 1;
@@ -1713,6 +1723,15 @@ static int mode_line_ignored(const char *line) {
         "setup.reload_clock=",
         "bindings.keyboard=", /* payload a replay installs; bindings.digest is the comparison */
         "bindings.gamepad=",
+        /* The globals no savegame carries. Payload a replay installs, on the same
+           footing as the binding tables: the digest is what compares them, and
+           reporting the difference here would name as a mode mismatch the very thing
+           the install exists to remove. */
+        "state.dial_obj=",
+        "state.choice=",
+        "state.choices=",
+        "state.fade=",
+        "state.blackpal=",
         "mode.verbose=", /* telemetry is diagnosis, and does not reach the simulation */
         /* Provenance, not contract. A cross-platform replay is the point, so this line
            differing is the expected case; the `numeric.` lines are what decide whether
@@ -2289,6 +2308,18 @@ static void replay_begin(void) {
     s_eof = 0;
     record_arm_atexit();
     bindings_install();
+    /* The globals no savegame carries, installed here for the same reason and at the
+       same point as the binding tables: this is the first moment the live run is the one
+       that will do the replaying, and the snapshot has already been staged. A recording
+       written before the header carried them installs nothing and is said so once, so a
+       tick-0 report on such a file reads as the known gap rather than as a divergence. */
+    if (!Control_InstallUncarried(s_headerBuf)) {
+        fprintf(stderr,
+                "[rec] %s predates the `state.` header lines, so the five globals no "
+                "savegame carries start at this run's values; expect a tick 0 "
+                "difference in them that is the file's age and not a divergence\n",
+                s_recPath);
+    }
     /* The recorded commands are executed through the console, and a run that never used
        --exec has never registered its table: every replayed command then dispatches to
        nothing, silently, and the replay diverges wherever the recording relied on one.
@@ -2413,8 +2444,25 @@ int Record_Play(const char *path) {
         /* Absent means a recording written before the digest declared itself, which is
            the one field set that predates the line: version 1. Selected before the first
            tick is checked, so the very first comparison is against the set the file was
-           written with rather than against this build's. */
-        Control_SetDigestVersion(RecFmt_ReadU32(s_headerBuf, "numeric.digest=", &v) ? (S32)v : 1);
+           written with rather than against this build's.
+
+           A version this build does not have the fields for is refused rather than
+           approximated, on the same argument as the format version above: hashing the
+           set this build knows under a number that means a different set makes every
+           tick mismatch, and that reads as a session that came apart on its first tick
+           rather than as a file from a newer engine. */
+        S32 want = RecFmt_ReadU32(s_headerBuf, "numeric.digest=", &v) ? (S32)v : 1;
+        if (!Control_SetDigestVersion(want)) {
+            Console_Print("rec: %s hashes digest set %d, this build knows up to %d", path,
+                          (int)want, CONTROL_DIGEST_VERSION);
+            fprintf(stderr,
+                    "[rec] %s hashes digest set %d, this build knows up to %d; "
+                    "nothing to compare against\n",
+                    path, (int)want, CONTROL_DIGEST_VERSION);
+            fclose(s_f);
+            s_f = NULL;
+            return 0;
+        }
         v = 0;
         s_pendingBaseline = 0;
         if (RecFmt_ReadU32(s_headerBuf, "clock.timer_ref_hr=", &v)) {
@@ -2894,6 +2942,9 @@ void Record_TickHook(void) {
                     S32 live[REC_KF_MAX];
                     S32 nkf = 0, shared;
                     S32 k, shown = 0;
+                    char kloose[256];
+                    S32 klooseN = 0;
+                    kloose[0] = 0;
                     get32(&kt);
                     if (!replay_keyframe_count(&nkf))
                         nkf = 0;
@@ -2916,6 +2967,17 @@ void Record_TickHook(void) {
                            report every later keyframe differs, so cap the noise. */
                         if (s_hashMismatchTick < 0 || s_kfReported >= 3)
                             continue;
+                        /* Split on the same question the telemetry report asks: a field
+                           the digest does not compare moved, which is worth saying and
+                           is not what the run diverged on. */
+                        if (!Control_KeyframeCompared(k)) {
+                            size_t at = strlen(kloose);
+                            if (at + 80 < sizeof kloose)
+                                snprintf(kloose + at, sizeof kloose - at, " %s %d/%d",
+                                         Control_KeyframeName(k), (int)rv, (int)live[k]);
+                            klooseN++;
+                            continue;
+                        }
                         if (!shown) {
                             fprintf(stderr, "[rec] tick %u differs:", (unsigned)kt);
                             shown = 1;
@@ -2924,6 +2986,13 @@ void Record_TickHook(void) {
                     }
                     if (shown) {
                         fprintf(stderr, "  (recorded/replayed)\n");
+                        s_kfReported++;
+                    }
+                    if (klooseN) {
+                        fprintf(stderr,
+                                "[rec] tick %u also differs in %d keyframe field(s) the digest "
+                                "does not compare:%s  (recorded/replayed)\n",
+                                (unsigned)kt, (int)klooseN, kloose);
                         s_kfReported++;
                     }
                 } else {
@@ -2961,6 +3030,17 @@ void Record_TickHook(void) {
                             s_teleReported++;
                             say = 0;
                         }
+                        /* Two lists, because they mean different things. A compared
+                           field that moved is the divergence; a field the digest
+                           collects without comparing moved too, and saying so on the
+                           same line would report it as part of a verdict it took no
+                           part in -- which is the tick-0 false alarm the classes exist
+                           to end, put back into the prose. Held in buffers rather than
+                           printed as they are found because the stream is read once
+                           and the two are interleaved in it. */
+                        char loose[256];
+                        S32 looseN = 0;
+                        loose[0] = 0;
                         for (k = 0; k < tn; k++) {
                             U32 rv = 0;
                             if (!get32(&rv))
@@ -2969,11 +3049,21 @@ void Record_TickHook(void) {
                                 continue;
                             if ((S32)rv == Control_StateValue((S32)k))
                                 continue;
-                            if (shown >= 8)
-                                continue;
                             {
                                 char nm[64];
                                 Control_StateValueName((S32)k, nm, sizeof nm);
+                                if (!Control_StateValueCompared((S32)k)) {
+                                    size_t at = strlen(loose);
+                                    if (looseN < 8 && at + 80 < sizeof loose)
+                                        snprintf(loose + at, sizeof loose - at, " %s %d/%d", nm,
+                                                 (int)(S32)rv, (int)Control_StateValue((S32)k));
+                                    looseN++;
+                                    continue;
+                                }
+                                if (shown >= 8) {
+                                    shown++;
+                                    continue;
+                                }
                                 if (!shown)
                                     fprintf(stderr, "[rec] tick %u state differs:", (unsigned)tt);
                                 fprintf(stderr, " %s %d/%d", nm, (int)(S32)rv,
@@ -2982,7 +3072,24 @@ void Record_TickHook(void) {
                             shown++;
                         }
                         if (shown) {
+                            /* The list stops at eight; the count does not. A report that
+                               shows eight fields and says nothing about the rest reads
+                               as "eight fields moved", which is the same shape of wrong
+                               answer as a capped report reading as a clean one. */
+                            if (shown > 8)
+                                fprintf(stderr, " ... and %d more", (int)(shown - 8));
                             fprintf(stderr, "  (recorded/replayed)\n");
+                            s_teleReported++;
+                        }
+                        /* Only reached once a compared field has already diverged, since
+                           that is what opens the report at all. A clean replay that
+                           started from a different fade still says so through the
+                           keyframe, which carries these fields by name. */
+                        if (looseN) {
+                            fprintf(stderr,
+                                    "[rec] tick %u also differs in %d field(s) the digest does "
+                                    "not compare:%s  (recorded/replayed)\n",
+                                    (unsigned)tt, (int)looseN, loose);
                             s_teleReported++;
                         }
                     }
