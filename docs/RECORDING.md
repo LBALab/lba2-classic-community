@@ -28,6 +28,14 @@ A clean replay ends with `first hash mismatch -1`. Anything else names the tick:
 [rec] replay ended at poll 10305: 397 ticks checked, first hash mismatch 296, clock drift max 0 ms
 ```
 
+A replay that gives up rather than ending prints no `replay ended` line at all. A run waiting on
+input the recording does not contain says so under `[rec] replay stalled`, and the figures the
+verdict would have carried follow it under `[rec] at the stall`. That split is deliberate: the
+verdict line is the string a caller greps to mean the simulation reproduced, so a run that gave up
+must never print it. **Anything reading these lines wants all three prefixes** -- a sweep that greps
+only `replay ended` silently drops every run that stalled, which is the compound case of a recording
+that both drifts and gives up.
+
 Mid-session, from the console (F12), which records from a point you choose rather than from boot:
 
 | Command | What it does |
