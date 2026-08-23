@@ -19,8 +19,9 @@ taught the offline reader to name digest version 2. **#623** (`c7617da8`) closed
 **#635** and **#636** (`8b34304c`) closed the loose-clock fade wedge, **#637** (`952e77b3`) and
 **#638** (`51fe3890`) closed the reproduction-rate causes named in the sequencing, **#641**
 (`01ccb118`) measured the modal clock waits and priced step A, **#643** (`04da39cc`) gave a wedged
-replay a verdict, **#644** (`8459d94b`) closed item 12, and **#646** (`f9bca648`) closed the input
-channel this document opens on. Open work is
+replay a verdict, **#644** (`8459d94b`) closed item 12, **#646** (`f9bca648`) and **#649** (`861e1201`) closed and
+then repaired the input channel this document opens on, and **#650** (`a2affb54`) gave every hashed
+field a declared membership class. Open work is
 named with its number and state where it changes a conclusion; nothing here depends on any of it
 landing.
 
@@ -147,7 +148,7 @@ overlay --------|                                      |
 | The save-name stall | input and the recorder, on a channel outside the tap | #646, repaired by #649 |
 | The device fact that gates it | the format and what it declares | to be carried |
 | The camera at tick 0 | save/load and `ChangeCube`'s two callers | #642 open |
-| Digest membership | the digest and what a load restores | open |
+| Digest membership | the digest and what a load restores | #650 merged, #652 open |
 | Three outcomes, two strings | the recorder and its own verdict | #643 merged |
 
 Not one of them is a module wrong on its own terms. Each is two systems disagreeing about a shared
@@ -815,15 +816,15 @@ It also gives the refactor-oracle use what it needs, which is a category-1 set t
 the excluded extras, projectiles and sound state named as open question 3 in the research doc become
 candidates to test against a rule instead of a matter of taste.
 
-### The rule prototyped, and what building it settled
+### The rule shipped, and what building it settled
 
-Built on a branch and measured, the rule becomes four declared classes -- **restored by a load**,
+Merged as #650 (`a2affb54`), the rule becomes four declared classes -- **restored by a load**,
 **carried by the file and installed by the replay**, **loose**, meaning nothing establishes it so it
 is collected and never compared, and **probe**, meaning not simulation state at all. Making the
 class a required argument at the point where a field is hashed is the whole mechanism: a field
 cannot be added without answering the question, which is what nothing enforced before.
 
-Three results are worth carrying whatever happens to the branch.
+Three results are worth carrying past the change that produced them.
 
 - **Splitting the report moves fields onto a new line, and that is a parsed contract.** The
   uncompared fields now print under `also differs in N field(s) the digest does not compare` rather
@@ -2120,6 +2121,8 @@ ctl --load "$LBA2_TEST_SAVE" --exec-at 5 "input seq ..." --record probe.rec \
   build a clock; its step A row now reads as not separable from step B
 - [plan/ENGINE_TICK_POLICY_SURVEY.md](ENGINE_TICK_POLICY_SURVEY.md) -- the four mint policies driven
   and measured, and the deadlock that prices step A
+- [plan/DIGEST_MEMBERSHIP.md](DIGEST_MEMBERSHIP.md) -- the membership rule as built: the four
+  classes, what each field is and why, and the negative results
 - [TIMING.md](../TIMING.md), [MOVEMENT_FRAMERATE.md](../MOVEMENT_FRAMERATE.md) -- the clock the
   recorder pins
 - [BIT_EXACTNESS.md](../BIT_EXACTNESS.md) -- where the RNG split decision belongs
