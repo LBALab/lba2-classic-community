@@ -1617,12 +1617,18 @@ Ordered by what makes the next thing safe, not by size.
    and validated by breaking it. Recorded here rather than removed, because the reasoning is the
    reusable part -- under a loose clock two runs legitimately part, so a state diff is flaky by
    construction and gets "fixed" by pinning the step, which is what it exists to rule out.
-3. **The digest membership rule**, in the three-category form: the savegame carries it, the file
-   carries it, or it does not reach the simulation. `bindings.digest` is the existing precedent for
-   the middle category and UI cursor position is its obvious next member. Removes a class of false
-   positive that makes every other result harder to read, and `--dump-state` and the socket get it
-   too. A contributor has already written the missing half of this out by hand; that list is the
-   backlog.
+3. ~~**The digest membership rule**, in the three-category form: the savegame carries it, the file
+   carries it, or it does not reach the simulation.~~ **Done**, in #650 (`a2affb54`), and the shape
+   moved while it was built, which is the part worth keeping: four classes rather than three,
+   because *a load restores it* is not *the savegame carries it* -- `Island` and `CubeMode` are
+   re-read from the cube's data file, so a name-grep over `SAVEGAME.CPP` both manufactures defects
+   and hides them -- and because a value that is not simulation state at all needed its own name
+   rather than being filed under loose. The mechanism is the class being a required argument at the
+   point where a field is hashed, so a field cannot be added without answering the question. Argued
+   in full under "The rule shipped" above and in
+   [plan/DIGEST_MEMBERSHIP.md](DIGEST_MEMBERSHIP.md). Two parts are not done: `--dump-state` and the
+   socket do not have the rule, and `FollowCamera` is the one field it names and cannot yet honour,
+   deferred to #652 because the honest repair is a general one about settings a replay borrows.
 4. **Uncap the divergence report on the file.** The telemetry principle's own failure, and the
    thing currently blocking a feature: default-on telemetry was parked because 200 MB buying 24
    readable values is not a trade. The cap lift and that default are one change. If the default is
