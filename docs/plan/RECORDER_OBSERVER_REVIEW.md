@@ -700,7 +700,16 @@ sweep over it can find. Fifteen exist on one machine -- nine from Windows and si
 
 - **Seven carry full telemetry and eight do not.** The rest give a keyframe every 32 ticks and
   nothing between. Which kind a file is decides whether a divergence can be attributed to a field or
-  only to a tick, and it is not visible from the filename or the size.
+  only to a tick, and it is not visible from the filename or the size. The gap between the two is
+  wider than "some detail is missing": the keyframe carries **24 fields**
+  ([CONTROL.CPP:1725](../../SOURCES/CONTROL.CPP#L1725), read at `270d9cba`) against a per-tick value
+  set measured at 434 to 956 below, so a keyframe shows a few percent of what the digest compares.
+  The corner that follows looks like a contradiction when you meet it:
+  **a non-telemetry file whose hash mismatches while every keyframe field agrees is not diagnosable
+  at all.** The hash says something moved, the only per-field instrument covering the rest is
+  telemetry, and the file does not have it. One such case is on record *(measured elsewhere)*. So
+  the corpus splits by diagnostic power and not only by size: the telemetry files can localise a
+  divergence, the others can only detect one.
 - **The two platforms exercise different halves of the poll record.** Every macOS file has
   `analog=0` with no analog block at all; every Windows file carries them. So a claim measured on one
   platform's files is not a claim about the format.
@@ -932,6 +941,23 @@ Three results are worth carrying past the change that produced them.
   carried was already hashed and still is, so the digest version does not move; the recording gains
   a line the older reader ignores. That distinction is what keeps a fix like this from invalidating
   every recording on disk, against an instinct that says bump.
+
+**The first evidence from a player recording rather than a built fixture** arrived after the merge
+*(measured elsewhere)*. Every file in the corpus predates the `state.` lines, so a current build
+replays them with nothing installed and they show `dial.obj 4/0 blackpal 0/1` at tick 0 -- the
+divergence the change exists to remove, visible on real files. A recording written by a build that
+has the change carries all five lines, the replay installs them, and **no keyframe field differs at
+tick 0 at all**. Everything before this was measured on a fixture built to contain the defect, which
+proves the mechanism and not the relevance.
+
+That same file keeps the honest caveat attached to it: its hash still mismatches at tick 0 while all
+24 keyframe fields agree, and the file carries no telemetry, so nothing in it can say which field
+moved -- the corner named under the corpus above. **That residual is not attributed here to this
+change, to its absence, or to anything else**; one file with no telemetry and no control does not
+support an attribution, and the way to chase it is a fresh recording of the same scene with
+telemetry on. #651 is eliminated by reading rather than left open: `LastInputWasKeyboard` appears
+nowhere in `CONTROL.CPP`, so it is in no digest, keyframe or telemetry field and cannot move a
+tick-0 hash.
 
 The versioning answer the prototype settles: **refuse politely upward, support every known version
 downward**, validated by rewriting a file's declared digest version to one no build knows.
