@@ -340,6 +340,33 @@ nearly landed in published work here:
   received from someone careful is the easiest to publish unchecked, which is what makes it worth
   the two minutes.
 
+- **Two broken checks that agree read as corroboration.** A claim that a recording carried none of
+  the five `state.` header lines was verified twice before it was reported, and both instruments
+  were broken in different ways: `grep -c '^state\.'` on a file whose header is followed by binary
+  matched nothing because `grep` treats the file as binary without `-a`, and `head -c 900` truncated
+  ahead of lines that sit at byte 1920 of a 1920-byte header. Two independent routes, two different
+  mechanisms, the same wrong zero -- and it was **the agreement between them that produced the
+  confidence**. The file carried all five. Independent confirmation is only independent if the two
+  routes can fail differently; two ways of not reaching the data are one failure wearing two coats.
+  The cheap guard is to run the instrument against a case that must answer yes: the same two
+  commands on a file known to carry the lines would have failed the same way and said so.
+
+- **A control that varies more than the variable it names.** The same claim was argued from two
+  recordings, one of which printed an advisory and one of which did not, and the difference was
+  attributed to their format version. The two files differed in session, length, flags **and**
+  version, and the version was the one thing the code path never reads -- the function walks the
+  keys and returns on the first one missing, with no version test anywhere in it. When an
+  observation is attributed to a variable, check that the code can see that variable at all; and
+  when two artefacts differ in four ways, the comparison attributes to none of them. The
+  one-variable version is to take a single file and change only the thing under test.
+
+- **An observation that contradicts the premise is evidence about the premise.** The reasoning ran
+  "no advisory was printed, therefore the install is broken". The code says the advisory prints
+  exactly when the install returns 0, so a missing advisory means the install *succeeded*, which
+  means the lines were found -- the observation was evidence that the premise about the file was
+  wrong, and it was read as evidence of a defect instead. When a result contradicts what you believe
+  about the input, the input is the cheaper thing to check first.
+
 Three of those arrived in a single change: a truncated grep, a `grep -c` whose zero-count exit fired
 the wrong branch, and a patch script that stopped early. Each time the tool reported that it had
 stopped and the output was read as the whole answer. That is the family in miniature, and it is why
