@@ -25,9 +25,14 @@ field a declared membership class. Open work is
 named with its number and state where it changes a conclusion; nothing here depends on any of it
 landing.
 
-Line numbers were read from the working tree at that commit. Measurements marked *(measured
-elsewhere)* were made by another session against the same commit and are cited rather than
-re-derived. Everything asserted about the source was read here. A set of figures that circulated
+Line numbers were read from the working tree at that commit, **except where a citation is to code
+that did not exist then** -- the pacing funnel (#630), the replay verdict line (#643) and the
+membership classes (#650) are all later than the pin, and a passage citing them says so and reads
+its numbers at `270d9cba`. Mixing two bases silently is the failure this note exists to prevent: a
+line number is only worth having if someone else can land on the same line, which means knowing
+which tree to open. Measurements marked *(measured elsewhere)* were made by another session and are
+cited rather than re-derived; where such a measurement is against a later tree than the pin, the
+passage says which. Everything asserted about the source was read here. A set of figures that circulated
 during this review has since been withdrawn and is listed at the end, so nobody re-derives them.
 
 ## Why the recorder exists
@@ -392,6 +397,44 @@ transitions and menus racing, dialogue skipped -- is the "minimal impact on game
 failing in the configuration a player actually records in, and its three symptoms are exactly the
 places a modal presents without ticking.
 
+**And the pacer is a ceiling with no floor, which is the half of item 2 the rate measurements above
+cannot see.** (This passage cites the pacing funnel #630 brought in, so its line numbers are read at
+`270d9cba` rather than at the pin.) They were taken headless, where the game outruns real time and the only question is
+whether the pacer holds it back. A player is on the other side of that line. `FixedDtStep` mints one
+dt and then calls `Timer_SleepUntil(PaceAnchor + PaceSteps * FixedDt)`
+([TIMER.CPP:184](../../LIB386/SYSTEM/TIMER.CPP#L184)), and `Timer_SleepUntil`
+([TIMER.CPP:160](../../LIB386/SYSTEM/TIMER.CPP#L160)) sleeps only `if (ahead > 0)`. Nothing anywhere
+mints a second step to make up a step that arrived late, and that is a decision rather than an
+omission -- the `PACE_GIVEUP_MS` branch says so: *"Give the time up rather than sprint to win it
+back, which would run the game fast to make up for having run it slow."*
+
+So under a pinned step **game time is frame count times dt**, and the pacer bounds it above at 1.0x
+and not at all below. At `--fixed-dt 16` the break-even is 62.5 fps: render faster and the pacer
+sleeps the difference away, render slower and the game runs slow by exactly the shortfall.
+
+Measured on a real player session *(measured elsewhere)*: 3,083 ticks at 16 ms is 49.3 s of game
+time, against 85.5 s of wall time from the file's own timestamps. **0.577x, averaging 36.1 fps**, and
+the two are one reading stated twice rather than two agreeing measurements. Outside a single 272 ms
+window the pacer never had to throttle at all. The player's report of it was "exterior is slow,
+interior is faster than usual", which is frame rate and not scenes: the exterior renders further
+under 62.5 fps than the interior does.
+
+**Three mechanisms are in play and the repair differs by which one is named**, so they are worth
+keeping apart. The **pinned step** is what couples game time to frame count, and `--fixed-dt` is a
+flag the *player* supplies; the recorder only warns when it is missing
+([RECORD.CPP:1435](../../SOURCES/RECORD.CPP#L1435)). The **pacer** is what the recorder itself
+installs, four lines below that warning ([RECORD.CPP:1442](../../SOURCES/RECORD.CPP#L1442)), and it
+removed the fast half and never touched the slow half. The **missing simulation tick** is why pinning
+has to mean one step per rendered frame in the first place. A reader who takes this as an argument
+against the pacer gets a session that is worse in both directions.
+
+Which makes this the interesting number in the whole ledger: **the first measurement of what the
+missing simulation tick costs a player rather than a fixture.** Everything else pricing the tick
+ladder prices it against tests. And it is the review's own finding turned around -- the recorder
+borrowed the scheduler role because there was no simulation tick to borrow it from, and this is the
+bill for that arriving at the person holding the controller. What the recorder warns about is the
+replay it will not get without the flag; what it says about what the flag costs is nothing.
+
 Item 3 is the subtler one and the one to read twice. On the loose path the recorder replaces the
 value the engine's own clock function returns, at roughly a hundred call sites, for the duration of
 the recording. The comment at the site defends it as touching no mode flag, which is true and is
@@ -668,6 +711,46 @@ The nine judged files are all Windows. The six macOS ones are inventory rather t
 have been replayed and four have never been run. **A corpus is not a sample until someone says which
 part of it has been looked at**, and the difference between fifteen files existing and nine files
 judged is exactly the gap that makes a coverage claim wrong without anybody lying.
+
+**A fourth property arrived with the sixteenth file, and it is about the sessions rather than the
+files.** Every recording in the corpus was made under a pinned step, because that is what the
+recorder asks for, and the ledger above measures one such session at 0.577x. So the corpus is made
+of sessions that did not play the way their contributors' ordinary sessions play.
+
+That is narrower than it sounds, and the narrowing is the point. Pacing moves no step *sequence* --
+[RECORDING.md](../RECORDING.md) states it directly, each site mints the same number of steps whether
+or not the clock is held to real time -- so nothing about these files is invalid *as a fixture*.
+What changes is the **player**: someone at 0.577x presses keys at different game-times than they
+would at 1.0x, hesitates in different places, and misses inputs they would have made. So the corpus
+is sound for the question "does this build reproduce that session" and unrepresentative for the
+question "is this what players do".
+
+**And one session in it does not replay at all past its first spin-loop modal** *(measured
+elsewhere)*. At tick 1008 a modal spun about 30,720 polls in 272 ms of clock while retiring no tick,
+one record per spin; the replay left the same modal after about 8,504 and ran out of stream at poll
+9,592. The verdict is `replay ended at poll 9592: 1008 ticks checked`, on a file the engine's own
+hint says holds 3,083. **The run reached a third of the session and the line does not contain the
+denominator that would say so** -- `replay ended` reads identically whether it finished or stopped,
+which is the same defect as the two-strings-for-three-outcomes above and in the verdict rather than
+the report.
+
+Two things that run went through are worth keeping, because both were nearly recorded as something
+else. (Line numbers in this paragraph are #643's verdict code, read at `270d9cba`.) Its `first hash mismatch 0` is a divergence at tick **0**, not a clean run: `-1` is the
+sentinel ([RECORD.CPP:367](../../SOURCES/RECORD.CPP#L367)) and
+[RECORD.CPP:1585](../../SOURCES/RECORD.CPP#L1585) names `first hash mismatch -1` as the string a
+caller greps to mean the replay reproduced. So the early stop is the run's *second* fault and the
+tick-0 divergence is unexplained. And the run exits 0, which is not a new defect: the
+`exit(s_hashMismatchTick < 0 ? 0 : 2)` at
+[RECORD.CPP:2856](../../SOURCES/RECORD.CPP#L2856) is gated on `!Control_IsActive()`, and `--fixed-dt`
+arms the harness, so under the very flag the recorder asks for that exit cannot fire.
+
+**Why the spin count differs between the two machines is not known, and one explanation was
+withdrawn** *(measured elsewhere)*. "The loop's iteration count is set by CPU speed, so no other
+machine reproduces it" is the obvious reading and nothing measured supports it: the recording's
+30,720 and the replay's 8,504 differ in machine, OS **and** build, so naming the CPU picks one of
+three variables. Replayed three times on one machine the run ended at poll 9,592 every time, so the
+count is stable where it runs. What is demonstrated is that this session does not replay past tick
+1008 and that the verdict does not say so; why is open.
 
 ### The report has two strings for three outcomes, and the caps hid which one you had
 
