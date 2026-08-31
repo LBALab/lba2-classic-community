@@ -230,14 +230,14 @@ static const char *s_clutFragSrc =
        SW Filler_Texture / Filler_TextureChromaKey writes texel as palette
        index directly (*line = texel).  No CLUT lookup — the atlas texel
        IS the palette index.  Chroma key controlled by uChromaKey. */
-    "        tc = tc / 256.0;\n"
-    "        float widthMask = mod(vRepMask, 256.0);\n"
-    "        float heightMask = floor(vRepMask / 256.0);\n"
-    "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
-    "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
-    "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
-    "                            (floor(wrappedV) + 0.5) / 256.0);\n"
-    "        float palIdx = texture2D(uAtlas, atlasUV).r * 255.0;\n"
+     "        tc = tc / 256.0;\n"
+     "        float widthMask = mod(vRepMask, 256.0);\n"
+     "        float heightMask = floor(vRepMask / 256.0);\n"
+     "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
+     "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
+     "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
+     "                            (floor(wrappedV) + 0.5) / 256.0);\n"
+     "        float palIdx = texture2D(uAtlas, atlasUV).r * 255.0;\n"
     /* Chroma key: atlas texel 0 = transparent.
        Only INCRUST types have chroma key. */
     "        if (uChromaKey != 0 && palIdx < 0.5) discard;\n"
@@ -332,13 +332,77 @@ static GLuint s_atlasTex = 0;  /* 256×256 LUMINANCE */
 static GLuint s_clutTex = 0;   /* 256×256 LUMINANCE (full fog table) */
 static GLuint s_paletteTex = 0; /* 256×1 BGRA */
 
-/* ── GL state — batch buffer ────────────────────────────────────────────── */
+/* ── GL state — batch buffer ─────────────────────────────────────────────── */
 
 static const U32 BATCH_MAX_VERTS = 4096;
 static U8 s_batchVerts[BATCH_MAX_VERTS * 14]; /* 14 bytes per vertex */
 static U32 s_batchVertCount = 0;
 static U32 s_batchTriCount = 0;
 static GLuint s_batchVBO = 0;
+
+/* ── Reverse palette lookup (ARGB -> palette index) ──────────────────────── */
+
+/* paletteLUT has 256 entries.  Build a 65536-entry hash table for O(1)
+   exact-match reverse lookup, keyed by (R<<16 | G<<8 | B).  On hash
+   miss, fall back to a linear nearest-color scan over all 256 entries
+   so that minor shader rounding does not collapse pixels to index 0. */
+static U8 s_revLutHash[65536];
+static S32 s_revLutHashValid = 0;
+static const U32 *s_revLutPtr = NULL;
+
+static void GL_BuildReverseLut(void) {
+    const U32 *lut = GL_GetPaletteLUT();
+    if (!lut) {
+        s_revLutHashValid = 0;
+        s_revLutPtr = NULL;
+        return;
+    }
+
+    memset(s_revLutHash, 0xFF, sizeof(s_revLutHash));
+    for (U32 i = 0; i < 256; i++) {
+        U32 argb = lut[i];
+        U32 r = (argb >> 16) & 0xFF;
+        U32 g = (argb >> 8) & 0xFF;
+        U32 b = argb & 0xFF;
+        U32 key = (r << 16) | (g << 8) | b;
+        U32 slot = key & 0xFFFF;
+        s_revLutHash[slot] = (U8)i;
+    }
+    s_revLutHashValid = 1;
+    s_revLutPtr = lut;
+}
+
+static inline U8 GL_ReversePaletteLookup(U32 argb) {
+    if (!s_revLutHashValid || s_revLutPtr == NULL) {
+        return 0;
+    }
+
+    U32 r = (argb >> 16) & 0xFF;
+    U32 g = (argb >> 8) & 0xFF;
+    U32 b = argb & 0xFF;
+    U32 key = (r << 16) | (g << 8) | b;
+    U32 slot = key & 0xFFFF;
+    U8 idx = s_revLutHash[slot];
+    if (idx < 256) {
+        return idx;
+    }
+
+    const U32 *lut = s_revLutPtr;
+    U32 bestDist = 0xFFFFFFFF;
+    U8 bestIdx = 0;
+    for (U32 i = 0; i < 256; i++) {
+        U32 c = lut[i];
+        S32 dr = (S32)((c >> 16) & 0xFF) - (S32)r;
+        S32 dg = (S32)((c >> 8) & 0xFF) - (S32)g;
+        S32 db = (S32)(c & 0xFF) - (S32)b;
+        U32 dist = (U32)(dr * dr + dg * dg + db * db);
+        if (dist < bestDist) {
+            bestDist = dist;
+            bestIdx = (U8)i;
+        }
+    }
+    return bestIdx;
+}
 
 /* ── State tracking for texture re-upload ───────────────────────────────── */
 
@@ -636,16 +700,16 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                  GL_UNSIGNED_BYTE, NULL);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    /* Palette texture (256×1, BGRA — paletteLUT) */
-    glGenTextures(1, &s_paletteTex);
-    glBindTexture(GL_TEXTURE_2D, s_paletteTex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, FMT_BGRA,
-                 GL_UNSIGNED_BYTE, NULL);
-    glBindTexture(GL_TEXTURE_2D, 0);
+     /* Palette texture (256×1, BGRA — paletteLUT) */
+     glGenTextures(1, &s_paletteTex);
+     glBindTexture(GL_TEXTURE_2D, s_paletteTex);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, FMT_BGRA,
+                  GL_UNSIGNED_BYTE, NULL);
+     glBindTexture(GL_TEXTURE_2D, 0);
 
     /* GL state */
     glViewport(0, 0, resX, resY);
@@ -802,6 +866,9 @@ static void GL_UploadPalette(void) {
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1, FMT_BGRA,
                     GL_UNSIGNED_BYTE, paletteCopy);
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    /* Invalidate cached reverse lookup so it gets rebuilt on next readback. */
+    s_revLutHashValid = 0;
 }
 
 static void GL_UploadCLUT(void) {
@@ -1172,7 +1239,7 @@ extern U32 ModeDesiredY;
 }
 
 void GL_ReadbackDepthBuffer(void) {
-    if (!s_initialized || !s_fbo || PtrZBuffer == NULL) {
+    if (!s_initialized || !s_fbo || PtrZBuffer == NULL || !s_fboHasTerrain || !s_terrainRenderedThisFrame) {
         return;
     }
 
@@ -1275,14 +1342,11 @@ void GL_ReadbackDepthBuffer(void) {
    by AffGrilleExt() to copy terrain into the Log buffer so that
    ShadeBoxBlk (shadow darkening) has real pixels to operate on.
 
-   The FBO color texture stores ARGB pixels produced by the CLUT shader,
-   which maps palette indices through paletteLUT.  To reverse this, we
-   build a sorted (ARGB → index) lookup table from paletteLUT and binary
-   search each pixel.  Handles SSAA downscaling (FBO may be larger than
-   Screen). */
+   Uses a cached 65536-entry hash table for O(1) ARGB→palette-index lookup.
+   Handles SSAA downscaling (FBO may be larger than Screen). */
 
 void GL_ReadbackColorBuffer(void) {
-    if (!s_initialized || !s_fbo || Screen == NULL) {
+    if (!s_initialized || !s_fbo || Screen == NULL || !s_fboHasTerrain || !s_terrainRenderedThisFrame) {
         return;
     }
 
@@ -1312,31 +1376,9 @@ void GL_ReadbackColorBuffer(void) {
        and GL_BGRA reads bytes in B,G,R,A order → U32 = ARGB. */
     glReadPixels(0, 0, fboW, fboH, FMT_BGRA, GL_UNSIGNED_BYTE, s_fboColorBuf);
 
-    /* Build reverse palette lookup: ARGB → palette index.
-       paletteLUT has 256 unique entries.  Sort by ARGB for binary search. */
-    const U32 *lut = GL_GetPaletteLUT();
-    if (lut == NULL) {
-        return;
-    }
-
-    struct RevEntry {
-        U32 argb;
-        U8 idx;
-    };
-    static RevEntry s_revLut[256];
-    for (U32 i = 0; i < 256; i++) {
-        s_revLut[i].argb = lut[i];
-        s_revLut[i].idx = (U8)i;
-    }
-    /* Insertion sort (256 elements — trivial) */
-    for (U32 i = 1; i < 256; i++) {
-        RevEntry key = s_revLut[i];
-        S32 j = (S32)i - 1;
-        while (j >= 0 && s_revLut[j].argb > key.argb) {
-            s_revLut[j + 1] = s_revLut[j];
-            j--;
-        }
-        s_revLut[j + 1] = key;
+    /* Build reverse palette lookup on demand. */
+    if (!s_revLutHashValid) {
+        GL_BuildReverseLut();
     }
 
     /* Convert FBO pixels to palette indices and write to Screen.
@@ -1351,38 +1393,7 @@ void GL_ReadbackColorBuffer(void) {
             U8 *dstRow = dst + sy * scrW;
             const U32 *srcRow = s_fboColorBuf + (fboH - 1 - sy) * fboW;
             for (U32 sx = 0; sx < scrW; sx++) {
-                U32 argb = srcRow[sx];
-                S32 lo = 0, hi = 255;
-                while (lo <= hi) {
-                    S32 mid = (lo + hi) >> 1;
-                    U32 midArgb = s_revLut[mid].argb;
-                    if (midArgb == argb) {
-                        dstRow[sx] = s_revLut[mid].idx;
-                        goto next_pixel;
-                    } else if (midArgb < argb) {
-                        lo = mid + 1;
-                    } else {
-                        hi = mid - 1;
-                    }
-                }
-                /* No exact match — nearest by linear scan */
-                {
-                    U32 bestDist = 0xFFFFFFFF;
-                    U8 bestIdx = 0;
-                    for (U32 j = 0; j < 256; j++) {
-                        U32 c = lut[j];
-                        S32 dr = (S32)((c >> 16) & 0xFF) - (S32)((argb >> 16) & 0xFF);
-                        S32 dg = (S32)((c >> 8) & 0xFF) - (S32)((argb >> 8) & 0xFF);
-                        S32 db = (S32)(c & 0xFF) - (S32)(argb & 0xFF);
-                        U32 dist = (U32)(dr * dr + dg * dg + db * db);
-                        if (dist < bestDist) {
-                            bestDist = dist;
-                            bestIdx = (U8)j;
-                        }
-                    }
-                    dstRow[sx] = bestIdx;
-                }
-            next_pixel:;
+                dstRow[sx] = GL_ReversePaletteLookup(srcRow[sx]);
             }
         }
     } else {
@@ -1395,38 +1406,7 @@ void GL_ReadbackColorBuffer(void) {
             for (U32 sx = 0; sx < scrW; sx++) {
                 U32 fx = sx * scaleX + scaleX / 2;
                 U32 fy = (fboH - 1 - sy * scaleY - scaleY / 2);
-                U32 argb = s_fboColorBuf[fy * fboW + fx];
-                S32 lo = 0, hi = 255;
-                while (lo <= hi) {
-                    S32 mid = (lo + hi) >> 1;
-                    U32 midArgb = s_revLut[mid].argb;
-                    if (midArgb == argb) {
-                        dstRow[sx] = s_revLut[mid].idx;
-                        goto next_ssaa_pixel;
-                    } else if (midArgb < argb) {
-                        lo = mid + 1;
-                    } else {
-                        hi = mid - 1;
-                    }
-                }
-                /* Fallback: nearest by linear scan */
-                {
-                    U32 bestDist = 0xFFFFFFFF;
-                    U8 bestIdx = 0;
-                    for (U32 j = 0; j < 256; j++) {
-                        U32 c = lut[j];
-                        S32 dr = (S32)((c >> 16) & 0xFF) - (S32)((argb >> 16) & 0xFF);
-                        S32 dg = (S32)((c >> 8) & 0xFF) - (S32)((argb >> 8) & 0xFF);
-                        S32 db = (S32)(c & 0xFF) - (S32)(argb & 0xFF);
-                        U32 dist = (U32)(dr * dr + dg * dg + db * db);
-                        if (dist < bestDist) {
-                            bestDist = dist;
-                            bestIdx = (U8)j;
-                        }
-                    }
-                    dstRow[sx] = bestIdx;
-                }
-            next_ssaa_pixel:;
+                dstRow[sx] = GL_ReversePaletteLookup(s_fboColorBuf[fy * fboW + fx]);
             }
         }
     }
