@@ -175,6 +175,15 @@
       }
     },
     {
+      "name": "quest",
+      "inherits": "android_arm64",
+      "displayName": "Meta Quest (OpenXR)",
+      "description": "Android arm64-v8a build with OpenXR enabled for Meta Quest 3 controller support",
+      "cacheVariables": {
+        "LBA2_OPENXR": "ON"
+      }
+    },
+    {
       "name": "android_armv7a",
       "inherits": "android_common",
       "displayName": "Android armeabi-v7a (32-bit)",
@@ -228,6 +237,10 @@
     {
       "name": "android_arm64",
       "configurePreset": "android_arm64"
+    },
+    {
+      "name": "quest",
+      "configurePreset": "quest"
     },
     {
       "name": "android_armv7a",

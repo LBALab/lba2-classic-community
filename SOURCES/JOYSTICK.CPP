@@ -3,6 +3,7 @@
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOG.H>
+#include <SYSTEM/OPENXR.H>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_gamepad.h>
@@ -282,75 +283,110 @@ void UpdateJoystick(void) {
     s_rstickX = 0;
     s_rstickY = 0;
 
-    if (s_gamepad == NULL) {
-        return;
-    }
+    S32 openxrActive = OpenXR_UpdateControllerState();
 
-    struct ButtonMap {
-        SDL_GamepadButton btn;
-        U32 key;
-    };
-    static const ButtonMap kButtons[] = {
-        {SDL_GAMEPAD_BUTTON_SOUTH, K_GAMEPAD_A},
-        {SDL_GAMEPAD_BUTTON_EAST, K_GAMEPAD_B},
-        {SDL_GAMEPAD_BUTTON_WEST, K_GAMEPAD_X},
-        {SDL_GAMEPAD_BUTTON_NORTH, K_GAMEPAD_Y},
-        {SDL_GAMEPAD_BUTTON_BACK, K_GAMEPAD_BACK},
-        {SDL_GAMEPAD_BUTTON_GUIDE, K_GAMEPAD_GUIDE},
-        {SDL_GAMEPAD_BUTTON_START, K_GAMEPAD_START},
-        {SDL_GAMEPAD_BUTTON_LEFT_STICK, K_GAMEPAD_LSTICK_BTN},
-        {SDL_GAMEPAD_BUTTON_RIGHT_STICK, K_GAMEPAD_RSTICK_BTN},
-        {SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, K_GAMEPAD_LSHOULDER},
-        {SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, K_GAMEPAD_RSHOULDER},
-        {SDL_GAMEPAD_BUTTON_DPAD_UP, K_GAMEPAD_DPAD_UP},
-        {SDL_GAMEPAD_BUTTON_DPAD_DOWN, K_GAMEPAD_DPAD_DOWN},
-        {SDL_GAMEPAD_BUTTON_DPAD_LEFT, K_GAMEPAD_DPAD_LEFT},
-        {SDL_GAMEPAD_BUTTON_DPAD_RIGHT, K_GAMEPAD_DPAD_RIGHT},
-    };
-    for (size_t i = 0; i < sizeof(kButtons) / sizeof(kButtons[0]); i++) {
-        if (SDL_GetGamepadButton(s_gamepad, kButtons[i].btn)) {
-            SetVirtualKeyDown(kButtons[i].key);
+    if (openxrActive) {
+        #define SET(vk) SetVirtualKeyDown(vk)
+        #define STICK_DIR(idx, x, y, left, right, up, down) do { \
+            StickDir *prev = (idx == 0) ? &s_prevLeftDir : &s_prevRightDir; \
+            ApplyStickDirection(x, y, left, right, up, down, prev); \
+        } while(0)
+
+        STICK_DIR(0, OpenXR_LeftStickX, OpenXR_LeftStickY,
+                  K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT,
+                  K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN);
+
+        if (GamepadCameraAnalog && FollowCamera && CubeMode == CUBE_EXTERIEUR) {
+            s_prevRightDir = DIR_NEUTRAL;
+        } else {
+            STICK_DIR(1, OpenXR_RightStickX, OpenXR_RightStickY,
+                      K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT,
+                      K_GAMEPAD_RSTICK_UP, K_GAMEPAD_RSTICK_DOWN);
         }
+
+        S16 dz = (S16)JoystickDeadzone;
+        if (OpenXR_LeftTrigger > dz)
+            SET(K_GAMEPAD_LTRIGGER);
+        if (OpenXR_RightTrigger > dz)
+            SET(K_GAMEPAD_RTRIGGER);
+        if (OpenXR_ABtn)         SET(K_GAMEPAD_A);
+        if (OpenXR_BBtn)         SET(K_GAMEPAD_B);
+        if (OpenXR_XBtn)         SET(K_GAMEPAD_X);
+        if (OpenXR_YBtn)         SET(K_GAMEPAD_Y);
+        if (OpenXR_LeftThumbstickDown)   SET(K_GAMEPAD_LSTICK_BTN);
+        if (OpenXR_RightThumbstickDown)  SET(K_GAMEPAD_RSTICK_BTN);
+        if (OpenXR_LeftGripDown)  SET(K_GAMEPAD_LSHOULDER);
+        if (OpenXR_RightGripDown) SET(K_GAMEPAD_RSHOULDER);
+
+        #undef SET
+        #undef STICK_DIR
+    } else if (s_gamepad != NULL) {
+        struct ButtonMap {
+            SDL_GamepadButton btn;
+            U32 key;
+        };
+        static const ButtonMap kButtons[] = {
+            {SDL_GAMEPAD_BUTTON_SOUTH, K_GAMEPAD_A},
+            {SDL_GAMEPAD_BUTTON_EAST, K_GAMEPAD_B},
+            {SDL_GAMEPAD_BUTTON_WEST, K_GAMEPAD_X},
+            {SDL_GAMEPAD_BUTTON_NORTH, K_GAMEPAD_Y},
+            {SDL_GAMEPAD_BUTTON_BACK, K_GAMEPAD_BACK},
+            {SDL_GAMEPAD_BUTTON_GUIDE, K_GAMEPAD_GUIDE},
+            {SDL_GAMEPAD_BUTTON_START, K_GAMEPAD_START},
+            {SDL_GAMEPAD_BUTTON_LEFT_STICK, K_GAMEPAD_LSTICK_BTN},
+            {SDL_GAMEPAD_BUTTON_RIGHT_STICK, K_GAMEPAD_RSTICK_BTN},
+            {SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, K_GAMEPAD_LSHOULDER},
+            {SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, K_GAMEPAD_RSHOULDER},
+            {SDL_GAMEPAD_BUTTON_DPAD_UP, K_GAMEPAD_DPAD_UP},
+            {SDL_GAMEPAD_BUTTON_DPAD_DOWN, K_GAMEPAD_DPAD_DOWN},
+            {SDL_GAMEPAD_BUTTON_DPAD_LEFT, K_GAMEPAD_DPAD_LEFT},
+            {SDL_GAMEPAD_BUTTON_DPAD_RIGHT, K_GAMEPAD_DPAD_RIGHT},
+        };
+        for (size_t i = 0; i < sizeof(kButtons) / sizeof(kButtons[0]); i++) {
+            if (SDL_GetGamepadButton(s_gamepad, kButtons[i].btn)) {
+                SetVirtualKeyDown(kButtons[i].key);
+            }
+        }
+
+        // The D-pad emits only its own K_GAMEPAD_DPAD_* scancodes (above), never
+        // the left-stick virtual keys. That keeps the D-pad and left stick as
+        // independent, separately bindable input sources (issue #360): whatever a
+        // player binds to a D-pad direction in the controls menu is all it does, no
+        // hidden aliasing onto the stick's cardinals.
+
+        S16 lx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTX);
+        S16 ly = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTY);
+        S16 rx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHTX);
+        S16 ry = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHTY);
+        S16 lt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
+        S16 rt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
+
+        // Cache the raw right stick for the analog camera (EXTFUNC reads it).
+        s_rstickX = rx;
+        s_rstickY = ry;
+
+        ApplyStickDirection(lx, ly, K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT,
+                            K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN,
+                            &s_prevLeftDir);
+
+        // Right stick stays 8-way digital for bindings, EXCEPT while the analog
+        // camera owns it (Auto camera in an exterior scene): there EXTFUNC reads the
+        // raw axes, so emitting RSTICK scancodes too would double-drive elevation
+        // and the classic camera turn.
+        if (GamepadCameraAnalog && FollowCamera && CubeMode == CUBE_EXTERIEUR) {
+            s_prevRightDir = DIR_NEUTRAL;
+        } else {
+            ApplyStickDirection(rx, ry, K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT,
+                                K_GAMEPAD_RSTICK_UP, K_GAMEPAD_RSTICK_DOWN,
+                                &s_prevRightDir);
+        }
+
+        S16 dz = (S16)JoystickDeadzone;
+        if (lt > dz)
+            SetVirtualKeyDown(K_GAMEPAD_LTRIGGER);
+        if (rt > dz)
+            SetVirtualKeyDown(K_GAMEPAD_RTRIGGER);
     }
-
-    // The D-pad emits only its own K_GAMEPAD_DPAD_* scancodes (above), never
-    // the left-stick virtual keys. That keeps the D-pad and left stick as
-    // independent, separately bindable input sources (issue #360): whatever a
-    // player binds to a D-pad direction in the controls menu is all it does, no
-    // hidden aliasing onto the stick's cardinals.
-
-    S16 lx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTX);
-    S16 ly = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTY);
-    S16 rx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHTX);
-    S16 ry = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHTY);
-    S16 lt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
-    S16 rt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
-
-    // Cache the raw right stick for the analog camera (EXTFUNC reads it).
-    s_rstickX = rx;
-    s_rstickY = ry;
-
-    ApplyStickDirection(lx, ly, K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT,
-                        K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN,
-                        &s_prevLeftDir);
-
-    // Right stick stays 8-way digital for bindings, EXCEPT while the analog
-    // camera owns it (Auto camera in an exterior scene): there EXTFUNC reads the
-    // raw axes, so emitting RSTICK scancodes too would double-drive elevation
-    // and the classic camera turn.
-    if (GamepadCameraAnalog && FollowCamera && CubeMode == CUBE_EXTERIEUR) {
-        s_prevRightDir = DIR_NEUTRAL;
-    } else {
-        ApplyStickDirection(rx, ry, K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT,
-                            K_GAMEPAD_RSTICK_UP, K_GAMEPAD_RSTICK_DOWN,
-                            &s_prevRightDir);
-    }
-
-    S16 dz = (S16)JoystickDeadzone;
-    if (lt > dz)
-        SetVirtualKeyDown(K_GAMEPAD_LTRIGGER);
-    if (rt > dz)
-        SetVirtualKeyDown(K_GAMEPAD_RTRIGGER);
 
     // Edge-detect: find the first bit that went 0 -> 1 this frame.
     for (U32 i = firstByte; i <= lastByte; i++) {

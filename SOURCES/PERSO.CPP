@@ -14,6 +14,7 @@
 #include "EXIT_SCREEN.H"
 #include "PERFTRACE.H"
 #include "TOUCH_INPUT.H"
+#include <SYSTEM/OPENXR.H>
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H> /* CreateLog (boot log brought up in main) */
@@ -2291,8 +2292,11 @@ restartloop:
         /* affiche tout */
 
     skip_simulation:
+        OpenXR_PollEvents();
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SCENE);
+        OpenXR_BeginFrame();
         AffScene(FirstTime);
+        OpenXR_EndFrame();
         Perftrace_PhaseEnd(PERFTRACE_PHASE_SCENE);
 
         if ((FirstLoop OR RestartMusic)
@@ -2762,6 +2766,8 @@ void TheEndInfo() {
 #endif
     StopMusic();
 
+    OpenXR_Shutdown();
+
     /* No version/build footer here — the boot header already stamps version,
        build, platform, and backends at the top of every log. */
 
@@ -3091,6 +3097,10 @@ int main(int argc, char *argv[]) {
     TouchOverlay_Init();
     if (TouchOverlay_IsActive())
         SetOverlayPrePresentCallback(TouchOverlay_Render);
+
+    /* Optional OpenXR runtime (Quest 3). Init after GL context is up; no-op
+       when LBA2_OPENXR is off or no headset is present. */
+    OpenXR_Init();
 
     /* Perftrace: ring-buffer per-frame timing capture; off by default, opt-in
        via the `perftrace` console verb. See docs/PERFTRACE.md. */
