@@ -169,10 +169,34 @@ BUILD_DIR="$REPO_ROOT/out/build/quest"
 mkdir -p "$BUILD_DIR"
 
 log "Configuring CMake (preset=quest)..."
+# LBA2_OPENXR is turned on by the 'quest' preset, and the preset pins
+# LBA2_OPENXR_BASE_DIR at the prebuilt base OpenXR install under
+# out/android/openxr/install (so we don't refetch the base headers
+# on every configure). The install was extracted once from the
+# official Khronos org.khronos.openxr:openxr_loader_for_android AAR
+# version 1.1.43 (Apache 2.0). No Meta-OpenXR-SDK is fetched or
+# linked. The preset also passes SDL3_DIR, so this call just needs to
+# point at the right toolchain file.
+#
+# We must also pin SDL3_DIR explicitly here because the preset only
+# sets LBA2_OPENXR_BASE_DIR; without SDL3_DIR the configure cannot
+# find SDL3Config.cmake.
 cmake -S "$REPO_ROOT" -B "$BUILD_DIR" \
-    --preset quest 2>&1 | tee -a "$LOG_PATH"
+    --preset quest \
+    -DSDL3_DIR="$SDL3_ANDROID_DIR/lib/cmake/SDL3" 2>&1 | tee -a "$LOG_PATH"
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
-  fatal "CMake configure failed."
+    if grep -q 'OpenXR-SDK' "$LOG_PATH" 2>/dev/null; then
+        fatal "CMake configure failed while fetching Meta-OpenXR-SDK.\n" \
+              "Check your network access to https://github.com/meta-quest/Meta-OpenXR-SDK\n" \
+              "or set META_OPENXR_SDK_TAG to a different tag and retry."
+    elif grep -q 'OpenXR-SDK' "$LOG_PATH" 2>/dev/null; then
+        fatal "CMake configure failed while fetching the base OpenXR-SDK.\n" \
+              "Either point LBA2_OPENXR_BASE_DIR at a prebuilt install\n" \
+              "(see out/android/openxr/install) or check your network access to\n" \
+              "https://github.com/KhronosGroup/OpenXR-SDK and retry."
+    else
+        fatal "CMake configure failed."
+    fi
 fi
 
 log "Building native library..."
@@ -197,6 +221,14 @@ VERSION=$(cat "$REPO_ROOT/VERSION")
 OUTPUT_DIR="$BUILD_DIR/apk"
 mkdir -p "$OUTPUT_DIR"
 
+EXTRA_BUNDLE_ARGS=()
+# The CMake post-build step stages the OpenXR loader next to liblba2cc.so;
+# pass it to the bundler via --extra-lib so the APK contains it.
+LOADER_SO="$BUILD_DIR/SOURCES/libopenxr_loader.so"
+if [ -f "$LOADER_SO" ]; then
+    EXTRA_BUNDLE_ARGS+=(--extra-lib "$LOADER_SO")
+fi
+
 bash "$REPO_ROOT/scripts/packaging/bundle-android.sh" \
     --lib "$NATIVE_LIB" \
     --version "$VERSION" \
@@ -206,6 +238,8 @@ bash "$REPO_ROOT/scripts/packaging/bundle-android.sh" \
     --sdl3-java-src "$REPO_ROOT/out/android/SDL3" \
     --sdl3-lib "$SDL3_ANDROID_DIR/lib/libSDL3.so" \
     --cxx-shared-lib "$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" \
+    --manifest "$REPO_ROOT/packaging/android/AndroidManifest.quest.xml" \
+    "${EXTRA_BUNDLE_ARGS[@]}" \
     --output-dir "$OUTPUT_DIR" 2>&1 | tee -a "$LOG_PATH"
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
   fatal "APK bundling failed."

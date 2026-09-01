@@ -180,7 +180,8 @@
       "displayName": "Meta Quest (OpenXR)",
       "description": "Android arm64-v8a build with OpenXR enabled for Meta Quest 3 controller support",
       "cacheVariables": {
-        "LBA2_OPENXR": "ON"
+        "LBA2_OPENXR": "ON",
+        "LBA2_OPENXR_BASE_DIR": "${sourceDir}/out/android/openxr/install"
       }
     },
     {

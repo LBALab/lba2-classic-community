@@ -1516,10 +1516,17 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
 
+    /* GL_UNPACK_ROW_LENGTH is GLES 3.0+; the project's minimum is GLES 2.0,
+       so guard the pixel-store call (row length falls back to width when
+       unset, which is what we want anyway because pitch == width*4 here). */
+#ifdef GL_UNPACK_ROW_LENGTH
     glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / 4);
+#endif
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, FMT_BGRA,
                     GL_UNSIGNED_BYTE, argbPixels);
+#ifdef GL_UNPACK_ROW_LENGTH
     glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
 
     /* Enable alpha blending so palette index 0 (alpha=0) is transparent,
        letting the 3D scene (or black background) show through underneath. */

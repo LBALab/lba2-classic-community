@@ -5,7 +5,11 @@ target_compile_definitions(gly PRIVATE USE_GPURENDERER)
 target_link_libraries(gly PUBLIC sys)
 
 if(ANDROID)
-    # GLES 2.0 is part of the NDK — no extra link needed.
+    # GLES 2.0 symbols live in libGLESv2.so in the NDK sysroot; the CMake
+    # OpenGL package does not expose it, so link it directly. dlopen is
+    # not an option here because the renderer references these symbols
+    # statically at link time.
+    target_link_libraries(gly PUBLIC GLESv2)
 else()
     find_package(OpenGL REQUIRED)
     target_link_libraries(gly PUBLIC OpenGL::GL)

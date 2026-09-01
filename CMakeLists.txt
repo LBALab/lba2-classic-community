@@ -57,12 +57,60 @@ endif()
 # Software vs OpenGL at runtime via the Display menu.
 option(GPURENDERER "Enable GPU renderer (OpenGL 2.1 / GLES 2.0)" ON)
 
-# OpenXR runtime (Quest 3 / headset input + minimal session). Default OFF.
-# When ON, the engine links against the system OpenXR loader and enables
-# controller input through the existing gamepad virtual-scancode path.
-option(LBA2_OPENXR "Enable OpenXR runtime support (Quest 3)" OFF)
+# OpenXR runtime (Quest 3 / headset input + immersive frame present).
+# Default OFF. When ON, the engine locates the OpenXR C headers + a
+# prebuilt or fetched Khronos OpenXR loader and links it as the
+# `openxr_loader` target. Quest 3 controller state is mapped onto the
+# same virtual-scancode space JOYSTICK.CPP uses for SDL gamepads.
+#
+# Sources: only the Khronos OpenXR headers + loader (Apache 2.0). No
+# Meta-OpenXR-SDK is fetched or linked. See docs/ANDROID.md for the
+# rationale (the Quest 3 forward loader requires xrInitializeLoaderKHR
+# to be called before xrCreateInstance; the Khronos 1.1.x loader
+# performs that handshake correctly against current Quest firmware).
+option(LBA2_OPENXR "Enable OpenXR runtime support (Quest 3 / Android)" OFF)
 if(LBA2_OPENXR)
-    find_package(OpenXR REQUIRED)
+    set(LBA2_OPENXR_BASE_DIR "" CACHE PATH "Path to a base OpenXR SDK install providing <openxr/openxr.h> and the openxr_loader target (used on Android when not building the loader from source).")
+    if(LBA2_OPENXR_BASE_DIR)
+        # User-supplied pre-built OpenXR install (the typical Android setup:
+        # the Quest runtime ships the loader, we just need the headers and
+        # an `openxr_loader` interface target to link against).
+        get_filename_component(_openxr_abs "${LBA2_OPENXR_BASE_DIR}" ABSOLUTE)
+        if(EXISTS "${_openxr_abs}/lib/libopenxr_loader.so")
+            # On Android the loader is a shared library; consume the .so
+            # directly via IMPORTED so it lands in the APK at install time.
+            # On non-Android targets the loader is typically a static lib
+            # and the caller wants symbols baked in, so fall back to
+            # INTERFACE+include in that case.
+            add_library(openxr_loader SHARED IMPORTED)
+            set_target_properties(openxr_loader PROPERTIES
+                IMPORTED_LOCATION "${_openxr_abs}/lib/libopenxr_loader.so"
+                INTERFACE_INCLUDE_DIRECTORIES "${_openxr_abs}/include")
+        else()
+            add_library(openxr_loader INTERFACE)
+            target_include_directories(openxr_loader INTERFACE "${_openxr_abs}/include")
+        endif()
+    else()
+        # No prebuilt install provided: build the base OpenXR headers/loader
+        # from KhronosGroup/OpenXR-SDK (Apache 2.0). Pinned to a tag whose
+        # CMakeLists.txt is compatible with the project's cmake_minimum.
+        include(FetchContent)
+        set(KHRONOS_OPENXR_SDK_TAG "release-1.1.43" CACHE STRING "Khronos OpenXR-SDK tag to fetch (Apache 2.0)")
+        FetchContent_Declare(
+            OpenXR-SDK
+            GIT_REPOSITORY https://github.com/KhronosGroup/OpenXR-SDK.git
+            GIT_TAG        ${KHRONOS_OPENXR_SDK_TAG}
+            GIT_SHALLOW    TRUE
+        )
+        FetchContent_MakeAvailable(OpenXR-SDK)
+    endif()
+    if(NOT TARGET openxr_loader)
+        message(FATAL_ERROR
+            "LBA2_OPENXR=ON but no `openxr_loader` target was created. "
+            "Either set LBA2_OPENXR_BASE_DIR to a prebuilt install, or "
+            "set KHRONOS_OPENXR_SDK_TAG to a Khronos release that still "
+            "defines the target.")
+    endif()
 endif()
 
 # Performance options

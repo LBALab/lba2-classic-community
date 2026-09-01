@@ -9,9 +9,17 @@ set(SOURCES_FILES ANDROID.CPP AVAILMEM.CPP CMDLINE.CPP CUE.CPP DEFFILE.CPP DISCI
 set(SOURCES_FILES_ASM CPU.CPP FASTCPYF.CPP LZ.CPP MOUSEDAT.CPP)
 
 add_library(sys ${SOURCES_FILES} ${SOURCES_FILES_ASM})
-target_link_libraries(sys svg)
+target_link_libraries(sys PUBLIC svg)
 if(GPURENDERER)
     target_compile_definitions(sys PRIVATE USE_GPURENDERER)
+endif()
+
+if(LBA2_OPENXR)
+    target_compile_definitions(sys PRIVATE LBA2_OPENXR=1)
+    target_link_libraries(sys PRIVATE openxr_loader)
+    if(ANDROID)
+        target_link_libraries(sys PRIVATE EGL log android)
+    endif()
 endif()
 
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)

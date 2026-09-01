@@ -173,3 +173,64 @@ by editing the `kButtons[]` table (normalised 0..1 coordinates).
 - **Android TV**: Touch overlay is automatically disabled when a TV device
   is detected (`android.software.leanback` feature). Use a gamepad or
   remote control instead.
+
+## OpenXR (Meta Quest 3)
+
+Optional, off by default. The Quest build preset (`cmake --preset quest`)
+turns on `-DLBA2_OPENXR=ON` and makes the engine speak to the OpenXR
+runtime on the headset: the engine renders the existing 2D scene as a
+mono blit into a per-eye OpenXR swapchain (both eyes receive the same
+image, with the engine framebuffer copied 1:1 into the top-left of the
+recommended eye rect) and reads Quest 3 controller state through the
+OpenXR action pipeline, mapped onto the same virtual-scancode space the
+SDL gamepad path uses so `JOYSTICK.CPP` picks it up unchanged.
+
+### Where the loader comes from
+
+When `LBA2_OPENXR=ON`, the build consumes the official Khronos Android
+OpenXR loader via a pre-staged install at
+`out/android/openxr/install/`. The AAR
+[`org.khronos.openxr:openxr_loader_for_android`](https://central.sonatype.com/artifact/org.khronos.openxr/openxr_loader_for_android)
+(version 1.1.43) was extracted there once: headers under `include/openxr/`
+and the per-ABI `libopenxr_loader.so` under `lib/`. CMake consumes the
+install through `LBA2_OPENXR_BASE_DIR` and exposes it as the
+`openxr_loader` target.
+
+Pointing `LBA2_OPENXR_BASE_DIR` at a different pre-staged install (or
+setting it empty to have CMake fetch
+[KhronosGroup/OpenXR-SDK](https://github.com/KhronosGroup/OpenXR-SDK)
+release-1.1.43 and build the loader from source) both work; the AAR path
+is what the Quest build uses by default because it ships a loader
+tested against the current Quest firmware.
+
+If no OpenXR runtime is reachable, `OpenXR_Init()` logs the failing
+loader call and the rest of the engine runs unmodified.
+
+### Why the Quest 3 init needs `xrInitializeLoaderKHR`
+
+The Quest 3 forward loader (`libopenxr_forwardloader.so` inside the
+Meta `VrDriver` APK) only hands the runtime to callers that have
+called `xrInitializeLoaderKHR` with the calling app's `JavaVM` and a
+global reference to the activity class. The Khronos loader exposes
+this as a "loader function" through `xrGetInstanceProcAddr` with
+`XR_NULL_HANDLE`. `LIB386/SYSTEM/OPENXR.CPP` does exactly that dance,
+then chains `XrInstanceCreateInfoAndroidKHR` into `xrCreateInstance`
+with `applicationVM` and `applicationActivity` set. The same
+`XrLoaderInitInfoAndroidKHR`/`XrInstanceCreateInfoAndroidKHR` pair
+is what the Meta OpenXR SDK's `XrPassthrough` sample uses.
+
+### Building and running on a Quest 3
+
+```bash
+cmake --preset quest
+cmake --build build/quest
+# Push the resulting liblba2cc.so + assets to the headset; see
+# scripts/packaging/bundle-android.sh for the full bundler flow.
+```
+
+### License
+
+Apache 2.0 throughout (Khronos OpenXR SDK + AAR). No Meta SDK is
+fetched or linked; the engine does not need Meta's partner-only
+`com.oculus.systemdriver.DriverLoader` Java class because the Khronos
+loader performs the runtime-broker handshake directly.

@@ -117,6 +117,21 @@ target_include_directories(${LBA2_EXECUTABLE_NAME} PRIVATE ${CMAKE_CURRENT_SOURC
 # Explicit order matters for GNU static linking: poly references RoundType/ROUND in libsys (UTILS.CPP);
 # sys must follow poly. (Transitive deps from 3dext alone order sys before poly and break -m32 links.)
 target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE 3dext 3D ail ani fio obj poly svg sys ${LBA2_SDL3_TARGET})
+
+# When LBA2_OPENXR is on, copy the OpenXR loader .so next to liblba2cc.so
+# so the Android bundler picks it up automatically. Quest 3 ships its own
+# loader at /vendor/lib64/libopenxr_loader.so, but the app must include it
+# in the APK so Android's loader can find it before the system path is
+# consulted.
+if(LBA2_OPENXR AND ANDROID AND TARGET openxr_loader)
+    add_custom_command(
+        TARGET ${LBA2_EXECUTABLE_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:openxr_loader>
+            $<TARGET_FILE_DIR:${LBA2_EXECUTABLE_NAME}>
+        COMMENT "Staging OpenXR loader next to liblba2cc.so"
+    )
+endif()
 if(GPURENDERER)
     target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE gly)
 endif()

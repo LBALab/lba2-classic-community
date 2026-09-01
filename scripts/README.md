@@ -28,6 +28,7 @@ not maintained tooling.
 | [dev/repo_root.sh](dev/repo_root.sh) | Print the absolute repository root (directory with the top-level `CMakeLists.txt`). | `Makefile` |
 | [dev/build-android.sh](dev/build-android.sh) | Build the engine for Android (arm64-v8a default, armeabi-v7a via `--abi`). | manual ([ANDROID.md](../docs/ANDROID.md)) |
 | [dev/build-sdl3-android.sh](dev/build-sdl3-android.sh) | Cross-build SDL3 for Android and install it to a known prefix (prerequisite for `build-android.sh`). | manual ([ANDROID.md](../docs/ANDROID.md)) |
+| [dev/build-and-install-quest.sh](dev/build-and-install-quest.sh) | End-to-end Meta Quest 3 wizard: configure the `quest` preset (consumes the Khronos OpenXR loader from `out/android/openxr/install/`), build, bundle an APK, push retail HQRs to `/sdcard/lba2cc/`, and `adb install` on the headset. | manual ([ANDROID.md](../docs/ANDROID.md)) |
 | [dev/check-16k-align.sh](dev/check-16k-align.sh) | Verify an Android APK is safe on 16 KB memory-page devices (segment alignment + uncompressed `.so`). | CI (android), [ANDROID.md](../docs/ANDROID.md) |
 
 ## Release dry-runs (`dev/`)

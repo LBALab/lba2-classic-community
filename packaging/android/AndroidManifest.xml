@@ -31,6 +31,11 @@
          Runtime detection in TOUCH_INPUT.CPP disables the overlay on TV. -->
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <!-- VR headtracking is not declared here: phone / TV / tablet builds
+         do not want to advertise VR support (the store filters by it). The
+         Quest build uses packaging/android/AndroidManifest.quest.xml,
+         selected by the bundler when --manifest is passed. -->
+
     <!-- Landscape orientation required for the game's aspect ratio -->
     <application android:label="@string/app_name"
         android:allowBackup="true"

@@ -2296,7 +2296,14 @@ restartloop:
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SCENE);
         OpenXR_BeginFrame();
         AffScene(FirstTime);
-        OpenXR_EndFrame();
+        /* On Quest 3 (immersive mono blit), OpenXR_PresentMono copies the
+         * SDL framebuffer into the OpenXR swapchain and submits a single
+         * XrCompositionLayerProjection via xrEndFrame. On other platforms
+         * (or input-only OpenXR) it returns 0 and Window_GL_SwapWindow
+         * still runs the SDL swap. */
+        if (OpenXR_PresentMono() == 0) {
+            Window_GL_SwapWindow();
+        }
         Perftrace_PhaseEnd(PERFTRACE_PHASE_SCENE);
 
         if ((FirstLoop OR RestartMusic)

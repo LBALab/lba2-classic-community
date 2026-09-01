@@ -37,8 +37,27 @@ void OpenXR_PollEvents(void);
 S32 OpenXR_BeginFrame(void);
 
 /* No-op in the minimal wrapper; retained for a future split where the
- * renderer owns the swapchain and wants to present after drawing. */
+ * renderer owns the swapchain and wants to present after drawing.
+ *
+ * For the Quest 3 immersive (mono blit) path, see OpenXR_PresentMono —
+ * the engine's main loop calls that instead, which copies the SDL
+ * framebuffer into the OpenXR swapchain and submits the composition
+ * layer to the runtime. */
 void OpenXR_EndFrame(void);
+
+/* Quest 3 immersive mono path: copy the current SDL / GLES framebuffer
+ * into the OpenXR swapchain and submit a single XrCompositionLayerProjection
+ * (both eyes reference the same texture) via xrEndFrame. The renderer's
+ * own SDL_GL_SwapWindow is suppressed while this returns non-zero.
+ * Returns 1 on success, 0 if the session is not active or the frame
+ * was skipped (in which case the caller should still let SDL swap). */
+S32 OpenXR_PresentMono(void);
+
+/* 1 while an immersive OpenXR session is owning the present path (i.e.
+ * Window_GL_SwapWindow should be suppressed because OpenXR_PresentMono
+ * already submitted the frame). 0 otherwise. Lets the renderer skip
+ * a redundant SDL swap. */
+S32 OpenXR_ShouldSkipSDLSwap(void);
 
 /* Read the latest Quest 3 controller state and write virtual gamepad
  * scancodes into TabKeys via the existing helpers in JOYSTICK.CPP.

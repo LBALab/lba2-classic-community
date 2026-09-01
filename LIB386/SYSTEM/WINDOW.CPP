@@ -3,6 +3,7 @@
 #include <SYSTEM/ANDROID.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H>
+#include <SYSTEM/OPENXR.H>
 
 #ifdef USE_GPURENDERER
 #include <GL/RENDER_GL.H>
@@ -670,6 +671,14 @@ bool Window_GLMakeCurrent(void) {
 
 void Window_GL_SwapWindow(void) {
     if (sdlWindow != NULL) {
+        /* Quest 3 immersive (mono blit) path: OpenXR_PresentMono owns
+         * the present via xrEndFrame, so suppress the redundant SDL
+         * swap to avoid double-presenting. The GL renderer still ran
+         * (uploading SVGA ARGB pixels into the GL FBO); the copy from
+         * that FBO into the OpenXR swapchain happens in OpenXR_PresentMono. */
+        if (OpenXR_ShouldSkipSDLSwap()) {
+            return;
+        }
         SDL_GL_SwapWindow(sdlWindow);
     }
 }
