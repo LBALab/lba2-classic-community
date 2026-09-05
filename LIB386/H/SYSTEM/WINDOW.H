@@ -99,6 +99,10 @@ void Window_GL_SwapWindow(void);
 
 /** Access the underlying SDL window (for GL renderer). */
 SDL_Window *Window_GetSDLWindow(void);
+/** Get the current render resolution (for OpenXR blit when no SDL window). */
+void Window_GetRenderSize(int *w, int *h);
+/** Set the render resolution (for OpenXR mode where no SDL window is created). */
+void Window_SetRenderResolution(U32 w, U32 h);
 #endif
 
 // Pause audio while the window is not focused. The window layer feeds focus

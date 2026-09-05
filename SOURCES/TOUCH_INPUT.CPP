@@ -4,6 +4,7 @@
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOGPRINT.H>
+#include <SYSTEM/OPENXR.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/WINDOW.H>
 
@@ -218,7 +219,14 @@ void ApplyVirtualKeys(void) {
 
 void TouchOverlay_Init(void) {
 #ifdef __ANDROID__
-    if (IsAndroidTVDevice()) {
+    if (OpenXR_IsActive()) {
+        /* Quest immersive build: the headset has no touchscreen and the
+         * Touch controllers drive the gamepad, so the on-screen buttons
+         * would only cover the picture. */
+        s_active = 0;
+        LogPrintf("TouchOverlay: OpenXR session active, overlay disabled "
+                  "(Touch controllers)\n");
+    } else if (IsAndroidTVDevice()) {
         LogPrintf("TouchOverlay: Android TV detected, overlay disabled "
                   "(use gamepad/remote)\n");
         s_active = 0;

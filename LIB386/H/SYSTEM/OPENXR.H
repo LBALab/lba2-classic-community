@@ -59,6 +59,16 @@ S32 OpenXR_PresentMono(void);
  * a redundant SDL swap. */
 S32 OpenXR_ShouldSkipSDLSwap(void);
 
+/* Native stereo toggle for the immersive present path. When enabled (and
+ * the engine renders one frame per eye via GL_SetStereoEye),
+ * OpenXR_PresentMono blits two per-eye composites into the swapchain
+ * image's top/bottom halves and submits one projection layer with a
+ * per-eye sub-image; otherwise both eyes share the mono composite. */
+void OpenXR_SetStereoEnabled(S32 enabled);
+
+/* Current stereo-present mode (0 = mono, 1 = per-eye). */
+S32 OpenXR_GetStereoEnabled(void);
+
 /* Read the latest Quest 3 controller state and write virtual gamepad
  * scancodes into TabKeys via the existing helpers in JOYSTICK.CPP.
  * Returns 1 if OpenXR state was written this frame, 0 otherwise
@@ -82,11 +92,13 @@ extern S16 OpenXR_LeftStickY;
 extern S16 OpenXR_RightStickX;
 extern S16 OpenXR_RightStickY;
 
-/* Face buttons. */
+/* Face buttons. Menu is the left controller's menu click, mapped onto
+ * K_GAMEPAD_START by JOYSTICK.CPP (the default I_MENUS binding). */
 extern S32 OpenXR_ABtn;
 extern S32 OpenXR_BBtn;
 extern S32 OpenXR_XBtn;
 extern S32 OpenXR_YBtn;
+extern S32 OpenXR_MenuBtn;
 
 /* ========================================================================= */
 #ifdef __cplusplus

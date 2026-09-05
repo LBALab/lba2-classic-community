@@ -23,6 +23,14 @@ extern S32 CameraXr;
 extern S32 CameraYr;
 extern S32 CameraZr;
 
+/* Stereo (dual-eye) rendering injection. Both default 0, which keeps the
+ * ported camera/projection byte-identical to the ASM. StereoCamShiftX is
+ * added to the camera-space X position in SetCamera (a lateral eye offset);
+ * StereoProjShiftX is added to the projection centre X in the 3D projector
+ * (asymmetric-frustum convergence). See GL_SetStereoEye. */
+extern S32 StereoCamShiftX;
+extern S32 StereoProjShiftX;
+
 extern S32 CameraZrClip;
 
 extern S32 NearClip;

@@ -30,6 +30,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
 
 #ifdef __cplusplus
 extern "C" {
@@ -81,6 +82,14 @@ static const char *OXR_ResultStr(XrResult r) {
         case XR_ERROR_SESSION_NOT_READY:       return "XR_ERROR_SESSION_NOT_READY";
         case XR_ERROR_SESSION_RUNNING:         return "XR_ERROR_SESSION_RUNNING";
         case XR_ERROR_SWAPCHAIN_RECT_INVALID:  return "XR_ERROR_SWAPCHAIN_RECT_INVALID";
+        case XR_ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED: return "XR_ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED";
+        case XR_ERROR_GRAPHICS_DEVICE_INVALID: return "XR_ERROR_GRAPHICS_DEVICE_INVALID";
+        case XR_ERROR_GRAPHICS_REQUIREMENTS_CALL_MISSING: return "XR_ERROR_GRAPHICS_REQUIREMENTS_CALL_MISSING";
+        case XR_ERROR_TIME_INVALID:            return "XR_ERROR_TIME_INVALID";
+        case XR_ERROR_POSE_INVALID:            return "XR_ERROR_POSE_INVALID";
+        case XR_ERROR_RUNTIME_UNAVAILABLE:     return "XR_ERROR_RUNTIME_UNAVAILABLE";
+        case XR_ERROR_PERMISSION_INSUFFICIENT: return "XR_ERROR_PERMISSION_INSUFFICIENT";
+        case XR_ERROR_EXTENSION_DEPENDENCY_NOT_ENABLED: return "XR_ERROR_EXTENSION_DEPENDENCY_NOT_ENABLED";
         default:                                return "XR_ERROR_?";
     }
 }
@@ -94,15 +103,33 @@ static const char *OXR_ResultStr(XrResult r) {
 /* One-time init flag. */
 static S32 s_openxrInited = 0;
 static S32 s_openxrActive = 0;
+static S32 s_sessionRunning = 0;
 static S32 s_swapchainOwnsPresent = 0;
+
+/* SDL ticks at the last PresentMono that passed the session gates; -1 until
+ * then. OpenXR_UpdateControllerState syncs input here when this has gone
+ * stale, covering input-wait loops that spin without presenting. */
+static S32 s_lastPresentTick = -1;
+
+/* Native stereo present: engine renders per eye (GL_SetStereoEye) and the
+ * submit blits two per-eye composites into the swapchain halves. */
+static S32 s_stereoEnabled = 0;
 
 /* Session / frame handles. */
 static XrInstance              s_instance = XR_NULL_HANDLE;
 static XrSession               s_session  = XR_NULL_HANDLE;
 static XrSpace                 s_stageSpace = XR_NULL_HANDLE;
+static XrSpace                 s_localSpace = XR_NULL_HANDLE;
 static XrSpace                 s_viewSpace = XR_NULL_HANDLE;
 static XrActionSet             s_actionSet = XR_NULL_HANDLE;
-static XrAction                s_actions[12];
+static XrAction                s_actions[13];
+
+/* Subaction paths for both hands. The Quest runtime reports controller
+ * actions per hand: created without subaction paths, actions bind
+ * nominally (profile matches) but every state query reads back inactive.
+ * Every action is therefore created filtered to both hands, and each
+ * query is made once per hand. */
+static XrPath                  s_handPaths[2];
 static XrSessionState          s_sessionState = XR_SESSION_STATE_UNKNOWN;
 
 /* JNI global refs kept alive for the lifetime of the OpenXR
@@ -136,6 +163,10 @@ static XrSystemId              s_systemId = XR_NULL_SYSTEM_ID;
 
 /* Raw controller state published to JOYSTICK.CPP. */
 S32 OpenXR_LeftGripDown = 0;
+
+/* GL renderer stereo eye capture (RENDER_GL.CPP). */
+extern "C" U32 GL_GetStereoEyeFBO(S32 eye);
+extern "C" S32 GL_TakeStereoPair(void);
 S32 OpenXR_RightGripDown = 0;
 S32 OpenXR_LeftTrigger = 0;
 S32 OpenXR_RightTrigger = 0;
@@ -149,6 +180,7 @@ S32 OpenXR_ABtn = 0;
 S32 OpenXR_BBtn = 0;
 S32 OpenXR_XBtn = 0;
 S32 OpenXR_YBtn = 0;
+S32 OpenXR_MenuBtn = 0;
 
 /* -------------------------------------------------------------------------- */
 static int hasExt(const XrExtensionProperties *list, U32 count, const char *name) {
@@ -400,11 +432,42 @@ static S32 OpenXR_CreateSession(void) {
     s_systemId = sysId;
     OXR_LOGI("xrGetSystem OK sysId=%llu", (unsigned long long)sysId);
 
+    /* Per the OpenXR spec, xrGetGraphicsRequirementsKHR MUST be called for
+     * the chosen graphics API before xrCreateSession, otherwise the
+     * runtime returns XR_ERROR_GRAPHICS_REQUIREMENTS_CALL_MISSING (-50).
+     * The returned minOpenGLESVersion is the lowest GLES major.minor the
+     * runtime supports on this system; we don't gate on it (the engine is
+     * GLES 2/3 via SDL) but we do log it for diagnostics. */
+    PFN_xrGetOpenGLESGraphicsRequirementsKHR pfnGetReqs = NULL;
+    XrResult grRc = xrGetInstanceProcAddr(s_instance,
+        "xrGetOpenGLESGraphicsRequirementsKHR",
+        (PFN_xrVoidFunction *)&pfnGetReqs);
+    if (XR_FAILED(grRc) || pfnGetReqs == NULL) {
+        OXR_LOGE("xrGetInstanceProcAddr(xrGetOpenGLESGraphicsRequirementsKHR) failed: %s (0x%x)",
+                 OXR_ResultStr(grRc), (unsigned)grRc);
+        Log_Warn("OpenXR: xrGetOpenGLESGraphicsRequirementsKHR unavailable");
+        return 0;
+    }
+    XrGraphicsRequirementsOpenGLESKHR gfxReqs;
+    memset(&gfxReqs, 0, sizeof(gfxReqs));
+    gfxReqs.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR;
+    XrResult grcRc = pfnGetReqs(s_instance, sysId, &gfxReqs);
+    if (XR_FAILED(grcRc)) {
+        OXR_LOGE("xrGetOpenGLESGraphicsRequirementsKHR failed: %s (0x%x)",
+                 OXR_ResultStr(grcRc), (unsigned)grcRc);
+        return 0;
+    }
+    OXR_LOGI("xrGetOpenGLESGraphicsRequirementsKHR OK minApi=%llu maxApi=%llu",
+             (unsigned long long)gfxReqs.minApiVersionSupported,
+             (unsigned long long)gfxReqs.maxApiVersionSupported);
+
     XrGraphicsBindingOpenGLESAndroidKHR gfxBinding;
     memset(&gfxBinding, 0, sizeof(gfxBinding));
     gfxBinding.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
     gfxBinding.display = (EGLDisplay)SDL_EGL_GetCurrentDisplay();
     gfxBinding.context = (EGLContext)SDL_GL_GetCurrentContext();
+    OXR_LOGI("xrCreateSession gfxBinding display=%p context=%p",
+             (void *)gfxBinding.display, (void *)gfxBinding.context);
 
     XrSessionCreateInfo sessInfo;
     memset(&sessInfo, 0, sizeof(sessInfo));
@@ -426,25 +489,46 @@ static S32 OpenXR_CreateSession(void) {
     refInfo.type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO;
     refInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
     refInfo.poseInReferenceSpace.orientation.w = 1.0f;
+    OXR_LOGI("xrCreateReferenceSpace STAGE...");
     rc = xrCreateReferenceSpace(s_session, &refInfo, &s_stageSpace);
     if (XR_FAILED(rc)) {
         Log_Warn("OpenXR: xrCreateReferenceSpace STAGE failed (0x%x)", (unsigned)rc);
         return 0;
     }
+    OXR_LOGI("xrCreateReferenceSpace STAGE OK");
+
+    /* XR_REFERENCE_SPACE_TYPE_LOCAL is always valid on Quest 3 even when
+     * no Guardian play area is configured (where STAGE tracking returns
+     * IsValid=false). It is the headset's origin at startup, and the
+     * mono-blit path needs it for both xrLocateViews and the projection
+     * layer space, otherwise xrEndFrame is submitted with layerCount=0
+     * and the runtime shows the "still running" placeholder panel. */
+    refInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+    OXR_LOGI("xrCreateReferenceSpace LOCAL...");
+    rc = xrCreateReferenceSpace(s_session, &refInfo, &s_localSpace);
+    if (XR_FAILED(rc)) {
+        Log_Warn("OpenXR: xrCreateReferenceSpace LOCAL failed (0x%x)", (unsigned)rc);
+        return 0;
+    }
+    OXR_LOGI("xrCreateReferenceSpace LOCAL OK");
 
     refInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
+    OXR_LOGI("xrCreateReferenceSpace VIEW...");
     rc = xrCreateReferenceSpace(s_session, &refInfo, &s_viewSpace);
     if (XR_FAILED(rc)) {
         Log_Warn("OpenXR: xrCreateReferenceSpace VIEW failed (0x%x)", (unsigned)rc);
         return 0;
     }
+    OXR_LOGI("xrCreateReferenceSpace VIEW OK");
 
     /* Immersive mono blit: build the swapchain now so the first frame
      * can present. Failure is non-fatal — the engine still runs in
      * "input-only" mode if the runtime cannot allocate a swapchain. */
+    OXR_LOGI("OpenXR_CreateSwapchain...");
     if (!OpenXR_CreateSwapchain()) {
         Log_Warn("OpenXR: immersive swapchain unavailable, falling back to input-only");
     }
+    OXR_LOGI("OpenXR_CreateSwapchain returned");
 
     return 1;
 #else
@@ -541,13 +625,63 @@ static S32 OpenXR_CreateSwapchain(void) {
     Log_Info("OpenXR: immersive viewCount=%u swapchain=%ux%u",
              (unsigned)s_viewCount, (unsigned)s_swapchainWidth, (unsigned)s_swapchainHeight);
 
-    /* 4. Create the GLES2 swapchain.  GL_RGBA is the unsized RGBA8 format
-     *    in GLES 2.0; the runtime will allocate a GL_RGBA8 texture. */
+    /* GLES3+ sized formats used below; the engine's GL headers may not
+     * have them on every toolchain, so define defensively. */
+#ifndef GL_RGBA8
+#define GL_RGBA8 0x8058
+#endif
+#ifndef GL_SRGB8_ALPHA8
+#define GL_SRGB8_ALPHA8 0x8C43
+#endif
+
+    /* 4. Enumerate the swapchain formats the runtime supports and pick a
+     *    color format.  The Meta Quest OpenXR runtime advertises GL_RGBA8
+     *    (0x8058) and GL_SRGB8_ALPHA8 (0x8C43); the unsized GL_RGBA
+     *    (0x1908) is NOT in the supported list and using it makes the
+     *    runtime allocate a swapchain that the compositor later rejects
+     *    with "swapchain format unsupported; 6408".  Prefer sRGB first if
+     *    available, otherwise fall back to RGBA8. */
+    U32 formatCount = 0;
+    rc = xrEnumerateSwapchainFormats(s_session, 0, &formatCount, NULL);
+    if (XR_FAILED(rc) || formatCount == 0) {
+        Log_Warn("OpenXR: no swapchain formats (0x%x)", (unsigned)rc);
+        return 0;
+    }
+    int64_t *formats = (int64_t *)malloc(sizeof(int64_t) * formatCount);
+    rc = xrEnumerateSwapchainFormats(s_session, formatCount, &formatCount, formats);
+    if (XR_FAILED(rc)) { free(formats); return 0; }
+    int64_t pickedFormat = 0;
+    {
+        U32 k;
+        /* Prefer GL_RGBA8 over GL_SRGB8_ALPHA8: glCopyTexSubImage2D in
+         * GLES 2.0 does not support SRGB formats (returns GL_INVALID_OPERATION
+         * 0x502). The Quest runtime supports GL_RGBA8, so use that for the
+         * swapchain to allow the CPU-side blit to succeed. */
+        for (k = 0; k < formatCount; k++) {
+            if (formats[k] == GL_RGBA8) { pickedFormat = formats[k]; break; }
+        }
+        if (pickedFormat == 0) {
+            for (k = 0; k < formatCount; k++) {
+                if (formats[k] == GL_RGBA) { pickedFormat = formats[k]; break; }
+            }
+        }
+        if (pickedFormat == 0) {
+            for (k = 0; k < formatCount; k++) {
+                if (formats[k] == GL_SRGB8_ALPHA8) { pickedFormat = formats[k]; break; }
+            }
+        }
+        if (pickedFormat == 0) {
+            pickedFormat = formats[0];
+        }
+    }
+    OXR_LOGI("swapchain format: picked=0x%llx (from %u supported)", (unsigned long long)pickedFormat, (unsigned)formatCount);
+    free(formats);
+
     XrSwapchainCreateInfo scInfo;
     memset(&scInfo, 0, sizeof(scInfo));
     scInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
-    scInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT;
-    scInfo.format = GL_RGBA;
+    scInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
+    scInfo.format = pickedFormat;
     scInfo.sampleCount = 1;
     scInfo.width = s_swapchainWidth;
     scInfo.height = s_swapchainHeight;
@@ -610,6 +744,10 @@ static void OpenXR_DestroySession(void) {
         xrDestroySpace(s_stageSpace);
         s_stageSpace = XR_NULL_HANDLE;
     }
+    if (s_localSpace != XR_NULL_HANDLE) {
+        xrDestroySpace(s_localSpace);
+        s_localSpace = XR_NULL_HANDLE;
+    }
     if (s_viewSpace != XR_NULL_HANDLE) {
         xrDestroySpace(s_viewSpace);
         s_viewSpace = XR_NULL_HANDLE;
@@ -620,6 +758,7 @@ static void OpenXR_DestroySession(void) {
 /* -------------------------------------------------------------------------- */
 static S32 OpenXR_CreateActions(void) {
 #ifdef __ANDROID__
+    OXR_LOGI("OpenXR_CreateActions: entering");
     XrActionSetCreateInfo asInfo;
     memset(&asInfo, 0, sizeof(asInfo));
     asInfo.type = XR_TYPE_ACTION_SET_CREATE_INFO;
@@ -629,11 +768,15 @@ static S32 OpenXR_CreateActions(void) {
     XrResult rc = xrCreateActionSet(s_instance, &asInfo, &s_actionSet);
     if (XR_FAILED(rc)) return 0;
 
+    xrStringToPath(s_instance, "/user/hand/left", &s_handPaths[0]);
+    xrStringToPath(s_instance, "/user/hand/right", &s_handPaths[1]);
+
     static const char *boolNames[] = {
         "a_click", "b_click", "x_click", "y_click",
         "lstick_click", "rstick_click",
         "ltrigger", "rtrigger",
         "lgrip", "rgrip",
+        "menu_click",
     };
     U32 i;
     for (i = 0; i < sizeof(boolNames)/sizeof(boolNames[0]); i++) {
@@ -641,6 +784,8 @@ static S32 OpenXR_CreateActions(void) {
         memset(&aInfo, 0, sizeof(aInfo));
         aInfo.type = XR_TYPE_ACTION_CREATE_INFO;
         aInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+        aInfo.countSubactionPaths = 2;
+        aInfo.subactionPaths = s_handPaths;
         SDL_strlcpy(aInfo.actionName, boolNames[i], sizeof(aInfo.actionName));
         SDL_strlcpy(aInfo.localizedActionName, boolNames[i], sizeof(aInfo.localizedActionName));
         rc = xrCreateAction(s_actionSet, &aInfo, &s_actions[i]);
@@ -653,9 +798,11 @@ static S32 OpenXR_CreateActions(void) {
         memset(&aInfo, 0, sizeof(aInfo));
         aInfo.type = XR_TYPE_ACTION_CREATE_INFO;
         aInfo.actionType = XR_ACTION_TYPE_VECTOR2F_INPUT;
+        aInfo.countSubactionPaths = 2;
+        aInfo.subactionPaths = s_handPaths;
         SDL_strlcpy(aInfo.actionName, vecNames[i], sizeof(aInfo.actionName));
         SDL_strlcpy(aInfo.localizedActionName, vecNames[i], sizeof(aInfo.localizedActionName));
-        rc = xrCreateAction(s_actionSet, &aInfo, &s_actions[10 + i]);
+        rc = xrCreateAction(s_actionSet, &aInfo, &s_actions[11 + i]);
         if (XR_FAILED(rc)) return 0;
     }
 
@@ -666,7 +813,7 @@ static S32 OpenXR_CreateActions(void) {
     XrPath profilePath = XR_NULL_PATH;
     xrStringToPath(s_instance, profileStr, &profilePath);
 
-    static const char *bindingStrs[12] = {
+    static const char *bindingStrs[13] = {
         "/user/hand/right/input/a/click",
         "/user/hand/right/input/b/click",
         "/user/hand/left/input/x/click",
@@ -677,12 +824,13 @@ static S32 OpenXR_CreateActions(void) {
         "/user/hand/right/input/trigger/value",
         "/user/hand/left/input/squeeze/value",
         "/user/hand/right/input/squeeze/value",
+        "/user/hand/left/input/menu/click",
         "/user/hand/left/input/thumbstick",
         "/user/hand/right/input/thumbstick",
     };
-    XrActionSuggestedBinding bindings[12];
+    XrActionSuggestedBinding bindings[13];
     U32 j;
-    for (j = 0; j < 12; j++) {
+    for (j = 0; j < 13; j++) {
         bindings[j].action = s_actions[j];
         xrStringToPath(s_instance, bindingStrs[j], &bindings[j].binding);
     }
@@ -692,7 +840,7 @@ static S32 OpenXR_CreateActions(void) {
     suggest.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING;
     suggest.interactionProfile = profilePath;
     suggest.suggestedBindings = bindings;
-    suggest.countSuggestedBindings = 12;
+    suggest.countSuggestedBindings = 13;
 
     rc = xrSuggestInteractionProfileBindings(s_instance, &suggest);
     if (XR_FAILED(rc)) {
@@ -709,6 +857,7 @@ static S32 OpenXR_CreateActions(void) {
         Log_Warn("OpenXR: xrAttachSessionActionSets failed (0x%x)", (unsigned)rc);
         return 0;
     }
+    OXR_LOGI("OpenXR_CreateActions: returning 1 (success)");
 
     return 1;
 #else
@@ -720,8 +869,28 @@ static S32 OpenXR_CreateActions(void) {
 static void OpenXR_ReadActions(void) {
 #ifdef __ANDROID__
     if (!s_openxrActive) return;
+    /* Per the OpenXR spec, xrSyncActions takes an XrActionsSyncInfo* which
+     * describes which action sets to sync. Passing NULL is only valid when
+     * there are no active action sets, and the Meta Quest runtime crashes
+     * with a NULL-pointer dereference inside its vrapiimpl if called with
+     * NULL after xrAttachSessionActionSets. Match the reference layout in
+     * dubrovskiy-yevhen-stakelogic/vice-city-vr-quest xr_vulkan_session.cpp
+     * syncInput(): one active action set, no subaction path filter, and
+     * skip the call entirely when the session is not focused (the runtime
+     * is not in a state to deliver input). */
+    if (s_sessionState != XR_SESSION_STATE_FOCUSED) return;
 
-    XrResult rc = xrSyncActions(s_session, NULL);
+    XrActiveActionSet active;
+    memset(&active, 0, sizeof(active));
+    active.actionSet = s_actionSet;
+    active.subactionPath = XR_NULL_PATH;
+    XrActionsSyncInfo syncInfo;
+    memset(&syncInfo, 0, sizeof(syncInfo));
+    syncInfo.type = XR_TYPE_ACTIONS_SYNC_INFO;
+    syncInfo.countActiveActionSets = 1;
+    syncInfo.activeActionSets = &active;
+
+    XrResult rc = xrSyncActions(s_session, &syncInfo);
     if (XR_FAILED(rc)) return;
 
     XrActionStateGetInfo gi;
@@ -729,7 +898,7 @@ static void OpenXR_ReadActions(void) {
     XrActionStateVector2f stv;
     U32 i;
 
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < 11; i++) {
         memset(&gi, 0, sizeof(gi));
         memset(&stb, 0, sizeof(stb));
         gi.type = XR_TYPE_ACTION_STATE_GET_INFO;
@@ -747,16 +916,25 @@ static void OpenXR_ReadActions(void) {
             case 7: out = &OpenXR_RightTrigger; break;
             case 8: out = &OpenXR_LeftGripDown; break;
             case 9: out = &OpenXR_RightGripDown; break;
+            case 10: out = &OpenXR_MenuBtn; break;
         }
-        if (out != NULL && XR_SUCCEEDED(xrGetActionStateBoolean(s_session, &gi, &stb))
-            && stb.isActive && stb.currentState) {
-            *out = 1;
-        } else if (out != NULL) {
-            *out = 0;
+        if (out != NULL) {
+            /* Actions are filtered to both hand subaction paths, so query
+             * once per hand and OR the results. */
+            S32 pressed = 0;
+            U32 h;
+            for (h = 0; h < 2; h++) {
+                gi.subactionPath = s_handPaths[h];
+                if (XR_SUCCEEDED(xrGetActionStateBoolean(s_session, &gi, &stb))
+                    && stb.isActive && stb.currentState) {
+                    pressed = 1;
+                }
+            }
+            *out = pressed;
         }
     }
 
-    for (i = 10; i < 12; i++) {
+    for (i = 11; i < 13; i++) {
         memset(&gi, 0, sizeof(gi));
         memset(&stv, 0, sizeof(stv));
         gi.type = XR_TYPE_ACTION_STATE_GET_INFO;
@@ -764,17 +942,69 @@ static void OpenXR_ReadActions(void) {
         stv.type = XR_TYPE_ACTION_STATE_VECTOR2F;
         S16 *outx = NULL, *outy = NULL;
         switch (i) {
-            case 10: outx = &OpenXR_LeftStickX;  outy = &OpenXR_LeftStickY;  break;
-            case 11: outx = &OpenXR_RightStickX; outy = &OpenXR_RightStickY; break;
+            case 11: outx = &OpenXR_LeftStickX;  outy = &OpenXR_LeftStickY;  break;
+            case 12: outx = &OpenXR_RightStickX; outy = &OpenXR_RightStickY; break;
         }
-        if (outx != NULL && outy != NULL
-            && XR_SUCCEEDED(xrGetActionStateVector2f(s_session, &gi, &stv))
-            && stv.isActive) {
-            *outx = (S16)(stv.currentState.x * 32767.0f);
-            *outy = (S16)(-stv.currentState.y * 32767.0f);
-        } else if (outx != NULL && outy != NULL) {
+        if (outx != NULL && outy != NULL) {
+            /* Take whichever hand reports an active stick state. */
             *outx = 0;
             *outy = 0;
+            U32 h;
+            for (h = 0; h < 2; h++) {
+                gi.subactionPath = s_handPaths[h];
+                if (XR_SUCCEEDED(xrGetActionStateVector2f(s_session, &gi, &stv))
+                    && stv.isActive) {
+                    *outx = (S16)(stv.currentState.x * 32767.0f);
+                    *outy = (S16)(-stv.currentState.y * 32767.0f);
+                }
+            }
+        }
+    }
+
+    /* Input diagnostics: which interaction profile the runtime matched (a
+     * mismatch leaves every action isActive=0), then the synced state at a
+     * low rate so a button press is observable in logcat without per-frame
+     * spam. */
+    {
+        static S32 s_profileLogged = 0;
+        if (!s_profileLogged) {
+            s_profileLogged = 1;
+            static const char *hands[2] = { "/user/hand/left", "/user/hand/right" };
+            U32 h;
+            for (h = 0; h < 2; h++) {
+                XrPath handPath = XR_NULL_PATH;
+                if (XR_SUCCEEDED(xrStringToPath(s_instance, hands[h], &handPath))) {
+                    XrInteractionProfileState profState;
+                    memset(&profState, 0, sizeof(profState));
+                    profState.type = XR_TYPE_INTERACTION_PROFILE_STATE;
+                    XrResult prc = xrGetCurrentInteractionProfile(s_session, handPath, &profState);
+                    char buf[XR_MAX_PATH_LENGTH];
+                    memset(buf, 0, sizeof(buf));
+                    if (XR_SUCCEEDED(prc) && profState.interactionProfile != XR_NULL_PATH) {
+                        uint32_t plen = 0;
+                        xrPathToString(s_instance, profState.interactionProfile,
+                                       (uint32_t)sizeof(buf), &plen, buf);
+                    }
+                    OXR_LOGI("interaction profile %s -> rc=0x%x '%s'",
+                             hands[h], (unsigned)prc, buf);
+                }
+            }
+        }
+        {
+            static U32 s_diagFrame = 0;
+            if (s_diagFrame < 8 || (s_diagFrame % 180) == 0) {
+                OXR_LOGI("ReadActions[%u]: state=%d A=%d B=%d X=%d Y=%d Menu=%d "
+                         "Ltrig=%d Rtrig=%d Lgrip=%d Rgrip=%d "
+                         "L=%d,%d R=%d,%d",
+                         (unsigned)s_diagFrame, (int)s_sessionState,
+                         OpenXR_ABtn, OpenXR_BBtn, OpenXR_XBtn, OpenXR_YBtn,
+                         OpenXR_MenuBtn,
+                         OpenXR_LeftTrigger, OpenXR_RightTrigger,
+                         OpenXR_LeftGripDown, OpenXR_RightGripDown,
+                         OpenXR_LeftStickX, OpenXR_LeftStickY,
+                         OpenXR_RightStickX, OpenXR_RightStickY);
+            }
+            s_diagFrame++;
         }
     }
 #endif
@@ -801,39 +1031,48 @@ S32 OpenXR_Init(void) {
         return 0;
     }
 
-    XrEventDataBuffer evt;
-    memset(&evt, 0, sizeof(evt));
-    evt.type = XR_TYPE_EVENT_DATA_BUFFER;
-    XrResult rc;
-    int i;
-    for (i = 0; i < 30; i++) {
-        rc = xrPollEvent(s_instance, &evt);
-        if (rc == XR_EVENT_UNAVAILABLE) break;
-        if (evt.type == XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED) {
-            XrEventDataSessionStateChanged *sc = (XrEventDataSessionStateChanged *)&evt;
-            s_sessionState = sc->state;
-            if (sc->state == XR_SESSION_STATE_READY) {
-                if (!OpenXR_CreateSession()) {
-                    Log_Warn("OpenXR: session creation failed");
-                    return 0;
-                }
-                if (!OpenXR_CreateActions()) {
-                    Log_Warn("OpenXR: action creation failed");
-                    return 0;
-                }
-                s_openxrActive = 1;
-                Log_Info("OpenXR: session active");
-                return 1;
-            }
-        }
-        memset(&evt, 0, sizeof(evt));
-        evt.type = XR_TYPE_EVENT_DATA_BUFFER;
+    /* The session (and its swapchain / reference spaces) must exist before
+     * the runtime can transition into XR_SESSION_STATE_READY. The previous
+     * version of this loop tried to create the session inside the READY
+     * event handler, which is unreachable: without a session, no session-
+     * state events are ever emitted and xrPollEvent returns
+     * XR_EVENT_UNAVAILABLE on the first call, so the loop breaks and the
+     * engine tears the instance back down. Create the session first; then
+     * wait for the IDLE state-change event (spec section 8.2) and call
+     * xrBeginSession from inside that handler; then wait for READY. */
+    if (!OpenXR_CreateSession()) {
+        Log_Warn("OpenXR: session creation failed");
+        xrDestroyInstance(s_instance);
+        s_instance = XR_NULL_HANDLE;
+        return 0;
     }
 
-    xrDestroyInstance(s_instance);
-    s_instance = XR_NULL_HANDLE;
-    Log_Info("OpenXR: no running runtime");
-    return 0;
+    /* OpenXR session lifecycle (spec section 8.2 / vice-city-vr-quest
+     * xr_vulkan_session.cpp):
+     *   xrCreateInstance  -> instance alive
+     *   xrCreateSession   -> session in IDLE; runtime begins emitting state
+     *                        events; we do NOT call xrBeginSession here
+     *   createActions + createSwapchain
+     *   OpenXR_Init returns; the game thread starts calling OpenXR_PollEvents
+     *   OpenXR_PollEvents receives IDLE then READY; on the FIRST READY event
+     *   it calls xrBeginSession and sets s_openxrActive. xrBeginSession
+     *   succeeds in READY (and on Quest 3 also succeeds from the spec's
+     *   IDLE state, but the canonical trigger is the READY event).
+     *   After xrBeginSession the runtime advances the state to SYNCHRONIZED
+     *   then VISIBLE then FOCUSED. The frame loop calls xrWaitFrame /
+     *   xrBeginFrame / xrEndFrame while shouldRender is true. */
+    if (!OpenXR_CreateActions()) {
+        Log_Warn("OpenXR: action creation failed");
+        OpenXR_DestroySession();
+        xrDestroyInstance(s_instance);
+        s_instance = XR_NULL_HANDLE;
+        return 0;
+    }
+
+    s_sessionState = XR_SESSION_STATE_IDLE;
+    s_openxrActive = 1;
+    Log_Info("OpenXR: instance + session + actions ready; awaiting READY for xrBeginSession");
+    return 1;
 #else
     return 0;
 #endif
@@ -862,6 +1101,7 @@ void OpenXR_Shutdown(void) {
         s_activityClassGlobal = NULL;
     }
     s_openxrActive = 0;
+    s_sessionRunning = 0;
     s_openxrInited = 0;
 #endif
 }
@@ -878,15 +1118,46 @@ S32 OpenXR_IsActive(void) {
 /* -------------------------------------------------------------------------- */
 void OpenXR_PollEvents(void) {
 #ifdef LBA2_OPENXR
+    static int s_pollLogCount = 0;
     if (!s_openxrInited) return;
     XrEventDataBuffer evt;
     memset(&evt, 0, sizeof(evt));
     evt.type = XR_TYPE_EVENT_DATA_BUFFER;
     XrResult rc;
+    if (s_pollLogCount < 3) {
+        OXR_LOGI("PollEvents: entered (s_openxrInited=%d s_openxrActive=%d s_sessionState=%d)",
+                 (int)s_openxrInited, (int)s_openxrActive, (int)s_sessionState);
+        s_pollLogCount++;
+    }
     while ((rc = xrPollEvent(s_instance, &evt)) == XR_SUCCESS) {
         if (evt.type == XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED) {
             XrEventDataSessionStateChanged *sc = (XrEventDataSessionStateChanged *)&evt;
             s_sessionState = sc->state;
+            OXR_LOGI("PollEvents: session state -> %d", (int)sc->state);
+            /* On the first XR_SESSION_STATE_READY event, the runtime is
+             * asking us to begin rendering.  Spec section 9.2: xrBeginSession
+             * is valid in the READY state.  Before calling it we set up
+             * any per-session hints (here: nothing) and then transition
+             * the state machine into SYNCHRONIZED. */
+            if (sc->state == XR_SESSION_STATE_READY && !s_sessionRunning) {
+                XrSessionBeginInfo beginInfo;
+                memset(&beginInfo, 0, sizeof(beginInfo));
+                beginInfo.type = XR_TYPE_SESSION_BEGIN_INFO;
+                beginInfo.primaryViewConfigurationType = s_viewConfigType;
+                OXR_LOGI("PollEvents: calling xrBeginSession primaryViewConfigType=%d...",
+                         (int)s_viewConfigType);
+                XrResult beginRc = xrBeginSession(s_session, &beginInfo);
+                OXR_LOGI("PollEvents: xrBeginSession returned rc=0x%x", (unsigned)beginRc);
+                if (XR_SUCCEEDED(beginRc)) {
+                    s_sessionRunning = 1;
+                } else {
+                    Log_Warn("OpenXR: xrBeginSession failed (0x%x)", (unsigned)beginRc);
+                }
+            }
+            if (sc->state == XR_SESSION_STATE_STOPPING && s_sessionRunning) {
+                s_sessionRunning = 0;
+                xrEndSession(s_session);
+            }
             if (sc->state == XR_SESSION_STATE_LOSS_PENDING ||
                 sc->state == XR_SESSION_STATE_EXITING) {
                 OpenXR_Shutdown();
@@ -903,32 +1174,31 @@ void OpenXR_PollEvents(void) {
 S32 OpenXR_BeginFrame(void) {
 #ifdef LBA2_OPENXR
     if (!s_openxrActive) return 0;
-    if (s_sessionState != XR_SESSION_STATE_FOCUSED &&
-        s_sessionState != XR_SESSION_STATE_VISIBLE &&
-        s_sessionState != XR_SESSION_STATE_READY) {
+    if (!s_sessionRunning) {
+        OXR_LOGI("BeginFrame: skip, session not running (state=%d)", (int)s_sessionState);
         return 0;
     }
-    /* Quest 3 immersive (mono blit) path: wait for the predicted display
-     * time BEFORE we render. xrWaitFrame is mandatory; the spec also
-     * allows it to be called from xrBeginFrame's slot but doing it here
-     * gives the engine a stable predicted display time to log if needed. */
-    if (s_swapchain != XR_NULL_HANDLE) {
-        XrFrameWaitInfo waitInfo;
-        memset(&waitInfo, 0, sizeof(waitInfo));
-        waitInfo.type = XR_TYPE_FRAME_WAIT_INFO;
-        XrFrameState frameState;
-        memset(&frameState, 0, sizeof(frameState));
-        frameState.type = XR_TYPE_FRAME_STATE;
-        XrResult rc = xrWaitFrame(s_session, &waitInfo, &frameState);
-        if (XR_FAILED(rc)) {
-            return 0;
-        }
-        s_predictedDisplayTime = frameState.predictedDisplayTime;
-    } else {
-        /* Input-only path: no swapchain, no xrBeginFrame yet. Begin is
-         * deferred to OpenXR_PresentMono (where it would no-op anyway). */
-        s_predictedDisplayTime = 0;
+    if (s_sessionState != XR_SESSION_STATE_FOCUSED &&
+        s_sessionState != XR_SESSION_STATE_VISIBLE &&
+        s_sessionState != XR_SESSION_STATE_READY &&
+        s_sessionState != XR_SESSION_STATE_SYNCHRONIZED) {
+        OXR_LOGI("BeginFrame: skip, sessionState=%d", (int)s_sessionState);
+        return 0;
     }
+    /* Quest 3 immersive (mono blit) path: the whole frame — xrWaitFrame,
+     * OpenXR_ReadActions, xrBeginFrame..xrEndFrame — is now owned by
+     * OpenXR_PresentMono so it runs from ANY loop. The title screen and
+     * menus present through BoxStaticFullflip -> OpenXR_PresentMono and
+     * never call OpenXR_BeginFrame; if the wait/read lived here they would
+     * be skipped in the menu (black screen + dead controls) and, in the
+     * gameplay loop, we would xrWaitFrame twice per frame. So this branch
+     * is intentionally empty and PresentMono does everything. */
+    if (s_swapchain != XR_NULL_HANDLE) {
+        return 1;
+    }
+    /* Input-only path (no swapchain): no frame to present, but still sync
+     * actions every frame so JOYSTICK.CPP sees live controller state. */
+    s_predictedDisplayTime = 0;
     OpenXR_ReadActions();
     return 1;
 #else
@@ -962,17 +1232,87 @@ S32 OpenXR_BeginFrame(void) {
 S32 OpenXR_PresentMono(void) {
 #ifdef LBA2_OPENXR
 #ifdef __ANDROID__
-    if (!s_openxrActive) return 0;
+    S32 stereoThisFrame = 0; /* set by the copy step; drives the layer rects */
+    {
+        static int s_enterLogCount = 0;
+        if (s_enterLogCount < 3) {
+            OXR_LOGI("PresentMono: ENTERED");
+            s_enterLogCount++;
+        }
+    }
+    static int s_callCount = 0;
+    s_callCount++;
+    if (s_callCount <= 5) OXR_LOGI("PresentMono: called #%d (active=%d running=%d state=%d)", s_callCount, s_openxrActive, s_sessionRunning, (int)s_sessionState);
+    /* Frame limiter: when the session is not visible/focused (e.g. during
+     * Guardian transitions, or when the user has taken the headset off),
+     * xrWaitFrame is skipped and we return early. Without a yield the
+     * engine's main loop spins at 100% CPU. Sleep ~1ms per skipped frame
+     * so the loop runs at a bounded rate instead. */
+    static S32 s_skip = 0;
+    if (!s_openxrActive) {
+        if (s_skip < 3) { OXR_LOGI("PresentMono: skip, not active"); s_skip++; }
+        SDL_Delay(1);
+        return 0;
+    }
+    OpenXR_PollEvents();
+    if (!s_openxrActive) return 0; /* PollEvents may have torn the session down */
+    if (!s_sessionRunning) {
+        if (s_skip < 3) { OXR_LOGI("PresentMono: skip, session not running (state=%d)", (int)s_sessionState); s_skip++; }
+        SDL_Delay(1);
+        return 0;
+    }
     if (s_sessionState != XR_SESSION_STATE_FOCUSED &&
         s_sessionState != XR_SESSION_STATE_VISIBLE &&
-        s_sessionState != XR_SESSION_STATE_READY) {
-        OXR_LOGI("PresentMono: skip, sessionState=%d", (int)s_sessionState);
+        s_sessionState != XR_SESSION_STATE_READY &&
+        s_sessionState != XR_SESSION_STATE_SYNCHRONIZED) {
+        if (s_skip < 3) { OXR_LOGI("PresentMono: skip, sessionState=%d", (int)s_sessionState); s_skip++; }
+        SDL_Delay(1);
         return 0;
     }
     if (s_swapchain == XR_NULL_HANDLE) {
         /* Input-only path: no swapchain to present. */
+        OXR_LOGI("PresentMono: skip, no swapchain");
+        SDL_Delay(1);
         return 0;
     }
+    s_skip = 0; /* reset counter when we successfully present */
+    s_lastPresentTick = (S32)SDL_GetTicks();
+    {
+        static int s_presentLogCount = 0;
+        if (s_presentLogCount < 3) {
+            OXR_LOGI("PresentMono: presenting, sessionState=%d swapchainW=%u swapchainH=%u imgIdx=%u/%u",
+                     (int)s_sessionState, (unsigned)s_swapchainWidth, (unsigned)s_swapchainHeight,
+                     (unsigned)s_swapchainImageIndex, (unsigned)s_swapchainImageCount);
+            s_presentLogCount++;
+        }
+    }
+
+    /* 0. Wait for the predicted display time and read controller input for
+     *    this frame. Moved here from OpenXR_BeginFrame so the menu/intro
+     *    present path (via Window_GL_SwapWindow) also gets a fresh predicted
+     *    time and live input. Exactly one xrWaitFrame precedes each xrBeginFrame. */
+    {
+        XrFrameWaitInfo waitInfo;
+        memset(&waitInfo, 0, sizeof(waitInfo));
+        waitInfo.type = XR_TYPE_FRAME_WAIT_INFO;
+        XrFrameState frameState;
+        memset(&frameState, 0, sizeof(frameState));
+        frameState.type = XR_TYPE_FRAME_STATE;
+        XrResult waitRc = xrWaitFrame(s_session, &waitInfo, &frameState);
+        if (XR_FAILED(waitRc)) {
+            Log_Warn("OpenXR: xrWaitFrame failed (0x%x)", (unsigned)waitRc);
+            return 0;
+        }
+        {
+            static int s_waitLogCount = 0;
+            if (s_waitLogCount < 3) {
+                OXR_LOGI("xrWaitFrame OK, predictedDisplayTime=%lld shouldRender=%d", (long long)frameState.predictedDisplayTime, (int)frameState.shouldRender);
+                s_waitLogCount++;
+            }
+        }
+        s_predictedDisplayTime = frameState.predictedDisplayTime;
+    }
+    OpenXR_ReadActions();
 
     /* 1. Begin frame. */
     XrFrameBeginInfo beginInfo;
@@ -982,6 +1322,13 @@ S32 OpenXR_PresentMono(void) {
     if (XR_FAILED(rc)) {
         Log_Warn("OpenXR: xrBeginFrame failed (0x%x)", (unsigned)rc);
         return 0;
+    }
+    {
+        static int s_beginLogCount = 0;
+        if (s_beginLogCount < 3) {
+            OXR_LOGI("xrBeginFrame OK");
+            s_beginLogCount++;
+        }
     }
 
     /* 2. Acquire + wait for a swapchain image. */
@@ -993,6 +1340,13 @@ S32 OpenXR_PresentMono(void) {
         Log_Warn("OpenXR: xrAcquireSwapchainImage failed (0x%x)", (unsigned)rc);
         return 0;
     }
+    {
+        static int s_acquireLogCount = 0;
+        if (s_acquireLogCount < 3) {
+            OXR_LOGI("xrAcquireSwapchainImage OK, imgIdx=%u", (unsigned)s_swapchainImageIndex);
+            s_acquireLogCount++;
+        }
+    }
     XrSwapchainImageWaitInfo waitInfo;
     memset(&waitInfo, 0, sizeof(waitInfo));
     waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
@@ -1003,44 +1357,207 @@ S32 OpenXR_PresentMono(void) {
         return 0;
     }
 
-    /* 3. Copy the SDL window framebuffer into the swapchain image.
-     *
-     *    Approach: bind the swapchain image's texture directly, then call
-     *    glCopyTexSubImage2D which reads from the currently-bound
-     *    READ_FRAMEBUFFER (we bind FBO 0 = the default / SDL window fb
-     *    just to be explicit) and writes the rect into the bound
-     *    TEXTURE_2D.
-     *
-     *    This is GLES 2.0 core (glBlitFramebuffer would be cleaner but
-     *    is GLES 3.0). It copies 1:1 pixels so the engine's 640x480 (or
-     *    whatever) frame appears at the bottom-left of the swapchain
-     *    image with the rest of the texture as initial data. The Quest
-     *    compositor then maps that to both eyes, giving a flat 2D
-     *    picture floating in VR. */
+    /* 3. Copy the composited frame into the swapchain image.
+       On Quest with OpenXR there is no SDL window, so the default framebuffer
+       (FBO 0) has no color attachment. GL_Present draws into the GL renderer's
+       present FBO instead; we copy from that into the swapchain texture. */
     if (s_swapchainImageIndex < s_swapchainImageCount) {
         GLuint imgTex = s_swapchainImages[s_swapchainImageIndex].image;
-        SDL_Window *win = SDL_GetWindowFromID(0);
+        extern SDL_Window *Window_GetSDLWindow(void);
+        extern void Window_GetRenderSize(int *w, int *h);
+        extern U32 ModeDesiredX;
+        extern U32 ModeDesiredY;
+        /* Access the GL renderer's present FBO (created in GL_Renderer_Init). */
+        extern GLuint GL_GetPresentFBO(void);
+        extern GLuint GL_GetPresentColorTex(void);
+        SDL_Window *win = Window_GetSDLWindow();
         int winW = 0, winH = 0;
         if (win != NULL) {
             SDL_GetWindowSizeInPixels(win, &winW, &winH);
+        } else {
+            /* No SDL window (Quest immersive mode). Use the engine's render
+             * resolution to sample the present FBO. */
+            Window_GetRenderSize(&winW, &winH);
+        }
+        /* Also get the logical (points) size to compare with GL's letterbox */
+        int winWPoints = 0, winHPoints = 0;
+        if (win != NULL) {
+            SDL_GetWindowSize(win, &winWPoints, &winHPoints);
+        }
+        {
+            static int s_winLogCount = 0;
+            if (s_winLogCount < 1) {
+                OXR_LOGI("PresentMono: win=%p pixels=%dx%d points=%dx%d imgTex=%u content=%ux%u presentFBO=%u",
+                         (void*)win, winW, winH, winWPoints, winHPoints, (unsigned)imgTex, (unsigned)ModeDesiredX, (unsigned)ModeDesiredY, (unsigned)GL_GetPresentFBO());
+                s_winLogCount++;
+            }
         }
         if (winW > 0 && winH > 0) {
             GLint prevFb = 0;
             glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFb);
             GLint prevTex = 0;
             glGetIntegerv(GL_TEXTURE_BINDING_2D, &prevTex);
+            GLuint presentFBO = GL_GetPresentFBO();
+            GLenum fbSource = GL_INVALID_ENUM;
+            if (presentFBO != 0) {
+                /* Quest path: read from the GL renderer's present FBO. */
+                glBindFramebuffer(GL_FRAMEBUFFER, presentFBO);
+                fbSource = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+            } else {
+                /* Desktop path: read from the default framebuffer. */
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                fbSource = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+            }
 
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            {
+                static int s_fbLogCount = 0;
+                if (s_fbLogCount < 3) {
+                    OXR_LOGI("PresentMono: prevFb=%d sourceFbStatus=0x%x (0x8CD5=complete) presentFBO=%u", (int)prevFb, (unsigned)fbSource, (unsigned)presentFBO);
+                    s_fbLogCount++;
+                }
+            }
+
+            /* Clear any stale GL error before binding the swapchain texture */
+            glGetError();
             glBindTexture(GL_TEXTURE_2D, imgTex);
-            GLsizei copyW = (GLsizei)(winW < (int)s_swapchainWidth  ? winW : s_swapchainWidth);
-            GLsizei copyH = (GLsizei)(winH < (int)s_swapchainHeight ? winH : s_swapchainHeight);
-            /* GLES 2.0 doesn't allow depth / stencil formats as color
-             * destinations, and we created the swapchain with GL_RGBA8
-             * so the format is valid. glCopyTexSubImage2D writes the
-             * (0,0)..(winW,winH) rect of the current READ fb into the
-             * (0,0)..(copyW,copyH) rect of the bound texture. */
-            glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, copyW, copyH);
+            /* Clear the swapchain texture to black first (runtime may leave it
+             * as a debug color). Upload a black image since GLES 2.0 has no
+             * glClearTexImage. */
+            {
+                static int s_clearLogCount = 0;
+                if (s_clearLogCount < 1) {
+                    int texSize = (int)s_swapchainWidth * (int)s_swapchainHeight;
+                    GLubyte *blackImg = (GLubyte *)calloc(texSize, 4);
+                    if (blackImg) {
+                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, (GLsizei)s_swapchainWidth, (GLsizei)s_swapchainHeight,
+                                        GL_RGBA, GL_UNSIGNED_BYTE, blackImg);
+                        GLenum clearErr = glGetError();
+                        OXR_LOGI("PresentMono: cleared swapchain to black, err=0x%x", (unsigned)clearErr);
+                        free(blackImg);
+                    }
+                    s_clearLogCount++;
+                }
+            }
+            {
+                GLenum err = glGetError();
+                static int s_texLogCount = 0;
+                if (s_texLogCount < 3) {
+                    OXR_LOGI("PresentMono: imgTex=%u errAfterBind=0x%x", (unsigned)imgTex, (unsigned)err);
+                    s_texLogCount++;
+                }
+            }
 
+            /* The engine renders ModeDesiredX x ModeDesiredY content into the
+             * present FBO. glCopyTexSubImage2D reads from that FBO, so source
+             * coordinates must be relative to the FBO, not the SDL window.
+             * The FBO is exactly ModeDesiredX x ModeDesiredY, so the source
+             * region is the full FBO with no letterbox bars to strip. */
+            const double contentAspect = (double)ModeDesiredX / (double)ModeDesiredY;
+            int vpX = 0, vpY = 0;
+            int vpW = (int)ModeDesiredX;
+            int vpH = (int)ModeDesiredY;
+            {
+                static int s_vpLogCount = 0;
+                if (s_vpLogCount < 1) {
+                    OXR_LOGI("PresentMono: OXR source vpX=%d vpY=%d vpW=%d vpH=%d contentAspect=%.3f",
+                             vpX, vpY, vpW, vpH, contentAspect);
+                    s_vpLogCount++;
+                }
+            }
+
+            /* The swapchain is 1680x1760 (~0.955:1). glCopyTexSubImage2D is a
+             * 1:1 pixel copy with no scale, so we sample the engine's centered
+             * letterbox region and place it centred in the swapchain. The
+             * unused rows above/below stay at the texture's initial value
+             * (cleared by the runtime, effectively black). */
+            int srcW = vpW, srcH = vpH;
+            if (srcW > (int)s_swapchainWidth) srcW = (int)s_swapchainWidth;
+            if (srcH > (int)s_swapchainHeight) srcH = (int)s_swapchainHeight;
+            /* Clamp the source region to maintain the content aspect ratio
+             * inside the swapchain. */
+            int srcHAspect = (int)((double)srcW / contentAspect + 0.5);
+            if (srcHAspect < srcH) srcH = srcHAspect;
+            int srcX = vpX + (vpW - srcW) / 2;
+            int srcY = vpY + (vpH - srcH) / 2;
+            if (srcX < 0) srcX = 0;
+            if (srcY < 0) srcY = 0;
+            int dstX = ((int)s_swapchainWidth  - srcW) / 2;
+            int dstY = ((int)s_swapchainHeight - srcH) / 2;
+            if (dstX < 0) dstX = 0;
+            if (dstY < 0) dstY = 0;
+            if (srcX + srcW > (int)ModeDesiredX) srcW = (int)ModeDesiredX - srcX;
+            if (srcY + srcH > (int)ModeDesiredY) srcH = (int)ModeDesiredY - srcY;
+            if (srcW < 1) srcW = 1;
+            if (srcH < 1) srcH = 1;
+
+            /* No clear of the swapchain sub-image here: each frame overwrites
+             * the same dstX..dstX+srcW / dstY..dstY+srcH rectangle, and the
+             * runtime zero-inits swapchain images on creation. The first few
+             * frames may show a faint ghost in the un-used rows until the
+             * image stabilises; that beats the alternative of a missing
+             * glClearTexImage (GLES 3.1+, not exposed by the NDK GLES
+             * headers we include here). */
+
+            /* Stereo layer only when this frame actually captured a fresh
+             * per-eye pair; menu/movie frames (no per-eye render) fall back
+             * to the mono full-image copy so no stale half is shown. */
+            stereoThisFrame = s_stereoEnabled && GL_TakeStereoPair() &&
+                                  GL_GetStereoEyeFBO(0) != 0 &&
+                                  GL_GetStereoEyeFBO(1) != 0;
+            if (stereoThisFrame) {
+                /* Native stereo: each eye's composite lives in its capture
+                 * FBO and goes centred into its own half of the swapchain
+                 * image. On-device evidence: an eye's imageRect rows r map to
+                 * the swapchain texture's GL memory rows r (rect row 0 = GL
+                 * row 0), so eye 0's rect (top half) is the lower-numbered
+                 * GL rows. */
+                GLuint eyeFBO0 = GL_GetStereoEyeFBO(0);
+                GLuint eyeFBO1 = GL_GetStereoEyeFBO(1);
+                S32 halfH = (S32)s_swapchainHeight / 2;
+                S32 eyeSrcW = srcW, eyeSrcH = srcH;
+                if (eyeSrcH > halfH) eyeSrcH = halfH;
+                S32 eyeDstX = ((S32)s_swapchainWidth - eyeSrcW) / 2;
+                if (eyeDstX < 0) eyeDstX = 0;
+                S32 marginY = (halfH - eyeSrcH) / 2;
+                if (marginY < 0) marginY = 0;
+
+                /* Eye 0 (left): imageRect rows 0..halfH -> GL rows 0..halfH. */
+                glBindFramebuffer(GL_FRAMEBUFFER, eyeFBO0);
+                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, eyeDstX, marginY,
+                                    0, 0, (GLsizei)eyeSrcW, (GLsizei)eyeSrcH);
+                /* Eye 1 (right): imageRect rows halfH.. -> GL rows halfH.. */
+                glBindFramebuffer(GL_FRAMEBUFFER, eyeFBO1);
+                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, eyeDstX, halfH + marginY,
+                                    0, 0, (GLsizei)eyeSrcW, (GLsizei)eyeSrcH);
+                {
+                    static int s_stBlitLogCount = 0;
+                    GLenum glErr = glGetError();
+                    if (s_stBlitLogCount < 3) {
+                        OXR_LOGI("PresentMono stereo: eyes %dx%d dst=(%d,%d)/(%d,%d) halfH=%d glError=0x%x",
+                                 eyeSrcW, eyeSrcH, eyeDstX, marginY, eyeDstX, halfH + marginY,
+                                 halfH, (unsigned)glErr);
+                        s_stBlitLogCount++;
+                    }
+                }
+                glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
+            }
+
+            if (!stereoThisFrame) {
+                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, dstX, dstY, srcX, srcY,
+                                    (GLsizei)srcW, (GLsizei)srcH);
+
+                {
+                    static int s_blitLogCount = 0;
+                    GLenum glErr = glGetError();
+                    if (s_blitLogCount < 3) {
+                        OXR_LOGI("PresentMono: blit src=(%d,%d %dx%d) win=(%dx%d) -> dst=(%d,%d) swapchain=(%ux%u) imgIdx=%u glError=0x%x",
+                                 srcX, srcY, srcW, srcH, winW, winH, dstX, dstY,
+                                 (unsigned)s_swapchainWidth, (unsigned)s_swapchainHeight,
+                                 (unsigned)s_swapchainImageIndex, (unsigned)glErr);
+                        s_blitLogCount++;
+                    }
+                }
+            }
             glBindTexture(GL_TEXTURE_2D, (GLuint)prevTex);
             glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
         }
@@ -1055,13 +1572,15 @@ S32 OpenXR_PresentMono(void) {
         Log_Warn("OpenXR: xrReleaseSwapchainImage failed (0x%x)", (unsigned)rc);
     }
 
-    /* 5. Locate the views to get the eye poses for the projection layer. */
+    /* 5. Locate the views to get the eye poses for the projection layer.
+     *    Use LOCAL space because the Quest's STAGE space is invalid until
+     *    the user sets up Guardian boundaries. */
     XrViewLocateInfo locateInfo;
     memset(&locateInfo, 0, sizeof(locateInfo));
     locateInfo.type = XR_TYPE_VIEW_LOCATE_INFO;
     locateInfo.viewConfigurationType = s_viewConfigType;
     locateInfo.displayTime = s_predictedDisplayTime;
-    locateInfo.space = s_stageSpace;
+    locateInfo.space = s_localSpace;
     XrViewState viewState;
     memset(&viewState, 0, sizeof(viewState));
     viewState.type = XR_TYPE_VIEW_STATE;
@@ -1083,33 +1602,98 @@ S32 OpenXR_PresentMono(void) {
 
     /* 6. Build the projection layer. Both eye sub-images reference the
      *    same mono sub-image; the FOV is taken from the runtime's view
-     *    pose. If xrLocateViews failed, fall back to a default IPD=0
-     *    identity pair so xrEndFrame is still legal. */
+     *    pose. If xrLocateViews returned 0 views for any reason, fall
+     *    back to a synthetic pair with default 90 deg FOV and an
+     *    identity pose anchored in LOCAL space so xrEndFrame is still
+     *    legal and the user sees the engine framebuffer. */
     XrCompositionLayerProjectionView projViews[2];
     XrCompositionLayerProjection projLayer;
     XrCompositionLayerBaseHeader *layerPtr = NULL;
-    if (locatedCount > 0 && s_swapchainImageIndex < s_swapchainImageCount) {
+    U32 eyeCount = locatedCount;
+    if (eyeCount == 0 && s_swapchainImageIndex < s_swapchainImageCount) {
+        /* Synthesize a stereo pair with default FOV. The Quest
+         * compositor will use the pose/fov to warp our sub-image into
+         * each eye. */
+        const XrFovf defaultFov = { -1.39626f, 1.39626f, 1.39626f, -1.39626f };
+        const float ipd = 0.064f; /* ~64mm, average IPD */
         U32 j;
-        for (j = 0; j < locatedCount; j++) {
+        for (j = 0; j < 2; j++) {
+            XrView *v = &locatedViews[j];
+            memset(v, 0, sizeof(*v));
+            v->type = XR_TYPE_VIEW;
+            v->next = NULL;
+            v->fov = defaultFov;
+            v->pose.orientation.w = 1.0f;
+            v->pose.position.x = (j == 0) ? -ipd * 0.5f : ipd * 0.5f;
+            v->pose.position.y = 0.0f;
+            v->pose.position.z = 0.0f;
+        }
+        locatedCount = 2;
+        eyeCount = 2;
+    }
+    if (eyeCount > 0 && s_swapchainImageIndex < s_swapchainImageCount) {
+        U32 j;
+        /* One mono image feeds both eyes. The runtime's per-eye FOVs are
+         * asymmetric and differ slightly between eyes, so mapping a shared
+         * image through them leaves residual disparity that reads as a
+         * double image. Normalize both eyes to the same symmetric FOV — the
+         * largest cone every eye covers — and give both the full rect:
+         * identical texels then land on identical directions in each eye
+         * (a zero-disparity panel) and the picture fuses. */
+        if (eyeCount >= 2) {
+            double minAbsTan[4] = { 1e30, 1e30, 1e30, 1e30 }; /* L, R, U, D */
+            for (j = 0; j < eyeCount && j < 2; j++) {
+                double tl = fabs(tan((double)locatedViews[j].fov.angleLeft));
+                double tr = fabs(tan((double)locatedViews[j].fov.angleRight));
+                double tu = fabs(tan((double)locatedViews[j].fov.angleUp));
+                double td = fabs(tan((double)locatedViews[j].fov.angleDown));
+                if (tl < minAbsTan[0]) minAbsTan[0] = tl;
+                if (tr < minAbsTan[1]) minAbsTan[1] = tr;
+                if (tu < minAbsTan[2]) minAbsTan[2] = tu;
+                if (td < minAbsTan[3]) minAbsTan[3] = td;
+            }
+            double hx = (minAbsTan[0] < minAbsTan[1]) ? minAbsTan[0] : minAbsTan[1];
+            double hy = (minAbsTan[2] < minAbsTan[3]) ? minAbsTan[2] : minAbsTan[3];
+            if (hx > 0.0 && hy > 0.0) {
+                for (j = 0; j < eyeCount && j < 2; j++) {
+                    locatedViews[j].fov.angleLeft = (float)(-hx);
+                    locatedViews[j].fov.angleRight = (float)(hx);
+                    locatedViews[j].fov.angleUp = (float)(hy);
+                    locatedViews[j].fov.angleDown = (float)(-hy);
+                }
+            }
+        }
+        for (j = 0; j < eyeCount; j++) {
             XrCompositionLayerProjectionView *pv = &projViews[j];
             memset(pv, 0, sizeof(*pv));
             pv->type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
             pv->next = NULL;
             pv->subImage.swapchain = s_swapchain;
-            pv->subImage.imageRect.offset.x = 0;
-            pv->subImage.imageRect.offset.y = 0;
-            pv->subImage.imageRect.extent.width  = (S32)s_swapchainWidth;
-            pv->subImage.imageRect.extent.height = (S32)s_swapchainHeight;
+            if (stereoThisFrame && eyeCount >= 2 && j < 2) {
+                /* Stereo: each eye samples its own half of the swapchain
+                 * image (eye 0 = left = top half, eye 1 = bottom). */
+                pv->subImage.imageRect.offset.x = 0;
+                pv->subImage.imageRect.offset.y = (j == 0)
+                    ? 0
+                    : (S32)s_swapchainHeight / 2;
+                pv->subImage.imageRect.extent.width = (S32)s_swapchainWidth;
+                pv->subImage.imageRect.extent.height = (S32)s_swapchainHeight / 2;
+            } else {
+                pv->subImage.imageRect.offset.x = 0;
+                pv->subImage.imageRect.offset.y = 0;
+                pv->subImage.imageRect.extent.width = (S32)s_swapchainWidth;
+                pv->subImage.imageRect.extent.height = (S32)s_swapchainHeight;
+            }
             pv->subImage.imageArrayIndex = 0;
             pv->pose = locatedViews[j].pose;
-            pv->fov  = locatedViews[j].fov;
+            pv->fov = locatedViews[j].fov;
         }
         memset(&projLayer, 0, sizeof(projLayer));
         projLayer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
         projLayer.next = NULL;
         projLayer.layerFlags = 0;
-        projLayer.space = s_stageSpace;
-        projLayer.viewCount = locatedCount;
+        projLayer.space = s_localSpace;
+        projLayer.viewCount = eyeCount;
         projLayer.views = projViews;
         layerPtr = (XrCompositionLayerBaseHeader *)&projLayer;
     }
@@ -1126,6 +1710,12 @@ S32 OpenXR_PresentMono(void) {
     if (XR_FAILED(rc)) {
         OXR_LOGE("xrEndFrame failed: %s (0x%x)", OXR_ResultStr(rc), (unsigned)rc);
         Log_Warn("OpenXR: xrEndFrame failed (0x%x)", (unsigned)rc);
+    } else {
+        static int s_endFrameLogCount = 0;
+        if (s_endFrameLogCount < 3) {
+            OXR_LOGI("xrEndFrame OK, displayTime=%lld layers=%u", (long long)s_predictedDisplayTime, endInfo.layerCount);
+            s_endFrameLogCount++;
+        }
     }
 
     s_swapchainOwnsPresent = 1;
@@ -1158,7 +1748,39 @@ S32 OpenXR_ShouldSkipSDLSwap(void) {
      * The GL renderer's GL_Present() still does useful work (uploading
      * the SVGA ARGB pixels into the GL texture / FBO), so it must run;
      * only the final SDL_GL_SwapWindow must be suppressed. */
+    {
+        static int s_skipLogCount = 0;
+        if (s_skipLogCount < 3) {
+            OXR_LOGI("ShouldSkipSDLSwap: swapchain=%lx result=%d", (unsigned long)s_swapchain, (s_swapchain != XR_NULL_HANDLE) ? 1 : 0);
+            s_skipLogCount++;
+        }
+    }
     return (s_swapchain != XR_NULL_HANDLE);
+#else
+    return 0;
+#endif
+#else
+    return 0;
+#endif
+}
+
+void OpenXR_SetStereoEnabled(S32 enabled) {
+#ifdef LBA2_OPENXR
+#ifdef __ANDROID__
+    s_stereoEnabled = (enabled != 0);
+    OXR_LOGI("OpenXR_SetStereoEnabled: %d", s_stereoEnabled);
+#else
+    (void)enabled;
+#endif
+#else
+    (void)enabled;
+#endif
+}
+
+S32 OpenXR_GetStereoEnabled(void) {
+#ifdef LBA2_OPENXR
+#ifdef __ANDROID__
+    return s_stereoEnabled;
 #else
     return 0;
 #endif
@@ -1170,9 +1792,22 @@ S32 OpenXR_ShouldSkipSDLSwap(void) {
 /* -------------------------------------------------------------------------- */
 S32 OpenXR_UpdateControllerState(void) {
 #ifdef LBA2_OPENXR
-    /* Reads are already done in OpenXR_BeginFrame(). Return active state so
-       JOYSTICK.CPP can pull the cached raw axes/buttons. */
-    return s_openxrActive ? 1 : 0;
+    if (!s_openxrActive)
+        return 0;
+    /* Input waits that spin without presenting (WaitNoInput and friends)
+     * never reach OpenXR_PresentMono, and the action sync lives there — the
+     * last synced controller state would be frozen into the wait condition
+     * forever, deadlocking the menu on its first input. When the present
+     * loop has gone quiet, sync here so input state keeps refreshing;
+     * during normal rendering PresentMono owns the sync (in its
+     * xrWaitFrame..xrBeginFrame window). */
+    {
+        S32 now = (S32)SDL_GetTicks();
+        if (s_lastPresentTick < 0 || now - s_lastPresentTick > 250) {
+            OpenXR_ReadActions();
+        }
+    }
+    return 1;
 #else
     return 0;
 #endif

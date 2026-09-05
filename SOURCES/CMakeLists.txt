@@ -168,6 +168,7 @@ target_compile_definitions(${LBA2_EXECUTABLE_NAME} PRIVATE ONE_GAME_DIRECTORY LB
         $<$<STREQUAL:${MVIDEO_BACKEND},null>:USE_MVIDEO_NULL>
         $<$<STREQUAL:${MVIDEO_BACKEND},smacker>:USE_MVIDEO_SMACKER>
         $<$<BOOL:${GPURENDERER}>:USE_GPURENDERER>
+        $<$<BOOL:${LBA2_OPENXR}>:LBA2_OPENXR>
         SDL_DISABLE_OLD_NAMES)
 if(MVIDEO_BACKEND STREQUAL "smacker")
   target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE libsmacker video_audio_resample)

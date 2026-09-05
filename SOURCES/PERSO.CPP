@@ -838,6 +838,8 @@ restartloop:
 
         Perftrace_FrameBegin();
 
+        if (CmptFrame < 5) Log_Info("MainLoop: frame %d, NewCube=%d", CmptFrame, NewCube);
+
         /* Runtime resolution-switch keep/revert dialog. Pending whenever
            cmd_resolution (or a future menu path) fires a switch; runs once
            per pending arming, then clears itself. Drives its own modal tick
@@ -2295,14 +2297,57 @@ restartloop:
         OpenXR_PollEvents();
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SCENE);
         OpenXR_BeginFrame();
-        AffScene(FirstTime);
-        /* On Quest 3 (immersive mono blit), OpenXR_PresentMono copies the
-         * SDL framebuffer into the OpenXR swapchain and submits a single
-         * XrCompositionLayerProjection via xrEndFrame. On other platforms
-         * (or input-only OpenXR) it returns 0 and Window_GL_SwapWindow
-         * still runs the SDL swap. */
-        if (OpenXR_PresentMono() == 0) {
-            Window_GL_SwapWindow();
+        if (CmptFrame < 5) Log_Info("MainLoop: calling AffScene FirstTime=%d", FirstTime);
+        /* AffScene presents the frame itself: its BoxBlit funnels through
+         * PresentFrame -> GL_Present -> Window_GL_SwapWindow, which on the
+         * Quest owns the OpenXR present (xrEndFrame + input pump). No explicit
+         * present here — that would double-present. This matches the original
+         * PC path where AffScene was the sole presenter. */
+#if defined(LBA2_OPENXR) && defined(__ANDROID__)
+        if (DisplayStereo3D AND OpenXR_IsActive() AND GPURendererActive) {
+            /* Native stereo: render the scene once per eye with a lateral
+             * camera offset. Full redraws per eye — the incremental
+             * dirty-box path would carry the other eye's leftovers. The
+             * left eye's composite is captured offscreen (present + clock
+             * step suppressed); the right eye renders through the normal
+             * path and its OpenXR_PresentMono submits both eye images. */
+            extern S32 VueDistance;
+            extern S32 ChampX;
+            extern S32 StereoCamShiftX;
+            extern S32 StereoProjShiftX;
+            /* Eye separation in world units (~1.5x natural IPD at LBA2's
+             * scale, for a moderate depth pop) and the projection-centre
+             * convergence that puts the zero-disparity plane at the hero's
+             * distance, so the ground around the hero stays fused. */
+            const S32 stereoIPD = 30;
+            S32 conv = stereoIPD * ChampX / (2 * (VueDistance + 512));
+            if (conv < 0)
+                conv = 0;
+            GL_SetStereoEye(0);
+            StereoCamShiftX = -stereoIPD / 2;
+            StereoProjShiftX = -conv;
+            U32 stereoT0 = SDL_GetTicks();
+            AffScene(AFF_ALL_FLIP);
+            U32 stereoT1 = SDL_GetTicks();
+            GL_SetStereoEye(1);
+            StereoCamShiftX = stereoIPD / 2;
+            StereoProjShiftX = conv;
+            AffScene(AFF_ALL_FLIP);
+            U32 stereoT2 = SDL_GetTicks();
+            {
+                static S32 s_stereoPerfLog = 0;
+                if (s_stereoPerfLog < 10) {
+                    Log_Info("StereoPerf: eye0=%dms eye1=%dms frame=%dms",
+                             stereoT1 - stereoT0, stereoT2 - stereoT1,
+                             stereoT2 - stereoT0);
+                    s_stereoPerfLog++;
+                }
+            }
+            GL_SetStereoEye(-1);
+        } else
+#endif
+        {
+            AffScene(FirstTime);
         }
         Perftrace_PhaseEnd(PERFTRACE_PHASE_SCENE);
 
@@ -2409,45 +2454,123 @@ void ReadConfigFile(void) {
     Window_SetVSync(DisplayVSync);
 
 #ifdef USE_GPURENDERER
-    GPURendererActive = DefFileBufferReadValueDefault("GPURenderer", FALSE);
-    if (GPURendererActive < 0 OR GPURendererActive > 1)
-        GPURendererActive = FALSE;
+     GPURendererActive = DefFileBufferReadValueDefault("GPURenderer", FALSE);
+     if (GPURendererActive < 0 OR GPURendererActive > 1)
+         GPURendererActive = FALSE;
+
+ #if defined(LBA2_OPENXR) && defined(__ANDROID__)
+     /* On the Quest the engine's software renderer writes to a CPU surface
+      * (SDL_UpdateTexture / SDL_RenderPresent) that the OpenXR blit cannot
+      * see — OpenXR_PresentMono reads from the GL FBO 0 of the EGL context
+      * that the GL renderer draws into, so without the GL renderer every
+      * menu / title / SaveGame thumbnail is invisible in the headset even
+      * though the frame loop is running. Force the GL renderer on for
+      * immersive builds; the user can still toggle it off at runtime via
+      * the Renderer's menu option, and we will honour that. */
+     if (!GPURendererActive) {
+         Log_Info("Quest immersive mode: forcing GPURenderer on (config had it off)");
+         GPURendererActive = TRUE;
+     }
+
+     /* Touch controllers have no D-pad: the stock gamepad layout puts menu
+      * and hero up/down on the triggers, which is unusable there. Force the
+      * left stick onto up/down (this also overrides any persisted cfg
+      * bindings for those two entries; the remap screen still lets the
+      * player change them again per session). GamepadKeys is indexed by the
+      * log2 of the I_* bit mask, not the mask itself: slot 0 = I_UP (1<<0),
+      * slot 1 = I_DOWN (1<<1). */
+     GamepadKeys[0].Key1 = K_GAMEPAD_LSTICK_UP;
+     GamepadKeys[0].Key2 = 0;
+     GamepadKeys[1].Key1 = K_GAMEPAD_LSTICK_DOWN;
+     GamepadKeys[1].Key2 = 0;
+     InitInput();
+ #endif
 
     DisplayTexFilter = DefFileBufferReadValueDefault("DisplayTexFilter", TRUE);
     if (DisplayTexFilter < 0 OR DisplayTexFilter > 1)
         DisplayTexFilter = TRUE;
 
-    RenderQuality = DefFileBufferReadValueDefault("RenderQuality", 1);
-    if (RenderQuality < 1 OR RenderQuality > 4)
-        RenderQuality = 1;
-    if (RenderQuality == 3)
-        RenderQuality = 1; /* only 1, 2, 4 are valid */
+    DisplayStereo3D = DefFileBufferReadValueDefault("DisplayStereo3D", FALSE);
+    if (DisplayStereo3D < 0 OR DisplayStereo3D > 1)
+        DisplayStereo3D = FALSE;
 
-    /* If the config wants GL, tear down the SW window that InitGraphics
-       created and recreate it with GL. This mirrors the runtime toggle in
-       GereDisplayMenu but runs once at boot. */
-    if (GPURendererActive) {
-        if (Window_RecreateWindowForGL(ModeDesiredX, ModeDesiredY,
-                                       DisplayFullScreen != FALSE)) {
-            if (!GL_Renderer_Init(ModeDesiredX, ModeDesiredY)) {
-                GL_Renderer_Shutdown();
-                Window_RecreateWindowForSW(ModeDesiredX, ModeDesiredY,
-                                           DisplayFullScreen != FALSE);
-                GPURendererActive = FALSE;
-            } else {
-                /* Re-apply VSync on the new GL context — the earlier
-                   Window_SetVSync call targeted the SW renderer which
-                   was just destroyed. */
-                Window_SetVSync(DisplayVSync);
-                /* Apply render quality from config */
-                if (RenderQuality > 1) {
-                    GL_SetRenderQuality(RenderQuality);
-                }
-            }
-        } else {
-            GPURendererActive = FALSE;
-        }
-    }
+     RenderQuality = DefFileBufferReadValueDefault("RenderQuality", 1);
+     if (RenderQuality < 1 OR RenderQuality > 4)
+         RenderQuality = 1;
+     if (RenderQuality == 3)
+         RenderQuality = 1; /* only 1, 2, 4 are valid */
+
+#if defined(LBA2_OPENXR) && defined(__ANDROID__)
+     /* On Quest, OpenXR must be initialized before any SDL window is created.
+      * The activity's native window already has an EGL context; if we let
+      * Window_RecreateWindowForGL create its own SDL window with SDL_WINDOW_OPENGL,
+      * SDL_GL_CreateContext fails ("Could not initialize OpenGL / GLES library")
+      * because the EGL context is already current. OpenXR uses that existing
+      * context via XrGraphicsBindingOpenGLESAndroidKHR, so we init OpenXR here
+      * and then skip the SDL window creation below. */
+     OpenXR_Init();
+     if (OpenXR_IsActive()) {
+         /* TouchOverlay_Init ran before this (main orders it ahead of
+          * InitProgram) and could not see the session yet. The Quest has
+          * no touchscreen and the Touch controllers drive the gamepad,
+          * so the on-screen buttons would only cover the picture. */
+         TouchOverlay_SetActive(0);
+         LogPrintf("TouchOverlay: OpenXR session active, overlay disabled "
+                   "(Touch controllers)\n");
+         OpenXR_SetStereoEnabled(DisplayStereo3D);
+     }
+#endif
+
+     /* If the config wants GL, tear down the SW window that InitGraphics
+        created and recreate it with GL. This mirrors the runtime toggle in
+        GereDisplayMenu but runs once at boot. */
+     if (GPURendererActive) {
+#if defined(LBA2_OPENXR) && defined(__ANDROID__)
+         if (OpenXR_IsActive()) {
+             /* OpenXR bound the boot-time SW renderer's EGL context into the
+              * session and the GL renderer adopts that same context, so the
+              * GL window recreation below is skipped — creating a second GL
+              * context alongside the already-current EGL one fails with
+              * "Could not initialize OpenGL / GLES library". The SW window
+              * and renderer stay alive as the context donor; OpenXR owns the
+              * present. */
+             Log_Info("Quest immersive mode: reusing boot SW window's EGL context (OpenXR owns the present)");
+             /* Set the render resolution so OpenXR_PresentMono can sample the
+              * default framebuffer correctly. */
+             extern void Window_SetRenderResolution(U32 w, U32 h);
+             Window_SetRenderResolution(ModeDesiredX, ModeDesiredY);
+             if (!GL_Renderer_Init(ModeDesiredX, ModeDesiredY)) {
+                 GL_Renderer_Shutdown();
+                 GPURendererActive = FALSE;
+             } else {
+                 Window_SetVSync(DisplayVSync);
+                 if (RenderQuality > 1) {
+                     GL_SetRenderQuality(RenderQuality);
+                 }
+             }
+         } else
+#endif
+         if (Window_RecreateWindowForGL(ModeDesiredX, ModeDesiredY,
+                                        DisplayFullScreen != FALSE)) {
+             if (!GL_Renderer_Init(ModeDesiredX, ModeDesiredY)) {
+                 GL_Renderer_Shutdown();
+                 Window_RecreateWindowForSW(ModeDesiredX, ModeDesiredY,
+                                            DisplayFullScreen != FALSE);
+                 GPURendererActive = FALSE;
+             } else {
+                 /* Re-apply VSync on the new GL context — the earlier
+                    Window_SetVSync call targeted the SW renderer which
+                    was just destroyed. */
+                 Window_SetVSync(DisplayVSync);
+                 /* Apply render quality from config */
+                 if (RenderQuality > 1) {
+                     GL_SetRenderQuality(RenderQuality);
+                 }
+             }
+         } else {
+             GPURendererActive = FALSE;
+         }
+     }
 #endif
 
     /* #358 fixed-timestep throttle. Default 16 ms (~60 Hz sim) so movement is frame-rate
@@ -2582,6 +2705,7 @@ void WriteConfigFile(void) {
 #ifdef USE_GPURENDERER
     DefFileBufferWriteValue("GPURenderer", GPURendererActive);
     DefFileBufferWriteValue("DisplayTexFilter", DisplayTexFilter);
+    DefFileBufferWriteValue("DisplayStereo3D", DisplayStereo3D);
     DefFileBufferWriteValue("RenderQuality", RenderQuality);
 #endif
     DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
@@ -2693,6 +2817,7 @@ void InitTheEnd(S32 num, char *error) {
 
 /*══════════════════════════════════════════════════════════════════════════*/
 void TheEnd(S32 num, const char *error) {
+    Log_Info("TheEnd called: num=%d error=%s", num, error);
     End_Num = num;
     End_Error = error;
 
@@ -3105,9 +3230,8 @@ int main(int argc, char *argv[]) {
     if (TouchOverlay_IsActive())
         SetOverlayPrePresentCallback(TouchOverlay_Render);
 
-    /* Optional OpenXR runtime (Quest 3). Init after GL context is up; no-op
-       when LBA2_OPENXR is off or no headset is present. */
-    OpenXR_Init();
+    /* OpenXR is initialized earlier (before GL window creation) on Quest.
+       No-op when LBA2_OPENXR is off or no headset is present. */
 
     /* Perftrace: ring-buffer per-frame timing capture; off by default, opt-in
        via the `perftrace` console verb. See docs/PERFTRACE.md. */
@@ -3118,8 +3242,11 @@ int main(int argc, char *argv[]) {
 
     End_Error = "";
 
+    Log_Info("main: calling InitProgram");
     InitProgram();
+    Log_Info("main: calling InitMemory");
     InitMemory(); // Alloue petits buffers
+    Log_Info("main: InitMemory done");
 
     /* "Display" status: WxH render resolution, where it came from (CLI / cfg /
        auto-detect / default), and the real SDL window mode. The mode comes from
@@ -3128,12 +3255,14 @@ int main(int argc, char *argv[]) {
     {
         U32 dispW = 0, dispH = 0;
         Res_LoadBootDimensions(&dispW, &dispH);
-        Log_Info("Display    %ux%u (%s) %s", dispW, dispH,
-                 Res_BootDimensionsSource(),
-                 Control_IsHeadless()    ? "headless (no window)"
-                 : Window_IsFullscreen() ? "fullscreen"
-                                         : "windowed");
+    Log_Info("Display    %ux%u (%s) %s", dispW, dispH,
+             Res_BootDimensionsSource(),
+             Control_IsHeadless()    ? "headless (no window)"
+             : Window_IsFullscreen() ? "fullscreen"
+                                     : "windowed");
+    Log_Info("main: AssetPreflight");
     }
+    Log_Info("main: after display log");
 
     /* Fail fast on missing required data: AssetPreflight has logged each missing
        file; bail here (before any heavy load and before "Ready") via TheEnd so it
@@ -3142,6 +3271,7 @@ int main(int argc, char *argv[]) {
     if (AssetPreflight() > 0) {
         TheEnd(ERROR_NOT_FOUND_FILE, "required game data is missing (see the log)");
     }
+    Log_Info("main: after AssetPreflight");
 
 #ifdef ONE_GAME_DIRECTORY
     CreateLbaDirectories();
@@ -3188,15 +3318,19 @@ int main(int argc, char *argv[]) {
     Log_Raw("");
     Log_Banner("======== Ready in %.2fs ========", (double)subsystemsMs / 1000.0);
 
+    Log_Info("main: after Ready banner");
     BufText = (U8 *)SmartMalloc(BIG_FILE_DIA);
     if (!BufText)
         TheEnd(NOT_ENOUGH_MEM, "BufText");
+    Log_Info("main: BufText allocated");
 
     BufOrder = (U16 *)SmartMalloc(BIG_FILE_ORD);
     if (!BufOrder)
         TheEnd(NOT_ENOUGH_MEM, "BufOrder");
+    Log_Info("main: BufOrder allocated");
 
     InitDial(0);
+    Log_Info("main: InitDial done");
     GetMultiText(49, PleaseWait);
     GetMultiText(71, NewGameTxt);
 
@@ -3589,7 +3723,9 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    Log_Info("main: calling MainGameMenu");
     MainGameMenu(load);
+    Log_Info("main: MainGameMenu returned");
 
 #ifdef DEMO
     if (!FlagShowEndDemo) {

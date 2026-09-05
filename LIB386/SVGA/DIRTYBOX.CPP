@@ -8,8 +8,10 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/ADELINE.H>
+#include <GL/RENDER_GL.H>
 #include <SYSTEM/CPU.H>
 #include <SYSTEM/EVENTS.H>
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/N_MALLOC.H>
 #include <SYSTEM/TIMER.H>
@@ -400,7 +402,11 @@ void BoxBlit() {
 
     // One presented frame. Under fixed-dt this steps the virtual clock for modal inner
     // loops (no-op for the main loop's own render and for non-fixed-dt runs).
-    Timer_FixedDtPresent();
+    // In stereo capture the left eye's AffScene also funnels here; its present
+    // is suppressed (GL_Present skips the swap), so it must not step the clock
+    // either — the right eye's real present does, exactly once.
+    if (GL_GetStereoEye() != 0)
+        Timer_FixedDtPresent();
 
     ManageEvents();
 
@@ -409,6 +415,13 @@ void BoxBlit() {
     if (pBoxStaticList) {
         MergeListsAndEmpty(&pBoxOptList,
                            &pBoxStaticList); // add static boxes and clear
+    }
+
+    /* DEBUG: count boxes in opt list */
+    {
+        int count = 0;
+        T_BOX *dbg = pBoxOptList;
+        while (dbg) { count++; dbg = dbg->pBoxNext; }
     }
 
     if (MouseSpriteShouldDraw()) // Display mouse (see MOUSE.CPP)
@@ -516,6 +529,9 @@ void BoxStaticFullflip() {
     BoxReset();
     BoxStaticAdd(BoxClipXMin, BoxClipYMin, BoxClipXMax - 1, BoxClipYMax - 1);
     BoxUpdate();
+    /* BoxUpdate -> BoxBlit -> PresentFrame -> GL_Present -> Window_GL_SwapWindow
+     * is the single present funnel; on the Quest that path owns the OpenXR
+     * present, so no explicit OpenXR call is needed here. */
 }
 
 void BoxChangeClip(S32 x0, S32 y0, S32 x1, S32 y1, S32 clean) {

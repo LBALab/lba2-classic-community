@@ -26,7 +26,7 @@ S32 LongProjectPoint3D(S32 x, S32 y, S32 z) {
 
     long double factor = (long double)FRatioX / (long double)(CameraZr - z);
 
-    Xp = XCentre + (S32)lrintl((long double)(x - CameraXr) * factor);
+    Xp = XCentre + StereoProjShiftX + (S32)lrintl((long double)(x - CameraXr) * factor);
     Yp = YCentre + (S32)lrintl((long double)(y - CameraYr) * factor * (long double)FRatioY);
 
     LIB386_TRACE_CPP("LongProjectPoint3DF", "2", "ret=%d Xp=%d Yp=%d", 1, Xp, Yp);

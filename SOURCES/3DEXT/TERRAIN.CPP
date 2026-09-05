@@ -849,34 +849,62 @@ void AffichageTerrainZBuf(void) {
     PtrMap = GroundTexture;
     RepMask = 0xFFFF;
 
-    ptra = &SommetAffichable[0][0];
-    ptrs = &SommetRot[0][0];
+    /* Draw the visible tiles bucketed by their 16 fog levels instead of in
+       scan order. DrawFeuillePolyZBuf calls SetCLUT(fog) per tile, and the
+       GL batch flushes whenever the CLUT changes — scan order mixes fog
+       distances constantly, emitting thousands of tiny draw calls per cube
+       (hundreds of ms on mobile GPUs). Grouped by fog, the batch flushes at
+       most 16 times per cube. All fillers are z-buffered, so the draw order
+       between buckets does not change the result. */
+    {
+        static S16 s_fogTileIdx[16][NB_COTE * NB_COTE];
+        static S16 s_fogTileCount[16];
+        memset(s_fogTileCount, 0, sizeof(s_fogTileCount));
 
-    for (S32 z = 0; z < NB_COTE; z++) {
-        for (S32 x = 0; x < NB_COTE; x++) {
-            S32 mask;
+        ptra = &SommetAffichable[0][0];
+        ptrs = &SommetRot[0][0];
 
-            mask = MaskVisible(ptra);
+        for (S32 z = 0; z < NB_COTE; z++) {
+            for (S32 x = 0; x < NB_COTE; x++) {
+                S32 mask;
 
-            switch (mask & 0xFF) {
-            case 32:
-                break;
-            case 16:
-                DrawFeuillePolyZBuf(x, z, ptrs);
-                break;
-            case 0:
-                if (mask) {
-                    FillBlackPolyZBuf(x, z, ptrs, ptra);
+                mask = MaskVisible(ptra);
+
+                switch (mask & 0xFF) {
+                case 32:
+                    break;
+                case 16: {
+                    /* Same fog level computation as DrawFeuillePolyZBuf */
+                    S32 fogLevel = BoundRegleTrois(0, 15,
+                                                   ClipZFar - StartZFog,
+                                                   ptrs[0].Zrot - StartZFog);
+                    S32 idx = z * (NB_COTE + 1) + x;
+                    s_fogTileIdx[fogLevel][s_fogTileCount[fogLevel]++] = (S16)idx;
+                    break;
                 }
-                break;
+                case 0:
+                    if (mask) {
+                        FillBlackPolyZBuf(x, z, ptrs, ptra);
+                    }
+                    break;
+                }
+
+                ptra++;
+                ptrs++;
             }
 
             ptra++;
             ptrs++;
         }
 
-        ptra++;
-        ptrs++;
+        for (S32 level = 0; level < 16; level++) {
+            S32 cnt = s_fogTileCount[level];
+            for (S32 i = 0; i < cnt; i++) {
+                S32 idx = s_fogTileIdx[level][i];
+                DrawFeuillePolyZBuf(idx % (NB_COTE + 1), idx / (NB_COTE + 1),
+                                    &SommetRot[0][0] + idx);
+            }
+        }
     }
 
     DrawOneSea(Y_SEA);

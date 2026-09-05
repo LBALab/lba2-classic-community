@@ -469,6 +469,24 @@ bool Window_CreateGLContext(void) {
     if (sdlGLContext != NULL) {
         return true; /* already created */
     }
+
+#if defined(LBA2_OPENXR) && defined(__ANDROID__)
+    /* On Quest with OpenXR, the EGL context already exists (created by the
+     * activity's native window and used by OpenXR). SDL_GL_CreateContext would
+     * fail because the context is already current. Just capture the current
+     * context so GL_Renderer_Init can use it. */
+    if (OpenXR_IsActive()) {
+        SDL_GLContext current = SDL_GL_GetCurrentContext();
+        if (current != NULL) {
+            sdlGLContext = current;
+            Log_Info("[GL] Using existing EGL context for OpenXR (0x%p)", (void*)(uintptr_t)current);
+            return true;
+        }
+        Log_Error("OpenXR active but no current EGL context.");
+        return false;
+    }
+#endif
+
     if (sdlWindow == NULL) {
         Log_Error("Cannot create GL context: no SDL window.");
         return false;
@@ -503,6 +521,15 @@ bool Window_CreateGLContext(void) {
 
 void Window_DestroyGLContext(void) {
     if (sdlGLContext != NULL) {
+#if defined(LBA2_OPENXR) && defined(__ANDROID__)
+        /* On Quest with OpenXR, the EGL context belongs to the activity's
+         * native window. Do not destroy it — just clear our reference. */
+        if (OpenXR_IsActive()) {
+            Log_Info("[GL] Not destroying EGL context (OpenXR owns it).");
+            sdlGLContext = NULL;
+            return;
+        }
+#endif
         SDL_GL_MakeCurrent(sdlWindow, NULL);
         SDL_GL_DestroyContext(sdlGLContext);
         sdlGLContext = NULL;
@@ -663,24 +690,60 @@ bool Window_RecreateWindowForSW(U32 resX, U32 resY, bool fullscreen) {
 }
 
 bool Window_GLMakeCurrent(void) {
-    if (sdlGLContext == NULL || sdlWindow == NULL) {
+    if (sdlGLContext == NULL) {
+        return false;
+    }
+#if defined(LBA2_OPENXR) && defined(__ANDROID__)
+    /* On Quest with OpenXR, the EGL context is already current: it is the
+     * boot-time SW renderer's context, the one the OpenXR session was bound
+     * to, and the SW window is kept alive precisely to keep it current.
+     * SDL_GL_MakeCurrent would fail here because that window was not created
+     * with SDL_WINDOW_OPENGL, so verify the context is still current instead. */
+    if (OpenXR_IsActive()) {
+        return SDL_GL_GetCurrentContext() == sdlGLContext;
+    }
+#endif
+    if (sdlWindow == NULL) {
         return false;
     }
     return SDL_GL_MakeCurrent(sdlWindow, sdlGLContext);
 }
 
 void Window_GL_SwapWindow(void) {
-    if (sdlWindow != NULL) {
-        /* Quest 3 immersive (mono blit) path: OpenXR_PresentMono owns
-         * the present via xrEndFrame, so suppress the redundant SDL
-         * swap to avoid double-presenting. The GL renderer still ran
-         * (uploading SVGA ARGB pixels into the GL FBO); the copy from
-         * that FBO into the OpenXR swapchain happens in OpenXR_PresentMono. */
-        if (OpenXR_ShouldSkipSDLSwap()) {
-            return;
-        }
-        SDL_GL_SwapWindow(sdlWindow);
+#if defined(LBA2_OPENXR) && defined(__ANDROID__)
+    /* On Quest with OpenXR, the EGL context belongs to the activity's native
+     * window (no SDL window). OpenXR owns the present, so route directly to
+     * OpenXR_PresentMono even when sdlWindow is NULL. */
+    static S32 s_swapLogCount = 0;
+    if (s_swapLogCount < 3) {
+        Log_Info("Window_GL_SwapWindow: openxr=%d sdlWindow=%p", OpenXR_IsActive() ? 1 : 0, (void*)sdlWindow);
+        s_swapLogCount++;
     }
+    if (OpenXR_IsActive() && sdlWindow == NULL) {
+        OpenXR_PresentMono();
+        return;
+    }
+#endif
+    if (sdlWindow == NULL) {
+        return;
+    }
+    /* Quest 3 immersive (mono blit) path: OpenXR owns the present. This is
+     * the single present funnel — GL_Present (the only per-frame presenter,
+     * used by BOTH gameplay's AffScene and the 2D title/menu/intro via
+     * BoxBlit -> PresentFrame -> GL_Present) ends here. Routing OpenXR here
+     * means every loop presents to the headset without needing its own
+     * OpenXR pump: OpenXR_PresentMono copies the just-composited GL default
+     * framebuffer into the OpenXR swapchain and submits it via xrEndFrame,
+     * and it also pumps the session lifecycle + controller input, so the
+     * menu becomes visible AND controllable. The SDL swap has no consumer on
+     * the headset, so it is replaced (not run alongside — that would
+     * double-present). On PC / input-only OpenXR, ShouldSkipSDLSwap is false
+     * and we do the normal SDL swap. */
+    if (OpenXR_ShouldSkipSDLSwap()) {
+        OpenXR_PresentMono();
+        return;
+    }
+    SDL_GL_SwapWindow(sdlWindow);
 }
 
 SDL_Window *Window_GetSDLWindow(void) {
@@ -689,6 +752,16 @@ SDL_Window *Window_GetSDLWindow(void) {
 
 SDL_GLContext Window_GetGLContext(void) {
     return sdlGLContext;
+}
+
+void Window_GetRenderSize(int *w, int *h) {
+    if (w) *w = (int)windowSurfaceResX;
+    if (h) *h = (int)windowSurfaceResY;
+}
+
+void Window_SetRenderResolution(U32 w, U32 h) {
+    windowSurfaceResX = w;
+    windowSurfaceResY = h;
 }
 
 void Window_SetWindowSize(U32 w, U32 h) {

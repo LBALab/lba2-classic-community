@@ -1,7 +1,9 @@
 #include <GL/RENDER_GL.H>
 
+#include <3D/CAMERA.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/WINDOW.H>
+#include <SYSTEM/OPENXR.H>
 
 #ifdef USE_GPURENDERER
 
@@ -428,6 +430,33 @@ static U32 s_fboHeight = 0;
 static U32 s_renderQuality = 1; /* 1 = native, 2 = 2x, 4 = 4x */
 static S32 s_frameActive = 0; /* 1 between GL_BeginFrame and GL_Present */
 
+/* ── GL state — present FBO ─────────────────────────────────────────────── */
+/* On Quest with OpenXR there is no SDL window, so FBO 0 (the default
+ * framebuffer) has no color attachment and draws into it are lost. This
+ * offscreen FBO is the compositing target for GL_Present instead: the 3D
+ * FBO texture and the 2D overlay quad are drawn here, and OpenXR_PresentMono
+ * copies from it into the runtime swapchain via glCopyTexSubImage2D. */
+static GLuint s_presentFBO = 0;
+static GLuint s_presentColorTex = 0;
+
+/* ── GL state — stereo eye capture FBOs ─────────────────────────────────── */
+/* Native stereo: the engine renders the scene twice per frame (once per
+ * eye, see GL_SetStereoEye). Eye 0's composite is captured here so the
+ * second eye's normal present can hand both images to OpenXR. Eye 1 is not
+ * captured: its composite lands in the present FBO through the regular
+ * mono path, and OpenXR_PresentMono blits eye 0's FBO + the present FBO
+ * into the two eye halves of the swapchain image. */
+static GLuint s_stereoEyeFBO[2] = {0, 0};
+static GLuint s_stereoEyeTex[2] = {0, 0};
+static U32 s_stereoEyeWidth = 0;
+static U32 s_stereoEyeHeight = 0;
+static S32 s_stereoEye = -1; /* -1 = mono, 0/1 = capturing that eye */
+/* Set when eye 0's composite has been captured for the current frame and
+ * not yet consumed by the OpenXR submit; cleared by any mono present so
+ * menu/movie frames (no per-eye render) submit the mono layer instead of
+ * a stale half. */
+static S32 s_stereoPairReady = 0;
+
 /* Set to 1 by GL_ClearFBO() at the start of terrain rendering, cleared by
    GL_BeginFrame().  Used by GL_RenderTriangleList to route body/shadow
    polygons (Fill_Flag_ZBuffer=0) into the GL batch during terrain rendering
@@ -523,6 +552,125 @@ static void GL_DestroyFBO(void) {
     s_fboHeight = 0;
 }
 
+static void GL_DestroyPresentFBO(void) {
+    if (s_presentFBO) {
+        glDeleteFramebuffers(1, &s_presentFBO);
+        s_presentFBO = 0;
+    }
+    if (s_presentColorTex) {
+        glDeleteTextures(1, &s_presentColorTex);
+        s_presentColorTex = 0;
+    }
+}
+
+static void GL_DestroyStereoEyeFBOs(void) {
+    int i;
+    for (i = 0; i < 2; i++) {
+        if (s_stereoEyeFBO[i]) {
+            glDeleteFramebuffers(1, &s_stereoEyeFBO[i]);
+            s_stereoEyeFBO[i] = 0;
+        }
+        if (s_stereoEyeTex[i]) {
+            glDeleteTextures(1, &s_stereoEyeTex[i]);
+            s_stereoEyeTex[i] = 0;
+        }
+    }
+    s_stereoEyeWidth = 0;
+    s_stereoEyeHeight = 0;
+}
+
+static void GL_CreateStereoEyeFBOs(U32 width, U32 height) {
+    int i;
+    GL_DestroyStereoEyeFBOs();
+    for (i = 0; i < 2; i++) {
+        glGenTextures(1, &s_stereoEyeTex[i]);
+        glBindTexture(GL_TEXTURE_2D, s_stereoEyeTex[i]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+                     GL_UNSIGNED_BYTE, NULL);
+
+        glGenFramebuffers(1, &s_stereoEyeFBO[i]);
+        glBindFramebuffer(GL_FRAMEBUFFER, s_stereoEyeFBO[i]);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D, s_stereoEyeTex[i], 0);
+        GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        if (status != GL_FRAMEBUFFER_COMPLETE) {
+            Log_Error("[GL] Stereo eye FBO %d incomplete (0x%x) %ux%u", i,
+                      (unsigned)status, width, height);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            GL_DestroyStereoEyeFBOs();
+            return;
+        }
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    s_stereoEyeWidth = width;
+    s_stereoEyeHeight = height;
+    Log_Info("[GL] Stereo eye FBOs created %ux%u", width, height);
+}
+
+void GL_SetStereoEye(S32 eye) {
+    if (eye < -1 || eye > 1)
+        eye = -1;
+    s_stereoEye = eye;
+    if (eye < 0) {
+        /* Leaving stereo: clear the eye shifts so mono frames project
+         * exactly as before. Per-eye shift values are the caller's job —
+         * the right convergence depends on the live camera distance. */
+        StereoCamShiftX = 0;
+        StereoProjShiftX = 0;
+    }
+}
+
+S32 GL_GetStereoEye(void) {
+    return s_stereoEye;
+}
+
+S32 GL_TakeStereoPair(void) {
+    S32 ready = s_stereoPairReady;
+    s_stereoPairReady = 0;
+    return ready;
+}
+
+U32 GL_GetStereoEyeFBO(S32 eye) {
+    if (eye < 0 || eye > 1)
+        return 0;
+    return (U32)s_stereoEyeFBO[eye];
+}
+
+static void GL_CreatePresentFBO(U32 width, U32 height) {
+    GL_DestroyPresentFBO();
+
+    glGenTextures(1, &s_presentColorTex);
+    glBindTexture(GL_TEXTURE_2D, s_presentColorTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, NULL);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glGenFramebuffers(1, &s_presentFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, s_presentFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                           s_presentColorTex, 0);
+
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        Log_Error("[GL] Present FBO incomplete (0x%x) %ux%u", (unsigned)status, width, height);
+        GL_DestroyPresentFBO();
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        return;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    Log_Info("[GL] Present FBO created %ux%u (fbo=%u tex=%u)", width, height, (unsigned)s_presentFBO, (unsigned)s_presentColorTex);
+}
+
 static void GL_CreateFBO(U32 width, U32 height) {
     GL_DestroyFBO();
 
@@ -573,6 +721,27 @@ static void GL_CreateFBO(U32 width, U32 height) {
 #define FMT_BGRA 0x80E1 /* GL_BGRA_EXT */
 #endif
 
+/* GLES accepts BGRA transfer formats only when the driver exposes
+ * GL_EXT_texture_format_BGRA8888; Android GLES contexts are not required
+ * to, and a rejected format fails silently here (GL_INVALID_ENUM, texture
+ * left incomplete — it samples black). Desktop GL keeps the direct BGRA
+ * path; GLES uploads GL_RGBA and the CPU swizzles the BGRA-ordered staging
+ * bytes into R,G,B,A order. The swizzle swaps bytes 0 and 2, so it also
+ * converts an RGBA readback back to the ARGB word order consumers expect. */
+#if defined(__ANDROID__)
+#define GL_UPLOAD_FORMAT GL_RGBA
+static void GL_SwizzleBGRAtoRGBA(U32 *dst, const U32 *src, U32 pixelCount) {
+    U32 i;
+    for (i = 0; i < pixelCount; i++) {
+        U32 c = src[i];
+        dst[i] = (c & 0xFF00FF00u) | ((c >> 16) & 0x000000FFu) |
+                 ((c << 16) & 0x00FF0000u);
+    }
+}
+#else
+#define GL_UPLOAD_FORMAT FMT_BGRA
+#endif
+
 S32 GL_Renderer_Init(U32 resX, U32 resY) {
     if (s_initialized) {
         return TRUE;
@@ -586,6 +755,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     }
 
     Log_Info("[GL] Initializing renderer (%ux%u)...", resX, resY);
+    Log_Info("[GL] GL_VERSION: %s", (const char *)glGetString(GL_VERSION));
+    Log_Info("[GL] GL_RENDERER: %s", (const char *)glGetString(GL_RENDERER));
 
     /* ── Compile present shader ── */
     GLuint vert = CompileShader(GL_VERTEX_SHADER, s_vertSrc);
@@ -674,7 +845,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, resX, resY, 0, FMT_BGRA,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, resX, resY, 0, GL_UPLOAD_FORMAT,
                  GL_UNSIGNED_BYTE, NULL);
     glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -707,9 +878,18 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, FMT_BGRA,
-                  GL_UNSIGNED_BYTE, NULL);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, GL_UPLOAD_FORMAT,
+                   GL_UNSIGNED_BYTE, NULL);
      glBindTexture(GL_TEXTURE_2D, 0);
+
+    /* Surface format problems (e.g. a rejected transfer format) are silent
+       otherwise: the texture stays incomplete and just samples black. */
+    {
+        GLenum texErr = glGetError();
+        if (texErr != GL_NO_ERROR) {
+            Log_Warn("[GL] GL error after texture setup: 0x%x", (unsigned)texErr);
+        }
+    }
 
     /* GL state */
     glViewport(0, 0, resX, resY);
@@ -721,6 +901,13 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
        2D overlay.  Without FBO, GL_Present's letterbox clear erases
        any 3D drawn directly to the default framebuffer. */
     GL_CreateFBO(resX * s_renderQuality, resY * s_renderQuality);
+
+    /* Create present FBO for compositing. On Quest with OpenXR there is no
+       SDL window, so the default framebuffer (FBO 0) is not a valid render
+       target; this offscreen FBO is what GL_Present draws into, and
+       OpenXR_PresentMono copies from it to the swapchain texture. */
+    GL_CreatePresentFBO(resX, resY);
+    GL_CreateStereoEyeFBOs(resX, resY);
 
     /* Clear to black so the window is never transparent/garbage before
        the first PresentFrame call.  Depth clear to 0.0 matches GL_GREATER
@@ -784,6 +971,8 @@ void GL_Renderer_Shutdown(void) {
     }
 
     GL_DestroyFBO();
+    GL_DestroyPresentFBO();
+    GL_DestroyStereoEyeFBOs();
 
     Window_DestroyGLContext();
     s_initialized = 0;
@@ -812,7 +1001,7 @@ void GL_Renderer_Resize(U32 resX, U32 resY) {
     /* Recreate the present texture at the new size */
     if (s_texture) {
         glBindTexture(GL_TEXTURE_2D, s_texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, resX, resY, 0, FMT_BGRA,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, resX, resY, 0, GL_UPLOAD_FORMAT,
                      GL_UNSIGNED_BYTE, NULL);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
@@ -823,6 +1012,10 @@ void GL_Renderer_Resize(U32 resX, U32 resY) {
     /* Recreate FBO at scaled resolution (always needed) */
     s_fboHasTerrain = 0;
     GL_CreateFBO(resX * s_renderQuality, resY * s_renderQuality);
+
+    /* Recreate present FBO at the new size */
+    GL_CreatePresentFBO(resX, resY);
+    GL_CreateStereoEyeFBOs(resX, resY);
 }
 
 void GL_SetRenderQuality(U32 quality) {
@@ -863,8 +1056,17 @@ static void GL_UploadPalette(void) {
     paletteCopy[0] &= 0x00FFFFFF; /* alpha → 0 */
 
     glBindTexture(GL_TEXTURE_2D, s_paletteTex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1, FMT_BGRA,
+#if defined(__ANDROID__)
+    {
+        U32 paletteGL[256];
+        GL_SwizzleBGRAtoRGBA(paletteGL, paletteCopy, 256);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1, GL_UPLOAD_FORMAT,
+                        GL_UNSIGNED_BYTE, paletteGL);
+    }
+#else
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1, GL_UPLOAD_FORMAT,
                     GL_UNSIGNED_BYTE, paletteCopy);
+#endif
     glBindTexture(GL_TEXTURE_2D, 0);
 
     /* Invalidate cached reverse lookup so it gets rebuilt on next readback. */
@@ -1373,8 +1575,15 @@ void GL_ReadbackColorBuffer(void) {
     }
 
     /* Read as BGRA: paletteLUT is 0xAARRGGBB = [B,G,R,A] in LE memory,
-       and GL_BGRA reads bytes in B,G,R,A order → U32 = ARGB. */
+        and GL_BGRA reads bytes in B,G,R,A order → U32 = ARGB. GLES has no
+        BGRA without the extension, so read RGBA and swizzle back to the
+        same ARGB word order. */
+#if defined(__ANDROID__)
+    glReadPixels(0, 0, fboW, fboH, GL_RGBA, GL_UNSIGNED_BYTE, s_fboColorBuf);
+    GL_SwizzleBGRAtoRGBA(s_fboColorBuf, s_fboColorBuf, (U32)(fboW * fboH));
+#else
     glReadPixels(0, 0, fboW, fboH, FMT_BGRA, GL_UNSIGNED_BYTE, s_fboColorBuf);
+#endif
 
     /* Build reverse palette lookup on demand. */
     if (!s_revLutHashValid) {
@@ -1419,10 +1628,12 @@ void GL_ReadbackColorBuffer(void) {
 void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
                 S32 filterLinear) {
     if (!s_initialized || argbPixels == NULL) {
+        Log_Info("GL_Present: early return (initialized=%d, pixels=%p)", s_initialized, argbPixels);
         return;
     }
 
     if (!Window_GLMakeCurrent()) {
+        Log_Info("GL_Present: Window_GLMakeCurrent failed");
         return;
     }
 
@@ -1434,9 +1645,31 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     /* Reset frame flag so GL_FlushBatch will rebind FBO next frame. */
     s_frameActive = 0;
 
-    /* Switch back to the default framebuffer for compositing */
-    if (s_fbo) {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    /* Switch back to the default framebuffer for compositing. On Quest with
+       OpenXR there is no valid default framebuffer (FBO 0 has no color
+       attachment), so use the present FBO instead so OpenXR_PresentMono can
+       copy from it. On desktop, FBO 0 is the window backbuffer and
+       SDL_GL_SwapWindow presents it, so we must draw there. */
+    static S32 s_presentLogCount = 0;
+    if (s_presentLogCount < 3) {
+        Log_Info("GL_Present: openxr=%d presentFBO=%u stereoEye=%d", OpenXR_IsActive() ? 1 : 0, (unsigned)s_presentFBO, s_stereoEye);
+        s_presentLogCount++;
+    }
+    if (s_stereoEye >= 0 && s_stereoEyeFBO[s_stereoEye]) {
+        /* Stereo capture: composite this eye offscreen. Eye 0's present is
+         * suppressed here (no swap, no clock step); eye 1's present falls
+         * through to the swap below and its OpenXR_PresentMono submits the
+         * stereo pair for the frame. */
+        glBindFramebuffer(GL_FRAMEBUFFER, s_stereoEyeFBO[s_stereoEye]);
+        if (s_stereoEye == 0)
+            s_stereoPairReady = 1;
+    } else {
+        s_stereoPairReady = 0; /* mono frame: no fresh pair behind it */
+        if (OpenXR_IsActive() && s_presentFBO) {
+            glBindFramebuffer(GL_FRAMEBUFFER, s_presentFBO);
+        } else {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
     }
 
     /* Restore GL state for compositing (depth test may still be on from
@@ -1450,8 +1683,16 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     if (win) {
         SDL_GetWindowSize(win, &winW, &winH);
     }
-
-    /* Clear the default framebuffer to black (for letterbox bars). */
+    /* On Quest with OpenXR, the window size is the headset resolution (e.g.
+       4128x2208), but the present FBO is at the engine's render resolution
+       (e.g. 1280x720). Use the content size for the letterbox calculation so
+       the viewport fits the present FBO, not the headset display. */
+    if (OpenXR_IsActive() && s_presentFBO) {
+        winW = (int)width;
+        winH = (int)height;
+    }
+    /* Clear the render target to black (for letterbox bars). On Quest the
+       present FBO is the target; on desktop it is the default framebuffer. */
     glViewport(0, 0, winW, winH);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -1519,11 +1760,29 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     /* GL_UNPACK_ROW_LENGTH is GLES 3.0+; the project's minimum is GLES 2.0,
        so guard the pixel-store call (row length falls back to width when
        unset, which is what we want anyway because pitch == width*4 here). */
+    const void *uploadPixels = argbPixels;
+#if defined(__ANDROID__)
+    {
+        static U32 *s_uploadBuf = NULL;
+        static U32 s_uploadBufPixels = 0;
+        U32 needed = width * height;
+        if (s_uploadBufPixels < needed) {
+            free(s_uploadBuf);
+            s_uploadBuf = (U32 *)malloc(needed * sizeof(U32));
+            s_uploadBufPixels = s_uploadBuf ? needed : 0;
+        }
+        if (s_uploadBuf != NULL) {
+            GL_SwizzleBGRAtoRGBA(s_uploadBuf, (const U32 *)argbPixels, needed);
+            uploadPixels = s_uploadBuf;
+        }
+    }
+#endif
+
 #ifdef GL_UNPACK_ROW_LENGTH
     glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / 4);
 #endif
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, FMT_BGRA,
-                    GL_UNSIGNED_BYTE, argbPixels);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_UPLOAD_FORMAT,
+                    GL_UNSIGNED_BYTE, uploadPixels);
 #ifdef GL_UNPACK_ROW_LENGTH
     glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 #endif
@@ -1557,7 +1816,24 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     glBindTexture(GL_TEXTURE_2D, 0);
     glDisable(GL_BLEND);
 
-    Window_GL_SwapWindow();
+    /* Eye 0 stops here (its content is captured, not presented). Eye 1 and
+     * every mono path continue to the swap, which on the Quest routes into
+     * OpenXR_PresentMono — the frame's single submit point. */
+    if (s_stereoEye != 0) {
+        Window_GL_SwapWindow();
+    }
+}
+
+/* ── Accessors for OpenXR present ────────────────────────────────────────── */
+/* OpenXR_PresentMono needs to read the present FBO on Quest where there is
+   no SDL window. These accessors expose the handles without exposing the
+   full GL renderer internals. */
+U32 GL_GetPresentFBO(void) {
+    return (U32)s_presentFBO;
+}
+
+U32 GL_GetPresentColorTex(void) {
+    return (U32)s_presentColorTex;
 }
 
 /* ── Triangle list rendering ────────────────────────────────────────────── */

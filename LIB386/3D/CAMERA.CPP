@@ -29,6 +29,9 @@ S32 CameraXr = 0;
 S32 CameraYr = 0;
 S32 CameraZr = 0;
 
+S32 StereoCamShiftX = 0;
+S32 StereoProjShiftX = 0;
+
 S32 CameraZrClip = 0;
 
 S32 NearClip = 1;
@@ -62,7 +65,7 @@ void SetCamera(S32 x, S32 y, S32 z) {
         NearClip = 0;
     } else {
         LongRotatePoint(&MatriceWorld, x, y, z);
-        CameraXr = X0;
+        CameraXr = X0 + StereoCamShiftX;
         CameraYr = Y0;
         CameraZr = Z0;
         CameraZrClip = Z0 - NearClip;

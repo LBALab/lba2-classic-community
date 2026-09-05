@@ -69,6 +69,33 @@ void GL_ReadbackDepthBuffer(void);
 //! be bound).  Handles SSAA downscaling.  No-op when no FBO is active.
 void GL_ReadbackColorBuffer(void);
 
+//! Get the present FBO handle (for OpenXR present on Quest).
+//! Returns the FBO that GL_Present composites into, or 0 if not initialized.
+U32 GL_GetPresentFBO(void);
+
+//! Get the present FBO color texture handle (for OpenXR present on Quest).
+//! Returns the texture attached to the present FBO, or 0 if not initialized.
+U32 GL_GetPresentColorTex(void);
+
+//! Stereo (dual-eye) capture control. With eye >= 0, the next GL_Present
+//! composites into that eye's offscreen FBO instead of the present FBO and
+//! skips the window swap; the caller then re-renders the scene for the other
+//! eye normally. Also sets the 3D camera/projection eye shifts (see
+//! StereoCamShiftX / StereoProjShiftX in 3D/CAMERA.H); eye -1 restores mono.
+void GL_SetStereoEye(S32 eye);
+
+//! Current stereo capture eye (-1 = mono / not capturing).
+S32 GL_GetStereoEye(void);
+
+//! Returns 1 if a fresh left+right eye capture pair is available for this
+//! frame and consumes the flag. PresentMono uses it to decide between the
+//! stereo layer and the mono full-image copy.
+S32 GL_TakeStereoPair(void);
+
+//! Offscreen FBO holding the captured composite for the given eye (0 = left,
+//! 1 = right), or 0 if none. For OpenXR_PresentMono's stereo blit.
+U32 GL_GetStereoEyeFBO(S32 eye);
+
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
 }

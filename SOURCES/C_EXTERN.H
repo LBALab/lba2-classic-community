@@ -249,6 +249,7 @@ extern S32 FollowCamManualHold;       /* frames the pitch/distance auto-assist y
 extern S32 FollowCamManualHoldFrames; /* manual-override hold length (cvar cam_manual_hold) */
 extern S32 FollowCamHoldAngle;        /* free-camera mode: hold manual rotation, no auto-recenter drift (cvar cam_hold_angle) */
 extern S32 ReverseStereo;
+extern S32 DisplayStereo3D; ///< Quest OpenXR only: native per-eye stereo rendering
 
 extern S32 ScaleFactorSprite;
 

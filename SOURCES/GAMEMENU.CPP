@@ -10,6 +10,7 @@
 #include "CONSOLE/CONSOLE.H"
 #ifdef USE_GPURENDERER
 #include <GL/RENDER_GL.H>
+#include <SYSTEM/OPENXR.H>
 #endif
 #include <SVGA/VIDEO.H> /* PresentCurrentFrame (renderer switch present) */
 #include "MESSAGE.H"
@@ -22,6 +23,7 @@
 #include <SYSTEM/ANDROID.H>
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 #include <SYSTEM/MOUSE.H>
@@ -92,6 +94,7 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_RENDERER 2117
 #define MENU_ID_DISPLAY_TEXFILTER 2118
 #define MENU_ID_DISPLAY_QUALITY 2119
+#define MENU_ID_DISPLAY_STEREO3D 2120 /* Quest OpenXR native stereo toggle */
 #endif
 
 // Resolution sub-page rows occupy a reserved id range: row i carries id
@@ -153,7 +156,7 @@ U16 GameOptionMenu[] = {
 // "Back" returns to Options. Fullscreen stays the last entry so the
 // always-fullscreen-device path in GereDisplayMenu can drop it by count.
 // See GereDisplayMenu + GereResolutionMenu.
-U16 DisplayMenu[] = {
+U16 DisplayMenu[4 + 8 * 2] = {
     0,   // selected
     4,   // nb entries (overridden at runtime)
     260, // y center
@@ -176,6 +179,38 @@ U16 DisplayMenu[] = {
     0,
     MENU_ID_DISPLAY_FULLSCREEN,
 };
+
+/* Rebuild the Display submenu rows at runtime. The static initializer above
+ * only backs the buffer; the pair list is conditional (stereo row only with
+ * an immersive OpenXR session, fullscreen only where windowed mode exists),
+ * and the count must match the pairs actually written or DoGameMenu reads
+ * past the intended rows. */
+static void BuildDisplayMenuEntries(void) {
+    U16 *p = DisplayMenu + 4;
+    *p++ = 0;
+    *p++ = 26; /* menu precedent */
+    *p++ = 0;
+    *p++ = MENU_ID_RESOLUTION;
+#ifdef USE_GPURENDERER
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_RENDERER;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_TEXFILTER;
+    if (OpenXR_IsActive()) {
+        *p++ = 0;
+        *p++ = MENU_ID_DISPLAY_STEREO3D;
+    }
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_QUALITY;
+#endif
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_VSYNC;
+    if (Window_SupportsWindowedMode()) {
+        *p++ = 0;
+        *p++ = MENU_ID_DISPLAY_FULLSCREEN;
+    }
+    DisplayMenu[1] = (U16)((p - DisplayMenu - 4) / 2);
+}
 
 // Resolution sub-page, opened from the Display submenu's Resolution row.
 // Built at runtime from the shared catalog (like GameAskChoice builds
@@ -489,6 +524,10 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_TEXFILTER:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayTexFilter ? MENU_LABEL_TEXFILTER_BILINEAR : MENU_LABEL_TEXFILTER_NEAREST));
+        break;
+
+    case MENU_ID_DISPLAY_STEREO3D:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayStereo3D ? MENU_LABEL_STEREO3D_ON : MENU_LABEL_STEREO3D_OFF));
         break;
 
     case MENU_ID_DISPLAY_QUALITY:
@@ -3264,17 +3303,12 @@ S32 GereDisplayMenu(void) {
     S32 select;
     S32 flag = 0;
 
-    /* Build the entry count from the components:
-       Back + Resolution + [Renderer + TexFilter if GPURENDERER] + Vsync
-       + [Fullscreen if windowed mode supported]. Fullscreen stays last
-       so the drop-by-count logic works. */
-    S32 count = 3; /* Back + Resolution + Vsync */
-#ifdef USE_GPURENDERER
-    count += 2; /* Renderer + TexFilter */
-#endif
-    if (Window_SupportsWindowedMode())
-        count++;
-    DisplayMenu[1] = count;
+    /* Rows are rebuilt by BuildDisplayMenuEntries so the count always
+       matches the (type, id) pairs actually written: Back + Resolution
+       + [Renderer + TexFilter + Stereo + Quality if GPURENDERER, with
+       Stereo only while an immersive OpenXR session is active] + Vsync
+       + [Fullscreen if windowed mode supported]. */
+    BuildDisplayMenuEntries();
 
     CopyScreen(Screen, Log);
     BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
@@ -3374,6 +3408,12 @@ S32 GereDisplayMenu(void) {
 
         case MENU_ID_DISPLAY_TEXFILTER:
             DisplayTexFilter ^= 1;
+            WriteConfigFile();
+            break;
+
+        case MENU_ID_DISPLAY_STEREO3D:
+            DisplayStereo3D ^= 1;
+            OpenXR_SetStereoEnabled(DisplayStereo3D);
             WriteConfigFile();
             break;
 
@@ -3882,10 +3922,13 @@ S32 MainGameMenu(S32 load) {
     char tmpFilePathSave[ADELINE_MAX_PATH];
     char tmpFilePathScreen[ADELINE_MAX_PATH];
 
+    Log_Info("MainGameMenu: entered, load=%d", load);
     HQ_StopSample();
     StopMusic(); // Pour Stopper la music du Logo
+    Log_Info("MainGameMenu: music stopped");
 
     InitPlasmaMenu();
+    Log_Info("MainGameMenu: plasma menu initialized");
     FlagShadeMenu = FALSE;
 
 #ifdef DEMO

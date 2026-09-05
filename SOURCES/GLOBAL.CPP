@@ -245,6 +245,7 @@ S32 FollowCamGroundClearance = FOLLOW_CAM_GROUND_CLEARANCE_DEFAULT;
 S32 FollowCamManualHoldFrames = FOLLOW_CAM_MANUAL_HOLD_DEFAULT;
 S32 FollowCamHoldAngle = FOLLOW_CAM_HOLD_ANGLE_DEFAULT;
 S32 ReverseStereo = FALSE;
+S32 DisplayStereo3D = FALSE; /* Quest OpenXR only: native per-eye stereo */
 S32 Island = 0;
 S32 Planet = 0;
 

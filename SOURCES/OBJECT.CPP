@@ -5817,6 +5817,13 @@ startaffscene:
     if (BaseSort()) {
         // NumObjFollow masqué on
         // doit redessiner la camera
+        {
+            static S32 s_restartPerfLog = 0;
+            if (s_restartPerfLog < 10) {
+                Log_Info("AffScenePerf: camera restart pass");
+                s_restartPerfLog++;
+            }
+        }
         if (flagflip == AFF_ALL_FLIP OR flagflip == AFF_ALL_NO_FLIP) {
             // Car il y a un LockTimer() just après
             UnlockTimer();

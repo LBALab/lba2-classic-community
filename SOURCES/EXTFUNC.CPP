@@ -15,6 +15,8 @@
 
 #include <SVGA/SCREEN.H>
 #include <GL/RENDER_GL.H>
+#include <SYSTEM/LOG.H>
+#include <SDL3/SDL.h>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/WINDOW.H>
@@ -313,6 +315,7 @@ void InitGrilleExt(U32 numcube) {
 /*──────────────────────────────────────────────────────────────────────────*/
 // Affiche la grille complète à la position actuelle de la caméra
 void AffGrilleExt() {
+    U32 aggT0 = SDL_GetTicks();
 #ifdef USE_GPURENDERER
     /* Clear the FBO at the start of terrain rendering.  This is done here
        instead of in GL_FlushBatch() so that frames with no terrain
@@ -341,16 +344,47 @@ void AffGrilleExt() {
     if (FlagDrawHorizon)
 #endif
     {
+        U32 hzT0 = SDL_GetTicks();
         DrawHorizon2ZBuf();
+        U32 hzT1 = SDL_GetTicks();
+        {
+            static S32 s_hzPerfLog = 0;
+            if (s_hzPerfLog < 10) {
+                Log_Info("GrillePerf: horizon=%dms", (S32)(hzT1 - hzT0));
+                s_hzPerfLog++;
+            }
+        }
     }
 
     ManageSystem(); // for streaming
 
-    AffichageTerrainZBuf();
+    {
+        U32 tnT0 = SDL_GetTicks();
+        AffichageTerrainZBuf();
+        U32 tnT1 = SDL_GetTicks();
+        {
+            static S32 s_tnPerfLog = 0;
+            if (s_tnPerfLog < 10) {
+                Log_Info("GrillePerf: terrain=%dms", (S32)(tnT1 - tnT0));
+                s_tnPerfLog++;
+            }
+        }
+    }
 
     ManageSystem(); // for streaming
 
-    DrawSkySeaZBuf();
+    {
+        U32 skyT0 = SDL_GetTicks();
+        DrawSkySeaZBuf();
+        U32 skyT1 = SDL_GetTicks();
+        {
+            static S32 s_skyPerfLog = 0;
+            if (s_skyPerfLog < 10) {
+                Log_Info("GrillePerf: skysea=%dms", (S32)(skyT1 - skyT0));
+                s_skyPerfLog++;
+            }
+        }
+    }
 
     ManageSystem(); // for streaming
 
@@ -397,9 +431,18 @@ void AffGrilleExt() {
            Body polygons (NPCs, shadows) then render to Log on top of
            the terrain copy.  GL_Present composites FBO (terrain) +
            Log (objects + shadows + darkened shadows) on top. */
+        U32 rbT0 = SDL_GetTicks();
         GL_ReadbackDepthBuffer();
         GL_ReadbackColorBuffer();
         CopyScreen(Screen, Log);
+        U32 rbT1 = SDL_GetTicks();
+        {
+            static S32 s_rbPerfLog = 0;
+            if (s_rbPerfLog < 10) {
+                Log_Info("GrillePerf: readback=%dms total=%dms", (S32)(rbT1 - rbT0), (S32)(rbT1 - aggT0));
+                s_rbPerfLog++;
+            }
+        }
 
 
     } else

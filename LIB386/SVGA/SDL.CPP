@@ -158,7 +158,15 @@ void UnlockVideoSurface() {
         --screenLockCount;
     }
 
+    static S32 s_unlockLogCount = 0;
+    if (s_unlockLogCount < 3) {
+        Log_Info("UnlockVideoSurface: lockCount=%d frameDirty=%d", screenLockCount, (int)frameDirty);
+        s_unlockLogCount++;
+    }
     if (screenLockCount == 0 && frameDirty) {
+        if (s_unlockLogCount < 3) {
+            Log_Info("UnlockVideoSurface: calling PresentFrame");
+        }
         if (s_presentBegin)
             s_presentBegin();
         PresentFrame();

@@ -181,10 +181,12 @@ void InitDirectories(const char *userDir, const char *resDir,
 
     strncpy(directoriesResDir, resDir, ADELINE_MAX_PATH);
     directoriesResDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+    Log_Info("InitDirectories: resDir='%s' directoriesResDir='%s'", resDir, directoriesResDir);
     if (!IsValidResourceDir(directoriesResDir)) {
         Log_Error("Invalid resource directory '%s'", directoriesResDir);
         exit(EXIT_FAILURE);
     }
+    Log_Info("InitDirectories: resource directory validated OK");
 
     strncpy(directoriesCfgDir, cfgDir, ADELINE_MAX_PATH);
     directoriesCfgDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee

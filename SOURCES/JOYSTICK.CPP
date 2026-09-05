@@ -304,15 +304,17 @@ void UpdateJoystick(void) {
                       K_GAMEPAD_RSTICK_UP, K_GAMEPAD_RSTICK_DOWN);
         }
 
-        S16 dz = (S16)JoystickDeadzone;
-        if (OpenXR_LeftTrigger > dz)
+        /* OpenXR trigger state is boolean (0/1), not an SDL axis: the analog
+         * deadzone comparison would swallow every press. */
+        if (OpenXR_LeftTrigger)
             SET(K_GAMEPAD_LTRIGGER);
-        if (OpenXR_RightTrigger > dz)
+        if (OpenXR_RightTrigger)
             SET(K_GAMEPAD_RTRIGGER);
         if (OpenXR_ABtn)         SET(K_GAMEPAD_A);
         if (OpenXR_BBtn)         SET(K_GAMEPAD_B);
         if (OpenXR_XBtn)         SET(K_GAMEPAD_X);
         if (OpenXR_YBtn)         SET(K_GAMEPAD_Y);
+        if (OpenXR_MenuBtn)      SET(K_GAMEPAD_START);
         if (OpenXR_LeftThumbstickDown)   SET(K_GAMEPAD_LSTICK_BTN);
         if (OpenXR_RightThumbstickDown)  SET(K_GAMEPAD_RSTICK_BTN);
         if (OpenXR_LeftGripDown)  SET(K_GAMEPAD_LSHOULDER);
