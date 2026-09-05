@@ -446,18 +446,17 @@ void AffGrilleExt() {
 
 #ifdef USE_GPURENDERER
     if (GPURendererActive) {
-        /* GL mode: terrain is in the FBO, not Log.
-           1. Read back depth so ZBufBoxOverWrite2 can occlude shadows.
-           2. Read back color (FBO → Screen as palette indices).
-           3. Copy Screen → Log so ShadeBoxBlk (shadow darkening) has
-              real terrain pixels to darken rather than empty buffer.
-           Body polygons (NPCs, shadows) then render to Log on top of
-           the terrain copy.  GL_Present composites FBO (terrain) +
-           Log (objects + shadows + darkened shadows) on top. */
+        /* GL mode: terrain lives in the FBO; bodies and shadows are drawn
+           into the FBO too.  Log is a pure 2D overlay (sprites, texts) and
+           starts empty every frame — nothing needs the old terrain copy in
+           Log, and clearing it here means no stale sprite pixels can ever
+           ghost on incremental frames.  The depth readback stays: PtrZBuffer
+           still feeds ZBufBoxOverWrite2 for sprite occlusion.  Zeroing
+           Screen keeps the dirty-box Screen→Log restores as no-op clears. */
         U32 rbT0 = SDL_GetTicks();
         GL_ReadbackDepthBuffer();
-        GL_ReadbackColorBuffer();
-        CopyScreen(Screen, Log);
+        memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+        memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY + 512);
         /* Snapshot the completed terrain FBO: incremental frames restore it
            before the object pass to erase last frame's GL body/shadow
            pixels (the FBO is not cleared on AFF_OBJETS_* frames). */

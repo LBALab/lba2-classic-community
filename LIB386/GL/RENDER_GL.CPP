@@ -1690,6 +1690,15 @@ void GL_RestoreTerrainSnapshot(void) {
         return;
     }
 
+    {
+        static S32 s_rsLog = 0;
+        if (s_rsLog < 30) {
+            Log_Info("RestoreLog: blit gen=%u %ux%u", s_snapshotGen,
+                     s_snapshotW, s_snapshotH);
+            s_rsLog++;
+        }
+    }
+
     glBindFramebuffer(GL_READ_FRAMEBUFFER, s_snapshotFbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
     glBlitFramebuffer(0, 0, s_snapshotW, s_snapshotH,
