@@ -15,6 +15,11 @@
 #ifdef USE_GPURENDERER
 #include <GL/RENDER_GL.H>
 extern S32 GPURendererActive;
+
+/* Temporary perf instrumentation: GL vs SW fallback counts in Fill_Poly */
+S32 GL_PerfAccept = 0;
+S32 GL_PerfReject = 0;
+S32 GL_PerfRejectByType[32];
 #endif
 
 #include <limits.h>
@@ -157,9 +162,13 @@ S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
         S32 glResult = GL_RenderTriangleList(Type_Poly, Color_Poly, Nb_Points,
                                              Ptr_Points);
         if (glResult != 0) {
+            GL_PerfAccept++;
             return glResult;
         }
         /* GL didn't handle this polygon type — fall through to SW. */
+        GL_PerfReject++;
+        if (Type_Poly >= 0 && Type_Poly < 32)
+            GL_PerfRejectByType[Type_Poly]++;
     }
 #endif
 

@@ -1,6 +1,9 @@
 #include "C_EXTERN.H"
 #include "IMAGE_LOAD.H"
 
+/* Temporary perf instrumentation from RENDER_GL.CPP */
+extern "C" S32 GL_BatchFlushCount;
+
 #include "BUILD_INFO.h" /* LBA2_VERSION_STRING (for --version flag) */
 #include "INITADEL.H"
 #include "DIRECTORIES.H"
@@ -2337,9 +2340,9 @@ restartloop:
             {
                 static S32 s_stereoPerfLog = 0;
                 if (s_stereoPerfLog < 10) {
-                    Log_Info("StereoPerf: eye0=%dms eye1=%dms frame=%dms",
+                    Log_Info("StereoPerf: eye0=%dms eye1=%dms frame=%dms flushes=%d",
                              stereoT1 - stereoT0, stereoT2 - stereoT1,
-                             stereoT2 - stereoT0);
+                             stereoT2 - stereoT0, GL_BatchFlushCount);
                     s_stereoPerfLog++;
                 }
             }

@@ -15,6 +15,9 @@ extern S32 GPURendererActive;
 #define WORLD_SIZE 32768
 #define NB_POLYS_COTE 4
 
+#include <SDL3/SDL.h>
+#include <SYSTEM/LOG.H>
+
 // Taille 2D mini pour accepter un poly animé
 #define ANI_POLY_STEP_Y 2
 #define ANI_POLY_STEP_X 5
@@ -744,7 +747,7 @@ void DrawHorizon2ZBuf() {
                         AffichageTerrainZBuf();
                         flag = TRUE;
                     } else
-                        DrawOneSea(Y_SEA);
+    DrawOneSea(Y_SEA);
                 }
             }
         }
@@ -793,9 +796,14 @@ void AffichageTerrainZBuf(void) {
     S16 *ptrm;
     U8 *ptra;
     T_SOMMET_ROT *ptrs;
+    U32 tRot0, tRot1;
+
+    tRot0 = SDL_GetTicks();
 
     // affichage des objets du decors
     AffichageObjetDecorsZBuf();
+
+    tRot1 = SDL_GetTicks();
 
     // calcul les coordonnées 2D de chaque points
     ptra = &SommetAffichable[0][0];
@@ -849,6 +857,16 @@ void AffichageTerrainZBuf(void) {
     PtrMap = GroundTexture;
     RepMask = 0xFFFF;
 
+    {
+        U32 tRot2 = SDL_GetTicks();
+        static S32 s_rotLog = 0;
+        if (s_rotLog < 40) {
+            Log_Info("TerrainSplit2: obj=%dms rot=%dms",
+                     (S32)(tRot1 - tRot0), (S32)(tRot2 - tRot1));
+            s_rotLog++;
+        }
+    }
+
     /* Draw the visible tiles bucketed by their 16 fog levels instead of in
        scan order. DrawFeuillePolyZBuf calls SetCLUT(fog) per tile, and the
        GL batch flushes whenever the CLUT changes — scan order mixes fog
@@ -860,6 +878,8 @@ void AffichageTerrainZBuf(void) {
         static S16 s_fogTileIdx[16][NB_COTE * NB_COTE];
         static S16 s_fogTileCount[16];
         memset(s_fogTileCount, 0, sizeof(s_fogTileCount));
+
+        U32 tb0 = SDL_GetTicks();
 
         ptra = &SommetAffichable[0][0];
         ptrs = &SommetRot[0][0];
@@ -897,6 +917,8 @@ void AffichageTerrainZBuf(void) {
             ptrs++;
         }
 
+        U32 tb1 = SDL_GetTicks();
+
         for (S32 level = 0; level < 16; level++) {
             S32 cnt = s_fogTileCount[level];
             for (S32 i = 0; i < cnt; i++) {
@@ -905,9 +927,28 @@ void AffichageTerrainZBuf(void) {
                                     &SommetRot[0][0] + idx);
             }
         }
+
+        {
+            static S32 s_splitLog = 0;
+            if (s_splitLog < 40) {
+                Log_Info("TerrainSplit: bucket=%dms draw=%dms",
+                         (S32)(tb1 - tb0), (S32)(SDL_GetTicks() - tb1));
+                s_splitLog++;
+            }
+        }
     }
 
-    DrawOneSea(Y_SEA);
+    {
+        U32 tSea0 = SDL_GetTicks();
+        DrawOneSea(Y_SEA);
+        U32 tSea1 = SDL_GetTicks();
+        static S32 s_seaLog = 0;
+        if (s_seaLog < 40) {
+            Log_Info("TerrainSplit3: presea=%dms sea=%dms",
+                     (S32)(tSea0 - tRot1), (S32)(tSea1 - tSea0));
+            s_seaLog++;
+        }
+    }
 
 #ifdef LBA_EDITOR
     if (FlagInfos & INFO_DECORS) {

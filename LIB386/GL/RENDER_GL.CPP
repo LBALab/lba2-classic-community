@@ -40,6 +40,10 @@ extern "C" S32 AtlasTextureDirty;
 /* ── External texture filter toggle (from GLOBAL.CPP) ────────────────────── */
 extern "C" S32 DisplayTexFilter;
 
+/* Temporary perf instrumentation: draw calls flushed since GL_BeginFrame */
+extern "C" S32 GL_BatchFlushCount;
+S32 GL_BatchFlushCount = 0;
+
 /* ── Shader sources (GL 2.1 / GLES 2.0 compatible) ─────────────────────── */
 
 #if defined(__ANDROID__)
@@ -429,6 +433,12 @@ static U32 s_fboWidth = 0;
 static U32 s_fboHeight = 0;
 static U32 s_renderQuality = 1; /* 1 = native, 2 = 2x, 4 = 4x */
 static S32 s_frameActive = 0; /* 1 between GL_BeginFrame and GL_Present */
+static U32 s_frameSeq = 0;    /* incremented in GL_BeginFrame */
+static U32 s_atlasContentVersion = 1; /* bumped when atlas marked dirty */
+#define ATLAS_CACHE_SIZE 8
+static const void *s_atlasCachePtr[ATLAS_CACHE_SIZE];
+static U32 s_atlasCacheVer[ATLAS_CACHE_SIZE];
+static S32 s_atlasCacheNext = 0;
 
 /* ── GL state — present FBO ─────────────────────────────────────────────── */
 /* On Quest with OpenXR there is no SDL window, so FBO 0 (the default
@@ -1044,8 +1054,15 @@ void GL_SetRenderQuality(U32 quality) {
 /* ── Texture uploads ────────────────────────────────────────────────────── */
 
 static void GL_UploadPalette(void) {
+    /* Uploaded once per frame per LUT pointer, not per polygon — same
+       reasoning as GL_UploadCLUT above. */
+    static U32 s_palUpSeq = 0;
+    static const U32 *s_palUpPtr = NULL;
     const U32 *lut = GL_GetPaletteLUT();
     if (lut == NULL) {
+        return;
+    }
+    if (s_palUpSeq == s_frameSeq && s_palUpPtr == lut) {
         return;
     }
 
@@ -1071,10 +1088,22 @@ static void GL_UploadPalette(void) {
 
     /* Invalidate cached reverse lookup so it gets rebuilt on next readback. */
     s_revLutHashValid = 0;
+    s_palUpSeq = s_frameSeq;
+    s_palUpPtr = lut;
 }
 
 static void GL_UploadCLUT(void) {
+    /* The fog table is uploaded once per frame per pointer, not per
+       polygon.  GL_RenderTriangleList runs for every terrain tile, and a
+       64 KB glTexSubImage2D per polygon meant ~500 MB of redundant uploads
+       per pass (hundreds of ms on mobile GPUs).  The game only modifies
+       the fog table in-place between scenes, so per-frame is sufficient. */
+    static U32 s_clutUpSeq = 0;
+    static const U8 *s_clutUpPtr = NULL;
     if (PtrCLUTFog == NULL) {
+        return;
+    }
+    if (s_clutUpSeq == s_frameSeq && s_clutUpPtr == PtrCLUTFog) {
         return;
     }
 
@@ -1087,6 +1116,8 @@ static void GL_UploadCLUT(void) {
     glBindTexture(GL_TEXTURE_2D, 0);
 
     s_boundCLUT = PtrCLUTFog;
+    s_clutUpSeq = s_frameSeq;
+    s_clutUpPtr = PtrCLUTFog;
 }
 
 static void GL_UploadAtlas(void) {
@@ -1122,6 +1153,8 @@ void GL_FlushBatch(void) {
     if (s_batchVertCount == 0) {
         return;
     }
+
+    GL_BatchFlushCount++;
 
     /* Bind FBO on the first flush of each frame.  The FBO clear is now
        done by GL_ClearFBO() at the start of terrain rendering, so that
@@ -1420,6 +1453,8 @@ void GL_BeginFrame(void) {
        correct bilinear/nearest mode for all batches. */
     s_bilinearCLUT = DisplayTexFilter;
 
+    s_frameSeq++;
+    GL_BatchFlushCount = 0;
     s_terrainRenderedThisFrame = 0;
 }
 
@@ -1902,14 +1937,16 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
     }
 
     /* Detect batch-flush triggers: type, color, atlas page, CLUT fog row,
-       or Z-buffer state changed.  SetCLUT(fog) is called per terrain tile
-       with different fog distances — each tile needs its own CLUT base row
-       for correct brightness.  Without flushing on CLUT change, tiles with
-       different fog distances share the wrong CLUT row, causing brightness
-       flickering as the camera moves. */
+       or Z-buffer state changed.  Color only reaches GL as the flush-time
+       uFlatColor uniform for non-textured types, so those must flush when
+       it changes.  Textured types never sample the color (UVs are absolute
+       into the atlas), and terrain tiles vary the color per tile (texture
+       bank in the high nibble) — flushing on it would emit one tiny draw
+       call per tile, costing hundreds of ms on mobile GPUs. */
     if (s_batchVertCount > 0) {
         if (s_currentTypePoly != (U32)typePoly ||
-            s_currentColorPoly != (U32)colorPoly ||
+            (typePoly < POLY_TEXTURE &&
+             s_currentColorPoly != (U32)colorPoly) ||
             (typePoly >= POLY_TEXTURE && s_batchAtlas != (const void *)PtrMap) ||
             s_batchCLUTGouraud != (const void *)PtrCLUTGouraud ||
             s_batchZBuffer != Fill_Flag_ZBuffer ||
@@ -1948,9 +1985,33 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        CLUT re-uploads every frame because the game modifies the fog table
        in-place between scenes (same PtrCLUTFog pointer, different data). */
     GL_UploadCLUT();
-    if (typePoly >= POLY_TEXTURE &&
-        (s_boundAtlas != PtrMap || AtlasTextureDirty)) {
-        GL_UploadAtlas();
+    if (typePoly >= POLY_TEXTURE) {
+        /* Animated polys (water, menu plasma) mark the atlas dirty mid
+           frame.  Upload each distinct atlas pointer at most once per
+           content version — uploading per polygon cost another ~40 MB per
+           terrain pass on mobile GPUs.  A small cache handles frames that
+           alternate between several atlas pages (ground vs sea vs sprites). */
+        if (AtlasTextureDirty) {
+            s_atlasContentVersion++;
+            AtlasTextureDirty = 0;
+        }
+        S32 ci;
+        for (ci = 0; ci < ATLAS_CACHE_SIZE; ci++) {
+            if (s_atlasCachePtr[ci] == PtrMap)
+                break;
+        }
+        if (ci < ATLAS_CACHE_SIZE &&
+            s_atlasCacheVer[ci] == s_atlasContentVersion) {
+            s_boundAtlas = PtrMap;
+        } else {
+            GL_UploadAtlas(); /* also sets s_boundAtlas = PtrMap */
+            if (ci >= ATLAS_CACHE_SIZE) {
+                ci = s_atlasCacheNext;
+                s_atlasCacheNext = (s_atlasCacheNext + 1) % ATLAS_CACHE_SIZE;
+                s_atlasCachePtr[ci] = PtrMap;
+            }
+            s_atlasCacheVer[ci] = s_atlasContentVersion;
+        }
     }
     GL_UploadPalette(); /* re-upload every frame (cheap: 1 KB) */
 
