@@ -55,6 +55,23 @@ void GL_SetRenderQuality(U32 quality);
 //! No-op when the batch is empty.
 void GL_FlushBatch(void);
 
+//! Copy the current FBO color (terrain + decor + sea, before bodies and
+//! shadows) into an internal snapshot texture.  Call once per full redraw,
+//! after the terrain pass has baked everything and before bodies draw.
+void GL_SnapshotTerrain(void);
+
+//! Blit the last GL_SnapshotTerrain() snapshot back over the FBO color.
+//! Call before the object pass on incremental (AFF_OBJETS_*) frames so last
+//! frame's body/shadow pixels are erased.  No-op when no snapshot matches
+//! the current FBO generation (full redraws cleared it anyway).
+void GL_RestoreTerrainSnapshot(void);
+
+//! Draw the projected ground-shadow quad directly into the FBO (GL
+//! replacement for the SW DrawShadow/ShadeBoxBlk/DrawRecover pass).
+//! Multiplies the scene color by (15 - level) / 15, depth-tested GEQUAL
+//! against the terrain so nearer geometry clips the shadow.
+void GL_DrawShadowQuad(const S16 *xs, const S16 *ys, const U16 *az, U32 level);
+
 //! Read back the FBO depth buffer into the SW Z-buffer (PtrZBuffer) after
 //! terrain rendering.  Converts GL_DEPTH_COMPONENT16 back to the aZ format
 //! used by ZBufBoxOverWrite2() for shadow/object occlusion in GL mode.

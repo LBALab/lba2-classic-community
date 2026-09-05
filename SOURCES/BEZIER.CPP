@@ -27,6 +27,7 @@ S32 TabNbPoint[MAX_SCAN_LINES];
 S32 MinYTabPoint, MaxYTabPoint;
 
 S32 XS0, YS0, XS1, YS1, XS2, YS2, XS3, YS3;
+U16 ShadowZO[4]; /* camera-space depth per projected corner (GL shadow quad) */
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 void CalculeLigneOmbre(S32 x1, S32 y1, S32 x2, S32 y2) {
@@ -387,6 +388,7 @@ S32 ProjectShadowExt(T_SORT *ptrs, S32 beta) {
         cy = altitude_ref + ALTITUDE_MAX;
 
     LongWorldRotatePoint(X0, cy, Z0);
+    ShadowZO[0] = GET_ZO(CameraZr - Z0);
     if (!LongProjectPoint(X0, Y0, Z0))
         return FALSE;
     XS0 = Xp;
@@ -408,6 +410,7 @@ S32 ProjectShadowExt(T_SORT *ptrs, S32 beta) {
         cy = altitude_ref + ALTITUDE_MAX;
 
     LongWorldRotatePoint(X0, cy, Z0);
+    ShadowZO[1] = GET_ZO(CameraZr - Z0);
     if (!LongProjectPoint(X0, Y0, Z0))
         return FALSE;
     XS1 = Xp;
@@ -429,6 +432,7 @@ S32 ProjectShadowExt(T_SORT *ptrs, S32 beta) {
         cy = altitude_ref + ALTITUDE_MAX;
 
     LongWorldRotatePoint(X0, cy, Z0);
+    ShadowZO[2] = GET_ZO(CameraZr - Z0);
     if (!LongProjectPoint(X0, Y0, Z0))
         return FALSE;
     XS2 = Xp;
@@ -450,6 +454,7 @@ S32 ProjectShadowExt(T_SORT *ptrs, S32 beta) {
         cy = altitude_ref + ALTITUDE_MAX;
 
     LongWorldRotatePoint(X0, cy, Z0);
+    ShadowZO[3] = GET_ZO(CameraZr - Z0);
     if (!LongProjectPoint(X0, Y0, Z0))
         return FALSE;
     XS3 = Xp;

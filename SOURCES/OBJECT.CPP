@@ -15,6 +15,7 @@
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
+#include <GL/RENDER_GL.H> /* GL_DrawShadowQuad */
 #include <SYSTEM/HQFILE.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <stdint.h>
@@ -4827,6 +4828,20 @@ void AfficheShadow(T_SORT *pt, S32 beta) {
             S32 xmin, xmax, zmin, zmax;
             S32 yw /*= pt->Yw*/;
 
+#ifdef USE_GPURENDERER
+            /* GL mode: the shadow is one multiply-blended quad straight
+               into the FBO — depth-tested against the terrain, which is
+               exactly the occlusion DrawRecover used to restore after
+               the ShadeBoxBlk pass.  No Log pixels involved, and no
+               dependence on the FBO→palette readback staying faithful. */
+            if (GPURendererActive) {
+                S16 qx[4] = {(S16)XS0, (S16)XS1, (S16)XS2, (S16)XS3};
+                S16 qy[4] = {(S16)YS0, (S16)YS1, (S16)YS2, (S16)YS3};
+                GL_DrawShadowQuad(qx, qy, ShadowZO, ShadowLevel);
+                return;
+            }
+#endif
+
             DrawShadow();
 
             yw = pt->Yw;
@@ -5434,6 +5449,15 @@ startaffscene:
         //			BoxClean() ;
     case AFF_OBJETS_NO_FLIP:
         BoxClean(); // ATTENTION: rajouté le 30/05/97
+#ifdef USE_GPURENDERER
+        /* GL mode: the FBO kept last frame's body/shadow pixels (the
+           terrain is not redrawn on incremental frames).  Blit the terrain
+           snapshot back before anything draws so bodies/shadows start from
+           a clean scene. */
+        if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+            GL_RestoreTerrainSnapshot();
+        }
+#endif
         if (!FlagAnimWhoSpeak) {
             RestoreCinemaMode(); // Scrolle les bandes noires
             if (CubeMode == CUBE_EXTERIEUR)

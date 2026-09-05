@@ -458,6 +458,10 @@ void AffGrilleExt() {
         GL_ReadbackDepthBuffer();
         GL_ReadbackColorBuffer();
         CopyScreen(Screen, Log);
+        /* Snapshot the completed terrain FBO: incremental frames restore it
+           before the object pass to erase last frame's GL body/shadow
+           pixels (the FBO is not cleared on AFF_OBJETS_* frames). */
+        GL_SnapshotTerrain();
         U32 rbT1 = SDL_GetTicks();
         {
             static S32 s_rbPerfLog = 0;

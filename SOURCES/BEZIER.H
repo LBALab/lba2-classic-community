@@ -12,6 +12,7 @@ typedef S32(Func_ProjectShadow)(T_SORT *, S32);
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 
 extern S32 XS0, YS0, XS1, YS1, XS2, YS2, XS3, YS3;
+extern U16 ShadowZO[4]; /* camera-space depth per projected corner (GL shadow quad) */
 extern S32 ShadowTestObject;
 
 /*--------------------------------------------------------------------------*/

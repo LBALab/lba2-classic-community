@@ -37,6 +37,12 @@ extern U32 Fill_ScaledFogNear;
 /* ── External dirty flag (from VAR_EXT.CPP) ─────────────────────────────── */
 extern "C" S32 AtlasTextureDirty;
 
+/* Temporary perf instrumentation: why the last poly fell back to SW
+   (1=renderer down, 2=type range, 3=no zbuffer flag, 4=NZW without
+   terrain, 5=too few points, 6=menu plasma mask; 0=accepted). */
+extern "C" S32 GL_LastRejectReason;
+S32 GL_LastRejectReason = 0;
+
 /* ── External texture filter toggle (from GLOBAL.CPP) ────────────────────── */
 extern "C" S32 DisplayTexFilter;
 
@@ -125,7 +131,7 @@ static const char *s_clutFragSrc =
     "uniform sampler2D uAtlas;\n"   /* 256×256 LUMINANCE */
     "uniform sampler2D uCLUT;\n"    /* 256×256 LUMINANCE (fog table) */
     "uniform sampler2D uPalette;\n" /* 256×1 BGRA (paletteLUT) */
-    "uniform int uPolyMode;\n"      /* 0=texture 1=flat 2=gouraud 3=gouraudTable 4=textureNoCLUT 5=fogSmooth */
+    "uniform int uPolyMode;\n"      /* 0=texture 1=flat 2=gouraud 3=gouraudTable 4=textureNoCLUT 5=fogSmooth 6=shadowGray */
     "uniform float uFlatColor;\n"   /* palette index (mode 1) / CLUT column (mode 3) */
     "uniform float uCLUTBaseRow;\n" /* CLUT row offset for gouraud table (mode 3) */
     "uniform float uScaledFogNear;\n" /* Fill_ScaledFogNear (fog-smooth distance, mode 5) */
@@ -204,12 +210,12 @@ static const char *s_clutFragSrc =
      "        float gouraudRow = floor((vLight + 128.0) / 256.0) + uCLUTBaseRow;\n"
     "        if (uBilinear != 0) {\n"
     "            color = bilinearCLUT(tc, widthMask, heightMask, gouraudRow);\n"
-    "        } else {\n"
-    "            float wrappedU = mod(tc.x, widthMask + 1.0);\n"
-    "            float wrappedV = mod(tc.y, heightMask + 1.0);\n"
-    "            vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
-    "                                (floor(wrappedV) + 0.5) / 256.0);\n"
-    "            float texel = texture2D(uAtlas, atlasUV).r * 255.0;\n"
+     "        } else {\n"
+     "            float wrappedU = mod(tc.x, widthMask + 1.0);\n"
+     "            float wrappedV = mod(tc.y, heightMask + 1.0);\n"
+     "            vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
+     "                                (floor(wrappedV) + 0.5) / 256.0);\n"
+     "            float texel = texture2D(uAtlas, atlasUV).r * 255.0;\n"
     /* Chroma key: atlas texel 0 = transparent (skipped by SW rasterizer
        at the Log buffer level).  Discard before CLUT so the fog table
        cannot remap index 0 to an opaque value.
@@ -239,11 +245,11 @@ static const char *s_clutFragSrc =
      "        tc = tc / 256.0;\n"
      "        float widthMask = mod(vRepMask, 256.0);\n"
      "        float heightMask = floor(vRepMask / 256.0);\n"
-     "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
-     "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
-     "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
-     "                            (floor(wrappedV) + 0.5) / 256.0);\n"
-     "        float palIdx = texture2D(uAtlas, atlasUV).r * 255.0;\n"
+      "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
+      "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
+      "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
+      "                            (floor(wrappedV) + 0.5) / 256.0);\n"
+      "        float palIdx = texture2D(uAtlas, atlasUV).r * 255.0;\n"
     /* Chroma key: atlas texel 0 = transparent.
        Only INCRUST types have chroma key. */
     "        if (uChromaKey != 0 && palIdx < 0.5) discard;\n"
@@ -265,17 +271,24 @@ static const char *s_clutFragSrc =
      "        tc = tc / 256.0;\n"
      "        float widthMask = mod(vRepMask, 256.0);\n"
     "        float heightMask = floor(vRepMask / 256.0);\n"
-    "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
-    "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
-    "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
-    "                            (floor(wrappedV) + 0.5) / 256.0);\n"
-    "        float texel = texture2D(uAtlas, atlasUV).r * 255.0;\n"
+     "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
+     "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
+     "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
+     "                            (floor(wrappedV) + 0.5) / 256.0);\n"
+     "        float texel = texture2D(uAtlas, atlasUV).r * 255.0;\n"
     /* Chroma key: type 24 is non-INCRUST (bit 2 clear), so index 0 is
        written unconditionally — no discard here. */
      "        float fogDist = max(vZsel - uScaledFogNear, 0.0);\n"
     "        float fogRow16 = floor(fogDist * uFogRowScale);\n"
     "        float clutRow = 12.0 + floor(mod(fogRow16, 256.0) / 16.0) * 16.0;\n"
     "        color = clutLookup(texel, clutRow);\n"
+    "    } else if (uPolyMode == 6) {\n"
+    /* Ground shadow (SW ShadeBoxBlk replacement): constant gray source
+       combined with GL_DST_COLOR/GL_ZERO blending multiplies the scene
+       color by uFlatColor = (15 - ShadowLevel) / 15 — the linear
+       counterpart of the SW fade-CLUT row (15 - level)/15, which maps
+       each palette entry to its darker ramp value. */
+    "        color = vec4(uFlatColor, uFlatColor, uFlatColor, 1.0);\n"
     "    } else {\n"
     /* Gouraud table (types 6/7): CLUT lookup, color = column.
        Same +128 rounding bias as polyMode 0. */
@@ -490,6 +503,21 @@ static S32 s_terrainRenderedThisFrame = 0;
    polygons in the incremental path (where GL_ClearFBO() is not called) would
    fall back to SW/Log, losing correct depth-tested compositing with the FBO. */
 static S32 s_fboHasTerrain = 0;
+
+/* ── Terrain snapshot (object ghost erase on incremental frames) ─────────── */
+/* Bodies render GL into the FBO, and incremental (AFF_OBJETS_*) frames do
+   not redraw the terrain — so each body's previous-frame pixels would stay
+   in the FBO as ghost silhouettes.  Snapshot the FBO right after the
+   terrain/decor/sea pass (GL_SnapshotTerrain) and blit it back before the
+   object pass on incremental frames (GL_RestoreTerrainSnapshot).  Depth is
+   never written by body batches (NZW → depthMask off), so restoring color
+   alone is sufficient. */
+static GLuint s_snapshotTex = 0;
+static GLuint s_snapshotFbo = 0;
+static U32 s_snapshotW = 0;
+static U32 s_snapshotH = 0;
+static U32 s_snapshotGen = 0; /* GL_ClearFBO generation the snapshot matches */
+static U32 s_fboGen = 0;      /* bumped by GL_ClearFBO */
 
 /* ── Fullscreen quad: position (x,y) + texcoord (u,v) ───────────────────── */
 
@@ -1433,6 +1461,117 @@ void GL_FlushBatch(void) {
     s_batchTriCount = 0;
 }
 
+/* ── Ground shadow quad (GL ShadeBoxBlk replacement) ────────────────────── */
+
+/* Draw the projected ground-shadow quad directly into the FBO, replacing
+   the SW path (DrawShadow → DrawLineShade → per-scanline ShadeBoxBlk into
+   Log + DrawRecover occlusion).  The quad is depth-tested GEQUAL against
+   the FBO depth (terrain/hills clip it exactly where ZBufBoxOverWrite2
+   used to clear the Log pixels) and multiplies the scene color by
+   (15 - level) / 15 via GL_DST_COLOR/GL_ZERO blending — the linear
+   counterpart of the SW fade-CLUT row at (15 - ShadowLevel).  Unlike the
+   SW path this works on the true FBO colors, so the result does not
+   depend on the FBO→palette reverse lookup staying faithful. */
+void GL_DrawShadowQuad(const S16 *xs, const S16 *ys, const U16 *az, U32 level) {
+    if (!s_initialized) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+
+    /* Pending batch first: it carries its own state. */
+    GL_FlushBatch();
+
+    if (!s_frameActive) {
+        s_frameActive = 1;
+        if (s_fbo) {
+            glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+            glViewport(0, 0, s_fboWidth, s_fboHeight);
+        } else {
+            glViewport(0, 0, s_texWidth, s_texHeight);
+        }
+    }
+
+    glUseProgram(s_clutProgram);
+
+    GLfloat screenScale[2];
+    screenScale[0] = 2.0f / (GLfloat)s_texWidth;
+    screenScale[1] = 2.0f / (GLfloat)s_texHeight;
+    glUniform2f(s_clut_uScreenScale, screenScale[0], screenScale[1]);
+    glUniform1i(s_clut_uPolyMode, 6);
+    glUniform1f(s_clut_uFlatColor, (GLfloat)(15 - (level & 15)) / 15.0f);
+    glUniform1i(s_clut_uAlphaMode, 0);
+    glUniform1i(s_clut_uChromaKey, 0);
+
+    /* Bind the three sampler textures (mode 6 ignores them, but the
+       sampler units must reference valid textures). */
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, s_atlasTex);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, s_clutTex);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, s_paletteTex);
+    glActiveTexture(GL_TEXTURE0);
+
+    /* Depth-test against the terrain, never write. */
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GEQUAL);
+    glDepthMask(GL_FALSE);
+
+    /* Multiply blending: result = shadow gray * scene color. */
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_DST_COLOR, GL_ZERO);
+
+    /* Two triangles, fan order (0,1,2) (0,2,3). */
+    static U8 quadVerts[6 * 14];
+    static const S8 order[6] = {0, 1, 2, 0, 2, 3};
+    for (S32 i = 0; i < 6; i++) {
+        U8 *v = quadVerts + i * 14;
+        S32 c = order[i];
+        S16 x = xs[c];
+        S16 y = ys[c];
+        memcpy(v + 0, &x, 2);
+        memcpy(v + 2, &y, 2);
+        memset(v + 4, 0, 6); /* UV, light = 0 (unused) */
+        memcpy(v + 10, &az[c], 2);
+        memset(v + 12, 0, 2); /* RepMask = 0 */
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quadVerts), quadVerts);
+
+    glEnableVertexAttribArray(s_clut_aPos);
+    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 14,
+                          (const void *)0);
+    glEnableVertexAttribArray(s_clut_aTexCoord);
+    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)4);
+    glEnableVertexAttribArray(s_clut_aLight);
+    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)8);
+    glEnableVertexAttribArray(s_clut_aZ);
+    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)10);
+    glEnableVertexAttribArray(s_clut_aRepMask);
+    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)12);
+
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+
+    glDisableVertexAttribArray(s_clut_aPos);
+    glDisableVertexAttribArray(s_clut_aTexCoord);
+    glDisableVertexAttribArray(s_clut_aLight);
+    glDisableVertexAttribArray(s_clut_aZ);
+    glDisableVertexAttribArray(s_clut_aRepMask);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glUseProgram(0);
+}
+
 static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
                            Struc_Point *p2) {
     /* Flush if batch is full */
@@ -1488,6 +1627,76 @@ void GL_ClearFBO(void) {
 
     s_terrainRenderedThisFrame = 1;
     s_fboHasTerrain = 1;
+    s_fboGen++;
+}
+
+/* ── Terrain snapshot capture/restore ───────────────────────────────────── */
+
+/* Copy the current FBO color (terrain + decor + sea, no bodies/shadows yet)
+   into the snapshot texture.  Called once per full redraw, after the last
+   FBO-baked content and before bodies/shadows are drawn. */
+void GL_SnapshotTerrain(void) {
+    if (!s_initialized || !s_fbo) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+
+    const U32 w = s_fboWidth;
+    const U32 h = s_fboHeight;
+    if (s_snapshotTex == 0 || s_snapshotW != w || s_snapshotH != h) {
+        if (s_snapshotTex == 0) {
+            glGenTextures(1, &s_snapshotTex);
+        }
+        glBindTexture(GL_TEXTURE_2D, s_snapshotTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_UPLOAD_FORMAT, w, h, 0,
+                     GL_UPLOAD_FORMAT, GL_UNSIGNED_BYTE, NULL);
+        if (s_snapshotFbo == 0) {
+            glGenFramebuffers(1, &s_snapshotFbo);
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, s_snapshotFbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D, s_snapshotTex, 0);
+        s_snapshotW = w;
+        s_snapshotH = h;
+    }
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
+    glBindTexture(GL_TEXTURE_2D, s_snapshotTex);
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, w, h);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+    s_snapshotGen = s_fboGen;
+}
+
+/* Blit the snapshot back over the FBO color on incremental frames so last
+   frame's body/shadow pixels are erased before the object pass redraws
+   them at their new positions.  No-op until the first snapshot exists and
+   whenever the FBO has been cleared since (full redraw refreshes it). */
+void GL_RestoreTerrainSnapshot(void) {
+    if (!s_initialized || !s_fbo || s_snapshotFbo == 0) {
+        return;
+    }
+    if (s_snapshotGen != s_fboGen) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, s_snapshotFbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
+    glBlitFramebuffer(0, 0, s_snapshotW, s_snapshotH,
+                      0, 0, s_fboWidth, s_fboHeight,
+                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 /* ── Begin frame ─────────────────────────────────────────────────────────── */
@@ -1925,6 +2134,7 @@ U32 GL_GetPresentColorTex(void) {
 S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
                           Struc_Point *ptrPoints) {
     if (!s_initialized) {
+        GL_LastRejectReason = 1;
         return 0;
     }
 
@@ -1937,6 +2147,7 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
            are all handled in GL. */
     } else if (typePoly < POLY_TEXTURE || typePoly > POLY_TEXTURE_Z_FOG) {
         /* Unknown type — fall back to SW. */
+        GL_LastRejectReason = 2;
         return 0;
     }
 
@@ -1955,6 +2166,7 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        (producing correct transparent shadows) and bodies remain visible
        on top of the terrain in the final GL_Present composite. */
     if (!Fill_Flag_ZBuffer) {
+        GL_LastRejectReason = 3;
         return 0;
     }
 
@@ -1967,11 +2179,13 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        front of animated polys.  Falls back to SW when the FBO has no
        terrain (menu/modal loops, before the first GL_ClearFBO). */
     if (Fill_Flag_NZW && !s_fboHasTerrain) {
+        GL_LastRejectReason = 4;
         return 0;
     }
 
     /* Need at least 3 points for a triangle */
     if (nbPoints < 3) {
+        GL_LastRejectReason = 5;
         return 0;
     }
 
@@ -1982,6 +2196,7 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        rasterizer handle them so they land in the 2D overlay on top of
        the menu text. */
     if (typePoly == POLY_TEXTURE && (RepMask & 0xFFFF) == 0x3F3F) {
+        GL_LastRejectReason = 6;
         return 0;
     }
 
@@ -2074,6 +2289,11 @@ void GL_BeginFrame(void) {}
 void GL_ClearFBO(void) {}
 void GL_ReadbackDepthBuffer(void) {}
 void GL_ReadbackColorBuffer(void) {}
+void GL_SnapshotTerrain(void) {}
+void GL_RestoreTerrainSnapshot(void) {}
+void GL_DrawShadowQuad(const S16 *xs, const S16 *ys, const U16 *az, U32 level) {
+    (void)xs; (void)ys; (void)az; (void)level;
+}
 void GL_SetRenderQuality(U32 quality) { (void)quality; }
 void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
                 S32 filterLinear) {
