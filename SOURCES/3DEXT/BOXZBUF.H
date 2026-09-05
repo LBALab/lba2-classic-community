@@ -12,6 +12,9 @@ extern "C" {
 extern S32 ZBufBoxOverWrite2(S32 z0, S32 z1,
                              S32 xmin, S32 ymin,
                              S32 xmax, S32 ymax);
+extern S32 ZBufBoxOverWrite2Flag(S32 z0, S32 z1,
+                                 S32 xmin, S32 ymin,
+                                 S32 xmax, S32 ymax);
 /*
 #pragma aux	ZBufBoxOverWrite2	"*"				\
 		parm caller	[edi] [esi] [ecx] [edx] [ebx] [eax]

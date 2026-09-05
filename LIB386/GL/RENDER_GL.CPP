@@ -412,7 +412,6 @@ static inline U8 GL_ReversePaletteLookup(U32 argb) {
 
 /* ── State tracking for texture re-upload ───────────────────────────────── */
 
-static const void *s_boundAtlas = NULL;
 static const void *s_boundCLUT = NULL;
 static const void *s_batchAtlas = NULL;  /* PtrMap at batch start */
 static U32 s_currentTypePoly = 0;
@@ -435,10 +434,20 @@ static U32 s_renderQuality = 1; /* 1 = native, 2 = 2x, 4 = 4x */
 static S32 s_frameActive = 0; /* 1 between GL_BeginFrame and GL_Present */
 static U32 s_frameSeq = 0;    /* incremented in GL_BeginFrame */
 static U32 s_atlasContentVersion = 1; /* bumped when atlas marked dirty */
+/* One GL texture per atlas page (PtrMap), not one shared texture: terrain,
+   decor bodies, NPC bodies and the sea each own a texture page and their
+   draws interleave within a frame, so a shared texture would need a full
+   64 KB re-upload on every switch.  Entries evict LRU; version matches
+   s_atlasContentVersion so in-place page mutations (animated water) still
+   re-upload. */
 #define ATLAS_CACHE_SIZE 8
-static const void *s_atlasCachePtr[ATLAS_CACHE_SIZE];
-static U32 s_atlasCacheVer[ATLAS_CACHE_SIZE];
-static S32 s_atlasCacheNext = 0;
+typedef struct {
+    const void *ptr;
+    U32 ver;
+    GLuint tex;
+} AtlasTexEntry;
+static AtlasTexEntry s_atlasTexCache[ATLAS_CACHE_SIZE];
+static S32 s_atlasTexNext = 0;
 
 /* ── GL state — present FBO ─────────────────────────────────────────────── */
 /* On Quest with OpenXR there is no SDL window, so FBO 0 (the default
@@ -951,6 +960,15 @@ void GL_Renderer_Shutdown(void) {
         glDeleteTextures(1, &s_atlasTex);
         s_atlasTex = 0;
     }
+    for (S32 i = 0; i < ATLAS_CACHE_SIZE; i++) {
+        if (s_atlasTexCache[i].tex) {
+            glDeleteTextures(1, &s_atlasTexCache[i].tex);
+        }
+        s_atlasTexCache[i].ptr = NULL;
+        s_atlasTexCache[i].ver = 0;
+        s_atlasTexCache[i].tex = 0;
+    }
+    s_atlasTexNext = 0;
     if (s_clutTex) {
         glDeleteTextures(1, &s_clutTex);
         s_clutTex = 0;
@@ -986,7 +1004,6 @@ void GL_Renderer_Shutdown(void) {
 
     Window_DestroyGLContext();
     s_initialized = 0;
-    s_boundAtlas = NULL;
     s_boundCLUT = NULL;
     s_batchAtlas = NULL;
     s_batchVertCount = 0;
@@ -1120,27 +1137,52 @@ static void GL_UploadCLUT(void) {
     s_clutUpPtr = PtrCLUTFog;
 }
 
-static void GL_UploadAtlas(void) {
-    static S32 s_atlasLogCount = 0;
-    if (PtrMap == NULL) {
-        return;
-    }
-
-    /* Force re-upload when in-place texture mutations have occurred
-       (same pointer, different pixel data — e.g. terrain animated polys
-       or menu plasma fire animation). */
-    if (AtlasTextureDirty) {
-        s_boundAtlas = NULL;
-        AtlasTextureDirty = 0;
-    }
-
-    /* Upload the current 256×256 atlas page. */
-    glBindTexture(GL_TEXTURE_2D, s_atlasTex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_LUMINANCE,
-                    GL_UNSIGNED_BYTE, PtrMap);
+static void GL_SetAtlasTexParams(GLuint tex) {
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, 256, 256, 0, GL_LUMINANCE,
+                 GL_UNSIGNED_BYTE, NULL);
     glBindTexture(GL_TEXTURE_2D, 0);
+}
 
-    s_boundAtlas = PtrMap;
+/* Make the texture for texture page `map` current on the GL_TEXTURE0 unit:
+   reuse the cached texture when the page content is up to date, (re)upload
+   into it otherwise, evicting the oldest entry when the pointer is new.
+   NULL falls back to the legacy shared s_atlasTex (never sampled). */
+static GLuint GL_BindAtlasFor(const void *map) {
+    if (map == NULL) {
+        glBindTexture(GL_TEXTURE_2D, s_atlasTex);
+        return s_atlasTex;
+    }
+
+    for (S32 i = 0; i < ATLAS_CACHE_SIZE; i++) {
+        if (s_atlasTexCache[i].ptr == map) {
+            if (s_atlasTexCache[i].ver != s_atlasContentVersion) {
+                glBindTexture(GL_TEXTURE_2D, s_atlasTexCache[i].tex);
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_LUMINANCE,
+                                GL_UNSIGNED_BYTE, map);
+                s_atlasTexCache[i].ver = s_atlasContentVersion;
+            }
+            glBindTexture(GL_TEXTURE_2D, s_atlasTexCache[i].tex);
+            return s_atlasTexCache[i].tex;
+        }
+    }
+
+    AtlasTexEntry *e = &s_atlasTexCache[s_atlasTexNext];
+    s_atlasTexNext = (s_atlasTexNext + 1) % ATLAS_CACHE_SIZE;
+    if (e->tex == 0) {
+        glGenTextures(1, &e->tex);
+        GL_SetAtlasTexParams(e->tex);
+    }
+    e->ptr = map;
+    e->ver = s_atlasContentVersion;
+    glBindTexture(GL_TEXTURE_2D, e->tex);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_LUMINANCE,
+                    GL_UNSIGNED_BYTE, map);
+    return e->tex;
 }
 
 /* ── Batch management ───────────────────────────────────────────────────── */
@@ -1270,9 +1312,14 @@ void GL_FlushBatch(void) {
     glUniform1f(s_clut_uScaledFogNear, s_batchScaledFogNear);
     glUniform1f(s_clut_uFogRowScale, s_batchFogRowScale);
 
-    /* Bind textures to units 0/1/2 */
+    /* Bind textures to units 0/1/2.  Textured batches sample the page the
+       batch was recorded with; flat/gouraud batches never sample it. */
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, s_atlasTex);
+    if (s_currentTypePoly >= POLY_TEXTURE && s_batchAtlas != NULL) {
+        GL_BindAtlasFor(s_batchAtlas);
+    } else {
+        glBindTexture(GL_TEXTURE_2D, s_atlasTex);
+    }
     glUniform1i(s_clut_uAtlas, 0);
 
     glActiveTexture(GL_TEXTURE1);
@@ -1985,33 +2032,14 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        CLUT re-uploads every frame because the game modifies the fog table
        in-place between scenes (same PtrCLUTFog pointer, different data). */
     GL_UploadCLUT();
-    if (typePoly >= POLY_TEXTURE) {
+    if (typePoly >= POLY_TEXTURE && AtlasTextureDirty) {
         /* Animated polys (water, menu plasma) mark the atlas dirty mid
-           frame.  Upload each distinct atlas pointer at most once per
-           content version — uploading per polygon cost another ~40 MB per
-           terrain pass on mobile GPUs.  A small cache handles frames that
-           alternate between several atlas pages (ground vs sea vs sprites). */
-        if (AtlasTextureDirty) {
-            s_atlasContentVersion++;
-            AtlasTextureDirty = 0;
-        }
-        S32 ci;
-        for (ci = 0; ci < ATLAS_CACHE_SIZE; ci++) {
-            if (s_atlasCachePtr[ci] == PtrMap)
-                break;
-        }
-        if (ci < ATLAS_CACHE_SIZE &&
-            s_atlasCacheVer[ci] == s_atlasContentVersion) {
-            s_boundAtlas = PtrMap;
-        } else {
-            GL_UploadAtlas(); /* also sets s_boundAtlas = PtrMap */
-            if (ci >= ATLAS_CACHE_SIZE) {
-                ci = s_atlasCacheNext;
-                s_atlasCacheNext = (s_atlasCacheNext + 1) % ATLAS_CACHE_SIZE;
-                s_atlasCachePtr[ci] = PtrMap;
-            }
-            s_atlasCacheVer[ci] = s_atlasContentVersion;
-        }
+           frame.  Bump the content version so the next flush of every page
+           re-uploads exactly once; GL_BindAtlasFor (flush time) does the
+           upload.  Uploading per polygon cost another ~40 MB per terrain
+           pass on mobile GPUs. */
+        s_atlasContentVersion++;
+        AtlasTextureDirty = 0;
     }
     GL_UploadPalette(); /* re-upload every frame (cheap: 1 KB) */
 

@@ -4950,8 +4950,13 @@ S32 AffOneObject(T_SORT *pt) {
 
                     BoxMovingAdd(ClipXMin, ClipYMin, ClipXMax, ClipYMax);
                 } else {
-                    if (DrawRecover(ptrobj->Obj.X, yw, ptrobj->Obj.Z, ptrobj->YMax,
-                                    ade_max((ptrobj->XMax - ptrobj->XMin) / 2, (ptrobj->ZMax - ptrobj->ZMin) / 2))) {
+                    // GL mode: the body went into the FBO (z-tested); only
+                    // the "completely masked" flag is needed (camera logic).
+                    if (GPURendererActive
+                            ? DrawRecoverFlag(ptrobj->Obj.X, yw, ptrobj->Obj.Z, ptrobj->YMax,
+                                              ade_max((ptrobj->XMax - ptrobj->XMin) / 2, (ptrobj->ZMax - ptrobj->ZMin) / 2))
+                            : DrawRecover(ptrobj->Obj.X, yw, ptrobj->Obj.Z, ptrobj->YMax,
+                                          ade_max((ptrobj->XMax - ptrobj->XMin) / 2, (ptrobj->ZMax - ptrobj->ZMin) / 2))) {
                         // Objet complètement masqué
                         if (numobj == NumObjFollow
                                           AND TestNumObjFollow // protec boucle infinie
@@ -5004,7 +5009,11 @@ S32 AffOneObject(T_SORT *pt) {
         if (CubeMode == CUBE_EXTERIEUR
                             AND ptrobj->Flags &
             (OBJ_ZBUFFER | OBJ_IN_WATER)) {
+#ifdef USE_GPURENDERER
+            Switch_Fillers(GPURendererActive ? FILL_POLY_FOG_NZW : FILL_POLY_FOG);
+#else
             Switch_Fillers(FILL_POLY_FOG);
+#endif
         }
         break;
 
@@ -5495,7 +5504,14 @@ startaffscene:
     BaseReset();
 
     if (CubeMode == CUBE_EXTERIEUR) {
+#ifdef USE_GPURENDERER
+        /* GL mode: draw the bodies under a z-tested, no-z-write bank so
+           they batch straight into the FBO — terrain occlusion comes from
+           the FBO depth buffer instead of DrawRecover fixing up Log. */
+        Switch_Fillers(GPURendererActive ? FILL_POLY_FOG_NZW : FILL_POLY_FOG);
+#else
         Switch_Fillers(FILL_POLY_FOG);
+#endif
         PtrCLUTGouraud = PtrCLUTFog;
     }
 

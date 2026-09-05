@@ -102,6 +102,35 @@ S32 DrawRecover(S32 xw, S32 yw, S32 zw, S32 ymax, S32 zvmax) {
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
+// Flag-only companion to DrawRecover: same occlusion test, but never
+// restores terrain pixels.  Used when the body was rendered into the GL
+// FBO — there are no Log pixels to fix — while the "completely masked"
+// return value still drives the camera-recenter logic.
+S32 DrawRecoverFlag(S32 xw, S32 yw, S32 zw, S32 ymax, S32 zvmax) {
+    if (CubeMode == CUBE_INTERIEUR) {
+        DrawOverBrick(xw / SIZE_BRICK_XZ,
+                      yw / SIZE_BRICK_Y,
+                      zw / SIZE_BRICK_XZ);
+
+        BoxMovingAdd(ClipXMin, ClipYMin, ClipXMax, ClipYMax);
+
+        return 0;
+    }
+
+    S32 z0, z1;
+
+    LongWorldRotatePoint(xw, yw, zw);
+
+    z0 = CameraZr - Z0 - zvmax; // calculer par rapport à la zv
+
+    LongWorldRotatePoint(xw, yw + ymax, zw);
+
+    z1 = CameraZr - Z0 - zvmax; // calculer par rapport à la zv
+
+    return ZBufBoxOverWrite2Flag(z0, z1, ClipXMin, ClipYMin, ClipXMax, ClipYMax);
+}
+
+/*──────────────────────────────────────────────────────────────────────────*/
 // Routine de recouvrement des sprites: trouver le moyen de passer les mêmes paramètres
 // en extérieur et en intérieur pour optimiser avec un pointeur de fonction
 void DrawRecover3(S32 xw, S32 yw, S32 zw, S32 ymax, S32 zvmax) {

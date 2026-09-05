@@ -161,26 +161,9 @@ static XrTime                  s_predictedDisplayTime = 0;
  * view configurations for the immersive (mono blit) path. */
 static XrSystemId              s_systemId = XR_NULL_SYSTEM_ID;
 
-/* Raw controller state published to JOYSTICK.CPP. */
-S32 OpenXR_LeftGripDown = 0;
-
 /* GL renderer stereo eye capture (RENDER_GL.CPP). */
 extern "C" U32 GL_GetStereoEyeFBO(S32 eye);
 extern "C" S32 GL_TakeStereoPair(void);
-S32 OpenXR_RightGripDown = 0;
-S32 OpenXR_LeftTrigger = 0;
-S32 OpenXR_RightTrigger = 0;
-S32 OpenXR_LeftThumbstickDown = 0;
-S32 OpenXR_RightThumbstickDown = 0;
-S16 OpenXR_LeftStickX = 0;
-S16 OpenXR_LeftStickY = 0;
-S16 OpenXR_RightStickX = 0;
-S16 OpenXR_RightStickY = 0;
-S32 OpenXR_ABtn = 0;
-S32 OpenXR_BBtn = 0;
-S32 OpenXR_XBtn = 0;
-S32 OpenXR_YBtn = 0;
-S32 OpenXR_MenuBtn = 0;
 
 /* -------------------------------------------------------------------------- */
 static int hasExt(const XrExtensionProperties *list, U32 count, const char *name) {
@@ -1019,6 +1002,25 @@ static void OpenXR_DestroySession(void) {}
 static S32 OpenXR_CreateActions(void) { return 0; }
 static void OpenXR_ReadActions(void) {}
 #endif
+
+/* Raw controller state published to JOYSTICK.CPP. Defined unconditionally
+ * (zero) so callers compile and link with no #ifdef; the OpenXR build
+ * mutates them in OpenXR_ReadActions / OpenXR_UpdateControllerState. */
+S32 OpenXR_LeftGripDown = 0;
+S32 OpenXR_RightGripDown = 0;
+S32 OpenXR_LeftTrigger = 0;
+S32 OpenXR_RightTrigger = 0;
+S32 OpenXR_LeftThumbstickDown = 0;
+S32 OpenXR_RightThumbstickDown = 0;
+S16 OpenXR_LeftStickX = 0;
+S16 OpenXR_LeftStickY = 0;
+S16 OpenXR_RightStickX = 0;
+S16 OpenXR_RightStickY = 0;
+S32 OpenXR_ABtn = 0;
+S32 OpenXR_BBtn = 0;
+S32 OpenXR_XBtn = 0;
+S32 OpenXR_YBtn = 0;
+S32 OpenXR_MenuBtn = 0;
 
 /* -------------------------------------------------------------------------- */
 S32 OpenXR_Init(void) {
