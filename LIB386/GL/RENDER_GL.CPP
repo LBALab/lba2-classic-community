@@ -1382,14 +1382,16 @@ void GL_FlushBatch(void) {
           objects that should read but not write depth.
         - Alpha blending suppresses write (TRANS/TRAME translucency).
 
-        NZW batches (animated polys) use GL_ALWAYS: they are surface
-        decorations coplanar with the terrain, so GEQUAL at far
-        distances z-fights due to16-bit depth precision.  Objects
-        (types 0–15, non-NZW) keep GEQUAL so they are correctly
-        occluded by closer terrain. */
+        NZW batches use GL_ALWAYS only for the coplanar animated-polys
+        overlays (type 24, sea) — they sit on the terrain surface and
+        GEQUAL at far distances z-fights due to 16-bit depth precision.
+        Body polygons under FILL_POLY_FOG_NZW keep GEQUAL so they are
+        correctly occluded by closer terrain. */
     if (s_currentTypePoly <= POLY_TEXTURE_Z_FOG) {
         glEnable(GL_DEPTH_TEST);
-        glDepthFunc(s_batchNZW ? GL_ALWAYS : GL_GEQUAL);
+        glDepthFunc((s_batchNZW && s_currentTypePoly == POLY_TEXTURE_Z_FOG)
+                        ? GL_ALWAYS
+                        : GL_GEQUAL);
 
         if (s_batchZBuffer || s_currentTypePoly >= POLY_TEXTURE_Z) {
             /* Z-buffered path: write depth unless NZW or blending.
