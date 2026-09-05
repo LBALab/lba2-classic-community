@@ -450,11 +450,11 @@ void AffGrilleExt() {
            into the FBO too.  Log is a pure 2D overlay (sprites, texts) and
            starts empty every frame — nothing needs the old terrain copy in
            Log, and clearing it here means no stale sprite pixels can ever
-           ghost on incremental frames.  The depth readback stays: PtrZBuffer
-           still feeds ZBufBoxOverWrite2 for sprite occlusion.  Zeroing
-           Screen keeps the dirty-box Screen→Log restores as no-op clears. */
+           ghost on incremental frames.  The depth readback moved after the
+           object pass (see AffScene) so PtrZBuffer includes model geometry
+           for sprite occlusion.  Zeroing Screen keeps the dirty-box
+           Screen→Log restores as no-op clears. */
         U32 rbT0 = SDL_GetTicks();
-        GL_ReadbackDepthBuffer();
         memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
         memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY + 512);
         /* Snapshot the completed terrain FBO: incremental frames restore it

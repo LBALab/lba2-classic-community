@@ -504,6 +504,20 @@ static S32 s_terrainRenderedThisFrame = 0;
    fall back to SW/Log, losing correct depth-tested compositing with the FBO. */
 static S32 s_fboHasTerrain = 0;
 
+/* ── Async depth readback (double-buffered PBOs) ────────────────────────── */
+/* glReadPixels of the depth buffer forces a full pipeline sync — the
+   dominant frame cost on desktop GL and brutal on tiled mobile GPUs.
+   Instead, issue the read into a pixel-pack PBO and consume the PBO filled
+   on the *previous* frame: by map time the GPU has had a full frame to
+   finish, so the wait overlaps real work.  The one-frame-old depth feeds
+   only sprite occlusion (ZBufBoxOverWrite2) and fully-hidden flags, which
+   are insensitive to a single frame of lag. */
+static GLuint s_depthPbo[2] = {0, 0};
+static S32 s_depthPboIndex = 0; /* PBO receiving this frame's read */
+static S32 s_depthPboReady = 0; /* PBOs holding a completed read (0..2) */
+static U32 s_depthPboW = 0;
+static U32 s_depthPboH = 0;
+
 /* ── Terrain snapshot (object ghost erase on incremental frames) ─────────── */
 /* Bodies render GL into the FBO, and incremental (AFF_OBJETS_*) frames do
    not redraw the terrain — so each body's previous-frame pixels would stay
@@ -514,6 +528,7 @@ static S32 s_fboHasTerrain = 0;
    alone is sufficient. */
 static GLuint s_snapshotTex = 0;
 static GLuint s_snapshotFbo = 0;
+static GLuint s_snapshotDepthRbo = 0;
 static U32 s_snapshotW = 0;
 static U32 s_snapshotH = 0;
 static U32 s_snapshotGen = 0; /* GL_ClearFBO generation the snapshot matches */
@@ -997,6 +1012,20 @@ void GL_Renderer_Shutdown(void) {
         s_atlasTexCache[i].tex = 0;
     }
     s_atlasTexNext = 0;
+    if (s_snapshotDepthRbo) {
+        glDeleteRenderbuffers(1, &s_snapshotDepthRbo);
+        s_snapshotDepthRbo = 0;
+    }
+    if (s_snapshotFbo) {
+        glDeleteFramebuffers(1, &s_snapshotFbo);
+        s_snapshotFbo = 0;
+    }
+    if (s_snapshotTex) {
+        glDeleteTextures(1, &s_snapshotTex);
+        s_snapshotTex = 0;
+    }
+    s_snapshotW = 0;
+    s_snapshotH = 0;
     if (s_clutTex) {
         glDeleteTextures(1, &s_clutTex);
         s_clutTex = 0;
@@ -1017,6 +1046,14 @@ void GL_Renderer_Shutdown(void) {
         glDeleteBuffers(1, &s_batchVBO);
         s_batchVBO = 0;
     }
+    if (s_depthPbo[0]) {
+        glDeleteBuffers(2, s_depthPbo);
+        s_depthPbo[0] = 0;
+        s_depthPbo[1] = 0;
+    }
+    s_depthPboReady = 0;
+    s_depthPboW = 0;
+    s_depthPboH = 0;
     if (s_program) {
         glDeleteProgram(s_program);
         s_program = 0;
@@ -1422,10 +1459,19 @@ void GL_FlushBatch(void) {
                         : GL_GEQUAL);
 
         if (s_batchZBuffer || s_currentTypePoly >= POLY_TEXTURE_Z) {
-            /* Z-buffered path: write depth unless NZW or blending.
-               Includes terrain base types 0/6/7 (via s_batchZBuffer)
-               and transparent/translucent types 16–24. */
-            glDepthMask((!s_batchNZW && !useBlend) ? GL_TRUE : GL_FALSE);
+            /* Z-buffered path: write depth unless blending.  NZW opaque
+               batches (bodies) ALSO write: the FBO depth then contains
+               model geometry, which the Log-layer sprite occlusion
+               (PtrZBuffer readback) needs — sprites must hide behind
+               nearer models, not just terrain.  Blended batches (TRANS/
+               TRAME) keep write-off so translucency never clips. */
+            static S32 s_noBodyDWrite = -1;
+            if (s_noBodyDWrite < 0) {
+                s_noBodyDWrite = getenv("LBA2_NO_BODY_DWRITE") ? 1 : 0;
+            }
+            glDepthMask((useBlend || (s_batchNZW && s_noBodyDWrite))
+                            ? GL_FALSE
+                            : GL_TRUE);
         } else {
             /* Types 0–15 without Z-buffered fillers (NPC/sprite path):
                Z-test only — matches SW ZBufBoxOverWrite2 which reads
@@ -1643,6 +1689,11 @@ void GL_SnapshotTerrain(void) {
         return;
     }
 
+    /* The terrain/decor batches are still queued vertices at this point —
+       submit them first, or the snapshot captures a cleared framebuffer
+       and every incremental-frame restore paints black over the scene. */
+    GL_FlushBatch();
+
     const U32 w = s_fboWidth;
     const U32 h = s_fboHeight;
     if (s_snapshotTex == 0 || s_snapshotW != w || s_snapshotH != h) {
@@ -1662,15 +1713,28 @@ void GL_SnapshotTerrain(void) {
         glBindFramebuffer(GL_FRAMEBUFFER, s_snapshotFbo);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                                GL_TEXTURE_2D, s_snapshotTex, 0);
+        if (s_snapshotDepthRbo == 0) {
+            glGenRenderbuffers(1, &s_snapshotDepthRbo);
+        }
+        glBindRenderbuffer(GL_RENDERBUFFER, s_snapshotDepthRbo);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, w, h);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                                  GL_RENDERBUFFER, s_snapshotDepthRbo);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
         s_snapshotW = w;
         s_snapshotH = h;
     }
 
+    /* Color + depth: the depth must be restored too, otherwise a body that
+       moved away would leave stale nearer depth that eats later fragments
+       until the next full redraw. */
     glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
-    glBindTexture(GL_TEXTURE_2D, s_snapshotTex);
-    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, w, h);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_snapshotFbo);
+    glBlitFramebuffer(0, 0, w, h, 0, 0, w, h,
+                      GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    /* Mid-frame invariant: subsequent GL_FlushBatch() calls (s_frameActive
+       still set) must keep drawing into the FBO, not the default fb. */
+    glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
 
     s_snapshotGen = s_fboGen;
 }
@@ -1703,9 +1767,8 @@ void GL_RestoreTerrainSnapshot(void) {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
     glBlitFramebuffer(0, 0, s_snapshotW, s_snapshotH,
                       0, 0, s_fboWidth, s_fboHeight,
-                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+                      GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
 }
 
 /* ── Begin frame ─────────────────────────────────────────────────────────── */
@@ -1742,50 +1805,24 @@ extern U32 ModeDesiredX;
 extern U32 ModeDesiredY;
 }
 
-void GL_ReadbackDepthBuffer(void) {
-    if (!s_initialized || !s_fbo || PtrZBuffer == NULL || !s_fboHasTerrain || !s_terrainRenderedThisFrame) {
-        return;
-    }
-
-    /* Flush any pending terrain batch so the FBO contains the latest
-       geometry before we read back its depth buffer. */
-    GL_FlushBatch();
-
-    /* FBO is now bound (GL_FlushBatch binds it on first use per frame,
-       or it was already bound).  No need to rebind here. */
-
-    const U32 fboW = s_fboWidth;
-    const U32 fboH = s_fboHeight;
+/* Convert a freshly-read FBO depth buffer (GL_UNSIGNED_SHORT rows,
+ * bottom-up) into the SW aZ format in PtrZBuffer, top-down.  1:1 when the
+ * FBO matches the screen; downsampling by minimum aZ per screen pixel block
+ * under SSAA.  Shared by the synchronous bootstrap path and the PBO path. */
+static void GL_ConvertDepthToZBuffer(const U16 *src, U32 fboW, U32 fboH) {
     const U32 scrW = ModeDesiredX;
     const U32 scrH = ModeDesiredY;
 
-    /* glReadPixels returns rows bottom-to-top (Y=0 at bottom), but
-       PtrZBuffer stores rows top-to-bottom (Y=0 at top).  Flip Y when
-       writing each row so screen coordinates match. */
     if (fboW == scrW && fboH == scrH) {
-        /* 1:1 path: read into temp buffer, invert depth, flip Y into
-           PtrZBuffer.  The vertex shader outputs
-           Z = 1.0 - aZ/65535.0; after the viewport transform
+        /* 1:1 path: invert depth, flip Y into PtrZBuffer.  The vertex
+           shader outputs Z = 1.0 - aZ/65535.0; after the viewport transform
            depth = (2.0 - aZ/65535) / 2, stored as
            gl_depth_16 = (131070 - aZ) / 2.
            Inverting: aZ = 131070 - 2 * gl_depth_16.
            ZBufBoxOverWrite2 compares aZ values, so the inverse
            mapping is required. */
-        static U16 *s_depthFlipBuf = NULL;
-        static U32 s_depthFlipBufSize = 0;
-        U32 totalPixels = scrW * scrH;
-        if (s_depthFlipBufSize < totalPixels) {
-            free(s_depthFlipBuf);
-            s_depthFlipBuf = (U16 *)malloc(totalPixels * sizeof(U16));
-            s_depthFlipBufSize = s_depthFlipBuf ? totalPixels : 0;
-        }
-        if (s_depthFlipBuf == NULL) {
-            return;
-        }
-        glReadPixels(0, 0, scrW, scrH, GL_DEPTH_COMPONENT,
-                     GL_UNSIGNED_SHORT, s_depthFlipBuf);
         for (U32 sy = 0; sy < scrH; sy++) {
-            const U16 *srcRow = s_depthFlipBuf + (scrH - 1 - sy) * scrW;
+            const U16 *srcRow = src + (scrH - 1 - sy) * scrW;
             U16 *dstRow = PtrZBuffer + sy * scrW;
             for (U32 sx = 0; sx < scrW; sx++) {
                 U32 gl_depth_16 = srcRow[sx];
@@ -1793,23 +1830,8 @@ void GL_ReadbackDepthBuffer(void) {
             }
         }
     } else {
-        /* SSAA path: read full FBO depth, downsample by picking the
-           closest terrain (minimum aZ) per screen pixel block. */
-        const U32 totalPixels = fboW * fboH;
-        static U16 *s_fboDepthBuf = NULL;
-        static U32 s_fboDepthBufSize = 0;
-        if (s_fboDepthBufSize < totalPixels) {
-            free(s_fboDepthBuf);
-            s_fboDepthBuf = (U16 *)malloc(totalPixels * sizeof(U16));
-            s_fboDepthBufSize = s_fboDepthBuf ? totalPixels : 0;
-        }
-        if (s_fboDepthBuf == NULL) {
-            return;
-        }
-
-        glReadPixels(0, 0, fboW, fboH, GL_DEPTH_COMPONENT,
-                     GL_UNSIGNED_SHORT, s_fboDepthBuf);
-
+        /* SSAA path: downsample by picking the closest terrain (minimum
+           aZ) per screen pixel block. */
         const U32 scaleX = fboW / scrW;
         const U32 scaleY = fboH / scrH;
 
@@ -1820,7 +1842,7 @@ void GL_ReadbackDepthBuffer(void) {
                 const U32 fx0 = sx * scaleX;
                 const U32 fy0 = (fboH - 1 - sy * scaleY) - scaleY + 1;
                 for (U32 fy = fy0; fy < fy0 + scaleY; fy++) {
-                    const U16 *srcRow = s_fboDepthBuf + fy * fboW;
+                    const U16 *srcRow = src + fy * fboW;
                     for (U32 fx = fx0; fx < fx0 + scaleX; fx++) {
                         U32 gl_depth_16 = srcRow[fx];
                         U16 az = (U16)(131070u - 2u * gl_depth_16);
@@ -1832,6 +1854,111 @@ void GL_ReadbackDepthBuffer(void) {
                 dstRow[sx] = minAZ;
             }
         }
+    }
+}
+
+/* ── Async depth readback (double-buffered PBOs) ────────────────────────── */
+/* glReadPixels of the depth buffer forces a full pipeline sync — the
+   dominant frame cost on desktop GL and brutal on tlined mobile GPUs.
+   Instead, issue the read into a pixel-pack PBO and consume the PBO filled
+   on the *previous* frame: by map time the GPU has had a full frame to
+   finish, so the wait overlaps real work.  The one-frame-old depth feeds
+   only sprite occlusion (ZBufBoxOverWrite2) and fully-hidden flags, which
+   are insensitive to a single frame of lag. */
+void GL_ReadbackDepthBuffer(void) {
+    /* NOTE: no s_terrainRenderedThisFrame guard — this runs after the
+       object pass on every exterior frame, and on incremental frames the
+       FBO depth persists (restore only touches color). */
+    if (!s_initialized || !s_fbo || PtrZBuffer == NULL || !s_fboHasTerrain) {
+        return;
+    }
+
+    /* Flush any pending batch so the FBO contains the latest geometry
+       (terrain + bodies + shadows) before we read back its depth. */
+    GL_FlushBatch();
+
+    /* The PBO path trades one frame of depth lag for no pipeline stall —
+       worthwhile on tiled mobile GPUs (Quest), but the lag breaks sprite
+       occlusion as soon as the camera moves, so desktop defaults to the
+       synchronous read. */
+    static S32 s_asyncDepth = -1;
+    if (s_asyncDepth < 0) {
+        s_asyncDepth = getenv("LBA2_SYNC_DEPTH") ? 0 : 1;
+    }
+    if (!s_asyncDepth) {
+        const U32 fboW = s_fboWidth;
+        const U32 fboH = s_fboHeight;
+        const U32 bytes = fboW * fboH * sizeof(U16);
+        U16 *tmp = (U16 *)malloc(bytes);
+        if (tmp != NULL) {
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
+            glReadPixels(0, 0, fboW, fboH, GL_DEPTH_COMPONENT,
+                         GL_UNSIGNED_SHORT, tmp);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            GL_ConvertDepthToZBuffer(tmp, fboW, fboH);
+            free(tmp);
+        }
+        return;
+    }
+
+    const U32 fboW = s_fboWidth;
+    const U32 fboH = s_fboHeight;
+    const U32 bytes = fboW * fboH * sizeof(U16);
+
+    if (s_depthPbo[0] == 0 || s_depthPboW != fboW || s_depthPboH != fboH) {
+        if (s_depthPbo[0] == 0) {
+            glGenBuffers(2, s_depthPbo);
+        }
+        for (S32 i = 0; i < 2; i++) {
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, s_depthPbo[i]);
+            glBufferData(GL_PIXEL_PACK_BUFFER, bytes, NULL, GL_STREAM_READ);
+        }
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+        s_depthPboW = fboW;
+        s_depthPboH = fboH;
+        s_depthPboIndex = 0;
+        s_depthPboReady = 0;
+    }
+
+    /* 1. Consume the read issued on the previous frame. */
+    const GLuint readPbo = s_depthPbo[s_depthPboIndex ^ 1];
+    if (s_depthPboReady > 0) {
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, readPbo);
+        const U16 *src = (const U16 *)glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0,
+                                                       bytes, GL_MAP_READ_BIT);
+        if (src != NULL) {
+            GL_ConvertDepthToZBuffer(src, fboW, fboH);
+            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+        } else {
+            memset(PtrZBuffer, 0xFF,
+                   (size_t)ModeDesiredX * (size_t)ModeDesiredY * sizeof(U16));
+        }
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    } else {
+        /* Bootstrap frame: no PBO data yet — one synchronous read so the
+           first rendered frame has correct sprite occlusion. */
+        U16 *tmp = (U16 *)malloc(bytes);
+        if (tmp != NULL) {
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
+            glReadPixels(0, 0, fboW, fboH, GL_DEPTH_COMPONENT,
+                         GL_UNSIGNED_SHORT, tmp);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            GL_ConvertDepthToZBuffer(tmp, fboW, fboH);
+            free(tmp);
+        }
+    }
+
+    /* 2. Issue this frame's asynchronous read into the other PBO. */
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, s_depthPbo[s_depthPboIndex]);
+    glReadPixels(0, 0, fboW, fboH, GL_DEPTH_COMPONENT,
+                 GL_UNSIGNED_SHORT, NULL);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+    s_depthPboIndex ^= 1;
+    if (s_depthPboReady < 2) {
+        s_depthPboReady++;
     }
 
     /* Keep the FBO bound so subsequent GL_FlushBatch() calls (e.g. from

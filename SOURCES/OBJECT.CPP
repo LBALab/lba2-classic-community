@@ -5867,6 +5867,14 @@ startaffscene:
     }
 
     /*------------------------------------------------------------------------*/
+#ifdef USE_GPURENDERER
+    /* GL mode: refresh PtrZBuffer after the object pass so it contains
+       terrain AND model depth — the Log-layer sprites (eyes, hands) test
+       their occlusion against it on the next frame. */
+    if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+        GL_ReadbackDepthBuffer();
+    }
+#endif
     if (CubeMode == CUBE_EXTERIEUR) {
         if (Island == 0 AND TEMPETE_ACTIVE AND RainEnable)
             AffRain();
