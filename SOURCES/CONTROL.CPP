@@ -155,6 +155,14 @@ static int s_res_switch_test_fired = 0;
 /* --- Runtime ---------------------------------------------------------------- */
 static long s_hook_calls = 0;
 static int s_finalized = 0;
+/* Why the run is ending, for the two cases that used to end it at exit 0 while saying
+   nothing. A harness run is bounded by its tick budget, and both of these leave it
+   somewhere other than that bound: the menu one stops SHORT of the recording, the
+   stream one would otherwise run PAST it. */
+static int s_left_for_menu = 0;      /* MainLoop returned because the in-game menu opened */
+static int s_replay_stream_done = 0; /* the replay consumed its last poll */
+static int s_captured_at_stream_end = 0;
+static long s_left_for_menu_tick = -1;
 
 static void control_dump_state(const char *path);
 static void control_screenshot(const char *path);
@@ -779,6 +787,10 @@ int Control_Begin(void) {
 
     s_hook_calls = 0;
     s_finalized = 0;
+    s_left_for_menu = 0;
+    s_replay_stream_done = 0;
+    s_captured_at_stream_end = 0;
+    s_left_for_menu_tick = -1;
     s_armed = 1;
     return 1;
 }
@@ -1100,9 +1112,81 @@ void Control_End(void) {
        path already finalized, the harness was never active, or no capture was asked. */
     if (!s_active || s_finalized)
         return;
+
+    /* Except for the one early return that is not benign. The in-game menu is a return
+       from MainLoop (SOURCES/PERSO.CPP), and the harness path calls MainLoop once, so a
+       replay whose recording opens a menu ends the run there -- with the stream unread
+       and the game standing somewhere SHORT of where the recording goes. Artifacts from
+       that describe a state the recording passed through on its way somewhere else,
+       which is the "plausible artifacts of the wrong scene" the setup-failure path
+       refuses to write, one step later in the run. Say what happened and write nothing;
+       main() turns it into a non-zero status. */
+    /* Reported whatever the run was doing, because the artifacts are equally unintended
+       either way: the run ended at a menu rather than at the bound the caller set, so a
+       --dump-state or --screenshot is of the state ESC was pressed in. Fatal only under a
+       replay, where it is unambiguous -- the recording had more to give and the run
+       stopped short. Outside one, an early return here is a run doing something this
+       harness has no opinion about, and failing it would change the verdict of runs
+       nobody has complained about. */
+    if (s_left_for_menu) {
+        if (Record_IsReplaying())
+            fprintf(stderr,
+                    "[control] replay: the recording opened the in-game menu at tick %ld and the "
+                    "run ends there.\n"
+                    "[control]         The menu is a return from MainLoop and a harness run enters "
+                    "it once, so the rest\n"
+                    "[control]         of the recording is unread.\n",
+                    s_left_for_menu_tick);
+        else
+            fprintf(stderr,
+                    "[control] the in-game menu opened at tick %ld and the run ends there, short "
+                    "of its tick budget.\n",
+                    s_left_for_menu_tick);
+        if (s_have_dump || s_have_shot)
+            fprintf(stderr, "[control] no --dump-state or --screenshot written: they would "
+                            "describe the state the menu opened in.\n");
+        fflush(stderr);
+        return;
+    }
+
     if (!s_have_dump && !s_have_shot)
         return;
     control_capture();
+}
+
+/* PERSO.CPP's ESC break, so the harness can tell this return from a benign one. Recorded
+   rather than acted on here: MainLoop is still unwinding, and what it means depends on
+   whether a replay was mid-stream, which Control_End is the right place to ask. */
+/* Called as MainLoop is entered, so the reason belongs to this entry rather than to a
+   previous one. Redundant today -- the harness path enters MainLoop exactly once -- and
+   deliberately written anyway: the moment MainLoop is re-entered (which is what replaying
+   past a menu would take), a reason left over from the entry before is read as this
+   entry's, and a stale-but-specific answer is the failure this whole change exists to
+   remove. One line now, or the same shape again later. */
+void Control_NoteMainLoopEntered(void) {
+    s_left_for_menu = 0;
+    s_left_for_menu_tick = -1;
+}
+
+void Control_NoteLeftForMenu(void) {
+    if (!s_active || s_left_for_menu)
+        return;
+    s_left_for_menu = 1;
+    s_left_for_menu_tick = s_hook_calls - 1;
+}
+
+/* The replay reached the end of its stream. See the tick hook for why this ends the run
+   rather than letting the tick budget do it. */
+void Control_NoteReplayStreamEnded(void) {
+    if (s_active)
+        s_replay_stream_done = 1;
+}
+
+/* Non-zero when the run ended before it had replayed what it was given: the status a
+   harness run must not report as success. Kept apart from the reporting above so main()
+   decides the exit code in one place, beside the --exec-at check it already makes. */
+int Control_ReplayCutShort(void) {
+    return (s_left_for_menu && Record_IsReplaying()) ? 1 : 0;
 }
 
 int Control_UnfiredExecAt(void) {
@@ -1243,6 +1327,34 @@ void Control_TickHook(void) {
        without the test `--record out.rec --exit` would wait for a quit that never comes. */
     if ((Record_IsRecording() || Record_IsReplaying()) && !s_have_tick && !s_exit)
         return;
+
+    /* The recording ran out. Take the dump/screenshot HERE, at the state the replay
+       actually reached, and let the run carry on to its budget.
+     *
+     * --tick has to exceed what the recording holds or the replay is cut short (the engine
+     * prints how much it holds and tells the caller to exceed it), so over-budgeting is the
+     * direction a careful caller errs in -- and every tick past the stream was the game
+     * running on with nothing driving it. The artifact written at the budget therefore
+     * described a state the recording never reached, and the more careful the caller, the
+     * further past it went. Capturing at the stream's end is what makes the artifact mean
+     * "where the recording got to" regardless of the budget.
+     *
+     * Capture rather than finalize, and that distinction is the whole of it. Ending the run
+     * here would also end runs that legitimately continue past the stream to inspect what
+     * the replay left behind -- tests/automation/test_record_input_device.sh does exactly
+     * that, reading a borrowed flag back at tick 380 of a recording spent long before it,
+     * and its own comment says so. Measured: finalizing here failed that suite. The two
+     * intentions only both survive if the artifact is pinned to the stream and the run's
+     * length is left alone. */
+    if (s_replay_stream_done && !s_captured_at_stream_end) {
+        s_captured_at_stream_end = 1;
+        if (s_have_dump || s_have_shot)
+            fprintf(stderr,
+                    "[control] the recording ended at tick %ld; --dump-state/--screenshot "
+                    "taken here, not at the --tick budget\n",
+                    s_hook_calls - 1);
+        control_capture();
+    }
 
     if ((s_hook_calls - 1) >= control_effective_ticks())
         control_finalize();

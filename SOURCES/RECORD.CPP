@@ -1580,19 +1580,37 @@ static void record_restore_player(void) {
    one path that runs out of stream: a recording whose session ended at the console ends
    the replay there too, and a run that reported nothing reads exactly like a run that
    matched. */
-/* What the verdict line carries that the stall line does not: ticks checked, both clock
-   drift figures and the stream drift poll. Said under its own prefix rather than the
-   verdict's, because `replay ended ... first hash mismatch -1` is the string a caller
-   greps to mean the replay reproduced and a stalled run must never print it. The drift
-   pair is the reason this exists at all: a stall is a symptom of a divergence that
-   happened earlier, so where the clock first moved is where to start looking. */
-static void replay_report_figures(void) {
-    fprintf(stderr, "[rec] at the stall: %ld ticks checked, clock drift max %ld ms first at "
-                    "tick %ld, stream drift first at poll %ld\n",
-            s_ticksChecked, s_refDriftMax, s_refDriftFirstTick, s_syncDriftPoll);
-}
+/* Every way a replay stops reporting comes through here, and the outcome is an argument
+ * with no default so a new one cannot be added without answering which it is.
+ *
+ * Only REPLAY_END_STREAM prints the verdict. `replay ended ... first hash mismatch -1` is
+ * the string a caller greps to mean the replay reproduced, and a run that stopped short can
+ * carry a -1 honestly -- it matched every tick it reached -- while not having replayed the
+ * session. So the other outcomes print the same figures under a prefix that cannot be read
+ * as a verdict: ticks checked, both clock drift figures and the stream drift poll, which are
+ * worth having either way because a stop is usually a symptom of a divergence that happened
+ * earlier and the drift pair says where to start looking.
+ *
+ * An enum rather than the prefix string it used to take, on the pattern #650 used for digest
+ * membership: make the question a required argument at the point the decision is made, and
+ * the compiler asks it instead of a comment asking the next author to remember. Before this
+ * the rule lived only in the paragraph above, and any new exit path calling the end reporter
+ * got the pass-shaped line for free. */
+typedef enum {
+    REPLAY_END_STREAM, /* the recording ran out: the run did what it was asked */
+    REPLAY_END_STALL,  /* waiting on input the recording does not contain */
+    REPLAY_END_MENU    /* the recording opened a menu; MainLoop returned under the harness */
+} T_ReplayEnd;
 
-static void replay_report_end(void) {
+static void replay_report(T_ReplayEnd how) {
+    if (how != REPLAY_END_STREAM) {
+        fprintf(stderr,
+                "[rec] at the %s: %ld ticks checked, clock drift max %ld ms first at tick %ld, "
+                "stream drift first at poll %ld\n",
+                how == REPLAY_END_STALL ? "stall" : "menu", s_ticksChecked, s_refDriftMax,
+                s_refDriftFirstTick, s_syncDriftPoll);
+        return;
+    }
     if (s_endSaid)
         return;
     s_endSaid = 1;
@@ -1639,10 +1657,17 @@ int Record_Stop(void) {
        up. The figures it carries beyond the stall's own four are still worth having, so
        they go out under a prefix that cannot be read as a verdict. */
     if (s_replaying) {
+        /* Two ways to end without having replayed the recording, and neither may print the
+           verdict. `replay ended ... first hash mismatch -1` is what a caller greps to mean
+           the replay reproduced, and a run that stopped short can carry a -1 honestly -- it
+           matched every tick it got to -- while not having replayed the session. The stall
+           taught this once; the menu is the second instance and the same answer applies. */
         if (s_staleReported)
-            replay_report_figures();
+            replay_report(REPLAY_END_STALL);
+        else if (Control_ReplayCutShort())
+            replay_report(REPLAY_END_MENU);
         else
-            replay_report_end();
+            replay_report(REPLAY_END_STREAM);
     }
 
     /* A second snapshot where the recording ends, on the same mechanics as the one at
@@ -2847,7 +2872,26 @@ void Record_PollHook(void) {
         } else {
             /* The engine is mid-session with nothing left to drive it, and whatever it
                was waiting for will never arrive. Say what happened and leave. */
-            replay_report_end();
+            replay_report(REPLAY_END_STREAM);
+            /* Before Record_Stop, which clears s_replaying and would leave the harness
+               unable to tell a replay that finished from a run that never had one. The
+               harness ends its budget here rather than running the game on past the
+               recording with nothing driving it; see Control_NoteReplayStreamEnded. The
+               exit below still only fires where nothing else is driving the run, so the
+               two paths do not both try to end it.
+
+               Only for a replay armed from the flag, on the same distinction the return
+               point is drawn on a few lines up: that run exists to replay and exit and has
+               no player session to protect, so the stream running out is the end of what
+               it was asked to do. A playback started from inside a session is not finished
+               when its stream ends -- the reload that puts the player back is still to be
+               issued, and it is issued from a later tick. Ending the run here takes those
+               ticks away and leaves the player standing at the recording's end, which is
+               the defect the return point exists to prevent. Measured: without this test,
+               the playback-return arm left the hero at the recording's end (11522 25964)
+               instead of where the playback found him (11324 27282). */
+            if (s_replayFromCli)
+                Control_NoteReplayStreamEnded();
             Record_Stop();
             /* Only when nothing else is driving the run. With the harness armed it has
                a tick budget and artifacts to write, and exiting from here would skip

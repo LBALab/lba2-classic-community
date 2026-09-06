@@ -24,6 +24,33 @@ where the rule under test happens not to matter.
 Regenerate only for a deliberate format change, and never to make a failing replay pass:
 a baseline re-recorded against the build it is meant to be judging has stopped being one.
 
+## The menu file
+
+`menu-esc.rec` is 200 ticks against the standard test save, ending with an ESC. It is the
+only recording here whose session opens the in-game menu, and it exists because that class
+had no fixture at all until the replay it broke was found by hand.
+
+The in-game menu is a *return from* `MainLoop` (SOURCES/PERSO.CPP), and the CLI harness
+calls `MainLoop` once, so a replay reaching an ESC ends the run with its stream unread.
+Before the fix that exited **0** and printed `first hash mismatch -1` -- the string a caller
+greps to mean the replay reproduced -- on a run that had replayed 201 of 202 polls.
+`tests/automation/test_record_replay.sh` replays it and requires a non-zero status and no
+`replay ended` line.
+
+It has to be a recorded ESC rather than a driven one. The console `key esc` verb reaches
+the same guard, but a replay's input arrives through `UpdateKeyboardState`, and only a file
+carrying the keypress exercises the path the bug was on. That is also why the ten fixtures
+that drive `esc` never caught this: every one of them presses it into a modal, which
+consumes it, which is what those fixtures are for.
+
+The arm asserts the exit path -- non-zero status, no `replay ended` line, no state dump --
+rather than a verdict value, and that is deliberate. A later change that moves the
+simulation makes this replay diverge before it reaches the ESC, at which point an arm
+pinned to `first hash mismatch -1` would fail for a reason that has nothing to do with what
+it is testing. All three assertions above still hold on a session that diverged first and
+then hit the menu, because what is under test is how the run *ends*, not what it matched on
+the way.
+
 ## The format files
 
 `legacy-v10.rec` is a session recorded by a format-10 engine, kept so a build that
