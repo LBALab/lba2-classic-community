@@ -30,6 +30,17 @@ U8 TabKeys[TABKEYS_NUM_KEYS];
 // HandleEventsXxx consumers below.
 S32 LastInputWasKeyboard = 0;
 
+// 1 = the most recent user input was a finger on the touchscreen. Lives beside
+// LastInputWasKeyboard, and here for the same libsys.a linkage reason, but
+// answers a different question: that flag cannot tell a pad from a finger,
+// because both leave it 0. The touch overlay needs to, so that a pad clipped to
+// a phone takes the on-screen pills away and a finger brings them back.
+//
+// Deliberately NOT cleared by the mouse: SDL synthesises mouse events from
+// touch by default, so a mouse-side clear would cancel every touch the instant
+// it arrived.
+S32 LastInputWasTouch = 0;
+
 // Weak hook for virtual-input sources (touch overlay, etc.) to re-apply
 // their key states after UpdateKeyboardState clears TabKeys[0..255].
 void ApplyVirtualKeys(void);
@@ -183,6 +194,7 @@ void HandleEventsKeyboard(const void *event) {
     const SDL_Event *ev = (const SDL_Event *)event;
     if (ev->type == SDL_EVENT_KEY_DOWN) {
         LastInputWasKeyboard = 1;
+        LastInputWasTouch = 0;
     }
 
     /* Boundary 1's event side. Auto-repeat is excluded: a held key repeats at

@@ -12,6 +12,12 @@
  * same flag the same way the mouse handler does here; their end-to-end save
  * flow is verified on-device. The Android-TV guard (IsAndroidTVDevice) is a
  * no-op stub off Android, so it does not affect this host classification.
+ *
+ * It also covers the sibling flag LastInputWasTouch, which the touch overlay
+ * reads to decide whether to draw itself. The case worth a test is the one that
+ * looks like a bug: the mouse handler must NOT clear it. SDL synthesises mouse
+ * events from touch by default, so a mouse-side clear would cancel every touch
+ * the instant it arrived and the overlay would never appear on a phone.
  */
 #include <SYSTEM/EVENTS.H>   // ManageEvents (stubbed below)
 #include <SYSTEM/KEYBOARD.H> // HandleEventsKeyboard
@@ -23,6 +29,7 @@
 #include <cstdio>
 
 extern "C" S32 LastInputWasKeyboard; // defined in LIB386/SYSTEM/KEYBOARD.CPP
+extern "C" S32 LastInputWasTouch;    // likewise
 
 // --- Link stubs: symbols the handler TUs reference on paths this test never
 // drives, provided so the two real handlers link standalone. ---
@@ -42,6 +49,14 @@ static int fails = 0;
 static void expect(S32 got, S32 want, const char *label) {
     if (got != want) {
         std::fprintf(stderr, "FAIL: %s: LastInputWasKeyboard=%d (want %d)\n", label, got, want);
+        fails++;
+    }
+}
+
+static void expectTouch(S32 want, const char *label) {
+    if (LastInputWasTouch != want) {
+        std::fprintf(stderr, "FAIL: %s: LastInputWasTouch=%d (want %d)\n", label,
+                     LastInputWasTouch, want);
         fails++;
     }
 }
@@ -84,6 +99,34 @@ int main() {
     HandleEventsMouse(&mouseBtn); // -> 0
     HandleEventsKeyboard(&keyUp); // not a down event
     expect(LastInputWasKeyboard, 0, "key-up does not set keyboard");
+
+    // --- LastInputWasTouch -------------------------------------------------
+    // The overlay draws only while touch is the last device used, so what
+    // clears this flag decides whether it is ever on screen.
+    expectTouch(0, "touch flag default is 0");
+
+    // A real key means the player moved to a keyboard: the overlay stands down.
+    LastInputWasTouch = 1;
+    HandleEventsKeyboard(&keyDown);
+    expectTouch(0, "key-down -> not touch");
+
+    // ...but only a key-DOWN, on the same terms as the flag above.
+    LastInputWasTouch = 1;
+    HandleEventsKeyboard(&keyUp);
+    expectTouch(1, "key-up leaves touch alone");
+
+    // The one that would look like a tidy-up and is not. SDL turns touches into
+    // mouse events, so clearing here would undo the touch that produced them and
+    // the overlay would never appear. Both mouse paths must leave it set.
+    LastInputWasTouch = 1;
+    HandleEventsMouse(&mouseBtn);
+    expectTouch(1, "mouse button does NOT clear touch (SDL synthesises it from touch)");
+
+    LastInputWasTouch = 1;
+    HandleEventsMouse(&mouseWheel);
+    expectTouch(1, "mouse wheel does NOT clear touch");
+
+    LastInputWasTouch = 0;
 
     if (fails == 0) {
         std::printf("test_input_device: all checks passed\n");
