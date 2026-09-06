@@ -2457,10 +2457,16 @@ int main(int argc, char *argv[]) {
     SetPrePresentCallback(ControlPrePresent);
 
     /* Touch virtual gamepad (Android / mobile). Init before Perftrace so
-       timing callbacks nest correctly. No-op on non-Android builds. */
+       timing callbacks nest correctly. No-op on non-Android builds.
+
+       Registered unconditionally rather than only when the overlay is visible
+       right now: it starts hidden until the first touch, and gating the
+       callback on the boot-time state is what would make that state
+       permanent -- the overlay would come back on and draw nothing, with
+       nothing to say why. TouchOverlay_Render is a no-op when there is
+       nothing to draw. */
     TouchOverlay_Init();
-    if (TouchOverlay_IsActive())
-        SetOverlayPrePresentCallback(TouchOverlay_Render);
+    SetOverlayPrePresentCallback(TouchOverlay_Render);
 
     /* Perftrace: ring-buffer per-frame timing capture; off by default, opt-in
        via the `perftrace` console verb. See docs/PERFTRACE.md. */

@@ -163,12 +163,16 @@ void HandleEventsJoystick(const void *event) {
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
         LastInputWasKeyboard = 0;
+        // The pad is in the player's hands: the touch overlay stands down until
+        // a finger says otherwise.
+        LastInputWasTouch = 0;
         break;
     case SDL_EVENT_GAMEPAD_AXIS_MOTION:
         // Past-deadzone test: rest-state jitter on the sticks fires constant
         // axis events and would otherwise pin the flag forever.
         if (ev->gaxis.value > JoystickDeadzone || ev->gaxis.value < -JoystickDeadzone) {
             LastInputWasKeyboard = 0;
+            LastInputWasTouch = 0;
         }
         break;
     default:
