@@ -319,34 +319,38 @@ static void PresentFrame() {
            with optional bilinear filtering. The palette conversion is the
            same work as the SDL path; the difference is GL handles the
            upscale filtering. */
-        static U32 *s_glStaging = NULL;
-        static U32 s_glStagingSize = 0;
-        U32 needed = ModeDesiredX * ModeDesiredY;
-        if (s_glStagingSize < needed) {
-            free(s_glStaging);
-            s_glStaging = (U32 *)malloc(needed * sizeof(U32));
-            s_glStagingSize = s_glStaging ? needed : 0;
-        }
-        if (s_glStaging == NULL) {
-            return;
-        }
 
-        /* Palette index 0 is the transparent colour: the 3D FBO content
-           shows through wherever the 2D overlay has index 0.  Force alpha
-           to 0 so those pixels are fully transparent when composited. */
-        paletteLUT[0] &= 0x00FFFFFF;
-
-        U8 *logMem = (U8 *)Log;
-        for (U32 y = 0; y < ModeDesiredY; ++y) {
-            U8 *srcRow = logMem + y * ModeDesiredX;
-            U32 *dstRow = s_glStaging + y * ModeDesiredX;
-            for (U32 x = 0; x < ModeDesiredX; ++x) {
-                dstRow[x] = paletteLUT[srcRow[x]];
-            }
-        }
-
-        /* Overlay callbacks (console overlay, etc.) */
+        /* Overlay callbacks (console overlay, etc.) draw ARGB directly, so
+           they need the CPU-converted staging buffer. Without them the
+           indexed path uploads the raw palette indices and expands them on
+           the GPU — the CPU per-pixel loop disappears. */
         if (s_prePresent || s_overlayPrePresent) {
+            static U32 *s_glStaging = NULL;
+            static U32 s_glStagingSize = 0;
+            U32 needed = ModeDesiredX * ModeDesiredY;
+            if (s_glStagingSize < needed) {
+                free(s_glStaging);
+                s_glStaging = (U32 *)malloc(needed * sizeof(U32));
+                s_glStagingSize = s_glStaging ? needed : 0;
+            }
+            if (s_glStaging == NULL) {
+                return;
+            }
+
+            /* Palette index 0 is the transparent colour: the 3D FBO content
+               shows through wherever the 2D overlay has index 0.  Force alpha
+               to 0 so those pixels are fully transparent when composited. */
+            paletteLUT[0] &= 0x00FFFFFF;
+
+            U8 *logMem = (U8 *)Log;
+            for (U32 y = 0; y < ModeDesiredY; ++y) {
+                U8 *srcRow = logMem + y * ModeDesiredX;
+                U32 *dstRow = s_glStaging + y * ModeDesiredX;
+                for (U32 x = 0; x < ModeDesiredX; ++x) {
+                    dstRow[x] = paletteLUT[srcRow[x]];
+                }
+            }
+
             static U8 paletteRgb[256 * 3];
             for (int i = 0; i < 256; i++) {
                 U32 c = paletteLUT[i];
@@ -358,10 +362,19 @@ static void PresentFrame() {
                 s_prePresent(s_glStaging, ModeDesiredX * 4, ModeResX, ModeResY, paletteRgb);
             if (s_overlayPrePresent)
                 s_overlayPrePresent(s_glStaging, ModeDesiredX * 4, ModeResX, ModeResY, paletteRgb);
+
+            GL_Present(s_glStaging, ModeDesiredX * 4, ModeDesiredX, ModeDesiredY,
+                       DisplayTexFilter);
+            return;
         }
 
-        GL_Present(s_glStaging, ModeDesiredX * 4, ModeDesiredX, ModeDesiredY,
-                   DisplayTexFilter);
+        /* Palette index 0 is the transparent colour: the 3D FBO content
+           shows through wherever the 2D overlay has index 0.  Force alpha
+           to 0 so the indexed-present shader composites it transparently. */
+        paletteLUT[0] &= 0x00FFFFFF;
+
+        GL_PresentIndexed((const U8 *)Log, ModeDesiredX, ModeDesiredX,
+                           ModeDesiredY, paletteLUT, DisplayTexFilter);
         return;
     }
 #endif

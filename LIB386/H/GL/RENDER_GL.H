@@ -38,6 +38,19 @@ void GL_ClearFBO(void);
 void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
                 S32 filterLinear);
 
+//! Present an 8-bit palette-index framebuffer by expanding it through a
+//! GPU palette texture, skipping the CPU palette pass entirely.  Index 0
+//! is transparent (the palette's entry 0 must carry alpha 0, as forced by
+//! PresentFrame).  Otherwise identical to GL_Present.
+//! @param indices      8-bit palette indices (ModeDesiredX * ModeDesiredY)
+//! @param pitch        Row pitch in bytes (pixels for 8-bit data)
+//! @param width        Framebuffer width
+//! @param height       Framebuffer height
+//! @param paletteU32   256-entry 0xAARRGGBB palette (little-endian words)
+//! @param filterLinear  true = GL_LINEAR (bilinear), false = GL_NEAREST
+void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
+                       const U32 *paletteU32, S32 filterLinear);
+
 //! Render a list of projected triangles via OpenGL.
 //! Called from Fill_Poly() when GPURendererActive is true.
 S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,

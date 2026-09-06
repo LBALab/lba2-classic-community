@@ -328,6 +328,61 @@ static U32 s_texWidth = 0;
 static U32 s_texHeight = 0;
 static S32 s_initialized = 0;
 
+/* ── Indexed present (GPU palette expansion) ─────────────────────────────── */
+
+/* Present the 8-bit Log overlay without a CPU palette pass: the raw index
+ * bytes are uploaded as a NEAREST-filtered LUMINANCE texture and expanded
+ * through a 256x1 palette texture in the shader. Index 0 expands to the
+ * palette's entry 0, which PresentFrame forces to alpha 0 so the 3D FBO
+ * content shows through — identical output to the CPU path. */
+static GLuint s_presentIndexedProgram = 0;
+static GLuint s_logIndexTex = 0;
+static U32 s_logIndexTexW = 0;
+static U32 s_logIndexTexH = 0;
+static GLuint s_lutTex = 0;
+static GLint s_idx_aPos = -1;
+static GLint s_idx_aTexCoord = -1;
+static GLint s_idx_uIndices = -1;
+static GLint s_idx_uPalette = -1;
+
+static const char *s_presentIndexedFragSrc =
+    GLSL_FRAG_HEADER
+    "uniform sampler2D uIndices;\n"
+    "uniform sampler2D uPalette;\n"
+    "varying vec2 vTexCoord;\n"
+    "void main() {\n"
+    "    float v = texture2D(uIndices, vTexCoord).r;\n"
+    /* NEAREST filtering makes v exactly i/255; rebuild the texel index and
+     * step to the palette texel centre the same way the CLUT shader does. */
+    "    float i = floor(v * 255.0 + 0.5);\n"
+    "    gl_FragColor = texture2D(uPalette, vec2((i + 0.5) / 256.0, 0.5));\n"
+    "}\n";
+
+/* ── Frame cost profiler ─────────────────────────────────────────────────── */
+/* No on-device profiler exists for the Android build, so the three known
+ * CPU-side frame costs are accumulated around their sections and summarized
+ * in the log every GL_PROF_FRAMES presented frames. */
+#define GL_PROF_FRAMES 300
+static U64 s_profAccumTicks[3] = {0, 0, 0}; /* 0=present 1=depth readback 2=depth convert */
+static U32 s_profFrames = 0;
+
+static void GL_ProfFrameDone(void) {
+    s_profFrames++;
+    if (s_profFrames >= GL_PROF_FRAMES) {
+        double msPerTick = 1000.0 / (double)SDL_GetPerformanceFrequency();
+        Log_Warn("[GLPerf] frames=%u present=%.1fms readback=%.1fms "
+                 "convert=%.1fms",
+                 s_profFrames,
+                 (double)s_profAccumTicks[0] * msPerTick / (double)s_profFrames,
+                 (double)s_profAccumTicks[1] * msPerTick / (double)s_profFrames,
+                 (double)s_profAccumTicks[2] * msPerTick / (double)s_profFrames);
+        s_profFrames = 0;
+        s_profAccumTicks[0] = 0;
+        s_profAccumTicks[1] = 0;
+        s_profAccumTicks[2] = 0;
+    }
+}
+
 /* ── GL state — CLUT shader ─────────────────────────────────────────────── */
 
 static GLuint s_clutProgram = 0;
@@ -850,6 +905,35 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_aPosLoc = glGetAttribLocation(s_program, "aPos");
     s_aTexCoordLoc = glGetAttribLocation(s_program, "aTexCoord");
 
+    /* ── Compile indexed-present shader ── */
+    GLuint idxVert = CompileShader(GL_VERTEX_SHADER, s_vertSrc);
+    GLuint idxFrag = CompileShader(GL_FRAGMENT_SHADER, s_presentIndexedFragSrc);
+    if (idxVert == 0 || idxFrag == 0) {
+        return FALSE;
+    }
+
+    s_presentIndexedProgram = LinkProgram(idxVert, idxFrag);
+    glDeleteShader(idxVert);
+    glDeleteShader(idxFrag);
+    if (s_presentIndexedProgram == 0) {
+        return FALSE;
+    }
+
+    s_idx_aPos = glGetAttribLocation(s_presentIndexedProgram, "aPos");
+    s_idx_aTexCoord = glGetAttribLocation(s_presentIndexedProgram, "aTexCoord");
+    s_idx_uIndices = glGetUniformLocation(s_presentIndexedProgram, "uIndices");
+    s_idx_uPalette = glGetUniformLocation(s_presentIndexedProgram, "uPalette");
+
+    glGenTextures(1, &s_lutTex);
+    glBindTexture(GL_TEXTURE_2D, s_lutTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, NULL);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
     /* ── Compile CLUT shader ── */
     GLuint clutVert = CompileShader(GL_VERTEX_SHADER, s_clutVertSrc);
     GLuint clutFrag = CompileShader(GL_FRAGMENT_SHADER, s_clutFragSrc);
@@ -1080,6 +1164,20 @@ void GL_Renderer_Shutdown(void) {
     if (s_program) {
         glDeleteProgram(s_program);
         s_program = 0;
+    }
+    if (s_presentIndexedProgram) {
+        glDeleteProgram(s_presentIndexedProgram);
+        s_presentIndexedProgram = 0;
+    }
+    if (s_logIndexTex) {
+        glDeleteTextures(1, &s_logIndexTex);
+        s_logIndexTex = 0;
+    }
+    s_logIndexTexW = 0;
+    s_logIndexTexH = 0;
+    if (s_lutTex) {
+        glDeleteTextures(1, &s_lutTex);
+        s_lutTex = 0;
     }
     if (s_clutProgram) {
         glDeleteProgram(s_clutProgram);
@@ -1843,6 +1941,7 @@ static void GL_ConvertDepthToZBuffer(const U16 *src, U32 fboW, U32 fboH) {
        Inverting: aZ = 131070 - 2 * gl_depth_16.
        ZBufBoxOverWrite2 compares aZ values, so the inverse mapping is
        required. */
+    U64 profT0 = SDL_GetPerformanceCounter();
     for (U32 sy = 0; sy < scrH; sy++) {
         const U16 *srcRow = src + (scrH - 1 - sy) * scrW;
         U16 *dstRow = PtrZBuffer + sy * scrW;
@@ -1851,6 +1950,8 @@ static void GL_ConvertDepthToZBuffer(const U16 *src, U32 fboW, U32 fboH) {
             dstRow[sx] = (U16)(131070u - 2u * gl_depth_16);
         }
     }
+    U64 profT1 = SDL_GetPerformanceCounter();
+    s_profAccumTicks[2] += profT1 - profT0;
 }
 
 /* ── Async depth readback (double-buffered PBOs) ────────────────────────── */
@@ -1868,6 +1969,8 @@ void GL_ReadbackDepthBuffer(void) {
     if (!s_initialized || !s_fbo || PtrZBuffer == NULL || !s_fboHasTerrain) {
         return;
     }
+
+    U64 profT0 = SDL_GetPerformanceCounter();
 
     /* Flush any pending batch so the FBO contains the latest geometry
        (terrain + bodies + shadows) before we read back its depth. */
@@ -1945,6 +2048,9 @@ void GL_ReadbackDepthBuffer(void) {
     if (s_depthPboReady < 2) {
         s_depthPboReady++;
     }
+
+    U64 profT1 = SDL_GetPerformanceCounter();
+    s_profAccumTicks[1] += profT1 - profT0;
 
     /* Keep the FBO bound so subsequent GL_FlushBatch() calls (e.g. from
        body polygons that don't go through the SW path) continue drawing
@@ -2240,6 +2346,8 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
         return;
     }
 
+    U64 profT0 = SDL_GetPerformanceCounter();
+
     /* Flush any remaining batched 3D geometry from the current frame.
        This draws into the FBO if SSAA is active, or the default
        framebuffer otherwise. */
@@ -2422,6 +2530,193 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     /* Eye 0 stops here (its content is captured, not presented). Eye 1 and
      * every mono path continue to the swap, which on the Quest routes into
      * OpenXR_PresentMono — the frame's single submit point. */
+    U64 profT1 = SDL_GetPerformanceCounter();
+    s_profAccumTicks[0] += profT1 - profT0;
+    GL_ProfFrameDone();
+    if (s_stereoEye != 0) {
+        Window_GL_SwapWindow();
+    }
+}
+
+/* ── Indexed present (GPU palette expansion) ─────────────────────────────── */
+
+void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
+                       const U32 *paletteU32, S32 filterLinear) {
+    if (!s_initialized || indices == NULL || paletteU32 == NULL) {
+        return;
+    }
+
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+
+    U64 profT0 = SDL_GetPerformanceCounter();
+
+    /* Same frame plumbing as GL_Present: flush 3D, pick the composite
+     * target, letterbox, draw the 3D FBO content, then the 2D overlay. */
+    GL_FlushBatch();
+    s_frameActive = 0;
+
+    if (s_stereoEye >= 0 && s_stereoEyeFBO[s_stereoEye]) {
+        glBindFramebuffer(GL_FRAMEBUFFER, s_stereoEyeFBO[s_stereoEye]);
+        if (s_stereoEye == 0)
+            s_stereoPairReady = 1;
+    } else {
+        s_stereoPairReady = 0;
+        if (OpenXR_IsActive() && s_presentFBO) {
+            glBindFramebuffer(GL_FRAMEBUFFER, s_presentFBO);
+        } else {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
+    }
+
+    glDisable(GL_DEPTH_TEST);
+
+    SDL_Window *win = Window_GetSDLWindow();
+    int winW = (int)width, winH = (int)height;
+    if (win) {
+        SDL_GetWindowSize(win, &winW, &winH);
+    }
+    if (OpenXR_IsActive() && s_presentFBO) {
+        winW = (int)width;
+        winH = (int)height;
+    }
+    glViewport(0, 0, winW, winH);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    int vpX, vpY, vpW, vpH;
+    {
+        double windowAspect = (double)winW / (double)winH;
+        double contentAspect = (double)width / (double)height;
+        if (windowAspect > contentAspect) {
+            vpH = winH;
+            vpW = (int)((double)winH * contentAspect + 0.5);
+            vpW = (vpW + 1) & ~1;
+            if (vpW > winW) vpW = winW;
+            vpX = (winW - vpW) / 2;
+            vpY = 0;
+        } else {
+            vpW = winW;
+            vpH = (int)((double)winW / contentAspect + 0.5);
+            vpH = (vpH + 1) & ~1;
+            if (vpH > winH) vpH = winH;
+            vpX = 0;
+            vpY = (winH - vpH) / 2;
+        }
+    }
+    glViewport(vpX, vpY, vpW, vpH);
+
+    if (s_fbo) {
+        glDisable(GL_BLEND);
+        glUseProgram(s_program);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, s_fboColorTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glUniform1i(s_uTexLoc, 0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, s_fboVbo);
+        glEnableVertexAttribArray(s_aPosLoc);
+        glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
+                              4 * sizeof(GLfloat), (const void *)0);
+        glEnableVertexAttribArray(s_aTexCoordLoc);
+        glVertexAttribPointer(s_aTexCoordLoc, 2, GL_FLOAT, GL_FALSE,
+                              4 * sizeof(GLfloat),
+                              (const void *)(2 * sizeof(GLfloat)));
+
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        glDisableVertexAttribArray(s_aPosLoc);
+        glDisableVertexAttribArray(s_aTexCoordLoc);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glUseProgram(0);
+    }
+
+    /* Upload the raw palette indices (1 byte per pixel instead of 4). */
+    if (s_logIndexTex == 0 || s_logIndexTexW != width ||
+        s_logIndexTexH != height) {
+        if (s_logIndexTex == 0) {
+            glGenTextures(1, &s_logIndexTex);
+        }
+        glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0,
+                     GL_LUMINANCE, GL_UNSIGNED_BYTE, NULL);
+        s_logIndexTexW = width;
+        s_logIndexTexH = height;
+    } else {
+        glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
+    }
+
+#ifdef GL_UNPACK_ROW_LENGTH
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(pitch));
+#endif
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE,
+                    GL_UNSIGNED_BYTE, indices);
+#ifdef GL_UNPACK_ROW_LENGTH
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+
+    /* Refresh the 256x1 palette texture only when the palette changed. */
+    {
+        static U32 s_lutCache[256];
+        static S32 s_lutCacheValid = 0;
+        if (!s_lutCacheValid ||
+            memcmp(s_lutCache, paletteU32, 256 * sizeof(U32)) != 0) {
+            U8 rgba[256 * 4];
+            for (int i = 0; i < 256; i++) {
+                U32 c = paletteU32[i];
+                rgba[i * 4 + 0] = (U8)(c >> 16); /* R */
+                rgba[i * 4 + 1] = (U8)(c >> 8);  /* G */
+                rgba[i * 4 + 2] = (U8)(c);       /* B */
+                rgba[i * 4 + 3] = (U8)(c >> 24); /* A (0 for index 0) */
+            }
+            glBindTexture(GL_TEXTURE_2D, s_lutTex);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1, GL_RGBA,
+                            GL_UNSIGNED_BYTE, rgba);
+            memcpy(s_lutCache, paletteU32, 256 * sizeof(U32));
+            s_lutCacheValid = 1;
+        }
+    }
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glUseProgram(s_presentIndexedProgram);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
+    glUniform1i(s_idx_uIndices, 0);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, s_lutTex);
+    glUniform1i(s_idx_uPalette, 1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
+    glEnableVertexAttribArray(s_idx_aPos);
+    glVertexAttribPointer(s_idx_aPos, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat), (const void *)0);
+    glEnableVertexAttribArray(s_idx_aTexCoord);
+    glVertexAttribPointer(s_idx_aTexCoord, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat),
+                          (const void *)(2 * sizeof(GLfloat)));
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glDisableVertexAttribArray(s_idx_aPos);
+    glDisableVertexAttribArray(s_idx_aTexCoord);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glUseProgram(0);
+    glDisable(GL_BLEND);
+
+    U64 profT1 = SDL_GetPerformanceCounter();
+    s_profAccumTicks[0] += profT1 - profT0;
+    GL_ProfFrameDone();
+
     if (s_stereoEye != 0) {
         Window_GL_SwapWindow();
     }
@@ -2609,6 +2904,11 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
                 S32 filterLinear) {
     (void)argbPixels; (void)pitch; (void)width; (void)height;
     (void)filterLinear;
+}
+void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
+                       const U32 *paletteU32, S32 filterLinear) {
+    (void)indices; (void)pitch; (void)width; (void)height;
+    (void)paletteU32; (void)filterLinear;
 }
 S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
                           Struc_Point *ptrPoints) {
