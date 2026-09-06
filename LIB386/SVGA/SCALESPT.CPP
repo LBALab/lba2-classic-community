@@ -131,6 +131,10 @@ void ScaleSpriteTransp(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
             return;
         }
 #endif
+        {
+            extern U32 s_censusScaleTLog;
+            s_censusScaleTLog++;
+        }
         U8 *dstPtr = (U8 *)Log + TabOffLine[ScreenYMin] + ScreenXMin;
         U8 *srcPtr = srcBase + startY * sprite->deltaX + startX;
 
@@ -231,6 +235,10 @@ void ScaleSpriteTransp(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
         return;
     }
 #endif
+    {
+        extern U32 s_censusScaleTLog;
+        s_censusScaleTLog++;
+    }
     U8 *dstPtr = (U8 *)Log + TabOffLine[ScreenYMin] + ScreenXMin;
 
     U8 *srcPtr = srcBase + ((U32)startTexY >> 16) * sprite->deltaX;

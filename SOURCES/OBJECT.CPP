@@ -4874,6 +4874,16 @@ void AfficheShadow(T_SORT *pt, S32 beta) {
    depth-tested quad instead of into Log. */
 U16 SpriteGL_Zo = 0;
 
+/* Temporary draw-path census counters */
+U32 s_censusA3DGL = 0;
+U32 s_censusIncrustGL = 0;
+U32 s_censusIncrustLog = 0;
+U32 s_censusSpecial = 0;
+extern "C" {
+U32 s_censusScaleLog = 0;
+U32 s_censusScaleTLog = 0;
+}
+
 /* Per-entry depth for INCRUST_DISP sprites following objects (aZ units),
    captured when the loop projects them; consumed by the INCRUST_SPRITE
    GL quad path.  Zero = draw to Log as before. */
@@ -5287,6 +5297,7 @@ S32 AffOneObject(T_SORT *pt) {
                     const U8 *raw = Obj_DecodeGph(GetPtrAnim3DS(num), &gw, &gh,
                                                   &hotX, &hotY);
                     if (raw) {
+                        s_censusA3DGL++;
                         GL_DrawSpriteQuad(SpriteX + hotX, SpriteY + hotY,
                                           SpriteX + hotX + gw,
                                           SpriteY + hotY + gh,
@@ -5311,6 +5322,7 @@ S32 AffOneObject(T_SORT *pt) {
                 const U8 *raw = Obj_DecodeGph(GetPtrAnim3DS(num), &gw, &gh,
                                               &hotX, &hotY);
                 if (raw) {
+                    s_censusA3DGL++;
                     GL_DrawSpriteQuad(SpriteX + hotX, SpriteY + hotY,
                                       SpriteX + hotX + gw,
                                       SpriteY + hotY + gh,
@@ -5386,6 +5398,7 @@ S32 AffOneObject(T_SORT *pt) {
         num = ptrextra->Sprite;
         if (num & 32768) /// effet spécial
         {
+            s_censusSpecial++;
             AffSpecial(numobj);
         } else // sprite
         {
@@ -6028,6 +6041,32 @@ startaffscene:
         GL_ReadbackDepthBuffer();
     }
 #endif
+
+    /* Temporary census: what did this frame actually draw? */
+    {
+        static S32 s_censusFrames = 0;
+        if (++s_censusFrames % 300 == 1) {
+            extern U32 s_censusAffGraph;
+            extern U32 s_censusClippingGraph;
+            extern U32 s_censusScaleLog;
+            extern U32 s_censusScaleTLog;
+            Log_Info("Census: a3dGL=%u incrustGL=%u incrustLog=%u special=%u "
+                     "affG=%u clipG=%u scaleLog=%u scaleTLog=%u",
+                     s_censusA3DGL, s_censusIncrustGL, s_censusIncrustLog,
+                     s_censusSpecial, s_censusAffGraph, s_censusClippingGraph,
+                     s_censusScaleLog, s_censusScaleTLog);
+            S32 nshown = 0;
+            for (S32 n = 0; n < MAX_EXTRAS && nshown < 12; n++) {
+                if (ListExtra[n].Sprite != -1) {
+                    Log_Info("Census: extra[%d] sprite=%d flags=%d pos=%d,%d,%d",
+                             n, ListExtra[n].Sprite, ListExtra[n].Flags,
+                             ListExtra[n].PosX, ListExtra[n].PosY,
+                             ListExtra[n].PosZ);
+                    nshown++;
+                }
+            }
+        }
+    }
     if (CubeMode == CUBE_EXTERIEUR) {
         if (Island == 0 AND TEMPETE_ACTIVE AND RainEnable)
             AffRain();
@@ -6098,6 +6137,11 @@ startaffscene:
                             ListObjet[num].Obj.Y + ListObjet[num].YMax,
                             ListObjet[num].Obj.Z);
 
+#ifdef USE_GPURENDERER
+            if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+                s_incrustZo[n] = (U16)GET_ZO(CameraZr - Z0);
+            }
+#endif
             ptrdisp->X = (S16)Xp;
             ptrdisp->Y = (S16)Yp;
 
@@ -6232,6 +6276,7 @@ startaffscene:
                                                           ptrdisp->Num),
                                                   &gw, &gh, &hotX, &hotY);
                     if (raw) {
+                        s_censusIncrustGL++;
                         GL_DrawSpriteQuad(SpriteX + hotX, SpriteY + hotY,
                                           SpriteX + hotX + gw,
                                           SpriteY + hotY + gh,
@@ -6259,6 +6304,7 @@ startaffscene:
                 break;
             }
 #endif
+            s_censusIncrustLog++;
             PtrAffGraph(SpriteX, SpriteY, ptrdisp->Num);
             SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
 

@@ -9,7 +9,11 @@
 
 /* ── GL headers ─────────────────────────────────────────────────────────── */
 #if defined(__ANDROID__)
+#ifdef __ANDROID__
+#include <GLES3/gl3.h> /* blitFramebuffer + pixel-pack PBOs (depth readback) */
+#else
 #include <GLES2/gl2.h>
+#endif
 #else
 #define GL_GLEXT_PROTOTYPES
 #include <SDL3/SDL_opengl.h>
@@ -2026,6 +2030,22 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
             glViewport(0, 0, s_fboWidth, s_fboHeight);
         } else {
             glViewport(0, 0, s_texWidth, s_texHeight);
+        }
+    }
+
+    /* Temporary occlusion diagnostic: quad az vs stored depth at centre. */
+    {
+        static S32 s_dbgCount = 0;
+        if (s_dbgCount < 60 && s_fbo) {
+            U16 gl16 = 0;
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
+            glReadPixels((x0 + x1) / 2, (y0 + y1) / 2, 1, 1,
+                         GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, &gl16);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            U16 storedAz = (U16)(131070u - 2u * gl16);
+            Log_Info("SpriteDbg: frame=%u az=%u storedAz=%u rect=(%d,%d)-(%d,%d)",
+                     s_frameSeq, az, storedAz, x0, y0, x1, y1);
+            s_dbgCount++;
         }
     }
 

@@ -9,7 +9,12 @@ if(ANDROID)
     # OpenGL package does not expose it, so link it directly. dlopen is
     # not an option here because the renderer references these symbols
     # statically at link time.
-    target_link_libraries(gly PUBLIC GLESv2)
+    if(ANDROID)
+        # GLES 3 symbols (blitFramebuffer, mapBufferRange) live in libGLESv3.so.
+        target_link_libraries(gly PUBLIC GLESv3)
+    else()
+        target_link_libraries(gly PUBLIC GLESv2)
+    endif()
 else()
     find_package(OpenGL REQUIRED)
     target_link_libraries(gly PUBLIC OpenGL::GL)
