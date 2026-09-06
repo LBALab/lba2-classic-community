@@ -156,6 +156,22 @@ The on-screen virtual gamepad uses the following layout:
 The layout is defined in `SOURCES/TOUCH_INPUT.CPP` and can be customised
 by editing the `kButtons[]` table (normalised 0..1 coordinates).
 
+## Window and display
+
+`Window_SupportsWindowedMode()` (`LIB386/SYSTEM/WINDOW.CPP`) returns false on
+Android, so the Display submenu drops its Fullscreen/Windowed row and the window
+is always fullscreen. `CoerceFullscreenForPlatform` ignores a windowed request
+there: with the row gone, a player whose config asked for windowed would sit
+behind the system bars with no control to undo it. The config value is kept
+rather than rewritten, so a profile carried to desktop still honours it.
+
+The manifest names `@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen`.
+With no theme the framework picks one that has an action bar, and SDL puts the
+SDL window title into the activity title, so that bar draws the product name and
+version over the game. DeviceDefault rather than the legacy
+`Theme.NoTitleBar.Fullscreen` from SDL's android-project template, because the
+theme also styles the dialogs SDL builds against the activity.
+
 ## Limitations
 
 - **Software renderer**: The game uses a software 8-bit→ARGB pipeline.

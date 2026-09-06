@@ -478,20 +478,20 @@ bool Res_LoadBootFullscreen(void) {
        same value later; on boot that becomes a no-op since the state matches,
        and it remains the authoritative path for the in-game menu toggle.
 
-       Default windowed, matching ReadConfigFile's DisplayFullScreen default
-       (FALSE) and its <0/>1 clamp — keep the two in sync. */
+       Default fullscreen, matching ReadConfigFile's DisplayFullScreen default
+       (TRUE) and its <0/>1 clamp; keep the two in sync. */
     if (PathConfigFile[0] != '\0' && ExistsFileOrDir(PathConfigFile)) {
         static char tmpCfgBuf[RES_BOOT_CFG_BUFSZ];
         T_DEFFILE_STATE savedDef;
         DefFileBufferSaveState(&savedDef);
         if (DefFileBufferInit(PathConfigFile, tmpCfgBuf, (S32)sizeof tmpCfgBuf)) {
-            const long fs = DefFileBufferReadValueDefault("DisplayFullScreen", 0);
+            const long fs = DefFileBufferReadValueDefault("DisplayFullScreen", 1);
             DefFileBufferRestoreState(&savedDef);
             return fs == 1;
         }
         DefFileBufferRestoreState(&savedDef);
     }
-    return false;
+    return true;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
