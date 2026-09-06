@@ -86,6 +86,16 @@ void GL_ReadbackDepthBuffer(void);
 //! be bound).  Handles SSAA downscaling.  No-op when no FBO is active.
 void GL_ReadbackColorBuffer(void);
 
+//! Draw one gameplay sprite (eyes, hands, extras) as a chroma-keyed,
+//! depth-tested quad straight into the FBO.  (x0,y0)-(x1,y1) is the
+//! on-screen rect, (u0,v0)-(u1,v1) the sub-rect of the w×h sprite image,
+//! az the anchor depth in aZ units.  When transparent, blends at 50%;
+//! otherwise texel 0 is discarded (colour 0 = transparent).
+void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
+                       S32 u0, S32 v0, S32 u1, S32 v1,
+                       const void *pixels, S32 w, S32 h,
+                       U16 az, S32 transparent);
+
 //! Get the present FBO handle (for OpenXR present on Quest).
 //! Returns the FBO that GL_Present composites into, or 0 if not initialized.
 U32 GL_GetPresentFBO(void);

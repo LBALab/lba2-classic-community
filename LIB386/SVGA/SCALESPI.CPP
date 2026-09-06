@@ -6,6 +6,14 @@
 #include <SVGA/SCREENXY.H>
 #include <SYSTEM/DEBUG_TRACES.H>
 
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+/* Set by the gameplay object pass (SOURCES/OBJECT.CPP): the aZ depth of the
+   sprite being drawn.  Zero means "no GL sprite quad requested" — menus and
+   interior blits keep the Log path. */
+extern U16 SpriteGL_Zo;
+#endif
+
 // Sprite header — matches the ASM struct (SCALESPI.ASM).
 typedef struct {
     U8 Delta_X;
@@ -127,6 +135,18 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory, void *ptrbank)
             return;
         }
 
+#ifdef USE_GPURENDERER
+        if (SpriteGL_Zo != 0) {
+            GL_DrawSpriteQuad(ScreenXMin, ScreenYMin,
+                              ScreenXMin + width, ScreenYMin + height,
+                              startX, startY,
+                              startX + width, startY + height,
+                              srcBase, sprite->Delta_X, sprite->Delta_Y,
+                              SpriteGL_Zo, 0);
+            SpriteGL_Zo = 0;
+            return;
+        }
+#endif
         U8 *dstPtr = (U8 *)Log + TabOffLine[ScreenYMin] + ScreenXMin;
         U8 *srcPtr = srcBase + startY * sprite->Delta_X + startX;
 
@@ -214,6 +234,18 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory, void *ptrbank)
         return;
     }
 
+#ifdef USE_GPURENDERER
+    if (SpriteGL_Zo != 0) {
+        GL_DrawSpriteQuad(ScreenXMin, ScreenYMin,
+                          ScreenXMin + width, ScreenYMin + height,
+                          startTexX >> 16, startTexY >> 16,
+                          (startTexX >> 16) + width, (startTexY >> 16) + height,
+                          srcBase, sprite->Delta_X, sprite->Delta_Y,
+                          SpriteGL_Zo, 0);
+        SpriteGL_Zo = 0;
+        return;
+    }
+#endif
     U8 *dstPtr = (U8 *)Log + TabOffLine[ScreenYMin] + ScreenXMin;
 
     U8 *srcPtr = srcBase + ((U32)startTexY >> 16) * sprite->Delta_X;

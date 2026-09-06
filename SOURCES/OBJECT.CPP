@@ -4868,6 +4868,96 @@ void AfficheShadow(T_SORT *pt, S32 beta) {
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 /*──────────────────────────────────────────────────────────────────────────*/
+/* Depth of the sprite currently being drawn (aZ units), set right after
+   each PtrProjectPoint/PtrProjectSprite call in the sprite cases.  Non-zero
+   tells the SVGA blitters (ScaleSprite*) to draw through the GL FBO as a
+   depth-tested quad instead of into Log. */
+U16 SpriteGL_Zo = 0;
+
+/* Per-entry depth for INCRUST_DISP sprites following objects (aZ units),
+   captured when the loop projects them; consumed by the INCRUST_SPRITE
+   GL quad path.  Zero = draw to Log as before. */
+static U16 s_incrustZo[MAX_INCRUST_DISP];
+
+/* GPH (RLE) sprite decode cache for the GL sprite-quad path. */
+#define GPH_CACHE_SIZE 32
+static const void *s_gphCachePtr[GPH_CACHE_SIZE];
+static U8 *s_gphCacheRaw[GPH_CACHE_SIZE];
+static S32 s_gphCacheW[GPH_CACHE_SIZE];
+static S32 s_gphCacheH[GPH_CACHE_SIZE];
+static S32 s_gphCacheNext = 0;
+
+static const U8 *Obj_DecodeGph(const void *bank, S32 *outW, S32 *outH,
+                               S32 *outHotX, S32 *outHotY) {
+    U8 *data = (U8 *)bank + ((U32 *)bank)[0];
+    const S32 w = data[0];
+    const S32 h = data[1];
+    *outHotX = (S8)data[2];
+    *outHotY = (S8)data[3];
+
+    for (S32 i = 0; i < GPH_CACHE_SIZE; i++) {
+        if (s_gphCachePtr[i] == data) {
+            *outW = s_gphCacheW[i];
+            *outH = s_gphCacheH[i];
+            return s_gphCacheRaw[i];
+        }
+    }
+
+    U8 *raw = (U8 *)malloc((size_t)w * h);
+    if (raw == NULL) {
+        return NULL;
+    }
+    memset(raw, 0, (size_t)w * h);
+
+    /* Same RLE stream AffGraph walks: op 0 = skip, op 1 = literal run,
+       op 2/3 = solid run (colour at data[1] past the control byte). */
+    const U8 *g = data + 4;
+    S32 x = 0;
+    for (S32 line = 0; line < h; line++) {
+        U8 nbBlock = *g++;
+        for (S32 j = 0; j < nbBlock; j++) {
+            U8 control = *g++;
+            U8 opCode = (control & 0b11000000) >> 6;
+            U32 counter = control & 0b00111111;
+            if (opCode == 0) {
+                g++;
+                x += counter + 1;
+            } else {
+                counter++;
+                if (opCode == 1) {
+                    while (counter > 0) {
+                        raw[line * w + x] = *g++;
+                        x++;
+                        counter--;
+                    }
+                } else {
+                    U8 color = g[1];
+                    g += 2;
+                    while (counter > 0) {
+                        raw[line * w + x] = color;
+                        x++;
+                        counter--;
+                    }
+                }
+            }
+        }
+        x = 0;
+    }
+
+    const S32 slot = s_gphCacheNext;
+    s_gphCacheNext = (s_gphCacheNext + 1) % GPH_CACHE_SIZE;
+    if (s_gphCacheRaw[slot]) {
+        free(s_gphCacheRaw[slot]);
+    }
+    s_gphCachePtr[slot] = data;
+    s_gphCacheRaw[slot] = raw;
+    s_gphCacheW[slot] = w;
+    s_gphCacheH[slot] = h;
+    *outW = w;
+    *outH = h;
+    return raw;
+}
+
 S32 AffOneObject(T_SORT *pt) {
     T_OBJET *ptrobj;
     T_EXTRA *ptrextra;
@@ -5070,6 +5160,12 @@ S32 AffOneObject(T_SORT *pt) {
                          ptrobj->Obj.Y,
                          ptrobj->Obj.Z, num);
 
+#ifdef USE_GPURENDERER
+        if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+            SpriteGL_Zo = (U16)GET_ZO(CameraZr - Z0);
+        }
+#endif
+
         if (ptrobj->Flags & SPRITE_CLIP) {
             SetClip(ptrobj->Info + XpOrgw, ptrobj->Info1 + YpOrgw,
                     ptrobj->Info2 + XpOrgw, ptrobj->Info3 + YpOrgw);
@@ -5167,6 +5263,16 @@ S32 AffOneObject(T_SORT *pt) {
         SpriteX = Xp + PtrZvAnim3DS[num * 8 + 0];
         SpriteY = Yp + PtrZvAnim3DS[num * 8 + 1];
 
+#ifdef USE_GPURENDERER
+        /* GL mode: draw anim sprites (NPC eyes, hero hands) as depth-tested
+           quads in the FBO — Log pixels could never be occluded by models.
+           The anchor depth is exact: the attachment point sits ON the model
+           surface, and the live FBO depth test does the occlusion. */
+        if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+            SpriteGL_Zo = (U16)GET_ZO(CameraZr - Z0);
+        }
+#endif
+
         if (ptrobj->Flags & SPRITE_CLIP) {
             SetClip(ptrobj->Info + XpOrgw, ptrobj->Info1 + YpOrgw,
                     ptrobj->Info2 + XpOrgw, ptrobj->Info3 + YpOrgw);
@@ -5175,10 +5281,52 @@ S32 AffOneObject(T_SORT *pt) {
             // sprites
             if (ClipXMin <= ClipXMax
                                 AND ClipYMin <= ClipYMax) {
-                AffGraph(0, SpriteX, SpriteY, GetPtrAnim3DS(num));
+#ifdef USE_GPURENDERER
+                if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+                    S32 gw, gh, hotX, hotY;
+                    const U8 *raw = Obj_DecodeGph(GetPtrAnim3DS(num), &gw, &gh,
+                                                  &hotX, &hotY);
+                    if (raw) {
+                        GL_DrawSpriteQuad(SpriteX + hotX, SpriteY + hotY,
+                                          SpriteX + hotX + gw,
+                                          SpriteY + hotY + gh,
+                                          0, 0, gw, gh,
+                                          raw, gw, gh,
+                                          SpriteGL_Zo, 0);
+                        ScreenXMin = SpriteX + hotX;
+                        ScreenYMin = SpriteY + hotY;
+                        ScreenXMax = ScreenXMin + gw;
+                        ScreenYMax = ScreenYMin + gh;
+                    }
+                } else
+#endif
+                {
+                    AffGraph(0, SpriteX, SpriteY, GetPtrAnim3DS(num));
+                }
             }
         } else {
-            AffGraph(0, SpriteX, SpriteY, GetPtrAnim3DS(num));
+#ifdef USE_GPURENDERER
+            if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+                S32 gw, gh, hotX, hotY;
+                const U8 *raw = Obj_DecodeGph(GetPtrAnim3DS(num), &gw, &gh,
+                                              &hotX, &hotY);
+                if (raw) {
+                    GL_DrawSpriteQuad(SpriteX + hotX, SpriteY + hotY,
+                                      SpriteX + hotX + gw,
+                                      SpriteY + hotY + gh,
+                                      0, 0, gw, gh,
+                                      raw, gw, gh,
+                                      SpriteGL_Zo, 0);
+                    ScreenXMin = SpriteX + hotX;
+                    ScreenYMin = SpriteY + hotY;
+                    ScreenXMax = ScreenXMin + gw;
+                    ScreenYMax = ScreenYMin + gh;
+                }
+            } else
+#endif
+            {
+                AffGraph(0, SpriteX, SpriteY, GetPtrAnim3DS(num));
+            }
             SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
         }
 
@@ -5230,6 +5378,11 @@ S32 AffOneObject(T_SORT *pt) {
 
         PtrProjectPoint(ptrextra->PosX, ptrextra->PosY, ptrextra->PosZ);
 
+#ifdef USE_GPURENDERER
+        if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+            SpriteGL_Zo = (U16)GET_ZO(CameraZr - Z0);
+        }
+#endif
         num = ptrextra->Sprite;
         if (num & 32768) /// effet spécial
         {
@@ -5921,6 +6074,11 @@ startaffscene:
                             ListObjet[num].Obj.Y + ListObjet[num].YMax,
                             ListObjet[num].Obj.Z);
 
+#ifdef USE_GPURENDERER
+            if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+                s_incrustZo[n] = (U16)GET_ZO(CameraZr - Z0);
+            }
+#endif
             ptrdisp->X = (S16)Xp;
             ptrdisp->Y = (S16)Yp;
 
@@ -6063,6 +6221,44 @@ startaffscene:
             }
 
             ScaleFactorSprite = DEF_SCALE_FACTOR;
+#ifdef USE_GPURENDERER
+            /* GL mode: follow-sprites (eye markers etc.) draw as depth-tested
+               quads in the FBO so models occlude them. */
+            if (GPURendererActive && CubeMode == CUBE_EXTERIEUR
+                    && s_incrustZo[n] != 0) {
+                if (ptrdisp->Num >= 100) {
+                    S32 gw, gh, hotX, hotY;
+                    const U8 *raw = Obj_DecodeGph(HQR_Get(HQRPtrSprite,
+                                                          ptrdisp->Num),
+                                                  &gw, &gh, &hotX, &hotY);
+                    if (raw) {
+                        GL_DrawSpriteQuad(SpriteX + hotX, SpriteY + hotY,
+                                          SpriteX + hotX + gw,
+                                          SpriteY + hotY + gh,
+                                          0, 0, gw, gh,
+                                          raw, gw, gh,
+                                          s_incrustZo[n], 0);
+                    }
+                } else {
+                    U8 *sptr = (U8 *)HQR_Get(HQRPtrSpriteRaw, ptrdisp->Num);
+                    if (sptr != NULL) {
+                        GL_DrawSpriteQuad(SpriteX + (S8)sptr[2],
+                                          SpriteY + (S8)sptr[3],
+                                          SpriteX + (S8)sptr[2] + sptr[0],
+                                          SpriteY + (S8)sptr[3] + sptr[1],
+                                          0, 0, sptr[0], sptr[1],
+                                          sptr + 4, sptr[0], sptr[1],
+                                          s_incrustZo[n], 0);
+                    }
+                }
+                SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
+                if (ClipXMin <= ClipXMax
+                                        AND ClipYMin <= ClipYMax) {
+                    BoxMovingAdd(ClipXMin, ClipYMin, ClipXMax, ClipYMax);
+                }
+                break;
+            }
+#endif
             PtrAffGraph(SpriteX, SpriteY, ptrdisp->Num);
             SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
 

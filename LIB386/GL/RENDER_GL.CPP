@@ -128,7 +128,8 @@ static const char *s_clutVertSrc =
 
 static const char *s_clutFragSrc =
     GLSL_FRAG_HEADER
-    "uniform sampler2D uAtlas;\n"   /* 256×256 LUMINANCE */
+    "uniform sampler2D uAtlas;\n"   /* 256×256 LUMINANCE (or sprite page) */
+    "uniform vec2 uAtlasScale;\n"   /* texture dims for texel-space UVs */
     "uniform sampler2D uCLUT;\n"    /* 256×256 LUMINANCE (fog table) */
     "uniform sampler2D uPalette;\n" /* 256×1 BGRA (paletteLUT) */
     "uniform int uPolyMode;\n"      /* 0=texture 1=flat 2=gouraud 3=gouraudTable 4=textureNoCLUT 5=fogSmooth 6=shadowGray */
@@ -247,8 +248,8 @@ static const char *s_clutFragSrc =
      "        float heightMask = floor(vRepMask / 256.0);\n"
       "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
       "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
-      "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
-      "                            (floor(wrappedV) + 0.5) / 256.0);\n"
+      "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / uAtlasScale.x,\n"
+      "                            (floor(wrappedV) + 0.5) / uAtlasScale.y);\n"
       "        float palIdx = texture2D(uAtlas, atlasUV).r * 255.0;\n"
     /* Chroma key: atlas texel 0 = transparent.
        Only INCRUST types have chroma key. */
@@ -336,6 +337,7 @@ static GLint s_clut_uCLUT = -1;
 static GLint s_clut_uPalette = -1;
 static GLint s_clut_uScreenScale = -1;
 static GLint s_clut_uPolyMode = -1;
+static GLint s_clut_uAtlasScale = -1;
 static GLint s_clut_uFlatColor = -1;
 static GLint s_clut_uCLUTBaseRow = -1;
 static GLint s_clut_uScaledFogNear = -1;
@@ -517,6 +519,12 @@ static S32 s_depthPboIndex = 0; /* PBO receiving this frame's read */
 static S32 s_depthPboReady = 0; /* PBOs holding a completed read (0..2) */
 static U32 s_depthPboW = 0;
 static U32 s_depthPboH = 0;
+/* Screen-sized depth FBO: the SSAA FBO depth is downscaled here on the GPU
+   before readback, cutting the CPU read from ~40 MB to ~2.4 MB per frame. */
+static GLuint s_depthSmallFbo = 0;
+static GLuint s_depthSmallRbo = 0;
+static U32 s_depthSmallW = 0;
+static U32 s_depthSmallH = 0;
 
 /* ── Terrain snapshot (object ghost erase on incremental frames) ─────────── */
 /* Bodies render GL into the FBO, and incremental (AFF_OBJETS_*) frames do
@@ -863,6 +871,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_clut_uPalette = glGetUniformLocation(s_clutProgram, "uPalette");
     s_clut_uScreenScale = glGetUniformLocation(s_clutProgram, "uScreenScale");
     s_clut_uPolyMode = glGetUniformLocation(s_clutProgram, "uPolyMode");
+    s_clut_uAtlasScale = glGetUniformLocation(s_clutProgram, "uAtlasScale");
     s_clut_uFlatColor = glGetUniformLocation(s_clutProgram, "uFlatColor");
     s_clut_uCLUTBaseRow = glGetUniformLocation(s_clutProgram, "uCLUTBaseRow");
     s_clut_uScaledFogNear = glGetUniformLocation(s_clutProgram, "uScaledFogNear");
@@ -1054,6 +1063,16 @@ void GL_Renderer_Shutdown(void) {
     s_depthPboReady = 0;
     s_depthPboW = 0;
     s_depthPboH = 0;
+    if (s_depthSmallFbo) {
+        glDeleteFramebuffers(1, &s_depthSmallFbo);
+        s_depthSmallFbo = 0;
+    }
+    if (s_depthSmallRbo) {
+        glDeleteRenderbuffers(1, &s_depthSmallRbo);
+        s_depthSmallRbo = 0;
+    }
+    s_depthSmallW = 0;
+    s_depthSmallH = 0;
     if (s_program) {
         glDeleteProgram(s_program);
         s_program = 0;
@@ -1386,6 +1405,7 @@ void GL_FlushBatch(void) {
         glBindTexture(GL_TEXTURE_2D, s_atlasTex);
     }
     glUniform1i(s_clut_uAtlas, 0);
+    glUniform2f(s_clut_uAtlasScale, 256.0f, 256.0f);
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, s_clutTex);
@@ -1806,53 +1826,25 @@ extern U32 ModeDesiredY;
 }
 
 /* Convert a freshly-read FBO depth buffer (GL_UNSIGNED_SHORT rows,
- * bottom-up) into the SW aZ format in PtrZBuffer, top-down.  1:1 when the
- * FBO matches the screen; downsampling by minimum aZ per screen pixel block
- * under SSAA.  Shared by the synchronous bootstrap path and the PBO path. */
+ * bottom-up, screen-sized) into the SW aZ format in PtrZBuffer, top-down.
+ * The GPU downscales the SSAA depth before this runs, so src is always
+ * screen-sized. */
 static void GL_ConvertDepthToZBuffer(const U16 *src, U32 fboW, U32 fboH) {
     const U32 scrW = ModeDesiredX;
     const U32 scrH = ModeDesiredY;
 
-    if (fboW == scrW && fboH == scrH) {
-        /* 1:1 path: invert depth, flip Y into PtrZBuffer.  The vertex
-           shader outputs Z = 1.0 - aZ/65535.0; after the viewport transform
-           depth = (2.0 - aZ/65535) / 2, stored as
-           gl_depth_16 = (131070 - aZ) / 2.
-           Inverting: aZ = 131070 - 2 * gl_depth_16.
-           ZBufBoxOverWrite2 compares aZ values, so the inverse
-           mapping is required. */
-        for (U32 sy = 0; sy < scrH; sy++) {
-            const U16 *srcRow = src + (scrH - 1 - sy) * scrW;
-            U16 *dstRow = PtrZBuffer + sy * scrW;
-            for (U32 sx = 0; sx < scrW; sx++) {
-                U32 gl_depth_16 = srcRow[sx];
-                dstRow[sx] = (U16)(131070u - 2u * gl_depth_16);
-            }
-        }
-    } else {
-        /* SSAA path: downsample by picking the closest terrain (minimum
-           aZ) per screen pixel block. */
-        const U32 scaleX = fboW / scrW;
-        const U32 scaleY = fboH / scrH;
-
-        for (U32 sy = 0; sy < scrH; sy++) {
-            U16 *dstRow = PtrZBuffer + sy * scrW;
-            for (U32 sx = 0; sx < scrW; sx++) {
-                U16 minAZ = 0x7FFF; /* start with smallest possible aZ */
-                const U32 fx0 = sx * scaleX;
-                const U32 fy0 = (fboH - 1 - sy * scaleY) - scaleY + 1;
-                for (U32 fy = fy0; fy < fy0 + scaleY; fy++) {
-                    const U16 *srcRow = src + fy * fboW;
-                    for (U32 fx = fx0; fx < fx0 + scaleX; fx++) {
-                        U32 gl_depth_16 = srcRow[fx];
-                        U16 az = (U16)(131070u - 2u * gl_depth_16);
-                        if (az < minAZ) {
-                            minAZ = az;
-                        }
-                    }
-                }
-                dstRow[sx] = minAZ;
-            }
+    /* 1:1 path: invert depth, flip Y into PtrZBuffer.  The vertex shader
+       outputs Z = 1.0 - aZ/65535.0; after the viewport transform depth =
+       (2.0 - aZ/65535) / 2, stored as gl_depth_16 = (131070 - aZ) / 2.
+       Inverting: aZ = 131070 - 2 * gl_depth_16.
+       ZBufBoxOverWrite2 compares aZ values, so the inverse mapping is
+       required. */
+    for (U32 sy = 0; sy < scrH; sy++) {
+        const U16 *srcRow = src + (scrH - 1 - sy) * scrW;
+        U16 *dstRow = PtrZBuffer + sy * scrW;
+        for (U32 sx = 0; sx < scrW; sx++) {
+            U32 gl_depth_16 = srcRow[sx];
+            dstRow[sx] = (U16)(131070u - 2u * gl_depth_16);
         }
     }
 }
@@ -1866,9 +1858,9 @@ static void GL_ConvertDepthToZBuffer(const U16 *src, U32 fboW, U32 fboH) {
    only sprite occlusion (ZBufBoxOverWrite2) and fully-hidden flags, which
    are insensitive to a single frame of lag. */
 void GL_ReadbackDepthBuffer(void) {
-    /* NOTE: no s_terrainRenderedThisFrame guard — this runs after the
-       object pass on every exterior frame, and on incremental frames the
-       FBO depth persists (restore only touches color). */
+    /* NOTE: runs after the object pass on every exterior frame; on
+       incremental frames the FBO depth persists (restore only touches
+       color), so there is no per-frame terrain-rendered guard here. */
     if (!s_initialized || !s_fbo || PtrZBuffer == NULL || !s_fboHasTerrain) {
         return;
     }
@@ -1877,84 +1869,73 @@ void GL_ReadbackDepthBuffer(void) {
        (terrain + bodies + shadows) before we read back its depth. */
     GL_FlushBatch();
 
-    /* The PBO path trades one frame of depth lag for no pipeline stall —
-       worthwhile on tiled mobile GPUs (Quest), but the lag breaks sprite
-       occlusion as soon as the camera moves, so desktop defaults to the
-       synchronous read. */
-    static S32 s_asyncDepth = -1;
-    if (s_asyncDepth < 0) {
-        s_asyncDepth = getenv("LBA2_SYNC_DEPTH") ? 0 : 1;
-    }
-    if (!s_asyncDepth) {
-        const U32 fboW = s_fboWidth;
-        const U32 fboH = s_fboHeight;
-        const U32 bytes = fboW * fboH * sizeof(U16);
-        U16 *tmp = (U16 *)malloc(bytes);
-        if (tmp != NULL) {
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
-            glReadPixels(0, 0, fboW, fboH, GL_DEPTH_COMPONENT,
-                         GL_UNSIGNED_SHORT, tmp);
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-            GL_ConvertDepthToZBuffer(tmp, fboW, fboH);
-            free(tmp);
-        }
-        return;
-    }
-
     const U32 fboW = s_fboWidth;
     const U32 fboH = s_fboHeight;
-    const U32 bytes = fboW * fboH * sizeof(U16);
+    const U32 scrW = ModeDesiredX;
+    const U32 scrH = ModeDesiredY;
+    const U32 bytes = scrW * scrH * sizeof(U16);
 
-    if (s_depthPbo[0] == 0 || s_depthPboW != fboW || s_depthPboH != fboH) {
-        if (s_depthPbo[0] == 0) {
-            glGenBuffers(2, s_depthPbo);
+    /* GPU downscale: blit the SSAA depth into a screen-sized FBO so the
+       CPU readback moves 2.4 MB instead of ~40 MB per frame. */
+    if (s_depthSmallFbo == 0 || s_depthSmallW != scrW ||
+        s_depthSmallH != scrH) {
+        if (s_depthSmallFbo == 0) {
+            glGenFramebuffers(1, &s_depthSmallFbo);
+            glGenRenderbuffers(1, &s_depthSmallRbo);
         }
-        for (S32 i = 0; i < 2; i++) {
-            glBindBuffer(GL_PIXEL_PACK_BUFFER, s_depthPbo[i]);
-            glBufferData(GL_PIXEL_PACK_BUFFER, bytes, NULL, GL_STREAM_READ);
-        }
-        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-        s_depthPboW = fboW;
-        s_depthPboH = fboH;
-        s_depthPboIndex = 0;
-        s_depthPboReady = 0;
+        glBindFramebuffer(GL_FRAMEBUFFER, s_depthSmallFbo);
+        glBindRenderbuffer(GL_RENDERBUFFER, s_depthSmallRbo);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
+                              scrW, scrH);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                                  GL_RENDERBUFFER, s_depthSmallRbo);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        s_depthSmallW = scrW;
+        s_depthSmallH = scrH;
     }
 
-    /* 1. Consume the read issued on the previous frame. */
-    const GLuint readPbo = s_depthPbo[s_depthPboIndex ^ 1];
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_depthSmallFbo);
+    glBlitFramebuffer(0, 0, fboW, fboH, 0, 0, scrW, scrH,
+                      GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+    /* Async double-buffered PBO readback: consume the read issued on the
+       previous frame (the GPU has had a full frame to finish it), then
+       issue this frame's read. */
+    const U32 readIdx = s_depthPboIndex ^ 1;
     if (s_depthPboReady > 0) {
-        glBindBuffer(GL_PIXEL_PACK_BUFFER, readPbo);
-        const U16 *src = (const U16 *)glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0,
-                                                       bytes, GL_MAP_READ_BIT);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, s_depthPbo[readIdx]);
+        const U16 *src = (const U16 *)glMapBufferRange(GL_PIXEL_PACK_BUFFER,
+                                                       0, bytes,
+                                                       GL_MAP_READ_BIT);
         if (src != NULL) {
-            GL_ConvertDepthToZBuffer(src, fboW, fboH);
+            GL_ConvertDepthToZBuffer(src, scrW, scrH);
             glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
         } else {
             memset(PtrZBuffer, 0xFF,
-                   (size_t)ModeDesiredX * (size_t)ModeDesiredY * sizeof(U16));
+                   (size_t)scrW * (size_t)scrH * sizeof(U16));
         }
         glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
     } else {
-        /* Bootstrap frame: no PBO data yet — one synchronous read so the
-           first rendered frame has correct sprite occlusion. */
+        /* Bootstrap: one synchronous read so the first frame is correct. */
         U16 *tmp = (U16 *)malloc(bytes);
         if (tmp != NULL) {
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
-            glReadPixels(0, 0, fboW, fboH, GL_DEPTH_COMPONENT,
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, s_depthSmallFbo);
+            glReadPixels(0, 0, scrW, scrH, GL_DEPTH_COMPONENT,
                          GL_UNSIGNED_SHORT, tmp);
             glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-            GL_ConvertDepthToZBuffer(tmp, fboW, fboH);
+            GL_ConvertDepthToZBuffer(tmp, scrW, scrH);
             free(tmp);
         }
     }
 
-    /* 2. Issue this frame's asynchronous read into the other PBO. */
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, s_depthPbo[s_depthPboIndex]);
-    glReadPixels(0, 0, fboW, fboH, GL_DEPTH_COMPONENT,
-                 GL_UNSIGNED_SHORT, NULL);
+    glReadPixels(0, 0, scrW, scrH, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT,
+                 NULL);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
     s_depthPboIndex ^= 1;
     if (s_depthPboReady < 2) {
@@ -1975,6 +1956,179 @@ void GL_ReadbackDepthBuffer(void) {
 
    Uses a cached 65536-entry hash table for O(1) ARGB→palette-index lookup.
    Handles SSAA downscaling (FBO may be larger than Screen). */
+/* ── Gameplay sprite quads (GL AffGraph/ScaleSprite replacement) ─────────── */
+
+#define SPRITE_CACHE_SIZE 24
+typedef struct {
+    const void *ptr;
+    S32 w;
+    S32 h;
+    GLuint tex;
+} SpriteTexEntry;
+static SpriteTexEntry s_spriteTexCache[SPRITE_CACHE_SIZE];
+static S32 s_spriteTexNext = 0;
+
+static GLuint GL_BindSpriteTexture(const void *pixels, S32 w, S32 h) {
+    for (S32 i = 0; i < SPRITE_CACHE_SIZE; i++) {
+        if (s_spriteTexCache[i].ptr == pixels && s_spriteTexCache[i].w == w &&
+            s_spriteTexCache[i].h == h) {
+            glBindTexture(GL_TEXTURE_2D, s_spriteTexCache[i].tex);
+            return s_spriteTexCache[i].tex;
+        }
+    }
+
+    SpriteTexEntry *e = &s_spriteTexCache[s_spriteTexNext];
+    s_spriteTexNext = (s_spriteTexNext + 1) % SPRITE_CACHE_SIZE;
+    if (e->tex == 0) {
+        glGenTextures(1, &e->tex);
+        glBindTexture(GL_TEXTURE_2D, e->tex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    } else {
+        glBindTexture(GL_TEXTURE_2D, e->tex);
+    }
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE,
+                 GL_UNSIGNED_BYTE, pixels);
+    e->ptr = pixels;
+    e->w = w;
+    e->h = h;
+    return e->tex;
+}
+
+/* Draw one gameplay sprite (eyes, hands, extras) as a chroma-keyed,
+   depth-tested quad straight into the FBO.  Replaces the SW blit into Log,
+   whose pixels always composited over the FBO and could therefore never be
+   occluded by GL-drawn models.  (x0,y0)-(x1,y1) is the on-screen rect,
+   (u0,v0)-(u1,v1) the sub-rect of the w×h sprite image to sample, az the
+   anchor depth in aZ units (GET_ZO(CameraZr - Z0)).  When transparent, the
+   quad blends at 50% like ScaleSpriteTransp; otherwise texel 0 is
+   discarded (colour 0 = transparent). */
+void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
+                       S32 u0, S32 v0, S32 u1, S32 v1,
+                       const void *pixels, S32 w, S32 h,
+                       U16 az, S32 transparent) {
+    if (!s_initialized || pixels == NULL || w <= 0 || h <= 0 || x1 <= x0 ||
+        y1 <= y0) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+
+    GL_FlushBatch();
+
+    if (!s_frameActive) {
+        s_frameActive = 1;
+        if (s_fbo) {
+            glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+            glViewport(0, 0, s_fboWidth, s_fboHeight);
+        } else {
+            glViewport(0, 0, s_texWidth, s_texHeight);
+        }
+    }
+
+    /* Temporary occlusion diagnostic: quad az vs stored depth at centre. */
+    {
+        static S32 s_dbgCount = 0;
+        if (s_dbgCount < 60 && s_fbo) {
+            U16 gl16 = 0;
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
+            glReadPixels((x0 + x1) / 2, (y0 + y1) / 2, 1, 1,
+                         GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, &gl16);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            U16 storedAz = (U16)(131070u - 2u * gl16);
+            Log_Info("SpriteDbg: frame=%u az=%u storedAz=%u rect=(%d,%d)-(%d,%d)",
+                     s_frameSeq, az, storedAz, x0, y0, x1, y1);
+            s_dbgCount++;
+        }
+    }
+
+    glUseProgram(s_clutProgram);
+
+    glUniform2f(s_clut_uScreenScale, 2.0f / (GLfloat)s_texWidth,
+                2.0f / (GLfloat)s_texHeight);
+    glUniform1i(s_clut_uPolyMode, 4);
+    glUniform1i(s_clut_uAlphaMode, transparent ? 1 : 0);
+    glUniform1i(s_clut_uChromaKey, transparent ? 0 : 1);
+    glUniform2f(s_clut_uAtlasScale, (GLfloat)w, (GLfloat)h);
+
+    glActiveTexture(GL_TEXTURE0);
+    GL_BindSpriteTexture(pixels, w, h);
+    glUniform1i(s_clut_uAtlas, 0);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, s_clutTex);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, s_paletteTex);
+    glActiveTexture(GL_TEXTURE0);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GEQUAL);
+    glDepthMask(GL_FALSE);
+
+    if (transparent) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    } else {
+        glDisable(GL_BLEND);
+    }
+
+    static U8 quadVerts[6 * 14];
+    static const S8 order[6] = {0, 1, 2, 0, 2, 3};
+    const S16 px[4] = {(S16)x0, (S16)x1, (S16)x1, (S16)x0};
+    const S16 py[4] = {(S16)y0, (S16)y0, (S16)y1, (S16)y1};
+    const U16 pu[4] = {(U16)u0, (U16)u1, (U16)u1, (U16)u0};
+    const U16 pv[4] = {(U16)v0, (U16)v0, (U16)v1, (U16)v1};
+    for (S32 i = 0; i < 6; i++) {
+        U8 *v = quadVerts + i * 14;
+        S32 c = order[i];
+        S16 x = px[c];
+        S16 y = py[c];
+        U16 u = pu[c];
+        U16 vv = pv[c];
+        memcpy(v + 0, &x, 2);
+        memcpy(v + 2, &y, 2);
+        memcpy(v + 4, &u, 2);
+        memcpy(v + 6, &vv, 2);
+        memset(v + 8, 0, 2); /* light = 0 */
+        memcpy(v + 10, &az, 2);
+        memset(v + 12, 0, 2); /* RepMask = 0 */
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quadVerts), quadVerts);
+
+    glEnableVertexAttribArray(s_clut_aPos);
+    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 14,
+                          (const void *)0);
+    glEnableVertexAttribArray(s_clut_aTexCoord);
+    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)4);
+    glEnableVertexAttribArray(s_clut_aLight);
+    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)8);
+    glEnableVertexAttribArray(s_clut_aZ);
+    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)10);
+    glEnableVertexAttribArray(s_clut_aRepMask);
+    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)12);
+
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+
+    glDisableVertexAttribArray(s_clut_aPos);
+    glDisableVertexAttribArray(s_clut_aTexCoord);
+    glDisableVertexAttribArray(s_clut_aLight);
+    glDisableVertexAttribArray(s_clut_aZ);
+    glDisableVertexAttribArray(s_clut_aRepMask);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glUseProgram(0);
+}
 
 void GL_ReadbackColorBuffer(void) {
     if (!s_initialized || !s_fbo || Screen == NULL || !s_fboHasTerrain || !s_terrainRenderedThisFrame) {

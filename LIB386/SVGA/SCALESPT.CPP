@@ -1,5 +1,10 @@
 #include <SVGA/SCALESPT.H>
 #include <SVGA/CLIP.H>
+
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+extern U16 SpriteGL_Zo;
+#endif
 #include <SVGA/SCREEN.H>
 #include <SVGA/SCREENXY.H>
 #include <stdio.h>
@@ -114,6 +119,18 @@ void ScaleSpriteTransp(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
             return;
         }
 
+#ifdef USE_GPURENDERER
+        if (SpriteGL_Zo != 0) {
+            GL_DrawSpriteQuad(ScreenXMin, ScreenYMin,
+                              ScreenXMin + width, ScreenYMin + height,
+                              startX, startY,
+                              startX + width, startY + height,
+                              srcBase, sprite->deltaX, sprite->deltaY,
+                              SpriteGL_Zo, 1);
+            SpriteGL_Zo = 0;
+            return;
+        }
+#endif
         U8 *dstPtr = (U8 *)Log + TabOffLine[ScreenYMin] + ScreenXMin;
         U8 *srcPtr = srcBase + startY * sprite->deltaX + startX;
 
@@ -202,6 +219,18 @@ void ScaleSpriteTransp(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
         return;
     }
 
+#ifdef USE_GPURENDERER
+    if (SpriteGL_Zo != 0) {
+        GL_DrawSpriteQuad(ScreenXMin, ScreenYMin,
+                          ScreenXMin + width, ScreenYMin + height,
+                          startTexX >> 16, startTexY >> 16,
+                          (startTexX >> 16) + width, (startTexY >> 16) + height,
+                          srcBase, sprite->deltaX, sprite->deltaY,
+                          SpriteGL_Zo, 1);
+        SpriteGL_Zo = 0;
+        return;
+    }
+#endif
     U8 *dstPtr = (U8 *)Log + TabOffLine[ScreenYMin] + ScreenXMin;
 
     U8 *srcPtr = srcBase + ((U32)startTexY >> 16) * sprite->deltaX;
