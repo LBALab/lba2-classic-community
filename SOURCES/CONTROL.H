@@ -92,6 +92,14 @@ void Control_ServiceListen(void);
 /* Number of --exec-at entries whose tick the run never reached, reported on stderr as a
    side effect. Non-zero means the run did not do what was asked of it. */
 int Control_UnfiredExecAt(void);
+/* PERSO.CPP's ESC break: the in-game menu is a return from MainLoop, and a harness run
+   enters MainLoop once, so this return ends the run. Told to the harness so it can tell
+   that from the benign early returns (LM_THE_END, the demo watchdog). */
+void Control_NoteMainLoopEntered(void);
+void Control_NoteLeftForMenu(void);
+/* Non-zero when the run ended without replaying what it was given -- a status a harness
+   run must not report as success. */
+int Control_ReplayCutShort(void);
 
 /* Non-zero if --verbose was supplied: log scene/hero progress and modal entries to stderr,
    so a headless run is self-explaining and a hang shows what blocked it. This is all it

@@ -443,6 +443,8 @@ static S32 SpellKeyDown(S32 n) {
 /*──────────────────────────────────────────────────────────────────────────*/
 
 S32 MainLoop() {
+    /* The exit reason belongs to this entry. See Control_NoteMainLoopEntered. */
+    Control_NoteMainLoopEntered();
     S32 xm, ym, zm;
     T_OBJET *ptrobj;
     U8 i;
@@ -903,6 +905,12 @@ restartloop:
                     } else {
                         SavingEnable = FALSE;
                     }
+                    /* Leaving MainLoop for the menu. Under MainGameMenu that is a pause
+                       and the loop is re-entered; under the CLI harness, which calls
+                       MainLoop once, it is the end of the run -- so a replay stops here
+                       with its stream unread. The harness cannot see the difference from
+                       the return value, which MainGameMenu's switch already spends. */
+                    Control_NoteLeftForMenu();
                     break;
                 }
             }
@@ -2976,6 +2984,13 @@ int main(int argc, char *argv[]) {
         }
         MainLoop();
         Control_End();
+        /* Beside the --exec-at check and for the same reason: a run that did not do what
+           the command line asked must not exit 0. Control_End has already said which of
+           the two happened and why. */
+        if (Control_ReplayCutShort()) {
+            TheEnd(PROGRAM_FAIL, "control: the replay did not reach the end of its recording");
+            return 1;
+        }
         if (Control_UnfiredExecAt() > 0) {
             TheEnd(PROGRAM_FAIL, "control: --exec-at never ran");
             return 1;
