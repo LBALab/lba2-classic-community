@@ -219,7 +219,9 @@ theme also styles the dialogs SDL builds against the activity.
   (window focus events). Surface re-creation is managed by the existing
   SDL3 infrastructure.
 - **Game data**: You must provide your own retail LBA2 data files.
-- **Android TV**: Touch overlay is off when a TV device is detected
+- **Android TV**: the touch overlay starts off when a TV device is detected
   (`android.software.leanback` feature). Use a gamepad or remote control
-  instead. This is only the starting value: the last-input rule reaches the
-  same answer on its own, because a TV is a screen nobody ever touches.
+  instead. Leanback is only the starting value, not a lock: a touch still
+  brings the overlay up, so a leanback device that does have a touchscreen can
+  use it. A first touch is better evidence than a manifest feature flag, and
+  the alternative was a control the player has no way to reach.
