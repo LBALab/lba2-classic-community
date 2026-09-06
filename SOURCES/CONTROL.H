@@ -97,6 +97,9 @@ int Control_UnfiredExecAt(void);
    that from the benign early returns (LM_THE_END, the demo watchdog). */
 void Control_NoteMainLoopEntered(void);
 void Control_NoteLeftForMenu(void);
+/* The replay consumed its last poll. Ends the run there instead of at the tick budget,
+   which is larger than the recording by construction. */
+void Control_NoteReplayStreamEnded(void);
 /* Non-zero when the run ended without replaying what it was given -- a status a harness
    run must not report as success. */
 int Control_ReplayCutShort(void);

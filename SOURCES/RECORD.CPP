@@ -2873,6 +2873,25 @@ void Record_PollHook(void) {
             /* The engine is mid-session with nothing left to drive it, and whatever it
                was waiting for will never arrive. Say what happened and leave. */
             replay_report(REPLAY_END_STREAM);
+            /* Before Record_Stop, which clears s_replaying and would leave the harness
+               unable to tell a replay that finished from a run that never had one. The
+               harness ends its budget here rather than running the game on past the
+               recording with nothing driving it; see Control_NoteReplayStreamEnded. The
+               exit below still only fires where nothing else is driving the run, so the
+               two paths do not both try to end it.
+
+               Only for a replay armed from the flag, on the same distinction the return
+               point is drawn on a few lines up: that run exists to replay and exit and has
+               no player session to protect, so the stream running out is the end of what
+               it was asked to do. A playback started from inside a session is not finished
+               when its stream ends -- the reload that puts the player back is still to be
+               issued, and it is issued from a later tick. Ending the run here takes those
+               ticks away and leaves the player standing at the recording's end, which is
+               the defect the return point exists to prevent. Measured: without this test,
+               the playback-return arm left the hero at the recording's end (11522 25964)
+               instead of where the playback found him (11324 27282). */
+            if (s_replayFromCli)
+                Control_NoteReplayStreamEnded();
             Record_Stop();
             /* Only when nothing else is driving the run. With the harness armed it has
                a tick budget and artifacts to write, and exiting from here would skip
