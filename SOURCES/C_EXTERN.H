@@ -72,12 +72,6 @@ extern S32 MyKey;
 // GLOBAL.CPP) so the symbol is in libsys.a, which every test binary links.
 extern S32 LastInputWasKeyboard;
 
-// 1 = the most recent user input was a finger on the touchscreen; 0 = any other
-// device. Distinguishes a pad from a finger, which LastInputWasKeyboard cannot
-// (both leave it 0). Read by the touch overlay to decide whether to draw itself.
-// Defined in LIB386/SYSTEM/KEYBOARD.CPP for the same linkage reason.
-extern S32 LastInputWasTouch;
-
 extern S32 LastJoyFlag;
 extern S32 Jumping;
 extern S32 Pushing;

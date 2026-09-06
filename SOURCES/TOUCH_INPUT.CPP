@@ -35,9 +35,9 @@ extern SDL_Window *sdlWindow;
  * LastInputWasTouch answers a question that one could not, because a pad and a
  * finger both leave it 0: which of the two the player is holding right now.
  * That is what lets the overlay step aside for a pad on a phone -- the case a
- * device-class check for Android TV never covered. */
+ * device-class check for Android TV never covered. It is declared in
+ * SYSTEM/KEYBOARD.H, beside the module that defines it. */
 extern S32 LastInputWasKeyboard;
-extern S32 LastInputWasTouch;
 
 /* ---------------------------------------------------------------------------
  * Constants
@@ -208,6 +208,7 @@ static S32 AnyFingerDown(void) {
     return 0;
 }
 
+#ifdef __ANDROID__
 static void NoteTouchActivity(void) {
     s_lastTouchMs = SDL_GetTicks();
     LastInputWasTouch = 1;
@@ -215,6 +216,7 @@ static void NoteTouchActivity(void) {
        flow, which is the one thing we cannot type into. */
     LastInputWasKeyboard = 0;
 }
+#endif
 
 /* What to draw this frame. The order is the priority order: an unsupported
    device and an explicit HIDE both beat everything, then the pad, then time. */

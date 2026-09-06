@@ -15,6 +15,16 @@ extern S32 AsciiMode;
 extern S32 Key;
 extern U8 TabKeys[TABKEYS_NUM_KEYS]; ///< Keyboard and Joysticks state
 
+/// 1 = the most recent user input was a finger on the touchscreen; 0 = any other
+/// device. Defined in KEYBOARD.CPP beside LastInputWasKeyboard, which answers a
+/// different question ("can we prompt for typed text") and cannot tell a pad from
+/// a finger, because both leave it 0. The touch overlay needs that distinction to
+/// stand down for a gamepad and come back for a finger.
+///
+/// Deliberately not cleared by the mouse: SDL synthesises mouse events from touch,
+/// so a mouse-side clear would cancel every touch the instant it arrived.
+extern S32 LastInputWasTouch;
+
 // --- Initialization ----------------------------------------------------------
 void InitKeyboard();
 void EndKeyboard();

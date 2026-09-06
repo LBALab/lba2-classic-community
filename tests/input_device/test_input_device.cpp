@@ -29,7 +29,7 @@
 #include <cstdio>
 
 extern "C" S32 LastInputWasKeyboard; // defined in LIB386/SYSTEM/KEYBOARD.CPP
-extern "C" S32 LastInputWasTouch;    // likewise
+                                     // (LastInputWasTouch comes from KEYBOARD.H)
 
 // --- Link stubs: symbols the handler TUs reference on paths this test never
 // drives, provided so the two real handlers link standalone. ---
