@@ -1018,6 +1018,105 @@ command_position "inline verb" "ui inventory $cmdposdir/ui.png" "$cmdposdir/ui.p
 # the deferred work no longer lands would show here and nowhere else.
 command_position "deferred verb" "cube 154"
 
+# --- the artifact belongs to the recording, not to the tick budget -------------------
+#
+# --tick has to exceed what the recording holds or the replay is cut short (the engine
+# prints the number and says to exceed it), so over-budgeting is the direction a careful
+# caller errs in -- and every tick past the stream was the game running on with nothing
+# driving it. So --dump-state used to describe a state the recording never reached, and the
+# more headroom the caller left, the further past it went. Measured before the fix on an
+# 861-tick recording: --tick 1000 took 6.4 s and --tick 8000 took 15.3 s for the same
+# verdict.
+#
+# The property is that the artifact does not depend on the budget, so the arm takes two
+# dumps whose budgets differ by 10x and requires them to be identical. Wall time would test
+# the same fix and is not a fact about the build on a shared machine.
+#
+# Deliberately NOT asserted: that the run stops at the stream. It must not -- a harness run
+# may continue past a spent recording to read back what the replay left behind, which
+# test_record_input_device.sh does at tick 380 of a recording spent long before it.
+enddir="$(mktemp -d)"
+clean_add "$enddir"
+endrec="$enddir/end.rec"
+
+ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$endrec" \
+    --exec-at 30 "key up 60 2" --tick 300 --exit >/dev/null 2>&1 ||
+    fail "budget: the recording run exited non-zero ($?); it hung or crashed"
+[ -s "$endrec" ] || fail "budget: no recording written to $endrec"
+
+endverdict() { # endverdict <label> <budget> <out>
+    local out
+    out="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$endrec" \
+        --tick "$2" --dump-state "$3" --exit 2>&1)" ||
+        fail "budget/$1: replay run exited non-zero ($?); it hung or crashed"
+    case "$out" in
+    *"first hash mismatch -1"*) ;;
+    *) fail "budget/$1: $(printf '%s\n' "$out" | grep -m1 'replay ended')" ;;
+    esac
+    [ -s "$3" ] || fail "budget/$1: no state dump was written"
+}
+
+endverdict "tight" 400 "$enddir/tight.json"
+endverdict "loose" 4000 "$enddir/loose.json"
+
+# The actors, not the hero. Measured on an engine without the fix: over 3600 extra ticks the
+# HERO does not move -- nothing is driving him once the stream is spent -- so an arm keyed on
+# him passes on the bug. The scene keeps running around him: actor 6 travelled from x 3274 to
+# x 8719, actor 5 from 2140 to 1475, and vars_cube changed. That is the artifact describing a
+# state the recording never reached, and it is what this compares.
+#
+# The run's own bookkeeping (tick, timer_ref_hr, wall_ms, clock_src_ms, fps, poll counts) is
+# excluded deliberately: those differ between the two budgets by design and say nothing about
+# where the replay got to.
+actors_of() { grep -o '"index": [0-9]*, "x": [-0-9]*, "y": [-0-9]*, "z": [-0-9]*, "beta": [-0-9]*' "$1"; }
+end_tight="$(actors_of "$enddir/tight.json")"
+end_loose="$(actors_of "$enddir/loose.json")"
+[ -n "$end_tight" ] || fail "budget: no actors in the tight dump; the comparison would be vacuous"
+
+# Teeth: the scene has to be one where the world actually moves, or two identical dumps prove
+# nothing. Checked against the recording's own end rather than assumed.
+[ "$(printf '%s\n' "$end_tight" | wc -l)" -gt 2 ] ||
+    fail "budget: only $(printf '%s\n' "$end_tight" | wc -l) actors in this scene; the arm cannot tell a pinned dump from a drifting one"
+
+[ "$end_tight" = "$end_loose" ] ||
+    fail "budget: the state dump moved with the tick budget. The artifact is of the game running on past the recording with nothing driving it, not of where the replay ended. Differences:
+$(diff <(printf '%s\n' "$end_tight") <(printf '%s\n' "$end_loose") | head -8)"
+
+# --- a recording that opens a menu must not report success ---------------------------
+#
+# The in-game menu is a return from MainLoop (SOURCES/PERSO.CPP) and the harness calls
+# MainLoop once, so a replay that reaches an ESC ends there with its stream unread. What
+# makes it worth a fixture is how it used to end: exit 0 and `first hash mismatch -1`, the
+# string a caller greps to mean the replay reproduced, on a run that had replayed 201 of
+# 202 polls. Verified on the pristine engine before the fix, and on this file.
+#
+# The recording is committed rather than made here because the ESC has to arrive through
+# the replay's own input path. `--exec-at "key esc"` reaches the same guard -- measured, it
+# does -- but driving it in this run would test the console verb, not the reader.
+escout="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" \
+    --replay "$REPO/tests/automation/recordings/menu-esc.rec" \
+    --tick 500 --dump-state "$(user_dir)/menu-esc.json" --exit 2>&1)" && escrc=0 || escrc=$?
+
+# The status first, because it is the whole point: a run that stopped short must not pass.
+[ "$escrc" -ne 0 ] ||
+    fail "menu: the replay exited 0 having stopped at the menu, which is the success-shaped run this fixture exists to catch"
+
+# And it must not print the verdict line, whose -1 form is what a caller greps for. The
+# figures still go out, under a prefix that cannot be read as one.
+case "$escout" in
+*"replay ended"*)
+    fail "menu: the run printed a verdict line: $(printf '%s\n' "$escout" | grep -m1 'replay ended')"
+    ;;
+esac
+case "$escout" in
+*"at the menu:"*) ;;
+*) fail "menu: the run named no outcome; it has to say why it stopped" ;;
+esac
+
+# An artifact from here is of the state the ESC was pressed in, not of the recording.
+[ ! -e "$(user_dir)/menu-esc.json" ] ||
+    fail "menu: a --dump-state was written from a run that stopped at the menu"
+
 pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
 'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster; a recording on a host-sampled clock crossed a scene change instead of wedging in the fade; \
-a command ran where the recording ran it, for an inline verb and for a deferred one"
+a command ran where the recording ran it, for an inline verb and for a deferred one; the state dump was the same at a 400 and a 4000 tick budget; a recording that opens a menu reported no verdict and exited non-zero"
