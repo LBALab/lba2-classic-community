@@ -31,8 +31,15 @@
          Runtime detection in TOUCH_INPUT.CPP disables the overlay on TV. -->
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <!-- Without an explicit theme the framework applies an action-bar theme, and
+         that bar draws the SDL window title (product name + version) across the
+         top of the game. SDL's own android-project template uses the legacy
+         Theme.NoTitleBar.Fullscreen; the DeviceDefault one below is the same
+         no-bar fullscreen behaviour, but it also styles the AlertDialogs SDL
+         builds against this activity, such as its fatal startup error. -->
     <!-- Landscape orientation required for the game's aspect ratio -->
     <application android:label="@string/app_name"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
         android:allowBackup="true"
         android:hasCode="true"
         android:icon="@mipmap/ic_launcher"
