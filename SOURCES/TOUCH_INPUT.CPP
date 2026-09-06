@@ -1,5 +1,7 @@
 #include "TOUCH_INPUT.H"
 
+#include "JOYSTICK.H" /* JoystickIsPresent: the pad half of the visibility rule */
+
 #include <SYSTEM/ANDROID.H>
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
@@ -24,10 +26,18 @@ extern "C" {
 /* The SDL window handle, defined in LIB386/SYSTEM/WINDOW.CPP under C linkage. */
 extern SDL_Window *sdlWindow;
 
-/* Last-input device flag (C linkage, defined in LIB386/SYSTEM/KEYBOARD.CPP).
- * A touch tap is not a physical keyboard, so clear it: the save menu then uses
- * the auto-name (controller) flow instead of a keyboard prompt we cannot fill. */
+/* Last-input device flags (C linkage, defined in LIB386/SYSTEM/KEYBOARD.CPP).
+ *
+ * LastInputWasKeyboard is the older of the two and answers "can we prompt for
+ * typed text": a touch tap is not a physical keyboard, so clear it and the save
+ * menu uses the auto-name flow instead of a prompt we cannot fill.
+ *
+ * LastInputWasTouch answers a question that one could not, because a pad and a
+ * finger both leave it 0: which of the two the player is holding right now.
+ * That is what lets the overlay step aside for a pad on a phone -- the case a
+ * device-class check for Android TV never covered. */
 extern S32 LastInputWasKeyboard;
+extern S32 LastInputWasTouch;
 
 /* ---------------------------------------------------------------------------
  * Constants
@@ -80,7 +90,7 @@ typedef struct {
 static const TouchButton kButtons[NUM_TOUCH_BUTTONS] = {
     /* Top-left: ESC */
     {BTN_ESC, "ESC", 0.065f, 0.045f, 0.055f, 0.038f, K_ESC},
-    /* Top-centre: HIDE toggle */
+    /* Top-centre: dismiss the overlay until the next touch */
     {BTN_HIDE, "HIDE", 0.48f, 0.045f, 0.055f, 0.038f, 0},
     /* Top-right: Menu (F10) + Camera toggle */
     {BTN_MENU, "MEN", 0.85f, 0.045f, 0.055f, 0.038f, K_F10},
@@ -100,10 +110,62 @@ static const TouchButton kButtons[NUM_TOUCH_BUTTONS] = {
 };
 
 /* ---------------------------------------------------------------------------
+ * Visibility policy
+ * ---------------------------------------------------------------------------
+ * One flag used to carry three unrelated facts -- whether the device has a
+ * touchscreen, whether the player wants the pills drawn, and whether touch
+ * input is accepted -- so there was nowhere to put a policy answer. They are
+ * separate now:
+ *
+ *   s_supported   this build can draw an overlay at all: Android only.
+ *   s_tvDevice    leanback, so assume no touchscreen until a finger proves otherwise.
+ *   s_lastTouchMs when a finger was last down, which drives the fade.
+ *
+ * From those, one rule covers both the touch-only phone and the phone with a
+ * pad clipped to it: THE OVERLAY FOLLOWS THE LAST INPUT THE PLAYER ACTUALLY
+ * USED. Touch shows it, a pad or a key hides it, and going idle fades it out.
+ * Nobody configures anything, and the pad case needs no device-class check --
+ * Android TV is just a screen nobody has ever touched.
+ *
+ * Why a fade rather than a mode check: this game holds a direction to walk, so
+ * a thumb is on the D-pad more or less continuously during play and the timer
+ * never fires. It fires during dialogue, cutscenes and FMVs -- which is a fair
+ * approximation of "the game is not asking for input" for the price of a
+ * timer, instead of the per-modal mode stack the engine does not have (each
+ * modal runs its own inner loop with its own exit sentinel; see docs/CONTROL.md).
+ *
+ * HIDE dismisses the overlay immediately rather than waiting out the fade, for
+ * when the player wants to see what is under it now. It is not a mode: the next
+ * touch brings the controls back, like any other touch. That is what removed the
+ * SHOW pill this used to need -- a widget whose whole job was to undo a state
+ * that touch already undoes, sitting on screen permanently in a design whose
+ * point is to keep the screen clear. It also made the misfire cheap. HIDE is at
+ * cx 0.48, cy 0.045, which is where a player taps to skip dialogue, so it does
+ * get hit by accident; costing them one touch is fine, stranding them in an
+ * unexplained state was not.
+ */
+
+/* Wall-clock, not the managed game clock: a UI fade should run in real time
+   whether or not the simulation is paused, and staying off the game clock
+   keeps this out of the recorder's determinism surface entirely. The overlay
+   only ever injects keys from a real finger, so a replay never sees it. */
+#define TOUCH_FULL_MS 1500u /* full opacity for this long after the last touch */
+#define TOUCH_DIM_MS 6000u  /* then recessive, then gone */
+
+typedef enum {
+    OVL_OFF = 0, /* not drawn */
+    OVL_DIM,     /* drawn faintly: still findable, no longer competing with the art */
+    OVL_FULL
+} OverlayLevel;
+
+/* ---------------------------------------------------------------------------
  * State
  * --------------------------------------------------------------------------- */
 
-static S32 s_active = 0; /* set to 1 on Android; also toggle-able */
+static S32 s_supported = 0;   /* Android build: an overlay is possible here */
+static S32 s_tvDevice = 0;    /* leanback: start off, but a finger still overrides */
+static S32 s_dismissed = 0;   /* HIDE was pressed; cleared by the next finger down */
+static U32 s_lastTouchMs = 0; /* SDL_GetTicks at the last finger-down/motion; 0 = never */
 static S32 s_pressed[NUM_TOUCH_BUTTONS];
 static U8 s_virtual_keys[256]; /* virtual key states in 0x80-bit format */
 
@@ -112,6 +174,7 @@ static struct {
     S32 buttonIndex; /* -1 = not touching any button */
     S32 touchId;     /* SDL finger ID */
     S32 active;      /* 1 = slot in use */
+    S32 actuate;     /* 0 = this finger only woke the overlay, it presses nothing */
 } s_fingers[MAX_FINGERS];
 
 /* ---------------------------------------------------------------------------
@@ -132,6 +195,65 @@ static S32 FindFingerByTouchId(S32 touchId) {
             return i;
     }
     return -1;
+}
+
+/* Any finger currently on the glass counts as activity for as long as it is
+   held. A held button fires one FINGER_DOWN and then nothing, so timing the
+   fade from events alone would dim the overlay in the middle of a walk. */
+static S32 AnyFingerDown(void) {
+    for (S32 i = 0; i < MAX_FINGERS; i++) {
+        if (s_fingers[i].active)
+            return 1;
+    }
+    return 0;
+}
+
+static void NoteTouchActivity(void) {
+    s_lastTouchMs = SDL_GetTicks();
+    LastInputWasTouch = 1;
+    /* A touch is not a physical keyboard: keep the save menu on the auto-name
+       flow, which is the one thing we cannot type into. */
+    LastInputWasKeyboard = 0;
+}
+
+/* What to draw this frame. The order is the priority order: an unsupported
+   device and an explicit HIDE both beat everything, then the pad, then time. */
+static OverlayLevel CurrentLevel(void) {
+    if (!s_supported)
+        return OVL_OFF;
+
+    /* HIDE, until the next finger clears it. */
+    if (s_dismissed)
+        return OVL_OFF;
+
+    /* Nobody has touched the glass yet. A pad attached makes it a pad session
+       and the pills would be 14 dead buttons over the art; a TV is a screen
+       nobody is going to touch. Otherwise it is a player who has not found the
+       controls yet, so leave a hint.
+
+       This is where leanback belongs, rather than in s_supported: as a hard
+       gate it was a hidden control stuck at off -- a leanback device that does
+       have a touchscreen could never raise the overlay, and there is no
+       setting to say otherwise. A first touch is better evidence than a
+       manifest feature flag, so let it win. */
+    if (s_lastTouchMs == 0)
+        return (s_tvDevice || JoystickIsPresent()) ? OVL_OFF : OVL_DIM;
+
+    /* The player picked up the pad. Step aside until a finger says otherwise --
+       and the pad drives the menus too (JoystickMenuAction), so nothing here
+       is reachable only by touch. */
+    if (!LastInputWasTouch)
+        return OVL_OFF;
+
+    if (AnyFingerDown())
+        return OVL_FULL;
+
+    U32 idleMs = SDL_GetTicks() - s_lastTouchMs;
+    if (idleMs < TOUCH_FULL_MS)
+        return OVL_FULL;
+    if (idleMs < TOUCH_DIM_MS)
+        return OVL_DIM;
+    return OVL_OFF;
 }
 
 /* Map a touch coordinate from display-normalised space (0..1 of the full
@@ -185,11 +307,6 @@ static void SetButtonState(S32 idx, S32 pressed) {
     if (s_pressed[idx] == pressed)
         return;
     s_pressed[idx] = pressed;
-    if (pressed) {
-        // A touch tap is not a physical keyboard; keep the save menu on the
-        // auto-name (controller) flow.
-        LastInputWasKeyboard = 0;
-    }
     U32 sc = kButtons[idx].scanCode;
     if (sc < 256) {
         if (pressed) {
@@ -218,51 +335,50 @@ void ApplyVirtualKeys(void) {
 
 void TouchOverlay_Init(void) {
 #ifdef __ANDROID__
-    if (IsAndroidTVDevice()) {
-        LogPrintf("TouchOverlay: Android TV detected, overlay disabled "
-                  "(use gamepad/remote)\n");
-        s_active = 0;
+    s_supported = 1;
+    s_tvDevice = IsAndroidTVDevice();
+    if (s_tvDevice) {
+        LogPrintf("TouchOverlay: Android TV detected, overlay starts off "
+                  "(use gamepad/remote; a touch still brings it up)\n");
     } else {
-        s_active = 1;
         LogPrintf("TouchOverlay: initialised for Android (%d buttons)\n",
                   NUM_TOUCH_BUTTONS);
     }
 #else
-    s_active = 0;
+    s_supported = 0;
 #endif
+    s_dismissed = 0;
+    s_lastTouchMs = 0;
+    /* s_tvDevice is set above and is not cleared here: it is a property of the
+       device, not of this session's input. */
     memset(s_pressed, 0, sizeof(s_pressed));
     memset(s_virtual_keys, 0, sizeof(s_virtual_keys));
     memset(s_fingers, 0, sizeof(s_fingers));
 }
 
-void TouchOverlay_Shutdown(void) {
+/* Let go of every key this overlay is holding. Called when it stops accepting
+   input, so a finger that was on a direction when the overlay went away does
+   not leave that direction latched in TabKeys forever. */
+static void ReleaseAllButtons(void) {
     for (S32 i = 0; i < NUM_TOUCH_BUTTONS; i++) {
         if (s_pressed[i])
             SetButtonState(i, 0);
     }
-    s_active = 0;
+    memset(s_fingers, 0, sizeof(s_fingers));
 }
 
-S32 TouchOverlay_IsActive(void) {
-    return s_active;
+void TouchOverlay_Shutdown(void) {
+    ReleaseAllButtons();
+    s_supported = 0;
 }
 
-void TouchOverlay_SetActive(S32 active) {
-    if (active == s_active)
-        return;
-    if (!active) {
-        for (S32 i = 0; i < NUM_TOUCH_BUTTONS; i++) {
-            if (s_pressed[i])
-                SetButtonState(i, 0);
-        }
-        memset(s_fingers, 0, sizeof(s_fingers));
-    }
-    s_active = active;
+S32 TouchOverlay_IsSupported(void) {
+    return s_supported;
 }
 
 S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
 #ifdef __ANDROID__
-    if (sdlEvent == NULL)
+    if (sdlEvent == NULL || !s_supported)
         return 0;
 
     const SDL_Event *ev = (const SDL_Event *)sdlEvent;
@@ -277,18 +393,43 @@ S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
         float ny = ev->tfinger.y;
         MapToGameCoords(&nx, &ny);
         S32 idx = HitTest(nx, ny);
+
+        /* Any finger anywhere brings the controls back: touch is the only
+           "show" this needs, which is why there is no pill. */
+        s_dismissed = 0;
+
+        /* Does this touch press what it landed on, or only wake the overlay?
+           Only a player already using touch can have been aiming at a button:
+           coming back from a pad or a keyboard there was nothing on screen to
+           aim at. That is also what protects a phone in a controller clip,
+           where the glass sits under the player's palms and a brush would
+           otherwise latch a direction. Read before NoteTouchActivity, which is
+           what makes the answer 1 from here on. */
+        const S32 actuate = LastInputWasTouch;
+        NoteTouchActivity();
+
         s_fingers[slot].active = 1;
         s_fingers[slot].touchId = (S32)ev->tfinger.fingerID;
         s_fingers[slot].buttonIndex = idx;
-        if (idx >= 0) {
-            /* HIDE button toggles visibility — always responsive */
-            if (kButtons[idx].id == BTN_HIDE) {
-                TouchOverlay_SetActive(!s_active);
-                consumed = 1;
-            } else if (s_active) {
-                SetButtonState(idx, 1);
-                consumed = 1;
+        s_fingers[slot].actuate = actuate;
+
+        if (idx < 0)
+            break; /* empty glass: the wake above was the whole effect */
+
+        if (kButtons[idx].id == BTN_HIDE) {
+            /* Gated like any other button: a palm brush from a pad session
+               wakes the overlay rather than dismissing it again. */
+            if (actuate) {
+                ReleaseAllButtons();
+                s_dismissed = 1;
             }
+            consumed = 1;
+            break;
+        }
+
+        if (actuate) {
+            SetButtonState(idx, 1);
+            consumed = 1;
         }
         break;
     }
@@ -297,9 +438,13 @@ S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
         if (slot < 0)
             break;
         S32 idx = s_fingers[slot].buttonIndex;
-        if (idx >= 0 && kButtons[idx].id != BTN_HIDE)
+        if (idx >= 0)
             SetButtonState(idx, 0);
         s_fingers[slot].active = 0;
+        s_fingers[slot].actuate = 0;
+        /* The lift is what starts the idle clock: until it happens the finger
+           is still down and the overlay is held at full. */
+        s_lastTouchMs = SDL_GetTicks();
         consumed = 1;
         break;
     }
@@ -313,9 +458,12 @@ S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
         S32 newIdx = HitTest(nx, ny);
         S32 oldIdx = s_fingers[slot].buttonIndex;
         if (newIdx != oldIdx) {
-            if (oldIdx >= 0 && kButtons[oldIdx].id != BTN_HIDE)
+            if (oldIdx >= 0)
                 SetButtonState(oldIdx, 0);
-            if (newIdx >= 0 && kButtons[newIdx].id != BTN_HIDE && s_active)
+            /* A finger that only woke the overlay keeps pressing nothing for as
+               long as it is down, however far it is dragged: the press it would
+               start was never aimed. */
+            if (newIdx >= 0 && s_fingers[slot].actuate)
                 SetButtonState(newIdx, 1);
             s_fingers[slot].buttonIndex = newIdx;
         }
@@ -443,31 +591,65 @@ static void DrawFilledRoundRect(U32 *fb, S32 pitchInPixels,
     }
 }
 
+/* Scale every alpha in a pass by one factor, so the dim level is the same
+   drawing at lower contrast rather than a second set of tuned constants. */
+static U8 ScaleAlpha(U8 a, U8 scale) {
+    return (U8)(((U32)a * (U32)scale) / 255u);
+}
+
+/* Pixel rect for a button, clamped to the framebuffer. Returns 0 if nothing of
+   it is on screen. Shared by the buttons and the pill so the thing the player
+   taps and the thing they see cannot drift apart. */
+static S32 ButtonRect(const TouchButton *btn, float shrink, U32 width, U32 height,
+                      S32 *x0, S32 *y0, S32 *x1, S32 *y1) {
+    *x0 = (S32)((btn->cx - btn->rx * shrink) * (float)width);
+    *y0 = (S32)((btn->cy - btn->ry * shrink) * (float)height);
+    *x1 = (S32)((btn->cx + btn->rx * shrink) * (float)width);
+    *y1 = (S32)((btn->cy + btn->ry * shrink) * (float)height);
+    if (*x0 < 0)
+        *x0 = 0;
+    if (*y0 < 0)
+        *y0 = 0;
+    if (*x1 >= (S32)width)
+        *x1 = (S32)width - 1;
+    if (*y1 >= (S32)height)
+        *y1 = (S32)height - 1;
+    return (*x0 <= *x1 && *y0 <= *y1);
+}
+
+static void DrawLabelCentred(U32 *fb, S32 pitchPixels, S32 x0, S32 y0, S32 x1, S32 y1,
+                             const char *label, U8 alpha, U32 width, U32 height) {
+    if (label == NULL || label[0] == 0)
+        return;
+    S32 textW = (S32)(strlen(label) * SizeChar);
+    S32 textH = (S32)SizeChar;
+    S32 tx = ((x0 + x1) / 2) - (textW / 2);
+    S32 ty = ((y0 + y1) / 2) - (textH / 2);
+    DrawStringARGB(fb, pitchPixels, tx, ty, label, 255, 255, 255, alpha, width, height);
+}
+
 void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
                          const U8 *palette_rgb) {
     (void)palette_rgb;
-    if (!s_active || frameBuffer == NULL || width == 0 || height == 0)
+    if (frameBuffer == NULL || width == 0 || height == 0)
         return;
 
     S32 pitchPixels = (S32)(pitch / sizeof(U32));
 
+    const OverlayLevel level = CurrentLevel();
+    if (level == OVL_OFF)
+        return;
+
+    /* 30% keeps the layout legible against the art without competing with it,
+       which is the point of dimming rather than vanishing: a player who is
+       looking rather than touching is idle by definition, and that is exactly
+       when a newcomer is deciding which button to reach for. */
+    const U8 scale = (level == OVL_FULL) ? 255 : 76;
+
     for (S32 i = 0; i < NUM_TOUCH_BUTTONS; i++) {
         const TouchButton *btn = &kButtons[i];
-        S32 x0 = (S32)((btn->cx - btn->rx) * (float)width);
-        S32 y0 = (S32)((btn->cy - btn->ry) * (float)height);
-        S32 x1 = (S32)((btn->cx + btn->rx) * (float)width);
-        S32 y1 = (S32)((btn->cy + btn->ry) * (float)height);
-
-        /* Clamp to framebuffer bounds */
-        if (x0 < 0)
-            x0 = 0;
-        if (y0 < 0)
-            y0 = 0;
-        if (x1 >= (S32)width)
-            x1 = (S32)width - 1;
-        if (y1 >= (S32)height)
-            y1 = (S32)height - 1;
-        if (x0 > x1 || y0 > y1)
+        S32 x0, y0, x1, y1;
+        if (!ButtonRect(btn, 1.0f, width, height, &x0, &y0, &x1, &y1))
             continue;
 
         U8 alpha = s_pressed[i] ? 180 : 100;
@@ -477,21 +659,14 @@ void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
         S32 radius = 6;
 
         DrawFilledRoundRect(frameBuffer, pitchPixels, x0, y0, x1, y1,
-                            r, g, b8, alpha, radius);
+                            r, g, b8, ScaleAlpha(alpha, scale), radius);
 
         /* Draw a simple outline */
         DrawFilledRoundRect(frameBuffer, pitchPixels, x0, y0, x1, y1,
-                            255, 255, 255, 60, radius);
+                            255, 255, 255, ScaleAlpha(60, scale), radius);
 
-        /* Draw the button label centred */
-        if (btn->label && btn->label[0]) {
-            S32 textW = (S32)(strlen(btn->label) * SizeChar);
-            S32 textH = (S32)SizeChar;
-            S32 tx = ((x0 + x1) / 2) - (textW / 2);
-            S32 ty = ((y0 + y1) / 2) - (textH / 2);
-            DrawStringARGB(frameBuffer, pitchPixels, tx, ty, btn->label,
-                           255, 255, 255, 220, width, height);
-        }
+        DrawLabelCentred(frameBuffer, pitchPixels, x0, y0, x1, y1,
+                         btn->label, ScaleAlpha(220, scale), width, height);
     }
 }
 

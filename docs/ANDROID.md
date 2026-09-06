@@ -142,7 +142,7 @@ The on-screen virtual gamepad uses the following layout:
 ```
 
 - **ESC** — Escape (quit/back)
-- **HIDE** — Show or hide the overlay (persistent pill when hidden)
+- **HIDE** — Dismiss the controls now; the next touch brings them back
 - **MEN** — Menu (F10 / in-game menu)
 - **CAM** — Camera toggle (Backspace)
 - **D-pad** — U/D/L/R → Arrow keys (movement)
@@ -155,6 +155,38 @@ The on-screen virtual gamepad uses the following layout:
 
 The layout is defined in `SOURCES/TOUCH_INPUT.CPP` and can be customised
 by editing the `kButtons[]` table (normalised 0..1 coordinates).
+
+## When the overlay shows
+
+It follows the last input device the player actually used, and fades when they
+stop using it:
+
+| state | overlay |
+|-------|---------|
+| a finger is down | full opacity, for as long as it is held |
+| ~1.5s after the lift | dimmed, still legible enough to aim by |
+| ~6s after the lift | gone |
+| a gamepad or key was the last input | gone, until a finger says otherwise |
+| nothing has been touched yet | dimmed, or gone if a pad is connected or the device is a TV |
+| HIDE was pressed | gone now, without waiting out the fade |
+
+The first touch after using another device only wakes the overlay; it presses
+nothing. Every touch after that both wakes and presses, so a player who knows
+the layout never loses the press that mattered. It also stops a phone in a
+controller clip latching a direction when a palm brushes the glass.
+
+Every one of those states is left by touching the screen. That is what removed
+the old "persistent pill when hidden": a control whose only job was to undo
+something a touch already undoes. HIDE is now a dismiss rather than a mode, so
+hitting it by accident (it sits where you tap to skip dialogue) costs one touch
+instead of stranding you in a state with an unexplained chip on screen.
+
+The buttons are placed in coordinates normalised over the whole SDL surface, so
+they sit on top of the game's letterbox bars rather than inside the rendered
+picture. That is only coherent because the surface fills the display, which the
+fullscreen coercion below guarantees on Android. Touch hit-testing does not
+depend on it either way: `MapToGameCoords` reads the live window size, so it
+follows the surface whatever size it is.
 
 ## Window and display
 
@@ -187,6 +219,7 @@ theme also styles the dialogs SDL builds against the activity.
   (window focus events). Surface re-creation is managed by the existing
   SDL3 infrastructure.
 - **Game data**: You must provide your own retail LBA2 data files.
-- **Android TV**: Touch overlay is automatically disabled when a TV device
-  is detected (`android.software.leanback` feature). Use a gamepad or
-  remote control instead.
+- **Android TV**: Touch overlay is off when a TV device is detected
+  (`android.software.leanback` feature). Use a gamepad or remote control
+  instead. This is only the starting value: the last-input rule reaches the
+  same answer on its own, because a TV is a screen nobody ever touches.
