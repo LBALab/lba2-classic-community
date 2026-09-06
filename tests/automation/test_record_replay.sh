@@ -1018,6 +1018,165 @@ command_position "inline verb" "ui inventory $cmdposdir/ui.png" "$cmdposdir/ui.p
 # the deferred work no longer lands would show here and nowhere else.
 command_position "deferred verb" "cube 154"
 
+# --- a replay supplies its own starting state --------------------------------------
+#
+# Every recording carries the savegame its session began from, so a replay does not need
+# to be handed one. What makes this worth a test rather than a convenience note is the
+# way it used to fail: the staging was gated on `setup.reloaded=1`, so a --record file
+# carried the state it began from and the replay ignored it. Without a --load the run
+# then replayed the recording's input into whatever the fresh-start path had built, and
+# reported the divergence it had caused itself -- while exiting 0.
+#
+# So the assertion is on the verdict, not the exit code. Measured before the fix, with
+# no --load: `tick 0 differs: cube 3/0 hero.x 6619/10496 ...` and exit 0. An arm that
+# checked only the status passes on that.
+noloaddir="$(mktemp -d)"
+clean_add "$noloaddir"
+noloadrec="$noloaddir/noload.rec"
+
+ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$noloadrec" \
+    --exec-at 30 "key up 60 2" --tick 300 --exit >/dev/null 2>&1 ||
+    fail "no --load: the recording run exited non-zero ($?); it hung or crashed"
+[ -s "$noloadrec" ] || fail "no --load: no recording written to $noloadrec"
+
+# The whole point of the arm: no --load anywhere on this command line.
+#
+# The status is taken but not acted on yet. A replay's exit code is not its verdict --
+# a diverging run can leave by several doors and they do not agree on a number -- so the
+# summary is read first and the status only reported if nothing better was found. Without
+# that order this arm's failure on an engine that lacks the fix reads "hang or crash",
+# which is the one thing it is not.
+noloadrc=0
+noloadout="$(ctl --fixed-dt 16 --replay "$noloadrec" --tick 400 --exit 2>&1)" || noloadrc=$?
+
+# Said out loud, because a replay that quietly fell back to a fresh start would still
+# reach the checks below and could still match on a session that never left cube 0.
+case "$noloadout" in
+*"booting from the recording's own starting state"*) ;;
+*) fail "no --load: the run did not report booting from the recording's own starting state" ;;
+esac
+
+case "$noloadout" in
+*"consistency failure"*)
+    fail "no --load: $(printf '%s\n' "$noloadout" | grep -m1 'consistency failure')"
+    ;;
+esac
+
+noloadsummary="$(printf '%s\n' "$noloadout" | grep -m1 'replay ended')" ||
+    fail "no --load: replay printed no summary; it cannot be said to have matched"
+noloadchecked="$(printf '%s\n' "$noloadsummary" | sed -n 's/.*: \([0-9]*\) ticks checked.*/\1/p')"
+[ -n "$noloadchecked" ] && [ "$noloadchecked" -gt 100 ] ||
+    fail "no --load: only ${noloadchecked:-0} ticks checked, so the oracle barely ran ($noloadsummary)"
+case "$noloadsummary" in
+*"first hash mismatch -1"*) ;;
+*) fail "no --load: $noloadsummary" ;;
+esac
+
+# Last, so anything above gets to name the real fault first.
+[ "$noloadrc" -eq 0 ] ||
+    fail "no --load: replay run exited non-zero ($noloadrc) with a clean summary"
+
+# The equivalence half, and it needs a file that does NOT replay clean.
+#
+# Everything above compares one -1 against another, which any change producing -1 passes
+# -- including one that ignored the snapshot and got clean runs because this save would
+# replay clean under anything. What distinguishes "the snapshot is being used" from
+# "these files are easy" is a replay with a known non-clean verdict coming out the SAME
+# with and without --load. Both diverging at the same tick is the passing result here.
+#
+# The divergence is manufactured rather than found, so the arm does not depend on a bug
+# staying unfixed: the recording ran under the config the engine defaults to and the
+# replay is given FollowCamera flipped, which docs/RECORDING.md's settings table records
+# as a tick 0 divergence because the camera is in the digest.
+eqdir="$(mktemp -d)"
+clean_add "$eqdir"
+eqrec="$eqdir/eq.rec"
+
+ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$eqrec" \
+    --exec-at 30 "key up 60 2" --tick 300 --exit >/dev/null 2>&1 ||
+    fail "equivalence: the recording run exited non-zero ($?); it hung or crashed"
+[ -s "$eqrec" ] || fail "equivalence: no recording written to $eqrec"
+
+# Out of the header region rather than the whole file: `settings.FollowCamera=` could
+# in principle occur inside the inline savegame, and a match there would be read as the
+# value the session ran under. tr drops the NULs, as the header check above does.
+eqcam="$(head -c 2048 "$eqrec" | tr -d '\0' | grep -o -m1 'settings.FollowCamera=[01]' | cut -d= -f2)"
+[ -n "$eqcam" ] || fail "equivalence: the recording does not declare settings.FollowCamera"
+eqflip=$((1 - eqcam))
+
+# Same replay twice, differing only in whether --load is passed.
+eqverdict() { # eqverdict <label> [--load ...]
+    local label="$1"
+    shift
+    local dir
+    dir="$(mktemp -d)"
+    clean_add "$dir"
+    printf 'FollowCamera=%s\n' "$eqflip" >"$dir/lba2.cfg"
+    local out
+    out="$(LBA2_USER_DIR="$dir" ctl --fixed-dt 16 "$@" --replay "$eqrec" \
+        --tick 400 --exit 2>&1)" ||
+        fail "equivalence/$label: replay run exited non-zero ($?); it hung or crashed"
+    EQ="$(printf '%s\n' "$out" | grep -m1 'replay ended' |
+        sed -n 's/.*\(first hash mismatch -\?[0-9]*\).*/\1/p')"
+    [ -n "$EQ" ] || fail "equivalence/$label: replay printed no verdict"
+
+    # The arm's self-description, checked. A one-line cfg leaves every other setting at
+    # its default, so the replay could be differing on more than the flip and the
+    # comparison would still pass -- saying nothing about the flip. The engine names what
+    # it disagrees about, so require that it named this.
+    case "$out" in
+    *"mode differs: settings.FollowCamera"*) ;;
+    *) fail "equivalence/$label: the run did not report differing on settings.FollowCamera; the arm is not testing what it says" ;;
+    esac
+}
+
+eqverdict "with --load" --load "$LBA2_TEST_SAVE"
+eqwith="$EQ"
+eqverdict "no --load"
+eqwithout="$EQ"
+
+# Teeth: a clean pair would mean the flip did not bite and the comparison proved nothing.
+case "$eqwith" in
+*" -1"*) fail "equivalence: the FollowCamera flip did not diverge ($eqwith); the arm cannot fail" ;;
+esac
+[ "$eqwith" = "$eqwithout" ] ||
+    fail "equivalence: --load changed the verdict ($eqwith with, $eqwithout without)"
+
+# A recording older than the format that carries its savegame inside it. legacy-v10.rec
+# names a sibling in `setup.snapshot=` instead, and the boot load has to find it there or
+# the run boots fresh and replays into a game the session was never made in -- the same
+# silent wrong answer, reached by the path that was supposed to have removed it. Measured
+# on an engine without the fallback: exit 124 having printed `first hash mismatch 0`, a
+# divergence report about a fault the run introduced itself.
+#
+# The sibling belongs to the recording, not to the run, so this also asserts it is still
+# there afterwards. Nothing else in the suite would notice it being consumed, and these
+# are the files with no second run to replace them.
+legdir="$(mktemp -d)"
+clean_add "$legdir"
+legsib="$REPO/tests/automation/recordings/legacy-v10.rec.lba"
+[ -e "$legsib" ] || fail "legacy no --load: the sibling savegame is missing from the repo"
+legsum_before="$(md5sum <"$legsib")"
+
+legout="$(LBA2_USER_DIR="$legdir" ctl --fixed-dt 16 \
+    --replay "$REPO/tests/automation/recordings/legacy-v10.rec" --tick 400 --exit 2>&1)" ||
+    fail "legacy no --load: replay run exited non-zero ($?); it hung or crashed"
+
+case "$legout" in
+*"consistency failure"*)
+    fail "legacy no --load: $(printf '%s\n' "$legout" | grep -m1 'consistency failure')"
+    ;;
+esac
+legsummary="$(printf '%s\n' "$legout" | grep -m1 'replay ended')" ||
+    fail "legacy no --load: replay printed no summary"
+case "$legsummary" in
+*"first hash mismatch -1"*) ;;
+*) fail "legacy no --load: $legsummary" ;;
+esac
+
+[ "$(md5sum <"$legsib")" = "$legsum_before" ] ||
+    fail "legacy no --load: the run modified or removed the recording's sibling savegame"
+
 # --- the artifact belongs to the recording, not to the tick budget -------------------
 #
 # --tick has to exceed what the recording holds or the replay is cut short (the engine
@@ -1119,4 +1278,4 @@ esac
 
 pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
 'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster; a recording on a host-sampled clock crossed a scene change instead of wedging in the fade; \
-a command ran where the recording ran it, for an inline verb and for a deferred one; the state dump was the same at a 400 and a 4000 tick budget; a recording that opens a menu reported no verdict and exited non-zero"
+a command ran where the recording ran it, for an inline verb and for a deferred one; the state dump was the same at a 400 and a 4000 tick budget; a recording that opens a menu reported no verdict and exited non-zero; a replay with no --load booted from the recording's own starting state and still matched ($noloadchecked ticks); a deliberately diverging replay reported '$eqwith' with and without --load; a pre-inline recording loaded its sibling savegame with no --load and left it intact"

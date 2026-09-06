@@ -17,8 +17,8 @@ The design work behind it, and what was measured rather than assumed, is in
 # Record a session you play yourself. Quit through the menu, or type `exit` at the console.
 lba2cc --fixed-dt 16 --load "/path/to/save.lba" --record session.rec
 
-# Replay it. Same --load, because the recording does not reload its own snapshot (see below).
-lba2cc --fixed-dt 16 --load "/path/to/save.lba" --replay session.rec --tick 4000 --exit
+# Replay it. No --load needed: the recording carries the state it started from (see below).
+lba2cc --fixed-dt 16 --replay session.rec --tick 4000 --exit
 ```
 
 A clean replay ends with `first hash mismatch -1`. Anything else names the tick:
@@ -564,16 +564,35 @@ guessed:
 [rec] holds about 3699 ticks over 134410 polls; give --tick more than that
 ```
 
-**A replay needs the same `--load` the recording ran under.** For a recording made with a
-boot-time `--load` that is unsurprising: `setup.reloaded` records whether the session reloaded its
-own snapshot, a `--load` at boot is not that, and so nothing in the file restores the start state.
+**A replay no longer needs `--load`; the recording carries the state it began from.** Every
+recording holds the savegame its session started at -- inside the file, or, for one made before the
+format carried it, in the sibling `setup.snapshot=` names. A `--replay` run given no `--load` loads
+that and says so:
 
-A mid-session `rec start` does reload its own snapshot, and still needs it. Measured: the same
-mid-session recording replays with no mismatch when the replay is given the same `--load`, and
-diverges at tick 4 without it, from both `--replay` and `rec play`. So something the reload does
-not restore differs between a run that booted into the save and one that booted fresh, and a
-mid-session recording is not yet self-contained either. Naming the save the session started from is
-the outstanding work; until then, pass it.
+```
+[control] no --load; booting from the recording's own starting state
+```
+
+An explicit `--load` still wins, because naming one is the caller saying which game to boot. And a
+recording whose starting state cannot be obtained at all is refused by name rather than booted
+fresh into -- that case used to replay the recording's input into a game it was never made in and
+report the divergence it had caused itself, at exit 0.
+
+This is a statement about the flag, not about the file. It does not mean mid-session recordings
+replay clean; it means passing `--load` no longer changes the verdict. Measured both ways on
+recordings made from an early save and from a deep one, and on a pre-inline recording replayed
+from its sibling: `first hash mismatch -1` with `--load`, without it, and with a *different* save
+passed. A replay made to diverge deliberately reports the same divergence either way.
+
+The limits below are unaffected by it.
+
+**A deep exterior save can diverge at tick 0, and `--load` is not what decides it.** The camera
+fields the digest mixes -- `BetaCam` and `VueOffsetX/Y/Z` -- come out differently from the
+recorder's own deferred reload than from a cold load of the same savegame bytes, so a recording
+made mid-session in a deep exterior scene reports a tick 0 mismatch in them and never converges
+(issue #642). It fires whether or not the replay is given a `--load`, and an early-game save does
+not show it, which is why the shipped fixtures never see it. Nothing in the file is wrong: the same
+bytes read two ways.
 
 **Some settings have to match, and they are not in the save.** A replay reads the live config, so a
 config edited between recording and replay reads as the simulation diverging. Each of these was
