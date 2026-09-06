@@ -94,9 +94,20 @@ bool IsWindowInitialized() {
 }
 
 // --- Interface ---------------------------------------------------------------
+/* A platform with no windowed mode has no way back out of a windowed window:
+   the Display submenu drops its Fullscreen row (Window_SupportsWindowedMode),
+   so a cfg asking for windowed strands the player behind the system bars with
+   no control to undo it. Honour only fullscreen there. The cfg value itself is
+   left alone, so a profile carried to desktop keeps the player's choice. */
+static bool CoerceFullscreenForPlatform(bool fullscreen) {
+    return Window_SupportsWindowedMode() ? fullscreen : true;
+}
+
 bool CreateWindowSurface(U32 resX, U32 resY, bool fullscreen) {
     assert(windowSystemInitialized == true);
     assert(sdlWindow == NULL);
+
+    fullscreen = CoerceFullscreenForPlatform(fullscreen);
 
     /* Seed the cached state from the caller's choice so a fullscreen boot is
        fullscreen from the first frame. The create-time property below asks SDL
@@ -362,6 +373,7 @@ void SetWindowRelativeMouse(bool enable) {
 }
 
 void SetWindowFullscreen(bool fullscreen) {
+    fullscreen = CoerceFullscreenForPlatform(fullscreen);
     windowFullscreenEnabled = fullscreen;
 
     if (sdlWindow == NULL) {

@@ -65,8 +65,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   built-in one, which asks for fullscreen. GOG ships a settings file that never
   mentions the setting, so it fell through to the engine default, which was
   windowed. Both start fullscreen now. An existing settings file is left alone,
-  and the Display menu still moves it on desktop. Android has no fullscreen row
-  in that menu, so a player who started windowed there had no way back.
+  and the Display menu still moves it on desktop.
+- Android always runs fullscreen now. The Display menu has no fullscreen row
+  there, so a player whose settings said windowed, which is what an original-disc
+  or GOG install gave them, sat behind the system bars with no way back. The
+  setting is still recorded, so carrying a profile to desktop keeps it.
 - Replaying a recorded session saved under a different name than the session
   had typed. Whether the save menu offers a text field or names the slot after
   the island and the date depends on which device the player last used, and that
