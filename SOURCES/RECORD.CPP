@@ -405,6 +405,16 @@ static int s_snapInline = 0;
    none. Held rather than rebuilt because the reload happens a tick after the file is
    read, and the path is what says the reload has a staged file to clean up. */
 static char s_inlineSnap[ADELINE_MAX_PATH] = "";
+/* The same snapshot again, staged before MainLoop so a --replay run can boot into the
+   state the recording started from. Kept apart from s_inlineSnap because the two have
+   different lifetimes: this one has to outlive Control_Begin's load, and the reload path
+   drops its own as soon as the load has read it. */
+static char s_bootSnap[ADELINE_MAX_PATH] = "";
+/* Whether the path above is this run's to delete. A recording from before the format
+   carried its savegame names a sibling instead, and that file belongs to the recording:
+   removing it at exit would consume the very thing that makes those files replayable, and
+   they are the ones with no second run to replace them. */
+static int s_bootSnapOwned = 0;
 /* The file this session is on, after a bare name has been resolved to the recordings
    folder. Reported rather than the string the player typed: with a default home, the
    two are usually not the same and only one of them says where to look. */
@@ -1001,10 +1011,6 @@ static void record_scratch_path_as(char *out, size_t n, const char *suffix) {
     snprintf(out, n, "%s", p);
 }
 
-static void record_scratch_path(char *out, size_t n) {
-    record_scratch_path_as(out, n, "staging");
-}
-
 /* Stage a snapshot, and report whether one is actually there.
  *
  * The check is the point. Control_WriteSnapshot returns 1 whatever SaveGame did with
@@ -1102,7 +1108,7 @@ static S32 record_write_chunk(U8 op, const char *file) {
    the frame exists for: a recording cut off mid-snapshot would otherwise hand the save
    loader a file that is a valid savegame right up to where it stops, and a replay would
    begin from a state the session never had. */
-static S32 replay_read_chunk(U8 want, char *outPath, size_t n) {
+static S32 replay_read_chunk(U8 want, char *outPath, size_t n, const char *suffix) {
     U8 head[REC_CHUNK_HEAD], tail[REC_CHUNK_TAIL];
     U8 op = 0;
     U32 len = 0;
@@ -1136,7 +1142,7 @@ static S32 replay_read_chunk(U8 want, char *outPath, size_t n) {
         return 1;
     }
 
-    record_scratch_path(outPath, n);
+    record_scratch_path_as(outPath, n, suffix);
     out = fopen(outPath, "wb");
     if (!out) {
         free(buf);
@@ -1184,6 +1190,12 @@ static void record_flush_at_exit(void) {
     if (s_inlineSnap[0]) {
         remove(s_inlineSnap);
         s_inlineSnap[0] = 0;
+    }
+    if (s_bootSnap[0]) {
+        if (s_bootSnapOwned)
+            remove(s_bootSnap);
+        s_bootSnap[0] = 0;
+        s_bootSnapOwned = 0;
     }
     /* The player's session, if the run ends before it could be put back. Removing it is
        all that is left to do here: there are no more ticks, so the reload Record_Stop
@@ -2616,7 +2628,7 @@ int Record_Play(const char *path) {
         RecFmt_ReadInt(s_headerBuf, "setup.reloaded=", &reloads);
         s_inlineSnap[0] = 0;
         if (!replay_read_chunk(REC_SNAP_START, reloads ? s_inlineSnap : NULL,
-                               sizeof s_inlineSnap))
+                               sizeof s_inlineSnap, "staging"))
             fseek(s_f, at, SEEK_SET);
     }
 
@@ -2783,6 +2795,85 @@ int Record_Play(const char *path) {
     }
 
     replay_begin();
+    return 1;
+}
+
+/* The starting state of the recording this run was armed to replay, as a savegame the
+ * boot path can load. Returns 1 with *out set, 0 when this is none of our business, and
+ * -1 when a replay is armed and its starting state cannot be obtained at all.
+ *
+ * Every recording carries that state. Until now only a replay already inside a game read
+ * it back, so the state had to be reproduced on the command line with --load, and getting
+ * it wrong is silent: the run replays the recording's input into whatever it did boot and
+ * reports the divergence it caused itself, while exiting 0.
+ *
+ * Two sources, the same pair and the same order Record_Play uses: the file's own copy, and
+ * a sibling named by `setup.snapshot=` for a recording made before the format carried one.
+ * Both, because those older files are sessions somebody played and there is no second run
+ * of them to replace them with -- and they are the likeliest to be replayed by someone who
+ * no longer has the save, which is the case this whole function exists to serve.
+ *
+ * The -1 is the point of the tri-state. Reporting "there is no snapshot" with the same
+ * NULL as "no replay is armed" would boot fresh and replay into it, which is the failure
+ * above wearing the fix's clothes. A file that will not open is NOT -1: that is
+ * Record_Play's to report by name, and it does.
+ *
+ * Called from Control_Begin: late enough that GetRecordingsPath resolves -- the constraint
+ * that keeps replay_peek_seed out of Record_ArmReplay -- and early enough to still be the
+ * run's first load. Record_Play opens the file again for itself afterwards; this only
+ * borrows s_f, which is NULL until then and NULL again on every path out. */
+int Record_ArmedReplayLoad(const char **out) {
+    char resolved[ADELINE_MAX_PATH];
+    char header[REC_HEADER_MAX];
+    char named[ADELINE_MAX_PATH];
+    char line[512];
+    const char *path;
+
+    if (out)
+        *out = NULL;
+    if (s_armed != 2 || !s_armReplay[0])
+        return 0;
+    if (s_bootSnap[0]) { /* resolved already; one load per run */
+        if (out)
+            *out = s_bootSnap;
+        return 1;
+    }
+
+    path = rec_resolve(s_armReplay, resolved, sizeof resolved, 0);
+    if (!path[0])
+        return 0;
+    s_f = fopen(path, "rb");
+    if (!s_f)
+        return 0; /* Record_Play reports a file it cannot open, by name */
+
+    /* Past the text header to the blank line, keeping it: the snapshot chunk begins there,
+       and `setup.snapshot=` is read out of what we walk over. The chunk cannot be found by
+       probing, because a savegame contains every byte a record header can. */
+    header[0] = 0;
+    while (fgets(line, sizeof line, s_f)) {
+        if (line[0] == '\n' || line[0] == '\r')
+            break;
+        strncat(header, line, sizeof header - strlen(header) - 1);
+    }
+
+    if (replay_read_chunk(REC_SNAP_START, s_bootSnap, sizeof s_bootSnap, "boot")) {
+        s_bootSnapOwned = 1; /* staged out of the file: ours to remove */
+    } else if (RecFmt_ReadStr(header, "setup.snapshot=", named, sizeof named) &&
+               strcmp(named, "-") != 0 && strcmp(named, "(inline)") != 0) {
+        char beside[ADELINE_MAX_PATH];
+        snapshot_beside(path, named, beside, sizeof beside);
+        if (ExistsFileOrDir(beside)) {
+            snprintf(s_bootSnap, sizeof s_bootSnap, "%s", beside);
+            s_bootSnapOwned = 0; /* the recording's, not ours: never removed */
+        }
+    }
+    fclose(s_f);
+    s_f = NULL;
+
+    if (!s_bootSnap[0])
+        return -1;
+    if (out)
+        *out = s_bootSnap;
     return 1;
 }
 

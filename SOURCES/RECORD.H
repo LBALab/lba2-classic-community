@@ -52,6 +52,13 @@ void Record_CommandHook(const char *line);
    MainLoop's tick hook, because the menus never reach that hook. */
 void Record_ArmRecord(const char *path);
 void Record_ArmReplay(const char *path);
+/* The armed replay's own starting state, as a savegame Control_Begin can load when no
+   --load was given, so a replay boots into the state its recording began from instead of
+   one supplied by hand. Returns 1 with *out set, 0 when no replay is armed (or its file
+   will not open, which Record_Play reports by name), and -1 when a replay is armed and
+   carries no obtainable starting state -- which the caller must refuse rather than boot
+   fresh into. */
+int Record_ArmedReplayLoad(const char **out);
 unsigned long Record_Squeeze(const char *path);
 /* The file the last Record_Start / Record_Play resolved to. A bare name is a name in
    the recordings folder, so this is where it actually went, which is not the string the
