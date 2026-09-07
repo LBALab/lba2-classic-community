@@ -476,6 +476,15 @@ So the key is not a formality: it is the thing that decides whether a player
 can update without losing their saves. It has to stay the same for the life of
 the app, and it cannot be recovered if it is lost.
 
+There is a second reason, and it only shows up on the day something has already
+gone wrong. A build signed with the app's own certificate installs over it, so a
+debuggable build of the version a player is stuck on is a rescue tool: `adb
+backup` includes app-private data for a debuggable app and excludes it for a
+release one, and `run-as` works on the same condition. Holding the key is what
+makes it possible to get somebody's saves off a device you cannot otherwise
+reach. A key that no longer exists closes that door for good, however deserving
+the case.
+
 Four repository secrets drive it. `ANDROID_KEYSTORE_BASE64` is a base64 copy of
 the keystore file; the rest name how to open it.
 
