@@ -366,6 +366,10 @@ static S32 s_deviceSaved = -1;
 static long s_clockMismatchPoll = -1;
 static long s_hashMismatchTick = -1;
 static long s_ticksChecked = 0;
+/* What report_extent found, kept rather than printed and dropped. -1 is "not known": the
+   scan finds no marker in a file cut inside its start snapshot, and a run with no
+   denominator has to be judged on the numerator alone rather than on a divide. */
+static long s_extentTicks = -1;
 static int s_eof = 0;
 
 static char s_headerBuf[REC_HEADER_MAX];
@@ -1609,17 +1613,97 @@ static void record_restore_player(void) {
  * the rule lived only in the paragraph above, and any new exit path calling the end reporter
  * got the pass-shaped line for free. */
 typedef enum {
-    REPLAY_END_STREAM, /* the recording ran out: the run did what it was asked */
-    REPLAY_END_STALL,  /* waiting on input the recording does not contain */
-    REPLAY_END_MENU    /* the recording opened a menu; MainLoop returned under the harness */
+    REPLAY_END_STREAM,   /* the recording ran out: the run did what it was asked */
+    REPLAY_END_STALL,    /* waiting on input the recording does not contain */
+    REPLAY_END_MENU,     /* the recording opened a menu; MainLoop returned under the harness */
+    REPLAY_END_UNCOVERED /* the stream ended over too little of the file to answer from */
 } T_ReplayEnd;
 
+/* A switch rather than the ternary this replaced. `how == REPLAY_END_STALL ? "stall" : "menu"`
+   is correct for two outcomes and silently mislabels every one added after -- the fourth
+   value printed "at the menu:" with nothing from the compiler to say so. */
+static const char *replay_end_name(T_ReplayEnd how) {
+    switch (how) {
+    case REPLAY_END_STALL:
+        return "stall";
+    case REPLAY_END_MENU:
+        return "menu";
+    case REPLAY_END_UNCOVERED:
+        return "short stream";
+    case REPLAY_END_STREAM:
+        break;
+    }
+    return "end";
+}
+
+/* Did the run get through enough of the recording to be entitled to the verdict?
+ *
+ * Two limbs, one rule: do not print the success string without evidence that the session
+ * was replayed.
+ *
+ * Nothing checked is never a verdict, whatever the extent says. That is the mistyped
+ * --replay path, which boots, replays nothing and exits 0, and the torn recording whose
+ * start snapshot is refused: measured, `replay ended at poll 0: 0 ticks checked, first
+ * hash mismatch -1` -- the success string over no evidence at all.
+ *
+ * Otherwise compare against what the file holds. `s_extentTicks` is a structural
+ * UNDERCOUNT, not a noisy estimate: it is the tick stamped on the last sync marker in the
+ * trailing 64KB, so the ticks after that marker are uncounted and a healthy replay always
+ * checks MORE than the file "holds". Measured over seven clean runs across two formats,
+ * the ratio runs 1.006 to 1.472 -- the wide end is a legacy-format file whose markers are
+ * sparser. So 1.0 is a floor for healthy runs rather than the middle of a spread, and half
+ * is a wide margin below a floor rather than a tolerance around a mean: it clears the
+ * tightest healthy run by 2x and the one observed real failure (877 held, 51 checked) by
+ * 8.6x. Deliberately loose. Too tight turns green fixtures red, which gets the check
+ * reverted; too loose misses some short runs, which is where the tree already is.
+ *
+ * A missing extent with ticks checked is not judged. The scan can come back empty on a
+ * file this has no quarrel with, and inventing a failure from a denominator that was never
+ * read would be the same error in the other direction. */
+static int replay_covered_the_file(void) {
+    if (s_ticksChecked <= 0)
+        return 0;
+    if (s_extentTicks < 0)
+        return 1;
+    return s_ticksChecked >= s_extentTicks / 2;
+}
+
 static void replay_report(T_ReplayEnd how) {
+    /* The stream running out is how a healthy replay ends and how a truncated one ends, so
+       the call site cannot tell them apart -- it knows the stream stopped, not whether the
+       run got through the session. Coverage is what separates them, and it is asked here,
+       once, so both paths that report a stream end are covered by it. */
+    if (how == REPLAY_END_STREAM && !replay_covered_the_file())
+        how = REPLAY_END_UNCOVERED;
+
+    if (how == REPLAY_END_UNCOVERED) {
+        if (s_endSaid)
+            return;
+        s_endSaid = 1;
+        /* Both figures, so the reader sees why the verdict was withheld rather than being
+           told that it was. "%ld ticks checked" is kept verbatim: the torn-recording arms
+           parse the count out of whatever line carries it. */
+        if (s_extentTicks >= 0)
+            fprintf(stderr,
+                    "[rec] replay covered only part of the recording: %ld ticks checked of about "
+                    "%ld held, clock drift max %ld ms first at tick %ld, stream drift first at "
+                    "poll %ld\n",
+                    s_ticksChecked, s_extentTicks, s_refDriftMax, s_refDriftFirstTick,
+                    s_syncDriftPoll);
+        else
+            fprintf(stderr,
+                    "[rec] replay has nothing to be judged on: %ld ticks checked, and the file "
+                    "holds no extent to compare against, clock drift max %ld ms first at tick "
+                    "%ld, stream drift first at poll %ld\n",
+                    s_ticksChecked, s_refDriftMax, s_refDriftFirstTick, s_syncDriftPoll);
+        return;
+    }
+
     if (how != REPLAY_END_STREAM) {
         fprintf(stderr,
                 "[rec] at the %s: %ld ticks checked, clock drift max %ld ms first at tick %ld, "
                 "stream drift first at poll %ld\n",
-                how == REPLAY_END_STALL ? "stall" : "menu", s_ticksChecked, s_refDriftMax,
+                replay_end_name(how), s_ticksChecked, s_refDriftMax,
                 s_refDriftFirstTick, s_syncDriftPoll);
         return;
     }
@@ -2051,6 +2135,7 @@ static void report_extent(void) {
     free(buf);
     fseek(s_f, here, SEEK_SET);
 
+    s_extentTicks = bestTick;
     if (bestTick >= 0)
         fprintf(stderr, "[rec] holds about %ld ticks over %ld polls; give --tick more than that\n",
                 bestTick, bestPoll);
@@ -2543,6 +2628,12 @@ int Record_Play(const char *path) {
 
     if (s_recording || s_replaying)
         return 0;
+
+    /* The extent belongs to the file, not to the replay's counters, so it is cleared here
+       where one is opened rather than in replay_begin -- which runs after report_extent and
+       would wipe the scan a hundred lines after it was taken. report_extent returns early on
+       a file it cannot scan, so "not known" has to be written before it rather than by it. */
+    s_extentTicks = -1;
 
     /* No name means the last one recorded, which is what closes the loop: record, stop,
        play, without a path being typed at either end.
@@ -3548,6 +3639,19 @@ void Record_Report(const char *path) {
         if (s_replaying) {
             Console_Print("rec: ticks checked %ld, first hash mismatch %ld",
                           s_ticksChecked, s_hashMismatchTick);
+            /* The denominator, which is the thing a reader watching a live replay lacks.
+               Not a verdict and not a warning: this surface reports PROGRESS on a running
+               replay, never a result on a finished one, because Record_Stop clears
+               s_replaying before a completed run could be asked about. So there is nothing
+               here to withhold, and a coverage predicate would have exactly the wrong
+               polarity -- silent on the short run it was meant for, and alarming for the
+               first half of every healthy one, which is measured: `rec` typed at tick 20 of
+               a replay that went on to check 198 of 191 called it too little to have
+               reproduced. Unconditional for the same reason: a line that appeared and
+               vanished as a run crossed a threshold would be neither honest nor stable to
+               parse. */
+            if (s_extentTicks >= 0)
+                Console_Print("rec: of about %ld ticks held", s_extentTicks);
             Console_Print("rec: game-clock drift max %ld ms, first at tick %ld",
                           s_refDriftMax, s_refDriftFirstTick);
         }
