@@ -152,8 +152,17 @@ fi
 if [[ -n "$CXX_SHARED_LIB" && -f "$CXX_SHARED_LIB" ]]; then
     cp "$CXX_SHARED_LIB" "$STAGING/lib/$ARCH/"
 elif [[ -f "$BUILD_DIR/CMakeCache.txt" ]]; then
-    NDK_ROOT=$(grep -m1 '^CMAKE_ANDROID_NDK:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2-)
-    ABI=$(grep -m1 '^ANDROID_ABI:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2-)
+    # A cache configured through the NDK toolchain file carries no
+    # CMAKE_ANDROID_NDK, and a grep miss under `set -e` would end the run right
+    # here with no output at all. Let it through: emptiness is handled below,
+    # and the toolchain paths still name the NDK when that variable does not.
+    NDK_ROOT=$(grep -m1 '^CMAKE_ANDROID_NDK:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2- || true)
+    ABI=$(grep -m1 '^ANDROID_ABI:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2- || true)
+    if [[ -z "$NDK_ROOT" ]]; then
+        NDK_AR=$(grep -m1 '^CMAKE_AR:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2- || true)
+        [[ "$NDK_AR" == */toolchains/* ]] && NDK_ROOT="${NDK_AR%%/toolchains/*}"
+    fi
+    ABI="${ABI:-$ARCH}"
     if [[ -n "$NDK_ROOT" && -n "$ABI" ]]; then
         case "$ABI" in
             arm64-v8a)   NDK_TARGET="aarch64-linux-android" ;;
@@ -174,6 +183,16 @@ elif [[ -f "$BUILD_DIR/CMakeCache.txt" ]]; then
             fi
         fi
     fi
+fi
+
+# An APK missing a library the native code links against installs cleanly and
+# then dies at load time, which is a worse failure than not building at all.
+if grep -aq 'libc++_shared\.so' "$LIB_PATH" 2>/dev/null \
+   && [[ ! -f "$STAGING/lib/$ARCH/libc++_shared.so" ]]; then
+    echo "bundle-android: $LIB_PATH links against libc++_shared.so, which could" >&2
+    echo "  not be located from the build directory. Pass it explicitly with" >&2
+    echo "  --cxx-shared-lib <path to libc++_shared.so>." >&2
+    exit 1
 fi
 
 # 1b. App icon — resolvable as @mipmap/ic_launcher in the manifest
