@@ -118,6 +118,46 @@ bool Directories_PortableUserDir(char *outDir, U16 outMax, const char *baseDir);
 /// Only meaningful after GetDefaultUserDir has resolved the root.
 bool Directories_PortableProfile(char *outName, U16 outMax);
 
+/// The first of \p candidates the run can actually write into, normalised to a
+/// trailing separator. Missing directories are created on the way, so a
+/// candidate that does not exist yet still wins if it can be made.
+///
+/// Writability is settled by writing a file, not by asking whether a permission
+/// is held. On Android 11+ the same path can be readable, listable and
+/// unwritable at once, and the permission behind it can be revoked between two
+/// launches; the only answer that is true at the moment it is needed is a
+/// probe. Off Android the loop simply falls through paths that do not exist.
+///
+/// Returns the index of the winner, or -1 when none of them can be written to,
+/// leaving \p outDir untouched. The index is what tells a caller which of the
+/// candidates are *less* preferred than the one in force, which is exactly the
+/// set Directories_ReconcileUserDir needs.
+S32 Directories_SelectWritableRoot(const char *const *candidates, S32 count,
+                                   char *outDir, U16 outMax);
+
+/// True when \p dir holds a user directory somebody has used: lba2.cfg, save/
+/// or profiles/.
+///
+/// Deliberately not "the directory is not empty". One of the roots below is the
+/// app-specific external folder, and docs/ANDROID.md has long told players they
+/// may drop their retail HQR set there, so "not empty" would classify a game
+/// data folder as a user directory and copy gigabytes out of it.
+bool Directories_HasUserData(const char *dir);
+
+/// Copy a user directory up from the first of \p lower that holds one, when
+/// \p chosen holds none. Most preferred first, as for the selection above.
+///
+/// This is what keeps a save reachable when the root the run may write to
+/// changes underneath it: the internal folder every Android build wrote to
+/// before, or the app-specific folder a run fell back to while All Files Access
+/// was withheld and the player has since granted. Nothing is ever deleted, and
+/// nothing is overwritten -- a \p chosen that already holds a save is left
+/// exactly as it is, which is also what makes a second launch a no-op.
+///
+/// Returns true when something was copied.
+bool Directories_ReconcileUserDir(const char *chosen, const char *const *lower,
+                                  S32 count);
+
 // --- Interface ---------------------------------------------------------------
 void GetCurrentRunningDir(char *outDir); ///< Path where application was run
 void GetDefaultUserDir(char *outDir);    ///< Path for user writable data
