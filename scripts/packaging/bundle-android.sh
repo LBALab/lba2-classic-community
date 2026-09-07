@@ -219,7 +219,10 @@ cp "$REPO_ROOT/packaging/android/AndroidManifest.xml" "$STAGING/AndroidManifest.
 # assumed: a manifest edit that renamed or reformatted the attribute would
 # otherwise ship every build as version 1 again, silently, which is the bug this
 # replaces.
-if ! grep -q 'android:versionCode="[0-9]\+"' "$STAGING/AndroidManifest.xml"; then
+# [0-9][0-9]* rather than [0-9]\+: the latter is a GNU extension to basic
+# regular expressions, so on a BSD userland this misses and the build stops
+# claiming the manifest has no versionCode at all.
+if ! grep -q 'android:versionCode="[0-9][0-9]*"' "$STAGING/AndroidManifest.xml"; then
     echo "bundle-android: no android:versionCode to substitute in the manifest" >&2
     exit 1
 fi
