@@ -574,7 +574,24 @@ bool Directories_PortableProfile(char *outName, U16 outMax) {
    data a player may re-push at any time, and their saves must not be sitting in
    the folder they overwrite. One level down from `/sdcard/lba2cc/` keeps both
    in one thing to back up while keeping "yours" and "the game's" apart on
-   sight. */
+   sight.
+
+   Shared storage rather than the app-specific folder, which is what the
+   platform's own guidance would pick. Two facts decide it the other way. The
+   app-specific external folder is erased by an uninstall exactly as internal
+   storage is, so it does not survive the one event that costs a player their
+   saves; and since Android 11 a file manager cannot browse Android/data, so a
+   player cannot reach their own saves to copy them off or send them with a
+   report.
+
+   The sanctioned alternative is the Storage Access Framework, and it is not a
+   drop-in for an engine built on paths. SAF routes each operation through IPC
+   and is orders of magnitude slower than the file API, which this engine's many
+   small reads would feel; and Android TV has no folder picker to grant a
+   directory with, which would leave the leanback build nowhere to write. The
+   price of choosing against the guidance is that MANAGE_EXTERNAL_STORAGE is a
+   restricted permission on Google Play and a game is not an eligible category,
+   so this layout and Play distribution cannot both be had. */
 #define ANDROID_USER_DIR_SDCARD "/sdcard/lba2cc/user"
 /* The same folder under the name it carries when /sdcard is not the symlink it
    is on nearly every device. ResolveGameDataDir probes both spellings for the
