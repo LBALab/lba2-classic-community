@@ -189,8 +189,33 @@ jobs:
         run: |
           cmake --build --preset ${{ matrix.preset }} -- -j"$(nproc)" 2>&1
 
+      # Without this, bundle-android.sh falls back to ~/.android/debug.keystore
+      # and generates one, because a fresh runner has none. Every job then signs
+      # with a different random key -- including the two ABI legs of one release
+      # -- so no published APK can ever update another and players have to
+      # uninstall, which erases their saves. The secret is what makes an update
+      # an update. See docs/RELEASING.md for creating and rotating it.
+      - name: Restore the Android release key
+        if: ${{ inputs.bundle }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          # Absent is a normal outcome, not a failure: a fork's pull request
+          # cannot read secrets. Say so, and let the bundler debug-sign.
+          if [[ -z "$ANDROID_KEYSTORE_BASE64" ]]; then
+            echo "No release key here. This APK will be debug-signed, which"
+            echo "means it can update nothing and nothing can update it."
+            exit 0
+          fi
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "${RUNNER_TEMP}/release.jks"
+          echo "LBA2_ANDROID_KEYSTORE=${RUNNER_TEMP}/release.jks" >> "$GITHUB_ENV"
+
       - name: Bundle APK
         if: ${{ inputs.bundle }}
+        env:
+          LBA2_ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          LBA2_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          LBA2_ANDROID_KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
         run: |
           BUILD_DIR="out/build/${{ matrix.preset }}"
           VERSION=$(cat "$BUILD_DIR/VERSION.txt")
@@ -201,6 +226,9 @@ jobs:
 
           mkdir -p dist
 
+          # A fork's pull request cannot read secrets, so LBA2_ANDROID_KEYSTORE
+          # is empty there and the bundler debug-signs and says so. That build
+          # is a compile check nobody installs over anything.
           bash scripts/packaging/bundle-android.sh \
             --lib "$NATIVE_LIB" \
             --version "$VERSION" \

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bundle a built Android native library into a debug-signed APK.
+# Bundle a built Android native library into a signed APK.
 #
 # Usage:
 #   bundle-android.sh --lib <path/to/liblba2cc.so> \
@@ -8,9 +8,25 @@
 #                     --build-dir <cmake-build-dir> \
 #                     --sdk-root <android-sdk> \
 #                     --sdl3-java-src <path-to-sdl3-java-sources> \
-#                     --output-dir <where-to-drop-the-apk>
+#                     --output-dir <where-to-drop-the-apk> \
+#                     [--keystore <file> --keystore-pass <pass> \
+#                      --key-alias <alias> [--key-pass <pass>]]
 #
 # Produces: <output-dir>/lba2cc-<version>-android-<arch>.apk
+#
+# Signing. Android identifies an app by package name AND signing certificate,
+# so two APKs signed with different keys are two different apps: installing one
+# over the other is refused with INSTALL_FAILED_UPDATE_INCOMPATIBLE, which the
+# package installer shows as "App not installed as package conflicts with an
+# existing package". The only way past it is to uninstall, and that erases
+# everything in the app's private storage.
+#
+# Pass a keystore (flags above, or LBA2_ANDROID_KEYSTORE / _KEYSTORE_PASS /
+# _KEY_ALIAS / _KEY_PASS in the environment) and every release signed with it
+# updates in place. With none, this falls back to the local debug keystore,
+# generating one if the machine has none -- which is fine for a build you
+# install yourself and wrong for anything a player is handed, because a fresh
+# CI runner generates a fresh key on every single run.
 #
 # Requires the Android SDK (command-line tools, build-tools, platform
 # android-34) to be installed at SDK_ROOT.
@@ -25,6 +41,10 @@ SDL3_JAVA_SRC=""
 SDL3_LIB=""
 CXX_SHARED_LIB=""
 OUTPUT_DIR=""
+KEYSTORE="${LBA2_ANDROID_KEYSTORE:-}"
+KEYSTORE_PASS="${LBA2_ANDROID_KEYSTORE_PASS:-}"
+KEY_ALIAS="${LBA2_ANDROID_KEY_ALIAS:-}"
+KEY_PASS="${LBA2_ANDROID_KEY_PASS:-}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -37,6 +57,10 @@ while [[ $# -gt 0 ]]; do
         --sdl3-lib) SDL3_LIB="$2"; shift 2 ;;
         --cxx-shared-lib) CXX_SHARED_LIB="$2"; shift 2 ;;
         --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
+        --keystore) KEYSTORE="$2"; shift 2 ;;
+        --keystore-pass) KEYSTORE_PASS="$2"; shift 2 ;;
+        --key-alias) KEY_ALIAS="$2"; shift 2 ;;
+        --key-pass) KEY_PASS="$2"; shift 2 ;;
         -h|--help)
             sed -n '/^# Usage:/,/^set -e/p' "$0" | sed 's/^# \?//' | head -n -1
             exit 0
@@ -68,8 +92,23 @@ LIB_NAME="libmain.so"
 ARTIFACT_NAME="lba2cc-${VERSION}-android-${ARCH}"
 ARTIFACT_APK="${OUTPUT_DIR}/${ARTIFACT_NAME}.apk"
 
+# versionCode is the integer Android orders builds by, and the manifest carried
+# a hard-coded 1, so every release we have ever shipped claimed to be the same
+# build. Derive it from the leading X.Y.Z of the version, ignoring any -dev or
+# -rc suffix: 0.12.0 -> 1200, 0.13.0 -> 1300. Two digits each for minor and
+# patch, which is room this project will not run out of before the major moves.
+VERSION_CODE=$(
+    echo "$VERSION" | awk -F'[.-]' '{
+        printf "%d", ($1 * 10000) + ($2 * 100) + $3
+    }'
+)
+if [[ ! "$VERSION_CODE" =~ ^[0-9]+$ ]] || [[ "$VERSION_CODE" -le 0 ]]; then
+    echo "bundle-android: could not derive a versionCode from '$VERSION'" >&2
+    exit 1
+fi
+
 echo "[bundle-android] lib:        $LIB_PATH"
-echo "[bundle-android] version:    $VERSION"
+echo "[bundle-android] version:    $VERSION (versionCode $VERSION_CODE)"
 echo "[bundle-android] arch:       $ARCH"
 echo "[bundle-android] artifact:   $ARTIFACT_APK"
 
@@ -156,6 +195,19 @@ EOF
 
 cp "$REPO_ROOT/packaging/android/AndroidManifest.xml" "$STAGING/AndroidManifest.xml"
 
+# The manifest keeps a literal versionCode so it stays a valid manifest to read
+# and to build by hand; the real value is substituted here. Checked rather than
+# assumed: a manifest edit that renamed or reformatted the attribute would
+# otherwise ship every build as version 1 again, silently, which is the bug this
+# replaces.
+if ! grep -q 'android:versionCode="[0-9]\+"' "$STAGING/AndroidManifest.xml"; then
+    echo "bundle-android: no android:versionCode to substitute in the manifest" >&2
+    exit 1
+fi
+sed -i.bak "s/android:versionCode=\"[0-9]\+\"/android:versionCode=\"${VERSION_CODE}\"/" \
+    "$STAGING/AndroidManifest.xml"
+rm -f "$STAGING/AndroidManifest.xml.bak"
+
 # 3. Compile SDL Java sources (plus helpers from packaging/android/java/) into classes.dex
 echo "[bundle-android] compiling Java to DEX..."
 SDL_JAVA_DIR="${SDL3_JAVA_SRC}/android-project/app/src/main/java"
@@ -208,26 +260,53 @@ cd "$REPO_ROOT"
 echo "[bundle-android] aligning..."
 "$ZIPALIGN" -f -P 16 4 "$STAGING/unsigned.apk" "$STAGING/aligned.apk"
 
-# 7. Debug-sign with the auto-generated debug keystore
-KEYSTORE="${HOME}/.android/debug.keystore"
-KEYPASS="android"
-if [[ ! -f "$KEYSTORE" ]]; then
-    echo "[bundle-android] generating debug keystore..."
-    mkdir -p "${HOME}/.android"
-    keytool -genkey -v -keystore "$KEYSTORE" \
-        -alias androiddebugkey -storepass "$KEYPASS" -keypass "$KEYPASS" \
-        -keyalg RSA -keysize 2048 -validity 10000 \
-        -dname "CN=Android Debug,O=Android,C=US" 2>&1
+# 7. Sign — see the header for why the identity of the key matters
+if [[ -n "$KEYSTORE" ]]; then
+    if [[ ! -f "$KEYSTORE" ]]; then
+        echo "bundle-android: keystore not found at $KEYSTORE" >&2
+        exit 1
+    fi
+    if [[ -z "$KEYSTORE_PASS" || -z "$KEY_ALIAS" ]]; then
+        echo "bundle-android: --keystore needs --keystore-pass and --key-alias" >&2
+        exit 1
+    fi
+    # A key with no separate password uses the store's, which is how a keystore
+    # holding one key is usually made.
+    KEY_PASS="${KEY_PASS:-$KEYSTORE_PASS}"
+    echo "[bundle-android] signing with the release key ($KEY_ALIAS)"
+else
+    KEYSTORE="${HOME}/.android/debug.keystore"
+    KEYSTORE_PASS="android"
+    KEY_ALIAS="androiddebugkey"
+    KEY_PASS="android"
+    if [[ ! -f "$KEYSTORE" ]]; then
+        echo "[bundle-android] generating debug keystore..."
+        mkdir -p "${HOME}/.android"
+        keytool -genkey -v -keystore "$KEYSTORE" \
+            -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASS" -keypass "$KEY_PASS" \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US" 2>&1
+    fi
+    echo "[bundle-android] signing with the local debug key."
+    echo "[bundle-android] NOTE: this APK can only update another one signed by"
+    echo "[bundle-android]       the same machine's debug key. Do not publish it."
 fi
 
-echo "[bundle-android] signing..."
 "$APKSIGNER" sign --ks "$KEYSTORE" \
-    --ks-pass "pass:${KEYPASS}" \
-    --key-pass "pass:${KEYPASS}" \
+    --ks-pass "pass:${KEYSTORE_PASS}" \
+    --ks-key-alias "$KEY_ALIAS" \
+    --key-pass "pass:${KEY_PASS}" \
     --out "$ARTIFACT_APK" "$STAGING/aligned.apk"
 
-# 8. Verify
+# 8. Verify, and print the certificate.
+#
+# The digest is the app's identity as far as Android is concerned, so a release
+# log that carries it is how anyone can check afterwards that two builds really
+# can update each other -- which is exactly the question nobody could answer
+# about the releases signed by throwaway keys.
 echo "[bundle-android] verifying..."
+"$APKSIGNER" verify --print-certs "$ARTIFACT_APK" 2>&1 |
+    grep -i "certificate SHA-256 digest" || true
 "$APKSIGNER" verify "$ARTIFACT_APK" 2>&1
 
 # 9. Cleanup

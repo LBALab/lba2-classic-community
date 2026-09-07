@@ -3,6 +3,10 @@
      Uses SDL3's built-in SDLActivity (org.libsdl.app.SDLActivity).
      Build the native library separately via cmake + NDK, then package
      via scripts/packaging/bundle-android.sh - see docs/ANDROID.md. -->
+<!-- versionCode below is a placeholder: bundle-android.sh substitutes the real
+     one, derived from the version being built, and fails the build if it cannot
+     find the attribute to substitute. A literal is kept rather than a token so
+     this stays a manifest somebody can read and build by hand. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.lbalab.lba2cc"
     android:versionCode="1"

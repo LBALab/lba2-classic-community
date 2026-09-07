@@ -14,6 +14,9 @@ on:
 jobs:
   build:
     uses: ./.github/workflows/reusable-build-android.yml
+    # For the Android release key. Without it the APKs are debug-signed and no
+    # player can update in place. See docs/RELEASING.md.
+    secrets: inherit
 
   release:
     name: Attach to GitHub Release
