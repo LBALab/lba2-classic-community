@@ -19,6 +19,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #ifndef UNKNOWN_VERSION
 #define UNKNOWN_VERSION 0
@@ -95,6 +96,7 @@ static const char *directoriesUserDirSource = "default";
 static char directoriesUnwritableRoot[ADELINE_MAX_PATH] = "";
 static char directoriesMigratedFrom[ADELINE_MAX_PATH] = "";
 static char directoriesRivalUserDir[ADELINE_MAX_PATH] = "";
+static bool directoriesMigrationPartial = false;
 
 // --- Private functions -------------------------------------------------------
 /**
@@ -377,6 +379,8 @@ const char *Directories_GetUserDirSource(void) { return directoriesUserDirSource
 const char *Directories_GetUnwritableRoot(void) { return directoriesUnwritableRoot; }
 
 const char *Directories_GetMigratedFrom(void) { return directoriesMigratedFrom; }
+
+bool Directories_MigrationWasPartial(void) { return directoriesMigrationPartial; }
 
 const char *Directories_GetRivalUserDir(void) { return directoriesRivalUserDir; }
 
@@ -706,19 +710,109 @@ static bool SameDirectory(const char *a, const char *b) {
     }
 
     /* Removed before the answer is returned either way, so nothing is left for a
-       later run to trip over and read as an alias that is not one. */
+       later run to trip over and read as an alias that is not one.
+
+       The probe carries a token and the answer is that token coming back, not
+       merely a file being there. A run killed between the write and the removal
+       leaves one behind, and on Android the storage-permission flow puts the
+       process into the background moments before this runs, so that is reachable
+       rather than theoretical. A leftover would otherwise make two different
+       folders read as one and silently skip the migration. */
+    static U32 probeSeq = 0;
+    char token[64];
+    const int tokenLen = snprintf(token, sizeof(token), "%lu-%u", (unsigned long)time(NULL),
+                                  ++probeSeq);
+    if (tokenLen <= 0 || (size_t)tokenLen >= sizeof(token)) {
+        return false;
+    }
+
     FILE *f = fopen(probeA, "wb");
     if (f == NULL) {
         return false; // cannot ask; treat them as different and copy nothing
     }
-    fclose(f);
-    const bool same = ExistsOnFilesystem(probeB);
+    const bool wrote = fwrite(token, 1, (size_t)tokenLen, f) == (size_t)tokenLen;
+    if (fclose(f) != 0 || !wrote) {
+        SDL_RemovePath(probeA);
+        return false;
+    }
+
+    bool same = false;
+    FILE *g = fopen(probeB, "rb");
+    if (g != NULL) {
+        char got[64];
+        const size_t n = fread(got, 1, sizeof(got) - 1, g);
+        got[n] = '\0';
+        fclose(g);
+        same = strcmp(got, token) == 0;
+    }
     SDL_RemovePath(probeA);
     return same;
 }
 
 /* Both paths arrive with a trailing separator and leave with one, so the
    recursion has a single shape and no step has to ask whether to add one. */
+/* A folder that has already been copied up carries this, so a later boot can
+   tell its own leftover from a second set of saves somebody is still using. */
+#define USER_DIR_MIGRATED_MARKER ".lba2cc-migrated"
+
+/* Copy() reads four bytes at a time and counts its loop in bytes rather than in
+   reads, so a megabyte costs a million iterations, and it reports failure for an
+   empty file. Neither matters for the save slot it was written for. The
+   migration moves a whole user directory, recordings and screenshots included,
+   before the log or any window exists, so it needs a copy that is neither. */
+static bool CopyFileContents(const char *src, const char *dest) {
+    FILE *in = fopen(src, "rb");
+    if (in == NULL) {
+        return false;
+    }
+    FILE *out = fopen(dest, "wb");
+    if (out == NULL) {
+        fclose(in);
+        return false;
+    }
+
+    bool ok = true;
+    char buf[16384];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), in)) > 0) {
+        if (fwrite(buf, 1, n, out) != n) {
+            ok = false;
+            break;
+        }
+    }
+    if (ferror(in) != 0) {
+        ok = false;
+    }
+    if (fclose(out) != 0) {
+        ok = false; // a full disc can surface only here
+    }
+    fclose(in);
+    return ok;
+}
+
+static bool MigrationMarkerPath(const char *dir, char *out, U16 outMax) {
+    return snprintf(out, outMax, "%s%s", dir, USER_DIR_MIGRATED_MARKER) < (int)outMax;
+}
+
+static bool WasAlreadyMigratedFrom(const char *dir) {
+    char path[ADELINE_MAX_PATH];
+    if (!MigrationMarkerPath(dir, path, ADELINE_MAX_PATH)) {
+        return false;
+    }
+    return ExistsOnFilesystem(path);
+}
+
+static void MarkMigratedFrom(const char *dir) {
+    char path[ADELINE_MAX_PATH];
+    if (!MigrationMarkerPath(dir, path, ADELINE_MAX_PATH)) {
+        return;
+    }
+    FILE *f = fopen(path, "wb");
+    if (f != NULL) {
+        fclose(f);
+    }
+}
+
 static bool CopyTree(const char *srcDir, const char *destDir, S32 depth) {
     if (depth > USER_DIR_COPY_MAX_DEPTH) {
         return false;
@@ -765,7 +859,7 @@ static bool CopyTree(const char *srcDir, const char *destDir, S32 depth) {
             continue;
         }
 
-        if (!Copy(srcPath, destPath)) {
+        if (!CopyFileContents(srcPath, destPath)) {
             Log_Warn("User dir   could not copy '%s'", name);
             ok = false;
         }
@@ -808,6 +902,12 @@ bool Directories_ReconcileUserDir(const char *chosen, const char *const *lower,
         if (!Directories_HasUserData(src)) {
             continue;
         }
+        if (WasAlreadyMigratedFrom(src)) {
+            /* Copied up by an earlier boot and deliberately left in place. It
+               holds the same saves the chosen folder does, so calling it a
+               second set every launch would be a warning nobody can act on. */
+            continue;
+        }
         if (destUsed) {
             /* Two real save sets, and no way from here to tell which one the
                player wants. Say so and touch neither. */
@@ -819,12 +919,19 @@ bool Directories_ReconcileUserDir(const char *chosen, const char *const *lower,
             continue; // the destination is inside the source: copying into itself
         }
 
+        /* What lands is still the player's and the original is untouched, so a
+           partial copy is worth keeping rather than unwinding. Recorded after
+           the fact so the banner can say which of the two happened. */
+        const bool whole = CopyTree(src, dest, 0);
         strncpy(directoriesMigratedFrom, src, ADELINE_MAX_PATH);
         directoriesMigratedFrom[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
-        if (!CopyTree(src, dest, 0)) {
-            /* What did land is still the player's and the original is untouched,
-               so this is worth keeping rather than unwinding. The banner names
-               the folder, which is what a person needs to finish it by hand. */
+        directoriesMigrationPartial = !whole;
+        if (whole) {
+            /* Marked only on a complete copy. Left unmarked otherwise, so the
+               folder keeps being reported as holding saves of its own, which
+               after a partial copy is exactly what it does. */
+            MarkMigratedFrom(src);
+        } else {
             Log_Warn("User dir   some files could not be copied out of %s", src);
         }
         return true;

@@ -1885,6 +1885,80 @@ static bool test_userdir_reconcile_is_idempotent() {
     return file_says(dest, "save/current.lba", "ONCE");
 }
 
+/** Opened rather than read: an absent file and an empty one slurp the same. */
+static bool file_exists_in(const char *dir, const char *rel) {
+    char path[ADELINE_MAX_PATH];
+    snprintf(path, sizeof(path), "%s/%s", dir, rel);
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) {
+        return false;
+    }
+    fclose(f);
+    return true;
+}
+
+/* A save slot a player has not written to yet is still theirs, and a copy that
+ * treats an empty file as a failure drops it while reporting that the migration
+ * worked. */
+static bool test_userdir_reconcile_carries_an_empty_file() {
+    char src[512];
+    char dest[512];
+    if (!make_temp_dir(src, sizeof(src), "udem1") ||
+        !make_temp_dir(dest, sizeof(dest), "udem2")) {
+        return false;
+    }
+    if (!populate_user_dir(src, "EMPTY") || !write_in(src, "save/blank.lba", "")) {
+        return false;
+    }
+    if (!file_exists_in(src, "save/blank.lba")) {
+        return false; // the fixture never held what the test is about
+    }
+
+    const char *lower[1];
+    lower[0] = src;
+    if (!Directories_ReconcileUserDir(dest, lower, 1)) {
+        return false;
+    }
+    if (Directories_MigrationWasPartial()) {
+        return false; // nothing in this fixture should have been left behind
+    }
+    return file_exists_in(dest, "save/blank.lba");
+}
+
+/* The folder a migration copied up from is deliberately left in place, so from
+ * the next launch it holds the same saves the chosen one does. Calling that a
+ * second save set on every boot afterwards is a warning nobody can act on, and
+ * it buries the case where there really are two. */
+static bool test_userdir_reconcile_does_not_report_its_own_leftover() {
+    char src[512];
+    char dest[512];
+    if (!make_temp_dir(src, sizeof(src), "udlo1") ||
+        !make_temp_dir(dest, sizeof(dest), "udlo2")) {
+        return false;
+    }
+    if (!populate_user_dir(src, "LEFTOVER")) {
+        return false;
+    }
+
+    const char *lower[1];
+    lower[0] = src;
+    if (!Directories_ReconcileUserDir(dest, lower, 1)) {
+        return false;
+    }
+    if (Directories_GetRivalUserDir()[0] != '\0') {
+        return false; // the launch that copies has nothing to rival
+    }
+    for (int i = 0; i < 2; i++) { // and every launch after it
+        if (Directories_ReconcileUserDir(dest, lower, 1)) {
+            return false; // copied a second time
+        }
+        if (Directories_GetRivalUserDir()[0] != '\0') {
+            return false; // its own leftover named as somebody else's saves
+        }
+    }
+    return file_says(dest, "save/current.lba", "LEFTOVER");
+}
+
 /* Two folders this install has written to before -- the app-specific one it
  * fell back to while All Files Access was withheld, and the internal one every
  * build used before that. The more recently preferred of the two wins, because
@@ -1967,6 +2041,33 @@ static bool test_userdir_reconcile_ignores_an_aliased_root() {
         return false; // nothing to copy: it is one folder
     }
     return Directories_GetRivalUserDir()[0] == '\0';
+}
+
+/* A run killed between writing the alias probe and removing it leaves one
+ * behind. If the answer were "a probe is present" rather than "my probe came
+ * back", that leftover would make two unrelated folders read as one and the
+ * migration would be skipped without a word. */
+static bool test_userdir_reconcile_ignores_a_stale_alias_probe() {
+    char src[512];
+    char dest[512];
+    if (!make_temp_dir(src, sizeof(src), "udst1") ||
+        !make_temp_dir(dest, sizeof(dest), "udst2")) {
+        return false;
+    }
+    if (!populate_user_dir(src, "STALE")) {
+        return false;
+    }
+    /* What a killed run leaves in the folder it was comparing against. */
+    if (!write_in(dest, ".lba2cc-alias-probe", "")) {
+        return false;
+    }
+
+    const char *lower[1];
+    lower[0] = src;
+    if (!Directories_ReconcileUserDir(dest, lower, 1)) {
+        return false; // two different folders read as one, and nothing moved
+    }
+    return file_says(dest, "save/current.lba", "STALE");
 }
 
 /* A lower root holding only a retail install contributes nothing, and the one
@@ -2116,6 +2217,12 @@ int main() {
     if (!test_userdir_reconcile_is_idempotent()) {
         failed++;
     }
+    if (!test_userdir_reconcile_carries_an_empty_file()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_does_not_report_its_own_leftover()) {
+        failed++;
+    }
     if (!test_userdir_reconcile_takes_the_most_preferred_source()) {
         failed++;
     }
@@ -2126,6 +2233,9 @@ int main() {
         failed++;
     }
     if (!test_userdir_reconcile_ignores_an_aliased_root()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_ignores_a_stale_alias_probe()) {
         failed++;
     }
     /* Last: InitDirectories asserts it runs once, and the cases above resolve

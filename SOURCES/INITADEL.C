@@ -217,9 +217,16 @@ void InitAdeline(S32 argc, char *argv[]) {
                         unwritable);
             }
             if (migratedFrom[0] != '\0') {
-                Log_Raw("Note:   saves and settings were copied up from %s,"
-                        " which still has its own copy",
-                        migratedFrom);
+                if (Directories_MigrationWasPartial()) {
+                    Log_Raw("Note:   saves and settings were copied up from %s,"
+                            " but some files could not be copied and are still"
+                            " only there",
+                            migratedFrom);
+                } else {
+                    Log_Raw("Note:   saves and settings were copied up from %s,"
+                            " which still has its own copy",
+                            migratedFrom);
+                }
             }
             /* Two folders both holding saves. Named rather than merged: both are
                somebody's real progress and nothing here can tell which one they

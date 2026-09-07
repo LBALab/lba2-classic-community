@@ -177,6 +177,11 @@ const char *Directories_GetUnwritableRoot(void);
 /// string. Same reason as above for it being a record rather than a log line.
 const char *Directories_GetMigratedFrom(void);
 
+/// True when that copy left files behind, so the banner can say so rather than
+/// reporting a move that did not entirely happen. The folder is also left
+/// unmarked in that case, which is what keeps a later boot naming it.
+bool Directories_MigrationWasPartial(void);
+
 /// A second folder holding saves this run is not using, or an empty string.
 ///
 /// It means a player has two save sets. On Android that is what a reinstall
