@@ -137,7 +137,11 @@ echo "== 2. the two spellings of one folder are not reported as two save sets ==
 # compare would tell every player with saves that a second copy exists somewhere
 # else -- and the second copy would be the folder they are already using. Only a
 # real device has the symlink, so only a device can check this.
-if "$ADB" shell "grep -q 'another set of saves' '$SHARED_DIR/adeline.log'" 2>/dev/null; then
+# A missing log makes the grep fail, which without this would read exactly like
+# the warning being absent and pass a check that examined nothing.
+if ! exists_on_device "$SHARED_DIR/adeline.log"; then
+    fail "no adeline.log to read, so this check examined nothing"
+elif "$ADB" shell "grep -q 'another set of saves' '$SHARED_DIR/adeline.log'" 2>/dev/null; then
     fail "a second save set was reported on a plain boot with one folder"
 else
     pass "one folder under two names reads as one folder"
