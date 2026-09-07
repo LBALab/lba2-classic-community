@@ -219,9 +219,24 @@ Coming from a build older than `0.13.0` you have to uninstall once. From
 `0.13.0` onward, updates are updates. See
 [RELEASING.md](RELEASING.md#android-signing-key) for the key itself.
 
-**On a rooted device, rescue your old saves first.** Older builds kept them in
-app-private storage, which the uninstall erases, so this has to happen before
-you uninstall:
+**The gate is root, not a PC.** Older builds kept saves in app-private
+storage, which the uninstall erases, so a rescue has to happen before you
+uninstall. A rooted device can do it on its own, and a PC does not help without
+root: `adb shell` runs as the shell user, and the shell user cannot read another
+app's private storage any more than you can.
+
+**On a rooted device, with no PC.** A file manager with root access, or a backup
+app such as Swift Backup, copies the folder directly:
+
+```
+/data/data/org.lbalab.lba2cc/files/   ->   /sdcard/lba2cc/user/
+```
+
+Copy rather than move, then uninstall, then install the new build. The uninstall
+is what clears the app-private copy, and leaving one behind means every launch
+reports two sets of saves.
+
+**On a rooted device, from a PC.** The same operation over `adb`:
 
 ```bash
 adb root
@@ -231,18 +246,22 @@ adb uninstall org.lbalab.lba2cc
 adb install lba2cc-0.13.0-android-arm64-v8a.apk
 ```
 
-The new build finds a folder that already holds your saves and settings and
-uses it as it is. Copy rather than move, and uninstall afterwards rather than
-before: the uninstall is what clears the app-private copy, and leaving one
-behind means every launch reports two sets of saves.
+Either way the new build finds a folder that already holds saves and settings
+and uses it as it is.
 
-**Without root there is no way to get them out.** `adb shell` and `adb pull`
-are refused by the sandbox, `run-as` only works on a debuggable build, and
-`adb backup` returns an empty archive even though the manifest allows backups,
-because Android 12 stopped including app data for apps that are not debuggable.
-A cloud backup does not help either: restoring one requires the same signing
-certificate, and the whole point of `0.13.0` is that the certificate changed.
-Progress from an older build is lost, once.
+**Without root there is no way to get them out.** `adb shell` and `adb pull` are
+refused by the sandbox, `run-as` only works on a debuggable build, and `adb
+backup` returns an empty archive even though the manifest allows backups: the
+attribute that decides it is `android:debuggable`, which a release build does not
+carry. A cloud backup does not help either, because restoring one requires the
+signing certificate the old build was published with. Progress from an older
+build is lost, once.
+
+**Rooting a device that is not already rooted does not rescue it.** Rooting
+generally requires unlocking the bootloader, and unlocking wipes user data,
+destroying the saves the exercise was meant to recover. Reading the bootloader
+state with `fastboot getvar unlocked` is safe; `fastboot flashing unlock` is not.
+Only a device that is already unlocked, or already rooted, has a route.
 
 ## Key mapping (touch overlay)
 
