@@ -131,6 +131,7 @@ record_and_replay() { # record_and_replay <label> [extra record args...]
     esac
 
     CHECKED="$checked"
+    POLLS="$(printf '%s\n' "$summary" | sed -n 's/.*replay ended at poll \([0-9]*\).*/\1/p')"
 }
 
 record_and_replay "with --tick" --tick 300 --exit
@@ -142,6 +143,34 @@ bounded="$CHECKED"
 # a run that finalizes on its first tick never reaches tick 300 and times out here.
 record_and_replay "without --tick" --exec-at 300 "rec stop; exit"
 unbounded="$CHECKED"
+
+# Across a video. PlayAcf paces its frames in a wait of its own, outside MainLoop, and
+# that wait polls input every iteration, so it is the one place in a session where the
+# number of polls between two ticks is settled by something other than the recording. It
+# is also the only thing moving the clock while a video is on screen. Timed against the
+# wall neither is the same twice: the same session recorded twice on one idle machine
+# held 888 ticks over 35328 polls and 859 over 35264, and each replay diverged on the
+# tick the video started, 1.8 and 1.3 seconds of clock drift apart. Under load the replay
+# ran out of stream inside the video and reported "first hash mismatch -1" over 51 of 901
+# ticks, which is the shape that makes this worth an arm rather than a note: the verdict
+# line said the recording reproduced.
+#
+# No fixture reached this loop's exit before. test_ui_video.sh plays a video, but its
+# capture fires on frame 25 and leaves through fin_play, so what had been covered was
+# decode and letterbox centring and not the pacing at all.
+#
+# 60 rather than 30 so the video starts after the input above has been consumed, and the
+# ticks either side of it are ordinary ones.
+record_and_replay "across a video" --tick 300 --exit --exec-at 60 "playvideo BALDINO.SMK"
+
+# That the video played, which nothing above establishes: PlayAcf returns quietly when
+# there is no movie bank (the demo ships none), and a session that skipped the cutscene
+# replays perfectly for the wrong reason. A session without one polls about once a tick;
+# this one spends thousands of polls inside the cinematic and none of them are ticks.
+[ -n "${POLLS:-}" ] && [ "$POLLS" -gt $((CHECKED * 2)) ] ||
+    fail "across a video: ${POLLS:-0} polls over $CHECKED ticks — no video played, so the arm proved nothing"
+vidchecked="$CHECKED"
+vidpolls="$POLLS"
 
 # A recording cut off mid-snapshot, which is what a process killed while writing one
 # leaves behind. The frame's refusal is the whole safety argument for keeping the
@@ -1276,6 +1305,6 @@ esac
 [ ! -e "$(user_dir)/menu-esc.json" ] ||
     fail "menu: a --dump-state was written from a run that stopped at the menu"
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a video played to its end and replayed ($vidchecked ticks over $vidpolls polls); a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
 'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster; a recording on a host-sampled clock crossed a scene change instead of wedging in the fade; \
 a command ran where the recording ran it, for an inline verb and for a deferred one; the state dump was the same at a 400 and a 4000 tick budget; a recording that opens a menu reported no verdict and exited non-zero; a replay with no --load booted from the recording's own starting state and still matched ($noloadchecked ticks); a deliberately diverging replay reported '$eqwith' with and without --load; a pre-inline recording loaded its sibling savegame with no --load and left it intact"
