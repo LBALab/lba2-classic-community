@@ -740,6 +740,41 @@ int Control_Begin(void) {
             fprintf(stderr, "[control] --projection-hash: hash capture not armed\n");
     }
 
+    /* A replay carries the state it started from, so it does not need to be handed one.
+       Only when the caller named no --load: an explicit one is the caller saying which
+       game to boot, and a recording is not entitled to overrule that.
+
+       This is what lets --replay stand on its own. Before it, both kinds of recording
+       needed a --load and needed it for different reasons -- a `rec start` file only to
+       have a live scene for its own deferred reload to land in (any save would do, the
+       target was discarded), a --record file to reproduce the state it began from (the
+       target mattered, and a wrong one diverged from tick 0 while still exiting 0). The
+       recording answers both.
+
+       The refusal is the other half and it is not optional. A replay whose starting state
+       cannot be obtained must say so and stop, because the alternative is to boot fresh
+       and replay the recording's input into a game it was never made in -- which produces
+       a divergence report about a fault the run itself introduced, at exit 0. Exiting here
+       and WITHOUT Control_End follows the setup-failure path directly below, and for the
+       same reason it gives: artifacts written from a game that never loaded are plausible
+       artifacts of the wrong scene. */
+    if (!s_load_name) {
+        const char *snap = NULL;
+        switch (Record_ArmedReplayLoad(&snap)) {
+        case 1:
+            s_load_name = snap;
+            fprintf(stderr, "[control] no --load; booting from the recording's own starting state\n");
+            break;
+        case -1:
+            fprintf(stderr, "[control] replay: this recording carries no starting state, and no --load\n"
+                            "[control]         was given. Pass the save the session was recorded from.\n");
+            fflush(stderr);
+            return 0;
+        default:
+            break;
+        }
+    }
+
     if (s_load_name) {
         if (!control_resolve_save(s_load_name)) {
             /* Report and bail without arming. The caller skips MainLoop and exits, so
