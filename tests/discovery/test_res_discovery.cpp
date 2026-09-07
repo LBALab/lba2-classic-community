@@ -25,6 +25,7 @@
 #include <cerrno>
 #include <cstdlib>
 #else
+#include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
@@ -1925,6 +1926,75 @@ static bool test_userdir_reconcile_carries_an_empty_file() {
     return file_exists_in(dest, "save/blank.lba");
 }
 
+/* The banner tells a player their saves moved by reading this back, so an empty
+ * one means a silent migration: files in a new place and nothing said. */
+static bool test_userdir_reconcile_names_the_folder_it_came_from() {
+    char src[512];
+    char dest[512];
+    if (!make_temp_dir(src, sizeof(src), "udnm1") ||
+        !make_temp_dir(dest, sizeof(dest), "udnm2")) {
+        return false;
+    }
+    if (!populate_user_dir(src, "NAMED")) {
+        return false;
+    }
+
+    const char *lower[1];
+    lower[0] = src;
+    if (!Directories_ReconcileUserDir(dest, lower, 1)) {
+        return false;
+    }
+    return strncmp(Directories_GetMigratedFrom(), src, strlen(src)) == 0;
+}
+
+/* A copy that could not carry everything must say so, and the folder it could
+ * not empty has to keep being named, because there really is still something
+ * there. Forced with a directory the copy cannot read; skipped rather than
+ * silently passed if the runner can read it anyway, which is what happens as
+ * root and would make this assert nothing. */
+static bool test_userdir_reconcile_reports_a_partial_copy() {
+#ifdef _WIN32
+    fprintf(stderr, "[skip] test_userdir_reconcile_reports_a_partial_copy: POSIX modes only\n");
+    return true;
+#else
+    char src[512];
+    char dest[512];
+    if (!make_temp_dir(src, sizeof(src), "udpc1") ||
+        !make_temp_dir(dest, sizeof(dest), "udpc2")) {
+        return false;
+    }
+    if (!populate_user_dir(src, "PARTIAL") || !make_subdir(src, "recordings") ||
+        !write_in(src, "recordings/one.rec", "REC")) {
+        return false;
+    }
+
+    char locked[ADELINE_MAX_PATH];
+    snprintf(locked, sizeof(locked), "%s/recordings", src);
+    if (chmod(locked, 0) != 0) {
+        fprintf(stderr, "[skip] test_userdir_reconcile_reports_a_partial_copy: chmod refused\n");
+        return true;
+    }
+    DIR *probe = opendir(locked);
+    if (probe != NULL) { // running as root: the condition never got forced
+        closedir(probe);
+        chmod(locked, 0700);
+        fprintf(stderr,
+                "[skip] test_userdir_reconcile_reports_a_partial_copy: readable anyway\n");
+        return true;
+    }
+
+    const char *lower[1];
+    lower[0] = src;
+    const bool migrated = Directories_ReconcileUserDir(dest, lower, 1);
+    const bool partial = Directories_MigrationWasPartial();
+    /* Reported as a second save set on the next launch, because it still is. */
+    const bool stillRival = !Directories_ReconcileUserDir(dest, lower, 1) &&
+                            Directories_GetRivalUserDir()[0] != '\0';
+    chmod(locked, 0700); // so the fixture can be cleaned up
+    return migrated && partial && stillRival;
+#endif
+}
+
 /* The folder a migration copied up from is deliberately left in place, so from
  * the next launch it holds the same saves the chosen one does. Calling that a
  * second save set on every boot afterwards is a warning nobody can act on, and
@@ -2221,6 +2291,12 @@ int main() {
         failed++;
     }
     if (!test_userdir_reconcile_does_not_report_its_own_leftover()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_names_the_folder_it_came_from()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_reports_a_partial_copy()) {
         failed++;
     }
     if (!test_userdir_reconcile_takes_the_most_preferred_source()) {
