@@ -252,6 +252,53 @@ for how in cut magic; do
 done
 rm -f "$torn"
 
+# A replay that stops short must not print the success string. `replay ended ... first hash
+# mismatch -1` is what a caller greps to mean the recording reproduced, and a run that
+# covered a fraction of the file can carry a -1 honestly -- it matched every tick it reached
+# -- while not having replayed the session. #656 gave the stall and the menu their own
+# outcomes for exactly this reason; a stream that runs out early is the third way and was
+# still printing the verdict.
+#
+# Driven with a short --tick rather than by reproducing the original: that failure was a
+# busy machine desyncing the poll stream inside a video, which is load-dependent and cannot
+# be asked for. Coverage is the property under test and an under-budget run produces it
+# deterministically. Measured: this recording holds about 255 ticks, so a 100-tick budget
+# covers 39% of it and the check fires; the arms above run 300+ and stay clean.
+short="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$rec" --tick 100 --exit 2>&1)" ||
+    fail "short-replay: run exited non-zero ($?) — hang or crash"
+
+case "$short" in
+*"first hash mismatch -1"*)
+    fail "short-replay: a run that covered part of the recording printed the success string; $(
+        printf '%s\n' "$short" | grep -m1 'replay ended')"
+    ;;
+esac
+
+case "$short" in
+*"covered only part of the recording"*) ;;
+*)
+    fail "short-replay: the verdict was withheld but nothing said why; $(
+        printf '%s\n' "$short" | grep -m1 '\[rec\]' || echo 'the replay said nothing')"
+    ;;
+esac
+
+# The count survives in whatever line replaces the verdict. Every caller that reads a tick
+# count out of this output -- the torn arms above included -- parses it this way, so the
+# withheld form has to keep carrying it.
+schecked="$(printf '%s\n' "$short" | sed -n 's/.*: \([0-9]*\) ticks checked.*/\1/p')"
+[ -n "$schecked" ] && [ "$schecked" -gt 0 ] ||
+    fail "short-replay: the withheld verdict dropped the tick count callers parse (${schecked:-empty})"
+
+# And a full run over the same recording still gets its verdict, so the check discriminates
+# on coverage rather than just refusing everything.
+full="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$rec" --tick 400 --exit 2>&1)" ||
+    fail "short-replay: the full-coverage control exited non-zero ($?)"
+case "$full" in
+*"first hash mismatch -1"*) ;;
+*) fail "short-replay: full coverage over the same recording was denied its verdict; $(
+       printf '%s\n' "$full" | grep -m1 '\[rec\]')" ;;
+esac
+
 # The default home. A name with no directory in it is a name in <userDir>/recordings/,
 # and the point of that is symmetry: the name a session was recorded under is the name it
 # replays under, from whatever directory the run happens to start in. Recorded and replayed from
