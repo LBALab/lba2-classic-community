@@ -64,6 +64,12 @@ The persisted path lives at `<SDL_GetPrefPath("Twinsen", "LBA2")>/last_game_dir.
 | Linux | `~/.local/share/Twinsen/LBA2/last_game_dir.txt` (honors `XDG_DATA_HOME`) |
 | macOS | `~/Library/Application Support/Twinsen/LBA2/last_game_dir.txt` |
 | Windows | `%APPDATA%\Twinsen\LBA2\last_game_dir.txt` |
+| Android | `/sdcard/lba2cc/user/last_game_dir.txt` |
+
+Android does not use `SDL_GetPrefPath`: there it ignores the org and app it is given and returns the
+app-private `Context.getFilesDir()`, which no file manager or attached PC can read and which the
+system erases on uninstall. The user directory is ranked out of a list of roots instead, most
+reachable first. See [Where the game saves](ANDROID.md#where-the-game-saves).
 
 `--user-dir <dir>` (or `LBA2_USER_DIR`) moves that whole folder, the remembered path included, so
 two installs can each keep their own. The folder is created if it is not there.

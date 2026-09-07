@@ -158,6 +158,20 @@ bool Directories_HasUserData(const char *dir);
 bool Directories_ReconcileUserDir(const char *chosen, const char *const *lower,
                                   S32 count);
 
+/// The preferred root this run could not write to, or an empty string.
+///
+/// On Android that is All Files Access being withheld, and it decides whether
+/// the player's saves are somewhere they can copy off the device. Recorded
+/// rather than logged where it happens: the user directory has to be resolved
+/// before the log can be opened, because the log lives inside it, so anything
+/// said during the resolution is said to nobody. The boot banner reads this
+/// back once there is somewhere for it to go.
+const char *Directories_GetUnwritableRoot(void);
+
+/// The folder a user directory was copied up from this launch, or an empty
+/// string. Same reason as above for it being a record rather than a log line.
+const char *Directories_GetMigratedFrom(void);
+
 // --- Interface ---------------------------------------------------------------
 void GetCurrentRunningDir(char *outDir); ///< Path where application was run
 void GetDefaultUserDir(char *outDir);    ///< Path for user writable data

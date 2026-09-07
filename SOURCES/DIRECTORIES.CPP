@@ -89,6 +89,11 @@ static char directoriesPortableMarkerPath[ADELINE_MAX_PATH] = "";
 /* How the user directory got resolved, for the boot banner. Set once, by
    GetDefaultUserDir. */
 static const char *directoriesUserDirSource = "default";
+/* Two things worth saying about resolving the root that cannot be said while it
+   happens: the log file lives inside the folder being chosen, so nothing is
+   listening yet. Held here for the banner to read back. */
+static char directoriesUnwritableRoot[ADELINE_MAX_PATH] = "";
+static char directoriesMigratedFrom[ADELINE_MAX_PATH] = "";
 
 // --- Private functions -------------------------------------------------------
 /**
@@ -367,6 +372,10 @@ bool Directories_IsValidProfileName(const char *name) {
 const char *Directories_GetProfile(void) { return directoriesProfile; }
 
 const char *Directories_GetUserDirSource(void) { return directoriesUserDirSource; }
+
+const char *Directories_GetUnwritableRoot(void) { return directoriesUnwritableRoot; }
+
+const char *Directories_GetMigratedFrom(void) { return directoriesMigratedFrom; }
 
 void Directories_SetProfileOverride(const char *name) {
     if (name == NULL) {
@@ -740,11 +749,12 @@ bool Directories_ReconcileUserDir(const char *chosen, const char *const *lower,
             continue; // the destination is inside the source: copying into itself
         }
 
-        Log_Info("User dir   bringing your saves and settings up from %s", src);
+        strncpy(directoriesMigratedFrom, src, ADELINE_MAX_PATH);
+        directoriesMigratedFrom[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
         if (!CopyTree(src, dest, 0)) {
             /* What did land is still the player's and the original is untouched,
-               so this is worth keeping rather than unwinding. The log names both
-               folders, which is what a person needs to finish it by hand. */
+               so this is worth keeping rather than unwinding. The banner names
+               the folder, which is what a person needs to finish it by hand. */
             Log_Warn("User dir   some files could not be copied out of %s", src);
         }
         return true;
@@ -795,12 +805,12 @@ static void ResolveDefaultUserDirRoot(char *outDir, U16 outMax) {
     }
 
     if (chosen > 0) {
-        /* Worth a line: on Android this is All Files Access being withheld, and
+        /* Worth saying: on Android this is All Files Access being withheld, and
            it is the difference between saves the player can copy off the device
            and saves they cannot. Silence here is what would make the folder
            look like it moved on its own. */
-        Log_Warn("User dir   '%s' could not be written to; using %s instead",
-                 candidates[0], outDir);
+        strncpy(directoriesUnwritableRoot, candidates[0], ADELINE_MAX_PATH);
+        directoriesUnwritableRoot[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
     }
 
     /* Everything less preferred than the winner is somewhere this install may

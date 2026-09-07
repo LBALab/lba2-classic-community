@@ -463,6 +463,72 @@ When adding a new platform, copy the closest existing workflow, swap the
 runner / toolchain / packaging script, and the rest of the shape carries
 over. The next section spells the steps out.
 
+## Android signing key
+
+Android identifies an app by package name **and** signing certificate. Two
+APKs signed with different keys are two different apps, so installing one
+over the other is refused with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, which the
+package installer shows as "App not installed as package conflicts with an
+existing package". The only way past it is to uninstall, and that erases everything the
+app wrote.
+
+So the key is not a formality: it is the thing that decides whether a player
+can update without losing their saves. It has to stay the same for the life of
+the app, and it cannot be recovered if it is lost.
+
+Four repository secrets drive it. `ANDROID_KEYSTORE_BASE64` is a base64 copy of
+the keystore file; the rest name how to open it.
+
+```bash
+keytool -genkeypair -v \
+    -keystore lba2cc-release.jks \
+    -alias lba2cc \
+    -keyalg RSA -keysize 4096 -validity 10000 \
+    -dname "CN=LBA2 Classic Community, O=LBALab, C=GB"
+
+base64 -w0 lba2cc-release.jks > lba2cc-release.jks.b64
+```
+
+```
+ANDROID_KEYSTORE_BASE64   contents of lba2cc-release.jks.b64
+ANDROID_KEYSTORE_PASS     the -storepass you chose
+ANDROID_KEY_ALIAS         lba2cc
+ANDROID_KEY_PASS          the -keypass you chose (omit if it matches the store)
+```
+
+Keep `lba2cc-release.jks` and its passwords somewhere they will outlive the
+machine that made them, and keep them out of the repository. `-validity 10000`
+is about 27 years, which is the usual choice for an app that is meant to be
+updatable indefinitely.
+
+Both release callers pass `secrets: inherit`, so the reusable Android workflow
+sees them. Without the secrets (a fork's pull request, or before they are set)
+the build still succeeds and debug-signs, and both the workflow log and
+the bundler say the result must not be published.
+
+**Rotating the key is not possible without a break.** A new key means every
+player uninstalls once more and loses whatever the old build held. Treat a
+rotation as a last resort, and if one ever happens, say so in the release
+notes in those words.
+
+To check afterwards that a release really can update the one before it, compare
+the certificates rather than trusting the pipeline:
+
+```bash
+apksigner verify --print-certs lba2cc-<old>-android-arm64-v8a.apk | grep SHA-256
+apksigner verify --print-certs lba2cc-<new>-android-arm64-v8a.apk | grep SHA-256
+```
+
+Equal digests mean an update; different digests mean an uninstall. Every APK
+published before `0.13.0` has its own digest, including the two ABIs of a
+single release, because each CI job generated a throwaway key.
+
+`versionCode`, the integer Android orders builds by, is derived from the
+version by `bundle-android.sh` (`0.12.0` becomes `1200`) and substituted into
+the staged manifest. The manifest in the tree keeps a literal `1` so it stays
+readable and buildable by hand; the bundler fails the build if it cannot find
+the attribute to substitute.
+
 ## Adding a new release target
 
 The release infra is split so adding a platform is mechanical: a packaging

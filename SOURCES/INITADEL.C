@@ -203,6 +203,25 @@ void InitAdeline(S32 argc, char *argv[]) {
                 Log_Raw("Writes: %s", source);
             }
         }
+        /* Both of these happen while the user directory is still being chosen,
+           which is before this log exists -- the log file lives in the folder
+           being chosen. They are recorded there and read back here, because a
+           player whose saves moved, or whose saves are somewhere they cannot
+           reach, has no other way to find out. */
+        {
+            const char *unwritable = Directories_GetUnwritableRoot();
+            const char *migratedFrom = Directories_GetMigratedFrom();
+            if (unwritable[0] != '\0') {
+                Log_Raw("Note:   %s could not be written to, so the folders above"
+                        " were used instead",
+                        unwritable);
+            }
+            if (migratedFrom[0] != '\0') {
+                Log_Raw("Note:   saves and settings were copied up from %s,"
+                        " which still has its own copy",
+                        migratedFrom);
+            }
+        }
         Log_Raw("");
     }
 
