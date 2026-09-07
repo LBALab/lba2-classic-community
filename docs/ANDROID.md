@@ -215,10 +215,34 @@ Installing one over another fails with *"App not installed as package conflicts
 with an existing package"*, and uninstalling first was the only way through.
 That erased the saves, because they were in app-private storage.
 
-Coming from a build older than `0.13.0` you have to uninstall once, and
-progress from that build is not recoverable. From `0.13.0` onward, updates are
-updates. See [RELEASING.md](RELEASING.md#android-signing-key) for the key
-itself.
+Coming from a build older than `0.13.0` you have to uninstall once. From
+`0.13.0` onward, updates are updates. See
+[RELEASING.md](RELEASING.md#android-signing-key) for the key itself.
+
+**On a rooted device, rescue your old saves first.** Older builds kept them in
+app-private storage, which the uninstall erases, so this has to happen before
+you uninstall:
+
+```bash
+adb root
+adb shell "mkdir -p /sdcard/lba2cc/user"
+adb shell "cp -r /data/data/org.lbalab.lba2cc/files/. /sdcard/lba2cc/user/"
+adb uninstall org.lbalab.lba2cc
+adb install lba2cc-0.13.0-android-arm64-v8a.apk
+```
+
+The new build finds a folder that already holds your saves and settings and
+uses it as it is. Copy rather than move, and uninstall afterwards rather than
+before: the uninstall is what clears the app-private copy, and leaving one
+behind means every launch reports two sets of saves.
+
+**Without root there is no way to get them out.** `adb shell` and `adb pull`
+are refused by the sandbox, `run-as` only works on a debuggable build, and
+`adb backup` returns an empty archive even though the manifest allows backups,
+because Android 12 stopped including app data for apps that are not debuggable.
+A cloud backup does not help either: restoring one requires the same signing
+certificate, and the whole point of `0.13.0` is that the certificate changed.
+Progress from an older build is lost, once.
 
 ## Key mapping (touch overlay)
 
