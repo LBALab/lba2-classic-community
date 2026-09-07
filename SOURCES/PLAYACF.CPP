@@ -36,6 +36,7 @@ int VideoLogIsEnabled(void) {
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOGPRINT.H>
+#include <SYSTEM/TIMER.H>
 #include <SDL3/SDL.h>
 #include <stdio.h>
 #include <string.h>
@@ -549,7 +550,7 @@ S32 PlayAcf(const char *name) {
         int videoFrozen = 0; // console open or focus lost -> hold the frame
         int everFocused = 0; // set once the window is focused; a never-focused run
                              // (e.g. a headless capture) then never freezes
-        U32 freezeStart = 0; // SDL_GetTicks when the freeze began
+        U32 freezeStart = 0; // clock reading when the freeze began
         for (unsigned long c = 0; c < f; c++) {
             /* Push this frame's audio (skip for c < prebufFrames, already in stream from pre-fill) */
             if (numTracks > 0 && c >= prebufFrames) {
@@ -581,10 +582,22 @@ S32 PlayAcf(const char *name) {
             BoxStaticAdd(0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1));
             BoxUpdate();
 
-            /* Pace to real time with SDL so speed is correct and sleep reduces stutter */
+            /* Pace each frame against whatever clock is timing this run
+               (Timer_ClockSource): the host clock in an ordinary session, and the
+               pinned virtual clock under --fixed-dt or a session recording. An
+               ordinary session reads SDL_GetTicks either way and is unchanged.
+
+               Under a pinned clock the distinction is what makes a video replay. This
+               wait polls input every iteration, so how long it runs decides how much
+               of a recorded input stream the video consumes, and it is also the only
+               thing moving the clock across the video. Measured against the wall,
+               neither is the same twice: the same session recorded twice held 888
+               ticks over 35328 polls and 859 over 35264, and each replay diverged on
+               the tick the video started with 1.8 and 1.3 seconds of clock drift.
+               Measured against the pinned clock both are arithmetic. */
             if (c == 0)
-                videoStartTicks = SDL_GetTicks();
-            U32 now = SDL_GetTicks();
+                videoStartTicks = Timer_ClockSource();
+            U32 now = Timer_ClockSource();
             U32 nextAt = videoStartTicks + (c + 1) * frameMs;
             for (;;) {
                 MyGetInput();
@@ -596,17 +609,17 @@ S32 PlayAcf(const char *name) {
                 /* Freeze the cinematic while the console is open or the window has
                    lost focus (only once it was focused: a never-focused window such
                    as a headless capture keeps playing rather than freezing at frame
-                   0). Hold the current frame and pause its audio. The frame clock is
-                   wall-clock based (SDL_GetTicks), so re-base it on resume, otherwise
-                   playback fast-forwards to catch up and the (paused, then resumed)
-                   audio lags the video. */
+                   0). Hold the current frame and pause its audio. The frame schedule
+                   is a deadline on a clock that keeps running while the frame is
+                   held, so re-base it on resume, otherwise playback fast-forwards to
+                   catch up and the (paused, then resumed) audio lags the video. */
                 if (Console_IsOpen() || (everFocused && !AppActive)) {
                     if (!videoFrozen) {
                         if (numTracks > 0)
                             PauseVideoAudio();
                         if (VideoLogIsEnabled())
                             SDL_Log("[VIDEO] frozen (console open or unfocused)");
-                        freezeStart = SDL_GetTicks();
+                        freezeStart = Timer_ClockSource();
                         videoFrozen = 1;
                     }
                     BoxStaticAdd(0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1));
@@ -614,7 +627,7 @@ S32 PlayAcf(const char *name) {
                     continue;
                 }
                 if (videoFrozen) {
-                    U32 pausedMs = SDL_GetTicks() - freezeStart;
+                    U32 pausedMs = Timer_ClockSource() - freezeStart;
                     videoStartTicks += pausedMs; // shift the whole schedule forward
                     nextAt += pausedMs;
                     if (numTracks > 0)
@@ -623,10 +636,26 @@ S32 PlayAcf(const char *name) {
                         SDL_Log("[VIDEO] resumed (rebased +%u ms)", (unsigned)pausedMs);
                     videoFrozen = 0;
                 }
-                now = SDL_GetTicks();
+                now = Timer_ClockSource();
                 if (now >= nextAt)
                     break;
-                SDL_Delay(1); /* sleep 1ms to avoid busy-spin, re-check input each time */
+                /* Nothing else moves a pinned clock in here: the tick advance is in
+                   MainLoop, which this loop is not, and the frame was presented before
+                   the wait rather than inside it. So the wait mints the step it is
+                   waiting out, or the deadline above never arrives. The polled form,
+                   because this loop takes a fresh reading every iteration; the other
+                   one would mint a second step and sleep out the real time it stands
+                   for (LIB386/H/SYSTEM/TIMER.H).
+
+                   The sleep is the alternative rather than a companion. It is what
+                   makes an unpinned wait cheap; under a pinned clock the pacing funnel
+                   already decides whether a minted step costs wall time (a player's
+                   recording pays for it, a batch replay does not), so sleeping here
+                   would charge for the same step twice. */
+                if (Timer_FixedDtActive())
+                    Timer_FixedDtPumpPolled();
+                else
+                    SDL_Delay(1); /* avoid busy-spin, re-check input each time */
             }
 
             smk_next(smkObject);
