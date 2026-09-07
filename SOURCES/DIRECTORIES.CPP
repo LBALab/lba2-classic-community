@@ -94,6 +94,7 @@ static const char *directoriesUserDirSource = "default";
    listening yet. Held here for the banner to read back. */
 static char directoriesUnwritableRoot[ADELINE_MAX_PATH] = "";
 static char directoriesMigratedFrom[ADELINE_MAX_PATH] = "";
+static char directoriesRivalUserDir[ADELINE_MAX_PATH] = "";
 
 // --- Private functions -------------------------------------------------------
 /**
@@ -377,6 +378,8 @@ const char *Directories_GetUnwritableRoot(void) { return directoriesUnwritableRo
 
 const char *Directories_GetMigratedFrom(void) { return directoriesMigratedFrom; }
 
+const char *Directories_GetRivalUserDir(void) { return directoriesRivalUserDir; }
+
 void Directories_SetProfileOverride(const char *name) {
     if (name == NULL) {
         directoriesProfile[0] = '\0';
@@ -658,6 +661,45 @@ bool Directories_HasUserData(const char *dir) {
     return false;
 }
 
+/* Two spellings of one folder, settled by putting a file in one and looking for
+   it in the other.
+
+   This is not pedantry: /sdcard is a symlink to /storage/emulated/0 on nearly
+   every Android device, so two of the roots ranked here are routinely the same
+   directory under different names, and comparing the strings says they differ.
+   Without this, a player with saves would be told on every launch that a second
+   copy exists somewhere else, and the second copy would be the one they are
+   already using.
+
+   realpath answers this on POSIX and not on Windows, and a device/inode compare
+   is POSIX-only too. A probe file answers it everywhere, with the same tool this
+   module already uses to decide writability. */
+static bool SameDirectory(const char *a, const char *b) {
+    if (strcmp(a, b) == 0) {
+        return true;
+    }
+
+    char probeA[ADELINE_MAX_PATH];
+    char probeB[ADELINE_MAX_PATH];
+    if (snprintf(probeA, ADELINE_MAX_PATH, "%s%s", a, ".lba2cc-alias-probe") >=
+            ADELINE_MAX_PATH ||
+        snprintf(probeB, ADELINE_MAX_PATH, "%s%s", b, ".lba2cc-alias-probe") >=
+            ADELINE_MAX_PATH) {
+        return false;
+    }
+
+    /* Removed before the answer is returned either way, so nothing is left for a
+       later run to trip over and read as an alias that is not one. */
+    FILE *f = fopen(probeA, "wb");
+    if (f == NULL) {
+        return false; // cannot ask; treat them as different and copy nothing
+    }
+    fclose(f);
+    const bool same = ExistsOnFilesystem(probeB);
+    SDL_RemovePath(probeA);
+    return same;
+}
+
 /* Both paths arrive with a trailing separator and leave with one, so the
    recursion has a single shape and no step has to ask whether to add one. */
 static bool CopyTree(const char *srcDir, const char *destDir, S32 depth) {
@@ -720,16 +762,20 @@ bool Directories_ReconcileUserDir(const char *chosen, const char *const *lower,
                                   S32 count) {
     assert(chosen != NULL);
 
+    /* This call's finding, not the accumulated history of the process. The boot
+       makes one call, so this changes nothing there and makes the record mean
+       one definite thing. */
+    directoriesRivalUserDir[0] = '\0';
+
     char dest[ADELINE_MAX_PATH];
     if (!Directories_ResolveUserDir(dest, ADELINE_MAX_PATH, chosen, NULL)) {
         return false;
     }
-    if (Directories_HasUserData(dest)) {
-        /* Somebody has played here. Nothing about a folder further down is
-           worth overwriting that, and this is also what makes every launch
-           after the first one a no-op. */
-        return false;
-    }
+    /* Somebody has played in the chosen folder. Nothing further down is worth
+       overwriting that, and it is what makes every launch after the first a
+       no-op -- but the loop still runs, to notice a second folder that also
+       holds saves. */
+    const bool destUsed = Directories_HasUserData(dest);
     if (lower == NULL) {
         return false;
     }
@@ -739,11 +785,18 @@ bool Directories_ReconcileUserDir(const char *chosen, const char *const *lower,
         if (!Directories_ResolveUserDir(src, ADELINE_MAX_PATH, lower[i], NULL)) {
             continue;
         }
-        if (strcmp(src, dest) == 0) {
+        if (SameDirectory(src, dest)) {
             continue; // one folder under two spellings
         }
         if (!Directories_HasUserData(src)) {
             continue;
+        }
+        if (destUsed) {
+            /* Two real save sets, and no way from here to tell which one the
+               player wants. Say so and touch neither. */
+            strncpy(directoriesRivalUserDir, src, ADELINE_MAX_PATH);
+            directoriesRivalUserDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+            return false;
         }
         if (strncmp(dest, src, strlen(src)) == 0) {
             continue; // the destination is inside the source: copying into itself

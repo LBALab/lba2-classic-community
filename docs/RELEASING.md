@@ -511,6 +511,30 @@ player uninstalls once more and loses whatever the old build held. Treat a
 rotation as a last resort, and if one ever happens, say so in the release
 notes in those words.
 
+### Who holds the key
+
+**GitHub Actions secrets are write-only.** Once `ANDROID_KEYSTORE_BASE64` is
+set, nobody can read it back, through the UI or the API. If the only copy of
+the keystore is that secret, the key is gone the moment the secret is deleted,
+the repository is transferred, or the account that set it goes away. There is no
+recovery: the app's identity would have to change, and every player would pay
+another uninstall.
+
+So the key is a project asset, not a person's:
+
+- **Keep an offline copy with at least two maintainers**, or in a vault the
+  project shares. This matters more than any other line in this section.
+- **Prefer an organization secret** on `LBALab` over a repository one. It
+  survives a rename or a transfer, and org owners can manage it without
+  depending on whoever happened to set it up.
+- **Treat it like the domain name**, not like a credential you rotate on a
+  schedule. Rotation is the thing that cannot be done cheaply.
+
+The trade-off: a key held by CI means anyone who can push
+a tag signs with it. The alternative is a human signing each release locally,
+which is worse for a community project, because it makes every release wait on
+one person being available.
+
 To check afterwards that a release really can update the one before it, compare
 the certificates rather than trusting the pipeline:
 

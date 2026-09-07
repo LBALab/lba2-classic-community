@@ -154,6 +154,11 @@ bool Directories_HasUserData(const char *dir);
 /// nothing is overwritten -- a \p chosen that already holds a save is left
 /// exactly as it is, which is also what makes a second launch a no-op.
 ///
+/// When \p chosen already holds one, nothing is copied, and the first of
+/// \p lower that also holds one is recorded for Directories_GetRivalUserDir.
+/// Two folders both holding somebody's saves is a fork, and choosing a winner
+/// between two real save sets is not a decision to make silently.
+///
 /// Returns true when something was copied.
 bool Directories_ReconcileUserDir(const char *chosen, const char *const *lower,
                                   S32 count);
@@ -171,6 +176,17 @@ const char *Directories_GetUnwritableRoot(void);
 /// The folder a user directory was copied up from this launch, or an empty
 /// string. Same reason as above for it being a record rather than a log line.
 const char *Directories_GetMigratedFrom(void);
+
+/// A second folder holding saves this run is not using, or an empty string.
+///
+/// It means a player has two save sets. On Android that is what a reinstall
+/// leaves behind: the permission is dropped with the old install, so the next
+/// launch falls back and starts a fresh folder, and anything played before the
+/// permission is granted again lands there and then stops being visible.
+///
+/// Reported rather than merged. Both folders are somebody's real progress, and
+/// there is no way to tell from here which one they want.
+const char *Directories_GetRivalUserDir(void);
 
 // --- Interface ---------------------------------------------------------------
 void GetCurrentRunningDir(char *outDir); ///< Path where application was run

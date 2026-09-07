@@ -1911,6 +1911,64 @@ static bool test_userdir_reconcile_takes_the_most_preferred_source() {
     return file_says(dest, "save/current.lba", "NEARER");
 }
 
+/* Two folders both holding saves. Nothing is copied, nothing is touched, and
+ * the other one is named so a player can find it. A reinstall on Android
+ * produces exactly this: the permission goes with the old install, the next
+ * launch falls back and starts a fresh folder, and anything played before the
+ * permission is granted again lands there and then goes quiet. */
+static bool test_userdir_reconcile_reports_a_second_save_set() {
+    char other[512];
+    char dest[512];
+    if (!make_temp_dir(other, sizeof(other), "udrv1") ||
+        !make_temp_dir(dest, sizeof(dest), "udrv2")) {
+        return false;
+    }
+    if (!populate_user_dir(other, "OTHER") || !populate_user_dir(dest, "CURRENT")) {
+        return false;
+    }
+
+    const char *lower[1];
+    lower[0] = other;
+    if (Directories_ReconcileUserDir(dest, lower, 1)) {
+        return false; // must not copy over a folder that has been played in
+    }
+    if (!file_says(dest, "save/current.lba", "CURRENT")) {
+        return false;
+    }
+    if (!file_says(other, "save/current.lba", "OTHER")) {
+        return false; // and must not have touched the other one either
+    }
+    return strstr(Directories_GetRivalUserDir(), other) != NULL;
+}
+
+/* A lower root that is the SAME folder under another name is not a second save
+ * set. /sdcard is a symlink to /storage/emulated/0 on nearly every Android
+ * device and both spellings are ranked, so a string compare would tell every
+ * player with saves that a rival copy exists -- and the rival would be the
+ * folder they are already using. */
+static bool test_userdir_reconcile_ignores_an_aliased_root() {
+    char real_dir[512];
+    if (!make_temp_dir(real_dir, sizeof(real_dir), "udali")) {
+        return false;
+    }
+    if (!populate_user_dir(real_dir, "ONLY-ONE")) {
+        return false;
+    }
+
+    /* A second spelling of the same directory. A symlink is the shape this
+     * takes on a device; "." is the portable way to write one here, and it is
+     * the same test: two different strings naming one folder. */
+    char aliased[ADELINE_MAX_PATH];
+    snprintf(aliased, sizeof(aliased), "%s/.", real_dir);
+
+    const char *lower[1];
+    lower[0] = aliased;
+    if (Directories_ReconcileUserDir(real_dir, lower, 1)) {
+        return false; // nothing to copy: it is one folder
+    }
+    return Directories_GetRivalUserDir()[0] == '\0';
+}
+
 /* A lower root holding only a retail install contributes nothing, and the one
  * below it still gets its turn. */
 static bool test_userdir_reconcile_skips_a_game_data_folder() {
@@ -2062,6 +2120,12 @@ int main() {
         failed++;
     }
     if (!test_userdir_reconcile_skips_a_game_data_folder()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_reports_a_second_save_set()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_ignores_an_aliased_root()) {
         failed++;
     }
     /* Last: InitDirectories asserts it runs once, and the cases above resolve

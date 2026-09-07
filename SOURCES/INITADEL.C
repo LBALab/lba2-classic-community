@@ -221,6 +221,20 @@ void InitAdeline(S32 argc, char *argv[]) {
                         " which still has its own copy",
                         migratedFrom);
             }
+            /* Two folders both holding saves. Named rather than merged: both are
+               somebody's real progress and nothing here can tell which one they
+               mean. A player who reinstalled and played before granting storage
+               access again has exactly this, and would otherwise just find some
+               of their progress missing with nothing to explain it. */
+            {
+                const char *rival = Directories_GetRivalUserDir();
+                if (rival[0] != '\0') {
+                    Log_Raw("Note:   another set of saves is in %s and is NOT"
+                            " being used; copy them over by hand if they are the"
+                            " ones you want",
+                            rival);
+                }
+            }
         }
         Log_Raw("");
     }

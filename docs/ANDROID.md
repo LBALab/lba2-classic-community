@@ -176,10 +176,18 @@ that it is non-empty. The app-specific external folder is one of the roots
 here, and this document has long told players they may drop their retail HQR
 set there.
 
-Whichever root loses, and any folder that was carried up, is named in the boot
-banner at the top of `adeline.log` on a `Note:` line, so a pasted log says
-where the saves went and why. That is the one thing a player cannot work out
-for themselves.
+**If two folders both hold saves, both are left alone and the other one is
+named.** Reinstalling drops All Files Access, so the next launch falls back and
+starts a fresh folder; anything played before the permission is granted again
+lands there and then stops being visible once the shared folder is reachable.
+Merging is not on the table, because both sets are somebody's real progress and
+nothing in the engine can tell which one they meant. The banner says where the
+other one is so it can be copied over by hand.
+
+Whichever root loses, any folder that was carried up, and any second set of
+saves are all named in the boot banner at the top of `adeline.log` on `Note:`
+lines, so a pasted log says where the saves went and why. That is the one thing
+a player cannot work out for themselves.
 
 [check-android-userdir.sh](../scripts/dev/check-android-userdir.sh) asserts all
 of this against a connected device:
