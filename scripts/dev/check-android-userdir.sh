@@ -250,6 +250,18 @@ else
     fail "no config in $APP_EXTERNAL after ${BOOT_TIMEOUT}s"
 fi
 
+# Falling back is only half of it. A player whose saves are not in the folder
+# every doc names has to be told why, and this line is the only place it is
+# said: the choice happens before the log exists, so it is recorded and read
+# back by the banner. Silence here looks exactly like saves going missing.
+if ! exists_on_device "$APP_EXTERNAL/adeline.log"; then
+    fail "no adeline.log in $APP_EXTERNAL, so nothing could be read back"
+elif "$ADB" shell "grep -q 'could not be written to' '$APP_EXTERNAL/adeline.log'" 2>/dev/null; then
+    pass "the boot says why the saves are not in $SHARED_DIR"
+else
+    fail "fell back without saying so: no such note in the log"
+fi
+
 echo
 echo "== 7. granting it afterwards brings the folder up rather than losing it =="
 # `appops set ... allow` grants the operation, but it does NOT rebuild a running
