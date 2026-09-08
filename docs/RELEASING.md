@@ -623,7 +623,7 @@ their copy before there is any published APK to compare against, and it lets a
 player confirm an APK is genuinely this project's.
 
 ```
-release certificate SHA-256: (pending: fill in when the key exists)
+release certificate SHA-256: f735d16efceefd0c99ca4da618f93ee08c9655ca457e00b866c257cc433780d2
 ```
 
 ### When a maintainer moves on
