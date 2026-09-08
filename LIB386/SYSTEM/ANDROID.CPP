@@ -13,6 +13,7 @@
 #include <jni.h>
 #include <string.h>
 #include <SDL3/SDL_system.h>
+#include <SDL3/SDL_timer.h>
 #endif
 
 S32 IsAndroidTVDevice(void) {
@@ -90,13 +91,44 @@ S32 IsAndroidTVDevice(void) {
 #endif
 }
 
-void Android_EnsureExternalStoragePermission(void) {
+/* How long to wait for an answer once Settings has been opened, and how often
+   to look. Granting takes a person a few seconds; the bound is what stops a
+   player who backs out instead from staring at a black screen indefinitely.
+   Overshooting it is not fatal either way: the boot carries on with the
+   app-specific folder, says so in the banner, and copies the folder up on the
+   launch after the permission does arrive. */
+#define ANDROID_PERM_WAIT_MS 30000
+#define ANDROID_PERM_POLL_MS 250
+
+bool Android_HasExternalStoragePermission(void) {
+#ifdef __ANDROID__
+    JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
+    if (env == NULL) {
+        return false;
+    }
+    jclass permHelper = env->FindClass("org/lbalab/lba2cc/PermissionHelper");
+    if (permHelper == NULL) {
+        return false;
+    }
+    jmethodID isMgr =
+        env->GetStaticMethodID(permHelper, "isExternalStorageManager", "()Z");
+    const bool held =
+        (isMgr != NULL) && env->CallStaticBooleanMethod(permHelper, isMgr) != JNI_FALSE;
+    env->DeleteLocalRef(permHelper);
+    return held;
+#else
+    return true;
+#endif
+}
+
+bool Android_EnsureExternalStoragePermission(void) {
 #ifdef __ANDROID__
     /* On Android 11+ (API 30+), direct access to /sdcard/<dir>/ requires
      * MANAGE_EXTERNAL_STORAGE. Check at startup and open Settings for it
      * if missing, so the user can grant it and re-launch. The fallback
      * probe in RES_DISCOVERY for App-specific external files dir
      * (/sdcard/Android/data/<pkg>/files/) works without this permission. */
+    bool granted = false;
     JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
     if (env != NULL) {
         jclass permHelper = env->FindClass("org/lbalab/lba2cc/PermissionHelper");
@@ -106,11 +138,13 @@ void Android_EnsureExternalStoragePermission(void) {
             jmethodID openMgr = env->GetStaticMethodID(
                 permHelper, "openExternalStorageManagerSettings",
                 "(Ljava/lang/Object;)V");
-            if (isMgr != NULL && !env->CallStaticBooleanMethod(permHelper, isMgr)) {
+            if (isMgr != NULL) {
+                granted = env->CallStaticBooleanMethod(permHelper, isMgr) != JNI_FALSE;
+            }
+            if (isMgr != NULL && !granted) {
                 jobject activity = (jobject)SDL_GetAndroidActivity();
                 LogPrintf("MANAGE_EXTERNAL_STORAGE not granted. "
-                          "Opening Settings for app. "
-                          "Re-launch after granting.\n");
+                          "Opening Settings for app.\n");
                 if (openMgr != NULL && activity != NULL) {
                     env->CallStaticVoidMethod(permHelper, openMgr, activity);
                     /* Clear any JNI exception (e.g. ActivityNotFoundException
@@ -119,13 +153,31 @@ void Android_EnsureExternalStoragePermission(void) {
                      * in ResolveGameDataDir) don't fail. */
                     if (env->ExceptionCheck())
                         env->ExceptionClear();
+
+                    /* Wait here rather than carrying on. The folder is chosen a
+                       few lines after this call and the window is created not
+                       long after that, and while Settings is up both would be
+                       decided against a state the player is in the middle of
+                       changing. */
+                    U32 waited = 0;
+                    while (!granted && waited < ANDROID_PERM_WAIT_MS) {
+                        SDL_Delay(ANDROID_PERM_POLL_MS);
+                        waited += ANDROID_PERM_POLL_MS;
+                        granted =
+                            env->CallStaticBooleanMethod(permHelper, isMgr) != JNI_FALSE;
+                    }
+                    LogPrintf(granted ? "MANAGE_EXTERNAL_STORAGE granted after %ums.\n"
+                                      : "MANAGE_EXTERNAL_STORAGE still not granted after "
+                                        "%ums; continuing without it.\n",
+                              waited);
                 }
             }
             env->DeleteLocalRef(permHelper);
         }
     }
+    return granted;
 #else
-    return;
+    return true;
 #endif
 }
 
