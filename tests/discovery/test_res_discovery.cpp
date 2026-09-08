@@ -2142,6 +2142,40 @@ static bool test_userdir_reconcile_ignores_a_stale_alias_probe() {
 
 /* A lower root holding only a retail install contributes nothing, and the one
  * below it still gets its turn. */
+/* A lower root that holds the chosen folder is not a second set of saves: it is
+   the same tree one level up. Copying would walk the destination into itself,
+   and reporting it would point the player at the parent of the folder they are
+   using. Both roots hold user data here, which is what reaches that report. */
+static bool test_userdir_reconcile_skips_a_root_holding_the_chosen_one() {
+    char outer[512];
+    if (!make_temp_dir(outer, sizeof(outer), "udnest")) {
+        return false;
+    }
+    if (!populate_user_dir(outer, "OUTER") || !make_subdir(outer, "LBA2")) {
+        return false;
+    }
+
+    char inner[512];
+    if (snprintf(inner, sizeof(inner), "%s/LBA2", outer) >= (int)sizeof(inner)) {
+        return false;
+    }
+    if (!populate_user_dir(inner, "INNER")) {
+        return false;
+    }
+
+    const char *lower[1];
+    lower[0] = outer;
+    if (Directories_ReconcileUserDir(inner, lower, 1)) {
+        return false; // it claimed to copy something
+    }
+    if (Directories_GetRivalUserDir()[0] != '\0') {
+        return false; // the folder the chosen one sits in is not a rival
+    }
+    /* A copy would have recursed the destination into itself. */
+    return file_says(inner, "lba2.cfg", "INNER") &&
+           file_says(outer, "lba2.cfg", "OUTER") && !file_exists_in(inner, "LBA2/lba2.cfg");
+}
+
 static bool test_userdir_reconcile_skips_a_game_data_folder() {
     char data[512];
     char mine[512];
@@ -2300,6 +2334,9 @@ int main() {
         failed++;
     }
     if (!test_userdir_reconcile_takes_the_most_preferred_source()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_skips_a_root_holding_the_chosen_one()) {
         failed++;
     }
     if (!test_userdir_reconcile_skips_a_game_data_folder()) {

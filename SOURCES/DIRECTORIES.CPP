@@ -908,6 +908,14 @@ bool Directories_ReconcileUserDir(const char *chosen, const char *const *lower,
         if (SameDirectory(src, dest)) {
             continue; // one folder under two spellings
         }
+        /* The chosen folder lives inside this one. Copying would walk the
+           destination into itself, and naming it as a second set of saves would
+           point the player at the parent of the folder they are using. Asked
+           here, with the other question about what these paths are, rather than
+           below the one about what they hold. */
+        if (strncmp(dest, src, strlen(src)) == 0) {
+            continue;
+        }
         if (!Directories_HasUserData(src)) {
             continue;
         }
@@ -924,10 +932,6 @@ bool Directories_ReconcileUserDir(const char *chosen, const char *const *lower,
             directoriesRivalUserDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
             return false;
         }
-        if (strncmp(dest, src, strlen(src)) == 0) {
-            continue; // the destination is inside the source: copying into itself
-        }
-
         /* What lands is still the player's and the original is untouched, so a
            partial copy is worth keeping rather than unwinding. Recorded after
            the fact so the banner can say which of the two happened. */
