@@ -220,15 +220,21 @@ cp "$REPO_ROOT/packaging/android/AndroidManifest.xml" "$STAGING/AndroidManifest.
 # otherwise ship every build as version 1 again, silently, which is the bug this
 # replaces.
 # [0-9][0-9]* rather than [0-9]\+: the latter is a GNU extension to basic
-# regular expressions, so on a BSD userland this misses and the build stops
-# claiming the manifest has no versionCode at all.
+# regular expressions, so on a BSD userland it matches a literal + and this
+# substitution quietly leaves the manifest saying 1.
 if ! grep -q 'android:versionCode="[0-9][0-9]*"' "$STAGING/AndroidManifest.xml"; then
     echo "bundle-android: no android:versionCode to substitute in the manifest" >&2
     exit 1
 fi
-sed -i.bak "s/android:versionCode=\"[0-9]\+\"/android:versionCode=\"${VERSION_CODE}\"/" \
+sed -i.bak "s/android:versionCode=\"[0-9][0-9]*\"/android:versionCode=\"${VERSION_CODE}\"/" \
     "$STAGING/AndroidManifest.xml"
 rm -f "$STAGING/AndroidManifest.xml.bak"
+# The grep above says an attribute was there to replace, not that the replacing
+# happened. Those are different failures and only this one is silent.
+if ! grep -q "android:versionCode=\"${VERSION_CODE}\"" "$STAGING/AndroidManifest.xml"; then
+    echo "bundle-android: the versionCode substitution did not take" >&2
+    exit 1
+fi
 
 # 3. Compile SDL Java sources (plus helpers from packaging/android/java/) into classes.dex
 echo "[bundle-android] compiling Java to DEX..."
