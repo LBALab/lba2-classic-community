@@ -517,7 +517,7 @@ the bundler say the result must not be published.
 **Rotating the key is not possible without a break.** A new key means every
 player uninstalls once more and loses whatever the old build held. Treat a
 rotation as a last resort, and if one ever happens, say so in the release
-notes in those words.
+notes in those words, and update the expected fingerprint recorded below.
 
 ### Who holds the key
 
@@ -655,6 +655,12 @@ lets a player confirm an APK is genuinely this project's.
 ```
 release certificate SHA-256: f735d16efceefd0c99ca4da618f93ee08c9655ca457e00b866c257cc433780d2
 ```
+
+The release build checks every signed APK against that value and fails on a
+mismatch, so a wrong keystore, a wrong alias or a truncated secret stops at CI
+rather than at a player's update. The value is in
+`reusable-build-android.yml` as well, and rotating the key means changing it in
+both places.
 
 ### When a maintainer moves on
 

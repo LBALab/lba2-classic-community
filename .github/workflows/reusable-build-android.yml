@@ -52,6 +52,14 @@ jobs:
     # the unsigned path a fork's pull request already takes.
     environment: ${{ inputs.bundle && 'android-release' || '' }}
     timeout-minutes: 60
+    env:
+      # The certificate every published APK has to carry. Signing succeeds with
+      # whatever key it is handed, so this is the only thing between a wrong
+      # keystore and a release that no existing install will accept. Kept here
+      # rather than in a secret or a variable because it is not secret, and
+      # because changing the app's identity should be a reviewed change.
+      # docs/RELEASING.md records the same value.
+      ANDROID_RELEASE_CERT_SHA256: f735d16efceefd0c99ca4da618f93ee08c9655ca457e00b866c257cc433780d2
     strategy:
       fail-fast: false
       matrix:
@@ -239,7 +247,13 @@ jobs:
 
           # A fork's pull request cannot read secrets, so LBA2_ANDROID_KEYSTORE
           # is empty there and the bundler debug-signs and says so. That build
-          # is a compile check nobody installs over anything.
+          # is a compile check nobody installs over anything, and its debug
+          # certificate is not the one to check against.
+          EXPECT=()
+          if [[ -n "${LBA2_ANDROID_KEYSTORE:-}" ]]; then
+            EXPECT=(--expect-cert "$ANDROID_RELEASE_CERT_SHA256")
+          fi
+
           bash scripts/packaging/bundle-android.sh \
             --lib "$NATIVE_LIB" \
             --version "$VERSION" \
@@ -249,7 +263,8 @@ jobs:
             --sdl3-java-src "$SDL3_SRC" \
             --sdl3-lib "$SDL3_LIB" \
             --cxx-shared-lib "$CXX_SHARED_LIB" \
-            --output-dir dist
+            --output-dir dist \
+            "${EXPECT[@]}"
 
       # Reads the packaged APK, so it goes with the packaging. The alignment it
       # checks comes from linker flags in the android_common preset, which a

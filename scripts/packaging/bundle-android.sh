@@ -10,7 +10,8 @@
 #                     --sdl3-java-src <path-to-sdl3-java-sources> \
 #                     --output-dir <where-to-drop-the-apk> \
 #                     [--keystore <file> --keystore-pass <pass> \
-#                      --key-alias <alias> [--key-pass <pass>]]
+#                      --key-alias <alias> [--key-pass <pass>]] \
+#                     [--expect-cert <sha256>]
 #
 # Produces: <output-dir>/lba2cc-<version>-android-<arch>.apk
 #
@@ -27,6 +28,12 @@
 # generating one if the machine has none -- which is fine for a build you
 # install yourself and wrong for anything a player is handed, because a fresh
 # CI runner generates a fresh key on every single run.
+#
+# --expect-cert is the SHA-256 of the certificate the finished APK must carry
+# (LBA2_ANDROID_EXPECT_CERT in the environment). Signing succeeds with whatever
+# key it is given, so without this a wrong keystore, a wrong alias or a truncated
+# secret all produce a perfectly valid APK that no existing install will accept.
+# That failure is only visible to the player, on the day they try to update.
 #
 # Requires the Android SDK (command-line tools, build-tools, platform
 # android-34) to be installed at SDK_ROOT.
@@ -45,6 +52,7 @@ KEYSTORE="${LBA2_ANDROID_KEYSTORE:-}"
 KEYSTORE_PASS="${LBA2_ANDROID_KEYSTORE_PASS:-}"
 KEY_ALIAS="${LBA2_ANDROID_KEY_ALIAS:-}"
 KEY_PASS="${LBA2_ANDROID_KEY_PASS:-}"
+EXPECT_CERT="${LBA2_ANDROID_EXPECT_CERT:-}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -61,6 +69,7 @@ while [[ $# -gt 0 ]]; do
         --keystore-pass) KEYSTORE_PASS="$2"; shift 2 ;;
         --key-alias) KEY_ALIAS="$2"; shift 2 ;;
         --key-pass) KEY_PASS="$2"; shift 2 ;;
+        --expect-cert) EXPECT_CERT="$2"; shift 2 ;;
         -h|--help)
             sed -n '/^# Usage:/,/^set -e/p' "$0" | sed 's/^# \?//' | head -n -1
             exit 0
@@ -332,16 +341,39 @@ export LBA2_APKSIGNER_KEY_PASS="$KEY_PASS"
     --out "$ARTIFACT_APK" "$STAGING/aligned.apk"
 unset LBA2_APKSIGNER_STORE_PASS LBA2_APKSIGNER_KEY_PASS
 
-# 8. Verify, and print the certificate.
+# 8. Verify, and check which key it was signed with.
 #
 # The digest is the app's identity as far as Android is concerned, so a release
 # log that carries it is how anyone can check afterwards that two builds really
 # can update each other -- which is exactly the question nobody could answer
 # about the releases signed by throwaway keys.
 echo "[bundle-android] verifying..."
-"$APKSIGNER" verify --print-certs "$ARTIFACT_APK" 2>&1 |
-    grep -i "certificate SHA-256 digest" || true
 "$APKSIGNER" verify "$ARTIFACT_APK" 2>&1
+
+CERT_OUT=$("$APKSIGNER" verify --print-certs "$ARTIFACT_APK" 2>&1)
+CERT_SHA=$(printf '%s\n' "$CERT_OUT" | sed -n 's/.*[Cc]ertificate SHA-256 digest: *//p' |
+    sed -n '1p' | tr 'A-Z' 'a-z')
+if [[ -z "$CERT_SHA" ]]; then
+    echo "bundle-android: signed, but the certificate could not be read back" >&2
+    exit 1
+fi
+echo "[bundle-android] certificate SHA-256: $CERT_SHA"
+
+# Signing is happy with any key it is handed, so the only thing separating the
+# release key from a wrong one is this comparison.
+if [[ -n "$EXPECT_CERT" ]]; then
+    WANT=$(printf '%s' "$EXPECT_CERT" | tr -d ': ' | tr 'A-Z' 'a-z')
+    if [[ "$CERT_SHA" != "$WANT" ]]; then
+        echo "bundle-android: this APK carries a certificate nobody expected." >&2
+        echo "  expected $WANT" >&2
+        echo "  got      $CERT_SHA" >&2
+        echo "  Published, it would tell every existing player that the package" >&2
+        echo "  conflicts with the one they have, and the only way past that is an" >&2
+        echo "  uninstall, which erases their saves. Check the keystore and alias." >&2
+        exit 1
+    fi
+    echo "[bundle-android] certificate is the expected release key."
+fi
 
 # 9. Cleanup
 rm -rf "$STAGING"
