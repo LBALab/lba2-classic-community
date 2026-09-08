@@ -25,6 +25,7 @@
 #include <cerrno>
 #include <cstdlib>
 #else
+#include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
@@ -1631,6 +1632,585 @@ static bool test_appimage_overlong_dir_ignored() {
     return true;
 }
 
+/* --- Where a run may write -------------------------------------------------
+ *
+ * These exercise the policy, not the platform. What Android contributes is
+ * which paths get handed in; what a host test can settle is that the policy
+ * picks the first root it can genuinely write to, and that moving a user
+ * directory up to a better root never overwrites and never deletes.
+ */
+
+static bool write_text_file(const char *path, const char *text) {
+    FILE *f = fopen(path, "wb");
+    if (f == NULL) {
+        return false;
+    }
+    fputs(text, f);
+    fclose(f);
+    return true;
+}
+
+/** Writes `<dir>/<rel>`; `rel` may not name a directory that is missing. */
+static bool write_in(const char *dir, const char *rel, const char *text) {
+    char path[ADELINE_MAX_PATH];
+    snprintf(path, sizeof(path), "%s/%s", dir, rel);
+    return write_text_file(path, text);
+}
+
+static bool make_subdir(const char *dir, const char *rel) {
+    char path[ADELINE_MAX_PATH];
+    snprintf(path, sizeof(path), "%s/%s", dir, rel);
+    return mkdir_portable(path) == 0;
+}
+
+static bool file_says(const char *dir, const char *rel, const char *expected) {
+    char path[ADELINE_MAX_PATH];
+    snprintf(path, sizeof(path), "%s/%s", dir, rel);
+    char got[256];
+    slurp_file(path, got, sizeof(got));
+    return strcmp(got, expected) == 0;
+}
+
+/** A user directory with something in every shape the migration has to carry. */
+static bool populate_user_dir(const char *dir, const char *stamp) {
+    char profile[ADELINE_MAX_PATH];
+    if (!write_in(dir, "lba2.cfg", stamp)) {
+        return false;
+    }
+    if (!make_subdir(dir, "save") || !write_in(dir, "save/current.lba", stamp)) {
+        return false;
+    }
+    if (!make_subdir(dir, "profiles")) {
+        return false;
+    }
+    snprintf(profile, sizeof(profile), "profiles/ivan");
+    if (!make_subdir(dir, profile)) {
+        return false;
+    }
+    return write_in(dir, "profiles/ivan/lba2.cfg", stamp);
+}
+
+/* The first candidate that can be written to wins, and the index it comes back
+ * with is what tells the caller which roots sit below it. */
+static bool test_userdir_selects_first_writable_root() {
+    char good[512];
+    if (!make_temp_dir(good, sizeof(good), "udsel")) {
+        return false;
+    }
+
+    /* A directory path whose parent is a regular file: it exists in the sense
+     * that something is there, and it can never be made into a folder. That is
+     * the closest a host gets to /sdcard without All Files Access, where the
+     * path is visible and unwritable at the same time. */
+    char blocker[ADELINE_MAX_PATH];
+    snprintf(blocker, sizeof(blocker), "%s/blocker", good);
+    if (!write_text_file(blocker, "not a directory")) {
+        return false;
+    }
+    char blocked[ADELINE_MAX_PATH];
+    snprintf(blocked, sizeof(blocked), "%s/blocker/user", good);
+
+    const char *candidates[2];
+    candidates[0] = blocked;
+    candidates[1] = good;
+
+    char out[ADELINE_MAX_PATH];
+    if (Directories_SelectWritableRoot(candidates, 2, out, ADELINE_MAX_PATH) != 1) {
+        return false;
+    }
+    return strncmp(out, good, strlen(good)) == 0;
+}
+
+/* /sdcard/lba2cc/user/LBA2 needs `lba2cc`, `user` and the build folder made on
+ * a device that has none of them, so a candidate is judged on whether it can be
+ * created, not on whether it is already there. */
+static bool test_userdir_select_creates_a_missing_root() {
+    char base[512];
+    if (!make_temp_dir(base, sizeof(base), "udmk")) {
+        return false;
+    }
+    char nested[ADELINE_MAX_PATH];
+    snprintf(nested, sizeof(nested), "%s/lba2cc/user/LBA2", base);
+
+    const char *candidates[1];
+    candidates[0] = nested;
+
+    char out[ADELINE_MAX_PATH];
+    if (Directories_SelectWritableRoot(candidates, 1, out, ADELINE_MAX_PATH) != 0) {
+        return false;
+    }
+    return IsDirectory(nested);
+}
+
+/* Nothing writable anywhere is a distinct answer, not the first candidate. */
+static bool test_userdir_select_reports_no_writable_root() {
+    char base[512];
+    if (!make_temp_dir(base, sizeof(base), "udnone")) {
+        return false;
+    }
+    char blocker[ADELINE_MAX_PATH];
+    snprintf(blocker, sizeof(blocker), "%s/blocker", base);
+    if (!write_text_file(blocker, "not a directory")) {
+        return false;
+    }
+
+    char one[ADELINE_MAX_PATH];
+    char two[ADELINE_MAX_PATH];
+    snprintf(one, sizeof(one), "%s/blocker/a", base);
+    snprintf(two, sizeof(two), "%s/blocker/b", base);
+
+    const char *candidates[2];
+    candidates[0] = one;
+    candidates[1] = two;
+
+    char out[ADELINE_MAX_PATH];
+    return Directories_SelectWritableRoot(candidates, 2, out, ADELINE_MAX_PATH) < 0;
+}
+
+/* The predicate that keeps a retail install from being mistaken for somebody's
+ * saves. docs/ANDROID.md has long told players they may drop their HQR set in
+ * the app-specific external folder, and that folder is one of the roots this
+ * policy ranks -- so "the directory is not empty" would copy the whole retail
+ * set up to /sdcard/lba2cc/user/LBA2 on first launch. */
+static bool test_userdir_marks_do_not_match_a_game_data_folder() {
+    char dir[512];
+    if (!make_temp_dir(dir, sizeof(dir), "udmark")) {
+        return false;
+    }
+    if (Directories_HasUserData(dir)) {
+        return false; // empty
+    }
+
+    create_marker_hqr(dir);
+    if (!write_in(dir, "RESS.HQR", "x") || !write_in(dir, "ANIM.HQR", "x")) {
+        return false;
+    }
+    if (Directories_HasUserData(dir)) {
+        return false; // a game data folder is not a user directory
+    }
+
+    if (!write_in(dir, "lba2.cfg", "Version=1\n")) {
+        return false;
+    }
+    return Directories_HasUserData(dir);
+}
+
+/* A player who has saved but never changed a setting, and one who named a
+ * profile, both count. */
+static bool test_userdir_marks_save_and_profiles() {
+    char saved[512];
+    char profiled[512];
+    if (!make_temp_dir(saved, sizeof(saved), "udsv") ||
+        !make_temp_dir(profiled, sizeof(profiled), "udpr")) {
+        return false;
+    }
+    if (!make_subdir(saved, "save") || !make_subdir(profiled, "profiles")) {
+        return false;
+    }
+    return Directories_HasUserData(saved) && Directories_HasUserData(profiled);
+}
+
+/* The whole tree comes up, profiles included, and the folder it came from is
+ * left exactly as it was: this runs on somebody's only copy of their progress. */
+static bool test_userdir_reconcile_copies_the_tree() {
+    char src[512];
+    char dest[512];
+    if (!make_temp_dir(src, sizeof(src), "udsrc") ||
+        !make_temp_dir(dest, sizeof(dest), "uddst")) {
+        return false;
+    }
+    if (!populate_user_dir(src, "MINE")) {
+        return false;
+    }
+
+    const char *lower[1];
+    lower[0] = src;
+    if (!Directories_ReconcileUserDir(dest, lower, 1)) {
+        return false;
+    }
+
+    if (!file_says(dest, "lba2.cfg", "MINE") ||
+        !file_says(dest, "save/current.lba", "MINE") ||
+        !file_says(dest, "profiles/ivan/lba2.cfg", "MINE")) {
+        return false;
+    }
+    /* Nothing was moved. A migration that emptied the old folder would be one
+     * failed copy away from losing the lot. */
+    return file_says(src, "lba2.cfg", "MINE") &&
+           file_says(src, "save/current.lba", "MINE");
+}
+
+/* Somebody has already played in the new folder, so the old one stays where it
+ * is. This is also what makes every launch after the first a no-op. */
+static bool test_userdir_reconcile_never_overwrites() {
+    char src[512];
+    char dest[512];
+    if (!make_temp_dir(src, sizeof(src), "udno1") ||
+        !make_temp_dir(dest, sizeof(dest), "udno2")) {
+        return false;
+    }
+    if (!populate_user_dir(src, "OLD") || !populate_user_dir(dest, "CURRENT")) {
+        return false;
+    }
+
+    const char *lower[1];
+    lower[0] = src;
+    if (Directories_ReconcileUserDir(dest, lower, 1)) {
+        return false; // it claimed to copy something
+    }
+    return file_says(dest, "lba2.cfg", "CURRENT") &&
+           file_says(dest, "save/current.lba", "CURRENT");
+}
+
+/* Twice in a row is once. The second call sees the copy the first one made and
+ * declines, which is the same code path as the second launch on a device. */
+static bool test_userdir_reconcile_is_idempotent() {
+    char src[512];
+    char dest[512];
+    if (!make_temp_dir(src, sizeof(src), "udid1") ||
+        !make_temp_dir(dest, sizeof(dest), "udid2")) {
+        return false;
+    }
+    if (!populate_user_dir(src, "ONCE")) {
+        return false;
+    }
+
+    const char *lower[1];
+    lower[0] = src;
+    if (!Directories_ReconcileUserDir(dest, lower, 1)) {
+        return false;
+    }
+    if (Directories_ReconcileUserDir(dest, lower, 1)) {
+        return false; // copied a second time
+    }
+    return file_says(dest, "save/current.lba", "ONCE");
+}
+
+/** Opened rather than read: an absent file and an empty one slurp the same. */
+static bool file_exists_in(const char *dir, const char *rel) {
+    char path[ADELINE_MAX_PATH];
+    snprintf(path, sizeof(path), "%s/%s", dir, rel);
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) {
+        return false;
+    }
+    fclose(f);
+    return true;
+}
+
+/* A save slot a player has not written to yet is still theirs, and a copy that
+ * treats an empty file as a failure drops it while reporting that the migration
+ * worked. */
+static bool test_userdir_reconcile_carries_an_empty_file() {
+    char src[512];
+    char dest[512];
+    if (!make_temp_dir(src, sizeof(src), "udem1") ||
+        !make_temp_dir(dest, sizeof(dest), "udem2")) {
+        return false;
+    }
+    if (!populate_user_dir(src, "EMPTY") || !write_in(src, "save/blank.lba", "")) {
+        return false;
+    }
+    if (!file_exists_in(src, "save/blank.lba")) {
+        return false; // the fixture never held what the test is about
+    }
+
+    const char *lower[1];
+    lower[0] = src;
+    if (!Directories_ReconcileUserDir(dest, lower, 1)) {
+        return false;
+    }
+    if (Directories_MigrationWasPartial()) {
+        return false; // nothing in this fixture should have been left behind
+    }
+    return file_exists_in(dest, "save/blank.lba");
+}
+
+/* The banner tells a player their saves moved by reading this back, so an empty
+ * one means a silent migration: files in a new place and nothing said. */
+static bool test_userdir_reconcile_names_the_folder_it_came_from() {
+    char src[512];
+    char dest[512];
+    if (!make_temp_dir(src, sizeof(src), "udnm1") ||
+        !make_temp_dir(dest, sizeof(dest), "udnm2")) {
+        return false;
+    }
+    if (!populate_user_dir(src, "NAMED")) {
+        return false;
+    }
+
+    const char *lower[1];
+    lower[0] = src;
+    if (!Directories_ReconcileUserDir(dest, lower, 1)) {
+        return false;
+    }
+    return strncmp(Directories_GetMigratedFrom(), src, strlen(src)) == 0;
+}
+
+/* A copy that could not carry everything must say so, and the folder it could
+ * not empty has to keep being named, because there really is still something
+ * there. Forced with a directory the copy cannot read; skipped rather than
+ * silently passed if the runner can read it anyway, which is what happens as
+ * root and would make this assert nothing. */
+static bool test_userdir_reconcile_reports_a_partial_copy() {
+#ifdef _WIN32
+    fprintf(stderr, "[skip] test_userdir_reconcile_reports_a_partial_copy: POSIX modes only\n");
+    return true;
+#else
+    char src[512];
+    char dest[512];
+    if (!make_temp_dir(src, sizeof(src), "udpc1") ||
+        !make_temp_dir(dest, sizeof(dest), "udpc2")) {
+        return false;
+    }
+    if (!populate_user_dir(src, "PARTIAL") || !make_subdir(src, "recordings") ||
+        !write_in(src, "recordings/one.rec", "REC")) {
+        return false;
+    }
+
+    char locked[ADELINE_MAX_PATH];
+    snprintf(locked, sizeof(locked), "%s/recordings", src);
+    if (chmod(locked, 0) != 0) {
+        fprintf(stderr, "[skip] test_userdir_reconcile_reports_a_partial_copy: chmod refused\n");
+        return true;
+    }
+    DIR *probe = opendir(locked);
+    if (probe != NULL) { // running as root: the condition never got forced
+        closedir(probe);
+        chmod(locked, 0700);
+        fprintf(stderr,
+                "[skip] test_userdir_reconcile_reports_a_partial_copy: readable anyway\n");
+        return true;
+    }
+
+    const char *lower[1];
+    lower[0] = src;
+    const bool migrated = Directories_ReconcileUserDir(dest, lower, 1);
+    const bool partial = Directories_MigrationWasPartial();
+    /* Reported as a second save set on the next launch, because it still is. */
+    const bool stillRival = !Directories_ReconcileUserDir(dest, lower, 1) &&
+                            Directories_GetRivalUserDir()[0] != '\0';
+    chmod(locked, 0700); // so the fixture can be cleaned up
+    return migrated && partial && stillRival;
+#endif
+}
+
+/* The folder a migration copied up from is deliberately left in place, so from
+ * the next launch it holds the same saves the chosen one does. Calling that a
+ * second save set on every boot afterwards is a warning nobody can act on, and
+ * it buries the case where there really are two. */
+static bool test_userdir_reconcile_does_not_report_its_own_leftover() {
+    char src[512];
+    char dest[512];
+    if (!make_temp_dir(src, sizeof(src), "udlo1") ||
+        !make_temp_dir(dest, sizeof(dest), "udlo2")) {
+        return false;
+    }
+    if (!populate_user_dir(src, "LEFTOVER")) {
+        return false;
+    }
+
+    const char *lower[1];
+    lower[0] = src;
+    if (!Directories_ReconcileUserDir(dest, lower, 1)) {
+        return false;
+    }
+    if (Directories_GetRivalUserDir()[0] != '\0') {
+        return false; // the launch that copies has nothing to rival
+    }
+    for (int i = 0; i < 2; i++) { // and every launch after it
+        if (Directories_ReconcileUserDir(dest, lower, 1)) {
+            return false; // copied a second time
+        }
+        if (Directories_GetRivalUserDir()[0] != '\0') {
+            return false; // its own leftover named as somebody else's saves
+        }
+    }
+    return file_says(dest, "save/current.lba", "LEFTOVER");
+}
+
+/* Two folders this install has written to before -- the app-specific one it
+ * fell back to while All Files Access was withheld, and the internal one every
+ * build used before that. The more recently preferred of the two wins, because
+ * the list is in preference order and so is the run's own history. */
+static bool test_userdir_reconcile_takes_the_most_preferred_source() {
+    char nearer[512];
+    char older[512];
+    char dest[512];
+    if (!make_temp_dir(nearer, sizeof(nearer), "udpa") ||
+        !make_temp_dir(older, sizeof(older), "udpb") ||
+        !make_temp_dir(dest, sizeof(dest), "udpc")) {
+        return false;
+    }
+    if (!populate_user_dir(nearer, "NEARER") || !populate_user_dir(older, "OLDER")) {
+        return false;
+    }
+
+    const char *lower[2];
+    lower[0] = nearer;
+    lower[1] = older;
+    if (!Directories_ReconcileUserDir(dest, lower, 2)) {
+        return false;
+    }
+    return file_says(dest, "save/current.lba", "NEARER");
+}
+
+/* Two folders both holding saves. Nothing is copied, nothing is touched, and
+ * the other one is named so a player can find it. A reinstall on Android
+ * produces exactly this: the permission goes with the old install, the next
+ * launch falls back and starts a fresh folder, and anything played before the
+ * permission is granted again lands there and then goes quiet. */
+static bool test_userdir_reconcile_reports_a_second_save_set() {
+    char other[512];
+    char dest[512];
+    if (!make_temp_dir(other, sizeof(other), "udrv1") ||
+        !make_temp_dir(dest, sizeof(dest), "udrv2")) {
+        return false;
+    }
+    if (!populate_user_dir(other, "OTHER") || !populate_user_dir(dest, "CURRENT")) {
+        return false;
+    }
+
+    const char *lower[1];
+    lower[0] = other;
+    if (Directories_ReconcileUserDir(dest, lower, 1)) {
+        return false; // must not copy over a folder that has been played in
+    }
+    if (!file_says(dest, "save/current.lba", "CURRENT")) {
+        return false;
+    }
+    if (!file_says(other, "save/current.lba", "OTHER")) {
+        return false; // and must not have touched the other one either
+    }
+    return strstr(Directories_GetRivalUserDir(), other) != NULL;
+}
+
+/* A lower root that is the SAME folder under another name is not a second save
+ * set. /sdcard is a symlink to /storage/emulated/0 on nearly every Android
+ * device and both spellings are ranked, so a string compare would tell every
+ * player with saves that a rival copy exists -- and the rival would be the
+ * folder they are already using. */
+static bool test_userdir_reconcile_ignores_an_aliased_root() {
+    char real_dir[512];
+    if (!make_temp_dir(real_dir, sizeof(real_dir), "udali")) {
+        return false;
+    }
+    if (!populate_user_dir(real_dir, "ONLY-ONE")) {
+        return false;
+    }
+
+    /* A second spelling of the same directory. A symlink is the shape this
+     * takes on a device; "." is the portable way to write one here, and it is
+     * the same test: two different strings naming one folder. */
+    char aliased[ADELINE_MAX_PATH];
+    snprintf(aliased, sizeof(aliased), "%s/.", real_dir);
+
+    const char *lower[1];
+    lower[0] = aliased;
+    if (Directories_ReconcileUserDir(real_dir, lower, 1)) {
+        return false; // nothing to copy: it is one folder
+    }
+    return Directories_GetRivalUserDir()[0] == '\0';
+}
+
+/* A run killed between writing the alias probe and removing it leaves one
+ * behind. If the answer were "a probe is present" rather than "my probe came
+ * back", that leftover would make two unrelated folders read as one and the
+ * migration would be skipped without a word. */
+static bool test_userdir_reconcile_ignores_a_stale_alias_probe() {
+    char src[512];
+    char dest[512];
+    if (!make_temp_dir(src, sizeof(src), "udst1") ||
+        !make_temp_dir(dest, sizeof(dest), "udst2")) {
+        return false;
+    }
+    if (!populate_user_dir(src, "STALE")) {
+        return false;
+    }
+    /* What a killed run leaves in the folder it was comparing against. */
+    if (!write_in(dest, ".lba2cc-alias-probe", "")) {
+        return false;
+    }
+
+    const char *lower[1];
+    lower[0] = src;
+    if (!Directories_ReconcileUserDir(dest, lower, 1)) {
+        return false; // two different folders read as one, and nothing moved
+    }
+    return file_says(dest, "save/current.lba", "STALE");
+}
+
+/* A lower root holding only a retail install contributes nothing, and the one
+ * below it still gets its turn. */
+/* A lower root that holds the chosen folder is not a second set of saves: it is
+   the same tree one level up. Copying would walk the destination into itself,
+   and reporting it would point the player at the parent of the folder they are
+   using. Both roots hold user data here, which is what reaches that report. */
+static bool test_userdir_reconcile_skips_a_root_holding_the_chosen_one() {
+    char outer[512];
+    if (!make_temp_dir(outer, sizeof(outer), "udnest")) {
+        return false;
+    }
+    if (!populate_user_dir(outer, "OUTER") || !make_subdir(outer, "LBA2")) {
+        return false;
+    }
+
+    char inner[512];
+    /* The platform separator, not '/': the engine settles containment by
+       comparing the resolved paths, and it appends this one. A path spelled
+       with the other separator is not a prefix of its own parent on Windows. */
+    if (snprintf(inner, sizeof(inner), "%s%sLBA2", outer, ADELINE_PATH_SEP) >= (int)sizeof(inner)) {
+        return false;
+    }
+    if (!populate_user_dir(inner, "INNER")) {
+        return false;
+    }
+
+    const char *lower[1];
+    lower[0] = outer;
+    if (Directories_ReconcileUserDir(inner, lower, 1)) {
+        return false; // it claimed to copy something
+    }
+    if (Directories_GetRivalUserDir()[0] != '\0') {
+        return false; // the folder the chosen one sits in is not a rival
+    }
+    /* A copy would have recursed the destination into itself. */
+    return file_says(inner, "lba2.cfg", "INNER") &&
+           file_says(outer, "lba2.cfg", "OUTER") && !file_exists_in(inner, "LBA2/lba2.cfg");
+}
+
+static bool test_userdir_reconcile_skips_a_game_data_folder() {
+    char data[512];
+    char mine[512];
+    char dest[512];
+    if (!make_temp_dir(data, sizeof(data), "udga") ||
+        !make_temp_dir(mine, sizeof(mine), "udgb") ||
+        !make_temp_dir(dest, sizeof(dest), "udgc")) {
+        return false;
+    }
+    create_marker_hqr(data);
+    if (!write_in(data, "RESS.HQR", "x")) {
+        return false;
+    }
+    if (!populate_user_dir(mine, "MINE")) {
+        return false;
+    }
+
+    const char *lower[2];
+    lower[0] = data;
+    lower[1] = mine;
+    if (!Directories_ReconcileUserDir(dest, lower, 2)) {
+        return false;
+    }
+    if (!file_says(dest, "save/current.lba", "MINE")) {
+        return false;
+    }
+    /* And the HQR files stayed where they were rather than being dragged along. */
+    char stray[ADELINE_MAX_PATH];
+    snprintf(stray, sizeof(stray), "%s/%s", dest, Directories_GetResMarker());
+    return !ExistsFileOrDir(stray);
+}
+
 int main() {
     if (!SDL_Init(0)) {
         return 1;
@@ -1718,6 +2298,60 @@ int main() {
         failed++;
     }
     if (!test_persisted_last_game_dir()) {
+        failed++;
+    }
+    if (!test_userdir_selects_first_writable_root()) {
+        failed++;
+    }
+    if (!test_userdir_select_creates_a_missing_root()) {
+        failed++;
+    }
+    if (!test_userdir_select_reports_no_writable_root()) {
+        failed++;
+    }
+    if (!test_userdir_marks_do_not_match_a_game_data_folder()) {
+        failed++;
+    }
+    if (!test_userdir_marks_save_and_profiles()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_copies_the_tree()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_never_overwrites()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_is_idempotent()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_carries_an_empty_file()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_does_not_report_its_own_leftover()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_names_the_folder_it_came_from()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_reports_a_partial_copy()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_takes_the_most_preferred_source()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_skips_a_root_holding_the_chosen_one()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_skips_a_game_data_folder()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_reports_a_second_save_set()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_ignores_an_aliased_root()) {
+        failed++;
+    }
+    if (!test_userdir_reconcile_ignores_a_stale_alias_probe()) {
         failed++;
     }
     /* Last: InitDirectories asserts it runs once, and the cases above resolve

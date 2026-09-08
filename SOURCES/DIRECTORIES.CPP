@@ -1,6 +1,7 @@
 #include "DIRECTORIES.H"
 
 #include <SYSTEM/ADELINE.H>
+#include <SYSTEM/ANDROID.H>
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/FILECOPY.H>
 #include <SYSTEM/FILES.H>
@@ -18,6 +19,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #ifndef UNKNOWN_VERSION
 #define UNKNOWN_VERSION 0
@@ -32,8 +34,20 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-#define DIR_NAME_PROFILES "profiles" ADELINE_PATH_SEP
-#define DIR_NAME_SAVE "save" ADELINE_PATH_SEP
+/* The bare names exist because two of them are also what says "this folder is
+   somebody's user directory" in Directories_HasUserData, and a probe there has
+   to be a path with no trailing separator: Windows' _stat refuses one. */
+#define DIR_NAME_PROFILES_BASE "profiles"
+#define DIR_NAME_SAVE_BASE "save"
+#define DIR_NAME_PROFILES DIR_NAME_PROFILES_BASE ADELINE_PATH_SEP
+#define DIR_NAME_SAVE DIR_NAME_SAVE_BASE ADELINE_PATH_SEP
+/* The third mark of a used user directory, and the only one this module does
+   not already name. It is CFG_NAME in COMMON.H, spelled again here rather than
+   included: COMMON.H is not standalone -- it names engine types and pulls the
+   god header behind it, which is a lot of coupling to buy one string. The
+   config file has carried this name since 1997, and a rename that missed this
+   line would cost a settings-only player their key bindings, not their saves. */
+#define FILE_NAME_CFG "lba2.cfg"
 #define DIR_NAME_RECORDINGS "recordings" ADELINE_PATH_SEP
 #define DIR_NAME_SHOOT "shoot" ADELINE_PATH_SEP
 #define DIR_NAME_BUGS "bugs" ADELINE_PATH_SEP
@@ -76,6 +90,13 @@ static char directoriesPortableMarkerPath[ADELINE_MAX_PATH] = "";
 /* How the user directory got resolved, for the boot banner. Set once, by
    GetDefaultUserDir. */
 static const char *directoriesUserDirSource = "default";
+/* Two things worth saying about resolving the root that cannot be said while it
+   happens: the log file lives inside the folder being chosen, so nothing is
+   listening yet. Held here for the banner to read back. */
+static char directoriesUnwritableRoot[ADELINE_MAX_PATH] = "";
+static char directoriesMigratedFrom[ADELINE_MAX_PATH] = "";
+static char directoriesRivalUserDir[ADELINE_MAX_PATH] = "";
+static bool directoriesMigrationPartial = false;
 
 // --- Private functions -------------------------------------------------------
 /**
@@ -355,6 +376,14 @@ const char *Directories_GetProfile(void) { return directoriesProfile; }
 
 const char *Directories_GetUserDirSource(void) { return directoriesUserDirSource; }
 
+const char *Directories_GetUnwritableRoot(void) { return directoriesUnwritableRoot; }
+
+const char *Directories_GetMigratedFrom(void) { return directoriesMigratedFrom; }
+
+bool Directories_MigrationWasPartial(void) { return directoriesMigrationPartial; }
+
+const char *Directories_GetRivalUserDir(void) { return directoriesRivalUserDir; }
+
 void Directories_SetProfileOverride(const char *name) {
     if (name == NULL) {
         directoriesProfile[0] = '\0';
@@ -543,6 +572,442 @@ bool Directories_PortableProfile(char *outName, U16 outMax) {
     return ReadPortableProfile(directoriesPortableMarkerPath, outName, outMax);
 }
 
+/* --- Where a run may write --------------------------------------------------
+
+   Beside the game data rather than inside it: the retail HQR set is read-only
+   data a player may re-push at any time, and their saves must not be sitting in
+   the folder they overwrite. One level down from `/sdcard/lba2cc/` keeps both
+   in one thing to back up while keeping "yours" and "the game's" apart on
+   sight.
+
+   Shared storage rather than the app-specific folder, which is what the
+   platform's own guidance would pick. Two facts decide it the other way. The
+   app-specific external folder is erased by an uninstall exactly as internal
+   storage is, so it does not survive the one event that costs a player their
+   saves; and since Android 11 a file manager cannot browse Android/data, so a
+   player cannot reach their own saves to copy them off or send them with a
+   report.
+
+   The sanctioned alternative is the Storage Access Framework, and it is not a
+   drop-in for an engine built on paths. SAF routes each operation through IPC
+   and is orders of magnitude slower than the file API, which this engine's many
+   small reads would feel; and Android TV has no folder picker to grant a
+   directory with, which would leave the leanback build nowhere to write. The
+   price of choosing against the guidance is that MANAGE_EXTERNAL_STORAGE is a
+   restricted permission on Google Play and a game is not an eligible category,
+   so this layout and Play distribution cannot both be had.
+
+   One directory per build under `user/`, keyed by ADELINE_PREF_APP exactly as
+   the per-user and portable roots are, so `/sdcard/lba2cc/user/LBA2/`,
+   `User/LBA2/` and `Twinsen/LBA2/` all say the same thing. Without it a demo
+   build and a retail one would share a save folder here while being kept apart
+   everywhere else, and a second game would have nowhere of its own to go. */
+#define ANDROID_USER_DIR_SDCARD "/sdcard/lba2cc/user/" ADELINE_PREF_APP
+/* The same folder under the name it carries when /sdcard is not the symlink it
+   is on nearly every device. ResolveGameDataDir probes both spellings for the
+   game data; writing follows it rather than inventing a second rule. */
+#define ANDROID_USER_DIR_EMULATED "/storage/emulated/0/lba2cc/user/" ADELINE_PREF_APP
+
+/* A user directory is a handful of files and two levels of folders. The cap
+   stops a tree that somehow links back into itself rather than limiting
+   anything a player can accumulate. */
+#define USER_DIR_COPY_MAX_DEPTH 8
+
+/* Settled by writing, for the reason the header gives. The probe is removed
+   again either way, so a candidate that wins leaves nothing behind and one that
+   loses leaves nothing either. */
+static bool CanWriteInDir(const char *dir) {
+    if (!AddDirIfNot(dir)) {
+        return false;
+    }
+
+    char probe[ADELINE_MAX_PATH];
+    if (snprintf(probe, ADELINE_MAX_PATH, "%s%s", dir, ".lba2cc-write-probe") >=
+        ADELINE_MAX_PATH) {
+        return false;
+    }
+
+    FILE *f = fopen(probe, "wb");
+    if (f == NULL) {
+        return false;
+    }
+    const bool wrote = (fputc('.', f) != EOF);
+    fclose(f);
+    SDL_RemovePath(probe);
+    return wrote;
+}
+
+S32 Directories_SelectWritableRoot(const char *const *candidates, S32 count,
+                                   char *outDir, U16 outMax) {
+    assert((outDir != NULL) && (outMax > 0));
+    if (candidates == NULL) {
+        return -1;
+    }
+
+    for (S32 i = 0; i < count; i++) {
+        char root[ADELINE_MAX_PATH];
+        /* Borrowed for the one job it does here: bring the candidate to a
+           trailing separator, and refuse it outright when there is no room for
+           one. A NULL or empty candidate falls out the same way. */
+        if (!Directories_ResolveUserDir(root, ADELINE_MAX_PATH, candidates[i], NULL)) {
+            continue;
+        }
+        if (strlen(root) + 1 > (size_t)outMax) {
+            continue;
+        }
+        if (!CanWriteInDir(root)) {
+            continue;
+        }
+
+        strncpy(outDir, root, outMax);
+        outDir[outMax - 1] = '\0'; // Guarantee
+        return i;
+    }
+    return -1;
+}
+
+bool Directories_HasUserData(const char *dir) {
+    char root[ADELINE_MAX_PATH];
+    if (!Directories_ResolveUserDir(root, ADELINE_MAX_PATH, dir, NULL)) {
+        return false;
+    }
+
+    /* Three things only this engine creates. See the header for why this is not
+       "the directory is not empty". */
+    static const char *const marks[] = {FILE_NAME_CFG, DIR_NAME_SAVE_BASE,
+                                        DIR_NAME_PROFILES_BASE};
+    for (size_t i = 0; i < sizeof(marks) / sizeof(marks[0]); i++) {
+        char path[ADELINE_MAX_PATH];
+        if (snprintf(path, ADELINE_MAX_PATH, "%s%s", root, marks[i]) >= ADELINE_MAX_PATH) {
+            continue;
+        }
+        if (ExistsFileOrDir(path)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Two spellings of one folder, settled by putting a file in one and looking for
+   it in the other.
+
+   This is not pedantry: /sdcard is a symlink to /storage/emulated/0 on nearly
+   every Android device, so two of the roots ranked here are routinely the same
+   directory under different names, and comparing the strings says they differ.
+   Without this, a player with saves would be told on every launch that a second
+   copy exists somewhere else, and the second copy would be the one they are
+   already using.
+
+   realpath answers this on POSIX and not on Windows, and a device/inode compare
+   is POSIX-only too. A probe file answers it everywhere, with the same tool this
+   module already uses to decide writability. */
+static bool SameDirectory(const char *a, const char *b) {
+    if (strcmp(a, b) == 0) {
+        return true;
+    }
+
+    char probeA[ADELINE_MAX_PATH];
+    char probeB[ADELINE_MAX_PATH];
+    if (snprintf(probeA, ADELINE_MAX_PATH, "%s%s", a, ".lba2cc-alias-probe") >=
+            ADELINE_MAX_PATH ||
+        snprintf(probeB, ADELINE_MAX_PATH, "%s%s", b, ".lba2cc-alias-probe") >=
+            ADELINE_MAX_PATH) {
+        return false;
+    }
+
+    /* Removed before the answer is returned either way, so nothing is left for a
+       later run to trip over and read as an alias that is not one.
+
+       The probe carries a token and the answer is that token coming back, not
+       merely a file being there. A run killed between the write and the removal
+       leaves one behind, and on Android the storage-permission flow puts the
+       process into the background moments before this runs, so that is reachable
+       rather than theoretical. A leftover would otherwise make two different
+       folders read as one and silently skip the migration. */
+    static U32 probeSeq = 0;
+    char token[64];
+    const int tokenLen = snprintf(token, sizeof(token), "%lu-%u", (unsigned long)time(NULL),
+                                  ++probeSeq);
+    if (tokenLen <= 0 || (size_t)tokenLen >= sizeof(token)) {
+        return false;
+    }
+
+    FILE *f = fopen(probeA, "wb");
+    if (f == NULL) {
+        return false; // cannot ask; treat them as different and copy nothing
+    }
+    const bool wrote = fwrite(token, 1, (size_t)tokenLen, f) == (size_t)tokenLen;
+    if (fclose(f) != 0 || !wrote) {
+        SDL_RemovePath(probeA);
+        return false;
+    }
+
+    bool same = false;
+    FILE *g = fopen(probeB, "rb");
+    if (g != NULL) {
+        char got[64];
+        const size_t n = fread(got, 1, sizeof(got) - 1, g);
+        got[n] = '\0';
+        fclose(g);
+        same = strcmp(got, token) == 0;
+    }
+    SDL_RemovePath(probeA);
+    return same;
+}
+
+/* A folder that has already been copied up carries this, so a later boot can
+   tell its own leftover from a second set of saves somebody is still using. */
+#define USER_DIR_MIGRATED_MARKER ".lba2cc-migrated"
+
+/* Copy() reads four bytes at a time and counts its loop in bytes rather than in
+   reads, so a megabyte costs a million iterations, and it reports failure for an
+   empty file. Neither matters for the save slot it was written for. The
+   migration moves a whole user directory, recordings and screenshots included,
+   before the log or any window exists, so it needs a copy that is neither. */
+static bool CopyFileContents(const char *src, const char *dest) {
+    FILE *in = fopen(src, "rb");
+    if (in == NULL) {
+        return false;
+    }
+    FILE *out = fopen(dest, "wb");
+    if (out == NULL) {
+        fclose(in);
+        return false;
+    }
+
+    bool ok = true;
+    char buf[16384];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), in)) > 0) {
+        if (fwrite(buf, 1, n, out) != n) {
+            ok = false;
+            break;
+        }
+    }
+    if (ferror(in) != 0) {
+        ok = false;
+    }
+    if (fclose(out) != 0) {
+        ok = false; // a full disc can surface only here
+    }
+    fclose(in);
+    return ok;
+}
+
+static bool MigrationMarkerPath(const char *dir, char *out, U16 outMax) {
+    return snprintf(out, outMax, "%s%s", dir, USER_DIR_MIGRATED_MARKER) < (int)outMax;
+}
+
+static bool WasAlreadyMigratedFrom(const char *dir) {
+    char path[ADELINE_MAX_PATH];
+    if (!MigrationMarkerPath(dir, path, ADELINE_MAX_PATH)) {
+        return false;
+    }
+    return ExistsOnFilesystem(path);
+}
+
+static void MarkMigratedFrom(const char *dir) {
+    char path[ADELINE_MAX_PATH];
+    if (!MigrationMarkerPath(dir, path, ADELINE_MAX_PATH)) {
+        return;
+    }
+    FILE *f = fopen(path, "wb");
+    if (f != NULL) {
+        fclose(f);
+    }
+}
+
+/* Both paths arrive with a trailing separator and leave with one, so the
+   recursion has a single shape and no step has to ask whether to add one. */
+static bool CopyTree(const char *srcDir, const char *destDir, S32 depth) {
+    if (depth > USER_DIR_COPY_MAX_DEPTH) {
+        return false;
+    }
+
+    DIR *dirp = opendir(srcDir);
+    if (dirp == NULL) {
+        return false;
+    }
+    if (!AddDirIfNot(destDir)) {
+        closedir(dirp);
+        return false;
+    }
+
+    bool ok = true;
+    struct dirent *entry;
+    while ((entry = readdir(dirp)) != NULL) {
+        const char *name = entry->d_name;
+        if ((strcmp(name, ".") == 0) || (strcmp(name, "..") == 0)) {
+            continue;
+        }
+
+        char srcPath[ADELINE_MAX_PATH];
+        char destPath[ADELINE_MAX_PATH];
+        if (snprintf(srcPath, ADELINE_MAX_PATH, "%s%s", srcDir, name) >= ADELINE_MAX_PATH ||
+            snprintf(destPath, ADELINE_MAX_PATH, "%s%s", destDir, name) >= ADELINE_MAX_PATH) {
+            ok = false;
+            continue;
+        }
+
+        if (IsDirectory(srcPath)) {
+            char srcSub[ADELINE_MAX_PATH];
+            char destSub[ADELINE_MAX_PATH];
+            if (snprintf(srcSub, ADELINE_MAX_PATH, "%s%s", srcPath, ADELINE_PATH_SEP) >=
+                    ADELINE_MAX_PATH ||
+                snprintf(destSub, ADELINE_MAX_PATH, "%s%s", destPath, ADELINE_PATH_SEP) >=
+                    ADELINE_MAX_PATH) {
+                ok = false;
+                continue;
+            }
+            if (!CopyTree(srcSub, destSub, depth + 1)) {
+                ok = false;
+            }
+            continue;
+        }
+
+        if (!CopyFileContents(srcPath, destPath)) {
+            Log_Warn("User dir   could not copy '%s'", name);
+            ok = false;
+        }
+    }
+
+    closedir(dirp);
+    return ok;
+}
+
+bool Directories_ReconcileUserDir(const char *chosen, const char *const *lower,
+                                  S32 count) {
+    assert(chosen != NULL);
+
+    /* This call's findings, not the accumulated history of the process. The
+       boot makes one call, so this changes nothing there. It matters to anyone
+       calling twice: without it, MigrationWasPartial after a call that copied
+       nothing answers the question an earlier call asked. */
+    directoriesRivalUserDir[0] = '\0';
+    directoriesMigratedFrom[0] = '\0';
+    directoriesMigrationPartial = false;
+
+    char dest[ADELINE_MAX_PATH];
+    if (!Directories_ResolveUserDir(dest, ADELINE_MAX_PATH, chosen, NULL)) {
+        return false;
+    }
+    /* Somebody has played in the chosen folder. Nothing further down is worth
+       overwriting that, and it is what makes every launch after the first a
+       no-op -- but the loop still runs, to notice a second folder that also
+       holds saves. */
+    const bool destUsed = Directories_HasUserData(dest);
+    if (lower == NULL) {
+        return false;
+    }
+
+    for (S32 i = 0; i < count; i++) {
+        char src[ADELINE_MAX_PATH];
+        if (!Directories_ResolveUserDir(src, ADELINE_MAX_PATH, lower[i], NULL)) {
+            continue;
+        }
+        if (SameDirectory(src, dest)) {
+            continue; // one folder under two spellings
+        }
+        /* The chosen folder lives inside this one. Copying would walk the
+           destination into itself, and naming it as a second set of saves would
+           point the player at the parent of the folder they are using. Asked
+           here, with the other question about what these paths are, rather than
+           below the one about what they hold. */
+        if (strncmp(dest, src, strlen(src)) == 0) {
+            continue;
+        }
+        if (!Directories_HasUserData(src)) {
+            continue;
+        }
+        if (WasAlreadyMigratedFrom(src)) {
+            /* Copied up by an earlier boot and deliberately left in place. It
+               holds the same saves the chosen folder does, so calling it a
+               second set every launch would be a warning nobody can act on. */
+            continue;
+        }
+        if (destUsed) {
+            /* Two real save sets, and no way from here to tell which one the
+               player wants. Say so and touch neither. */
+            strncpy(directoriesRivalUserDir, src, ADELINE_MAX_PATH);
+            directoriesRivalUserDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+            return false;
+        }
+        /* What lands is still the player's and the original is untouched, so a
+           partial copy is worth keeping rather than unwinding. Recorded after
+           the fact so the banner can say which of the two happened. */
+        const bool whole = CopyTree(src, dest, 0);
+        strncpy(directoriesMigratedFrom, src, ADELINE_MAX_PATH);
+        directoriesMigratedFrom[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+        directoriesMigrationPartial = !whole;
+        if (whole) {
+            /* Marked only on a complete copy. Left unmarked otherwise, so the
+               folder keeps being reported as holding saves of its own, which
+               after a partial copy is exactly what it does. */
+            MarkMigratedFrom(src);
+        } else {
+            Log_Warn("User dir   some files could not be copied out of %s", src);
+        }
+        return true;
+    }
+    return false;
+}
+
+/* The roots this run may write to, most preferred first.
+
+   On a desktop there is one, and it is the folder SDL picks. On Android that
+   folder is /data/data/<pkg>/files/, which no file manager, no attached PC and
+   no backup tool can read, and which the system erases on uninstall -- and
+   uninstalling is how an Android player gets a new build. So the order there
+   runs outward: the folder beside their game data first, the app-specific
+   external folder next, and SDL's only if neither can be written to.
+
+   The Android paths are spelled without a platform conditional, the way
+   ResolveGameDataDir already spells them. Off Android they name nothing that
+   exists and nothing that can be created, so the loop falls through them -- and
+   the gate below makes that a statement rather than a lucky accident, because
+   Android_GetExternalFilesDir is the one call that answers only there. */
+static void ResolveDefaultUserDirRoot(char *outDir, U16 outMax) {
+    const char *candidates[4];
+    S32 count = 0;
+
+    char appExternal[ADELINE_MAX_PATH] = "";
+    char sdlDir[ADELINE_MAX_PATH] = "";
+
+    if (Android_GetExternalFilesDir(appExternal, ADELINE_MAX_PATH)) {
+        candidates[count++] = ANDROID_USER_DIR_SDCARD;
+        candidates[count++] = ANDROID_USER_DIR_EMULATED;
+        candidates[count++] = appExternal;
+    }
+
+    /* SDL3 hands back an internal cached pointer; do not free it. */
+    char *sdlUserPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
+    if (sdlUserPath != NULL) {
+        strncpy(sdlDir, sdlUserPath, ADELINE_MAX_PATH);
+        sdlDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+        SDL_free(sdlUserPath);
+        candidates[count++] = sdlDir;
+    }
+
+    const S32 chosen = Directories_SelectWritableRoot(candidates, count, outDir, outMax);
+    if (chosen < 0) {
+        outDir[0] = '\0';
+        return;
+    }
+
+    if (chosen > 0) {
+        /* Worth saying: on Android this is All Files Access being withheld, and
+           it is the difference between saves the player can copy off the device
+           and saves they cannot. Silence here is what would make the folder
+           look like it moved on its own. */
+        strncpy(directoriesUnwritableRoot, candidates[0], ADELINE_MAX_PATH);
+        directoriesUnwritableRoot[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+    }
+
+    /* Everything less preferred than the winner is somewhere this install may
+       have written on an earlier launch, or an earlier build. */
+    Directories_ReconcileUserDir(outDir, &candidates[chosen + 1], count - chosen - 1);
+}
+
 void GetDefaultUserDir(char *outDir) {
     static bool initialized = false;
     static char userDir[ADELINE_MAX_PATH] = "";
@@ -586,12 +1051,7 @@ void GetDefaultUserDir(char *outDir) {
                 if (Directories_PortableUserDir(userDir, ADELINE_MAX_PATH, SDL_GetBasePath())) {
                     directoriesUserDirSource = ADELINE_PORTABLE_MARKER;
                 } else {
-                    char *sdlUserPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
-                    if (sdlUserPath != NULL) {
-                        strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
-                        userDir[ADELINE_MAX_PATH - 1] = '\0';
-                        SDL_free(sdlUserPath);
-                    }
+                    ResolveDefaultUserDirRoot(userDir, ADELINE_MAX_PATH);
                 }
             }
         }

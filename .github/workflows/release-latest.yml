@@ -68,6 +68,8 @@ jobs:
     uses: ./.github/workflows/reusable-build-android.yml
     with:
       artifact-prefix: latest-android
+    # For the Android release key, so the rolling build updates in place too.
+    secrets: inherit
 
   release:
     name: Update rolling latest release

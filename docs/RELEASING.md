@@ -463,6 +463,230 @@ When adding a new platform, copy the closest existing workflow, swap the
 runner / toolchain / packaging script, and the rest of the shape carries
 over. The next section spells the steps out.
 
+## Android signing key
+
+Android identifies an app by package name and signing certificate. Two APKs
+signed with different keys are two different apps, so installing one over the
+other is refused with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, which the package
+installer shows as "App not installed as package conflicts with an existing
+package". The only way past it is to uninstall, and that erases everything the
+app wrote.
+
+So the key is not a formality: it is the thing that decides whether a player
+can update without losing their saves. It has to stay the same for the life of
+the app, and it cannot be recovered if it is lost.
+
+A second reason applies once something has already gone wrong. A build signed
+with the app's own certificate installs over it, so a debuggable build of the
+version a player is stuck on is a rescue tool: `adb backup` includes app-private
+data for a debuggable app and excludes it for a release one, and `run-as` works
+on the same condition. Holding the key is what makes it possible to get
+somebody's saves off a device you cannot otherwise reach. A key that no longer
+exists closes that door for good.
+
+Four repository secrets drive it. `ANDROID_KEYSTORE_BASE64` is a base64 copy of
+the keystore file; the rest name how to open it.
+
+```bash
+keytool -genkeypair -v \
+    -keystore lba2cc-release.jks \
+    -alias lba2cc \
+    -keyalg RSA -keysize 4096 -validity 10000 \
+    -dname "CN=LBA2 Classic Community, O=LBALab, C=GB"
+
+base64 -w0 lba2cc-release.jks > lba2cc-release.jks.b64
+```
+
+```
+ANDROID_KEYSTORE_BASE64   contents of lba2cc-release.jks.b64
+ANDROID_KEYSTORE_PASS     the -storepass you chose
+ANDROID_KEY_ALIAS         lba2cc
+ANDROID_KEY_PASS          the -keypass you chose (omit if it matches the store)
+```
+
+Keep `lba2cc-release.jks` and its passwords somewhere they will outlive the
+machine that made them, and keep them out of the repository. `-validity 10000`
+is about 27 years, which is the usual choice for an app that is meant to be
+updatable indefinitely.
+
+Both release callers pass `secrets: inherit`, so the reusable Android workflow
+sees them. Without the secrets (a fork's pull request, or before they are set)
+the build still succeeds and debug-signs, and both the workflow log and
+the bundler say the result must not be published.
+
+**Rotating the key is not possible without a break.** A new key means every
+player uninstalls once more and loses whatever the old build held. Treat a
+rotation as a last resort, and if one ever happens, say so in the release
+notes in those words, and update the expected fingerprint recorded below.
+
+### Who holds the key
+
+**Copy it to somebody else before you sign anything with it.** A key becomes
+irreplaceable the moment a release goes out signed by it, so the gap between
+creating it and sharing it is the only period in which losing it is cheap.
+Custody comes before first use, not after.
+
+**GitHub Actions secrets are write-only.** Once `ANDROID_KEYSTORE_BASE64` is
+set, nobody can read it back, through the UI or the API. If the only copy of
+the keystore is that secret, the key is gone the moment the secret is deleted,
+the repository is transferred, or the account that set it goes away. There is no
+recovery: the app's identity would have to change, and every player would pay
+another uninstall.
+
+So the key is a project asset, not a person's:
+
+- **Keep an offline copy with at least two maintainers**, or in a vault the
+  project shares. It is the only copy that survives a deleted secret, a
+  transferred repository, or a closed account.
+- **Hold it as an environment secret, never an organization or repository one.**
+  An environment restricts which branches may run a job that names it. It does
+  not hide organization or repository secrets from jobs that do not name it, and
+  those are readable by any job on any branch. So a copy at either scope does not
+  add a second way in, it removes the restriction: anyone with write access
+  pushes a workflow that omits `environment:` and reads the key. Durability is
+  not the argument for organization scope it appears to be either, since the copy
+  that survives a rename, a transfer, or GitHub itself is the offline one above.
+- **Treat it like the domain name**, not like a credential you rotate on a
+  schedule. Rotation is the thing that cannot be done cheaply.
+
+The trade-off: a key held by CI means anyone who can push a tag signs with it.
+The alternative is a human signing each release locally, which is worse for a
+community project, because it makes every release wait on one person being
+available.
+
+To check afterwards that a release really can update the one before it, compare
+the certificates rather than trusting the pipeline:
+
+```bash
+apksigner verify --print-certs lba2cc-<old>-android-arm64-v8a.apk | grep SHA-256
+apksigner verify --print-certs lba2cc-<new>-android-arm64-v8a.apk | grep SHA-256
+```
+
+Equal digests mean an update; different digests mean an uninstall. Every APK
+published before `0.13.0` has its own digest, including the two ABIs of a
+single release, because each CI job generated a throwaway key.
+
+`versionCode`, the integer Android orders builds by, is derived from the
+version by `bundle-android.sh` (`0.12.0` becomes `1200`) and substituted into
+the staged manifest. The manifest in the tree keeps a literal `1` so it stays
+readable and buildable by hand; the bundler fails the build if it cannot find
+the attribute to substitute.
+
+### Onboarding without handing over the key
+
+Most people need nothing. A fork's pull request cannot read secrets, so a
+contributor's build is debug-signed and says so in its own output. None of this
+gates contributing.
+
+For everyone else there are two roles, and only one of them involves possessing
+the file:
+
+| role | needs | granted by |
+|---|---|---|
+| Contributor | nothing | nothing to do |
+| Release-cutter | to be able to run a signed release | access to the environment below |
+| Custodian | an offline copy of the keystore | deliberate handover, kept small |
+
+A release-cutter never holds the key. That separation only exists if the secrets
+sit behind a **GitHub Environment** rather than plain repository secrets: any job
+on any branch of the repository can read a plain secret, and log masking stops
+accidents rather than intent. Without an environment, the people who
+effectively hold the key are everyone with write access, whatever the
+custodian list says.
+
+To set it up:
+
+1. Create an environment named `android-release`.
+2. Restrict its deployment branches to `main` and the release tag pattern, so a
+   workflow pushed to a feature branch cannot reach the secrets.
+3. Hold the four secrets on that environment, not at repository or
+   organization scope.
+4. Add `environment: android-release` to the signing job in
+   `reusable-build-android.yml`.
+
+Step 4 has to accompany the rest. A job naming an environment that does not
+exist fails, and an environment that no job names protects nothing.
+
+### Handing a copy to a custodian
+
+One file, every custodian, and adding another later is a re-encrypt rather than a
+fresh hand-off:
+
+```bash
+gpg --import maintainer-2.pub maintainer-3.pub
+
+gpg --batch --yes --trust-model always \
+    -r maintainer-1 -r maintainer-2 -r maintainer-3 \
+    --output lba2cc-release.jks.gpg --encrypt lba2cc-release.jks
+```
+
+Check it reached everyone rather than assuming, because a missing `-r` fails
+silently and leaves a bundle only one person can open:
+
+```bash
+gpg --batch --list-packets lba2cc-release.jks.gpg | grep -c "pubkey enc packet"
+```
+
+The count must equal the number of custodians. The result is safe to keep in a
+private repository; the keystore password belongs somewhere else, since storing
+both together makes them one secret.
+
+### Verifying a copy is the real one
+
+A custodian should be able to check what they were handed without trusting
+whoever handed it over. The two tools disagree on formatting, so normalise
+before comparing:
+
+```bash
+keytool -list -v -keystore lba2cc-release.jks -storepass "$PASS" \
+  | sed -n 's/.*SHA256: //p' | tr -d ':' | tr 'A-Z' 'a-z'
+
+apksigner verify --print-certs lba2cc-<version>-android-arm64-v8a.apk \
+  | sed -n 's/.*SHA-256 digest: //p'
+```
+
+`keytool` prints colon-separated uppercase and `apksigner` prints neither, so
+comparing the raw output always disagrees and tells you nothing.
+
+The release certificate's fingerprint is recorded here. It lets a custodian
+check their copy before there is any published APK to compare against, and it
+lets a player confirm an APK is genuinely this project's.
+
+```
+release certificate SHA-256: f735d16efceefd0c99ca4da618f93ee08c9655ca457e00b866c257cc433780d2
+```
+
+The release build checks every signed APK against that value and fails on a
+mismatch, so a wrong keystore, a wrong alias or a truncated secret stops at CI
+rather than at a player's update. The value is in
+`reusable-build-android.yml` as well, and rotating the key means changing it in
+both places.
+
+### When a maintainer moves on
+
+**Other people have it.** Actions secrets are write-only, so CI is not a store
+anything can be recovered from: if the only copies are that secret and one
+laptop, the project is one disk failure away from a new identity.
+
+**The fingerprint is published**, so a successor can verify what they inherited
+rather than believe it.
+
+**Rotation covers a departure, not a loss.** Signing-scheme v3 proof-of-rotation
+needs the old key to sign the lineage. It answers "a custodian left and should no
+longer be able to publish" and says nothing at all about "nobody can find the
+file".
+
+**The worst case is survivable.** If every copy is lost, the recovery is a new
+key and one more forced uninstall. The user directory lives outside app-private
+storage, so that uninstall costs a player their time rather than their saves,
+which is what keeps a lost key an expensive inconvenience instead of the end of
+the app's identity.
+
+**One recurring task.** Once a year, confirm at least two custodians still hold
+the file and can still open it, by having one of them sign a throwaway APK from
+their own copy. Confirming somebody has a file is not the same as confirming
+they can use it, and a forgotten password is discovered on the day it is needed.
+
 ## Adding a new release target
 
 The release infra is split so adding a platform is mechanical: a packaging

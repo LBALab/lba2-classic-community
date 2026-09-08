@@ -44,3 +44,11 @@ tests/SNAPSHOT/fixtures/*.raw
 android/build/
 android/apk/
 android/local.properties
+
+# Signing keys. Nothing here is ever committed: a keystore is the app's identity
+# for its whole life and cannot be reissued, and a .b64 of one is the same bytes
+# in a form that looks harmless.
+*.jks
+*.jks.b64
+*.keystore
+*.p12
