@@ -538,9 +538,14 @@ So the key is a project asset, not a person's:
 
 - **Keep an offline copy with at least two maintainers**, or in a vault the
   project shares. This matters more than any other line in this section.
-- **Prefer an organization secret** on `LBALab` over a repository one. It
-  survives a rename or a transfer, and org owners can manage it without
-  depending on whoever happened to set it up.
+- **Hold it as an environment secret, never an organization or repository one.**
+  An environment restricts which branches may run a job that names it. It does
+  not hide organization or repository secrets from jobs that do not name it, and
+  those are readable by any job on any branch. So a copy at either scope does not
+  add a second way in, it removes the restriction: anyone with write access
+  pushes a workflow that omits `environment:` and reads the key. Durability is
+  not the argument for organization scope it appears to be either, since the copy
+  that survives a rename, a transfer, or GitHub itself is the offline one above.
 - **Treat it like the domain name**, not like a credential you rotate on a
   schedule. Rotation is the thing that cannot be done cheaply.
 
@@ -600,6 +605,30 @@ To set it up:
 
 Step 4 has to accompany the rest. A job naming an environment that does not
 exist fails, and an environment that no job names protects nothing.
+
+### Handing a copy to a custodian
+
+One file, every custodian, and adding another later is a re-encrypt rather than a
+fresh hand-off:
+
+```bash
+gpg --import maintainer-2.pub maintainer-3.pub
+
+gpg --batch --yes --trust-model always \
+    -r maintainer-1 -r maintainer-2 -r maintainer-3 \
+    --output lba2cc-release.jks.gpg --encrypt lba2cc-release.jks
+```
+
+Check it reached everyone rather than assuming, because a missing `-r` fails
+silently and leaves a bundle only one person can open:
+
+```bash
+gpg --batch --list-packets lba2cc-release.jks.gpg | grep -c "pubkey enc packet"
+```
+
+The count must equal the number of custodians. The result is safe to keep in a
+private repository; the keystore password belongs somewhere else, since storing
+both together makes them one secret.
 
 ### Verifying a copy is the real one
 
