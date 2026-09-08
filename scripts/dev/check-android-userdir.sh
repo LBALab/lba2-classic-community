@@ -297,6 +297,11 @@ if [[ "${LBA2_ALLOW_REBOOT:-0}" == "1" ]]; then
         "$ADB" shell "chown -R $appuid '$APP_EXTERNAL/save'" >/dev/null 2>&1
     fi
     "$ADB" shell appops set "$PKG" MANAGE_EXTERNAL_STORAGE allow >/dev/null 2>&1
+    # appops writes its state to disk lazily and `adb reboot` does not wait for
+    # it, so the grant can be back to deny on the other side -- which reads as
+    # the engine losing the folder, when the engine was simply never given the
+    # permission. Flush it, and check on the far side that it survived.
+    "$ADB" shell appops write-settings >/dev/null 2>&1
     "$ADB" shell rm -rf "$SHARED_DIR" >/dev/null 2>&1
 
     echo "  rebooting so the app's storage view is rebuilt..."
@@ -311,7 +316,10 @@ if [[ "${LBA2_ALLOW_REBOOT:-0}" == "1" ]]; then
     done
     sleep 15
 
-    if launch_and_wait "$SHARED_DIR/save/current.lba"; then
+    granted=$("$ADB" shell appops get "$PKG" MANAGE_EXTERNAL_STORAGE 2>/dev/null | tr -d '\r')
+    if [[ "$granted" != *allow* ]]; then
+        skip "the grant did not survive the reboot ($granted), so the engine never had the permission this is about"
+    elif launch_and_wait "$SHARED_DIR/save/current.lba"; then
         got=$("$ADB" shell cat "$SHARED_DIR/save/current.lba" 2>/dev/null | tr -d '\r\n')
         if [[ "$got" == "FALLBACK-SAVE" ]]; then
             pass "the fallback folder was carried up once the permission arrived"
