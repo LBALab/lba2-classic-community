@@ -97,6 +97,7 @@ int Control_UnfiredExecAt(void);
    that from the benign early returns (LM_THE_END, the demo watchdog). */
 void Control_NoteMainLoopEntered(void);
 void Control_NoteLeftForMenu(void);
+int Control_LeftForMenu(void);
 /* The replay consumed its last poll. Ends the run there instead of at the tick budget,
    which is larger than the recording by construction. */
 void Control_NoteReplayStreamEnded(void);

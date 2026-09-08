@@ -2988,7 +2988,13 @@ int main(int argc, char *argv[]) {
             TheEnd(PROGRAM_FAIL, "control: setup failed");
             return 1;
         }
-        MainLoop();
+        /* Through the menu loop rather than MainLoop directly. MainLoop RETURNS when the
+           player opens the in-game menu (the I_MENUS break), so calling it once ends the
+           run there: a replay of a session where the player pressed ESC stops at that
+           press with most of the stream unread. MainGameMenu's loop already does the
+           right thing, re-entering MainLoop when the session resumes, so route through it
+           instead of reimplementing it here. The load is already done, hence resumeInGame. */
+        MainGameMenu(0, TRUE);
         Control_End();
         /* Beside the --exec-at check and for the same reason: a run that did not do what
            the command line asked must not exit 0. Control_End has already said which of
@@ -3005,7 +3011,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    MainGameMenu(load);
+    MainGameMenu(load, FALSE);
 
 #ifdef DEMO
     if (!FlagShowEndDemo) {

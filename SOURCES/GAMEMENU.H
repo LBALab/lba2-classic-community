@@ -101,7 +101,7 @@ extern void DrawCadreSave(S32 x, S32 y);
 /*--------------------------------------------------------------------------*/
 extern S32 IsFirstGameLaunched(void);
 /*--------------------------------------------------------------------------*/
-extern S32 MainGameMenu(S32 load);
+extern S32 MainGameMenu(S32 load, S32 resumeInGame);
 /*--------------------------------------------------------------------------*/
 extern void GameAskChoice(S32 nummess);
 /* Harness hook: drive GameAskChoice's two modal waits with held keys, so a

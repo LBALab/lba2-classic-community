@@ -3823,21 +3823,40 @@ void BuildGameMainMenu(S32 firstloop) {
 
 S32 GameInProgress = FALSE;
 
-S32 MainGameMenu(S32 load) {
+/* `resumeInGame` enters with a session the caller has already loaded and started, and
+   goes straight to gameplay: the loop below is what makes a menu a pause rather than the
+   end of the run, because MainLoop returns when the player opens one and this re-enters
+   it. The CLI harness is the only caller that wants that; it has done its own load and
+   must not have the menu's boot presentation done to it. Kept as its own argument rather
+   than a sentinel in `load`, because `load` is passed on to SetDemoSaveGame. */
+S32 MainGameMenu(S32 load, S32 resumeInGame) {
     S32 select;
     S32 flag = 0;
     S32 firstloop = TRUE;
     S32 savenewcube;
     S32 gogame = FALSE;
     S32 ret;
+    /* Cleared by the first pass through the gameplay branch, so it guards the entry and
+       nothing after it. */
+    S32 resumeFirstPass = resumeInGame;
     char tmpFilePathSave[ADELINE_MAX_PATH];
     char tmpFilePathScreen[ADELINE_MAX_PATH];
 
-    HQ_StopSample();
-    StopMusic(); // Pour Stopper la music du Logo
+    /* Boot housekeeping: silences the logo. A resume arrives with a loaded scene whose
+       ambience is already running, and stopping it here would be heard as the session
+       going quiet the moment it starts. */
+    if (!resumeInGame) {
+        HQ_StopSample();
+        StopMusic(); // Pour Stopper la music du Logo
+    }
 
-    InitPlasmaMenu();
-    FlagShadeMenu = FALSE;
+    /* The menu's own animated background, and the flag that tells the menu painters they
+       are drawing over a live scene. Both are menu presentation, and a resume goes
+       straight to gameplay without drawing one. */
+    if (!resumeInGame) {
+        InitPlasmaMenu();
+        FlagShadeMenu = FALSE;
+    }
 
 #ifdef DEMO
     GetSavePath(tmpFilePathSave, ADELINE_MAX_PATH, CURRENTSAVE_FILENAME);
@@ -3854,7 +3873,7 @@ S32 MainGameMenu(S32 load) {
         goto load_game;
     }
 #else
-    if (IsFirstGameLaunched()) {
+    if (!resumeInGame AND IsFirstGameLaunched()) {
         FlagPlayAcf = TRUE;
         goto new_game;
     }
@@ -3865,32 +3884,75 @@ S32 MainGameMenu(S32 load) {
         goto load_game;
 #endif
 
+    /* Outside the guard below, and that is the point: the loop reads tmpFilePathScreen on
+       its redraw paths, so this is the only write to a buffer used well after the setup
+       that fills it. Skipping the setup and keeping the reads would hand an uninitialised
+       stack buffer to Image_LoadStretched. Its sibling tmpFilePathSave is safe by accident
+       rather than design, because the loop re-derives that one where it uses it. */
     GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-    Image_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
-    CopyScreen(Screen, Log);
-    BoxStaticFullflip();
-    FadeToPal(PtrPalNormal);
 
-    PtrPal = PtrPalNormal;
+    if (resumeInGame) {
+        /* Enter the loop already in gameplay. Nothing below is done: it paints the menu
+           background over the caller's scene and points PtrPal at the menu palette, and
+           the harness load path has just installed the scene's own by hand precisely
+           because it wants neither the fade nor the menu's screen. */
+        gogame = TRUE;
+        firstloop = FALSE;
+    } else {
+        Image_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
+        CopyScreen(Screen, Log);
+        BoxStaticFullflip();
+        FadeToPal(PtrPalNormal);
 
-    BackupScreen(FALSE);
-    CopyScreen(Log, Screen);
+        PtrPal = PtrPalNormal;
 
-    MenuMouseAcquire();
+        BackupScreen(FALSE);
+        CopyScreen(Log, Screen);
+    }
+
+    /* Menu-only, and paired with the MenuMouseRelease the loop makes before MainLoop. A
+       resume goes straight to gameplay and takes neither half on its first pass. */
+    if (!resumeInGame)
+        MenuMouseAcquire();
 
     while (!flag) {
         if (gogame) {
-            DemoSlide = FALSE;
-            GameInProgress = FALSE;
+            /* Session-start state, and a resume must not have it done on the way in: the
+               caller has already started the session and owns these. DemoSlide is the one
+               that bites -- the harness sets it through BeginDemoSlide before calling here,
+               and clearing it turns an attract-mode run into an ordinary one. Only the
+               first pass is skipped; a genuine menu visit later in the run leaves through
+               the same code as any other and should reset them the normal way. */
+            /* A resume reaches MainLoop with the engine exactly as its caller left it.
+               Everything here is the menu handing a session over to gameplay: state it
+               owns because it set it up on the way in. The harness set its own up and did
+               not come through that path, so on the first pass none of it applies, and
+               doing it anyway perturbs the run this exists to replay. Cleared straight
+               away, so a real menu visit later leaves through this code as the game does. */
+            if (!resumeFirstPass) {
+                DemoSlide = FALSE;
+                GameInProgress = FALSE;
 
-            ClearPlasmaMenu(); // vire plasma menu
+                ClearPlasmaMenu(); // vire plasma menu
 
-            FlagShadeMenu = TRUE;
+                FlagShadeMenu = TRUE;
 
-            /* Menu mouse is for menu UI only; do not composite it during MainLoop (gameplay). */
-            MenuMouseRelease();
+                /* Menu mouse is for menu UI only; do not composite it during MainLoop (gameplay). */
+                MenuMouseRelease();
+            }
+            resumeFirstPass = FALSE;
 
             ret = MainLoop();
+
+            /* A resume hands control back the moment MainLoop returns for a reason that is
+               not the menu. The switch below is the game's end-of-session handling -- it
+               saves, rolls credits, plays the win cinematic -- and a harness run reaching
+               its tick budget or the end of a recording must reach its own reporting
+               instead. Only the menu is a pause worth re-entering for. */
+            if (resumeInGame AND !Control_LeftForMenu()) {
+                flag = TRUE;
+                continue;
+            }
 
             BackupScreen(FALSE);
 

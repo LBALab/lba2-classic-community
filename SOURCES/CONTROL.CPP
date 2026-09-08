@@ -1224,6 +1224,16 @@ void Control_NoteReplayStreamEnded(void) {
         s_replay_stream_done = 1;
 }
 
+/* Whether the MainLoop that just returned did so because the in-game menu opened, rather
+   than for one of the reasons the harness owns: its tick budget, the end of a replay's
+   stream, the end of the game. Cleared on every MainLoop entry, so it describes the last
+   return and not the run as a whole. The menu path re-enters on this and hands back on
+   anything else, which is what keeps a menu a pause without also making the harness
+   inherit the game's end-of-session handling. */
+int Control_LeftForMenu(void) {
+    return s_left_for_menu ? 1 : 0;
+}
+
 /* Non-zero when the run ended before it had replayed what it was given: the status a
    harness run must not report as success. Kept apart from the reporting above so main()
    decides the exit code in one place, beside the --exec-at check it already makes. */
