@@ -40,6 +40,17 @@ jobs:
   build:
     name: "Build ${{ matrix.arch }}"
     runs-on: ubuntu-24.04
+    # The release key lives in this environment, whose deployment rules admit
+    # only main and the release tags. Naming it is what lets the job read those
+    # secrets, and what stops a workflow pushed to any other branch from doing
+    # the same.
+    #
+    # Conditional because one job serves every caller. A pull request builds
+    # with bundle: false from a branch the environment does not admit, and a job
+    # naming an environment it may not deploy to fails outright rather than
+    # quietly going without; an empty name means no environment at all, which is
+    # the unsigned path a fork's pull request already takes.
+    environment: ${{ inputs.bundle && 'android-release' || '' }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
