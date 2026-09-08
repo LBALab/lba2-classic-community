@@ -103,8 +103,10 @@ adb push RESS.HQR /sdcard/lba2cc/
 
 `/sdcard/lba2cc/` is general external storage, so on **Android 11+ (API 30+)**
 the app needs **All Files Access** (`MANAGE_EXTERNAL_STORAGE`). The game checks
-for it on launch and opens the system Settings page if it is missing — grant it
-and relaunch. You can also pre-grant it:
+for it on launch and opens the system Settings page if it is missing. Grant it
+and come back: the launch is waiting for the answer and carries on with it, so
+the saves land in the right folder the first time. Declining is not fatal either,
+though the game data cannot be read without it. You can also pre-grant it:
 
 ```bash
 adb shell appops set org.lbalab.lba2cc MANAGE_EXTERNAL_STORAGE allow
