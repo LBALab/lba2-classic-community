@@ -755,8 +755,6 @@ static bool SameDirectory(const char *a, const char *b) {
     return same;
 }
 
-/* Both paths arrive with a trailing separator and leave with one, so the
-   recursion has a single shape and no step has to ask whether to add one. */
 /* A folder that has already been copied up carries this, so a later boot can
    tell its own leftover from a second set of saves somebody is still using. */
 #define USER_DIR_MIGRATED_MARKER ".lba2cc-migrated"
@@ -819,6 +817,8 @@ static void MarkMigratedFrom(const char *dir) {
     }
 }
 
+/* Both paths arrive with a trailing separator and leave with one, so the
+   recursion has a single shape and no step has to ask whether to add one. */
 static bool CopyTree(const char *srcDir, const char *destDir, S32 depth) {
     if (depth > USER_DIR_COPY_MAX_DEPTH) {
         return false;
