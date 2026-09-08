@@ -383,6 +383,20 @@ under translation and reports a green result that means nothing.
 `scripts/dev/android-lib.sh` refuses a non-ARM target for that reason, rather
 than warning and continuing.
 
+**An x86_64 host cannot emulate an arm64 device, so this needs real hardware.**
+The Android emulator refuses the AVD outright:
+
+```
+FATAL | Avd's CPU Architecture 'arm64' is not supported by the QEMU2 emulator
+        on x86_64 host. System image must match the host architecture.
+```
+
+That is a policy gate rather than a missing capability, which is worth knowing
+before trying to work around it: `qemu-system-aarch64.exe` does ship in the
+emulator directory. Downloading an `arm64-v8a` system image (3.2 GB) and writing
+the AVD by hand still ends at that line. Plug in an ARM phone or tablet, or run
+the lane somewhere ARM-hosted.
+
 ### The host test suite on ARM
 
 The 69 test subdirectories under `tests/` build for `arm64-v8a` with no code
@@ -403,13 +417,27 @@ ctest --test-dir out/build/android_arm64_tests --output-on-failure
 `LBA2_BUILD_ASM_EQUIV_TESTS=OFF` is required. It defaults ON and those tests need
 UASM and x86.
 
-One result is worth reading on its own, because it reports the ARM/x86 gap
-directly rather than passing or failing on it:
+**What this adds over the macOS CI job, which is less than it first appears.**
+`macos-latest` is Apple Silicon and `.github/workflows/macos.yml` already runs
+`ctest -L host_quick` plus a verbose `test_numeric_contract` there on every push,
+specifically to report the ARM rounding figures. macOS arm64 and Android arm64
+share the same 53-bit `long double`, so the headline arithmetic question is
+already answered in CI and does not need a device.
 
-```bash
-scripts/dev/android-exec.sh \
-    out/build/android_arm64_tests/tests/numeric_contract/test_numeric_contract
-```
+What a device still adds:
+
+- **Bionic, not Apple libc.** Same mantissa, different `libm`. Any rounding that
+  comes out of `sin`, `cos` or `pow` rather than out of the ABI can differ
+  between the two and neither host can speak for the other.
+- **`armeabi-v7a`.** 32-bit ARM, different pointer size and alignment rules, and
+  what all current Android TV hardware runs. No Apple target says anything at
+  all about it.
+- **The engine, not just the host tests.** macOS CI runs `tests/`, which is pure
+  computation. `tests/automation/` drives the actual game, and Phases 2 and 3
+  above are the only way to run it anywhere ARM.
+
+So read the numeric measurement from the macOS job. Use a device for the three
+things above.
 
 ### The engine as a command-line executable
 
