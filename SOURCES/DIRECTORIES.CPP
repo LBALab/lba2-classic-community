@@ -879,10 +879,13 @@ bool Directories_ReconcileUserDir(const char *chosen, const char *const *lower,
                                   S32 count) {
     assert(chosen != NULL);
 
-    /* This call's finding, not the accumulated history of the process. The boot
-       makes one call, so this changes nothing there and makes the record mean
-       one definite thing. */
+    /* This call's findings, not the accumulated history of the process. The
+       boot makes one call, so this changes nothing there. It matters to anyone
+       calling twice: without it, MigrationWasPartial after a call that copied
+       nothing answers the question an earlier call asked. */
     directoriesRivalUserDir[0] = '\0';
+    directoriesMigratedFrom[0] = '\0';
+    directoriesMigrationPartial = false;
 
     char dest[ADELINE_MAX_PATH];
     if (!Directories_ResolveUserDir(dest, ADELINE_MAX_PATH, chosen, NULL)) {
