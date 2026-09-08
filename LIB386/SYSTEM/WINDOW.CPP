@@ -406,6 +406,18 @@ bool Window_IsFullscreen(void) {
            ((SDL_GetWindowFlags(sdlWindow) & SDL_WINDOW_FULLSCREEN) != 0);
 }
 
+bool Window_CanLoseNativeWindow(void) {
+#if defined(__ANDROID__)
+    /* The activity owns the surface, so anything Android puts in front takes it
+       away: SDL_CreateWindow then fails with "Could not fetch native window".
+       The engine asks for All Files Access during boot, which opens Settings and
+       causes exactly that. */
+    return true;
+#else
+    return false;
+#endif
+}
+
 bool Window_SupportsWindowedMode(void) {
 #if defined(__ANDROID__)
     /* Android phones and TVs run the game fullscreen (landscape-locked via

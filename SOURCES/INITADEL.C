@@ -43,6 +43,15 @@ int WriteEmbeddedDefaultLba2Cfg(const char *destPath);
 #include <unistd.h>
 
 #include <SDL3/SDL_cpuinfo.h> /* SDL_GetNumLogicalCPUCores, SDL_GetSystemRAM */
+#include <SDL3/SDL_timer.h>   /* SDL_Delay - waiting out a window we cannot have yet */
+
+/* How long the boot will wait for a window, and how often it retries.
+   Generous on purpose: this loop ends the moment the surface comes back, so the
+   bound is only ever reached by a window that is never coming, and the cost of
+   waiting is a backgrounded game polling every quarter second. The permission
+   wait upstream cannot be sized this way, having no signal that ends it early. */
+#define BOOT_WINDOW_WAIT_MS 120000
+#define BOOT_WINDOW_POLL_MS 250
 
 #if defined(_WIN32)
 #define LOG_PLATFORM_NAME "Windows"
@@ -352,9 +361,33 @@ void InitAdeline(S32 argc, char *argv[]) {
            front; the later ReadConfigFile -> SetWindowFullscreen pass then just
            confirms it instead of flipping a windowed window. */
         const bool reqFullscreen = Res_LoadBootFullscreen();
-        if (!InitGraphics(reqResX, reqResY, reqFullscreen)) {
-            BootFatal("The graphics mode %ux%u could not be set.", reqResX,
-                      reqResY);
+        /* A window can be refused for a reason that passes: on Android the
+           surface belongs to whatever is in front, so the All Files Access
+           screen this boot may have opened takes it away, and SDL reports it as
+           a mode that could not be set. Waiting is the whole fix, because the
+           same call succeeds the moment the player is back. Desktop does not
+           have that state and does not wait. */
+        U32 waitedMs = 0;
+        bool graphicsUp = InitGraphics(reqResX, reqResY, reqFullscreen);
+        while (!graphicsUp && Window_CanLoseNativeWindow() &&
+               waitedMs < BOOT_WINDOW_WAIT_MS) {
+            SDL_Delay(BOOT_WINDOW_POLL_MS);
+            waitedMs += BOOT_WINDOW_POLL_MS;
+            graphicsUp = InitGraphics(reqResX, reqResY, reqFullscreen);
+        }
+        if (!graphicsUp) {
+            /* Naming the mode alone sent a player hunting a display problem
+               that was not there. Say what to do instead, where doing something
+               is possible. */
+            BootFatal(Window_CanLoseNativeWindow()
+                          ? "The game could not open its window at %ux%u.\n\n"
+                            "If a permission screen opened in front of the game, "
+                            "grant access and start the game again."
+                          : "The graphics mode %ux%u could not be set.",
+                      reqResX, reqResY);
+        }
+        if (waitedMs > 0) {
+            Log_Warn("Window   arrived after %ums of waiting", waitedMs);
         }
         /* The "Display" status line is logged from main() after InitProgram,
            alongside the rest of the post-init summary. */
