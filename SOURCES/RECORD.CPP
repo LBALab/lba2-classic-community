@@ -2023,6 +2023,7 @@ static void replay_report_mode(void) {
     char hdr[REC_HEADER_MAX];
     char *p, *nl;
     S32 diffs = 0;
+    S32 undeclared = 0;
 
     /* Said rather than returned quietly. This is the run's whole account of what it does
        not match, so skipping it looks exactly like a run with nothing to report. */
@@ -2061,9 +2062,69 @@ static void replay_report_mode(void) {
         diffs++;
     }
 
+    /* And the same comparison the other way. The walk above reports lines the recording
+       carries that this run does not match, which cannot report a key the recording does
+       not have at all: an older file simply has no line to walk. That is the direction an
+       old recording meets a new build in, and it is the one the versioning note at the top
+       of this file leans on when it rules that a change to what the engine computes is
+       reported by the header rather than refused by a version. Left one-directional, a
+       recording made before a trait existed replays straight into the divergence with
+       nothing said about why.
+
+       Measured on the fixtures in tests/automation/recordings: legacy-v10 (format 10) and
+       both combo files (format 12) carry no `numeric.digest`; legacy-v10 also predates
+       `mode.audio` and fourteen of the `settings.` lines, which are written from
+       CONTROL.CPP rather than from write_mode_lines below. Before this, replaying any of
+       them announced only `engine`, and legacy-v10 now names sixteen traits it predates.
+
+       The recorded header is rebuilt because the loop above consumed it: it terminates
+       each line in place to compare it, so what is left is the first line and a run of
+       trailing NULs. */
+    snprintf(hdr, sizeof hdr, "%s", s_headerBuf);
+
+    for (p = live; (nl = strchr(p, '\n')) != NULL; p = nl + 1) {
+        char key[64];
+        char theirs[128];
+        const char *eq;
+        size_t klen;
+
+        *nl = 0;
+        eq = strchr(p, '=');
+        if (eq == NULL || mode_line_ignored(p))
+            continue;
+
+        klen = (size_t)(eq - p) + 1;
+        if (klen >= sizeof key)
+            continue;
+        memcpy(key, p, klen);
+        key[klen] = 0;
+
+        /* Absence is the only thing this direction adds. A key the recording carries has
+           already been compared above, whatever the two sides said about it. */
+        if (RecFmt_ReadStr(hdr, key, theirs, sizeof theirs))
+            continue;
+
+        /* Its own prefix, deliberately not `mode differs`. The two are different claims:
+           a mismatch says the recording declared something this run contradicts, and is
+           evidence about reproduction. An absence says only that the recording predates
+           the trait, so this run cannot check that dimension -- which predicts nothing.
+           Folding them together would spend the warning below on files that reproduce
+           perfectly well, and the arm at tests/automation/test_record_replay.sh:556
+           exists because someone already met a mode warning that cried wolf on a clean
+           replay. Keeping the prefixes apart also leaves that arm, and the three that
+           match `mode differs:` positively, reading exactly what they read before. */
+        /* Without the trailing `=`: the key is a name here, not half a comparison. */
+        fprintf(stderr, "[rec] mode undeclared: %.*s (this run: %s)\n", (int)(klen - 1), key, p);
+        undeclared++;
+    }
+
     if (diffs)
         fprintf(stderr, "[rec] %d mode line(s) differ; this replay may not reproduce\n",
                 (int)diffs);
+    if (undeclared)
+        fprintf(stderr, "[rec] %d header trait(s) this recording predates; those were not "
+                        "checked\n",
+                (int)undeclared);
 }
 
 static void report_extent(void) {
