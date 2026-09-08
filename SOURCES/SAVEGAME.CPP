@@ -433,9 +433,27 @@ void SaveGame(S32 flagmess) {
 		BoxStaticFullflip() ;
 */	}
 
-RestoreTimer();
-savetimerrefhr = TimerRefHR;
-SaveTimer();
+/* Close the bracket to read the clock the save should carry, then put it back. That is
+   only a round trip while a bracket is open. RestoreTimer no-ops at depth 0, so the
+   trailing SaveTimer has nothing to restore and raises the floor to 1 instead: the pair
+   is net +1 rather than net 0, and every nested RestoreTimer for the life of the process
+   is then inert, because only the outermost one rewinds the clock.
+
+   Nothing complains when that happens. RestoreTimer guards on CmptMemoTimerRef and an
+   extra one is free, but SaveTimer does `if (!CmptMemoTimerRef++)` and increments
+   whatever the depth, so the mistake is silent at the point it is made and surfaces as a
+   clock that stopped rewinding, arbitrarily far away.
+
+   At depth 0 there is nothing to close and TimerRefHR is already the value the bracket
+   would have restored, so reading it directly is the same answer without the side
+   effect. */
+if (CmptMemoTimerRef) {
+    RestoreTimer();
+    savetimerrefhr = TimerRefHR;
+    SaveTimer();
+} else {
+    savetimerrefhr = TimerRefHR;
+}
 
 PtrSave = BufSpeak + 50000L; // old Screen
 #else
