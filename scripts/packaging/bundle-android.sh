@@ -320,11 +320,17 @@ else
     echo "[bundle-android]       the same machine's debug key. Do not publish it."
 fi
 
+# pass: puts the password in the argument list, and on Linux that is world
+# readable through /proc/<pid>/cmdline for as long as the process runs. env: is
+# the same string somewhere only this user can read it.
+export LBA2_APKSIGNER_STORE_PASS="$KEYSTORE_PASS"
+export LBA2_APKSIGNER_KEY_PASS="$KEY_PASS"
 "$APKSIGNER" sign --ks "$KEYSTORE" \
-    --ks-pass "pass:${KEYSTORE_PASS}" \
+    --ks-pass env:LBA2_APKSIGNER_STORE_PASS \
     --ks-key-alias "$KEY_ALIAS" \
-    --key-pass "pass:${KEY_PASS}" \
+    --key-pass env:LBA2_APKSIGNER_KEY_PASS \
     --out "$ARTIFACT_APK" "$STAGING/aligned.apk"
+unset LBA2_APKSIGNER_STORE_PASS LBA2_APKSIGNER_KEY_PASS
 
 # 8. Verify, and print the certificate.
 #
