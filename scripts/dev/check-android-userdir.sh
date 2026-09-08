@@ -339,7 +339,81 @@ else
 fi
 
 echo
-echo "== 8. the folder survives an uninstall =="
+echo "== 8. a first run with the permission still unanswered does not die =="
+# Every check above grants the permission before launching, which is the one
+# thing a real first run does not do. The engine asks for it on startup, Android
+# puts Settings in front, and the game loses the surface it was about to create a
+# window on: SDL says "Could not fetch native window" and the boot used to report
+# a graphics mode the device could not set. It could, and the display was never
+# the problem. The window arrives on its own once the player comes back, so the
+# only thing being asserted here is that the boot waits instead of giving up.
+"$ADB" shell am force-stop "$PKG" >/dev/null 2>&1
+# Earlier checks can leave a Settings screen or a fatal dialog in front, and a
+# launch into that measures the state they left rather than a first run. Dismiss
+# whatever is there and wait for the process to actually go.
+for _ in 1 2 3; do
+    "$ADB" shell input keyevent KEYCODE_BACK >/dev/null 2>&1
+done
+waited=0
+while [[ -n "$(app_pid)" && $waited -lt 20 ]]; do
+    sleep 1
+    waited=$((waited + 1))
+done
+"$ADB" shell appops set "$PKG" MANAGE_EXTERNAL_STORAGE deny >/dev/null 2>&1
+"$ADB" shell rm -f "$SHARED_DIR/adeline.log" "$APP_EXTERNAL/adeline.log" >/dev/null 2>&1
+"$ADB" shell am start -n "$ACTIVITY" >/dev/null 2>&1
+# Give Settings time to come up, then answer it the way a player does. Coming
+# back is not optional here: Android freezes a backgrounded process, so the boot
+# makes no progress at all while that screen is up, writes no log, and would
+# never finish on its own. Waiting longer instead of returning is how this check
+# first reported a working engine as broken.
+sleep 10
+"$ADB" shell input keyevent KEYCODE_BACK >/dev/null 2>&1
+
+# Wait for the run to reach a conclusion, not merely for its log to exist: the
+# banner is written seconds before the boot either finishes or gives up, and
+# grepping in between reads a file that has not said anything yet.
+#
+# Both spellings of the failure, the old one included: a build that still calls
+# this a bad display mode has to fail here, and grepping only for the wording
+# introduced alongside the fix would pass against every build that lacks it.
+firstrun_verdict=""
+waited=0
+while [[ $waited -lt 90 && -z "$firstrun_verdict" ]]; do
+    for d in "$SHARED_DIR" "$APP_EXTERNAL"; do
+        exists_on_device "$d/adeline.log" || continue
+        if "$ADB" shell \
+            "grep -aqE 'could not open its window|graphics mode .* could not be set' '$d/adeline.log'" \
+            2>/dev/null; then
+            firstrun_verdict="gave-up"
+        elif "$ADB" shell \
+            "grep -aqE 'Ready in|storage access was not granted' '$d/adeline.log'" 2>/dev/null; then
+            firstrun_verdict="waited"
+        fi
+    done
+    [[ -n "$firstrun_verdict" ]] && break
+    sleep 5
+    waited=$((waited + 5))
+done
+
+case "$firstrun_verdict" in
+    waited)
+        pass "the boot waited for the window instead of calling it a bad display mode"
+        ;;
+    gave-up)
+        fail "the boot gave up on a window that a returning player would have handed it"
+        ;;
+    *)
+        fail "the first run reached no conclusion in ${waited}s, so this examined nothing"
+        ;;
+esac
+
+# Put the device back the way the rest of the run expects it.
+"$ADB" shell am force-stop "$PKG" >/dev/null 2>&1
+"$ADB" shell appops set "$PKG" MANAGE_EXTERNAL_STORAGE allow >/dev/null 2>&1
+
+echo
+echo "== 9. the folder survives an uninstall =="
 # A property of the location, not of the app, so it is asserted with a file this
 # script puts there. Deriving it from a save the run happened to leave behind
 # would report a cascade every time an earlier check failed.
