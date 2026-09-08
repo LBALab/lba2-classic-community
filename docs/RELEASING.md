@@ -522,6 +522,11 @@ notes in those words.
 
 ### Who holds the key
 
+**Copy it to somebody else before you sign anything with it.** A key becomes
+irreplaceable the moment a release goes out signed by it, so the gap between
+creating it and sharing it is the only period in which losing it is cheap.
+Custody comes before first use, not after.
+
 **GitHub Actions secrets are write-only.** Once `ANDROID_KEYSTORE_BASE64` is
 set, nobody can read it back, through the UI or the API. If the only copy of
 the keystore is that secret, the key is gone the moment the secret is deleted,
@@ -561,6 +566,93 @@ version by `bundle-android.sh` (`0.12.0` becomes `1200`) and substituted into
 the staged manifest. The manifest in the tree keeps a literal `1` so it stays
 readable and buildable by hand; the bundler fails the build if it cannot find
 the attribute to substitute.
+
+### Onboarding without handing over the key
+
+Most people need nothing. A fork's pull request cannot read secrets, so a
+contributor's build is debug-signed and says so in its own output. None of this
+gates contributing.
+
+For everyone else there are two roles, and only one of them involves possessing
+the file:
+
+| role | needs | granted by |
+|---|---|---|
+| Contributor | nothing | nothing to do |
+| Release-cutter | to be able to run a signed release | access to the environment below |
+| Custodian | an offline copy of the keystore | deliberate handover, kept small |
+
+A release-cutter never holds the key. That separation only exists if the secrets
+sit behind a **GitHub Environment** rather than plain repository secrets: any job
+on any branch of the repository can read a plain secret, and log masking stops
+accidents rather than intent. Without an environment, the people who effectively
+hold the key are everyone with write access, and the custodian list is
+decoration.
+
+To set it up:
+
+1. Create an environment named `android-release`.
+2. Restrict its deployment branches to `main` and the release tag pattern, so a
+   workflow pushed to a feature branch cannot reach the secrets.
+3. Hold the four secrets there, at organisation level where the org allows it.
+4. Add `environment: android-release` to the signing job in
+   `reusable-build-android.yml`.
+
+Step 4 has to accompany the rest. A job naming an environment that does not
+exist fails, and an environment that no job names protects nothing.
+
+### Verifying a copy is the real one
+
+A custodian should be able to check what they were handed without trusting
+whoever handed it over. The two tools disagree on formatting, so normalise
+before comparing:
+
+```bash
+keytool -list -v -keystore lba2cc-release.jks -storepass "$PASS" \
+  | sed -n 's/.*SHA256: //p' | tr -d ':' | tr 'A-Z' 'a-z'
+
+apksigner verify --print-certs lba2cc-<version>-android-arm64-v8a.apk \
+  | sed -n 's/.*SHA-256 digest: //p'
+```
+
+`keytool` prints colon-separated uppercase and `apksigner` prints neither, so
+comparing the raw output always disagrees and tells you nothing.
+
+Record the fingerprint below when the key is created. It lets a custodian check
+their copy before there is any published APK to compare against, and it lets a
+player confirm an APK is genuinely this project's.
+
+```
+release certificate SHA-256: (pending: fill in when the key exists)
+```
+
+### When a maintainer moves on
+
+Four parts, in descending order of how much they matter.
+
+**Other people have it.** Everything else is commentary. Actions secrets are
+write-only, so CI is not a store anything can be recovered from: if the only
+copies are that secret and one laptop, the project is one disk failure away from
+a new identity.
+
+**The fingerprint is published**, so a successor can verify what they inherited
+rather than believe it.
+
+**Rotation covers a departure, not a loss.** Signing-scheme v3 proof-of-rotation
+needs the old key to sign the lineage. It answers "a custodian left and should no
+longer be able to publish" and says nothing at all about "nobody can find the
+file".
+
+**The worst case is survivable.** If every copy is lost, the recovery is a new
+key and one more forced uninstall. The user directory lives outside app-private
+storage, so that uninstall costs a player their time rather than their saves,
+which is what keeps a lost key an expensive inconvenience instead of the end of
+the app's identity.
+
+**One recurring task.** Once a year, confirm at least two custodians still hold
+the file and can still open it, by having one of them sign a throwaway APK from
+their own copy. Confirming somebody has a file is not the same as confirming
+they can use it, and a forgotten password is discovered on the day it is needed.
 
 ## Adding a new release target
 
