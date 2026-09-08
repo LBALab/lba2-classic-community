@@ -145,14 +145,14 @@ The last element names the build, the same way the desktop paths do
 gets a folder of its own without anything having to move.
 
 That folder is ordinary external storage, so a file manager, a PC over USB and
-any backup tool can read it, **and it survives uninstalling the app**. Both
-matter more than they sound. Until `0.13.0` the user directory was whatever
-`SDL_GetPrefPath` returns, and on Android that call ignores the org and app it
-is given and hands back `Context.getFilesDir()`, which is
-`/data/data/<pkg>/files/`. Nothing reaches that folder on a stock device: `adb shell` gets *Permission
-denied*, `run-as` refuses a non-debuggable package, and `adb backup` returns an
-empty archive even with `android:allowBackup="true"` set. The system also
-erases it on uninstall.
+any backup tool can read it, and it survives uninstalling the app. Until
+`0.13.0` the user directory was whatever `SDL_GetPrefPath` returns, and on
+Android that call ignores the org and app it is given and hands back
+`Context.getFilesDir()`, which is `/data/data/<pkg>/files/`. Nothing reaches
+that folder on a stock device: `adb shell` gets *Permission denied*, `run-as`
+refuses a non-debuggable package, and `adb backup` returns an empty archive
+even with `android:allowBackup="true"` set. The system also erases it on
+uninstall.
 
 **If All Files Access is not granted**, `/sdcard/lba2cc/user/LBA2/` cannot be
 written to, and the game falls back in this order:
@@ -178,8 +178,8 @@ played in is left exactly as it is.
 
 "Has been played in" means it holds `lba2.cfg`, `save/` or `profiles/`, not
 that it is non-empty. The app-specific external folder is one of the roots
-here, and this document has long told players they may drop their retail HQR
-set there.
+here, and this document tells players they may drop their retail HQR set
+there.
 
 **If two folders both hold saves, both are left alone and the other one is
 named.** Reinstalling drops All Files Access, so the next launch falls back and
@@ -191,8 +191,7 @@ other one is so it can be copied over by hand.
 
 Whichever root loses, any folder that was carried up, and any second set of
 saves are all named in the boot banner at the top of `adeline.log` on `Note:`
-lines, so a pasted log says where the saves went and why. That is the one thing
-a player cannot work out for themselves.
+lines, so a pasted log says where the saves went and why.
 
 [check-android-userdir.sh](../scripts/dev/check-android-userdir.sh) asserts all
 of this against a connected device:
@@ -259,8 +258,8 @@ refused by the sandbox, `run-as` only works on a debuggable build, and `adb
 backup` returns an empty archive even though the manifest allows backups: the
 attribute that decides it is `android:debuggable`, which a release build does not
 carry. A cloud backup does not help either, because restoring one requires the
-signing certificate the old build was published with. Progress from an older
-build is lost, once.
+signing certificate the old build was published with. Progress from a build
+older than `0.13.0` is lost.
 
 **Rooting a device that is not already rooted does not rescue it.** Rooting
 generally requires unlocking the bootloader, and unlocking wipes user data,

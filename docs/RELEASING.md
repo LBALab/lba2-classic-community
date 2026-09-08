@@ -465,25 +465,24 @@ over. The next section spells the steps out.
 
 ## Android signing key
 
-Android identifies an app by package name **and** signing certificate. Two
-APKs signed with different keys are two different apps, so installing one
-over the other is refused with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, which the
-package installer shows as "App not installed as package conflicts with an
-existing package". The only way past it is to uninstall, and that erases everything the
+Android identifies an app by package name and signing certificate. Two APKs
+signed with different keys are two different apps, so installing one over the
+other is refused with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, which the package
+installer shows as "App not installed as package conflicts with an existing
+package". The only way past it is to uninstall, and that erases everything the
 app wrote.
 
 So the key is not a formality: it is the thing that decides whether a player
 can update without losing their saves. It has to stay the same for the life of
 the app, and it cannot be recovered if it is lost.
 
-There is a second reason, and it only shows up on the day something has already
-gone wrong. A build signed with the app's own certificate installs over it, so a
-debuggable build of the version a player is stuck on is a rescue tool: `adb
-backup` includes app-private data for a debuggable app and excludes it for a
-release one, and `run-as` works on the same condition. Holding the key is what
-makes it possible to get somebody's saves off a device you cannot otherwise
-reach. A key that no longer exists closes that door for good, however deserving
-the case.
+A second reason applies once something has already gone wrong. A build signed
+with the app's own certificate installs over it, so a debuggable build of the
+version a player is stuck on is a rescue tool: `adb backup` includes app-private
+data for a debuggable app and excludes it for a release one, and `run-as` works
+on the same condition. Holding the key is what makes it possible to get
+somebody's saves off a device you cannot otherwise reach. A key that no longer
+exists closes that door for good.
 
 Four repository secrets drive it. `ANDROID_KEYSTORE_BASE64` is a base64 copy of
 the keystore file; the rest name how to open it.
@@ -537,7 +536,8 @@ another uninstall.
 So the key is a project asset, not a person's:
 
 - **Keep an offline copy with at least two maintainers**, or in a vault the
-  project shares. This matters more than any other line in this section.
+  project shares. It is the only copy that survives a deleted secret, a
+  transferred repository, or a closed account.
 - **Hold it as an environment secret, never an organization or repository one.**
   An environment restricts which branches may run a job that names it. It does
   not hide organization or repository secrets from jobs that do not name it, and
@@ -549,10 +549,10 @@ So the key is a project asset, not a person's:
 - **Treat it like the domain name**, not like a credential you rotate on a
   schedule. Rotation is the thing that cannot be done cheaply.
 
-The trade-off: a key held by CI means anyone who can push
-a tag signs with it. The alternative is a human signing each release locally,
-which is worse for a community project, because it makes every release wait on
-one person being available.
+The trade-off: a key held by CI means anyone who can push a tag signs with it.
+The alternative is a human signing each release locally, which is worse for a
+community project, because it makes every release wait on one person being
+available.
 
 To check afterwards that a release really can update the one before it, compare
 the certificates rather than trusting the pipeline:
@@ -590,16 +590,17 @@ the file:
 A release-cutter never holds the key. That separation only exists if the secrets
 sit behind a **GitHub Environment** rather than plain repository secrets: any job
 on any branch of the repository can read a plain secret, and log masking stops
-accidents rather than intent. Without an environment, the people who effectively
-hold the key are everyone with write access, and the custodian list is
-decoration.
+accidents rather than intent. Without an environment, the people who
+effectively hold the key are everyone with write access, whatever the
+custodian list says.
 
 To set it up:
 
 1. Create an environment named `android-release`.
 2. Restrict its deployment branches to `main` and the release tag pattern, so a
    workflow pushed to a feature branch cannot reach the secrets.
-3. Hold the four secrets there, at organisation level where the org allows it.
+3. Hold the four secrets on that environment, not at repository or
+   organization scope.
 4. Add `environment: android-release` to the signing job in
    `reusable-build-android.yml`.
 
@@ -647,9 +648,9 @@ apksigner verify --print-certs lba2cc-<version>-android-arm64-v8a.apk \
 `keytool` prints colon-separated uppercase and `apksigner` prints neither, so
 comparing the raw output always disagrees and tells you nothing.
 
-Record the fingerprint below when the key is created. It lets a custodian check
-their copy before there is any published APK to compare against, and it lets a
-player confirm an APK is genuinely this project's.
+The release certificate's fingerprint is recorded here. It lets a custodian
+check their copy before there is any published APK to compare against, and it
+lets a player confirm an APK is genuinely this project's.
 
 ```
 release certificate SHA-256: f735d16efceefd0c99ca4da618f93ee08c9655ca457e00b866c257cc433780d2
@@ -657,12 +658,9 @@ release certificate SHA-256: f735d16efceefd0c99ca4da618f93ee08c9655ca457e00b866c
 
 ### When a maintainer moves on
 
-Four parts, in descending order of how much they matter.
-
-**Other people have it.** Everything else is commentary. Actions secrets are
-write-only, so CI is not a store anything can be recovered from: if the only
-copies are that secret and one laptop, the project is one disk failure away from
-a new identity.
+**Other people have it.** Actions secrets are write-only, so CI is not a store
+anything can be recovered from: if the only copies are that secret and one
+laptop, the project is one disk failure away from a new identity.
 
 **The fingerprint is published**, so a successor can verify what they inherited
 rather than believe it.
