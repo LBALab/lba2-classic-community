@@ -2156,7 +2156,10 @@ static bool test_userdir_reconcile_skips_a_root_holding_the_chosen_one() {
     }
 
     char inner[512];
-    if (snprintf(inner, sizeof(inner), "%s/LBA2", outer) >= (int)sizeof(inner)) {
+    /* The platform separator, not '/': the engine settles containment by
+       comparing the resolved paths, and it appends this one. A path spelled
+       with the other separator is not a prefix of its own parent on Windows. */
+    if (snprintf(inner, sizeof(inner), "%s%sLBA2", outer, ADELINE_PATH_SEP) >= (int)sizeof(inner)) {
         return false;
     }
     if (!populate_user_dir(inner, "INNER")) {
