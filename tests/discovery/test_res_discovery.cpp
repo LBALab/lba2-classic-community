@@ -1721,16 +1721,16 @@ static bool test_userdir_selects_first_writable_root() {
     return strncmp(out, good, strlen(good)) == 0;
 }
 
-/* /sdcard/lba2cc/user needs both `lba2cc` and `user` made on a device that has
- * neither, so a candidate is judged on whether it can be created, not on
- * whether it is already there. */
+/* /sdcard/lba2cc/user/LBA2 needs `lba2cc`, `user` and the build folder made on
+ * a device that has none of them, so a candidate is judged on whether it can be
+ * created, not on whether it is already there. */
 static bool test_userdir_select_creates_a_missing_root() {
     char base[512];
     if (!make_temp_dir(base, sizeof(base), "udmk")) {
         return false;
     }
     char nested[ADELINE_MAX_PATH];
-    snprintf(nested, sizeof(nested), "%s/lba2cc/user", base);
+    snprintf(nested, sizeof(nested), "%s/lba2cc/user/LBA2", base);
 
     const char *candidates[1];
     candidates[0] = nested;
@@ -1771,7 +1771,7 @@ static bool test_userdir_select_reports_no_writable_root() {
  * saves. docs/ANDROID.md has long told players they may drop their HQR set in
  * the app-specific external folder, and that folder is one of the roots this
  * policy ranks -- so "the directory is not empty" would copy the whole retail
- * set up to /sdcard/lba2cc/user on first launch. */
+ * set up to /sdcard/lba2cc/user/LBA2 on first launch. */
 static bool test_userdir_marks_do_not_match_a_game_data_folder() {
     char dir[512];
     if (!make_temp_dir(dir, sizeof(dir), "udmark")) {

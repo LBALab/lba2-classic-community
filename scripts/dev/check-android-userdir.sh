@@ -22,7 +22,8 @@ set -uo pipefail
 ADB="${ADB:-adb}"
 PKG="${LBA2_ANDROID_PACKAGE:-org.lbalab.lba2cc}"
 ACTIVITY="$PKG/org.libsdl.app.SDLActivity"
-SHARED_DIR="/sdcard/lba2cc/user"
+BUILD_NAME="${LBA2_ANDROID_BUILD:-LBA2}"  # ADELINE_PREF_APP of the build under test
+SHARED_DIR="/sdcard/lba2cc/user/$BUILD_NAME"
 APP_EXTERNAL="/sdcard/Android/data/$PKG/files"
 INTERNAL="/data/data/$PKG/files"
 BOOT_TIMEOUT=120

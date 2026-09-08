@@ -64,7 +64,7 @@ The persisted path lives at `<SDL_GetPrefPath("Twinsen", "LBA2")>/last_game_dir.
 | Linux | `~/.local/share/Twinsen/LBA2/last_game_dir.txt` (honors `XDG_DATA_HOME`) |
 | macOS | `~/Library/Application Support/Twinsen/LBA2/last_game_dir.txt` |
 | Windows | `%APPDATA%\Twinsen\LBA2\last_game_dir.txt` |
-| Android | `/sdcard/lba2cc/user/last_game_dir.txt` |
+| Android | `/sdcard/lba2cc/user/LBA2/last_game_dir.txt` |
 
 Android does not use `SDL_GetPrefPath`: there it ignores the org and app it is given and returns the
 app-private `Context.getFilesDir()`, which no file manager or attached PC can read and which the

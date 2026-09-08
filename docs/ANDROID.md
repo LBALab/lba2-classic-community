@@ -132,12 +132,17 @@ Saves, `lba2.cfg`, `adeline.log` and `recordings/` all live in the user
 directory, and on Android that is:
 
 ```
-/sdcard/lba2cc/user/
+/sdcard/lba2cc/user/LBA2/
 ```
 
 Beside the game data rather than inside it, so backing up `/sdcard/lba2cc/`
 takes both while keeping the player's files apart from a retail set they may
 re-push at any time.
+
+The last element names the build, the same way the desktop paths do
+(`Twinsen/LBA2/` per user, `User/LBA2/` portable). A demo build writes to
+`user/LBA2-Demo/` and so keeps its own saves, and a second game on this engine
+gets a folder of its own without anything having to move.
 
 That folder is ordinary external storage, so a file manager, a PC over USB and
 any backup tool can read it, **and it survives uninstalling the app**. Both
@@ -149,13 +154,13 @@ denied*, `run-as` refuses a non-debuggable package, and `adb backup` returns an
 empty archive even with `android:allowBackup="true"` set. The system also
 erases it on uninstall.
 
-**If All Files Access is not granted**, `/sdcard/lba2cc/user/` cannot be
+**If All Files Access is not granted**, `/sdcard/lba2cc/user/LBA2/` cannot be
 written to, and the game falls back in this order:
 
 | | |
 |---|---|
-| `/sdcard/lba2cc/user/` | needs All Files Access; survives uninstall |
-| `/storage/emulated/0/lba2cc/user/` | the same folder under its other name |
+| `/sdcard/lba2cc/user/LBA2/` | needs All Files Access; survives uninstall |
+| `/storage/emulated/0/lba2cc/user/LBA2/` | the same folder under its other name |
 | `/sdcard/Android/data/<pkg>/files/` | no permission needed; erased on uninstall |
 | `SDL_GetPrefPath` | app-private; unreachable; erased on uninstall |
 
@@ -229,7 +234,7 @@ app's private storage any more than you can.
 app such as Swift Backup, copies the folder directly:
 
 ```
-/data/data/org.lbalab.lba2cc/files/   ->   /sdcard/lba2cc/user/
+/data/data/org.lbalab.lba2cc/files/   ->   /sdcard/lba2cc/user/LBA2/
 ```
 
 Copy rather than move, then uninstall, then install the new build. The uninstall
@@ -240,8 +245,8 @@ reports two sets of saves.
 
 ```bash
 adb root
-adb shell "mkdir -p /sdcard/lba2cc/user"
-adb shell "cp -r /data/data/org.lbalab.lba2cc/files/. /sdcard/lba2cc/user/"
+adb shell "mkdir -p /sdcard/lba2cc/user/LBA2"
+adb shell "cp -r /data/data/org.lbalab.lba2cc/files/. /sdcard/lba2cc/user/LBA2/"
 adb uninstall org.lbalab.lba2cc
 adb install lba2cc-0.13.0-android-arm64-v8a.apk
 ```
