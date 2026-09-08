@@ -368,6 +368,72 @@ version over the game. DeviceDefault rather than the legacy
 `Theme.NoTitleBar.Fullscreen` from SDL's android-project template, because the
 theme also styles the dialogs SDL builds against the activity.
 
+## Running tests on a device
+
+[PLATFORM.md](PLATFORM.md) puts the floating-point split between *architectures*,
+not operating systems: on ARM `long double` is a plain 53-bit double. Every
+"works on x86, broken on ARM" question was previously answered by reading code.
+This lane answers it by measuring.
+
+**The target must be ARM.** An x86_64 Android image carries 80-bit `long double`
+exactly like an x86 desktop, so it cannot show the difference. This is not
+theoretical: an x86_64 emulator image can advertise
+`ro.product.cpu.abilist=x86_64,arm64-v8a`, which means an arm64 binary runs there
+under translation and reports a green result that means nothing.
+`scripts/dev/android-lib.sh` refuses a non-ARM target for that reason, rather
+than warning and continuing.
+
+### The host test suite on ARM
+
+The 69 test subdirectories under `tests/` build for `arm64-v8a` with no code
+change, and CMake can run them on a device through
+`CMAKE_CROSSCOMPILING_EMULATOR`, so plain `ctest` drives the device:
+
+```bash
+cmake -S . -B out/build/android_arm64_tests -G Ninja \
+    -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK/build/cmake/android.toolchain.cmake" \
+    -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=24 -DANDROID_STL=c++_shared \
+    -DSDL3_DIR="$SDL3_ANDROID_DIR/lib/cmake/SDL3" \
+    -DLBA2_BUILD_TESTS=ON -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF \
+    -DCMAKE_CROSSCOMPILING_EMULATOR="$PWD/scripts/dev/android-exec.sh"
+cmake --build out/build/android_arm64_tests --target host_tests
+ctest --test-dir out/build/android_arm64_tests --output-on-failure
+```
+
+`LBA2_BUILD_ASM_EQUIV_TESTS=OFF` is required. It defaults ON and those tests need
+UASM and x86.
+
+One result is worth reading on its own, because it reports the ARM/x86 gap
+directly rather than passing or failing on it:
+
+```bash
+scripts/dev/android-exec.sh \
+    out/build/android_arm64_tests/tests/numeric_contract/test_numeric_contract
+```
+
+### The engine as a command-line executable
+
+`-DLBA2_ANDROID_EXECUTABLE=ON` builds the Android target as a PIE executable
+instead of the `.so` the Java Activity loads. Run under `adb shell` it has real
+argv, stdout and stderr kept separate, and a real exit code, which is what the
+automation suite in `tests/automation/` reads and what the Activity cannot
+provide. It is a measurement tool, not a shippable artifact.
+
+Give it its own build directory: `scripts/dev/build-android.sh` derives the build
+directory from the ABI alone, so a variant build would otherwise overwrite the
+normal one.
+
+**`--user-dir` is mandatory in this shape.** `ResolveDefaultUserDirRoot`
+(`SOURCES/DIRECTORIES.CPP`) gates its `/sdcard/...` candidates on
+`Android_GetExternalFilesDir()` and falls back to `SDL_GetPrefPath`, and both need
+JNI. With no Activity there is no JVM, so neither answers and the boot stops with
+an empty user directory. Automation always sets one, so this costs nothing in
+practice, but a bare `./lba2cc --headless --tick 1 --exit` will fail without it.
+
+`--headless` is otherwise safe with no JVM: the dummy video and audio hints are
+set before `SDL_Init`, so the Android video driver, the only part that needs the
+Activity, is never selected.
+
 ## Limitations
 
 - **Software renderer**: The game uses a software 8-bit→ARGB pipeline.

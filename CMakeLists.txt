@@ -78,6 +78,20 @@ if(LBA2_CONTROL_SERVER)
     add_compile_definitions(LBA2_CONTROL_SERVER=1)
 endif()
 
+# Build the Android target as a command-line executable rather than the .so the
+# Java Activity loads. There is no Activity in that shape, so no argv comes from
+# an intent and no stdout is swallowed: `adb shell` hands back real arguments,
+# separated stdout and stderr, and a real exit code, which is what the
+# automation suite reads. It is for measuring ARM behaviour on a device and is
+# not a shippable artifact. See scripts/dev/android-exec.sh and docs/ANDROID.md.
+option(LBA2_ANDROID_EXECUTABLE "Build the Android engine as a CLI executable for on-device automation" OFF)
+if(LBA2_ANDROID_EXECUTABLE)
+    if(NOT ANDROID)
+        message(FATAL_ERROR "LBA2_ANDROID_EXECUTABLE only means anything in an Android build")
+    endif()
+    add_compile_definitions(LBA2_ANDROID_EXECUTABLE=1)
+endif()
+
 # The 1997 playable demo. A separate SKU, not a mode: the demo build has three
 # fixed save slots instead of free saves, chains them on cube exit, permanently
 # overlays the title logo, and ships neither voices nor cutscenes. Its data set
