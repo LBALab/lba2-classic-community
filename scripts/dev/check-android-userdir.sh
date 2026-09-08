@@ -316,6 +316,11 @@ if [[ "${LBA2_ALLOW_REBOOT:-0}" == "1" ]]; then
     done
     sleep 15
 
+    # The reboot is what rebuilds the app's view of storage; the grant only has
+    # to be in force when the process next starts. Set it again on this side
+    # rather than trusting it to have survived, which it often does not.
+    "$ADB" shell appops set "$PKG" MANAGE_EXTERNAL_STORAGE allow >/dev/null 2>&1
+
     granted=$("$ADB" shell appops get "$PKG" MANAGE_EXTERNAL_STORAGE 2>/dev/null | tr -d '\r')
     if [[ "$granted" != *allow* ]]; then
         skip "the grant did not survive the reboot ($granted), so the engine never had the permission this is about"
