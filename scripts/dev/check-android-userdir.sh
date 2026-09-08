@@ -54,6 +54,18 @@ exists_on_device() {
 
 app_pid() { "$ADB" shell pidof "$PKG" 2>/dev/null | tr -d '\r'; }
 
+# adb here is often the Windows binary, because that is what owns the emulator,
+# and it cannot open a /mnt/... path. Keep the local path for the check above --
+# a typo should still be caught here rather than by the installer -- and hand
+# adb a converted one.
+apk_for_adb() {
+    if [[ "$ADB" == *.exe ]] && command -v wslpath >/dev/null 2>&1; then
+        wslpath -w "$1"
+    else
+        printf '%s' "$1"
+    fi
+}
+
 # Every check below depends on a COLD start. The user directory is resolved once
 # per process and cached, so a launch that lands on a process already running
 # re-uses the folder that process picked and quietly measures the previous
@@ -96,7 +108,7 @@ echo "== install =="
 # different key, and the whole run would then be measuring the previous build
 # while reporting on this one. Check it landed rather than assume it.
 "$ADB" uninstall "$PKG" >/dev/null 2>&1
-install_out=$("$ADB" install "$APK" 2>&1)
+install_out=$("$ADB" install "$(apk_for_adb "$APK")" 2>&1)
 if ! grep -q "Success" <<<"$install_out"; then
     echo "$install_out" | tail -3
     echo "  the APK did not install, so nothing below would be about it" >&2
