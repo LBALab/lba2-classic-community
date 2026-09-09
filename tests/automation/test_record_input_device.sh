@@ -176,6 +176,18 @@ esac
 # command record in the stream is what carries the keyboard there. A replay that forced
 # the flag to a default because the file did not name one would stamp on that command and
 # write the datetime name: this arm is the one that says it does not.
+#
+# NOT PINNED TO A VERDICT VALUE, on the same reasoning recordings/README.md gives for the
+# menu file: a change that moves the simulation makes this replay diverge somewhere, and
+# an arm asserting `first hash mismatch -1` then fails for a reason that has nothing to do
+# with what it tests. What is under test is the READER, given a file that names no
+# input.keyboard: does it leave the recorded command alone, or stamp a default over it.
+# The saved name answers that, and it answers it whether or not the actors agreed.
+#
+# The recording is not a golden of engine behaviour and must not become one. It cannot be
+# recaptured either: this build writes format 14, so a format-13 file can only come from an
+# older engine, and the point of keeping it is that it is old. Regenerating it would remove
+# the only thing it proves.
 legacy="$REPO/tests/automation/recordings/legacy-v13.rec"
 [ -f "$legacy" ] || fail "the legacy recording is missing from $REPO/tests/automation/recordings"
 
@@ -185,11 +197,13 @@ lout="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$legacy" --tick 300
 case "$lout" in
 *"is format"*) fail "legacy: $(printf '%s\n' "$lout" | grep -m1 'is format')" ;;
 esac
-case "$lout" in
-*"first hash mismatch -1"*) ;;
-*) fail "legacy: $(printf '%s\n' "$lout" | grep -m1 'replay ended'); $(printf '%s\n' "$lout" |
-        grep 'mode differs' | tr '\n' ';' || echo 'no mode line differed, so this is the format path')" ;;
-esac
+# That it replayed at all, which the name below does not establish on its own: a run that
+# read no stream and saved nothing would fail there without saying why. Ticks rather than
+# the verdict string, so the count has to be real and the arm still survives a divergence.
+legchecked="$(printf '%s\n' "$lout" | sed -n 's/.*replay ended at poll [0-9]*: \([0-9]*\) ticks checked.*/\1/p' | head -1)"
+[ -n "$legchecked" ] && [ "$legchecked" -gt 0 ] ||
+    fail "legacy: the replay checked no ticks, so the file was opened and not read; $(printf '%s\n' "$lout" |
+        grep -m1 -e 'replay ended' -e 'cannot open' || echo 'it said nothing')"
 [ "$(saves)" = "abc.LBA " ] ||
     fail "legacy: the replay saved as '$(saves)' rather than abc.LBA — a recording that predates the field has stopped doing what it did"
 
