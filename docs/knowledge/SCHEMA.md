@@ -159,7 +159,11 @@ stale_after: 2027-01-01T00:00:00Z
 
 `asm_origin` is a file and a routine, never a line number: line numbers rot
 on the next edit and nothing checks them, while a routine name is greppable
-and is what a reader needs to land on the act.
+and is what a reader needs to land on the act. It names where in the original
+source the behaviour lives: the `.ASM` for a LIB386 routine that was ported,
+and the original C++ for SOURCES and for the parts of LIB386 that Adeline
+wrote in C++, such as the timer. The key is one key because the question is
+one question: what did Adeline ship.
 
 `equivalence` is this profile's one substantive addition to OKF, and it exists
 because ASM-equivalence is the project's ground truth while `verified` only

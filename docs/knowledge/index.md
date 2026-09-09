@@ -10,9 +10,11 @@ What is true about this engine and why, one concept per file, for agents and for
 
 * [Knowledge bundle](subsystems/knowledge.md) - Design principles, contracts, and seams for the docs/knowledge OKF bundle.
 * [Session recording](subsystems/recording.md) - The recorder captures a played session at the input waist and replays it into the same simulation, with a per-tick digest that names the first tick that stops matching.
+* [Engine timing](subsystems/timing.md) - Two millisecond clocks, one function that advances them, two bracket pairs with different intents, and a harness-only virtual clock source laid over the wall clock.
 
 ## Decisions
 
+* [The harness closes the load's timer bracket at the first armed tick](decisions/harness-load-bracket-closes-at-arming.md) - A harness --load returns with the timer bracket one level open, so the harness closes it itself, at the first tick the deterministic step is armed rather than at the load, so that both ends of a recording close it in the same clock regime.
 * [Every digest field declares why a replay can establish it](decisions/digest-membership.md) - Four membership classes, passed as an argument to the mixing macro, so a field cannot be hashed without saying whether the load restores it, the file carries it, nothing establishes it, or it is not state at all.
 * [A recording is one file](decisions/one-recording-file.md) - Both savegames travel inside the .rec as framed chunks, so a recording cannot be parted from the state it started from, and a torn write is refused rather than loaded.
 * [The RNG reproduces glibc, in tree](decisions/rng-reproduces-glibc.md) - Rnd draws from an in-tree reimplementation of glibc's TYPE_3 generator, so one recording replays on every platform and every Linux baseline stays valid, and the single stream is not split for the recorder's sake.
@@ -25,6 +27,9 @@ What is true about this engine and why, one concept per file, for agents and for
 
 * [ChangeCube seeds the RNG from the boot clock on a load](quirks/changecube-seeds-from-the-boot-clock.md) - On the loose-clock --load path the engine's only reseed reads TimerRefHR before LoadGame installs the save's clock, so the seed is how many milliseconds the process took to boot, and the recorder has to be handed it inside ChangeCube.
 * [MulMatrixF zeroes the destination translation](quirks/mulmatrixf-zeroes-the-translation.md) - The 3x3 float matrix multiply writes zero into the destination's TX, TY and TZ, which a port written from the arithmetic alone leaves untouched.
+* [SaveTimer counts up at any depth](quirks/savetimer-counts-up-at-any-depth.md) - SaveTimer increments the bracket depth on every call while RestoreTimer no-ops at zero, so an unmatched save raises the floor for the life of the process and every later restore goes inert, with nothing reported in either direction.
+* [RestoreTimer restores one of a coupled pair](quirks/restoretimer-restores-one-of-a-pair.md) - The snapshot SaveTimer takes is TimerRefHR alone and RestoreTimer puts that one variable back; LastTime is whatever the ManageTime call inside the restore left it, so the rewind discards the interval only when the timer is unlocked at that moment.
+* [Sample fades end on the wall clock](quirks/sample-fades-end-on-the-wall-clock.md) - HQ_PauseSamples and HQ_ResumeSamples spin with empty bodies until the fade reports done, and the fade reads SDL_GetTicks directly; that wall-clock read is the loop's only termination, so moving it onto the virtual clock source without a pump leaves the loop unable to end under a pinned step.
 
 ## Porting status
 

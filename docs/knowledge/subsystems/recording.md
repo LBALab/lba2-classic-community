@@ -61,6 +61,7 @@ The hooks into LIB386 are weak symbols, so LIB386 carries no dependency on SOURC
 
 - `Record_PollHook`, at the tail of `UpdateKeyboardState`: the poll, in and out. The recorder starts here rather than at the tick hook because the tick hook runs only inside `MainLoop`, which is dark for menus and cinematics.
 - `Record_ClockHook` and `Record_WaitHook`, beside `ManageTime`: the reading about to be banked, and a wait that has to move a pinned clock.
+- A third kind of seam, which is an absence. `ManageTime` hands the clock hook the sample it is about to bank and never `TimerRefHR`, and `RestoreTimer` assigns `TimerRefHR` directly after that call returns. A write that bypasses `ManageTime` cannot be recorded, so a replay performs its own restores rather than reproducing the recording's. The first two classes are a read a replay injects into and a callback a modal starves; this is a write the hook cannot see. See [engine timing](/subsystems/timing.md).
 - `Record_CommandHook`, in `Console_Execute`: every console line except the recorder's own verb, so a replay can stand in for a harness-driven fixture.
 - `Record_SeedHook`, in `ChangeCube`: the seed a replay installs, for the reason in [the ChangeCube quirk](/quirks/changecube-seeds-from-the-boot-clock.md).
 - `Record_TickHook` and `Record_ExecHook`, in `Control_TickHook`: the tick record and its digest, and the harness commands.
@@ -72,6 +73,7 @@ RECORD.CPP is the session manager and the stream codec in one translation unit, 
 - Which fields the digest mixes. CONTROL.CPP owns that list and the telemetry record names it; [digest membership](/decisions/digest-membership.md) owns why each field may be compared.
 - Whether a replay reproduced. The exit code does not say, and the verdict row says what does.
 - What a session did. The keyframes and `scripts/dev/dump_recording.py` answer that; the digest only says when two runs parted.
+- Any clock write that bypasses `ManageTime`. The stream holds samples, never installs, so a restore, a load's clock or an arming appears in it only through what was sampled afterwards.
 - Anything after `as_of`. The recorder is under active change, and this concept is silent past that commit.
 
 [^recording-doc]: docs/RECORDING.md, "The pinned step is still required" and "Limits worth knowing".
