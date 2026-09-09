@@ -13,6 +13,7 @@ verified_against:
 relates_to:
   - /decisions/one-recording-file.md
   - /decisions/digest-membership.md
+  - /formats/lba-save.md
 sources:
   - id: record-cpp
     resource: ../../../SOURCES/RECORD.CPP
@@ -47,7 +48,7 @@ Little-endian throughout. Four parts, in order.
 | Part | Shape |
 |---|---|
 | Header | `LBA2REC 14`, then `key=value` lines, then a blank line. Text, so `rec info` can diff it against a live run without a parser. At most 4096 bytes. |
-| Start savegame | A chunk with op `0x70`: the state the session started from, written once between the header and the first record, when the session began inside a game. A session recorded with no cube live writes none and declares `setup.snapshot=-`, because a fresh boot is the state it began from. |
+| Start savegame | A chunk with op `0x70`: the state the session started from, written once between the header and the first record, when the session began inside a game. Its payload is a compressed file of [the .lba Format](/formats/lba-save.md), written by the engine's own save path under the player name `rec`. A session recorded with no cube live writes none and declares `setup.snapshot=-`, because a fresh boot is the state it began from. |
 | Record stream | One flags byte per record, then a payload whose length the reader must already know. Flushed every tick. |
 | End savegame | A chunk with op `0x71`, written only when the session stopped while a scene was live. Its absence is the record of a session that did not finish, which is what a crash repro wants. |
 

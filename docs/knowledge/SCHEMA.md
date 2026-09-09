@@ -181,7 +181,7 @@ what the word cannot:
 | ---------------------------------------------------------- | ------------- | --------------------------------------------------- |
 | covered by a passing equivalence or regression test        | `tested`      | which test                                          |
 | part of the routine's domain is under test                 | `partial`     | which part                                          |
-| checked against the original disassembly, with no test     | `untested`    | that the comparison was made, and where it is recorded |
+| checked against the original, with no test: the disassembly for a ported routine, the initial import's C++ for SOURCES | `untested`    | that the comparison was made, and where it is recorded |
 | derived from reading the C++ only                          | `untested`    | that it was read, not measured. Graphify's INFERRED edges are this level |
 | written down and checked against nothing                   | `untested`    | that nothing backs it                               |
 

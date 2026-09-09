@@ -12,6 +12,8 @@ relates_to:
   - /decisions/one-recording-file.md
   - /decisions/rng-reproduces-glibc.md
   - /quirks/changecube-seeds-from-the-boot-clock.md
+  - /subsystems/transitions.md
+  - /subsystems/save.md
 sources:
   - id: recording-doc
     resource: ../../RECORDING.md
