@@ -10,6 +10,10 @@ relates_to:
   - /quirks/savetimer-counts-up-at-any-depth.md
   - /quirks/restoretimer-restores-one-of-a-pair.md
   - /quirks/sample-fades-end-on-the-wall-clock.md
+  - /quirks/two-modals-take-their-clock-from-their-own-present.md
+  - /quirks/a-clock-wait-mints-its-own-step.md
+  - /decisions/presents-mint-the-pinned-step.md
+  - /decisions/two-pumps-polled-and-unpolled.md
   - /subsystems/recording.md
 sources:
   - id: timing-doc
@@ -42,7 +46,8 @@ Distilled from docs/TIMING.md, which stays the reference contributors read and o
 | Who advances | `ManageTime` banks `TimerSystemHR - LastTime` into `TimerRefHR` and refreshes `LastTime`, both only while `TimerLock` is zero. About a hundred call sites, most of them modal loops pumping the clock because the main loop's per-tick call is not reached from inside a modal.[^timer-cpp] |
 | Lock | Only the outermost `LockTimer` and `UnlockTimer` matter; the count nests. The locked interval is credited on the next unlocked call, so the clock catches up. |
 | Save | Only the outermost `SaveTimer` takes the snapshot and only the outermost `RestoreTimer` puts it back; the interval is discarded. The pair is unbalanced in one direction, see [the SaveTimer quirk](/quirks/savetimer-counts-up-at-any-depth.md), and the restore puts back one variable of a coupled pair, see [the RestoreTimer quirk](/quirks/restoretimer-restores-one-of-a-pair.md). |
-| Where the fixed step mints | `Timer_FixedDtAdvance` once per tick from the control hook; `Timer_FixedDtPresent` on every present past the tick's first, unless `Timer_FixedDtOverlayPresent` marked it as an overlay; `Timer_FixedDtPumpPolled` for a wait that polls input; `Timer_FixedDtPump` for a wait that does not, which also drives the recorder's wait hook. A polling wait given the unpolled form mints a step on top of the one its poll already took.[^timer-cpp] |
+| Where the fixed step mints | `Timer_FixedDtAdvance` once per tick from the control hook; `Timer_FixedDtPresent` on every present past the tick's first, unless `Timer_FixedDtOverlayPresent` marked it as an overlay; `Timer_FixedDtPumpPolled` for a wait that polls input; `Timer_FixedDtPump` for a wait that does not, which also drives the recorder's wait hook. All four reach `FixedDtStep`, and `FixedDtTicking` keeps presents from stepping before the first tick. The present policy lands on every present site, 142 of them, and one has asked for it; the minimum stable set is four until the loop bodies own their step. See [the mint decision](/decisions/presents-mint-the-pinned-step.md) and [two pumps](/decisions/two-pumps-polled-and-unpolled.md).[^timer-cpp] |
+| A step is not a tick | A minted step of clock and a `MainLoop` iteration are different counts. A modal mints dozens of the first inside one of the second, and the recorder indexes its digest on the second. |
 | Game time is not monotonic | A load installs the save's `TimerRefHR`, and a scene change installs a clock rather than advancing one, so across a load or a scene change `TimerRefHR` can go backwards by minutes. It is not a valid rate numerator across a transition.[^review] |
 | Focus | Losing window focus locks the timer and regaining it unlocks, unless the harness asked for focus to be ignored; a batch run that paused on focus would be nondeterministic by what else the desktop was doing.[^timer-cpp] |
 | Lineage | The original is `TIMERWIN.CPP`, C++ on `timeGetTime`. The SDL port reproduces its logic with the host call swapped, plus the 2026 correction that holds `LastTime` across a lock. `tests/timer` pins the lock window and the fixed-step arithmetic on the host.[^timerwin-cpp] |
