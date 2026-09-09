@@ -1163,7 +1163,14 @@ void Control_End(void) {
        stopped short. Outside one, an early return here is a run doing something this
        harness has no opinion about, and failing it would change the verdict of runs
        nobody has complained about. */
-    if (s_left_for_menu) {
+    /* And only when the menu is why the run stopped early. Once the menu is a pause the
+       run comes back from, a recording whose player ends a session at one is replayed to
+       its last poll and then reports here anyway, because the flag describes the final
+       MainLoop return and that return was the menu. Said then, it names a run that
+       reproduced the whole recording as one that stopped short, and withholds the
+       artifacts of a state the caller is entitled to. The stream having run out is what
+       separates the two, and it is already tracked. */
+    if (s_left_for_menu && !s_replay_stream_done) {
         if (Record_IsReplaying())
             fprintf(stderr,
                     "[control] replay: the recording opened the in-game menu at tick %ld and the "
@@ -1217,11 +1224,33 @@ void Control_NoteReplayStreamEnded(void) {
         s_replay_stream_done = 1;
 }
 
+/* Whether the MainLoop that just returned did so because the in-game menu opened, rather
+   than for one of the reasons the harness owns: its tick budget, the end of a replay's
+   stream, the end of the game. Cleared on every MainLoop entry, so it describes the last
+   return and not the run as a whole. The menu path re-enters on this and hands back on
+   anything else, which is what keeps a menu a pause without also making the harness
+   inherit the game's end-of-session handling. */
+int Control_LeftForMenu(void) {
+    return s_left_for_menu ? 1 : 0;
+}
+
 /* Non-zero when the run ended before it had replayed what it was given: the status a
    harness run must not report as success. Kept apart from the reporting above so main()
    decides the exit code in one place, beside the --exec-at check it already makes. */
 int Control_ReplayCutShort(void) {
-    return (s_left_for_menu && Record_IsReplaying()) ? 1 : 0;
+    if (!Record_IsReplaying())
+        return 0;
+    /* The stream having run out is the run doing what it was asked, whatever the last
+       MainLoop return happened to be. Before the menu was survivable the two could not
+       come apart: leaving for a menu ended the run, so the stream never finished and the
+       flag alone was enough. Now a recording whose player ends the session at a menu is
+       replayed to its last poll and still leaves through one, and reading the flag on its
+       own calls that short. Asked in the reporter as well as at the exit check, and those
+       two run at different moments, so the answer has to be the same in both or a run
+       prints one verdict and exits with the other. */
+    if (s_replay_stream_done)
+        return 0;
+    return s_left_for_menu ? 1 : 0;
 }
 
 int Control_UnfiredExecAt(void) {

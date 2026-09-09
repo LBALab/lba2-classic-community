@@ -1317,13 +1317,19 @@ end_loose="$(actors_of "$enddir/loose.json")"
     fail "budget: the state dump moved with the tick budget. The artifact is of the game running on past the recording with nothing driving it, not of where the replay ended. Differences:
 $(diff <(printf '%s\n' "$end_tight") <(printf '%s\n' "$end_loose") | head -8)"
 
-# --- a recording that opens a menu must not report success ---------------------------
+# --- a recording that opens a menu is replayed through it ----------------------------
 #
-# The in-game menu is a return from MainLoop (SOURCES/PERSO.CPP) and the harness calls
-# MainLoop once, so a replay that reaches an ESC ends there with its stream unread. What
-# makes it worth a fixture is how it used to end: exit 0 and `first hash mismatch -1`, the
-# string a caller greps to mean the replay reproduced, on a run that had replayed 201 of
-# 202 polls. Verified on the pristine engine before the fix, and on this file.
+# The in-game menu is a return from MainLoop (SOURCES/PERSO.CPP), and the harness used to
+# call MainLoop once, so a replay that reached an ESC ended there with its stream unread.
+# This fixture was written against that: it asserted the run exited non-zero and printed
+# no verdict, because exit 0 with `first hash mismatch -1` on a run that stopped at tick
+# 200 of 201 is the success-shaped lie.
+#
+# The harness now goes through the menu loop, so the same recording is replayed to its
+# last poll and the assertion inverts: this run reproduces the whole session and is
+# entitled to say so. The concern the old form protected has not gone away, it has moved
+# into the predicate: a run is short when it left for a menu AND the stream did not run
+# out, and the stall and short-stream prefixes carry the other ways of ending early.
 #
 # The recording is committed rather than made here because the ESC has to arrive through
 # the replay's own input path. `--exec-at "key esc"` reaches the same guard -- measured, it
@@ -1333,25 +1339,30 @@ escout="$(ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" \
     --tick 500 --dump-state "$(user_dir)/menu-esc.json" --exit 2>&1)" && escrc=0 || escrc=$?
 
 # The status first, because it is the whole point: a run that stopped short must not pass.
-[ "$escrc" -ne 0 ] ||
-    fail "menu: the replay exited 0 having stopped at the menu, which is the success-shaped run this fixture exists to catch"
+[ "$escrc" -eq 0 ] ||
+    fail "menu: the replay exited $escrc; a recording replayed to its last poll reproduced the session, whatever the player left through"
 
-# And it must not print the verdict line, whose -1 form is what a caller greps for. The
-# figures still go out, under a prefix that cannot be read as one.
+# The verdict line, and it has to be the pass form: this run did replay the recording.
+escchecked="$(printf '%s\n' "$escout" | sed -n 's/.*replay ended at poll [0-9]*: \([0-9]*\) ticks checked.*/\1/p' | head -1)"
+[ -n "$escchecked" ] ||
+    fail "menu: the run printed no verdict line, so it did not say whether it reproduced: $(printf '%s\n' "$escout" | grep -m1 -e 'at the' -e 'replay ended' || echo 'nothing')"
+
+# Counted rather than merely present. The recording holds 201 ticks, and a run that
+# survived the menu but stopped anywhere before the end would still print a verdict.
+[ "$escchecked" -ge 201 ] ||
+    fail "menu: the replay checked $escchecked ticks of the 201 the recording holds, so it did not get through the menu"
+
 case "$escout" in
-*"replay ended"*)
-    fail "menu: the run printed a verdict line: $(printf '%s\n' "$escout" | grep -m1 'replay ended')"
+*"at the menu:"*)
+    fail "menu: the run reported stopping at the menu, but it replayed the whole recording"
     ;;
 esac
-case "$escout" in
-*"at the menu:"*) ;;
-*) fail "menu: the run named no outcome; it has to say why it stopped" ;;
-esac
 
-# An artifact from here is of the state the ESC was pressed in, not of the recording.
-[ ! -e "$(user_dir)/menu-esc.json" ] ||
-    fail "menu: a --dump-state was written from a run that stopped at the menu"
+# And the artifact is owed: it describes where the recording ended, which is what the
+# caller asked for. Withholding it was right only while the run died at the ESC.
+[ -e "$(user_dir)/menu-esc.json" ] ||
+    fail "menu: no --dump-state was written from a run that replayed its whole recording"
 
 pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a video played to its end and replayed ($vidchecked ticks over $vidpolls polls); a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
 'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster; a recording on a host-sampled clock crossed a scene change instead of wedging in the fade; \
-a command ran where the recording ran it, for an inline verb and for a deferred one; the state dump was the same at a 400 and a 4000 tick budget; a recording that opens a menu reported no verdict and exited non-zero; a replay with no --load booted from the recording's own starting state and still matched ($noloadchecked ticks); a deliberately diverging replay reported '$eqwith' with and without --load; a pre-inline recording loaded its sibling savegame with no --load and left it intact"
+a command ran where the recording ran it, for an inline verb and for a deferred one; the state dump was the same at a 400 and a 4000 tick budget; a recording that opens a menu was replayed through it ($escchecked ticks); a replay with no --load booted from the recording's own starting state and still matched ($noloadchecked ticks); a deliberately diverging replay reported '$eqwith' with and without --load; a pre-inline recording loaded its sibling savegame with no --load and left it intact"
