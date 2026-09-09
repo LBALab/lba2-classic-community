@@ -47,23 +47,26 @@ This is the most-common rake to step on. Both look like "pause and resume," only
 Choose by intent:
 
 - **Wrapping a synchronous render or a brief CPU window where game time should pause and
-  then resume correctly**: `LockTimer/UnlockTimer`. Example: the `AffScene` full-redraw
-  path at `SOURCES/OBJECT.CPP:5400`.
+  then resume correctly**: `LockTimer/UnlockTimer`. Example: the full-redraw path in
+  `AffScene` ([SOURCES/OBJECT.CPP](../SOURCES/OBJECT.CPP)).
 - **Wrapping a modal subloop (menu, dialogue, paused message) that should leave the game
   clock exactly where it found it**: `SaveTimer/RestoreTimer`. Example:
-  `SOURCES/PERSO.CPP:354` around the pause/clover dialog.
+  `GamePaused` ([SOURCES/PERSO.CPP](../SOURCES/PERSO.CPP)), around the pause/clover dialog.
 
 `SaveTimer/RestoreTimer` discarding time is intentional, not a bug. `LockTimer/UnlockTimer`
 *used* to discard time too — see the history section below.
 
 ## `ManageTime` and the call-site population
 
-`ManageTime()` is the only function that mutates `TimerSystemHR`, `TimerRefHR`, and
-`LastTime`. The body is short (`LIB386/SYSTEM/TIMER.CPP:134`):
+`ManageTime()` is the only function that *accumulates* into `TimerRefHR`. It is not the only
+one that writes it. The difference is what matters for anything observing the clock: see
+"Direct writers" below. The body (`ManageTime` in `LIB386/SYSTEM/TIMER.CPP`):
 
 ```c
 void ManageTime() {
-    TimerSystemHR = FixedDtActive ? FixedDtNow : SDL_GetTicks();
+    U32 nowSample = FixedDtActive ? FixedDtNow : SDL_GetTicks();
+    Record_ClockHook(&nowSample);
+    TimerSystemHR = nowSample;
 
     if (!TimerLock) {
         TimerRefHR += TimerSystemHR - LastTime;
@@ -74,9 +77,36 @@ void ManageTime() {
 }
 ```
 
+The reading is offered to `Record_ClockHook` *before* it becomes `TimerSystemHR`, which is how
+a replay substitutes a recorded clock without the rest of the engine knowing. The hook is a weak
+symbol with an empty default beside the call, so LIB386 carries no dependency on SOURCES.
+
+Note that `LastTime` is updated inside the same `!TimerLock` guard as the accumulation. Both are
+skipped while locked, so a lock holds the game clock still *and* preserves the delta source that
+the next unlocked call will measure from.
+
+### Direct writers
+
+Eight sites assign `TimerRefHR` outright rather than accumulating into it. A lock does not stop
+them and `Record_ClockHook` never sees them, so anything that observes or reproduces the clock
+has to account for them separately:
+
+| Writer | What it does |
+|---|---|
+| `RestoreTimer` (`LIB386/SYSTEM/TIMER.CPP`) | Assigns `MemoTimerRefHR` back, at the outermost bracket only. Calls `ManageTime` first, so unlocked the delta source is refreshed and the rewind is clean; locked, `ManageTime` does nothing and `LastTime` is left stale, and the next unlocked call banks the interval the rewind was meant to discard. |
+| `SetTimerHR` (`LIB386/SYSTEM/TIMER.CPP`) | Sets the clock to a caller-supplied value. |
+| `Timer_EnableFixedDt` (`LIB386/SYSTEM/TIMER.CPP`) | Zeroes it when seeding the virtual clock, and forces `LastTime` to agree. |
+| `MainLoop` (`SOURCES/PERSO.CPP`), two sites | Drives the clock across a fixed simulation step and lands it on the final reference. |
+| `GamePlayCredits` (`SOURCES/CREDITS.CPP`), two sites | Swaps between a simulated credits clock and the real reference. |
+| `BeginDemoSlide` (`SOURCES/GAMEMENU.CPP`) | Zeroes it, as defence-in-depth for clock-derived state on the demo path. |
+
+`LastTime` likewise has writers outside `ManageTime`: `InitTimer`, `Timer_EnableFixedDt` and
+`Timer_DisableFixedDt`, all in `LIB386/SYSTEM/TIMER.CPP`, each resyncing it so that the next
+delta is not a jump.
+
 There are ~100 `ManageTime()` call sites across the engine. Most are inside modal/wait
 loops that pump the clock manually because the main loop's `ManageSystem()` macro
-(`LIB386/H/SYSTEM/TIMER.H:57`) isn't reached during a modal. Examples:
+([LIB386/H/SYSTEM/TIMER.H](../LIB386/H/SYSTEM/TIMER.H)) isn't reached during a modal. Examples:
 
 | File | Use case |
 |---|---|
@@ -86,8 +116,8 @@ loops that pump the clock manually because the main loop's `ManageSystem()` macr
 | `LIB386/SVGA/SDL.CPP`, `LIB386/SYSTEM/TIMER.CPP` | Internal callers from `LockTimer`/`SaveTimer`/`SetTimerHR`. |
 
 If you add a new modal/wait loop, pump `ManageTime` (and call `Timer_FixedDtPump` if you
-also want the loop to terminate under fixed-dt) — see `SOURCES/MUSIC.CPP:312` for the
-canonical fade pattern.
+also want the loop to terminate under fixed-dt). `PauseMusic`
+([SOURCES/MUSIC.CPP](../SOURCES/MUSIC.CPP)) is the canonical fade pattern.
 
 ## Fixed-dt mode (harness only)
 
@@ -149,8 +179,8 @@ modal pumps — ~100 sites) bumped `LastTime` to the current wall clock while sk
 `TimerRefHR` increment. When the lock released, the next `ManageTime()` saw
 `TimerSystemHR - LastTime ≈ 0` and the whole locked interval was discarded from `TimerRefHR`.
 
-**Why retail never noticed.** On bare-metal DOS at 640×480, the `LockTimer` window at
-`OBJECT.CPP:5400` (around the `AffScene` full-redraw path) contained sub-millisecond CPU
+**Why retail never noticed.** On bare-metal DOS at 640×480, the `LockTimer` window in
+`AffScene`, around the full-redraw path, contained sub-millisecond CPU
 work between the lock and the direct-to-VGA blit. The amount of wall time "lost" per frame
 was rounding noise.
 
@@ -164,9 +194,9 @@ vsync becomes the dominant per-frame cost, ~16-17 ms of game-clock advance was d
 unresponsive.
 
 **Local patch first.** PR #50 (`8af40faa7`, 2026-04-08) noticed the symptom on
-`FollowCamTerrainFrame` exterior frames and patched it locally
-(`SOURCES/PERSO.CPP:1916`) with a `SaveTimer`/`RestoreTimer` + wall-clock re-add. The
-comment there names the mechanism exactly:
+`FollowCamTerrainFrame` exterior frames and patched it locally in `MainLoop`
+([SOURCES/PERSO.CPP](../SOURCES/PERSO.CPP)) with a `SaveTimer`/`RestoreTimer` + wall-clock re-add. The
+comment there named the mechanism exactly:
 
 > "save the timer before the render+vsync and restore it after, then add back the real
 > wall-clock time elapsed ... This makes the full render+vsync transparent to the game
@@ -176,12 +206,13 @@ The patch fixed the FollowCam exterior path. Every other Lock/Save site in the e
 still discarded its window's wall time.
 
 **General fix in 2026-05.** Diagnosis with a `perftrace`-style ring-buffer instrumentation
-narrowed the leak to one source line (`OBJECT.CPP:5400` `LockTimer()`, called every frame
+narrowed the leak to one source line (the `LockTimer()` in `AffScene`, called every frame
 in the user-facing scene). The fix is one line moved: `LastTime = TimerSystemHR;` moves
 *inside* the `if (!TimerLock)` block, so `LastTime` is held frozen across the locked
 window and the next unlocked `ManageTime` correctly credits the full wall-clock delta to
-`TimerRefHR`. The `FollowCamTerrainFrame` workaround in `PERSO.CPP:1916` becomes
-redundant; left in place for now, removable in a follow-up.
+`TimerRefHR`. That made the `FollowCamTerrainFrame` workaround redundant, and it was
+removed in `002d5af2`; the name survives only in this history and in a comment in
+`ManageTime` crediting PR #50.
 
 Self-determinism (`test_demo` at `--fixed-dt 16`, byte-identical reruns) is preserved.
 The 5-tick projection-corpus replay drifts on 12/50 saves with active animations in the
@@ -208,9 +239,9 @@ When adding code that touches the timer, in rough order of how often you'll need
    reading per iteration and wants `Timer_FixedDtPumpPolled`, which mints the fixed-dt step
    and nothing else. Giving a polling wait the unpolled form makes it end early under a
    recording and sleep 16 ms an iteration in a loop that runs thousands a second.
-4. **Adding a new modal/wait loop?** Mirror `SOURCES/MUSIC.CPP:312` (`PauseMusic`,
-   fade-out): `SaveTimer()`, loop with `ManageTime()` + `Timer_FixedDtPump()`,
-   `RestoreTimer()`.
+4. **Adding a new modal/wait loop?** Mirror `PauseMusic`
+   ([SOURCES/MUSIC.CPP](../SOURCES/MUSIC.CPP)), the fade-out: `SaveTimer()`, loop with
+   `ManageTime()` + `Timer_FixedDtPump()`, `RestoreTimer()`.
 5. **Touching `ManageTime` itself?** Re-run the projection-corpus regression after any
    change to `TimerRefHR`/`LastTime` semantics — the 5-tick golden catches one-frame
    timing drift across 50 diverse saves and is the strongest fixed-dt invariant the
