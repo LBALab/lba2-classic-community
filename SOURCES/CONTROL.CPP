@@ -154,6 +154,9 @@ static int s_res_switch_test_fired = 0;
 
 /* --- Runtime ---------------------------------------------------------------- */
 static long s_hook_calls = 0;
+/* Set when the load left a timer bracket open that could not be closed where it was
+   opened. See the close below. */
+static int s_bracket_close_pending = 0;
 static int s_finalized = 0;
 /* Why the run is ending, for the two cases that used to end it at exit 0 while saying
    nothing. A harness run is bounded by its tick budget, and both of these leave it
@@ -793,6 +796,41 @@ int Control_Begin(void) {
            at its top), otherwise the saved hero position is not restored. */
         InitGame(-1);
         ChangeCube();
+        /* Close the timer bracket the load opened. LoadGame ends on an unmatched
+           SaveTimer, and on a load ChangeCube takes neither half of its own bracket:
+           the SaveTimer is gated on FlagChgCube, which is 0 on a fresh boot, and the
+           RestoreTimer sits in the branch taken when FlagLoadGame is clear. So the
+           call is net +1 and returning from here the depth is 1 with nothing left to
+           close it. The menu does not have this problem, because its load_game label
+           restores immediately after ChangeCube. Bypassing the menu means owning that
+           step.
+
+           Left open, the depth never falls back to 0, and every nested bracket for the
+           rest of the run is inert: only the outermost RestoreTimer rewinds the clock.
+           A modal cinematic in a batch run then keeps its whole duration in the game
+           clock, where the same cinematic in a played game gives it back. Measured on
+           a load run driven into a found-object cinematic, that was 432 ms the clock
+           should not have had.
+
+           Not about boot wall time. Under --fixed-dt the virtual clock is already
+           frozen for the whole load, above, so every ManageTime in here banks a zero
+           delta and the base clock is the restored save value either way. This is
+           about the depth alone. */
+        /* Deferred when the step is not armed yet, and that is the whole point. This
+           close calls ManageTime, which samples the clock. With the step armed the sample
+           is the frozen virtual one and the call banks nothing; without it the sample is
+           the host clock and the call banks real elapsed time that the rewind then throws
+           away. A recording started mid-session from the console is unarmed here and its
+           replay is armed, so doing it now makes the two runs spend this moment in
+           different clock regimes, and the run diverges hundreds of ticks later.
+
+           Waiting until the step is armed puts both ends in the same regime. It does not
+           make them do it on the same tick, and it does not need to: what has to match is
+           that neither banks host time, not when the bookkeeping happens. */
+        if (Timer_FixedDtActive())
+            RestoreTimer();
+        else
+            s_bracket_close_pending = 1;
         FlagFade = FALSE;
         /* Upload the scene palette by hand, because clearing FlagFade above is
            what stops it happening on its own. Nothing in the engine sets the
@@ -1272,6 +1310,15 @@ int Control_UnfiredExecAt(void) {
 }
 
 void Control_TickHook(void) {
+    /* The deferred close from the load path, taken at the first tick the step is armed.
+       A run that never arms one keeps the bracket open, which is what it had before this
+       existed: such a run has no replay to disagree with, so there is nothing for the
+       close to protect and nothing gained by doing it on a host clock. */
+    if (s_bracket_close_pending && Timer_FixedDtActive()) {
+        s_bracket_close_pending = 0;
+        RestoreTimer();
+    }
+
     /* Ahead of the armed check: a player recording their own session has passed no
        harness flag at all, so the hook is otherwise dead for exactly the run that
        matters most. */

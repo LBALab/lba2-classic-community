@@ -629,6 +629,19 @@ esac
 # a scene where input reaches the hero and that cannot depend on which save a machine
 # happens to point at. No --fixed-dt either: the step the recorder pins for itself is the
 # path the frozen clock was on, and the flag hid it.
+#
+# DO NOT ADD --fixed-dt TO THE RECORDING RUN. It would make this arm green on the day it
+# is doing its job, and it is the only arm that can do it. Without the flag `rec start`
+# arms the step at tick 20, after the load; a --replay arms from the header before the
+# load. Both runs then declare mode.fixed_dt=16 and the header comparison reports no
+# difference, because the header records THAT the step was pinned and not WHEN, so the
+# two runs disagree about a window nothing compares. Anything that puts work into that
+# window diverges here and nowhere else.
+#
+# The loose arm below cannot cover this: it runs unpinned on purpose but asserts
+# termination only, and says why -- a comparison there is flaky by construction. So this
+# is the suite's only comparison across mismatched step arming, and adding the flag would
+# blind both arms at once while looking like a fix.
 movesave="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Anon1.LBA"
 [ -f "$movesave" ] || fail "movement: the corpus save is missing from $movesave"
 
