@@ -32,3 +32,10 @@ host_request_interval = "50ms"
 # that reject HEAD) belong here. None needed so far.
 #
 # exclude = []
+
+# docs/knowledge/ links between its own concepts with root-relative paths
+# (`/quirks/x.md`), the form its profile in docs/knowledge/SCHEMA.md
+# prescribes because it survives a file moving between subdirectories.
+# lychee refuses such a link unless given a root to resolve it against, and
+# nothing else in the tree uses the form, so the bundle is that root.
+root_dir = "docs/knowledge"

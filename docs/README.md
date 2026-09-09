@@ -125,6 +125,15 @@ doc is now history: where it disagrees with the code, the code wins.
 | [ARCH_RULES_PLAN.md](plan/ARCH_RULES_PLAN.md) | Implemented | Checking the boundaries the docs already state: seven rules from CODESTYLE and AGENTS.md, each measured against the tree, plus the four candidates deliberately left out. Companion to [REFACTOR_ROADMAP.md](plan/REFACTOR_ROADMAP.md). |
 | [RENDER_INTERP_PLAN.md](plan/RENDER_INTERP_PLAN.md) | Proposed | Smooth motion above the sim rate (#412), building on the fixed-timestep sim in [MOVEMENT_FRAMERATE.md](MOVEMENT_FRAMERATE.md). Nothing landed. |
 
+## Knowledge bundle
+
+The record of what is true about the engine and why, kept as an [OKF v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) bundle in [knowledge/](knowledge/): one concept per file, typed frontmatter, and an `equivalence` field that says what evidence backs a claim. Written for agents and for the people who review them. The reference docs above stay the text people read; the bundle owns the invariants they have to satisfy.
+
+| Doc | Description |
+|-----|-------------|
+| [knowledge/index.md](knowledge/index.md) | Index of the bundle, grouped by concept type. |
+| [knowledge/SCHEMA.md](knowledge/SCHEMA.md) | The house profile: six concept types, typed relations, the trust and equivalence fields, and the lint rules that make the bundle checkable rather than conventional. |
+
 ## External resources
 
 | Resource | Description |
