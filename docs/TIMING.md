@@ -58,12 +58,15 @@ Choose by intent:
 
 ## `ManageTime` and the call-site population
 
-`ManageTime()` is the only function that mutates `TimerSystemHR`, `TimerRefHR`, and
-`LastTime`. The body is short (`LIB386/SYSTEM/TIMER.CPP:134`):
+`ManageTime()` is the only function that *accumulates* into `TimerRefHR`. It is not the only
+one that writes it. The difference is what matters for anything observing the clock: see
+"Direct writers" below. The body (`ManageTime` in `LIB386/SYSTEM/TIMER.CPP`):
 
 ```c
 void ManageTime() {
-    TimerSystemHR = FixedDtActive ? FixedDtNow : SDL_GetTicks();
+    U32 nowSample = FixedDtActive ? FixedDtNow : SDL_GetTicks();
+    Record_ClockHook(&nowSample);
+    TimerSystemHR = nowSample;
 
     if (!TimerLock) {
         TimerRefHR += TimerSystemHR - LastTime;
@@ -73,6 +76,33 @@ void ManageTime() {
     // FPS calc against LastEvaluate ...
 }
 ```
+
+The reading is offered to `Record_ClockHook` *before* it becomes `TimerSystemHR`, which is how
+a replay substitutes a recorded clock without the rest of the engine knowing. The hook is a weak
+symbol with an empty default beside the call, so LIB386 carries no dependency on SOURCES.
+
+Note that `LastTime` is updated inside the same `!TimerLock` guard as the accumulation. Both are
+skipped while locked, so a lock holds the game clock still *and* preserves the delta source that
+the next unlocked call will measure from.
+
+### Direct writers
+
+Eight sites assign `TimerRefHR` outright rather than accumulating into it. A lock does not stop
+them and `Record_ClockHook` never sees them, so anything that observes or reproduces the clock
+has to account for them separately:
+
+| Writer | What it does |
+|---|---|
+| `RestoreTimer` (`LIB386/SYSTEM/TIMER.CPP`) | Assigns `MemoTimerRefHR` back, at the outermost bracket only. Calls `ManageTime` first, so unlocked the delta source is refreshed and the rewind is clean; locked, `ManageTime` does nothing and `LastTime` is left stale, and the next unlocked call banks the interval the rewind was meant to discard. |
+| `SetTimerHR` (`LIB386/SYSTEM/TIMER.CPP`) | Sets the clock to a caller-supplied value. |
+| `Timer_EnableFixedDt` (`LIB386/SYSTEM/TIMER.CPP`) | Zeroes it when seeding the virtual clock, and forces `LastTime` to agree. |
+| `MainLoop` (`SOURCES/PERSO.CPP`), two sites | Drives the clock across a fixed simulation step and lands it on the final reference. |
+| `GamePlayCredits` (`SOURCES/CREDITS.CPP`), two sites | Swaps between a simulated credits clock and the real reference. |
+| `BeginDemoSlide` (`SOURCES/GAMEMENU.CPP`) | Zeroes it, as defence-in-depth for clock-derived state on the demo path. |
+
+`LastTime` likewise has writers outside `ManageTime`: `InitTimer`, `Timer_EnableFixedDt` and
+`Timer_DisableFixedDt`, all in `LIB386/SYSTEM/TIMER.CPP`, each resyncing it so that the next
+delta is not a jump.
 
 There are ~100 `ManageTime()` call sites across the engine. Most are inside modal/wait
 loops that pump the clock manually because the main loop's `ManageSystem()` macro
