@@ -1216,6 +1216,71 @@ esac
 [ "$noloadrc" -eq 0 ] ||
     fail "no --load: replay run exited non-zero ($noloadrc) with a clean summary"
 
+# --- and the recording that began before there was a game ---------------------------
+#
+# The case above records from a save, so its session always had a cube. A session
+# recorded from a fresh boot has none: --record arms after InitGame, which sets
+# NumCube = -1 to force the first cube change. SaveGame writes NumCube and the load
+# reads it straight back into NewCube, so a snapshot written there is a savegame whose
+# scene is -1 -- and the loader does not refuse it, it walks ChangeCube off the end of
+# the scene arrays honouring it. A replay that boots into one dies of a SIGSEGV before
+# its first tick.
+#
+# Every recording checked in here was made from a save (setup.cube 3, 42 or 97), so
+# nothing in this file used to reach that path; it was test_cli_flag_contract.sh that
+# caught it, and only because a run that dies writes no config. Recorded here instead,
+# where the fault is, and against the exit status because that is what it costs.
+bootdir="$(mktemp -d)"
+clean_add "$bootdir"
+bootrec="$bootdir/fromboot.rec"
+
+ctl --fixed-dt 16 --record "$bootrec" --tick 60 --exit >/dev/null 2>&1 ||
+    fail "from boot: the recording run exited non-zero ($?); it hung or crashed"
+[ -s "$bootrec" ] || fail "from boot: no recording written to $bootrec"
+
+# The header is the contract the replay decides on, so it is asserted rather than
+# inferred from the replay agreeing. `-` is how a recording says it began where a fresh
+# boot begins; `(inline)` here means the husk is back.
+bootheader="$(head -c 4096 "$bootrec" | tr -d '\0')"
+case "$bootheader" in
+*"setup.cube=-1"*) ;;
+*) fail "from boot: the recording does not declare setup.cube=-1; this arm tested nothing" ;;
+esac
+case "$bootheader" in
+*"setup.snapshot=-"*) ;;
+*) fail "from boot: the recording carries a starting state its session never had:
+  $(printf '%s\n' "$bootheader" | grep -m1 'setup.snapshot=')" ;;
+esac
+
+bootrc=0
+bootout="$(ctl --fixed-dt 16 --replay "$bootrec" --tick 100 --exit 2>&1)" || bootrc=$?
+
+# The opposite of the case above: this one must NOT take the recording's own state,
+# because a fresh boot is the state it began from.
+case "$bootout" in
+*"booting from the recording's own starting state"*)
+    fail "from boot: the replay loaded a starting state from a session that had none" ;;
+esac
+case "$bootout" in
+*"carries no starting state"*)
+    fail "from boot: the replay refused a recording that only needed a fresh boot" ;;
+esac
+
+bootsummary="$(printf '%s\n' "$bootout" | grep -m1 'replay ended')" ||
+    fail "from boot: replay printed no summary (exit $bootrc); it cannot be said to have matched"
+case "$bootsummary" in
+*"first hash mismatch -1"*) ;;
+*) fail "from boot: $bootsummary" ;;
+esac
+[ "$bootrc" -eq 0 ] ||
+    fail "from boot: replay run exited non-zero ($bootrc) with a clean summary"
+
+# The staged snapshot is removed at exit, and a run that crashed ran no atexit handler.
+# So a file left here is the crash even on a build where the summary somehow read clean.
+bootleft="$(find "$(user_dir)/recordings" -name '*.boot.lba' 2>/dev/null | tr '\n' ' ')"
+[ -z "$bootleft" ] ||
+    fail "from boot: a staged boot snapshot was left behind: $bootleft"
+
 # The equivalence half, and it needs a file that does NOT replay clean.
 #
 # Everything above compares one -1 against another, which any change producing -1 passes
@@ -1429,4 +1494,4 @@ esac
 
 pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a video played to its end and replayed ($vidchecked ticks over $vidpolls polls); a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
 'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster; a recording on a host-sampled clock crossed a scene change instead of wedging in the fade; \
-a command ran where the recording ran it, for an inline verb and for a deferred one; the state dump was the same at a 400 and a 4000 tick budget; a recording that opens a menu was replayed through it ($escchecked ticks); a replay with no --load booted from the recording's own starting state and still matched ($noloadchecked ticks); a deliberately diverging replay reported '$eqwith' with and without --load; a pre-inline recording loaded its sibling savegame with no --load and left it intact; the step's arming point was carried ($armtick against a replay's 0) without being reported, on a pair that replays clean"
+a command ran where the recording ran it, for an inline verb and for a deferred one; the state dump was the same at a 400 and a 4000 tick budget; a recording that opens a menu was replayed through it ($escchecked ticks); a replay with no --load booted from the recording's own starting state and still matched ($noloadchecked ticks); a session recorded from a fresh boot carried no starting state and replayed into one; a deliberately diverging replay reported '$eqwith' with and without --load; a pre-inline recording loaded its sibling savegame with no --load and left it intact; the step's arming point was carried ($armtick against a replay's 0) without being reported, on a pair that replays clean"
