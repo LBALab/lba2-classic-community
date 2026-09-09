@@ -91,14 +91,22 @@ S32 IsAndroidTVDevice(void) {
 #endif
 }
 
-/* How long to wait for an answer once Settings has been opened, and how often
-   to look. Granting takes a person a few seconds; the bound is what stops a
-   player who backs out instead from staring at a black screen indefinitely.
-   Overshooting it is not fatal either way: the boot carries on with the
-   app-specific folder, says so in the banner, and copies the folder up on the
-   launch after the permission does arrive. */
-#define ANDROID_PERM_WAIT_MS 30000
+/* Waiting for an answer once Settings has been opened.
+
+   The bound is spent time, not elapsed time: Android freezes a backgrounded
+   process, so this loop does not run at all while the player is on the Settings
+   screen. What it measures is how long the game sits in front of somebody with
+   nothing happening, which is why it is short.
+
+   A player who grants is detected on their next poll and never sees it. A player
+   who declines used to serve out the whole bound looking at a blank game, so a
+   return is treated as an answer in itself: coming back is visible here as a
+   poll that took seconds of wall clock instead of the quarter second it asked
+   for, which is the process being thawed. Whatever the permission says at that
+   moment is the answer, and the boot carries on with it. */
+#define ANDROID_PERM_WAIT_MS 15000
 #define ANDROID_PERM_POLL_MS 250
+#define ANDROID_PERM_THAW_MS 2000
 
 bool Android_HasExternalStoragePermission(void) {
 #ifdef __ANDROID__
@@ -160,16 +168,31 @@ bool Android_EnsureExternalStoragePermission(void) {
                        decided against a state the player is in the middle of
                        changing. */
                     U32 waited = 0;
-                    while (!granted && waited < ANDROID_PERM_WAIT_MS) {
+                    U32 lastTick = SDL_GetTicks();
+                    bool returned = false;
+                    while (!granted && !returned && waited < ANDROID_PERM_WAIT_MS) {
                         SDL_Delay(ANDROID_PERM_POLL_MS);
+                        const U32 tick = SDL_GetTicks();
+                        const U32 slept = tick - lastTick;
+                        lastTick = tick;
                         waited += ANDROID_PERM_POLL_MS;
                         granted =
                             env->CallStaticBooleanMethod(permHelper, isMgr) != JNI_FALSE;
+                        /* Far more clock passed than was asked for, so this
+                           process was frozen and has just been thawed: the
+                           player is looking at the game again. */
+                        returned = (slept > ANDROID_PERM_THAW_MS);
                     }
-                    LogPrintf(granted ? "MANAGE_EXTERNAL_STORAGE granted after %ums.\n"
-                                      : "MANAGE_EXTERNAL_STORAGE still not granted after "
-                                        "%ums; continuing without it.\n",
-                              waited);
+                    if (granted) {
+                        LogPrintf("MANAGE_EXTERNAL_STORAGE granted after %ums.\n", waited);
+                    } else if (returned) {
+                        LogPrintf("MANAGE_EXTERNAL_STORAGE declined; continuing without "
+                                  "it.\n");
+                    } else {
+                        LogPrintf("MANAGE_EXTERNAL_STORAGE unanswered after %ums; "
+                                  "continuing without it.\n",
+                                  waited);
+                    }
                 }
             }
             env->DeleteLocalRef(permHelper);
