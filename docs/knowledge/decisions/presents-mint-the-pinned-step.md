@@ -24,6 +24,12 @@ sources:
   - id: timer-tests
     resource: ../../../tests/timer/test_fixed_step.cpp
     title: The fixed-step host tests
+  - id: playacf-cpp
+    resource: ../../../SOURCES/PLAYACF.CPP
+    title: PLAYACF.CPP, the frame loop on the clock source
+  - id: gamemenu-cpp
+    resource: ../../../SOURCES/GAMEMENU.CPP
+    title: GAMEMENU.CPP, three of the six callers
 ---
 
 # Context
@@ -41,6 +47,10 @@ Measured inside one main-loop tick: one mint idle, 15 across a scene change, 61 
 - **A step of clock is not a simulation tick.** The recorder's tick number and digest are indexed on `MainLoop` iterations, so a collapse that makes every modal iteration a tick moves every recording's numbering at once. Any collapse keeps the two counts apart.[^survey]
 - **`FixedDtTicking` survives any collapse.** It gates presents before the first tick so boot cannot move the clock, and it is shared state rather than a policy.[^timer-cpp]
 
+## A worked instance, the video loop
+
+`PlayAcf`'s frame loop took this shape when the video fix moved its pacing onto `Timer_ClockSource` and gave it the polled pump, so a video mints a step per frame for as long as it plays.[^playacf-cpp] Whether those steps survive is not decided in the loop. The bracket sits outside it, per caller, and the six callers split four against two: the track and life script opcodes, the cinematic in `MainLoop` and the game-over video wrap the call in `SaveTimer` and `RestoreTimer`, so the minted steps are rewound; the main menu's video and the intro do not, so they are kept. Both unbracketed sites read as bracketed at a glance: one has no bracket call anywhere before it in its file, the other has a pair a few lines above it that closes inside the previous function.[^gamemenu-cpp] Which cinematic the player is watching decides whether the clock it minted is kept, and the two kept ones are the two a fresh boot reaches first, which is the configuration a from-boot recording replays. The loop cannot own its step while six callers disagree about it; that is the collapse being step B, seen in one function.
+
 `tests/timer` pins the shapes in miniature: the tick's first present is free and later ones step, an overlay present does not move the clock, a fade iteration costs two steps, a modal loop can have no clock but its present, a clock wait with no source cannot advance, and arming clears a pending overlay claim.[^timer-tests]
 
 # Non-goals
@@ -54,3 +64,5 @@ Measured inside one main-loop tick: one mint idle, 15 across a scene change, 61 
 [^ladder]: docs/plan/ENGINE_RENDER_SPLIT_RESEARCH.md, "What each step would take".
 [^timer-cpp]: LIB386/SYSTEM/TIMER.CPP, `FixedDtStep`, `Timer_FixedDtAdvance`, `Timer_FixedDtPresent`, `Timer_FixedDtPump`, `Timer_FixedDtOverlayPresent` and `FixedDtTicking`.
 [^timer-tests]: tests/timer/test_fixed_step.cpp.
+[^playacf-cpp]: SOURCES/PLAYACF.CPP, the pacing loop in `PlayAcf`.
+[^gamemenu-cpp]: SOURCES/GAMEMENU.CPP, `GameOver`, `MainGameMenu` and `Introduction`; the bracketed script callers are `DoTrack` in GERETRAK.CPP and `DoLife` in GERELIFE.CPP, and `MainLoop` in PERSO.CPP.
