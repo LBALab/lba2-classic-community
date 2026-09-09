@@ -2974,6 +2974,12 @@ int main(int argc, char *argv[]) {
         fprintf(stdout, "SAVE_LOAD_TEST: stage=after_initgame newcube=%d\n", (int)NewCube);
         fflush(stdout);
         ChangeCube();
+        /* Balance the load's timer bracket, as the menu's load_game label does. This
+           path exits immediately below, so nothing here reads the clock again and the
+           depth is unobservable today; it is the same unmatched bracket the other
+           harness entry carries, and left out it becomes a trap for whoever next adds
+           a step between here and TheEnd. */
+        RestoreTimer();
         /* ChangeCube prints SAVE_LOAD_TEST: stage=after_loadgame flagload=N when in test mode. */
         {
             extern S32 NbPatches;
