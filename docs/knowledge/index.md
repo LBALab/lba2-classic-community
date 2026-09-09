@@ -8,6 +8,7 @@ What is true about this engine and why, one concept per file, for agents and for
 
 ## Subsystems
 
+* [Knowledge bundle](subsystems/knowledge.md) - Design principles, contracts, and seams for the docs/knowledge OKF bundle.
 * [Session recording](subsystems/recording.md) - The recorder captures a played session at the input waist and replays it into the same simulation, with a per-tick digest that names the first tick that stops matching.
 
 ## Decisions
