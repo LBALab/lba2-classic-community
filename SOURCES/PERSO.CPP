@@ -2499,7 +2499,15 @@ int main(int argc, char *argv[]) {
        flows through the same fatal surface as every other error — non-zero exit
        plus the native dialog in TheEndInfo for terminal-less launches. */
     if (AssetPreflight() > 0) {
-        TheEnd(ERROR_NOT_FOUND_FILE, "required game data is missing (see the log)");
+        /* Every required file can be present and unreadable: on Android the game
+           data lives on shared storage, and without all-files access the engine
+           sees an empty folder. Telling that player their data is missing sends
+           them looking for files that are sitting right where they put them. */
+        TheEnd(ERROR_NOT_FOUND_FILE,
+               Android_HasExternalStoragePermission()
+                   ? "required game data is missing (see the log)"
+                   : "the game data could not be read because storage access was "
+                     "not granted (see the log)");
     }
 
 #ifdef ONE_GAME_DIRECTORY

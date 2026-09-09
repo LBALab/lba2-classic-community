@@ -13,6 +13,7 @@
 #include <jni.h>
 #include <string.h>
 #include <SDL3/SDL_system.h>
+#include <SDL3/SDL_timer.h>
 #endif
 
 S32 IsAndroidTVDevice(void) {
@@ -90,13 +91,52 @@ S32 IsAndroidTVDevice(void) {
 #endif
 }
 
-void Android_EnsureExternalStoragePermission(void) {
+/* Waiting for an answer once Settings has been opened.
+
+   The bound is spent time, not elapsed time: Android freezes a backgrounded
+   process, so this loop does not run at all while the player is on the Settings
+   screen. What it measures is how long the game sits in front of somebody with
+   nothing happening, which is why it is short.
+
+   A player who grants is detected on their next poll and never sees it. A player
+   who declines used to serve out the whole bound looking at a blank game, so a
+   return is treated as an answer in itself: coming back is visible here as a
+   poll that took seconds of wall clock instead of the quarter second it asked
+   for, which is the process being thawed. Whatever the permission says at that
+   moment is the answer, and the boot carries on with it. */
+#define ANDROID_PERM_WAIT_MS 15000
+#define ANDROID_PERM_POLL_MS 250
+#define ANDROID_PERM_THAW_MS 2000
+
+bool Android_HasExternalStoragePermission(void) {
+#ifdef __ANDROID__
+    JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
+    if (env == NULL) {
+        return false;
+    }
+    jclass permHelper = env->FindClass("org/lbalab/lba2cc/PermissionHelper");
+    if (permHelper == NULL) {
+        return false;
+    }
+    jmethodID isMgr =
+        env->GetStaticMethodID(permHelper, "isExternalStorageManager", "()Z");
+    const bool held =
+        (isMgr != NULL) && env->CallStaticBooleanMethod(permHelper, isMgr) != JNI_FALSE;
+    env->DeleteLocalRef(permHelper);
+    return held;
+#else
+    return true;
+#endif
+}
+
+bool Android_EnsureExternalStoragePermission(void) {
 #ifdef __ANDROID__
     /* On Android 11+ (API 30+), direct access to /sdcard/<dir>/ requires
      * MANAGE_EXTERNAL_STORAGE. Check at startup and open Settings for it
      * if missing, so the user can grant it and re-launch. The fallback
      * probe in RES_DISCOVERY for App-specific external files dir
      * (/sdcard/Android/data/<pkg>/files/) works without this permission. */
+    bool granted = false;
     JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
     if (env != NULL) {
         jclass permHelper = env->FindClass("org/lbalab/lba2cc/PermissionHelper");
@@ -106,11 +146,13 @@ void Android_EnsureExternalStoragePermission(void) {
             jmethodID openMgr = env->GetStaticMethodID(
                 permHelper, "openExternalStorageManagerSettings",
                 "(Ljava/lang/Object;)V");
-            if (isMgr != NULL && !env->CallStaticBooleanMethod(permHelper, isMgr)) {
+            if (isMgr != NULL) {
+                granted = env->CallStaticBooleanMethod(permHelper, isMgr) != JNI_FALSE;
+            }
+            if (isMgr != NULL && !granted) {
                 jobject activity = (jobject)SDL_GetAndroidActivity();
                 LogPrintf("MANAGE_EXTERNAL_STORAGE not granted. "
-                          "Opening Settings for app. "
-                          "Re-launch after granting.\n");
+                          "Opening Settings for app.\n");
                 if (openMgr != NULL && activity != NULL) {
                     env->CallStaticVoidMethod(permHelper, openMgr, activity);
                     /* Clear any JNI exception (e.g. ActivityNotFoundException
@@ -119,13 +161,46 @@ void Android_EnsureExternalStoragePermission(void) {
                      * in ResolveGameDataDir) don't fail. */
                     if (env->ExceptionCheck())
                         env->ExceptionClear();
+
+                    /* Wait here rather than carrying on. The folder is chosen a
+                       few lines after this call and the window is created not
+                       long after that, and while Settings is up both would be
+                       decided against a state the player is in the middle of
+                       changing. */
+                    U32 waited = 0;
+                    U32 lastTick = SDL_GetTicks();
+                    bool returned = false;
+                    while (!granted && !returned && waited < ANDROID_PERM_WAIT_MS) {
+                        SDL_Delay(ANDROID_PERM_POLL_MS);
+                        const U32 tick = SDL_GetTicks();
+                        const U32 slept = tick - lastTick;
+                        lastTick = tick;
+                        waited += ANDROID_PERM_POLL_MS;
+                        granted =
+                            env->CallStaticBooleanMethod(permHelper, isMgr) != JNI_FALSE;
+                        /* Far more clock passed than was asked for, so this
+                           process was frozen and has just been thawed: the
+                           player is looking at the game again. */
+                        returned = (slept > ANDROID_PERM_THAW_MS);
+                    }
+                    if (granted) {
+                        LogPrintf("MANAGE_EXTERNAL_STORAGE granted after %ums.\n", waited);
+                    } else if (returned) {
+                        LogPrintf("MANAGE_EXTERNAL_STORAGE declined; continuing without "
+                                  "it.\n");
+                    } else {
+                        LogPrintf("MANAGE_EXTERNAL_STORAGE unanswered after %ums; "
+                                  "continuing without it.\n",
+                                  waited);
+                    }
                 }
             }
             env->DeleteLocalRef(permHelper);
         }
     }
+    return granted;
 #else
-    return;
+    return true;
 #endif
 }
 

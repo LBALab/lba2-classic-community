@@ -64,6 +64,14 @@ bool Window_IsFullscreen(void);
 // platform #ifdefs at the call site.
 bool Window_SupportsWindowedMode(void);
 
+// Whether this platform can refuse to create a window for a reason that passes.
+// True on Android, where the window belongs to whatever is in front: with a
+// permission screen up, SDL cannot fetch the native window at all, and the same
+// call succeeds once the player comes back. False on desktop, where a window
+// that cannot be created now will not create itself later either, so a boot
+// failure there is final and immediate.
+bool Window_CanLoseNativeWindow(void);
+
 // Toggle renderer vsync at runtime. On (the default) paces presents to the display
 // refresh; off lets the loop run flat-out. The control harness turns it off so a
 // scripted run is not capped at ~60 fps -- presentation only, no effect on rendered
