@@ -38,5 +38,11 @@ Loose clock, `--load` path. Under `--fixed-dt` the pinned clock zeroes `TimerRef
 - **Mid-session recordings meet the same fact from the other end.** `rec start` writes a snapshot and reloads it, and the reload's own cube change reseeds. The two ends do not arrive with the same clock, because writing the snapshot costs the recording a present the replay never makes (seeds 4268125 against 4268141, one 16 ms step apart), so the header carries that seed the same way.[^recording-doc]
 - **A recording without the field replays exactly as it did before**, which is why the line is installed rather than compared.
 
+# What it does not tell you
+
+- What the seed is on a fresh boot with no `--load`. Both ends reach it on the same reading, so the file does not carry it and this concept does not name it.
+- Whether the attract reel is affected. Under `DemoSlide` the seed is the cube number, canonical on every host; this concept is about normal play.
+- That the carried value means the same draws on every build. `clock.rng_seed` is installed, not compared, and what a seed draws is the concern of [the RNG decision](/decisions/rng-reproduces-glibc.md).
+
 [^object-cpp]: SOURCES/OBJECT.CPP, the comment above the reseed in `ChangeCube`.
 [^recording-doc]: docs/RECORDING.md, "The pinned step is still required, and not for the reason it looks like".

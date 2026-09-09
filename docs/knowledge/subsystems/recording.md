@@ -57,19 +57,22 @@ The principles are structural. The contracts and the seams are read at the commi
 
 # Seams
 
-The hooks into LIB386 are weak symbols, so LIB386 carries no dependency on SOURCES; the rest are ordinary calls inside SOURCES.
+The hooks into LIB386 are weak symbols, so LIB386 carries no dependency on SOURCES. That is the judgment; where each hook lives is a grep away, since every hook has one definition in [RECORD.CPP](../../../SOURCES/RECORD.CPP) and one empty default beside its call.
 
-| Hook | Where | Carries |
-|---|---|---|
-| `Record_PollHook` | tail of `UpdateKeyboardState` in [KEYBOARD.CPP](../../../LIB386/SYSTEM/KEYBOARD.CPP) | the poll, in and out |
-| `Record_ClockHook`, `Record_WaitHook` | [TIMER.CPP](../../../LIB386/SYSTEM/TIMER.CPP), beside `ManageTime` | the reading about to be banked; a wait that has to move a pinned clock |
-| `Record_CommandHook` | `Console_Execute` in [CONSOLE.CPP](../../../SOURCES/CONSOLE/CONSOLE.CPP) | every console line except the recorder's own verb |
-| `Record_SeedHook` | `ChangeCube` in [OBJECT.CPP](../../../SOURCES/OBJECT.CPP) | the RNG seed a replay installs |
-| `Record_TickHook`, `Record_ExecHook` | `Control_TickHook` in [CONTROL.CPP](../../../SOURCES/CONTROL.CPP) | the tick record and its digest; harness commands |
+- `Record_PollHook`, at the tail of `UpdateKeyboardState`: the poll, in and out. The recorder starts here rather than at the tick hook because the tick hook runs only inside `MainLoop`, which is dark for menus and cinematics.
+- `Record_ClockHook` and `Record_WaitHook`, beside `ManageTime`: the reading about to be banked, and a wait that has to move a pinned clock.
+- `Record_CommandHook`, in `Console_Execute`: every console line except the recorder's own verb, so a replay can stand in for a harness-driven fixture.
+- `Record_SeedHook`, in `ChangeCube`: the seed a replay installs, for the reason in [the ChangeCube quirk](/quirks/changecube-seeds-from-the-boot-clock.md).
+- `Record_TickHook` and `Record_ExecHook`, in `Control_TickHook`: the tick record and its digest, and the harness commands.
 
-Everything else is in [RECORD.CPP](../../../SOURCES/RECORD.CPP), which is the session manager and the stream codec in one translation unit.
-The buffer-only framing the host tests reach is in [RECORD_FORMAT.CPP](../../../SOURCES/RECORD_FORMAT.CPP).
-The one refactor the review found worth doing is a pending-start struct: on the mid-session path `Record_Start` writes a snapshot and returns, recording begins two ticks later, and every option has to cross that gap in a module-level static.[^observer-review]
+RECORD.CPP is the session manager and the stream codec in one translation unit, and RECORD_FORMAT.CPP is the buffer-only framing the host tests reach. The one refactor the review found worth doing is a pending-start struct: on the mid-session path `Record_Start` writes a snapshot and returns, recording begins two ticks later, and every option has to cross that gap in a module-level static.[^observer-review]
+
+# What it does not tell you
+
+- Which fields the digest mixes. CONTROL.CPP owns that list and the telemetry record names it; [digest membership](/decisions/digest-membership.md) owns why each field may be compared.
+- Whether a replay reproduced. The exit code does not say, and the verdict row says what does.
+- What a session did. The keyframes and `scripts/dev/dump_recording.py` answer that; the digest only says when two runs parted.
+- Anything after `as_of`. The recorder is under active change, and this concept is silent past that commit.
 
 [^recording-doc]: docs/RECORDING.md, "The pinned step is still required" and "Limits worth knowing".
 [^observer-review]: docs/plan/RECORDER_OBSERVER_REVIEW.md, "The finding", "The perturbation ledger" and "The module, and the one refactor worth doing".

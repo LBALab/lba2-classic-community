@@ -50,34 +50,16 @@ Little-endian throughout. Four parts, in order.
 
 ## Chunk frame
 
-`[op][u32 len][len bytes][u32 len][u32 magic]`. The length is known before the payload is written, so nothing is seeked back to and patched: a file cut inside a chunk is short of its tail and never claims bytes that are not there. A torn chunk has no valid tail and is refused by name rather than handed to the save loader as a short savegame. The tail is also how the end chunk is found from the end of the file. A length above 16 MiB is refused before it reaches `malloc`.[^record-format-h]
+`[op][u32 len][len bytes][u32 len][u32 magic]`. The three writer rules that make a torn chunk detectable are owned by [one recording file](/decisions/one-recording-file.md), and the frame's own reasoning by the comment in RECORD_FORMAT.H. A length above 16 MiB is refused before it reaches `malloc`.[^record-format-h]
 
-## Poll records
+## Record stream
 
-Flags byte `0x00` to `0x0F`, or bit 7 set. A poll where nothing changed is one byte.
+One flags byte per record, then a payload. The file comment at the top of RECORD.CPP owns the layout of every record, bit by bit, and `scripts/dev/dump_recording.py` is its second reader; neither is repeated here.[^record-cpp] What the layout guarantees, and where it bites:
 
-| Bit | Meaning | Payload |
-|---|---|---|
-| 7 | tick record | `u32 tick`, `u64 digest` |
-| 0 | key table changed | `u8 n`, then n times `u16 index`, `u8 value` |
-| 1 | `Key` changed | `s32` |
-| 2 | analog block present | `s16 rsx`, `s16 rsy`, `u32 padFirst`, `s32 mdx`, `s32 mdy`, `s32 click` |
-| 3 | clock delta changed | `u32` |
-
-The analog block is written when it differs from the last block written, not from zero, so the poll that releases a held button or stick is recorded.[^record-cpp]
-
-## Records outside the poll encoding
-
-Told apart by the flags byte being above `0x0F`.
-
-| Op | Record | Payload | Cadence |
-|---|---|---|---|
-| `0x40` | console command | `u32 tick`, `u16 len`, `len` bytes | as issued, stamped with the tick already recorded, so stream order is execution order |
-| `0x50` | keyframe | `u32 tick`, `u16 count`, `count` times `s32` | every 32 ticks; versions 9 to 11 wrote no count and exactly 23 fields |
-| `0x51` | telemetry | `u32 tick`, `u16 count`, `count` times `s32`, every value the digest mixes | every tick when asked for (`--record-telemetry`, `rec start verbose`), about 2.8 KB a tick |
-| `0x52` | input device | `u8`, 1 after a real key-down and 0 after the mouse, the pad or the touch overlay | on change, on top of `input.keyboard=` in the header |
-| `0x60` | sync marker | `u32 "SYNC"`, `u32 poll`, `u32 tick` | every 64 polls |
-| `0x70`, `0x71` | savegame chunks | the frame above | once each |
+- A poll where nothing changed is one byte, and the low flag bits say which of the key table, `Key`, the analog block and the clock delta follow. The analog block is written when it differs from the last block written, not from zero, so the poll that releases a held button or stick is recorded.
+- A record's length is known only to a reader that knows its type. The dispatch is therefore a whitelist, and a type the reader does not know loses the stream until the next sync marker, one every 64 polls.
+- A console command is stamped with the tick already recorded, so stream order is execution order. The keyframe carries its count since version 12, and versions 9 to 11 wrote exactly 23 fields. The device record carries no count and cannot grow.
+- A new record type costs four sites, and missing one fails a different way: the whitelist and the step-over chain in `replay_poll`, and the table and the decoder in `dump_recording.py`. A type registered in the chain alone works only when it happens to follow a sync marker, so a fixture for a new type wants records on both sides of a marker. Nothing in the stream may be sized from the live build.
 
 ## Header lines
 
@@ -120,10 +102,6 @@ Current values: `REC_VERSION` 14, `REC_VERSION_MIN` 9, `CONTROL_DIGEST_VERSION` 
 | the poll stream | Where it should end. A poll record has no length, so a cut inside one is simply the end of the stream, reported as the ticks that reached the disk. Only the two savegame chunks detect a tear. |
 | the extent | Its own length. `holds about N ticks` is read off the last sync marker, so it is approximate to one marker interval, 64 polls, and nothing in the file states the count exactly. |
 | an absent header line | Before both-way comparison, nothing at all: the trait was silently unchecked. Files written before a trait was added (three of the five checked-in fixtures, for `numeric.digest`) now announce it as `mode undeclared`. |
-
-# What a new record type costs
-
-Four sites, and missing one fails a different way: the whitelist and the step-over chain in `replay_poll`, and the table and the decoder in `dump_recording.py`. A type registered in the chain alone works only when it happens to follow a sync marker, one poll in 64, so a fixture for a new type wants records on both sides of a marker by construction. Nothing in the stream may be sized from the live build: a payload with no count cannot grow.[^record-cpp]
 
 [^record-cpp]: SOURCES/RECORD.CPP, the file comment, the comment on each `REC_` constant, and `replay_report_mode`.
 [^record-format-h]: SOURCES/RECORD_FORMAT.H, the chunk frame comment.

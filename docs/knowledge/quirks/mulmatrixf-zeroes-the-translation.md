@@ -43,6 +43,11 @@ The routine clears `eax` on entry, computes the nine products on the x87 stack a
 - `RotateMatrixU` is the only caller. It builds a rotation in `MatrixLib2` and multiplies it into the destination, so a rotated matrix carries no translation of its own, whatever the destination held before.
 - The test's destination is pre-filled, so the three stores are 12 bytes of the comparison; without them the fixed cases and the random rounds both fail.
 
+# What it does not tell you
+
+- Why the original zeroes the translation. The ASM carries no comment on the three stores, so this concept records that it does and not what was meant by it.
+- Whether anything downstream reads the zero. `RotateMatrixU` is the only caller, and what its callers do with a rotated matrix's translation is not traced here.
+
 [^asm]: LIB386/3D/MULMATF.ASM, the stores after the last `fstp`.
 [^cpp]: LIB386/3D/MULMATF.CPP.
 [^test]: tests/3D/test_mulmatf.cpp, `assert_mul_case`.
