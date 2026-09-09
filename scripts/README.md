@@ -126,6 +126,12 @@ confirms one axis of hosting LBA1 content on this engine.
 | [dev/lba1_bkg_repack.py](dev/lba1_bkg_repack.py) | Re-index LBA1's three background HQRs into LBA2's single merged container. | spike (LBA1_PORT_PLAN §6.5) |
 | [dev/lba1_voc_probe.py](dev/lba1_voc_probe.py) | Confirm LBA1 VOC audio plays through lba2cc's existing sample path. | spike (LBA1_PORT_PLAN §6.6) |
 
+## Documentation (`dev/`)
+
+| Script | What it does | Invoked by |
+|--------|--------------|------------|
+| [dev/knowledge_porting.py](dev/knowledge_porting.py) | Project a table section of [docs/ASM_VALIDATION_PROGRESS.md](../docs/ASM_VALIDATION_PROGRESS.md) into a generated Porting Status concept under [docs/knowledge/porting/](../docs/knowledge/porting/), one routine per section with the progress doc's own status word. `--check` fails when the file on disk has drifted from its source. | manual ([docs/knowledge/SCHEMA.md](../docs/knowledge/SCHEMA.md)) |
+
 ## Git hooks (`git-hooks/`)
 
 | Script | What it does | Invoked by |
