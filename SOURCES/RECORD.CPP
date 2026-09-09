@@ -1385,9 +1385,28 @@ static int record_begin(const char *path, int haveSnapshot) {
     snprintf(s_lastRecorded, sizeof s_lastRecorded, "%s", path);
 
     char mode[REC_HEADER_MAX];
-    if (!haveSnapshot)
+    /* Nothing to snapshot without a scene, and what came out of trying was worse than
+       nothing. SaveGame writes NumCube and the load reads it straight back into NewCube
+       (SOURCES/SAVEGAME.CPP), so a save written with no cube live is one whose scene is
+       -1 -- and the loader does not refuse that, it walks ChangeCube off the end of the
+       scene arrays honouring it. Recording from the flag arms after InitGame, which sets
+       NumCube = -1 to force the first cube change, so that was every from-boot recording:
+       2.7 KB of husk that could only ever crash the run that loaded it.
+
+       `-` rather than a snapshot that cannot be loaded, because the header is what a
+       replay decides on, and it already reads `-` as "this session began where a fresh
+       boot begins" -- which is what a session with no scene did. The same predicate
+       Record_Start uses to route here, so the two cannot disagree about which start
+       this is. */
+    if (haveSnapshot) {
+        s_snapInline = 1;
+    } else if (Control_HasLiveScene()) {
         record_write_snapshot(s_snapshot, sizeof s_snapshot);
-    s_snapInline = 1;
+        s_snapInline = 1;
+    } else {
+        snprintf(s_snapshot, sizeof s_snapshot, "-");
+        s_snapInline = 0;
+    }
     /* Not fatal here, unlike the mid-session path above: a from-boot recording reloads
        nothing, so a snapshot it could not write costs it the state it started from and
        not the session. record_write_chunk says so and the header still records that the
@@ -1442,8 +1461,13 @@ static int record_begin(const char *path, int haveSnapshot) {
     /* The snapshot goes in before the first record, so a reader meets it where the
        stream would otherwise begin and never has to hunt for it. It is also the only
        order a forward-only writer can produce: a session's opening state is the one
-       thing about it that is known before it starts. */
-    record_write_chunk(REC_SNAP_START, s_snapshot);
+       thing about it that is known before it starts.
+
+       Only when the header said one is coming. A session with no cube has none, and the
+       chunk must not be attempted from `-`: the reader takes the header at its word, and
+       a failed write here would report a snapshot missing that was never promised. */
+    if (s_snapInline)
+        record_write_chunk(REC_SNAP_START, s_snapshot);
 
     memset(s_prevKeys, 0, sizeof s_prevKeys);
     memset(s_prevAnalog, 0, sizeof s_prevAnalog);
@@ -2971,10 +2995,14 @@ int Record_Play(const char *path) {
  * boot path can load. Returns 1 with *out set, 0 when this is none of our business, and
  * -1 when a replay is armed and its starting state cannot be obtained at all.
  *
- * Every recording carries that state. Until now only a replay already inside a game read
- * it back, so the state had to be reproduced on the command line with --load, and getting
- * it wrong is silent: the run replays the recording's input into whatever it did boot and
- * reports the divergence it caused itself, while exiting 0.
+ * Every recording made from inside a game carries that state. Until now only a replay
+ * already inside a game read it back, so the state had to be reproduced on the command
+ * line with --load, and getting it wrong is silent: the run replays the recording's input
+ * into whatever it did boot and reports the divergence it caused itself, while exiting 0.
+ *
+ * A session recorded with no cube live is the other case, and it is a 0: it began where a
+ * fresh boot begins, so booting fresh is what reproduces it. `setup.cube` says which, and
+ * it is read before the sources below rather than after -- see the comment on that check.
  *
  * Two sources, the same pair and the same order Record_Play uses: the file's own copy, and
  * a sibling named by `setup.snapshot=` for a recording made before the format carried one.
@@ -2997,6 +3025,7 @@ int Record_ArmedReplayLoad(const char **out) {
     char named[ADELINE_MAX_PATH];
     char line[512];
     const char *path;
+    S32 cube = 0;
 
     if (out)
         *out = NULL;
@@ -3023,6 +3052,21 @@ int Record_ArmedReplayLoad(const char **out) {
         if (line[0] == '\n' || line[0] == '\r')
             break;
         strncat(header, line, sizeof header - strlen(header) - 1);
+    }
+
+    /* A session recorded with no cube live began where a fresh boot begins, so a fresh
+       boot is what reproduces it: nothing to hand back, and nothing missing either. The
+       0 rather than the -1 is that distinction -- the refusal is for a recording that
+       started somewhere this run cannot reach, and this one did not.
+
+       Read before the chunk, because recordings made before the writer above stopped
+       carry a snapshot of a game that never started: a savegame whose cube is -1, which
+       the loader does not refuse but walks off the end of the scene arrays trying to
+       honour. Those files are already on disk and this is what keeps them replayable. */
+    if (RecFmt_ReadInt(header, "setup.cube=", &cube) && cube < 0) {
+        fclose(s_f);
+        s_f = NULL;
+        return 0;
     }
 
     if (replay_read_chunk(REC_SNAP_START, s_bootSnap, sizeof s_bootSnap, "boot")) {

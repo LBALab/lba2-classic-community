@@ -55,7 +55,8 @@ void Record_ArmReplay(const char *path);
 /* The armed replay's own starting state, as a savegame Control_Begin can load when no
    --load was given, so a replay boots into the state its recording began from instead of
    one supplied by hand. Returns 1 with *out set, 0 when no replay is armed (or its file
-   will not open, which Record_Play reports by name), and -1 when a replay is armed and
+   will not open, which Record_Play reports by name, or its session began with no cube
+   live and a fresh boot is the state it began from), and -1 when a replay is armed and
    carries no obtainable starting state -- which the caller must refuse rather than boot
    fresh into. */
 int Record_ArmedReplayLoad(const char **out);
