@@ -29,6 +29,9 @@ sources:
   - id: replay-test
     resource: ../../../tests/automation/test_record_replay.sh
     title: The record-and-replay fixture, the movement arm's comment
+  - id: control-cpp
+    resource: ../../../SOURCES/CONTROL.CPP
+    title: CONTROL.CPP, the digest's emission order in Control_StateDigest
 ---
 
 The layout and the versioning rule are structural. The header line table and the current version numbers are read from the commit in `as_of`.
@@ -105,8 +108,10 @@ Current values: `REC_VERSION` 14, `REC_VERSION_MIN` 9, `CONTROL_DIGEST_VERSION` 
 | `bindings.keyboard=` | Nothing about the default bindings or the player's current cfg. The scancodes in the poll records mean what this line says they mean, and nothing else; a search of a recording for a default binding searches for the wrong key. |
 | the poll stream | Where it should end. A poll record has no length, so a cut inside one is simply the end of the stream, reported as the ticks that reached the disk. Only the two savegame chunks detect a tear. |
 | the extent | Its own length. `holds about N ticks` is read off the last sync marker, so it is approximate to one marker interval, 64 polls, and nothing in the file states the count exactly. |
+| a telemetry record | Where any value sits, from one tick to the next. A telemetry record is a flat list in the digest's emission order: a fixed head, then one block per actor, then six modal values, two probe values, and the 256 game and 80 cube variables. The actor count is the scene's, so the front of the layout moves at every cube change, while the tail after the actors is a fixed 344 values for the current digest version. A layout solved on one tick and applied across a cube change returns plausible integers in silence; anchor the modal block from the end, or re-solve each tick, as the offline reader does.[^control-cpp] |
 | an absent header line | Before both-way comparison, nothing at all: the trait was silently unchecked. Files written before a trait was added (three of the five checked-in fixtures, for `numeric.digest`) now announce it as `mode undeclared`. |
 
 [^record-cpp]: SOURCES/RECORD.CPP, the file comment, the comment on each `REC_` constant, and `replay_report_mode`.
 [^record-format-h]: SOURCES/RECORD_FORMAT.H, the chunk frame comment.
 [^replay-test]: tests/automation/test_record_replay.sh, the comment above the movement arm.
+[^control-cpp]: SOURCES/CONTROL.CPP, `Control_StateDigest`, the actor loop and the two variable loops to `MAX_VARS_GAME` and `MAX_VARS_CUBE`; scripts/dev/dump_recording.py, `tele_layout`, is the reader that anchors from the end.
