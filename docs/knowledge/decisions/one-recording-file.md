@@ -13,6 +13,9 @@ sources:
   - id: record-format-h
     resource: ../../../SOURCES/RECORD_FORMAT.H
     title: RECORD_FORMAT.H, the chunk frame
+  - id: record-cpp
+    resource: ../../../SOURCES/RECORD.CPP
+    title: RECORD.CPP, the snapshot comment in record_begin
 ---
 
 # Context
@@ -27,6 +30,8 @@ Both savegames are chunks in the stream, framed as `[op][u32 len][payload][u32 l
 - **The tail is the length again, then a magic word.** A half-written savegame is a valid savegame up to where it stops and the save loader would take it, so the replay would start from a state the session never reached and report a divergence with no cause. A chunk that does not close is refused by name instead.
 - **The end savegame is a trailer.** It is written only while a scene is live, so a run that crashed carries no end state, and that absence is the record of the session not having finished. Everything before it still replays.
 
+A session recorded with no cube live carries no start savegame: the header says `setup.snapshot=-` and `setup.cube=-1`, and a replay boots fresh, which is the state it began from. A snapshot written there would be a savegame whose scene is -1, which the loader does not refuse but walks off the end of the scene arrays honouring.[^record-cpp]
+
 Measured on real truncations of one recording: cut inside the start savegame, the replay says so and checks nothing; cut mid-session, it replays the 125 ticks that reached the disk; cut inside the end savegame, it replays all 298 and stops there.[^recording-doc]
 
 The one place a snapshot touches the filesystem is in passing. The engine's save layer works in paths at both ends, so `rec start` stages the savegame beside the recording as `<name>.staging.lba`, removed once the load has read it. Not the save folder, where the load menu would list it as a save nobody made, and named after the recording rather than shared, so two engines on one user directory cannot overwrite each other's starting state.[^recording-doc]
@@ -39,3 +44,4 @@ The one place a snapshot touches the filesystem is in passing. The engine's save
 
 [^recording-doc]: docs/RECORDING.md, "One file".
 [^record-format-h]: SOURCES/RECORD_FORMAT.H, the chunk frame comment.
+[^record-cpp]: SOURCES/RECORD.CPP, the comment above the snapshot write in `record_begin`.

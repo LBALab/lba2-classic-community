@@ -4,8 +4,8 @@ title: Session recording file (.rec)
 description: One self-framing file per session, format 14 with a read floor of 9, a text header, both savegames as framed chunks, and a binary record stream indexed by input poll.
 status: draft
 equivalence: tested
-as_of: cc01c7ae
-generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T12:00:00Z }
+as_of: d9cf303d
+generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T16:00:00Z }
 constrains:
   - /subsystems/recording.md
 verified_against:
@@ -44,7 +44,7 @@ Little-endian throughout. Four parts, in order.
 | Part | Shape |
 |---|---|
 | Header | `LBA2REC 14`, then `key=value` lines, then a blank line. Text, so `rec info` can diff it against a live run without a parser. At most 4096 bytes. |
-| Start savegame | A chunk with op `0x70`: the state the session started from, written once between the header and the first record. |
+| Start savegame | A chunk with op `0x70`: the state the session started from, written once between the header and the first record, when the session began inside a game. A session recorded with no cube live writes none and declares `setup.snapshot=-`, because a fresh boot is the state it began from. |
 | Record stream | One flags byte per record, then a payload whose length the reader must already know. Flushed every tick. |
 | End savegame | A chunk with op `0x71`, written only when the session stopped while a scene was live. Its absence is the record of a session that did not finish, which is what a crash repro wants. |
 
@@ -68,11 +68,12 @@ Grouped by prefix. A compared line is diffed against the live run when a replay 
 | Prefix | Lines | Treatment |
 |---|---|---|
 | none | `engine` | compared: the version string of the build that wrote the file |
-| `mode.` | `headless`, `audio`, `fixed_dt`, `resolution`, `language` | compared; `verbose` installed, since telemetry does not reach the simulation |
+| `mode.` | `headless`, `audio`, `fixed_dt`, `resolution`, `language` | compared; `verbose` installed, since telemetry does not reach the simulation; `step_armed_tick` carried and not compared, since a pair that armed on different ticks was measured to reproduce and the line is for the reader |
 | `build.` | `flags` | compared; `platform` recorded and skipped, because cross-platform replay is the point |
 | `numeric.` | `rng`, `long_double_bits`, `digest` | compared: the arithmetic and the digest set a replay has to agree with |
 | `data.` | `master` | compared: the data lineage |
 | `input.` | `keyboard` | installed: the device the player was last on |
+| `setup.` | `cube` | compared: the scene the session began in, and below zero the reader's cue that it began at a fresh boot |
 | `setup.` | `snapshot`, `reloaded`, `reload_clock` | installed: how the session started, acted on rather than matched |
 | `clock.` | `timer_ref_hr`, `sim_carry`, `rng_seed` | installed: the baseline, the sub-step carry, the boot seed |
 | `bindings.` | `keyboard`, `gamepad` | installed; `digest` compared |
@@ -97,7 +98,9 @@ Current values: `REC_VERSION` 14, `REC_VERSION_MIN` 9, `CONTROL_DIGEST_VERSION` 
 | Field or property | What it does not say |
 |---|---|
 | `engine=` | Which build wrote the file. It carries the version string, which moves at a release and gains `-dirty` on an unclean tree, so two recordings four days apart across a merged fix both read the same. There is no build identity in the header. |
-| `mode.fixed_dt=` | When the step was pinned. It records that the step was pinned, and at what value. Without the flag on the command line, `rec start` arms the step after the load while a `--replay` arms from the header before it; both declare `mode.fixed_dt=16` and the comparison sees no difference, so the two runs disagree about a window nothing compares.[^replay-test] |
+| `mode.fixed_dt=` | When the step was pinned. It records that the step was pinned, and at what value. Without the flag on the command line, `rec start` arms the step after the load while a `--replay` arms from the header before it, and both declare `mode.fixed_dt=16`.[^replay-test] |
+| `mode.step_armed_tick=` | That the two runs armed on the same tick. It says when this run armed, and it is carried rather than compared, so a recording that armed on tick 20 replays against a run that armed on tick 0 without a word said. Nothing arms a replay from it yet; the two runs still spend that window on different clocks, and the pair was measured to reproduce anyway. It is provenance for the day something writes into the window.[^record-cpp] |
+| `setup.snapshot=-` | A missing snapshot. It is how a recording says its session began where a fresh boot begins, and `setup.cube` below zero is what the reader routes on. Three answers exist: an inline chunk, a sibling file named here by an older format, and `-`.[^record-cpp] |
 | `bindings.keyboard=` | Nothing about the default bindings or the player's current cfg. The scancodes in the poll records mean what this line says they mean, and nothing else; a search of a recording for a default binding searches for the wrong key. |
 | the poll stream | Where it should end. A poll record has no length, so a cut inside one is simply the end of the stream, reported as the ticks that reached the disk. Only the two savegame chunks detect a tear. |
 | the extent | Its own length. `holds about N ticks` is read off the last sync marker, so it is approximate to one marker interval, 64 polls, and nothing in the file states the count exactly. |
