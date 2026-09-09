@@ -4,8 +4,8 @@ title: Engine timing
 description: Two millisecond clocks, one function that advances them, two bracket pairs with different intents, and a harness-only virtual clock source laid over the wall clock.
 status: draft
 subsystem: timing
-as_of: d9cf303d
-generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T18:00:00Z }
+as_of: 9f3750f5
+generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T20:00:00Z }
 relates_to:
   - /quirks/savetimer-counts-up-at-any-depth.md
   - /quirks/restoretimer-restores-one-of-a-pair.md
@@ -26,12 +26,12 @@ sources:
     title: The recorder as an observer, "Three clock facts worth keeping separate"
 ---
 
-Distilled from docs/TIMING.md, which stays the reference contributors read; this concept holds the contracts and the seams, and what the reference gets wrong is logged rather than repeated. The principles are structural. The seams are read at `as_of`.
+Distilled from docs/TIMING.md, which stays the reference contributors read and owns the mechanism descriptions; this concept holds the contracts and the seams. The principles are structural. The seams are read at `as_of`.
 
 # Principles
 
 - **Two clocks, one direction of dependence.** `TimerSystemHR` is the wall clock as last sampled. `TimerRefHR` is game time, and it advances by the wall clock's delta only while unlocked. Everything a player perceives as the game's pace reads the second: animation, script delays, fades, zone timers, the RNG seed at a cube change.[^timing-doc]
-- **Advance and install are different operations.** `ManageTime` is the only place either clock advances. Eight sites install a value instead, at `as_of`: three in the timer, where `RestoreTimer` puts a snapshot back, `SetTimerHR` writes a load's clock and `Timer_EnableFixedDt` zeroes game time at the moment the step is armed, and five in game code, where the fixed-timestep simulation in `MainLoop` writes it twice, the credits twice and the attract reel's start once. An install is not a delta, and nothing downstream can tell which it got.[^timer-cpp]
+- **Advance and install are different operations.** `ManageTime` is the only place either clock advances. Eight sites install a value instead, three in the timer and five in game code; docs/TIMING.md's "Direct writers" table owns the list. An install is not a delta, a lock does not stop it, and nothing downstream can tell which it got.[^timing-doc]
 - **A bracket's intent is the thing to choose, not its shape.** `LockTimer` and `UnlockTimer` make an interval invisible and then credit it: transparent. `SaveTimer` and `RestoreTimer` make it invisible and discard it: a rewind. Rendering wants the first, a modal that should leave the clock where it found it wants the second, and the two look identical at a call site.[^timing-doc]
 - **The fixed step is an overlay on the clock source, not a second clock.** Under `--fixed-dt` the one sample `ManageTime` takes comes from `FixedDtNow` instead of the host, and `FixedDtNow` moves only where something mints a step. Every wait loop therefore has to say where its time comes from, or it does not end.[^timer-cpp]
 
@@ -58,10 +58,9 @@ Distilled from docs/TIMING.md, which stays the reference contributors read; this
 # What it does not tell you
 
 - Whether a clock value was advanced or installed. `TimerRefHR` after a load, a scene change, a restore or an arming is a number with no provenance, which is why the recorder carries the baseline and the arming tick as header lines rather than reading them back.
-- What the reference doc says about the `ManageTime` body. docs/TIMING.md's listing predates the clock hook and calls `ManageTime` the only mutator of `TimerRefHR`; the eight installs above say otherwise. Its line citations and one of its claims are also stale, which the log records. A doc fix for a change of its own.
 - How long a session took. A recording's clock stream summed over a session with loads in it comes to a fraction of the elapsed time, because every load reinstalls the save's baseline.[^review]
 
-[^timing-doc]: docs/TIMING.md, "The two clocks", "Lock vs Save" and "Practical guidance".
+[^timing-doc]: docs/TIMING.md, "The two clocks", "Lock vs Save", "Direct writers" and "Practical guidance".
 [^timer-cpp]: LIB386/SYSTEM/TIMER.CPP: `ManageTime`, `SaveTimer`, `RestoreTimer`, `Timer_EnableFixedDt`, the pump functions and `HandleEventsTimer`.
 [^timerwin-cpp]: LIB386/SYSTEM/TIMERWIN.CPP, `SaveTimer`, `RestoreTimer` and `ManageTime`.
 [^review]: docs/plan/RECORDER_OBSERVER_REVIEW.md, "Three clock facts worth keeping separate".

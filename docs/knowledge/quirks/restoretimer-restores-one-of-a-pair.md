@@ -17,6 +17,9 @@ sources:
   - id: timerwin-cpp
     resource: ../../../LIB386/SYSTEM/TIMERWIN.CPP
     title: TIMERWIN.CPP, the original
+  - id: timing-doc
+    resource: ../../TIMING.md
+    title: Engine timing (docs/TIMING.md), the RestoreTimer row under "Direct writers"
 ---
 
 # Scope
@@ -31,7 +34,7 @@ Unconditional: the restore always writes one variable. What follows depends on `
 
 `ManageTime` advances `TimerRefHR` by `TimerSystemHR - LastTime` and then sets `LastTime` to the sample, both only while unlocked. `SaveTimer` snapshots `TimerRefHR`. `RestoreTimer` calls `ManageTime` and then assigns `TimerRefHR` back; `LastTime` is not in the snapshot.[^timer-cpp]
 
-Unlocked, the `ManageTime` inside the restore has just set `LastTime` to the current sample, so the interval is discarded cleanly and game time resumes from the snapshot. Locked, that call leaves `LastTime` alone, and the next unlocked `ManageTime` banks everything since the last unlocked one on top of the rewound value: the rewind discards nothing.
+Unlocked, the `ManageTime` inside the restore has just set `LastTime` to the current sample, so the interval is discarded cleanly and game time resumes from the snapshot. Locked, that call leaves `LastTime` alone, and the next unlocked `ManageTime` banks everything since the last unlocked one on top of the rewound value: the rewind discards nothing. The reference doc's direct-writers table states the same scope.[^timing-doc]
 
 # Why it is load bearing
 
@@ -46,3 +49,4 @@ Unlocked, the `ManageTime` inside the restore has just set `LastTime` to the cur
 
 [^timer-cpp]: LIB386/SYSTEM/TIMER.CPP, `ManageTime` and `RestoreTimer`.
 [^timerwin-cpp]: LIB386/SYSTEM/TIMERWIN.CPP, `ManageTime` and `RestoreTimer`.
+[^timing-doc]: docs/TIMING.md, "Direct writers".
