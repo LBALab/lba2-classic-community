@@ -4,8 +4,8 @@ title: Session recording file (.rec)
 description: One self-framing file per session, format 14 with a read floor of 9, a text header, both savegames as framed chunks, and a binary record stream indexed by input poll.
 status: draft
 equivalence: tested
-as_of: c7b579b2
-generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T09:00:00Z }
+as_of: cc01c7ae
+generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T12:00:00Z }
 constrains:
   - /subsystems/recording.md
 verified_against:
@@ -26,6 +26,9 @@ sources:
   - id: recording-doc
     resource: ../../RECORDING.md
     title: Session recording (docs/RECORDING.md)
+  - id: replay-test
+    resource: ../../../tests/automation/test_record_replay.sh
+    title: The record-and-replay fixture, the movement arm's comment
 ---
 
 The layout and the versioning rule are structural. The header line table and the current version numbers are read from the commit in `as_of`.
@@ -112,7 +115,7 @@ Current values: `REC_VERSION` 14, `REC_VERSION_MIN` 9, `CONTROL_DIGEST_VERSION` 
 | Field or property | What it does not say |
 |---|---|
 | `engine=` | Which build wrote the file. It carries the version string, which moves at a release and gains `-dirty` on an unclean tree, so two recordings four days apart across a merged fix both read the same. There is no build identity in the header. |
-| `mode.fixed_dt=` | When the step was pinned. It records that the step was pinned, and at what value, for the session as recorded. |
+| `mode.fixed_dt=` | When the step was pinned. It records that the step was pinned, and at what value. Without the flag on the command line, `rec start` arms the step after the load while a `--replay` arms from the header before it; both declare `mode.fixed_dt=16` and the comparison sees no difference, so the two runs disagree about a window nothing compares.[^replay-test] |
 | `bindings.keyboard=` | Nothing about the default bindings or the player's current cfg. The scancodes in the poll records mean what this line says they mean, and nothing else; a search of a recording for a default binding searches for the wrong key. |
 | the poll stream | Where it should end. A poll record has no length, so a cut inside one is simply the end of the stream, reported as the ticks that reached the disk. Only the two savegame chunks detect a tear. |
 | the extent | Its own length. `holds about N ticks` is read off the last sync marker, so it is approximate to one marker interval, 64 polls, and nothing in the file states the count exactly. |
@@ -124,3 +127,4 @@ Four sites, and missing one fails a different way: the whitelist and the step-ov
 
 [^record-cpp]: SOURCES/RECORD.CPP, the file comment, the comment on each `REC_` constant, and `replay_report_mode`.
 [^record-format-h]: SOURCES/RECORD_FORMAT.H, the chunk frame comment.
+[^replay-test]: tests/automation/test_record_replay.sh, the comment above the movement arm.

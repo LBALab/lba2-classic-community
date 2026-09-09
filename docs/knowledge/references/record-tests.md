@@ -20,7 +20,9 @@ sources:
 
 # Automation
 
-These need retail data, so they run locally rather than in CI. `tests/automation/test_record_replay.sh` records a session and replays it with `--tick` and without, replays `recordings/legacy-v10.rec` as an older engine wrote it, reads the file back with `scripts/dev/dump_recording.py`, and records across a video behind a poll-count guard so an arm that played no video cannot pass. `test_record_analog.sh` and `test_record_input_device.sh` cover the analog block and the device record.[^replay]
+These need retail data, so they run locally rather than in CI. `tests/automation/test_record_replay.sh` records a session and replays it with `--tick` and without, replays `recordings/legacy-v10.rec` as an older engine wrote it, reads the file back with `scripts/dev/dump_recording.py`, records across a video behind a poll-count guard so an arm that played no video cannot pass, and replays a recording that opens the in-game menu through the menu, requiring every tick. `test_record_analog.sh` and `test_record_input_device.sh` cover the analog block and the device record.[^replay]
+
+Two arms are deliberately unlike the rest, and tidying either would remove what it covers. The movement arm records without `--fixed-dt`, so its recording arms the step after the load while the replay arms from the header before it; it is the suite's only comparison across mismatched step arming, and pinning it would blind that. The loose arm runs a genuinely host-sampled recording through a fade and asserts termination only, because two host-sampled runs do not reach identical state and a comparison there would be flaky by construction.[^replay]
 
 [^host]: tests/record_format/test_record_format.cpp.
 [^replay]: tests/automation/test_record_replay.sh, the header comment.

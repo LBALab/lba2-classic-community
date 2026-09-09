@@ -4,8 +4,8 @@ title: Session recording
 description: The recorder captures a played session at the input waist and replays it into the same simulation, with a per-tick digest that names the first tick that stops matching.
 status: draft
 subsystem: recording
-as_of: c7b579b2
-generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T09:00:00Z }
+as_of: cc01c7ae
+generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T12:00:00Z }
 relates_to:
   - /formats/rec.md
   - /decisions/digest-membership.md
@@ -22,9 +22,18 @@ sources:
   - id: research
     resource: ../../plan/RECORDING_RESEARCH.md
     title: Recording research and prototype measurements
+  - id: record-cpp
+    resource: ../../../SOURCES/RECORD.CPP
+    title: RECORD.CPP, the clock hook and the reload path
+  - id: control-cpp
+    resource: ../../../SOURCES/CONTROL.CPP
+    title: CONTROL.CPP, the harness replay's menu handling
+  - id: replay-test
+    resource: ../../../tests/automation/test_record_replay.sh
+    title: The record-and-replay fixture, the movement and loose arms
 ---
 
-The principles and contracts below are structural. The seams table is current at the commit in `as_of`, and the recorder is under active change.
+The principles are structural. The contracts and the seams are read at the commit in `as_of`, and the recorder is under active change: the two clock rows and the verdict row moved within a day of writing.
 
 # Principles
 
@@ -40,10 +49,11 @@ The principles and contracts below are structural. The seams table is current at
 | Seam | The recorder samples and injects at the tail of `UpdateKeyboardState`, the one point every modal loop reads through. A replay overwrites all of `TabKeys`, so it is hermetic against live input, the harness and the touch overlay.[^research] |
 | Analog | Mouse motion, the right stick and the pad's first-pressed scancode bypass the key table and are carried as a block of their own, restored beside the harness keys. A recording without it drops both analog cameras.[^research] |
 | Commands | Console commands are recorded where they run and replayed at the tick boundary, after the tick record for that tick. Running one from inside the poll hook re-enters the reader.[^research] |
-| Pinned step | Record and replay under `--fixed-dt`. The pinned step is a masking mechanism, not a determinism one: a loose recording reproduces `TimerRefHR` at 0 ms drift, and what the step hides is simulation state no save carries. Each such value found and carried (`clock.sim_carry`, `clock.rng_seed`, the hero's animation anchor) is one less thing it has to hide.[^recording-doc] Under the step, game time is frame count times dt with a ceiling and no floor, so a renderer below 62.5 fps at 16 ms runs the game slow by the shortfall.[^observer-review] |
+| Pinned step | Record and replay under `--fixed-dt`. The step does two things and only one is masking. Structurally, the recorder's clock hold, its main perturbation of a run, is bypassed under a pinned step: `Record_ClockHook` returns before touching the reading while the step is active.[^record-cpp] What the step then hides is simulation state no save carries, and each such value found and carried (`clock.sim_carry`, `clock.rng_seed`, the hero's animation anchor) is one less thing it hides.[^recording-doc] Pinning both ends of a comparison also aligns where the two runs arm the step, which removes an asymmetry rather than hiding a defect. Do not pin a comparison arm to make it green: the movement arm records unpinned on purpose and is the suite's only comparison across mismatched arming, and the flag would blind it.[^replay-test] Under the step, game time is frame count times dt with a ceiling and no floor, so a renderer below 62.5 fps at 16 ms runs the game slow by the shortfall.[^observer-review] |
+| Loose clock | Two configurations share the word. The console verb `rec start` arms the step for itself at the tick it runs, even with no `--fixed-dt` on the command line, so the recorded portion is pinned and only the window before it is host-sampled; that configuration reproduces.[^record-cpp] A command-line `--record` without the flag is host-sampled throughout, and there the recorder holds the clock at the last input poll; the suite's loose arm runs that configuration through a fade and asserts termination only, because two host-sampled runs do not reach identical state and a comparison would be flaky by construction.[^replay-test] RECORDING.md's figure of 0 ms drift on `TimerRefHR` for a loose recording does not say which of the two it measured; read it as the first until it does.[^recording-doc] |
 | Digest membership | Every field the digest mixes declares why a replay can establish it. See [digest membership](/decisions/digest-membership.md). |
 | Same binary, same mode | A replay is repeatable to the tick, audio on or off. It is not stable across optimisation levels (329 of 2932 ticks differ between Debug and RelWithDebInfo on one session), and an audio-off replay is not an oracle for an audio-on recording (843 of 2851 ticks differ). Record and replay with the same build and the same mode block.[^recording-doc] |
-| Verdict | The exit code is not a verdict. The coverage gate refuses a run that checked too little of the file, and a run that stalls inside a modal can still end clean; read the ticks-checked line against the `holds about N ticks` line.[^recording-doc] |
+| Verdict | The exit code is not a verdict. The coverage gate refuses a run that checked too little of the file, and a run that stalls inside a modal can still end clean; read the ticks-checked line against the `holds about N ticks` line.[^recording-doc] A harness replay survives the in-game menu, and a run counts as cut short only when it left for a menu and the stream had not run out, so a session that ended at a menu replays to its last poll and is entitled to say so.[^control-cpp] |
 
 # Seams
 
@@ -64,3 +74,6 @@ The one refactor the review found worth doing is a pending-start struct: on the 
 [^recording-doc]: docs/RECORDING.md, "The pinned step is still required" and "Limits worth knowing".
 [^observer-review]: docs/plan/RECORDER_OBSERVER_REVIEW.md, "The finding", "The perturbation ledger" and "The module, and the one refactor worth doing".
 [^research]: docs/plan/RECORDING_RESEARCH.md, the prototype measurements.
+[^record-cpp]: SOURCES/RECORD.CPP, `Record_ClockHook` and the comment above the reload path's `Timer_EnableFixedDt`.
+[^control-cpp]: SOURCES/CONTROL.CPP, `Control_ReplayCutShort`.
+[^replay-test]: tests/automation/test_record_replay.sh, the comments above the movement arm and the loose arm.
