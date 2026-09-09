@@ -491,6 +491,57 @@ case "$wout" in
     ;;
 esac
 
+# --- the step's arming point, carried but not compared ---------------------------------
+#
+# Timer_EnableFixedDt seeds the virtual clock where it is called, so a session that armed
+# its step part-way through its own run spent the ticks before that on a different clock
+# from a replay that arms before its first. mode.fixed_dt cannot say so: it records that
+# the step was pinned and not when, and both runs write 16.
+#
+# Carried for the reader rather than compared, and the arm asserts both halves of that.
+# A difference here predicts nothing: measured, the mismatched pair replays exactly as
+# clean as the matched one, so reporting it would spend the mode warning on runs that
+# reproduce. What it records is that a window exists between the load and the arming which
+# the two runs spent differently, and that only matters to something writing into it.
+armdir="$(mktemp -d)"
+clean_add "$armdir"
+
+# Armed from the console part-way through the run, so the recorded tick is not 0.
+LBA2_USER_DIR="$armdir" ctl --load "$LBA2_TEST_SAVE" \
+    --exec-at 20 "rec start" --exec-at 120 "rec stop" --tick 200 --exit >/dev/null 2>&1 ||
+    fail "arming: the recording run exited non-zero ($?)"
+armrec="$(ls "$armdir"/recordings/*.rec 2>/dev/null | head -1)"
+[ -n "$armrec" ] || fail "arming: the run wrote no recording to $armdir/recordings"
+
+armtick="$(head -c 800 "$armrec" | tr -d '\0' | sed -n 's/.*mode\.step_armed_tick=\([0-9-]*\).*/\1/p' | head -1)"
+[ -n "$armtick" ] ||
+    fail "arming: the recording carries no mode.step_armed_tick, so nothing records when the step was armed"
+
+# Non-zero, because a field that wrote 0 everywhere would satisfy the quiet assertion
+# below by never differing rather than by working.
+[ "$armtick" -gt 0 ] ||
+    fail "arming: a session that armed its step from the console recorded mode.step_armed_tick=$armtick, which is where a run armed before its first tick would be"
+
+# And the replay, which arms before tick 0, must record the other value and say nothing
+# about the difference. Silence is the assertion: this is provenance, not a contract.
+armout="$(LBA2_USER_DIR="$armdir" ctl --load "$LBA2_TEST_SAVE" --replay "$armrec" \
+    --tick 300 --exit 2>&1 || true)"
+case "$armout" in
+*"step_armed_tick"*)
+    fail "arming: the arming point was reported as a difference on a replay that reproduces: $(
+        printf '%s\n' "$armout" | grep -m1 'step_armed_tick')"
+    ;;
+esac
+
+# The reason it may stay quiet, asserted rather than assumed: that replay reproduced.
+case "$armout" in
+*"first hash mismatch -1"*) ;;
+*)
+    fail "arming: the mismatched pair did not replay clean, so the field is withheld from a case that does diverge: $(
+        printf '%s\n' "$armout" | grep -m1 -e 'replay ended' -e 'consistency' || echo 'no verdict')"
+    ;;
+esac
+
 # The loop a player can drive: record in one session, replay in the next, with nothing
 # typed at either end and no flags at all.
 #
@@ -1378,4 +1429,4 @@ esac
 
 pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a video played to its end and replayed ($vidchecked ticks over $vidpolls polls); a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
 'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster; a recording on a host-sampled clock crossed a scene change instead of wedging in the fade; \
-a command ran where the recording ran it, for an inline verb and for a deferred one; the state dump was the same at a 400 and a 4000 tick budget; a recording that opens a menu was replayed through it ($escchecked ticks); a replay with no --load booted from the recording's own starting state and still matched ($noloadchecked ticks); a deliberately diverging replay reported '$eqwith' with and without --load; a pre-inline recording loaded its sibling savegame with no --load and left it intact"
+a command ran where the recording ran it, for an inline verb and for a deferred one; the state dump was the same at a 400 and a 4000 tick budget; a recording that opens a menu was replayed through it ($escchecked ticks); a replay with no --load booted from the recording's own starting state and still matched ($noloadchecked ticks); a deliberately diverging replay reported '$eqwith' with and without --load; a pre-inline recording loaded its sibling savegame with no --load and left it intact; the step's arming point was carried ($armtick against a replay's 0) without being reported, on a pair that replays clean"

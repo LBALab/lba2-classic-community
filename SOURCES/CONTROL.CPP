@@ -157,6 +157,11 @@ static long s_hook_calls = 0;
 /* Set when the load left a timer bracket open that could not be closed where it was
    opened. See the close below. */
 static int s_bracket_close_pending = 0;
+/* The tick the deterministic step was armed on, or -1 for a run that never armed one.
+   Not whether, which mode.fixed_dt already carries: Timer_EnableFixedDt seeds the virtual
+   clock where it is called, so two runs that agree on the step and disagree on the moment
+   it started are running different clocks with identical settings. */
+static long s_step_armed_tick = -1;
 static int s_finalized = 0;
 /* Why the run is ending, for the two cases that used to end it at exit 0 while saying
    nothing. A harness run is bounded by its tick budget, and both of these leave it
@@ -706,12 +711,18 @@ static int control_resolve_save(const char *name) {
 }
 
 int Control_Begin(void) {
+    /* Before the arming below rather than beside the rest of the hook state at the end of
+       this function, which runs after it and would erase what the arming just recorded. */
+    s_step_armed_tick = -1;
+
     /* Pin the deterministic clock before the boot/load path runs. With the virtual clock
        frozen (the hook only advances it once MainLoop starts), every ManageTime() during
        InitGame/ChangeCube banks a zero delta, so the base clock stays exactly the restored
        save value -- no boot wall-clock leaks into it. Harness-only; off by default. */
-    if (s_have_fixed_dt)
+    if (s_have_fixed_dt) {
         Timer_EnableFixedDt((U32)s_fixed_dt);
+        Control_NoteStepArmed();
+    }
 
     /* No human is watching a --exit run, so drop the ~60 fps vsync cap and let the loop
        run flat-out. Presentation only -- the rendered pixels and simulation state are
@@ -1232,6 +1243,20 @@ void Control_End(void) {
     if (!s_have_dump && !s_have_shot)
         return;
     control_capture();
+}
+
+/* Called wherever the deterministic step is armed. First caller wins: a run can reach
+   Timer_EnableFixedDt from the command line before the loop starts or from the recorder's
+   reload part-way through it, and it is the first of those that decides which clock the
+   session ran on. Recorded as a tick rather than a place, because both a recording and its
+   replay arm through the same call and differ only in when they reach it. */
+void Control_NoteStepArmed(void) {
+    if (s_step_armed_tick < 0)
+        s_step_armed_tick = s_hook_calls;
+}
+
+long Control_StepArmedTick(void) {
+    return s_step_armed_tick;
 }
 
 /* PERSO.CPP's ESC break, so the harness can tell this return from a benign one. Recorded

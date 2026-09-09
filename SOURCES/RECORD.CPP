@@ -700,6 +700,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          "mode.headless=%d\n"
                          "mode.audio=%d\n"
                          "mode.fixed_dt=%d\n"
+                         "mode.step_armed_tick=%ld\n"
                          "mode.verbose=%d\n"
                          "build.flags=%s\n"
                          "build.platform=%s\n"
@@ -721,6 +722,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          Control_IsHeadless(),
                          Control_AudioActive(),
                          (int)Timer_FixedDtValue(),
+                         Control_StepArmedTick(),
                          s_teleWrite || Control_RecordTelemetry(),
                          BUILD_FLAGS_STR,
                          Sys_PlatformName(),
@@ -1302,6 +1304,11 @@ static void record_reload_issue(void) {
     if (s_reloadForPlay != REC_RELOAD_RESTORE && !Timer_FixedDtActive()) {
         Timer_EnableFixedDt((U32)(s_reloadDt > 0 ? s_reloadDt : REC_DEFAULT_DT));
         s_recArmedDt = 1;
+        /* The other place a run can arm one. A session started from the console reaches
+           here part-way through its own run, and a replay of that session reaches it
+           before the first tick, so the two arm the same step at different moments and
+           the header has to carry which. */
+        Control_NoteStepArmed();
     }
 
     /* Before the load, because the load is what reads it. A savegame restores the
@@ -1978,8 +1985,18 @@ static int mode_line_ignored(const char *line) {
         "clock.timer_ref_hr=", /* the recorded baseline: restored, not matched */
         "clock.sim_carry=",    /* the sub-step carry: restored with it */
         "clock.rng_seed=",     /* the boot scene load's seed: installed, not matched */
-        "setup.snapshot=",     /* the file it started from, named per recording */
-        "setup.reloaded=",     /* how it started, which the reader acts on rather than matches */
+        /* When the step was armed, which is provenance and not a contract. Measured: a
+           session that armed part-way through its own run replays clean against one that
+           armed before its first tick, same 598 ticks, first hash mismatch -1, no drift.
+           So a difference here predicts nothing on its own and reporting it would spend
+           "this replay may not reproduce" on runs that do. What it is for is the reader:
+           it says a window exists between the load and the arming that the two runs spent
+           in different clock regimes, which matters only to something that writes into
+           that window, and it is what a replay would need to arm the way the recording
+           did. */
+        "mode.step_armed_tick=",
+        "setup.snapshot=", /* the file it started from, named per recording */
+        "setup.reloaded=", /* how it started, which the reader acts on rather than matches */
         "setup.reload_clock=",
         "bindings.keyboard=", /* payload a replay installs; bindings.digest is the comparison */
         "bindings.gamepad=",

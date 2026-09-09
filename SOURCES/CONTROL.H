@@ -96,6 +96,8 @@ int Control_UnfiredExecAt(void);
    enters MainLoop once, so this return ends the run. Told to the harness so it can tell
    that from the benign early returns (LM_THE_END, the demo watchdog). */
 void Control_NoteMainLoopEntered(void);
+void Control_NoteStepArmed(void);
+long Control_StepArmedTick(void);
 void Control_NoteLeftForMenu(void);
 int Control_LeftForMenu(void);
 /* The replay consumed its last poll. Ends the run there instead of at the tick budget,
