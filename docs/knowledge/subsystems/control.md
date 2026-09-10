@@ -10,6 +10,7 @@ relates_to:
   - /subsystems/console.md
   - /subsystems/recording.md
   - /subsystems/timing.md
+  - /subsystems/input.md
 sources:
   - id: control-doc
     resource: ../../CONTROL.md

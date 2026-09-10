@@ -16,6 +16,7 @@ relates_to:
   - /decisions/digest-membership.md
   - /formats/lba-save.md
   - /decisions/the-verdict-withholds-success.md
+  - /decisions/a-missing-field-is-not-a-value.md
 sources:
   - id: record-cpp
     resource: ../../../SOURCES/RECORD.CPP
@@ -110,7 +111,7 @@ Current values: `REC_VERSION` 14, `REC_VERSION_MIN` 9, `CONTROL_DIGEST_VERSION` 
 | `engine=` | Which build wrote the file. It carries the version string, which moves at a release and gains `-dirty` on an unclean tree, so two recordings four days apart across a merged fix both read the same. There is no build identity in the header. |
 | `mode.fixed_dt=` | When the step was pinned. It records that the step was pinned, and at what value. Without the flag on the command line, `rec start` arms the step after the load while a `--replay` arms from the header before it, and both declare `mode.fixed_dt=16`.[^replay-test] |
 | `mode.step_armed_tick=` | That the two runs armed on the same tick. It says when this run armed, written as -1 by a run that never armed a step, and it is carried rather than compared, so a recording that armed on tick 20 replays against a run that armed on tick 0 without a word said. The whole basis for not comparing is one measurement: a pair that armed on different ticks replayed clean over 98 ticks of a fixture. Nothing arms a replay from it, so the two runs spend the window between the load and the arming on different clocks, and whether that is inert on a long contributed session is outside what the fixture measured; the log carries a reported divergence at an arming point that is not yet re-derived. A file that predates the field cannot carry the value, the same class as the fixtures predating `numeric.digest`.[^record-cpp] |
-| `setup.snapshot=-` | A missing snapshot. It is how a recording says its session began where a fresh boot begins, and `setup.cube` below zero is what the reader routes on. Three answers exist: an inline chunk, a sibling file named here by an older format, and `-`.[^record-cpp] |
+| `setup.snapshot=-` | A missing snapshot. It is how a recording says its session began where a fresh boot begins, and `setup.cube` below zero is what the reader routes on. Three answers exist: an inline chunk, a sibling file named here by an older format, and `-`. The rule the reader follows for a field the file does not carry is [a decision](/decisions/a-missing-field-is-not-a-value.md).[^record-cpp] |
 | `bindings.keyboard=` | Nothing about the default bindings or the player's current cfg. The scancodes in the poll records mean what this line says they mean, and nothing else; a search of a recording for a default binding searches for the wrong key. |
 | the poll stream | Where it should end. A poll record has no length, so a cut inside one is simply the end of the stream, reported as the ticks that reached the disk. Only the two savegame chunks detect a tear. |
 | the extent | Its own length. `holds about N ticks` is read off the last sync marker, so it is approximate to one marker interval, 64 polls, and nothing in the file states the count exactly. |

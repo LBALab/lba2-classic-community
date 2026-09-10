@@ -10,6 +10,7 @@ relates_to:
   - /quirks/changecube-seeds-from-the-boot-clock.md
   - /subsystems/transitions.md
   - /subsystems/save.md
+  - /subsystems/input.md
 sources:
   - id: recording-doc
     resource: ../../RECORDING.md
