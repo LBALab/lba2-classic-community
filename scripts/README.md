@@ -131,6 +131,7 @@ confirms one axis of hosting LBA1 content on this engine.
 
 | Script | What it does | Invoked by |
 |--------|--------------|------------|
+| [dev/knowledge_graph.py](dev/knowledge_graph.py) | Add the knowledge bundle's edges to `graphify-out/graph.json` in place after a `graphify update`: every typed relation in a concept's frontmatter by its own name, and a `cites` edge from each concept to the source files and routines its footnotes link. graphify reads the bundle as documents and resolves links only to other documents, so without this the bundle is an island with no edge into the code. Idempotent; `--dry-run` counts. | manual, after `graphify update` |
 | [dev/knowledge_porting.py](dev/knowledge_porting.py) | Project a table section of [docs/ASM_VALIDATION_PROGRESS.md](../docs/ASM_VALIDATION_PROGRESS.md) into a generated Porting Status concept under [docs/knowledge/porting/](../docs/knowledge/porting/), one routine per section with the progress doc's own status word. `--check` fails when the file on disk has drifted from its source. | manual ([docs/knowledge/SCHEMA.md](../docs/knowledge/SCHEMA.md)) |
 
 ## Git hooks (`git-hooks/`)

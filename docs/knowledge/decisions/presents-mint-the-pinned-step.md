@@ -59,9 +59,9 @@ Measured inside one main-loop tick: one mint idle, 15 across a scene change, 61 
 - **Pacing a replay.** Only a recording paces. A replay runs flat out, which is right for verification and wrong for playback, and is left open.
 - **The rest of the ladder**, one pump for the modal loops onward. Priced there, not here.
 
-[^survey]: docs/plan/ENGINE_TICK_POLICY_SURVEY.md, "The inventory", "What a present actually costs", "The verdict" and "One constraint on the collapse".
-[^ladder]: docs/plan/ENGINE_RENDER_SPLIT_RESEARCH.md, "What each step would take".
-[^timer-cpp]: LIB386/SYSTEM/TIMER.CPP, `FixedDtStep`, `Timer_FixedDtAdvance`, `Timer_FixedDtPresent`, `Timer_FixedDtPump`, `Timer_FixedDtOverlayPresent` and `FixedDtTicking`.
-[^timer-tests]: tests/timer/test_fixed_step.cpp.
-[^playacf-cpp]: SOURCES/PLAYACF.CPP, the pacing loop in `PlayAcf`.
-[^gamemenu-cpp]: SOURCES/GAMEMENU.CPP, `GameOver`, `MainGameMenu` and `Introduction`; the bracketed script callers are `DoTrack` in GERETRAK.CPP and `DoLife` in GERELIFE.CPP, and `MainLoop` in PERSO.CPP.
+[^survey]: [docs/plan/ENGINE_TICK_POLICY_SURVEY.md](../../plan/ENGINE_TICK_POLICY_SURVEY.md), "The inventory", "What a present actually costs", "The verdict" and "One constraint on the collapse".
+[^ladder]: [docs/plan/ENGINE_RENDER_SPLIT_RESEARCH.md](../../plan/ENGINE_RENDER_SPLIT_RESEARCH.md), "What each step would take".
+[^timer-cpp]: [LIB386/SYSTEM/TIMER.CPP](../../../LIB386/SYSTEM/TIMER.CPP), `FixedDtStep`, `Timer_FixedDtAdvance`, `Timer_FixedDtPresent`, `Timer_FixedDtPump`, `Timer_FixedDtOverlayPresent` and `FixedDtTicking`.
+[^timer-tests]: [tests/timer/test_fixed_step.cpp](../../../tests/timer/test_fixed_step.cpp).
+[^playacf-cpp]: [SOURCES/PLAYACF.CPP](../../../SOURCES/PLAYACF.CPP), the pacing loop in `PlayAcf`.
+[^gamemenu-cpp]: [SOURCES/GAMEMENU.CPP](../../../SOURCES/GAMEMENU.CPP), `GameOver`, `MainGameMenu` and `Introduction`; the bracketed script callers are in [SOURCES/GERETRAK.CPP](../../../SOURCES/GERETRAK.CPP), `DoTrack`, and [SOURCES/GERELIFE.CPP](../../../SOURCES/GERELIFE.CPP), `DoLife`; the loop's own call is in [SOURCES/PERSO.CPP](../../../SOURCES/PERSO.CPP), `MainLoop`.

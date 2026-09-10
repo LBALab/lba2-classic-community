@@ -42,6 +42,6 @@ Two limbs, one rule: do not print the success string without evidence that the s
 - **The console's running-replay surface.** It reports on a replay in progress and never on a finished one, so there is nothing there to withhold.
 - **The mode predicate.** Out of scope by name, above.
 
-[^record-cpp]: SOURCES/RECORD.CPP, `replay_covered_the_file` and the comment above it; the `T_ReplayEnd` enum and the comment above it.
+[^record-cpp]: [SOURCES/RECORD.CPP](../../../SOURCES/RECORD.CPP), `replay_covered_the_file` and the comment above it; the `T_ReplayEnd` enum and the comment above it.
 [^pr]: Pull request 659 on origin, merged as 2727ea12: "Two instances, neither exotic", "The threshold is measured, not chosen", "What this does not catch" and "Not in here".
-[^replay-test]: tests/automation/test_record_replay.sh, the arm that asserts a short replay withholds the success string while a full-coverage control over the same recording gets its verdict.
+[^replay-test]: [tests/automation/test_record_replay.sh](../../../tests/automation/test_record_replay.sh), the arm that asserts a short replay withholds the success string while a full-coverage control over the same recording gets its verdict.

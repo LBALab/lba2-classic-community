@@ -43,6 +43,6 @@ The one place a snapshot touches the filesystem is in passing. The engine's save
 - **Compressing the file.** The engine's LZSS recovers 2 to 21% on a digest-heavy stream, because digests do not compress. If size ever matters, thin the oracle first.
 - **Framing the poll stream.** Only the two savegames are length-prefixed. A poll record has no length of its own, so a cut inside one is simply where the stream ends, and the replay reports the ticks that reached the disk rather than a torn record. The chunk refusal does not generalise to the stream and is not meant to.
 
-[^recording-doc]: docs/RECORDING.md, "One file".
-[^record-format-h]: SOURCES/RECORD_FORMAT.H, the chunk frame comment.
-[^record-cpp]: SOURCES/RECORD.CPP, the comment above the snapshot write in `record_begin`.
+[^recording-doc]: [docs/RECORDING.md](../../RECORDING.md), "One file".
+[^record-format-h]: [SOURCES/RECORD_FORMAT.H](../../../SOURCES/RECORD_FORMAT.H), the chunk frame comment.
+[^record-cpp]: [SOURCES/RECORD.CPP](../../../SOURCES/RECORD.CPP), the comment above the snapshot write in `record_begin`.

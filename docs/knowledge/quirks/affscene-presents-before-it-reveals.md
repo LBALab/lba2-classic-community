@@ -48,6 +48,6 @@ Every render. The order is original and the tail runs on every `AffScene` call w
 - **What the next flip mode will be.** `FirstTime` is set to a full flip by a transition and by camera work on every frame it moves, and the letterbox animates on one mode and not the other; see [the letterbox quirk](/quirks/the-letterbox-slides-only-on-an-objects-flip.md).
 - **That the frame was complete.** The menu's version of the same rule is that a page is flipped after its last draw, not after each; a flip between the backdrop and the rows showed the bare backdrop for a frame. The rule is one rule in two places, and the tail of `AffScene` is the engine's.
 
-[^object-cpp]: SOURCES/OBJECT.CPP, `AffScene`, the `switch (flagflip)` and everything after it to the `FlagRestoreCD` switch.
-[^perso-cpp]: SOURCES/PERSO.CPP, `MainLoop`, the `if (NewCube != -1) goto startloop` at the end of the per-object loop body.
-[^transitions-doc]: docs/TRANSITIONS.md, "The reveal, in detail (AffScene tail)" and "The #404 regression".
+[^object-cpp]: [SOURCES/OBJECT.CPP](../../../SOURCES/OBJECT.CPP), `AffScene`, the `switch (flagflip)` and everything after it to the `FlagRestoreCD` switch.
+[^perso-cpp]: [SOURCES/PERSO.CPP](../../../SOURCES/PERSO.CPP), `MainLoop`, the `if (NewCube != -1) goto startloop` at the end of the per-object loop body.
+[^transitions-doc]: [docs/TRANSITIONS.md](../../TRANSITIONS.md), "The reveal, in detail (AffScene tail)" and "The #404 regression".

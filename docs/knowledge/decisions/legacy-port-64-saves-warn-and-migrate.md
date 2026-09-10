@@ -38,7 +38,7 @@ Keep the native read, quarantined behind the stride trial, and make it visible: 
 - **Detecting a legacy file any other way.** The version byte cannot, by [the decision above](/decisions/the-save-version-stays-36.md), and no second signal was added.
 - **A host test.** The check drives the engine over real files and needs retail data, so it runs locally and in the retail-gated job, not in public CI.[^fallback-check]
 
-[^wire-plan]: docs/plan/SAVE_WIRE_PLAN.md, "Decisions (resolved 2026-07-07)", item 2.
-[^savegame-cpp]: SOURCES/SAVEGAME.CPP, `LoadContexte`, the `Log_Warn` after `LoadContexteReadObjectsAtStride` returns 1 on the native try.
-[^fixtures]: tests/savegame/corpus/saves/native_port64/README.md.
-[^fallback-check]: tests/savegame/corpus/native_fallback_check.py, the module docstring.
+[^wire-plan]: [docs/plan/SAVE_WIRE_PLAN.md](../../plan/SAVE_WIRE_PLAN.md), "Decisions (resolved 2026-07-07)", item 2.
+[^savegame-cpp]: [SOURCES/SAVEGAME.CPP](../../../SOURCES/SAVEGAME.CPP), `LoadContexte`, the `Log_Warn` after `LoadContexteReadObjectsAtStride` returns 1 on the native try.
+[^fixtures]: [tests/savegame/corpus/saves/native_port64/README.md](../../../tests/savegame/corpus/saves/native_port64/README.md).
+[^fallback-check]: [tests/savegame/corpus/native_fallback_check.py](../../../tests/savegame/corpus/native_fallback_check.py), the module docstring.

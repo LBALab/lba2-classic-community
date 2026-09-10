@@ -34,5 +34,5 @@ Two functions, chosen by whether the loop polls. `Timer_FixedDtPump` mints and d
 - **Detecting a poll from inside the hook.** The loop knows whether it polls; the hook does not, and guessing from call counts is what the measurement above rules out.
 - **Pumping the boot-only logos.** They run before the clock is armed and never meet either pump.
 
-[^timer-cpp]: LIB386/SYSTEM/TIMER.CPP, `Timer_FixedDtPumpPolled` and `Timer_FixedDtPump`.
-[^survey]: docs/plan/ENGINE_TICK_POLICY_SURVEY.md, "The pump a polling wait needs is not the pump a silent one needs".
+[^timer-cpp]: [LIB386/SYSTEM/TIMER.CPP](../../../LIB386/SYSTEM/TIMER.CPP), `Timer_FixedDtPumpPolled` and `Timer_FixedDtPump`.
+[^survey]: [docs/plan/ENGINE_TICK_POLICY_SURVEY.md](../../plan/ENGINE_TICK_POLICY_SURVEY.md), "The pump a polling wait needs is not the pump a silent one needs".

@@ -50,7 +50,7 @@ Unconditional. The guard is a plain global test at the top of two functions, ide
 - **What the palette is.** The flag tracks the fades, not the hardware. An instant sync through `FlagPal` or `changepal` in the tail of `AffScene` moves the palette and leaves the flag where it was, so the flag can say black over a lit screen until the next fade corrects it, and the next fade to black will then return without ramping.
 - **Whether a fade pumped the clock.** A skipped fade-out banks no steps and opens no bracket in `FadeToBlack`, and opens one in `FadeToBlackAndSamples`; the two functions are not interchangeable under a pinned step even when neither ramps.
 
-[^ambiance-cpp]: SOURCES/AMBIANCE.CPP, `FadeToBlack`, `FadeToBlackAndSamples`, `FadeToPal`, `FadeToPalAndSamples` and `SetBlackPal`.
-[^original]: Commit 333929ab, the initial import, SOURCES/AMBIANCE.CPP, the first statement of `FadeToBlack`.
-[^playacf-cpp]: SOURCES/PLAYACF.CPP, `PlayAcf`, the comment above `FlagBlackPal = FALSE`.
-[^control-cpp]: SOURCES/CONTROL.CPP, the comment above `s_uncarried`, "Measured over the nine contributed recordings".
+[^ambiance-cpp]: [SOURCES/AMBIANCE.CPP](../../../SOURCES/AMBIANCE.CPP), `FadeToBlack`, `FadeToBlackAndSamples`, `FadeToPal`, `FadeToPalAndSamples` and `SetBlackPal`.
+[^original]: Commit 333929ab, the initial import, [SOURCES/AMBIANCE.CPP](../../../SOURCES/AMBIANCE.CPP), the first statement of `FadeToBlack`.
+[^playacf-cpp]: [SOURCES/PLAYACF.CPP](../../../SOURCES/PLAYACF.CPP), `PlayAcf`, the comment above `FlagBlackPal = FALSE`.
+[^control-cpp]: [SOURCES/CONTROL.CPP](../../../SOURCES/CONTROL.CPP), the comment above `s_uncarried`, "Measured over the nine contributed recordings".

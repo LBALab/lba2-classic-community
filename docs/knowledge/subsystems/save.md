@@ -34,7 +34,7 @@ sources:
     title: The corpus harness README, "Requires retail game data"
 ---
 
-Distilled from docs/SAVEGAME.md, which stays the reference and owns the field map, the lifecycle tables and the hardening table; this concept holds the contracts, the seams, and what the doc does not say. The file itself is [the .lba Format](/formats/lba-save.md). The principles are structural; the seams and the gates are read at `as_of`.
+Distilled from [docs/SAVEGAME.md](../../SAVEGAME.md), which stays the reference and owns the field map, the lifecycle tables and the hardening table; this concept holds the contracts, the seams, and what the doc does not say. The file itself is [the .lba Format](/formats/lba-save.md). The principles are structural; the seams and the gates are read at `as_of`.
 
 # Principles
 
@@ -73,9 +73,9 @@ Distilled from docs/SAVEGAME.md, which stays the reference and owns the field ma
 - **That `flagload` zero means the load was right.** Zero is "no context error". A stride that validated by luck reaches `InitLoadedGame` and crashes there, on the full `--load` path and not in `--save-load-test`, so a load is crash-tested with ticks after it.[^savegame-doc]
 - **The file's name.** The player name in the header is what the menu shows and derives a filename from; the automatic files carry their fixed names and the harness snapshot carries `rec` whatever the recording is called. Nothing in the file says where it was saved.
 
-[^savegame-doc]: docs/SAVEGAME.md, "Lifecycle", "Version compatibility", "32-bit vs 64-bit and pointers" and "Tooling".
+[^savegame-doc]: [docs/SAVEGAME.md](../../SAVEGAME.md), "Lifecycle", "Version compatibility", "32-bit vs 64-bit and pointers" and "Tooling".
 [^savegame-cpp]: SAVEGAME.CPP: `AutoSaveGame`, `CurrentSaveGame`, the bracket comment and version byte in `SaveGame`, `LoadGame` from `LoadContexte` to its `SaveTimer`, and the checksum test and stride trial in `LoadContexte`.
 [^object-cpp]: OBJECT.CPP, `ChangeCube`, the `if (FlagLoadGame)` block and its `flagload` branches; `AffScene`, the `if (FlagChgCube)` block.
 [^control-cpp]: CONTROL.CPP, `Control_WriteSnapshot`, `Control_RequestLoad`, and the comment at `--no-autosave`.
 [^gamemenu-cpp]: GAMEMENU.CPP, the load-list scan, the `CurrentSaveGame` calls, and the `LastInputWasKeyboard` test in the save menu.
-[^corpus-readme]: tests/savegame/corpus/README.md, "Requires retail game data".
+[^corpus-readme]: [tests/savegame/corpus/README.md](../../../tests/savegame/corpus/README.md), "Requires retail game data".

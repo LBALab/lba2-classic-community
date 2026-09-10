@@ -55,8 +55,8 @@ Eight loops wait on the game clock and neither present nor delay, so each carrie
 - Whether the six undrivable sites are reachable by any driver. The game-over screen needs the hero dead, the confirmation a save driven through the menu, the page flips a second slate, and the demo logo the demo build; they hold by the argument, not by a run.
 - Whether another loop of this shape exists behind a conditional present. The scan cannot find it; only reading the exit condition can.
 
-[^gamemenu-cpp]: SOURCES/GAMEMENU.CPP, `ShowSaveConfirmation`, `GameOver`, `SlideShow`, `ShowLogo` and `DemoLogo`.
-[^invent-cpp]: SOURCES/INVENT.CPP, `GereArdoise`.
-[^timer-cpp]: LIB386/SYSTEM/TIMER.CPP, `ManageTime`, `FixedDtStep`, `Timer_FixedDtPump` and `Timer_FixedDtPumpPolled`.
-[^survey]: docs/plan/ENGINE_TICK_POLICY_SURVEY.md, "A wait with no clock at all" and "What the scan counts as a clock source, and what it should".
-[^timer-tests]: tests/timer/test_fixed_step.cpp, `test_a_clock_wait_with_no_source_cannot_advance`.
+[^gamemenu-cpp]: [SOURCES/GAMEMENU.CPP](../../../SOURCES/GAMEMENU.CPP), `ShowSaveConfirmation`, `GameOver`, `SlideShow`, `ShowLogo` and `DemoLogo`.
+[^invent-cpp]: [SOURCES/INVENT.CPP](../../../SOURCES/INVENT.CPP), `GereArdoise`.
+[^timer-cpp]: [LIB386/SYSTEM/TIMER.CPP](../../../LIB386/SYSTEM/TIMER.CPP), `ManageTime`, `FixedDtStep`, `Timer_FixedDtPump` and `Timer_FixedDtPumpPolled`.
+[^survey]: [docs/plan/ENGINE_TICK_POLICY_SURVEY.md](../../plan/ENGINE_TICK_POLICY_SURVEY.md), "A wait with no clock at all" and "What the scan counts as a clock source, and what it should".
+[^timer-tests]: [tests/timer/test_fixed_step.cpp](../../../tests/timer/test_fixed_step.cpp), `test_a_clock_wait_with_no_source_cannot_advance`.

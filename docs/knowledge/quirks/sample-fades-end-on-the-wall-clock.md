@@ -46,6 +46,6 @@ The loops are reached in every build. The trap opens only under a pinned step, w
 - Which paths reach these loops, or whether any of them runs under a pinned step today. Not traced here.
 - Whether the fade is audible in a replay, which is a question about the audio thread rather than the clock.
 
-[^ambiance-cpp]: SOURCES/AMBIANCE.CPP, `HQ_PauseSamples` and `HQ_ResumeSamples`.
-[^sample-cpp]: LIB386/AIL/SDL/SAMPLE.CPP, `FadeOutSamples` and `FadeInSamples`.
-[^timer-cpp]: LIB386/SYSTEM/TIMER.CPP, `Timer_ClockSource`, `FixedDtStep` and `Timer_FixedDtPump`.
+[^ambiance-cpp]: [SOURCES/AMBIANCE.CPP](../../../SOURCES/AMBIANCE.CPP), `HQ_PauseSamples` and `HQ_ResumeSamples`.
+[^sample-cpp]: [LIB386/AIL/SDL/SAMPLE.CPP](../../../LIB386/AIL/SDL/SAMPLE.CPP), `FadeOutSamples` and `FadeInSamples`.
+[^timer-cpp]: [LIB386/SYSTEM/TIMER.CPP](../../../LIB386/SYSTEM/TIMER.CPP), `Timer_ClockSource`, `FixedDtStep` and `Timer_FixedDtPump`.

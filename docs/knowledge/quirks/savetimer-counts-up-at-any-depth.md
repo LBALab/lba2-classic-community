@@ -43,9 +43,9 @@ The mistake makes no sound where it is made and surfaces as a clock that stopped
 
 | Manifestation | Where | State at `as_of` |
 |---|---|---|
-| `LoadGame` ends on an unmatched `SaveTimer`, so a harness `--load` returns with the depth at one and nothing left to close it. | SOURCES/SAVEGAME.CPP | Closed from the harness by [the bracket decision](/decisions/harness-load-bracket-closes-at-arming.md); the engine's own call is untouched. |
-| `SaveGame` read the clock to save by closing the bracket, reading, and reopening. At depth zero the close is a no-op and the reopen raises the floor: net plus one. | SOURCES/SAVEGAME.CPP, `SaveGame` | Fixed: at depth zero it reads `TimerRefHR` directly, which is the value the restore would have produced.[^savegame-cpp] |
-| `ChangeCube` takes neither half of its own bracket on a load. Its save is gated on `FlagChgCube`, clear on a fresh boot, and its restore sits in the branch taken when `FlagLoadGame` is clear. A played game is balanced because the menu's load path restores right after `ChangeCube`. | SOURCES/OBJECT.CPP, SOURCES/GAMEMENU.CPP | Untouched. The harness owns that restore since the decision above.[^control-cpp] |
+| `LoadGame` ends on an unmatched `SaveTimer`, so a harness `--load` returns with the depth at one and nothing left to close it. | [SOURCES/SAVEGAME.CPP](../../../SOURCES/SAVEGAME.CPP) | Closed from the harness by [the bracket decision](/decisions/harness-load-bracket-closes-at-arming.md); the engine's own call is untouched. |
+| `SaveGame` read the clock to save by closing the bracket, reading, and reopening. At depth zero the close is a no-op and the reopen raises the floor: net plus one. | [SOURCES/SAVEGAME.CPP](../../../SOURCES/SAVEGAME.CPP), `SaveGame` | Fixed: at depth zero it reads `TimerRefHR` directly, which is the value the restore would have produced.[^savegame-cpp] |
+| `ChangeCube` takes neither half of its own bracket on a load. Its save is gated on `FlagChgCube`, clear on a fresh boot, and its restore sits in the branch taken when `FlagLoadGame` is clear. A played game is balanced because the menu's load path restores right after `ChangeCube`. | [SOURCES/OBJECT.CPP](../../../SOURCES/OBJECT.CPP), [SOURCES/GAMEMENU.CPP](../../../SOURCES/GAMEMENU.CPP) | Untouched. The harness owns that restore since the decision above.[^control-cpp] |
 
 - Making `SaveTimer` guard like `RestoreTimer` is not a fix. It changes what every nested bracket does on every path in the game, and the pairs that are balanced today rely on the count nesting. The repair for a manifestation is at the unmatched call, never in the counter.
 - An inert bracket looks exactly like a working one: the code runs, nothing errors, game time is simply not given back. A reader who sees a `SaveTimer` and `RestoreTimer` pair and a clock that did not rewind should ask what the depth was on entry before suspecting the pair.
@@ -55,7 +55,7 @@ The mistake makes no sound where it is made and surfaces as a clock that stopped
 - The depth at any moment. `CmptMemoTimerRef` is reported by neither the harness nor the recorder; the inertness has been inferred from time the game kept, not read off the counter.
 - Whether a given open bracket is a defect. A harness run that never arms a step keeps the load's bracket open and is not repaired, because it has no replay to disagree with.[^control-cpp]
 
-[^timer-cpp]: LIB386/SYSTEM/TIMER.CPP, `SaveTimer` and `RestoreTimer`.
-[^timerwin-cpp]: LIB386/SYSTEM/TIMERWIN.CPP, the same two functions in the original.
-[^savegame-cpp]: SOURCES/SAVEGAME.CPP, the comment above the depth-zero read in `SaveGame`.
-[^control-cpp]: SOURCES/CONTROL.CPP, the comment above the deferred `RestoreTimer` in `Control_TickHook`.
+[^timer-cpp]: [LIB386/SYSTEM/TIMER.CPP](../../../LIB386/SYSTEM/TIMER.CPP), `SaveTimer` and `RestoreTimer`.
+[^timerwin-cpp]: [LIB386/SYSTEM/TIMERWIN.CPP](../../../LIB386/SYSTEM/TIMERWIN.CPP), the same two functions in the original.
+[^savegame-cpp]: [SOURCES/SAVEGAME.CPP](../../../SOURCES/SAVEGAME.CPP), the comment above the depth-zero read in `SaveGame`.
+[^control-cpp]: [SOURCES/CONTROL.CPP](../../../SOURCES/CONTROL.CPP), the comment above the deferred `RestoreTimer` in `Control_TickHook`.

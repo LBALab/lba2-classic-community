@@ -51,7 +51,7 @@ The credits scroll in `GamePlayCredits` positions each line at `ModeDesiredY` mi
 - Whether a third such loop exists. Eleven surfaces were driven, and the survey's scan counts a present anywhere in a body as a clock source, which a present under a condition is not. The scan cannot find the next one.
 - What the loops cost a player under a recording. The mint decision carries the measured figures.
 
-[^invent-cpp]: SOURCES/INVENT.CPP, the loop over `INV_END_X` in `OpenInventory`.
-[^credits-cpp]: SOURCES/CREDITS.CPP, the scroll loop in `GamePlayCredits`.
-[^survey]: docs/plan/ENGINE_TICK_POLICY_SURVEY.md, "The counterexample" and "The control has to be unset, not empty".
-[^timer-tests]: tests/timer/test_fixed_step.cpp, `test_a_modal_loop_can_have_no_clock_but_its_present`.
+[^invent-cpp]: [SOURCES/INVENT.CPP](../../../SOURCES/INVENT.CPP), the loop over `INV_END_X` in `OpenInventory`.
+[^credits-cpp]: [SOURCES/CREDITS.CPP](../../../SOURCES/CREDITS.CPP), the scroll loop in `GamePlayCredits`.
+[^survey]: [docs/plan/ENGINE_TICK_POLICY_SURVEY.md](../../plan/ENGINE_TICK_POLICY_SURVEY.md), "The counterexample" and "The control has to be unset, not empty".
+[^timer-tests]: [tests/timer/test_fixed_step.cpp](../../../tests/timer/test_fixed_step.cpp), `test_a_modal_loop_can_have_no_clock_but_its_present`.

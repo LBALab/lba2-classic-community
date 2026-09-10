@@ -44,8 +44,8 @@ The driver also checks the offline probe against the engine per save, which turn
 - **Committing a file with a real name in it.** The anonymisation preserved byte length so the corpus stayed bit-identical elsewhere; a new file goes through the same step before it goes in.
 - **A public CI run.** The host tests cover what runs without retail data; the corpus does not, and a green CI says nothing about it.
 
-[^wire-plan]: docs/plan/SAVE_WIRE_PLAN.md, "Decisions (resolved 2026-07-07)", item 3, and "Decision 3: corpus provenance and handling".
-[^corpus-readme]: tests/savegame/corpus/README.md, "Requires retail game data", "Bundled reference corpus" and the probe-versus-harness check.
-[^saves-readme]: tests/savegame/corpus/saves/steam_classic_2023/README.md, "Provenance" and "Anonymization".
-[^gitignore]: tests/savegame/corpus/.gitignore.
+[^wire-plan]: [docs/plan/SAVE_WIRE_PLAN.md](../../plan/SAVE_WIRE_PLAN.md), "Decisions (resolved 2026-07-07)", item 3, and "Decision 3: corpus provenance and handling".
+[^corpus-readme]: [tests/savegame/corpus/README.md](../../../tests/savegame/corpus/README.md), "Requires retail game data", "Bundled reference corpus" and the probe-versus-harness check.
+[^saves-readme]: [tests/savegame/corpus/saves/steam_classic_2023/README.md](../../../tests/savegame/corpus/saves/steam_classic_2023/README.md), "Provenance" and "Anonymization".
+[^gitignore]: [tests/savegame/corpus/.gitignore](../../../tests/savegame/corpus/.gitignore).
 [^agents]: AGENTS.md, the rule against adding game assets.

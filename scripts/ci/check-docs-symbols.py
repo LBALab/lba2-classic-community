@@ -57,6 +57,13 @@ NOT_SYMBOLS = {
 ATTRIB_IN = re.compile(r"^\s*in\s+\[?[^\]]*\]?\(([^)\s]+)\)")
 ATTRIB_PAREN = re.compile(r"^\s*\(\s*\[?[^\]]*\]?\(([^)\s]+)\)")
 
+# A footnote definition is a citation and nothing else: "[^id]: [FILE](path), `A`, the comment
+# above `B`; [OTHER](path), `C`." Every symbol in it is attributed to the nearest link before
+# it, as a mention, since a citation points at where to look and that is as often a call site
+# as a definition. Only the knowledge bundle writes footnotes, and its schema says a footnote
+# names the file and the routine, so this is the shape that rule takes as a check.
+FOOTNOTE = re.compile(r"^\[\^[A-Za-z0-9-]+\]:")
+
 
 def attributes(line, match, is_row):
     """True when this occurrence of the symbol is attributing it to the linked file."""
@@ -166,7 +173,8 @@ def main(argv):
             continue
         rel_doc = os.path.relpath(doc, ROOT)
         for n, line in enumerate(lines, 1):
-            targets = [p for p in (code_path(doc, m.group(1)) for m in LINK.finditer(line)) if p]
+            links = [(m.start(), code_path(doc, m.group(1))) for m in LINK.finditer(line)]
+            targets = [p for _, p in links if p]
             if not targets:
                 continue
             try:
@@ -174,26 +182,39 @@ def main(argv):
             except OSError:
                 continue
             is_row = line.lstrip().startswith("|")
+            is_footnote = bool(FOOTNOTE.match(line))
             for m in TICKED.finditer(line):
                 sym = m.group(1)
                 if sym in NOT_SYMBOLS or len(sym) < 3:
                     continue
-                how = attributes(line, m, is_row)
+                cited = targets
+                if is_footnote:
+                    # The nearest link before the symbol, of any kind: a symbol that follows a
+                    # link to a script or a doc is attributed to that file, which is not code,
+                    # so it is not checked rather than being charged to an earlier code link.
+                    before = [p for pos, p in links if pos < m.start()]
+                    if not before or before[-1] is None:
+                        continue
+                    cited = [before[-1]]
+                    how = "mentioned"
+                else:
+                    how = attributes(line, m, is_row)
                 if how is None:
                     continue
 
                 # Prose says where a symbol lives, so it must be defined there. A table row is a
                 # map and may legitimately point at a call site, so a mention is enough. Holding
                 # rows to the prose rule reports every "menu label comes from GetMultiText in
-                # GAMEMENU.CPP", which is true and not an error.
+                # GAMEMENU.CPP", which is true and not an error. A footnote is a citation and is
+                # held to the mention rule against the link nearest before the symbol.
                 if how == "mentioned":
-                    ok = any(sym in body for body in bodies.values())
+                    ok = any(sym in bodies[t] for t in cited)
                 else:
-                    ok = any(defines(body, sym) for body in bodies.values())
+                    ok = any(defines(bodies[t], sym) for t in cited)
                 if ok:
                     continue
 
-                named = ", ".join(os.path.relpath(t, ROOT) for t in targets)
+                named = ", ".join(os.path.relpath(t, ROOT) for t in cited)
                 elsewhere = sorted(index.get(sym, ()))
 
                 # Two kinds of symbol are legitimately named by a file that does not define them.

@@ -72,8 +72,8 @@ The principles are structural. The contracts and the seams are read at `as_of`.
 - Whether `--demo` did anything. It drives only an authored reel scene, cubes 193 to 221; elsewhere the hero idles and a long run reads as evidence of absence. The harness warns.
 - Whether the first frame exercised the normal path. The first frame after a load is a full redraw, which hides the partial-frame bugs the harness is good at catching; drive the event a few frames in.
 
-[^control-doc]: docs/CONTROL.md, "Usage", "Notes and limits", "--dump-state JSON" and "Determinism".
-[^control-cpp]: SOURCES/CONTROL.CPP, the argument parser, `Control_KeyHold` and `Control_TickHook`.
-[^perso-cpp]: SOURCES/PERSO.CPP, the `Control_IsActive` branch in `main` and the `Control_TickHook` call in `MainLoop`.
-[^android-doc]: docs/ANDROID.md, the console and hardware keyboard limitation.
-[^record-cpp]: SOURCES/RECORD.CPP, the `Timer_SetSimAudioClock` calls on the record and play paths, and the `Control_HasLiveScene` guard in `Record_Play`.
+[^control-doc]: [docs/CONTROL.md](../../CONTROL.md), "Usage", "Notes and limits", "--dump-state JSON" and "Determinism".
+[^control-cpp]: [SOURCES/CONTROL.CPP](../../../SOURCES/CONTROL.CPP), the argument parser, `Control_KeyHold` and `Control_TickHook`.
+[^perso-cpp]: [SOURCES/PERSO.CPP](../../../SOURCES/PERSO.CPP), the `Control_IsActive` branch in `main` and the `Control_TickHook` call in `MainLoop`.
+[^android-doc]: [docs/ANDROID.md](../../ANDROID.md), the console and hardware keyboard limitation.
+[^record-cpp]: [SOURCES/RECORD.CPP](../../../SOURCES/RECORD.CPP), the `Timer_SetSimAudioClock` calls on the record and play paths, and the `Control_HasLiveScene` guard in `Record_Play`.

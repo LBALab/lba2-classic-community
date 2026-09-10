@@ -49,7 +49,7 @@ The routine clears `eax` on entry, computes the nine products on the x87 stack a
 - Why the original zeroes the translation. The ASM carries no comment on the three stores, so this concept records that it does and not what was meant by it.
 - Whether anything downstream reads the zero. `RotateMatrixU` is the only caller, and what its callers do with a rotated matrix's translation is not traced here.
 
-[^asm]: LIB386/3D/MULMATF.ASM, the stores after the last `fstp`.
-[^cpp]: LIB386/3D/MULMATF.CPP.
-[^test]: tests/3D/test_mulmatf.cpp, `assert_mul_case`.
-[^progress]: docs/ASM_VALIDATION_PROGRESS.md, the `3D/MULMATF.ASM` row.
+[^asm]: [LIB386/3D/MULMATF.ASM](../../../LIB386/3D/MULMATF.ASM), the stores after the last `fstp`.
+[^cpp]: [LIB386/3D/MULMATF.CPP](../../../LIB386/3D/MULMATF.CPP).
+[^test]: [tests/3D/test_mulmatf.cpp](../../../tests/3D/test_mulmatf.cpp), `assert_mul_case`.
+[^progress]: [docs/ASM_VALIDATION_PROGRESS.md](../../ASM_VALIDATION_PROGRESS.md), the `3D/MULMATF.ASM` row.

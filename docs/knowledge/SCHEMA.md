@@ -213,7 +213,11 @@ because agents retrieve by section.
 
 Per-claim attribution uses markdown footnotes keyed to a `sources[].id`, not a
 citations list. Labels are keyed rather than positional so they survive an
-agent reordering the list.
+agent reordering the list. A footnote names each file as a relative link and
+each routine in backticks after the link it belongs to: the symbol gate checks
+every backticked identifier in a footnote against the file linked nearest
+before it, and `scripts/dev/knowledge_graph.py` turns the same links into
+graph edges, so a bare path is a citation neither can read.
 
 `# Non-goals` on a `Decision` is required, not optional. It is the single most
 valuable convention already in use across the `*_PLAN.md` files and it is the

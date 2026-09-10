@@ -1,5 +1,5 @@
 # Convenience targets — delegate to CMake and scripts (see docs/GAME_DATA.md).
-.PHONY: help clean build run build-run test tests test-docker format-check arch-check docs-links docs-symbols knowledge-check knowledge-drift action-shell-check action-shell-selftest build-graph-check build-graph-selftest automation-index check-tooling save-probe-lz-selftest savegame-corpus
+.PHONY: help clean build run build-run test tests test-docker format-check arch-check docs-links docs-symbols knowledge-check knowledge-drift knowledge-graph action-shell-check action-shell-selftest build-graph-check build-graph-selftest automation-index check-tooling save-probe-lz-selftest savegame-corpus
 
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 REPO_ROOT := $(shell "$(MAKEFILE_DIR)scripts/dev/repo_root.sh" 2>/dev/null || echo "$(MAKEFILE_DIR)")
@@ -24,6 +24,7 @@ help:
 	@echo "  make docs-symbols   - scripts/ci/check-docs-symbols.py (a doc names a symbol; is it in that file?)"
 	@echo "  make knowledge-check - scripts/ci/check-knowledge.py (docs/knowledge against its SCHEMA.md)"
 	@echo "  make knowledge-drift - the same with --drift: concepts whose cited files moved since as_of (REF=origin/main)"
+	@echo "  make knowledge-graph - add the bundle's typed and citation edges to graphify-out/graph.json after a graphify update"
 	@echo "  make action-shell-check - scripts/ci/check-action-shell.py (shellcheck the run: blocks in composite actions)"
 	@echo "  make action-shell-selftest - self-test for the above"
 	@echo "  make build-graph-check - scripts/ci/check-build-graph.py (rules that need a built tree)"
@@ -71,6 +72,9 @@ knowledge-check:
 REF ?= origin/main
 knowledge-drift:
 	@python3 "$(REPO_ROOT)/scripts/ci/check-knowledge.py" --drift "$(REF)"
+
+knowledge-graph:
+	@python3 "$(REPO_ROOT)/scripts/dev/knowledge_graph.py"
 
 action-shell-check:
 	@python3 "$(REPO_ROOT)/scripts/ci/check-action-shell.py"

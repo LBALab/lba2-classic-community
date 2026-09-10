@@ -63,6 +63,6 @@ The principles are structural. The contracts and the seams are read at `as_of`.
 - Whether a setting persisted, unless the verb says so.
 - That it can run without a key. There is no autoexec and no script file, so nothing runs a command without a keypress or a harness flag; on Android only a hardware keyboard opens it.
 
-[^console-doc]: docs/CONSOLE.md, "Toggle and input", "Commands", "Implementation notes" and "Extending commands and cheats".
-[^console-cpp]: SOURCES/CONSOLE/CONSOLE.CPP, the tokenizer and the cvar branch in `Console_Execute`.
-[^console-h]: SOURCES/CONSOLE/CONSOLE.H, `Console_SetLineSinkForTests`.
+[^console-doc]: [docs/CONSOLE.md](../../CONSOLE.md), "Toggle and input", "Commands", "Implementation notes" and "Extending commands and cheats".
+[^console-cpp]: [SOURCES/CONSOLE/CONSOLE.CPP](../../../SOURCES/CONSOLE/CONSOLE.CPP), the tokenizer and the cvar branch in `Console_Execute`.
+[^console-h]: [SOURCES/CONSOLE/CONSOLE.H](../../../SOURCES/CONSOLE/CONSOLE.H), `Console_SetLineSinkForTests`.

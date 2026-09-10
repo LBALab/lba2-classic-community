@@ -41,6 +41,6 @@ The tick hook has one call site inside `MainLoop`, and a modal inner loop never 
 - **A persistent batch process** that boots once and loads many saves. It would erase the per-process boot cost, and it reuses global engine state across loads, which is exactly what a fresh process per run exists to rule out. Not done until batch-loaded dumps are shown equal to fresh-process dumps across the corpus.
 - **Windows and macOS parity as an afterthought.** Berkeley sockets and Winsock sit behind one seam, because the automation this serves runs on Windows too and a diagnostic channel missing on the platform a bug came from is the wrong half to have.[^server-h]
 
-[^server-h]: SOURCES/CONTROL_SERVER.H, the header comment.
-[^control-cpp]: SOURCES/CONTROL.CPP, the `--listen` case in `Control_ParseArgs`, which records the port and leaves the active flag alone.
-[^control-doc]: docs/CONTROL.md, "Driving a running engine" and "Notes and limits" beneath it.
+[^server-h]: [SOURCES/CONTROL_SERVER.H](../../../SOURCES/CONTROL_SERVER.H), the header comment.
+[^control-cpp]: [SOURCES/CONTROL.CPP](../../../SOURCES/CONTROL.CPP), the `--listen` case in `Control_ParseArgs`, which records the port and leaves the active flag alone.
+[^control-doc]: [docs/CONTROL.md](../../CONTROL.md), "Driving a running engine" and "Notes and limits" beneath it.

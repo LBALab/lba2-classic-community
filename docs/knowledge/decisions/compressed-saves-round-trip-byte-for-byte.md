@@ -42,7 +42,7 @@ Declared and not asserted. The tree carries no test or script that compresses a 
 - **Changing the compressor for ratio or speed.** Its output is part of the format by this decision.
 - **A decompression-only oracle.** The corpus proves the decoder and the reader; it proves the writer only through this contract.
 
-[^wire-plan]: docs/plan/SAVE_WIRE_PLAN.md, "Decisions (resolved 2026-07-07)", item 4, "Decision 4 (surfaced): compressed round-trip contract", and the paragraph beginning "Compressed byte-exactness hinges on encoder fidelity".
-[^lzss-cpp]: SOURCES/LZSS.CPP, `Compress_LZSS`.
-[^lz-cpp]: LIB386/SYSTEM/LZ.CPP, `ExpandLZ`; tests/SYSTEM/test_lz.cpp carries the decoder's golden vectors.
-[^savegame-cpp]: SOURCES/SAVEGAME.CPP, the `Compress_LZSS` call in `SaveGame`.
+[^wire-plan]: [docs/plan/SAVE_WIRE_PLAN.md](../../plan/SAVE_WIRE_PLAN.md), "Decisions (resolved 2026-07-07)", item 4, "Decision 4 (surfaced): compressed round-trip contract", and the paragraph beginning "Compressed byte-exactness hinges on encoder fidelity".
+[^lzss-cpp]: [SOURCES/LZSS.CPP](../../../SOURCES/LZSS.CPP), `Compress_LZSS`.
+[^lz-cpp]: [LIB386/SYSTEM/LZ.CPP](../../../LIB386/SYSTEM/LZ.CPP), `ExpandLZ`; [tests/SYSTEM/test_lz.cpp](../../../tests/SYSTEM/test_lz.cpp) carries the decoder's golden vectors.
+[^savegame-cpp]: [SOURCES/SAVEGAME.CPP](../../../SOURCES/SAVEGAME.CPP), the `Compress_LZSS` call in `SaveGame`.

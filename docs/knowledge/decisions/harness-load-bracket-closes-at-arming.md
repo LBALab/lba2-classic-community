@@ -38,6 +38,6 @@ Close it from the harness, in the tick hook at the first tick the step is armed,
 - **A run that never arms a step.** It keeps the bracket open and keeps the time a played game gives back. It has no replay to disagree with and no oracle that would notice, and it is not repaired here; the defect was described as every `--load` harness run, and this covers the armed ones.
 - **Observing the save-load test path's depth.** That path exits immediately after the load and its depth is unobservable today. It carries the same close so that the next step added between the load and the exit does not trip on an open bracket.
 
-[^control-cpp]: SOURCES/CONTROL.CPP, the comment above the pending flag in `Control_Begin` and the deferred `RestoreTimer` in `Control_TickHook`.
+[^control-cpp]: [SOURCES/CONTROL.CPP](../../../SOURCES/CONTROL.CPP), the comment above the pending flag in `Control_Begin` and the deferred `RestoreTimer` in `Control_TickHook`.
 [^commit]: Commit e44bb58b on origin, "fix(control): close the timer bracket the harness load opens".
 [^savegame-commit]: Commit fef7af79 on origin, "fix(save): keep SaveGame's timer bracket balanced at depth 0".
