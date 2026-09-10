@@ -53,14 +53,16 @@ def main(argv):
     nodes = g["nodes"]
     edges = g.get("edges") if g.get("edges") is not None else g.setdefault("links", [])
 
-    # file node: the node whose label is the file's own name; routine nodes: by (file, label)
+    # file node: the node whose label is the file's own name, or its path suffix with the parent
+    # directory (graphify 0.9.57 labels a file that way when its basename collides); routine
+    # nodes: by (file, label)
     file_node, routine_node = {}, {}
     for n in nodes:
         sf = n.get("source_file") or ""
         if not sf:
             continue
         label = n.get("label") or ""
-        if label == os.path.basename(sf) and sf not in file_node:
+        if (label in (os.path.basename(sf), sf) or sf.endswith("/" + label)) and sf not in file_node:
             file_node[sf] = n["id"]
         routine_node[(sf, label.rstrip("()"))] = n["id"]
 
