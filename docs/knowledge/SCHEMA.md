@@ -281,12 +281,26 @@ CI fails on:
     `relates_to` lists a concept that names it as owner.
 13. `equivalence` of `tested` or `partial` without `verified_against`, or
     `untested` with one.
+14. A concept not listed in `index.md`.
 
 Rules 4, 5, 8, 9, 10, 12 and 13 are the drift checks. They are the reason this profile
 exists rather than a README of conventions.
 
-The first slice has landed. The lint is advisory until it runs in CI, and
-blocking after.
+The lint is `scripts/ci/check-knowledge.py`, run by `make knowledge-check`
+and by the docs-links workflow on every change, so the rules block. Two rules
+are checked in the shape a file can show: rule 6 as `generated.by` never a
+`human:` actor and `verified[].by` always one, and rule 8 by running the
+generator's own `--check`, skipped on a shallow clone because the generator
+dates its output from git history. The body conventions above are checked
+too: no em-dashes, every footnote keyed to a `sources[].id`, every cited
+resource present, `asm_origin` never a line number.
+
+`make knowledge-drift` runs the same script with `--drift`: for every concept
+carrying `as_of`, it lists the cited in-tree files that changed between that
+commit and a ref. It is a report and never a failure. A concept is current at
+its `as_of` and silent about everything after, and whether a later change
+touched one of its claims is the reader's judgment; the report says where to
+look.
 
 # Migrating existing docs
 

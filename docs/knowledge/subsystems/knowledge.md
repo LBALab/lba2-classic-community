@@ -100,7 +100,7 @@ Where this subsystem touches everything else, and which direction data flows:
 | `ASM_VALIDATION_PROGRESS.md`, `ASM_TO_CPP_REFERENCE.md` | read | Porting-status oracles, per routine and per module. The bundle mirrors them and never contradicts them. |
 | `scripts/dev/knowledge_porting.py` | write | The only writer of generated concepts. A script, because the reproducibility contract above cannot be met by a model. |
 | `AGENTS.md`, `CONTRIBUTING.md` | read  | Editing standard. There is no ownership map; a concept is reviewed by whoever reviews the code it describes. |
-| CI lint                    | read      | Enforces `SCHEMA.md`. Advisory until it runs in CI, blocking after.      |
+| CI lint                    | read      | Enforces `SCHEMA.md`. `scripts/ci/check-knowledge.py`, in the docs-links workflow, blocking. |
 | User-facing docs           | neither   | The bundle owns invariants about them, never their text.                  |
 
 The Graphify and reference-file seams are read-only on purpose. The bundle is
