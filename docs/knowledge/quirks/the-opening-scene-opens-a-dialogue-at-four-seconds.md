@@ -46,6 +46,6 @@ The opcode hands the text to `Dial`, which spins in its own loops, pumping the c
 - Whether other scenes have their own. The demo reel ends on a cutscene the reel does not advance, and any scene whose script opens a dialogue has the same shape.
 - Where the run is when it stops. A stack says where it stopped, not whether the run was configured to get past it.
 
-[^control-doc]: docs/CONTROL.md, "Notes and limits", the fresh-start modal.
-[^message-cpp]: SOURCES/MESSAGE.CPP, `Dial`, the release-waits at its entry points and the skip-modals gates.
-[^gerelife-cpp]: SOURCES/GERELIFE.CPP, the `LM_MESSAGE` case in `DoLife`.
+[^control-doc]: [docs/CONTROL.md](../../CONTROL.md), "Notes and limits", the fresh-start modal.
+[^message-cpp]: [SOURCES/MESSAGE.CPP](../../../SOURCES/MESSAGE.CPP), `Dial`, the release-waits at its entry points and the skip-modals gates.
+[^gerelife-cpp]: [SOURCES/GERELIFE.CPP](../../../SOURCES/GERELIFE.CPP), the `LM_MESSAGE` case in `DoLife`.

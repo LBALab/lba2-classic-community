@@ -51,7 +51,7 @@ At `as_of` the port's full flip animates the retract too, when the mode is clear
 - **Why the bars are up.** The clip window says they are, not whether a cutscene or a stale clear left them there. The re-arm keys on the mode dropping, not on who dropped it.
 - **That the retract will finish.** It advances only on frames that reach a flip mode that animates; the no-flip render the load path runs after `ChangeCube` leaves the bars where they are.
 
-[^object-cpp]: SOURCES/OBJECT.CPP, `FixeCinemaMode`, including the re-arm block and the `PrevCinemaMode` static above it, and the `case AFF_OBJETS_FLIP` and `case AFF_ALL_FLIP` of `AffScene`.
-[^gerelife-cpp]: SOURCES/GERELIFE.CPP, `case LM_CINEMA_MODE`, the assignments to `DebCycleCinema`, `TimerCinema` and `DureeCycleCinema`.
-[^original]: Commit 333929ab, the initial import, SOURCES/OBJECT.CPP, the `switch` at the end of `AffScene`.
-[^transitions-doc]: docs/TRANSITIONS.md, "Regression classes seen so far", the letterbox timer entry.
+[^object-cpp]: [SOURCES/OBJECT.CPP](../../../SOURCES/OBJECT.CPP), `FixeCinemaMode`, including the re-arm block and the `PrevCinemaMode` static above it, and the `case AFF_OBJETS_FLIP` and `case AFF_ALL_FLIP` of `AffScene`.
+[^gerelife-cpp]: [SOURCES/GERELIFE.CPP](../../../SOURCES/GERELIFE.CPP), `case LM_CINEMA_MODE`, the assignments to `DebCycleCinema`, `TimerCinema` and `DureeCycleCinema`.
+[^original]: Commit 333929ab, the initial import, [SOURCES/OBJECT.CPP](../../../SOURCES/OBJECT.CPP), the `switch` at the end of `AffScene`.
+[^transitions-doc]: [docs/TRANSITIONS.md](../../TRANSITIONS.md), "Regression classes seen so far", the letterbox timer entry.

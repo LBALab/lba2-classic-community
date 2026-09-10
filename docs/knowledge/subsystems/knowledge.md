@@ -96,7 +96,7 @@ Where this subsystem touches everything else, and which direction data flows:
 
 | Seam                       | Direction | Contract                                                                 |
 | -------------------------- | --------- | ------------------------------------------------------------------------ |
-| Graphify                   | read      | Structural oracle. Concepts cite the query text and never transcribe results. The graph is untracked, so a citation is re-derivable only by rebuilding it. |
+| Graphify                   | read      | Structural oracle. Concepts cite the query text and never transcribe results. The graph is untracked, so a citation is re-derivable only by rebuilding it. Graphify reads the bundle as documents and sees neither the typed relations nor a citation of a source file, so `scripts/dev/knowledge_graph.py` adds those edges to its graph after an update; the bundle stays downstream, since nothing flows back into a concept. |
 | `ASM_VALIDATION_PROGRESS.md`, `ASM_TO_CPP_REFERENCE.md` | read | Porting-status oracles, per routine and per module. The bundle mirrors them and never contradicts them. |
 | `scripts/dev/knowledge_porting.py` | write | The only writer of generated concepts. A script, because the reproducibility contract above cannot be met by a model. |
 | `AGENTS.md`, `CONTRIBUTING.md` | read  | Editing standard. There is no ownership map; a concept is reviewed by whoever reviews the code it describes. |

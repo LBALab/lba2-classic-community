@@ -26,4 +26,4 @@ Manually, two arms per task, the same agent and prompt with and without the bund
 - Whether the bundle is right. An agent can decline a change for a reason a concept states and the concept can still be wrong; the review of the concepts is a separate activity.
 - Anything about concepts the four tasks do not reach. Four Quirks and two Decisions are exercised; the rest of the bundle is not, and a task is added when a slice lands a concept an agent would plausibly refactor away.
 
-[^tasks]: tests/knowledge/README.md.
+[^tasks]: [tests/knowledge/README.md](../../../tests/knowledge/README.md).

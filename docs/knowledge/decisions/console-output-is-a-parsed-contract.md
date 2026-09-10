@@ -42,6 +42,6 @@ A `vargame` read names the index when the game names it, so `vargame 30` can say
 - **Reformatting for readability.** A line that reads awkwardly to a person stays as it is once something parses it.
 - **Quoting in the tokenizer.** Output contracts are about what comes out; the tokenizer's lack of quoting is a separate constraint on what goes in, and is left as it is.
 
-[^console-doc]: docs/CONSOLE.md, the `vargame` row of the command table.
-[^console-state-cpp]: SOURCES/CONSOLE/CONSOLE_STATE.CPP.
-[^state-test]: tests/console/test_console_state.cpp.
+[^console-doc]: [docs/CONSOLE.md](../../CONSOLE.md), the `vargame` row of the command table.
+[^console-state-cpp]: [SOURCES/CONSOLE/CONSOLE_STATE.CPP](../../../SOURCES/CONSOLE/CONSOLE_STATE.CPP).
+[^state-test]: [tests/console/test_console_state.cpp](../../../tests/console/test_console_state.cpp).

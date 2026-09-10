@@ -25,6 +25,6 @@ sources:
 
 All three run with the host tests in CI on every platform. None of them needs retail data, a window or a socket.
 
-[^proto]: tests/control_proto/test_control_proto.cpp.
-[^cli]: tests/cli_args/test_cli_args.cpp.
-[^console]: tests/console/test_console_state.cpp and its siblings.
+[^proto]: [tests/control_proto/test_control_proto.cpp](../../../tests/control_proto/test_control_proto.cpp).
+[^cli]: [tests/cli_args/test_cli_args.cpp](../../../tests/cli_args/test_cli_args.cpp).
+[^console]: [tests/console/test_console_state.cpp](../../../tests/console/test_console_state.cpp) and its siblings.

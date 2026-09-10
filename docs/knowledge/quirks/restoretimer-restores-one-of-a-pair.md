@@ -47,6 +47,6 @@ Unlocked, the `ManageTime` inside the restore has just set `LastTime` to the cur
 - What the rewind discarded. No record of the interval is kept anywhere.
 - Whether a given modal is locked when it restores. That is a property of its callers, not of the bracket.
 
-[^timer-cpp]: LIB386/SYSTEM/TIMER.CPP, `ManageTime` and `RestoreTimer`.
-[^timerwin-cpp]: LIB386/SYSTEM/TIMERWIN.CPP, `ManageTime` and `RestoreTimer`.
-[^timing-doc]: docs/TIMING.md, "Direct writers".
+[^timer-cpp]: [LIB386/SYSTEM/TIMER.CPP](../../../LIB386/SYSTEM/TIMER.CPP), `ManageTime` and `RestoreTimer`.
+[^timerwin-cpp]: [LIB386/SYSTEM/TIMERWIN.CPP](../../../LIB386/SYSTEM/TIMERWIN.CPP), `ManageTime` and `RestoreTimer`.
+[^timing-doc]: [docs/TIMING.md](../../TIMING.md), "Direct writers".

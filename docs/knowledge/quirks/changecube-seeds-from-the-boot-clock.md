@@ -45,5 +45,5 @@ Loose clock, `--load` path. Under `--fixed-dt` the pinned clock zeroes `TimerRef
 - Whether the attract reel is affected. Under `DemoSlide` the seed is the cube number, canonical on every host; this concept is about normal play.
 - That the carried value means the same draws on every build. `clock.rng_seed` is installed, not compared, and what a seed draws is the concern of [the RNG decision](/decisions/rng-reproduces-glibc.md).
 
-[^object-cpp]: SOURCES/OBJECT.CPP, the comment above the reseed in `ChangeCube`.
-[^recording-doc]: docs/RECORDING.md, "The pinned step is still required, and not for the reason it looks like".
+[^object-cpp]: [SOURCES/OBJECT.CPP](../../../SOURCES/OBJECT.CPP), the comment above the reseed in `ChangeCube`.
+[^recording-doc]: [docs/RECORDING.md](../../RECORDING.md), "The pinned step is still required, and not for the reason it looks like".

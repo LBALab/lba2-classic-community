@@ -8,6 +8,7 @@ as_of: 9f3750f5
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T20:00:00Z }
 relates_to:
   - /subsystems/recording.md
+  - /subsystems/movement.md
 sources:
   - id: timing-doc
     resource: ../../TIMING.md
@@ -23,12 +24,12 @@ sources:
     title: The recorder as an observer, "Three clock facts worth keeping separate"
 ---
 
-Distilled from docs/TIMING.md, which stays the reference contributors read and owns the mechanism descriptions; this concept holds the contracts and the seams. The principles are structural. The seams are read at `as_of`.
+Distilled from [docs/TIMING.md](../../TIMING.md), which stays the reference contributors read and owns the mechanism descriptions; this concept holds the contracts and the seams. The principles are structural. The seams are read at `as_of`.
 
 # Principles
 
 - **Two clocks, one direction of dependence.** `TimerSystemHR` is the wall clock as last sampled. `TimerRefHR` is game time, and it advances by the wall clock's delta only while unlocked. Everything a player perceives as the game's pace reads the second: animation, script delays, fades, zone timers, the RNG seed at a cube change.[^timing-doc]
-- **Advance and install are different operations.** `ManageTime` is the only place either clock advances. Eight sites install a value instead, three in the timer and five in game code; docs/TIMING.md's "Direct writers" table owns the list. An install is not a delta, a lock does not stop it, and nothing downstream can tell which it got.[^timing-doc]
+- **Advance and install are different operations.** `ManageTime` is the only place either clock advances. Eight sites install a value instead, three in the timer and five in game code; [docs/TIMING.md](../../TIMING.md)'s "Direct writers" table owns the list. An install is not a delta, a lock does not stop it, and nothing downstream can tell which it got.[^timing-doc]
 - **A bracket's intent is the thing to choose, not its shape.** `LockTimer` and `UnlockTimer` make an interval invisible and then credit it: transparent. `SaveTimer` and `RestoreTimer` make it invisible and discard it: a rewind. Rendering wants the first, a modal that should leave the clock where it found it wants the second, and the two look identical at a call site.[^timing-doc]
 - **The fixed step is an overlay on the clock source, not a second clock.** Under `--fixed-dt` the one sample `ManageTime` takes comes from `FixedDtNow` instead of the host, and `FixedDtNow` moves only where something mints a step. Every wait loop therefore has to say where its time comes from, or it does not end.[^timer-cpp]
 
@@ -59,7 +60,7 @@ Distilled from docs/TIMING.md, which stays the reference contributors read and o
 - Whether a clock value was advanced or installed. `TimerRefHR` after a load, a scene change, a restore or an arming is a number with no provenance, which is why the recorder carries the baseline and the arming tick as header lines rather than reading them back.
 - How long a session took. A recording's clock stream summed over a session with loads in it comes to a fraction of the elapsed time, because every load reinstalls the save's baseline.[^review]
 
-[^timing-doc]: docs/TIMING.md, "The two clocks", "Lock vs Save", "Direct writers" and "Practical guidance".
-[^timer-cpp]: LIB386/SYSTEM/TIMER.CPP: `ManageTime`, `SaveTimer`, `RestoreTimer`, `Timer_EnableFixedDt`, the pump functions and `HandleEventsTimer`.
-[^timerwin-cpp]: LIB386/SYSTEM/TIMERWIN.CPP, `SaveTimer`, `RestoreTimer` and `ManageTime`.
-[^review]: docs/plan/RECORDER_OBSERVER_REVIEW.md, "Three clock facts worth keeping separate".
+[^timing-doc]: [docs/TIMING.md](../../TIMING.md), "The two clocks", "Lock vs Save", "Direct writers" and "Practical guidance".
+[^timer-cpp]: [LIB386/SYSTEM/TIMER.CPP](../../../LIB386/SYSTEM/TIMER.CPP): `ManageTime`, `SaveTimer`, `RestoreTimer`, `Timer_EnableFixedDt`, the pump functions and `HandleEventsTimer`.
+[^timerwin-cpp]: [LIB386/SYSTEM/TIMERWIN.CPP](../../../LIB386/SYSTEM/TIMERWIN.CPP), `SaveTimer`, `RestoreTimer` and `ManageTime`.
+[^review]: [docs/plan/RECORDER_OBSERVER_REVIEW.md](../../plan/RECORDER_OBSERVER_REVIEW.md), "Three clock facts worth keeping separate".

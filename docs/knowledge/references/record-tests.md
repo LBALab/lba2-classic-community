@@ -24,5 +24,5 @@ These need retail data, so they run locally rather than in CI. `tests/automation
 
 Two arms are deliberately unlike the rest, and tidying either would remove what it covers. The movement arm records without `--fixed-dt`, so its recording arms the step after the load while the replay arms from the header before it; it is the suite's only comparison across mismatched step arming, and pinning it would blind that. The loose arm runs a genuinely host-sampled recording through a fade and asserts termination only, because two host-sampled runs do not reach identical state and a comparison there would be flaky by construction.[^replay]
 
-[^host]: tests/record_format/test_record_format.cpp.
-[^replay]: tests/automation/test_record_replay.sh, the header comment.
+[^host]: [tests/record_format/test_record_format.cpp](../../../tests/record_format/test_record_format.cpp).
+[^replay]: [tests/automation/test_record_replay.sh](../../../tests/automation/test_record_replay.sh), the header comment.

@@ -45,7 +45,7 @@ The validation is a loose bound on every object's `IndexFile3D`, and the first o
 - **The predictive sniff.** The heuristic that guessed the stride from the patch count ahead of the read, with its off-by-two constants, was deleted rather than kept beside the trial.[^savegame-doc]
 - **A host test of the fallback.** The legacy path is checked by a retail-gated script over the two native fixtures, not by a host test; see [the legacy decision](/decisions/legacy-port-64-saves-warn-and-migrate.md).
 
-[^wire-plan]: docs/plan/SAVE_WIRE_PLAN.md, "Decisions (resolved 2026-07-07)", item 1, and "Decision 1: version numbering".
-[^savegame-cpp]: SOURCES/SAVEGAME.CPP, the comment beginning "genuine wire save reliably fails native validation" in `LoadContexte`, and the validation loop at the end of `LoadContexteReadObjectsAtStride`.
-[^savegame-doc]: docs/SAVEGAME.md, "Reader (native-first)" and "Consequence".
+[^wire-plan]: [docs/plan/SAVE_WIRE_PLAN.md](../../plan/SAVE_WIRE_PLAN.md), "Decisions (resolved 2026-07-07)", item 1, and "Decision 1: version numbering".
+[^savegame-cpp]: [SOURCES/SAVEGAME.CPP](../../../SOURCES/SAVEGAME.CPP), the comment beginning "genuine wire save reliably fails native validation" in `LoadContexte`, and the validation loop at the end of `LoadContexteReadObjectsAtStride`.
+[^savegame-doc]: [docs/SAVEGAME.md](../../SAVEGAME.md), "Reader (native-first)" and "Consequence".
 [^pr]: Commit 3d54baca on origin, "fix(savegame): read native stride first to avoid a legacy-save crash", in the history of pull request 386.

@@ -10,6 +10,7 @@ relates_to:
   - /quirks/changecube-seeds-from-the-boot-clock.md
   - /subsystems/transitions.md
   - /subsystems/save.md
+  - /subsystems/input.md
 sources:
   - id: recording-doc
     resource: ../../RECORDING.md
@@ -75,9 +76,9 @@ RECORD.CPP is the session manager and the stream codec in one translation unit, 
 - A wait loop that neither polls nor reaches the tick hook. Nothing is injected into it and nothing staged for it lands, and a poll-counting stall detector cannot see it either. The save-name screen was one, reading SDL's keyboard array directly, until `GetAscii` took the polled key instead; a stall there was reported as a hang, not named by the engine.
 - Anything after `as_of`. The recorder is under active change, and this concept is silent past that commit.
 
-[^recording-doc]: docs/RECORDING.md, "The pinned step is still required" and "Limits worth knowing".
-[^observer-review]: docs/plan/RECORDER_OBSERVER_REVIEW.md, "The finding", "The perturbation ledger" and "The module, and the one refactor worth doing".
-[^research]: docs/plan/RECORDING_RESEARCH.md, the prototype measurements, and docs/plan/ENGINE_TICK_POLICY_SURVEY.md, "A modal recording does not replay, and the cause is not the clock".
-[^record-cpp]: SOURCES/RECORD.CPP, `Record_ClockHook` and the comment above the reload path's `Timer_EnableFixedDt`.
-[^control-cpp]: SOURCES/CONTROL.CPP, `Control_ReplayCutShort`.
-[^replay-test]: tests/automation/test_record_replay.sh, the comments above the movement arm and the loose arm.
+[^recording-doc]: [docs/RECORDING.md](../../RECORDING.md), "The pinned step is still required" and "Limits worth knowing".
+[^observer-review]: [docs/plan/RECORDER_OBSERVER_REVIEW.md](../../plan/RECORDER_OBSERVER_REVIEW.md), "The finding", "The perturbation ledger" and "The module, and the one refactor worth doing".
+[^research]: [docs/plan/RECORDING_RESEARCH.md](../../plan/RECORDING_RESEARCH.md), the prototype measurements, and [docs/plan/ENGINE_TICK_POLICY_SURVEY.md](../../plan/ENGINE_TICK_POLICY_SURVEY.md), "A modal recording does not replay, and the cause is not the clock".
+[^record-cpp]: [SOURCES/RECORD.CPP](../../../SOURCES/RECORD.CPP), `Record_ClockHook` and the comment above the reload path's `Timer_EnableFixedDt`.
+[^control-cpp]: [SOURCES/CONTROL.CPP](../../../SOURCES/CONTROL.CPP), `Control_ReplayCutShort`.
+[^replay-test]: [tests/automation/test_record_replay.sh](../../../tests/automation/test_record_replay.sh), the comments above the movement arm and the loose arm.

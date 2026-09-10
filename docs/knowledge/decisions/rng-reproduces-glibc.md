@@ -40,6 +40,6 @@ The proof needs its negative control. A Linux recording replaying 301 ticks on W
 - **The retail sequence.** That was Watcom's, and no port of this engine reproduces it.
 - **ARM.** `long double` is 53-bit there, so LIB386/3D's projection, rotation and distance round differently. The header names the disagreement up front; taking those paths off the host's extended precision is a separate and larger job.[^recording-doc]
 
-[^random-h]: LIB386/H/SYSTEM/RANDOM.H, the header comment.
-[^recording-doc]: docs/RECORDING.md, "Replaying on another platform" and "Checking it".
-[^review]: docs/plan/RECORDER_OBSERVER_REVIEW.md, "What not to do".
+[^random-h]: [LIB386/H/SYSTEM/RANDOM.H](../../../LIB386/H/SYSTEM/RANDOM.H), the header comment.
+[^recording-doc]: [docs/RECORDING.md](../../RECORDING.md), "Replaying on another platform" and "Checking it".
+[^review]: [docs/plan/RECORDER_OBSERVER_REVIEW.md](../../plan/RECORDER_OBSERVER_REVIEW.md), "What not to do".

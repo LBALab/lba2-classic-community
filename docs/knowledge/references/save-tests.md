@@ -58,14 +58,14 @@ Retail-gated, run locally or in the gated job, never in public CI:
 
 What none of them pins: a whole-payload round trip through `SaveContexte` and `LoadContexte` on the host, and the byte identity of a recompressed save against its original.
 
-[^from32]: tests/save_wire/test_save_wire_from32.cpp, the file comment.
-[^to32]: tests/save_wire/test_save_wire_to32.cpp, the file comment.
-[^fuzz]: tests/save_wire/test_save_wire_fuzz.cpp, the file comment.
-[^bounds]: tests/savegame/test_load_bounds.cpp.
-[^name]: tests/savegame/test_save_name_validation.cpp, the file comment.
-[^thumbnail]: tests/save_thumbnail/test_save_thumbnail.cpp, the file comment.
-[^lz]: tests/SYSTEM/test_lz.cpp; scripts/save_probe_lz_selftest.py.
-[^corpus]: tests/savegame/corpus/run_harness.py, the module docstring; tests/savegame/corpus/README.md.
-[^fallback]: tests/savegame/corpus/native_fallback_check.py, the module docstring.
-[^probe]: scripts/save_probe.py, the module docstring.
-[^runner]: scripts/dev/run-savegame-corpus.sh, behind `make savegame-corpus`.
+[^from32]: [tests/save_wire/test_save_wire_from32.cpp](../../../tests/save_wire/test_save_wire_from32.cpp), the file comment.
+[^to32]: [tests/save_wire/test_save_wire_to32.cpp](../../../tests/save_wire/test_save_wire_to32.cpp), the file comment.
+[^fuzz]: [tests/save_wire/test_save_wire_fuzz.cpp](../../../tests/save_wire/test_save_wire_fuzz.cpp), the file comment.
+[^bounds]: [tests/savegame/test_load_bounds.cpp](../../../tests/savegame/test_load_bounds.cpp).
+[^name]: [tests/savegame/test_save_name_validation.cpp](../../../tests/savegame/test_save_name_validation.cpp), the file comment.
+[^thumbnail]: [tests/save_thumbnail/test_save_thumbnail.cpp](../../../tests/save_thumbnail/test_save_thumbnail.cpp), the file comment.
+[^lz]: [tests/SYSTEM/test_lz.cpp](../../../tests/SYSTEM/test_lz.cpp); [scripts/save_probe_lz_selftest.py](../../../scripts/save_probe_lz_selftest.py).
+[^corpus]: [tests/savegame/corpus/run_harness.py](../../../tests/savegame/corpus/run_harness.py), the module docstring; [tests/savegame/corpus/README.md](../../../tests/savegame/corpus/README.md).
+[^fallback]: [tests/savegame/corpus/native_fallback_check.py](../../../tests/savegame/corpus/native_fallback_check.py), the module docstring.
+[^probe]: [scripts/save_probe.py](../../../scripts/save_probe.py), the module docstring.
+[^runner]: [scripts/dev/run-savegame-corpus.sh](../../../scripts/dev/run-savegame-corpus.sh), behind `make savegame-corpus`.

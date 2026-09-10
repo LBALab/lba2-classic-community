@@ -49,6 +49,6 @@ Commands run on the game thread, polled once per presented frame from the pre-pr
 - Whether the response is complete, other than by the notice. A reader that does not look for it reads a short answer as the whole one.
 - What real time means in the session. Headless and uncapped, the engine renders on the order of 1500 frames a second while harness input is metered in sim ticks, so `input up 120` spends itself in a fraction of the wall time a driver expects. Pin the throttle before reading a timing.[^server-h]
 
-[^proto-h]: SOURCES/CONTROL_PROTO.H, the header comment and the buffer contracts.
-[^server-h]: SOURCES/CONTROL_SERVER.H, the header comment.
-[^control-doc]: docs/CONTROL.md, "Protocol" and "Two traps worth knowing".
+[^proto-h]: [SOURCES/CONTROL_PROTO.H](../../../SOURCES/CONTROL_PROTO.H), the header comment and the buffer contracts.
+[^server-h]: [SOURCES/CONTROL_SERVER.H](../../../SOURCES/CONTROL_SERVER.H), the header comment.
+[^control-doc]: [docs/CONTROL.md](../../CONTROL.md), "Protocol" and "Two traps worth knowing".

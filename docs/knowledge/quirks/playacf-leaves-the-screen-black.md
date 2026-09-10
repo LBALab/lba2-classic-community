@@ -63,10 +63,10 @@ The in-game callers share one shape: open a timer bracket, fade out unless a fad
 - **Whether the video played.** `PlayAcf` returns 0 for a missing video and 0 for a video that ran to its end; only an interruption returns the key that caused it. A caller cannot tell absence from completion by the return value.[^playacf-cpp]
 - **Whether the frame at the reveal was black.** The tail sets the flag and the palette together, and the flag is what the engine reads afterwards; what the viewer saw at the next present is only observable with a present trace, and there is none in the tree.
 
-[^playacf-cpp]: SOURCES/PLAYACF.CPP, `PlayAcf`: the `SetBlackPal` and `Cls` after the video is opened, the `FlagBlackPal = FALSE` where the first palette is synced, the four lines above `HQ_ResumeSamples`, and the three early `return 0`.
-[^playacf-h]: SOURCES/PLAYACF.H, the contract comment above the declaration of `PlayAcf`.
-[^original]: Commit 333929ab, the initial import, SOURCES/PLAYACF.CPP, the end of `PlayAcf`.
-[^gerelife-cpp]: SOURCES/GERELIFE.CPP, `case LM_PLAY_ACF`; SOURCES/GERETRAK.CPP and SOURCES/PERSO.CPP carry the same shape.
-[^gamemenu-cpp]: SOURCES/GAMEMENU.CPP, the `PlayAcf("BABY")` case and the comment after it, the `PlayAcf("DELUGE")` block, and the lines after the `Introduction()` call.
-[^console-cmd-cpp]: SOURCES/CONSOLE/CONSOLE_CMD.CPP, the comment above the snapshot in the `playvideo` verb and the comment above `Video_RequestCapture`.
-[^transitions-doc]: docs/TRANSITIONS.md, "The PlayAcf contract (critical)" and "The #404 regression".
+[^playacf-cpp]: [SOURCES/PLAYACF.CPP](../../../SOURCES/PLAYACF.CPP), `PlayAcf`: the `SetBlackPal` and `Cls` after the video is opened, the `FlagBlackPal = FALSE` where the first palette is synced, the four lines above `HQ_ResumeSamples`, and the three early `return 0`.
+[^playacf-h]: [SOURCES/PLAYACF.H](../../../SOURCES/PLAYACF.H), the contract comment above the declaration of `PlayAcf`.
+[^original]: Commit 333929ab, the initial import, [SOURCES/PLAYACF.CPP](../../../SOURCES/PLAYACF.CPP), the end of `PlayAcf`.
+[^gerelife-cpp]: [SOURCES/GERELIFE.CPP](../../../SOURCES/GERELIFE.CPP), `case LM_PLAY_ACF`; [SOURCES/GERETRAK.CPP](../../../SOURCES/GERETRAK.CPP) and [SOURCES/PERSO.CPP](../../../SOURCES/PERSO.CPP) carry the same shape.
+[^gamemenu-cpp]: [SOURCES/GAMEMENU.CPP](../../../SOURCES/GAMEMENU.CPP), the `PlayAcf("BABY")` case and the comment after it, the `PlayAcf("DELUGE")` block, and the lines after the `Introduction()` call.
+[^console-cmd-cpp]: [SOURCES/CONSOLE/CONSOLE_CMD.CPP](../../../SOURCES/CONSOLE/CONSOLE_CMD.CPP), the comment above the snapshot in the `playvideo` verb and the comment above `Video_RequestCapture`.
+[^transitions-doc]: [docs/TRANSITIONS.md](../../TRANSITIONS.md), "The PlayAcf contract (critical)" and "The #404 regression".

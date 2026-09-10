@@ -29,6 +29,6 @@ A routine listed `[x]` in [ASM_VALIDATION_PROGRESS.md](../../ASM_VALIDATION_PROG
 
 [TESTING.md](../../TESTING.md) describes the lane. The tests need the 32-bit ASM built alongside the port, which the host `ctest` run does not do.[^testing]
 
-[^progress]: docs/ASM_VALIDATION_PROGRESS.md, the legend.
-[^audit]: docs/ASM_TEST_COVERAGE_AUDIT.md, "Audit rubric".
-[^testing]: docs/TESTING.md.
+[^progress]: [docs/ASM_VALIDATION_PROGRESS.md](../../ASM_VALIDATION_PROGRESS.md), the legend.
+[^audit]: [docs/ASM_TEST_COVERAGE_AUDIT.md](../../ASM_TEST_COVERAGE_AUDIT.md), "Audit rubric".
+[^testing]: [docs/TESTING.md](../../TESTING.md).

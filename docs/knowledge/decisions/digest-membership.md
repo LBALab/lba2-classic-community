@@ -48,6 +48,6 @@ Neither carrying the five nor repairing a class-3 field into class 2 moves `CONT
 - **A fourth digest class for environment assertions** (save slots on disk, UI cursors). Right idea, wrong place: none of it is in the digest, so it belongs to the header and the arm-time check, where `mode differs` already lives.
 - **Bumping a version to signal the repair.** The cost of not bumping is an older build reading a newer file and printing five spurious `mode differs` lines, which is noise in one direction against refusing the file in the other.
 
-[^plan]: docs/plan/DIGEST_MEMBERSHIP.md, "The classes", "The five globals are class 2" and "The versioning decision".
-[^control-h]: SOURCES/CONTROL.H, the `DIGEST_` constants and the comment above them.
-[^review]: docs/plan/RECORDER_OBSERVER_REVIEW.md, "The digest needs a stated membership rule".
+[^plan]: [docs/plan/DIGEST_MEMBERSHIP.md](../../plan/DIGEST_MEMBERSHIP.md), "The classes", "The five globals are class 2" and "The versioning decision".
+[^control-h]: [SOURCES/CONTROL.H](../../../SOURCES/CONTROL.H), the `DIGEST_` constants and the comment above them.
+[^review]: [docs/plan/RECORDER_OBSERVER_REVIEW.md](../../plan/RECORDER_OBSERVER_REVIEW.md), "The digest needs a stated membership rule".

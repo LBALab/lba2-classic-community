@@ -37,6 +37,6 @@ A mistyped flag ran silently on defaults, so a run could look like an A/B and be
 - **A flag outside the table.** There is no second path for accepting an argument, and adding one defeats the rejection of typos.
 - **Marking a flag player-facing to make it discoverable.** The common bit is for a flag a player setting up a run reaches for; automation flags stay in the full tier.
 
-[^cli-args-h]: SOURCES/CLI_ARGS.H, `Cli_ValidateArgs` and `Cli_WantsHelp`.
-[^control-doc]: docs/CONTROL.md, "Usage".
-[^cli-test]: tests/cli_args/test_cli_args.cpp.
+[^cli-args-h]: [SOURCES/CLI_ARGS.H](../../../SOURCES/CLI_ARGS.H), `Cli_ValidateArgs` and `Cli_WantsHelp`.
+[^control-doc]: [docs/CONTROL.md](../../CONTROL.md), "Usage".
+[^cli-test]: [tests/cli_args/test_cli_args.cpp](../../../tests/cli_args/test_cli_args.cpp).

@@ -36,11 +36,11 @@ sources:
     title: The offline reader that walks both strides
 ---
 
-docs/SAVEGAME.md owns the field map, offset by offset, the `ListVarGame` index table, the behaviour constants and the hardening table, and docs/plan/SAVE_WIRE_PLAN.md owns the section map with its oracle per section; neither is repeated here. This concept holds the envelope, the versioning rule and what the bytes do not say. The layout is structural; the reader's trial order and the test coverage are read at `as_of`.
+[docs/SAVEGAME.md](../../SAVEGAME.md) owns the field map, offset by offset, the `ListVarGame` index table, the behaviour constants and the hardening table, and [docs/plan/SAVE_WIRE_PLAN.md](../../plan/SAVE_WIRE_PLAN.md) owns the section map with its oracle per section; neither is repeated here. This concept holds the envelope, the versioning rule and what the bytes do not say. The layout is structural; the reader's trial order and the test coverage are read at `as_of`.
 
 # Evidence
 
-`partial`. The three wire structs are under host test: a golden decode against a hand-derived layout, a writer round trip, a converter fuzz and compile-time size locks. The bounds helpers, the thumbnail capture and the LZ decoder each have a host test of their own. The whole payload's round trip through `SaveContexte` and `LoadContexte` is under no host test, a gap docs/SAVEGAME.md names, and the harness that loads fifty retail saves through the engine needs retail data and runs locally rather than in public CI. There is no disassembly to check against: the writer and the reader are Adeline's C++, and what the retail engine wrote is known from the corpus.[^savegame-doc]
+`partial`. The three wire structs are under host test: a golden decode against a hand-derived layout, a writer round trip, a converter fuzz and compile-time size locks. The bounds helpers, the thumbnail capture and the LZ decoder each have a host test of their own. The whole payload's round trip through `SaveContexte` and `LoadContexte` is under no host test, a gap [docs/SAVEGAME.md](../../SAVEGAME.md) names, and the harness that loads fifty retail saves through the engine needs retail data and runs locally rather than in public CI. There is no disassembly to check against: the writer and the reader are Adeline's C++, and what the retail engine wrote is known from the corpus.[^savegame-doc]
 
 # Layout
 
@@ -89,9 +89,9 @@ A layout-36 file carries no signal for which stride wrote it. The reader reads t
 | the per-object stride | Itself. It is not stored, the reader infers it, and a one-object file validates under both strides because the first object's `IndexFile3D` sits in the stride-independent prefix; see the decision for what that means. |
 | the context's offsets | Their position in the file. Offsets in the reference doc are relative to the context, and the header's variable-length name puts the context at a different file offset per save. |
 
-[^savegame-doc]: docs/SAVEGAME.md, "File format", "Version byte on disk", "32-bit vs 64-bit and pointers", "Format hardening" and "Still future / larger change".
-[^savegame-cpp]: SOURCES/SAVEGAME.CPP, `SaveGame` from the version byte to the valid-position tail, `LoadGame`, and the stride trial and its comment in `LoadContexte`.
-[^savegame-wire-h]: SOURCES/SAVEGAME_WIRE.H, the file comment and the three size locks.
-[^common-h]: SOURCES/COMMON.H, the three `#define` lines for the version byte.
-[^wire-plan]: docs/plan/SAVE_WIRE_PLAN.md, "End-to-end section map".
-[^probe]: scripts/save_probe.py, the module docstring.
+[^savegame-doc]: [docs/SAVEGAME.md](../../SAVEGAME.md), "File format", "Version byte on disk", "32-bit vs 64-bit and pointers", "Format hardening" and "Still future / larger change".
+[^savegame-cpp]: [SOURCES/SAVEGAME.CPP](../../../SOURCES/SAVEGAME.CPP), `SaveGame` from the version byte to the valid-position tail, `LoadGame`, and the stride trial and its comment in `LoadContexte`.
+[^savegame-wire-h]: [SOURCES/SAVEGAME_WIRE.H](../../../SOURCES/SAVEGAME_WIRE.H), the file comment and the three size locks.
+[^common-h]: [SOURCES/COMMON.H](../../../SOURCES/COMMON.H), the three `#define` lines for the version byte.
+[^wire-plan]: [docs/plan/SAVE_WIRE_PLAN.md](../../plan/SAVE_WIRE_PLAN.md), "End-to-end section map".
+[^probe]: [scripts/save_probe.py](../../../scripts/save_probe.py), the module docstring.
