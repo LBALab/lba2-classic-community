@@ -81,9 +81,9 @@ touching the file.
 | `type`           | Owns                                                        | Additionally required                     |
 | ---------------- | ----------------------------------------------------------- | ----------------------------------------- |
 | `Subsystem`      | Design principles, contracts, seams for one subsystem        | `subsystem`, body `# Contracts`, `# Seams`, `# What it does not tell you` |
-| `Decision`       | One decision, its context, and what it forecloses            | body `# Decision`, `# Non-goals`          |
-| `Format`         | An on-disk or wire format: its guarantees, its versioning rule, and what it does not say. Field by field only where nothing in the tree already is | `equivalence`, body `# Layout`, `# What it does not tell you` |
-| `Quirk`          | Original-engine behaviour that must be preserved             | `equivalence`, `asm_origin`, `scope`, body `# Why it is load bearing`, `# What it does not tell you` |
+| `Decision`       | One decision, its context, and what it forecloses            | `owner`, body `# Decision`, `# Non-goals` |
+| `Format`         | An on-disk or wire format: its guarantees, its versioning rule, and what it does not say. Field by field only where nothing in the tree already is | `owner`, `equivalence`, body `# Layout`, `# What it does not tell you` |
+| `Quirk`          | Original-engine behaviour that must be preserved             | `owner`, `equivalence`, `asm_origin`, `scope`, body `# Why it is load bearing`, `# What it does not tell you` |
 | `Porting Status` | Per-subsystem porting state. GENERATED, never hand-edited    | `subsystem`, `sources`, `stale_after`     |
 | `Reference`      | External material, run instructions, agent skills            | `resource`                                |
 
@@ -116,12 +116,13 @@ in frontmatter as producer-defined keys. Each value is a bundle-relative path,
 
 | Key                | Meaning                                                       |
 | ------------------ | ------------------------------------------------------------- |
+| `owner`            | The Subsystem whose mechanism this concept sits in: exactly one, required on Quirk, Decision and Format. A concept carrying `ports` names its Porting Status concept instead, until that axis has charters. This is the charter's one-owner-per-fact principle as a key: a Subsystem does not list the concepts it owns, the list is derived from here, and the owner is chosen by where the mechanism lives, not by which instrument found it |
 | `ports`            | This concept describes the C++ counterpart of that ASM routine |
 | `constrains`       | This concept limits what that concept may do                   |
 | `supersedes`       | This concept replaces that one, which should be `deprecated`   |
-| `verified_against` | The artifact this concept was checked against                  |
-| `manifests`        | This concept is one presentation of a mechanism that concept owns. The owner keeps the mechanism; the presentations keep how it was met |
-| `relates_to`       | Untyped association. Use sparingly, prefer a specific key      |
+| `verified_against` | The artifact this concept was checked against. Required at `equivalence` of `tested` or `partial`, where it names the Reference wrapping the test; absent at `untested`, where there is nothing to point at |
+| `manifests`        | This concept is one presentation of a mechanism that concept owns. The owner keeps the mechanism; the presentations keep how it was met. The owner does not list its manifestations. A manifestation whose owner concept is not written yet is the signal to write it, which is how the verdict Decision came to exist |
+| `relates_to`       | Untyped association. Use sparingly, prefer a specific key. Not for ownership and not for a Subsystem's list of children, both of which `owner` carries |
 
 An ASM routine is not a concept, so `ports` points at the routine's section in
 its `Porting Status` concept (`/porting/3d.md#mulmatrixf`), and
@@ -275,8 +276,13 @@ CI fails on:
     routine's row in its `Porting Status` concept.
 11. A concept missing a key or body section its type requires, per the
     catalogue's third column.
+12. An `owner` that is not exactly one path resolving to a `Subsystem`, or to
+    a `Porting Status` when the concept carries `ports`; or a Subsystem whose
+    `relates_to` lists a concept that names it as owner.
+13. `equivalence` of `tested` or `partial` without `verified_against`, or
+    `untested` with one.
 
-Rules 4, 5, 8, 9, and 10 are the drift checks. They are the reason this profile
+Rules 4, 5, 8, 9, 10, 12 and 13 are the drift checks. They are the reason this profile
 exists rather than a README of conventions.
 
 The first slice has landed. The lint is advisory until it runs in CI, and

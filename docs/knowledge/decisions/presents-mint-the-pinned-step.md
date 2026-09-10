@@ -4,11 +4,10 @@ title: Under the pinned step a present is a tick, and the four mint policies sta
 description: The harness clock mints a step of simulation time from four policies through one funnel; the funnel is done, the policies cannot collapse inside the timer because only the loop bodies know where an iteration ends, and until they do the minimum stable set is four.
 status: draft
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T21:00:00Z }
+owner: /subsystems/timing.md
 constrains:
   - /subsystems/timing.md
 relates_to:
-  - /quirks/two-modals-take-their-clock-from-their-own-present.md
-  - /quirks/a-clock-wait-mints-its-own-step.md
   - /decisions/two-pumps-polled-and-unpolled.md
   - /subsystems/recording.md
 sources:

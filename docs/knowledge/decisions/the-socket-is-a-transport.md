@@ -4,6 +4,7 @@ title: The socket is a transport, not an arming
 description: --listen puts a line server in front of the console bus so a driver can steer a running engine, and does nothing else; it does not arm the harness, does not pin the clock, and gives up reproducibility on purpose, so CI stays on --exec-at.
 status: draft
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T09:00:00Z }
+owner: /subsystems/control.md
 constrains:
   - /subsystems/control.md
   - /formats/control-socket-protocol.md

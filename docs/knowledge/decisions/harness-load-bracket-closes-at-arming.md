@@ -4,9 +4,9 @@ title: The harness closes the load's timer bracket at the first armed tick
 description: A harness --load returns with the timer bracket one level open, so the harness closes it itself, at the first tick the deterministic step is armed rather than at the load, so that both ends of a recording close it in the same clock regime.
 status: draft
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T18:00:00Z }
+owner: /subsystems/control.md
 manifests: /quirks/savetimer-counts-up-at-any-depth.md
 relates_to:
-  - /subsystems/timing.md
   - /subsystems/recording.md
 sources:
   - id: control-cpp

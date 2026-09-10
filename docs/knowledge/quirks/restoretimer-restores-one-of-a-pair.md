@@ -7,8 +7,8 @@ scope: "unconditional; the consequence differs locked against unlocked"
 equivalence: untested
 asm_origin: "LIB386/SYSTEM/TIMERWIN.CPP:RestoreTimer"
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T18:00:00Z }
+owner: /subsystems/timing.md
 relates_to:
-  - /subsystems/timing.md
   - /quirks/savetimer-counts-up-at-any-depth.md
 sources:
   - id: timer-cpp

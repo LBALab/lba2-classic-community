@@ -7,8 +7,8 @@ scope: "unconditional; every build and every clock mode"
 equivalence: untested
 asm_origin: "LIB386/SYSTEM/TIMERWIN.CPP:SaveTimer"
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T18:00:00Z }
+owner: /subsystems/timing.md
 relates_to:
-  - /subsystems/timing.md
   - /quirks/restoretimer-restores-one-of-a-pair.md
 sources:
   - id: timer-cpp

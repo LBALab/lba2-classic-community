@@ -7,9 +7,10 @@ scope: "under a pinned step; on a host clock the wall clock moves regardless"
 equivalence: untested
 asm_origin: "SOURCES/INVENT.CPP:OpenInventory"
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T21:00:00Z }
+owner: /subsystems/timing.md
+manifests: /decisions/presents-mint-the-pinned-step.md
 relates_to:
   - /decisions/presents-mint-the-pinned-step.md
-  - /subsystems/timing.md
 sources:
   - id: invent-cpp
     resource: ../../../SOURCES/INVENT.CPP

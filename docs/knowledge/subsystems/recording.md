@@ -7,10 +7,6 @@ subsystem: recording
 as_of: d9cf303d
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T16:00:00Z }
 relates_to:
-  - /formats/rec.md
-  - /decisions/digest-membership.md
-  - /decisions/one-recording-file.md
-  - /decisions/rng-reproduces-glibc.md
   - /quirks/changecube-seeds-from-the-boot-clock.md
   - /subsystems/transitions.md
   - /subsystems/save.md
@@ -55,7 +51,7 @@ The principles are structural. The contracts and the seams are read at the commi
 | Loose clock | Two configurations share the word. The console verb `rec start` arms the step for itself at the tick it runs, even with no `--fixed-dt` on the command line, so the recorded portion is pinned and only the window before it is host-sampled; that configuration reproduces, and the header records the arming tick as `mode.step_armed_tick`, carried and not compared.[^record-cpp] A command-line `--record` without the flag is host-sampled throughout, and there the recorder holds the clock at the last input poll; the suite's loose arm runs that configuration through a fade and asserts termination only, because two host-sampled runs do not reach identical state and a comparison would be flaky by construction.[^replay-test] RECORDING.md's figure of 0 ms drift on `TimerRefHR` for a loose recording does not say which of the two it measured; read it as the first until it does.[^recording-doc] |
 | Digest membership | Every field the digest mixes declares why a replay can establish it. See [digest membership](/decisions/digest-membership.md). |
 | Same binary, same mode | A replay is repeatable to the tick, audio on or off. It is not stable across optimisation levels (329 of 2932 ticks differ between Debug and RelWithDebInfo on one session), and an audio-off replay is not an oracle for an audio-on recording (843 of 2851 ticks differ). Record and replay with the same build and the same mode block.[^recording-doc] |
-| Verdict | The exit code is not a verdict. The coverage gate refuses a run that checked too little of the file, and a run that stalls inside a modal can still end clean; read the ticks-checked line against the `holds about N ticks` line.[^recording-doc] A harness replay survives the in-game menu, and a run counts as cut short only when it left for a menu and the stream had not run out, so a session that ended at a menu replays to its last poll and is entitled to say so.[^control-cpp] |
+| Verdict | The exit code is not a verdict. [The coverage gate](/decisions/the-verdict-withholds-success.md) refuses a run that checked too little of the file, and a run that stalls inside a modal can still end clean; read the ticks-checked line against the `holds about N ticks` line.[^recording-doc] A harness replay survives the in-game menu, and a run counts as cut short only when it left for a menu and the stream had not run out, so a session that ended at a menu replays to its last poll and is entitled to say so.[^control-cpp] |
 
 # Seams
 

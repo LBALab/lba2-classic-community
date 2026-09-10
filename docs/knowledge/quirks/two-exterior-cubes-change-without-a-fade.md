@@ -7,10 +7,11 @@ scope: "FlagDrawHorizon set, which is the default and every detail level above t
 equivalence: untested
 asm_origin: "SOURCES/DISKFUNC.CPP:LoadScene"
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T12:00:00Z }
+owner: /subsystems/transitions.md
 relates_to:
-  - /subsystems/transitions.md
   - /quirks/a-fade-to-black-on-a-black-palette-is-a-no-op.md
   - /subsystems/recording.md
+  - /decisions/the-verdict-withholds-success.md
 sources:
   - id: diskfunc-cpp
     resource: ../../../SOURCES/DISKFUNC.CPP

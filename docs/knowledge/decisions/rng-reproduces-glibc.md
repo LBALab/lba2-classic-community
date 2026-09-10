@@ -4,6 +4,7 @@ title: The RNG reproduces glibc, in tree
 description: Rnd draws from an in-tree reimplementation of glibc's TYPE_3 generator, so one recording replays on every platform and every Linux baseline stays valid, and the single stream is not split for the recorder's sake.
 status: draft
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T09:00:00Z }
+owner: /subsystems/recording.md
 constrains:
   - /subsystems/recording.md
 relates_to:

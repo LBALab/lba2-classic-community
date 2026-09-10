@@ -7,8 +7,8 @@ scope: "a cutscene ending with the bars up; the stick was visible only with the 
 equivalence: untested
 asm_origin: "SOURCES/OBJECT.CPP:FixeCinemaMode"
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T12:00:00Z }
+owner: /subsystems/transitions.md
 relates_to:
-  - /subsystems/transitions.md
   - /quirks/affscene-presents-before-it-reveals.md
   - /subsystems/timing.md
 sources:

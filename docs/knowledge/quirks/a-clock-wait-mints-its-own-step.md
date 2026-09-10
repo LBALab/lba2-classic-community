@@ -7,11 +7,12 @@ scope: "under a pinned step; outside it the polled pump is two branch tests, and
 equivalence: untested
 asm_origin: "SOURCES/GAMEMENU.CPP:ShowLogo"
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T21:00:00Z }
+owner: /subsystems/timing.md
+manifests: /decisions/two-pumps-polled-and-unpolled.md
 relates_to:
   - /decisions/presents-mint-the-pinned-step.md
   - /decisions/two-pumps-polled-and-unpolled.md
   - /quirks/sample-fades-end-on-the-wall-clock.md
-  - /subsystems/timing.md
 sources:
   - id: gamemenu-cpp
     resource: ../../../SOURCES/GAMEMENU.CPP

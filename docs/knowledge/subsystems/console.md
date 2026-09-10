@@ -11,7 +11,6 @@ relates_to:
   - /subsystems/recording.md
   - /subsystems/timing.md
   - /formats/control-socket-protocol.md
-  - /decisions/console-output-is-a-parsed-contract.md
 sources:
   - id: console-doc
     resource: ../../CONSOLE.md

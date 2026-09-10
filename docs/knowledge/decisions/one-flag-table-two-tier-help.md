@@ -4,6 +4,7 @@ title: One flag table drives validation and two-tier help
 description: Every flag the engine accepts is a row in one table with its arity, case rule, player-facing bit and section; validation walks the table before SDL starts and rejects what is not in it, --help prints the player subset and --help-all the grouped whole, and neither names a repository path.
 status: draft
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T09:00:00Z }
+owner: /subsystems/control.md
 constrains:
   - /subsystems/control.md
 sources:

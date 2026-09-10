@@ -4,10 +4,10 @@ title: Two pumps, for a wait that polls and one that does not
 description: Timer_FixedDtPump mints a step and drives the recorder's wait hook, for a wait with no input poll; Timer_FixedDtPumpPolled mints only, for a wait that polls, because a polling loop already gets a fresh reading per iteration and the hook would mint a second step and sleep it out.
 status: draft
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T21:00:00Z }
+owner: /subsystems/timing.md
 constrains:
   - /subsystems/timing.md
 relates_to:
-  - /quirks/a-clock-wait-mints-its-own-step.md
   - /subsystems/recording.md
 sources:
   - id: timer-cpp

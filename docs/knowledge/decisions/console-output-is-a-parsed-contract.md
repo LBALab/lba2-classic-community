@@ -4,6 +4,9 @@ title: Console output is a parsed contract
 description: Every console command's output lines are matched by harness scripts, socket clients and probe sweeps, so new information is appended after the value and never spliced between an identifier and its value; the formats live in pure formatters pinned by host tests.
 status: draft
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T09:00:00Z }
+owner: /subsystems/console.md
+relates_to:
+  - /decisions/the-verdict-withholds-success.md
 constrains:
   - /subsystems/console.md
 sources:

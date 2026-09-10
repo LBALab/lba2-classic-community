@@ -7,11 +7,6 @@ subsystem: transitions
 as_of: 9f3750f5
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T12:00:00Z }
 relates_to:
-  - /quirks/playacf-leaves-the-screen-black.md
-  - /quirks/a-fade-to-black-on-a-black-palette-is-a-no-op.md
-  - /quirks/affscene-presents-before-it-reveals.md
-  - /quirks/two-exterior-cubes-change-without-a-fade.md
-  - /quirks/the-letterbox-slides-only-on-an-objects-flip.md
   - /quirks/sample-fades-end-on-the-wall-clock.md
   - /decisions/presents-mint-the-pinned-step.md
   - /subsystems/timing.md

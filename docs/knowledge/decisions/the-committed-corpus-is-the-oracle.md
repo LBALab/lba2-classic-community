@@ -4,6 +4,7 @@ title: The committed save corpus is the oracle for what retail wrote
 description: Fifty retail saves live in the tree, anonymised in place with their byte lengths kept, and are the regression baseline for the load path and the ground truth for the wire layout; larger contributed sets stay out of the tree under an ignore rule, and the driver that runs any of them needs retail data, so it runs locally rather than in public CI.
 status: draft
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T12:00:00Z }
+owner: /subsystems/save.md
 relates_to:
   - /formats/lba-save.md
   - /decisions/compressed-saves-round-trip-byte-for-byte.md

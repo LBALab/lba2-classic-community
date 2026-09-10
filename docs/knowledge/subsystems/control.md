@@ -10,10 +10,6 @@ relates_to:
   - /subsystems/console.md
   - /subsystems/recording.md
   - /subsystems/timing.md
-  - /formats/control-socket-protocol.md
-  - /decisions/the-socket-is-a-transport.md
-  - /decisions/one-flag-table-two-tier-help.md
-  - /quirks/the-opening-scene-opens-a-dialogue-at-four-seconds.md
 sources:
   - id: control-doc
     resource: ../../CONTROL.md

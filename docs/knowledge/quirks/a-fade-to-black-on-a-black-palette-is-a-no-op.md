@@ -7,9 +7,8 @@ scope: "unconditional; every build and every clock mode"
 equivalence: untested
 asm_origin: "SOURCES/AMBIANCE.CPP:FadeToBlack"
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T12:00:00Z }
+owner: /subsystems/transitions.md
 relates_to:
-  - /subsystems/transitions.md
-  - /quirks/playacf-leaves-the-screen-black.md
   - /subsystems/recording.md
   - /decisions/digest-membership.md
 sources:

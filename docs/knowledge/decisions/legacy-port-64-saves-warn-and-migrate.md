@@ -4,10 +4,10 @@ title: Legacy 64-bit saves load, warn, and migrate on the next save
 description: A file a pre-portable 64-bit build wrote still loads through the native stride, the engine says so in the log, and the next save rewrites it in the retail layout; the path is kept minimal and marked for removal because those files are local artifacts of a pre-release port, not an installed base.
 status: draft
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T12:00:00Z }
+owner: /subsystems/save.md
 relates_to:
   - /decisions/the-save-version-stays-36.md
   - /formats/lba-save.md
-  - /subsystems/save.md
 sources:
   - id: wire-plan
     resource: ../../plan/SAVE_WIRE_PLAN.md

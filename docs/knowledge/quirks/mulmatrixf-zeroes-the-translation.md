@@ -10,6 +10,7 @@ ports: /porting/3d.md#mulmatrixf
 verified_against:
   - /references/asm-equivalence-suite.md
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T09:00:00Z }
+owner: /porting/3d.md
 sources:
   - id: asm
     resource: ../../../LIB386/3D/MULMATF.ASM

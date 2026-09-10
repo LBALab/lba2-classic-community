@@ -7,13 +7,6 @@ subsystem: timing
 as_of: 9f3750f5
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T20:00:00Z }
 relates_to:
-  - /quirks/savetimer-counts-up-at-any-depth.md
-  - /quirks/restoretimer-restores-one-of-a-pair.md
-  - /quirks/sample-fades-end-on-the-wall-clock.md
-  - /quirks/two-modals-take-their-clock-from-their-own-present.md
-  - /quirks/a-clock-wait-mints-its-own-step.md
-  - /decisions/presents-mint-the-pinned-step.md
-  - /decisions/two-pumps-polled-and-unpolled.md
   - /subsystems/recording.md
 sources:
   - id: timing-doc

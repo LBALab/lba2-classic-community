@@ -4,11 +4,11 @@ title: The save version stays 36, so the reader tries the wider stride first
 description: The portable writer emits the retail layout under the retail version number rather than a 37, so the version byte cannot say which stride wrote a file; the reader reads the wider native record first and falls back to the wire, because the other order validated the wrong layout on real saves and crashed.
 status: draft
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T12:00:00Z }
+owner: /subsystems/save.md
 constrains:
   - /formats/lba-save.md
 relates_to:
   - /decisions/legacy-port-64-saves-warn-and-migrate.md
-  - /subsystems/save.md
 sources:
   - id: wire-plan
     resource: ../../plan/SAVE_WIRE_PLAN.md

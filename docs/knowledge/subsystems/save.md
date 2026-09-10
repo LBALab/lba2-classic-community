@@ -7,11 +7,6 @@ subsystem: save
 as_of: 9f3750f5
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T12:00:00Z }
 relates_to:
-  - /formats/lba-save.md
-  - /decisions/the-save-version-stays-36.md
-  - /decisions/legacy-port-64-saves-warn-and-migrate.md
-  - /decisions/the-committed-corpus-is-the-oracle.md
-  - /decisions/compressed-saves-round-trip-byte-for-byte.md
   - /decisions/harness-load-bracket-closes-at-arming.md
   - /quirks/savetimer-counts-up-at-any-depth.md
   - /subsystems/transitions.md

@@ -7,8 +7,9 @@ scope: "the trap is under a pinned step only; on a host clock the loops end as w
 equivalence: untested
 asm_origin: "SOURCES/AMBIANCE.CPP:HQ_PauseSamples"
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T18:00:00Z }
+owner: /subsystems/timing.md
+manifests: /decisions/two-pumps-polled-and-unpolled.md
 relates_to:
-  - /subsystems/timing.md
   - /subsystems/recording.md
 sources:
   - id: ambiance-cpp

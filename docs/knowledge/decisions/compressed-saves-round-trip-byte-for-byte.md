@@ -4,6 +4,7 @@ title: A compressed save round-trips byte for byte, at the file level
 description: The contract for a compressed save is identity of the whole file after a load and a save, not identity of the decompressed payload plus a separate compressor test, so a difference in the LZSS encoder's output from retail's is a fidelity bug to fix; nothing in the tree asserts the contract yet.
 status: draft
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T12:00:00Z }
+owner: /subsystems/save.md
 constrains:
   - /formats/lba-save.md
 relates_to:

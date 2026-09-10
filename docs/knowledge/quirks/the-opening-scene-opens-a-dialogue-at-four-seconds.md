@@ -7,8 +7,8 @@ scope: "a fresh start with no --load and no --demo; the trigger is game time, no
 equivalence: untested
 asm_origin: "SOURCES/MESSAGE.CPP:Dial"
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T09:00:00Z }
+owner: /subsystems/control.md
 relates_to:
-  - /subsystems/control.md
   - /subsystems/timing.md
 sources:
   - id: control-doc

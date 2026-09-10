@@ -7,8 +7,9 @@ scope: "every caller and every clock mode; which reveal the caller owes differs 
 equivalence: untested
 asm_origin: "SOURCES/PLAYACF.CPP:PlayAcf"
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T12:00:00Z }
+owner: /subsystems/transitions.md
+manifests: /quirks/a-fade-to-black-on-a-black-palette-is-a-no-op.md
 relates_to:
-  - /subsystems/transitions.md
   - /quirks/affscene-presents-before-it-reveals.md
   - /quirks/a-fade-to-black-on-a-black-palette-is-a-no-op.md
   - /decisions/presents-mint-the-pinned-step.md

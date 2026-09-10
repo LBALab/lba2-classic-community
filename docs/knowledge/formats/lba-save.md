@@ -6,6 +6,7 @@ status: draft
 equivalence: partial
 as_of: 9f3750f5
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T12:00:00Z }
+owner: /subsystems/save.md
 constrains:
   - /subsystems/save.md
 verified_against:

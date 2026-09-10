@@ -6,6 +6,7 @@ status: draft
 equivalence: tested
 as_of: d9cf303d
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T16:00:00Z }
+owner: /subsystems/recording.md
 constrains:
   - /subsystems/recording.md
 verified_against:
@@ -14,6 +15,7 @@ relates_to:
   - /decisions/one-recording-file.md
   - /decisions/digest-membership.md
   - /formats/lba-save.md
+  - /decisions/the-verdict-withholds-success.md
 sources:
   - id: record-cpp
     resource: ../../../SOURCES/RECORD.CPP

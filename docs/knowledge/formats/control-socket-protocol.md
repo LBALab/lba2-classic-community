@@ -6,6 +6,7 @@ status: draft
 equivalence: tested
 as_of: 9f3750f5
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T09:00:00Z }
+owner: /subsystems/control.md
 constrains:
   - /subsystems/control.md
 verified_against:

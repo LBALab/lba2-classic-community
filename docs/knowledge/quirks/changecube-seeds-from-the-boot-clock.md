@@ -7,6 +7,7 @@ scope: "loose clock, --load path; under --fixed-dt the seed is 0, and from boot 
 equivalence: untested
 asm_origin: "SOURCES/OBJECT.CPP:ChangeCube"
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T09:00:00Z }
+owner: /subsystems/transitions.md
 relates_to:
   - /decisions/rng-reproduces-glibc.md
   - /subsystems/recording.md

@@ -4,6 +4,7 @@ title: A recording is one file
 description: Both savegames travel inside the .rec as framed chunks, so a recording cannot be parted from the state it started from, and a torn write is refused rather than loaded.
 status: draft
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T09:00:00Z }
+owner: /subsystems/recording.md
 constrains:
   - /formats/rec.md
 sources:

@@ -4,6 +4,7 @@ title: Every digest field declares why a replay can establish it
 description: Four membership classes, passed as an argument to the mixing macro, so a field cannot be hashed without saying whether the load restores it, the file carries it, nothing establishes it, or it is not state at all.
 status: draft
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T09:00:00Z }
+owner: /subsystems/recording.md
 constrains:
   - /subsystems/recording.md
   - /formats/rec.md
