@@ -1,4 +1,4 @@
-add_library(gly RENDER_GL.CPP)
+add_library(gly RENDER_GL.CPP TRIANGULATE.CPP)
 
 target_include_directories(gly PUBLIC ${CMAKE_SOURCE_DIR}/LIB386/H)
 target_compile_definitions(gly PRIVATE USE_GPURENDERER)

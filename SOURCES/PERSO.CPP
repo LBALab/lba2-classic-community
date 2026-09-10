@@ -1196,7 +1196,14 @@ restartloop:
             char shotPath[ADELINE_MAX_PATH];
             int is_png = 0;
             if (Console_HasPendingScreenshot(shotPath, sizeof(shotPath), &is_png) && is_png) {
-                SavePNG(shotPath, Log, ModeDesiredX, ModeDesiredY, PtrPal);
+#ifdef USE_GPURENDERER
+                if (GPURendererActive) {
+                    GL_SavePresentPNG(shotPath);
+                } else
+#endif
+                {
+                    SavePNG(shotPath, Log, ModeDesiredX, ModeDesiredY, PtrPal);
+                }
                 Console_ClearPendingScreenshot();
             }
         }

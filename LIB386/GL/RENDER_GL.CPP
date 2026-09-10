@@ -22,6 +22,7 @@
 #include <SDL3/SDL.h>
 #include <string.h>
 #include <stdlib.h>
+#include <FILEIO/SAVEPNG.H>
 
 /* ── External palette getter (defined in SDL.CPP) ───────────────────────── */
 extern "C" const U32 *GL_GetPaletteLUT(void);
@@ -1438,11 +1439,13 @@ void GL_FlushBatch(void) {
             flatColor = (GLfloat)(s_currentColorPoly & 0xFF);
         }
     } else if (s_currentTypePoly == POLY_TEXTURE ||
-               s_currentTypePoly == POLY_TEXTURE_INCRUST) {
-        /* Type 8 (POLY_TEXTURE) and 12 (POLY_TEXTURE_INCRUST):
-           SW Filler_Texture / Filler_TextureChromaKey writes texel as
-           palette index directly (*line = texel) — no CLUT lookup.
-           Chroma key (discard index 0) controlled by uChromaKey. */
+               s_currentTypePoly == POLY_TEXTURE_INCRUST ||
+               s_currentTypePoly == POLY_TEXTURE_Z ||
+               s_currentTypePoly == POLY_TEXTURE_Z_INCRUST) {
+        /* The non-flat texture types write the texel as a palette index
+           directly (Filler_Texture / TextureChromaKey / TextureZ /
+           TextureZChromaKey: *log = texel) — no CLUT lookup.  Chroma key
+           (discard index 0) controlled by uChromaKey. */
         polyMode = 4;
     } else if (s_currentTypePoly == POLY_TEXTURE_Z_FOG) {
         /* Type 24 (POLY_TEXTURE_Z_FOG, e.g. sea/sky): SW
@@ -1923,6 +1926,7 @@ void GL_BeginFrame(void) {
 extern "C" {
 extern U16 *PtrZBuffer;
 extern void *Screen;
+extern void *Log;
 extern U32 ModeDesiredX;
 extern U32 ModeDesiredY;
 }
@@ -2330,6 +2334,83 @@ void GL_ReadbackColorBuffer(void) {
     }
 
     /* Keep FBO bound for subsequent GL_FlushBatch() calls */
+}
+
+/* Composite the 3D FBO color with the Log overlay the way GL_Present draws
+   them (Log over FBO, palette index 0 transparent) and write an RGB PNG.
+   Screenshot tools that capture the Log buffer alone see only the 2D
+   overlay in GL mode — the 3D scene lives in the FBO. */
+void GL_SavePresentPNG(const char *path) {
+    if (!s_initialized || !s_fbo) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+
+    GL_FlushBatch();
+
+    const U32 fboW = s_fboWidth;
+    const U32 fboH = s_fboHeight;
+    const U32 scrW = ModeDesiredX;
+    const U32 scrH = ModeDesiredY;
+
+    U32 *fboBuf = (U32 *)malloc((size_t)fboW * fboH * sizeof(U32));
+    /* Composite holds 0xAARRGGBB words, same layout as paletteLUT. */
+    U32 *comp = (U32 *)malloc((size_t)scrW * scrH * sizeof(U32));
+    U8 *rgb = (U8 *)malloc((size_t)scrW * scrH * 3);
+    if (fboBuf == NULL || comp == NULL || rgb == NULL) {
+        free(fboBuf);
+        free(comp);
+        free(rgb);
+        return;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+#if defined(__ANDROID__)
+    glReadPixels(0, 0, fboW, fboH, GL_RGBA, GL_UNSIGNED_BYTE, fboBuf);
+    GL_SwizzleBGRAtoRGBA(fboBuf, fboBuf, (U32)(fboW * fboH));
+#else
+    glReadPixels(0, 0, fboW, fboH, FMT_BGRA, GL_UNSIGNED_BYTE, fboBuf);
+#endif
+
+    /* Downsample (SSAA center pick) with the Y-flip glReadPixels implies,
+       giving screen-space top-down ARGB like GL_Present's FBO draw. */
+    const U32 scaleX = fboW / scrW;
+    const U32 scaleY = fboH / scrH;
+    for (U32 sy = 0; sy < scrH; sy++) {
+        const U32 fy = fboH - 1 - sy * scaleY - scaleY / 2;
+        const U32 *srcRow = fboBuf + fy * fboW;
+        U32 *dstRow = comp + sy * scrW;
+        if (scaleX == 1) {
+            memcpy(dstRow, srcRow, scrW * sizeof(U32));
+        } else {
+            for (U32 sx = 0; sx < scrW; sx++) {
+                dstRow[sx] = srcRow[sx * scaleX + scaleX / 2];
+            }
+        }
+    }
+
+    /* Log overlay on top: palette index 0 is transparent (alpha forced 0,
+       same rule PresentFrame applies before the GPU composite). */
+    const U32 *lut = GL_GetPaletteLUT();
+    const U8 *logIdx = (const U8 *)Log;
+    for (U32 i = 0; i < scrW * scrH; i++) {
+        U32 idx = logIdx[i];
+        if (idx != 0 && lut != NULL) {
+            comp[i] = lut[idx];
+        }
+        U32 c = comp[i];
+        rgb[i * 3 + 0] = (U8)(c >> 16);
+        rgb[i * 3 + 1] = (U8)(c >> 8);
+        rgb[i * 3 + 2] = (U8)(c);
+    }
+
+    SavePNGRGB(path, rgb, (S32)scrW, (S32)scrH);
+
+    free(fboBuf);
+    free(comp);
+    free(rgb);
 }
 
 /* ── Present (extended with 3D flush) ───────────────────────────────────── */
@@ -2865,15 +2946,34 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
     }
     GL_UploadPalette(); /* re-upload every frame (cheap: 1 KB) */
 
+    /* Flat-textured types (9/13/17/21) shade at a fixed CLUT row selected
+       by the polygon's color argument: the SW preps build Fill_Color.Ptr =
+       PtrCLUTGouraud + (color << 8) and the flat fillers ignore Pt_Light.
+       Stamp the row selector into Pt_Light so the CLUT shader's
+       gouraudRow = floor((light+128)/256) + baseRow lands on the same
+       fogTable[16*fog + color] row the SW fillers read. */
+    if (typePoly == POLY_TEXTURE_FLAT || typePoly == POLY_TEXTURE_INCRUST_FLAT ||
+        typePoly == POLY_TEXTURE_Z_FLAT || typePoly == POLY_TEXTURE_Z_INCRUST_FLAT) {
+        U16 rowLight = (U16)((colorPoly & 0xF) << 8);
+        for (S32 i = 0; i < nbPoints; i++) {
+            ptrPoints[i].Pt_Light = rowLight;
+        }
+    }
+
     /* Stamp per-polygon RepMask onto each vertex (SW rasterizer uses the
        global RepMask; GL needs it per-vertex for batching). */
     for (S32 i = 0; i < nbPoints; i++) {
         ptrPoints[i].Pt_RepMask = (U16)(RepMask & 0xFFFF);
     }
 
-    /* Convert polygon to triangles (triangle fan from first vertex) */
-    for (S32 i = 1; i < nbPoints - 1; i++) {
-        GL_AddTriangle(&ptrPoints[0], &ptrPoints[i], &ptrPoints[i + 1]);
+    /* Triangulate with interior diagonals only — a fan from vertex 0 would
+       spill this polygon's shade outside the outline whenever a reflex
+       vertex lands on the apex (see GL_TriangulatePolygon). */
+    U16 tris[3 * 64];
+    S32 ntri = GL_TriangulatePolygon(ptrPoints, nbPoints, tris);
+    for (S32 i = 0; i < ntri; i += 3) {
+        GL_AddTriangle(&ptrPoints[tris[i]], &ptrPoints[tris[i + 1]],
+                       &ptrPoints[tris[i + 2]]);
     }
 
     return 1; /* handled */
@@ -2895,6 +2995,9 @@ void GL_ClearFBO(void) {}
 void GL_ReadbackDepthBuffer(void) {}
 void GL_ReadbackColorBuffer(void) {}
 void GL_SnapshotTerrain(void) {}
+void GL_SavePresentPNG(const char *path) {
+    (void)path;
+}
 void GL_RestoreTerrainSnapshot(void) {}
 void GL_DrawShadowQuad(const S16 *xs, const S16 *ys, const U16 *az, U32 level) {
     (void)xs; (void)ys; (void)az; (void)level;

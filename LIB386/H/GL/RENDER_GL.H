@@ -51,6 +51,14 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
 void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
                        const U32 *paletteU32, S32 filterLinear);
 
+//! Triangulate the screen-space polygon `pts` (n points) into index triples
+//! written to `out` (capacity 3*(n-2)), using interior diagonals only (ear
+//! clipping).  A naive fan from vertex 0 paints outside the polygon outline
+//! whenever the reflex vertex lands on the apex; the SW scanline fillers
+//! never do.  Pure geometry, no GL state.  Returns the number of indices
+//! written.
+S32 GL_TriangulatePolygon(const Struc_Point *pts, S32 n, U16 *out);
+
 //! Render a list of projected triangles via OpenGL.
 //! Called from Fill_Poly() when GPURendererActive is true.
 S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
@@ -108,6 +116,13 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
                        S32 u0, S32 v0, S32 u1, S32 v1,
                        const void *pixels, S32 w, S32 h,
                        U16 az, S32 transparent);
+
+//! Composite the current 3D FBO color with the Log overlay (index 0
+//! transparent) exactly as GL_Present draws them, and write the result as
+//! an RGB PNG. The Log buffer alone holds only the 2D overlay in GL mode,
+//! so screenshot tools must go through this to capture the rendered frame.
+//! No-op when the GL renderer is not initialized.
+void GL_SavePresentPNG(const char *path);
 
 //! Get the present FBO handle (for OpenXR present on Quest).
 //! Returns the FBO that GL_Present composites into, or 0 if not initialized.
