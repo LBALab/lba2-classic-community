@@ -9,6 +9,7 @@ relates_to:
   - /quirks/the-edge-baseline-is-the-rendered-frame.md
   - /decisions/the-harness-meters-input-in-sim-ticks.md
   - /subsystems/timing.md
+  - /subsystems/movement.md
 sources:
   - id: sim-plan
     resource: ../../plan/INPUT_SIM_PLAN.md

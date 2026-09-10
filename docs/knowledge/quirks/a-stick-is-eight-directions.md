@@ -8,6 +8,8 @@ equivalence: untested
 asm_origin: "SOURCES/JOYSTICK.CPP:JoyMakeBitfield"
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T19:00:00Z }
 owner: /subsystems/input.md
+relates_to:
+  - /subsystems/movement.md
 sources:
   - id: joystick
     resource: ../../../SOURCES/JOYSTICK.CPP

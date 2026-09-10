@@ -12,6 +12,7 @@ relates_to:
   - /subsystems/console.md
   - /subsystems/timing.md
   - /subsystems/save.md
+  - /subsystems/movement.md
   - /formats/rec.md
   - /decisions/the-harness-meters-input-in-sim-ticks.md
   - /decisions/a-missing-field-is-not-a-value.md
@@ -67,7 +68,7 @@ Distilled from [docs/plan/INPUT_RESEARCH.md](../../plan/INPUT_RESEARCH.md), whic
 - **Two funnels, and only one is bindable.** `InitInput` folds `DefKeys` and `GamepadKeys` into one flat table of key and mask, and `GetInput` walks it to rebuild the `Input` action bitfield; 154 sites read `Input` and inherit every binding and alternate for free. Beside it, `TabKeys`, `Key` and `MyKey` carry physical scancodes and 93 sites compare them directly; that path knows no binding and no alternate, and it is where the input defects of the last months were found. It is not legacy: the touch overlay presses scancodes into `TabKeys`, the pad synthesises scancodes for menu navigation, and text entry converts `Key`, so routing the raw sites through the binding layer is a question about how three devices work.[^research]
 - **Sampling is level state, once a poll.** `UpdateKeyboardState` clears `TabKeys` and re-reads the whole keyboard, so a press and a release that both land between two polls never existed. `Key` is the lowest scancode held, which makes "the" key among simultaneous presses an artefact of scan order.[^keyboard]
 - **The edge baseline is the rendered frame and the edge consumers are the simulated step.** `LastInput = Input` runs once per iteration of `MainLoop`; the hero's press and release edges are read in the object loop, which the fixed-timestep throttle runs only on stepped frames. The two were one thing in 1997 and the port made them different; see [the edge-baseline Quirk](/quirks/the-edge-baseline-is-the-rendered-frame.md) and [the whitelist Decision](/decisions/the-force-step-whitelist-stays.md).[^perso]
-- **Speed is a mode, not an axis.** A direction bit selects an animation and the displacement is baked into its keyframes, so nothing downstream could consume a stick's magnitude if the funnel kept it. The mechanism belongs to a movement Subsystem not yet written; its consequence for input is [the eight-directions Quirk](/quirks/a-stick-is-eight-directions.md).[^movement-doc]
+- **Speed is a mode, not an axis.** A direction bit selects an animation and the displacement is baked into its keyframes, so nothing downstream could consume a stick's magnitude if the funnel kept it. [Movement](/subsystems/movement.md) owns the mechanism; its consequence for input is [the eight-directions Quirk](/quirks/a-stick-is-eight-directions.md).[^movement-doc]
 - **Suppression has one owner and a hundred writers.** `NoRepeatInput` is a single static in a 59-line translation unit and 109 sites arm or clear it; any of them can clear what another set, and nothing records who did. See [the latch Quirk](/quirks/a-held-bit-is-masked-until-it-is-released.md).[^funnel]
 
 # Contracts

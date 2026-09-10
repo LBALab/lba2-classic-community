@@ -13,6 +13,7 @@ verified_against:
 relates_to:
   - /decisions/the-force-step-whitelist-stays.md
   - /decisions/the-harness-meters-input-in-sim-ticks.md
+  - /decisions/sub-steps-hold-the-frames-input.md
   - /subsystems/timing.md
 sources:
   - id: perso

@@ -8,6 +8,7 @@ as_of: 9f3750f5
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T20:00:00Z }
 relates_to:
   - /subsystems/recording.md
+  - /subsystems/movement.md
 sources:
   - id: timing-doc
     resource: ../../TIMING.md
