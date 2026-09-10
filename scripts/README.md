@@ -19,6 +19,7 @@ not maintained tooling.
 | [ci/check-arch.py](ci/check-arch.py) | Check the architecture boundaries CODESTYLE.md and AGENTS.md already state: the engine never includes the game, no STL in shipped code, platform conditionals stay in the platform layer, and the two god-header figures only fall. Every rule prints the sentence it comes from, and where the cheapest way to turn it green is the wrong one, the fix to make instead. | CI (`format.yml`), `make arch-check` |
 | [ci/check-docs-links.sh](ci/check-docs-links.sh) | Verify doc references resolve: markdown links and `#anchors` via lychee, plus `docs/<name>.md` paths named by bare path in source comments, tests and CMake (invisible to a link checker). `--external` checks URLs. lychee's settings live in [lychee.toml](../lychee.toml), shared with local runs. | CI (`docs-links.yml`), `make docs-links` |
 | [ci/check-docs-symbols.py](ci/check-docs-symbols.py) | Verify a doc's claim about where code lives: for `` `Foo()` in [FILE] `` the symbol must be defined there, and the report names the file it is actually in. Paths resolving is not the same as the prose being right. | CI (`docs-links.yml`), `make docs-symbols` |
+| [ci/check-knowledge.py](ci/check-knowledge.py) | Lint [docs/knowledge/](../docs/knowledge/) against the fourteen rules in its [SCHEMA.md](../docs/knowledge/SCHEMA.md): frontmatter and types, relations and body links that resolve, one owner per concept, evidence fields that agree, generated pages that reproduce. `--drift [REF]` reports concepts whose cited files changed since their `as_of`, a report rather than a failure. | CI (`docs-links.yml`), `make knowledge-check`, `make knowledge-drift` |
 | [ci/check-action-shell.py](ci/check-action-shell.py) | Run shellcheck over the `run:` blocks of composite actions. actionlint only walks `.github/workflows/` and the shellcheck job only sees `*.sh`, so the shell in `.github/actions/` was checked by nothing. Errors rather than skips on anything it cannot parse. | CI (`lint.yml`), `make action-shell-check` |
 | [ci/check-action-shell-selftest.py](ci/check-action-shell-selftest.py) | Self-test for the above: fixtures for a clean block, a warning-level finding, GitHub expressions, and the four shapes that must fail loudly rather than pass quietly. | CI (`lint.yml`), `make action-shell-selftest` |
 | [ci/check-build-graph.py](ci/check-build-graph.py) | Architecture rules only a compiled tree can answer: the engine reaching the game through a header it does not name, and how many translation units still get `DEFINES.H` in front of them. Complements [check-arch.py](ci/check-arch.py), which reads the sources with no toolchain. `--report` prints the per-TU header fan-out. | CI (`linux.yml` build job), `make build-graph-check` |
@@ -125,6 +126,12 @@ confirms one axis of hosting LBA1 content on this engine.
 | [dev/lba1_script_remap.py](dev/lba1_script_remap.py) | Remap LBA1 Life-script opcodes onto the LBA2 VM; flag-width divergence report. | spike (LBA1_PORT_PLAN §6) |
 | [dev/lba1_bkg_repack.py](dev/lba1_bkg_repack.py) | Re-index LBA1's three background HQRs into LBA2's single merged container. | spike (LBA1_PORT_PLAN §6.5) |
 | [dev/lba1_voc_probe.py](dev/lba1_voc_probe.py) | Confirm LBA1 VOC audio plays through lba2cc's existing sample path. | spike (LBA1_PORT_PLAN §6.6) |
+
+## Documentation (`dev/`)
+
+| Script | What it does | Invoked by |
+|--------|--------------|------------|
+| [dev/knowledge_porting.py](dev/knowledge_porting.py) | Project a table section of [docs/ASM_VALIDATION_PROGRESS.md](../docs/ASM_VALIDATION_PROGRESS.md) into a generated Porting Status concept under [docs/knowledge/porting/](../docs/knowledge/porting/), one routine per section with the progress doc's own status word. `--check` fails when the file on disk has drifted from its source. | manual ([docs/knowledge/SCHEMA.md](../docs/knowledge/SCHEMA.md)) |
 
 ## Git hooks (`git-hooks/`)
 

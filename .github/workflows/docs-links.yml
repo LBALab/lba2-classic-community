@@ -49,6 +49,14 @@ jobs:
       - name: Check documented symbols are where the docs say
         run: ./scripts/ci/check-docs-symbols.py
 
+      # The knowledge bundle under docs/knowledge is checked against its own
+      # SCHEMA.md: frontmatter, types, relations that resolve, owners, evidence.
+      # A shallow checkout skips the generated-page rule, which dates from history.
+      - name: Check the knowledge bundle against its schema
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --quiet pyyaml
+          ./scripts/ci/check-knowledge.py
+
   external:
     name: External URLs
     # Weekly only. Not for speed -- the full run takes about 30 seconds and
