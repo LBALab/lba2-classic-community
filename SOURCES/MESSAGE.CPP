@@ -13,6 +13,9 @@
 
 #include "C_EXTERN.H"
 #include "IMAGE_LOAD.H"
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H> /* GL_SavePresentPNG for GL-mode dialog captures */
+#endif
 
 #include "CONSOLE/CONSOLE.H"
 #include "CONTROL.H"
@@ -2078,8 +2081,18 @@ void Dial(S32 text, S32 drawscene) {
            the typewriter has time to draw substantial text. */
         if (s_dial_capture_path[0]) {
             if (--s_dial_capture_countdown <= 0 || ret == 0 || ret == 2) {
-                SavePNG(s_dial_capture_path, Log, (S32)ModeDesiredX,
-                        (S32)ModeDesiredY, PtrPal);
+#ifdef USE_GPURENDERER
+                /* GL mode: Log holds only the 2D overlay (text, bubble);
+                   the scene lives in the FBO.  Capture the composite the
+                   player sees, including the dialogue shade band. */
+                if (GPURendererActive) {
+                    GL_SavePresentPNG(s_dial_capture_path);
+                } else
+#endif
+                {
+                    SavePNG(s_dial_capture_path, Log, (S32)ModeDesiredX,
+                            (S32)ModeDesiredY, PtrPal);
+                }
                 s_dial_capture_path[0] = '\0';
                 flagabort = 1;
                 break;
