@@ -1633,23 +1633,43 @@ void GL_FlushBatch(void) {
     s_batchTriCount = 0;
 }
 
-/* ── Ground shadow quad (GL ShadeBoxBlk replacement) ────────────────────── */
+/* ── Ground shadow polygon (GL ShadeBoxBlk/DrawShadow replacement) ──────── */
 
-/* Draw the projected ground-shadow quad directly into the FBO, replacing
+/* Draw the projected ground-shadow polygon directly into the FBO, replacing
    the SW path (DrawShadow → DrawLineShade → per-scanline ShadeBoxBlk into
-   Log + DrawRecover occlusion).  The quad is depth-tested GEQUAL against
-   the FBO depth (terrain/hills clip it exactly where ZBufBoxOverWrite2
-   used to clear the Log pixels) and multiplies the scene color by
-   (15 - level) / 15 via GL_DST_COLOR/GL_ZERO blending — the linear
-   counterpart of the SW fade-CLUT row at (15 - ShadowLevel).  Unlike the
-   SW path this works on the true FBO colors, so the result does not
-   depend on the FBO→palette reverse lookup staying faithful. */
-void GL_DrawShadowQuad(const S16 *xs, const S16 *ys, const U16 *az, U32 level) {
-    if (!s_initialized) {
+   Log + DrawRecover occlusion).  The caller walks the same Bezier-rounded
+   outline the SW span filler fills (BuildOmbreOutline), with per-vertex
+   camera depth from the same midpoint arithmetic over ShadowZO.  The fill
+   is depth-tested GEQUAL against the FBO depth (terrain/hills clip it
+   exactly where ZBufBoxOverWrite2 used to clear the Log pixels) and
+   multiplies the scene color by (15 - level) / 15 via GL_DST_COLOR/GL_ZERO
+   blending — the linear counterpart of the SW fade-CLUT row at
+   (15 - ShadowLevel).  Unlike the SW path this works on the true FBO
+   colors, so the result does not depend on the FBO→palette reverse lookup
+   staying faithful. */
+void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
+                       U32 level) {
+    Struc_Point pts[64];
+    U16 tris[3 * 64];
+    static U8 polyVerts[3 * 64 * 14];
+    S32 ntri;
+    S32 nv;
+    S32 i;
+
+    if (!s_initialized || n < 3) {
         return;
+    }
+    if (n > 64) {
+        n = 64;
     }
     if (!Window_GLMakeCurrent()) {
         return;
+    }
+
+    for (i = 0; i < n; i++) {
+        memset(&pts[i], 0, sizeof(Struc_Point));
+        pts[i].Pt_XE = xs[i];
+        pts[i].Pt_YE = ys[i];
     }
 
     /* Pending batch first: it carries its own state. */
@@ -1667,10 +1687,8 @@ void GL_DrawShadowQuad(const S16 *xs, const S16 *ys, const U16 *az, U32 level) {
 
     glUseProgram(s_clutProgram);
 
-    GLfloat screenScale[2];
-    screenScale[0] = 2.0f / (GLfloat)s_texWidth;
-    screenScale[1] = 2.0f / (GLfloat)s_texHeight;
-    glUniform2f(s_clut_uScreenScale, screenScale[0], screenScale[1]);
+    glUniform2f(s_clut_uScreenScale, 2.0f / (GLfloat)s_texWidth,
+                2.0f / (GLfloat)s_texHeight);
     glUniform1i(s_clut_uPolyMode, 6);
     glUniform1f(s_clut_uFlatColor, (GLfloat)(15 - (level & 15)) / 15.0f);
     glUniform1i(s_clut_uAlphaMode, 0);
@@ -1695,41 +1713,47 @@ void GL_DrawShadowQuad(const S16 *xs, const S16 *ys, const U16 *az, U32 level) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_DST_COLOR, GL_ZERO);
 
-    /* Two triangles, fan order (0,1,2) (0,2,3). */
-    static U8 quadVerts[6 * 14];
-    static const S8 order[6] = {0, 1, 2, 0, 2, 3};
-    for (S32 i = 0; i < 6; i++) {
-        U8 *v = quadVerts + i * 14;
-        S32 c = order[i];
-        S16 x = xs[c];
-        S16 y = ys[c];
-        memcpy(v + 0, &x, 2);
-        memcpy(v + 2, &y, 2);
-        memset(v + 4, 0, 6); /* UV, light = 0 (unused) */
-        memcpy(v + 10, &az[c], 2);
-        memset(v + 12, 0, 2); /* RepMask = 0 */
+    /* Ear-clip the outline: the shadow quad is planar in front of the
+       camera, but corners ride terrain altitude, so a skewed projection
+       can go concave — a fan from vertex 0 would spill outside the
+       outline (same reason the batch polys triangulate). */
+    ntri = GL_TriangulatePolygon(pts, n, tris);
+
+    if (ntri > 0) {
+        nv = ntri;
+        for (i = 0; i < nv; i++) {
+            U8 *v = polyVerts + i * 14;
+            S32 c = tris[i];
+            S16 x = xs[c];
+            S16 y = ys[c];
+            memcpy(v + 0, &x, 2);
+            memcpy(v + 2, &y, 2);
+            memset(v + 4, 0, 6); /* UV, light = 0 (unused) */
+            memcpy(v + 10, &az[c], 2);
+            memset(v + 12, 0, 2); /* RepMask = 0 */
+        }
+
+        glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, nv * 14, polyVerts);
+
+        glEnableVertexAttribArray(s_clut_aPos);
+        glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 14,
+                              (const void *)0);
+        glEnableVertexAttribArray(s_clut_aTexCoord);
+        glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE,
+                              14, (const void *)4);
+        glEnableVertexAttribArray(s_clut_aLight);
+        glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                              (const void *)8);
+        glEnableVertexAttribArray(s_clut_aZ);
+        glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                              (const void *)10);
+        glEnableVertexAttribArray(s_clut_aRepMask);
+        glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE,
+                              14, (const void *)12);
+
+        glDrawArrays(GL_TRIANGLES, 0, nv);
     }
-
-    glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quadVerts), quadVerts);
-
-    glEnableVertexAttribArray(s_clut_aPos);
-    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 14,
-                          (const void *)0);
-    glEnableVertexAttribArray(s_clut_aTexCoord);
-    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 14,
-                          (const void *)4);
-    glEnableVertexAttribArray(s_clut_aLight);
-    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
-                          (const void *)8);
-    glEnableVertexAttribArray(s_clut_aZ);
-    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
-                          (const void *)10);
-    glEnableVertexAttribArray(s_clut_aRepMask);
-    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
-                          (const void *)12);
-
-    glDrawArrays(GL_TRIANGLES, 0, 6);
 
     glDepthMask(GL_TRUE);
     glDisable(GL_DEPTH_TEST);
@@ -3228,8 +3252,13 @@ void GL_SavePresentPNG(const char *path) {
     (void)path;
 }
 void GL_RestoreTerrainSnapshot(void) {}
-void GL_DrawShadowQuad(const S16 *xs, const S16 *ys, const U16 *az, U32 level) {
-    (void)xs; (void)ys; (void)az; (void)level;
+void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
+                       U32 level) {
+    (void)xs;
+    (void)ys;
+    (void)az;
+    (void)n;
+    (void)level;
 }
 void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
     (void)x0; (void)y0; (void)x1; (void)y1; (void)level;

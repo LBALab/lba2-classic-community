@@ -12,7 +12,7 @@ typedef S32(Func_ProjectShadow)(T_SORT *, S32);
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 
 extern S32 XS0, YS0, XS1, YS1, XS2, YS2, XS3, YS3;
-extern U16 ShadowZO[4]; /* camera-space depth per projected corner (GL shadow quad) */
+extern U16 ShadowZO[4]; /* camera-space depth per projected corner (GL shadow fill) */
 extern S32 ShadowTestObject;
 
 /*--------------------------------------------------------------------------*/
@@ -33,6 +33,8 @@ S32 AdjustShadowObjects(S32 xw, S32 zw, S32 y0, S32 y1);
 extern Func_ProjectShadow ProjectShadowExt;
 /*--------------------------------------------------------------------------*/
 void DrawShadow(void);
+/*--------------------------------------------------------------------------*/
+void DrawShadowGL(void);
 /*--------------------------------------------------------------------------*/
 
 #endif // BEZIER_H

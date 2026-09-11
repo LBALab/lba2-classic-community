@@ -87,11 +87,14 @@ void GL_SnapshotTerrain(void);
 //! the current FBO generation (full redraws cleared it anyway).
 void GL_RestoreTerrainSnapshot(void);
 
-//! Draw the projected ground-shadow quad directly into the FBO (GL
-//! replacement for the SW DrawShadow/ShadeBoxBlk/DrawRecover pass).
+//! Draw the projected ground-shadow polygon directly into the FBO (GL
+//! replacement for the SW DrawShadow/ShadeBoxBlk/DrawRecover pass).  xs/ys
+//! walk the Bezier-rounded outline the SW span filler fills (BuildOmbreOutline),
+//! az carries the per-vertex camera depth from the same midpoint arithmetic.
 //! Multiplies the scene color by (15 - level) / 15, depth-tested GEQUAL
 //! against the terrain so nearer geometry clips the shadow.
-void GL_DrawShadowQuad(const S16 *xs, const S16 *ys, const U16 *az, U32 level);
+void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
+                       U32 level);
 
 //! Draw one body sphere (eye, button, nostril — LBA bodies model round
 //! details as shaded discs) as a depth-tested flat-color disc in the FBO.

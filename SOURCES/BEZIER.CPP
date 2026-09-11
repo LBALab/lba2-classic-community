@@ -13,6 +13,10 @@
 
 #include "C_EXTERN.H"
 
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H> /* GL_DrawShadowPoly for DrawShadowGL */
+#endif
+
 // One entry per screen scanline: sizes the shadow-fill span tables below and
 // bounds the fill loop. Must cover the active ModeResY, so it tracks the
 // max supported height (ADELINE_MAX_Y_RES) exactly like TabOffLine[]. Pinning
@@ -79,27 +83,23 @@ void CalculeLigneOmbre(S32 x1, S32 y1, S32 x2, S32 y2) {
 }
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-void DrawOmbre(S32 x0, S32 y0, S32 x1, S32 y1, S32 x2, S32 y2, S32 x3, S32 y3) {
-    S32 start_x, start_y;
-
-    S32 qx[5];
-    S32 qy[5];
-
+/* Walk the Bezier-rounded outline of the projected shadow quad: from the
+   midpoint of edge 0-1, each edge becomes a quadratic curve toward its
+   corner (three levels of midpoint cutting), which rounds the diamond
+   formed by the four projected bounding-box edge midpoints.  Emits the
+   exact endpoint sequence the span filler traces segment by segment:
+   entry 0 is the pixel-space start point, the rest the FTOW'd outline
+   points.  oz mirrors the same midpoint arithmetic over the corner camera
+   depths (ShadowZO) so a depth-tested GPU fill can interpolate ZO per
+   vertex.  Returns the number of emitted points. */
+static S32 BuildOmbreOutline(S32 x0, S32 y0, S32 x1, S32 y1, S32 x2, S32 y2,
+                             S32 x3, S32 y3, const U16 *zcorn, S32 *ox,
+                             S32 *oy, S32 *oz, S32 maxPts) {
     S32 x[4];
     S32 y[4];
-
-    S32 ax;
-    S32 ay;
-
-    S32 b1x, b2x;
-    S32 b1y, b2y;
-
-    S32 c1x, c2x, c3x, c4x;
-    S32 c1y, c2y, c3y, c4y;
-
-    S32 firstx, inter1x, midx, inter2x, lastx;
-    S32 firsty, inter1y, midy, inter2y, lasty;
-
+    S32 z[4];
+    S32 firstx, firsty, firstz;
+    S32 idx = 0;
     S32 n, i;
 
     x[0] = WTOF(x0);
@@ -111,86 +111,154 @@ void DrawOmbre(S32 x0, S32 y0, S32 x1, S32 y1, S32 x2, S32 y2, S32 x3, S32 y3) {
     x[3] = WTOF(x3);
     y[3] = WTOF(y3);
 
-    start_x = (x0 + x1) >> 1;
-    start_y = (y0 + y1) >> 1;
+    for (i = 0; i < 4; i++) {
+        z[i] = zcorn[i];
+    }
 
-    firstx = (x[0] + x[1]) >> 1; // 0
+    firstx = (x[0] + x[1]) >> 1;
     firsty = (y[0] + y[1]) >> 1;
+    firstz = (z[0] + z[1]) >> 1;
+
+    if (idx < maxPts) {
+        ox[idx] = (x0 + x1) >> 1;
+        oy[idx] = (y0 + y1) >> 1;
+        oz[idx] = firstz;
+        idx++;
+    }
 
     for (n = 0; n < 4; n++) {
-        //
-        //
-        // Génère les valeurs initiales (Niveau 0)
-        //
-        //
+        S32 ax = x[(n + 1) & 3];
+        S32 lastx = (ax + x[(n + 2) & 3]) >> 1;
+        S32 ay = y[(n + 1) & 3];
+        S32 lasty = (ay + y[(n + 2) & 3]) >> 1;
+        S32 ac = z[(n + 1) & 3];
+        S32 lastz = (ac + z[(n + 2) & 3]) >> 1;
 
-        ax = x[(n + 1) & 3];
-        lastx = (ax + x[(n + 2) & 3]) >> 1;
+        S32 b1x = (firstx + ax) >> 1;
+        S32 b2x = (lastx + ax) >> 1;
+        S32 midx = (b1x + b2x) >> 1;
+        S32 b1y = (firsty + ay) >> 1;
+        S32 b2y = (lasty + ay) >> 1;
+        S32 midy = (b1y + b2y) >> 1;
+        S32 b1z = (firstz + ac) >> 1;
+        S32 b2z = (lastz + ac) >> 1;
+        S32 midz = (b1z + b2z) >> 1;
 
-        ay = y[(n + 1) & 3];
-        lasty = (ay + y[(n + 2) & 3]) >> 1;
+        S32 c1x = (b1x + firstx) >> 1;
+        S32 c2x = (b1x + midx) >> 1;
+        S32 inter1x = (c1x + c2x) >> 1;
+        S32 c3x = (b2x + midx) >> 1;
+        S32 c4x = (b2x + lastx) >> 1;
+        S32 inter2x = (c3x + c4x) >> 1;
 
-        //
-        //
-        // Calcule les valeurs intermédiaires (Niveau 1)
-        //
-        //
+        S32 c1y = (b1y + firsty) >> 1;
+        S32 c2y = (b1y + midy) >> 1;
+        S32 inter1y = (c1y + c2y) >> 1;
+        S32 c3y = (b2y + midy) >> 1;
+        S32 c4y = (b2y + lasty) >> 1;
+        S32 inter2y = (c3y + c4y) >> 1;
 
-        b1x = (firstx + ax) >> 1;
-        b2x = (lastx + ax) >> 1;
-        midx = (b1x + b2x) >> 1;
+        S32 c1z = (b1z + firstz) >> 1;
+        S32 c2z = (b1z + midz) >> 1;
+        S32 inter1z = (c1z + c2z) >> 1;
+        S32 c3z = (b2z + midz) >> 1;
+        S32 c4z = (b2z + lastz) >> 1;
+        S32 inter2z = (c3z + c4z) >> 1;
 
-        b1y = (firsty + ay) >> 1;
-        b2y = (lasty + ay) >> 1;
-        midy = (b1y + b2y) >> 1;
+        S32 px[4];
+        S32 py[4];
+        S32 pz[4];
 
-        //
-        //
-        // Calcule les valeurs intermédiaires (Niveau 2)
-        //
-        //
-
-        c1x = (b1x + firstx) >> 1;
-        c2x = (b1x + midx) >> 1;
-        inter1x = (c1x + c2x) >> 1;
-        c3x = (b2x + midx) >> 1;
-        c4x = (b2x + lastx) >> 1;
-        inter2x = (c3x + c4x) >> 1;
-
-        c1y = (b1y + firsty) >> 1;
-        c2y = (b1y + midy) >> 1;
-        inter1y = (c1y + c2y) >> 1;
-        c3y = (b2y + midy) >> 1;
-        c4y = (b2y + lasty) >> 1;
-        inter2y = (c3y + c4y) >> 1;
-
-        //
-        // Stocke toutes les valeurs dans le tableau final
-        // Puis lance le traçage virtuel
-        //
-
-        qx[0] = firstx;
-        qx[1] = inter1x;
-        qx[2] = midx;
-        qx[3] = inter2x;
-        qx[4] = lastx;
-
-        qy[0] = firsty;
-        qy[1] = inter1y;
-        qy[2] = midy;
-        qy[3] = inter2y;
-        qy[4] = lasty;
+        px[0] = inter1x;
+        py[0] = inter1y;
+        pz[0] = inter1z;
+        px[1] = midx;
+        py[1] = midy;
+        pz[1] = midz;
+        px[2] = inter2x;
+        py[2] = inter2y;
+        pz[2] = inter2z;
+        px[3] = lastx;
+        py[3] = lasty;
+        pz[3] = lastz;
 
         for (i = 0; i < 4; i++) {
-            CalculeLigneOmbre(start_x, start_y, FTOW(qx[i + 1]), FTOW(qy[i + 1]));
-
-            start_x = FTOW(qx[i + 1]);
-            start_y = FTOW(qy[i + 1]);
+            if (idx < maxPts) {
+                ox[idx] = FTOW(px[i]);
+                oy[idx] = FTOW(py[i]);
+                oz[idx] = pz[i];
+                idx++;
+            }
         }
+
         firstx = lastx;
         firsty = lasty;
+        firstz = lastz;
+    }
+
+    return idx;
+}
+
+void DrawOmbre(S32 x0, S32 y0, S32 x1, S32 y1, S32 x2, S32 y2, S32 x3, S32 y3) {
+    S32 px[17];
+    S32 py[17];
+    S32 pz[17];
+    S32 start_x, start_y;
+    S32 nb, i;
+
+    nb = BuildOmbreOutline(x0, y0, x1, y1, x2, y2, x3, y3, ShadowZO, px, py,
+                           pz, 17);
+
+    start_x = px[0];
+    start_y = py[0];
+
+    for (i = 1; i < nb; i++) {
+        CalculeLigneOmbre(start_x, start_y, px[i], py[i]);
+        start_x = px[i];
+        start_y = py[i];
     }
 }
+
+#ifdef USE_GPURENDERER
+/* GL mode: fill the same Bezier-rounded outline the span filler traces as
+   one multiply-blended, depth-tested polygon straight into the FBO —
+   occlusion comes from the FBO depth instead of DrawRecover fixing up
+   Log.  The last outline point re-closes the loop at the start point
+   (both are the midpoint of edge 0-1, one in pixel space, one in fixed
+   point), so the polygon drops it. */
+void DrawShadowGL(void) {
+    S32 px[17];
+    S32 py[17];
+    S32 pz[17];
+    S16 sx[16];
+    S16 sy[16];
+    U16 sz[16];
+    S32 nb, i;
+
+    nb = BuildOmbreOutline(XS0, YS0, XS1, YS1, XS2, YS2, XS3, YS3, ShadowZO,
+                           px, py, pz, 17);
+
+    if (nb > 16) {
+        nb = 16;
+    }
+
+    /* GL vertices are S16; a projection blowup wraps them into arbitrary
+       on-screen triangles. */
+    for (i = 0; i < nb; i++) {
+        if (px[i] < -32767 || px[i] > 32767 || py[i] < -32767 ||
+            py[i] > 32767) {
+            return;
+        }
+        sx[i] = (S16)px[i];
+        sy[i] = (S16)py[i];
+        sz[i] = (U16)pz[i];
+    }
+
+    if (nb >= 3) {
+        GL_DrawShadowPoly(sx, sy, sz, nb, ShadowLevel);
+    }
+}
+#endif
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 void DrawLineShade(S32 x0, S32 z0, S32 x1, S32 z1, S32 x2, S32 z2, S32 x3, S32 z3) {

@@ -4829,15 +4829,15 @@ void AfficheShadow(T_SORT *pt, S32 beta) {
             S32 yw /*= pt->Yw*/;
 
 #ifdef USE_GPURENDERER
-            /* GL mode: the shadow is one multiply-blended quad straight
-               into the FBO — depth-tested against the terrain, which is
-               exactly the occlusion DrawRecover used to restore after
-               the ShadeBoxBlk pass.  No Log pixels involved, and no
-               dependence on the FBO→palette readback staying faithful. */
+            /* GL mode: the shadow is the Bezier-rounded outline the SW
+               span filler traces, filled as one multiply-blended,
+               depth-tested polygon straight into the FBO — terrain
+               occlusion comes from the FBO depth buffer, which is exactly
+               the occlusion DrawRecover used to restore after the
+               ShadeBoxBlk pass.  No Log pixels involved, and no dependence
+               on the FBO→palette readback staying faithful. */
             if (GPURendererActive) {
-                S16 qx[4] = {(S16)XS0, (S16)XS1, (S16)XS2, (S16)XS3};
-                S16 qy[4] = {(S16)YS0, (S16)YS1, (S16)YS2, (S16)YS3};
-                GL_DrawShadowQuad(qx, qy, ShadowZO, ShadowLevel);
+                DrawShadowGL();
                 return;
             }
 #endif
