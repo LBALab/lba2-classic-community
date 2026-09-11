@@ -1760,6 +1760,12 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
     if (!s_initialized || radius <= 0) {
         return;
     }
+    /* Ring vertices are S16 screen coords; an oversized radius (near-plane
+       projection blowup) wraps them into arbitrary on-screen triangles. */
+    if (radius > 8192 || cx + radius > 32767 || cx - radius < -32768 ||
+        cy + radius > 32767 || cy - radius < -32768) {
+        return;
+    }
     if (!Window_GLMakeCurrent()) {
         return;
     }

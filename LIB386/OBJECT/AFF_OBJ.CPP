@@ -1072,6 +1072,14 @@ S32 Sphere(U32 typePoly, void *poly) {
     // @@Return_Radius:
     TYPE_PT p1 = Obj_ListProjectedPoints[sphere->P1];
 
+    // Points behind the near plane or projecting outside S16 range carry
+    // the invalid sentinel (see ProjectList3DF); their radius explodes and
+    // the disc would stretch across the screen.  TestVisible and
+    // InsertQuad apply the same rejection to body polygons.
+    if (p1.X == -0x8000 && p1.Y == -0x8000) {
+        return 0;
+    }
+
     radius = ((radius ^ -1) + 1);
     S32 topY = p1.Y - radius;
     if (topY < ScreenYMin) {
@@ -1126,6 +1134,11 @@ S32 Sphere_Transp(U32 typePoly, void *poly) {
     }
 
     TYPE_PT p1 = Obj_ListProjectedPoints[sphere->P1];
+
+    // Same invalid-projection rejection as the solid sphere handler above.
+    if (p1.X == -0x8000 && p1.Y == -0x8000) {
+        return 0;
+    }
 
     radius = ((radius ^ -1) + 1);
     S32 topY = p1.Y - radius;
