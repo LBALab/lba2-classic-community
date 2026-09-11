@@ -1672,6 +1672,31 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
         pts[i].Pt_YE = ys[i];
     }
 
+    /* Occlusion reference depth.  The SW path never tests the shadow against
+       the local ground plane: DrawRecover clears shadow pixels only where
+       the Z-buffer is nearer than the cylinder around the actor (center
+       depth minus the body half-diagonal), so the ground the shadow lies on
+       can never win.  A strict per-pixel test against the FBO depth does the
+       opposite: the polygon interpolates ZO linearly in screen space while
+       the ground depth is hyperbolic, so mid-span fragments read as behind
+       the terrain and the shadow punches a hole at its own centre — a
+       stable crescent when idle, blinking while moving.  Bias every vertex
+       toward the camera by the shadow's full near-far ZO span, the GL
+       counterpart of DrawRecover's near-edge reference; genuine occluders
+       (walls, hills between camera and shadow) stay much nearer and keep
+       clipping it. */
+    S32 zmin = 0xFFFF;
+    S32 zmax = 0;
+    for (i = 0; i < n; i++) {
+        if (az[i] < zmin) {
+            zmin = az[i];
+        }
+        if (az[i] > zmax) {
+            zmax = az[i];
+        }
+    }
+    S32 bias = (zmax - zmin) + 16; /* + margin: depth16 is (131070 - aZ) / 2 */
+
     /* Pending batch first: it carries its own state. */
     GL_FlushBatch();
 
@@ -1726,10 +1751,11 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
             S32 c = tris[i];
             S16 x = xs[c];
             S16 y = ys[c];
+            U16 z = ((S32)az[c] > bias) ? (U16)(az[c] - bias) : 0;
             memcpy(v + 0, &x, 2);
             memcpy(v + 2, &y, 2);
             memset(v + 4, 0, 6); /* UV, light = 0 (unused) */
-            memcpy(v + 10, &az[c], 2);
+            memcpy(v + 10, &z, 2);
             memset(v + 12, 0, 2); /* RepMask = 0 */
         }
 
