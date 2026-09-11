@@ -81,9 +81,42 @@ static const char *s_vertSrc =
 static const char *s_fragSrc =
     GLSL_FRAG_HEADER
     "uniform sampler2D uTex;\n"
+    "uniform vec2 uTexel;\n"
+    "uniform int uFilter;\n" /* 0 = nearest, 1 = bilinear, 2 = Scale2x */
     "varying vec2 vTexCoord;\n"
     "void main() {\n"
-    "    gl_FragColor = texture2D(uTex, vTexCoord);\n"
+    "    vec4 result;\n"
+    "    if (uFilter == 2) {\n"
+    /* Scale2x (the documented 2x edge rules) evaluated per output pixel:
+     * the fragment's position inside its source texel picks the output
+     * sub-quadrant (E0..E3), and the rule replaces it with the matching
+     * neighbour only when the two neighbours guarding that corner agree.
+     * Sampling at exact texel centres with NEAREST keeps the comparisons
+     * exact. */
+    "        vec2 t = vTexCoord / uTexel;\n"
+    "        vec2 f = fract(t);\n"
+    "        vec2 c = (floor(t) + 0.5) * uTexel;\n"
+    "        vec4 e = texture2D(uTex, c);\n"
+    "        vec4 b = texture2D(uTex, c + vec2(0.0, -uTexel.y));\n"
+    "        vec4 d = texture2D(uTex, c + vec2(-uTexel.x, 0.0));\n"
+    "        vec4 rf = texture2D(uTex, c + vec2(uTexel.x, 0.0));\n"
+    "        vec4 h = texture2D(uTex, c + vec2(0.0, uTexel.y));\n"
+    "        result = e;\n"
+    "        if (!all(equal(b, h)) && !all(equal(d, rf))) {\n"
+    "            if (f.x < 0.5 && f.y < 0.5) {\n"
+    "                result = all(equal(d, b)) ? d : e;\n"
+    "            } else if (f.x >= 0.5 && f.y < 0.5) {\n"
+    "                result = all(equal(b, rf)) ? rf : e;\n"
+    "            } else if (f.x < 0.5) {\n"
+    "                result = all(equal(d, h)) ? d : e;\n"
+    "            } else {\n"
+    "                result = all(equal(h, rf)) ? rf : e;\n"
+    "            }\n"
+    "        }\n"
+    "    } else {\n"
+    "        result = texture2D(uTex, vTexCoord);\n"
+    "    }\n"
+    "    gl_FragColor = result;\n"
     "}\n";
 
 /* ── CLUT shader (3D Gouraud-textured polygons) ─────────────────────────── */
@@ -324,6 +357,8 @@ static GLuint s_vbo = 0;
 static GLuint s_fboVbo = 0; /* non-flipped UV quad for FBO→screen draw */
 static GLuint s_texture = 0;
 static GLint s_uTexLoc = -1;
+static GLint s_uTexelLoc = -1;  /* present overlay: 1/width, 1/height */
+static GLint s_uFilterLoc = -1; /* present overlay: 0 nearest, 1 bilinear, 2 Scale2x */
 static GLint s_aPosLoc = -1;
 static GLint s_aTexCoordLoc = -1;
 static U32 s_texWidth = 0;
@@ -346,18 +381,46 @@ static GLint s_idx_aPos = -1;
 static GLint s_idx_aTexCoord = -1;
 static GLint s_idx_uIndices = -1;
 static GLint s_idx_uPalette = -1;
+static GLint s_idx_uTexel = -1;
+static GLint s_idx_uFilter = -1;
 
 static const char *s_presentIndexedFragSrc =
     GLSL_FRAG_HEADER
     "uniform sampler2D uIndices;\n"
     "uniform sampler2D uPalette;\n"
+    "uniform vec2 uTexel;\n"
+    "uniform int uFilter;\n" /* 0 = nearest, 1 = bilinear, 2 = Scale2x */
     "varying vec2 vTexCoord;\n"
+    "float idxAt(vec2 uv) {\n"
+    "    return floor(texture2D(uIndices, uv).r * 255.0 + 0.5);\n"
+    "}\n"
     "void main() {\n"
-    "    float v = texture2D(uIndices, vTexCoord).r;\n"
     /* NEAREST filtering makes v exactly i/255; rebuild the texel index and
      * step to the palette texel centre the same way the CLUT shader does. */
-    "    float i = floor(v * 255.0 + 0.5);\n"
-    "    gl_FragColor = texture2D(uPalette, vec2((i + 0.5) / 256.0, 0.5));\n"
+    "    vec2 t = vTexCoord / uTexel;\n"
+    "    vec2 f = fract(t);\n"
+    "    vec2 c = (floor(t) + 0.5) * uTexel;\n"
+    "    float e = idxAt(c);\n"
+    /* Scale2x on the raw palette indices — exact integer comparisons, then
+     * a single palette lookup for the winning texel. */
+    "    if (uFilter == 2) {\n"
+    "        float b = idxAt(c + vec2(0.0, -uTexel.y));\n"
+    "        float d = idxAt(c + vec2(-uTexel.x, 0.0));\n"
+    "        float r = idxAt(c + vec2(uTexel.x, 0.0));\n"
+    "        float h = idxAt(c + vec2(0.0, uTexel.y));\n"
+    "        if (b != h && d != r) {\n"
+    "            if (f.x < 0.5 && f.y < 0.5) {\n"
+    "                e = (d == b) ? d : e;\n"
+    "            } else if (f.x >= 0.5 && f.y < 0.5) {\n"
+    "                e = (b == r) ? r : e;\n"
+    "            } else if (f.x < 0.5) {\n"
+    "                e = (d == h) ? d : e;\n"
+    "            } else {\n"
+    "                e = (h == r) ? r : e;\n"
+    "            }\n"
+    "        }\n"
+    "    }\n"
+    "    gl_FragColor = texture2D(uPalette, vec2((e + 0.5) / 256.0, 0.5));\n"
     "}\n";
 
 /* ── Frame cost profiler ─────────────────────────────────────────────────── */
@@ -904,6 +967,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     }
 
     s_uTexLoc = glGetUniformLocation(s_program, "uTex");
+    s_uTexelLoc = glGetUniformLocation(s_program, "uTexel");
+    s_uFilterLoc = glGetUniformLocation(s_program, "uFilter");
     s_aPosLoc = glGetAttribLocation(s_program, "aPos");
     s_aTexCoordLoc = glGetAttribLocation(s_program, "aTexCoord");
 
@@ -925,6 +990,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_idx_aTexCoord = glGetAttribLocation(s_presentIndexedProgram, "aTexCoord");
     s_idx_uIndices = glGetUniformLocation(s_presentIndexedProgram, "uIndices");
     s_idx_uPalette = glGetUniformLocation(s_presentIndexedProgram, "uPalette");
+    s_idx_uTexel = glGetUniformLocation(s_presentIndexedProgram, "uTexel");
+    s_idx_uFilter = glGetUniformLocation(s_presentIndexedProgram, "uFilter");
 
     glGenTextures(1, &s_lutTex);
     glBindTexture(GL_TEXTURE_2D, s_lutTex);
@@ -2802,6 +2869,10 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glUniform1i(s_uTexLoc, 0);
+        /* The hi-res FBO is always drawn plainly; the Scale2x mode below is
+         * for the 640x480 overlay only.  Pin it here or a stale Scale2x from
+         * the previous frame's overlay draw would smear the FBO blit. */
+        glUniform1i(s_uFilterLoc, 1);
 
         glBindBuffer(GL_ARRAY_BUFFER, s_fboVbo);
         glEnableVertexAttribArray(s_aPosLoc);
@@ -2823,8 +2894,8 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     /* Upload the ARGB framebuffer to the GL texture (2D overlay) */
     glBindTexture(GL_TEXTURE_2D, s_texture);
 
-    /* Set filter mode (bilinear vs nearest) */
-    GLenum filter = filterLinear ? GL_LINEAR : GL_NEAREST;
+    /* Set filter mode (bilinear vs nearest; Scale2x samples exact texels) */
+    GLenum filter = (filterLinear == 1) ? GL_LINEAR : GL_NEAREST;
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
 
@@ -2868,6 +2939,8 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, s_texture);
     glUniform1i(s_uTexLoc, 0);
+    glUniform2f(s_uTexelLoc, 1.0f / (GLfloat)width, 1.0f / (GLfloat)height);
+    glUniform1i(s_uFilterLoc, filterLinear);
 
     glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
     glEnableVertexAttribArray(s_aPosLoc);
@@ -2975,6 +3048,10 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glUniform1i(s_uTexLoc, 0);
+        /* The hi-res FBO is always drawn plainly; the Scale2x mode below is
+         * for the 640x480 overlay only.  Pin it here or a stale Scale2x from
+         * the previous frame's overlay draw would smear the FBO blit. */
+        glUniform1i(s_uFilterLoc, 1);
 
         glBindBuffer(GL_ARRAY_BUFFER, s_fboVbo);
         glEnableVertexAttribArray(s_aPosLoc);
@@ -3053,6 +3130,8 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, s_lutTex);
     glUniform1i(s_idx_uPalette, 1);
+    glUniform2f(s_idx_uTexel, 1.0f / (GLfloat)width, 1.0f / (GLfloat)height);
+    glUniform1i(s_idx_uFilter, filterLinear);
 
     glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
     glEnableVertexAttribArray(s_idx_aPos);

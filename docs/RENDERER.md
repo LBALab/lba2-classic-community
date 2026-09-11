@@ -279,6 +279,8 @@ DisplayMenu[] = {
 
 **Texture filter toggle** (`MENU_ID_DISPLAY_TEXFILTER`): flips `GL_NEAREST` ↔ `GL_LINEAR` on the atlas texture. **Only active when the OpenGL renderer is selected** — when Software is active, this row is greyed out (non-selectable). Switching the renderer to OpenGL enables it; switching back to Software greys it out again. Trivial to apply at runtime.
 
+The shipped option now cycles three values (`DisplayTexFilter`: 0 = Nearest, 1 = Bilinear, 2 = Scale2x). Scale2x applies the documented 2x edge rules on the GPU in the present shaders (`s_fragSrc` / `s_presentIndexedFragSrc` in `LIB386/GL/RENDER_GL.CPP`) — for the 640×480 2D overlay only, with exact texel-centre sampling so index comparisons stay exact (the indexed path compares raw palette indices). The 3D atlas keeps bilinear sampling for any non-zero value: Scale2x is a screen-space rule and cannot apply to perspective-mapped textures.
+
 The Renderer row is always selectable. The Texture Filter row's selectability depends on the current renderer. Both rows are always visible in the menu (when `GPURENDERER=ON` at build time). If the user's GPU doesn't support GL 2.1 / GLES 2.0, the OpenGL option is shown but produces an error message on selection.
 
 ### Menu labels

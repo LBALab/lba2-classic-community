@@ -117,7 +117,7 @@ extern S32 DisplayFullScreen;
 extern S32 DisplayVSync;
 #ifdef USE_GPURENDERER
 extern S32 GPURendererActive; ///< 0 = Software, 1 = OpenGL/GLES
-extern S32 DisplayTexFilter;  ///< 0 = Nearest, 1 = Bilinear (GL mode only)
+extern S32 DisplayTexFilter;  ///< 0 = Nearest, 1 = Bilinear, 2 = Scale2x (2D overlay in GL mode)
 extern S32 RenderQuality;     ///< 1 = native, 2 = 2x SSAA, 4 = 4x SSAA (GL mode only)
 #endif
 extern S32 FixedTimestep; ///< #358: min ms of game-time per sim step (0 = off). See docs/MOVEMENT_FRAMERATE.md.

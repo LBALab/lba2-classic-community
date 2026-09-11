@@ -2497,7 +2497,7 @@ void ReadConfigFile(void) {
  #endif
 
     DisplayTexFilter = DefFileBufferReadValueDefault("DisplayTexFilter", TRUE);
-    if (DisplayTexFilter < 0 OR DisplayTexFilter > 1)
+    if (DisplayTexFilter < 0 OR DisplayTexFilter > 2)
         DisplayTexFilter = TRUE;
 
     DisplayStereo3D = DefFileBufferReadValueDefault("DisplayStereo3D", FALSE);

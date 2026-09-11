@@ -523,7 +523,7 @@ static void BuildCustomMenuText(S32 num, char *string) {
         break;
 
     case MENU_ID_DISPLAY_TEXFILTER:
-        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayTexFilter ? MENU_LABEL_TEXFILTER_BILINEAR : MENU_LABEL_TEXFILTER_NEAREST));
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayTexFilter == 2 ? MENU_LABEL_TEXFILTER_SCALE2X : DisplayTexFilter ? MENU_LABEL_TEXFILTER_BILINEAR : MENU_LABEL_TEXFILTER_NEAREST));
         break;
 
     case MENU_ID_DISPLAY_STEREO3D:
@@ -3407,7 +3407,9 @@ S32 GereDisplayMenu(void) {
         }
 
         case MENU_ID_DISPLAY_TEXFILTER:
-            DisplayTexFilter ^= 1;
+            /* 0 = Nearest, 1 = Bilinear, 2 = Scale2x (2D overlay in GL mode;
+             * the 3D atlas samples bilinear for any non-zero value). */
+            DisplayTexFilter = (DisplayTexFilter + 1) % 3;
             WriteConfigFile();
             break;
 
