@@ -13,7 +13,7 @@
 #include "RES_MENU.H"
 
 #include "RES_CATALOG.H" /* Res_BuildMenuList */
-#include <SVGA/SCREEN.H> /* ModeDesiredX / ModeDesiredY */
+#include "RES_SWITCH.H"  /* Res_BaseDimensions */
 
 #include <stdio.h>
 #include <string.h>
@@ -42,8 +42,11 @@ S32 Display_BuildEntries(DisplayEntry *out) {
 }
 
 S32 Display_FindCurrentEntry(const DisplayEntry *entries, S32 count) {
+    U32 currentW, currentH;
+    Res_BaseDimensions(&currentW, &currentH);
+
     for (S32 i = 0; i < count; i++) {
-        if (entries[i].w == ModeDesiredX && entries[i].h == ModeDesiredY)
+        if (entries[i].w == currentW && entries[i].h == currentH)
             return i;
     }
     return -1;
@@ -51,6 +54,8 @@ S32 Display_FindCurrentEntry(const DisplayEntry *entries, S32 count) {
 
 void Display_FormatCurrentLabel(char *out, S32 outSize) {
     DisplayEntry entries[DISPLAY_MENU_MAX_ENTRIES];
+    U32 currentW, currentH;
+    Res_BaseDimensions(&currentW, &currentH);
     S32 count = Display_BuildEntries(entries);
     S32 idx = Display_FindCurrentEntry(entries, count);
     if (idx >= 0) {
@@ -60,6 +65,6 @@ void Display_FormatCurrentLabel(char *out, S32 outSize) {
            isn't blank. Reachable if the player launched at a console-verb
            resolution that the recommended tier doesn't enumerate. */
         snprintf(out, (size_t)outSize, "%ux%u",
-                 (unsigned)ModeDesiredX, (unsigned)ModeDesiredY);
+                 (unsigned)currentW, (unsigned)currentH);
     }
 }
