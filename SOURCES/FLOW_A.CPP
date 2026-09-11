@@ -5,6 +5,11 @@
 #include <POLYGON/POLY.H>
 #include <stdio.h>
 
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+extern S32 GPURendererActive;
+#endif
+
 void BoxFlow(S32 x, S32 y, S32 coul) {
     if (x >= ClipXMax || x < ClipXMin || y >= ClipYMax || y < ClipYMin) {
         return;
@@ -19,6 +24,16 @@ void BoxFlow(S32 x, S32 y, S32 coul) {
 }
 
 void ShadeBoxBlk(S32 x0, S32 y0, S32 x1, S32 y1, S32 deccoul) {
+#ifdef USE_GPURENDERER
+    /* GL path: the SW in-place Log darkening has no scene to darken (the
+       scene lives in the FBO and Log holds only the 2D overlay), so shade
+       the FBO rect instead. */
+    if (GPURendererActive) {
+        GL_ShadeBox(x0, y0, x1, y1, deccoul);
+        return;
+    }
+#endif
+
     if (x0 > ClipXMax || x1 < ClipXMin || y0 > ClipYMax || y1 < ClipYMin) {
         return;
     }

@@ -103,6 +103,13 @@ void GL_DrawShadowQuad(const S16 *xs, const S16 *ys, const U16 *az, U32 level);
 void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
                    S32 zWrite, S32 transparent);
 
+//! Darken a screen-space rect by the shade level (SW ShadeBoxBlk
+//! replacement — dialog bands, control panels, credits).  The SW path
+//! darkens the Log pixels in place, which in GL hold no scene; this
+//! multiplies the FBO rect's colors by (15 - level) / 15 instead.
+//! Depth-unconditional: the band shades everything composited behind it.
+void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level);
+
 //! Read back the FBO depth buffer into the SW Z-buffer (PtrZBuffer) after
 //! terrain rendering.  Converts GL_DEPTH_COMPONENT16 back to the aZ format
 //! used by ZBufBoxOverWrite2() for shadow/object occlusion in GL mode.

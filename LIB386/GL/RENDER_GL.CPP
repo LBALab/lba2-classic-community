@@ -1870,6 +1870,108 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
     glUseProgram(0);
 }
 
+/* ── Screen-space shade rect (GL ShadeBoxBlk replacement) ────────────────── */
+
+/* The SW ShadeBoxBlk darkens the Log pixels in place through the fog
+   window's fade rows — that works because in SW the Log holds the scene.
+   In GL the Log overlay is empty where only 2D drew, so darkening it
+   produces a solid band instead of a translucent one.  This multiplies
+   the FBO rect's colors by (15 - level) / 15 instead — the linear
+   counterpart of the fade row — with the depth test off so the band
+   shades everything composited behind it. */
+void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
+    if (!s_initialized) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+
+    GL_FlushBatch();
+
+    if (!s_frameActive) {
+        s_frameActive = 1;
+        if (s_fbo) {
+            glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+            glViewport(0, 0, s_fboWidth, s_fboHeight);
+        } else {
+            glViewport(0, 0, s_texWidth, s_texHeight);
+        }
+    }
+
+    glUseProgram(s_clutProgram);
+
+    glUniform2f(s_clut_uScreenScale, 2.0f / (GLfloat)s_texWidth,
+                2.0f / (GLfloat)s_texHeight);
+    glUniform1i(s_clut_uPolyMode, 6); /* multiply by flat color */
+    glUniform1f(s_clut_uFlatColor, (GLfloat)(15 - (level & 15)) / 15.0f);
+    glUniform1i(s_clut_uAlphaMode, 0);
+    glUniform1i(s_clut_uChromaKey, 0);
+    glUniform1f(s_clut_uCLUTBaseRow, 0.0f);
+    glUniform1f(s_clut_uScaledFogNear, s_batchScaledFogNear);
+    glUniform1f(s_clut_uFogRowScale, s_batchFogRowScale);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, s_atlasTex);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, s_clutTex);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, s_paletteTex);
+    glActiveTexture(GL_TEXTURE0);
+
+    /* Unconditional: the band shades everything behind it. */
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_DST_COLOR, GL_ZERO);
+
+    U8 verts[6 * 14];
+    S16 coords[4][2] = {
+        {(S16)x0, (S16)y0}, {(S16)x1, (S16)y0}, {(S16)x1, (S16)y1}, {(S16)x0, (S16)y1}};
+    static const S8 order[6] = {0, 1, 2, 0, 2, 3};
+    for (int i = 0; i < 6; i++) {
+        U8 *v = verts + i * 14;
+        memcpy(v + 0, &coords[order[i]][0], 2);
+        memcpy(v + 2, &coords[order[i]][1], 2);
+        memset(v + 4, 0, 4);  /* uv = 0 */
+        memset(v + 8, 0, 2);  /* light = 0 */
+        memset(v + 10, 0, 2); /* zo = 0 */
+        memset(v + 12, 0, 2); /* repmask = 0 */
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
+    glEnableVertexAttribArray(s_clut_aPos);
+    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 14,
+                          (const void *)0);
+    glEnableVertexAttribArray(s_clut_aTexCoord);
+    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)4);
+    glEnableVertexAttribArray(s_clut_aLight);
+    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)8);
+    glEnableVertexAttribArray(s_clut_aZ);
+    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)10);
+    glEnableVertexAttribArray(s_clut_aRepMask);
+    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)12);
+
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+
+    glDisableVertexAttribArray(s_clut_aPos);
+    glDisableVertexAttribArray(s_clut_aTexCoord);
+    glDisableVertexAttribArray(s_clut_aLight);
+    glDisableVertexAttribArray(s_clut_aZ);
+    glDisableVertexAttribArray(s_clut_aRepMask);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glUseProgram(0);
+}
+
 static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
                            Struc_Point *p2) {
     /* Flush if batch is full */
@@ -3128,6 +3230,9 @@ void GL_SavePresentPNG(const char *path) {
 void GL_RestoreTerrainSnapshot(void) {}
 void GL_DrawShadowQuad(const S16 *xs, const S16 *ys, const U16 *az, U32 level) {
     (void)xs; (void)ys; (void)az; (void)level;
+}
+void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
+    (void)x0; (void)y0; (void)x1; (void)y1; (void)level;
 }
 void GL_SetRenderQuality(U32 quality) { (void)quality; }
 void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
