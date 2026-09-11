@@ -662,6 +662,187 @@ static inline void FillBlackPolyZBuf(S32 xi, S32 zi, T_SOMMET_ROT *ptrs, U8 *ptr
     }
 }
 /*──────────────────────────────────────────────────────────────────────────*/
+#ifdef USE_GPURENDERER
+/* ── Near-plane tile clipping (GPU path) ────────────────────────────────── */
+
+/* Rotated camera-space grid coordinates captured by the projection loop in
+   AffichageTerrainZBuf (same 65×65 linear index as SommetRot).  The SW path
+   only consumes the projected 2D result, but the near-plane clip below runs
+   in this space, where the near plane is a simple constant-depth test. */
+static S32 s_nearClipRX[65 * 65];
+static S32 s_nearClipRY[65 * 65];
+static S32 s_nearClipRZ[65 * 65];
+
+/* One clipped vertex: camera-space position plus the per-vertex attributes
+   the ground fillers consume (light, atlas UV). */
+typedef struct {
+    S32 rx, ry, rz;
+    S32 light;
+    S32 u, v;
+} T_NEARCLIP_VERT;
+
+/* Clip one ground half-triangle against the camera near plane (keep
+   CameraZr - rz >= NearClip) and draw the surviving part, replicating the
+   DrawFeuillePolyZBuf attribute pipeline: same fog/CLUT selection, same
+   ListTypePolygone / ListTypePTexture dispatch, backface cull included.
+   The SW keeps its black-curtain fill for these tiles because its fillers
+   cannot rasterize a polygon whose vertices sit behind the near plane; the
+   GPU path can, and the ground the camera flies over stays visible instead
+   of punching black holes into the view. */
+static void FillNearClippedHalf(T_NEARCLIP_VERT *tri, U32 bank, U32 texFlag,
+                                U32 polyFlag) {
+    T_NEARCLIP_VERT out[5];
+    S32 nOut = 0;
+    S32 e;
+
+    for (e = 0; e < 3; e++) {
+        const T_NEARCLIP_VERT *P = &tri[e];
+        const T_NEARCLIP_VERT *Q = &tri[(e + 1) % 3];
+        S32 zrP = CameraZr - P->rz;
+        S32 zrQ = CameraZr - Q->rz;
+        S32 inP = (zrP >= NearClip);
+        S32 inQ = (zrQ >= NearClip);
+
+        if (inP && nOut < 5) {
+            out[nOut++] = *P;
+        }
+        if (inP != inQ && nOut < 5) {
+            T_NEARCLIP_VERT *m = &out[nOut++];
+            S32 t16 = (S32)(((S64)(zrP - NearClip) << 16) / (zrP - zrQ));
+            m->rx = P->rx + (S32)(((S64)(Q->rx - P->rx) * t16) >> 16);
+            m->ry = P->ry + (S32)(((S64)(Q->ry - P->ry) * t16) >> 16);
+            m->rz = P->rz + (S32)(((S64)(Q->rz - P->rz) * t16) >> 16);
+            m->light = P->light + (((Q->light - P->light) * t16) >> 16);
+            m->u = P->u + (((Q->u - P->u) * t16) >> 16);
+            m->v = P->v + (((Q->v - P->v) * t16) >> 16);
+        }
+    }
+
+    for (e = 1; e + 1 < nOut; e++) {
+        T_NEARCLIP_VERT *t[3];
+        Struc_Point pts[3];
+        S32 lightSum = 0;
+        S32 ok = 1;
+        S32 k;
+
+        t[0] = &out[0];
+        t[1] = &out[e];
+        t[2] = &out[e + 1];
+
+        for (k = 0; k < 3; k++) {
+            S32 zr = CameraZr - t[k]->rz;
+            if (!LongProjectPoint(t[k]->rx, t[k]->ry, t[k]->rz)) {
+                ok = 0;
+                break;
+            }
+            pts[k].Pt_XE = (S16)Xp;
+            pts[k].Pt_YE = (S16)Yp;
+            pts[k].Pt_Light = (S16)t[k]->light;
+            pts[k].Pt_ZO = GET_ZO(zr);
+            lightSum += t[k]->light;
+        }
+        if (!ok || !TestVuePoly(pts)) {
+            continue;
+        }
+
+        S32 fog = (S32)(PalLevel + 16 * BoundRegleTrois(0, 15,
+                                                       ClipZFar - StartZFog,
+                                                       (CameraZr - ((t[0]->rz + t[1]->rz + t[2]->rz) / 3)) - StartZFog));
+        SetCLUT((U16)fog);
+
+        S32 color = (S32)((bank << 4) + 11);
+
+        if (polyFlag) {
+            S32 pcolor = color;
+            if (polyFlag == 1) {
+                pcolor += (lightSum * 21845) >> 24;
+            }
+            Fill_Poly(ListTypePolygone[polyFlag], pcolor, 3, pts);
+        }
+
+        if (texFlag) {
+            for (k = 0; k < 3; k++) {
+                pts[k].Pt_MapU = (U16)t[k]->u;
+                pts[k].Pt_MapV = (U16)t[k]->v;
+            }
+            S32 tcolor = color;
+            if (texFlag == 2) {
+                tcolor += (lightSum * 21845) >> 24;
+            }
+            Fill_Poly((U8)ListTypePTexture[texFlag + (polyFlag << 2)],
+                      tcolor, 3, pts);
+        }
+    }
+}
+
+/* GL mode replacement for FillBlackPolyZBuf on tiles that cross the near
+   plane: both halves are clipped against the near plane and their surviving
+   parts drawn with full texture/light/depth attributes.  The black curtains
+   stay suppressed for these tiles — the void closer to the camera than the
+   clipped edge is the FBO clear colour, exactly what the curtains painted. */
+static void DrawNearClippedTileZBuf(S32 xi, S32 zi, T_SOMMET_ROT *ptrs, U8 *ptra) {
+    T_HALF_POLY *ptrh = &MapPolyGround[zi * (64 * 2) + xi * 2];
+    /* Corner order matches DrawFeuillePolyZBuf: [0] TL, [65] BL, [66] BR,
+       [1] TR — half 0 = (TL, BL, BR), half 1 = (BR, TR, TL). */
+    static const S32 cornOff[4] = {0, 65, 66, 1};
+    T_NEARCLIP_VERT corn[4];
+    S32 base = zi * 65 + xi;
+    S32 k;
+
+    (void)ptrs;
+    (void)ptra;
+
+    for (k = 0; k < 4; k++) {
+        S32 idx = base + cornOff[k];
+        S32 v = (MapIntensity[idx] & 15) * 256 - 255;
+        if (v < 0) {
+            v = 0;
+        }
+        corn[k].rx = s_nearClipRX[idx];
+        corn[k].ry = s_nearClipRY[idx];
+        corn[k].rz = s_nearClipRZ[idx];
+        corn[k].light = v;
+        corn[k].u = 0;
+        corn[k].v = 0;
+    }
+
+    if (ptrh[0].PolyFlag || ptrh[0].TexFlag) {
+        T_NEARCLIP_VERT tri[3];
+        T_HALF_TEX *ptrt = &ListTexDef[ptrh[0].IndexTex];
+        tri[0] = corn[0];
+        tri[1] = corn[1];
+        tri[2] = corn[2];
+        tri[0].u = ptrt->Tx0;
+        tri[0].v = ptrt->Ty0;
+        tri[1].u = ptrt->Tx1;
+        tri[1].v = ptrt->Ty1;
+        tri[2].u = ptrt->Tx2;
+        tri[2].v = ptrt->Ty2;
+        FillNearClippedHalf(tri, ptrh[0].Bank, ptrh[0].TexFlag,
+                            ptrh[0].PolyFlag);
+    }
+
+    ptrh++;
+
+    if (ptrh[0].PolyFlag || ptrh[0].TexFlag) {
+        T_NEARCLIP_VERT tri[3];
+        T_HALF_TEX *ptrt = &ListTexDef[ptrh[0].IndexTex];
+        tri[0] = corn[2];
+        tri[1] = corn[3];
+        tri[2] = corn[0];
+        tri[0].u = ptrt->Tx0;
+        tri[0].v = ptrt->Ty0;
+        tri[1].u = ptrt->Tx1;
+        tri[1].v = ptrt->Ty1;
+        tri[2].u = ptrt->Tx2;
+        tri[2].v = ptrt->Ty2;
+        FillNearClippedHalf(tri, ptrh[0].Bank, ptrh[0].TexFlag,
+                            ptrh[0].PolyFlag);
+    }
+}
+#endif /* USE_GPURENDERER */
+
+/*──────────────────────────────────────────────────────────────────────────*/
 struct S_Terrain {
     S8 x;
     S8 y;
@@ -810,11 +991,20 @@ void AffichageTerrainZBuf(void) {
     ptrm = MapSommetY;
     ptrs = &SommetRot[0][0];
 
+    S32 rotIdx = 0;
     for (S32 z = 0; z <= NB_COTE * 512; z += 512) {
         for (S32 x = 0; x <= NB_COTE * 512; x += 512) {
             S32 zr;
 
             LongWorldRotatePoint(x, *ptrm, z);
+
+#ifdef USE_GPURENDERER
+            /* Camera-space position kept for the near-plane tile clip. */
+            s_nearClipRX[rotIdx] = X0;
+            s_nearClipRY[rotIdx] = Y0;
+            s_nearClipRZ[rotIdx] = Z0;
+            rotIdx++;
+#endif
 
             zr = CameraZr - Z0;
 
@@ -904,7 +1094,17 @@ void AffichageTerrainZBuf(void) {
                 }
                 case 0:
                     if (mask) {
+#ifdef USE_GPURENDERER
+                        if (GPURendererActive && (mask & 0x2000)) {
+                            /* Some corner crosses the near plane: draw the
+                             * clipped remainder instead of black curtains. */
+                            DrawNearClippedTileZBuf(x, z, ptrs, ptra);
+                        } else {
+                            FillBlackPolyZBuf(x, z, ptrs, ptra);
+                        }
+#else
                         FillBlackPolyZBuf(x, z, ptrs, ptra);
+#endif
                     }
                     break;
                 }
