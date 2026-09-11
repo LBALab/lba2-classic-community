@@ -93,6 +93,16 @@ void GL_RestoreTerrainSnapshot(void);
 //! against the terrain so nearer geometry clips the shadow.
 void GL_DrawShadowQuad(const S16 *xs, const S16 *ys, const U16 *az, U32 level);
 
+//! Draw one body sphere (eye, button, nostril — LBA bodies model round
+//! details as shaded discs) as a depth-tested flat-color disc in the FBO.
+//! GL replacement for the SW Fill_Sphere Log path, whose pixels composite
+//! over the FBO without occlusion.  colorIndex is the final palette index
+//! (fog conversion already applied by the caller); zo is the sphere centre
+//! depth in aZ units; zWrite mirrors the SW ZBuf/NZW filler split;
+//! transparent renders at 50% like Sphere_Transp.
+void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
+                   S32 zWrite, S32 transparent);
+
 //! Read back the FBO depth buffer into the SW Z-buffer (PtrZBuffer) after
 //! terrain rendering.  Converts GL_DEPTH_COMPONENT16 back to the aZ format
 //! used by ZBufBoxOverWrite2() for shadow/object occlusion in GL mode.

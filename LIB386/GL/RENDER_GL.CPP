@@ -22,6 +22,7 @@
 #include <SDL3/SDL.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include <FILEIO/SAVEPNG.H>
 
 /* ── External palette getter (defined in SDL.CPP) ───────────────────────── */
@@ -1729,6 +1730,126 @@ void GL_DrawShadowQuad(const S16 *xs, const S16 *ys, const U16 *az, U32 level) {
                           (const void *)12);
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+
+    glDisableVertexAttribArray(s_clut_aPos);
+    glDisableVertexAttribArray(s_clut_aTexCoord);
+    glDisableVertexAttribArray(s_clut_aLight);
+    glDisableVertexAttribArray(s_clut_aZ);
+    glDisableVertexAttribArray(s_clut_aRepMask);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glUseProgram(0);
+}
+
+/* ── Body sphere disc (GL Fill_Sphere replacement) ───────────────────────── */
+
+/* LBA bodies model round details (eyes, buttons, nostrils) as shaded
+   spheres.  The SW Fill_Sphere paints them into the Log buffer, where the
+   painter-ordered body polys drawn after them cover the hidden ones.  In
+   GL the body polys render into the FBO, so a Log-drawn sphere would
+   composite on top of everything with no occlusion — black buttons floated
+   over the body whenever their z-test against the one-frame-old PtrZBuffer
+   let them through.  This draws the disc straight into the FBO with the
+   same depth-test semantics as the SW filler (at-or-nearer passes) and the
+   batch polys' depth-write rule (opaque writes, transparent does not). */
+void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
+                   S32 zWrite, S32 transparent) {
+    if (!s_initialized || radius <= 0) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+
+    /* Pending batch first: it carries its own state. */
+    GL_FlushBatch();
+
+    if (!s_frameActive) {
+        s_frameActive = 1;
+        if (s_fbo) {
+            glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+            glViewport(0, 0, s_fboWidth, s_fboHeight);
+        } else {
+            glViewport(0, 0, s_texWidth, s_texHeight);
+        }
+    }
+
+    glUseProgram(s_clutProgram);
+
+    glUniform2f(s_clut_uScreenScale, 2.0f / (GLfloat)s_texWidth,
+                2.0f / (GLfloat)s_texHeight);
+    glUniform1i(s_clut_uPolyMode, 1); /* flat palette color */
+    glUniform1f(s_clut_uFlatColor, (GLfloat)(colorIndex & 0xFF));
+    glUniform1i(s_clut_uAlphaMode, transparent ? 1 : 0);
+    glUniform1i(s_clut_uChromaKey, 0);
+    glUniform1f(s_clut_uCLUTBaseRow, 0.0f);
+    glUniform1f(s_clut_uScaledFogNear, s_batchScaledFogNear);
+    glUniform1f(s_clut_uFogRowScale, s_batchFogRowScale);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, s_atlasTex);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, s_clutTex);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, s_paletteTex);
+    glActiveTexture(GL_TEXTURE0);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GEQUAL);
+    glDepthMask((zWrite && !transparent) ? GL_TRUE : GL_FALSE);
+
+    if (transparent) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    } else {
+        glDisable(GL_BLEND);
+    }
+
+    /* Disc as a triangle fan: centre + 17 ring vertices, 14-byte layout
+       matching the batch (x, y, uv=0, light=0, zo, repmask=0). */
+    const int SEGMENTS = 16;
+    U8 verts[(SEGMENTS + 2) * 14];
+    S16 cx16 = (S16)cx, cy16 = (S16)cy;
+    U16 zo16 = (U16)zo;
+    for (int i = 0; i < SEGMENTS + 2; i++) {
+        U8 *v = verts + i * 14;
+        int k = (i <= 1) ? 0 : (i - 1);
+        double a = 2.0 * 3.14159265358979323846 * k / SEGMENTS;
+        S16 x = cx16, y = cy16;
+        if (i >= 1) {
+            x = (S16)(cx16 + radius * cos(a) + 0.5);
+            y = (S16)(cy16 + radius * sin(a) + 0.5);
+        }
+        memcpy(v + 0, &x, 2);
+        memcpy(v + 2, &y, 2);
+        memset(v + 4, 0, 4);  /* uv = 0 */
+        memset(v + 8, 0, 2);  /* light = 0 */
+        memcpy(v + 10, &zo16, 2);
+        memset(v + 12, 0, 2); /* repmask = 0 */
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
+    glEnableVertexAttribArray(s_clut_aPos);
+    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 14,
+                          (const void *)0);
+    glEnableVertexAttribArray(s_clut_aTexCoord);
+    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)4);
+    glEnableVertexAttribArray(s_clut_aLight);
+    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)8);
+    glEnableVertexAttribArray(s_clut_aZ);
+    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)10);
+    glEnableVertexAttribArray(s_clut_aRepMask);
+    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+                          (const void *)12);
+
+    glDrawArrays(GL_TRIANGLE_FAN, 0, SEGMENTS + 2);
 
     glDepthMask(GL_TRUE);
     glDisable(GL_DEPTH_TEST);
