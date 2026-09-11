@@ -5667,10 +5667,13 @@ startaffscene:
     /* GL mode: on every frame that does not redraw the terrain (idle,
        AFF_OBJETS_*, and any other non-AFF_ALL flip), the FBO still holds
        last frame's body/shadow pixels and Log still holds last frame's 2D
-       overlay.  Blit the terrain snapshot back over the FBO and empty Log
-       so bodies/shadows/sprites start from a clean scene.  The idle
-       flagflip=0 path reaches the object pass without running any switch
-       case, so this cannot live inside the OBJETS case. */
+       overlay.  Blit the terrain snapshot back over the FBO and empty the
+       clip window's Log rows so bodies/shadows/sprites start from a clean
+       scene.  Modal loops (dialogue) narrow the clip window above their
+       typewriter strip and rely on that strip's Log content persisting
+       across frames, so the clear must not reach below the window.  The
+       idle flagflip=0 path reaches the object pass without running any
+       switch case, so this cannot live inside the OBJETS case. */
     if (GPURendererActive && CubeMode == CUBE_EXTERIEUR
             && flagflip != AFF_ALL_FLIP && flagflip != AFF_ALL_NO_FLIP) {
         static S32 s_noRestore = -1;
@@ -5680,7 +5683,11 @@ startaffscene:
         if (!s_noRestore) {
             GL_RestoreTerrainSnapshot();
         }
-        memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY + 512);
+        if (ClipWindowYMax >= ClipWindowYMin) {
+            memset(Log + (size_t)ClipWindowYMin * ModeDesiredX, 0,
+                   (size_t)ModeDesiredX
+                       * (size_t)(ClipWindowYMax - ClipWindowYMin + 1));
+        }
     }
 #endif
 

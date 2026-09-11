@@ -2068,6 +2068,9 @@ void Dial(S32 text, S32 drawscene) {
         TestSpeak();
         SpeakAnimation();
 
+        TestSpeak();
+        SpeakAnimation();
+
         /* Harness one-shot capture.  Read Log (back buffer), not Screen --
            Dial's typewriter renders into Log via the dialogue compositor
            and SpeakAnimation's BoxUpdate flushes a subset to Screen; the
