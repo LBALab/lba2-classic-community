@@ -74,7 +74,7 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 - **Options** (`OptionsMenu`): top-level submenu for Sound volume, Choose language, Advanced options, and Keyboard Config. Reuses original `text.hqr` labels where they already exist and keeps custom localized labels only for the new submenu concepts. Calls `GereVolumeMenu()`, `GereLanguageMenu()`, `GereAdvancedOptionsMenu()`, and `MenuConfig()`. Calls `SetDetailLevel()` on exit.
 - **Volume** (`GereVolumeMenu`): `VolumeMenuVoice` / `VolumeMenuNoVoice` depending on `FlagSpeak`. Sliders for Sample, Voice, Music, and General volume. Persisted via [CONFIG.md](CONFIG.md).
 - **Language** (`GereLanguageMenu`): cycles text language and voice language independently. Text changes reload `text.hqr` immediately; voice changes update the active `LanguageCD` setting.
-- **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, follow camera, video playback size, window fullscreen mode, and subtitle display; includes the existing Detail Level slider.
+- **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, follow camera, video playback size, window fullscreen mode, subtitle display, and the frame-rate counter, plus a frame-rate limiter (Off/30/60/72/90/120); includes the existing Detail Level slider.
 - **Save/Load** (`SavedGameManagement`, `ChoosePlayerName`): Player name selection, save slots, `GameChoiceMenu[]`, `SavedConfirmMenu[]` for delete
 - **Keyboard config** (`MenuConfig`): standalone config tool in [SOURCES/CONFIG/](../SOURCES/CONFIG/) or in-game `ReadInputConfig`/`WriteInputConfig`
 

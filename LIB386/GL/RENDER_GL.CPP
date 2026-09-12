@@ -174,7 +174,7 @@ static const char *s_clutFragSrc =
     "uniform vec2 uAtlasScale;\n"   /* texture dims for texel-space UVs */
     "uniform sampler2D uCLUT;\n"    /* 256×256 LUMINANCE (fog table) */
     "uniform sampler2D uPalette;\n" /* 256×1 BGRA (paletteLUT) */
-    "uniform float uCLUTBaseRow;\n" /* CLUT row offset for gouraud table (mode 3) */
+    "uniform float uCLUTBaseRow;\n" /* legacy row offset (now per vertex) */
     "uniform float uScaledFogNear;\n" /* Fill_ScaledFogNear (fog-smooth distance, mode 5) */
     "uniform float uFogRowScale;\n"   /* Fill_Fog_Factor / 65536 (fog-smooth distance, mode 5) */
     "uniform int uBilinear;\n"      /* 0=nearest 1=bilinear CLUT sampling */
@@ -257,8 +257,11 @@ static const char *s_clutFragSrc =
      "        float heightMask = floor(vRepMask / 256.0);\n"
      /* SW init: Fill_CurGouraudMin = (Pt_Light << 8) + 0x8000.
         The +128 (0x80) rounding bias shifts the CLUT row by 1 in some
-        cases — same bias applied in polyMode 2. */
-     "        float gouraudRow = floor((vLight + 128.0) / 256.0) + uCLUTBaseRow;\n"
+        cases — same bias applied in polyMode 2.  The CLUT base row rides
+        in the material's high byte (see GL_RenderTriangleList): SetCLUT()
+        changes it per terrain tile, and carrying it per vertex lets
+        tiles share one draw call. */
+     "        float gouraudRow = floor((vLight + 128.0) / 256.0) + mColor;\n"
     "        if (uBilinear != 0) {\n"
     "            color = bilinearCLUT(tc, widthMask, heightMask, gouraudRow, mChroma);\n"
      "        } else {\n"
@@ -343,8 +346,9 @@ static const char *s_clutFragSrc =
     "        color = vec4(shade, shade, shade, 1.0);\n"
     "    } else {\n"
     /* Gouraud table (types 6/7): CLUT lookup, color = column.
-       Same +128 rounding bias as polyMode 0. */
-    "        float gouraudRow = floor((vLight + 128.0) / 256.0) + uCLUTBaseRow;\n"
+       Same +128 rounding bias as polyMode 0.  The CLUT base row rides in
+       the vertex RepMask field (see GL_RenderTriangleList). */
+    "        float gouraudRow = floor((vLight + 128.0) / 256.0) + vRepMask;\n"
     "        vec2 clutUV = vec2((mColor + 0.5) / 256.0,\n"
     "                           (gouraudRow + 0.5) / 256.0);\n"
     "        float palIdx = texture2D(uCLUT, clutUV).r * 255.0;\n"
@@ -440,32 +444,61 @@ static const char *s_presentIndexedFragSrc =
  * CPU-side frame costs are accumulated around their sections and summarized
  * in the log every GL_PROF_FRAMES presented frames. */
 #define GL_PROF_FRAMES 300
-static U64 s_profAccumTicks[3] = {0, 0, 0}; /* 0=present 1=depth readback 2=depth convert */
+enum {
+    GL_PROF_PRESENT = 0,
+    GL_PROF_READBACK = 1,
+    GL_PROF_CONVERT = 2,
+    GL_PROF_FLUSH = 3,
+    GL_PROF_SNAPSHOT = 4,
+    GL_PROF_RESTORE = 5,
+    GL_PROF_MAPWAIT = 6,
+    GL_PROF_BUCKET_COUNT = 7
+};
+static U64 s_profAccumTicks[GL_PROF_BUCKET_COUNT] = {0};
 static U32 s_profFrames = 0;
 static U32 s_profFlushes = 0;    /* batch flushes (≈ CLUT-program draw calls) */
 static U32 s_profTris = 0;       /* triangles submitted to the CLUT program */
 static U32 s_profSpriteUps = 0;  /* gameplay sprite texture uploads */
+static U32 s_profDepthSkips = 0; /* depth readback consumes skipped (GPU behind) */
+
+static double GL_ProfMs(U64 ticks, double msPerTick, U32 frames) {
+    return (double)ticks * msPerTick / (double)frames;
+}
 
 static void GL_ProfFrameDone(void) {
     s_profFrames++;
     if (s_profFrames >= GL_PROF_FRAMES) {
         double msPerTick = 1000.0 / (double)SDL_GetPerformanceFrequency();
-        Log_Warn("[GLPerf] frames=%u present=%.1fms readback=%.1fms "
-                 "convert=%.1fms flushes=%.1f tris=%.0f sprUp=%.1f",
+        Log_Warn("[GLPerf] frames=%u present=%.2f readback=%.2f convert=%.2f "
+                 "flush=%.2f snapshot=%.2f restore=%.2f mapwait=%.2f (ms) "
+                 "flushes=%.1f tris=%.0f sprUp=%.1f skips=%u",
                  s_profFrames,
-                 (double)s_profAccumTicks[0] * msPerTick / (double)s_profFrames,
-                 (double)s_profAccumTicks[1] * msPerTick / (double)s_profFrames,
-                 (double)s_profAccumTicks[2] * msPerTick / (double)s_profFrames,
+                 GL_ProfMs(s_profAccumTicks[GL_PROF_PRESENT], msPerTick,
+                           s_profFrames),
+                 GL_ProfMs(s_profAccumTicks[GL_PROF_READBACK], msPerTick,
+                           s_profFrames),
+                 GL_ProfMs(s_profAccumTicks[GL_PROF_CONVERT], msPerTick,
+                           s_profFrames),
+                 GL_ProfMs(s_profAccumTicks[GL_PROF_FLUSH], msPerTick,
+                           s_profFrames),
+                 GL_ProfMs(s_profAccumTicks[GL_PROF_SNAPSHOT], msPerTick,
+                           s_profFrames),
+                 GL_ProfMs(s_profAccumTicks[GL_PROF_RESTORE], msPerTick,
+                           s_profFrames),
+                 GL_ProfMs(s_profAccumTicks[GL_PROF_MAPWAIT], msPerTick,
+                           s_profFrames),
                  (double)s_profFlushes / (double)s_profFrames,
                  (double)s_profTris / (double)s_profFrames,
-                 (double)s_profSpriteUps / (double)s_profFrames);
+                 (double)s_profSpriteUps / (double)s_profFrames,
+                 s_profDepthSkips);
         s_profFrames = 0;
-        s_profAccumTicks[0] = 0;
-        s_profAccumTicks[1] = 0;
-        s_profAccumTicks[2] = 0;
+        for (S32 i = 0; i < GL_PROF_BUCKET_COUNT; i++) {
+            s_profAccumTicks[i] = 0;
+        }
         s_profFlushes = 0;
         s_profTris = 0;
         s_profSpriteUps = 0;
+        s_profDepthSkips = 0;
     }
 }
 
@@ -537,6 +570,51 @@ static void GL_MarkFBORegion(S32 x0, S32 y0, S32 x1, S32 y1) {
 }
 static U16 s_currentMatFlags = 0; /* flags only — the flush trigger */
 static U8 s_batchTextured = 0;    /* batch samples the atlas page */
+
+/* ── Cached GL object state ──────────────────────────────────────────────── */
+/* The flush path runs once per draw call; on GLES every redundant driver
+   call costs real time on slow CPUs.  These track what the context already
+   has so repeat flushes skip re-binding and re-specifying.  Anything that
+   touches textures/programs/attribs outside the flush path (present quads,
+   sprite/shadow/shade draws) invalidates through the sentinels below. */
+static GLuint s_curBoundTex[3] = {(GLuint)-1, (GLuint)-1, (GLuint)-1};
+static S32 s_curActiveUnit = -1;
+static GLuint s_curProgram = (GLuint)-1;
+static S32 s_clutAttribsDirty = 1; /* vertex arrays need enable + re-spec */
+
+static void GL_UseProgramCached(GLuint prog) {
+    if (s_curProgram != prog) {
+        glUseProgram(prog);
+        s_curProgram = prog;
+    }
+}
+
+static void GL_InvalidateGLState(void) {
+    s_curBoundTex[0] = (GLuint)-1;
+    s_curBoundTex[1] = (GLuint)-1;
+    s_curBoundTex[2] = (GLuint)-1;
+    s_curActiveUnit = -1;
+    s_curProgram = (GLuint)-1;
+    s_clutAttribsDirty = 1;
+}
+
+static void GL_BindTexUnit(S32 unit, GLuint tex) {
+    if (s_curActiveUnit != unit) {
+        glActiveTexture(GL_TEXTURE0 + unit);
+        s_curActiveUnit = unit;
+    }
+    if (s_curBoundTex[unit] != tex) {
+        glBindTexture(GL_TEXTURE_2D, tex);
+        s_curBoundTex[unit] = tex;
+    }
+}
+
+static GLfloat s_ussX = -1.0f, s_ussY = -1.0f;         /* uScreenScale */
+static GLfloat s_atlasScaleX = -1.0f, s_atlasScaleY = -1.0f;
+static GLint s_bilinearCached = -1;
+static GLfloat s_clutRowCached = -1.0f;
+static GLfloat s_fogNearCached = -1.0f;
+static GLfloat s_fogScaleCached = -1.0f;
 
 /* ── Reverse palette lookup (ARGB -> palette index) ──────────────────────── */
 
@@ -692,6 +770,10 @@ static S32 s_fboHasTerrain = 0;
    only sprite occlusion (ZBufBoxOverWrite2) and fully-hidden flags, which
    are insensitive to a single frame of lag. */
 static GLuint s_depthPbo[2] = {0, 0};
+/* Fence per PBO, armed after each read issue: lets the consume step check
+   readiness without stalling (see GL_ReadbackDepthBuffer). */
+static GLsync s_depthFence[2] = {0, 0};
+static S32 s_depthSkipStreak = 0;
 static S32 s_depthPboIndex = 0; /* PBO receiving this frame's read */
 static S32 s_depthPboReady = 0; /* PBOs holding a completed read (0..2) */
 static U32 s_depthPboW = 0;
@@ -1086,6 +1168,14 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_clut_uFogRowScale = glGetUniformLocation(s_clutProgram, "uFogRowScale");
     s_clut_uBilinear = glGetUniformLocation(s_clutProgram, "uBilinear");
 
+    /* Sampler unit assignments are program state: set them once here
+       instead of per draw call. */
+    GL_UseProgramCached(s_clutProgram);
+    glUniform1i(s_clut_uAtlas, 0);
+    glUniform1i(s_clut_uCLUT, 1);
+    glUniform1i(s_clut_uPalette, 2);
+    GL_UseProgramCached(0);
+
     Log_Info("[GL] CLUT shader compiled OK (aPos=%d aTexCoord=%d aLight=%d "
              "aZ=%d aRepMask=%d aMaterial=%d uAtlas=%d uCLUT=%d uPalette=%d "
              "uScreenScale=%d).",
@@ -1202,6 +1292,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_texWidth = resX;
     s_texHeight = resY;
     s_initialized = 1;
+    GL_InvalidateGLState();
     Log_Info("[GL] Renderer initialized OK.");
     return TRUE;
 }
@@ -1267,6 +1358,16 @@ void GL_Renderer_Shutdown(void) {
         s_depthPbo[0] = 0;
         s_depthPbo[1] = 0;
     }
+    {
+        S32 i;
+        for (i = 0; i < 2; i++) {
+            if (s_depthFence[i] != 0) {
+                glDeleteSync(s_depthFence[i]);
+                s_depthFence[i] = 0;
+            }
+        }
+    }
+    s_depthSkipStreak = 0;
     s_depthPboReady = 0;
     s_depthPboW = 0;
     s_depthPboH = 0;
@@ -1320,6 +1421,7 @@ void GL_Renderer_Shutdown(void) {
     s_batchNZW = 0;
     s_frameActive = 0;
     s_fboHasTerrain = 0;
+    GL_InvalidateGLState();
     Log_Info("[GL] Renderer shut down.");
 }
 
@@ -1394,7 +1496,7 @@ static void GL_UploadPalette(void) {
     memcpy(paletteCopy, lut, sizeof(paletteCopy));
     paletteCopy[0] &= 0x00FFFFFF; /* alpha → 0 */
 
-    glBindTexture(GL_TEXTURE_2D, s_paletteTex);
+    GL_BindTexUnit(0, s_paletteTex);
 #if defined(__ANDROID__)
     {
         U32 paletteGL[256];
@@ -1406,7 +1508,7 @@ static void GL_UploadPalette(void) {
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1, GL_UPLOAD_FORMAT,
                     GL_UNSIGNED_BYTE, paletteCopy);
 #endif
-    glBindTexture(GL_TEXTURE_2D, 0);
+    GL_BindTexUnit(0, 0);
 
     /* Invalidate cached reverse lookup so it gets rebuilt on next readback. */
     s_revLutHashValid = 0;
@@ -1429,14 +1531,24 @@ static void GL_UploadCLUT(void) {
         return;
     }
 
+    /* The table only actually changes between scenes (faded in gradually);
+       skip the 64 KB transfer on frames where no byte moved. */
+    static U8 s_clutShadow[256 * 256];
+    if (s_clutUpPtr == PtrCLUTFog &&
+        memcmp(s_clutShadow, PtrCLUTFog, sizeof(s_clutShadow)) == 0) {
+        s_clutUpSeq = s_frameSeq;
+        return;
+    }
+
     /* Upload the full 64 KB fog table (256×256) once. SetCLUT selects a
        16-row block within it; the gouraud value's high byte indexes into
        the correct rows directly via the shader. */
-    glBindTexture(GL_TEXTURE_2D, s_clutTex);
+    GL_BindTexUnit(0, s_clutTex);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_LUMINANCE,
                     GL_UNSIGNED_BYTE, PtrCLUTFog);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    GL_BindTexUnit(0, 0);
 
+    memcpy(s_clutShadow, PtrCLUTFog, sizeof(s_clutShadow));
     s_boundCLUT = PtrCLUTFog;
     s_clutUpSeq = s_frameSeq;
     s_clutUpPtr = PtrCLUTFog;
@@ -1459,19 +1571,19 @@ static void GL_SetAtlasTexParams(GLuint tex) {
    NULL falls back to the legacy shared s_atlasTex (never sampled). */
 static GLuint GL_BindAtlasFor(const void *map) {
     if (map == NULL) {
-        glBindTexture(GL_TEXTURE_2D, s_atlasTex);
+        GL_BindTexUnit(0, s_atlasTex);
         return s_atlasTex;
     }
 
     for (S32 i = 0; i < ATLAS_CACHE_SIZE; i++) {
         if (s_atlasTexCache[i].ptr == map) {
             if (s_atlasTexCache[i].ver != s_atlasContentVersion) {
-                glBindTexture(GL_TEXTURE_2D, s_atlasTexCache[i].tex);
+                GL_BindTexUnit(0, s_atlasTexCache[i].tex);
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_LUMINANCE,
                                 GL_UNSIGNED_BYTE, map);
                 s_atlasTexCache[i].ver = s_atlasContentVersion;
             }
-            glBindTexture(GL_TEXTURE_2D, s_atlasTexCache[i].tex);
+            GL_BindTexUnit(0, s_atlasTexCache[i].tex);
             return s_atlasTexCache[i].tex;
         }
     }
@@ -1481,10 +1593,11 @@ static GLuint GL_BindAtlasFor(const void *map) {
     if (e->tex == 0) {
         glGenTextures(1, &e->tex);
         GL_SetAtlasTexParams(e->tex);
+        GL_InvalidateGLState();
     }
     e->ptr = map;
     e->ver = s_atlasContentVersion;
-    glBindTexture(GL_TEXTURE_2D, e->tex);
+    GL_BindTexUnit(0, e->tex);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_LUMINANCE,
                     GL_UNSIGNED_BYTE, map);
     return e->tex;
@@ -1500,6 +1613,8 @@ void GL_FlushBatch(void) {
     if (s_batchVertCount == 0) {
         return;
     }
+
+    U64 profT0 = SDL_GetPerformanceCounter();
 
     GL_BatchFlushCount++;
     s_profFlushes++;
@@ -1519,32 +1634,39 @@ void GL_FlushBatch(void) {
         }
     }
 
-    /* Upload batch vertices to VBO.  Orphan the storage first
-       (glBufferData with NULL): several vertex uploads land in this buffer
-       per frame at offset 0 while earlier draws may still be pending, and
-       in-place glBufferSubData would force the driver to synchronise;
-       re-specifying the storage lets the driver hand out a fresh range
-       instead — the standard pattern for mobile GPUs. */
+    /* Upload batch vertices to VBO.  A single glBufferData re-specifies
+       the storage (orphaning it) and fills it in one driver call: several
+       vertex uploads land in this buffer per frame at offset 0 while
+       earlier draws may still be pending, and in-place glBufferSubData
+       would force the driver to synchronise; re-specifying the storage
+       lets the driver hand out a fresh range instead — the standard
+       pattern for mobile GPUs. */
     glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
-    glBufferData(GL_ARRAY_BUFFER, BATCH_MAX_VERTS * BATCH_VERT_BYTES, NULL,
-                 GL_STREAM_DRAW);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, s_batchVertCount * BATCH_VERT_BYTES,
-                    s_batchVerts);
+    glBufferData(GL_ARRAY_BUFFER, s_batchVertCount * BATCH_VERT_BYTES,
+                 s_batchVerts, GL_STREAM_DRAW);
 
     /* Use CLUT shader */
-    glUseProgram(s_clutProgram);
+    GL_UseProgramCached(s_clutProgram);
 
     /* Set screen-scale uniform: maps pixel coords → clip space */
-    GLfloat screenScale[2];
-    screenScale[0] = 2.0f / (GLfloat)s_texWidth;
-    screenScale[1] = 2.0f / (GLfloat)s_texHeight;
-    glUniform2f(s_clut_uScreenScale, screenScale[0], screenScale[1]);
+    {
+        GLfloat sx = 2.0f / (GLfloat)s_texWidth;
+        GLfloat sy = 2.0f / (GLfloat)s_texHeight;
+        if (s_ussX != sx || s_ussY != sy) {
+            glUniform2f(s_clut_uScreenScale, sx, sy);
+            s_ussX = sx;
+            s_ussY = sy;
+        }
+    }
 
     /* Shading mode, alpha/chroma/perspective bits and flat colour now ride
        per vertex in aMaterial, so polygons that differ only in those share
        one draw call.  Blending stays a per-draw state: TRANS batches blend,
        opaque/TRAME ones do not — the flush trigger keeps them apart. */
-    glUniform1i(s_clut_uBilinear, s_bilinearCLUT);
+    if (s_bilinearCached != s_bilinearCLUT) {
+        glUniform1i(s_clut_uBilinear, s_bilinearCLUT);
+        s_bilinearCached = s_bilinearCLUT;
+    }
     if (s_currentMatFlags & 8) { /* alphaMode 1 (TRANS) */
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -1552,64 +1674,63 @@ void GL_FlushBatch(void) {
         glDisable(GL_BLEND);
     }
 
-    /* CLUT base row offset: captured at batch start from PtrCLUTGouraud
-       at the time the batch was begun. This avoids the race where SetCLUT()
-       changes PtrCLUTGouraud between Fill_Poly calls within the same frame. */
-    glUniform1f(s_clut_uCLUTBaseRow, s_batchCLUTBaseRow);
-    glUniform1f(s_clut_uScaledFogNear, s_batchScaledFogNear);
-    glUniform1f(s_clut_uFogRowScale, s_batchFogRowScale);
-
-    /* Bind textures to units 0/1/2.  Textured batches sample the page the
-       batch was recorded with; flat/gouraud batches never sample it. */
-    glActiveTexture(GL_TEXTURE0);
-    if (s_batchTextured && s_batchAtlas != NULL) {
-        GL_BindAtlasFor(s_batchAtlas);
-    } else {
-        glBindTexture(GL_TEXTURE_2D, s_atlasTex);
+    /* Batch-start state that the shader still reads as uniforms. */
+    if (s_clutRowCached != s_batchCLUTBaseRow) {
+        glUniform1f(s_clut_uCLUTBaseRow, s_batchCLUTBaseRow);
+        s_clutRowCached = s_batchCLUTBaseRow;
     }
-    glUniform1i(s_clut_uAtlas, 0);
-    glUniform2f(s_clut_uAtlasScale, 256.0f, 256.0f);
+    if (s_fogNearCached != s_batchScaledFogNear) {
+        glUniform1f(s_clut_uScaledFogNear, s_batchScaledFogNear);
+        s_fogNearCached = s_batchScaledFogNear;
+    }
+    if (s_fogScaleCached != s_batchFogRowScale) {
+        glUniform1f(s_clut_uFogRowScale, s_batchFogRowScale);
+        s_fogScaleCached = s_batchFogRowScale;
+    }
 
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, s_clutTex);
-    glUniform1i(s_clut_uCLUT, 1);
+    /* Bind textures to units 0/1/2 (skipped when already bound).  Sampler
+       unit assignments are program state, set once at init.  Textured
+       batches sample the page the batch was recorded with; flat/gouraud
+       batches never sample it. */
+    if (s_batchTextured && s_batchAtlas != NULL) {
+        GL_BindTexUnit(0, GL_BindAtlasFor(s_batchAtlas));
+    } else {
+        GL_BindTexUnit(0, s_atlasTex);
+    }
+    if (s_atlasScaleX != 256.0f || s_atlasScaleY != 256.0f) {
+        glUniform2f(s_clut_uAtlasScale, 256.0f, 256.0f);
+        s_atlasScaleX = 256.0f;
+        s_atlasScaleY = 256.0f;
+    }
 
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, s_paletteTex);
-    glUniform1i(s_clut_uPalette, 2);
+    GL_BindTexUnit(1, s_clutTex);
+    GL_BindTexUnit(2, s_paletteTex);
 
-    glActiveTexture(GL_TEXTURE0); /* restore default */
-
-    /* Set up vertex attributes (14 bytes per vertex) */
-    /* aPos: 2 × GL_SHORT, stride=14, offset=0 */
-    glEnableVertexAttribArray(s_clut_aPos);
-    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
-                          (const void *)0);
-
-    /* aTexCoord: 2 × GL_UNSIGNED_SHORT, stride=14, offset=4 */
-    glEnableVertexAttribArray(s_clut_aTexCoord);
-    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 16,
-                          (const void *)4);
-
-    /* aLight: 1 × GL_UNSIGNED_SHORT, stride=14, offset=8 */
-    glEnableVertexAttribArray(s_clut_aLight);
-    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
-                          (const void *)8);
-
-    /* aZ: 1 × GL_UNSIGNED_SHORT, stride=14, offset=10 */
-    glEnableVertexAttribArray(s_clut_aZ);
-    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
-                          (const void *)10);
-
-    /* aRepMask: 1 × GL_UNSIGNED_SHORT, stride=16, offset=12 */
-    glEnableVertexAttribArray(s_clut_aRepMask);
-    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
-                          (const void *)12);
-
-    /* aMaterial: 1 × GL_UNSIGNED_SHORT, stride=16, offset=14 */
-    glEnableVertexAttribArray(s_clut_aMaterial);
-    glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
-                          (const void *)14);
+    /* Set up vertex attributes — 16 bytes per vertex: XE YE U V Light Z
+       RepMask Material.  The arrays stay enabled across flushes; the
+       present-path quad draws rebind locations 0/1 for their own VBOs, so
+       s_clutAttribsDirty re-specifies everything after those. */
+    if (s_clutAttribsDirty) {
+        glEnableVertexAttribArray(s_clut_aPos);
+        glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
+                              (const void *)0);
+        glEnableVertexAttribArray(s_clut_aTexCoord);
+        glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE,
+                              16, (const void *)4);
+        glEnableVertexAttribArray(s_clut_aLight);
+        glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                              (const void *)8);
+        glEnableVertexAttribArray(s_clut_aZ);
+        glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                              (const void *)10);
+        glEnableVertexAttribArray(s_clut_aRepMask);
+        glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE,
+                              16, (const void *)12);
+        glEnableVertexAttribArray(s_clut_aMaterial);
+        glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE,
+                              16, (const void *)14);
+        s_clutAttribsDirty = 0;
+    }
 
     /* Depth testing: enable for ALL valid types (0–24).
 
@@ -1678,22 +1799,18 @@ void GL_FlushBatch(void) {
     glDrawArrays(GL_TRIANGLES, 0, s_batchVertCount);
 
     /* Restore depth mask so subsequent Z-buffer batches (types 16–24)
-       can write to the depth buffer. */
+       can write to the depth buffer.  Vertex arrays, the program and the
+       texture bindings stay as-is: the caches above skip redundant
+       re-specification on the next flush, and the paths that draw with
+       different state invalidate them (GL_InvalidateGLState). */
     glDepthMask(GL_TRUE);
     glDisable(GL_DEPTH_TEST);
-
-    /* Clean up */
-    glDisableVertexAttribArray(s_clut_aPos);
-    glDisableVertexAttribArray(s_clut_aTexCoord);
-    glDisableVertexAttribArray(s_clut_aLight);
-    glDisableVertexAttribArray(s_clut_aZ);
-    glDisableVertexAttribArray(s_clut_aRepMask);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glUseProgram(0);
 
     /* Reset batch counters */
     s_batchVertCount = 0;
     s_batchTriCount = 0;
+
+    s_profAccumTicks[GL_PROF_FLUSH] += SDL_GetPerformanceCounter() - profT0;
 }
 
 /* ── Ground shadow polygon (GL ShadeBoxBlk/DrawShadow replacement) ──────── */
@@ -1776,23 +1893,18 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
         }
     }
 
-    glUseProgram(s_clutProgram);
+    GL_UseProgramCached(s_clutProgram);
 
     glUniform2f(s_clut_uScreenScale, 2.0f / (GLfloat)s_texWidth,
                 2.0f / (GLfloat)s_texHeight);
-    glUniform1f(s_clut_uCLUTBaseRow, 0.0f);
-    glUniform1f(s_clut_uScaledFogNear, s_batchScaledFogNear);
-    glUniform1f(s_clut_uFogRowScale, s_batchFogRowScale);
+    s_ussX = 2.0f / (GLfloat)s_texWidth;
+    s_ussY = 2.0f / (GLfloat)s_texHeight;
 
     /* Bind the three sampler textures (mode 6 ignores them, but the
        sampler units must reference valid textures). */
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, s_atlasTex);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, s_clutTex);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, s_paletteTex);
-    glActiveTexture(GL_TEXTURE0);
+    GL_BindTexUnit(0, s_atlasTex);
+    GL_BindTexUnit(1, s_clutTex);
+    GL_BindTexUnit(2, s_paletteTex);
 
     /* Depth-test against the terrain, never write. */
     glEnable(GL_DEPTH_TEST);
@@ -1867,14 +1979,10 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
 
-    glDisableVertexAttribArray(s_clut_aPos);
-    glDisableVertexAttribArray(s_clut_aTexCoord);
-    glDisableVertexAttribArray(s_clut_aLight);
-    glDisableVertexAttribArray(s_clut_aZ);
-    glDisableVertexAttribArray(s_clut_aRepMask);
-    glDisableVertexAttribArray(s_clut_aMaterial);
+    /* Vertex arrays, program and texture bindings stay as they are — the
+       next flush (or present, which invalidates) reuses or re-specifies
+       them through the caches. */
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glUseProgram(0);
 }
 
 /* ── Body sphere disc (GL Fill_Sphere replacement) ───────────────────────── */
@@ -1936,24 +2044,19 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
         }
     }
 
-    glUseProgram(s_clutProgram);
+    GL_UseProgramCached(s_clutProgram);
 
     glUniform2f(s_clut_uScreenScale, 2.0f / (GLfloat)s_texWidth,
                 2.0f / (GLfloat)s_texHeight);
+    s_ussX = 2.0f / (GLfloat)s_texWidth;
+    s_ussY = 2.0f / (GLfloat)s_texHeight;
     /* Material: polyMode 1 (flat palette colour), TRANS blends. */
     const U16 sphereMat =
         (U16)(1 | (transparent ? (1 << 3) : 0) | ((U16)(colorIndex & 0xFF) << 8));
-    glUniform1f(s_clut_uCLUTBaseRow, 0.0f);
-    glUniform1f(s_clut_uScaledFogNear, s_batchScaledFogNear);
-    glUniform1f(s_clut_uFogRowScale, s_batchFogRowScale);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, s_atlasTex);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, s_clutTex);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, s_paletteTex);
-    glActiveTexture(GL_TEXTURE0);
+    GL_BindTexUnit(0, s_atlasTex);
+    GL_BindTexUnit(1, s_clutTex);
+    GL_BindTexUnit(2, s_paletteTex);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GEQUAL);
@@ -2021,14 +2124,7 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
 
-    glDisableVertexAttribArray(s_clut_aPos);
-    glDisableVertexAttribArray(s_clut_aTexCoord);
-    glDisableVertexAttribArray(s_clut_aLight);
-    glDisableVertexAttribArray(s_clut_aZ);
-    glDisableVertexAttribArray(s_clut_aRepMask);
-    glDisableVertexAttribArray(s_clut_aMaterial);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glUseProgram(0);
 }
 
 /* ── Screen-space shade rect (GL ShadeBoxBlk replacement) ────────────────── */
@@ -2060,23 +2156,18 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
         }
     }
 
-    glUseProgram(s_clutProgram);
+    GL_UseProgramCached(s_clutProgram);
 
     glUniform2f(s_clut_uScreenScale, 2.0f / (GLfloat)s_texWidth,
                 2.0f / (GLfloat)s_texHeight);
+    s_ussX = 2.0f / (GLfloat)s_texWidth;
+    s_ussY = 2.0f / (GLfloat)s_texHeight;
     /* Material: polyMode 6 (multiply by (15 - level) / 15). */
     const U16 shadeMat = (U16)(6 | ((U16)(level & 15) << 8));
-    glUniform1f(s_clut_uCLUTBaseRow, 0.0f);
-    glUniform1f(s_clut_uScaledFogNear, s_batchScaledFogNear);
-    glUniform1f(s_clut_uFogRowScale, s_batchFogRowScale);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, s_atlasTex);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, s_clutTex);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, s_paletteTex);
-    glActiveTexture(GL_TEXTURE0);
+    GL_BindTexUnit(0, s_atlasTex);
+    GL_BindTexUnit(1, s_clutTex);
+    GL_BindTexUnit(2, s_paletteTex);
 
     /* Unconditional: the band shades everything behind it. */
     glDisable(GL_DEPTH_TEST);
@@ -2129,14 +2220,7 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
 
-    glDisableVertexAttribArray(s_clut_aPos);
-    glDisableVertexAttribArray(s_clut_aTexCoord);
-    glDisableVertexAttribArray(s_clut_aLight);
-    glDisableVertexAttribArray(s_clut_aZ);
-    glDisableVertexAttribArray(s_clut_aRepMask);
-    glDisableVertexAttribArray(s_clut_aMaterial);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glUseProgram(0);
 }
 
 static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
@@ -2271,6 +2355,7 @@ void GL_SnapshotTerrain(void) {
     /* Color + depth: the depth must be restored too, otherwise a body that
        moved away would leave stale nearer depth that eats later fragments
        until the next full redraw. */
+    U64 profT0 = SDL_GetPerformanceCounter();
     glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_snapshotFbo);
     glBlitFramebuffer(0, 0, w, h, 0, 0, w, h,
@@ -2278,6 +2363,7 @@ void GL_SnapshotTerrain(void) {
     /* Mid-frame invariant: subsequent GL_FlushBatch() calls (s_frameActive
        still set) must keep drawing into the FBO, not the default fb. */
     glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+    s_profAccumTicks[GL_PROF_SNAPSHOT] += SDL_GetPerformanceCounter() - profT0;
 
     s_snapshotGen = s_fboGen;
     s_fboDirtyActive = 1;
@@ -2326,11 +2412,13 @@ void GL_RestoreTerrainSnapshot(void) {
         return;
     }
 
+    U64 profT0 = SDL_GetPerformanceCounter();
     glBindFramebuffer(GL_READ_FRAMEBUFFER, s_snapshotFbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
     glBlitFramebuffer(qx0, qy0, qx1, qy1, qx0, qy0, qx1, qy1,
                       GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+    s_profAccumTicks[GL_PROF_RESTORE] += SDL_GetPerformanceCounter() - profT0;
 
     s_fboDirtyX0 = 0;
     s_fboDirtyY0 = 0;
@@ -2427,40 +2515,55 @@ void GL_ReadbackDepthBuffer(void) {
     const U32 scrH = ModeDesiredY;
     const U32 bytes = scrW * scrH * sizeof(U16);
 
-    /* GPU downscale: blit the SSAA depth into a screen-sized FBO so the
-       CPU readback moves 2.4 MB instead of ~40 MB per frame. */
-    if (s_depthSmallFbo == 0 || s_depthSmallW != scrW ||
-        s_depthSmallH != scrH) {
-        if (s_depthSmallFbo == 0) {
-            glGenFramebuffers(1, &s_depthSmallFbo);
-            glGenRenderbuffers(1, &s_depthSmallRbo);
+    /* At native render scale (quality 1) the FBO depth is already
+       screen-sized: read from it directly instead of routing through the
+       downscale FBO — the same-size blit is a full-screen depth copy whose
+       only product is a buffer identical to the source. */
+    const S32 depthNative = (fboW == scrW && fboH == scrH);
+    if (!depthNative) {
+        /* GPU downscale: blit the SSAA depth into a screen-sized FBO so the
+           CPU readback moves 2.4 MB instead of ~40 MB per frame. */
+        if (s_depthSmallFbo == 0 || s_depthSmallW != scrW ||
+            s_depthSmallH != scrH) {
+            if (s_depthSmallFbo == 0) {
+                glGenFramebuffers(1, &s_depthSmallFbo);
+                glGenRenderbuffers(1, &s_depthSmallRbo);
+            }
+            glBindFramebuffer(GL_FRAMEBUFFER, s_depthSmallFbo);
+            glBindRenderbuffer(GL_RENDERBUFFER, s_depthSmallRbo);
+            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
+                                  scrW, scrH);
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                                      GL_RENDERBUFFER, s_depthSmallRbo);
+            glBindRenderbuffer(GL_RENDERBUFFER, 0);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            s_depthSmallW = scrW;
+            s_depthSmallH = scrH;
         }
-        glBindFramebuffer(GL_FRAMEBUFFER, s_depthSmallFbo);
-        glBindRenderbuffer(GL_RENDERBUFFER, s_depthSmallRbo);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
-                              scrW, scrH);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                                  GL_RENDERBUFFER, s_depthSmallRbo);
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        s_depthSmallW = scrW;
-        s_depthSmallH = scrH;
-    }
 
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_depthSmallFbo);
-    glBlitFramebuffer(0, 0, fboW, fboH, 0, 0, scrW, scrH,
-                      GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_depthSmallFbo);
+        glBlitFramebuffer(0, 0, fboW, fboH, 0, 0, scrW, scrH,
+                          GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    }
 
     /* Pack buffers track the screen-sized read; recreating them after a
        resize invalidates the queued read, so force the bootstrap path. */
     if (s_depthPbo[0] == 0 || s_depthPboW != scrW || s_depthPboH != scrH) {
+        S32 i;
+        for (i = 0; i < 2; i++) {
+            if (s_depthFence[i] != 0) {
+                glDeleteSync(s_depthFence[i]);
+                s_depthFence[i] = 0;
+            }
+        }
+        s_depthSkipStreak = 0;
         if (s_depthPbo[0] == 0) {
             glGenBuffers(2, s_depthPbo);
         }
-        for (S32 i = 0; i < 2; i++) {
+        for (i = 0; i < 2; i++) {
             glBindBuffer(GL_PIXEL_PACK_BUFFER, s_depthPbo[i]);
             glBufferData(GL_PIXEL_PACK_BUFFER, bytes, NULL, GL_STREAM_READ);
         }
@@ -2475,6 +2578,28 @@ void GL_ReadbackDepthBuffer(void) {
        issue this frame's read. */
     const U32 readIdx = s_depthPboIndex ^ 1;
     if (s_depthPboReady > 0) {
+        U64 profMap0 = SDL_GetPerformanceCounter();
+        U64 convertBefore = s_profAccumTicks[GL_PROF_CONVERT];
+        /* Non-blocking readiness check first. Mapping a PBO whose read is
+           still in flight stalls the CPU until the GPU drains everything
+           queued before it — during traversal that is the whole scene
+           render, so GPU-side jitter surfaced here as traversal stutter.
+           If the read is not done, keep the previous PtrZBuffer (it is
+           already one frame old by design) and retry next frame; a safety
+           valve bounds the staleness so a persistently backed-up GPU
+           cannot starve the occlusion data forever. */
+        if (s_depthFence[readIdx] != 0 &&
+            glClientWaitSync(s_depthFence[readIdx], 0, 0) ==
+                GL_TIMEOUT_EXPIRED) {
+            s_depthSkipStreak++;
+            s_profDepthSkips++;
+            if (s_depthSkipStreak < 5) {
+                return;
+            }
+            glFlush();
+            glClientWaitSync(s_depthFence[readIdx], 0, 1000000000ULL);
+        }
+        s_depthSkipStreak = 0;
         glBindBuffer(GL_PIXEL_PACK_BUFFER, s_depthPbo[readIdx]);
         const U16 *src = (const U16 *)glMapBufferRange(GL_PIXEL_PACK_BUFFER,
                                                        0, bytes,
@@ -2487,11 +2612,19 @@ void GL_ReadbackDepthBuffer(void) {
                    (size_t)scrW * (size_t)scrH * sizeof(U16));
         }
         glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+        if (s_depthFence[readIdx] != 0) {
+            glDeleteSync(s_depthFence[readIdx]);
+            s_depthFence[readIdx] = 0;
+        }
+        s_profAccumTicks[GL_PROF_MAPWAIT] +=
+            (SDL_GetPerformanceCounter() - profMap0) -
+            (s_profAccumTicks[GL_PROF_CONVERT] - convertBefore);
     } else {
         /* Bootstrap: one synchronous read so the first frame is correct. */
         U16 *tmp = (U16 *)malloc(bytes);
         if (tmp != NULL) {
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, s_depthSmallFbo);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER,
+                              depthNative ? s_fbo : s_depthSmallFbo);
             glReadPixels(0, 0, scrW, scrH, GL_DEPTH_COMPONENT,
                          GL_UNSIGNED_SHORT, tmp);
             glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
@@ -2500,10 +2633,18 @@ void GL_ReadbackDepthBuffer(void) {
         }
     }
 
+    glBindFramebuffer(GL_READ_FRAMEBUFFER,
+                      depthNative ? s_fbo : s_depthSmallFbo);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, s_depthPbo[s_depthPboIndex]);
     glReadPixels(0, 0, scrW, scrH, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT,
                  NULL);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    if (s_depthFence[s_depthPboIndex] != 0) {
+        glDeleteSync(s_depthFence[s_depthPboIndex]);
+    }
+    s_depthFence[s_depthPboIndex] =
+        glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
     s_depthPboIndex ^= 1;
     if (s_depthPboReady < 2) {
@@ -2543,7 +2684,7 @@ static GLuint GL_BindSpriteTexture(const void *pixels, S32 w, S32 h) {
     for (S32 i = 0; i < SPRITE_CACHE_SIZE; i++) {
         if (s_spriteTexCache[i].ptr == pixels && s_spriteTexCache[i].w == w &&
             s_spriteTexCache[i].h == h) {
-            glBindTexture(GL_TEXTURE_2D, s_spriteTexCache[i].tex);
+            GL_BindTexUnit(0, s_spriteTexCache[i].tex);
             return s_spriteTexCache[i].tex;
         }
     }
@@ -2552,14 +2693,12 @@ static GLuint GL_BindSpriteTexture(const void *pixels, S32 w, S32 h) {
     s_spriteTexNext = (s_spriteTexNext + 1) % SPRITE_CACHE_SIZE;
     if (e->tex == 0) {
         glGenTextures(1, &e->tex);
-        glBindTexture(GL_TEXTURE_2D, e->tex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    } else {
-        glBindTexture(GL_TEXTURE_2D, e->tex);
     }
+    GL_BindTexUnit(0, e->tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE,
                  GL_UNSIGNED_BYTE, pixels);
     s_profSpriteUps++;
@@ -2601,24 +2740,26 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
         }
     }
 
-    glUseProgram(s_clutProgram);
+    GL_UseProgramCached(s_clutProgram);
 
     glUniform2f(s_clut_uScreenScale, 2.0f / (GLfloat)s_texWidth,
                 2.0f / (GLfloat)s_texHeight);
+    s_ussX = 2.0f / (GLfloat)s_texWidth;
+    s_ussY = 2.0f / (GLfloat)s_texHeight;
     /* Material: polyMode 4 (texel is the palette index).  Opaque sprites
        chroma-key texel 0; transparent ones blend at 50% and keep texel 0. */
     const U16 spriteMat = (U16)(4 | (transparent ? (1 << 3) : 0) |
                                 (transparent ? 0 : (1 << 5)));
-    glUniform2f(s_clut_uAtlasScale, (GLfloat)w, (GLfloat)h);
+    {
+        GLfloat sx = (GLfloat)w, sy = (GLfloat)h;
+        glUniform2f(s_clut_uAtlasScale, sx, sy);
+        s_atlasScaleX = sx;
+        s_atlasScaleY = sy;
+    }
 
-    glActiveTexture(GL_TEXTURE0);
-    GL_BindSpriteTexture(pixels, w, h);
-    glUniform1i(s_clut_uAtlas, 0);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, s_clutTex);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, s_paletteTex);
-    glActiveTexture(GL_TEXTURE0);
+    GL_BindTexUnit(0, GL_BindSpriteTexture(pixels, w, h));
+    GL_BindTexUnit(1, s_clutTex);
+    GL_BindTexUnit(2, s_paletteTex);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GEQUAL);
@@ -2687,14 +2828,7 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
 
-    glDisableVertexAttribArray(s_clut_aPos);
-    glDisableVertexAttribArray(s_clut_aTexCoord);
-    glDisableVertexAttribArray(s_clut_aLight);
-    glDisableVertexAttribArray(s_clut_aZ);
-    glDisableVertexAttribArray(s_clut_aRepMask);
-    glDisableVertexAttribArray(s_clut_aMaterial);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glUseProgram(0);
 }
 
 void GL_ReadbackColorBuffer(void) {
@@ -3057,6 +3191,9 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     U64 profT1 = SDL_GetPerformanceCounter();
     s_profAccumTicks[0] += profT1 - profT0;
     GL_ProfFrameDone();
+    /* The present quads rebind programs, textures and attrib locations
+       0/1 for their own VBOs — the next frame's flushes must re-specify. */
+    GL_InvalidateGLState();
     if (s_stereoEye != 0) {
         Window_GL_SwapWindow();
     }
@@ -3105,9 +3242,6 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         winW = (int)width;
         winH = (int)height;
     }
-    glViewport(0, 0, winW, winH);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
 
     int vpX, vpY, vpW, vpH;
     {
@@ -3128,6 +3262,15 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
             vpX = 0;
             vpY = (winH - vpH) / 2;
         }
+    }
+
+    /* Black out only the letterbox bars.  When the 3D quad covers the
+       whole target (no bars, FBO present) the opaque FBO draw overwrites
+       every pixel, so a full-screen clear would be redundant overdraw. */
+    if (s_fbo == 0 || vpX != 0 || vpY != 0 || vpW != winW || vpH != winH) {
+        glViewport(0, 0, winW, winH);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
     }
     glViewport(vpX, vpY, vpW, vpH);
 
@@ -3189,48 +3332,149 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         }
     }
 
+    /* Diff the Log overlay against the copy the texture currently holds:
+       upload only the rows that changed, and skip the overlay draw entirely
+       when the overlay is all zero (palette index 0 composites transparent,
+       so an empty overlay draws exactly nothing — see the shader's palette
+       entry 0).  A full 900 KB upload + full-screen memcmp every frame was
+       a measurable slice of the present cost on slow CPUs. */
     S32 overlayEmpty = 0;
     {
-        static U8 *s_zeroBuf = NULL;
-        static U32 s_zeroBufSize = 0;
+        static U8 *s_prevUpload = NULL;  /* mirror of s_logIndexTex content */
+        static U8 *s_rowNonZero = NULL;  /* per row: 1 = has any nonzero */
+        static U32 s_prevCap = 0;
+        static S32 s_prevH = 0;
         U32 needed = (U32)pitch * height;
-        if (s_zeroBufSize < needed) {
-            free(s_zeroBuf);
-            s_zeroBuf = (U8 *)calloc(1, needed);
-            s_zeroBufSize = s_zeroBuf ? needed : 0;
+        S32 fullUpload = (s_logIndexTex == 0 || s_logIndexTexW != width ||
+                          s_logIndexTexH != height);
+        if (s_prevCap < needed || s_prevH < (S32)height) {
+            free(s_prevUpload);
+            free(s_rowNonZero);
+            s_prevUpload = (U8 *)calloc(1, needed);
+            s_rowNonZero = (U8 *)calloc(1, height);
+            s_prevCap = s_prevUpload ? needed : 0;
+            s_prevH = s_rowNonZero ? (S32)height : 0;
+            fullUpload = 1; /* mirror restarted: reseed the texture */
         }
-        if (s_zeroBuf != NULL) {
-            overlayEmpty = (memcmp(indices, s_zeroBuf, needed) == 0);
+        if (s_prevUpload != NULL && s_rowNonZero != NULL) {
+            if (fullUpload) {
+                if (s_logIndexTex == 0) {
+                    glGenTextures(1, &s_logIndexTex);
+                }
+                glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                                GL_NEAREST);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
+                                GL_NEAREST);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                                GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+                                GL_CLAMP_TO_EDGE);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0,
+                             GL_LUMINANCE, GL_UNSIGNED_BYTE, NULL);
+                s_logIndexTexW = width;
+                s_logIndexTexH = height;
+#ifdef GL_UNPACK_ROW_LENGTH
+                glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(pitch));
+#endif
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, (GLsizei)width,
+                                (GLsizei)height, GL_LUMINANCE,
+                                GL_UNSIGNED_BYTE, indices);
+#ifdef GL_UNPACK_ROW_LENGTH
+                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+                memcpy(s_prevUpload, indices, needed);
+                S32 hasContent = 0;
+                for (U32 y = 0; y < height; y++) {
+                    const U8 *row = indices + (U32)y * pitch;
+                    const U8 *p = row;
+                    const U8 *end = row + pitch;
+                    U8 nz = 0;
+                    while (p < end) {
+                        if (*p++ != 0) {
+                            nz = 1;
+                            break;
+                        }
+                    }
+                    s_rowNonZero[y] = nz;
+                    if (nz) {
+                        hasContent = 1;
+                    }
+                }
+                overlayEmpty = !hasContent;
+            } else {
+                /* Coalesce: keep a band open across small gaps so scattered
+                   changes (animating extras) don't degenerate into one
+                   2-row upload call per changed row — a short run of
+                   unchanged rows inside a band is cheaper to re-upload than
+                   to split into another driver call. */
+                const U32 BAND_GAP = 16;
+                S32 hasContent = 0;
+                S32 band0 = -1;
+                S32 gap = 0;
+                for (U32 y = 0; y < height; y++) {
+                    const U8 *row = indices + (U32)y * pitch;
+                    U8 *prev = s_prevUpload + (U32)y * pitch;
+                    S32 changed = (memcmp(row, prev, pitch) != 0);
+                    if (changed) {
+                        const U8 *p = row;
+                        const U8 *end = row + pitch;
+                        U8 nz = 0;
+                        while (p < end) {
+                            if (*p++ != 0) {
+                                nz = 1;
+                                break;
+                            }
+                        }
+                        s_rowNonZero[y] = nz;
+                        memcpy(prev, row, pitch);
+                        if (band0 < 0) {
+                            band0 = (S32)y;
+                        }
+                        gap = 0;
+                    } else if (band0 >= 0 && ++gap > (S32)BAND_GAP) {
+                        /* band [band0..y-gap] closed: upload it */
+#ifdef GL_UNPACK_ROW_LENGTH
+                        glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(pitch));
+#endif
+                        glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
+                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, band0,
+                                        (GLsizei)width,
+                                        (GLsizei)(y - gap - band0 + 1),
+                                        GL_LUMINANCE, GL_UNSIGNED_BYTE,
+                                        indices + (U32)band0 * pitch);
+#ifdef GL_UNPACK_ROW_LENGTH
+                        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+                        band0 = -1;
+                        gap = 0;
+                    }
+                    if (s_rowNonZero[y]) {
+                        hasContent = 1;
+                    }
+                }
+                if (band0 >= 0) {
+#ifdef GL_UNPACK_ROW_LENGTH
+                    glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(pitch));
+#endif
+                    glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
+                    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, band0,
+                                    (GLsizei)width, (GLsizei)(height - band0),
+                                    GL_LUMINANCE, GL_UNSIGNED_BYTE,
+                                    indices + (U32)band0 * pitch);
+#ifdef GL_UNPACK_ROW_LENGTH
+                    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+                }
+                overlayEmpty = !hasContent;
+            }
         }
     }
 
     if (!overlayEmpty) {
-        if (s_logIndexTex == 0 || s_logIndexTexW != width ||
-            s_logIndexTexH != height) {
-            if (s_logIndexTex == 0) {
-                glGenTextures(1, &s_logIndexTex);
-            }
-            glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0,
-                         GL_LUMINANCE, GL_UNSIGNED_BYTE, NULL);
-            s_logIndexTexW = width;
-            s_logIndexTexH = height;
-        } else {
-            glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
-        }
-
-#ifdef GL_UNPACK_ROW_LENGTH
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(pitch));
-#endif
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE,
-                        GL_UNSIGNED_BYTE, indices);
-#ifdef GL_UNPACK_ROW_LENGTH
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-#endif
+        /* The index texture and its band uploads are maintained by the
+           diff block above; here we only refresh the palette (when the
+           palette changed) and draw the overlay. */
 
         /* Refresh the 256x1 palette texture only when the palette changed. */
         {
@@ -3290,6 +3534,9 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     U64 profT1 = SDL_GetPerformanceCounter();
     s_profAccumTicks[0] += profT1 - profT0;
     GL_ProfFrameDone();
+    /* The present quads rebind programs, textures and attrib locations
+       0/1 for their own VBOs — the next frame's flushes must re-specify. */
+    GL_InvalidateGLState();
 
     if (s_stereoEye != 0) {
         Window_GL_SwapWindow();
@@ -3384,7 +3631,14 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        byte.  All of it rides per vertex, so polygons that differ only in
        colour — or in flat-vs-textured mode — can share one draw call.
        The flush trigger keeps only true per-draw state: blend-relevant
-       alpha bits, atlas page, CLUT row, Z-buffer flags. */
+       alpha bits, atlas page, Z-buffer flags — and the CLUT row for the
+       non-textured modes that still read it from the uniform.
+       CLUT-textured polygons (mode 0) carry their CLUT base row in the
+       high byte instead: SetCLUT() changes PtrCLUTGouraud per terrain
+       tile with the fog distance, and a flush per tile fragmented the
+       terrain pass into ~100 draw calls per frame (one per tile row
+       block).  The high byte is free there — the flat colour is only
+       meaningful for types below POLY_TEXTURE. */
     U16 matFlags;
     if (typePoly < POLY_TEXTURE) {
         if (typePoly <= 1) {
@@ -3426,15 +3680,35 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
             matFlags = (U16)(matFlags | (1 << 6));
         }
     }
-    U16 material =
-        (U16)(matFlags | ((U16)((typePoly < POLY_TEXTURE ? colorPoly : 0) &
-                          0xFF)
-                      << 8));
+
+    /* High byte: flat colour for non-textured modes, CLUT base row for
+       CLUT-textured ones.  SetCLUT() stores PtrCLUTGouraud at
+       PtrCLUTFog + ((line << 8) & 0xF000), so the row is 0..240 — see
+       SetCLUT in LIB386/pol_work/POLY.CPP. */
+    U8 highByte = (U8)((typePoly < POLY_TEXTURE ? colorPoly : 0) & 0xFF);
+    /* CLUT-textured polys (mode 0) carry their CLUT base row in the high
+       byte and gouraud-table ones (mode 3) in the RepMask vertex field —
+       SetCLUT() changes PtrCLUTGouraud per terrain tile with the fog
+       distance, so keeping it out of the flush trigger is what lets tiles
+       share draw calls.  SetCLUT() stores PtrCLUTGouraud at
+       PtrCLUTFog + ((line << 8) & 0xF000), so the row is 0..240 — see
+       SetCLUT in LIB386/pol_work/POLY.CPP. */
+    if ((matFlags & 7) == 0 && PtrCLUTFog != NULL && PtrCLUTGouraud != NULL) {
+        highByte = (U8)(((const U8 *)PtrCLUTGouraud -
+                         (const U8 *)PtrCLUTFog) >> 8);
+    }
+    U16 material = (U16)(matFlags | ((U16)highByte << 8));
 
     if (s_batchVertCount > 0) {
-        if (s_currentMatFlags != matFlags ||
+        /* Only the alpha mode rides real per-draw GL state (TRANS batches
+           enable blending), and the fog-smooth mode pins the depth func to
+           ALWAYS when NZW (sea/sky over terrain) — everything else
+           (mode/chroma/perspective) branches per fragment in the shader, so
+           the terrain's per-tile alternation between gouraud-table and
+           textured types no longer forces a flush. */
+        if ((s_currentMatFlags & 0x18) != (matFlags & 0x18) ||
+            ((matFlags & 7) == 5) != ((s_currentMatFlags & 7) == 5) ||
             (typePoly >= POLY_TEXTURE && s_batchAtlas != (const void *)PtrMap) ||
-            s_batchCLUTGouraud != (const void *)PtrCLUTGouraud ||
             s_batchZBuffer != Fill_Flag_ZBuffer ||
             s_batchNZW != Fill_Flag_NZW) {
             GL_FlushBatch();
@@ -3446,8 +3720,11 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
     s_currentColorPoly = (U32)colorPoly;
     s_currentMatFlags = matFlags;
     s_currentMaterial = material;
-    s_batchTextured = (typePoly >= POLY_TEXTURE) ? 1 : 0;
+    /* Sticky: a batch may mix textured and flat polys (only the alpha mode
+       forces a flush), so the flush must bind an atlas page as long as ANY
+       poly in the batch samples it — the flat ones never do. */
     if (typePoly >= POLY_TEXTURE) {
+        s_batchTextured = 1;
         s_batchAtlas = (const void *)PtrMap;
     }
     s_batchCLUTGouraud = (const void *)PtrCLUTGouraud;
@@ -3500,9 +3777,23 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
     }
 
     /* Stamp per-polygon RepMask onto each vertex (SW rasterizer uses the
-       global RepMask; GL needs it per-vertex for batching). */
-    for (S32 i = 0; i < nbPoints; i++) {
-        ptrPoints[i].Pt_RepMask = (U16)(RepMask & 0xFFFF);
+       global RepMask; GL needs it per-vertex for batching).  Gouraud-table
+       polys (types 6/7) never texture, so their RepMask vertex field is
+       free — stamp the CLUT base row there instead.  Like the mode-0 high
+       byte above, this lets SetCLUT() changes ride per vertex instead of
+       forcing a flush per terrain tile. */
+    if ((matFlags & 7) == 3) {
+        S32 row = (PtrCLUTFog != NULL && PtrCLUTGouraud != NULL)
+                      ? (S32)(((const U8 *)PtrCLUTGouraud -
+                               (const U8 *)PtrCLUTFog) >> 8)
+                      : 0;
+        for (S32 i = 0; i < nbPoints; i++) {
+            ptrPoints[i].Pt_RepMask = (U16)row;
+        }
+    } else {
+        for (S32 i = 0; i < nbPoints; i++) {
+            ptrPoints[i].Pt_RepMask = (U16)(RepMask & 0xFFFF);
+        }
     }
 
     /* Triangulate with interior diagonals only — a fan from vertex 0 would

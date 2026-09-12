@@ -306,6 +306,55 @@ static void CommitPresentTarget(void * /*pixels*/, U32 /*pitch*/) {
 }
 #endif
 
+/* ── Software frame limiter ─────────────────────────────────────────────── */
+
+static S32 s_frameLimit = 0;
+static U64 s_frameLimitNext = 0;
+
+void Window_SetFrameLimit(int fps) {
+    if (fps < 0)
+        fps = 0;
+    s_frameLimit = fps;
+    s_frameLimitNext = 0;
+}
+
+/* Called at the end of every presented frame. With vsync on the swap has
+   usually already blocked out most of the budget, so the wait below shrinks
+   to nothing; with vsync off this is the only pacing. The spin tail keeps
+   90/120 fps targets accurate: SDL_Delay alone rounds up to the OS
+   scheduler tick. */
+static void FrameLimitWait(void) {
+    U64 now;
+
+    if (s_frameLimit <= 0) {
+        s_frameLimitNext = 0;
+        return;
+    }
+
+    const U64 freq = SDL_GetPerformanceFrequency();
+    const U64 frame = freq / (U64)s_frameLimit;
+    now = SDL_GetPerformanceCounter();
+
+    if (s_frameLimitNext == 0 || now + frame < s_frameLimitNext) {
+        /* First frame, or a long stall (modal hang, load): restart the
+           cadence from now instead of burst-catching-up. */
+        s_frameLimitNext = now + frame;
+        return;
+    }
+
+    if (now < s_frameLimitNext) {
+        const U64 remainingNs =
+            (s_frameLimitNext - now) * 1000000000ULL / freq;
+        if (remainingNs > 3000000ULL) {
+            SDL_Delay((Uint32)((remainingNs - 2000000ULL) / 1000000ULL));
+        }
+        while ((now = SDL_GetPerformanceCounter()) < s_frameLimitNext) {
+        }
+    }
+
+    s_frameLimitNext += frame;
+}
+
 static void PresentFrame() {
     assert(sdlPalette != NULL);
     assert(Log != NULL);
@@ -365,6 +414,8 @@ static void PresentFrame() {
 
             GL_Present(s_glStaging, ModeDesiredX * 4, ModeDesiredX, ModeDesiredY,
                        DisplayTexFilter);
+            if (GL_GetStereoEye() != 0)
+                FrameLimitWait();
             return;
         }
 
@@ -375,6 +426,8 @@ static void PresentFrame() {
 
         GL_PresentIndexed((const U8 *)Log, ModeDesiredX, ModeDesiredX,
                            ModeDesiredY, paletteLUT, DisplayTexFilter);
+        if (GL_GetStereoEye() != 0)
+            FrameLimitWait();
         return;
     }
 #endif
@@ -411,6 +464,7 @@ static void PresentFrame() {
     }
 
     CommitPresentTarget(stagingPixels, stagingPitch);
+    FrameLimitWait();
 }
 
 void HandleEventsVideo(const void *event) {

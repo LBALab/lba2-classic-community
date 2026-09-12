@@ -199,10 +199,13 @@ No separate GL fog equation needed — the CLUT already encodes the fog blend.
 Triangles are collected into a VBO and flushed when:
 
 - Atlas page changes (different `PtrMap` base pointer)
-- CLUT changes (different fog/brightness level via `SetCLUT`)
-- RepMask changes (different UV wrapping)
+- Alpha mode changes (only TRANS batches enable blending; mode, chroma and perspective differences branch per fragment in the shader, so they share a batch)
+- Fog-smooth mode enters or leaves the batch (type 24 pins the depth func to `GL_ALWAYS` under NZW)
+- Z-buffer/NZW fill flags change
 - Batch buffer full (~4096 vertices)
 - End of frame (before present)
+
+The CLUT row is *not* a flush trigger: `SetCLUT()` changes it per terrain tile (fog distance), and it rides per vertex instead — in the material word's high byte for CLUT-textured polygons (mode 0), in the RepMask vertex field for gouraud-table ones (mode 3) — so tiles share draw calls.
 
 ### Vertex format
 
@@ -212,7 +215,10 @@ struct GLVertex {
     U16 texU, texV;    // texture coordinates (from Struc_Point::Pt_MapU/V)
     U16 light;         // Gouraud intensity (from Struc_Point::Pt_Light)
     U16 zo;            // normalized Z (from Struc_Point::Pt_ZO)
-};  // 12 bytes per vertex
+    U16 repMask;       // UV wrap mask; gouraud-table mode 3 reuses it for the CLUT row
+    U16 material;      // low byte: shading mode + alpha/chroma/persp flags,
+                       // high byte: flat colour, shadow level, or CLUT row (mode 0)
+};  // 16 bytes per vertex
 ```
 
 ## 2D/3D compositing

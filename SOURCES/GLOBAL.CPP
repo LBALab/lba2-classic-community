@@ -87,6 +87,7 @@ S32 DetailLevel = MAX_DETAIL_LEVEL;
 S32 VideoFullScreen = TRUE;
 S32 DisplayFullScreen = FALSE;
 S32 DisplayVSync = TRUE;
+S32 FpsLimit = 0; /* 0 = unlimited, else frames-per-second ceiling */
 
 #ifdef USE_GPURENDERER
 S32 GPURendererActive = FALSE;

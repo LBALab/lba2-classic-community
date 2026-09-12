@@ -550,6 +550,7 @@ int Control_Begin(void) {
        run flat-out. Presentation only -- the rendered pixels and simulation state are
        unchanged (verified: dumps and screenshots are identical with vsync off). */
     Window_SetVSync(0);
+    Window_SetFrameLimit(0);
 
     /* Attract/demo mode: the scene's scripts drive the hero along authored tracks (a
        "canned playthrough"), and dialogues/choices auto-advance on the game clock instead

@@ -2433,6 +2433,13 @@ void ReadConfigFile(void) {
 
     InverseStereoSample(ReverseStereo);
 
+    DebugFps = DefFileBufferReadValueDefault("DebugFps", FALSE);
+
+    FpsLimit = DefFileBufferReadValueDefault("FpsLimit", 0);
+    if (FpsLimit < 0)
+        FpsLimit = 0;
+    Window_SetFrameLimit(FpsLimit);
+
     DetailLevel = DefFileBufferReadValueDefault("DetailLevel", MAX_DETAIL_LEVEL);
 
     if (DetailLevel < 0)
@@ -2708,6 +2715,8 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("AllCameras", AllCameras);
     DefFileBufferWriteValue("FollowCamera", FollowCamera);
     DefFileBufferWriteValue("ReverseStereo", ReverseStereo);
+    DefFileBufferWriteValue("DebugFps", DebugFps);
+    DefFileBufferWriteValue("FpsLimit", FpsLimit);
     DefFileBufferWriteValue("DetailLevel", DetailLevel);
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);

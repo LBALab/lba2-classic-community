@@ -84,6 +84,13 @@ extern void Display_MainCapture(const char *path);
    Display submenu's Resolution row). Like Display_MainCapture but builds the
    runtime ResolutionMenu first, then drives DoGameMenu on it. */
 extern void Resolution_MainCapture(const char *path);
+/* Harness hook: capture the Advanced options submenu (the list opened from
+   Options -> Advanced options). Arms Menu_RequestCapture and drives
+   DoGameMenu on the AdvancedOptionMenu array; the capture site inside
+   DoGameMenu fires and returns 1000. Background pixels come from the
+   caller's Log/Screen state -- `ui --black-bg advanced-options` clears them
+   first; the plain verb composites over the live scene. */
+extern void Advanced_MainCapture(const char *path);
 /*--------------------------------------------------------------------------*/
 extern void VolumeOptions(void);
 /*--------------------------------------------------------------------------*/

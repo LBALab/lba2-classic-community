@@ -96,6 +96,8 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_QUALITY 2119
 #define MENU_ID_DISPLAY_STEREO3D 2120 /* Quest OpenXR native stereo toggle */
 #endif
+#define MENU_ID_DISPLAY_FPS 2121
+#define MENU_ID_FPS_LIMIT 2122
 
 // Resolution sub-page rows occupy a reserved id range: row i carries id
 // MENU_ID_RESOLUTION_BASE + i, which BuildCustomMenuText and GereResolutionMenu
@@ -272,7 +274,7 @@ U16 LanguageMenu[] = {
 
 U16 AdvancedOptionMenu[] = {
     0,   // selected
-    7,   // nb entries
+    9,   // nb entries
     260, // y center
     0,   // .dia num
 
@@ -290,6 +292,10 @@ U16 AdvancedOptionMenu[] = {
     MENU_ID_VIDEO_SIZE,
     0,
     MENU_ID_DISPLAY_TEXT,
+    0,
+    MENU_ID_DISPLAY_FPS,
+    0,
+    MENU_ID_FPS_LIMIT,
 };
 
 U16 SavedConfirmMenu[] = {
@@ -541,6 +547,18 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_TEXT:
         GetMultiText(16 + FlagDisplayText, string);
+        break;
+
+    case MENU_ID_DISPLAY_FPS:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DebugFps ? MENU_LABEL_FPS_ON : MENU_LABEL_FPS_OFF));
+        break;
+
+    case MENU_ID_FPS_LIMIT:
+        if (FpsLimit <= 0) {
+            CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_FPSLIMIT_OFF));
+        } else {
+            FormatUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_FPSLIMIT_FMT), FpsLimit);
+        }
         break;
 
     case MENU_ID_GENERAL_VOLUME:
@@ -3443,6 +3461,30 @@ S32 GereDisplayMenu(void) {
 /*══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
+/* Harness one-shot capture of the Advanced options submenu. Same shape as
+   Display_MainCapture: the pre-pass mirrors what OptionsMenu runs before
+   GereAdvancedOptionsMenu (plasma texture, Log copy, palette sync, SYS dial
+   bank — the GetMultiText rows read their strings from it), then
+   DoGameMenu runs with the capture armed so the first settled frame lands
+   in the PNG and the loop exits. */
+void Advanced_MainCapture(const char *path) {
+    HQ_StopSample();
+    InitPlasmaMenu();
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+    PtrPal = PtrPalNormal;
+    PaletteSync(PtrPalNormal);
+    InitDial(0);
+
+    Menu_RequestCapture(path);
+    DoGameMenu(AdvancedOptionMenu);
+    Menu_RequestCapture(NULL); /* disarm if DoGameMenu somehow exited otherwise */
+}
+
+/*══════════════════════════════════════════════════════════════════════════*/
+/*──────────────────────────────────────────────────────────────────────────*/
+
 S32 GereAdvancedOptionsMenu(void) {
     S32 select;
     S32 flag = 0;
@@ -3487,6 +3529,27 @@ S32 GereAdvancedOptionsMenu(void) {
                 FlagDisplayText = TRUE;
             }
             break;
+
+        case MENU_ID_DISPLAY_FPS:
+            DebugFps ^= 1;
+            break;
+
+        case MENU_ID_FPS_LIMIT: {
+            static const S32 kFpsLimits[] = {0, 30, 60, 72, 90, 120};
+            const S32 count = (S32)(sizeof(kFpsLimits) / sizeof(kFpsLimits[0]));
+            S32 i;
+            for (i = 0; i < count; i++) {
+                if (kFpsLimits[i] == FpsLimit) {
+                    break;
+                }
+            }
+            if (i >= count) {
+                i = 0; /* unknown cfg value: cycle starts from Off */
+            }
+            FpsLimit = kFpsLimits[(i + 1) % count];
+            Window_SetFrameLimit(FpsLimit);
+            break;
+        }
         }
     }
 

@@ -32,6 +32,8 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | AllCameras | int | 0, 1 | 1 | 0=OFF, 1=ON |
 | FollowCamera | int | 0, 1 | 0 | Auto camera (user-facing name; Enhanced Edition–style third-person follow in exterior). Config key stays `FollowCamera` for stability. 0=classic (default), 1=auto. Also reads legacy key `AutoCameraCenter` |
 | ReverseStereo | int | 0, 1 | 0 | 0=OFF, 1=ON |
+| DebugFps | int | 0, 1 | 0 | 1 shows the frame-rate counter in the bottom-left corner (Advanced options toggle; also the `fps` console cvar) |
+| FpsLimit | int | 0, 30, 60, 72, 90, 120 | 0 | Software frame-rate ceiling. 0 = unlimited (vsync alone paces when on). Other values are treated as 0 by the limiter and re-asserted to a table value on first menu cycle |
 | DetailLevel | int | 0–3 | 3 | 0=min (no rain, no sea, no horizon), 1=486, 2=base Pentium, 3=max. Drives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon |
 | FullScreen | int | 0, 1 | 1 | 0=small videos, 1=fullscreen videos. Invalid values → 1 |
 | DisplayFullScreen | int | 0, 1 | 1 | 0=windowed display, 1=fullscreen display. Invalid values → 0 |
@@ -58,6 +60,8 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | Shadow | Shadow quality (1–3) | ReadConfigFile / WriteConfigFile | Options → Detail |
 | AllCameras | Scenario cameras ON/OFF | ReadConfigFile / WriteConfigFile | Options |
 | ReverseStereo | Stereo invert | ReadConfigFile / WriteConfigFile | Options |
+| DebugFps | Frame-rate counter ON/OFF | ReadConfigFile / WriteConfigFile | Options → Advanced options |
+| FpsLimit | Frame-rate limiter (Off/30/60/72/90/120) | ReadConfigFile / WriteConfigFile | Options → Advanced options |
 | DetailLevel | Graphics detail (0–3) | ReadConfigFile / WriteConfigFile | Options |
 | FullScreen | Video playback size | ReadConfigFile / WriteConfigFile | Options → Advanced options |
 | DisplayFullScreen | Window/display fullscreen toggle | ReadConfigFile / WriteConfigFile | Options → Advanced options |

@@ -5684,7 +5684,7 @@ startaffscene:
             GL_RestoreTerrainSnapshot();
         }
         if (ClipWindowYMax >= ClipWindowYMin) {
-            memset(Log + (size_t)ClipWindowYMin * ModeDesiredX, 0,
+            memset((U8 *)Log + (size_t)ClipWindowYMin * ModeDesiredX, 0,
                    (size_t)ModeDesiredX
                        * (size_t)(ClipWindowYMax - ClipWindowYMin + 1));
         }

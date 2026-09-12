@@ -65,6 +65,12 @@ bool Window_SupportsWindowedMode(void);
 // pixels or simulation state.
 void Window_SetVSync(int enabled);
 
+// Software frame-rate limiter (Options -> Advanced options). 0 disables; a
+// positive value is a target frames-per-second ceiling enforced after each
+// presented frame. The control harness clears it alongside the vsync drop so
+// scripted runs stay flat-out.
+void Window_SetFrameLimit(int fps);
+
 void SetWindowRelativeMouse(bool enable);
 void ManageWindow();
 void HandleEventsWindow(const void *event);
