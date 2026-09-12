@@ -972,6 +972,14 @@ U32 MaskVisible(U8 *in_ptr) {
     return finalMask;
 }
 
+/* Orders visible terrain tiles by their GL batch state (fog, half flags,
+   banks) so consecutive tiles share one flush; see the sort site below. */
+static int TERRAIN_TileSortCmp(const void *a, const void *b) {
+    U32 ka = ((const U32 *)a)[0];
+    U32 kb = ((const U32 *)b)[0];
+    return (ka < kb) ? -1 : (ka > kb) ? 1 : 0;
+}
+
 /*──────────────────────────────────────────────────────────────────────────*/
 void AffichageTerrainZBuf(void) {
     S16 *ptrm;
@@ -1057,17 +1065,25 @@ void AffichageTerrainZBuf(void) {
         }
     }
 
-    /* Draw the visible tiles bucketed by their 16 fog levels instead of in
-       scan order. DrawFeuillePolyZBuf calls SetCLUT(fog) per tile, and the
-       GL batch flushes whenever the CLUT changes — scan order mixes fog
-       distances constantly, emitting thousands of tiny draw calls per cube
-       (hundreds of ms on mobile GPUs). Grouped by fog, the batch flushes at
-       most 16 times per cube. All fillers are z-buffered, so the draw order
-       between buckets does not change the result. */
+    /* Draw the visible tiles sorted by a state key instead of in scan
+       order.  DrawFeuillePolyZBuf calls SetCLUT(fog) per tile, and the GL
+       batch flushes whenever the type, flat colour or CLUT row changes —
+       scan order mixes fog distances, banks and textured/flat tiles
+       constantly, emitting thousands of tiny draw calls per cube
+       (hundreds of ms on mobile GPUs).  The key packs the full batch state
+       (fog level, both halves' Tex/PolyFlag classes and banks), so tiles
+       drawn consecutively share one flush state.  All terrain fillers are
+       z-buffered and unblended (solid, stipple or chroma-keyed), so the
+       draw order does not change the result. */
     {
-        static S16 s_fogTileIdx[16][NB_COTE * NB_COTE];
-        static S16 s_fogTileCount[16];
-        memset(s_fogTileCount, 0, sizeof(s_fogTileCount));
+        /* key: fog(16) | class(h0.Tex,h1.Tex,h0.Poly,h1.Poly, 2b each) |
+           bank(h0,h1, 4b each) — one bit-pattern per GL batch state. */
+        typedef struct {
+            U32 key;
+            S16 idx;
+        } T_TILE_SORT;
+        static T_TILE_SORT s_tiles[NB_COTE * NB_COTE];
+        S32 tileCount = 0;
 
         U32 tb0 = SDL_GetTicks();
 
@@ -1088,8 +1104,17 @@ void AffichageTerrainZBuf(void) {
                     S32 fogLevel = BoundRegleTrois(0, 15,
                                                    ClipZFar - StartZFog,
                                                    ptrs[0].Zrot - StartZFog);
-                    S32 idx = z * (NB_COTE + 1) + x;
-                    s_fogTileIdx[fogLevel][s_fogTileCount[fogLevel]++] = (S16)idx;
+                    T_HALF_POLY *h = &MapPolyGround[z * (64 * 2) + x * 2];
+                    s_tiles[tileCount].key =
+                        ((U32)fogLevel << 24) |
+                        ((U32)(h->TexFlag & 3) << 20) |
+                        ((U32)((h + 1)->TexFlag & 3) << 18) |
+                        ((U32)(h->PolyFlag & 3) << 16) |
+                        ((U32)((h + 1)->PolyFlag & 3) << 14) |
+                        ((U32)(h->Bank & 15) << 10) |
+                        ((U32)((h + 1)->Bank & 15) << 6);
+                    s_tiles[tileCount].idx = (S16)(z * (NB_COTE + 1) + x);
+                    tileCount++;
                     break;
                 }
                 case 0:
@@ -1117,15 +1142,18 @@ void AffichageTerrainZBuf(void) {
             ptrs++;
         }
 
+        /* Ascending sort by state key. */
+        {
+            qsort(s_tiles, tileCount, sizeof(T_TILE_SORT),
+                  TERRAIN_TileSortCmp);
+        }
+
         U32 tb1 = SDL_GetTicks();
 
-        for (S32 level = 0; level < 16; level++) {
-            S32 cnt = s_fogTileCount[level];
-            for (S32 i = 0; i < cnt; i++) {
-                S32 idx = s_fogTileIdx[level][i];
-                DrawFeuillePolyZBuf(idx % (NB_COTE + 1), idx / (NB_COTE + 1),
-                                    &SommetRot[0][0] + idx);
-            }
+        for (S32 i = 0; i < tileCount; i++) {
+            S32 idx = s_tiles[i].idx;
+            DrawFeuillePolyZBuf(idx % (NB_COTE + 1), idx / (NB_COTE + 1),
+                                &SommetRot[0][0] + idx);
         }
 
         {

@@ -135,6 +135,7 @@ static const char *s_clutVertSrc =
     "attribute float aLight;\n"
     "attribute float aZ;\n"
     "attribute float aRepMask;\n"
+    "attribute float aMaterial;\n"
     "uniform vec2 uScreenScale;\n" /* 2.0/resX, 2.0/resY */
     /* Perspective-correct interpolation: the SW rasterizer
        (POLYTZF/POLYTEXZ, Z-textured types 16-24) interpolates
@@ -151,6 +152,7 @@ static const char *s_clutVertSrc =
     "varying float vRepMask;\n"
     "varying float vZ;\n"
     "varying float vZOverW;\n"
+    "varying float vMaterial;\n"
     "void main() {\n"
     "    float cx = aPos.x * uScreenScale.x - 1.0;\n"
     "    float cy = 1.0 - aPos.y * uScreenScale.y;\n"
@@ -163,6 +165,7 @@ static const char *s_clutVertSrc =
     "    vRepMask = aRepMask;\n"
     "    vZ = aZ;\n"
     "    vZOverW = aZ * invW;\n"
+    "    vMaterial = aMaterial;\n"
     "}\n";
 
 static const char *s_clutFragSrc =
@@ -171,15 +174,10 @@ static const char *s_clutFragSrc =
     "uniform vec2 uAtlasScale;\n"   /* texture dims for texel-space UVs */
     "uniform sampler2D uCLUT;\n"    /* 256×256 LUMINANCE (fog table) */
     "uniform sampler2D uPalette;\n" /* 256×1 BGRA (paletteLUT) */
-    "uniform int uPolyMode;\n"      /* 0=texture 1=flat 2=gouraud 3=gouraudTable 4=textureNoCLUT 5=fogSmooth 6=shadowGray */
-    "uniform float uFlatColor;\n"   /* palette index (mode 1) / CLUT column (mode 3) */
     "uniform float uCLUTBaseRow;\n" /* CLUT row offset for gouraud table (mode 3) */
     "uniform float uScaledFogNear;\n" /* Fill_ScaledFogNear (fog-smooth distance, mode 5) */
     "uniform float uFogRowScale;\n"   /* Fill_Fog_Factor / 65536 (fog-smooth distance, mode 5) */
-    "uniform int uAlphaMode;\n"     /* 0=opaque 1=TRANS(semi) 2=TRAME(stipple) */
     "uniform int uBilinear;\n"      /* 0=nearest 1=bilinear CLUT sampling */
-    "uniform int uChromaKey;\n"     /* 0=no chroma key 1=discard index 0 */
-    "uniform int uPerspCorrect;\n"  /* 1=perspective-correct UV/Z (types 16-24) */
     "varying vec2 vTexCoord;\n"
     "varying vec2 vTexCoordOverW;\n"
     "varying float vInvW;\n"
@@ -187,6 +185,12 @@ static const char *s_clutFragSrc =
     "varying float vRepMask;\n"
     "varying float vZ;\n"
     "varying float vZOverW;\n"
+    "varying float vMaterial;\n"
+    /* Per-vertex material word (flat across each polygon): low byte =
+       polyMode (bits 0-2), alphaMode (bits 3-4), chromaKey (bit 5),
+       perspCorrect (bit 6); high byte = flat colour / shadow level.
+       All three vertices of a triangle carry the same word, so the
+       derived values are constant across the fragment. */
     /* Look up a palette index through the CLUT, returning the final RGBA
        color.  `palIdx` is the raw atlas texel (palette index) and
        `gouraudRow` the CLUT row selected by the gouraud intensity. */
@@ -200,7 +204,7 @@ static const char *s_clutFragSrc =
        interpolate the resulting RGBA colors.  This avoids the artifact
        where hardware bilinear on palette indices produces garbage colors. */
     "vec4 bilinearCLUT(vec2 tc, float widthMask, float heightMask,\n"
-    "                   float gouraudRow) {\n"
+    "                   float gouraudRow, float chroma) {\n"
     "    float u = mod(tc.x, widthMask + 1.0);\n"
     "    float v = mod(tc.y, heightMask + 1.0);\n"
     "    float iu = floor(u);\n"
@@ -223,7 +227,7 @@ static const char *s_clutFragSrc =
     "    float t11 = texture2D(uAtlas, (p11 + 0.5) / 256.0).r * 255.0;\n"
     /* Chroma key: discard if nearest texel (p00) is index 0.
        Matches SW nearest-neighbor behaviour for INCRUST types. */
-    "    if (uChromaKey != 0 && t00 < 0.5) discard;\n"
+    "    if (chroma > 0.5 && t00 < 0.5) discard;\n"
     "    vec4 c00 = clutLookup(t00, gouraudRow);\n"
     "    vec4 c10 = clutLookup(t10, gouraudRow);\n"
     "    vec4 c01 = clutLookup(t01, gouraudRow);\n"
@@ -233,13 +237,20 @@ static const char *s_clutFragSrc =
     "void main() {\n"
     "    vec4 color;\n"
     "    float alphaOverride = 0.0;\n"
+    /* Per-vertex material word, flat across the polygon. */
+    "    float mFlags = mod(vMaterial, 256.0);\n"
+    "    int mMode = int(mod(mFlags, 8.0) + 0.5);\n"
+    "    float mAlpha = floor(mod(mFlags, 32.0) / 8.0 + 0.5);\n"
+    "    float mChroma = floor(mod(mFlags, 64.0) / 32.0 + 0.5);\n"
+    "    float mPersp = floor(mod(mFlags, 128.0) / 64.0 + 0.5);\n"
+    "    float mColor = floor(vMaterial / 256.0);\n"
     /* Select perspective-corrected or affine texture/Z varyings.
-       uPerspCorrect is 1 for Z-textured types (16-24), where the SW
+       The persp bit is set for Z-textured types (16-24), where the SW
        rasterizer divides MapU/MapV/ZBuf by W = 1/Z; types 8-15
        (SW POLYTEXT/POLYGTEX) interpolate affinely. */
-    "    vec2 tc = mix(vTexCoord, vTexCoordOverW / vInvW, float(uPerspCorrect));\n"
-    "    float vZsel = mix(vZ, vZOverW / vInvW, float(uPerspCorrect));\n"
-     "    if (uPolyMode == 0) {\n"
+    "    vec2 tc = mix(vTexCoord, vTexCoordOverW / vInvW, mPersp);\n"
+    "    float vZsel = mix(vZ, vZOverW / vInvW, mPersp);\n"
+     "    if (mMode == 0) {\n"
      /* Textured: atlas → CLUT → palette */
      "        tc = tc / 256.0;\n"
      "        float widthMask = mod(vRepMask, 256.0);\n"
@@ -249,7 +260,7 @@ static const char *s_clutFragSrc =
         cases — same bias applied in polyMode 2. */
      "        float gouraudRow = floor((vLight + 128.0) / 256.0) + uCLUTBaseRow;\n"
     "        if (uBilinear != 0) {\n"
-    "            color = bilinearCLUT(tc, widthMask, heightMask, gouraudRow);\n"
+    "            color = bilinearCLUT(tc, widthMask, heightMask, gouraudRow, mChroma);\n"
      "        } else {\n"
      "            float wrappedU = mod(tc.x, widthMask + 1.0);\n"
      "            float wrappedV = mod(tc.y, heightMask + 1.0);\n"
@@ -261,27 +272,27 @@ static const char *s_clutFragSrc =
        cannot remap index 0 to an opaque value.
        Only INCRUST types (12-15, 20-23) have chroma key; non-INCRUST
        types (8-11, 16-19, 24) write all texels including index 0. */
-    "            if (uChromaKey != 0 && texel < 0.5) discard;\n"
+    "            if (mChroma > 0.5 && texel < 0.5) discard;\n"
     "            color = clutLookup(texel, gouraudRow);\n"
     "        }\n"
-    "    } else if (uPolyMode == 1) {\n"
+    "    } else if (mMode == 1) {\n"
     /* Flat solid: single palette color */
-    "        float palIdx = uFlatColor;\n"
+    "        float palIdx = mColor;\n"
     "        color = texture2D(uPalette,\n"
     "                 vec2((palIdx + 0.5) / 256.0, 0.5));\n"
-    "    } else if (uPolyMode == 2) {\n"
+    "    } else if (mMode == 2) {\n"
     /* Gouraud (types 4/5): palette = (color + (light+128)/256).
        SW init: Fill_CurGouraudMin = (Pt_Light << 8) + 0x8000 + (color << 16).
        The +0x8000 rounding bias means the palette index is
        (color + (Pt_Light + 128) / 256), not (color + Pt_Light / 256). */
-    "        float palIdx = mod(uFlatColor + floor((vLight + 128.0) / 256.0), 256.0);\n"
+    "        float palIdx = mod(mColor + floor((vLight + 128.0) / 256.0), 256.0);\n"
     "        color = texture2D(uPalette,\n"
     "                 vec2((palIdx + 0.5) / 256.0, 0.5));\n"
-    "    } else if (uPolyMode == 4) {\n"
+    "    } else if (mMode == 4) {\n"
     /* Texture without CLUT (types 8 and 12):
        SW Filler_Texture / Filler_TextureChromaKey writes texel as palette
        index directly (*line = texel).  No CLUT lookup — the atlas texel
-       IS the palette index.  Chroma key controlled by uChromaKey. */
+       IS the palette index.  Chroma key controlled by mChroma. */
      "        tc = tc / 256.0;\n"
      "        float widthMask = mod(vRepMask, 256.0);\n"
      "        float heightMask = floor(vRepMask / 256.0);\n"
@@ -292,10 +303,10 @@ static const char *s_clutFragSrc =
       "        float palIdx = texture2D(uAtlas, atlasUV).r * 255.0;\n"
     /* Chroma key: atlas texel 0 = transparent.
        Only INCRUST types have chroma key. */
-    "        if (uChromaKey != 0 && palIdx < 0.5) discard;\n"
+    "        if (mChroma > 0.5 && palIdx < 0.5) discard;\n"
     "        color = texture2D(uPalette,\n"
     "                 vec2((palIdx + 0.5) / 256.0, 0.5));\n"
-    "    } else if (uPolyMode == 5) {\n"
+    "    } else if (mMode == 5) {\n"
     /* Texture Z Fog Smooth (type 24, e.g. sea/sky):
        SW Filler_TextureZFogSmoothZBuf / ...NZW use a fixed CLUT base
        (PtrCLUTFog + 12*256) plus a per-pixel distance-based fog row,
@@ -322,29 +333,30 @@ static const char *s_clutFragSrc =
     "        float fogRow16 = floor(fogDist * uFogRowScale);\n"
     "        float clutRow = 12.0 + floor(mod(fogRow16, 256.0) / 16.0) * 16.0;\n"
     "        color = clutLookup(texel, clutRow);\n"
-    "    } else if (uPolyMode == 6) {\n"
+    "    } else if (mMode == 6) {\n"
     /* Ground shadow (SW ShadeBoxBlk replacement): constant gray source
        combined with GL_DST_COLOR/GL_ZERO blending multiplies the scene
-       color by uFlatColor = (15 - ShadowLevel) / 15 — the linear
-       counterpart of the SW fade-CLUT row (15 - level)/15, which maps
-       each palette entry to its darker ramp value. */
-    "        color = vec4(uFlatColor, uFlatColor, uFlatColor, 1.0);\n"
+       color by (15 - level) / 15 — the linear counterpart of the SW
+       fade-CLUT row (15 - level)/15, which maps each palette entry to its
+       darker ramp value.  The vertex colour byte holds the level. */
+    "        float shade = (15.0 - mColor) / 15.0;\n"
+    "        color = vec4(shade, shade, shade, 1.0);\n"
     "    } else {\n"
     /* Gouraud table (types 6/7): CLUT lookup, color = column.
        Same +128 rounding bias as polyMode 0. */
     "        float gouraudRow = floor((vLight + 128.0) / 256.0) + uCLUTBaseRow;\n"
-    "        vec2 clutUV = vec2((uFlatColor + 0.5) / 256.0,\n"
+    "        vec2 clutUV = vec2((mColor + 0.5) / 256.0,\n"
     "                           (gouraudRow + 0.5) / 256.0);\n"
     "        float palIdx = texture2D(uCLUT, clutUV).r * 255.0;\n"
     "        color = texture2D(uPalette,\n"
     "                 vec2((palIdx + 0.5) / 256.0, 0.5));\n"
     "    }\n"
     /* TRAME stipple: discard every other fragment (50% coverage) */
-    "    if (uAlphaMode == 2) {\n"
+    "    if (mAlpha > 1.5) {\n"
     "        if (mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y), 2.0) < 1.0)\n"
     "            discard;\n"
     "    }\n"
-    "    if (uAlphaMode > 0) {\n"
+    "    if (mAlpha > 0.5) {\n"
     "        color.a = 0.5;\n"
     "    }\n"
     "    gl_FragColor = color;\n"
@@ -465,20 +477,16 @@ static GLint s_clut_aTexCoord = -1;
 static GLint s_clut_aLight = -1;
 static GLint s_clut_aZ = -1;
 static GLint s_clut_aRepMask = -1;
+static GLint s_clut_aMaterial = -1;
 static GLint s_clut_uAtlas = -1;
 static GLint s_clut_uCLUT = -1;
 static GLint s_clut_uPalette = -1;
 static GLint s_clut_uScreenScale = -1;
-static GLint s_clut_uPolyMode = -1;
 static GLint s_clut_uAtlasScale = -1;
-static GLint s_clut_uFlatColor = -1;
 static GLint s_clut_uCLUTBaseRow = -1;
 static GLint s_clut_uScaledFogNear = -1;
 static GLint s_clut_uFogRowScale = -1;
-static GLint s_clut_uAlphaMode = -1;
 static GLint s_clut_uBilinear = -1;
-static GLint s_clut_uChromaKey = -1;
-static GLint s_clut_uPerspCorrect = -1;
 
 /* ── GL state — textures ────────────────────────────────────────────────── */
 
@@ -489,10 +497,46 @@ static GLuint s_paletteTex = 0; /* 256×1 BGRA */
 /* ── GL state — batch buffer ─────────────────────────────────────────────── */
 
 static const U32 BATCH_MAX_VERTS = 4096;
-static U8 s_batchVerts[BATCH_MAX_VERTS * 14]; /* 14 bytes per vertex */
+/* 16 bytes per vertex: XE(2) YE(2) MapU(2) MapV(2) Light(2) ZO(2)
+   RepMask(2) Material(2).  The material word carries the shading mode,
+   alpha/chroma/perspective bits and the flat colour so polygons that only
+   differ in those can share one batch (one draw call) instead of flushing
+   per polygon — the dominant driver cost on mobile GPUs. */
+static const U32 BATCH_VERT_BYTES = 16;
+static U8 s_batchVerts[BATCH_MAX_VERTS * BATCH_VERT_BYTES];
 static U32 s_batchVertCount = 0;
 static U32 s_batchTriCount = 0;
 static GLuint s_batchVBO = 0;
+/* Material of the polygon currently being queued (low byte = mode/alpha/
+   chroma/persp flags, high byte = flat colour or shadow level). */
+static U16 s_currentMaterial = 0;
+
+/* Region of the FBO drawn since GL_SnapshotTerrain().  The incremental
+   restore only needs to erase those pixels (last frame's bodies, shadows,
+   sprites) back to the snapshot background — a full-screen blit of a
+   4x-SSAA framebuffer costs a large fraction of every idle frame. */
+static S32 s_fboDirtyX0 = 0, s_fboDirtyY0 = 0;
+static S32 s_fboDirtyX1 = -1, s_fboDirtyY1 = -1; /* empty: X1 < X0 */
+static S32 s_fboDirtyActive = 0; /* 1 while a snapshot is current */
+
+static void GL_MarkFBORegion(S32 x0, S32 y0, S32 x1, S32 y1) {
+    if (!s_fboDirtyActive) {
+        return;
+    }
+    if (s_fboDirtyX1 < s_fboDirtyX0) {
+        s_fboDirtyX0 = x0;
+        s_fboDirtyY0 = y0;
+        s_fboDirtyX1 = x1;
+        s_fboDirtyY1 = y1;
+        return;
+    }
+    if (x0 < s_fboDirtyX0) s_fboDirtyX0 = x0;
+    if (y0 < s_fboDirtyY0) s_fboDirtyY0 = y0;
+    if (x1 > s_fboDirtyX1) s_fboDirtyX1 = x1;
+    if (y1 > s_fboDirtyY1) s_fboDirtyY1 = y1;
+}
+static U16 s_currentMatFlags = 0; /* flags only — the flush trigger */
+static U8 s_batchTextured = 0;    /* batch samples the atlas page */
 
 /* ── Reverse palette lookup (ARGB -> palette index) ──────────────────────── */
 
@@ -1031,25 +1075,22 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_clut_aLight = glGetAttribLocation(s_clutProgram, "aLight");
     s_clut_aZ = glGetAttribLocation(s_clutProgram, "aZ");
     s_clut_aRepMask = glGetAttribLocation(s_clutProgram, "aRepMask");
-    s_clut_uPerspCorrect = glGetUniformLocation(s_clutProgram, "uPerspCorrect");
+    s_clut_aMaterial = glGetAttribLocation(s_clutProgram, "aMaterial");
     s_clut_uAtlas = glGetUniformLocation(s_clutProgram, "uAtlas");
     s_clut_uCLUT = glGetUniformLocation(s_clutProgram, "uCLUT");
     s_clut_uPalette = glGetUniformLocation(s_clutProgram, "uPalette");
     s_clut_uScreenScale = glGetUniformLocation(s_clutProgram, "uScreenScale");
-    s_clut_uPolyMode = glGetUniformLocation(s_clutProgram, "uPolyMode");
     s_clut_uAtlasScale = glGetUniformLocation(s_clutProgram, "uAtlasScale");
-    s_clut_uFlatColor = glGetUniformLocation(s_clutProgram, "uFlatColor");
     s_clut_uCLUTBaseRow = glGetUniformLocation(s_clutProgram, "uCLUTBaseRow");
     s_clut_uScaledFogNear = glGetUniformLocation(s_clutProgram, "uScaledFogNear");
     s_clut_uFogRowScale = glGetUniformLocation(s_clutProgram, "uFogRowScale");
-    s_clut_uAlphaMode = glGetUniformLocation(s_clutProgram, "uAlphaMode");
     s_clut_uBilinear = glGetUniformLocation(s_clutProgram, "uBilinear");
-    s_clut_uChromaKey = glGetUniformLocation(s_clutProgram, "uChromaKey");
 
     Log_Info("[GL] CLUT shader compiled OK (aPos=%d aTexCoord=%d aLight=%d "
-             "aZ=%d aRepMask=%d uAtlas=%d uCLUT=%d uPalette=%d uScreenScale=%d).",
+             "aZ=%d aRepMask=%d aMaterial=%d uAtlas=%d uCLUT=%d uPalette=%d "
+             "uScreenScale=%d).",
              s_clut_aPos, s_clut_aTexCoord, s_clut_aLight, s_clut_aZ,
-             s_clut_aRepMask,
+             s_clut_aRepMask, s_clut_aMaterial,
              s_clut_uAtlas, s_clut_uCLUT, s_clut_uPalette,
              s_clut_uScreenScale);
 
@@ -1478,9 +1519,17 @@ void GL_FlushBatch(void) {
         }
     }
 
-    /* Upload batch vertices to VBO */
+    /* Upload batch vertices to VBO.  Orphan the storage first
+       (glBufferData with NULL): several vertex uploads land in this buffer
+       per frame at offset 0 while earlier draws may still be pending, and
+       in-place glBufferSubData would force the driver to synchronise;
+       re-specifying the storage lets the driver hand out a fresh range
+       instead — the standard pattern for mobile GPUs. */
     glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, s_batchVertCount * 14, s_batchVerts);
+    glBufferData(GL_ARRAY_BUFFER, BATCH_MAX_VERTS * BATCH_VERT_BYTES, NULL,
+                 GL_STREAM_DRAW);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, s_batchVertCount * BATCH_VERT_BYTES,
+                    s_batchVerts);
 
     /* Use CLUT shader */
     glUseProgram(s_clutProgram);
@@ -1491,82 +1540,12 @@ void GL_FlushBatch(void) {
     screenScale[1] = 2.0f / (GLfloat)s_texHeight;
     glUniform2f(s_clut_uScreenScale, screenScale[0], screenScale[1]);
 
-    /* Set polygon mode uniform and color.
-       Mode 0 = textured (CLUT), 1 = flat, 2 = gouraud, 3 = gouraud table,
-       4 = texture without CLUT (type 8: texel IS palette index).
-       Alpha mode: 0 = opaque, 1 = TRANS (semi), 2 = TRAME (stipple). */
-    GLint polyMode;
-    GLint alphaMode = 0;
-    GLfloat flatColor = 0.0f;
-    if (s_currentTypePoly < POLY_TEXTURE) {
-        if (s_currentTypePoly <= 1) {
-            polyMode = 1; /* SOLID / FLAT */
-            flatColor = (GLfloat)(s_currentColorPoly & 0xFF);
-        } else if (s_currentTypePoly == 2) {
-            polyMode = 1; /* TRANS → flat color */
-            alphaMode = 1;
-            flatColor = (GLfloat)(s_currentColorPoly & 0xFF);
-        } else if (s_currentTypePoly == 3) {
-            polyMode = 1; /* TRAME → flat color */
-            alphaMode = 2;
-            flatColor = (GLfloat)(s_currentColorPoly & 0xFF);
-        } else if (s_currentTypePoly <= 5) {
-            polyMode = 2; /* GOURAUD / DITHER (dithering not in GL) */
-            flatColor = (GLfloat)(s_currentColorPoly & 0xFF);
-        } else {
-            polyMode = 3; /* GOURAUD_TABLE / DITHER_TABLE */
-            flatColor = (GLfloat)(s_currentColorPoly & 0xFF);
-        }
-    } else if (s_currentTypePoly == POLY_TEXTURE ||
-               s_currentTypePoly == POLY_TEXTURE_INCRUST ||
-               s_currentTypePoly == POLY_TEXTURE_Z ||
-               s_currentTypePoly == POLY_TEXTURE_Z_INCRUST) {
-        /* The non-flat texture types write the texel as a palette index
-           directly (Filler_Texture / TextureChromaKey / TextureZ /
-           TextureZChromaKey: *log = texel) — no CLUT lookup.  Chroma key
-           (discard index 0) controlled by uChromaKey. */
-        polyMode = 4;
-    } else if (s_currentTypePoly == POLY_TEXTURE_Z_FOG) {
-        /* Type 24 (POLY_TEXTURE_Z_FOG, e.g. sea/sky): SW
-           Filler_TextureZFogSmoothZBuf / ...NZW select the CLUT row from
-           the per-pixel Z distance to the fog near plane, ignoring
-           Pt_Light.  polyMode 5 replicates that in the fragment shader. */
-        polyMode = 5;
-    } else {
-        polyMode = 0; /* textured (CLUT-based) */
-    }
-    glUniform1i(s_clut_uPolyMode, polyMode);
-    glUniform1f(s_clut_uFlatColor, flatColor);
-    glUniform1i(s_clut_uAlphaMode, alphaMode);
+    /* Shading mode, alpha/chroma/perspective bits and flat colour now ride
+       per vertex in aMaterial, so polygons that differ only in those share
+       one draw call.  Blending stays a per-draw state: TRANS batches blend,
+       opaque/TRAME ones do not — the flush trigger keeps them apart. */
     glUniform1i(s_clut_uBilinear, s_bilinearCLUT);
-
-    /* Z-textured types (16-24) are perspective-corrected in the SW
-       rasterizer (Filler_TextureZ / FogSmooth divide MapU, MapV, ZBuf
-       by W = 1/Z); types 8-15 (Filler_Texture / Gouraud) are affine.
-       Type 25 (POLY_FLAG_ZBUFFER) is a Z-marker polygon, not textured. */
-    GLint perspCorrect =
-        (s_currentTypePoly >= POLY_TEXTURE_Z &&
-         s_currentTypePoly <= POLY_TEXTURE_Z_FOG) ? 1 : 0;
-    glUniform1i(s_clut_uPerspCorrect, perspCorrect);
-
-    /* Chroma key: only INCRUST types (12-15, 20-23) discard palette index 0.
-       Non-INCRUST types (8-11, 16-19, 24) write all texels unconditionally.
-       The INCRUST bit is bit 2 of the type number (0b100 = 4). */
-    GLint chromaKey = 0;
-    if (s_currentTypePoly >= POLY_TEXTURE &&
-        s_currentTypePoly <= POLY_TEXTURE_Z_FOG) {
-        chromaKey = (s_currentTypePoly & 4) ? 1 : 0;
-    }
-    glUniform1i(s_clut_uChromaKey, chromaKey);
-
-    /* Enable/disable blending.
-       TRANS/TRAME types (alphaMode 1/2) need blending for transparency.
-       INCRUST textured types use palette index 0 as chroma key — handled
-       by discard in the fragment shader (uChromaKey), not blending,
-       so Z-write remains enabled.  Non-INCRUST types (8-11, 16-19, 24)
-       write all texels including index 0, matching the SW rasterizer. */
-    GLint useBlend = (alphaMode != 0);
-    if (useBlend) {
+    if (s_currentMatFlags & 8) { /* alphaMode 1 (TRANS) */
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     } else {
@@ -1583,7 +1562,7 @@ void GL_FlushBatch(void) {
     /* Bind textures to units 0/1/2.  Textured batches sample the page the
        batch was recorded with; flat/gouraud batches never sample it. */
     glActiveTexture(GL_TEXTURE0);
-    if (s_currentTypePoly >= POLY_TEXTURE && s_batchAtlas != NULL) {
+    if (s_batchTextured && s_batchAtlas != NULL) {
         GL_BindAtlasFor(s_batchAtlas);
     } else {
         glBindTexture(GL_TEXTURE_2D, s_atlasTex);
@@ -1604,28 +1583,33 @@ void GL_FlushBatch(void) {
     /* Set up vertex attributes (14 bytes per vertex) */
     /* aPos: 2 × GL_SHORT, stride=14, offset=0 */
     glEnableVertexAttribArray(s_clut_aPos);
-    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
                           (const void *)0);
 
     /* aTexCoord: 2 × GL_UNSIGNED_SHORT, stride=14, offset=4 */
     glEnableVertexAttribArray(s_clut_aTexCoord);
-    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)4);
 
     /* aLight: 1 × GL_UNSIGNED_SHORT, stride=14, offset=8 */
     glEnableVertexAttribArray(s_clut_aLight);
-    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)8);
 
     /* aZ: 1 × GL_UNSIGNED_SHORT, stride=14, offset=10 */
     glEnableVertexAttribArray(s_clut_aZ);
-    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)10);
 
-    /* aRepMask: 1 × GL_UNSIGNED_SHORT, stride=14, offset=12 */
+    /* aRepMask: 1 × GL_UNSIGNED_SHORT, stride=16, offset=12 */
     glEnableVertexAttribArray(s_clut_aRepMask);
-    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)12);
+
+    /* aMaterial: 1 × GL_UNSIGNED_SHORT, stride=16, offset=14 */
+    glEnableVertexAttribArray(s_clut_aMaterial);
+    glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)14);
 
     /* Depth testing: enable for ALL valid types (0–24).
 
@@ -1673,7 +1657,8 @@ void GL_FlushBatch(void) {
             if (s_noBodyDWrite < 0) {
                 s_noBodyDWrite = getenv("LBA2_NO_BODY_DWRITE") ? 1 : 0;
             }
-            glDepthMask((useBlend || (s_batchNZW && s_noBodyDWrite))
+            glDepthMask(((s_currentMatFlags & 8) != 0 ||
+                         (s_batchNZW && s_noBodyDWrite))
                             ? GL_FALSE
                             : GL_TRUE);
         } else {
@@ -1729,10 +1714,13 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
                        U32 level) {
     Struc_Point pts[64];
     U16 tris[3 * 64];
-    static U8 polyVerts[3 * 64 * 14];
+    static U8 polyVerts[3 * 64 * BATCH_VERT_BYTES];
     S32 ntri;
     S32 nv;
     S32 i;
+    /* Material: polyMode 6 (shadow multiply); the vertex colour byte is
+       the shadow level — the shader derives (15 - level) / 15 from it. */
+    const U16 shadowMat = (U16)(6 | ((U16)(level & 15) << 8));
 
     if (!s_initialized || n < 3) {
         return;
@@ -1792,10 +1780,9 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
 
     glUniform2f(s_clut_uScreenScale, 2.0f / (GLfloat)s_texWidth,
                 2.0f / (GLfloat)s_texHeight);
-    glUniform1i(s_clut_uPolyMode, 6);
-    glUniform1f(s_clut_uFlatColor, (GLfloat)(15 - (level & 15)) / 15.0f);
-    glUniform1i(s_clut_uAlphaMode, 0);
-    glUniform1i(s_clut_uChromaKey, 0);
+    glUniform1f(s_clut_uCLUTBaseRow, 0.0f);
+    glUniform1f(s_clut_uScaledFogNear, s_batchScaledFogNear);
+    glUniform1f(s_clut_uFogRowScale, s_batchFogRowScale);
 
     /* Bind the three sampler textures (mode 6 ignores them, but the
        sampler units must reference valid textures). */
@@ -1820,12 +1807,22 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
        camera, but corners ride terrain altitude, so a skewed projection
        can go concave — a fan from vertex 0 would spill outside the
        outline (same reason the batch polys triangulate). */
+    {
+        S32 mx0 = xs[0], mx1 = mx0, my0 = ys[0], my1 = my0;
+        for (i = 1; i < n; i++) {
+            if (xs[i] < mx0) mx0 = xs[i];
+            if (xs[i] > mx1) mx1 = xs[i];
+            if (ys[i] < my0) my0 = ys[i];
+            if (ys[i] > my1) my1 = ys[i];
+        }
+        GL_MarkFBORegion(mx0, my0, mx1, my1);
+    }
     ntri = GL_TriangulatePolygon(pts, n, tris);
 
     if (ntri > 0) {
         nv = ntri;
         for (i = 0; i < nv; i++) {
-            U8 *v = polyVerts + i * 14;
+            U8 *v = polyVerts + i * BATCH_VERT_BYTES;
             S32 c = tris[i];
             S16 x = xs[c];
             S16 y = ys[c];
@@ -1835,26 +1832,32 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
             memset(v + 4, 0, 6); /* UV, light = 0 (unused) */
             memcpy(v + 10, &z, 2);
             memset(v + 12, 0, 2); /* RepMask = 0 */
+            memcpy(v + 14, &shadowMat, 2);
         }
 
         glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, nv * 14, polyVerts);
+        /* Orphan + upload in one call: see GL_FlushBatch. */
+        glBufferData(GL_ARRAY_BUFFER, nv * BATCH_VERT_BYTES, polyVerts,
+                     GL_STREAM_DRAW);
 
         glEnableVertexAttribArray(s_clut_aPos);
-        glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 14,
+        glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
                               (const void *)0);
         glEnableVertexAttribArray(s_clut_aTexCoord);
         glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE,
-                              14, (const void *)4);
+                              16, (const void *)4);
         glEnableVertexAttribArray(s_clut_aLight);
-        glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+        glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                               (const void *)8);
         glEnableVertexAttribArray(s_clut_aZ);
-        glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+        glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                               (const void *)10);
         glEnableVertexAttribArray(s_clut_aRepMask);
         glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE,
-                              14, (const void *)12);
+                              16, (const void *)12);
+        glEnableVertexAttribArray(s_clut_aMaterial);
+        glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE,
+                              16, (const void *)14);
 
         glDrawArrays(GL_TRIANGLES, 0, nv);
         s_profTris += (U32)nv / 3;
@@ -1869,6 +1872,7 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
     glDisableVertexAttribArray(s_clut_aLight);
     glDisableVertexAttribArray(s_clut_aZ);
     glDisableVertexAttribArray(s_clut_aRepMask);
+    glDisableVertexAttribArray(s_clut_aMaterial);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glUseProgram(0);
 }
@@ -1916,10 +1920,9 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
 
     glUniform2f(s_clut_uScreenScale, 2.0f / (GLfloat)s_texWidth,
                 2.0f / (GLfloat)s_texHeight);
-    glUniform1i(s_clut_uPolyMode, 1); /* flat palette color */
-    glUniform1f(s_clut_uFlatColor, (GLfloat)(colorIndex & 0xFF));
-    glUniform1i(s_clut_uAlphaMode, transparent ? 1 : 0);
-    glUniform1i(s_clut_uChromaKey, 0);
+    /* Material: polyMode 1 (flat palette colour), TRANS blends. */
+    const U16 sphereMat =
+        (U16)(1 | (transparent ? (1 << 3) : 0) | ((U16)(colorIndex & 0xFF) << 8));
     glUniform1f(s_clut_uCLUTBaseRow, 0.0f);
     glUniform1f(s_clut_uScaledFogNear, s_batchScaledFogNear);
     glUniform1f(s_clut_uFogRowScale, s_batchFogRowScale);
@@ -1943,14 +1946,16 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
         glDisable(GL_BLEND);
     }
 
-    /* Disc as a triangle fan: centre + 17 ring vertices, 14-byte layout
-       matching the batch (x, y, uv=0, light=0, zo, repmask=0). */
+    GL_MarkFBORegion(cx - radius, cy - radius, cx + radius, cy + radius);
+
+    /* Disc as a triangle fan: centre + 17 ring vertices, 16-byte layout
+       matching the batch (x, y, uv=0, light=0, zo, repmask=0, material). */
     const int SEGMENTS = 16;
-    U8 verts[(SEGMENTS + 2) * 14];
+    U8 verts[(SEGMENTS + 2) * BATCH_VERT_BYTES];
     S16 cx16 = (S16)cx, cy16 = (S16)cy;
     U16 zo16 = (U16)zo;
     for (int i = 0; i < SEGMENTS + 2; i++) {
-        U8 *v = verts + i * 14;
+        U8 *v = verts + i * BATCH_VERT_BYTES;
         int k = (i <= 1) ? 0 : (i - 1);
         double a = 2.0 * 3.14159265358979323846 * k / SEGMENTS;
         S16 x = cx16, y = cy16;
@@ -1964,25 +1969,30 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
         memset(v + 8, 0, 2);  /* light = 0 */
         memcpy(v + 10, &zo16, 2);
         memset(v + 12, 0, 2); /* repmask = 0 */
+        memcpy(v + 14, &sphereMat, 2);
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
+    /* Orphan + upload in one call: see GL_FlushBatch. */
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STREAM_DRAW);
     glEnableVertexAttribArray(s_clut_aPos);
-    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
                           (const void *)0);
     glEnableVertexAttribArray(s_clut_aTexCoord);
-    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)4);
     glEnableVertexAttribArray(s_clut_aLight);
-    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)8);
     glEnableVertexAttribArray(s_clut_aZ);
-    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)10);
     glEnableVertexAttribArray(s_clut_aRepMask);
-    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)12);
+    glEnableVertexAttribArray(s_clut_aMaterial);
+    glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)14);
 
     glDrawArrays(GL_TRIANGLE_FAN, 0, SEGMENTS + 2);
     s_profTris += SEGMENTS;
@@ -1996,6 +2006,7 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
     glDisableVertexAttribArray(s_clut_aLight);
     glDisableVertexAttribArray(s_clut_aZ);
     glDisableVertexAttribArray(s_clut_aRepMask);
+    glDisableVertexAttribArray(s_clut_aMaterial);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glUseProgram(0);
 }
@@ -2033,10 +2044,8 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
 
     glUniform2f(s_clut_uScreenScale, 2.0f / (GLfloat)s_texWidth,
                 2.0f / (GLfloat)s_texHeight);
-    glUniform1i(s_clut_uPolyMode, 6); /* multiply by flat color */
-    glUniform1f(s_clut_uFlatColor, (GLfloat)(15 - (level & 15)) / 15.0f);
-    glUniform1i(s_clut_uAlphaMode, 0);
-    glUniform1i(s_clut_uChromaKey, 0);
+    /* Material: polyMode 6 (multiply by (15 - level) / 15). */
+    const U16 shadeMat = (U16)(6 | ((U16)(level & 15) << 8));
     glUniform1f(s_clut_uCLUTBaseRow, 0.0f);
     glUniform1f(s_clut_uScaledFogNear, s_batchScaledFogNear);
     glUniform1f(s_clut_uFogRowScale, s_batchFogRowScale);
@@ -2056,37 +2065,44 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_DST_COLOR, GL_ZERO);
 
-    U8 verts[6 * 14];
+    GL_MarkFBORegion(x0, y0, x1, y1);
+
+    U8 verts[6 * BATCH_VERT_BYTES];
     S16 coords[4][2] = {
         {(S16)x0, (S16)y0}, {(S16)x1, (S16)y0}, {(S16)x1, (S16)y1}, {(S16)x0, (S16)y1}};
     static const S8 order[6] = {0, 1, 2, 0, 2, 3};
     for (int i = 0; i < 6; i++) {
-        U8 *v = verts + i * 14;
+        U8 *v = verts + i * BATCH_VERT_BYTES;
         memcpy(v + 0, &coords[order[i]][0], 2);
         memcpy(v + 2, &coords[order[i]][1], 2);
         memset(v + 4, 0, 4);  /* uv = 0 */
         memset(v + 8, 0, 2);  /* light = 0 */
         memset(v + 10, 0, 2); /* zo = 0 */
         memset(v + 12, 0, 2); /* repmask = 0 */
+        memcpy(v + 14, &shadeMat, 2);
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
+    /* Orphan + upload in one call: see GL_FlushBatch. */
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STREAM_DRAW);
     glEnableVertexAttribArray(s_clut_aPos);
-    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
                           (const void *)0);
     glEnableVertexAttribArray(s_clut_aTexCoord);
-    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)4);
     glEnableVertexAttribArray(s_clut_aLight);
-    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)8);
     glEnableVertexAttribArray(s_clut_aZ);
-    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)10);
     glEnableVertexAttribArray(s_clut_aRepMask);
-    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)12);
+    glEnableVertexAttribArray(s_clut_aMaterial);
+    glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)14);
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -2098,6 +2114,7 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
     glDisableVertexAttribArray(s_clut_aLight);
     glDisableVertexAttribArray(s_clut_aZ);
     glDisableVertexAttribArray(s_clut_aRepMask);
+    glDisableVertexAttribArray(s_clut_aMaterial);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glUseProgram(0);
 }
@@ -2109,18 +2126,38 @@ static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
         GL_FlushBatch();
     }
 
-    /* Copy 14 bytes per vertex into the batch buffer:
+    /* Copy one 16-byte vertex per corner into the batch buffer:
        Pt_XE(2) + Pt_YE(2) + Pt_MapU(2) + Pt_MapV(2) +
-       Pt_Light(2) + Pt_ZO(2) + Pt_RepMask(2)
+       Pt_Light(2) + Pt_ZO(2) + Pt_RepMask(2) + Material(2)
        Note: Pt_W (S32, offset 12 in Struc_Point) is skipped;
-       Pt_RepMask (offset 16) is placed at vertex offset 12. */
-    U8 *dst = s_batchVerts + s_batchVertCount * 14;
+       Pt_RepMask (offset 16) lands at vertex offset 12 and the current
+       polygon material at offset 14. */
+    U8 *dst = s_batchVerts + s_batchVertCount * BATCH_VERT_BYTES;
     memcpy(dst + 0, p0, 12);   /* XE, YE, MapU, MapV, Light, ZO */
     memcpy(dst + 12, (const U8 *)p0 + 16, 2); /* Pt_RepMask (skip Pt_W) */
-    memcpy(dst + 14, p1, 12);
-    memcpy(dst + 14 + 12, (const U8 *)p1 + 16, 2);
-    memcpy(dst + 28, p2, 12);
-    memcpy(dst + 28 + 12, (const U8 *)p2 + 16, 2);
+    memcpy(dst + 14, &s_currentMaterial, 2);
+    memcpy(dst + 16, p1, 12);
+    memcpy(dst + 16 + 12, (const U8 *)p1 + 16, 2);
+    memcpy(dst + 16 + 14, &s_currentMaterial, 2);
+    memcpy(dst + 32, p2, 12);
+    memcpy(dst + 32 + 12, (const U8 *)p2 + 16, 2);
+    memcpy(dst + 32 + 14, &s_currentMaterial, 2);
+
+    /* Track where the batch will draw (screen-space coords) for the
+       region-bounded incremental restore. */
+    {
+        S32 x0 = p0->Pt_XE, x1 = x0;
+        S32 y0 = p0->Pt_YE, y1 = y0;
+        if (p1->Pt_XE < x0) x0 = p1->Pt_XE;
+        if (p1->Pt_XE > x1) x1 = p1->Pt_XE;
+        if (p1->Pt_YE < y0) y0 = p1->Pt_YE;
+        if (p1->Pt_YE > y1) y1 = p1->Pt_YE;
+        if (p2->Pt_XE < x0) x0 = p2->Pt_XE;
+        if (p2->Pt_XE > x1) x1 = p2->Pt_XE;
+        if (p2->Pt_YE < y0) y0 = p2->Pt_YE;
+        if (p2->Pt_YE > y1) y1 = p2->Pt_YE;
+        GL_MarkFBORegion(x0, y0, x1, y1);
+    }
 
     s_batchVertCount += 3;
     s_batchTriCount++;
@@ -2158,6 +2195,8 @@ void GL_ClearFBO(void) {
     s_terrainRenderedThisFrame = 1;
     s_fboHasTerrain = 1;
     s_fboGen++;
+    s_fboDirtyActive = 0;
+    s_fboDirtyX1 = -1; /* empty */
 }
 
 /* ── Terrain snapshot capture/restore ───────────────────────────────────── */
@@ -2221,12 +2260,24 @@ void GL_SnapshotTerrain(void) {
     glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
 
     s_snapshotGen = s_fboGen;
+    s_fboDirtyActive = 1;
+    s_fboDirtyX0 = 0;
+    s_fboDirtyY0 = 0;
+    s_fboDirtyX1 = -1; /* empty: everything drawn after this is tracked */
 }
 
 /* Blit the snapshot back over the FBO color on incremental frames so last
    frame's body/shadow pixels are erased before the object pass redraws
    them at their new positions.  No-op until the first snapshot exists and
-   whenever the FBO has been cleared since (full redraw refreshes it). */
+   whenever the FBO has been cleared since (full redraw refreshes it).
+
+   Only the region drawn since the snapshot needs erasing - bodies, their
+   shadows, sphere discs, sprite quads and shade bands register their
+   screen rects as they queue, and everything else in the FBO still matches
+   the snapshot.  The tracked region is exact, so nothing can trail.  A
+   frame whose object pass drew nothing skips the blit entirely - a
+   full-screen blit of a 4x-SSAA framebuffer is a large slice of an idle
+   frame's GPU bandwidth. */
 void GL_RestoreTerrainSnapshot(void) {
     if (!s_initialized || !s_fbo || s_snapshotFbo == 0) {
         return;
@@ -2234,25 +2285,36 @@ void GL_RestoreTerrainSnapshot(void) {
     if (s_snapshotGen != s_fboGen) {
         return;
     }
+    if (!s_fboDirtyActive || s_fboDirtyX1 < s_fboDirtyX0) {
+        return;
+    }
     if (!Window_GLMakeCurrent()) {
         return;
     }
 
-    {
-        static S32 s_rsLog = 0;
-        if (s_rsLog < 30) {
-            Log_Info("RestoreLog: blit gen=%u %ux%u", s_snapshotGen,
-                     s_snapshotW, s_snapshotH);
-            s_rsLog++;
-        }
+    /* Screen-space rect -> FBO pixels (SSAA), clamped. */
+    S32 qx0 = s_fboDirtyX0 * (S32)s_renderQuality;
+    S32 qy0 = s_fboDirtyY0 * (S32)s_renderQuality;
+    S32 qx1 = (s_fboDirtyX1 + 1) * (S32)s_renderQuality;
+    S32 qy1 = (s_fboDirtyY1 + 1) * (S32)s_renderQuality;
+    if (qx0 < 0) qx0 = 0;
+    if (qy0 < 0) qy0 = 0;
+    if (qx1 > (S32)s_fboWidth) qx1 = (S32)s_fboWidth;
+    if (qy1 > (S32)s_fboHeight) qy1 = (S32)s_fboHeight;
+    if (qx1 <= qx0 || qy1 <= qy0) {
+        s_fboDirtyX1 = -1; /* nothing on-screen to erase */
+        return;
     }
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, s_snapshotFbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
-    glBlitFramebuffer(0, 0, s_snapshotW, s_snapshotH,
-                      0, 0, s_fboWidth, s_fboHeight,
+    glBlitFramebuffer(qx0, qy0, qx1, qy1, qx0, qy0, qx1, qy1,
                       GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+
+    s_fboDirtyX0 = 0;
+    s_fboDirtyY0 = 0;
+    s_fboDirtyX1 = -1; /* empty again until the object pass draws */
 }
 
 /* ── Begin frame ─────────────────────────────────────────────────────────── */
@@ -2523,9 +2585,10 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
 
     glUniform2f(s_clut_uScreenScale, 2.0f / (GLfloat)s_texWidth,
                 2.0f / (GLfloat)s_texHeight);
-    glUniform1i(s_clut_uPolyMode, 4);
-    glUniform1i(s_clut_uAlphaMode, transparent ? 1 : 0);
-    glUniform1i(s_clut_uChromaKey, transparent ? 0 : 1);
+    /* Material: polyMode 4 (texel is the palette index).  Opaque sprites
+       chroma-key texel 0; transparent ones blend at 50% and keep texel 0. */
+    const U16 spriteMat = (U16)(4 | (transparent ? (1 << 3) : 0) |
+                                (transparent ? 0 : (1 << 5)));
     glUniform2f(s_clut_uAtlasScale, (GLfloat)w, (GLfloat)h);
 
     glActiveTexture(GL_TEXTURE0);
@@ -2548,14 +2611,16 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
         glDisable(GL_BLEND);
     }
 
-    static U8 quadVerts[6 * 14];
+    GL_MarkFBORegion(x0, y0, x1, y1);
+
+    static U8 quadVerts[6 * BATCH_VERT_BYTES];
     static const S8 order[6] = {0, 1, 2, 0, 2, 3};
     const S16 px[4] = {(S16)x0, (S16)x1, (S16)x1, (S16)x0};
     const S16 py[4] = {(S16)y0, (S16)y0, (S16)y1, (S16)y1};
     const U16 pu[4] = {(U16)u0, (U16)u1, (U16)u1, (U16)u0};
     const U16 pv[4] = {(U16)v0, (U16)v0, (U16)v1, (U16)v1};
     for (S32 i = 0; i < 6; i++) {
-        U8 *v = quadVerts + i * 14;
+        U8 *v = quadVerts + i * BATCH_VERT_BYTES;
         S32 c = order[i];
         S16 x = px[c];
         S16 y = py[c];
@@ -2568,26 +2633,32 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
         memset(v + 8, 0, 2); /* light = 0 */
         memcpy(v + 10, &az, 2);
         memset(v + 12, 0, 2); /* RepMask = 0 */
+        memcpy(v + 14, &spriteMat, 2);
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quadVerts), quadVerts);
+    /* Orphan + upload in one call: see GL_FlushBatch. */
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVerts), quadVerts,
+                 GL_STREAM_DRAW);
 
     glEnableVertexAttribArray(s_clut_aPos);
-    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
                           (const void *)0);
     glEnableVertexAttribArray(s_clut_aTexCoord);
-    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)4);
     glEnableVertexAttribArray(s_clut_aLight);
-    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)8);
     glEnableVertexAttribArray(s_clut_aZ);
-    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)10);
     glEnableVertexAttribArray(s_clut_aRepMask);
-    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
+    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)12);
+    glEnableVertexAttribArray(s_clut_aMaterial);
+    glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)14);
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
     s_profTris += 2;
@@ -2601,6 +2672,7 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
     glDisableVertexAttribArray(s_clut_aLight);
     glDisableVertexAttribArray(s_clut_aZ);
     glDisableVertexAttribArray(s_clut_aRepMask);
+    glDisableVertexAttribArray(s_clut_aMaterial);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glUseProgram(0);
 }
@@ -3069,87 +3141,111 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         glUseProgram(0);
     }
 
-    /* Upload the raw palette indices (1 byte per pixel instead of 4). */
-    if (s_logIndexTex == 0 || s_logIndexTexW != width ||
-        s_logIndexTexH != height) {
-        if (s_logIndexTex == 0) {
-            glGenTextures(1, &s_logIndexTex);
-        }
-        glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0,
-                     GL_LUMINANCE, GL_UNSIGNED_BYTE, NULL);
-        s_logIndexTexW = width;
-        s_logIndexTexH = height;
-    } else {
-        glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
-    }
-
-#ifdef GL_UNPACK_ROW_LENGTH
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(pitch));
-#endif
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE,
-                    GL_UNSIGNED_BYTE, indices);
-#ifdef GL_UNPACK_ROW_LENGTH
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-#endif
-
-    /* Refresh the 256x1 palette texture only when the palette changed. */
+    /* Upload the raw palette indices (1 byte per pixel instead of 4) —
+       unless the overlay is entirely empty.  In GL mode the 3D scene lives
+       in the FBO and Log only carries the 2D overlay; an all-zero overlay
+       composites to exactly nothing (every pixel is palette index 0 with
+       alpha 0), so skipping the upload and the overlay quad is
+       pixel-identical and saves a full-screen texture transfer per frame.
+       The GL exterior path zeroes Log at the start of every frame, so the
+       comparison is a cheap way to detect "nothing 2D drew this frame". */
+    S32 overlayEmpty = 0;
     {
-        static U32 s_lutCache[256];
-        static S32 s_lutCacheValid = 0;
-        if (!s_lutCacheValid ||
-            memcmp(s_lutCache, paletteU32, 256 * sizeof(U32)) != 0) {
-            U8 rgba[256 * 4];
-            for (int i = 0; i < 256; i++) {
-                U32 c = paletteU32[i];
-                rgba[i * 4 + 0] = (U8)(c >> 16); /* R */
-                rgba[i * 4 + 1] = (U8)(c >> 8);  /* G */
-                rgba[i * 4 + 2] = (U8)(c);       /* B */
-                rgba[i * 4 + 3] = (U8)(c >> 24); /* A (0 for index 0) */
-            }
-            glBindTexture(GL_TEXTURE_2D, s_lutTex);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1, GL_RGBA,
-                            GL_UNSIGNED_BYTE, rgba);
-            memcpy(s_lutCache, paletteU32, 256 * sizeof(U32));
-            s_lutCacheValid = 1;
+        static U8 *s_zeroBuf = NULL;
+        static U32 s_zeroBufSize = 0;
+        U32 needed = (U32)pitch * height;
+        if (s_zeroBufSize < needed) {
+            free(s_zeroBuf);
+            s_zeroBuf = (U8 *)calloc(1, needed);
+            s_zeroBufSize = s_zeroBuf ? needed : 0;
+        }
+        if (s_zeroBuf != NULL) {
+            overlayEmpty = (memcmp(indices, s_zeroBuf, needed) == 0);
         }
     }
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    if (!overlayEmpty) {
+        if (s_logIndexTex == 0 || s_logIndexTexW != width ||
+            s_logIndexTexH != height) {
+            if (s_logIndexTex == 0) {
+                glGenTextures(1, &s_logIndexTex);
+            }
+            glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0,
+                         GL_LUMINANCE, GL_UNSIGNED_BYTE, NULL);
+            s_logIndexTexW = width;
+            s_logIndexTexH = height;
+        } else {
+            glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
+        }
 
-    glUseProgram(s_presentIndexedProgram);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
-    glUniform1i(s_idx_uIndices, 0);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, s_lutTex);
-    glUniform1i(s_idx_uPalette, 1);
-    glUniform2f(s_idx_uTexel, 1.0f / (GLfloat)width, 1.0f / (GLfloat)height);
-    glUniform1i(s_idx_uFilter, filterLinear);
+#ifdef GL_UNPACK_ROW_LENGTH
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)(pitch));
+#endif
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE,
+                        GL_UNSIGNED_BYTE, indices);
+#ifdef GL_UNPACK_ROW_LENGTH
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
 
-    glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
-    glEnableVertexAttribArray(s_idx_aPos);
-    glVertexAttribPointer(s_idx_aPos, 2, GL_FLOAT, GL_FALSE,
-                          4 * sizeof(GLfloat), (const void *)0);
-    glEnableVertexAttribArray(s_idx_aTexCoord);
-    glVertexAttribPointer(s_idx_aTexCoord, 2, GL_FLOAT, GL_FALSE,
-                          4 * sizeof(GLfloat),
-                          (const void *)(2 * sizeof(GLfloat)));
+        /* Refresh the 256x1 palette texture only when the palette changed. */
+        {
+            static U32 s_lutCache[256];
+            static S32 s_lutCacheValid = 0;
+            if (!s_lutCacheValid ||
+                memcmp(s_lutCache, paletteU32, 256 * sizeof(U32)) != 0) {
+                U8 rgba[256 * 4];
+                for (int i = 0; i < 256; i++) {
+                    U32 c = paletteU32[i];
+                    rgba[i * 4 + 0] = (U8)(c >> 16); /* R */
+                    rgba[i * 4 + 1] = (U8)(c >> 8);  /* G */
+                    rgba[i * 4 + 2] = (U8)(c);       /* B */
+                    rgba[i * 4 + 3] = (U8)(c >> 24); /* A (0 for index 0) */
+                }
+                glBindTexture(GL_TEXTURE_2D, s_lutTex);
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1, GL_RGBA,
+                                GL_UNSIGNED_BYTE, rgba);
+                memcpy(s_lutCache, paletteU32, 256 * sizeof(U32));
+                s_lutCacheValid = 1;
+            }
+        }
 
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glDisableVertexAttribArray(s_idx_aPos);
-    glDisableVertexAttribArray(s_idx_aTexCoord);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glUseProgram(0);
-    glDisable(GL_BLEND);
+        glUseProgram(s_presentIndexedProgram);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
+        glUniform1i(s_idx_uIndices, 0);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, s_lutTex);
+        glUniform1i(s_idx_uPalette, 1);
+        glUniform2f(s_idx_uTexel, 1.0f / (GLfloat)width, 1.0f / (GLfloat)height);
+        glUniform1i(s_idx_uFilter, filterLinear);
+
+        glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
+        glEnableVertexAttribArray(s_idx_aPos);
+        glVertexAttribPointer(s_idx_aPos, 2, GL_FLOAT, GL_FALSE,
+                              4 * sizeof(GLfloat), (const void *)0);
+        glEnableVertexAttribArray(s_idx_aTexCoord);
+        glVertexAttribPointer(s_idx_aTexCoord, 2, GL_FLOAT, GL_FALSE,
+                              4 * sizeof(GLfloat),
+                              (const void *)(2 * sizeof(GLfloat)));
+
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        glDisableVertexAttribArray(s_idx_aPos);
+        glDisableVertexAttribArray(s_idx_aTexCoord);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glUseProgram(0);
+        glDisable(GL_BLEND);
+    }
 
     U64 profT1 = SDL_GetPerformanceCounter();
     s_profAccumTicks[0] += profT1 - profT0;
@@ -3243,17 +3339,60 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
         return 0;
     }
 
-    /* Detect batch-flush triggers: type, color, atlas page, CLUT fog row,
-       or Z-buffer state changed.  Color only reaches GL as the flush-time
-       uFlatColor uniform for non-textured types, so those must flush when
-       it changes.  Textured types never sample the color (UVs are absolute
-       into the atlas), and terrain tiles vary the color per tile (texture
-       bank in the high nibble) — flushing on it would emit one tiny draw
-       call per tile, costing hundreds of ms on mobile GPUs. */
+    /* Pack the polygon material: shading mode, alpha/chroma/perspective
+       bits in the low byte, flat colour (or shadow level) in the high
+       byte.  All of it rides per vertex, so polygons that differ only in
+       colour — or in flat-vs-textured mode — can share one draw call.
+       The flush trigger keeps only true per-draw state: blend-relevant
+       alpha bits, atlas page, CLUT row, Z-buffer flags. */
+    U16 matFlags;
+    if (typePoly < POLY_TEXTURE) {
+        if (typePoly <= 1) {
+            matFlags = 1; /* SOLID / FLAT */
+        } else if (typePoly == 2) {
+            matFlags = 1 | (1 << 3); /* TRANS → flat + blend */
+        } else if (typePoly == 3) {
+            matFlags = 1 | (2 << 3); /* TRAME → flat + stipple */
+        } else if (typePoly <= 5) {
+            matFlags = 2; /* GOURAUD / DITHER (dithering not in GL) */
+        } else {
+            matFlags = 3; /* GOURAUD_TABLE / DITHER_TABLE */
+        }
+    } else if (typePoly == POLY_TEXTURE ||
+               typePoly == POLY_TEXTURE_INCRUST ||
+               typePoly == POLY_TEXTURE_Z ||
+               typePoly == POLY_TEXTURE_Z_INCRUST) {
+        /* The non-flat texture types write the texel as a palette index
+           directly (Filler_Texture / TextureChromaKey / TextureZ /
+           TextureZChromaKey: *log = texel) — no CLUT lookup. */
+        matFlags = 4;
+    } else if (typePoly == POLY_TEXTURE_Z_FOG) {
+        /* Type 24 (POLY_TEXTURE_Z_FOG, e.g. sea/sky): SW
+           Filler_TextureZFogSmoothZBuf / ...NZW select the CLUT row from
+           the per-pixel Z distance to the fog near plane, ignoring
+           Pt_Light.  polyMode 5 replicates that in the fragment shader. */
+        matFlags = 5;
+    } else {
+        matFlags = 0; /* textured (CLUT-based) */
+    }
+    if (typePoly >= POLY_TEXTURE) {
+        /* Chroma key: only INCRUST types (12-15, 20-23) discard palette
+           index 0 — the INCRUST bit is bit 2 of the type number. */
+        matFlags = (U16)(matFlags | ((typePoly & 4) ? (1 << 5) : 0));
+        /* Z-textured types (16-24) are perspective-corrected in the SW
+           rasterizer (Filler_TextureZ / FogSmooth divide MapU, MapV, ZBuf
+           by W = 1/Z); types 8-15 (Filler_Texture / Gouraud) are affine. */
+        if (typePoly >= POLY_TEXTURE_Z && typePoly <= POLY_TEXTURE_Z_FOG) {
+            matFlags = (U16)(matFlags | (1 << 6));
+        }
+    }
+    U16 material =
+        (U16)(matFlags | ((U16)((typePoly < POLY_TEXTURE ? colorPoly : 0) &
+                          0xFF)
+                      << 8));
+
     if (s_batchVertCount > 0) {
-        if (s_currentTypePoly != (U32)typePoly ||
-            (typePoly < POLY_TEXTURE &&
-             s_currentColorPoly != (U32)colorPoly) ||
+        if (s_currentMatFlags != matFlags ||
             (typePoly >= POLY_TEXTURE && s_batchAtlas != (const void *)PtrMap) ||
             s_batchCLUTGouraud != (const void *)PtrCLUTGouraud ||
             s_batchZBuffer != Fill_Flag_ZBuffer ||
@@ -3265,6 +3404,9 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
     /* Update state tracking (captured at batch start for flush) */
     s_currentTypePoly = (U32)typePoly;
     s_currentColorPoly = (U32)colorPoly;
+    s_currentMatFlags = matFlags;
+    s_currentMaterial = material;
+    s_batchTextured = (typePoly >= POLY_TEXTURE) ? 1 : 0;
     if (typePoly >= POLY_TEXTURE) {
         s_batchAtlas = (const void *)PtrMap;
     }
