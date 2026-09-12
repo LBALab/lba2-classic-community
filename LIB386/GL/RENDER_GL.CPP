@@ -430,21 +430,30 @@ static const char *s_presentIndexedFragSrc =
 #define GL_PROF_FRAMES 300
 static U64 s_profAccumTicks[3] = {0, 0, 0}; /* 0=present 1=depth readback 2=depth convert */
 static U32 s_profFrames = 0;
+static U32 s_profFlushes = 0;    /* batch flushes (≈ CLUT-program draw calls) */
+static U32 s_profTris = 0;       /* triangles submitted to the CLUT program */
+static U32 s_profSpriteUps = 0;  /* gameplay sprite texture uploads */
 
 static void GL_ProfFrameDone(void) {
     s_profFrames++;
     if (s_profFrames >= GL_PROF_FRAMES) {
         double msPerTick = 1000.0 / (double)SDL_GetPerformanceFrequency();
         Log_Warn("[GLPerf] frames=%u present=%.1fms readback=%.1fms "
-                 "convert=%.1fms",
+                 "convert=%.1fms flushes=%.1f tris=%.0f sprUp=%.1f",
                  s_profFrames,
                  (double)s_profAccumTicks[0] * msPerTick / (double)s_profFrames,
                  (double)s_profAccumTicks[1] * msPerTick / (double)s_profFrames,
-                 (double)s_profAccumTicks[2] * msPerTick / (double)s_profFrames);
+                 (double)s_profAccumTicks[2] * msPerTick / (double)s_profFrames,
+                 (double)s_profFlushes / (double)s_profFrames,
+                 (double)s_profTris / (double)s_profFrames,
+                 (double)s_profSpriteUps / (double)s_profFrames);
         s_profFrames = 0;
         s_profAccumTicks[0] = 0;
         s_profAccumTicks[1] = 0;
         s_profAccumTicks[2] = 0;
+        s_profFlushes = 0;
+        s_profTris = 0;
+        s_profSpriteUps = 0;
     }
 }
 
@@ -1452,6 +1461,8 @@ void GL_FlushBatch(void) {
     }
 
     GL_BatchFlushCount++;
+    s_profFlushes++;
+    s_profTris += s_batchVertCount / 3;
 
     /* Bind FBO on the first flush of each frame.  The FBO clear is now
        done by GL_ClearFBO() at the start of terrain rendering, so that
@@ -1846,6 +1857,7 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
                               14, (const void *)12);
 
         glDrawArrays(GL_TRIANGLES, 0, nv);
+        s_profTris += (U32)nv / 3;
     }
 
     glDepthMask(GL_TRUE);
@@ -1973,6 +1985,7 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
                           (const void *)12);
 
     glDrawArrays(GL_TRIANGLE_FAN, 0, SEGMENTS + 2);
+    s_profTris += SEGMENTS;
 
     glDepthMask(GL_TRUE);
     glDisable(GL_DEPTH_TEST);
@@ -2359,6 +2372,22 @@ void GL_ReadbackDepthBuffer(void) {
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
+    /* Pack buffers track the screen-sized read; recreating them after a
+       resize invalidates the queued read, so force the bootstrap path. */
+    if (s_depthPbo[0] == 0 || s_depthPboW != scrW || s_depthPboH != scrH) {
+        if (s_depthPbo[0] == 0) {
+            glGenBuffers(2, s_depthPbo);
+        }
+        for (S32 i = 0; i < 2; i++) {
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, s_depthPbo[i]);
+            glBufferData(GL_PIXEL_PACK_BUFFER, bytes, NULL, GL_STREAM_READ);
+        }
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+        s_depthPboW = scrW;
+        s_depthPboH = scrH;
+        s_depthPboReady = 0;
+    }
+
     /* Async double-buffered PBO readback: consume the read issued on the
        previous frame (the GPU has had a full frame to finish it), then
        issue this frame's read. */
@@ -2451,6 +2480,7 @@ static GLuint GL_BindSpriteTexture(const void *pixels, S32 w, S32 h) {
     }
     glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE,
                  GL_UNSIGNED_BYTE, pixels);
+    s_profSpriteUps++;
     e->ptr = pixels;
     e->w = w;
     e->h = h;
@@ -2486,38 +2516,6 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
             glViewport(0, 0, s_fboWidth, s_fboHeight);
         } else {
             glViewport(0, 0, s_texWidth, s_texHeight);
-        }
-    }
-
-    /* Temporary occlusion diagnostic: quad az vs stored depth at centre. */
-    {
-        static S32 s_dbgCount = 0;
-        if (s_dbgCount < 60 && s_fbo) {
-            U16 gl16 = 0;
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
-            glReadPixels((x0 + x1) / 2, (y0 + y1) / 2, 1, 1,
-                         GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, &gl16);
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-            U16 storedAz = (U16)(131070u - 2u * gl16);
-            Log_Info("SpriteDbg: frame=%u az=%u storedAz=%u rect=(%d,%d)-(%d,%d)",
-                     s_frameSeq, az, storedAz, x0, y0, x1, y1);
-            s_dbgCount++;
-        }
-    }
-
-    /* Temporary occlusion diagnostic: quad az vs stored depth at centre. */
-    {
-        static S32 s_dbgCount = 0;
-        if (s_dbgCount < 60 && s_fbo) {
-            U16 gl16 = 0;
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
-            glReadPixels((x0 + x1) / 2, (y0 + y1) / 2, 1, 1,
-                         GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, &gl16);
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-            U16 storedAz = (U16)(131070u - 2u * gl16);
-            Log_Info("SpriteDbg: frame=%u az=%u storedAz=%u rect=(%d,%d)-(%d,%d)",
-                     s_frameSeq, az, storedAz, x0, y0, x1, y1);
-            s_dbgCount++;
         }
     }
 
@@ -2592,6 +2590,7 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
                           (const void *)12);
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
+    s_profTris += 2;
 
     glDepthMask(GL_TRUE);
     glDisable(GL_DEPTH_TEST);
