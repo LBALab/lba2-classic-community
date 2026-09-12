@@ -59,8 +59,13 @@ S32 GL_BatchFlushCount = 0;
 /* ── Shader sources (GL 2.1 / GLES 2.0 compatible) ─────────────────────── */
 
 #if defined(__ANDROID__)
-#define GLSL_VERT_HEADER "#version 100\n"
-#define GLSL_FRAG_HEADER "#version 100\nprecision mediump float;\n"
+/* highp is mandatory here: the fragment shader feeds 16-bit values (material
+   word, gouraud light, Z, RepMask) through mod()/floor()/divide — mediump's
+   11-bit mantissa cannot represent those integers exactly, which on Adreno
+   showed up as grayscale output, wrong texture pages and wrong colours.
+   Desktop GLSL has no default precision limit and was never affected. */
+#define GLSL_VERT_HEADER "#version 100\nprecision highp float;\n"
+#define GLSL_FRAG_HEADER "#version 100\nprecision highp float;\n"
 #else
 #define GLSL_VERT_HEADER "#version 110\n"
 #define GLSL_FRAG_HEADER "#version 110\n"

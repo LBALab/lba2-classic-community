@@ -38,6 +38,7 @@ static StickDir s_prevRightDir = DIR_NEUTRAL;
 // Raw right-stick axes from the last UpdateJoystick poll, exposed via
 // JoystickGetRightStick for the analog camera. 0,0 when no pad is open.
 static S16 s_rstickX = 0;
+static S32 s_openxrControllers = 0; /* last UpdateJoystick poll saw OpenXR controllers */
 static S16 s_rstickY = 0;
 
 //***************************************************************************
@@ -284,6 +285,7 @@ void UpdateJoystick(void) {
     s_rstickY = 0;
 
     S32 openxrActive = OpenXR_UpdateControllerState();
+    s_openxrControllers = openxrActive;
 
     if (openxrActive) {
         #define SET(vk) SetVirtualKeyDown(vk)
@@ -303,6 +305,11 @@ void UpdateJoystick(void) {
                       K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT,
                       K_GAMEPAD_RSTICK_UP, K_GAMEPAD_RSTICK_DOWN);
         }
+
+        /* Raw right-stick axes for the analog camera (EXTFUNC reads them via
+         * JoystickGetRightStick), same contract as the SDL path below. */
+        s_rstickX = OpenXR_RightStickX;
+        s_rstickY = OpenXR_RightStickY;
 
         /* OpenXR trigger state is boolean (0/1), not an SDL axis: the analog
          * deadzone comparison would swallow every press. */
@@ -437,7 +444,9 @@ S32 JoystickButtonPressed(void) {
 
 //***************************************************************************
 S32 JoystickIsPresent(void) {
-    return (s_gamepad != NULL) ? 1 : 0;
+    /* The Quest Touch controllers arrive through the OpenXR action path, not
+       an SDL gamepad; they count as the controller. */
+    return (s_gamepad != NULL || s_openxrControllers) ? 1 : 0;
 }
 
 //***************************************************************************

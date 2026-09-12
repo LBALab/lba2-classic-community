@@ -2500,6 +2500,12 @@ void ReadConfigFile(void) {
      GamepadKeys[0].Key2 = 0;
      GamepadKeys[1].Key1 = K_GAMEPAD_LSTICK_DOWN;
      GamepadKeys[1].Key2 = 0;
+
+     /* The right stick orbits the camera only in the follow camera (the
+      * classic camera turns 90 degrees per flick, which is disorienting in
+      * a headset). Default immersive sessions to the follow camera; the
+      * options menu still allows switching back per session. */
+     FollowCamera = TRUE;
      InitInput();
  #endif
 
