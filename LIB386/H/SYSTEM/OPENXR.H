@@ -27,6 +27,11 @@ void OpenXR_Shutdown(void);
 
 /* 1 while a session is running, 0 otherwise. */
 S32 OpenXR_IsActive(void);
+/* The headset's swapchain-recommended image size (max across eyes; 0,0
+   before the session creates it). The resolution catalog uses it as the
+   in-headset "display" so the menu can offer swapchain-native sizes. */
+U32 OpenXR_GetSwapchainWidth(void);
+U32 OpenXR_GetSwapchainHeight(void);
 
 /* Pump OpenXR events (session state changes, loss, etc.). */
 void OpenXR_PollEvents(void);

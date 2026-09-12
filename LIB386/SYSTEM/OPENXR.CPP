@@ -1117,6 +1117,22 @@ S32 OpenXR_IsActive(void) {
 #endif
 }
 
+U32 OpenXR_GetSwapchainWidth(void) {
+#ifdef LBA2_OPENXR
+    return s_swapchainWidth;
+#else
+    return 0;
+#endif
+}
+
+U32 OpenXR_GetSwapchainHeight(void) {
+#ifdef LBA2_OPENXR
+    return s_swapchainHeight;
+#else
+    return 0;
+#endif
+}
+
 /* -------------------------------------------------------------------------- */
 void OpenXR_PollEvents(void) {
 #ifdef LBA2_OPENXR
