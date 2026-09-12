@@ -105,6 +105,8 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
 //! transparent renders at 50% like Sphere_Transp.
 void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
                    S32 zWrite, S32 transparent);
+/* Whether sphere discs route to the FBO (matches body-poly acceptance). */
+S32 GL_SphereTargetsFBO(void);
 
 //! Darken a screen-space rect by the shade level (SW ShadeBoxBlk
 //! replacement — dialog bands, control panels, credits).  The SW path

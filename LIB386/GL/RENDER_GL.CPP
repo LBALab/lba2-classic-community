@@ -1879,6 +1879,26 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
 
 /* ── Body sphere disc (GL Fill_Sphere replacement) ───────────────────────── */
 
+/* Whether sphere discs belong in the FBO: mirrors GL_RenderTriangleList's
+   body-poly acceptance.  When the surrounding body polys fall back to the
+   SW rasterizer (non-Z-buffered fills, e.g. interior cubes) their pixels
+   land in the Log overlay, which composites OVER the FBO — a sphere sent
+   to the FBO there would be painted over by the body that surrounds it
+   (hair, eyes, buttons vanish).  Spheres must take the same route as the
+   polys they decorate. */
+S32 GL_SphereTargetsFBO(void) {
+    if (!s_initialized) {
+        return 0;
+    }
+    if (!Fill_Flag_ZBuffer) {
+        return 0;
+    }
+    if (Fill_Flag_NZW && !s_fboHasTerrain) {
+        return 0;
+    }
+    return 1;
+}
+
 /* LBA bodies model round details (eyes, buttons, nostrils) as shaded
    spheres.  The SW Fill_Sphere paints them into the Log buffer, where the
    painter-ordered body polys drawn after them cover the hidden ones.  In
@@ -3149,6 +3169,26 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
        pixel-identical and saves a full-screen texture transfer per frame.
        The GL exterior path zeroes Log at the start of every frame, so the
        comparison is a cheap way to detect "nothing 2D drew this frame". */
+    {
+        /* temp: dump the raw Log overlay once for comparison */
+        static S32 s_logDumped = 0;
+        if (!s_logDumped && getenv("LBA2_DUMP_LOG")) {
+            U8 *rgb2 = (U8 *)malloc((size_t)width * height * 3);
+            if (rgb2) {
+                const U8 *src = (const U8 *)indices;
+                for (U32 i = 0; i < width * height; i++) {
+                    U32 c = paletteU32[src[i]];
+                    rgb2[i * 3 + 0] = (U8)(c >> 16);
+                    rgb2[i * 3 + 1] = (U8)(c >> 8);
+                    rgb2[i * 3 + 2] = (U8)(c);
+                }
+                SavePNGRGB("/tmp/gl_log.png", rgb2, (S32)width, (S32)height);
+                free(rgb2);
+                s_logDumped = 1;
+            }
+        }
+    }
+
     S32 overlayEmpty = 0;
     {
         static U8 *s_zeroBuf = NULL;
@@ -3520,6 +3560,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     (void)indices; (void)pitch; (void)width; (void)height;
     (void)paletteU32; (void)filterLinear;
 }
+S32 GL_SphereTargetsFBO(void) { return 0; }
 S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
                           Struc_Point *ptrPoints) {
     (void)typePoly; (void)colorPoly; (void)nbPoints; (void)ptrPoints;

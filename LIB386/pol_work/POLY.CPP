@@ -170,16 +170,6 @@ S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
         GL_PerfReject++;
         if (Type_Poly >= 0 && Type_Poly < 32)
             GL_PerfRejectByType[Type_Poly]++;
-        {
-            extern S32 GL_LastRejectReason;
-            static S32 s_rejectLog = 0;
-            if (s_rejectLog < 40) {
-                Log_Info("RejectLog: type=%d color=%d npts=%d zbuf=%d nzw=%d reason=%d",
-                         Type_Poly, Color_Poly, Nb_Points,
-                         Fill_Flag_ZBuffer, Fill_Flag_NZW, GL_LastRejectReason);
-                s_rejectLog++;
-            }
-        }
     }
 #endif
 
