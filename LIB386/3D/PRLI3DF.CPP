@@ -29,10 +29,10 @@ void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt,
         Y0 = y;
         Z0 = z;
 
-        long double factor = (long double)FRatioX / (long double)z;
+        double factor = (double)FRatioX / (double)z;
 
-        S32 Xe = (S32)lrintl((long double)x * factor);
-        S32 Ye = (S32)lrintl((long double)y * factor * (long double)FRatioY);
+        S32 Xe = (S32)lrint((double)x * factor);
+        S32 Ye = (S32)lrint((double)y * factor * (double)FRatioY);
 
         Xp = Xe;
         Yp = Ye;

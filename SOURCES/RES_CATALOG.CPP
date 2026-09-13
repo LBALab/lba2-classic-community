@@ -126,15 +126,18 @@ static bool Res_EffectiveDisplay(U32 *outW, U32 *outH) {
  * swapchain width exactly: every entry renders fully visible, centred with
  * cinema bars, and switching between them never changes the framing. The
  * largest entry is the swapchain-width maximum (1680x945 on a Quest 3). */
+/* Head-mount ladder: resolutions matching the per-eye swapchain dimensions
+ * (1680×1760 on Quest 3).  The old 16:9 ladder caused a 1.86× vertical
+ * upscale when blitted to the swapchain — every source pixel became ~1.86
+ * destination pixels vertically, which the user perceives as blur.  These
+ * entries are 1:1 with the swapchain at various quality steps. */
 static const ResModeEntry kHeadMountLadder[] = {
-    {640, 360, "16:9"},
-    {848, 477, "16:9"},
-    {960, 540, "16:9"},
-    {1280, 720, "16:9"},
-    {1600, 900, "16:9"},
-    {1680, 945, "16:9"},
-    {2240, 1260, "16:9 2x"},
-    {2560, 1440, "16:9 2.5x"},
+    {416, 440, "0.25x"},
+    {560, 587, "0.33x"},
+    {840, 880, "0.5x"},
+    {1120, 1173, "0.67x"},
+    {1256, 1320, "0.75x"},
+    {1680, 1760, "native"},
 };
 #define kHeadMountLadderCount ((int)(sizeof(kHeadMountLadder) / sizeof(kHeadMountLadder[0])))
 

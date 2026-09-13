@@ -600,6 +600,28 @@ static U32 s_batchRingSize = 0;  /* bytes */
 static U32 s_batchRingOff = 0;   /* next slot's byte offset */
 static U32 s_batchRingSlot = 0;  /* current flush's byte offset */
 static GLuint s_auxVBO = 0;      /* one-shot draws: shadow/sphere/shade/sprite */
+
+/* MSAA resolve-in-tile: GL_EXT_multisampled_render_to_texture lets the tiler
+ * resolve MSAA as part of native tile processing instead of a separate
+ * fullscreen blit.  On Adreno (Quest) this eliminates a 2240x1260x4-sample
+ * resolve pass per frame — the single largest GPU operation. */
+typedef void (*PFN_GLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXT)(
+    GLenum target, GLenum attachment, GLenum textarget, GLuint texture,
+    GLint level, GLsizei samples);
+static PFN_GLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXT
+    p_glFramebufferTexture2DMultisampleEXT = NULL;
+static S32 s_msaaEXTAvailable = -1; /* -1 = not checked */
+static S32 GL_MSAATextureExtAvailable(void) {
+    if (s_msaaEXTAvailable < 0) {
+        const char *exts = (const char *)glGetString(GL_EXTENSIONS);
+        s_msaaEXTAvailable =
+            (exts && strstr(exts, "GL_EXT_multisampled_render_to_texture"))
+                ? 1 : 0;
+        Log_Info("[GL] EXT_multisampled_render_to_texture: %s",
+                 s_msaaEXTAvailable ? "yes" : "no");
+    }
+    return s_msaaEXTAvailable;
+}
 static void GL_DestroyMSAAFbo(void);
 static void GL_CreateMSAAFbo(U32 w, U32 h, S32 samples);
 static void GL_ResolveMSAA(void);
@@ -1415,6 +1437,10 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     }
 
     /* GL state */
+    p_glFramebufferTexture2DMultisampleEXT =
+        (PFN_GLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXT)
+            (PFN_GLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXT)
+            SDL_GL_GetProcAddress("glFramebufferTexture2DMultisampleEXT");
     glViewport(0, 0, resX, resY);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
@@ -1714,14 +1740,19 @@ void GL_SetAntiAlias(S32 mode) {
     s_antiAlias = mode;
     if (!s_initialized || !Window_GLMakeCurrent())
         return;
-    /* MSAA needs the MSAA FBO; FXAA needs the FXAA program (compiled at
-       init). Changing the mode recreates or destroys the MSAA FBO. */
     if (s_antiAlias >= 2 && s_fbo) {
         GLint samples = (s_antiAlias == 3) ? 4 : 2;
         GL_CreateMSAAFbo(s_texWidth * s_renderQuality,
                          s_texHeight * s_renderQuality, samples);
     } else {
+        glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D, s_fboColorTex, 0);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                                  GL_RENDERBUFFER, s_fboDepthRbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         GL_DestroyMSAAFbo();
+        GL_InvalidateGLState();
     }
 }
 
