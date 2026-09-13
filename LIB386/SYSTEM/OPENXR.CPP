@@ -151,8 +151,9 @@ static jclass                  s_activityClassGlobal = NULL;
 static XrViewConfigurationType s_viewConfigType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_MONO;
 static U32                     s_viewCount = 0;
 static XrSwapchain             s_swapchain = XR_NULL_HANDLE;
-static U32                     s_swapchainWidth = 0;
-static U32                     s_swapchainHeight = 0;
+static U32                     s_swapchainWidth = 0;  /* per-eye recommended */
+static U32                     s_swapchainHeight = 0; /* per-eye recommended */
+static U32                     s_swapchainAllocW = 0; /* actual texture width (2x for stereo) */
 static float                   s_headYawDeg = 0.0f;
 static float                   s_headPitchDeg = 0.0f;
 static XrSwapchainImageOpenGLESKHR *s_swapchainImages = NULL;
@@ -674,8 +675,14 @@ static S32 OpenXR_CreateSwapchain(void) {
     scInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
     scInfo.format = pickedFormat;
     scInfo.sampleCount = 1;
-    scInfo.width = s_swapchainWidth;
+    /* Stereo view configs: allocate 2x the per-eye width so each eye gets
+     * the FULL recommended resolution side-by-side (left/right), not a
+     * vertically halved top-bottom split. */
+    scInfo.width = (s_viewConfigType == XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO)
+                       ? s_swapchainWidth * 2
+                       : s_swapchainWidth;
     scInfo.height = s_swapchainHeight;
+    s_swapchainAllocW = scInfo.width;
     scInfo.faceCount = 1;
     scInfo.arraySize = 1;
     scInfo.mipCount = 1;
@@ -1549,17 +1556,14 @@ S32 OpenXR_PresentMono(void) {
                                   GL_GetStereoEyeFBO(1) != 0;
             if (stereoThisFrame) {
                 /* Native stereo: each eye's composite lives in its capture
-                 * FBO and goes scaled-to-fit, centred, into its own half of
-                 * the swapchain image (supersampled resolutions downscale).
-                 * On-device evidence: an eye's imageRect rows r map to the
-                 * swapchain texture's GL memory rows r (rect row 0 = GL row
-                 * 0), so eye 0's rect (top half) is the lower-numbered GL
-                 * rows. */
+                 * FBO and goes scaled-to-fit, centred, into its own LEFT/RIGHT
+                 * half of the double-wide swapchain — each eye gets the FULL
+                 * recommended 1680x1760 resolution with no vertical loss. */
                 GLuint eyeFBO0 = GL_GetStereoEyeFBO(0);
                 GLuint eyeFBO1 = GL_GetStereoEyeFBO(1);
-                S32 halfH = (S32)s_swapchainHeight / 2;
-                double eyeFit = (double)s_swapchainWidth / (double)srcW;
-                double eyeFitH = (double)halfH / (double)srcH;
+                S32 halfW = (S32)s_swapchainWidth; /* per-eye width */
+                double eyeFit = (double)halfW / (double)srcW;
+                double eyeFitH = (double)s_swapchainHeight / (double)srcH;
                 if (eyeFitH < eyeFit)
                     eyeFit = eyeFitH;
                 if (eyeFit > 1.0)
@@ -1570,9 +1574,11 @@ S32 OpenXR_PresentMono(void) {
                     eyeDstW = 1;
                 if (eyeDstH < 1)
                     eyeDstH = 1;
-                S32 eyeDstX = ((S32)s_swapchainWidth - eyeDstW) / 2;
-                if (eyeDstX < 0) eyeDstX = 0;
-                S32 marginY = (halfH - eyeDstH) / 2;
+                S32 eyeDstX0 = (halfW - eyeDstW) / 2; /* eye 0 centred in left half */
+                if (eyeDstX0 < 0) eyeDstX0 = 0;
+                S32 eyeDstX1 = halfW + (halfW - eyeDstW) / 2; /* eye 1 in right half */
+                if (eyeDstX1 < halfW) eyeDstX1 = halfW;
+                S32 marginY = ((S32)s_swapchainHeight - eyeDstH) / 2;
                 if (marginY < 0) marginY = 0;
 
                 GLuint swapFbo;
@@ -1583,30 +1589,26 @@ S32 OpenXR_PresentMono(void) {
                 if (glCheckFramebufferStatus(GL_FRAMEBUFFER) ==
                     GL_FRAMEBUFFER_COMPLETE) {
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, eyeFBO0);
-                    /* Eye 0 (left): imageRect rows 0..halfH -> GL rows
-                     * 0..halfH. */
+                    /* Eye 0: blit into the LEFT half of the swapchain. */
                     glBlitFramebuffer(0, 0, srcW, srcH,
-                                      eyeDstX, marginY,
-                                      eyeDstX + eyeDstW, marginY + eyeDstH,
+                                      eyeDstX0, marginY,
+                                      eyeDstX0 + eyeDstW, marginY + eyeDstH,
                                       GL_COLOR_BUFFER_BIT, GL_LINEAR);
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, eyeFBO1);
-                    /* Eye 1 (right): imageRect rows halfH.. -> GL rows
-                     * halfH.. */
+                    /* Eye 1: blit into the RIGHT half. */
                     glBlitFramebuffer(0, 0, srcW, srcH,
-                                      eyeDstX, halfH + marginY,
-                                      eyeDstX + eyeDstW, halfH + marginY + eyeDstH,
+                                      eyeDstX1, marginY,
+                                      eyeDstX1 + eyeDstW, marginY + eyeDstH,
                                       GL_COLOR_BUFFER_BIT, GL_LINEAR);
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
                 } else {
                     /* FBO attach rejected: 1:1 copies as before. */
-                    S32 eyeSrcW = srcW, eyeSrcH = srcH;
-                    if (eyeSrcH > halfH) eyeSrcH = halfH;
                     glBindFramebuffer(GL_FRAMEBUFFER, eyeFBO0);
-                    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, eyeDstX, marginY,
-                                        0, 0, (GLsizei)eyeSrcW, (GLsizei)eyeSrcH);
+                    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, eyeDstX0, marginY,
+                                        0, 0, (GLsizei)eyeDstW, (GLsizei)eyeDstH);
                     glBindFramebuffer(GL_FRAMEBUFFER, eyeFBO1);
-                    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, eyeDstX, halfH + marginY,
-                                        0, 0, (GLsizei)eyeSrcW, (GLsizei)eyeSrcH);
+                    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, eyeDstX1, marginY,
+                                        0, 0, (GLsizei)eyeDstW, (GLsizei)eyeDstH);
                 }
                 glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
                 glDeleteFramebuffers(1, &swapFbo);
@@ -1615,10 +1617,10 @@ S32 OpenXR_PresentMono(void) {
                     static int s_stBlitLogCount = 0;
                     GLenum glErr = glGetError();
                     if (s_stBlitLogCount < 3) {
-                        OXR_LOGI("PresentMono stereo: eyes %dx%d dst=(%d,%d)/(%d,%d) halfH=%d glError=0x%x",
-                                 eyeDstW, eyeDstH, eyeDstX, marginY,
-                                 eyeDstX, halfH + marginY,
-                                 halfH, (unsigned)glErr);
+                        OXR_LOGI("PresentMono stereo: eyes %dx%d dst=(%d,%d)/(%d,%d) glError=0x%x",
+                                 eyeDstW, eyeDstH, eyeDstX0, marginY,
+                                 eyeDstX1, marginY,
+                                 (unsigned)glErr);
                         s_stBlitLogCount++;
                     }
                 }
@@ -1842,14 +1844,14 @@ S32 OpenXR_PresentMono(void) {
             pv->next = NULL;
             pv->subImage.swapchain = s_swapchain;
             if (stereoThisFrame && eyeCount >= 2 && j < 2) {
-                /* Stereo: each eye samples its own half of the swapchain
-                 * image (eye 0 = left = top half, eye 1 = bottom). */
-                pv->subImage.imageRect.offset.x = 0;
-                pv->subImage.imageRect.offset.y = (j == 0)
+                /* Stereo: each eye samples its own LEFT/RIGHT half of the
+                 * swapchain image — full per-eye height, no vertical loss. */
+                pv->subImage.imageRect.offset.x = (j == 0)
                     ? 0
-                    : (S32)s_swapchainHeight / 2;
+                    : (S32)s_swapchainWidth;
+                pv->subImage.imageRect.offset.y = 0;
                 pv->subImage.imageRect.extent.width = (S32)s_swapchainWidth;
-                pv->subImage.imageRect.extent.height = (S32)s_swapchainHeight / 2;
+                pv->subImage.imageRect.extent.height = (S32)s_swapchainHeight;
             } else {
                 pv->subImage.imageRect.offset.x = 0;
                 pv->subImage.imageRect.offset.y = 0;

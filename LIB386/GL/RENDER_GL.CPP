@@ -557,6 +557,28 @@ static GLuint s_auxVBO = 0;      /* one-shot draws: shadow/sphere/shade/sprite *
    chroma/persp flags, high byte = flat colour or shadow level). */
 static U16 s_currentMaterial = 0;
 
+/* ── NZW deferred batch ──────────────────────────────────────────────────── */
+/* Terrain (NZW=0, depth-writing) and animated polys (NZW=1, no-write)
+ * interleave per tile in the exterior render, and a single batch would
+ * flush on every alternation — ~300 driver-syncing flushes per frame.
+ * The defer pool holds the other NZW state; both pools are flushed at
+ * defined points with depth-writing geometry first, which gives the same
+ * image because NZW=1 polys never write depth (their color contribution
+ * depends only on the depth test, not on submission order relative to
+ * other no-write geometry). */
+static U8 s_deferVerts[BATCH_MAX_VERTS * BATCH_VERT_BYTES];
+static U32 s_deferVertCount = 0;
+static U32 s_deferTriCount = 0;
+static U32 s_deferTypePoly = 0;
+static U16 s_deferMatFlags = 0;
+static const void *s_deferAtlas = NULL;
+static U8 s_deferTextured = 0;
+static U8 s_deferZBuffer = 0;
+static U8 s_deferNZW = 0;
+static GLfloat s_deferCLUTBaseRow = 0.0f;
+static GLfloat s_deferScaledFogNear = 0.0f;
+static GLfloat s_deferFogRowScale = 0.0f;
+
 /* Region of the FBO drawn since GL_SnapshotTerrain().  The incremental
    restore only needs to erase those pixels (last frame's bodies, shadows,
    sprites) back to the snapshot background — a full-screen blit of a
@@ -707,6 +729,47 @@ static GLfloat s_batchFogRowScale = 0.0f; /* Fill_Fog_Factor / 65536 captured at
 static const void *s_batchCLUTGouraud = NULL; /* PtrCLUTGouraud at batch start */
 static U8 s_batchZBuffer = 0;   /* Fill_Flag_ZBuffer captured at batch start */
 static U8 s_batchNZW = 0;       /* Fill_Flag_NZW captured at batch start */
+
+/* Exchange the active batch with the NZW defer pool (verts + flush state). */
+static U8 s_swapTmp[BATCH_MAX_VERTS * BATCH_VERT_BYTES];
+static void GL_SwapBatchWithDefer(void) {
+    memcpy(s_swapTmp, s_batchVerts, BATCH_MAX_VERTS * BATCH_VERT_BYTES);
+    memcpy(s_batchVerts, s_deferVerts, BATCH_MAX_VERTS * BATCH_VERT_BYTES);
+    memcpy(s_deferVerts, s_swapTmp, BATCH_MAX_VERTS * BATCH_VERT_BYTES);
+    U32 tc = s_batchVertCount;
+    s_batchVertCount = s_deferVertCount;
+    s_deferVertCount = tc;
+    tc = s_batchTriCount;
+    s_batchTriCount = s_deferTriCount;
+    s_deferTriCount = tc;
+    U32 tp = s_currentTypePoly;
+    s_currentTypePoly = s_deferTypePoly;
+    s_deferTypePoly = tp;
+    U16 mf = s_currentMatFlags;
+    s_currentMatFlags = s_deferMatFlags;
+    s_deferMatFlags = mf;
+    const void *ta = s_batchAtlas;
+    s_batchAtlas = s_deferAtlas;
+    s_deferAtlas = ta;
+    U8 tx = s_batchTextured;
+    s_batchTextured = s_deferTextured;
+    s_deferTextured = tx;
+    U8 zb = s_batchZBuffer;
+    s_batchZBuffer = s_deferZBuffer;
+    s_deferZBuffer = zb;
+    U8 nw = s_batchNZW;
+    s_batchNZW = s_deferNZW;
+    s_deferNZW = nw;
+    GLfloat cr = s_batchCLUTBaseRow;
+    s_batchCLUTBaseRow = s_deferCLUTBaseRow;
+    s_deferCLUTBaseRow = cr;
+    GLfloat fn = s_batchScaledFogNear;
+    s_batchScaledFogNear = s_deferScaledFogNear;
+    s_deferScaledFogNear = fn;
+    GLfloat fs = s_batchFogRowScale;
+    s_batchFogRowScale = s_deferFogRowScale;
+    s_deferFogRowScale = fs;
+}
 
 /* ── GL state — FBO for SSAA ─────────────────────────────────────────────── */
 static GLuint s_fbo = 0;
@@ -1642,10 +1705,7 @@ static GLuint GL_BindAtlasFor(const void *map) {
 
 /* ── Batch management ───────────────────────────────────────────────────── */
 
-void GL_FlushBatch(void) {
-    if (!Window_GLMakeCurrent()) {
-        return;
-    }
+static void FlushActiveBatch(void) {
 
     if (s_batchVertCount == 0) {
         return;
@@ -1847,6 +1907,41 @@ void GL_FlushBatch(void) {
     s_batchTriCount = 0;
 
     s_profAccumTicks[GL_PROF_FLUSH] += SDL_GetPerformanceCounter() - profT0;
+}
+
+void GL_FlushBatch(void) {
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+
+    /* Two-pool NZW batching (see GL_RenderTriangleList): the active pool
+       and the NZW defer pool hold interleaved terrain/animated geometry.
+       Draw depth-writing (NZW=0) geometry before no-write (NZW=1): the
+       no-write polys' colors depend only on the depth test, so their
+       position after all depth-writing geometry is equivalent to the
+       submission order — but it lets each pool stay open across the
+       per-tile alternation instead of flushing hundreds of times. */
+    if (s_deferVertCount > 0) {
+        if (s_deferNZW == 0) {
+            /* Defer holds the depth-writing pool: draw it first. */
+            GL_SwapBatchWithDefer();
+            FlushActiveBatch();
+            GL_SwapBatchWithDefer();
+            if (s_batchVertCount > 0) {
+                FlushActiveBatch();
+            }
+        } else {
+            /* Active is depth-writing: draw it first, then the defer. */
+            if (s_batchVertCount > 0) {
+                FlushActiveBatch();
+            }
+            GL_SwapBatchWithDefer();
+            FlushActiveBatch();
+            GL_SwapBatchWithDefer();
+        }
+    } else if (s_batchVertCount > 0) {
+        FlushActiveBatch();
+    }
 }
 
 /* ── Ground shadow polygon (GL ShadeBoxBlk/DrawShadow replacement) ──────── */
@@ -3769,16 +3864,38 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
         /* Only the alpha mode rides real per-draw GL state (TRANS batches
            enable blending), and the fog-smooth mode pins the depth func to
            ALWAYS when NZW (sea/sky over terrain) — everything else
-           (mode/chroma/perspective) branches per fragment in the shader, so
-           the terrain's per-tile alternation between gouraud-table and
-           textured types no longer forces a flush. */
-        if ((s_currentMatFlags & 0x18) != (matFlags & 0x18) ||
-            ((matFlags & 7) == 5) != ((s_currentMatFlags & 7) == 5) ||
-            (typePoly >= POLY_TEXTURE && s_batchAtlas != (const void *)PtrMap) ||
-            s_batchZBuffer != Fill_Flag_ZBuffer ||
-            s_batchNZW != Fill_Flag_NZW) {
-            GL_FlushBatch();
+           (mode/chroma/perspective) branches per fragment in the shader. */
+        S32 trigger = ((s_currentMatFlags & 0x18) != (matFlags & 0x18) ||
+                       ((matFlags & 7) == 5) !=
+                           ((s_currentMatFlags & 7) == 5) ||
+                       (typePoly >= POLY_TEXTURE &&
+                        s_batchAtlas != (const void *)PtrMap) ||
+                       s_batchZBuffer != Fill_Flag_ZBuffer ||
+                       s_batchNZW != Fill_Flag_NZW);
+        if (trigger) {
+            /* NZW alternation (terrain <-> animated per tile) is the dominant
+               flush driver: route to the defer pool instead of flushing.
+               Both pools draw depth-tested opaque geometry, so flushing
+               NZW=0 before NZW=1 at frame end gives the same image. */
+            S32 poolable = !(matFlags & 8) && ((matFlags & 7) != 5) &&
+                           !(s_currentMatFlags & 8) &&
+                           ((s_currentMatFlags & 7) != 5);
+            if (poolable && s_batchNZW != Fill_Flag_NZW) {
+                if (s_deferVertCount > 0 &&
+                    s_deferNZW == (U8)Fill_Flag_NZW) {
+                    GL_SwapBatchWithDefer();
+                } else if (s_deferVertCount == 0) {
+                    GL_SwapBatchWithDefer();
+                } else {
+                    GL_FlushBatch();
+                }
+            } else {
+                GL_FlushBatch();
+            }
         }
+    } else if (s_deferVertCount > 0 && s_deferNZW == (U8)Fill_Flag_NZW &&
+               !(matFlags & 8) && ((matFlags & 7) != 5)) {
+        GL_SwapBatchWithDefer();
     }
 
     /* Update state tracking (captured at batch start for flush) */
