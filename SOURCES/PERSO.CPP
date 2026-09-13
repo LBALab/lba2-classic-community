@@ -2510,6 +2510,9 @@ void ReadConfigFile(void) {
  #endif
 
     DisplayTexFilter = DefFileBufferReadValueDefault("DisplayTexFilter", TRUE);
+    DisplayAntiAlias = DefFileBufferReadValueDefault("DisplayAntiAlias", 0);
+    if (DisplayAntiAlias < 0 OR DisplayAntiAlias > 3)
+        DisplayAntiAlias = 0;
     if (DisplayTexFilter < 0 OR DisplayTexFilter > 2)
         DisplayTexFilter = TRUE;
 
@@ -2739,6 +2742,7 @@ void WriteConfigFile(void) {
 #ifdef USE_GPURENDERER
     DefFileBufferWriteValue("GPURenderer", GPURendererActive);
     DefFileBufferWriteValue("DisplayTexFilter", DisplayTexFilter);
+    DefFileBufferWriteValue("DisplayAntiAlias", DisplayAntiAlias);
     DefFileBufferWriteValue("DisplayStereo3D", DisplayStereo3D);
     DefFileBufferWriteValue("RenderQuality", RenderQuality);
 #endif

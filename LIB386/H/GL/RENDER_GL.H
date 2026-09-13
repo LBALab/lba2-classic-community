@@ -68,6 +68,7 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
 //! Recreates the FBO at the new internal resolution.  Safe to call at any time;
 //! takes effect on the next frame.
 void GL_SetRenderQuality(U32 quality);
+void GL_SetAntiAlias(S32 mode); /* 0=off, 1=FXAA, 2=MSAAx2, 3=MSAAx4 */
 
 //! Flush any pending batch of triangles to the FBO.
 //! Must be called after mid-frame rendering (e.g. DrawAnimatedPolys) that

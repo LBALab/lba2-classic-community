@@ -96,6 +96,7 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_QUALITY 2119
 #define MENU_ID_DISPLAY_STEREO3D 2120 /* Quest OpenXR native stereo toggle */
 #endif
+#define MENU_ID_DISPLAY_ANTIALIAS 2123
 #define MENU_ID_DISPLAY_FPS 2121
 #define MENU_ID_FPS_LIMIT 2122
 
@@ -174,6 +175,8 @@ U16 DisplayMenu[4 + 8 * 2] = {
     0,
     MENU_ID_DISPLAY_TEXFILTER,
     0,
+    MENU_ID_DISPLAY_ANTIALIAS,
+    0,
     MENU_ID_DISPLAY_QUALITY,
 #endif
     0,
@@ -198,6 +201,8 @@ static void BuildDisplayMenuEntries(void) {
     *p++ = MENU_ID_DISPLAY_RENDERER;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_TEXFILTER;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_ANTIALIAS;
     if (OpenXR_IsActive()) {
         *p++ = 0;
         *p++ = MENU_ID_DISPLAY_STEREO3D;
@@ -530,6 +535,10 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_TEXFILTER:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayTexFilter == 2 ? MENU_LABEL_TEXFILTER_SCALE2X : DisplayTexFilter ? MENU_LABEL_TEXFILTER_BILINEAR : MENU_LABEL_TEXFILTER_NEAREST));
+        break;
+
+    case MENU_ID_DISPLAY_ANTIALIAS:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayAntiAlias == 3 ? MENU_LABEL_AA_MSAA4 : DisplayAntiAlias == 2 ? MENU_LABEL_AA_MSAA2 : DisplayAntiAlias == 1 ? MENU_LABEL_AA_FXAA : MENU_LABEL_AA_OFF));
         break;
 
     case MENU_ID_DISPLAY_STEREO3D:
@@ -3428,6 +3437,13 @@ S32 GereDisplayMenu(void) {
             /* 0 = Nearest, 1 = Bilinear, 2 = Scale2x (2D overlay in GL mode;
              * the 3D atlas samples bilinear for any non-zero value). */
             DisplayTexFilter = (DisplayTexFilter + 1) % 3;
+            WriteConfigFile();
+            break;
+
+        case MENU_ID_DISPLAY_ANTIALIAS:
+            /* 0 = Off, 1 = FXAA, 2 = MSAA×2, 3 = MSAA×4 */
+            DisplayAntiAlias = (DisplayAntiAlias + 1) % 4;
+            GL_SetAntiAlias(DisplayAntiAlias);
             WriteConfigFile();
             break;
 
