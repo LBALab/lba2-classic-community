@@ -2051,7 +2051,13 @@ static void FlushActiveBatch(void) {
         glDepthMask(GL_FALSE);
     }
 
-    /* Draw all batched triangles */
+    /* Draw all batched triangles.  Re-bind the render FBO: intermediate
+       texture/state changes between GL_ClearFBO and this draw can reset
+       the FBO binding on some drivers. */
+    if (s_msaaFbo && s_antiAlias >= 2)
+        glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
+    else if (s_fbo)
+        glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
     glDrawArrays(GL_TRIANGLES, 0, s_batchVertCount);
 
     /* Restore depth mask so subsequent Z-buffer batches (types 16–24)
