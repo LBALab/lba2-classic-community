@@ -1992,6 +1992,7 @@ void Console_RegisterAll(void) {
                               "Cost when active is ~1 us/frame; zero when inactive. See docs/PERFTRACE.md.");
 
     Console_RegisterCvar("fps", &DebugFps, CONSOLE_CVAR_BOOL, "Frame rate display");
+    Console_RegisterCvar("camfollow", &FollowCamera, CONSOLE_CVAR_BOOL, "Follow camera (0 = classic)");
     Console_RegisterCvar("horizon", (void *)&FlagDrawHorizon, CONSOLE_CVAR_BOOL_U8, "Draw horizon/cubes around");
     Console_RegisterCvar("zv", &DrawZVObjets, CONSOLE_CVAR_BOOL, "Draw ZV boxes");
 

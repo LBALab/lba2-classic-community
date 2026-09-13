@@ -32,6 +32,12 @@ S32 OpenXR_IsActive(void);
    in-headset "display" so the menu can offer swapchain-native sizes. */
 U32 OpenXR_GetSwapchainWidth(void);
 U32 OpenXR_GetSwapchainHeight(void);
+/* Head orientation from the last located view pose, in degrees: yaw is the
+   horizontal heading (positive = turning right), pitch the elevation
+   (positive = looking up). 0,0 before the first frame is located. The
+   follow-camera consumes these as per-frame deltas (head-tracked orbit). */
+float OpenXR_HeadYawDeg(void);
+float OpenXR_HeadPitchDeg(void);
 
 /* Pump OpenXR events (session state changes, loss, etc.). */
 void OpenXR_PollEvents(void);

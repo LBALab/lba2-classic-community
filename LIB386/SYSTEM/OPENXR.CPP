@@ -150,6 +150,8 @@ static U32                     s_viewCount = 0;
 static XrSwapchain             s_swapchain = XR_NULL_HANDLE;
 static U32                     s_swapchainWidth = 0;
 static U32                     s_swapchainHeight = 0;
+static float                   s_headYawDeg = 0.0f;
+static float                   s_headPitchDeg = 0.0f;
 static XrSwapchainImageOpenGLESKHR *s_swapchainImages = NULL;
 static U32                     s_swapchainImageCount = 0;
 static U32                     s_swapchainImageIndex = 0;
@@ -1125,6 +1127,22 @@ U32 OpenXR_GetSwapchainWidth(void) {
 #endif
 }
 
+float OpenXR_HeadYawDeg(void) {
+#ifdef LBA2_OPENXR
+    return s_headYawDeg;
+#else
+    return 0.0f;
+#endif
+}
+
+float OpenXR_HeadPitchDeg(void) {
+#ifdef LBA2_OPENXR
+    return s_headPitchDeg;
+#else
+    return 0.0f;
+#endif
+}
+
 U32 OpenXR_GetSwapchainHeight(void) {
 #ifdef LBA2_OPENXR
     return s_swapchainHeight;
@@ -1616,6 +1634,47 @@ S32 OpenXR_PresentMono(void) {
     if (XR_FAILED(rc)) {
         Log_Warn("OpenXR: xrLocateViews failed (0x%x)", (unsigned)rc);
         locatedCount = 0;
+    }
+    { /* TEMP diag: locate health regardless of outcome */
+        static U32 dbg = 0;
+        if ((dbg++ % 300) == 0) {
+            OXR_LOGI("LOCATE rc=0x%x count=%u posValid=%d oriValid=%d "
+                     "displayTime=%lld state=%d",
+                     (unsigned)rc, (unsigned)locatedCount,
+                     (int)(viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT) != 0,
+                     (int)(viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) != 0,
+                     (long long)s_predictedDisplayTime, (int)s_sessionState);
+        }
+    }
+
+    /* Head orientation for the follow-camera: rotate the forward vector
+     * (0,0,-1) by view 0's pose quaternion (v' = v + 2q x (q x v) for unit
+     * q), then read heading/elevation off the result. Convention-proof
+     * against Euler-order pitfalls. */
+    if (locatedCount > 0) {
+        const float qx = locatedViews[0].pose.orientation.x;
+        const float qy = locatedViews[0].pose.orientation.y;
+        const float qz = locatedViews[0].pose.orientation.z;
+        const float qw = locatedViews[0].pose.orientation.w;
+        /* t = 2 * cross(q.xyz, v), v = (0,0,-1): cross((qx,qy,qz),(0,0,-1))
+         * = (qy*(-1) - qz*0, qz*0 - qx*(-1), qx*0 - qy*0) = (-qy, qx, 0) */
+        const float tx = -2.0f * qy, ty = 2.0f * qx, tz = 0.0f;
+        /* v' = v + qw*t + cross(q.xyz, t) */
+        const float cx = qy * tz - qz * ty;
+        const float cy = qz * tx - qx * tz;
+        const float cz = qx * ty - qy * tx;
+        const float fx = qw * tx + cx;          /* forward.x */
+        const float fy = qw * ty + cy;          /* forward.y */
+        const float fz = -1.0f + qw * tz + cz;  /* forward.z */
+        s_headYawDeg = (float)(atan2(fx, -fz) * 180.0 / 3.14159265358979);
+        s_headPitchDeg = (float)(asin(fy) * 180.0 / 3.14159265358979);
+        { /* TEMP diag */
+            static U32 dbg = 0;
+            if ((dbg++ % 180) == 0) {
+                OXR_LOGI("HEADPOSE located=%u yaw=%.1f pitch=%.1f",
+                         (unsigned)locatedCount, s_headYawDeg, s_headPitchDeg);
+            }
+        }
     }
 
     /* 6. Build the projection layer. Both eye sub-images reference the

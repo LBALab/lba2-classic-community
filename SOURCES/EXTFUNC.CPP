@@ -22,6 +22,7 @@
 #include <SYSTEM/WINDOW.H>
 #include "FOLLOWCAM_CFG.H"
 #include "JOYSTICK.H"
+#include <SYSTEM/OPENXR.H> /* head pose + swapchain for head-tracked camera */
 
 extern S32 Nxw, Nyw, Nzw;
 extern S32 SaveNxw, SaveNzw;
@@ -2134,8 +2135,21 @@ S32 GereExtKeys(U32 key)
     S32 savetimer;
     S32 savetimer2;
 
-    if (CubeMode != CUBE_EXTERIEUR OR(!key AND !FollowCamera))
+    /* Head look keeps this function alive in classic camera mode too: with
+       no keyboard (headset) and FollowCamera off, the classic-mode branch
+       below would otherwise never run. */
+    if (CubeMode != CUBE_EXTERIEUR
+            OR(!key AND !FollowCamera AND
+               !(GamepadCameraAnalog AND JoystickIsPresent() AND
+                 OpenXR_GetSwapchainWidth() != 0)))
         return (FALSE);
+    { /* TEMP diag */
+        static U32 dbg = 0;
+        if (!FollowCamera AND (dbg++ % 120) == 0) {
+            Log_Info("[HeadLookC] enter classic FollowCamera=%d key=%u B=%d A=%d cz=%d",
+                     FollowCamera, (unsigned)key, BetaCam, AlphaCam, CameraZone);
+        }
+    }
 
     savetimer = TimerRefHR;
     savetimer2 = TimerSystemHR;
@@ -2498,10 +2512,98 @@ S32 GereExtKeys(U32 key)
             }
         }
 
-        /* Gamepad right stick: analog orbit + elevation through the same nudge.
+        /* Head-mounted builds: headset orientation drives the follow camera
+         * itself (yaw -> orbit around the hero, pitch -> elevation) through
+         * the same nudge the right stick used — the rig's own state is what
+         * the renderer consumes, so this is the path that provably moves the
+         * view. Twinsen stays centred; the auto-recenter hands the view back
+         * behind him after the reengage window. The right stick is zoom only
+         * (up = in, down = out). */
+        if (GamepadCameraAnalog AND JoystickIsPresent() AND
+            OpenXR_GetSwapchainWidth() != 0) {
+            static float s_lastHeadYaw = -999.0f;
+            static float s_lastHeadPitch = -999.0f;
+            S32 dBeta = 0;
+            S32 dAlpha = 0;
+            S32 dZoom = 0;
+
+            const float yaw = OpenXR_HeadYawDeg();
+            const float pitch = OpenXR_HeadPitchDeg();
+            if (s_lastHeadYaw > -900.0f) {
+                /* Engine angles are 4096 per full turn. */
+                const S32 DEG_TO_ENGINE = 4096 / 360;
+                float dYaw = yaw - s_lastHeadYaw;
+                /* Wrap at +-180 so crossing the seam is one step, not a
+                 * full-turn snap. */
+                if (dYaw > 180.0f)
+                    dYaw -= 360.0f;
+                else if (dYaw < -180.0f)
+                    dYaw += 360.0f;
+                float dPitch = pitch - s_lastHeadPitch;
+                /* Dead zone: ~1.5 degrees of drift holds the view still. */
+                if (dYaw > 1.5f OR dYaw < -1.5f)
+                    dBeta = (S32)(dYaw * DEG_TO_ENGINE);
+                /* Negated: raising AlphaCam looks further DOWN from above,
+                   so looking up at the world must decrease it. */
+                if (dPitch > 1.5f OR dPitch < -1.5f)
+                    dAlpha = -(S32)(dPitch * DEG_TO_ENGINE);
+                if (GamepadCameraInvertY)
+                    dAlpha = -dAlpha;
+            }
+            s_lastHeadYaw = yaw;
+            s_lastHeadPitch = pitch;
+
+            S16 rsx = 0;
+            S16 rsy = 0;
+            JoystickGetRightStick(&rsx, &rsy);
+            dZoom = -StickAxisToCamStep(rsy, GamepadCameraSensY,
+                                        FOLLOW_CAM_ZOOM_STEP * 2);
+
+            if (FollowCamera) {
+                if (dBeta != 0 OR dAlpha != 0 OR dZoom != 0)
+                    flag |= ApplyManualCameraNudge(dBeta, dAlpha, dZoom);
+            } else if (CubeMode == CUBE_EXTERIEUR) {
+                /* Classic camera: the rig is preset-based and the angles are
+                   only consumed when CameraCenter re-applies it, so mutate
+                   the angles and re-apply — the head looks around the scene
+                   from the fixed camera position, independently of Twinsen.
+                   Sign note: view-right and view-up are BetaCam+/
+                   AlphaCam- (see the follow path). */
+                if (dBeta != 0)
+                    BetaCam = (BetaCam + dBeta) & 4095;
+                if (dAlpha != 0) {
+                    AlphaCam += dAlpha;
+                    if (AlphaCam < FOLLOW_CAM_ALPHA_MIN)
+                        AlphaCam = FOLLOW_CAM_ALPHA_MIN;
+                    if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
+                        AlphaCam = FOLLOW_CAM_ALPHA_MAX;
+                }
+                if (dZoom != 0) {
+                    VueDistance -= dZoom;
+                    if (VueDistance < 7000)
+                        VueDistance = 7000;
+                    if (VueDistance > 20000)
+                        VueDistance = 20000;
+                }
+                if (dBeta != 0 OR dAlpha != 0 OR dZoom != 0) {
+                    CameraCenter(0); /* re-applies SetFollowCamera */
+                    FirstTime = AFF_ALL_FLIP;
+                    flag = 1;
+                    { /* TEMP diag */
+                        static U32 dbg2 = 0;
+                        if ((dbg2++ % 60) == 0) {
+                            Log_Info("[HeadLookC] moved dB=%d dA=%d dZ=%d -> B=%d A=%d vd=%d ff=%d",
+                                     dBeta, dAlpha, dZoom, BetaCam, AlphaCam,
+                                     VueDistance, FirstTime);
+                        }
+                    }
+                }
+            }
+        }
+        /* Desktop gamepads: analog orbit + elevation through the same nudge.
          * UpdateJoystick suppresses the digital RSTICK scancodes while this owns
          * the stick (Auto camera, exterior), so the two never double-drive. */
-        if (GamepadCameraAnalog AND JoystickIsPresent()) {
+        else if (GamepadCameraAnalog AND JoystickIsPresent()) {
             S16 rsx = 0;
             S16 rsy = 0;
             JoystickGetRightStick(&rsx, &rsy);

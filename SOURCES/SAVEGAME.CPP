@@ -7,6 +7,8 @@
 
 #include "C_EXTERN.H"
 
+#include <SYSTEM/OPENXR.H> /* head-mount camera defaults */
+
 #include <stdint.h>
 
 #include <SVGA/SCREEN.H>
@@ -1935,6 +1937,13 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         // Infos camera
         LbaReadLong(VueDistance);
         LbaReadLong(AlphaCam);
+#ifdef LBA2_OPENXR
+        /* The save carries the elevation it was made with; a headset session
+           always starts from the low over-the-shoulder rig instead (matches
+           the head-mount default in CameraCenter, INTEXT.CPP). */
+        if (OpenXR_GetSwapchainWidth() != 0)
+            AlphaCam = 180;
+#endif
         LbaReadLong(BetaCam);
         LbaReadLong(GammaCam);
         LbaReadLong(AddBetaCam);

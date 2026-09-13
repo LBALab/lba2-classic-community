@@ -13,6 +13,7 @@
  *══════════════════════════════════════════════════════════════════════════*/
 
 #include "C_EXTERN.H"
+#include <SYSTEM/OPENXR.H> /* head-mount camera defaults */
 
 extern T_OBJET *APtObj; // dans OBJECT.CPP
 
@@ -365,7 +366,14 @@ void CameraCenter(S32 flagbeta) {
     case 2:
 #ifdef LBA_EDITOR
         VueDistance = DEFAULT_DISTANCE_CAM;
+#ifdef LBA2_OPENXR
+        /* Head-mounted: near the clamp floor so the rig sits at Twinsen's
+           back, not over the scene — the classic 30 degree top-down reads
+           badly in a headset. */
+        AlphaCam = OpenXR_GetSwapchainWidth() ? 180 : DEFAULT_ALPHA_CAM;
+#else
         AlphaCam = DEFAULT_ALPHA_CAM;
+#endif
 #else
         VueDistance = DefVueDistance[VueCamera];
         AlphaCam = DefAlphaCam[VueCamera];
@@ -393,7 +401,13 @@ void CameraCenter(S32 flagbeta) {
         GammaCam = DEFAULT_GAMMA_CAM;
 #ifdef LBA_EDITOR
         VueDistance = DEFAULT_DISTANCE_CAM;
+#ifdef LBA2_OPENXR
+        /* Head-mounted: ride visibly lower than the classic 30 degree rig so
+           the hero-centred view reads more over-the-shoulder. */
+        AlphaCam = OpenXR_GetSwapchainWidth() ? 250 : DEFAULT_ALPHA_CAM;
+#else
         AlphaCam = DEFAULT_ALPHA_CAM;
+#endif
 #else
         VueDistance = DefVueDistance[VueCamera];
         AlphaCam = DefAlphaCam[VueCamera];
