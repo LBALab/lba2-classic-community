@@ -1561,25 +1561,18 @@ S32 OpenXR_PresentMono(void) {
                  * recommended 1680x1760 resolution with no vertical loss. */
                 GLuint eyeFBO0 = GL_GetStereoEyeFBO(0);
                 GLuint eyeFBO1 = GL_GetStereoEyeFBO(1);
-                S32 halfW = (S32)s_swapchainWidth; /* per-eye width */
-                double eyeFit = (double)halfW / (double)srcW;
-                double eyeFitH = (double)s_swapchainHeight / (double)srcH;
-                if (eyeFitH < eyeFit)
-                    eyeFit = eyeFitH;
-                if (eyeFit > 1.0)
-                    eyeFit = 1.0;
-                S32 eyeDstW = (S32)((double)srcW * eyeFit + 0.5);
-                S32 eyeDstH = (S32)((double)srcH * eyeFit + 0.5);
-                if (eyeDstW < 1)
-                    eyeDstW = 1;
-                if (eyeDstH < 1)
-                    eyeDstH = 1;
-                S32 eyeDstX0 = (halfW - eyeDstW) / 2; /* eye 0 centred in left half */
-                if (eyeDstX0 < 0) eyeDstX0 = 0;
-                S32 eyeDstX1 = halfW + (halfW - eyeDstW) / 2; /* eye 1 in right half */
-                if (eyeDstX1 < halfW) eyeDstX1 = halfW;
-                S32 marginY = ((S32)s_swapchainHeight - eyeDstH) / 2;
-                if (marginY < 0) marginY = 0;
+                /* Fill the FULL per-eye half — the compositor maps the whole
+                 * imageRect to the eye FOV, so any letterbox margin wastes
+                 * visible area and reads as black bars. The engine's
+                 * projection already maps the 3D geometry; the stretch from
+                 * the engine's aspect to the eye FOV aspect is the correct
+                 * mapping for VR. */
+                S32 halfW = (S32)s_swapchainWidth;
+                S32 eyeDstW = halfW;
+                S32 eyeDstH = (S32)s_swapchainHeight;
+                S32 eyeDstX0 = 0;
+                S32 eyeDstX1 = halfW;
+                S32 marginY = 0;
 
                 GLuint swapFbo;
                 glGenFramebuffers(1, &swapFbo);
