@@ -545,6 +545,14 @@ static U8 s_batchVerts[BATCH_MAX_VERTS * BATCH_VERT_BYTES];
 static U32 s_batchVertCount = 0;
 static U32 s_batchTriCount = 0;
 static GLuint s_batchVBO = 0;
+/* Persistent stream ring: each flush fills the next slot instead of
+   orphaning the whole buffer — orphan+realloc per flush costs real driver
+   time on mobile GPUs once batches reach triple digits. */
+#define BATCH_RING_SLOTS 64
+static U32 s_batchRingSize = 0;  /* bytes */
+static U32 s_batchRingOff = 0;   /* next slot's byte offset */
+static U32 s_batchRingSlot = 0;  /* current flush's byte offset */
+static GLuint s_auxVBO = 0;      /* one-shot draws: shadow/sphere/shade/sprite */
 /* Material of the polygon currently being queued (low byte = mode/alpha/
    chroma/persp flags, high byte = flat colour or shadow level). */
 static U16 s_currentMaterial = 0;
@@ -586,6 +594,7 @@ static GLuint s_curBoundTex[3] = {(GLuint)-1, (GLuint)-1, (GLuint)-1};
 static S32 s_curActiveUnit = -1;
 static GLuint s_curProgram = (GLuint)-1;
 static S32 s_clutAttribsDirty = 1; /* vertex arrays need enable + re-spec */
+static S32 s_overlayEmptyLast = 0; /* last indexed present had a 2D-empty overlay */
 
 static void GL_UseProgramCached(GLuint prog) {
     if (s_curProgram != prog) {
@@ -720,6 +729,7 @@ typedef struct {
     const void *ptr;
     U32 ver;
     GLuint tex;
+    U8 *shadow; /* last uploaded content; skips unchanged re-uploads */
 } AtlasTexEntry;
 static AtlasTexEntry s_atlasTexCache[ATLAS_CACHE_SIZE];
 static S32 s_atlasTexNext = 0;
@@ -1207,7 +1217,15 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     /* Batch VBO for 3D triangles (dynamic) */
     glGenBuffers(1, &s_batchVBO);
     glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
-    glBufferData(GL_ARRAY_BUFFER, BATCH_MAX_VERTS * 14, NULL, GL_DYNAMIC_DRAW);
+    s_batchRingSize = BATCH_MAX_VERTS * BATCH_VERT_BYTES * BATCH_RING_SLOTS;
+    glBufferData(GL_ARRAY_BUFFER, s_batchRingSize, NULL, GL_STREAM_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    /* One-shot VBO for the shadow/sphere/shade/sprite quad draws. */
+    glGenBuffers(1, &s_auxVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, s_auxVBO);
+    glBufferData(GL_ARRAY_BUFFER, BATCH_MAX_VERTS * BATCH_VERT_BYTES, NULL,
+                 GL_STREAM_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     /* ── Create textures ── */
@@ -1319,6 +1337,8 @@ void GL_Renderer_Shutdown(void) {
         if (s_atlasTexCache[i].tex) {
             glDeleteTextures(1, &s_atlasTexCache[i].tex);
         }
+        free(s_atlasTexCache[i].shadow);
+        s_atlasTexCache[i].shadow = NULL;
         s_atlasTexCache[i].ptr = NULL;
         s_atlasTexCache[i].ver = 0;
         s_atlasTexCache[i].tex = 0;
@@ -1358,21 +1378,17 @@ void GL_Renderer_Shutdown(void) {
         glDeleteBuffers(1, &s_batchVBO);
         s_batchVBO = 0;
     }
+    if (s_auxVBO) {
+        glDeleteBuffers(1, &s_auxVBO);
+        s_auxVBO = 0;
+    }
+    s_batchRingSize = 0;
+    s_batchRingOff = 0;
     if (s_depthPbo[0]) {
         glDeleteBuffers(2, s_depthPbo);
         s_depthPbo[0] = 0;
         s_depthPbo[1] = 0;
     }
-    {
-        S32 i;
-        for (i = 0; i < 2; i++) {
-            if (s_depthFence[i] != 0) {
-                glDeleteSync(s_depthFence[i]);
-                s_depthFence[i] = 0;
-            }
-        }
-    }
-    s_depthSkipStreak = 0;
     s_depthPboReady = 0;
     s_depthPboW = 0;
     s_depthPboH = 0;
@@ -1460,6 +1476,16 @@ void GL_Renderer_Resize(U32 resX, U32 resY) {
 void GL_SetRenderQuality(U32 quality) {
     if (quality == 0) quality = 1;
     if (quality > 4) quality = 4;
+#ifdef __ANDROID__
+    /* Single choke point (boot AND the in-game menu): SSAA multiplies the
+     * framebuffer per axis, and quality 4 at 1680x945 is a 25-megapixel
+     * render target that stalls the whole frame loop on a mobile GPU. The
+     * supersampled resolution ladder provides sharpness far cheaper. */
+    if (quality > 1) {
+        Log_Info("[GL] Android: RenderQuality %u clamped to 1", quality);
+        quality = 1;
+    }
+#endif
     if (s_renderQuality == quality) return;
     Log_Info("[GL] SetRenderQuality: %u -> %u (tex=%ux%u)",
              s_renderQuality, quality, s_texWidth, s_texHeight);
@@ -1600,11 +1626,17 @@ static GLuint GL_BindAtlasFor(const void *map) {
         GL_SetAtlasTexParams(e->tex);
         GL_InvalidateGLState();
     }
+    if (e->shadow == NULL) {
+        e->shadow = (U8 *)malloc(256 * 256);
+    }
     e->ptr = map;
     e->ver = s_atlasContentVersion;
     GL_BindTexUnit(0, e->tex);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_LUMINANCE,
                     GL_UNSIGNED_BYTE, map);
+    if (e->shadow != NULL) {
+        memcpy(e->shadow, map, 256 * 256);
+    }
     return e->tex;
 }
 
@@ -1712,9 +1744,8 @@ void GL_FlushBatch(void) {
     GL_BindTexUnit(2, s_paletteTex);
 
     /* Set up vertex attributes — 16 bytes per vertex: XE YE U V Light Z
-       RepMask Material.  The arrays stay enabled across flushes; the
-       present-path quad draws rebind locations 0/1 for their own VBOs, so
-       s_clutAttribsDirty re-specifies everything after those. */
+       RepMask Material.  Re-specified every flush: the ring slot offset
+       moves, so the pointers must follow it. */
     if (s_clutAttribsDirty) {
         glEnableVertexAttribArray(s_clut_aPos);
         glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
@@ -2546,12 +2577,12 @@ void GL_ReadbackDepthBuffer(void) {
             s_depthSmallH = scrH;
         }
 
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_depthSmallFbo);
-        glBlitFramebuffer(0, 0, fboW, fboH, 0, 0, scrW, scrH,
-                          GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_depthSmallFbo);
+    glBlitFramebuffer(0, 0, fboW, fboH, 0, 0, scrW, scrH,
+                      GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     }
 
     /* Pack buffers track the screen-sized read; recreating them after a
@@ -2645,12 +2676,6 @@ void GL_ReadbackDepthBuffer(void) {
                  NULL);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-    if (s_depthFence[s_depthPboIndex] != 0) {
-        glDeleteSync(s_depthFence[s_depthPboIndex]);
-    }
-    s_depthFence[s_depthPboIndex] =
-        glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-
     s_depthPboIndex ^= 1;
     if (s_depthPboReady < 2) {
         s_depthPboReady++;
@@ -2991,6 +3016,35 @@ void GL_SavePresentPNG(const char *path) {
 
 /* ── Present (extended with 3D flush) ───────────────────────────────────── */
 
+/* Black out just the letterbox bars around the content rectangle. The
+   content itself is overwritten by the FBO/overlay draws, so clearing it
+   too is wasted bandwidth at headset-class resolutions. */
+static void GL_ClearLetterboxBars(int vpX, int vpY, int vpW, int vpH,
+                                  int winW, int winH) {
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    if (vpX == 0 && vpY == 0 && vpW == winW && vpH == winH) {
+        return; /* no bars: the content draw covers everything */
+    }
+    glEnable(GL_SCISSOR_TEST);
+    if (vpY > 0) {
+        glScissor(0, 0, winW, vpY); /* bottom bar (GL origin is bottom-left) */
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
+    if (vpY + vpH < winH) {
+        glScissor(0, vpY + vpH, winW, winH - vpY - vpH); /* top bar */
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
+    if (vpX > 0) {
+        glScissor(0, vpY, vpX, vpH); /* left bar */
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
+    if (vpX + vpW < winW) {
+        glScissor(vpX + vpW, vpY, winW - vpX - vpW, vpH); /* right bar */
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
+    glDisable(GL_SCISSOR_TEST);
+}
+
 void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
                 S32 filterLinear) {
     if (!s_initialized || argbPixels == NULL) {
@@ -3059,12 +3113,6 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
         winW = (int)width;
         winH = (int)height;
     }
-    /* Clear the render target to black (for letterbox bars). On Quest the
-       present FBO is the target; on desktop it is the default framebuffer. */
-    glViewport(0, 0, winW, winH);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
     /* Compute the largest centred rectangle that preserves aspect ratio. */
     int vpX, vpY, vpW, vpH;
     {
@@ -3088,6 +3136,8 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
             vpY = (winH - vpH) / 2;
         }
     }
+    glViewport(0, 0, winW, winH);
+    GL_ClearLetterboxBars(vpX, vpY, vpW, vpH, winW, winH);
     glViewport(vpX, vpY, vpW, vpH);
 
     /* Draw the FBO color texture (3D scene) first, then the 2D overlay on top */
@@ -3196,6 +3246,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     U64 profT1 = SDL_GetPerformanceCounter();
     s_profAccumTicks[0] += profT1 - profT0;
     GL_ProfFrameDone();
+    s_overlayEmptyLast = 0;
     /* The present quads rebind programs, textures and attrib locations
        0/1 for their own VBOs — the next frame's flushes must re-specify. */
     GL_InvalidateGLState();
@@ -3269,14 +3320,8 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         }
     }
 
-    /* Black out only the letterbox bars.  When the 3D quad covers the
-       whole target (no bars, FBO present) the opaque FBO draw overwrites
-       every pixel, so a full-screen clear would be redundant overdraw. */
-    if (s_fbo == 0 || vpX != 0 || vpY != 0 || vpW != winW || vpH != winH) {
-        glViewport(0, 0, winW, winH);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-    }
+    glViewport(0, 0, winW, winH);
+    GL_ClearLetterboxBars(vpX, vpY, vpW, vpH, winW, winH);
     glViewport(vpX, vpY, vpW, vpH);
 
     if (s_fbo) {
@@ -3476,6 +3521,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         }
     }
 
+    s_overlayEmptyLast = overlayEmpty;
     if (!overlayEmpty) {
         /* The index texture and its band uploads are maintained by the
            diff block above; here we only refresh the palette (when the
@@ -3554,6 +3600,21 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
    full GL renderer internals. */
 U32 GL_GetPresentFBO(void) {
     return (U32)s_presentFBO;
+}
+
+/* Quest present fast path: when the last indexed present had an empty 2D
+ * overlay, PresentMono can blit the 3D FBO straight into the swapchain and
+ * skip the intermediate fullscreen composite. */
+S32 GL_PresentOverlayEmpty(void) {
+    return s_overlayEmptyLast;
+}
+
+U32 GL_Get3DColorTex(void) {
+    return (U32)s_fboColorTex;
+}
+
+U32 GL_Get3DFBO(void) {
+    return (U32)s_fbo;
 }
 
 U32 GL_GetPresentColorTex(void) {

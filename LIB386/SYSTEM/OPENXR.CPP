@@ -45,6 +45,9 @@ extern "C" {
 #include <jni.h>
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
+/* glBlitFramebuffer (present scale-to-fit) is GLES 3.0; the engine's GL
+ * context is created GLES 3-capable on Android. */
+#include <GLES3/gl3.h>
 #include <GLES2/gl2ext.h>
 #include <android/log.h>
 #include <dlfcn.h>
@@ -166,6 +169,9 @@ static XrSystemId              s_systemId = XR_NULL_SYSTEM_ID;
 /* GL renderer stereo eye capture (RENDER_GL.CPP). */
 extern "C" U32 GL_GetStereoEyeFBO(S32 eye);
 extern "C" S32 GL_TakeStereoPair(void);
+extern "C" S32 GL_PresentOverlayEmpty(void);
+extern "C" U32 GL_Get3DColorTex(void);
+extern "C" U32 GL_Get3DFBO(void);
 
 /* -------------------------------------------------------------------------- */
 static int hasExt(const XrExtensionProperties *list, U32 count, const char *name) {
@@ -1501,30 +1507,31 @@ S32 OpenXR_PresentMono(void) {
                 }
             }
 
-            /* The swapchain is 1680x1760 (~0.955:1). glCopyTexSubImage2D is a
-             * 1:1 pixel copy with no scale, so we sample the engine's centered
-             * letterbox region and place it centred in the swapchain. The
-             * unused rows above/below stay at the texture's initial value
-             * (cleared by the runtime, effectively black). */
+            /* Scale-to-fit: the engine frame (vpW x vpH, full present FBO)
+             * is blitted into the largest aspect-correct rectangle that fits
+             * the swapchain, centred. Equal sizes give an exact 1:1 blit;
+             * supersampled resolutions (above the swapchain size) downscale
+             * instead of cropping. */
             int srcW = vpW, srcH = vpH;
-            if (srcW > (int)s_swapchainWidth) srcW = (int)s_swapchainWidth;
-            if (srcH > (int)s_swapchainHeight) srcH = (int)s_swapchainHeight;
-            /* Clamp the source region to maintain the content aspect ratio
-             * inside the swapchain. */
-            int srcHAspect = (int)((double)srcW / contentAspect + 0.5);
-            if (srcHAspect < srcH) srcH = srcHAspect;
-            int srcX = vpX + (vpW - srcW) / 2;
-            int srcY = vpY + (vpH - srcH) / 2;
-            if (srcX < 0) srcX = 0;
-            if (srcY < 0) srcY = 0;
-            int dstX = ((int)s_swapchainWidth  - srcW) / 2;
-            int dstY = ((int)s_swapchainHeight - srcH) / 2;
-            if (dstX < 0) dstX = 0;
-            if (dstY < 0) dstY = 0;
-            if (srcX + srcW > (int)ModeDesiredX) srcW = (int)ModeDesiredX - srcX;
-            if (srcY + srcH > (int)ModeDesiredY) srcH = (int)ModeDesiredY - srcY;
-            if (srcW < 1) srcW = 1;
-            if (srcH < 1) srcH = 1;
+            int srcX = 0, srcY = 0;
+            double fit = (double)s_swapchainWidth / (double)srcW;
+            double fitH = (double)s_swapchainHeight / (double)srcH;
+            if (fitH < fit)
+                fit = fitH;
+            if (fit > 1.0)
+                fit = 1.0; /* smaller content is never upscaled */
+            int dstW = (int)((double)srcW * fit + 0.5);
+            int dstH = (int)((double)srcH * fit + 0.5);
+            if (dstW < 1)
+                dstW = 1;
+            if (dstH < 1)
+                dstH = 1;
+            int dstX = ((int)s_swapchainWidth - dstW) / 2;
+            int dstY = ((int)s_swapchainHeight - dstH) / 2;
+            if (dstX < 0)
+                dstX = 0;
+            if (dstY < 0)
+                dstY = 0;
 
             /* No clear of the swapchain sub-image here: each frame overwrites
              * the same dstX..dstX+srcW / dstY..dstY+srcH rectangle, and the
@@ -1542,35 +1549,75 @@ S32 OpenXR_PresentMono(void) {
                                   GL_GetStereoEyeFBO(1) != 0;
             if (stereoThisFrame) {
                 /* Native stereo: each eye's composite lives in its capture
-                 * FBO and goes centred into its own half of the swapchain
-                 * image. On-device evidence: an eye's imageRect rows r map to
-                 * the swapchain texture's GL memory rows r (rect row 0 = GL
-                 * row 0), so eye 0's rect (top half) is the lower-numbered
-                 * GL rows. */
+                 * FBO and goes scaled-to-fit, centred, into its own half of
+                 * the swapchain image (supersampled resolutions downscale).
+                 * On-device evidence: an eye's imageRect rows r map to the
+                 * swapchain texture's GL memory rows r (rect row 0 = GL row
+                 * 0), so eye 0's rect (top half) is the lower-numbered GL
+                 * rows. */
                 GLuint eyeFBO0 = GL_GetStereoEyeFBO(0);
                 GLuint eyeFBO1 = GL_GetStereoEyeFBO(1);
                 S32 halfH = (S32)s_swapchainHeight / 2;
-                S32 eyeSrcW = srcW, eyeSrcH = srcH;
-                if (eyeSrcH > halfH) eyeSrcH = halfH;
-                S32 eyeDstX = ((S32)s_swapchainWidth - eyeSrcW) / 2;
+                double eyeFit = (double)s_swapchainWidth / (double)srcW;
+                double eyeFitH = (double)halfH / (double)srcH;
+                if (eyeFitH < eyeFit)
+                    eyeFit = eyeFitH;
+                if (eyeFit > 1.0)
+                    eyeFit = 1.0;
+                S32 eyeDstW = (S32)((double)srcW * eyeFit + 0.5);
+                S32 eyeDstH = (S32)((double)srcH * eyeFit + 0.5);
+                if (eyeDstW < 1)
+                    eyeDstW = 1;
+                if (eyeDstH < 1)
+                    eyeDstH = 1;
+                S32 eyeDstX = ((S32)s_swapchainWidth - eyeDstW) / 2;
                 if (eyeDstX < 0) eyeDstX = 0;
-                S32 marginY = (halfH - eyeSrcH) / 2;
+                S32 marginY = (halfH - eyeDstH) / 2;
                 if (marginY < 0) marginY = 0;
 
-                /* Eye 0 (left): imageRect rows 0..halfH -> GL rows 0..halfH. */
-                glBindFramebuffer(GL_FRAMEBUFFER, eyeFBO0);
-                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, eyeDstX, marginY,
-                                    0, 0, (GLsizei)eyeSrcW, (GLsizei)eyeSrcH);
-                /* Eye 1 (right): imageRect rows halfH.. -> GL rows halfH.. */
-                glBindFramebuffer(GL_FRAMEBUFFER, eyeFBO1);
-                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, eyeDstX, halfH + marginY,
-                                    0, 0, (GLsizei)eyeSrcW, (GLsizei)eyeSrcH);
+                GLuint swapFbo;
+                glGenFramebuffers(1, &swapFbo);
+                glBindFramebuffer(GL_FRAMEBUFFER, swapFbo);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                       GL_TEXTURE_2D, imgTex, 0);
+                if (glCheckFramebufferStatus(GL_FRAMEBUFFER) ==
+                    GL_FRAMEBUFFER_COMPLETE) {
+                    glBindFramebuffer(GL_READ_FRAMEBUFFER, eyeFBO0);
+                    /* Eye 0 (left): imageRect rows 0..halfH -> GL rows
+                     * 0..halfH. */
+                    glBlitFramebuffer(0, 0, srcW, srcH,
+                                      eyeDstX, marginY,
+                                      eyeDstX + eyeDstW, marginY + eyeDstH,
+                                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+                    glBindFramebuffer(GL_READ_FRAMEBUFFER, eyeFBO1);
+                    /* Eye 1 (right): imageRect rows halfH.. -> GL rows
+                     * halfH.. */
+                    glBlitFramebuffer(0, 0, srcW, srcH,
+                                      eyeDstX, halfH + marginY,
+                                      eyeDstX + eyeDstW, halfH + marginY + eyeDstH,
+                                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+                    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+                } else {
+                    /* FBO attach rejected: 1:1 copies as before. */
+                    S32 eyeSrcW = srcW, eyeSrcH = srcH;
+                    if (eyeSrcH > halfH) eyeSrcH = halfH;
+                    glBindFramebuffer(GL_FRAMEBUFFER, eyeFBO0);
+                    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, eyeDstX, marginY,
+                                        0, 0, (GLsizei)eyeSrcW, (GLsizei)eyeSrcH);
+                    glBindFramebuffer(GL_FRAMEBUFFER, eyeFBO1);
+                    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, eyeDstX, halfH + marginY,
+                                        0, 0, (GLsizei)eyeSrcW, (GLsizei)eyeSrcH);
+                }
+                glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
+                glDeleteFramebuffers(1, &swapFbo);
+                glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
                 {
                     static int s_stBlitLogCount = 0;
                     GLenum glErr = glGetError();
                     if (s_stBlitLogCount < 3) {
                         OXR_LOGI("PresentMono stereo: eyes %dx%d dst=(%d,%d)/(%d,%d) halfH=%d glError=0x%x",
-                                 eyeSrcW, eyeSrcH, eyeDstX, marginY, eyeDstX, halfH + marginY,
+                                 eyeDstW, eyeDstH, eyeDstX, marginY,
+                                 eyeDstX, halfH + marginY,
                                  halfH, (unsigned)glErr);
                         s_stBlitLogCount++;
                     }
@@ -1579,8 +1626,56 @@ S32 OpenXR_PresentMono(void) {
             }
 
             if (!stereoThisFrame) {
-                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, dstX, dstY, srcX, srcY,
-                                    (GLsizei)srcW, (GLsizei)srcH);
+                /* Attach the swapchain image to an FBO and blit with scaling:
+                   resolutions above the swapchain size (supersampled options)
+                   downscale to fit instead of cropping, which the 1:1
+                   glCopyTexSubImage2D path could not do. */
+                GLuint swapFbo;
+                glGenFramebuffers(1, &swapFbo);
+                glBindFramebuffer(GL_FRAMEBUFFER, swapFbo);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                       GL_TEXTURE_2D, imgTex, 0);
+                GLenum blitErr = glGetError();
+                if (blitErr == 0 && glCheckFramebufferStatus(GL_FRAMEBUFFER) ==
+                                        GL_FRAMEBUFFER_COMPLETE) {
+                    /* Fast path: an empty 2D overlay means the composite is
+                     * just the 3D FBO — blit it directly and skip the
+                     * intermediate fullscreen pass entirely. */
+                    GLuint readFbo = (GLuint)prevFb;
+                    if (GL_PresentOverlayEmpty() && GL_Get3DFBO() != 0) {
+                        readFbo = GL_Get3DFBO();
+                        srcX = 0;
+                        srcY = 0;
+                        srcW = (int)ModeDesiredX;
+                        srcH = (int)ModeDesiredY;
+                    }
+                    /* Read from the engine's FBO, draw into the swapchain
+                       image — an explicit READ rebind is required because
+                       binding swapFbo above set READ = swapFbo, and a
+                       same-buffer blit is INVALID_OPERATION. */
+                    glBindFramebuffer(GL_READ_FRAMEBUFFER, readFbo);
+                    glBlitFramebuffer(srcX, srcY, srcX + srcW, srcY + srcH,
+                                      dstX, dstY, dstX + dstW, dstY + dstH,
+                                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+                    blitErr = glGetError();
+                    if (blitErr != 0) {
+                        OXR_LOGW("scale blit failed (0x%x), 1:1 copy",
+                                 (unsigned)blitErr);
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prevFb);
+                        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, dstX, dstY, srcX,
+                                            srcY, (GLsizei)srcW,
+                                            (GLsizei)srcH);
+                    }
+                } else {
+                    /* FBO attach rejected: fall back to the 1:1 copy. */
+                    OXR_LOGW("swapchain FBO attach failed (0x%x), 1:1 copy",
+                             (unsigned)blitErr);
+                    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, dstX, dstY, srcX,
+                                        srcY, (GLsizei)srcW, (GLsizei)srcH);
+                }
+                glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
+                glDeleteFramebuffers(1, &swapFbo);
+                glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
 
                 {
                     static int s_blitLogCount = 0;

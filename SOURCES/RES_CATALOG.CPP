@@ -133,6 +133,8 @@ static const ResModeEntry kHeadMountLadder[] = {
     {1280, 720, "16:9"},
     {1600, 900, "16:9"},
     {1680, 945, "16:9"},
+    {2240, 1260, "16:9 2x"},
+    {2560, 1440, "16:9 2.5x"},
 };
 #define kHeadMountLadderCount ((int)(sizeof(kHeadMountLadder) / sizeof(kHeadMountLadder[0])))
 
@@ -156,11 +158,10 @@ int Res_BuildMenuList(ResModeEntry *out, int cap) {
        classic 4:3 anchor is deliberately absent — an aspect change is exactly
        what these entries must not do. */
     if (Res_HeadMounted()) {
-        const U32 swapW = OpenXR_GetSwapchainWidth();
-        const U32 swapH = OpenXR_GetSwapchainHeight();
+        /* Entries above the swapchain size are supersampled: the present
+         * blit downscales them to fit, so every option stays fully visible
+         * at the same 16:9 framing. */
         for (int i = 0; i < kHeadMountLadderCount && n < cap; i++) {
-            if (kHeadMountLadder[i].w > swapW || kHeadMountLadder[i].h > swapH)
-                continue;
             out[n++] = kHeadMountLadder[i];
         }
         return n;
@@ -224,11 +225,7 @@ int Res_BuildCatalog(ResModeEntry *out, int cap, bool includeAdvanced) {
     /* Head-mounted builds: the 16:9 ladder only — no curated tables (their
        mixed aspects are monitor-oriented). */
     if (Res_HeadMounted()) {
-        const U32 swapW = OpenXR_GetSwapchainWidth();
-        const U32 swapH = OpenXR_GetSwapchainHeight();
         for (int i = 0; i < kHeadMountLadderCount && n < cap; i++) {
-            if (kHeadMountLadder[i].w > swapW || kHeadMountLadder[i].h > swapH)
-                continue;
             out[n++] = kHeadMountLadder[i];
         }
         return n;

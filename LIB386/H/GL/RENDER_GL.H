@@ -153,6 +153,11 @@ U32 GL_GetPresentFBO(void);
 //! Get the present FBO color texture handle (for OpenXR present on Quest).
 //! Returns the texture attached to the present FBO, or 0 if not initialized.
 U32 GL_GetPresentColorTex(void);
+/* Quest present fast path: skip the intermediate composite when the 2D
+   overlay was empty (see GL_PresentIndexed). */
+S32 GL_PresentOverlayEmpty(void);
+U32 GL_Get3DColorTex(void);
+U32 GL_Get3DFBO(void);
 
 //! Stereo (dual-eye) capture control. With eye >= 0, the next GL_Present
 //! composites into that eye's offscreen FBO instead of the present FBO and

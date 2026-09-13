@@ -2522,6 +2522,15 @@ void ReadConfigFile(void) {
          RenderQuality = 1;
      if (RenderQuality == 3)
          RenderQuality = 1; /* only 1, 2, 4 are valid */
+#ifdef __ANDROID__
+     /* SSAA multiplies the framebuffer per axis: quality 4 at a
+      * 2240x1260 render size is a 34-megapixel framebuffer, which no
+      * mobile GPU sustains. Cap headset sessions at native. */
+     if (RenderQuality > 1) {
+         Log_Info("Android: clamping RenderQuality %d -> 1", RenderQuality);
+         RenderQuality = 1;
+     }
+#endif
 
 #if defined(LBA2_OPENXR) && defined(__ANDROID__)
      /* On Quest, OpenXR must be initialized before any SDL window is created.
