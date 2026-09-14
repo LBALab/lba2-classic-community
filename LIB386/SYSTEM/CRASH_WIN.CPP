@@ -32,7 +32,8 @@
  * handler runs before that search, so for an exception that ends a process it
  * repeats the walk's frame check first, and writes the block itself when the check
  * fails. An exception on a stack that walks cleanly is left to the handlers and
- * the filter, since code may still catch it.
+ * the filter, since code may still catch it, and so is one below a frame with a
+ * handler of its own: Windows calls that handler before it looks further.
  *
  * One thread writes the block. Another that crashes meanwhile waits for the block
  * to be done before it hands its exception on, which would end the process under
@@ -178,7 +179,7 @@ __attribute__((noinline)) static void walk_unwind(void) {
 
 /* The frame check of Windows' own search for exception handlers: each frame's
    establisher frame must be aligned and inside the thread's stack. Sets
-   s_stackInvalid when one is not. */
+   s_stackInvalid when one is not before a frame with a handler. */
 __attribute__((noinline)) static void walk_dispatch_check(void) {
     const NT_TIB *tib = (const NT_TIB *)NtCurrentTeb();
     DWORD64 low = (DWORD64)(uintptr_t)tib->StackLimit;
@@ -189,6 +190,7 @@ __attribute__((noinline)) static void walk_dispatch_check(void) {
         DWORD64 pc = s_walkContext.Rip;
         DWORD64 imageBase = 0;
         PRUNTIME_FUNCTION function;
+        PEXCEPTION_ROUTINE handler = NULL;
         PVOID handlerData;
         DWORD64 establisherFrame = 0;
 
@@ -196,8 +198,8 @@ __attribute__((noinline)) static void walk_dispatch_check(void) {
             return;
         function = RtlLookupFunctionEntry(frames == 0 ? pc : pc - 1, &imageBase, NULL);
         if (function) {
-            RtlVirtualUnwind(UNW_FLAG_EHANDLER, imageBase, pc, function, &s_walkContext, &handlerData,
-                             &establisherFrame, NULL);
+            handler = RtlVirtualUnwind(UNW_FLAG_EHANDLER, imageBase, pc, function, &s_walkContext, &handlerData,
+                                       &establisherFrame, NULL);
         } else {
             if (s_walkContext.Rsp < low || s_walkContext.Rsp + 8 > high) {
                 s_stackInvalid = 1;
@@ -211,6 +213,8 @@ __attribute__((noinline)) static void walk_dispatch_check(void) {
             s_stackInvalid = 1;
             return;
         }
+        if (handler)
+            return;
     }
 }
 
