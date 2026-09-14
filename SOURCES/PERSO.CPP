@@ -26,6 +26,7 @@ extern S32 GfxDitherShading;
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H> /* CreateLog (boot log brought up in main) */
+#include <SYSTEM/CRASH.H>    /* Crash_Install, right after the log */
 #include "ASSET_PREFLIGHT.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
@@ -2272,6 +2273,9 @@ int main(int argc, char *argv[]) {
         Log_AddSink(Log_MakeFileSink(logFilePath, LOG_DEBUG));
         Log_AddSink(Log_MakeTerminalSink(LOG_DEBUG));
         atexit(Log_Shutdown);
+        /* From here a fatal signal appends a CRASH block to the log. Nothing
+           heavy has run yet, and the log has already kept the previous run's. */
+        Crash_Install(logFilePath, LBA2_VERSION_STRING, LBA2_COMMIT_STRING);
 
         /* --disc names the image to mount, instead of letting the game folder's
            scan rank what it finds. Read before discovery, not just before the
