@@ -88,6 +88,10 @@ option(LBA2_LINK_STATIC "Static-link SDL3 and the GCC C++ runtime (release packa
 option(LBA2_RELEASE_SYMBOLS "Compile with -g for split symbol files (release packaging)" OFF)
 if(LBA2_RELEASE_SYMBOLS AND NOT MSVC)
     add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-g>)
+    # With LTO the code is generated at the link, and MinGW GCC then writes the
+    # program's debug info only if the link has -g too; ELF targets carry it in
+    # from the objects, which is why only Windows needed this.
+    add_link_options(-g)
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
