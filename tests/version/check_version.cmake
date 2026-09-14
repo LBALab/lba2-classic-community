@@ -35,6 +35,11 @@ if(_hdr_value STREQUAL "")
     message(FATAL_ERROR "LBA2_VERSION_STRING is empty in header")
 endif()
 
+string(REGEX MATCH "#define[ \t]+LBA2_COMMIT_STRING[ \t]+\"([^\"]+)\"" _commit_match "${_hdr}")
+if(NOT _commit_match)
+    message(FATAL_ERROR "HEADER_FILE does not define a non-empty LBA2_COMMIT_STRING")
+endif()
+
 if(NOT "${_hdr_value}" STREQUAL "${_txt}")
     message(FATAL_ERROR
         "Drift detected between VERSION text and header macro:\n"
