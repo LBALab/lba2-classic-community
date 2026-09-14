@@ -223,14 +223,69 @@ static _Unwind_Reason_Code on_prime_frame(struct _Unwind_Context *context, void 
     return _URC_END_OF_STACK;
 }
 
+#if defined(__x86_64__) || defined(__i386__) || defined(__aarch64__)
+struct ReturnStep {
+    Registers regs;
+    uintptr_t pc;
+    uintptr_t sp;
+};
+
+/* The pc and sp a call leaves its caller with when it returns at once. */
+static void read_return_step(void *argument) {
+    ReturnStep *step = (ReturnStep *)argument;
+#if defined(__aarch64__)
+    step->pc = step->regs.lr;
+    step->sp = step->regs.sp;
+#else
+    step->pc = *(const uintptr_t *)step->regs.sp;
+    step->sp = step->regs.sp + sizeof(uintptr_t);
+#endif
+}
+
+static void write_pc_sp(ucontext_t *uc, uintptr_t pc, uintptr_t sp) {
+#if defined(__x86_64__)
+    uc->uc_mcontext.gregs[REG_RIP] = (greg_t)pc;
+    uc->uc_mcontext.gregs[REG_RSP] = (greg_t)sp;
+#elif defined(__i386__)
+    uc->uc_mcontext.gregs[REG_EIP] = (greg_t)pc;
+    uc->uc_mcontext.gregs[REG_ESP] = (greg_t)sp;
+#else
+    uc->uc_mcontext.pc = pc;
+    uc->uc_mcontext.sp = sp;
+#endif
+}
+#endif
+
 void CrashOs_WriteFrames(void *context) {
+    Registers regs = read_registers((const ucontext_t *)context);
     UnwindWalk walk;
-    walk.pc = read_registers((const ucontext_t *)context).pc;
+    walk.pc = regs.pc;
     walk.reachedFault = 0;
     walk.frames = 0;
     CrashPosix_Guarded("modules", add_late_modules, NULL);
     CrashBlock_Frame(walk.pc);
     CrashPosix_Guarded("unwind", walk_unwind, &walk);
+
+#if defined(__x86_64__) || defined(__i386__) || defined(__aarch64__)
+    /* A call through a null or wild pointer faults at a pc in no module, which has
+       no unwind information, so the walk ends there. The call's return address
+       leads on: the walk runs again on the context rewritten as if the call had
+       returned, which the unwinder reads through the signal frame, and the context
+       is put back before the signal is handed on. */
+    if (walk.frames == 0 && CrashModule_Find(regs.pc) < 0) {
+        ReturnStep step;
+        step.regs = regs;
+        step.pc = 0;
+        if (CrashPosix_Guarded("return", read_return_step, &step) == 0 && step.pc) {
+            CrashBlock_Frame(step.pc);
+            walk.pc = step.pc;
+            walk.reachedFault = 0;
+            write_pc_sp((ucontext_t *)context, step.pc, step.sp);
+            CrashPosix_Guarded("unwind", walk_unwind, &walk);
+            write_pc_sp((ucontext_t *)context, regs.pc, regs.sp);
+        }
+    }
+#endif
 }
 
 #else

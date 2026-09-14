@@ -324,6 +324,11 @@ static void test_access_violation(void) {
     check_kind("segv", 0xC0000005UL, "CRASH exception 0xc0000005 EXCEPTION_ACCESS_VIOLATION addr=0x10 access=write ",
                0, 1);
 }
+/* Frame 0 is address 0; the caller must still be found. */
+static void test_null_call(void) {
+    check_kind("null-call", 0xC0000005UL, "CRASH exception 0xc0000005 EXCEPTION_ACCESS_VIOLATION addr=0x0 access=execute ",
+               0, 2);
+}
 /* __builtin_trap is ud2. */
 static void test_illegal_instruction(void) {
     check_kind("trap", 0xC000001DUL, "CRASH exception 0xc000001d EXCEPTION_ILLEGAL_INSTRUCTION ", 0, 1);
@@ -380,6 +385,10 @@ static void test_bus(void) {
     char line[64];
     snprintf(line, sizeof line, "CRASH signal %d SIGBUS ", SIGBUS);
     check_kind("bus", SIGBUS, line, 0, 1);
+}
+/* Frame 0 is address 0; the caller must still be found. */
+static void test_null_call(void) {
+    check_kind("null-call", SIGSEGV, "CRASH signal 11 SIGSEGV ", 0, 2);
 }
 /* __builtin_trap is ud2 on x86 and brk on arm64. */
 static void test_trap(void) {
@@ -471,6 +480,7 @@ int main(int argc, char *argv[]) {
 
 #if defined(_WIN32)
     RUN_TEST(test_access_violation);
+    RUN_TEST(test_null_call);
     RUN_TEST(test_illegal_instruction);
     RUN_TEST(test_divide_by_zero);
     RUN_TEST(test_abort);
@@ -481,6 +491,7 @@ int main(int argc, char *argv[]) {
     RUN_TEST(test_thread_stack_overflow);
 #else
     RUN_TEST(test_segv);
+    RUN_TEST(test_null_call);
     RUN_TEST(test_bus);
     RUN_TEST(test_trap);
     RUN_TEST(test_abort);

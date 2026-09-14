@@ -141,7 +141,9 @@ __attribute__((noinline)) static void walk_unwind(void) {
         PVOID handlerData;
         DWORD64 establisherFrame;
 
-        if (pc == 0)
+        /* A pc of 0 in frame 0 is a call through a null pointer, and the return
+           address it left is found as for a leaf. */
+        if (pc == 0 && frames > 0)
             return;
         /* A return address can be the first byte after a call to a function that
            does not return, so it is looked up one byte back. */
@@ -181,7 +183,7 @@ __attribute__((noinline)) static void walk_dispatch_check(void) {
         PVOID handlerData;
         DWORD64 establisherFrame = 0;
 
-        if (pc == 0 || s_walkContext.Rsp >= high)
+        if ((pc == 0 && frames > 0) || s_walkContext.Rsp >= high)
             return;
         function = RtlLookupFunctionEntry(frames == 0 ? pc : pc - 1, &imageBase, NULL);
         if (function) {

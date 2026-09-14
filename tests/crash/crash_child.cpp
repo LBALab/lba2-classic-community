@@ -69,6 +69,15 @@ __attribute__((noinline)) static void trig_bus(void) {
 
 #endif
 
+/* The fault is at address 0, in no module; only the return address the call left
+   leads back to the caller. */
+static void (*volatile g_nullFunction)(void) = NULL;
+
+__attribute__((noinline)) static void trig_null_call(void) {
+    g_nullFunction();
+    g_sink++;
+}
+
 __attribute__((noinline)) static void trig_trap(void) {
     __builtin_trap();
 }
@@ -242,6 +251,7 @@ struct Trigger {
 
 static const Trigger k_triggers[] = {
     {"segv", trig_segv, FN(trig_segv)},
+    {"null-call", trig_null_call, FN(trig_null_call)},
     {"trap", trig_trap, FN(trig_trap)},
     {"abort", trig_abort, 0},
     {"assert", trig_assert, 0},
