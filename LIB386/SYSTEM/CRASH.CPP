@@ -27,7 +27,7 @@
 #define CRASH_ARCH_NAME "unknown"
 #endif
 
-#if !defined(CRASH_BACKEND_POSIX)
+#if !defined(CRASH_BACKEND_POSIX) && !defined(CRASH_BACKEND_WINDOWS)
 void Crash_Install(const char *logPath, const char *version, const char *commit) {
     (void)logPath;
     (void)version;

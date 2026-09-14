@@ -16,6 +16,8 @@
 /* The backend that catches crashes here. Elsewhere Crash_Install does nothing. */
 #if defined(__APPLE__) || defined(__linux__)
 #define CRASH_BACKEND_POSIX 1
+#elif defined(_WIN32) && (defined(__x86_64__) || defined(_M_X64))
+#define CRASH_BACKEND_WINDOWS 1
 #endif
 
 enum {
@@ -28,6 +30,11 @@ enum {
        well as the frames that faulted. */
     CRASH_FRAMES_HEAD = 32,
     CRASH_FRAMES_TAIL = 16,
+    /* A walk's bound on frames. Every walk also stops when the stack stops climbing,
+       so this is only reached by a deep recursion, whose outermost frames must still
+       be reached for the tail: an 8 MB stack of small frames is a few hundred
+       thousand. */
+    CRASH_MAX_WALK_FRAMES = 1 << 20,
     CRASH_MAX_STATE = 32
 };
 

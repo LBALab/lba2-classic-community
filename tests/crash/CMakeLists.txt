@@ -16,13 +16,14 @@ register_host_test(test_crash_core)
 
 # The process-level test: a child that links the real handler and crashes, run once
 # per way of dying. Only where a backend exists.
-if(APPLE OR (UNIX AND NOT ANDROID))
+if(APPLE OR (UNIX AND NOT ANDROID) OR (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8))
     add_executable(crash_child
         crash_child.cpp
         ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CRASH.CPP
         ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CRASH_POSIX.CPP
         ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CRASH_LINUX.CPP
-        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CRASH_MACOS.CPP)
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CRASH_MACOS.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CRASH_WIN.CPP)
     target_include_directories(crash_child PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
     set_target_properties(crash_child PROPERTIES CXX_STANDARD 11)
     find_package(Threads REQUIRED)

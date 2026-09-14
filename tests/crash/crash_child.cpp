@@ -12,16 +12,25 @@
  * lands in it. A kind that dies inside the C library writes no such line. */
 #include <SYSTEM/CRASH.H>
 
-#include <errno.h>
-#include <fcntl.h>
-#include <pthread.h>
+/* The assert case needs assert in a Release build too. */
+#undef NDEBUG
+#include <assert.h>
+
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <errno.h>
+#include <fcntl.h>
+#include <pthread.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#endif
 
 static volatile uintptr_t g_badAddress = 16;
 static volatile int g_zero = 0;
@@ -44,6 +53,7 @@ __attribute__((noinline)) static void trig_segv(void) {
     g_sink++;
 }
 
+#if !defined(_WIN32)
 __attribute__((noinline)) static void trig_bus(void) {
     char path[] = "/tmp/crash_child.XXXXXX";
     int fd = mkstemp(path);
@@ -57,6 +67,8 @@ __attribute__((noinline)) static void trig_bus(void) {
     g_sink++;
 }
 
+#endif
+
 __attribute__((noinline)) static void trig_trap(void) {
     __builtin_trap();
 }
@@ -65,6 +77,19 @@ __attribute__((noinline)) static void trig_abort(void) {
     abort();
 }
 
+static volatile int g_invariant = 0;
+
+__attribute__((noinline)) static void trig_assert(void) {
+    assert(g_invariant == 1);
+    g_sink++;
+}
+
+#if defined(_WIN32)
+/* Integer division by zero traps on x86, as EXCEPTION_INT_DIVIDE_BY_ZERO. */
+__attribute__((noinline)) static void trig_divzero(void) {
+    g_sink += 7 / g_zero;
+}
+#else
 __attribute__((noinline)) static void trig_raise_segv(void) {
     raise(SIGSEGV);
     g_sink++;
@@ -74,6 +99,7 @@ __attribute__((noinline)) static void trig_raise_fpe(void) {
     raise(SIGFPE);
     g_sink++;
 }
+#endif
 
 /* Deeper than any stack; a bound the compiler cannot see keeps it from calling
    the recursion infinite. */
@@ -111,6 +137,38 @@ __attribute__((noinline)) static void trig_smash_frame_outer(void) {
     g_sink += scratch[0];
 }
 
+#if defined(_WIN32)
+static DWORD WINAPI thread_segv(LPVOID unused) {
+    (void)unused;
+    trig_segv();
+    return 0;
+}
+
+static DWORD WINAPI thread_overflow(LPVOID unused) {
+    (void)unused;
+    Crash_PrepareThread();
+    g_sink += recurse(0);
+    return 0;
+}
+
+static void run_thread(LPTHREAD_START_ROUTINE start, SIZE_T stackSize) {
+    HANDLE thread = CreateThread(NULL, stackSize, start, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
+    if (thread) {
+        WaitForSingleObject(thread, INFINITE);
+        CloseHandle(thread);
+    }
+}
+
+__attribute__((noinline)) static void trig_thread_segv(void) {
+    run_thread(thread_segv, 0);
+}
+
+/* A stack overflow on a thread the engine starts, which keeps no room for the
+   filter below its stack unless it asks for it. */
+__attribute__((noinline)) static void trig_thread_stack(void) {
+    run_thread(thread_overflow, 512 * 1024);
+}
+#else
 static void *thread_segv(void *unused) {
     (void)unused;
     trig_segv();
@@ -172,6 +230,7 @@ __attribute__((noinline)) static void trig_busy(void) {
     for (;;)
         n++;
 }
+#endif
 
 struct Trigger {
     const char *name;
@@ -183,18 +242,23 @@ struct Trigger {
 
 static const Trigger k_triggers[] = {
     {"segv", trig_segv, FN(trig_segv)},
-    {"bus", trig_bus, FN(trig_bus)},
     {"trap", trig_trap, FN(trig_trap)},
     {"abort", trig_abort, 0},
-    {"raise-segv", trig_raise_segv, 0},
-    {"raise-fpe", trig_raise_fpe, 0},
+    {"assert", trig_assert, 0},
     {"stack", trig_stack, FN(recurse)},
     {"smash-frame", trig_smash_frame_outer, FN(trig_smash_frame)},
     {"thread-segv", trig_thread_segv, FN(trig_segv)},
     {"thread-stack", trig_thread_stack, FN(recurse)},
+#if defined(_WIN32)
+    {"divzero", trig_divzero, FN(trig_divzero)},
+#else
+    {"bus", trig_bus, FN(trig_bus)},
+    {"raise-segv", trig_raise_segv, 0},
+    {"raise-fpe", trig_raise_fpe, 0},
     {"thread-release", trig_thread_release, 0},
     {"wait", trig_wait, 0},
     {"busy", trig_busy, 0},
+#endif
 };
 
 int main(int argc, char *argv[]) {

@@ -38,8 +38,6 @@
  * through process_vm_readv, which fails on a bad address rather than faulting.
  * Modules are the ones loaded at install. */
 
-enum { MAX_WALK_FRAMES = 4096 };
-
 //----------------------------------------------------------------------------
 // Modules.
 
@@ -209,7 +207,7 @@ static _Unwind_Reason_Code on_unwind_frame(struct _Unwind_Context *context, void
             walk->reachedFault = 1;
         return _URC_NO_REASON;
     }
-    if (ip == 0 || ++walk->frames >= MAX_WALK_FRAMES)
+    if (ip == 0 || ++walk->frames >= CRASH_MAX_WALK_FRAMES)
         return _URC_END_OF_STACK;
     CrashBlock_Frame(ip);
     return _URC_NO_REASON;
@@ -279,7 +277,7 @@ static void walk_frame_records(void *argument) {
         CrashBlock_Frame(lr);
         frames++;
     }
-    while (frames < MAX_WALK_FRAMES) {
+    while (frames < CRASH_MAX_WALK_FRAMES) {
         uintptr_t ret;
         if (fp == 0 || (fp & 7) || fp < regs.sp || !read_words(fp, record))
             return;

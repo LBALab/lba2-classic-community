@@ -189,7 +189,7 @@ static void walk_frame_records(void *argument) {
         }
     }
 #endif
-    while (frames < 4096) {
+    while (frames < CRASH_MAX_WALK_FRAMES) {
         uintptr_t next;
         uintptr_t ret;
         if (fp < low || fp + 2 * sizeof(uintptr_t) > high || (fp & 7))
