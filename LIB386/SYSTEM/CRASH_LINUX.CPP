@@ -11,19 +11,32 @@
 #include <string.h>
 #include <sys/syscall.h>
 #include <sys/ucontext.h>
+#include <sys/uio.h>
 #include <unistd.h>
+#if !defined(__ANDROID__)
 #include <unwind.h>
+#endif
 
-/* Linux hands a signal on by queueing the original siginfo to the crashing thread
- * with rt_tgsigqueueinfo and returning. The signal stays blocked until the handler
- * returns, then reaches the previous action: a fault arrives before its instruction
- * runs again, and a sent or raised signal keeps its code and sender. The core and a
- * sanitizer's report then read as if the handler had not been there. raise()
- * instead would put the handler on the crashing stack and make the code SI_TKILL.
+#if !defined(SA_EXPOSE_TAGBITS)
+#define SA_EXPOSE_TAGBITS 0x00000800
+#endif
+
+/* Linux and Android hand a signal on by queueing the original siginfo to the
+ * crashing thread with rt_tgsigqueueinfo and returning. The signal stays blocked
+ * until the handler returns, then reaches the previous action: a fault arrives
+ * before its instruction runs again, and a sent or raised signal keeps its code and
+ * sender. The core or tombstone and a sanitizer's report then read as if the
+ * handler had not been there. raise() instead would put the handler on the crashing
+ * stack and make the code SI_TKILL.
  *
- * Frames come from the unwinder, run from inside the handler: at -O3 on x86-64 the
- * frame pointer is a general register, so a frame-record walk stops at frame 0. It
- * reads through stack contents, so it runs under the guard. */
+ * On Linux, frames come from the unwinder, run from inside the handler: at -O3 on
+ * x86-64 the frame pointer is a general register, so a frame-record walk stops at
+ * frame 0. It reads through stack contents, so it runs under the guard.
+ *
+ * On Android an unwinder that faults on a smashed stack leaves its own frames in
+ * the tombstone, so frames come from the frame-record walk instead, reading
+ * through process_vm_readv, which fails on a bad address rather than faulting.
+ * Modules are the ones loaded at install. */
 
 enum { MAX_WALK_FRAMES = 4096 };
 
@@ -85,6 +98,7 @@ static int on_loaded_object(struct dl_phdr_info *info, size_t size, void *unused
     return 0;
 }
 
+#if !defined(__ANDROID__)
 /* Libraries loaded after install, audio and video drivers among them, are found
    in the loader's own list, read in place: dl_iterate_phdr would take the loader's
    lock, which the crashing thread may hold. */
@@ -120,6 +134,7 @@ static void add_late_modules(void *unused) {
         CrashModule_Publish();
     }
 }
+#endif
 
 //----------------------------------------------------------------------------
 // Registers.
@@ -175,6 +190,8 @@ void CrashOs_WriteRegisters(void *context) {
 //----------------------------------------------------------------------------
 // Frames.
 
+#if !defined(__ANDROID__)
+
 struct UnwindWalk {
     uintptr_t pc;
     int reachedFault; /* past the handler's own frames and the signal trampoline */
@@ -218,6 +235,85 @@ void CrashOs_WriteFrames(void *context) {
     CrashPosix_Guarded("unwind", walk_unwind, &walk);
 }
 
+#else
+
+static int s_processReadable = 0;
+
+static int read_words(uintptr_t address, uintptr_t words[2]) {
+    struct iovec local;
+    struct iovec remote;
+    local.iov_base = words;
+    local.iov_len = 2 * sizeof(uintptr_t);
+    remote.iov_base = (void *)address;
+    remote.iov_len = 2 * sizeof(uintptr_t);
+    return syscall(SYS_process_vm_readv, getpid(), &local, 1, &remote, 1, 0) == (long)(2 * sizeof(uintptr_t));
+}
+
+#if defined(__aarch64__)
+/* The top byte of a pointer may carry a memory tag, and a return address a pointer
+   authentication code below it. */
+#define CODE_ADDRESS_MASK 0x0000ffffffffffffULL
+
+static void walk_frame_records(void *argument) {
+    Registers regs = read_registers((const ucontext_t *)argument);
+    uintptr_t lr = regs.lr & CODE_ADDRESS_MASK;
+    uintptr_t fp = regs.fp;
+    uintptr_t record[2];
+    uintptr_t firstReturn = 0;
+    int frames = 1;
+
+    CrashBlock_Frame(regs.pc);
+    if (!s_processReadable) {
+        /* Without a reader that fails safely, no frame record is read. */
+        if (lr && CrashModule_Find(lr) >= 0)
+            CrashBlock_Frame(lr);
+        return;
+    }
+    /* A leaf that saves no frame record faults with its caller only in lr. When lr
+       is not the first record's return address it is written as the next frame; it
+       may also be a stale address in frame 0's own function, which a symbolizer can
+       tell. */
+    if (fp && !(fp & 7) && read_words(fp, record))
+        firstReturn = record[1] & CODE_ADDRESS_MASK;
+    if (lr && lr != firstReturn && CrashModule_Find(lr) >= 0) {
+        CrashBlock_Frame(lr);
+        frames++;
+    }
+    while (frames < MAX_WALK_FRAMES) {
+        uintptr_t ret;
+        if (fp == 0 || (fp & 7) || fp < regs.sp || !read_words(fp, record))
+            return;
+        ret = record[1] & CODE_ADDRESS_MASK;
+        if (ret == 0)
+            return;
+        CrashBlock_Frame(ret);
+        frames++;
+        if (record[0] <= fp)
+            return;
+        fp = record[0];
+    }
+}
+#else
+/* armv7 mixes ARM and Thumb frame layouts, so only frame 0 and lr are written. */
+static void walk_frame_records(void *argument) {
+    Registers regs = read_registers((const ucontext_t *)argument);
+    CrashBlock_Frame(regs.pc);
+    if (regs.lr && CrashModule_Find(regs.lr) >= 0)
+        CrashBlock_Frame(regs.lr);
+}
+#endif
+
+/* No guard: the walk reads stack memory only through process_vm_readv, so it
+   cannot fault, and the guard's mask changes would pass through libsigchain,
+   which leaves out the signals ART claims when a mask is set. SIGSEGV would come
+   out of the handler unblocked, and the signal handed on would arrive inside it
+   rather than after it returns. */
+void CrashOs_WriteFrames(void *context) {
+    walk_frame_records(context);
+}
+
+#endif
+
 //----------------------------------------------------------------------------
 // Chaining.
 
@@ -242,7 +338,12 @@ int CrashOs_Reentered(int sig, void *context) {
 
 //----------------------------------------------------------------------------
 int CrashOs_ActionFlags(void) {
+#if defined(__ANDROID__)
+    /* Keeps the memory tag in si_addr, as debuggerd's own handler does. */
+    return SA_EXPOSE_TAGBITS;
+#else
     return 0;
+#endif
 }
 
 void CrashOs_Prepare(void) {
@@ -250,9 +351,22 @@ void CrashOs_Prepare(void) {
     s_executablePath[length > 0 ? length : 0] = '\0';
     dl_iterate_phdr(on_loaded_object, NULL);
 
+#if !defined(__ANDROID__)
     /* The unwinder finds its tables lazily; that first lookup must not happen
        inside the handler. */
     _Unwind_Backtrace(on_prime_frame, NULL);
+#else
+    {
+        /* process_vm_readv on itself may be refused by a seccomp policy; the walk
+           reads nothing then. */
+        uintptr_t probe[2];
+        uintptr_t copy[2];
+        probe[0] = (uintptr_t)&probe;
+        probe[1] = (uintptr_t)&copy;
+        copy[0] = copy[1] = 0;
+        s_processReadable = read_words((uintptr_t)probe, copy) && copy[0] == probe[0] && copy[1] == probe[1];
+    }
+#endif
 }
 
 U64 CrashOs_ThreadId(int *isMain) {
