@@ -879,9 +879,12 @@ binary that crashed. What cannot be matched:
 - **System libraries** (`libc.so.6`, `dyld`, `ntdll.dll`): their frames are
   left as offsets.
 
-The debug info does not change the code: `-g` left `.text` and `.data`
-byte-identical on the macOS, Linux and Windows release toolchains, so a
-symbolized frame is the frame that ran. On macOS the link keeps its LTO objects
+The debug info does not change the code, so a symbolized frame is the frame
+that ran: `-g` left `.text` and `.data` byte-identical on Apple clang with thin
+LTO, on GCC with LTO, and on a Windows CI-style build, as recorded in the
+[crash report plan](plan/CRASH_REPORT_PLAN.md), sections 3.5 and 7.5.
+MinGW needs `-g` on the link as well, since with LTO the code is generated
+there. On macOS the link keeps its LTO objects
 (`-object_path_lto`), without which `dsymutil` writes an empty dSYM;
 `split-symbols.sh` fails the build rather than publish one.
 
