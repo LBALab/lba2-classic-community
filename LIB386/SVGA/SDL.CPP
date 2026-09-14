@@ -386,6 +386,18 @@ static void PresentFrame() {
                 return;
             }
 
+            /* Stereo eye 1 presents the same Log as eye 0 — reuse eye 0's
+               converted staging instead of reconverting ~3M pixels per
+               frame (the overlay texture is also skipped for eye 1 in
+               GL_Present). */
+            if (GL_GetStereoEye() == 1) {
+                GL_Present(s_glStaging, ModeDesiredX * 4, ModeDesiredX, ModeDesiredY,
+                           DisplayTexFilter);
+                if (GL_GetStereoEye() != 0)
+                    FrameLimitWait();
+                return;
+            }
+
             /* Palette index 0 is the transparent colour: the 3D FBO content
                shows through wherever the 2D overlay has index 0.  Force alpha
                to 0 so those pixels are fully transparent when composited. */

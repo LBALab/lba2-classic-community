@@ -2917,6 +2917,13 @@ void GL_ReadbackDepthBuffer(void) {
         return;
     }
 
+    /* Stereo: eye 1's depth differs from eye 0's by the tiny camera shift,
+       and the consumers (sprite occlusion, fully-hidden flags) already
+       tolerate a frame of lag — read once per frame, not once per eye. */
+    if (s_stereoEye == 1) {
+        return;
+    }
+
     if (s_msaaFbo && s_antiAlias >= 2)
         GL_ResolveMSAA();
 
@@ -3612,14 +3619,18 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     }
 #endif
 
+    /* Stereo eye 1 reuses eye 0's overlay texture — the Log content is
+       identical for both eyes, so skip the ~12 MB re-upload. */
+    if (s_stereoEye != 1) {
 #ifdef GL_UNPACK_ROW_LENGTH
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / 4);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / 4);
 #endif
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_UPLOAD_FORMAT,
-                    GL_UNSIGNED_BYTE, uploadPixels);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_UPLOAD_FORMAT,
+                        GL_UNSIGNED_BYTE, uploadPixels);
 #ifdef GL_UNPACK_ROW_LENGTH
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 #endif
+    }
 
     /* Enable alpha blending so palette index 0 (alpha=0) is transparent,
        letting the 3D scene (or black background) show through underneath. */

@@ -1526,18 +1526,19 @@ S32 OpenXR_PresentMono(void) {
              * instead of cropping. */
             int srcW = vpW, srcH = vpH;
             int srcX = 0, srcY = 0;
+            /* Scale-to-fill: ladder steps below the swapchain size upscale to
+             * the full panel — same field of view (the exterior focal floors
+             * at the 720p envelope regardless of resolution), same aspect
+             * (the head-mount ladder is swapchain-aspect), fewer pixels.
+             * Rendering "more screen than the eye sees" is not a thing at
+             * the frame level: the whole frame fills the panel, and choosing
+             * a lower step is how the user trades detail for framerate. */
             double fit = (double)s_swapchainWidth / (double)srcW;
             double fitH = (double)s_swapchainHeight / (double)srcH;
             if (fitH < fit)
                 fit = fitH;
-            if (fit > 1.0)
-                fit = 1.0; /* smaller content is never upscaled */
             int dstW = (int)((double)srcW * fit + 0.5);
             int dstH = (int)((double)srcH * fit + 0.5);
-            if (dstW < 1)
-                dstW = 1;
-            if (dstH < 1)
-                dstH = 1;
             int dstX = ((int)s_swapchainWidth - dstW) / 2;
             int dstY = ((int)s_swapchainHeight - dstH) / 2;
             if (dstX < 0)
