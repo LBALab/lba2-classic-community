@@ -11,7 +11,8 @@ extern "C" {
  * -DLBA_LOG_NO_SDL to bypass SDL entirely. See docs/plan/BOOT_LOG_PLAN.md.
  *
  * Sinks: file (always), ANSI terminal (TTY-gated), and the in-engine console
- * buffer. The boot path wires all three in InitAdeline. */
+ * buffer. main adds the file and terminal sinks as soon as the user folder is
+ * known; InitAdeline adds the console sink once there is a console. */
 
 typedef enum {
     LOG_DEBUG,

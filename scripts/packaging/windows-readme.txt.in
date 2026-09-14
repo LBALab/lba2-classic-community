@@ -51,6 +51,16 @@ for some reason, the log file in your user profile lists every
 directory it tried.
 
 
+IF THE GAME CRASHES
+-------------------
+
+If the game closes without warning, send adeline.log and
+adeline.prev.log from %APPDATA%\Twinsen\LBA2, or from the folder given
+with --user-dir or --profile. Starting the game again moves the crashed
+run's log to adeline.prev.log, so between them the two files hold it.
+The lines starting with CRASH say where it crashed.
+
+
 LICENSE
 -------
 

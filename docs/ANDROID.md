@@ -134,12 +134,19 @@ files, avoiding an expensive scan across an entire shared-storage directory.
 
 ## Where the game saves
 
-Saves, `lba2.cfg`, `adeline.log` and `recordings/` all live in the user
-directory, and on Android that is:
+Saves, `lba2.cfg`, `adeline.log`, `adeline.prev.log` and `recordings/` all live
+in the user directory, and on Android that is:
 
 ```
 /sdcard/lba2cc/user/LBA2/
 ```
+
+After a native crash, the next launch also saves the system's tombstone of it
+there as `crash-<time>.pb`, replacing the one saved before, and the boot banner
+says so on a `Note:` line. Android 12 or later keeps the tombstone; Android 11
+records only that the crash happened. The file is a protobuf, decoded off device
+with AOSP's `pbtombstone` or `protoc --decode` against `tombstone.proto`. The
+engine's own `CRASH` block for the same crash is in the log of that run.
 
 Beside the game data rather than inside it, so backing up `/sdcard/lba2cc/`
 takes both while keeping the player's files apart from a retail set they may
