@@ -102,19 +102,34 @@ void Init3DExtView(void) {
     // At the default 640x480 this is the original (320, 240) — the hardcoded
     // literal Phase 0 of the widescreen plan flagged; see docs/WIDESCREEN.md
     // and docs/WIDESCREEN_PROJECTION_AUDIT.md.
-    // Near clip scales down as the framebuffer grows taller. The focal is fixed
-    // (ChampX/ChampZ), so a taller frame reveals more vertical FOV, which pulls
-    // the bottom of the frustum's ground intersection closer to the camera. The
-    // terrain trivial-rejects whole cells whose depth is within the near plane
-    // (zr <= NearClip in TERRAIN.CPP MaskVisible), so a fixed plane drops near
-    // terrain/buildings that are plainly in view at HD ("clipped on the right").
-    // Scale it with height to keep the near plane at the original screen-space
-    // position. Exact CLIP_NEAR at the original 480, so 480 is unchanged.
-    S32 nearClip = CLIP_NEAR;
-    if (ModeDesiredY > 480)
-        nearClip = CLIP_NEAR * 480 / (S32)ModeDesiredY;
+    // The focal is fixed (ChampX/ChampZ) for the original 640x480 frame, and
+    // a wider/taller frame with that focal reveals ever more field of view —
+    // 62° vertical at 720p, 100° at 1440p, 111° at 1760p.  Past the terrain
+    // grid edge (about 58° per axis) the frame outgrows the authored world:
+    // the ground stops covering the view, the near-plane band and the sky
+    // backdrop take over, and HUD regions sit on stale pixels.  Floor the
+    // focal at roughly the 720p-widescreen envelope (~55° horizontal,
+    // ~31° vertical half-FOV — the envelope 1280x720 is proven within) so
+    // higher resolutions add detail, not extra world.  The floor applies to
+    // ONE shared focal (square pixels — per-axis floors would render the
+    // world anamorphically), so every resolution above the envelope shows
+    // the same field of view, uniformly scaled.  The near plane scales with
+    // the focal so the near band keeps its screen-space position; 480p and
+    // 720p are bit-identical to the previous formulas.
+    S32 focal = ChampX;
+    S32 focalXMin = (S32)(((S64)ModeDesiredX * 35 + 99) / 100); /* ~55° horizontal */
+    S32 focalYMin = (S32)(((S64)ModeDesiredY * 83 + 99) / 100); /* ~31° vertical */
+    if (focal < focalXMin) {
+        focal = focalXMin;
+        GpuFocalCapped = TRUE;
+    }
+    if (focal < focalYMin) {
+        focal = focalYMin;
+        GpuFocalCapped = TRUE;
+    }
+    S32 nearClip = (S32)(((S64)focal * 2400) / ModeDesiredY);
     SetProjection((S32)(ModeDesiredX / 2), (S32)(ModeDesiredY / 2),
-                  nearClip, ChampX, ChampZ);
+                  nearClip, focal, focal);
     SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
                     AlphaCam, BetaCam, GammaCam,
                     VueDistance);

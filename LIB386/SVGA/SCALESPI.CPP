@@ -6,6 +6,10 @@
 #include <SVGA/SCREENXY.H>
 #include <SYSTEM/DEBUG_TRACES.H>
 
+/* Incremented by the software sprite-scale paths; printed by the game's
+   per-frame draw census. */
+extern "C" U32 s_censusScaleLog = 0;
+
 #ifdef USE_GPURENDERER
 #include <GL/RENDER_GL.H>
 /* Set by the gameplay object pass (SOURCES/OBJECT.CPP): the aZ depth of the
@@ -147,10 +151,7 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory, void *ptrbank)
             return;
         }
 #endif
-        {
-            extern U32 s_censusScaleLog;
-            s_censusScaleLog++;
-        }
+        s_censusScaleLog++;
         U8 *dstPtr = (U8 *)Log + TabOffLine[ScreenYMin] + ScreenXMin;
         U8 *srcPtr = srcBase + startY * sprite->Delta_X + startX;
 
@@ -250,10 +251,7 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory, void *ptrbank)
         return;
     }
 #endif
-    {
-        extern U32 s_censusScaleLog;
-        s_censusScaleLog++;
-    }
+    s_censusScaleLog++;
     U8 *dstPtr = (U8 *)Log + TabOffLine[ScreenYMin] + ScreenXMin;
 
     U8 *srcPtr = srcBase + ((U32)startTexY >> 16) * sprite->Delta_X;

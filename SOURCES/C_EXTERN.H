@@ -115,6 +115,7 @@ extern S32 DetailLevel;
 extern S32 VideoFullScreen;
 extern S32 DisplayFullScreen;
 extern S32 DisplayVSync;
+extern S32 GpuFocalCapped; /* exterior focal floored at the 720p FOV envelope */
 extern S32 FpsLimit;
 #ifdef USE_GPURENDERER
 extern S32 GPURendererActive; ///< 0 = Software, 1 = OpenGL/GLES

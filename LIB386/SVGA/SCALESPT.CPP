@@ -10,6 +10,10 @@ extern U16 SpriteGL_Zo;
 #include <stdio.h>
 #include <SYSTEM/DEBUG_TRACES.H>
 
+/* Incremented by the transparent software sprite-scale paths; printed by the
+   game per-frame draw census. */
+extern "C" U32 s_censusScaleTLog = 0;
+
 // Sprite structure - matches the ASM definition
 struct SpriteStruct {
     U8 deltaX;
@@ -131,10 +135,7 @@ void ScaleSpriteTransp(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
             return;
         }
 #endif
-        {
-            extern U32 s_censusScaleTLog;
-            s_censusScaleTLog++;
-        }
+        s_censusScaleTLog++;
         U8 *dstPtr = (U8 *)Log + TabOffLine[ScreenYMin] + ScreenXMin;
         U8 *srcPtr = srcBase + startY * sprite->deltaX + startX;
 

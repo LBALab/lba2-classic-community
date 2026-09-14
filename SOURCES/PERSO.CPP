@@ -102,7 +102,10 @@ static S32 FollowCamGroundSettling = 0; /* ground clearance: lift still easing (
 static S32 FollowCamHDExcess(void) {
     if (!FollowCamHDRecompose)
         return 0;
-    S32 k100 = (S32)ModeDesiredY * 100 / 480;
+    /* With the exterior focal floored (Init3DExtView), every render height
+     * above 720 projects exactly the 720p view, so the recompose strength
+     * freezes at the 720p excess instead of growing with the height. */
+    S32 k100 = GpuFocalCapped ? 150 : (S32)ModeDesiredY * 100 / 480;
     S32 e = (k100 > 100) ? (k100 - 100) : 0;
     /* The correction grows linearly with render height, which over-steepens at
      * 1080p (it reads as stronger than 720p). Cap the effective excess so tall

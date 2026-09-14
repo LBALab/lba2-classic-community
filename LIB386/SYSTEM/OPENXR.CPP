@@ -1644,6 +1644,19 @@ S32 OpenXR_PresentMono(void) {
                         srcW = (int)ModeDesiredX;
                         srcH = (int)ModeDesiredY;
                     }
+                    {
+                        /* Throwaway diag: which read source does the mono
+                         * present use, and does it think the overlay is
+                         * empty? */
+                        static U32 s_pmDiag = 0;
+                        if (++s_pmDiag % 300 == 1) {
+                            OXR_LOGI("PMono: fast=%d ovlEmpty=%d read=%s",
+                                     (readFbo != (GLuint)prevFb),
+                                     GL_PresentOverlayEmpty(),
+                                     readFbo == GL_Get3DFBO() ? "3dfbo"
+                                                              : "composite");
+                        }
+                    }
                     /* Read from the engine's FBO, draw into the swapchain
                        image — an explicit READ rebind is required because
                        binding swapFbo above set READ = swapFbo, and a

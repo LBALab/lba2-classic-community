@@ -4880,8 +4880,8 @@ U32 s_censusIncrustGL = 0;
 U32 s_censusIncrustLog = 0;
 U32 s_censusSpecial = 0;
 extern "C" {
-U32 s_censusScaleLog = 0;
-U32 s_censusScaleTLog = 0;
+extern U32 s_censusScaleLog;  /* defined in LIB386/SVGA/SCALESPI.CPP */
+extern U32 s_censusScaleTLog; /* defined in LIB386/SVGA/SCALESPT.CPP */
 }
 
 /* Per-entry depth for INCRUST_DISP sprites following objects (aZ units),
@@ -5700,6 +5700,18 @@ startaffscene:
     // a des textures animées dans le decors (Ouppppps! J'espère que non !)
     if (AnimateTexture OR ProtectActif)
         DoTextureAnimation();
+
+#ifdef USE_GPURENDERER
+    /* GL mode clears the Log overlay every frame (the snapshot restore above),
+     * so anything drawn into Log only on full-redraw frames would vanish on
+     * the next idle frame — the original SW renderer let Log persist between
+     * redraws and never needed this.  The FPS counter is exactly such HUD:
+     * AffNbFps runs in the AFF_* cases only, so on idle frames (flagflip == 0,
+     * camera at rest) redraw it here or it disappears while standing still. */
+    if (GPURendererActive AND DebugFps AND flagflip == 0) {
+        AffNbFps();
+    }
+#endif
 
     /*------------------------------------------------------------------------*/
     /* objets scenarique 3D ou sprite */
