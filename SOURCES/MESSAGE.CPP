@@ -13,6 +13,7 @@
 
 #include "C_EXTERN.H"
 #include "IMAGE_LOAD.H"
+#include <SYSTEM/OPENXR.H> /* OpenXR_GetSwapchainWidth (head-mount dialog lift) */
 #ifdef USE_GPURENDERER
 #include <GL/RENDER_GL.H> /* GL_SavePresentPNG for GL-mode dialog captures */
 #endif
@@ -1264,6 +1265,21 @@ void TestCoulDial(S32 coul) {
 void NormalWinDial() {
     S32 inset = DialLetterboxInset();
     S32 insetY = DialLetterboxInsetY();
+    /* On a head-mount the bottom edge of the frame falls in the eye's lower
+       periphery, effectively invisible; anchor the strip above it so the box
+       renders inside the visible band (desktop keeps the authored
+       bottom-anchored position).  129 = the authored strip height at 480. */
+    if (OpenXR_GetSwapchainWidth()) {
+        Dial_Y1 = (S32)ModeDesiredY * 3 / 4;
+        Dial_Y0 = Dial_Y1 - 129;
+        /* Centred at ~62% width so the text lines stay readable in the
+         * eye's visible band. */
+        Dial_X0 = (S32)ModeDesiredX * 3 / 16;
+        Dial_X1 = (S32)ModeDesiredX * 13 / 16;
+        MaxLineDial = 3;
+        DialMaxSize = ((Dial_X1 - 8) - (Dial_X0 + 8));
+        return;
+    }
     Dial_X0 = inset + 8;
     Dial_Y0 = ClipWindowYMax - insetY - 137; // 334 at YMax==479; insetY pins to picture bottom when letterboxed
     Dial_X1 = (S32)ModeDesiredX - 1 - inset - 8;

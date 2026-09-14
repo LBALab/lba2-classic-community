@@ -16,6 +16,7 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <GL/RENDER_GL.H> /* GL_DrawShadowQuad */
+#include <SYSTEM/OPENXR.H> /* OpenXR_GetSwapchainWidth (head-mount fps position) */
 #include <SYSTEM/HQFILE.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <stdint.h>
@@ -5528,14 +5529,18 @@ void AffNbFps(void) {
         CoulText(LBAWHITE, 0);
         // Center-top: always readable in the headset (the bottom-left corner
         // falls outside the eye FOV on Quest when the compositor letterboxes).
+        // On a head-mount drop it further into the visible band — the top
+        // 12% of the frame sits in the eye's upper periphery.
         {
             char fpsbuf[16];
             snprintf(fpsbuf, sizeof(fpsbuf), "%d ", NbFramePerSecond);
             S32 fpsLen = (S32)strlen(fpsbuf);
             S32 fpsX = (ModeDesiredX - fpsLen * 8) / 2;
+            S32 fpsY = OpenXR_GetSwapchainWidth() ? (S32)ModeDesiredY * 3 / 10
+                                                  : ModeDesiredY / 8;
             if (fpsX < 0)
                 fpsX = 0;
-            GraphPrintf(FALSE, fpsX, ModeDesiredY / 8, "%s", fpsbuf);
+            GraphPrintf(FALSE, fpsX, fpsY, "%s", fpsbuf);
         }
 
         RestoreClipWindow();

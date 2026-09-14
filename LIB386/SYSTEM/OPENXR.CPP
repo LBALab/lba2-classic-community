@@ -1519,6 +1519,11 @@ S32 OpenXR_PresentMono(void) {
              * the swapchain, centred. Equal sizes give an exact 1:1 blit;
              * supersampled resolutions (above the swapchain size) downscale
              * instead of cropping. */
+            /* Scale-to-fit: the engine frame (vpW x vpH, full present FBO)
+             * is blitted into the largest aspect-correct rectangle that fits
+             * the swapchain, centred. Equal sizes give an exact 1:1 blit;
+             * supersampled resolutions (above the swapchain size) downscale
+             * instead of cropping. */
             int srcW = vpW, srcH = vpH;
             int srcX = 0, srcY = 0;
             double fit = (double)s_swapchainWidth / (double)srcW;
@@ -1562,11 +1567,10 @@ S32 OpenXR_PresentMono(void) {
                 GLuint eyeFBO0 = GL_GetStereoEyeFBO(0);
                 GLuint eyeFBO1 = GL_GetStereoEyeFBO(1);
                 /* Fill the FULL per-eye half — the compositor maps the whole
-                 * imageRect to the eye FOV, so any letterbox margin wastes
-                 * visible area and reads as black bars. The engine's
-                 * projection already maps the 3D geometry; the stretch from
-                 * the engine's aspect to the eye FOV aspect is the correct
-                 * mapping for VR. */
+                 * imageRect to the eye FOV, maximising the visible area; no
+                 * black margins.  The engine's projection maps the 3D
+                 * geometry; the stretch from the engine's aspect to the eye
+                 * FOV aspect is the correct mapping for VR. */
                 S32 halfW = (S32)s_swapchainWidth;
                 S32 eyeDstW = halfW;
                 S32 eyeDstH = (S32)s_swapchainHeight;
