@@ -4,7 +4,7 @@ title: Logging
 description: One call formats a record once and fans it out to a file, stderr and the console through SDL's log output, behind a single master level that structural lines bypass; the previous run's file is kept beside it at launch and the new one is flushed per line, and a fatal signal or unhandled exception appends a CRASH block before the process dies of it as it would have.
 status: draft
 subsystem: logging
-as_of: e10e30f8
+as_of: e8ae05fc
 generated: { by: claude-code/claude-opus-5, at: 2026-09-14T20:30:00Z }
 relates_to:
   - /subsystems/console.md
@@ -56,8 +56,8 @@ sources:
     resource: ../../../LIB386/SYSTEM/CRASH_WIN.CPP
     title: CRASH_WIN.CPP, the exception filter, the vectored stack check and the SIGABRT handler
   - id: crash-state
-    resource: ../../../SOURCES/CRASH_STATE.CPP
-    title: CRASH_STATE.CPP, the game fields the block reports
+    resource: ../../../SOURCES/PERSO.CPP
+    title: PERSO.CPP, the game fields the block reports
   - id: crash-helper
     resource: ../../../packaging/android/java/org/lbalab/lba2cc/CrashHelper.java
     title: CrashHelper.java, the Android tombstone kept beside the log
@@ -100,7 +100,7 @@ The how-to for writing a log line, which severity to pick and what belongs in `L
 | The block | Lines starting `CRASH `, appended after the last line the file sink flushed: `==== fatal signal ====`, the `signal` or `exception` line, `build`, `reg`, the `state` lines, the engine's `module` line, the `frame` lines as module+offset, the other modules the frames used, `chain` naming how the crash was handed on, and `==== end ====`. A block cut short still names the signal, the build and the engine's identity. Leading words are stable and values are appended, as for the console.[^crash-cpp] |
 | Module identity | `LC_UUID` on macOS, the GNU build ID on Linux and Android, and the link timestamp with the image size on Windows. Frame 0 is the faulting pc and the others are return addresses, so a symbolizer looks those up one byte back. When frame 0 is in no module, as after a call through a null pointer, the next frame is the return address the call left. The symbol table names the functions; release binaries keep it.[^crash-cpp] [^crash-linux] [^crash-macos] [^crash-win] |
 | Deep recursion | The first 32 frames and the last 16 are written, with a line counting the frames between. A walk stops when the stack stops climbing or after 2^20 frames, so the tail reaches the thread's start.[^crash-cpp] [^test-crash-report] |
-| State | `CrashState_Register` adds the scene, the chapter, the behaviour, cinema mode, the fade flag, fps, the game clock and the hero's position, angles, life, body and animation, next to `atexit(TheEndInfo)`. They are read by address when the block is written, and no pointer is followed. A crash before that point writes the block without them.[^crash-state] [^crash-cpp] |
+| State | `register_crash_state` adds the scene, the chapter, the behaviour, cinema mode, the fade flag, fps, the game clock and the hero's position, angles, life, body and animation, next to `atexit(TheEndInfo)`. They are read by address when the block is written, and no pointer is followed. A crash before that point writes the block without them.[^crash-state] [^crash-cpp] |
 | Handing the crash back | The process dies of the original signal or exception with the platform's report unchanged; see [the decision](/decisions/the-crash-report-hands-the-crash-back.md). One block per process: the first thread to crash writes it, a thread that crashes meanwhile waits for it, and once it is handed on every previous action is restored.[^crash-posix] [^test-crash-report] |
 | Nothing in the handler may fault | No stdio, no allocation, no lock. Every walk that reads stack memory runs under a guard that turns a fault inside it into a `nested ... recovered` line, since a fault left to repeat would put the walk in the platform's report instead of the crash. Android reads through `process_vm_readv` instead, which fails rather than faulting.[^crash-posix] [^crash-linux] [^crash-win] |
 | Threads | `Crash_PrepareThread` gives a thread an alternate signal stack, or on Windows a stack guarantee. The music decoder thread calls it on entry and the SDL audio callback on each call; bionic gives every Android thread one already.[^crash-h] [^crash-posix] |
@@ -147,7 +147,7 @@ The how-to for writing a log line, which severity to pick and what belongs in `L
 [^crash-linux]: [LIB386/SYSTEM/CRASH_LINUX.CPP](../../../LIB386/SYSTEM/CRASH_LINUX.CPP), `CrashOs_WriteFrames`, `CrashOs_HandOn` and `CrashOs_Prepare`.
 [^crash-macos]: [LIB386/SYSTEM/CRASH_MACOS.CPP](../../../LIB386/SYSTEM/CRASH_MACOS.CPP), `CrashOs_Reentered`, `CrashOs_HandOn` and `on_confirm_timeout`.
 [^crash-win]: [LIB386/SYSTEM/CRASH_WIN.CPP](../../../LIB386/SYSTEM/CRASH_WIN.CPP), `walk_unwind`, `on_vectored_exception`, `walk_dispatch_check`, `claim_report`, `on_unhandled_exception` and `on_abort_signal`.
-[^crash-state]: [SOURCES/CRASH_STATE.CPP](../../../SOURCES/CRASH_STATE.CPP), `CrashState_Register`.
+[^crash-state]: [SOURCES/PERSO.CPP](../../../SOURCES/PERSO.CPP), `register_crash_state`.
 [^crash-helper]: [packaging/android/java/org/lbalab/lba2cc/CrashHelper.java](../../../packaging/android/java/org/lbalab/lba2cc/CrashHelper.java), `saveLastNativeCrash`.
 [^test-crash-core]: [tests/crash/test_crash_core.cpp](../../../tests/crash/test_crash_core.cpp), `test_frame_cap_keeps_both_ends` and `test_state_fields`.
 [^test-crash-report]: [tests/crash/test_crash_report.cpp](../../../tests/crash/test_crash_report.cpp), `check_kind` and `check_tail_leaves_recursion`.

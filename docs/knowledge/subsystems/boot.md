@@ -4,7 +4,7 @@ title: Boot and exit
 description: main brings the engine up in a fixed order in which each facility exists only from a known step, the log before the game data and the exit report only after the platform is up, and every ending goes through exit() and its handlers except a fatal signal, which skips them all.
 status: draft
 subsystem: boot
-as_of: b6286cf2
+as_of: e8ae05fc
 generated: { by: claude-code/claude-opus-5, at: 2026-09-14T20:30:00Z }
 relates_to:
   - /subsystems/memory.md
@@ -75,7 +75,7 @@ sources:
 | 6. Game data | `--disc`, `ResolveGameDataDir`, the picker or an exit, profile binding, `InitDirectories`, `DiscImage_Mount`. See [discovery](/subsystems/discovery.md). | `GetResPath` and the disc image |
 | 7. Main buffer | The config path, the video subsystem so the display can be measured, `Res_LoadBootDimensions`, `Mem_ConfigureScreenBuffers`, `InitMainBuffer`. See [memory](/subsystems/memory.md). | the fixed regions |
 | 8. Platform | `InitAdeline`: the console sink and the boot banner, events, joystick, window, a default config written when none exists anywhere, audio, video, screen and graphics mode, keyboard, mouse, timer, and the layered config buffer. | a window and a timer |
-| 9. Hooks | The console's event filter and pre-present callback, the touch overlay, perftrace, `atexit(TheEndInfo)`, `CrashState_Register`. | the exit report, and game state in a crash block |
+| 9. Hooks | The console's event filter and pre-present callback, the touch overlay, perftrace, `atexit(TheEndInfo)`, `register_crash_state`. | the exit report, and game state in a crash block |
 | 10. Program | `InitProgram`, which reads the config, `InitMemory`, the Display line, `AssetPreflight`. | settings and small buffers |
 | 11. Banks | Samples, language, the Release line and the `Ready` banner, then dialogue buffers, palettes, font, the video player, the logos, the 3D extension and the resource banks. | a fully resourced engine |
 | 12. Dispatch | In order: a cube number in a debug build, `--save-load-test`, the control harness through `Control_Begin` and `MainGameMenu(0, TRUE)`, and otherwise `MainGameMenu`, which loads a save path given in `argv`. Each branch ends in `TheEnd`. | a game |
