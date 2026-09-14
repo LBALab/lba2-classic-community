@@ -32,7 +32,15 @@
  * handler runs before that search, so for an exception that ends a process it
  * repeats the walk's frame check first, and writes the block itself when the check
  * fails. An exception on a stack that walks cleanly is left to the handlers and
- * the filter, since code may still catch it. */
+ * the filter, since code may still catch it.
+ *
+ * One thread writes the block. Another that crashes meanwhile waits for the block
+ * to be done before it hands its exception on, which would end the process under
+ * the writer.
+ *
+ * The walk state is one per process. A thread takes it before a walk; the
+ * vectored handler, which also sees exceptions that code goes on to catch, skips its
+ * check while another thread holds it, and the block waits for it. */
 
 enum {
     /* Room kept below a thread's stack for the filter after a stack overflow. */
@@ -43,13 +51,14 @@ static HANDLE s_log = INVALID_HANDLE_VALUE;
 static DWORD s_mainThread = 0;
 static DWORD s_prepareSlot = TLS_OUT_OF_INDEXES;
 static LPTOP_LEVEL_EXCEPTION_FILTER s_previousFilter = NULL;
-static volatile LONG s_reported = 0;
+static volatile LONG s_reporter = 0; /* id of the thread writing the block, or 0 */
+static volatile LONG s_reportDone = 0;
 
 static CONTEXT s_walkContext;
 static CONTEXT s_resumeContext;
 static volatile LONG s_walking = 0;
 static volatile LONG s_walkFaulted = 0;
-static volatile DWORD s_walkThread = 0;
+static volatile LONG s_walkOwner = 0; /* id of the thread using the walk state, or 0 */
 static volatile LONG s_stackInvalid = 0;
 
 //----------------------------------------------------------------------------
@@ -205,26 +214,49 @@ __attribute__((noinline)) static void walk_dispatch_check(void) {
     }
 }
 
-/* Runs walk on s_walkContext, a copy of context. Returns non-zero when a fault
-   inside it was caught. */
-__attribute__((noinline)) static int run_guarded(const CONTEXT *context, void (*walk)(void)) {
+enum { WALK_FAULTED = 1,
+       WALK_STACK_INVALID = 2,
+       WALK_BUSY = 4 };
+
+/* Runs walk on s_walkContext, a copy of context, holding the walk state. With wait,
+   waits up to a second for another thread to release it. Returns WALK_ flags. */
+__attribute__((noinline)) static int run_guarded(const CONTEXT *context, void (*walk)(void), int wait) {
+    LONG self = (LONG)GetCurrentThreadId();
+    ULONGLONG deadline = GetTickCount64() + 1000;
+    int result;
+    for (;;) {
+        LONG owner = InterlockedCompareExchange(&s_walkOwner, self, 0);
+        if (owner == 0)
+            break;
+        /* This thread holds it when its own walk raised an exception the filter saw. */
+        if (!wait || owner == self || GetTickCount64() >= deadline)
+            return WALK_BUSY;
+        Sleep(1);
+    }
     s_walkContext = *context;
     s_walkFaulted = 0;
-    s_walkThread = GetCurrentThreadId();
+    s_stackInvalid = 0;
     /* A fault in the walk resumes here with s_walkFaulted set. Nothing after this
-       line may rely on a local variable. */
+       line may rely on a local variable set before it. */
     RtlCaptureContext(&s_resumeContext);
     if (!s_walkFaulted) {
         s_walking = 1;
         walk();
         s_walking = 0;
     }
-    return s_walkFaulted;
+    result = (s_walkFaulted ? WALK_FAULTED : 0) | (s_stackInvalid ? WALK_STACK_INVALID : 0);
+    InterlockedExchange(&s_walkOwner, 0);
+    return result;
 }
 
 static void write_frames(const CONTEXT *context) {
-    if (run_guarded(context, walk_unwind)) {
-        CrashLine line;
+    int result = run_guarded(context, walk_unwind, 1);
+    CrashLine line;
+    if (result & WALK_BUSY) {
+        CrashBlock_Frame((uintptr_t)context->Rip);
+        CrashLine_Begin(&line, "unwind not run, another thread held it");
+        CrashLine_Write(&line);
+    } else if (result & WALK_FAULTED) {
         CrashLine_Begin(&line, "nested EXCEPTION_ACCESS_VIOLATION recovered in unwind");
         CrashLine_Write(&line);
     }
@@ -290,6 +322,7 @@ static void write_rest_of_block(const CONTEXT *context, const char *chain) {
     CrashLine_Str(&line, chain);
     CrashLine_Write(&line);
     CrashBlock_End();
+    s_reportDone = 1;
 }
 
 static void write_exception_block(EXCEPTION_POINTERS *pointers, const char *chain) {
@@ -335,10 +368,25 @@ static int is_fatal_exception(DWORD code) {
     }
 }
 
+/* Non-zero when this thread is to write the block. Waits up to five seconds for the
+   block when another thread writes it. */
+static int claim_report(void) {
+    LONG self = (LONG)GetCurrentThreadId();
+    LONG owner = InterlockedCompareExchange(&s_reporter, self, 0);
+    if (owner == 0)
+        return 1;
+    if (owner != self) {
+        ULONGLONG deadline = GetTickCount64() + 5000;
+        while (!s_reportDone && GetTickCount64() < deadline)
+            Sleep(1);
+    }
+    return 0;
+}
+
 static LONG WINAPI on_vectored_exception(EXCEPTION_POINTERS *pointers) {
     DWORD code = pointers->ExceptionRecord->ExceptionCode;
 
-    if (s_walking && GetCurrentThreadId() == s_walkThread) {
+    if (s_walking && (DWORD)s_walkOwner == GetCurrentThreadId()) {
         if (code != EXCEPTION_ACCESS_VIOLATION && code != EXCEPTION_IN_PAGE_ERROR &&
             code != EXCEPTION_DATATYPE_MISALIGNMENT)
             return EXCEPTION_CONTINUE_SEARCH;
@@ -349,17 +397,20 @@ static LONG WINAPI on_vectored_exception(EXCEPTION_POINTERS *pointers) {
         return EXCEPTION_CONTINUE_EXECUTION;
     }
 
-    if (s_reported || !is_fatal_exception(code))
+    if (!is_fatal_exception(code))
         return EXCEPTION_CONTINUE_SEARCH;
-    s_stackInvalid = 0;
-    if ((run_guarded(pointers->ContextRecord, walk_dispatch_check) || s_stackInvalid) &&
-        InterlockedExchange(&s_reported, 1) == 0)
+    if (s_reporter) {
+        claim_report();
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
+    if ((run_guarded(pointers->ContextRecord, walk_dispatch_check, 0) & (WALK_FAULTED | WALK_STACK_INVALID)) &&
+        claim_report())
         write_exception_block(pointers, "search");
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
 static LONG WINAPI on_unhandled_exception(EXCEPTION_POINTERS *pointers) {
-    if (InterlockedExchange(&s_reported, 1) == 0)
+    if (claim_report())
         write_exception_block(pointers, "filter");
     return s_previousFilter ? s_previousFilter(pointers) : EXCEPTION_CONTINUE_SEARCH;
 }
@@ -367,7 +418,7 @@ static LONG WINAPI on_unhandled_exception(EXCEPTION_POINTERS *pointers) {
 static void on_abort_signal(int sig) {
     static CONTEXT context;
     (void)sig;
-    if (InterlockedExchange(&s_reported, 1) == 0) {
+    if (claim_report()) {
         CrashLine line;
         RtlCaptureContext(&context);
         CrashBlock_Begin();

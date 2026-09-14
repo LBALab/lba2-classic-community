@@ -12,6 +12,7 @@
 #include <signal.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <time.h>
 #include <unistd.h>
 
 /* __builtin_trap is brk on arm64, which raises SIGTRAP rather than SIGILL. */
@@ -27,8 +28,11 @@ static struct sigaction s_previous[NSIG];
 static U8 s_installed[NSIG];
 static int s_logFd = -1;
 
-static volatile sig_atomic_t s_inHandler = 0;
+/* Set once by the thread that writes the block, and never cleared: after the block
+   the previous actions take every signal. */
+static int s_claimed = 0;
 static pthread_t s_handlerThread;
+static volatile sig_atomic_t s_blockDone = 0;
 
 static sigjmp_buf s_guardJump;
 static volatile sig_atomic_t s_guardArmed = 0;
@@ -130,10 +134,16 @@ static void crash_handler(int sig, siginfo_t *info, void *context) {
         return;
     }
 
-    if (s_inHandler) {
+    if (!__sync_bool_compare_and_swap(&s_claimed, 0, 1)) {
         if (!pthread_equal(s_handlerThread, pthread_self())) {
-            /* Another thread crashed while this one writes its block. A fault
-               repeats until the first thread restores the previous action. */
+            /* Another thread writes the block. This one waits for it, up to five
+               seconds, and returns: a fault repeats and reaches the previous action
+               the writer restored, and abort() ending the process now would cut the
+               block short. */
+            struct timespec pause = {0, 1000 * 1000};
+            int waited;
+            for (waited = 0; !s_blockDone && waited < 5000; waited++)
+                nanosleep(&pause, NULL);
             errno = savedErrno;
             return;
         }
@@ -153,7 +163,6 @@ static void crash_handler(int sig, siginfo_t *info, void *context) {
         return;
     }
     s_handlerThread = pthread_self();
-    s_inHandler = 1;
 
     CrashBlock_Begin();
     write_signal_line(sig, info);
@@ -171,9 +180,9 @@ static void crash_handler(int sig, siginfo_t *info, void *context) {
         CrashLine_Write(&line);
     }
     CrashBlock_End();
+    s_blockDone = 1;
     CrashOs_HandOn(sig, info, context);
 
-    s_inHandler = 0;
     errno = savedErrno;
 }
 

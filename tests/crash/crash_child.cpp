@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <sched.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #endif
@@ -146,7 +147,30 @@ __attribute__((noinline)) static void trig_smash_frame_outer(void) {
     g_sink += scratch[0];
 }
 
+/* Threads that fault at the same moment, as they do on a shared object freed under
+   them; the start flag lines them up. */
+enum { RACE_THREADS = 8 };
+static volatile int g_raceStart = 0;
+
 #if defined(_WIN32)
+static DWORD WINAPI thread_race(LPVOID unused) {
+    (void)unused;
+    while (!g_raceStart)
+        YieldProcessor();
+    trig_segv();
+    return 0;
+}
+
+__attribute__((noinline)) static void trig_thread_race(void) {
+    HANDLE threads[RACE_THREADS];
+    int i;
+    for (i = 0; i < RACE_THREADS; i++)
+        threads[i] = CreateThread(NULL, 0, thread_race, NULL, 0, NULL);
+    Sleep(100);
+    g_raceStart = 1;
+    WaitForMultipleObjects(RACE_THREADS, threads, TRUE, INFINITE);
+}
+
 static DWORD WINAPI thread_segv(LPVOID unused) {
     (void)unused;
     trig_segv();
@@ -178,6 +202,25 @@ __attribute__((noinline)) static void trig_thread_stack(void) {
     run_thread(thread_overflow, 512 * 1024);
 }
 #else
+static void *thread_race(void *unused) {
+    (void)unused;
+    while (!g_raceStart)
+        sched_yield();
+    trig_segv();
+    return NULL;
+}
+
+__attribute__((noinline)) static void trig_thread_race(void) {
+    pthread_t threads[RACE_THREADS];
+    int i;
+    for (i = 0; i < RACE_THREADS; i++)
+        pthread_create(&threads[i], NULL, thread_race, NULL);
+    usleep(100 * 1000);
+    g_raceStart = 1;
+    for (i = 0; i < RACE_THREADS; i++)
+        pthread_join(threads[i], NULL);
+}
+
 static void *thread_segv(void *unused) {
     (void)unused;
     trig_segv();
@@ -259,6 +302,7 @@ static const Trigger k_triggers[] = {
     {"smash-frame", trig_smash_frame_outer, FN(trig_smash_frame)},
     {"thread-segv", trig_thread_segv, FN(trig_segv)},
     {"thread-stack", trig_thread_stack, FN(recurse)},
+    {"thread-race", trig_thread_race, FN(trig_segv)},
 #if defined(_WIN32)
     {"divzero", trig_divzero, FN(trig_divzero)},
 #else

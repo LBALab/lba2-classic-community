@@ -355,6 +355,13 @@ static void test_smashed_frame_record(void) {
 static void test_thread_access_violation(void) {
     check_kind("thread-segv", 0xC0000005UL, "CRASH exception 0xc0000005 EXCEPTION_ACCESS_VIOLATION ", 0, 1);
 }
+/* Threads crashing together write one whole block. Losing the race ends a block
+   early most runs, so a few runs catch it. */
+static void test_thread_race(void) {
+    int i;
+    for (i = 0; i < 3; i++)
+        check_kind("thread-race", 0xC0000005UL, "CRASH exception 0xc0000005 EXCEPTION_ACCESS_VIOLATION ", 0, 1);
+}
 static void test_thread_stack_overflow(void) {
     check_kind("thread-stack", 0xC00000FDUL, "CRASH exception 0xc00000fd EXCEPTION_STACK_OVERFLOW ", 0, 3);
     check_tail_leaves_recursion("thread-stack");
@@ -422,6 +429,13 @@ static void test_smashed_frame_record(void) {
 static void test_thread_segv(void) {
     check_kind("thread-segv", SIGSEGV, "CRASH signal 11 SIGSEGV ", 0, 1);
 }
+/* Threads crashing together write one whole block. Losing the race ends a block
+   early most runs, so a few runs catch it. */
+static void test_thread_race(void) {
+    int i;
+    for (i = 0; i < 3; i++)
+        check_kind("thread-race", SIGSEGV, "CRASH signal 11 SIGSEGV ", 0, 1);
+}
 /* A thread that asked for its own alternate stack reports its overflow. A
    secondary thread's guard page raises SIGBUS on macOS. */
 static void test_thread_stack_overflow(void) {
@@ -488,6 +502,7 @@ int main(int argc, char *argv[]) {
     RUN_TEST(test_stack_overflow);
     RUN_TEST(test_smashed_frame_record);
     RUN_TEST(test_thread_access_violation);
+    RUN_TEST(test_thread_race);
     RUN_TEST(test_thread_stack_overflow);
 #else
     RUN_TEST(test_segv);
@@ -501,6 +516,7 @@ int main(int argc, char *argv[]) {
     RUN_TEST(test_stack_overflow);
     RUN_TEST(test_smashed_frame_record);
     RUN_TEST(test_thread_segv);
+    RUN_TEST(test_thread_race);
     RUN_TEST(test_thread_stack_overflow);
     RUN_TEST(test_thread_stack_released);
     RUN_TEST(test_sent_segv_waiting);
