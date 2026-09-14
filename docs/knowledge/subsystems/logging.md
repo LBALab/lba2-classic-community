@@ -1,7 +1,7 @@
 ---
 type: Subsystem
 title: Logging
-description: One call formats a record once and fans it out to a file, stderr and the console through SDL's log output, behind a single master level that structural lines bypass; the file is truncated at launch and flushed per line, and nothing is written when the process dies on a signal.
+description: One call formats a record once and fans it out to a file, stderr and the console through SDL's log output, behind a single master level that structural lines bypass; the previous run's file is kept beside it at launch and the new one is flushed per line, and nothing is written when the process dies on a signal.
 status: draft
 subsystem: logging
 as_of: f3e13ac0
@@ -59,7 +59,7 @@ The how-to for writing a log line, which severity to pick and what belongs in `L
 | Levels | `LOG_DEBUG` < `LOG_INFO` < `LOG_WARN` < `LOG_ERROR`. `Log_Init` seeds the level permissive; `main` sets it from `--log-level`, then `LBA2_LOG_LEVEL`, then `INFO`, before any sink exists. The `loglevel` console command moves it at runtime.[^perso-cpp] [^console-cmd] |
 | What bypasses the level | `Log_Banner`, `Log_BeginSection` and `Log_EndSection`. `Log_Raw` does not, and neither does `LogPrintf`, which emits raw lines. A sink's own floor can only raise the bar above the master level, never lower it.[^log-cpp] [^test-log] |
 | Record kinds | Normal records carry a severity tag in the file (`[WARN] ...`) and a colour on a terminal and in the console. Raw and banner lines are verbatim. A section begins as `==== Title ====` in the file and has no closing line there.[^log-cpp] |
-| The file | `CreateLog` opens `adeline.log` with `"wb"` at launch, truncating the previous run's log, and the file sink then reopens it for append. Every record is written and `fflush`ed, so a line is in the operating system's hands before the call returns.[^logprint-cpp] [^log-cpp] |
+| The file | `CreateLog` renames an existing `adeline.log` to `adeline.prev.log`, replacing the one kept before, then opens `adeline.log` with `"wb"`; the file sink then reopens it for append. Exactly one previous run is kept, and a launch that finds no `adeline.log` leaves `adeline.prev.log` alone. Every record is written and `fflush`ed, so a line is in the operating system's hands before the call returns.[^logprint-cpp] [^log-cpp] |
 | stderr | The terminal sink always writes. ANSI colour only on a TTY with `NO_COLOR` unset; redirected, it writes the file sink's plain tagged lines, so a harness or CI run shows the log inline. stdout is a data channel and never carries log lines.[^log-cpp] [^agents] |
 | Before the sinks | With no sink registered, `Log_*` writes to stderr in the file sink's format, honouring the level. `LogPrintf` falls back to stderr and to the log file if `CreateLog` has already named one.[^log-cpp] [^logprint-cpp] [^test-log] |
 | Threads | The console sink drops records raised off the thread that called `Log_Init`, because the console ring is not thread-safe; the file and terminal still get them. The audio callback is the thread this is for.[^log-cpp] |
@@ -78,7 +78,7 @@ The how-to for writing a log line, which severity to pick and what belongs in `L
 # What it does not tell you
 
 - **That a crash is recorded.** Nothing catches a fatal signal, so a segfault adds no line. Everything written before it is on disk, because of the per-line flush, and that is all there is.
-- **That `adeline.log` is the run that just failed.** Launching again truncates it. A player who crashes and restarts before sending the file sends the healthy run.[^logprint-cpp]
+- **That `adeline.log` is the run that just failed.** Launching again moves it to `adeline.prev.log`, and a second launch replaces that too. A player who crashes and restarts twice before sending the files has lost the run that crashed.[^logprint-cpp]
 - **That every boot message reaches the file.** Everything before `CreateLog` goes to stderr only: an unusable profile name, `SDL_Init` failing, and on Android the storage permission wait and its outcome, which run before the user folder is chosen. The user-folder decisions made in that window are recorded and replayed as `Note:` lines in the banner instead. Whether an Android app's stderr is visible anywhere was not checked; nothing in the tree routes the log to logcat.[^perso-cpp] [^initadel]
 - **That a failed log file is named.** Measured: with a user folder that cannot be created, the warning reads `Unable to create log file at ''`. `CreateLog` clears the path before printing it.[^logprint-cpp]
 - **That a record arrives whole.** A formatted record is cut to fit a 1024-byte buffer, and a `LogPrintf` line likewise.[^log-cpp] [^logprint-cpp]
