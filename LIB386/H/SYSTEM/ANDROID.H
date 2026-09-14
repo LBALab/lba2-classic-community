@@ -25,6 +25,16 @@ bool Android_EnsureExternalStoragePermission(void);
 /// where no permission stands between the engine and the game data.
 bool Android_HasExternalStoragePermission(void);
 
+/// Saves the system's report of the app's newest native crash not saved before,
+/// its tombstone, as crash-<time>.pb in dir, which is the log's folder, replacing
+/// the one saved before. Call once, after the log exists. Does nothing
+/// off-Android, and before Android 11, which keeps no exit records.
+void Android_SavePreviousCrashReport(const char *dir);
+
+/// What Android_SavePreviousCrashReport found, as a sentence for the boot banner,
+/// or "" when it found no new crash. "" off-Android.
+const char *Android_GetPreviousCrashNote(void);
+
 /// Writes the app-specific external files dir into out (up to maxLen).
 /// Returns 1 on success, 0 otherwise (including off-Android).
 S32 Android_GetExternalFilesDir(char *out, U16 maxLen);

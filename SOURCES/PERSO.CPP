@@ -2277,6 +2277,9 @@ int main(int argc, char *argv[]) {
         /* From here a fatal signal appends a CRASH block to the log. Nothing
            heavy has run yet, and the log has already kept the previous run's. */
         Crash_Install(logFilePath, LBA2_VERSION_STRING, LBA2_COMMIT_STRING);
+        /* The system's report of the last crash, kept beside the log it goes with;
+           the banner says what was found. */
+        Android_SavePreviousCrashReport(userFolderPath);
 
         /* --disc names the image to mount, instead of letting the game folder's
            scan rank what it finds. Read before discovery, not just before the

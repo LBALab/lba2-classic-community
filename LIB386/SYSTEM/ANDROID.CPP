@@ -204,6 +204,50 @@ bool Android_EnsureExternalStoragePermission(void) {
 #endif
 }
 
+static char s_previousCrashNote[512] = "";
+
+void Android_SavePreviousCrashReport(const char *dir) {
+#ifdef __ANDROID__
+    JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
+    jobject activity = (jobject)SDL_GetAndroidActivity();
+    if (env == NULL || activity == NULL || dir == NULL)
+        return;
+    jclass helper = env->FindClass("org/lbalab/lba2cc/CrashHelper");
+    if (env->ExceptionCheck() || helper == NULL) {
+        env->ExceptionClear();
+        return;
+    }
+    jmethodID save = env->GetStaticMethodID(helper, "saveLastNativeCrash",
+                                            "(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/String;");
+    jstring dirString = env->NewStringUTF(dir);
+    jstring note = NULL;
+    if (save != NULL && dirString != NULL)
+        note = (jstring)env->CallStaticObjectMethod(helper, save, activity, dirString);
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        note = NULL;
+    }
+    if (note != NULL) {
+        const char *chars = env->GetStringUTFChars(note, NULL);
+        if (chars != NULL) {
+            strncpy(s_previousCrashNote, chars, sizeof(s_previousCrashNote) - 1);
+            s_previousCrashNote[sizeof(s_previousCrashNote) - 1] = '\0';
+            env->ReleaseStringUTFChars(note, chars);
+        }
+        env->DeleteLocalRef(note);
+    }
+    if (dirString != NULL)
+        env->DeleteLocalRef(dirString);
+    env->DeleteLocalRef(helper);
+#else
+    (void)dir;
+#endif
+}
+
+const char *Android_GetPreviousCrashNote(void) {
+    return s_previousCrashNote;
+}
+
 S32 Android_GetExternalFilesDir(char *out, U16 maxLen) {
 #ifdef __ANDROID__
     /* App-specific external files dir (/sdcard/Android/data/<pkg>/files/), via

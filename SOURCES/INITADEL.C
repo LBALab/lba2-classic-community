@@ -9,7 +9,8 @@
 #include "CONSOLE/CONSOLE.H" /* console buffer sink printer adapter */
 #include "CONTROL.H"
 #include "JOYSTICK.H"
-#include "RES_DISCOVERY.H" /* Res_GetDiscoverySource for the Assets banner line */
+#include "RES_DISCOVERY.H"  /* Res_GetDiscoverySource for the Assets banner line */
+#include <SYSTEM/ANDROID.H> /* Android_GetPreviousCrashNote for the banner */
 #include <SYSTEM/LOG.H>
 #include "SVGA/INITMODE.H"
 #include "SVGA/SCREEN.H"
@@ -238,6 +239,12 @@ void InitAdeline(S32 argc, char *argv[]) {
                             " which still has its own copy",
                             migratedFrom);
                 }
+            }
+            /* A native crash in the last run, found in the system's exit records. */
+            {
+                const char *previousCrash = Android_GetPreviousCrashNote();
+                if (previousCrash[0] != '\0')
+                    Log_Raw("Note:   %s", previousCrash);
             }
             /* Two folders both holding saves. Named rather than merged: both are
                somebody's real progress and nothing here can tell which one they
