@@ -88,6 +88,15 @@ void GL_SnapshotTerrain(void);
 //! the current FBO generation (full redraws cleared it anyway).
 void GL_RestoreTerrainSnapshot(void);
 
+//! Stereo horizon share: capture the FBO after the current cube's horizon
+//! (DrawHorizon2ZBuf) in eye 0, then blit it in eye 1 instead of re-running
+//! the pass — the backdrop's stereo disparity is sub-pixel.  The capture
+//! clears at GL_BeginFrame, so frames that never captured (menus, mono)
+//! draw the horizon normally.
+void GL_CaptureHorizon(void);
+void GL_RestoreHorizon(void);
+S32 GL_HorizonValid(void);
+
 //! Draw the projected ground-shadow polygon directly into the FBO (GL
 //! replacement for the SW DrawShadow/ShadeBoxBlk/DrawRecover pass).  xs/ys
 //! walk the Bezier-rounded outline the SW span filler fills (BuildOmbreOutline),

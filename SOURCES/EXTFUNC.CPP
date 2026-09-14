@@ -361,13 +361,31 @@ void AffGrilleExt() {
 #endif
     {
         U32 hzT0 = SDL_GetTicks();
-        DrawHorizon2ZBuf();
+#ifdef USE_GPURENDERER
+        /* Stereo: the neighbor-cube backdrop's disparity is sub-pixel (the
+           backdrop sits >= 32k units away, the eye separation is ~30) —
+           eye 1 blits eye 0's capture instead of re-projecting ~34k grid
+           vertices.  DrawSkySeaZBuf below still runs per eye (the sky/sea
+           quads are few and the fog colour differs with the shifted
+           camera). */
+        if (GPURendererActive && GL_GetStereoEye() == 1 && GL_HorizonValid()) {
+            GL_RestoreHorizon();
+        } else
+#endif
+        {
+            DrawHorizon2ZBuf();
+#ifdef USE_GPURENDERER
+            if (GPURendererActive && GL_GetStereoEye() == 0) {
+                GL_CaptureHorizon();
+            }
+#endif
+        }
         U32 hzT1 = SDL_GetTicks();
         {
-            static S32 s_hzPerfLog = 0;
-            if (s_hzPerfLog < 10) {
+            static U32 s_hzPerfFrame = 0;
+            s_hzPerfFrame++;
+            if (s_hzPerfFrame % 300 == 150) {
                 Log_Info("GrillePerf: horizon=%dms", (S32)(hzT1 - hzT0));
-                s_hzPerfLog++;
             }
         }
     }
@@ -385,12 +403,12 @@ void AffGrilleExt() {
         AffichageTerrainZBuf();
         U32 tnT1 = SDL_GetTicks();
         {
-            static S32 s_tnPerfLog = 0;
-            if (s_tnPerfLog < 10) {
+            static U32 s_tnPerfFrame = 0;
+            s_tnPerfFrame++;
+            if (s_tnPerfFrame % 300 == 150) {
                 Log_Info("GrillePerf: terrain=%dms", (S32)(tnT1 - tnT0));
-                s_tnPerfLog++;
             }
-            if (s_tnPerfLog <= 100 && s_tnPerfLog >= 10) {
+            if (s_tnPerfFrame % 300 == 150) {
 #ifdef USE_GPURENDERER
                 S32 rd = GL_PerfReject - rej0;
                 char buf[160];
@@ -405,7 +423,6 @@ void AffGrilleExt() {
                 }
                 Log_Info("%s", buf);
 #endif
-                s_tnPerfLog++;
             }
         }
     }
@@ -417,10 +434,10 @@ void AffGrilleExt() {
         DrawSkySeaZBuf();
         U32 skyT1 = SDL_GetTicks();
         {
-            static S32 s_skyPerfLog = 0;
-            if (s_skyPerfLog < 10) {
+            static U32 s_skyPerfFrame = 0;
+            s_skyPerfFrame++;
+            if (s_skyPerfFrame % 300 == 150) {
                 Log_Info("GrillePerf: skysea=%dms", (S32)(skyT1 - skyT0));
-                s_skyPerfLog++;
             }
         }
     }

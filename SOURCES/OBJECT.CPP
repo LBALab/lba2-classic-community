@@ -5,6 +5,7 @@
 #include "ZONE_GEOM.H" // ZonePointInBox -- single source of truth for the zone box test
 
 #include <SYSTEM/LOG.H> // cubetrace
+#include <SDL3/SDL.h> /* SDL_GetPerformanceCounter (object-pass timing diag) */
 
 #include <stdio.h>
 
@@ -6050,7 +6051,13 @@ startaffscene:
     PtrMap = ObjPtrMap = BufferTexture;
     RepMask = 0xFFFF;
 
+    /* Throwaway diag: object-pass breakdown — the sorted body walk vs the
+       rain/incrust tail, per AffScene call (x2 in stereo). */
+    U64 objDiagT0 = SDL_GetPerformanceCounter();
+    U64 objDiagSortEnd = objDiagT0;
+
     if (BaseSort()) {
+        objDiagSortEnd = SDL_GetPerformanceCounter();
         // NumObjFollow masqué on
         // doit redessiner la camera
         {
@@ -6110,6 +6117,18 @@ startaffscene:
 
         SetCLUT(PalLevel);
         Switch_Fillers(FILL_POLY_TEXTURES);
+    }
+
+    {
+        static U32 s_objDiagFrame = 0;
+        s_objDiagFrame++;
+        if (s_objDiagFrame % 300 == 150) {
+            U64 freq = SDL_GetPerformanceFrequency();
+            U32 sortUs = (U32)((objDiagSortEnd - objDiagT0) * 1000000 / freq);
+            U32 totalUs = (U32)((SDL_GetPerformanceCounter() - objDiagT0) *
+                                1000000 / freq);
+            Log_Info("[OBJPASS] sortDraw=%uus total=%uus", sortUs, totalUs);
+        }
     }
 
     /*------------------------------------------------------------------------*/

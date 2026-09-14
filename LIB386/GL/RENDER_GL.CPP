@@ -2839,6 +2839,135 @@ void GL_RestoreTerrainSnapshot(void) {
     s_fboDirtyX1 = -1; /* empty again until the object pass draws */
 }
 
+/* ── Stereo horizon share (eye 1 reuses eye 0's horizon) ─────────────────── */
+
+/* The neighbor-cube horizon (DrawHorizon2ZBuf) is drawn per eye in stereo,
+   but its stereo disparity is sub-pixel: the backdrop sits a cube or more
+   away (>= 32k units) and the eye separation is ~30 units, which projects
+   to ~0.5 px at that depth.  Eye 0 captures the horizon after drawing it;
+   eye 1 blits the capture instead of re-projecting ~34k grid vertices
+   (the measured 4 ms).  The capture is valid within one frame only:
+   GL_BeginFrame clears it, so menu/mono frames (no eye 0 capture) draw
+   the horizon normally. */
+static GLuint s_horizonTex = 0;
+static GLuint s_horizonFbo = 0;
+static GLuint s_horizonDepthRbo = 0;
+static U32 s_horizonW = 0;
+static U32 s_horizonH = 0;
+static S32 s_horizonValid = 0;
+
+void GL_CaptureHorizon(void) {
+    if (!s_initialized || !s_fbo) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+    GL_FlushBatch();
+
+    if (s_msaaFbo && s_antiAlias >= 2)
+        GL_ResolveMSAA();
+
+    const U32 w = s_fboWidth;
+    const U32 h = s_fboHeight;
+    if (s_horizonTex == 0 || s_horizonW != w || s_horizonH != h) {
+        if (s_horizonTex == 0) {
+            glGenTextures(1, &s_horizonTex);
+        }
+        glBindTexture(GL_TEXTURE_2D, s_horizonTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_UPLOAD_FORMAT, w, h, 0,
+                     GL_UPLOAD_FORMAT, GL_UNSIGNED_BYTE, NULL);
+        if (s_horizonFbo == 0) {
+            glGenFramebuffers(1, &s_horizonFbo);
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, s_horizonFbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D, s_horizonTex, 0);
+        if (s_horizonDepthRbo == 0) {
+            glGenRenderbuffers(1, &s_horizonDepthRbo);
+        }
+        glBindRenderbuffer(GL_RENDERBUFFER, s_horizonDepthRbo);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, w, h);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                                  GL_RENDERBUFFER, s_horizonDepthRbo);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        s_horizonW = w;
+        s_horizonH = h;
+    }
+
+    /* Color + depth: the current-cube terrain drawn after the restore must
+       depth-test against the backdrop exactly as if it had drawn it. */
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_horizonFbo);
+    glBlitFramebuffer(0, 0, w, h, 0, 0, w, h,
+                      GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    /* Mid-frame invariant: keep drawing into the scene FBO. */
+    glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+    s_horizonValid = 1;
+}
+
+void GL_RestoreHorizon(void) {
+    if (!s_initialized || !s_fbo || !s_horizonValid || s_horizonFbo == 0) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+    if (s_msaaFbo && s_antiAlias >= 2) {
+        /* Cannot blit single-sample depth into the MSAA target; draw the
+           color as a quad (same as the terrain-snapshot MSAA restore).  The
+           backdrop depth is not restored, but the current-cube terrain is
+           drawn after this and near-always passes; the per-pixel depth test
+           against the backdrop matters only where near hills occlude it,
+           which the terrain's own depth writes rebuild anyway. */
+        GLfloat rverts[4][4] = {
+            {-1.0f, -1.0f, 0.0f, 0.0f},
+            {1.0f, -1.0f, 1.0f, 0.0f},
+            {-1.0f, 1.0f, 0.0f, 1.0f},
+            {1.0f, 1.0f, 1.0f, 1.0f}};
+        glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
+        glViewport(0, 0, s_fboWidth, s_fboHeight);
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        glDisable(GL_BLEND);
+        glUseProgram(s_program);
+        glUniform1i(s_uTexLoc, 0);
+        glUniform1i(s_uFilterLoc, 1);
+        GL_BindTexUnit(0, s_horizonTex);
+        glBindBuffer(GL_ARRAY_BUFFER, s_auxVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(rverts), rverts, GL_STREAM_DRAW);
+        glEnableVertexAttribArray(s_aPosLoc);
+        glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
+                              4 * sizeof(GLfloat), (const void *)0);
+        glEnableVertexAttribArray(s_aTexCoordLoc);
+        glVertexAttribPointer(s_aTexCoordLoc, 2, GL_FLOAT, GL_FALSE,
+                              4 * sizeof(GLfloat),
+                              (const void *)(2 * sizeof(GLfloat)));
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glDisableVertexAttribArray(s_aPosLoc);
+        glDisableVertexAttribArray(s_aTexCoordLoc);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glUseProgram(0);
+        GL_InvalidateGLState();
+    } else {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, s_horizonFbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
+        glBlitFramebuffer(0, 0, s_horizonW, s_horizonH, 0, 0, s_horizonW,
+                          s_horizonH,
+                          GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
+                          GL_NEAREST);
+        glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+    }
+}
+
+S32 GL_HorizonValid(void) {
+    return s_horizonValid;
+}
+
 /* ── Begin frame ─────────────────────────────────────────────────────────── */
 
 void GL_BeginFrame(void) {
@@ -2854,6 +2983,7 @@ void GL_BeginFrame(void) {
     s_frameSeq++;
     GL_BatchFlushCount = 0;
     s_terrainRenderedThisFrame = 0;
+    s_horizonValid = 0; /* horizon capture is per-frame (eye 0 only) */
 }
 
 /* ── Depth readback (GL → SW Z-buffer) ──────────────────────────────────── */

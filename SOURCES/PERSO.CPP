@@ -2348,12 +2348,12 @@ restartloop:
             AffScene(AFF_ALL_FLIP);
             U32 stereoT2 = SDL_GetTicks();
             {
-                static S32 s_stereoPerfLog = 0;
-                if (s_stereoPerfLog < 10) {
+                static U32 s_stereoPerfFrame = 0;
+                s_stereoPerfFrame++;
+                if (s_stereoPerfFrame % 300 == 150) {
                     Log_Info("StereoPerf: eye0=%dms eye1=%dms frame=%dms flushes=%d",
                              stereoT1 - stereoT0, stereoT2 - stereoT1,
                              stereoT2 - stereoT0, GL_BatchFlushCount);
-                    s_stereoPerfLog++;
                 }
             }
             GL_SetStereoEye(-1);
