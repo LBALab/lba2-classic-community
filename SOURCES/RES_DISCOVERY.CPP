@@ -591,11 +591,13 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
      * docs/ANDROID.md). Try /sdcard/lba2cc/ first so users can keep data in a
      * subdirectory. Harmless no-op on non-Android. */
     Res_SetDiscoverySource("/sdcard/lba2cc");
-    if (TryJoinBaseSub("/sdcard/", "lba2cc", outDir, outMax, tried, &triedCount)) {
+    if (TryJoinBaseSub("/sdcard/", "lba2cc", outDir, outMax, tried, &triedCount,
+                       true)) {
         return true;
     }
     Res_SetDiscoverySource("/storage/emulated/0/lba2cc");
-    if (TryJoinBaseSub("/storage/emulated/0/", "lba2cc", outDir, outMax, tried, &triedCount)) {
+    if (TryJoinBaseSub("/storage/emulated/0/", "lba2cc", outDir, outMax, tried,
+                       &triedCount, true)) {
         return true;
     }
     Res_SetDiscoverySource("/sdcard");
