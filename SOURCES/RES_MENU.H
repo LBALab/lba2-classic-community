@@ -39,8 +39,8 @@ typedef struct {
  * the rest are bare "WxH". Returns count (<= cap). */
 S32 Display_BuildEntries(DisplayEntry *out);
 
-/* Index of the entry whose (w, h) matches ModeDesiredX/Y, or -1 if
- * the current resolution isn't in the list (e.g., player launched
+/* Index of the entry whose (w, h) matches the player-selected base
+ * resolution, or -1 if that resolution isn't in the list (e.g., launched
  * with a custom --resolution / console `resolution` value). */
 S32 Display_FindCurrentEntry(const DisplayEntry *entries, S32 count);
 
