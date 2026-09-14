@@ -6,6 +6,7 @@
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/LZ.H>
 #include <string.h>
 #include "AMBIANCE.H"
 
@@ -397,7 +398,12 @@ void DrawListHoloPlan() {
 }
 //════════════════════════════════════════════════════════════════════════════
 void InitHoloPlan() {
-    S32 buffer[20]; //	M3D  36 octets, 9 LONG
+    /*	M3D  36 octets, 9 LONG. Load_HQR lands a compressed entry at
+        ptrdest + SizeFile - CompressedSizeFile + RECOVER_AREA, so the
+        destination has to hold SizeFile + RECOVER_AREA. Most islands store
+        this record compressed; without the margin the read runs ~470 bytes
+        past the array and over the saved registers of the callers. */
+    S32 buffer[(36 + RECOVER_AREA) / sizeof(S32)];
     S32 *pt;
     S32 orgmx, orgmz;
     S32 offx, offz;
