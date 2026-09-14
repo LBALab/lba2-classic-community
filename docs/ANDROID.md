@@ -128,6 +128,10 @@ be invisible to the app's own view, so prefer `/sdcard/lba2cc/`.
 8. Parent-directory walk
 9. Folder picker fallback (if compiled with debug tools)
 
+The two `lba2cc/` folders accept either extracted retail files or a disc image
+such as a BIN/CUE rip. The bare external-storage roots only check for extracted
+files, avoiding an expensive scan across an entire shared-storage directory.
+
 ## Where the game saves
 
 Saves, `lba2.cfg`, `adeline.log` and `recordings/` all live in the user
