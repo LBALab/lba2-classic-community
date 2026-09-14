@@ -428,9 +428,12 @@ static void test_raise_segv(void) {
 static void test_raise_fpe(void) {
     check_kind("raise-fpe", SIGFPE, "CRASH signal 8 SIGFPE ", 0, 0);
 }
-/* The fault can be in a stack probe the overflowing function calls. */
+/* The fault can be in a stack probe the overflowing function calls, or in the
+   sanitizer runtime it calls, which under ASan was three frames deep. */
+enum { OVERFLOW_FRAME_DEPTH = 8 };
+
 static void test_stack_overflow(void) {
-    check_kind("stack", SIGSEGV, "CRASH signal 11 SIGSEGV ", 0, 3);
+    check_kind("stack", SIGSEGV, "CRASH signal 11 SIGSEGV ", 0, OVERFLOW_FRAME_DEPTH);
     check_tail_leaves_recursion("stack");
 }
 /* A frame record overwritten with a wild pointer must end the walk, not the block. */
@@ -451,9 +454,9 @@ static void test_thread_race(void) {
    secondary thread's guard page raises SIGBUS on macOS. */
 static void test_thread_stack_overflow(void) {
 #if defined(__APPLE__)
-    check_kind("thread-stack", SIGBUS, "CRASH signal 10 SIGBUS ", 0, 3);
+    check_kind("thread-stack", SIGBUS, "CRASH signal 10 SIGBUS ", 0, OVERFLOW_FRAME_DEPTH);
 #else
-    check_kind("thread-stack", SIGSEGV, "CRASH signal 11 SIGSEGV ", 0, 3);
+    check_kind("thread-stack", SIGSEGV, "CRASH signal 11 SIGSEGV ", 0, OVERFLOW_FRAME_DEPTH);
 #endif
     check_tail_leaves_recursion("thread-stack");
 }
