@@ -100,9 +100,15 @@ __attribute__((noinline)) static void trig_smash_frame(void) {
     g_sink++;
 }
 
+/* The alloca makes this caller address its frame through the frame pointer, so an
+   unwinder reading its unwind tables follows the smashed record too. */
+static volatile int g_scratchSize = 16;
+
 __attribute__((noinline)) static void trig_smash_frame_outer(void) {
+    volatile char *scratch = (char *)__builtin_alloca((size_t)g_scratchSize);
+    scratch[0] = 1;
     trig_smash_frame();
-    g_sink++;
+    g_sink += scratch[0];
 }
 
 static void *thread_segv(void *unused) {
