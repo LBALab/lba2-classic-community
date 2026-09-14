@@ -23,6 +23,7 @@
 #else
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -112,6 +113,8 @@ static std::string describe(unsigned long status) {
 
 #else
 
+enum { STACK_LIMIT = 8 * 1024 * 1024 };
+
 static void sleep_ms(long ms) {
     struct timespec t;
     t.tv_sec = ms / 1000;
@@ -138,6 +141,14 @@ static Outcome run_child(const char *kind, bool control, int sendSignal) {
         return outcome;
     if (pid == 0) {
         int devnull = open("/dev/null", O_WRONLY);
+        struct rlimit stack;
+        /* A main thread's overflow walks one frame per recursion, and the walk stops at
+           2^20 frames: under a 64 MB or unlimited stack limit the tail never leaves
+           the recursion. The usual 8 MB keeps the depth in range. */
+        if (getrlimit(RLIMIT_STACK, &stack) == 0 && (stack.rlim_cur == RLIM_INFINITY || stack.rlim_cur > STACK_LIMIT)) {
+            stack.rlim_cur = STACK_LIMIT;
+            setrlimit(RLIMIT_STACK, &stack);
+        }
         dup2(ready[1], STDOUT_FILENO);
         if (devnull >= 0)
             dup2(devnull, STDERR_FILENO);
