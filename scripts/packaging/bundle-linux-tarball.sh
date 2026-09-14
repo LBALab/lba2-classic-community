@@ -16,9 +16,15 @@
 #                           --version <version-string> \
 #                           --arch <x86_64|aarch64> \
 #                           --build-dir <cmake-build-dir> \
-#                           --output-dir <where-to-drop-the-tarball>
+#                           --output-dir <where-to-drop-the-tarball> \
+#                           [--split-symbols]
 #
 # Produces: <output-dir>/lba2cc-<version>-linux-<arch>.tar.gz
+#
+# --split-symbols moves the binary's debug info into
+# <output-dir>/lba2cc-<version>-linux-<arch>-symbols.tar.xz with
+# split-symbols.sh, for a build configured with -DLBA2_RELEASE_SYMBOLS=ON. The
+# build tree keeps its copy.
 #
 # Tarball layout:
 #   lba2cc-<version>-linux-<arch>/
@@ -34,6 +40,7 @@ VERSION=""
 ARCH=""
 BUILD_DIR=""
 OUTPUT_DIR=""
+SPLIT_SYMBOLS=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -42,6 +49,7 @@ while [[ $# -gt 0 ]]; do
         --arch) ARCH="$2"; shift 2 ;;
         --build-dir) BUILD_DIR="$2"; shift 2 ;;
         --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
+        --split-symbols) SPLIT_SYMBOLS=1; shift ;;
         -h|--help)
             sed -n '/^# Usage:/,/^set -e/p' "$0" | sed 's/^# \?//' | head -n -1
             exit 0
@@ -75,11 +83,16 @@ echo "[bundle-linux-tarball] arch:       $ARCH"
 echo "[bundle-linux-tarball] artifact:   $ARTIFACT_TGZ"
 
 # Fresh staging dir.
-rm -rf "$ARTIFACT_DIR" "$ARTIFACT_TGZ"
+rm -rf "$ARTIFACT_DIR" "$ARTIFACT_TGZ" "$OUTPUT_DIR/$ARTIFACT_NAME-symbols.tar.xz"
 mkdir -p "$ARTIFACT_DIR"
 
 # 1. Binary — preserve executable bit.
 install -m 0755 "$EXE_PATH" "$ARTIFACT_DIR/$EXE_NAME"
+if [[ "$SPLIT_SYMBOLS" == 1 ]]; then
+    bash "$REPO_ROOT/scripts/packaging/split-symbols.sh" \
+        --binary "$ARTIFACT_DIR/$EXE_NAME" \
+        --output "$OUTPUT_DIR/$ARTIFACT_NAME-symbols.tar.xz"
+fi
 
 # 2. README.txt — substitute LBA2_* values from the build's CMakeCache.
 #    LF line endings (Linux); no CRLF conversion.

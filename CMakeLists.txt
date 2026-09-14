@@ -81,6 +81,19 @@ option(LBA2_NATIVE_ARCH "Use -march=native for host-optimized build (not portabl
 # faster shared-link path.
 option(LBA2_LINK_STATIC "Static-link SDL3 and the GCC C++ runtime (release packaging)" OFF)
 
+# Release packaging: compile with debug info so scripts/packaging/split-symbols.sh
+# can move it into a symbol file published beside the release, which turns a crash
+# block's module+offset frames into file, line and inlined frames. -g does not
+# change the generated code, and the shipped binary is stripped of it again.
+option(LBA2_RELEASE_SYMBOLS "Compile with -g for split symbol files (release packaging)" OFF)
+if(LBA2_RELEASE_SYMBOLS AND NOT MSVC)
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-g>)
+    # With LTO the code is generated at the link, and MinGW GCC then writes the
+    # program's debug info only if the link has -g too; ELF targets carry it in
+    # from the objects, which is why only Windows needed this.
+    add_link_options(-g)
+endif()
+
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     include(CheckIPOSupported)
     check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)

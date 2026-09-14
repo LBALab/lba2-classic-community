@@ -111,7 +111,7 @@ echo "[build-linux-tarball] static:    LBA2_LINK_STATIC=ON"
 echo "[build-linux-tarball] build dir: $BUILD_DIR"
 echo "[build-linux-tarball] output:    $OUTPUT_DIR"
 
-cmake --preset "$PRESET" -DLBA2_LINK_STATIC=ON
+cmake --preset "$PRESET" -DLBA2_LINK_STATIC=ON -DLBA2_RELEASE_SYMBOLS=ON
 cmake --build --preset "$PRESET"
 
 # Resolve the executable name from the cache (follows any
@@ -135,4 +135,5 @@ bash "$REPO_ROOT/scripts/packaging/bundle-linux-tarball.sh" \
     --version "$VERSION" \
     --arch "$ARCH" \
     --build-dir "$BUILD_DIR" \
-    --output-dir "$OUTPUT_DIR"
+    --output-dir "$OUTPUT_DIR" \
+    --split-symbols

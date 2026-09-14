@@ -63,6 +63,7 @@ jobs:
           cmake --preset ${{ matrix.preset }} \
                 -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
                 -DLBA2_LINK_STATIC=ON \
+                -DLBA2_RELEASE_SYMBOLS=ON \
                 -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
@@ -78,10 +79,24 @@ jobs:
             --version "$VERSION" \
             --arch ${{ matrix.arch }} \
             --build-dir "$BUILD_DIR" \
-            --output-dir dist
+            --output-dir dist \
+            --split-symbols
 
       - name: Upload temporary artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact-prefix }}-${{ matrix.arch }}
-          path: dist
+          path: |
+            dist
+            !dist/*-symbols.tar.xz
+
+      # Its own artifact, so it outlives the rolling release, which replaces its
+      # assets on every push: scripts/dev/symbolize_crash.py --fetch finds it by the
+      # commit in a crash block. A tag release also attaches it to the release.
+      - name: Upload symbols
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-prefix }}-${{ matrix.arch }}-symbols
+          path: dist/*-symbols.tar.xz
+          if-no-files-found: error
+          retention-days: 90

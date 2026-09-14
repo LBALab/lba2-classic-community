@@ -10,10 +10,16 @@
 #                   --version <version-string> \
 #                   --arch <arm64|x86_64> \
 #                   --build-dir <cmake-build-dir> \
-#                   --output-dir <where-to-drop-the-dmg>
+#                   --output-dir <where-to-drop-the-dmg> \
+#                   [--split-symbols]
 #
 # Produces: <output-dir>/<exe-name>-<version>-macos-<arch>.dmg
 # (exe-name = LBA2_EXECUTABLE_NAME, kept space-free for sane filenames.)
+#
+# --split-symbols moves the binary's debug info into a dSYM in
+# <output-dir>/<exe-name>-<version>-macos-<arch>-symbols.tar.xz with
+# split-symbols.sh, for a build configured with -DLBA2_RELEASE_SYMBOLS=ON. The
+# build tree keeps its copy.
 #
 # DMG mounts as volume "<product-name> <version>" with the items at the
 # volume root (no wrapping directory — hdiutil's -srcfolder packs the
@@ -33,6 +39,7 @@ VERSION=""
 ARCH=""
 BUILD_DIR=""
 OUTPUT_DIR=""
+SPLIT_SYMBOLS=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -41,6 +48,7 @@ while [[ $# -gt 0 ]]; do
         --arch) ARCH="$2"; shift 2 ;;
         --build-dir) BUILD_DIR="$2"; shift 2 ;;
         --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
+        --split-symbols) SPLIT_SYMBOLS=1; shift ;;
         -h|--help)
             sed -n '/^# Usage:/,/^set -e/p' "$0" | sed 's/^# \?//' | head -n -1
             exit 0
@@ -87,13 +95,18 @@ echo "[bundle-macos] arch:       $ARCH"
 echo "[bundle-macos] artifact:   $ARTIFACT_DMG"
 
 # Fresh staging directory.
-rm -rf "$STAGING_DIR" "$ARTIFACT_DMG"
+rm -rf "$STAGING_DIR" "$ARTIFACT_DMG" "$OUTPUT_DIR/$ARTIFACT_NAME-symbols.tar.xz"
 mkdir -p "$STAGING_DIR"
 
 # 1. Copy .app — preserve symlinks, perms, code signatures, etc. Use cp -R
 #    since /usr/bin/cp on macOS preserves bundle metadata reliably (rsync
 #    can also work but cp -R is the established convention).
 cp -R "$APP_PATH" "$STAGING_DIR/$APP_NAME"
+if [[ "$SPLIT_SYMBOLS" == 1 ]]; then
+    bash "$REPO_ROOT/scripts/packaging/split-symbols.sh" \
+        --binary "$STAGING_DIR/$APP_NAME/Contents/MacOS/$EXE_NAME" \
+        --output "$OUTPUT_DIR/$ARTIFACT_NAME-symbols.tar.xz"
+fi
 
 # 2. Drag-to-install hint: a relative symlink to /Applications.
 ln -s /Applications "$STAGING_DIR/Applications"

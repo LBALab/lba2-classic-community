@@ -38,5 +38,6 @@ jobs:
         with:
           files: |
             lba2cc-*-android-*.apk
+            *-symbols.tar.xz
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true

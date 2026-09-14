@@ -394,6 +394,11 @@ if have tar; then
 else
     row gap "tar" "scripts/packaging/bundle-linux-tarball.sh"
 fi
+if have xz; then
+    row ok "xz" "symbol archives (--split-symbols)"
+else
+    row gap "xz" "every bundler's --split-symbols writes a .tar.xz"
+fi
 if have zip; then
     row ok "zip" "windows ZIP bundling"
 elif have python3; then
@@ -461,6 +466,17 @@ if have adb; then
     row ok "adb" "install and log on device"
 else
     row gap "adb" "on-device install only (docs/ANDROID.md)"
+fi
+
+# Crash reports: symbolize_crash.py also looks in Homebrew's keg-only llvm
+symbolizer=$(command -v llvm-symbolizer 2>/dev/null ||
+    ls /opt/homebrew/opt/llvm*/bin/llvm-symbolizer /usr/local/opt/llvm*/bin/llvm-symbolizer 2>/dev/null | tail -1)
+if [ -n "$symbolizer" ]; then
+    row ok "llvm-symbolizer" "crash block files and lines (symbolize_crash.py)"
+elif have atos || have addr2line; then
+    row gap "llvm-symbolizer" "symbolize_crash.py falls back to atos/addr2line, which can drop folders or lines"
+else
+    row gap "llvm-symbolizer" "symbolize_crash.py needs it, atos or addr2line (docs/CRASH_INVESTIGATION.md)"
 fi
 
 # Runtime, not build: the Linux game-data picker

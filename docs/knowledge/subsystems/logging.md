@@ -67,6 +67,15 @@ sources:
   - id: test-crash-report
     resource: ../../../tests/crash/test_crash_report.cpp
     title: test_crash_report, a child crashing each way, against a run without the handler
+  - id: split-symbols
+    resource: ../../../scripts/packaging/split-symbols.sh
+    title: split-symbols.sh, the release binary's debug info moved into a symbol archive
+  - id: symbolize-crash
+    resource: ../../../scripts/dev/symbolize_crash.py
+    title: symbolize_crash.py, a block's frames matched to symbol files by identity
+  - id: releasing
+    resource: ../../RELEASING.md
+    title: RELEASING.md, "Crash report symbols", where the archives are published
 ---
 
 The how-to for writing a log line, which severity to pick and what belongs in `Log_Debug`, is in AGENTS.md and stays there.[^agents] This concept holds the mechanism and what it guarantees. The contracts are read at `as_of`; the one measurement below was taken on a macOS Release build at that commit.
@@ -99,6 +108,7 @@ The how-to for writing a log line, which severity to pick and what belongs in `L
 | Install | `Crash_Install` runs in `main` right after `atexit(Log_Shutdown)`, with the log's path and the build's version and commit. It opens its own append descriptor on the log, caches the loaded modules, gives the main thread room to report a stack overflow, and installs the handler.[^perso-cpp] [^crash-h] |
 | The block | Lines starting `CRASH `, appended after the last line the file sink flushed: `==== fatal signal ====`, the `signal` or `exception` line, `build`, `reg`, the `state` lines, the engine's `module` line, the `frame` lines as module+offset, the other modules the frames used, `chain` naming how the crash was handed on, and `==== end ====`. A block cut short still names the signal, the build and the engine's identity. Leading words are stable and values are appended, as for the console.[^crash-cpp] |
 | Module identity | `LC_UUID` on macOS, the GNU build ID on Linux and Android, and the link timestamp with the image size on Windows. Frame 0 is the faulting pc and the others are return addresses, so a symbolizer looks those up one byte back. When frame 0 is in no module, as after a call through a null pointer, the next frame is the return address the call left. The symbol table names the functions; release binaries keep it.[^crash-cpp] [^crash-linux] [^crash-macos] [^crash-win] |
+| Symbols | Release builds compile with `-g` and move the debug info into a `-symbols.tar.xz` published beside each artifact. `symbolize_crash.py` matches a block's modules to its files by identity and prints each frame's function, file, line and inlined callers. On Windows the stripped image is smaller than the one its debug file describes, and the script derives the shipped size from the debug file's sections.[^split-symbols] [^symbolize-crash] [^releasing] |
 | Deep recursion | The first 32 frames and the last 16 are written, with a line counting the frames between. A walk stops when the stack stops climbing or after 2^20 frames, so the tail reaches the thread's start.[^crash-cpp] [^test-crash-report] |
 | State | `register_crash_state` adds the scene, the chapter, the behaviour, cinema mode, the fade flag, fps, the game clock and the hero's position, angles, life, body and animation, next to `atexit(TheEndInfo)`. They are read by address when the block is written, and no pointer is followed. A crash before that point writes the block without them.[^crash-state] [^crash-cpp] |
 | Handing the crash back | The process dies of the original signal or exception with the platform's report unchanged; see [the decision](/decisions/the-crash-report-hands-the-crash-back.md). One block per process: the first thread to crash writes it, a thread that crashes meanwhile waits for it, and once it is handed on every previous action is restored.[^crash-posix] [^test-crash-report] |
@@ -120,7 +130,7 @@ The how-to for writing a log line, which severity to pick and what belongs in `L
 # What it does not tell you
 
 - **That a crash before step 5 is recorded.** Arguments, `SDL_Init`, the Android permission wait and the user folder run before `Crash_Install`, and a crash there writes nothing.[^perso-cpp]
-- **That a block names functions.** Frames are offsets; naming them needs the matching build's symbols. A build with no symbol table, such as an AppImage before its packaging kept one, gives offsets only.[^crash-cpp]
+- **That a block names functions.** Frames are offsets; naming them needs the matching build's symbols. A build with no symbol table, such as an AppImage before its packaging kept one, gives offsets only. Files and lines need the build's symbol archive, and a rolling build's expires with its workflow artifacts after 90 days.[^crash-cpp] [^releasing]
 - **That every thread's stack overflow is reported.** A thread neither the engine nor its C library gave an alternate stack, SDL's and the system's own, reports nothing. Measured on macOS: with any handler installed, such an overflow dies of SIGILL instead of SIGBUS, because the kernel cannot build the signal frame; the crash report keeps the exception type and the frames.[^crash-posix]
 - **That macOS reports a sent signal the same way.** macOS synthesizes `si_code` for a signal another process sends, so the handler confirms a fault by its return instead. Measured: a signal that does not come back is raised again from a 200 ms `SIGALRM` timer, so its report shows the timer; one raised at once, abort's included, keeps its frames but leaves the report's termination record empty.[^crash-macos]
 - **That Windows reports a smashed stack the same way.** On a stack Windows' own handler search cannot walk, the process dies without the unhandled-exception filter. A vectored handler repeats the search's frame check, as far as the first frame with a handler of its own, and writes the block then. Read from the code, not measured: a frame rejected below such a handler, as a C++ frame with cleanups has, is left to the search and writes no block. Measured: the exit code and the Application Error event's code and module match a run without the handler, and the fault offset inside ntdll varied between runs once any handler was installed.[^crash-win]

@@ -100,7 +100,7 @@ if command -v brew >/dev/null 2>&1; then
     fi
 fi
 
-cmake --preset "$PRESET" -DLBA2_LINK_STATIC="$LINK_STATIC"
+cmake --preset "$PRESET" -DLBA2_LINK_STATIC="$LINK_STATIC" -DLBA2_RELEASE_SYMBOLS=ON
 cmake --build --preset "$PRESET"
 
 # Resolve executable / app names (follow LBA2_EXECUTABLE_NAME and
@@ -130,4 +130,5 @@ bash "$REPO_ROOT/scripts/packaging/bundle-macos.sh" \
     --version "$VERSION" \
     --arch "$ARCH" \
     --build-dir "$BUILD_DIR" \
-    --output-dir "$OUTPUT_DIR"
+    --output-dir "$OUTPUT_DIR" \
+    --split-symbols
