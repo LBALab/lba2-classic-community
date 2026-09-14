@@ -104,6 +104,14 @@ count() {
     "$@" 2>/dev/null | grep -c -- "$pattern" || true
 }
 
+# A PE image's TimeDateStamp, as a decimal: 4 bytes, 8 past the PE signature,
+# whose offset is at 0x3c. Little-endian, as every host that builds a release is.
+pe_stamp() {
+    local signature
+    signature=$(od -An -tu4 -j60 -N4 "$1" | tr -d ' ')
+    od -An -tu4 -j$((signature + 8)) -N4 "$1" | tr -d ' '
+}
+
 size_of() {
     du -sh "$1" | cut -f1
 }
@@ -133,17 +141,22 @@ for binary in "${BINARIES[@]}"; do
             tool=$(objcopy_tool)
             objdump=$(sibling "$tool" objdump)
             debug="$STAGE/$name.debug"
-            "$tool" --only-keep-debug "$binary" "$debug"
+            # A crash block names a PE image by its link timestamp and SizeOfImage.
+            # objcopy writes the time it runs into both outputs unless
+            # SOURCE_DATE_EPOCH says otherwise, so without this the shipped image
+            # and its debug file carry two different times, neither the link's.
+            stamp=$(pe_stamp "$binary")
+            SOURCE_DATE_EPOCH="$stamp" "$tool" --only-keep-debug "$binary" "$debug"
             [[ $(count "\.debug_info" "$objdump" -h "$debug") -gt 0 ]] \
                 || die "$binary has no debug info; build with -DLBA2_RELEASE_SYMBOLS=ON"
-            "$tool" --strip-debug --add-gnu-debuglink="$debug" "$binary"
-            # A crash block names a PE image by its link timestamp and SizeOfImage.
+            SOURCE_DATE_EPOCH="$stamp" "$tool" --strip-debug --add-gnu-debuglink="$debug" "$binary"
             # Stripping the mapped debug sections shrinks the size, which
             # symbolize_crash.py recovers from the debug file's sections, so only
-            # the timestamp can be compared here.
-            id_binary=$("$objdump" -p "$binary" | sed -n 's/^Time\/Date[[:space:]]*//p')
-            id_debug=$("$objdump" -p "$debug" | sed -n 's/^Time\/Date[[:space:]]*//p')
-            [[ -n "$id_binary" ]] || die "$binary has no link timestamp"
+            # the timestamp can be compared here, against the link's.
+            id_binary=$(pe_stamp "$binary")
+            id_debug=$(pe_stamp "$debug")
+            [[ "$id_binary" == "$stamp" ]] \
+                || die "$name: stripping changed the link timestamp ($stamp -> $id_binary)"
             ;;
         macho)
             debug="$STAGE/$name.dSYM"

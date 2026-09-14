@@ -891,7 +891,9 @@ there. On macOS the link keeps its LTO objects
 On Windows the split changes `SizeOfImage`, because a PE image maps its debug
 sections: stripped, the image is smaller than the one the debug file
 describes. `symbolize_crash.py` recovers the shipped size from the debug file's
-sections, so the match still holds.
+sections, so the match still holds. objcopy would also write the time it runs
+into both files' timestamp; `split-symbols.sh` pins it to the link's with
+`SOURCE_DATE_EPOCH`.
 
 ## Linux tarball release artifact (local dry-run)
 
