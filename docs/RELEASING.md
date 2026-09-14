@@ -850,34 +850,26 @@ their feet between two clicks).
 
 ## Crash report symbols
 
-A crash writes a `CRASH` block to `adeline.log` whose frames are
-`module+offset` and whose `module` lines carry each module's identity: the GNU
-build ID on Linux and Android, `LC_UUID` on macOS, and the link timestamp with
-the image size on Windows. The shipped binaries keep their symbol table, which
-names the functions. Files, lines and inlined frames need the symbol archive
-built alongside that exact binary:
+What each release build publishes so a player's crash report can be turned
+into functions, files and lines. Using it is in
+[CRASH_INVESTIGATION.md](CRASH_INVESTIGATION.md#starting-from-a-crash-report).
 
-```bash
-python3 scripts/dev/symbolize_crash.py adeline.prev.log --fetch
-```
+A crash block's `module` lines carry each module's identity: the GNU build ID
+on Linux and Android, `LC_UUID` on macOS, and the link timestamp with the image
+size on Windows. The shipped binaries keep their symbol table, which names the
+functions. Files, lines and inlined frames need the debug info of that exact
+build, so every leg keeps it:
 
-`--fetch` reads the block's `build` line and downloads with `gh`: the
-`*-symbols.tar.xz` assets of release `v<version>` for a tagged build, and the
-`*-symbols` artifacts of every workflow run on the build's commit, which covers
-the rolling release and `workflow_dispatch` runs. Downloads and unpacked
-archives are cached under `~/.cache/lba2cc/symbols`. `--symbols <file, folder or
-archive>` searches local files instead, for example a build tree.
+| Where | What | Kept |
+|---|---|---|
+| Tag release assets | `<exe>-<version>-<platform>-<arch>-symbols.tar.xz`, the AppImage's labelled `appimage` | with the release |
+| Workflow artifacts | `<artifact-prefix>-<arch>-symbols`, from every release build, the rolling one included | 90 days |
+| The rolling release | nothing: it deletes the previous build's assets on every push | |
 
-Files are matched by identity, never by name, so a frame is only named from the
-binary that crashed. What cannot be matched:
-
-- **A rolling build older than 90 days.** Its artifacts have expired, and the
-  rolling release itself never carried symbols.
-- **A build from a dirty tree or without git** (`-dirty` or `unknown` in the
-  `build` line): nothing was published for it. Point `--symbols` at its build
-  tree.
-- **System libraries** (`libc.so.6`, `dyld`, `ntdll.dll`): their frames are
-  left as offsets.
+An archive holds a `.debug` file per ELF or PE binary, or a dSYM for the macOS
+app; the Android one covers every library the APK ships. `--fetch` in
+`symbolize_crash.py` finds them by the version and commit in a block's `build`
+line, so the names above are a contract with that script.
 
 The debug info does not change the code, so a symbolized frame is the frame
 that ran: `-g` left `.text` and `.data` byte-identical on Apple clang with thin
@@ -907,9 +899,11 @@ issue?" triage.
 bash scripts/dev/build-linux-tarball.sh
 ```
 
-Configures the `linux` preset with `-DLBA2_LINK_STATIC=ON`, builds,
-and calls `scripts/packaging/bundle-linux-tarball.sh` to produce
-`dist/lba2cc-<version>-linux-<arch>.tar.gz`. Arch label comes from
+Configures the `linux` preset with `-DLBA2_LINK_STATIC=ON` and
+`-DLBA2_RELEASE_SYMBOLS=ON`, builds, and calls
+`scripts/packaging/bundle-linux-tarball.sh --split-symbols` to produce
+`dist/lba2cc-<version>-linux-<arch>.tar.gz` and its
+[symbol archive](#crash-report-symbols) beside it. Arch label comes from
 `uname -m`, so x86_64 hosts produce `x86_64` artifacts and aarch64 hosts
 produce `aarch64`.
 
@@ -962,8 +956,11 @@ bash scripts/dev/build-macos-release.sh
 ```
 
 Auto-detects host arch and picks the matching CMake preset (`macos_arm64`
-or `macos_x86_64`), configures with `-DLBA2_LINK_STATIC=ON`, builds, and
-calls `scripts/packaging/bundle-macos.sh` to produce `dist/lba2cc-<version>-macos-<arch>.dmg`.
+or `macos_x86_64`), configures with `-DLBA2_LINK_STATIC=ON` and
+`-DLBA2_RELEASE_SYMBOLS=ON`, builds, and calls
+`scripts/packaging/bundle-macos.sh --split-symbols` to produce
+`dist/lba2cc-<version>-macos-<arch>.dmg` and its
+[symbol archive](#crash-report-symbols).
 Override the auto-detection with `--preset macos_x86_64` if you want to
 build x86_64 on Apple Silicon (Rosetta-friendly Xcode required).
 
@@ -1010,7 +1007,7 @@ The script auto-detects the build environment:
 
 Override the preset explicitly with `--preset windows_ucrt64`, `--preset windows_mingw64`, etc. if you want to test a specific configuration regardless of host environment.
 
-Both paths invoke the same `scripts/packaging/bundle-windows.sh`, so the ZIP layout cannot drift between local dry-run and CI. The CI release workflow (B2, separate PR) calls the same script.
+Both paths configure with `-DLBA2_RELEASE_SYMBOLS=ON` and invoke the same `scripts/packaging/bundle-windows.sh --split-symbols`, so the ZIP layout and its [symbol archive](#crash-report-symbols) cannot drift between local dry-run and CI. The cross path splits with `i686-w64-mingw32-objcopy`, since a Linux host's own objcopy may not read PE. The CI release workflow (B2, separate PR) calls the same script.
 
 Prerequisites:
 

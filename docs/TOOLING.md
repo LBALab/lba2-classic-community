@@ -180,6 +180,8 @@ Maintainer lane; see [RELEASING.md](RELEASING.md).
 | `gh` (authenticated) | release upload and edit, [verify-release.sh](../scripts/dev/verify-release.sh) | — | [cli.github.com](https://cli.github.com) |
 | `git-cliff` | `git cliff --prepend` for CHANGELOG; not needed for a first release | — | `cargo install git-cliff` or a release binary |
 | `tar` | Linux tarball bundling, artifact verification | — | distro package |
+| `xz` | every bundler's `--split-symbols`, which writes a `.tar.xz` ([split-symbols.sh](../scripts/packaging/split-symbols.sh)) | — | distro package, `pacman -S xz` under MSYS2 |
+| `objcopy` and `readelf` or `objdump` | `--split-symbols` on Linux, Android and Windows: the NDK's `llvm-objcopy`, binutils elsewhere | — | binutils; MSYS2's comes with its gcc |
 
 ### Platform artifacts
 
@@ -191,11 +193,23 @@ One bundler per platform, each with its own host requirement.
 | mingw-w64 | the `cross_linux2win` preset and [cmake/mingw-w64-i686.cmake](../cmake/mingw-w64-i686.cmake); Unix hosts only, so the probe skips it on Windows | — | `apt install mingw-w64`, `pacman -S mingw-w64-gcc` |
 | MSYS2 UCRT64 | native Windows builds — the recommended local path, bit-for-bit CI's toolchain. Probed via `MSYSTEM`, see the tier 1 note | — | [WINDOWS.md](WINDOWS.md) |
 | `hdiutil`, `xcrun` | DMG creation; [bundle-macos.sh](../scripts/packaging/bundle-macos.sh#L64) hard-requires a macOS host | — | Xcode command-line tools |
+| `dsymutil`, `dwarfdump`, `strip`, `codesign` | `--split-symbols` on macOS: the dSYM, its check, and signing the stripped app again | — | Xcode command-line tools |
 
 The AppImage is the exception: [make-appimage.sh](../scripts/packaging/make-appimage.sh)
 calls `pacman`, `get-debloated-pkgs`, and `quick-sharun`, and runs inside the
 `ghcr.io/pkgforge-dev/archlinux` container in CI. It has no local dry-run on a
 non-Arch host, unlike the other three bundlers.
+
+### Crash reports
+
+Turning a player's `CRASH` block into functions and lines with
+[symbolize_crash.py](../scripts/dev/symbolize_crash.py); see
+[CRASH_INVESTIGATION.md](CRASH_INVESTIGATION.md#starting-from-a-crash-report).
+
+| Tool | Needed for | Version owner | Install |
+|------|-----------|---------------|---------|
+| `llvm-symbolizer` | files, lines and inlined frames on every platform. Without it the script uses `atos` on macOS, which drops folders, or `addr2line`, which can miss lines in an LTO build | — | `brew install llvm` (keg-only is fine), `apt install llvm`, or the Android NDK's |
+| `gh` (authenticated) | `--fetch`, which downloads the build's symbol archive from the release or its workflow runs | — | [cli.github.com](https://cli.github.com) |
 
 ### Android
 
