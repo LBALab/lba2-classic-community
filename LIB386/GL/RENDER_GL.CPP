@@ -3398,6 +3398,35 @@ void GL_SavePresentPNG(const char *path) {
 
     SavePNGRGB(path, rgb, (S32)scrW, (S32)scrH);
 
+    /* Throwaway diag: 16x9 grid of mean cell luminance + FBO/state summary. */
+    {
+        char grid[16 * 9 + 1];
+        static const char *ramp = " .:-=+*#%@";
+        for (S32 gy = 0; gy < 9; gy++) {
+            for (S32 gx = 0; gx < 16; gx++) {
+                U32 x0 = (U32)scrW * gx / 16, x1 = (U32)scrW * (gx + 1) / 16;
+                U32 y0 = (U32)scrH * gy / 9, y1 = (U32)scrH * (gy + 1) / 9;
+                U64 sum = 0;
+                for (U32 y = y0; y < y1; y += 4)
+                    for (U32 x = x0; x < x1; x += 4) {
+                        U32 c = comp[y * scrW + x];
+                        sum += ((c >> 16) & 0xFF) + ((c >> 8) & 0xFF) + (c & 0xFF);
+                    }
+                U32 n = ((y1 - y0 + 3) / 4) * ((x1 - x0 + 3) / 4);
+                U32 mean = (U32)(sum / (n ? n : 1) / 3);
+                grid[gy * 16 + gx] = ramp[mean * 9 / 256];
+            }
+        }
+        grid[16 * 9] = 0;
+        Log_Info("[SHOT] q=%u aa=%d fbo=%ux%u scr=%ux%u\n"
+                 "TOP|%.16s|\n"
+                 "MID|%.16s|\n"
+                 "MID|%.16s|\n"
+                 "BOT|%.16s|",
+                 s_renderQuality, s_antiAlias, fboW, fboH, scrW, scrH,
+                 grid, grid + 64, grid + 80, grid + 128);
+    }
+
     free(fboBuf);
     free(comp);
     free(rgb);

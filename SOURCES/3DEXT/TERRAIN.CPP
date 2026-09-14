@@ -673,6 +673,10 @@ static S32 s_nearClipRX[65 * 65];
 static S32 s_nearClipRY[65 * 65];
 static S32 s_nearClipRZ[65 * 65];
 
+/* Throwaway diag: per-frame terrain tile classification counters */
+S32 DBG_case16, DBG_case32, DBG_curtain, DBG_nctiles, DBG_nctri,
+    DBG_ncproj, DBG_ncback;
+
 /* One clipped vertex: camera-space position plus the per-vertex attributes
    the ground fillers consume (light, atlas UV). */
 typedef struct {
@@ -680,6 +684,67 @@ typedef struct {
     S32 light;
     S32 u, v;
 } T_NEARCLIP_VERT;
+
+/* Side-plane clip: projected X/Y of a surviving vertex must stay within a
+   margin of the screen.  A tile clipped by the near plane alone can keep
+   corners tens of thousands of pixels off to one side (camera-space lateral
+   distance of the whole terrain grid, depth near the clip plane); at grazing
+   or near-level camera pitches those corners project into full-screen
+   textured wedges that smear the frame. */
+#define NC_SCREEN_MARGIN 256
+#define NC_MAX_OUT 10
+static S32 s_ncKx16; /* |Xp - XCentre| <= zr * Kx (16.16 of LFactorX) */
+static S32 s_ncKy16;
+
+static S32 NC_PlaneDist(const T_NEARCLIP_VERT *p, S32 plane) {
+    S32 dx = p->rx - CameraXr;
+    S32 dy = p->ry - CameraYr;
+    S32 zr = CameraZr - p->rz;
+    S32 bx = (S32)(((S64)s_ncKx16 * zr) >> 16);
+    S32 by = (S32)(((S64)s_ncKy16 * zr) >> 16);
+    switch (plane) {
+    case 0:
+        return dx + bx; /* left:  dx >= -Kx*zr */
+    case 1:
+        return bx - dx; /* right: dx <= +Kx*zr */
+    case 2:
+        return dy + by; /* bottom */
+    default:
+        return by - dy; /* top */
+    }
+}
+
+/* Sutherland-Hodgman pass of out[] against frustum side plane `plane`. */
+static S32 NC_ClipPass(T_NEARCLIP_VERT *out, S32 nOut, S32 plane) {
+    T_NEARCLIP_VERT tmp[NC_MAX_OUT];
+    S32 n = 0;
+    S32 e;
+
+    for (e = 0; e < nOut; e++) {
+        const T_NEARCLIP_VERT *P = &out[e];
+        const T_NEARCLIP_VERT *Q = &out[(e + 1) % nOut];
+        S32 fP = NC_PlaneDist(P, plane);
+        S32 fQ = NC_PlaneDist(Q, plane);
+        S32 inP = (fP >= 0);
+        S32 inQ = (fQ >= 0);
+
+        if (inP && n < NC_MAX_OUT) {
+            tmp[n++] = *P;
+        }
+        if (inP != inQ && n < NC_MAX_OUT) {
+            T_NEARCLIP_VERT *m = &tmp[n++];
+            S32 t16 = (S32)(((S64)fP << 16) / (fP - fQ));
+            m->rx = P->rx + (S32)(((S64)(Q->rx - P->rx) * t16) >> 16);
+            m->ry = P->ry + (S32)(((S64)(Q->ry - P->ry) * t16) >> 16);
+            m->rz = P->rz + (S32)(((S64)(Q->rz - P->rz) * t16) >> 16);
+            m->light = P->light + (((Q->light - P->light) * t16) >> 16);
+            m->u = P->u + (((Q->u - P->u) * t16) >> 16);
+            m->v = P->v + (((Q->v - P->v) * t16) >> 16);
+        }
+    }
+    memcpy(out, tmp, (size_t)n * sizeof(T_NEARCLIP_VERT));
+    return n;
+}
 
 /* Clip one ground half-triangle against the camera near plane (keep
    CameraZr - rz >= NearClip) and draw the surviving part, replicating the
@@ -691,7 +756,7 @@ typedef struct {
    of punching black holes into the view. */
 static void FillNearClippedHalf(T_NEARCLIP_VERT *tri, U32 bank, U32 texFlag,
                                 U32 polyFlag) {
-    T_NEARCLIP_VERT out[5];
+    T_NEARCLIP_VERT out[NC_MAX_OUT];
     S32 nOut = 0;
     S32 e;
 
@@ -703,10 +768,10 @@ static void FillNearClippedHalf(T_NEARCLIP_VERT *tri, U32 bank, U32 texFlag,
         S32 inP = (zrP >= NearClip);
         S32 inQ = (zrQ >= NearClip);
 
-        if (inP && nOut < 5) {
+        if (inP && nOut < NC_MAX_OUT) {
             out[nOut++] = *P;
         }
-        if (inP != inQ && nOut < 5) {
+        if (inP != inQ && nOut < NC_MAX_OUT) {
             T_NEARCLIP_VERT *m = &out[nOut++];
             S32 t16 = (S32)(((S64)(zrP - NearClip) << 16) / (zrP - zrQ));
             m->rx = P->rx + (S32)(((S64)(Q->rx - P->rx) * t16) >> 16);
@@ -722,6 +787,10 @@ static void FillNearClippedHalf(T_NEARCLIP_VERT *tri, U32 bank, U32 texFlag,
             m->u = P->u + (((Q->u - P->u) * t16) >> 16);
             m->v = P->v + (((Q->v - P->v) * t16) >> 16);
         }
+    }
+
+    for (e = 0; e < 4 && nOut > 0; e++) {
+        nOut = NC_ClipPass(out, nOut, e);
     }
 
     for (e = 1; e + 1 < nOut; e++) {
@@ -748,8 +817,13 @@ static void FillNearClippedHalf(T_NEARCLIP_VERT *tri, U32 bank, U32 texFlag,
             lightSum += t[k]->light;
         }
         if (!ok || !TestVuePoly(pts)) {
+            if (!ok)
+                DBG_ncproj++;
+            else
+                DBG_ncback++;
             continue;
         }
+        DBG_nctri++;
 
         S32 fog = (S32)(PalLevel + 16 * BoundRegleTrois(0, 15,
                                                        ClipZFar - StartZFog,
@@ -794,6 +868,13 @@ static void DrawNearClippedTileZBuf(S32 xi, S32 zi, T_SOMMET_ROT *ptrs, U8 *ptra
     T_NEARCLIP_VERT corn[4];
     S32 base = zi * 65 + xi;
     S32 k;
+
+    /* Projection: |Xp - XCentre| = |dx| * LFactorX / zr, so bounding the
+       projected offset to the screen + margin bounds |dx| to zr * K. */
+    s_ncKx16 = (S32)(((S64)((ModeDesiredX / 2 + NC_SCREEN_MARGIN) << 16)
+                      / LFactorX));
+    s_ncKy16 = (S32)(((S64)((ModeDesiredY / 2 + NC_SCREEN_MARGIN) << 16)
+                      / LFactorY));
 
     (void)ptrs;
     (void)ptra;
@@ -1104,8 +1185,10 @@ void AffichageTerrainZBuf(void) {
 
                 switch (mask & 0xFF) {
                 case 32:
+                    DBG_case32++;
                     break;
                 case 16: {
+                    DBG_case16++;
                     /* Same fog level computation as DrawFeuillePolyZBuf */
                     S32 fogLevel = BoundRegleTrois(0, 15,
                                                    ClipZFar - StartZFog,
@@ -1129,8 +1212,10 @@ void AffichageTerrainZBuf(void) {
                         if (GPURendererActive && (mask & 0x2000)) {
                             /* Some corner crosses the near plane: draw the
                              * clipped remainder instead of black curtains. */
+                            DBG_nctiles++;
                             DrawNearClippedTileZBuf(x, z, ptrs, ptra);
                         } else {
+                            DBG_curtain++;
                             FillBlackPolyZBuf(x, z, ptrs, ptra);
                         }
 #else
@@ -1160,6 +1245,20 @@ void AffichageTerrainZBuf(void) {
             S32 idx = s_tiles[i].idx;
             DrawFeuillePolyZBuf(idx % (NB_COTE + 1), idx / (NB_COTE + 1),
                                 &SommetRot[0][0] + idx);
+        }
+
+        {
+            static S32 s_dbgLog = 0;
+            if (s_dbgLog < 200) {
+                Log_Info("TCASE a=%d b=%d c16=%d c32=%d curt=%d nct=%d "
+                         "tri=%d pj=%d bf=%d clip=%d",
+                         AlphaCam, BetaCam, DBG_case16, DBG_case32,
+                         DBG_curtain, DBG_nctiles, DBG_nctri, DBG_ncproj,
+                         DBG_ncback, NearClip);
+                DBG_case16 = DBG_case32 = DBG_curtain = 0;
+                DBG_nctiles = DBG_nctri = DBG_ncproj = DBG_ncback = 0;
+                s_dbgLog++;
+            }
         }
 
         {
