@@ -39,7 +39,7 @@ U8 *BufSpeak;
 //U8	*BufTempo ;
 
 U8 *LbaFont;
-U8 PalettePcx[768 + 500];
+U8 PalettePcx[768 + RECOVER_AREA]; // Load_HQR of a compressed palette writes up to 768 + RECOVER_AREA
 S32 MyKey = 0;
 // LastInputWasKeyboard is defined in LIB386/SYSTEM/KEYBOARD.CPP so libsys.a
 // carries the symbol (test binaries link only LIB386 archives, not the

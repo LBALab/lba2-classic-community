@@ -80,7 +80,7 @@ def destinations(game_dir):
         ("AMBIANCE.CPP ChoicePalette", "PtrXplPalette", "RESS.HQR", lambda t: list(range(27, 38)) + [42], 131884 + RECOVER_AREA),
         ("HOLOGLOB.CPP InitHoloMap", "TabArrow", "HOLOMAP.HQR", lambda t: [12], 305 * 32),
         ("GRILLE.CPP InitBufferCube", "&BkgHeader", "LBA_BKG.HQR", lambda t: [0], 28),
-        ("GAMEMENU.CPP AdelineLogo, ShowLogo, EffectPcx", "PalettePcx", "SCREEN.HQR", odd, 768 + 500),
+        ("GAMEMENU.CPP AdelineLogo, ShowLogo, EffectPcx", "PalettePcx", "SCREEN.HQR", odd, 768 + RECOVER_AREA),
         ("GAMEMENU.CPP SlideShow", "pal", "SCRSHOT.HQR", odd, 768 + RECOVER_AREA),
         ("HOLOPLAN.CPP InitHoloPlan", "buffer", "HOLOMAP.HQR", lambda t: list(range(19, 46, 2)), 36 + RECOVER_AREA),
     ]
