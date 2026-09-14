@@ -40,5 +40,6 @@ jobs:
         with:
           files: |
             lba2cc-*-linux-*.tar.gz
+            *-symbols.tar.xz
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true

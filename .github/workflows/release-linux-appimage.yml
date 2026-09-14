@@ -45,5 +45,6 @@ jobs:
           files: |
             *.AppImage
             *.zsync
+            *-symbols.tar.xz
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true

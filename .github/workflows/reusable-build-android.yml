@@ -201,6 +201,7 @@ jobs:
           cmake --preset ${{ matrix.preset }} \
                 -DSOUND_BACKEND=sdl \
                 -DMVIDEO_BACKEND=smacker \
+                -DLBA2_RELEASE_SYMBOLS=ON \
                 -DCMAKE_BUILD_TYPE=Release \
                 2>&1
 
@@ -264,6 +265,7 @@ jobs:
             --sdl3-lib "$SDL3_LIB" \
             --cxx-shared-lib "$CXX_SHARED_LIB" \
             --output-dir dist \
+            --split-symbols \
             "${EXPECT[@]}"
 
       # Reads the packaged APK, so it goes with the packaging. The alignment it
@@ -281,4 +283,18 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact-prefix }}-${{ matrix.arch }}
-          path: dist
+          path: |
+            dist
+            !dist/*-symbols.tar.xz
+
+      # Its own artifact, so it outlives the rolling release, which replaces its
+      # assets on every push: scripts/dev/symbolize_crash.py --fetch finds it by the
+      # commit in a crash block. A tag release also attaches it to the release.
+      - name: Upload symbols
+        if: ${{ inputs.bundle }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-prefix }}-${{ matrix.arch }}-symbols
+          path: dist/*-symbols.tar.xz
+          if-no-files-found: error
+          retention-days: 90
