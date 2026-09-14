@@ -14,7 +14,7 @@
  * tables below own or the state fields were registered with. */
 
 /* The backend that catches crashes here. Elsewhere Crash_Install does nothing. */
-#if defined(__APPLE__)
+#if defined(__APPLE__) || (defined(__linux__) && !defined(__ANDROID__))
 #define CRASH_BACKEND_POSIX 1
 #endif
 

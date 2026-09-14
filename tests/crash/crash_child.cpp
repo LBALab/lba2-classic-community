@@ -74,10 +74,14 @@ __attribute__((noinline)) static void trig_raise_fpe(void) {
     g_sink++;
 }
 
+/* Deeper than any stack; a bound the compiler cannot see keeps it from calling
+   the recursion infinite. */
+static volatile int g_depthLimit = 1 << 30;
+
 __attribute__((noinline)) static int recurse(int depth) {
     volatile char pad[4096];
     pad[0] = (char)depth;
-    int result = recurse(depth + 1);
+    int result = depth < g_depthLimit ? recurse(depth + 1) : 0;
     g_sink++;
     return result + pad[0];
 }

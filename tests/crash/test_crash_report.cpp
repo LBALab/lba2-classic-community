@@ -221,8 +221,13 @@ static void test_segv(void) {
 static void test_bus(void) {
     check_kind("bus", SIGBUS, "SIGBUS", 0, 1);
 }
+/* __builtin_trap is ud2 on x86 and brk on arm64. */
 static void test_trap(void) {
+#if defined(__x86_64__) || defined(__i386__)
+    check_kind("trap", SIGILL, "SIGILL", 0, 1);
+#else
     check_kind("trap", SIGTRAP, "SIGTRAP", 0, 1);
+#endif
 }
 static void test_abort(void) {
     check_kind("abort", SIGABRT, "SIGABRT", 0, 0);
