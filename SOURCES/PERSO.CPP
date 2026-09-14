@@ -27,6 +27,7 @@ extern S32 GfxDitherShading;
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H> /* CreateLog (boot log brought up in main) */
 #include <SYSTEM/CRASH.H>    /* Crash_Install, right after the log */
+#include "CRASH_STATE.H"
 #include "ASSET_PREFLIGHT.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
@@ -2478,6 +2479,7 @@ int main(int argc, char *argv[]) {
     SetPresentTimingCallbacks(Perftrace_PresentBegin, Perftrace_PresentEnd);
 
     atexit(TheEndInfo);
+    CrashState_Register();
 
     BootExit_NoteContext(""); /* past the cfg: a later failure names itself */
 
