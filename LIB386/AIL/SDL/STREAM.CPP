@@ -7,6 +7,7 @@
 #include <AIL/STREAM_PARK.H> /* pure park/resume/focus decision logic (host-tested) */
 #include <SYSTEM/CDDA.H>
 #include <SYSTEM/CDTRACKS.H>
+#include <SYSTEM/CRASH.H>
 #include <SYSTEM/CUE.H>
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/FILES.H> /* ESeekOrigin */
@@ -99,6 +100,8 @@ typedef struct {
 static int SDLCALL DecodeThreadFunc(void *userdata) {
     DecodeThreadData *d = (DecodeThreadData *)userdata;
     short buf[DECODE_CHUNK_SHORTS];
+
+    Crash_PrepareThread();
 
     int totalShorts = 0;
     int capacity = 0;

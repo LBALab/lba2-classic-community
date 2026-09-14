@@ -249,6 +249,22 @@ static void test_smashed_frame_record(void) {
 static void test_thread_segv(void) {
     check_kind("thread-segv", SIGSEGV, "SIGSEGV", 0, 1);
 }
+/* A thread that asked for its own alternate stack reports its overflow. A
+   secondary thread's guard page raises SIGBUS on macOS. */
+static void test_thread_stack_overflow(void) {
+#if defined(__APPLE__)
+    check_kind("thread-stack", SIGBUS, "SIGBUS", 0, 3);
+#else
+    check_kind("thread-stack", SIGSEGV, "SIGSEGV", 0, 3);
+#endif
+}
+/* The alternate stack a thread asked for is unmapped when it exits. */
+static void test_thread_stack_released(void) {
+    Outcome outcome = run_child("thread-release", false, 0);
+    ASSERT_TRUE(outcome.ran);
+    ASSERT_TRUE(WIFEXITED(outcome.status));
+    ASSERT_EQ_INT(0, WEXITSTATUS(outcome.status));
+}
 /* A signal from another process, to a thread waiting in the kernel and to one
    running user code. */
 static void test_sent_segv_waiting(void) {
@@ -283,6 +299,8 @@ int main(int argc, char *argv[]) {
     RUN_TEST(test_stack_overflow);
     RUN_TEST(test_smashed_frame_record);
     RUN_TEST(test_thread_segv);
+    RUN_TEST(test_thread_stack_overflow);
+    RUN_TEST(test_thread_stack_released);
     RUN_TEST(test_sent_segv_waiting);
     RUN_TEST(test_sent_segv_busy);
     RUN_TEST(test_sent_abrt_busy);

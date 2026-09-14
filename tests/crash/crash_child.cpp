@@ -12,6 +12,7 @@
  * lands in it. A kind that dies inside the C library writes no such line. */
 #include <SYSTEM/CRASH.H>
 
+#include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
@@ -79,7 +80,7 @@ __attribute__((noinline)) static void trig_raise_fpe(void) {
 static volatile int g_depthLimit = 1 << 30;
 
 __attribute__((noinline)) static int recurse(int depth) {
-    volatile char pad[4096];
+    volatile char pad[256];
     pad[0] = (char)depth;
     int result = depth < g_depthLimit ? recurse(depth + 1) : 0;
     g_sink++;
@@ -116,6 +117,43 @@ __attribute__((noinline)) static void trig_thread_segv(void) {
     pthread_join(thread, NULL);
 }
 
+/* A stack overflow on a thread the engine starts, which has no alternate stack of
+   its own unless it asks for one. */
+static void *thread_overflow(void *unused) {
+    (void)unused;
+    Crash_PrepareThread();
+    g_sink += recurse(0);
+    return NULL;
+}
+
+__attribute__((noinline)) static void trig_thread_stack(void) {
+    pthread_t thread;
+    pthread_attr_t attributes;
+    pthread_attr_init(&attributes);
+    pthread_attr_setstacksize(&attributes, 512 * 1024);
+    pthread_create(&thread, &attributes, thread_overflow, NULL);
+    pthread_join(thread, NULL);
+}
+
+/* Not a crash: a thread's alternate stack must be unmapped when the thread exits,
+   or every music track would leak one. Exits 0 when it was, 3 when not. */
+static void *thread_report_stack(void *out) {
+    stack_t current;
+    Crash_PrepareThread();
+    if (sigaltstack(NULL, &current) == 0 && !(current.ss_flags & SS_DISABLE))
+        *(void **)out = current.ss_sp;
+    return NULL;
+}
+
+__attribute__((noinline)) static void trig_thread_release(void) {
+    pthread_t thread;
+    void *stack = NULL;
+    pthread_create(&thread, NULL, thread_report_stack, &stack);
+    pthread_join(thread, NULL);
+    /* msync fails with ENOMEM on an address that is no longer mapped. */
+    exit(stack && msync(stack, 4096, MS_ASYNC) != 0 && errno == ENOMEM ? 0 : 3);
+}
+
 /* Waits to be killed from outside, in a system call. */
 __attribute__((noinline)) static void trig_wait(void) {
     for (;;)
@@ -147,6 +185,8 @@ static const Trigger k_triggers[] = {
     {"stack", trig_stack, FN(recurse)},
     {"smash-frame", trig_smash_frame_outer, FN(trig_smash_frame)},
     {"thread-segv", trig_thread_segv, FN(trig_segv)},
+    {"thread-stack", trig_thread_stack, FN(recurse)},
+    {"thread-release", trig_thread_release, 0},
     {"wait", trig_wait, 0},
     {"busy", trig_busy, 0},
 };

@@ -33,6 +33,9 @@ void Crash_Install(const char *logPath, const char *version, const char *commit)
     (void)version;
     (void)commit;
 }
+
+void Crash_PrepareThread(void) {
+}
 #endif
 
 //----------------------------------------------------------------------------

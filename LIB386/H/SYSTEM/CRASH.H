@@ -23,6 +23,14 @@ extern "C" {
  * log exists. A crash before this writes nothing. */
 void Crash_Install(const char *logPath, const char *version, const char *commit);
 
+/* Gives the calling thread an alternate signal stack, so a stack overflow on it
+ * still writes a block: a handler cannot run on a stack that has no room left. Call
+ * at the top of a thread the engine runs code on, or on each entry to a callback
+ * a library thread runs; after the first call on a thread it costs a thread-local
+ * read. The stack is freed when the thread exits, and a thread that already has
+ * one, from a sanitizer or the C library, keeps it. */
+void Crash_PrepareThread(void);
+
 /* Adds one field to the block's state lines: size bytes (1, 2, 4 or 8) read at
  * address when the block is written, printed as name=value. Fields added one after
  * another under the same name print as one, name=a,b,c. The handler reads the

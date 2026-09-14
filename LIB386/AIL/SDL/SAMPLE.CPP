@@ -3,6 +3,7 @@
 #include "VOC_HEADER.H"
 
 #include <SDL3/SDL.h>
+#include <SYSTEM/CRASH.H>
 
 #include <math.h>
 #include <stdlib.h>
@@ -358,6 +359,8 @@ static void SDLCALL SampleStreamCallback(void *userdata, SDL_AudioStream *stream
                                          int additional_amount, int total_amount) {
     (void)userdata;
     (void)total_amount;
+    /* SDL's audio thread has no alternate signal stack of its own. */
+    Crash_PrepareThread();
     if (samplesPaused || additional_amount <= 0)
         return;
     int bytesLeft = additional_amount;

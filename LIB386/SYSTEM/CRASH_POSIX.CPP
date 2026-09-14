@@ -178,15 +178,37 @@ static void crash_handler(int sig, siginfo_t *info, void *context) {
 }
 
 //----------------------------------------------------------------------------
-/* Gives the calling thread an alternate signal stack unless it has one, so a
-   stack overflow can still run the handler. An existing one, a sanitizer's or
-   bionic's, is kept. */
-static void ensure_alt_stack(void) {
+/* A thread's own alternate stack, freed when the thread exits. The key's value is
+   the mapping, or KEPT_STACK where the thread already had one. */
+static pthread_key_t s_stackKey;
+static int s_stackKeyReady = 0;
+static char s_keptStack;
+#define KEPT_STACK ((void *)&s_keptStack)
+
+static void release_alt_stack(void *memory) {
+    stack_t current;
+    stack_t off;
+    if (memory == KEPT_STACK)
+        return;
+    if (sigaltstack(NULL, &current) == 0 && current.ss_sp == (char *)memory + ALT_STACK_GUARD) {
+        memset(&off, 0, sizeof(off));
+        off.ss_flags = SS_DISABLE;
+        sigaltstack(&off, NULL);
+    }
+    munmap(memory, ALT_STACK_GUARD + ALT_STACK_SIZE);
+}
+
+void Crash_PrepareThread(void) {
     stack_t current;
     stack_t stack;
     void *memory;
-    if (sigaltstack(NULL, &current) != 0 || !(current.ss_flags & SS_DISABLE))
+
+    if (!s_stackKeyReady || pthread_getspecific(s_stackKey))
         return;
+    if (sigaltstack(NULL, &current) != 0 || !(current.ss_flags & SS_DISABLE)) {
+        pthread_setspecific(s_stackKey, KEPT_STACK);
+        return;
+    }
     memory = mmap(NULL, ALT_STACK_GUARD + ALT_STACK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
     if (memory == MAP_FAILED)
         return;
@@ -194,8 +216,11 @@ static void ensure_alt_stack(void) {
     stack.ss_sp = (char *)memory + ALT_STACK_GUARD;
     stack.ss_size = ALT_STACK_SIZE;
     stack.ss_flags = 0;
-    if (sigaltstack(&stack, NULL) != 0)
+    if (sigaltstack(&stack, NULL) != 0) {
         munmap(memory, ALT_STACK_GUARD + ALT_STACK_SIZE);
+        return;
+    }
+    pthread_setspecific(s_stackKey, memory);
 }
 
 void Crash_Install(const char *logPath, const char *version, const char *commit) {
@@ -212,7 +237,8 @@ void Crash_Install(const char *logPath, const char *version, const char *commit)
         s_logFd = open(logPath, O_WRONLY | O_APPEND | O_CLOEXEC);
 
     CrashOs_Prepare();
-    ensure_alt_stack();
+    s_stackKeyReady = pthread_key_create(&s_stackKey, release_alt_stack) == 0;
+    Crash_PrepareThread();
 
     memset(&action, 0, sizeof(action));
     action.sa_sigaction = crash_handler;
