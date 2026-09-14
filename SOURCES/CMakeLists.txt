@@ -110,6 +110,14 @@ if(APPLE)
                 $<TARGET_BUNDLE_DIR:${LBA2_EXECUTABLE_NAME}>
         COMMENT "Ad-hoc codesigning ${LBA2_PRODUCT_NAME}.app"
         VERBATIM)
+
+    # A Mach-O binary carries no DWARF: dsymutil collects it from the object files
+    # the link read. With LTO those are temporaries the linker deletes, and the dSYM
+    # comes out empty unless the linker is told to keep them.
+    if(LBA2_RELEASE_SYMBOLS)
+        target_link_options(${LBA2_EXECUTABLE_NAME} PRIVATE
+            "-Wl,-object_path_lto,${CMAKE_CURRENT_BINARY_DIR}/${LBA2_EXECUTABLE_NAME}-lto")
+    endif()
 endif()
 # GCC LTO mis-infers T_PLASMA::data_start size when ptrc writes into Malloc tail (see ANIMTEX.CPP plasma case).
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
