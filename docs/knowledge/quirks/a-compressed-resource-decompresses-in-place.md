@@ -6,7 +6,7 @@ status: draft
 scope: "every Load_HQR into caller memory; compressed entries only, CompressMethod 1 or 2"
 equivalence: untested
 asm_origin: "LIB386/SYSTEM/HQFILE.CPP:HQF_LoadClose"
-as_of: c87c73eb
+as_of: dc38d6bc
 generated: { by: claude-code/claude-opus-5, at: 2026-09-14T14:00:00Z }
 owner: /subsystems/memory.md
 sources:
@@ -37,6 +37,9 @@ sources:
   - id: fix-holoplan
     resource: https://github.com/LBALab/lba2-classic-community/commit/1ae73d05
     title: "1ae73d05, fix(holomap): give the island plan's camera record the room the loader writes"
+  - id: fix-palette
+    resource: https://github.com/LBALab/lba2-classic-community/commit/dc38d6bc
+    title: "dc38d6bc, fix(menu): give the PCX palette buffer the room the loader writes"
 ---
 
 # Scope
@@ -82,11 +85,13 @@ The same rule, found three times from three symptoms, each fixed where it surfac
 2. **An overflow opening the holomap at a small resolution.** The holomap's bump allocator gave each load only its `SizeFile`, so every compressed resource ran past its own slot and the last one past `ScreenAux`.[^fix-holomalloc]
 3. **The app closing when the holomap closes.** The island plan's 36-byte camera record was loaded into an 80-byte stack array; compressed for most islands, it overran by up to 468 bytes into the callers' saved registers. ASan with the regions isolated did not see it, a Release build crashed on macOS and on Android.[^fix-holoplan]
 
+A fourth came from the sweep rather than a symptom. `PalettePcx` was declared `768 + 500`, so a compressed palette overruns it by 12 bytes however well it compresses. No shipped palette is compressed, so it was forced: a copy of SCREEN.HQR with palettes re-encoded as LZSS literals made ASan report the overflow, and on a macOS Release build the 12 bytes replaced `PtrPal`, which `EffectPcx` never reassigns, so the next dialog read the palette through a garbage pointer and crashed. The buffer now carries `RECOVER_AREA`.[^fix-palette]
+
 # What it does not tell you
 
 - **That a destination is safe because a comment says the entry is stored.** It is safe because the data on hand is stored. The sweep is the check, and it covers five releases with extracted files; the disc images were not scanned.
 - **That 512 is enough for any data.** It is enough for every compressed entry on hand, with 23 bytes to spare on the tightest. An entry that compresses worse than anything shipped, from a repack or a mod, can need more, and the decompressor would then overwrite compressed bytes it has not read yet: a silently wrong entry, not an overrun.
-- **That the margin is 500.** Three places use 500 where the constant is 512: `LoadUsedBrick`, the palette buffer `PalettePcx`, and the comment in the unused `HQRM_Load`. The bricks need at most 51 bytes, and the palette is safe only because every palette on hand is stored.
+- **That the margin is 500.** Two places use 500 where the constant is 512: `LoadUsedBrick` and the comment in the unused `HQRM_Load`. The bricks need at most 51 bytes. The palette buffer used 500 as well, until it was forced to crash.
 - **That the sweep sees every destination.** Its table is maintained by hand from the call sites. A new `Load_HQR` into a fixed buffer is not covered until someone adds a row.
 - **Anything about sizes below 640x480.** The destinations are checked against their declared capacities, and `Log` and the screen regions shrink with the resolution. The demo bumper's full-screen load into `Log` fits at 640x480 and above only.
 
@@ -99,3 +104,4 @@ The same rule, found three times from three symptoms, each fixed where it surfac
 [^fix-grille]: [ab589cbd](https://github.com/LBALab/lba2-classic-community/commit/ab589cbd), fix(grille): size the map and block buffers from the data.
 [^fix-holomalloc]: [7077980f](https://github.com/LBALab/lba2-classic-community/commit/7077980f), fix(holomap): give the holomap's loads the room the loader writes.
 [^fix-holoplan]: [1ae73d05](https://github.com/LBALab/lba2-classic-community/commit/1ae73d05), fix(holomap): give the island plan's camera record the room the loader writes.
+[^fix-palette]: [dc38d6bc](https://github.com/LBALab/lba2-classic-community/commit/dc38d6bc), fix(menu): give the PCX palette buffer the room the loader writes.
