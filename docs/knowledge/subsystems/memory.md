@@ -4,7 +4,7 @@ title: Memory and resource loading
 description: One allocation carved into eleven fixed regions, a screen-sized scratch region that several owners borrow in turn, and a resource loader that decompresses in place, so every destination it writes must hold the entry plus a 512-byte margin that no call site states.
 status: draft
 subsystem: memory
-as_of: c87c73eb
+as_of: dc38d6bc
 generated: { by: claude-code/claude-opus-5, at: 2026-09-14T14:00:00Z }
 relates_to:
   - /subsystems/save.md
@@ -86,7 +86,7 @@ The engine's memory is mostly not dynamic. A handful of large buffers are sized 
 - **That an overrun is visible.** With the regions merged, a spill from one region into the next never leaves the allocation, and no sanitizer reports it.[^bug-hunting] Isolating the regions does not make every overrun visible either. A stack destination's overrun can reach past the function's own locals into memory ASan treats as addressable: in the frame description ASan compiles into the binary, the island plan's camera buffer sat at 32 to 112 and the compressed read covered 547 to 580, beyond both of the frame's locals, with no report. Only a Release build crashed.
 - **That a header maximum bounds the data.** The background header's declared maximum map size is smaller than the largest map in at least one retail release, which is why the map and block buffers are sized from the entries themselves.[^grille-cpp]
 - **That a destination without a margin is a bug.** Several are sized for entries that are stored in every release on hand, and the code says so beside three of them. They break if the data changes, not if the code does. [The quirk](/quirks/a-compressed-resource-decompresses-in-place.md) lists them.
-- **That a margin comment is right.** `HQRM_Load` says its allocator already adds 500 bytes. `HQM_Alloc` adds nothing, and the margin is 512 anyway. Nothing calls `HQRM_Load`, so the comment is only a trap for whoever revives it. `PalettePcx` is declared with a 500-byte margin too, which would fall 12 bytes short of a compressed palette; every palette on hand is stored. `LoadUsedBrick` uses 500 as well, where the bricks need at most 51.[^hqrmload-cpp]
+- **That a margin comment is right.** `HQRM_Load` says its allocator already adds 500 bytes. `HQM_Alloc` adds nothing, and the margin is 512 anyway. Nothing calls `HQRM_Load`, so the comment is only a trap for whoever revives it. `LoadUsedBrick` uses 500 as well, where the bricks need at most 51.[^hqrmload-cpp]
 - **That the sizes hold below 640x480.** `Log` and the screen buffers shrink with the resolution while the resources do not. The demo build's bumper loads a full-screen image straight into `Log`, which fits at 640x480 and above only. The catalog's sub-640 modes are an open question beyond this concept.
 - **That nothing else writes past a buffer.** This concept covers the loader's margin and the region layout. A plain out-of-bounds index into a region, of which the holomap had two, is not a sizing problem and nothing here would catch it.
 
