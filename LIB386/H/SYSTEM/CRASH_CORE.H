@@ -14,6 +14,9 @@
  * tables below own or the state fields were registered with. */
 
 /* The backend that catches crashes here. Elsewhere Crash_Install does nothing. */
+#if defined(__APPLE__)
+#define CRASH_BACKEND_POSIX 1
+#endif
 
 enum {
     CRASH_LINE_SIZE = 512,
