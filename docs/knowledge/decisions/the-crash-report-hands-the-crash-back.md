@@ -23,11 +23,14 @@ sources:
   - id: test-crash-report
     resource: ../../../tests/crash/test_crash_report.cpp
     title: test_crash_report, each way of dying against a run without the handler
+  - id: plan
+    resource: ../../plan/CRASH_REPORT_PLAN.md
+    title: Native crash reports, the decisions, the prototype measurements and the as-built divergences
 ---
 
 # Context
 
-A crash report exists so a player can send what a crash left behind, and a player's crash is also seen by the shell or launcher that ran the game, the operating system's crash reporter, a sanitizer in a developer's build and a debugger. The harness reads exit status 139, a negative return code and signal names, and reads 124 as a hang. A handler that ends the process its own way changes some of those: a reset to the default action loses a sanitizer's report, `_exit` breaks the negative return codes, returning survives a signal that was sent rather than raised by a fault, and a fresh `raise` puts the handler on the crashing stack and turns the code into `SI_TKILL`.[^crash-linux]
+A crash report exists so a player can send what a crash left behind, and a player's crash is also seen by the shell or launcher that ran the game, the operating system's crash reporter, a sanitizer in a developer's build and a debugger. The harness reads exit status 139, a negative return code and signal names, and reads 124 as a hang. A handler that ends the process its own way changes some of those: a reset to the default action loses a sanitizer's report, `_exit` breaks the negative return codes, returning survives a signal that was sent rather than raised by a fault, and a fresh `raise` puts the handler on the crashing stack and turns the code into `SI_TKILL`.[^crash-linux] [^plan]
 
 # Decision
 
@@ -41,13 +44,14 @@ A crash report exists so a player can send what a crash left behind, and a playe
 
 # Non-goals
 
-- **A notice or a dialog.** The block is written silently; nothing tells the player on the next launch.
-- **An off switch.** The handler exists so players can report crashes, and a sanitizer build keeps it, since handing back keeps the sanitizer's report.
+- **A notice or a dialog.** The block is written silently; nothing tells the player on the next launch.[^plan]
+- **An off switch.** The handler exists so players can report crashes, and a sanitizer build keeps it, since handing back keeps the sanitizer's report.[^plan]
 - **Keeping the process alive.** The handler never recovers from a crash; recovery exists only inside the handler, for a fault in its own stack walk.[^crash-posix]
-- **A second phase after the block.** The `dumpstate` writer uses stdio and walks the object list, which can deadlock or fault in a crashed process; the block carries its scalar fields instead.
+- **A second phase after the block.** The `dumpstate` writer uses stdio and walks the object list, which can deadlock or fault in a crashed process; the block carries its scalar fields instead.[^plan]
 
 [^crash-posix]: [LIB386/SYSTEM/CRASH_POSIX.CPP](../../../LIB386/SYSTEM/CRASH_POSIX.CPP), `crash_handler`, `CrashPosix_RestorePrevious` and `Crash_Install`.
 [^crash-linux]: [LIB386/SYSTEM/CRASH_LINUX.CPP](../../../LIB386/SYSTEM/CRASH_LINUX.CPP), `CrashOs_HandOn`.
 [^crash-macos]: [LIB386/SYSTEM/CRASH_MACOS.CPP](../../../LIB386/SYSTEM/CRASH_MACOS.CPP), `CrashOs_Reentered`, `CrashOs_HandOn` and `on_confirm_timeout`.
 [^crash-win]: [LIB386/SYSTEM/CRASH_WIN.CPP](../../../LIB386/SYSTEM/CRASH_WIN.CPP), `on_unhandled_exception` and `on_abort_signal`.
 [^test-crash-report]: [tests/crash/test_crash_report.cpp](../../../tests/crash/test_crash_report.cpp), `check_kind`.
+[^plan]: [docs/plan/CRASH_REPORT_PLAN.md](../../plan/CRASH_REPORT_PLAN.md), "Decisions taken", "Phase 0 results" and "As built".
