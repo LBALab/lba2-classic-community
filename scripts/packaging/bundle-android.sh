@@ -204,6 +204,21 @@ if grep -aq 'libc++_shared\.so' "$LIB_PATH" 2>/dev/null \
     exit 1
 fi
 
+# 1a. Drop the debug info the NDK's toolchain compiles in by default. It is most of
+# every library's size, and it is not what a crash report needs: the symbol table
+# stays, which names the functions in a tombstone and in the engine's crash block.
+STRIP_TOOL=$(grep -m1 '^CMAKE_STRIP:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2- || true)
+if [[ -z "$STRIP_TOOL" || ! -x "$STRIP_TOOL" ]]; then
+    echo "bundle-android: no strip tool in $BUILD_DIR/CMakeCache.txt (CMAKE_STRIP)," >&2
+    echo "  so the libraries would ship with their debug info." >&2
+    exit 1
+fi
+for lib in "$STAGING/lib/$ARCH"/*.so; do
+    before=$(wc -c < "$lib" | tr -d ' ')
+    "$STRIP_TOOL" --strip-debug "$lib"
+    echo "[bundle-android] stripped debug info: $(basename "$lib") $before -> $(wc -c < "$lib" | tr -d ' ') bytes"
+done
+
 # 1b. App icon — resolvable as @mipmap/ic_launcher in the manifest
 ICON_SRC="$REPO_ROOT/packaging/lba2cc.png"
 if [[ -f "$ICON_SRC" ]]; then

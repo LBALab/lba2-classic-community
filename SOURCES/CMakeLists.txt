@@ -54,6 +54,11 @@ endif()
 # Activity wrapper. On all other platforms it is a standalone executable.
 if(ANDROID)
     add_library(${LBA2_EXECUTABLE_NAME} SHARED ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN} ${SOURCES_FILES_MACOS} ${EMBEDDED_LBA2_CFG_CPP})
+    # The APK ships the library as libmain.so, the name SDL's activity loads, and a
+    # tombstone names a library by its SONAME. Matching them lets a tombstone and
+    # the engine's crash block name the same module.
+    set_target_properties(${LBA2_EXECUTABLE_NAME} PROPERTIES NO_SONAME ON)
+    target_link_options(${LBA2_EXECUTABLE_NAME} PRIVATE -Wl,-soname,libmain.so)
 else()
     add_executable(${LBA2_EXECUTABLE_NAME} ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN} ${SOURCES_FILES_MACOS} ${EMBEDDED_LBA2_CFG_CPP})
 endif()

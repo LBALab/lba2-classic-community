@@ -65,6 +65,10 @@ export UPINFO="gh-releases-zsync|${GITHUB_REPOSITORY%/*}|${GITHUB_REPOSITORY#*/}
 # the CMake-configured packaging/lba2cc.desktop.in — separate code path.
 export APPNAME="${LBA2_EXECUTABLE_NAME}"
 export DEPLOY_OPENGL=1
+# Keep the engine's symbol table. A crash block reports frames as module+offset,
+# and the symbol table is what turns an offset into a function name; stripped, the
+# AppImage's frames cannot be named. The bundled libraries are still stripped.
+export NO_STRIP=binaries
 
 quick-sharun "./build/SOURCES/${LBA2_EXECUTABLE_NAME}"
 quick-sharun --make-appimage

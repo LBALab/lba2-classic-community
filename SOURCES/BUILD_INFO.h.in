@@ -8,7 +8,8 @@
 #define LBA2_PRODUCT_NAME_DEMO   "@LBA2_PRODUCT_NAME_DEMO@"
 #define LBA2_EXECUTABLE_NAME     "@LBA2_EXECUTABLE_NAME@"
 
-/* LBA2_VERSION_STRING is regenerated at build time by cmake/write_version.cmake
-   (read from the VERSION file at the repo root, optionally suffixed with -dirty
-   when the git working tree has uncommitted changes). */
+/* LBA2_VERSION_STRING and LBA2_COMMIT_STRING are regenerated at build time by
+   cmake/write_version.cmake (the VERSION file at the repo root, optionally
+   suffixed with -dirty when the git working tree has uncommitted changes, and
+   the abbreviated HEAD commit or "unknown"). */
 #include "VERSION_GENERATED.h"

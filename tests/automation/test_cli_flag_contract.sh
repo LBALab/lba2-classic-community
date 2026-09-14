@@ -17,8 +17,8 @@
 # The list below is checked against --help-all, so a flag added to the table
 # without a case here fails rather than going untested.
 #
-# adeline.log is excluded throughout: it is this run's own record and is meant to
-# differ. Settings and saves are the subject.
+# adeline.log and adeline.prev.log are excluded throughout: they are the runs' own
+# records and are meant to differ. Settings and saves are the subject.
 #
 # Local-only (needs the binary and retail data); skips cleanly otherwise.
 TESTNAME=cli_flag_contract
@@ -89,7 +89,7 @@ WRITERS="
 NOT_RUN="--help -h --version --help-all --pick-game-dir --disc --listen"
 
 settings_snapshot() { # settings_snapshot <user-dir> <out-file>
-    ( cd "$1" 2>/dev/null && find . -type f ! -name 'adeline.log' | sort | while read -r f; do
+    ( cd "$1" 2>/dev/null && find . -type f ! -name 'adeline.log' ! -name 'adeline.prev.log' | sort | while read -r f; do
         printf '%s %s\n' "$(md5sum < "$f" | cut -c1-16)" "$f"
       done ) > "$2"
 }

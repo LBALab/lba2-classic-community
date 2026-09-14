@@ -407,8 +407,9 @@ static void test_logprintf_partial_line_terminated(void) {
  * direct write to the log file (and stderr). */
 static void test_logprintf_early_boot_fallback(void) {
     remove("shim_fallback.tmp");
+    remove("shim_fallback.prev.tmp");
     Log_Init();                     /* resets the registry; no sink added */
-    CreateLog("shim_fallback.tmp"); /* sets the log path, truncates it */
+    CreateLog("shim_fallback.tmp"); /* sets the log path, starts it empty */
     LogPrintf("early-boot\n");      /* no sinks -> direct fallback to the file */
     Log_Shutdown();
 
@@ -416,6 +417,66 @@ static void test_logprintf_early_boot_fallback(void) {
     slurp("shim_fallback.tmp", buf, sizeof buf);
     ASSERT_TRUE(strstr(buf, "early-boot") != NULL);
     remove("shim_fallback.tmp");
+    remove("shim_fallback.prev.tmp");
+}
+
+static void write_file(const char *path, const char *text) {
+    FILE *f = fopen(path, "wb");
+    ASSERT_TRUE(f != NULL);
+    if (f) {
+        fputs(text, f);
+        fclose(f);
+    }
+}
+
+/* ".prev" goes before the file name's extension, never into a directory name. */
+static void test_previous_log_path(void) {
+    char out[64];
+    GetPreviousLogPath(out, sizeof out, "adeline.log");
+    ASSERT_TRUE(strcmp(out, "adeline.prev.log") == 0);
+    GetPreviousLogPath(out, sizeof out, "/home/p/.local/share/adeline.log");
+    ASSERT_TRUE(strcmp(out, "/home/p/.local/share/adeline.prev.log") == 0);
+    GetPreviousLogPath(out, sizeof out, "C:\\Users\\p.q\\adeline.log");
+    ASSERT_TRUE(strcmp(out, "C:\\Users\\p.q\\adeline.prev.log") == 0);
+    GetPreviousLogPath(out, sizeof out, "dir.d/log");
+    ASSERT_TRUE(strcmp(out, "dir.d/log.prev") == 0);
+    GetPreviousLogPath(out, 16, "adeline.log"); /* 16 bytes needs 17 */
+    ASSERT_TRUE(out[0] == '\0');
+    GetPreviousLogPath(out, 17, "adeline.log");
+    ASSERT_TRUE(strcmp(out, "adeline.prev.log") == 0);
+}
+
+/* A new log moves the last run's aside, replacing the one before it, and a
+ * launch with no log to move leaves the kept one alone. */
+static void test_create_log_keeps_previous(void) {
+    char buf[256];
+    remove("rotate.tmp.log");
+    remove("rotate.tmp.prev.log");
+
+    CreateLog("rotate.tmp.log");
+    slurp("rotate.tmp.prev.log", buf, sizeof buf);
+    ASSERT_TRUE(buf[0] == '\0'); /* nothing to keep on a first launch */
+
+    write_file("rotate.tmp.log", "run one\n");
+    CreateLog("rotate.tmp.log");
+    slurp("rotate.tmp.prev.log", buf, sizeof buf);
+    ASSERT_TRUE(strcmp(buf, "run one\n") == 0);
+    slurp("rotate.tmp.log", buf, sizeof buf);
+    ASSERT_TRUE(buf[0] == '\0');
+
+    write_file("rotate.tmp.log", "run two\n");
+    CreateLog("rotate.tmp.log");
+    slurp("rotate.tmp.prev.log", buf, sizeof buf);
+    ASSERT_TRUE(strcmp(buf, "run two\n") == 0); /* replaced, not appended */
+
+    remove("rotate.tmp.log");
+    write_file("rotate.tmp.prev.log", "kept\n");
+    CreateLog("rotate.tmp.log");
+    slurp("rotate.tmp.prev.log", buf, sizeof buf);
+    ASSERT_TRUE(strcmp(buf, "kept\n") == 0);
+
+    remove("rotate.tmp.log");
+    remove("rotate.tmp.prev.log");
 }
 
 /* Terminal sink with stderr redirected (not a TTY): it still EMITS plain,
@@ -499,6 +560,8 @@ int main(void) {
     RUN_TEST(test_terminal_sink_plain);
     RUN_TEST(test_logprintf_early_boot_fallback);
     RUN_TEST(test_log_fallback_no_sinks);
+    RUN_TEST(test_previous_log_path);
+    RUN_TEST(test_create_log_keeps_previous);
     TEST_SUMMARY();
     return test_failures != 0;
 }

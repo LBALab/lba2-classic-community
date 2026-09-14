@@ -26,6 +26,7 @@ extern S32 GfxDitherShading;
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H> /* CreateLog (boot log brought up in main) */
+#include <SYSTEM/CRASH.H>    /* Crash_Install, right after the log */
 #include "ASSET_PREFLIGHT.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
@@ -2084,6 +2085,46 @@ void Message(const char *mess, S32 flag) {
 /*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/
 
+/* The game state a crash block reports: the scene, the chapter, the behaviour,
+ * whether a cutscene or a fade holds the frame, and the hero's position and body.
+ * Plain globals the engine already keeps, registered by address with
+ * Crash_AddState and read when the block is written; nothing here is updated for
+ * the report's sake. The cast lets a volatile global through; the handler only
+ * copies its bytes. */
+#define ADD_SIGNED(name, variable) Crash_AddState(name, (const void *)&(variable), sizeof(variable), 1)
+#define ADD_UNSIGNED(name, variable) Crash_AddState(name, (const void *)&(variable), sizeof(variable), 0)
+
+static void register_crash_state(void) {
+    T_OBJET *hero = &ListObjet[NUM_PERSO];
+
+    ADD_SIGNED("island", Island);
+    ADD_SIGNED("cube", NumCube);
+    ADD_SIGNED("new_cube", NewCube);
+    ADD_SIGNED("cube_mode", CubeMode);
+    ADD_SIGNED("chapter", ListVarGame[FLAG_CHAPTER]);
+    ADD_UNSIGNED("behaviour", Comportement);
+    ADD_UNSIGNED("cinema", CinemaMode);
+    ADD_SIGNED("fade", FlagFade);
+    /* 0 while a modal loop owns the frame: the nearest thing to a flag for an open
+       menu or holomap, which the engine does not keep. */
+    ADD_SIGNED("fps", NbFramePerSecond);
+    ADD_UNSIGNED("timer", TimerRefHR);
+
+    ADD_SIGNED("hero", hero->Obj.X);
+    ADD_SIGNED("hero", hero->Obj.Y);
+    ADD_SIGNED("hero", hero->Obj.Z);
+    ADD_SIGNED("hero_angle", hero->Obj.Alpha);
+    ADD_SIGNED("hero_angle", hero->Obj.Beta);
+    ADD_SIGNED("hero_angle", hero->Obj.Gamma);
+    ADD_SIGNED("life", hero->LifePoint);
+    ADD_SIGNED("body", hero->Obj.Body.Num);
+    ADD_SIGNED("anim", hero->Obj.Anim.Num);
+    ADD_UNSIGNED("gen_anim", hero->GenAnim);
+}
+
+#undef ADD_SIGNED
+#undef ADD_UNSIGNED
+
 /* Issue #62 host harness: --save-load-test <path> drives InitGame(-1) + ChangeCube()
  * and exits, so a driver script can run each save in a subprocess and capture
  * { exit_code, SAVE_LOAD_TEST stage lines }.  SaveLoadTestMode is declared in
@@ -2272,6 +2313,12 @@ int main(int argc, char *argv[]) {
         Log_AddSink(Log_MakeFileSink(logFilePath, LOG_DEBUG));
         Log_AddSink(Log_MakeTerminalSink(LOG_DEBUG));
         atexit(Log_Shutdown);
+        /* From here a fatal signal appends a CRASH block to the log. Nothing
+           heavy has run yet, and the log has already kept the previous run's. */
+        Crash_Install(logFilePath, LBA2_VERSION_STRING, LBA2_COMMIT_STRING);
+        /* The system's report of the last crash, kept beside the log it goes with;
+           the banner says what was found. */
+        Android_SavePreviousCrashReport(userFolderPath);
 
         /* --disc names the image to mount, instead of letting the game folder's
            scan rank what it finds. Read before discovery, not just before the
@@ -2474,6 +2521,7 @@ int main(int argc, char *argv[]) {
     SetPresentTimingCallbacks(Perftrace_PresentBegin, Perftrace_PresentEnd);
 
     atexit(TheEndInfo);
+    register_crash_state();
 
     BootExit_NoteContext(""); /* past the cfg: a later failure names itself */
 

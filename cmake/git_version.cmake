@@ -6,6 +6,7 @@
 #                                                  Release pipelines (PR #74)
 #                                                  read this to name artifacts.
 #   ${CMAKE_BINARY_DIR}/VERSION_GENERATED.h      — defines LBA2_VERSION_STRING
+#                                                  and LBA2_COMMIT_STRING
 #                                                  (included by BUILD_INFO.h).
 #
 # Source of truth is the `VERSION` file at the repo root. See
@@ -26,23 +27,21 @@ set(_VERSION_HDR "${CMAKE_BINARY_DIR}/VERSION_GENERATED.h")
 set(_VERSION_SCRIPT "${CMAKE_SOURCE_DIR}/cmake/write_version.cmake")
 
 # Build-time step: regenerate on every build (cheap; write-on-change inside
-# the script avoids retriggering downstream rebuilds when nothing moves).
-add_custom_command(
-    OUTPUT ${_VERSION_TXT} ${_VERSION_HDR}
+# the script avoids retriggering downstream rebuilds when nothing moves). A
+# custom target always runs, so a new commit or a newly clean tree reaches the
+# header without a reconfigure; listing the outputs as byproducts lets Ninja see
+# that an unchanged header needs no recompile.
+add_custom_target(lba2_version_gen ALL
     COMMAND ${CMAKE_COMMAND}
             -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
             -DOUT_TXT=${_VERSION_TXT}
             -DOUT_HDR=${_VERSION_HDR}
             -DGIT_EXECUTABLE=${GIT_EXECUTABLE}
             -P ${_VERSION_SCRIPT}
-    DEPENDS ${_VERSION_SCRIPT} ${CMAKE_SOURCE_DIR}/VERSION
+    BYPRODUCTS ${_VERSION_TXT} ${_VERSION_HDR}
     COMMENT "Resolving LBA2 version"
     VERBATIM
 )
-
-# An always-built target so the custom command above re-evaluates each build.
-add_custom_target(lba2_version_gen ALL
-    DEPENDS ${_VERSION_TXT} ${_VERSION_HDR})
 
 # Configure-time seed: if the header doesn't exist yet (first configure),
 # generate it now so the initial build doesn't fail on a missing #include

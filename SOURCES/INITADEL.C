@@ -9,7 +9,8 @@
 #include "CONSOLE/CONSOLE.H" /* console buffer sink printer adapter */
 #include "CONTROL.H"
 #include "JOYSTICK.H"
-#include "RES_DISCOVERY.H" /* Res_GetDiscoverySource for the Assets banner line */
+#include "RES_DISCOVERY.H"  /* Res_GetDiscoverySource for the Assets banner line */
+#include <SYSTEM/ANDROID.H> /* Android_GetPreviousCrashNote for the banner */
 #include <SYSTEM/LOG.H>
 #include "SVGA/INITMODE.H"
 #include "SVGA/SCREEN.H"
@@ -57,6 +58,8 @@ int WriteEmbeddedDefaultLba2Cfg(const char *destPath);
 #define LOG_PLATFORM_NAME "Windows"
 #elif defined(__APPLE__)
 #define LOG_PLATFORM_NAME "macOS"
+#elif defined(__ANDROID__)
+#define LOG_PLATFORM_NAME "Android"
 #elif defined(__linux__)
 #define LOG_PLATFORM_NAME "Linux"
 #else
@@ -153,7 +156,7 @@ void InitAdeline(S32 argc, char *argv[]) {
         Log_Banner("%s · %s %s · %d cores · %d GB RAM", APPNAME, LOG_PLATFORM_NAME,
                    LOG_ARCH_NAME, SDL_GetNumLogicalCPUCores(),
                    (SDL_GetSystemRAM() + 512) / 1024);
-        Log_Raw("Built %s %s", __DATE__, __TIME__);
+        Log_Raw("Built %s %s from commit %s", __DATE__, __TIME__, LBA2_COMMIT_STRING);
         /* Which probe found the assets, in parentheses after the path. The probe
            list runs silently, so "the engine booted the wrong install" and "the
            engine ignored what I set" look identical in a bug report. Naming the
@@ -236,6 +239,12 @@ void InitAdeline(S32 argc, char *argv[]) {
                             " which still has its own copy",
                             migratedFrom);
                 }
+            }
+            /* A native crash in the last run, found in the system's exit records. */
+            {
+                const char *previousCrash = Android_GetPreviousCrashNote();
+                if (previousCrash[0] != '\0')
+                    Log_Raw("Note:   %s", previousCrash);
             }
             /* Two folders both holding saves. Named rather than merged: both are
                somebody's real progress and nothing here can tell which one they

@@ -4,8 +4,8 @@ title: Boot and exit
 description: main brings the engine up in a fixed order in which each facility exists only from a known step, the log before the game data and the exit report only after the platform is up, and every ending goes through exit() and its handlers except a fatal signal, which skips them all.
 status: draft
 subsystem: boot
-as_of: f3e13ac0
-generated: { by: claude-code/claude-opus-5, at: 2026-09-14T15:00:00Z }
+as_of: e8ae05fc
+generated: { by: claude-code/claude-opus-5, at: 2026-09-14T20:30:00Z }
 relates_to:
   - /subsystems/memory.md
   - /subsystems/control.md
@@ -71,11 +71,11 @@ sources:
 | 2. SDL core | `SDL_Init(0)`; failure exits 1 through `LogPrintf`, which has no sink yet. | SDL filesystem calls |
 | 3. Android storage | `Android_EnsureExternalStoragePermission` opens Settings when All Files Access is missing and waits up to 15 seconds, or until the process is seen to thaw. A no-op elsewhere. | the permission answer |
 | 4. User folder | `--user-dir` and `--profile` are read from `argv`, then `LBA2_PROFILE`, then `GetDefaultUserDir` resolves and caches the folder. See [discovery](/subsystems/discovery.md). | where the run writes |
-| 5. Log | `CreateLog`, `Log_Init`, the level, the file and terminal sinks, `atexit(Log_Shutdown)`. See [logging](/subsystems/logging.md). | `adeline.log` and stderr |
+| 5. Log | `CreateLog`, which keeps the previous run's log as `adeline.prev.log`, `Log_Init`, the level, the file and terminal sinks, `atexit(Log_Shutdown)`, then `Crash_Install` and, on Android, `Android_SavePreviousCrashReport`. See [logging](/subsystems/logging.md). | `adeline.log`, stderr and the crash report |
 | 6. Game data | `--disc`, `ResolveGameDataDir`, the picker or an exit, profile binding, `InitDirectories`, `DiscImage_Mount`. See [discovery](/subsystems/discovery.md). | `GetResPath` and the disc image |
 | 7. Main buffer | The config path, the video subsystem so the display can be measured, `Res_LoadBootDimensions`, `Mem_ConfigureScreenBuffers`, `InitMainBuffer`. See [memory](/subsystems/memory.md). | the fixed regions |
 | 8. Platform | `InitAdeline`: the console sink and the boot banner, events, joystick, window, a default config written when none exists anywhere, audio, video, screen and graphics mode, keyboard, mouse, timer, and the layered config buffer. | a window and a timer |
-| 9. Hooks | The console's event filter and pre-present callback, the touch overlay, perftrace, `atexit(TheEndInfo)`. | the exit report |
+| 9. Hooks | The console's event filter and pre-present callback, the touch overlay, perftrace, `atexit(TheEndInfo)`, `register_crash_state`. | the exit report, and game state in a crash block |
 | 10. Program | `InitProgram`, which reads the config, `InitMemory`, the Display line, `AssetPreflight`. | settings and small buffers |
 | 11. Banks | Samples, language, the Release line and the `Ready` banner, then dialogue buffers, palettes, font, the video player, the logos, the 3D extension and the resource banks. | a fully resourced engine |
 | 12. Dispatch | In order: a cube number in a debug build, `--save-load-test`, the control harness through `Control_Begin` and `MainGameMenu(0, TRUE)`, and otherwise `MainGameMenu`, which loads a save path given in `argv`. Each branch ends in `TheEnd`. | a game |
@@ -93,7 +93,7 @@ Sources for the table: `main` and `InitProgram`[^perso-cpp], `InitAdeline`[^init
 | Handler order | `exit` runs handlers last registered first. The recorder's flush, registered when a recording starts, runs before `TheEndInfo`, which runs before `Log_Shutdown`, so every report line reaches the file.[^perso-cpp] [^record-cpp] |
 | Before step 9 | An exit from steps 1 to 8, a rejected argument, no game data, a cancelled picker, an invalid folder in `InitDirectories` or a `BootFatal`, runs no `TheEndInfo`: no report line, no config write. |
 | Closing the window | The quit event calls `exit(0)` directly. The code is still unset, so `TheEndInfo` logs no outcome, and it still writes the config.[^window-cpp] [^boot-exit-cpp] |
-| A fatal signal | Ends the process without `exit`, so no handler runs: no report, no config write, no recorder flush, and the log stops at its last flushed line. |
+| A fatal signal | Ends the process without `exit`, so no handler runs: no report, no config write, no recorder flush. From step 5 the crash handler appends a `CRASH` block after the log's last flushed line and hands the signal back, so the process still dies of it; on Windows an unhandled exception and `abort` do the same. See [logging](/subsystems/logging.md).[^perso-cpp] |
 
 # Seams
 
@@ -111,7 +111,6 @@ Sources for the table: `main` and `InitProgram`[^perso-cpp], `InitAdeline`[^init
 - **That a `return` after `TheEnd` sets the exit code.** `TheEnd` does not return. Measured: `--save-load-test` on a missing file prints `status=missing`, logs `OK.` and exits 0, although the code after the call says `return 2`.[^perso-cpp]
 - **That a failure's detail is reported.** `TheEndInfo` prints the detail string for `PROGRAM_OK` and for the three codes `BOOT_END.H` calls failures. `PROGRAM_FAIL` is none of those, so the string passed with it, `control: setup failed` among them, is never printed; the exit status is 1 and the caller has to have logged its own reason.[^boot-exit-cpp] [^boot-end-h] [^common-h]
 - **What `Ready in` measures.** The time to the end of `InitAdeline`, printed later, after the preflight and the language. The banks and the logos are not in it.[^perso-cpp]
-- **The platform on Android.** The banner names Windows, macOS, Linux or Unknown. There is no Android case, and an Android build defines `__linux__`, so from reading, an Android banner says Linux.[^initadel]
 - **That INIT_RESEARCH.md is the current order.** It predates the log moving into `main`, still says each `InitAdeline` failure exits 1 with a graceful-exit TODO where `BootFatal` now reports it, and dispatches the harness straight to `MainLoop`. It is kept for its later phases, the per-game init and the cube load.[^init-research]
 - **That `BootFatal`'s pointer is followed.** Its comment sends the reader to PERSO.H for why it cannot go through `TheEnd`; nothing there says. The reason is the order above: it runs before `TheEndInfo` is registered.[^boot-exit-cpp]
 
