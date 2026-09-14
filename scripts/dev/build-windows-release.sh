@@ -67,6 +67,8 @@ case "$PRESET" in
             echo "         or:  sudo pacman -S mingw-w64-gcc  (Arch)" >&2
             exit 1
         fi
+        # The host's objcopy may not read PE; split-symbols.sh takes this one.
+        export OBJCOPY=i686-w64-mingw32-objcopy
         echo "[build-windows-release] note: cross_linux2win also needs SDL3 for i686." >&2
         echo "[build-windows-release]       most distros ship only host-arch SDL3 — if" >&2
         echo "[build-windows-release]       configure fails on find_package(SDL3), build" >&2
@@ -93,7 +95,7 @@ echo "[build-windows-release] output:    $OUTPUT_DIR"
 # Override LBA2_LINK_STATIC=ON via cache override — the preset stays
 # unchanged so it remains a fast iteration target for anyone who just
 # wants to confirm Windows builds.
-cmake --preset "$PRESET" -DLBA2_LINK_STATIC=ON
+cmake --preset "$PRESET" -DLBA2_LINK_STATIC=ON -DLBA2_RELEASE_SYMBOLS=ON
 cmake --build --preset "$PRESET"
 
 # Resolve the executable name from the cache (follows any
@@ -117,4 +119,5 @@ bash "$REPO_ROOT/scripts/packaging/bundle-windows.sh" \
     --version "$VERSION" \
     --arch "$ARCH" \
     --build-dir "$BUILD_DIR" \
-    --output-dir "$OUTPUT_DIR"
+    --output-dir "$OUTPUT_DIR" \
+    --split-symbols

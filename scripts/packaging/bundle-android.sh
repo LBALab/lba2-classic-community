@@ -11,9 +11,15 @@
 #                     --output-dir <where-to-drop-the-apk> \
 #                     [--keystore <file> --keystore-pass <pass> \
 #                      --key-alias <alias> [--key-pass <pass>]] \
-#                     [--expect-cert <sha256>]
+#                     [--expect-cert <sha256>] \
+#                     [--split-symbols]
 #
 # Produces: <output-dir>/lba2cc-<version>-android-<arch>.apk
+#
+# --split-symbols moves the debug info of every library the APK ships into
+# <output-dir>/lba2cc-<version>-android-<arch>-symbols.tar.xz with
+# split-symbols.sh, before the libraries are stripped. The NDK compiles with -g
+# by default, so every Release build has it.
 #
 # Signing. Android identifies an app by package name AND signing certificate,
 # so two APKs signed with different keys are two different apps: installing one
@@ -48,6 +54,7 @@ SDL3_JAVA_SRC=""
 SDL3_LIB=""
 CXX_SHARED_LIB=""
 OUTPUT_DIR=""
+SPLIT_SYMBOLS=0
 KEYSTORE="${LBA2_ANDROID_KEYSTORE:-}"
 KEYSTORE_PASS="${LBA2_ANDROID_KEYSTORE_PASS:-}"
 KEY_ALIAS="${LBA2_ANDROID_KEY_ALIAS:-}"
@@ -70,6 +77,7 @@ while [[ $# -gt 0 ]]; do
         --key-alias) KEY_ALIAS="$2"; shift 2 ;;
         --key-pass) KEY_PASS="$2"; shift 2 ;;
         --expect-cert) EXPECT_CERT="$2"; shift 2 ;;
+        --split-symbols) SPLIT_SYMBOLS=1; shift ;;
         -h|--help)
             sed -n '/^# Usage:/,/^set -e/p' "$0" | sed 's/^# \?//' | head -n -1
             exit 0
@@ -207,6 +215,18 @@ fi
 # 1a. Drop the debug info the NDK's toolchain compiles in by default. It is most of
 # every library's size, and it is not what a crash report needs: the symbol table
 # stays, which names the functions in a tombstone and in the engine's crash block.
+# Asked to, keep it in the symbol archive first.
+if [[ "$SPLIT_SYMBOLS" == 1 ]]; then
+    OBJCOPY_TOOL=$(grep -m1 '^CMAKE_OBJCOPY:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2- || true)
+    SPLIT_ARGS=()
+    for lib in "$STAGING/lib/$ARCH"/*.so; do
+        SPLIT_ARGS+=(--binary "$lib")
+    done
+    bash "$REPO_ROOT/scripts/packaging/split-symbols.sh" \
+        ${OBJCOPY_TOOL:+--objcopy "$OBJCOPY_TOOL"} \
+        "${SPLIT_ARGS[@]}" \
+        --output "$OUTPUT_DIR/$ARTIFACT_NAME-symbols.tar.xz"
+fi
 STRIP_TOOL=$(grep -m1 '^CMAKE_STRIP:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2- || true)
 if [[ -z "$STRIP_TOOL" || ! -x "$STRIP_TOOL" ]]; then
     echo "bundle-android: no strip tool in $BUILD_DIR/CMakeCache.txt (CMAKE_STRIP)," >&2
