@@ -244,7 +244,7 @@ Each step names the commit that carries it.
 12. **Tests:** a host test that launches a child which crashes each way and checks the block, the exit status and that the process died, on Linux, macOS and Windows in CI, including the sanitizer lane. Cases: each signal, a sent signal, a corrupted frame record, and a thread stack overflow. Landed with the backends: `test_crash_report` runs each case without the handler and with it and requires both to end alike, plus `assert`, a released thread stack and a recursion tail that reaches below the recursion. `[measured]` it passed on macOS arm64 (Debug and `-O3` LTO), Linux arm64 and x86-64 (Debug, `-O3`, ASan and UBSan), and Windows x64.
 13. **Knowledge:** update the logging and boot concepts; add a Decision that the handler chains so the process still dies of its signal with the platform report unchanged; fix the stale comments in `LOG.H` and `INITADEL.C`. Landed in caba5989, with a crash section in the player readmes and the saved tombstone in `ANDROID.md`. The `INITADEL.C` platform name was fixed in step 2.
 
-**Later PR:** `-g`, split symbol files as release assets for tags and 90-day workflow artifacts for rolling builds, and a `scripts/dev` symbolizer keyed by build ID.
+**Later PR:** `-g`, split symbol files as release assets for tags and 90-day workflow artifacts for rolling builds, and a `scripts/dev` symbolizer keyed by build ID. Built as `LBA2_RELEASE_SYMBOLS`, `scripts/packaging/split-symbols.sh` and `scripts/dev/symbolize_crash.py`; see section 7.5.
 
 ## 7. As built: where the implementation diverged
 
@@ -275,6 +275,15 @@ Each step names the commit that carries it.
 - **macOS, a signal raised at once** (abort, `raise`, or delivered after `svc`): the crash report keeps its exception and frames, but its termination record is empty. `kill` in place of `raise` did the same, and raising with the signal unblocked put the handler on the crashing stack.
 - **macOS, a sent signal in running code:** dies from the confirm timer 200 ms later, and its report shows the timer's `raise`, as section 9 expected.
 - **macOS, the real reproducer:** `[measured]` the Release engine's block and the crash report named the same frames at the same offsets, `GetShadow` through `main` and `dyld` `start`.
+
+### 7.5 Symbols
+
+- **One archive per artifact.** Each bundler's `--split-symbols` splits its staged copy, so the build tree keeps its debug info: `<exe>-<version>-<platform>-<arch>-symbols.tar.xz` holding `.debug` files for ELF and PE and a dSYM for Mach-O, the AppImage's labelled `appimage`. On Android it takes every library the APK ships, which the NDK already compiles with `-g`.
+- **`-g` still changes no code.** `[measured, macOS 26.6 Apple clang, macos_arm64 Release, thin LTO with -object_path_lto]` `__text`, `__data` and `__unwind_info` identical with and without it. `[measured, Arch Linux arm64 container, GCC 16.1, Release -O3 LTO]` `.text`, `.data`, `.data.rel.ro`, `.eh_frame` and the program headers identical; `.rodata` differs in 9 bytes, the `__TIME__` stamps of the two builds.
+- **A crash resolves from the archive alone.** `[measured]` with `efe606f4` reverted, the split and stripped build crashed, macOS on `teleport 10360 3584 2000000; ui inventory` and Linux arm64 on z -60000 (2000000 and 400000 did not fault there). The UUID or build ID in the block equalled the symbol file's, and frame 0 resolved to `GetShadow` at `SOURCES/GRILLE.CPP:373`, the unbounded `*ptc` read, with inlined frames below it (`cmd_ui_dispatch` inside `cmd_ui`). macOS offsets are added to `__TEXT`'s vmaddr, Linux offsets are link addresses as they stand.
+- **Windows: the split changes `SizeOfImage`.** `[measured, x86_64-w64-mingw32 GCC 16.2, -O3 -flto -g, a test program]` a PE image maps its DWARF sections, so `--strip-debug` shrank `SizeOfImage` from 0x28000 to 0xd000, the end of the loaded sections plus one page for the `.gnu_debuglink` it adds, while the debug file kept 0x28000. The timestamp survived. The block's identity is the running image's, so the symbolizer derives the stripped size from the debug file's section table, which keeps every section's address and virtual size. `llvm-symbolizer` wants ImageBase plus the block's offset; `--relative-address` named the wrong function.
+- **`addr2line` is not reliable here.** `[measured, GNU binutils 2.46, the Linux build above]` whether an address got its line depended on the addresses looked up before it in the same call: `main` looked up alone or first gave `??:?`, and after eleven other addresses `PERSO.CPP:3059`. `llvm-symbolizer` gave the same lines in any order, so the script prefers it, then `atos`, which prints file basenames only.
+- **Not measured:** the Windows engine and the AppImage. The AppImage splits a copy of the binary before `quick-sharun` packs it; whether sharun leaves the binary's build ID and layout alone was not checked.
 
 ## 8. Constraints
 

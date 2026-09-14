@@ -67,6 +67,7 @@ Local wrappers that build a release binary and then delegate to the matching
 | [dev/build-linux-tarball.sh](dev/build-linux-tarball.sh) | Dry-run the Linux static-binary tarball: build, then call `bundle-linux-tarball.sh`. | manual |
 | [dev/build-macos-release.sh](dev/build-macos-release.sh) | Dry-run the macOS DMG: build (host arch by default), then call `bundle-macos.sh`. | manual |
 | [dev/build-windows-release.sh](dev/build-windows-release.sh) | Dry-run the Windows ZIP: build (MSYS2 native or Linux cross), then call `bundle-windows.sh`. | manual |
+| [dev/symbolize_crash.py](dev/symbolize_crash.py) | Turn the `CRASH` block in `adeline.log` into functions, files and lines: match each module to a symbol archive by build ID, UUID or PE timestamp and size, fetching the release's or the CI run's with `--fetch`. | manual ([RELEASING.md](../docs/RELEASING.md#crash-report-symbols)) |
 | [dev/verify-release.sh](dev/verify-release.sh) | Post-release smoke test: download the published Linux artifacts, run each in a clean container, and check the version, AppImage self-update channel and AppStream metainfo they carry. | manual ([RELEASING.md](../docs/RELEASING.md)) |
 
 ## Packaging (`packaging/`)
@@ -82,6 +83,7 @@ into each artifact.
 | [packaging/bundle-windows.sh](packaging/bundle-windows.sh) | Bundle a built `lba2cc.exe` into a portable ZIP. | CI, `build-windows-release.sh` |
 | [packaging/bundle-android.sh](packaging/bundle-android.sh) | Bundle a built native `.so` into a debug-signed APK. | CI (android) |
 | [packaging/make-appimage.sh](packaging/make-appimage.sh) | Build a Linux AppImage (installs deps, packs the SDL3 runtime). | CI (linux appimage) |
+| [packaging/split-symbols.sh](packaging/split-symbols.sh) | Move a release binary's debug info into a `-symbols.tar.xz` (`.debug` files or a dSYM), checking the symbol file keeps the binary's identity. | the bundlers' `--split-symbols`, `make-appimage.sh` |
 
 ## Regression baselines & savegame corpus
 
