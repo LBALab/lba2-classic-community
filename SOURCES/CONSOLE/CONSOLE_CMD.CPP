@@ -1538,6 +1538,25 @@ static void cmd_teleport(int argc, const char *argv[]) {
     Console_Print("Usage: teleport <x> <y> <z> [beta] | teleport actor <n>");
 }
 
+/* camangle [alpha] [beta] [dist]: read or set the exterior camera orbit, elevation and
+   distance globals directly (LBA angle units for alpha/beta). Input injection cannot drive
+   the camera sticks headlessly, so this is the harness probe for camera-dependent rendering
+   bugs (near-plane clipping, follow-cam recompose): sweep angles from a scripted run and
+   screenshot each. */
+static void cmd_camangle(int argc, const char *argv[]) {
+    extern S32 AlphaCam;
+    extern S32 BetaCam;
+    extern S32 VueDistance;
+    if (argc >= 2)
+        AlphaCam = atoi(argv[1]) & 4095;
+    if (argc >= 3)
+        BetaCam = atoi(argv[2]) & 4095;
+    if (argc >= 4)
+        VueDistance = atoi(argv[3]);
+    Console_Print("camangle: alpha=%d beta=%d dist=%d", AlphaCam, BetaCam,
+                  VueDistance);
+}
+
 /* varcube <n> [value] / vargame <n> [value]: read or set a scene (cube) or game Life variable.
    With no value, prints the current one; with a value, sets it. Lets a console/harness session drive
    quest state directly -- e.g. arm the flag an NPC's script waits on to reach an interaction stage. */
@@ -1944,6 +1963,10 @@ void Console_RegisterAll(void) {
                               "teleport <x> <y> <z> [beta] | teleport actor <n>",
                               "Sets the hero's coords directly; next frame re-runs zones/collision. "
                               "'actor <n>' jumps onto actor n. Within-cube only.");
+    Console_RegisterCommandEx("camangle", cmd_camangle, "Read/set exterior camera orbit/elevation/distance",
+                              "camangle [alpha] [beta] [dist]",
+                              "Sets AlphaCam/BetaCam/VueDistance directly (LBA angle units). "
+                              "Camera probe for headless rendering bug hunts.");
     Console_RegisterCommandEx("behaviour", cmd_behaviour, "Read/set hero behaviour (comportement)",
                               "behaviour [0..13]", "0=Normal 1=Sportif 2=Aggressive 3=Discreet 4=Protopack. Routes through SetComportement.");
     Console_RegisterCommandEx("weapon", cmd_weapon, "Read/set hero active weapon",

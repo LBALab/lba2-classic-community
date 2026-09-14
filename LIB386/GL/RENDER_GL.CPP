@@ -45,7 +45,8 @@ extern "C" S32 AtlasTextureDirty;
 
 /* Temporary perf instrumentation: why the last poly fell back to SW
    (1=renderer down, 2=type range, 3=no zbuffer flag, 4=NZW without
-   terrain, 5=too few points, 6=menu plasma mask; 0=accepted). */
+   terrain, 5=too few points, 6=menu plasma mask, 7=unprojectable vertex;
+   0=accepted). */
 extern "C" S32 GL_LastRejectReason;
 S32 GL_LastRejectReason = 0;
 
@@ -864,7 +865,7 @@ static U32 s_atlasContentVersion = 1; /* bumped when atlas marked dirty */
    64 KB re-upload on every switch.  Entries evict LRU; version matches
    s_atlasContentVersion so in-place page mutations (animated water) still
    re-upload. */
-#define ATLAS_CACHE_SIZE 8
+#define ATLAS_CACHE_SIZE 32
 typedef struct {
     const void *ptr;
     U32 ver;
@@ -2141,6 +2142,22 @@ void GL_FlushBatch(void) {
     }
 }
 
+/* Draw only the depth-writing (NZW=0) pools, leaving any no-write pool
+   queued.  GL_SnapshotTerrain uses this so the snapshot holds terrain and
+   decor only: the no-write polys queued alongside them (animated polys
+   drawn at the end of the terrain pass) redraw every frame and must not be
+   baked into the background the incremental restore paints. */
+static void GL_FlushBatchTerrain(void) {
+    if (s_deferVertCount > 0 && s_deferNZW == 0) {
+        GL_SwapBatchWithDefer();
+        FlushActiveBatch();
+        GL_SwapBatchWithDefer();
+    }
+    if (s_batchVertCount > 0 && s_batchNZW == 0) {
+        FlushActiveBatch();
+    }
+}
+
 /* ── Ground shadow polygon (GL ShadeBoxBlk/DrawShadow replacement) ──────── */
 
 /* Draw the projected ground-shadow polygon directly into the FBO, replacing
@@ -2649,8 +2666,10 @@ void GL_SnapshotTerrain(void) {
 
     /* The terrain/decor batches are still queued vertices at this point —
        submit them first, or the snapshot captures a cleared framebuffer
-       and every incremental-frame restore paints black over the scene. */
-    GL_FlushBatch();
+       and every incremental-frame restore paints black over the scene.
+       No-write pools stay queued: they draw after the snapshot and are
+       tracked in the dirty region like the bodies. */
+    GL_FlushBatchTerrain();
 
     if (s_msaaFbo && s_antiAlias >= 2)
         GL_ResolveMSAA();
@@ -2688,13 +2707,19 @@ void GL_SnapshotTerrain(void) {
 
     /* Color + depth: the depth must be restored too, otherwise a body that
        moved away would leave stale nearer depth that eats later fragments
-       until the next full redraw. */
+       until the next full redraw.  From the MSAA FBO only color is legal
+       (depth blits require equal sample counts) — and enough there: the
+       MSAA restore erases color only, and nothing in the object pass
+       writes MSAA depth to go stale. */
     U64 profT0 = SDL_GetPerformanceCounter();
+    S32 msaaActive = (s_msaaFbo && s_antiAlias >= 2) ? 1 : 0;
     glBindFramebuffer(GL_READ_FRAMEBUFFER,
-                      (s_msaaFbo && s_antiAlias >= 2) ? s_msaaFbo : s_fbo);
+                      msaaActive ? s_msaaFbo : s_fbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_snapshotFbo);
     glBlitFramebuffer(0, 0, w, h, 0, 0, w, h,
-                      GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+                      msaaActive ? GL_COLOR_BUFFER_BIT
+                                 : (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT),
+                      GL_NEAREST);
     /* Mid-frame invariant: subsequent GL_FlushBatch() calls (s_frameActive
        still set) must keep drawing into the FBO, not the default fb. */
     glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
@@ -2747,12 +2772,66 @@ void GL_RestoreTerrainSnapshot(void) {
         return;
     }
 
+    /* Screen-space Y grows downward, glBlitFramebuffer and the quad's clip
+       space grow upward — mirror the band or the erase lands on the
+       vertically flipped region (small NPC-sized regions would restore the
+       wrong band and leave ghosts). */
+    S32 glY0 = (S32)s_fboHeight - qy1;
+    S32 glY1 = (S32)s_fboHeight - qy0;
+    GLfloat fw = (GLfloat)s_fboWidth;
+    GLfloat fh = (GLfloat)s_fboHeight;
+
     U64 profT0 = SDL_GetPerformanceCounter();
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, s_snapshotFbo);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
-    glBlitFramebuffer(qx0, qy0, qx1, qy1, qx0, qy0, qx1, qy1,
-                      GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-    glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+
+    if (s_msaaFbo && s_antiAlias >= 2) {
+        /* The scene renders into the multisampled FBO, and a single-sample
+           source cannot blit into it — erase through a textured quad
+           instead.  Color only: body/shadow/animated batches never write
+           depth, so the MSAA depth buffer still holds the terrain pass the
+           snapshot was taken from. */
+        GLfloat rverts[4][4] = {
+            {2.0f * (GLfloat)qx0 / fw - 1.0f, 2.0f * (GLfloat)glY0 / fh - 1.0f,
+             (GLfloat)qx0 / fw, (GLfloat)glY0 / fh},
+            {2.0f * (GLfloat)qx1 / fw - 1.0f, 2.0f * (GLfloat)glY0 / fh - 1.0f,
+             (GLfloat)qx1 / fw, (GLfloat)glY0 / fh},
+            {2.0f * (GLfloat)qx0 / fw - 1.0f, 2.0f * (GLfloat)glY1 / fh - 1.0f,
+             (GLfloat)qx0 / fw, (GLfloat)glY1 / fh},
+            {2.0f * (GLfloat)qx1 / fw - 1.0f, 2.0f * (GLfloat)glY1 / fh - 1.0f,
+             (GLfloat)qx1 / fw, (GLfloat)glY1 / fh}};
+        glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
+        glViewport(0, 0, s_fboWidth, s_fboHeight);
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        glDisable(GL_BLEND);
+        glUseProgram(s_program);
+        glUniform1i(s_uTexLoc, 0);
+        glUniform1i(s_uFilterLoc, 1);
+        GL_BindTexUnit(0, s_snapshotTex);
+        glBindBuffer(GL_ARRAY_BUFFER, s_auxVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(rverts), rverts, GL_STREAM_DRAW);
+        glEnableVertexAttribArray(s_aPosLoc);
+        glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
+                              4 * sizeof(GLfloat), (const void *)0);
+        glEnableVertexAttribArray(s_aTexCoordLoc);
+        glVertexAttribPointer(s_aTexCoordLoc, 2, GL_FLOAT, GL_FALSE,
+                              4 * sizeof(GLfloat),
+                              (const void *)(2 * sizeof(GLfloat)));
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glDisableVertexAttribArray(s_aPosLoc);
+        glDisableVertexAttribArray(s_aTexCoordLoc);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glUseProgram(0);
+        /* The quad used its own program/attribs/texture — the next batch
+           flush must re-specify everything. */
+        GL_InvalidateGLState();
+    } else {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, s_snapshotFbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
+        glBlitFramebuffer(qx0, glY0, qx1, glY1, qx0, glY0, qx1, glY1,
+                          GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
+                          GL_NEAREST);
+        glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+    }
     s_profAccumTicks[GL_PROF_RESTORE] += SDL_GetPerformanceCounter() - profT0;
 
     s_fboDirtyX0 = 0;
@@ -4017,6 +4096,19 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
     if (!Fill_Flag_ZBuffer) {
         GL_LastRejectReason = 3;
         return 0;
+    }
+
+    /* Vertices the SW projection could not place (behind the near plane, or
+       beyond S16 screen coords) carry the (-32768, -32768) sentinel.  The GPU
+       would treat that as an ordinary clip-space position — a triangle flung
+       across the whole screen that also poisons the depth buffer for the
+       terrain drawn after it — so hand these polygons to the SW filler, which
+       clips them against the screen rect the way the original engine did. */
+    for (S32 i = 0; i < nbPoints; i++) {
+        if (ptrPoints[i].Pt_XE == -32768 && ptrPoints[i].Pt_YE == -32768) {
+            GL_LastRejectReason = 7;
+            return 0;
+        }
     }
 
     /* NZW polygons (animated polys: flowers, water) go through the GL

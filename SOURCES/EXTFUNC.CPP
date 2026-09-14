@@ -414,35 +414,6 @@ void AffGrilleExt() {
 
     FiltreAnimatedPolys();
 
-#ifdef USE_GPURENDERER
-    /* GL mode: render all filtered animated polys into the FBO so they
-       appear in the terrain layer (visible through the Log overlay after
-       the clearing pass in AffScene).  Without this, animated polys are
-       only drawn by DrawAnimatedPolys during AFF_OBJETS_* frames where
-       the Log overlay is not cleared, so they remain hidden. */
-    if (GPURendererActive && NbAniPoly > 0) {
-        S32 savedRepMask = RepMask;
-        PTR_U8 savedPtrMap = PtrMap;
-        Switch_Fillers(FILL_POLY_FOG_NZW);
-        PtrMap = GroundTexture;
-        RepMask = 0xFFFF;
-        for (S32 iAni = 0; iAni < NbAniPoly; iAni++) {
-            S_ANI_POLY *ani = &PtrPolySea[iAni];
-            UnsetClip();
-            SetClip(ani->X0, ani->Y0, ani->X1, ani->Y1);
-            if (ClipXMin <= ClipXMax && ClipYMin <= ClipYMax) {
-                SetCLUT(ani->Fog);
-                Fill_Poly(ani->Type, ani->Color, 3, ani->Tab_Points);
-            }
-        }
-        UnsetClip();
-        Switch_Fillers(FILL_POLY_TEXTURES);
-        SetCLUT(PalLevel);
-        RepMask = savedRepMask;
-        PtrMap = savedPtrMap;
-    }
-#endif
-
     Switch_Fillers(FILL_POLY_TEXTURES);
 
 #ifdef USE_GPURENDERER
@@ -469,6 +440,34 @@ void AffGrilleExt() {
                 Log_Info("GrillePerf: readback=%dms total=%dms", (S32)(rbT1 - rbT0), (S32)(rbT1 - aggT0));
                 s_rbPerfLog++;
             }
+        }
+
+        /* GL mode: render the filtered animated polys into the FBO after
+           the snapshot so they stay out of the background it captures and
+           are tracked in the dirty region instead — the incremental restore
+           erases each frame's copies and DrawAnimatedPolys redraws them
+           during AFF_OBJETS_* frames.  Drawing them before the snapshot
+           baked one animation step into the background permanently. */
+        if (NbAniPoly > 0) {
+            S32 savedRepMask = RepMask;
+            PTR_U8 savedPtrMap = PtrMap;
+            Switch_Fillers(FILL_POLY_FOG_NZW);
+            PtrMap = GroundTexture;
+            RepMask = 0xFFFF;
+            for (S32 iAni = 0; iAni < NbAniPoly; iAni++) {
+                S_ANI_POLY *ani = &PtrPolySea[iAni];
+                UnsetClip();
+                SetClip(ani->X0, ani->Y0, ani->X1, ani->Y1);
+                if (ClipXMin <= ClipXMax && ClipYMin <= ClipYMax) {
+                    SetCLUT(ani->Fog);
+                    Fill_Poly(ani->Type, ani->Color, 3, ani->Tab_Points);
+                }
+            }
+            UnsetClip();
+            Switch_Fillers(FILL_POLY_TEXTURES);
+            SetCLUT(PalLevel);
+            RepMask = savedRepMask;
+            PtrMap = savedPtrMap;
         }
 
 

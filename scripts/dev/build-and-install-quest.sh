@@ -272,7 +272,7 @@ case "$LAUNCH_NOW" in
     ;;
   * )
     echo "Launching..."
-    adb -s "$QUEST_SERIAL" shell am start -n org.lbalab.lba2cc/org.lbalab.lba2cc.SDLActivity 2>&1 | tee -a "$LOG_PATH" || true
+    adb -s "$QUEST_SERIAL" shell am start -n org.lbalab.lba2cc/org.libsdl.app.SDLActivity 2>&1 | tee -a "$LOG_PATH" || true
     ;;
 esac
 

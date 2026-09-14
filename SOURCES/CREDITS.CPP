@@ -11,6 +11,7 @@
 /*──────────────────────────────────────────────────────────────────────────*/
 
 #include "C_EXTERN.H"
+#include <GL/RENDER_GL.H>
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
@@ -381,6 +382,14 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
         // animated characters
 
         InitTri();
+
+#ifdef USE_GPURENDERER
+        /* The credits have no terrain pass, so GL_ClearFBO is never called
+         * from AffGrilleExt — clear the FBO here to prevent ghost trails. */
+        if (GPURendererActive) {
+            GL_ClearFBO();
+        }
+#endif
 
         // #403: advance the credits object clock only in whole FixedTimestep
         // quanta this frame. At high refresh most frames add 0 steps (the held

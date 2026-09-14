@@ -712,6 +712,12 @@ static void FillNearClippedHalf(T_NEARCLIP_VERT *tri, U32 bank, U32 texFlag,
             m->rx = P->rx + (S32)(((S64)(Q->rx - P->rx) * t16) >> 16);
             m->ry = P->ry + (S32)(((S64)(Q->ry - P->ry) * t16) >> 16);
             m->rz = P->rz + (S32)(((S64)(Q->rz - P->rz) * t16) >> 16);
+            /* Fixed-point rounding can land the intersection a unit behind
+               the near plane, where LongProjectPoint refuses the vertex and
+               the whole clipped triangle would drop out as a hole.  Snap it
+               onto the plane. */
+            if (CameraZr - m->rz < NearClip)
+                m->rz = CameraZr - NearClip;
             m->light = P->light + (((Q->light - P->light) * t16) >> 16);
             m->u = P->u + (((Q->u - P->u) * t16) >> 16);
             m->v = P->v + (((Q->v - P->v) * t16) >> 16);

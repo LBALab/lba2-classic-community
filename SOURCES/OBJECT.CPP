@@ -5521,11 +5521,17 @@ void AffNbFps(void) {
         UnsetClipWindow();
 
         CoulText(LBAWHITE, 0);
-        // Pin to the bottom-left corner at any render height. The glyph cell is
-        // 8 px tall (GraphPrintf), so ModeDesiredY - 8 sits flush with the
-        // bottom edge; the original hardcoded 472 only matched 480-tall modes
-        // and floated mid-screen at taller resolutions.
-        GraphPrintf(FALSE, 0, ModeDesiredY - 8, "%d ", NbFramePerSecond);
+        // Center-top: always readable in the headset (the bottom-left corner
+        // falls outside the eye FOV on Quest when the compositor letterboxes).
+        {
+            char fpsbuf[16];
+            snprintf(fpsbuf, sizeof(fpsbuf), "%d ", NbFramePerSecond);
+            S32 fpsLen = (S32)strlen(fpsbuf);
+            S32 fpsX = (ModeDesiredX - fpsLen * 8) / 2;
+            if (fpsX < 0)
+                fpsX = 0;
+            GraphPrintf(FALSE, fpsX, ModeDesiredY / 8, "%s", fpsbuf);
+        }
 
         RestoreClipWindow();
         UnsetClip();
@@ -5608,6 +5614,36 @@ startaffscene:
 
     UnsetClip();
 
+#ifdef USE_GPURENDERER
+    /* GL mode: on every frame that does not redraw the terrain (idle,
+       AFF_OBJETS_*, and any other non-AFF_ALL flip), the FBO still holds
+       last frame's body/shadow pixels and Log still holds last frame's 2D
+       overlay.  Blit the terrain snapshot back over the FBO before anything
+       draws this frame — including DrawAnimatedPolys in the OBJETS case
+       below, whose fresh copies must survive until the next frame's erase —
+       and empty the clip window's Log rows so bodies/shadows/sprites start
+       from a clean scene.  Modal loops (dialogue) narrow the clip window
+       above their typewriter strip and rely on that strip's Log content
+       persisting across frames, so the clear must not reach below the
+       window.  The idle flagflip=0 path reaches the object pass without
+       running any switch case, so this cannot live inside the OBJETS case. */
+    if (GPURendererActive && CubeMode == CUBE_EXTERIEUR
+            && flagflip != AFF_ALL_FLIP && flagflip != AFF_ALL_NO_FLIP) {
+        static S32 s_noRestore = -1;
+        if (s_noRestore < 0) {
+            s_noRestore = getenv("LBA2_NO_RESTORE") ? 1 : 0;
+        }
+        if (!s_noRestore) {
+            GL_RestoreTerrainSnapshot();
+        }
+        if (ClipWindowYMax >= ClipWindowYMin) {
+            memset((U8 *)Log + (size_t)ClipWindowYMin * ModeDesiredX, 0,
+                   (size_t)ModeDesiredX
+                       * (size_t)(ClipWindowYMax - ClipWindowYMin + 1));
+        }
+    }
+#endif
+
     switch (flagflip) {
     case AFF_OBJETS_FLIP:
         //			BoxClean() ;
@@ -5662,34 +5698,6 @@ startaffscene:
 
     /*------------------------------------------------------------------------*/
     /* objets scenarique 3D ou sprite */
-
-#ifdef USE_GPURENDERER
-    /* GL mode: on every frame that does not redraw the terrain (idle,
-       AFF_OBJETS_*, and any other non-AFF_ALL flip), the FBO still holds
-       last frame's body/shadow pixels and Log still holds last frame's 2D
-       overlay.  Blit the terrain snapshot back over the FBO and empty the
-       clip window's Log rows so bodies/shadows/sprites start from a clean
-       scene.  Modal loops (dialogue) narrow the clip window above their
-       typewriter strip and rely on that strip's Log content persisting
-       across frames, so the clear must not reach below the window.  The
-       idle flagflip=0 path reaches the object pass without running any
-       switch case, so this cannot live inside the OBJETS case. */
-    if (GPURendererActive && CubeMode == CUBE_EXTERIEUR
-            && flagflip != AFF_ALL_FLIP && flagflip != AFF_ALL_NO_FLIP) {
-        static S32 s_noRestore = -1;
-        if (s_noRestore < 0) {
-            s_noRestore = getenv("LBA2_NO_RESTORE") ? 1 : 0;
-        }
-        if (!s_noRestore) {
-            GL_RestoreTerrainSnapshot();
-        }
-        if (ClipWindowYMax >= ClipWindowYMin) {
-            memset((U8 *)Log + (size_t)ClipWindowYMin * ModeDesiredX, 0,
-                   (size_t)ModeDesiredX
-                       * (size_t)(ClipWindowYMax - ClipWindowYMin + 1));
-        }
-    }
-#endif
 
     BaseReset();
 
