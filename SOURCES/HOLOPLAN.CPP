@@ -275,8 +275,12 @@ void DrawListHoloPlan() {
 
     timer = TimerRefHR * 2;
 
-    if ((NumObjectif != OldObjectif)
-            AND(DecalTimerRef[NumObjectif] == 3072)) {
+    /*	NumObjectif is 1000 when Twinsen is the objective and not linked to an
+        arrow, and -1 when there is none. Neither is a slot in DecalTimerRef,
+        which DrawListHoloGlobe guards the same way. */
+    if ((NumObjectif != OldObjectif) AND(NumObjectif >= 0)
+            AND(NumObjectif < MAX_OBJECTIF + MAX_CUBE)
+                AND(DecalTimerRef[NumObjectif] == 3072)) {
         DecalTimerRef[NumObjectif] -= timer;
     }
 
