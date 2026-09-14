@@ -683,7 +683,7 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points) {
     // ebp = rightPoint = PtC
     // ASM sets fldcw [Status_Int] here — truncation rounding mode
     RoundType = ROUND_TYPE_INT;
-    fesetround(FE_TOWARDZERO);
+    ROUND_SetFpuMode(FE_TOWARDZERO);
 
     Struc_Point *PtA = Fill_LeftPoint;
     Struc_Point *PtB = leftPoint;

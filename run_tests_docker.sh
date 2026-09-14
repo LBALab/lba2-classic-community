@@ -154,6 +154,7 @@ docker run --rm \
             cmake -S . -B build \
                 -DLBA2_BUILD_TESTS=ON \
                 -DLBA2_BUILD_ASM_EQUIV_TESTS=ON \
+                -DGPURENDERER=OFF \
                 --preset ${CONFIGURE_PRESET}
         else
             cmake -S . -B build \
@@ -161,6 +162,7 @@ docker run --rm \
                 -DLBA2_BUILD_TESTS=ON \
                 -DLBA2_BUILD_ASM_EQUIV_TESTS=ON \
                 -DENABLE_ASM=ON \
+                -DGPURENDERER=OFF \
                 -DCMAKE_BUILD_TYPE=Debug \
                 -DCMAKE_C_FLAGS=-m32 \
                 -DCMAKE_CXX_FLAGS=-m32 \

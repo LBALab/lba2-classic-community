@@ -5067,11 +5067,16 @@ S32 AffOneObject(T_SORT *pt) {
                 } else {
                     // GL mode: the body went into the FBO (z-tested); only
                     // the "completely masked" flag is needed (camera logic).
+#if defined(USE_GPURENDERER)
                     if (GPURendererActive
                             ? DrawRecoverFlag(ptrobj->Obj.X, yw, ptrobj->Obj.Z, ptrobj->YMax,
                                               ade_max((ptrobj->XMax - ptrobj->XMin) / 2, (ptrobj->ZMax - ptrobj->ZMin) / 2))
                             : DrawRecover(ptrobj->Obj.X, yw, ptrobj->Obj.Z, ptrobj->YMax,
                                           ade_max((ptrobj->XMax - ptrobj->XMin) / 2, (ptrobj->ZMax - ptrobj->ZMin) / 2))) {
+#else
+                    if (DrawRecover(ptrobj->Obj.X, yw, ptrobj->Obj.Z, ptrobj->YMax,
+                                    ade_max((ptrobj->XMax - ptrobj->XMin) / 2, (ptrobj->ZMax - ptrobj->ZMin) / 2))) {
+#endif
                         // Objet complètement masqué
                         if (numobj == NumObjFollow
                                           AND TestNumObjFollow // protec boucle infinie

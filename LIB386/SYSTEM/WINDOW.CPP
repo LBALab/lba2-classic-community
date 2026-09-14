@@ -451,10 +451,12 @@ bool Window_SupportsWindowedMode(void) {
 void Window_SetVSync(int enabled) {
     /* If the GL context is active, use GL swap interval instead of the
        SDL renderer path (the two are mutually exclusive). */
+#if defined(USE_GPURENDERER)
     if (sdlGLContext != NULL) {
         SDL_GL_SetSwapInterval(enabled ? 1 : 0);
         return;
     }
+#endif
     if (sdlRenderer != NULL) {
         SDL_SetRenderVSync(sdlRenderer, enabled ? 1 : 0);
     }

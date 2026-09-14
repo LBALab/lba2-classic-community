@@ -1,5 +1,6 @@
 #include <POLYGON/CLIPPERZ.H>
 #include <fenv.h>
+#include <SYSTEM/UTILS.H>
 #include <SYSTEM/DEBUG_TRACES.H>
 
 /* ASM Clipping_ZFPU sets the x87 FPU to chop (truncate-toward-zero) rounding
@@ -11,7 +12,7 @@ void Clipping_ZFPU(STRUC_CLIPVERTEX *current, STRUC_CLIPVERTEX *last, STRUC_CLIP
     LIB386_TRACE_CPP("Clipping_ZFPU", "1", "cur=(%d,%d,%d) last=(%d,%d,%d) zclip=%d",
                      current->V_X0, current->V_Y0, current->V_Z0, last->V_X0, last->V_Y0, last->V_Z0, zclip);
     int saved_round = fegetround();
-    fesetround(FE_TOWARDZERO);
+    ROUND_SetFpuMode(FE_TOWARDZERO);
 
     S32 currentZ = current->V_Z0;
     S32 lastZ = last->V_Z0;
@@ -49,7 +50,7 @@ void Clipping_ZFPU(STRUC_CLIPVERTEX *current, STRUC_CLIPVERTEX *last, STRUC_CLIP
     dst->V_Light = (U16)((S32)interpLight);
     dst->V_Dummy = current->V_Dummy;
 
-    fesetround(saved_round);
+    ROUND_SetFpuMode(saved_round);
 }
 
 U32 ClipperZ(STRUC_CLIPVERTEX dst[], STRUC_CLIPVERTEX src[], U32 nbvertex, S32 zclip, S32 flag) {

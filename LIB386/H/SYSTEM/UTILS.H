@@ -58,3 +58,7 @@ enum ROUND_TYPE {
 extern ROUND_TYPE RoundType;
 
 double ROUND(double value);
+
+/* Skip the fesetround control-word write when the mode already matches;
+ * the polygon pipeline toggles this per polygon / per clipped vertex. */
+void ROUND_SetFpuMode(int mode);

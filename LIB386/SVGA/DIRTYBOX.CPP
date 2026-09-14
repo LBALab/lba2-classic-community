@@ -405,8 +405,10 @@ void BoxBlit() {
     // In stereo capture the left eye's AffScene also funnels here; its present
     // is suppressed (GL_Present skips the swap), so it must not step the clock
     // either — the right eye's real present does, exactly once.
+#if defined(USE_GPURENDERER)
     if (GL_GetStereoEye() != 0)
         Timer_FixedDtPresent();
+#endif
 
     ManageEvents();
 

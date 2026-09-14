@@ -673,9 +673,6 @@ static S32 s_nearClipRX[65 * 65];
 static S32 s_nearClipRY[65 * 65];
 static S32 s_nearClipRZ[65 * 65];
 
-/* Throwaway diag: per-frame terrain tile classification counters */
-S32 DBG_case16, DBG_case32, DBG_curtain, DBG_nctiles, DBG_nctri,
-    DBG_ncproj, DBG_ncback;
 
 /* One clipped vertex: camera-space position plus the per-vertex attributes
    the ground fillers consume (light, atlas UV). */
@@ -817,13 +814,8 @@ static void FillNearClippedHalf(T_NEARCLIP_VERT *tri, U32 bank, U32 texFlag,
             lightSum += t[k]->light;
         }
         if (!ok || !TestVuePoly(pts)) {
-            if (!ok)
-                DBG_ncproj++;
-            else
-                DBG_ncback++;
             continue;
         }
-        DBG_nctri++;
 
         S32 fog = (S32)(PalLevel + 16 * BoundRegleTrois(0, 15,
                                                        ClipZFar - StartZFog,
@@ -1059,14 +1051,6 @@ U32 MaskVisible(U8 *in_ptr) {
     return finalMask;
 }
 
-/* Orders visible terrain tiles by their GL batch state (fog, half flags,
-   banks) so consecutive tiles share one flush; see the sort site below. */
-static int TERRAIN_TileSortCmp(const void *a, const void *b) {
-    U32 ka = ((const U32 *)a)[0];
-    U32 kb = ((const U32 *)b)[0];
-    return (ka < kb) ? -1 : (ka > kb) ? 1 : 0;
-}
-
 /*──────────────────────────────────────────────────────────────────────────*/
 void AffichageTerrainZBuf(void) {
     S16 *ptrm;
@@ -1185,10 +1169,8 @@ void AffichageTerrainZBuf(void) {
 
                 switch (mask & 0xFF) {
                 case 32:
-                    DBG_case32++;
                     break;
                 case 16: {
-                    DBG_case16++;
                     /* Same fog level computation as DrawFeuillePolyZBuf */
                     S32 fogLevel = BoundRegleTrois(0, 15,
                                                    ClipZFar - StartZFog,
@@ -1212,10 +1194,8 @@ void AffichageTerrainZBuf(void) {
                         if (GPURendererActive && (mask & 0x2000)) {
                             /* Some corner crosses the near plane: draw the
                              * clipped remainder instead of black curtains. */
-                            DBG_nctiles++;
                             DrawNearClippedTileZBuf(x, z, ptrs, ptra);
                         } else {
-                            DBG_curtain++;
                             FillBlackPolyZBuf(x, z, ptrs, ptra);
                         }
 #else
@@ -1233,10 +1213,40 @@ void AffichageTerrainZBuf(void) {
             ptrs++;
         }
 
-        /* Ascending sort by state key. */
+        /* Ascending sort by state key: LSD counting sort on the four key
+           bytes.  The keys repeat heavily at grid-wide tile counts, so
+           qsort's indirect comparator calls cost real time every frame;
+           the keys fit a byte-wise radix perfectly.  Stable, so equal keys
+           keep scan order (draw order among equal-state tiles is
+           irrelevant: terrain fillers are opaque and z-buffered). */
         {
-            qsort(s_tiles, tileCount, sizeof(T_TILE_SORT),
-                  TERRAIN_TileSortCmp);
+            static T_TILE_SORT s_sortScratch[NB_COTE * NB_COTE];
+            static S32 s_counts[256];
+            T_TILE_SORT *src = s_tiles;
+            T_TILE_SORT *dst = s_sortScratch;
+            for (S32 pass = 0; pass < 4; pass++) {
+                memset(s_counts, 0, sizeof(s_counts));
+                for (S32 i = 0; i < tileCount; i++) {
+                    s_counts[(src[i].key >> (pass * 8)) & 0xFF]++;
+                }
+                S32 sum = 0;
+                for (S32 b = 0; b < 256; b++) {
+                    S32 c = s_counts[b];
+                    s_counts[b] = sum;
+                    sum += c;
+                }
+                for (S32 i = 0; i < tileCount; i++) {
+                    dst[s_counts[(src[i].key >> (pass * 8)) & 0xFF]++] =
+                        src[i];
+                }
+                T_TILE_SORT *t = src;
+                src = dst;
+                dst = t;
+            }
+            if (src != s_tiles) {
+                memcpy(s_tiles, src,
+                       (size_t)tileCount * sizeof(T_TILE_SORT));
+            }
         }
 
         U32 tb1 = SDL_GetTicks();
@@ -1245,20 +1255,6 @@ void AffichageTerrainZBuf(void) {
             S32 idx = s_tiles[i].idx;
             DrawFeuillePolyZBuf(idx % (NB_COTE + 1), idx / (NB_COTE + 1),
                                 &SommetRot[0][0] + idx);
-        }
-
-        {
-            static S32 s_dbgLog = 0;
-            if (s_dbgLog < 200) {
-                Log_Info("TCASE a=%d b=%d c16=%d c32=%d curt=%d nct=%d "
-                         "tri=%d pj=%d bf=%d clip=%d",
-                         AlphaCam, BetaCam, DBG_case16, DBG_case32,
-                         DBG_curtain, DBG_nctiles, DBG_nctri, DBG_ncproj,
-                         DBG_ncback, NearClip);
-                DBG_case16 = DBG_case32 = DBG_curtain = 0;
-                DBG_nctiles = DBG_nctri = DBG_ncproj = DBG_ncback = 0;
-                s_dbgLog++;
-            }
         }
 
         {
