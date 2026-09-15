@@ -6084,6 +6084,7 @@ startaffscene:
     if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
         GL_ReadbackDepthBuffer();
     }
+    GL_ArrayWindowEnd();
 #endif
 
     /* Temporary census: what did this frame actually draw? */

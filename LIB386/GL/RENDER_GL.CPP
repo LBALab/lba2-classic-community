@@ -574,6 +574,163 @@ static void GL_ProfFrameDone(void) {
 /* ── GL state — CLUT shader ─────────────────────────────────────────────── */
 
 static GLuint s_clutProgram = 0;
+static GLuint s_clut3Program = 0; /* GLSL-3 variant sampling the layer array */
+static GLint s_clut3_uAtlas = -1;
+static GLint s_clut3_uCLUT = -1;
+static GLint s_clut3_uPalette = -1;
+static GLint s_clut3_uAtlasArr = -1;
+static GLint s_clut3_uScreenScale = -1;
+static GLint s_clut3_uAtlasScale = -1;
+static GLint s_clut3_uCLUTBaseRow = -1;
+static GLint s_clut3_uScaledFogNear = -1;
+static GLint s_clut3_uFogRowScale = -1;
+static GLint s_clut3_uBilinear = -1;
+static U8 s_batchArray = 0; /* batch samples the layer array (RepMask 0x8000) */
+static S32 s_arrayWindow = 0; /* object-pass gate: only bodies/decors bin into
+                                 the array; terrain stays on the legacy 2D path
+                                 (its snapshot/pool flush paths predate the
+                                 array's bind-and-upload flow). */
+
+/* Rewrite a GLSL-100/110 source into a 300 es / 130 source: mechanical
+   renames only, plus an `out` color for fragment shaders.  Returns a
+   malloc'd string. */
+static char *GL_ShaderToV3(const char *src, S32 isVert) {
+    if (src == NULL) {
+        return NULL;
+    }
+    size_t cap = strlen(src) * 2 + 2048;
+    char *out = (char *)malloc(cap);
+    if (out == NULL) {
+        return NULL;
+    }
+    const char *r = src;
+    char *w = out;
+    *w = '\0';
+    while (*r != '\0') {
+        if (strncmp(r, "#version 100", 12) == 0) {
+            w += sprintf(w, "%s", "#version 300 es\n");
+            r += 12;
+        } else if (strncmp(r, "#version 110", 12) == 0) {
+            w += sprintf(w, "%s", "#version 130\n");
+            r += 12;
+        } else if (isVert && strncmp(r, "attribute", 9) == 0) {
+            w += sprintf(w, "%s", "in");
+            r += 9;
+        } else if (strncmp(r, "varying", 7) == 0) {
+            w += sprintf(w, "%s", isVert ? "out" : "in");
+            r += 7;
+        } else if (strncmp(r, "texture2D", 9) == 0) {
+            w += sprintf(w, "%s", "texture");
+            r += 9;
+        } else if (!isVert && strncmp(r, "gl_FragColor", 12) == 0) {
+            w += sprintf(w, "%s", "lbaFragColor");
+            r += 12;
+        } else {
+            *w++ = *r++;
+        }
+    }
+    *w = '\0';
+    if (!isVert) {
+        /* declare the out color right after the precision statement */
+        const char *anchor = strstr(out, "precision highp float;");
+        if (anchor != NULL) {
+            size_t pos = (size_t)(anchor - out) + strlen("precision highp float;");
+            size_t declLen = strlen("\nout vec4 lbaFragColor;");
+            size_t tail = strlen(out + pos) + 1;
+            memmove(out + pos + declLen, out + pos, tail);
+            memcpy(out + pos, "\nout vec4 lbaFragColor;", declLen);
+        }
+    }
+    return out;
+}
+
+static const char *s_arrayInject =
+    "uniform sampler2DArray uAtlasArr;\n"
+    "vec4 arraySample(vec2 tc, float rmask, float light, float mcolor,\n"
+    "                 float chroma, float bilin) {\n"
+    "    float layer = rmask - 32768.0;\n"
+    "    float gouraudRow = floor((light + 128.0) / 256.0) + mcolor;\n"
+    "    float wu = mod(tc.x, 256.0);\n"
+    "    float wv = mod(tc.y, 256.0);\n"
+    "    if (bilin < 0.5) {\n"
+    "        float texel = texture(uAtlasArr, vec3((floor(wu) + 0.5) / 256.0,\n"
+    "                       (floor(wv) + 0.5) / 256.0, layer)).r * 255.0;\n"
+    "        if (chroma > 0.5 && texel < 0.5) discard;\n"
+    "        return clutLookup(texel, gouraudRow);\n"
+    "    }\n"
+    "    float iu = floor(wu);\n"
+    "    float iv = floor(wv);\n"
+    "    float fu = wu - iu;\n"
+    "    float fv = wv - iv;\n"
+    "    vec3 p00 = vec3((mod(iu, 256.0) + 0.5) / 256.0,\n"
+    "                    (mod(iv, 256.0) + 0.5) / 256.0, layer);\n"
+    "    vec3 p10 = vec3((mod(iu + 1.0, 256.0) + 0.5) / 256.0, p00.y, layer);\n"
+    "    vec3 p01 = vec3(p00.x, (mod(iv + 1.0, 256.0) + 0.5) / 256.0, layer);\n"
+    "    vec3 p11 = vec3(p10.x, p01.y, layer);\n"
+    "    float t00 = texture(uAtlasArr, p00).r * 255.0;\n"
+    "    float t10 = texture(uAtlasArr, p10).r * 255.0;\n"
+    "    float t01 = texture(uAtlasArr, p01).r * 255.0;\n"
+    "    float t11 = texture(uAtlasArr, p11).r * 255.0;\n"
+    "    if (chroma > 0.5 && t00 < 0.5) discard;\n"
+    "    vec4 c00 = clutLookup(t00, gouraudRow);\n"
+    "    vec4 c10 = clutLookup(t10, gouraudRow);\n"
+    "    vec4 c01 = clutLookup(t01, gouraudRow);\n"
+    "    vec4 c11 = clutLookup(t11, gouraudRow);\n"
+    "    return mix(mix(c00, c10, fu), mix(c01, c11, fu), fv);\n"
+    "}\n";
+
+/* Add the array sampler + branch to a transformed CLUT fragment source.
+   Polys stamped with 0x8000|layer in RepMask sample the array; everything
+   else falls through the legacy per-mode body untouched. */
+static char *GL_InjectArrayBranch(char *src) {
+    const char *mainAnchor = strstr(src, "void main() {");
+    const char *mColorAnchor =
+        strstr(src, "float mColor = floor(vMaterial / 256.0);");
+    const char *trameAnchor = strstr(src, "TRAME stipple");
+    if (mainAnchor == NULL || mColorAnchor == NULL || trameAnchor == NULL) {
+        return src;
+    }
+    size_t cap = strlen(src) + strlen(s_arrayInject) + 512;
+    char *out = (char *)malloc(cap);
+    if (out == NULL) {
+        return src;
+    }
+    size_t preMain = (size_t)(mainAnchor - src);
+    size_t preTrame = (size_t)(trameAnchor - src);
+    size_t afterMc = (size_t)(mColorAnchor - src) +
+                     strlen("float mColor = floor(vMaterial / 256.0);");
+    char *w = out;
+    memcpy(w, src, afterMc);
+    w += afterMc;
+    w += sprintf(w, "%s", "\n    if ((mMode == 0 || mMode == 4) && vRepMask >= 32768.0) {\n"
+                          "        if (mMode == 4) {\n"
+                          "            float layer = vRepMask - 32768.0;\n"
+                          "            float wu4 = mod(tc.x, 256.0);\n"
+                          "            float wv4 = mod(tc.y, 256.0);\n"
+                          "            float texel4 = texture(uAtlasArr, vec3((floor(wu4) + 0.5) / 256.0, (floor(wv4) + 0.5) / 256.0, layer)).r * 255.0;\n"
+                          "            if (mChroma > 0.5 && texel4 < 0.5) discard;\n"
+                          "            color = texture(uPalette, vec2((texel4 + 0.5) / 256.0, 0.5));\n"
+                          "        } else {\n"
+                          "            color = arraySample(tc, vRepMask, vLight, mColor, mChroma, float(uBilinear));\n"
+                          "        }\n"
+                          "    } else {\n");
+    memcpy(w, src + afterMc, preTrame - afterMc);
+    w += preTrame - afterMc;
+    w += sprintf(w, "%s", "    }\n");
+    memcpy(w, src + preTrame, strlen(src) - preTrame);
+    w += strlen(src) - preTrame;
+    *w = '\0';
+    free(src);
+
+    /* inject the sampler + arraySample function before main */
+    out = (char *)realloc(out, strlen(out) + strlen(s_arrayInject) + 1);
+    char *mainPos = strstr(out, "void main() {");
+    memmove(mainPos + strlen(s_arrayInject), mainPos,
+            strlen(mainPos) + 1);
+    memcpy(mainPos, s_arrayInject, strlen(s_arrayInject));
+    return out;
+}
+
 static GLint s_clut_aPos = -1;
 static GLint s_clut_aTexCoord = -1;
 static GLint s_clut_aLight = -1;
@@ -1371,6 +1528,16 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
         return FALSE;
     }
 
+    /* Same attribute layout for both programs: explicit binding indices so
+       one vertex-array spec serves the legacy and array variants. */
+    {
+        static const char *names[6] = {"aPos",     "aTexCoord", "aLight",
+                                       "aZ",       "aRepMask",  "aMaterial"};
+        for (S32 i = 0; i < 6; i++) {
+            glBindAttribLocation(clutVert, i, names[i]);
+        }
+    }
+
     s_clutProgram = LinkProgram(clutVert, clutFrag);
     glDeleteShader(clutVert);
     glDeleteShader(clutFrag);
@@ -1401,6 +1568,59 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     glUniform1i(s_clut_uCLUT, 1);
     glUniform1i(s_clut_uPalette, 2);
     GL_UseProgramCached(0);
+
+    /* ── GLSL-3 CLUT variant with the texture-array sampler ──
+       Mechanically derived from the legacy source: version bump, es3/130
+       in/out and texture() renames, an injected arraySample() used when a
+       polygon's RepMask carries the 0x8000|layer array stamp. */
+    {
+        static const char *attrNames[6] = {"aPos",     "aTexCoord", "aLight",
+                                           "aZ",       "aRepMask",  "aMaterial"};
+        char *vert3 = GL_ShaderToV3(s_clutVertSrc, 1);
+        char *frag3 = GL_ShaderToV3(s_clutFragSrc, 0);
+        if (frag3 != NULL) {
+            frag3 = GL_InjectArrayBranch(frag3);
+        }
+        GLuint v3 = 0, f3 = 0;
+        if (vert3 != NULL && frag3 != NULL) {
+            v3 = CompileShader(GL_VERTEX_SHADER, vert3);
+            f3 = CompileShader(GL_FRAGMENT_SHADER, frag3);
+            for (S32 i = 0; i < 6; i++) {
+                glBindAttribLocation(v3, i, attrNames[i]);
+            }
+            s_clut3Program = LinkProgram(v3, f3);
+        }
+        free(vert3);
+        free(frag3);
+        glDeleteShader(v3);
+        glDeleteShader(f3);
+        if (s_clut3Program == 0) {
+            Log_Warn("[GL] array CLUT program failed; staying on the 2D path");
+        } else {
+            s_clut3_uAtlas = glGetUniformLocation(s_clut3Program, "uAtlas");
+            s_clut3_uCLUT = glGetUniformLocation(s_clut3Program, "uCLUT");
+            s_clut3_uPalette = glGetUniformLocation(s_clut3Program, "uPalette");
+            s_clut3_uAtlasArr =
+                glGetUniformLocation(s_clut3Program, "uAtlasArr");
+            s_clut3_uScreenScale =
+                glGetUniformLocation(s_clut3Program, "uScreenScale");
+            s_clut3_uAtlasScale =
+                glGetUniformLocation(s_clut3Program, "uAtlasScale");
+            s_clut3_uCLUTBaseRow =
+                glGetUniformLocation(s_clut3Program, "uCLUTBaseRow");
+            s_clut3_uScaledFogNear =
+                glGetUniformLocation(s_clut3Program, "uScaledFogNear");
+            s_clut3_uFogRowScale =
+                glGetUniformLocation(s_clut3Program, "uFogRowScale");
+            s_clut3_uBilinear = glGetUniformLocation(s_clut3Program, "uBilinear");
+            GL_UseProgramCached(s_clut3Program);
+            glUniform1i(s_clut3_uAtlas, 0);
+            glUniform1i(s_clut3_uCLUT, 1);
+            glUniform1i(s_clut3_uPalette, 2);
+            glUniform1i(s_clut3_uAtlasArr, 3);
+            GL_UseProgramCached(0);
+        }
+    }
 
     {
         GLuint fv = CompileShader(GL_VERTEX_SHADER, s_vertSrc);
@@ -1986,6 +2206,96 @@ static GLuint GL_BindAtlasFor(const void *map) {
     return e->tex;
 }
 
+/* ── Texture array for full-page polys (the body-pass flush win) ───────────
+   Every textured poly whose RepMask is 0xFFFF addresses a full 256×256 page
+   — bodies, decors, sky/sea.  Those polys carry 0x8000|layer in RepMask and
+   the flush samples GL_TEXTURE_2D_ARRAY unit 3 through a GLSL-3 variant of
+   the CLUT program, so consecutive bodies with different pages stop
+   splitting batches: the ~200 per-frame texture-page flushes on Adreno
+   collapse to the true state changes.  Sub-rect polys (terrain tiles) keep
+   RepMask masks and the legacy 2D path. */
+#define GL_ARR_LAYERS 128
+typedef struct {
+    const void *map;
+    U32 ver;
+    S32 layer;
+    U32 lastUse;
+} GL_ArrSlot;
+static GL_ArrSlot s_arrSlots[GL_ARR_LAYERS];
+static S32 s_arrCount = 0;
+static U32 s_arrUseCounter = 0;
+static GLuint s_arrayTex = 0;
+
+static GL_ArrSlot *GL_ArraySlotFor(const void *map) {
+    GL_ArrSlot *slot = NULL;
+    GL_ArrSlot *lru = NULL;
+    S32 i;
+
+    s_arrUseCounter++;
+    for (i = 0; i < s_arrCount; i++) {
+        if (s_arrSlots[i].map == map) {
+            slot = &s_arrSlots[i];
+            break;
+        }
+        if (lru == NULL || s_arrSlots[i].lastUse < lru->lastUse) {
+            lru = &s_arrSlots[i];
+        }
+    }
+    if (slot == NULL) {
+        if (s_arrCount < GL_ARR_LAYERS) {
+            slot = &s_arrSlots[s_arrCount++];
+        } else {
+            slot = lru;
+        }
+        slot->map = map;
+        slot->ver = 0; /* force upload */
+        slot->layer = (S32)(slot - s_arrSlots);
+    }
+    slot->lastUse = s_arrUseCounter;
+    return slot;
+}
+
+static void GL_ArrayEnsureTexture(void) {
+    if (s_arrayTex != 0) {
+        return;
+    }
+    glGenTextures(1, &s_arrayTex);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, s_arrayTex);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_R8, 256, 256, GL_ARR_LAYERS, 0,
+                 GL_RED, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+}
+
+/* Upload layers whose content version is stale, then bind the array on
+   unit 3.  Called from FlushActiveBatch on array batches. */
+static void GL_ArrayBind(void) {
+    S32 i;
+    GL_ArrayEnsureTexture();
+    for (i = 0; i < s_arrCount; i++) {
+        if (s_arrSlots[i].ver != s_atlasContentVersion &&
+            s_arrSlots[i].map != NULL) {
+            glBindTexture(GL_TEXTURE_2D_ARRAY, s_arrayTex);
+            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, s_arrSlots[i].layer,
+                            256, 256, 1, GL_RED, GL_UNSIGNED_BYTE,
+                            s_arrSlots[i].map);
+            s_arrSlots[i].ver = s_atlasContentVersion;
+        }
+    }
+    GL_BindTexUnit(3, s_arrayTex);
+}
+
+void GL_ArrayWindowBegin(void) {
+    s_arrayWindow = 1;
+}
+
+void GL_ArrayWindowEnd(void) {
+    s_arrayWindow = 0;
+}
+
 /* ── Batch management ───────────────────────────────────────────────────── */
 
 static void FlushActiveBatch(void) {
@@ -2046,9 +2356,24 @@ static void FlushActiveBatch(void) {
         }
     }
 
-    /* Use CLUT shader */
-    GL_UseProgramCached(s_clutProgram);
+    /* Use CLUT shader (array variant for full-page body batches) */
+    GLuint prog = (s_batchArray && s_clut3Program != 0) ? s_clut3Program
+                                                        : s_clutProgram;
+    GL_UseProgramCached(prog);
 
+    if (s_batchArray && s_clut3Program != 0) {
+        /* Array variant: per-batch uniforms set directly — sharing the
+           legacy cache banks would need per-program keys for ~20 batches
+           per frame. */
+        glUniform2f(s_clut3_uScreenScale, 2.0f / (GLfloat)s_texWidth,
+                    2.0f / (GLfloat)s_texHeight);
+        glUniform2f(s_clut3_uAtlasScale, 256.0f, 256.0f);
+        glUniform1f(s_clut3_uCLUTBaseRow, s_batchCLUTBaseRow);
+        glUniform1f(s_clut3_uScaledFogNear, s_batchScaledFogNear);
+        glUniform1f(s_clut3_uFogRowScale, s_batchFogRowScale);
+        glUniform1i(s_clut3_uBilinear, s_bilinearCLUT);
+        GL_ArrayBind();
+    } else {
     /* Set screen-scale uniform: maps pixel coords → clip space */
     {
         GLfloat sx = 2.0f / (GLfloat)s_texWidth;
@@ -2059,14 +2384,17 @@ static void FlushActiveBatch(void) {
             s_ussY = sy;
         }
     }
+    }
 
     /* Shading mode, alpha/chroma/perspective bits and flat colour now ride
        per vertex in aMaterial, so polygons that differ only in those share
        one draw call.  Blending stays a per-draw state: TRANS batches blend,
        opaque/TRAME ones do not — the flush trigger keeps them apart. */
-    if (s_bilinearCached != s_bilinearCLUT) {
-        glUniform1i(s_clut_uBilinear, s_bilinearCLUT);
-        s_bilinearCached = s_bilinearCLUT;
+    if (!(s_batchArray && s_clut3Program != 0)) {
+        if (s_bilinearCached != s_bilinearCLUT) {
+            glUniform1i(s_clut_uBilinear, s_bilinearCLUT);
+            s_bilinearCached = s_bilinearCLUT;
+        }
     }
     if (s_currentMatFlags & 8) { /* alphaMode 1 (TRANS) */
         glEnable(GL_BLEND);
@@ -2076,32 +2404,40 @@ static void FlushActiveBatch(void) {
     }
 
     /* Batch-start state that the shader still reads as uniforms. */
-    if (s_clutRowCached != s_batchCLUTBaseRow) {
-        glUniform1f(s_clut_uCLUTBaseRow, s_batchCLUTBaseRow);
-        s_clutRowCached = s_batchCLUTBaseRow;
-    }
-    if (s_fogNearCached != s_batchScaledFogNear) {
-        glUniform1f(s_clut_uScaledFogNear, s_batchScaledFogNear);
-        s_fogNearCached = s_batchScaledFogNear;
-    }
-    if (s_fogScaleCached != s_batchFogRowScale) {
-        glUniform1f(s_clut_uFogRowScale, s_batchFogRowScale);
-        s_fogScaleCached = s_batchFogRowScale;
+    if (!(s_batchArray && s_clut3Program != 0)) {
+        if (s_clutRowCached != s_batchCLUTBaseRow) {
+            glUniform1f(s_clut_uCLUTBaseRow, s_batchCLUTBaseRow);
+            s_clutRowCached = s_batchCLUTBaseRow;
+        }
+        if (s_fogNearCached != s_batchScaledFogNear) {
+            glUniform1f(s_clut_uScaledFogNear, s_batchScaledFogNear);
+            s_fogNearCached = s_batchScaledFogNear;
+        }
+        if (s_fogScaleCached != s_batchFogRowScale) {
+            glUniform1f(s_clut_uFogRowScale, s_batchFogRowScale);
+            s_fogScaleCached = s_batchFogRowScale;
+        }
     }
 
     /* Bind textures to units 0/1/2 (skipped when already bound).  Sampler
        unit assignments are program state, set once at init.  Textured
        batches sample the page the batch was recorded with; flat/gouraud
        batches never sample it. */
-    if (s_batchTextured && s_batchAtlas != NULL) {
+    if (s_batchArray && s_clut3Program != 0) {
+        /* The array program samples uAtlasArr on unit 3 (bound with the
+           stale-layer sync above); unit 0 stays a valid dummy. */
+        GL_BindTexUnit(0, s_atlasTex);
+    } else if (s_batchTextured && s_batchAtlas != NULL) {
         GL_BindTexUnit(0, GL_BindAtlasFor(s_batchAtlas));
     } else {
         GL_BindTexUnit(0, s_atlasTex);
     }
-    if (s_atlasScaleX != 256.0f || s_atlasScaleY != 256.0f) {
-        glUniform2f(s_clut_uAtlasScale, 256.0f, 256.0f);
-        s_atlasScaleX = 256.0f;
-        s_atlasScaleY = 256.0f;
+    if (!(s_batchArray && s_clut3Program != 0)) {
+        if (s_atlasScaleX != 256.0f || s_atlasScaleY != 256.0f) {
+            glUniform2f(s_clut_uAtlasScale, 256.0f, 256.0f);
+            s_atlasScaleX = 256.0f;
+            s_atlasScaleY = 256.0f;
+        }
     }
 
     GL_BindTexUnit(1, s_clutTex);
@@ -2217,6 +2553,7 @@ static void FlushActiveBatch(void) {
     s_profAccumTicks[GL_PROF_FLUSH] += SDL_GetPerformanceCounter() - profT0;
 }
 
+
 void GL_FlushBatch(void) {
     if (!Window_GLMakeCurrent()) {
         return;
@@ -2267,9 +2604,6 @@ static void GL_FlushBatchTerrain(void) {
         FlushActiveBatch();
     }
 }
-
-/* ── Ground shadow polygon (GL ShadeBoxBlk/DrawShadow replacement) ──────── */
-
 /* Draw the projected ground-shadow polygon directly into the FBO, replacing
    the SW path (DrawShadow → DrawLineShade → per-scanline ShadeBoxBlk into
    Log + DrawRecover occlusion).  The caller walks the same Bezier-rounded
@@ -2685,6 +3019,7 @@ static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
         GL_FlushBatch();
     }
 
+
     /* Copy one 16-byte vertex per corner into the batch buffer:
        Pt_XE(2) + Pt_YE(2) + Pt_MapU(2) + Pt_MapV(2) +
        Pt_Light(2) + Pt_ZO(2) + Pt_RepMask(2) + Material(2)
@@ -2758,6 +3093,7 @@ void GL_ClearFBO(void) {
        depth in place (black frame with terrain blinking through it). */
     GL_SetDepthWrite(1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 
     s_terrainRenderedThisFrame = 1;
     s_fboHasTerrain = 1;
@@ -4483,6 +4819,19 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
     }
     U16 material = (U16)(matFlags | ((U16)highByte << 8));
 
+    /* Full-page textured polys (bodies, decors, sky/sea) sample the texture
+       array; sub-rect terrain tiles and non-sampling polys stay on the
+       legacy 2D path (non-sampling polys inherit the batch's class so
+       bodies mixing textured and flat polys do not flip programs per
+       poly). */
+    U8 arrNow = (s_arrayWindow && s_clut3Program != 0) ? s_batchArray : 0;
+    if (s_arrayWindow && typePoly >= POLY_TEXTURE) {
+        arrNow = (typePoly < POLY_TEXTURE_Z_FOG && RepMask == 0xFFFF &&
+                  s_clut3Program != 0)
+                     ? 1
+                     : 0;
+    }
+
     if (s_batchVertCount > 0) {
         /* Only the alpha mode rides real per-draw GL state (TRANS batches
            enable blending), and the fog-smooth mode pins the depth func to
@@ -4491,21 +4840,12 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
         S32 trigger = ((s_currentMatFlags & 0x18) != (matFlags & 0x18) ||
                        ((matFlags & 7) == 5) !=
                            ((s_currentMatFlags & 7) == 5) ||
-                       (typePoly >= POLY_TEXTURE &&
+                       (typePoly >= POLY_TEXTURE && !arrNow &&
                         s_batchAtlas != (const void *)PtrMap) ||
+                       s_batchArray != arrNow ||
                        s_batchZBuffer != Fill_Flag_ZBuffer ||
                        s_batchNZW != Fill_Flag_NZW);
         if (trigger) {
-            /* Throwaway attribution: non-exclusive reasons per trigger, so
-               the [GLPerf] line can show which state churn dominates. */
-            s_flushRsnAlpha += ((s_currentMatFlags & 0x18) != (matFlags & 0x18));
-            s_flushRsnFog += (((matFlags & 7) == 5) !=
-                              ((s_currentMatFlags & 7) == 5));
-            s_flushRsnAtlas +=
-                (typePoly >= POLY_TEXTURE &&
-                 s_batchAtlas != (const void *)PtrMap);
-            s_flushRsnZbuf += (s_batchZBuffer != Fill_Flag_ZBuffer);
-            s_flushRsnNzw += (s_batchNZW != Fill_Flag_NZW);
             /* NZW alternation (terrain <-> animated per tile) is the dominant
                flush driver: route to the defer pool instead of flushing.
                Both pools draw depth-tested opaque geometry, so flushing
@@ -4543,18 +4883,22 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
         s_batchTextured = 1;
         s_batchAtlas = (const void *)PtrMap;
     }
+    if (typePoly >= POLY_TEXTURE) {
+        s_batchArray = arrNow;
+    }
     s_batchCLUTGouraud = (const void *)PtrCLUTGouraud;
     s_batchZBuffer = Fill_Flag_ZBuffer;
     s_batchNZW = Fill_Flag_NZW;
 
     /* Capture CLUT base row from current PtrCLUTGouraud.
-       SetCLUT(fog) is called per terrain tile with different fog distances.
-       The batch flushes when PtrCLUTGouraud changes, so all polygons in
-       the batch share the same fog distance and CLUT base row. */
+       SetCLUT() changes PtrCLUTGouraud per terrain tile with the fog
+       distance, so keeping it out of the flush trigger is what lets tiles
+       share draw calls. */
     s_batchCLUTBaseRow = 0.0f;
     if (PtrCLUTFog != NULL && PtrCLUTGouraud != NULL) {
-        s_batchCLUTBaseRow = (GLfloat)(((const U8 *)PtrCLUTGouraud -
-                                        (const U8 *)PtrCLUTFog) / 256);
+        s_batchCLUTBaseRow =
+            (GLfloat)(((const U8 *)PtrCLUTGouraud - (const U8 *)PtrCLUTFog) /
+                      256);
     }
 
     /* Capture fog distance constants at batch start (mode 5, type 24).
@@ -4607,8 +4951,14 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
             ptrPoints[i].Pt_RepMask = (U16)row;
         }
     } else {
+        U16 rm;
+        if (arrNow && typePoly >= POLY_TEXTURE) {
+            rm = (U16)(0x8000u | (U16)GL_ArraySlotFor(PtrMap)->layer);
+        } else {
+            rm = (U16)(RepMask & 0xFFFF);
+        }
         for (S32 i = 0; i < nbPoints; i++) {
-            ptrPoints[i].Pt_RepMask = (U16)(RepMask & 0xFFFF);
+            ptrPoints[i].Pt_RepMask = rm;
         }
     }
 
@@ -4668,6 +5018,8 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     (void)paletteU32; (void)filterLinear;
 }
 S32 GL_SphereTargetsFBO(void) { return 0; }
+void GL_ArrayWindowBegin(void) {}
+void GL_ArrayWindowEnd(void) {}
 S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
                           Struc_Point *ptrPoints) {
     (void)typePoly; (void)colorPoly; (void)nbPoints; (void)ptrPoints;

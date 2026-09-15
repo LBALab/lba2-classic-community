@@ -77,6 +77,12 @@ void GL_SetAntiAlias(S32 mode); /* 0=off, 1=FXAA, 2=MSAAx2, 3=MSAAx4 */
 //! No-op when the batch is empty.
 void GL_FlushBatch(void);
 
+//! Object-pass window for the texture-array path (bodies/decors only).
+//! Terrain polys keep the legacy 2D path: their snapshot/pool flush flow
+//! predates the array's bind-and-upload step.
+void GL_ArrayWindowBegin(void);
+void GL_ArrayWindowEnd(void);
+
 //! Copy the current FBO color (terrain + decor + sea, before bodies and
 //! shadows) into an internal snapshot texture.  Call once per full redraw,
 //! after the terrain pass has baked everything and before bodies draw.
