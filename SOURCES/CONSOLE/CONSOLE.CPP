@@ -1229,6 +1229,12 @@ static void Console_Draw(void) {
     }
 }
 
+int Console_WantsPrePresent(void) {
+    /* The PPM screenshot path reads the converted staging buffer, so the
+       conversion must run for that frame even with the console closed. */
+    return s_console_open || s_screenshot_path[0];
+}
+
 void Console_PrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height, const U8 *palette_rgb) {
     U32 y, x;
     /* Screenshot without console: PNG is done by game (SavePNG); only PPM here. */

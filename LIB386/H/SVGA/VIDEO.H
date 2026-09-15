@@ -48,6 +48,14 @@ void HandleEventsVideo(const void *event);
 typedef void (*PrePresentFn)(U32 *frameBuffer, U32 pitch, U32 width, U32 height, const U8 *palette_rgb);
 void SetPrePresentCallback(PrePresentFn fn);
 
+/** Predicate telling whether the pre-present callback actually wants the CPU
+ *  staging buffer this frame (console open, pending screenshot...). When it
+ *  returns 0 the GL path can upload raw palette indices and expand them on
+ *  the GPU instead of paying a full-screen CPU LUT pass every frame. NULL
+ *  means the callback always wants the buffer. */
+typedef int (*PrePresentActiveFn)(void);
+void SetPrePresentActiveCallback(PrePresentActiveFn fn);
+
 /** Optional overlay rendered after the main pre-present callback. Used by the
  *  touch virtual gamepad overlay on Android so it draws on top of the console
  *  overlay. Same signature as PrePresentFn. */

@@ -38,6 +38,7 @@ S32 screenLockCount = 0;
 bool frameDirty = false;
 static PrePresentFn s_prePresent = NULL;
 static PrePresentFn s_overlayPrePresent = NULL;
+static PrePresentActiveFn s_prePresentActive = NULL;
 static PresentTimingFn s_presentBegin = NULL;
 static PresentTimingFn s_presentEnd = NULL;
 static U32 paletteLUT[PAL_MAX_COLORS];
@@ -259,6 +260,10 @@ void SetPrePresentCallback(PrePresentFn fn) {
     s_prePresent = fn;
 }
 
+void SetPrePresentActiveCallback(PrePresentActiveFn fn) {
+    s_prePresentActive = fn;
+}
+
 void SetOverlayPrePresentCallback(PrePresentFn fn) {
     s_overlayPrePresent = fn;
 }
@@ -372,8 +377,11 @@ static void PresentFrame() {
         /* Overlay callbacks (console overlay, etc.) draw ARGB directly, so
            they need the CPU-converted staging buffer. Without them the
            indexed path uploads the raw palette indices and expands them on
-           the GPU — the CPU per-pixel loop disappears. */
-        if (s_prePresent || s_overlayPrePresent) {
+           the GPU — the CPU per-pixel loop disappears. The active predicate
+           keeps even a registered-but-idle console (the normal state while
+           playing) on the indexed path. */
+        if ((s_prePresent && (!s_prePresentActive || s_prePresentActive()))
+                || s_overlayPrePresent) {
             static U32 *s_glStaging = NULL;
             static U32 s_glStagingSize = 0;
             U32 needed = ModeDesiredX * ModeDesiredY;

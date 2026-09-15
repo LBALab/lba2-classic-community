@@ -626,6 +626,7 @@ static S32 GL_MSAATextureExtAvailable(void) {
 static void GL_DestroyMSAAFbo(void);
 static void GL_CreateMSAAFbo(U32 w, U32 h, S32 samples);
 static void GL_ResolveMSAA(void);
+static void GL_ResolveMSAAColor(void);
 /* Material of the polygon currently being queued (low byte = mode/alpha/
    chroma/persp flags, high byte = flat colour or shadow level). */
 static U16 s_currentMaterial = 0;
@@ -1733,6 +1734,22 @@ static void GL_ResolveMSAA(void) {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
+/* Color-only variant for the present paths: the composite samples s_fbo's
+   color texture, and nothing after the resolve reads s_fbo's depth — the
+   depth half of the full resolve was a second full-surface resolve every
+   frame. Consumers of resolved depth (the depth readback at native scale)
+   refresh it themselves with a depth-only blit. */
+static void GL_ResolveMSAAColor(void) {
+    if (s_msaaFbo == 0 || s_msaaW == 0)
+        return;
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, s_msaaFbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
+    glBlitFramebuffer(0, 0, s_msaaW, s_msaaH, 0, 0, s_msaaW, s_msaaH,
+                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+}
+
 void GL_SetAntiAlias(S32 mode) {
     if (mode < 0) mode = 0;
     if (mode > 3) mode = 3;
@@ -2671,8 +2688,10 @@ void GL_SnapshotTerrain(void) {
        tracked in the dirty region like the bodies. */
     GL_FlushBatchTerrain();
 
-    if (s_msaaFbo && s_antiAlias >= 2)
-        GL_ResolveMSAA();
+    /* No GL_ResolveMSAA here: with MSAA active the blit below reads the
+       MSAA buffer's color directly (implicit resolve), and s_fbo's resolved
+       copy is not read until GL_Present resolves again — refreshing it here
+       cost a second full-surface color+depth resolve on every redraw frame. */
 
     const U32 w = s_fboWidth;
     const U32 h = s_fboHeight;
@@ -3054,15 +3073,6 @@ void GL_ReadbackDepthBuffer(void) {
         return;
     }
 
-    if (s_msaaFbo && s_antiAlias >= 2)
-        GL_ResolveMSAA();
-
-    U64 profT0 = SDL_GetPerformanceCounter();
-
-    /* Flush any pending batch so the FBO contains the latest geometry
-       (terrain + bodies + shadows) before we read back its depth. */
-    GL_FlushBatch();
-
     const U32 fboW = s_fboWidth;
     const U32 fboH = s_fboHeight;
     const U32 scrW = ModeDesiredX;
@@ -3074,6 +3084,31 @@ void GL_ReadbackDepthBuffer(void) {
        downscale FBO — the same-size blit is a full-screen depth copy whose
        only product is a buffer identical to the source. */
     const S32 depthNative = (fboW == scrW && fboH == scrH);
+
+    U64 profT0 = SDL_GetPerformanceCounter();
+
+    /* Flush any pending batch so the FBO contains the latest geometry
+       (terrain + bodies + shadows) before we read back its depth. */
+    GL_FlushBatch();
+
+    if (s_msaaFbo && s_antiAlias >= 2) {
+        if (depthNative) {
+            /* The PBO read below consumes a single-sample buffer, and at
+               quality 1 that buffer is s_fbo itself — refresh only its
+               depth (the color half of GL_ResolveMSAA is re-resolved by
+               GL_Present and would be a full-surface copy wasted here). */
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, s_msaaFbo);
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
+            glBlitFramebuffer(0, 0, fboW, fboH, 0, 0, fboW, fboH,
+                              GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        }
+        /* Non-native scales: the screen-sized blit further down resolves
+           the depth straight out of the MSAA buffer, so a resolved copy in
+           s_fbo would never be read. */
+    }
+
     if (!depthNative) {
         /* GPU downscale: blit the SSAA depth into a screen-sized FBO so the
            CPU readback moves 2.4 MB instead of ~40 MB per frame. */
@@ -3181,10 +3216,7 @@ void GL_ReadbackDepthBuffer(void) {
         U16 *tmp = (U16 *)malloc(bytes);
         if (tmp != NULL) {
             glBindFramebuffer(GL_READ_FRAMEBUFFER,
-                              depthNative
-                                  ? ((s_msaaFbo && s_antiAlias >= 2) ? s_msaaFbo
-                                                                     : s_fbo)
-                                  : s_depthSmallFbo);
+                              depthNative ? s_fbo : s_depthSmallFbo);
             glReadPixels(0, 0, scrW, scrH, GL_DEPTH_COMPONENT,
                          GL_UNSIGNED_SHORT, tmp);
             glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
@@ -3194,9 +3226,7 @@ void GL_ReadbackDepthBuffer(void) {
     }
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER,
-                      depthNative
-                          ? ((s_msaaFbo && s_antiAlias >= 2) ? s_msaaFbo : s_fbo)
-                          : s_depthSmallFbo);
+                      depthNative ? s_fbo : s_depthSmallFbo);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, s_depthPbo[s_depthPboIndex]);
     glReadPixels(0, 0, scrW, scrH, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT,
                  NULL);
@@ -3591,7 +3621,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     GL_FlushBatch();
 
     if (s_msaaFbo && s_antiAlias >= 2)
-        GL_ResolveMSAA();
+        GL_ResolveMSAAColor();
 
     /* Reset frame flag so GL_FlushBatch will rebind FBO next frame. */
     s_frameActive = 0;
@@ -3827,7 +3857,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     GL_FlushBatch();
 
     if (s_msaaFbo && s_antiAlias >= 2)
-        GL_ResolveMSAA();
+        GL_ResolveMSAAColor();
 
     s_frameActive = 0;
 
