@@ -1,5 +1,7 @@
 #include "DEFINES.H"
 
+#include <SYSTEM/LOG.H>
+
 /*══════════════════════════════════════════════════════════════════════════*
 		      █▀▀▀▄ █▀▀▀▀ █▀▀▀▀ █▀▀▀█ █▀▀▀█ ██▀▀▀
 		      ██  █ ██▀▀  ██    ██  █ ██▀█▀ ▀▀▀▀█
@@ -286,6 +288,7 @@ void AffichageObjetDecorsZBuf(void) {
 
     // projection des centres
     NbObjScreen = 0;
+    S32 culled4 = 0;
     for (i = 0; i < NbObjDecors; i++, ptrobj++) {
         ptrobj->Body &= ~(DEC_DRAWN | DEC_INVISIBLE);
 
@@ -306,6 +309,65 @@ void AffichageObjetDecorsZBuf(void) {
 
         // SEB le 12/04/96
         if (!(ptrobj->Body & DEC_INVISIBLE)) {
+            /* Lateral frustum reject: project the four ZV corners and skip
+               decors whose projections all fall beyond one frame edge.  The
+               projected corner hull contains every body point, so such a
+               decor can never contribute a pixel — its BodyDisplay call was
+               pure transform-and-queue cost feeding one throwaway draw call
+               per decor texture page.  DEC_DRAWN is still set for skipped
+               decors: the flag means "would have rendered" to the shadow
+               height logic (AdjustShadowDecors), and a hero on-screen can
+               never stand inside a decor whose whole projection is off
+               frame.  Corners behind the camera (projection fails) veto the
+               reject. */
+            static const S32 corners[4][3] = {
+                {0, 0, 0}, {0, 0, 1}, {1, 0, 0}, {1, 0, 1}};
+            /* Frame bounds mirror COMMON.H's VIEW_* (3DEXT's DEFINES.H has
+               no copy). */
+            const S32 viewX0 = -50, viewY0 = -30;
+            const S32 viewX1 = (S32)ModeDesiredX + 40;
+            const S32 viewY1 = (S32)ModeDesiredY + 100;
+            U8 andFlags = 0xFF;
+            S32 cornerOK = 1;
+            for (S32 ci = 0; ci < 4; ci++) {
+                LongWorldRotatePoint(corners[ci][0] ? ptrobj->XMax
+                                                    : ptrobj->XMin,
+                                     ptrobj->YMin,
+                                     corners[ci][2] ? ptrobj->ZMax
+                                                    : ptrobj->ZMin);
+                zr = CameraZr - Z0;
+                if (zr > ClipZFar) {
+                    andFlags = 0;
+                    continue;
+                }
+                if (LongProjectPoint(X0, Y0, Z0)) {
+                    U8 f = 0;
+                    if (Xp < viewX0)
+                        f = 1;
+                    else if (Xp > viewX1)
+                        f = 2;
+                    else if (Yp < viewY0)
+                        f = 4;
+                    else if (Yp > viewY1)
+                        f = 8;
+                    andFlags &= f;
+                } else {
+                    cornerOK = 0;
+                    andFlags = 0;
+                }
+            }
+            if (cornerOK && andFlags) {
+                static S32 s_noDecClip = -1;
+                if (s_noDecClip < 0) {
+                    s_noDecClip = getenv("LBA2_NO_DECCLIP") ? 1 : 0;
+                }
+                culled4++;
+                if (!s_noDecClip) {
+                    ptrobj->Body |= DEC_DRAWN;
+                    continue;
+                }
+            }
+
             LongWorldRotatePoint(ptrobj->XMin,
                                  ptrobj->YMin,
                                  ptrobj->ZMin);
@@ -390,9 +452,18 @@ void AffichageObjetDecorsZBuf(void) {
         }
     }
 
-    //	Switch_Fillers( FILL_TEXTURES_ON );
+    //	Switch_Fillers( FILL_POLY_TEXTURES_ON );
 
     UnsetClip();
+
+    {
+        static U32 s_decCensusFrame = 0;
+        s_decCensusFrame++;
+        if (s_decCensusFrame % 300 == 150) {
+            Log_Info("DecorsPerf: total=%d screened=%d cullable=%d",
+                     (S32)NbObjDecors, (S32)NbObjScreen, culled4);
+        }
+    }
 }
 
 /*══════════════════════════════════════════════════════════════════════════*

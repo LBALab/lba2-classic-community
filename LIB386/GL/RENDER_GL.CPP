@@ -513,6 +513,11 @@ static U32 s_profFlushes = 0;    /* batch flushes (≈ CLUT-program draw calls) 
 static U32 s_profTris = 0;       /* triangles submitted to the CLUT program */
 static U32 s_profSpriteUps = 0;  /* gameplay sprite texture uploads */
 static U32 s_profDepthSkips = 0; /* depth readback consumes skipped (GPU behind) */
+static U32 s_flushRsnAlpha = 0;  /* throwaway flush-reason attribution */
+static U32 s_flushRsnFog = 0;
+static U32 s_flushRsnAtlas = 0;
+static U32 s_flushRsnZbuf = 0;
+static U32 s_flushRsnNzw = 0;
 
 static double GL_ProfMs(U64 ticks, double msPerTick, U32 frames) {
     return (double)ticks * msPerTick / (double)frames;
@@ -524,7 +529,8 @@ static void GL_ProfFrameDone(void) {
         double msPerTick = 1000.0 / (double)SDL_GetPerformanceFrequency();
         Log_Warn("[GLPerf] frames=%u present=%.2f readback=%.2f convert=%.2f "
                  "flush=%.2f snapshot=%.2f restore=%.2f mapwait=%.2f (ms) "
-                 "flushes=%.1f tris=%.0f sprUp=%.1f skips=%u",
+                 "flushes=%.1f tris=%.0f sprUp=%.1f skips=%u "
+                 "rsn a=%.1f f=%.1f t=%.1f z=%.1f n=%.1f",
                  s_profFrames,
                  GL_ProfMs(s_profAccumTicks[GL_PROF_PRESENT], msPerTick,
                            s_profFrames),
@@ -543,7 +549,12 @@ static void GL_ProfFrameDone(void) {
                  (double)s_profFlushes / (double)s_profFrames,
                  (double)s_profTris / (double)s_profFrames,
                  (double)s_profSpriteUps / (double)s_profFrames,
-                 s_profDepthSkips);
+                 s_profDepthSkips,
+                 (double)s_flushRsnAlpha / (double)s_profFrames,
+                 (double)s_flushRsnFog / (double)s_profFrames,
+                 (double)s_flushRsnAtlas / (double)s_profFrames,
+                 (double)s_flushRsnZbuf / (double)s_profFrames,
+                 (double)s_flushRsnNzw / (double)s_profFrames);
         s_profFrames = 0;
         for (S32 i = 0; i < GL_PROF_BUCKET_COUNT; i++) {
             s_profAccumTicks[i] = 0;
@@ -552,6 +563,11 @@ static void GL_ProfFrameDone(void) {
         s_profTris = 0;
         s_profSpriteUps = 0;
         s_profDepthSkips = 0;
+        s_flushRsnAlpha = 0;
+        s_flushRsnFog = 0;
+        s_flushRsnAtlas = 0;
+        s_flushRsnZbuf = 0;
+        s_flushRsnNzw = 0;
     }
 }
 
@@ -598,6 +614,8 @@ static GLuint s_batchVBO = 0;
    time on mobile GPUs once batches reach triple digits. */
 #define BATCH_RING_SLOTS 64
 static U32 s_batchRingSize = 0;  /* bytes */
+static U32 s_batchRingOffset = 0; /* rotating upload offset into the ring */
+static U32 s_batchRingBase = 0;   /* ring offset of the batch being flushed */
 static U32 s_batchRingOff = 0;   /* next slot's byte offset */
 static U32 s_batchRingSlot = 0;  /* current flush's byte offset */
 static GLuint s_auxVBO = 0;      /* one-shot draws: shadow/sphere/shade/sprite */
@@ -690,6 +708,7 @@ static GLuint s_curBoundTex[3] = {(GLuint)-1, (GLuint)-1, (GLuint)-1};
 static S32 s_curActiveUnit = -1;
 static GLuint s_curProgram = (GLuint)-1;
 static S32 s_clutAttribsDirty = 1; /* vertex arrays need enable + re-spec */
+static GLintptr s_clutAttribsBase = -1; /* ring offset the pointers point at */
 static S32 s_overlayEmptyLast = 0; /* last indexed present had a 2D-empty overlay */
 
 static void GL_UseProgramCached(GLuint prog) {
@@ -699,6 +718,12 @@ static void GL_UseProgramCached(GLuint prog) {
     }
 }
 
+/* Depth-state cache backing GL_SetDepthTest/GL_SetDepthFunc/GL_SetDepthWrite;
+   -1/0 = unknown, re-issued on the next flush. */
+static S32 s_depthTestOn = -1;
+static GLenum s_depthFuncCur = 0;
+static S32 s_depthWriteCur = -1;
+
 static void GL_InvalidateGLState(void) {
     s_curBoundTex[0] = (GLuint)-1;
     s_curBoundTex[1] = (GLuint)-1;
@@ -706,6 +731,50 @@ static void GL_InvalidateGLState(void) {
     s_curActiveUnit = -1;
     s_curProgram = (GLuint)-1;
     s_clutAttribsDirty = 1;
+    s_depthTestOn = -1;
+    s_depthFuncCur = 0;
+    s_depthWriteCur = -1;
+}
+
+/* Cached depth-state setters: a full frame can submit hundreds of small
+   batches, and re-issuing identical glEnable/glDepthFunc/glDepthMask calls
+   per batch is measurable driver overhead on mobile GPUs.  Anything outside
+   the flush path that touches depth state must call GL_InvalidateGLState()
+   so the next flush re-issues it. */
+/* LBA2_NO_DEPTHCACHE re-issues every depth-state call unconditionally. */
+static S32 s_noDepthCache = -1;
+
+static void GL_SetDepthTest(S32 on) {
+    if (s_noDepthCache < 0) {
+        s_noDepthCache = getenv("LBA2_NO_DEPTHCACHE") ? 1 : 0;
+    }
+    if (s_noDepthCache || s_depthTestOn != on) {
+        if (on)
+            glEnable(GL_DEPTH_TEST);
+        else
+            glDisable(GL_DEPTH_TEST);
+        s_depthTestOn = on;
+    }
+}
+
+static void GL_SetDepthFunc(GLenum func) {
+    if (s_noDepthCache < 0) {
+        s_noDepthCache = getenv("LBA2_NO_DEPTHCACHE") ? 1 : 0;
+    }
+    if (s_noDepthCache || s_depthFuncCur != func) {
+        glDepthFunc(func);
+        s_depthFuncCur = func;
+    }
+}
+
+static void GL_SetDepthWrite(S32 on) {
+    if (s_noDepthCache < 0) {
+        s_noDepthCache = getenv("LBA2_NO_DEPTHCACHE") ? 1 : 0;
+    }
+    if (s_noDepthCache || s_depthWriteCur != on) {
+        glDepthMask(on ? GL_TRUE : GL_FALSE);
+        s_depthWriteCur = on;
+    }
 }
 
 static void GL_BindTexUnit(S32 unit, GLuint tex) {
@@ -1469,6 +1538,11 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
 #else
     glClearDepth(0.0);
 #endif
+    /* glClear(GL_DEPTH_BUFFER_BIT) honours the depth mask, and the batch
+       depth-state cache can legitimately leave write disabled after a frame
+       ending in a blended batch — a masked clear would leave last frame's
+       depth in place (black frame with terrain blinking through it). */
+    GL_SetDepthWrite(1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     Window_GL_SwapWindow();
 
@@ -1940,16 +2014,37 @@ static void FlushActiveBatch(void) {
         }
     }
 
-    /* Upload batch vertices to VBO.  A single glBufferData re-specifies
-       the storage (orphaning it) and fills it in one driver call: several
-       vertex uploads land in this buffer per frame at offset 0 while
-       earlier draws may still be pending, and in-place glBufferSubData
-       would force the driver to synchronise; re-specifying the storage
-       lets the driver hand out a fresh range instead — the standard
-       pattern for mobile GPUs. */
+    /* Upload batch vertices.  Default is the classic orphan + fill: the
+       storage is re-specified per flush so the driver hands out fresh
+       backing while earlier draws may still be pending.  LBA2_RING=1 opts
+       into a rotating glBufferSubData ring instead (BATCH_RING_SLOTS
+       batches deep, allocated at init) to avoid re-specifying storage
+       hundreds of times per frame on drivers that charge for it — opt-in
+       until its rendering is verified on the target driver. */
     glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
-    glBufferData(GL_ARRAY_BUFFER, s_batchVertCount * BATCH_VERT_BYTES,
-                 s_batchVerts, GL_STREAM_DRAW);
+    {
+        const U32 bytes = s_batchVertCount * BATCH_VERT_BYTES;
+        static S32 s_ring = -1;
+        if (s_ring < 0) {
+            s_ring = getenv("LBA2_RING") ? 1 : 0;
+        }
+        if (s_ring) {
+            if (s_batchRingOffset + bytes > s_batchRingSize) {
+                glBufferData(GL_ARRAY_BUFFER, s_batchRingSize, NULL,
+                             GL_STREAM_DRAW);
+                s_batchRingOffset = 0;
+            }
+            glBufferSubData(GL_ARRAY_BUFFER, s_batchRingOffset, bytes,
+                            s_batchVerts);
+            s_batchRingBase = s_batchRingOffset;
+            s_batchRingOffset = (s_batchRingOffset + bytes + 255) & ~(U32)255;
+        } else {
+            glBufferData(GL_ARRAY_BUFFER, bytes, s_batchVerts,
+                         GL_STREAM_DRAW);
+            s_batchRingBase = 0;
+            s_clutAttribsDirty = 1;
+        }
+    }
 
     /* Use CLUT shader */
     GL_UseProgramCached(s_clutProgram);
@@ -2013,28 +2108,31 @@ static void FlushActiveBatch(void) {
     GL_BindTexUnit(2, s_paletteTex);
 
     /* Set up vertex attributes — 16 bytes per vertex: XE YE U V Light Z
-       RepMask Material.  Re-specified every flush: the ring slot offset
-       moves, so the pointers must follow it. */
-    if (s_clutAttribsDirty) {
+       RepMask Material.  Re-specified whenever the ring slot moves (every
+       flush) or an outside path dirtied the attribs. */
+    if (s_clutAttribsDirty ||
+        s_clutAttribsBase != (GLintptr)s_batchRingBase) {
+        const GLvoid *ringBase = (const GLvoid *)(uintptr_t) s_batchRingBase;
         glEnableVertexAttribArray(s_clut_aPos);
         glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
-                              (const void *)0);
+                              (const void *)((const U8 *)ringBase + 0));
         glEnableVertexAttribArray(s_clut_aTexCoord);
         glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE,
-                              16, (const void *)4);
+                              16, (const void *)((const U8 *)ringBase + 4));
         glEnableVertexAttribArray(s_clut_aLight);
         glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
-                              (const void *)8);
+                              (const void *)((const U8 *)ringBase + 8));
         glEnableVertexAttribArray(s_clut_aZ);
         glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
-                              (const void *)10);
+                              (const void *)((const U8 *)ringBase + 10));
         glEnableVertexAttribArray(s_clut_aRepMask);
         glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE,
-                              16, (const void *)12);
+                              16, (const void *)((const U8 *)ringBase + 12));
         glEnableVertexAttribArray(s_clut_aMaterial);
         glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE,
-                              16, (const void *)14);
+                              16, (const void *)((const U8 *)ringBase + 14));
         s_clutAttribsDirty = 0;
+        s_clutAttribsBase = (GLintptr)s_batchRingBase;
     }
 
     /* Depth testing: enable for ALL valid types (0–24).
@@ -2067,10 +2165,10 @@ static void FlushActiveBatch(void) {
         Body polygons under FILL_POLY_FOG_NZW keep GEQUAL so they are
         correctly occluded by closer terrain. */
     if (s_currentTypePoly <= POLY_TEXTURE_Z_FOG) {
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc((s_batchNZW && s_currentTypePoly == POLY_TEXTURE_Z_FOG)
-                        ? GL_ALWAYS
-                        : GL_GEQUAL);
+        GL_SetDepthTest(1);
+        GL_SetDepthFunc(
+            (s_batchNZW && s_currentTypePoly == POLY_TEXTURE_Z_FOG) ? GL_ALWAYS
+                                                                    : GL_GEQUAL);
 
         if (s_batchZBuffer || s_currentTypePoly >= POLY_TEXTURE_Z) {
             /* Z-buffered path: write depth unless blending.  NZW opaque
@@ -2083,21 +2181,19 @@ static void FlushActiveBatch(void) {
             if (s_noBodyDWrite < 0) {
                 s_noBodyDWrite = getenv("LBA2_NO_BODY_DWRITE") ? 1 : 0;
             }
-            glDepthMask(((s_currentMatFlags & 8) != 0 ||
-                         (s_batchNZW && s_noBodyDWrite))
-                            ? GL_FALSE
-                            : GL_TRUE);
+            GL_SetDepthWrite(!((s_currentMatFlags & 8) != 0 ||
+                               (s_batchNZW && s_noBodyDWrite)));
         } else {
             /* Types 0–15 without Z-buffered fillers (NPC/sprite path):
                Z-test only — matches SW ZBufBoxOverWrite2 which reads
                terrain Z but never writes object Z into the buffer.
                Types 0–7 (FLAT/SOLID) still need Z-test so they are
                occluded by closer terrain (e.g. NPCs behind walls). */
-            glDepthMask(GL_FALSE);
+            GL_SetDepthWrite(0);
         }
     } else {
-        glDisable(GL_DEPTH_TEST);
-        glDepthMask(GL_FALSE);
+        GL_SetDepthTest(0);
+        GL_SetDepthWrite(0);
     }
 
     /* Draw all batched triangles.  Re-bind the render FBO: intermediate
@@ -2109,13 +2205,10 @@ static void FlushActiveBatch(void) {
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
     glDrawArrays(GL_TRIANGLES, 0, s_batchVertCount);
 
-    /* Restore depth mask so subsequent Z-buffer batches (types 16–24)
-       can write to the depth buffer.  Vertex arrays, the program and the
-       texture bindings stay as-is: the caches above skip redundant
-       re-specification on the next flush, and the paths that draw with
-       different state invalidate them (GL_InvalidateGLState). */
-    glDepthMask(GL_TRUE);
-    glDisable(GL_DEPTH_TEST);
+    /* Restore depth state lazily: the caches hold the batch's values until
+       GL_InvalidateGLState() or the next flush's setter changes them — the
+       per-flush unconditional glDepthMask/glDisable pair was driver-call
+       overhead with no consumer in between. */
 
     /* Reset batch counters */
     s_batchVertCount = 0;
@@ -2269,9 +2362,9 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
     GL_BindTexUnit(2, s_paletteTex);
 
     /* Depth-test against the terrain, never write. */
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_GEQUAL);
-    glDepthMask(GL_FALSE);
+    GL_SetDepthTest(1);
+    GL_SetDepthFunc(GL_GEQUAL);
+    GL_SetDepthWrite(0);
 
     /* Multiply blending: result = shadow gray * scene color. */
     glEnable(GL_BLEND);
@@ -2337,8 +2430,8 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
         s_profTris += (U32)nv / 3;
     }
 
-    glDepthMask(GL_TRUE);
-    glDisable(GL_DEPTH_TEST);
+    GL_SetDepthWrite(1);
+    GL_SetDepthTest(0);
     glDisable(GL_BLEND);
 
     /* Vertex arrays, program and texture bindings stay as they are — the
@@ -2420,9 +2513,9 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
     GL_BindTexUnit(1, s_clutTex);
     GL_BindTexUnit(2, s_paletteTex);
 
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_GEQUAL);
-    glDepthMask((zWrite && !transparent) ? GL_TRUE : GL_FALSE);
+    GL_SetDepthTest(1);
+    GL_SetDepthFunc(GL_GEQUAL);
+    GL_SetDepthWrite(zWrite && !transparent);
 
     if (transparent) {
         glEnable(GL_BLEND);
@@ -2482,8 +2575,8 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
     glDrawArrays(GL_TRIANGLE_FAN, 0, SEGMENTS + 2);
     s_profTris += SEGMENTS;
 
-    glDepthMask(GL_TRUE);
-    glDisable(GL_DEPTH_TEST);
+    GL_SetDepthWrite(1);
+    GL_SetDepthTest(0);
     glDisable(GL_BLEND);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -2532,8 +2625,8 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
     GL_BindTexUnit(2, s_paletteTex);
 
     /* Unconditional: the band shades everything behind it. */
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
+    GL_SetDepthTest(0);
+    GL_SetDepthWrite(0);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_DST_COLOR, GL_ZERO);
@@ -2579,7 +2672,7 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    glDepthMask(GL_TRUE);
+    GL_SetDepthWrite(1);
     glDisable(GL_BLEND);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -2659,6 +2752,11 @@ void GL_ClearFBO(void) {
 #else
     glClearDepth(0.0);
 #endif
+    /* glClear(GL_DEPTH_BUFFER_BIT) honours the depth mask, and the batch
+       depth-state cache can legitimately leave write disabled after a frame
+       ending in a blended batch — a masked clear would leave last frame's
+       depth in place (black frame with terrain blinking through it). */
+    GL_SetDepthWrite(1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     s_terrainRenderedThisFrame = 1;
@@ -3347,9 +3445,9 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
     GL_BindTexUnit(1, s_clutTex);
     GL_BindTexUnit(2, s_paletteTex);
 
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_GEQUAL);
-    glDepthMask(GL_FALSE);
+    GL_SetDepthTest(1);
+    GL_SetDepthFunc(GL_GEQUAL);
+    GL_SetDepthWrite(0);
 
     if (transparent) {
         glEnable(GL_BLEND);
@@ -3410,8 +3508,8 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
     glDrawArrays(GL_TRIANGLES, 0, 6);
     s_profTris += 2;
 
-    glDepthMask(GL_TRUE);
-    glDisable(GL_DEPTH_TEST);
+    GL_SetDepthWrite(1);
+    GL_SetDepthTest(0);
     glDisable(GL_BLEND);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -4398,6 +4496,16 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
                        s_batchZBuffer != Fill_Flag_ZBuffer ||
                        s_batchNZW != Fill_Flag_NZW);
         if (trigger) {
+            /* Throwaway attribution: non-exclusive reasons per trigger, so
+               the [GLPerf] line can show which state churn dominates. */
+            s_flushRsnAlpha += ((s_currentMatFlags & 0x18) != (matFlags & 0x18));
+            s_flushRsnFog += (((matFlags & 7) == 5) !=
+                              ((s_currentMatFlags & 7) == 5));
+            s_flushRsnAtlas +=
+                (typePoly >= POLY_TEXTURE &&
+                 s_batchAtlas != (const void *)PtrMap);
+            s_flushRsnZbuf += (s_batchZBuffer != Fill_Flag_ZBuffer);
+            s_flushRsnNzw += (s_batchNZW != Fill_Flag_NZW);
             /* NZW alternation (terrain <-> animated per tile) is the dominant
                flush driver: route to the defer pool instead of flushing.
                Both pools draw depth-tested opaque geometry, so flushing

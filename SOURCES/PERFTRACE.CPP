@@ -15,7 +15,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PERFTRACE_RING_SIZE 256
+/* Deep enough that a dump after a 500-tick harness run still holds the
+   early-run frames: 256 evicted transient spikes (camera-jump redraws) from
+   the window entirely.  ~40 KB of static memory. */
+#define PERFTRACE_RING_SIZE 2048
 
 typedef struct {
     U64 frame_us;
