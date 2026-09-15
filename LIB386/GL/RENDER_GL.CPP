@@ -507,6 +507,8 @@ enum {
     GL_PROF_MAPWAIT = 6,
     GL_PROF_BUCKET_COUNT = 7
 };
+static S32 s_arrCount;           /* defined with the array manager below */
+static U32 s_arrEvictions;
 static U64 s_profAccumTicks[GL_PROF_BUCKET_COUNT] = {0};
 static U32 s_profFrames = 0;
 static U32 s_profFlushes = 0;    /* batch flushes (≈ CLUT-program draw calls) */
@@ -530,7 +532,7 @@ static void GL_ProfFrameDone(void) {
         Log_Warn("[GLPerf] frames=%u present=%.2f readback=%.2f convert=%.2f "
                  "flush=%.2f snapshot=%.2f restore=%.2f mapwait=%.2f (ms) "
                  "flushes=%.1f tris=%.0f sprUp=%.1f skips=%u "
-                 "rsn a=%.1f f=%.1f t=%.1f z=%.1f n=%.1f",
+                 "rsn a=%.1f f=%.1f t=%.1f z=%.1f n=%.1f arr=%u/%u",
                  s_profFrames,
                  GL_ProfMs(s_profAccumTicks[GL_PROF_PRESENT], msPerTick,
                            s_profFrames),
@@ -554,7 +556,8 @@ static void GL_ProfFrameDone(void) {
                  (double)s_flushRsnFog / (double)s_profFrames,
                  (double)s_flushRsnAtlas / (double)s_profFrames,
                  (double)s_flushRsnZbuf / (double)s_profFrames,
-                 (double)s_flushRsnNzw / (double)s_profFrames);
+                 (double)s_flushRsnNzw / (double)s_profFrames,
+                 s_arrCount, s_arrEvictions);
         s_profFrames = 0;
         for (S32 i = 0; i < GL_PROF_BUCKET_COUNT; i++) {
             s_profAccumTicks[i] = 0;
@@ -568,6 +571,7 @@ static void GL_ProfFrameDone(void) {
         s_flushRsnAtlas = 0;
         s_flushRsnZbuf = 0;
         s_flushRsnNzw = 0;
+        s_arrEvictions = 0;
     }
 }
 
@@ -2214,7 +2218,14 @@ static GLuint GL_BindAtlasFor(const void *map) {
    splitting batches: the ~200 per-frame texture-page flushes on Adreno
    collapse to the true state changes.  Sub-rect polys (terrain tiles) keep
    RepMask masks and the legacy 2D path. */
-#define GL_ARR_LAYERS 128
+/* 512 layers = 32 MB (16 MB on the 256-layer Android budget): must exceed
+   the distinct pages a scene touches per frame, or LRU eviction steals
+   layers that already-queued vertices reference (white body patches). */
+#ifdef __ANDROID__
+#define GL_ARR_LAYERS 256
+#else
+#define GL_ARR_LAYERS 512
+#endif
 typedef struct {
     const void *map;
     U32 ver;
@@ -2222,7 +2233,6 @@ typedef struct {
     U32 lastUse;
 } GL_ArrSlot;
 static GL_ArrSlot s_arrSlots[GL_ARR_LAYERS];
-static S32 s_arrCount = 0;
 static U32 s_arrUseCounter = 0;
 static GLuint s_arrayTex = 0;
 
@@ -2252,6 +2262,9 @@ static GL_ArrSlot *GL_ArraySlotFor(const void *map) {
         slot->layer = (S32)(slot - s_arrSlots);
     }
     slot->lastUse = s_arrUseCounter;
+    if (s_arrCount >= GL_ARR_LAYERS) {
+        s_arrEvictions++; /* layer stolen from a map (may be in flight) */
+    }
     return slot;
 }
 
@@ -4824,13 +4837,12 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        legacy 2D path (non-sampling polys inherit the batch's class so
        bodies mixing textured and flat polys do not flip programs per
        poly). */
-    U8 arrNow = (s_arrayWindow && s_clut3Program != 0) ? s_batchArray : 0;
-    if (s_arrayWindow && typePoly >= POLY_TEXTURE) {
-        arrNow = (typePoly < POLY_TEXTURE_Z_FOG && RepMask == 0xFFFF &&
-                  s_clut3Program != 0)
-                     ? 1
-                     : 0;
-    }
+    /* Disabled: body textures stage through ONE shared buffer whose content
+       swaps per body, so a pointer-keyed layer is only correct for the
+       last-staged body (white/wrong textures).  A correct implementation
+       needs content-keyed layers or per-body uploads. */
+    U8 arrNow = 0;
+    (void)s_arrayWindow;
 
     if (s_batchVertCount > 0) {
         /* Only the alpha mode rides real per-draw GL state (TRANS batches

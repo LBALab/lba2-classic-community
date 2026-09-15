@@ -5738,6 +5738,10 @@ startaffscene:
 
     NbTriObj = 0;
 
+#ifdef USE_GPURENDERER
+    GL_ArrayWindowBegin();
+#endif
+
     /*------------------------------------------------------------------------*/
 
     ptrobj = ListObjet;
