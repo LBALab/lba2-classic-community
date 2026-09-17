@@ -221,6 +221,13 @@ operation without rebuilding a running app's view of storage: `appops get` then
 reports `allow` with a `rejectTime` beside it, and the app keeps using the
 fallback until the device reboots or the permission is granted through Settings.
 
+Put extracted retail files without `LBA2.CFG` in `/sdcard/lba2cc/` for the full
+run. With a disc image there, the config write is skipped, because the game
+reads the disc's own config and writes none on a first boot. The checks without
+All Files Access are skipped too, because the game cannot open the image and
+stops at "Game data not found". Checks that need root report SKIP on a retail
+phone.
+
 ### Updating without losing your progress
 
 Since `0.13.0` every published APK is signed with the same key, so a new

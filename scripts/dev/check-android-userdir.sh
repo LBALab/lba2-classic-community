@@ -72,7 +72,7 @@ apk_for_adb() {
 # state: `am start` answers "result code=3", the game comes to the front, and
 # nothing in the boot path runs again. force-stop is not instant, so wait for
 # the process to actually go before starting a new one.
-launch_and_wait() {  # $1 = the file whose appearance means the boot got far enough
+cold_start() {
     "$ADB" shell am force-stop "$PKG" >/dev/null 2>&1
     local waited=0
     while [[ -n "$(app_pid)" && $waited -lt 20 ]]; do
@@ -85,9 +85,40 @@ launch_and_wait() {  # $1 = the file whose appearance means the boot got far eno
     fi
 
     "$ADB" shell am start -n "$ACTIVITY" >/dev/null 2>&1
-    waited=0
+}
+
+wait_for_file() {  # $1 = the file whose appearance means the boot got far enough
+    local waited=0
     while [[ $waited -lt $BOOT_TIMEOUT ]]; do
         if exists_on_device "$1"; then
+            return 0
+        fi
+        sleep 3
+        waited=$((waited + 3))
+    done
+    return 1
+}
+
+# Without All Files Access a disc image in /sdcard/lba2cc cannot be opened, so
+# discovery finds no game data and the boot stops at its "Game data not found"
+# dialog: no banner, no config, no "Ready in". Extracted files still pass
+# discovery by name there, so only a disc image gets here. The checks that
+# launch without the permission are then about a boot that never happened.
+stopped_without_data() {  # $1 = the log to read
+    "$ADB" shell "grep -aq 'No valid game data directory' '$1'" 2>/dev/null
+}
+NO_DATA_SKIP="without the permission the game data (a disc image?) is unreadable, so the boot stopped at 'Game data not found'; use extracted files"
+
+launch_and_wait() {  # $1 = as for wait_for_file
+    cold_start || return 1
+    wait_for_file "$1"
+}
+
+# The boot's own conclusion, for when no single file is guaranteed to appear.
+wait_for_ready() {  # $1 = the log to read
+    local waited=0
+    while [[ $waited -lt $BOOT_TIMEOUT ]]; do
+        if "$ADB" shell "grep -aq 'Ready in' '$1'" 2>/dev/null; then
             return 0
         fi
         sleep 3
@@ -122,10 +153,15 @@ echo "  installed $(basename "$APK")"
 echo
 echo "== 1. a first launch writes to shared external storage =="
 "$ADB" shell rm -rf "$SHARED_DIR" "$APP_EXTERNAL" >/dev/null 2>&1
-if launch_and_wait "$SHARED_DIR/lba2.cfg"; then
-    pass "lba2.cfg landed in $SHARED_DIR"
+# Waits for the boot to finish rather than for lba2.cfg: a first boot writes one
+# only when the game data has no config of its own. A disc image carries
+# LBA2.CFG, and the engine then reads it in place and writes nothing until the
+# player changes a setting, so waiting on the file times out on a working boot.
+cold_start
+if wait_for_ready "$SHARED_DIR/adeline.log"; then
+    pass "the boot finished with its log in $SHARED_DIR"
 else
-    fail "no lba2.cfg in $SHARED_DIR after ${BOOT_TIMEOUT}s"
+    fail "no finished boot logged in $SHARED_DIR after ${BOOT_TIMEOUT}s"
 fi
 
 # Written through fsync + atomic rename. A rename that silently did nothing on
@@ -134,6 +170,8 @@ fi
 size=$("$ADB" shell "wc -c < '$SHARED_DIR/lba2.cfg'" 2>/dev/null | tr -d '\r ')
 if [[ "${size:-0}" -gt 100 ]]; then
     pass "the atomic config write survived emulated storage ($size bytes)"
+elif "$ADB" shell "grep -aq 'none yet) + game data' '$SHARED_DIR/adeline.log'" 2>/dev/null; then
+    skip "the game data has its own config, so this boot wrote none (use extracted files without LBA2.CFG)"
 else
     fail "lba2.cfg is ${size:-missing} bytes: fsync+rename may not work here"
 fi
@@ -257,7 +295,27 @@ echo "== 6. without All Files Access, saves still land somewhere reachable =="
 "$ADB" shell am force-stop "$PKG" >/dev/null 2>&1
 "$ADB" shell appops set "$PKG" MANAGE_EXTERNAL_STORAGE deny >/dev/null 2>&1
 "$ADB" shell rm -rf "$SHARED_DIR" "$APP_EXTERNAL" >/dev/null 2>&1
-if launch_and_wait "$APP_EXTERNAL/lba2.cfg"; then
+# Without the permission the engine opens Settings and waits for the player to
+# come back, and the frozen background process decides nothing until then. So
+# answer it, as check 8 does. The config lands here either way: the game data
+# is unreadable without the permission, so there is none to read in its place.
+cold_start
+sleep 10
+"$ADB" shell input keyevent KEYCODE_BACK >/dev/null 2>&1
+fallback_cfg=0
+waited=0
+while [[ $waited -lt $BOOT_TIMEOUT ]]; do
+    if exists_on_device "$APP_EXTERNAL/lba2.cfg"; then
+        fallback_cfg=1
+        break
+    fi
+    stopped_without_data "$APP_EXTERNAL/adeline.log" && break
+    sleep 3
+    waited=$((waited + 3))
+done
+if stopped_without_data "$APP_EXTERNAL/adeline.log"; then
+    skip "$NO_DATA_SKIP"
+elif [[ $fallback_cfg -eq 1 ]]; then
     pass "fell back to $APP_EXTERNAL"
 else
     fail "no config in $APP_EXTERNAL after ${BOOT_TIMEOUT}s"
@@ -267,7 +325,9 @@ fi
 # every doc names has to be told why, and this line is the only place it is
 # said: the choice happens before the log exists, so it is recorded and read
 # back by the banner. Silence here looks exactly like saves going missing.
-if ! exists_on_device "$APP_EXTERNAL/adeline.log"; then
+if stopped_without_data "$APP_EXTERNAL/adeline.log"; then
+    skip "$NO_DATA_SKIP"
+elif ! exists_on_device "$APP_EXTERNAL/adeline.log"; then
     fail "no adeline.log in $APP_EXTERNAL, so nothing could be read back"
 elif "$ADB" shell "grep -q 'could not be written to' '$APP_EXTERNAL/adeline.log'" 2>/dev/null; then
     pass "the boot says why the saves are not in $SHARED_DIR"
@@ -389,6 +449,8 @@ while [[ $waited -lt 90 && -z "$firstrun_verdict" ]]; do
         elif "$ADB" shell \
             "grep -aqE 'Ready in|storage access was not granted' '$d/adeline.log'" 2>/dev/null; then
             firstrun_verdict="waited"
+        elif stopped_without_data "$d/adeline.log"; then
+            firstrun_verdict="no-data"
         fi
     done
     [[ -n "$firstrun_verdict" ]] && break
@@ -402,6 +464,9 @@ case "$firstrun_verdict" in
         ;;
     gave-up)
         fail "the boot gave up on a window that a returning player would have handed it"
+        ;;
+    no-data)
+        skip "$NO_DATA_SKIP"
         ;;
     *)
         fail "the first run reached no conclusion in ${waited}s, so this examined nothing"
