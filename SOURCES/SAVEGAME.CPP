@@ -83,13 +83,25 @@ char *ListDemoSave[NB_DEMOSAVE] = {
 
 #define LbaReadByte(ptr) ptr = *PtrSave++;
 
-#define LbaReadWord(ptr)   \
-    ptr = *(S16 *)PtrSave; \
-    PtrSave += 2;
+/* Words and longs go through memcpy, never a cast: PtrSave sits at any offset,
+   odd after the player name, and a compiler may merge two adjacent casts into one
+   paired load (LDRD/STRD on 32-bit ARM) that faults with SIGBUS on a misaligned
+   address. memcpy promises no alignment and compiles to the same single load. */
+#define LbaReadWord(ptr)               \
+    do {                               \
+        S16 lbaWord_;                  \
+        memcpy(&lbaWord_, PtrSave, 2); \
+        (ptr) = lbaWord_;              \
+        PtrSave += 2;                  \
+    } while (0)
 
-#define LbaReadLong(ptr)   \
-    ptr = *(S32 *)PtrSave; \
-    PtrSave += 4;
+#define LbaReadLong(ptr)               \
+    do {                               \
+        S32 lbaLong_;                  \
+        memcpy(&lbaLong_, PtrSave, 4); \
+        (ptr) = lbaLong_;              \
+        PtrSave += 4;                  \
+    } while (0)
 
 //-------- Ecriture
 #define LbaWrite(ptr, size)     \
@@ -98,13 +110,19 @@ char *ListDemoSave[NB_DEMOSAVE] = {
 
 #define LbaWriteByte(val) *PtrSave++ = val;
 
-#define LbaWriteWord(val)  \
-    *(S16 *)PtrSave = val; \
-    PtrSave += 2;
+#define LbaWriteWord(val)              \
+    do {                               \
+        S16 lbaWord_ = (S16)(val);     \
+        memcpy(PtrSave, &lbaWord_, 2); \
+        PtrSave += 2;                  \
+    } while (0)
 
-#define LbaWriteLong(val)  \
-    *(S32 *)PtrSave = val; \
-    PtrSave += 4;
+#define LbaWriteLong(val)              \
+    do {                               \
+        S32 lbaLong_ = (S32)(val);     \
+        memcpy(PtrSave, &lbaLong_, 4); \
+        PtrSave += 4;                  \
+    } while (0)
 
 #ifndef EDITLBA2
 static U8 *g_save_read_limit = NULL;
@@ -1396,21 +1414,25 @@ void SaveContexte(S32 savetimerrefhr) {
     } while (0)
 
 #undef LbaReadWord
-#define LbaReadWord(ptr)             \
-    do {                             \
-        if (!SaveLoadRoom(2))        \
-            return SAVELOAD_CTX_ERR; \
-        (ptr) = *(S16 *)PtrSave;     \
-        PtrSave += 2;                \
+#define LbaReadWord(ptr)               \
+    do {                               \
+        if (!SaveLoadRoom(2))          \
+            return SAVELOAD_CTX_ERR;   \
+        S16 lbaWord_;                  \
+        memcpy(&lbaWord_, PtrSave, 2); \
+        (ptr) = lbaWord_;              \
+        PtrSave += 2;                  \
     } while (0)
 
 #undef LbaReadLong
-#define LbaReadLong(ptr)             \
-    do {                             \
-        if (!SaveLoadRoom(4))        \
-            return SAVELOAD_CTX_ERR; \
-        (ptr) = *(S32 *)PtrSave;     \
-        PtrSave += 4;                \
+#define LbaReadLong(ptr)               \
+    do {                               \
+        if (!SaveLoadRoom(4))          \
+            return SAVELOAD_CTX_ERR;   \
+        S32 lbaLong_;                  \
+        memcpy(&lbaLong_, PtrSave, 4); \
+        (ptr) = lbaLong_;              \
+        PtrSave += 4;                  \
     } while (0)
 
 /* Issue #62: read NbObjets objects from PtrSave at the configured stride and
@@ -1678,7 +1700,11 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         LbaReadLong(ExtraConque);
         LbaReadByte(PingouinActif);
 
-        PtrZoneClimb = (T_ZONE *)(uintptr_t)(*(U32 *)PtrSave);
+        {
+            U32 zoneClimb;
+            memcpy(&zoneClimb, PtrSave, 4);
+            PtrZoneClimb = (T_ZONE *)(uintptr_t)zoneClimb;
+        }
         PtrSave += 4;
 
         // Flechettes
@@ -2060,12 +2086,20 @@ S32 LoadContexte(S32 *savetimerrefhr) {
 #define LbaReadByte(ptr) ptr = *PtrSave++;
 
 #undef LbaReadWord
-#define LbaReadWord(ptr)   \
-    ptr = *(S16 *)PtrSave; \
-    PtrSave += 2;
+#define LbaReadWord(ptr)               \
+    do {                               \
+        S16 lbaWord_;                  \
+        memcpy(&lbaWord_, PtrSave, 2); \
+        (ptr) = lbaWord_;              \
+        PtrSave += 2;                  \
+    } while (0)
 
 #undef LbaReadLong
-#define LbaReadLong(ptr)   \
-    ptr = *(S32 *)PtrSave; \
-    PtrSave += 4;
+#define LbaReadLong(ptr)               \
+    do {                               \
+        S32 lbaLong_;                  \
+        memcpy(&lbaLong_, PtrSave, 4); \
+        (ptr) = lbaLong_;              \
+        PtrSave += 4;                  \
+    } while (0)
 #endif
