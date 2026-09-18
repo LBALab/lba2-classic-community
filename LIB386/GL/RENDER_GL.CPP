@@ -885,33 +885,6 @@ static S32 s_depthTestOn = -1;
 static GLenum s_depthFuncCur = 0;
 static S32 s_depthWriteCur = -1;
 
-/* Cached blend enable: the flush path and the one-shot draws (shadow,
-   sphere, shade, sprite composites) all toggle blending, and re-issuing
-   identical glEnable/glDisable per batch is driver overhead.  Anything
-   outside this setter must call GL_InvalidateGLState(). */
-static S32 s_blendOnCur = -1;
-static GLenum s_blendSrcCur = 0;
-static GLenum s_blendDstCur = 0;
-
-static void GL_SetBlendFunc(S32 on, GLenum src, GLenum dst) {
-    if (s_blendOnCur == on && s_blendSrcCur == src && s_blendDstCur == dst) {
-        return;
-    }
-    if (on) {
-        glEnable(GL_BLEND);
-        glBlendFunc(src, dst);
-    } else {
-        glDisable(GL_BLEND);
-    }
-    s_blendOnCur = on;
-    s_blendSrcCur = src;
-    s_blendDstCur = dst;
-}
-
-static void GL_SetBlend(S32 on) {
-    GL_SetBlendFunc(on, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-}
-
 static void GL_InvalidateGLState(void) {
     s_curBoundTex[0] = (GLuint)-1;
     s_curBoundTex[1] = (GLuint)-1;
@@ -922,9 +895,6 @@ static void GL_InvalidateGLState(void) {
     s_depthTestOn = -1;
     s_depthFuncCur = 0;
     s_depthWriteCur = -1;
-    s_blendOnCur = -1;
-    s_blendSrcCur = 0;
-    s_blendDstCur = 0;
 }
 
 /* Cached depth-state setters: a full frame can submit hundreds of small
@@ -1768,7 +1738,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             SDL_GL_GetProcAddress("glFramebufferTexture2DMultisampleEXT");
     glViewport(0, 0, resX, resY);
     glDisable(GL_DEPTH_TEST);
-    GL_SetBlendFunc(0, 0, 0);
+    glDisable(GL_BLEND);
 
     /* Create FBO — always needed so 3D renders into an offscreen buffer
        that can be composited at the letterbox viewport alongside the
@@ -2379,10 +2349,7 @@ static void FlushActiveBatch(void) {
         const U32 bytes = s_batchVertCount * BATCH_VERT_BYTES;
         static S32 s_ring = -1;
         if (s_ring < 0) {
-            /* Ring submission is the default: orphaning re-specifies buffer
-               storage on every flush, which mobile drivers charge for. */
-            const char *ring = getenv("LBA2_RING");
-            s_ring = (ring != NULL && ring[0] == '0') ? 0 : 1;
+            s_ring = getenv("LBA2_RING") ? 1 : 0;
         }
         if (s_ring) {
             if (s_batchRingOffset + bytes > s_batchRingSize) {
@@ -2442,7 +2409,12 @@ static void FlushActiveBatch(void) {
             s_bilinearCached = s_bilinearCLUT;
         }
     }
-    GL_SetBlend((s_currentMatFlags & 8) != 0); /* alphaMode 1 (TRANS) */
+    if (s_currentMatFlags & 8) { /* alphaMode 1 (TRANS) */
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    } else {
+        glDisable(GL_BLEND);
+    }
 
     /* Batch-start state that the shader still reads as uniforms. */
     if (!(s_batchArray && s_clut3Program != 0)) {
@@ -2742,7 +2714,8 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
     GL_SetDepthWrite(0);
 
     /* Multiply blending: result = shadow gray * scene color. */
-    GL_SetBlendFunc(1, GL_DST_COLOR, GL_ZERO);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_DST_COLOR, GL_ZERO);
 
     /* Ear-clip the outline: the shadow quad is planar in front of the
        camera, but corners ride terrain altitude, so a skewed projection
@@ -2806,7 +2779,7 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
 
     GL_SetDepthWrite(1);
     GL_SetDepthTest(0);
-    GL_SetBlendFunc(0, 0, 0);
+    glDisable(GL_BLEND);
 
     /* Vertex arrays, program and texture bindings stay as they are — the
        next flush (or present, which invalidates) reuses or re-specifies
@@ -2892,9 +2865,10 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
     GL_SetDepthWrite(zWrite && !transparent);
 
     if (transparent) {
-        GL_SetBlendFunc(1, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     } else {
-        GL_SetBlendFunc(0, 0, 0);
+        glDisable(GL_BLEND);
     }
 
     GL_MarkFBORegion(cx - radius, cy - radius, cx + radius, cy + radius);
@@ -2950,7 +2924,7 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
 
     GL_SetDepthWrite(1);
     GL_SetDepthTest(0);
-    GL_SetBlendFunc(0, 0, 0);
+    glDisable(GL_BLEND);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
@@ -3001,7 +2975,8 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
     GL_SetDepthTest(0);
     GL_SetDepthWrite(0);
 
-    GL_SetBlendFunc(1, GL_DST_COLOR, GL_ZERO);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_DST_COLOR, GL_ZERO);
 
     GL_MarkFBORegion(x0, y0, x1, y1);
 
@@ -3045,7 +3020,7 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
     GL_SetDepthWrite(1);
-    GL_SetBlendFunc(0, 0, 0);
+    glDisable(GL_BLEND);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
@@ -3293,7 +3268,7 @@ void GL_RestoreTerrainSnapshot(void) {
         glViewport(0, 0, s_fboWidth, s_fboHeight);
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
-        GL_SetBlendFunc(0, 0, 0);
+        glDisable(GL_BLEND);
         glUseProgram(s_program);
         glUniform1i(s_uTexLoc, 0);
         glUniform1i(s_uFilterLoc, 1);
@@ -3424,7 +3399,7 @@ void GL_RestoreHorizon(void) {
         glViewport(0, 0, s_fboWidth, s_fboHeight);
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
-        GL_SetBlendFunc(0, 0, 0);
+        glDisable(GL_BLEND);
         glUseProgram(s_program);
         glUniform1i(s_uTexLoc, 0);
         glUniform1i(s_uFilterLoc, 1);
@@ -3824,9 +3799,10 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
     GL_SetDepthWrite(0);
 
     if (transparent) {
-        GL_SetBlendFunc(1, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     } else {
-        GL_SetBlendFunc(0, 0, 0);
+        glDisable(GL_BLEND);
     }
 
     GL_MarkFBORegion(x0, y0, x1, y1);
@@ -3883,7 +3859,7 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
 
     GL_SetDepthWrite(1);
     GL_SetDepthTest(0);
-    GL_SetBlendFunc(0, 0, 0);
+    glDisable(GL_BLEND);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
@@ -4172,7 +4148,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
 
     /* Draw the FBO color texture (3D scene) first, then the 2D overlay on top */
     if (s_fbo) {
-        GL_SetBlendFunc(0, 0, 0);
+        glDisable(GL_BLEND);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, s_fboColorTex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -4265,7 +4241,8 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
 
     /* Enable alpha blending so palette index 0 (alpha=0) is transparent,
        letting the 3D scene (or black background) show through underneath. */
-    GL_SetBlendFunc(1, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     /* Draw fullscreen quad for 2D overlay */
     glUseProgram(s_program);
@@ -4291,7 +4268,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glUseProgram(0);
     glBindTexture(GL_TEXTURE_2D, 0);
-    GL_SetBlendFunc(0, 0, 0);
+    glDisable(GL_BLEND);
 
     /* Eye 0 stops here (its content is captured, not presented). Eye 1 and
      * every mono path continue to the swap, which on the Quest routes into
@@ -4382,7 +4359,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     glViewport(vpX, vpY, vpW, vpH);
 
     if (s_fbo) {
-        GL_SetBlendFunc(0, 0, 0);
+        glDisable(GL_BLEND);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, s_fboColorTex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -4626,7 +4603,8 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
             }
         }
 
-        GL_SetBlendFunc(1, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         glUseProgram(s_presentIndexedProgram);
         glActiveTexture(GL_TEXTURE0);
@@ -4655,7 +4633,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, 0);
         glUseProgram(0);
-        GL_SetBlendFunc(0, 0, 0);
+        glDisable(GL_BLEND);
     }
 
     U64 profT1 = SDL_GetPerformanceCounter();
