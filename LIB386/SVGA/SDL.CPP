@@ -232,7 +232,18 @@ void SetVideoPaletteCol(S32 colorIdx, U8 r, U8 g, U8 b) {
 }
 
 void SetVideoPaletteSync(const U8 src[]) {
+    if (sdlPalette == NULL) {
+        return; /* video not initialized yet; nothing to sync */
+    }
     SetVideoPalette(src, 0, PAL_MAX_COLORS);
+    /* The GL renderer bakes scene colors from this palette into its
+       framebuffer, so a palette change recolors the whole scene.  Frames
+       that only redraw bodies over preserved terrain would otherwise keep
+       showing terrain shaded with the previous palette — black after a
+       load, until a camera move forces a full redraw. */
+    if (GPURendererActive) {
+        BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
+    }
 }
 
 void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[],

@@ -6583,6 +6583,10 @@ startaffscene:
 
     if (FlagPal) {
         PaletteSync(PtrPal);
+        /* The GL renderer bakes scene colors from the palette into its
+           framebuffer: without a full redraw, terrain rendered while the
+           palette was still dark would persist on every incremental frame. */
+        FirstTime = AFF_ALL_FLIP;
         FlagPal = FALSE;
     }
 
