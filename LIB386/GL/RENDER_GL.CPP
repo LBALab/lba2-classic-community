@@ -775,6 +775,7 @@ static GLuint s_batchVBO = 0;
    time on mobile GPUs once batches reach triple digits. */
 #define BATCH_RING_SLOTS 64
 static U32 s_batchRingSize = 0;  /* bytes */
+static GLsync s_ringWrapFence = 0; /* signals the GPU drained the last ring generation */
 static U32 s_batchRingOffset = 0; /* rotating upload offset into the ring */
 static U32 s_batchRingBase = 0;   /* ring offset of the batch being flushed */
 static U32 s_batchRingOff = 0;   /* next slot's byte offset */
@@ -1755,9 +1756,15 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     /* Surface format problems (e.g. a rejected transfer format) are silent
        otherwise: the texture stays incomplete and just samples black. */
     {
-        GLenum texErr = glGetError();
-        if (texErr != GL_NO_ERROR) {
-            Log_Warn("[GL] GL error after texture setup: 0x%x", (unsigned)texErr);
+        static const char *texNames[5] = {"surface", "atlas", "clut",
+                                          "palette", "post"};
+        GLenum texErr;
+        for (int ti = 0; ti < 5; ti++) {
+            texErr = glGetError();
+            if (texErr != GL_NO_ERROR) {
+                Log_Warn("[GL] GL error after %s texture setup: 0x%x",
+                         texNames[ti], (unsigned)texErr);
+            }
         }
     }
 
@@ -2386,6 +2393,18 @@ static void FlushActiveBatch(void) {
         }
         if (s_ring) {
             if (s_batchRingOffset + bytes > s_batchRingSize) {
+                /* The ring is full: reusing the storage while earlier draws
+                   still read it corrupts their vertex data (blinking
+                   terrain).  Fence the point every previous wrap ended at
+                   and wait for the GPU to drain the whole ring before
+                   re-filling it — in practice the GPU reached this fence
+                   several frames ago, so the wait never stalls. */
+                if (s_ringWrapFence != 0) {
+                    glClientWaitSync(s_ringWrapFence, 0, UINT64_MAX);
+                    glDeleteSync(s_ringWrapFence);
+                }
+                s_ringWrapFence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,
+                                              0);
                 glBufferData(GL_ARRAY_BUFFER, s_batchRingSize, NULL,
                              GL_STREAM_DRAW);
                 s_batchRingOffset = 0;

@@ -595,6 +595,12 @@ int Control_Begin(void) {
            at its top), otherwise the saved hero position is not restored. */
         InitGame(-1);
         ChangeCube();
+        /* The live load path palette-syncs through the load fades; this path
+           skips them, so raise FlagPal: the engine syncs the palette at the
+           top of AffScene, before anything renders.  Without it the GL
+           palette texture stays at its zeroed boot state and the scene
+           renders black. */
+        FlagPal = TRUE;
         FlagFade = FALSE;
     } else {
         /* Fresh start; mirrors the proven debug cube-select path (InitGame(1) then
