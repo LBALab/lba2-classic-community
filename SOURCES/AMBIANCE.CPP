@@ -501,6 +501,11 @@ void FadePal(U8 r, U8 v, U8 b, U8 *ptrpal, S32 scale) {
     }
 
     PaletteSync(workpal);
+    /* The GL renderer bakes palette-shaded colors into its framebuffer: once
+       the ramp reaches its final step, force one full redraw so preserved
+       frames do not keep showing the previous (possibly still-black) palette. */
+    if (scale >= FADE_DELAY)
+        FirstTime = AFF_ALL_FLIP;
     // Re-present the composited Log at the ramped palette. On DOS the palette
     // write alone re-tinted the live framebuffer, so the fade acted on whatever
     // was on screen (terrain + actors). Under SDL PaletteSync does not repaint,
