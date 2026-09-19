@@ -2379,6 +2379,7 @@ restartloop:
             extern S32 VueDistance;
             extern S32 ChampX;
             extern S32 StereoCamShiftX;
+            extern S32 StereoCamShiftY;
             extern S32 StereoProjShiftX;
             /* Eye separation in world units (~1.5x natural IPD at LBA2's
              * scale, for a moderate depth pop) and the projection-centre
@@ -2395,14 +2396,23 @@ restartloop:
             S32 conv = stereoIPD * ChampX / (2 * (convDist + 512));
             if (conv < 0)
                 conv = 0;
+            /* The eyes roll with the head: rotate the IPD offset by the
+             * head roll so the per-eye disparity direction matches what a
+             * rolled head actually sees.  Without this, rolling pumps the
+             * apparent size of objects (the offset stays screen-level). */
+            const float rollRad = -GammaCam * 3.14159265358979f / 2048.0f;
+            const S32 dx = (S32)(stereoIPD / 2.0f * cosf(rollRad));
+            const S32 dy = (S32)(stereoIPD / 2.0f * sinf(rollRad));
             GL_SetStereoEye(0);
-            StereoCamShiftX = -stereoIPD / 2;
+            StereoCamShiftX = -dx;
+            StereoCamShiftY = -dy;
             StereoProjShiftX = -conv;
             U32 stereoT0 = SDL_GetTicks();
             AffScene(AFF_ALL_FLIP);
             U32 stereoT1 = SDL_GetTicks();
             GL_SetStereoEye(1);
-            StereoCamShiftX = stereoIPD / 2;
+            StereoCamShiftX = dx;
+            StereoCamShiftY = dy;
             StereoProjShiftX = conv;
             AffScene(AFF_ALL_FLIP);
             U32 stereoT2 = SDL_GetTicks();

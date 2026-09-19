@@ -29,6 +29,7 @@ extern S32 CameraZr;
  * StereoProjShiftX is added to the projection centre X in the 3D projector
  * (asymmetric-frustum convergence). See GL_SetStereoEye. */
 extern S32 StereoCamShiftX;
+extern S32 StereoCamShiftY;
 extern S32 StereoProjShiftX;
 
 extern S32 CameraZrClip;

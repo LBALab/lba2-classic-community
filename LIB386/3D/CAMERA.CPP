@@ -30,6 +30,7 @@ S32 CameraYr = 0;
 S32 CameraZr = 0;
 
 S32 StereoCamShiftX = 0;
+S32 StereoCamShiftY = 0; /* rolled first-person eye offset (vertical part) */
 S32 StereoProjShiftX = 0;
 
 S32 CameraZrClip = 0;
@@ -66,7 +67,7 @@ void SetCamera(S32 x, S32 y, S32 z) {
     } else {
         LongRotatePoint(&MatriceWorld, x, y, z);
         CameraXr = X0 + StereoCamShiftX;
-        CameraYr = Y0;
+        CameraYr = Y0 + StereoCamShiftY;
         CameraZr = Z0;
         CameraZrClip = Z0 - NearClip;
     }
