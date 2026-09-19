@@ -2259,8 +2259,12 @@ restartloop:
                     RestoreTimer();
                 }
 
-                if (CameraFirstPerson AND CubeMode == CUBE_EXTERIEUR)
+                if (CameraFirstPerson AND CubeMode == CUBE_EXTERIEUR) {
                     UpdateFirstPersonCamera();
+                    /* The eye moves with the hero and the head: incremental
+                       frames would keep the stale terrain view. */
+                    FirstTime = AFF_ALL_FLIP;
+                }
                 else if (FollowCamera AND CubeMode == CUBE_EXTERIEUR)
                     UpdateFollowCameraExt();
             }
