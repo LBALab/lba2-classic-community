@@ -3203,6 +3203,8 @@ void GL_ClearFBO(void) {
    full-screen blit of a 4x-SSAA framebuffer is a large slice of an idle
    frame's GPU bandwidth. */
 void GL_RestoreTerrainSnapshot(void) {
+    Log_Warn("[TEMP] RestoreSnapshot"); /* TEMP */
+    
     if (!s_initialized || !s_fbo || s_snapshotFbo == 0) {
         return;
     }
@@ -3368,6 +3370,7 @@ void GL_CaptureHorizon(void) {
 }
 
 void GL_RestoreHorizon(void) {
+    Log_Warn("[TEMP] RestoreHorizon"); /* TEMP */
     
     if (!s_initialized || !s_fbo || !s_horizonValid || s_horizonFbo == 0) {
         return;

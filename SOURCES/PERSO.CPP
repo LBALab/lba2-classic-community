@@ -808,28 +808,18 @@ static void UpdateFirstPersonCamera(void) {
         alpha = (S32)(-pitch * 4096.0f / 360.0f);
     }
 #endif
-    S32 eye = 0;
-    {   /* Head height from the hero ZV (feet at Y, head at Y + YMax). */
-        T_OBJET *po = &ListObjet[NumObjFollow];
-        eye = (po->YMax > 0) ? po->YMax - 96 : 900;
-    }
     VueDistance = 0;
     BetaCam = (2048 - beta) & 4095;
     AlphaCam = alpha;
 
     Rotate(0, 0, beta);
     VueOffsetX = ptr3d->X + X0;
-    VueOffsetY = ptr3d->Y + eye; /* eye height above the hero base */
+    VueOffsetY = ptr3d->Y + 1000; /* eye height above the hero base */
     VueOffsetZ = ptr3d->Z + Z0;
     StartXCube = VueOffsetX / SIZE_BRICK_XZ;
     StartYCube = VueOffsetY / SIZE_BRICK_Y;
     StartZCube = VueOffsetZ / SIZE_BRICK_XZ;
     CameraCenter(3);
-    {   static U32 cnt = 0; cnt++;
-        if (cnt % 100 == 1)
-            Log_Warn("[FP] applied: eyeY=%d camXr=%d camYr=%d camZr=%d B=%d A=%d",
-                     VueOffsetY, CameraXr, CameraYr, CameraZr, BetaCam, AlphaCam);
-    }
 }
 
 S32 MainLoop() {
