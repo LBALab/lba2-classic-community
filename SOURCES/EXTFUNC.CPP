@@ -2600,8 +2600,13 @@ S32 GereExtKeys(U32 key)
                    from the fixed camera position, independently of Twinsen.
                    Sign note: view-right and view-up are BetaCam+/
                    AlphaCam- (see the follow path). */
-                if (dBeta != 0)
+                if (dBeta != 0) {
+                    /* AddBetaCam survives the zone cameras' CameraCenter(2)
+                       re-apply (it feeds newbeta there); BetaCam gives the
+                       immediate effect when no zone camera owns the view. */
+                    AddBetaCam = (AddBetaCam + dBeta) & 4095;
                     BetaCam = (BetaCam + dBeta) & 4095;
+                }
                 if (dAlpha != 0) {
                     AlphaCam += dAlpha;
                     if (AlphaCam < FOLLOW_CAM_ALPHA_MIN)
