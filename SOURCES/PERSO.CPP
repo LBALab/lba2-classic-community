@@ -829,7 +829,7 @@ static void UpdateFirstPersonCamera(void) {
     if (Input & (I_UP | I_DOWN))
         ListObjet[NumObjFollow].Obj.Beta = beta;
 #ifdef LBA2_OPENXR
-    GammaCam = (S32)(-OpenXR_HeadRollDeg() * 4096.0f / 360.0f);
+    GammaCam = (S32)(OpenXR_HeadRollDeg() * 4096.0f / 360.0f);
 #endif
     CameraCenter(3);
 }
