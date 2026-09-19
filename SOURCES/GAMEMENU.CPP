@@ -85,6 +85,7 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_TEXT 2109
 #define MENU_ID_GENERAL_VOLUME 2110
 #define MENU_ID_FOLLOW_CAMERA 2111
+#define MENU_ID_FIRST_PERSON 2124
 #define MENU_ID_CONTROLLER 2112
 #define MENU_ID_GAMEPAD_CONFIG 2113
 #define MENU_ID_DISPLAY 2114
@@ -279,7 +280,7 @@ U16 LanguageMenu[] = {
 
 U16 AdvancedOptionMenu[] = {
     0,   // selected
-    9,   // nb entries
+    10,  // nb entries
     260, // y center
     0,   // .dia num
 
@@ -293,6 +294,8 @@ U16 AdvancedOptionMenu[] = {
     MENU_ID_MOVIE_CAMERA,
     0,
     MENU_ID_FOLLOW_CAMERA,
+    0,
+    MENU_ID_FIRST_PERSON,
     0,
     MENU_ID_VIDEO_SIZE,
     0,
@@ -462,6 +465,12 @@ static void BuildCustomMenuText(S32 num, char *string) {
     }
 
     switch (num) {
+    case MENU_ID_FIRST_PERSON:
+        CopyUtf8ToCp850(string, 256,
+                         CameraFirstPerson ? "First person: ON"
+                                           : "First person: OFF");
+        break;
+
     case MENU_ID_SOUND_VOLUME:
         GetMultiText(11, string);
         break;
@@ -3532,6 +3541,15 @@ S32 GereAdvancedOptionsMenu(void) {
 
         case MENU_ID_FOLLOW_CAMERA:
             FollowCamera ^= 1;
+            if (FollowCamera)
+                CameraFirstPerson = 0;
+            break;
+
+        case MENU_ID_FIRST_PERSON:
+            CameraFirstPerson ^= 1;
+            if (CameraFirstPerson)
+                FollowCamera = 0;
+            FirstTime = AFF_ALL_FLIP;
             break;
 
         case MENU_ID_VIDEO_SIZE:

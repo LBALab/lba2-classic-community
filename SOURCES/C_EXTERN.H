@@ -223,6 +223,7 @@ extern S32 Planet;
 
 extern S32 AllCameras;
 extern S32 FollowCamera;
+extern S32 CameraFirstPerson;
 extern S32 FollowCamBaseDist;
 extern S32 FlagMouseCamera;
 extern S32 FlagMouseCameraDrag;

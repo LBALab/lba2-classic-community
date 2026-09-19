@@ -793,6 +793,35 @@ static S32 SpellKeyDown(S32 n) {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
+/* First-person (VR): the camera sits at the hero's eye height.  In an
+ * immersive session the head owns the view direction (absolute yaw/pitch);
+ * without it the camera looks where the hero faces. */
+static void UpdateFirstPersonCamera(void) {
+    T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
+    S32 beta = ptr3d->Beta;
+    S32 alpha = 0; /* horizontal */
+#ifdef LBA2_OPENXR
+    if (OpenXR_GetSwapchainWidth()) {
+        float yaw = OpenXR_HeadYawDeg();
+        float pitch = OpenXR_HeadPitchDeg();
+        beta = (S32)(-yaw * 4096.0f / 360.0f) & 4095;
+        alpha = (S32)(-pitch * 4096.0f / 360.0f);
+    }
+#endif
+    VueDistance = 0;
+    BetaCam = (2048 - beta) & 4095;
+    AlphaCam = alpha;
+
+    Rotate(0, 0, beta);
+    VueOffsetX = ptr3d->X + X0;
+    VueOffsetY = ptr3d->Y + 1000; /* eye height above the hero base */
+    VueOffsetZ = ptr3d->Z + Z0;
+    StartXCube = VueOffsetX / SIZE_BRICK_XZ;
+    StartYCube = VueOffsetY / SIZE_BRICK_Y;
+    StartZCube = VueOffsetZ / SIZE_BRICK_XZ;
+    CameraCenter(3);
+}
+
 S32 MainLoop() {
     S32 xm, ym, zm;
     T_OBJET *ptrobj;
@@ -2226,7 +2255,9 @@ restartloop:
                     RestoreTimer();
                 }
 
-                if (FollowCamera AND CubeMode == CUBE_EXTERIEUR)
+                if (CameraFirstPerson AND CubeMode == CUBE_EXTERIEUR)
+                    UpdateFirstPersonCamera();
+                else if (FollowCamera AND CubeMode == CUBE_EXTERIEUR)
                     UpdateFollowCameraExt();
             }
 

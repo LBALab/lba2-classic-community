@@ -5032,6 +5032,9 @@ S32 AffOneObject(T_SORT *pt) {
             SetClip(0, 0, ModeDesiredX - 1, FlagWater);
         }
 
+        if (CameraFirstPerson AND numobj == NUM_PERSO)
+            aff = 0; /* first person: the hero body is the camera */
+        else
         aff = ObjectDisplay(&ptrobj->Obj);
 
         if (aff) /* objet pas tout clippé */

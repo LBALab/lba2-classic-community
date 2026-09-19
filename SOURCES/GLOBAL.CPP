@@ -221,6 +221,7 @@ S32 ExtraConque = -1; // Numero extra visant Twinsen (avec Conque)
 
 S32 AllCameras = TRUE;
 S32 FollowCamera = FALSE;
+S32 CameraFirstPerson = 0; /* first-person camera (VR) */
 S32 FollowCamBaseDist = 0; /* player's chosen zoom distance (0 = uninitialised) */
 S32 FlagMouseCamera = TRUE;
 S32 FlagMouseCameraDrag = TRUE; /* 0=free orbit on move, 1=require right-drag */
