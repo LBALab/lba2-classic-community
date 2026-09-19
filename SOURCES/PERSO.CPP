@@ -2385,7 +2385,14 @@ restartloop:
              * convergence that puts the zero-disparity plane at the hero's
              * distance, so the ground around the hero stays fused. */
             const S32 stereoIPD = 30;
-            S32 conv = stereoIPD * ChampX / (2 * (VueDistance + 512));
+            /* The zero-disparity plane sits at the convergence distance.
+             * First person: the camera IS the hero's eyes, so VueDistance
+             * is 0 - converging there would shear the whole terrain.  Keep
+             * the comfort plane at walking distance instead. */
+            S32 convDist = VueDistance;
+            if (CameraFirstPerson AND convDist < 4000)
+                convDist = 4000;
+            S32 conv = stereoIPD * ChampX / (2 * (convDist + 512));
             if (conv < 0)
                 conv = 0;
             GL_SetStereoEye(0);
