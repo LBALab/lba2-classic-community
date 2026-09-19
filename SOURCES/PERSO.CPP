@@ -2222,7 +2222,11 @@ restartloop:
         /*-------------------------------------------------------------------------*/
         /* recentre sur hero (numobjfollow) */
 
-        if (!CameraZone) {
+        if (!CameraZone OR
+            (CameraFirstPerson AND CubeMode == CUBE_EXTERIEUR)) {
+            /* First person owns the camera everywhere, camera zones
+             * included: it re-applies the eye position every frame, so the
+             * zone presets never take the view back while moving. */
             if (!CinemaMode) {
                 // AlphaCam (touches '+' et '-' *)
                 GereExtKeys(MyKey);
@@ -2281,7 +2285,8 @@ restartloop:
                  * which is most visible in iso scenes (iso centre shifts with
                  * ModeDesiredX, so hero screen-X tracked the static 539). */
                 if ((Xp<(ClipWindowXMin + 80) OR Xp>(ClipWindowXMax - 100) OR Yp<(80 + ClipWindowYMin) OR Yp>(ClipWindowYMax - 50))
-                        AND !(FollowCamera AND CubeMode == CUBE_EXTERIEUR)) {
+                        AND !((FollowCamera OR CameraFirstPerson)
+                                  AND CubeMode == CUBE_EXTERIEUR)) {
                     SaveTimer();
 
                     if (CubeMode == CUBE_INTERIEUR) {
