@@ -2383,59 +2383,140 @@ restartloop:
          * PC path where AffScene was the sole presenter. */
 #if defined(LBA2_OPENXR) && defined(__ANDROID__)
         if (DisplayStereo3D AND OpenXR_IsActive() AND GPURendererActive) {
-            /* Native stereo: render the scene once per eye with a lateral
-             * camera offset. Full redraws per eye — the incremental
-             * dirty-box path would carry the other eye's leftovers. The
-             * left eye's composite is captured offscreen (present + clock
-             * step suppressed); the right eye renders through the normal
-             * path and its OpenXR_PresentMono submits both eye images. */
+            /* Native stereo: render the scene once per eye. Full redraws per
+             * eye — the incremental dirty-box path would carry the other
+             * eye's leftovers. The left eye's composite is captured offscreen
+             * (present + clock step suppressed); the right eye renders
+             * through the normal path and its OpenXR_PresentMono submits
+             * both eye images. */
             extern S32 VueDistance;
             extern S32 ChampX;
             extern S32 StereoCamShiftX;
             extern S32 StereoCamShiftY;
             extern S32 StereoProjShiftX;
             /* Eye separation in world units (~1.5x natural IPD at LBA2's
-             * scale, for a moderate depth pop) and the projection-centre
-             * convergence that puts the zero-disparity plane at the hero's
-             * distance, so the ground around the hero stays fused. */
+             * scale, for a moderate depth pop). */
             const S32 stereoIPD = 30;
-            /* The zero-disparity plane sits at the convergence distance.
-             * First person: the camera IS the hero's eyes, so VueDistance
-             * is 0 - converging there would shear the whole terrain.  Keep
-             * the comfort plane at walking distance instead. */
-            S32 convDist = VueDistance;
-            if (CameraFirstPerson AND convDist < 4000)
-                convDist = 4000;
-            S32 conv = stereoIPD * ChampX / (2 * (convDist + 512));
-            if (conv < 0)
-                conv = 0;
-            /* The eyes roll with the head: rotate the IPD offset by the
-             * head roll so the per-eye disparity direction matches what a
-             * rolled head actually sees.  Without this, rolling pumps the
-             * apparent size of objects (the offset stays screen-level). */
-            const float rollRad = -GammaCam * 3.14159265358979f / 2048.0f;
-            const S32 dx = (S32)(stereoIPD / 2.0f * cosf(rollRad));
-            const S32 dy = (S32)(stereoIPD / 2.0f * sinf(rollRad));
-            GL_SetStereoEye(0);
-            StereoCamShiftX = -dx;
-            StereoCamShiftY = -dy;
-            StereoProjShiftX = -conv;
+            const float eyeSep = stereoIPD * 0.5f;
+            /* True per-eye poses: each eye renders from its tracked view —
+             * the compositor time-warps each submitted image from exactly
+             * the pose declared in the projection layer, so rendering from
+             * that same (one-frame-stale) pose turns head rotation into a
+             * clean reprojection instead of a warp from an unrelated rig
+             * camera, and the IPD split along the head's right axis makes
+             * the stereo depth real (no convergence shear, no flat-image
+             * roll damping).  Exterior only: interior room cameras sit
+             * inside walls, where free head look would show geometry from
+             * behind.  No cached views (first frame, mono session) falls
+             * back to the rig-offset pair below. */
+            float eyeQ[2][4];
+            float eyeP[2][3];
+            S32 truePose = CubeMode == CUBE_EXTERIEUR AND
+                           OpenXR_GetEyeView(0, eyeQ[0], eyeP[0]) AND
+                           OpenXR_GetEyeView(1, eyeQ[1], eyeP[1]);
+            /* Rig state the per-eye overrides rewrite; restored after the
+             * pair so the next frame's camera phase starts unchanged. */
+            const S32 saveCamX = CameraX;
+            const S32 saveCamY = CameraY;
+            const S32 saveCamZ = CameraZ;
+            const S32 saveAlpha = CameraAlpha;
+            const S32 saveBeta = CameraBeta;
+            const S32 saveGamma = CameraGamma;
+            S32 conv = 0;
+            S32 dx = 0;
+            S32 dy = 0;
+            if (!truePose) {
+                /* The zero-disparity plane sits at the convergence distance.
+                 * First person: the camera IS the hero's eyes, so
+                 * VueDistance is 0 - converging there would shear the whole
+                 * terrain.  Keep the comfort plane at walking distance. */
+                S32 convDist = VueDistance;
+                if (CameraFirstPerson AND convDist < 4000)
+                    convDist = 4000;
+                conv = stereoIPD * ChampX / (2 * (convDist + 512));
+                if (conv < 0)
+                    conv = 0;
+                /* The eyes roll with the head: rotate the IPD offset by the
+                 * head roll so the per-eye disparity direction matches what
+                 * a rolled head actually sees.  Without this, rolling pumps
+                 * the apparent size of objects (the offset stays
+                 * screen-level). */
+                const float rollRad = -GammaCam * 3.14159265358979f / 2048.0f;
+                dx = (S32)(eyeSep * cosf(rollRad));
+                dy = (S32)(eyeSep * sinf(rollRad));
+            }
             U32 stereoT0 = SDL_GetTicks();
-            AffScene(AFF_ALL_FLIP);
-            U32 stereoT1 = SDL_GetTicks();
-            GL_SetStereoEye(1);
-            StereoCamShiftX = dx;
-            StereoCamShiftY = dy;
-            StereoProjShiftX = conv;
-            AffScene(AFF_ALL_FLIP);
+            U32 stereoT1 = stereoT0;
+            for (S32 eye = 0; eye < 2; eye++) {
+                GL_SetStereoEye(eye);
+                if (truePose) {
+                    const float *q = eyeQ[eye];
+                    /* Orientation from the tracked quaternion, read the
+                     * convention-proof way: forward = q rotated (0,0,-1),
+                     * yaw/pitch off the forward vector, roll off the head
+                     * up vector's lean toward cross(forward, world up). */
+                    const float qx = q[0], qy = q[1], qz = q[2], qw = q[3];
+                    const float tx = -2.0f * qy, ty = 2.0f * qx;
+                    const float cx = -qz * ty;
+                    const float cy = qz * tx;
+                    const float cz = qx * ty - qy * tx;
+                    const float fx = qw * tx + cx;
+                    float fy = qw * ty + cy;
+                    const float fz = -1.0f + cz;
+                    if (fy > 1.0f)
+                        fy = 1.0f;
+                    else if (fy < -1.0f)
+                        fy = -1.0f;
+                    const float yaw = atan2f(fx, -fz);
+                    const float pitch = asinf(fy);
+                    /* Head up = q rotated (0,1,0). */
+                    const float ux = 2.0f * qx * qy - 2.0f * qw * qz;
+                    const float uy = 1.0f - 2.0f * qx * qx - 2.0f * qz * qz;
+                    const float uz = 2.0f * qw * qx + 2.0f * qy * qz;
+                    const float roll = atan2f(ux * (-fz) + uz * fx, uy);
+                    /* Engine angles: 4096 per turn, BetaCam = 2048 faces
+                     * straight ahead (same signs the first-person camera
+                     * uses for the same head pose). */
+                    const float K = 2048.0f / 3.14159265358979f;
+                    SetAngleCamera((S32)(-pitch * K),
+                                   (S32)(2048.0f + yaw * K) & 4095,
+                                   (S32)(roll * K));
+                    /* IPD split along the head's right axis (world space),
+                     * so it rolls with the head automatically. */
+                    const float rx = 1.0f - 2.0f * (qy * qy + qz * qz);
+                    const float ry = 2.0f * (qx * qy + qz * qw);
+                    const float rz = 2.0f * (qx * qz - qy * qw);
+                    const float side = (eye == 0) ? -eyeSep : eyeSep;
+                    CameraX = saveCamX + (S32)(side * rx);
+                    CameraY = saveCamY + (S32)(side * ry);
+                    CameraZ = saveCamZ + (S32)(side * rz);
+                    StereoCamShiftX = 0;
+                    StereoCamShiftY = 0;
+                    StereoProjShiftX = 0;
+                } else {
+                    StereoCamShiftX = (eye == 0) ? -dx : dx;
+                    StereoCamShiftY = (eye == 0) ? -dy : dy;
+                    StereoProjShiftX = (eye == 0) ? -conv : conv;
+                }
+                if (eye == 1)
+                    stereoT1 = SDL_GetTicks();
+                AffScene(AFF_ALL_FLIP);
+            }
             U32 stereoT2 = SDL_GetTicks();
+            if (truePose) {
+                CameraX = saveCamX;
+                CameraY = saveCamY;
+                CameraZ = saveCamZ;
+                SetAngleCamera(saveAlpha, saveBeta, saveGamma);
+            }
             {
                 static U32 s_stereoPerfFrame = 0;
                 s_stereoPerfFrame++;
                 if (s_stereoPerfFrame % 300 == 150) {
-                    Log_Info("StereoPerf: eye0=%dms eye1=%dms frame=%dms flushes=%d",
+                    Log_Info("StereoPerf: eye0=%dms eye1=%dms frame=%dms flushes=%d truepose=%d",
                              stereoT1 - stereoT0, stereoT2 - stereoT1,
-                             stereoT2 - stereoT0, GL_BatchFlushCount);
+                             stereoT2 - stereoT0, GL_BatchFlushCount,
+                             truePose);
                 }
             }
             GL_SetStereoEye(-1);

@@ -39,6 +39,11 @@ U32 OpenXR_GetSwapchainHeight(void);
 float OpenXR_HeadYawDeg(void);
 float OpenXR_HeadPitchDeg(void);
 float OpenXR_HeadRollDeg(void); /* head roll, degrees, + = tilt right */
+/* Per-eye view from the last xrLocateViews: quat = x,y,z,w, pos = x,y,z in
+ * LOCAL tracking space (one frame stale by design — the compositor time-
+ * warps from exactly this pose, so rendering each eye from it is what keeps
+ * head rotation warp-free). Returns 0 when the eye has no fresh view. */
+S32 OpenXR_GetEyeView(S32 eye, float *quat, float *pos);
 
 /* Pump OpenXR events (session state changes, loss, etc.). */
 void OpenXR_PollEvents(void);

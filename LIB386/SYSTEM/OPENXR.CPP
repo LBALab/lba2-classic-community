@@ -157,6 +157,12 @@ static U32                     s_swapchainAllocW = 0; /* actual texture width (2
 static float                   s_headYawDeg = 0.0f;
 static float                   s_headPitchDeg = 0.0f;
 static float                   s_headRollDeg = 0.0f;
+/* Per-eye views from the last xrLocateViews, kept for the next frame's
+ * render: the engine renders each eye from exactly this pose, so the
+ * compositor's time-warp from this pose to the fresh one is a clean
+ * reprojection instead of a warp from an unrelated (rig) camera. */
+static XrView                  s_renderViews[2];
+static U32                     s_renderViewCount = 0;
 static XrSwapchainImageOpenGLESKHR *s_swapchainImages = NULL;
 static U32                     s_swapchainImageCount = 0;
 static U32                     s_swapchainImageIndex = 0;
@@ -1165,6 +1171,31 @@ float OpenXR_HeadPitchDeg(void) {
 #endif
 }
 
+/* Per-eye view from the last xrLocateViews (one frame stale by design: the
+ * compositor time-warps from exactly this pose to the fresh one, so
+ * rendering the eye from this pose is what makes head rotation warp-free).
+ * quat = x,y,z,w; pos = x,y,z in LOCAL tracking space (the engine renders
+ * from its own world position and consumes only the orientation). Returns
+ * 0 when the eye has no fresh view (first frames, mono session). */
+S32 OpenXR_GetEyeView(S32 eye, float *quat, float *pos) {
+#ifdef LBA2_OPENXR
+    if (eye < 0 || eye > 1 || s_renderViewCount <= (U32)eye) {
+        return 0;
+    }
+    quat[0] = s_renderViews[eye].pose.orientation.x;
+    quat[1] = s_renderViews[eye].pose.orientation.y;
+    quat[2] = s_renderViews[eye].pose.orientation.z;
+    quat[3] = s_renderViews[eye].pose.orientation.w;
+    pos[0] = s_renderViews[eye].pose.position.x;
+    pos[1] = s_renderViews[eye].pose.position.y;
+    pos[2] = s_renderViews[eye].pose.position.z;
+    return 1;
+#else
+    (void)eye; (void)quat; (void)pos;
+    return 0;
+#endif
+}
+
 U32 OpenXR_GetSwapchainHeight(void) {
 #ifdef LBA2_OPENXR
     return s_swapchainHeight;
@@ -1751,6 +1782,14 @@ S32 OpenXR_PresentMono(void) {
     if (XR_FAILED(rc)) {
         Log_Warn("OpenXR: xrLocateViews failed (0x%x)", (unsigned)rc);
         locatedCount = 0;
+    }
+    /* Cache for the next frame's per-eye render (see s_renderViews). */
+    s_renderViewCount = (locatedCount > 2) ? 2 : locatedCount;
+    {
+        U32 j;
+        for (j = 0; j < s_renderViewCount; j++) {
+            s_renderViews[j] = locatedViews[j];
+        }
     }
     { /* TEMP diag: locate health regardless of outcome */
         static U32 dbg = 0;

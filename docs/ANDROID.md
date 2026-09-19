@@ -178,12 +178,18 @@ by editing the `kButtons[]` table (normalised 0..1 coordinates).
 
 Optional, off by default. The Quest build preset (`cmake --preset quest`)
 turns on `-DLBA2_OPENXR=ON` and makes the engine speak to the OpenXR
-runtime on the headset: the engine renders the existing 2D scene as a
-mono blit into a per-eye OpenXR swapchain (both eyes receive the same
-image, with the engine framebuffer copied 1:1 into the top-left of the
-recommended eye rect) and reads Quest 3 controller state through the
-OpenXR action pipeline, mapped onto the same virtual-scancode space the
-SDL gamepad path uses so `JOYSTICK.CPP` picks it up unchanged.
+runtime on the headset. With the Stereo 3D display option enabled, the
+scene is rendered once per eye into per-eye capture FBOs that
+`OpenXR_PresentMono` blits into the left/right halves of the double-wide
+swapchain. Each eye renders from its tracked view (`OpenXR_GetEyeView`):
+the orientation comes from the runtime-located pose and the IPD split
+runs along the head's right axis, so the compositor's time-warp
+reprojects head rotation cleanly and the stereo depth is real. Frames
+without a fresh per-eye pair (menus, videos, interiors, the first frame)
+fall back to a single composite copied to both halves with a rig offset.
+Controller state comes through the OpenXR action pipeline, mapped onto
+the same virtual-scancode space the SDL gamepad path uses so
+`JOYSTICK.CPP` picks it up unchanged.
 
 ### Where the loader comes from
 
