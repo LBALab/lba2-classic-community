@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include <math.h>   /* cosf/sinf - rolled stereo eye offset */
 #include "IMAGE_LOAD.H"
 
 /* Temporary perf instrumentation from RENDER_GL.CPP */
