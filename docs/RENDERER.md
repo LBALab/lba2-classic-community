@@ -91,6 +91,8 @@ Source: `SOURCES/MEM.CPP:245-255`, `SOURCES/3DEXT/LOADISLE.CPP:176-179`, `SOURCE
 
 Object polygons have individual RepMask values from the body's texture handle table (`AFF_OBJ.CPP:442`). This means RepMask can change per-polygon within a batch.
 
+The GL backend uploads only the RepMask-sized region of each page (`GL_BindAtlasFor` in `LIB386/GL/RENDER_GL.CPP`): a page lives in memory at a 256-byte row stride, so a (w,h) sub-rect upload must set `GL_UNPACK_ROW_LENGTH` to 256 — tight packing scrambles every row past the first (diagonal-stripe artifacts). On GLES 2.0 builds without `GL_UNPACK_ROW_LENGTH` the upload falls back to the full 256×256 page.
+
 ### Animated water tiles
 
 `GroundTexture` is mutated in-place every 250ms: 32×32 blocks are copied from `SkySeaTexture` into specific locations in `GroundTexture` (`TERRAIN.CPP:1019-1053`). The GL backend must detect this and re-upload the dirty region via `glTexSubImage2D`, or re-upload the whole atlas (64KB, negligible).

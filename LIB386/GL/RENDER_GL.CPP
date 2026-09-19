@@ -2211,6 +2211,26 @@ static void GL_SetAtlasTexParams(GLuint tex) {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+/* Upload a (w,h) sub-rect of a texture page.  The page lives in memory at a
+   256-byte row stride, so the upload must read its rows 256 bytes apart —
+   GL_UNPACK_ROW_LENGTH is GLES 3.0+ (the project's floor is GLES 2.0), and
+   without it the only correct source is the full 256x256 page, which this
+   falls back to by forcing w/h. */
+static void GL_UploadAtlasRect(GLuint tex, const void *map, U32 *w, U32 *h) {
+    GL_BindTexUnit(0, tex);
+#ifndef GL_UNPACK_ROW_LENGTH
+    *w = 256;
+    *h = 256;
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_LUMINANCE,
+                    GL_UNSIGNED_BYTE, map);
+#else
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 256);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, (GLsizei)*w, (GLsizei)*h,
+                    GL_LUMINANCE, GL_UNSIGNED_BYTE, map);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+}
+
 /* Make the texture for texture page `map` current on the GL_TEXTURE0 unit:
    reuse the cached texture when the page content is up to date, (re)upload
    into it otherwise, evicting the oldest entry when the pointer is new.
@@ -2236,16 +2256,15 @@ static GLuint GL_BindAtlasFor(const void *map, U16 mask) {
                    in full, covering both the old and the new area. */
                 w = (w > e->w) ? w : e->w;
                 h = (h > e->h) ? h : e->h;
+                GL_UploadAtlasRect(e->tex, map, &w, &h);
                 e->w = (U16)w;
                 e->h = (U16)h;
-                GL_BindTexUnit(0, e->tex);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_LUMINANCE,
-                                GL_UNSIGNED_BYTE, map);
                 e->ver = s_atlasContentVersion;
             } else if (e->ver != s_atlasContentVersion) {
-                GL_BindTexUnit(0, e->tex);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, e->w, e->h,
-                                GL_LUMINANCE, GL_UNSIGNED_BYTE, map);
+                U32 uw = e->w, uh = e->h;
+                GL_UploadAtlasRect(e->tex, map, &uw, &uh);
+                e->w = (U16)uw;
+                e->h = (U16)uh;
                 e->ver = s_atlasContentVersion;
             }
             GL_BindTexUnit(0, e->tex);
@@ -2260,13 +2279,12 @@ static GLuint GL_BindAtlasFor(const void *map, U16 mask) {
         GL_SetAtlasTexParams(e->tex);
         GL_InvalidateGLState();
     }
+    GL_UploadAtlasRect(e->tex, map, &w, &h);
     e->ptr = map;
     e->w = (U16)w;
     e->h = (U16)h;
     e->ver = s_atlasContentVersion;
     GL_BindTexUnit(0, e->tex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_LUMINANCE,
-                    GL_UNSIGNED_BYTE, map);
     return e->tex;
 }
 
