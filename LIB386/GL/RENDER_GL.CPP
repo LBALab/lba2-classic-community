@@ -3202,8 +3202,97 @@ void GL_ClearFBO(void) {
    frame whose object pass drew nothing skips the blit entirely - a
    full-screen blit of a 4x-SSAA framebuffer is a large slice of an idle
    frame's GPU bandwidth. */
+void GL_SnapshotTerrain(void) {
+    if (!s_initialized || !s_fbo) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+
+    /* The terrain/decor batches are still queued vertices at this point —
+       submit them first, or the snapshot captures a cleared framebuffer
+       and every incremental-frame restore paints black over the scene.
+       No-write pools stay queued: they draw after the snapshot and are
+       tracked in the dirty region like the bodies. */
+    GL_FlushBatchTerrain();
+
+    /* No GL_ResolveMSAA here: with MSAA active the blit below reads the
+       MSAA buffer's color directly (implicit resolve), and s_fbo's resolved
+       copy is not read until GL_Present resolves again — refreshing it here
+       cost a second full-surface color+depth resolve on every redraw frame. */
+
+    const U32 w = s_fboWidth;
+    const U32 h = s_fboHeight;
+    if (s_snapshotTex == 0 || s_snapshotW != w || s_snapshotH != h) {
+        if (s_snapshotTex == 0) {
+            glGenTextures(1, &s_snapshotTex);
+        }
+        glBindTexture(GL_TEXTURE_2D, s_snapshotTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_UPLOAD_FORMAT, w, h, 0,
+                     GL_UPLOAD_FORMAT, GL_UNSIGNED_BYTE, NULL);
+        if (s_snapshotFbo == 0) {
+            glGenFramebuffers(1, &s_snapshotFbo);
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, s_snapshotFbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D, s_snapshotTex, 0);
+        if (s_snapshotDepthRbo == 0) {
+            glGenRenderbuffers(1, &s_snapshotDepthRbo);
+        }
+        glBindRenderbuffer(GL_RENDERBUFFER, s_snapshotDepthRbo);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, w, h);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                                  GL_RENDERBUFFER, s_snapshotDepthRbo);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        s_snapshotW = w;
+        s_snapshotH = h;
+    }
+
+    /* Color + depth: the depth must be restored too, otherwise a body that
+       moved away would leave stale nearer depth that eats later fragments
+       until the next full redraw.  From the MSAA FBO only color is legal
+       (depth blits require equal sample counts) — and enough there: the
+       MSAA restore erases color only, and nothing in the object pass
+       writes MSAA depth to go stale. */
+    U64 profT0 = SDL_GetPerformanceCounter();
+    S32 msaaActive = (s_msaaFbo && s_antiAlias >= 2) ? 1 : 0;
+    glBindFramebuffer(GL_READ_FRAMEBUFFER,
+                      msaaActive ? s_msaaFbo : s_fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_snapshotFbo);
+    glBlitFramebuffer(0, 0, w, h, 0, 0, w, h,
+                      msaaActive ? GL_COLOR_BUFFER_BIT
+                                 : (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT),
+                      GL_NEAREST);
+    /* Mid-frame invariant: subsequent GL_FlushBatch() calls (s_frameActive
+       still set) must keep drawing into the FBO, not the default fb. */
+    glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+    s_profAccumTicks[GL_PROF_SNAPSHOT] += SDL_GetPerformanceCounter() - profT0;
+
+    s_snapshotGen = s_fboGen;
+    s_fboDirtyActive = 1;
+    s_fboDirtyX0 = 0;
+    s_fboDirtyY0 = 0;
+    s_fboDirtyX1 = -1; /* empty: everything drawn after this is tracked */
+}
+
+/* Blit the snapshot back over the FBO color on incremental frames so last
+   frame's body/shadow pixels are erased before the object pass redraws
+   them at their new positions.  No-op until the first snapshot exists and
+   whenever the FBO has been cleared since (full redraw refreshes it).
+
+   Only the region drawn since the snapshot needs erasing - bodies, their
+   shadows, sphere discs, sprite quads and shade bands register their
+   screen rects as they queue, and everything else in the FBO still matches
+   the snapshot.  The tracked region is exact, so nothing can trail.  A
+   frame whose object pass drew nothing skips the blit entirely - a
+   full-screen blit of a 4x-SSAA framebuffer is a large slice of an idle
+   frame's GPU bandwidth. */
 void GL_RestoreTerrainSnapshot(void) {
-    Log_Warn("[TEMP] RestoreSnapshot"); /* TEMP */
     
     if (!s_initialized || !s_fbo || s_snapshotFbo == 0) {
         return;
@@ -3370,7 +3459,6 @@ void GL_CaptureHorizon(void) {
 }
 
 void GL_RestoreHorizon(void) {
-    Log_Warn("[TEMP] RestoreHorizon"); /* TEMP */
     
     if (!s_initialized || !s_fbo || !s_horizonValid || s_horizonFbo == 0) {
         return;
