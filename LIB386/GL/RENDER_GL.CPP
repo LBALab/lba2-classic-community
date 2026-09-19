@@ -2085,6 +2085,8 @@ void GL_SetAntiAlias(S32 mode) {
 
 /* ── Texture uploads ────────────────────────────────────────────────────── */
 
+static U32 s_palUploadedCount = 0; /* TEMP */
+
 static void GL_UploadPalette(void) {
     /* Uploaded once per frame per LUT pointer, not per polygon — same
        reasoning as GL_UploadCLUT above. */
@@ -2122,6 +2124,7 @@ static void GL_UploadPalette(void) {
     s_revLutHashValid = 0;
     s_palUpSeq = s_frameSeq;
     s_palUpPtr = lut;
+    s_palUploadedCount++; /* TEMP */
 }
 
 static void GL_UploadCLUT(void) {
@@ -3466,6 +3469,10 @@ void GL_BeginFrame(void) {
     s_bilinearCLUT = DisplayTexFilter;
 
     s_frameSeq++;
+    if (s_frameSeq == 30 || s_frameSeq == 100) {
+        fprintf(stderr, "[TEMP] seq=%u palette_uploads=%u flushes_last=%d\n",
+                s_frameSeq, s_palUploadedCount, GL_BatchFlushCount);
+    }
     GL_BatchFlushCount = 0;
     s_terrainRenderedThisFrame = 0;
     s_horizonValid = 0; /* horizon capture is per-frame (eye 0 only) */
