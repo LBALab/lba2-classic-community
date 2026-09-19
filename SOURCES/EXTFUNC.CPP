@@ -2550,8 +2550,12 @@ S32 GereExtKeys(U32 key)
          * view. Twinsen stays centred; the auto-recenter hands the view back
          * behind him after the reengage window. The right stick is zoom only
          * (up = in, down = out). */
-        if (GamepadCameraAnalog AND JoystickIsPresent() AND
-            OpenXR_GetSwapchainWidth() != 0) {
+        /* Immersive sessions always own the head pose: requiring the SDL
+           joystick here killed head-look on Quest (no SDL gamepad in the
+           OpenXR app).  Desktop gamepads keep the analog gate. */
+        if ((OpenXR_IsActive() AND OpenXR_GetSwapchainWidth() != 0) OR
+            (GamepadCameraAnalog AND JoystickIsPresent() AND
+             OpenXR_GetSwapchainWidth() != 0)) {
             static float s_lastHeadYaw = -999.0f;
             static float s_lastHeadPitch = -999.0f;
             S32 dBeta = 0;
