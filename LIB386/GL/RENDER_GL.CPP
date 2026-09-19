@@ -2122,7 +2122,6 @@ void GL_SetAntiAlias(S32 mode) {
 
 /* ── Texture uploads ────────────────────────────────────────────────────── */
 
-static U32 s_palUploadedCount = 0; /* TEMP */
 
 static void GL_UploadPalette(void) {
     /* Uploaded once per frame per LUT pointer, not per polygon — same
@@ -2161,7 +2160,6 @@ static void GL_UploadPalette(void) {
     s_revLutHashValid = 0;
     s_palUpSeq = s_frameSeq;
     s_palUpPtr = lut;
-    s_palUploadedCount++; /* TEMP */
 }
 
 static void GL_UploadCLUT(void) {
@@ -2440,10 +2438,13 @@ static void FlushActiveBatch(void) {
             s_batchRingBase = s_batchRingOffset;
             s_batchRingOffset = (s_batchRingOffset + bytes + 255) & ~(U32)255;
         } else {
+            /* Attrib pointers reference the buffer object, not its storage:
+               they survive this orphan and stay valid at offset 0, so the
+               12-call attrib re-spec only runs when something actually
+               invalidates them. */
             glBufferData(GL_ARRAY_BUFFER, bytes, s_batchVerts,
                          GL_STREAM_DRAW);
             s_batchRingBase = 0;
-            s_clutAttribsDirty = 1;
         }
     }
 
@@ -3519,10 +3520,6 @@ void GL_BeginFrame(void) {
     s_bilinearCLUT = DisplayTexFilter;
 
     s_frameSeq++;
-    if (s_frameSeq == 30 || s_frameSeq == 100) {
-        fprintf(stderr, "[TEMP] seq=%u palette_uploads=%u flushes_last=%d\n",
-                s_frameSeq, s_palUploadedCount, GL_BatchFlushCount);
-    }
     GL_BatchFlushCount = 0;
     s_terrainRenderedThisFrame = 0;
     s_horizonValid = 0; /* horizon capture is per-frame (eye 0 only) */
