@@ -156,6 +156,7 @@ static U32                     s_swapchainHeight = 0; /* per-eye recommended */
 static U32                     s_swapchainAllocW = 0; /* actual texture width (2x for stereo) */
 static float                   s_headYawDeg = 0.0f;
 static float                   s_headPitchDeg = 0.0f;
+static float                   s_headRollDeg = 0.0f;
 static XrSwapchainImageOpenGLESKHR *s_swapchainImages = NULL;
 static U32                     s_swapchainImageCount = 0;
 static U32                     s_swapchainImageIndex = 0;
@@ -1148,6 +1149,14 @@ float OpenXR_HeadYawDeg(void) {
 #endif
 }
 
+float OpenXR_HeadRollDeg(void) {
+#ifdef LBA2_OPENXR
+    return s_headRollDeg;
+#else
+    return 0.0f;
+#endif
+}
+
 float OpenXR_HeadPitchDeg(void) {
 #ifdef LBA2_OPENXR
     return s_headPitchDeg;
@@ -1776,6 +1785,18 @@ S32 OpenXR_PresentMono(void) {
         const float fz = -1.0f + qw * tz + cz;  /* forward.z */
         s_headYawDeg = (float)(atan2(fx, -fz) * 180.0 / 3.14159265358979);
         s_headPitchDeg = (float)(asin(fy) * 180.0 / 3.14159265358979);
+        /* Head roll: where the head's up vector leans relative to the world
+         * up, in the plane perpendicular to the forward direction.  Without
+         * it, tilting the head produces a spurious yaw/pitch mix. */
+        {   /* Head up vector: q rotated (0,1,0) */
+            const float ux = 2.0f * qx * qy - 2.0f * qw * qz;
+            const float uy = 1.0f - 2.0f * qx * qx - 2.0f * qz * qz;
+            const float uz = 2.0f * qw * qx + 2.0f * qy * qz;
+            /* Roll: lean of the head up vector toward cross(forward, up) */
+            const float rx = -fz, rz = fx;
+            s_headRollDeg = (float)(atan2(ux * rx + uz * rz, uy) * 180.0 /
+                                    3.14159265358979);
+        }
         { /* TEMP diag */
             static U32 dbg = 0;
             if ((dbg++ % 180) == 0) {

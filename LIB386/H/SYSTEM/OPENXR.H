@@ -38,6 +38,7 @@ U32 OpenXR_GetSwapchainHeight(void);
    follow-camera consumes these as per-frame deltas (head-tracked orbit). */
 float OpenXR_HeadYawDeg(void);
 float OpenXR_HeadPitchDeg(void);
+float OpenXR_HeadRollDeg(void); /* head roll, degrees, + = tilt right */
 
 /* Pump OpenXR events (session state changes, loss, etc.). */
 void OpenXR_PollEvents(void);
