@@ -808,17 +808,29 @@ static void UpdateFirstPersonCamera(void) {
         alpha = (S32)(-pitch * 4096.0f / 360.0f);
     }
 #endif
+    S32 eye = 0;
+    {   /* head height from the hero ZV (feet at Y, head at Y + YMax) */
+        T_OBJET *po = &ListObjet[NumObjFollow];
+        eye = (po->YMax > 0) ? po->YMax - 96 : 900;
+    }
     VueDistance = 0;
     BetaCam = (2048 - beta) & 4095;
     AlphaCam = alpha;
 
     Rotate(0, 0, beta);
     VueOffsetX = ptr3d->X + X0;
-    VueOffsetY = ptr3d->Y + 1000; /* eye height above the hero base */
+    VueOffsetY = ptr3d->Y + eye; /* eye height above the hero base */
     VueOffsetZ = ptr3d->Z + Z0;
     StartXCube = VueOffsetX / SIZE_BRICK_XZ;
     StartYCube = VueOffsetY / SIZE_BRICK_Y;
     StartZCube = VueOffsetZ / SIZE_BRICK_XZ;
+    /* Walk where you look: the hero turns to the head/camera heading while
+     * movement input is held, so "up" goes along the gaze. */
+    if (Input & (I_UP | I_DOWN))
+        ListObjet[NumObjFollow].Obj.Beta = beta;
+#ifdef LBA2_OPENXR
+    GammaCam = (S32)(-OpenXR_HeadRollDeg() * 4096.0f / 360.0f);
+#endif
     CameraCenter(3);
 }
 
