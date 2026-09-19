@@ -807,8 +807,20 @@ static void UpdateFirstPersonCamera(void) {
         float pitch = OpenXR_HeadPitchDeg();
         beta = (S32)(-yaw * 4096.0f / 360.0f) & 4095;
         alpha = (S32)(-pitch * 4096.0f / 360.0f);
+        /* Roll is damped: a flat mono image cannot represent roll without
+         * edge distortion, so tilt applies softened (40%) with a +-3
+         * degree dead zone - deliberate feel, no size pumping. */
+        float roll = OpenXR_HeadRollDeg();
+        if (roll > 3.0f)
+            roll -= 3.0f;
+        else if (roll < -3.0f)
+            roll += 3.0f;
+        else
+            roll = 0.0f;
+        gamma = (S32)(roll * 0.4f * 4096.0f / 360.0f);
     }
 #endif
+    S32 gamma = 0;
     S32 eye = 0;
     {   /* head height from the hero ZV (feet at Y, head at Y + YMax) */
         T_OBJET *po = &ListObjet[NumObjFollow];
@@ -830,7 +842,7 @@ static void UpdateFirstPersonCamera(void) {
     if (Input & (I_UP | I_DOWN))
         ListObjet[NumObjFollow].Obj.Beta = beta;
 #ifdef LBA2_OPENXR
-    GammaCam = (S32)(OpenXR_HeadRollDeg() * 4096.0f / 360.0f);
+    GammaCam = gamma;
 #endif
     CameraCenter(3);
 }
