@@ -2566,7 +2566,9 @@ S32 GereExtKeys(U32 key)
             const float pitch = OpenXR_HeadPitchDeg();
             if (s_lastHeadYaw > -900.0f) {
                 /* Engine angles are 4096 per full turn. */
-                const S32 DEG_TO_ENGINE = 4096 / 360;
+                /* Fractional: 4096/360 = 11.38 — integer math lost 3.4%
+                 * of every head motion and compounded per frame. */
+                const float DEG_TO_ENGINE = 4096.0f / 360.0f;
                 float dYaw = yaw - s_lastHeadYaw;
                 /* Wrap at +-180 so crossing the seam is one step, not a
                  * full-turn snap. */
@@ -2576,12 +2578,10 @@ S32 GereExtKeys(U32 key)
                     dYaw += 360.0f;
                 float dPitch = pitch - s_lastHeadPitch;
                 /* Dead zone: ~1.5 degrees of drift holds the view still. */
-                if (dYaw > 1.5f OR dYaw < -1.5f)
-                    dBeta = (S32)(dYaw * DEG_TO_ENGINE);
+                dBeta = (S32)(dYaw * DEG_TO_ENGINE);
                 /* Negated: raising AlphaCam looks further DOWN from above,
                    so looking up at the world must decrease it. */
-                if (dPitch > 1.5f OR dPitch < -1.5f)
-                    dAlpha = -(S32)(dPitch * DEG_TO_ENGINE);
+                dAlpha = -(S32)(dPitch * DEG_TO_ENGINE);
                 if (GamepadCameraInvertY)
                     dAlpha = -dAlpha;
             }
