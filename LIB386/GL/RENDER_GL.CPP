@@ -886,6 +886,39 @@ static S32 s_depthTestOn = -1;
 static GLenum s_depthFuncCur = 0;
 static S32 s_depthWriteCur = -1;
 
+static GLuint s_curArrayBuf = 0; /* 0 = untracked; aux-VBO paths rebind raw */
+
+static void GL_BindArrayBuffer(GLuint buf) {
+    if (s_curArrayBuf == buf) {
+        return;
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, buf);
+    s_curArrayBuf = buf;
+}
+
+/* Cached blend enable, shared by the flush path and the one-shot draws
+   (shadow, sphere, shade, sprite, present): re-issuing identical
+   glEnable/glDisable/glBlendFunc per batch is driver overhead.  Anything
+   outside this setter must call GL_InvalidateGLState(). */
+static S32 s_blendOnCur = -1;
+static GLenum s_blendSrcCur = 0;
+static GLenum s_blendDstCur = 0;
+
+static void GL_SetBlendFunc(S32 on, GLenum src, GLenum dst) {
+    if (s_blendOnCur == on && s_blendSrcCur == src && s_blendDstCur == dst) {
+        return;
+    }
+    if (on != 0) {
+        glEnable(GL_BLEND);
+        glBlendFunc(src, dst);
+    } else {
+        glDisable(GL_BLEND);
+    }
+    s_blendOnCur = on;
+    s_blendSrcCur = src;
+    s_blendDstCur = dst;
+}
+
 static void GL_InvalidateGLState(void) {
     s_curBoundTex[0] = (GLuint)-1;
     s_curBoundTex[1] = (GLuint)-1;
@@ -896,6 +929,9 @@ static void GL_InvalidateGLState(void) {
     s_depthTestOn = -1;
     s_depthFuncCur = 0;
     s_depthWriteCur = -1;
+    s_blendOnCur = -1;
+    s_blendSrcCur = 0;
+    s_blendDstCur = 0;
 }
 
 /* Cached depth-state setters: a full frame can submit hundreds of small
@@ -1025,6 +1061,7 @@ static inline U8 GL_ReversePaletteLookup(U32 argb) {
 
 static const void *s_boundCLUT = NULL;
 static const void *s_batchAtlas = NULL;  /* PtrMap at batch start */
+static U16 s_batchMaxMask = 0; /* OR of every RepMask queued for this batch */
 static U32 s_currentTypePoly = 0;
 static U32 s_currentColorPoly = 0;
 static S32 s_bilinearCLUT = 0; /* bilinear CLUT sampling flag for 3D */
@@ -1097,12 +1134,12 @@ static U32 s_atlasContentVersion = 1; /* bumped when atlas marked dirty */
    64 KB re-upload on every switch.  Entries evict LRU; version matches
    s_atlasContentVersion so in-place page mutations (animated water) still
    re-upload. */
-#define ATLAS_CACHE_SIZE 32
+#define ATLAS_CACHE_SIZE 128
 typedef struct {
     const void *ptr;
     U32 ver;
     GLuint tex;
-    U8 *shadow; /* last uploaded content; skips unchanged re-uploads */
+    U16 w, h; /* used region: only this area is ever sampled/uploaded */
 } AtlasTexEntry;
 static AtlasTexEntry s_atlasTexCache[ATLAS_CACHE_SIZE];
 static S32 s_atlasTexNext = 0;
@@ -1652,31 +1689,31 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     /* ── Create VBOs ── */
     /* Present quad VBO (static) — flipped UVs for 2D overlay */
     glGenBuffers(1, &s_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
+    GL_BindArrayBuffer(s_vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(s_quadVerts), s_quadVerts,
                  GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GL_BindArrayBuffer(0);
 
     /* FBO quad VBO (static) — non-flipped UVs for FBO→screen */
     glGenBuffers(1, &s_fboVbo);
-    glBindBuffer(GL_ARRAY_BUFFER, s_fboVbo);
+    GL_BindArrayBuffer(s_fboVbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(s_fboQuadVerts), s_fboQuadVerts,
                  GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GL_BindArrayBuffer(0);
 
     /* Batch VBO for 3D triangles (dynamic) */
     glGenBuffers(1, &s_batchVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
+    GL_BindArrayBuffer(s_batchVBO);
     s_batchRingSize = BATCH_MAX_VERTS * BATCH_VERT_BYTES * BATCH_RING_SLOTS;
     glBufferData(GL_ARRAY_BUFFER, s_batchRingSize, NULL, GL_STREAM_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GL_BindArrayBuffer(0);
 
     /* One-shot VBO for the shadow/sphere/shade/sprite quad draws. */
     glGenBuffers(1, &s_auxVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, s_auxVBO);
+    GL_BindArrayBuffer(s_auxVBO);
     glBufferData(GL_ARRAY_BUFFER, BATCH_MAX_VERTS * BATCH_VERT_BYTES, NULL,
                  GL_STREAM_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GL_BindArrayBuffer(0);
 
     /* ── Create textures ── */
     /* Present texture (Log buffer → ARGB) */
@@ -1745,7 +1782,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             SDL_GL_GetProcAddress("glFramebufferTexture2DMultisampleEXT");
     glViewport(0, 0, resX, resY);
     glDisable(GL_DEPTH_TEST);
-    glDisable(GL_BLEND);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     /* Create FBO — always needed so 3D renders into an offscreen buffer
        that can be composited at the letterbox viewport alongside the
@@ -1802,8 +1839,8 @@ void GL_Renderer_Shutdown(void) {
         if (s_atlasTexCache[i].tex) {
             glDeleteTextures(1, &s_atlasTexCache[i].tex);
         }
-        free(s_atlasTexCache[i].shadow);
-        s_atlasTexCache[i].shadow = NULL;
+        s_atlasTexCache[i].w = 0;
+        s_atlasTexCache[i].h = 0;
         s_atlasTexCache[i].ptr = NULL;
         s_atlasTexCache[i].ver = 0;
         s_atlasTexCache[i].tex = 0;
@@ -2180,22 +2217,41 @@ static void GL_SetAtlasTexParams(GLuint tex) {
    reuse the cached texture when the page content is up to date, (re)upload
    into it otherwise, evicting the oldest entry when the pointer is new.
    NULL falls back to the legacy shared s_atlasTex (never sampled). */
-static GLuint GL_BindAtlasFor(const void *map) {
+static GLuint GL_BindAtlasFor(const void *map, U16 mask) {
     if (map == NULL) {
         GL_BindTexUnit(0, s_atlasTex);
         return s_atlasTex;
     }
 
+    /* Only the region the RepMask can sample is ever read: a (w,h)-sized
+       page serves (w,h)-wrapped UVs, so uploading w*h bytes instead of the
+       full 64 KB page cuts upload bandwidth by up to 64x on the per-offset
+       uploads inside the flush path. */
+    U32 w = (U32)(mask & 0xFF) + 1;
+    U32 h = (U32)(mask >> 8) + 1;
+
     for (S32 i = 0; i < ATLAS_CACHE_SIZE; i++) {
         if (s_atlasTexCache[i].ptr == map) {
-            if (s_atlasTexCache[i].ver != s_atlasContentVersion) {
-                GL_BindTexUnit(0, s_atlasTexCache[i].tex);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_LUMINANCE,
+            AtlasTexEntry *e = &s_atlasTexCache[i];
+            if (w > e->w || h > e->h) {
+                /* Region grew (offset reused with a larger mask): upload it
+                   in full, covering both the old and the new area. */
+                w = (w > e->w) ? w : e->w;
+                h = (h > e->h) ? h : e->h;
+                e->w = (U16)w;
+                e->h = (U16)h;
+                GL_BindTexUnit(0, e->tex);
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_LUMINANCE,
                                 GL_UNSIGNED_BYTE, map);
-                s_atlasTexCache[i].ver = s_atlasContentVersion;
+                e->ver = s_atlasContentVersion;
+            } else if (e->ver != s_atlasContentVersion) {
+                GL_BindTexUnit(0, e->tex);
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, e->w, e->h,
+                                GL_LUMINANCE, GL_UNSIGNED_BYTE, map);
+                e->ver = s_atlasContentVersion;
             }
-            GL_BindTexUnit(0, s_atlasTexCache[i].tex);
-            return s_atlasTexCache[i].tex;
+            GL_BindTexUnit(0, e->tex);
+            return e->tex;
         }
     }
 
@@ -2206,17 +2262,13 @@ static GLuint GL_BindAtlasFor(const void *map) {
         GL_SetAtlasTexParams(e->tex);
         GL_InvalidateGLState();
     }
-    if (e->shadow == NULL) {
-        e->shadow = (U8 *)malloc(256 * 256);
-    }
     e->ptr = map;
+    e->w = (U16)w;
+    e->h = (U16)h;
     e->ver = s_atlasContentVersion;
     GL_BindTexUnit(0, e->tex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_LUMINANCE,
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_LUMINANCE,
                     GL_UNSIGNED_BYTE, map);
-    if (e->shadow != NULL) {
-        memcpy(e->shadow, map, 256 * 256);
-    }
     return e->tex;
 }
 
@@ -2354,11 +2406,14 @@ static void FlushActiveBatch(void) {
        batches deep, allocated at init) to avoid re-specifying storage
        hundreds of times per frame on drivers that charge for it — opt-in
        until its rendering is verified on the target driver. */
-    glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
+    GL_BindArrayBuffer(s_batchVBO);
     {
         const U32 bytes = s_batchVertCount * BATCH_VERT_BYTES;
         static S32 s_ring = -1;
         if (s_ring < 0) {
+            /* Opt-in: on Mesa/radeonsi, ring submission corrupted frames
+               even with the wrap fence (see LBA2_RING).  The orphan path
+               stays the default until a driver-safe design exists. */
             s_ring = getenv("LBA2_RING") ? 1 : 0;
         }
         if (s_ring) {
@@ -2370,13 +2425,14 @@ static void FlushActiveBatch(void) {
                    re-filling it — in practice the GPU reached this fence
                    several frames ago, so the wait never stalls. */
                 if (s_ringWrapFence != 0) {
+                    /* Covers every draw submitted up to the previous wrap:
+                       the slots being reused were written before it, so the
+                       GPU has long consumed them. */
                     glClientWaitSync(s_ringWrapFence, 0, UINT64_MAX);
                     glDeleteSync(s_ringWrapFence);
                 }
                 s_ringWrapFence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,
                                               0);
-                glBufferData(GL_ARRAY_BUFFER, s_batchRingSize, NULL,
-                             GL_STREAM_DRAW);
                 s_batchRingOffset = 0;
             }
             glBufferSubData(GL_ARRAY_BUFFER, s_batchRingOffset, bytes,
@@ -2431,12 +2487,8 @@ static void FlushActiveBatch(void) {
             s_bilinearCached = s_bilinearCLUT;
         }
     }
-    if (s_currentMatFlags & 8) { /* alphaMode 1 (TRANS) */
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    } else {
-        glDisable(GL_BLEND);
-    }
+    GL_SetBlendFunc((s_currentMatFlags & 8) != 0, GL_SRC_ALPHA,
+                    GL_ONE_MINUS_SRC_ALPHA); /* alphaMode 1 (TRANS) */
 
     /* Batch-start state that the shader still reads as uniforms. */
     if (!(s_batchArray && s_clut3Program != 0)) {
@@ -2463,7 +2515,8 @@ static void FlushActiveBatch(void) {
            stale-layer sync above); unit 0 stays a valid dummy. */
         GL_BindTexUnit(0, s_atlasTex);
     } else if (s_batchTextured && s_batchAtlas != NULL) {
-        GL_BindTexUnit(0, GL_BindAtlasFor(s_batchAtlas));
+        GL_BindTexUnit(0, GL_BindAtlasFor(s_batchAtlas, s_batchMaxMask));
+        s_batchMaxMask = 0; /* consumed: next batch starts with a clean mask */
     } else {
         GL_BindTexUnit(0, s_atlasTex);
     }
@@ -2736,8 +2789,7 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
     GL_SetDepthWrite(0);
 
     /* Multiply blending: result = shadow gray * scene color. */
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_DST_COLOR, GL_ZERO);
+    GL_SetBlendFunc(1, GL_DST_COLOR, GL_ZERO);
 
     /* Ear-clip the outline: the shadow quad is planar in front of the
        camera, but corners ride terrain altitude, so a skewed projection
@@ -2771,7 +2823,7 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
             memcpy(v + 14, &shadowMat, 2);
         }
 
-        glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
+        GL_BindArrayBuffer(s_batchVBO);
         /* Orphan + upload in one call: see GL_FlushBatch. */
         glBufferData(GL_ARRAY_BUFFER, nv * BATCH_VERT_BYTES, polyVerts,
                      GL_STREAM_DRAW);
@@ -2801,12 +2853,12 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
 
     GL_SetDepthWrite(1);
     GL_SetDepthTest(0);
-    glDisable(GL_BLEND);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     /* Vertex arrays, program and texture bindings stay as they are — the
        next flush (or present, which invalidates) reuses or re-specifies
        them through the caches. */
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GL_BindArrayBuffer(0);
 }
 
 /* ── Body sphere disc (GL Fill_Sphere replacement) ───────────────────────── */
@@ -2887,10 +2939,9 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
     GL_SetDepthWrite(zWrite && !transparent);
 
     if (transparent) {
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL_SetBlendFunc(1, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     } else {
-        glDisable(GL_BLEND);
+        GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
     GL_MarkFBORegion(cx - radius, cy - radius, cx + radius, cy + radius);
@@ -2919,7 +2970,7 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
         memcpy(v + 14, &sphereMat, 2);
     }
 
-    glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
+    GL_BindArrayBuffer(s_batchVBO);
     /* Orphan + upload in one call: see GL_FlushBatch. */
     glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STREAM_DRAW);
     glEnableVertexAttribArray(s_clut_aPos);
@@ -2946,9 +2997,9 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
 
     GL_SetDepthWrite(1);
     GL_SetDepthTest(0);
-    glDisable(GL_BLEND);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GL_BindArrayBuffer(0);
 }
 
 /* ── Screen-space shade rect (GL ShadeBoxBlk replacement) ────────────────── */
@@ -2997,8 +3048,7 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
     GL_SetDepthTest(0);
     GL_SetDepthWrite(0);
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_DST_COLOR, GL_ZERO);
+    GL_SetBlendFunc(1, GL_DST_COLOR, GL_ZERO);
 
     GL_MarkFBORegion(x0, y0, x1, y1);
 
@@ -3017,7 +3067,7 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
         memcpy(v + 14, &shadeMat, 2);
     }
 
-    glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
+    GL_BindArrayBuffer(s_batchVBO);
     /* Orphan + upload in one call: see GL_FlushBatch. */
     glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STREAM_DRAW);
     glEnableVertexAttribArray(s_clut_aPos);
@@ -3042,9 +3092,9 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
     GL_SetDepthWrite(1);
-    glDisable(GL_BLEND);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GL_BindArrayBuffer(0);
 }
 
 static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
@@ -3290,12 +3340,12 @@ void GL_RestoreTerrainSnapshot(void) {
         glViewport(0, 0, s_fboWidth, s_fboHeight);
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
-        glDisable(GL_BLEND);
+        GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glUseProgram(s_program);
         glUniform1i(s_uTexLoc, 0);
         glUniform1i(s_uFilterLoc, 1);
         GL_BindTexUnit(0, s_snapshotTex);
-        glBindBuffer(GL_ARRAY_BUFFER, s_auxVBO);
+        GL_BindArrayBuffer(s_auxVBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(rverts), rverts, GL_STREAM_DRAW);
         glEnableVertexAttribArray(s_aPosLoc);
         glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
@@ -3307,7 +3357,7 @@ void GL_RestoreTerrainSnapshot(void) {
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         glDisableVertexAttribArray(s_aPosLoc);
         glDisableVertexAttribArray(s_aTexCoordLoc);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL_BindArrayBuffer(0);
         glUseProgram(0);
         /* The quad used its own program/attribs/texture — the next batch
            flush must re-specify everything. */
@@ -3421,12 +3471,12 @@ void GL_RestoreHorizon(void) {
         glViewport(0, 0, s_fboWidth, s_fboHeight);
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
-        glDisable(GL_BLEND);
+        GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glUseProgram(s_program);
         glUniform1i(s_uTexLoc, 0);
         glUniform1i(s_uFilterLoc, 1);
         GL_BindTexUnit(0, s_horizonTex);
-        glBindBuffer(GL_ARRAY_BUFFER, s_auxVBO);
+        GL_BindArrayBuffer(s_auxVBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(rverts), rverts, GL_STREAM_DRAW);
         glEnableVertexAttribArray(s_aPosLoc);
         glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
@@ -3438,7 +3488,7 @@ void GL_RestoreHorizon(void) {
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         glDisableVertexAttribArray(s_aPosLoc);
         glDisableVertexAttribArray(s_aTexCoordLoc);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL_BindArrayBuffer(0);
         glUseProgram(0);
         GL_InvalidateGLState();
     } else {
@@ -3825,10 +3875,9 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
     GL_SetDepthWrite(0);
 
     if (transparent) {
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL_SetBlendFunc(1, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     } else {
-        glDisable(GL_BLEND);
+        GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
     GL_MarkFBORegion(x0, y0, x1, y1);
@@ -3856,7 +3905,7 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
         memcpy(v + 14, &spriteMat, 2);
     }
 
-    glBindBuffer(GL_ARRAY_BUFFER, s_batchVBO);
+    GL_BindArrayBuffer(s_batchVBO);
     /* Orphan + upload in one call: see GL_FlushBatch. */
     glBufferData(GL_ARRAY_BUFFER, sizeof(quadVerts), quadVerts,
                  GL_STREAM_DRAW);
@@ -3885,9 +3934,9 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
 
     GL_SetDepthWrite(1);
     GL_SetDepthTest(0);
-    glDisable(GL_BLEND);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GL_BindArrayBuffer(0);
 }
 
 void GL_ReadbackColorBuffer(void) {
@@ -4174,12 +4223,12 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
 
     /* Draw the FBO color texture (3D scene) first, then the 2D overlay on top */
     if (s_fbo) {
-        glDisable(GL_BLEND);
+        GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, s_fboColorTex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glBindBuffer(GL_ARRAY_BUFFER, s_fboVbo);
+        GL_BindArrayBuffer(s_fboVbo);
         if (s_antiAlias == 1 && s_fxaaProgram) {
             /* FXAA post-process: edge-detecting AA on the scene texture. */
             glUseProgram(s_fxaaProgram);
@@ -4214,12 +4263,12 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
         glDisableVertexAttribArray(s_aPosLoc);
         glDisableVertexAttribArray(s_aTexCoordLoc);
         }
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL_BindArrayBuffer(0);
         glUseProgram(0);
 
         glDisableVertexAttribArray(s_aPosLoc);
         glDisableVertexAttribArray(s_aTexCoordLoc);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL_BindArrayBuffer(0);
         glUseProgram(0);
     }
 
@@ -4267,8 +4316,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
 
     /* Enable alpha blending so palette index 0 (alpha=0) is transparent,
        letting the 3D scene (or black background) show through underneath. */
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    GL_SetBlendFunc(1, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     /* Draw fullscreen quad for 2D overlay */
     glUseProgram(s_program);
@@ -4278,7 +4326,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     glUniform2f(s_uTexelLoc, 1.0f / (GLfloat)width, 1.0f / (GLfloat)height);
     glUniform1i(s_uFilterLoc, filterLinear);
 
-    glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
+    GL_BindArrayBuffer(s_vbo);
     glEnableVertexAttribArray(s_aPosLoc);
     glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
                           4 * sizeof(GLfloat), (const void *)0);
@@ -4291,10 +4339,10 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
 
     glDisableVertexAttribArray(s_aPosLoc);
     glDisableVertexAttribArray(s_aTexCoordLoc);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GL_BindArrayBuffer(0);
     glUseProgram(0);
     glBindTexture(GL_TEXTURE_2D, 0);
-    glDisable(GL_BLEND);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     /* Eye 0 stops here (its content is captured, not presented). Eye 1 and
      * every mono path continue to the swap, which on the Quest routes into
@@ -4385,12 +4433,12 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     glViewport(vpX, vpY, vpW, vpH);
 
     if (s_fbo) {
-        glDisable(GL_BLEND);
+        GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, s_fboColorTex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glBindBuffer(GL_ARRAY_BUFFER, s_fboVbo);
+        GL_BindArrayBuffer(s_fboVbo);
         if (s_antiAlias == 1 && s_fxaaProgram) {
             /* FXAA post-process: edge-detecting AA on the scene texture. */
             glUseProgram(s_fxaaProgram);
@@ -4425,12 +4473,12 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         glDisableVertexAttribArray(s_aPosLoc);
         glDisableVertexAttribArray(s_aTexCoordLoc);
         }
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL_BindArrayBuffer(0);
         glUseProgram(0);
 
         glDisableVertexAttribArray(s_aPosLoc);
         glDisableVertexAttribArray(s_aTexCoordLoc);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL_BindArrayBuffer(0);
         glUseProgram(0);
     }
 
@@ -4629,8 +4677,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
             }
         }
 
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL_SetBlendFunc(1, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         glUseProgram(s_presentIndexedProgram);
         glActiveTexture(GL_TEXTURE0);
@@ -4642,7 +4689,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         glUniform2f(s_idx_uTexel, 1.0f / (GLfloat)width, 1.0f / (GLfloat)height);
         glUniform1i(s_idx_uFilter, filterLinear);
 
-        glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
+        GL_BindArrayBuffer(s_vbo);
         glEnableVertexAttribArray(s_idx_aPos);
         glVertexAttribPointer(s_idx_aPos, 2, GL_FLOAT, GL_FALSE,
                               4 * sizeof(GLfloat), (const void *)0);
@@ -4655,11 +4702,11 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
 
         glDisableVertexAttribArray(s_idx_aPos);
         glDisableVertexAttribArray(s_idx_aTexCoord);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL_BindArrayBuffer(0);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, 0);
         glUseProgram(0);
-        glDisable(GL_BLEND);
+        GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
     U64 profT1 = SDL_GetPerformanceCounter();
@@ -4994,6 +5041,7 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
             rm = (U16)(0x8000u | (U16)GL_ArraySlotFor(PtrMap)->layer);
         } else {
             rm = (U16)(RepMask & 0xFFFF);
+            s_batchMaxMask |= (U16)(RepMask & 0xFFFF);
         }
         for (S32 i = 0; i < nbPoints; i++) {
             ptrPoints[i].Pt_RepMask = rm;
