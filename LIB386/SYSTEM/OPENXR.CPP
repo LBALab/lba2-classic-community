@@ -1888,19 +1888,39 @@ S32 OpenXR_PresentMono(void) {
          * wrong angular rate, skewing the frame whenever the head moved.
          * Both eyes render symmetric with the same focal. */
         {
-            extern S32 LFactorX;
-            extern S32 LFactorY;
+            extern S32 StereoFocalX;
+            extern S32 StereoFocalY;
             extern U32 ModeDesiredX;
             extern U32 ModeDesiredY;
-            double tanX = ((double)ModeDesiredX * 0.5) / (double)LFactorX;
-            double tanY = ((double)ModeDesiredY * 0.5) / (double)LFactorY;
-            if (tanX > 0.0 && tanY > 0.0) {
+            /* Symmetrize to the widest span each axis covers across both
+             * eyes.  The engine focal is overridden to match (the camera
+             * code applies StereoFocalX/Y), so the rendered pixels span
+             * exactly these angles: the panel fills edge to edge with
+             * undistorted geometry, and the time-warp reprojects head
+             * rotation at the true rate. */
+            double hx = 0.0, hy = 0.0;
+            for (j = 0; j < eyeCount && j < 2; j++) {
+                double tl = fabs(tan(locatedViews[j].fov.angleLeft));
+                double tr = fabs(tan(locatedViews[j].fov.angleRight));
+                double tu = fabs(tan(locatedViews[j].fov.angleUp));
+                double td = fabs(tan(locatedViews[j].fov.angleDown));
+                if (tl > hx) hx = tl;
+                if (tr > hx) hx = tr;
+                if (tu > hy) hy = tu;
+                if (td > hy) hy = td;
+            }
+            if (hx > 0.0 && hy > 0.0) {
+                StereoFocalX = (S32)(((double)ModeDesiredX * 0.5) / hx);
+                StereoFocalY = (S32)(((double)ModeDesiredY * 0.5) / hy);
                 for (j = 0; j < eyeCount && j < 2; j++) {
-                    locatedViews[j].fov.angleLeft = (float)-atan(tanX);
-                    locatedViews[j].fov.angleRight = (float)atan(tanX);
-                    locatedViews[j].fov.angleUp = (float)atan(tanY);
-                    locatedViews[j].fov.angleDown = (float)-atan(tanY);
+                    locatedViews[j].fov.angleLeft = (float)-atan(hx);
+                    locatedViews[j].fov.angleRight = (float)atan(hx);
+                    locatedViews[j].fov.angleUp = (float)atan(hy);
+                    locatedViews[j].fov.angleDown = (float)-atan(hy);
                 }
+            } else {
+                StereoFocalX = 0;
+                StereoFocalY = 0;
             }
         }
         for (j = 0; j < eyeCount; j++) {

@@ -31,6 +31,8 @@ extern S32 CameraZr;
 extern S32 StereoCamShiftX;
 extern S32 StereoCamShiftY;
 extern S32 StereoProjShiftX;
+extern S32 StereoFocalX; /* eye-FOV focal override (0 = game focal) */
+extern S32 StereoFocalY;
 /* True-pose stereo eye override (see AffGrilleExt): while StereoEyeOverride
  * is set, the camera orientation is re-applied from these angles after the
  * rig's own SetFollowCamera, keeping the rig position game-controlled while

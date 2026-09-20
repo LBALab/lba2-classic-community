@@ -2598,6 +2598,15 @@ restartloop:
                 dx = (S32)(eyeSep * cosf(rollRad));
                 dy = (S32)(eyeSep * sinf(rollRad));
             }
+            /* The projection spans the headset's per-eye field (the values
+             * OPENXR.CPP derived from the runtime's eye FOVs), overriding
+             * the classic focal floors for these two passes only — restored
+             * after the pair so menus and the flat pipeline keep the game
+             * focal. */
+            const S32 gameLFactorX = LFactorX;
+            const S32 gameLFactorY = LFactorY;
+            const float gameFRatioX = FRatioX;
+            const float gameFRatioY = FRatioY;
             U32 stereoT0 = SDL_GetTicks();
             U32 stereoT1 = stereoT0;
             for (S32 eye = 0; eye < 2; eye++) {
@@ -2674,11 +2683,21 @@ restartloop:
                     StereoCamShiftY = (eye == 0) ? -dy : dy;
                     StereoProjShiftX = (eye == 0) ? -conv : conv;
                 }
+                if (StereoFocalX > 0 && StereoFocalY > 0) {
+                    LFactorX = StereoFocalX;
+                    LFactorY = StereoFocalY;
+                    FRatioX = (float)LFactorX;
+                    FRatioY = -(float)LFactorY / FRatioX;
+                }
                 if (eye == 1)
                     stereoT1 = SDL_GetTicks();
                 AffScene(AFF_ALL_FLIP);
             }
             U32 stereoT2 = SDL_GetTicks();
+            LFactorX = gameLFactorX;
+            LFactorY = gameLFactorY;
+            FRatioX = gameFRatioX;
+            FRatioY = gameFRatioY;
             StereoEyeOverride = 0;
             StereoCamShiftX = 0;
             StereoCamShiftY = 0;
