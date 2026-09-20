@@ -95,6 +95,7 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_TEXFILTER 2118
 #define MENU_ID_DISPLAY_QUALITY 2119
 #define MENU_ID_DISPLAY_STEREO3D 2120 /* Quest OpenXR native stereo toggle */
+#define MENU_ID_DISPLAY_VRZOOM 2128   /* Quest stereo world zoom percent */
 #endif
 #define MENU_ID_DISPLAY_ANTIALIAS 2123
 #define MENU_ID_DISPLAY_BRIGHTNESS 2125
@@ -209,6 +210,8 @@ static void BuildDisplayMenuEntries(void) {
     if (OpenXR_IsActive()) {
         *p++ = 0;
         *p++ = MENU_ID_DISPLAY_STEREO3D;
+        *p++ = 0;
+        *p++ = MENU_ID_DISPLAY_VRZOOM;
     }
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_QUALITY;
@@ -552,6 +555,10 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_STEREO3D:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayStereo3D ? MENU_LABEL_STEREO3D_ON : MENU_LABEL_STEREO3D_OFF));
+        break;
+
+    case MENU_ID_DISPLAY_VRZOOM:
+        snprintf(string, 256, "VR zoom: %d%%", VrFovScale);
         break;
 
     case MENU_ID_DISPLAY_QUALITY:
@@ -3478,6 +3485,15 @@ S32 GereDisplayMenu(void) {
         case MENU_ID_DISPLAY_STEREO3D:
             DisplayStereo3D ^= 1;
             OpenXR_SetStereoEnabled(DisplayStereo3D);
+            WriteConfigFile();
+            break;
+
+        case MENU_ID_DISPLAY_VRZOOM:
+            /* Percent of the eye's natural FOV the world spans; 120 is the
+             * widest the authored terrain grid and sky backdrop cover. */
+            VrFovScale += 10;
+            if (VrFovScale > 120)
+                VrFovScale = 50;
             WriteConfigFile();
             break;
 

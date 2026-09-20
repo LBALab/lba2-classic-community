@@ -87,7 +87,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | FollowCamera | Auto camera for exterior scenes (0=classic, 1=auto). Community addition, not in original game; the menu row is a three-way camera setting (Classic camera / Auto camera / First person) | ReadConfigFile / WriteConfigFile | Options → Advanced options |
 | CameraFirstPerson | First-person camera (0=off, 1=on); VR headset builds render the tracked head pose per eye. Community addition, not in original game | ReadConfigFile / WriteConfigFile | Options → Advanced options (camera setting) |
 | DisplayBrightness / DisplayContrast / DisplaySaturation | Image adjustments applied at composite time in the GL present shaders. Community addition, not in original game | ReadConfigFile / WriteConfigFile | Options → Display menu |
-| VrFovScale | VR world zoom as a percent of the eye's natural FOV (50–120, default 100). Above 100 renders a wider field, zoomed out; past ~120 the frame outgrows the authored world. Quest stereo only | ReadConfigFile / WriteConfigFile | console `vrzoom` |
+| VrFovScale | VR world zoom as a percent of the eye's natural FOV (50–120, default 100). Above 100 renders a wider field, zoomed out; past ~120 the frame outgrows the authored world. Quest stereo only | ReadConfigFile / WriteConfigFile | Options → Display menu (headset sessions) or console `vrzoom` |
 
 ## Code reference
 
