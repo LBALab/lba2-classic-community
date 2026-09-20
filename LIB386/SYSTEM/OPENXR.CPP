@@ -1878,6 +1878,34 @@ S32 OpenXR_PresentMono(void) {
     }
     if (eyeCount > 0 && s_swapchainImageIndex < s_swapchainImageCount) {
         U32 j;
+        /* Classic/auto cameras keep the world's own horizon: the rendered
+         * frames carry no head roll, so the declared poses must not either —
+         * the compositor places the image at these poses and any roll in
+         * them rolls the whole view with the head.  Rebuild the orientation
+         * from the view forward's yaw/pitch alone (roll stripped).  First
+         * person renders the tracked roll itself and keeps the full pose. */
+        extern S32 CameraFirstPerson;
+        if (!CameraFirstPerson && locatedCount > 0) {
+            for (j = 0; j < locatedCount && j < 2; j++) {
+                const XrQuaternionf q = locatedViews[j].pose.orientation;
+                const float qx = q.x, qy = q.y, qz = q.z, qw = q.w;
+                /* forward = q * (0,0,-1) */
+                const float fx = -2.0f * (qx * qz + qw * qy);
+                const float fy = -2.0f * (qy * qz - qw * qx);
+                const float fz = 2.0f * (qx * qx + qy * qy) - 1.0f;
+                const float pitch = asinf(fy < -1.0f ? -1.0f
+                                          : (fy > 1.0f ? 1.0f : fy));
+                const float yaw = atan2f(-fx, -fz);
+                const float cy = cosf(yaw * 0.5f);
+                const float sy = sinf(yaw * 0.5f);
+                const float cx = cosf(pitch * 0.5f);
+                const float sx = sinf(pitch * 0.5f);
+                locatedViews[j].pose.orientation.x = cy * sx;
+                locatedViews[j].pose.orientation.y = sy * cx;
+                locatedViews[j].pose.orientation.z = -sy * sx;
+                locatedViews[j].pose.orientation.w = cy * cx;
+            }
+        }
         /* Declare the engine's own projection.  The compositor maps each eye
          * rect to these angles linearly in tan-space — the exact transform
          * the engine's pinhole projection applied (focal LFactorX/LFactorY
