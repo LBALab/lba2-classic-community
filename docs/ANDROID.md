@@ -185,8 +185,11 @@ swapchain. In first person, each eye renders from its tracked view
 (`OpenXR_GetEyeView`): the orientation comes from the runtime-located
 pose and the IPD split runs along the view-space right axis, so the
 compositor's time-warp reprojects head rotation cleanly and the stereo
-depth is real. The classic and auto cameras keep the game's own framing
-and render as a rig-offset pair; frames without a fresh per-eye pair
+depth is real. The classic and auto cameras keep the game's framing but
+let the head pan the view on top of it: the head's rotation relative to
+a self-recentering anchor (eases back after a couple of seconds still,
+or immediately on the recenter key) is applied as a per-eye orientation
+offset. Frames without a fresh per-eye pair
 (menus, videos, interiors, the first frame) fall back to a single
 composite copied to both halves. Controller state comes through the
 OpenXR action pipeline, mapped onto the same virtual-scancode space the

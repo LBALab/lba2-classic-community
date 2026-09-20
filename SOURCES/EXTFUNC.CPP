@@ -2600,6 +2600,14 @@ S32 GereExtKeys(U32 key)
             s_lastHeadYaw = yaw;
             s_lastHeadPitch = pitch;
 
+            if (StereoHeadLookActive()) {
+                /* The per-eye head-look override owns the orientation (1:1,
+                 * warp-free); nudging the rig angles here would pan the view
+                 * twice.  The right stick keeps its zoom. */
+                dBeta = 0;
+                dAlpha = 0;
+            }
+
             S16 rsx = 0;
             S16 rsy = 0;
             JoystickGetRightStick(&rsx, &rsy);

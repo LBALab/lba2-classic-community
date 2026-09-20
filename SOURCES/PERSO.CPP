@@ -850,6 +850,112 @@ static void UpdateFirstPersonCamera(void) {
     CameraCenter(3);
 }
 
+/*──────────────────────────────────────────────────────────────────────────*/
+/* Classic/auto camera head-look (stereo).  The rig keeps its game-driven
+ * position and framing; the head's rotation relative to a self-recentering
+ * anchor pans the view on top of it, per eye.  Tracking is 1:1 while the
+ * head moves; after a couple of seconds still, the anchor eases toward the
+ * head and the view settles back onto the rig framing, so gameplay never
+ * stays lost off-screen. */
+#ifdef LBA2_OPENXR
+static float LookWrapPi(float a) {
+    while (a > 3.14159265f)
+        a -= 2.0f * 3.14159265f;
+    while (a < -3.14159265f)
+        a += 2.0f * 3.14159265f;
+    return a;
+}
+
+static float LookQuatYaw(const float *q) {
+    const float qx = q[0], qy = q[1], qz = q[2], qw = q[3];
+    const float tx = -2.0f * qy, ty = 2.0f * qx;
+    const float cx = -qz * ty;
+    const float cz = qx * ty - qy * tx;
+    return atan2f(qw * tx + cx, 1.0f - cz);
+}
+
+static float LookQuatPitch(const float *q) {
+    const float qx = q[0], qy = q[1], qz = q[2], qw = q[3];
+    const float tx = -2.0f * qy, ty = 2.0f * qx;
+    const float cy = qz * tx;
+    float fy = qw * ty + cy;
+    if (fy > 1.0f)
+        fy = 1.0f;
+    else if (fy < -1.0f)
+        fy = -1.0f;
+    return asinf(fy);
+}
+
+static float LookAnchorYaw = 0.0f;      /* neutral heading (rad) */
+static float LookAnchorPitch = 0.0f;    /* neutral elevation (rad) */
+static float LookLastYaw = 0.0f;
+static float LookLastPitch = 0.0f;
+static U32 LookLastMoveTick = 0;
+static S32 LookAnchored = 0;            /* anchor captured for this look session */
+static S32 LookRecenterReq = 0;         /* set by the recenter key */
+
+/* 1 while the classic/auto head-look override owns the view orientation
+ * (stereo session, exterior, non-FP camera, fresh eye views). */
+S32 StereoHeadLookActive(void) {
+    float q[4], p[3];
+    if (CameraFirstPerson || CubeMode != CUBE_EXTERIEUR) {
+        return 0;
+    }
+    if (!OpenXR_GetEyeView(0, q, p) || !OpenXR_GetEyeView(1, q, p)) {
+        return 0;
+    }
+    return 1;
+}
+
+/* Per-frame head-look offsets (radians) relative to the anchor. */
+static void LookComputeOffsets(float *outYaw, float *outPitch) {
+    float q[4], p[3];
+    U32 now;
+    float yaw, pitch, dYaw, dPitch;
+    OpenXR_GetEyeView(0, q, p);
+    yaw = LookQuatYaw(q);
+    pitch = LookQuatPitch(q);
+    now = SDL_GetTicks();
+
+    if (!LookAnchored || LookRecenterReq) {
+        LookAnchorYaw = yaw;
+        LookAnchorPitch = pitch;
+        LookLastYaw = yaw;
+        LookLastPitch = pitch;
+        LookLastMoveTick = now;
+        LookAnchored = 1;
+        LookRecenterReq = 0;
+    }
+
+    dYaw = LookWrapPi(yaw - LookLastYaw);
+    dPitch = pitch - LookLastPitch;
+    if (fabsf(dYaw) > 0.003f || fabsf(dPitch) > 0.003f) {
+        LookLastMoveTick = now; /* ~0.2 deg of motion keeps tracking live */
+    }
+    LookLastYaw = yaw;
+    LookLastPitch = pitch;
+
+    /* Still for a while: ease the anchor toward the head so the view
+       settles back onto the rig framing. */
+    if (now - LookLastMoveTick > 2500) {
+        LookAnchorYaw += LookWrapPi(yaw - LookAnchorYaw) * 0.04f;
+        LookAnchorPitch += (pitch - LookAnchorPitch) * 0.04f;
+    }
+
+    *outYaw = LookWrapPi(yaw - LookAnchorYaw);
+    *outPitch = pitch - LookAnchorPitch;
+    if (*outPitch > 1.0f)
+        *outPitch = 1.0f;
+    else if (*outPitch < -1.0f)
+        *outPitch = -1.0f;
+}
+#else
+S32 StereoHeadLookActive(void) {
+    (void)0;
+    return 0;
+}
+#endif
+
 S32 MainLoop() {
     S32 xm, ym, zm;
     T_OBJET *ptrobj;
@@ -2262,6 +2368,9 @@ restartloop:
                 if (Input & I_CAMERA) {
                     SaveTimer();
                     AddBetaCam = (AddBetaCam + 1024) & 4095;
+#ifdef LBA2_OPENXR
+                    LookRecenterReq = 1; /* recenter the head-look too */
+#endif
                     /* FollowCamera: do not use CameraCenter(2) — it resets
                      * AlphaCam/VueDistance to VueCamera presets.  Recompute
                      * target offset and BetaCam like case 2, then apply only. */
@@ -2416,18 +2525,28 @@ restartloop:
             float eyeP[2][3];
             /* True poses are a first-person-only feature: the classic and
              * auto cameras ARE their framing, so re-aiming them at the head
-             * destroys the view.  Those cameras keep the rig-offset pair
-             * below (which preserves the game's own orientation), while
-             * first person — where the camera is the hero's eyes — renders
-             * the tracked pose. */
+             * destroys the view.  Instead those cameras get a head-look
+             * OFFSET on top of the rig orientation (pan the view while the
+             * rig keeps framing the hero), and with no cached views
+             * (first frame, mono session) everything falls back to the
+             * plain rig-offset pair below. */
+            S32 haveViews = OpenXR_GetEyeView(0, eyeQ[0], eyeP[0]) AND
+                            OpenXR_GetEyeView(1, eyeQ[1], eyeP[1]);
             S32 truePose = CameraFirstPerson AND
-                           CubeMode == CUBE_EXTERIEUR AND
-                           OpenXR_GetEyeView(0, eyeQ[0], eyeP[0]) AND
-                           OpenXR_GetEyeView(1, eyeQ[1], eyeP[1]);
+                           CubeMode == CUBE_EXTERIEUR AND haveViews;
+            S32 lookPose = !CameraFirstPerson AND
+                           CubeMode == CUBE_EXTERIEUR AND haveViews;
+            float lookYawOff = 0.0f;
+            float lookPitchOff = 0.0f;
+            if (lookPose) {
+                LookComputeOffsets(&lookYawOff, &lookPitchOff);
+            } else {
+                LookAnchored = 0; /* re-capture the anchor on re-entry */
+            }
             S32 conv = 0;
             S32 dx = 0;
             S32 dy = 0;
-            if (!truePose) {
+            if (!truePose && !lookPose) {
                 /* The zero-disparity plane sits at the convergence distance.
                  * First person: the camera IS the hero's eyes, so
                  * VueDistance is 0 - converging there would shear the whole
@@ -2496,6 +2615,25 @@ restartloop:
                      * axis IS view-space X: the IPD split is a plain lateral
                      * shift.  StereoCamShift rides inside SetCamera, so it
                      * also survives the mid-frame re-application. */
+                    StereoCamShiftX = (eye == 0) ? -(S32)eyeSep : (S32)eyeSep;
+                    StereoCamShiftY = 0;
+                    StereoProjShiftX = 0;
+                } else if (lookPose) {
+                    /* The rig's own orientation plus the head-look offset:
+                     * the view pans with the head (warp-free — the applied
+                     * orientation tracks the head exactly) while the rig
+                     * keeps framing the hero.  Same surviving-injection
+                     * rules as the first-person path. */
+                    const float K = 2048.0f / 3.14159265358979f;
+                    S32 pitchOff = (S32)(-lookPitchOff * K);
+                    if (pitchOff > 683) /* +-60 deg */
+                        pitchOff = 683;
+                    else if (pitchOff < -683)
+                        pitchOff = -683;
+                    StereoEyeOverride = 1;
+                    StereoEyeAlpha = AlphaCam + pitchOff;
+                    StereoEyeBeta = (BetaCam + (S32)(lookYawOff * K)) & 4095;
+                    StereoEyeGamma = GammaCam;
                     StereoCamShiftX = (eye == 0) ? -(S32)eyeSep : (S32)eyeSep;
                     StereoCamShiftY = 0;
                     StereoProjShiftX = 0;
