@@ -3491,23 +3491,23 @@ S32 GereDisplayMenu(void) {
             break;
 
         case MENU_ID_DISPLAY_BRIGHTNESS:
-            DisplayBrightness += 10;
+            DisplayBrightness += 5;
             if (DisplayBrightness > 50)
                 DisplayBrightness = -50;
             WriteConfigFile();
             break;
 
         case MENU_ID_DISPLAY_CONTRAST:
-            DisplayContrast += 10;
+            DisplayContrast += 5;
             if (DisplayContrast > 50)
                 DisplayContrast = -50;
             WriteConfigFile();
             break;
 
         case MENU_ID_DISPLAY_SATURATION:
-            DisplaySaturation += 25;
-            if (DisplaySaturation > 100)
-                DisplaySaturation = -100;
+            DisplaySaturation += 5;
+            if (DisplaySaturation > 50)
+                DisplaySaturation = -50;
             WriteConfigFile();
             break;
 #endif

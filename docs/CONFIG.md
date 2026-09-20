@@ -34,7 +34,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | CameraFirstPerson | int | 0, 1 | 0 | First-person camera (VR headset builds): the camera sits at Twinsen's eyes and renders the tracked head pose in stereo. 0=off (default) |
 | DisplayBrightness | int | -50, 50 | 0 | Image brightness adjustment at composite time (GL renderer). 0=default |
 | DisplayContrast | int | -50, 50 | 0 | Image contrast adjustment at composite time (GL renderer). 0=default |
-| DisplaySaturation | int | -100, 100 | 0 | Image saturation adjustment at composite time (GL renderer). 0=default |
+| DisplaySaturation | int | -50, 50 | 0 | Image saturation adjustment at composite time (GL renderer). 0=default |
 | ReverseStereo | int | 0, 1 | 0 | 0=OFF, 1=ON |
 | DebugFps | int | 0, 1 | 0 | 1 shows the frame-rate counter in the bottom-left corner (Advanced options toggle; also the `fps` console cvar) |
 | FpsLimit | int | 0, 30, 60, 72, 90, 120 | 0 | Software frame-rate ceiling. 0 = unlimited (vsync alone paces when on). Other values are treated as 0 by the limiter and re-asserted to a table value on first menu cycle |

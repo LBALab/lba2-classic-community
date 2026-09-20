@@ -2787,10 +2787,10 @@ void ReadConfigFile(void) {
         DisplayContrast = 50;
 
     DisplaySaturation = DefFileBufferReadValueDefault("DisplaySaturation", 0);
-    if (DisplaySaturation < -100)
-        DisplaySaturation = -100;
-    else if (DisplaySaturation > 100)
-        DisplaySaturation = 100;
+    if (DisplaySaturation < -50)
+        DisplaySaturation = -50;
+    else if (DisplaySaturation > 50)
+        DisplaySaturation = 50;
 
     ReverseStereo = DefFileBufferReadValueDefault("ReverseStereo", FALSE);
 
