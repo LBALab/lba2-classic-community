@@ -1890,6 +1890,8 @@ S32 OpenXR_PresentMono(void) {
         {
             extern S32 LFactorX;
             extern S32 LFactorY;
+            extern U32 ModeDesiredX;
+            extern U32 ModeDesiredY;
             double tanX = ((double)ModeDesiredX * 0.5) / (double)LFactorX;
             double tanY = ((double)ModeDesiredY * 0.5) / (double)LFactorY;
             if (tanX > 0.0 && tanY > 0.0) {
