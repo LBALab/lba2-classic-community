@@ -2600,19 +2600,33 @@ S32 GereExtKeys(U32 key)
             s_lastHeadYaw = yaw;
             s_lastHeadPitch = pitch;
 
-            if (StereoHeadLookActive()) {
-                /* The per-eye head-look override owns the orientation (1:1,
-                 * warp-free); nudging the rig angles here would pan the view
-                 * twice.  The right stick keeps its zoom. */
-                dBeta = 0;
-                dAlpha = 0;
-            }
-
             S16 rsx = 0;
             S16 rsy = 0;
             JoystickGetRightStick(&rsx, &rsy);
-            dZoom = -StickAxisToCamStep(rsy, GamepadCameraSensY,
-                                        FOLLOW_CAM_ZOOM_STEP * 2);
+
+            if (StereoHeadLookActive() && FollowCamera) {
+                /* VR auto camera: the right stick owns zoom and tilt —
+                 * X = zoom (right = in), Y = tilt (up = toward the horizon,
+                 * down = top-down).  The head-look override pans the view
+                 * through the render path, so the rig takes no motion from
+                 * the head here. */
+                dZoom = StickAxisToCamStep(rsx, GamepadCameraSensX,
+                                           FOLLOW_CAM_ZOOM_STEP * 2);
+                dAlpha = StickAxisToCamStep(rsy, GamepadCameraSensY,
+                                            GamepadCamMaxAlpha);
+                if (GamepadCameraInvertY)
+                    dAlpha = -dAlpha;
+            } else {
+                if (StereoHeadLookActive()) {
+                    /* The per-eye head-look override owns the orientation
+                     * (1:1, warp-free); nudging the rig angles here would
+                     * pan the view twice. */
+                    dBeta = 0;
+                    dAlpha = 0;
+                }
+                dZoom = -StickAxisToCamStep(rsy, GamepadCameraSensY,
+                                            FOLLOW_CAM_ZOOM_STEP * 2);
+            }
 
             if (FollowCamera) {
                 if (dBeta != 0 OR dAlpha != 0 OR dZoom != 0)

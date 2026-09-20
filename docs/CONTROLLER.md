@@ -48,7 +48,12 @@ recenters behind the hero. Tunables in `lba2.cfg`:
 
 ### Gamepad right stick
 
-In exterior Auto camera scenes the right stick orbits and tilts the camera
+In headset sessions with the Auto camera, the right stick controls zoom
+(X: right = closer, left = wider) and camera tilt (Y: up = toward the
+horizon, down = top-down) through `ApplyManualCameraNudge`; the head-look
+override pans the view, so the rig takes no motion from the head.
+
+In exterior Auto camera scenes (flat presentation) the right stick orbits and tilts the camera
 through the same `ApplyManualCameraNudge` routine as the mouse. While it owns the
 stick, `UpdateJoystick` ([SOURCES/JOYSTICK.CPP](../SOURCES/JOYSTICK.CPP)) stops
 emitting the digital `RSTICK_*` scancodes so the analog path and the bindings
