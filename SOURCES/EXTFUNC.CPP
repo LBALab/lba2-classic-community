@@ -128,6 +128,20 @@ void Init3DExtView(void) {
         GpuFocalCapped = TRUE;
     }
     S32 nearClip = (S32)(((S64)focal * 2400) / ModeDesiredY);
+    /* Zoom-adaptive near band: zooming the auto camera in lowers it toward
+     * the ground; a near plane sized for the far view would clip the world
+     * around the camera (black void at the frame edges). */
+    {
+        S32 distRef = VueDistance;
+        if (distRef < FOLLOW_CAM_DIST_MIN)
+            distRef = FOLLOW_CAM_DIST_MIN;
+        if (distRef > FOLLOW_CAM_DIST_MAX)
+            distRef = FOLLOW_CAM_DIST_MAX;
+        S32 zoomed = (S32)((S64)nearClip * distRef / FOLLOW_CAM_DIST_MAX);
+        if (zoomed < 350)
+            zoomed = 350;
+        nearClip = zoomed;
+    }
     SetProjection((S32)(ModeDesiredX / 2), (S32)(ModeDesiredY / 2),
                   nearClip, focal, focal);
     SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
@@ -2140,6 +2154,11 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
             FollowCamBaseDist = FOLLOW_CAM_DIST_MIN;
         if (FollowCamBaseDist > FOLLOW_CAM_DIST_MAX)
             FollowCamBaseDist = FOLLOW_CAM_DIST_MAX;
+        /* Keep the near band zoom-adaptive while the distance changes. */
+        NearClip = (S32)((S64)LFactorX * 2400 / ModeDesiredY
+                         * (S64)VueDistance / FOLLOW_CAM_DIST_MAX);
+        if (NearClip < 350)
+            NearClip = 350;
         FirstTime = AFF_ALL_FLIP;
         changed = 1;
     }

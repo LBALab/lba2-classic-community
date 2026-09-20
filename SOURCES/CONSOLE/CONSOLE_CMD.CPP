@@ -1547,14 +1547,17 @@ static void cmd_camangle(int argc, const char *argv[]) {
     extern S32 AlphaCam;
     extern S32 BetaCam;
     extern S32 VueDistance;
+    extern S32 FollowCamBaseDist;
     if (argc >= 2)
         AlphaCam = atoi(argv[1]) & 4095;
     if (argc >= 3)
         BetaCam = atoi(argv[2]) & 4095;
     if (argc >= 4)
         VueDistance = atoi(argv[3]);
-    Console_Print("camangle: alpha=%d beta=%d dist=%d", AlphaCam, BetaCam,
-                  VueDistance);
+    if (argc >= 5)
+        FollowCamBaseDist = atoi(argv[4]);
+    Console_Print("camangle: alpha=%d beta=%d dist=%d baseDist=%d", AlphaCam,
+                  BetaCam, VueDistance, FollowCamBaseDist);
 }
 
 /* varcube <n> [value] / vargame <n> [value]: read or set a scene (cube) or game Life variable.
