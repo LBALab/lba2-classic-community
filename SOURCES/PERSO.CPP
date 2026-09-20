@@ -801,6 +801,10 @@ static void UpdateFirstPersonCamera(void) {
     T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
     S32 beta = ptr3d->Beta;
     S32 alpha = 0; /* horizontal */
+    /* Declared before the OpenXR block so its head-roll assignment binds to
+       this local: Android's math.h also declares double gamma(double), and
+       a bare "gamma" above this point resolves to that function. */
+    S32 gamma = 0;
 #ifdef LBA2_OPENXR
     if (OpenXR_GetSwapchainWidth()) {
         float yaw = OpenXR_HeadYawDeg();
@@ -820,7 +824,6 @@ static void UpdateFirstPersonCamera(void) {
         gamma = (S32)(roll * 0.4f * 4096.0f / 360.0f);
     }
 #endif
-    S32 gamma = 0;
     S32 eye = 0;
     {   /* head height from the hero ZV (feet at Y, head at Y + YMax) */
         T_OBJET *po = &ListObjet[NumObjFollow];
