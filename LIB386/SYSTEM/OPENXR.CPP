@@ -1878,33 +1878,26 @@ S32 OpenXR_PresentMono(void) {
     }
     if (eyeCount > 0 && s_swapchainImageIndex < s_swapchainImageCount) {
         U32 j;
-        /* One mono image feeds both eyes. The runtime's per-eye FOVs are
-         * asymmetric and differ slightly between eyes, so mapping a shared
-         * image through them leaves residual disparity that reads as a
-         * double image. Normalize both eyes to the same symmetric FOV — the
-         * largest cone every eye covers — and give both the full rect:
-         * identical texels then land on identical directions in each eye
-         * (a zero-disparity panel) and the picture fuses. */
-        if (eyeCount >= 2) {
-            double minAbsTan[4] = { 1e30, 1e30, 1e30, 1e30 }; /* L, R, U, D */
-            for (j = 0; j < eyeCount && j < 2; j++) {
-                double tl = fabs(tan((double)locatedViews[j].fov.angleLeft));
-                double tr = fabs(tan((double)locatedViews[j].fov.angleRight));
-                double tu = fabs(tan((double)locatedViews[j].fov.angleUp));
-                double td = fabs(tan((double)locatedViews[j].fov.angleDown));
-                if (tl < minAbsTan[0]) minAbsTan[0] = tl;
-                if (tr < minAbsTan[1]) minAbsTan[1] = tr;
-                if (tu < minAbsTan[2]) minAbsTan[2] = tu;
-                if (td < minAbsTan[3]) minAbsTan[3] = td;
-            }
-            double hx = (minAbsTan[0] < minAbsTan[1]) ? minAbsTan[0] : minAbsTan[1];
-            double hy = (minAbsTan[2] < minAbsTan[3]) ? minAbsTan[2] : minAbsTan[3];
-            if (hx > 0.0 && hy > 0.0) {
+        /* Declare the engine's own projection.  The compositor maps each eye
+         * rect to these angles linearly in tan-space — the exact transform
+         * the engine's pinhole projection applied (focal LFactorX/LFactorY
+         * pixels at the render resolution, centred).  Declaring the
+         * headset's per-eye FOV instead told the compositor the rendered
+         * pixels covered angles they never had: everything stretched to the
+         * panel FOV, and the time-warp reprojected head rotation at the
+         * wrong angular rate, skewing the frame whenever the head moved.
+         * Both eyes render symmetric with the same focal. */
+        {
+            extern S32 LFactorX;
+            extern S32 LFactorY;
+            double tanX = ((double)ModeDesiredX * 0.5) / (double)LFactorX;
+            double tanY = ((double)ModeDesiredY * 0.5) / (double)LFactorY;
+            if (tanX > 0.0 && tanY > 0.0) {
                 for (j = 0; j < eyeCount && j < 2; j++) {
-                    locatedViews[j].fov.angleLeft = (float)(-hx);
-                    locatedViews[j].fov.angleRight = (float)(hx);
-                    locatedViews[j].fov.angleUp = (float)(hy);
-                    locatedViews[j].fov.angleDown = (float)(-hy);
+                    locatedViews[j].fov.angleLeft = (float)-atan(tanX);
+                    locatedViews[j].fov.angleRight = (float)atan(tanX);
+                    locatedViews[j].fov.angleUp = (float)atan(tanY);
+                    locatedViews[j].fov.angleDown = (float)-atan(tanY);
                 }
             }
         }
