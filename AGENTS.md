@@ -1,5 +1,5 @@
 # Agent guidance — LBA2 Classic Community
-
+ 
 This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work effectively on this codebase. Read it before making changes or answering questions about the code.
 
 ## Principles
