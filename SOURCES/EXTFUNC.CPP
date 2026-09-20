@@ -2106,6 +2106,11 @@ S32 GereMouseMovements(S32 boutons) {
  * and zoom leave the auto-follow tracking the hero.  Returns nonzero if any axis
  * changed so the caller can flag a redraw.  The caller clears
  * ManualCameraOrbitActive once per frame before driving sources. */
+/* Extra downward tilt allowance for the VR auto-camera stick tilt: extends
+ * the alpha floor below FOLLOW_CAM_ALPHA_MIN so the camera can approach the
+ * ground plane. Set per call site; 0 everywhere else. */
+static S32 s_tiltFloorExtra = 0;
+
 static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
     S32 changed = 0;
 
@@ -2117,8 +2122,8 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
     }
     if (dAlpha != 0) {
         AlphaCam += dAlpha;
-        if (AlphaCam < FOLLOW_CAM_ALPHA_MIN)
-            AlphaCam = FOLLOW_CAM_ALPHA_MIN;
+        if (AlphaCam < FOLLOW_CAM_ALPHA_MIN - s_tiltFloorExtra)
+            AlphaCam = FOLLOW_CAM_ALPHA_MIN - s_tiltFloorExtra;
         if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
             AlphaCam = FOLLOW_CAM_ALPHA_MAX;
         FirstTime = AFF_ALL_FLIP;
@@ -2177,6 +2182,7 @@ S32 GereExtKeys(U32 key)
     S32 flag = 0;
     S32 savetimer;
     S32 savetimer2;
+    s_tiltFloorExtra = 0;
 
     /* Head look keeps this function alive in classic camera mode too: with
        no keyboard (headset) and FollowCamera off, the classic-mode branch
@@ -2603,6 +2609,7 @@ S32 GereExtKeys(U32 key)
             S16 rsx = 0;
             S16 rsy = 0;
             JoystickGetRightStick(&rsx, &rsy);
+            s_tiltFloorExtra = 0;
 
             if (StereoHeadLookActive() && FollowCamera) {
                 /* VR auto camera: the right stick owns zoom and tilt —
@@ -2610,6 +2617,8 @@ S32 GereExtKeys(U32 key)
                  * down = top-down).  The head-look override pans the view
                  * through the render path, so the rig takes no motion from
                  * the head here. */
+                s_tiltFloorExtra = 90; /* alpha floor 150 -> 60 (~5 deg): the
+                                          camera can approach the ground */
                 dZoom = StickAxisToCamStep(rsx, GamepadCameraSensX,
                                            FOLLOW_CAM_ZOOM_STEP * 2);
                 dAlpha = StickAxisToCamStep(rsy, GamepadCameraSensY,
