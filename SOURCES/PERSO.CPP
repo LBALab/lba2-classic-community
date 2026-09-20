@@ -2414,7 +2414,14 @@ restartloop:
              * back to the rig-offset pair below. */
             float eyeQ[2][4];
             float eyeP[2][3];
-            S32 truePose = CubeMode == CUBE_EXTERIEUR AND
+            /* True poses are a first-person-only feature: the classic and
+             * auto cameras ARE their framing, so re-aiming them at the head
+             * destroys the view.  Those cameras keep the rig-offset pair
+             * below (which preserves the game's own orientation), while
+             * first person — where the camera is the hero's eyes — renders
+             * the tracked pose. */
+            S32 truePose = CameraFirstPerson AND
+                           CubeMode == CUBE_EXTERIEUR AND
                            OpenXR_GetEyeView(0, eyeQ[0], eyeP[0]) AND
                            OpenXR_GetEyeView(1, eyeQ[1], eyeP[1]);
             S32 conv = 0;
@@ -2591,6 +2598,11 @@ void ReadConfigFile(void) {
 
     if (FollowCamera < 0 OR FollowCamera > 1)
         FollowCamera = FALSE;
+
+    CameraFirstPerson = DefFileBufferReadValueDefault("CameraFirstPerson", FALSE);
+
+    if (CameraFirstPerson < 0 OR CameraFirstPerson > 1)
+        CameraFirstPerson = FALSE;
 
     ReverseStereo = DefFileBufferReadValueDefault("ReverseStereo", FALSE);
 
@@ -2895,6 +2907,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("Shadow", Shadow);
     DefFileBufferWriteValue("AllCameras", AllCameras);
     DefFileBufferWriteValue("FollowCamera", FollowCamera);
+    DefFileBufferWriteValue("CameraFirstPerson", CameraFirstPerson);
     DefFileBufferWriteValue("ReverseStereo", ReverseStereo);
     DefFileBufferWriteValue("DebugFps", DebugFps);
     DefFileBufferWriteValue("FpsLimit", FpsLimit);

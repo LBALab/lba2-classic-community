@@ -181,15 +181,16 @@ turns on `-DLBA2_OPENXR=ON` and makes the engine speak to the OpenXR
 runtime on the headset. With the Stereo 3D display option enabled, the
 scene is rendered once per eye into per-eye capture FBOs that
 `OpenXR_PresentMono` blits into the left/right halves of the double-wide
-swapchain. Each eye renders from its tracked view (`OpenXR_GetEyeView`):
-the orientation comes from the runtime-located pose and the IPD split
-runs along the head's right axis, so the compositor's time-warp
-reprojects head rotation cleanly and the stereo depth is real. Frames
-without a fresh per-eye pair (menus, videos, interiors, the first frame)
-fall back to a single composite copied to both halves with a rig offset.
-Controller state comes through the OpenXR action pipeline, mapped onto
-the same virtual-scancode space the SDL gamepad path uses so
-`JOYSTICK.CPP` picks it up unchanged.
+swapchain. In first person, each eye renders from its tracked view
+(`OpenXR_GetEyeView`): the orientation comes from the runtime-located
+pose and the IPD split runs along the view-space right axis, so the
+compositor's time-warp reprojects head rotation cleanly and the stereo
+depth is real. The classic and auto cameras keep the game's own framing
+and render as a rig-offset pair; frames without a fresh per-eye pair
+(menus, videos, interiors, the first frame) fall back to a single
+composite copied to both halves. Controller state comes through the
+OpenXR action pipeline, mapped onto the same virtual-scancode space the
+SDL gamepad path uses so `JOYSTICK.CPP` picks it up unchanged.
 
 ### Where the loader comes from
 

@@ -31,6 +31,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | Shadow | int | 1–3 | 3 | Overwritten by DetailLevel when leaving Options. 1=none on extras, 2=no impact shadows, 3=full |
 | AllCameras | int | 0, 1 | 1 | 0=OFF, 1=ON |
 | FollowCamera | int | 0, 1 | 0 | Auto camera (user-facing name; Enhanced Edition–style third-person follow in exterior). Config key stays `FollowCamera` for stability. 0=classic (default), 1=auto. Also reads legacy key `AutoCameraCenter` |
+| CameraFirstPerson | int | 0, 1 | 0 | First-person camera (VR headset builds): the camera sits at Twinsen's eyes and renders the tracked head pose in stereo. 0=off (default) |
 | ReverseStereo | int | 0, 1 | 0 | 0=OFF, 1=ON |
 | DebugFps | int | 0, 1 | 0 | 1 shows the frame-rate counter in the bottom-left corner (Advanced options toggle; also the `fps` console cvar) |
 | FpsLimit | int | 0, 30, 60, 72, 90, 120 | 0 | Software frame-rate ceiling. 0 = unlimited (vsync alone paces when on). Other values are treated as 0 by the limiter and re-asserted to a table value on first menu cycle |
@@ -80,7 +81,8 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | Key | Purpose | Source | Menu |
 |-----|---------|--------|------|
 | MenuMouse | Optional mouse UX in game menus (`FlagMenuMouse` in code). Default 1 (on). Set 0 to match classic keyboard/joystick-only menus. See [MENU.md](MENU.md) | ReadConfigFile / WriteConfigFile | Options → Advanced options |
-| FollowCamera | Auto camera for exterior scenes (0=classic, 1=auto). Community addition, not in original game; menu label is "Auto camera" / "Classic camera" | ReadConfigFile / WriteConfigFile | Options → Advanced options |
+| FollowCamera | Auto camera for exterior scenes (0=classic, 1=auto). Community addition, not in original game; the menu row is a three-way camera setting (Classic camera / Auto camera / First person) | ReadConfigFile / WriteConfigFile | Options → Advanced options |
+| CameraFirstPerson | First-person camera (0=off, 1=on); VR headset builds render the tracked head pose per eye. Community addition, not in original game | ReadConfigFile / WriteConfigFile | Options → Advanced options (camera setting) |
 
 ## Code reference
 

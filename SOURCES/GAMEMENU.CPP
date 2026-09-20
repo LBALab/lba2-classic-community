@@ -85,7 +85,6 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_TEXT 2109
 #define MENU_ID_GENERAL_VOLUME 2110
 #define MENU_ID_FOLLOW_CAMERA 2111
-#define MENU_ID_FIRST_PERSON 2124
 #define MENU_ID_CONTROLLER 2112
 #define MENU_ID_GAMEPAD_CONFIG 2113
 #define MENU_ID_DISPLAY 2114
@@ -280,7 +279,7 @@ U16 LanguageMenu[] = {
 
 U16 AdvancedOptionMenu[] = {
     0,   // selected
-    10,  // nb entries
+    9,   // nb entries
     260, // y center
     0,   // .dia num
 
@@ -294,8 +293,6 @@ U16 AdvancedOptionMenu[] = {
     MENU_ID_MOVIE_CAMERA,
     0,
     MENU_ID_FOLLOW_CAMERA,
-    0,
-    MENU_ID_FIRST_PERSON,
     0,
     MENU_ID_VIDEO_SIZE,
     0,
@@ -465,12 +462,6 @@ static void BuildCustomMenuText(S32 num, char *string) {
     }
 
     switch (num) {
-    case MENU_ID_FIRST_PERSON:
-        CopyUtf8ToCp850(string, 256,
-                         CameraFirstPerson ? "First person: ON"
-                                           : "First person: OFF");
-        break;
-
     case MENU_ID_SOUND_VOLUME:
         GetMultiText(11, string);
         break;
@@ -560,7 +551,14 @@ static void BuildCustomMenuText(S32 num, char *string) {
 #endif
 
     case MENU_ID_FOLLOW_CAMERA:
-        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(FollowCamera ? MENU_LABEL_AUTO_CAMERA : MENU_LABEL_CLASSIC_CAMERA));
+        if (CameraFirstPerson) {
+            CopyUtf8ToCp850(string, 256, "First person");
+        } else {
+            CopyUtf8ToCp850(string, 256,
+                             GetLocalizedMenuLabel(FollowCamera
+                                                       ? MENU_LABEL_AUTO_CAMERA
+                                                       : MENU_LABEL_CLASSIC_CAMERA));
+        }
         break;
 
     case MENU_ID_DISPLAY_TEXT:
@@ -3539,18 +3537,23 @@ S32 GereAdvancedOptionsMenu(void) {
             AllCameras ^= 1;
             break;
 
-        case MENU_ID_FOLLOW_CAMERA:
-            FollowCamera ^= 1;
-            if (FollowCamera)
+        case MENU_ID_FOLLOW_CAMERA: {
+            /* One camera setting, three modes: the classic rig, the auto
+             * follow camera, and the first-person view. The underlying
+             * flags stay separate because the rest of the game reads them
+             * directly; they are mutually exclusive here. */
+            if (CameraFirstPerson) {
                 CameraFirstPerson = 0;
-            break;
-
-        case MENU_ID_FIRST_PERSON:
-            CameraFirstPerson ^= 1;
-            if (CameraFirstPerson)
                 FollowCamera = 0;
+            } else if (FollowCamera) {
+                FollowCamera = 0;
+                CameraFirstPerson = 1;
+            } else {
+                FollowCamera = 1;
+            }
             FirstTime = AFF_ALL_FLIP;
             break;
+        }
 
         case MENU_ID_VIDEO_SIZE:
             VideoFullScreen ^= 1;
