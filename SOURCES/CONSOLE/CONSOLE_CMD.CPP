@@ -2020,6 +2020,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCvar("brightness", &DisplayBrightness, CONSOLE_CVAR_INT, "Image brightness (-50..50)");
     Console_RegisterCvar("contrast", &DisplayContrast, CONSOLE_CVAR_INT, "Image contrast (-50..50)");
     Console_RegisterCvar("saturation", &DisplaySaturation, CONSOLE_CVAR_INT, "Image saturation (-50..50)");
+    Console_RegisterCvar("vrzoom", &VrFovScale, CONSOLE_CVAR_INT, "VR world zoom percent of eye FOV (50..120, 100 = natural)");
     Console_RegisterCvar("horizon", (void *)&FlagDrawHorizon, CONSOLE_CVAR_BOOL_U8, "Draw horizon/cubes around");
     Console_RegisterCvar("zv", &DrawZVObjets, CONSOLE_CVAR_BOOL, "Draw ZV boxes");
 

@@ -1920,6 +1920,7 @@ S32 OpenXR_PresentMono(void) {
             extern S32 StereoFocalY;
             extern U32 ModeDesiredX;
             extern U32 ModeDesiredY;
+            extern S32 VrFovScale;
             /* Symmetrize to the widest span each axis covers across both
              * eyes.  The engine focal is overridden to match (the camera
              * code applies StereoFocalX/Y), so the rendered pixels span
@@ -1938,8 +1939,16 @@ S32 OpenXR_PresentMono(void) {
                 if (td > hy) hy = td;
             }
             if (hx > 0.0 && hy > 0.0) {
-                StereoFocalX = (S32)(((double)ModeDesiredX * 0.5) / hx);
-                StereoFocalY = (S32)(((double)ModeDesiredY * 0.5) / hy);
+                /* VrFovScale > 100 renders a wider world into the same panel
+                 * span (zoomed out).  Past about 120 the frame outgrows the
+                 * authored terrain grid and sky backdrop. */
+                double zoom = (double)VrFovScale / 100.0;
+                if (zoom < 0.5)
+                    zoom = 0.5;
+                else if (zoom > 1.2)
+                    zoom = 1.2;
+                StereoFocalX = (S32)(((double)ModeDesiredX * 0.5) / (hx * zoom));
+                StereoFocalY = (S32)(((double)ModeDesiredY * 0.5) / (hy * zoom));
                 for (j = 0; j < eyeCount && j < 2; j++) {
                     locatedViews[j].fov.angleLeft = (float)-atan(hx);
                     locatedViews[j].fov.angleRight = (float)atan(hx);

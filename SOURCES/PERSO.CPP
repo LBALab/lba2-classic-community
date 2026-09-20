@@ -2805,6 +2805,12 @@ void ReadConfigFile(void) {
     else if (DisplayContrast > 50)
         DisplayContrast = 50;
 
+    VrFovScale = DefFileBufferReadValueDefault("VrFovScale", 100);
+    if (VrFovScale < 50)
+        VrFovScale = 50;
+    else if (VrFovScale > 120)
+        VrFovScale = 120;
+
     DisplaySaturation = DefFileBufferReadValueDefault("DisplaySaturation", 0);
     if (DisplaySaturation < -50)
         DisplaySaturation = -50;
@@ -3115,6 +3121,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("AllCameras", AllCameras);
     DefFileBufferWriteValue("FollowCamera", FollowCamera);
     DefFileBufferWriteValue("CameraFirstPerson", CameraFirstPerson);
+    DefFileBufferWriteValue("VrFovScale", VrFovScale);
     DefFileBufferWriteValue("DisplayBrightness", DisplayBrightness);
     DefFileBufferWriteValue("DisplayContrast", DisplayContrast);
     DefFileBufferWriteValue("DisplaySaturation", DisplaySaturation);
