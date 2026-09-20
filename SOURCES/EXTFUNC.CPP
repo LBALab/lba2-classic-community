@@ -344,6 +344,18 @@ void AffGrilleExt() {
                     AlphaCam, BetaCam, GammaCam,
                     VueDistance);
 
+#ifdef USE_GPURENDERER
+    /* True-pose stereo: replace the orientation the rig just applied with
+       the tracked per-eye view.  SetAngleCamera recomputes the view from the
+       rig world position SetFollowCamera just wrote, so the position stays
+       the game-controlled one while the render orientation is the exact
+       tracked pose — the pose the compositor time-warps from, which is what
+       keeps head rotation artifact-free. */
+    if (StereoEyeOverride) {
+        SetAngleCamera(StereoEyeAlpha, StereoEyeBeta, StereoEyeGamma);
+    }
+#endif
+
     SetLightVector(AlphaLight, BetaLight, 0);
 
     Switch_Fillers(FILL_POLY_FOG_ZBUFFER);

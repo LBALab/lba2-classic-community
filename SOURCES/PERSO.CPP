@@ -2417,14 +2417,6 @@ restartloop:
             S32 truePose = CubeMode == CUBE_EXTERIEUR AND
                            OpenXR_GetEyeView(0, eyeQ[0], eyeP[0]) AND
                            OpenXR_GetEyeView(1, eyeQ[1], eyeP[1]);
-            /* Rig state the per-eye overrides rewrite; restored after the
-             * pair so the next frame's camera phase starts unchanged. */
-            const S32 saveCamX = CameraX;
-            const S32 saveCamY = CameraY;
-            const S32 saveCamZ = CameraZ;
-            const S32 saveAlpha = CameraAlpha;
-            const S32 saveBeta = CameraBeta;
-            const S32 saveGamma = CameraGamma;
             S32 conv = 0;
             S32 dx = 0;
             S32 dy = 0;
@@ -2479,24 +2471,25 @@ restartloop:
                     const float roll = atan2f(ux * (-fz) + uz * fx, uy);
                     /* Engine angles: 4096 per turn, BetaCam = 2048 faces
                      * straight ahead (same signs the first-person camera
-                     * uses for the same head pose).  The view-space camera
-                     * (CameraXr) is snapshotted from the world position at
-                     * SetAngleCamera time, so the IPD offset must be in
-                     * CameraX/Y/Z BEFORE it runs. */
+                     * uses for the same head pose).  The tracked angles go
+                     * into the stereo eye override, which AffGrilleExt
+                     * applies AFTER the rig's own SetFollowCamera: the rig
+                     * position stays the game-controlled one while the
+                     * render orientation is the exact tracked pose — the
+                     * pose the compositor time-warps from, which is what
+                     * keeps head rotation artifact-free.  Anything set only
+                     * on the renderer state before AffScene would be wiped
+                     * by that mid-frame SetFollowCamera. */
                     const float K = 2048.0f / 3.14159265358979f;
-                    /* IPD split along the head's right axis (world space),
-                     * so it rolls with the head automatically. */
-                    const float rx = 1.0f - 2.0f * (qy * qy + qz * qz);
-                    const float ry = 2.0f * (qx * qy + qz * qw);
-                    const float rz = 2.0f * (qx * qz - qy * qw);
-                    const float side = (eye == 0) ? -eyeSep : eyeSep;
-                    CameraX = saveCamX + (S32)(side * rx);
-                    CameraY = saveCamY + (S32)(side * ry);
-                    CameraZ = saveCamZ + (S32)(side * rz);
-                    SetAngleCamera((S32)(-pitch * K),
-                                   (S32)(2048.0f + yaw * K) & 4095,
-                                   (S32)(roll * K));
-                    StereoCamShiftX = 0;
+                    StereoEyeOverride = 1;
+                    StereoEyeBeta = (S32)(2048.0f + yaw * K) & 4095;
+                    StereoEyeAlpha = (S32)(-pitch * K);
+                    StereoEyeGamma = (S32)(roll * K);
+                    /* The camera rolls with the head, so the head's right
+                     * axis IS view-space X: the IPD split is a plain lateral
+                     * shift.  StereoCamShift rides inside SetCamera, so it
+                     * also survives the mid-frame re-application. */
+                    StereoCamShiftX = (eye == 0) ? -(S32)eyeSep : (S32)eyeSep;
                     StereoCamShiftY = 0;
                     StereoProjShiftX = 0;
                 } else {
@@ -2509,12 +2502,10 @@ restartloop:
                 AffScene(AFF_ALL_FLIP);
             }
             U32 stereoT2 = SDL_GetTicks();
-            if (truePose) {
-                CameraX = saveCamX;
-                CameraY = saveCamY;
-                CameraZ = saveCamZ;
-                SetAngleCamera(saveAlpha, saveBeta, saveGamma);
-            }
+            StereoEyeOverride = 0;
+            StereoCamShiftX = 0;
+            StereoCamShiftY = 0;
+            StereoProjShiftX = 0;
             {
                 static U32 s_stereoPerfFrame = 0;
                 s_stereoPerfFrame++;

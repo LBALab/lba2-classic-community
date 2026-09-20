@@ -32,6 +32,14 @@ S32 CameraZr = 0;
 S32 StereoCamShiftX = 0;
 S32 StereoCamShiftY = 0; /* rolled first-person eye offset (vertical part) */
 S32 StereoProjShiftX = 0;
+/* True-pose stereo eye override: while set, the camera orientation is
+   re-applied from these angles after the rig applies its own, so the render
+   orientation is the exact tracked view while the rig position stays the
+   game-controlled one. See AffGrilleExt. */
+S32 StereoEyeOverride = 0;
+S32 StereoEyeAlpha = 0;
+S32 StereoEyeBeta = 0;
+S32 StereoEyeGamma = 0;
 
 S32 CameraZrClip = 0;
 

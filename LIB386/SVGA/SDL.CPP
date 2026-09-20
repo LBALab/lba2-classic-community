@@ -175,6 +175,15 @@ void UnlockVideoSurface() {
             s_presentEnd();
         frameDirty = false;
     }
+#ifdef USE_GPURENDERER
+    else if (screenLockCount == 0 && GL_GetStereoEye() >= 0) {
+        /* Stereo pair: eye 0's present consumed frameDirty, and eye 1's 2D
+         * Log is identical to eye 0's, so without this the right eye's
+         * composite would be skipped and its capture FBO would go stale
+         * while the left eye stays fresh. Each eye of a pair must present. */
+        PresentFrame();
+    }
+#endif
 }
 
 void WaitVideoSync() {
