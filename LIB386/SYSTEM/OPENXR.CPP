@@ -1638,6 +1638,33 @@ S32 OpenXR_PresentMono(void) {
                                       eyeDstX1, marginY,
                                       eyeDstX1 + eyeDstW, marginY + eyeDstH,
                                       GL_COLOR_BUFFER_BIT, GL_LINEAR);
+                    {
+                        /* TEMP diag */
+                        static U32 s_eyeDiffDiag = 0;
+                        if (++s_eyeDiffDiag % 300 == 1) {
+                            GLint prevFb2 = 0;
+                            glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFb2);
+                            static unsigned int buf0[256], buf1[256];
+                            GLint sw2 = eyeDstW < 256 ? eyeDstW : 256;
+                            glBindFramebuffer(GL_FRAMEBUFFER, swapFbo);
+                            glReadPixels(eyeDstX0,
+                                         (GLint)(s_swapchainHeight / 2), sw2, 1,
+                                         GL_RGBA, GL_UNSIGNED_BYTE, buf0);
+                            glReadPixels(eyeDstX1,
+                                         (GLint)(s_swapchainHeight / 2), sw2, 1,
+                                         GL_RGBA, GL_UNSIGNED_BYTE, buf1);
+                            glBindFramebuffer(GL_FRAMEBUFFER, prevFb2);
+                            S32 eq = memcmp(buf0, buf1, (size_t)sw2 * 4) == 0;
+                            unsigned int sum0 = 0, sum1 = 0;
+                            U32 k;
+                            for (k = 0; k < (U32)sw2; k++) {
+                                sum0 += buf0[k];
+                                sum1 += buf1[k];
+                            }
+                            OXR_LOGI("EYEDIFF w=%d equal=%d sum0=%08x sum1=%08x",
+                                     (int)sw2, (int)eq, sum0, sum1);
+                        }
+                    }
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
                 } else {
                     /* FBO attach rejected: 1:1 copies as before. */
