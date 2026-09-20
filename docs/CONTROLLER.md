@@ -54,7 +54,11 @@ stick, `UpdateJoystick` ([SOURCES/JOYSTICK.CPP](../SOURCES/JOYSTICK.CPP)) stops
 emitting the digital `RSTICK_*` scancodes so the analog path and the bindings
 never double-drive. Outside Auto camera (the classic fixed cameras) the stick
 falls back to the digital bindings: left/right cycle the camera (`I_CAMERA`),
-up/down change the camera preset (`I_CAMERA_LEVEL`). Tunables in `lba2.cfg`:
+up/down change the camera preset (`I_CAMERA_LEVEL`). Pressing the right stick
+(`K_GAMEPAD_RSTICK_BTN`, input slot 36) cycles the camera setting — Classic
+camera / Auto camera / First person — the same three-way cycle as the
+Advanced-options row; configs saved before this binding existed migrate R3 off
+the dodge secondary automatically. Tunables in `lba2.cfg`:
 
 | Key | Default | Description |
 |-----|---------|-------------|

@@ -792,6 +792,13 @@ static S32 SpellKeyDown(S32 n) {
         OR CheckKey(GamepadKeys[n].Key1) OR CheckKey(GamepadKeys[n].Key2);
 }
 
+static S32 CameraSwitchKeyDown(void) {
+    return CheckKey(DefKeys[36].Key1) OR CheckKey(DefKeys[36].Key2)
+        OR CheckKey(GamepadKeys[36].Key1) OR CheckKey(GamepadKeys[36].Key2);
+}
+
+static U8 WaitNoKey36 = FALSE;
+
 /*──────────────────────────────────────────────────────────────────────────*/
 
 /* First-person (VR): the camera sits at the hero's eye height.  In an
@@ -955,6 +962,23 @@ S32 StereoHeadLookActive(void) {
     return 0;
 }
 #endif
+
+/*──────────────────────────────────────────────────────────────────────────*/
+/* Cycle the camera setting: classic -> auto -> first person -> classic.
+ * Shared by the Advanced-options camera row and the camera-switch input
+ * (right stick press). */
+void CycleCameraSetting(void) {
+    if (CameraFirstPerson) {
+        CameraFirstPerson = 0;
+        FollowCamera = 0;
+    } else if (FollowCamera) {
+        FollowCamera = 0;
+        CameraFirstPerson = 1;
+    } else {
+        FollowCamera = 1;
+    }
+    FirstTime = AFF_ALL_FLIP;
+}
 
 S32 MainLoop() {
     S32 xm, ym, zm;
@@ -1947,6 +1971,14 @@ restartloop:
                 } else
                     WaitNoKey35 = FALSE;
             }
+
+            if (CameraSwitchKeyDown()) {
+                if (!WaitNoKey36) {
+                    CycleCameraSetting();
+                }
+                WaitNoKey36 = TRUE;
+            } else
+                WaitNoKey36 = FALSE;
 
             if ((Input & (I_NORMAL | I_SPORTIF | I_AGRESSIF | I_DISCRET))
                     AND(PtrComportement->Flags & CF_COMPORTEMENT)

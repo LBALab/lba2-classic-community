@@ -3579,23 +3579,13 @@ S32 GereAdvancedOptionsMenu(void) {
             AllCameras ^= 1;
             break;
 
-        case MENU_ID_FOLLOW_CAMERA: {
+        case MENU_ID_FOLLOW_CAMERA:
             /* One camera setting, three modes: the classic rig, the auto
              * follow camera, and the first-person view. The underlying
              * flags stay separate because the rest of the game reads them
              * directly; they are mutually exclusive here. */
-            if (CameraFirstPerson) {
-                CameraFirstPerson = 0;
-                FollowCamera = 0;
-            } else if (FollowCamera) {
-                FollowCamera = 0;
-                CameraFirstPerson = 1;
-            } else {
-                FollowCamera = 1;
-            }
-            FirstTime = AFF_ALL_FLIP;
+            CycleCameraSetting();
             break;
-        }
 
         case MENU_ID_VIDEO_SIZE:
             VideoFullScreen ^= 1;

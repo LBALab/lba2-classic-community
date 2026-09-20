@@ -99,7 +99,7 @@ const T_DEF_KEY GamepadKeysDefault[MAX_INPUT] = {
     {K_GAMEPAD_START, 0},                            // 10 I_MENUS
     {K_GAMEPAD_BACK, 0},                             // 11 I_HOLOMAP
     {0, 0},                                          // 12 I_PAUSE (unbound; Start opens the in-game menu)
-    {K_GAMEPAD_LSTICK_BTN, K_GAMEPAD_RSTICK_BTN},    // 13 I_ESQUIVE
+    {K_GAMEPAD_LSTICK_BTN, 0},                       // 13 I_ESQUIVE
     {0, 0},                                          // 14 I_NORMAL
     {0, 0},                                          // 15 I_SPORTIF
     {0, 0},                                          // 16 I_AGRESSIF
@@ -122,6 +122,7 @@ const T_DEF_KEY GamepadKeysDefault[MAX_INPUT] = {
     {K_GAMEPAD_DPAD_DOWN, 0},                        // 33 I_JETPACK
     {K_GAMEPAD_DPAD_UP, 0},                          // 34 I_PROTECTION
     {K_GAMEPAD_DPAD_LEFT, 0},                        // 35 I_FOUDRE
+    {K_GAMEPAD_RSTICK_BTN, 0},                       // 36 camera-mode switch (classic/auto/first person)
 };
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -310,6 +311,14 @@ void ReadGamepadConfig(void) {
         snprintf(id, sizeof(id), "Gamepad%d_2", n);
         GamepadKeys[n].Key2 =
             DefFileBufferReadValueDefault(id, GamepadKeysDefault[n].Key2);
+    }
+
+    /* Migration: configs saved before the camera-mode switch existed carry
+     * the old default R3-as-dodge-secondary binding, which would now fire
+     * together with slot 36's camera switch on the same press. */
+    if (GamepadKeys[13].Key2 == K_GAMEPAD_RSTICK_BTN &&
+        GamepadKeys[36].Key1 == K_GAMEPAD_RSTICK_BTN) {
+        GamepadKeys[13].Key2 = 0;
     }
 
     // Fold the freshly-loaded gamepad bindings into the combined input table.
