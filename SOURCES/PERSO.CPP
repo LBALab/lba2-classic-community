@@ -2742,6 +2742,24 @@ void ReadConfigFile(void) {
     if (CameraFirstPerson < 0 OR CameraFirstPerson > 1)
         CameraFirstPerson = FALSE;
 
+    DisplayBrightness = DefFileBufferReadValueDefault("DisplayBrightness", 0);
+    if (DisplayBrightness < -50)
+        DisplayBrightness = -50;
+    else if (DisplayBrightness > 50)
+        DisplayBrightness = 50;
+
+    DisplayContrast = DefFileBufferReadValueDefault("DisplayContrast", 0);
+    if (DisplayContrast < -50)
+        DisplayContrast = -50;
+    else if (DisplayContrast > 50)
+        DisplayContrast = 50;
+
+    DisplaySaturation = DefFileBufferReadValueDefault("DisplaySaturation", 0);
+    if (DisplaySaturation < -100)
+        DisplaySaturation = -100;
+    else if (DisplaySaturation > 100)
+        DisplaySaturation = 100;
+
     ReverseStereo = DefFileBufferReadValueDefault("ReverseStereo", FALSE);
 
     InverseStereoSample(ReverseStereo);
@@ -3046,6 +3064,9 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("AllCameras", AllCameras);
     DefFileBufferWriteValue("FollowCamera", FollowCamera);
     DefFileBufferWriteValue("CameraFirstPerson", CameraFirstPerson);
+    DefFileBufferWriteValue("DisplayBrightness", DisplayBrightness);
+    DefFileBufferWriteValue("DisplayContrast", DisplayContrast);
+    DefFileBufferWriteValue("DisplaySaturation", DisplaySaturation);
     DefFileBufferWriteValue("ReverseStereo", ReverseStereo);
     DefFileBufferWriteValue("DebugFps", DebugFps);
     DefFileBufferWriteValue("FpsLimit", FpsLimit);

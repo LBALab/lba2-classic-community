@@ -95,6 +95,9 @@ S32 GPURendererActive = FALSE;
 S32 DisplayTexFilter = TRUE;
 S32 DisplayAntiAlias = 0; /* 0=off, 1=FXAA, 2=MSAA×2, 3=MSAA×4 */ /* bilinear by default in GL mode */
 S32 RenderQuality = 1; /* native resolution by default */
+S32 DisplayBrightness = 0;  /* image adjust: added light, -50..+50 */
+S32 DisplayContrast = 0;    /* image adjust: contrast delta, -50..+50 */
+S32 DisplaySaturation = 0;  /* image adjust: saturation delta, -100..+100 */
 #endif
 
 // #358: min ms of game-time between simulation steps (0 = off, per-frame sim as before).

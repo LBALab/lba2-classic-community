@@ -97,6 +97,9 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_STEREO3D 2120 /* Quest OpenXR native stereo toggle */
 #endif
 #define MENU_ID_DISPLAY_ANTIALIAS 2123
+#define MENU_ID_DISPLAY_BRIGHTNESS 2125
+#define MENU_ID_DISPLAY_CONTRAST 2126
+#define MENU_ID_DISPLAY_SATURATION 2127
 #define MENU_ID_DISPLAY_FPS 2121
 #define MENU_ID_FPS_LIMIT 2122
 
@@ -159,7 +162,7 @@ U16 GameOptionMenu[] = {
 // "Back" returns to Options. Fullscreen stays the last entry so the
 // always-fullscreen-device path in GereDisplayMenu can drop it by count.
 // See GereDisplayMenu + GereResolutionMenu.
-U16 DisplayMenu[4 + 8 * 2] = {
+U16 DisplayMenu[4 + 12 * 2] = {
     0,   // selected
     4,   // nb entries (overridden at runtime)
     260, // y center
@@ -209,6 +212,12 @@ static void BuildDisplayMenuEntries(void) {
     }
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_QUALITY;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_BRIGHTNESS;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_CONTRAST;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_SATURATION;
 #endif
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_VSYNC;
@@ -547,6 +556,18 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_QUALITY:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(RenderQuality == 1 ? MENU_LABEL_QUALITY_NATIVE : RenderQuality == 2 ? MENU_LABEL_QUALITY_2X : MENU_LABEL_QUALITY_4X));
+        break;
+
+    case MENU_ID_DISPLAY_BRIGHTNESS:
+        snprintf(string, 256, "Brightness: %+d", DisplayBrightness);
+        break;
+
+    case MENU_ID_DISPLAY_CONTRAST:
+        snprintf(string, 256, "Contrast: %+d", DisplayContrast);
+        break;
+
+    case MENU_ID_DISPLAY_SATURATION:
+        snprintf(string, 256, "Saturation: %+d", DisplaySaturation);
         break;
 #endif
 
@@ -3466,6 +3487,27 @@ S32 GereDisplayMenu(void) {
             else
                 RenderQuality = 1;
             GL_SetRenderQuality(RenderQuality);
+            WriteConfigFile();
+            break;
+
+        case MENU_ID_DISPLAY_BRIGHTNESS:
+            DisplayBrightness += 10;
+            if (DisplayBrightness > 50)
+                DisplayBrightness = -50;
+            WriteConfigFile();
+            break;
+
+        case MENU_ID_DISPLAY_CONTRAST:
+            DisplayContrast += 10;
+            if (DisplayContrast > 50)
+                DisplayContrast = -50;
+            WriteConfigFile();
+            break;
+
+        case MENU_ID_DISPLAY_SATURATION:
+            DisplaySaturation += 25;
+            if (DisplaySaturation > 100)
+                DisplaySaturation = -100;
             WriteConfigFile();
             break;
 #endif

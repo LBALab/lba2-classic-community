@@ -122,6 +122,9 @@ extern S32 GPURendererActive; ///< 0 = Software, 1 = OpenGL/GLES
 extern S32 DisplayTexFilter;
 extern S32 DisplayAntiAlias;  ///< 0 = Nearest, 1 = Bilinear, 2 = Scale2x (2D overlay in GL mode)
 extern S32 RenderQuality;     ///< 1 = native, 2 = 2x SSAA, 4 = 4x SSAA (GL mode only)
+extern S32 DisplayBrightness; ///< image adjust: -50..+50, 0 = default (GL mode only)
+extern S32 DisplayContrast;   ///< image adjust: -50..+50, 0 = default (GL mode only)
+extern S32 DisplaySaturation; ///< image adjust: -100..+100, 0 = default (GL mode only)
 #endif
 extern S32 FixedTimestep; ///< #358: min ms of game-time per sim step (0 = off). See docs/MOVEMENT_FRAMERATE.md.
 

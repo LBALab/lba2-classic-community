@@ -33,6 +33,9 @@ extern "C" {
 extern PTR_U8 PtrCLUTFog;
 extern PTR_U8 PtrCLUTGouraud;
 extern PTR_U8 PtrMap;
+extern S32 DisplayBrightness;
+extern S32 DisplayContrast;
+extern S32 DisplaySaturation;
 extern S32 RepMask;
 extern U8 Fill_Flag_ZBuffer;
 extern U8 Fill_Flag_NZW;
@@ -74,6 +77,20 @@ S32 GL_BatchFlushCount = 0;
 
 /* ── Present shader (2D overlay quad) ───────────────────────────────────── */
 
+/* User image adjustments (Display menu), applied at composite time in every
+ * present-side shader.  The transform is affine in the color channels, so
+ * drawing every fragment of a frame with it — the scene quad and the blended
+ * overlay quad alike — composes exactly through alpha blending. */
+#define GLSL_IMAGE_ADJUST                                                    \
+    "uniform float uBrightness;\n"                                           \
+    "uniform float uContrast;\n"                                             \
+    "uniform float uSaturation;\n"                                           \
+    "vec3 ImageAdjust(vec3 c) {\n"                                           \
+    "    c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uSaturation);\n" \
+    "    c = (c - 0.5) * uContrast + 0.5 + uBrightness;\n"                   \
+    "    return c;\n"                                                        \
+    "}\n"
+
 static const char *s_vertSrc =
     GLSL_VERT_HEADER
     "attribute vec2 aPos;\n"
@@ -86,6 +103,7 @@ static const char *s_vertSrc =
 
 static const char *s_fragSrc =
     GLSL_FRAG_HEADER
+    GLSL_IMAGE_ADJUST
     "uniform sampler2D uTex;\n"
     "uniform vec2 uTexel;\n"
     "uniform int uFilter;\n" /* 0 = nearest, 1 = bilinear, 2 = Scale2x */
@@ -122,7 +140,7 @@ static const char *s_fragSrc =
     "    } else {\n"
     "        result = texture2D(uTex, vTexCoord);\n"
     "    }\n"
-    "    gl_FragColor = result;\n"
+    "    gl_FragColor = vec4(ImageAdjust(result.rgb), result.a);\n"
     "}\n";
 
 /* ── CLUT shader (3D Gouraud-textured polygons) ─────────────────────────── */
@@ -405,9 +423,27 @@ static GLint s_idx_uIndices = -1;
 static GLint s_idx_uPalette = -1;
 static GLint s_idx_uTexel = -1;
 static GLint s_idx_uFilter = -1;
+/* User image adjustments (Display menu); affine transform applied in every
+ * present-side shader so it composes exactly through alpha blending. */
+static GLint s_adj_uBrightness = -1;
+static GLint s_adj_uContrast = -1;
+static GLint s_adj_uSaturation = -1;
+static GLint s_idxAdj_uBrightness = -1;
+static GLint s_idxAdj_uContrast = -1;
+static GLint s_idxAdj_uSaturation = -1;
+static GLint s_fxaaAdj_uBrightness = -1;
+static GLint s_fxaaAdj_uContrast = -1;
+static GLint s_fxaaAdj_uSaturation = -1;
+
+static void GL_UploadImageAdjust(GLint uB, GLint uC, GLint uS) {
+    glUniform1f(uB, (GLfloat)DisplayBrightness / 100.0f);
+    glUniform1f(uC, 1.0f + (GLfloat)DisplayContrast / 100.0f);
+    glUniform1f(uS, 1.0f + (GLfloat)DisplaySaturation / 100.0f);
+}
 
 static const char *s_presentIndexedFragSrc =
     GLSL_FRAG_HEADER
+    GLSL_IMAGE_ADJUST
     "uniform sampler2D uIndices;\n"
     "uniform sampler2D uPalette;\n"
     "uniform vec2 uTexel;\n"
@@ -442,7 +478,8 @@ static const char *s_presentIndexedFragSrc =
     "            }\n"
     "        }\n"
     "    }\n"
-    "    gl_FragColor = texture2D(uPalette, vec2((e + 0.5) / 256.0, 0.5));\n"
+    "    vec4 pal = texture2D(uPalette, vec2((e + 0.5) / 256.0, 0.5));\n"
+    "    gl_FragColor = vec4(ImageAdjust(pal.rgb), pal.a);\n"
     "}\n";
 
 /* ── FXAA (Fast Approximate Anti-Aliasing) ──────────────────────────────── */
@@ -450,6 +487,7 @@ static const char *s_presentIndexedFragSrc =
 
 static const char *s_fxaaFragSrc =
     GLSL_FRAG_HEADER
+    GLSL_IMAGE_ADJUST
     "uniform sampler2D uTex;\n"
     "uniform vec2 uTexel;\n"
     "varying vec2 vTexCoord;\n"
@@ -467,7 +505,7 @@ static const char *s_fxaaFragSrc =
     "    float lumaM  = dot(rgbM, luma);\n"
     "    float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));\n"
     "    float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));\n"
-    "    if (lumaMax - lumaMin <= 0.08) { gl_FragColor = vec4(rgbM, 1.0); return; }\n"
+    "    if (lumaMax - lumaMin <= 0.08) { gl_FragColor = vec4(ImageAdjust(rgbM), 1.0); return; }\n"
     "    vec2 dir = vec2(-((lumaNW + lumaNE) - (lumaSW + lumaSE)),\n"
     "                    ((lumaNW + lumaSW) - (lumaNE + lumaSE)));\n"
     "    float dirReduce = max((lumaNW + lumaNE + lumaSW + lumaSE) * 0.03125, 0.0078125);\n"
@@ -481,9 +519,9 @@ static const char *s_fxaaFragSrc =
     "        texture2D(uTex, vTexCoord + dir * 0.5).rgb);\n"
     "    float lumaB = dot(rgbB, luma);\n"
     "    if (lumaB < lumaMin || lumaB > lumaMax)\n"
-    "        gl_FragColor = vec4(rgbA, 1.0);\n"
+    "        gl_FragColor = vec4(ImageAdjust(rgbA), 1.0);\n"
     "    else\n"
-    "        gl_FragColor = vec4(rgbB, 1.0);\n"
+    "        gl_FragColor = vec4(ImageAdjust(rgbB), 1.0);\n"
     "}\n";
 
 static GLuint s_fxaaProgram = 0;
@@ -1529,6 +1567,9 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_uTexLoc = glGetUniformLocation(s_program, "uTex");
     s_uTexelLoc = glGetUniformLocation(s_program, "uTexel");
     s_uFilterLoc = glGetUniformLocation(s_program, "uFilter");
+    s_adj_uBrightness = glGetUniformLocation(s_program, "uBrightness");
+    s_adj_uContrast = glGetUniformLocation(s_program, "uContrast");
+    s_adj_uSaturation = glGetUniformLocation(s_program, "uSaturation");
     s_aPosLoc = glGetAttribLocation(s_program, "aPos");
     s_aTexCoordLoc = glGetAttribLocation(s_program, "aTexCoord");
 
@@ -1552,6 +1593,9 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_idx_uPalette = glGetUniformLocation(s_presentIndexedProgram, "uPalette");
     s_idx_uTexel = glGetUniformLocation(s_presentIndexedProgram, "uTexel");
     s_idx_uFilter = glGetUniformLocation(s_presentIndexedProgram, "uFilter");
+    s_idxAdj_uBrightness = glGetUniformLocation(s_presentIndexedProgram, "uBrightness");
+    s_idxAdj_uContrast = glGetUniformLocation(s_presentIndexedProgram, "uContrast");
+    s_idxAdj_uSaturation = glGetUniformLocation(s_presentIndexedProgram, "uSaturation");
 
     glGenTextures(1, &s_lutTex);
     glBindTexture(GL_TEXTURE_2D, s_lutTex);
@@ -1671,6 +1715,9 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             s_fxaaProgram = LinkProgram(fv, ff);
             s_fxaa_uTex = glGetUniformLocation(s_fxaaProgram, "uTex");
             s_fxaa_uTexel = glGetUniformLocation(s_fxaaProgram, "uTexel");
+    s_fxaaAdj_uBrightness = glGetUniformLocation(s_fxaaProgram, "uBrightness");
+    s_fxaaAdj_uContrast = glGetUniformLocation(s_fxaaProgram, "uContrast");
+    s_fxaaAdj_uSaturation = glGetUniformLocation(s_fxaaProgram, "uSaturation");
             s_fxaa_aPos = glGetAttribLocation(s_fxaaProgram, "aPos");
             s_fxaa_aTexCoord = glGetAttribLocation(s_fxaaProgram, "aTexCoord");
         }
@@ -4260,6 +4307,8 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
             glUniform1i(s_fxaa_uTex, 0);
             glUniform2f(s_fxaa_uTexel, 1.0f / (GLfloat)s_texWidth,
                         1.0f / (GLfloat)s_texHeight);
+            GL_UploadImageAdjust(s_fxaaAdj_uBrightness, s_fxaaAdj_uContrast,
+                                 s_fxaaAdj_uSaturation);
             glEnableVertexAttribArray(s_fxaa_aPos);
             glVertexAttribPointer(s_fxaa_aPos, 2, GL_FLOAT, GL_FALSE,
                                   4 * sizeof(GLfloat), (const void *)0);
@@ -4276,6 +4325,8 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
         /* The hi-res FBO is always drawn plainly; the Scale2x mode below is
          * for the 640x480 overlay only.  Pin it here or a stale Scale2x from
          * the previous frame's overlay draw would smear the FBO blit. */
+        GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
+                             s_adj_uSaturation);
         glUniform1i(s_uFilterLoc, 1);
         glEnableVertexAttribArray(s_aPosLoc);
         glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
@@ -4348,6 +4399,8 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, s_texture);
     glUniform1i(s_uTexLoc, 0);
+    GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
+                         s_adj_uSaturation);
     glUniform2f(s_uTexelLoc, 1.0f / (GLfloat)width, 1.0f / (GLfloat)height);
     glUniform1i(s_uFilterLoc, filterLinear);
 
@@ -4470,6 +4523,8 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
             glUniform1i(s_fxaa_uTex, 0);
             glUniform2f(s_fxaa_uTexel, 1.0f / (GLfloat)s_texWidth,
                         1.0f / (GLfloat)s_texHeight);
+            GL_UploadImageAdjust(s_fxaaAdj_uBrightness, s_fxaaAdj_uContrast,
+                                 s_fxaaAdj_uSaturation);
             glEnableVertexAttribArray(s_fxaa_aPos);
             glVertexAttribPointer(s_fxaa_aPos, 2, GL_FLOAT, GL_FALSE,
                                   4 * sizeof(GLfloat), (const void *)0);
@@ -4486,6 +4541,8 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         /* The hi-res FBO is always drawn plainly; the Scale2x mode below is
          * for the 640x480 overlay only.  Pin it here or a stale Scale2x from
          * the previous frame's overlay draw would smear the FBO blit. */
+        GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
+                             s_adj_uSaturation);
         glUniform1i(s_uFilterLoc, 1);
         glEnableVertexAttribArray(s_aPosLoc);
         glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
@@ -4708,6 +4765,8 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
         glUniform1i(s_idx_uIndices, 0);
+        GL_UploadImageAdjust(s_idxAdj_uBrightness, s_idxAdj_uContrast,
+                             s_idxAdj_uSaturation);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, s_lutTex);
         glUniform1i(s_idx_uPalette, 1);
