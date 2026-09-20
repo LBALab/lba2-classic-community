@@ -55,6 +55,7 @@ S32 GL_LastRejectReason = 0;
 
 /* ── External texture filter toggle (from GLOBAL.CPP) ────────────────────── */
 extern "C" S32 DisplayTexFilter;
+extern "C" S32 DisplayAntiAlias;
 
 /* Temporary perf instrumentation: draw calls flushed since GL_BeginFrame */
 extern "C" S32 GL_BatchFlushCount;
@@ -1865,6 +1866,10 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_texHeight = resY;
     s_initialized = 1;
     GL_InvalidateGLState();
+    /* Apply the configured anti-alias mode: the menu re-applies on change,
+       but at boot nothing else did, so the cfg value was silently dead and
+       the composite rendered unsmoothed. */
+    GL_SetAntiAlias(DisplayAntiAlias);
     Log_Info("[GL] Renderer initialized OK.");
     return TRUE;
 }
