@@ -2479,11 +2479,11 @@ restartloop:
                     const float roll = atan2f(ux * (-fz) + uz * fx, uy);
                     /* Engine angles: 4096 per turn, BetaCam = 2048 faces
                      * straight ahead (same signs the first-person camera
-                     * uses for the same head pose). */
+                     * uses for the same head pose).  The view-space camera
+                     * (CameraXr) is snapshotted from the world position at
+                     * SetAngleCamera time, so the IPD offset must be in
+                     * CameraX/Y/Z BEFORE it runs. */
                     const float K = 2048.0f / 3.14159265358979f;
-                    SetAngleCamera((S32)(-pitch * K),
-                                   (S32)(2048.0f + yaw * K) & 4095,
-                                   (S32)(roll * K));
                     /* IPD split along the head's right axis (world space),
                      * so it rolls with the head automatically. */
                     const float rx = 1.0f - 2.0f * (qy * qy + qz * qz);
@@ -2493,6 +2493,9 @@ restartloop:
                     CameraX = saveCamX + (S32)(side * rx);
                     CameraY = saveCamY + (S32)(side * ry);
                     CameraZ = saveCamZ + (S32)(side * rz);
+                    SetAngleCamera((S32)(-pitch * K),
+                                   (S32)(2048.0f + yaw * K) & 4095,
+                                   (S32)(roll * K));
                     StereoCamShiftX = 0;
                     StereoCamShiftY = 0;
                     StereoProjShiftX = 0;
