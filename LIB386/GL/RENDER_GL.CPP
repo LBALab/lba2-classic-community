@@ -1287,12 +1287,21 @@ static U32 s_depthSmallH = 0;
    not redraw the terrain — so each body's previous-frame pixels would stay
    in the FBO as ghost silhouettes.  Snapshot the FBO right after the
    terrain/decor/sea pass (GL_SnapshotTerrain) and blit it back before the
-   object pass on incremental frames (GL_RestoreTerrainSnapshot).  Depth is
-   never written by body batches (NZW → depthMask off), so restoring color
-   alone is sufficient. */
+   object pass on incremental frames (GL_RestoreTerrainSnapshot).  Both
+   color AND depth are snapshotted and restored: body batches write depth
+   (the Log-layer sprite occlusion reads it), so a color-only restore
+   leaves last frame's body depth in the buffer and GEQUAL then eats
+   redrawn fragments that shifted marginally away — vanishing body
+   triangles on idle frames. */
 static GLuint s_snapshotTex = 0;
 static GLuint s_snapshotFbo = 0;
-static GLuint s_snapshotDepthRbo = 0;
+static GLuint s_snapshotDepthTex = 0;
+static GLuint s_depthRestoreProgram = 0;
+static GLint s_depthRestore_uDepthTex = -1;
+static GLint s_depthRestore_aPos = -1;
+static GLint s_depthRestore_aTexCoord = -1;
+static const char *s_depthRestoreVertSrc = NULL;
+static const char *s_depthRestoreFragSrc = NULL;
 static U32 s_snapshotW = 0;
 static U32 s_snapshotH = 0;
 static U32 s_snapshotGen = 0; /* GL_ClearFBO generation the snapshot matches */
@@ -1596,6 +1605,29 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     Log_Info("[GL] GL_RENDERER: %s", (const char *)glGetString(GL_RENDERER));
 
     /* ── Compile present shader ── */
+    /* Depth-only restore pass for the MSAA incremental erase: writes the
+     * snapshot's terrain depth back under the erased region.  Raw-compiled
+     * (no V3 transform) like the present program; gl_FragDepth is core in
+     * GLSL 130 and a built-in in GLSL ES 3.00. */
+#ifdef __ANDROID__
+    s_depthRestoreVertSrc =
+        "#version 300 es\nprecision highp float;\n"
+        "in vec2 aPos;\nin vec2 aTexCoord;\nout vec2 vTexCoord;\n"
+        "void main() { gl_Position = vec4(aPos, 0.0, 1.0); vTexCoord = aTexCoord; }\n";
+    s_depthRestoreFragSrc =
+        "#version 300 es\nprecision highp float;\n"
+        "uniform sampler2D uDepthTex;\nin vec2 vTexCoord;\n"
+        "void main() { gl_FragDepth = texture(uDepthTex, vTexCoord).r; }\n";
+#else
+    s_depthRestoreVertSrc =
+        "#version 130\n"
+        "in vec2 aPos;\nin vec2 aTexCoord;\nout vec2 vTexCoord;\n"
+        "void main() { gl_Position = vec4(aPos, 0.0, 1.0); vTexCoord = aTexCoord; }\n";
+    s_depthRestoreFragSrc =
+        "#version 130\n"
+        "uniform sampler2D uDepthTex;\nin vec2 vTexCoord;\n"
+        "void main() { gl_FragDepth = texture(uDepthTex, vTexCoord).r; }\n";
+#endif
     GLuint vert = CompileShader(GL_VERTEX_SHADER, s_vertSrc);
     GLuint frag = CompileShader(GL_FRAGMENT_SHADER, s_fragSrc);
     if (vert == 0 || frag == 0) {
@@ -1607,6 +1639,34 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     glDeleteShader(frag);
     if (s_program == 0) {
         return FALSE;
+    }
+    {
+        const char *dzVertSrc = s_depthRestoreVertSrc;
+        const char *dzFragSrc = s_depthRestoreFragSrc;
+        GLuint dzVert = CompileShader(GL_VERTEX_SHADER, dzVertSrc);
+        GLuint dzFrag =
+            CompileShader(GL_FRAGMENT_SHADER, dzFragSrc);
+        if (dzVert != 0 && dzFrag != 0) {
+            glBindAttribLocation(dzVert, 0, "aPos");
+            glBindAttribLocation(dzVert, 1, "aTexCoord");
+            s_depthRestoreProgram = LinkProgram(dzVert, dzFrag);
+        }
+        glDeleteShader(dzVert);
+        glDeleteShader(dzFrag);
+        if (s_depthRestoreProgram != 0) {
+            GL_UseProgramCached(s_depthRestoreProgram);
+            s_depthRestore_uDepthTex =
+                glGetUniformLocation(s_depthRestoreProgram, "uDepthTex");
+            glUniform1i(s_depthRestore_uDepthTex, 0);
+            s_depthRestore_aPos = glGetAttribLocation(s_depthRestoreProgram,
+                                                      "aPos");
+            s_depthRestore_aTexCoord =
+                glGetAttribLocation(s_depthRestoreProgram, "aTexCoord");
+            GL_UseProgramCached(0);
+        } else {
+            Log_Warn("[GL] depth restore program failed; MSAA idle frames "
+                     "may show vanishing body fragments");
+        }
     }
 
     s_uTexLoc = glGetUniformLocation(s_program, "uTex");
@@ -1942,9 +2002,13 @@ void GL_Renderer_Shutdown(void) {
         s_atlasTexCache[i].tex = 0;
     }
     s_atlasTexNext = 0;
-    if (s_snapshotDepthRbo) {
-        glDeleteRenderbuffers(1, &s_snapshotDepthRbo);
-        s_snapshotDepthRbo = 0;
+    if (s_snapshotDepthTex) {
+        glDeleteTextures(1, &s_snapshotDepthTex);
+        s_snapshotDepthTex = 0;
+    }
+    if (s_depthRestoreProgram) {
+        glDeleteProgram(s_depthRestoreProgram);
+        s_depthRestoreProgram = 0;
     }
     if (s_snapshotFbo) {
         glDeleteFramebuffers(1, &s_snapshotFbo);
@@ -3361,10 +3425,12 @@ void GL_SnapshotTerrain(void) {
        tracked in the dirty region like the bodies. */
     GL_FlushBatchTerrain();
 
-    /* No GL_ResolveMSAA here: with MSAA active the blit below reads the
-       MSAA buffer's color directly (implicit resolve), and s_fbo's resolved
-       copy is not read until GL_Present resolves again — refreshing it here
-       cost a second full-surface color+depth resolve on every redraw frame. */
+    /* With MSAA active, resolve color+depth first: the incremental restore
+       needs the snapshot's DEPTH as well — body batches write depth, and a
+       color-only restore leaves last frame's body depth in the MSAA buffer,
+       where GEQUAL eats redrawn fragments that shifted marginally away
+       (vanishing body triangles while idle).  Runs on full-redraw frames
+       only, so the extra depth resolve is amortized. */
 
     const U32 w = s_fboWidth;
     const U32 h = s_fboHeight;
@@ -3385,14 +3451,18 @@ void GL_SnapshotTerrain(void) {
         glBindFramebuffer(GL_FRAMEBUFFER, s_snapshotFbo);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                                GL_TEXTURE_2D, s_snapshotTex, 0);
-        if (s_snapshotDepthRbo == 0) {
-            glGenRenderbuffers(1, &s_snapshotDepthRbo);
+        if (s_snapshotDepthTex == 0) {
+            glGenTextures(1, &s_snapshotDepthTex);
         }
-        glBindRenderbuffer(GL_RENDERBUFFER, s_snapshotDepthRbo);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, w, h);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                                  GL_RENDERBUFFER, s_snapshotDepthRbo);
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        glBindTexture(GL_TEXTURE_2D, s_snapshotDepthTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, w, h, 0,
+                     GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                               GL_TEXTURE_2D, s_snapshotDepthTex, 0);
         s_snapshotW = w;
         s_snapshotH = h;
     }
@@ -3405,12 +3475,13 @@ void GL_SnapshotTerrain(void) {
        writes MSAA depth to go stale. */
     U64 profT0 = SDL_GetPerformanceCounter();
     S32 msaaActive = (s_msaaFbo && s_antiAlias >= 2) ? 1 : 0;
-    glBindFramebuffer(GL_READ_FRAMEBUFFER,
-                      msaaActive ? s_msaaFbo : s_fbo);
+    if (msaaActive) {
+        GL_ResolveMSAA();
+    }
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_snapshotFbo);
     glBlitFramebuffer(0, 0, w, h, 0, 0, w, h,
-                      msaaActive ? GL_COLOR_BUFFER_BIT
-                                 : (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT),
+                      GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
                       GL_NEAREST);
     /* Mid-frame invariant: subsequent GL_FlushBatch() calls (s_frameActive
        still set) must keep drawing into the FBO, not the default fb. */
@@ -3516,6 +3587,45 @@ void GL_RestoreTerrainSnapshot(void) {
         /* The quad used its own program/attribs/texture — the next batch
            flush must re-specify everything. */
         GL_InvalidateGLState();
+        if (s_depthRestoreProgram != 0) {
+            /* Second pass: write the snapshot's terrain depth back under
+               the same region.  Body batches write depth, so without this
+               the MSAA depth keeps last frame's body depth and GEQUAL eats
+               redrawn fragments that shifted marginally away (vanishing
+               body triangles on idle frames).  Depth blits into a
+               multisampled draw framebuffer are illegal, so this goes
+               through a fragDepth quad. */
+            glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
+            glViewport(0, 0, s_fboWidth, s_fboHeight);
+            glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_ALWAYS);
+            glDepthMask(GL_TRUE);
+            glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+            glUseProgram(s_depthRestoreProgram);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, s_snapshotDepthTex);
+            GL_BindArrayBuffer(s_auxVBO);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(rverts), rverts,
+                         GL_STREAM_DRAW);
+            glEnableVertexAttribArray(s_depthRestore_aPos);
+            glVertexAttribPointer(s_depthRestore_aPos, 2, GL_FLOAT, GL_FALSE,
+                                  4 * sizeof(GLfloat), (const void *)0);
+            glEnableVertexAttribArray(s_depthRestore_aTexCoord);
+            glVertexAttribPointer(s_depthRestore_aTexCoord, 2, GL_FLOAT,
+                                  GL_FALSE, 4 * sizeof(GLfloat),
+                                  (const void *)(2 * sizeof(GLfloat)));
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            glDisableVertexAttribArray(s_depthRestore_aPos);
+            glDisableVertexAttribArray(s_depthRestore_aTexCoord);
+            GL_BindArrayBuffer(0);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            glUseProgram(0);
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+            /* Coherent caches: the object pass's first flush re-issues its
+               own depth state through the setters below. */
+            GL_SetDepthFunc(GL_GEQUAL);
+            GL_InvalidateGLState();
+        }
     } else {
         glBindFramebuffer(GL_READ_FRAMEBUFFER, s_snapshotFbo);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
