@@ -2,6 +2,8 @@
 
 #include <SYSTEM/LOG.H>
 
+#include <GL/RENDER_GL.H> /* GL_ArrayWindowBegin/End */
+
 /*══════════════════════════════════════════════════════════════════════════*
 		      █▀▀▀▄ █▀▀▀▀ █▀▀▀▀ █▀▀▀█ █▀▀▀█ ██▀▀▀
 		      ██  █ ██▀▀  ██    ██  █ ██▀█▀ ▀▀▀▀█
@@ -283,6 +285,13 @@ void AffichageObjetDecorsZBuf(void) {
 
     ObjPtrMap = ObjTexture; // texture obj
 
+#ifdef USE_GPURENDERER
+    /* Decor polys bin into the shared texture array (see RENDER_GL.CPP):
+       the pass interleaves per-offset texture pages that would otherwise
+       flush the batch once per distinct offset. */
+    GL_ArrayWindowBegin();
+#endif
+
     ptrtri = ListTriExt;
     ptrobj = ListDecors;
 
@@ -455,6 +464,10 @@ void AffichageObjetDecorsZBuf(void) {
     //	Switch_Fillers( FILL_POLY_TEXTURES_ON );
 
     UnsetClip();
+
+#ifdef USE_GPURENDERER
+    GL_ArrayWindowEnd();
+#endif
 
     {
         static U32 s_decCensusFrame = 0;
