@@ -1908,6 +1908,37 @@ void ClearWhoSpeak() {
 static char s_dial_capture_path[ADELINE_MAX_PATH] = "";
 static int s_dial_capture_countdown = 0;
 
+/* VR stereo: the dialog flow renders outside MainLoop's stereo block, so
+   its frames would keep the flat game focal while the compositor maps them
+   across the headset's wide eye field — the world visibly grows.  Render
+   one frame at the same eye-FOV focal the stereo passes use (the frame
+   stays mono, but at the scale the headset expects). */
+static void AffSceneVrScale(S32 flagflip) {
+    const S32 gameLFactorX = LFactorX;
+    const S32 gameLFactorY = LFactorY;
+    const float gameFRatioX = FRatioX;
+    const float gameFRatioY = FRatioY;
+    S32 stereoDialog = 0;
+#ifdef LBA2_OPENXR
+    stereoDialog = DisplayStereo3D AND OpenXR_IsActive() AND
+                   GPURendererActive AND StereoFocalX > 0 AND
+                   StereoFocalY > 0;
+#endif
+    if (stereoDialog) {
+        LFactorX = StereoFocalX;
+        LFactorY = StereoFocalY;
+        FRatioX = (float)LFactorX;
+        FRatioY = -(float)LFactorY / FRatioX;
+    }
+    AffScene(flagflip);
+    if (stereoDialog) {
+        LFactorX = gameLFactorX;
+        LFactorY = gameLFactorY;
+        FRatioX = gameFRatioX;
+        FRatioY = gameFRatioY;
+    }
+}
+
 void SpeakAnimation() {
     S32 saveyclip;
 
@@ -1931,35 +1962,7 @@ void SpeakAnimation() {
             memset(Log, 0, bytes);
             memset(Screen, 0, bytes);
         } else {
-            /* VR stereo: the dialog loop renders outside MainLoop's stereo
-               block, so this frame keeps the flat game focal while the
-               compositor maps it across the headset's wide eye field — the
-               world visibly grows for the whole dialog.  Project with the
-               same eye-FOV focal the stereo passes use: the frame stays
-               mono, but at the scale the headset expects. */
-            const S32 gameLFactorX = LFactorX;
-            const S32 gameLFactorY = LFactorY;
-            const float gameFRatioX = FRatioX;
-            const float gameFRatioY = FRatioY;
-            S32 stereoDialog = 0;
-#ifdef LBA2_OPENXR
-            stereoDialog = DisplayStereo3D AND OpenXR_IsActive() AND
-                           GPURendererActive AND StereoFocalX > 0 AND
-                           StereoFocalY > 0;
-#endif
-            if (stereoDialog) {
-                LFactorX = StereoFocalX;
-                LFactorY = StereoFocalY;
-                FRatioX = (float)LFactorX;
-                FRatioY = -(float)LFactorY / FRatioX;
-            }
-            AffScene(AFF_OBJETS_NO_FLIP);
-            if (stereoDialog) {
-                LFactorX = gameLFactorX;
-                LFactorY = gameLFactorY;
-                FRatioX = gameFRatioX;
-                FRatioY = gameFRatioY;
-            }
+            AffSceneVrScale(AFF_OBJETS_NO_FLIP);
         }
 
         if (Bulle)
@@ -2057,9 +2060,9 @@ void Dial(S32 text, S32 drawscene) {
         memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
         memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
     } else if (FirstTime == AFF_ALL_FLIP) {
-        AffScene(AFF_ALL_FLIP);
+        AffSceneVrScale(AFF_ALL_FLIP);
     } else if (!(FlagDial & (DIAL_BIG | DIAL_FUL | DIAL_EXP | DIAL_DEM))) {
-        AffScene(AFF_OBJETS_NO_FLIP);
+        AffSceneVrScale(AFF_OBJETS_NO_FLIP);
         BoxBlit();
     }
     //-----
@@ -2219,7 +2222,7 @@ void Dial(S32 text, S32 drawscene) {
         BoxStaticAdd(0, 0, ModeDesiredX, ModeDesiredY);
         RestoreTimer();
         SaveTimer();
-        AffScene(AFF_OBJETS_NO_FLIP);
+        AffSceneVrScale(AFF_OBJETS_NO_FLIP);
         FixeCinemaMode(FALSE);
         BoxBlit();
     }
@@ -2252,9 +2255,9 @@ S32 MyDial(S32 nummess) // attends une touche si autre page sinon continue
         memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
         memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
     } else if (FirstTime == AFF_ALL_FLIP) {
-        AffScene(AFF_ALL_NO_FLIP);
+        AffSceneVrScale(AFF_ALL_NO_FLIP);
     } else
-        AffScene(AFF_OBJETS_NO_FLIP);
+        AffSceneVrScale(AFF_OBJETS_NO_FLIP);
     //-----
 
     CopyScreen(Log, Screen);
