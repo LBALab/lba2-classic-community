@@ -200,7 +200,8 @@ No separate GL fog equation needed — the CLUT already encodes the fog blend.
 
 Triangles are collected into a VBO and flushed when:
 
-- Atlas page changes (different `PtrMap` base pointer)
+- Atlas page changes (different `PtrMap` base pointer) — only for polys on the 2D path; textured polys inside the decor/object windows sample the texture array instead and skip this trigger
+- The batch's class (array vs 2D) changes — non-sampling polys inherit the open batch's class so bodies mixing textured and flat polys do not flip programs per poly
 - Alpha mode changes (only TRANS batches enable blending; mode, chroma and perspective differences branch per fragment in the shader, so they share a batch)
 - Fog-smooth mode enters or leaves the batch (type 24 pins the depth func to `GL_ALWAYS` under NZW)
 - Z-buffer/NZW fill flags change
@@ -208,6 +209,10 @@ Triangles are collected into a VBO and flushed when:
 - End of frame (before present)
 
 The CLUT row is *not* a flush trigger: `SetCLUT()` changes it per terrain tile (fog distance), and it rides per vertex instead — in the material word's high byte for CLUT-textured polygons (mode 0), in the RepMask vertex field for gouraud-table ones (mode 3) — so tiles share draw calls.
+
+### Texture array path
+
+Textured polys queued inside the decor/object windows (`GL_ArrayWindowBegin/End`) stamp `0x8000|layer` into the RepMask vertex field and sample a `GL_TEXTURE_2D_ARRAY` on unit 3 through a GLSL-3 variant of the CLUT program. Each layer holds the poly's `(PtrMap, w, h)` region *tiled* to 256×256, so the shader's `mod`-256 UV wrap reproduces the RepMask wrap for UVs pushed outside the region (raw 256×256 windows would sample the neighbouring texture block's bytes instead). This is what lets the decor pass — which interleaves a different page offset per poly group — merge into one batch instead of flushing per offset; `LBA2_NO_ARRAY=1` forces the 2D path for comparison.
 
 ### Vertex format
 
@@ -217,7 +222,8 @@ struct GLVertex {
     U16 texU, texV;    // texture coordinates (from Struc_Point::Pt_MapU/V)
     U16 light;         // Gouraud intensity (from Struc_Point::Pt_Light)
     U16 zo;            // normalized Z (from Struc_Point::Pt_ZO)
-    U16 repMask;       // UV wrap mask; gouraud-table mode 3 reuses it for the CLUT row
+    U16 repMask;       // UV wrap mask; gouraud-table mode 3 reuses it for the CLUT row;
+                       // 0x8000|layer marks an array-path poly (see Texture array path)
     U16 material;      // low byte: shading mode + alpha/chroma/persp flags,
                        // high byte: flat colour, shadow level, or CLUT row (mode 0)
 };  // 16 bytes per vertex
@@ -329,7 +335,7 @@ Both are runtime settings, not build-dependent. Read in `ReadConfigFile()` (`PER
 
 6. **GLES 2.0 `GL_LUMINANCE` vs desktop `GL_R8`:** Desktop GL deprecated `GL_LUMINANCE` but it still works. Could use `GL_LUMINANCE` everywhere for simplicity, or `#ifdef` branch for correctness.
 
-7. **Batch flush frequency:** Objects with many individually-textured polygons (each with different PtrMap offset + RepMask) will flush the batch frequently. Profile to see if this is a real problem — the batch is small (4096 verts) and GPU draw calls are cheap on modern hardware, but may matter on very old GLES 2.0 devices.
+7. **Batch flush frequency:** Objects with many individually-textured polygons (each with different PtrMap offset + RepMask) used to flush the batch per offset — measured at 240 atlas flushes per frame on an island view. The texture array path (see Geometry batching) merged these: 46 flushes total on the same view, pixel-identical output.
 
 ## Implementation phases
 
