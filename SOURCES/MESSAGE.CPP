@@ -13,6 +13,7 @@
 
 #include "C_EXTERN.H"
 #include "IMAGE_LOAD.H"
+#include <3D/CAMERA.H> /* StereoFocalX/LFactorX: VR dialog projection scale */
 #include <SYSTEM/OPENXR.H> /* OpenXR_GetSwapchainWidth (head-mount dialog lift) */
 #ifdef USE_GPURENDERER
 #include <GL/RENDER_GL.H> /* GL_SavePresentPNG for GL-mode dialog captures */
@@ -1930,7 +1931,35 @@ void SpeakAnimation() {
             memset(Log, 0, bytes);
             memset(Screen, 0, bytes);
         } else {
+            /* VR stereo: the dialog loop renders outside MainLoop's stereo
+               block, so this frame keeps the flat game focal while the
+               compositor maps it across the headset's wide eye field — the
+               world visibly grows for the whole dialog.  Project with the
+               same eye-FOV focal the stereo passes use: the frame stays
+               mono, but at the scale the headset expects. */
+            const S32 gameLFactorX = LFactorX;
+            const S32 gameLFactorY = LFactorY;
+            const float gameFRatioX = FRatioX;
+            const float gameFRatioY = FRatioY;
+            S32 stereoDialog = 0;
+#ifdef LBA2_OPENXR
+            stereoDialog = DisplayStereo3D AND OpenXR_IsActive() AND
+                           GPURendererActive AND StereoFocalX > 0 AND
+                           StereoFocalY > 0;
+#endif
+            if (stereoDialog) {
+                LFactorX = StereoFocalX;
+                LFactorY = StereoFocalY;
+                FRatioX = (float)LFactorX;
+                FRatioY = -(float)LFactorY / FRatioX;
+            }
             AffScene(AFF_OBJETS_NO_FLIP);
+            if (stereoDialog) {
+                LFactorX = gameLFactorX;
+                LFactorY = gameLFactorY;
+                FRatioX = gameFRatioX;
+                FRatioY = gameFRatioY;
+            }
         }
 
         if (Bulle)
