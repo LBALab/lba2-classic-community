@@ -229,6 +229,16 @@ extern S32 AllCameras;
 extern S32 FollowCamera;
 extern S32 CameraFirstPerson;
 extern S32 StereoHeadLookActive(void);
+extern void StereoLookShiftAnchorPitch(S32 dAlpha);
+/* Quest-stereo head-look camera math (STEREOLOOK.CPP) */
+extern S32 StereoCamOffsetX; /* tracked head lean, world-space, on the rig camera */
+extern S32 StereoCamOffsetY;
+extern S32 StereoCamOffsetZ;
+extern S32 StereoLookViewBeta(S32 baseBeta, float yawOff);
+extern S32 StereoLookViewAlpha(S32 baseAlpha, float pitchOff);
+extern void StereoLookHeadOffsetToWorld(float dxm, float dym, float dzm,
+                                        S32 betaView, S32 *outX, S32 *outY,
+                                        S32 *outZ);
 extern void CycleCameraSetting(void);
 extern S32 FollowCamBaseDist;
 extern S32 FlagMouseCamera;

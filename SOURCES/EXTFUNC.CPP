@@ -364,8 +364,13 @@ void AffGrilleExt() {
        rig world position SetFollowCamera just wrote, so the position stays
        the game-controlled one while the render orientation is the exact
        tracked pose — the pose the compositor time-warps from, which is what
-       keeps head rotation artifact-free. */
+       keeps head rotation artifact-free.  The tracked head translation is a
+       world-space lean on that position; it lands before SetAngleCamera
+       re-reads CameraX/Y/Z. */
     if (StereoEyeOverride) {
+        CameraX += StereoCamOffsetX;
+        CameraY += StereoCamOffsetY;
+        CameraZ += StereoCamOffsetZ;
         SetAngleCamera(StereoEyeAlpha, StereoEyeBeta, StereoEyeGamma);
     }
 #endif
@@ -2580,14 +2585,11 @@ S32 GereExtKeys(U32 key)
             }
         }
 
-        /* Head-mounted builds: headset orientation drives the follow camera
-         * itself (yaw -> orbit around the hero, pitch -> elevation) through
-         * the same nudge the right stick used — the rig's own state is what
-         * the renderer consumes, so this is the path that provably moves the
-         * view. Twinsen stays centred; the auto-recenter hands the view back
-         * behind him after the reengage window. The right stick is zoom only
-         * (up = in, down = out). */
-        /* Immersive sessions always own the head pose: requiring the SDL
+        /* Head-mounted builds: while the stereo head-look override owns the
+         * view orientation (the normal case, PERSO.CPP), the rig takes no
+         * motion from the head here — the nudges below only matter when no
+         * fresh eye views exist (first frames) and for the right stick.
+         * Immersive sessions always own the head pose: requiring the SDL
            joystick here killed head-look on Quest (no SDL gamepad in the
            OpenXR app).  Desktop gamepads keep the analog gate. */
         if ((OpenXR_IsActive() AND OpenXR_GetSwapchainWidth() != 0) OR
@@ -2644,6 +2646,10 @@ S32 GereExtKeys(U32 key)
                                             GamepadCamMaxAlpha);
                 if (GamepadCameraInvertY)
                     dAlpha = -dAlpha;
+                /* The world-anchored view ignores rig angle nudges: the
+                   tilt feeds the look session's neutral elevation instead. */
+                if (dAlpha != 0)
+                    StereoLookShiftAnchorPitch(dAlpha);
             } else {
                 if (StereoHeadLookActive()) {
                     /* The per-eye head-look override owns the orientation

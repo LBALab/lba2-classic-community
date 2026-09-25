@@ -1175,7 +1175,8 @@ float OpenXR_HeadPitchDeg(void) {
  * compositor time-warps from exactly this pose to the fresh one, so
  * rendering the eye from this pose is what makes head rotation warp-free).
  * quat = x,y,z,w; pos = x,y,z in LOCAL tracking space (the engine renders
- * from its own world position and consumes only the orientation). Returns
+ * from its own rig position plus the tracked lean, with the orientation
+ * applied verbatim). Returns
  * 0 when the eye has no fresh view (first frames, mono session). */
 S32 OpenXR_GetEyeView(S32 eye, float *quat, float *pos) {
 #ifdef LBA2_OPENXR
