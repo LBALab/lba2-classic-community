@@ -2206,12 +2206,19 @@ static void GL_CreateMSAAFbo(U32 w, U32 h, S32 samples) {
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_RGBA8, w, h);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                               GL_RENDERBUFFER, s_msaaColorRb);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
     glBindRenderbuffer(GL_RENDERBUFFER, s_msaaDepthRb);
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples,
                                      GL_DEPTH_COMPONENT16, w, h);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                               GL_RENDERBUFFER, s_msaaDepthRb);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    /* Note: resolving the color in-tile via EXT_multisampled_render_to_texture
+       was tried here (attaching s_fboColorTex with multisample semantics) and
+       came back black on the device — the texture is simultaneously attached
+       plain to s_fbo (which GL_ClearFBO clears every frame), and the dual
+       access defeats the implicit resolve.  A working in-tile scheme needs
+       single-attachment discipline across every s_fbo consumer first. */
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         Log_Warn("[GL] MSAA FBO incomplete (samples=%d)", samples);
         GL_DestroyMSAAFbo();
@@ -2239,7 +2246,7 @@ static void GL_ResolveMSAA(void) {
 /* Color-only variant for the present paths: the composite samples s_fbo's
    color texture, and nothing after the resolve reads s_fbo's depth — the
    depth half of the full resolve was a second full-surface resolve every
-   frame. Consumers of resolved depth (the depth readback at native scale)
+   frame.  Consumers of resolved depth (the depth readback at native scale)
    refresh it themselves with a depth-only blit. */
 static void GL_ResolveMSAAColor(void) {
     if (s_msaaFbo == 0 || s_msaaW == 0)
@@ -2255,6 +2262,16 @@ static void GL_ResolveMSAAColor(void) {
 void GL_SetAntiAlias(S32 mode) {
     if (mode < 0) mode = 0;
     if (mode > 3) mode = 3;
+#ifdef __ANDROID__
+    /* 4xMSAA quadruples the tile bandwidth on mobile GPUs and stalled the
+     * whole frame loop; the AA menu no longer offers it and a cfg value of
+     * 3 clamps to MSAA×2 (same reasoning as the Android RenderQuality
+     * clamp). */
+    if (mode > 2) {
+        Log_Info("[GL] Android: AntiAlias %d clamped to 2", mode);
+        mode = 2;
+    }
+#endif
     if (s_antiAlias == mode) return;
     Log_Info("[GL] SetAntiAlias: %d -> %d", s_antiAlias, mode);
     s_antiAlias = mode;
@@ -3658,7 +3675,17 @@ static U32 s_horizonW = 0;
 static U32 s_horizonH = 0;
 static S32 s_horizonValid = 0;
 
-void GL_CaptureHorizon(void) {
+/* Backdrop capture reuse: the horizon capture depends only on the camera
+ * pose, and while the pose (and the streamed-in cube set — see
+ * HorizonBackdropStable) is unchanged, the previous capture is still exact.
+ * The common head-mounted case is a still rig with the head looking around,
+ * which made the eye-0 capture a per-frame resolve-and-blit for nothing. */
+static S32 s_hznCapValid = 0;
+static S32 s_hznCapX = 0, s_hznCapY = 0, s_hznCapZ = 0;
+static S32 s_hznCapAlpha = 0, s_hznCapBeta = 0, s_hznCapGamma = 0;
+static U32 s_hznCapW = 0, s_hznCapH = 0;
+
+void GL_CaptureHorizon(S32 backdropStable) {
     if (!s_initialized || !s_fbo) {
         return;
     }
@@ -3667,8 +3694,34 @@ void GL_CaptureHorizon(void) {
     }
     GL_FlushBatch();
 
+    if (s_hznCapValid && backdropStable &&
+        s_hznCapW == s_fboWidth && s_hznCapH == s_fboHeight &&
+        s_hznCapX == CameraX && s_hznCapY == CameraY && s_hznCapZ == CameraZ &&
+        s_hznCapAlpha == CameraAlpha && s_hznCapBeta == CameraBeta &&
+        s_hznCapGamma == CameraGamma) {
+        /* Identical pose, identical backdrop: the previous capture is
+         * exact.  The per-frame valid flag still needs raising so this
+         * frame's second eye restores from the texture. */
+        s_horizonValid = 1;
+        return;
+    }
+    s_hznCapValid = 1;
+    s_hznCapX = CameraX;
+    s_hznCapY = CameraY;
+    s_hznCapZ = CameraZ;
+    s_hznCapAlpha = CameraAlpha;
+    s_hznCapBeta = CameraBeta;
+    s_hznCapGamma = CameraGamma;
+    s_hznCapW = s_fboWidth;
+    s_hznCapH = s_fboHeight;
+
+    /* The MSAA restore path (GL_RestoreHorizon) redraws the backdrop as a
+       color-only quad and never reads the horizon FBO's depth, so under
+       MSAA only color is captured — and only the color half needs
+       resolving.  The depth copy matters solely for the non-MSAA restore,
+       which cannot run while MSAA is on. */
     if (s_msaaFbo && s_antiAlias >= 2)
-        GL_ResolveMSAA();
+        GL_ResolveMSAAColor();
 
     const U32 w = s_fboWidth;
     const U32 h = s_fboHeight;
@@ -3702,11 +3755,16 @@ void GL_CaptureHorizon(void) {
     }
 
     /* Color + depth: the current-cube terrain drawn after the restore must
-       depth-test against the backdrop exactly as if it had drawn it. */
+       depth-test against the backdrop exactly as if it had drawn it.
+       Under MSAA the restore reads only color (see above), so the blit
+       drops the depth half. */
     glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_horizonFbo);
     glBlitFramebuffer(0, 0, w, h, 0, 0, w, h,
-                      GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+                      (s_msaaFbo && s_antiAlias >= 2)
+                          ? GL_COLOR_BUFFER_BIT
+                          : (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT),
+                      GL_NEAREST);
     /* Mid-frame invariant: keep drawing into the scene FBO. */
     glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
     s_horizonValid = 1;

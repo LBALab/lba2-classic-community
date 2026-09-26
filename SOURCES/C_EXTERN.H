@@ -122,11 +122,14 @@ extern S32 GPURendererActive; ///< 0 = Software, 1 = OpenGL/GLES
 extern S32 DisplayTexFilter;
 extern S32 DisplayAntiAlias;  ///< 0 = Nearest, 1 = Bilinear, 2 = Scale2x (2D overlay in GL mode)
 extern S32 RenderQuality;     ///< 1 = native, 2 = 2x SSAA, 4 = 4x SSAA (GL mode only)
+#endif
+/* Display adjustments and the VR FOV zoom exist in every renderer config:
+ * GLOBAL.CPP defines them unconditionally and the console cvars reference
+ * them without a GL guard. */
 extern S32 DisplayBrightness; ///< image adjust: -50..+50, 0 = default (GL mode only)
 extern S32 DisplayContrast;   ///< image adjust: -50..+50, 0 = default (GL mode only)
 extern S32 DisplaySaturation; ///< image adjust: -50..+50, 0 = default (GL mode only)
 extern S32 VrFovScale; ///< VR world zoom percent of the eye FOV: 100 = natural, 120 = widest safe (Quest)
-#endif
 extern S32 FixedTimestep; ///< #358: min ms of game-time per sim step (0 = off). See docs/MOVEMENT_FRAMERATE.md.
 
 /// 1 = mouse hover / click / wheel in plasma menus (see docs/MENU.md). Read from lba2.cfg `MenuMouse`.

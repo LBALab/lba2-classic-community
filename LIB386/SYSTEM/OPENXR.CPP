@@ -164,15 +164,32 @@ static float                   s_headRollDeg = 0.0f;
 static XrView                  s_renderViews[2];
 static U32                     s_renderViewCount = 0;
 static XrSwapchainImageOpenGLESKHR *s_swapchainImages = NULL;
+/* Per-image FBO wrapping each swapchain texture (lazily created, cached). */
+static GLuint *s_swapchainFBOs = NULL;
 static U32                     s_swapchainImageCount = 0;
 static U32                     s_swapchainImageIndex = 0;
 
 /* Predicted display time of the frame currently inside xrWaitFrame/xrEndFrame. */
+/* 1 between a successful xrBeginFrame and its xrEndFrame (see
+ * OpenXR_EnsureFrameBegun): gameplay begins the frame at frame start, so
+ * present must not wait/begin a second time. */
+static S32 s_frameBegun = 0;
 static XrTime                  s_predictedDisplayTime = 0;
 
 /* System id captured at session-create time; needed later to enumerate
  * view configurations for the immersive (mono blit) path. */
 static XrSystemId              s_systemId = XR_NULL_SYSTEM_ID;
+
+/* Optional runtime extensions (enabled only when enumerated, functions
+ * resolved with xrGetInstanceProcAddr): performance clocks and fixed
+ * foveation — the tiler renders fewer full-quality pixels in the
+ * periphery, a large fill-rate save on mobile GPUs. */
+static S32 s_extPerfSettings = 0;
+static S32 s_extFoveation = 0;
+static PFN_xrPerfSettingsSetPerformanceLevelEXT p_xrPerfSettingsSetPerformanceLevelEXT = NULL;
+static PFN_xrCreateFoveationProfileFB p_xrCreateFoveationProfileFB = NULL;
+static PFN_xrUpdateSwapchainFB p_xrUpdateSwapchainFB = NULL;
+static XrFoveationProfileFB s_foveationProfile = XR_NULL_HANDLE;
 
 /* GL renderer stereo eye capture (RENDER_GL.CPP). */
 extern "C" U32 GL_GetStereoEyeFBO(S32 eye);
@@ -361,6 +378,21 @@ static S32 OpenXR_CreateInstance(void) {
         if (HAS_EXT(XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME)) {
             PUSH_EXT(XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME);
         }
+        s_extPerfSettings = HAS_EXT(XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME);
+        if (s_extPerfSettings) {
+            PUSH_EXT(XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME);
+        }
+        /* Foveation needs all three: the profile/swapchain glue (foveation),
+         * the level configuration struct, and the state-update entry point. */
+        s_extFoveation =
+            HAS_EXT(XR_FB_FOVEATION_EXTENSION_NAME) &&
+            HAS_EXT(XR_FB_FOVEATION_CONFIGURATION_EXTENSION_NAME) &&
+            HAS_EXT(XR_FB_SWAPCHAIN_UPDATE_STATE_EXTENSION_NAME);
+        if (s_extFoveation) {
+            PUSH_EXT(XR_FB_FOVEATION_EXTENSION_NAME);
+            PUSH_EXT(XR_FB_FOVEATION_CONFIGURATION_EXTENSION_NAME);
+            PUSH_EXT(XR_FB_SWAPCHAIN_UPDATE_STATE_EXTENSION_NAME);
+        }
 
         XrInstanceCreateInfoAndroidKHR androidInfo;
         memset(&androidInfo, 0, sizeof(androidInfo));
@@ -398,6 +430,23 @@ static S32 OpenXR_CreateInstance(void) {
             return 0;
         }
         OXR_LOGI("xrCreateInstance OK");
+        /* Resolve the optional-extension entry points now that the instance
+         * exists; each is only used when its extension was enabled. */
+        if (s_extPerfSettings) {
+            xrGetInstanceProcAddr(
+                s_instance, "xrPerfSettingsSetPerformanceLevelEXT",
+                (PFN_xrVoidFunction *)&p_xrPerfSettingsSetPerformanceLevelEXT);
+        }
+        if (s_extFoveation) {
+            xrGetInstanceProcAddr(s_instance, "xrCreateFoveationProfileFB",
+                                  (PFN_xrVoidFunction *)&p_xrCreateFoveationProfileFB);
+            xrGetInstanceProcAddr(s_instance, "xrUpdateSwapchainFB",
+                                  (PFN_xrVoidFunction *)&p_xrUpdateSwapchainFB);
+            s_extFoveation = (p_xrCreateFoveationProfileFB != NULL &&
+                              p_xrUpdateSwapchainFB != NULL);
+        }
+        OXR_LOGI("optional ext: perfSettings=%d foveation=%d",
+                 s_extPerfSettings, s_extFoveation);
         SDL_free(available);
         SDL_free(enabled);
     }
@@ -693,6 +742,15 @@ static S32 OpenXR_CreateSwapchain(void) {
     scInfo.faceCount = 1;
     scInfo.arraySize = 1;
     scInfo.mipCount = 1;
+    /* Fixed foveation: the swapchain opts into tiler-level peripheral
+     * subsampling; the actual profile (level LOW) is attached right after
+     * the images are enumerated. */
+    XrSwapchainCreateInfoFoveationFB foveationInfo;
+    memset(&foveationInfo, 0, sizeof(foveationInfo));
+    if (s_extFoveation) {
+        foveationInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO_FOVEATION_FB;
+        scInfo.next = &foveationInfo;
+    }
     rc = xrCreateSwapchain(s_session, &scInfo, &s_swapchain);
     if (XR_FAILED(rc)) {
         Log_Warn("OpenXR: xrCreateSwapchain failed (0x%x)", (unsigned)rc);
@@ -711,11 +769,52 @@ static S32 OpenXR_CreateSwapchain(void) {
         s_swapchainImages[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
         s_swapchainImages[i].next = NULL;
     }
+    /* Per-image composite FBOs, created lazily at present time (the GL
+     * context only exists there) and cached for the swapchain's lifetime —
+     * attaching a texture to a fresh FBO every frame is pure driver
+     * overhead. */
+    s_swapchainFBOs = (GLuint *)calloc(s_swapchainImageCount, sizeof(GLuint));
     rc = xrEnumerateSwapchainImages(s_swapchain, s_swapchainImageCount, &s_swapchainImageCount,
         (XrSwapchainImageBaseHeader *)s_swapchainImages);
     if (XR_FAILED(rc)) {
         Log_Warn("OpenXR: xrEnumerateSwapchainImages failed (0x%x)", (unsigned)rc);
         return 0;
+    }
+
+    /* Attach a fixed foveation profile (LOW: periphery renders at reduced
+     * bin density, invisible in practice behind the engine-resolution
+     * upscale) to the swapchain. */
+    if (s_extFoveation) {
+        XrFoveationLevelProfileCreateInfoFB levelInfo;
+        memset(&levelInfo, 0, sizeof(levelInfo));
+        levelInfo.type = XR_TYPE_FOVEATION_LEVEL_PROFILE_CREATE_INFO_FB;
+        levelInfo.level = XR_FOVEATION_LEVEL_LOW_FB;
+        levelInfo.verticalOffset = 0.0f;
+        levelInfo.dynamic = XR_FOVEATION_DYNAMIC_DISABLED_FB;
+        XrFoveationProfileCreateInfoFB profileInfo;
+        memset(&profileInfo, 0, sizeof(profileInfo));
+        profileInfo.type = XR_TYPE_FOVEATION_PROFILE_CREATE_INFO_FB;
+        profileInfo.next = &levelInfo;
+        XrResult frc = p_xrCreateFoveationProfileFB(s_session, &profileInfo,
+                                                    &s_foveationProfile);
+        if (XR_FAILED(frc)) {
+            Log_Warn("OpenXR: xrCreateFoveationProfileFB failed (0x%x)",
+                     (unsigned)frc);
+        } else {
+            XrSwapchainStateFoveationFB foveationState;
+            memset(&foveationState, 0, sizeof(foveationState));
+            foveationState.type = XR_TYPE_SWAPCHAIN_STATE_FOVEATION_FB;
+            foveationState.profile = s_foveationProfile;
+            frc = p_xrUpdateSwapchainFB(s_swapchain,
+                                        (XrSwapchainStateBaseHeaderFB *)
+                                            &foveationState);
+            if (XR_FAILED(frc)) {
+                Log_Warn("OpenXR: xrUpdateSwapchainFB (foveation) failed (0x%x)",
+                         (unsigned)frc);
+            } else {
+                Log_Info("[OpenXR] fixed foveation LOW enabled");
+            }
+        }
     }
     return 1;
 #else
@@ -726,6 +825,7 @@ static S32 OpenXR_CreateSwapchain(void) {
 /* -------------------------------------------------------------------------- */
 static void OpenXR_DestroySession(void) {
 #ifdef __ANDROID__
+    s_foveationProfile = XR_NULL_HANDLE; /* session-scoped: freed by xrDestroySession */
     if (s_swapchain != XR_NULL_HANDLE) {
         xrDestroySwapchain(s_swapchain);
         s_swapchain = XR_NULL_HANDLE;
@@ -734,8 +834,14 @@ static void OpenXR_DestroySession(void) {
         free(s_swapchainImages);
         s_swapchainImages = NULL;
     }
+    if (s_swapchainFBOs) {
+        glDeleteFramebuffers((GLsizei)s_swapchainImageCount, s_swapchainFBOs);
+        free(s_swapchainFBOs);
+        s_swapchainFBOs = NULL;
+    }
     s_swapchainImageCount = 0;
     s_swapchainImageIndex = 0;
+    s_frameBegun = 0;
     s_swapchainWidth = 0;
     s_swapchainHeight = 0;
     s_viewCount = 0;
@@ -1240,6 +1346,20 @@ void OpenXR_PollEvents(void) {
                 OXR_LOGI("PollEvents: xrBeginSession returned rc=0x%x", (unsigned)beginRc);
                 if (XR_SUCCEEDED(beginRc)) {
                     s_sessionRunning = 1;
+                    /* Clock governor: the compositor targets 72 Hz and the
+                     * engine needs the GPU at boost to hold it; CPU goes to
+                     * sustained-high (boost there mostly burns battery). */
+                    if (s_extPerfSettings && p_xrPerfSettingsSetPerformanceLevelEXT) {
+                        XrResult prc = p_xrPerfSettingsSetPerformanceLevelEXT(
+                            s_session, XR_PERF_SETTINGS_DOMAIN_GPU_EXT,
+                            XR_PERF_SETTINGS_LEVEL_BOOST_EXT);
+                        OXR_LOGI("PerfSettings GPU=boost -> 0x%x", (unsigned)prc);
+                        prc = p_xrPerfSettingsSetPerformanceLevelEXT(
+                            s_session, XR_PERF_SETTINGS_DOMAIN_CPU_EXT,
+                            XR_PERF_SETTINGS_LEVEL_SUSTAINED_HIGH_EXT);
+                        OXR_LOGI("PerfSettings CPU=sustained-high -> 0x%x",
+                                 (unsigned)prc);
+                    }
                 } else {
                     Log_Warn("OpenXR: xrBeginSession failed (0x%x)", (unsigned)beginRc);
                 }
@@ -1261,6 +1381,7 @@ void OpenXR_PollEvents(void) {
 }
 
 /* -------------------------------------------------------------------------- */
+static S32 OpenXR_EnsureFrameBegun(void);
 S32 OpenXR_BeginFrame(void) {
 #ifdef LBA2_OPENXR
     if (!s_openxrActive) return 0;
@@ -1275,16 +1396,14 @@ S32 OpenXR_BeginFrame(void) {
         OXR_LOGI("BeginFrame: skip, sessionState=%d", (int)s_sessionState);
         return 0;
     }
-    /* Quest 3 immersive (mono blit) path: the whole frame — xrWaitFrame,
-     * OpenXR_ReadActions, xrBeginFrame..xrEndFrame — is now owned by
-     * OpenXR_PresentMono so it runs from ANY loop. The title screen and
-     * menus present through BoxStaticFullflip -> OpenXR_PresentMono and
-     * never call OpenXR_BeginFrame; if the wait/read lived here they would
-     * be skipped in the menu (black screen + dead controls) and, in the
-     * gameplay loop, we would xrWaitFrame twice per frame. So this branch
-     * is intentionally empty and PresentMono does everything. */
+    /* Quest 3 immersive (mono blit) path: xrWaitFrame + xrBeginFrame run
+     * HERE, at frame start, so the CPU-side render work overlaps the
+     * compositor's wait window instead of pushing the submit past its
+     * slot.  PresentMono funnels through the same one-shot, so title
+     * screen and menu presents (which skip this function) still begin
+     * their frame correctly, and gameplay never waits twice. */
     if (s_swapchain != XR_NULL_HANDLE) {
-        return 1;
+        return OpenXR_EnsureFrameBegun();
     }
     /* Input-only path (no swapchain): no frame to present, but still sync
      * actions every frame so JOYSTICK.CPP sees live controller state. */
@@ -1319,6 +1438,78 @@ S32 OpenXR_BeginFrame(void) {
  *
  * Returns 1 on a presented frame, 0 if the frame was skipped (caller
  * should still let SDL swap the window so the user sees something). */
+/* xrWaitFrame + xrBeginFrame, exactly once per frame.  OpenXR_BeginFrame
+ * calls this at frame START so the CPU-side render work overlaps the
+ * compositor's wait window and the frame submits on time; present paths
+ * that never went through BeginFrame (title screen, menus) reach the same
+ * one-shot from OpenXR_PresentMono instead. */
+static S32 OpenXR_EnsureFrameBegun(void) {
+#ifdef LBA2_OPENXR
+    if (s_frameBegun)
+        return 1;
+    if (!s_openxrActive || !s_sessionRunning)
+        return 0;
+    if (s_sessionState != XR_SESSION_STATE_FOCUSED &&
+        s_sessionState != XR_SESSION_STATE_VISIBLE &&
+        s_sessionState != XR_SESSION_STATE_READY &&
+        s_sessionState != XR_SESSION_STATE_SYNCHRONIZED) {
+        return 0;
+    }
+    {
+        XrFrameWaitInfo waitInfo;
+        memset(&waitInfo, 0, sizeof(waitInfo));
+        waitInfo.type = XR_TYPE_FRAME_WAIT_INFO;
+        XrFrameState frameState;
+        memset(&frameState, 0, sizeof(frameState));
+        frameState.type = XR_TYPE_FRAME_STATE;
+        XrResult waitRc = xrWaitFrame(s_session, &waitInfo, &frameState);
+        if (XR_FAILED(waitRc)) {
+            Log_Warn("OpenXR: xrWaitFrame failed (0x%x)", (unsigned)waitRc);
+            return 0;
+        }
+        s_predictedDisplayTime = frameState.predictedDisplayTime;
+    }
+    OpenXR_ReadActions();
+    {
+        XrFrameBeginInfo beginInfo;
+        memset(&beginInfo, 0, sizeof(beginInfo));
+        beginInfo.type = XR_TYPE_FRAME_BEGIN_INFO;
+        XrResult rc = xrBeginFrame(s_session, &beginInfo);
+        if (XR_FAILED(rc)) {
+            Log_Warn("OpenXR: xrBeginFrame failed (0x%x)", (unsigned)rc);
+            return 0;
+        }
+    }
+    s_frameBegun = 1;
+    return 1;
+#else
+    return 0;
+#endif
+}
+
+/* Composite FBO for a swapchain image: created on first use, cached for the
+ * swapchain's lifetime.  Binds the FBO (complete or not — callers check). */
+static U32 OpenXR_SwapchainFBO(U32 imageIndex) {
+#ifdef LBA2_OPENXR
+    GLuint fbo = s_swapchainFBOs ? s_swapchainFBOs[imageIndex] : 0;
+    if (fbo != 0) {
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        return fbo;
+    }
+    GLuint imgTex = s_swapchainImages[imageIndex].image;
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_2D, imgTex, 0);
+    if (s_swapchainFBOs)
+        s_swapchainFBOs[imageIndex] = fbo;
+    return fbo;
+#else
+    (void)imageIndex;
+    return 0;
+#endif
+}
+
 S32 OpenXR_PresentMono(void) {
 #ifdef LBA2_OPENXR
 #ifdef __ANDROID__
@@ -1370,56 +1561,20 @@ S32 OpenXR_PresentMono(void) {
     {
         static int s_presentLogCount = 0;
         if (s_presentLogCount < 3) {
-            OXR_LOGI("PresentMono: presenting, sessionState=%d swapchainW=%u swapchainH=%u imgIdx=%u/%u",
-                     (int)s_sessionState, (unsigned)s_swapchainWidth, (unsigned)s_swapchainHeight,
+            OXR_LOGI("PresentMono: presenting, sessionState=%u swapchainW=%u swapchainH=%u imgIdx=%u/%u",
+                     (unsigned)s_sessionState, (unsigned)s_swapchainWidth, (unsigned)s_swapchainHeight,
                      (unsigned)s_swapchainImageIndex, (unsigned)s_swapchainImageCount);
             s_presentLogCount++;
         }
     }
 
-    /* 0. Wait for the predicted display time and read controller input for
-     *    this frame. Moved here from OpenXR_BeginFrame so the menu/intro
-     *    present path (via Window_GL_SwapWindow) also gets a fresh predicted
-     *    time and live input. Exactly one xrWaitFrame precedes each xrBeginFrame. */
-    {
-        XrFrameWaitInfo waitInfo;
-        memset(&waitInfo, 0, sizeof(waitInfo));
-        waitInfo.type = XR_TYPE_FRAME_WAIT_INFO;
-        XrFrameState frameState;
-        memset(&frameState, 0, sizeof(frameState));
-        frameState.type = XR_TYPE_FRAME_STATE;
-        XrResult waitRc = xrWaitFrame(s_session, &waitInfo, &frameState);
-        if (XR_FAILED(waitRc)) {
-            Log_Warn("OpenXR: xrWaitFrame failed (0x%x)", (unsigned)waitRc);
-            return 0;
-        }
-        {
-            static int s_waitLogCount = 0;
-            if (s_waitLogCount < 3) {
-                OXR_LOGI("xrWaitFrame OK, predictedDisplayTime=%lld shouldRender=%d", (long long)frameState.predictedDisplayTime, (int)frameState.shouldRender);
-                s_waitLogCount++;
-            }
-        }
-        s_predictedDisplayTime = frameState.predictedDisplayTime;
-    }
-    OpenXR_ReadActions();
-
-    /* 1. Begin frame. */
-    XrFrameBeginInfo beginInfo;
-    memset(&beginInfo, 0, sizeof(beginInfo));
-    beginInfo.type = XR_TYPE_FRAME_BEGIN_INFO;
-    XrResult rc = xrBeginFrame(s_session, &beginInfo);
-    if (XR_FAILED(rc)) {
-        Log_Warn("OpenXR: xrBeginFrame failed (0x%x)", (unsigned)rc);
+    /* 0.+1. Wait for the predicted display time and begin the frame —
+     * exactly once, even when OpenXR_BeginFrame already did it at frame
+     * start (the normal gameplay path, which lets the CPU render work
+     * overlap the compositor's wait window). */
+    XrResult rc;
+    if (!OpenXR_EnsureFrameBegun())
         return 0;
-    }
-    {
-        static int s_beginLogCount = 0;
-        if (s_beginLogCount < 3) {
-            OXR_LOGI("xrBeginFrame OK");
-            s_beginLogCount++;
-        }
-    }
 
     /* 2. Acquire + wait for a swapchain image. */
     XrSwapchainImageAcquireInfo acquireInfo;
@@ -1620,11 +1775,7 @@ S32 OpenXR_PresentMono(void) {
                 S32 eyeDstX1 = halfW;
                 S32 marginY = 0;
 
-                GLuint swapFbo;
-                glGenFramebuffers(1, &swapFbo);
-                glBindFramebuffer(GL_FRAMEBUFFER, swapFbo);
-                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                                       GL_TEXTURE_2D, imgTex, 0);
+                GLuint swapFbo = OpenXR_SwapchainFBO(s_swapchainImageIndex);
                 if (glCheckFramebufferStatus(GL_FRAMEBUFFER) ==
                     GL_FRAMEBUFFER_COMPLETE) {
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, eyeFBO0);
@@ -1650,8 +1801,6 @@ S32 OpenXR_PresentMono(void) {
                                         0, 0, (GLsizei)eyeDstW, (GLsizei)eyeDstH);
                 }
                 glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
-                glDeleteFramebuffers(1, &swapFbo);
-                glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
                 {
                     static int s_stBlitLogCount = 0;
                     GLenum glErr = glGetError();
@@ -1671,11 +1820,7 @@ S32 OpenXR_PresentMono(void) {
                    resolutions above the swapchain size (supersampled options)
                    downscale to fit instead of cropping, which the 1:1
                    glCopyTexSubImage2D path could not do. */
-                GLuint swapFbo;
-                glGenFramebuffers(1, &swapFbo);
-                glBindFramebuffer(GL_FRAMEBUFFER, swapFbo);
-                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                                       GL_TEXTURE_2D, imgTex, 0);
+                GLuint swapFbo = OpenXR_SwapchainFBO(s_swapchainImageIndex);
                 GLenum blitErr = glGetError();
                 if (blitErr == 0 && glCheckFramebufferStatus(GL_FRAMEBUFFER) ==
                                         GL_FRAMEBUFFER_COMPLETE) {
@@ -2005,6 +2150,7 @@ S32 OpenXR_PresentMono(void) {
     endInfo.layerCount = (layerPtr != NULL) ? 1 : 0;
     endInfo.layers = (layerPtr != NULL) ? &layerPtr : NULL;
     rc = xrEndFrame(s_session, &endInfo);
+    s_frameBegun = 0; /* the next frame must wait+begin again */
     if (XR_FAILED(rc)) {
         OXR_LOGE("xrEndFrame failed: %s (0x%x)", OXR_ResultStr(rc), (unsigned)rc);
         Log_Warn("OpenXR: xrEndFrame failed (0x%x)", (unsigned)rc);

@@ -250,9 +250,11 @@ void SetVideoPaletteSync(const U8 src[]) {
        that only redraw bodies over preserved terrain would otherwise keep
        showing terrain shaded with the previous palette — black after a
        load, until a camera move forces a full redraw. */
+#ifdef USE_GPURENDERER
     if (GPURendererActive) {
         BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
     }
+#endif
 }
 
 void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[],

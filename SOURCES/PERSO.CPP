@@ -2994,6 +2994,10 @@ void ReadConfigFile(void) {
     DisplayAntiAlias = DefFileBufferReadValueDefault("DisplayAntiAlias", 0);
     if (DisplayAntiAlias < 0 OR DisplayAntiAlias > 3)
         DisplayAntiAlias = 0;
+#ifdef __ANDROID__
+    if (DisplayAntiAlias > 2)
+        DisplayAntiAlias = 2; /* MSAA×4 not offered on Android (GL_SetAntiAlias) */
+#endif
     if (DisplayTexFilter < 0 OR DisplayTexFilter > 2)
         DisplayTexFilter = TRUE;
 

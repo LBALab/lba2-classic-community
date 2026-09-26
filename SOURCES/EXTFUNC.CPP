@@ -407,7 +407,7 @@ void AffGrilleExt() {
             DrawHorizon2ZBuf();
 #ifdef USE_GPURENDERER
             if (GPURendererActive && GL_GetStereoEye() == 0) {
-                GL_CaptureHorizon();
+                GL_CaptureHorizon(HorizonBackdropStable());
             }
 #endif
         }

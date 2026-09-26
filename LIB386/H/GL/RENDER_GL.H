@@ -98,8 +98,10 @@ void GL_RestoreTerrainSnapshot(void);
 //! (DrawHorizon2ZBuf) in eye 0, then blit it in eye 1 instead of re-running
 //! the pass — the backdrop's stereo disparity is sub-pixel.  The capture
 //! clears at GL_BeginFrame, so frames that never captured (menus, mono)
-//! draw the horizon normally.
-void GL_CaptureHorizon(void);
+//! draw the horizon normally.  When @p backdropStable is true (no missing
+//! cube placeholders) and the camera pose is unchanged since the previous
+//! capture, the previous capture is reused as-is.
+void GL_CaptureHorizon(S32 backdropStable);
 void GL_RestoreHorizon(void);
 S32 GL_HorizonValid(void);
 

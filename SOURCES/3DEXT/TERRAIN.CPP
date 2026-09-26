@@ -950,11 +950,65 @@ S32 OffPosCamera[3] = {
 
 extern S32 PtrProjectPoint(S32 xw, S32 yw, S32 zw);
 
+/* Set when a horizon cube had to fall back to the sea placeholder this
+ * frame (cube not streamed in yet): the backdrop is still changing. */
+static S32 s_hznSeaDrew = 0;
+
+/* Conservative whole-cube frustum reject for the horizon backdrop.  The
+ * camera sits inside the neighbour-cube grid, so cubes regularly fall
+ * entirely outside the view cone and their 65x65 vertex transform is pure
+ * waste.  A cube is skipped only when every corner of its padded bounding
+ * box fails the SAME clip plane — for a convex box that is an exact test,
+ * so a cube with any visible pixel is never culled.  Runs after
+ * SetPosCamera has shifted the camera onto this cube and uses the same
+ * rotate/project/clip sequence as the per-vertex loop below; the projection
+ * globals are clobbered, which is fine because AffichageTerrainZBuf (or the
+ * skip) re-derives everything. */
+static S32 HorizonCubeOffscreen(void) {
+    const S32 CUBE = -OffPosCamera[0];
+    const S32 Y_MIN = -32768; /* full S16 height range: never cull a real peak */
+    const S32 Y_MAX = 32767;
+    static const S32 corner[8][3] = {
+        {0, Y_MIN, 0}, {CUBE, Y_MIN, 0}, {0, Y_MIN, CUBE}, {CUBE, Y_MIN, CUBE},
+        {0, Y_MAX, 0}, {CUBE, Y_MAX, 0}, {0, Y_MAX, CUBE}, {CUBE, Y_MAX, CUBE}};
+    S32 common = 63; /* every clip plane is a cull candidate */
+    S32 i;
+    for (i = 0; i < 8; i++) {
+        S32 flags;
+        S32 zr;
+        LongWorldRotatePoint(corner[i][0], corner[i][1], corner[i][2]);
+        zr = CameraZr - Z0;
+        if (zr <= NearClip) {
+            flags = 1; /* behind the near plane */
+        } else if (zr >= ClipZFar) {
+            flags = 2; /* beyond the far plane */
+        } else if (!LongProjectPoint(X0, Y0, Z0)) {
+            flags = 1; /* unprojectable: treat like near-clipped */
+        } else if (Xp < ClipXMin) {
+            flags = 4; /* fully left of the screen */
+        } else if (Xp > ClipXMax) {
+            flags = 8;
+        } else if (Yp < ClipYMin) {
+            flags = 16;
+        } else if (Yp > ClipYMax) {
+            flags = 32;
+        } else {
+            flags = 0; /* this corner is on screen */
+        }
+        common &= flags;
+        if (!common) {
+            return 0; /* corners disagree: the cube may be visible */
+        }
+    }
+    return 1;
+}
+
 void DrawHorizon2ZBuf() {
     S32 flag = FALSE;
     S32 cx = CameraX;
     S32 cy = CameraY;
     S32 cz = CameraZ;
+    s_hznSeaDrew = 0;
 
     if (BetaCam >= 0 AND BetaCam < 1024) {
         TerrainTri = TerrSO;
@@ -1004,10 +1058,14 @@ void DrawHorizon2ZBuf() {
                     SetPosCamera(cx - OffPosCamera[TerrainTri->x + 1] + TerrainTri->x * Reglage, cy, cz - OffPosCamera[TerrainTri->y + 1] + TerrainTri->y * Reglage);
 #endif
                     if (LoadCube(x, y)) {
-                        AffichageTerrainZBuf();
+                        if (!HorizonCubeOffscreen()) {
+                            AffichageTerrainZBuf();
+                        }
                         flag = TRUE;
-                    } else
-    DrawOneSea(Y_SEA);
+                    } else {
+                        DrawOneSea(Y_SEA);
+                        s_hznSeaDrew = 1;
+                    }
                 }
             }
         }
@@ -1020,8 +1078,17 @@ void DrawHorizon2ZBuf() {
             // on est dans un cube phantom !!!!!!!
             InitSeaCube();
             DrawOneSea(Y_SEA);
+            s_hznSeaDrew = 1;
         }
     }
+}
+
+/* 1 when the last DrawHorizon2ZBuf rendered terrain for every candidate
+ * cube — no sea placeholder drew, so the backdrop is in its steady state.
+ * The stereo capture (GL_CaptureHorizon) may only reuse a previous capture
+ * while this holds. */
+S32 HorizonBackdropStable(void) {
+    return !s_hznSeaDrew;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/

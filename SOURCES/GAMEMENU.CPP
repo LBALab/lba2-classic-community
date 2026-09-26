@@ -3476,8 +3476,14 @@ S32 GereDisplayMenu(void) {
             break;
 
         case MENU_ID_DISPLAY_ANTIALIAS:
-            /* 0 = Off, 1 = FXAA, 2 = MSAA×2, 3 = MSAA×4 */
+            /* 0 = Off, 1 = FXAA, 2 = MSAA×2, 3 = MSAA×4 (desktop only —
+             * Android cycles two states; 4xMSAA stalls mobile GPUs, see
+             * GL_SetAntiAlias's clamp) */
+#ifdef __ANDROID__
+            DisplayAntiAlias = (DisplayAntiAlias + 1) % 3;
+#else
             DisplayAntiAlias = (DisplayAntiAlias + 1) % 4;
+#endif
             GL_SetAntiAlias(DisplayAntiAlias);
             WriteConfigFile();
             break;

@@ -15,6 +15,11 @@ extern void DrawSeenSea(S32 y);
 /*--------------------------------------------------------------------------*/
 extern void DrawHorizon2ZBuf(void);
 /*--------------------------------------------------------------------------*/
+/* 1 when the last DrawHorizon2ZBuf had no missing-cube sea placeholder:
+ * the backdrop is in its steady state and may be reused by the stereo
+ * capture. */
+extern S32 HorizonBackdropStable(void);
+/*--------------------------------------------------------------------------*/
 extern void AffichageTerrainZBuf(void);
 /*--------------------------------------------------------------------------*/
 extern void AffichageTerrainRapide(void);
