@@ -494,8 +494,14 @@ void AffGrilleExt() {
         memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY + 512);
         /* Snapshot the completed terrain FBO: incremental frames restore it
            before the object pass to erase last frame's GL body/shadow
-           pixels (the FBO is not cleared on AFF_OBJETS_* frames). */
-        GL_SnapshotTerrain();
+           pixels (the FBO is not cleared on AFF_OBJETS_* frames).
+           Stereo eye passes are always AFF_ALL_FLIP full redraws and the
+           restore only ever fires on incremental frames, so a per-eye
+           snapshot was a full-surface color+depth blit twice per frame
+           for nothing. */
+        if (GL_GetStereoEye() < 0) {
+            GL_SnapshotTerrain();
+        }
         U32 rbT1 = SDL_GetTicks();
         {
             static S32 s_rbPerfLog = 0;
