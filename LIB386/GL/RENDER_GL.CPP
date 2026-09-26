@@ -1197,6 +1197,18 @@ static GLuint s_msaaFbo = 0;
 static GLuint s_msaaColorRb = 0;
 static GLuint s_msaaDepthRb = 0;
 static U32 s_msaaW = 0, s_msaaH = 0;
+/* Resolve-in-tile mode (GL_INTILE_MSAA + EXT_multisampled_render_to_texture):
+ * the MSAA FBO's color attachment is s_fboColorTex carrying multisample
+ * semantics, so the tiler resolves color as part of the render pass and the
+ * explicit color resolves become invalidation hints.  Depth stays a plain
+ * multisample renderbuffer because the depth readback reads it live.  The
+ * first attempt without the per-pass glInvalidateFramebuffer came back
+ * black on the device — sampling s_fboColorTex before a tile-discard hint
+ * returned stale data. */
+/* BISECTION (build A): in-tile disabled after "graphical issues" report;
+ * the snapshot skip stays. If A is clean, in-tile v2 is the culprit. */
+#define GL_INTILE_MSAA 0
+static S32 s_msaaInTile = 0;
 static S32 s_frameActive = 0; /* 1 between GL_BeginFrame and GL_Present */
 static U32 s_frameSeq = 0;    /* incremented in GL_BeginFrame */
 static U32 s_atlasContentVersion = 1; /* bumped when atlas marked dirty */
@@ -2199,35 +2211,66 @@ static void GL_DestroyMSAAFbo(void) {
 static void GL_CreateMSAAFbo(U32 w, U32 h, S32 samples) {
     GL_DestroyMSAAFbo();
     glGenFramebuffers(1, &s_msaaFbo);
-    glGenRenderbuffers(1, &s_msaaColorRb);
     glGenRenderbuffers(1, &s_msaaDepthRb);
     glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, s_msaaColorRb);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_RGBA8, w, h);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                              GL_RENDERBUFFER, s_msaaColorRb);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+#if GL_INTILE_MSAA
+    if (GL_MSAATextureExtAvailable() &&
+        p_glFramebufferTexture2DMultisampleEXT != NULL) {
+        /* Resolve-in-tile: the color attachment IS s_fbo's color texture
+         * carrying multisample semantics — the tiler resolves it during the
+         * pass's tile discard (forced per pass by GL_InvalidateMSAA below)
+         * and s_fboColorTex then holds the resolved image with no explicit
+         * color blit.  Depth keeps the plain multisample renderbuffer: the
+         * readback reads it live, so it must not be invalidated. */
+        p_glFramebufferTexture2DMultisampleEXT(
+            GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+            s_fboColorTex, 0, samples);
+        s_msaaColorRb = 0;
+        s_msaaInTile = 1;
+    } else
+#endif
+    {
+        glGenRenderbuffers(1, &s_msaaColorRb);
+        glBindRenderbuffer(GL_RENDERBUFFER, s_msaaColorRb);
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_RGBA8,
+                                         w, h);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                  GL_RENDERBUFFER, s_msaaColorRb);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        s_msaaInTile = 0;
+    }
     glBindRenderbuffer(GL_RENDERBUFFER, s_msaaDepthRb);
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples,
                                      GL_DEPTH_COMPONENT16, w, h);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                               GL_RENDERBUFFER, s_msaaDepthRb);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    /* Note: resolving the color in-tile via EXT_multisampled_render_to_texture
-       was tried here (attaching s_fboColorTex with multisample semantics) and
-       came back black on the device — the texture is simultaneously attached
-       plain to s_fbo (which GL_ClearFBO clears every frame), and the dual
-       access defeats the implicit resolve.  A working in-tile scheme needs
-       single-attachment discipline across every s_fbo consumer first. */
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        Log_Warn("[GL] MSAA FBO incomplete (samples=%d)", samples);
+        Log_Warn("[GL] MSAA FBO incomplete (samples=%d intile=%d)", samples,
+                 s_msaaInTile);
         GL_DestroyMSAAFbo();
+        s_msaaInTile = 0;
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         return;
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     s_msaaW = w;
     s_msaaH = h;
-    Log_Info("[GL] MSAA FBO created %ux%u samples=%d", w, h, samples);
+    Log_Info("[GL] MSAA FBO created %ux%u samples=%d (%s)", w, h, samples,
+             s_msaaInTile ? "resolve-in-tile" : "explicit resolve");
+}
+
+/* Tile-discard hint for resolve-in-tile: marks the MSAA FBO's color as no
+ * longer needed, which is the point where the driver folds the multisample
+ * content into s_fboColorTex.  Depth is deliberately NOT invalidated — the
+ * per-frame depth readback still reads it from this FBO. */
+static void GL_InvalidateMSAA(void) {
+    if (s_msaaFbo == 0 || !s_msaaInTile)
+        return;
+    glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
+    const GLenum att = GL_COLOR_ATTACHMENT0;
+    glInvalidateFramebuffer(GL_FRAMEBUFFER, 1, &att);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 /* Blit (resolve) from the MSAA FBO to the regular s_fbo. Called before any
@@ -2235,6 +2278,19 @@ static void GL_CreateMSAAFbo(U32 w, U32 h, S32 samples) {
 static void GL_ResolveMSAA(void) {
     if (s_msaaFbo == 0 || s_msaaW == 0)
         return;
+    if (s_msaaInTile) {
+        /* Color is already resolved into s_fboColorTex by the render pass
+         * (invalidate makes it definitive) — copying it here would blit the
+         * texture onto itself.  Only the depth half still needs the copy. */
+        GL_InvalidateMSAA();
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, s_msaaFbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
+        glBlitFramebuffer(0, 0, s_msaaW, s_msaaH, 0, 0, s_msaaW, s_msaaH,
+                          GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        return;
+    }
     glBindFramebuffer(GL_READ_FRAMEBUFFER, s_msaaFbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
     glBlitFramebuffer(0, 0, s_msaaW, s_msaaH, 0, 0, s_msaaW, s_msaaH,
@@ -2247,8 +2303,14 @@ static void GL_ResolveMSAA(void) {
    color texture, and nothing after the resolve reads s_fbo's depth — the
    depth half of the full resolve was a second full-surface resolve every
    frame.  Consumers of resolved depth (the depth readback at native scale)
-   refresh it themselves with a depth-only blit. */
+   refresh it themselves with a depth-only blit.  In resolve-in-tile mode
+   this is just the invalidation that makes the implicit resolve definitive;
+   s_fboColorTex already holds the image. */
 static void GL_ResolveMSAAColor(void) {
+    if (s_msaaInTile) {
+        GL_InvalidateMSAA();
+        return;
+    }
     if (s_msaaFbo == 0 || s_msaaW == 0)
         return;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, s_msaaFbo);

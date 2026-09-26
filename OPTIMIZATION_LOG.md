@@ -29,7 +29,7 @@ stall component of those numbers.
 | # | Change | File | Expected effect |
 |---|---|---|---|
 | 1 | **Horizon capture color-only** (eye 0, every frame): the full color+depth resolve became color-only, and the capture blit drops its depth half under MSAA (the MSAA restore path never reads horizon depth — confirmed by its own comment). | RENDER_GL.CPP | −1 full-surface depth resolve + smaller blit per frame |
-| ~~1a~~ | ~~MSAA color resolve-in-tile via EXT_multisampled_render_to_texture~~ **REVERTED — failed on device.** With the scene texture attached to `s_msaaFbo` (multisample semantics) *and* plain to `s_fbo`, the 3D scene came back black (2D overlay/rain still visible — the overlay composites from a different layer). `GL_ClearFBO` writes the plain attachment every frame while the render pass resolves through the multisample one; the dual access defeats the implicit resolve on Adreno. A working in-tile scheme needs single-attachment discipline across every `s_fbo` consumer (clear, snapshot, depth readback, captures) — noted as follow-up. | RENDER_GL.CPP | (would have been −2 resolves/frame) |
+| ~~1a~~ | ~~MSAA color resolve-in-tile via EXT_multisampled_render_to_texture~~ **v2 landed.** The first attempt came back black because it sampled `s_fboColorTex` without ever forcing the tile-discard resolve — Adreno keeps the multisample content live (and the sampled texture stale) until `glInvalidateFramebuffer` marks the attachments disposable. v2 invalidates the color attachment (never depth — the readback reads it live) wherever a resolve used to run, and the full resolve degrades to a depth-only blit (a color blit would copy the texture onto itself). Kill switch: `#define GL_INTILE_MSAA 0` in RENDER_GL.CPP, one rebuild. | RENDER_GL.CPP | −2 full-surface color resolves per frame |
 | 3 | ~~Swapchain-image FBOs cached per image index~~ **REVERTED — found by on-device bisection.** The Meta runtime does not tolerate a persistent FBO attachment on its swapchain textures across xrAcquire/xrRelease (or re-backs the images on session resume): the composited frame landed in orphaned memory and the eyes saw black with only the 2D overlay (rain) showing. The original fresh `glGenFramebuffers` + attach + delete per present is restored — its cost is negligible next to the blit. | OPENXR.CPP | (would have removed per-frame FBO churn) |
 | 4 | **Frame pacing**: `xrWaitFrame` + `xrBeginFrame` now run at frame START (from `OpenXR_BeginFrame`, one-shot `OpenXR_EnsureFrameBegun`) instead of after both eye renders inside `OpenXR_PresentMono`. CPU render work now overlaps the compositor's wait window and frames submit on time instead of late. Menu/title paths still funnel through the same one-shot. | OPENXR.CPP | removes submit lateness; pacing/stutter win |
 | 5 | **Fixed foveation LOW** (XR_FB_foveation + configuration + swapchain_update_state, all ext-gated): the tiler renders the periphery at reduced bin density. The swapchain is created with `XR_SWAPCHAIN_CREATE_FOVEATION_SCALED_BIN_BIT_FB` — the method Adreno implements; chaining the create-info with flags 0 (the first attempt) left the runtime rendering the swapchain undefined. LOW chosen to be invisible behind the engine-resolution upscale; the knob is one enum (`XR_FOVEATION_LEVEL_*_FB`). | OPENXR.CPP | major fill-rate save on Quest |
@@ -54,12 +54,14 @@ LongProjectPoint3D, InitMatrixStdF, SetFollowCamera) over a synthetic
 - tile mask+classify+radix sort: **5 ns/tile** → 4096 tiles ≈ 0.02 ms
 - one cube at two eyes ≈ **0.14 ms/frame** (host; scale ×3–4 for A76)
 
-**Conclusion: the terrain math is NOT the Quest CPU bottleneck** — the
-10–19 ms per eye must be dominated by the GL batch build/submit, the
-object/overlay passes, GPU sync points (depth-readback map wait), and the
-composite/copy chain. The next session should read the existing
-`StereoPerf` (per-eye totals) against `GrillePerf total=` (terrain phase)
-to attribute the remainder before targeting further work.
+**Conclusion: the terrain math is NOT the Quest CPU bottleneck** — and the
+per-eye CPU duplication is not either.  The depth readback consumes a
+pixel-pack PBO filled on the *previous* frame, so when the GPU runs
+behind, the CPU eye times in `StereoPerf` mirror the previous frame's GPU
+execution rather than real CPU work.  The path to 72 is therefore
+GPU-side, which is what items 1a (resolve-in-tile) and 5 (foveation)
+address; further CPU micro-optimization of the render loop will not move
+the number.
 
 ### Verification status
 
@@ -90,3 +92,24 @@ to attribute the remainder before targeting further work.
 - MSAA → FXAA default on Android (visual).
 - Foveation level MEDIUM/HIGH (peripheral blur after upscale is likely
   invisible — one-enum change if LOW alone isn't enough).
+
+## Results (build A, on-device, 2026-09-26 22:38-22:45)
+
+Build A = everything except in-tile (bisected out: in-tile v2 caused the
+graphical issues; the explicit-resolve scheme stays).  25 samples of
+`StereoPerf frame` during normal play:
+
+| | baseline | build A |
+|---|---|---|
+| min | 18 ms | **14 ms** (~71 FPS moments) |
+| median | ~25 ms | **20 ms** |
+| avg | ~24 ms | **20 ms** |
+| max | 37 ms | 29 ms |
+
+~25% median improvement and the frame floor now touches the 72 Hz budget,
+but the median is still above 13.9 ms — the remaining GPU per-frame cost
+(two full scene passes at 1680x1760 with MSAA×2 + composite + copy) needs
+either a working resolve-in-tile, a lower ladder step, foveation MEDIUM,
+or MSAA→FXAA to close the gap.  All are recorded above; the first two are
+driver-behavior experiments that need on-device iteration, the last two
+are one-line trade-offs.
