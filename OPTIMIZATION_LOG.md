@@ -41,7 +41,25 @@ stall component of those numbers.
 |---|---|---|---|
 | 7 | **Neighbour-cube frustum cull** in `DrawHorizon2ZBuf` (`HorizonCubeOffscreen`): a horizon cube is skipped only when all 8 corners of its padded bounding box fail the SAME clip plane (exact for a convex box — a visible cube is never culled). Uses the engine's own rotate/project/clip sequence. Output-identical; ASM equivalence unaffected (invisible cubes draw nothing on either side). | SOURCES/3DEXT/TERRAIN.CPP | cuts a large share of the 2–6 ms horizon CPU when the view cone covers part of the neighbour grid |
 | 8 | **Horizon-capture reuse**: the capture (eye 0) now skips its resolve-and-blit whenever the camera pose is unchanged since the previous capture AND no missing-cube sea placeholder drew this frame (`HorizonBackdropStable()` from TERRAIN.CPP guards against freezing a half-streamed backdrop). The common VR case — rig standing still, head looking around — previously paid the capture every frame for an identical image. | RENDER_GL.CPP, TERRAIN.CPP, EXTFUNC.CPP | removes a full-surface blit per frame while stationary |
-| 9 | **Build fixes that unblock the ASM suite**: (a) `SVGA/SDL.CPP` referenced `GPURendererActive` outside the `USE_GPURENDERER` guards (added in 0ee18ee0); (b) `DisplayBrightness`/`Contrast`/`Saturation`/`VrFovScale` declarations lived in a GL-only guard while the console cvars and cfg load/save reference them unconditionally, and the definitions were guarded too (moved out — the values are inert without the GL renderer). Every non-GL build, including the Docker linux_test preset, failed to compile before this; no behavior change when the GL renderer is on. | LIB386/SVGA/SDL.CPP, SOURCES/C_EXTERN.H, SOURCES/GLOBAL.CPP | Docker ASM↔CPP suite builds and runs again on this branch |
+| 10 | **Per-eye terrain snapshot skip**: `GL_SnapshotTerrain()` (full-surface color+depth blit at eye resolution) ran once per EYE every frame, but its output is consumed only by incremental-frame restores — and stereo eye passes are always AFF_ALL_FLIP full redraws. Skipped inside stereo eye passes (`GL_GetStereoEye() < 0` gate); mono/menu frames still snapshot. | SOURCES/EXTFUNC.CPP | −1 full-surface blit per eye per frame (2/frame) |
+| 9 | **Build fixes that unblock the ASM suite**: (a) `SVGA/SDL.CPP` referenced `GPURendererActive` outside the `USE_GPURENDERER` guards (added in 0ee18ee0); (b) `DisplayBrightness`/`Contrast`/`Saturation`/`VrFovScale` declarations lived in a GL-only guard while the console cvars and cfg load/save reference them unconditionally, and the definitions were guarded too (moved out — the values are inert without the GL renderer). Every non-GL configuration — including the Docker linux_test preset the ASM equivalence suite runs in — failed to compile; the suite now builds and runs again on this branch. No behavior change with the GL renderer on. | LIB386/SVGA/SDL.CPP, SOURCES/C_EXTERN.H, SOURCES/GLOBAL.CPP | Docker ASM↔CPP suite builds and runs again on this branch |
+
+### CPU measurement (Linux micro-benchmark, tests/bench_terrain)
+
+`bench_terrain` drives the real engine math (LongRotatePointF,
+LongProjectPoint3D, InitMatrixStdF, SetFollowCamera) over a synthetic
+65×65 cube with the same loop shape as AffichageTerrainZBuf:
+
+- vertex rotate+project: **12 ns/vertex** → 4225 verts ≈ 0.05 ms
+- tile mask+classify+radix sort: **5 ns/tile** → 4096 tiles ≈ 0.02 ms
+- one cube at two eyes ≈ **0.14 ms/frame** (host; scale ×3–4 for A76)
+
+**Conclusion: the terrain math is NOT the Quest CPU bottleneck** — the
+10–19 ms per eye must be dominated by the GL batch build/submit, the
+object/overlay passes, GPU sync points (depth-readback map wait), and the
+composite/copy chain. The next session should read the existing
+`StereoPerf` (per-eye totals) against `GrillePerf total=` (terrain phase)
+to attribute the remainder before targeting further work.
 
 ### Verification status
 

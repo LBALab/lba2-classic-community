@@ -51,6 +51,7 @@ add_subdirectory(movement)
 add_subdirectory(zone)
 add_subdirectory(gl_triangulate)
 add_subdirectory(stereolook)
+add_subdirectory(bench_terrain)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)
