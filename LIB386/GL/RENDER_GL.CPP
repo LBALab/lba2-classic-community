@@ -25,6 +25,11 @@
 #include <math.h>
 #include <FILEIO/SAVEPNG.H>
 
+/* SMAA lookup textures and shader core (generated / vendored, see the
+ * attribution at the top of each). */
+#include "SMAA_TEX.H"
+#include "SMAA_HLSL.H"
+
 /* ── External palette getter (defined in SDL.CPP) ───────────────────────── */
 extern "C" const U32 *GL_GetPaletteLUT(void);
 
@@ -530,6 +535,33 @@ static GLint s_fxaa_uTex = -1;
 static GLint s_fxaa_uTexel = -1;
 static GLint s_fxaa_aPos = -1;
 static GLint s_fxaa_aTexCoord = -1;
+
+/* ── SMAA 1x (Subpixel Morphological Antialiasing) ──────────────────────── */
+/* Three-pass post-process (edge detection -> blending weights -> neighbor
+   blend) run at the present path where FXAA lives.  Requires a GLES3/GL3
+   context for the SMAA_GLSL_3 shader dialect and textureLodOffset; when
+   compilation fails the mode falls back to the plain draw (log says so).
+   Textures and shader core are the official SMAA reference assets
+   (MIT / Unlicense, attribution in SMAA_TEX.H / SMAA_HLSL.H). */
+static GLuint s_smaaEdgeProgram = 0;
+static GLuint s_smaaWeightProgram = 0;
+static GLuint s_smaaBlendProgram = 0;
+static GLuint s_smaaEdgeFbo = 0, s_smaaEdgeTex = 0;
+static GLuint s_smaaWeightFbo = 0, s_smaaWeightTex = 0;
+static GLuint s_smaaAreaTex = 0, s_smaaSearchTex = 0;
+static U32 s_smaaW = 0, s_smaaH = 0;
+static GLint s_smaaEdge_uTexel = -1, s_smaaEdge_aPos = -1,
+             s_smaaEdge_aTexCoord = -1;
+static GLint s_smaaWeight_uRTMetrics = -1, s_smaaWeight_aPos = -1,
+             s_smaaWeight_aTexCoord = -1;
+static GLint s_smaaBlend_uTexel = -1, s_smaaBlend_aPos = -1,
+             s_smaaBlend_aTexCoord = -1;
+static GLint s_smaaAdj_uBrightness = -1, s_smaaAdj_uContrast = -1,
+             s_smaaAdj_uSaturation = -1;
+
+static void GL_SmaaInit(void);
+static void GL_SmaaTargetsCreate(U32 w, U32 h);
+static void GL_SmaaPresent(S32 bX, S32 bY, S32 bW, S32 bH);
 
 /* ── Frame cost profiler ─────────────────────────────────────────────────── */
 /* No on-device profiler exists for the Android build, so the three known
@@ -1842,6 +1874,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
         glDeleteShader(ff);
     }
 
+    GL_SmaaInit();
+
     Log_Info("[GL] CLUT shader compiled OK (aPos=%d aTexCoord=%d aLight=%d "
              "aZ=%d aRepMask=%d aMaterial=%d uAtlas=%d uCLUT=%d uPalette=%d "
              "uScreenScale=%d).",
@@ -2146,7 +2180,7 @@ void GL_Renderer_Resize(U32 resX, U32 resY) {
     /* Recreate FBO at scaled resolution (always needed) */
     s_fboHasTerrain = 0;
     GL_CreateFBO(resX * s_renderQuality, resY * s_renderQuality);
-    if (s_antiAlias >= 2) {
+    if ((s_antiAlias == 2 || s_antiAlias == 3)) {
         GL_CreateMSAAFbo(resX * s_renderQuality, resY * s_renderQuality,
                          (s_antiAlias == 3) ? 4 : 2);
     }
@@ -2181,12 +2215,342 @@ void GL_SetRenderQuality(U32 quality) {
     }
     s_fboHasTerrain = 0;
     GL_CreateFBO(s_texWidth * quality, s_texHeight * quality);
-    if (s_antiAlias >= 2) {
+    if ((s_antiAlias == 2 || s_antiAlias == 3)) {
         GL_CreateMSAAFbo(s_texWidth * quality, s_texHeight * quality,
                          (s_antiAlias == 3) ? 4 : 2);
     }
     Log_Info("[GL] SetRenderQuality: FBO %s (s_fbo=%u).",
              s_fbo ? "OK" : "FAILED", s_fbo);
+}
+
+/* ── SMAA 1x (three-pass morphological antialiasing) ────────────────────── */
+/* Official SMAA reference implementation (MIT/Unlicense, attribution in
+   SMAA_HLSL.H).  Pass 1 finds luma edges, pass 2 searches them and fetches
+   blending weights from the Area/Search lookup textures, pass 3 blends the
+   scene color along the edges.  Needs a GLES3/GL3 context (SMAA_GLSL_3). */
+
+static const char *s_smaaEdgeVertSrc =
+    "#version 300 es\n"
+    "#define SMAA_GLSL_3\n"
+    "#define SMAA_RT_METRICS vec4(uTexel.x, uTexel.y, 1.0 / uTexel.x, 1.0 / uTexel.y)\n"
+    "uniform vec2 uTexel;\n"
+    "in vec2 aPos;\n"
+    "in vec2 aTexCoord;\n"
+    "out vec2 vTexCoord;\n"
+    "out vec4 offset[3];\n"
+    SMAA_HLSL_SRC
+    "void main() {\n"
+    "    gl_Position = vec4(aPos, 0.0, 1.0);\n"
+    "    vTexCoord = aTexCoord;\n"
+    "    SMAAEdgeDetectionVS(aTexCoord, offset);\n"
+    "}\n";
+
+static const char *s_smaaEdgeFragSrc =
+    "#version 300 es\n"
+    "precision highp float;\n"
+    "#define SMAA_GLSL_3\n"
+    "#define SMAA_RT_METRICS vec4(uTexel.x, uTexel.y, 1.0 / uTexel.x, 1.0 / uTexel.y)\n"
+    "uniform sampler2D uTex;\n"
+    "uniform vec2 uTexel;\n"
+    "in vec2 vTexCoord;\n"
+    "in vec4 offset[3];\n"
+    "out vec4 fragColor;\n"
+    SMAA_HLSL_SRC
+    "void main() {\n"
+    "    fragColor = vec4(SMAALumaEdgeDetectionPS(vTexCoord, offset, uTex), 0.0, 0.0);\n"
+    "}\n";
+
+static const char *s_smaaWeightVertSrc =
+    "#version 300 es\n"
+    "#define SMAA_GLSL_3\n"
+    "#define SMAA_RT_METRICS vec4(uTexel.x, uTexel.y, 1.0 / uTexel.x, 1.0 / uTexel.y)\n"
+    "uniform vec2 uTexel;\n"
+    "in vec2 aPos;\n"
+    "in vec2 aTexCoord;\n"
+    "out vec2 vTexCoord;\n"
+    "out vec2 pixcoord;\n"
+    "out vec4 offset[3];\n"
+    SMAA_HLSL_SRC
+    "void main() {\n"
+    "    gl_Position = vec4(aPos, 0.0, 1.0);\n"
+    "    vTexCoord = aTexCoord;\n"
+    "    SMAABlendingWeightCalculationVS(aTexCoord, pixcoord, offset);\n"
+    "}\n";
+
+static const char *s_smaaWeightFragSrc =
+    "#version 300 es\n"
+    "precision highp float;\n"
+    "#define SMAA_GLSL_3\n"
+    "#define SMAA_RT_METRICS vec4(uTexel.x, uTexel.y, 1.0 / uTexel.x, 1.0 / uTexel.y)\n"
+    "uniform sampler2D uEdges;\n"
+    "uniform sampler2D uArea;\n"
+    "uniform sampler2D uSearch;\n"
+    "in vec2 vTexCoord;\n"
+    "in vec2 pixcoord;\n"
+    "in vec4 offset[3];\n"
+    "out vec4 fragColor;\n"
+    SMAA_HLSL_SRC
+    "void main() {\n"
+    "    fragColor = SMAABlendingWeightCalculationPS(vTexCoord, pixcoord, offset,\n"
+    "                                                uEdges, uArea, uSearch,\n"
+    "                                                vec4(0.0));\n"
+    "}\n";
+
+static const char *s_smaaBlendVertSrc =
+    "#version 300 es\n"
+    "#define SMAA_GLSL_3\n"
+    "in vec2 aPos;\n"
+    "in vec2 aTexCoord;\n"
+    "out vec2 vTexCoord;\n"
+    "out vec4 offset;\n"
+    SMAA_HLSL_SRC
+    "void main() {\n"
+    "    gl_Position = vec4(aPos, 0.0, 1.0);\n"
+    "    vTexCoord = aTexCoord;\n"
+    "    SMAANeighborhoodBlendingVS(aTexCoord, offset);\n"
+    "}\n";
+
+static const char *s_smaaBlendFragSrc =
+    "#version 300 es\n"
+    "precision highp float;\n"
+    "#define SMAA_GLSL_3\n"
+    "uniform sampler2D uTex;\n"
+    "uniform sampler2D uBlend;\n"
+    "uniform vec2 uTexel;\n"
+    "in vec2 vTexCoord;\n"
+    "in vec4 offset;\n"
+    "out vec4 fragColor;\n"
+    GLSL_IMAGE_ADJUST
+    SMAA_HLSL_SRC
+    "void main() {\n"
+    "    vec3 rgb = SMAANeighborhoodBlendingPS(vTexCoord, offset, uTex, uBlend).rgb;\n"
+    "    fragColor = vec4(ImageAdjust(rgb), 1.0);\n"
+    "}\n";
+
+/* Compile the three SMAA programs and upload the lookup textures.  Called
+   once after GL context creation; failure (e.g. a GL 2.1 desktop context
+   that cannot compile the SMAA_GLSL_3 dialect) leaves the programs at 0 and
+   the SMAA mode falls back to the plain draw. */
+static void GL_SmaaInit(void) {
+    GLint p;
+
+    if (s_smaaEdgeProgram == 0) {
+        GLuint v = CompileShader(GL_VERTEX_SHADER, s_smaaEdgeVertSrc);
+        GLuint f = CompileShader(GL_FRAGMENT_SHADER, s_smaaEdgeFragSrc);
+        if (v && f) {
+            s_smaaEdgeProgram = LinkProgram(v, f);
+            p = s_smaaEdgeProgram;
+            s_smaaEdge_uTexel = glGetUniformLocation(p, "uTexel");
+            s_smaaEdge_aPos = glGetAttribLocation(p, "aPos");
+            s_smaaEdge_aTexCoord = glGetAttribLocation(p, "aTexCoord");
+        }
+        glDeleteShader(v);
+        glDeleteShader(f);
+    }
+    if (s_smaaWeightProgram == 0) {
+        GLuint v = CompileShader(GL_VERTEX_SHADER, s_smaaWeightVertSrc);
+        GLuint f = CompileShader(GL_FRAGMENT_SHADER, s_smaaWeightFragSrc);
+        if (v && f) {
+            s_smaaWeightProgram = LinkProgram(v, f);
+            p = s_smaaWeightProgram;
+            s_smaaWeight_uRTMetrics = glGetUniformLocation(p, "uTexel");
+            s_smaaWeight_aPos = glGetAttribLocation(p, "aPos");
+            s_smaaWeight_aTexCoord = glGetAttribLocation(p, "aTexCoord");
+        }
+        glDeleteShader(v);
+        glDeleteShader(f);
+    }
+    if (s_smaaBlendProgram == 0) {
+        GLuint v = CompileShader(GL_VERTEX_SHADER, s_smaaBlendVertSrc);
+        GLuint f = CompileShader(GL_FRAGMENT_SHADER, s_smaaBlendFragSrc);
+        if (v && f) {
+            s_smaaBlendProgram = LinkProgram(v, f);
+            p = s_smaaBlendProgram;
+            s_smaaBlend_uTexel = glGetUniformLocation(p, "uTexel");
+            s_smaaBlend_aPos = glGetAttribLocation(p, "aPos");
+            s_smaaBlend_aTexCoord = glGetAttribLocation(p, "aTexCoord");
+            s_smaaAdj_uBrightness = glGetUniformLocation(p, "uBrightness");
+            s_smaaAdj_uContrast = glGetUniformLocation(p, "uContrast");
+            s_smaaAdj_uSaturation = glGetUniformLocation(p, "uSaturation");
+        }
+        glDeleteShader(v);
+        glDeleteShader(f);
+    }
+
+    if (s_smaaAreaTex == 0) {
+        glGenTextures(1, &s_smaaAreaTex);
+        glBindTexture(GL_TEXTURE_2D, s_smaaAreaTex);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RG8, SMAA_AREA_W, SMAA_AREA_H, 0,
+                     GL_RG, GL_UNSIGNED_BYTE, SMAA_AreaTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    if (s_smaaSearchTex == 0) {
+        glGenTextures(1, &s_smaaSearchTex);
+        glBindTexture(GL_TEXTURE_2D, s_smaaSearchTex);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, SMAA_SEARCH_W, SMAA_SEARCH_H, 0,
+                     GL_RED, GL_UNSIGNED_BYTE, SMAA_SearchTex);
+        /* The vertical search wraps across rows: REPEAT is required in T. */
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    GL_InvalidateGLState();
+}
+
+static void GL_SmaaTargetsDestroy(void) {
+    if (s_smaaEdgeFbo) {
+        glDeleteFramebuffers(1, &s_smaaEdgeFbo);
+        s_smaaEdgeFbo = 0;
+    }
+    if (s_smaaEdgeTex) {
+        glDeleteTextures(1, &s_smaaEdgeTex);
+        s_smaaEdgeTex = 0;
+    }
+    if (s_smaaWeightFbo) {
+        glDeleteFramebuffers(1, &s_smaaWeightFbo);
+        s_smaaWeightFbo = 0;
+    }
+    if (s_smaaWeightTex) {
+        glDeleteTextures(1, &s_smaaWeightTex);
+        s_smaaWeightTex = 0;
+    }
+}
+
+/* Edge/weight intermediate targets, engine-resolution, recreated on
+   resolution changes alongside the other FBOs. */
+static void GL_SmaaTargetsCreate(U32 w, U32 h) {
+    GL_SmaaTargetsDestroy();
+    s_smaaW = w;
+    s_smaaH = h;
+    if (w == 0 || h == 0)
+        return;
+
+    glGenTextures(1, &s_smaaEdgeTex);
+    glBindTexture(GL_TEXTURE_2D, s_smaaEdgeTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glGenFramebuffers(1, &s_smaaEdgeFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, s_smaaEdgeFbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_2D, s_smaaEdgeTex, 0);
+
+    glGenTextures(1, &s_smaaWeightTex);
+    glBindTexture(GL_TEXTURE_2D, s_smaaWeightTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glGenFramebuffers(1, &s_smaaWeightFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, s_smaaWeightFbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_2D, s_smaaWeightTex, 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+/* Run the three passes over s_fboColorTex and draw the antialiased result
+   into the currently bound framebuffer (the composite target the caller
+   had bound).  bW/bH is the letterbox viewport of that target, restored
+   for the final pass. */
+static void GL_SmaaPresent(S32 bX, S32 bY, S32 bW, S32 bH) {
+    U32 w = (U32)bW, h = (U32)bH;
+    if (s_smaaEdgeFbo == 0 || s_smaaW != (U32)bW || s_smaaH != (U32)bH) {
+        GL_SmaaTargetsCreate(w, h);
+    }
+
+    /* Pass 1: luma edges of the scene into the edge target. */
+    glBindFramebuffer(GL_FRAMEBUFFER, s_smaaEdgeFbo);
+    glViewport(0, 0, s_smaaW, s_smaaH);
+    glUseProgram(s_smaaEdgeProgram);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, s_fboColorTex);
+    glUniform1i(glGetUniformLocation(s_smaaEdgeProgram, "uTex"), 0);
+    glUniform2f(s_smaaEdge_uTexel, 1.0f / (GLfloat)s_smaaW,
+                1.0f / (GLfloat)s_smaaH);
+    GL_BindArrayBuffer(s_fboVbo);
+    glEnableVertexAttribArray(s_smaaEdge_aPos);
+    glVertexAttribPointer(s_smaaEdge_aPos, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat), (const void *)0);
+    glEnableVertexAttribArray(s_smaaEdge_aTexCoord);
+    glVertexAttribPointer(s_smaaEdge_aTexCoord, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat), (const void *)(2 * sizeof(GLfloat)));
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glDisableVertexAttribArray(s_smaaEdge_aPos);
+    glDisableVertexAttribArray(s_smaaEdge_aTexCoord);
+
+    /* Pass 2: search the edges and fetch blending weights. */
+    glBindFramebuffer(GL_FRAMEBUFFER, s_smaaWeightFbo);
+    glUseProgram(s_smaaWeightProgram);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, s_smaaEdgeTex);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, s_smaaAreaTex);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, s_smaaSearchTex);
+    glUniform1i(glGetUniformLocation(s_smaaWeightProgram, "uEdges"), 0);
+    glUniform1i(glGetUniformLocation(s_smaaWeightProgram, "uArea"), 1);
+    glUniform1i(glGetUniformLocation(s_smaaWeightProgram, "uSearch"), 2);
+    glUniform2f(s_smaaWeight_uRTMetrics, 1.0f / (GLfloat)s_smaaW,
+                1.0f / (GLfloat)s_smaaH);
+    GL_BindArrayBuffer(s_fboVbo);
+    glEnableVertexAttribArray(s_smaaWeight_aPos);
+    glVertexAttribPointer(s_smaaWeight_aPos, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat), (const void *)0);
+    glEnableVertexAttribArray(s_smaaWeight_aTexCoord);
+    glVertexAttribPointer(s_smaaWeight_aTexCoord, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat), (const void *)(2 * sizeof(GLfloat)));
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glDisableVertexAttribArray(s_smaaWeight_aPos);
+    glDisableVertexAttribArray(s_smaaWeight_aTexCoord);
+
+    /* Pass 3: blend the scene along the edges into the composite target
+       (already bound by the caller). */
+    GLint smaaDst = 0;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &smaaDst);
+    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)smaaDst);
+    glViewport(bX, bY, bW, bH);
+    glUseProgram(s_smaaBlendProgram);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, s_fboColorTex);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, s_smaaWeightTex);
+    glUniform1i(glGetUniformLocation(s_smaaBlendProgram, "uTex"), 0);
+    glUniform1i(glGetUniformLocation(s_smaaBlendProgram, "uBlend"), 1);
+    glUniform2f(s_smaaBlend_uTexel, 1.0f / (GLfloat)s_texWidth,
+                1.0f / (GLfloat)s_texHeight);
+    GL_UploadImageAdjust(s_smaaAdj_uBrightness, s_smaaAdj_uContrast,
+                         s_smaaAdj_uSaturation);
+    GL_BindArrayBuffer(s_fboVbo);
+    glEnableVertexAttribArray(s_smaaBlend_aPos);
+    glVertexAttribPointer(s_smaaBlend_aPos, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat), (const void *)0);
+    glEnableVertexAttribArray(s_smaaBlend_aTexCoord);
+    glVertexAttribPointer(s_smaaBlend_aTexCoord, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat), (const void *)(2 * sizeof(GLfloat)));
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glDisableVertexAttribArray(s_smaaBlend_aPos);
+    glDisableVertexAttribArray(s_smaaBlend_aTexCoord);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE0);
+    GL_BindArrayBuffer(0);
+    glUseProgram(0);
+    GL_InvalidateGLState();
 }
 
 /* ── Antialiasing (MSAA render target + FXAA post-process) ───────────────── */
@@ -2326,11 +2690,11 @@ void GL_SetAntiAlias(S32 mode) {
     if (mode > 3) mode = 3;
 #ifdef __ANDROID__
     /* 4xMSAA quadruples the tile bandwidth on mobile GPUs and stalled the
-     * whole frame loop; the AA menu no longer offers it and a cfg value of
-     * 3 clamps to MSAA×2 (same reasoning as the Android RenderQuality
-     * clamp). */
-    if (mode > 2) {
-        Log_Info("[GL] Android: AntiAlias %d clamped to 2", mode);
+     * whole frame loop; the AA menu offers SMAA in its place and a cfg
+     * value of 3 clamps to MSAA×2 (same reasoning as the Android
+     * RenderQuality clamp). */
+    if (mode == 3) {
+        Log_Info("[GL] Android: AntiAlias 3 (MSAA×4) clamped to 2");
         mode = 2;
     }
 #endif
@@ -2339,7 +2703,7 @@ void GL_SetAntiAlias(S32 mode) {
     s_antiAlias = mode;
     if (!s_initialized || !Window_GLMakeCurrent())
         return;
-    if (s_antiAlias >= 2 && s_fbo) {
+    if ((s_antiAlias == 2 || s_antiAlias == 3) && s_fbo) {
         GLint samples = (s_antiAlias == 3) ? 4 : 2;
         GL_CreateMSAAFbo(s_texWidth * s_renderQuality,
                          s_texHeight * s_renderQuality, samples);
@@ -2911,7 +3275,7 @@ static void FlushActiveBatch(void) {
     /* Draw all batched triangles.  Re-bind the render FBO: intermediate
        texture/state changes between GL_ClearFBO and this draw can reset
        the FBO binding on some drivers. */
-    if (s_msaaFbo && s_antiAlias >= 2)
+    if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3))
         glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
     else if (s_fbo)
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
@@ -3445,7 +3809,7 @@ void GL_ClearFBO(void) {
         return;
     }
 
-    if (s_msaaFbo && s_antiAlias >= 2) {
+    if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3)) {
         glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
         glViewport(0, 0, s_fboWidth, s_fboHeight);
     } else if (s_fbo) {
@@ -3553,7 +3917,7 @@ void GL_SnapshotTerrain(void) {
        MSAA restore erases color only, and nothing in the object pass
        writes MSAA depth to go stale. */
     U64 profT0 = SDL_GetPerformanceCounter();
-    S32 msaaActive = (s_msaaFbo && s_antiAlias >= 2) ? 1 : 0;
+    S32 msaaActive = (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3)) ? 1 : 0;
     if (msaaActive) {
         GL_ResolveMSAA();
     }
@@ -3625,7 +3989,7 @@ void GL_RestoreTerrainSnapshot(void) {
     GLfloat fh = (GLfloat)s_fboHeight;
 
     U64 profT0 = SDL_GetPerformanceCounter();
-    if (s_msaaFbo && s_antiAlias >= 2) {
+    if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3)) {
         /* The scene renders into the multisampled FBO, and a single-sample
            source cannot blit into it — erase through a textured quad
            instead.  Color only: body/shadow/animated batches never write
@@ -3782,7 +4146,7 @@ void GL_CaptureHorizon(S32 backdropStable) {
        MSAA only color is captured — and only the color half needs
        resolving.  The depth copy matters solely for the non-MSAA restore,
        which cannot run while MSAA is on. */
-    if (s_msaaFbo && s_antiAlias >= 2)
+    if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3))
         GL_ResolveMSAAColor();
 
     const U32 w = s_fboWidth;
@@ -3823,7 +4187,7 @@ void GL_CaptureHorizon(S32 backdropStable) {
     glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_horizonFbo);
     glBlitFramebuffer(0, 0, w, h, 0, 0, w, h,
-                      (s_msaaFbo && s_antiAlias >= 2)
+                      (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3))
                           ? GL_COLOR_BUFFER_BIT
                           : (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT),
                       GL_NEAREST);
@@ -3840,7 +4204,7 @@ void GL_RestoreHorizon(void) {
     if (!Window_GLMakeCurrent()) {
         return;
     }
-    if (s_msaaFbo && s_antiAlias >= 2) {
+    if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3)) {
         /* Cannot blit single-sample depth into the MSAA target; draw the
            color as a quad (same as the terrain-snapshot MSAA restore).  The
            backdrop depth is not restored, but the current-cube terrain is
@@ -3995,7 +4359,7 @@ void GL_ReadbackDepthBuffer(void) {
        (terrain + bodies + shadows) before we read back its depth. */
     GL_FlushBatch();
 
-    if (s_msaaFbo && s_antiAlias >= 2) {
+    if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3)) {
         if (depthNative) {
             /* The PBO read below consumes a single-sample buffer, and at
                quality 1 that buffer is s_fbo itself — refresh only its
@@ -4036,7 +4400,7 @@ void GL_ReadbackDepthBuffer(void) {
 
     /* With MSAA, the scene depth is in the MSAA depth renderbuffer:
        glBlitFramebuffer auto-resolves multisample to single-sample. */
-    GLuint depthSrcFbo = (s_msaaFbo && s_antiAlias >= 2) ? s_msaaFbo : s_fbo;
+    GLuint depthSrcFbo = (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3)) ? s_msaaFbo : s_fbo;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, depthSrcFbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_depthSmallFbo);
     glBlitFramebuffer(0, 0, fboW, fboH, 0, 0, scrW, scrH,
@@ -4523,7 +4887,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
        framebuffer otherwise. */
     GL_FlushBatch();
 
-    if (s_msaaFbo && s_antiAlias >= 2)
+    if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3))
         GL_ResolveMSAAColor();
 
     /* Reset frame flag so GL_FlushBatch will rebind FBO next frame. */
@@ -4628,6 +4992,10 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             glDisableVertexAttribArray(s_fxaa_aPos);
             glDisableVertexAttribArray(s_fxaa_aTexCoord);
+        } else if (s_antiAlias == 4 && s_smaaBlendProgram) {
+            /* SMAA post-process: three-pass morphological AA on the scene
+               texture; draws the blended result into the current target. */
+            GL_SmaaPresent(vpX, vpY, vpW, vpH);
         } else {
         glUseProgram(s_program);
         glUniform1i(s_uTexLoc, 0);
@@ -4764,7 +5132,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
      * target, letterbox, draw the 3D FBO content, then the 2D overlay. */
     GL_FlushBatch();
 
-    if (s_msaaFbo && s_antiAlias >= 2)
+    if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3))
         GL_ResolveMSAAColor();
 
     s_frameActive = 0;
@@ -4844,6 +5212,10 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             glDisableVertexAttribArray(s_fxaa_aPos);
             glDisableVertexAttribArray(s_fxaa_aTexCoord);
+        } else if (s_antiAlias == 4 && s_smaaBlendProgram) {
+            /* SMAA post-process: three-pass morphological AA on the scene
+               texture; draws the blended result into the current target. */
+            GL_SmaaPresent(vpX, vpY, vpW, vpH);
         } else {
         glUseProgram(s_program);
         glUniform1i(s_uTexLoc, 0);
