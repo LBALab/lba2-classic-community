@@ -164,8 +164,6 @@ static float                   s_headRollDeg = 0.0f;
 static XrView                  s_renderViews[2];
 static U32                     s_renderViewCount = 0;
 static XrSwapchainImageOpenGLESKHR *s_swapchainImages = NULL;
-/* Per-image FBO wrapping each swapchain texture (lazily created, cached). */
-static GLuint *s_swapchainFBOs = NULL;
 static U32                     s_swapchainImageCount = 0;
 static U32                     s_swapchainImageIndex = 0;
 
@@ -744,11 +742,14 @@ static S32 OpenXR_CreateSwapchain(void) {
     scInfo.mipCount = 1;
     /* Fixed foveation: the swapchain opts into tiler-level peripheral
      * subsampling; the actual profile (level LOW) is attached right after
-     * the images are enumerated. */
+     * the images are enumerated.  SCALED_BIN is the method Adreno
+     * implements; flags 0 would ask for no valid method and the runtime
+     * renders the swapchain undefined. */
     XrSwapchainCreateInfoFoveationFB foveationInfo;
     memset(&foveationInfo, 0, sizeof(foveationInfo));
     if (s_extFoveation) {
         foveationInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO_FOVEATION_FB;
+        foveationInfo.flags = XR_SWAPCHAIN_CREATE_FOVEATION_SCALED_BIN_BIT_FB;
         scInfo.next = &foveationInfo;
     }
     rc = xrCreateSwapchain(s_session, &scInfo, &s_swapchain);
@@ -769,11 +770,9 @@ static S32 OpenXR_CreateSwapchain(void) {
         s_swapchainImages[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
         s_swapchainImages[i].next = NULL;
     }
-    /* Per-image composite FBOs, created lazily at present time (the GL
-     * context only exists there) and cached for the swapchain's lifetime —
-     * attaching a texture to a fresh FBO every frame is pure driver
-     * overhead. */
-    s_swapchainFBOs = (GLuint *)calloc(s_swapchainImageCount, sizeof(GLuint));
+    /* Per-image composite FBOs are created fresh at present time (the GL
+     * context only exists there) — swapchain textures must not keep a
+     * persistent FBO attachment across acquire/release cycles. */
     rc = xrEnumerateSwapchainImages(s_swapchain, s_swapchainImageCount, &s_swapchainImageCount,
         (XrSwapchainImageBaseHeader *)s_swapchainImages);
     if (XR_FAILED(rc)) {
@@ -833,11 +832,6 @@ static void OpenXR_DestroySession(void) {
     if (s_swapchainImages) {
         free(s_swapchainImages);
         s_swapchainImages = NULL;
-    }
-    if (s_swapchainFBOs) {
-        glDeleteFramebuffers((GLsizei)s_swapchainImageCount, s_swapchainFBOs);
-        free(s_swapchainFBOs);
-        s_swapchainFBOs = NULL;
     }
     s_swapchainImageCount = 0;
     s_swapchainImageIndex = 0;
@@ -1487,22 +1481,19 @@ static S32 OpenXR_EnsureFrameBegun(void) {
 #endif
 }
 
-/* Composite FBO for a swapchain image: created on first use, cached for the
- * swapchain's lifetime.  Binds the FBO (complete or not — callers check). */
+/* Composite FBO for a swapchain image.  A fresh FBO is created and attached
+ * for every present: keeping a persistent attachment on a runtime-owned
+ * swapchain texture across xrAcquire/xrRelease cycles rendered the
+ * composited frame into orphaned memory on the Quest (black output — the
+ * per-present glGenFramebuffers cost is negligible next to the blit). */
 static U32 OpenXR_SwapchainFBO(U32 imageIndex) {
 #ifdef LBA2_OPENXR
-    GLuint fbo = s_swapchainFBOs ? s_swapchainFBOs[imageIndex] : 0;
-    if (fbo != 0) {
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-        return fbo;
-    }
+    GLuint fbo;
     GLuint imgTex = s_swapchainImages[imageIndex].image;
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                            GL_TEXTURE_2D, imgTex, 0);
-    if (s_swapchainFBOs)
-        s_swapchainFBOs[imageIndex] = fbo;
     return fbo;
 #else
     (void)imageIndex;
@@ -1801,6 +1792,7 @@ S32 OpenXR_PresentMono(void) {
                                         0, 0, (GLsizei)eyeDstW, (GLsizei)eyeDstH);
                 }
                 glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
+                glDeleteFramebuffers(1, &swapFbo);
                 {
                     static int s_stBlitLogCount = 0;
                     GLenum glErr = glGetError();
