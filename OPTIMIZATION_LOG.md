@@ -54,6 +54,22 @@ LongProjectPoint3D, InitMatrixStdF, SetFollowCamera) over a synthetic
 - tile mask+classify+radix sort: **5 ns/tile** → 4096 tiles ≈ 0.02 ms
 - one cube at two eyes ≈ **0.14 ms/frame** (host; scale ×3–4 for A76)
 
+### Old-math survey (datatypes / un-accelerated operations)
+
+- **`DISTANCE.CPP` used `sqrtl`** — on 64-bit ARM `long double` is a
+  software 128-bit type, so every distance was a soft-float libc call, and
+  distances run per object per frame (SORT, AMBIANCE samples, GERETRAK
+  trails, BUGGY wheels).  Replaced with a hardware double sqrt plus an
+  exact floor correction (bit-identical to the old `(U32)sqrtl`
+  truncation; the 64-bit squares also remove a distant-object wrap).
+  Verified by a 200k-sweep + edge cases against the `sqrtl` reference in
+  `bench_terrain`.
+- Surveyed and clean: `RegleTrois` (S64 math), `GETANG2D` (integer binary
+  search over TanTab), `SQRROOT` (exact integer port), `RotTransList` /
+  `ProjectList3D` (hardware double, per body), `LROT2D/3D` (hardware
+  double, kept for ASM parity), `MOVE` `ldiv` (per step, rare), and
+  `POLY.CPP` `volatile long double` (SW-filler only, not the GL path).
+
 **Conclusion: the terrain math is NOT the Quest CPU bottleneck** — and the
 per-eye CPU duplication is not either.  The depth readback consumes a
 pixel-pack PBO filled on the *previous* frame, so when the GPU runs

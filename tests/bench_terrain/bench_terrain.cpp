@@ -135,6 +135,54 @@ static double bench_tiles(int iters) {
     return (double)(t1 - t0) * 1000.0 / SDL_GetPerformanceFrequency();
 }
 
+/* ── Distance survey: the old DISTANCE.CPP used sqrtl (software 128-bit
+   sqrt on ARM); the replacement is a hardware double sqrt + exact floor
+   correction.  Sweep verifies the new result equals floor(sqrt(n)) for
+   every input class, then times both. */
+static U32 ref_sqrt_floor(U64 n) {
+    return (U32)sqrtl((long double)n);
+}
+
+static void bench_distance(void) {
+    /* Exactness sweep: random sums, perfect squares, squares +-1, and the
+       top of the range (the 64-bit sums the S32-squared inputs allow). */
+    U64 cases[] = {1, 2, 3, 4, 5, 8, 9, 15, 16, 17, 99, 100, 101,
+                   500 * 500, 500 * 500 + 1, 0x7FFFFFFF, 0x80000000ull,
+                   0xFFFFFFFFull, 0x100000000ull, 46340ull * 46340ull,
+                   46340ull * 46340ull - 1, 46340ull * 46340ull + 1};
+    int bad = 0;
+    for (U32 i = 0; i < 200000; i++) {
+        S32 dx = (S32)rand() % 46341 - 23170;
+        S32 dy = (S32)rand() % 46341 - 23170;
+        S32 dz = (S32)rand() % 46341 - 23170;
+        S64 n = (S64)dx * dx + (S64)dy * dy + (S64)dz * dz;
+        if (Distance3D(0, 0, 0, dx, dy, dz) != ref_sqrt_floor((U64)n))
+            bad++;
+    }
+    for (U32 c = 0; c < sizeof(cases) / sizeof(cases[0]); c++) {
+        S64 dx = (S64)(S32)cases[c]; /* the engine passes S32 distances */
+        if (Distance2D(0, 0, (S32)dx, 0) !=
+            ref_sqrt_floor((U64)(dx * dx)))
+            bad++;
+    }
+    printf("distance   : exactness sweep %s\n", bad ? "FAILED" : "OK");
+
+    const int iters = 200000;
+    U32 acc = 0;
+    Uint64 t0 = SDL_GetPerformanceCounter();
+    for (int i = 0; i < iters; i++)
+        acc += Distance3D(i * 7, 0, 0, 0, 0, 0);
+    Uint64 t1 = SDL_GetPerformanceCounter();
+    for (int i = 0; i < iters; i++)
+        acc += (U32)sqrtl((long double)(i * 7));
+    Uint64 t2 = SDL_GetPerformanceCounter();
+    double newMs = (double)(t1 - t0) * 1000.0 / SDL_GetPerformanceFrequency();
+    double oldMs = (double)(t2 - t1) * 1000.0 / SDL_GetPerformanceFrequency();
+    printf("distance   : %d calls  new %.2f ms  old(sqrtl) %.2f ms  (%.1fx)%s\n",
+           iters, newMs, oldMs, oldMs / newMs, acc ? "" : "");
+    (void)acc;
+}
+
 int main(void) {
     /* Synthetic cube: 65x65 heights in a plausible terrain band. */
     for (int i = 0; i < TOTAL_VERTS; i++)
@@ -161,6 +209,7 @@ int main(void) {
     printf("tiles    : %d passes x %d tiles = %.2f ms  (%.0f ns/tile)\n",
            itersT, TOTAL_TILES, msT, nsPerTile);
     printf("estimate : %.2f ms per frame for one cube at two eyes\n", frameMs);
+    bench_distance();
     printf("           (x9 cubes worst-case on eye0 pre-cull)\n");
 
     TEST_SUMMARY();
