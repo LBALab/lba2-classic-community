@@ -2904,6 +2904,11 @@ void ReadConfigFile(void) {
     else if (VrFovScale > 120)
         VrFovScale = 120;
 
+    VrFoveation = DefFileBufferReadValueDefault("VrFoveation", 1);
+    if (VrFoveation < 0 OR VrFoveation > 3)
+        VrFoveation = 1;
+    OpenXR_SetFoveationLevel(VrFoveation);
+
     DisplaySaturation = DefFileBufferReadValueDefault("DisplaySaturation", 0);
     if (DisplaySaturation < -50)
         DisplaySaturation = -50;
@@ -2995,7 +3000,7 @@ void ReadConfigFile(void) {
     if (DisplayAntiAlias < 0 OR DisplayAntiAlias > 3)
         DisplayAntiAlias = 0;
 #ifdef __ANDROID__
-    if (DisplayAntiAlias > 2)
+    if (DisplayAntiAlias == 3)
         DisplayAntiAlias = 2; /* MSAA×4 not offered on Android (GL_SetAntiAlias) */
 #endif
     if (DisplayTexFilter < 0 OR DisplayTexFilter > 2)
@@ -3219,6 +3224,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("FollowCamera", FollowCamera);
     DefFileBufferWriteValue("CameraFirstPerson", CameraFirstPerson);
     DefFileBufferWriteValue("VrFovScale", VrFovScale);
+    DefFileBufferWriteValue("VrFoveation", VrFoveation);
     DefFileBufferWriteValue("DisplayBrightness", DisplayBrightness);
     DefFileBufferWriteValue("DisplayContrast", DisplayContrast);
     DefFileBufferWriteValue("DisplaySaturation", DisplaySaturation);

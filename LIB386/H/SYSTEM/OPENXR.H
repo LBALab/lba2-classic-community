@@ -86,6 +86,11 @@ void OpenXR_SetStereoEnabled(S32 enabled);
 /* Current stereo-present mode (0 = mono, 1 = per-eye). */
 S32 OpenXR_GetStereoEnabled(void);
 
+/* Set the fixed foveation level (0 = off, 1 = low, 2 = medium, 3 = high).
+ * Applies immediately when a swapchain is live, otherwise is remembered
+ * for when the session starts.  No-op outside OpenXR builds. */
+void OpenXR_SetFoveationLevel(S32 level);
+
 /* Read the latest Quest 3 controller state and write virtual gamepad
  * scancodes into TabKeys via the existing helpers in JOYSTICK.CPP.
  * Returns 1 if OpenXR state was written this frame, 0 otherwise

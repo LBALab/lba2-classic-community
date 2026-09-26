@@ -105,6 +105,8 @@ S32 DisplaySaturation = 0;  /* image adjust: saturation delta, -50..+50 */
 S32 VrFovScale = 100; /* VR world zoom, percent of the eye's natural FOV: >100
                          renders a wider field (zoomed out), capped by the
                          authored-world edge at about 120 */
+S32 VrFoveation = 1; /* Quest fixed foveation: 0 = off, 1 = low (default),
+                        2 = medium, 3 = high */
 
 // #358: min ms of game-time between simulation steps (0 = off, per-frame sim as before).
 // When > 0 the main loop runs the simulation at most once per this many ms of game clock,

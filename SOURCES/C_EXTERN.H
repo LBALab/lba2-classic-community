@@ -130,6 +130,7 @@ extern S32 DisplayBrightness; ///< image adjust: -50..+50, 0 = default (GL mode 
 extern S32 DisplayContrast;   ///< image adjust: -50..+50, 0 = default (GL mode only)
 extern S32 DisplaySaturation; ///< image adjust: -50..+50, 0 = default (GL mode only)
 extern S32 VrFovScale; ///< VR world zoom percent of the eye FOV: 100 = natural, 120 = widest safe (Quest)
+extern S32 VrFoveation; ///< Quest fixed foveation: 0 = off, 1 = low, 2 = medium, 3 = high
 extern S32 FixedTimestep; ///< #358: min ms of game-time per sim step (0 = off). See docs/MOVEMENT_FRAMERATE.md.
 
 /// 1 = mouse hover / click / wheel in plasma menus (see docs/MENU.md). Read from lba2.cfg `MenuMouse`.
