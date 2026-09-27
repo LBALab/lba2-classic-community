@@ -3758,6 +3758,109 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
     GL_BindArrayBuffer(0);
 }
 
+/* Body-model line entities (necklace chains, whiskers) draw through the
+   immediate aux path like spheres: depth-tested against the FBO (which holds
+   the body polys' depth) and depth-written, so a necklace seen from behind is
+   hidden by the body polys drawn nearer, and one seen from the front stays
+   visible over them.  Without this the lines rasterize into the Log overlay,
+   which composites over the FBO with no occlusion — chest decals x-ray
+   through the body whenever the camera looks at its back. */
+void GL_DrawLineFBO(S32 x0, S32 y0, S32 x1, S32 y1, S32 colorIndex,
+                    U32 zo0, U32 zo1) {
+    if (!s_initialized) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+    if (x0 < -32768 || x0 > 32767 || y0 < -32768 || y0 > 32767 ||
+        x1 < -32768 || x1 > 32767 || y1 < -32768 || y1 > 32767) {
+        return;
+    }
+
+    /* Pending batch first: it carries its own state. */
+    GL_FlushBatch();
+
+    if (!s_frameActive) {
+        s_frameActive = 1;
+        if (s_fbo) {
+            glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
+            glViewport(0, 0, s_fboWidth, s_fboHeight);
+        } else {
+            glViewport(0, 0, s_texWidth, s_texHeight);
+        }
+    }
+
+    GL_UseProgramCached(s_clutProgram);
+
+    glUniform2f(s_clut_uScreenScale, 2.0f / (GLfloat)s_texWidth,
+                2.0f / (GLfloat)s_texHeight);
+    s_ussX = 2.0f / (GLfloat)s_texWidth;
+    s_ussY = 2.0f / (GLfloat)s_texHeight;
+    /* Material: polyMode 1 (flat palette colour), opaque. */
+    const U16 lineMat = (U16)(1 | ((U16)(colorIndex & 0xFF) << 8));
+
+    GL_BindTexUnit(0, s_atlasTex);
+    GL_BindTexUnit(1, s_clutTex);
+    GL_BindTexUnit(2, s_paletteTex);
+
+    GL_SetDepthTest(1);
+    GL_SetDepthFunc(GL_GEQUAL);
+    GL_SetDepthWrite(1);
+
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    S32 xmin = x0 < x1 ? x0 : x1;
+    S32 xmax = x0 > x1 ? x0 : x1;
+    S32 ymin = y0 < y1 ? y0 : y1;
+    S32 ymax = y0 > y1 ? y0 : y1;
+    GL_MarkFBORegion(xmin, ymin, xmax + 1, ymax + 1);
+
+    U8 verts[2 * BATCH_VERT_BYTES];
+    const S16 px[2] = {(S16)x0, (S16)x1};
+    const S16 py[2] = {(S16)y0, (S16)y1};
+    const U16 pz[2] = {(U16)zo0, (U16)zo1};
+    for (int i = 0; i < 2; i++) {
+        U8 *v = verts + i * BATCH_VERT_BYTES;
+        memcpy(v + 0, &px[i], 2);
+        memcpy(v + 2, &py[i], 2);
+        memset(v + 4, 0, 4);  /* uv = 0 */
+        memset(v + 8, 0, 2);  /* light = 0 */
+        memcpy(v + 10, &pz[i], 2);
+        memset(v + 12, 0, 2); /* repmask = 0 */
+        memcpy(v + 14, &lineMat, 2);
+    }
+
+    GL_BindArrayBuffer(s_batchVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STREAM_DRAW);
+    glEnableVertexAttribArray(s_clut_aPos);
+    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
+                          (const void *)0);
+    glEnableVertexAttribArray(s_clut_aTexCoord);
+    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)4);
+    glEnableVertexAttribArray(s_clut_aLight);
+    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)8);
+    glEnableVertexAttribArray(s_clut_aZ);
+    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)10);
+    glEnableVertexAttribArray(s_clut_aRepMask);
+    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)12);
+    glEnableVertexAttribArray(s_clut_aMaterial);
+    glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)14);
+
+    glDrawArrays(GL_LINES, 0, 2);
+
+    GL_SetDepthWrite(1);
+    GL_SetDepthTest(0);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    GL_BindArrayBuffer(0);
+}
+
 /* ── Screen-space shade rect (GL ShadeBoxBlk replacement) ────────────────── */
 
 /* The SW ShadeBoxBlk darkens the Log pixels in place through the fog
@@ -4839,7 +4942,15 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
 
     GL_SetDepthTest(1);
     GL_SetDepthFunc(GL_GEQUAL);
-    GL_SetDepthWrite(0);
+    /* Opaque sprites write depth: they draw through the immediate aux path
+       while bodies batch into the NZW defer pool drained at frame end, so
+       the submission order between an overlay and the body polygons around
+       it depends on the frame path (full redraw vs incremental) and on the
+       camera.  Depth — not submission order — must decide occlusion, or a
+       chest decal seen from behind (owner body nearer to the camera, drawn
+       after it) stays visible through the body.  Transparent sprites keep
+       write-off so their blend never clips geometry behind them. */
+    GL_SetDepthWrite(transparent ? 0 : 1);
 
     if (transparent) {
         GL_SetBlendFunc(1, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -5021,6 +5132,7 @@ void GL_SavePresentPNG(const char *path) {
 #else
     glReadPixels(0, 0, fboW, fboH, FMT_BGRA, GL_UNSIGNED_BYTE, fboBuf);
 #endif
+
 
     /* Downsample (SSAA center pick) with the Y-flip glReadPixels implies,
        giving screen-space top-down ARGB like GL_Present's FBO draw. */

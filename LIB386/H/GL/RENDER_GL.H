@@ -135,6 +135,12 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
                    S32 zWrite, S32 transparent);
 /* Whether sphere discs route to the FBO (matches body-poly acceptance). */
 S32 GL_SphereTargetsFBO(void);
+/* Depth-tested FBO draw for body-model line entities (necklace chains,
+   whiskers): the endpoints carry their own z-buffer depths so the GPU
+   interpolates the line's depth along its length.  Targets the FBO under
+   the same conditions as GL_SphereTargetsFBO — check that before calling. */
+void GL_DrawLineFBO(S32 x0, S32 y0, S32 x1, S32 y1, S32 colorIndex,
+                    U32 zo0, U32 zo1);
 
 //! Darken a screen-space rect by the shade level (SW ShadeBoxBlk
 //! replacement — dialog bands, control panels, credits).  The SW path
