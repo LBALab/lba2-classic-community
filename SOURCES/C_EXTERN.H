@@ -126,9 +126,9 @@ extern S32 RenderQuality;     ///< 1 = native, 2 = 2x SSAA, 4 = 4x SSAA (GL mode
 /* Display adjustments and the VR FOV zoom exist in every renderer config:
  * GLOBAL.CPP defines them unconditionally and the console cvars reference
  * them without a GL guard. */
-extern S32 DisplayBrightness; ///< image adjust: -50..+50, 0 = default (GL mode only)
-extern S32 DisplayContrast;   ///< image adjust: -50..+50, 0 = default (GL mode only)
-extern S32 DisplaySaturation; ///< image adjust: -50..+50, 0 = default (GL mode only)
+extern S32 DisplayBrightness; ///< image adjust: -20..+20, 0 = default (GL mode only)
+extern S32 DisplayContrast;   ///< image adjust: -20..+20, 0 = default (GL mode only)
+extern S32 DisplaySaturation; ///< image adjust: -20..+20, 0 = default (GL mode only)
 extern S32 VrFovScale; ///< VR world zoom percent of the eye FOV: 100 = natural, 120 = widest safe (Quest)
 extern S32 VrFoveation; ///< Quest fixed foveation: 0 = off, 1 = low, 2 = medium, 3 = high
 extern S32 FixedTimestep; ///< #358: min ms of game-time per sim step (0 = off). See docs/MOVEMENT_FRAMERATE.md.

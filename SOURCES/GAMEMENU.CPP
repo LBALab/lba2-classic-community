@@ -105,14 +105,28 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_SATURATION 2127
 #define MENU_ID_DISPLAY_FPS 2121
 #define MENU_ID_FPS_LIMIT 2122
+#define MENU_ID_CHEATS 2124
 
 // Resolution sub-page rows occupy a reserved id range: row i carries id
 // MENU_ID_RESOLUTION_BASE + i, which BuildCustomMenuText and GereResolutionMenu
 // map back to s_resMenuEntries[i]. DISPLAY_MENU_MAX_ENTRIES ids reserved.
 #define MENU_ID_RESOLUTION_BASE 2200
 
+// Cheat submenu rows use the same range-id scheme: row i carries id
+// MENU_ID_CHEAT_BASE + i, indexing the shared cheat table in CHEATCOD.CPP in
+// table order (same order as the typed codes).
+#define MENU_ID_CHEAT_BASE 2240
+#define CHEAT_MENU_MAX_ENTRIES 12
+
 #define MENU_TYPE_TEXT_LANGUAGE 8
 #define MENU_TYPE_VOICE_LANGUAGE 9
+
+/* Image-adjust sliders (Display menu): signed -20..+20 globals drawn as a
+   zero-centred 0..40 bar. Left/right adjust with the volume debounce; the
+   mouse wheel steps too. */
+#define MENU_TYPE_IMAGE_BRIGHTNESS 10
+#define MENU_TYPE_IMAGE_CONTRAST 11
+#define MENU_TYPE_IMAGE_SATURATION 12
 
 char NewGameTxt[20]; // ATTENTION: max 19 chars
 
@@ -221,11 +235,11 @@ static void BuildDisplayMenuEntries(void) {
     }
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_QUALITY;
-    *p++ = 0;
+    *p++ = MENU_TYPE_IMAGE_BRIGHTNESS;
     *p++ = MENU_ID_DISPLAY_BRIGHTNESS;
-    *p++ = 0;
+    *p++ = MENU_TYPE_IMAGE_CONTRAST;
     *p++ = MENU_ID_DISPLAY_CONTRAST;
-    *p++ = 0;
+    *p++ = MENU_TYPE_IMAGE_SATURATION;
     *p++ = MENU_ID_DISPLAY_SATURATION;
 #endif
     *p++ = 0;
@@ -2267,6 +2281,7 @@ void DrawOneChoice(S32 x, S32 y, S32 type, S32 num, S32 select) {
     char string[256];
     S32 value;
     S32 drawslider = FALSE;
+    S32 sliderRange = 127; // volume sliders read 0..127
     U8 *samplePtr;
     S32 sampleSizeBytes;
 
@@ -2320,12 +2335,30 @@ void DrawOneChoice(S32 x, S32 y, S32 type, S32 num, S32 select) {
             Box(x2, y0, x1, y1, COUL_SELECT_MENU);
             break;
 
+        case MENU_TYPE_IMAGE_BRIGHTNESS:
+            value = DisplayBrightness + 20; // signed -20..20 -> zero-centred 0..40
+            sliderRange = 40;
+            drawslider = TRUE;
+            break;
+
+        case MENU_TYPE_IMAGE_CONTRAST:
+            value = DisplayContrast + 20;
+            sliderRange = 40;
+            drawslider = TRUE;
+            break;
+
+        case MENU_TYPE_IMAGE_SATURATION:
+            value = DisplaySaturation + 20;
+            sliderRange = 40;
+            drawslider = TRUE;
+            break;
+
         default:
             DrawFire(y0, FIRE_SELECT_MENU);
         }
 
         if (drawslider) {
-            x2 = RegleTrois(x0, x1, 127, value);
+            x2 = RegleTrois(x0, x1, sliderRange, value);
             DrawFire(y0, FIRE_SLIDER_MENU);
             Box(x2, y0, x1, y1, COUL_SELECT_MENU);
 
@@ -2632,6 +2665,36 @@ static void GameMenuApplyMouseWheelDoGameMenu(U16 *ptrmenu, S16 selected, S32 wy
                 DetailLevel++;
                 InitWaitNoInput(I_RIGHT);
                 InitWaitNoKey();
+                applied = 1;
+            }
+            break;
+
+        case MENU_TYPE_IMAGE_BRIGHTNESS:
+            if (dir < 0 AND DisplayBrightness > -20) {
+                DisplayBrightness -= 1;
+                applied = 1;
+            } else if (dir > 0 AND DisplayBrightness < 20) {
+                DisplayBrightness += 1;
+                applied = 1;
+            }
+            break;
+
+        case MENU_TYPE_IMAGE_CONTRAST:
+            if (dir < 0 AND DisplayContrast > -20) {
+                DisplayContrast -= 1;
+                applied = 1;
+            } else if (dir > 0 AND DisplayContrast < 20) {
+                DisplayContrast += 1;
+                applied = 1;
+            }
+            break;
+
+        case MENU_TYPE_IMAGE_SATURATION:
+            if (dir < 0 AND DisplaySaturation > -20) {
+                DisplaySaturation -= 1;
+                applied = 1;
+            } else if (dir > 0 AND DisplaySaturation < 20) {
+                DisplaySaturation += 1;
                 applied = 1;
             }
             break;
@@ -2993,6 +3056,48 @@ S32 DoGameMenu(U16 *ptrmenu) {
                 DetailLevel++;
                 InitWaitNoInput(I_RIGHT);
                 InitWaitNoKey();
+            }
+            break;
+
+        case MENU_TYPE_IMAGE_BRIGHTNESS:
+
+            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)
+                    AND TimerRefHR > timerkey AND DisplayBrightness > -20) {
+                timerkey = TimerRefHR + VOLUME_TIMER_KEY;
+                DisplayBrightness -= 1;
+            }
+            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)
+                    AND TimerRefHR > timerkey AND DisplayBrightness < 20) {
+                timerkey = TimerRefHR + VOLUME_TIMER_KEY;
+                DisplayBrightness += 1;
+            }
+            break;
+
+        case MENU_TYPE_IMAGE_CONTRAST:
+
+            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)
+                    AND TimerRefHR > timerkey AND DisplayContrast > -20) {
+                timerkey = TimerRefHR + VOLUME_TIMER_KEY;
+                DisplayContrast -= 1;
+            }
+            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)
+                    AND TimerRefHR > timerkey AND DisplayContrast < 20) {
+                timerkey = TimerRefHR + VOLUME_TIMER_KEY;
+                DisplayContrast += 1;
+            }
+            break;
+
+        case MENU_TYPE_IMAGE_SATURATION:
+
+            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)
+                    AND TimerRefHR > timerkey AND DisplaySaturation > -20) {
+                timerkey = TimerRefHR + VOLUME_TIMER_KEY;
+                DisplaySaturation -= 1;
+            }
+            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)
+                    AND TimerRefHR > timerkey AND DisplaySaturation < 20) {
+                timerkey = TimerRefHR + VOLUME_TIMER_KEY;
+                DisplaySaturation += 1;
             }
             break;
 
@@ -3427,6 +3532,12 @@ static S32 GereResolutionMenu(void) {
 S32 GereDisplayMenu(void) {
     S32 select;
     S32 flag = 0;
+    /* Image-adjust slider values at menu entry: the sliders move inside
+       DoGameMenu's type handling (keys and wheel), so the exit-time compare
+       is what decides the cfg flush. */
+    const S32 brightness0 = DisplayBrightness;
+    const S32 contrast0 = DisplayContrast;
+    const S32 saturation0 = DisplaySaturation;
 
     /* Rows are rebuilt by BuildDisplayMenuEntries so the count always
        matches the (type, id) pairs actually written: Back + Resolution
@@ -3592,29 +3703,15 @@ S32 GereDisplayMenu(void) {
             GL_SetRenderQuality(RenderQuality);
             WriteConfigFile();
             break;
-
-        case MENU_ID_DISPLAY_BRIGHTNESS:
-            DisplayBrightness += 5;
-            if (DisplayBrightness > 50)
-                DisplayBrightness = -50;
-            WriteConfigFile();
-            break;
-
-        case MENU_ID_DISPLAY_CONTRAST:
-            DisplayContrast += 5;
-            if (DisplayContrast > 50)
-                DisplayContrast = -50;
-            WriteConfigFile();
-            break;
-
-        case MENU_ID_DISPLAY_SATURATION:
-            DisplaySaturation += 5;
-            if (DisplaySaturation > 50)
-                DisplaySaturation = -50;
-            WriteConfigFile();
-            break;
 #endif
         }
+    }
+
+    /* Image sliders: one cfg write per menu visit instead of one per adjust
+       tick (the sliders repeat while held, like the volume sliders). */
+    if (DisplayBrightness != brightness0 || DisplayContrast != contrast0 ||
+        DisplaySaturation != saturation0) {
+        WriteConfigFile();
     }
 
     CopyScreen(Screen, Log);

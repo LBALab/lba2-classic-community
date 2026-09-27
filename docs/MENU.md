@@ -17,6 +17,10 @@ Main Menu
 │       └── SavedConfirmMenu: Cancel (24) / Delete (48)
 ├── Options (74)
 │   ├── Back (26)
+│   ├── Display [custom localized label]
+│   │   └── Resolution / Renderer / Filter / Antialias / Quality /
+│   │       Brightness / Contrast / Saturation [sliders] / Vsync /
+│   │       Fullscreen (community addition; see RUNTIME_RESOLUTION.md and GFX_OPTIONS.md)
 │   ├── Sound volume (11)
 │   │   ├── Back (26)
 │   │   ├── Samples (19)       [slider]
@@ -147,7 +151,7 @@ For the text engine underneath all of this (the `text.hqr` format, id resolution
 - **Volume sliders**: Type 2–6 map to globals; left/right adjust with `VOLUME_TIMER_KEY` (5 ticks) debounce. Sample and General volume sliders play random SFX preview when focused.
 - **DetailLevel → Shadow**: `SetDetailLevel()` (GAMEMENU.CPP line 458) derives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon from DetailLevel. Shadow in config is read at startup but overwritten when leaving Options.
 - **Localized custom labels**: See "Mixed localization (new Options strings)" above — split between `text.hqr` and `LocalizedMenuLabels` / CP850.
-- **Options entry count**: Top-level `GameOptionMenu[1]` is 5 in `OptionsMenu()`. Nested volume/language/advanced menus set their own entry counts per `DEMO` / `FlagSpeak` / CDROM.
+- **Options entry count**: Top-level `GameOptionMenu[1]` is 7 in `OptionsMenu()`. Nested volume/language/advanced menus set their own entry counts per `DEMO` / `FlagSpeak` / CDROM.
 
 ## Limitations
 

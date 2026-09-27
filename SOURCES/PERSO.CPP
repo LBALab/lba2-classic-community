@@ -2887,16 +2887,16 @@ void ReadConfigFile(void) {
         CameraFirstPerson = FALSE;
 
     DisplayBrightness = DefFileBufferReadValueDefault("DisplayBrightness", 0);
-    if (DisplayBrightness < -50)
-        DisplayBrightness = -50;
-    else if (DisplayBrightness > 50)
-        DisplayBrightness = 50;
+    if (DisplayBrightness < -20)
+        DisplayBrightness = -20;
+    else if (DisplayBrightness > 20)
+        DisplayBrightness = 20;
 
     DisplayContrast = DefFileBufferReadValueDefault("DisplayContrast", 0);
-    if (DisplayContrast < -50)
-        DisplayContrast = -50;
-    else if (DisplayContrast > 50)
-        DisplayContrast = 50;
+    if (DisplayContrast < -20)
+        DisplayContrast = -20;
+    else if (DisplayContrast > 20)
+        DisplayContrast = 20;
 
     VrFovScale = DefFileBufferReadValueDefault("VrFovScale", 100);
     if (VrFovScale < 50)
@@ -2910,10 +2910,10 @@ void ReadConfigFile(void) {
     OpenXR_SetFoveationLevel(VrFoveation);
 
     DisplaySaturation = DefFileBufferReadValueDefault("DisplaySaturation", 0);
-    if (DisplaySaturation < -50)
-        DisplaySaturation = -50;
-    else if (DisplaySaturation > 50)
-        DisplaySaturation = 50;
+    if (DisplaySaturation < -20)
+        DisplaySaturation = -20;
+    else if (DisplaySaturation > 20)
+        DisplaySaturation = 20;
 
     ReverseStereo = DefFileBufferReadValueDefault("ReverseStereo", FALSE);
 

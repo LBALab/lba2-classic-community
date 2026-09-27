@@ -99,9 +99,9 @@ S32 RenderQuality = 1; /* native resolution by default */
 /* Display adjustments and the VR FOV zoom exist in every renderer config:
  * the console cvars and the lba2.cfg load/save reference them whether or
  * not the GL renderer (their only consumer) is compiled in. */
-S32 DisplayBrightness = 0;  /* image adjust: added light, -50..+50 */
-S32 DisplayContrast = 0;    /* image adjust: contrast delta, -50..+50 */
-S32 DisplaySaturation = 0;  /* image adjust: saturation delta, -50..+50 */
+S32 DisplayBrightness = 0;  /* image adjust: added light, -20..+20 */
+S32 DisplayContrast = 0;    /* image adjust: contrast delta, -20..+20 */
+S32 DisplaySaturation = 0;  /* image adjust: saturation delta, -20..+20 */
 S32 VrFovScale = 100; /* VR world zoom, percent of the eye's natural FOV: >100
                          renders a wider field (zoomed out), capped by the
                          authored-world edge at about 120 */
