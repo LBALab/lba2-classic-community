@@ -30,6 +30,7 @@
 
 #include "GAMEMENU_MOUSE.H"
 
+#include <ctype.h>
 #include <dirent.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -139,7 +140,7 @@ U16 RealGameMainMenu[] = {
 
 U16 GameOptionMenu[] = {
     0,   // selected
-    6,   // nb entries
+    7,   // nb entries
     260, // y center
     0,   // .dia num
 
@@ -155,6 +156,8 @@ U16 GameOptionMenu[] = {
     MENU_ID_ADVANCED_OPTIONS,
     0,
     MENU_ID_CONTROLLER,
+    0,
+    MENU_ID_CHEATS,
 };
 
 // Display submenu: a "Resolution: <current>" row that opens the resolution
@@ -271,6 +274,31 @@ U16 ControllerMenu[] = {
     0,
     MENU_ID_GAMEPAD_CONFIG,
 };
+
+// Cheat submenu: one row per classic typed cheat code, built from the shared
+// cheat table in CHEATCOD.CPP so the menu cannot drift from the codes the game
+// already accepts by typing. Row i carries id MENU_ID_CHEAT_BASE + i; the
+// toggling cheats (Speed, God, Sendell) show their On/Off state in the label.
+static U16 CheatMenu[4 + (1 + CHEAT_MENU_MAX_ENTRIES) * 2];
+
+static void BuildCheatMenuEntries(void) {
+    U16 *p = CheatMenu + 4;
+    S32 count = CheatGetCount();
+    S32 i;
+
+    if (count > CHEAT_MENU_MAX_ENTRIES)
+        count = CHEAT_MENU_MAX_ENTRIES;
+    CheatMenu[0] = 0;   // selected
+    CheatMenu[2] = 260; // y center
+    CheatMenu[3] = 0;   // .dia num
+    *p++ = 0;
+    *p++ = 26; // menu precedent
+    for (i = 0; i < count; i++) {
+        *p++ = 0;
+        *p++ = (U16)(MENU_ID_CHEAT_BASE + i);
+    }
+    CheatMenu[1] = (U16)((p - CheatMenu - 4) / 2);
+}
 
 U16 LanguageMenu[] = {
     0, // selected
@@ -476,6 +504,26 @@ static void BuildCustomMenuText(S32 num, char *string) {
         return;
     }
 
+    // Cheat submenu rows: the label is the typed cheat word, capitalized, with
+    // the current On/Off state for the toggling cheats.
+    if (num >= MENU_ID_CHEAT_BASE &&
+        num < MENU_ID_CHEAT_BASE + CheatGetCount()) {
+        const char *name = CheatGetName(num - MENU_ID_CHEAT_BASE);
+        if (name) {
+            char label[32];
+            S32 state = CheatGetToggleState(num - MENU_ID_CHEAT_BASE);
+            if (state >= 0)
+                snprintf(label, sizeof(label), "%c%s: %s",
+                         (char)toupper((unsigned char)name[0]), name + 1,
+                         state ? "On" : "Off");
+            else
+                snprintf(label, sizeof(label), "%c%s",
+                         (char)toupper((unsigned char)name[0]), name + 1);
+            CopyUtf8ToCp850(string, 256, label);
+        }
+        return;
+    }
+
     switch (num) {
     case MENU_ID_SOUND_VOLUME:
         GetMultiText(11, string);
@@ -495,6 +543,10 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_DISPLAY));
+        break;
+
+    case MENU_ID_CHEATS:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_CHEATS));
         break;
 
     case MENU_ID_RESOLUTION: {
@@ -3598,6 +3650,26 @@ void Advanced_MainCapture(const char *path) {
     Menu_RequestCapture(NULL); /* disarm if DoGameMenu somehow exited otherwise */
 }
 
+/* Harness one-shot capture of the Cheat submenu. Same shape as
+   Advanced_MainCapture: CheatMenu is rebuilt from the shared cheat table
+   first so the rows always match it. */
+void Cheat_MainCapture(const char *path) {
+    HQ_StopSample();
+    InitPlasmaMenu();
+
+    BuildCheatMenuEntries();
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+    PtrPal = PtrPalNormal;
+    PaletteSync(PtrPalNormal);
+    InitDial(0);
+
+    Menu_RequestCapture(path);
+    DoGameMenu(CheatMenu);
+    Menu_RequestCapture(NULL); /* disarm if DoGameMenu somehow exited otherwise */
+}
+
 /*══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
@@ -3723,6 +3795,49 @@ S32 GereControllerMenu(void) {
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
+/*──────────────────────────────────────────────────────────────────────────*/
+
+S32 GereCheatMenu(void) {
+    S32 select;
+    S32 flag = 0;
+
+    BuildCheatMenuEntries();
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    if (FlagShadeMenu) {
+        ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
+    }
+
+    while (!flag) {
+        select = DoGameMenu(CheatMenu);
+
+        switch (select) {
+        case 26:
+        case 1000:
+            flag = 1;
+            break;
+
+        default:
+            // Rows are laid out in cheat-table order: applying fires the same
+            // path as typing the code (toast + sound), and the redraw shows
+            // the new On/Off state on the toggling rows.
+            if (select >= MENU_ID_CHEAT_BASE && select < MENU_ID_CHEAT_BASE + CheatGetCount())
+                TryExecuteCheatByIndex(select - MENU_ID_CHEAT_BASE);
+            break;
+        }
+    }
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    WaitNoInput();
+
+    return FALSE;
+}
+
+/*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
@@ -3783,7 +3898,7 @@ S32 OptionsMenu(S32 flagflip) {
     PlayMusic(CD_TRACK_MENU, TRUE);
 #endif
 
-    GameOptionMenu[1] = 6;
+    GameOptionMenu[1] = 7;
 
     MenuMouseAcquire();
 
@@ -3812,6 +3927,10 @@ S32 OptionsMenu(S32 flagflip) {
 
         case MENU_ID_ADVANCED_OPTIONS:
             GereAdvancedOptionsMenu();
+            break;
+
+        case MENU_ID_CHEATS:
+            GereCheatMenu();
             break;
 
         case MENU_ID_DISPLAY:

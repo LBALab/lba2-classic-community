@@ -385,6 +385,18 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
         Console_Print("ui advanced-options -> %s", argv[2]);
         return;
     }
+    if (argc >= 3 && !strcmp(argv[1], "cheat-menu")) {
+        /* Cheat submenu (Options -> Cheats), driven directly via
+           Cheat_MainCapture like the advanced-options verb: no Options-menu
+           detour, --black-bg fills a cleanroom background. */
+        if (Console_GetCaptureBlackBg()) {
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+            memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+        }
+        Cheat_MainCapture(argv[2]);
+        Console_Print("ui cheat-menu -> %s", argv[2]);
+        return;
+    }
     if (argc >= 3 && !strcmp(argv[1], "display")) {
         /* Display submenu (Phase 2 runtime-resolution UX). Opens
            DoGameMenu(DisplayMenu) directly via Display_MainCapture,
@@ -507,6 +519,7 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
     Console_Print("       ui [--black-bg] dialog <text-id> <path>");
     Console_Print("       ui [--black-bg] menu-options <path>");
     Console_Print("       ui [--black-bg] advanced-options <path>");
+    Console_Print("       ui [--black-bg] cheat-menu <path>");
     Console_Print("       ui menu-main <path>");
     Console_Print("       ui [--black-bg] display <path>");
     Console_Print("       ui [--black-bg] resolution <path>");
@@ -1936,7 +1949,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui {inventory|holomap|menu-options|advanced-options|menu-main|config|slideshow} <path> | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal]",
+                              "ui {inventory|holomap|menu-options|advanced-options|cheat-menu|menu-main|config|slideshow} <path> | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal]",
                               "Composite verb for UI regression fixtures: opens a UI modal "
                               "with a deterministic auto-exit, writes the settled frame to <path> "
                               "via SavePNG, then closes.  Compose with --load / --exec to drive "

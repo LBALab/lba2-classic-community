@@ -340,4 +340,11 @@ const struct MenuLabelRow LocalizedMenuLabels[MENU_LABEL_COUNT] = {
       "Foveación: Alta",
       "Foveazione: Alta",
       "Foveação: Alta"}},
+    {MENU_LABEL_CHEATS,
+     {"Cheats",
+      "Codes de triche",
+      "Cheats",
+      "Trucos",
+      "Trucchi",
+      "Truques"}},
 };

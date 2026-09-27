@@ -50,6 +50,10 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 - **clover** – clover
 - **box** – clover box
 - **pingouin** – MecaPingouin
+- **god** – toggle god mode
+- **sendell** – toggle Sendell power (one-punch kills)
+
+The same cheats are also reachable without typing: the Options menu has a **Cheats** submenu with one row per cheat (see [MENU.md](MENU.md)).
 
 ## Commands
 

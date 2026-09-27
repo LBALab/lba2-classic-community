@@ -33,11 +33,18 @@ Main Menu
 │   │   ├── Detail Level (45)             [slider 0–3]
 │   │   ├── Movie camera OFF/ON (46/47)
 │   │   ├── Classic camera / Auto camera / First person [custom label, community addition]
-│   │   ├── Brightness / Contrast / Saturation [community addition, GL renderer]
 │   │   ├── Small videos / Full screen videos (27/28)
 │   │   ├── Fullscreen display OFF/ON     [custom localized label]
 │   │   └── Don't display text / Display text (16/17)
-│   ├── Keyboard Config (14)
+│   ├── Controls [custom localized label, community addition]
+│   │   ├── Back (26)
+│   │   ├── Keyboard Config (14)
+│   │   └── Configure gamepad [custom localized label]
+│   └── Cheats [custom localized label, community addition]
+│       ├── Back (26)
+│       └── One row per classic cheat code — Life, Magic, Full, Gold, Speed,
+│           Clover, Box, Pingouin, God, Sendell — each applies exactly like
+│           typing the code; Speed / God / Sendell rows show their On/Off state
 └── Quit (75)
 ```
 
@@ -75,16 +82,18 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 - **Options** (`OptionsMenu`): top-level submenu for Sound volume, Choose language, Advanced options, and Keyboard Config. Reuses original `text.hqr` labels where they already exist and keeps custom localized labels only for the new submenu concepts. Calls `GereVolumeMenu()`, `GereLanguageMenu()`, `GereAdvancedOptionsMenu()`, and `MenuConfig()`. Calls `SetDetailLevel()` on exit.
 - **Volume** (`GereVolumeMenu`): `VolumeMenuVoice` / `VolumeMenuNoVoice` depending on `FlagSpeak`. Sliders for Sample, Voice, Music, and General volume. Persisted via [CONFIG.md](CONFIG.md).
 - **Language** (`GereLanguageMenu`): cycles text language and voice language independently. Text changes reload `text.hqr` immediately; voice changes update the active `LanguageCD` setting.
-- **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, the camera setting (Classic camera / Auto camera / First person), the image adjustments Brightness / Contrast / Saturation (GL renderer), video playback size, window fullscreen mode, subtitle display, and the frame-rate counter, plus a frame-rate limiter (Off/30/60/72/90/120); includes the existing Detail Level slider.
+- **Display** (`GereDisplayMenu`): runtime resolution entry point plus GL renderer toggles; see [RUNTIME_RESOLUTION.md](RUNTIME_RESOLUTION.md) and [GFX_OPTIONS.md](GFX_OPTIONS.md). The Brightness / Contrast / Saturation rows (GL renderer) are image sliders (menu types 10–12): left/right (or mouse wheel) steps the signed -20..+20 value by 1 with the volume sliders' key repeat, the bar is zero-centred, the change previews live at composite time, and the values are written to lba2.cfg once when the submenu closes.
+- **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, the camera setting (Classic camera / Auto camera / First person), video playback size, window fullscreen mode, subtitle display, and the frame-rate counter, plus a frame-rate limiter (Off/30/60/72/90/120); includes the existing Detail Level slider.
 - **Save/Load** (`SavedGameManagement`, `ChoosePlayerName`): Player name selection, save slots, `GameChoiceMenu[]`, `SavedConfirmMenu[]` for delete
 - **Keyboard config** (`MenuConfig`): standalone config tool in [SOURCES/CONFIG/](../SOURCES/CONFIG/) or in-game `ReadInputConfig`/`WriteInputConfig`
+- **Cheats** (`GereCheatMenu`): one row per classic typed cheat code, rebuilt from the shared cheat table in [SOURCES/CHEATCOD.CPP](../SOURCES/CHEATCOD.CPP) (`CheatGetCount` / `CheatGetName`) so the menu cannot drift from the codes the game already accepts by typing. Selecting a row runs `TryExecuteCheatByIndex`, the same path the console and typed sequences use (toast + sound included); the Speed / God / Sendell rows are toggles and show their On/Off state in the label. Rows use the reserved `MENU_ID_CHEAT_BASE` id range; `ui cheat-menu <path>` ([CONTROL.md](CONTROL.md)) captures the submenu headless.
 
 ## Menu data format
 
 - `U16 *ptrmenu`: `[selected, nb_entries, y_center, dia_num, (type, text_id)*]`
 - `DrawGameMenu()`, `DoGameMenu()` in GAMEMENU.CPP (lines 1760, 1823)
 - Text IDs from `text.hqr` / dialogue system (`GetMultiText`), plus synthetic IDs (e.g. `MENU_ID_*` in the 2100 range) resolved in `BuildCustomMenuText()`
-- Type in each entry: 0 = plain text/toggle, 2–6 = volume sliders, 7 = Detail Level slider, 8 = text language cycle, 9 = voice language cycle
+- Type in each entry: 0 = plain text/toggle, 2–6 = volume sliders, 7 = Detail Level slider, 8 = text language cycle, 9 = voice language cycle, 10–12 = image sliders (Brightness / Contrast / Saturation, zero-centred -20..+20)
 
 ## Menu layout
 
@@ -103,7 +112,7 @@ Save/load slot list: `NB_GAME_CHOICE` (5 visible rows), `Y_START_CHOICE` (205), 
 
 ## Languages and localization
 
-The main menu still uses only the six template actions (70–75). Options (74) adds in-game Choose language and Advanced options (see menu tree): top-level `GameOptionMenu` has 5 rows in display order — Back (26), Sound volume, Choose language, Advanced options, Keyboard Config (14).
+The main menu still uses only the six template actions (70–75). Options (74) adds in-game Choose language and Advanced options (see menu tree): top-level `GameOptionMenu` has 7 rows in display order — Back (26), Display, Sound volume, Choose language, Advanced options, Controls, Cheats.
 
 | Mechanism | Where | Notes |
 |-----------|--------|--------|

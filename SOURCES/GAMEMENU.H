@@ -91,6 +91,10 @@ extern void Resolution_MainCapture(const char *path);
    caller's Log/Screen state -- `ui --black-bg advanced-options` clears them
    first; the plain verb composites over the live scene. */
 extern void Advanced_MainCapture(const char *path);
+/* Harness hook: capture the Cheat submenu (the list opened from
+   Options -> Cheats). Like Advanced_MainCapture but rebuilds the rows from
+   the shared cheat table in CHEATCOD.CPP first. */
+extern void Cheat_MainCapture(const char *path);
 /*--------------------------------------------------------------------------*/
 extern void VolumeOptions(void);
 /*--------------------------------------------------------------------------*/

@@ -237,22 +237,52 @@ void GereCheatCode(void) {
     }
 }
 
+int CheatGetCount(void) {
+    return (S32)NB_DEF_CHEAT_CODE;
+}
+
+const char *CheatGetName(int index) {
+    if (index < 0 || index >= (S32)NB_DEF_CHEAT_CODE)
+        return NULL;
+    return CheatNames[index];
+}
+
+/* 0/1 for the cheats that toggle (Speed, God, Sendell), -1 for one-shots. */
+int CheatGetToggleState(int index) {
+    switch (index) {
+    case CHEAT_SPEED:
+        return DebugFps ? 1 : 0;
+    case CHEAT_GOD:
+        return GodMode ? 1 : 0;
+    case CHEAT_SENDELL:
+        return OnePunch ? 1 : 0;
+    }
+    return -1;
+}
+
+int TryExecuteCheatByIndex(int index) {
+    S32 text = -1, sprite = -1;
+
+    if (index < 0 || index >= (S32)NB_DEF_CHEAT_CODE)
+        return 0;
+
+    ApplyCheat(index, &text, &sprite);
+    if (text != -1)
+        InitMenuIncrustText(CheatText[text], sprite, 2);
+    HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
+    return 1;
+}
+
 int TryExecuteCheatByName(const char *name) {
     char buf[32];
-    S32 text = -1, sprite = -1;
     S32 i;
 
     if (!name || !name[0])
         return 0;
     tolower_str(buf, name, sizeof(buf));
     for (i = 0; i < (S32)NB_DEF_CHEAT_CODE; i++) {
-        if (strcmp(buf, CheatNames[i]) == 0) {
-            ApplyCheat(i, &text, &sprite);
-            if (text != -1)
-                InitMenuIncrustText(CheatText[text], sprite, 2);
-            HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
-            return 1;
-        }
+        if (strcmp(buf, CheatNames[i]) == 0)
+            return TryExecuteCheatByIndex(i);
     }
     return 0;
 }
