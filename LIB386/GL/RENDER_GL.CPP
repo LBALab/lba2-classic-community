@@ -275,7 +275,12 @@ static const char *s_clutFragSrc =
     /* Per-vertex material word, flat across the polygon. */
     "    float mFlags = mod(vMaterial, 256.0);\n"
     "    int mMode = int(mod(mFlags, 8.0) + 0.5);\n"
-    "    float mAlpha = floor(mod(mFlags, 32.0) / 8.0 + 0.5);\n"
+    /* alphaMode is bits 3-4 of the word: the mod-32 residue still holds
+       the mode's low bits, so the /8 quotient is only integral when the
+       alpha bits are actually set (e.g. mode 4 leaves residue 4 = 0.5).
+       Round with a small epsilon, not 0.5, or mode 4 reads as alpha 1
+       and the transparent mode (residue 12) rounds up to stipple 2. */
+    "    float mAlpha = floor(mod(mFlags, 32.0) / 8.0 + 0.1);\n"
     "    float mChroma = floor(mod(mFlags, 64.0) / 32.0 + 0.5);\n"
     "    float mPersp = floor(mod(mFlags, 128.0) / 64.0 + 0.5);\n"
     "    float mColor = floor(vMaterial / 256.0);\n"
@@ -5578,8 +5583,17 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
     static const S8 order[6] = {0, 1, 2, 0, 2, 3};
     const S16 px[4] = {(S16)x0, (S16)x1, (S16)x1, (S16)x0};
     const S16 py[4] = {(S16)y0, (S16)y0, (S16)y1, (S16)y1};
-    const U16 pu[4] = {(U16)u0, (U16)u1, (U16)u1, (U16)u0};
-    const U16 pv[4] = {(U16)v0, (U16)v0, (U16)v1, (U16)v1};
+    /* The mode-4 shader recovers texel units with tc/256 (the batch
+       MapU/MapV convention: 8 fractional bits), so hand it texel<<8 —
+       raw texel indices would divide down to 0 and sample texel (0,0)
+       for every fragment, chroma-keying the whole quad away.  RepMask
+       0xFFFF keeps mod(tc,256) from wrapping inside the sprite; the
+       sampler's CLAMP_TO_EDGE absorbs uv past w/h (scaled paths sample
+       the source span rounded up). */
+    const U16 pu[4] = {(U16)(u0 << 8), (U16)(u1 << 8), (U16)(u1 << 8),
+                       (U16)(u0 << 8)};
+    const U16 pv[4] = {(U16)(v0 << 8), (U16)(v0 << 8), (U16)(v1 << 8),
+                       (U16)(v1 << 8)};
     for (S32 i = 0; i < 6; i++) {
         U8 *v = quadVerts + i * BATCH_VERT_BYTES;
         S32 c = order[i];
@@ -5593,7 +5607,7 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
         memcpy(v + 6, &vv, 2);
         memset(v + 8, 0, 2); /* light = 0 */
         memcpy(v + 10, &az, 2);
-        memset(v + 12, 0, 2); /* RepMask = 0 */
+        memset(v + 12, 0xFF, 2); /* RepMask = no in-sprite wrap */
         memcpy(v + 14, &spriteMat, 2);
     }
 

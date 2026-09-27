@@ -19,6 +19,7 @@
 /* HOLO.H lacks include guards and is pulled in transitively by DEFINES.H. */
 #include "../INVENT.H"
 #include "../OBJECT.H" // SetAnim (teleport stops the hero's carried animation)
+#include "../EXTRA.H"  // ExtraBonus (spawnextra repro hook)
 #include "../RES_CATALOG.H"
 #include "../RES_SWITCH.H"
 #include "../PERFTRACE.H"
@@ -1551,6 +1552,28 @@ static void cmd_teleport(int argc, const char *argv[]) {
     Console_Print("Usage: teleport <x> <y> <z> [beta] | teleport actor <n>");
 }
 
+/* spawnextra <sprite> [count]: drop a bouncing bonus extra (ExtraBonus) next to the
+   hero — the repro hook for sprite-extra rendering (18 kashes, 4 heart, 5 magic flask,
+   8 magic ball, 2 dart; GOODRAW indices, SPRITE_* in COMMON.H). */
+static void cmd_spawnextra(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Usage: spawnextra <sprite> [count]");
+        return;
+    }
+    T_OBJET *hero = &ListObjet[NUM_PERSO];
+    S16 num = (S16)atoi(argv[1]);
+    S16 nb = (argc >= 3) ? (S16)atoi(argv[2]) : (S16)1;
+    S32 n = ExtraBonus(hero->Obj.X + 400, hero->Obj.Y + hero->YMax + 200,
+                       hero->Obj.Z, (256 * MUL_ANGLE), 0, num, nb);
+    if (n == -1) {
+        Console_Print("spawnextra: no free extra slot");
+        return;
+    }
+    Console_Print("spawnextra: extra %d sprite %d x%d at (%d,%d,%d)", n, (int)num,
+                  (int)nb, (int)(hero->Obj.X + 400), (int)(hero->Obj.Y + hero->YMax + 200),
+                  (int)hero->Obj.Z);
+}
+
 /* camangle [alpha] [beta] [dist]: read or set the exterior camera orbit, elevation and
    distance globals directly (LBA angle units for alpha/beta). Input injection cannot drive
    the camera sticks headlessly, so this is the harness probe for camera-dependent rendering
@@ -1956,6 +1979,10 @@ void Console_RegisterAll(void) {
                               "headless captures of UI state.");
     Console_RegisterCommandEx("savebug", cmd_savebug, "Save current game to bugs dir (optional name)", "savebug [name]",
                               "Requires in-game loaded cube (not during video); writes bugs/<name>.lba.");
+    Console_RegisterCommandEx("spawnextra", cmd_spawnextra, "Drop a bonus extra (coin, heart, flask, ball) at the hero",
+                              "spawnextra <sprite> [count]",
+                              "GOODRAW sprite indices (SPRITE_*): 2 dart, 4 heart, 5 magic flask, "
+                              "8 magic ball, 18 kashes.");
     Console_RegisterCommandEx("resolution", cmd_resolution,
                               "Switch render resolution at runtime (no args = list)",
                               "resolution [<n> | WxH | native | --all]",
