@@ -7,6 +7,7 @@
 #include <SYSTEM/WINDOW.H>
 #include <SYSTEM/OPENXR.H>
 #include <SVGA/DIRTYBOX.H>
+#include <SVGA/XBR.H>
 
 #ifdef USE_GPURENDERER
 
@@ -450,7 +451,7 @@ static const char *s_clutFragSrc =
     "uniform float uCLUTBaseRow;\n"   /* legacy row offset (now per vertex) */
     "uniform float uScaledFogNear;\n" /* Fill_ScaledFogNear (fog-smooth distance, mode 5) */
     "uniform float uFogRowScale;\n"   /* Fill_Fog_Factor / 65536 (fog-smooth distance, mode 5) */
-    "uniform int uBilinear;\n"        /* 0=nearest 1=bilinear CLUT sampling */
+    "uniform int uBilinear;\n"        /* 0=nearest 1=bilinear 2=Scale2x 3=xBR */
     /* Terrain far-plane discard.  The static terrain VBO path projects
        cube-local world positions in the vertex shader, where the CPU
        path's per-vertex ClipZFar cull cannot run; the terrain vertex
@@ -483,6 +484,184 @@ static const char *s_clutFragSrc =
     "    vec2 cuv = vec2((palIdx + 0.5) / 256.0,\n"
     "                     (gouraudRow + 0.5) / 256.0);\n"
     "    return texture2D(uCLUT, cuv);\n"
+    "}\n"
+    /* ── xBR-lv2 sampling (texture filter mode 3) ──────────────────────────
+       Hyllian's xBR-lv2 edge rules (MIT; the CPU twin in LIB386/SVGA/XBR.CPP
+       documents the provenance and keeps the rules host-tested), run on the
+       atlas neighbourhood of the texel being sampled.  Edge weights come
+       from the unlit palette colors; the blend applies those weights to the
+       CLUT-lit neighbours, so gouraud lighting stays a per-texel lookup and
+       only the smoothing is new.  CORNER_C variant, rgbw luminance,
+       small-details path. */
+    "const vec3 xbrRgbw = vec3(14.352, 28.176, 5.472);\n"
+    "const vec4 xbrDelta = vec4(1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0);\n"
+    "const vec4 xbrDeltaL = vec4(0.5 / 3.0, 1.0 / 3.0, 0.5 / 3.0, 1.0 / 3.0);\n"
+    "const vec4 xbrDeltaU = vec4(1.0 / 3.0, 0.5 / 3.0, 1.0 / 3.0, 0.5 / 3.0);\n"
+    "const vec4 xbrAo = vec4( 1.0, -1.0, -1.0,  1.0);\n"
+    "const vec4 xbrBo = vec4( 1.0,  1.0, -1.0, -1.0);\n"
+    "const vec4 xbrCo = vec4( 1.5,  0.5, -0.5,  0.5);\n"
+    "const vec4 xbrAx = vec4( 1.0, -1.0, -1.0,  1.0);\n"
+    "const vec4 xbrBx = vec4( 0.5,  2.0, -0.5, -2.0);\n"
+    "const vec4 xbrCx = vec4( 1.0,  1.0, -0.5,  0.0);\n"
+    "const vec4 xbrAy = vec4( 1.0, -1.0, -1.0,  1.0);\n"
+    "const vec4 xbrBy = vec4( 2.0,  0.5, -2.0, -0.5);\n"
+    "const vec4 xbrCy = vec4( 2.0,  0.0, -1.0,  0.5);\n"
+    "const vec4 xbrCi = vec4(0.25, 0.25, 0.25, 0.25);\n"
+    "float xbrIndex(vec2 p, vec2 whm) {\n"
+    "    return texture2D(uAtlas, vec2((mod(p.x, whm.x) + 0.5) / 256.0,\n"
+    "                                  (mod(p.y, whm.y) + 0.5) / 256.0)).r * 255.0;\n"
+    "}\n"
+    "vec3 xbrPal(float idx) {\n"
+    "    return texture2D(uPalette, vec2((idx + 0.5) / 256.0, 0.5)).rgb;\n"
+    "}\n"
+    "vec3 xbrLit(float idx, float row, float noClut) {\n"
+    "    if (noClut > 0.5) return xbrPal(idx);\n"
+    "    return clutLookup(idx, row).rgb;\n"
+    "}\n"
+    /* Scale2x on the atlas neighbourhood (texture filter mode 2): the
+       documented 2x edge rules, evaluated per fragment — the sample
+       position inside the source texel picks the output sub-quadrant, and
+       the rule replaces the centre texel with the matching neighbour only
+       when the two neighbours guarding that corner compare equal.  The
+       comparisons run on raw atlas indices (exact integers), so unlike
+       xBR this needs no color math — and exactly one lit lookup. */
+    "vec4 clutScale2x(vec2 tc, float widthMask, float heightMask,\n"
+    "                  float gouraudRow, float chroma) {\n"
+    "    vec2 whm = vec2(widthMask + 1.0, heightMask + 1.0);\n"
+    "    float u = mod(tc.x, whm.x);\n"
+    "    float v = mod(tc.y, whm.y);\n"
+    "    vec2 pC = vec2(floor(u), floor(v));\n"
+    "    vec2 fp = vec2(u - pC.x, v - pC.y);\n"
+    "    float e = xbrIndex(pC, whm);\n"
+    "    if (chroma > 0.5 && e < 0.5) discard;\n"
+    "    float b = xbrIndex(pC + vec2( 0.0, -1.0), whm);\n"
+    "    float d = xbrIndex(pC + vec2(-1.0,  0.0), whm);\n"
+    "    float f = xbrIndex(pC + vec2( 1.0,  0.0), whm);\n"
+    "    float h = xbrIndex(pC + vec2( 0.0,  1.0), whm);\n"
+    "    float r = e;\n"
+    "    if (b != h && d != f) {\n"
+    "        if (fp.x < 0.5 && fp.y < 0.5) {\n"
+    "            r = (d == b) ? d : e;\n"
+    "        } else if (fp.x >= 0.5 && fp.y < 0.5) {\n"
+    "            r = (b == f) ? f : e;\n"
+    "        } else if (fp.x < 0.5) {\n"
+    "            r = (d == h) ? d : e;\n"
+    "        } else {\n"
+    "            r = (h == f) ? f : e;\n"
+    "        }\n"
+    "    }\n"
+    "    return vec4(xbrLit(r, gouraudRow, 0.0), 1.0);\n"
+    "}\n"
+    "float xbrCDF(vec3 c1, vec3 c2) {\n"
+    "    vec3 df = abs(c1 - c2);\n"
+    "    return df.r + df.g + df.b;\n"
+    "}\n"
+    "vec4 xbrEq(vec4 A, vec4 B) {\n"
+    "    return step(abs(A - B), vec4(15.0));\n"
+    "}\n"
+    "vec4 xbrNeq(vec4 A, vec4 B) {\n"
+    "    return vec4(1.0) - xbrEq(A, B);\n"
+    "}\n"
+    "vec4 xbrDiff(vec4 A, vec4 B) {\n"
+    "    return vec4(notEqual(A, B));\n"
+    "}\n"
+    "vec4 clutXbr(vec2 tc, float widthMask, float heightMask,\n"
+    "              float gouraudRow, float chroma, float noClut) {\n"
+    "    vec2 whm = vec2(widthMask + 1.0, heightMask + 1.0);\n"
+    "    float u = mod(tc.x, whm.x);\n"
+    "    float v = mod(tc.y, whm.y);\n"
+    "    float iu = floor(u);\n"
+    "    float iv = floor(v);\n"
+    "    vec2 fp = vec2(u - iu, v - iv);\n"
+    "    vec2 pC = vec2(iu, iv);\n"
+    /*    A1 B1 C1                                  */
+    /* A0  A  B  C C4                              */
+    /* D0  D  E  F F4                              */
+    /* G0  G  H  I I4                              */
+    /*    G5 H5 I5                                 */
+    "    float eIdx = xbrIndex(pC, whm);\n"
+    "    if (chroma > 0.5 && eIdx < 0.5) discard;\n"
+    "    float a1 = xbrIndex(pC + vec2(-1.0, -2.0), whm);\n"
+    "    float b1 = xbrIndex(pC + vec2( 0.0, -2.0), whm);\n"
+    "    float c1 = xbrIndex(pC + vec2( 1.0, -2.0), whm);\n"
+    "    float a  = xbrIndex(pC + vec2(-1.0, -1.0), whm);\n"
+    "    float b  = xbrIndex(pC + vec2( 0.0, -1.0), whm);\n"
+    "    float c  = xbrIndex(pC + vec2( 1.0, -1.0), whm);\n"
+    "    float d  = xbrIndex(pC + vec2(-1.0,  0.0), whm);\n"
+    "    float f  = xbrIndex(pC + vec2( 1.0,  0.0), whm);\n"
+    "    float g  = xbrIndex(pC + vec2(-1.0,  1.0), whm);\n"
+    "    float h  = xbrIndex(pC + vec2( 0.0,  1.0), whm);\n"
+    "    float i  = xbrIndex(pC + vec2( 1.0,  1.0), whm);\n"
+    "    float g5 = xbrIndex(pC + vec2(-1.0,  2.0), whm);\n"
+    "    float h5 = xbrIndex(pC + vec2( 0.0,  2.0), whm);\n"
+    "    float i5 = xbrIndex(pC + vec2( 1.0,  2.0), whm);\n"
+    "    float a0 = xbrIndex(pC + vec2(-2.0, -1.0), whm);\n"
+    "    float d0 = xbrIndex(pC + vec2(-2.0,  0.0), whm);\n"
+    "    float g0 = xbrIndex(pC + vec2(-2.0,  1.0), whm);\n"
+    "    float c4 = xbrIndex(pC + vec2( 2.0, -1.0), whm);\n"
+    "    float f4 = xbrIndex(pC + vec2( 2.0,  0.0), whm);\n"
+    "    float i4 = xbrIndex(pC + vec2( 2.0,  1.0), whm);\n"
+    /* Packed luminances; vec4 lanes: x=NW, y=NE, z=SW, w=SE. */
+    "    vec4 lb = vec4(dot(xbrPal(b), xbrRgbw), dot(xbrPal(d), xbrRgbw),\n"
+    "                   dot(xbrPal(h), xbrRgbw), dot(xbrPal(f), xbrRgbw));\n"
+    "    vec4 lc = vec4(dot(xbrPal(c), xbrRgbw), dot(xbrPal(a), xbrRgbw),\n"
+    "                   dot(xbrPal(g), xbrRgbw), dot(xbrPal(i), xbrRgbw));\n"
+    "    vec4 ld = lb.yzwx;\n"
+    "    vec4 le = vec4(dot(xbrPal(eIdx), xbrRgbw));\n"
+    "    vec4 lf = lb.wxyz;\n"
+    "    vec4 lg = lc.zwxy;\n"
+    "    vec4 lh = lb.zwxy;\n"
+    "    vec4 li = lc.wxyz;\n"
+    "    vec4 li4 = vec4(dot(xbrPal(i4), xbrRgbw), dot(xbrPal(c1), xbrRgbw),\n"
+    "                    dot(xbrPal(a0), xbrRgbw), dot(xbrPal(g5), xbrRgbw));\n"
+    "    vec4 li5 = vec4(dot(xbrPal(i5), xbrRgbw), dot(xbrPal(c4), xbrRgbw),\n"
+    "                    dot(xbrPal(a1), xbrRgbw), dot(xbrPal(g0), xbrRgbw));\n"
+    "    vec4 lh5 = vec4(dot(xbrPal(h5), xbrRgbw), dot(xbrPal(f4), xbrRgbw),\n"
+    "                    dot(xbrPal(b1), xbrRgbw), dot(xbrPal(d0), xbrRgbw));\n"
+    "    vec4 lf4 = lh5.yzwx;\n"
+    "    vec4 fx   = xbrAo * fp.y + xbrBo * fp.x;\n"
+    "    vec4 fx_l = xbrAx * fp.y + xbrBx * fp.x;\n"
+    "    vec4 fx_u = xbrAy * fp.y + xbrBy * fp.x;\n"
+    "    vec4 irlv0 = xbrDiff(le, lf) * xbrDiff(le, lh);\n"
+    "    vec4 irlv1 = irlv0 * ( xbrNeq(lf, lb) * xbrNeq(lf, lc)\n"
+    "                         + xbrNeq(lh, ld) * xbrNeq(lh, lg)\n"
+    "                         + xbrEq(le, li) * (xbrNeq(lf, lf4) * xbrNeq(lf, li4)\n"
+    "                                          + xbrNeq(lh, lh5) * xbrNeq(lh, li5))\n"
+    "                         + xbrEq(le, lg) + xbrEq(le, lc) );\n"
+    "    vec4 irlv2l = xbrDiff(le, lg) * xbrDiff(ld, lg);\n"
+    "    vec4 irlv2u = xbrDiff(le, lc) * xbrDiff(lb, lc);\n"
+    "    vec4 fx45i = clamp((fx   + xbrDelta  - xbrCo - xbrCi) / (2.0 * xbrDelta),  0.0, 1.0);\n"
+    "    vec4 fx45  = clamp((fx   + xbrDelta  - xbrCo)         / (2.0 * xbrDelta),  0.0, 1.0);\n"
+    "    vec4 fx30  = clamp((fx_l + xbrDeltaL - xbrCx)         / (2.0 * xbrDeltaL), 0.0, 1.0);\n"
+    "    vec4 fx60  = clamp((fx_u + xbrDeltaU - xbrCy)         / (2.0 * xbrDeltaU), 0.0, 1.0);\n"
+    "    vec4 wd1 = abs(le - lc) + abs(le - lg) + abs(li - lh5) + abs(li - lf4)\n"
+    "             + 4.0 * abs(lh - lf);\n"
+    "    vec4 wd2 = abs(lh - ld) + abs(lh - li5) + abs(lf - li4) + abs(lf - lb)\n"
+    "             + 4.0 * abs(le - li);\n"
+    "    vec4 edri = step(wd1, wd2) * irlv0;\n"
+    "    vec4 edr  = step(wd1 + vec4(0.1), wd2) * step(vec4(0.5), irlv1);\n"
+    "    vec4 edr_l = step(2.0 * abs(lf - lg), abs(lh - lc)) * irlv2l * edr;\n"
+    "    vec4 edr_u = step(abs(lf - lg), 2.0 * abs(lh - lc)) * irlv2u * edr;\n"
+    "    fx45  = edr   * fx45;\n"
+    "    fx30  = edr_l * fx30;\n"
+    "    fx60  = edr_u * fx60;\n"
+    "    fx45i = edri  * fx45i;\n"
+    "    vec4 px = step(abs(le - lf), abs(le - lh));\n"
+    "    vec4 maximos = max(max(fx30, fx60), max(fx45, fx45i));\n"
+    /* Blend the lit colours, not the palette colors the edges were weighed
+       on — lighting stays a per-texel CLUT lookup. */
+    "    vec3 cE = xbrLit(eIdx, gouraudRow, noClut);\n"
+    "    vec3 cB = xbrLit(b, gouraudRow, noClut);\n"
+    "    vec3 cD = xbrLit(d, gouraudRow, noClut);\n"
+    "    vec3 cF = xbrLit(f, gouraudRow, noClut);\n"
+    "    vec3 cH = xbrLit(h, gouraudRow, noClut);\n"
+    "    vec3 res1 = cE;\n"
+    "    res1 = mix(res1, mix(cH, cF, px.x), maximos.x);\n"
+    "    res1 = mix(res1, mix(cB, cD, px.z), maximos.z);\n"
+    "    vec3 res2 = cE;\n"
+    "    res2 = mix(res2, mix(cF, cB, px.y), maximos.y);\n"
+    "    res2 = mix(res2, mix(cD, cH, px.w), maximos.w);\n"
+    "    return vec4(mix(res1, res2, step(xbrCDF(cE, res1), xbrCDF(cE, res2))), 1.0);\n"
     "}\n"
     /* Bilinear CLUT sampling: sample 4 atlas texels, CLUT each one, then
        interpolate the resulting RGBA colors.  This avoids the artifact
@@ -569,7 +748,13 @@ static const char *s_clutFragSrc =
         changes it per terrain tile, and carrying it per vertex lets
         tiles share one draw call. */
     "        float gouraudRow = floor((vLight + 128.0) / 256.0) + mColor;\n"
-    "        if (uBilinear != 0) {\n"
+    "        if (uBilinear == 3) {\n"
+    "            color = clutXbr(tc, widthMask, heightMask, gouraudRow,\n"
+    "                            mChroma, 0.0);\n"
+    "        } else if (uBilinear == 2) {\n"
+    "            color = clutScale2x(tc, widthMask, heightMask, gouraudRow,\n"
+    "                                mChroma);\n"
+    "        } else if (uBilinear != 0) {\n"
     "            color = bilinearCLUT(tc, widthMask, heightMask, gouraudRow, mChroma);\n"
     "        } else {\n"
     "            float wrappedU = mod(tc.x, widthMask + 1.0);\n"
@@ -844,6 +1029,7 @@ static GLint s_fxaa_uTexel = -1;
 static GLint s_fxaa_aPos = -1;
 static GLint s_fxaa_aTexCoord = -1;
 
+
 /* ── SMAA 1x (Subpixel Morphological Antialiasing) ──────────────────────── */
 /* Three-pass post-process (edge detection -> blending weights -> neighbor
    blend) run at the present path where FXAA lives.  Requires a GLES3/GL3
@@ -1070,6 +1256,127 @@ static const char *s_arrayInject =
     "uniform sampler2DArray uAtlasArr;\n"
     "uniform sampler2DArray uAtlasQuadArr;\n"
     "uniform int uAtlasQuadValid;\n"
+    "float arrayXbrIndex(vec2 p, float layer) {\n"
+    "    return texture(uAtlasArr, vec3((mod(p.x, 256.0) + 0.5) / 256.0,\n"
+    "                                   (mod(p.y, 256.0) + 0.5) / 256.0,\n"
+    "                                   layer)).r * 255.0;\n"
+    "}\n"
+    /* Scale2x on an array layer: same rules as clutScale2x, fetching the
+       atlas neighbourhood from the layer instead of the 2D atlas. */
+    "vec4 arrayScale2x(vec2 tc, float layer, float gouraudRow, float chroma) {\n"
+    "    float u = mod(tc.x, 256.0);\n"
+    "    float v = mod(tc.y, 256.0);\n"
+    "    vec2 pC = vec2(floor(u), floor(v));\n"
+    "    vec2 fp = vec2(u - pC.x, v - pC.y);\n"
+    "    float e = arrayXbrIndex(pC, layer);\n"
+    "    if (chroma > 0.5 && e < 0.5) discard;\n"
+    "    float b = arrayXbrIndex(pC + vec2( 0.0, -1.0), layer);\n"
+    "    float d = arrayXbrIndex(pC + vec2(-1.0,  0.0), layer);\n"
+    "    float f = arrayXbrIndex(pC + vec2( 1.0,  0.0), layer);\n"
+    "    float h = arrayXbrIndex(pC + vec2( 0.0,  1.0), layer);\n"
+    "    float r = e;\n"
+    "    if (b != h && d != f) {\n"
+    "        if (fp.x < 0.5 && fp.y < 0.5) {\n"
+    "            r = (d == b) ? d : e;\n"
+    "        } else if (fp.x >= 0.5 && fp.y < 0.5) {\n"
+    "            r = (b == f) ? f : e;\n"
+    "        } else if (fp.x < 0.5) {\n"
+    "            r = (d == h) ? d : e;\n"
+    "        } else {\n"
+    "            r = (h == f) ? f : e;\n"
+    "        }\n"
+    "    }\n"
+    "    return vec4(xbrLit(r, gouraudRow, 0.0), 1.0);\n"
+    "}\n"
+    /* xBR on an array layer: same rules as clutXbr, fetching the atlas
+       neighbourhood from the layer instead of the 2D atlas (full-page wrap,
+       no sub-rect masks). */
+    "vec4 arrayXbr(vec2 tc, float layer, float gouraudRow, float chroma) {\n"
+    "    float u = mod(tc.x, 256.0);\n"
+    "    float v = mod(tc.y, 256.0);\n"
+    "    vec2 pC = vec2(floor(u), floor(v));\n"
+    "    vec2 fp = vec2(u - pC.x, v - pC.y);\n"
+    "    float eIdx = arrayXbrIndex(pC, layer);\n"
+    "    if (chroma > 0.5 && eIdx < 0.5) discard;\n"
+    "    float a1 = arrayXbrIndex(pC + vec2(-1.0, -2.0), layer);\n"
+    "    float b1 = arrayXbrIndex(pC + vec2( 0.0, -2.0), layer);\n"
+    "    float c1 = arrayXbrIndex(pC + vec2( 1.0, -2.0), layer);\n"
+    "    float a  = arrayXbrIndex(pC + vec2(-1.0, -1.0), layer);\n"
+    "    float b  = arrayXbrIndex(pC + vec2( 0.0, -1.0), layer);\n"
+    "    float c  = arrayXbrIndex(pC + vec2( 1.0, -1.0), layer);\n"
+    "    float d  = arrayXbrIndex(pC + vec2(-1.0,  0.0), layer);\n"
+    "    float f  = arrayXbrIndex(pC + vec2( 1.0,  0.0), layer);\n"
+    "    float g  = arrayXbrIndex(pC + vec2(-1.0,  1.0), layer);\n"
+    "    float h  = arrayXbrIndex(pC + vec2( 0.0,  1.0), layer);\n"
+    "    float i  = arrayXbrIndex(pC + vec2( 1.0,  1.0), layer);\n"
+    "    float g5 = arrayXbrIndex(pC + vec2(-1.0,  2.0), layer);\n"
+    "    float h5 = arrayXbrIndex(pC + vec2( 0.0,  2.0), layer);\n"
+    "    float i5 = arrayXbrIndex(pC + vec2( 1.0,  2.0), layer);\n"
+    "    float a0 = arrayXbrIndex(pC + vec2(-2.0, -1.0), layer);\n"
+    "    float d0 = arrayXbrIndex(pC + vec2(-2.0,  0.0), layer);\n"
+    "    float g0 = arrayXbrIndex(pC + vec2(-2.0,  1.0), layer);\n"
+    "    float c4 = arrayXbrIndex(pC + vec2( 2.0, -1.0), layer);\n"
+    "    float f4 = arrayXbrIndex(pC + vec2( 2.0,  0.0), layer);\n"
+    "    float i4 = arrayXbrIndex(pC + vec2( 2.0,  1.0), layer);\n"
+    "    vec4 lb = vec4(dot(xbrPal(b), xbrRgbw), dot(xbrPal(d), xbrRgbw),\n"
+    "                   dot(xbrPal(h), xbrRgbw), dot(xbrPal(f), xbrRgbw));\n"
+    "    vec4 lc = vec4(dot(xbrPal(c), xbrRgbw), dot(xbrPal(a), xbrRgbw),\n"
+    "                   dot(xbrPal(g), xbrRgbw), dot(xbrPal(i), xbrRgbw));\n"
+    "    vec4 ld = lb.yzwx;\n"
+    "    vec4 le = vec4(dot(xbrPal(eIdx), xbrRgbw));\n"
+    "    vec4 lf = lb.wxyz;\n"
+    "    vec4 lg = lc.zwxy;\n"
+    "    vec4 lh = lb.zwxy;\n"
+    "    vec4 li = lc.wxyz;\n"
+    "    vec4 li4 = vec4(dot(xbrPal(i4), xbrRgbw), dot(xbrPal(c1), xbrRgbw),\n"
+    "                    dot(xbrPal(a0), xbrRgbw), dot(xbrPal(g5), xbrRgbw));\n"
+    "    vec4 li5 = vec4(dot(xbrPal(i5), xbrRgbw), dot(xbrPal(c4), xbrRgbw),\n"
+    "                    dot(xbrPal(a1), xbrRgbw), dot(xbrPal(g0), xbrRgbw));\n"
+    "    vec4 lh5 = vec4(dot(xbrPal(h5), xbrRgbw), dot(xbrPal(f4), xbrRgbw),\n"
+    "                    dot(xbrPal(b1), xbrRgbw), dot(xbrPal(d0), xbrRgbw));\n"
+    "    vec4 lf4 = lh5.yzwx;\n"
+    "    vec4 fx   = xbrAo * fp.y + xbrBo * fp.x;\n"
+    "    vec4 fx_l = xbrAx * fp.y + xbrBx * fp.x;\n"
+    "    vec4 fx_u = xbrAy * fp.y + xbrBy * fp.x;\n"
+    "    vec4 irlv0 = xbrDiff(le, lf) * xbrDiff(le, lh);\n"
+    "    vec4 irlv1 = irlv0 * ( xbrNeq(lf, lb) * xbrNeq(lf, lc)\n"
+    "                         + xbrNeq(lh, ld) * xbrNeq(lh, lg)\n"
+    "                         + xbrEq(le, li) * (xbrNeq(lf, lf4) * xbrNeq(lf, li4)\n"
+    "                                          + xbrNeq(lh, lh5) * xbrNeq(lh, li5))\n"
+    "                         + xbrEq(le, lg) + xbrEq(le, lc) );\n"
+    "    vec4 irlv2l = xbrDiff(le, lg) * xbrDiff(ld, lg);\n"
+    "    vec4 irlv2u = xbrDiff(le, lc) * xbrDiff(lb, lc);\n"
+    "    vec4 fx45i = clamp((fx   + xbrDelta  - xbrCo - xbrCi) / (2.0 * xbrDelta),  0.0, 1.0);\n"
+    "    vec4 fx45  = clamp((fx   + xbrDelta  - xbrCo)         / (2.0 * xbrDelta),  0.0, 1.0);\n"
+    "    vec4 fx30  = clamp((fx_l + xbrDeltaL - xbrCx)         / (2.0 * xbrDeltaL), 0.0, 1.0);\n"
+    "    vec4 fx60  = clamp((fx_u + xbrDeltaU - xbrCy)         / (2.0 * xbrDeltaU), 0.0, 1.0);\n"
+    "    vec4 wd1 = abs(le - lc) + abs(le - lg) + abs(li - lh5) + abs(li - lf4)\n"
+    "             + 4.0 * abs(lh - lf);\n"
+    "    vec4 wd2 = abs(lh - ld) + abs(lh - li5) + abs(lf - li4) + abs(lf - lb)\n"
+    "             + 4.0 * abs(le - li);\n"
+    "    vec4 edri = step(wd1, wd2) * irlv0;\n"
+    "    vec4 edr  = step(wd1 + vec4(0.1), wd2) * step(vec4(0.5), irlv1);\n"
+    "    vec4 edr_l = step(2.0 * abs(lf - lg), abs(lh - lc)) * irlv2l * edr;\n"
+    "    vec4 edr_u = step(abs(lf - lg), 2.0 * abs(lh - lc)) * irlv2u * edr;\n"
+    "    fx45  = edr   * fx45;\n"
+    "    fx30  = edr_l * fx30;\n"
+    "    fx60  = edr_u * fx60;\n"
+    "    fx45i = edri  * fx45i;\n"
+    "    vec4 px = step(abs(le - lf), abs(le - lh));\n"
+    "    vec4 maximos = max(max(fx30, fx60), max(fx45, fx45i));\n"
+    "    vec3 cE = xbrLit(eIdx, gouraudRow, 0.0);\n"
+    "    vec3 cB = xbrLit(b, gouraudRow, 0.0);\n"
+    "    vec3 cD = xbrLit(d, gouraudRow, 0.0);\n"
+    "    vec3 cF = xbrLit(f, gouraudRow, 0.0);\n"
+    "    vec3 cH = xbrLit(h, gouraudRow, 0.0);\n"
+    "    vec3 res1 = cE;\n"
+    "    res1 = mix(res1, mix(cH, cF, px.x), maximos.x);\n"
+    "    res1 = mix(res1, mix(cB, cD, px.z), maximos.z);\n"
+    "    vec3 res2 = cE;\n"
+    "    res2 = mix(res2, mix(cF, cB, px.y), maximos.y);\n"
+    "    res2 = mix(res2, mix(cD, cH, px.w), maximos.w);\n"
+    "    return vec4(mix(res1, res2, step(xbrCDF(cE, res1), xbrCDF(cE, res2))), 1.0);\n"
+    "}\n"
     "vec4 arraySample(vec2 tc, float rmask, float light, float mcolor,\n"
     "                 float chroma, float bilin) {\n"
     "    float layer = rmask - 32768.0;\n"
@@ -1078,6 +1385,12 @@ static const char *s_arrayInject =
        through 65536 first so the division lands in [0,256) texel units. */
     "    float wu = mod(tc.x, 65536.0) / 256.0;\n"
     "    float wv = mod(tc.y, 65536.0) / 256.0;\n"
+    "    if (bilin > 2.5) {\n"
+    "        return arrayXbr(vec2(wu, wv), layer, gouraudRow, chroma);\n"
+    "    }\n"
+    "    if (bilin > 1.5) {\n"
+    "        return arrayScale2x(vec2(wu, wv), layer, gouraudRow, chroma);\n"
+    "    }\n"
     "    if (bilin < 0.5) {\n"
     "        float texel = texture(uAtlasArr, vec3((floor(wu) + 0.5) / 256.0,\n"
     "                       (floor(wv) + 0.5) / 256.0, layer)).r * 255.0;\n"
@@ -1185,7 +1498,8 @@ static char *GL_InjectArrayBranch(char *src) {
    chroma-keyed INCRUST type; everything else keeps the exact legacy path. */
 static char *GL_InjectTerrainResolved(char *src) {
     const char *uniformAnchor = strstr(src, "uniform sampler2D uPalette;");
-    const char *bilinearAnchor = strstr(src, "        if (uBilinear != 0) {");
+    const char *bilinearAnchor =
+        strstr(src, "        } else if (uBilinear != 0) {");
     if (uniformAnchor == NULL || bilinearAnchor == NULL) {
         Log_Warn("[GL] terrain resolved anchors missing; using the 8-tap path");
         return src;
@@ -1200,13 +1514,13 @@ static char *GL_InjectTerrainResolved(char *src) {
         "uniform sampler2DArray uResolved;\n"
         "uniform int uResolvedValid;\n";
     const char *branch =
-        "        if (uResolvedValid != 0 && mChroma < 0.5 &&\n"
+        "        } else if (uResolvedValid != 0 && mChroma < 0.5 &&\n"
         "            floor(mod(mFlags, 256.0) / 128.0 + 0.5) < 0.5) {\n"
         "            float ru = mod(tc.x, widthMask + 1.0) / 256.0;\n"
         "            float rv = mod(tc.y, heightMask + 1.0) / 256.0;\n"
         "            color = texture(uResolved, vec3(ru, rv, gouraudRow));\n"
         "        } else if (uBilinear != 0) {\n";
-    const char *bilinearLine = "        if (uBilinear != 0) {\n";
+    const char *bilinearLine = "        } else if (uBilinear != 0) {\n";
     size_t cap = strlen(src) + strlen(uniforms) + strlen(branch) + 2;
     char *out = (char *)malloc(cap);
     if (out == NULL) {
@@ -2990,6 +3304,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
         if (s_clut3Program == 0) {
             Log_Warn("[GL] array CLUT program failed; staying on the 2D path");
         } else {
+            Log_Info("[GL] array CLUT program ready");
             s_clut3_aPos = glGetAttribLocation(s_clut3Program, "aPos");
             s_clut3_aTexCoord =
                 glGetAttribLocation(s_clut3Program, "aTexCoord");
@@ -3276,6 +3591,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
         glDeleteShader(fv);
         glDeleteShader(ff);
     }
+
 
     GL_SmaaInit();
 
@@ -7421,7 +7737,9 @@ void GL_BeginFrame(void) {
 
     /* Read the texture filter toggle once per frame so GL_FlushBatch
        (which may fire mid-frame when the batch fills) uses the
-       correct bilinear/nearest mode for all batches. */
+       correct sampling mode for all batches.  The values map 1:1 onto the
+       CLUT shader's uBilinear: 0 nearest, 1 bilinear, 2 Scale2x rules,
+       3 xBR rules — the last two are per-texture edge-directed sampling. */
     s_bilinearCLUT = DisplayTexFilter;
 
     s_frameSeq++;
@@ -7960,11 +8278,9 @@ void GL_SavePresentPNG(const char *path) {
     U32 *fboBuf = (U32 *)malloc((size_t)fboW * fboH * sizeof(U32));
     /* Composite holds 0xAARRGGBB words, same layout as paletteLUT. */
     U32 *comp = (U32 *)malloc((size_t)scrW * scrH * sizeof(U32));
-    U8 *rgb = (U8 *)malloc((size_t)scrW * scrH * 3);
-    if (fboBuf == NULL || comp == NULL || rgb == NULL) {
+    if (fboBuf == NULL || comp == NULL) {
         free(fboBuf);
         free(comp);
-        free(rgb);
         return;
     }
 
@@ -8002,20 +8318,31 @@ void GL_SavePresentPNG(const char *path) {
         if (idx != 0 && lut != NULL) {
             comp[i] = lut[idx];
         }
-        U32 c = comp[i];
-        rgb[i * 3 + 0] = (U8)(c >> 16);
-        rgb[i * 3 + 1] = (U8)(c >> 8);
-        rgb[i * 3 + 2] = (U8)(c);
     }
 
-    SavePNGRGB(path, rgb, (S32)scrW, (S32)scrH);
+    /* Texture filter modes sample inside the 3D pass; the present composite
+       is what the player sees either way, so dump it as-is. */
+    const U32 *outComp = comp;
+    U32 outW = scrW;
+    U32 outH = scrH;
+
+    U8 *rgb = (U8 *)malloc((size_t)outW * outH * 3);
+    if (rgb != NULL) {
+        for (U32 i = 0; i < outW * outH; i++) {
+            U32 c = outComp[i];
+            rgb[i * 3 + 0] = (U8)(c >> 16);
+            rgb[i * 3 + 1] = (U8)(c >> 8);
+            rgb[i * 3 + 2] = (U8)(c);
+        }
+        SavePNGRGB(path, rgb, (S32)outW, (S32)outH);
+        free(rgb);
+    }
 
     /* The capture temporarily bound the read view; restore the draw target. */
     glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
 
     free(fboBuf);
     free(comp);
-    free(rgb);
 }
 
 /* ── Present (extended with 3D flush) ───────────────────────────────────── */

@@ -705,7 +705,7 @@ static void BuildCustomMenuText(S32 num, char *string) {
         break;
 
     case MENU_ID_DISPLAY_TEXFILTER:
-        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayTexFilter == 2 ? MENU_LABEL_TEXFILTER_SCALE2X : DisplayTexFilter ? MENU_LABEL_TEXFILTER_BILINEAR : MENU_LABEL_TEXFILTER_NEAREST));
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayTexFilter == 3 ? MENU_LABEL_TEXFILTER_XBRTEX : DisplayTexFilter == 2 ? MENU_LABEL_TEXFILTER_SCALE2X : DisplayTexFilter ? MENU_LABEL_TEXFILTER_BILINEAR : MENU_LABEL_TEXFILTER_NEAREST));
         break;
 
     case MENU_ID_DISPLAY_PERSPECTIVE:
@@ -3722,9 +3722,10 @@ static void DisplayMenuApplyChoice(S32 select) {
     }
 
     case MENU_ID_DISPLAY_TEXFILTER:
-        /* 0 = Nearest, 1 = Bilinear, 2 = Scale2x (2D overlay in GL mode;
-         * the 3D atlas samples bilinear for any non-zero value). */
-        DisplayTexFilter = (DisplayTexFilter + 1) % 3;
+        /* 0 = Nearest, 1 = Bilinear, 2 = Scale2x, 3 = xBR Textures —
+         * Scale2x and xBR apply their edge rules per texture inside the 3D
+         * sampler; the overlay present shader keeps mode 2's Scale2x pass. */
+        DisplayTexFilter = (DisplayTexFilter + 1) % 4;
         WriteConfigFile();
         break;
 
