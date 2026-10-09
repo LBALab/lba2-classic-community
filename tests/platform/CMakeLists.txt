@@ -13,9 +13,15 @@ set(_PLATFORM_FACADES
     ${CMAKE_SOURCE_DIR}/SOURCES/JOYSTICK.CPP
     ${CMAKE_SOURCE_DIR}/SOURCES/TOUCH_INPUT.CPP)
 
+add_library(test_platform_header_cpp98 OBJECT test_platform_header_cpp98.cpp)
+target_include_directories(test_platform_header_cpp98 PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
+set_target_properties(test_platform_header_cpp98 PROPERTIES
+    CXX_STANDARD 98 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+
 add_executable(test_platform_contract
     test_platform_contract.cpp
     test_platform_header.c
+    $<TARGET_OBJECTS:test_platform_header_cpp98>
     ${CMAKE_SOURCE_DIR}/LIB386/PLATFORM/PLATFORM.CPP
     ${_PLATFORM_FACADES})
 target_include_directories(test_platform_contract PRIVATE

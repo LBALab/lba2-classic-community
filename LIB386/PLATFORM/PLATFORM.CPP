@@ -42,7 +42,7 @@ bool Platform_ConvertIndexedFrame(const PlatformFrame *frame, uint32_t *pixels, 
     uint32_t lut[256];
     for (uint32_t i = 0; i < 256; ++i) {
         const uint8_t *rgb = frame->palette_rgb + i * 3;
-        lut[i] = UINT32_C(0xFF000000) | ((uint32_t)rgb[0] << 16) |
+        lut[i] = (uint32_t)0xFF000000 | ((uint32_t)rgb[0] << 16) |
                  ((uint32_t)rgb[1] << 8) | rgb[2];
     }
     for (uint32_t y = 0; y < frame->height; ++y) {

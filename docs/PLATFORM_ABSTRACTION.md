@@ -110,7 +110,7 @@ Audio mixing remains AIL-owned. The software rasteriser and ASM-equivalence math
 
 | Target | Coverage |
 |---|---|
-| `test_platform_contract` | SDL-free link of real engine facades and input policy; C header compilation; event order, focus/audio/timer coupling, fixed-dt/wrap, input hooks, pad edges/hotplug, touch wake/reapply/release, full-buffer conversion, palette snapshots and nested present/overlay ordering |
+| `test_platform_contract` | SDL-free link of real engine facades and input policy; C11 and C++98 header compilation (including absence of C99 integer-constant macros); event order, focus/audio/timer coupling, fixed-dt/wrap, input hooks, pad edges/hotplug, touch wake/reapply/release, full-buffer conversion, palette snapshots and nested present/overlay ordering |
 | `test_platform_sdl3` | Complete production table, physical-ID/keymap compatibility, exact event payloads, native virtual-gamepad sampling, paths/allocator/error ownership, worker-thread folder results, and byte-exact pixels read from the actual SDL renderer |
 | `test_platform_sdl3_staging` | The same conformance checks compiled with the persistent-buffer/upload path, including frame resizing |
 

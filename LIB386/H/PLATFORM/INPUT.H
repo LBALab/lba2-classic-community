@@ -131,7 +131,7 @@ typedef enum PlatformScancode {
     PLATFORM_SCANCODE_COUNT = 512
 } PlatformScancode;
 
-#define PLATFORM_KEYCODE_SCANCODE_MASK (UINT32_C(1) << 30)
+#define PLATFORM_KEYCODE_SCANCODE_MASK ((uint32_t)1 << 30)
 #define PLATFORM_SCANCODE_TO_KEYCODE(scancode) ((uint32_t)(scancode) | PLATFORM_KEYCODE_SCANCODE_MASK)
 
 typedef enum PlatformKeycode {
