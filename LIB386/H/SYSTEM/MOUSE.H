@@ -1,5 +1,7 @@
 #pragma once
 
+#include <PLATFORM/PLATFORM.H>
+
 #include <SYSTEM/ADELINE_TYPES.H>
 
 // -----------------------------------------------------------------------------
@@ -40,7 +42,7 @@ void SetMouseBox(U32 x0, U32 y0, U32 x1, U32 y1); ///< Set mouse position limits
 void ClearMouseBox();                             ///< Reset mouse position limits to screen size
 
 void ManageMouse();
-void HandleEventsMouse(const void *event);
+void HandleEventsMouse(const PlatformEvent *event);
 
 /// Relative motion the next ManageMouse will deliver, i.e. what has arrived since the
 /// last drain. Read between the event pump and the drain, which is where the input poll

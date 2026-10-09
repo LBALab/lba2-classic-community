@@ -13,7 +13,7 @@ target_include_directories(test_res_discovery PRIVATE
     ${CMAKE_BINARY_DIR}
 )
 
-target_link_libraries(test_res_discovery PRIVATE sys SDL3::SDL3)
+target_link_libraries(test_res_discovery PRIVATE sys lba2_platform)
 
 target_compile_definitions(test_res_discovery PRIVATE
     LBA2_BUILD_TESTS

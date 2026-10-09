@@ -109,8 +109,6 @@
 #include <SYSTEM/STRING.H>   /* ade_strcasestr, for the .rec suffix test */
 #include <SYSTEM/TIMER.H>
 
-#include <SDL3/SDL_timer.h>
-
 /* Named here rather than taken from C_EXTERN.H, which this file does not include and
    which would bring the DEFINES.H aggregation with it. Defined in
    LIB386/SYSTEM/KEYBOARD.CPP; MOUSE.CPP and TOUCH_INPUT.CPP declare it the same way. */

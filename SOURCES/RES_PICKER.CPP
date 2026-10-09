@@ -7,7 +7,7 @@
 #include "SYSTEM/LIMITS.H"
 #include "SYSTEM/LOG.H"
 
-#include <SDL3/SDL.h>
+#include <PLATFORM/PLATFORM.H>
 
 #include <string.h>
 
@@ -87,36 +87,31 @@ void TrimTrailingWhitespace(char *s) {
     }
 }
 
-void SDLCALL OnFolderChosen(void *userdata, const char *const *filelist,
-                            int /*filter*/) {
-    PickerState *state = static_cast<PickerState *>(userdata);
-
+void OnFolderChosen(PickerState *state, PlatformDialogResult result, const char *path) {
     /* Diagnostic: log exactly what the dialog backend handed back so
      * platform-specific quirks (trailing newlines, empty-string-on-cancel,
      * etc.) are visible in the log when something goes wrong. */
-    if (filelist == NULL) {
-        Log_Warn("RES_PICKER: callback filelist=NULL, error: %s", SDL_GetError());
-    } else if (filelist[0] == NULL) {
-        Log_Debug("RES_PICKER: callback filelist[0]=NULL (cancel)");
+    if (result == PLATFORM_DIALOG_ERROR) {
+        Log_Warn("RES_PICKER: folder dialog failed: %s", g_platform.system.get_error());
+    } else if (result == PLATFORM_DIALOG_CANCELLED || path == NULL) {
+        Log_Debug("RES_PICKER: folder dialog cancelled");
     } else {
-        Log_Debug("RES_PICKER: callback filelist[0]='%s' (len=%zu)", filelist[0],
-                  strlen(filelist[0]));
+        Log_Debug("RES_PICKER: folder dialog path='%s' (len=%zu)", path, strlen(path));
     }
 
-    if (filelist == NULL) {
-        /* SDL reported an error (platform dialog backend missing, OOM,
+    if (result == PLATFORM_DIALOG_ERROR) {
+        /* The backend reported an error (dialog service missing, OOM,
          * permission denied, etc.). Capture for the caller to surface a
          * recovery hint. */
         state->dialog_failed = true;
         state->valid_pick = false;
-    } else if (filelist[0] == NULL || filelist[0][0] == '\0') {
-        /* User dismissed the dialog without picking. Some backends
-         * report cancel via NULL filelist[0]; defensively also treat
-         * an empty string as cancel. */
+    } else if (result == PLATFORM_DIALOG_CANCELLED || path == NULL || path[0] == '\0') {
+        /* An empty selected path is cancellation, on the same terms as an
+           explicit cancelled result. */
         state->dialog_failed = false;
         state->valid_pick = false;
     } else {
-        strncpy(state->chosen, filelist[0], ADELINE_MAX_PATH - 1);
+        strncpy(state->chosen, path, ADELINE_MAX_PATH - 1);
         state->chosen[ADELINE_MAX_PATH - 1] = '\0';
         TrimTrailingWhitespace(state->chosen);
         if (state->chosen[0] == '\0') {
@@ -132,8 +127,8 @@ void SDLCALL OnFolderChosen(void *userdata, const char *const *filelist,
 }
 
 void ShowInvalidPickMessage(void) {
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Game data not found",
-                             kPickerMsgInvalidPick, NULL);
+    g_platform.host.message_box(PLATFORM_MESSAGE_WARNING, "Game data not found",
+                                kPickerMsgInvalidPick);
 }
 
 } // namespace
@@ -159,9 +154,8 @@ void EnsureTrailingSeparator(char *path, U16 maxLen) {
 }
 
 void ShowDiscoveryFailedMessage(void) {
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION,
-                             "Game data folder not found",
-                             kPickerMsgDataNotFound, NULL);
+    g_platform.host.message_box(PLATFORM_MESSAGE_INFORMATION,
+                                "Game data folder not found", kPickerMsgDataNotFound);
 }
 
 /* The picker fired but the OS couldn't actually open a folder dialog: no
@@ -172,15 +166,15 @@ void ShowDiscoveryFailedMessage(void) {
  * The advice is platform-neutral (no apt/pacman/dnf) so it reads correctly on
  * every desktop, not just Linux. */
 void ShowDialogUnavailableMessage(void) {
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Couldn't open folder picker",
-                             kPickerMsgNoPicker, NULL);
+    g_platform.host.message_box(PLATFORM_MESSAGE_WARNING, "Couldn't open folder picker",
+                                kPickerMsgNoPicker);
 }
 
 /* Android has no usable folder picker, so instead of browsing the user is told
  * exactly where to copy their data. Shown in place of the picker flow above. */
 void ShowAndroidDataMessage(void) {
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Game data not found",
-                             kPickerMsgAndroidData, NULL);
+    g_platform.host.message_box(PLATFORM_MESSAGE_INFORMATION, "Game data not found",
+                                kPickerMsgAndroidData);
 }
 
 } // namespace
@@ -190,9 +184,9 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
      * headless test: if video can't come up (no display, no Wayland
      * portal, --headless build, etc.), there's no way to show a dialog
      * and we fall back to the caller's exit. */
-    if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
-        Log_Warn("RES_PICKER: SDL_INIT_VIDEO failed (%s); skipping picker",
-                 SDL_GetError());
+    if (!g_platform.system.init_video()) {
+        Log_Warn("RES_PICKER: video init failed (%s); skipping picker",
+                 g_platform.system.get_error());
         return false;
     }
 
@@ -220,7 +214,7 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
      * starts here" choice — heuristic install-path detection (~/GOG
      * Games/, etc.) is a rabbit hole and most users won't have data
      * there anyway. */
-    const char *defaultLoc = SDL_GetUserFolder(SDL_FOLDER_HOME);
+    const char *defaultLoc = g_platform.host.home_path();
 
     /* Async-to-sync adapter: SDL_ShowOpenFolderDialog returns immediately
      * and invokes the callback later. We poll until the callback fires.
@@ -230,12 +224,21 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
     while (true) {
         PickerState state = {false, false, false, {0}};
 
-        SDL_ShowOpenFolderDialog(OnFolderChosen, &state, NULL, defaultLoc,
-                                 false);
-
-        while (!state.done) {
-            SDL_PumpEvents();
-            SDL_Delay(16);
+        PlatformFolderDialog *dialog = g_platform.host.begin_folder_dialog(defaultLoc);
+        if (dialog == NULL) {
+            OnFolderChosen(&state, PLATFORM_DIALOG_ERROR, NULL);
+        } else {
+            while (!state.done) {
+                const char *path = NULL;
+                PlatformDialogResult result = g_platform.host.poll_folder_dialog(dialog, &path);
+                if (result == PLATFORM_DIALOG_PENDING) {
+                    g_platform.events.pump();
+                    g_platform.system.delay_ms(16);
+                } else {
+                    OnFolderChosen(&state, result, path);
+                }
+            }
+            g_platform.host.end_folder_dialog(dialog);
         }
 
         if (!state.valid_pick) {

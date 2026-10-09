@@ -2,6 +2,7 @@
 #define CONSOLE_H
 
 #include <SYSTEM/ADELINE_TYPES.H>
+#include <PLATFORM/PLATFORM.H>
 #include <stddef.h> /* size_t */
 
 #ifdef __cplusplus
@@ -43,9 +44,9 @@ void Console_PrintColored(int colour, const char *fmt, ...);
 void Console_PrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height, const U8 *palette_rgb);
 
 /** Event filter: call from ManageEvents. Returns 1 if event was consumed (toggle or console input). */
-int Console_FeedEvent(const void *sdlEvent);
+int Console_FeedEvent(const PlatformEvent *event);
 
-/** Set console toggle scancode (SDL scancode value). Invalid values fall back to F12. */
+/** Set console toggle scancode (persistent physical key ID). Invalid values fall back to F12. */
 void Console_SetToggleScancode(int scancode);
 /** Current console toggle scancode used by Console_FeedEvent / input reservation. */
 int Console_GetToggleScancode(void);

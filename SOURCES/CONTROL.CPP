@@ -28,7 +28,7 @@
 #include <SYSTEM/TIMER.H>  /* TimerRefHR, NbFramePerSecond */
 #include <SYSTEM/WINDOW.H> /* Window_SetVSync */
 
-#include <SDL3/SDL.h>      /* SDL_SetHint for --headless (must precede SDL_Init) */
+#include <PLATFORM/PLATFORM.H>
 #include "RECORD.H"        /* --record / --replay */
 #include "RECORD_FORMAT.H" /* RecFmt_ReadInt, for the `state.` header lines */
 #include <SYSTEM/FILES.H>  /* ExistsFileOrDir */
@@ -533,8 +533,10 @@ void Control_ParseArgs(int *argc, char *argv[]) {
 
                SDL reads these hints at SDL_Init, so they must be set before it: Control_ParseArgs
                runs first thing in main(), which is why this is parsed here rather than later. */
-            SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
-            SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "dummy");
+            if (!g_platform.system.set_headless()) {
+                Log_Error("Unable to enable headless mode: %s", g_platform.system.get_error());
+                exit(EXIT_FAILURE);
+            }
             s_headless = 1;
             s_no_audio = 1;
             read += 1;
@@ -1006,7 +1008,7 @@ static void control_dump_state(const char *path) {
        see a modal: a fade or a dialogue box advances game time in its own loop, and
        whether it spends real time on it is invisible in any figure averaged over a
        session. Unrelated to the pinned clock: always the host's. */
-    fprintf(f, "  \"wall_ms\": %u,\n", (unsigned int)SDL_GetTicks());
+    fprintf(f, "  \"wall_ms\": %u,\n", (unsigned int)g_platform.system.ticks_ms());
     /* What ManageTime would read right now: the pinned clock when one is armed, the host
        clock otherwise. Beside wall_ms this gives the rate the game is running at, which
        timer_ref_hr cannot -- that one is the accumulated play time and moves backwards

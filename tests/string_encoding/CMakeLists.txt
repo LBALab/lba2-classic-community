@@ -1,6 +1,6 @@
 # Host test for the mixed-encoding string comparison used to read language
-# names out of a config file. Pulls STRING.CPP in directly (it needs SDL only
-# for SDL_tolower/SDL_strlen); no engine, no device.
+# names out of a config file. STRING.CPP uses the platform's case-comparison
+# service for its other entry point; no engine or device is needed.
 add_executable(test_string_encoding
     test_string_encoding.cpp
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/STRING.CPP
@@ -11,7 +11,7 @@ target_include_directories(test_string_encoding PRIVATE
     ${CMAKE_SOURCE_DIR}/LIB386/H
 )
 
-target_link_libraries(test_string_encoding PRIVATE SDL3::SDL3)
+target_link_libraries(test_string_encoding PRIVATE lba2_platform)
 
 set_target_properties(test_string_encoding PROPERTIES CXX_STANDARD 11)
 

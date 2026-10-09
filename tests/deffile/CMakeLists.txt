@@ -16,7 +16,7 @@ target_include_directories(test_deffile_latin1 PRIVATE
 
 # LogPrintf now routes through the structured log core (LOG.CPP); pull it in and
 # bypass the SDL_Log spine so this test needs no SDL.
-target_compile_definitions(test_deffile_latin1 PRIVATE LBA_LOG_NO_SDL)
+target_compile_definitions(test_deffile_latin1 PRIVATE LBA_LOG_NO_PLATFORM)
 
 set_target_properties(test_deffile_latin1 PROPERTIES CXX_STANDARD 11)
 
@@ -38,7 +38,7 @@ target_include_directories(test_deffile_batch PRIVATE
     ${CMAKE_SOURCE_DIR}/LIB386/H
 )
 
-target_compile_definitions(test_deffile_batch PRIVATE LBA_LOG_NO_SDL)
+target_compile_definitions(test_deffile_batch PRIVATE LBA_LOG_NO_PLATFORM)
 
 set_target_properties(test_deffile_batch PROPERTIES CXX_STANDARD 11)
 
@@ -60,7 +60,7 @@ target_include_directories(test_deffile_layers PRIVATE
     ${CMAKE_SOURCE_DIR}/LIB386/H
 )
 
-target_compile_definitions(test_deffile_layers PRIVATE LBA_LOG_NO_SDL)
+target_compile_definitions(test_deffile_layers PRIVATE LBA_LOG_NO_PLATFORM)
 
 set_target_properties(test_deffile_layers PROPERTIES CXX_STANDARD 11)
 

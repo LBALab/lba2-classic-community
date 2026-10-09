@@ -19,12 +19,8 @@ target_include_directories(test_record_format PRIVATE
     ${CMAKE_SOURCE_DIR}/SOURCES
 )
 
-# KEYBOARD_KEYS.H pulls in <SDL3/SDL_keycode.h>; link SDL3 for its include dirs, as
-# tests/input_bindings does.
-target_link_libraries(test_record_format PRIVATE SDL3::SDL3)
-
-# LogPrintf routes through the structured log core; bypass the SDL_Log spine.
-target_compile_definitions(test_record_format PRIVATE LBA_LOG_NO_SDL)
+# The format and binding tables need no platform diagnostic transport.
+target_compile_definitions(test_record_format PRIVATE LBA_LOG_NO_PLATFORM)
 
 set_target_properties(test_record_format PROPERTIES CXX_STANDARD 11)
 

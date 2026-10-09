@@ -9,8 +9,7 @@
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/WINDOW.H>
 
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_events.h>
+#include <PLATFORM/PLATFORM.H>
 
 #include <string.h>
 #include <math.h>
@@ -22,9 +21,6 @@ extern U32 SizeChar;
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/* The SDL window handle, defined in LIB386/SYSTEM/WINDOW.CPP under C linkage. */
-extern SDL_Window *sdlWindow;
 
 /* Last-input device flags (C linkage, defined in LIB386/SYSTEM/KEYBOARD.CPP).
  *
@@ -165,7 +161,7 @@ typedef enum {
 static S32 s_supported = 0;   /* Android build: an overlay is possible here */
 static S32 s_tvDevice = 0;    /* leanback: start off, but a finger still overrides */
 static S32 s_dismissed = 0;   /* HIDE was pressed; cleared by the next finger down */
-static U32 s_lastTouchMs = 0; /* SDL_GetTicks at the last finger-down/motion; 0 = never */
+static U32 s_lastTouchMs = 0; /* g_platform.system.ticks_ms at the last finger-down/motion; 0 = never */
 static S32 s_pressed[NUM_TOUCH_BUTTONS];
 static U8 s_virtual_keys[256]; /* virtual key states in 0x80-bit format */
 
@@ -208,15 +204,13 @@ static S32 AnyFingerDown(void) {
     return 0;
 }
 
-#ifdef __ANDROID__
 static void NoteTouchActivity(void) {
-    s_lastTouchMs = SDL_GetTicks();
+    s_lastTouchMs = g_platform.system.ticks_ms();
     LastInputWasTouch = 1;
     /* A touch is not a physical keyboard: keep the save menu on the auto-name
        flow, which is the one thing we cannot type into. */
     LastInputWasKeyboard = 0;
 }
-#endif
 
 /* What to draw this frame. The order is the priority order: an unsupported
    device and an explicit HIDE both beat everything, then the pad, then time. */
@@ -250,7 +244,7 @@ static OverlayLevel CurrentLevel(void) {
     if (AnyFingerDown())
         return OVL_FULL;
 
-    U32 idleMs = SDL_GetTicks() - s_lastTouchMs;
+    U32 idleMs = g_platform.system.ticks_ms() - s_lastTouchMs;
     if (idleMs < TOUCH_FULL_MS)
         return OVL_FULL;
     if (idleMs < TOUCH_DIM_MS)
@@ -265,11 +259,9 @@ static void MapToGameCoords(float *nx, float *ny) {
     if (ModeResX == 0 || ModeResY == 0)
         return;
 
-    if (sdlWindow == NULL)
+    S32 winW, winH;
+    if (!g_platform.window.size(&winW, &winH))
         return;
-
-    int winW, winH;
-    SDL_GetWindowSize(sdlWindow, &winW, &winH);
     if (winW <= 0 || winH <= 0)
         return;
 
@@ -336,19 +328,18 @@ void ApplyVirtualKeys(void) {
  * --------------------------------------------------------------------------- */
 
 void TouchOverlay_Init(void) {
-#ifdef __ANDROID__
-    s_supported = 1;
-    s_tvDevice = IsAndroidTVDevice();
-    if (s_tvDevice) {
-        LogPrintf("TouchOverlay: Android TV detected, overlay starts off "
-                  "(use gamepad/remote; a touch still brings it up)\n");
-    } else {
-        LogPrintf("TouchOverlay: initialised for Android (%d buttons)\n",
-                  NUM_TOUCH_BUTTONS);
+    s_supported = g_platform.capabilities.touch_overlay ? 1 : 0;
+    s_tvDevice = 0;
+    if (s_supported) {
+        s_tvDevice = IsAndroidTVDevice();
+        if (s_tvDevice) {
+            LogPrintf("TouchOverlay: Android TV detected, overlay starts off "
+                      "(use gamepad/remote; a touch still brings it up)\n");
+        } else {
+            LogPrintf("TouchOverlay: initialised for touchscreen (%d buttons)\n",
+                      NUM_TOUCH_BUTTONS);
+        }
     }
-#else
-    s_supported = 0;
-#endif
     s_dismissed = 0;
     s_lastTouchMs = 0;
     /* s_tvDevice is set above and is not cleared here: it is a property of the
@@ -378,16 +369,15 @@ S32 TouchOverlay_IsSupported(void) {
     return s_supported;
 }
 
-S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
-#ifdef __ANDROID__
-    if (sdlEvent == NULL || !s_supported)
+S32 TouchOverlay_HandleEvent(const PlatformEvent *event) {
+    if (event == NULL || !s_supported)
         return 0;
 
-    const SDL_Event *ev = (const SDL_Event *)sdlEvent;
+    const PlatformEvent *ev = event;
     S32 consumed = 0;
 
     switch (ev->type) {
-    case SDL_EVENT_FINGER_DOWN: {
+    case PLATFORM_EVENT_FINGER_DOWN: {
         S32 slot = FindFreeFingerSlot();
         if (slot < 0)
             return 1;
@@ -435,7 +425,7 @@ S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
         }
         break;
     }
-    case SDL_EVENT_FINGER_UP: {
+    case PLATFORM_EVENT_FINGER_UP: {
         S32 slot = FindFingerByTouchId((S32)ev->tfinger.fingerID);
         if (slot < 0)
             break;
@@ -446,11 +436,11 @@ S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
         s_fingers[slot].actuate = 0;
         /* The lift is what starts the idle clock: until it happens the finger
            is still down and the overlay is held at full. */
-        s_lastTouchMs = SDL_GetTicks();
+        s_lastTouchMs = g_platform.system.ticks_ms();
         consumed = 1;
         break;
     }
-    case SDL_EVENT_FINGER_MOTION: {
+    case PLATFORM_EVENT_FINGER_MOTION: {
         S32 slot = FindFingerByTouchId((S32)ev->tfinger.fingerID);
         if (slot < 0)
             break;
@@ -476,10 +466,6 @@ S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
         break;
     }
     return consumed;
-#else
-    (void)sdlEvent;
-    return 0;
-#endif
 }
 
 /* ---------------------------------------------------------------------------
@@ -675,7 +661,7 @@ void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
 /* ---------------------------------------------------------------------------
  * Event dispatch (strong override for the weak default in EVENTS.CPP)
  * --------------------------------------------------------------------------- */
-S32 HandleEventsTouch(const void *event) {
+S32 HandleEventsTouch(const PlatformEvent *event) {
     return TouchOverlay_HandleEvent(event);
 }
 

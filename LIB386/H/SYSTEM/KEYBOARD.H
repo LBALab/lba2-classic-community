@@ -1,5 +1,7 @@
 #pragma once
 
+#include <PLATFORM/PLATFORM.H>
+
 #include <SYSTEM/ADELINE_TYPES.H>
 
 // -----------------------------------------------------------------------------
@@ -35,7 +37,7 @@ S32 CheckKey(U32 key);
 void GetKeyScancodeName(char *string, U8 strMaxLen, U32 scanCode);
 
 void ManageKeyboard();
-void HandleEventsKeyboard(const void *event);
+void HandleEventsKeyboard(const PlatformEvent *event);
 
 // =============================================================================
 #ifdef __cplusplus

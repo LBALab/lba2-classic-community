@@ -13,7 +13,7 @@ target_include_directories(test_move_framerate PRIVATE
     ${CMAKE_SOURCE_DIR}/tests/ANIM
     ${CMAKE_BINARY_DIR}
 )
-target_link_libraries(test_move_framerate PRIVATE ani obj 3D poly svg sys SDL3::SDL3)
+target_link_libraries(test_move_framerate PRIVATE ani obj 3D poly svg sys lba2_platform)
 set_target_properties(test_move_framerate PROPERTIES CXX_STANDARD 11)
 add_test(NAME test_move_framerate COMMAND test_move_framerate)
 register_host_test(test_move_framerate)

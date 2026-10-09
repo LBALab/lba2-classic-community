@@ -9,8 +9,7 @@
 #include <SYSTEM/ADELINE_TYPES.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/WINDOW.H> /* WindowToSurfaceCoords for mouse selection */
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_keyboard.h>
+#include <PLATFORM/PLATFORM.H>
 
 #define CONSOLE_TEXT_COLOUR 15
 
@@ -125,7 +124,7 @@ typedef struct {
     int a_row, a_col;                   /* anchor cell */
     int c_row, c_col;                   /* caret cell */
     int dragging;                       /* left mouse button held */
-    Uint64 last_click_ms;               /* double-click timing */
+    U64 last_click_ms;                  /* double-click timing */
     int last_click_row, last_click_col; /* double-click target */
 } ConsoleScreenSel;
 static ConsoleScreenSel s_scrsel = {0, 0, 0, 0, 0, 0, 0, -1, -1};
@@ -149,20 +148,10 @@ static Console_LineSinkFn s_line_sink_for_tests = NULL;
 static void Console_SubmitLine(void);
 static void input_clear(void); /* defined with the input-editing primitives below */
 
-/* Enable/disable SDL text input so the console receives correctly-cased,
- * layout-aware characters via SDL_EVENT_TEXT_INPUT. SDL_GetKeyFromScancode does
- * not apply Shift on every platform (hence the old '-'->'_' workaround), so the
- * keycode path alone can't produce capitals or shifted symbols. Targets the
- * focused window to stay decoupled from the video layer; a no-op when there is
- * no window (e.g. host tests with no SDL video). */
+/* Text events carry correctly-cased, layout-aware characters; the keycode path
+   is only for shortcuts. The backend targets its focused window, if any. */
 static void console_set_text_input(int on) {
-    SDL_Window *w = SDL_GetKeyboardFocus();
-    if (!w)
-        return;
-    if (on)
-        SDL_StartTextInput(w);
-    else
-        SDL_StopTextInput(w);
+    g_platform.input.text_input(on != 0);
 }
 
 /* The engine hides the OS cursor at window creation and draws its own software
@@ -170,10 +159,7 @@ static void console_set_text_input(int on) {
  * So show the OS cursor (drawn on top by the window system) while the console is
  * open, for click/drag selection, and restore the hidden default on close. */
 static void console_set_os_cursor(int on) {
-    if (on)
-        SDL_ShowCursor();
-    else
-        SDL_HideCursor();
+    g_platform.input.cursor_visible(on != 0);
 }
 
 /* Tear down the visible console: stop text input, restore the hidden OS cursor,
@@ -208,7 +194,7 @@ int Console_GetCaptureBlackBg(void) {
 }
 
 void Console_SetToggleScancode(int scancode) {
-    if (scancode <= 0 || scancode >= SDL_SCANCODE_COUNT) {
+    if (scancode <= 0 || scancode >= PLATFORM_SCANCODE_COUNT) {
         s_toggle_scancode = K_F12;
         return;
     }
@@ -519,17 +505,17 @@ static int is_word_char(unsigned char c) {
  * (otherwise pressing Ctrl to start Ctrl+C would clear what you mean to copy). */
 static int is_modifier_scancode(int sc) {
     switch (sc) {
-    case SDL_SCANCODE_LCTRL:
-    case SDL_SCANCODE_RCTRL:
-    case SDL_SCANCODE_LSHIFT:
-    case SDL_SCANCODE_RSHIFT:
-    case SDL_SCANCODE_LALT:
-    case SDL_SCANCODE_RALT:
-    case SDL_SCANCODE_LGUI:
-    case SDL_SCANCODE_RGUI:
-    case SDL_SCANCODE_CAPSLOCK:
-    case SDL_SCANCODE_NUMLOCKCLEAR:
-    case SDL_SCANCODE_SCROLLLOCK:
+    case PLATFORM_SCANCODE_LCTRL:
+    case PLATFORM_SCANCODE_RCTRL:
+    case PLATFORM_SCANCODE_LSHIFT:
+    case PLATFORM_SCANCODE_RSHIFT:
+    case PLATFORM_SCANCODE_LALT:
+    case PLATFORM_SCANCODE_RALT:
+    case PLATFORM_SCANCODE_LGUI:
+    case PLATFORM_SCANCODE_RGUI:
+    case PLATFORM_SCANCODE_CAPSLOCK:
+    case PLATFORM_SCANCODE_NUMLOCKCLEAR:
+    case PLATFORM_SCANCODE_SCROLLLOCK:
         return 1;
     default:
         return 0;
@@ -636,7 +622,7 @@ static void scrsel_copy(void) {
             buf[o++] = '\n'; /* real newline between rows (not folded) */
     }
     buf[o < sizeof buf ? o : sizeof buf - 1] = '\0';
-    SDL_SetClipboardText(buf);
+    g_platform.host.set_clipboard(buf);
 }
 
 /* Copy the selection to the clipboard: the mouse scrollback selection if one is
@@ -650,9 +636,9 @@ static void clipboard_copy(void) {
         int n = hi - lo;
         memcpy(tmp, &s_in.line[lo], (size_t)n);
         tmp[n] = '\0';
-        SDL_SetClipboardText(tmp);
+        g_platform.host.set_clipboard(tmp);
     } else {
-        SDL_SetClipboardText(s_in.line);
+        g_platform.host.set_clipboard(s_in.line);
     }
 }
 
@@ -700,7 +686,7 @@ static void Console_HistoryRecall(int dir) {
 /* Insert the printable chars of the system clipboard at the cursor (drops control
  * chars / newlines so a multi-line paste can't smuggle a submit). */
 static void clipboard_paste(void) {
-    char *txt = SDL_GetClipboardText();
+    char *txt = g_platform.host.get_clipboard();
     const char *p;
     if (!txt)
         return;
@@ -709,7 +695,7 @@ static void clipboard_paste(void) {
         if (c >= 32 && c < 127)
             input_insert_char((char)c);
     }
-    SDL_free(txt);
+    g_platform.host.free_memory(txt);
 }
 
 /* Accumulate one completion candidate: record the match and shrink `out` to the
@@ -817,7 +803,7 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
     /* AltGr is Ctrl+Alt on many layouts; treat Ctrl as a command modifier only
      * when Alt is not also held so AltGr text entry still works. Lowercase the
      * keycode in-range without tolower() (it may be a large SDL keysym). */
-    int ctrl = (mod & SDL_KMOD_CTRL) && !(mod & SDL_KMOD_ALT);
+    int ctrl = (mod & PLATFORM_KMOD_CTRL) && !(mod & PLATFORM_KMOD_ALT);
     int kl = (keycode >= 'A' && keycode <= 'Z') ? (keycode - 'A' + 'a') : keycode;
 
     s_in.blink = 0; /* any keypress makes the cursor immediately visible */
@@ -862,7 +848,7 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
         return;
     }
     /* Shift+Insert also pastes (X11/terminal convention). */
-    if (scancode == (int)SDL_SCANCODE_INSERT && (mod & SDL_KMOD_SHIFT)) {
+    if (scancode == (int)PLATFORM_SCANCODE_INSERT && (mod & PLATFORM_KMOD_SHIFT)) {
         clipboard_paste();
         return;
     }
@@ -899,7 +885,7 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
      * Left/Right) and move the cursor. */
     if (scancode == K_LEFT) {
         int lo, hi;
-        if (mod & SDL_KMOD_SHIFT) {
+        if (mod & PLATFORM_KMOD_SHIFT) {
             if (s_in.sel_anchor < 0)
                 s_in.sel_anchor = s_in.cursor;
             if (s_in.cursor > 0)
@@ -914,7 +900,7 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
     }
     if (scancode == K_RIGHT) {
         int lo, hi;
-        if (mod & SDL_KMOD_SHIFT) {
+        if (mod & PLATFORM_KMOD_SHIFT) {
             if (s_in.sel_anchor < 0)
                 s_in.sel_anchor = s_in.cursor;
             if (s_in.cursor < s_in.len)
@@ -928,7 +914,7 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
         return;
     }
     if (scancode == K_HOME) {
-        if (mod & SDL_KMOD_SHIFT) {
+        if (mod & PLATFORM_KMOD_SHIFT) {
             if (s_in.sel_anchor < 0)
                 s_in.sel_anchor = s_in.cursor;
         } else {
@@ -938,7 +924,7 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
         return;
     }
     if (scancode == K_END) {
-        if (mod & SDL_KMOD_SHIFT) {
+        if (mod & PLATFORM_KMOD_SHIFT) {
             if (s_in.sel_anchor < 0)
                 s_in.sel_anchor = s_in.cursor;
         } else {
@@ -1016,11 +1002,11 @@ void Console_TestType(const char *s) {
 }
 
 void Console_TestSpecial(Console_TestKey key, int shift) {
-    Console_UpdateKey(testkey_scancode(key), 0, shift ? SDL_KMOD_SHIFT : 0);
+    Console_UpdateKey(testkey_scancode(key), 0, shift ? PLATFORM_KMOD_SHIFT : 0);
 }
 
 void Console_TestCtrl(char letter) {
-    Console_UpdateKey(0, (unsigned char)letter, SDL_KMOD_CTRL);
+    Console_UpdateKey(0, (unsigned char)letter, PLATFORM_KMOD_CTRL);
 }
 
 const char *Console_TestInput(void) {
@@ -1365,20 +1351,20 @@ static int mouse_to_cell(float winx, float winy, int *row, int *col) {
     return 1;
 }
 
-int Console_FeedEvent(const void *sdlEvent) {
-    const SDL_Event *ev = (const SDL_Event *)sdlEvent;
+int Console_FeedEvent(const PlatformEvent *event) {
+    const PlatformEvent *ev = event;
 
     /* Mouse drag selects text in the console; the OS cursor (shown on open) is the
      * pointer. Left button down anchors, motion extends, double-click selects a word,
      * and a click on the input row places the edit cursor. Copy with Ctrl+C; a right
      * click copies and clears. While open the console owns the mouse. */
-    if (ev->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+    if (ev->type == PLATFORM_EVENT_MOUSE_BUTTON_DOWN) {
         int row, col, lo, hi;
-        Uint64 now;
+        U64 now;
         int dbl;
         if (!s_console_open)
             return 0;
-        if (ev->button.button == SDL_BUTTON_RIGHT) {
+        if (ev->button.button == PLATFORM_BUTTON_RIGHT) {
             /* Right-click copies the current selection, then clears it. */
             if (s_scrsel.active || sel_span(&lo, &hi))
                 clipboard_copy();
@@ -1386,14 +1372,14 @@ int Console_FeedEvent(const void *sdlEvent) {
             s_in.sel_anchor = -1;
             return 1;
         }
-        if (ev->button.button != SDL_BUTTON_LEFT)
+        if (ev->button.button != PLATFORM_BUTTON_LEFT)
             return 1;
         if (!mouse_to_cell(ev->button.x, ev->button.y, &row, &col)) {
             /* Left-click below the panel (in the game area) closes the console. */
             Console_Close();
             return 1;
         }
-        now = SDL_GetTicks();
+        now = g_platform.system.ticks_ms();
         dbl = (now - s_scrsel.last_click_ms <= CONSOLE_DBLCLICK_MS && row == s_scrsel.last_click_row &&
                (col >= s_scrsel.last_click_col - 1 && col <= s_scrsel.last_click_col + 1));
         s_scrsel.last_click_ms = now;
@@ -1435,7 +1421,7 @@ int Console_FeedEvent(const void *sdlEvent) {
         }
         return 1;
     }
-    if (ev->type == SDL_EVENT_MOUSE_MOTION) {
+    if (ev->type == PLATFORM_EVENT_MOUSE_MOTION) {
         int row, col;
         if (!s_console_open) {
             s_scrsel.dragging = 0;
@@ -1450,16 +1436,16 @@ int Console_FeedEvent(const void *sdlEvent) {
         }
         return 1;
     }
-    if (ev->type == SDL_EVENT_MOUSE_BUTTON_UP) {
+    if (ev->type == PLATFORM_EVENT_MOUSE_BUTTON_UP) {
         if (!s_console_open)
             return 0;
-        if (ev->button.button == SDL_BUTTON_LEFT)
+        if (ev->button.button == PLATFORM_BUTTON_LEFT)
             s_scrsel.dragging = 0;
         return 1; /* console owns the mouse while open */
     }
 
     /* Mouse wheel scrolls the scrollback while the console is open. */
-    if (ev->type == SDL_EVENT_MOUSE_WHEEL) {
+    if (ev->type == PLATFORM_EVENT_MOUSE_WHEEL) {
         if (!s_console_open)
             return 0;
         if (ev->wheel.y > 0)
@@ -1472,7 +1458,7 @@ int Console_FeedEvent(const void *sdlEvent) {
     /* Typed characters arrive here already cased and layout-resolved (uppercase,
      * shifted symbols, AZERTY, numpad-with-NumLock). Queue the printable ASCII
      * ones as CONSOLE_TEXT_CHAR events; physical keys come through KEY_DOWN below. */
-    if (ev->type == SDL_EVENT_TEXT_INPUT) {
+    if (ev->type == PLATFORM_EVENT_TEXT_INPUT) {
         const char *t;
         if (!s_console_open)
             return 0;
@@ -1492,16 +1478,16 @@ int Console_FeedEvent(const void *sdlEvent) {
         return 1;
     }
 
-    if (ev->type != SDL_EVENT_KEY_DOWN)
+    if (ev->type != PLATFORM_EVENT_KEY_DOWN)
         return 0;
 
-    SDL_Scancode scan = ev->key.scancode;
+    S32 scan = ev->key.scancode;
     /* Keycode is used only for the Ctrl combos below (paste/copy/clear); character
      * entry is handled by text input above, so no Shift/layout fix-up is needed. */
-    SDL_Keycode key = SDL_GetKeyFromScancode(scan, ev->key.mod, true);
+    U32 key = g_platform.input.keycode(scan, ev->key.mod);
 
     /* Toggle only on first key down, not key repeat. */
-    if ((scan == (SDL_Scancode)s_toggle_scancode) && !ev->key.repeat) {
+    if ((scan == (S32)s_toggle_scancode) && !ev->key.repeat) {
         if (s_slide_show_active && !s_console_open)
             return 0;
         Console_Toggle();
@@ -1511,7 +1497,7 @@ int Console_FeedEvent(const void *sdlEvent) {
         return 0;
 
     /* Don't queue key repeat for Enter so we only submit once per keypress */
-    if (ev->key.repeat && (scan == (SDL_Scancode)K_ENTER || scan == (SDL_Scancode)K_NUMPAD_ENTER))
+    if (ev->key.repeat && (scan == (S32)K_ENTER || scan == (S32)K_NUMPAD_ENTER))
         return 1;
 
     /* Push to queue */

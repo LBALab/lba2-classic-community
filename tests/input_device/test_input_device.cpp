@@ -24,9 +24,10 @@
 #include <SYSTEM/MOUSE.H>    // HandleEventsMouse
 #include <SYSTEM/WINDOW.H>   // WindowToSurfaceCoords (stubbed below)
 
-#include <SDL3/SDL.h>
+#include <PLATFORM/PLATFORM.H>
 
 #include <cstdio>
+#include <cstring>
 
 extern "C" S32 LastInputWasKeyboard; // defined in LIB386/SYSTEM/KEYBOARD.CPP
                                      // (LastInputWasTouch comes from KEYBOARD.H)
@@ -61,18 +62,18 @@ static void expectTouch(S32 want, const char *label) {
     }
 }
 
-static SDL_Event mkEvent(Uint32 type) {
-    SDL_Event e;
-    SDL_memset(&e, 0, sizeof e);
+static PlatformEvent mkEvent(PlatformEventType type) {
+    PlatformEvent e;
+    std::memset(&e, 0, sizeof e);
     e.type = type;
     return e;
 }
 
 int main() {
-    SDL_Event keyDown = mkEvent(SDL_EVENT_KEY_DOWN);
-    SDL_Event keyUp = mkEvent(SDL_EVENT_KEY_UP);
-    SDL_Event mouseBtn = mkEvent(SDL_EVENT_MOUSE_BUTTON_DOWN);
-    SDL_Event mouseWheel = mkEvent(SDL_EVENT_MOUSE_WHEEL);
+    PlatformEvent keyDown = mkEvent(PLATFORM_EVENT_KEY_DOWN);
+    PlatformEvent keyUp = mkEvent(PLATFORM_EVENT_KEY_UP);
+    PlatformEvent mouseBtn = mkEvent(PLATFORM_EVENT_MOUSE_BUTTON_DOWN);
+    PlatformEvent mouseWheel = mkEvent(PLATFORM_EVENT_MOUSE_WHEEL);
 
     // Default: not a keyboard, so a touch-only phone / fresh boot routes to the
     // auto-name flow rather than a keyboard prompt nothing can fill.

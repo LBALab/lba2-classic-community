@@ -43,8 +43,7 @@ int WriteEmbeddedDefaultLba2Cfg(const char *destPath);
 #endif
 #include <unistd.h>
 
-#include <SDL3/SDL_cpuinfo.h> /* SDL_GetNumLogicalCPUCores, SDL_GetSystemRAM */
-#include <SDL3/SDL_timer.h>   /* SDL_Delay - waiting out a window we cannot have yet */
+#include <PLATFORM/PLATFORM.H>
 
 /* How long the boot will wait for a window, and how often it retries.
    Generous on purpose: this loop ends the moment the surface comes back, so the
@@ -154,8 +153,8 @@ void InitAdeline(S32 argc, char *argv[]) {
 
         /* Boot identity + key paths up top, so a pasted log is self-describing. */
         Log_Banner("%s · %s %s · %d cores · %d GB RAM", APPNAME, LOG_PLATFORM_NAME,
-                   LOG_ARCH_NAME, SDL_GetNumLogicalCPUCores(),
-                   (SDL_GetSystemRAM() + 512) / 1024);
+                   LOG_ARCH_NAME, g_platform.system.cpu_count(),
+                   (g_platform.system.ram_mb() + 512) / 1024);
         Log_Raw("Built %s %s from commit %s", __DATE__, __TIME__, LBA2_COMMIT_STRING);
         /* Which probe found the assets, in parentheses after the path. The probe
            list runs silently, so "the engine booted the wrong install" and "the
@@ -380,7 +379,7 @@ void InitAdeline(S32 argc, char *argv[]) {
         bool graphicsUp = InitGraphics(reqResX, reqResY, reqFullscreen);
         while (!graphicsUp && Window_CanLoseNativeWindow() &&
                waitedMs < BOOT_WINDOW_WAIT_MS) {
-            SDL_Delay(BOOT_WINDOW_POLL_MS);
+            g_platform.system.delay_ms(BOOT_WINDOW_POLL_MS);
             waitedMs += BOOT_WINDOW_POLL_MS;
             graphicsUp = InitGraphics(reqResX, reqResY, reqFullscreen);
         }

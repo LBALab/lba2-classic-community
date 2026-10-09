@@ -1,6 +1,6 @@
 set(_SVGA_ASM_DIR ${CMAKE_SOURCE_DIR}/LIB386/SVGA)
 set(_SVGA_ASM_INC ${CMAKE_SOURCE_DIR}/LIB386/H)
-set(_SVGA_LIBS svg sys poly SDL3::SDL3)
+set(_SVGA_LIBS svg sys poly lba2_platform)
 
 # .model SMALL ASM files are automatically patched to FLAT at build time.
 add_asm_cpp_test(NAME test_box        TEST_SOURCE test_box.cpp        ASM_SOURCE ${_SVGA_ASM_DIR}/BOX.ASM        RENAME_SYMS Box                         LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})

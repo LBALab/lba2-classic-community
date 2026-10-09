@@ -16,7 +16,7 @@
 #include "DIRECTORIES.H"
 #include "RES_DISCOVERY.H"
 
-#include <SDL3/SDL.h>
+#include <PLATFORM/PLATFORM.H>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -167,14 +167,14 @@ static bool had_persisted = false;
 static char persisted_path[ADELINE_MAX_PATH];
 
 static void compute_persisted_path() {
-    char *prefPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
+    char *prefPath = g_platform.host.pref_path(ADELINE_PREF_ORG, ADELINE_PREF_APP);
     if (prefPath == NULL) {
         persisted_path[0] = '\0';
         return;
     }
     snprintf(persisted_path, sizeof(persisted_path), "%slast_game_dir.txt",
              prefPath);
-    SDL_free(prefPath);
+    g_platform.host.free_memory(prefPath);
 }
 
 static void backup_persisted_game_dir() {
@@ -942,22 +942,22 @@ static bool test_profile_name_rules() {
 }
 
 /* Persisted-LastGameDir probe: a previous picker session wrote
- * last_game_dir.txt to <SDL_GetPrefPath>; ResolveGameDataDir must
+ * last_game_dir.txt to <g_platform.host.pref_path>; ResolveGameDataDir must
  * read it back and return that path before falling through to
  * auto-discovery.
  *
- * The challenge: SDL_GetPrefPath caches the resolved path on first
+ * The challenge: g_platform.host.pref_path caches the resolved path on first
  * call within a process (verified empirically: setenv("XDG_DATA_HOME")
- * after SDL_Init has no effect on subsequent SDL_GetPrefPath calls).
+ * after SDL_Init has no effect on subsequent g_platform.host.pref_path calls).
  * So we can't simply override the env var inside the test and expect
  * SDL3 to follow.
  *
- * Approach: try the override, then check whether SDL_GetPrefPath
+ * Approach: try the override, then check whether g_platform.host.pref_path
  * actually picked it up by comparing before/after. If it did → run
  * the full test. If it didn't (SDL cached, override took no effect),
  * skip cleanly without polluting the user's real prefs directory.
  *
- * Linux-only: SDL_GetPrefPath honors XDG_DATA_HOME on Linux when
+ * Linux-only: g_platform.host.pref_path honors XDG_DATA_HOME on Linux when
  * read fresh. macOS / Windows use platform-specific paths without
  * a clean env override; skip there. */
 static bool test_persisted_last_game_dir() {
@@ -968,43 +968,43 @@ static bool test_persisted_last_game_dir() {
     unsetenv_portable("LBA2_GAME_DIR");
 
     /* Snapshot the un-overridden pref path. */
-    char *originalPrefPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
+    char *originalPrefPath = g_platform.host.pref_path(ADELINE_PREF_ORG, ADELINE_PREF_APP);
     if (originalPrefPath == NULL) {
         return false;
     }
 
     char xdg[] = "/tmp/lba2disc_xdg_XXXXXX";
     if (mkdtemp(xdg) == NULL) {
-        SDL_free(originalPrefPath);
+        g_platform.host.free_memory(originalPrefPath);
         return false;
     }
     if (setenv_portable("XDG_DATA_HOME", xdg) != 0) {
-        SDL_free(originalPrefPath);
+        g_platform.host.free_memory(originalPrefPath);
         return false;
     }
 
     /* Did the env override actually take? SDL3 may have cached the
      * pref path during an earlier call (e.g. from another test in
      * this same process), in which case our setenv is a no-op. */
-    char *overriddenPrefPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
+    char *overriddenPrefPath = g_platform.host.pref_path(ADELINE_PREF_ORG, ADELINE_PREF_APP);
     if (overriddenPrefPath == NULL) {
-        SDL_free(originalPrefPath);
+        g_platform.host.free_memory(originalPrefPath);
         unsetenv_portable("XDG_DATA_HOME");
         return false;
     }
     const bool overrideTook =
         (strstr(overriddenPrefPath, xdg) != NULL);
-    SDL_free(originalPrefPath);
-    SDL_free(overriddenPrefPath);
+    g_platform.host.free_memory(originalPrefPath);
+    g_platform.host.free_memory(overriddenPrefPath);
 
     if (!overrideTook) {
-        /* SDL_GetPrefPath cached the un-overridden path. Running the
+        /* g_platform.host.pref_path cached the un-overridden path. Running the
          * full test now would write last_game_dir.txt into the user's
          * real prefs directory and risk clobbering an actual setting.
          * Skip without writing anything. */
         unsetenv_portable("XDG_DATA_HOME");
         fprintf(stderr,
-                "[skip] test_persisted_last_game_dir: SDL_GetPrefPath "
+                "[skip] test_persisted_last_game_dir: g_platform.host.pref_path "
                 "cached pre-override path; can't isolate.\n");
         return true;
     }
@@ -1233,7 +1233,7 @@ static bool test_installed_file_beats_image_copy() {
     return ok;
 }
 
-/* An AppImage sees SDL_GetBasePath as its own read-only mount point, so the
+/* An AppImage sees g_platform.host.base_path as its own read-only mount point, so the
  * only thing naming the folder the player put the file in is $APPIMAGE. These
  * drive that probe.
  *
@@ -1283,7 +1283,7 @@ static void remove_fixture_root(const char *root) {
  *  Empty string if SDL cannot say, which fails the fixture rather than the
  *  code under test. */
 static void this_executable_dir(char *out, size_t out_sz) {
-    const char *base = SDL_GetBasePath();
+    const char *base = g_platform.host.base_path();
     snprintf(out, out_sz, "%s", base != NULL ? base : "");
 }
 
@@ -2212,7 +2212,7 @@ static bool test_userdir_reconcile_skips_a_game_data_folder() {
 }
 
 int main() {
-    if (!SDL_Init(0)) {
+    if (!g_platform.system.init()) {
         return 1;
     }
 
@@ -2359,6 +2359,6 @@ int main() {
     if (!test_installed_file_beats_image_copy()) {
         failed++;
     }
-    SDL_Quit();
+    g_platform.system.shutdown();
     return failed ? 1 : 0;
 }

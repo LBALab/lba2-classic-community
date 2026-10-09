@@ -14,7 +14,7 @@ target_include_directories(test_user_dirs PRIVATE
     ${CMAKE_BINARY_DIR}
 )
 
-target_link_libraries(test_user_dirs PRIVATE sys SDL3::SDL3)
+target_link_libraries(test_user_dirs PRIVATE sys)
 
 target_compile_definitions(test_user_dirs PRIVATE LBA2_BUILD_TESTS)
 

@@ -2,6 +2,7 @@
 
 #include <SYSTEM/ADELINE_TYPES.H>
 #include <SYSTEM/LIMITS.H>
+#include <PLATFORM/PLATFORM.H>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -21,7 +22,7 @@ void EndVideo();
 // --- Interface ---------------------------------------------------------------
 bool CreateVideoSurface(U32 resX, U32 resY);
 
-/** Free the Phys buffer and the SDL palette without taking the SDL_INIT_VIDEO
+/** Free the Phys buffer and palette without taking the platform video
  *  subsystem down — paired with CreateVideoSurface for the runtime resolution
  *  switcher (docs/RUNTIME_RESOLUTION.md). EndVideo() is still the lifetime
  *  teardown called from EndAdeline. */
@@ -42,7 +43,7 @@ void SetVideoPaletteSync(const U8 src[]);
 void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[],
                    const T_BOX *area);
 
-void HandleEventsVideo(const void *event);
+void HandleEventsVideo(const PlatformEvent *event);
 
 /** Optional overlay: called after Log→ARGB conversion, before present. pitch = row stride in bytes; palette_rgb = 256*3 bytes (R,G,B per entry). */
 typedef void (*PrePresentFn)(U32 *frameBuffer, U32 pitch, U32 width, U32 height, const U8 *palette_rgb);

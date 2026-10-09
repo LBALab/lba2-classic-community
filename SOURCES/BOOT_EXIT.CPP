@@ -26,7 +26,7 @@
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H>
 
-#include <SDL3/SDL.h>
+#include <PLATFORM/PLATFORM.H>
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -132,9 +132,9 @@ static void ShowFatalErrorDialog(const char *title, const char *message) {
         return;
     if (Control_IsActive())
         return;
-    if (!SDL_WasInit(SDL_INIT_VIDEO) && !SDL_InitSubSystem(SDL_INIT_VIDEO))
+    if (!g_platform.system.video_initialized() && !g_platform.system.init_video())
         return;
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, message, NULL);
+    g_platform.host.message_box(PLATFORM_MESSAGE_ERROR, title, message);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/

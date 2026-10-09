@@ -1,7 +1,7 @@
 # RES_PICKER.CPP defines the message bodies and the Android gate; DIRECTORIES.CPP
 # supplies IsValidResourceDir that RES_PICKER references. Android_GetExternalFilesDir
-# and Log_* come from the `sys` library; SDL3 satisfies the picker's SDL calls at
-# link time (the test never calls PromptForResDir, so no display is needed).
+# and Log_* come through sys and the selected platform (the test never calls
+# PromptForResDir, so no display is needed).
 set(_PICKER_SOURCES
     ${CMAKE_SOURCE_DIR}/SOURCES/RES_PICKER.CPP
     ${CMAKE_SOURCE_DIR}/SOURCES/DIRECTORIES.CPP
@@ -15,7 +15,7 @@ target_include_directories(test_res_picker PRIVATE
     ${CMAKE_BINARY_DIR}
 )
 
-target_link_libraries(test_res_picker PRIVATE sys SDL3::SDL3)
+target_link_libraries(test_res_picker PRIVATE sys)
 
 target_compile_definitions(test_res_picker PRIVATE
     LBA2_BUILD_TESTS

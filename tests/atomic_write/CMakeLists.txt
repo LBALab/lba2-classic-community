@@ -15,7 +15,7 @@ target_include_directories(test_atomic_write PRIVATE
 
 # LogPrintf routes through the structured log core (LOG.CPP); bypass the SDL_Log
 # spine so this test needs no SDL.
-target_compile_definitions(test_atomic_write PRIVATE LBA_LOG_NO_SDL)
+target_compile_definitions(test_atomic_write PRIVATE LBA_LOG_NO_PLATFORM)
 
 set_target_properties(test_atomic_write PROPERTIES CXX_STANDARD 11)
 

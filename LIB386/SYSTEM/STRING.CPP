@@ -1,9 +1,11 @@
 #include <SYSTEM/STRING.H>
 
-#include <SDL3/SDL_stdinc.h>
+#include <PLATFORM/PLATFORM.H>
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -12,10 +14,9 @@ extern "C" {
 
 // -----------------------------------------------------------------------------
 char *ade_strcasestr(const char *haystack, const char *needle) {
-    // Copied from SDL since Ubuntu does not support the latest releases of SDL
-    size_t length = SDL_strlen(needle);
+    size_t length = strlen(needle);
     while (*haystack) {
-        if (SDL_strncasecmp(haystack, needle, length) == 0) {
+        if (g_platform.host.strncasecmp(haystack, needle, length) == 0) {
             return (char *)haystack;
         }
         ++haystack;
@@ -288,8 +289,9 @@ void FormatUtf8ToCp850(char *dst, size_t dstSize, const char *fmt, ...) {
         return;
     }
 
-    char *utf8Buffer = (char *)SDL_malloc(dstSize);
+    char *utf8Buffer = (char *)malloc(dstSize);
     if (!utf8Buffer) {
+        Platform_Log(PLATFORM_LOG_ERROR, "Unable to allocate UTF-8 conversion buffer");
         dst[0] = '\0';
         return;
     }
@@ -300,7 +302,11 @@ void FormatUtf8ToCp850(char *dst, size_t dstSize, const char *fmt, ...) {
 
     CopyUtf8ToCp850(dst, dstSize, utf8Buffer);
 
-    SDL_free(utf8Buffer);
+    free(utf8Buffer);
+}
+
+static U8 LowerAscii(U8 value) {
+    return value >= 'A' && value <= 'Z' ? value + ('a' - 'A') : value;
 }
 
 bool EqualsIgnoringCaseAndEncoding(const char *a, const char *b) {
@@ -328,7 +334,7 @@ bool EqualsIgnoringCaseAndEncoding(const char *a, const char *b) {
             continue;
         }
 
-        if (SDL_tolower((unsigned char)*a) != SDL_tolower((unsigned char)*b)) {
+        if (LowerAscii((U8)*a) != LowerAscii((U8)*b)) {
             return false;
         }
         a++;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <PLATFORM/PLATFORM.H>
+
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
@@ -12,8 +14,8 @@ void EndEvents();
 // --- Interface ---------------------------------------------------------------
 void ManageEvents();
 
-/** Optional: called for each SDL event (e.g. for console). Return true to mark event consumed. */
-typedef int (*EventFilterFn)(const void *sdlEvent);
+/** Called for each platform event. Return true to mark the event consumed. */
+typedef int (*EventFilterFn)(const PlatformEvent *event);
 void SetEventFilter(EventFilterFn fn);
 
 // =============================================================================

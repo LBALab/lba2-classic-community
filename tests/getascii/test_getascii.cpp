@@ -13,7 +13,7 @@
  * SOURCES/CONTROL.CPP provides in the engine, down to taking `Key` when nothing
  * else has.
  *
- * The keycode is asserted against SDL's own conversion rather than a literal,
+ * The keycode is asserted against the selected backend's conversion rather than a literal,
  * because the conversion is layout-dependent and the contract is that GetAscii
  * performs it, not that a given scancode is a given letter.
  */
@@ -21,7 +21,7 @@
 #include <SYSTEM/INPUT.H>  // Input, GetInput, DefineInputKeys
 #include <SYSTEM/KEYBOARD.H>
 
-#include <SDL3/SDL.h>
+#include <PLATFORM/PLATFORM.H>
 
 #include <cstdio>
 
@@ -60,24 +60,25 @@ static S32 pollThenGetAscii(void) {
     return GetAscii();
 }
 
-static SDL_Keycode keycodeOf(U32 scancode) {
-    return SDL_GetKeyFromScancode((SDL_Scancode)scancode, SDL_KMOD_NONE, true);
+static U32 keycodeOf(U32 scancode) {
+    return g_platform.input.keycode((S32)scancode, PLATFORM_KMOD_NONE);
 }
 
 int main() {
-    if (!SDL_Init(SDL_INIT_EVENTS)) {
-        std::fprintf(stderr, "SKIP: SDL_Init(EVENTS) failed: %s\n", SDL_GetError());
+    if (!g_platform.system.init() || !g_platform.events.init()) {
+        std::fprintf(stderr, "SKIP: event init failed: %s\n", g_platform.system.get_error());
         return 77; // autotools convention, as tests/automation/lib.sh uses
     }
 
-    const U32 kA = SDL_SCANCODE_A;
-    const U32 kB = SDL_SCANCODE_B;
+    const U32 kA = PLATFORM_SCANCODE_A;
+    const U32 kB = PLATFORM_SCANCODE_B;
 
     /* A layout that maps neither letter to a character would make every check
        below pass for the wrong reason. */
     if (keycodeOf(kA) == 0 || keycodeOf(kB) == 0 || keycodeOf(kA) == keycodeOf(kB)) {
         std::fprintf(stderr, "SKIP: this layout does not give A and B distinct keycodes\n");
-        SDL_Quit();
+        g_platform.events.shutdown();
+        g_platform.system.shutdown();
         return 77;
     }
 
@@ -141,7 +142,8 @@ int main() {
         DefineInputKeys(0, NULL, NULL);
     }
 
-    SDL_Quit();
+    g_platform.events.shutdown();
+    g_platform.system.shutdown();
 
     if (fails == 0) {
         std::printf("test_getascii: all checks passed\n");

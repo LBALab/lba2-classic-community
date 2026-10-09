@@ -62,6 +62,7 @@ if(ANDROID)
 else()
     add_executable(${LBA2_EXECUTABLE_NAME} ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN} ${SOURCES_FILES_MACOS} ${EMBEDDED_LBA2_CFG_CPP})
 endif()
+target_sources(${LBA2_EXECUTABLE_NAME} PRIVATE $<TARGET_OBJECTS:lba2_platform_entry>)
 
 # macOS .app bundle metadata: marks the target as a bundled .app, points
 # at the configured Info.plist, and routes the .icns to Contents/Resources/.
@@ -129,7 +130,7 @@ target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE console)
 target_include_directories(${LBA2_EXECUTABLE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/CONSOLE)
 # Explicit order matters for GNU static linking: poly references RoundType/ROUND in libsys (UTILS.CPP);
 # sys must follow poly. (Transitive deps from 3dext alone order sys before poly and break -m32 links.)
-target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE 3dext 3D ail ani fio obj poly svg sys ${LBA2_SDL3_TARGET})
+target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE 3dext 3D ail ani fio obj poly svg sys lba2_platform)
 if (WIN32)
     target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE gdi32 user32 ddraw winmm kernel32)
     if (LBA2_CONTROL_SERVER)
@@ -166,8 +167,7 @@ target_include_directories(${LBA2_EXECUTABLE_NAME} PRIVATE
         ../LIB386/H)
 target_compile_definitions(${LBA2_EXECUTABLE_NAME} PRIVATE ONE_GAME_DIRECTORY LBA_GAME CDROM
         $<$<STREQUAL:${MVIDEO_BACKEND},null>:USE_MVIDEO_NULL>
-        $<$<STREQUAL:${MVIDEO_BACKEND},smacker>:USE_MVIDEO_SMACKER>
-        SDL_DISABLE_OLD_NAMES)
+        $<$<STREQUAL:${MVIDEO_BACKEND},smacker>:USE_MVIDEO_SMACKER>)
 if(MVIDEO_BACKEND STREQUAL "smacker")
   target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE libsmacker video_audio_resample)
 endif()
