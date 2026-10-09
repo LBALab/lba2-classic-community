@@ -109,6 +109,7 @@ PLATFORM_DIRS = (
     "LIB386/AIL/",
     "LIB386/FILEIO/",
     "LIB386/H/SYSTEM/",
+    "LIB386/PLATFORM/",
     "LIB386/SMACKER/",
     "LIB386/SNAPSHOT/",
     "LIB386/SVGA/",
@@ -143,7 +144,19 @@ KNOWN_EXCEPTIONS = {
 
 # jni.h is the narrowest form of the same rule: one translation unit knows Android
 # exists. docs/ANDROID.md states it directly.
-JNI_OWNER = "LIB386/SYSTEM/ANDROID.CPP"
+JNI_OWNER = "LIB386/PLATFORM/ANDROID.CPP"
+
+# SDL is an implementation detail of the selected host and sibling AIL backend.
+# KEYBWIN is the preserved, unbuilt Win32 keyboard driver, not a live exception.
+SDL_DIRS = ("LIB386/PLATFORM/SDL3/", "LIB386/AIL/SDL/")
+SDL_DORMANT_FILES = ("LIB386/SYSTEM/KEYBWIN.CPP",)
+SDL_SYMBOL_RE = re.compile(r"\b(?:SDL\d?_|SDLK_|SDLCALL\b)")
+LITERAL_RE = re.compile(r"'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"")
+PLATFORM_KERNEL_HEADERS = frozenset(("SYSTEM/ANDROID.H", "SYSTEM/ADELINE_TYPES.H"))
+ENGINE_HEADER_DIRS = frozenset(
+    ("3D", "AIL", "ANIM", "FILEIO", "MENU", "OBJECT", "POLYGON",
+     "SMACKER", "SNAPSHOT", "SVGA", "SYSTEM", "SOURCES")
+)
 
 # --- rule 2: the C++98 dialect ----------------------------------------------
 
@@ -330,21 +343,23 @@ def _strip_comments(text: str) -> tuple[list[str], list[tuple[int, str]]]:
 
 
 def tracked_sources() -> list[str]:
-    """Tracked C and C++ files under SOURCES/ and LIB386/, vendored code excluded."""
+    """Current C/C++ files, including new files and excluding deleted paths."""
     listing = subprocess.run(
-        ["git", "ls-files", "--", "SOURCES", "LIB386"],
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", "SOURCES", "LIB386"],
         capture_output=True,
         text=True,
         check=True,
     )
     paths = []
     for path in listing.stdout.splitlines():
+        if not os.path.isfile(path):
+            continue
         if not path.endswith(SOURCE_SUFFIXES):
             continue
         if any(path.startswith(prefix) for prefix in VENDORED):
             continue
         paths.append(path)
-    return sorted(paths)
+    return sorted(set(paths))
 
 
 def read(path: str) -> Source:
@@ -398,6 +413,42 @@ def rule_platform_ifdefs(sources: list[Source]) -> list[Violation]:
             hit = [macro for macro in PLATFORM_MACROS if macro in text]
             if hit:
                 found.append(Violation(source.path, line, text.strip()))
+    return found
+
+
+def rule_sdl_stays_in_backends(sources: list[Source]) -> list[Violation]:
+    found = []
+    for source in sources:
+        if source.path in SDL_DORMANT_FILES or any(
+            source.path.startswith(prefix) for prefix in SDL_DIRS
+        ):
+            continue
+        for line, text in source.lines():
+            include = INCLUDE_RE.search(text)
+            if include and include.group(1).split("/", 1)[0] in ("SDL", "SDL2", "SDL3"):
+                found.append(Violation(source.path, line, include.group(0).strip()))
+            symbol = SDL_SYMBOL_RE.search(LITERAL_RE.sub("", text))
+            if symbol:
+                found.append(Violation(source.path, line, symbol.group(0)))
+    return found
+
+
+def rule_platform_has_no_engine_dependency(sources: list[Source]) -> list[Violation]:
+    found = []
+    for source in sources:
+        if not source.path.startswith(("LIB386/PLATFORM/", "LIB386/H/PLATFORM/")):
+            continue
+        for line, text in source.lines():
+            include = INCLUDE_RE.search(text)
+            if not include:
+                continue
+            header = include.group(1)
+            if header in PLATFORM_KERNEL_HEADERS:
+                continue
+            # Native SDKs may also use subdirectories (KOS's dc/, for example).
+            # Reject engine namespaces, not every non-SDL include path.
+            if any(part.upper() in ENGINE_HEADER_DIRS for part in header.split("/")):
+                found.append(Violation(source.path, line, include.group(0).strip()))
     return found
 
 
@@ -599,6 +650,22 @@ RULES = (
             "docs/ENGINE_GAME_SEAM.md in the same diff. KNOWN_EXCEPTIONS is for engine "
             "code awaiting cleanup, not for a new backend."
         ),
+    ),
+    Rule(
+        9,
+        "SDL stays in platform and audio backends",
+        'CODESTYLE.md "Layers": "SDL headers, types and calls stay in the SDL3 '
+        'platform backend and the sibling AIL SDL backend."',
+        rule_sdl_stays_in_backends,
+        remedy="route the call through PLATFORM/PLATFORM.H; keep physical key IDs in PLATFORM/INPUT.H.",
+    ),
+    Rule(
+        10,
+        "the platform library has no engine dependency",
+        'CODESTYLE.md "Layers": "The platform library does not include engine or '
+        'game implementation headers."',
+        rule_platform_has_no_engine_dependency,
+        remedy="pass frame/event data or register a callback instead of reading engine state.",
     ),
     Rule(
         4,

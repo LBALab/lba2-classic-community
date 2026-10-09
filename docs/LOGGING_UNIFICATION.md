@@ -5,6 +5,8 @@
 > global log level that gates every sink, with `Log_Debug` off by default and the
 > stderr sink always emitting. See the AGENTS.md "Logging" section for the current
 > how-to; this doc is kept as build history.
+>
+> The [platform abstraction](PLATFORM_ABSTRACTION.md) also replaces the SDL spine described below: engine records dispatch directly; selected-backend diagnostics enter through the platform callback. The test-only bypass is `LBA_LOG_NO_PLATFORM`.
 
 **Status:** In progress. U1 (relocate core to `LIB386`) and U2 (shim
 `LogPrintf`/`LogPuts` onto the fan-out) merged; U3 (severity pass) and an

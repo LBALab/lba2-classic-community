@@ -113,6 +113,17 @@ It is a check, not only a report, and exits non-zero when any of six assertions 
 
 `WROTE` earned its place immediately: it caught the CD voice cache stamping mtimes on installed game data, in code nothing was reading.
 
+### 6c. Platform contract and SDL3 conformance (`tests/platform`)
+
+These are host-only tests for community platform infrastructure with no ASM original. `test_platform_contract` links real engine facades and input policy against a fixture table without SDL headers or libraries. It pins input-hook order, device/focus/timer coupling, fixed-dt and clock wrap, gamepad/touch policy, palette snapshots, and nested presentation/overlay order.
+
+`test_platform_sdl3` and `test_platform_sdl3_staging` exercise the selected SDL3 implementation, including byte-exact event payloads, virtual-gamepad sampling, worker-thread dialog/error ownership, and full-frame pixels read from the actual SDL renderer. The second target forces the persistent-buffer/upload mechanism used on Android; it does not replace on-device JNI/window/MTE checks. Both use dummy drivers and need no retail assets. See [PLATFORM_ABSTRACTION.md](PLATFORM_ABSTRACTION.md).
+
+```bash
+cmake --build build --target host_tests
+ctest --test-dir build -R '^test_platform_' --output-on-failure
+```
+
 Demo mode is in there for a reason. It is the only surface where `DistribVersion` visibly differs: the logo swapped at `OBJECT.CPP`'s "incrust logo demo" is drawn only when `DemoSlide` is set, so every other capture matches across releases even though the releases are identified differently. In a good run the demo hash agrees for the two releases that map to the same sprite and differs for the third.
 
 **Pass `--fixed-dt` to anything that captures a UI screen.** The menus animate a plasma strip on the clock, so without a pinned clock the same screen hashes differently on every run, and a comparison built on it reports regressions that are not there. This is worth knowing beyond this script: it applies to any UI capture in the engine. With `--fixed-dt` the captures are exactly reproducible and need no masking at all, which is why `png_hash.py` is a plain pixel hash.

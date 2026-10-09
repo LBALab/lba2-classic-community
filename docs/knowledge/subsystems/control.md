@@ -5,7 +5,7 @@ description: The CLI harness boots the engine, restores a save, runs console com
 status: draft
 subsystem: control
 as_of: 9f3750f5
-generated: { by: claude-code/claude-fable-5-1, at: 2026-09-10T09:00:00Z }
+generated: { by: copilot/gpt-6.1-sol, at: 2026-10-08T22:22:30Z }
 relates_to:
   - /subsystems/console.md
   - /subsystems/recording.md
@@ -43,7 +43,7 @@ The principles are structural. The contracts and the seams are read at `as_of`.
 
 | Contract | Statement |
 |---|---|
-| The flag table | Every flag the engine accepts is a row in one table. An unknown flag, a missing value, or a flag standing where a value belongs is rejected before SDL starts. A flag that asks the engine to do something takes the automated boot path and skips the logos; a flag that only describes the environment does not, so `--headless` alone is still the game. |
+| The flag table | Every flag the engine accepts is a row in one table. An unknown flag, a missing value, or a flag standing where a value belongs is rejected before platform initialisation. A flag that asks the engine to do something takes the automated boot path and skips the logos; a flag that only describes the environment does not, so `--headless` alone is still the game. |
 | What arms the harness | `--load`, `--exec`, `--exec-at`, `--tick`, `--fixed-dt`, `--fixed-timestep`, `--dump-state`, `--screenshot`, `--polyrec`, `--capture-projection`, `--projection-hash`, `--exit`, `--demo`, `--verbose`, `--record-telemetry` and `--res-switch-test` set the harness active. `--listen`, `--replay`, `--record`, `--headless`, `--no-audio`, `--no-autosave`, `--resolution`, `--language`, `--vsync`, `--log-level` and `--ignore-focus` do not. The two that surprise are the recorder's: a replay or a recording is armed independently of the harness.[^control-cpp] |
 | `--replay` alone | Does not arm the harness and does not supply a scene. With harness flags the run is a harness run, and a replay of a player's session then behaves as one; without them the replay refuses, "replays into a game, and none is in progress", because there is no live scene to replay into. The refusal was chosen over booting a game from the snapshot and putting the menu back, which is the demo reel's shape and a larger piece than a guard.[^record-cpp] |
 | The load's timer bracket | A harness `--load` returns with the engine's timer bracket one level open, and the harness closes it itself at the first tick the step is armed. A run that never arms a step keeps it open, by design. See [the bracket decision](/decisions/harness-load-bracket-closes-at-arming.md). |
@@ -75,6 +75,6 @@ The principles are structural. The contracts and the seams are read at `as_of`.
 
 [^control-doc]: [docs/CONTROL.md](../../CONTROL.md), "Usage", "Notes and limits", "--dump-state JSON" and "Determinism".
 [^control-cpp]: [SOURCES/CONTROL.CPP](../../../SOURCES/CONTROL.CPP), the argument parser, `Control_KeyHold` and `Control_TickHook`.
-[^perso-cpp]: [SOURCES/PERSO.CPP](../../../SOURCES/PERSO.CPP), the `Control_IsActive` branch in `main` and the `Control_TickHook` call in `MainLoop`.
+[^perso-cpp]: [SOURCES/PERSO.CPP](../../../SOURCES/PERSO.CPP), the `Control_IsActive` branch in `Lba2Main` and the `Control_TickHook` call in `MainLoop`.
 [^android-doc]: [docs/ANDROID.md](../../ANDROID.md), the console and hardware keyboard limitation.
 [^record-cpp]: [SOURCES/RECORD.CPP](../../../SOURCES/RECORD.CPP), the `Timer_SetSimAudioClock` calls on the record and play paths, and the `Control_HasLiveScene` guard in `Record_Play`.

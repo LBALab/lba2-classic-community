@@ -1,11 +1,11 @@
 ---
 type: Subsystem
 title: Boot and exit
-description: main brings the engine up in a fixed order in which each facility exists only from a known step, the log before the game data and the exit report only after the platform is up, and every ending goes through exit() and its handlers except a fatal signal, which skips them all.
+description: The game entry brings the engine up in a fixed order in which each facility exists only from a known step, the log before the game data and the exit report only after the platform is up, and every ending goes through exit() and its handlers except a fatal signal, which skips them all.
 status: draft
 subsystem: boot
 as_of: e8ae05fc
-generated: { by: claude-code/claude-opus-5, at: 2026-09-14T20:30:00Z }
+generated: { by: copilot/gpt-6.1-sol, at: 2026-10-08T22:22:30Z }
 relates_to:
   - /subsystems/memory.md
   - /subsystems/control.md
@@ -13,7 +13,7 @@ relates_to:
 sources:
   - id: perso-cpp
     resource: ../../../SOURCES/PERSO.CPP
-    title: PERSO.CPP, main from the first argument check to the dispatch, and InitProgram
+    title: PERSO.CPP, Lba2Main from the first argument check to the dispatch, and InitProgram
   - id: initadel
     resource: ../../../SOURCES/INITADEL.C
     title: INITADEL.C, InitAdeline, the platform bring-up
@@ -33,7 +33,7 @@ sources:
     resource: ../../../SOURCES/ASSET_PREFLIGHT.CPP
     title: ASSET_PREFLIGHT.CPP, the required and optional asset check
   - id: android-cpp
-    resource: ../../../LIB386/SYSTEM/ANDROID.CPP
+    resource: ../../../LIB386/PLATFORM/ANDROID.CPP
     title: ANDROID.CPP, the storage permission wait
   - id: window-cpp
     resource: ../../../LIB386/SYSTEM/WINDOW.CPP
@@ -52,14 +52,14 @@ sources:
     title: Initialisation research, the earlier trace of the same path
 ---
 
-`main` in PERSO.CPP is the boot: about nine hundred lines that run once, in an order that is mostly Adeline's with the port's seams inserted. This concept holds that order as a map of what exists when, and every way the process ends. What happens after the dispatch, a new game or a load, belongs to [savegames](/subsystems/save.md) and [transitions](/subsystems/transitions.md). The contracts are read at `as_of`; the one measurement below was taken on a macOS Release build at that commit.
+`Lba2Main` in PERSO.CPP is the game boot, entered through the selected platform's entry-point wrapper. Its order remains mostly Adeline's with the port's seams inserted. This concept holds that order as a map of what exists when, and every way the process ends. What happens after the dispatch, a new game or a load, belongs to [savegames](/subsystems/save.md) and [transitions](/subsystems/transitions.md). The measurement below was taken at `as_of`; platform extraction preserves the order while routing host services through the PAL.
 
 # Principles
 
-- **A facility exists from a known step.** The log is up before the game data is found, SDL's filesystem before the user folder, the main buffer before the window, the console before the resource banks. Code that runs earlier than a facility must not use it, and several early steps record what they need to say and let a later step print it.
-- **Fail before the heavy work.** Arguments are validated before SDL starts, missing required assets stop the boot before any bank is loaded, and a failure says what is wrong in the player's terms.[^perso-cpp] [^preflight]
-- **Every orderly end is `exit()`.** No path unwinds back through `main`; an ending records its code and calls `exit`, and the handlers registered along the boot do the reporting and the saving.[^boot-exit-cpp]
-- **The harness takes the same path.** `--headless` and the control harness boot through `main` like a player, with presentation skipped at named points rather than a separate entry.[^perso-cpp]
+- **A facility exists from a known step.** The log is up before the game data is found, platform filesystem services before the user folder, the main buffer before the window, the console before the resource banks. Code that runs earlier than a facility must not use it, and several early steps record what they need to say and let a later step print it.
+- **Fail before the heavy work.** Arguments are validated before platform initialisation, missing required assets stop the boot before any bank is loaded, and a failure says what is wrong in the player's terms.[^perso-cpp] [^preflight]
+- **Every orderly end is `exit()`.** No path unwinds back through the game entry; an ending records its code and calls `exit`, and the handlers registered along the boot do the reporting and the saving.[^boot-exit-cpp]
+- **The harness takes the same path.** `--headless` and the control harness boot through `Lba2Main` like a player, with presentation skipped at named points rather than a separate entry.[^perso-cpp]
 
 # Contracts
 
@@ -68,7 +68,7 @@ sources:
 | Step | What runs | What exists afterwards |
 |---|---|---|
 | 1. Arguments | `--version`, `--help`, then `Cli_ValidateArgs`, which rejects an unknown flag with exit 2. Harness and recording flags are parsed out of `argv`. | stdout and stderr only |
-| 2. SDL core | `SDL_Init(0)`; failure exits 1 through `LogPrintf`, which has no sink yet. | SDL filesystem calls |
+| 2. Platform core | `g_platform.system.init`; failure exits 1 through `LogPrintf`, which has no sink yet. | platform filesystem calls |
 | 3. Android storage | `Android_EnsureExternalStoragePermission` opens Settings when All Files Access is missing and waits up to 15 seconds, or until the process is seen to thaw. A no-op elsewhere. | the permission answer |
 | 4. User folder | `--user-dir` and `--profile` are read from `argv`, then `LBA2_PROFILE`, then `GetDefaultUserDir` resolves and caches the folder. See [discovery](/subsystems/discovery.md). | where the run writes |
 | 5. Log | `CreateLog`, which keeps the previous run's log as `adeline.prev.log`, `Log_Init`, the level, the file and terminal sinks, `atexit(Log_Shutdown)`, then `Crash_Install` and, on Android, `Android_SavePreviousCrashReport`. See [logging](/subsystems/logging.md). | `adeline.log`, stderr and the crash report |
@@ -80,7 +80,7 @@ sources:
 | 11. Banks | Samples, language, the Release line and the `Ready` banner, then dialogue buffers, palettes, font, the video player, the logos, the 3D extension and the resource banks. | a fully resourced engine |
 | 12. Dispatch | In order: a cube number in a debug build, `--save-load-test`, the control harness through `Control_Begin` and `MainGameMenu(0, TRUE)`, and otherwise `MainGameMenu`, which loads a save path given in `argv`. Each branch ends in `TheEnd`. | a game |
 
-Sources for the table: `main` and `InitProgram`[^perso-cpp], `InitAdeline`[^initadel], `Android_EnsureExternalStoragePermission`[^android-cpp], `AssetPreflight`[^preflight].
+Sources for the table: `Lba2Main` and `InitProgram`[^perso-cpp], `InitAdeline`[^initadel], `Android_EnsureExternalStoragePermission`[^android-cpp], `AssetPreflight`[^preflight].
 
 ## Endings
 
@@ -114,15 +114,15 @@ Sources for the table: `main` and `InitProgram`[^perso-cpp], `InitAdeline`[^init
 - **That INIT_RESEARCH.md is the current order.** It predates the log moving into `main`, still says each `InitAdeline` failure exits 1 with a graceful-exit TODO where `BootFatal` now reports it, and dispatches the harness straight to `MainLoop`. It is kept for its later phases, the per-game init and the cube load.[^init-research]
 - **That `BootFatal`'s pointer is followed.** Its comment sends the reader to PERSO.H for why it cannot go through `TheEnd`; nothing there says. The reason is the order above: it runs before `TheEndInfo` is registered.[^boot-exit-cpp]
 
-[^perso-cpp]: [SOURCES/PERSO.CPP](../../../SOURCES/PERSO.CPP), `main` and `InitProgram`.
+[^perso-cpp]: [SOURCES/PERSO.CPP](../../../SOURCES/PERSO.CPP), `Lba2Main` and `InitProgram`.
 [^initadel]: [SOURCES/INITADEL.C](../../../SOURCES/INITADEL.C), `InitAdeline`, `BootFatal` at each platform step, and `LOG_PLATFORM_NAME`.
 [^boot-exit-h]: [SOURCES/BOOT_EXIT.H](../../../SOURCES/BOOT_EXIT.H), `TheEnd`, `TheEndCheckFile` and `BootFatal`.
 [^boot-exit-cpp]: [SOURCES/BOOT_EXIT.CPP](../../../SOURCES/BOOT_EXIT.CPP), `TheEnd`, `TheEndCheckFile`, `BootFatal`, `ShowFatalErrorDialog` and `TheEndInfo`.
 [^boot-end-h]: [SOURCES/BOOT_END.H](../../../SOURCES/BOOT_END.H), `BootEnd_IsFailure` and `BootEnd_FormatMessage`.
 [^common-h]: [SOURCES/COMMON.H](../../../SOURCES/COMMON.H), `PROGRAM_OK` and `PROGRAM_FAIL`.
 [^preflight]: [SOURCES/ASSET_PREFLIGHT.CPP](../../../SOURCES/ASSET_PREFLIGHT.CPP), `AssetPreflight`.
-[^android-cpp]: [LIB386/SYSTEM/ANDROID.CPP](../../../LIB386/SYSTEM/ANDROID.CPP), `Android_EnsureExternalStoragePermission`.
-[^window-cpp]: [LIB386/SYSTEM/WINDOW.CPP](../../../LIB386/SYSTEM/WINDOW.CPP), `SDL_EVENT_QUIT`.
+[^android-cpp]: [LIB386/PLATFORM/ANDROID.CPP](../../../LIB386/PLATFORM/ANDROID.CPP), `Android_EnsureExternalStoragePermission`.
+[^window-cpp]: [LIB386/SYSTEM/WINDOW.CPP](../../../LIB386/SYSTEM/WINDOW.CPP), `HandleEventsWindow`.
 [^record-cpp]: [SOURCES/RECORD.CPP](../../../SOURCES/RECORD.CPP), `record_arm_atexit` and `record_flush_at_exit`.
 [^test-boot-end]: [tests/boot_end/test_boot_end.cpp](../../../tests/boot_end/test_boot_end.cpp).
 [^test-preflight]: [tests/asset_preflight/test_asset_preflight.cpp](../../../tests/asset_preflight/test_asset_preflight.cpp).

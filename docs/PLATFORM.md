@@ -106,29 +106,30 @@ x86 assembly is opt-in via the `ENABLE_ASM` CMake option (default OFF). Every AS
 
 ## 5. OS boundary (filesystem, conditionals, SDL3) &nbsp;&nbsp;&nbsp;&nbsp; ✓ contained
 
-Operating-system contact is concentrated in a thin layer. SDL3 wraps window, events, audio, video, and timer. Path manipulation is gated by `_WIN32` for the separator character; directory creation is SDL's. Asset and save discovery uses `SDL_GetBasePath` plus `LBA2_GAME_DIR` plus a candidate walk. Case-insensitivity on macOS APFS bit us once (`<version>` vs the build's `VERSION` text file) and is now sidestepped by writing `VERSION.txt` instead.
+Live engine/game code reaches window, events, input, presentation, timing, and host services through the SDK-free PAL. SDL3 is the only implemented backend; audio has the separate AIL boundary. Path manipulation is gated by `_WIN32` for the separator character. Asset and save discovery uses the platform's borrowed base path plus `LBA2_GAME_DIR` and a candidate walk. Case-insensitivity on macOS APFS bit us once (`<version>` vs the build's `VERSION` text file) and is now sidestepped by writing `VERSION.txt` instead.
 
 - `_WIN32` path separator — `LIB386/H/SYSTEM/ADELINE.H:31-37`
-- Directory creation goes through `SDL_CreateDirectory`, which creates parents and understands a drive spec — `SOURCES/DIRECTORIES.CPP` (`AddDirIfNot`), covered by `tests/user_dirs`
+- Directory creation goes through `g_platform.host.create_directory`; SDL3 creates parents and understands a drive spec — [DIRECTORIES.CPP](../SOURCES/DIRECTORIES.CPP), `AddDirIfNot`, covered by `tests/user_dirs`
 - `ADELINE_PATH_SEP` usage — `SOURCES/RES_DISCOVERY.CPP`
 - macOS case-insensitivity hazard (with explanation) — `cmake/git_version.cmake:15-20`
-- SDL3 window — `LIB386/SYSTEM/WINDOW.CPP:5,89`
-- SDL3 events — `LIB386/SYSTEM/EVENTS.CPP:10,35,64,67`
-- SDL3 timer — `LIB386/SYSTEM/TIMER.CPP:5-6,29,73`
-- SDL3 present path — desktop locks the renderer texture for a zero-copy write; Android stages into a persistent buffer + `SDL_UpdateTexture` because `SDL_LockTexture` is MTE-unsafe on Android 16+ (texture-internal memory freed/realloced between frames → stale tag → `SEGV_ACCERR`). The fork is confined to a present-target acquire/commit seam — `LIB386/SVGA/SDL.CPP`
-- Asset discovery — `SOURCES/RES_DISCOVERY.CPP:238-315`
+- Window/resource ownership and coordinate mapping — [SDL3/WINDOW.CPP](../LIB386/PLATFORM/SDL3/WINDOW.CPP), `SDL3_CreateWindow`, `SDL3_SurfaceCoords`
+- Event translation — [SDL3/EVENTS.CPP](../LIB386/PLATFORM/SDL3/EVENTS.CPP), `SDL3_TranslateEvent`; the engine retains dispatch policy in [SYSTEM/EVENTS.CPP](../LIB386/SYSTEM/EVENTS.CPP), `ManageEvents`
+- Wall-clock source — [SDL3/SYSTEM.CPP](../LIB386/PLATFORM/SDL3/SYSTEM.CPP), `SDL3_Ticks`; fixed-dt remains engine-owned in [TIMER.CPP](../LIB386/SYSTEM/TIMER.CPP), `Timer_ClockSource`
+- SDL3 present path — desktop locks the renderer texture for a zero-copy write; Android stages into a persistent buffer + texture upload because texture-internal pointers can carry stale MTE tags on Android 16+. Both paths live in [SDL3/WINDOW.CPP](../LIB386/PLATFORM/SDL3/WINDOW.CPP), `SDL3_Present`
+- Asset discovery — [RES_DISCOVERY.CPP](../SOURCES/RES_DISCOVERY.CPP), `ResolveGameDataDir`
 
-**Deep dive:** [GAME_DATA.md](GAME_DATA.md) for the discovery rules and override knobs.
+**Deep dive:** [PLATFORM_ABSTRACTION.md](PLATFORM_ABSTRACTION.md) for the contract and ownership; [GAME_DATA.md](GAME_DATA.md) for discovery rules and override knobs.
 
 **Next:** Audit `#ifdef _WIN32` / `__linux__` / `__APPLE__` for vestigial branches. Add the case-insensitivity hazard to a per-PR checklist for files that get added to the build dir on a header search path.
 
 ---
 
-## 6. Backend abstractions (audio, video) &nbsp;&nbsp;&nbsp;&nbsp; ✓ contained
+## 6. Backend abstractions (platform, audio, video) &nbsp;&nbsp;&nbsp;&nbsp; ✓ contained
 
-Both audio and video are pluggable at build time through CMake options. Engine code sees only the common interface; the chosen backend's TU is compiled in. Good prior art for any future "swap an implementation per platform" work.
+Platform, audio, and motion-video implementations are selected at build time. Engine code sees their contracts rather than SDK resources. The platform table currently has one implementation, SDL3; SDL2/SDL1, native console, and libretro backends are not shipped.
 
-- `SOUND_BACKEND` (`null` / `miles` / `sdl`) and `MVIDEO_BACKEND` (`null` / `smacker`) — `CMakeLists.txt:25-39`
+- `PLATFORM_BACKEND` (`sdl3`) — [platform CMake selection](../LIB386/PLATFORM/CMakeLists.txt)
+- `SOUND_BACKEND` (`null` / `miles` / `sdl`) and `MVIDEO_BACKEND` (`null` / `smacker`) — [CMakeLists.txt](../CMakeLists.txt)
 - AIL backend implementations — `LIB386/AIL/{NULL,MILES,SDL}/`
 - Backend selection in CMake — `LIB386/AIL/CMakeLists.txt:3-9`
 - Common interface — `LIB386/H/AIL/VIDEO_AUDIO.H:17-29`
@@ -156,18 +157,18 @@ CMake presets cover the supported targets and toolchains. Cross-compile to Windo
 
 ## 8. Android platform layer &nbsp;&nbsp;&nbsp;&nbsp; ✓ contained
 
-Android-specific behavior — JNI, TV (leanback) detection, storage-permission prompting, and the app-specific external-files dir — is concentrated behind one translation unit. Engine code calls each platform function unconditionally; off-Android each is a no-op stub, so call sites carry no `#ifdef`. `<jni.h>` is included in exactly one file. The engine→game layering inversion (`WINDOW.CPP` reaching up into `SOURCES/TOUCH_INPUT.CPP`) is gone.
+Android-specific behavior — JNI, TV (leanback) detection, storage-permission prompting, and the app-specific external-files dir — is concentrated in the platform library. Engine code calls each platform function unconditionally; off-Android each is a no-op stub. `<jni.h>` is included in exactly one file, and native environment/activity objects are supplied by the selected backend. Touch policy is capability-driven and contains no platform conditional.
 
-- Android platform unit (`extern "C"`, stub-on-desktop) — `LIB386/SYSTEM/ANDROID.{CPP,H}`
-- TV/leanback detection (`IsAndroidTVDevice`) — `LIB386/SYSTEM/ANDROID.CPP`
-- `MANAGE_EXTERNAL_STORAGE` prompt (`Android_EnsureExternalStoragePermission`) — `LIB386/SYSTEM/ANDROID.CPP`
-- App-specific external-files dir (`Android_GetExternalFilesDir`) — `LIB386/SYSTEM/ANDROID.CPP`
+- Android implementation (`extern "C"`, stub-on-desktop) — [PLATFORM/ANDROID.CPP](../LIB386/PLATFORM/ANDROID.CPP); legacy declarations remain in [SYSTEM/ANDROID.H](../LIB386/H/SYSTEM/ANDROID.H)
+- TV/leanback detection — [ANDROID.CPP](../LIB386/PLATFORM/ANDROID.CPP), `IsAndroidTVDevice`
+- Storage-permission prompt — [ANDROID.CPP](../LIB386/PLATFORM/ANDROID.CPP), `Android_EnsureExternalStoragePermission`
+- App-specific external-files dir — [ANDROID.CPP](../LIB386/PLATFORM/ANDROID.CPP), `Android_GetExternalFilesDir`
 - Touch overlay (mobile-only input) — `SOURCES/TOUCH_INPUT.CPP`
 - 16 KB-page packaging — see §7 and [ANDROID.md](ANDROID.md)
 
 **Deep dive:** [ANDROID.md](ANDROID.md) for build, data placement, and the touch layout.
 
-**Next:** None structural. The software-present path carries its own MTE-driven Android fork in the SDL video TU (`LIB386/SVGA/SDL.CPP`), separate from this system/JNI layer.
+**Next:** The MTE-safe present mechanism has a desktop staging conformance test; Android JNI/window lifecycle and on-device MTE still require Android validation. The present fork is private to `LIB386/PLATFORM/SDL3/WINDOW.CPP`.
 
 ---
 
@@ -187,7 +188,7 @@ These are not assumptions the doc has fully audited — they are areas worth che
 Architectural changes that would shift the readiness picture above. Listed here to keep the surface visible; each becomes its own design doc or issue when it matures. Entries are holding-pen items, not commitments.
 
 - **GPU-backed rendering.** The polygon path today is software (`LIB386/pol_work/`, CPU-side rasterization, 8-bit indexed framebuffer). A GPU renderer — `SDL_GPU` or a thin Vulkan/Metal/D3D backend with cross-compiled shaders — would change the FP-precision picture (matches GPU float semantics, not x87), open the door to higher resolutions and HDR, and deprecate the ASM fillers. Big enough that the software path likely stays as a parallel implementation, with the polyrec replay harness as the equivalence test.
-- **Platform abstraction layer (PAL).** Routing the engine's direct SDL3 calls (window, events, present, input, timing) through a single `g_platform` seam, with a headless backend for deterministic CI and a path to console/libretro targets. Grounded in RFC #120 and audited against this map in [PLATFORM_PAL_PLAN.md](plan/PLATFORM_PAL_PLAN.md), a PR-sequenced, behavior-preserving extraction plan currently awaiting go/no-go. Complements the directory restructure below (the PAL is the call-routing seam; the restructure is the physical file layout).
+- **Additional platform backends and frontend stepping.** The SDK-free [PAL](PLATFORM_ABSTRACTION.md) is implemented with SDL3 only. Future SDL2/SDL1 and native-console implementations attach at that contract. libretro additionally needs frontend-owned stepping and resumable modal loops; the current game loop remains blocking. The earlier audit is preserved in [PLATFORM_PAL_PLAN.md](plan/PLATFORM_PAL_PLAN.md).
 - **Directory restructure.** `LIB386/` ("32-bit Intel") encodes a platform assumption in its name. A renaming sweep (`engine/`, `lib/`, or similar) plus splitting platform-specific files into a `sys/` subtree would surface the boundaries the way Doom 3's `sys/win32/` / `sys/linux/` does. No code change; pure rename + `#include` updates. Worth doing once the team agrees on preferred layout.
 - **Canonical save format (`NUM_VERSION 37+`).** Tracked at [issue #64](https://github.com/LBALab/lba2-classic-community/issues/64). Removes the wire32 / auto-retry chain for new saves; legacy loaders stay.
 - **ASM retirement.** Once profiling confirms the CPP path is fast enough on all targets, the `ENABLE_ASM` option could be removed and the `*.ASM` files retired. The CPP equivalents are already canonical; equivalence is already tested.
