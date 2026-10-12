@@ -120,10 +120,6 @@ static void test_complete_backend_and_key_identity() {
     REQUIRE_CALLBACK(host.set_clipboard);
     REQUIRE_CALLBACK(host.get_clipboard);
     REQUIRE_CALLBACK(host.free_memory);
-    REQUIRE_CALLBACK(host.strcasecmp);
-    REQUIRE_CALLBACK(host.strncasecmp);
-    REQUIRE_CALLBACK(host.strupr);
-    REQUIRE_CALLBACK(host.strlwr);
 #undef REQUIRE_CALLBACK
     ASSERT_EQ_INT(SDL_SCANCODE_A, PLATFORM_SCANCODE_A);
     ASSERT_EQ_INT(SDL_SCANCODE_Z, PLATFORM_SCANCODE_Z);

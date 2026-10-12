@@ -1,6 +1,5 @@
 # Host test for the mixed-encoding string comparison used to read language
-# names out of a config file. STRING.CPP uses the platform's case-comparison
-# service for its other entry point; no engine or device is needed.
+# names out of a config file and portable ASCII case operations.
 add_executable(test_string_encoding
     test_string_encoding.cpp
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/STRING.CPP

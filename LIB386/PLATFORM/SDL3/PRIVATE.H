@@ -70,8 +70,6 @@ void SDLCALL SDL3_FolderChosen(void *userdata, const char *const *files, int fil
 PlatformDialogResult SDL3_PollFolderDialog(PlatformFolderDialog *dialog, const char **path);
 void SDL3_EndFolderDialog(PlatformFolderDialog *dialog);
 const char *SDL3_HomePath(void);
-int32_t SDL3_Strcasecmp(const char *a, const char *b);
-int32_t SDL3_Strncasecmp(const char *a, const char *b, size_t length);
 
 #ifdef __cplusplus
 }

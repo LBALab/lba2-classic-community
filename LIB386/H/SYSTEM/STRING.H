@@ -12,6 +12,10 @@ extern "C" {
 
 // -----------------------------------------------------------------------------
 char *ade_strcasestr(const char *haystack, const char *needle);
+S32 ade_strcasecmp(const char *a, const char *b);
+S32 ade_strncasecmp(const char *a, const char *b, size_t length);
+char *ade_strupr(char *text);
+char *ade_strlwr(char *text);
 U8 UnicodeToCp850(U32 codePoint);
 void CopyUtf8ToCp850(char *dst, size_t dstSize, const char *src);
 void FormatUtf8ToCp850(char *dst, size_t dstSize, const char *fmt, ...);

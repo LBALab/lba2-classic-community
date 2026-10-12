@@ -201,10 +201,6 @@ typedef struct PlatformHost {
     bool (*set_clipboard)(const char *text);
     char *(*get_clipboard)(void); /* owned; free_memory */
     void (*free_memory)(void *ptr);
-    int32_t (*strcasecmp)(const char *a, const char *b);
-    int32_t (*strncasecmp)(const char *a, const char *b, size_t length);
-    char *(*strupr)(char *text);
-    char *(*strlwr)(char *text);
 } PlatformHost;
 
 /* Exactly one implementation is selected at link time. Every callback is

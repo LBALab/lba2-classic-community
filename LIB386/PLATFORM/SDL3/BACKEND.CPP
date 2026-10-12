@@ -82,9 +82,5 @@ extern "C" const PlatformInterface g_platform = {
         SDL_SetClipboardText,
         SDL_GetClipboardText,
         SDL_free,
-        SDL3_Strcasecmp,
-        SDL3_Strncasecmp,
-        SDL_strupr,
-        SDL_strlwr,
     },
 };

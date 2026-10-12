@@ -10,6 +10,7 @@
 #include <SYSTEM/LOGPRINT.H>
 
 #include <PLATFORM/PLATFORM.H>
+#include <SYSTEM/STRING.H>
 
 #include <stdio.h>
 
@@ -128,13 +129,13 @@ static bool DiscoverPass(char *variation, U16 variationMaxSize,
         return true;
 
     // Try uppercase
-    g_platform.host.strupr(variation);
+    ade_strupr(variation);
     snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
     if (exists(fullPath))
         return true;
 
     // Try lowercase
-    g_platform.host.strlwr(variation);
+    ade_strlwr(variation);
     snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
     if (exists(fullPath))
         return true;
@@ -453,7 +454,7 @@ static bool FindPortableMarker(const char *dir, char *outName, U16 outMax) {
     bool found = false;
     struct dirent *entry;
     while (!found && ((entry = readdir(dirp)) != NULL)) {
-        if (g_platform.host.strcasecmp(entry->d_name, ADELINE_PORTABLE_MARKER) == 0) {
+        if (ade_strcasecmp(entry->d_name, ADELINE_PORTABLE_MARKER) == 0) {
             strncpy(outName, entry->d_name, outMax);
             outName[outMax - 1] = '\0'; // Guarantee
             found = true;
@@ -483,7 +484,7 @@ static bool ReadPortableProfile(const char *markerPath, char *outName, U16 outMa
         while ((*p == ' ') || (*p == '\t')) {
             p++;
         }
-        if (g_platform.host.strncasecmp(p, "profile", 7) != 0) {
+        if (ade_strncasecmp(p, "profile", 7) != 0) {
             continue;
         }
         p += 7;
@@ -1176,7 +1177,7 @@ void Directories_SeedSavesFromGameData(void) {
         const size_t len = strlen(name);
         /* Top-level saves only. The SHOOT/ beside them holds screenshots the
            engine generates, and a directory is not a save. */
-        if (len < 5 || g_platform.host.strcasecmp(name + len - 4, ".lba") != 0) {
+        if (len < 5 || ade_strcasecmp(name + len - 4, ".lba") != 0) {
             continue;
         }
 

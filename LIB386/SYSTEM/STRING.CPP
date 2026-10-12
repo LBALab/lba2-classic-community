@@ -13,10 +13,45 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
+static U8 LowerAscii(U8 value) {
+    return value >= 'A' && value <= 'Z' ? value + ('a' - 'A') : value;
+}
+
+S32 ade_strncasecmp(const char *a, const char *b, size_t length) {
+    for (size_t i = 0; i < length; ++i) {
+        U8 left = LowerAscii((U8)a[i]);
+        U8 right = LowerAscii((U8)b[i]);
+        if (left != right || left == 0)
+            return (S32)left - (S32)right;
+    }
+    return 0;
+}
+
+S32 ade_strcasecmp(const char *a, const char *b) {
+    while (*a && LowerAscii((U8)*a) == LowerAscii((U8)*b)) {
+        ++a;
+        ++b;
+    }
+    return (S32)LowerAscii((U8)*a) - (S32)LowerAscii((U8)*b);
+}
+
+char *ade_strupr(char *text) {
+    for (char *p = text; *p; ++p)
+        if (*p >= 'a' && *p <= 'z')
+            *p -= 'a' - 'A';
+    return text;
+}
+
+char *ade_strlwr(char *text) {
+    for (char *p = text; *p; ++p)
+        *p = (char)LowerAscii((U8)*p);
+    return text;
+}
+
 char *ade_strcasestr(const char *haystack, const char *needle) {
     size_t length = strlen(needle);
     while (*haystack) {
-        if (g_platform.host.strncasecmp(haystack, needle, length) == 0) {
+        if (ade_strncasecmp(haystack, needle, length) == 0) {
             return (char *)haystack;
         }
         ++haystack;
@@ -303,10 +338,6 @@ void FormatUtf8ToCp850(char *dst, size_t dstSize, const char *fmt, ...) {
     CopyUtf8ToCp850(dst, dstSize, utf8Buffer);
 
     free(utf8Buffer);
-}
-
-static U8 LowerAscii(U8 value) {
-    return value >= 'A' && value <= 'Z' ? value + ('a' - 'A') : value;
 }
 
 bool EqualsIgnoringCaseAndEncoding(const char *a, const char *b) {

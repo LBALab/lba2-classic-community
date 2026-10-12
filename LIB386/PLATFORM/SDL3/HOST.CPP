@@ -84,7 +84,4 @@ void SDL3_EndFolderDialog(PlatformFolderDialog *dialog) {
     SDL_free(dialog->path);
     SDL_free(dialog);
 }
-
-int32_t SDL3_Strcasecmp(const char *a, const char *b) { return SDL_strcasecmp(a, b); }
-int32_t SDL3_Strncasecmp(const char *a, const char *b, size_t length) { return SDL_strncasecmp(a, b, length); }
 }

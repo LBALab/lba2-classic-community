@@ -14,7 +14,7 @@ This implements the platform-decoupling part of [discussion #120](https://github
 | `events` | Initialisation, pumping, and polling backend-neutral `PlatformEvent` values |
 | `window` | Surface lifetime, logical/window/display dimensions, coordinate mapping, fullscreen/vsync/relative mouse, native window-event effects, indexed-frame presentation |
 | `input` | Physical-key snapshot, layout-aware keycodes/names/modifiers, text input/cursor, gamepad lifetime and sampling |
-| `host` | Executable/current/preference/home paths, directory operations, message boxes, asynchronous folder requests, clipboard, allocator pairing, string case operations |
+| `host` | Executable/current/preference/home paths, directory operations, message boxes, asynchronous folder requests, clipboard, allocator pairing |
 | `capabilities` | Meaningful windowed mode, temporary loss of a native window, touch-overlay support |
 
 [The platform CMake file](../LIB386/PLATFORM/CMakeLists.txt) selects exactly one implementation at build time:
