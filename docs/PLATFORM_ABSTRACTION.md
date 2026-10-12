@@ -1,8 +1,8 @@
 # Platform abstraction layer
 
-The platform abstraction layer (PAL) separates live engine and game code from SDL. SDL3 is the only shipped implementation and remains the default. The boundary covers window/presentation, events, keyboard/gamepad/touch input, clocks, host paths, dialogs, clipboard, and diagnostics. Native Android context stays private to the SDL3 backend. Audio keeps its existing, independent AIL backend contract.
+The platform abstraction layer (PAL) separates live engine and game code from SDL. SDL3 is the default interactive implementation; the null implementation provides SDK-free offscreen presentation for desktop automation. The boundary covers window/presentation, events, keyboard/gamepad/touch input, clocks, host paths, dialogs, clipboard, and diagnostics. Native Android context stays private to the SDL3 backend. Audio keeps its existing, independent AIL backend contract.
 
-This implements the platform-decoupling part of [discussion #120](https://github.com/LBALab/lba2-classic-community/discussions/120), without the proposed directory-wide restructure, hardware renderer, separate headless backend, or main-loop inversion. The preceding audit remains in [the PAL extraction plan](plan/PLATFORM_PAL_PLAN.md); this document describes shipped code.
+This implements the platform-decoupling and headless-backend parts of [discussion #120](https://github.com/LBALab/lba2-classic-community/discussions/120), without the proposed directory-wide restructure, hardware renderer, or main-loop inversion. The preceding audit remains in [the PAL extraction plan](plan/PLATFORM_PAL_PLAN.md); this document describes shipped code.
 
 ## Contract and selection
 
@@ -27,6 +27,22 @@ cmake --build build
 An unknown backend is a configuration error, not a fallback to SDL3. No runtime backend switching or partially populated production table is supported.
 
 `lba2_platform` owns the implementation and its private SDK dependency. `lba2_platform_entry` owns the host entry-point convention: the SDL3 entry point calls the SDK-free game entry, `Lba2Main`, in [PERSO.CPP](../SOURCES/PERSO.CPP). This keeps SDL_main and Android's loader convention out of game logic.
+
+## SDK-free null backend
+
+The [null backend](../LIB386/PLATFORM/NULL/BACKEND.CPP) links the whole game without SDL. It has no physical window, display, keyboard, gamepad, clipboard, or dialogs. Presentation allocates an owned ARGB buffer, converts indexed frames, and runs the same overlay callback; clocks, host paths and directory operations use desktop OS facilities. Unavailable services report errors rather than fabricate results. Requested fullscreen state is retained for compatibility, but actual fullscreen is always false. Keyboard snapshots and controller lists are empty; the control harness and recorder still inject input through the engine hooks.
+
+```bash
+cmake -S . -B build-null -DPLATFORM_BACKEND=null -DSOUND_BACKEND=null \
+  -DCMAKE_DISABLE_FIND_PACKAGE_SDL3=ON \
+  -DLBA2_BUILD_TESTS=ON -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF
+cmake --build build-null --target lba2cc host_tests
+ctest --test-dir build-null -L host_quick --output-on-failure
+```
+
+SDL package discovery is disabled in the Linux SDK-free CI job, which builds the game and host tests, rejects SDL dynamic linkage, and boots the executable through help and an isolated missing-data failure. The latter initializes host services and writes its own log without retail assets. With retail data, use the normal harness flags including `--headless`, `--no-autosave` and an owned `--user-dir`; this backend does not invert the blocking game loop.
+
+`PLATFORM_BACKEND=null` requires `SOUND_BACKEND=null`. The current SDL audio implementation shares the SDL3 platform's SDK target, so choosing it with a non-SDL platform is an explicit configuration error. Null builds retain Smacker video decoding by default, with silent audio. Android's Activity entry point is not supported by the desktop null backend.
 
 ## Dependency direction
 
@@ -108,13 +124,15 @@ Audio mixing remains AIL-owned. The software rasteriser and ASM-equivalence math
 
 ## Checks
 
-`tests/platform` registers three `host_quick` targets:
+`tests/platform` registers the shared fixture and the selected backend's `host_quick` targets:
 
 | Target | Coverage |
 |---|---|
 | `test_platform_contract` | SDL-free link of real engine facades and input policy; C11 and C++98 header compilation (including absence of C99 integer-constant macros); event order, focus/audio/timer coupling, fixed-dt/wrap, input hooks, pad edges/hotplug, touch wake/reapply/release, full-buffer conversion, palette snapshots and nested present/overlay ordering |
 | `test_platform_sdl3` | Complete production table, physical-ID/keymap compatibility, exact event payloads, native virtual-gamepad sampling, paths/allocator/error ownership, worker-thread folder results, and byte-exact pixels read from the actual SDL renderer |
 | `test_platform_sdl3_staging` | The same conformance checks compiled with the persistent-buffer/upload path, including frame resizing |
+| `test_platform_null` | SDK-free production callbacks, byte-exact offscreen frames and overlays, resize/lifecycle, empty input, host paths/clocks and explicit unavailable-service errors; selected with the null backend |
+| `test_platform_null_game` | Whole SDK-free executable help and isolated missing-data boot/log initialization; selected with the null backend |
 
 The staging and renderer-readback switches exist only in test builds. They exercise the Android presentation mechanism on desktop hosts; they do not substitute for Android JNI/window lifecycle or on-device MTE validation.
 

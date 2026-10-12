@@ -119,6 +119,8 @@ These are host-only tests for community platform infrastructure with no ASM orig
 
 `test_platform_sdl3` and `test_platform_sdl3_staging` exercise the selected SDL3 implementation, including byte-exact event payloads, virtual-gamepad sampling, worker-thread dialog/error ownership, and full-frame pixels read from the actual SDL renderer. The second target forces the persistent-buffer/upload mechanism used on Android; it does not replace on-device JNI/window/MTE checks. Both use dummy drivers and need no retail assets. See [PLATFORM_ABSTRACTION.md](PLATFORM_ABSTRACTION.md).
 
+With `-DPLATFORM_BACKEND=null -DSOUND_BACKEND=null -DCMAKE_DISABLE_FIND_PACKAGE_SDL3=ON`, the whole game and host suite link without SDL. The null conformance test compares complete offscreen frames and overlays; `test_platform_null_game` runs the actual executable's help and missing-data boot with an isolated writable directory. Linux CI configures this independently of its SDL installation job and rejects SDL dynamic linkage. The keyboard-layout test may skip because a null backend has no physical keymap; the shared contract fixture still pins injected-key policy.
+
 ```bash
 cmake --build build --target host_tests
 ctest --test-dir build -R '^test_platform_' --output-on-failure

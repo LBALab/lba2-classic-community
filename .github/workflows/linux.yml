@@ -29,6 +29,30 @@ env:
   BUILD_TYPE: Release
 
 jobs:
+  build-null:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v5
+      - name: Configure without SDL
+        run: |
+          cmake -S . -B build-null -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DPLATFORM_BACKEND=null -DSOUND_BACKEND=null \
+            -DCMAKE_DISABLE_FIND_PACKAGE_SDL3=ON \
+            -DLBA2_BUILD_TESTS=ON -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF
+      - name: Build whole game and host tests
+        run: cmake --build build-null --target lba2cc host_tests
+      - name: Verify SDK-free linkage
+        run: |
+          dependencies=$(ldd build-null/SOURCES/lba2cc)
+          if grep -i SDL <<< "$dependencies"; then
+            echo "Null game unexpectedly links SDL" >&2
+            exit 1
+          fi
+      - name: Host and SDK-free boot tests
+        run: ctest --test-dir build-null -L host_quick --output-on-failure
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45

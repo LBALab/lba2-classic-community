@@ -32,6 +32,26 @@ set_target_properties(test_platform_contract PROPERTIES CXX_STANDARD 11 C_STANDA
 if(UNIX)
     target_link_libraries(test_platform_contract PRIVATE m)
 endif()
+
+if(PLATFORM_BACKEND STREQUAL "null")
+    add_executable(test_platform_null test_platform_null.cpp)
+    target_include_directories(test_platform_null PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
+    target_compile_definitions(test_platform_null PRIVATE LBA2_NULL_TESTS=1)
+    target_link_libraries(test_platform_null PRIVATE lba2_platform)
+    set_target_properties(test_platform_null PROPERTIES CXX_STANDARD 11)
+    add_test(NAME test_platform_null COMMAND test_platform_null)
+    register_host_test(test_platform_null)
+    if(APPLE)
+        set(_NULL_GAME "$<TARGET_BUNDLE_CONTENT_DIR:${LBA2_EXECUTABLE_NAME}>/MacOS/${LBA2_EXECUTABLE_NAME}")
+    else()
+        set(_NULL_GAME "$<TARGET_FILE:${LBA2_EXECUTABLE_NAME}>")
+    endif()
+    add_test(NAME test_platform_null_game COMMAND ${CMAKE_COMMAND}
+        "-DGAME=${_NULL_GAME}" "-DRUN_DIR=${CMAKE_CURRENT_BINARY_DIR}/null-boot"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/test_null_boot.cmake)
+    set_tests_properties(test_platform_null_game PROPERTIES LABELS host_quick)
+    add_dependencies(host_tests ${LBA2_EXECUTABLE_NAME})
+endif()
 add_test(NAME test_platform_contract COMMAND test_platform_contract)
 register_host_test(test_platform_contract)
 
