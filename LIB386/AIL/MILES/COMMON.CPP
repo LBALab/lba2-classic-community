@@ -61,6 +61,8 @@ void InitAIL() {
     RegisterInitClear(InitAIL, ClearAIL);
 }
 
+bool AIL_SetHeadless(void) { return true; }
+
 // ████████████████████████████████████████████████████████████████████████████
 void ClearAIL() {
     AIL_shutdown();

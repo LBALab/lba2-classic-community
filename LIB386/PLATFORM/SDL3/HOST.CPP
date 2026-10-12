@@ -35,6 +35,8 @@ void SDLCALL SDL3_FolderChosen(void *userdata, const char *const *files, int) {
 const char *SDL3_HomePath(void) { return SDL_GetUserFolder(SDL_FOLDER_HOME); }
 
 bool SDL3_MessageBox(PlatformMessageKind kind, const char *title, const char *message) {
+    if (!SDL3_InitVideo())
+        return false;
     SDL_MessageBoxFlags flags = SDL_MESSAGEBOX_INFORMATION;
     if (kind == PLATFORM_MESSAGE_WARNING)
         flags = SDL_MESSAGEBOX_WARNING;
@@ -57,6 +59,8 @@ PlatformFolderDialog *SDL3_AllocateFolderDialog(void) {
 }
 
 PlatformFolderDialog *SDL3_BeginFolderDialog(const char *initialPath) {
+    if (!SDL3_InitVideo())
+        return NULL;
     PlatformFolderDialog *dialog = SDL3_AllocateFolderDialog();
     if (dialog)
         SDL_ShowOpenFolderDialog(SDL3_FolderChosen, dialog, NULL, initialPath, false);

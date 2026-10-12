@@ -84,7 +84,9 @@ Folder results distinguish pending, selected, cancelled, and error. SDL's worker
 
 Unsupported host services report failure with an explanatory error. Missing display dimensions are a normal failed query with outputs untouched; they are not invented display sizes. Backend diagnostics flow to the engine logger, while the engine's own structural log records dispatch directly and retain their severity/formatting rules.
 
-`--headless` still selects SDL3 dummy video/audio drivers before initialisation; it is not a second PAL implementation. The engine continues to own fixed-dt simulation time independently of the backend's wall clock.
+`window.init` is idempotent and prepares display discovery before framebuffer sizing; the later `create` call creates the actual surface. Message-box and folder-dialog services initialise their own native prerequisites, so callers do not manage video subsystems.
+
+`--headless` selects the SDL3 dummy video driver through the PAL and the dummy audio driver through `AIL_SetHeadless` before initialisation. The engine continues to own fixed-dt simulation time independently of the backend's wall clock.
 
 ## Adding another backend
 

@@ -29,6 +29,7 @@
 #include <SYSTEM/WINDOW.H> /* Window_SetVSync */
 
 #include <PLATFORM/PLATFORM.H>
+#include <AIL/COMMON.H>
 #include "RECORD.H"        /* --record / --replay */
 #include "RECORD_FORMAT.H" /* RecFmt_ReadInt, for the `state.` header lines */
 #include <SYSTEM/FILES.H>  /* ExistsFileOrDir */
@@ -531,10 +532,14 @@ void Control_ParseArgs(int *argc, char *argv[]) {
                branches the sim, so a windowed run is only reproducible for as long as nothing
                else touches the desktop.
 
-               SDL reads these hints at SDL_Init, so they must be set before it: Control_ParseArgs
-               runs first thing in main(), which is why this is parsed here rather than later. */
+               Host and audio device selection precedes initialisation:
+               Control_ParseArgs runs first thing in the game entry point. */
             if (!g_platform.system.set_headless()) {
                 Log_Error("Unable to enable headless mode: %s", g_platform.system.get_error());
+                exit(EXIT_FAILURE);
+            }
+            if (!AIL_SetHeadless()) {
+                Log_Error("Unable to select device-free audio for headless mode");
                 exit(EXIT_FAILURE);
             }
             s_headless = 1;

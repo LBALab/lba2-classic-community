@@ -4,6 +4,7 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/WINDOW.H>
+#include <AIL/COMMON.H>
 
 #include <vector>
 
@@ -69,8 +70,6 @@ static void test_complete_backend_and_key_identity() {
     REQUIRE_CALLBACK(system.cpu_count);
     REQUIRE_CALLBACK(system.ram_mb);
     REQUIRE_CALLBACK(system.platform_name);
-    REQUIRE_CALLBACK(system.init_video);
-    REQUIRE_CALLBACK(system.video_initialized);
     REQUIRE_CALLBACK(system.set_log_output);
     REQUIRE_CALLBACK(events.init);
     REQUIRE_CALLBACK(events.shutdown);
@@ -141,6 +140,22 @@ static void test_complete_backend_and_key_identity() {
     const U8 *state = g_platform.input.keyboard_state();
     for (int i = 0; i < PLATFORM_SCANCODE_COUNT; ++i)
         ASSERT_EQ_UINT(i < count && native[i] ? 1 : 0, state[i]);
+}
+
+static void test_window_and_audio_initialization_ownership() {
+    ASSERT_TRUE(g_platform.window.initialized());
+    ASSERT_TRUE(InitWindow("SDL3 PAL fixture"));
+    ASSERT_TRUE(SDL_WasInit(SDL_INIT_VIDEO) != 0);
+    SDL_SetHintWithPriority(SDL_HINT_AUDIO_DRIVER, "ownership-sentinel", SDL_HINT_OVERRIDE);
+    ASSERT_TRUE(g_platform.system.set_headless());
+    ASSERT_TRUE(strcmp(SDL_GetHint(SDL_HINT_AUDIO_DRIVER), "ownership-sentinel") == 0);
+    ASSERT_TRUE(!AIL_SetHeadless());
+    SDL_SetHintWithPriority(SDL_HINT_AUDIO_DRIVER, "dummy", SDL_HINT_OVERRIDE);
+    ASSERT_TRUE(AIL_SetHeadless());
+    InitAIL();
+    ASSERT_TRUE(SDL_WasInit(SDL_INIT_AUDIO) != 0);
+    ASSERT_TRUE(strcmp(SDL_GetCurrentAudioDriver(), "dummy") == 0);
+    SDL_QuitSubSystem(SDL_INIT_AUDIO);
 }
 
 static void test_event_translation_exact_fields() {
@@ -511,6 +526,7 @@ int main() {
         return 1;
     }
     RUN_TEST(test_complete_backend_and_key_identity);
+    RUN_TEST(test_window_and_audio_initialization_ownership);
     RUN_TEST(test_event_translation_exact_fields);
     RUN_TEST(test_window_mapping_and_capabilities);
     RUN_TEST(test_native_window_housekeeping_during_poll);

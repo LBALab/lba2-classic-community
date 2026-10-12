@@ -2475,14 +2475,11 @@ int Lba2Main(int argc, char *argv[]) {
        --resolution CLI > lba2.cfg ResolutionX/Y > compile-time default. The cfg
        read uses a transient stack/BSS buffer (no heap, no MainBuffer dependency),
        so we get the right MainBuffer size in a single allocation cycle. */
-    /* Bring up the video subsystem now (idempotent, since InitProgram's later
-       SDL_INIT_VIDEO init is guarded by SDL_WasInit) so Res_LoadBootDimensions
-       can query the primary display for widescreen auto-detect BEFORE we size
-       the framebuffer here. Without this the early resolve would have no display
-       (windowed/640) while InitAdeline's later resolve (video up) would pick the
-       wide size, and the two MUST agree or MainBuffer and Log/Screen mismatch. */
-    if (!g_platform.system.video_initialized())
-        g_platform.system.init_video();
+    /* Display discovery must precede framebuffer allocation so the boot and
+       InitAdeline resolutions agree. Initialising host presentation is idempotent;
+       the actual surface is created after the framebuffer dimensions are known. */
+    if (!InitWindow("LBA2"))
+        BootFatal("The game window could not be initialized.");
 
     U32 reqResX, reqResY;
     Res_LoadBootDimensions(&reqResX, &reqResY);

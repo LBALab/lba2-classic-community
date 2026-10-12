@@ -132,8 +132,6 @@ static void ShowFatalErrorDialog(const char *title, const char *message) {
         return;
     if (Control_IsActive())
         return;
-    if (!g_platform.system.video_initialized() && !g_platform.system.init_video())
-        return;
     g_platform.host.message_box(PLATFORM_MESSAGE_ERROR, title, message);
 }
 

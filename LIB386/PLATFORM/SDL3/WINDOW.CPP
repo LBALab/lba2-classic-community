@@ -69,8 +69,7 @@ void SDL3_SetPresentationProbe(void (*probe)(SDL_Renderer *)) {
 
 bool SDL3_InitWindow(const char *title) {
     assert(title != NULL);
-    assert(!s_initialized);
-    if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
+    if (!SDL3_InitVideo()) {
         Platform_Log(PLATFORM_LOG_ERROR, "Unable to initialize SDL Window/Video subsystem.\n"
                                          "\tSDL Message: %s",
                      SDL_GetError());

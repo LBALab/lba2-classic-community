@@ -32,12 +32,9 @@ void SDL3_ClearError(void) { SDL_ClearError(); }
 
 bool SDL3_SetHeadless(void) {
     SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
-    SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "dummy");
     const char *video = SDL_GetHint(SDL_HINT_VIDEO_DRIVER);
-    const char *audio = SDL_GetHint(SDL_HINT_AUDIO_DRIVER);
-    if (video == NULL || audio == NULL ||
-        SDL_strcmp(video, "dummy") != 0 || SDL_strcmp(audio, "dummy") != 0)
-        return SDL_SetError("Unable to select dummy video/audio drivers");
+    if (video == NULL || SDL_strcmp(video, "dummy") != 0)
+        return SDL_SetError("Unable to select dummy video driver");
     return true;
 }
 
@@ -47,8 +44,9 @@ uint64_t SDL3_Frequency(void) { return SDL_GetPerformanceFrequency(); }
 uint64_t SDL3_ThreadID(void) { return (uint64_t)SDL_GetCurrentThreadID(); }
 int32_t SDL3_CPUCount(void) { return SDL_GetNumLogicalCPUCores(); }
 int32_t SDL3_RAM(void) { return SDL_GetSystemRAM(); }
-bool SDL3_InitVideo(void) { return SDL_InitSubSystem(SDL_INIT_VIDEO); }
-bool SDL3_VideoInitialized(void) { return SDL_WasInit(SDL_INIT_VIDEO) != 0; }
+bool SDL3_InitVideo(void) {
+    return SDL_WasInit(SDL_INIT_VIDEO) != 0 || SDL_InitSubSystem(SDL_INIT_VIDEO);
+}
 
 void SDL3_SetLogOutput(PlatformLogFn callback, void *userdata) {
     s_logCallback = callback;

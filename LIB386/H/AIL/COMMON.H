@@ -16,6 +16,8 @@ extern "C" {
 //	Returns	: 			nothing
 //--------------------------------------------------------------------------
 extern VOID_FUNC InitAIL;
+/* Select device-free audio before host initialisation. */
+bool AIL_SetHeadless(void);
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus

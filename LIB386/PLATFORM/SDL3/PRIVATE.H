@@ -17,7 +17,6 @@ uint64_t SDL3_ThreadID(void);
 int32_t SDL3_CPUCount(void);
 int32_t SDL3_RAM(void);
 bool SDL3_InitVideo(void);
-bool SDL3_VideoInitialized(void);
 void SDL3_SetLogOutput(PlatformLogFn callback, void *userdata);
 
 bool SDL3_InitEvents(void);

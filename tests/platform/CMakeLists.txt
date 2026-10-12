@@ -38,7 +38,8 @@ register_host_test(test_platform_contract)
 if(PLATFORM_BACKEND STREQUAL "sdl3")
     foreach(kind sdl3 sdl3_staging)
         set(target test_platform_${kind})
-        add_executable(${target} test_platform_sdl3.cpp ${_PLATFORM_FACADES})
+        add_executable(${target} test_platform_sdl3.cpp ${_PLATFORM_FACADES}
+            ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/COMMON.CPP)
         target_include_directories(${target} PRIVATE
             ${CMAKE_SOURCE_DIR}/LIB386/H ${CMAKE_SOURCE_DIR}/SOURCES)
         target_compile_definitions(${target} PRIVATE LBA_LOG_NO_PLATFORM LBA2_SDL3_TESTS=1)

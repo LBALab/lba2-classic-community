@@ -21,8 +21,6 @@ extern "C" const PlatformInterface g_platform = {
         SDL3_CPUCount,
         SDL3_RAM,
         SDL_GetPlatform,
-        SDL3_InitVideo,
-        SDL3_VideoInitialized,
         SDL3_SetLogOutput,
     },
     {

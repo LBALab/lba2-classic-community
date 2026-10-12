@@ -132,8 +132,6 @@ typedef struct PlatformSystem {
     int32_t (*cpu_count)(void);
     int32_t (*ram_mb)(void);
     const char *(*platform_name)(void);
-    bool (*init_video)(void);
-    bool (*video_initialized)(void);
     void (*set_log_output)(PlatformLogFn callback, void *userdata);
 } PlatformSystem;
 

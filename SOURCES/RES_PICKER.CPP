@@ -180,16 +180,6 @@ void ShowAndroidDataMessage(void) {
 } // namespace
 
 extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
-    /* SDL_ShowOpenFolderDialog requires SDL_INIT_VIDEO. Probe it as our
-     * headless test: if video can't come up (no display, no Wayland
-     * portal, --headless build, etc.), there's no way to show a dialog
-     * and we fall back to the caller's exit. */
-    if (!g_platform.system.init_video()) {
-        Log_Warn("RES_PICKER: video init failed (%s); skipping picker",
-                 g_platform.system.get_error());
-        return false;
-    }
-
     /* Android has no usable folder picker: SDL's file dialog there returns
      * content:// document URIs, not filesystem paths IsValidResourceDir can
      * probe. So instead of browsing, tell the user where to copy their data

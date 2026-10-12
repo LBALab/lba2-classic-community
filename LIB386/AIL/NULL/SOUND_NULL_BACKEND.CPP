@@ -12,6 +12,7 @@ S32 IsCDPlaying() { return FALSE; }
 
 // === COMMON ==================================================================
 void InitAIL() {}
+bool AIL_SetHeadless(void) { return true; }
 
 // === MIDI ====================================================================
 S32 InitMidiDriver(char *driver_name) {
