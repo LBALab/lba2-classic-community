@@ -1,6 +1,6 @@
 # Platform abstraction layer
 
-The platform abstraction layer (PAL) separates live engine and game code from SDL. SDL3 is the only shipped implementation and remains the default. The boundary covers window/presentation, events, keyboard/gamepad/touch input, clocks, host paths, dialogs, clipboard, diagnostics, and native Android context. Audio keeps its existing, independent AIL backend contract.
+The platform abstraction layer (PAL) separates live engine and game code from SDL. SDL3 is the only shipped implementation and remains the default. The boundary covers window/presentation, events, keyboard/gamepad/touch input, clocks, host paths, dialogs, clipboard, and diagnostics. Native Android context stays private to the SDL3 backend. Audio keeps its existing, independent AIL backend contract.
 
 This implements the platform-decoupling part of [discussion #120](https://github.com/LBALab/lba2-classic-community/discussions/120), without the proposed directory-wide restructure, hardware renderer, separate headless backend, or main-loop inversion. The preceding audit remains in [the PAL extraction plan](plan/PLATFORM_PAL_PLAN.md); this document describes shipped code.
 
@@ -10,7 +10,7 @@ This implements the platform-decoupling part of [discussion #120](https://github
 
 | Group | Responsibility |
 |---|---|
-| `system` | Initialisation, wall-clock milliseconds, delay, performance counter/frequency, thread identity, CPU/RAM probes, errors, diagnostic callback, native Android objects |
+| `system` | Initialisation, wall-clock milliseconds, delay, performance counter/frequency, thread identity, CPU/RAM probes, errors, diagnostic callback |
 | `events` | Initialisation, pumping, and polling backend-neutral `PlatformEvent` values |
 | `window` | Surface lifetime, logical/window/display dimensions, coordinate mapping, fullscreen/vsync/relative mouse, native window-event effects, indexed-frame presentation |
 | `input` | Physical-key snapshot, layout-aware keycodes/names/modifiers, text input/cursor, gamepad lifetime and sampling |

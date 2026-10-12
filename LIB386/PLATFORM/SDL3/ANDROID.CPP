@@ -7,7 +7,7 @@
  * See docs/PLATFORM.md and docs/ANDROID.md.
  */
 #include <SYSTEM/ANDROID.H>
-#include <PLATFORM/PLATFORM.H>
+#include "PRIVATE.H"
 
 #ifdef __ANDROID__
 #include <jni.h>
@@ -27,11 +27,11 @@ S32 IsAndroidTVDevice(void) {
             return 0;
         }
     };
-    JNIEnv *env = (JNIEnv *)g_platform.system.android_environment();
+    JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
     if (env == NULL)
         return 0;
 
-    jobject activity = (jobject)g_platform.system.android_activity();
+    jobject activity = (jobject)SDL_GetAndroidActivity();
     if (activity == NULL)
         return 0;
 
@@ -108,7 +108,7 @@ S32 IsAndroidTVDevice(void) {
 
 bool Android_HasExternalStoragePermission(void) {
 #ifdef __ANDROID__
-    JNIEnv *env = (JNIEnv *)g_platform.system.android_environment();
+    JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
     if (env == NULL) {
         return false;
     }
@@ -135,7 +135,7 @@ bool Android_EnsureExternalStoragePermission(void) {
      * probe in RES_DISCOVERY for App-specific external files dir
      * (/sdcard/Android/data/<pkg>/files/) works without this permission. */
     bool granted = false;
-    JNIEnv *env = (JNIEnv *)g_platform.system.android_environment();
+    JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
     if (env != NULL) {
         jclass permHelper = env->FindClass("org/lbalab/lba2cc/PermissionHelper");
         if (permHelper != NULL) {
@@ -148,7 +148,7 @@ bool Android_EnsureExternalStoragePermission(void) {
                 granted = env->CallStaticBooleanMethod(permHelper, isMgr) != JNI_FALSE;
             }
             if (isMgr != NULL && !granted) {
-                jobject activity = (jobject)g_platform.system.android_activity();
+                jobject activity = (jobject)SDL_GetAndroidActivity();
                 Platform_Log(PLATFORM_LOG_INFO, "MANAGE_EXTERNAL_STORAGE not granted. "
                                                 "Opening Settings for app.\n");
                 if (openMgr != NULL && activity != NULL) {
@@ -206,8 +206,8 @@ static char s_previousCrashNote[512] = "";
 
 void Android_SavePreviousCrashReport(const char *dir) {
 #ifdef __ANDROID__
-    JNIEnv *env = (JNIEnv *)g_platform.system.android_environment();
-    jobject activity = (jobject)g_platform.system.android_activity();
+    JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
+    jobject activity = (jobject)SDL_GetAndroidActivity();
     if (env == NULL || activity == NULL || dir == NULL)
         return;
     jclass helper = env->FindClass("org/lbalab/lba2cc/CrashHelper");
@@ -252,11 +252,11 @@ S32 Android_GetExternalFilesDir(char *out, U16 maxLen) {
      * Activity.getExternalFilesDir(null).getAbsolutePath(). Always accessible
      * on API 19+ without MANAGE_EXTERNAL_STORAGE. Returns the raw path (no
      * trailing separator); the caller normalizes. */
-    JNIEnv *env = (JNIEnv *)g_platform.system.android_environment();
+    JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
     if (env == NULL)
         return 0;
 
-    jobject activity = (jobject)g_platform.system.android_activity();
+    jobject activity = (jobject)SDL_GetAndroidActivity();
     if (activity == NULL)
         return 0;
 

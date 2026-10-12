@@ -19,8 +19,6 @@ int32_t SDL3_RAM(void);
 bool SDL3_InitVideo(void);
 bool SDL3_VideoInitialized(void);
 void SDL3_SetLogOutput(PlatformLogFn callback, void *userdata);
-void *SDL3_AndroidEnvironment(void);
-void *SDL3_AndroidActivity(void);
 
 bool SDL3_InitEvents(void);
 void SDL3_EndEvents(void);

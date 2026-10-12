@@ -135,9 +135,6 @@ typedef struct PlatformSystem {
     bool (*init_video)(void);
     bool (*video_initialized)(void);
     void (*set_log_output)(PlatformLogFn callback, void *userdata);
-    /* Borrowed native Android objects, NULL off-Android; JNI stays in ANDROID.CPP. */
-    void *(*android_environment)(void);
-    void *(*android_activity)(void);
 } PlatformSystem;
 
 typedef struct PlatformEvents {

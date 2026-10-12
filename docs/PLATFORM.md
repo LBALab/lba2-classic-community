@@ -157,12 +157,12 @@ CMake presets cover the supported targets and toolchains. Cross-compile to Windo
 
 ## 8. Android platform layer &nbsp;&nbsp;&nbsp;&nbsp; ✓ contained
 
-Android-specific behavior — JNI, TV (leanback) detection, storage-permission prompting, and the app-specific external-files dir — is concentrated in the platform library. Engine code calls each platform function unconditionally; off-Android each is a no-op stub. `<jni.h>` is included in exactly one file, and native environment/activity objects are supplied by the selected backend. Touch policy is capability-driven and contains no platform conditional.
+Android-specific behavior — JNI, TV (leanback) detection, storage-permission prompting, and the app-specific external-files dir — is concentrated in the SDL3 backend. Engine code calls each platform function unconditionally; off-Android each is a no-op stub. `<jni.h>` is included in exactly one file, and native environment/activity objects stay private to that backend. Touch policy is capability-driven and contains no platform conditional.
 
-- Android implementation (`extern "C"`, stub-on-desktop) — [PLATFORM/ANDROID.CPP](../LIB386/PLATFORM/ANDROID.CPP); legacy declarations remain in [SYSTEM/ANDROID.H](../LIB386/H/SYSTEM/ANDROID.H)
-- TV/leanback detection — [ANDROID.CPP](../LIB386/PLATFORM/ANDROID.CPP), `IsAndroidTVDevice`
-- Storage-permission prompt — [ANDROID.CPP](../LIB386/PLATFORM/ANDROID.CPP), `Android_EnsureExternalStoragePermission`
-- App-specific external-files dir — [ANDROID.CPP](../LIB386/PLATFORM/ANDROID.CPP), `Android_GetExternalFilesDir`
+- Android implementation (`extern "C"`, stub-on-desktop) — [PLATFORM/SDL3/ANDROID.CPP](../LIB386/PLATFORM/SDL3/ANDROID.CPP); legacy declarations remain in [SYSTEM/ANDROID.H](../LIB386/H/SYSTEM/ANDROID.H)
+- TV/leanback detection — [ANDROID.CPP](../LIB386/PLATFORM/SDL3/ANDROID.CPP), `IsAndroidTVDevice`
+- Storage-permission prompt — [ANDROID.CPP](../LIB386/PLATFORM/SDL3/ANDROID.CPP), `Android_EnsureExternalStoragePermission`
+- App-specific external-files dir — [ANDROID.CPP](../LIB386/PLATFORM/SDL3/ANDROID.CPP), `Android_GetExternalFilesDir`
 - Touch overlay (mobile-only input) — `SOURCES/TOUCH_INPUT.CPP`
 - 16 KB-page packaging — see §7 and [ANDROID.md](ANDROID.md)
 

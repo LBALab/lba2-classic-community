@@ -55,20 +55,4 @@ void SDL3_SetLogOutput(PlatformLogFn callback, void *userdata) {
     s_logUserdata = userdata;
     SDL_SetLogOutputFunction(callback ? LogOutput : NULL, NULL);
 }
-
-void *SDL3_AndroidEnvironment(void) {
-#ifdef __ANDROID__
-    return SDL_GetAndroidJNIEnv();
-#else
-    return NULL;
-#endif
-}
-
-void *SDL3_AndroidActivity(void) {
-#ifdef __ANDROID__
-    return SDL_GetAndroidActivity();
-#else
-    return NULL;
-#endif
-}
 }

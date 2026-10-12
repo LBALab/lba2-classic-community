@@ -144,7 +144,7 @@ KNOWN_EXCEPTIONS = {
 
 # jni.h is the narrowest form of the same rule: one translation unit knows Android
 # exists. docs/ANDROID.md states it directly.
-JNI_OWNER = "LIB386/PLATFORM/ANDROID.CPP"
+JNI_OWNER = "LIB386/PLATFORM/SDL3/ANDROID.CPP"
 
 # SDL is an implementation detail of the selected host and sibling AIL backend.
 # KEYBWIN is the preserved, unbuilt Win32 keyboard driver, not a live exception.

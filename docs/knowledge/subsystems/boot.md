@@ -33,7 +33,7 @@ sources:
     resource: ../../../SOURCES/ASSET_PREFLIGHT.CPP
     title: ASSET_PREFLIGHT.CPP, the required and optional asset check
   - id: android-cpp
-    resource: ../../../LIB386/PLATFORM/ANDROID.CPP
+    resource: ../../../LIB386/PLATFORM/SDL3/ANDROID.CPP
     title: ANDROID.CPP, the storage permission wait
   - id: window-cpp
     resource: ../../../LIB386/SYSTEM/WINDOW.CPP
@@ -121,7 +121,7 @@ Sources for the table: `Lba2Main` and `InitProgram`[^perso-cpp], `InitAdeline`[^
 [^boot-end-h]: [SOURCES/BOOT_END.H](../../../SOURCES/BOOT_END.H), `BootEnd_IsFailure` and `BootEnd_FormatMessage`.
 [^common-h]: [SOURCES/COMMON.H](../../../SOURCES/COMMON.H), `PROGRAM_OK` and `PROGRAM_FAIL`.
 [^preflight]: [SOURCES/ASSET_PREFLIGHT.CPP](../../../SOURCES/ASSET_PREFLIGHT.CPP), `AssetPreflight`.
-[^android-cpp]: [LIB386/PLATFORM/ANDROID.CPP](../../../LIB386/PLATFORM/ANDROID.CPP), `Android_EnsureExternalStoragePermission`.
+[^android-cpp]: [LIB386/PLATFORM/SDL3/ANDROID.CPP](../../../LIB386/PLATFORM/SDL3/ANDROID.CPP), `Android_EnsureExternalStoragePermission`.
 [^window-cpp]: [LIB386/SYSTEM/WINDOW.CPP](../../../LIB386/SYSTEM/WINDOW.CPP), `HandleEventsWindow`.
 [^record-cpp]: [SOURCES/RECORD.CPP](../../../SOURCES/RECORD.CPP), `record_arm_atexit` and `record_flush_at_exit`.
 [^test-boot-end]: [tests/boot_end/test_boot_end.cpp](../../../tests/boot_end/test_boot_end.cpp).

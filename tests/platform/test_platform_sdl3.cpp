@@ -70,8 +70,6 @@ static void test_complete_backend_and_key_identity() {
     REQUIRE_CALLBACK(system.init_video);
     REQUIRE_CALLBACK(system.video_initialized);
     REQUIRE_CALLBACK(system.set_log_output);
-    REQUIRE_CALLBACK(system.android_environment);
-    REQUIRE_CALLBACK(system.android_activity);
     REQUIRE_CALLBACK(events.init);
     REQUIRE_CALLBACK(events.shutdown);
     REQUIRE_CALLBACK(events.pump);

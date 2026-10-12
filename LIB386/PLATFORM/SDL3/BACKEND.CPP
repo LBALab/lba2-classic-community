@@ -24,8 +24,6 @@ extern "C" const PlatformInterface g_platform = {
         SDL3_InitVideo,
         SDL3_VideoInitialized,
         SDL3_SetLogOutput,
-        SDL3_AndroidEnvironment,
-        SDL3_AndroidActivity,
     },
     {
         SDL3_InitEvents,
