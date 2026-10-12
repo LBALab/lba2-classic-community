@@ -281,6 +281,78 @@ static void test_window_mapping_and_capabilities() {
     ASSERT_EQ_INT(24, h);
 }
 
+static void test_fullscreen_request_without_surface() {
+    g_platform.window.set_fullscreen(true);
+    ASSERT_TRUE(g_platform.window.get_fullscreen());
+    ASSERT_TRUE(!g_platform.window.is_fullscreen());
+    g_platform.window.set_fullscreen(false);
+    ASSERT_TRUE(!g_platform.window.get_fullscreen());
+    int32_t width = 123, height = 456;
+    ASSERT_TRUE(!g_platform.window.size(&width, &height));
+    ASSERT_EQ_INT(123, width);
+    ASSERT_EQ_INT(456, height);
+}
+
+static SDL_Window *test_window() {
+    int count = 0;
+    SDL_Window **windows = SDL_GetWindows(&count);
+    ASSERT_EQ_INT(1, count);
+    SDL_Window *window = windows && count == 1 ? windows[0] : NULL;
+    SDL_free(windows);
+    return window;
+}
+
+static void test_window_and_input_modes() {
+    SDL_Window *window = test_window();
+    ASSERT_TRUE(window != NULL);
+    if (!window)
+        return;
+    SDL_Renderer *renderer = SDL_GetRenderer(window);
+    ASSERT_TRUE(renderer != NULL);
+    ASSERT_TRUE(g_platform.capabilities.windowed);
+    ASSERT_TRUE(!g_platform.capabilities.transient_window_loss);
+    ASSERT_TRUE(!g_platform.capabilities.touch_overlay);
+    SDL3_SetTextInputFocusProbe(test_window);
+    for (int i = 0; i < 2; ++i) {
+        const bool enabled = i == 0;
+        g_platform.window.set_fullscreen(enabled);
+        ASSERT_EQ_INT(enabled, g_platform.window.get_fullscreen());
+        ASSERT_EQ_INT((SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) != 0,
+                      g_platform.window.is_fullscreen());
+        g_platform.window.set_vsync(enabled);
+        int vsync = -1;
+        ASSERT_TRUE(SDL_GetRenderVSync(renderer, &vsync));
+        ASSERT_EQ_INT(enabled ? 1 : 0, vsync);
+        SDL_ClearError();
+        bool supported = SDL_SetWindowRelativeMouseMode(window, enabled);
+        const bool expectedRelative = SDL_GetWindowRelativeMouseMode(window);
+        if (supported)
+            ASSERT_TRUE(SDL_SetWindowRelativeMouseMode(window, !enabled));
+        g_platform.window.set_relative_mouse(enabled);
+        ASSERT_EQ_INT(expectedRelative, SDL_GetWindowRelativeMouseMode(window));
+        g_platform.input.cursor_visible(enabled);
+        ASSERT_EQ_INT(enabled, SDL_CursorVisible());
+        g_platform.input.text_input(enabled);
+        ASSERT_EQ_INT(enabled, SDL_TextInputActive(window));
+        ASSERT_EQ_INT(enabled, SDL_CursorVisible());
+    }
+    SDL3_SetTextInputFocusProbe(NULL);
+    const SDL_Keymod original = SDL_GetModState();
+    SDL_SetModState(SDL_KMOD_RSHIFT | SDL_KMOD_LCTRL);
+    ASSERT_EQ_UINT(PLATFORM_KMOD_RSHIFT | PLATFORM_KMOD_LCTRL, g_platform.input.modifiers());
+    ASSERT_EQ_UINT(SDL_GetKeyFromScancode(SDL_SCANCODE_A, SDL_KMOD_SHIFT, true),
+                   g_platform.input.keycode(PLATFORM_SCANCODE_A, PLATFORM_KMOD_SHIFT));
+    SDL_SetModState(original);
+    uint32_t width = 123, height = 456;
+    const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(window));
+    ASSERT_TRUE(mode != NULL);
+    if (mode) {
+        ASSERT_TRUE(g_platform.window.display_size(&width, &height));
+        ASSERT_EQ_UINT(mode->w, width);
+        ASSERT_EQ_UINT(mode->h, height);
+    }
+}
+
 static void update_reference_palette(SDL_Palette *palette, const U8 *source, S32 start, S32 count) {
     static SDL_Color temporary[256];
     if (start < 0)
@@ -414,6 +486,108 @@ static void test_host_ownership_and_time() {
     ASSERT_TRUE(strcmp(g_platform.system.get_error(), "PAL error fixture") == 0);
     g_platform.system.clear_error();
     ASSERT_TRUE(g_platform.system.get_error()[0] == '\0');
+    ASSERT_TRUE(strcmp(g_platform.system.platform_name(), SDL_GetPlatform()) == 0);
+    ASSERT_TRUE(strcmp(g_platform.host.home_path(), SDL_GetUserFolder(SDL_FOLDER_HOME)) == 0);
+}
+
+static SDL_MessageBoxFlags message_flags = 0;
+static bool message_success = true;
+static bool message_probe(SDL_MessageBoxFlags flags, const char *title, const char *text) {
+    message_flags = flags;
+    ASSERT_TRUE(strcmp(title, "PAL title") == 0);
+    ASSERT_TRUE(strcmp(text, "PAL message") == 0);
+    if (!message_success)
+        SDL_SetError("message dispatch fixture");
+    return message_success;
+}
+static void folder_probe(SDL_DialogFileCallback callback, void *userdata, const char *initial) {
+    ASSERT_TRUE(strcmp(initial, "PAL initial folder") == 0);
+    const char *files[] = {"PAL chosen folder", NULL};
+    callback(userdata, files, 0);
+}
+static void test_host_dialog_dispatch() {
+    SDL3_SetDialogProbes(message_probe, folder_probe);
+    const PlatformMessageKind kinds[] = {
+        PLATFORM_MESSAGE_INFORMATION, PLATFORM_MESSAGE_WARNING, PLATFORM_MESSAGE_ERROR};
+    const SDL_MessageBoxFlags flags[] = {
+        SDL_MESSAGEBOX_INFORMATION, SDL_MESSAGEBOX_WARNING, SDL_MESSAGEBOX_ERROR};
+    for (int i = 0; i < 3; ++i) {
+        ASSERT_TRUE(g_platform.host.message_box(kinds[i], "PAL title", "PAL message"));
+        ASSERT_EQ_UINT(flags[i], message_flags);
+    }
+    message_success = false;
+    ASSERT_TRUE(!g_platform.host.message_box(PLATFORM_MESSAGE_ERROR, "PAL title", "PAL message"));
+    ASSERT_TRUE(strcmp(g_platform.system.get_error(), "message dispatch fixture") == 0);
+    message_success = true;
+    PlatformFolderDialog *dialog = g_platform.host.begin_folder_dialog("PAL initial folder");
+    ASSERT_TRUE(dialog != NULL);
+    if (dialog) {
+        const char *path = NULL;
+        ASSERT_EQ_INT(PLATFORM_DIALOG_SELECTED, g_platform.host.poll_folder_dialog(dialog, &path));
+        ASSERT_TRUE(path && strcmp(path, "PAL chosen folder") == 0);
+        g_platform.host.end_folder_dialog(dialog);
+    }
+    SDL3_SetDialogProbes(NULL, NULL);
+}
+
+static void test_host_directory_and_preference_ownership() {
+    char *cwd = g_platform.host.current_directory();
+    ASSERT_TRUE(cwd != NULL);
+    if (!cwd)
+        return;
+    g_platform.system.clear_error();
+    ASSERT_TRUE(g_platform.host.pref_path("PAL fixture", NULL) == NULL);
+    ASSERT_TRUE(g_platform.system.get_error()[0] != '\0');
+    char folder[128];
+    snprintf(folder, sizeof(folder), "pal-sdl3-%llu",
+             (unsigned long long)g_platform.system.performance_counter());
+    ASSERT_TRUE(g_platform.host.create_directory(folder));
+    ASSERT_TRUE(g_platform.host.create_directory(folder));
+    SDL_PathInfo info = {};
+    ASSERT_TRUE(SDL_GetPathInfo(folder, &info));
+    ASSERT_EQ_INT(SDL_PATHTYPE_DIRECTORY, info.type);
+    char child[160];
+    snprintf(child, sizeof(child), "%s/child", folder);
+    ASSERT_TRUE(g_platform.host.create_directory(child));
+    g_platform.system.clear_error();
+    ASSERT_TRUE(!g_platform.host.remove_path(folder));
+    ASSERT_TRUE(g_platform.system.get_error()[0] != '\0');
+    ASSERT_TRUE(g_platform.host.remove_path(child));
+    ASSERT_TRUE(g_platform.host.remove_path(folder));
+    ASSERT_TRUE(g_platform.host.remove_path(folder));
+    g_platform.host.free_memory(cwd);
+}
+
+struct CapturedLog {
+    int count;
+    PlatformLogLevel level;
+    char message[256];
+};
+static void capture_log(void *userdata, PlatformLogLevel level, const char *message) {
+    CapturedLog *capture = (CapturedLog *)userdata;
+    ++capture->count;
+    capture->level = level;
+    snprintf(capture->message, sizeof(capture->message), "%s", message);
+}
+static void test_diagnostic_callback_behavior() {
+    CapturedLog capture = {};
+    Platform_SetLogOutput(capture_log, &capture);
+    SDL_SetLogPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_VERBOSE);
+    const SDL_LogPriority native[] = {
+        SDL_LOG_PRIORITY_DEBUG, SDL_LOG_PRIORITY_INFO, SDL_LOG_PRIORITY_WARN, SDL_LOG_PRIORITY_ERROR};
+    for (int i = 0; i < 4; ++i) {
+        SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, native[i], "native-%d", i);
+        ASSERT_EQ_INT(i + 1, capture.count);
+        ASSERT_EQ_INT(i, capture.level);
+        char expected[32];
+        snprintf(expected, sizeof(expected), "native-%d", i);
+        ASSERT_TRUE(strcmp(expected, capture.message) == 0);
+    }
+    Platform_Log(PLATFORM_LOG_WARN, "portable-%d", 7);
+    ASSERT_EQ_INT(5, capture.count);
+    ASSERT_EQ_INT(PLATFORM_LOG_WARN, capture.level);
+    ASSERT_TRUE(strcmp("portable-7", capture.message) == 0);
+    Platform_SetLogOutput(NULL, NULL);
 }
 
 static void test_gamepad_button_axis_and_handle_mapping() {
@@ -528,15 +702,30 @@ int main() {
     RUN_TEST(test_complete_backend_and_key_identity);
     RUN_TEST(test_window_and_audio_initialization_ownership);
     RUN_TEST(test_event_translation_exact_fields);
+    RUN_TEST(test_fullscreen_request_without_surface);
     RUN_TEST(test_window_mapping_and_capabilities);
+    RUN_TEST(test_window_and_input_modes);
     RUN_TEST(test_native_window_housekeeping_during_poll);
     RUN_TEST(test_palette_and_actual_renderer_bytes);
     RUN_TEST(test_host_ownership_and_time);
+    RUN_TEST(test_host_dialog_dispatch);
+    RUN_TEST(test_host_directory_and_preference_ownership);
+    RUN_TEST(test_diagnostic_callback_behavior);
     RUN_TEST(test_gamepad_button_axis_and_handle_mapping);
     RUN_TEST(test_dialog_worker_result_and_error_ownership);
+    g_platform.window.destroy();
+    RUN_TEST(test_fullscreen_request_without_surface);
+    int count = -1;
+    SDL_Window **windows = SDL_GetWindows(&count);
+    ASSERT_EQ_INT(0, count);
+    SDL_free(windows);
     EndWindow();
+    ASSERT_TRUE(!g_platform.window.initialized());
+    ASSERT_TRUE(SDL_WasInit(SDL_INIT_VIDEO) == 0);
     g_platform.events.shutdown();
+    ASSERT_TRUE(SDL_WasInit(SDL_INIT_EVENTS) == 0);
     g_platform.system.shutdown();
+    ASSERT_TRUE(SDL_WasInit(0) == 0);
     TEST_SUMMARY();
     return test_failures != 0;
 }

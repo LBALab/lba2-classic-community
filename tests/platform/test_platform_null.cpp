@@ -4,7 +4,13 @@
 #include <SYSTEM/ANDROID.H>
 #include <vector>
 
-static void quiet_log(void *, PlatformLogLevel, const char *) {}
+static void quiet_log(void *userdata, PlatformLogLevel level, const char *message) {
+    if (userdata) {
+        ++*(int *)userdata;
+        ASSERT_EQ_INT(PLATFORM_LOG_ERROR, level);
+        ASSERT_TRUE(message[0] != '\0');
+    }
+}
 static void overlay(uint32_t *pixels, uint32_t, uint32_t, uint32_t, const uint8_t *) {
     pixels[0] = 0xFF123456;
 }
@@ -103,6 +109,27 @@ static void test_absent_devices_and_explicit_errors() {
     ASSERT_EQ_INT(0, Android_GetExternalFilesDir(NULL, 0));
     Android_SavePreviousCrashReport(NULL);
     ASSERT_TRUE(Android_GetPreviousCrashNote()[0] == '\0');
+    int records = 0;
+    Platform_SetLogOutput(quiet_log, &records);
+    void (*modes[])(bool) = {
+        g_platform.window.set_vsync, g_platform.window.set_relative_mouse,
+        g_platform.input.text_input, g_platform.input.cursor_visible};
+    for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); ++i) {
+        g_platform.system.clear_error();
+        modes[i](true);
+        ASSERT_TRUE(g_platform.system.get_error()[0] != '\0');
+        ASSERT_EQ_INT(i + 1, records);
+        g_platform.system.clear_error();
+        modes[i](false);
+        ASSERT_TRUE(g_platform.system.get_error()[0] == '\0');
+    }
+    ASSERT_EQ_UINT(0, g_platform.input.keycode(PLATFORM_SCANCODE_A, PLATFORM_KMOD_NONE));
+    ASSERT_TRUE(g_platform.input.scancode_name(PLATFORM_SCANCODE_A)[0] == '\0');
+    ASSERT_TRUE(g_platform.input.gamepad_name(NULL)[0] == '\0');
+    ASSERT_TRUE(!g_platform.input.gamepad_button(NULL, PLATFORM_GAMEPAD_BUTTON_SOUTH));
+    ASSERT_EQ_INT(0, g_platform.input.gamepad_axis(NULL, PLATFORM_GAMEPAD_AXIS_LEFTX));
+    ASSERT_EQ_INT(9, records);
+    Platform_SetLogOutput(quiet_log, NULL);
 }
 static void test_host_services_and_clock() {
     ASSERT_TRUE(g_platform.system.thread_id() != 0);
@@ -122,6 +149,7 @@ static void test_host_services_and_clock() {
     ASSERT_TRUE(cwd && cwd[0]);
     g_platform.host.free_memory(cwd);
     ASSERT_TRUE(g_platform.host.home_path() != NULL);
+    ASSERT_TRUE(g_platform.host.pref_path("PAL fixture", NULL) == NULL);
     char folder[128];
     snprintf(folder, sizeof(folder), "pal-null-%llu", (unsigned long long)counter);
     ASSERT_TRUE(g_platform.host.create_directory(folder));
@@ -129,9 +157,10 @@ static void test_host_services_and_clock() {
     char child[160];
     snprintf(child, sizeof(child), "%s/child", folder);
     ASSERT_TRUE(g_platform.host.create_directory(child));
+    ASSERT_TRUE(!g_platform.host.remove_path(folder));
     ASSERT_TRUE(g_platform.host.remove_path(child));
     ASSERT_TRUE(g_platform.host.remove_path(folder));
-    ASSERT_TRUE(!g_platform.host.remove_path(folder));
+    ASSERT_TRUE(g_platform.host.remove_path(folder));
 }
 int main() {
     Platform_SetLogOutput(quiet_log, NULL);

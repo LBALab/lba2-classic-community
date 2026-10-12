@@ -62,6 +62,8 @@ The platform implementation does not link `sys`, `svg`, `console`, or game code.
 
 The preserved Android service declarations in [ANDROID.H](../LIB386/H/SYSTEM/ANDROID.H) and their primitive type header are the only kernel-header exceptions. Their implementation belongs to the platform library, not `sys`.
 
+Game code should use an existing engine facade when it covers the operation: for example, `InitWindow` and `Window_SetVSync` in [WINDOW.CPP](../LIB386/SYSTEM/WINDOW.CPP), and framebuffer operations in [SDL.CPP](../LIB386/SVGA/SDL.CPP). These facades retain engine-owned policy and compatibility. Direct `g_platform` calls are appropriate for backend-neutral infrastructure and host services without a facade; they must not bypass input, timing, or framebuffer policy. Neither route permits SDK calls in game or engine code.
+
 `make arch-check` enforces SDK containment and the platform's include boundary, including new, unstaged files. The only preserved SDL exception outside the SDL3 and AIL backends is the unbuilt Win32 keyboard driver, `LIB386/SYSTEM/KEYBWIN.CPP`.
 
 ## Input and compatibility
@@ -100,19 +102,21 @@ Folder results distinguish pending, selected, cancelled, and error. SDL's worker
 
 Unsupported host services report failure with an explanatory error. Missing display dimensions are a normal failed query with outputs untouched; they are not invented display sizes. Backend diagnostics flow to the engine logger, while the engine's own structural log records dispatch directly and retain their severity/formatting rules.
 
+Path removal succeeds if the path is already absent. Directory removal requires an empty directory; it never recursively deletes contents.
+
 `window.init` is idempotent and prepares display discovery before framebuffer sizing; the later `create` call creates the actual surface. Message-box and folder-dialog services initialise their own native prerequisites, so callers do not manage video subsystems.
 
 `--headless` selects the SDL3 dummy video driver through the PAL and the dummy audio driver through `AIL_SetHeadless` before initialisation. The engine continues to own fixed-dt simulation time independently of the backend's wall clock.
 
 ## Adding another backend
 
-1. Add a backend directory under `LIB386/PLATFORM/` and implement every callback using only the public platform data contracts, its SDK, and portable helpers. Keep SDK types private.
+1. Add a backend directory under `LIB386/PLATFORM/` and implement every callback using only the public platform data contracts, its SDK, and portable helpers. Keep SDK types private. Populate the callback table by named fields, as in [the SDL3 table builder](../LIB386/PLATFORM/SDL3/BACKEND.CPP), so callbacks with identical signatures cannot silently shift when the contract changes.
 2. Extend the backend selection in `LIB386/PLATFORM/CMakeLists.txt`, producing `lba2_platform` and the appropriate `lba2_platform_entry`. Discover/link the SDK there, not in game targets.
 3. Translate native events, physical-key IDs, controller buttons and axis ranges into the fixed engine vocabulary. Supply capabilities appropriate to the host, including permanently fullscreen devices.
 4. Present indexed pixels and handle overlays, scaling, and coordinate mapping consistently. Do not depend on engine framebuffer globals.
 5. Supply host paths and meaningful failure results for unavailable clipboard/dialog services. Preserve allocation pairing and borrowed-data lifetimes.
 6. Select or add an AIL audio backend separately; `SOUND_BACKEND=null` is the existing silent choice. The current `sdl` AIL implementation uses SDL3.
-7. Add backend conformance coverage and run the SDK-free contract fixture, host suite, and existing ASM equivalence suite.
+7. Add a behavioral check for every callback, including ownership, error results, and observable state where applicable; a non-null function pointer alone does not prove correct wiring. Run the SDK-free contract fixture, host suite, and existing ASM equivalence suite.
 
 SDL2/SDL1 can implement the same contract without exposing their different event/renderer APIs. KallistiOS can present the software framebuffer through native facilities and map controller input into the same game policy. Neither implementation is shipped yet.
 
@@ -129,12 +133,12 @@ Audio mixing remains AIL-owned. The software rasteriser and ASM-equivalence math
 | Target | Coverage |
 |---|---|
 | `test_platform_contract` | SDL-free link of real engine facades and input policy; C11 and C++98 header compilation (including absence of C99 integer-constant macros); event order, focus/audio/timer coupling, fixed-dt/wrap, input hooks, pad edges/hotplug, touch wake/reapply/release, full-buffer conversion, palette snapshots and nested present/overlay ordering |
-| `test_platform_sdl3` | Complete production table, physical-ID/keymap compatibility, exact event payloads, native virtual-gamepad sampling, paths/allocator/error ownership, worker-thread folder results, and byte-exact pixels read from the actual SDL renderer |
+| `test_platform_sdl3` | Complete production table; physical-ID/keymap/modifier compatibility; exact event payloads and native polling housekeeping; fullscreen requests versus actual state, vsync, relative mouse, cursor and text-input behavior; native virtual-gamepad sampling; paths/directory/allocator/error ownership; modal dispatch and worker-thread folder results; diagnostic severity/userdata; and byte-exact pixels read from the actual SDL renderer |
 | `test_platform_sdl3_staging` | The same conformance checks compiled with the persistent-buffer/upload path, including frame resizing |
 | `test_platform_null` | SDK-free production callbacks, byte-exact offscreen frames and overlays, resize/lifecycle, empty input, host paths/clocks and explicit unavailable-service errors; selected with the null backend |
 | `test_platform_null_game` | Whole SDK-free executable help and isolated missing-data boot/log initialization; selected with the null backend |
 
-The staging and renderer-readback switches exist only in test builds. They exercise the Android presentation mechanism on desktop hosts; they do not substitute for Android JNI/window lifecycle or on-device MTE validation.
+The staging, renderer-readback, modal-launch, and text-focus probes exist only in test builds. Modal probes check native flags, arguments, result ownership, and errors without opening OS dialogs; the focus probe selects the real dummy-driver window while SDL still starts and stops text input. These checks do not validate native dialog UI, physical keyboard focus, or controller hardware. The staging checks exercise the Android presentation mechanism on desktop hosts; they do not substitute for Android JNI/window lifecycle or on-device MTE validation.
 
 ```bash
 cmake -S . -B build -DLBA2_BUILD_TESTS=ON -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF

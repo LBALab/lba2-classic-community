@@ -429,7 +429,9 @@ char *Preferences(const char *org, const char *app) {
 bool Remove(const char *path) {
     if (!path || !*path)
         return Fail("Host removal path is empty");
-    return remove(path) == 0 || HostError("remove");
+    if (remove(path) == 0 || errno == ENOENT)
+        return true;
+    return HostError("remove");
 }
 bool Message(PlatformMessageKind, const char *, const char *) {
     return Fail("Null platform has no message-box service");

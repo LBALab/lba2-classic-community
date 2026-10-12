@@ -2,7 +2,18 @@
 
 #include <string.h>
 
+#ifdef LBA2_SDL3_TESTS
+namespace {
+SDL_Window *(*s_focusProbe)(void) = NULL;
+}
+#endif
+
 extern "C" {
+#ifdef LBA2_SDL3_TESTS
+void SDL3_SetTextInputFocusProbe(SDL_Window *(*focus)(void)) {
+    s_focusProbe = focus;
+}
+#endif
 
 const uint8_t *SDL3_KeyboardState(void) {
     static uint8_t state[PLATFORM_SCANCODE_COUNT];
@@ -25,7 +36,13 @@ const char *SDL3_ScancodeName(int32_t scancode) {
 uint16_t SDL3_Modifiers(void) { return (uint16_t)SDL_GetModState(); }
 
 void SDL3_TextInput(bool enabled) {
-    SDL_Window *window = SDL_GetKeyboardFocus();
+    SDL_Window *window;
+#ifdef LBA2_SDL3_TESTS
+    if (s_focusProbe)
+        window = s_focusProbe();
+    else
+#endif
+        window = SDL_GetKeyboardFocus();
     if (window == NULL)
         return;
     if (enabled)

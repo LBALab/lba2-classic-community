@@ -10,7 +10,21 @@ struct PlatformFolderDialog {
     char error[1024];
 };
 
+#ifdef LBA2_SDL3_TESTS
+namespace {
+bool (*s_messageProbe)(SDL_MessageBoxFlags, const char *, const char *) = NULL;
+void (*s_folderProbe)(SDL_DialogFileCallback, void *, const char *) = NULL;
+} // namespace
+#endif
+
 extern "C" {
+#ifdef LBA2_SDL3_TESTS
+void SDL3_SetDialogProbes(bool (*message)(SDL_MessageBoxFlags, const char *, const char *),
+                          void (*folder)(SDL_DialogFileCallback, void *, const char *)) {
+    s_messageProbe = message;
+    s_folderProbe = folder;
+}
+#endif
 void SDLCALL SDL3_FolderChosen(void *userdata, const char *const *files, int) {
     PlatformFolderDialog *dialog = (PlatformFolderDialog *)userdata;
     if (files == NULL) {
@@ -42,7 +56,13 @@ bool SDL3_MessageBox(PlatformMessageKind kind, const char *title, const char *me
         flags = SDL_MESSAGEBOX_WARNING;
     else if (kind == PLATFORM_MESSAGE_ERROR)
         flags = SDL_MESSAGEBOX_ERROR;
-    bool shown = SDL_ShowSimpleMessageBox(flags, title, message, NULL);
+    bool shown;
+#ifdef LBA2_SDL3_TESTS
+    if (s_messageProbe)
+        shown = s_messageProbe(flags, title, message);
+    else
+#endif
+        shown = SDL_ShowSimpleMessageBox(flags, title, message, NULL);
     if (!shown)
         Platform_Log(PLATFORM_LOG_WARN, "Unable to show message box: %s", SDL_GetError());
     return shown;
@@ -62,8 +82,14 @@ PlatformFolderDialog *SDL3_BeginFolderDialog(const char *initialPath) {
     if (!SDL3_InitVideo())
         return NULL;
     PlatformFolderDialog *dialog = SDL3_AllocateFolderDialog();
-    if (dialog)
-        SDL_ShowOpenFolderDialog(SDL3_FolderChosen, dialog, NULL, initialPath, false);
+    if (dialog) {
+#ifdef LBA2_SDL3_TESTS
+        if (s_folderProbe)
+            s_folderProbe(SDL3_FolderChosen, dialog, initialPath);
+        else
+#endif
+            SDL_ShowOpenFolderDialog(SDL3_FolderChosen, dialog, NULL, initialPath, false);
+    }
     return dialog;
 }
 

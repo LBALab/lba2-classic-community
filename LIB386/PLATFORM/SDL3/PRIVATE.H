@@ -50,6 +50,9 @@ uint32_t SDL3_Keycode(int32_t scancode, uint16_t modifiers);
 const char *SDL3_ScancodeName(int32_t scancode);
 uint16_t SDL3_Modifiers(void);
 void SDL3_TextInput(bool enabled);
+#ifdef LBA2_SDL3_TESTS
+void SDL3_SetTextInputFocusProbe(SDL_Window *(*focus)(void));
+#endif
 void SDL3_CursorVisible(bool visible);
 bool SDL3_InitGamepads(void);
 void SDL3_EndGamepads(void);
@@ -63,6 +66,10 @@ int16_t SDL3_GamepadAxis(PlatformGamepad *pad, PlatformGamepadAxis axis);
 bool SDL3_MessageBox(PlatformMessageKind kind, const char *title, const char *message);
 PlatformFolderDialog *SDL3_BeginFolderDialog(const char *initialPath);
 PlatformFolderDialog *SDL3_AllocateFolderDialog(void);
+#ifdef LBA2_SDL3_TESTS
+void SDL3_SetDialogProbes(bool (*message)(SDL_MessageBoxFlags, const char *, const char *),
+                          void (*folder)(SDL_DialogFileCallback, void *, const char *));
+#endif
 void SDLCALL SDL3_FolderChosen(void *userdata, const char *const *files, int filter);
 PlatformDialogResult SDL3_PollFolderDialog(PlatformFolderDialog *dialog, const char **path);
 void SDL3_EndFolderDialog(PlatformFolderDialog *dialog);

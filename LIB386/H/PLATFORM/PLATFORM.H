@@ -185,7 +185,7 @@ typedef struct PlatformHost {
     char *(*pref_path)(const char *org, const char *app); /* owned; free_memory */
     const char *(*home_path)(void);                       /* borrowed */
     bool (*create_directory)(const char *path);
-    bool (*remove_path)(const char *path);
+    bool (*remove_path)(const char *path); /* absent path is already removed; directories must be empty */
     bool (*message_box)(PlatformMessageKind kind, const char *title, const char *message);
     /* Results are delivered on the polling thread. Path is borrowed until end_dialog;
        an error must be available through system.get_error on that same thread. */
