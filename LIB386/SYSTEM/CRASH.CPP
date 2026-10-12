@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <SYSTEM/CRASH.H>
 #include <SYSTEM/CRASH_CORE.H>
 
@@ -35,6 +36,10 @@ void Crash_Install(const char *logPath, const char *version, const char *commit)
 }
 
 void Crash_PrepareThread(void) {
+}
+
+void CrashSys_Write(const char *data, U32 size) {
+    fwrite(data, 1, size, stderr);
 }
 #endif
 
