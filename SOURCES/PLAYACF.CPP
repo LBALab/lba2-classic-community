@@ -1,12 +1,14 @@
 #include "C_EXTERN.H"
 #include "CONTROL.H"
 
+#include "BOOT_EXIT.H"
 #include "DIRECTORIES.H"
 
 #include "IMAGE_LOAD.H"
 #include "VIDEO_FIT.H"
 
 #include <string.h>
+#include <SYSTEM/LOG.H>
 
 /* PlayAllAcf fades between cutscenes whatever the video backend is, so the audio
    module's header belongs outside the backend guard below. */
@@ -18,7 +20,6 @@
 #include <AIL/VIDEO_AUDIO.H>
 #include <AIL/VIDEO_AUDIO_RESAMPLE.H>
 #include <FILEIO/SAVEPNG.H>
-#include <SYSTEM/LOG.H>
 #include <SYSTEM/WINDOW.H> // AppActive
 
 static int videoLogEnabled = 0;
