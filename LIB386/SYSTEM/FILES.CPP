@@ -25,9 +25,9 @@ extern "C" {
 #endif
 
 // --- Private definitions -----------------------------------------------------
-#ifndef _WIN32 // Portability - O_BINARY exists only on Windows platform
+#ifndef O_BINARY // Portability - O_BINARY exists only on Windows and DOS
 #define O_BINARY 0
-#endif // _WIN32
+#endif
 
 #define MODE_READ (O_RDONLY | O_BINARY)
 #define MODE_WRITE (O_WRONLY | O_BINARY | O_CREAT | O_TRUNC)
