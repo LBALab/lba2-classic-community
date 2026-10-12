@@ -295,16 +295,16 @@ void SDL3_SetVSync(bool enabled) {
         SDL_SetRenderVSync(s_renderer, enabled ? 1 : 0);
 }
 
-void SDL3_HandleWindowEvent(const PlatformEvent *event) {
+void SDL3_HandleWindowEvent(const SDL_Event *event) {
     if (!s_initialized)
         return;
     switch (event->type) {
-    case PLATFORM_EVENT_WINDOW_FOCUS_GAINED:
-    case PLATFORM_EVENT_WINDOW_MOUSE_ENTER:
+    case SDL_EVENT_WINDOW_FOCUS_GAINED:
+    case SDL_EVENT_WINDOW_MOUSE_ENTER:
         if (s_window)
             HideGameCursor();
         break;
-    case PLATFORM_EVENT_WINDOW_RESIZED:
+    case SDL_EVENT_WINDOW_RESIZED:
         if (s_renderer && s_texture)
             PresentTexture();
         break;

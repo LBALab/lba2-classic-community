@@ -12,7 +12,7 @@ This implements the platform-decoupling part of [discussion #120](https://github
 |---|---|
 | `system` | Initialisation, wall-clock milliseconds, delay, performance counter/frequency, thread identity, CPU/RAM probes, errors, diagnostic callback |
 | `events` | Initialisation, pumping, and polling backend-neutral `PlatformEvent` values |
-| `window` | Surface lifetime, logical/window/display dimensions, coordinate mapping, fullscreen/vsync/relative mouse, native window-event effects, indexed-frame presentation |
+| `window` | Surface lifetime, logical/window/display dimensions, coordinate mapping, fullscreen/vsync/relative mouse, indexed-frame presentation |
 | `input` | Physical-key snapshot, layout-aware keycodes/names/modifiers, text input/cursor, gamepad lifetime and sampling |
 | `host` | Executable/current/preference/home paths, directory operations, message boxes, asynchronous folder requests, clipboard, allocator pairing |
 | `capabilities` | Meaningful windowed mode, temporary loss of a native window, touch-overlay support |
@@ -56,7 +56,7 @@ Keyboard state contains 512 byte-valued entries, each 0 or 1. The engine still c
 
 Gamepad sticks retain signed 16-bit units with positive Y down; triggers are 0–32767. The game still owns deadzones, cardinal snap, hysteresis, bindings, first-press detection, and the analog right-stick camera. The PAL does not digitise axes or change controller feel.
 
-Event payloads are plain data. Mouse coordinates are window pixels; finger coordinates are normalised over the full display. Text is borrowed until the next poll and must be copied if retained. The engine retains its event-filter and handler ordering, including timer/video handling before focus state changes.
+Event payloads are plain data. Mouse coordinates are window pixels; finger coordinates are normalised over the full display. Text is borrowed until the next poll and must be copied if retained. Native cursor hiding and resize re-presentation happen inside backend polling, before delivery to the engine; the game event filter cannot suppress this host housekeeping. The engine retains its event-filter and handler ordering, including timer/video handling before focus state changes.
 
 ## Presentation and overlays
 

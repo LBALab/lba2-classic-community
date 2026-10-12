@@ -31,7 +31,9 @@ static U32 next_random() {
 }
 
 static std::vector<U32> rendered;
+static int presentation_count = 0;
 static void read_presentation(SDL_Renderer *renderer) {
+    ++presentation_count;
     SDL_Surface *surface = SDL_RenderReadPixels(renderer, NULL);
     ASSERT_TRUE(surface != NULL);
     if (!surface)
@@ -89,7 +91,6 @@ static void test_complete_backend_and_key_identity() {
     REQUIRE_CALLBACK(window.is_fullscreen);
     REQUIRE_CALLBACK(window.set_vsync);
     REQUIRE_CALLBACK(window.set_relative_mouse);
-    REQUIRE_CALLBACK(window.handle_event);
     REQUIRE_CALLBACK(window.present);
     REQUIRE_CALLBACK(input.keyboard_state);
     REQUIRE_CALLBACK(input.keycode);
@@ -276,6 +277,43 @@ static void update_reference_palette(SDL_Palette *palette, const U8 *source, S32
         temporary[i].a = 255;
     }
     SDL_SetPaletteColors(palette, temporary, start, count);
+}
+
+static void test_native_window_housekeeping_during_poll() {
+    PlatformEvent event;
+    while (g_platform.events.poll(&event)) {
+    }
+    std::vector<U8> indexed(32 * 24, 7);
+    U8 palette[768] = {};
+    palette[7 * 3] = 12;
+    palette[7 * 3 + 1] = 34;
+    palette[7 * 3 + 2] = 56;
+    PlatformFrame frame = {&indexed[0], 32, 24, 32, palette, NULL};
+    SDL3_SetPresentationProbe(read_presentation);
+    ASSERT_TRUE(g_platform.window.present(&frame));
+    const std::vector<U32> before = rendered;
+    const int count = presentation_count;
+    SDL_Event resize = {};
+    resize.type = SDL_EVENT_WINDOW_RESIZED;
+    ASSERT_TRUE(SDL_PushEvent(&resize));
+    bool resized = false;
+    while (g_platform.events.poll(&event))
+        resized = resized || event.type == PLATFORM_EVENT_WINDOW_RESIZED;
+    ASSERT_TRUE(resized);
+    ASSERT_EQ_INT(count + 1, presentation_count);
+    ASSERT_MEM_EQ(&before[0], &rendered[0], before.size() * sizeof(U32));
+    for (int i = 0; i < 2; ++i) {
+        ASSERT_TRUE(SDL_ShowCursor());
+        SDL_Event focus = {};
+        focus.type = i == 0 ? SDL_EVENT_WINDOW_FOCUS_GAINED : SDL_EVENT_WINDOW_MOUSE_ENTER;
+        ASSERT_TRUE(SDL_PushEvent(&focus));
+        AppActive = false;
+        while (g_platform.events.poll(&event)) {
+        }
+        ASSERT_TRUE(!SDL_CursorVisible());
+        ASSERT_TRUE(!AppActive);
+    }
+    SDL3_SetPresentationProbe(NULL);
 }
 
 static void test_palette_and_actual_renderer_bytes() {
@@ -475,6 +513,7 @@ int main() {
     RUN_TEST(test_complete_backend_and_key_identity);
     RUN_TEST(test_event_translation_exact_fields);
     RUN_TEST(test_window_mapping_and_capabilities);
+    RUN_TEST(test_native_window_housekeeping_during_poll);
     RUN_TEST(test_palette_and_actual_renderer_bytes);
     RUN_TEST(test_host_ownership_and_time);
     RUN_TEST(test_gamepad_button_axis_and_handle_mapping);

@@ -47,7 +47,6 @@ extern "C" const PlatformInterface g_platform = {
         SDL3_IsFullscreen,
         SDL3_SetVSync,
         SDL3_SetRelativeMouse,
-        SDL3_HandleWindowEvent,
         SDL3_Present,
     },
     {

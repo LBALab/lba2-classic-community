@@ -153,7 +153,6 @@ void Fullscreen(bool enabled) { s_fullscreen = enabled; }
 bool GetFullscreen() { return s_fullscreen; }
 void VSync(bool enabled) { s_vsync = enabled; }
 void RelativeMouse(bool enabled) { s_relativeMouse = enabled; }
-void WindowEvent(const PlatformEvent *) {}
 void NotePresent(char stage) {
     s_presentOrder[s_orderLength++] = stage;
     s_presentOrder[s_orderLength] = '\0';
@@ -237,7 +236,6 @@ PlatformInterface Fixture() {
     api.window.is_fullscreen = GetFullscreen;
     api.window.set_vsync = VSync;
     api.window.set_relative_mouse = RelativeMouse;
-    api.window.handle_event = WindowEvent;
     api.window.present = Present;
     api.input.keyboard_state = Keyboard;
     api.input.keycode = Keycode;

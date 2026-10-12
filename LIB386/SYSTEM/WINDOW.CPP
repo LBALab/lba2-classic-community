@@ -60,7 +60,6 @@ void HandleEventsWindow(const PlatformEvent *event) {
     default:
         break;
     }
-    g_platform.window.handle_event(event);
 }
 
 // =============================================================================

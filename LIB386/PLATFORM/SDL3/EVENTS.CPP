@@ -93,6 +93,7 @@ bool SDL3_PollEvent(PlatformEvent *event) {
     SDL_Event source;
     if (!SDL_PollEvent(&source))
         return false;
+    SDL3_HandleWindowEvent(&source);
     return SDL3_TranslateEvent(&source, event);
 }
 }

@@ -160,7 +160,6 @@ typedef struct PlatformWindow {
     bool (*is_fullscreen)(void);  /* actual host state */
     void (*set_vsync)(bool enabled);
     void (*set_relative_mouse)(bool enabled);
-    void (*handle_event)(const PlatformEvent *event);
     bool (*present)(const PlatformFrame *frame);
 } PlatformWindow;
 
