@@ -73,6 +73,11 @@ bool Window_CanLoseNativeWindow(void);
 // pixels or simulation state.
 void Window_SetVSync(int enabled);
 
+// Choose how the frame is filtered when stretched to the window: one of
+// PLATFORM_FILTER_*. Presentation only. False when this backend cannot do the
+// mode asked for, in which case the one in use stays.
+bool Window_SetPresentFilter(int mode);
+
 void SetWindowRelativeMouse(bool enable);
 void ManageWindow();
 void HandleEventsWindow(const PlatformEvent *event);

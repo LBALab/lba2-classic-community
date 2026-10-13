@@ -223,6 +223,10 @@ void DeviceMode(bool enabled) {
     if (enabled)
         Fail("Null platform has no interactive input or synchronized display");
 }
+bool PresentFilter(PlatformPresentFilter mode) {
+    /* Nothing is stretched: the frame is converted at its own size. */
+    return mode == PLATFORM_FILTER_NEAREST || Fail("Null platform does not filter its presentation");
+}
 bool Present(const PlatformFrame *frame) {
     if (!frame || !s_pixels || frame->width != s_width || frame->height != s_height)
         return Fail("Indexed frame does not match null presentation surface");
@@ -489,6 +493,7 @@ PlatformInterface Interface() {
     api.window.get_fullscreen = RequestedFullscreen;
     api.window.is_fullscreen = ActualFullscreen;
     api.window.set_vsync = DeviceMode;
+    api.window.set_present_filter = PresentFilter;
     api.window.set_relative_mouse = DeviceMode;
     api.window.present = Present;
     api.input.keyboard_state = Keyboard;

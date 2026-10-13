@@ -12,6 +12,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `PresentFilter` in `lba2.cfg`, `gfx_presentfilter` in the console and
+  `LBA2_PRESENT_FILTER` for one run choose the filter that stretches the frame to
+  the window: nearest (the default, unchanged), linear, or pixelart, which keeps
+  pixels sharp and blends only their seams. Pixelart needs SDL 3.4 or newer.
 - `--user-dir <dir>` (or `LBA2_USER_DIR`) chooses the folder a run writes its
   saves, settings and log to, created if missing. Previously that folder was
   fixed per user, so every install on a machine shared one.

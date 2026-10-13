@@ -89,6 +89,7 @@ static void test_complete_backend_and_key_identity() {
     REQUIRE_CALLBACK(window.get_fullscreen);
     REQUIRE_CALLBACK(window.is_fullscreen);
     REQUIRE_CALLBACK(window.set_vsync);
+    REQUIRE_CALLBACK(window.set_present_filter);
     REQUIRE_CALLBACK(window.set_relative_mouse);
     REQUIRE_CALLBACK(window.present);
     REQUIRE_CALLBACK(input.keyboard_state);
@@ -427,6 +428,85 @@ static void test_native_window_housekeeping_during_poll() {
     SDL3_SetPresentationProbe(NULL);
 }
 
+/* Pixels that are neither of the two colours a checkerboard was drawn in: the
+   ones a filter made by mixing them. */
+static int blended_pixels = 0;
+static void count_blended(SDL_Renderer *renderer) {
+    blended_pixels = -1;
+    SDL_Surface *surface = SDL_RenderReadPixels(renderer, NULL);
+    ASSERT_TRUE(surface != NULL);
+    if (!surface)
+        return;
+    SDL_Surface *argb = SDL_ConvertSurface(surface, SDL_PIXELFORMAT_ARGB8888);
+    ASSERT_TRUE(argb != NULL);
+    if (argb) {
+        ASSERT_EQ_INT(120, argb->w);
+        ASSERT_EQ_INT(90, argb->h);
+        blended_pixels = 0;
+        for (int y = 0; y < argb->h; ++y) {
+            const U32 *row = (const U32 *)((const U8 *)argb->pixels + (size_t)y * argb->pitch);
+            for (int x = 0; x < argb->w; ++x) {
+                const U32 rgb = row[x] & 0x00FFFFFF;
+                if (rgb != 0 && rgb != 0x00FFFFFF)
+                    ++blended_pixels;
+            }
+        }
+        SDL_DestroySurface(argb);
+    }
+    SDL_DestroySurface(surface);
+}
+
+static void test_present_filter_smooths_the_stretch() {
+    /* 16x12 shown in 120x90 is 7.5: not an integer, so the modes differ. */
+    ASSERT_TRUE(ResizeWindowSurface(120, 90, false));
+    g_platform.events.pump();
+    ASSERT_TRUE(ResizeWindowSurface(16, 12, true));
+    std::vector<U8> indexed(16 * 12);
+    for (int y = 0; y < 12; ++y)
+        for (int x = 0; x < 16; ++x)
+            indexed[(size_t)y * 16 + x] = (U8)((x + y) & 1);
+    U8 palette[768] = {};
+    palette[3] = palette[4] = palette[5] = 255;
+    PlatformFrame frame = {&indexed[0], 16, 12, 16, palette, NULL};
+    SDL3_SetPresentationProbe(count_blended);
+
+    ASSERT_TRUE(g_platform.window.present(&frame));
+    ASSERT_EQ_INT(0, blended_pixels);
+
+    ASSERT_TRUE(g_platform.window.set_present_filter(PLATFORM_FILTER_LINEAR));
+    ASSERT_TRUE(blended_pixels > 0); /* the change is shown without a new frame */
+    ASSERT_TRUE(g_platform.window.present(&frame));
+    const int linear = blended_pixels;
+    ASSERT_TRUE(linear > 0);
+
+    /* The mode belongs to the backend, not to the texture a resize replaces. */
+    ASSERT_TRUE(ResizeWindowSurface(16, 12, true));
+    ASSERT_TRUE(g_platform.window.present(&frame));
+    ASSERT_EQ_INT(linear, blended_pixels);
+
+    const bool pixelart = SDL_GetVersion() >= SDL_VERSIONNUM(3, 4, 0) && SDL_VERSION_ATLEAST(3, 4, 0);
+    SDL_ClearError();
+    ASSERT_EQ_INT(pixelart, g_platform.window.set_present_filter(PLATFORM_FILTER_PIXELART));
+    ASSERT_TRUE(g_platform.window.present(&frame));
+    if (pixelart) {
+        /* No lower bound: the software renderer this runs on samples pixelart
+           as nearest, and only the GPU renderers blend the seams. */
+        ASSERT_TRUE(blended_pixels < linear);
+    } else {
+        /* Refused, with a reason, and still on the mode it had. */
+        ASSERT_TRUE(SDL_GetError()[0] != '\0');
+        ASSERT_EQ_INT(linear, blended_pixels);
+    }
+    ASSERT_TRUE(!g_platform.window.set_present_filter((PlatformPresentFilter)99));
+
+    ASSERT_TRUE(g_platform.window.set_present_filter(PLATFORM_FILTER_NEAREST));
+    ASSERT_TRUE(g_platform.window.present(&frame));
+    ASSERT_EQ_INT(0, blended_pixels);
+    SDL3_SetPresentationProbe(NULL);
+    ASSERT_TRUE(ResizeWindowSurface(32, 24, false));
+    g_platform.events.pump();
+}
+
 static void test_palette_and_actual_renderer_bytes() {
     SDL_Palette *reference = SDL_CreatePalette(256);
     ASSERT_TRUE(reference != NULL);
@@ -731,6 +811,7 @@ int main() {
     RUN_TEST(test_window_and_input_modes);
     RUN_TEST(test_fullscreen_failed_request_rollback);
     RUN_TEST(test_native_window_housekeeping_during_poll);
+    RUN_TEST(test_present_filter_smooths_the_stretch);
     RUN_TEST(test_palette_and_actual_renderer_bytes);
     RUN_TEST(test_host_ownership_and_time);
     RUN_TEST(test_host_dialog_dispatch);

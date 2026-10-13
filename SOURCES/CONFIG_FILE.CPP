@@ -10,7 +10,8 @@
 #include "FOLLOWCAM_CFG.H"   /* and their defaults */
 #include "INPUT.H"           /* Read/WriteInputConfig, Read/WriteGamepadConfig */
 #include "RES_SWITCH.H"
-#include <POLYGON/POLYFILT.H> /* PolyTexFilter / EnvTexFilter */
+#include <PLATFORM/PLATFORM.H> /* PLATFORM_FILTER_*, and why a mode was refused */
+#include <POLYGON/POLYFILT.H>  /* PolyTexFilter / EnvTexFilter */
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H> /* K_F12, the console toggle default */
 #include <SYSTEM/LOG.H>
@@ -43,14 +44,20 @@ extern S32 GfxDitherShading; /* defined in POLYFILT's caller; no header declares
    on purpose (see WriteConfigFile). */
 static S32 StoredTexFilter = 0;
 static S32 EnvTexFilter = -1;
+/* How the frame is filtered when stretched to the window: one of
+   PLATFORM_FILTER_*. Only this file reads it; the backend holds the mode in use. */
+static S32 DisplayPresentFilter = PLATFORM_FILTER_NEAREST;
+static S32 StoredPresentFilter = PLATFORM_FILTER_NEAREST;
+static S32 EnvPresentFilter = -1;
 static S32 StoredFixedTimestep = 16;
 static S32 StoredLanguage = 0;
 static S32 StoredVSync = TRUE;
 
-/* Where the live value came from, for the three rows a per-run flag can force.
+/* Where the live value came from, for the four rows a per-run override can force.
    Only those need it: the rule a source decides is what a forced run leaves
    behind, and a row no flag touches keeps its value either way. */
 static T_SETTING_SOURCE SourceTexFilter = SETTING_FROM_DEFAULT;
+static T_SETTING_SOURCE SourcePresentFilter = SETTING_FROM_DEFAULT;
 static T_SETTING_SOURCE SourceFixedTimestep = SETTING_FROM_DEFAULT;
 static T_SETTING_SOURCE SourceVSync = SETTING_FROM_DEFAULT;
 
@@ -86,6 +93,32 @@ static S32 ForcedTexFilter(void) {
     return EnvTexFilter;
 }
 
+static S32 ForcedPresentFilter(void) {
+    return EnvPresentFilter;
+}
+
+/* The setting keeps what was asked for, so a preference survives a build that
+   cannot do it; that build presents on nearest and the log says why. */
+static void ApplyPresentFilter(S32 mode) {
+    if (Window_SetPresentFilter(mode))
+        return;
+    Log_Warn("Present filter %d is not available: %s. Using nearest.", (int)mode, g_platform.system.get_error());
+    Window_SetPresentFilter(PLATFORM_FILTER_NEAREST);
+}
+
+/* LBA2_PRESENT_FILTER takes the names, or the numbers the cfg and console use. */
+static S32 ParsePresentFilter(const char *text) {
+    static const char *const names[] = {"nearest", "linear", "pixelart"};
+    S32 i;
+
+    for (i = PLATFORM_FILTER_NEAREST; i <= PLATFORM_FILTER_PIXELART; i++) {
+        const bool isNumber = (text[0] == '0' + i AND text[1] == '\0');
+        if (isNumber OR !strcasecmp(text, names[i]))
+            return i;
+    }
+    return -1;
+}
+
 /* The boot and display settings, declared once. Row order is the cfg's key
  * order, which is user-visible: lba2.cfg is rewritten in this order.
  *
@@ -108,6 +141,9 @@ static const T_SETTING BootSettings[] = {
     {"TextureFilter", NULL, "gfx_texfilter", &PolyTexFilter, SETTING_OR_DEFAULT, POLY_TEX_FILTER_OFF,
      POLY_TEX_FILTER_OFF, POLY_TEX_FILTER_BILINEAR, &StoredTexFilter, ForcedTexFilter, NULL, &SourceTexFilter,
      "Texture filtering: 0 off, 1 horizontal, 2 bilinear"},
+    {"PresentFilter", NULL, "gfx_presentfilter", &DisplayPresentFilter, SETTING_OR_DEFAULT, PLATFORM_FILTER_NEAREST,
+     PLATFORM_FILTER_NEAREST, PLATFORM_FILTER_PIXELART, &StoredPresentFilter, ForcedPresentFilter, ApplyPresentFilter,
+     &SourcePresentFilter, "Filter stretching the frame to the window: 0 nearest, 1 linear, 2 pixelart"},
     {"FixedTimestep", NULL, NULL, &FixedTimestep, SETTING_OR_DEFAULT, 16, 0, 100,
      &StoredFixedTimestep, ForcedFixedTimestep, NULL, &SourceFixedTimestep},
 };
@@ -174,6 +210,20 @@ void ReadConfigFile(void) {
         }
     }
 
+    EnvPresentFilter = -1;
+    {
+        const char *env = getenv("LBA2_PRESENT_FILTER");
+        if (env != NULL) {
+            const S32 mode = ParsePresentFilter(env);
+            if (mode >= 0) {
+                DisplayPresentFilter = mode;
+                EnvPresentFilter = mode;
+            } else {
+                Log_Warn("LBA2_PRESENT_FILTER=%s is not a present filter; expected nearest, linear or pixelart.", env);
+            }
+        }
+    }
+
     if (Control_HasVSync())
         DisplayVSync = (S32)Control_GetVSync();
 
@@ -182,6 +232,7 @@ void ReadConfigFile(void) {
        Unlike fullscreen there's no visible boot-flash to avoid, so no early
        Res_LoadBoot* pre-read is needed. */
     Window_SetVSync(DisplayVSync);
+    ApplyPresentFilter(DisplayPresentFilter);
 
     /* Console toggle scancode (SDL scancode integer); invalid values fall back to F12 in console module. */
     Console_SetToggleScancode(DefFileBufferReadValueDefault("ConsoleToggleKey", K_F12));

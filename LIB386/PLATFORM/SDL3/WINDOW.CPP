@@ -14,6 +14,7 @@ SDL_Texture *s_texture = NULL;
 uint32_t s_width = 0;
 uint32_t s_height = 0;
 bool s_fullscreen = false;
+SDL_ScaleMode s_scaleMode = SDL_SCALEMODE_NEAREST;
 #ifdef LBA2_SDL3_TESTS
 void (*s_presentationProbe)(SDL_Renderer *) = NULL;
 bool (*s_fullscreenProbe)(SDL_Window *, bool) = NULL;
@@ -28,8 +29,7 @@ void HideGameCursor(void) {
     SDL_SetCursor(NULL);
 }
 
-/* Scale filter applied when the framebuffer is stretched to the window,
-   selected with LBA2_SCALE_MODE=nearest|linear|pixelart.
+/* Scale filter applied when the framebuffer is stretched to the window.
 
    NEAREST stays the default: it is the historical output exactly. It is also
    uneven at a non-integer window scale -- 1728x1080 shown on 3840x2400 is 20/9,
@@ -38,36 +38,35 @@ void HideGameCursor(void) {
    fixed-pixel 2D layer along with everything else. PIXELART keeps texel
    interiors crisp and interpolates only across the texel seam.
 
-   PIXELART needs SDL 3.4 at both compile and run time and degrades to NEAREST
-   rather than failing, which is why the two guards differ: the compile one
-   keeps older SDL building, the runtime one catches headers and runtime
-   disagreeing -- SDL_SetTextureScaleMode simply returns false there and would
-   otherwise leave the texture on a mode nobody chose. */
-SDL_ScaleMode ResolveScaleMode(void) {
-    const char *mode = SDL_getenv("LBA2_SCALE_MODE");
-    if (mode == NULL) {
-        return SDL_SCALEMODE_NEAREST;
-    }
-    if (SDL_strcasecmp(mode, "linear") == 0) {
-        return SDL_SCALEMODE_LINEAR;
-    }
+   PIXELART needs SDL 3.4 at both compile and run time, which is why the two
+   guards differ: the compile one keeps older SDL building, the runtime one
+   catches headers and runtime disagreeing -- SDL_SetTextureScaleMode simply
+   returns false there and would otherwise leave the texture on a mode nobody
+   chose. */
+bool ResolveScaleMode(PlatformPresentFilter mode, SDL_ScaleMode *out) {
+    switch (mode) {
+    case PLATFORM_FILTER_NEAREST:
+        *out = SDL_SCALEMODE_NEAREST;
+        return true;
+    case PLATFORM_FILTER_LINEAR:
+        *out = SDL_SCALEMODE_LINEAR;
+        return true;
+    case PLATFORM_FILTER_PIXELART:
 #if SDL_VERSION_ATLEAST(3, 4, 0)
-    if (SDL_strcasecmp(mode, "pixelart") == 0) {
         if (SDL_GetVersion() >= SDL_VERSIONNUM(3, 4, 0)) {
-            return SDL_SCALEMODE_PIXELART;
+            *out = SDL_SCALEMODE_PIXELART;
+            return true;
         }
-        Platform_Log(PLATFORM_LOG_WARN, "The pixelart scale mode needs SDL 3.4 at runtime; this "
-                                        "build is linked against an older one. Using nearest.");
-    }
 #endif
-    return SDL_SCALEMODE_NEAREST;
+        return SDL_SetError("The pixelart filter needs SDL 3.4 or newer");
+    }
+    return SDL_SetError("Unknown present filter %d", (int)mode);
 }
 
 /* Apply the chosen filter and say so if the runtime refused it, rather than
    leaving the texture on a mode nobody asked for. */
 void ApplyScaleMode(SDL_Texture *texture) {
-    const SDL_ScaleMode mode = ResolveScaleMode();
-    if (!SDL_SetTextureScaleMode(texture, mode)) {
+    if (!SDL_SetTextureScaleMode(texture, s_scaleMode)) {
         Platform_Log(PLATFORM_LOG_WARN, "Unable to set texture scale mode.\n"
                                         "\tSDL message: %s",
                      SDL_GetError());
@@ -350,6 +349,20 @@ bool SDL3_IsFullscreen(void) {
 void SDL3_SetVSync(bool enabled) {
     if (s_renderer)
         SDL_SetRenderVSync(s_renderer, enabled ? 1 : 0);
+}
+
+bool SDL3_SetPresentFilter(PlatformPresentFilter mode) {
+    SDL_ScaleMode resolved = SDL_SCALEMODE_NEAREST;
+    if (!ResolveScaleMode(mode, &resolved))
+        return false;
+    if (s_texture && !SDL_SetTextureScaleMode(s_texture, resolved))
+        return false;
+    const bool changed = (resolved != s_scaleMode);
+    s_scaleMode = resolved;
+    /* A paused or menu screen does not present again until something moves. */
+    if (changed && s_renderer && s_texture)
+        PresentTexture();
+    return true;
 }
 
 void SDL3_HandleWindowEvent(const SDL_Event *event) {
