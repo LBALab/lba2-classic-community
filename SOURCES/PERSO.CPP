@@ -1866,6 +1866,7 @@ restartloop:
         /* After this frame's zone check, so that on the frame the hero comes out
          * of a building it can tell a shot firing over the door from open ground. */
         FollowCamNoteScene(CubeMode == CUBE_EXTERIEUR);
+        FollowCamNoteCinema(CinemaMode != 0);
 
         /* The same for what a scripted shot is owed back, in the two states that
          * take the camera's angles for themselves: a cutscene aims it where it

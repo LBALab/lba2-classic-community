@@ -6344,8 +6344,10 @@ void SetZoneCamera(T_ZONE *ptrz) {
              * shows. The Auto camera derives its own target from the hero's facing
              * and never learns of this write, so it reads the authored angle as
              * catch-up owed and lerps out of the shot over the next second. */
-            if (FollowCamera)
+            if (FollowCamera) {
                 FollowCamAdoptAngle();
+                FollowCamObstructShotFired();
+            }
 
             SaveCamera();
 
@@ -6606,7 +6608,7 @@ void CheckZoneSce(T_OBJET *ptrobj, U8 numobj) {
                          * it fires if a script takes the hero over inside the box.
                          * It still counts as found, and shadows the camera zones
                          * after it in the list as it does when it fires. */
-                        S32 steering = FollowCamZoneSkip AND FollowCamera AND ptrobj->Move == MOVE_MANUAL;
+                        S32 steering = FollowCamZoneSkip AND FollowCamera AND !CinemaMode AND ptrobj->Move == MOVE_MANUAL;
 
                         if (((ptrz->Info7 & ZONE_OBLIGATOIRE)
                                  OR(CubeMode == CUBE_INTERIEUR)

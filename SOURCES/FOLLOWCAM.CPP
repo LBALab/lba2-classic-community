@@ -80,6 +80,7 @@ static S32 FollowCamLentPan = 0;        /* AddBetaCam as it was before the shot 
 static S32 FollowCamLentAlpha = 0;      /* AlphaCam as it was before the shot */
 static S32 FollowCamShotBeta = 0;       /* the shot's authored world yaw */
 static S32 FollowCamWasIndoors = FALSE; /* the last simulated frame was in an interior */
+static S32 FollowCamWasCinema = FALSE;  /* the last simulated frame was in a cutscene */
 
 /* The pitch the Auto camera rests at when nobody else has it: the player's own
  * tilt if they set one, the preset a recentre put there if not. -1 until one of
@@ -500,12 +501,14 @@ void UpdateFollowCameraExt(void) {
                         FollowCamObstructFloor = 0;
                 }
 
-                if (FollowCamInShotBox) {
-                    FollowCamObstructTarget = 0;
-                    FollowCamObstructExtra = 0;
-                    FollowCamObstructFloor = 0;
-                } else {
-                    FollowCamObstructTarget = FollowCamNeededPitch(ptr3d) - AlphaCam;
+                {
+                    /* In the box of a shot that has fired the search is not
+                     * asked: the place is the author's to judge there, as it is
+                     * for the classic camera, which never searches inside a
+                     * zone. A hero drawn hidden is still answered, through the
+                     * floor, or he would stay hidden with the recentre stood
+                     * down and nothing in its place. */
+                    FollowCamObstructTarget = FollowCamInShotBox ? 0 : FollowCamNeededPitch(ptr3d) - AlphaCam;
                     if (FollowCamObstructTarget < FollowCamObstructFloor)
                         FollowCamObstructTarget = FollowCamObstructFloor;
                     if (AlphaCam + FollowCamObstructTarget > FOLLOW_CAM_OBSTRUCT_PITCH_MAX)
@@ -688,7 +691,9 @@ void UpdateFollowCameraExt(void) {
 S32 FollowCamCarryIntoScene(void) {
     T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
 
-    if (!FollowCamSceneCarry OR !FollowCamera OR CubeMode != CUBE_EXTERIEUR OR FlagLoadGame)
+    /* Nor in a cutscene: a scene change in the middle of one is the script's,
+     * and gets the centring it was written against. */
+    if (!FollowCamSceneCarry OR !FollowCamera OR CubeMode != CUBE_EXTERIEUR OR FlagLoadGame OR CinemaMode)
         return FALSE;
 
     /* Latched state describes the scene just left. CameraCenter(1) and (2) drop
@@ -760,7 +765,17 @@ void FollowCamNoteHidden(S32 what) {
 }
 
 S32 FollowCamObstructOwnsSearch(void) {
-    return FollowCamObstruct AND FollowCamera AND CubeMode == CUBE_EXTERIEUR;
+    /* Not in a cutscene: its re-aims and scene changes are the script's, and
+     * they get the search they were written against. */
+    return FollowCamObstruct AND FollowCamera AND CubeMode == CUBE_EXTERIEUR AND !CinemaMode;
+}
+
+void FollowCamObstructShotFired(void) {
+    /* A shot starts as written. Whatever tilt the last view needed, and any
+     * floor a hidden hero taught it, belonged to that view. */
+    FollowCamObstructExtra = 0;
+    FollowCamObstructTarget = 0;
+    FollowCamObstructFloor = 0;
 }
 
 S32 FollowCamRenderExtraPitch(void) {
@@ -825,7 +840,9 @@ void FollowCamLendToShot(S32 shotBeta) {
      * camera had before the first one. An axis the player has since set by hand
      * is theirs, so it is lent afresh from where they left it. */
     if (!(FollowCamLoan & FOLLOW_CAM_LOAN_YAW)) {
-        FollowCamLentPan = AddBetaCam & 4095;
+        /* Straight out of a cutscene the pan is whatever its last shot left,
+         * which nobody chose: what is owed then is behind the hero. */
+        FollowCamLentPan = FollowCamWasCinema ? 0 : (AddBetaCam & 4095);
         FollowCamLoan |= FOLLOW_CAM_LOAN_YAW;
     }
     if (!(FollowCamLoan & FOLLOW_CAM_LOAN_PITCH)) {
@@ -864,6 +881,16 @@ void FollowCamPlayerTook(S32 yaw, S32 pitch) {
 
 void FollowCamForgetLoan(void) {
     FollowCamLoan = 0;
+}
+
+void FollowCamNoteCinema(S32 cinema) {
+    /* The first frame after a cutscene. A shot that fired on it, over the spot
+     * the script left the hero at, was lent the cutscene's leftover pan; what
+     * it owes back is behind him, as it is after a building. */
+    if (FollowCamWasCinema AND !cinema AND(FollowCamLoan & FOLLOW_CAM_LOAN_YAW))
+        FollowCamLentPan = 0;
+
+    FollowCamWasCinema = cinema;
 }
 
 void FollowCamNoteScene(S32 exterior) {

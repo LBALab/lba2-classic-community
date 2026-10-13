@@ -49,6 +49,10 @@ extern S32 FollowCamObstructOwnsSearch(void);
  * unchanged without it. */
 extern S32 FollowCamRenderExtraPitch(void);
 
+/* cam_obstruct. A scripted shot has just been applied. It starts as written:
+ * the extra and any floor learnt for the view before it are dropped. */
+extern void FollowCamObstructShotFired(void);
+
 /* cam_obstruct. A re-aim or an arrival has just placed the camera with a cut.
  * Have the clearance start the next update at what the place needs, instead of
  * easing up to it from wherever the last view left it. */
@@ -127,6 +131,11 @@ extern void FollowCamForgetLoan(void);
  * loop after that frame's zone check, because the zone over a door fires as he
  * arrives and what it lends has to be on the books before this looks at them. */
 extern void FollowCamNoteScene(S32 exterior);
+
+/* Once a frame, beside FollowCamNoteScene: whether a cutscene has the camera.
+ * A shot that fires as one ends owes back "behind the hero" for the yaw, not
+ * the pan the cutscene's own shots left. */
+extern void FollowCamNoteCinema(S32 cinema);
 
 /* Set by CheckZoneSce on each frame the followed object stands in the box of a
  * camera zone that has fired, and cleared with CameraZone at the top of the

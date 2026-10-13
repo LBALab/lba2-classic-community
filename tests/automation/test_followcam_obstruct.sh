@@ -30,6 +30,12 @@
 # asks for less tilt, not more. There the render's word is taken: the tilt is raised and held,
 # and the recentre, which would take the pan, stays out.
 #
+# The last is the box of a shot that has fired. The search is not asked there, since the place
+# is the author's to judge, but a hero drawn hidden still has to be answered: with the recentre
+# stood down and the tilt held at nothing he was left hidden, by the Dome of the Slate for over
+# a second at a time. The Tavern's door stands in for it: its shot fires on arrival, and the
+# camera is then orbited into the building.
+#
 # Needs cam_zone_skip, so the shots over the door and the seam do not take the view.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
@@ -38,8 +44,8 @@ TESTNAME=followcam_obstruct
 . "$(dirname "$0")/camlib.sh"
 cam_precheck
 
-off="$(mktemp)"; on="$(mktemp)"; rising="$(mktemp)"; cut="$(mktemp)"; seam_off="$(mktemp)"; seam_on="$(mktemp)"
-trap 'rm -f "$off" "$on" "$rising" "$cut" "$seam_off" "$seam_on"' EXIT
+off="$(mktemp)"; on="$(mktemp)"; rising="$(mktemp)"; cut="$(mktemp)"; seam_off="$(mktemp)"; seam_on="$(mktemp)"; inbox="$(mktemp)"
+trap 'rm -f "$off" "$on" "$rising" "$cut" "$seam_off" "$seam_on" "$inbox"' EXIT
 
 route() { # <log> <cam_obstruct> <cam_scene_carry> <rest of the timeline...>
     local log="$1" obstruct="$2" carry="$3"
@@ -174,4 +180,34 @@ read -r son_before son_after son_recentred son_hurried <<< "$(crossing "$seam_on
 [ "$son_after" = "$son_before" ] \
     || fail "with cam_obstruct on the pan went from $son_before to $son_after on the walk to the seam"
 
-pass "out of the Tavern the pitch went from $off_own to $off_hi and stayed there with the setting off; with it on the pitch stayed $on_own, the extra was $on_first on arrival, 0 with the camera $on_leastpan units round, $on_last back behind him, at most $on_jump a frame, and he was never hidden; starting from $up_first with the hurry at 6 it reached $up_last with him hidden on $up_hurried frame(s), at most $up_jump a frame ($cut_jump with the hurry at 1), and no recentre; at the seam the pan $soff_before was recentred away with it off and kept with it on, over $son_hurried hidden frame(s)"
+# In the box of a shot that has fired. With cam_zone_skip off the zone over the Tavern's door
+# takes the view as the hero steps out, and he stays in its box while the camera is orbited round
+# into the building.
+ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
+    --exec "cam_follow 1; cam_hold_angle 1; $CAM_PLAIN; cam_obstruct 1; camtrace 1; cubetrace 1" \
+    --exec-at 20 "cube 3" \
+    --exec-at 60 "teleport 7100 1024 15600" \
+    --exec-at 100 "camnudge 30 0 80" \
+    --tick 260 --exit > "$inbox" 2>&1 || fail "shot-box run failed: exit $?"
+
+# "<shots fired> <frames in the box hidden and answered> <of those, frames with no extra at all>
+# <frames recentred> <largest extra in the box>"
+read -r box_shots box_answered box_bare box_recentred box_extra <<< "$(cam_tsv "$inbox" | awk '
+    NR == 1 { for (i = 1; i <= NF; i++) col[$i] = i; next }
+    $col["zone"] == 1 && !inzone { shots++ }
+    { inzone = $col["zone"] }
+    $col["ext"] == 1 && $col["inshot"] == 1 {
+        if ($col["hid"] == 2) { answered++; if ($col["obs"] == 0) bare++ }
+        if ($col["hid"] == 3) recentred++
+        if ($col["obs"] > extra) extra = $col["obs"]
+    }
+    END { print shots + 0, answered + 0, bare + 0, recentred + 0, extra + 0 }')"
+
+[ "$box_shots" -ge 1 ] && [ "$box_answered" -ge 1 ] \
+    || fail "the shot over the door fired $box_shots time(s) and the hero was hidden in its box on $box_answered frame(s): nothing to answer"
+[ "$box_bare" -eq 0 ] && [ "$box_extra" -ge 100 ] \
+    || fail "in the box of a fired shot the hero was hidden on $box_bare frame(s) with no extra pitch at all, and the extra only reached $box_extra"
+[ "$box_recentred" -eq 0 ] \
+    || fail "in the box of a fired shot the hero was recentred on $box_recentred frame(s)"
+
+pass "out of the Tavern the pitch went from $off_own to $off_hi and stayed there with the setting off; with it on the pitch stayed $on_own, the extra was $on_first on arrival, 0 with the camera $on_leastpan units round, $on_last back behind him, at most $on_jump a frame, and he was never hidden; starting from $up_first with the hurry at 6 it reached $up_last with him hidden on $up_hurried frame(s), at most $up_jump a frame ($cut_jump with the hurry at 1), and no recentre; at the seam the pan $soff_before was recentred away with it off and kept with it on, over $son_hurried hidden frame(s); in the box of a fired shot he was hidden on $box_answered frame(s), each answered, the extra reaching $box_extra"
