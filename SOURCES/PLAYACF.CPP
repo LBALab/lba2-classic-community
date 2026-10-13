@@ -3,7 +3,6 @@
 
 #include "BOOT_EXIT.H"
 #include "DIRECTORIES.H"
-#include "BOOT_EXIT.H"
 
 #include "IMAGE_LOAD.H"
 #include "VIDEO_FIT.H"
