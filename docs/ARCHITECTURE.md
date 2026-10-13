@@ -84,7 +84,7 @@ When the maps are solid enough to act on, the order the three axes agree on:
    aligns with the Life/Track tooling thread (#181).
 2. **First structural target: World / cube transform** — it dominates the shared-bus
    offender list, and `ChangeCube`'s phases give the exact sequence a facade must preserve.
-3. **Platform: SDK boundary implemented** — [the PAL](PLATFORM_ABSTRACTION.md) owns host resources behind a C-compatible contract, with SDL3 as the only implementation. AIL remains the sibling audio boundary; frontend-owned frame stepping is separate work.
+3. **Platform: SDK boundary implemented** — [the PAL](PLATFORM_ABSTRACTION.md) owns host resources behind a C-compatible contract, with SDL3 for interactive use and a null backend for SDK-free offscreen presentation. AIL remains the sibling audio boundary; frontend-owned frame stepping is separate work.
 
 Each step is a facade drawn *over* frozen code, proven behaviour-identical against the
 polyrec/projrec harnesses before the next. No rewrite.
