@@ -576,6 +576,12 @@ S32 FollowCamCarryIntoScene(void) {
     if (LastCubeMode != CUBE_EXTERIEUR)
         AddBetaCam = 0;
 
+    /* The pitch that goes into the new scene is the camera's own. What AlphaCam
+     * holds may be a shot's, or the obstruction search's answer for a place the
+     * hero has now left, and neither was the player's to carry. */
+    if (FollowCamOwnPitch() >= 0)
+        AlphaCam = FollowCamOwnPitch();
+
     Rotate(0, DISTANCE_VISEE, (AddBetaCam + ptr3d->Beta) & 4095);
 
     VueOffsetX = ptr3d->X + X0;
