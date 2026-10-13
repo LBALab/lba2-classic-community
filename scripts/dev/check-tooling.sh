@@ -352,6 +352,34 @@ fi
 # ---------------------------------------------------------------------------
 heading 3 "per lane (required only if you work on that lane)"
 
+SDL2_MIN="$(sed -n 's/.*find_package(SDL2 \([0-9.]*\) REQUIRED CONFIG).*/\1/p' \
+    "$REPO_ROOT/LIB386/PLATFORM/CMakeLists.txt" | head -1)"
+if [ -z "$SDL2_MIN" ] || [ -z "$CMAKE_MIN" ]; then
+    row gap "SDL2" "could not read the CMake version floors"
+elif want_tier 3 && have cmake; then
+    if mkdir -p "$REPO_ROOT/.tmp" && sdl2_probe="$(mktemp -d "$REPO_ROOT/.tmp/sdl2-probe.XXXXXX")"; then
+        cat > "$sdl2_probe/CMakeLists.txt" <<EOF
+cmake_minimum_required(VERSION $CMAKE_MIN)
+project(sdl2probe NONE)
+find_package(SDL2 $SDL2_MIN CONFIG REQUIRED)
+message(STATUS "SDL2PROBE=\${SDL2_VERSION}")
+EOF
+        if out="$(cmake -S "$sdl2_probe" -B "$sdl2_probe/build" 2>&1)"; then
+            sdl2_ver="$(printf '%s\n' "$out" | sed -n 's/.*SDL2PROBE=\([0-9.]*\).*/\1/p' | head -1)"
+            row ok "SDL2" "${sdl2_ver:-found} (CMake config) — PLATFORM_BACKEND=sdl2; sdl2-compat may still require SDL3"
+        else
+            row gap "SDL2" "optional desktop SDK >= $SDL2_MIN; floor in LIB386/PLATFORM/CMakeLists.txt"
+        fi
+        rm -f "$sdl2_probe/CMakeLists.txt"
+        rm -rf "$sdl2_probe/build"
+        rmdir "$sdl2_probe"
+    else
+        row gap "SDL2" "cannot create the CMake probe directory"
+    fi
+else
+    row gap "SDL2" "CMake is needed to probe the optional desktop SDK"
+fi
+
 # ASM equivalence built on the host instead of in the container
 if have objcopy; then
     row ok "objcopy" "LBA2_BUILD_ASM_EQUIV_TESTS=ON on the host"

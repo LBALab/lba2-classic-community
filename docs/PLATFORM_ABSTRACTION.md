@@ -64,6 +64,8 @@ SDL2 has no native folder-dialog API. Those callbacks fail with an explanatory e
 
 Some distributions package `sdl2-compat`, which implements the SDL2 API on SDL3. Such a package can satisfy CMake but is not evidence of SDL3-independent operation. Backend validation should use genuine SDL2.
 
+The independent Linux SDL2 CI job builds genuine upstream SDL2 at the supported API floor read from CMake, disables SDL3 package discovery, builds the whole game and host suite, rejects SDL3 dynamic linkage, and runs dummy-driver conformance plus an isolated missing-data boot.
+
 ## Dependency direction
 
 ```text
