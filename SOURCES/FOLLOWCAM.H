@@ -67,6 +67,7 @@ extern S32 FollowCamera;              /* the Auto camera is on (config key Follo
 extern S32 FollowCamReengageFrames;   /* frames before auto-cam re-centers after a manual pan */
 extern S32 FollowCamDriftDivisor;     /* auto-cam re-center drift divisor (higher = gentler) */
 extern S32 FollowCamSceneCarry;       /* start behind the hero in a new outdoor scene, pitch kept (cvar cam_scene_carry) */
+extern S32 FollowCamZoneSkip;         /* leave latching camera zones unfired while the player steers (cvar cam_zone_skip) */
 extern S32 FollowCamHDRecompose;      /* pull-in+steepen recompose at tall render heights (1=on) */
 extern S32 FollowCamHDExcessCap;      /* cap on the recompose kExcess so tall res converges (0 = no cap) */
 extern S32 FollowCamHDPitchGain;      /* HD recompose pitch gain (AlphaCam units per 1.0 of k-1) */

@@ -140,6 +140,14 @@ A zone writes `BetaCam` directly, so it is one of the writers described above an
 - **on** (default): the shot is held until the player orbits away or the scene changes, like any angle they set themselves.
 - **off**: the pan drift returns the camera behind the hero as he walks on, handing the shot back gradually. This is only possible because the angle was adopted; a shot the Auto camera never took ownership of cannot be given back smoothly, only snatched back.
 
+Both of those take it as given that the shot fires. `cam_zone_skip` (cfg `FollowCamZoneSkip`) is a prototype, off by default, for the other answer: a latching shot does not take the view from a player who is steering. On, the dispatch in `CheckZoneSce` passes a latching zone over while the Auto camera is on and the hero's `Move` is `MOVE_MANUAL`. Forced zones, interiors and the classic camera are as they were, and so is a hero a script is moving, who still gets the shot. A zone passed over is not latched, so it fires if a script takes the hero over while he is inside the box, and it still shadows the camera zones after it in the list, as it does when it fires.
+
+What comes with it:
+
+- **Everything `CameraZone` gates stays on.** A shot authored for a spot where the hero is hidden no longer covers that spot, so the hidden-hero recovery fires there instead and leaves the obstruction search's pitch (see [Scene changes](#scene-changes)).
+- **A door that lands in a latching zone becomes an arrival with no shot**, which is most doors. `cam_scene_carry` is what makes that arrival a clean one.
+- **Session recordings do not carry the setting.**
+
 ## Auto camera (`FollowCamera` — community addition, not in the original game)
 
 Config key `FollowCamera` (0 = classic, 1 = auto; default 0). Also reads legacy key `AutoCameraCenter` for backward compatibility. Toggled in Options → Advanced options ("Auto camera" / "Classic camera" — localized). Off by default so the original camera behavior is preserved.
@@ -239,7 +247,7 @@ How the hero reaches an outdoor scene decides what happens to the Auto camera, b
 | A change ordered by a script or the console (`FlagChgCube` 2 or 0) | `CameraCenter(1)` | The pan zeroed. The pitch back at the preset, or at the obstruction search's answer when the search finds something. | Between two outdoor scenes, pan and pitch kept and the camera behind the hero at that pan. From an interior, as for a door. |
 | A door out of an interior | `CameraCenter(0)` | The pan kept, and the yaw where the last outdoor scene left it. Having walked in facing the door and out facing away from it, the hero arrives with the camera half a turn from its target, and it spends about 140 frames swinging round him. The pitch is rewritten when the search finds the building. | The pan sent home and the pitch left alone, the camera directly behind the hero from the first frame. |
 
-A camera zone that fires where the hero lands decides the view either way, which hides the door's swing behind the shot. Of the 95 enabled doors that lead from an interior to an outdoor scene, about 60 land inside the box of an enabled camera zone (about 50 that latch, about 10 forced) and about 35 land in the open; with scenario cameras off the latching ones join those. The count takes the zones as each scene loads them and reads the landing spot off the door zone's target point. It moves by a few doors with how that point and the box edges are read (57 to 62 in a zone), so treat it as a size, not a census.
+A camera zone that fires where the hero lands decides the view either way, which hides the door's swing behind the shot. Of the 95 enabled doors that lead from an interior to an outdoor scene, about 60 land inside the box of an enabled camera zone (about 50 that latch, about 10 forced) and about 35 land in the open; with scenario cameras off the latching ones join those. The count is of the Classic re-release's scene data, takes the zones as each scene loads them and reads the landing spot off the door zone's target point. It moves by a few doors with how that point and the box edges are read (57 to 62 in a zone), so treat it as a size, not a census.
 
 `cam_scene_carry` (cfg `FollowCamSceneCarry`) is a prototype, off by default. On, `FollowCamCarryIntoScene()` ([FOLLOWCAM.CPP](../SOURCES/FOLLOWCAM.CPP)) takes the second and third arrivals in place of `ChangeCube`'s own centring. The pitch is the player's and is left alone. The pan holds from one outdoor scene to the next and goes home when the scene left was an interior: it was set for a view the hero left at the door on his way in, and held through a building it turns the camera to his side or his face as he steps out. The camera is then aimed behind the hero at that pan with the lerp's target on it, and the re-engage countdown and any orbit in flight are dropped, since both describe the scene just left. With the setting off the camera's state matches a build without it frame for frame.
 
@@ -274,6 +282,7 @@ Fixtures live in `tests/automation/`, with `camlib.sh` turning a run into a per-
 | `followcam_interrupt` | an interrupted gesture ends instead of resuming |
 | `followcam_scene_carry` | with `cam_scene_carry`, the camera arrives behind the hero with the pitch left alone: the pan kept across an ordered change between two outdoor scenes, and sent home after a visit to a building |
 | `camzone_model` | the two shapes a camera zone comes in |
+| `camzone_skip` | with `cam_zone_skip`, a latching zone leaves a steering player's view alone under the Auto camera; forced zones and the classic camera are unaffected |
 | `camzone_hold` | both cameras leave an authored shot in the same place |
 
 Two habits are worth keeping when adding to these. **Run a new fixture against a build without the thing it guards** and confirm it fails there; several of these passed at first because their setup never happened rather than because the engine was right. And **assert the cause when the symptom is unobservable**: the realign runs in the input pass, before the camera update logs anything, so on a working engine the divergence it corrects leaves no trace at all.

@@ -22,6 +22,7 @@ S32 FollowCamera = FALSE;
 S32 FollowCamReengageFrames = FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT;
 S32 FollowCamDriftDivisor = FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT;
 S32 FollowCamSceneCarry = FOLLOW_CAM_SCENE_CARRY_DEFAULT;
+S32 FollowCamZoneSkip = FOLLOW_CAM_ZONE_SKIP_DEFAULT;
 S32 FollowCamHDRecompose = FOLLOW_CAM_HD_RECOMPOSE_DEFAULT;
 S32 FollowCamHDExcessCap = FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT;
 S32 FollowCamHDPitchGain = FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT;
@@ -546,6 +547,9 @@ static const T_SETTING FollowCamSettings[] = {
     {"FollowCamSceneCarry", NULL, "cam_scene_carry", &FollowCamSceneCarry, SETTING_TRUTHY,
      FOLLOW_CAM_SCENE_CARRY_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Auto cam: start behind the hero in a new outdoor scene, pitch kept (prototype)"},
+    {"FollowCamZoneSkip", NULL, "cam_zone_skip", &FollowCamZoneSkip, SETTING_TRUTHY,
+     FOLLOW_CAM_ZONE_SKIP_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
+     "Auto cam: leave scripted shots that only latch unfired while steering (prototype)"},
     {"FollowCamHDRecompose", NULL, "cam_hd", &FollowCamHDRecompose, SETTING_TRUTHY,
      FOLLOW_CAM_HD_RECOMPOSE_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Auto cam HD recompose: pull in + steepen at tall render heights"},

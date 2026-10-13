@@ -43,6 +43,16 @@
  * through. A prototype, off by default. cvar cam_scene_carry. */
 #define FOLLOW_CAM_SCENE_CARRY_DEFAULT 0
 
+/* Camera zones ----------------------------------------------------------------*/
+/* Whether a scripted shot that only latches takes the view from a player who is
+ * steering. Off, it does, as under the classic camera: the camera cuts to the
+ * shot once on entry and hold-angle keeps it there. On, such a zone is left
+ * unfired while the Auto camera has the view outdoors and the hero is under
+ * manual control. A forced zone, an interior's, and one entered by a hero a
+ * script is moving fire as before. A prototype, off by default. cvar
+ * cam_zone_skip. */
+#define FOLLOW_CAM_ZONE_SKIP_DEFAULT 0
+
 /* Hold-angle (free-camera) mode ---------------------------------------------*/
 /* When on, the manual camera rotation (AddBetaCam) is never auto-recentered
  * while walking; it holds until the scene changes or the player hits Center

@@ -6573,9 +6573,17 @@ void CheckZoneSce(T_OBJET *ptrobj, U8 numobj) {
                 if (!foundcamera) {
                     if ((numobj == NumObjFollow)
                             AND(ptrz->Info7 & ZONE_ON)) {
+                        /* cam_zone_skip: a shot that only latches is passed over
+                         * while the player steers under the Auto camera, which has
+                         * a view of its own to keep. It is not latched either, so
+                         * it fires if a script takes the hero over inside the box.
+                         * It still counts as found, and shadows the camera zones
+                         * after it in the list as it does when it fires. */
+                        S32 steering = FollowCamZoneSkip AND FollowCamera AND ptrobj->Move == MOVE_MANUAL;
+
                         if (((ptrz->Info7 & ZONE_OBLIGATOIRE)
                                  OR(CubeMode == CUBE_INTERIEUR)
-                                     OR(!(ptrz->Info7 & ZONE_ACTIVE) AND AllCameras))) {
+                                     OR(!(ptrz->Info7 & ZONE_ACTIVE) AND AllCameras AND !steering))) {
                             SetZoneCamera(ptrz);
                             ptrz->Info7 |= ZONE_ACTIVE;
                         }
