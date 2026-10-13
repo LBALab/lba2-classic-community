@@ -58,6 +58,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--fixed-dt`, and `docs/RECORDING.md` says why. Console verbs `rec
   start|stop|play|info` do the same from a point you choose.
 
+### Changed
+
+- The Linux tarball, macOS and Android builds now bundle SDL 3.4.18 (was
+  3.2.16), so the pixelart present filter works in them. The Windows and
+  AppImage builds keep using the SDL their distribution ships.
+
 ### Fixed
 
 - On a scaled display, a Mac's Retina panel for one, the picture was drawn at
