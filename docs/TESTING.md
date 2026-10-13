@@ -113,11 +113,21 @@ It is a check, not only a report, and exits non-zero when any of six assertions 
 
 `WROTE` earned its place immediately: it caught the CD voice cache stamping mtimes on installed game data, in code nothing was reading.
 
-### 6c. Platform contract and SDL3 conformance (`tests/platform`)
+### 6c. Platform contract and SDL conformance (`tests/platform`)
 
 These are host-only tests for community platform infrastructure with no ASM original. `test_platform_contract` links real engine facades and input policy against a fixture table without SDL headers or libraries. It pins input-hook order, device/focus/timer coupling, fixed-dt and clock wrap, gamepad/touch policy, palette snapshots, and nested presentation/overlay order.
 
 `test_platform_sdl3` and `test_platform_sdl3_staging` exercise the selected SDL3 implementation, including byte-exact event payloads, virtual-gamepad sampling, worker-thread dialog/error ownership, and full-frame pixels read from the actual SDL renderer. The second target forces the persistent-buffer/upload mechanism used on Android; it does not replace on-device JNI/window/MTE checks. Both use dummy drivers and need no retail assets. See [PLATFORM_ABSTRACTION.md](PLATFORM_ABSTRACTION.md).
+
+Select desktop SDL2 with `-DPLATFORM_BACKEND=sdl2 -DSOUND_BACKEND=sdl -DCMAKE_DISABLE_FIND_PACKAGE_SDL3=ON`. `test_platform_sdl2` checks exact renderer output, letterboxing, untranslated native pointer coordinates, event payloads and text lifetime, controller instance IDs, filesystem services, message-box dispatch, and fullscreen rollback. `test_sdl_audio` checks the selected SDL transport; its SDL2 build additionally compares full converter buffers and shared-device mixing. `test_sdl_audio_device` exercises SDL2's production dummy-device consumption without deterministic test hooks. All require no retail assets; real hardware and native dialog UI still need manual coverage. Use genuine SDL2 for independence checks: `sdl2-compat` implements the SDL2 API using SDL3.
+
+```bash
+cmake -S . -B build-sdl2 -DPLATFORM_BACKEND=sdl2 -DSOUND_BACKEND=sdl \
+  -DCMAKE_DISABLE_FIND_PACKAGE_SDL3=ON \
+  -DLBA2_BUILD_TESTS=ON -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF
+cmake --build build-sdl2 --target lba2cc host_tests
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ctest --test-dir build-sdl2 -L host_quick --output-on-failure
+```
 
 With `-DPLATFORM_BACKEND=null -DSOUND_BACKEND=null -DCMAKE_DISABLE_FIND_PACKAGE_SDL3=ON`, the whole game and host suite link without SDL. The null conformance test compares complete offscreen frames and overlays; `test_platform_null_game` runs the actual executable's help and missing-data boot with an isolated writable directory. Linux CI configures this independently of its SDL installation job and rejects SDL dynamic linkage. The keyboard-layout test may skip because a null backend has no physical keymap; the shared contract fixture still pins injected-key policy.
 

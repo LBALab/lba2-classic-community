@@ -2,7 +2,7 @@
 #include "STREAM_SDL.H"
 #include "VOC_HEADER.H"
 
-#include <SDL3/SDL.h>
+#include "AUDIO_DEVICE.H"
 #include <SYSTEM/CRASH.H>
 
 #include <math.h>
@@ -192,7 +192,7 @@ struct Voice {
 
 #define SAMPLE_SIM_ENDLESS 0xFFFFFFFFu
 
-static SDL_AudioStream *sampleStream = NULL;
+static AILAudioStream *sampleStream = NULL;
 static Voice voices[NUM_VOICES];
 static U32 nextHandle = 0x1000000;
 static S32 samplesPaused = 0;
@@ -237,12 +237,12 @@ static bool VoiceHeardBySim(const Voice *V) {
 
 static void LockVoices(void) {
     if (sampleStream)
-        SDL_LockAudioStream(sampleStream);
+        AILAudio_Lock(sampleStream);
 }
 
 static void UnlockVoices(void) {
     if (sampleStream)
-        SDL_UnlockAudioStream(sampleStream);
+        AILAudio_Unlock(sampleStream);
 }
 
 static void FreeVoiceBuf(Voice *V) {
@@ -351,11 +351,11 @@ static void MixVoices(S16 *out, int numFrames) {
     }
 }
 
-/* ── SDL3 audio callback ─────────────────────────────────────────────────── */
+/* ── SDL audio callback ──────────────────────────────────────────────────── */
 
 static S16 mixChunkBuf[MIX_CHUNK_FRAMES * 2];
 
-static void SDLCALL SampleStreamCallback(void *userdata, SDL_AudioStream *stream,
+static void SDLCALL SampleStreamCallback(void *userdata, AILAudioStream *stream,
                                          int additional_amount, int total_amount) {
     (void)userdata;
     (void)total_amount;
@@ -371,7 +371,7 @@ static void SDLCALL SampleStreamCallback(void *userdata, SDL_AudioStream *stream
         if (frames <= 0)
             break;
         MixVoices(mixChunkBuf, frames);
-        SDL_PutAudioStreamData(stream, mixChunkBuf, frames * 2 * (int)sizeof(S16));
+        AILAudio_Put(stream, mixChunkBuf, frames * 2 * (int)sizeof(S16));
         bytesLeft -= frames * 2 * (int)sizeof(S16);
     }
 }
@@ -386,14 +386,14 @@ S32 InitSampleDriver(char *driver_name) {
     SDL_AudioSpec spec;
     SDL_zero(spec);
     spec.freq = SAMPLE_RATE;
-    spec.format = SDL_AUDIO_S16;
+    spec.format = AIL_AUDIO_S16;
     spec.channels = 2;
-    sampleStream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, SampleStreamCallback, NULL);
+    sampleStream = AILAudio_Open(&spec, SampleStreamCallback, NULL);
     if (!sampleStream) {
         SDL_Log("SDL AIL: Could not open sample stream: %s", SDL_GetError());
         return FALSE;
     }
-    SDL_ResumeAudioStreamDevice(sampleStream);
+    AILAudio_Resume(sampleStream);
     Sample_Driver_Enabled = TRUE;
     return TRUE;
 }
@@ -421,7 +421,7 @@ static void ScaleVolumeSamples(S32 ratio) {
 S32 FadeOutSamples(S32 delay) {
     if (delay <= 0)
         return 0;
-    U64 now = SDL_GetTicks();
+    U64 now = AIL_Ticks();
     if (!samplesFade) {
         if (sfxLogEnabled)
             SDL_Log("[SFX] FadeOutSamples START delay=%d", delay);
@@ -450,7 +450,7 @@ S32 FadeInSamples(S32 delay) {
         }
         return 0;
     }
-    U64 now = SDL_GetTicks();
+    U64 now = AIL_Ticks();
     if (samplesFade) {
         if (sfxLogEnabled)
             SDL_Log("[SFX] FadeInSamples START delay=%d", delay);
@@ -691,7 +691,7 @@ void StopSamples() {
     samplesPaused = 0;
     UnlockVoices();
     if (sampleStream)
-        SDL_ResumeAudioStreamDevice(sampleStream);
+        AILAudio_Resume(sampleStream);
 }
 
 void PauseSamples() {
@@ -699,7 +699,7 @@ void PauseSamples() {
     if (sfxLogEnabled)
         SDL_Log("[SFX] PauseSamples -> samplesPaused=%d", samplesPaused);
     if (samplesPaused == 1 && sampleStream)
-        SDL_PauseAudioStreamDevice(sampleStream);
+        AILAudio_Pause(sampleStream);
 }
 
 void ResumeSamples() {
@@ -712,7 +712,7 @@ void ResumeSamples() {
     if (sfxLogEnabled)
         SDL_Log("[SFX] ResumeSamples -> samplesPaused=%d", samplesPaused);
     if (samplesPaused == 0 && sampleStream)
-        SDL_ResumeAudioStreamDevice(sampleStream);
+        AILAudio_Resume(sampleStream);
 }
 
 S32 GetSamplesPausedCount() {

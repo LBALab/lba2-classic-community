@@ -5,7 +5,11 @@
 #include <PLATFORM/PLATFORM.H>
 #include "test_harness.h"
 
+#ifdef LBA2_USE_SDL2
+#include <SDL.h>
+#else
 #include <SDL3/SDL.h>
+#endif
 
 #include <stdio.h>
 #include <string.h>
