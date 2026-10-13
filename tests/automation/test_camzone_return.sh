@@ -43,8 +43,10 @@ LATCH="19000 3900 4600"
 
 # shot_run <name> <cvars> <inside-xyz> [extra engine args...]
 #
-# Settle behind the hero outside every zone, step into the box, turn about a quarter turn inside
-# it, then leave and stand still. A settings folder per run: the cfg written at exit carries every
+# Settle behind the hero outside every zone, tilt the camera a touch, step into the box, turn
+# about a quarter turn inside it, then leave and stand still. The tilt is what makes the pitch on
+# screen before the shot the camera's own: cube 90 starts the hero inside a camera zone, and the
+# pitch that zone left behind is not something a later shot owes back. A settings folder per run: the cfg written at exit carries every
 # cvar into the next boot, and cube 90 starts the hero inside a camera zone, so a run would
 # otherwise begin with a loan the previous run's settings took out.
 shot_run() {
@@ -57,6 +59,7 @@ shot_run() {
         --exec "cube 90" \
         --exec-at 15 "camtrace 1; cam_follow 1; cam_hold_angle 1; $cvars" \
         --exec-at 20 "teleport $NEUTRAL" \
+        --exec-at 100 "camnudge 0 5 2" \
         --exec-at 150 "teleport $inside" \
         --exec-at 200 "input left 40" \
         --exec-at 300 "teleport $NEUTRAL" \
@@ -215,5 +218,71 @@ ctl_door_orbit door_orbit
     || fail "out of the building the yaw went back to the orbit's angle, $(field door_orbit add last), not behind the hero at $(field door_orbit add before)"
 [ "$(field door_orbit alpha last)" = "$(field door_orbit alpha before)" ] \
     || fail "out of the building the pitch was not given back: $(field door_orbit alpha last)"
+
+# --- What is owed for the pitch is the camera's own, not what the obstruction search left ------
+# Two writers put a pitch in AlphaCam that is neither the player's nor the camera's rest: a camera
+# zone, and the obstruction search a recentre runs. A door's recentre runs that search on the
+# arrival frame, just ahead of the zone over the door, so a loan taken out against AlphaCam as it
+# stood handed the search's pitch back on leaving the box (767 at the Tavern, above anything the
+# player can tilt to). Start indoors with nothing on loan, as after loading a save in a building.
+indoor_run() { # <name>
+    LBA2_USER_DIR="$work/user-$1"
+    export LBA2_USER_DIR
+    mkdir -p "$LBA2_USER_DIR"
+    ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
+        --exec "cube 3" \
+        --exec-at 15 "camtrace 1; cam_follow 1; cam_hold_angle 1; cam_zone_return 1; cam_zone_anchor 0" \
+        --exec-at 60 "teleport 7100 1024 15600" \
+        --exec-at 200 "teleport 17852 250 9500 2048" \
+        --tick 520 --exit > "$work/$1.log" 2>&1 || fail "run $1 failed: exit $?"
+    cam_tsv "$work/$1.log" > "$work/$1.tsv"
+}
+
+indoor_run indoor_start
+
+# The pitch on the last frame indoors, which is the preset the scene change set.
+indoor_pitch="$(awk 'NR == 1 { for (i = 1; i <= NF; i++) { if ($i == "alpha") a = i; if ($i == "ext") e = i }; next }
+                     $e == 0 { p = $a } END { print p }' "$work/indoor_start.tsv")"
+[ "$(ever indoor_start loan 7)" -ge 1 ] \
+    || fail "walking out of the building never led to a return: the shot over the door did not fire, or he never left its box"
+[ "$(field indoor_start alpha shot)" != "$indoor_pitch" ] \
+    || fail "the door's shot authored the pitch the camera already had ($indoor_pitch): nothing to give back"
+[ "$(field indoor_start alpha last)" = "$indoor_pitch" ] \
+    || fail "out of a building entered with nothing on loan, the pitch came back as $(field indoor_start alpha last), not the camera's own $indoor_pitch"
+
+# The recentre the engine makes when it loses sight of the hero is not the player saying where
+# the camera should rest. Tilt, take a shot that hides him when he turns under it (the recovery
+# fires and ends that loan), take a second shot and leave it: the tilt is what comes back.
+ctl_recovery() { # <name>
+    LBA2_USER_DIR="$work/user-$1"
+    export LBA2_USER_DIR
+    mkdir -p "$LBA2_USER_DIR"
+    ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
+        --exec "cube 90" \
+        --exec-at 15 "camtrace 1; cam_follow 1; cam_hold_angle 1; cam_zone_return 1; cam_zone_anchor 0" \
+        --exec-at 20 "teleport $NEUTRAL" \
+        --exec-at 100 "camnudge 0 5 6" \
+        --exec-at 150 "teleport $LATCH" \
+        --exec-at 200 "input left 40" \
+        --exec-at 330 "teleport 21000 3900 9000" \
+        --exec-at 430 "teleport $NEUTRAL" \
+        --tick 700 --exit > "$work/$1.log" 2>&1 || fail "run $1 failed: exit $?"
+    cam_tsv "$work/$1.log" > "$work/$1.tsv"
+}
+
+ctl_recovery recovery
+
+tilt="$(field recovery alpha before)"
+# A frame after the first shot with the loan gone and the pan at zero is the recovery's recentre.
+recovered="$(awk 'NR == 1 { for (i = 1; i <= NF; i++) { if ($i == "add") p = i; if ($i == "zone") z = i; if ($i == "loan") l = i }; next }
+                  $z == 1 { fired++ } fired == 1 && $z == 0 && $l == 0 && $p == 0 { n++ } END { print n + 0 }' "$work/recovery.tsv")"
+[ "$(ever recovery zone 1)" -ge 2 ] \
+    || fail "the two shots did not both fire ($(ever recovery zone 1))"
+[ "$recovered" -ge 1 ] \
+    || fail "the hidden-hero recovery never fired between the two shots, so nothing tried to replace the player's pitch"
+[ "$tilt" != 300 ] \
+    || fail "the tilt left the pitch on the preset: the run cannot tell the player's pitch from a recentre's"
+[ "$(field recovery alpha last)" = "$tilt" ] \
+    || fail "after the engine's own recentre the pitch came back as $(field recovery alpha last), not the $tilt the player had tilted to"
 
 pass "left to itself the shot kept yaw $(field forced_off add last) and pitch $(field forced_off alpha last); returned, both came back to $pan0 and $pitch0; the player's orbit stayed at $(field took_yaw add last); the anchor held $(field latch_anchor beta shot) for the whole visit; a trip indoors and back still returned $(field door_off add last) to $(field door_return add last), and after an orbit too"

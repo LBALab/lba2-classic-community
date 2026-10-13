@@ -62,8 +62,20 @@ extern void FollowCamSyncTarget(void);
  * what has to be remembered is what they are about to replace. */
 extern void FollowCamLendToShot(S32 shotBeta);
 
-/* The player set that axis by hand, so it is theirs now and is not given back. */
+/* The player set that axis by hand, so it is theirs now and is not given back.
+ * For the pitch, call it after the tilt has been applied and clamped: the value
+ * AlphaCam holds then is remembered as the camera's own. */
 extern void FollowCamPlayerTook(S32 yaw, S32 pitch);
+
+/* The pitch the Auto camera rests at when nobody else has it. A recentre tells
+ * it the preset it has just set, before the obstruction search can replace it,
+ * and a load tells it the saved one. A shot's loan is taken out against this
+ * and returned to it, in place of whatever AlphaCam held when the shot fired. */
+extern void FollowCamNoteOwnPitch(S32 alpha);
+
+/* That pitch, or -1 while none is known. For a caller whose recentre is the
+ * engine's doing and not the player's, to put back what CameraCenter noted. */
+extern S32 FollowCamOwnPitch(void);
 
 /* Nothing is owed any more: a recentre, a scene change that recentres, a
  * cutscene, a loaded save or the Auto camera being switched off decided where

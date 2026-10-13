@@ -69,6 +69,15 @@ static S32 FollowCamLentAlpha = 0;      /* AlphaCam as it was before the shot */
 static S32 FollowCamShotBeta = 0;       /* the shot's authored world yaw */
 static S32 FollowCamWasIndoors = FALSE; /* the last simulated frame was in an interior */
 
+/* The pitch the Auto camera rests at when nobody else has it: the player's own
+ * tilt if they set one, the preset a recentre put there if not. -1 until one of
+ * those has happened. AlphaCam cannot stand in for it, because two writers put
+ * pitches there that are not the camera's own and nothing takes them away
+ * again: a camera zone, and the obstruction search CameraCenter runs, whose
+ * position is discarded by the next follow update while the pitch it wrote
+ * beside it stays. */
+static S32 FollowCamOwnAlpha = -1;
+
 /* This file's live settings, applied to the rule in FOLLOWCAM_MATH.H (which the
  * host test covers). Callers pass 0 instead inside a camera zone, so an authored
  * shot is never recomposed. Tuning in FOLLOWCAM_CFG.H. */
@@ -549,18 +558,35 @@ void FollowCamLendToShot(S32 shotBeta) {
         FollowCamLoan |= FOLLOW_CAM_LOAN_YAW;
     }
     if (!(FollowCamLoan & FOLLOW_CAM_LOAN_PITCH)) {
-        FollowCamLentAlpha = AlphaCam;
+        /* The camera's own pitch, and not whatever AlphaCam holds as the shot
+         * fires. A door's recentre runs the obstruction search on the arrival
+         * frame, just ahead of the zone over that door, and the search leaves a
+         * pitch of its own (767 at the Tavern, above anything the player can
+         * tilt to). Lent as found, that is what the return would hand back. */
+        if (FollowCamOwnAlpha < 0)
+            FollowCamOwnAlpha = AlphaCam; /* nothing better is known yet */
+        FollowCamLentAlpha = FollowCamOwnAlpha;
         FollowCamLoan |= FOLLOW_CAM_LOAN_PITCH;
     }
     FollowCamLoan &= ~FOLLOW_CAM_LOAN_RETURNING;
     FollowCamShotBeta = shotBeta & 4095;
 }
 
+void FollowCamNoteOwnPitch(S32 alpha) {
+    FollowCamOwnAlpha = alpha;
+}
+
+S32 FollowCamOwnPitch(void) {
+    return FollowCamOwnAlpha;
+}
+
 void FollowCamPlayerTook(S32 yaw, S32 pitch) {
     if (yaw)
         FollowCamLoan &= ~FOLLOW_CAM_LOAN_YAW;
-    if (pitch)
+    if (pitch) {
         FollowCamLoan &= ~FOLLOW_CAM_LOAN_PITCH;
+        FollowCamOwnAlpha = AlphaCam; /* callers tilt and clamp first, so this is where they left it */
+    }
     if (!(FollowCamLoan & (FOLLOW_CAM_LOAN_YAW | FOLLOW_CAM_LOAN_PITCH)))
         FollowCamLoan = 0;
 }

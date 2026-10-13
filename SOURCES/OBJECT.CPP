@@ -4974,7 +4974,19 @@ S32 AffOneObject(T_SORT *pt) {
                                           AND TestNumObjFollow // protec boucle infinie
                                               AND !CameraZone) {
                             TestNumObjFollow = FALSE;
-                            CameraCenter(1);
+                            {
+                                /* A recentre the engine makes because it lost
+                                 * sight of the hero, not one the player asked
+                                 * for. It resets the pitch on screen as it
+                                 * always has, but it is not a statement of where
+                                 * the player wants the camera to rest, so what
+                                 * the Auto camera remembers as its own pitch is
+                                 * put back. */
+                                S32 ownPitch = FollowCamOwnPitch();
+                                CameraCenter(1);
+                                if (ownPitch >= 0)
+                                    FollowCamNoteOwnPitch(ownPitch);
+                            }
                             return TRUE;
                         }
                     } else if (numobj == NumObjFollow)

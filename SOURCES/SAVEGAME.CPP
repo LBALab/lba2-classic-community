@@ -2024,6 +2024,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         /* The file has just decided where the camera is. What a scripted shot
          * was owed back belongs to the game that was running before the load. */
         FollowCamForgetLoan();
+        FollowCamNoteOwnPitch(AlphaCam);
 
         LbaReadLong(VueOffsetX);
         LbaReadLong(VueOffsetY);

@@ -2022,11 +2022,11 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
     }
     if (dAlpha != 0) {
         AlphaCam += dAlpha;
-        FollowCamPlayerTook(FALSE, TRUE);
         if (AlphaCam < FOLLOW_CAM_ALPHA_MIN)
             AlphaCam = FOLLOW_CAM_ALPHA_MIN;
         if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
             AlphaCam = FOLLOW_CAM_ALPHA_MAX;
+        FollowCamPlayerTook(FALSE, TRUE); /* after the clamp: it remembers the pitch as the player left it */
         FirstTime = AFF_ALL_FLIP;
         changed = 1;
     }

@@ -356,6 +356,9 @@ void CameraCenter(S32 flagbeta) {
         VueDistance = DefVueDistance[VueCamera];
         AlphaCam = DefAlphaCam[VueCamera];
 #endif
+        /* The Auto camera's own pitch from here on, noted before the
+         * obstruction search below gets the chance to write over it. */
+        FollowCamNoteOwnPitch(AlphaCam);
 
         newbeta = AddBetaCam + ptr3d->Beta;
         newbeta &= 4095;
@@ -384,6 +387,9 @@ void CameraCenter(S32 flagbeta) {
         VueDistance = DefVueDistance[VueCamera];
         AlphaCam = DefAlphaCam[VueCamera];
 #endif
+        /* The Auto camera's own pitch from here on, noted before the
+         * obstruction search below gets the chance to write over it. */
+        FollowCamNoteOwnPitch(AlphaCam);
 
         BetaCam = 2048 - ptr3d->Beta;
         BetaCam &= 4095;
