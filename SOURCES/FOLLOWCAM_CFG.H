@@ -173,8 +173,10 @@
 /* Where the search finds nothing and the hero is drawn hidden all the same, the
  * render's word is taken over the search's: the extra is raised by a step for
  * each such frame, and that floor holds until he has walked this far from where
- * it was last raised. */
-#define FOLLOW_CAM_OBSTRUCT_HIDDEN_STEP 64   /* extra pitch added per frame he is still hidden (AlphaCam units) */
+ * it was last raised. The step is taken whole, not eased: it is small enough not
+ * to read as a pop, and eased at the ordinary rate it left him hidden for a
+ * second at a time by the covered bridge. */
+#define FOLLOW_CAM_OBSTRUCT_HIDDEN_STEP 20   /* extra pitch added per frame he is still hidden (AlphaCam units) */
 #define FOLLOW_CAM_OBSTRUCT_FLOOR_REACH 2048 /* distance on either axis over which a floor is kept (world units, four bricks) */
 
 /* Gamepad right-stick camera ------------------------------------------------*/

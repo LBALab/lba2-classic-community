@@ -61,7 +61,7 @@ static S32 FollowCamGroundSettling = 0;   /* ground clearance: lift still easing
 static S32 FollowCamObstructExtra = 0;    /* obstruction clearance: eased pitch added for the render */
 static S32 FollowCamObstructTarget = 0;   /* obstruction clearance: what the last probe asked for */
 static S32 FollowCamObstructSnap = 0;     /* obstruction clearance: the next update starts settled */
-static S32 FollowCamObstructHurrying = 0; /* obstruction clearance: the hero was drawn hidden, ease fast */
+static S32 FollowCamObstructHurrying = 0; /* obstruction clearance: the hero was drawn hidden (1 while rising, 2 with the search silent) */
 static S32 FollowCamObstructFloor = 0;    /* obstruction clearance: the least extra a hidden hero has shown this spot to need */
 static S32 FollowCamObstructFloorX = 0;   /* obstruction clearance: where he stood when the floor was last raised */
 static S32 FollowCamObstructFloorZ = 0;
@@ -515,6 +515,14 @@ void UpdateFollowCameraExt(void) {
 
                     if (FollowCamObstructSnap) {
                         FollowCamObstructExtra = FollowCamObstructTarget;
+                    } else if (FollowCamObstructHurrying == 2) {
+                        /* Hidden with the search silent: the floor was raised a
+                         * step and the extra goes up by that step, at once. Eased
+                         * like the rest it would creep at a tenth of the step and
+                         * leave him hidden for a second. */
+                        FollowCamObstructExtra += FOLLOW_CAM_OBSTRUCT_HIDDEN_STEP;
+                        if (FollowCamObstructExtra > FollowCamObstructTarget)
+                            FollowCamObstructExtra = FollowCamObstructTarget;
                     } else {
                         S32 div = FOLLOW_CAM_OBSTRUCT_EASE;
 
@@ -793,9 +801,12 @@ S32 FollowCamObstructHidden(void) {
         FollowCamObstructFloorX = ptr3d->X;
         FollowCamObstructFloorZ = ptr3d->Z;
         FollowCamObstructTarget = floor;
+        FollowCamObstructHurrying = 2;
+        FollowCamNoteHidden(2);
+        return TRUE;
     }
 
-    FollowCamObstructHurrying = TRUE;
+    FollowCamObstructHurrying = 1;
     FollowCamNoteHidden(2);
     return TRUE;
 }
