@@ -62,11 +62,12 @@ static S32 FollowCamGroundSettling = 0; /* ground clearance: lift still easing (
 #define FOLLOW_CAM_LOAN_YAW 1
 #define FOLLOW_CAM_LOAN_PITCH 2
 #define FOLLOW_CAM_LOAN_RETURNING 4
-S32 FollowCamInShotBox = FALSE;    /* this frame: the followed object is in the box of a camera zone that has fired */
-static S32 FollowCamLoan = 0;      /* FOLLOW_CAM_LOAN_* */
-static S32 FollowCamLentPan = 0;   /* AddBetaCam as it was before the shot */
-static S32 FollowCamLentAlpha = 0; /* AlphaCam as it was before the shot */
-static S32 FollowCamShotBeta = 0;  /* the shot's authored world yaw */
+S32 FollowCamInShotBox = FALSE;         /* this frame: the followed object is in the box of a camera zone that has fired */
+static S32 FollowCamLoan = 0;           /* FOLLOW_CAM_LOAN_* */
+static S32 FollowCamLentPan = 0;        /* AddBetaCam as it was before the shot */
+static S32 FollowCamLentAlpha = 0;      /* AlphaCam as it was before the shot */
+static S32 FollowCamShotBeta = 0;       /* the shot's authored world yaw */
+static S32 FollowCamWasIndoors = FALSE; /* the last simulated frame was in an interior */
 
 /* This file's live settings, applied to the rule in FOLLOWCAM_MATH.H (which the
  * host test covers). Callers pass 0 instead inside a camera zone, so an authored
@@ -191,8 +192,16 @@ void UpdateFollowCameraExt(void) {
              * he may have turned any amount under a held shot since, and without
              * this the camera would first swing by that turn and only then begin
              * to come back. */
-            if (FollowCamLoan & FOLLOW_CAM_LOAN_YAW)
+            if (FollowCamLoan & FOLLOW_CAM_LOAN_YAW) {
                 FollowCamAdoptAngle();
+                /* And without waiting out a grace left over from a pan made
+                 * before the shot. That countdown only runs while the hero
+                 * walks, and it stops the camera following its target, so a
+                 * player who had orbited a moment before the shot and stopped
+                 * outside its box would watch the offset come home on paper
+                 * while the camera stayed where the shot left it. */
+                FollowCamReengageDelay = 0;
+            }
         } else {
             FollowCamLoan = 0; /* anchor only: the shot ends here and nothing is given back */
         }
@@ -558,6 +567,29 @@ void FollowCamPlayerTook(S32 yaw, S32 pitch) {
 
 void FollowCamForgetLoan(void) {
     FollowCamLoan = 0;
+}
+
+void FollowCamNoteScene(S32 exterior) {
+    S32 cameOut = (exterior AND FollowCamWasIndoors);
+
+    FollowCamWasIndoors = !exterior;
+
+    /* Coming out of a building, what a shot owes back for the yaw is "behind the
+     * hero", whatever pan it was lent at.
+     *
+     * The pan is an offset from his facing, and he comes out facing the other
+     * way, so one that put the camera beside him going in puts it in front of
+     * him coming out. That matters most for a pan the player set while the shot
+     * over a door had the camera: it was made to look round that scene, the
+     * zone lends it afresh as he steps back out, and returned as it stood it
+     * left the camera in front of him for as long as he kept walking. Played by
+     * the maintainer at the Tavern door, 159 degrees off for thirty seconds.
+     *
+     * Only what is owed changes. The angle on screen is the shot's until he
+     * leaves its box, and a pan with no shot involved is not this function's
+     * business: what a door does to that belongs to the scene change. */
+    if (cameOut AND(FollowCamLoan & FOLLOW_CAM_LOAN_YAW))
+        FollowCamLentPan = 0;
 }
 
 /* The cfg keys this module owns. Declared in FOLLOWCAM.H, called by

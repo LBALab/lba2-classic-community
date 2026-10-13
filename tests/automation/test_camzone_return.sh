@@ -180,4 +180,40 @@ door_run door_return "cam_zone_return 1; cam_zone_anchor 0"
 [ "$(field door_return alpha last)" = "$(field door_return alpha before)" ] \
     || fail "after a visit indoors the pitch was not given back: $(field door_return alpha last), lent at $(field door_return alpha before)"
 
-pass "left to itself the shot kept yaw $(field forced_off add last) and pitch $(field forced_off alpha last); returned, both came back to $pan0 and $pitch0; the player's orbit stayed at $(field took_yaw add last); the anchor held $(field latch_anchor beta shot) for the whole visit; a trip indoors and back still returned $(field door_off add last) to $(field door_return add last)"
+# --- Coming out of a building, the yaw goes home ----------------------------------------------
+# The same door, but the player orbits while the shot has the camera and then goes inside. The
+# pan is an offset from the hero's facing and he comes out facing the other way, so given back as
+# it stood it leaves the camera in front of him. Out of a building what is owed is "behind him".
+# An orbit followed by a walk out of the box with no building in between keeps its angle, which
+# is the took_yaw run above: the two differ by the visit and nothing else.
+ctl_door_orbit() { # <name>
+    LBA2_USER_DIR="$work/user-$1"
+    export LBA2_USER_DIR
+    mkdir -p "$LBA2_USER_DIR"
+    ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
+        --exec "cube 42" \
+        --exec-at 15 "camtrace 1; cam_follow 1; cam_hold_angle 1; cam_zone_return 1; cam_zone_anchor 0" \
+        --exec-at 20 "teleport 17852 250 9500 2048" \
+        --exec-at 150 "teleport 17852 250 8150 2048" \
+        --exec-at 170 "camnudge 30 0 20" \
+        --exec-at 260 "input up 120" \
+        --exec-at 440 "teleport 7100 1024 15600" \
+        --exec-at 540 "teleport 17852 250 9500 2048" \
+        --tick 860 --exit > "$work/$1.log" 2>&1 || fail "run $1 failed: exit $?"
+    cam_tsv "$work/$1.log" > "$work/$1.tsv"
+}
+
+ctl_door_orbit door_orbit
+
+[ "$(ever door_orbit orbit 1)" -ge 5 ] \
+    || fail "the orbit during the shot never happened, so there was no pan of the player's to carry indoors"
+[ "$(ever door_orbit loan 2)" -ge 1 ] \
+    || fail "the orbit did not make the yaw the player's: the run is the plain door visit again"
+[ "$(ever door_orbit ext 0)" -gt 50 ] \
+    || fail "the hero never got indoors after orbiting"
+[ "$(field door_orbit add last)" = "$(field door_orbit add before)" ] \
+    || fail "out of the building the yaw went back to the orbit's angle, $(field door_orbit add last), not behind the hero at $(field door_orbit add before)"
+[ "$(field door_orbit alpha last)" = "$(field door_orbit alpha before)" ] \
+    || fail "out of the building the pitch was not given back: $(field door_orbit alpha last)"
+
+pass "left to itself the shot kept yaw $(field forced_off add last) and pitch $(field forced_off alpha last); returned, both came back to $pan0 and $pitch0; the player's orbit stayed at $(field took_yaw add last); the anchor held $(field latch_anchor beta shot) for the whole visit; a trip indoors and back still returned $(field door_off add last) to $(field door_return add last), and after an orbit too"

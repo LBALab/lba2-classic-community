@@ -1863,6 +1863,10 @@ restartloop:
         if (CameraZone OR CinemaMode OR CubeMode != CUBE_EXTERIEUR OR !FollowCamera)
             FollowCamForgetManualGesture();
 
+        /* After this frame's zone check, so that on the frame the hero comes out
+         * of a building it can tell a shot firing over the door from open ground. */
+        FollowCamNoteScene(CubeMode == CUBE_EXTERIEUR);
+
         /* The same for what a scripted shot is owed back, in the two states that
          * take the camera's angles for themselves: a cutscene aims it where it
          * likes, and with the Auto camera off the classic one keeps whatever it

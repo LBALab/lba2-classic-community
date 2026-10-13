@@ -71,6 +71,12 @@ extern void FollowCamPlayerTook(S32 yaw, S32 pitch);
  * survive a visit to an interior, so the loan does too. */
 extern void FollowCamForgetLoan(void);
 
+/* Told once per simulated frame whether the scene is an exterior, so the loan
+ * can see the frame the hero comes out of an interior. Called from the main
+ * loop after that frame's zone check, because the zone over a door fires as he
+ * arrives and what it lends has to be on the books before this looks at them. */
+extern void FollowCamNoteScene(S32 exterior);
+
 /* Set by CheckZoneSce on each frame the followed object stands in the box of a
  * camera zone that has fired, and cleared with CameraZone at the top of the
  * frame. CameraZone itself cannot say this: for a zone that fires once it is
