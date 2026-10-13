@@ -15,8 +15,8 @@
  * gamepad right stick) are EXTFUNC.CPP's, and their globals are still declared
  * in C_EXTERN.H.
  *
- * The main loop drives the camera through the four calls below rather than
- * touching the smoothing state directly; that state stays private to the .CPP. */
+ * The main loop drives the camera through the calls below rather than touching
+ * the smoothing state directly; that state stays private to the .CPP. */
 
 /* Per-frame update, exterior only. Spring-arm zoom, lazy orbit and pan drift,
  * HD recompose, terrain occlusion clearance, and the manual-override fade. */
@@ -50,6 +50,31 @@ extern void FollowCamResetToView(void);
  * camera already is. This one writes the target the lerp is heading for. */
 extern void FollowCamSyncTarget(void);
 
+/* A scripted shot's loan (cam_zone_return, cam_zone_anchor; both off by default).
+ *
+ * A camera zone takes the yaw and the pitch from whoever had them. With either
+ * setting on, the Auto camera remembers what it had so the update can give it
+ * back when the hero leaves the shot's box, and holds the shot's own yaw while
+ * he is inside it. With both off none of these does anything, and the shot's
+ * leftovers stay with the camera as they always have.
+ *
+ * FollowCamLendToShot is called by the zone before it writes its angles, since
+ * what has to be remembered is what they are about to replace. */
+extern void FollowCamLendToShot(S32 shotBeta);
+
+/* The player set that axis by hand, so it is theirs now and is not given back. */
+extern void FollowCamPlayerTook(S32 yaw, S32 pitch);
+
+/* Nothing is owed any more: a recentre, a scene change, a cutscene, an interior
+ * or the Auto camera being switched off decided where the camera points. */
+extern void FollowCamForgetLoan(void);
+
+/* Set by CheckZoneSce on each frame the followed object stands in the box of a
+ * camera zone that has fired, and cleared with CameraZone at the top of the
+ * frame. CameraZone itself cannot say this: for a zone that fires once it is
+ * true for a single frame, however long the hero stays in the box. */
+extern S32 FollowCamInShotBox;
+
 /* Settings. Read from the cfg by ReadConfigFile and written back by
  * WriteConfigFile (both PERSO.CPP); most are also console cvars. Defaults in
  * FOLLOWCAM_CFG.H. */
@@ -65,6 +90,8 @@ extern S32 FollowCamGround;           /* smooth terrain ground-clearance lift (1
 extern S32 FollowCamGroundClearance;  /* keep the eye this far above the ground under it */
 extern S32 FollowCamManualHoldFrames; /* manual-override hold length (cvar cam_manual_hold) */
 extern S32 FollowCamHoldAngle;        /* hold manual rotation, no auto-recenter drift (cvar cam_hold_angle) */
+extern S32 FollowCamZoneReturn;       /* give a shot's yaw and pitch back on leaving its box (cvar cam_zone_return) */
+extern S32 FollowCamZoneAnchor;       /* hold a latching shot's world yaw while inside its box (cvar cam_zone_anchor) */
 
 /* Live state other TUs read or write. The rest of the smoothing state is
  * private to FOLLOWCAM.CPP. */

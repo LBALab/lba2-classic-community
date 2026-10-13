@@ -147,6 +147,17 @@ What is held is the offset, not the shot. The zone's yaw is a world angle, and a
 
 The pitch stays as authored in both, because the path that restores the presets (above) is skipped for the exterior Auto camera. None of this is given back by walking on, by leaving the box, or by crossing into the next exterior cube. An orbit, Center camera, a scene change that recentres, or the hidden-hero recovery clears it. `test_camzone_hold.sh` compares the two cameras while the hero stands still, which is the one case where they agree.
 
+### A shot as a loan (prototype, off by default)
+
+Two settings treat an authored shot as something the Auto camera lends the view to and gets back, instead of something whose leftovers it keeps. Both are off by default and change nothing until switched on: with both off the camera's state matches the build without them frame for frame. They exist so the behaviour can be judged by playing.
+
+- **`cam_zone_return`** (cfg `FollowCamZoneReturn`): when the hero leaves the box of the shot that fired, the yaw pan and the pitch ease back to what the Auto camera had before the shot, at the pan drift's pace (`cam_recenter_drift`) and whether or not he is walking. For a player who never touches the camera that is behind the hero; for one who had set an angle it is that angle. The return starts from the angle on screen, so leaving a forced zone is one motion and not a swing followed by a drift. An axis the player sets by hand while the shot has the camera is theirs and is not given back: an orbit or the quarter-turn key for the yaw, a tilt for the pitch. A second shot firing before the first has been returned changes what is on screen but not what is owed.
+- **`cam_zone_anchor`** (cfg `FollowCamZoneAnchor`): inside the box of a zone that fires once, hold the shot's world yaw as the classic camera does, by re-solving the pan against the hero's facing every frame. Forced zones already behave this way. On its own it ends at the edge of the box and nothing is given back.
+
+The loan ends without a return whenever something else decides where the camera points: Center camera and every other `CameraCenter(1)` or `(2)`, which includes the hidden-hero recovery and a script's camera order, then a cutscene, an interior, the Auto camera being switched off, and loading a save. The boom is not part of it and still goes back to the player's arm on the first frame the update runs.
+
+Knowing the hero is still inside a latching zone's box needs more than `CameraZone`, which is true only on the frame the shot is applied. `CheckZoneSce` sets `FollowCamInShotBox` on each frame the followed object stands in the box of a camera zone that has fired, and `camtrace` reports it as `inshot`, beside `loan` (1 yaw, 2 pitch, 4 on its way back).
+
 ## Auto camera (`FollowCamera` — community addition, not in the original game)
 
 Config key `FollowCamera` (0 = classic, 1 = auto; default 0). Also reads legacy key `AutoCameraCenter` for backward compatibility. Toggled in Options → Advanced options ("Auto camera" / "Classic camera" — localized). Off by default so the original camera behavior is preserved.
@@ -240,7 +251,7 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 
 The camera resisted iteration for a long time because nothing about it was asserted: a change was judged by playing, and a regression arrived as a field report. A 75 degree snap from a 1 unit stick touch survived two releases that way.
 
-**`camtrace <0|1>`** logs one line per frame: the angles, how far `BetaCam` moved and who moved it, the re-engage countdown, whether an orbit is driving, and `zone` / `forced` / `cine` / `follow` / `ext` / `vue` / `alpha` / `dist` for which camera holds the view. It is emitted from the main loop rather than from the Auto camera's update, so it reports camera zones, cutscenes, interiors and the classic camera, none of which run that update. `target` is maintained by the Auto camera alone and reads stale when `follow` is 0.
+**`camtrace <0|1>`** logs one line per frame: the angles, how far `BetaCam` moved and who moved it, the re-engage countdown, whether an orbit is driving, `zone` / `forced` / `cine` / `follow` / `ext` / `vue` / `alpha` / `dist` for which camera holds the view, and `inshot` / `loan` for a scripted shot's hold on it. It is emitted from the main loop rather than from the Auto camera's update, so it reports camera zones, cutscenes, interiors and the classic camera, none of which run that update. `target` is maintained by the Auto camera alone and reads stale when `follow` is 0.
 
 **`camnudge <dBeta> [dAlpha] [frames]`** feeds the same per-frame nudge the mouse drag and the right stick feed, at the same point in the frame, so the analog camera can be driven without a device.
 
@@ -260,6 +271,7 @@ Fixtures live in `tests/automation/`, with `camlib.sh` turning a run into a per-
 | `followcam_interrupt` | an interrupted gesture ends instead of resuming |
 | `camzone_model` | the two shapes a camera zone comes in |
 | `camzone_hold` | both cameras leave an authored shot in the same place |
+| `camzone_return` | with the prototype settings on, a shot's yaw and pitch come back on leaving its box, the player's own stay, and a latching shot holds its world angle |
 
 Two habits are worth keeping when adding to these. **Run a new fixture against a build without the thing it guards** and confirm it fails there; several of these passed at first because their setup never happened rather than because the engine was right. And **assert the cause when the symptom is unobservable**: the realign runs in the input pass, before the camera update logs anything, so on a working engine the divergence it corrects leaves no trace at all.
 
@@ -295,7 +307,8 @@ Two habits are worth keeping when adding to these. **Run a new fixture against a
 | Orbit gesture state     | SOURCES/EXTFUNC.CPP        | `FollowCamAdoptAngle`, `FollowCamForgetManualGesture`, `ApplyManualCameraNudge`, `cam_glide` |
 | Camera zone dispatch    | SOURCES/OBJECT.CPP         | `SetZoneCamera`, `ZONE_ON` / `ZONE_ACTIVE` / `ZONE_OBLIGATOIRE` (COMMON.H), `AllCameras` |
 | Camera trace            | SOURCES/FOLLOWCAM.CPP      | `FollowCamTrace`, `camtrace` / `camnudge` console commands |
-| Angle arithmetic        | SOURCES/FOLLOWCAM_MATH.H   | `FollowCamAngleDiff`, `FollowCamTargetBetaFor`, `FollowCamPanForAngle`, `FollowCamRotStep`; host test in tests/camera |
+| A shot's loan (prototype) | SOURCES/FOLLOWCAM.CPP, SOURCES/OBJECT.CPP | `FollowCamLendToShot`, `FollowCamPlayerTook`, `FollowCamForgetLoan`, `FollowCamInShotBox`, `cam_zone_return` / `cam_zone_anchor` cvars |
+| Angle arithmetic        | SOURCES/FOLLOWCAM_MATH.H   | `FollowCamAngleDiff`, `FollowCamTargetBetaFor`, `FollowCamPanForAngle`, `FollowCamRotStep`, `FollowCamEasePan`, `FollowCamEaseValue`; host test in tests/camera |
 | Manual-override fade    | SOURCES/FOLLOWCAM.CPP, SOURCES/EXTFUNC.CPP | `FollowCamManualHold`, `FollowCamManualHoldFrames`, `autoFactor`, `cam_manual_hold` cvar |
 | Config read/write       | SOURCES/PERSO.CPP          | `ReadConfigFile`, `WriteConfigFile`                                                 |
 | Menu toggle             | SOURCES/GAMEMENU.CPP       | `GereAdvancedOptionsMenu`                                                           |

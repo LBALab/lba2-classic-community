@@ -6297,6 +6297,13 @@ void SetZoneCamera(T_ZONE *ptrz) {
             StartYCube = info1;
             StartZCube = info2;
 
+            /* Before the shot's own angles go in: what the Auto camera has to
+             * remember, if it is going to give anything back, is what these are
+             * about to replace. Does nothing unless cam_zone_return or
+             * cam_zone_anchor is on. */
+            if (FollowCamera)
+                FollowCamLendToShot(ptrz->Info4);
+
             AlphaCam = ptrz->Info3;
             BetaCam = ptrz->Info4;
             GammaCam = ptrz->Info5;
@@ -6570,6 +6577,15 @@ void CheckZoneSce(T_OBJET *ptrobj, U8 numobj) {
                             SetZoneCamera(ptrz);
                             ptrz->Info7 |= ZONE_ACTIVE;
                         }
+
+                        /* He is standing in the box of a shot that has fired.
+                         * CameraZone says so only on the frames the shot is
+                         * applied, which for a zone that fires once is the
+                         * first one; this says it for as long as he stays. A
+                         * zone left unfired because scenario cameras are off
+                         * never becomes active, so it does not count. */
+                        if (ptrz->Info7 & ZONE_ACTIVE)
+                            FollowCamInShotBox = TRUE;
 
                         foundcamera = TRUE;
                     }

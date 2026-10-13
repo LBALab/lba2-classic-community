@@ -37,6 +37,25 @@
  * classic lazy drift-back. cvar cam_hold_angle. */
 #define FOLLOW_CAM_HOLD_ANGLE_DEFAULT 1
 
+/* Scripted shots (camera zones) --------------------------------------------*/
+/* A camera zone re-aims the view to an authored shot. The Auto camera keeps what
+ * the shot left behind: the yaw as an offset from the hero's facing, and the
+ * pitch as authored, until the player moves the camera or the scene changes.
+ * These two treat the shot as a loan instead. Both are prototypes, off by
+ * default, so the shipped behaviour is unchanged until one is switched on.
+ *
+ * cam_zone_return: when the hero leaves the shot's box, ease the yaw offset and
+ * the pitch back to what the Auto camera had before the shot fired. Whatever the
+ * player set by hand in the meantime is theirs and is not given back.
+ *
+ * cam_zone_anchor: while the hero is inside the box of a shot that fires once
+ * and latches, hold the shot's authored world yaw as the classic camera does,
+ * rather than carrying it round as an offset from wherever the hero is facing. */
+#define FOLLOW_CAM_ZONE_RETURN_DEFAULT 0
+#define FOLLOW_CAM_ZONE_ANCHOR_DEFAULT 0
+#define FOLLOW_CAM_RETURN_YAW_MIN_STEP 3   /* minimum AddBetaCam step per frame of the return (units) */
+#define FOLLOW_CAM_RETURN_PITCH_MIN_STEP 1 /* minimum AlphaCam step per frame of the return (units) */
+
 /* Elevation (AlphaCam) — applies when Auto camera (FollowCamera) is on -----*/
 #define FOLLOW_CAM_ALPHA_MIN 150 /* minimum elevation angle */
 #define FOLLOW_CAM_ALPHA_MAX 600 /* maximum elevation angle */

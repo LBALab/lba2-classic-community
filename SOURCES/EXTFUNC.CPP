@@ -2015,12 +2015,14 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
             FollowCamAdoptAngle();
 
         AddBetaCam = (AddBetaCam - dBeta) & 4095;
+        FollowCamPlayerTook(TRUE, FALSE); /* an angle the player set is not a scripted shot's to give back */
         ManualCameraOrbitActive = TRUE;
         FirstTime = AFF_ALL_FLIP;
         changed = 1;
     }
     if (dAlpha != 0) {
         AlphaCam += dAlpha;
+        FollowCamPlayerTook(FALSE, TRUE);
         if (AlphaCam < FOLLOW_CAM_ALPHA_MIN)
             AlphaCam = FOLLOW_CAM_ALPHA_MIN;
         if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
@@ -2345,6 +2347,7 @@ S32 GereExtKeys(U32 key)
         if (FollowCamera) {
             if (AlphaCam > FOLLOW_CAM_ALPHA_MIN)
                 AlphaCam -= FOLLOW_CAM_ALPHA_STEP;
+            FollowCamPlayerTook(FALSE, TRUE);
             FirstTime = AFF_ALL_FLIP;
         } else {
             if (VueCamera > 0) {
@@ -2360,6 +2363,7 @@ S32 GereExtKeys(U32 key)
         if (FollowCamera) {
             if (AlphaCam < FOLLOW_CAM_ALPHA_MAX)
                 AlphaCam += FOLLOW_CAM_ALPHA_STEP;
+            FollowCamPlayerTook(FALSE, TRUE);
             FirstTime = AFF_ALL_FLIP;
         } else {
             if (VueCamera < NB_VUE_CAMERA - 1) {
@@ -2374,11 +2378,13 @@ S32 GereExtKeys(U32 key)
     if (FollowCamera) {
         if (CheckKey(K_LBRACKET)) {
             AddBetaCam = (AddBetaCam - FOLLOW_CAM_PAN_STEP) & 4095;
+            FollowCamPlayerTook(TRUE, FALSE);
             FirstTime = AFF_ALL_FLIP;
             flag = 1;
         }
         if (CheckKey(K_RBRACKET)) {
             AddBetaCam = (AddBetaCam + FOLLOW_CAM_PAN_STEP) & 4095;
+            FollowCamPlayerTook(TRUE, FALSE);
             FirstTime = AFF_ALL_FLIP;
             flag = 1;
         }

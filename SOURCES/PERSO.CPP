@@ -1682,6 +1682,7 @@ restartloop:
         /*-------------------------------------------------------------------------*/
 
         CameraZone = FALSE;
+        FollowCamInShotBox = FALSE; /* like CameraZone, re-established by this frame's zone check */
 
         GereAmbiance();
         CheckNextMusic();
@@ -1862,6 +1863,14 @@ restartloop:
         if (CameraZone OR CinemaMode OR CubeMode != CUBE_EXTERIEUR OR !FollowCamera)
             FollowCamForgetManualGesture();
 
+        /* The same for what a scripted shot is owed back, except that a camera
+         * zone is the loan itself rather than the end of it. In the other three
+         * states the Auto camera's update does not run, so a loan left standing
+         * would be given back later against a view that has nothing to do with
+         * the one it was taken from. */
+        if (CinemaMode OR CubeMode != CUBE_EXTERIEUR OR !FollowCamera)
+            FollowCamForgetLoan();
+
         if (!CameraZone) {
             if (!CinemaMode) {
                 // AlphaCam (touches '+' et '-' *)
@@ -1870,6 +1879,7 @@ restartloop:
                 if (Input & I_CAMERA) {
                     SaveTimer();
                     AddBetaCam = (AddBetaCam + 1024) & 4095;
+                    FollowCamPlayerTook(TRUE, FALSE); /* a quarter turn the player asked for is theirs to keep */
                     /* FollowCamera: do not use CameraCenter(2) — it resets
                      * AlphaCam/VueDistance to VueCamera presets.  Recompute
                      * target offset and BetaCam like case 2, then apply only. */

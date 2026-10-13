@@ -185,6 +185,89 @@ static void test_a_zero_divisor_is_survivable(void) {
     ASSERT_EQ_INT(-100, FollowCamRotStep(-100, -5, MIN_STEP));
 }
 
+/* Giving a scripted shot's yaw back: from any offset to any other, at any laziness, the ease must
+ * arrive on the offset it owes and stop there. The pan drift it sits beside stops short whenever
+ * what is left is smaller than its divisor, which for a return would leave the camera a degree or
+ * two off the angle it was lent at, permanently. */
+static void test_easing_a_pan_back_lands_exactly_from_everywhere(void) {
+    S32 from, to, div;
+    S32 bad = 0;
+
+    for (div = 1; div <= 64 && !bad; div += 3) {
+        for (to = 0; to < TURN && !bad; to += 331) {
+            for (from = 0; from < TURN; from += 29) {
+                S32 pan = from;
+                S32 frames = 0;
+
+                while (pan != to) {
+                    pan = FollowCamEasePan(pan, to, div, FOLLOW_CAM_RETURN_YAW_MIN_STEP);
+                    if (pan < 0 || pan >= TURN || ++frames > TURN) {
+                        bad = 1;
+                        break;
+                    }
+                }
+                if (bad)
+                    break;
+                /* And stays: a further frame must not walk it off again. */
+                if (FollowCamEasePan(pan, to, div, FOLLOW_CAM_RETURN_YAW_MIN_STEP) != to) {
+                    bad = 1;
+                    break;
+                }
+            }
+        }
+    }
+    ASSERT_EQ_INT(0, bad);
+}
+
+/* Round the short way, including across the wrap: 106 units to go, not 3990. */
+static void test_easing_a_pan_back_takes_the_short_way(void) {
+    S32 pan = 4000;
+    S32 frames = 0;
+    S32 travelled = 0;
+
+    while (pan != 10 && frames < TURN) {
+        S32 next = FollowCamEasePan(pan, 10, FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT, FOLLOW_CAM_RETURN_YAW_MIN_STEP);
+        S32 moved = FollowCamAngleDiff(next, pan);
+        if (moved <= 0)
+            break; /* backwards or stalled: the two checks below report it, once */
+        travelled += moved;
+        pan = next;
+        frames++;
+    }
+    ASSERT_EQ_INT(10, pan);
+    ASSERT_EQ_INT(106, travelled);
+}
+
+/* The pitch is the same ease on a value that does not wrap. Over the whole range a shot can
+ * author, it must reach the pitch it was lent at and never pass it. */
+static void test_easing_a_pitch_back_lands_exactly_and_never_overshoots(void) {
+    S32 from, to, div;
+    S32 bad = 0;
+
+    for (div = 1; div <= 64 && !bad; div += 3) {
+        for (to = FOLLOW_CAM_ALPHA_MIN; to <= FOLLOW_CAM_ALPHA_MAX && !bad; to += 50) {
+            for (from = -300; from <= 1000; from += 13) {
+                S32 value = from;
+                S32 frames = 0;
+
+                while (value != to) {
+                    S32 next = FollowCamEaseValue(value, to, div, FOLLOW_CAM_RETURN_PITCH_MIN_STEP);
+                    /* Still on the side it started from: passing the target would tilt the
+                     * camera through its resting pitch and back. */
+                    if ((from < to && next > to) || (from > to && next < to) || ++frames > 4096) {
+                        bad = 1;
+                        break;
+                    }
+                    value = next;
+                }
+                if (bad)
+                    break;
+            }
+        }
+    }
+    ASSERT_EQ_INT(0, bad);
+}
+
 /* The HD recompose's whole promise: at the height the game was composed for it does nothing at
  * all. Every recompose term scales by this, so a non-zero result at 480 would tilt and dolly the
  * camera on the one resolution that must look exactly as it shipped. Checked at 480 and below,
@@ -316,6 +399,9 @@ int main(void) {
     RUN_TEST(test_no_step_when_already_on_target);
     RUN_TEST(test_stepping_settles_without_a_snap_threshold);
     RUN_TEST(test_a_zero_divisor_is_survivable);
+    RUN_TEST(test_easing_a_pan_back_lands_exactly_from_everywhere);
+    RUN_TEST(test_easing_a_pan_back_takes_the_short_way);
+    RUN_TEST(test_easing_a_pitch_back_lands_exactly_and_never_overshoots);
     RUN_TEST(test_hd_recompose_is_a_no_op_at_the_authored_height);
     RUN_TEST(test_hd_recompose_disabled_is_always_zero);
     RUN_TEST(test_hd_recompose_matches_the_documented_scale);

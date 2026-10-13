@@ -52,7 +52,7 @@ import sys
 # reads as "the thing never happened" rather than as an error. Keep this in step with the
 # Log_Info call in PERSO.CPP.
 KEYS = ("heroBeta", "add", "beta", "target", "step", "delay", "orbit", "moving",
-        "zone", "forced", "cine", "follow", "ext", "vue", "alpha", "dist")
+        "zone", "forced", "cine", "follow", "ext", "vue", "alpha", "dist", "inshot", "loan")
 print("\t".join(KEYS))
 for line in open(sys.argv[1], errors="replace"):
     if not line.startswith("[INFO] [cam]"):
