@@ -67,6 +67,8 @@ AIL functions (LIB386/AIL/)
 
 The debug console commands (`playsample`, `playmusic`, `audio sample/music/global`, etc.) call the same HQ/AIL/music functions the engine uses -- no wrapper layer, no indirection. Backend diagnostic logging can be toggled at runtime via `audio global log <0|1>`. Use `audio global status` to inspect `samplesPaused` ref-count and driver state without needing log mode.
 
+The [platform abstraction layer](PLATFORM_ABSTRACTION.md) is a sibling of AIL, not another mixer or audio-device wrapper. `PLATFORM_BACKEND` selects graphics/input/timing/host services; `SOUND_BACKEND` independently selects AIL. The current `sdl` sound backend uses SDL3. A non-SDL3 host selects the existing `null` backend or supplies an AIL implementation for its own audio facilities.
+
 ---
 
 ## The AIL contract
@@ -395,5 +397,4 @@ Volume options are persisted in lba2.cfg; see [CONFIG.md](CONFIG.md).
 | Change | Original behaviour | Problem with SDL backend | Fix |
 |--------|--------------------|--------------------------|-----|
 | **`ReadVolumeSettings`: reordered volume application** | `SetVolumeJingle(JingleVolume)` was called before `MasterVolume` was read from config. | With `SetVolumeJingle` now scaling by MasterVolume, calling it before MasterVolume is loaded from config would use the wrong master value. | Moved `SetVolumeJingle` and `SetVolumeCD` calls to after `MasterVolume` is read and `SetMasterVolumeSample` is called. |
-
 

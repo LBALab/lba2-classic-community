@@ -162,7 +162,7 @@ static void test_scoped_section(void) {
  * severity/kind still ride along to the printer, asserted via console_sev_of.
  * Gating is by the global level (Log_SetLevel), shared with the file/terminal
  * sinks, not a per-console knob. (Thread gating is SDL-only and compiled out
- * under LBA_LOG_NO_SDL, so the sink always writes here.) */
+ * under LBA_LOG_NO_PLATFORM, so the sink always writes here.) */
 static void test_console_sink(void) {
     console_capture_reset();
     Log_Init();

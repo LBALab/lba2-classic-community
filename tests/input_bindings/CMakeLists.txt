@@ -58,13 +58,8 @@ foreach(target test_input_bindings test_input_suppression test_input_reverse tes
         ${CMAKE_SOURCE_DIR}/SOURCES
     )
 
-    # KEYBOARD_KEYS.H pulls in <SDL3/SDL_keycode.h>; link SDL3 for its include
-    # dirs. Matches tests/input_funnel.
-    target_link_libraries(${target} PRIVATE SDL3::SDL3)
-
-    # LogPrintf routes through the structured log core; bypass the SDL_Log spine
-    # so the log calls in the code under test need no SDL runtime.
-    target_compile_definitions(${target} PRIVATE LBA_LOG_NO_SDL)
+    # The pure-data tests need no platform diagnostic transport.
+    target_compile_definitions(${target} PRIVATE LBA_LOG_NO_PLATFORM)
 
     # Both tests use variadic macros and vsnprintf, which are C++11; the project
     # default is C++98. Pinned as the other host tests that need it are.

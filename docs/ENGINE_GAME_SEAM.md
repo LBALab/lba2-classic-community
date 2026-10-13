@@ -137,6 +137,7 @@ dormant: `COPY`, `DEC`, `DEC_XCF`, `HERCUL_A`, `KEYB`.
 | `pol_work` | engine | live | Polygon fillers (flat/gouraud/textured/zbuf/fog) |
 | `SVGA` | engine·platform | live | Rasteriser (engine) + mode/screen setup (platform) |
 | `SYSTEM` | engine·platform | live | HQR + file format (engine); keyboard/mouse/timer/IO (platform) |
+| `PLATFORM` | platform | live | SDK-free host contract and helpers; SDL3 backend owns SDK resources/events/presentation. No engine/game implementation dependency. |
 | `MENU` | engine | dormant | Menu primitives — not wired into the build (no `add_subdirectory`); superseded by `SOURCES/GAMEMENU`. Has equivalence tests. |
 | `AIL/` (interface) | engine | live | Audio abstraction (samples/music/mixing) |
 | `AIL/SDL` | platform | live | Active audio backend (SDL3) |
@@ -202,7 +203,7 @@ dormant: `COPY`, `DEC`, `DEC_XCF`, `HERCUL_A`, `KEYB`.
 |---|---|---|---|
 | `CONTROL`, `PERFTRACE`, `DEMO_SEED` | platform | live | Test harness / determinism / perf trace |
 | `RES_DISCOVERY`, `RES_MENU`, `RES_PICKER`, `RES_SWITCH`, `DIRECTORIES`, `HQR_NAMES` | platform | live | Resource discovery / data-dir routing |
-| `INPUT`, `JOYSTICK`, `TOUCH_INPUT` | platform | live | Input (SDL3 keyboard / gamepad / touch) |
+| `INPUT`, `JOYSTICK`, `TOUCH_INPUT` | platform | live | Input policy and bindings over backend-neutral keyboard / gamepad / touch data |
 | `IMAGE_LOAD` | platform | live | Image (PCX/etc.) loading |
 | `ASSET_PREFLIGHT` | platform | live | Asset validation at boot |
 | `CONSOLE/` (`CONSOLE`, `_CMD`, `_GIVE`, `_STATE`) | platform | live | Debug console (`CONSOLE_MODULE`) |
@@ -263,7 +264,7 @@ content** — the split is rarely a whole domain, it runs *through* each one:
 | World / cube transform | **Engine** | `GRILLE` + `DISKFUNC` world model in all three; specific cube/island data is content. |
 | Resources / assets | **Engine** | HQR (`LIB_SYS`→`SYSTEM`) + `DISKFUNC` in all three; the archives are content. |
 | Audio | **Engine** mechanism + game scheduling | `AMBIANCE` in all three; mixing via `ail`; per-cube sample tables are content. |
-| Platform / IO | **Platform** | `SYSTEM`/`SVGA` + the community port layer (`CONTROL`, `RES_*`, `TOUCH_INPUT`). This is the PAL. |
+| Platform / IO | **Platform** | `PLATFORM` owns the SDK boundary; `SYSTEM`/`SVGA` and the community port layer retain engine-facing policy and facades. See [PLATFORM_ABSTRACTION.md](PLATFORM_ABSTRACTION.md). |
 | UI / text | **Engine** machinery + game content | `MESSAGE`/`GAMEMENU` in all three; the menus, text, holomap are content. |
 | Orchestration / lifecycle | **Engine** framework | Main loop / scene lifecycle / `INITADEL`; the specific game flow is content. |
 
@@ -281,9 +282,7 @@ content** — the split is rarely a whole domain, it runs *through* each one:
   (World/cube via `GRILLE`+coords, Resources via HQR/`DISKFUNC`) cleans up LBA2 now and is
   reusable for LBA1 later. Prefer these over facades around Layer-2 game content
   (`INVENT`, magic ball), which differ per title by definition.
-- **The platform seam is already on this path.** The community layer (Layer 3) is the PAL;
-  PR #284–#286 formalise it. Continuing to push platform concerns into that layer keeps
-  the engine core clean for both titles.
+- **The platform seam is explicit.** The SDL3 implementation sits behind the SDK-free `PLATFORM` contract. The community layer retains game policy, while the backend owns host resources; [PLATFORM_ABSTRACTION.md](PLATFORM_ABSTRACTION.md) defines the boundary for subsequent ports.
 
 ## Caveats
 

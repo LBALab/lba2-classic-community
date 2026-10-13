@@ -105,7 +105,7 @@ The release is built with MSYS2 UCRT64 GCC, statically linked, with `-O3` and LT
 
 ### 3.6 Android recovery on the next launch
 
-- The app has no Gradle project; `scripts/packaging/bundle-android.sh` builds it. `minSdkVersion` 24, `targetSdkVersion` 34, SDL's own activity with no subclass, and one project Java class, `PermissionHelper`, called over JNI from [ANDROID.CPP](../../LIB386/SYSTEM/ANDROID.CPP) `[read]`.
+- The app has no Gradle project; `scripts/packaging/bundle-android.sh` builds it. `minSdkVersion` 24, `targetSdkVersion` 34, SDL's own activity with no subclass, and one project Java class, `PermissionHelper`, called over JNI from [ANDROID.CPP](../../LIB386/PLATFORM/SDL3/ANDROID.CPP) `[read]`.
 - `ActivityManager.getHistoricalProcessExitReasons` (API 30, about 87% of devices) returns the previous exits of our own package with no permission. `REASON_CRASH_NATIVE` is 5 and `getStatus` is the signal number `[read; measured on API 36: every crashing run of the prototype had one]`.
 - `ApplicationExitInfo.getTraceInputStream` returns the tombstone as a protobuf from API 31 (about 79%) `[read]`. It can be null when the global tombstone buffer has rotated. `[measured]` one lba2cc crash's tombstone is 265 KB, with engine frames already symbolized on device (`MainLoop()+7580`).
 - Records persist across launches, so the app must remember the timestamp of the last crash it saved `[measured]`.

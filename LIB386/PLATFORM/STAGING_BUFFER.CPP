@@ -1,11 +1,11 @@
-#include <SVGA/STAGING_BUFFER.H>
+#include <PLATFORM/STAGING_BUFFER.H>
 
 #include <stdlib.h>
 
 /* 4 bytes per pixel (ARGB8888). */
 #define STAGING_BPP 4u
 
-U8 *StagingBufferEnsure(StagingBuffer *sb, U32 width, U32 height) {
+uint8_t *StagingBufferEnsure(StagingBuffer *sb, uint32_t width, uint32_t height) {
     if (sb->pixels != NULL && sb->width == width && sb->height == height)
         return sb->pixels;
 
@@ -21,7 +21,7 @@ U8 *StagingBufferEnsure(StagingBuffer *sb, U32 width, U32 height) {
 
     /* size_t math guards the multiply against U32 overflow on large modes. */
     size_t bytes = (size_t)width * (size_t)height * STAGING_BPP;
-    U8 *pixels = (U8 *)malloc(bytes);
+    uint8_t *pixels = (uint8_t *)malloc(bytes);
     if (pixels == NULL)
         return NULL;
 

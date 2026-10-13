@@ -2,7 +2,7 @@
 
 #include <SYSTEM/LOGPRINT.H>
 
-#include <SDL3/SDL_platform.h>
+#include <PLATFORM/PLATFORM.H>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -20,7 +20,7 @@ U32 OSType = OS_NT; // TODO: Remove, is required by CPU.ASM right now
 
 // --- Interface ---------------------------------------------------------------
 void DisplayOS() {
-    const char *platformStr = SDL_GetPlatform();
+    const char *platformStr = g_platform.system.platform_name();
     LogPrintf("Platform: %s\n", platformStr);
 }
 

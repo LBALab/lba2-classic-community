@@ -46,7 +46,9 @@ add_subdirectory(input_flow)
 add_subdirectory(input_bindings)
 add_subdirectory(getascii)
 add_subdirectory(record_format)
-add_subdirectory(present_rect)
+if(PLATFORM_BACKEND STREQUAL "sdl3")
+    add_subdirectory(present_rect)
+endif()
 add_subdirectory(cli_args)
 add_subdirectory(video_fit)
 add_subdirectory(menu_keynav)
@@ -70,6 +72,7 @@ add_subdirectory(numeric_contract)
 add_subdirectory(ui_layout)
 add_subdirectory(settings)
 add_subdirectory(user_dirs)
+add_subdirectory(platform)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)
@@ -80,7 +83,7 @@ add_asm_cpp_test(
 	ASM_SOURCE ${CMAKE_SOURCE_DIR}/SOURCES/GRILLE_A.ASM
 	RENAME_SYMS DecompColonne Map2Screen GetAdrBlock WorldColBrickFull WorldCodeBrick GetBlockBrick GetWorldColBrickVisible WorldColBrick CodeJeu XMap YMap ZMap XScreen YScreen BufCube BufMap TabBlock BufferBrick
 	INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/SOURCES
-	LIBS 3dext 3D ail ani fio obj poly svg sys SDL3::SDL3
+	LIBS 3dext 3D ail ani fio obj poly svg sys lba2_platform
 )
 target_sources(test_grille PRIVATE ${CMAKE_SOURCE_DIR}/SOURCES/GRILLE.CPP)
 

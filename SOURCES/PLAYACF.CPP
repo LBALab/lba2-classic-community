@@ -3,6 +3,7 @@
 
 #include "BOOT_EXIT.H"
 #include "DIRECTORIES.H"
+#include "BOOT_EXIT.H"
 
 #include "IMAGE_LOAD.H"
 #include "VIDEO_FIT.H"
@@ -38,11 +39,10 @@ int VideoLogIsEnabled(void) {
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOGPRINT.H>
 #include <SYSTEM/TIMER.H>
-#include <SDL3/SDL.h>
+#include <PLATFORM/PLATFORM.H>
 #include <stdio.h>
 #include <string.h>
 #include "CONSOLE/CONSOLE.H"
-#include "BOOT_EXIT.H"
 #endif
 
 char PathAcf[ADELINE_MAX_PATH];
@@ -390,7 +390,7 @@ S32 PlayAcf(const char *name) {
         S32 n = GetNumAcf(name);
         if (n == -1) {
             if (VideoLogIsEnabled())
-                SDL_Log("[VIDEO] PlayAcf: video name '%s' not found in ACF list", name);
+                Log_Info("[VIDEO] PlayAcf: video name '%s' not found in ACF list", name);
             s_playacf_playing = 0;
             return 0;
         }
@@ -402,7 +402,7 @@ S32 PlayAcf(const char *name) {
                there is no video/). The flag above is already set, so scripts
                see the cutscene the way they would one the player skipped. */
             if (VideoLogIsEnabled())
-                SDL_Log("[VIDEO] PlayAcf: no movie bank, skipping '%s'", name);
+                Log_Info("[VIDEO] PlayAcf: no movie bank, skipping '%s'", name);
             s_playacf_playing = 0;
             return 0;
         }
@@ -414,14 +414,14 @@ S32 PlayAcf(const char *name) {
         U32 size = LoadMallocFileSize;
         if (!size) {
             if (VideoLogIsEnabled())
-                SDL_Log("[VIDEO] PlayAcf: LoadMalloc_HQR failed for index %d", (int)n);
+                Log_Info("[VIDEO] PlayAcf: LoadMalloc_HQR failed for index %d", (int)n);
             TheEnd(PROGRAM_OK, MessageNoCD);
         }
 
         smk smkObject = smk_open_memory(decompbuf, (unsigned long)size);
         if (!smkObject) {
             if (VideoLogIsEnabled())
-                SDL_Log("[VIDEO] PlayAcf: smk_open_memory failed for index %d (size %u)", (int)n, (unsigned)size);
+                Log_Info("[VIDEO] PlayAcf: smk_open_memory failed for index %d (size %u)", (int)n, (unsigned)size);
             Free(decompbuf);
             TheEnd(PROGRAM_OK, MessageNoCD);
         }
@@ -488,14 +488,14 @@ S32 PlayAcf(const char *name) {
                 static const char *voiceLang[] = {"FR", "DE", "EN"};
                 const char *lang = (LanguageCD >= 0 && LanguageCD <= 2) ? voiceLang[LanguageCD] : "FR";
                 if (numTracks > 1) {
-                    SDL_Log("[VIDEO] PlayAcf: playing '%s' index %d from %s (LanguageCD=%d, voice=%s track %d)",
-                            name, (int)n, PathAcf, LanguageCD, lang, tracksToPlay[1]);
+                    Log_Info("[VIDEO] PlayAcf: playing '%s' index %d from %s (LanguageCD=%d, voice=%s track %d)",
+                             name, (int)n, PathAcf, LanguageCD, lang, tracksToPlay[1]);
                 } else {
-                    SDL_Log("[VIDEO] PlayAcf: playing '%s' index %d from %s (LanguageCD=%d, voice=off)",
-                            name, (int)n, PathAcf, LanguageCD);
+                    Log_Info("[VIDEO] PlayAcf: playing '%s' index %d from %s (LanguageCD=%d, voice=off)",
+                             name, (int)n, PathAcf, LanguageCD);
                 }
             } else {
-                SDL_Log("[VIDEO] PlayAcf: playing '%s' index %d from %s", name, (int)n, PathAcf);
+                Log_Info("[VIDEO] PlayAcf: playing '%s' index %d from %s", name, (int)n, PathAcf);
             }
         }
 
@@ -586,7 +586,7 @@ S32 PlayAcf(const char *name) {
             /* Pace each frame against whatever clock is timing this run
                (Timer_ClockSource): the host clock in an ordinary session, and the
                pinned virtual clock under --fixed-dt or a session recording. An
-               ordinary session reads SDL_GetTicks either way and is unchanged.
+               ordinary session reads g_platform.system.ticks_ms either way and is unchanged.
 
                Under a pinned clock the distinction is what makes a video replay. This
                wait polls input every iteration, so how long it runs decides how much
@@ -619,7 +619,7 @@ S32 PlayAcf(const char *name) {
                         if (numTracks > 0)
                             PauseVideoAudio();
                         if (VideoLogIsEnabled())
-                            SDL_Log("[VIDEO] frozen (console open or unfocused)");
+                            Log_Info("[VIDEO] frozen (console open or unfocused)");
                         freezeStart = Timer_ClockSource();
                         videoFrozen = 1;
                     }
@@ -634,7 +634,7 @@ S32 PlayAcf(const char *name) {
                     if (numTracks > 0)
                         ResumeVideoAudio();
                     if (VideoLogIsEnabled())
-                        SDL_Log("[VIDEO] resumed (rebased +%u ms)", (unsigned)pausedMs);
+                        Log_Info("[VIDEO] resumed (rebased +%u ms)", (unsigned)pausedMs);
                     videoFrozen = 0;
                 }
                 now = Timer_ClockSource();
@@ -656,7 +656,7 @@ S32 PlayAcf(const char *name) {
                 if (Timer_FixedDtActive())
                     Timer_FixedDtPumpPolled();
                 else
-                    SDL_Delay(1); /* avoid busy-spin, re-check input each time */
+                    g_platform.system.delay_ms(1); /* avoid busy-spin, re-check input each time */
             }
 
             smk_next(smkObject);

@@ -47,8 +47,8 @@ extern "C" {
 
 typedef struct {
     /* --- boundary 1: SDL event to polled state --------------------------- */
-    U32 KeyDownEvents; /* SDL_EVENT_KEY_DOWN, auto-repeat excluded */
-    U32 KeyUpEvents;   /* SDL_EVENT_KEY_UP */
+    U32 KeyDownEvents; /* PLATFORM_EVENT_KEY_DOWN, auto-repeat excluded */
+    U32 KeyUpEvents;   /* PLATFORM_EVENT_KEY_UP */
     U32 PolledRises;   /* 0 -> 1 in the SDL-sampled half of TabKeys */
     U32 PollsSampled;  /* denominator: how many polls the above covers */
 

@@ -2,8 +2,7 @@
 
 #include <SYSTEM/WINDOW.H> // For AppActive
 
-#include <SDL3/SDL_events.h>
-#include <SDL3/SDL_timer.h>
+#include <PLATFORM/PLATFORM.H>
 #include <assert.h>
 
 // -----------------------------------------------------------------------------
@@ -39,7 +38,7 @@ U32 LastEvaluate;
 #define PACE_GIVEUP_MS 1000
 
 // Fixed-dt deterministic clock (harness-only). Inert unless Timer_EnableFixedDt() is
-// called: while active, ManageTime() reads FixedDtNow instead of SDL_GetTicks().
+// called: while active, ManageTime() reads FixedDtNow instead of g_platform.system.ticks_ms().
 static S32 FixedDtActive = 0;
 static U32 FixedDt = 0;
 static U32 FixedDtNow = 0;            // minted only by FixedDtStep(); seeded by Timer_EnableFixedDt
@@ -53,7 +52,7 @@ static S32 SimAudioClock = 0;         // see Timer_SimAudioClock (TIMER.H)
 
 // --- Initialization ----------------------------------------------------------
 void InitTimer() {
-    LastTime = LastEvaluate = SDL_GetTicks();
+    LastTime = LastEvaluate = g_platform.system.ticks_ms();
     ManageTime();
 }
 
@@ -132,16 +131,16 @@ void Timer_DisableFixedDt(void) {
     // first ManageTime() after this would bank the whole difference into TimerRefHR:
     // forwards if the wall clock is ahead, and much further if it is behind, since the
     // subtraction is unsigned. Re-anchor the FPS window for the same reason.
-    LastTime = SDL_GetTicks();
+    LastTime = g_platform.system.ticks_ms();
     LastEvaluate = LastTime;
     CmptFrame = 0;
 }
 
-/* The expression ManageTime reads, evaluated now. Recording SDL_GetTicks() directly is
+/* The expression ManageTime reads, evaluated now. Recording g_platform.system.ticks_ms() directly is
    wrong under fixed-dt, where the game runs on the virtual clock and the wall clock is
    unrelated to it. */
 U32 Timer_ClockSource(void) {
-    return FixedDtActive ? FixedDtNow : SDL_GetTicks();
+    return FixedDtActive ? FixedDtNow : g_platform.system.ticks_ms();
 }
 
 S32 Timer_FixedDtValue(void) {
@@ -158,10 +157,10 @@ S32 Timer_FixedDtValue(void) {
    as nearly 2^32 ms, so the sleep would be weeks rather than milliseconds. The subtraction
    wraps to the true small difference and survives it. */
 S32 Timer_SleepUntil(U32 target) {
-    S32 ahead = (S32)(target - (U32)SDL_GetTicks());
+    S32 ahead = (S32)(target - (U32)g_platform.system.ticks_ms());
 
     if (ahead > 0)
-        SDL_Delay((U32)ahead);
+        g_platform.system.delay_ms((U32)ahead);
     return ahead;
 }
 
@@ -196,7 +195,7 @@ static void FixedDtStep(void) {
            back, which would run the game fast to make up for having run it slow. The
            ordinary way to reach this is a window that lost focus: the clock stops, the
            wall clock does not, and the run resumes owing more time than it can repay. */
-        PaceAnchor = (U32)SDL_GetTicks();
+        PaceAnchor = (U32)g_platform.system.ticks_ms();
         PaceSteps = 0;
     }
 }
@@ -267,7 +266,7 @@ void Timer_SetFixedDtPaced(S32 on) {
     FixedDtPaced = on ? 1 : 0;
     /* Anchor on the arm, not on the first step: the caller arms this at the moment it
        wants real time to start counting from. */
-    PaceAnchor = SDL_GetTicks();
+    PaceAnchor = g_platform.system.ticks_ms();
     PaceSteps = 0;
 }
 
@@ -368,7 +367,7 @@ void Record_ClockHook(U32 *now);
 __attribute__((weak)) void Record_ClockHook(U32 *now) { (void)now; }
 
 void ManageTime() {
-    U32 nowSample = FixedDtActive ? FixedDtNow : SDL_GetTicks();
+    U32 nowSample = FixedDtActive ? FixedDtNow : g_platform.system.ticks_ms();
     Record_ClockHook(&nowSample);
     TimerSystemHR = nowSample;
 
@@ -412,21 +411,21 @@ void Timer_SetIgnoreFocus(S32 ignore) {
     TimerIgnoreFocus = ignore ? 1 : 0;
 }
 
-void HandleEventsTimer(const void *event) {
+void HandleEventsTimer(const PlatformEvent *event) {
     assert(event != NULL);
 
     if (TimerIgnoreFocus) {
         return;
     }
 
-    const SDL_Event *sdlEvent = (SDL_Event *)(event);
-    switch (sdlEvent->type) {
-    case SDL_EVENT_WINDOW_FOCUS_GAINED:
+    const PlatformEvent *platformEvent = event;
+    switch (platformEvent->type) {
+    case PLATFORM_EVENT_WINDOW_FOCUS_GAINED:
         if (!AppActive) {
             UnlockTimer();
         }
         break;
-    case SDL_EVENT_WINDOW_FOCUS_LOST:
+    case PLATFORM_EVENT_WINDOW_FOCUS_LOST:
         if (AppActive) {
             LockTimer();
         }

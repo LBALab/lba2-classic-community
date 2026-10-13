@@ -100,7 +100,7 @@ and the [seam doc](../ENGINE_GAME_SEAM.md) labels all five platform:
 
 Under `LIB386/` every hit is in `SYSTEM/`, `SVGA/`, `AIL/` or `H/SYSTEM/`, which is the
 platform layer by definition. `<jni.h>` appears in exactly one file,
-[ANDROID.CPP](../../LIB386/SYSTEM/ANDROID.CPP), which is the same rule at its narrowest.
+[ANDROID.CPP](../../LIB386/PLATFORM/SDL3/ANDROID.CPP), which is the same rule at its narrowest.
 
 The allowlist is the specification: a file joining it should be a line in a diff somebody
 reads, not a silent `#ifdef`.

@@ -8,7 +8,7 @@ target_include_directories(test_input_device PRIVATE
     ${CMAKE_SOURCE_DIR}/LIB386/H
 )
 
-target_link_libraries(test_input_device PRIVATE SDL3::SDL3)
+target_link_libraries(test_input_device PRIVATE lba2_platform)
 
 add_test(NAME test_input_device COMMAND test_input_device)
 

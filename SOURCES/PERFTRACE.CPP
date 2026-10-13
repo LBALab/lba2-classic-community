@@ -9,7 +9,7 @@
 #include "C_EXTERN.H" /* CubeMode */
 #include "COMMON.H"   /* CUBE_INTERIEUR / CUBE_EXTERIEUR */
 
-#include <SDL3/SDL_timer.h>
+#include <PLATFORM/PLATFORM.H>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,7 +41,7 @@ static U64 s_capture_last_ticks;
 static U64 s_total_frames;
 
 static U64 perf_now(void) {
-    return (U64)SDL_GetPerformanceCounter();
+    return (U64)g_platform.system.performance_counter();
 }
 
 static U64 ticks_to_us(U64 ticks) {
@@ -51,7 +51,7 @@ static U64 ticks_to_us(U64 ticks) {
 }
 
 void Perftrace_Init(void) {
-    s_freq = (U64)SDL_GetPerformanceFrequency();
+    s_freq = (U64)g_platform.system.performance_frequency();
     s_ring_head = 0;
     s_ring_count = 0;
     s_active = 0;
@@ -60,7 +60,7 @@ void Perftrace_Init(void) {
 
 void Perftrace_Start(void) {
     if (s_freq == 0)
-        s_freq = (U64)SDL_GetPerformanceFrequency();
+        s_freq = (U64)g_platform.system.performance_frequency();
     s_active = 1;
 }
 
@@ -110,7 +110,7 @@ void Perftrace_FrameEnd(void) {
         s_ring_count++;
     s_frame_start = 0;
 
-    U64 now_ms = (U64)SDL_GetTicks();
+    U64 now_ms = (U64)g_platform.system.ticks_ms();
     if (s_total_frames == 0)
         s_capture_start_ticks = now_ms;
     s_capture_last_ticks = now_ms;

@@ -7,13 +7,11 @@
  * See docs/PLATFORM.md and docs/ANDROID.md.
  */
 #include <SYSTEM/ANDROID.H>
-#include <SYSTEM/LOGPRINT.H>
+#include "PRIVATE.H"
 
 #ifdef __ANDROID__
 #include <jni.h>
 #include <string.h>
-#include <SDL3/SDL_system.h>
-#include <SDL3/SDL_timer.h>
 #endif
 
 S32 IsAndroidTVDevice(void) {
@@ -21,8 +19,8 @@ S32 IsAndroidTVDevice(void) {
     struct JniCheck {
         static S32 Pending(JNIEnv *e) {
             if (e->ExceptionCheck()) {
-                LogPrintf("TouchOverlay: JNI exception in TV detection, "
-                          "overlay disabled\n");
+                Platform_Log(PLATFORM_LOG_INFO, "TouchOverlay: JNI exception in TV detection, "
+                                                "overlay disabled\n");
                 e->ExceptionClear();
                 return 1;
             }
@@ -151,8 +149,8 @@ bool Android_EnsureExternalStoragePermission(void) {
             }
             if (isMgr != NULL && !granted) {
                 jobject activity = (jobject)SDL_GetAndroidActivity();
-                LogPrintf("MANAGE_EXTERNAL_STORAGE not granted. "
-                          "Opening Settings for app.\n");
+                Platform_Log(PLATFORM_LOG_INFO, "MANAGE_EXTERNAL_STORAGE not granted. "
+                                                "Opening Settings for app.\n");
                 if (openMgr != NULL && activity != NULL) {
                     env->CallStaticVoidMethod(permHelper, openMgr, activity);
                     /* Clear any JNI exception (e.g. ActivityNotFoundException
@@ -168,11 +166,11 @@ bool Android_EnsureExternalStoragePermission(void) {
                        decided against a state the player is in the middle of
                        changing. */
                     U32 waited = 0;
-                    U32 lastTick = SDL_GetTicks();
+                    U32 lastTick = g_platform.system.ticks_ms();
                     bool returned = false;
                     while (!granted && !returned && waited < ANDROID_PERM_WAIT_MS) {
-                        SDL_Delay(ANDROID_PERM_POLL_MS);
-                        const U32 tick = SDL_GetTicks();
+                        g_platform.system.delay_ms(ANDROID_PERM_POLL_MS);
+                        const U32 tick = g_platform.system.ticks_ms();
                         const U32 slept = tick - lastTick;
                         lastTick = tick;
                         waited += ANDROID_PERM_POLL_MS;
@@ -184,14 +182,14 @@ bool Android_EnsureExternalStoragePermission(void) {
                         returned = (slept > ANDROID_PERM_THAW_MS);
                     }
                     if (granted) {
-                        LogPrintf("MANAGE_EXTERNAL_STORAGE granted after %ums.\n", waited);
+                        Platform_Log(PLATFORM_LOG_INFO, "MANAGE_EXTERNAL_STORAGE granted after %ums.\n", waited);
                     } else if (returned) {
-                        LogPrintf("MANAGE_EXTERNAL_STORAGE declined; continuing without "
-                                  "it.\n");
+                        Platform_Log(PLATFORM_LOG_INFO, "MANAGE_EXTERNAL_STORAGE declined; continuing without "
+                                                        "it.\n");
                     } else {
-                        LogPrintf("MANAGE_EXTERNAL_STORAGE unanswered after %ums; "
-                                  "continuing without it.\n",
-                                  waited);
+                        Platform_Log(PLATFORM_LOG_INFO, "MANAGE_EXTERNAL_STORAGE unanswered after %ums; "
+                                                        "continuing without it.\n",
+                                     waited);
                     }
                 }
             }

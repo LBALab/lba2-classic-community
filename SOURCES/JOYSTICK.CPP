@@ -5,8 +5,7 @@
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOG.H>
 
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_gamepad.h>
+#include <PLATFORM/PLATFORM.H>
 
 #include <math.h>
 
@@ -45,8 +44,8 @@ static S32 s_virtualPad = 0;
 //***************************************************************************
 S32 JoystickDeadzone = 8000;
 
-static SDL_Gamepad *s_gamepad = NULL;
-static SDL_JoystickID s_gamepadId = 0;
+static PlatformGamepad *s_gamepad = NULL;
+static U32 s_gamepadId = 0;
 static bool s_subsystemInit = false;
 
 // Scancode of the first gamepad button/stick/trigger newly pressed this frame,
@@ -84,26 +83,26 @@ static void OpenFirstAvailableGamepad(void) {
     if (s_gamepad != NULL) {
         return;
     }
-    int count = 0;
-    SDL_JoystickID *ids = SDL_GetGamepads(&count);
+    S32 count = 0;
+    U32 *ids = g_platform.input.gamepads(&count);
     if (ids != NULL) {
-        for (int i = 0; i < count; i++) {
-            SDL_Gamepad *pad = SDL_OpenGamepad(ids[i]);
+        for (S32 i = 0; i < count; i++) {
+            PlatformGamepad *pad = g_platform.input.open_gamepad(ids[i]);
             if (pad != NULL) {
                 s_gamepad = pad;
                 s_gamepadId = ids[i];
                 break;
             }
         }
-        SDL_free(ids);
+        g_platform.host.free_memory(ids);
     }
 }
 
 //***************************************************************************
 void InitJoystick(void) {
     if (!s_subsystemInit) {
-        if (!SDL_InitSubSystem(SDL_INIT_GAMEPAD)) {
-            Log_Warn("SDL_INIT_GAMEPAD failed: %s", SDL_GetError());
+        if (!g_platform.input.init_gamepads()) {
+            Log_Warn("Gamepad subsystem init failed: %s", g_platform.system.get_error());
             return;
         }
         s_subsystemInit = true;
@@ -114,12 +113,12 @@ void InitJoystick(void) {
 //***************************************************************************
 void EndJoystick(void) {
     if (s_gamepad != NULL) {
-        SDL_CloseGamepad(s_gamepad);
+        g_platform.input.close_gamepad(s_gamepad);
         s_gamepad = NULL;
         s_gamepadId = 0;
     }
     if (s_subsystemInit) {
-        SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
+        g_platform.input.shutdown_gamepads();
         s_subsystemInit = false;
     }
 }
@@ -132,22 +131,22 @@ void DetectJoys(void) {
 }
 
 //***************************************************************************
-void HandleEventsJoystick(const void *event) {
-    const SDL_Event *ev = (const SDL_Event *)event;
+void HandleEventsJoystick(const PlatformEvent *event) {
+    const PlatformEvent *ev = event;
     switch (ev->type) {
-    case SDL_EVENT_GAMEPAD_ADDED:
+    case PLATFORM_EVENT_GAMEPAD_ADDED:
         if (s_gamepad == NULL) {
-            SDL_Gamepad *pad = SDL_OpenGamepad(ev->gdevice.which);
+            PlatformGamepad *pad = g_platform.input.open_gamepad(ev->gdevice.which);
             if (pad != NULL) {
                 s_gamepad = pad;
                 s_gamepadId = ev->gdevice.which;
-                Log_Info("Gamepad connected: %s", SDL_GetGamepadName(pad));
+                Log_Info("Gamepad connected: %s", g_platform.input.gamepad_name(pad));
             }
         }
         break;
-    case SDL_EVENT_GAMEPAD_REMOVED:
+    case PLATFORM_EVENT_GAMEPAD_REMOVED:
         if (s_gamepad != NULL && s_gamepadId == ev->gdevice.which) {
-            SDL_CloseGamepad(s_gamepad);
+            g_platform.input.close_gamepad(s_gamepad);
             s_gamepad = NULL;
             s_gamepadId = 0;
             ClearGamepadBits();
@@ -158,16 +157,16 @@ void HandleEventsJoystick(const void *event) {
             // real key/mouse/pad event sets it correctly.
             OpenFirstAvailableGamepad();
             if (s_gamepad != NULL)
-                Log_Info("Gamepad connected: %s", SDL_GetGamepadName(s_gamepad));
+                Log_Info("Gamepad connected: %s", g_platform.input.gamepad_name(s_gamepad));
         }
         break;
-    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+    case PLATFORM_EVENT_GAMEPAD_BUTTON_DOWN:
         LastInputWasKeyboard = 0;
         // The pad is in the player's hands: the touch overlay stands down until
         // a finger says otherwise.
         LastInputWasTouch = 0;
         break;
-    case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+    case PLATFORM_EVENT_GAMEPAD_AXIS_MOTION:
         // Past-deadzone test: rest-state jitter on the sticks fires constant
         // axis events and would otherwise pin the flag forever.
         if (ev->gaxis.value > JoystickDeadzone || ev->gaxis.value < -JoystickDeadzone) {
@@ -294,28 +293,28 @@ void UpdateJoystick(void) {
     }
 
     struct ButtonMap {
-        SDL_GamepadButton btn;
+        PlatformGamepadButton btn;
         U32 key;
     };
     static const ButtonMap kButtons[] = {
-        {SDL_GAMEPAD_BUTTON_SOUTH, K_GAMEPAD_A},
-        {SDL_GAMEPAD_BUTTON_EAST, K_GAMEPAD_B},
-        {SDL_GAMEPAD_BUTTON_WEST, K_GAMEPAD_X},
-        {SDL_GAMEPAD_BUTTON_NORTH, K_GAMEPAD_Y},
-        {SDL_GAMEPAD_BUTTON_BACK, K_GAMEPAD_BACK},
-        {SDL_GAMEPAD_BUTTON_GUIDE, K_GAMEPAD_GUIDE},
-        {SDL_GAMEPAD_BUTTON_START, K_GAMEPAD_START},
-        {SDL_GAMEPAD_BUTTON_LEFT_STICK, K_GAMEPAD_LSTICK_BTN},
-        {SDL_GAMEPAD_BUTTON_RIGHT_STICK, K_GAMEPAD_RSTICK_BTN},
-        {SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, K_GAMEPAD_LSHOULDER},
-        {SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, K_GAMEPAD_RSHOULDER},
-        {SDL_GAMEPAD_BUTTON_DPAD_UP, K_GAMEPAD_DPAD_UP},
-        {SDL_GAMEPAD_BUTTON_DPAD_DOWN, K_GAMEPAD_DPAD_DOWN},
-        {SDL_GAMEPAD_BUTTON_DPAD_LEFT, K_GAMEPAD_DPAD_LEFT},
-        {SDL_GAMEPAD_BUTTON_DPAD_RIGHT, K_GAMEPAD_DPAD_RIGHT},
+        {PLATFORM_GAMEPAD_BUTTON_SOUTH, K_GAMEPAD_A},
+        {PLATFORM_GAMEPAD_BUTTON_EAST, K_GAMEPAD_B},
+        {PLATFORM_GAMEPAD_BUTTON_WEST, K_GAMEPAD_X},
+        {PLATFORM_GAMEPAD_BUTTON_NORTH, K_GAMEPAD_Y},
+        {PLATFORM_GAMEPAD_BUTTON_BACK, K_GAMEPAD_BACK},
+        {PLATFORM_GAMEPAD_BUTTON_GUIDE, K_GAMEPAD_GUIDE},
+        {PLATFORM_GAMEPAD_BUTTON_START, K_GAMEPAD_START},
+        {PLATFORM_GAMEPAD_BUTTON_LEFT_STICK, K_GAMEPAD_LSTICK_BTN},
+        {PLATFORM_GAMEPAD_BUTTON_RIGHT_STICK, K_GAMEPAD_RSTICK_BTN},
+        {PLATFORM_GAMEPAD_BUTTON_LEFT_SHOULDER, K_GAMEPAD_LSHOULDER},
+        {PLATFORM_GAMEPAD_BUTTON_RIGHT_SHOULDER, K_GAMEPAD_RSHOULDER},
+        {PLATFORM_GAMEPAD_BUTTON_DPAD_UP, K_GAMEPAD_DPAD_UP},
+        {PLATFORM_GAMEPAD_BUTTON_DPAD_DOWN, K_GAMEPAD_DPAD_DOWN},
+        {PLATFORM_GAMEPAD_BUTTON_DPAD_LEFT, K_GAMEPAD_DPAD_LEFT},
+        {PLATFORM_GAMEPAD_BUTTON_DPAD_RIGHT, K_GAMEPAD_DPAD_RIGHT},
     };
     for (size_t i = 0; i < sizeof(kButtons) / sizeof(kButtons[0]); i++) {
-        if (SDL_GetGamepadButton(s_gamepad, kButtons[i].btn)) {
+        if (g_platform.input.gamepad_button(s_gamepad, kButtons[i].btn)) {
             SetVirtualKeyDown(kButtons[i].key);
         }
     }
@@ -326,12 +325,12 @@ void UpdateJoystick(void) {
     // player binds to a D-pad direction in the controls menu is all it does, no
     // hidden aliasing onto the stick's cardinals.
 
-    S16 lx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTX);
-    S16 ly = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTY);
-    S16 rx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHTX);
-    S16 ry = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHTY);
-    S16 lt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
-    S16 rt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
+    S16 lx = g_platform.input.gamepad_axis(s_gamepad, PLATFORM_GAMEPAD_AXIS_LEFTX);
+    S16 ly = g_platform.input.gamepad_axis(s_gamepad, PLATFORM_GAMEPAD_AXIS_LEFTY);
+    S16 rx = g_platform.input.gamepad_axis(s_gamepad, PLATFORM_GAMEPAD_AXIS_RIGHTX);
+    S16 ry = g_platform.input.gamepad_axis(s_gamepad, PLATFORM_GAMEPAD_AXIS_RIGHTY);
+    S16 lt = g_platform.input.gamepad_axis(s_gamepad, PLATFORM_GAMEPAD_AXIS_LEFT_TRIGGER);
+    S16 rt = g_platform.input.gamepad_axis(s_gamepad, PLATFORM_GAMEPAD_AXIS_RIGHT_TRIGGER);
 
     // Cache the raw right stick for the analog camera (EXTFUNC reads it).
     s_rstickX = rx;
@@ -445,7 +444,7 @@ void JoystickGetRightStick(S16 *x, S16 *y) {
 const char *JoystickGetName(void) {
     if (s_gamepad == NULL)
         return "not detected";
-    const char *name = SDL_GetGamepadName(s_gamepad);
+    const char *name = g_platform.input.gamepad_name(s_gamepad);
     return (name != NULL) ? name : "unknown controller";
 }
 
@@ -464,8 +463,8 @@ S32 JoystickMenuAction(void) {
     if (s_gamepad == NULL) {
         return 0;
     }
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_SOUTH) ||
-        SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_START)) {
+    if (g_platform.input.gamepad_button(s_gamepad, PLATFORM_GAMEPAD_BUTTON_SOUTH) ||
+        g_platform.input.gamepad_button(s_gamepad, PLATFORM_GAMEPAD_BUTTON_START)) {
         return K_ENTER;
     }
     return JoystickMenuNavOnly();
@@ -476,16 +475,16 @@ S32 JoystickMenuNavOnly(void) {
     if (s_gamepad == NULL) {
         return 0;
     }
-    S16 lx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTX);
-    S16 ly = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTY);
+    S16 lx = g_platform.input.gamepad_axis(s_gamepad, PLATFORM_GAMEPAD_AXIS_LEFTX);
+    S16 ly = g_platform.input.gamepad_axis(s_gamepad, PLATFORM_GAMEPAD_AXIS_LEFTY);
     S16 dz = (S16)JoystickDeadzone;
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_UP) || ly < -dz)
+    if (g_platform.input.gamepad_button(s_gamepad, PLATFORM_GAMEPAD_BUTTON_DPAD_UP) || ly < -dz)
         return K_UP;
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN) || ly > dz)
+    if (g_platform.input.gamepad_button(s_gamepad, PLATFORM_GAMEPAD_BUTTON_DPAD_DOWN) || ly > dz)
         return K_DOWN;
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT) || lx < -dz)
+    if (g_platform.input.gamepad_button(s_gamepad, PLATFORM_GAMEPAD_BUTTON_DPAD_LEFT) || lx < -dz)
         return K_LEFT;
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT) || lx > dz)
+    if (g_platform.input.gamepad_button(s_gamepad, PLATFORM_GAMEPAD_BUTTON_DPAD_RIGHT) || lx > dz)
         return K_RIGHT;
     return 0;
 }

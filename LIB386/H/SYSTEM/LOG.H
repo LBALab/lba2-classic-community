@@ -6,9 +6,8 @@ extern "C" {
 #endif
 
 /* Structured logging: one call fans out to every registered sink, each
- * rendering the record its own way. Built on an SDL_Log spine (a single
- * SDL_SetLogOutputFunction owns the fan-out); host tests compile with
- * -DLBA_LOG_NO_SDL to bypass SDL entirely. See docs/plan/BOOT_LOG_PLAN.md.
+ * rendering the record its own way. Backend diagnostics enter through the
+ * platform log callback; engine records dispatch directly.
  *
  * Sinks: file (always), ANSI terminal (TTY-gated), and the in-engine console
  * buffer. main adds the file and terminal sinks as soon as the user folder is
@@ -41,8 +40,8 @@ typedef enum {
  * palette-agnostic. */
 typedef void (*LogLineFn)(const char *line, LogSeverity sev, LogLineKind kind);
 
-/* Install the fan-out (no-op under LBA_LOG_NO_SDL) and reset the sink registry.
- * Shutdown flushes and closes sinks and uninstalls the fan-out. */
+/* Reset the sink registry and install the platform diagnostic callback
+ * (omitted under LBA_LOG_NO_PLATFORM). Shutdown closes sinks and removes it. */
 void Log_Init(void);
 void Log_Shutdown(void);
 

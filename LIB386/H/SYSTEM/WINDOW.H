@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SYSTEM/ADELINE_TYPES.H>
+#include <PLATFORM/PLATFORM.H>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -16,45 +17,39 @@ void EndWindow();
 bool IsWindowInitialized();
 
 // --- Interface ---------------------------------------------------------------
-/** Create the SDL window, renderer, and streaming texture at resX*resY. When
- *  `fullscreen` is true the window is created fullscreen up front (via the
- *  SDL create-time property), avoiding a windowed-then-flipped frame on boot. */
+/** Create the platform presentation surface at resX*resY. Fullscreen is
+ *  requested at creation to avoid a windowed-then-flipped frame on boot. */
 bool CreateWindowSurface(U32 resX, U32 resY, bool fullscreen);
 void DestroyWindowSurface();
 
-/** Resize the existing window + streaming texture in place, without
- *  destroying the SDL window itself. Used by the runtime resolution switcher
+/** Resize the existing presentation surface in place, without
+ *  destroying the host window itself. Used by the runtime resolution switcher
  *  (docs/RUNTIME_RESOLUTION.md / SOURCES/RES_SWITCH.CPP) so a switch keeps
  *  focus, multi-monitor placement, and (in fullscreen) the fullscreen state
  *  without a destroy/recreate round-trip. Returns true on success. */
 /* Resize the framebuffer the window presents. `keepWindowSize` is for render
    sizes the player did not choose (an automatic per-scene downshift): the
-   window is left exactly as it is, manual resizes included, and SDL logical
+   window is left exactly as it is, manual resizes included, and logical
    presentation scales the framebuffer into it either way. A player's own
    resolution choice passes false and moves the window with it. */
 bool ResizeWindowSurface(U32 newW, U32 newH, bool keepWindowSize);
 
-/** Query the current display's logical dimensions (the desktop the SDL
- *  window is on, via SDL_GetCurrentDisplayMode). Writes both outputs and
- *  returns true on success. Returns false if SDL hasn't initialised a
+/** Query the current display's logical dimensions. Writes both outputs and
+ *  returns true on success. Returns false if the backend hasn't initialised a
  *  window yet; *outW and *outH are untouched in that case. */
 bool Window_GetDisplayDimensions(U32 *outW, U32 *outH);
 
 /** Query the primary display's logical dimensions WITHOUT a window, for the
- *  boot path that needs the display size before CreateWindowSurface runs
- *  (SDL_GetPrimaryDisplay + SDL_GetCurrentDisplayMode). Requires
- *  SDL_INIT_VIDEO to be up. Returns false (outputs untouched) when video
+ *  boot path that needs the display size before CreateWindowSurface runs.
+ *  Requires the platform video subsystem. Returns false (outputs untouched) when video
  *  isn't initialised, no display is reported, or the driver is the headless
  *  dummy/offscreen one, so resolution auto-detection never fires under the
  *  test harness. */
 bool Window_GetPrimaryDisplayDimensions(U32 *outW, U32 *outH);
-void PresentRendererFrame(const void *pixels, U32 pitch);
-bool LockRendererTexture(void **pixels, int *pitch);
-void UnlockAndPresentRendererTexture();
 void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surfaceY);
 void SetWindowFullscreen(bool fullscreen);
 bool GetWindowFullscreen();
-// Actual SDL window fullscreen state (queries SDL_GetWindowFlags), not the
+// Actual host window fullscreen state, not the
 // cached request flag — for accurate reporting.
 bool Window_IsFullscreen(void);
 
@@ -80,7 +75,7 @@ void Window_SetVSync(int enabled);
 
 void SetWindowRelativeMouse(bool enable);
 void ManageWindow();
-void HandleEventsWindow(const void *event);
+void HandleEventsWindow(const PlatformEvent *event);
 
 // Pause audio while the window is not focused. The window layer feeds focus
 // changes to AppFocusAudio_OnChange(); the audio/game layer registers what to

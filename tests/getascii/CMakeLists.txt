@@ -8,7 +8,7 @@ target_include_directories(test_getascii PRIVATE
     ${CMAKE_SOURCE_DIR}/LIB386/H
 )
 
-target_link_libraries(test_getascii PRIVATE SDL3::SDL3)
+target_link_libraries(test_getascii PRIVATE lba2_platform)
 
 # The project default is C++98; the sibling input tests pin this for the same reason.
 set_target_properties(test_getascii PROPERTIES CXX_STANDARD 11)

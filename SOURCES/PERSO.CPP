@@ -45,8 +45,7 @@ extern S32 GfxDitherShading;
 static inline U32 DosAvailableMem(void) { return 0; }
 #endif
 
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_main.h>
+#include <PLATFORM/PLATFORM.H>
 #include <SYSTEM/ANDROID.H>
 #include <ctype.h>
 #include <stdarg.h>
@@ -830,7 +829,7 @@ restartloop:
 
 #ifdef ENABLE_POLY_RECORDING
         // Scene snapshot / polygon recording capture (Alt+F9)
-        if (Key == K_F9 && (SDL_GetModState() & SDL_KMOD_ALT)) {
+        if (Key == K_F9 && (g_platform.input.modifiers() & PLATFORM_KMOD_ALT)) {
             SnapshotRequested = 1;
             while (Key)
                 MyGetInput();
@@ -2181,7 +2180,7 @@ static void ControlPrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height
     Console_PrePresent(frameBuffer, pitch, width, height, palette_rgb);
 }
 
-int main(int argc, char *argv[]) {
+int Lba2Main(int argc, char *argv[]) {
     /* --version: print resolved engine version (from VERSION file at the
      * repo root, optionally suffixed with -dirty) and exit. Handled before
      * any other init so it works without retail data, without SDL, and on
@@ -2223,16 +2222,15 @@ int main(int argc, char *argv[]) {
     MemoDosMemory = DosAvailableMem(); // Dos memory at start
 #endif
 
-    /* SDL filesystem APIs (GetDefaultUserDir, ResolveGameDataDir) require SDL
-     * to be initialized before use. */
-    if (!SDL_Init(0)) {
-        LogPrintf("SDL_Init failed: %s\n", SDL_GetError());
+    /* Filesystem services are needed before the game-data discovery pass. */
+    if (!g_platform.system.init()) {
+        LogPrintf("Platform init failed: %s\n", g_platform.system.get_error());
         exit(EXIT_FAILURE);
     }
 
     /* Boot stopwatch for the "ready in Xs" closer (logged once the engine is up,
        just before the menu/game). */
-    const U32 bootStartMs = SDL_GetTicks();
+    const U32 bootStartMs = g_platform.system.ticks_ms();
 
     Android_EnsureExternalStoragePermission();
 
@@ -2477,14 +2475,11 @@ int main(int argc, char *argv[]) {
        --resolution CLI > lba2.cfg ResolutionX/Y > compile-time default. The cfg
        read uses a transient stack/BSS buffer (no heap, no MainBuffer dependency),
        so we get the right MainBuffer size in a single allocation cycle. */
-    /* Bring up the video subsystem now (idempotent, since InitProgram's later
-       SDL_INIT_VIDEO init is guarded by SDL_WasInit) so Res_LoadBootDimensions
-       can query the primary display for widescreen auto-detect BEFORE we size
-       the framebuffer here. Without this the early resolve would have no display
-       (windowed/640) while InitAdeline's later resolve (video up) would pick the
-       wide size, and the two MUST agree or MainBuffer and Log/Screen mismatch. */
-    if (!SDL_WasInit(SDL_INIT_VIDEO))
-        SDL_InitSubSystem(SDL_INIT_VIDEO);
+    /* Display discovery must precede framebuffer allocation so the boot and
+       InitAdeline resolutions agree. Initialising host presentation is idempotent;
+       the actual surface is created after the framebuffer dimensions are known. */
+    if (!InitWindow("LBA2"))
+        BootFatal("The game window could not be initialized.");
 
     U32 reqResX, reqResY;
     Res_LoadBootDimensions(&reqResX, &reqResY);
@@ -2497,7 +2492,7 @@ int main(int argc, char *argv[]) {
 
     /* Split the boot time: engine subsystems (InitAdeline — SDL, audio device,
        video) vs everything after (data loads + the intro logo splashes). */
-    const U32 subsystemsMs = SDL_GetTicks() - bootStartMs;
+    const U32 subsystemsMs = g_platform.system.ticks_ms() - bootStartMs;
 
     /* Console hooks: keyboard toggle/input interception + final-frame overlay compositing. */
     SetEventFilter(Console_FeedEvent);

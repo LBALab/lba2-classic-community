@@ -125,31 +125,8 @@ if(LBA2_NATIVE_ARCH)
     endif()
 endif()
 
-# Dependencies
-if(ANDROID)
-    # Android: SDL3 is always shared, loaded by the Java Activity wrapper.
-    # The NDK toolchain and SDL3 CMake config handle the linking details.
-    find_package(SDL3 REQUIRED CONFIG)
-    set(LBA2_SDL3_TARGET SDL3::SDL3)
-elseif(LBA2_LINK_STATIC)
-    find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-static)
-    # Be explicit: SDL3::SDL3 is an alias that resolves to the shared variant
-    # when both shared and static are present in the install tree (the MSYS2
-    # mingw-w64-ucrt-x86_64-SDL3 package ships both). Force the static target
-    # so the resulting binary actually has SDL3 folded in.
-    set(LBA2_SDL3_TARGET SDL3::SDL3-static)
-    if(NOT TARGET ${LBA2_SDL3_TARGET})
-        message(FATAL_ERROR
-            "LBA2_LINK_STATIC=ON but SDL3::SDL3-static is not available. "
-            "Your SDL3 install only provides the shared variant. On MSYS2 "
-            "the package mingw-w64-ucrt-x86_64-SDL3 normally includes both; "
-            "if it doesn't on your platform, build SDL3 from source with "
-            "-DSDL_STATIC=ON or skip -DLBA2_LINK_STATIC=ON.")
-    endif()
-else()
-    find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
-    set(LBA2_SDL3_TARGET SDL3::SDL3)
-endif()
+# The selected platform owns its SDK dependencies and entry point.
+add_subdirectory(LIB386/PLATFORM)
 
 # Engine version string. Reads the canonical value from the VERSION file
 # at the repo root and (optionally) appends -dirty when the working tree
@@ -175,7 +152,7 @@ set(LBA2_BUNDLE_IDENTIFIER  "org.lbalab.lba2cc"             CACHE STRING "Revers
 
 # Build info header (timestamp from compile, flags from configure,
 # version macro from the include of VERSION_GENERATED.h inside BUILD_INFO.h.in).
-set(BUILD_FLAGS_STR "SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} ENABLE_ASM=${ENABLE_ASM}")
+set(BUILD_FLAGS_STR "PLATFORM_BACKEND=${PLATFORM_BACKEND} SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} ENABLE_ASM=${ENABLE_ASM}")
 configure_file(${CMAKE_SOURCE_DIR}/SOURCES/BUILD_INFO.h.in ${CMAKE_BINARY_DIR}/BUILD_INFO.h)
 
 # Generate the .desktop entry, AppStream metainfo and AppImage env file from

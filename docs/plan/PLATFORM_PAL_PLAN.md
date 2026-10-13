@@ -1,7 +1,6 @@
 # In-place Platform Abstraction Layer (PAL): Audit & Extraction Plan
 
-**Status:** Research + plan only. No code, no build changes, no file moves. A proposal
-awaiting explicit go/no-go on the §6 decisions before any implementation PR.
+**Status:** Partially implemented. SDK-free call routing, compile-time backend selection, SDL3 resource ownership, a desktop null backend, engine-owned input IDs, and dependency guards are implemented. Main/modal-loop inversion remains deferred. This document preserves the preceding audit and proposed sequencing; the actual contract and its differences are documented in [PLATFORM_ABSTRACTION.md](../PLATFORM_ABSTRACTION.md).
 
 **Scope:** Ground RFC [#120](https://github.com/LBALab/lba2-classic-community/discussions/120)
 in the actual codebase and produce an in-place plan that decouples the engine from

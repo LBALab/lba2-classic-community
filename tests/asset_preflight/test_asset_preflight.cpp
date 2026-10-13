@@ -3,7 +3,7 @@
  * Builds a fake game-data tree, runs AssetPreflight against it via a capturing
  * file sink, and asserts the required/optional classification, the per-category
  * resolver correctness (video.hqr lives in video/, not the root — a regression
- * that shipped once), and the fail-fast return value. Built with LBA_LOG_NO_SDL
+ * that shipped once), and the fail-fast return value. Built with LBA_LOG_NO_PLATFORM
  * so the log core needs no SDL_Init; DIRECTORIES + sys + SDL are linked for the
  * path resolvers, mirroring tests/discovery. */
 #include "ASSET_PREFLIGHT.H"
@@ -12,7 +12,7 @@
 #include <SYSTEM/LOG.H>
 #include "test_harness.h"
 
-#include <SDL3/SDL.h>
+#include <PLATFORM/PLATFORM.H>
 
 #include <stdio.h>
 #include <string.h>
@@ -60,7 +60,7 @@ static int run_preflight(char *log, int max) {
 }
 
 static void make_complete_tree(void) {
-    SDL_CreateDirectory(ROOT);
+    g_platform.host.create_directory(ROOT);
     touch(Directories_GetResMarker()); /* IsValidResourceDir marker */
     touch(RESS_HQR_NAME);
     touch(SPRITES_HQR_NAME);
@@ -75,10 +75,10 @@ static void make_complete_tree(void) {
     touch(SCENE_HQR_NAME);
     touch(SCREEN_HQR_NAME);
     touch(BKG_HQR_NAME);
-    SDL_CreateDirectory(ROOT "/video");
+    g_platform.host.create_directory(ROOT "/video");
     touch("video/" VIDEO_HQR_NAME);
-    SDL_CreateDirectory(ROOT "/music");
-    SDL_CreateDirectory(ROOT "/vox");
+    g_platform.host.create_directory(ROOT "/music");
+    g_platform.host.create_directory(ROOT "/vox");
 }
 
 static char g_log[8192];

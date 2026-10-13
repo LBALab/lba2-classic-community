@@ -1,6 +1,6 @@
 add_executable(test_staging_buffer
     test_staging_buffer.cpp
-    ${CMAKE_SOURCE_DIR}/LIB386/SVGA/STAGING_BUFFER.CPP)
+    ${CMAKE_SOURCE_DIR}/LIB386/PLATFORM/STAGING_BUFFER.CPP)
 
 target_include_directories(test_staging_buffer PRIVATE
     ${CMAKE_SOURCE_DIR}/LIB386/H)

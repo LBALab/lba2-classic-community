@@ -1,6 +1,6 @@
 set(_ANIM_ASM_DIR ${CMAKE_SOURCE_DIR}/LIB386/ANIM)
 set(_ANIM_ASM_INC ${CMAKE_SOURCE_DIR}/LIB386/H)
-set(_ANIM_LIBS ani obj 3D poly svg sys SDL3::SDL3)
+set(_ANIM_LIBS ani obj 3D poly svg sys lba2_platform)
 
 # .model SMALL ASM files are automatically patched to FLAT at build time.
 add_asm_cpp_test(NAME test_clear      TEST_SOURCE test_clear.cpp      ASM_SOURCE ${_ANIM_ASM_DIR}/CLEAR.ASM      RENAME_SYMS ObjectClear              LIBS ${_ANIM_LIBS}  ASM_INCLUDE_DIRS ${_ANIM_ASM_INC})

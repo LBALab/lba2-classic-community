@@ -3,6 +3,7 @@
 #define JOYSTICK_H
 
 #include <SYSTEM/ADELINE_TYPES.H>
+#include <PLATFORM/PLATFORM.H>
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,7 +18,7 @@ void EndJoystick(void);
 void DetectJoys(void);
 void UpdateJoystick(void);
 void GetJoys(U32 *bitfield);
-void HandleEventsJoystick(const void *event);
+void HandleEventsJoystick(const PlatformEvent *event);
 
 // True iff a gamepad is currently opened. Use this to gate gamepad-dependent
 // code paths; there is no separate enable flag — if a pad is connected, it's on.

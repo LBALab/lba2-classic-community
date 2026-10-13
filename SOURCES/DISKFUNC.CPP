@@ -4,7 +4,7 @@
 #include <SYSTEM/ADELINE.H>
 #include <SYSTEM/LOG.H>
 
-#include <SDL3/SDL_error.h>
+#include <PLATFORM/PLATFORM.H>
 
 #include "AMBIANCE.H"
 #include "BOOT_EXIT.H"
@@ -373,7 +373,7 @@ static void AddDirOrWarn(const char *path) {
        Empty is itself one of the two failures rather than a missing message: AddDirIfNot
        answers a path that exists and is not a directory without reaching SDL, and clears
        the error on the way in so this cannot report an older one. */
-    const char *why = SDL_GetError();
+    const char *why = g_platform.system.get_error();
     Log_Warn("Folders    could not create %s: %s", path,
              (why[0] != '\0') ? why : "the name is taken by something that is not a folder");
 }

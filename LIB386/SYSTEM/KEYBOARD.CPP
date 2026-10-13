@@ -3,9 +3,9 @@
 #include <SYSTEM/EVENTS.H>
 #include <SYSTEM/INPUT_FLOW.H>
 
-#include <SDL3/SDL_events.h>
-#include <SDL3/SDL_keyboard.h>
+#include <PLATFORM/PLATFORM.H>
 #include <stdio.h>
+#include <string.h>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -77,9 +77,9 @@ void UpdateKeyboardState() {
     Key = 0;
     memset(TabKeys, 0, 256);
 
-    SDL_PumpEvents();
-    const bool *keystate = SDL_GetKeyboardState(NULL);
-    for (int keyIndex = 0; keyIndex < SDL_SCANCODE_COUNT; keyIndex++) {
+    g_platform.events.pump();
+    const U8 *keystate = g_platform.input.keyboard_state();
+    for (int keyIndex = 0; keyIndex < PLATFORM_SCANCODE_COUNT; keyIndex++) {
         if (keystate[keyIndex]) {
             TabKeys[KeyIndex(keyIndex)] |= KeyBit(keyIndex);
 
@@ -148,12 +148,12 @@ void EndKeyboard() {
  * off the device, because a poll cannot tell a key held from a key struck again
  * on the next frame. */
 S32 GetAscii() {
-    static SDL_Keycode lastReturnedAscii = 0;
+    static U32 lastReturnedAscii = 0;
 
     ManageEvents();
 
     if (Key) {
-        SDL_Keycode asciiValue = SDL_GetKeyFromScancode((SDL_Scancode)Key, SDL_KMOD_NONE, true);
+        U32 asciiValue = g_platform.input.keycode(Key, PLATFORM_KMOD_NONE);
 
         if (lastReturnedAscii == asciiValue) {
             return 0;
@@ -174,7 +174,7 @@ S32 CheckKey(U32 key) {
 }
 
 void GetKeyScancodeName(char *string, U8 strMaxLen, U32 scanCode) {
-    const char *name = SDL_GetScancodeName((SDL_Scancode)scanCode);
+    const char *name = g_platform.input.scancode_name((S32)scanCode);
     snprintf(string, strMaxLen, "%s", name);
 }
 
@@ -182,17 +182,17 @@ void ManageKeyboard() {
     UpdateKeyboardState();
 }
 
-void HandleEventsKeyboard(const void *event) {
-    // Keyboard *state* is read via SDL_GetKeyboardState in UpdateKeyboardState;
+void HandleEventsKeyboard(const PlatformEvent *event) {
+    // Keyboard state is read through the platform snapshot in UpdateKeyboardState;
     // we don't consume key events to drive TabKeys. The one thing we do here
-    // is sample SDL_EVENT_KEY_DOWN to maintain the "last input was keyboard"
+    // is sample PLATFORM_EVENT_KEY_DOWN to maintain the "last input was keyboard"
     // signal: a real key-down is unambiguous evidence the user is on a
     // physical keyboard, in a way that polled state isn't (polled state reads
     // "down" on every frame a held key is depressed). The touch overlay pokes
     // TabKeys directly and never reaches here, so touch never counts as
     // keyboard.
-    const SDL_Event *ev = (const SDL_Event *)event;
-    if (ev->type == SDL_EVENT_KEY_DOWN) {
+    const PlatformEvent *ev = event;
+    if (ev->type == PLATFORM_EVENT_KEY_DOWN) {
         LastInputWasKeyboard = 1;
         LastInputWasTouch = 0;
     }
@@ -200,9 +200,9 @@ void HandleEventsKeyboard(const void *event) {
     /* Boundary 1's event side. Auto-repeat is excluded: a held key repeats at
        the desktop's rate and none of those repeats is a press, so counting them
        would swamp the one number this boundary exists to produce. */
-    if (ev->type == SDL_EVENT_KEY_DOWN && !ev->key.repeat)
+    if (ev->type == PLATFORM_EVENT_KEY_DOWN && !ev->key.repeat)
         InputFlow_NoteKeyEvent(TRUE);
-    else if (ev->type == SDL_EVENT_KEY_UP)
+    else if (ev->type == PLATFORM_EVENT_KEY_UP)
         InputFlow_NoteKeyEvent(FALSE);
 }
 

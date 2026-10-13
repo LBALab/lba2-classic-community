@@ -9,8 +9,7 @@
 #include <SYSTEM/LIMITS.H>
 #include <SYSTEM/LOG.H>
 
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_filesystem.h>
+#include <PLATFORM/PLATFORM.H>
 
 #include <dirent.h>
 
@@ -316,7 +315,7 @@ bool TryParentSiblingScan(char *outDir, U16 outMax, char tried[][ADELINE_MAX_PAT
  * at picker-success time, before InitDirectories / InitAdeline have set
  * up the lba2.cfg buffer machinery. Written via stdio; read via stdio.
  *
- * Asks GetDefaultUserDir rather than reaching for SDL_GetPrefPath itself, so
+ * Asks GetDefaultUserDir rather than reaching for g_platform.host.pref_path itself, so
  * this pointer lands in the same folder as the saves and cfg it belongs with:
  * the demo SKU's own (ADELINE_PREF_ORG / ADELINE_PREF_APP in DIRECTORIES.H, so
  * a demo build never reads a retail build's pick), and whatever --user-dir or
@@ -512,11 +511,8 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
                  persisted);
     }
 
-    /* SDL_Init must be done by the caller before SDL_GetBasePath / cwd helpers
-     * (see main in PERSO.CPP). Do not SDL_Quit here — InitAdeline needs SDL.
-     *
-     * SDL3: SDL_GetBasePath() returns an internal cached pointer; do not SDL_free
-     * it (SDL_QuitFilesystem frees it). */
+    /* Platform initialisation belongs to the entry point. base_path is borrowed
+       for the backend's lifetime, unlike current_directory and pref_path. */
 
     /* The folder the executable sits in, and the working directory, accept a
        disc image as well as extracted files. Dropping the binary next to a rip
@@ -528,7 +524,7 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
        the cost is one directory walk, not one per candidate. The parent walk and
        the sibling scan below stay on the cheap check, because they are guesses
        and there are a lot of them. */
-    basePath = SDL_GetBasePath();
+    basePath = g_platform.host.base_path();
 
     /* Packagings that run the executable from somewhere other than where the
        launched file lives, ahead of the binary's own folder because for those

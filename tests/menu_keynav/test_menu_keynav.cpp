@@ -17,8 +17,6 @@
 #include <SYSTEM/ADELINE_TYPES.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 
-#include <SDL3/SDL_scancode.h>
-
 #include "MENU_KEYNAV.H"
 
 #include <cstdio>
@@ -45,12 +43,12 @@ int main(void) {
     check("keypad 0", MenuKey_NumpadToNav(K_NUMPAD_0), K_INSER);
 
     /* The keypad period reaches the engine as KP_PERIOD from a standard PC
-       keypad and as KP_DECIMAL from the extended block. Asserting the raw SDL
-       constants rather than the K_ aliases, because an alias pointing at the
+       keypad and as KP_DECIMAL from the extended block. Asserting the persistent
+       physical IDs rather than the K_ aliases, because an alias pointing at the
        scancode the hardware does not send is exactly the failure this pair
        guards, and testing through the alias would agree with itself. */
-    check("keypad . (KP_PERIOD)", MenuKey_NumpadToNav(SDL_SCANCODE_KP_PERIOD), K_SUPPR);
-    check("keypad . (KP_DECIMAL)", MenuKey_NumpadToNav(SDL_SCANCODE_KP_DECIMAL), K_SUPPR);
+    check("keypad . (KP_PERIOD)", MenuKey_NumpadToNav(99), K_SUPPR);
+    check("keypad . (KP_DECIMAL)", MenuKey_NumpadToNav(220), K_SUPPR);
 
     /* A screen testing K_ENTER alone must still confirm on the keypad's own
        Enter. */

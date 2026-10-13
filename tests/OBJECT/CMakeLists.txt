@@ -7,7 +7,7 @@ add_asm_cpp_test(
     RENAME_SYMS BodyDisplay BodyDisplay_AlphaBeta ObjectDisplay ObjPtrMap Obj_ListProjectedPoints TransFctBody Obj_ListRotatedPoints QuickSort QuickSortInv lBody Off_Sort Nb_Sort PosXWr PosYWr PosZWr TabMat ListLights ListSort ListFillPoly PtrTextures
     ASM_DEPS ${CMAKE_SOURCE_DIR}/LIB386/pol_work/POLYLINE.ASM ${CMAKE_SOURCE_DIR}/LIB386/pol_work/POLYDISC.ASM
     ASM_DEP_RENAME_SYMS Line LineZBuf LineZBufNZW Line_A Fill_Sphere
-    LIBS obj 3D poly svg sys SDL3::SDL3
+    LIBS obj 3D poly svg sys lba2_platform
     ASM_INCLUDE_DIRS ${_OBJ_ASM_INC}
 )
 # AFF_OBJ.ASM references Fill_PolyFast, Fill_Sphere, Line_A (cross-module ASM procs)

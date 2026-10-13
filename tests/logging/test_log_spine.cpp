@@ -1,17 +1,8 @@
-/* Host test for the REAL SDL_Log spine (docs/plan/BOOT_LOG_PLAN.md).
- *
- * Unlike test_log (which compiles with -DLBA_LOG_NO_SDL and dispatches straight
- * to the sinks), this target builds LOG.CPP *with* the SDL spine and links SDL3.
- * It exercises the production path that test_log can't reach:
- *
- *   Log_* -> SDL_LogMessage -> the installed output function -> sdl_output ->
- *   log_emit -> sink
- *
- * including the category<->kind and severity<->priority mapping and, crucially,
- * the SDL_SetLogPriority(LBA_CAT_*, DEBUG) opens in Log_Init -- without those,
- * SDL's per-category filter drops INFO/DEBUG before any sink sees them (the
- * gotcha that bit the boot-log work). A break in the trampoline fails here. */
+/* Production log transport: engine records dispatch directly; platform and
+   SDL diagnostics enter through the selected backend. The console sink admits
+   only the main thread, while file/terminal sinks also receive worker records. */
 #include <SYSTEM/LOG.H>
+#include <PLATFORM/PLATFORM.H>
 #include "test_harness.h"
 
 #include <SDL3/SDL.h>
@@ -32,9 +23,7 @@ static void slurp(const char *path, char *out, int max) {
     fclose(f);
 }
 
-/* Every severity + raw + section round-trips through the SDL spine to the file
- * sink with its tag/idiom intact. (If the SetLogPriority opens regressed, the
- * DEBUG/INFO assertions fail — SDL would have filtered them out.) */
+/* Record kinds and severities retain their file formatting. */
 static void test_spine_roundtrip(void) {
     remove(TMP);
     Log_Init();
@@ -56,7 +45,7 @@ static void test_spine_roundtrip(void) {
     ASSERT_TRUE(strstr(buf, "[WARN] warn") != NULL);
     ASSERT_TRUE(strstr(buf, "[ERROR] err") != NULL);
     ASSERT_TRUE(strstr(buf, "raw-line") != NULL);
-    ASSERT_TRUE(strstr(buf, "banner-line") != NULL);        /* LBA_CAT_BANNER round-trip */
+    ASSERT_TRUE(strstr(buf, "banner-line") != NULL);
     ASSERT_TRUE(strstr(buf, "[INFO] banner-line") == NULL); /* verbatim, no tag */
     ASSERT_TRUE(strstr(buf, "==== Sect ====") != NULL);
     remove(TMP);
@@ -93,19 +82,13 @@ static void test_spine_min_severity(void) {
     remove(TMP);
 }
 
-/* The structural-framing exemption holds through the REAL SDL spine. With the
- * level raised to its strictest, the banner and section markers still clear BOTH
- * SDL's per-category filter (opened to DEBUG in Log_Init) AND log_emit's master
- * gate, while a same-INFO Log_Raw line -- which clears the SDL filter too -- is
- * dropped by the gate. This guards the end-to-end path test_log (NO_SDL) can't:
- * if the SetLogPriority opens or the category<->kind round-trip regressed, a
- * raised level would silently swallow the boot banner and this fails. */
+/* Structural framing bypasses the level; raw/ordinary records do not. */
 static void test_spine_structural_bypasses_level(void) {
     remove(TMP);
     Log_Init();
     Log_AddSink(Log_MakeFileSink(TMP, LOG_DEBUG));
     Log_SetLevel(LOG_ERROR);      /* strictest short of silence */
-    Log_Banner("spine-banner");   /* structural -> survives via LBA_CAT_BANNER */
+    Log_Banner("spine-banner");   /* structural -> survives */
     Log_BeginSection("SpineSec"); /* structural -> survives */
     Log_Raw("spine-raw");         /* REC_RAW -> gated by the level */
     Log_Info("spine-info");       /* REC_NORMAL below ERROR -> gated */
@@ -114,11 +97,44 @@ static void test_spine_structural_bypasses_level(void) {
 
     char buf[4096];
     slurp(TMP, buf, sizeof buf);
-    ASSERT_TRUE(strstr(buf, "spine-banner") != NULL);       /* clears SDL + gate */
+    ASSERT_TRUE(strstr(buf, "spine-banner") != NULL);
     ASSERT_TRUE(strstr(buf, "==== SpineSec ====") != NULL); /* clears SDL + gate */
     ASSERT_TRUE(strstr(buf, "spine-raw") == NULL);          /* Log_Raw obeys level */
     ASSERT_TRUE(strstr(buf, "spine-info") == NULL);         /* INFO gated at ERROR */
     ASSERT_TRUE(strstr(buf, "[ERROR] spine-err") != NULL);
+    remove(TMP);
+}
+
+static int console_records = 0;
+static void console_record(const char *, LogSeverity, LogLineKind) {
+    console_records++;
+}
+static int SDLCALL emit_worker_records(void *) {
+    Log_Info("worker-engine");
+    Platform_Log(PLATFORM_LOG_WARN, "worker-platform");
+    SDL_Log("worker-sdk");
+    return 0;
+}
+static void test_platform_transport_and_main_thread_gate(void) {
+    remove(TMP);
+    console_records = 0;
+    Log_Init();
+    Log_AddSink(Log_MakeFileSink(TMP, LOG_DEBUG));
+    Log_AddSink(Log_MakeConsoleBufferSink(console_record));
+    Platform_Log(PLATFORM_LOG_INFO, "main-platform");
+    ASSERT_EQ_INT(1, console_records);
+    SDL_Thread *worker = SDL_CreateThread(emit_worker_records, "pal-log-fixture", NULL);
+    ASSERT_TRUE(worker != NULL);
+    if (worker)
+        SDL_WaitThread(worker, NULL);
+    ASSERT_EQ_INT(1, console_records);
+    Log_Shutdown();
+    char buf[4096];
+    slurp(TMP, buf, sizeof(buf));
+    ASSERT_TRUE(strstr(buf, "[INFO] main-platform") != NULL);
+    ASSERT_TRUE(strstr(buf, "[INFO] worker-engine") != NULL);
+    ASSERT_TRUE(strstr(buf, "[WARN] worker-platform") != NULL);
+    ASSERT_TRUE(strstr(buf, "worker-sdk") != NULL);
     remove(TMP);
 }
 
@@ -127,6 +143,7 @@ int main(void) {
     RUN_TEST(test_spine_routes_bare_sdl_log);
     RUN_TEST(test_spine_min_severity);
     RUN_TEST(test_spine_structural_bypasses_level);
+    RUN_TEST(test_platform_transport_and_main_thread_gate);
     TEST_SUMMARY();
     return test_failures != 0;
 }

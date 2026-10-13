@@ -10,7 +10,7 @@
  *     cross-sector and EOF), and sizes it with Seek-to-end (no slurp),
  *   - reports file and directory existence (the preflight music/ and vox/ checks),
  *   - reports nothing for paths outside the base or absent from the image.
- * SDL-free: links DISCIMG + ISO9660 + FILES + LOG (LBA_LOG_NO_SDL), no device. */
+ * SDL-free: links DISCIMG + ISO9660 + FILES + LOG (LBA_LOG_NO_PLATFORM), no device. */
 #include "test_harness.h"
 
 #include <SYSTEM/DISCIMG.H>

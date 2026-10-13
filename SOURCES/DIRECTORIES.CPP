@@ -9,8 +9,8 @@
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H>
 
-#include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_stdinc.h>
+#include <PLATFORM/PLATFORM.H>
+#include <SYSTEM/STRING.H>
 
 #include <stdio.h>
 
@@ -129,13 +129,13 @@ static bool DiscoverPass(char *variation, U16 variationMaxSize,
         return true;
 
     // Try uppercase
-    SDL_strupr(variation);
+    ade_strupr(variation);
     snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
     if (exists(fullPath))
         return true;
 
     // Try lowercase
-    SDL_strlwr(variation);
+    ade_strlwr(variation);
     snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
     if (exists(fullPath))
         return true;
@@ -315,20 +315,20 @@ void GetCurrentRunningDir(char *outDir) {
     }
 #endif
 
-    char *sdlBasePath = SDL_GetCurrentDirectory();
+    char *sdlBasePath = g_platform.host.current_directory();
     if (sdlBasePath == NULL) {
         outDir[0] = '\0';
         return;
     }
-    if (SDL_strlen(sdlBasePath) >= ADELINE_MAX_PATH) {
+    if (strlen(sdlBasePath) >= ADELINE_MAX_PATH) {
         Log_Error("Current directory path too long (>= %d)", ADELINE_MAX_PATH);
-        SDL_free(sdlBasePath);
+        g_platform.host.free_memory(sdlBasePath);
         outDir[0] = '\0';
         return;
     }
     strncpy(outDir, sdlBasePath, ADELINE_MAX_PATH);
     outDir[ADELINE_MAX_PATH - 1] = '\0';
-    SDL_free(sdlBasePath);
+    g_platform.host.free_memory(sdlBasePath);
 
 #ifndef LBA2_BUILD_TESTS
     strncpy(cachedDir, outDir, ADELINE_MAX_PATH);
@@ -430,7 +430,7 @@ bool Directories_ResolveUserDir(char *outDir, U16 outMax,
     outDir[outMax - 1] = '\0'; // Guarantee
 
     /* Every Get*Path builds its result as baseDir + name with no separator of
-       its own, and SDL_GetPrefPath always hands back a trailing one, so a path
+       its own, and g_platform.host.pref_path always hands back a trailing one, so a path
        typed without it has to be brought to the same shape or the first append
        lands a sibling file instead of a child. The length guard above means
        there is always room for it. */
@@ -454,7 +454,7 @@ static bool FindPortableMarker(const char *dir, char *outName, U16 outMax) {
     bool found = false;
     struct dirent *entry;
     while (!found && ((entry = readdir(dirp)) != NULL)) {
-        if (SDL_strcasecmp(entry->d_name, ADELINE_PORTABLE_MARKER) == 0) {
+        if (ade_strcasecmp(entry->d_name, ADELINE_PORTABLE_MARKER) == 0) {
             strncpy(outName, entry->d_name, outMax);
             outName[outMax - 1] = '\0'; // Guarantee
             found = true;
@@ -484,7 +484,7 @@ static bool ReadPortableProfile(const char *markerPath, char *outName, U16 outMa
         while ((*p == ' ') || (*p == '\t')) {
             p++;
         }
-        if (SDL_strncasecmp(p, "profile", 7) != 0) {
+        if (ade_strncasecmp(p, "profile", 7) != 0) {
             continue;
         }
         p += 7;
@@ -633,7 +633,7 @@ static bool CanWriteInDir(const char *dir) {
     }
     const bool wrote = (fputc('.', f) != EOF);
     fclose(f);
-    SDL_RemovePath(probe);
+    g_platform.host.remove_path(probe);
     return wrote;
 }
 
@@ -738,7 +738,7 @@ static bool SameDirectory(const char *a, const char *b) {
     }
     const bool wrote = fwrite(token, 1, (size_t)tokenLen, f) == (size_t)tokenLen;
     if (fclose(f) != 0 || !wrote) {
-        SDL_RemovePath(probeA);
+        g_platform.host.remove_path(probeA);
         return false;
     }
 
@@ -751,7 +751,7 @@ static bool SameDirectory(const char *a, const char *b) {
         fclose(g);
         same = strcmp(got, token) == 0;
     }
-    SDL_RemovePath(probeA);
+    g_platform.host.remove_path(probeA);
     return same;
 }
 
@@ -979,12 +979,12 @@ static void ResolveDefaultUserDirRoot(char *outDir, U16 outMax) {
         candidates[count++] = appExternal;
     }
 
-    /* SDL3 hands back an internal cached pointer; do not free it. */
-    char *sdlUserPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
+    /* Preference paths are owned; release through the backend's allocator. */
+    char *sdlUserPath = g_platform.host.pref_path(ADELINE_PREF_ORG, ADELINE_PREF_APP);
     if (sdlUserPath != NULL) {
         strncpy(sdlDir, sdlUserPath, ADELINE_MAX_PATH);
         sdlDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
-        SDL_free(sdlUserPath);
+        g_platform.host.free_memory(sdlUserPath);
         candidates[count++] = sdlDir;
     }
 
@@ -1017,7 +1017,7 @@ void GetDefaultUserDir(char *outDir) {
            already follow.
 
            A named directory is created rather than required to exist, matching
-           SDL_GetPrefPath, which creates its own. That is what makes
+           g_platform.host.pref_path, which creates its own. That is what makes
            `--user-dir <fresh path>` an empty profile in one step, with no mkdir
            on the caller. Creation failure is deliberately not papered over with
            a fall back to the default: a run that quietly wrote somewhere other
@@ -1048,7 +1048,7 @@ void GetDefaultUserDir(char *outDir) {
                    not override something they typed.
 
                    SDL3 hands back an internal cached pointer; do not free it. */
-                if (Directories_PortableUserDir(userDir, ADELINE_MAX_PATH, SDL_GetBasePath())) {
+                if (Directories_PortableUserDir(userDir, ADELINE_MAX_PATH, g_platform.host.base_path())) {
                     directoriesUserDirSource = ADELINE_PORTABLE_MARKER;
                 } else {
                     ResolveDefaultUserDirRoot(userDir, ADELINE_MAX_PATH);
@@ -1102,7 +1102,7 @@ void GetDefaultUserDir(char *outDir) {
            covers a named user directory, a named profile, and the per-user
            default SDL already created. */
         if (userDir[0] != '\0') {
-            SDL_CreateDirectory(userDir);
+            g_platform.host.create_directory(userDir);
         }
         initialized = true;
     }
@@ -1177,7 +1177,7 @@ void Directories_SeedSavesFromGameData(void) {
         const size_t len = strlen(name);
         /* Top-level saves only. The SHOOT/ beside them holds screenshots the
            engine generates, and a directory is not a save. */
-        if (len < 5 || SDL_strcasecmp(name + len - 4, ".lba") != 0) {
+        if (len < 5 || ade_strcasecmp(name + len - 4, ".lba") != 0) {
             continue;
         }
 
@@ -1190,7 +1190,7 @@ void Directories_SeedSavesFromGameData(void) {
         if (!ExistsOnFilesystem(srcPath)) {
             continue; // a directory ending in .lba, or a stale entry
         }
-        if (copied == 0 && !SDL_CreateDirectory(destDir)) {
+        if (copied == 0 && !g_platform.host.create_directory(destDir)) {
             break; // nowhere to put them; the boot reports the folder elsewhere
         }
         if (Copy(srcPath, destPath)) {
@@ -1209,7 +1209,7 @@ void Directories_SeedSavesFromGameData(void) {
            is what says this profile has been used. Leaving it would retire the
            seeding for good on the first bad run, so take it back and let the
            next launch try again. */
-        SDL_RemovePath(destDir); // empty, so this succeeds and the next launch retries
+        g_platform.host.remove_path(destDir); // empty, so this succeeds and the next launch retries
     }
 }
 
@@ -1228,14 +1228,14 @@ void Directories_SeedSavesFromGameData(void) {
    Windows run whose build tree and user directory share a drive resolves `C:` to a
    directory that exists.
 
-   SDL_CreateDirectory creates the parents itself, reports success when the directory is
+   g_platform.host.create_directory creates the parents itself, reports success when the directory is
    already there, and knows what a drive spec is. It also creates with 0770 against the
    0754 the walk asked for, so a folder made from now on is one group-readable step
    tighter and matches the user directory above it, which SDL has always made. */
 U8 AddDirIfNot(const char *path) {
     /* So that a caller reporting a failure reads this attempt's reason rather than
        whatever last set one, which under SDL is as likely to be a call that succeeded. */
-    SDL_ClearError();
+    g_platform.system.clear_error();
 
     /* Ahead of the create, so a path that exists as a file still answers no. That is
        what a caller testing this return has always been told, and SDL is not asked to
@@ -1244,7 +1244,7 @@ U8 AddDirIfNot(const char *path) {
         return IsDirectory(path);
     }
 
-    return SDL_CreateDirectory(path) ? TRUE : FALSE;
+    return g_platform.host.create_directory(path) ? TRUE : FALSE;
 }
 
 /* Beside the saves rather than under them, because a recording is a thing the player

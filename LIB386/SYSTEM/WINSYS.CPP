@@ -6,8 +6,6 @@
 
 #include <SYSTEM/MOUSE.H>
 
-#include <SDL3/SDL.h>
-
 //----------------------------------------------------------------------------
 #define STYLE_FULLSCREEN WS_EX_APPWINDOW
 #define STYLE_WINDOW WS_OVERLAPPEDWINDOW

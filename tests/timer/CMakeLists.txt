@@ -5,7 +5,7 @@ target_include_directories(test_timer_lock_window PRIVATE
     ${CMAKE_SOURCE_DIR}/LIB386/H
 )
 
-target_link_libraries(test_timer_lock_window PRIVATE SDL3::SDL3)
+target_link_libraries(test_timer_lock_window PRIVATE lba2_platform)
 
 set_target_properties(test_timer_lock_window PROPERTIES CXX_STANDARD 11)
 
@@ -21,7 +21,7 @@ target_include_directories(test_fixed_step PRIVATE
     ${CMAKE_SOURCE_DIR}/LIB386/H
 )
 
-target_link_libraries(test_fixed_step PRIVATE SDL3::SDL3)
+target_link_libraries(test_fixed_step PRIVATE lba2_platform)
 
 set_target_properties(test_fixed_step PROPERTIES CXX_STANDARD 11)
 

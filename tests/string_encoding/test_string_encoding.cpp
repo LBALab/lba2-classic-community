@@ -81,7 +81,26 @@ static void test_trailing_accent_run(void) {
     ASSERT_TRUE(!EqualsIgnoringCaseAndEncoding("caf\xC3\xA9", "caf\x82s"));
 }
 
+static void test_ascii_case_operations(void) {
+    ASSERT_EQ_INT(0, ade_strcasecmp("Track12.OGG", "track12.ogg"));
+    ASSERT_TRUE(ade_strcasecmp("a", "B") < 0);
+    ASSERT_TRUE(ade_strcasecmp("AB", "a") > 0);
+    ASSERT_EQ_INT(0, ade_strcasecmp("", ""));
+    ASSERT_EQ_INT(0, ade_strncasecmp("PROFILE-one", "profile-two", 7));
+    ASSERT_TRUE(ade_strncasecmp("a", "AB", 2) < 0);
+    ASSERT_EQ_INT(0, ade_strncasecmp("a", "B", 0));
+    char text[] = "Ab-z_9\x87";
+    ASSERT_TRUE(ade_strupr(text) == text);
+    ASSERT_TRUE(strcmp(text, "AB-Z_9\x87") == 0);
+    ASSERT_TRUE(ade_strlwr(text) == text);
+    ASSERT_TRUE(strcmp(text, "ab-z_9\x87") == 0);
+    ASSERT_TRUE(ade_strcasecmp("\x87", "\xE7") < 0);
+    ASSERT_TRUE(ade_strcasestr("Track12.OGG", "12.ogg") != NULL);
+    ASSERT_TRUE(ade_strcasestr("short", "longer") == NULL);
+}
+
 int main(void) {
+    RUN_TEST(test_ascii_case_operations);
     RUN_TEST(test_same_encoding_still_matches);
     RUN_TEST(test_case_is_ignored);
     RUN_TEST(test_across_encodings);

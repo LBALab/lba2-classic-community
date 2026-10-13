@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SYSTEM/ADELINE_TYPES.H>
+#include <PLATFORM/PLATFORM.H>
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,7 +20,7 @@ extern "C" {
  *
  * Enabled at runtime via TouchOverlay_Init / TouchOverlay_Shutdown.
  * TouchOverlay_HandleEvent must be called from the event loop on
- * SDL_EVENT_FINGER_DOWN / SDL_EVENT_FINGER_UP / SDL_EVENT_FINGER_MOTION.
+ * PLATFORM_EVENT_FINGER_DOWN / PLATFORM_EVENT_FINGER_UP / PLATFORM_EVENT_FINGER_MOTION.
  * TouchOverlay_Render must be called from the PrePresent chain -- unconditionally,
  * once, at startup. It decides for itself whether to draw anything, so a caller
  * that registers it only when the overlay happens to be visible at boot makes
@@ -50,17 +51,17 @@ void TouchOverlay_Shutdown(void);
 
 /* Returns S32 so the event filter can forward the return: 1 if the event was
  * consumed (finger on overlay), 0 if it should pass through to the game. For
- * SDL_EVENT_FINGER_DOWN/UP/MOTION only; other event types return 0. */
-S32 TouchOverlay_HandleEvent(const void *sdlEvent);
+ * PLATFORM_EVENT_FINGER_DOWN/UP/MOTION only; other event types return 0. */
+S32 TouchOverlay_HandleEvent(const PlatformEvent *event);
 
 /* Draw the semi-transparent overlay onto the ARGB framebuffer. Called from
  * the PrePresent chain. Parameters match the PrePresentFn signature. */
 void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
                          const U8 *palette_rgb);
 
-/* Whether this device gets an overlay at all: false off Android and on a
- * leanback (TV) device. Settled once by TouchOverlay_Init. Distinct from
- * whether anything is drawn this frame, which the policy above decides. */
+/* Whether the backend supports an overlay. SDL3 currently enables it on
+   Android; a TV can still wake it with a touch. Distinct from whether the
+   visibility policy draws anything this frame. */
 S32 TouchOverlay_IsSupported(void);
 
 void ApplyVirtualKeys(void);
