@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-79 fixtures.
+80 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -34,6 +34,7 @@ suite still passes, since CI cannot say so.
 | [test_camera_interior.sh](test_camera_interior.sh) | The Auto camera must stay out of interiors, whatever the player has it set to. | - |
 | [test_camzone_hold.sh](test_camzone_hold.sh) | A camera zone's authored angle must survive the Auto camera being switched on. | - |
 | [test_camzone_model.sh](test_camzone_model.sh) | Camera zones come in two shapes, and the difference is a flag in the authored data. | - |
+| [test_camzone_return.sh](test_camzone_return.sh) | A scripted shot borrows the Auto camera: with cam_zone_return on, the yaw and pitch it took are given back when the hero leaves its box. | - |
 | [test_camzone_skip.sh](test_camzone_skip.sh) | With cam_zone_skip on, a camera zone that only latches is left unfired while the player steers under the Auto camera; forced zones and the classic camera are unaffected. | - |
 | [test_classiccam_controls.sh](test_classiccam_controls.sh) | The classic camera's own controls: quarter turns, recentre, and the two view presets. | - |
 | [test_cli_contract.sh](test_cli_contract.sh) | The CLI contract that automation depends on (#433). | save fixture |

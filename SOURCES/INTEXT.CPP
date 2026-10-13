@@ -13,6 +13,7 @@
  *══════════════════════════════════════════════════════════════════════════*/
 
 #include "C_EXTERN.H"
+#include "FOLLOWCAM.H" /* FollowCamForgetLoan: a recentre ends a scripted shot's loan */
 
 extern T_OBJET *APtObj; // dans OBJECT.CPP
 
@@ -339,8 +340,12 @@ void CameraCenter(S32 flagbeta) {
      * straight back off the angle just chosen. Dropping it here covers all three
      * without each having to remember. flagbeta 0 and 3 only re-run the camera
      * functions and leave the angle alone, so they leave the gesture alone too. */
-    if (flagbeta == 1 OR flagbeta == 2)
+    if (flagbeta == 1 OR flagbeta == 2) {
         FollowCamForgetManualGesture();
+        /* Nor does a scripted shot have anything left to be given back: the
+         * camera has just been put somewhere on purpose. */
+        FollowCamForgetLoan();
+    }
 
     switch (flagbeta) {
     case 2:
@@ -351,6 +356,9 @@ void CameraCenter(S32 flagbeta) {
         VueDistance = DefVueDistance[VueCamera];
         AlphaCam = DefAlphaCam[VueCamera];
 #endif
+        /* The Auto camera's own pitch from here on, noted before the
+         * obstruction search below gets the chance to write over it. */
+        FollowCamNoteOwnPitch(AlphaCam);
 
         newbeta = AddBetaCam + ptr3d->Beta;
         newbeta &= 4095;
@@ -379,6 +387,9 @@ void CameraCenter(S32 flagbeta) {
         VueDistance = DefVueDistance[VueCamera];
         AlphaCam = DefAlphaCam[VueCamera];
 #endif
+        /* The Auto camera's own pitch from here on, noted before the
+         * obstruction search below gets the chance to write over it. */
+        FollowCamNoteOwnPitch(AlphaCam);
 
         BetaCam = 2048 - ptr3d->Beta;
         BetaCam &= 4095;
