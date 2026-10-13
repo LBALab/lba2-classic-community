@@ -114,7 +114,7 @@ A zone of type 1 re-aims the camera when the hero is inside its box. `SetZoneCam
 
 `ZONE_ON` comes from `ZONE_INIT_ON` at scene load ([DISKFUNC.CPP](../SOURCES/DISKFUNC.CPP)); a zone without it never fires, however the hero moves. `ZONE_ACTIVE` is cleared when the hero is outside the box, so leaving and re-entering re-arms the zone; a Life script can also clear it ([GERELIFE.CPP](../SOURCES/GERELIFE.CPP)).
 
-The latching shape is by far the more common in the shipped data. `CameraZone` is therefore true for one frame per entry on most zones, and for the whole visit on forced ones. Both are pinned by `test_camzone_model.sh`.
+Both shapes are common in the shipped data. Listing every cube's zones as its scene loads them (`cube N`, then `zonelist`, from the corpus save `Wannies fragment.LBA`) gives 242 enabled camera zones across the exterior cubes: 128 latching and 114 forced, with a forced zone in 36 cubes. `CameraZone` is therefore true for one frame per entry on about half of them and for the whole visit on the rest. Both are pinned by `test_camzone_model.sh`.
 
 `zonelist` prints `Info7` with its bits named, which is the quickest way to tell which shape a given zone is.
 
@@ -139,6 +139,13 @@ A zone writes `BetaCam` directly, so it is one of the writers described above an
 
 - **on** (default): the shot is held until the player orbits away or the scene changes, like any angle they set themselves.
 - **off**: the pan drift returns the camera behind the hero as he walks on, handing the shot back gradually. This is only possible because the angle was adopted; a shot the Auto camera never took ownership of cannot be given back smoothly, only snatched back.
+
+What is held is the offset, not the shot. The zone's yaw is a world angle, and adopting it turns it into a pan measured from the heading the hero had on the frame the shot fired. From then on the Auto camera carries that pan round with him, so the authored direction is lost on his first turn and the camera is left wherever the shot's angle happened to fall relative to him. Measured in cube 90 with nobody touching the camera:
+
+- **A latching zone** shows its shot for one frame. The boom goes back to the player's own arm on the next, and the yaw follows the hero's turning from then on, still inside the box. With a shot that faced him (a pan of 163 degrees) he was fully hidden about two seconds after it fired and the hidden-hero recovery cut the camera behind him. The classic camera stayed on the shot throughout.
+- **A forced zone** matches the classic camera for as long as he is inside, since the follow update does not run there. On the way out the boom snaps to the player's arm and the camera swings by however far he turned inside the box (104 degrees over about two seconds, with him standing still), then keeps the pan it lands on.
+
+The pitch stays as authored in both, because the path that restores the presets (above) is skipped for the exterior Auto camera. None of this is given back by walking on, by leaving the box, or by crossing into the next exterior cube. An orbit, Center camera, a scene change that recentres, or the hidden-hero recovery clears it. `test_camzone_hold.sh` compares the two cameras while the hero stands still, which is the one case where they agree.
 
 ## Auto camera (`FollowCamera` — community addition, not in the original game)
 
