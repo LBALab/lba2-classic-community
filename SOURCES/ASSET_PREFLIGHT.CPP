@@ -8,6 +8,7 @@
 
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>
+#include <SYSTEM/STRING.H>
 
 #include <stddef.h> /* NULL */
 #include <stdio.h>  /* snprintf */
@@ -45,6 +46,15 @@ const char *const kOptionalHqr[] = {
 
 bool fileExists(const char *path) { return FileSize(path) > 0; }
 
+/* The name as every distribution ships it, for the messages. HQR_NAMES.H spells
+ * these lower case and the lookup takes any case, but a player comparing the
+ * message with a folder full of OBJFIX.HQR reads "objfix.hqr" as "rename it". */
+const char *shippedName(const char *name) {
+    static char shipped[64];
+    snprintf(shipped, sizeof shipped, "%s", name);
+    return ade_strupr(shipped);
+}
+
 /* music/ and vox/ are collections (per-track WAVs, per-language .VOX) the audio
  * modules enumerate at load time; the formats and language set vary by SKU, so
  * the robust boot check is "is the subtree present", not a specific file. */
@@ -61,7 +71,7 @@ extern "C" int AssetPreflight(void) {
     for (i = 0; i < nReq; ++i) {
         GetResPath(path, ADELINE_MAX_PATH, kRequiredHqr[i]);
         if (!fileExists(path)) {
-            Log_Error("missing required asset: %s", kRequiredHqr[i]);
+            Log_Error("missing required asset: %s", shippedName(kRequiredHqr[i]));
             ++missingReq;
         }
     }
@@ -73,10 +83,12 @@ extern "C" int AssetPreflight(void) {
     if (!fileExists(path)) {
 #ifdef DEMO
         /* No demo install has cutscenes, so InitAcf() degrades instead. */
-        Log_Warn("optional asset missing: %s (no cutscenes)", VIDEO_HQR_NAME);
+        Log_Warn("optional asset missing: %s in video/ (no cutscenes)",
+                 shippedName(VIDEO_HQR_NAME));
         ++missingOpt;
 #else
-        Log_Error("missing required asset: %s", VIDEO_HQR_NAME);
+        Log_Error("missing required asset: %s in video/",
+                  shippedName(VIDEO_HQR_NAME));
         ++missingReq;
 #endif
     }
@@ -85,7 +97,7 @@ extern "C" int AssetPreflight(void) {
     for (i = 0; i < nOpt; ++i) {
         GetResPath(path, ADELINE_MAX_PATH, kOptionalHqr[i]);
         if (!fileExists(path)) {
-            Log_Warn("optional asset missing: %s", kOptionalHqr[i]);
+            Log_Warn("optional asset missing: %s", shippedName(kOptionalHqr[i]));
             ++missingOpt;
         }
     }

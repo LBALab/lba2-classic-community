@@ -93,7 +93,7 @@ static void test_optional_missing_does_not_block(void) {
     del(HOLO_HQR_NAME);
     int r = run_preflight(g_log, sizeof g_log);
     ASSERT_EQ_INT(0, r); /* optional missing must not count as required */
-    ASSERT_TRUE(strstr(g_log, "holomap.hqr") != NULL);
+    ASSERT_TRUE(strstr(g_log, "optional asset missing: HOLOMAP.HQR") != NULL);
     touch(HOLO_HQR_NAME); /* restore */
 }
 
@@ -105,12 +105,12 @@ static void test_required_missing(void) {
     /* No demo install ships cutscenes, so a missing video.hqr is a warning and
        sprites.hqr is the only thing that blocks the boot. */
     ASSERT_EQ_INT(1, r);
-    ASSERT_TRUE(strstr(g_log, "optional asset missing: video.hqr") != NULL);
+    ASSERT_TRUE(strstr(g_log, "optional asset missing: VIDEO.HQR") != NULL);
 #else
     ASSERT_EQ_INT(2, r);
-    ASSERT_TRUE(strstr(g_log, "missing required asset: video.hqr") != NULL);
+    ASSERT_TRUE(strstr(g_log, "missing required asset: VIDEO.HQR in video/") != NULL);
 #endif
-    ASSERT_TRUE(strstr(g_log, "missing required asset: sprites.hqr") != NULL);
+    ASSERT_TRUE(strstr(g_log, "missing required asset: SPRITES.HQR") != NULL);
     touch(SPRITES_HQR_NAME); /* restore (video restored by next test) */
 }
 
@@ -121,7 +121,7 @@ static void test_video_resolved_in_video_dir(void) {
     touch("video/" VIDEO_HQR_NAME);
     int r = run_preflight(g_log, sizeof g_log);
     ASSERT_EQ_INT(0, r);
-    ASSERT_TRUE(strstr(g_log, "missing required asset: video.hqr") == NULL);
+    ASSERT_TRUE(strstr(g_log, "missing required asset: VIDEO.HQR") == NULL);
 }
 
 static void test_any_spelling_is_found(void) {
