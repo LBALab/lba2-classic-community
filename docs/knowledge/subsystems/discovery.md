@@ -64,7 +64,7 @@ sources:
 
 | Contract | Statement |
 |---|---|
-| The marker | A folder is game data when it holds `LBA2.HQR`, or `RESS.HQR` in a demo build, matched as written, upper, lower and title case. `IsValidResourceDirOrImage` also accepts a folder holding a disc image whose filesystem contains the marker.[^directories-cpp] |
+| The marker | A folder is game data when it holds `LBA2.HQR`, or `RESS.HQR` in a demo build, matched in any mix of case. `IsValidResourceDirOrImage` also accepts a folder holding a disc image whose filesystem contains the marker.[^directories-cpp] |
 | The chain | `ResolveGameDataDir`, first match wins. Each root that names an install also tries a `Common/` inside it.[^discovery-cpp] |
 | Refusals | `--game-dir` or `--data-dir`, then `LBA2_GAME_DIR`: the path, then its `Common/`, both image-aware. Neither matching logs the path and returns false without trying anything else.[^discovery-cpp] |
 | Remembered | `--pick-game-dir` skips everything below and goes to the picker. Otherwise `last_game_dir.txt` in the user folder, image-aware; a stale entry logs a warning and falls through.[^discovery-cpp] |
