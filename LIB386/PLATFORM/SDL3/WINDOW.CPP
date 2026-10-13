@@ -16,6 +16,7 @@ uint32_t s_height = 0;
 bool s_fullscreen = false;
 #ifdef LBA2_SDL3_TESTS
 void (*s_presentationProbe)(SDL_Renderer *) = NULL;
+bool (*s_fullscreenProbe)(SDL_Window *, bool) = NULL;
 #endif
 #if defined(__ANDROID__) || defined(LBA2_SDL3_TEST_STAGING)
 StagingBuffer s_staging = {NULL, 0, 0};
@@ -64,6 +65,9 @@ extern "C" {
 #ifdef LBA2_SDL3_TESTS
 void SDL3_SetPresentationProbe(void (*probe)(SDL_Renderer *)) {
     s_presentationProbe = probe;
+}
+void SDL3_SetFullscreenProbe(bool (*probe)(SDL_Window *, bool)) {
+    s_fullscreenProbe = probe;
 }
 #endif
 
@@ -270,14 +274,22 @@ void SDL3_SetRelativeMouse(bool enabled) {
 
 void SDL3_SetFullscreen(bool fullscreen) {
     fullscreen = CoerceFullscreen(fullscreen);
+    const bool previous = s_fullscreen;
     s_fullscreen = fullscreen;
     if (s_window == NULL)
         return;
-    if (!SDL_SetWindowFullscreen(s_window, fullscreen)) {
+    bool changed;
+#ifdef LBA2_SDL3_TESTS
+    if (s_fullscreenProbe)
+        changed = s_fullscreenProbe(s_window, fullscreen);
+    else
+#endif
+        changed = SDL_SetWindowFullscreen(s_window, fullscreen);
+    if (!changed) {
         Platform_Log(PLATFORM_LOG_WARN, "Unable to change SDL fullscreen state to %d.\n"
                                         "\tSDL message: %s",
                      fullscreen ? 1 : 0, SDL_GetError());
-        s_fullscreen = !fullscreen;
+        s_fullscreen = previous;
         return;
     }
     if (s_renderer && s_texture)

@@ -43,6 +43,7 @@ void SDL3_HandleWindowEvent(const SDL_Event *event);
 bool SDL3_Present(const PlatformFrame *frame);
 #ifdef LBA2_SDL3_TESTS
 void SDL3_SetPresentationProbe(void (*probe)(SDL_Renderer *renderer));
+void SDL3_SetFullscreenProbe(bool (*probe)(SDL_Window *window, bool enabled));
 #endif
 
 const uint8_t *SDL3_KeyboardState(void);

@@ -353,6 +353,30 @@ static void test_window_and_input_modes() {
     }
 }
 
+static bool fail_fullscreen(SDL_Window *window, bool) {
+    ASSERT_TRUE(window != NULL);
+    SDL_SetError("fullscreen failure fixture");
+    return false;
+}
+
+static void test_fullscreen_failed_request_rollback() {
+    for (int previous = 0; previous < 2; ++previous) {
+        g_platform.window.set_fullscreen(previous != 0);
+        ASSERT_EQ_INT(previous, g_platform.window.get_fullscreen());
+        const bool actual = g_platform.window.is_fullscreen();
+        SDL3_SetFullscreenProbe(fail_fullscreen);
+        for (int requested = 0; requested < 2; ++requested) {
+            g_platform.system.clear_error();
+            g_platform.window.set_fullscreen(requested != 0);
+            ASSERT_EQ_INT(previous, g_platform.window.get_fullscreen());
+            ASSERT_EQ_INT(actual, g_platform.window.is_fullscreen());
+            ASSERT_TRUE(strcmp(g_platform.system.get_error(), "fullscreen failure fixture") == 0);
+        }
+        SDL3_SetFullscreenProbe(NULL);
+    }
+    g_platform.window.set_fullscreen(false);
+}
+
 static void update_reference_palette(SDL_Palette *palette, const U8 *source, S32 start, S32 count) {
     static SDL_Color temporary[256];
     if (start < 0)
@@ -705,6 +729,7 @@ int main() {
     RUN_TEST(test_fullscreen_request_without_surface);
     RUN_TEST(test_window_mapping_and_capabilities);
     RUN_TEST(test_window_and_input_modes);
+    RUN_TEST(test_fullscreen_failed_request_rollback);
     RUN_TEST(test_native_window_housekeeping_during_poll);
     RUN_TEST(test_palette_and_actual_renderer_bytes);
     RUN_TEST(test_host_ownership_and_time);
