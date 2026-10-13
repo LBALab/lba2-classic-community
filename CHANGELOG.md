@@ -60,6 +60,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- On a scaled display, a Mac's Retina panel for one, the picture was drawn at
+  half the panel's resolution and enlarged by the system, which blurred it
+  whatever the present filter said. The game now draws at the panel's own
+  resolution. Window sizes and the resolutions offered are unchanged.
 - On Android a bar across the top of the screen read "LBA2 Classic Community"
   and the version number, taking a strip of the picture with it. The app named
   no theme, so Android picked one with a title bar, and SDL puts the game's
