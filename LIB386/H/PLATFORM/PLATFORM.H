@@ -112,6 +112,14 @@ typedef enum PlatformLogLevel {
 
 typedef void (*PlatformLogFn)(void *userdata, PlatformLogLevel level, const char *message);
 
+/* How a frame is filtered when it is stretched to the window. The numbers are
+   what a config file stores, so they do not move. */
+typedef enum PlatformPresentFilter {
+    PLATFORM_FILTER_NEAREST = 0,
+    PLATFORM_FILTER_LINEAR = 1,
+    PLATFORM_FILTER_PIXELART = 2 /* crisp texel interiors, interpolated seams */
+} PlatformPresentFilter;
+
 typedef struct PlatformCapabilities {
     bool windowed;
     bool transient_window_loss;
@@ -157,6 +165,9 @@ typedef struct PlatformWindow {
     bool (*get_fullscreen)(void); /* requested state, including failed-change rollback */
     bool (*is_fullscreen)(void);  /* actual host state */
     void (*set_vsync)(bool enabled);
+    /* Kept across surface recreation. A mode the backend cannot do is refused
+       with an error and leaves the current one in place. */
+    bool (*set_present_filter)(PlatformPresentFilter mode);
     void (*set_relative_mouse)(bool enabled);
     bool (*present)(const PlatformFrame *frame);
 } PlatformWindow;

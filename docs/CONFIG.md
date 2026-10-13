@@ -23,7 +23,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 - Options menu changes globals only; config is written once at exit. No intermediate saves when changing options.
 - **A setting forced for one run is not written back.** The write serialises globals, so without this a
   flag whose own help says "this run only" would leave its value in the player's config for every later
-  launch. `--fixed-timestep`, `--language`, `--vsync` and `LBA2_TEXFILTER` go through
+  launch. `--fixed-timestep`, `--language`, `--vsync`, `LBA2_TEXFILTER` and `LBA2_PRESENT_FILTER` go through
   `Settings_ValueToPersist` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H), which puts the stored preference back
   while the live value is still the one that was forced. Host test: [`tests/settings/`](../tests/settings/).
   `--resolution` reaches the same end differently: `Res_ResolutionShouldPersist` is false for it, so
@@ -71,6 +71,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | FlagKeepVoice | string | ON, OFF | ON | Keep voice files on HD |
 | MenuMouse | int | 0, 1 | 1 | 1 = menu cursor, hover/left-click confirm, wheel for sliders and save list; 0 = keyboard/joystick only (classic) |
 | TextureFilter | int | 0–2 | 0 | Filtered texture sampling in the software fillers. 0=off (unchanged output), 1=horizontal 2-tap, 2=bilinear 4-tap. `LBA2_TEXFILTER` overrides for one run without persisting. See [GFX_OPTIONS.md](GFX_OPTIONS.md) |
+| PresentFilter | int | 0–2 | 0 | Filter that stretches the frame to the window. 0=nearest (unchanged output), 1=linear, 2=pixelart (SDL 3.4 or newer; otherwise nearest, with a warning). `LBA2_PRESENT_FILTER` overrides for one run without persisting. See [GFX_OPTIONS.md](GFX_OPTIONS.md) |
 | FixedTimestep | int | 0–100 (ms) | 16 | Sim throttle, so movement is frame-rate independent above 60 fps; 0 restores the historical per-frame simulation. Set by the `fixedtimestep` console verb; `--fixed-timestep` overrides for one run without persisting. See [MOVEMENT_FRAMERATE.md](MOVEMENT_FRAMERATE.md) |
 | VSync | int | 0, 1 | 1 | Cap the frame rate to the display refresh. Invalid values → 1. Set by the Display submenu's toggle and the `vsync` console verb; `--vsync <on\|off>` overrides for one run without persisting. The Display submenu prints it, so a UI capture has to pin it; see [CONTROL.md](CONTROL.md#environmental-hygiene) |
 | DitherShading | int | 0, 1 | 0 | Ordered dither on Gouraud shade rows, softening the 16-step ramp banding. See [GFX_OPTIONS.md](GFX_OPTIONS.md) |
@@ -106,6 +107,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | MenuMouse | Optional mouse UX in game menus (`FlagMenuMouse` in code). Default 1 (on). Set 0 to match classic keyboard/joystick-only menus. See [MENU.md](MENU.md) | ReadConfigFile / WriteConfigFile | Options → Advanced options |
 | FollowCamera | Auto camera for exterior scenes (0=classic, 1=auto). Community addition, not in original game; menu label is "Auto camera" / "Classic camera" | ReadConfigFile / WriteConfigFile | Options → Advanced options |
 | TextureFilter, DitherShading | Software-rasterizer smoothing, both off by default. Console cvars `gfx_texfilter` / `gfx_dither` | ReadConfigFile / WriteConfigFile | console only |
+| PresentFilter | Filter that stretches the frame to the window, nearest by default. Console cvar `gfx_presentfilter` | ReadConfigFile / WriteConfigFile | console only |
 
 ## How a key is declared
 

@@ -14,6 +14,7 @@ SDL_Texture *s_texture = NULL;
 uint32_t s_width = 0;
 uint32_t s_height = 0;
 bool s_fullscreen = false;
+SDL_ScaleMode s_scaleMode = SDL_SCALEMODE_NEAREST;
 #ifdef LBA2_SDL3_TESTS
 void (*s_presentationProbe)(SDL_Renderer *) = NULL;
 bool (*s_fullscreenProbe)(SDL_Window *, bool) = NULL;
@@ -26,6 +27,50 @@ void HideGameCursor(void) {
     SDL_HideCursor();
     /* Some WMs show the default arrow until the cursor is cleared. */
     SDL_SetCursor(NULL);
+}
+
+/* Scale filter applied when the framebuffer is stretched to the window.
+
+   NEAREST stays the default: it is the historical output exactly. It is also
+   uneven at a non-integer window scale -- 1728x1080 shown on 3840x2400 is 20/9,
+   so a source pixel becomes two output pixels here and three there, and that
+   irregularity is what reads as chunkiness. LINEAR removes it by softening the
+   fixed-pixel 2D layer along with everything else. PIXELART keeps texel
+   interiors crisp and interpolates only across the texel seam.
+
+   PIXELART needs SDL 3.4 at both compile and run time, which is why the two
+   guards differ: the compile one keeps older SDL building, the runtime one
+   catches headers and runtime disagreeing -- SDL_SetTextureScaleMode simply
+   returns false there and would otherwise leave the texture on a mode nobody
+   chose. */
+bool ResolveScaleMode(PlatformPresentFilter mode, SDL_ScaleMode *out) {
+    switch (mode) {
+    case PLATFORM_FILTER_NEAREST:
+        *out = SDL_SCALEMODE_NEAREST;
+        return true;
+    case PLATFORM_FILTER_LINEAR:
+        *out = SDL_SCALEMODE_LINEAR;
+        return true;
+    case PLATFORM_FILTER_PIXELART:
+#if SDL_VERSION_ATLEAST(3, 4, 0)
+        if (SDL_GetVersion() >= SDL_VERSIONNUM(3, 4, 0)) {
+            *out = SDL_SCALEMODE_PIXELART;
+            return true;
+        }
+#endif
+        return SDL_SetError("The pixelart filter needs SDL 3.4 or newer");
+    }
+    return SDL_SetError("Unknown present filter %d", (int)mode);
+}
+
+/* Apply the chosen filter and say so if the runtime refused it, rather than
+   leaving the texture on a mode nobody asked for. */
+void ApplyScaleMode(SDL_Texture *texture) {
+    if (!SDL_SetTextureScaleMode(texture, s_scaleMode)) {
+        Platform_Log(PLATFORM_LOG_WARN, "Unable to set texture scale mode.\n"
+                                        "\tSDL message: %s",
+                     SDL_GetError());
+    }
 }
 
 void SetLogicalPresentation(uint32_t width, uint32_t height) {
@@ -152,7 +197,7 @@ bool SDL3_CreateWindow(uint32_t width, uint32_t height, bool fullscreen) {
         s_window = NULL;
         return false;
     }
-    SDL_SetTextureScaleMode(s_texture, SDL_SCALEMODE_NEAREST);
+    ApplyScaleMode(s_texture);
     s_width = width;
     s_height = height;
     SetLogicalPresentation(width, height);
@@ -216,7 +261,7 @@ bool SDL3_ResizeWindow(uint32_t width, uint32_t height, bool keepWindowSize) {
                      width, height, SDL_GetError());
         return false;
     }
-    SDL_SetTextureScaleMode(s_texture, SDL_SCALEMODE_NEAREST);
+    ApplyScaleMode(s_texture);
     s_width = width;
     s_height = height;
     SetLogicalPresentation(width, height);
@@ -304,6 +349,20 @@ bool SDL3_IsFullscreen(void) {
 void SDL3_SetVSync(bool enabled) {
     if (s_renderer)
         SDL_SetRenderVSync(s_renderer, enabled ? 1 : 0);
+}
+
+bool SDL3_SetPresentFilter(PlatformPresentFilter mode) {
+    SDL_ScaleMode resolved = SDL_SCALEMODE_NEAREST;
+    if (!ResolveScaleMode(mode, &resolved))
+        return false;
+    if (s_texture && !SDL_SetTextureScaleMode(s_texture, resolved))
+        return false;
+    const bool changed = (resolved != s_scaleMode);
+    s_scaleMode = resolved;
+    /* A paused or menu screen does not present again until something moves. */
+    if (changed && s_renderer && s_texture)
+        PresentTexture();
+    return true;
 }
 
 void SDL3_HandleWindowEvent(const SDL_Event *event) {

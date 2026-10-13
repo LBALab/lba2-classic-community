@@ -58,6 +58,7 @@ int s_resumeCalls = 0;
 bool s_windowInitialized = false;
 bool s_fullscreen = false;
 bool s_vsync = true;
+int s_presentFilter = PLATFORM_FILTER_NEAREST;
 bool s_relativeMouse = false;
 bool s_keepWindowSize = false;
 U32 s_width = 0;
@@ -152,6 +153,12 @@ void SurfaceCoords(S32 x, S32 y, S32 *sx, S32 *sy) {
 void Fullscreen(bool enabled) { s_fullscreen = enabled; }
 bool GetFullscreen() { return s_fullscreen; }
 void VSync(bool enabled) { s_vsync = enabled; }
+bool PresentFilter(PlatformPresentFilter mode) {
+    if (mode == PLATFORM_FILTER_PIXELART)
+        return false;
+    s_presentFilter = mode;
+    return true;
+}
 void RelativeMouse(bool enabled) { s_relativeMouse = enabled; }
 void NotePresent(char stage) {
     s_presentOrder[s_orderLength++] = stage;
@@ -235,6 +242,7 @@ PlatformInterface Fixture() {
     api.window.get_fullscreen = GetFullscreen;
     api.window.is_fullscreen = GetFullscreen;
     api.window.set_vsync = VSync;
+    api.window.set_present_filter = PresentFilter;
     api.window.set_relative_mouse = RelativeMouse;
     api.window.present = Present;
     api.input.keyboard_state = Keyboard;
@@ -287,6 +295,10 @@ static void test_c_header_and_window_dispatch() {
     SetWindowFullscreen(false);
     Window_SetVSync(0);
     ASSERT_TRUE(!s_vsync);
+    ASSERT_TRUE(Window_SetPresentFilter(PLATFORM_FILTER_LINEAR));
+    ASSERT_EQ_INT(PLATFORM_FILTER_LINEAR, s_presentFilter);
+    ASSERT_TRUE(!Window_SetPresentFilter(PLATFORM_FILTER_PIXELART));
+    ASSERT_EQ_INT(PLATFORM_FILTER_LINEAR, s_presentFilter);
     SetWindowRelativeMouse(true);
     ASSERT_TRUE(s_relativeMouse);
     ASSERT_TRUE(ResizeWindowSurface(8, 6, true));
