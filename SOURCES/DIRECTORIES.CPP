@@ -57,8 +57,8 @@ extern "C" {
 #define DIR_NAME_VOICE_CD "lba2" ADELINE_PATH_SEP "vox" ADELINE_PATH_SEP
 #define DIR_NAME_VOICE_CD_US "twinsen" ADELINE_PATH_SEP "vox" ADELINE_PATH_SEP
 /* Both spellings below are the way their distribution ships the file.
-   Discover() probes as-is, upper, lower and title case, so the set of names
-   accepted is the same either way -- but the as-is probe is the one that hits
+   Discover() matches a name in any case, so the set of names accepted is the
+   same either way -- but the as-is probe is the one that hits
    on a real install, and the constant is what the "we could not find your game
    data" messages quote back at the player. Naming a spelling nobody has sends
    them off renaming files. */
@@ -147,6 +147,80 @@ static bool DiscoverPass(char *variation, U16 variationMaxSize,
     return exists(fullPath);
 }
 
+/* The entry of `dir` that is `name` in any mix of case, spelled the way the
+   directory spells it. */
+static bool FindIgnoringCase(const char *dir, const char *name, char *outName,
+                             U16 outMax) {
+    DIR *dirp = opendir((dir[0] != '\0') ? dir : ".");
+    if (dirp == NULL) {
+        return false;
+    }
+
+    bool found = false;
+    struct dirent *entry;
+    while (!found && ((entry = readdir(dirp)) != NULL)) {
+        if (ade_strcasecmp(entry->d_name, name) == 0) {
+            strncpy(outName, entry->d_name, outMax);
+            outName[outMax - 1] = '\0'; // Guarantee
+            found = true;
+        }
+    }
+    closedir(dirp);
+    return found;
+}
+
+/* What DiscoverPass cannot guess: a spelling that is none of its four. Reads
+   each directory along `checkPath` and takes the entry that matches ignoring
+   case, so ObjFix.HQR and OBJFIX.hqr are found on a filesystem that tells them
+   apart. Separators are carried over as written. */
+static bool DiscoverByListing(char *variation, U16 variationMaxSize,
+                              const char *baseDir, const char *checkPath) {
+    static const char separators[] = "/" ADELINE_PATH_SEP;
+    char dir[ADELINE_MAX_PATH];
+    char name[ADELINE_MAX_PATH];
+    char onDisk[ADELINE_MAX_PATH];
+
+    size_t dirLen = strlen(baseDir);
+    if (dirLen >= sizeof dir) {
+        return false;
+    }
+    memcpy(dir, baseDir, dirLen + 1);
+
+    size_t outLen = 0;
+    const char *p = checkPath;
+    while (*p != '\0') {
+        const size_t nameLen = strcspn(p, separators);
+        const size_t sepLen = strspn(p + nameLen, separators);
+        const char *piece = p;
+        size_t pieceLen = nameLen;
+
+        if (nameLen > 0) {
+            memcpy(name, p, nameLen);
+            name[nameLen] = '\0';
+            if (!FindIgnoringCase(dir, name, onDisk, sizeof onDisk)) {
+                return false;
+            }
+            piece = onDisk;
+            pieceLen = strlen(onDisk);
+        }
+
+        const size_t add = pieceLen + sepLen;
+        if ((outLen + add >= variationMaxSize) || (dirLen + add >= sizeof dir)) {
+            return false;
+        }
+        memcpy(variation + outLen, piece, pieceLen);
+        memcpy(variation + outLen + pieceLen, p + nameLen, sepLen);
+        outLen += add;
+        variation[outLen] = '\0';
+        memcpy(dir + dirLen, variation + outLen - add, add + 1);
+        dirLen += add;
+
+        p += nameLen + sepLen;
+    }
+
+    return outLen > 0;
+}
+
 bool Discover(char *outFound, U16 foundMaxSize, const char *baseDir,
               const char *checkPath) {
     assert(((foundMaxSize > 0) && (outFound != NULL)) || (foundMaxSize == 0));
@@ -168,6 +242,13 @@ bool Discover(char *outFound, U16 foundMaxSize, const char *baseDir,
        which is what OpenRead already promises one level down. */
     bool found = DiscoverPass(variation, ADELINE_MAX_PATH, baseDir, checkPath,
                               ExistsOnFilesystem);
+    /* The four spellings cover every retail install. A copy that went through
+       other hands can be spelled any way at all, so look at what is there
+       before deciding the file is missing. Still ahead of the image, for the
+       same reason. */
+    if (!found) {
+        found = DiscoverByListing(variation, ADELINE_MAX_PATH, baseDir, checkPath);
+    }
     if (!found) {
         found = DiscoverPass(variation, ADELINE_MAX_PATH, baseDir, checkPath,
                              ExistsFileOrDir);
@@ -446,22 +527,7 @@ bool Directories_ResolveUserDir(char *outDir, U16 outMax,
 /* The marker, however it is spelled. One pass over the directory the binary
    sits in, which is small and read once per boot. */
 static bool FindPortableMarker(const char *dir, char *outName, U16 outMax) {
-    DIR *dirp = opendir(dir);
-    if (dirp == NULL) {
-        return false;
-    }
-
-    bool found = false;
-    struct dirent *entry;
-    while (!found && ((entry = readdir(dirp)) != NULL)) {
-        if (ade_strcasecmp(entry->d_name, ADELINE_PORTABLE_MARKER) == 0) {
-            strncpy(outName, entry->d_name, outMax);
-            outName[outMax - 1] = '\0'; // Guarantee
-            found = true;
-        }
-    }
-    closedir(dirp);
-    return found;
+    return FindIgnoringCase(dir, ADELINE_PORTABLE_MARKER, outName, outMax);
 }
 
 /* The one key the marker carries. A bundle that is somebody's GOG setup can say
@@ -531,12 +597,10 @@ bool Directories_PortableUserDir(char *outDir, U16 outMax, const char *baseDir) 
     }
 
     /* Matched however it is spelled, by looking at what is actually there.
-       Discover's four case variations are the right tool for a name a
-       distribution shipped, where the spelling is one of a known few. This file
-       is the one a player types by hand, on a filesystem that does not care
-       about case, and then carries to one that does: portable.TXT and
-       pORTABLE.txt are neither of them among those four, and a miss is silent.
-       The tree simply is not portable, with nothing said. */
+       This file is the one a player types by hand, on a filesystem that does
+       not care about case, and then carries to one that does: portable.TXT and
+       pORTABLE.txt are both likely, and a miss is silent. The tree simply is
+       not portable, with nothing said. */
     char marker[ADELINE_MAX_PATH];
     if (!FindPortableMarker(root, marker, ADELINE_MAX_PATH)) {
         return false;

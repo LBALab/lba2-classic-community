@@ -124,6 +124,31 @@ static void test_video_resolved_in_video_dir(void) {
     ASSERT_TRUE(strstr(g_log, "missing required asset: video.hqr") == NULL);
 }
 
+static void test_any_spelling_is_found(void) {
+    /* A copy of the game data can be spelled any way at all, and a filesystem
+     * that tells case apart must still find it. None of these is upper, lower
+     * or first-letter-upper. */
+    del(OBJFIX_HQR_NAME);
+    del(ANIM3DS_HQR_NAME);
+    del(HOLO_HQR_NAME);
+    del("video/" VIDEO_HQR_NAME);
+    touch("ObjFix.HQR");
+    touch("ANIM3DS.hqr");
+    touch("HoloMap.Hqr");
+    touch("video/VIDEO.hqr");
+    int r = run_preflight(g_log, sizeof g_log);
+    ASSERT_EQ_INT(0, r);
+    ASSERT_TRUE(strstr(g_log, "all present") != NULL);
+    del("ObjFix.HQR");
+    del("ANIM3DS.hqr");
+    del("HoloMap.Hqr");
+    del("video/VIDEO.hqr");
+    touch(OBJFIX_HQR_NAME);
+    touch(ANIM3DS_HQR_NAME);
+    touch(HOLO_HQR_NAME);
+    touch("video/" VIDEO_HQR_NAME);
+}
+
 int main(void) {
     make_complete_tree();
     InitDirectories(ROOT "/", ROOT "/", ROOT "/", "", 0);
@@ -131,6 +156,7 @@ int main(void) {
     RUN_TEST(test_optional_missing_does_not_block);
     RUN_TEST(test_required_missing);
     RUN_TEST(test_video_resolved_in_video_dir);
+    RUN_TEST(test_any_spelling_is_found);
     TEST_SUMMARY();
     return test_failures != 0;
 }
