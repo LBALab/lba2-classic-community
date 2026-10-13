@@ -23,7 +23,12 @@
 # recentre used to cut in and take the player's pan with it. The clearance should hurry and
 # the recentre stay out.
 #
-# Needs cam_zone_skip, so the shot over the door does not take the view.
+# A third place is one the search is wrong about. Walking west out of cube 42 into cube 43 with
+# the camera panned, the hero is drawn fully hidden a few frames before the seam while the search
+# asks for less tilt, not more. There the render's word is taken: the tilt is raised and held,
+# and the recentre, which would take the pan, stays out.
+#
+# Needs cam_zone_skip, so the shots over the door and the seam do not take the view.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
 TESTNAME=followcam_obstruct
@@ -31,8 +36,8 @@ TESTNAME=followcam_obstruct
 . "$(dirname "$0")/camlib.sh"
 cam_precheck
 
-off="$(mktemp)"; on="$(mktemp)"; rising="$(mktemp)"
-trap 'rm -f "$off" "$on" "$rising"' EXIT
+off="$(mktemp)"; on="$(mktemp)"; rising="$(mktemp)"; seam_off="$(mktemp)"; seam_on="$(mktemp)"
+trap 'rm -f "$off" "$on" "$rising" "$seam_off" "$seam_on"' EXIT
 
 route() { # <log> <cam_obstruct> <cam_scene_carry> <rest of the timeline...>
     local log="$1" obstruct="$2" carry="$3"
@@ -119,4 +124,44 @@ read -r up_own up_lo up_hi up_first _ _ up_last _ up_recentred up_hurried up_hid
 [ "$up_last" -ge 300 ] && [ "$up_lo" = "$up_own" ] && [ "$up_hi" = "$up_own" ] \
     || fail "the rising extra ended at $up_last with the pitch between $up_lo and $up_hi, having been $up_own"
 
-pass "out of the Tavern the pitch went from $off_own to $off_hi and stayed there with the setting off; with it on the pitch stayed $on_own, the extra was $on_first on arrival, 0 with the camera $on_leastpan units round, $on_last back behind him, at most $on_jump a frame, and he was never hidden; starting from $up_first it reached $up_last with him hidden on $up_hurried frame(s) and no recentre"
+# The seam. The walk starts at frame 110 with the pan the nudge left, and crosses about two
+# seconds later.
+seam() { # <log> <cam_obstruct>
+    ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
+        --exec "cam_follow 1; cam_hold_angle 1; cam_zone_skip 1; cam_scene_carry 1; cam_obstruct $2; camtrace 1; cubetrace 1" \
+        --exec-at 20 "cube 42" \
+        --exec-at 60 "teleport 5000 250 19200 3072" \
+        --exec-at 70 "camnudge 20 0 20" \
+        --exec-at 110 "input up 260" \
+        --tick 420 --exit > "$1" 2>&1 || fail "seam run failed: exit $?"
+    grep -q "\[cube\] island [0-9]*: 42 -> 43" "$1" || fail "the hero never crossed from cube 42 into cube 43"
+}
+
+# crossing <log> -- "<pan before the walk> <pan at the end> <frames recentred> <frames hidden with
+# the clearance answering>", over the walk.
+crossing() {
+    cam_tsv "$1" | awk '
+        NR == 1 { for (i = 1; i <= NF; i++) col[$i] = i; next }
+        NR - 1 == 105 { before = $col["add"] }
+        NR - 1 > 105 {
+            if ($col["hid"] == 3) recentred++
+            else if ($col["hid"] == 2) hurried++
+            after = $col["add"]
+        }
+        END { print before + 0, after + 0, recentred + 0, hurried + 0 }'
+}
+
+seam "$seam_off" 0
+seam "$seam_on" 1
+
+read -r soff_before soff_after soff_recentred _ <<< "$(crossing "$seam_off")"
+read -r son_before son_after son_recentred son_hurried <<< "$(crossing "$seam_on")"
+
+[ "$soff_before" -ne 0 ] && [ "$soff_recentred" -ge 1 ] && [ "$soff_after" -eq 0 ] \
+    || fail "with the setting off the walk to the seam began with pan $soff_before, recentred $soff_recentred time(s) and ended with pan $soff_after: no recentre here for the setting to leave out"
+[ "$son_recentred" -eq 0 ] && [ "$son_hurried" -ge 1 ] \
+    || fail "with cam_obstruct on the walk to the seam recentred $son_recentred time(s), with the hero hidden and answered on $son_hurried frame(s)"
+[ "$son_after" = "$son_before" ] \
+    || fail "with cam_obstruct on the pan went from $son_before to $son_after on the walk to the seam"
+
+pass "out of the Tavern the pitch went from $off_own to $off_hi and stayed there with the setting off; with it on the pitch stayed $on_own, the extra was $on_first on arrival, 0 with the camera $on_leastpan units round, $on_last back behind him, at most $on_jump a frame, and he was never hidden; starting from $up_first it reached $up_last with him hidden on $up_hurried frame(s) and no recentre; at the seam the pan $soff_before was recentred away with it off and kept with it on, over $son_hurried hidden frame(s)"

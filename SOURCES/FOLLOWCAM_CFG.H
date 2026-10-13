@@ -164,6 +164,12 @@
 #define FOLLOW_CAM_OBSTRUCT_HURRY_EASE 3   /* the same while the hero is drawn fully hidden */
 #define FOLLOW_CAM_OBSTRUCT_MIN_STEP 4     /* minimum change per eased frame (AlphaCam units) */
 #define FOLLOW_CAM_OBSTRUCT_PITCH_MAX 1000 /* never render steeper than this; 1024 is straight down */
+/* Where the search finds nothing and the hero is drawn hidden all the same, the
+ * render's word is taken over the search's: the extra is raised by a step for
+ * each such frame, and that floor holds until he has walked this far from where
+ * it was last raised. */
+#define FOLLOW_CAM_OBSTRUCT_HIDDEN_STEP 64   /* extra pitch added per frame he is still hidden (AlphaCam units) */
+#define FOLLOW_CAM_OBSTRUCT_FLOOR_REACH 2048 /* distance on either axis over which a floor is kept (world units, four bricks) */
 
 /* Gamepad right-stick camera ------------------------------------------------*/
 #define GAMEPAD_CAM_SENS_DEFAULT 5 /* default right-stick sensitivity (1-10 range) */

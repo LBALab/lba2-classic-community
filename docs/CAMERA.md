@@ -261,14 +261,14 @@ The extra reaches the frame through `FollowCamRenderExtraPitch()`, which `Camera
 What stands down while the setting is on and the Auto camera has the view outdoors:
 
 - **`CameraCenter`'s own search.** It no longer writes `AlphaCam` or raises `FlagCameraForcee`. A re-aim (flags 1 and 2) is a cut already, so the extra starts the next update settled at what the place needs; so does an arrival through `cam_scene_carry`. A plain re-apply (flag 0, as at the seam between two outdoor scenes) leaves it to ease.
-- **The hidden-hero recentre, while the extra is still on its way up.** A hero drawn fully hidden with the clearance still rising tells it to hurry (`FollowCamObstructHidden()`), and the recentre, which would zero the player's pan, is left out. If the extra has given all the search asked for and he is hidden still, whatever hides him is not something the search can see, and the classic recentre is the only answer left.
+- **The hidden-hero recentre.** A hero drawn fully hidden with the clearance still rising tells it to hurry (`FollowCamObstructHidden()`), and the recentre, which would zero the player's pan, is left out. If the extra has given all the search asked for and he is hidden still, the search does not see what is in the way, and the render's word is taken over it: the extra is raised a step (`FOLLOW_CAM_OBSTRUCT_HIDDEN_STEP`) for each such frame and held as a floor until he has walked `FOLLOW_CAM_OBSTRUCT_FLOOR_REACH` away from where it was last raised. Walking west out of Near Tavern into Near the Harbor with the camera panned is such a place: a few frames before the seam the search asks for less tilt and the hero is hidden. Only when there is no pitch left to give does the classic recentre run.
 
 In the box of a shot that has fired the extra is zero: the place is the author's to judge there, as it is for the classic camera, which never searches inside a zone.
 
 What it does not do:
 
 - **Only the pitch is taken from the search.** The classic search also moves the target in toward the hero as it steepens; this does not, and the boom is not shortened either.
-- **It sees what the search sees**: boxes, sampled every 512 units out along the boom. Scenery the boxes do not cover can still hide the hero, and then the recentre fires as before.
+- **It sees what the search sees**: boxes, sampled every 512 units out along the boom. Scenery the boxes do not cover still hides the hero for the few frames it takes the floor to rise.
 - **Session recordings do not carry the setting.**
 
 ### Manual-override fade

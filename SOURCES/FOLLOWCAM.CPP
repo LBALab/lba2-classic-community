@@ -61,7 +61,10 @@ static S32 FollowCamObstructExtra = 0;  /* obstruction clearance: eased pitch ad
 static S32 FollowCamObstructTarget = 0; /* obstruction clearance: what the last probe asked for */
 static S32 FollowCamObstructSnap = 0;   /* obstruction clearance: the next update starts settled */
 static S32 FollowCamObstructHurry = 0;  /* obstruction clearance: the hero was drawn hidden, ease fast */
-static S32 FollowCamHiddenSeen = 0;     /* camtrace: what the last render made of a hidden hero (FollowCamNoteHidden) */
+static S32 FollowCamObstructFloor = 0;  /* obstruction clearance: the least extra a hidden hero has shown this spot to need */
+static S32 FollowCamObstructFloorX = 0; /* obstruction clearance: where he stood when the floor was last raised */
+static S32 FollowCamObstructFloorZ = 0;
+static S32 FollowCamHiddenSeen = 0; /* camtrace: what the last render made of a hidden hero (FollowCamNoteHidden) */
 
 /* A scripted shot's loan (cam_zone_return / cam_zone_anchor). The bits say what
  * is still owed: an axis drops out when it has been given back, or when the
@@ -484,11 +487,26 @@ void UpdateFollowCameraExt(void) {
                 S32 composedAlpha = AlphaCam;
 
                 AlphaCam = saveAlphaCam;
+
+                /* A floor learnt from a hidden hero is about the spot he was
+                 * hidden at. Once he has walked on, or the view has been cut
+                 * to somewhere else, the search has the say again. */
+                if (FollowCamObstructFloor) {
+                    S32 dx = ptr3d->X - FollowCamObstructFloorX;
+                    S32 dz = ptr3d->Z - FollowCamObstructFloorZ;
+
+                    if (FollowCamObstructSnap OR dx > FOLLOW_CAM_OBSTRUCT_FLOOR_REACH OR dx<-FOLLOW_CAM_OBSTRUCT_FLOOR_REACH OR dz> FOLLOW_CAM_OBSTRUCT_FLOOR_REACH OR dz < -FOLLOW_CAM_OBSTRUCT_FLOOR_REACH)
+                        FollowCamObstructFloor = 0;
+                }
+
                 if (FollowCamInShotBox) {
                     FollowCamObstructTarget = 0;
                     FollowCamObstructExtra = 0;
+                    FollowCamObstructFloor = 0;
                 } else {
                     FollowCamObstructTarget = FollowCamNeededPitch(ptr3d) - AlphaCam;
+                    if (FollowCamObstructTarget < FollowCamObstructFloor)
+                        FollowCamObstructTarget = FollowCamObstructFloor;
                     if (AlphaCam + FollowCamObstructTarget > FOLLOW_CAM_OBSTRUCT_PITCH_MAX)
                         FollowCamObstructTarget = FOLLOW_CAM_OBSTRUCT_PITCH_MAX - AlphaCam;
                     if (FollowCamObstructTarget < 0)
@@ -508,6 +526,7 @@ void UpdateFollowCameraExt(void) {
             } else {
                 FollowCamObstructExtra = 0;
                 FollowCamObstructTarget = 0;
+                FollowCamObstructFloor = 0;
                 FollowCamObstructSnap = FALSE;
                 FollowCamObstructHurry = FALSE;
             }
@@ -710,6 +729,7 @@ void FollowCamResetToView(void) {
     FollowCamGroundSettling = 0;
     FollowCamObstructExtra = 0;
     FollowCamObstructTarget = 0;
+    FollowCamObstructFloor = 0;
     FollowCamObstructSettle();
 }
 
@@ -740,11 +760,27 @@ void FollowCamObstructSettle(void) {
 }
 
 S32 FollowCamObstructHidden(void) {
+    T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
+
     if (!FollowCamObstructOwnsSearch())
         return FALSE;
 
-    if (FollowCamObstructExtra >= FollowCamObstructTarget)
-        return FALSE;
+    if (FollowCamObstructExtra >= FollowCamObstructTarget) {
+        /* The clearance has given all that was asked of it and he is hidden
+         * all the same: the search does not see what is in the way here. The
+         * render does, so its word is taken and the view is raised a step,
+         * and held there for as long as he stays near. Only when there is no
+         * pitch left to give is the classic recentre the answer. */
+        S32 floor = FollowCamObstructExtra + FOLLOW_CAM_OBSTRUCT_HIDDEN_STEP;
+
+        if (AlphaCam + floor > FOLLOW_CAM_OBSTRUCT_PITCH_MAX)
+            return FALSE;
+
+        FollowCamObstructFloor = floor;
+        FollowCamObstructFloorX = ptr3d->X;
+        FollowCamObstructFloorZ = ptr3d->Z;
+        FollowCamObstructTarget = floor;
+    }
 
     FollowCamObstructHurry = TRUE;
     FollowCamNoteHidden(2);
