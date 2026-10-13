@@ -83,10 +83,10 @@ static void OpenFirstAvailableGamepad(void) {
     if (s_gamepad != NULL) {
         return;
     }
-    int count = 0;
+    S32 count = 0;
     U32 *ids = g_platform.input.gamepads(&count);
     if (ids != NULL) {
-        for (int i = 0; i < count; i++) {
+        for (S32 i = 0; i < count; i++) {
             PlatformGamepad *pad = g_platform.input.open_gamepad(ids[i]);
             if (pad != NULL) {
                 s_gamepad = pad;
