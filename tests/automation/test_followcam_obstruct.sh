@@ -21,7 +21,8 @@
 # A second arrival, without cam_scene_carry, starts the extra from nothing with the building
 # already in the way, so the hero is hidden while it rises. That is the one moment the classic
 # recentre used to cut in and take the player's pan with it. The clearance should hurry and
-# the recentre stay out.
+# the recentre stay out. How hard it hurries is cam_obstruct_hurry: the same arrival with it at
+# 1, a cut, has to move further in a frame than the default does.
 #
 # A third place is one the search is wrong about. Walking west out of cube 42 into cube 43 with
 # the camera panned, the hero is drawn fully hidden a few frames before the seam while the search
@@ -36,8 +37,8 @@ TESTNAME=followcam_obstruct
 . "$(dirname "$0")/camlib.sh"
 cam_precheck
 
-off="$(mktemp)"; on="$(mktemp)"; rising="$(mktemp)"; seam_off="$(mktemp)"; seam_on="$(mktemp)"
-trap 'rm -f "$off" "$on" "$rising" "$seam_off" "$seam_on"' EXIT
+off="$(mktemp)"; on="$(mktemp)"; rising="$(mktemp)"; cut="$(mktemp)"; seam_off="$(mktemp)"; seam_on="$(mktemp)"
+trap 'rm -f "$off" "$on" "$rising" "$cut" "$seam_off" "$seam_on"' EXIT
 
 route() { # <log> <cam_obstruct> <cam_scene_carry> <rest of the timeline...>
     local log="$1" obstruct="$2" carry="$3"
@@ -115,7 +116,7 @@ read -r on_own on_lo on_hi on_first on_least on_leastpan on_last on_jump on_rece
 # The arrival that starts from nothing, and nothing after it.
 route "$rising" 1 0 --tick 160
 
-read -r up_own up_lo up_hi up_first _ _ up_last _ up_recentred up_hurried up_hidden _ _ <<< "$(outdoors "$rising")"
+read -r up_own up_lo up_hi up_first _ _ up_last up_jump up_recentred up_hurried up_hidden _ _ <<< "$(outdoors "$rising")"
 
 [ "$up_first" -lt 300 ] && [ "$up_hurried" -ge 1 ] \
     || fail "without cam_scene_carry the extra started at $up_first and the hero was hidden while it rose on $up_hurried frame(s): the clearance was never caught on its way up"
@@ -123,6 +124,14 @@ read -r up_own up_lo up_hi up_first _ _ up_last _ up_recentred up_hurried up_hid
     || fail "with the clearance still rising the hero was recentred on $up_recentred frame(s) and left hidden on $up_hidden"
 [ "$up_last" -ge 300 ] && [ "$up_lo" = "$up_own" ] && [ "$up_hi" = "$up_own" ] \
     || fail "the rising extra ended at $up_last with the pitch between $up_lo and $up_hi, having been $up_own"
+
+# The same arrival with the hurry turned up to a cut.
+route "$cut" 1 0 --exec-at 1 "cam_obstruct_hurry 1" --tick 160
+
+read -r _ _ _ _ _ _ cut_last cut_jump cut_recentred _ _ _ _ <<< "$(outdoors "$cut")"
+
+[ "$cut_jump" -gt "$up_jump" ] && [ "$cut_last" -ge 300 ] && [ "$cut_recentred" -eq 0 ] \
+    || fail "with cam_obstruct_hurry 1 the extra moved at most $cut_jump units in a frame against $up_jump by default, ended at $cut_last and recentred $cut_recentred time(s): the setting does not reach the hurry"
 
 # The seam. The walk starts at frame 110 with the pan the nudge left, and crosses about two
 # seconds later.
@@ -164,4 +173,4 @@ read -r son_before son_after son_recentred son_hurried <<< "$(crossing "$seam_on
 [ "$son_after" = "$son_before" ] \
     || fail "with cam_obstruct on the pan went from $son_before to $son_after on the walk to the seam"
 
-pass "out of the Tavern the pitch went from $off_own to $off_hi and stayed there with the setting off; with it on the pitch stayed $on_own, the extra was $on_first on arrival, 0 with the camera $on_leastpan units round, $on_last back behind him, at most $on_jump a frame, and he was never hidden; starting from $up_first it reached $up_last with him hidden on $up_hurried frame(s) and no recentre; at the seam the pan $soff_before was recentred away with it off and kept with it on, over $son_hurried hidden frame(s)"
+pass "out of the Tavern the pitch went from $off_own to $off_hi and stayed there with the setting off; with it on the pitch stayed $on_own, the extra was $on_first on arrival, 0 with the camera $on_leastpan units round, $on_last back behind him, at most $on_jump a frame, and he was never hidden; starting from $up_first it reached $up_last with him hidden on $up_hurried frame(s), at most $up_jump a frame ($cut_jump with the hurry at 1), and no recentre; at the seam the pan $soff_before was recentred away with it off and kept with it on, over $son_hurried hidden frame(s)"

@@ -24,6 +24,7 @@ S32 FollowCamDriftDivisor = FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT;
 S32 FollowCamSceneCarry = FOLLOW_CAM_SCENE_CARRY_DEFAULT;
 S32 FollowCamZoneSkip = FOLLOW_CAM_ZONE_SKIP_DEFAULT;
 S32 FollowCamObstruct = FOLLOW_CAM_OBSTRUCT_DEFAULT;
+S32 FollowCamObstructHurryDivisor = FOLLOW_CAM_OBSTRUCT_HURRY_DEFAULT;
 S32 FollowCamHDRecompose = FOLLOW_CAM_HD_RECOMPOSE_DEFAULT;
 S32 FollowCamHDExcessCap = FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT;
 S32 FollowCamHDPitchGain = FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT;
@@ -48,21 +49,21 @@ static S32 FollowCamPrevHeroX = 0;
 static S32 FollowCamPrevHeroY = 0;
 static S32 FollowCamPrevHeroZ = 0;
 static S32 FollowCamPrevHeroBeta = 0;
-static S32 FollowCamPrevAddBeta = 0;    /* dirty check: last seen AddBetaCam */
-static S32 FollowCamEffectiveDist = 0;  /* spring arm: smoothed distance (0 = uninitialised) */
-static S32 FollowCamTargetBeta = 0;     /* rotation lag: desired BetaCam */
-S32 FollowCamReengageDelay = 0;         /* frames before auto-center resumes after manual pan */
-S32 FollowCamManualHold = 0;            /* frames the pitch/distance auto-assist yields after a manual nudge */
-static S32 FollowCamPrevBaseDist = -1;  /* dirty: zoom from GereExtKeys (numpad * /) */
-static S32 FollowCamPrevAlphaCam = -1;  /* dirty: numpad +/- elevation while follow */
-static S32 FollowCamEyeLift = 0;        /* ground clearance: eased eye lift above terrain */
-static S32 FollowCamGroundSettling = 0; /* ground clearance: lift still easing (keeps the dirty check live while the hero stands still) */
-static S32 FollowCamObstructExtra = 0;  /* obstruction clearance: eased pitch added for the render */
-static S32 FollowCamObstructTarget = 0; /* obstruction clearance: what the last probe asked for */
-static S32 FollowCamObstructSnap = 0;   /* obstruction clearance: the next update starts settled */
-static S32 FollowCamObstructHurry = 0;  /* obstruction clearance: the hero was drawn hidden, ease fast */
-static S32 FollowCamObstructFloor = 0;  /* obstruction clearance: the least extra a hidden hero has shown this spot to need */
-static S32 FollowCamObstructFloorX = 0; /* obstruction clearance: where he stood when the floor was last raised */
+static S32 FollowCamPrevAddBeta = 0;      /* dirty check: last seen AddBetaCam */
+static S32 FollowCamEffectiveDist = 0;    /* spring arm: smoothed distance (0 = uninitialised) */
+static S32 FollowCamTargetBeta = 0;       /* rotation lag: desired BetaCam */
+S32 FollowCamReengageDelay = 0;           /* frames before auto-center resumes after manual pan */
+S32 FollowCamManualHold = 0;              /* frames the pitch/distance auto-assist yields after a manual nudge */
+static S32 FollowCamPrevBaseDist = -1;    /* dirty: zoom from GereExtKeys (numpad * /) */
+static S32 FollowCamPrevAlphaCam = -1;    /* dirty: numpad +/- elevation while follow */
+static S32 FollowCamEyeLift = 0;          /* ground clearance: eased eye lift above terrain */
+static S32 FollowCamGroundSettling = 0;   /* ground clearance: lift still easing (keeps the dirty check live while the hero stands still) */
+static S32 FollowCamObstructExtra = 0;    /* obstruction clearance: eased pitch added for the render */
+static S32 FollowCamObstructTarget = 0;   /* obstruction clearance: what the last probe asked for */
+static S32 FollowCamObstructSnap = 0;     /* obstruction clearance: the next update starts settled */
+static S32 FollowCamObstructHurrying = 0; /* obstruction clearance: the hero was drawn hidden, ease fast */
+static S32 FollowCamObstructFloor = 0;    /* obstruction clearance: the least extra a hidden hero has shown this spot to need */
+static S32 FollowCamObstructFloorX = 0;   /* obstruction clearance: where he stood when the floor was last raised */
 static S32 FollowCamObstructFloorZ = 0;
 static S32 FollowCamHiddenSeen = 0; /* camtrace: what the last render made of a hidden hero (FollowCamNoteHidden) */
 
@@ -515,20 +516,32 @@ void UpdateFollowCameraExt(void) {
                     if (FollowCamObstructSnap) {
                         FollowCamObstructExtra = FollowCamObstructTarget;
                     } else {
+                        S32 div = FOLLOW_CAM_OBSTRUCT_EASE;
+
+                        if (FollowCamObstructHurrying) {
+                            /* The console sets a cvar without the config's range
+                             * check. Below 1 there is nothing to divide by, and
+                             * past the ordinary ease a hidden hero would slow the
+                             * camera down. */
+                            div = FollowCamObstructHurryDivisor;
+                            if (div < 1)
+                                div = 1;
+                            if (div > FOLLOW_CAM_OBSTRUCT_EASE)
+                                div = FOLLOW_CAM_OBSTRUCT_EASE;
+                        }
                         FollowCamObstructExtra = FollowCamEaseValue(FollowCamObstructExtra, FollowCamObstructTarget,
-                                                                    FollowCamObstructHurry ? FOLLOW_CAM_OBSTRUCT_HURRY_EASE : FOLLOW_CAM_OBSTRUCT_EASE,
-                                                                    FOLLOW_CAM_OBSTRUCT_MIN_STEP);
+                                                                    div, FOLLOW_CAM_OBSTRUCT_MIN_STEP);
                     }
                 }
                 FollowCamObstructSnap = FALSE;
-                FollowCamObstructHurry = FALSE;
+                FollowCamObstructHurrying = FALSE;
                 AlphaCam = composedAlpha;
             } else {
                 FollowCamObstructExtra = 0;
                 FollowCamObstructTarget = 0;
                 FollowCamObstructFloor = 0;
                 FollowCamObstructSnap = FALSE;
-                FollowCamObstructHurry = FALSE;
+                FollowCamObstructHurrying = FALSE;
             }
 
             CameraCenter(3);
@@ -782,7 +795,7 @@ S32 FollowCamObstructHidden(void) {
         FollowCamObstructTarget = floor;
     }
 
-    FollowCamObstructHurry = TRUE;
+    FollowCamObstructHurrying = TRUE;
     FollowCamNoteHidden(2);
     return TRUE;
 }
@@ -894,6 +907,9 @@ static const T_SETTING FollowCamSettings[] = {
     {"FollowCamObstruct", NULL, "cam_obstruct", &FollowCamObstruct, SETTING_TRUTHY,
      FOLLOW_CAM_OBSTRUCT_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Auto cam: eased obstruction clearance in place of the classic search (prototype)"},
+    {"FollowCamObstructHurryDivisor", NULL, "cam_obstruct_hurry", &FollowCamObstructHurryDivisor, SETTING_CLAMP,
+     FOLLOW_CAM_OBSTRUCT_HURRY_DEFAULT, 1, FOLLOW_CAM_OBSTRUCT_EASE, NULL, NULL, NULL, NULL,
+     "cam_obstruct: ease divisor while the hero is hidden (1 = cut, 10 = no hurry)"},
     {"FollowCamHDRecompose", NULL, "cam_hd", &FollowCamHDRecompose, SETTING_TRUTHY,
      FOLLOW_CAM_HD_RECOMPOSE_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Auto cam HD recompose: pull in + steepen at tall render heights"},

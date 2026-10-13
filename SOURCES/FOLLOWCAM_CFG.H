@@ -160,8 +160,12 @@
  * outdoors, and so does the hidden-hero recentre for as long as the extra is
  * still on its way up. A prototype, off by default. cvar cam_obstruct. */
 #define FOLLOW_CAM_OBSTRUCT_DEFAULT 0
-#define FOLLOW_CAM_OBSTRUCT_EASE 10        /* extra-pitch lerp divisor (higher = lazier ease) */
-#define FOLLOW_CAM_OBSTRUCT_HURRY_EASE 3   /* the same while the hero is drawn fully hidden */
+#define FOLLOW_CAM_OBSTRUCT_EASE 10 /* extra-pitch lerp divisor (higher = lazier ease) */
+/* The same while the hero is drawn fully hidden (cvar cam_obstruct_hurry). Lower
+ * shows him sooner and tilts harder to do it: at 3 the first frame closes a
+ * third of the gap, which at 1080p reads as a pop of ten degrees. 1 is a cut;
+ * at the ordinary ease there is no hurry at all. */
+#define FOLLOW_CAM_OBSTRUCT_HURRY_DEFAULT 6
 #define FOLLOW_CAM_OBSTRUCT_MIN_STEP 4     /* minimum change per eased frame (AlphaCam units) */
 #define FOLLOW_CAM_OBSTRUCT_PITCH_MAX 1000 /* never render steeper than this; 1024 is straight down */
 /* Where the search finds nothing and the hero is drawn hidden all the same, the

@@ -137,23 +137,24 @@ extern S32 FollowCamInShotBox;
 /* Settings. Read from the cfg by ReadConfigFile and written back by
  * WriteConfigFile (both PERSO.CPP); most are also console cvars. Defaults in
  * FOLLOWCAM_CFG.H. */
-extern S32 FollowCamera;              /* the Auto camera is on (config key FollowCamera) */
-extern S32 FollowCamReengageFrames;   /* frames before auto-cam re-centers after a manual pan */
-extern S32 FollowCamDriftDivisor;     /* auto-cam re-center drift divisor (higher = gentler) */
-extern S32 FollowCamSceneCarry;       /* start behind the hero in a new outdoor scene, pitch kept (cvar cam_scene_carry) */
-extern S32 FollowCamZoneSkip;         /* leave latching camera zones unfired while the player steers (cvar cam_zone_skip) */
-extern S32 FollowCamObstruct;         /* eased obstruction clearance in place of the classic search (cvar cam_obstruct) */
-extern S32 FollowCamHDRecompose;      /* pull-in+steepen recompose at tall render heights (1=on) */
-extern S32 FollowCamHDExcessCap;      /* cap on the recompose kExcess so tall res converges (0 = no cap) */
-extern S32 FollowCamHDPitchGain;      /* HD recompose pitch gain (AlphaCam units per 1.0 of k-1) */
-extern S32 FollowCamHDDistGain;       /* HD recompose distance pull (% boom per 1.0 of k-1) */
-extern S32 FollowCamHDLeanGain;       /* HD recompose forward-lean cut (% per 1.0 of k-1) */
-extern S32 FollowCamGround;           /* smooth terrain ground-clearance lift (1=on) */
-extern S32 FollowCamGroundClearance;  /* keep the eye this far above the ground under it */
-extern S32 FollowCamManualHoldFrames; /* manual-override hold length (cvar cam_manual_hold) */
-extern S32 FollowCamHoldAngle;        /* hold manual rotation, no auto-recenter drift (cvar cam_hold_angle) */
-extern S32 FollowCamZoneReturn;       /* give a shot's yaw and pitch back on leaving its box (cvar cam_zone_return) */
-extern S32 FollowCamZoneAnchor;       /* hold a latching shot's world yaw while inside its box (cvar cam_zone_anchor) */
+extern S32 FollowCamera;                  /* the Auto camera is on (config key FollowCamera) */
+extern S32 FollowCamReengageFrames;       /* frames before auto-cam re-centers after a manual pan */
+extern S32 FollowCamDriftDivisor;         /* auto-cam re-center drift divisor (higher = gentler) */
+extern S32 FollowCamSceneCarry;           /* start behind the hero in a new outdoor scene, pitch kept (cvar cam_scene_carry) */
+extern S32 FollowCamZoneSkip;             /* leave latching camera zones unfired while the player steers (cvar cam_zone_skip) */
+extern S32 FollowCamObstruct;             /* eased obstruction clearance in place of the classic search (cvar cam_obstruct) */
+extern S32 FollowCamObstructHurryDivisor; /* cam_obstruct: ease divisor while the hero is hidden (cvar cam_obstruct_hurry) */
+extern S32 FollowCamHDRecompose;          /* pull-in+steepen recompose at tall render heights (1=on) */
+extern S32 FollowCamHDExcessCap;          /* cap on the recompose kExcess so tall res converges (0 = no cap) */
+extern S32 FollowCamHDPitchGain;          /* HD recompose pitch gain (AlphaCam units per 1.0 of k-1) */
+extern S32 FollowCamHDDistGain;           /* HD recompose distance pull (% boom per 1.0 of k-1) */
+extern S32 FollowCamHDLeanGain;           /* HD recompose forward-lean cut (% per 1.0 of k-1) */
+extern S32 FollowCamGround;               /* smooth terrain ground-clearance lift (1=on) */
+extern S32 FollowCamGroundClearance;      /* keep the eye this far above the ground under it */
+extern S32 FollowCamManualHoldFrames;     /* manual-override hold length (cvar cam_manual_hold) */
+extern S32 FollowCamHoldAngle;            /* hold manual rotation, no auto-recenter drift (cvar cam_hold_angle) */
+extern S32 FollowCamZoneReturn;           /* give a shot's yaw and pitch back on leaving its box (cvar cam_zone_return) */
+extern S32 FollowCamZoneAnchor;           /* hold a latching shot's world yaw while inside its box (cvar cam_zone_anchor) */
 
 /* Live state other TUs read or write. The rest of the smoothing state is
  * private to FOLLOWCAM.CPP. */
