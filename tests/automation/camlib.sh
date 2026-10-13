@@ -14,6 +14,13 @@
 # Auto camera lives (interiors and camera zones run other code).
 CAM_SAVE="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Wannies fragment.LBA"
 
+# The Auto camera with every setting around scripted shots, scene changes and obstruction
+# switched off: what it did before any of them existed. Most of them ship switched on. A fixture
+# about one of them, or about the behaviour they replace, starts from this and switches on what
+# it is about, so that it says what it measures and does not move when a default does.
+# shellcheck disable=SC2034  # read by the fixtures that source this file
+CAM_PLAIN="cam_scene_carry 0; cam_zone_skip 0; cam_zone_return 0; cam_zone_anchor 0; cam_obstruct 0"
+
 # cam_precheck -- everything the camera fixtures need, on top of the usual precheck.
 cam_precheck() {
     precheck

@@ -12,6 +12,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `cam_zone_anchor` (`FollowCamZoneAnchor` in `lba2.cfg`), experimental and off
+  by default: inside the box of a scripted shot that fires once, the Auto
+  camera holds the shot's own angle as the classic camera does.
+- `camtrace` reports four more things per frame: whether the hero stands in the
+  box of a shot that has fired, what the camera still owes back from a shot, the
+  tilt being added to clear an obstruction, and whether the hero was drawn
+  hidden.
 - `PresentFilter` in `lba2.cfg`, `gfx_presentfilter` in the console and
   `LBA2_PRESENT_FILTER` for one run choose the filter that stretches the frame to
   the window: nearest (the default, unchanged), linear, or pixelart, which keeps
@@ -60,6 +67,27 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The Auto camera (off by default) behaves differently around buildings,
+  scripted camera shots and scenery. Each change is a setting, on by default,
+  with an `lba2.cfg` key and a console name; with all of them off the camera is
+  as it was.
+  - Coming out of a building, the camera starts straight behind the hero. It
+    used to be found off to one side and swing round, and a pan set before
+    going in came back out with him. Between two outdoor scenes a script
+    changes, the pan and the tilt the player set are now kept
+    (`cam_scene_carry`, `FollowCamSceneCarry`).
+  - A scripted shot that fires once no longer takes the view while the player
+    is steering. Shots that hold the view, interiors and the classic camera are
+    unchanged (`cam_zone_skip`, `FollowCamZoneSkip`).
+  - When the hero leaves a scripted shot, the camera eases back to the angle
+    and tilt the player had. It used to keep the shot's until the player moved
+    it (`cam_zone_return`, `FollowCamZoneReturn`).
+  - The camera tilts over a building or a bridge behind the hero only while it
+    is in the way, and eases back afterwards. It used to keep the steep tilt
+    for good, and when the hero was hidden it could snap behind him and drop
+    the player's pan (`cam_obstruct`, `FollowCamObstruct`;
+    `cam_obstruct_hurry`, `FollowCamObstructHurryDivisor`, sets how fast the
+    tilt rises while he is hidden).
 - The Linux tarball, macOS and Android builds now bundle SDL 3.4.18 (was
   3.2.16), so the pixelart present filter works in them. The Windows and
   AppImage builds keep using the SDL their distribution ships.

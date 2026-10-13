@@ -6,12 +6,18 @@
 # the player moves the camera or the scene changes. A player who never touches the camera has no
 # reason to expect that, and on a touch screen has nothing to undo it with.
 #
-# Two prototype settings, both off by default, treat the shot as a loan instead:
+# Two settings treat the shot as a loan instead:
 #
-#   cam_zone_return  when the hero leaves the box, ease yaw and pitch back to what the Auto camera
-#                    had before the shot. An axis the player set by hand meanwhile is theirs.
-#   cam_zone_anchor  inside the box of a zone that fires once, hold the shot's world yaw as the
-#                    classic camera does, rather than carrying it round as an offset.
+#   cam_zone_return  (on by default) when the hero leaves the box, ease yaw and pitch back to
+#                    what the Auto camera had before the shot. An axis the player set by hand
+#                    meanwhile is theirs.
+#   cam_zone_anchor  (a prototype, off by default) inside the box of a zone that fires once,
+#                    hold the shot's world yaw as the classic camera does, rather than carrying
+#                    it round as an offset.
+#
+# Every run here starts from CAM_PLAIN, with the Auto camera's other settings off: a zone that
+# fires once is passed over by default while the player steers, and these runs need it to fire.
+# One run at the end of the first block leaves everything as shipped.
 #
 # What is owed outlives a visit to an interior, since a door leaves the pan and the pitch alone.
 #
@@ -50,7 +56,9 @@ LATCH="19000 3900 4600"
 # cvar into the next boot, and cube 90 starts the hero inside a camera zone, so a run would
 # otherwise begin with a loan the previous run's settings took out.
 shot_run() {
-    local name="$1" cvars="$2" inside="$3"
+    local name="$1" cvars="$CAM_PLAIN; $2" inside="$3"
+    # "as shipped" is the one run that leaves every setting where the build puts it.
+    if [ "$2" = "as shipped" ]; then cvars="camtrace 1"; fi
     shift 3
     LBA2_USER_DIR="$work/user-$name"
     export LBA2_USER_DIR
@@ -96,12 +104,13 @@ pitch0="$(field forced_off alpha before)"
 [ "$(field forced_off alpha shot)" != "$pitch0" ] \
     || fail "the shot authored the pitch the camera already had ($pitch0): nothing to give back"
 
-# Off is the shipped behaviour, and it has to stay exactly that: the leftovers are kept.
+# Off is what the Auto camera did before the setting, and it has to stay exactly that: the
+# leftovers are kept.
 [ "$(field forced_off add last)" != "$pan0" ] \
     || fail "with the setting off the yaw came back to $pan0 on its own: the control proves nothing"
 [ "$(field forced_off alpha last)" != "$pitch0" ] \
     || fail "with the setting off the pitch came back to $pitch0 on its own: the control proves nothing"
-[ "$(awk 'NR > 1 && $NF != 0' "$work/forced_off.tsv" | wc -l | tr -d ' ')" = 0 ] \
+[ "$(ever forced_off loan 0)" = "$(($(wc -l < "$work/forced_off.tsv") - 1))" ] \
     || fail "a loan was taken out with both settings off"
 
 [ "$(ever forced_return loan 7)" -ge 1 ] \
@@ -112,6 +121,16 @@ pitch0="$(field forced_off alpha before)"
     || fail "the pitch was not given back: $(field forced_return alpha last), lent at $pitch0"
 [ "$(field forced_return loan last)" = 0 ] \
     || fail "the loan was still open at the end of the run"
+
+# The same visit with nothing set but the Auto camera itself. What ships gives the shot back.
+shot_run forced_shipped "as shipped" "$FORCED"
+
+[ "$(ever forced_shipped zone 1)" -gt 50 ] \
+    || fail "as shipped, the forced zone never held the view"
+[ "$(field forced_shipped add last)" = "$(field forced_shipped add before)" ] \
+    || fail "as shipped, the yaw offset was not given back: $(field forced_shipped add last), lent at $(field forced_shipped add before)"
+[ "$(field forced_shipped alpha last)" = "$(field forced_shipped alpha before)" ] \
+    || fail "as shipped, the pitch was not given back: $(field forced_shipped alpha last), lent at $(field forced_shipped alpha before)"
 
 # --- What the player set by hand is theirs ----------------------------------------------------
 # An orbit while the latching shot has the camera. The pitch, which they did not touch, still
@@ -159,7 +178,7 @@ door_run() { # <name> <cvars>
     mkdir -p "$LBA2_USER_DIR"
     ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
         --exec "cube 42" \
-        --exec-at 15 "camtrace 1; cam_follow 1; cam_hold_angle 1; $2" \
+        --exec-at 15 "camtrace 1; cam_follow 1; cam_hold_angle 1; $CAM_PLAIN; $2" \
         --exec-at 20 "teleport 17852 250 9500 2048" \
         --exec-at 150 "teleport 17852 250 7900 2048" \
         --exec-at 170 "input up 80" \
@@ -195,7 +214,7 @@ ctl_door_orbit() { # <name>
     mkdir -p "$LBA2_USER_DIR"
     ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
         --exec "cube 42" \
-        --exec-at 15 "camtrace 1; cam_follow 1; cam_hold_angle 1; cam_zone_return 1; cam_zone_anchor 0" \
+        --exec-at 15 "camtrace 1; cam_follow 1; cam_hold_angle 1; $CAM_PLAIN; cam_zone_return 1" \
         --exec-at 20 "teleport 17852 250 9500 2048" \
         --exec-at 150 "teleport 17852 250 8150 2048" \
         --exec-at 170 "camnudge 30 0 20" \
@@ -231,7 +250,7 @@ indoor_run() { # <name>
     mkdir -p "$LBA2_USER_DIR"
     ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
         --exec "cube 3" \
-        --exec-at 15 "camtrace 1; cam_follow 1; cam_hold_angle 1; cam_zone_return 1; cam_zone_anchor 0" \
+        --exec-at 15 "camtrace 1; cam_follow 1; cam_hold_angle 1; $CAM_PLAIN; cam_zone_return 1" \
         --exec-at 60 "teleport 7100 1024 15600" \
         --exec-at 200 "teleport 17852 250 9500 2048" \
         --tick 520 --exit > "$work/$1.log" 2>&1 || fail "run $1 failed: exit $?"
@@ -259,7 +278,7 @@ ctl_recovery() { # <name>
     mkdir -p "$LBA2_USER_DIR"
     ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
         --exec "cube 90" \
-        --exec-at 15 "camtrace 1; cam_follow 1; cam_hold_angle 1; cam_zone_return 1; cam_zone_anchor 0" \
+        --exec-at 15 "camtrace 1; cam_follow 1; cam_hold_angle 1; $CAM_PLAIN; cam_zone_return 1" \
         --exec-at 20 "teleport $NEUTRAL" \
         --exec-at 100 "camnudge 0 5 6" \
         --exec-at 150 "teleport $LATCH" \

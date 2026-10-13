@@ -40,8 +40,8 @@
  * search's one-off answer. On, the scene change leaves the pitch alone, keeps
  * the pan between two outdoor scenes and sends it home out of an interior, and
  * the camera starts behind the hero at that pan, with nothing left to swing
- * through. A prototype, off by default. cvar cam_scene_carry. */
-#define FOLLOW_CAM_SCENE_CARRY_DEFAULT 0
+ * through. On by default. cvar cam_scene_carry. */
+#define FOLLOW_CAM_SCENE_CARRY_DEFAULT 1
 
 /* Camera zones ----------------------------------------------------------------*/
 /* Whether a scripted shot that only latches takes the view from a player who is
@@ -49,9 +49,8 @@
  * shot once on entry and hold-angle keeps it there. On, such a zone is left
  * unfired while the Auto camera has the view outdoors and the hero is under
  * manual control. A forced zone, an interior's, and one entered by a hero a
- * script is moving fire as before. A prototype, off by default. cvar
- * cam_zone_skip. */
-#define FOLLOW_CAM_ZONE_SKIP_DEFAULT 0
+ * script is moving fire as before. On by default. cvar cam_zone_skip. */
+#define FOLLOW_CAM_ZONE_SKIP_DEFAULT 1
 
 /* Hold-angle (free-camera) mode ---------------------------------------------*/
 /* When on, the manual camera rotation (AddBetaCam) is never auto-recentered
@@ -64,8 +63,10 @@
 /* A camera zone re-aims the view to an authored shot. The Auto camera keeps what
  * the shot left behind: the yaw as an offset from the hero's facing, and the
  * pitch as authored, until the player moves the camera or the scene changes.
- * These two treat the shot as a loan instead. Both are prototypes, off by
- * default, so the shipped behaviour is unchanged until one is switched on.
+ * These two treat the shot as a loan instead. cam_zone_return is on by default;
+ * cam_zone_anchor is a prototype and off. With cam_zone_skip on as well, the
+ * shots this reaches in play are the ones that hold the view, and one that
+ * latches only when a script is moving the hero.
  *
  * cam_zone_return: when the hero leaves the shot's box, ease the yaw offset and
  * the pitch back to what the Auto camera had before the shot fired. Whatever the
@@ -74,7 +75,7 @@
  * cam_zone_anchor: while the hero is inside the box of a shot that fires once
  * and latches, hold the shot's authored world yaw as the classic camera does,
  * rather than carrying it round as an offset from wherever the hero is facing. */
-#define FOLLOW_CAM_ZONE_RETURN_DEFAULT 0
+#define FOLLOW_CAM_ZONE_RETURN_DEFAULT 1
 #define FOLLOW_CAM_ZONE_ANCHOR_DEFAULT 0
 #define FOLLOW_CAM_RETURN_YAW_MIN_STEP 3   /* minimum AddBetaCam step per frame of the return (units) */
 #define FOLLOW_CAM_RETURN_PITCH_MIN_STEP 1 /* minimum AlphaCam step per frame of the return (units) */
@@ -158,14 +159,15 @@
  * above its own pitch as an extra that eases up and down and is added for the
  * render only. The recentres' own searches stand down while it has the view
  * outdoors, and so does the hidden-hero recentre for as long as the extra is
- * still on its way up. A prototype, off by default. cvar cam_obstruct. */
-#define FOLLOW_CAM_OBSTRUCT_DEFAULT 0
+ * still on its way up. On by default. cvar cam_obstruct. */
+#define FOLLOW_CAM_OBSTRUCT_DEFAULT 1
 #define FOLLOW_CAM_OBSTRUCT_EASE 10 /* extra-pitch lerp divisor (higher = lazier ease) */
 /* The same while the hero is drawn fully hidden (cvar cam_obstruct_hurry). Lower
- * shows him sooner and tilts harder to do it: at 3 the first frame closes a
- * third of the gap, which at 1080p reads as a pop of ten degrees. 1 is a cut;
- * at the ordinary ease there is no hurry at all. */
-#define FOLLOW_CAM_OBSTRUCT_HURRY_DEFAULT 6
+ * shows him sooner and tilts harder to do it, and 1 is a cut. The default is
+ * the ordinary ease, which is no hurry at all: played at 1080p, 3 closed a
+ * third of the gap in the one frame he was hidden and read as a pop of ten
+ * degrees, and 10 did not show. */
+#define FOLLOW_CAM_OBSTRUCT_HURRY_DEFAULT 10
 #define FOLLOW_CAM_OBSTRUCT_MIN_STEP 4     /* minimum change per eased frame (AlphaCam units) */
 #define FOLLOW_CAM_OBSTRUCT_PITCH_MAX 1000 /* never render steeper than this; 1024 is straight down */
 /* Where the search finds nothing and the hero is drawn hidden all the same, the

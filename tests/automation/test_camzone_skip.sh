@@ -3,8 +3,8 @@
 #
 # A latching zone cuts the camera to an authored shot once as the hero walks in. Under the
 # classic camera that is the only way the view ever suits the place. Under the Auto camera the
-# player already has a view of his own, and the cut takes it from him. cam_zone_skip (a
-# prototype, off by default) has the dispatch pass such a zone over while the Auto camera has the
+# player already has a view of his own, and the cut takes it from him. cam_zone_skip (on
+# by default) has the dispatch pass such a zone over while the Auto camera has the
 # view outdoors and the hero is under manual control.
 #
 # What must not change with it on: a forced zone holds the view for as long as the hero is
@@ -37,7 +37,7 @@ zone_frames() {
 latching_run() { # <cam_follow> <cam_zone_skip>
     ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
         --exec "cube 90" \
-        --exec-at 15 "cam_follow $1; cam_hold_angle 1; cam_zone_skip $2; camtrace 1" \
+        --exec-at 15 "cam_follow $1; cam_hold_angle 1; $CAM_PLAIN; cam_zone_skip $2; camtrace 1" \
         --exec-at 40 "teleport 18000 3900 8000" \
         --exec-at 70 "teleport 13000 4000 8000" \
         --exec-at 100 "teleport 18000 3900 8000" \
@@ -64,7 +64,7 @@ read -r classic_total _ < <(zone_frames "$log")
 # Cube 97 zone 1 is forced (flags 0x0b): it holds the view while the hero is inside, whoever is
 # steering.
 ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
-    --exec "cam_follow 1; cam_hold_angle 1; cam_zone_skip 1; camtrace 1" \
+    --exec "cam_follow 1; cam_hold_angle 1; $CAM_PLAIN; cam_zone_skip 1; camtrace 1" \
     --exec-at 20 "teleport 15000 1000 21000" \
     --tick 120 --exit > "$log" 2>&1 || fail "forced-zone run: exit $?"
 

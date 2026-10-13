@@ -7,7 +7,7 @@
 # the camera looks nearly straight down over the roof, and it goes on looking down wherever he
 # walks and however the player turns it.
 #
-# cam_obstruct (a prototype, off by default) has the Auto camera ask the same search on every
+# cam_obstruct (on by default) has the Auto camera ask the same search on every
 # update and carry the answer as an extra added to the pitch for the frame only. The route here
 # is the Tavern's door: out of the building with it right behind him, then the player orbits the
 # camera half a turn into the open and back again. The extra should be there on arrival, gone
@@ -21,8 +21,9 @@
 # A second arrival, without cam_scene_carry, starts the extra from nothing with the building
 # already in the way, so the hero is hidden while it rises. That is the one moment the classic
 # recentre used to cut in and take the player's pan with it. The clearance should hurry and
-# the recentre stay out. How hard it hurries is cam_obstruct_hurry: the same arrival with it at
-# 1, a cut, has to move further in a frame than the default does.
+# the recentre stay out. How hard it hurries is cam_obstruct_hurry, which ships at 10, no hurry
+# at all. The Tavern runs set it to 6, so that there is a hurry to see, and the same arrival
+# with it at 1, a cut, has to move further in a frame than that.
 #
 # A third place is one the search is wrong about. Walking west out of cube 42 into cube 43 with
 # the camera panned, the hero is drawn fully hidden a few frames before the seam while the search
@@ -44,7 +45,7 @@ route() { # <log> <cam_obstruct> <cam_scene_carry> <rest of the timeline...>
     local log="$1" obstruct="$2" carry="$3"
     shift 3
     ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
-        --exec "cam_follow 1; cam_hold_angle 1; cam_zone_skip 1; cam_scene_carry $carry; cam_obstruct $obstruct; camtrace 1; cubetrace 1" \
+        --exec "cam_follow 1; cam_hold_angle 1; $CAM_PLAIN; cam_zone_skip 1; cam_scene_carry $carry; cam_obstruct $obstruct; cam_obstruct_hurry 6; camtrace 1; cubetrace 1" \
         --exec-at 20 "cube 3" \
         --exec-at 60 "teleport 7100 1024 15600" \
         "$@" --exit > "$log" 2>&1 || fail "run failed: exit $?"
@@ -131,13 +132,13 @@ route "$cut" 1 0 --exec-at 1 "cam_obstruct_hurry 1" --tick 160
 read -r _ _ _ _ _ _ cut_last cut_jump cut_recentred _ _ _ _ <<< "$(outdoors "$cut")"
 
 [ "$cut_jump" -gt "$up_jump" ] && [ "$cut_last" -ge 300 ] && [ "$cut_recentred" -eq 0 ] \
-    || fail "with cam_obstruct_hurry 1 the extra moved at most $cut_jump units in a frame against $up_jump by default, ended at $cut_last and recentred $cut_recentred time(s): the setting does not reach the hurry"
+    || fail "with cam_obstruct_hurry 1 the extra moved at most $cut_jump units in a frame against $up_jump at 6, ended at $cut_last and recentred $cut_recentred time(s): the setting does not reach the hurry"
 
 # The seam. The walk starts at frame 110 with the pan the nudge left, and crosses about two
 # seconds later.
 seam() { # <log> <cam_obstruct>
     ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
-        --exec "cam_follow 1; cam_hold_angle 1; cam_zone_skip 1; cam_scene_carry 1; cam_obstruct $2; camtrace 1; cubetrace 1" \
+        --exec "cam_follow 1; cam_hold_angle 1; $CAM_PLAIN; cam_zone_skip 1; cam_scene_carry 1; cam_obstruct $2; camtrace 1; cubetrace 1" \
         --exec-at 20 "cube 42" \
         --exec-at 60 "teleport 5000 250 19200 3072" \
         --exec-at 70 "camnudge 20 0 20" \
@@ -173,4 +174,4 @@ read -r son_before son_after son_recentred son_hurried <<< "$(crossing "$seam_on
 [ "$son_after" = "$son_before" ] \
     || fail "with cam_obstruct on the pan went from $son_before to $son_after on the walk to the seam"
 
-pass "out of the Tavern the pitch went from $off_own to $off_hi and stayed there with the setting off; with it on the pitch stayed $on_own, the extra was $on_first on arrival, 0 with the camera $on_leastpan units round, $on_last back behind him, at most $on_jump a frame, and he was never hidden; starting from $up_first it reached $up_last with him hidden on $up_hurried frame(s), at most $up_jump a frame ($cut_jump with the hurry at 1), and no recentre; at the seam the pan $soff_before was recentred away with it off and kept with it on, over $son_hurried hidden frame(s)"
+pass "out of the Tavern the pitch went from $off_own to $off_hi and stayed there with the setting off; with it on the pitch stayed $on_own, the extra was $on_first on arrival, 0 with the camera $on_leastpan units round, $on_last back behind him, at most $on_jump a frame, and he was never hidden; starting from $up_first with the hurry at 6 it reached $up_last with him hidden on $up_hurried frame(s), at most $up_jump a frame ($cut_jump with the hurry at 1), and no recentre; at the seam the pan $soff_before was recentred away with it off and kept with it on, over $son_hurried hidden frame(s)"

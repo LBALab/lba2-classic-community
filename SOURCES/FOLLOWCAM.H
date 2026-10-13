@@ -89,7 +89,7 @@ extern void FollowCamResetToView(void);
  * camera already is. This one writes the target the lerp is heading for. */
 extern void FollowCamSyncTarget(void);
 
-/* A scripted shot's loan (cam_zone_return, cam_zone_anchor; both off by default).
+/* A scripted shot's loan (cam_zone_return, on by default; cam_zone_anchor, off).
  *
  * A camera zone takes the yaw and the pitch from whoever had them. With either
  * setting on, the Auto camera remembers what it had so the update can give it

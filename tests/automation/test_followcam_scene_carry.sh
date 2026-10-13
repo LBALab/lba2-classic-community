@@ -8,10 +8,13 @@
 # he went in and leaves the yaw where the last outdoor scene left it, so the camera is found off
 # to one side of the hero and swings round to a place that is not behind him either.
 #
-# cam_scene_carry (a prototype, off by default) has the Auto camera take both arrivals. The
+# cam_scene_carry (on by default) has the Auto camera take both arrivals. The
 # pitch is left as the player had it. The pan is kept between two outdoor scenes and goes home
 # when he comes out of an interior. The camera starts behind the hero at that pan, with nothing
 # left to swing through.
+#
+# The Auto camera's other settings are off throughout (CAM_PLAIN), so that off here is the
+# camera as it was before any of them, obstruction search and all.
 #
 # Each claim is checked against the same run with the setting off, because every one of them
 # could otherwise pass by its setup never happening: a door that never fired leaves no arrival
@@ -34,7 +37,7 @@ trap 'rm -f "$door_off" "$door_on" "$warp_off" "$warp_on"' EXIT
 # change into one recentres.
 door_run() { # <log> <cam_scene_carry>
     ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
-        --exec "cam_follow 1; cam_hold_angle 1; cam_scene_carry $2; camtrace 1; cubetrace 1" \
+        --exec "cam_follow 1; cam_hold_angle 1; $CAM_PLAIN; cam_scene_carry $2; camtrace 1; cubetrace 1" \
         --exec-at 20 "cube 131" \
         --exec-at 60 "camnudge 20 8 10" \
         --exec-at 110 "teleport 6400 5600 9472 0" \
@@ -94,7 +97,7 @@ read -r on_pan on_pitch on_frames on_lag on_shots on_endpan on_endpitch <<< "$(d
 # save. The tilt is chosen to end somewhere else, so that "kept" and "replaced" cannot agree.
 warp_run() { # <log> <cam_scene_carry>
     ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
-        --exec "cam_follow 1; cam_hold_angle 1; cam_scene_carry $2; camtrace 1; cubetrace 1" \
+        --exec "cam_follow 1; cam_hold_angle 1; $CAM_PLAIN; cam_scene_carry $2; camtrace 1; cubetrace 1" \
         --exec-at 20 "camnudge 20 8 10" \
         --exec-at 80 "cube 66" \
         --tick 160 --exit > "$1" 2>&1 || fail "warp run failed: exit $?"
