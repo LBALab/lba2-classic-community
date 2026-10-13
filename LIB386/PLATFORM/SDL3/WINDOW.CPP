@@ -160,6 +160,11 @@ bool SDL3_CreateWindow(uint32_t width, uint32_t height, bool fullscreen) {
 #else
     SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
     SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, fullscreen);
+    /* Without this a scaled display (macOS Retina, a Wayland output with a
+       scale factor) hands the renderer a drawable in points and the system
+       resamples the result up to the panel, on top of the present filter.
+       Window sizes and mouse coordinates stay in points either way. */
+    SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_HIGH_PIXEL_DENSITY_BOOLEAN, true);
 #endif
     s_window = SDL_CreateWindowWithProperties(props);
     SDL_DestroyProperties(props);

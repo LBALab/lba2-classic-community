@@ -310,6 +310,8 @@ static void test_window_and_input_modes() {
         return;
     SDL_Renderer *renderer = SDL_GetRenderer(window);
     ASSERT_TRUE(renderer != NULL);
+    /* A scaled display otherwise gets a drawable in points, upscaled by the system. */
+    ASSERT_TRUE((SDL_GetWindowFlags(window) & SDL_WINDOW_HIGH_PIXEL_DENSITY) != 0);
     ASSERT_TRUE(g_platform.capabilities.windowed);
     ASSERT_TRUE(!g_platform.capabilities.transient_window_loss);
     ASSERT_TRUE(!g_platform.capabilities.touch_overlay);
