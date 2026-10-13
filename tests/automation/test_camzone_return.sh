@@ -13,6 +13,8 @@
 #   cam_zone_anchor  inside the box of a zone that fires once, hold the shot's world yaw as the
 #                    classic camera does, rather than carrying it round as an offset.
 #
+# What is owed outlives a visit to an interior, since a door leaves the pan and the pitch alone.
+#
 # Each claim is checked against the same run with the setting off, because every one of them
 # could otherwise pass by its setup never happening: a shot that never fired leaves nothing to
 # give back, and a camera that was never moved is trivially where it started.
@@ -142,4 +144,40 @@ off_shot() {
 [ "$(field latch_anchor alpha last)" = "$(field latch_anchor alpha before)" ] \
     || fail "after an anchored shot the pitch was not given back: $(field latch_anchor alpha last)"
 
-pass "left to itself the shot kept yaw $(field forced_off add last) and pitch $(field forced_off alpha last); returned, both came back to $pan0 and $pitch0; the player's orbit stayed at $(field took_yaw add last); the anchor held $(field latch_anchor beta shot) for the whole visit"
+# --- A visit to an interior does not end the loan ---------------------------------------------
+# Cube 42: camera zone 6 is a latching shot over the door of interior cube 3. Take the shot, walk
+# in through the door, come back out through it into the same box, then leave the box. A door
+# changes scene through CameraCenter(0), which leaves the pan and the pitch as they were, so the
+# shot's leftovers come back out with the hero. Forgetting what was owed on the way in made the
+# zone lend afresh from its own leftovers on the way out, and the return then went nowhere.
+door_run() { # <name> <cvars>
+    LBA2_USER_DIR="$work/user-$1"
+    export LBA2_USER_DIR
+    mkdir -p "$LBA2_USER_DIR"
+    ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
+        --exec "cube 42" \
+        --exec-at 15 "camtrace 1; cam_follow 1; cam_hold_angle 1; $2" \
+        --exec-at 20 "teleport 17852 250 9500 2048" \
+        --exec-at 150 "teleport 17852 250 7900 2048" \
+        --exec-at 170 "input up 80" \
+        --exec-at 320 "teleport 7100 1024 15600" \
+        --exec-at 440 "teleport 17852 250 9500 2048" \
+        --tick 720 --exit > "$work/$1.log" 2>&1 || fail "run $1 failed: exit $?"
+    cam_tsv "$work/$1.log" > "$work/$1.tsv"
+}
+
+door_run door_off    "cam_zone_return 0; cam_zone_anchor 0"
+door_run door_return "cam_zone_return 1; cam_zone_anchor 0"
+
+[ "$(ever door_return ext 0)" -gt 50 ] \
+    || fail "the hero never got indoors: the walk missed the door, so the visit proves nothing"
+[ "$(ever door_return zone 1)" -ge 2 ] \
+    || fail "the shot over the door fired $(ever door_return zone 1) time(s), not on the way in and again on the way out"
+[ "$(field door_off add last)" != "$(field door_off add before)" ] \
+    || fail "with the setting off the yaw was back at $(field door_off add before) after the visit: the control proves nothing"
+[ "$(field door_return add last)" = "$(field door_return add before)" ] \
+    || fail "after a visit indoors the yaw offset was not given back: $(field door_return add last), lent at $(field door_return add before)"
+[ "$(field door_return alpha last)" = "$(field door_return alpha before)" ] \
+    || fail "after a visit indoors the pitch was not given back: $(field door_return alpha last), lent at $(field door_return alpha before)"
+
+pass "left to itself the shot kept yaw $(field forced_off add last) and pitch $(field forced_off alpha last); returned, both came back to $pan0 and $pitch0; the player's orbit stayed at $(field took_yaw add last); the anchor held $(field latch_anchor beta shot) for the whole visit; a trip indoors and back still returned $(field door_off add last) to $(field door_return add last)"

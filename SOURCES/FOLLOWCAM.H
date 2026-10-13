@@ -65,8 +65,10 @@ extern void FollowCamLendToShot(S32 shotBeta);
 /* The player set that axis by hand, so it is theirs now and is not given back. */
 extern void FollowCamPlayerTook(S32 yaw, S32 pitch);
 
-/* Nothing is owed any more: a recentre, a scene change, a cutscene, an interior
- * or the Auto camera being switched off decided where the camera points. */
+/* Nothing is owed any more: a recentre, a scene change that recentres, a
+ * cutscene, a loaded save or the Auto camera being switched off decided where
+ * the camera points. Walking through a door does not: the pan and the pitch
+ * survive a visit to an interior, so the loan does too. */
 extern void FollowCamForgetLoan(void);
 
 /* Set by CheckZoneSce on each frame the followed object stands in the box of a

@@ -1863,12 +1863,19 @@ restartloop:
         if (CameraZone OR CinemaMode OR CubeMode != CUBE_EXTERIEUR OR !FollowCamera)
             FollowCamForgetManualGesture();
 
-        /* The same for what a scripted shot is owed back, except that a camera
-         * zone is the loan itself rather than the end of it. In the other three
-         * states the Auto camera's update does not run, so a loan left standing
-         * would be given back later against a view that has nothing to do with
-         * the one it was taken from. */
-        if (CinemaMode OR CubeMode != CUBE_EXTERIEUR OR !FollowCamera)
+        /* The same for what a scripted shot is owed back, in the two states that
+         * take the camera's angles for themselves: a cutscene aims it where it
+         * likes, and with the Auto camera off the classic one keeps whatever it
+         * is handed. A camera zone is not one of them, being the loan itself.
+         *
+         * Nor is an interior. A door changes scene through CameraCenter(0), which
+         * leaves the pan and the pitch exactly as they were, and nothing indoors
+         * uses either. So a shot's leftovers come back out of the building with
+         * the hero, and forgetting what was owed on the way in would leave them
+         * with the camera for good: the very thing the loan is there to stop,
+         * in the commonest place to meet it, a town whose streets are camera
+         * zones and whose houses are interiors. */
+        if (CinemaMode OR !FollowCamera)
             FollowCamForgetLoan();
 
         if (!CameraZone) {
