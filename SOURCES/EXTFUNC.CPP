@@ -315,8 +315,11 @@ void InitGrilleExt(U32 numcube) {
 /*──────────────────────────────────────────────────────────────────────────*/
 // Affiche la grille complète à la position actuelle de la caméra
 void AffGrilleExt() {
+    /* The camera for the frame is set here, from the globals, whatever was
+     * applied since the last one. cam_obstruct's extra pitch is not in AlphaCam
+     * and has to be added at this point to be drawn at all. */
     SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
-                    AlphaCam, BetaCam, GammaCam,
+                    AlphaCam + FollowCamRenderExtraPitch(), BetaCam, GammaCam,
                     VueDistance);
 
     SetLightVector(AlphaLight, BetaLight, 0);
@@ -1876,7 +1879,7 @@ void AffPalette() {
 // Affiche le terrain en mode "SPOTS"
 void RedrawSpeedTerrain() {
     Cls();
-    SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ, AlphaCam, BetaCam, GammaCam, VueDistance);
+    SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ, AlphaCam + FollowCamRenderExtraPitch(), BetaCam, GammaCam, VueDistance);
     AffichageTerrainRapide();
     BoxUpdate();
 
@@ -2015,6 +2018,7 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
             FollowCamAdoptAngle();
 
         AddBetaCam = (AddBetaCam - dBeta) & 4095;
+        FollowCamPlayerTook(TRUE, FALSE); /* an angle the player set is not a scripted shot's to give back */
         ManualCameraOrbitActive = TRUE;
         FirstTime = AFF_ALL_FLIP;
         changed = 1;
@@ -2025,6 +2029,7 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
             AlphaCam = FOLLOW_CAM_ALPHA_MIN;
         if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
             AlphaCam = FOLLOW_CAM_ALPHA_MAX;
+        FollowCamPlayerTook(FALSE, TRUE); /* after the clamp: it remembers the pitch as the player left it */
         FirstTime = AFF_ALL_FLIP;
         changed = 1;
     }
@@ -2345,6 +2350,7 @@ S32 GereExtKeys(U32 key)
         if (FollowCamera) {
             if (AlphaCam > FOLLOW_CAM_ALPHA_MIN)
                 AlphaCam -= FOLLOW_CAM_ALPHA_STEP;
+            FollowCamPlayerTook(FALSE, TRUE);
             FirstTime = AFF_ALL_FLIP;
         } else {
             if (VueCamera > 0) {
@@ -2360,6 +2366,7 @@ S32 GereExtKeys(U32 key)
         if (FollowCamera) {
             if (AlphaCam < FOLLOW_CAM_ALPHA_MAX)
                 AlphaCam += FOLLOW_CAM_ALPHA_STEP;
+            FollowCamPlayerTook(FALSE, TRUE);
             FirstTime = AFF_ALL_FLIP;
         } else {
             if (VueCamera < NB_VUE_CAMERA - 1) {
@@ -2374,11 +2381,13 @@ S32 GereExtKeys(U32 key)
     if (FollowCamera) {
         if (CheckKey(K_LBRACKET)) {
             AddBetaCam = (AddBetaCam - FOLLOW_CAM_PAN_STEP) & 4095;
+            FollowCamPlayerTook(TRUE, FALSE);
             FirstTime = AFF_ALL_FLIP;
             flag = 1;
         }
         if (CheckKey(K_RBRACKET)) {
             AddBetaCam = (AddBetaCam + FOLLOW_CAM_PAN_STEP) & 4095;
+            FollowCamPlayerTook(TRUE, FALSE);
             FirstTime = AFF_ALL_FLIP;
             flag = 1;
         }

@@ -21,6 +21,10 @@
 S32 FollowCamera = FALSE;
 S32 FollowCamReengageFrames = FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT;
 S32 FollowCamDriftDivisor = FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT;
+S32 FollowCamSceneCarry = FOLLOW_CAM_SCENE_CARRY_DEFAULT;
+S32 FollowCamZoneSkip = FOLLOW_CAM_ZONE_SKIP_DEFAULT;
+S32 FollowCamObstruct = FOLLOW_CAM_OBSTRUCT_DEFAULT;
+S32 FollowCamObstructHurryDivisor = FOLLOW_CAM_OBSTRUCT_HURRY_DEFAULT;
 S32 FollowCamHDRecompose = FOLLOW_CAM_HD_RECOMPOSE_DEFAULT;
 S32 FollowCamHDExcessCap = FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT;
 S32 FollowCamHDPitchGain = FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT;
@@ -30,28 +34,62 @@ S32 FollowCamGround = FOLLOW_CAM_GROUND_DEFAULT;
 S32 FollowCamGroundClearance = FOLLOW_CAM_GROUND_CLEARANCE_DEFAULT;
 S32 FollowCamManualHoldFrames = FOLLOW_CAM_MANUAL_HOLD_DEFAULT;
 S32 FollowCamHoldAngle = FOLLOW_CAM_HOLD_ANGLE_DEFAULT;
+S32 FollowCamZoneReturn = FOLLOW_CAM_ZONE_RETURN_DEFAULT;
+S32 FollowCamZoneAnchor = FOLLOW_CAM_ZONE_ANCHOR_DEFAULT;
 
 /* Console `camtrace`. */
 S32 DbgCamTrace = 0;
 
 /* Live state. The public half is declared in FOLLOWCAM.H; everything below the
- * blank line is private to this file and reached only through the four entry
- * points. */
+ * blank line is private to this file and reached only through the entry
+ * points that header declares. */
 S32 FollowCamBaseDist = 0; /* player's chosen zoom distance (0 = uninitialised) */
 
 static S32 FollowCamPrevHeroX = 0;
 static S32 FollowCamPrevHeroY = 0;
 static S32 FollowCamPrevHeroZ = 0;
 static S32 FollowCamPrevHeroBeta = 0;
-static S32 FollowCamPrevAddBeta = 0;    /* dirty check: last seen AddBetaCam */
-static S32 FollowCamEffectiveDist = 0;  /* spring arm: smoothed distance (0 = uninitialised) */
-static S32 FollowCamTargetBeta = 0;     /* rotation lag: desired BetaCam */
-S32 FollowCamReengageDelay = 0;         /* frames before auto-center resumes after manual pan */
-S32 FollowCamManualHold = 0;            /* frames the pitch/distance auto-assist yields after a manual nudge */
-static S32 FollowCamPrevBaseDist = -1;  /* dirty: zoom from GereExtKeys (numpad * /) */
-static S32 FollowCamPrevAlphaCam = -1;  /* dirty: numpad +/- elevation while follow */
-static S32 FollowCamEyeLift = 0;        /* ground clearance: eased eye lift above terrain */
-static S32 FollowCamGroundSettling = 0; /* ground clearance: lift still easing (keeps the dirty check live while the hero stands still) */
+static S32 FollowCamPrevAddBeta = 0;      /* dirty check: last seen AddBetaCam */
+static S32 FollowCamEffectiveDist = 0;    /* spring arm: smoothed distance (0 = uninitialised) */
+static S32 FollowCamTargetBeta = 0;       /* rotation lag: desired BetaCam */
+S32 FollowCamReengageDelay = 0;           /* frames before auto-center resumes after manual pan */
+S32 FollowCamManualHold = 0;              /* frames the pitch/distance auto-assist yields after a manual nudge */
+static S32 FollowCamPrevBaseDist = -1;    /* dirty: zoom from GereExtKeys (numpad * /) */
+static S32 FollowCamPrevAlphaCam = -1;    /* dirty: numpad +/- elevation while follow */
+static S32 FollowCamEyeLift = 0;          /* ground clearance: eased eye lift above terrain */
+static S32 FollowCamGroundSettling = 0;   /* ground clearance: lift still easing (keeps the dirty check live while the hero stands still) */
+static S32 FollowCamObstructExtra = 0;    /* obstruction clearance: eased pitch added for the render */
+static S32 FollowCamObstructTarget = 0;   /* obstruction clearance: what the last probe asked for */
+static S32 FollowCamObstructSnap = 0;     /* obstruction clearance: the next update starts settled */
+static S32 FollowCamObstructHurrying = 0; /* obstruction clearance: the hero was drawn hidden (1 while rising, 2 with the search silent) */
+static S32 FollowCamObstructFloor = 0;    /* obstruction clearance: the least extra a hidden hero has shown this spot to need */
+static S32 FollowCamObstructFloorX = 0;   /* obstruction clearance: where he stood when the floor was last raised */
+static S32 FollowCamObstructFloorZ = 0;
+static S32 FollowCamHiddenSeen = 0; /* camtrace: what the last render made of a hidden hero (FollowCamNoteHidden) */
+
+/* A scripted shot's loan (cam_zone_return / cam_zone_anchor). The bits say what
+ * is still owed: an axis drops out when it has been given back, or when the
+ * player sets it by hand and so makes it theirs. RETURNING is set from the frame
+ * the hero leaves the shot's box until both axes are settled. */
+#define FOLLOW_CAM_LOAN_YAW 1
+#define FOLLOW_CAM_LOAN_PITCH 2
+#define FOLLOW_CAM_LOAN_RETURNING 4
+S32 FollowCamInShotBox = FALSE;         /* this frame: the followed object is in the box of a camera zone that has fired */
+static S32 FollowCamLoan = 0;           /* FOLLOW_CAM_LOAN_* */
+static S32 FollowCamLentPan = 0;        /* AddBetaCam as it was before the shot */
+static S32 FollowCamLentAlpha = 0;      /* AlphaCam as it was before the shot */
+static S32 FollowCamShotBeta = 0;       /* the shot's authored world yaw */
+static S32 FollowCamWasIndoors = FALSE; /* the last simulated frame was in an interior */
+static S32 FollowCamWasCinema = FALSE;  /* the last simulated frame was in a cutscene */
+
+/* The pitch the Auto camera rests at when nobody else has it: the player's own
+ * tilt if they set one, the preset a recentre put there if not. -1 until one of
+ * those has happened. AlphaCam cannot stand in for it, because two writers put
+ * pitches there that are not the camera's own and nothing takes them away
+ * again: a camera zone, and the obstruction search CameraCenter runs, whose
+ * position is discarded by the next follow update while the pitch it wrote
+ * beside it stays. */
+static S32 FollowCamOwnAlpha = -1;
 
 /* This file's live settings, applied to the rule in FOLLOWCAM_MATH.H (which the
  * host test covers). Callers pass 0 instead inside a camera zone, so an authored
@@ -73,7 +111,15 @@ static S32 FollowCamHDExcess(void) {
  * moved it -- the Auto camera's lerp, a zone's authored angle, a scripted order,
  * or the classic camera's quarter turns -- rather than only the one writer the
  * old placement could see. `zone` and `forced` separate the frame a camera zone
- * re-aims the view from the state of being under its shot. */
+ * re-aims the view from the state of being under its shot. `inshot` is the hero
+ * standing in the box of a zone that has fired, which for a zone that fires once
+ * is the only sign he is still there, and `loan` is what the Auto camera still
+ * owes back from a shot (1 yaw, 2 pitch, 4 on its way back; always 0 unless
+ * cam_zone_return or cam_zone_anchor is on). `obs` is the pitch the obstruction
+ * clearance is adding to `alpha` for the render (always 0 unless cam_obstruct
+ * is on). `hid` is what the render since the last line made of the followed
+ * object: 0 seen, 1 drawn fully hidden and left so, 2 hidden with the clearance
+ * still on its way up, 3 hidden and recentred. */
 void FollowCamTrace(void) {
     static S32 prevBeta = 0;
     static S32 prevX = 0;
@@ -114,11 +160,13 @@ void FollowCamTrace(void) {
     primed = TRUE;
 
     Log_Info("[cam] heroBeta %4d add %4d beta %4d target %4d step %5d delay %3d orbit %d moving %d "
-             "zone %d forced %d cine %d follow %d ext %d vue %d alpha %4d dist %6d",
+             "zone %d forced %d cine %d follow %d ext %d vue %d alpha %4d dist %6d inshot %d loan %d obs %d hid %d",
              (int)ptr3d->Beta, (int)AddBetaCam, (int)BetaCam, (int)FollowCamTargetBeta,
              (int)step, (int)FollowCamReengageDelay, (int)ManualCameraOrbitActive, (int)moving,
              (int)CameraZone, (int)FlagCameraForcee, (int)CinemaMode, (int)FollowCamera,
-             (int)(CubeMode == CUBE_EXTERIEUR), (int)VueCamera, (int)AlphaCam, (int)VueDistance);
+             (int)(CubeMode == CUBE_EXTERIEUR), (int)VueCamera, (int)AlphaCam, (int)VueDistance,
+             (int)FollowCamInShotBox, (int)FollowCamLoan, (int)FollowCamObstructExtra, (int)FollowCamHiddenSeen);
+    FollowCamHiddenSeen = 0;
 
     prevBeta = BetaCam;
     prevX = ptr3d->X;
@@ -130,7 +178,32 @@ void FollowCamTrace(void) {
  * ground-lift / manual-hold are still settling (the last two keep this true so
  * they finish easing while the hero stands still). */
 static S32 FollowCamNeedsUpdate(T_OBJ_3D *ptr3d, S32 catchupDiff) {
-    return ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR(catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD) OR FollowCamBaseDist != FollowCamPrevBaseDist OR AlphaCam != FollowCamPrevAlphaCam OR FollowCamGroundSettling OR FollowCamManualHold;
+    return ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR(catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD) OR FollowCamBaseDist != FollowCamPrevBaseDist OR AlphaCam != FollowCamPrevAlphaCam OR FollowCamGroundSettling OR(FollowCamObstruct AND(FollowCamObstructExtra != FollowCamObstructTarget OR FollowCamObstructSnap)) OR FollowCamManualHold;
+}
+
+/* The pitch the classic obstruction search wants for the camera as it stands:
+ * its march out along the boom over terrain, scenery boxes and scripted
+ * objects, asked as a question. SearchCameraPos answers by writing AlphaCam,
+ * the eye and the target, so each is put back. It reads AlphaCam, BetaCam and
+ * VueDistance, which the caller has set to the view about to be rendered. */
+static S32 FollowCamNeededPitch(T_OBJ_3D *ptr3d) {
+    S32 saveAlpha = AlphaCam;
+    S32 saveOffX = VueOffsetX, saveOffY = VueOffsetY, saveOffZ = VueOffsetZ;
+    S32 savePosX = CamPosX, savePosY = CamPosY, savePosZ = CamPosZ;
+    S32 needed;
+
+    SearchCameraPos(ptr3d->X, ptr3d->Y, ptr3d->Z, ptr3d->Beta, 1);
+    needed = AlphaCam;
+
+    AlphaCam = saveAlpha;
+    VueOffsetX = saveOffX;
+    VueOffsetY = saveOffY;
+    VueOffsetZ = saveOffZ;
+    CamPosX = savePosX;
+    CamPosY = savePosY;
+    CamPosZ = savePosZ;
+
+    return needed;
 }
 
 /* Per-frame Auto-camera update (exterior). Extracted from the main loop:
@@ -154,6 +227,67 @@ void UpdateFollowCameraExt(void) {
         FollowCamPrevAlphaCam = AlphaCam;
     }
 
+    /* --- A scripted shot's loan ---
+     * Inert unless cam_zone_return or cam_zone_anchor is on: FollowCamLoan is
+     * only ever set by FollowCamLendToShot, which does nothing with both off. */
+    if (FollowCamLoan AND !FollowCamZoneReturn AND !FollowCamZoneAnchor)
+        FollowCamLoan = 0; /* switched off with a shot still out: keep what it left, as before */
+
+    if (FollowCamLoan AND !(FollowCamLoan & FOLLOW_CAM_LOAN_RETURNING) AND !FollowCamInShotBox) {
+        /* The hero has left the shot's box. A zone that holds the view every
+         * frame keeps this update from running at all while he is inside, so for
+         * that kind this is the first frame back. */
+        if (FollowCamZoneReturn) {
+            FollowCamLoan |= FOLLOW_CAM_LOAN_RETURNING;
+            /* Start from the angle on screen. The offset adopted when the shot
+             * fired was measured against the heading the hero had on that frame;
+             * he may have turned any amount under a held shot since, and without
+             * this the camera would first swing by that turn and only then begin
+             * to come back. */
+            if (FollowCamLoan & FOLLOW_CAM_LOAN_YAW) {
+                FollowCamAdoptAngle();
+                /* And without waiting out a grace left over from a pan made
+                 * before the shot. That countdown only runs while the hero
+                 * walks, and it stops the camera following its target, so a
+                 * player who had orbited a moment before the shot and stopped
+                 * outside its box would watch the offset come home on paper
+                 * while the camera stayed where the shot left it. */
+                FollowCamReengageDelay = 0;
+            }
+        } else {
+            FollowCamLoan = 0; /* anchor only: the shot ends here and nothing is given back */
+        }
+    }
+
+    if (FollowCamLoan & FOLLOW_CAM_LOAN_RETURNING) {
+        /* Runs whether or not the hero is walking, unlike the pan drift below: a
+         * hand-back that paused whenever he stopped would leave the camera
+         * parked at an angle that is neither the shot nor his own. Both steps
+         * move a value the dirty check watches, so the frame is redrawn. */
+        S32 div = FollowCamDriftDivisor;
+        if (div < 1)
+            div = 1; /* console can set 0; never divide by zero */
+
+        if (FollowCamLoan & FOLLOW_CAM_LOAN_YAW) {
+            AddBetaCam = FollowCamEasePan(AddBetaCam, FollowCamLentPan, div, FOLLOW_CAM_RETURN_YAW_MIN_STEP);
+            if (((AddBetaCam - FollowCamLentPan) & 4095) == 0)
+                FollowCamLoan &= ~FOLLOW_CAM_LOAN_YAW;
+        }
+        if (FollowCamLoan & FOLLOW_CAM_LOAN_PITCH) {
+            AlphaCam = FollowCamEaseValue(AlphaCam, FollowCamLentAlpha, div, FOLLOW_CAM_RETURN_PITCH_MIN_STEP);
+            if (AlphaCam == FollowCamLentAlpha)
+                FollowCamLoan &= ~FOLLOW_CAM_LOAN_PITCH;
+        }
+        if (!(FollowCamLoan & (FOLLOW_CAM_LOAN_YAW | FOLLOW_CAM_LOAN_PITCH)))
+            FollowCamLoan = 0;
+    } else if (FollowCamZoneAnchor AND(FollowCamLoan & FOLLOW_CAM_LOAN_YAW)) {
+        /* Still in the box of a shot that fired once: keep its world yaw by
+         * re-solving the offset against the hero's facing every frame, so the
+         * target the update computes below stays where the shot put it however
+         * he turns. */
+        AddBetaCam = FollowCamPanForAngle(FollowCamShotBeta, ptr3d->Beta);
+    }
+
     /* --- AddBetaCam drift ---
                      * Auto-recenter the manual pan back to behind the hero while
                      * walking. Disabled when FollowCamHoldAngle (cam_hold_angle,
@@ -166,7 +300,10 @@ void UpdateFollowCameraExt(void) {
     } else if (heroMoving) {
         if (FollowCamReengageDelay > 0) {
             FollowCamReengageDelay--;
-        } else if (!FollowCamHoldAngle AND AddBetaCam != 0) {
+        } else if (!FollowCamHoldAngle AND AddBetaCam != 0 AND !(FollowCamLoan & FOLLOW_CAM_LOAN_YAW)) {
+            /* Not while a shot's yaw is still owed: the offset then is the
+             * shot's rather than a pan the player made, and what happens to it
+             * is the loan's to decide above. */
             S32 drift = AddBetaCam;
             if (drift > 2048)
                 drift -= 4096;
@@ -330,6 +467,94 @@ void UpdateFollowCameraExt(void) {
                     AlphaCam = FOLLOW_CAM_ALPHA_MAX;
             }
             VueDistance = renderDist;
+
+            /* Obstruction clearance (cam_obstruct). The search says how steep
+             * the view would have to be to clear what stands between the eye
+             * and the hero. What that is above the player's own pitch is
+             * carried as an extra that eases toward it each update, up and
+             * down, so there is never a pitch to give back.
+             *
+             * The extra is not written into AlphaCam here. The scene render
+             * sets the camera again from AlphaCam before it draws, so a pitch
+             * changed for this update's CameraCenter and put back after it
+             * never reaches the frame. CameraCenter and the render add
+             * FollowCamRenderExtraPitch() themselves. For the same reason it
+             * is measured from the player's own pitch and not from the one the
+             * recompose has just steepened.
+             *
+             * In the box of a shot that has fired the place is the author's to
+             * judge, as it is for the classic camera, which never searches
+             * inside a zone, and the shot is shown as written. */
+            if (FollowCamObstruct) {
+                S32 composedAlpha = AlphaCam;
+
+                AlphaCam = saveAlphaCam;
+
+                /* A floor learnt from a hidden hero is about the spot he was
+                 * hidden at. Once he has walked on, or the view has been cut
+                 * to somewhere else, the search has the say again. */
+                if (FollowCamObstructFloor) {
+                    S32 dx = ptr3d->X - FollowCamObstructFloorX;
+                    S32 dz = ptr3d->Z - FollowCamObstructFloorZ;
+
+                    if (FollowCamObstructSnap OR dx > FOLLOW_CAM_OBSTRUCT_FLOOR_REACH OR dx<-FOLLOW_CAM_OBSTRUCT_FLOOR_REACH OR dz> FOLLOW_CAM_OBSTRUCT_FLOOR_REACH OR dz < -FOLLOW_CAM_OBSTRUCT_FLOOR_REACH)
+                        FollowCamObstructFloor = 0;
+                }
+
+                {
+                    /* In the box of a shot that has fired the search is not
+                     * asked: the place is the author's to judge there, as it is
+                     * for the classic camera, which never searches inside a
+                     * zone. A hero drawn hidden is still answered, through the
+                     * floor, or he would stay hidden with the recentre stood
+                     * down and nothing in its place. */
+                    FollowCamObstructTarget = FollowCamInShotBox ? 0 : FollowCamNeededPitch(ptr3d) - AlphaCam;
+                    if (FollowCamObstructTarget < FollowCamObstructFloor)
+                        FollowCamObstructTarget = FollowCamObstructFloor;
+                    if (AlphaCam + FollowCamObstructTarget > FOLLOW_CAM_OBSTRUCT_PITCH_MAX)
+                        FollowCamObstructTarget = FOLLOW_CAM_OBSTRUCT_PITCH_MAX - AlphaCam;
+                    if (FollowCamObstructTarget < 0)
+                        FollowCamObstructTarget = 0;
+
+                    if (FollowCamObstructSnap) {
+                        FollowCamObstructExtra = FollowCamObstructTarget;
+                    } else if (FollowCamObstructHurrying == 2) {
+                        /* Hidden with the search silent: the floor was raised a
+                         * step and the extra goes up by that step, at once. Eased
+                         * like the rest it would creep at a tenth of the step and
+                         * leave him hidden for a second. */
+                        FollowCamObstructExtra += FOLLOW_CAM_OBSTRUCT_HIDDEN_STEP;
+                        if (FollowCamObstructExtra > FollowCamObstructTarget)
+                            FollowCamObstructExtra = FollowCamObstructTarget;
+                    } else {
+                        S32 div = FOLLOW_CAM_OBSTRUCT_EASE;
+
+                        if (FollowCamObstructHurrying) {
+                            /* The console sets a cvar without the config's range
+                             * check. Below 1 there is nothing to divide by, and
+                             * past the ordinary ease a hidden hero would slow the
+                             * camera down. */
+                            div = FollowCamObstructHurryDivisor;
+                            if (div < 1)
+                                div = 1;
+                            if (div > FOLLOW_CAM_OBSTRUCT_EASE)
+                                div = FOLLOW_CAM_OBSTRUCT_EASE;
+                        }
+                        FollowCamObstructExtra = FollowCamEaseValue(FollowCamObstructExtra, FollowCamObstructTarget,
+                                                                    div, FOLLOW_CAM_OBSTRUCT_MIN_STEP);
+                    }
+                }
+                FollowCamObstructSnap = FALSE;
+                FollowCamObstructHurrying = FALSE;
+                AlphaCam = composedAlpha;
+            } else {
+                FollowCamObstructExtra = 0;
+                FollowCamObstructTarget = 0;
+                FollowCamObstructFloor = 0;
+                FollowCamObstructSnap = FALSE;
+                FollowCamObstructHurrying = FALSE;
+            }
+
             CameraCenter(3);
             AlphaCam = saveAlphaCam;
 
@@ -430,6 +655,90 @@ void UpdateFollowCameraExt(void) {
     }
 }
 
+/* Arriving in an outdoor scene, for cam_scene_carry. ChangeCube calls this in
+ * place of its own CameraCenter, once the hero stands where the new scene puts
+ * him.
+ *
+ * What it replaces does one of two things to the Auto camera. An ordered change
+ * (a script's, the console's) takes CameraCenter(1), which zeroes the pan and
+ * puts the pitch back to the preset: the angle and the tilt the player had set
+ * are gone. A door out of an interior takes CameraCenter(0), which leaves
+ * BetaCam where the last outdoor scene left it and runs the classic obstruction
+ * search once. The hero walked in facing the door and walks out facing away
+ * from it, so the update finds the camera half a turn from its target and
+ * spends two seconds swinging round him. And the search, finding the building he
+ * has just left behind the camera, rewrites AlphaCam to look down over it. The
+ * classic camera gives that pitch back at its next off-screen recentre; the Auto
+ * camera has no such recentre and keeps it as though the player had chosen it.
+ *
+ * Here the pitch is left alone, since it is the player's. The pan is his too
+ * for as long as he stays outdoors, so it holds from one outdoor scene to the
+ * next. Coming out of an interior it goes home: it was set for a view he left
+ * at the door on his way in, and held through a building it turns the camera
+ * to his side or his face as he steps out. The camera is then placed behind
+ * the hero at whatever pan that leaves, with the lerp's target on it, so
+ * nothing is owed. There is no obstruction search: the update's eased clearance
+ * takes over on this same frame.
+ *
+ * That clearance knows terrain and not decor. Where the place behind the hero
+ * is inside the building he has just left, he is drawn fully hidden on the
+ * arrival frame and the hidden-hero recentre in AffOneObject fires, as it would
+ * anywhere else, leaving the same lasting pitch the door used to. That is the
+ * Auto camera's missing decor clearance, not the scene change.
+ *
+ * Walking across the seam between two outdoor scenes does not come through
+ * here. Nothing about the camera changes there and nothing should. */
+S32 FollowCamCarryIntoScene(void) {
+    T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
+
+    /* Nor in a cutscene: a scene change in the middle of one is the script's,
+     * and gets the centring it was written against. */
+    if (!FollowCamSceneCarry OR !FollowCamera OR CubeMode != CUBE_EXTERIEUR OR FlagLoadGame OR CinemaMode)
+        return FALSE;
+
+    /* Latched state describes the scene just left. CameraCenter(1) and (2) drop
+     * an orbit in flight for the same reason, and a re-engage countdown left
+     * running would keep the camera from following the hero's first turn here. */
+    FollowCamForgetManualGesture();
+    FollowCamReengageDelay = 0;
+
+    /* LastCubeMode is still the scene just left: ChangeCube sets it on the way
+     * in and nothing touches it until the next change. */
+    if (LastCubeMode != CUBE_EXTERIEUR)
+        AddBetaCam = 0;
+
+    /* The pitch that goes into the new scene is the camera's own. What AlphaCam
+     * holds may be a shot's, or the obstruction search's answer for a place the
+     * hero has now left, and neither was the player's to carry. */
+    if (FollowCamOwnPitch() >= 0)
+        AlphaCam = FollowCamOwnPitch();
+
+    Rotate(0, DISTANCE_VISEE, (AddBetaCam + ptr3d->Beta) & 4095);
+
+    VueOffsetX = ptr3d->X + X0;
+    VueOffsetY = ptr3d->Y;
+    VueOffsetZ = ptr3d->Z + Z0;
+
+    StartXCube = VueOffsetX / SIZE_BRICK_XZ;
+    StartYCube = VueOffsetY / SIZE_BRICK_Y;
+    StartZCube = VueOffsetZ / SIZE_BRICK_XZ;
+
+    BetaCam = FollowCamTargetBetaFor(AddBetaCam, ptr3d->Beta);
+    FollowCamSyncTarget();
+
+    CameraCenter(3);
+
+    /* An arrival is a cut, so the obstruction clearance starts at what this
+     * place needs. */
+    FollowCamObstructSettle();
+
+    /* Have the update run on this frame whatever the hero's new position
+     * happens to be, so the arm length and the clearance are its own. */
+    FollowCamPrevAlphaCam = -1;
+
+    return TRUE;
+}
+
 /* The two entry points below are the assignments the main loop used to make
  * into this file's statics, named for the moments that need them. */
 
@@ -444,10 +753,167 @@ void FollowCamResetToView(void) {
      * position instead of gliding down from a stale terrain-occluder lift. */
     FollowCamEyeLift = 0;
     FollowCamGroundSettling = 0;
+    FollowCamObstructExtra = 0;
+    FollowCamObstructTarget = 0;
+    FollowCamObstructFloor = 0;
+    FollowCamObstructSettle();
+}
+
+void FollowCamNoteHidden(S32 what) {
+    if (what > FollowCamHiddenSeen)
+        FollowCamHiddenSeen = what;
+}
+
+S32 FollowCamObstructOwnsSearch(void) {
+    /* Not in a cutscene: its re-aims and scene changes are the script's, and
+     * they get the search they were written against. */
+    return FollowCamObstruct AND FollowCamera AND CubeMode == CUBE_EXTERIEUR AND !CinemaMode;
+}
+
+void FollowCamObstructShotFired(void) {
+    /* A shot starts as written. Whatever tilt the last view needed, and any
+     * floor a hidden hero taught it, belonged to that view. */
+    FollowCamObstructExtra = 0;
+    FollowCamObstructTarget = 0;
+    FollowCamObstructFloor = 0;
+}
+
+S32 FollowCamRenderExtraPitch(void) {
+    /* Not on a frame a zone holds the view, nor in a cutscene: both set the
+     * pitch they mean, and the follow update that keeps the extra current does
+     * not run in either. */
+    if (!FollowCamObstructOwnsSearch() OR CameraZone OR CinemaMode)
+        return 0;
+
+    return FollowCamObstructExtra;
+}
+
+void FollowCamObstructSettle(void) {
+    /* Nothing to settle with the setting off, and a flag raised then would keep
+     * the dirty check true until an update came along to clear it. */
+    if (FollowCamObstruct)
+        FollowCamObstructSnap = TRUE;
+}
+
+S32 FollowCamObstructHidden(void) {
+    T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
+
+    if (!FollowCamObstructOwnsSearch())
+        return FALSE;
+
+    if (FollowCamObstructExtra >= FollowCamObstructTarget) {
+        /* The clearance has given all that was asked of it and he is hidden
+         * all the same: the search does not see what is in the way here. The
+         * render does, so its word is taken and the view is raised a step,
+         * and held there for as long as he stays near. Only when there is no
+         * pitch left to give is the classic recentre the answer. */
+        S32 floor = FollowCamObstructExtra + FOLLOW_CAM_OBSTRUCT_HIDDEN_STEP;
+
+        if (AlphaCam + floor > FOLLOW_CAM_OBSTRUCT_PITCH_MAX)
+            return FALSE;
+
+        FollowCamObstructFloor = floor;
+        FollowCamObstructFloorX = ptr3d->X;
+        FollowCamObstructFloorZ = ptr3d->Z;
+        FollowCamObstructTarget = floor;
+        FollowCamObstructHurrying = 2;
+        FollowCamNoteHidden(2);
+        return TRUE;
+    }
+
+    FollowCamObstructHurrying = 1;
+    FollowCamNoteHidden(2);
+    return TRUE;
 }
 
 void FollowCamSyncTarget(void) {
     FollowCamTargetBeta = BetaCam;
+}
+
+void FollowCamLendToShot(S32 shotBeta) {
+    if (!FollowCamZoneReturn AND !FollowCamZoneAnchor)
+        return;
+
+    /* Per axis, and only if it is not already out. A second shot firing while
+     * the first still has the camera, or while it is on its way back, changes
+     * what is on screen but not what is owed: that is still whatever the Auto
+     * camera had before the first one. An axis the player has since set by hand
+     * is theirs, so it is lent afresh from where they left it. */
+    if (!(FollowCamLoan & FOLLOW_CAM_LOAN_YAW)) {
+        /* Straight out of a cutscene the pan is whatever its last shot left,
+         * which nobody chose: what is owed then is behind the hero. */
+        FollowCamLentPan = FollowCamWasCinema ? 0 : (AddBetaCam & 4095);
+        FollowCamLoan |= FOLLOW_CAM_LOAN_YAW;
+    }
+    if (!(FollowCamLoan & FOLLOW_CAM_LOAN_PITCH)) {
+        /* The camera's own pitch, and not whatever AlphaCam holds as the shot
+         * fires. A door's recentre runs the obstruction search on the arrival
+         * frame, just ahead of the zone over that door, and the search leaves a
+         * pitch of its own (767 at the Tavern, above anything the player can
+         * tilt to). Lent as found, that is what the return would hand back. */
+        if (FollowCamOwnAlpha < 0)
+            FollowCamOwnAlpha = AlphaCam; /* nothing better is known yet */
+        FollowCamLentAlpha = FollowCamOwnAlpha;
+        FollowCamLoan |= FOLLOW_CAM_LOAN_PITCH;
+    }
+    FollowCamLoan &= ~FOLLOW_CAM_LOAN_RETURNING;
+    FollowCamShotBeta = shotBeta & 4095;
+}
+
+void FollowCamNoteOwnPitch(S32 alpha) {
+    FollowCamOwnAlpha = alpha;
+}
+
+S32 FollowCamOwnPitch(void) {
+    return FollowCamOwnAlpha;
+}
+
+void FollowCamPlayerTook(S32 yaw, S32 pitch) {
+    if (yaw)
+        FollowCamLoan &= ~FOLLOW_CAM_LOAN_YAW;
+    if (pitch) {
+        FollowCamLoan &= ~FOLLOW_CAM_LOAN_PITCH;
+        FollowCamOwnAlpha = AlphaCam; /* callers tilt and clamp first, so this is where they left it */
+    }
+    if (!(FollowCamLoan & (FOLLOW_CAM_LOAN_YAW | FOLLOW_CAM_LOAN_PITCH)))
+        FollowCamLoan = 0;
+}
+
+void FollowCamForgetLoan(void) {
+    FollowCamLoan = 0;
+}
+
+void FollowCamNoteCinema(S32 cinema) {
+    /* The first frame after a cutscene. A shot that fired on it, over the spot
+     * the script left the hero at, was lent the cutscene's leftover pan; what
+     * it owes back is behind him, as it is after a building. */
+    if (FollowCamWasCinema AND !cinema AND(FollowCamLoan & FOLLOW_CAM_LOAN_YAW))
+        FollowCamLentPan = 0;
+
+    FollowCamWasCinema = cinema;
+}
+
+void FollowCamNoteScene(S32 exterior) {
+    S32 cameOut = (exterior AND FollowCamWasIndoors);
+
+    FollowCamWasIndoors = !exterior;
+
+    /* Coming out of a building, what a shot owes back for the yaw is "behind the
+     * hero", whatever pan it was lent at.
+     *
+     * The pan is an offset from his facing, and he comes out facing the other
+     * way, so one that put the camera beside him going in puts it in front of
+     * him coming out. That matters most for a pan the player set while the shot
+     * over a door had the camera: it was made to look round that scene, the
+     * zone lends it afresh as he steps back out, and returned as it stood it
+     * left the camera in front of him for as long as he kept walking. Played by
+     * the maintainer at the Tavern door, 159 degrees off for thirty seconds.
+     *
+     * Only what is owed changes. The angle on screen is the shot's until he
+     * leaves its box, and a pan with no shot involved is not this function's
+     * business: what a door does to that belongs to the scene change. */
+    if (cameOut AND(FollowCamLoan & FOLLOW_CAM_LOAN_YAW))
+        FollowCamLentPan = 0;
 }
 
 /* The cfg keys this module owns. Declared in FOLLOWCAM.H, called by
@@ -470,6 +936,18 @@ static const T_SETTING FollowCamSettings[] = {
     {"FollowCamDriftDivisor", NULL, "cam_recenter_drift", &FollowCamDriftDivisor, SETTING_CLAMP,
      FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT, 1, 200, NULL, NULL, NULL, NULL,
      "Auto-cam re-center drift divisor (higher = gentler)"},
+    {"FollowCamSceneCarry", NULL, "cam_scene_carry", &FollowCamSceneCarry, SETTING_TRUTHY,
+     FOLLOW_CAM_SCENE_CARRY_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
+     "Auto cam: start behind the hero in a new outdoor scene, pitch kept"},
+    {"FollowCamZoneSkip", NULL, "cam_zone_skip", &FollowCamZoneSkip, SETTING_TRUTHY,
+     FOLLOW_CAM_ZONE_SKIP_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
+     "Auto cam: leave scripted shots that only latch unfired while steering"},
+    {"FollowCamObstruct", NULL, "cam_obstruct", &FollowCamObstruct, SETTING_TRUTHY,
+     FOLLOW_CAM_OBSTRUCT_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
+     "Auto cam: eased obstruction clearance in place of the classic search"},
+    {"FollowCamObstructHurryDivisor", NULL, "cam_obstruct_hurry", &FollowCamObstructHurryDivisor, SETTING_CLAMP,
+     FOLLOW_CAM_OBSTRUCT_HURRY_DEFAULT, 1, FOLLOW_CAM_OBSTRUCT_EASE, NULL, NULL, NULL, NULL,
+     "cam_obstruct: ease divisor while the hero is hidden (1 = cut, 10 = no hurry)"},
     {"FollowCamHDRecompose", NULL, "cam_hd", &FollowCamHDRecompose, SETTING_TRUTHY,
      FOLLOW_CAM_HD_RECOMPOSE_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Auto cam HD recompose: pull in + steepen at tall render heights"},
@@ -500,6 +978,12 @@ static const T_SETTING FollowCamSettings[] = {
     {"FollowCamHoldAngle", NULL, "cam_hold_angle", &FollowCamHoldAngle, SETTING_TRUTHY,
      FOLLOW_CAM_HOLD_ANGLE_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Hold the manual camera rotation (free-camera); off = classic auto-recenter drift"},
+    {"FollowCamZoneReturn", NULL, "cam_zone_return", &FollowCamZoneReturn, SETTING_TRUTHY,
+     FOLLOW_CAM_ZONE_RETURN_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
+     "Auto cam: give a scripted shot's yaw and pitch back when the hero leaves its box"},
+    {"FollowCamZoneAnchor", NULL, "cam_zone_anchor", &FollowCamZoneAnchor, SETTING_TRUTHY,
+     FOLLOW_CAM_ZONE_ANCHOR_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
+     "Prototype: hold a latching shot's world yaw while the hero is inside its box"},
     /* cvar only, and it must stay that way. FollowCamera's cfg row lives in
        CONFIG_FILE.CPP's table, which reads it with the legacy AutoCameraCenter
        fallback and its own rule; giving this row a key would read the same

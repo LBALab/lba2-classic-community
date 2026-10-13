@@ -8,6 +8,9 @@
 # shapes are in the shipped data and the non-forced one is by far the more common, so a fixture
 # that only ever saw a forced zone would be describing the exception.
 #
+# The Auto camera's own settings are switched off (CAM_PLAIN): by default it passes a latching
+# zone over while the player steers, and this fixture is about what the zone itself does.
+#
 # Constructed rather than found: `cube` moves to a scene known to hold each shape and `teleport`
 # puts the hero in and out of the box, so neither case depends on a save being parked somewhere
 # particular.
@@ -31,7 +34,7 @@ zone_frames() {
 
 # --- forced: cube 97 zone 1, flags 0x0b, holds the view while the hero is inside -------------
 ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
-    --exec "cam_follow 1; camtrace 1" \
+    --exec "cam_follow 1; $CAM_PLAIN; camtrace 1" \
     --exec-at 20 "teleport 15000 1000 21000" \
     --tick 120 --exit > "$log" 2>&1 || fail "forced-zone run: exit $?"
 
@@ -47,7 +50,7 @@ forced_total="$total"
 # is distinguishable from one that simply fired once and stopped.
 ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
     --exec "cube 90" \
-    --exec-at 15 "cam_follow 1; camtrace 1" \
+    --exec-at 15 "cam_follow 1; $CAM_PLAIN; camtrace 1" \
     --exec-at 40 "teleport 18000 3900 8000" \
     --exec-at 70 "teleport 13000 4000 8000" \
     --exec-at 100 "teleport 18000 3900 8000" \

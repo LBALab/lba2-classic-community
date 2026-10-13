@@ -1352,13 +1352,22 @@ void ChangeCube() {
     TimerNextAmbiance = 0;
 
     if (FlagChgCube == 2 OR FlagChgCube == 0) {
-        CameraCenter(1);
+        /* cam_scene_carry: the Auto camera arrives behind the hero with the
+         * player's pitch, and his pan when both scenes are outdoors, instead
+         * of being recentred. */
+        if (!FollowCamCarryIntoScene())
+            CameraCenter(1);
     } else {
         StartXCube = ListObjet[NumObjFollow].Obj.X / SIZE_BRICK_XZ;
         StartYCube = (ListObjet[NumObjFollow].Obj.Y + SIZE_BRICK_Y) / SIZE_BRICK_Y;
         StartZCube = ListObjet[NumObjFollow].Obj.Z / SIZE_BRICK_XZ;
 
-        CameraCenter(0);
+        /* Two outdoor scenes joined by a zone are one walk as far as the camera
+         * is concerned, and that case is left exactly as it was. Coming out of
+         * an interior is an arrival, which cam_scene_carry has the Auto camera
+         * take. */
+        if (LastCubeMode == CUBE_EXTERIEUR OR !FollowCamCarryIntoScene())
+            CameraCenter(0);
     }
 
     SetLightVector(AlphaLight, BetaLight, 0);
@@ -4970,11 +4979,31 @@ S32 AffOneObject(T_SORT *pt) {
                     if (DrawRecover(ptrobj->Obj.X, yw, ptrobj->Obj.Z, ptrobj->YMax,
                                     ade_max((ptrobj->XMax - ptrobj->XMin) / 2, (ptrobj->ZMax - ptrobj->ZMin) / 2))) {
                         // Objet complètement masqué
+                        if (numobj == NumObjFollow)
+                            FollowCamNoteHidden(1);
+
+                        /* cam_obstruct: while the Auto camera's own clearance is
+                         * still raising the view over what hides him, it is told
+                         * to hurry and the recentre is left out. */
                         if (numobj == NumObjFollow
                                           AND TestNumObjFollow // protec boucle infinie
-                                              AND !CameraZone) {
+                                              AND !CameraZone
+                                                  AND !FollowCamObstructHidden()) {
                             TestNumObjFollow = FALSE;
-                            CameraCenter(1);
+                            FollowCamNoteHidden(3);
+                            {
+                                /* A recentre the engine makes because it lost
+                                 * sight of the hero, not one the player asked
+                                 * for. It resets the pitch on screen as it
+                                 * always has, but it is not a statement of where
+                                 * the player wants the camera to rest, so what
+                                 * the Auto camera remembers as its own pitch is
+                                 * put back. */
+                                S32 ownPitch = FollowCamOwnPitch();
+                                CameraCenter(1);
+                                if (ownPitch >= 0)
+                                    FollowCamNoteOwnPitch(ownPitch);
+                            }
                             return TRUE;
                         }
                     } else if (numobj == NumObjFollow)
@@ -6297,6 +6326,13 @@ void SetZoneCamera(T_ZONE *ptrz) {
             StartYCube = info1;
             StartZCube = info2;
 
+            /* Before the shot's own angles go in: what the Auto camera has to
+             * remember, if it is going to give anything back, is what these are
+             * about to replace. Does nothing unless cam_zone_return or
+             * cam_zone_anchor is on. */
+            if (FollowCamera)
+                FollowCamLendToShot(ptrz->Info4);
+
             AlphaCam = ptrz->Info3;
             BetaCam = ptrz->Info4;
             GammaCam = ptrz->Info5;
@@ -6308,8 +6344,10 @@ void SetZoneCamera(T_ZONE *ptrz) {
              * shows. The Auto camera derives its own target from the hero's facing
              * and never learns of this write, so it reads the authored angle as
              * catch-up owed and lerps out of the shot over the next second. */
-            if (FollowCamera)
+            if (FollowCamera) {
                 FollowCamAdoptAngle();
+                FollowCamObstructShotFired();
+            }
 
             SaveCamera();
 
@@ -6564,12 +6602,29 @@ void CheckZoneSce(T_OBJET *ptrobj, U8 numobj) {
                 if (!foundcamera) {
                     if ((numobj == NumObjFollow)
                             AND(ptrz->Info7 & ZONE_ON)) {
+                        /* cam_zone_skip: a shot that only latches is passed over
+                         * while the player steers under the Auto camera, which has
+                         * a view of its own to keep. It is not latched either, so
+                         * it fires if a script takes the hero over inside the box.
+                         * It still counts as found, and shadows the camera zones
+                         * after it in the list as it does when it fires. */
+                        S32 steering = FollowCamZoneSkip AND FollowCamera AND !CinemaMode AND ptrobj->Move == MOVE_MANUAL;
+
                         if (((ptrz->Info7 & ZONE_OBLIGATOIRE)
                                  OR(CubeMode == CUBE_INTERIEUR)
-                                     OR(!(ptrz->Info7 & ZONE_ACTIVE) AND AllCameras))) {
+                                     OR(!(ptrz->Info7 & ZONE_ACTIVE) AND AllCameras AND !steering))) {
                             SetZoneCamera(ptrz);
                             ptrz->Info7 |= ZONE_ACTIVE;
                         }
+
+                        /* He is standing in the box of a shot that has fired.
+                         * CameraZone says so only on the frames the shot is
+                         * applied, which for a zone that fires once is the
+                         * first one; this says it for as long as he stays. A
+                         * zone left unfired because scenario cameras are off
+                         * never becomes active, so it does not count. */
+                        if (ptrz->Info7 & ZONE_ACTIVE)
+                            FollowCamInShotBox = TRUE;
 
                         foundcamera = TRUE;
                     }

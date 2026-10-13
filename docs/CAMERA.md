@@ -114,7 +114,7 @@ A zone of type 1 re-aims the camera when the hero is inside its box. `SetZoneCam
 
 `ZONE_ON` comes from `ZONE_INIT_ON` at scene load ([DISKFUNC.CPP](../SOURCES/DISKFUNC.CPP)); a zone without it never fires, however the hero moves. `ZONE_ACTIVE` is cleared when the hero is outside the box, so leaving and re-entering re-arms the zone; a Life script can also clear it ([GERELIFE.CPP](../SOURCES/GERELIFE.CPP)).
 
-The latching shape is by far the more common in the shipped data. `CameraZone` is therefore true for one frame per entry on most zones, and for the whole visit on forced ones. Both are pinned by `test_camzone_model.sh`.
+Both shapes are common in the shipped data. Listing every cube's zones as its scene loads them (`cube N`, then `zonelist`, from the corpus save `Wannies fragment.LBA`) gives, on the GOG classic data, 242 enabled camera zones across the exterior cubes: 128 latching and 114 forced, with a forced zone in 36 cubes. The Activision US disc gives 240, 128 and 112, in 35 cubes. The two sets differ in the flags of three zones and nowhere else, and two of those are in cube 42, where zones 17 and 18 hold the view on the first and are switched off on the second. A zone named by cube and index therefore has to be checked against the data being played, which is how this was found. `CameraZone` is therefore true for one frame per entry on about half of them and for the whole visit on the rest. Both are pinned by `test_camzone_model.sh`.
 
 `zonelist` prints `Info7` with its bits named, which is the quickest way to tell which shape a given zone is.
 
@@ -135,10 +135,46 @@ The angle is the visible part, but `CameraZone` gates three other behaviours, an
 
 ### Interaction with the Auto camera
 
+As shipped, three settings decide what a scripted shot does to the Auto camera. A zone that fires once is passed over while the player steers (`cam_zone_skip`). A shot that does fire, which in play means one that holds the view, gives the yaw and the pitch back when the hero leaves its box (`cam_zone_return`). And a pan the player set does not survive a visit to a building (`cam_scene_carry`, under [Scene changes](#scene-changes)). Each is described below beside what it replaces, which is also what the camera does with that setting off.
+
 A zone writes `BetaCam` directly, so it is one of the writers described above and needs `FollowCamAdoptAngle` to keep its angle. With that in place, how long the shot survives is `cam_hold_angle`'s decision, and both answers are intentional:
 
 - **on** (default): the shot is held until the player orbits away or the scene changes, like any angle they set themselves.
 - **off**: the pan drift returns the camera behind the hero as he walks on, handing the shot back gradually. This is only possible because the angle was adopted; a shot the Auto camera never took ownership of cannot be given back smoothly, only snatched back.
+
+What is held is the offset, not the shot. The zone's yaw is a world angle, and adopting it turns it into a pan measured from the heading the hero had on the frame the shot fired. From then on the Auto camera carries that pan round with him, so the authored direction is lost on his first turn and the camera is left wherever the shot's angle happened to fall relative to him. Measured in cube 90 with nobody touching the camera:
+
+- **A latching zone** shows its shot for one frame. The boom goes back to the player's own arm on the next, and the yaw follows the hero's turning from then on, still inside the box. With a shot that faced him (a pan of 163 degrees) he was fully hidden about two seconds after it fired and the hidden-hero recovery cut the camera behind him. The classic camera stayed on the shot throughout.
+- **A forced zone** matches the classic camera for as long as he is inside, since the follow update does not run there. On the way out the boom snaps to the player's arm and the camera swings by however far he turned inside the box (104 degrees over about two seconds, with him standing still), then keeps the pan it lands on.
+
+The pitch stays as authored in both, because the path that restores the presets (above) is skipped for the exterior Auto camera. None of this is given back by walking on, by leaving the box, by crossing into the next exterior cube, or by going through a door and coming back out: every zone-triggered scene change, doors included, takes `CameraCenter(0)` and leaves the pan and the pitch alone. An orbit, Center camera, a scene change ordered by a script, the console or a load (those take `CameraCenter(1)`), or the hidden-hero recovery clears it. `test_camzone_hold.sh` compares the two cameras while the hero stands still, which is the one case where they agree.
+
+### A shot as a loan
+
+Two settings treat an authored shot as something the Auto camera lends the view to and gets back, instead of something whose leftovers it keeps. `cam_zone_return` is on by default; `cam_zone_anchor` is a prototype and off. With both off the camera's state matches the build without them frame for frame.
+
+- **`cam_zone_return`** (cfg `FollowCamZoneReturn`): when the hero leaves the box of the shot that fired, the yaw pan and the pitch ease back to what the Auto camera had before the shot, at the pan drift's pace (`cam_recenter_drift`) and whether or not he is walking. For a player who never touches the camera that is behind the hero; for one who had set an angle it is that angle. The return starts from the angle on screen, so leaving a forced zone is one motion and not a swing followed by a drift. An axis the player sets by hand while the shot has the camera is theirs and is not given back: an orbit or the quarter-turn key for the yaw, a tilt for the pitch. A second shot firing before the first has been returned changes what is on screen but not what is owed.
+- **`cam_zone_anchor`** (cfg `FollowCamZoneAnchor`): inside the box of a zone that fires once, hold the shot's world yaw as the classic camera does, by re-solving the pan against the hero's facing every frame. Forced zones already behave this way. On its own it ends at the edge of the box and nothing is given back.
+
+The loan ends without a return whenever something else decides where the camera points: Center camera and every other `CameraCenter(1)` or `(2)`, which includes the hidden-hero recovery and a script's camera order, then a cutscene, the Auto camera being switched off, and loading a save. The boom is not part of it and still goes back to the player's arm on the first frame the update runs.
+
+Straight out of a cutscene the pan is whatever its last shot left, so a shot that fires as one ends, over the spot the script left the hero at, owes back "behind the hero" for the yaw (`FollowCamNoteCinema()`). The ferry's arrival on the Desert Island is one: the dock's shot fires on the frame control comes back.
+
+A visit to an interior does not end it. A door changes scene through `CameraCenter(0)`, which leaves the pan and the pitch as they were, and nothing indoors uses either, so a shot's leftovers come back out of the building with the hero. What was owed before he went in is still owed when he comes out, whether he lands back in the shot's box or in the open. One thing about it changes on the way out: for the yaw, what is owed becomes "behind the hero", whatever pan it was lent at. The pan is an offset from his facing and he comes out facing the other way, so a pan that put the camera beside him going in would put it in front of him coming out. That includes a pan the player set while the shot over the door had the camera, which the zone lends afresh as he steps back outside. Played at the Tavern door, giving that pan back as it stood left the camera 159 degrees round for the next thirty seconds; an orbit followed by a walk out of the box with no building in between still keeps its angle. This matters most where it is commonest: of the 95 enabled doors that lead from an interior to an exterior, 57 have their arrival point inside an enabled camera zone (48 latching, 9 forced), going by each door zone's target point in the same listing as the zone counts above; on the US disc it is 58 of 94.
+
+What is owed for the pitch is the Auto camera's own pitch, which is not always what `AlphaCam` holds when a shot fires. Two writers leave a pitch there that is neither the player's nor the camera's rest, and nothing takes either away again: a camera zone, and the obstruction search `CameraCenter` runs, whose camera position the next follow update discards while the pitch it wrote beside it stays. A door's recentre runs that search on the arrival frame, just ahead of the zone over the door, so a loan taken against `AlphaCam` as it stood handed the search's pitch back: 767 at the Tavern door, above anything the player can tilt to, for a hero who started indoors. The camera's own pitch is kept separately (`FollowCamOwnAlpha`) and is written in three places only: the player tilting, a recentre setting its preset before the search runs, and a load. The recentre the engine makes when it loses sight of the hero is not the player's, so it leaves that value as it found it. Easing the pitch on screen back to it outside a shot is not done here.
+
+Knowing the hero is still inside a latching zone's box needs more than `CameraZone`, which is true only on the frame the shot is applied. `CheckZoneSce` sets `FollowCamInShotBox` on each frame the followed object stands in the box of a camera zone that has fired, and `camtrace` reports it as `inshot`, beside `loan` (1 yaw, 2 pitch, 4 on its way back).
+
+### Passing a latching shot over
+
+Everything above takes it as given that the shot fires. `cam_zone_skip` (cfg `FollowCamZoneSkip`, on by default) is the other answer, and the one that ships: a latching shot does not take the view from a player who is steering. On, the dispatch in `CheckZoneSce` passes a latching zone over while the Auto camera is on, the hero's `Move` is `MOVE_MANUAL` and no cutscene is running. Forced zones, interiors and the classic camera are as they were, and so is a hero a script is moving, who still gets the shot. A zone passed over is not latched, so it fires if a script takes the hero over while he is inside the box, and it still shadows the camera zones after it in the list, as it does when it fires.
+
+What comes with it:
+
+- **Everything `CameraZone` gates stays on.** A shot authored for a spot where the hero is hidden no longer covers that spot, so the hidden-hero recovery fires there instead and leaves the obstruction search's pitch (see [Scene changes](#scene-changes)).
+- **A door that lands in a latching zone becomes an arrival with no shot**, which is most doors. `cam_scene_carry` is what makes that arrival a clean one.
+- **Session recordings do not carry the setting.**
 
 ## Auto camera (`FollowCamera` — community addition, not in the original game)
 
@@ -159,7 +195,7 @@ Branch history tried heavier correction (terrain penetration along the boom, LOS
 ### Lazy orbit and pan
 
 - **Rotation lag:** `BetaCam` lerps toward “behind the hero” with distance-scaled inertia (`FollowCamEffectiveDist` / `FollowCamBaseDist` feeds the divisor) — closer zoom = snappier orbit, longer arm = lazier drift.
-- **Pan drift:** `[` / `]` adjust `AddBetaCam`; drift back toward center only while the hero is walking; standing still preserves pan. Disabled by **hold-angle mode** (`cam_hold_angle`, default on): the manual rotation is then held indefinitely, like a free third-person camera, and only re-centers when the scene changes or the player hits Center camera (Enter / gamepad B); both go through `CameraCenter(1)`, which zeroes `AddBetaCam`. `cam_hold_angle 0` restores the classic lazy drift-back.
+- **Pan drift:** `[` / `]` adjust `AddBetaCam`; drift back toward center only while the hero is walking; standing still preserves pan. Disabled by **hold-angle mode** (`cam_hold_angle`, default on): the manual rotation is then held indefinitely, like a free third-person camera, and only re-centers when the player hits Center camera (Enter / gamepad B) or a script or the console orders a scene change; both go through `CameraCenter(1)`, which zeroes `AddBetaCam`. Coming out of a building sends the pan home as well (`cam_scene_carry`, on by default); walking across the seam between two outdoor scenes does not (see [Scene changes](#scene-changes)). `cam_hold_angle 0` restores the classic lazy drift-back.
 
 ### Orbit gestures (mouse drag, right stick)
 
@@ -218,6 +254,29 @@ and zeroing it costs a jump of thousands of units. `FollowCamTargetBeta`, the re
 counters and the orbit follow-through do not converge on their own: nothing retires them, so they discharge
 against a situation they were never measured in. Drop what latches, leave what eases.
 
+### Obstruction clearance
+
+The classic camera asks `SearchCameraPos` how steeply it has to look down for the boom to clear the terrain, the scenery boxes and the scripted objects between it and the hero, once per recentre, and the answer is written into `AlphaCam`. It gives that pitch back at its next off-screen recentre. The Auto camera has that recentre switched off, so the pitch stays as though the player had set it: out of the Tavern's door the camera looks down at 767, above the 600 the player's own tilt stops at, and goes on doing so wherever he walks and however the camera is turned.
+
+`cam_obstruct` (cfg `FollowCamObstruct`, on by default) has the Auto camera ask the same search itself, on every update, and keep the answer out of `AlphaCam`. `FollowCamNeededPitch()` runs `SearchCameraPos` with the globals it writes saved and restored. What the place needs above the player's own pitch is carried as an extra, `FollowCamObstructExtra`, that eases toward it each update, up and down (`FOLLOW_CAM_OBSTRUCT_*`), so there is never a pitch to give back. With the setting off the camera's state matches a build without it frame for frame.
+
+The extra reaches the frame through `FollowCamRenderExtraPitch()`, which `CameraCenter` and the scene render add to `AlphaCam` where they set the exterior camera. It cannot be applied the way the recompose applies its own pitch, by changing `AlphaCam` for the update's `CameraCenter(3)` and putting it back: `AffGrilleExt` ([EXTFUNC.CPP](../SOURCES/EXTFUNC.CPP)) sets the camera again from the globals before it draws, so anything applied that way is gone by the time the frame is rendered. That is true of the recompose's pitch steepen today (at 1080p a frame rendered with `cam_hd_pitch` at 0, 180 or 400 is byte for byte the same, while `cam_hd_dist` and `cam_hd` change it), and by the same mechanism of the ground lift above, whose `SetPosCamera` is overwritten likewise. Both are findings about those two, not something this setting changes: the extra is measured from the player's own pitch, which is the pitch the frame is drawn with.
+
+What stands down while the setting is on and the Auto camera has the view outdoors:
+
+- **`CameraCenter`'s own search.** It no longer writes `AlphaCam` or raises `FlagCameraForcee`. A re-aim (flags 1 and 2) is a cut already, so the extra starts the next update settled at what the place needs; so does an arrival through `cam_scene_carry`. A plain re-apply (flag 0, as at the seam between two outdoor scenes) leaves it to ease.
+- **The hidden-hero recentre.** A hero drawn fully hidden with the clearance still rising tells it to hurry (`FollowCamObstructHidden()`), and the recentre, which would zero the player's pan, is left out. How hard it hurries is `cam_obstruct_hurry` (cfg `FollowCamObstructHurryDivisor`): the ease divisor used on those frames, from 1, a cut, to 10, the ordinary ease and so no hurry at all, which is the default. Lower shows him sooner and tilts harder to do it. Arriving at the Tavern's door at 1080p with the extra starting from nothing, 3 leaves him hidden for 2 frames with a step of 140 units, 6 for 3 frames with a step of 70, and 10 for 5 frames with a step of 46. Played at that resolution, 3 read as a pop and 10 did not show. If the extra has given all the search asked for and he is hidden still, the search does not see what is in the way, and the render's word is taken over it: the extra is raised a step (`FOLLOW_CAM_OBSTRUCT_HIDDEN_STEP`, 20 units, taken whole and not eased) for each such frame and held as a floor until he has walked `FOLLOW_CAM_OBSTRUCT_FLOOR_REACH` away from where it was last raised. Walking west out of Near Tavern into Near the Harbor with the camera panned is such a place: a few frames before the seam the search asks for less tilt and the hero is hidden. Only when there is no pitch left to give does the classic recentre run.
+
+In the box of a shot that has fired the search is not asked: the place is the author's to judge there, as it is for the classic camera, which never searches inside a zone. A hero drawn hidden there is still answered, through the floor, since with the recentre stood down nothing else would be. A shot starts as written: the extra and any floor are dropped as it is applied (`FollowCamObstructShotFired()`).
+
+None of it applies in a cutscene. The script's own re-aims and scene changes get the search and the centring they were written against, as they do without the setting.
+
+What it does not do:
+
+- **Only the pitch is taken from the search.** The classic search also moves the target in toward the hero as it steepens; this does not, and the boom is not shortened either.
+- **It sees what the search sees**: boxes, sampled every 512 units out along the boom. Scenery the boxes do not cover still hides the hero for the few frames it takes the floor to rise.
+- **Session recordings do not carry the setting.**
+
 ### Manual-override fade
 
 The HD recompose steepens pitch and the ground-clearance re-aims the eye, both on top of whatever the player set. Left alone, that fights a manual tilt: the recompose offsets it and the re-aim pins pitch to the geometry. Any manual camera nudge therefore arms `FollowCamManualHold` (in `ApplyManualCameraNudge`), which drives an `autoFactor` to 0 so the **pitch** assist (recompose pitch steepen + ground-lift re-aim) yields completely while the player drives; it eases back to full over `FollowCamManualHoldFrames` (cvar `cam_manual_hold`, ~0.75 s) once they let go. That key is bounded to 0..600 frames (ten seconds at 60fps), and a cfg holding more is read back at 600 and written back at 600: the fade multiplies the counter by 100, so an unbounded value overflows and lands the assist at full strength, which is the opposite of what a manual nudge asked for. This mirrors the existing azimuth re-center (`FollowCamReengageDelay`) on the pitch axis. The boom pull-in and lean are deliberately **not** faded, so grabbing the stick to orbit does not pop the camera out to full distance.
@@ -229,11 +288,32 @@ The HD recompose steepens pitch and the ground-clearance re-aims the eye, both o
 
 See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu entry.
 
+### Scene changes
+
+How the hero reaches an outdoor scene decides what happens to the Auto camera, because `ChangeCube` ([OBJECT.CPP](../SOURCES/OBJECT.CPP)) centres the camera differently for each way in and none of the three was written with this camera in mind. Measured at 640x480 with `--fixed-dt 16` and hold-angle on:
+
+| Arrival | `ChangeCube` calls | What the Auto camera is left with | With `cam_scene_carry` |
+| --- | --- | --- | --- |
+| Walking across the seam between two outdoor scenes | `CameraCenter(0)` | Pan, pitch and yaw as they were, with no step. | The same; this case is not touched. |
+| A change ordered by a script or the console (`FlagChgCube` 2 or 0) | `CameraCenter(1)` | The pan zeroed. The pitch back at the preset, or at the obstruction search's answer when the search finds something. | Between two outdoor scenes, pan and pitch kept and the camera behind the hero at that pan. From an interior, as for a door. |
+| A door out of an interior | `CameraCenter(0)` | The pan kept, and the yaw where the last outdoor scene left it. Having walked in facing the door and out facing away from it, the hero arrives with the camera half a turn from its target, and it spends about 140 frames swinging round him. The pitch is rewritten when the search finds the building. | The pan sent home and the pitch left alone, the camera directly behind the hero from the first frame. |
+
+A camera zone that fires where the hero lands decides the view either way, which hides the door's swing behind the shot. Of the 95 enabled doors that lead from an interior to an outdoor scene, about 60 land inside the box of an enabled camera zone (about 50 that latch, about 10 forced) and about 35 land in the open; with scenario cameras off the latching ones join those. The count is of the Classic re-release's scene data, takes the zones as each scene loads them and reads the landing spot off the door zone's target point. It moves by a few doors with how that point and the box edges are read (57 to 62 in a zone), so treat it as a size, not a census.
+
+`cam_scene_carry` (cfg `FollowCamSceneCarry`) is on by default. On, `FollowCamCarryIntoScene()` ([FOLLOWCAM.CPP](../SOURCES/FOLLOWCAM.CPP)) takes the second and third arrivals in place of `ChangeCube`'s own centring, except in a cutscene, where a scene change is the script's and is centred as it always was. The pitch is the player's and is left alone. The pan holds from one outdoor scene to the next and goes home when the scene left was an interior: it was set for a view the hero left at the door on his way in, and held through a building it turns the camera to his side or his face as he steps out. The camera is then aimed behind the hero at that pan with the lerp's target on it, and the re-engage countdown and any orbit in flight are dropped, since both describe the scene just left. With the setting off the camera's state matches a build without it frame for frame.
+
+What it does not do:
+
+- **The pitch can still be taken at a door.** The scene change no longer runs the classic obstruction search, but where the spot behind the hero is inside the building he has just left, he is drawn fully hidden on the arrival frame and the hidden-hero recentre (`AffOneObject`, `CameraCenter(1)`) fires as it would anywhere else. It zeroes the pan and leaves the search's pitch: 767 at the Tavern's door (cube 3 to cube 42) with scenario cameras off, where the player's own tilt stops at 600. Nothing gives that pitch back. The classic camera returns to its presets at the next off-screen recentre, and the Auto camera has that path switched off. This is the decor half of the clearance listed under Future work, and it happens wherever the hero is hidden, not only at a door. `cam_obstruct` is the answer to it (see [Obstruction clearance](#obstruction-clearance)).
+- **An ordered change that arrives in an interior still recentres**, so a pan and a tilt do not survive a scripted trip indoors.
+- **A pitch left by a camera zone is carried like any other.** Whether a shot's pitch is the player's to keep is a question about camera zones, not about scene changes.
+- **Session recordings do not carry the setting**, so one recorded with it on diverges when replayed with it off.
+
 ## Observing and testing the camera
 
 The camera resisted iteration for a long time because nothing about it was asserted: a change was judged by playing, and a regression arrived as a field report. A 75 degree snap from a 1 unit stick touch survived two releases that way.
 
-**`camtrace <0|1>`** logs one line per frame: the angles, how far `BetaCam` moved and who moved it, the re-engage countdown, whether an orbit is driving, and `zone` / `forced` / `cine` / `follow` / `ext` / `vue` / `alpha` / `dist` for which camera holds the view. It is emitted from the main loop rather than from the Auto camera's update, so it reports camera zones, cutscenes, interiors and the classic camera, none of which run that update. `target` is maintained by the Auto camera alone and reads stale when `follow` is 0.
+**`camtrace <0|1>`** logs one line per frame: the angles, how far `BetaCam` moved and who moved it, the re-engage countdown, whether an orbit is driving, `zone` / `forced` / `cine` / `follow` / `ext` / `vue` / `alpha` / `dist` for which camera holds the view, `inshot` / `loan` for a scripted shot's hold on it, `obs` for the pitch `cam_obstruct` is adding for the frame, and `hid` for what the last render made of the followed object (0 seen, 1 drawn fully hidden and left so, 2 hidden with the clearance still rising, 3 hidden and recentred). It is emitted from the main loop rather than from the Auto camera's update, so it reports camera zones, cutscenes, interiors and the classic camera, none of which run that update. `target` is maintained by the Auto camera alone and reads stale when `follow` is 0.
 
 **`camnudge <dBeta> [dAlpha] [frames]`** feeds the same per-frame nudge the mouse drag and the right stick feed, at the same point in the frame, so the analog camera can be driven without a device.
 
@@ -251,8 +331,12 @@ Fixtures live in `tests/automation/`, with `camlib.sh` turning a run into a per-
 | `followcam_tracking` | the camera orbits at the speed asked for |
 | `followcam_recenter` | the classic camera drifts back while walking, not while standing |
 | `followcam_interrupt` | an interrupted gesture ends instead of resuming |
+| `followcam_obstruct` | with `cam_obstruct`, the tilt over a building is an extra that comes and goes with the building, the player's pitch is never rewritten, and the hero is never hidden or recentred |
+| `followcam_scene_carry` | with `cam_scene_carry`, the camera arrives behind the hero with the pitch left alone: the pan kept across an ordered change between two outdoor scenes, and sent home after a visit to a building |
 | `camzone_model` | the two shapes a camera zone comes in |
+| `camzone_skip` | with `cam_zone_skip`, a latching zone leaves a steering player's view alone under the Auto camera; forced zones and the classic camera are unaffected |
 | `camzone_hold` | both cameras leave an authored shot in the same place |
+| `camzone_return` | with `cam_zone_return` or `cam_zone_anchor` on, a shot's yaw and pitch come back on leaving its box, the player's own stay, and a latching shot holds its world angle |
 
 Two habits are worth keeping when adding to these. **Run a new fixture against a build without the thing it guards** and confirm it fails there; several of these passed at first because their setup never happened rather than because the engine was right. And **assert the cause when the symptom is unobservable**: the realign runs in the input pass, before the camera update logs anything, so on a working engine the divergence it corrects leaves no trace at all.
 
@@ -264,7 +348,8 @@ Two habits are worth keeping when adding to these. **Run a new fixture against a
 - **Mouse follow-through:** the release tail suits a stick that springs back to centre, not a pointer held still (#514).
 - **Decor occlusion and clipping:** #363.
 - **Auto camera vs terrain / decor:** the eased ground/occlusion clearance above now ports the terrain half of `SearchCameraPos` (an earlier always-on snap was reverted for fighting the orbit; easing fixes that). Still open: decor/scenery occlusion (the classic path also tests `TestZVDecors`), and the eye leaving the cube on far authored cameras (the clearance is skipped there, matching the classic out-of-cube guard).
-- **Decor occlusion:** the ground clearance clears terrain only; the classic path also tests scenery boxes (`TestZVDecors`). Porting that would let the camera clear buildings/props too, not just landscape.
+- **Decor occlusion:** the ground clearance clears terrain only; the classic path also tests scenery boxes (`TestZVDecors`). `cam_obstruct` asks the classic search itself, boxes and scripted objects included, and eases its answer (see [Obstruction clearance](#obstruction-clearance)).
+- **Render-time camera adjustments that do not reach the frame:** the recompose's pitch steepen and the ground lift are applied to the camera by the follow update and overwritten when `AffGrilleExt` sets it again from the globals (measured for the pitch, by mechanism for the lift; see the same section). Making either live changes what every player at a tall resolution sees, so it is a decision of its own.
 - **Manual camera at tall heights:** the recompose runs on every apply, including while mouse/stick-orbiting, so the manual cam inherits the HD framing fix. Widening the manual `AlphaCam`/`FollowCamBaseDist` clamps with `k` and normalizing raw mouse deltas by render height are open refinements for fine manual control at 1080p+.
 
 ## Code reference
@@ -287,8 +372,10 @@ Two habits are worth keeping when adding to these. **Run a new fixture against a
 | Ground/occlusion clearance | SOURCES/FOLLOWCAM.CPP, FOLLOWCAM_CFG.H | `FollowCamEyeLift`, `FollowCamGroundSettling`, `FollowCamGround`, `FollowCamGroundClearance`, `cam_ground*` cvars |
 | Orbit gesture state     | SOURCES/EXTFUNC.CPP        | `FollowCamAdoptAngle`, `FollowCamForgetManualGesture`, `ApplyManualCameraNudge`, `cam_glide` |
 | Camera zone dispatch    | SOURCES/OBJECT.CPP         | `SetZoneCamera`, `ZONE_ON` / `ZONE_ACTIVE` / `ZONE_OBLIGATOIRE` (COMMON.H), `AllCameras` |
+| Obstruction clearance | SOURCES/FOLLOWCAM.CPP, SOURCES/INTEXT.CPP, SOURCES/EXTFUNC.CPP, SOURCES/OBJECT.CPP | `FollowCamNeededPitch`, `FollowCamRenderExtraPitch`, `FollowCamObstructOwnsSearch`, `FollowCamObstructSettle`, `FollowCamObstructHidden`, `cam_obstruct` cvar |
 | Camera trace            | SOURCES/FOLLOWCAM.CPP      | `FollowCamTrace`, `camtrace` / `camnudge` console commands |
-| Angle arithmetic        | SOURCES/FOLLOWCAM_MATH.H   | `FollowCamAngleDiff`, `FollowCamTargetBetaFor`, `FollowCamPanForAngle`, `FollowCamRotStep`; host test in tests/camera |
+| A shot's loan | SOURCES/FOLLOWCAM.CPP, SOURCES/OBJECT.CPP | `FollowCamLendToShot`, `FollowCamPlayerTook`, `FollowCamForgetLoan`, `FollowCamInShotBox`, `cam_zone_return` / `cam_zone_anchor` cvars |
+| Angle arithmetic        | SOURCES/FOLLOWCAM_MATH.H   | `FollowCamAngleDiff`, `FollowCamTargetBetaFor`, `FollowCamPanForAngle`, `FollowCamRotStep`, `FollowCamEasePan`, `FollowCamEaseValue`; host test in tests/camera |
 | Manual-override fade    | SOURCES/FOLLOWCAM.CPP, SOURCES/EXTFUNC.CPP | `FollowCamManualHold`, `FollowCamManualHoldFrames`, `autoFactor`, `cam_manual_hold` cvar |
 | Config read/write       | SOURCES/PERSO.CPP          | `ReadConfigFile`, `WriteConfigFile`                                                 |
 | Menu toggle             | SOURCES/GAMEMENU.CPP       | `GereAdvancedOptionsMenu`                                                           |

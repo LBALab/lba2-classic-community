@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-78 fixtures.
+82 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -35,6 +35,8 @@ suite still passes, since CI cannot say so.
 | [test_camlib_tsv.sh](test_camlib_tsv.sh) | camlib's trace reader returns every frame the log recorded, including the ones glued behind a console echo. | - |
 | [test_camzone_hold.sh](test_camzone_hold.sh) | A camera zone's authored angle must survive the Auto camera being switched on. | - |
 | [test_camzone_model.sh](test_camzone_model.sh) | Camera zones come in two shapes, and the difference is a flag in the authored data. | - |
+| [test_camzone_return.sh](test_camzone_return.sh) | A scripted shot borrows the Auto camera: with cam_zone_return on, the yaw and pitch it took are given back when the hero leaves its box. | - |
+| [test_camzone_skip.sh](test_camzone_skip.sh) | With cam_zone_skip on, a camera zone that only latches is left unfired while the player steers under the Auto camera; forced zones and the classic camera are unaffected. | - |
 | [test_classiccam_controls.sh](test_classiccam_controls.sh) | The classic camera's own controls: quarter turns, recentre, and the two view presets. | - |
 | [test_cli_contract.sh](test_cli_contract.sh) | The CLI contract that automation depends on (#433). | save fixture |
 | [test_cli_flag_contract.sh](test_cli_flag_contract.sh) | Every flag against the contract its own table declares. | - |
@@ -52,8 +54,10 @@ suite still passes, since CI cannot say so.
 | [test_exec.sh](test_exec.sh) | --exec: console commands mutate observable state. | save fixture |
 | [test_followcam_hold.sh](test_followcam_hold.sh) | Hold-angle is the free-camera contract: once the player has set an angle, the camera keeps it while the hero turns underneath, and gives it up only on a scene change or Center camera. | - |
 | [test_followcam_interrupt.sh](test_followcam_interrupt.sh) | An orbit interrupted by something else taking the camera must not resume afterwards, and must not leave the next orbit thinking it is already under way. | - |
+| [test_followcam_obstruct.sh](test_followcam_obstruct.sh) | With cam_obstruct on, the Auto camera tilts over what stands behind the hero as an extra that eases away again, and the player's own pitch is never rewritten. | - |
 | [test_followcam_recenter.sh](test_followcam_recenter.sh) | The classic camera (cam_hold_angle 0) drifts back behind the hero after a manual pan, but only once he is walking and only after a grace window. | - |
 | [test_followcam_release.sh](test_followcam_release.sh) | Letting go of the stick should ease the camera to a stop, not halt it from full speed. | - |
+| [test_followcam_scene_carry.sh](test_followcam_scene_carry.sh) | Arriving in an outdoor scene: with cam_scene_carry on, the Auto camera starts behind the hero with the pitch the player had, and with his pan unless he came out of a building. | - |
 | [test_followcam_tracking.sh](test_followcam_tracking.sh) | What the player asks the camera for is what the camera should do: hold the stick at a given orbit speed and, once the lerp has caught up, the camera turns at that speed. | - |
 | [test_getascii_text_input.sh](test_getascii_text_input.sh) | Typed characters come from the engine's polled sample, so an injected key reaches the screens that read them. | save fixture |
 | [test_input_combos.sh](test_input_combos.sh) | Contradictory input: what the engine does when two inputs ask for opposite things. | - |

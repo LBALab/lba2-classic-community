@@ -94,6 +94,23 @@ static inline S32 FollowCamRotStep(S32 diff, S32 divisor, S32 minStep) {
     return step;
 }
 
+/* One frame of easing a yaw offset (`AddBetaCam`) toward the offset it is being
+ * returned to, the shortest way round. Lands exactly on the target and stays
+ * there: the lazy pan drift this sits beside divides first and tests after, so
+ * it stops short whenever what is left is smaller than its divisor. A return
+ * that stopped short would leave the camera a degree or two off the angle it
+ * owes, for good. */
+static inline S32 FollowCamEasePan(S32 pan, S32 target, S32 divisor, S32 minStep) {
+    S32 diff = FollowCamAngleDiff(target & 4095, pan & 4095);
+
+    return (pan + FollowCamRotStep(diff, divisor, minStep)) & 4095;
+}
+
+/* The same for a value that does not wrap (the pitch). */
+static inline S32 FollowCamEaseValue(S32 value, S32 target, S32 divisor, S32 minStep) {
+    return value + FollowCamRotStep(target - value, divisor, minStep);
+}
+
 /* HD recompose strength: the hundredths by which the render height exceeds the
  * 480 the game was composed for. 0 at 480, 125 at 1080.
  *
