@@ -1352,13 +1352,22 @@ void ChangeCube() {
     TimerNextAmbiance = 0;
 
     if (FlagChgCube == 2 OR FlagChgCube == 0) {
-        CameraCenter(1);
+        /* cam_scene_carry: the Auto camera arrives behind the hero with the
+         * player's pitch, and his pan when both scenes are outdoors, instead
+         * of being recentred. */
+        if (!FollowCamCarryIntoScene())
+            CameraCenter(1);
     } else {
         StartXCube = ListObjet[NumObjFollow].Obj.X / SIZE_BRICK_XZ;
         StartYCube = (ListObjet[NumObjFollow].Obj.Y + SIZE_BRICK_Y) / SIZE_BRICK_Y;
         StartZCube = ListObjet[NumObjFollow].Obj.Z / SIZE_BRICK_XZ;
 
-        CameraCenter(0);
+        /* Two outdoor scenes joined by a zone are one walk as far as the camera
+         * is concerned, and that case is left exactly as it was. Coming out of
+         * an interior is an arrival, which cam_scene_carry has the Auto camera
+         * take. */
+        if (LastCubeMode == CUBE_EXTERIEUR OR !FollowCamCarryIntoScene())
+            CameraCenter(0);
     }
 
     SetLightVector(AlphaLight, BetaLight, 0);

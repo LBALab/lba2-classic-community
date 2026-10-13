@@ -22,6 +22,16 @@
  * HD recompose, terrain occlusion clearance, and the manual-override fade. */
 extern void UpdateFollowCameraExt(void);
 
+/* A scene change has put the hero in a new outdoor scene and the camera has to
+ * be put somewhere. With cam_scene_carry on and the Auto camera holding the
+ * view, this aims it behind him at the pitch the player already had, and at his
+ * pan too when the scene left was also outdoors (out of an interior the pan
+ * goes home), and returns TRUE, and ChangeCube skips its own CameraCenter. In
+ * every other case it does nothing and returns FALSE: the setting off, the
+ * classic camera, an interior, or a load, whose camera comes from the save
+ * file. */
+extern S32 FollowCamCarryIntoScene(void);
+
 /* One line per frame describing where the camera is and who is deciding that
  * (console `camtrace`). Called every frame from the main loop, not from the
  * update above: the update runs only while the Auto camera holds the view, so a
@@ -56,6 +66,7 @@ extern void FollowCamSyncTarget(void);
 extern S32 FollowCamera;              /* the Auto camera is on (config key FollowCamera) */
 extern S32 FollowCamReengageFrames;   /* frames before auto-cam re-centers after a manual pan */
 extern S32 FollowCamDriftDivisor;     /* auto-cam re-center drift divisor (higher = gentler) */
+extern S32 FollowCamSceneCarry;       /* start behind the hero in a new outdoor scene, pitch kept (cvar cam_scene_carry) */
 extern S32 FollowCamHDRecompose;      /* pull-in+steepen recompose at tall render heights (1=on) */
 extern S32 FollowCamHDExcessCap;      /* cap on the recompose kExcess so tall res converges (0 = no cap) */
 extern S32 FollowCamHDPitchGain;      /* HD recompose pitch gain (AlphaCam units per 1.0 of k-1) */

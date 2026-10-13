@@ -30,6 +30,19 @@
  * bound, and low enough that the fade's `hold * 100` cannot leave S32. */
 #define FOLLOW_CAM_MANUAL_HOLD_MAX 600
 
+/* Scene changes ---------------------------------------------------------------*/
+/* What the Auto camera does on arriving in an outdoor scene, other than by
+ * walking across the seam between two of them (that already carries over).
+ * Off, an ordered change (a script's, the console's) recentres: the pan goes to
+ * zero and the pitch to the preset, whatever the player had set. A door out of
+ * an interior leaves the yaw where the last outdoor scene left it, so the camera
+ * swings round to the hero, and takes its pitch from the classic obstruction
+ * search's one-off answer. On, the scene change leaves the pitch alone, keeps
+ * the pan between two outdoor scenes and sends it home out of an interior, and
+ * the camera starts behind the hero at that pan, with nothing left to swing
+ * through. A prototype, off by default. cvar cam_scene_carry. */
+#define FOLLOW_CAM_SCENE_CARRY_DEFAULT 0
+
 /* Hold-angle (free-camera) mode ---------------------------------------------*/
 /* When on, the manual camera rotation (AddBetaCam) is never auto-recentered
  * while walking; it holds until the scene changes or the player hits Center

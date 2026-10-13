@@ -21,6 +21,7 @@
 S32 FollowCamera = FALSE;
 S32 FollowCamReengageFrames = FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT;
 S32 FollowCamDriftDivisor = FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT;
+S32 FollowCamSceneCarry = FOLLOW_CAM_SCENE_CARRY_DEFAULT;
 S32 FollowCamHDRecompose = FOLLOW_CAM_HD_RECOMPOSE_DEFAULT;
 S32 FollowCamHDExcessCap = FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT;
 S32 FollowCamHDPitchGain = FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT;
@@ -430,6 +431,78 @@ void UpdateFollowCameraExt(void) {
     }
 }
 
+/* Arriving in an outdoor scene, for cam_scene_carry. ChangeCube calls this in
+ * place of its own CameraCenter, once the hero stands where the new scene puts
+ * him.
+ *
+ * What it replaces does one of two things to the Auto camera. An ordered change
+ * (a script's, the console's) takes CameraCenter(1), which zeroes the pan and
+ * puts the pitch back to the preset: the angle and the tilt the player had set
+ * are gone. A door out of an interior takes CameraCenter(0), which leaves
+ * BetaCam where the last outdoor scene left it and runs the classic obstruction
+ * search once. The hero walked in facing the door and walks out facing away
+ * from it, so the update finds the camera half a turn from its target and
+ * spends two seconds swinging round him. And the search, finding the building he
+ * has just left behind the camera, rewrites AlphaCam to look down over it. The
+ * classic camera gives that pitch back at its next off-screen recentre; the Auto
+ * camera has no such recentre and keeps it as though the player had chosen it.
+ *
+ * Here the pitch is left alone, since it is the player's. The pan is his too
+ * for as long as he stays outdoors, so it holds from one outdoor scene to the
+ * next. Coming out of an interior it goes home: it was set for a view he left
+ * at the door on his way in, and held through a building it turns the camera
+ * to his side or his face as he steps out. The camera is then placed behind
+ * the hero at whatever pan that leaves, with the lerp's target on it, so
+ * nothing is owed. There is no obstruction search: the update's eased clearance
+ * takes over on this same frame.
+ *
+ * That clearance knows terrain and not decor. Where the place behind the hero
+ * is inside the building he has just left, he is drawn fully hidden on the
+ * arrival frame and the hidden-hero recentre in AffOneObject fires, as it would
+ * anywhere else, leaving the same lasting pitch the door used to. That is the
+ * Auto camera's missing decor clearance, not the scene change.
+ *
+ * Walking across the seam between two outdoor scenes does not come through
+ * here. Nothing about the camera changes there and nothing should. */
+S32 FollowCamCarryIntoScene(void) {
+    T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
+
+    if (!FollowCamSceneCarry OR !FollowCamera OR CubeMode != CUBE_EXTERIEUR OR FlagLoadGame)
+        return FALSE;
+
+    /* Latched state describes the scene just left. CameraCenter(1) and (2) drop
+     * an orbit in flight for the same reason, and a re-engage countdown left
+     * running would keep the camera from following the hero's first turn here. */
+    FollowCamForgetManualGesture();
+    FollowCamReengageDelay = 0;
+
+    /* LastCubeMode is still the scene just left: ChangeCube sets it on the way
+     * in and nothing touches it until the next change. */
+    if (LastCubeMode != CUBE_EXTERIEUR)
+        AddBetaCam = 0;
+
+    Rotate(0, DISTANCE_VISEE, (AddBetaCam + ptr3d->Beta) & 4095);
+
+    VueOffsetX = ptr3d->X + X0;
+    VueOffsetY = ptr3d->Y;
+    VueOffsetZ = ptr3d->Z + Z0;
+
+    StartXCube = VueOffsetX / SIZE_BRICK_XZ;
+    StartYCube = VueOffsetY / SIZE_BRICK_Y;
+    StartZCube = VueOffsetZ / SIZE_BRICK_XZ;
+
+    BetaCam = FollowCamTargetBetaFor(AddBetaCam, ptr3d->Beta);
+    FollowCamSyncTarget();
+
+    CameraCenter(3);
+
+    /* Have the update run on this frame whatever the hero's new position
+     * happens to be, so the arm length and the clearance are its own. */
+    FollowCamPrevAlphaCam = -1;
+
+    return TRUE;
+}
+
 /* The two entry points below are the assignments the main loop used to make
  * into this file's statics, named for the moments that need them. */
 
@@ -470,6 +543,9 @@ static const T_SETTING FollowCamSettings[] = {
     {"FollowCamDriftDivisor", NULL, "cam_recenter_drift", &FollowCamDriftDivisor, SETTING_CLAMP,
      FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT, 1, 200, NULL, NULL, NULL, NULL,
      "Auto-cam re-center drift divisor (higher = gentler)"},
+    {"FollowCamSceneCarry", NULL, "cam_scene_carry", &FollowCamSceneCarry, SETTING_TRUTHY,
+     FOLLOW_CAM_SCENE_CARRY_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
+     "Auto cam: start behind the hero in a new outdoor scene, pitch kept (prototype)"},
     {"FollowCamHDRecompose", NULL, "cam_hd", &FollowCamHDRecompose, SETTING_TRUTHY,
      FOLLOW_CAM_HD_RECOMPOSE_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Auto cam HD recompose: pull in + steepen at tall render heights"},

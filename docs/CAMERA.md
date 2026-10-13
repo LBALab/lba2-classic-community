@@ -159,7 +159,7 @@ Branch history tried heavier correction (terrain penetration along the boom, LOS
 ### Lazy orbit and pan
 
 - **Rotation lag:** `BetaCam` lerps toward “behind the hero” with distance-scaled inertia (`FollowCamEffectiveDist` / `FollowCamBaseDist` feeds the divisor) — closer zoom = snappier orbit, longer arm = lazier drift.
-- **Pan drift:** `[` / `]` adjust `AddBetaCam`; drift back toward center only while the hero is walking; standing still preserves pan. Disabled by **hold-angle mode** (`cam_hold_angle`, default on): the manual rotation is then held indefinitely, like a free third-person camera, and only re-centers when the scene changes or the player hits Center camera (Enter / gamepad B); both go through `CameraCenter(1)`, which zeroes `AddBetaCam`. `cam_hold_angle 0` restores the classic lazy drift-back.
+- **Pan drift:** `[` / `]` adjust `AddBetaCam`; drift back toward center only while the hero is walking; standing still preserves pan. Disabled by **hold-angle mode** (`cam_hold_angle`, default on): the manual rotation is then held indefinitely, like a free third-person camera, and only re-centers when the player hits Center camera (Enter / gamepad B) or a script or the console orders a scene change; both go through `CameraCenter(1)`, which zeroes `AddBetaCam`. Walking through a door or across the seam between two outdoor scenes does not recentre (see [Scene changes](#scene-changes)). `cam_hold_angle 0` restores the classic lazy drift-back.
 
 ### Orbit gestures (mouse drag, right stick)
 
@@ -229,6 +229,27 @@ The HD recompose steepens pitch and the ground-clearance re-aims the eye, both o
 
 See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu entry.
 
+### Scene changes
+
+How the hero reaches an outdoor scene decides what happens to the Auto camera, because `ChangeCube` ([OBJECT.CPP](../SOURCES/OBJECT.CPP)) centres the camera differently for each way in and none of the three was written with this camera in mind. Measured at 640x480 with `--fixed-dt 16` and hold-angle on:
+
+| Arrival | `ChangeCube` calls | What the Auto camera is left with | With `cam_scene_carry` |
+| --- | --- | --- | --- |
+| Walking across the seam between two outdoor scenes | `CameraCenter(0)` | Pan, pitch and yaw as they were, with no step. | The same; this case is not touched. |
+| A change ordered by a script or the console (`FlagChgCube` 2 or 0) | `CameraCenter(1)` | The pan zeroed. The pitch back at the preset, or at the obstruction search's answer when the search finds something. | Between two outdoor scenes, pan and pitch kept and the camera behind the hero at that pan. From an interior, as for a door. |
+| A door out of an interior | `CameraCenter(0)` | The pan kept, and the yaw where the last outdoor scene left it. Having walked in facing the door and out facing away from it, the hero arrives with the camera half a turn from its target, and it spends about 140 frames swinging round him. The pitch is rewritten when the search finds the building. | The pan sent home and the pitch left alone, the camera directly behind the hero from the first frame. |
+
+A camera zone that fires where the hero lands decides the view either way, which hides the door's swing behind the shot. Of the 95 enabled doors that lead from an interior to an outdoor scene, about 60 land inside the box of an enabled camera zone (about 50 that latch, about 10 forced) and about 35 land in the open; with scenario cameras off the latching ones join those. The count takes the zones as each scene loads them and reads the landing spot off the door zone's target point. It moves by a few doors with how that point and the box edges are read (57 to 62 in a zone), so treat it as a size, not a census.
+
+`cam_scene_carry` (cfg `FollowCamSceneCarry`) is a prototype, off by default. On, `FollowCamCarryIntoScene()` ([FOLLOWCAM.CPP](../SOURCES/FOLLOWCAM.CPP)) takes the second and third arrivals in place of `ChangeCube`'s own centring. The pitch is the player's and is left alone. The pan holds from one outdoor scene to the next and goes home when the scene left was an interior: it was set for a view the hero left at the door on his way in, and held through a building it turns the camera to his side or his face as he steps out. The camera is then aimed behind the hero at that pan with the lerp's target on it, and the re-engage countdown and any orbit in flight are dropped, since both describe the scene just left. With the setting off the camera's state matches a build without it frame for frame.
+
+What it does not do:
+
+- **The pitch can still be taken at a door.** The scene change no longer runs the classic obstruction search, but where the spot behind the hero is inside the building he has just left, he is drawn fully hidden on the arrival frame and the hidden-hero recentre (`AffOneObject`, `CameraCenter(1)`) fires as it would anywhere else. It zeroes the pan and leaves the search's pitch: 767 at the Tavern's door (cube 3 to cube 42) with scenario cameras off, where the player's own tilt stops at 600. Nothing gives that pitch back. The classic camera returns to its presets at the next off-screen recentre, and the Auto camera has that path switched off. This is the decor half of the clearance listed under Future work, and it happens wherever the hero is hidden, not only at a door.
+- **An ordered change that arrives in an interior still recentres**, so a pan and a tilt do not survive a scripted trip indoors.
+- **A pitch left by a camera zone is carried like any other.** Whether a shot's pitch is the player's to keep is a question about camera zones, not about scene changes.
+- **Session recordings do not carry the setting**, so one recorded with it on diverges when replayed with it off.
+
 ## Observing and testing the camera
 
 The camera resisted iteration for a long time because nothing about it was asserted: a change was judged by playing, and a regression arrived as a field report. A 75 degree snap from a 1 unit stick touch survived two releases that way.
@@ -251,6 +272,7 @@ Fixtures live in `tests/automation/`, with `camlib.sh` turning a run into a per-
 | `followcam_tracking` | the camera orbits at the speed asked for |
 | `followcam_recenter` | the classic camera drifts back while walking, not while standing |
 | `followcam_interrupt` | an interrupted gesture ends instead of resuming |
+| `followcam_scene_carry` | with `cam_scene_carry`, the camera arrives behind the hero with the pitch left alone: the pan kept across an ordered change between two outdoor scenes, and sent home after a visit to a building |
 | `camzone_model` | the two shapes a camera zone comes in |
 | `camzone_hold` | both cameras leave an authored shot in the same place |
 
