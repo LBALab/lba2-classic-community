@@ -63,7 +63,7 @@ import sys
 # invisible to the fixtures: a query for it comes back empty and reads as "the thing never
 # happened" rather than as an error. Keep this in step with the Log_Info call in FOLLOWCAM.CPP.
 KEYS = ("heroBeta", "add", "beta", "target", "step", "delay", "orbit", "moving",
-        "zone", "forced", "cine", "follow", "ext", "vue", "alpha", "dist", "inshot", "loan")
+        "zone", "forced", "cine", "follow", "ext", "vue", "alpha", "dist", "inshot", "loan", "obs", "hid")
 MARK = "[INFO] [cam]"
 print("\t".join(KEYS))
 cut = 0

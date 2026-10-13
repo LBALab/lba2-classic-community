@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-81 fixtures.
+82 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -54,6 +54,7 @@ suite still passes, since CI cannot say so.
 | [test_exec.sh](test_exec.sh) | --exec: console commands mutate observable state. | save fixture |
 | [test_followcam_hold.sh](test_followcam_hold.sh) | Hold-angle is the free-camera contract: once the player has set an angle, the camera keeps it while the hero turns underneath, and gives it up only on a scene change or Center camera. | - |
 | [test_followcam_interrupt.sh](test_followcam_interrupt.sh) | An orbit interrupted by something else taking the camera must not resume afterwards, and must not leave the next orbit thinking it is already under way. | - |
+| [test_followcam_obstruct.sh](test_followcam_obstruct.sh) | With cam_obstruct on, the Auto camera tilts over what stands behind the hero as an extra that eases away again, and the player's own pitch is never rewritten. | - |
 | [test_followcam_recenter.sh](test_followcam_recenter.sh) | The classic camera (cam_hold_angle 0) drifts back behind the hero after a manual pan, but only once he is walking and only after a grace window. | - |
 | [test_followcam_release.sh](test_followcam_release.sh) | Letting go of the stick should ease the camera to a stop, not halt it from full speed. | - |
 | [test_followcam_scene_carry.sh](test_followcam_scene_carry.sh) | Arriving in an outdoor scene: with cam_scene_carry on, the Auto camera starts behind the hero with the pitch the player had, and with his pan unless he came out of a building. | - |

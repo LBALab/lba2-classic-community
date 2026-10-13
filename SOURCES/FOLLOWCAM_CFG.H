@@ -147,6 +147,24 @@
 #define FOLLOW_CAM_GROUND_MIN_STEP 40           /* minimum lift change per eased frame (units) */
 #define FOLLOW_CAM_GROUND_SNAP 40               /* snap lift to target within this many units */
 
+/* Obstruction clearance (Auto camera only; community) -------------------------*/
+/* The classic camera asks SearchCameraPos, once per recentre, how steeply it has
+ * to look down for the boom to clear the terrain, the scenery boxes and the
+ * scripted objects between it and the hero, and the answer is written into
+ * AlphaCam. The classic camera gives that pitch back at its next off-screen
+ * recentre. The Auto camera has no such recentre, so the pitch stays as though
+ * the player had set it. On, the Auto camera asks the same question on every
+ * update without letting it write anything, and carries what the place needs
+ * above its own pitch as an extra that eases up and down and is added for the
+ * render only. The recentres' own searches stand down while it has the view
+ * outdoors, and so does the hidden-hero recentre for as long as the extra is
+ * still on its way up. A prototype, off by default. cvar cam_obstruct. */
+#define FOLLOW_CAM_OBSTRUCT_DEFAULT 0
+#define FOLLOW_CAM_OBSTRUCT_EASE 10        /* extra-pitch lerp divisor (higher = lazier ease) */
+#define FOLLOW_CAM_OBSTRUCT_HURRY_EASE 3   /* the same while the hero is drawn fully hidden */
+#define FOLLOW_CAM_OBSTRUCT_MIN_STEP 4     /* minimum change per eased frame (AlphaCam units) */
+#define FOLLOW_CAM_OBSTRUCT_PITCH_MAX 1000 /* never render steeper than this; 1024 is straight down */
+
 /* Gamepad right-stick camera ------------------------------------------------*/
 #define GAMEPAD_CAM_SENS_DEFAULT 5 /* default right-stick sensitivity (1-10 range) */
 /* Defaults for the runtime GamepadCamMaxBeta / GamepadCamMaxAlpha globals

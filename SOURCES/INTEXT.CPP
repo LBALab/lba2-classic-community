@@ -428,11 +428,19 @@ void CameraCenter(S32 flagbeta) {
         }
     } else {
         SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
-                        AlphaCam, BetaCam, GammaCam,
+                        AlphaCam + FollowCamRenderExtraPitch(), BetaCam, GammaCam,
                         VueDistance);
 
         if (!CameraZone AND flagbeta != 3) {
-            if (SearchCameraPos(ptr3d->X, ptr3d->Y, ptr3d->Z, ptr3d->Beta, 1)) {
+            if (FollowCamObstructOwnsSearch()) {
+                /* cam_obstruct: the Auto camera asks the search itself on every
+                 * update and keeps the answer out of AlphaCam. A re-aim is a cut
+                 * already, so its clearance starts settled; a plain re-apply
+                 * (flag 0, as at the seam between two outdoor scenes) leaves it
+                 * to ease. */
+                if (flagbeta != 0)
+                    FollowCamObstructSettle();
+            } else if (SearchCameraPos(ptr3d->X, ptr3d->Y, ptr3d->Z, ptr3d->Beta, 1)) {
                 FlagCameraForcee = TRUE;
 
                 SetPosCamera(CamPosX, CamPosY, CamPosZ);

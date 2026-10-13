@@ -4979,10 +4979,18 @@ S32 AffOneObject(T_SORT *pt) {
                     if (DrawRecover(ptrobj->Obj.X, yw, ptrobj->Obj.Z, ptrobj->YMax,
                                     ade_max((ptrobj->XMax - ptrobj->XMin) / 2, (ptrobj->ZMax - ptrobj->ZMin) / 2))) {
                         // Objet complètement masqué
+                        if (numobj == NumObjFollow)
+                            FollowCamNoteHidden(1);
+
+                        /* cam_obstruct: while the Auto camera's own clearance is
+                         * still raising the view over what hides him, it is told
+                         * to hurry and the recentre is left out. */
                         if (numobj == NumObjFollow
                                           AND TestNumObjFollow // protec boucle infinie
-                                              AND !CameraZone) {
+                                              AND !CameraZone
+                                                  AND !FollowCamObstructHidden()) {
                             TestNumObjFollow = FALSE;
+                            FollowCamNoteHidden(3);
                             {
                                 /* A recentre the engine makes because it lost
                                  * sight of the hero, not one the player asked

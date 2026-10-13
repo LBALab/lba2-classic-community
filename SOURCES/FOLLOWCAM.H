@@ -32,6 +32,35 @@ extern void UpdateFollowCameraExt(void);
  * file. */
 extern S32 FollowCamCarryIntoScene(void);
 
+/* For camtrace: the followed object was just drawn fully hidden, and what was
+ * done about it (1 nothing, 2 the clearance hurried, 3 recentred). The largest
+ * value since the last trace line is the one it prints. */
+extern void FollowCamNoteHidden(S32 what);
+
+/* cam_obstruct. TRUE while the Auto camera's eased clearance stands in for the
+ * classic obstruction search: the setting is on and the Auto camera has the
+ * view outdoors. CameraCenter then leaves SearchCameraPos out, so nothing
+ * writes a pitch into AlphaCam that the player did not set. */
+extern S32 FollowCamObstructOwnsSearch(void);
+
+/* cam_obstruct. The pitch to add to AlphaCam wherever the exterior camera is
+ * set from the globals: CameraCenter and the scene render. 0 unless the setting
+ * is on and the Auto camera has the view outdoors, so those callers are
+ * unchanged without it. */
+extern S32 FollowCamRenderExtraPitch(void);
+
+/* cam_obstruct. A re-aim or an arrival has just placed the camera with a cut.
+ * Have the clearance start the next update at what the place needs, instead of
+ * easing up to it from wherever the last view left it. */
+extern void FollowCamObstructSettle(void);
+
+/* cam_obstruct. The hero has just been drawn fully hidden. TRUE when the eased
+ * clearance knows what is in the way and is still raising the camera over it:
+ * it then hurries, and the caller leaves the classic recentre out. FALSE when
+ * it has no answer, or has given all of it and he is hidden still, and the
+ * classic recentre is the only one left. */
+extern S32 FollowCamObstructHidden(void);
+
 /* One line per frame describing where the camera is and who is deciding that
  * (console `camtrace`). Called every frame from the main loop, not from the
  * update above: the update runs only while the Auto camera holds the view, so a
@@ -113,6 +142,7 @@ extern S32 FollowCamReengageFrames;   /* frames before auto-cam re-centers after
 extern S32 FollowCamDriftDivisor;     /* auto-cam re-center drift divisor (higher = gentler) */
 extern S32 FollowCamSceneCarry;       /* start behind the hero in a new outdoor scene, pitch kept (cvar cam_scene_carry) */
 extern S32 FollowCamZoneSkip;         /* leave latching camera zones unfired while the player steers (cvar cam_zone_skip) */
+extern S32 FollowCamObstruct;         /* eased obstruction clearance in place of the classic search (cvar cam_obstruct) */
 extern S32 FollowCamHDRecompose;      /* pull-in+steepen recompose at tall render heights (1=on) */
 extern S32 FollowCamHDExcessCap;      /* cap on the recompose kExcess so tall res converges (0 = no cap) */
 extern S32 FollowCamHDPitchGain;      /* HD recompose pitch gain (AlphaCam units per 1.0 of k-1) */
