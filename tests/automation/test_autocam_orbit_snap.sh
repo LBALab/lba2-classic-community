@@ -15,6 +15,7 @@
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
 TESTNAME=autocam_orbit_snap
 . "$(dirname "$0")/lib.sh"
+. "$(dirname "$0")/camlib.sh"
 precheck
 
 FIX="$(dirname "$0")/../savegame/corpus/saves/steam_classic_2023/Wannies fragment.LBA"
@@ -36,19 +37,20 @@ ctl_headless --load "$FIX" --fixed-dt 16 \
     --exec-at 170 "camnudge 1 0 1" \
     --tick 200 --exit > "$log" 2>&1 || fail "run: exit $?"
 
-# The console echo and the log fan-out are separate streams that interleave in the capture, so read
-# only the '[INFO] [cam]' lines -- those are in frame order.
-read -r delta step < <(awk '
-    /^\[INFO\] \[cam\]/ {
-        d = $10 - $8                                    # target - BetaCam, shortest way round
+# The console echo and the log fan-out are separate streams that collide in the capture. cam_tsv
+# takes each of the log's records wherever it starts and reads its fields by name; this used to
+# read by position from the lines that began with one, which lost the frames glued behind an echo.
+read -r delta step < <(cam_tsv "$log" | awk '
+    NR == 1 { for (i = 1; i <= NF; i++) col[$i] = i; next }
+    {
+        d = $col["target"] - $col["beta"]               # shortest way round
         if (d >  2048) d -= 4096
         if (d < -2048) d += 4096
         if (d < 0) d = -d
         if (d > maxd) maxd = d
-        if ($16 == "1") { s = $12 + 0; if (s < 0) s = -s; last = s }   # step on each orbit frame
+        if ($col["orbit"] == "1") { s = $col["step"] + 0; if (s < 0) s = -s; last = s }   # step on each orbit frame
     }
-    END { print maxd + 0, last + 0 }
-' "$log")
+    END { print maxd + 0, last + 0 }')
 
 [ "${delta:-0}" -gt 1000 ] \
     || fail "setup did not build a stale angle: hold accumulated only $delta units (wanted > 1000)"

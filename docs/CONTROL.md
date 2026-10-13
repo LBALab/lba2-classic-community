@@ -27,6 +27,13 @@ and off by default there too.
 > `--no-audio`, since a live audio thread branches the simulation too.
 >
 > Pair it with `--no-autosave` unless you want the run rewriting your `autosave.lba`.
+>
+> **`--headless` does not hide a connected gamepad.** The engine opens every controller it
+> finds, window or not, so a stick moved while a run is in flight lands in that run. The
+> fixtures' helpers set `SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0xFFFF/0xFFFF`, which makes
+> SDL skip every physical controller, and a run started by hand wants the same. The boot
+> banner says which it got: `Joystick   not detected`, or the pad's name. The console's
+> `stick` and a session replay are the engine's own and still work.
 
 ## Build
 
