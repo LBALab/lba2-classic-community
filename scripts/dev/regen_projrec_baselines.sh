@@ -37,6 +37,12 @@ BASELINES="$REPO/tests/projection/baselines"
 : "${LBA2_GAME_DIR:?set LBA2_GAME_DIR to the retail data dir}"
 : "${LBA2_PROJREC_WIDTH:=640}"
 
+# No physical gamepad in these runs, for the reason tests/automation/lib.sh gives:
+# the engine reads a connected controller even with no window, and a stick moved
+# while a baseline is being captured turns the camera whose projection is the
+# thing being hashed.
+export SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT="${SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT-0xFFFF/0xFFFF}"
+
 [ -x "$LBA2_BIN" ] || { echo "no binary: $LBA2_BIN" >&2; exit 1; }
 [ -d "$LBA2_GAME_DIR" ] || { echo "no game dir: $LBA2_GAME_DIR" >&2; exit 1; }
 [ -d "$CORPUS" ] || { echo "no corpus dir: $CORPUS" >&2; exit 1; }
