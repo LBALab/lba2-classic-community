@@ -90,6 +90,16 @@
  * classic lazy drift-back. cvar cam_hold_angle. */
 #define FOLLOW_CAM_HOLD_ANGLE_DEFAULT 1
 
+/* World anchor (prototype) ---------------------------------------------------*/
+/* What the camera's horizontal angle is held against. Off, it is an offset from
+ * the hero's facing (AddBetaCam), so when he turns the camera comes round with
+ * him once any grace after a pan has run out, and hold-angle holds that offset.
+ * On, it holds a direction in the world: the hero turns under the camera and it
+ * stays where it is, and only the player turns it (orbit, the pan keys, the
+ * quarter-turn key, Center camera). The pan drift back behind the hero is off
+ * with it, whatever cam_hold_angle says. Off by default. cvar cam_world_anchor. */
+#define FOLLOW_CAM_WORLD_ANCHOR_DEFAULT 0
+
 /* Scripted shots (camera zones) --------------------------------------------*/
 /* A camera zone re-aims the view to an authored shot. The Auto camera keeps what
  * the shot left behind: the yaw as an offset from the hero's facing, and the

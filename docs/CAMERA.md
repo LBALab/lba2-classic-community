@@ -197,6 +197,16 @@ Branch history tried heavier correction (terrain penetration along the boom, LOS
 - **Rotation lag:** `BetaCam` eases toward “behind the hero” with distance-scaled inertia (`FollowCamEffectiveDist` / `FollowCamBaseDist` scales it) — closer zoom = snappier orbit, longer arm = lazier drift. The pace is `cam_ease_ms`, a time constant; see [Eases paced by the clock](#eases-paced-by-the-clock).
 - **Pan drift:** `[` / `]` adjust `AddBetaCam`; drift back toward center only while the hero is walking; standing still preserves pan. Disabled by **hold-angle mode** (`cam_hold_angle`, default on): the manual rotation is then held indefinitely, like a free third-person camera, and only re-centers when the player hits Center camera (Enter / gamepad B) or a script or the console orders a scene change; both go through `CameraCenter(1)`, which zeroes `AddBetaCam`. Coming out of a building sends the pan home as well (`cam_scene_carry`, on by default); walking across the seam between two outdoor scenes does not (see [Scene changes](#scene-changes)). `cam_hold_angle 0` restores the classic lazy drift-back.
 
+### World anchor (prototype)
+
+`cam_world_anchor` (cfg `FollowCamWorldAnchor`, off by default) changes what the horizontal angle is held against. Off, the Auto camera aims behind the hero offset by `AddBetaCam`, so a turn of his turns the camera with him once any grace after a pan has run out, and hold-angle holds the offset, not a direction. On, each update takes the hero's turn since the previous update back out of `AddBetaCam`, which leaves the target where it was in the world. Whatever else wrote the offset in between (an orbit, `[` / `]`, the quarter-turn key, a script) is kept, so the player still turns the camera and only the hero no longer does. The pan drift is off with it, whatever `cam_hold_angle` says, because the drift is a way back behind the hero.
+
+The turn is taken out only across consecutive updates. After a frame without one (a camera zone holding the view, a cutscene, a building) or a cut, the offset is taken as it stands, since whoever had the view set it for the facing the hero has then. `FollowCamAdoptAngle` re-solves the offset against the hero's facing as it is, so it tells the anchor that the turn so far is already in it.
+
+Center camera, an ordered scene change and the hidden-hero recentre still put the camera behind the hero, and the anchor holds that direction from there. With the camera no longer swinging round behind him, a hero walking side-on past scenery is hidden from it more often than before, and the recentre fires where it otherwise would not.
+
+With `cam_zone_return` on, what a shot owes back for the yaw is a world direction too: the pan it was lent is re-solved against the hero's facing every update, from the facing it was measured at, across the frames a holding shot keeps the update from running. Leaving the box brings the camera back to where it faced before the shot, however the hero turned inside. Inside the box of a shot that fires once, the anchor holds the shot's angle, as `cam_zone_anchor` does.
+
 ### Orbit gestures (mouse drag, right stick)
 
 Every analog camera source goes through `ApplyManualCameraNudge` ([EXTFUNC.CPP](../SOURCES/EXTFUNC.CPP)) so they clamp each axis identically. Horizontal orbit is the axis with state attached, and a gesture has three parts:
@@ -353,6 +363,7 @@ Fixtures live in `tests/automation/`, with `camlib.sh` turning a run into a per-
 | `followcam_obstruct` | with `cam_obstruct`, the tilt over a building is an extra that comes and goes with the building, the player's pitch is never rewritten, and the hero is never hidden or recentred |
 | `followcam_ease` | with `cam_ease_ms`, the turn behind the hero takes the time the setting says at either update length and lands on its target; with `cam_target_ms`, the look-at point trails the hero, closes after he stops, and keeps its trail across the seam between two scenes |
 | `followcam_scene_carry` | with `cam_scene_carry`, the camera arrives behind the hero with the pitch left alone: the pan kept across an ordered change between two outdoor scenes, and sent home after a visit to a building |
+| `followcam_world_anchor` | with `cam_world_anchor`, the target holds still while the hero turns on the spot and while walking, an orbit still moves it, the drift of `cam_hold_angle 0` stands down, and a holding shot gives back the world direction the camera had before it |
 | `camzone_model` | the two shapes a camera zone comes in |
 | `camzone_skip` | with `cam_zone_skip`, a latching zone leaves a steering player's view alone under the Auto camera; forced zones and the classic camera are unaffected |
 | `camzone_hold` | both cameras leave an authored shot in the same place |
@@ -364,7 +375,7 @@ Two habits are worth keeping when adding to these. **Run a new fixture against a
 
 - **Rendering architecture:** A faster terrain path (GPU or structural changes) would reduce the CPU cost of per-frame `RefreshGrille`.
 - **Rebinding:** optional rebinding of zoom/tilt/pan (today numpad-heavy) for laptops and alternate layouts. The right stick already drives orbit and elevation (`cam_stick_*`).
-- **Hero-relative hold:** an angle held as an offset from the hero's facing cannot express a held world heading, which is what makes turning while the stick is down still drag the camera. #351 proposes anchoring horizontal rotation to the overworld instead, retiring that whole class rather than correcting instances of it.
+- **Hero-relative hold:** an angle held as an offset from the hero's facing cannot express a held world heading, which is what makes turning while the stick is down still drag the camera. #351 proposes anchoring horizontal rotation to the overworld instead, retiring that whole class rather than correcting instances of it. `cam_world_anchor` is a prototype of it (see [World anchor](#world-anchor-prototype)).
 - **Mouse follow-through:** the release tail suits a stick that springs back to centre, not a pointer held still (#514).
 - **Decor occlusion and clipping:** #363.
 - **Auto camera vs terrain / decor:** the eased ground/occlusion clearance above now ports the terrain half of `SearchCameraPos` (an earlier always-on snap was reverted for fighting the orbit; easing fixes that). Still open: decor/scenery occlusion (the classic path also tests `TestZVDecors`), and the eye leaving the cube on far authored cameras (the clearance is skipped there, matching the classic out-of-cube guard).
@@ -395,6 +406,7 @@ Two habits are worth keeping when adding to these. **Run a new fixture against a
 | Obstruction clearance | SOURCES/FOLLOWCAM.CPP, SOURCES/INTEXT.CPP, SOURCES/EXTFUNC.CPP, SOURCES/OBJECT.CPP | `FollowCamNeededPitch`, `FollowCamRenderExtraPitch`, `FollowCamObstructOwnsSearch`, `FollowCamObstructSettle`, `FollowCamObstructHidden`, `cam_obstruct` cvar |
 | Camera trace            | SOURCES/FOLLOWCAM.CPP      | `FollowCamTrace`, `camtrace` / `camnudge` console commands |
 | A shot's loan | SOURCES/FOLLOWCAM.CPP, SOURCES/OBJECT.CPP | `FollowCamLendToShot`, `FollowCamPlayerTook`, `FollowCamForgetLoan`, `FollowCamInShotBox`, `cam_zone_return` / `cam_zone_anchor` cvars |
+| World anchor | SOURCES/FOLLOWCAM.CPP, SOURCES/EXTFUNC.CPP | `FollowCamWorldAnchorStep`, `FollowCamWorldAnchorRebase`, `cam_world_anchor` cvar |
 | Angle arithmetic        | SOURCES/FOLLOWCAM_MATH.H   | `FollowCamAngleDiff`, `FollowCamTargetBetaFor`, `FollowCamPanForAngle`, `FollowCamRotStep`, `FollowCamEasePan`, `FollowCamEaseValue`, `FollowCamEaseStepMs`; host test in tests/camera |
 | Eases paced by the clock | SOURCES/FOLLOWCAM.CPP, SOURCES/PERSO.CPP | `FollowCamEaseTick`, `FollowCamEaseRestart`, `FollowCamEaseLookAt`, `FollowCamNoteFrame`, `cam_ease_ms` / `cam_target_ms` cvars |
 | Manual-override fade    | SOURCES/FOLLOWCAM.CPP, SOURCES/EXTFUNC.CPP | `FollowCamManualHold`, `FollowCamManualHoldFrames`, `autoFactor`, `cam_manual_hold` cvar |

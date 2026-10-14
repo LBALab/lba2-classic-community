@@ -14,6 +14,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `camtrace` reports the milliseconds the Auto camera's update was paced by and
   how far the look-at point trails the hero.
+- `cam_world_anchor` (`FollowCamWorldAnchor` in `lba2.cfg`), experimental and
+  off by default: the Auto camera holds a direction in the world instead of
+  turning with the hero, and only the player turns it.
 - `cam_zone_anchor` (`FollowCamZoneAnchor` in `lba2.cfg`), experimental and off
   by default: inside the box of a scripted shot that fires once, the Auto
   camera holds the shot's own angle as the classic camera does.
