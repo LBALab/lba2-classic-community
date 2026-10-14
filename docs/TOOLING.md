@@ -40,9 +40,7 @@ tables themselves:
 
 ## Tier 1 — build & run
 
-Without all five there is no `lba2cc` binary. The root
-[README](../README.md#prerequisites) states the same set for players building
-from source.
+The default SDL3 build needs all five. An SDL2 build substitutes the optional SDK listed under tier 3; the null platform with null audio needs neither SDL SDK. The root [README](../README.md#prerequisites) states the default set for players building from source.
 
 | Tool | Needed for | Version owner | Install |
 |------|-----------|---------------|---------|
@@ -156,6 +154,14 @@ point of running it in a container.
 
 Hard requirements with a narrow audience. Nothing here matters until you work on
 that specific lane.
+
+### SDL2 desktop backend
+
+| Tool | Needed for | Version owner | Install |
+|------|-----------|---------------|---------|
+| SDL2 | `PLATFORM_BACKEND=sdl2`, including SDL AIL audio | [platform CMake selection](../LIB386/PLATFORM/CMakeLists.txt) (`find_package` minimum) | `libsdl2-dev`, an MSYS2 SDL2 package, or an upstream SDL2 source build with CMake package files |
+
+SDL3 remains the default; Android requires it. Some packages provide `sdl2-compat` instead of genuine SDL2 and load SDL3 at runtime. The SDK probe verifies the CMake package and minimum version, not that implementation's independence. Linux CI builds genuine SDL2 from its upstream release at the version floor read from CMake, so distro package substitutions cannot mask a missing SDL2 API. See [PLATFORM_ABSTRACTION.md](PLATFORM_ABSTRACTION.md).
 
 ### ASM equivalence on the host
 

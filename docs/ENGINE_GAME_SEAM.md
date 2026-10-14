@@ -137,10 +137,10 @@ dormant: `COPY`, `DEC`, `DEC_XCF`, `HERCUL_A`, `KEYB`.
 | `pol_work` | engine | live | Polygon fillers (flat/gouraud/textured/zbuf/fog) |
 | `SVGA` | engine·platform | live | Rasteriser (engine) + mode/screen setup (platform) |
 | `SYSTEM` | engine·platform | live | HQR + file format (engine); keyboard/mouse/timer/IO (platform) |
-| `PLATFORM` | platform | live | SDK-free host contract and helpers; SDL3 backend owns SDK resources/events/presentation. No engine/game implementation dependency. |
+| `PLATFORM` | platform | live | SDK-free host contract and helpers; SDL2/SDL3 backends own SDK resources/events/presentation, null supplies offscreen services. No engine/game implementation dependency. |
 | `MENU` | engine | dormant | Menu primitives — not wired into the build (no `add_subdirectory`); superseded by `SOURCES/GAMEMENU`. Has equivalence tests. |
 | `AIL/` (interface) | engine | live | Audio abstraction (samples/music/mixing) |
-| `AIL/SDL` | platform | live | Active audio backend (SDL3) |
+| `AIL/SDL` | platform | live | Shared audio decoding and mixing; private SDL2/SDL3 output transport |
 | `AIL/NULL` | platform | live | Null audio backend (stub) |
 | `AIL/MILES` | platform | dormant | DOS Miles Sound System backend |
 | `FILEIO` | platform | live | File IO + `SAVEPNG` (port infra) |

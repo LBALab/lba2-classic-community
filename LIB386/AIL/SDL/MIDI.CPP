@@ -1,6 +1,6 @@
 #include "MIDI_SDL.H"
 
-#include <SDL3/SDL.h>
+#include "SDK.H"
 
 S32 InitMidiDriver(char *driver_name) {
     return TRUE;

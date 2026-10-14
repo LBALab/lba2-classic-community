@@ -29,6 +29,51 @@ env:
   BUILD_TYPE: Release
 
 jobs:
+  build-sdl2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v5
+      - name: Build genuine SDL2 at the supported API floor
+        run: |
+          version=$(sed -n 's/.*find_package(SDL2 \([0-9.]*\) REQUIRED CONFIG).*/\1/p' LIB386/PLATFORM/CMakeLists.txt)
+          test -n "$version"
+          curl -fsSL --retry 3 --connect-timeout 15 --max-time 120 \
+            "https://github.com/libsdl-org/SDL/releases/download/release-${version}/SDL2-${version}.tar.gz" \
+            -o sdl2.tar.gz
+          tar -xzf sdl2.tar.gz
+          cmake -S "SDL2-${version}" -B sdl2-build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PWD/sdl2-sdk" \
+            -DCMAKE_INSTALL_LIBDIR=lib -DSDL_TEST=OFF -DSDL_STATIC=OFF
+          cmake --build sdl2-build
+          cmake --install sdl2-build
+      - name: Configure without SDL3 discovery
+        run: |
+          cmake -S . -B build-sdl2 -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DPLATFORM_BACKEND=sdl2 -DSOUND_BACKEND=sdl \
+            -DSDL2_DIR="$PWD/sdl2-sdk/lib/cmake/SDL2" \
+            -DCMAKE_DISABLE_FIND_PACKAGE_SDL3=ON \
+            -DLBA2_BUILD_TESTS=ON -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF
+      - name: Build whole game and host tests
+        run: cmake --build build-sdl2 --target lba2cc host_tests
+      - name: Verify independent SDL2 linkage
+        run: |
+          dependencies=$(ldd build-sdl2/SOURCES/lba2cc)
+          grep -i SDL2 <<< "$dependencies"
+          if grep -i SDL3 <<< "$dependencies"; then
+            echo "SDL2 game unexpectedly links SDL3" >&2
+            exit 1
+          fi
+      - name: Host and isolated missing-data boot tests
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          ctest --test-dir build-sdl2 -L host_quick --output-on-failure
+          cmake "-DGAME=$PWD/build-sdl2/SOURCES/lba2cc" \
+            "-DRUN_DIR=$PWD/build-sdl2/isolated-boot" -P tests/platform/test_null_boot.cmake
+
   build-null:
     runs-on: ubuntu-latest
     timeout-minutes: 15

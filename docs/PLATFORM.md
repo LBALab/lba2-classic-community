@@ -104,9 +104,9 @@ x86 assembly is opt-in via the `ENABLE_ASM` CMake option (default OFF). Every AS
 
 ---
 
-## 5. OS boundary (filesystem, conditionals, SDL3) &nbsp;&nbsp;&nbsp;&nbsp; ✓ contained
+## 5. OS boundary (filesystem, conditionals, SDL) &nbsp;&nbsp;&nbsp;&nbsp; ✓ contained
 
-Live engine/game code reaches window, events, input, presentation, timing, and host services through the SDK-free PAL. SDL3 provides interactive presentation; the null backend provides SDK-free offscreen presentation. Audio has the separate AIL boundary. Path manipulation is gated by `_WIN32` for the separator character. Asset and save discovery uses the platform's borrowed base path plus `LBA2_GAME_DIR` and a candidate walk. Case-insensitivity on macOS APFS bit us once (`<version>` vs the build's `VERSION` text file) and is now sidestepped by writing `VERSION.txt` instead.
+Live engine/game code reaches window, events, input, presentation, timing, and host services through the SDK-free PAL. SDL3 and desktop SDL2 provide interactive presentation; the null backend provides SDK-free offscreen presentation. Audio has the separate AIL boundary, with private SDL2/SDL3 output transport. Path manipulation is gated by `_WIN32` for the separator character. Asset and save discovery uses the platform's borrowed base path plus `LBA2_GAME_DIR` and a candidate walk. Case-insensitivity on macOS APFS bit us once (`<version>` vs the build's `VERSION` text file) and is now sidestepped by writing `VERSION.txt` instead.
 
 - `_WIN32` path separator — `LIB386/H/SYSTEM/ADELINE.H:31-37`
 - Directory creation goes through `g_platform.host.create_directory`; SDL3 creates parents and understands a drive spec — [DIRECTORIES.CPP](../SOURCES/DIRECTORIES.CPP), `AddDirIfNot`, covered by `tests/user_dirs`
@@ -126,9 +126,9 @@ Live engine/game code reaches window, events, input, presentation, timing, and h
 
 ## 6. Backend abstractions (platform, audio, video) &nbsp;&nbsp;&nbsp;&nbsp; ✓ contained
 
-Platform, audio, and motion-video implementations are selected at build time. Engine code sees their contracts rather than SDK resources. The platform table has SDL3 and null implementations; SDL2/SDL1, native console, and libretro backends are not shipped. [PLATFORM_ABSTRACTION.md](PLATFORM_ABSTRACTION.md) is the authoritative reference for PAL ownership, selection, callback semantics and adding backends; this document maps the remaining host assumptions.
+Platform, audio, and motion-video implementations are selected at build time. Engine code sees their contracts rather than SDK resources. The platform table has SDL3, desktop SDL2, and null implementations; SDL1, native console, and libretro backends are not shipped. SDL2 has no native folder picker; Android remains SDL3-only. [PLATFORM_ABSTRACTION.md](PLATFORM_ABSTRACTION.md) is the authoritative reference for PAL ownership, selection, callback semantics and adding backends; this document maps the remaining host assumptions.
 
-- `PLATFORM_BACKEND` (`sdl3`, `null`) — [platform CMake selection](../LIB386/PLATFORM/CMakeLists.txt)
+- `PLATFORM_BACKEND` (`sdl3`, `sdl2`, `null`) — [platform CMake selection](../LIB386/PLATFORM/CMakeLists.txt)
 - `SOUND_BACKEND` (`null` / `miles` / `sdl`) and `MVIDEO_BACKEND` (`null` / `smacker`) — [CMakeLists.txt](../CMakeLists.txt)
 - AIL backend implementations — `LIB386/AIL/{NULL,MILES,SDL}/`
 - Backend selection in CMake — `LIB386/AIL/CMakeLists.txt:3-9`
@@ -188,7 +188,7 @@ These are not assumptions the doc has fully audited — they are areas worth che
 Architectural changes that would shift the readiness picture above. Listed here to keep the surface visible; each becomes its own design doc or issue when it matures. Entries are holding-pen items, not commitments.
 
 - **GPU-backed rendering.** The polygon path today is software (`LIB386/pol_work/`, CPU-side rasterization, 8-bit indexed framebuffer). A GPU renderer — `SDL_GPU` or a thin Vulkan/Metal/D3D backend with cross-compiled shaders — would change the FP-precision picture (matches GPU float semantics, not x87), open the door to higher resolutions and HDR, and deprecate the ASM fillers. Big enough that the software path likely stays as a parallel implementation, with the polyrec replay harness as the equivalence test.
-- **Additional platform backends and frontend stepping.** The SDK-free [PAL](PLATFORM_ABSTRACTION.md) has SDL3 and null implementations. Future SDL2/SDL1 and native-console implementations attach at that contract. libretro additionally needs frontend-owned stepping and resumable modal loops; the current game loop remains blocking. The earlier audit is preserved in [PLATFORM_PAL_PLAN.md](plan/PLATFORM_PAL_PLAN.md).
+- **Additional platform backends and frontend stepping.** The SDK-free [PAL](PLATFORM_ABSTRACTION.md) has SDL3, desktop SDL2, and null implementations. Future SDL1 and native-console implementations attach at that contract. libretro additionally needs frontend-owned stepping and resumable modal loops; the current game loop remains blocking. The earlier audit is preserved in [PLATFORM_PAL_PLAN.md](plan/PLATFORM_PAL_PLAN.md).
 - **Directory restructure.** `LIB386/` ("32-bit Intel") encodes a platform assumption in its name. A renaming sweep (`engine/`, `lib/`, or similar) plus splitting platform-specific files into a `sys/` subtree would surface the boundaries the way Doom 3's `sys/win32/` / `sys/linux/` does. No code change; pure rename + `#include` updates. Worth doing once the team agrees on preferred layout.
 - **Canonical save format (`NUM_VERSION 37+`).** Tracked at [issue #64](https://github.com/LBALab/lba2-classic-community/issues/64). Removes the wire32 / auto-retry chain for new saves; legacy loaders stay.
 - **ASM retirement.** Once profiling confirms the CPP path is fast enough on all targets, the `ENABLE_ASM` option could be removed and the `*.ASM` files retired. The CPP equivalents are already canonical; equivalence is already tested.

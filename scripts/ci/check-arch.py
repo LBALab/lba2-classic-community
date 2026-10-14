@@ -148,7 +148,7 @@ JNI_OWNER = "LIB386/PLATFORM/SDL3/ANDROID.CPP"
 
 # SDL is an implementation detail of the selected host and sibling AIL backend.
 # KEYBWIN is the preserved, unbuilt Win32 keyboard driver, not a live exception.
-SDL_DIRS = ("LIB386/PLATFORM/SDL3/", "LIB386/AIL/SDL/")
+SDL_DIRS = ("LIB386/PLATFORM/SDL3/", "LIB386/PLATFORM/SDL2/", "LIB386/AIL/SDL/")
 SDL_DORMANT_FILES = ("LIB386/SYSTEM/KEYBWIN.CPP",)
 SDL_SYMBOL_RE = re.compile(r"\b(?:SDL\d?_|SDLK_|SDLCALL\b)")
 LITERAL_RE = re.compile(r"'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"")
@@ -654,8 +654,8 @@ RULES = (
     Rule(
         9,
         "SDL stays in platform and audio backends",
-        'CODESTYLE.md "Layers": "SDL headers, types and calls stay in the SDL3 '
-        'platform backend and the sibling AIL SDL backend."',
+        'CODESTYLE.md "Layers": "SDL headers, types and calls stay in the SDL2/SDL3 '
+        'platform backends and the sibling AIL SDL backend."',
         rule_sdl_stays_in_backends,
         remedy="route the call through PLATFORM/PLATFORM.H; keep physical key IDs in PLATFORM/INPUT.H.",
     ),

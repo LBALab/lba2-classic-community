@@ -75,11 +75,11 @@ endif()
 # Performance options
 option(LBA2_NATIVE_ARCH "Use -march=native for host-optimized build (not portable)" OFF)
 
-# Release packaging — static-link SDL3 and the GCC runtime so the binary
+# Release packaging — static-link the selected SDL SDK and the GCC runtime so the binary
 # has no DLL dependencies beyond OS libraries. Used by the Windows release
 # workflow (single-exe portable ZIP). Default OFF; dev workflows keep the
 # faster shared-link path.
-option(LBA2_LINK_STATIC "Static-link SDL3 and the GCC C++ runtime (release packaging)" OFF)
+option(LBA2_LINK_STATIC "Static-link the selected SDL SDK and the GCC C++ runtime (release packaging)" OFF)
 
 # Release packaging: compile with debug info so scripts/packaging/split-symbols.sh
 # can move it into a symbol file published beside the release, which turns a crash

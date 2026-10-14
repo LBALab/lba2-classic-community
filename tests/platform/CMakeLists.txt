@@ -18,6 +18,32 @@ target_include_directories(test_platform_header_cpp98 PRIVATE ${CMAKE_SOURCE_DIR
 set_target_properties(test_platform_header_cpp98 PROPERTIES
     CXX_STANDARD 98 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
 
+# Derive the checks from the contract so a newly added callback cannot be omitted.
+set(_PLATFORM_HEADER "${CMAKE_SOURCE_DIR}/LIB386/H/PLATFORM/PLATFORM.H")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_PLATFORM_HEADER}")
+file(READ "${_PLATFORM_HEADER}" _platform_contract)
+set(_callback_checks "")
+foreach(group System Events Window Input Host)
+    string(TOLOWER "${group}" member)
+    string(REGEX MATCH "typedef struct Platform${group} \\{[^}]*\\}" block "${_platform_contract}")
+    string(REGEX MATCHALL "\\(\\*[A-Za-z0-9_]+\\)" callbacks "${block}")
+    if(NOT callbacks)
+        message(FATAL_ERROR "No callbacks found in Platform${group}")
+    endif()
+    foreach(callback IN LISTS callbacks)
+        string(REGEX REPLACE "\\(\\*([A-Za-z0-9_]+)\\)" "\\1" callback "${callback}")
+        string(APPEND _callback_checks "PLATFORM_CALLBACK(${member}.${callback})\n")
+    endforeach()
+endforeach()
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/platform_callback_checks.inc" "${_callback_checks}")
+
+add_executable(test_platform_callbacks test_platform_callbacks.cpp)
+target_include_directories(test_platform_callbacks PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_platform_callbacks PRIVATE lba2_platform)
+set_target_properties(test_platform_callbacks PROPERTIES CXX_STANDARD 11)
+add_test(NAME test_platform_callbacks COMMAND test_platform_callbacks)
+register_host_test(test_platform_callbacks)
+
 add_executable(test_platform_contract
     test_platform_contract.cpp
     test_platform_header.c
@@ -69,7 +95,68 @@ if(PLATFORM_BACKEND STREQUAL "sdl3")
         else()
             target_link_libraries(${target} PRIVATE lba2_platform_test_staging ${LBA2_SDL3_TARGET})
         endif()
+
         add_test(NAME ${target} COMMAND ${target})
         register_host_test(${target})
     endforeach()
+endif()
+
+if(PLATFORM_BACKEND STREQUAL "sdl2")
+    add_executable(test_platform_sdl2 test_platform_sdl2.cpp)
+    target_include_directories(test_platform_sdl2 PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
+    target_compile_definitions(test_platform_sdl2 PRIVATE LBA2_SDL2_TESTS=1)
+    target_link_libraries(test_platform_sdl2 PRIVATE lba2_platform ${LBA2_SDL_TARGET})
+    set_target_properties(test_platform_sdl2 PROPERTIES CXX_STANDARD 11)
+    add_test(NAME test_platform_sdl2 COMMAND test_platform_sdl2)
+    register_host_test(test_platform_sdl2)
+endif()
+
+if(PLATFORM_BACKEND MATCHES "^sdl[23]$")
+    add_executable(test_sdl_audio_playback test_sdl_audio_playback.cpp
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/AUDIO_DEVICE.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/COMMON.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/STREAM.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/VIDEO_AUDIO_SDL.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/stb_vorbis.c
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CDDA.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CDTRACKS.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CUE.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DISCIMG.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ISO9660.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/FILES.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP)
+    target_include_directories(test_sdl_audio_playback PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
+    target_link_libraries(test_sdl_audio_playback PRIVATE ${LBA2_SDL_TARGET})
+    target_compile_definitions(test_sdl_audio_playback PRIVATE LBA_LOG_NO_PLATFORM
+        TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    if(PLATFORM_BACKEND STREQUAL "sdl2")
+        target_compile_definitions(test_sdl_audio_playback PRIVATE LBA2_USE_SDL2=1)
+    endif()
+    set_target_properties(test_sdl_audio_playback PROPERTIES CXX_STANDARD 11)
+    add_test(NAME test_sdl_audio_playback COMMAND test_sdl_audio_playback)
+    register_host_test(test_sdl_audio_playback)
+
+    add_executable(test_sdl_audio test_sdl_audio.cpp
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/AUDIO_DEVICE.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/COMMON.CPP)
+    target_include_directories(test_sdl_audio PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
+    target_link_libraries(test_sdl_audio PRIVATE ${LBA2_SDL_TARGET})
+    target_compile_definitions(test_sdl_audio PRIVATE LBA2_AUDIO_TESTS=1)
+    if(PLATFORM_BACKEND STREQUAL "sdl2")
+        target_compile_definitions(test_sdl_audio PRIVATE LBA2_USE_SDL2=1)
+    endif()
+    set_target_properties(test_sdl_audio PROPERTIES CXX_STANDARD 11)
+    add_test(NAME test_sdl_audio COMMAND test_sdl_audio)
+    register_host_test(test_sdl_audio)
+    if(PLATFORM_BACKEND STREQUAL "sdl2")
+        add_executable(test_sdl_audio_device test_sdl_audio.cpp
+            ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/AUDIO_DEVICE.CPP
+            ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/COMMON.CPP)
+        target_include_directories(test_sdl_audio_device PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
+        target_link_libraries(test_sdl_audio_device PRIVATE ${LBA2_SDL_TARGET})
+        target_compile_definitions(test_sdl_audio_device PRIVATE LBA2_USE_SDL2=1)
+        set_target_properties(test_sdl_audio_device PROPERTIES CXX_STANDARD 11)
+        add_test(NAME test_sdl_audio_device COMMAND test_sdl_audio_device)
+        register_host_test(test_sdl_audio_device)
+    endif()
 endif()

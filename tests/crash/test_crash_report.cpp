@@ -303,6 +303,18 @@ static void check_kind(const char *kind, unsigned long expected, const char *blo
     ASSERT_TRUE(control.status == handled.status);
 #if defined(_WIN32)
     ASSERT_TRUE(control.status == expected);
+    if (!strcmp(kind, "stack") || !strcmp(kind, "thread-stack")) {
+        const char *marker = "TEST stack-guarantee ";
+        const size_t controlMarker = control.log.find(marker);
+        const size_t handledMarker = handled.log.find(marker);
+        ASSERT_TRUE(controlMarker != std::string::npos && handledMarker != std::string::npos);
+        if (controlMarker != std::string::npos && handledMarker != std::string::npos) {
+            const unsigned long controlGuarantee = strtoul(control.log.c_str() + controlMarker + strlen(marker), NULL, 10);
+            const unsigned long handledGuarantee = strtoul(handled.log.c_str() + handledMarker + strlen(marker), NULL, 10);
+            ASSERT_TRUE(controlGuarantee >= 32 * 1024);
+            ASSERT_EQ_UINT(controlGuarantee, handledGuarantee);
+        }
+    }
 #else
     {
         int status = (int)control.status;

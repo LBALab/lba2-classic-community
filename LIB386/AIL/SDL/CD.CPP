@@ -1,7 +1,9 @@
 #include "CD_SDL.H"
 #include "STREAM_SDL.H"
+#include "CD_PATH.H"
 
-#include <SDL3/SDL.h>
+#include "SDK.H"
+#include <PLATFORM/PLATFORM.H>
 
 #include <stdio.h>
 #include <string.h>
@@ -30,19 +32,18 @@ static bool FileExists(const char *path) {
    filesystems.  Returns true and fills outPath if a match is found. */
 static bool BuildCDTrackPath(char *outPath, S32 pathMax, S32 trackOneBased) {
     static const char *musicDirs[] = {"music", "Music", "MUSIC"};
-    char *cwd = SDL_GetCurrentDirectory();
+    char *cwd = g_platform.host.current_directory();
     if (!cwd) {
         outPath[0] = '\0';
         return false;
     }
     for (int i = 0; i < 3; i++) {
-        int n = snprintf(outPath, pathMax, "%s%s/Track%02d.wav", cwd, musicDirs[i], trackOneBased);
-        if (n >= 0 && n < pathMax && FileExists(outPath)) {
-            SDL_free(cwd);
+        if (SDLCD_FormatTrackPath(outPath, pathMax, cwd, musicDirs[i], trackOneBased) && FileExists(outPath)) {
+            g_platform.host.free_memory(cwd);
             return true;
         }
     }
-    SDL_free(cwd);
+    g_platform.host.free_memory(cwd);
     outPath[0] = '\0';
     return false;
 }

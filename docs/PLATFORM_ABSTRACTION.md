@@ -1,6 +1,6 @@
 # Platform abstraction layer
 
-The platform abstraction layer (PAL) separates live engine and game code from SDL. SDL3 is the default interactive implementation; the null implementation provides SDK-free offscreen presentation for desktop automation. The boundary covers window/presentation, events, keyboard/gamepad/touch input, clocks, host paths, dialogs, clipboard, and diagnostics. Native Android context stays private to the SDL3 backend. Audio keeps its existing, independent AIL backend contract.
+The platform abstraction layer (PAL) separates live engine and game code from SDL. SDL3 is the default interactive implementation; SDL2 is an optional desktop implementation with audio; the null implementation provides SDK-free offscreen presentation for desktop automation. The boundary covers window/presentation, events, keyboard/gamepad/touch input, clocks, host paths, dialogs, clipboard, and diagnostics. Android requires SDL3, and native Android context stays private to that backend. Audio keeps its existing, independent AIL backend contract.
 
 This implements the platform-decoupling and headless-backend parts of [discussion #120](https://github.com/LBALab/lba2-classic-community/discussions/120), without the proposed directory-wide restructure, hardware renderer, or main-loop inversion. The preceding audit remains in [the PAL extraction plan](plan/PLATFORM_PAL_PLAN.md); this document describes shipped code.
 
@@ -42,7 +42,31 @@ ctest --test-dir build-null -L host_quick --output-on-failure
 
 SDL package discovery is disabled in the Linux SDK-free CI job, which builds the game and host tests, rejects SDL dynamic linkage, and boots the executable through help and an isolated missing-data failure. The latter initializes host services and writes its own log without retail assets. With retail data, use the normal harness flags including `--headless`, `--no-autosave` and an owned `--user-dir`; this backend does not invert the blocking game loop.
 
-`PLATFORM_BACKEND=null` requires `SOUND_BACKEND=null`. The current SDL audio implementation shares the SDL3 platform's SDK target, so choosing it with a non-SDL platform is an explicit configuration error. Null builds retain Smacker video decoding by default, with silent audio. Android's Activity entry point is not supported by the desktop null backend.
+`PLATFORM_BACKEND=null` requires `SOUND_BACKEND=null`. The SDL audio implementation uses the selected SDL2/SDL3 platform's SDK target, so choosing it with a non-SDL platform is an explicit configuration error. Null builds retain Smacker video decoding by default, with silent audio. Android's Activity entry point is not supported by the desktop null backend.
+
+## SDL2 desktop backend
+
+The [SDL2 backend](../LIB386/PLATFORM/SDL2/BACKEND.CPP) implements the same contract without linking SDL3. Its minimum SDK version is specified by `find_package` in [the platform CMake file](../LIB386/PLATFORM/CMakeLists.txt); driver hints require that floor. SDL3 remains the default and the only Android implementation.
+
+```bash
+cmake -S . -B build-sdl2 -DPLATFORM_BACKEND=sdl2 -DSOUND_BACKEND=sdl \
+  -DCMAKE_DISABLE_FIND_PACKAGE_SDL3=ON \
+  -DLBA2_BUILD_TESTS=ON -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF
+cmake --build build-sdl2 --target lba2cc host_tests
+ctest --test-dir build-sdl2 -L host_quick --output-on-failure
+```
+
+SDL2 translates controller device indices on add events to stable instance IDs, and translates those IDs back to indices when opening a controller. Text events carry embedded storage rather than SDL3's pointer payload: polling retains the native event until the next poll. Physical key IDs and controller units retain the same engine vocabulary.
+
+Presentation uses a streaming texture and explicit letterboxing. Nearest-neighbour filtering remains the default; linear filtering is supported and retained across texture/window recreation. SDL2 refuses pixelart filtering with an explanatory error without changing the active mode, allowing the engine's configuration policy to select its fallback. SDL2's logical-size feature rewrites mouse and finger events, so the backend computes the presentation rectangle and window-to-frame coordinates itself, leaving input events in their contract-defined units.
+
+SDL2 has no native folder-dialog API. Those callbacks fail with an explanatory error; use `--game-dir`, `LBA2_GAME_DIR`, or normal resource discovery instead. No shell command or extra dialog dependency is introduced. Message boxes and clipboard remain native SDL2 services. `SDL2::SDL2-static` is selected when `LBA2_LINK_STATIC=ON`.
+
+Directory creation makes missing parents while preserving existing filesystem roots. On Windows, a UNC path such as `\\server\share\profile` creates only descendants of the existing server/share root; it never tries to create the server or share. Root-only requests verify that the root exists and is a directory.
+
+Some distributions package `sdl2-compat`, which implements the SDL2 API on SDL3. Such a package can satisfy CMake but is not evidence of SDL3-independent operation. Backend validation should use genuine SDL2.
+
+The independent Linux SDL2 CI job builds genuine upstream SDL2 at the supported API floor read from CMake, disables SDL3 package discovery, builds the whole game and host suite, rejects SDL3 dynamic linkage, and runs dummy-driver conformance plus an isolated missing-data boot.
 
 ## Dependency direction
 
@@ -64,7 +88,7 @@ The preserved Android service declarations in [ANDROID.H](../LIB386/H/SYSTEM/AND
 
 Game code should use an existing engine facade when it covers the operation: for example, `InitWindow` and `Window_SetVSync` in [WINDOW.CPP](../LIB386/SYSTEM/WINDOW.CPP), and framebuffer operations in [SDL.CPP](../LIB386/SVGA/SDL.CPP). These facades retain engine-owned policy and compatibility. Direct `g_platform` calls are appropriate for backend-neutral infrastructure and host services without a facade; they must not bypass input, timing, or framebuffer policy. Neither route permits SDK calls in game or engine code.
 
-`make arch-check` enforces SDK containment and the platform's include boundary, including new, unstaged files. The only preserved SDL exception outside the SDL3 and AIL backends is the unbuilt Win32 keyboard driver, `LIB386/SYSTEM/KEYBWIN.CPP`.
+`make arch-check` enforces SDK containment and the platform's include boundary, including new, unstaged files. The only preserved SDL exception outside the SDL2/SDL3 and AIL backends is the unbuilt Win32 keyboard driver, `LIB386/SYSTEM/KEYBWIN.CPP`.
 
 ## Input and compatibility
 
@@ -106,7 +130,7 @@ Path removal succeeds if the path is already absent. Directory removal requires 
 
 `window.init` is idempotent and prepares display discovery before framebuffer sizing; the later `create` call creates the actual surface. Message-box and folder-dialog services initialise their own native prerequisites, so callers do not manage video subsystems.
 
-`--headless` selects the SDL3 dummy video driver through the PAL and the dummy audio driver through `AIL_SetHeadless` before initialisation. The engine continues to own fixed-dt simulation time independently of the backend's wall clock.
+`--headless` selects the SDL2/SDL3 dummy video driver through the PAL and the matching dummy audio driver through `AIL_SetHeadless` before initialisation. The engine continues to own fixed-dt simulation time independently of the backend's wall clock.
 
 ## Adding another backend
 
@@ -115,10 +139,10 @@ Path removal succeeds if the path is already absent. Directory removal requires 
 3. Translate native events, physical-key IDs, controller buttons and axis ranges into the fixed engine vocabulary. Supply capabilities appropriate to the host, including permanently fullscreen devices.
 4. Present indexed pixels and handle overlays, scaling, and coordinate mapping consistently. Do not depend on engine framebuffer globals.
 5. Supply host paths and meaningful failure results for unavailable clipboard/dialog services. Preserve allocation pairing and borrowed-data lifetimes.
-6. Select or add an AIL audio backend separately; `SOUND_BACKEND=null` is the existing silent choice. The current `sdl` AIL implementation uses SDL3.
+6. Select or add an AIL audio backend separately; `SOUND_BACKEND=null` is the existing silent choice. The `sdl` AIL implementation uses the selected SDL2/SDL3 SDK, sharing decoding and voice policy through a private output transport.
 7. Add a behavioral check for every callback, including ownership, error results, and observable state where applicable; a non-null function pointer alone does not prove correct wiring. Run the SDK-free contract fixture, host suite, and existing ASM equivalence suite.
 
-SDL2/SDL1 can implement the same contract without exposing their different event/renderer APIs. KallistiOS can present the software framebuffer through native facilities and map controller input into the same game policy. Neither implementation is shipped yet.
+SDL1 can implement the same contract without exposing its different event/renderer APIs. KallistiOS can present the software framebuffer through native facilities and map controller input into the same game policy. Neither implementation is shipped yet.
 
 libretro additionally requires frontend-owned frame stepping and resumable modal/menu loops. The PAL removes SDL coupling; it does not make the existing blocking game loop a libretro core. Main-loop conversion is intentionally separate work.
 
@@ -135,6 +159,10 @@ Audio mixing remains AIL-owned. The software rasteriser and ASM-equivalence math
 | `test_platform_contract` | SDL-free link of real engine facades and input policy; C11 and C++98 header compilation (including absence of C99 integer-constant macros); event order, focus/audio/timer coupling, fixed-dt/wrap, input hooks, pad edges/hotplug, touch wake/reapply/release, full-buffer conversion, palette snapshots and nested present/overlay ordering |
 | `test_platform_sdl3` | Complete production table; physical-ID/keymap/modifier compatibility; exact event payloads and native polling housekeeping; fullscreen requests versus actual state, vsync, present filter read back from stretched pixels, relative mouse, cursor and text-input behavior; native virtual-gamepad sampling; paths/directory/allocator/error ownership; modal dispatch and worker-thread folder results; diagnostic severity/userdata; and byte-exact pixels read from the actual SDL renderer |
 | `test_platform_sdl3_staging` | The same conformance checks compiled with the persistent-buffer/upload path, including frame resizing |
+| `test_platform_sdl2` | Desktop SDL2 event payloads and borrowed text, unmodified mouse/finger coordinates, controller instance IDs and sampling, fullscreen rollback, host services/errors, diagnostics, lifecycle and byte-exact real-renderer frames |
+| `test_platform_callbacks` | Every callback on the selected production backend is non-null; named-field checks are generated from the public contract, and each deliberately omitted callback is detected |
+| `test_sdl_audio` | Simultaneous sample/music/video transports, queued source bytes, gain, pause and WAV loading on either SDK; SDL2 additionally compares full converted output against an independent native converter over deterministic random inputs and checks mixing, EOF, independent stream lifetime and recursive callback locking |
+| `test_sdl_audio_device` | SDL2 production callback/device consumption with dummy audio, without deterministic-read probes |
 | `test_platform_null` | SDK-free production callbacks, byte-exact offscreen frames and overlays, resize/lifecycle, empty input, host paths/clocks and explicit unavailable-service errors; selected with the null backend |
 | `test_platform_null_game` | Whole SDK-free executable help and isolated missing-data boot/log initialization; selected with the null backend |
 
