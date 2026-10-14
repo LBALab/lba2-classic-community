@@ -76,6 +76,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it plays and gives yours back when it ends; `lba2.cfg` keeps yours throughout.
   `--replay-own-settings` replays under your own settings instead and reports
   the ones that differ.
+- `settings_before [prefix]` in the console sets settings to the value that
+  switches off what they added: `settings_before cam_` is the Auto camera
+  without its later behaviours.
 
 ### Changed
 

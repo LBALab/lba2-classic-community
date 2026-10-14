@@ -93,6 +93,28 @@ typedef enum {
                              line; or overwritten from another setting that is recorded */
 } T_SETTING_RECORD;
 
+/* The value that gives back what the game did before the setting existed: off,
+ * for a setting that switches a later behaviour on.
+ *
+ * Fixtures measure from there. A test about one of the Auto camera's later
+ * behaviours switches the others to this value, so it says what it measures and
+ * does not move when one of them ships on by default; `settings_before cam_`
+ * does that from the rows rather than from a list each new setting has to be
+ * added to by hand.
+ *
+ * Left out of a row, it is zero: the row has none. That is right for a setting
+ * that only tunes another one, and for one whose value is the thing a fixture
+ * sets itself. There is no value that would be safe to assume instead. */
+typedef struct {
+    S32 has; /* 0: no value from before the setting */
+    S32 value;
+} T_SETTING_BEFORE;
+
+/* Unformatted: clang-format 18.1.3 (CI) and 18.1.8 disagree on a braced macro body. */
+// clang-format off
+#define SETTING_BEFORE(v) {1, (v)}
+// clang-format on
+
 /* Tagged so a header that only hands out a pointer to a table can say
  * `struct T_SETTING;` instead of including this file. */
 typedef struct T_SETTING {
@@ -119,6 +141,7 @@ typedef struct T_SETTING {
     T_SETTING_SOURCE *source;     /* where the live value came from; NULL to not track it */
     const char *help;             /* console help text */
     T_SETTING_RECORD record;      /* left out of a row, it is recorded; see above */
+    T_SETTING_BEFORE before;      /* left out of a row, it has none; see above */
 } T_SETTING;
 
 /* Store a value into a setting and tell its owner, which is what "setting" a
@@ -182,6 +205,15 @@ static inline void Settings_Apply(const T_SETTING *s, S32 value) {
         *s->source = SETTING_FROM_RUNTIME;
     if (s->on_change != NULL)
         s->on_change(*s->value);
+}
+
+/* Set a row to its value from before it existed, as the console would set it.
+ * Returns 0, touching nothing, for a row that has none. */
+static inline S32 Settings_ApplyBefore(const T_SETTING *s) {
+    if (!s->before.has)
+        return 0;
+    Settings_Apply(s, s->before.value);
+    return 1;
 }
 
 /* Which value to persist for a setting a flag may be forcing this run: the

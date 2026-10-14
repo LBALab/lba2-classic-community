@@ -7,8 +7,8 @@
 # These helpers turn a `camtrace` run into a per-frame table so a fixture can assert on that
 # shape in a couple of lines.
 #
-# Needs a binary with the camera console commands (`camtrace`, `camnudge`); cam_precheck skips
-# cleanly without one.
+# Needs a binary with the camera console commands (`camtrace`, `camnudge`, `settings_before`);
+# cam_precheck skips cleanly without one.
 
 # The corpus save the camera fixtures run in: island 6 cube 97, an exterior, which is where the
 # Auto camera lives (interiors and camera zones run other code).
@@ -21,16 +21,19 @@ CAM_SAVE="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Wannies fragment.
 #
 # The two eases paced by the clock are off here as well: the turn behind the hero is the
 # per-frame lerp, and the look-at point is pinned to him.
+#
+# Which settings those are is said by their rows in FOLLOWCAM.CPP (SETTING_BEFORE), not here,
+# so a new one is covered by declaring it there.
 # shellcheck disable=SC2034  # read by the fixtures that source this file
-CAM_PLAIN="cam_scene_carry 0; cam_zone_skip 0; cam_zone_return 0; cam_zone_anchor 0; cam_world_anchor 0; cam_obstruct 0; cam_ease_ms 0; cam_target_ms 0"
+CAM_PLAIN="settings_before cam_"
 
 # cam_precheck -- everything the camera fixtures need, on top of the usual precheck.
 cam_precheck() {
     precheck
     [ -f "$CAM_SAVE" ] || skip "fixture missing: $CAM_SAVE"
-    case "$(ctl_headless --exec 'help camtrace' --tick 2 --exit 2>/dev/null)" in
+    case "$(ctl_headless --exec 'help camtrace; help settings_before' --tick 2 --exit 2>/dev/null)" in
         *"Unknown help topic"*)
-            skip "binary predates the camera console commands (camtrace/camnudge)" ;;
+            skip "binary predates the camera console commands (camtrace/camnudge/settings_before)" ;;
     esac
 }
 
