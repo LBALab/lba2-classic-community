@@ -195,6 +195,41 @@ To run only the console suite: `ctest -R test_console_ --output-on-failure`.
 
 The last case is why it is a host test rather than a fixture. It moves the process to the root of the volume the folder is going on and creates from there, which on Windows makes the first component of an absolute path (`C:`) resolve to a directory that cannot be created. That is the shape that silently created nothing for years, and `tests/automation/test_user_dirs.sh` can only reach it on a Windows machine somebody runs it on by hand. This one runs in `ctest -L host_quick`, including the Windows PR job.
 
+### 8. Camera fixtures (`tests/automation`, local)
+
+The camera is guarded in two places. CI runs `tests/camera/test_followcam_math.cpp`, which covers the angle and ease arithmetic in `FOLLOWCAM_MATH.H` over its whole domain and needs no data. The behavioural fixtures below drive the real engine, so they need retail data and a display and run in no CI workflow: a camera change CI passes has had its arithmetic checked and its behaviour not. Run every `test_*cam*.sh` on both data sets, the default and the US disc. How the camera works is in [CAMERA_INTERNALS.md](CAMERA_INTERNALS.md).
+
+`camlib.sh` turns a run's `camtrace` into a per-frame table, so each fixture asserts on the shape of a motion rather than one end state. The trace fields are listed under `camtrace` in [CONSOLE.md](CONSOLE.md); `camnudge` drives the analog camera without a device, `--dump-state` carries a `camera` block and `zonelist` turns "get into a camera zone" into a `cube` plus `teleport`.
+
+| fixture | what it pins |
+| --- | --- |
+| `autocam_orbit_snap` | a 1-unit touch moves the camera 1 unit, with a turn's worth of rotation pending |
+| `followcam_hold` | the angle survives the hero turning underneath it |
+| `followcam_release` | letting go eases down instead of halting |
+| `followcam_tracking` | the camera orbits at the speed asked for |
+| `followcam_recenter` | the classic camera drifts back while walking, not while standing |
+| `followcam_interrupt` | an interrupted gesture ends instead of resuming |
+| `followcam_obstruct` | with `cam_obstruct`, the tilt over a building is an extra that comes and goes with the building, the player's pitch is never rewritten, and the hero is never hidden or recentred |
+| `followcam_ease` | with `cam_ease_ms`, the turn behind the hero takes the time the setting says at either update length and lands on its target; with `cam_target_ms`, the look-at point trails the hero, closes after he stops, and keeps its trail across the seam between two scenes |
+| `followcam_scene_carry` | with `cam_scene_carry`, the camera arrives behind the hero with the pitch left alone: the pan kept across an ordered change between two outdoor scenes, and sent home after a visit to a building |
+| `followcam_world_anchor` | with `cam_world_anchor`, the target holds still while the hero turns on the spot and while walking, an orbit still moves it, with `cam_hold_angle 0` it comes back behind him by the ground he walks (not during the grace, a turn on the spot, standing or backing up), and a holding shot gives back the world direction the camera had before it |
+| `camzone_model` | the two shapes a camera zone comes in |
+| `camzone_skip` | with `cam_zone_skip`, a latching zone leaves a steering player's view alone under the Auto camera; forced zones and the classic camera are unaffected |
+| `camzone_hold` | both cameras leave an authored shot in the same place |
+| `camzone_return` | with `cam_zone_return` or `cam_zone_anchor` on, a shot's yaw and pitch come back on leaving its box, the player's own stay, and a latching shot holds its world angle |
+| `camzone_blend` | with `cam_shot_blend_ms`, the frame blends into a shot and out of it over the time the setting says, starting on the view on screen and ending on the camera's own, with the camera's own state as it is with the setting at 0; Center camera in the middle of one is still a cut |
+
+Most start from `CAM_PLAIN`, which is `settings_before cam_`: every Auto camera setting that switches on a later behaviour is set to the value that switches it off, and the fixture switches on what it measures. A new setting of that kind declares that value on its row in `FOLLOWCAM.CPP` (`SETTING_BEFORE`), and `make settings-before-check` refuses a `cam_` row that says neither `SETTING_BEFORE(v)` nor `SETTING_BEFORE_NONE`.
+
+Things that have caught camera work out:
+
+- **Run a new fixture against a build without the thing it guards** and confirm it fails there. Several passed at first because their setup never happened.
+- **Assert the cause when the symptom is unobservable.** The orbit realign runs in the input pass, before the camera update logs anything, so on a working engine the divergence it corrects leaves no trace.
+- **A `camtrace` row is a simulation step, not a rendered frame.** Under `--fixed-dt` above 16 one tick is several rows, so a motion's time is its rows times the step.
+- **Check at 480 and at a tall height.** The HD recompose is a no-op at 480, so a change measured at one height has not met the other's framing.
+- **A render-only change can still reach state**: the hidden-hero recovery reads what was drawn. Compare every trace field the change does not show against the run with it off, as `test_camzone_blend.sh` does.
+- **Count steps from `$LBA2_USER_DIR/adeline.log`**, not the stdout capture, where lines collide with the console echo.
+
 ## Test harness
 
 `tests/test_harness.h` provides a minimal TAP-style harness with no external

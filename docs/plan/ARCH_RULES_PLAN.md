@@ -219,7 +219,7 @@ Two live cases, both console command descriptions:
 Both should say the thing itself or point at `README.txt`, which ships.
 
 The check reads string literals only, so a comment naming a doc stays legal, which it should:
-`FOLLOWCAM_CFG.H` cites CAMERA.md in a comment and that is the right place for it. Issue
+`FOLLOWCAM_CFG.H` cites CAMERA_INTERNALS.md in a comment and that is the right place for it. Issue
 numbers need the pattern anchored tightly enough to leave
 [EXIT_SCREEN.CPP](../../SOURCES/EXIT_SCREEN.CPP)'s "RULE #1024-GH" joke alone.
 

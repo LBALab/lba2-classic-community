@@ -170,5 +170,5 @@ loaded the values rather than inside it.
 - [SAVEGAME.md](SAVEGAME.md) for LastSave and CompressSave usage
 - [AUDIO.md](AUDIO.md) for volume/master volume behavior
 - [GFX_OPTIONS.md](GFX_OPTIONS.md) for DetailLevel / Shadow effects
-- [CAMERA.md](CAMERA.md) for camera system and Auto camera (`FollowCamera` key)
+- [CAMERA.md](CAMERA.md) for the Auto camera (`FollowCamera` key) and its settings; [CAMERA_INTERNALS.md](CAMERA_INTERNALS.md) for how the camera works
 

@@ -491,7 +491,7 @@ There is no server here. Nothing to buy.
 
 **Absolute view angles in the command.** In Doom 3 the player's angles are the aim, and
 `usercmd_t.angles` is authoritative. Here the hero turns and the camera follows, and the camera's
-rules are established by measurement in [CAMERA.md](../CAMERA.md). Adopting the id angle model
+rules are established by measurement in [CAMERA_INTERNALS.md](../CAMERA_INTERNALS.md). Adopting the id angle model
 would rewrite that contract for no gain.
 
 **Bindings dispatched as text for movement.** Quake 3 did this; Doom 3 explicitly stopped, and

@@ -1581,7 +1581,7 @@ binding table. The waist exists.
 
 **Absolute view angles in the sample.** Rejected for the same reason
 [INPUT_DOOM3_RESEARCH.md](INPUT_DOOM3_RESEARCH.md) rejects them: the hero turns and the camera
-follows, and the camera's rules are established by measurement in [CAMERA.md](../CAMERA.md).
+follows, and the camera's rules are established by measurement in [CAMERA_INTERNALS.md](../CAMERA_INTERNALS.md).
 
 **Two record systems at two layers.** Doom 3 has both the journal and command demos because the
 journal was already there from Quake 3. Here the journal layer is measurably unusable, so there
