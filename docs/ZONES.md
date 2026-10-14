@@ -44,7 +44,7 @@ listed are unused by that type.
 | Type | Name | Info slots |
 | --- | --- | --- |
 | 0 | cube | `Num` = target cube. `Info0/1/2` = arrival X/Y/Z (Y is relative to `Y0`). `Info5 & ZONE_TEST_BRICK` = require a door collision rather than firing on entry. `Info6 & ZONE_DONT_REAJUST_POS_TWINSEN` = skip the arrival reposition |
-| 1 | camera | The whole authored shot. `Info0/1/2` = eye position in cube coordinates, `Info3` = `AlphaCam`, `Info4` = `BetaCam`, `Info5` = `GammaCam`, `Info6` = `VueDistance` |
+| 1 | camera | The whole authored shot. `Info0/1/2` = the point the camera looks at, in bricks, written to `StartXCube`/`YCube`/`ZCube` (the eye sits `Info6` away from it at the shot's angles), `Info3` = `AlphaCam`, `Info4` = `BetaCam`, `Info5` = `GammaCam`, `Info6` = `VueDistance` |
 | 2 | scenaric | `Num` is written to the hero's `ZoneSce`, where a Life script reads it via `LF_ZONE_OBJ`. Carries no other payload: the behaviour is entirely in the script |
 | 3 | grid | No runtime handler found in the zone dispatch. Present in the type table and in editor paths only |
 | 4 | giver | `Info0` = bonus kind (through `WhichBonus`), `Info1` = how many, `Info2` = already-taken latch. Fires on the action button while inside, and spawns the bonus at the box's centre and `Y1` (`ZoneGiveExtraBonus`, `SOURCES/EXTRA.CPP`) |
