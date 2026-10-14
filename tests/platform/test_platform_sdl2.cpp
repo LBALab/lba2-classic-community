@@ -56,7 +56,7 @@ static void test_present_filter_and_surface_recreation() {
     ASSERT_MEM_EQ(&linear[0], &rendered[0], linear.size() * sizeof(uint32_t));
     ASSERT_TRUE(!g_platform.window.set_present_filter(PLATFORM_FILTER_PIXELART));
     ASSERT_TRUE(strstr(SDL_GetError(), "pixelart") != NULL);
-    ASSERT_TRUE(!g_platform.window.set_present_filter((PlatformPresentFilter)99));
+    ASSERT_TRUE(!g_platform.window.set_present_filter((PlatformPresentFilter)3));
     ASSERT_TRUE(SDL_GetError()[0] != '\0');
     ASSERT_TRUE(g_platform.window.present(&frame));
     ASSERT_MEM_EQ(&linear[0], &rendered[0], linear.size() * sizeof(uint32_t));
