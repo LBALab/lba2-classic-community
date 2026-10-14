@@ -115,7 +115,7 @@ refused on exterior islands, where the hero is snapped back to valid ground.
 
 ## Related
 
-- `docs/CAMERA.md` -- the camera system the type 1 zones drive.
+- `docs/CAMERA_INTERNALS.md` -- the camera system the type 1 zones drive.
 - `docs/SCENES.md` -- the scenes zones belong to, and the exterior island grid.
 - `docs/TRANSITIONS.md` -- what a type 0 zone kicks off.
 - `docs/CONSOLE.md` -- the rest of the console commands.

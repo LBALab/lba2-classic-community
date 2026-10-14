@@ -1,6 +1,6 @@
 # Projection 4:3 assumption audit
 
-A read-only inventory of every place the 3D projection path bakes in a 640×480 / 4:3 framebuffer, checked against the `RESOLUTION_X` / `RESOLUTION_Y` migration in [PR #134](https://github.com/LBALab/lba2-classic-community/pull/134) (Phase B in [WIDESCREEN.md](WIDESCREEN.md)). It complements [CAMERA.md](CAMERA.md), which describes the camera and projection model in general; this doc only tracks the resolution assumptions.
+A read-only inventory of every place the 3D projection path bakes in a 640×480 / 4:3 framebuffer, checked against the `RESOLUTION_X` / `RESOLUTION_Y` migration in [PR #134](https://github.com/LBALab/lba2-classic-community/pull/134) (Phase B in [WIDESCREEN.md](WIDESCREEN.md)). It complements [CAMERA_INTERNALS.md](CAMERA_INTERNALS.md), which describes the camera and projection model in general; this doc only tracks the resolution assumptions.
 
 File and line references were verified against the working tree on 2026-05-21. Treat them as drift-prone — re-grep before relying on an exact line.
 

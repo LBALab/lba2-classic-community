@@ -85,7 +85,7 @@ Truth hierarchy: code > this document > external sources.
 1. **AGENTS.md:** Documentation first → use GLOSSARY, LIFECYCLES before inferring from code.
 
 2. **Read first:**
-   - [docs/CAMERA.md](CAMERA.md) — Interior vs exterior paths, `CameraCenter`, `SearchCameraPos`, Auto camera / `FollowCamera` (community).
+   - [docs/CAMERA_INTERNALS.md](CAMERA_INTERNALS.md) — Interior vs exterior paths, `CameraCenter`, `SearchCameraPos`, Auto camera / `FollowCamera` (community).
    - [docs/GLOSSARY.md](GLOSSARY.md) — Zone type 1 = camera. `AllCameras` in CONFIG.
    - [docs/LIFECYCLES.md](LIFECYCLES.md) — Scene load phase 6: "Initialize camera position". Main loop step 7: `AffScene` (render).
    - [docs/MENU.md](MENU.md) — Options → Cameras (46/47), toggles `AllCameras`; Advanced options for Auto camera (`FollowCamera`).

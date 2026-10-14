@@ -18,7 +18,8 @@ Index of documentation in this repository.
 | [CONFIG.md](CONFIG.md) | lba2.cfg lifecycle, keys, and what each does (original vs community). |
 | [VERSIONS.md](VERSIONS.md) | Every "version" field in the engine and what it does: `DistribVersion` (the `Version` config key) and its six branch sites, the dead `Version_US`, installer-only keys, save-layout `NUM_VERSION`, and what the pressed discs actually declare. |
 | [SAVEGAME.md](SAVEGAME.md) | .lba save format: lifecycle, binary layout, version compatibility, save editors, LBALab tools. |
-| [CAMERA.md](CAMERA.md) | Camera system: interior (iso) vs exterior (perspective), CameraCenter, Auto camera (`FollowCamera`, community addition). |
+| [CAMERA.md](CAMERA.md) | Player guide to the camera: switching on the Auto camera (`FollowCamera`, community addition), its controls, what it does, and its settings. |
+| [CAMERA_INTERNALS.md](CAMERA_INTERNALS.md) | Camera internals: interior (iso) vs exterior (perspective), CameraCenter, camera zones, and how each piece of the Auto camera works. |
 | [TIMING.md](TIMING.md) | Engine timing: TimerSystemHR vs TimerRefHR, LockTimer vs SaveTimer semantics, ManageTime call sites, fixed-dt overlay, and the 1997 `ManageTime` bug history. |
 | [TRANSITIONS.md](TRANSITIONS.md) | Scene and FMV transitions: the fade-out / load / fade-in reveal, why the palette must be black when a scene is composited, `PlayAcf`'s leave-black contract, the `FlagFade`/`FlagBlackPal` state, and the pop regression classes (#353/#404). |
 | [MOVEMENT_FRAMERATE.md](MOVEMENT_FRAMERATE.md) | Why movement speed is frame-rate dependent (#358): animation-baked locomotion, the two couplings in `ObjectSetInterDep`, evidence, and the fixed-simulation-timestep fix. |

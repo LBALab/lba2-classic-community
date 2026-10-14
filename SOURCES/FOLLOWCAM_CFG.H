@@ -176,7 +176,7 @@
 /* The exterior projection has a fixed focal (ChampX/ChampZ = 600); a taller
  * framebuffer therefore reveals more vertical field of view rather than zooming,
  * so the frame fills with sky and the hero shrinks (see docs/WIDESCREEN.md
- * "Vertical framing at HD" and docs/CAMERA.md). The follow camera answers this
+ * "Vertical framing at HD" and docs/CAMERA_INTERNALS.md). The follow camera answers this
  * by pulling its boom in and steepening its pitch ("recompose, not crop").
  * k = ModeDesiredY / 480; every lever scales with (k-1), expressed as the
  * hundredths excess kExcess = ModeDesiredY*100/480 - 100 (0 at 480, 125 at

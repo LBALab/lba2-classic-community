@@ -289,7 +289,7 @@ dump is complete (the LBA engine historically also had per-actor `Info`/`Info1..
 in `T_OBJET`, `DEFINES.H:353-356`).
 
 **Camera** — `BetaCam`, `AlphaCam`, `VueDistance`, `VueOffsetX/Y/Z`,
-`StartXCube/YCube/ZCube` (`PERSO.CPP:1735-1741`, see `docs/CAMERA.md`).
+`StartXCube/YCube/ZCube` (`PERSO.CPP:1735-1741`, see `docs/CAMERA_INTERNALS.md`).
 
 **Timer / frame** — `TimerRefHR`, `CmptFrame`, `NbFramePerSecond` (all in
 `LIB386/SYSTEM/TIMER.CPP:15-18`).

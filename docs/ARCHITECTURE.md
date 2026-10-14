@@ -45,7 +45,7 @@ that goes deeper. This table is the map-of-maps.
 | Domain | Layer | Deeper references |
 |---|---|---|
 | Gameplay / simulation | Game on engine substrate | [IMPACT_SCRIPTS.md](IMPACT_SCRIPTS.md), [LBA_EDITOR.md](LBA_EDITOR.md), [GLOSSARY.md](GLOSSARY.md) |
-| Rendering | Engine | [CAMERA.md](CAMERA.md), [SPRITES.md](SPRITES.md), [GFX_OPTIONS.md](GFX_OPTIONS.md), [POLYREC.md](POLYREC.md) |
+| Rendering | Engine | [CAMERA_INTERNALS.md](CAMERA_INTERNALS.md), [SPRITES.md](SPRITES.md), [GFX_OPTIONS.md](GFX_OPTIONS.md), [POLYREC.md](POLYREC.md) |
 | World / cube transform | Engine | [SCENES.md](SCENES.md) |
 | Resources / assets | Engine | [GAME_DATA.md](GAME_DATA.md), [ABI.md](ABI.md) |
 | Audio | Engine + game scheduling | [AUDIO.md](AUDIO.md) |
