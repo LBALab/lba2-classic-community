@@ -10,248 +10,520 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added
+### Android: updating from 0.12.0 erases your saves, once
 
-- `camtrace` reports the milliseconds the Auto camera's update was paced by and
-  how far the look-at point trails the hero.
-- `camtrace` reports the point the camera looks at, and the view the frame shows
-  with how long is left of a blend into or out of a scripted shot.
-- `cam_world_anchor` (`FollowCamWorldAnchor` in `lba2.cfg`), experimental and
-  off by default: the Auto camera holds a direction in the world instead of
-  turning with the hero. With `cam_hold_angle 0` it comes back behind him as he
-  walks, paced by the distance walked (`cam_world_return`), and stays put while
-  he turns on the spot; with `cam_hold_angle 1` only the player turns it.
-- `cam_zone_anchor` (`FollowCamZoneAnchor` in `lba2.cfg`), experimental and off
-  by default: inside the box of a scripted shot that fires once, the Auto
-  camera holds the shot's own angle as the classic camera does.
-- `camtrace` reports four more things per frame: whether the hero stands in the
-  box of a shot that has fired, what the camera still owes back from a shot, the
-  tilt being added to clear an obstruction, and whether the hero was drawn
-  hidden.
-- `PresentFilter` in `lba2.cfg`, `gfx_presentfilter` in the console and
-  `LBA2_PRESENT_FILTER` for one run choose the filter that stretches the frame to
-  the window: nearest (the default, unchanged), linear, or pixelart, which keeps
-  pixels sharp and blends only their seams. Pixelart needs SDL 3.4 or newer.
-- `--user-dir <dir>` (or `LBA2_USER_DIR`) chooses the folder a run writes its
-  saves, settings and log to, created if missing. Previously that folder was
-  fixed per user, so every install on a machine shared one.
-- `--profile <name>` (or `LBA2_PROFILE`) keeps a run's saves and settings under
-  a name of their own, in `profiles/<name>/` inside the user folder. A profile
-  remembers the install it was given, so naming it is enough after the first
-  time. It binds once: naming another folder later runs against it and leaves the
-  binding alone, and `--bind-game-dir` is what moves it, so trying a second
-  install for one run cannot replace the setup the profile holds. Running without
-  a profile writes where the game always did, so nothing existing moves.
-- An empty file called `portable.txt` beside the binary makes the whole tree
-  self-contained: the user folder becomes `User/<build>/` next to the binary, so
-  a copy on a USB stick carries its saves with it. A `profile:` line in that file
-  names the profile the tree uses by default. Anything passed on the command line
-  still wins over it.
-- The boot banner says how the run chose where to write, and which release it
-  believes it is: a `Writes:` line naming the profile and the mechanism, and a
-  `Release` line stating the declared publisher and whether anything declared it.
-- The release line also says what the game data itself measures as, read off
-  `RESS.HQR` at boot, so a config declaring one publisher over another's assets
-  is reported instead of quietly drawing the wrong logo. An install that ships no
-  config gets the answer from its data: European data runs exactly as it always
-  has, and American data now gets the American sprites and disc label instead of
-  the European ones.
-- `ShowDistribLogo` in `lba2.cfg` turns the publisher splash on or off. It
-  defaults to on when a config declares a release and off when nothing does,
-  because a release shipping no config ships no publisher branding either, and a
-  value read off the data is not grounds for showing one.
-- `distrib logo <on|off>` in the console sets that key without changing which
-  release the engine thinks it is running.
+- Android will not install this version over 0.12.0 or any earlier build. It
+  says *"App not installed as package conflicts with an existing package"*, and
+  the only way through is to uninstall the old app first. **The uninstall erases
+  your saves and settings.** Earlier builds kept them in the app's private
+  storage, which nothing but the app itself can read on a phone that is not
+  rooted, so there is no way to copy them out first. On a rooted phone there
+  is, and [docs/ANDROID.md](docs/ANDROID.md#updating-without-losing-your-progress)
+  says how.
+- Game data in `/sdcard/lba2cc/`, where the guide told you to put it, survives
+  the uninstall. Game data in `/sdcard/Android/data/org.lbalab.lba2cc/files/`
+  does not: move it to `/sdcard/lba2cc/` before you uninstall.
+- This is the last time. Each earlier APK was signed with a throwaway key, so
+  Android treated every release, and the two architectures of one release, as
+  different apps. From this version every APK is signed with the same key, so
+  the next version installs over this one. Rolling `latest` builds downloaded
+  since 2026-09-08 already carry it.
+- Saves and settings now live in `/sdcard/lba2cc/user/LBA2/`, beside the game
+  data, where a file manager or a PC over USB can reach them and an uninstall
+  leaves them alone. Grant All Files Access when the game asks on first launch:
+  without it the game cannot write there and falls back to a folder the
+  uninstall erases. Granting it later carries those saves across on the next
+  launch
+  ([#660](https://github.com/LBALab/lba2-classic-community/pull/660)).
 
-- Session recording. `--record <path>` writes a play session to a file, and
-  `--replay <path>` plays it back into the same simulation and reports the first
-  tick where the two stop matching, so a bug found in play can be handed to
-  someone else as a file that reproduces it. A recording carries the input, the
-  console commands, the binding tables, a savegame at each end, and a per-tick
-  digest of the simulation, which is what lets a replay check rather than merely
-  re-press the keys. `--record-telemetry` adds every value behind that digest, so
-  a divergence names the field that moved instead of only the tick. Requires
-  `--fixed-dt`, and `docs/RECORDING.md` says why. Console verbs `rec
-  start|stop|play|info` do the same from a point you choose.
-- A replay runs under the settings its recording was made with. The recording
-  lists every setting the game may read, and a replay sets yours to those while
-  it plays and gives yours back when it ends; `lba2.cfg` keeps yours throughout.
-  `--replay-own-settings` replays under your own settings instead and reports
-  the ones that differ.
-- `settings_before [prefix]` in the console sets settings to the value that
-  switches off what they added: `settings_before cam_` is the Auto camera
-  without its later behaviours.
+### Known issues
 
-### Changed
+- The 32-bit Android build (`armeabi-v7a`) still crashes loading most scenes.
+  Of 25 checkpoint saves tested on a 64-bit phone running it, 17 crash while
+  their scene loads and 7 resume. New Game reaches the first scene; how far a
+  game gets from there has not been measured. The 64-bit build (`arm64-v8a`)
+  is not affected: use it on any device that runs it. A device with a 32-bit
+  kernel, such as a TV box, has not been tested
+  ([#684](https://github.com/LBALab/lba2-classic-community/issues/684),
+  [#685](https://github.com/LBALab/lba2-classic-community/pull/685)).
+
+### Game data & disc images
+
+- A rip of a retail CD plays as it is, soundtrack included, where 0.12.0 read
+  only GOG's disc image. A folder holding only a `.bin` and a `.cue` counts as
+  the game folder wherever the game looks for one, Android's `/sdcard/lba2cc/`
+  included, and `--disc <file>` names an image directly. The CD themes play
+  from the US and Brazilian Activision and the European EA pressings,
+  split-track and big-endian rips included. An ISO has no room for them, so
+  rip to BIN/CUE. `disc` in the console shows what was mounted and where each
+  theme comes from
+  ([#460](https://github.com/LBALab/lba2-classic-community/pull/460), [#462](https://github.com/LBALab/lba2-classic-community/pull/462), [#472](https://github.com/LBALab/lba2-classic-community/pull/472), [#675](https://github.com/LBALab/lba2-classic-community/pull/675)).
+- `scripts/dev/disc_extract.py` writes a playable game-data folder out of a
+  disc image, cutting the CD audio into the theme files the game looks for,
+  and `--from-drive` reads the soundtrack straight off a disc in a drive. It is
+  for a physical disc, a container the game mounts without audio (MDX, NRG,
+  CCD), or loose files to mod; a bin/cue rip does not need it
+  ([#471](https://github.com/LBALab/lba2-classic-community/pull/471)).
+- Game data whose file names mix upper and lower case (`ObjFix.HQR`) is found
+  on a case-sensitive filesystem, where the boot used to stop as if the files
+  were missing. Messages about missing files name them as they ship
+  (`LBA2.HQR`)
+  ([#699](https://github.com/LBALab/lba2-classic-community/pull/699)).
+- An AppImage started from a file manager finds the game data in the folder it
+  sits in, `Common/` included. It used to look only in the working directory
+  ([#486](https://github.com/LBALab/lba2-classic-community/pull/486)).
+- Running the game from inside an install whose data sits in `Common/` finds it
+  without `--game-dir`. It used to depend on the scan of the parent folder,
+  which stops after 24 entries and so could miss the install on a large Steam
+  library. Reported from a Steam Deck
+  ([#476](https://github.com/LBALab/lba2-classic-community/pull/476)).
+- When the folder you run from has no game data and the game boots an install
+  it found next door, it now warns and names it. A demo folder beside a retail
+  one used to load the retail data without a word
+  ([#479](https://github.com/LBALab/lba2-classic-community/pull/479)).
+- An `LBA2_GAME_DIR` that does not hold the game data is no longer passed over
+  for whichever install turns up next. The game tries a `Common/` inside it,
+  then opens the folder picker, or stops a headless run with an error naming
+  the variable. The boot banner's `Assets:` line says which probe found the
+  data
+  ([#469](https://github.com/LBALab/lba2-classic-community/pull/469)).
+
+### Camera
 
 - The Auto camera (off by default) behaves differently around buildings,
-  scripted camera shots and scenery. Each change is a setting, on by default,
-  with an `lba2.cfg` key and a console name; with all of them off the camera is
-  as it was.
-  - Coming out of a building, the camera starts straight behind the hero. It
-    used to be found off to one side and swing round, and a pan set before
-    going in came back out with him. Between two outdoor scenes a script
-    changes, the pan and the tilt the player set are now kept
-    (`cam_scene_carry`, `FollowCamSceneCarry`).
+  scripted camera shots and scenery. Each change is a setting, on by default;
+  with all of them off the camera is as it was, apart from the fixes below.
+  [docs/CAMERA.md](docs/CAMERA.md) lists them with their `lba2.cfg` keys.
+  - Coming out of a building, the camera starts straight behind the hero
+    instead of off to one side. Between two outdoor scenes a script changes,
+    the pan and tilt the player set are kept (`cam_scene_carry`).
   - A scripted shot that fires once no longer takes the view while the player
-    is steering. Shots that hold the view, interiors and the classic camera are
-    unchanged (`cam_zone_skip`, `FollowCamZoneSkip`).
-  - When the hero leaves a scripted shot, the camera eases back to the angle
-    and tilt the player had. It used to keep the shot's until the player moved
-    it (`cam_zone_return`, `FollowCamZoneReturn`).
+    is steering (`cam_zone_skip`).
+  - Leaving a scripted shot, the camera eases back to the angle and tilt the
+    player had instead of keeping the shot's (`cam_zone_return`).
   - The camera tilts over a building or a bridge behind the hero only while it
-    is in the way, and eases back afterwards. It used to keep the steep tilt
-    for good, and when the hero was hidden it could snap behind him and drop
-    the player's pan (`cam_obstruct`, `FollowCamObstruct`;
-    `cam_obstruct_hurry`, `FollowCamObstructHurryDivisor`, sets how fast the
-    tilt rises while he is hidden).
-  - The camera comes round behind the hero about twice as quickly, at the pace
-    of the 2022 Classic release's auto camera, and ends exactly behind him. It
-    used to stop up to a degree short until he moved again. The setting is the
-    ease's time constant in milliseconds: 300 by default, 600 for the old
-    pace, 0 for the old behaviour (`cam_ease_ms`, `FollowCamEaseMs`).
-  - The point the camera looks at trails the hero and catches up, as in the
-    Classic release, so he leads the frame a little while he runs and the view
-    settles after he stops. It used to be pinned to him (`cam_target_ms`,
-    `FollowCamTargetMs`: 300 by default, 0 for the old behaviour).
-  - A scripted camera shot taking the view, and the camera taking it back when
-    the hero leaves the shot, is a short blend on screen instead of a cut. The
-    setting is its length in milliseconds: 600 by default, 0 for the cut
-    (`cam_shot_blend_ms`, `FollowCamShotBlendMs`).
-- The Linux tarball, macOS and Android builds now bundle SDL 3.4.18 (was
-  3.2.16), so the pixelart present filter works in them. The Windows and
-  AppImage builds keep using the SDL their distribution ships.
-
-### Fixed
-
-- `cam_hd on`, and `on` or `yes` given to any other on/off setting the console
-  shares with `lba2.cfg`, switched the setting off.
+    is in the way, then eases back. It used to keep the steep tilt for good
+    (`cam_obstruct`, `cam_obstruct_hurry`)
+    ([#701](https://github.com/LBALab/lba2-classic-community/pull/701)).
+  - The camera comes round behind the hero about twice as quickly, the pace of
+    the 2022 Classic release, and ends exactly behind him instead of up to a
+    degree short (`cam_ease_ms`: 300, or 600 for the old pace). The point it
+    looks at trails the hero and catches up, so he leads the frame a little
+    while he runs (`cam_target_ms`)
+    ([#702](https://github.com/LBALab/lba2-classic-community/pull/702)).
+  - A scripted shot taking the view, and handing it back, is a 0.6 second
+    blend instead of a cut (`cam_shot_blend_ms`). A sign that names a shot
+    shows it at once and blends back when its message closes
+    ([#708](https://github.com/LBALab/lba2-classic-community/pull/708), [#709](https://github.com/LBALab/lba2-classic-community/pull/709)).
+  - Letting go of the right stick or the mouse eases the camera's turn to a
+    stop instead of halting it (`cam_glide`)
+    ([#512](https://github.com/LBALab/lba2-classic-community/pull/512)).
+- `cam_world_anchor`, experimental and off by default: the Auto camera holds a
+  direction in the world instead of turning with the hero. With
+  `cam_hold_angle 0` it comes back behind him as he walks, paced by the
+  distance walked (`cam_world_return`)
+  ([#703](https://github.com/LBALab/lba2-classic-community/pull/703)).
+- `cam_zone_anchor`, experimental and off by default: inside the box of a
+  scripted shot that fires once, the Auto camera holds the shot's angle, as
+  the classic camera does
+  ([#701](https://github.com/LBALab/lba2-classic-community/pull/701)).
+- With the Auto camera on, a scripted shot that aims the view once as the hero
+  walks in no longer slides back behind him within a second. It keeps the
+  view, as under the classic camera
+  ([#521](https://github.com/LBALab/lba2-classic-community/pull/521)).
+- With the Auto camera holding its angle, turning Twinsen on the spot and then
+  touching the right stick or the mouse no longer tears the view round, 75
+  degrees in one frame in one measured case. The camera turns from where it is
+  ([#512](https://github.com/LBALab/lba2-classic-community/pull/512)).
 - The console's mouse and stick camera settings (`cam_mouse*`, `cam_stick*`,
-  `pad_deadzone`, `cam_smooth`, `cam_glide`) took any number, where `lba2.cfg`
-  holds them to a range: `cam_mouse_div 0` divided by zero, and a
-  `pad_deadzone` above 32767 wrapped round. The console now holds them to the
-  same ranges.
-- On a scaled display, a Mac's Retina panel for one, the picture was drawn at
-  half the panel's resolution and enlarged by the system, which blurred it
-  whatever the present filter said. The game now draws at the panel's own
-  resolution. Window sizes and the resolutions offered are unchanged.
-- On Android a bar across the top of the screen read "LBA2 Classic Community"
-  and the version number, taking a strip of the picture with it. The app named
-  no theme, so Android picked one with a title bar, and SDL puts the game's
-  window title into it. The app now names a theme with no title bar.
-- GOG installs started windowed where Steam installs started fullscreen, from
-  the same build. An install shipping no settings file is given the game's
-  built-in one, which asks for fullscreen. GOG ships a settings file that never
-  mentions the setting, so it fell through to the engine default, which was
-  windowed. Both start fullscreen now. An existing settings file is left alone,
-  and the Display menu still moves it on desktop.
-- Android always runs fullscreen now. The Display menu has no fullscreen row
-  there, so a player whose settings said windowed, which is what an original-disc
-  or GOG install gave them, sat behind the system bars with no way back. The
-  setting is still recorded, so carrying a profile to desktop keeps it.
-- Replaying a recorded session saved under a different name than the session
-  had typed. Whether the save menu offers a text field or names the slot after
-  the island and the date depends on which device the player last used, and that
-  was in no recording: a replay took whichever branch the keyboard in front of it
-  happened to select. A recording now carries the device, so a replay saves under
-  the name the session typed. Recordings made before this do not carry it and
-  replay as they did.
-- Replaying a recorded session stopped on the save-name screen and never went
-  further, cursor blinking. That screen read its characters straight from the
-  keyboard hardware instead of from the input the rest of the game reads, so
-  nothing a replay handed back could reach it, and the recording carried nothing
-  about what had been typed there either. It reads the same input as everything
-  else now, so the keys reach it and the screen is in the recording. The cheat
-  codes typed at the pause menu came off the same reader and were equally out of
-  reach; they work in a replay too. Whether a replay reaches that screen at all
-  is a separate matter still open: the save menu offers typing only when the last
-  input came from a keyboard, and no recording carries that.
-- Linux and Windows played the same game differently. Every random number came
-  from libc `rand()`, which is a different algorithm with a different range on
-  each platform, and one shared stream feeds rain, ambient sound, animated
-  textures, particle scatter and the random branches in scene scripts. The
-  engine now carries the generator itself, so a scene plays out the same way on
-  both. It reproduces the sequence Linux already had, so nothing there changes.
-  A recorded session now replays on the other platform as well as its own.
-- The game clock ran at double speed while the F12 console was open under
-  `--fixed-dt`. The console redraws every frame so typing is visible, and that
-  redraw counted as a second presented frame, so animation, script waits and
-  fades all advanced twice per tick for as long as the console was up.
-- Ambient sound could change what happened in the game. The ambience system
-  picks a random stereo position only when a sample is not already playing, and
-  it draws that from the same random stream actor behaviour draws from, so
-  whether the audio device had finished a sound decided what an actor did next.
-  Under `--fixed-dt` a sample's playing state is now answered from its own
-  length on the game clock, which makes a run reproducible with sound on.
-- `--resolution` wrote the size it was given into `lba2.cfg`, so asking for one
-  launch at a different resolution replaced the one you had picked, and any
-  script that pinned a size for a screenshot rewrote your setting. It now renders
-  the run at the size asked for and leaves the stored one alone. Choosing a
-  resolution in the Display submenu or with the `resolution` console command
-  still keeps it, and a resolution auto-detected from your display still
-  re-derives each launch rather than freezing into the config.
-- `--fixed-timestep` and `--language` wrote themselves into `lba2.cfg`, so a flag
-  documented as applying to one run changed the setting for every later launch:
-  one `--fixed-timestep 100` throttled the game from then on, and one
-  `--language Deutsch` to check the German text made German the language. Both
-  now apply to the run that asked and leave the stored preference alone, while a
-  setting changed on purpose (the options menu, the `fixedtimestep` console verb)
-  persists as before.
-- The console verbs that persist one setting (`distrib`, `vsync`,
-  `fixedtimestep`) stored nothing on any install that ships its own `lba2.cfg`,
-  which is every retail disc and GOG. Writing a single key went straight to the
-  buffer, and writes are refused there while the game data's config is layered
-  under the player's. `vsync` and `fixedtimestep` did not check, so they applied
-  the setting and reported success while it lasted only until the game closed.
+  `pad_deadzone`, `cam_smooth`) are held to the ranges `lba2.cfg` holds them
+  to; `cam_mouse_div 0` divided by zero. `cam_manual_hold` is capped at 600
+  frames: far above that, nudging the camera brought its tilt assist back at
+  full strength
+  ([#544](https://github.com/LBALab/lba2-classic-community/pull/544), [#704](https://github.com/LBALab/lba2-classic-community/pull/704)).
+- `zonelist` prints all seven of a zone's `Info` values and its flags, so a
+  scripted shot's angle, pitch and distance show, and it names escalator and
+  rail zones. [docs/ZONES.md](docs/ZONES.md) says what each zone type reads
+  from those values
+  ([#539](https://github.com/LBALab/lba2-classic-community/pull/539)).
 
-- Saves shipped with an install are handed to a profile the first time it is
-  used. The 1997 demo ships the three sections its fixed save slots load, in
-  `SAVE/` beside the game data, and nothing looked there, so those slots pointed
-  at files that did not exist and the sections were unreachable.
-- The config shipped beside the game data is read as a layer under the one a run
-  owns, instead of being copied into it once. A profile seeded from one release
-  and later pointed at another kept reporting the first, so the distributor
-  splash, the new-game panel sprite and the CD voice folder disagreed with the
-  medium.
+### Display & render
 
-- `scripts/dev/verify-release.sh` keeps checking `--version` against the
-  filename on a host with no container runtime, by running same-arch
-  artifacts directly instead of skipping them. Only the clean-system claim
-  needs a container, so only that is lost, and the run still exits 2 to say
-  so. Previously both metadata checks were advertised as surviving while one
-  of them silently did not.
+- `TextureFilter` in `lba2.cfg` (`gfx_texfilter` in the console,
+  `LBA2_TEXFILTER` for one run) smooths the square texels of terrain, sea and
+  sky seen up close: 1 blends neighbouring texels across, 2 in both
+  directions, 0 (the default) draws as before. 2 costs about 7% of frame time
+  on terrain at 1728x1080
+  ([#452](https://github.com/LBALab/lba2-classic-community/pull/452)).
+- `LBA2_ISO_DIV=2`, up to 4, draws interiors at a half, up to a quarter, of the
+  chosen resolution and stretches them to the window, so a room fills a large
+  screen. Outdoor scenes keep the full resolution. It is read once at launch
+  ([#452](https://github.com/LBALab/lba2-classic-community/pull/452)).
+- `DitherShading` in `lba2.cfg` (`gfx_dither`), off by default, dithers the
+  terrain's shading so the steps between light levels become a gradient
+  ([#455](https://github.com/LBALab/lba2-classic-community/pull/455)).
+- `PresentFilter` in `lba2.cfg` (`gfx_presentfilter`, `LBA2_PRESENT_FILTER`)
+  chooses how the frame is stretched to the window: nearest (the default),
+  linear, or pixelart, which keeps pixels sharp and blends only their seams.
+  Pixelart needs SDL 3.4 or newer
+  ([#692](https://github.com/LBALab/lba2-classic-community/pull/692)).
+- On a scaled display, a Mac's Retina panel for one, the game draws at the
+  panel's own resolution instead of at half of it, enlarged and blurred by the
+  system
+  ([#694](https://github.com/LBALab/lba2-classic-community/pull/694)).
+- The resolutions below 640x480 that the console and `--resolution` accept
+  (320x200, 320x240, 400x300) no longer corrupt memory on every scene load and
+  UI screen, and the inventory and the letterboxed dialogue box start at the
+  screen's left edge. The UI is still cut off at these sizes, and the console
+  says so
+  ([#555](https://github.com/LBALab/lba2-classic-community/pull/555), [#566](https://github.com/LBALab/lba2-classic-community/pull/566)).
+- GOG installs start fullscreen, as Steam installs did. GOG's settings file
+  never mentions the setting, so it fell through to a windowed default. An
+  existing settings file is left alone
+  ([#654](https://github.com/LBALab/lba2-classic-community/pull/654)).
+- Moving between menu pages no longer flashes white for a frame on the menu
+  with the sea behind it
+  ([#524](https://github.com/LBALab/lba2-classic-community/pull/524)).
 
-- Booting a different install than the one you launched from now says so.
-  When the folder you run from holds no usable data, discovery scans the
-  parent directory and takes whatever install turns up next door. That is
-  what makes a clone beside a retail copy work, and it also meant a demo
-  folder sitting beside a retail one silently loaded the retail data:
-  right-looking launch, wrong distribution, exit 0, and the only tell was
-  the `Assets:` line. It still falls back, and now warns and names the
-  install it settled on.
-- Running the game from inside an install whose data sits in `Common/` now
-  finds it without `--game-dir`. Auto-discovery joined `Common/` only for
-  paths you named explicitly, so an unflagged run depended on the sibling
-  scan reaching that same folder from the parent directory. The scan stops
-  after 24 entries in filesystem order, so on a Steam library with more
-  games than that, the install the player was standing in could be dropped
-  and discovery gave up after 138 candidates. Reported from a Steam Deck.
+### Input & controller
+
+- Below about 60 frames per second a held throw or sword attack never got
+  going: the magic ball never left Twinsen's hand and the sword combo broke.
+  The fixed timestep's catch-up steps read the held button as let go; it stays
+  held across them now
+  ([#458](https://github.com/LBALab/lba2-classic-community/pull/458)).
+- Skipping the reply after choosing an answer in a conversation, with the menu
+  key (F10, Esc or the pad's Start), no longer opens the main menu as well
+  ([#511](https://github.com/LBALab/lba2-classic-community/pull/511)).
+- Keypad Enter confirms a save name instead of typing a capital X, and keys
+  that are not characters (arrows, Home, End, F2 and others) no longer type
+  letters there. Keypad Enter also works at the prompt asking for the game
+  disc
+  ([#505](https://github.com/LBALab/lba2-classic-community/pull/505), [#506](https://github.com/LBALab/lba2-classic-community/pull/506)).
+- A `lba2.cfg` with every keyboard and gamepad binding unset left the game
+  unplayable, with no way to reach the screen to rebind them. The game now puts
+  the default layout back, and says so in the log
+  ([#453](https://github.com/LBALab/lba2-classic-community/pull/453)).
+
+### Saves, settings & profiles
+
+- `--user-dir <dir>` (or `LBA2_USER_DIR`) chooses the folder a run writes its
+  saves, settings and log to. That folder used to be fixed per user, so every
+  install on a machine shared one
+  ([#482](https://github.com/LBALab/lba2-classic-community/pull/482)).
+- `--profile <name>` (or `LBA2_PROFILE`) keeps a run's saves and settings under
+  a name of their own, in `profiles/<name>/`. A profile remembers the install
+  it was first given, and only `--bind-game-dir` moves it. Without a profile
+  the game writes where it always did
+  ([#482](https://github.com/LBALab/lba2-classic-community/pull/482), [#496](https://github.com/LBALab/lba2-classic-community/pull/496)).
+- An empty `portable.txt` beside the binary makes the tree self-contained: the
+  user folder becomes `User/<build>/` next to the binary, so a copy on a USB
+  stick carries its saves. A `profile:` line in it names a default profile
+  ([#482](https://github.com/LBALab/lba2-classic-community/pull/482)).
+- The boot banner's `Writes:` line names the profile and how its folder was
+  chosen. The `Release` line names the release the config declares and what
+  the game data measures as, so a mismatch is reported. An install with no
+  config takes the answer from its data, so American data now gets the
+  American sprites and disc label
+  ([#482](https://github.com/LBALab/lba2-classic-community/pull/482), [#487](https://github.com/LBALab/lba2-classic-community/pull/487)).
+- `ShowDistribLogo` in `lba2.cfg`, or `distrib logo <on|off>` in the console,
+  turns the publisher splash on or off. It is on when a config declares a
+  release and off when nothing does
+  ([#487](https://github.com/LBALab/lba2-classic-community/pull/487), [#489](https://github.com/LBALab/lba2-classic-community/pull/489)).
+- The config shipped with the game data is read under the player's own instead
+  of being copied into it on first run. A user folder first run against one
+  release and later pointed at another kept the first one's splash, new-game
+  sprite and CD voice folder
+  ([#482](https://github.com/LBALab/lba2-classic-community/pull/482)).
+- Saves an install ships in its `SAVE/` folder are handed over when a save
+  folder is first created, which makes the 1997 demo's three playable sections
+  loadable
+  ([#482](https://github.com/LBALab/lba2-classic-community/pull/482)).
+- A Spanish retail install no longer starts in French, and nor does a config
+  naming a language the game cannot read: that now means English, and is
+  logged. `--language Español` works from a Windows command prompt
+  ([#464](https://github.com/LBALab/lba2-classic-community/pull/464)).
+- Flags meant for one run no longer change the setting for good:
+  `--resolution`, `--fixed-timestep` and `--language` used to write themselves
+  into `lba2.cfg`. A change made in a menu or with a console command is still
+  kept. The new `--vsync <on|off>` works the same way
+  ([#492](https://github.com/LBALab/lba2-classic-community/pull/492), [#494](https://github.com/LBALab/lba2-classic-community/pull/494), [#501](https://github.com/LBALab/lba2-classic-community/pull/501)).
+- The volumes are console settings, `snd_master`, `snd_music`, `snd_wave`,
+  `snd_voice` and `snd_cd` from 0 to 127, and `snd_reverse_stereo` swaps the
+  channels. A change takes effect at once and is kept, as one made in the menu
+  is
+  ([#570](https://github.com/LBALab/lba2-classic-community/pull/570)).
+- `cam_hd on`, and `on` or `yes` given to any other on/off setting the console
+  shares with `lba2.cfg`, no longer switches the setting off
+  ([#704](https://github.com/LBALab/lba2-classic-community/pull/704)).
+- On Windows, with the game on one drive and the user folder on another,
+  `save\shoot\` and `recordings\` are created, so screenshots and recordings
+  can be written
+  ([#613](https://github.com/LBALab/lba2-classic-community/pull/613)).
+- The game no longer rewrites the modification time of installed `.VOX` voice
+  files, which the 1997 CD voice cache reads to pick what to delete, and the
+  cache skips the game folder
+  ([#484](https://github.com/LBALab/lba2-classic-community/pull/484)).
+
+### Recording & replay
+
+- `--record <name>` writes a play session to a file, and `--replay <name>`
+  plays it back into the same simulation and reports the first tick where the
+  two stop matching, so a bug found in play can be handed over as a file that
+  reproduces it. `--record-telemetry` adds every value behind the per-tick
+  digest, so a divergence names the field that moved. Recording from boot
+  needs `--fixed-dt`, and [docs/RECORDING.md](docs/RECORDING.md) says why
+  ([#595](https://github.com/LBALab/lba2-classic-community/pull/595), [#602](https://github.com/LBALab/lba2-classic-community/pull/602), [#604](https://github.com/LBALab/lba2-classic-community/pull/604), [#633](https://github.com/LBALab/lba2-classic-community/pull/633)).
+- `rec start|stop|play|info` in the console records and replays from wherever
+  you are, with no flags. `rec play` takes the latest recording and puts you
+  back where you were when it ends. Recordings go in `recordings/` beside
+  `save/`, and the boot banner names the folder
+  ([#610](https://github.com/LBALab/lba2-classic-community/pull/610), [#615](https://github.com/LBALab/lba2-classic-community/pull/615), [#616](https://github.com/LBALab/lba2-classic-community/pull/616), [#617](https://github.com/LBALab/lba2-classic-community/pull/617)).
+- A replay boots into the state its recording began from, so it needs no
+  `--load`, and carries on through the in-game menu. One that waits for input
+  the recording does not hold, or covers too little of the file, says so
+  instead of reporting a match
+  ([#643](https://github.com/LBALab/lba2-classic-community/pull/643), [#657](https://github.com/LBALab/lba2-classic-community/pull/657), [#659](https://github.com/LBALab/lba2-classic-community/pull/659), [#663](https://github.com/LBALab/lba2-classic-community/pull/663)).
+- A replay runs under the settings its recording was made with and gives yours
+  back when it ends; `--replay-own-settings` keeps yours and reports the ones
+  that differ. `settings_before [prefix]` sets settings to the value that
+  switches off what they added: `settings_before cam_` is the Auto camera
+  without its later behaviours
+  ([#704](https://github.com/LBALab/lba2-classic-community/pull/704), [#705](https://github.com/LBALab/lba2-classic-community/pull/705)).
+- `scripts/dev/dump_recording.py` reads a recording without the engine: its
+  header, keyframes, console commands, clock, analog input and telemetry, and
+  the savegames it carries
+  ([#605](https://github.com/LBALab/lba2-classic-community/pull/605), [#622](https://github.com/LBALab/lba2-classic-community/pull/622)).
+- Linux and Windows play a scene out the same way. Random numbers came from
+  each platform's `rand()`, which differ; the engine now carries its own
+  generator, reproducing the sequence Linux already had, so a recording
+  replays on the other platform too
+  ([#596](https://github.com/LBALab/lba2-classic-community/pull/596)).
+- Ambient sound no longer changes what actors do. Under `--fixed-dt`, and
+  while recording or replaying, whether a sample is still playing is answered
+  from its length on the game clock, so a run with sound on is reproducible
+  ([#595](https://github.com/LBALab/lba2-classic-community/pull/595)).
+- A replay gets through the save-name screen and saves under the name the
+  session typed. That screen now reads the same input as the rest of the game,
+  as do the cheat codes at the pause menu, and a recording carries which device
+  the player last used, which decides whether the screen offers typing
+  ([#646](https://github.com/LBALab/lba2-classic-community/pull/646), [#649](https://github.com/LBALab/lba2-classic-community/pull/649), [#651](https://github.com/LBALab/lba2-classic-community/pull/651)).
+- Under `--fixed-dt`, and so while recording, the game clock no longer runs at
+  double speed while the console is open, and the "game saved" message, Game
+  Over, slideshows and logo screens end on their own instead of waiting for a
+  key. Turning a page of the slate no longer freezes the game
+  ([#595](https://github.com/LBALab/lba2-classic-community/pull/595), [#641](https://github.com/LBALab/lba2-classic-community/pull/641)).
+
+### Console & scripting
+
+- Commands for driving the game from a script: `key` holds a key down, menus
+  and dialogue included; `stick <x> <y>` and `mouse <dx> <dy>` move the right
+  stick and the mouse as the devices do; `camnudge` turns the Auto camera;
+  `behaviour` and `weapon` read or set Twinsen's
+  ([#458](https://github.com/LBALab/lba2-classic-community/pull/458), [#511](https://github.com/LBALab/lba2-classic-community/pull/511), [#512](https://github.com/LBALab/lba2-classic-community/pull/512), [#607](https://github.com/LBALab/lba2-classic-community/pull/607)).
+- Commands for watching it: `camtrace 1` logs the camera once a frame,
+  whichever camera holds the view, with the look-at point, the eases, blends
+  and shots in progress and the obstruction tilt; `objtrace <n>` logs one
+  object's position, angles, animation, track and behaviour; `inputflow`
+  counts input on both sides of each layer it crosses, so a lost press shows
+  where it was lost; `dumpstate [path]` writes the `--dump-state` JSON on
+  demand, now with a camera block
+  ([#503](https://github.com/LBALab/lba2-classic-community/pull/503), [#512](https://github.com/LBALab/lba2-classic-community/pull/512), [#517](https://github.com/LBALab/lba2-classic-community/pull/517), [#551](https://github.com/LBALab/lba2-classic-community/pull/551), [#594](https://github.com/LBALab/lba2-classic-community/pull/594), [#701](https://github.com/LBALab/lba2-classic-community/pull/701), [#702](https://github.com/LBALab/lba2-classic-community/pull/702), [#708](https://github.com/LBALab/lba2-classic-community/pull/708)).
+- `flags` lists the quest state a save carries: the chapter, then every named
+  game variable that is set, such as the diploma and the four dark-monk keys
+  (`flags all` includes the zeros). `vargame <n>` names the variable
+  ([#584](https://github.com/LBALab/lba2-classic-community/pull/584)).
+- `--listen <port>` takes console commands from a socket on 127.0.0.1 while
+  the game runs, with `scripts/dev/lba2ctl.py` as the client and `stream on`
+  sending it the trace logs. It runs any command, so it is only in builds
+  configured with `-DLBA2_CONTROL_SERVER=ON`
+  ([#551](https://github.com/LBALab/lba2-classic-community/pull/551)).
+- `skipmodals 1` also skips the screen that shows an item being picked up, so
+  a scripted run that finds one no longer stops there
+  ([#556](https://github.com/LBALab/lba2-classic-community/pull/556)).
+
+### Stability
+
+- Closing the holomap after zooming into an island's plan no longer crashes the
+  game, which it did on every island but the Citadel
+  ([#676](https://github.com/LBALab/lba2-classic-community/pull/676)).
+- Ordinary actions that read or wrote outside their memory, which could crash
+  the game or corrupt what it drew later: opening the options screen in a
+  language whose menu texts are long, opening the holomap after changing
+  scene, opening the game menu in a scene that animates ten textures, and
+  entering one GOG scene whose map is a byte larger than its header declares
+  ([#552](https://github.com/LBALab/lba2-classic-community/pull/552), [#553](https://github.com/LBALab/lba2-classic-community/pull/553)).
+- Drawing the scenery after a change of scene no longer reads past a block
+  when a scene's script places a piece naming a brick the block does not hold
+  ([#575](https://github.com/LBALab/lba2-classic-community/pull/575)).
+- A mod or repack that compresses a picture's palette, in `SCREEN.HQR` for
+  one, no longer crashes the game when a scene shows that picture with a
+  message. No shipped release compresses one
+  ([#678](https://github.com/LBALab/lba2-classic-community/pull/678)).
+- A crash writes a `CRASH` block to `adeline.log` with the signal, the build,
+  the game state and the call stack, and the next launch keeps that log as
+  `adeline.prev.log`. On Android the system's own crash record is saved beside
+  it as `crash-<time>.pb`. Tagged releases attach a `-symbols.tar.xz` per
+  artifact, which `scripts/dev/symbolize_crash.py` uses to turn a block into
+  functions and lines
+  ([#682](https://github.com/LBALab/lba2-classic-community/pull/682), [#683](https://github.com/LBALab/lba2-classic-community/pull/683)).
+
+### Android
+
+- The on-screen controls show while you use them, where they were drawn over
+  every screen, logos, menus and cutscenes included. They are full while a
+  finger is down, dim about 1.5 seconds after it lifts, and go after about 6,
+  or as soon as a pad or a key is used. The first touch after a pad only wakes
+  them
+  ([#655](https://github.com/LBALab/lba2-classic-community/pull/655)).
+- The first launch of a new install no longer stops at *"The graphics mode
+  848x480 could not be set"* while Android asks for All Files Access; the game
+  waits for the answer and for its window
+  ([#662](https://github.com/LBALab/lba2-classic-community/pull/662)).
+- The bar across the top of the screen with the app's name and version is
+  gone, and the game always runs fullscreen. Android has no fullscreen row in
+  the Display menu, so a windowed setting from an original-disc or GOG install
+  could not be undone
+  ([#654](https://github.com/LBALab/lba2-classic-community/pull/654)).
+- The APKs are about a quarter of their old size, 6.5 MB on arm64 where 0.12.0
+  was 23 MB. They no longer carry the compiler's debug info; the symbol tables
+  stay
+  ([#682](https://github.com/LBALab/lba2-classic-community/pull/682)).
+
+### Build & packaging
+
+- `-DLBA2_BUILD_DEMO=ON` builds the 1997 playable demo, to run on the demo's
+  own data: three fixed save slots, no cutscenes, and its own
+  `Twinsen/LBA2-Demo` folder, so it never follows a retail install
+  ([#474](https://github.com/LBALab/lba2-classic-community/pull/474)).
+- `-DPLATFORM_BACKEND=` chooses what the game is built on: `sdl3`, the default
+  and what every release ships; `sdl2`, a desktop build on SDL 2.0.22 or newer,
+  sound included, with no folder picker; or `null`, which needs no SDL at all
+  and draws offscreen. See
+  [docs/PLATFORM_ABSTRACTION.md](docs/PLATFORM_ABSTRACTION.md)
+  ([#688](https://github.com/LBALab/lba2-classic-community/pull/688), [#689](https://github.com/LBALab/lba2-classic-community/pull/689), [#691](https://github.com/LBALab/lba2-classic-community/pull/691)).
+- The Linux tarball, macOS and Android builds bundle SDL 3.4.18 (was 3.2.16),
+  so the pixelart present filter works in them. The Windows build and the
+  AppImage use the SDL of the system they are built on
+  ([#697](https://github.com/LBALab/lba2-classic-community/pull/697)).
+- The AppImage carries AppStream metainfo, so software centres show a summary,
+  licence and category instead of a bare file name, and its desktop entry
+  lists categories that exist. The macOS About box shows a copyright line
+  ([#488](https://github.com/LBALab/lba2-classic-community/pull/488)).
 - Rolling `latest` AppImages no longer replace themselves with the newest
-  stable release on first run. The `latest` keyword in the bundled
-  self-updater's update information means "newest non-prerelease", not the
-  rolling release's tag of the same name, so a rolling download overwrote
-  its own payload with the stable build while keeping its rolling
-  filename. The result was a `0.13.0-dev` AppImage whose banner read
-  `0.12.0` and reported itself up to date from then on. Rolling builds now carry
-  `latest-pre` and track the rolling channel; tagged AppImages are
-  unaffected and still update to the newest stable tag. Existing rolling
-  downloads need replacing once by hand.
-- `scripts/dev/verify-release.sh` now checks that each artifact's
-  `--version` matches the version in its filename, and that each AppImage
-  carries the self-update channel belonging to the release it hangs off.
-- `scripts/dev/verify-release.sh` no longer aborts with no results at all
-  when it cannot register qemu binfmt for the aarch64 legs. It reports the
-  aarch64 failures and checks the rest.
+  stable release on first run; they follow the rolling channel. A rolling
+  download made before this needs replacing once by hand
+  ([#475](https://github.com/LBALab/lba2-classic-community/pull/475)).
+- CI gained ASan and UBSan runs of the host tests, a clang build, a
+  compiler-warning baseline, shell lint, architecture-boundary checks, a check
+  that doc references resolve, an Android native build on every push and pull
+  request, and retries on every download
+  ([#515](https://github.com/LBALab/lba2-classic-community/pull/515), [#520](https://github.com/LBALab/lba2-classic-community/pull/520), [#523](https://github.com/LBALab/lba2-classic-community/pull/523), [#532](https://github.com/LBALab/lba2-classic-community/pull/532), [#546](https://github.com/LBALab/lba2-classic-community/pull/546), [#573](https://github.com/LBALab/lba2-classic-community/pull/573), [#587](https://github.com/LBALab/lba2-classic-community/pull/587), [#590](https://github.com/LBALab/lba2-classic-community/pull/590), [#591](https://github.com/LBALab/lba2-classic-community/pull/591)).
+- `scripts/dev/verify-release.sh` checks every artifact a release publishes:
+  the Windows ZIP's version info, the DMG's `Info.plist` and libraries, the
+  APKs' manifest, signature and 16 KB alignment, each AppImage's `.zsync` and
+  update channel, and that every `--version` matches its filename. A missing
+  tool, Docker daemon or qemu binfmt costs only the checks that need it
+  ([#475](https://github.com/LBALab/lba2-classic-community/pull/475), [#480](https://github.com/LBALab/lba2-classic-community/pull/480), [#481](https://github.com/LBALab/lba2-classic-community/pull/481), [#490](https://github.com/LBALab/lba2-classic-community/pull/490)).
+- `./run_tests_docker.sh` works in a clone that has been built in, and stops
+  at once when `docker` cannot reach a daemon
+  ([#536](https://github.com/LBALab/lba2-classic-community/pull/536), [#537](https://github.com/LBALab/lba2-classic-community/pull/537)).
+
+### Documentation
+
+- The camera guide is split in two: [docs/CAMERA.md](docs/CAMERA.md) for
+  players, every setting in one table, and
+  [docs/CAMERA_INTERNALS.md](docs/CAMERA_INTERNALS.md) for how it works
+  ([#710](https://github.com/LBALab/lba2-classic-community/pull/710)).
+- New references: camera and other zones
+  ([docs/ZONES.md](docs/ZONES.md)), recording
+  ([docs/RECORDING.md](docs/RECORDING.md)), the speedrun movement techniques
+  as the engine produces them
+  ([docs/SPEEDRUN_MECHANICS.md](docs/SPEEDRUN_MECHANICS.md)), the version
+  numbers in the code ([docs/VERSIONS.md](docs/VERSIONS.md)), bug hunting
+  ([docs/BUG_HUNTING.md](docs/BUG_HUNTING.md)) and the external tools
+  ([docs/TOOLING.md](docs/TOOLING.md))
+  ([#473](https://github.com/LBALab/lba2-classic-community/pull/473), [#535](https://github.com/LBALab/lba2-classic-community/pull/535), [#539](https://github.com/LBALab/lba2-classic-community/pull/539), [#557](https://github.com/LBALab/lba2-classic-community/pull/557), [#583](https://github.com/LBALab/lba2-classic-community/pull/583), [#595](https://github.com/LBALab/lba2-classic-community/pull/595)).
+- A knowledge bundle, [docs/knowledge/](docs/knowledge/index.md): what is true
+  about the engine and why, one concept per file, each citing the code, in
+  slices from input and movement to the camera
+  ([#667](https://github.com/LBALab/lba2-classic-community/pull/667), [#671](https://github.com/LBALab/lba2-classic-community/pull/671), [#677](https://github.com/LBALab/lba2-classic-community/pull/677), [#681](https://github.com/LBALab/lba2-classic-community/pull/681), [#711](https://github.com/LBALab/lba2-classic-community/pull/711)).
+- Plans and research moved to `docs/plan/`
+  ([#532](https://github.com/LBALab/lba2-classic-community/pull/532)).
+
+### Contributors
+
+Thanks to Gartonio and EPmager for reporting on
+[Discord](https://discord.gg/jsTPWYXHsh) that updating the Android app lost
+their saves. That report is why saves now live where an update cannot reach
+them and every release is signed with one key
+([#660](https://github.com/LBALab/lba2-classic-community/pull/660)).
+
+EPmager kept field-testing through this cycle, on Windows with a pad. His
+reports are behind the world-anchored Auto camera
+([#351](https://github.com/LBALab/lba2-classic-community/issues/351)), the
+blend into and out of scripted shots
+([#361](https://github.com/LBALab/lba2-classic-community/issues/361)), the
+right stick snapping the camera round
+([#450](https://github.com/LBALab/lba2-classic-community/issues/450)), the
+main menu opening when skipping a line after a choice
+([#451](https://github.com/LBALab/lba2-classic-community/issues/451)), keypad
+Enter in the save-name box
+([#497](https://github.com/LBALab/lba2-classic-community/issues/497)) and the
+main menu's extra blink
+([#410](https://github.com/LBALab/lba2-classic-community/issues/410)). He
+helped pin down the magic ball report
+([#456](https://github.com/LBALab/lba2-classic-community/issues/456)), and
+reported what is still open: the camera clipping into scenery
+([#363](https://github.com/LBALab/lba2-classic-community/issues/363)), the
+first bat's jumping flight path, which `objtrace` was built to chase
+([#498](https://github.com/LBALab/lba2-classic-community/issues/498)), the
+Display menu showing the interior render size
+([#499](https://github.com/LBALab/lba2-classic-community/issues/499)) and the
+dither's checkerboard
+([#500](https://github.com/LBALab/lba2-classic-community/issues/500)). A full
+speedrun he recorded and sent in shaped the recording format and its dump
+tool
+([#622](https://github.com/LBALab/lba2-classic-community/pull/622),
+[#633](https://github.com/LBALab/lba2-classic-community/pull/633)).
+
+Thanks to [@sergiou87](https://github.com/sergiou87) for the platform layer:
+an SDK-free host contract with the SDL3 backend behind it, a null backend that
+builds the whole game without SDL
+([#688](https://github.com/LBALab/lba2-classic-community/pull/688)), and a
+desktop SDL2 backend with audio on top of it
+([#691](https://github.com/LBALab/lba2-classic-community/pull/691)).
+
+Welcome to two new contributors since v0.12.0:
+[@makseq](https://github.com/makseq) for texture filtering and scaled
+interiors
+([#452](https://github.com/LBALab/lba2-classic-community/pull/452)), recovery
+from a config with every binding unset
+([#453](https://github.com/LBALab/lba2-classic-community/pull/453)), dithered
+terrain shading
+([#455](https://github.com/LBALab/lba2-classic-community/pull/455)) and the
+choosable present filter that landed as
+[#692](https://github.com/LBALab/lba2-classic-community/pull/692); and
+[@iibaranov-IG](https://github.com/iibaranov-IG) for finding disc images on
+Android
+([#675](https://github.com/LBALab/lba2-classic-community/pull/675)).
+
+Thanks to [@saisilcastro](https://github.com/saisilcastro) for reporting the
+magic ball and attacks not firing
+([#456](https://github.com/LBALab/lba2-classic-community/issues/456)), to
+[@JeremyCB](https://github.com/JeremyCB) for confirming the fix on macOS, and
+to [@aurelienfalco](https://github.com/aurelienfalco) for reporting game data
+going unfound when its file names mix upper and lower case
+([#687](https://github.com/LBALab/lba2-classic-community/issues/687)).
+
+Thanks to [@xesf](https://github.com/xesf) for the Steam Deck install the game
+could not find
+([#476](https://github.com/LBALab/lba2-classic-community/pull/476)), and to
+Gartonio for the title bar and the first-launch failure on a Retroid Pocket 5
+([#654](https://github.com/LBALab/lba2-classic-community/pull/654),
+[#662](https://github.com/LBALab/lba2-classic-community/pull/662)) and the
+holomap crash on an Android handheld
+([#676](https://github.com/LBALab/lba2-classic-community/pull/676)).
 
 ## [0.12.0] - 2026-07-16
 
