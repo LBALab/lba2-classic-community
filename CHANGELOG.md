@@ -110,6 +110,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `cam_hd on`, and `on` or `yes` given to any other on/off setting the console
+  shares with `lba2.cfg`, switched the setting off.
 - On a scaled display, a Mac's Retina panel for one, the picture was drawn at
   half the panel's resolution and enlarged by the system, which blurred it
   whatever the present filter said. The game now draws at the panel's own
