@@ -53,3 +53,9 @@ set_target_properties(test_music_stream_park PROPERTIES CXX_STANDARD 11)
 add_test(NAME test_music_stream_park COMMAND test_music_stream_park)
 
 register_host_test(test_music_stream_park)
+
+# Pure path formatting used by the legacy SDL AIL CD interface; no SDL SDK.
+add_executable(test_cd_track_path test_cd_track_path.cpp)
+set_target_properties(test_cd_track_path PROPERTIES CXX_STANDARD 11)
+add_test(NAME test_cd_track_path COMMAND test_cd_track_path)
+register_host_test(test_cd_track_path)

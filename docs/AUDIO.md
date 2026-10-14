@@ -71,6 +71,8 @@ The [platform abstraction layer](PLATFORM_ABSTRACTION.md) is a sibling of AIL, n
 
 ### SDL2 and SDL3 output transport
 
+The retained SDL AIL CD interface probes `music`, `Music`, and `MUSIC` below the working directory for `TrackNN.wav`. [CD.CPP](../LIB386/AIL/SDL/CD.CPP), `BuildCDTrackPath`, inserts a separator when the PAL's directory result has none; the contract does not require a trailing separator. This legacy lookup is not the gameplay music route, which uses the jingle/stream resolution chain.
+
 [AUDIO_DEVICE.CPP](../LIB386/AIL/SDL/AUDIO_DEVICE.CPP) keeps device API differences private to AIL. Sample decoding, voice mixing, music decoding/parking, CD routing and video-audio policy are shared. The SDL3 path forwards to its device-stream API with unchanged source formats and callback behavior.
 
 SDL2 drivers may allow only one open playback device. The SDL2 transport therefore owns one 44100 Hz stereo float device and mixes independently paused/gained streams into it. Each stream has an SDL converter from its source format/rate to that device format. A recursive mutex protects converters, stream membership and sample callbacks; opening and destroying streams belongs to the control thread, while the music decoder may enqueue on its worker thread. Destroying one stream leaves the others alive; destroying the last closes the device. Pausing one stream neither consumes its queue nor stops another stream.

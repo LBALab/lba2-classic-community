@@ -1,5 +1,6 @@
 #include "CD_SDL.H"
 #include "STREAM_SDL.H"
+#include "CD_PATH.H"
 
 #include "SDK.H"
 #include <PLATFORM/PLATFORM.H>
@@ -37,8 +38,7 @@ static bool BuildCDTrackPath(char *outPath, S32 pathMax, S32 trackOneBased) {
         return false;
     }
     for (int i = 0; i < 3; i++) {
-        int n = snprintf(outPath, pathMax, "%s%s/Track%02d.wav", cwd, musicDirs[i], trackOneBased);
-        if (n >= 0 && n < pathMax && FileExists(outPath)) {
+        if (SDLCD_FormatTrackPath(outPath, pathMax, cwd, musicDirs[i], trackOneBased) && FileExists(outPath)) {
             g_platform.host.free_memory(cwd);
             return true;
         }
