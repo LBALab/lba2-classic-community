@@ -10,6 +10,7 @@ SDL_Renderer *s_renderer = NULL;
 SDL_Texture *s_texture = NULL;
 uint32_t s_width = 0, s_height = 0;
 bool s_fullscreen = false;
+SDL_ScaleMode s_scaleMode = SDL_ScaleModeNearest;
 #ifdef LBA2_SDL2_TESTS
 void (*s_presentProbe)(SDL_Renderer *) = NULL;
 int (*s_fullscreenProbe)(SDL_Window *, Uint32) = NULL;
@@ -126,7 +127,7 @@ bool SDL2_ResizeWindow(uint32_t width, uint32_t height, bool keepSize) {
                                              SDL_TEXTUREACCESS_STREAMING, (int)width, (int)height);
     if (!texture)
         return Error("Unable to allocate SDL2 presentation texture");
-    if (SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest) != 0) {
+    if (SDL_SetTextureScaleMode(texture, s_scaleMode) != 0) {
         SDL_DestroyTexture(texture);
         return Error("Unable to configure SDL2 logical presentation");
     }
@@ -208,6 +209,30 @@ bool SDL2_IsFullscreen() {
 void SDL2_SetVSync(bool enabled) {
     if (s_renderer && SDL_RenderSetVSync(s_renderer, enabled ? 1 : 0) != 0)
         Platform_Log(PLATFORM_LOG_WARN, "Unable to change SDL2 vsync: %s", SDL_GetError());
+}
+bool SDL2_SetPresentFilter(PlatformPresentFilter mode) {
+    SDL_ScaleMode resolved;
+    switch (mode) {
+    case PLATFORM_FILTER_NEAREST:
+        resolved = SDL_ScaleModeNearest;
+        break;
+    case PLATFORM_FILTER_LINEAR:
+        resolved = SDL_ScaleModeLinear;
+        break;
+    case PLATFORM_FILTER_PIXELART:
+        SDL_SetError("SDL2 does not support the pixelart present filter");
+        return false;
+    default:
+        SDL_SetError("Unknown present filter %d", (int)mode);
+        return false;
+    }
+    if (s_texture && SDL_SetTextureScaleMode(s_texture, resolved) != 0)
+        return false;
+    const bool changed = resolved != s_scaleMode;
+    s_scaleMode = resolved;
+    if (changed && s_renderer && s_texture)
+        PresentTexture();
+    return true;
 }
 void SDL2_SetRelativeMouse(bool enabled) {
     if (s_window && SDL_SetRelativeMouseMode(enabled ? SDL_TRUE : SDL_FALSE) != 0)

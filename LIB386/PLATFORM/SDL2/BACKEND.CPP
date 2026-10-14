@@ -179,6 +179,7 @@ PlatformInterface Interface() {
     api.window.get_fullscreen = SDL2_GetFullscreen;
     api.window.is_fullscreen = SDL2_IsFullscreen;
     api.window.set_vsync = SDL2_SetVSync;
+    api.window.set_present_filter = SDL2_SetPresentFilter;
     api.window.set_relative_mouse = SDL2_SetRelativeMouse;
     api.window.present = SDL2_Present;
     api.input.keyboard_state = Keyboard;

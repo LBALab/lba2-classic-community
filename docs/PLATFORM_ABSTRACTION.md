@@ -58,7 +58,7 @@ ctest --test-dir build-sdl2 -L host_quick --output-on-failure
 
 SDL2 translates controller device indices on add events to stable instance IDs, and translates those IDs back to indices when opening a controller. Text events carry embedded storage rather than SDL3's pointer payload: polling retains the native event until the next poll. Physical key IDs and controller units retain the same engine vocabulary.
 
-Presentation uses a nearest-neighbour streaming texture and explicit letterboxing. SDL2's logical-size feature rewrites mouse and finger events, so the backend computes the presentation rectangle and window-to-frame coordinates itself, leaving input events in their contract-defined units.
+Presentation uses a streaming texture and explicit letterboxing. Nearest-neighbour filtering remains the default; linear filtering is supported and retained across texture/window recreation. SDL2 refuses pixelart filtering with an explanatory error without changing the active mode, allowing the engine's configuration policy to select its fallback. SDL2's logical-size feature rewrites mouse and finger events, so the backend computes the presentation rectangle and window-to-frame coordinates itself, leaving input events in their contract-defined units.
 
 SDL2 has no native folder-dialog API. Those callbacks fail with an explanatory error; use `--game-dir`, `LBA2_GAME_DIR`, or normal resource discovery instead. No shell command or extra dialog dependency is introduced. Message boxes and clipboard remain native SDL2 services. `SDL2::SDL2-static` is selected when `LBA2_LINK_STATIC=ON`.
 

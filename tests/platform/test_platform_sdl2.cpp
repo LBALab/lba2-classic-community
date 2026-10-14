@@ -20,6 +20,57 @@ static void overlay(uint32_t *pixels, uint32_t, uint32_t, uint32_t, const uint8_
 }
 static int fail_fullscreen(SDL_Window *, Uint32) { return SDL_SetError("fullscreen fixture"); }
 
+static int blended_pixels() {
+    int count = 0;
+    for (size_t i = 0; i < rendered.size(); ++i) {
+        const uint32_t rgb = rendered[i] & 0x00FFFFFF;
+        if (rgb != 0 && rgb != 0x00FFFFFF)
+            ++count;
+    }
+    return count;
+}
+
+static void test_present_filter_and_surface_recreation() {
+    ASSERT_TRUE(g_platform.window.set_present_filter != NULL);
+    if (!g_platform.window.set_present_filter)
+        return;
+    ASSERT_TRUE(g_platform.window.init("SDL2 filter"));
+    ASSERT_TRUE(g_platform.window.create(120, 90, false));
+    ASSERT_TRUE(g_platform.window.resize(16, 12, true));
+    uint8_t pixels[16 * 12], palette[768] = {};
+    palette[3] = palette[4] = palette[5] = 255;
+    for (int y = 0; y < 12; ++y)
+        for (int x = 0; x < 16; ++x)
+            pixels[y * 16 + x] = (uint8_t)((x + y) & 1);
+    PlatformFrame frame = {pixels, 16, 12, 16, palette, NULL};
+    SDL2_SetPresentationProbe(read_pixels);
+    ASSERT_TRUE(g_platform.window.present(&frame));
+    ASSERT_EQ_INT(0, blended_pixels());
+    const int before = presents;
+    ASSERT_TRUE(g_platform.window.set_present_filter(PLATFORM_FILTER_LINEAR));
+    ASSERT_EQ_INT(before + 1, presents);
+    ASSERT_TRUE(blended_pixels() > 0);
+    const std::vector<uint32_t> linear = rendered;
+    ASSERT_TRUE(g_platform.window.resize(16, 12, true));
+    ASSERT_TRUE(g_platform.window.present(&frame));
+    ASSERT_MEM_EQ(&linear[0], &rendered[0], linear.size() * sizeof(uint32_t));
+    ASSERT_TRUE(!g_platform.window.set_present_filter(PLATFORM_FILTER_PIXELART));
+    ASSERT_TRUE(strstr(SDL_GetError(), "pixelart") != NULL);
+    ASSERT_TRUE(!g_platform.window.set_present_filter((PlatformPresentFilter)99));
+    ASSERT_TRUE(SDL_GetError()[0] != '\0');
+    ASSERT_TRUE(g_platform.window.present(&frame));
+    ASSERT_MEM_EQ(&linear[0], &rendered[0], linear.size() * sizeof(uint32_t));
+    g_platform.window.destroy();
+    ASSERT_TRUE(g_platform.window.create(120, 90, false));
+    ASSERT_TRUE(g_platform.window.resize(16, 12, true));
+    ASSERT_TRUE(g_platform.window.present(&frame));
+    ASSERT_MEM_EQ(&linear[0], &rendered[0], linear.size() * sizeof(uint32_t));
+    ASSERT_TRUE(g_platform.window.set_present_filter(PLATFORM_FILTER_NEAREST));
+    ASSERT_EQ_INT(0, blended_pixels());
+    SDL2_SetPresentationProbe(NULL);
+    g_platform.window.shutdown();
+}
+
 static void test_window_frames_modes_and_lifetime() {
     ASSERT_TRUE(g_platform.capabilities.windowed);
     ASSERT_TRUE(!g_platform.capabilities.transient_window_loss && !g_platform.capabilities.touch_overlay);
@@ -535,6 +586,7 @@ int main() {
     ASSERT_TRUE(g_platform.system.init());
     ASSERT_TRUE(g_platform.events.init());
     RUN_TEST(test_window_frames_modes_and_lifetime);
+    RUN_TEST(test_present_filter_and_surface_recreation);
     RUN_TEST(test_event_payloads_and_borrowed_text);
     RUN_TEST(test_keyboard_and_gamepad_instance_ids);
     RUN_TEST(test_translated_event_union_bytes);
