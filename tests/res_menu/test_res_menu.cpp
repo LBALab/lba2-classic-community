@@ -13,6 +13,7 @@
 static U32 baseW = 1280;
 static U32 baseH = 720;
 
+/* Indoors the renderer runs at a lower mode than the player-selected base. */
 U32 ModeDesiredX = 640;
 U32 ModeDesiredY = 360;
 
