@@ -4984,11 +4984,19 @@ S32 AffOneObject(T_SORT *pt) {
 
                         /* cam_obstruct: while the Auto camera's own clearance is
                          * still raising the view over what hides him, it is told
-                         * to hurry and the recentre is left out. */
+                         * to hurry and the recentre is left out.
+                         *
+                         * Neither while a blend into or out of a scripted shot
+                         * runs (cam_shot_blend_ms): the view drawn is on its way
+                         * between two others for a fraction of a second, and
+                         * where it passes is no reason to put the camera
+                         * anywhere. Tested before the clearance, which would
+                         * learn a floor from it. */
                         if (numobj == NumObjFollow
                                           AND TestNumObjFollow // protec boucle infinie
                                               AND !CameraZone
-                                                  AND !FollowCamObstructHidden()) {
+                                                  AND !FollowCamBlending()
+                                                      AND !FollowCamObstructHidden()) {
                             TestNumObjFollow = FALSE;
                             FollowCamNoteHidden(3);
                             {
@@ -6330,8 +6338,12 @@ void SetZoneCamera(T_ZONE *ptrz) {
              * remember, if it is going to give anything back, is what these are
              * about to replace. Does nothing unless cam_zone_return or
              * cam_zone_anchor is on. */
-            if (FollowCamera)
+            if (FollowCamera) {
                 FollowCamLendToShot(ptrz->Info4);
+                /* And the view on screen, which a blend into the shot starts
+                 * from (cam_shot_blend_ms). */
+                FollowCamShotTookView();
+            }
 
             AlphaCam = ptrz->Info3;
             BetaCam = ptrz->Info4;

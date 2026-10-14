@@ -130,6 +130,14 @@
 #define FOLLOW_CAM_RETURN_YAW_MIN_STEP 3   /* minimum AddBetaCam step per frame of the return (units) */
 #define FOLLOW_CAM_RETURN_PITCH_MIN_STEP 1 /* minimum AlphaCam step per frame of the return (units) */
 
+/* cam_shot_blend_ms: a shot taking the view from the Auto camera, and the Auto
+ * camera taking it back, is a cut of every camera parameter at once: the look-at
+ * point, the distance, the yaw and the pitch. With this above 0 the frame shows
+ * a blend from the view on screen to the new one instead, over this many
+ * milliseconds, eased in and out. 0 is the cut. */
+#define FOLLOW_CAM_SHOT_BLEND_MS_DEFAULT 600
+#define FOLLOW_CAM_SHOT_BLEND_MS_MAX 5000
+
 /* Elevation (AlphaCam) — applies when Auto camera (FollowCamera) is on -----*/
 #define FOLLOW_CAM_ALPHA_MIN 150 /* minimum elevation angle */
 #define FOLLOW_CAM_ALPHA_MAX 600 /* maximum elevation angle */

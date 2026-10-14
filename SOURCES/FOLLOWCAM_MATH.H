@@ -176,6 +176,32 @@ static inline S32 FollowCamEaseStepMs(S32 diff, S32 dtMs, S32 tauMs, S32 minPerS
     return step;
 }
 
+/* A blend `elapsedMs` into one `durMs` long: how far along it the view is, in
+ * thousandths, eased in and out (3t^2 - 2t^3), so the camera starts and stops
+ * moving gently rather than at full speed. 1000 once the time is up, and for a
+ * blend with no length. */
+static inline S32 FollowCamBlendWeight(S32 elapsedMs, S32 durMs) {
+    S64 t;
+
+    if (durMs <= 0 || elapsedMs >= durMs)
+        return 1000;
+    if (elapsedMs <= 0)
+        return 0;
+
+    t = (S64)elapsedMs * 1000 / durMs;
+    return (S32)(t * t * (3000 - 2 * t) / 1000000);
+}
+
+/* `weight` thousandths of the way from `from` to `to`. */
+static inline S32 FollowCamBlendValue(S32 from, S32 to, S32 weight) {
+    return from + (S32)((S64)(to - from) * weight / 1000);
+}
+
+/* The same for an angle, the shortest way round. */
+static inline S32 FollowCamBlendAngle(S32 from, S32 to, S32 weight) {
+    return (from + (S32)((S64)FollowCamAngleDiff(to & 4095, from & 4095) * weight / 1000)) & 4095;
+}
+
 /* HD recompose strength: the hundredths by which the render height exceeds the
  * 480 the game was composed for. 0 at 480, 125 at 1080.
  *

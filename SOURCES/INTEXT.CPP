@@ -427,9 +427,7 @@ void CameraCenter(S32 flagbeta) {
             FlagWater = Yp;
         }
     } else {
-        SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
-                        AlphaCam + FollowCamRenderExtraPitch(), BetaCam, GammaCam,
-                        VueDistance);
+        FollowCamSetView();
 
         if (!CameraZone AND flagbeta != 3) {
             if (FollowCamObstructOwnsSearch()) {

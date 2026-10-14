@@ -40,6 +40,7 @@ S32 FollowCamWorldAnchor = FOLLOW_CAM_WORLD_ANCHOR_DEFAULT;
 S32 FollowCamWorldReturn = FOLLOW_CAM_WORLD_RETURN_DEFAULT;
 S32 FollowCamEaseMs = FOLLOW_CAM_EASE_MS_DEFAULT;
 S32 FollowCamTargetMs = FOLLOW_CAM_TARGET_MS_DEFAULT;
+S32 FollowCamShotBlendMs = FOLLOW_CAM_SHOT_BLEND_MS_DEFAULT;
 
 /* Console `camtrace`. */
 S32 DbgCamTrace = 0;
@@ -107,6 +108,23 @@ static S32 FollowCamShotBeta = 0;       /* the shot's authored world yaw */
 static S32 FollowCamWasIndoors = FALSE; /* the last simulated frame was in an interior */
 static S32 FollowCamWasCinema = FALSE;  /* the last simulated frame was in a cutscene */
 
+/* cam_shot_blend_ms. The view the frame last showed (FollowCamSetView), and the
+ * blend from it that a shot taking the view, or giving it back, starts. */
+typedef struct {
+    S32 X, Y, Z; /* look-at point */
+    S32 Alpha, Beta, Gamma;
+    S32 Dist;
+} T_FOLLOW_CAM_VIEW;
+static T_FOLLOW_CAM_VIEW FollowCamShown;
+static S32 FollowCamShownCube = -1;
+static S32 FollowCamShownLive = FALSE;   /* FollowCamShown is the Auto camera's, outdoors, with nothing else having had the view since */
+static S32 FollowCamCutThisStep = FALSE; /* the view was put somewhere with a cut in this simulation step */
+static S32 FollowCamShotHadView = FALSE; /* a shot was applied and the update has not run since */
+static T_FOLLOW_CAM_VIEW FollowCamBlendFrom;
+static S32 FollowCamBlendOn = FALSE;
+static U32 FollowCamBlendStart = 0; /* TimerRefHR */
+static S32 FollowCamBlendDur = 0;
+
 /* The pitch the Auto camera rests at when nobody else has it: the player's own
  * tilt if they set one, the preset a recentre put there if not. -1 until one of
  * those has happened. AlphaCam cannot stand in for it, because two writers put
@@ -125,6 +143,80 @@ static S32 FollowCamWorldReturnCarry = 0; /* thousandths of a unit the return ha
  * shot is never recomposed. Tuning in FOLLOWCAM_CFG.H. */
 static S32 FollowCamHDExcess(void) {
     return FollowCamHDExcessFor(FollowCamHDRecompose, (S32)ModeDesiredY, FollowCamHDExcessCap);
+}
+
+/* cam_shot_blend_ms. Whether a blend may be shown at all: the Auto camera has
+ * the view outdoors. A cutscene sets the camera it means, and so does the
+ * classic camera. */
+static S32 FollowCamBlendApplies(void) {
+    return FollowCamera AND CubeMode == CUBE_EXTERIEUR AND !CinemaMode;
+}
+
+/* The view the globals describe, as the scene render sets it. */
+static void FollowCamGlobalView(T_FOLLOW_CAM_VIEW *v) {
+    v->X = VueOffsetX;
+    v->Y = VueOffsetY;
+    v->Z = VueOffsetZ;
+    v->Alpha = AlphaCam + FollowCamRenderExtraPitch();
+    v->Beta = BetaCam;
+    v->Gamma = GammaCam;
+    v->Dist = VueDistance;
+}
+
+static S32 FollowCamBlendWeightNow(void) {
+    S32 elapsed = (S32)(TimerRefHR - FollowCamBlendStart);
+
+    /* A clock set back with no cut to say so (a load is one, and stops the
+     * blend) would hold the view at the start for good. Finish instead. */
+    if (elapsed < 0)
+        return 1000;
+    return FollowCamBlendWeight(elapsed, FollowCamBlendDur);
+}
+
+/* What the frame shows: the globals' view, or while a blend runs, that far from
+ * the view it started at toward the globals' view as it is now. Toward the view
+ * as it is now and not as it was when the blend started, because the Auto
+ * camera's own view moves on every update, and a blend toward where it was
+ * would land somewhere it has already left. */
+static void FollowCamShownView(T_FOLLOW_CAM_VIEW *v) {
+    S32 w;
+
+    FollowCamGlobalView(v);
+    if (!FollowCamBlendOn)
+        return;
+
+    w = FollowCamBlendWeightNow();
+    v->X = FollowCamBlendValue(FollowCamBlendFrom.X, v->X, w);
+    v->Y = FollowCamBlendValue(FollowCamBlendFrom.Y, v->Y, w);
+    v->Z = FollowCamBlendValue(FollowCamBlendFrom.Z, v->Z, w);
+    v->Alpha = FollowCamBlendValue(FollowCamBlendFrom.Alpha, v->Alpha, w);
+    v->Beta = FollowCamBlendAngle(FollowCamBlendFrom.Beta, v->Beta, w);
+    v->Gamma = FollowCamBlendAngle(FollowCamBlendFrom.Gamma, v->Gamma, w);
+    v->Dist = FollowCamBlendValue(FollowCamBlendFrom.Dist, v->Dist, w);
+}
+
+/* A shot has just taken the view, or given it back: start a blend from what the
+ * frame last showed. Only when that was the Auto camera's view of this scene,
+ * shown with no cut since. A scene change, a building, a cutscene, Center
+ * camera and the other recentres are cuts already, and a blend from the view
+ * before one of them would sweep across the cut instead of hiding a jump. */
+static void FollowCamBlendFromShown(void) {
+    if (FollowCamShotBlendMs <= 0 OR !FollowCamBlendApplies() OR !FollowCamShownLive OR FollowCamShownCube != NumCube OR FollowCamCutThisStep) {
+        FollowCamBlendOn = FALSE;
+        return;
+    }
+
+    FollowCamBlendFrom = FollowCamShown;
+    FollowCamBlendStart = TimerRefHR;
+    FollowCamBlendDur = FollowCamShotBlendMs;
+    FollowCamBlendOn = TRUE;
+}
+
+/* The camera was put somewhere on purpose: no blend runs across it. */
+static void FollowCamBlendCut(void) {
+    FollowCamBlendOn = FALSE;
+    FollowCamShotHadView = FALSE;
+    FollowCamCutThisStep = TRUE;
 }
 
 /* camtrace: one line per frame describing where the camera is and who is deciding
@@ -152,7 +244,12 @@ static S32 FollowCamHDExcess(void) {
  * Auto camera's update was paced by on this frame: 0 on a frame it did not run,
  * and on the first one after a frame without it. `tlag` is how far the look-at
  * point trails the spot ahead of the hero, in world units along the ground
- * (always 0 with cam_target_ms 0, and on a frame the update did not run). */
+ * (always 0 with cam_target_ms 0, and on a frame the update did not run).
+ * `vx` `vy` `vz` are the look-at point. `blend` is the milliseconds left of a
+ * blend into or out of a scripted shot (0 when none runs, always 0 with
+ * cam_shot_blend_ms 0), and `sbeta` `salpha` `sdist` `sx` `sy` `sz` are the view
+ * the frame shows, which differs from the ones before only while one runs; the
+ * shown pitch includes `obs`. */
 void FollowCamTrace(void) {
     static S32 prevBeta = 0;
     static S32 prevX = 0;
@@ -162,6 +259,8 @@ void FollowCamTrace(void) {
     T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
     S32 step;
     S32 moving;
+    S32 blendLeft = 0;
+    T_FOLLOW_CAM_VIEW shown;
 
     if (!DbgCamTrace) {
         /* Keep the references current while the trace is off, so switching it on
@@ -192,16 +291,25 @@ void FollowCamTrace(void) {
     }
     primed = TRUE;
 
+    FollowCamShownView(&shown);
+    if (FollowCamBlendOn) {
+        blendLeft = FollowCamBlendDur - (S32)(TimerRefHR - FollowCamBlendStart);
+        if (blendLeft < 1)
+            blendLeft = 1; /* on until the frame that shows its end */
+    }
+
     Log_Info("[cam] heroBeta %4d add %4d beta %4d target %4d step %5d delay %3d orbit %d moving %d "
              "zone %d forced %d cine %d follow %d ext %d vue %d alpha %4d dist %6d inshot %d loan %d obs %d hid %d "
-             "dt %3d tlag %4d",
+             "dt %3d tlag %4d vx %6d vy %5d vz %6d blend %4d sbeta %4d salpha %4d sdist %6d sx %6d sy %5d sz %6d",
              (int)ptr3d->Beta, (int)AddBetaCam, (int)BetaCam, (int)FollowCamTargetBeta,
              (int)step, (int)FollowCamReengageDelay, (int)ManualCameraOrbitActive, (int)moving,
              (int)CameraZone, (int)FlagCameraForcee, (int)CinemaMode, (int)FollowCamera,
              (int)(CubeMode == CUBE_EXTERIEUR), (int)VueCamera, (int)AlphaCam, (int)VueDistance,
              (int)FollowCamInShotBox, (int)FollowCamLoan, (int)FollowCamObstructExtra, (int)FollowCamHiddenSeen,
              (int)FollowCamEaseDt,
-             (int)((FollowCamEaseFrame == FollowCamFrame) ? Distance2D(0, 0, FollowCamTargetLagX, FollowCamTargetLagZ) : 0));
+             (int)((FollowCamEaseFrame == FollowCamFrame) ? Distance2D(0, 0, FollowCamTargetLagX, FollowCamTargetLagZ) : 0),
+             (int)VueOffsetX, (int)VueOffsetY, (int)VueOffsetZ,
+             (int)blendLeft, (int)shown.Beta, (int)shown.Alpha, (int)shown.Dist, (int)shown.X, (int)shown.Y, (int)shown.Z);
     FollowCamHiddenSeen = 0;
 
     prevBeta = BetaCam;
@@ -434,6 +542,14 @@ void UpdateFollowCameraExt(void) {
      * was on the previous step with no cut since. */
     S32 consecutive = FollowCamEaseClockRuns AND FollowCamFrame - FollowCamEaseFrame == 1;
     S32 dtMs = FollowCamEaseTick();
+
+    /* The first update since a shot was applied: the Auto camera takes the view
+     * back, from a shot that held it while the hero stood in its box, or from
+     * one that fired once on the step before. */
+    if (FollowCamShotHadView) {
+        FollowCamShotHadView = FALSE;
+        FollowCamBlendFromShown();
+    }
 
     /* First-frame init: sync to current camera state.
                      * FollowCamTargetBeta defaults to 0 but BetaCam starts ~2048
@@ -1025,6 +1141,43 @@ S32 FollowCamRenderExtraPitch(void) {
     return FollowCamObstructExtra;
 }
 
+void FollowCamSetView(void) {
+    T_FOLLOW_CAM_VIEW v;
+
+    if (!FollowCamBlendApplies()) {
+        FollowCamBlendOn = FALSE;
+        FollowCamShownLive = FALSE;
+        SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
+                        AlphaCam + FollowCamRenderExtraPitch(), BetaCam, GammaCam,
+                        VueDistance);
+        return;
+    }
+
+    if (FollowCamBlendOn AND FollowCamBlendWeightNow() >= 1000)
+        FollowCamBlendOn = FALSE;
+
+    FollowCamShownView(&v);
+    SetFollowCamera(v.X, v.Y, v.Z, v.Alpha, v.Beta, v.Gamma, v.Dist);
+
+    /* The first view of a scene, or the first since something else had the
+     * view, follows a cut, whoever made it. */
+    if (!FollowCamShownLive OR FollowCamShownCube != NumCube)
+        FollowCamCutThisStep = TRUE;
+
+    FollowCamShown = v;
+    FollowCamShownCube = NumCube;
+    FollowCamShownLive = TRUE;
+}
+
+void FollowCamShotTookView(void) {
+    FollowCamBlendFromShown();
+    FollowCamShotHadView = TRUE;
+}
+
+S32 FollowCamBlending(void) {
+    return FollowCamBlendOn;
+}
+
 void FollowCamObstructSettle(void) {
     /* Nothing to settle with the setting off, and a flag raised then would keep
      * the dirty check true until an update came along to clear it. */
@@ -1067,6 +1220,7 @@ void FollowCamSyncTarget(void) {
     FollowCamTargetBeta = BetaCam;
     /* The caller has just put the camera somewhere with a cut. */
     FollowCamEaseRestart();
+    FollowCamBlendCut();
 }
 
 void FollowCamWorldAnchorRebase(void) {
@@ -1130,11 +1284,15 @@ void FollowCamForgetLoan(void) {
     /* The same moments are cuts for the eases paced by the clock, and a load
      * among them has just set that clock from the save. */
     FollowCamEaseRestart();
+    FollowCamBlendCut();
 }
 
 void FollowCamNoteFrame(void) {
     FollowCamFrame++;
     FollowCamEaseDt = 0;
+    /* After this step's zone check, which is the last thing a cut has to keep
+     * from blending. */
+    FollowCamCutThisStep = FALSE;
 }
 
 void FollowCamNoteCinema(S32 cinema) {
@@ -1261,6 +1419,9 @@ static const T_SETTING FollowCamSettings[] = {
     {"FollowCamTargetMs", NULL, "cam_target_ms", &FollowCamTargetMs, SETTING_CLAMP,
      FOLLOW_CAM_TARGET_MS_DEFAULT, 0, FOLLOW_CAM_EASE_MS_MAX, NULL, NULL, NULL, NULL,
      "Auto cam: time constant of the look-at point trailing the hero, ms (0 = pinned to him, 300 = retail)", SETTING_RECORDED, SETTING_BEFORE(0)},
+    {"FollowCamShotBlendMs", NULL, "cam_shot_blend_ms", &FollowCamShotBlendMs, SETTING_CLAMP,
+     FOLLOW_CAM_SHOT_BLEND_MS_DEFAULT, 0, FOLLOW_CAM_SHOT_BLEND_MS_MAX, NULL, NULL, NULL, NULL,
+     "Auto cam: blend into and out of a scripted shot over this many ms (0 = cut)", SETTING_RECORDED, SETTING_BEFORE(0)},
     /* cvar only, and it must stay that way. FollowCamera's cfg row lives in
        CONFIG_FILE.CPP's table, which reads it with the legacy AutoCameraCenter
        fallback and its own rule; giving this row a key would read the same

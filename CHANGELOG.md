@@ -14,6 +14,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `camtrace` reports the milliseconds the Auto camera's update was paced by and
   how far the look-at point trails the hero.
+- `camtrace` reports the point the camera looks at, and the view the frame shows
+  with how long is left of a blend into or out of a scripted shot.
 - `cam_world_anchor` (`FollowCamWorldAnchor` in `lba2.cfg`), experimental and
   off by default: the Auto camera holds a direction in the world instead of
   turning with the hero. With `cam_hold_angle 0` it comes back behind him as he
@@ -112,6 +114,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     Classic release, so he leads the frame a little while he runs and the view
     settles after he stops. It used to be pinned to him (`cam_target_ms`,
     `FollowCamTargetMs`: 300 by default, 0 for the old behaviour).
+  - A scripted camera shot taking the view, and the camera taking it back when
+    the hero leaves the shot, is a short blend on screen instead of a cut. The
+    setting is its length in milliseconds: 600 by default, 0 for the cut
+    (`cam_shot_blend_ms`, `FollowCamShotBlendMs`).
 - The Linux tarball, macOS and Android builds now bundle SDL 3.4.18 (was
   3.2.16), so the pixelart present filter works in them. The Windows and
   AppImage builds keep using the SDL their distribution ships.

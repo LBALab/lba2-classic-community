@@ -503,6 +503,50 @@ static void test_timed_ease_arrives_with_no_floor_asked_for(void) {
     ASSERT_EQ_INT(0, left);
 }
 
+/* A blend into or out of a scripted shot starts on the view it leaves and ends on the one it
+ * goes to, exactly, and never goes outside the two on the way. Eased in and out: it starts and
+ * stops slowly, and is half way at half time. */
+static void test_blend_weight_starts_ends_and_rises(void) {
+    S32 ms, prev = -1;
+    S32 bad = 0;
+
+    ASSERT_EQ_INT(0, FollowCamBlendWeight(0, 600));
+    ASSERT_EQ_INT(500, FollowCamBlendWeight(300, 600));
+    ASSERT_EQ_INT(1000, FollowCamBlendWeight(600, 600));
+    ASSERT_EQ_INT(1000, FollowCamBlendWeight(601, 600));
+    /* No length is a cut, and so is a time before the start. */
+    ASSERT_EQ_INT(1000, FollowCamBlendWeight(0, 0));
+    ASSERT_EQ_INT(0, FollowCamBlendWeight(-16, 600));
+    /* Slow at both ends: the first and last 16 ms frames move less than a middle one. */
+    ASSERT_TRUE(FollowCamBlendWeight(16, 600) < FollowCamBlendWeight(316, 600) - FollowCamBlendWeight(300, 600));
+    ASSERT_TRUE(1000 - FollowCamBlendWeight(584, 600) < FollowCamBlendWeight(316, 600) - FollowCamBlendWeight(300, 600));
+
+    for (ms = 0; ms <= FOLLOW_CAM_SHOT_BLEND_MS_MAX; ms++) {
+        S32 w = FollowCamBlendWeight(ms, FOLLOW_CAM_SHOT_BLEND_MS_MAX);
+        if (w < prev || w < 0 || w > 1000)
+            bad = 1;
+        prev = w;
+    }
+    ASSERT_EQ_INT(0, bad);
+}
+
+/* The blended values: the ends are the two views, an angle goes the short way round and stays
+ * inside the turn, and a world position as far as a scene is wide does not overflow. */
+static void test_blend_values_take_the_short_way_and_do_not_overflow(void) {
+    ASSERT_EQ_INT(1000, FollowCamBlendValue(1000, 9000, 0));
+    ASSERT_EQ_INT(9000, FollowCamBlendValue(1000, 9000, 1000));
+    ASSERT_EQ_INT(5000, FollowCamBlendValue(1000, 9000, 500));
+    ASSERT_EQ_INT(-5000, FollowCamBlendValue(-1000, -9000, 500));
+    ASSERT_EQ_INT(65536, FollowCamBlendValue(0, 65536, 1000));
+
+    ASSERT_EQ_INT(4000, FollowCamBlendAngle(4000, 100, 0));
+    ASSERT_EQ_INT(100, FollowCamBlendAngle(4000, 100, 1000));
+    ASSERT_EQ_INT(2, FollowCamBlendAngle(4000, 100, 500)); /* across 0, not back round through 2048 */
+    ASSERT_EQ_INT(2, FollowCamBlendAngle(100, 4000, 500));
+    ASSERT_EQ_INT(4049, FollowCamBlendAngle(100, 4000, 750));
+    ASSERT_EQ_INT(3072, FollowCamBlendAngle(-1024, -1024, 500));
+}
+
 int main(void) {
     RUN_TEST(test_pan_round_trips_for_every_angle);
     RUN_TEST(test_angles_stay_within_the_turn);
@@ -520,6 +564,8 @@ int main(void) {
     RUN_TEST(test_timed_ease_lands_exactly_and_never_overshoots);
     RUN_TEST(test_timed_ease_waits_without_time_and_survives_bad_settings);
     RUN_TEST(test_timed_ease_arrives_with_no_floor_asked_for);
+    RUN_TEST(test_blend_weight_starts_ends_and_rises);
+    RUN_TEST(test_blend_values_take_the_short_way_and_do_not_overflow);
     RUN_TEST(test_hd_recompose_is_a_no_op_at_the_authored_height);
     RUN_TEST(test_hd_recompose_disabled_is_always_zero);
     RUN_TEST(test_hd_recompose_matches_the_documented_scale);
