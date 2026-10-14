@@ -153,47 +153,56 @@ static const T_SETTING BootSettings[] = {
 /* The mouse's camera and menu preferences. Read by the manual camera path in
  * EXTFUNC.CPP, which has no module of its own to own them yet.
  *
- * No cvar column: the console names these in CONSOLE_CMD.CPP, unclamped on
- * purpose so a value can be pushed past its range while tuning. Moving them
- * here would clamp them, which is a change of its own. */
+ * The console clamps to the same ranges the cfg does. Two of them are
+ * load-bearing: cam_mouse_div divides the pointer's motion, and at 100 or
+ * above cam_glide's tail never decays. */
 static const T_SETTING MouseSettings[] = {
     {"MenuMouse", NULL, NULL, &FlagMenuMouse, SETTING_TRUTHY, TRUE, 0, 1, NULL, NULL, NULL, NULL},
-    {"MouseCamera", NULL, NULL, &FlagMouseCamera, SETTING_TRUTHY, TRUE, 0, 1, NULL, NULL, NULL, NULL},
-    {"MouseCameraDrag", NULL, NULL, &FlagMouseCameraDrag, SETTING_TRUTHY, TRUE, 0, 1, NULL, NULL, NULL, NULL},
-    {"MouseSensitivityX", NULL, NULL, &MouseCameraSensX, SETTING_CLAMP, MOUSE_CAM_SENS_DEFAULT, 1, 10,
-     NULL, NULL, NULL, NULL},
-    {"MouseSensitivityY", NULL, NULL, &MouseCameraSensY, SETTING_CLAMP, MOUSE_CAM_SENS_DEFAULT, 1, 10,
-     NULL, NULL, NULL, NULL},
-    {"MouseInvertY", NULL, NULL, &MouseCameraInvertY, SETTING_TRUTHY, FALSE, 0, 1, NULL, NULL, NULL, NULL},
-    {"MouseCameraDivisor", NULL, NULL, &MouseCameraDivisor, SETTING_CLAMP, MOUSE_CAM_DIVISOR_DEFAULT, 1, 16,
-     NULL, NULL, NULL, NULL},
-    {"ManualCameraSmoothing", NULL, NULL, &ManualCameraSmoothing, SETTING_CLAMP, MOUSE_CAM_SMOOTHING_DEFAULT, 1, 16,
-     NULL, NULL, NULL, NULL},
-    {"FollowCamOrbitGlide", NULL, NULL, &FollowCamOrbitGlide, SETTING_CLAMP, FOLLOW_CAM_ORBIT_GLIDE_DEFAULT, 0,
-     FOLLOW_CAM_ORBIT_GLIDE_MAX, NULL, NULL, NULL, NULL},
+    {"MouseCamera", NULL, "cam_mouse", &FlagMouseCamera, SETTING_TRUTHY, TRUE, 0, 1, NULL, NULL, NULL, NULL,
+     "Mouse camera enable"},
+    {"MouseCameraDrag", NULL, "cam_mouse_drag", &FlagMouseCameraDrag, SETTING_TRUTHY, TRUE, 0, 1,
+     NULL, NULL, NULL, NULL, "Mouse camera: 1=right-drag, 0=free orbit"},
+    {"MouseSensitivityX", NULL, "cam_mouse_x", &MouseCameraSensX, SETTING_CLAMP, MOUSE_CAM_SENS_DEFAULT, 1, 10,
+     NULL, NULL, NULL, NULL, "Mouse orbit sensitivity (1-10)"},
+    {"MouseSensitivityY", NULL, "cam_mouse_y", &MouseCameraSensY, SETTING_CLAMP, MOUSE_CAM_SENS_DEFAULT, 1, 10,
+     NULL, NULL, NULL, NULL, "Mouse elevation sensitivity (1-10)"},
+    {"MouseInvertY", NULL, "cam_mouse_invert", &MouseCameraInvertY, SETTING_TRUTHY, FALSE, 0, 1,
+     NULL, NULL, NULL, NULL, "Invert mouse elevation"},
+    {"MouseCameraDivisor", NULL, "cam_mouse_div", &MouseCameraDivisor, SETTING_CLAMP, MOUSE_CAM_DIVISOR_DEFAULT, 1, 16,
+     NULL, NULL, NULL, NULL, "Mouse pixel-to-angle divisor (1-16, lower = faster)"},
+    {"ManualCameraSmoothing", NULL, "cam_smooth", &ManualCameraSmoothing, SETTING_CLAMP, MOUSE_CAM_SMOOTHING_DEFAULT,
+     1, 16, NULL, NULL, NULL, NULL, "Manual orbit lerp divisor (1 = snap, higher = laggier)"},
+    {"FollowCamOrbitGlide", NULL, "cam_glide", &FollowCamOrbitGlide, SETTING_CLAMP, FOLLOW_CAM_ORBIT_GLIDE_DEFAULT, 0,
+     FOLLOW_CAM_ORBIT_GLIDE_MAX, NULL, NULL, NULL, NULL,
+     "Orbit follow-through: % of orbit speed kept per frame after release (0 = stop dead)"},
 };
 #define MOUSE_SETTING_COUNT ((S32)(sizeof(MouseSettings) / sizeof(MouseSettings[0])))
 
 /* The right stick's camera preferences and the stick deadzone. The pad's
- * bindings stay with INPUT.CPP, which writes them straight after these. Same
- * reason as above for the missing cvar column. */
+ * bindings stay with INPUT.CPP, which writes them straight after these. The
+ * deadzone's ceiling is load-bearing too: JOYSTICK.CPP narrows it to S16. */
 static const T_SETTING GamepadSettings[] = {
-    {"GamepadDeadzone", NULL, NULL, &JoystickDeadzone, SETTING_CLAMP, 8000, 0, 32767, NULL, NULL, NULL, NULL},
-    {"GamepadCameraAnalog", NULL, NULL, &GamepadCameraAnalog, SETTING_TRUTHY, TRUE, 0, 1, NULL, NULL, NULL, NULL},
-    {"GamepadCameraSensX", NULL, NULL, &GamepadCameraSensX, SETTING_CLAMP, GAMEPAD_CAM_SENS_DEFAULT, 1, 10,
-     NULL, NULL, NULL, NULL},
-    {"GamepadCameraSensY", NULL, NULL, &GamepadCameraSensY, SETTING_CLAMP, GAMEPAD_CAM_SENS_DEFAULT, 1, 10,
-     NULL, NULL, NULL, NULL},
-    {"GamepadCameraInvertY", NULL, NULL, &GamepadCameraInvertY, SETTING_TRUTHY, FALSE, 0, 1, NULL, NULL, NULL, NULL},
-    {"GamepadCamMaxBeta", NULL, NULL, &GamepadCamMaxBeta, SETTING_CLAMP, GAMEPAD_CAM_BETA_MAX_DEFAULT, 1, 200,
-     NULL, NULL, NULL, NULL},
-    {"GamepadCamMaxAlpha", NULL, NULL, &GamepadCamMaxAlpha, SETTING_CLAMP, GAMEPAD_CAM_ALPHA_MAX_DEFAULT, 1, 100,
-     NULL, NULL, NULL, NULL},
+    {"GamepadDeadzone", NULL, "pad_deadzone", &JoystickDeadzone, SETTING_CLAMP, 8000, 0, 32767,
+     NULL, NULL, NULL, NULL, "Gamepad stick deadzone (SDL units 0-32767)"},
+    {"GamepadCameraAnalog", NULL, "cam_stick_analog", &GamepadCameraAnalog, SETTING_TRUTHY, TRUE, 0, 1,
+     NULL, NULL, NULL, NULL, "Analog right-stick camera in Auto cam"},
+    {"GamepadCameraSensX", NULL, "cam_stick_x", &GamepadCameraSensX, SETTING_CLAMP, GAMEPAD_CAM_SENS_DEFAULT, 1, 10,
+     NULL, NULL, NULL, NULL, "Right-stick orbit sensitivity (1-10)"},
+    {"GamepadCameraSensY", NULL, "cam_stick_y", &GamepadCameraSensY, SETTING_CLAMP, GAMEPAD_CAM_SENS_DEFAULT, 1, 10,
+     NULL, NULL, NULL, NULL, "Right-stick elevation sensitivity (1-10)"},
+    {"GamepadCameraInvertY", NULL, "cam_stick_invert", &GamepadCameraInvertY, SETTING_TRUTHY, FALSE, 0, 1,
+     NULL, NULL, NULL, NULL, "Invert right-stick elevation"},
+    {"GamepadCamMaxBeta", NULL, "cam_stick_max_x", &GamepadCamMaxBeta, SETTING_CLAMP, GAMEPAD_CAM_BETA_MAX_DEFAULT,
+     1, 200, NULL, NULL, NULL, NULL, "Right-stick orbit speed ceiling (units/frame at sens 10)"},
+    {"GamepadCamMaxAlpha", NULL, "cam_stick_max_y", &GamepadCamMaxAlpha, SETTING_CLAMP, GAMEPAD_CAM_ALPHA_MAX_DEFAULT,
+     1, 100, NULL, NULL, NULL, NULL, "Right-stick elevation speed ceiling (units/frame at sens 10)"},
 };
 #define GAMEPAD_SETTING_COUNT ((S32)(sizeof(GamepadSettings) / sizeof(GamepadSettings[0])))
 
 void ConfigFile_RegisterCvars(void) {
     Settings_RegisterCvars(BootSettings, BOOT_SETTING_COUNT);
+    Settings_RegisterCvars(MouseSettings, MOUSE_SETTING_COUNT);
+    Settings_RegisterCvars(GamepadSettings, GAMEPAD_SETTING_COUNT);
 }
 
 const T_SETTING *ConfigFile_Setting(const char *key) {

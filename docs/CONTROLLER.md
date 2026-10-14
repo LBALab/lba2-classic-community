@@ -80,9 +80,9 @@ zoom stays on the keyboard and mouse.
 ## Live tuning (console cvars)
 
 Open the console (default `F12`) to tune the camera live. `name` shows a value
-(bools toggle), `name value` sets it. Values are **not** clamped on set, so you
-can explore past the official ranges while tuning; they clamp on cfg load, and
-changes persist to `lba2.cfg` on exit. `varlist` lists them; tab completes names.
+(bools toggle), `name value` sets it. A value is clamped to the same range the
+cfg allows, and changes persist to `lba2.cfg` on exit. `varlist` lists them; tab
+completes names.
 
 | cvar | setting |
 |------|---------|
