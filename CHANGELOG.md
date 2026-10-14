@@ -12,6 +12,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `camtrace` reports the milliseconds the Auto camera's update was paced by and
+  how far the look-at point trails the hero.
 - `cam_zone_anchor` (`FollowCamZoneAnchor` in `lba2.cfg`), experimental and off
   by default: inside the box of a scripted shot that fires once, the Auto
   camera holds the shot's own angle as the classic camera does.
@@ -88,6 +90,15 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     the player's pan (`cam_obstruct`, `FollowCamObstruct`;
     `cam_obstruct_hurry`, `FollowCamObstructHurryDivisor`, sets how fast the
     tilt rises while he is hidden).
+  - The camera comes round behind the hero about twice as quickly, at the pace
+    of the 2022 Classic release's auto camera, and ends exactly behind him. It
+    used to stop up to a degree short until he moved again. The setting is the
+    ease's time constant in milliseconds: 300 by default, 600 for the old
+    pace, 0 for the old behaviour (`cam_ease_ms`, `FollowCamEaseMs`).
+  - The point the camera looks at trails the hero and catches up, as in the
+    Classic release, so he leads the frame a little while he runs and the view
+    settles after he stops. It used to be pinned to him (`cam_target_ms`,
+    `FollowCamTargetMs`: 300 by default, 0 for the old behaviour).
 - The Linux tarball, macOS and Android builds now bundle SDL 3.4.18 (was
   3.2.16), so the pixelart present filter works in them. The Windows and
   AppImage builds keep using the SDL their distribution ships.

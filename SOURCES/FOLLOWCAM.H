@@ -137,6 +137,15 @@ extern void FollowCamNoteScene(S32 exterior);
  * the pan the cutscene's own shots left. */
 extern void FollowCamNoteCinema(S32 cinema);
 
+/* Once a simulation step, before the update, whether or not the update then
+ * runs. The eases paced by the clock (cam_ease_ms, cam_target_ms) take the time since the
+ * previous update for a step's length, and this is how the update knows that
+ * the previous one was on the step before: a camera zone, a cutscene or a
+ * building in between and the time is not a step's, and is not spent. Called
+ * once per simulation step, so a rendered frame that skips the simulation (above
+ * ~60 fps with the fixed step on) is no gap. */
+extern void FollowCamNoteFrame(void);
+
 /* Set by CheckZoneSce on each frame the followed object stands in the box of a
  * camera zone that has fired, and cleared with CameraZone at the top of the
  * frame. CameraZone itself cannot say this: for a zone that fires once it is
@@ -164,6 +173,8 @@ extern S32 FollowCamManualHoldFrames;     /* manual-override hold length (cvar c
 extern S32 FollowCamHoldAngle;            /* hold manual rotation, no auto-recenter drift (cvar cam_hold_angle) */
 extern S32 FollowCamZoneReturn;           /* give a shot's yaw and pitch back on leaving its box (cvar cam_zone_return) */
 extern S32 FollowCamZoneAnchor;           /* hold a latching shot's world yaw while inside its box (cvar cam_zone_anchor) */
+extern S32 FollowCamEaseMs;               /* time constant of the yaw's ease behind the hero, ms; 0 = per-frame lerp (cvar cam_ease_ms) */
+extern S32 FollowCamTargetMs;             /* time constant of the look-at point's ease, ms; 0 = pinned to the hero (cvar cam_target_ms) */
 
 /* Live state other TUs read or write. The rest of the smoothing state is
  * private to FOLLOWCAM.CPP. */

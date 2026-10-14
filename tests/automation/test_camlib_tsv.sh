@@ -19,7 +19,7 @@ trap 'rm -rf "$work"' EXIT
 
 # One whole trace record, with the frame's BetaCam as the only thing that varies.
 rec() { # <beta> [zone]
-    printf 'heroBeta  174 add    0 beta %4d target 1874 step    17 delay   0 orbit 0 moving 0 zone %d forced 1 cine 0 follow 1 ext 1 vue 0 alpha  342 dist  13750 inshot 0 loan 0 obs 0 hid 0' \
+    printf 'heroBeta  174 add    0 beta %4d target 1874 step    17 delay   0 orbit 0 moving 0 zone %d forced 1 cine 0 follow 1 ext 1 vue 0 alpha  342 dist  13750 inshot 0 loan 0 obs 0 hid 0 dt  16 tlag    0' \
         "$1" "${2:-0}"
 }
 
@@ -32,7 +32,7 @@ rec() { # <beta> [zone]
     printf ' [cam] %s\n' "$(rec 1002)"
     # The log's line landing in the middle of an echo, whose tail then starts the next line.
     printf '[control] [cam] heroBeta  174 add    0 beta 1003 target 1874 step    17 delay   0 orbit 0 moving 0 zo[INFO] [cam] %s\n' "$(rec 1003 1)"
-    printf 'ne 1 forced 1 cine 0 follow 1 ext 1 vue 0 alpha  342 dist  13750 inshot 0 loan 0 obs 0 hid 0\n'
+    printf 'ne 1 forced 1 cine 0 follow 1 ext 1 vue 0 alpha  342 dist  13750 inshot 0 loan 0 obs 0 hid 0 dt  16 tlag    0\n'
     # A record from a build whose trace carries fields this reader does not name yet.
     printf '[INFO] [cam] %s later 0\n' "$(rec 1004)"
     # A record that arrived cut: it cannot be rebuilt, and has to be reported, not hidden.

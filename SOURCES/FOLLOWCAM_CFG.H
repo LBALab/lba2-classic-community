@@ -11,6 +11,37 @@
 #define FOLLOW_CAM_ROT_MIN_STEP 3   /* minimum BetaCam step per lerp tick (units) */
 #define FOLLOW_CAM_ROT_THRESHOLD 10 /* snap BetaCam when within this many units of target */
 
+/* Rotation lag paced by the clock ---------------------------------------------*/
+/* The divisor above is a share of what is left per frame, so the camera takes
+ * the same number of frames to come round behind the hero at any frame rate: a
+ * quarter turn is within 5% in 1.7 s at 60 frames a second and 3.4 s at 30.
+ * With cam_ease_ms above 0 the share follows the game clock and the turn takes
+ * the same time at any rate. The value is the ease's time constant in
+ * milliseconds. 300 is what the 2022 Classic release eases its auto camera
+ * with, 600 is the pace the divisor gives at 60 frames a second, and 0 goes
+ * back to the divisor. An orbit the player is driving keeps its own lerp. */
+#define FOLLOW_CAM_EASE_MS_DEFAULT 300
+#define FOLLOW_CAM_EASE_MS_MAX 5000
+#define FOLLOW_CAM_EASE_DT_MAX 100  /* the longest frame an ease is paced by (ms), so a stall is not spent in one step */
+#define FOLLOW_CAM_ROT_MIN_RATE 180 /* slowest the timed yaw ease goes (units a second): FOLLOW_CAM_ROT_MIN_STEP at 60 frames a second */
+
+/* Look-at point ----------------------------------------------------------------*/
+/* The camera looks at a spot DISTANCE_VISEE ahead of the hero, and that spot is
+ * pinned to him: it starts and stops on the frame he does. With cam_target_ms
+ * above 0 the spot the camera looks at trails it and catches up with that time
+ * constant, as the 2022 Classic release's does (300 there), so the hero leads
+ * the frame a little while he runs and the view settles after he stops. 0 pins
+ * it to him again. */
+#define FOLLOW_CAM_TARGET_MS_DEFAULT 300
+#define FOLLOW_CAM_TARGET_MIN_RATE 256 /* slowest the look-at point closes on its spot (world units a second) */
+/* A spot that moved further than this between two updates was not walked there:
+ * the hero crossed the seam between two outdoor scenes, which renumbers the
+ * world under him, or was placed somewhere. What the look-at point trails by is
+ * held as it was and the camera moves with him, as it does when pinned. Two
+ * bricks: at the longest update an ease is paced by, that is twenty bricks a
+ * second, several times what anything in the game is carried at. */
+#define FOLLOW_CAM_TARGET_JUMP 1024
+
 /* Pan drift (AddBetaCam drift toward 0 after [ / ] released) ----------------*/
 /* Defaults for the runtime FollowCamReengageFrames / FollowCamDriftDivisor globals
  * (cvar cam_recenter_delay / cam_recenter_drift, cfg keys of the same name). */

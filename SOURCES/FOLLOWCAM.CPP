@@ -36,6 +36,8 @@ S32 FollowCamManualHoldFrames = FOLLOW_CAM_MANUAL_HOLD_DEFAULT;
 S32 FollowCamHoldAngle = FOLLOW_CAM_HOLD_ANGLE_DEFAULT;
 S32 FollowCamZoneReturn = FOLLOW_CAM_ZONE_RETURN_DEFAULT;
 S32 FollowCamZoneAnchor = FOLLOW_CAM_ZONE_ANCHOR_DEFAULT;
+S32 FollowCamEaseMs = FOLLOW_CAM_EASE_MS_DEFAULT;
+S32 FollowCamTargetMs = FOLLOW_CAM_TARGET_MS_DEFAULT;
 
 /* Console `camtrace`. */
 S32 DbgCamTrace = 0;
@@ -66,6 +68,26 @@ static S32 FollowCamObstructFloor = 0;    /* obstruction clearance: the least ex
 static S32 FollowCamObstructFloorX = 0;   /* obstruction clearance: where he stood when the floor was last raised */
 static S32 FollowCamObstructFloorZ = 0;
 static S32 FollowCamHiddenSeen = 0; /* camtrace: what the last render made of a hidden hero (FollowCamNoteHidden) */
+
+/* The eases paced by the clock (cam_ease_ms, cam_target_ms). They are paced by
+ * the game clock's time since the previous update, which is a frame's length
+ * only when that update ran on the previous frame. */
+static U32 FollowCamFrame = 0;             /* simulation steps, counted by FollowCamNoteFrame */
+static U32 FollowCamEaseFrame = 0;         /* the frame the last update ran on */
+static U32 FollowCamEaseClock = 0;         /* TimerRefHR at the last update */
+static S32 FollowCamEaseClockRuns = FALSE; /* those two describe an update the next one can be timed from */
+static S32 FollowCamEaseDt = 0;            /* camtrace: the milliseconds this frame's update was paced by */
+static S32 FollowCamYawCarry = 0;          /* thousandths of a unit the yaw ease has earned and not yet moved */
+static S32 FollowCamTargetLagX = 0;        /* look-at point: how far it trails the spot ahead of the hero */
+static S32 FollowCamTargetLagY = 0;
+static S32 FollowCamTargetLagZ = 0;
+static S32 FollowCamTargetCarryX = 0; /* look-at point: thousandths earned and not yet moved */
+static S32 FollowCamTargetCarryY = 0;
+static S32 FollowCamTargetCarryZ = 0;
+static S32 FollowCamTargetSpotX = 0; /* look-at point: where that spot was at the last update */
+static S32 FollowCamTargetSpotY = 0;
+static S32 FollowCamTargetSpotZ = 0;
+static S32 FollowCamTargetKnown = FALSE; /* look-at point: the three above are set */
 
 /* A scripted shot's loan (cam_zone_return / cam_zone_anchor). The bits say what
  * is still owed: an axis drops out when it has been given back, or when the
@@ -119,7 +141,11 @@ static S32 FollowCamHDExcess(void) {
  * clearance is adding to `alpha` for the render (always 0 unless cam_obstruct
  * is on). `hid` is what the render since the last line made of the followed
  * object: 0 seen, 1 drawn fully hidden and left so, 2 hidden with the clearance
- * still on its way up, 3 hidden and recentred. */
+ * still on its way up, 3 hidden and recentred. `dt` is the milliseconds the
+ * Auto camera's update was paced by on this frame: 0 on a frame it did not run,
+ * and on the first one after a frame without it. `tlag` is how far the look-at
+ * point trails the spot ahead of the hero, in world units along the ground
+ * (always 0 with cam_target_ms 0, and on a frame the update did not run). */
 void FollowCamTrace(void) {
     static S32 prevBeta = 0;
     static S32 prevX = 0;
@@ -160,12 +186,15 @@ void FollowCamTrace(void) {
     primed = TRUE;
 
     Log_Info("[cam] heroBeta %4d add %4d beta %4d target %4d step %5d delay %3d orbit %d moving %d "
-             "zone %d forced %d cine %d follow %d ext %d vue %d alpha %4d dist %6d inshot %d loan %d obs %d hid %d",
+             "zone %d forced %d cine %d follow %d ext %d vue %d alpha %4d dist %6d inshot %d loan %d obs %d hid %d "
+             "dt %3d tlag %4d",
              (int)ptr3d->Beta, (int)AddBetaCam, (int)BetaCam, (int)FollowCamTargetBeta,
              (int)step, (int)FollowCamReengageDelay, (int)ManualCameraOrbitActive, (int)moving,
              (int)CameraZone, (int)FlagCameraForcee, (int)CinemaMode, (int)FollowCamera,
              (int)(CubeMode == CUBE_EXTERIEUR), (int)VueCamera, (int)AlphaCam, (int)VueDistance,
-             (int)FollowCamInShotBox, (int)FollowCamLoan, (int)FollowCamObstructExtra, (int)FollowCamHiddenSeen);
+             (int)FollowCamInShotBox, (int)FollowCamLoan, (int)FollowCamObstructExtra, (int)FollowCamHiddenSeen,
+             (int)FollowCamEaseDt,
+             (int)((FollowCamEaseFrame == FollowCamFrame) ? Distance2D(0, 0, FollowCamTargetLagX, FollowCamTargetLagZ) : 0));
     FollowCamHiddenSeen = 0;
 
     prevBeta = BetaCam;
@@ -173,12 +202,122 @@ void FollowCamTrace(void) {
     prevZ = ptr3d->Z;
 }
 
+/* Whether the yaw still has ground to make up on its target.
+ *
+ * The per-frame lerp stops inside its snap threshold: within it the camera is
+ * left where it is until something else redraws the frame, up to a degree off.
+ * The timed ease lands on the target, so what is left inside the threshold is
+ * still owed. But only while the lerp is free to pay it: during the grace after
+ * a manual pan the camera is held off its target on purpose, and calling that
+ * owed would redraw the scene on every frame the hero stood still. */
+static S32 FollowCamCatchupOwed(S32 catchupDiff) {
+    if (catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD)
+        return TRUE;
+
+    return FollowCamEaseMs > 0 AND catchupDiff != 0 AND !ManualCameraOrbitActive AND FollowCamReengageDelay == 0;
+}
+
 /* The follow camera re-renders when the hero moved or turned, the player panned,
  * BetaCam still has catch-up pending, the zoom/elevation changed, or the
- * ground-lift / manual-hold are still settling (the last two keep this true so
- * they finish easing while the hero stands still). */
+ * ground-lift / manual-hold / look-at point are still settling (the last three
+ * keep this true so they finish easing while the hero stands still). */
 static S32 FollowCamNeedsUpdate(T_OBJ_3D *ptr3d, S32 catchupDiff) {
-    return ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR(catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD) OR FollowCamBaseDist != FollowCamPrevBaseDist OR AlphaCam != FollowCamPrevAlphaCam OR FollowCamGroundSettling OR(FollowCamObstruct AND(FollowCamObstructExtra != FollowCamObstructTarget OR FollowCamObstructSnap)) OR FollowCamManualHold;
+    return ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR FollowCamCatchupOwed(catchupDiff) OR FollowCamBaseDist != FollowCamPrevBaseDist OR AlphaCam != FollowCamPrevAlphaCam OR FollowCamGroundSettling OR(FollowCamObstruct AND(FollowCamObstructExtra != FollowCamObstructTarget OR FollowCamObstructSnap)) OR FollowCamManualHold OR FollowCamTargetLagX OR FollowCamTargetLagY OR FollowCamTargetLagZ;
+}
+
+/* The eases paced by the clock start over: the next update is not timed from
+ * the last one, and the look-at point is back on its spot. For a frame the
+ * update did not run on, and for every moment the camera is put somewhere with
+ * a cut. */
+static void FollowCamEaseRestart(void) {
+    FollowCamEaseClockRuns = FALSE;
+    FollowCamYawCarry = 0;
+    FollowCamTargetLagX = FollowCamTargetLagY = FollowCamTargetLagZ = 0;
+    FollowCamTargetCarryX = FollowCamTargetCarryY = FollowCamTargetCarryZ = 0;
+    FollowCamTargetKnown = FALSE;
+}
+
+/* How long this update is paced by, in milliseconds of the game clock, and the
+ * clock read for the next one. The game clock and not the host's: it stands
+ * still in a menu, and it is the one a session replay reproduces.
+ *
+ * 0 when the previous update was not on the previous frame. A camera zone, a
+ * cutscene or a building may have had the view for any length of time, and
+ * spent in one step that time would be a jump on the first frame back. A frame
+ * longer than FOLLOW_CAM_EASE_DT_MAX is paced as one of that length, so a stall
+ * is not a jump either. That also covers a clock a loaded save has set back,
+ * which reads as a very long frame. */
+static S32 FollowCamEaseTick(void) {
+    U32 now = TimerRefHR;
+    S32 dtMs = 0;
+
+    if (FollowCamEaseClockRuns AND FollowCamFrame - FollowCamEaseFrame == 1) {
+        U32 gone = now - FollowCamEaseClock;
+
+        dtMs = (gone > FOLLOW_CAM_EASE_DT_MAX) ? FOLLOW_CAM_EASE_DT_MAX : (S32)gone;
+    } else {
+        FollowCamEaseRestart();
+    }
+
+    FollowCamEaseClock = now;
+    FollowCamEaseFrame = FollowCamFrame;
+    FollowCamEaseClockRuns = TRUE;
+    FollowCamEaseDt = dtMs;
+
+    return dtMs;
+}
+
+/* cam_target_ms. The camera looks at a spot ahead of the hero, which the caller
+ * has just put in VueOffsetX/Y/Z. Pinned there, the view starts and stops on
+ * the frame he does. With the setting on, what the camera looks at trails that
+ * spot and closes on it with the setting's time constant.
+ *
+ * What is kept is how far it trails, not where it is. The seam between two
+ * outdoor scenes renumbers the world under the hero without moving him on
+ * screen, and a place remembered in the old scene's coordinates would be a
+ * scene's width away in the new one's. So each update the trail grows by as far
+ * as the spot moved, as though the look-at point had stayed put in the world,
+ * and then closes. A spot that moved further than anything walks in one update
+ * was not walked there, and the trail is left as it was. */
+static void FollowCamEaseLookAt(S32 dtMs) {
+    S32 spotX = VueOffsetX, spotY = VueOffsetY, spotZ = VueOffsetZ;
+
+    if (FollowCamTargetMs <= 0) {
+        FollowCamTargetLagX = FollowCamTargetLagY = FollowCamTargetLagZ = 0;
+        FollowCamTargetKnown = FALSE;
+        return;
+    }
+
+    if (FollowCamTargetKnown) {
+        S32 dx = spotX - FollowCamTargetSpotX;
+        S32 dy = spotY - FollowCamTargetSpotY;
+        S32 dz = spotZ - FollowCamTargetSpotZ;
+
+        if (dx <= FOLLOW_CAM_TARGET_JUMP AND dx >= -FOLLOW_CAM_TARGET_JUMP AND dy <= FOLLOW_CAM_TARGET_JUMP AND dy >= -FOLLOW_CAM_TARGET_JUMP AND dz <= FOLLOW_CAM_TARGET_JUMP AND dz >= -FOLLOW_CAM_TARGET_JUMP) {
+            FollowCamTargetLagX -= dx;
+            FollowCamTargetLagY -= dy;
+            FollowCamTargetLagZ -= dz;
+
+            FollowCamTargetLagX += FollowCamEaseStepMs(-FollowCamTargetLagX, dtMs, FollowCamTargetMs,
+                                                       FOLLOW_CAM_TARGET_MIN_RATE, &FollowCamTargetCarryX);
+            FollowCamTargetLagY += FollowCamEaseStepMs(-FollowCamTargetLagY, dtMs, FollowCamTargetMs,
+                                                       FOLLOW_CAM_TARGET_MIN_RATE, &FollowCamTargetCarryY);
+            FollowCamTargetLagZ += FollowCamEaseStepMs(-FollowCamTargetLagZ, dtMs, FollowCamTargetMs,
+                                                       FOLLOW_CAM_TARGET_MIN_RATE, &FollowCamTargetCarryZ);
+        }
+        /* else the trail is held for this update, neither grown nor closed:
+         * how far the hero walked across the jump is not known, and closing
+         * without growing would pull the view toward him by a step. */
+    }
+
+    FollowCamTargetSpotX = spotX;
+    FollowCamTargetSpotY = spotY;
+    FollowCamTargetSpotZ = spotZ;
+    FollowCamTargetKnown = TRUE;
+
+    VueOffsetX = spotX + FollowCamTargetLagX;
+    VueOffsetY = spotY + FollowCamTargetLagY;
+    VueOffsetZ = spotZ + FollowCamTargetLagZ;
 }
 
 /* The pitch the classic obstruction search wants for the camera as it stands:
@@ -214,6 +353,7 @@ void UpdateFollowCameraExt(void) {
     T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
     S32 manualPan = CheckKey(K_LBRACKET) OR CheckKey(K_RBRACKET);
     S32 heroMoving = (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Z != FollowCamPrevHeroZ);
+    S32 dtMs = FollowCamEaseTick();
 
     /* First-frame init: sync to current camera state.
                      * FollowCamTargetBeta defaults to 0 but BetaCam starts ~2048
@@ -388,6 +528,8 @@ void UpdateFollowCameraExt(void) {
         VueOffsetY = ptr3d->Y;
         VueOffsetZ = ptr3d->Z + Z0;
 
+        FollowCamEaseLookAt(dtMs);
+
         StartXCube = VueOffsetX / SIZE_BRICK_XZ;
         StartYCube = VueOffsetY / SIZE_BRICK_Y;
         StartZCube = VueOffsetZ / SIZE_BRICK_XZ;
@@ -403,12 +545,21 @@ void UpdateFollowCameraExt(void) {
         if (manualPan) {
             BetaCam = FollowCamTargetBeta;
         } else if (ManualCameraOrbitActive OR FollowCamReengageDelay == 0) {
-            S32 diff = FollowCamTargetBeta - BetaCam;
-            if (diff > 2048)
-                diff -= 4096;
-            if (diff < -2048)
-                diff += 4096;
-            if (diff > FOLLOW_CAM_ROT_THRESHOLD OR diff < -FOLLOW_CAM_ROT_THRESHOLD) {
+            S32 diff = FollowCamAngleDiff(FollowCamTargetBeta, BetaCam);
+
+            if (FollowCamEaseMs > 0 AND !ManualCameraOrbitActive) {
+                /* cam_ease_ms: the same inertia, as a time constant and paced
+                 * by the clock, so the camera comes round in the same time at
+                 * any frame rate. It lands on the target by itself, so there is
+                 * no snap to finish it. An orbit the player is driving keeps
+                 * the tight per-frame lerp below: that one smooths a device,
+                 * frame by frame, and is tuned as such. */
+                S32 tau = (S32)((S64)FollowCamEaseMs * FollowCamEffectiveDist / FollowCamBaseDist);
+
+                if (tau < FollowCamEaseMs / 3)
+                    tau = FollowCamEaseMs / 3;
+                BetaCam = (BetaCam + FollowCamEaseStepMs(diff, dtMs, tau, FOLLOW_CAM_ROT_MIN_RATE, &FollowCamYawCarry)) & 4095;
+            } else if (diff > FOLLOW_CAM_ROT_THRESHOLD OR diff < -FOLLOW_CAM_ROT_THRESHOLD) {
                 /* Manual orbit (mouse/stick): tight lerp for responsive feel.
                                  * Auto-follow: distance-scaled inertia for cinematic drift. */
                 S32 dynamicDiv;
@@ -828,6 +979,8 @@ S32 FollowCamObstructHidden(void) {
 
 void FollowCamSyncTarget(void) {
     FollowCamTargetBeta = BetaCam;
+    /* The caller has just put the camera somewhere with a cut. */
+    FollowCamEaseRestart();
 }
 
 void FollowCamLendToShot(S32 shotBeta) {
@@ -881,6 +1034,14 @@ void FollowCamPlayerTook(S32 yaw, S32 pitch) {
 
 void FollowCamForgetLoan(void) {
     FollowCamLoan = 0;
+    /* The same moments are cuts for the eases paced by the clock, and a load
+     * among them has just set that clock from the save. */
+    FollowCamEaseRestart();
+}
+
+void FollowCamNoteFrame(void) {
+    FollowCamFrame++;
+    FollowCamEaseDt = 0;
 }
 
 void FollowCamNoteCinema(S32 cinema) {
@@ -984,6 +1145,12 @@ static const T_SETTING FollowCamSettings[] = {
     {"FollowCamZoneAnchor", NULL, "cam_zone_anchor", &FollowCamZoneAnchor, SETTING_TRUTHY,
      FOLLOW_CAM_ZONE_ANCHOR_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Prototype: hold a latching shot's world yaw while the hero is inside its box"},
+    {"FollowCamEaseMs", NULL, "cam_ease_ms", &FollowCamEaseMs, SETTING_CLAMP,
+     FOLLOW_CAM_EASE_MS_DEFAULT, 0, FOLLOW_CAM_EASE_MS_MAX, NULL, NULL, NULL, NULL,
+     "Auto cam: time constant of the turn behind the hero, ms (0 = per-frame lerp, 300 = retail, 600 = the lerp at 60 fps)"},
+    {"FollowCamTargetMs", NULL, "cam_target_ms", &FollowCamTargetMs, SETTING_CLAMP,
+     FOLLOW_CAM_TARGET_MS_DEFAULT, 0, FOLLOW_CAM_EASE_MS_MAX, NULL, NULL, NULL, NULL,
+     "Auto cam: time constant of the look-at point trailing the hero, ms (0 = pinned to him, 300 = retail)"},
     /* cvar only, and it must stay that way. FollowCamera's cfg row lives in
        CONFIG_FILE.CPP's table, which reads it with the legacy AutoCameraCenter
        fallback and its own rule; giving this row a key would read the same

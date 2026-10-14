@@ -18,8 +18,11 @@ CAM_SAVE="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Wannies fragment.
 # switched off: what it did before any of them existed. Most of them ship switched on. A fixture
 # about one of them, or about the behaviour they replace, starts from this and switches on what
 # it is about, so that it says what it measures and does not move when a default does.
+#
+# The two eases paced by the clock are off here as well: the turn behind the hero is the
+# per-frame lerp, and the look-at point is pinned to him.
 # shellcheck disable=SC2034  # read by the fixtures that source this file
-CAM_PLAIN="cam_scene_carry 0; cam_zone_skip 0; cam_zone_return 0; cam_zone_anchor 0; cam_obstruct 0"
+CAM_PLAIN="cam_scene_carry 0; cam_zone_skip 0; cam_zone_return 0; cam_zone_anchor 0; cam_obstruct 0; cam_ease_ms 0; cam_target_ms 0"
 
 # cam_precheck -- everything the camera fixtures need, on top of the usual precheck.
 cam_precheck() {
@@ -70,7 +73,8 @@ import sys
 # invisible to the fixtures: a query for it comes back empty and reads as "the thing never
 # happened" rather than as an error. Keep this in step with the Log_Info call in FOLLOWCAM.CPP.
 KEYS = ("heroBeta", "add", "beta", "target", "step", "delay", "orbit", "moving",
-        "zone", "forced", "cine", "follow", "ext", "vue", "alpha", "dist", "inshot", "loan", "obs", "hid")
+        "zone", "forced", "cine", "follow", "ext", "vue", "alpha", "dist", "inshot", "loan", "obs", "hid",
+        "dt", "tlag")
 MARK = "[INFO] [cam]"
 print("\t".join(KEYS))
 cut = 0
