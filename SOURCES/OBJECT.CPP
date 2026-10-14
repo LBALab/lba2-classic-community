@@ -6431,6 +6431,12 @@ void GereZoneMessage(T_OBJET *ptrobj, T_ZONE *ptrz) {
 
                 if (i < NbZones) {
                     SetZoneCamera(ptrzc);
+                    /* The frame drawn here is the one the message is shown
+                     * over, and nothing moves until it is closed: a blend into
+                     * the shot would hold its first instant, the view before
+                     * the shot, for as long as the sign is read. */
+                    if (FollowCamera)
+                        FollowCamShotAtOnce();
                     FlagCameraForcee = TRUE;
                     AffScene(AFF_ALL_FLIP);
                 }

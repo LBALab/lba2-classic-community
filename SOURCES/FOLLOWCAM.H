@@ -63,6 +63,12 @@ extern void FollowCamSetView(void);
  * the Auto camera runs. Called before the zone writes anything. */
 extern void FollowCamShotTookView(void);
 
+/* cam_shot_blend_ms. The shot just applied is to be shown whole on the next
+ * frame, with no blend into it: a sign's shot, drawn once and then held still
+ * under its message. The blend out of it, when the Auto camera takes the view
+ * back, is unaffected. */
+extern void FollowCamShotAtOnce(void);
+
 /* cam_shot_blend_ms. TRUE while a blend runs. The scene is redrawn whole on
  * every frame of one, since the view moves whether or not the hero does. */
 extern S32 FollowCamBlending(void);
