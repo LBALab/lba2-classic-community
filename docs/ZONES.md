@@ -73,10 +73,21 @@ the view this frame", not "the hero is under a shot".
 The Auto camera (`FollowCamera`, a community addition) needs telling when a zone
 takes over, because it derives its own angle from the hero's facing and would
 otherwise read the authored angle as catch-up owed and lerp out of the shot.
-`FollowCamAdoptAngle()` does that for the angle. There is **no equivalent for the
-distance**: the Auto camera rewrites `VueDistance` from its own spring arm on every
-update, so an authored boom survives exactly one frame before being replaced. The
-authored pitch is kept, the authored angle is kept, the authored distance is not.
+`FollowCamAdoptAngle()` does that for the angle. How long the rest of the shot
+lasts depends on its shape, because the Auto camera's update runs only on a frame
+no zone has claimed (`SOURCES/PERSO.CPP`):
+
+- **A forced zone** claims every frame the hero is inside, so the update does not
+  run there and the whole authored shot, distance included, holds until he leaves
+  the box. Then the boom goes back to the player's arm.
+- **A latching zone** claims one frame, so the authored distance lasts that frame
+  and the update rewrites `VueDistance` from its own spring arm on the next. While
+  the player steers, such a zone is passed over altogether (`cam_zone_skip`).
+
+Leaving a shot, `cam_zone_return` eases the yaw and the pitch back to what the
+camera had before it, and `cam_shot_blend_ms` blends the view, distance and look-at
+point included, instead of cutting. [docs/CAMERA_INTERNALS.md](CAMERA_INTERNALS.md)
+has the details.
 
 What the shipped data asks for, across the 241 enabled exterior camera zones:
 

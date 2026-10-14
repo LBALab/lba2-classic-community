@@ -54,7 +54,7 @@ Of 242 enabled exterior camera zones in the GOG data, 128 latch and 114 are forc
 
 - **Whether the hero is inside a shot's box.** `CameraZone` is true on the frame a shot is applied, which for a latching zone is one frame per entry. The port tracks the box separately (`FollowCamInShotBox`, `inshot` in `camtrace`).[^object]
 - **That a zone named by cube and index is the same zone on another release.** The flags differ in three zones between the two data sets.
-- **That "latching" means common.** The two shapes are close to even outdoors; a fixture comment that calls the latching one "by far the more common" overstates it.[^model]
+- **That either shape is the exception.** The two are close to even outdoors, so a rule checked against one shape only has met half the zones.[^model]
 
 [^object]: [SOURCES/OBJECT.CPP](../../../SOURCES/OBJECT.CPP), `CheckZoneSce`, its camera case, and `SetZoneCamera`.
 [^perso]: [SOURCES/PERSO.CPP](../../../SOURCES/PERSO.CPP), `MainLoop`, the assignment that clears `CameraZone`.
