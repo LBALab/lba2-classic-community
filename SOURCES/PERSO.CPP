@@ -1925,6 +1925,12 @@ restartloop:
 
         FollowCamTrace();
 
+        /* A blend into or out of a scripted shot moves the view whether or not
+         * anything else does, so the terrain is drawn again on every frame of
+         * it. */
+        if (FollowCamBlending())
+            FirstTime = AFF_ALL_FLIP;
+
         if (!CameraZone) {
             if (FirstTime == AFF_OBJETS_FLIP) {
                 T_OBJET *ptrobj;

@@ -51,6 +51,22 @@ extern S32 FollowCamObstructOwnsSearch(void);
  * unchanged without it. */
 extern S32 FollowCamRenderExtraPitch(void);
 
+/* Set the exterior camera for the frame from the globals: CameraCenter and the
+ * scene render call this instead of SetFollowCamera. With cam_shot_blend_ms on
+ * and a scripted shot having just taken the view or given it back, it sets the
+ * blend between the view before and the one the globals describe; otherwise
+ * exactly the globals, with cam_obstruct's extra pitch added. */
+extern void FollowCamSetView(void);
+
+/* cam_shot_blend_ms. A camera zone is about to write its shot into the globals:
+ * blend into it from the view on screen, and blend out of it on the next update
+ * the Auto camera runs. Called before the zone writes anything. */
+extern void FollowCamShotTookView(void);
+
+/* cam_shot_blend_ms. TRUE while a blend runs. The scene is redrawn whole on
+ * every frame of one, since the view moves whether or not the hero does. */
+extern S32 FollowCamBlending(void);
+
 /* cam_obstruct. A scripted shot has just been applied. It starts as written:
  * the extra and any floor learnt for the view before it are dropped. */
 extern void FollowCamObstructShotFired(void);
@@ -184,6 +200,7 @@ extern S32 FollowCamWorldAnchor;          /* hold the camera's world yaw while t
 extern S32 FollowCamWorldReturn;          /* cam_world_anchor with cam_hold_angle 0: units walked that pace the return behind the hero (cvar cam_world_return) */
 extern S32 FollowCamEaseMs;               /* time constant of the yaw's ease behind the hero, ms; 0 = per-frame lerp (cvar cam_ease_ms) */
 extern S32 FollowCamTargetMs;             /* time constant of the look-at point's ease, ms; 0 = pinned to the hero (cvar cam_target_ms) */
+extern S32 FollowCamShotBlendMs;          /* blend into and out of a scripted shot, ms; 0 = cut (cvar cam_shot_blend_ms) */
 
 /* Live state other TUs read or write. The rest of the smoothing state is
  * private to FOLLOWCAM.CPP. */

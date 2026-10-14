@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-84 fixtures.
+85 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -33,6 +33,7 @@ suite still passes, since CI cannot say so.
 | [test_camera_axes.sh](test_camera_axes.sh) | Elevation and zoom: the two Auto-camera axes that are not orbit. | - |
 | [test_camera_interior.sh](test_camera_interior.sh) | The Auto camera must stay out of interiors, whatever the player has it set to. | - |
 | [test_camlib_tsv.sh](test_camlib_tsv.sh) | camlib's trace reader returns every frame the log recorded, including the ones glued behind a console echo. | - |
+| [test_camzone_blend.sh](test_camzone_blend.sh) | A scripted shot taking the view from the Auto camera, and giving it back, is a blend with cam_shot_blend_ms on, not a cut. | - |
 | [test_camzone_hold.sh](test_camzone_hold.sh) | A camera zone's authored angle must survive the Auto camera being switched on. | - |
 | [test_camzone_model.sh](test_camzone_model.sh) | Camera zones come in two shapes, and the difference is a flag in the authored data. | - |
 | [test_camzone_return.sh](test_camzone_return.sh) | A scripted shot borrows the Auto camera: with cam_zone_return on, the yaw and pitch it took are given back when the hero leaves its box. | - |

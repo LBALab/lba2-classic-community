@@ -317,10 +317,9 @@ void InitGrilleExt(U32 numcube) {
 void AffGrilleExt() {
     /* The camera for the frame is set here, from the globals, whatever was
      * applied since the last one. cam_obstruct's extra pitch is not in AlphaCam
-     * and has to be added at this point to be drawn at all. */
-    SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
-                    AlphaCam + FollowCamRenderExtraPitch(), BetaCam, GammaCam,
-                    VueDistance);
+     * and has to be added at this point to be drawn at all, and a blend into or
+     * out of a scripted shot is only ever in the frame. */
+    FollowCamSetView();
 
     SetLightVector(AlphaLight, BetaLight, 0);
 
