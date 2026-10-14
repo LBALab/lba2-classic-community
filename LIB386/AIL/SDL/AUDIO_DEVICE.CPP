@@ -1,5 +1,7 @@
 #include "AUDIO_DEVICE.H"
 
+#include <SYSTEM/CRASH.H>
+
 #include <limits.h>
 #include <math.h>
 
@@ -61,6 +63,7 @@ void Read(AILAudioStream *stream, Uint8 *output, int bytes) {
     }
 }
 void SDLCALL Mix(void *, Uint8 *output, int bytes) {
+    Crash_PrepareThread();
     SDL_memset(output, 0, (size_t)bytes);
     SDL_LockMutex(s_mutex);
     float scratch[2048];

@@ -1,7 +1,26 @@
 #include "../test_harness.h"
 #include "../../LIB386/AIL/SDL/AUDIO_DEVICE.H"
 #include <AIL/COMMON.H>
+#include <SYSTEM/CRASH.H>
 #include <vector>
+
+#if defined(LBA2_USE_SDL2) && defined(LBA2_AUDIO_TESTS)
+static const float *prepareOutput = NULL;
+static int prepareCalls = 0;
+static bool prepareSawUntouchedOutput = false;
+#endif
+
+void Crash_PrepareThread(void) {
+#if defined(LBA2_USE_SDL2) && defined(LBA2_AUDIO_TESTS)
+    if (prepareOutput) {
+        ++prepareCalls;
+        prepareSawUntouchedOutput = true;
+        for (int i = 0; i < 8; ++i)
+            if (prepareOutput[i] != 123.0f)
+                prepareSawUntouchedOutput = false;
+    }
+#endif
+}
 
 static SDL_AudioSpec specification(int channels = 2, int rate = 44100) {
     SDL_AudioSpec spec = {};
@@ -67,6 +86,36 @@ static void test_wav_memory_loading() {
 }
 
 #if defined(LBA2_USE_SDL2) && defined(LBA2_AUDIO_TESTS)
+static void test_mix_prepares_thread_before_output() {
+    SDL_AudioSpec spec = specification();
+    AILAudioStream *stream = AILAudio_Open(&spec, NULL, NULL);
+    ASSERT_TRUE(stream != NULL);
+    if (!stream)
+        return;
+    const short samples[8] = {16384, -16384, 16384, -16384,
+                              16384, -16384, 16384, -16384};
+    const float silence[8] = {};
+    const float mixed[8] = {0.5f, -0.5f, 0.5f, -0.5f,
+                            0.5f, -0.5f, 0.5f, -0.5f};
+    ASSERT_TRUE(AILAudio_Put(stream, samples, sizeof(samples)));
+    for (int active = 0; active < 2; ++active) {
+        if (active)
+            ASSERT_TRUE(AILAudio_Resume(stream));
+        float output[8];
+        for (int i = 0; i < 8; ++i)
+            output[i] = 123.0f;
+        prepareCalls = 0;
+        prepareSawUntouchedOutput = false;
+        prepareOutput = output;
+        AILAudio_TestMix(output, 8);
+        prepareOutput = NULL;
+        ASSERT_EQ_INT(1, prepareCalls);
+        ASSERT_TRUE(prepareSawUntouchedOutput);
+        ASSERT_MEM_EQ(active ? mixed : silence, output, sizeof(output));
+    }
+    AILAudio_Destroy(stream);
+}
+
 static void test_converted_output_bytes_and_eof() {
     Uint32 rng = 0xDEADBEEF;
     for (int round = 0; round < 40; ++round) {
@@ -177,6 +226,7 @@ int main() {
     RUN_TEST(test_queue_gain_pause_and_cleanup);
     RUN_TEST(test_wav_memory_loading);
 #if defined(LBA2_USE_SDL2) && defined(LBA2_AUDIO_TESTS)
+    RUN_TEST(test_mix_prepares_thread_before_output);
     RUN_TEST(test_converted_output_bytes_and_eof);
     RUN_TEST(test_mix_pause_and_independent_lifetimes);
     RUN_TEST(test_pull_callback_and_recursive_lock);

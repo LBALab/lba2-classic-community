@@ -6,7 +6,7 @@
 #include <SYSTEM/CRASH.H>
 #include <string.h>
 
-/* This fixture uses WAV input, so no decoder worker needs crash-handler setup. */
+/* Playback is tested without installing the process-wide crash handler. */
 void Crash_PrepareThread(void) {}
 
 static int logCalls = 0;
