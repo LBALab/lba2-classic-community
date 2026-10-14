@@ -112,6 +112,30 @@ if(PLATFORM_BACKEND STREQUAL "sdl2")
 endif()
 
 if(PLATFORM_BACKEND MATCHES "^sdl[23]$")
+    add_executable(test_sdl_audio_playback test_sdl_audio_playback.cpp
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/AUDIO_DEVICE.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/COMMON.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/STREAM.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/VIDEO_AUDIO_SDL.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/stb_vorbis.c
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CDDA.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CDTRACKS.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CUE.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DISCIMG.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ISO9660.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/FILES.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP)
+    target_include_directories(test_sdl_audio_playback PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
+    target_link_libraries(test_sdl_audio_playback PRIVATE ${LBA2_SDL_TARGET})
+    target_compile_definitions(test_sdl_audio_playback PRIVATE LBA_LOG_NO_PLATFORM
+        TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    if(PLATFORM_BACKEND STREQUAL "sdl2")
+        target_compile_definitions(test_sdl_audio_playback PRIVATE LBA2_USE_SDL2=1)
+    endif()
+    set_target_properties(test_sdl_audio_playback PROPERTIES CXX_STANDARD 11)
+    add_test(NAME test_sdl_audio_playback COMMAND test_sdl_audio_playback)
+    register_host_test(test_sdl_audio_playback)
+
     add_executable(test_sdl_audio test_sdl_audio.cpp
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/AUDIO_DEVICE.CPP
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/COMMON.CPP)

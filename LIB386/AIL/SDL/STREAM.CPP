@@ -909,6 +909,8 @@ static RedbookOutcome PlayRedbookByNumber(const char *name, S32 startFrame) {
 /* ── Public API ────────────────────────────────────────────────────────── */
 
 static void PlayStreamInternal(const char *name, S32 startFrame) {
+    if (!AILAudio_Initialized())
+        return;
     if (!name || !name[0])
         return;
 

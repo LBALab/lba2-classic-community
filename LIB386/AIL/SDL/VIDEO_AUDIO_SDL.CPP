@@ -7,6 +7,8 @@ static AILAudioStream *videoStream = NULL;
 
 S32 StartVideoAudio(S32 freq, S32 channels, S32 is16bit) {
     StopVideoAudio();
+    if (!AILAudio_Initialized())
+        return 0;
     SDL_AudioSpec spec;
     SDL_zero(spec);
     spec.freq = freq;

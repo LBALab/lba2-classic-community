@@ -10,6 +10,7 @@ typedef SDL_AudioStream AILAudioStream;
 
 typedef void(SDLCALL *AILAudioCallback)(void *, AILAudioStream *, int, int);
 
+bool AILAudio_Initialized(void);
 AILAudioStream *AILAudio_Open(const SDL_AudioSpec *spec, AILAudioCallback callback, void *userdata);
 void AILAudio_Destroy(AILAudioStream *stream);
 void AILAudio_Lock(AILAudioStream *stream);

@@ -71,6 +71,10 @@ The [platform abstraction layer](PLATFORM_ABSTRACTION.md) is a sibling of AIL, n
 
 ### SDL2 and SDL3 output transport
 
+`--no-audio` (also implied by `--headless`) skips audio-subsystem initialization. Music and video playback check [AUDIO_DEVICE.CPP](../LIB386/AIL/SDL/AUDIO_DEVICE.CPP), `AILAudio_Initialized`, before resolving/decoding tracks or opening streams; video audio reports not started while video playback can continue silently. Existing samples remain gated by their driver state. Selecting the dummy driver alone does not disable audio: initialized dummy output still supports normal playback for tests. Initialization and device failures with audio enabled retain their diagnostics.
+
+`test_sdl_audio_playback` exercises the real music/video paths with a synthetic WAV before initialization, after initialization with dummy output, and after shutdown. Disabled playback must leave audio uninitialized without logs or errors; enabled playback and invalid-specification diagnostics remain covered on both SDL SDKs.
+
 The retained SDL AIL CD interface probes `music`, `Music`, and `MUSIC` below the working directory for `TrackNN.wav`. [CD.CPP](../LIB386/AIL/SDL/CD.CPP), `BuildCDTrackPath`, inserts a separator when the PAL's directory result has none; the contract does not require a trailing separator. This legacy lookup is not the gameplay music route, which uses the jingle/stream resolution chain.
 
 [AUDIO_DEVICE.CPP](../LIB386/AIL/SDL/AUDIO_DEVICE.CPP) keeps device API differences private to AIL. Sample decoding, voice mixing, music decoding/parking, CD routing and video-audio policy are shared. The SDL3 path forwards to its device-stream API with unchanged source formats and callback behavior.

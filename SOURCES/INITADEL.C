@@ -336,8 +336,9 @@ void InitAdeline(S32 argc, char *argv[]) {
        SDL dummy driver's nanosleep pacing — ~58% of sys time in projection_demo
        on a WSL2 setup. Player builds always init audio; this gate is only
        reached when the harness explicitly opts out. Call sites under
-       LIB386/AIL/SDL/ gate on Sample_Driver_Enabled / non-NULL stream, so
-       playback paths become silent no-ops when audio isn't up. */
+       LIB386/AIL/SDL/ gate samples on Sample_Driver_Enabled and new music/video
+       playback on audio-subsystem readiness, so disabled audio does not decode
+       tracks or try to open output devices. */
     if (!Control_NoAudio()) {
         InitAIL(); // TODO: Reorganize/reposition closer to sound subsystem
     }
@@ -422,16 +423,9 @@ void InitAdeline(S32 argc, char *argv[]) {
 #error ADELINE: you need to include AIL.H
 #endif
         if (!InitSampleDriver(NULL)) {
-            /* No usable audio output (host has no audio device, SDL_AUDIODRIVER
-               points at something invalid, the audio subsystem failed to come
-               up earlier). Previously this exit(1)'d the process; now we log
-               and continue with audio disabled. Every audio entry point in
-               LIB386/AIL/SDL/{SAMPLE,STREAM,VIDEO_AUDIO_SDL}.CPP already gates
-               on Sample_Driver_Enabled / a non-NULL stream, so playback calls
-               become silent no-ops rather than UB. The harness uses this to
-               bypass the SDL dummy driver's nanosleep pacing (~58% of sys time
-               in projection_demo); a player whose audio device fails just
-               loses sound instead of being unable to launch the game. */
+            /* Audio failure must not prevent game launch. Samples stay disabled
+               when their driver fails; music/video skip an uninitialized audio
+               subsystem and report output-device failures when it is ready. */
             Log_Warn("Audio      none - running silently");
         } else if (!Sample_DriverPlaysSound()) {
             /* The null backend initialises and reports success, then plays nothing.

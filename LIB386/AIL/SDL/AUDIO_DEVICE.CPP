@@ -3,6 +3,10 @@
 #include <limits.h>
 #include <math.h>
 
+bool AILAudio_Initialized(void) {
+    return SDL_WasInit(SDL_INIT_AUDIO) != 0;
+}
+
 namespace {
 bool AudioError() {
     SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "AIL audio output: %s", SDL_GetError());
