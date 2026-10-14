@@ -1867,6 +1867,7 @@ restartloop:
          * of a building it can tell a shot firing over the door from open ground. */
         FollowCamNoteScene(CubeMode == CUBE_EXTERIEUR);
         FollowCamNoteCinema(CinemaMode != 0);
+        FollowCamNoteFrame();
 
         /* The same for what a scripted shot is owed back, in the two states that
          * take the camera's angles for themselves: a cutscene aims it where it

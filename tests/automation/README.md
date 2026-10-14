@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-82 fixtures.
+83 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -52,6 +52,7 @@ suite still passes, since CI cannot say so.
 | [test_dodge_direction.sh](test_dodge_direction.sh) | The dodge is a modifier: it changes what a direction means rather than doing anything itself. | - |
 | [test_dump.sh](test_dump.sh) | --dump-state: the hand-written JSON is well-formed and has the expected shape. | save fixture |
 | [test_exec.sh](test_exec.sh) | --exec: console commands mutate observable state. | save fixture |
+| [test_followcam_ease.sh](test_followcam_ease.sh) | The two eases the Auto camera paces by the game clock. | - |
 | [test_followcam_hold.sh](test_followcam_hold.sh) | Hold-angle is the free-camera contract: once the player has set an angle, the camera keeps it while the hero turns underneath, and gives it up only on a scene change or Center camera. | - |
 | [test_followcam_interrupt.sh](test_followcam_interrupt.sh) | An orbit interrupted by something else taking the camera must not resume afterwards, and must not leave the next orbit thinking it is already under way. | - |
 | [test_followcam_obstruct.sh](test_followcam_obstruct.sh) | With cam_obstruct on, the Auto camera tilts over what stands behind the hero as an extra that eases away again, and the player's own pitch is never rewritten. | - |

@@ -194,7 +194,7 @@ Branch history tried heavier correction (terrain penetration along the boom, LOS
 
 ### Lazy orbit and pan
 
-- **Rotation lag:** `BetaCam` lerps toward “behind the hero” with distance-scaled inertia (`FollowCamEffectiveDist` / `FollowCamBaseDist` feeds the divisor) — closer zoom = snappier orbit, longer arm = lazier drift.
+- **Rotation lag:** `BetaCam` eases toward “behind the hero” with distance-scaled inertia (`FollowCamEffectiveDist` / `FollowCamBaseDist` scales it) — closer zoom = snappier orbit, longer arm = lazier drift. The pace is `cam_ease_ms`, a time constant; see [Eases paced by the clock](#eases-paced-by-the-clock).
 - **Pan drift:** `[` / `]` adjust `AddBetaCam`; drift back toward center only while the hero is walking; standing still preserves pan. Disabled by **hold-angle mode** (`cam_hold_angle`, default on): the manual rotation is then held indefinitely, like a free third-person camera, and only re-centers when the player hits Center camera (Enter / gamepad B) or a script or the console orders a scene change; both go through `CameraCenter(1)`, which zeroes `AddBetaCam`. Coming out of a building sends the pan home as well (`cam_scene_carry`, on by default); walking across the seam between two outdoor scenes does not (see [Scene changes](#scene-changes)). `cam_hold_angle 0` restores the classic lazy drift-back.
 
 ### Orbit gestures (mouse drag, right stick)
@@ -209,7 +209,26 @@ Every analog camera source goes through `ApplyManualCameraNudge` ([EXTFUNC.CPP](
 
 The follow-through is tuned for the stick, which springs back to centre so "no input this frame" reliably means released. A mouse held still reports the same thing while still being driven, which is #514.
 
-**Timing is in frames, not milliseconds.** The lerp divisors and the glide decay are per-frame, so a gesture's ease-in and tail last the same number of frames at any rate and therefore a different wall-clock time: the release tail measures about 112 ms at 60 fps and 198 ms at 30. This is the existing convention rather than something the follow-through introduced, but it means any test asserting a duration has to pin `--fixed-dt`.
+**Timing is per update, and an update is a simulation step.** The orbit's lerp divisor, the glide decay and the divisors of the other eases here are a share per call of `UpdateFollowCameraExt`. That call sits inside the fixed simulation step ([MOVEMENT_FRAMERATE.md](MOVEMENT_FRAMERATE.md); `FixedTimestep`, 16 ms by default), not once per rendered frame: a 33 ms frame runs it twice. So with the step on, which is the default, a per-update ease takes the same time at any frame rate. The per-update lerp brings a quarter turn behind the hero within 5% in 1664 ms at 4, 7, 16, 33 and 50 ms frames: above 60 fps most frames skip the simulation and the camera with it, and it moves on the next step. With `fixedtimestep off` an update is a rendered frame long and the same turn takes 3432 ms at 33 ms frames.
+
+For a test that asserts a duration this has a trap in it. Under `--fixed-dt` above 16, one tick is one rendered frame and several `camtrace` rows, one per step, so the time a motion took is its rows times the step, not its rows times the frame.
+
+### Eases paced by the clock
+
+Two settings pace an ease by the game clock, in milliseconds, in place of a share per update. Both read `TimerRefHR`, which stands still in a menu and is what a session replay reproduces, and take the time since the previous update (`FollowCamEaseTick()`).
+
+- **`cam_ease_ms`** (cfg `FollowCamEaseMs`, default 300): the time constant of the turn behind the hero. 300 is what the 2022 Classic release eases its auto camera with, and brings a quarter turn within 5% in about 0.9 s. 600 is the pace the per-update lerp has at the default step, about 1.7 s. 0 goes back to that lerp. Unlike the lerp, which stops inside its 10 unit snap threshold and leaves the camera up to a degree off until something else redraws the frame, the timed ease lands on its target. An orbit the player is driving keeps the per-update lerp (`cam_smooth`): that one smooths a device.
+- **`cam_target_ms`** (cfg `FollowCamTargetMs`, default 300): the camera looks at a spot `DISTANCE_VISEE` ahead of the hero. What it looks at trails that spot and closes on it with this time constant (`FollowCamEaseLookAt()`), as the Classic release's does at 300: the hero leads the frame a little while he runs and the view settles after he stops. 0 pins it to the spot, so the view starts and stops on the frame he does.
+
+The arithmetic is `FollowCamEaseStepMs()` in [FOLLOWCAM_MATH.H](../SOURCES/FOLLOWCAM_MATH.H). The share of what is left is `2dt / (2tau + dt)`, which follows `1 - exp(-dt / tau)` within one percent while an update is no longer than a third of the time constant and cannot pass the target until an update is twice the time constant long. The plain `dt / tau` runs a tenth fast at 20 updates a second and overshoots on any update longer than the time constant. The move is worked out in thousandths of a unit and what does not make a whole unit is carried to the next update; dropped, it made the same turn a tenth slower at 8 ms updates than at 16.
+
+Three rules keep a clock-paced ease from turning time that was not a frame into a jump:
+
+- **A step without the update restarts the clock.** `FollowCamNoteFrame()` counts simulation steps, and an update that does not follow one on the step before is paced by no time at all and moves nothing. A rendered frame that skips the simulation (above about 60 fps with the fixed step on) is not a step, so it is no gap. A camera zone, a cutscene or a building may have held the view for any length of time.
+- **A cut restarts it too**: `FollowCamSyncTarget()` and `FollowCamForgetLoan()`, which between them cover Center camera, every `CameraCenter(1)` and `(2)`, the quarter-turn key, an arrival under `cam_scene_carry` and a loaded save, whose clock comes from the file. The look-at point goes back onto its spot at the same moments.
+- **A long update is paced as one of 100 ms** (`FOLLOW_CAM_EASE_DT_MAX`), so a stall is not spent in one step.
+
+What `cam_target_ms` keeps is how far the look-at point trails, not where it is. Walking across the seam between two outdoor scenes renumbers the world under the hero without moving him on screen, and a place remembered in the old scene's coordinates would be a scene's width away in the new one's. Each update the trail grows by as far as the spot moved and then closes. A spot that moved more than `FOLLOW_CAM_TARGET_JUMP` in one update was not walked there, and the trail is held as it was for that update.
 
 ### Apply path
 
@@ -313,7 +332,7 @@ What it does not do:
 
 The camera resisted iteration for a long time because nothing about it was asserted: a change was judged by playing, and a regression arrived as a field report. A 75 degree snap from a 1 unit stick touch survived two releases that way.
 
-**`camtrace <0|1>`** logs one line per frame: the angles, how far `BetaCam` moved and who moved it, the re-engage countdown, whether an orbit is driving, `zone` / `forced` / `cine` / `follow` / `ext` / `vue` / `alpha` / `dist` for which camera holds the view, `inshot` / `loan` for a scripted shot's hold on it, `obs` for the pitch `cam_obstruct` is adding for the frame, and `hid` for what the last render made of the followed object (0 seen, 1 drawn fully hidden and left so, 2 hidden with the clearance still rising, 3 hidden and recentred). It is emitted from the main loop rather than from the Auto camera's update, so it reports camera zones, cutscenes, interiors and the classic camera, none of which run that update. `target` is maintained by the Auto camera alone and reads stale when `follow` is 0.
+**`camtrace <0|1>`** logs one line per frame: the angles, how far `BetaCam` moved and who moved it, the re-engage countdown, whether an orbit is driving, `zone` / `forced` / `cine` / `follow` / `ext` / `vue` / `alpha` / `dist` for which camera holds the view, `inshot` / `loan` for a scripted shot's hold on it, `obs` for the pitch `cam_obstruct` is adding for the frame, `hid` for what the last render made of the followed object (0 seen, 1 drawn fully hidden and left so, 2 hidden with the clearance still rising, 3 hidden and recentred), `dt` for the milliseconds the Auto camera's update was paced by (0 on a frame it did not run, and on the first one after such a frame), and `tlag` for how far the look-at point trails its spot under `cam_target_ms`. It is emitted from the main loop rather than from the Auto camera's update, so it reports camera zones, cutscenes, interiors and the classic camera, none of which run that update. `target` is maintained by the Auto camera alone and reads stale when `follow` is 0.
 
 **`camnudge <dBeta> [dAlpha] [frames]`** feeds the same per-frame nudge the mouse drag and the right stick feed, at the same point in the frame, so the analog camera can be driven without a device.
 
@@ -332,6 +351,7 @@ Fixtures live in `tests/automation/`, with `camlib.sh` turning a run into a per-
 | `followcam_recenter` | the classic camera drifts back while walking, not while standing |
 | `followcam_interrupt` | an interrupted gesture ends instead of resuming |
 | `followcam_obstruct` | with `cam_obstruct`, the tilt over a building is an extra that comes and goes with the building, the player's pitch is never rewritten, and the hero is never hidden or recentred |
+| `followcam_ease` | with `cam_ease_ms`, the turn behind the hero takes the time the setting says at either update length and lands on its target; with `cam_target_ms`, the look-at point trails the hero, closes after he stops, and keeps its trail across the seam between two scenes |
 | `followcam_scene_carry` | with `cam_scene_carry`, the camera arrives behind the hero with the pitch left alone: the pan kept across an ordered change between two outdoor scenes, and sent home after a visit to a building |
 | `camzone_model` | the two shapes a camera zone comes in |
 | `camzone_skip` | with `cam_zone_skip`, a latching zone leaves a steering player's view alone under the Auto camera; forced zones and the classic camera are unaffected |
@@ -375,7 +395,8 @@ Two habits are worth keeping when adding to these. **Run a new fixture against a
 | Obstruction clearance | SOURCES/FOLLOWCAM.CPP, SOURCES/INTEXT.CPP, SOURCES/EXTFUNC.CPP, SOURCES/OBJECT.CPP | `FollowCamNeededPitch`, `FollowCamRenderExtraPitch`, `FollowCamObstructOwnsSearch`, `FollowCamObstructSettle`, `FollowCamObstructHidden`, `cam_obstruct` cvar |
 | Camera trace            | SOURCES/FOLLOWCAM.CPP      | `FollowCamTrace`, `camtrace` / `camnudge` console commands |
 | A shot's loan | SOURCES/FOLLOWCAM.CPP, SOURCES/OBJECT.CPP | `FollowCamLendToShot`, `FollowCamPlayerTook`, `FollowCamForgetLoan`, `FollowCamInShotBox`, `cam_zone_return` / `cam_zone_anchor` cvars |
-| Angle arithmetic        | SOURCES/FOLLOWCAM_MATH.H   | `FollowCamAngleDiff`, `FollowCamTargetBetaFor`, `FollowCamPanForAngle`, `FollowCamRotStep`, `FollowCamEasePan`, `FollowCamEaseValue`; host test in tests/camera |
+| Angle arithmetic        | SOURCES/FOLLOWCAM_MATH.H   | `FollowCamAngleDiff`, `FollowCamTargetBetaFor`, `FollowCamPanForAngle`, `FollowCamRotStep`, `FollowCamEasePan`, `FollowCamEaseValue`, `FollowCamEaseStepMs`; host test in tests/camera |
+| Eases paced by the clock | SOURCES/FOLLOWCAM.CPP, SOURCES/PERSO.CPP | `FollowCamEaseTick`, `FollowCamEaseRestart`, `FollowCamEaseLookAt`, `FollowCamNoteFrame`, `cam_ease_ms` / `cam_target_ms` cvars |
 | Manual-override fade    | SOURCES/FOLLOWCAM.CPP, SOURCES/EXTFUNC.CPP | `FollowCamManualHold`, `FollowCamManualHoldFrames`, `autoFactor`, `cam_manual_hold` cvar |
 | Config read/write       | SOURCES/PERSO.CPP          | `ReadConfigFile`, `WriteConfigFile`                                                 |
 | Menu toggle             | SOURCES/GAMEMENU.CPP       | `GereAdvancedOptionsMenu`                                                           |
