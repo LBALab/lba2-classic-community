@@ -38,6 +38,36 @@ static volatile int g_zero = 0;
 static volatile int g_sink = 0;
 static const char *g_logPath;
 
+#if defined(_WIN32)
+static bool prepare_stack_fixture(void) {
+    /* Both runs need emergency stack for Windows' exception dispatch, regardless
+       of whether the crash reporter is installed. */
+    ULONG guarantee = 32 * 1024;
+    if (!SetThreadStackGuarantee(&guarantee)) {
+        fprintf(stderr, "SetThreadStackGuarantee failed: %lu\n", (unsigned long)GetLastError());
+        return false;
+    }
+    guarantee = 0;
+    if (!SetThreadStackGuarantee(&guarantee) || guarantee < 32 * 1024) {
+        fprintf(stderr, "Unable to verify emergency stack guarantee\n");
+        return false;
+    }
+    Crash_PrepareThread();
+    ULONG prepared = 0;
+    if (!SetThreadStackGuarantee(&prepared) || prepared != guarantee) {
+        fprintf(stderr, "Crash_PrepareThread changed the fixture stack guarantee\n");
+        return false;
+    }
+    FILE *log = fopen(g_logPath, "a");
+    if (!log) {
+        perror("stack fixture log");
+        return false;
+    }
+    fprintf(log, "TEST stack-guarantee %lu\n", (unsigned long)prepared);
+    return fclose(log) == 0;
+}
+#endif
+
 static S32 g_island = 4;
 static S32 g_hero[3] = {15360, 4096, -24576};
 
@@ -124,6 +154,10 @@ __attribute__((noinline)) static int recurse(int depth) {
 }
 
 __attribute__((noinline)) static void trig_stack(void) {
+#if defined(_WIN32)
+    if (!prepare_stack_fixture())
+        exit(2);
+#endif
     g_sink += recurse(0);
 }
 
@@ -179,7 +213,8 @@ static DWORD WINAPI thread_segv(LPVOID unused) {
 
 static DWORD WINAPI thread_overflow(LPVOID unused) {
     (void)unused;
-    Crash_PrepareThread();
+    if (!prepare_stack_fixture())
+        return 2;
     g_sink += recurse(0);
     return 0;
 }

@@ -31,6 +31,8 @@ What cannot be named:
 - **A build from a tree with local changes, or without git** (`-dirty` or `unknown` in the `build` line). Nothing was published for it; point `--symbols` at its build.
 - **System libraries** (`libc.so.6`, `dyld`, `ntdll.dll`). Their frames stay as offsets.
 
+The process-level regression test compares crashes with and without the reporter. Windows stack-overflow fixtures give both runs the same emergency-stack guarantee and verify its size before recursing, so the comparison isolates reporting rather than changing the stack available for exception dispatch. Both runs must still terminate with the same stack-overflow exit code; the handled run must also write a complete report.
+
 With no symbol archive at all, the release binaries still carry their symbol table, so `--symbols` pointed at the shipped binary names the functions without files or lines.
 
 ## Quick path
