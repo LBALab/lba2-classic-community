@@ -22,7 +22,7 @@ CAM_SAVE="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Wannies fragment.
 # The two eases paced by the clock are off here as well: the turn behind the hero is the
 # per-frame lerp, and the look-at point is pinned to him.
 # shellcheck disable=SC2034  # read by the fixtures that source this file
-CAM_PLAIN="cam_scene_carry 0; cam_zone_skip 0; cam_zone_return 0; cam_zone_anchor 0; cam_obstruct 0; cam_ease_ms 0; cam_target_ms 0"
+CAM_PLAIN="cam_scene_carry 0; cam_zone_skip 0; cam_zone_return 0; cam_zone_anchor 0; cam_world_anchor 0; cam_obstruct 0; cam_ease_ms 0; cam_target_ms 0"
 
 # cam_precheck -- everything the camera fixtures need, on top of the usual precheck.
 cam_precheck() {

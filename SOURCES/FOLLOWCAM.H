@@ -93,6 +93,11 @@ extern void FollowCamResetToView(void);
  * camera already is. This one writes the target the lerp is heading for. */
 extern void FollowCamSyncTarget(void);
 
+/* For cam_world_anchor: AddBetaCam has just been solved against the hero's
+ * facing as it is now (EXTFUNC's FollowCamAdoptAngle), so the hero's turn since
+ * the last update is already in it and is not to be taken out again. */
+extern void FollowCamWorldAnchorRebase(void);
+
 /* A scripted shot's loan (cam_zone_return, on by default; cam_zone_anchor, off).
  *
  * A camera zone takes the yaw and the pitch from whoever had them. With either
@@ -173,6 +178,8 @@ extern S32 FollowCamManualHoldFrames;     /* manual-override hold length (cvar c
 extern S32 FollowCamHoldAngle;            /* hold manual rotation, no auto-recenter drift (cvar cam_hold_angle) */
 extern S32 FollowCamZoneReturn;           /* give a shot's yaw and pitch back on leaving its box (cvar cam_zone_return) */
 extern S32 FollowCamZoneAnchor;           /* hold a latching shot's world yaw while inside its box (cvar cam_zone_anchor) */
+extern S32 FollowCamWorldAnchor;          /* hold the camera's world yaw while the hero turns (cvar cam_world_anchor) */
+extern S32 FollowCamWorldReturn;          /* cam_world_anchor with cam_hold_angle 0: units walked that pace the return behind the hero (cvar cam_world_return) */
 extern S32 FollowCamEaseMs;               /* time constant of the yaw's ease behind the hero, ms; 0 = per-frame lerp (cvar cam_ease_ms) */
 extern S32 FollowCamTargetMs;             /* time constant of the look-at point's ease, ms; 0 = pinned to the hero (cvar cam_target_ms) */
 

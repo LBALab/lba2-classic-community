@@ -1988,6 +1988,7 @@ void FollowCamAdoptAngle(void) {
      * (AddBetaCam + hero Beta), so solving that for the current BetaCam gives the
      * offset that leaves the camera where it stands. */
     AddBetaCam = FollowCamPanForAngle(BetaCam, ptr3d->Beta);
+    FollowCamWorldAnchorRebase();
 }
 
 /* Apply a per-frame manual camera nudge from an analog source (mouse drag or

@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-83 fixtures.
+84 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -60,6 +60,7 @@ suite still passes, since CI cannot say so.
 | [test_followcam_release.sh](test_followcam_release.sh) | Letting go of the stick should ease the camera to a stop, not halt it from full speed. | - |
 | [test_followcam_scene_carry.sh](test_followcam_scene_carry.sh) | Arriving in an outdoor scene: with cam_scene_carry on, the Auto camera starts behind the hero with the pitch the player had, and with his pan unless he came out of a building. | - |
 | [test_followcam_tracking.sh](test_followcam_tracking.sh) | What the player asks the camera for is what the camera should do: hold the stick at a given orbit speed and, once the lerp has caught up, the camera turns at that speed. | - |
+| [test_followcam_world_anchor.sh](test_followcam_world_anchor.sh) | cam_world_anchor: the Auto camera holds a direction in the world instead of an offset from the hero's facing. | - |
 | [test_getascii_text_input.sh](test_getascii_text_input.sh) | Typed characters come from the engine's polled sample, so an injected key reaches the screens that read them. | save fixture |
 | [test_input_combos.sh](test_input_combos.sh) | Contradictory input: what the engine does when two inputs ask for opposite things. | - |
 | [test_input_hold_throttle.sh](test_input_hold_throttle.sh) | Phase 1 harness regression (docs/plan/INPUT_SIM_PLAN.md): a sustained `input` hold is metered in SIM ticks and OR'd into Input every rendered frame, so it is consumed on every sim step and drives the hero the same over equal game-time whatever the fixed-timestep throttle does. | - |
