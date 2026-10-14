@@ -23,7 +23,9 @@ CAM_SAVE="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Wannies fragment.
 # per-frame lerp, and the look-at point is pinned to him.
 #
 # Which settings those are is said by their rows in FOLLOWCAM.CPP (SETTING_BEFORE), not here,
-# so a new one is covered by declaring it there.
+# so a new one is covered by declaring it there. Every row the prefix names has to say
+# SETTING_BEFORE(v) or SETTING_BEFORE_NONE; scripts/ci/check-settings-before.py reads the
+# prefix from the line below and fails a row that says neither.
 # shellcheck disable=SC2034  # read by the fixtures that source this file
 CAM_PLAIN="settings_before cam_"
 

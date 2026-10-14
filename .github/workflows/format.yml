@@ -68,6 +68,15 @@ jobs:
       - name: Check architecture boundaries
         run: python3 ./scripts/ci/check-arch.py
 
+      # The camera fixtures reset every cam_ setting to its value from before, and a row
+      # that forgot to say one would stay switched on in all of them with nothing failing.
+      # The fixtures cannot run here, so the rows are read from the source instead.
+      - name: Self-test the settings-before check
+        run: python3 ./scripts/ci/check-settings-before-selftest.py
+
+      - name: Check each camera setting says its value from before
+        run: python3 ./scripts/ci/check-settings-before.py
+
       # The control-harness fixtures cannot run here: they need retail game data, and
       # run.sh reports a missing prerequisite as SKIP and exits 0, so a job that ran
       # them would go green having run nothing. What can be checked without data is

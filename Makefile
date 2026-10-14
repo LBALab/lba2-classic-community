@@ -1,5 +1,5 @@
 # Convenience targets — delegate to CMake and scripts (see docs/GAME_DATA.md).
-.PHONY: help clean build run build-run test tests test-docker format-check arch-check docs-links docs-symbols knowledge-check knowledge-drift knowledge-graph action-shell-check action-shell-selftest build-graph-check build-graph-selftest automation-index check-tooling save-probe-lz-selftest savegame-corpus
+.PHONY: help clean build run build-run test tests test-docker format-check arch-check settings-before-check settings-before-selftest docs-links docs-symbols knowledge-check knowledge-drift knowledge-graph action-shell-check action-shell-selftest build-graph-check build-graph-selftest automation-index check-tooling save-probe-lz-selftest savegame-corpus
 
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 REPO_ROOT := $(shell "$(MAKEFILE_DIR)scripts/dev/repo_root.sh" 2>/dev/null || echo "$(MAKEFILE_DIR)")
@@ -20,6 +20,8 @@ help:
 	@echo "  make test-docker    - ./run_tests_docker.sh (ASM suite; requires Docker)"
 	@echo "  make format-check   - scripts/ci/check-format.sh"
 	@echo "  make arch-check     - scripts/ci/check-arch.py (the boundaries CODESTYLE and AGENTS state)"
+	@echo "  make settings-before-check - scripts/ci/check-settings-before.py (each row the camera fixtures reset says its value from before)"
+	@echo "  make settings-before-selftest - self-test for the above"
 	@echo "  make docs-links     - scripts/ci/check-docs-links.sh (needs lychee for the link half)"
 	@echo "  make docs-symbols   - scripts/ci/check-docs-symbols.py (a doc names a symbol; is it in that file?)"
 	@echo "  make knowledge-check - scripts/ci/check-knowledge.py (docs/knowledge against its SCHEMA.md)"
@@ -59,6 +61,12 @@ format-check:
 
 arch-check:
 	@python3 "$(REPO_ROOT)/scripts/ci/check-arch.py"
+
+settings-before-check:
+	@python3 "$(REPO_ROOT)/scripts/ci/check-settings-before.py"
+
+settings-before-selftest:
+	@python3 "$(REPO_ROOT)/scripts/ci/check-settings-before-selftest.py"
 
 docs-links:
 	@bash "$(REPO_ROOT)/scripts/ci/check-docs-links.sh"
