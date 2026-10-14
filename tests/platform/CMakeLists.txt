@@ -18,6 +18,32 @@ target_include_directories(test_platform_header_cpp98 PRIVATE ${CMAKE_SOURCE_DIR
 set_target_properties(test_platform_header_cpp98 PROPERTIES
     CXX_STANDARD 98 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
 
+# Derive the checks from the contract so a newly added callback cannot be omitted.
+set(_PLATFORM_HEADER "${CMAKE_SOURCE_DIR}/LIB386/H/PLATFORM/PLATFORM.H")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_PLATFORM_HEADER}")
+file(READ "${_PLATFORM_HEADER}" _platform_contract)
+set(_callback_checks "")
+foreach(group System Events Window Input Host)
+    string(TOLOWER "${group}" member)
+    string(REGEX MATCH "typedef struct Platform${group} \\{[^}]*\\}" block "${_platform_contract}")
+    string(REGEX MATCHALL "\\(\\*[A-Za-z0-9_]+\\)" callbacks "${block}")
+    if(NOT callbacks)
+        message(FATAL_ERROR "No callbacks found in Platform${group}")
+    endif()
+    foreach(callback IN LISTS callbacks)
+        string(REGEX REPLACE "\\(\\*([A-Za-z0-9_]+)\\)" "\\1" callback "${callback}")
+        string(APPEND _callback_checks "PLATFORM_CALLBACK(${member}.${callback})\n")
+    endforeach()
+endforeach()
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/platform_callback_checks.inc" "${_callback_checks}")
+
+add_executable(test_platform_callbacks test_platform_callbacks.cpp)
+target_include_directories(test_platform_callbacks PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_platform_callbacks PRIVATE lba2_platform)
+set_target_properties(test_platform_callbacks PROPERTIES CXX_STANDARD 11)
+add_test(NAME test_platform_callbacks COMMAND test_platform_callbacks)
+register_host_test(test_platform_callbacks)
+
 add_executable(test_platform_contract
     test_platform_contract.cpp
     test_platform_header.c
