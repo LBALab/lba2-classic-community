@@ -2373,8 +2373,10 @@ void Control_RestoreUncarried(void) {
    SOURCES/JOYSTICK.CPP applies it to the left stick's axis-to-scancode conversion too, so
    it decides what a recorded deflection means for movement as well.
 
-   These are read in SOURCES/INPUT.CPP rather than SOURCES/CONFIG_FILE.CPP, which is worth
-   knowing before concluding that a settings sweep has seen the whole config.
+   The settings tables are spread over three files: SOURCES/CONFIG_FILE.CPP (boot, mouse,
+   gamepad), SOURCES/FOLLOWCAM.CPP (the Auto camera) and SOURCES/AMBIANCE.CPP (audio). The key
+   bindings are not in a table at all. Worth knowing before concluding that a settings sweep
+   has seen the whole config.
 
    Still out, and unexercised rather than shown harmless: ManualCameraSmoothing read clean
    on both sessions, and reaching it needs an orbit that leaves FollowCamTargetBeta far

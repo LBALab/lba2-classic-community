@@ -629,8 +629,9 @@ what a stick with drift gets tuned on. It is not only a camera setting: `SOURCES
 applies it to the left stick's axis-to-scancode conversion too, so it decides what a recorded
 deflection means for movement as well.
 
-The gamepad keys are read in `SOURCES/INPUT.CPP` rather than `SOURCES/CONFIG_FILE.CPP`, which is
-worth knowing before concluding that a sweep has seen the whole config.
+The settings tables are spread over three files: `SOURCES/CONFIG_FILE.CPP` (boot, mouse, gamepad),
+`SOURCES/FOLLOWCAM.CPP` (the Auto camera) and `SOURCES/AMBIANCE.CPP` (audio). The key bindings are
+not in a table at all. Worth knowing before concluding that a sweep has seen the whole config.
 
 The header carries all of these, and a replay names the ones that differ as it starts, by the key
 the player would edit:

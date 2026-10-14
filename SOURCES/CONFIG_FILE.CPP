@@ -9,6 +9,7 @@
 #include "FOLLOWCAM.H"       /* the Auto camera's settings */
 #include "FOLLOWCAM_CFG.H"   /* and their defaults */
 #include "INPUT.H"           /* Read/WriteInputConfig, Read/WriteGamepadConfig */
+#include "JOYSTICK.H"        /* JoystickDeadzone */
 #include "RES_SWITCH.H"
 #include <PLATFORM/PLATFORM.H> /* PLATFORM_FILTER_*, and why a mode was refused */
 #include <POLYGON/POLYFILT.H>  /* PolyTexFilter / EnvTexFilter */
@@ -149,6 +150,48 @@ static const T_SETTING BootSettings[] = {
 };
 #define BOOT_SETTING_COUNT ((S32)(sizeof(BootSettings) / sizeof(BootSettings[0])))
 
+/* The mouse's camera and menu preferences. Read by the manual camera path in
+ * EXTFUNC.CPP, which has no module of its own to own them yet.
+ *
+ * No cvar column: the console names these in CONSOLE_CMD.CPP, unclamped on
+ * purpose so a value can be pushed past its range while tuning. Moving them
+ * here would clamp them, which is a change of its own. */
+static const T_SETTING MouseSettings[] = {
+    {"MenuMouse", NULL, NULL, &FlagMenuMouse, SETTING_TRUTHY, TRUE, 0, 1, NULL, NULL, NULL, NULL},
+    {"MouseCamera", NULL, NULL, &FlagMouseCamera, SETTING_TRUTHY, TRUE, 0, 1, NULL, NULL, NULL, NULL},
+    {"MouseCameraDrag", NULL, NULL, &FlagMouseCameraDrag, SETTING_TRUTHY, TRUE, 0, 1, NULL, NULL, NULL, NULL},
+    {"MouseSensitivityX", NULL, NULL, &MouseCameraSensX, SETTING_CLAMP, MOUSE_CAM_SENS_DEFAULT, 1, 10,
+     NULL, NULL, NULL, NULL},
+    {"MouseSensitivityY", NULL, NULL, &MouseCameraSensY, SETTING_CLAMP, MOUSE_CAM_SENS_DEFAULT, 1, 10,
+     NULL, NULL, NULL, NULL},
+    {"MouseInvertY", NULL, NULL, &MouseCameraInvertY, SETTING_TRUTHY, FALSE, 0, 1, NULL, NULL, NULL, NULL},
+    {"MouseCameraDivisor", NULL, NULL, &MouseCameraDivisor, SETTING_CLAMP, MOUSE_CAM_DIVISOR_DEFAULT, 1, 16,
+     NULL, NULL, NULL, NULL},
+    {"ManualCameraSmoothing", NULL, NULL, &ManualCameraSmoothing, SETTING_CLAMP, MOUSE_CAM_SMOOTHING_DEFAULT, 1, 16,
+     NULL, NULL, NULL, NULL},
+    {"FollowCamOrbitGlide", NULL, NULL, &FollowCamOrbitGlide, SETTING_CLAMP, FOLLOW_CAM_ORBIT_GLIDE_DEFAULT, 0,
+     FOLLOW_CAM_ORBIT_GLIDE_MAX, NULL, NULL, NULL, NULL},
+};
+#define MOUSE_SETTING_COUNT ((S32)(sizeof(MouseSettings) / sizeof(MouseSettings[0])))
+
+/* The right stick's camera preferences and the stick deadzone. The pad's
+ * bindings stay with INPUT.CPP, which writes them straight after these. Same
+ * reason as above for the missing cvar column. */
+static const T_SETTING GamepadSettings[] = {
+    {"GamepadDeadzone", NULL, NULL, &JoystickDeadzone, SETTING_CLAMP, 8000, 0, 32767, NULL, NULL, NULL, NULL},
+    {"GamepadCameraAnalog", NULL, NULL, &GamepadCameraAnalog, SETTING_TRUTHY, TRUE, 0, 1, NULL, NULL, NULL, NULL},
+    {"GamepadCameraSensX", NULL, NULL, &GamepadCameraSensX, SETTING_CLAMP, GAMEPAD_CAM_SENS_DEFAULT, 1, 10,
+     NULL, NULL, NULL, NULL},
+    {"GamepadCameraSensY", NULL, NULL, &GamepadCameraSensY, SETTING_CLAMP, GAMEPAD_CAM_SENS_DEFAULT, 1, 10,
+     NULL, NULL, NULL, NULL},
+    {"GamepadCameraInvertY", NULL, NULL, &GamepadCameraInvertY, SETTING_TRUTHY, FALSE, 0, 1, NULL, NULL, NULL, NULL},
+    {"GamepadCamMaxBeta", NULL, NULL, &GamepadCamMaxBeta, SETTING_CLAMP, GAMEPAD_CAM_BETA_MAX_DEFAULT, 1, 200,
+     NULL, NULL, NULL, NULL},
+    {"GamepadCamMaxAlpha", NULL, NULL, &GamepadCamMaxAlpha, SETTING_CLAMP, GAMEPAD_CAM_ALPHA_MAX_DEFAULT, 1, 100,
+     NULL, NULL, NULL, NULL},
+};
+#define GAMEPAD_SETTING_COUNT ((S32)(sizeof(GamepadSettings) / sizeof(GamepadSettings[0])))
+
 void ConfigFile_RegisterCvars(void) {
     Settings_RegisterCvars(BootSettings, BOOT_SETTING_COUNT);
 }
@@ -174,7 +217,8 @@ void ConfigFile_MarkFixedTimestepSetThisRun(void) {
 void ReadConfigFile(void) {
     const char *ptr;
 
-    ReadInputConfig();    // Lit Config Clavier dans LBA2.CFG
+    ReadInputConfig(); // Lit Config Clavier dans LBA2.CFG
+    Settings_ReadConfig(GamepadSettings, GAMEPAD_SETTING_COUNT);
     ReadGamepadConfig();  // Lit Config Gamepad dans LBA2.CFG
     ReadVolumeSettings(); // Lit Volumes dans LBA2.CFG
 
@@ -279,60 +323,7 @@ void ReadConfigFile(void) {
         Distrib_SetShowSplash(showSplash);
     }
 
-    FlagMenuMouse = DefFileBufferReadValueDefault("MenuMouse", TRUE);
-    if (FlagMenuMouse != 0)
-        FlagMenuMouse = TRUE;
-    else
-        FlagMenuMouse = FALSE;
-
-    FlagMouseCamera = DefFileBufferReadValueDefault("MouseCamera", TRUE);
-    if (FlagMouseCamera != 0)
-        FlagMouseCamera = TRUE;
-    else
-        FlagMouseCamera = FALSE;
-
-    FlagMouseCameraDrag = DefFileBufferReadValueDefault("MouseCameraDrag", TRUE);
-    if (FlagMouseCameraDrag != 0)
-        FlagMouseCameraDrag = TRUE;
-    else
-        FlagMouseCameraDrag = FALSE;
-
-    MouseCameraSensX = DefFileBufferReadValueDefault("MouseSensitivityX", MOUSE_CAM_SENS_DEFAULT);
-    if (MouseCameraSensX < 1)
-        MouseCameraSensX = 1;
-    if (MouseCameraSensX > 10)
-        MouseCameraSensX = 10;
-
-    MouseCameraSensY = DefFileBufferReadValueDefault("MouseSensitivityY", MOUSE_CAM_SENS_DEFAULT);
-    if (MouseCameraSensY < 1)
-        MouseCameraSensY = 1;
-    if (MouseCameraSensY > 10)
-        MouseCameraSensY = 10;
-
-    MouseCameraInvertY = DefFileBufferReadValueDefault("MouseInvertY", FALSE);
-    if (MouseCameraInvertY != 0)
-        MouseCameraInvertY = TRUE;
-    else
-        MouseCameraInvertY = FALSE;
-
-    MouseCameraDivisor = DefFileBufferReadValueDefault("MouseCameraDivisor", MOUSE_CAM_DIVISOR_DEFAULT);
-    if (MouseCameraDivisor < 1)
-        MouseCameraDivisor = 1;
-    if (MouseCameraDivisor > 16)
-        MouseCameraDivisor = 16;
-
-    FollowCamOrbitGlide = DefFileBufferReadValueDefault("FollowCamOrbitGlide", FOLLOW_CAM_ORBIT_GLIDE_DEFAULT);
-    if (FollowCamOrbitGlide < 0)
-        FollowCamOrbitGlide = 0;
-    if (FollowCamOrbitGlide > FOLLOW_CAM_ORBIT_GLIDE_MAX)
-        FollowCamOrbitGlide = FOLLOW_CAM_ORBIT_GLIDE_MAX;
-
-    ManualCameraSmoothing = DefFileBufferReadValueDefault("ManualCameraSmoothing", MOUSE_CAM_SMOOTHING_DEFAULT);
-    if (ManualCameraSmoothing < 1)
-        ManualCameraSmoothing = 1;
-    if (ManualCameraSmoothing > 16)
-        ManualCameraSmoothing = 16;
-
+    Settings_ReadConfig(MouseSettings, MOUSE_SETTING_COUNT);
     FollowCam_ReadConfig();
 }
 
@@ -375,7 +366,8 @@ void WriteConfigFile(void) {
     // the per-call atomic path and still persist correctly.
     S32 batched = DefFileBufferBeginBatch();
 
-    WriteInputConfig();    // Sauve Config Clavier dans LBA2.CFG
+    WriteInputConfig(); // Sauve Config Clavier dans LBA2.CFG
+    Settings_WriteConfig(GamepadSettings, GAMEPAD_SETTING_COUNT);
     WriteGamepadConfig();  // Sauve Config Gamepad dans LBA2.CFG
     WriteVolumeSettings(); // Sauve volumes dans LBA2.CFG
 
@@ -407,15 +399,7 @@ void WriteConfigFile(void) {
     else
         DefFileBufferWriteString("FlagDisplayText", "OFF");
 
-    DefFileBufferWriteValue("MenuMouse", FlagMenuMouse);
-    DefFileBufferWriteValue("MouseCamera", FlagMouseCamera);
-    DefFileBufferWriteValue("MouseCameraDrag", FlagMouseCameraDrag);
-    DefFileBufferWriteValue("MouseSensitivityX", MouseCameraSensX);
-    DefFileBufferWriteValue("MouseSensitivityY", MouseCameraSensY);
-    DefFileBufferWriteValue("MouseInvertY", MouseCameraInvertY);
-    DefFileBufferWriteValue("MouseCameraDivisor", MouseCameraDivisor);
-    DefFileBufferWriteValue("ManualCameraSmoothing", ManualCameraSmoothing);
-    DefFileBufferWriteValue("FollowCamOrbitGlide", FollowCamOrbitGlide);
+    Settings_WriteConfig(MouseSettings, MOUSE_SETTING_COUNT);
     FollowCam_WriteConfig();
 
     if (batched) {
