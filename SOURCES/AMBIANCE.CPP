@@ -831,24 +831,28 @@ static void ApplyCDVolume(S32 value) { SetVolumeCD(value); }
 
 static void ApplyReverseStereo(S32 value) { InverseStereoSample(value); }
 
+/* None of these is recorded. A volume scales what is heard, and the one place
+   the engine branches on one, PlayJingle skipping a stream at volume 0, opens it
+   inside LockTimer, so the simulation does not see it. Whether sound runs at
+   all is the header's `mode.audio`. */
 static const T_SETTING AudioSettings[] = {
     {"WaveVolume", NULL, "snd_wave", &SampleVolume, SETTING_CLAMP, DEF_SAMPLE_VOLUME, 0, 127, NULL, NULL, NULL, NULL,
-     "Sound-effect volume (0-127)"},
+     "Sound-effect volume (0-127)", SETTING_NOT_RECORDED},
     {"VoiceVolume", NULL, "snd_voice", &VoiceVolume, SETTING_CLAMP, DEF_VOICE_VOLUME, 0, 127, NULL, NULL, NULL, NULL,
-     "Speech volume (0-127)"},
+     "Speech volume (0-127)", SETTING_NOT_RECORDED},
     {"MusicVolume", NULL, "snd_music", &JingleVolume, SETTING_CLAMP, DEF_JINGLE_VOLUME, 0, 127, NULL, NULL,
-     ApplyJingleVolume, NULL, "Music volume (0-127)"},
+     ApplyJingleVolume, NULL, "Music volume (0-127)", SETTING_NOT_RECORDED},
 #ifdef CDROM
     {"CDVolume", NULL, "snd_cd", &CDVolume, SETTING_CLAMP, DEF_CD_VOLUME, 0, 127, NULL, NULL, ApplyCDVolume, NULL,
-     "CD audio volume (0-127)"},
+     "CD audio volume (0-127)", SETTING_NOT_RECORDED},
 #endif
     {"MasterVolume", NULL, "snd_master", &MasterVolume, SETTING_CLAMP, DEF_MASTER_VOLUME, 0, 127, NULL, NULL,
-     ApplyMasterVolume, NULL, "Master volume (0-127), scales the others"},
+     ApplyMasterVolume, NULL, "Master volume (0-127), scales the others", SETTING_NOT_RECORDED},
     /* ReverseStereo lives here rather than in CONFIG_FILE.CPP's table now that
        audio has one: it is an audio setting, and its apply belongs beside the
        others rather than being repeated by whichever surface writes it. */
     {"ReverseStereo", NULL, "snd_reverse_stereo", &ReverseStereo, SETTING_TRUTHY, FALSE, 0, 1, NULL, NULL,
-     ApplyReverseStereo, NULL, "Swap the left and right sample channels"},
+     ApplyReverseStereo, NULL, "Swap the left and right sample channels", SETTING_NOT_RECORDED},
 };
 
 #define AUDIO_SETTING_COUNT ((S32)(sizeof(AudioSettings) / sizeof(AudioSettings[0])))
@@ -898,6 +902,11 @@ void WriteVolumeSettings() {
    audible at once and written to the cfg on exit like any other setting. */
 void Audio_RegisterCvars(void) {
     Settings_RegisterCvars(AudioSettings, AUDIO_SETTING_COUNT);
+}
+
+const T_SETTING *Audio_Settings(S32 *count) {
+    *count = AUDIO_SETTING_COUNT;
+    return AudioSettings;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/

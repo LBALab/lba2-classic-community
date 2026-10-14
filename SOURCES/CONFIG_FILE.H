@@ -41,6 +41,11 @@ extern void ConfigFile_RegisterCvars(void);
  * the table cannot keep in step. */
 extern const T_SETTING *ConfigFile_Setting(const char *key);
 
+/* Every settings table the engine has, the ones other modules own included, by
+ * index from 0; NULL past the last. For whatever has to walk all of them, so it
+ * cannot miss a table added later. */
+extern const T_SETTING *ConfigFile_SettingTable(S32 i, S32 *count);
+
 /* Tell the settings table that this run set one of these, for the writers that
    assign the global themselves rather than going through the cvar path: the
    console's `vsync` and `fixedtimestep` commands, which take words rather than

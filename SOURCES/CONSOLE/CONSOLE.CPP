@@ -1720,10 +1720,21 @@ static void console_execute_body(const char *line) {
             continue;
         if (argc >= 2 && argv[1][0] != '\0') {
             if (s_cvars[i].set != NULL) {
-                /* The owner's rule decides. Parsed as an integer whatever the display
-                   type, so a value the owner would accept is not lost to a stricter
-                   parse here; the reply shows what the setting became. */
-                s_cvars[i].set(s_cvars[i].ctx, (int)strtol(argv[1], NULL, 0));
+                /* The owner's rule decides. A number is passed as typed whatever the
+                   display type, so a value the owner would accept is not lost to a
+                   stricter parse here; the reply shows what the setting became.
+
+                   A word typed for a bool is read the way the plain bool path below
+                   reads it. Handed to strtol it would arrive as 0, so `on` and `yes`
+                   switched the setting off. */
+                const char *a = argv[1];
+                int v;
+                if (s_cvars[i].type != CONSOLE_CVAR_INT && !isdigit((unsigned char)a[0]) && a[0] != '-' &&
+                    a[0] != '+')
+                    v = (a[0] == 'y' || a[0] == 'Y' || (a[0] == 'o' && a[1] == 'n'));
+                else
+                    v = (int)strtol(a, NULL, 0);
+                s_cvars[i].set(s_cvars[i].ctx, v);
                 if (s_cvars[i].type == CONSOLE_CVAR_INT)
                     Console_Print("%s = %d", s_cvars[i].name, *(int *)s_cvars[i].ptr);
                 else

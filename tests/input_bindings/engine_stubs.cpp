@@ -42,15 +42,4 @@ int Console_ShouldSuppressInputThisFrame(void) { return 0; }
 
 void GetJoys(U32 *) {}
 U32 JoystickFirstPressedScancode(void) { return 0; }
-S32 JoystickDeadzone = 0;
 }
-
-// --- Camera preferences ReadGamepadConfig()/WriteGamepadConfig() carry -------
-// Declared in C_EXTERN.H, so C++ linkage, and defined here for the same reason
-// as the rest: the config half of the TU names them.
-S32 GamepadCameraAnalog = 0;
-S32 GamepadCameraSensX = 0;
-S32 GamepadCameraSensY = 0;
-S32 GamepadCameraInvertY = 0;
-S32 GamepadCamMaxBeta = 0;
-S32 GamepadCamMaxAlpha = 0;

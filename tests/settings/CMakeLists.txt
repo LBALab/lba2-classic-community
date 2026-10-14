@@ -1,6 +1,6 @@
-# Host test for the settings coercion rules (SOURCES/SETTINGS.H). Header-only: the rest of the
-# settings layer talks to the cfg reader and the console, so only the coercion is reachable here,
-# and it is the part where collapsing the rules changed what six settings boot into.
+# Host test for the header-only half of the settings layer (SOURCES/SETTINGS.H): the coercion
+# rules, where collapsing them changed what six settings boot into, and the recording header's
+# settings lines. The rest of the layer talks to the cfg reader and the console.
 add_executable(test_settings_coerce test_settings_coerce.cpp)
 
 target_include_directories(test_settings_coerce PRIVATE

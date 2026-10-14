@@ -575,10 +575,10 @@ void UpdateFollowCameraExt(void) {
                          * 100 (full assist) when no hold. */
         if (FollowCamManualHold > 0)
             FollowCamManualHold--;
-        /* The console sets cvars without going through the config's range check,
-         * so clamp where it is used, as the orbit glide does in EXTFUNC. Both
-         * bounds are load-bearing here rather than tidiness: the hold counter is
-         * seeded from the frame count, so an unbounded cam_manual_hold makes
+        /* The settings row bounds every writer, the console included; this clamp
+         * stays beside the arithmetic because both bounds are load-bearing here
+         * rather than tidiness: the hold counter is seeded from the frame count,
+         * so an unbounded cam_manual_hold makes
          * `hold * 100` leave S32, and the negative product that follows drives
          * the fade to full assist exactly when the player has asked for none. */
         S32 holdFrames = FollowCamManualHoldFrames;
@@ -1273,6 +1273,11 @@ void FollowCam_WriteConfig(void) {
 
 void FollowCam_RegisterCvars(void) {
     Settings_RegisterCvars(FollowCamSettings, FOLLOW_CAM_SETTING_COUNT);
+}
+
+const T_SETTING *FollowCam_Settings(S32 *count) {
+    *count = FOLLOW_CAM_SETTING_COUNT;
+    return FollowCamSettings;
 }
 
 /* The console commands this module owns, registered from Console_RegisterAll

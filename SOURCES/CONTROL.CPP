@@ -6,10 +6,11 @@
 #include <SYSTEM/MOUSE.H> /* the harness mouse writes where a motion event does */
 #include "JOYSTICK.H"     /* and the harness stick where the pad poll does */
 #include "COMMON.H"
-#include "PERSO.H"    /* InitGame, MainLoop, TheEnd */
-#include "OBJECT.H"   /* ChangeCube */
-#include "GAMEMENU.H" /* BeginDemoSlide */
-#include "PATCH.H"    /* NbPatches */
+#include "PERSO.H"       /* InitGame, MainLoop, TheEnd */
+#include "OBJECT.H"      /* ChangeCube */
+#include "GAMEMENU.H"    /* BeginDemoSlide */
+#include "PATCH.H"       /* NbPatches */
+#include "CONFIG_FILE.H" /* ConfigFile_SettingTable, for the state description */
 #include "DIRECTORIES.H"
 #include "DISTRIB.H"     /* Distrib_Name, for the state description */
 #include "FOLLOWCAM.H"   /* Auto-camera state in the --dump-state report */
@@ -2323,131 +2324,41 @@ void Control_RestoreUncarried(void) {
 }
 
 /* The part of a run's description that comes from the engine rather than from whoever
-   is describing it: where the game is, and the settings a replay has been shown to
-   turn on. `key=value` lines, one per line, appended to whatever the caller already has.
+   is describing it: where the game is, and the settings. `key=value` lines, one per line,
+   appended to whatever the caller already has.
 
-   The settings are empirical rather than mechanical, which is why this is a hand-written
-   list and not a walk of the T_SETTING tables. Two sweeps so far, each changing one cfg
-   key at a time on the replay side of a recorded session:
+   The settings are every row of every settings table not marked SETTING_NOT_RECORDED,
+   named by their lba2.cfg keys so a mismatch names the line the player would edit. They
+   used to be a list kept here by hand, of the ones a replay had been shown to turn on
+   (docs/RECORDING.md has the sweeps), and the Auto camera's later settings never reached
+   it. A new row is carried unless its author says it is not.
 
-     FollowCamera missing                  diverges at tick 0   (it is in the digest)
-     FollowCamGroundClearance missing                  tick 2   (the camera rests further out)
-     DetailLevel 3 -> 0                                tick 235 (SetDetailLevel turns RainEnable
-                                                                 off, and rain draws from the one
-                                                                 shared random stream)
-
-   The mouse block came from a third sweep, over a session that orbits rather than walks,
-   because the two before it drove the keyboard and could not have moved any of these. A
-   recording stores the raw motion the frame will deliver, and the *replaying* run's
-   config is what scales it (SOURCES/EXTFUNC.CPP, MouseCameraSensX / MouseCameraDivisor),
-   so the same bytes turn the camera by a different amount and the camera is in the digest:
-
-     MouseCamera 1 -> 0                    diverges at tick 61  (the motion is discarded)
-     MouseSensitivityX 4 -> 8                          tick 61  (the first gesture is X-only)
-     MouseCameraDivisor 4 -> 2                         tick 61
-     MouseSensitivityY 4 -> 8                          tick 131 (the first gesture with a Y)
-     MouseInvertY 0 -> 1                               tick 131
-     FollowCamOrbitGlide 75 -> 20                      tick 101 (where the first gesture ends
-                                                                 and the glide takes over)
-     MouseCameraDrag 1 -> 0                            tick 61  (on a second session, whose
-                                                                 motion holds no button: with
-                                                                 one held both settings orbit
-                                                                 and nothing can tell them apart)
-
-   Each tick is the gesture that setting shapes, which is the check that these are the
-   settings moving the camera rather than a session that diverges anyway.
-
-   The right stick is the same story, on a session that orbits with the stick instead of
-   the mouse. Every one of them lands on the gesture for its axis, and none was carried:
-
-     GamepadCameraAnalog 1 -> 0                        tick 61  (the axes are not read)
-     GamepadCameraSensX 5 -> 9                         tick 61
-     GamepadCamMaxBeta 36 -> 72                        tick 61
-     GamepadDeadzone 8000 -> 12000                     tick 61
-     GamepadCameraSensY 5 -> 9                         tick 131 (the gesture on Y)
-     GamepadCameraInvertY 0 -> 1                       tick 131
-     GamepadCamMaxAlpha 10 -> 20                       tick 131
-
-   GamepadDeadzone is the widest of the set and the likeliest to differ between two
-   players, being what a stick with drift gets tuned on. It is not only a camera setting:
-   SOURCES/JOYSTICK.CPP applies it to the left stick's axis-to-scancode conversion too, so
-   it decides what a recorded deflection means for movement as well.
-
-   These are read in SOURCES/INPUT.CPP rather than SOURCES/CONFIG_FILE.CPP, which is worth
-   knowing before concluding that a settings sweep has seen the whole config.
-
-   Still out, and unexercised rather than shown harmless: ManualCameraSmoothing read clean
-   on both sessions, and reaching it needs an orbit that leaves FollowCamTargetBeta far
-   enough from BetaCam to take the stepped branch in SOURCES/FOLLOWCAM.CPP.
-
-   Named by their lba2.cfg keys, so a mismatch names the line the player would edit. */
+   What no table holds is not carried: the key bindings, which the header hashes as
+   `bindings.digest`, and FlagDisplayText, which the cfg spells ON or OFF. */
 S32 Control_DescribeState(char *out, size_t n) {
+    const T_SETTING *table;
+    S32 count;
+    S32 i;
+    size_t at;
     int wrote = snprintf(out, n,
                          "mode.fixed_timestep=%d\n"
                          "mode.vsync=%d\n"
                          "setup.island=%d\n"
                          "setup.cube=%d\n"
                          "setup.demoslide=%d\n"
-                         "data.distrib=%s\n"
-                         "settings.FollowCamera=%d\n"
-                         "settings.FollowCamGround=%d\n"
-                         "settings.FollowCamGroundClearance=%d\n"
-                         "settings.FollowCamReengageFrames=%d\n"
-                         "settings.FollowCamDriftDivisor=%d\n"
-                         "settings.FollowCamManualHoldFrames=%d\n"
-                         "settings.FollowCamHoldAngle=%d\n"
-                         "settings.FollowCamHDRecompose=%d\n"
-                         "settings.FollowCamHDExcessCap=%d\n"
-                         "settings.FollowCamHDPitchGain=%d\n"
-                         "settings.FollowCamHDDistGain=%d\n"
-                         "settings.FollowCamHDLeanGain=%d\n"
-                         "settings.FollowCamOrbitGlide=%d\n"
-                         "settings.MouseCamera=%d\n"
-                         "settings.MouseCameraDrag=%d\n"
-                         "settings.MouseSensitivityX=%d\n"
-                         "settings.MouseSensitivityY=%d\n"
-                         "settings.MouseInvertY=%d\n"
-                         "settings.MouseCameraDivisor=%d\n"
-                         "settings.GamepadCameraAnalog=%d\n"
-                         "settings.GamepadCameraSensX=%d\n"
-                         "settings.GamepadCameraSensY=%d\n"
-                         "settings.GamepadCameraInvertY=%d\n"
-                         "settings.GamepadCamMaxBeta=%d\n"
-                         "settings.GamepadCamMaxAlpha=%d\n"
-                         "settings.GamepadDeadzone=%d\n"
-                         "settings.DetailLevel=%d\n",
+                         "data.distrib=%s\n",
                          (int)FixedTimestep,
                          (int)DisplayVSync,
                          (int)Island, (int)NumCube, (int)DemoSlide,
-                         Distrib_Name(DistribVersion),
-                         (int)FollowCamera,
-                         (int)FollowCamGround,
-                         (int)FollowCamGroundClearance,
-                         (int)FollowCamReengageFrames,
-                         (int)FollowCamDriftDivisor,
-                         (int)FollowCamManualHoldFrames,
-                         (int)FollowCamHoldAngle,
-                         (int)FollowCamHDRecompose,
-                         (int)FollowCamHDExcessCap,
-                         (int)FollowCamHDPitchGain,
-                         (int)FollowCamHDDistGain,
-                         (int)FollowCamHDLeanGain,
-                         (int)FollowCamOrbitGlide,
-                         (int)FlagMouseCamera,
-                         (int)FlagMouseCameraDrag,
-                         (int)MouseCameraSensX,
-                         (int)MouseCameraSensY,
-                         (int)MouseCameraInvertY,
-                         (int)MouseCameraDivisor,
-                         (int)GamepadCameraAnalog,
-                         (int)GamepadCameraSensX,
-                         (int)GamepadCameraSensY,
-                         (int)GamepadCameraInvertY,
-                         (int)GamepadCamMaxBeta,
-                         (int)GamepadCamMaxAlpha,
-                         (int)JoystickDeadzone,
-                         (int)DetailLevel);
-    return wrote > 0 && (size_t)wrote < n;
+                         Distrib_Name(DistribVersion));
+    if (wrote <= 0 || (size_t)wrote >= n)
+        return 0;
+    at = (size_t)wrote;
+    for (i = 0; (table = ConfigFile_SettingTable(i, &count)) != NULL; i++) {
+        if (!Settings_DescribeRecorded(table, count, out, n, &at))
+            return 0;
+    }
+    return 1;
 }
 
 /* ---- snapshots, and the dance the 1997 serialiser requires ------------------ */

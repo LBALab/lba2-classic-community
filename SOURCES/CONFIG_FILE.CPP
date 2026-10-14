@@ -9,6 +9,7 @@
 #include "FOLLOWCAM.H"       /* the Auto camera's settings */
 #include "FOLLOWCAM_CFG.H"   /* and their defaults */
 #include "INPUT.H"           /* Read/WriteInputConfig, Read/WriteGamepadConfig */
+#include "JOYSTICK.H"        /* JoystickDeadzone */
 #include "RES_SWITCH.H"
 #include <PLATFORM/PLATFORM.H> /* PLATFORM_FILTER_*, and why a mode was refused */
 #include <POLYGON/POLYFILT.H>  /* PolyTexFilter / EnvTexFilter */
@@ -125,32 +126,118 @@ static S32 ParsePresentFilter(const char *text) {
  * Three of these can be forced for one run by a flag, and must not be left
  * behind for the next: the stored column keeps what the cfg held and the writer
  * persists that instead. Language is not here because it is written as a name
- * rather than a number; its override is still handled by hand below. */
+ * rather than a number; its override is still handled by hand below.
+ *
+ * The display rows are left out of recordings: they change how a frame is
+ * shown, not what the simulation does. VSync and FixedTimestep are left out
+ * because the header already carries them as `mode.vsync` and
+ * `mode.fixed_timestep`, and Shadow because SetDetailLevel overwrites it at
+ * MainLoop entry, so the recorded DetailLevel decides it. */
 static const T_SETTING BootSettings[] = {
-    {"Shadow", NULL, NULL, &Shadow, SETTING_RAW, 3, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL},
+    {"Shadow", NULL, NULL, &Shadow, SETTING_RAW, 3, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL, NULL, NULL,
+     SETTING_NOT_RECORDED},
     {"AllCameras", NULL, NULL, &AllCameras, SETTING_RAW, TRUE, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL},
     /* User-facing name: "Auto camera" (menu/docs); the legacy spelling is read
        so an existing cfg keeps working. The camera module owns its cvar. */
     {"FollowCamera", "AutoCameraCenter", NULL, &FollowCamera, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL, NULL},
     {"DetailLevel", NULL, NULL, &DetailLevel, SETTING_CLAMP, MAX_DETAIL_LEVEL, 0, MAX_DETAIL_LEVEL, NULL, NULL, NULL},
-    {"FullScreen", NULL, NULL, &VideoFullScreen, SETTING_OR_DEFAULT, TRUE, 0, 1, NULL, NULL, NULL},
-    {"DisplayFullScreen", NULL, NULL, &DisplayFullScreen, SETTING_OR_DEFAULT, TRUE, 0, 1, NULL, NULL, NULL},
-    {"VSync", NULL, NULL, &DisplayVSync, SETTING_OR_DEFAULT, TRUE, 0, 1, &StoredVSync, ForcedVSync, NULL, &SourceVSync},
+    {"FullScreen", NULL, NULL, &VideoFullScreen, SETTING_OR_DEFAULT, TRUE, 0, 1, NULL, NULL, NULL, NULL, NULL,
+     SETTING_NOT_RECORDED},
+    {"DisplayFullScreen", NULL, NULL, &DisplayFullScreen, SETTING_OR_DEFAULT, TRUE, 0, 1, NULL, NULL, NULL, NULL, NULL,
+     SETTING_NOT_RECORDED},
+    {"VSync", NULL, NULL, &DisplayVSync, SETTING_OR_DEFAULT, TRUE, 0, 1, &StoredVSync, ForcedVSync, NULL, &SourceVSync,
+     NULL, SETTING_NOT_RECORDED},
     {"DitherShading", NULL, "gfx_dither", &GfxDitherShading, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL, NULL, NULL,
-     "Ordered dither on Gouraud shade rows (softens 16-step banding)"},
+     "Ordered dither on Gouraud shade rows (softens 16-step banding)", SETTING_NOT_RECORDED},
     {"TextureFilter", NULL, "gfx_texfilter", &PolyTexFilter, SETTING_OR_DEFAULT, POLY_TEX_FILTER_OFF,
      POLY_TEX_FILTER_OFF, POLY_TEX_FILTER_BILINEAR, &StoredTexFilter, ForcedTexFilter, NULL, &SourceTexFilter,
-     "Texture filtering: 0 off, 1 horizontal, 2 bilinear"},
+     "Texture filtering: 0 off, 1 horizontal, 2 bilinear", SETTING_NOT_RECORDED},
     {"PresentFilter", NULL, "gfx_presentfilter", &DisplayPresentFilter, SETTING_OR_DEFAULT, PLATFORM_FILTER_NEAREST,
      PLATFORM_FILTER_NEAREST, PLATFORM_FILTER_PIXELART, &StoredPresentFilter, ForcedPresentFilter, ApplyPresentFilter,
-     &SourcePresentFilter, "Filter stretching the frame to the window: 0 nearest, 1 linear, 2 pixelart"},
+     &SourcePresentFilter, "Filter stretching the frame to the window: 0 nearest, 1 linear, 2 pixelart",
+     SETTING_NOT_RECORDED},
     {"FixedTimestep", NULL, NULL, &FixedTimestep, SETTING_OR_DEFAULT, 16, 0, 100,
-     &StoredFixedTimestep, ForcedFixedTimestep, NULL, &SourceFixedTimestep},
+     &StoredFixedTimestep, ForcedFixedTimestep, NULL, &SourceFixedTimestep, NULL, SETTING_NOT_RECORDED},
 };
 #define BOOT_SETTING_COUNT ((S32)(sizeof(BootSettings) / sizeof(BootSettings[0])))
 
+/* The mouse's camera and menu preferences. Read by the manual camera path in
+ * EXTFUNC.CPP, which has no module of its own to own them yet.
+ *
+ * The console clamps to the same ranges the cfg does. Two of them are
+ * load-bearing: cam_mouse_div divides the pointer's motion, and at 100 or
+ * above cam_glide's tail never decays. */
+static const T_SETTING MouseSettings[] = {
+    {"MenuMouse", NULL, NULL, &FlagMenuMouse, SETTING_TRUTHY, TRUE, 0, 1, NULL, NULL, NULL, NULL},
+    {"MouseCamera", NULL, "cam_mouse", &FlagMouseCamera, SETTING_TRUTHY, TRUE, 0, 1, NULL, NULL, NULL, NULL,
+     "Mouse camera enable"},
+    {"MouseCameraDrag", NULL, "cam_mouse_drag", &FlagMouseCameraDrag, SETTING_TRUTHY, TRUE, 0, 1,
+     NULL, NULL, NULL, NULL, "Mouse camera: 1=right-drag, 0=free orbit"},
+    {"MouseSensitivityX", NULL, "cam_mouse_x", &MouseCameraSensX, SETTING_CLAMP, MOUSE_CAM_SENS_DEFAULT, 1, 10,
+     NULL, NULL, NULL, NULL, "Mouse orbit sensitivity (1-10)"},
+    {"MouseSensitivityY", NULL, "cam_mouse_y", &MouseCameraSensY, SETTING_CLAMP, MOUSE_CAM_SENS_DEFAULT, 1, 10,
+     NULL, NULL, NULL, NULL, "Mouse elevation sensitivity (1-10)"},
+    {"MouseInvertY", NULL, "cam_mouse_invert", &MouseCameraInvertY, SETTING_TRUTHY, FALSE, 0, 1,
+     NULL, NULL, NULL, NULL, "Invert mouse elevation"},
+    {"MouseCameraDivisor", NULL, "cam_mouse_div", &MouseCameraDivisor, SETTING_CLAMP, MOUSE_CAM_DIVISOR_DEFAULT, 1, 16,
+     NULL, NULL, NULL, NULL, "Mouse pixel-to-angle divisor (1-16, lower = faster)"},
+    {"ManualCameraSmoothing", NULL, "cam_smooth", &ManualCameraSmoothing, SETTING_CLAMP, MOUSE_CAM_SMOOTHING_DEFAULT,
+     1, 16, NULL, NULL, NULL, NULL, "Manual orbit lerp divisor (1 = snap, higher = laggier)"},
+    {"FollowCamOrbitGlide", NULL, "cam_glide", &FollowCamOrbitGlide, SETTING_CLAMP, FOLLOW_CAM_ORBIT_GLIDE_DEFAULT, 0,
+     FOLLOW_CAM_ORBIT_GLIDE_MAX, NULL, NULL, NULL, NULL,
+     "Orbit follow-through: % of orbit speed kept per frame after release (0 = stop dead)"},
+};
+#define MOUSE_SETTING_COUNT ((S32)(sizeof(MouseSettings) / sizeof(MouseSettings[0])))
+
+/* The right stick's camera preferences and the stick deadzone. The pad's
+ * bindings stay with INPUT.CPP, which writes them straight after these. The
+ * deadzone's ceiling is load-bearing too: JOYSTICK.CPP narrows it to S16. */
+static const T_SETTING GamepadSettings[] = {
+    {"GamepadDeadzone", NULL, "pad_deadzone", &JoystickDeadzone, SETTING_CLAMP, 8000, 0, 32767,
+     NULL, NULL, NULL, NULL, "Gamepad stick deadzone (SDL units 0-32767)"},
+    {"GamepadCameraAnalog", NULL, "cam_stick_analog", &GamepadCameraAnalog, SETTING_TRUTHY, TRUE, 0, 1,
+     NULL, NULL, NULL, NULL, "Analog right-stick camera in Auto cam"},
+    {"GamepadCameraSensX", NULL, "cam_stick_x", &GamepadCameraSensX, SETTING_CLAMP, GAMEPAD_CAM_SENS_DEFAULT, 1, 10,
+     NULL, NULL, NULL, NULL, "Right-stick orbit sensitivity (1-10)"},
+    {"GamepadCameraSensY", NULL, "cam_stick_y", &GamepadCameraSensY, SETTING_CLAMP, GAMEPAD_CAM_SENS_DEFAULT, 1, 10,
+     NULL, NULL, NULL, NULL, "Right-stick elevation sensitivity (1-10)"},
+    {"GamepadCameraInvertY", NULL, "cam_stick_invert", &GamepadCameraInvertY, SETTING_TRUTHY, FALSE, 0, 1,
+     NULL, NULL, NULL, NULL, "Invert right-stick elevation"},
+    {"GamepadCamMaxBeta", NULL, "cam_stick_max_x", &GamepadCamMaxBeta, SETTING_CLAMP, GAMEPAD_CAM_BETA_MAX_DEFAULT,
+     1, 200, NULL, NULL, NULL, NULL, "Right-stick orbit speed ceiling (units/frame at sens 10)"},
+    {"GamepadCamMaxAlpha", NULL, "cam_stick_max_y", &GamepadCamMaxAlpha, SETTING_CLAMP, GAMEPAD_CAM_ALPHA_MAX_DEFAULT,
+     1, 100, NULL, NULL, NULL, NULL, "Right-stick elevation speed ceiling (units/frame at sens 10)"},
+};
+#define GAMEPAD_SETTING_COUNT ((S32)(sizeof(GamepadSettings) / sizeof(GamepadSettings[0])))
+
+/* Every settings table, for whatever has to walk all of them: the recording
+ * header today. This file already reads and writes each one, so it is the place
+ * that knows the whole set. Returns NULL past the last table. */
+const T_SETTING *ConfigFile_SettingTable(S32 i, S32 *count) {
+    switch (i) {
+    case 0:
+        *count = BOOT_SETTING_COUNT;
+        return BootSettings;
+    case 1:
+        *count = MOUSE_SETTING_COUNT;
+        return MouseSettings;
+    case 2:
+        *count = GAMEPAD_SETTING_COUNT;
+        return GamepadSettings;
+    case 3:
+        return FollowCam_Settings(count);
+    case 4:
+        return Audio_Settings(count);
+    default:
+        *count = 0;
+        return NULL;
+    }
+}
+
 void ConfigFile_RegisterCvars(void) {
     Settings_RegisterCvars(BootSettings, BOOT_SETTING_COUNT);
+    Settings_RegisterCvars(MouseSettings, MOUSE_SETTING_COUNT);
+    Settings_RegisterCvars(GamepadSettings, GAMEPAD_SETTING_COUNT);
 }
 
 const T_SETTING *ConfigFile_Setting(const char *key) {
@@ -174,7 +261,8 @@ void ConfigFile_MarkFixedTimestepSetThisRun(void) {
 void ReadConfigFile(void) {
     const char *ptr;
 
-    ReadInputConfig();    // Lit Config Clavier dans LBA2.CFG
+    ReadInputConfig(); // Lit Config Clavier dans LBA2.CFG
+    Settings_ReadConfig(GamepadSettings, GAMEPAD_SETTING_COUNT);
     ReadGamepadConfig();  // Lit Config Gamepad dans LBA2.CFG
     ReadVolumeSettings(); // Lit Volumes dans LBA2.CFG
 
@@ -279,60 +367,7 @@ void ReadConfigFile(void) {
         Distrib_SetShowSplash(showSplash);
     }
 
-    FlagMenuMouse = DefFileBufferReadValueDefault("MenuMouse", TRUE);
-    if (FlagMenuMouse != 0)
-        FlagMenuMouse = TRUE;
-    else
-        FlagMenuMouse = FALSE;
-
-    FlagMouseCamera = DefFileBufferReadValueDefault("MouseCamera", TRUE);
-    if (FlagMouseCamera != 0)
-        FlagMouseCamera = TRUE;
-    else
-        FlagMouseCamera = FALSE;
-
-    FlagMouseCameraDrag = DefFileBufferReadValueDefault("MouseCameraDrag", TRUE);
-    if (FlagMouseCameraDrag != 0)
-        FlagMouseCameraDrag = TRUE;
-    else
-        FlagMouseCameraDrag = FALSE;
-
-    MouseCameraSensX = DefFileBufferReadValueDefault("MouseSensitivityX", MOUSE_CAM_SENS_DEFAULT);
-    if (MouseCameraSensX < 1)
-        MouseCameraSensX = 1;
-    if (MouseCameraSensX > 10)
-        MouseCameraSensX = 10;
-
-    MouseCameraSensY = DefFileBufferReadValueDefault("MouseSensitivityY", MOUSE_CAM_SENS_DEFAULT);
-    if (MouseCameraSensY < 1)
-        MouseCameraSensY = 1;
-    if (MouseCameraSensY > 10)
-        MouseCameraSensY = 10;
-
-    MouseCameraInvertY = DefFileBufferReadValueDefault("MouseInvertY", FALSE);
-    if (MouseCameraInvertY != 0)
-        MouseCameraInvertY = TRUE;
-    else
-        MouseCameraInvertY = FALSE;
-
-    MouseCameraDivisor = DefFileBufferReadValueDefault("MouseCameraDivisor", MOUSE_CAM_DIVISOR_DEFAULT);
-    if (MouseCameraDivisor < 1)
-        MouseCameraDivisor = 1;
-    if (MouseCameraDivisor > 16)
-        MouseCameraDivisor = 16;
-
-    FollowCamOrbitGlide = DefFileBufferReadValueDefault("FollowCamOrbitGlide", FOLLOW_CAM_ORBIT_GLIDE_DEFAULT);
-    if (FollowCamOrbitGlide < 0)
-        FollowCamOrbitGlide = 0;
-    if (FollowCamOrbitGlide > FOLLOW_CAM_ORBIT_GLIDE_MAX)
-        FollowCamOrbitGlide = FOLLOW_CAM_ORBIT_GLIDE_MAX;
-
-    ManualCameraSmoothing = DefFileBufferReadValueDefault("ManualCameraSmoothing", MOUSE_CAM_SMOOTHING_DEFAULT);
-    if (ManualCameraSmoothing < 1)
-        ManualCameraSmoothing = 1;
-    if (ManualCameraSmoothing > 16)
-        ManualCameraSmoothing = 16;
-
+    Settings_ReadConfig(MouseSettings, MOUSE_SETTING_COUNT);
     FollowCam_ReadConfig();
 }
 
@@ -375,7 +410,8 @@ void WriteConfigFile(void) {
     // the per-call atomic path and still persist correctly.
     S32 batched = DefFileBufferBeginBatch();
 
-    WriteInputConfig();    // Sauve Config Clavier dans LBA2.CFG
+    WriteInputConfig(); // Sauve Config Clavier dans LBA2.CFG
+    Settings_WriteConfig(GamepadSettings, GAMEPAD_SETTING_COUNT);
     WriteGamepadConfig();  // Sauve Config Gamepad dans LBA2.CFG
     WriteVolumeSettings(); // Sauve volumes dans LBA2.CFG
 
@@ -407,15 +443,7 @@ void WriteConfigFile(void) {
     else
         DefFileBufferWriteString("FlagDisplayText", "OFF");
 
-    DefFileBufferWriteValue("MenuMouse", FlagMenuMouse);
-    DefFileBufferWriteValue("MouseCamera", FlagMouseCamera);
-    DefFileBufferWriteValue("MouseCameraDrag", FlagMouseCameraDrag);
-    DefFileBufferWriteValue("MouseSensitivityX", MouseCameraSensX);
-    DefFileBufferWriteValue("MouseSensitivityY", MouseCameraSensY);
-    DefFileBufferWriteValue("MouseInvertY", MouseCameraInvertY);
-    DefFileBufferWriteValue("MouseCameraDivisor", MouseCameraDivisor);
-    DefFileBufferWriteValue("ManualCameraSmoothing", ManualCameraSmoothing);
-    DefFileBufferWriteValue("FollowCamOrbitGlide", FollowCamOrbitGlide);
+    Settings_WriteConfig(MouseSettings, MOUSE_SETTING_COUNT);
     FollowCam_WriteConfig();
 
     if (batched) {

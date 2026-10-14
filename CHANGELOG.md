@@ -110,6 +110,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `cam_hd on`, and `on` or `yes` given to any other on/off setting the console
+  shares with `lba2.cfg`, switched the setting off.
+- The console's mouse and stick camera settings (`cam_mouse*`, `cam_stick*`,
+  `pad_deadzone`, `cam_smooth`, `cam_glide`) took any number, where `lba2.cfg`
+  holds them to a range: `cam_mouse_div 0` divided by zero, and a
+  `pad_deadzone` above 32767 wrapped round. The console now holds them to the
+  same ranges.
 - On a scaled display, a Mac's Retina panel for one, the picture was drawn at
   half the panel's resolution and enlarged by the system, which blurred it
   whatever the present filter said. The game now draws at the panel's own

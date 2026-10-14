@@ -6,6 +6,7 @@
 #include <SYSTEM/ADELINE_TYPES.H>
 
 #include <stddef.h>
+#include <stdio.h>
 
 /* One declaration per setting, read by every surface that exposes it.
  *
@@ -77,7 +78,24 @@ typedef enum {
     SETTING_FROM_RUNTIME      /* set during the run: console, socket or menu */
 } T_SETTING_SOURCE;
 
-typedef struct {
+/* Whether a recording carries the setting, as a `settings.<key>=` header line
+ * that a replay compares against its own value.
+ *
+ * Zero is "recorded", so a row whose author never thought about recordings is
+ * carried rather than missing. The two mistakes cost very differently: a
+ * setting carried that the simulation never reads costs a header line, and one
+ * left out that it does read costs a replay that diverges with nothing to say
+ * why. That is how the Auto camera's later settings came to be missing from
+ * the header when it was a list kept by hand. */
+typedef enum {
+    SETTING_RECORDED = 0, /* the simulation may read it: carried and compared */
+    SETTING_NOT_RECORDED  /* how the run is shown or heard, not what it does; already a `mode.`
+                             line; or overwritten from another setting that is recorded */
+} T_SETTING_RECORD;
+
+/* Tagged so a header that only hands out a pointer to a table can say
+ * `struct T_SETTING;` instead of including this file. */
+typedef struct T_SETTING {
     const char *key;    /* lba2.cfg key; NULL if this surface does not persist it */
     const char *legacy; /* older key to fall back to when `key` is absent; NULL if none */
     const char *cvar;   /* console name; NULL if it is not exposed there */
@@ -100,6 +118,7 @@ typedef struct {
     T_SETTING_APPLY_FN on_change; /* told the new value after a runtime write; NULL if nothing to do */
     T_SETTING_SOURCE *source;     /* where the live value came from; NULL to not track it */
     const char *help;             /* console help text */
+    T_SETTING_RECORD record;      /* left out of a row, it is recorded; see above */
 } T_SETTING;
 
 /* Store a value into a setting and tell its owner, which is what "setting" a
@@ -212,6 +231,35 @@ static inline S32 Settings_ValueToPersistFrom(S32 live, S32 stored, S32 forced, 
        run therefore behaves exactly as it did before, rather than losing its
        change. */
     return (source == SETTING_FROM_RUNTIME) ? live : stored;
+}
+
+/* Append a `settings.<key>=<value>` line to `out` for every recorded row that
+ * names a cfg key, starting at `*at` and moving it past what was written. The
+ * key is the lba2.cfg spelling, so a replay that disagrees names the line the
+ * player would edit. A row with no key is a console-only alias of a setting
+ * some other row persists, and is carried there.
+ *
+ * Returns 0 if `out` was too small. What fitted stays written, and `*at` is
+ * left where it was before the line that did not fit. */
+static inline S32 Settings_DescribeRecorded(const T_SETTING *table, S32 count, char *out, size_t n, size_t *at) {
+    S32 i;
+
+    for (i = 0; i < count; i++) {
+        const T_SETTING *s = &table[i];
+        int wrote;
+
+        if (s->key == NULL || s->record != SETTING_RECORDED)
+            continue;
+        if (*at >= n)
+            return 0;
+        wrote = snprintf(out + *at, n - *at, "settings.%s=%d\n", s->key, (int)*s->value);
+        if (wrote <= 0 || (size_t)wrote >= n - *at) {
+            out[*at] = 0;
+            return 0;
+        }
+        *at += (size_t)wrote;
+    }
+    return 1;
 }
 
 /* Apply the cfg to every row that names a key, clamped. */

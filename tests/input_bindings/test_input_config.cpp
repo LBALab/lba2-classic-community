@@ -329,10 +329,6 @@ void CheckGamepadRoundTrip(void) {
                   GamepadKeys[n].Key2 == (U32)(400 + n),
               "slot %d: pad binding did not survive the round trip", n);
     }
-
-    // The camera preferences ReadGamepadConfig also carries have clamps of
-    // their own. Those belong to the increment that gives the pad its own
-    // surface; what matters here is only that the bindings survive.
 }
 
 } // namespace

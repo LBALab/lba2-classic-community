@@ -2509,16 +2509,10 @@ S32 GereExtKeys(U32 key)
          * the pad is the one that has to be right, being the only control some
          * setups have. */
         if (!ManualCameraOrbitActive AND ManualCameraGlideBeta != 0) {
-            /* The console sets cvars without going through the config's range
-             * check, so clamp where it is used: at 100 the tail is a fixed point
-             * that never decays, and beyond that it grows without bound. */
-            S32 keep = FollowCamOrbitGlide;
-            if (keep < 0)
-                keep = 0;
-            if (keep > FOLLOW_CAM_ORBIT_GLIDE_MAX)
-                keep = FOLLOW_CAM_ORBIT_GLIDE_MAX;
-
-            ManualCameraGlideBeta = ManualCameraGlideBeta * keep / 100;
+            /* FollowCamOrbitGlide's settings row bounds every writer to
+             * 0..FOLLOW_CAM_ORBIT_GLIDE_MAX: at 100 the tail would be a fixed
+             * point that never decays, and beyond that it would grow. */
+            ManualCameraGlideBeta = ManualCameraGlideBeta * FollowCamOrbitGlide / 100;
             if (ManualCameraGlideBeta > -FOLLOW_CAM_ORBIT_GLIDE_STOP AND ManualCameraGlideBeta < FOLLOW_CAM_ORBIT_GLIDE_STOP)
                 ManualCameraGlideBeta = 0;
             else

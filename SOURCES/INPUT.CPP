@@ -8,7 +8,6 @@
 
 #include <SYSTEM/LOG.H>
 #include "JOYSTICK.H"
-#include "FOLLOWCAM_CFG.H"
 
 #include "CONSOLE/CONSOLE.H"
 #include <SYSTEM/INPUT.H>
@@ -131,49 +130,10 @@ void WriteInputConfig(void) {
 }
 
 //-------------------------------------------------------------------------
+/* The pad's bindings. Its stick and camera preferences are settings rows in
+   CONFIG_FILE.CPP, read just before this and written just before the writer
+   below, so the cfg keeps its key order. */
 void ReadGamepadConfig(void) {
-    JoystickDeadzone = DefFileBufferReadValueDefault("GamepadDeadzone", 8000);
-    if (JoystickDeadzone < 0)
-        JoystickDeadzone = 0;
-    if (JoystickDeadzone > 32767)
-        JoystickDeadzone = 32767;
-
-    GamepadCameraAnalog = DefFileBufferReadValueDefault("GamepadCameraAnalog", TRUE);
-    if (GamepadCameraAnalog != 0)
-        GamepadCameraAnalog = TRUE;
-    else
-        GamepadCameraAnalog = FALSE;
-
-    GamepadCameraSensX = DefFileBufferReadValueDefault("GamepadCameraSensX", GAMEPAD_CAM_SENS_DEFAULT);
-    if (GamepadCameraSensX < 1)
-        GamepadCameraSensX = 1;
-    if (GamepadCameraSensX > 10)
-        GamepadCameraSensX = 10;
-
-    GamepadCameraSensY = DefFileBufferReadValueDefault("GamepadCameraSensY", GAMEPAD_CAM_SENS_DEFAULT);
-    if (GamepadCameraSensY < 1)
-        GamepadCameraSensY = 1;
-    if (GamepadCameraSensY > 10)
-        GamepadCameraSensY = 10;
-
-    GamepadCameraInvertY = DefFileBufferReadValueDefault("GamepadCameraInvertY", FALSE);
-    if (GamepadCameraInvertY != 0)
-        GamepadCameraInvertY = TRUE;
-    else
-        GamepadCameraInvertY = FALSE;
-
-    GamepadCamMaxBeta = DefFileBufferReadValueDefault("GamepadCamMaxBeta", GAMEPAD_CAM_BETA_MAX_DEFAULT);
-    if (GamepadCamMaxBeta < 1)
-        GamepadCamMaxBeta = 1;
-    if (GamepadCamMaxBeta > 200)
-        GamepadCamMaxBeta = 200;
-
-    GamepadCamMaxAlpha = DefFileBufferReadValueDefault("GamepadCamMaxAlpha", GAMEPAD_CAM_ALPHA_MAX_DEFAULT);
-    if (GamepadCamMaxAlpha < 1)
-        GamepadCamMaxAlpha = 1;
-    if (GamepadCamMaxAlpha > 100)
-        GamepadCamMaxAlpha = 100;
-
     char id[32];
     for (S32 n = 0; n < MAX_INPUT_SLOTS; n++) {
         snprintf(id, sizeof(id), "Gamepad%d", n);
@@ -193,16 +153,7 @@ void ReadGamepadConfig(void) {
 //-------------------------------------------------------------------------
 void WriteGamepadConfig(void) {
     /* Same as WriteInputConfig above: no file yet is the ordinary first-exit
-       state of a fresh profile, not a reason to drop the pad settings. */
-
-    DefFileBufferWriteValue("GamepadDeadzone", JoystickDeadzone);
-    DefFileBufferWriteValue("GamepadCameraAnalog", GamepadCameraAnalog);
-    DefFileBufferWriteValue("GamepadCameraSensX", GamepadCameraSensX);
-    DefFileBufferWriteValue("GamepadCameraSensY", GamepadCameraSensY);
-    DefFileBufferWriteValue("GamepadCameraInvertY", GamepadCameraInvertY);
-    DefFileBufferWriteValue("GamepadCamMaxBeta", GamepadCamMaxBeta);
-    DefFileBufferWriteValue("GamepadCamMaxAlpha", GamepadCamMaxAlpha);
-
+       state of a fresh profile, not a reason to drop the pad bindings. */
     char id[32];
     for (S32 n = 0; n < MAX_INPUT_SLOTS; n++) {
         snprintf(id, sizeof(id), "Gamepad%d", n);

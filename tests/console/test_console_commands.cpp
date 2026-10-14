@@ -48,6 +48,11 @@ static bool has_line_containing(const char *needle) {
     return false;
 }
 
+/* A setter with the rule a settings table's toggle uses: any non-zero is on. */
+static void set_truthy_for_test(void *ctx, int value) {
+    *(int *)ctx = value ? 1 : 0;
+}
+
 static void cmd_status_for_test(int argc, const char *argv[]) {
     (void)argc;
     (void)argv;
@@ -82,6 +87,28 @@ int main(void) {
     Console_Execute("fps 1");
     assert(fps == 1);
     assert(has_line_containing("fps = 1"));
+
+    /* A bool whose owner decides. A word means what it means on a plain bool,
+     * and a number reaches the owner as typed: `on` once arrived as 0 and
+     * switched the setting off. */
+    int toggle = 0;
+    Console_RegisterCvarCoerced("toggle", &toggle, CONSOLE_CVAR_BOOL, set_truthy_for_test, &toggle, "Test toggle");
+    Console_Execute("toggle on");
+    assert(toggle == 1);
+    Console_Execute("toggle off");
+    assert(toggle == 0);
+    Console_Execute("toggle yes");
+    assert(toggle == 1);
+    Console_Execute("toggle no");
+    assert(toggle == 0);
+    Console_Execute("toggle 2");
+    assert(toggle == 1);
+    Console_Execute("toggle 0");
+    assert(toggle == 0);
+    clear_lines();
+    Console_Execute("toggle");
+    assert(toggle == 1);
+    assert(has_line_containing("toggle = 1"));
 
     clear_lines();
     Console_Execute("unknown_thing");
