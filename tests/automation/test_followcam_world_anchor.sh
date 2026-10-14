@@ -4,7 +4,8 @@
 #
 #   - The hero turns, on the spot and while walking, and the camera's target does not move.
 #   - The player still turns it: an orbit moves the target, which then holds the new direction.
-#   - The drift back behind the hero (cam_hold_angle 0) stands down.
+#   - With cam_hold_angle 0 it comes back behind him by the ground he covers: not during the grace
+#     after an orbit, not while he turns on the spot, stands or backs up.
 #   - A scripted shot that holds the view gives back the world direction the camera had before
 #     it, not the offset, which after a turn inside the box is somewhere else.
 #
@@ -94,18 +95,44 @@ turn_run turn_on 1
 [ "$(distinct turn_on 600 750 target)" -eq 1 ] \
     || fail "with cam_world_anchor 1 the target moved after the orbit while the hero turned: the new direction is not held"
 
-# --- The drift back behind the hero ------------------------------------------------------------
-# cam_hold_angle 0 drifts a pan home while the hero walks. Pan, then walk straight on.
-DRIFT=(--exec-at 120 "camnudge 20 0 10" --exec-at 160 "input up 200" --tick 400)
-run drift_off --exec "cam_follow 1; cam_hold_angle 0; $CAM_PLAIN; cam_world_anchor 0; camtrace 1; godmode 1" "${DRIFT[@]}"
-run drift_on --exec "cam_follow 1; cam_hold_angle 0; $CAM_PLAIN; cam_world_anchor 1; camtrace 1; godmode 1" "${DRIFT[@]}"
+# --- The way back behind the hero ---------------------------------------------------------------
+# With cam_hold_angle 0 the anchored camera comes back behind him by the ground he covers, not by
+# the clock: pan, walk on (past the grace, into a wall he then slides along), turn on the spot,
+# stand, back up.
+ret_run() { # <name> <cvars>
+    run "$1" --exec "cam_follow 1; $CAM_PLAIN; $2; camtrace 1; godmode 1" \
+        --exec-at 120 "camnudge 40 0 20" \
+        --exec-at 160 "input up 240" \
+        --exec-at 430 "input left 30" \
+        --exec-at 500 "input down 40" \
+        --tick 600
+}
+ret_run ret_hold "cam_world_anchor 1; cam_hold_angle 1"
+ret_run ret_on "cam_world_anchor 1; cam_hold_angle 0"
+ret_run ret_classic "cam_world_anchor 0; cam_hold_angle 0"
 
-[ "$(distinct drift_on 140 390 heroBeta)" -eq 1 ] \
-    || fail "the hero turned while walking straight: the drift run measures turning, not drift"
-[ "$(span drift_off 140 390 target)" -ge 100 ] \
-    || fail "with the setting off and cam_hold_angle 0 the pan drifted only $(span drift_off 140 390 target) units: the control no longer drifts"
-[ "$(distinct drift_on 140 390 target)" -eq 1 ] \
-    || fail "with cam_world_anchor 1 the target drifted while the hero walked straight on"
+# pan_at <name> <row> -- how far the camera's target is from straight behind him, unsigned.
+pan_at() {
+    rows "$1" "$2" "$2" add | awk '{ d = $1; if (d > 2048) d -= 4096; print (d < 0) ? -d : d }'
+}
+moved_in() { rows "$1" "$2" "$3" moving | grep -c 1; }
+
+start_pan=$(pan_at ret_on 150)
+[ "$start_pan" -ge 600 ] || fail "the orbit left a pan of only $start_pan units: nothing to come back from"
+[ "$(moved_in ret_on 160 400)" -ge 150 ] || fail "the hero walked only $(moved_in ret_on 160 400) frames"
+[ "$(pan_at ret_hold 425)" -eq "$(pan_at ret_hold 150)" ] \
+    || fail "with cam_hold_angle 1 the anchored pan went from $(pan_at ret_hold 150) to $(pan_at ret_hold 425) while he walked: the control no longer holds"
+[ "$(distinct ret_on 150 215 add)" -eq 1 ] \
+    || fail "with cam_hold_angle 0 the anchored camera started back before the grace after the orbit ran out"
+[ "$(pan_at ret_on 425)" -le $(( start_pan / 5 )) ] \
+    || fail "with cam_hold_angle 0 the anchored camera came back only from $start_pan to $(pan_at ret_on 425) units over the walk"
+[ "$(pan_at ret_on 470)" -ge 500 ] \
+    || fail "the turn on the spot left the anchored camera $(pan_at ret_on 470) units from behind him: he did not turn"
+[ "$(moved_in ret_on 500 560)" -ge 20 ] || fail "the hero never backed up"
+[ "$(distinct ret_on 470 599 add)" -eq 1 ] \
+    || fail "with cam_hold_angle 0 the anchored camera moved while he stood or backed up: only ground walked should pull it"
+[ "$(pan_at ret_classic 599)" -le 50 ] \
+    || fail "without the anchor the camera ended $(pan_at ret_classic 599) units from behind him after the turn on the spot: the contrast is gone"
 
 # --- A shot that holds the view, and what it gives back ----------------------------------------
 # Cube 90, zone 31 holds the view while the hero is in its box. He turns inside it and walks out.
@@ -134,4 +161,4 @@ read -r on_fired on_before on_last <<< "$(shot_ends shot_on)"
 [ "$on_last" = "$on_before" ] \
     || fail "with cam_world_anchor 1 the shot gave back $on_last where the camera had faced $on_before before it"
 
-pass "target held through $(travel turn_on 200 550 heroBeta) units of hero turn (off: moved $(span turn_off 200 400 target)), an orbit moved it $(span turn_on 550 590 target) and that held too; no drift with cam_hold_angle 0 (off: $(span drift_off 140 390 target)); the held shot gave back $on_last, the direction before it (off: $off_last against $off_before)"
+pass "target held through $(travel turn_on 200 550 heroBeta) units of hero turn (off: moved $(span turn_off 200 400 target)), an orbit moved it $(span turn_on 550 590 target) and that held too; with cam_hold_angle 0 a pan of $start_pan came back to $(pan_at ret_on 425) over the walk and a turn on the spot stayed at $(pan_at ret_on 599); the held shot gave back $on_last, the direction before it (off: $off_last against $off_before)"

@@ -37,6 +37,7 @@ S32 FollowCamHoldAngle = FOLLOW_CAM_HOLD_ANGLE_DEFAULT;
 S32 FollowCamZoneReturn = FOLLOW_CAM_ZONE_RETURN_DEFAULT;
 S32 FollowCamZoneAnchor = FOLLOW_CAM_ZONE_ANCHOR_DEFAULT;
 S32 FollowCamWorldAnchor = FOLLOW_CAM_WORLD_ANCHOR_DEFAULT;
+S32 FollowCamWorldReturn = FOLLOW_CAM_WORLD_RETURN_DEFAULT;
 S32 FollowCamEaseMs = FOLLOW_CAM_EASE_MS_DEFAULT;
 S32 FollowCamTargetMs = FOLLOW_CAM_TARGET_MS_DEFAULT;
 
@@ -117,6 +118,7 @@ static S32 FollowCamOwnAlpha = -1;
 
 /* cam_world_anchor: the hero's facing AddBetaCam was last measured from. */
 static S32 FollowCamAnchorHeroBeta = 0;
+static S32 FollowCamWorldReturnCarry = 0; /* thousandths of a unit the return has earned and not yet moved */
 
 /* This file's live settings, applied to the rule in FOLLOWCAM_MATH.H (which the
  * host test covers). Callers pass 0 instead inside a camera zone, so an authored
@@ -382,6 +384,44 @@ static void FollowCamWorldAnchorStep(T_OBJ_3D *ptr3d, S32 consecutive) {
     FollowCamAnchorHeroBeta = heroBeta;
 }
 
+/* cam_world_anchor with cam_hold_angle 0: the camera comes back behind the hero
+ * as he walks. What pulls is the ground he covered since the last update, so
+ * turning on the spot or standing still does not, nor does walking backwards. The pull is the clock ease's exponential with that
+ * distance standing for the time, so cam_world_return reads as a time constant
+ * does and the camera lands behind him.
+ *
+ * Not during the grace after the player moved the camera, nor while a shot's
+ * yaw is owed (the loan decides that one), nor across a jump: a teleport, or the
+ * seam between two outdoor scenes, which renumbers the world under him. */
+static void FollowCamWorldReturnStep(T_OBJ_3D *ptr3d, S32 consecutive) {
+    S32 dx = ptr3d->X - FollowCamPrevHeroX;
+    S32 dz = ptr3d->Z - FollowCamPrevHeroZ;
+    S32 walked;
+    S32 pan;
+
+    if (!FollowCamWorldAnchor OR FollowCamHoldAngle OR FollowCamWorldReturn <= 0 OR !consecutive OR FollowCamReengageDelay > 0 OR(FollowCamLoan & FOLLOW_CAM_LOAN_YAW) OR AddBetaCam == 0)
+        return;
+    if ((dx < 0 ? -dx : dx) > FOLLOW_CAM_TARGET_JUMP OR(dz < 0 ? -dz : dz) > FOLLOW_CAM_TARGET_JUMP)
+        return;
+
+    /* Backing away from his facing does not pull. Anything else does by the
+     * ground covered, sliding along a wall included: the player is pushing him
+     * forward, and the classic drift counts that too. */
+    Rotate(0, 1024, ptr3d->Beta & 4095); /* his facing, 1024 long, in X0/Z0 */
+    if (dx * X0 + dz * Z0 < 0)
+        return;
+    walked = Distance2D(0, 0, dx, dz);
+    if (walked <= 0)
+        return;
+
+    pan = AddBetaCam & 4095;
+    if (pan > 2048)
+        pan -= 4096;
+    AddBetaCam = (AddBetaCam + FollowCamEaseStepMs(-pan, walked, FollowCamWorldReturn,
+                                                   FOLLOW_CAM_WORLD_RETURN_MIN_RATE, &FollowCamWorldReturnCarry)) &
+                 4095;
+}
+
 /* Per-frame Auto-camera update (exterior). Extracted from the main loop:
  * spring-arm zoom, lazy orbit + pan drift, HD recompose, terrain occlusion
  * clearance, and the manual-override fade. Reads/writes the FollowCam* globals
@@ -485,9 +525,9 @@ void UpdateFollowCameraExt(void) {
         } else if (!FollowCamHoldAngle AND !FollowCamWorldAnchor AND AddBetaCam != 0 AND !(FollowCamLoan & FOLLOW_CAM_LOAN_YAW)) {
             /* Not while a shot's yaw is still owed: the offset then is the
              * shot's rather than a pan the player made, and what happens to it
-             * is the loan's to decide above. Nor with the world anchor on: this
-             * drift is a way back behind the hero, which is what the anchor
-             * stops the camera being tied to. */
+             * is the loan's to decide above. Nor with the world anchor on:
+             * this drift is paced by the frame, and the anchor's way back,
+             * below, by the distance walked. */
             S32 drift = AddBetaCam;
             if (drift > 2048)
                 drift -= 4096;
@@ -505,6 +545,8 @@ void UpdateFollowCameraExt(void) {
                 AddBetaCam = 0;
         }
     }
+    if (!manualPan)
+        FollowCamWorldReturnStep(ptr3d, consecutive);
 
     /* --- Dirty check ---
                      * Triggers on position, facing, pan, or pending BetaCam
@@ -1203,6 +1245,9 @@ static const T_SETTING FollowCamSettings[] = {
     {"FollowCamWorldAnchor", NULL, "cam_world_anchor", &FollowCamWorldAnchor, SETTING_TRUTHY,
      FOLLOW_CAM_WORLD_ANCHOR_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Prototype: hold the camera's world direction while the hero turns (off = it turns with him)"},
+    {"FollowCamWorldReturn", NULL, "cam_world_return", &FollowCamWorldReturn, SETTING_CLAMP,
+     FOLLOW_CAM_WORLD_RETURN_DEFAULT, 0, FOLLOW_CAM_WORLD_RETURN_MAX, NULL, NULL, NULL, NULL,
+     "cam_world_anchor with cam_hold_angle 0: units walked forward that pace the return behind the hero (0 = none)"},
     {"FollowCamEaseMs", NULL, "cam_ease_ms", &FollowCamEaseMs, SETTING_CLAMP,
      FOLLOW_CAM_EASE_MS_DEFAULT, 0, FOLLOW_CAM_EASE_MS_MAX, NULL, NULL, NULL, NULL,
      "Auto cam: time constant of the turn behind the hero, ms (0 = per-frame lerp, 300 = retail, 600 = the lerp at 60 fps)"},

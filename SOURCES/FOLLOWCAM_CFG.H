@@ -96,9 +96,18 @@
  * him once any grace after a pan has run out, and hold-angle holds that offset.
  * On, it holds a direction in the world: the hero turns under the camera and it
  * stays where it is, and only the player turns it (orbit, the pan keys, the
- * quarter-turn key, Center camera). The pan drift back behind the hero is off
- * with it, whatever cam_hold_angle says. Off by default. cvar cam_world_anchor. */
+ * quarter-turn key, Center camera). Off by default. cvar cam_world_anchor.
+ *
+ * cam_hold_angle still decides whether the direction is held for good. With it
+ * off, the camera comes back behind the hero as he walks forward, by distance
+ * rather than by time: turning on the spot or standing still leaves it where it
+ * is, and a run brings it round sooner than a walk. cam_world_return is that
+ * distance, in world units walked, as a time constant is in milliseconds: about
+ * 95% of the way round after three of them. Walking backwards does not pull. */
 #define FOLLOW_CAM_WORLD_ANCHOR_DEFAULT 0
+#define FOLLOW_CAM_WORLD_RETURN_DEFAULT 700
+#define FOLLOW_CAM_WORLD_RETURN_MAX 20000
+#define FOLLOW_CAM_WORLD_RETURN_MIN_RATE 180 /* slowest the pull goes, in angle units per 1000 units walked, so it lands */
 
 /* Scripted shots (camera zones) --------------------------------------------*/
 /* A camera zone re-aims the view to an authored shot. The Auto camera keeps what

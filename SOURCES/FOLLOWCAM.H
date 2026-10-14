@@ -179,6 +179,7 @@ extern S32 FollowCamHoldAngle;            /* hold manual rotation, no auto-recen
 extern S32 FollowCamZoneReturn;           /* give a shot's yaw and pitch back on leaving its box (cvar cam_zone_return) */
 extern S32 FollowCamZoneAnchor;           /* hold a latching shot's world yaw while inside its box (cvar cam_zone_anchor) */
 extern S32 FollowCamWorldAnchor;          /* hold the camera's world yaw while the hero turns (cvar cam_world_anchor) */
+extern S32 FollowCamWorldReturn;          /* cam_world_anchor with cam_hold_angle 0: units walked that pace the return behind the hero (cvar cam_world_return) */
 extern S32 FollowCamEaseMs;               /* time constant of the yaw's ease behind the hero, ms; 0 = per-frame lerp (cvar cam_ease_ms) */
 extern S32 FollowCamTargetMs;             /* time constant of the look-at point's ease, ms; 0 = pinned to the hero (cvar cam_target_ms) */
 
