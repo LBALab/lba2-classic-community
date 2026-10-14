@@ -133,8 +133,11 @@ for binary in "${BINARIES[@]}"; do
             [[ $(count "\.debug_info" "$readelf" -S "$debug") -gt 0 ]] \
                 || die "$binary has no debug info; build with -DLBA2_RELEASE_SYMBOLS=ON"
             "$tool" --strip-debug --add-gnu-debuglink="$debug" "$binary"
-            id_binary=$("$readelf" -n "$binary" 2>/dev/null | awk '/Build ID/ {print $3}')
-            id_debug=$("$readelf" -n "$debug" 2>/dev/null | awk '/Build ID/ {print $3}')
+            # GNU readelf exits non-zero on a note type it does not know, after
+            # printing every note it does. SDL 3.4 adds such notes (.note.dlopen),
+            # so the status says nothing here; the checks below judge the IDs.
+            id_binary=$("$readelf" -n "$binary" 2>/dev/null | awk '/Build ID/ {print $3}' || true)
+            id_debug=$("$readelf" -n "$debug" 2>/dev/null | awk '/Build ID/ {print $3}' || true)
             [[ -n "$id_binary" ]] || die "$binary has no GNU build ID, so no crash block can be matched to it"
             ;;
         pe)

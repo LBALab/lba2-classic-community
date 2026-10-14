@@ -185,6 +185,89 @@ static void test_a_zero_divisor_is_survivable(void) {
     ASSERT_EQ_INT(-100, FollowCamRotStep(-100, -5, MIN_STEP));
 }
 
+/* Giving a scripted shot's yaw back: from any offset to any other, at any laziness, the ease must
+ * arrive on the offset it owes and stop there. The pan drift it sits beside stops short whenever
+ * what is left is smaller than its divisor, which for a return would leave the camera a degree or
+ * two off the angle it was lent at, permanently. */
+static void test_easing_a_pan_back_lands_exactly_from_everywhere(void) {
+    S32 from, to, div;
+    S32 bad = 0;
+
+    for (div = 1; div <= 64 && !bad; div += 3) {
+        for (to = 0; to < TURN && !bad; to += 331) {
+            for (from = 0; from < TURN; from += 29) {
+                S32 pan = from;
+                S32 frames = 0;
+
+                while (pan != to) {
+                    pan = FollowCamEasePan(pan, to, div, FOLLOW_CAM_RETURN_YAW_MIN_STEP);
+                    if (pan < 0 || pan >= TURN || ++frames > TURN) {
+                        bad = 1;
+                        break;
+                    }
+                }
+                if (bad)
+                    break;
+                /* And stays: a further frame must not walk it off again. */
+                if (FollowCamEasePan(pan, to, div, FOLLOW_CAM_RETURN_YAW_MIN_STEP) != to) {
+                    bad = 1;
+                    break;
+                }
+            }
+        }
+    }
+    ASSERT_EQ_INT(0, bad);
+}
+
+/* Round the short way, including across the wrap: 106 units to go, not 3990. */
+static void test_easing_a_pan_back_takes_the_short_way(void) {
+    S32 pan = 4000;
+    S32 frames = 0;
+    S32 travelled = 0;
+
+    while (pan != 10 && frames < TURN) {
+        S32 next = FollowCamEasePan(pan, 10, FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT, FOLLOW_CAM_RETURN_YAW_MIN_STEP);
+        S32 moved = FollowCamAngleDiff(next, pan);
+        if (moved <= 0)
+            break; /* backwards or stalled: the two checks below report it, once */
+        travelled += moved;
+        pan = next;
+        frames++;
+    }
+    ASSERT_EQ_INT(10, pan);
+    ASSERT_EQ_INT(106, travelled);
+}
+
+/* The pitch is the same ease on a value that does not wrap. Over the whole range a shot can
+ * author, it must reach the pitch it was lent at and never pass it. */
+static void test_easing_a_pitch_back_lands_exactly_and_never_overshoots(void) {
+    S32 from, to, div;
+    S32 bad = 0;
+
+    for (div = 1; div <= 64 && !bad; div += 3) {
+        for (to = FOLLOW_CAM_ALPHA_MIN; to <= FOLLOW_CAM_ALPHA_MAX && !bad; to += 50) {
+            for (from = -300; from <= 1000; from += 13) {
+                S32 value = from;
+                S32 frames = 0;
+
+                while (value != to) {
+                    S32 next = FollowCamEaseValue(value, to, div, FOLLOW_CAM_RETURN_PITCH_MIN_STEP);
+                    /* Still on the side it started from: passing the target would tilt the
+                     * camera through its resting pitch and back. */
+                    if ((from < to && next > to) || (from > to && next < to) || ++frames > 4096) {
+                        bad = 1;
+                        break;
+                    }
+                    value = next;
+                }
+                if (bad)
+                    break;
+            }
+        }
+    }
+    ASSERT_EQ_INT(0, bad);
+}
+
 /* The HD recompose's whole promise: at the height the game was composed for it does nothing at
  * all. Every recompose term scales by this, so a non-zero result at 480 would tilt and dolly the
  * camera on the one resolution that must look exactly as it shipped. Checked at 480 and below,
@@ -306,6 +389,120 @@ static void test_hd_shrink_is_bounded_and_never_grows(void) {
     ASSERT_EQ_INT(0, grew);
 }
 
+/* How long the timed ease takes to bring a turn within 5%, in milliseconds, at one frame time. */
+static S32 ease_ms_to_5_percent(S32 turn, S32 dt, S32 tau) {
+    S32 left = turn;
+    S32 carry = 0;
+    S32 ms = 0;
+
+    while (left > turn * 5 / 100 && ms < 100000) {
+        left -= FollowCamEaseStepMs(left, dt, tau, FOLLOW_CAM_ROT_MIN_RATE, &carry);
+        ms += dt;
+    }
+    return ms;
+}
+
+/* What the timed ease is for: the same turn takes the same time whatever the frame rate. The
+ * per-frame lerp takes the same number of frames instead, so twice as long at 30 frames a second
+ * as at 60. Checked from 250 frames a second down to 10, the longest frame the engine paces by. */
+static void test_timed_ease_takes_the_same_time_at_any_frame_rate(void) {
+    static const S32 dts[] = {4, 7, 8, 16, 17, 33, 50, 100};
+    static const S32 taus[] = {FOLLOW_CAM_EASE_MS_DEFAULT, 600};
+    S32 turn, i, t;
+    S32 bad = 0;
+
+    for (t = 0; t < 2; t++) {
+        for (turn = 1024; turn <= 2048; turn += 1024) {
+            S32 ref = ease_ms_to_5_percent(turn, 16, taus[t]);
+
+            /* Three time constants bring an exponential within 5%. */
+            if (ref < taus[t] * 3 - taus[t] / 4 || ref > taus[t] * 3 + taus[t] / 4)
+                bad++;
+            for (i = 0; i < (S32)(sizeof(dts) / sizeof(dts[0])); i++) {
+                S32 ms = ease_ms_to_5_percent(turn, dts[i], taus[t]);
+                /* Within a frame of the reference, or a twentieth of it. */
+                S32 slack = (dts[i] > ref / 20) ? dts[i] : ref / 20;
+                if (ms < ref - slack || ms > ref + slack)
+                    bad++;
+            }
+        }
+    }
+    ASSERT_EQ_INT(0, bad);
+}
+
+/* From any distance, at any frame time and time constant, no step is away from the target or
+ * past it, and repeated stepping arrives and stays. A frame far longer than the time constant
+ * included: that is where a plain dt / tau overshoots. A step may be nothing at all on a short
+ * frame, since what it earned is carried, so arriving is asserted as time and not per step. */
+static void test_timed_ease_lands_exactly_and_never_overshoots(void) {
+    static const S32 taus[] = {1, 50, 300, 600, 5000};
+    S32 t, dt, diff;
+    S32 bad = 0;
+
+    for (t = 0; t < (S32)(sizeof(taus) / sizeof(taus[0])) && !bad; t++) {
+        for (dt = 1; dt <= 1000 && !bad; dt += (dt < 100) ? 3 : 150) {
+            for (diff = -2048; diff <= 2048; diff += 7) {
+                S32 left = diff;
+                S32 carry = 0;
+                S32 ms = 0;
+
+                while (left != 0) {
+                    S32 step = FollowCamEaseStepMs(left, dt, taus[t], FOLLOW_CAM_ROT_MIN_RATE, &carry);
+                    if ((left > 0 && (step < 0 || step > left)) || (left < 0 && (step > 0 || step < left))) {
+                        bad = 1;
+                        break;
+                    }
+                    left -= step;
+                    ms += dt;
+                    /* The slowest it may go is the floor, so a half turn is in by then. */
+                    if (ms > 2048 * 1000 / FOLLOW_CAM_ROT_MIN_RATE + 2000) {
+                        bad = 1;
+                        break;
+                    }
+                }
+                if (bad)
+                    break;
+                if (FollowCamEaseStepMs(0, dt, taus[t], FOLLOW_CAM_ROT_MIN_RATE, &carry) != 0 || carry != 0)
+                    bad = 1;
+            }
+        }
+    }
+    ASSERT_EQ_INT(0, bad);
+}
+
+/* No time gone by is no move, however far there is to go: the first update after the clock is
+ * restarted must not spend a step. And the settings these come from can be set to anything from
+ * the console. */
+static void test_timed_ease_waits_without_time_and_survives_bad_settings(void) {
+    S32 carry = 0;
+
+    ASSERT_EQ_INT(0, FollowCamEaseStepMs(1024, 0, 300, FOLLOW_CAM_ROT_MIN_RATE, &carry));
+    ASSERT_EQ_INT(0, FollowCamEaseStepMs(-1024, -16, 300, FOLLOW_CAM_ROT_MIN_RATE, &carry));
+    ASSERT_EQ_INT(0, carry);
+    ASSERT_EQ_INT(1024, FollowCamEaseStepMs(1024, 16, 0, FOLLOW_CAM_ROT_MIN_RATE, &carry));
+    ASSERT_EQ_INT(-1024, FollowCamEaseStepMs(-1024, 16, -300, FOLLOW_CAM_ROT_MIN_RATE, &carry));
+    /* A distance the look-at point can trail by, at the longest frame and time constant. */
+    ASSERT_EQ_INT(1980, FollowCamEaseStepMs(100000, 100, 5000, FOLLOW_CAM_TARGET_MIN_RATE, &carry));
+    ASSERT_EQ_INT(198, carry);
+    /* What is carried is for the direction it was earned in, and is dropped on a turn back. */
+    ASSERT_EQ_INT(-1980, FollowCamEaseStepMs(-100000, 100, 5000, FOLLOW_CAM_TARGET_MIN_RATE, &carry));
+    ASSERT_EQ_INT(-198, carry);
+}
+
+/* A floor of nothing still arrives: one unit to go, a long time constant and a short frame earn
+ * no thousandths at all, and without a floor the camera would sit a unit off for ever. */
+static void test_timed_ease_arrives_with_no_floor_asked_for(void) {
+    S32 left = 1;
+    S32 carry = 0;
+    S32 ms = 0;
+
+    while (left != 0 && ms < 5000) {
+        left -= FollowCamEaseStepMs(left, 1, 5000, 0, &carry);
+        ms++;
+    }
+    ASSERT_EQ_INT(0, left);
+}
+
 int main(void) {
     RUN_TEST(test_pan_round_trips_for_every_angle);
     RUN_TEST(test_angles_stay_within_the_turn);
@@ -316,6 +513,13 @@ int main(void) {
     RUN_TEST(test_no_step_when_already_on_target);
     RUN_TEST(test_stepping_settles_without_a_snap_threshold);
     RUN_TEST(test_a_zero_divisor_is_survivable);
+    RUN_TEST(test_easing_a_pan_back_lands_exactly_from_everywhere);
+    RUN_TEST(test_easing_a_pan_back_takes_the_short_way);
+    RUN_TEST(test_easing_a_pitch_back_lands_exactly_and_never_overshoots);
+    RUN_TEST(test_timed_ease_takes_the_same_time_at_any_frame_rate);
+    RUN_TEST(test_timed_ease_lands_exactly_and_never_overshoots);
+    RUN_TEST(test_timed_ease_waits_without_time_and_survives_bad_settings);
+    RUN_TEST(test_timed_ease_arrives_with_no_floor_asked_for);
     RUN_TEST(test_hd_recompose_is_a_no_op_at_the_authored_height);
     RUN_TEST(test_hd_recompose_disabled_is_always_zero);
     RUN_TEST(test_hd_recompose_matches_the_documented_scale);

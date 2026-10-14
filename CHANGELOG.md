@@ -12,6 +12,24 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `camtrace` reports the milliseconds the Auto camera's update was paced by and
+  how far the look-at point trails the hero.
+- `cam_world_anchor` (`FollowCamWorldAnchor` in `lba2.cfg`), experimental and
+  off by default: the Auto camera holds a direction in the world instead of
+  turning with the hero. With `cam_hold_angle 0` it comes back behind him as he
+  walks, paced by the distance walked (`cam_world_return`), and stays put while
+  he turns on the spot; with `cam_hold_angle 1` only the player turns it.
+- `cam_zone_anchor` (`FollowCamZoneAnchor` in `lba2.cfg`), experimental and off
+  by default: inside the box of a scripted shot that fires once, the Auto
+  camera holds the shot's own angle as the classic camera does.
+- `camtrace` reports four more things per frame: whether the hero stands in the
+  box of a shot that has fired, what the camera still owes back from a shot, the
+  tilt being added to clear an obstruction, and whether the hero was drawn
+  hidden.
+- `PresentFilter` in `lba2.cfg`, `gfx_presentfilter` in the console and
+  `LBA2_PRESENT_FILTER` for one run choose the filter that stretches the frame to
+  the window: nearest (the default, unchanged), linear, or pixelart, which keeps
+  pixels sharp and blends only their seams. Pixelart needs SDL 3.4 or newer.
 - `--user-dir <dir>` (or `LBA2_USER_DIR`) chooses the folder a run writes its
   saves, settings and log to, created if missing. Previously that folder was
   fixed per user, so every install on a machine shared one.
@@ -54,8 +72,48 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--fixed-dt`, and `docs/RECORDING.md` says why. Console verbs `rec
   start|stop|play|info` do the same from a point you choose.
 
+### Changed
+
+- The Auto camera (off by default) behaves differently around buildings,
+  scripted camera shots and scenery. Each change is a setting, on by default,
+  with an `lba2.cfg` key and a console name; with all of them off the camera is
+  as it was.
+  - Coming out of a building, the camera starts straight behind the hero. It
+    used to be found off to one side and swing round, and a pan set before
+    going in came back out with him. Between two outdoor scenes a script
+    changes, the pan and the tilt the player set are now kept
+    (`cam_scene_carry`, `FollowCamSceneCarry`).
+  - A scripted shot that fires once no longer takes the view while the player
+    is steering. Shots that hold the view, interiors and the classic camera are
+    unchanged (`cam_zone_skip`, `FollowCamZoneSkip`).
+  - When the hero leaves a scripted shot, the camera eases back to the angle
+    and tilt the player had. It used to keep the shot's until the player moved
+    it (`cam_zone_return`, `FollowCamZoneReturn`).
+  - The camera tilts over a building or a bridge behind the hero only while it
+    is in the way, and eases back afterwards. It used to keep the steep tilt
+    for good, and when the hero was hidden it could snap behind him and drop
+    the player's pan (`cam_obstruct`, `FollowCamObstruct`;
+    `cam_obstruct_hurry`, `FollowCamObstructHurryDivisor`, sets how fast the
+    tilt rises while he is hidden).
+  - The camera comes round behind the hero about twice as quickly, at the pace
+    of the 2022 Classic release's auto camera, and ends exactly behind him. It
+    used to stop up to a degree short until he moved again. The setting is the
+    ease's time constant in milliseconds: 300 by default, 600 for the old
+    pace, 0 for the old behaviour (`cam_ease_ms`, `FollowCamEaseMs`).
+  - The point the camera looks at trails the hero and catches up, as in the
+    Classic release, so he leads the frame a little while he runs and the view
+    settles after he stops. It used to be pinned to him (`cam_target_ms`,
+    `FollowCamTargetMs`: 300 by default, 0 for the old behaviour).
+- The Linux tarball, macOS and Android builds now bundle SDL 3.4.18 (was
+  3.2.16), so the pixelart present filter works in them. The Windows and
+  AppImage builds keep using the SDL their distribution ships.
+
 ### Fixed
 
+- On a scaled display, a Mac's Retina panel for one, the picture was drawn at
+  half the panel's resolution and enlarged by the system, which blurred it
+  whatever the present filter said. The game now draws at the panel's own
+  resolution. Window sizes and the resolutions offered are unchanged.
 - On Android a bar across the top of the screen read "LBA2 Classic Community"
   and the version number, taking a strip of the picture with it. The app named
   no theme, so Android picked one with a title bar, and SDL puts the game's

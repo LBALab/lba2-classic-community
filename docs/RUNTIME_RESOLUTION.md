@@ -214,7 +214,7 @@ Vsync persists as a `VSync=0|1` key in `lba2.cfg`, read at boot in `ReadConfigFi
 ## Open questions
 
 - **Music continuity** across the switch — V1 is the "glitch on switch" behaviour as planned (the music track stops/restarts naturally as the scene re-init runs `ChoicePalette` and friends). Phase 3 saves stream position.
-- **Linear vs nearest texture scaling** — `WINDOW.CPP` ships `SDL_SCALEMODE_NEAREST` (pixel-art). A future Display submenu toggle could expose `LINEAR` for "soften the upscale"; not V1.
+- **Linear vs nearest texture scaling** — *resolved outside the menu.* Nearest stays the default; `PresentFilter` / `gfx_presentfilter` / `LBA2_PRESENT_FILTER` choose linear or pixelart (see [GFX_OPTIONS.md](GFX_OPTIONS.md)). A Display submenu row is still open.
 - **Per-display memory** — single global cfg today (`ResolutionX` / `ResolutionY` in `lba2.cfg`). If the player frequently swaps monitors, they might want per-display memory. Out of scope for V1.
 - **Boot-flash at non-default cfg resolution** — *resolved.* Shape B (transient `DefFileBufferInit` against a static 8 KB BSS buffer in `Res_LoadBootDimensions`) reads the cfg before `Mem_ConfigureScreenBuffers`, so MainBuffer is sized correctly at the cfg dimensions in one shot. No boot-time `Res_Switch` cycle.
 

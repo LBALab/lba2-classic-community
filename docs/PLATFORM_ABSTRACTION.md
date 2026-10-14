@@ -12,7 +12,7 @@ This implements the platform-decoupling and headless-backend parts of [discussio
 |---|---|
 | `system` | Initialisation, wall-clock milliseconds, delay, performance counter/frequency, thread identity, CPU/RAM probes, errors, diagnostic callback |
 | `events` | Initialisation, pumping, and polling backend-neutral `PlatformEvent` values |
-| `window` | Surface lifetime, logical/window/display dimensions, coordinate mapping, fullscreen/vsync/relative mouse, indexed-frame presentation |
+| `window` | Surface lifetime, logical/window/display dimensions, coordinate mapping, fullscreen/vsync/present filter/relative mouse, indexed-frame presentation |
 | `input` | Physical-key snapshot, layout-aware keycodes/names/modifiers, text input/cursor, gamepad lifetime and sampling |
 | `host` | Executable/current/preference/home paths, directory operations, message boxes, asynchronous folder requests, clipboard, allocator pairing |
 | `capabilities` | Meaningful windowed mode, temporary loss of a native window, touch-overlay support |
@@ -110,7 +110,7 @@ Palette updates retain the existing API's source ordering, including partial upd
 
 The existing console, screenshot and touch compositors use `0xAARRGGBB` pixels and byte pitches. A native indexed/RGB565 backend may present its preferred format directly when no overlay is requested; when an overlay is requested, it must provide the compositor's ARGB view and convert that result to its output format. The shared `Platform_ConvertIndexedFrame` helper supplies exact indexed-to-ARGB conversion without touching row padding. This preserves existing overlays rather than introducing a new render interface.
 
-The SDL3 implementation in [WINDOW.CPP](../LIB386/PLATFORM/SDL3/WINDOW.CPP) preserves nearest-neighbour scaling, SDL's letterboxed logical presentation, coordinate clamping, fullscreen state, and resolution changes that retain the window. Desktop presents write into a locked streaming texture. Android presents use a persistent staging buffer and texture upload, keeping the MTE-safe path inside the backend.
+The SDL3 implementation in [WINDOW.CPP](../LIB386/PLATFORM/SDL3/WINDOW.CPP) defaults to nearest-neighbour scaling (`set_present_filter` can choose linear or, on SDL 3.4 or newer, pixelart), and preserves SDL's letterboxed logical presentation, coordinate clamping, fullscreen state, and resolution changes that retain the window. Desktop presents write into a locked streaming texture. Android presents use a persistent staging buffer and texture upload, keeping the MTE-safe path inside the backend.
 
 ## Host services, ownership and errors
 
@@ -157,7 +157,7 @@ Audio mixing remains AIL-owned. The software rasteriser and ASM-equivalence math
 | Target | Coverage |
 |---|---|
 | `test_platform_contract` | SDL-free link of real engine facades and input policy; C11 and C++98 header compilation (including absence of C99 integer-constant macros); event order, focus/audio/timer coupling, fixed-dt/wrap, input hooks, pad edges/hotplug, touch wake/reapply/release, full-buffer conversion, palette snapshots and nested present/overlay ordering |
-| `test_platform_sdl3` | Complete production table; physical-ID/keymap/modifier compatibility; exact event payloads and native polling housekeeping; fullscreen requests versus actual state, vsync, relative mouse, cursor and text-input behavior; native virtual-gamepad sampling; paths/directory/allocator/error ownership; modal dispatch and worker-thread folder results; diagnostic severity/userdata; and byte-exact pixels read from the actual SDL renderer |
+| `test_platform_sdl3` | Complete production table; physical-ID/keymap/modifier compatibility; exact event payloads and native polling housekeeping; fullscreen requests versus actual state, vsync, present filter read back from stretched pixels, relative mouse, cursor and text-input behavior; native virtual-gamepad sampling; paths/directory/allocator/error ownership; modal dispatch and worker-thread folder results; diagnostic severity/userdata; and byte-exact pixels read from the actual SDL renderer |
 | `test_platform_sdl3_staging` | The same conformance checks compiled with the persistent-buffer/upload path, including frame resizing |
 | `test_platform_sdl2` | Desktop SDL2 event payloads and borrowed text, unmodified mouse/finger coordinates, controller instance IDs and sampling, fullscreen rollback, host services/errors, diagnostics, lifecycle and byte-exact real-renderer frames |
 | `test_sdl_audio` | Simultaneous sample/music/video transports, queued source bytes, gain, pause and WAV loading on either SDK; SDL2 additionally compares full converted output against an independent native converter over deterministic random inputs and checks mixing, EOF, independent stream lifetime and recursive callback locking |

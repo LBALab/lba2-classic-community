@@ -42,6 +42,7 @@ PlatformInterface Interface() {
     api.window.get_fullscreen = SDL3_GetFullscreen;
     api.window.is_fullscreen = SDL3_IsFullscreen;
     api.window.set_vsync = SDL3_SetVSync;
+    api.window.set_present_filter = SDL3_SetPresentFilter;
     api.window.set_relative_mouse = SDL3_SetRelativeMouse;
     api.window.present = SDL3_Present;
     api.input.keyboard_state = SDL3_KeyboardState;

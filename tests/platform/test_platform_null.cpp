@@ -63,6 +63,11 @@ static void test_offscreen_frames_and_lifecycle() {
     ASSERT_TRUE(!g_platform.window.is_fullscreen());
     g_platform.window.set_fullscreen(false);
     ASSERT_TRUE(!g_platform.window.get_fullscreen());
+    ASSERT_TRUE(g_platform.window.set_present_filter(PLATFORM_FILTER_NEAREST));
+    g_platform.system.clear_error();
+    ASSERT_TRUE(!g_platform.window.set_present_filter(PLATFORM_FILTER_LINEAR));
+    ASSERT_TRUE(g_platform.system.get_error()[0] != '\0');
+    g_platform.system.clear_error();
     g_platform.window.destroy();
     g_platform.window.shutdown();
     ASSERT_TRUE(!g_platform.window.initialized());

@@ -94,6 +94,88 @@ static inline S32 FollowCamRotStep(S32 diff, S32 divisor, S32 minStep) {
     return step;
 }
 
+/* One frame of easing a yaw offset (`AddBetaCam`) toward the offset it is being
+ * returned to, the shortest way round. Lands exactly on the target and stays
+ * there: the lazy pan drift this sits beside divides first and tests after, so
+ * it stops short whenever what is left is smaller than its divisor. A return
+ * that stopped short would leave the camera a degree or two off the angle it
+ * owes, for good. */
+static inline S32 FollowCamEasePan(S32 pan, S32 target, S32 divisor, S32 minStep) {
+    S32 diff = FollowCamAngleDiff(target & 4095, pan & 4095);
+
+    return (pan + FollowCamRotStep(diff, divisor, minStep)) & 4095;
+}
+
+/* The same for a value that does not wrap (the pitch). */
+static inline S32 FollowCamEaseValue(S32 value, S32 target, S32 divisor, S32 minStep) {
+    return value + FollowCamRotStep(target - value, divisor, minStep);
+}
+
+/* One update of an ease paced by the clock: how far to move toward a target
+ * `diff` away, `dtMs` after the previous update, with a time constant of
+ * `tauMs`.
+ *
+ * The lerp above takes the same share of what is left on every frame, so a move
+ * lasts a number of frames, and twice as long at 30 frames a second as at 60.
+ * Here the share grows with the time that went by. The exact share is
+ * 1 - exp(-dt / tau). 2dt / (2tau + dt) is that in integers, within one percent
+ * while a frame is no longer than a third of the time constant, and it cannot
+ * pass the whole of what is left until a frame is twice the time constant long.
+ * The plain dt / tau runs a tenth fast at 20 frames a second and passes the
+ * target on any frame longer than the time constant.
+ *
+ * `minPerSec` is the slowest the ease may go, in units a second. It does the job
+ * the minimum step does above, where integer division would otherwise stop the
+ * move short of its target.
+ *
+ * The move is worked out in thousandths of a unit, and what does not make a
+ * whole unit is kept in `carry` for the next update. Dropped instead, it is up
+ * to a unit lost per update, which is more per second the shorter the frame:
+ * the same turn came out a tenth slower at 120 frames a second than at 60. The
+ * caller keeps one `carry` per value it eases and need not initialise it beyond
+ * zero. The step never exceeds what is left, so the ease lands on its target
+ * and stays there.
+ *
+ * No time, no move: a `dtMs` of 0 is the update running twice on one reading of
+ * the clock, or the first update after the clock was restarted. */
+static inline S32 FollowCamEaseStepMs(S32 diff, S32 dtMs, S32 tauMs, S32 minPerSec, S32 *carry) {
+    S64 want, least;
+    S32 step;
+
+    if (diff == 0) {
+        *carry = 0;
+        return 0;
+    }
+    if (dtMs <= 0)
+        return 0;
+    if (tauMs < 1)
+        tauMs = 1;
+    if (minPerSec < 1)
+        minPerSec = 1; /* with no floor at all a small enough move is no thousandths, for ever */
+
+    /* What was carried belongs to a move in the direction it was carried in. */
+    if ((diff > 0 && *carry < 0) || (diff < 0 && *carry > 0))
+        *carry = 0;
+
+    want = (S64)diff * 1000 * 2 * dtMs / ((S64)tauMs * 2 + dtMs);
+    least = (S64)minPerSec * dtMs; /* units a second times milliseconds is thousandths of a unit */
+    if (diff > 0 && want < least)
+        want = least;
+    if (diff < 0 && want > -least)
+        want = -least;
+
+    want += *carry;
+    step = (S32)(want / 1000);
+    *carry = (S32)(want - (S64)step * 1000);
+
+    if ((diff > 0 && step >= diff) || (diff < 0 && step <= diff)) {
+        step = diff;
+        *carry = 0;
+    }
+
+    return step;
+}
+
 /* HD recompose strength: the hundredths by which the render height exceeds the
  * 480 the game was composed for. 0 at 480, 125 at 1080.
  *

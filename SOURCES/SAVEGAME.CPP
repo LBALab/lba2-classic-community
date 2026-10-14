@@ -6,6 +6,7 @@
 /*──────────────────────────────────────────────────────────────────────────*/
 
 #include "C_EXTERN.H"
+#include "FOLLOWCAM.H" /* FollowCamForgetLoan */
 
 #include <stdint.h>
 
@@ -2020,6 +2021,10 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         LbaReadLong(BetaCam);
         LbaReadLong(GammaCam);
         LbaReadLong(AddBetaCam);
+        /* The file has just decided where the camera is. What a scripted shot
+         * was owed back belongs to the game that was running before the load. */
+        FollowCamForgetLoan();
+        FollowCamNoteOwnPitch(AlphaCam);
 
         LbaReadLong(VueOffsetX);
         LbaReadLong(VueOffsetY);

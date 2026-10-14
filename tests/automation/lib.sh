@@ -23,6 +23,19 @@ set -u
 # the character encoding a test reads its fixtures in is not this file's business.
 export LC_COLLATE=C
 
+# No physical gamepad in a harness run. The engine opens every connected controller,
+# with a window or without, and reads it like any other input, so a stick nudged
+# while a fixture runs turns the camera or walks the hero in that run. It was found
+# with a pad left plugged in beside the keyboard: a camera fixture failed once on a
+# pan nobody had scripted, and passed unchanged on the rerun.
+#
+# SDL skips every controller except the ones this variable lists, and no device
+# carries this id, so it lists none. The engine's own stand-ins (the console's
+# `stick`, a session replay) do not come through SDL and are unaffected. A fixture
+# that is about a real pad says so by exporting the variable empty before it
+# sources this file, which is why an existing value is left alone.
+export SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT="${SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT-0xFFFF/0xFFFF}"
+
 _LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd "$_LIB_DIR/../.." && pwd)"
 

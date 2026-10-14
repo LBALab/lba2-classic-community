@@ -39,6 +39,7 @@ bool Window_IsFullscreen(void) { return g_platform.window.is_fullscreen(); }
 bool Window_SupportsWindowedMode(void) { return g_platform.capabilities.windowed; }
 bool Window_CanLoseNativeWindow(void) { return g_platform.capabilities.transient_window_loss; }
 void Window_SetVSync(int enabled) { g_platform.window.set_vsync(enabled != 0); }
+bool Window_SetPresentFilter(int mode) { return g_platform.window.set_present_filter((PlatformPresentFilter)mode); }
 void ManageWindow() {}
 
 void HandleEventsWindow(const PlatformEvent *event) {
