@@ -126,27 +126,38 @@ static S32 ParsePresentFilter(const char *text) {
  * Three of these can be forced for one run by a flag, and must not be left
  * behind for the next: the stored column keeps what the cfg held and the writer
  * persists that instead. Language is not here because it is written as a name
- * rather than a number; its override is still handled by hand below. */
+ * rather than a number; its override is still handled by hand below.
+ *
+ * The display rows are left out of recordings: they change how a frame is
+ * shown, not what the simulation does. VSync and FixedTimestep are left out
+ * because the header already carries them as `mode.vsync` and
+ * `mode.fixed_timestep`, and Shadow because SetDetailLevel overwrites it at
+ * MainLoop entry, so the recorded DetailLevel decides it. */
 static const T_SETTING BootSettings[] = {
-    {"Shadow", NULL, NULL, &Shadow, SETTING_RAW, 3, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL},
+    {"Shadow", NULL, NULL, &Shadow, SETTING_RAW, 3, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL, NULL, NULL,
+     SETTING_NOT_RECORDED},
     {"AllCameras", NULL, NULL, &AllCameras, SETTING_RAW, TRUE, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL},
     /* User-facing name: "Auto camera" (menu/docs); the legacy spelling is read
        so an existing cfg keeps working. The camera module owns its cvar. */
     {"FollowCamera", "AutoCameraCenter", NULL, &FollowCamera, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL, NULL},
     {"DetailLevel", NULL, NULL, &DetailLevel, SETTING_CLAMP, MAX_DETAIL_LEVEL, 0, MAX_DETAIL_LEVEL, NULL, NULL, NULL},
-    {"FullScreen", NULL, NULL, &VideoFullScreen, SETTING_OR_DEFAULT, TRUE, 0, 1, NULL, NULL, NULL},
-    {"DisplayFullScreen", NULL, NULL, &DisplayFullScreen, SETTING_OR_DEFAULT, TRUE, 0, 1, NULL, NULL, NULL},
-    {"VSync", NULL, NULL, &DisplayVSync, SETTING_OR_DEFAULT, TRUE, 0, 1, &StoredVSync, ForcedVSync, NULL, &SourceVSync},
+    {"FullScreen", NULL, NULL, &VideoFullScreen, SETTING_OR_DEFAULT, TRUE, 0, 1, NULL, NULL, NULL, NULL, NULL,
+     SETTING_NOT_RECORDED},
+    {"DisplayFullScreen", NULL, NULL, &DisplayFullScreen, SETTING_OR_DEFAULT, TRUE, 0, 1, NULL, NULL, NULL, NULL, NULL,
+     SETTING_NOT_RECORDED},
+    {"VSync", NULL, NULL, &DisplayVSync, SETTING_OR_DEFAULT, TRUE, 0, 1, &StoredVSync, ForcedVSync, NULL, &SourceVSync,
+     NULL, SETTING_NOT_RECORDED},
     {"DitherShading", NULL, "gfx_dither", &GfxDitherShading, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL, NULL, NULL,
-     "Ordered dither on Gouraud shade rows (softens 16-step banding)"},
+     "Ordered dither on Gouraud shade rows (softens 16-step banding)", SETTING_NOT_RECORDED},
     {"TextureFilter", NULL, "gfx_texfilter", &PolyTexFilter, SETTING_OR_DEFAULT, POLY_TEX_FILTER_OFF,
      POLY_TEX_FILTER_OFF, POLY_TEX_FILTER_BILINEAR, &StoredTexFilter, ForcedTexFilter, NULL, &SourceTexFilter,
-     "Texture filtering: 0 off, 1 horizontal, 2 bilinear"},
+     "Texture filtering: 0 off, 1 horizontal, 2 bilinear", SETTING_NOT_RECORDED},
     {"PresentFilter", NULL, "gfx_presentfilter", &DisplayPresentFilter, SETTING_OR_DEFAULT, PLATFORM_FILTER_NEAREST,
      PLATFORM_FILTER_NEAREST, PLATFORM_FILTER_PIXELART, &StoredPresentFilter, ForcedPresentFilter, ApplyPresentFilter,
-     &SourcePresentFilter, "Filter stretching the frame to the window: 0 nearest, 1 linear, 2 pixelart"},
+     &SourcePresentFilter, "Filter stretching the frame to the window: 0 nearest, 1 linear, 2 pixelart",
+     SETTING_NOT_RECORDED},
     {"FixedTimestep", NULL, NULL, &FixedTimestep, SETTING_OR_DEFAULT, 16, 0, 100,
-     &StoredFixedTimestep, ForcedFixedTimestep, NULL, &SourceFixedTimestep},
+     &StoredFixedTimestep, ForcedFixedTimestep, NULL, &SourceFixedTimestep, NULL, SETTING_NOT_RECORDED},
 };
 #define BOOT_SETTING_COUNT ((S32)(sizeof(BootSettings) / sizeof(BootSettings[0])))
 
@@ -198,6 +209,30 @@ static const T_SETTING GamepadSettings[] = {
      1, 100, NULL, NULL, NULL, NULL, "Right-stick elevation speed ceiling (units/frame at sens 10)"},
 };
 #define GAMEPAD_SETTING_COUNT ((S32)(sizeof(GamepadSettings) / sizeof(GamepadSettings[0])))
+
+/* Every settings table, for whatever has to walk all of them: the recording
+ * header today. This file already reads and writes each one, so it is the place
+ * that knows the whole set. Returns NULL past the last table. */
+const T_SETTING *ConfigFile_SettingTable(S32 i, S32 *count) {
+    switch (i) {
+    case 0:
+        *count = BOOT_SETTING_COUNT;
+        return BootSettings;
+    case 1:
+        *count = MOUSE_SETTING_COUNT;
+        return MouseSettings;
+    case 2:
+        *count = GAMEPAD_SETTING_COUNT;
+        return GamepadSettings;
+    case 3:
+        return FollowCam_Settings(count);
+    case 4:
+        return Audio_Settings(count);
+    default:
+        *count = 0;
+        return NULL;
+    }
+}
 
 void ConfigFile_RegisterCvars(void) {
     Settings_RegisterCvars(BootSettings, BOOT_SETTING_COUNT);

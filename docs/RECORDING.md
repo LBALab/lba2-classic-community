@@ -629,11 +629,11 @@ what a stick with drift gets tuned on. It is not only a camera setting: `SOURCES
 applies it to the left stick's axis-to-scancode conversion too, so it decides what a recorded
 deflection means for movement as well.
 
-The settings tables are spread over three files: `SOURCES/CONFIG_FILE.CPP` (boot, mouse, gamepad),
-`SOURCES/FOLLOWCAM.CPP` (the Auto camera) and `SOURCES/AMBIANCE.CPP` (audio). The key bindings are
-not in a table at all. Worth knowing before concluding that a sweep has seen the whole config.
-
-The header carries all of these, and a replay names the ones that differ as it starts, by the key
+The header carries every setting in the settings tables (`SOURCES/CONFIG_FILE.CPP` for boot, mouse
+and gamepad, `SOURCES/FOLLOWCAM.CPP` for the Auto camera, `SOURCES/AMBIANCE.CPP` for audio) unless
+its row is marked `SETTING_NOT_RECORDED`. It used to be a list kept by hand of the ones the sweeps
+above found, and the Auto camera's later settings never reached it. A row added now is carried
+unless its author says otherwise, so a replay names the ones that differ as it starts, by the key
 the player would edit:
 
 ```
@@ -641,12 +641,16 @@ the player would edit:
 [rec] 1 mode line(s) differ; this replay may not reproduce
 ```
 
-Not carried, and the distinction matters: `Shadow` is inert because `SetDetailLevel` overwrites it
-at MainLoop entry, while `AllCameras`, `ManualCameraSmoothing` and `FlagDisplayText` have only read
-clean on the sessions swept so far. `ManualCameraSmoothing` needs an orbit that leaves the camera
-far enough from its target to take the stepped branch in `SOURCES/FOLLOWCAM.CPP`, and
-`FlagDisplayText` needs a dialogue, which none of these sessions has. The boundary is empirical
-rather than principled: a setting joins the block when a replay is shown to turn on it.
+Left out, each for a reason given beside its row: the display settings, which change how a frame is
+shown and not what happens in it; the volumes and the stereo swap, since whether sound runs at all
+is `mode.audio`; `VSync` and `FixedTimestep`, which are already `mode.vsync` and
+`mode.fixed_timestep`; and `Shadow`, which `SetDetailLevel` overwrites at MainLoop entry. Not in a
+table, so not carried: the key bindings, which the header hashes as `bindings.digest`, and
+`FlagDisplayText`.
+
+A recording made before a setting was carried names it as a trait it predates, and a build that
+does not know a setting names it as absent. Neither is a divergence; both say which settings the
+replay could not check.
 
 **The console is not recorded, and used to take the clock with it.** Its toggle arrives as an
 SDL key event rather than through the polled key table the recorder samples, so a replay never

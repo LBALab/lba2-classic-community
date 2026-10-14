@@ -172,12 +172,12 @@ extern "C" {
    came apart. */
 
 /* Every buffer the text header passes through, named once so growing it is one decision
-   rather than five. A real header runs about 1.6 KB: the mode block, the settings, and
-   two binding tables that scale with how much the player has rebound. It grows whenever a
-   setting is shown to move a replay, and the failure at the far end is quiet in both
-   directions -- the writer drops the lines at the end of it, and the reader truncates
-   mid-binding-table and installs a partial one -- so the margin is deliberate rather than
-   a round number that happened to fit. */
+   rather than five. A real header runs about 2.3 KB: the mode block, the settings, and
+   two binding tables that scale with how much the player has rebound. It grows by about
+   30 bytes with every settings row that is recorded, and the failure at the far end is
+   quiet in both directions -- the writer drops the lines at the end of it, and the
+   reader truncates mid-binding-table and installs a partial one -- so the margin is
+   deliberate rather than a round number that happened to fit. */
 #define REC_HEADER_MAX 4096
 
 /* Versions 9 to 11 wrote the keyframe with no count and exactly this many fields. */
@@ -2112,9 +2112,9 @@ static void replay_report_mode(void) {
 
        Measured on the fixtures in tests/automation/recordings: legacy-v10 (format 10) and
        both combo files (format 12) carry no `numeric.digest`; legacy-v10 also predates
-       `mode.audio` and fourteen of the `settings.` lines, which are written from
-       CONTROL.CPP rather than from write_mode_lines below. Before this, replaying any of
-       them announced only `engine`, and legacy-v10 now names sixteen traits it predates.
+       `mode.audio` and many of the `settings.` lines, which are written from the settings
+       tables (CONTROL.CPP) rather than from write_mode_lines below, so how many grows with
+       the tables. Before this, replaying any of them announced only `engine`.
 
        The recorded header is rebuilt because the loop above consumed it: it terminates
        each line in place to compare it, so what is left is the first line and a run of

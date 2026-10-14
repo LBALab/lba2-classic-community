@@ -1275,6 +1275,11 @@ void FollowCam_RegisterCvars(void) {
     Settings_RegisterCvars(FollowCamSettings, FOLLOW_CAM_SETTING_COUNT);
 }
 
+const T_SETTING *FollowCam_Settings(S32 *count) {
+    *count = FOLLOW_CAM_SETTING_COUNT;
+    return FollowCamSettings;
+}
+
 /* The console commands this module owns, registered from Console_RegisterAll
  * beside its cvars.
  *

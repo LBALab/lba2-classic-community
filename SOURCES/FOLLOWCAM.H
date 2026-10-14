@@ -3,6 +3,8 @@
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
+struct T_SETTING; /* SETTINGS.H; a pointer to a table needs no more */
+
 /* The Auto camera (user-facing name; config key FollowCamera, legacy
  * AutoCameraCenter): the third-person camera that tracks the hero in exterior
  * cubes.  Its per-frame update, the state that update carries between frames,
@@ -202,6 +204,9 @@ extern S32 DbgCamTrace;
  * reorder every player's lba2.cfg on the next write. */
 extern void FollowCam_ReadConfig(void);
 extern void FollowCam_WriteConfig(void);
+
+/* The table itself, for what walks every setting: the recording header. */
+extern const T_SETTING *FollowCam_Settings(S32 *count);
 
 /* The console cvars and commands this module owns, registered from
  * Console_RegisterAll. Same reason as the cfg pair: a setting added here is

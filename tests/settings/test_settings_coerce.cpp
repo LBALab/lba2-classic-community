@@ -13,6 +13,8 @@
 #include "SETTINGS.H"
 #include "test_harness.h"
 
+#include <string.h>
+
 /* A row per rule, matching real declarations: DetailLevel clamps, FullScreen treats out of range
  * as unset, the Auto camera's toggles take any non-zero as on, AllCameras has no range at all.
  *
@@ -33,6 +35,7 @@ static T_SETTING row(T_SETTING_TYPE type, S32 def, S32 min, S32 max) {
     s.on_change = NULL;
     s.source = NULL;
     s.help = NULL;
+    s.record = SETTING_RECORDED;
     return s;
 }
 
@@ -306,6 +309,61 @@ static void test_apply_marks_the_value_as_this_run(void) {
     ASSERT_EQ_INT((S32)SETTING_FROM_RUNTIME, (S32)src);
 }
 
+/* The recording header. A row is carried unless it says otherwise, a row with no
+   cfg key is a console alias and is skipped, and the value is the live one. */
+static void test_the_header_carries_what_is_not_opted_out(void) {
+    S32 a = 7, b = -3, c = 1, d = 2;
+    T_SETTING t[4];
+    char out[128];
+    size_t at = 0;
+
+    t[0] = row(SETTING_CLAMP, 0, 0, 10);
+    t[0].key = "Alpha";
+    t[0].value = &a;
+    t[1] = row(SETTING_RAW, 0, SETTING_MIN_NONE, SETTING_MAX_NONE);
+    t[1].key = "Volume";
+    t[1].value = &b;
+    t[1].record = SETTING_NOT_RECORDED;
+    t[2] = row(SETTING_TRUTHY, 0, 0, 1);
+    t[2].key = NULL;
+    t[2].cvar = "alias";
+    t[2].value = &c;
+    t[3] = row(SETTING_RAW, 0, SETTING_MIN_NONE, SETTING_MAX_NONE);
+    t[3].key = "Beta";
+    t[3].value = &d;
+
+    ASSERT_EQ_INT(1, Settings_DescribeRecorded(t, 4, out, sizeof out, &at));
+    ASSERT_TRUE(strcmp(out, "settings.Alpha=7\nsettings.Beta=2\n") == 0);
+    ASSERT_EQ_INT((S32)strlen(out), (S32)at);
+}
+
+/* A row left at zero in that column is recorded. This is the property the
+   column exists for: a table written before it, or a row added without a
+   thought for recordings, ends up in the header rather than missing from it. */
+static void test_a_row_that_does_not_mention_recording_is_recorded(void) {
+    T_SETTING s;
+    memset(&s, 0, sizeof s);
+    ASSERT_EQ_INT((S32)SETTING_RECORDED, (S32)s.record);
+}
+
+/* Appends after what the caller has, and a line that does not fit is not left
+   half written: the reader would take a truncated value as the real one. */
+static void test_the_header_appends_and_refuses_a_cut_line(void) {
+    S32 v = 12345;
+    T_SETTING s = row(SETTING_RAW, 0, SETTING_MIN_NONE, SETTING_MAX_NONE);
+    char out[32] = "mode.x=1\n";
+    size_t at = strlen(out);
+
+    s.key = "Long";
+    s.value = &v;
+    ASSERT_EQ_INT(1, Settings_DescribeRecorded(&s, 1, out, sizeof out, &at));
+    ASSERT_TRUE(strcmp(out, "mode.x=1\nsettings.Long=12345\n") == 0);
+
+    ASSERT_EQ_INT(0, Settings_DescribeRecorded(&s, 1, out, sizeof out, &at));
+    ASSERT_TRUE(strcmp(out, "mode.x=1\nsettings.Long=12345\n") == 0);
+    ASSERT_EQ_INT((S32)strlen(out), (S32)at);
+}
+
 int main(void) {
     RUN_TEST(test_every_rule_passes_an_in_range_value_through);
     RUN_TEST(test_clamp_moves_to_the_nearer_bound);
@@ -328,6 +386,9 @@ int main(void) {
     RUN_TEST(test_moving_off_the_forced_value_needs_no_marker);
     RUN_TEST(test_only_a_runtime_write_survives_a_forced_run);
     RUN_TEST(test_apply_marks_the_value_as_this_run);
+    RUN_TEST(test_the_header_carries_what_is_not_opted_out);
+    RUN_TEST(test_a_row_that_does_not_mention_recording_is_recorded);
+    RUN_TEST(test_the_header_appends_and_refuses_a_cut_line);
     TEST_SUMMARY();
     return test_failures != 0;
 }

@@ -8,6 +8,8 @@
 #include <SYSTEM/ADELINE_TYPES.H> /* S32, U8, U32 */
 #include <SYSTEM/HQRRESS.H>       /* HQR_GET_CALLBACK */
 
+struct T_SETTING; /* SETTINGS.H; a pointer to a table needs no more */
+
 /* The audio module's own state, defined in AMBIANCE.CPP. Declared here rather
    than in C_EXTERN.H so that a file reaching for a volume or for the ambiance
    scheduler's table has to include this header, and its include list says so.
@@ -125,6 +127,8 @@ extern void Audio_SetReverseStereo(S32 on);
    volumes and the stereo swap are declared once in AMBIANCE.CPP and handed to
    the cfg reader, the cfg writer and the console from there. */
 extern void Audio_RegisterCvars(void);
+/* The table itself, for what walks every setting: the recording header. */
+extern const T_SETTING *Audio_Settings(S32 *count);
 /*--------------------------------------------------------------------------*/
 extern void ReadVolumeSettings(void);
 /*--------------------------------------------------------------------------*/
