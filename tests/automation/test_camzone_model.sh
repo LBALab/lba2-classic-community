@@ -5,8 +5,8 @@
 # holds the view for as long as he stays. Without that flag the dispatch latches ZONE_ACTIVE after
 # the first fire and does not fire again, so the zone re-aims the camera once on entry and then
 # leaves it alone; leaving the box clears the latch, so walking back in re-aims it again. Both
-# shapes are in the shipped data and the non-forced one is by far the more common, so a fixture
-# that only ever saw a forced zone would be describing the exception.
+# shapes are common in the shipped data, about half each outdoors (128 latching and 114 forced on
+# the GOG data), so a fixture that only ever saw one of them would be describing half the zones.
 #
 # The Auto camera's own settings are switched off (CAM_PLAIN): by default it passes a latching
 # zone over while the player steers, and this fixture is about what the zone itself does.

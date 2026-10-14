@@ -44,7 +44,7 @@ listed are unused by that type.
 | Type | Name | Info slots |
 | --- | --- | --- |
 | 0 | cube | `Num` = target cube. `Info0/1/2` = arrival X/Y/Z (Y is relative to `Y0`). `Info5 & ZONE_TEST_BRICK` = require a door collision rather than firing on entry. `Info6 & ZONE_DONT_REAJUST_POS_TWINSEN` = skip the arrival reposition |
-| 1 | camera | The whole authored shot. `Info0/1/2` = eye position in cube coordinates, `Info3` = `AlphaCam`, `Info4` = `BetaCam`, `Info5` = `GammaCam`, `Info6` = `VueDistance` |
+| 1 | camera | The whole authored shot. `Info0/1/2` = the point the camera looks at, in bricks, written to `StartXCube`/`YCube`/`ZCube` (the eye sits `Info6` away from it at the shot's angles), `Info3` = `AlphaCam`, `Info4` = `BetaCam`, `Info5` = `GammaCam`, `Info6` = `VueDistance` |
 | 2 | scenaric | `Num` is written to the hero's `ZoneSce`, where a Life script reads it via `LF_ZONE_OBJ`. Carries no other payload: the behaviour is entirely in the script |
 | 3 | grid | No runtime handler found in the zone dispatch. Present in the type table and in editor paths only |
 | 4 | giver | `Info0` = bonus kind (through `WhichBonus`), `Info1` = how many, `Info2` = already-taken latch. Fires on the action button while inside, and spawns the bonus at the box's centre and `Y1` (`ZoneGiveExtraBonus`, `SOURCES/EXTRA.CPP`) |
@@ -73,10 +73,21 @@ the view this frame", not "the hero is under a shot".
 The Auto camera (`FollowCamera`, a community addition) needs telling when a zone
 takes over, because it derives its own angle from the hero's facing and would
 otherwise read the authored angle as catch-up owed and lerp out of the shot.
-`FollowCamAdoptAngle()` does that for the angle. There is **no equivalent for the
-distance**: the Auto camera rewrites `VueDistance` from its own spring arm on every
-update, so an authored boom survives exactly one frame before being replaced. The
-authored pitch is kept, the authored angle is kept, the authored distance is not.
+`FollowCamAdoptAngle()` does that for the angle. How long the rest of the shot
+lasts depends on its shape, because the Auto camera's update runs only on a frame
+no zone has claimed (`SOURCES/PERSO.CPP`):
+
+- **A forced zone** claims every frame the hero is inside, so the update does not
+  run there and the whole authored shot, distance included, holds until he leaves
+  the box. Then the boom goes back to the player's arm.
+- **A latching zone** claims one frame, so the authored distance lasts that frame
+  and the update rewrites `VueDistance` from its own spring arm on the next. While
+  the player steers, such a zone is passed over altogether (`cam_zone_skip`).
+
+Leaving a shot, `cam_zone_return` eases the yaw and the pitch back to what the
+camera had before it, and `cam_shot_blend_ms` blends the view, distance and look-at
+point included, instead of cutting. [docs/CAMERA_INTERNALS.md](CAMERA_INTERNALS.md)
+has the details.
 
 What the shipped data asks for, across the 241 enabled exterior camera zones:
 

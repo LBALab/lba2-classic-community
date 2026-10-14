@@ -145,6 +145,7 @@ The blend is in the frame only. `FollowCamSetView()` sets the exterior camera fo
 - **A hero hidden mid-blend is not answered.** The hidden-hero recovery and `cam_obstruct`'s reply wait for the blend to end.
 - **It never runs across a cut.** A blend starts only from a view the Auto camera showed of the same scene with nothing else having had the view since, and ends at once at Center camera, every `CameraCenter(1)` or `(2)`, the quarter-turn key, a scene change, a building, a cutscene, a load or the Auto camera switched off. A shot over a door that fires on arrival is therefore a cut; walking out of it blends.
 - **A sign's shot is shown at once.** A sign that names a camera zone (`GereZoneMessage`) applies the shot, draws one frame and holds it still under the message. A blend in would freeze its first instant, so that shot is applied whole (`FollowCamShotAtOnce()`); closing the message blends back out.
+- **From one shot straight into another**, the blend runs between the two shots' views. Between zones 31 and 32 in cube 90 (US disc) that is a 175-degree swing in 0.6 s with the hero hidden for 0.3 s in the middle, which the recentre leaves alone until the blend ends; played and kept.
 - **A shot that fires once** (under `cam_zone_skip 0`, or for a scripted hero) has one frame, so the blend runs from the view before it toward the Auto camera's, which has adopted the shot's yaw.
 - A console `teleport` within a scene is not a cut.
 
