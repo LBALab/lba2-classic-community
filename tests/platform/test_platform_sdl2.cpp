@@ -1,6 +1,8 @@
 #include "../test_harness.h"
 #include "../../LIB386/PLATFORM/SDL2/PRIVATE.H"
+#include "../../LIB386/PLATFORM/SDL2/DIRECTORY_PATH.H"
 
+#include <string>
 #include <vector>
 
 static std::vector<uint32_t> rendered;
@@ -402,6 +404,53 @@ static void capture(void *userdata, PlatformLogLevel level, const char *message)
     log->level = level;
     ASSERT_TRUE(strcmp(message, "log fixture") == 0);
 }
+static void test_directory_parent_prefixes() {
+    struct Case {
+        const char *path;
+        bool windows;
+        const char *root;
+        const char *first;
+        const char *second;
+    };
+    const Case cases[] = {
+        {"\\\\server\\share\\profile\\saves", true, "\\\\server\\share", "\\\\server\\share\\profile", "\\\\server\\share\\profile\\saves"},
+        {"//server/share/profile/saves", true, "//server/share", "//server/share/profile", "//server/share/profile/saves"},
+        {"\\\\server/share\\profile/saves", true, "\\\\server/share", "\\\\server/share\\profile", "\\\\server/share\\profile/saves"},
+        {"\\\\server\\share", true, "\\\\server\\share", NULL, NULL},
+        {"\\\\server\\share\\", true, "\\\\server\\share", NULL, NULL},
+        {"C:\\profile\\saves", true, "C:\\", "C:\\profile", "C:\\profile\\saves"},
+        {"C:/profile/saves", true, "C:/", "C:/profile", "C:/profile/saves"},
+        {"C:profile\\saves", true, "C:", "C:profile", "C:profile\\saves"},
+        {"profile\\saves", true, "", "profile", "profile\\saves"},
+        {"\\profile\\saves", true, "\\", "\\profile", "\\profile\\saves"},
+        {"/profile/saves", false, "/", "/profile", "/profile/saves"},
+        {"//profile/saves", false, "/", "//profile", "//profile/saves"},
+        {"profile/saves/", false, "", "profile", "profile/saves"},
+        {"profile\\saves", false, "", "profile\\saves", NULL},
+        {"/", false, "/", NULL, NULL},
+        {"C:\\", true, "C:\\", NULL, NULL},
+        {"profile//saves", false, "", "profile", "profile//saves"},
+        {"\\\\server\\share\\\\profile\\saves\\", true, "\\\\server\\share", "\\\\server\\share\\\\profile", "\\\\server\\share\\\\profile\\saves"},
+    };
+    for (size_t c = 0; c < sizeof(cases) / sizeof(cases[0]); ++c) {
+        const Case &fixture = cases[c];
+        size_t cursor = SDL2_DirectoryRootLength(fixture.path, fixture.windows);
+        ASSERT_TRUE(std::string(fixture.path, cursor) == fixture.root);
+        std::vector<std::string> prefixes;
+        size_t end;
+        while ((end = SDL2_NextDirectoryPrefix(fixture.path, &cursor, fixture.windows)) != 0)
+            prefixes.push_back(std::string(fixture.path, end));
+        const size_t expected = (fixture.first ? 1 : 0) + (fixture.second ? 1 : 0);
+        ASSERT_EQ_UINT(expected, prefixes.size());
+        if (prefixes.size() == expected) {
+            if (fixture.first)
+                ASSERT_TRUE(prefixes[0] == fixture.first);
+            if (fixture.second)
+                ASSERT_TRUE(prefixes[1] == fixture.second);
+        }
+    }
+}
+
 static void test_host_services_and_diagnostics() {
     ASSERT_TRUE(g_platform.host.base_path() != NULL);
     ASSERT_TRUE(g_platform.host.base_path() == g_platform.host.base_path());
@@ -426,6 +475,21 @@ static void test_host_services_and_diagnostics() {
     snprintf(child, sizeof(child), "%s/child", folder);
     ASSERT_TRUE(g_platform.host.create_directory(child));
     ASSERT_TRUE(g_platform.host.create_directory(child));
+    ASSERT_TRUE(g_platform.host.create_directory("."));
+    char *base = g_platform.host.current_directory();
+    ASSERT_TRUE(base != NULL);
+    if (base) {
+        char *root = SDL_strdup(base);
+        ASSERT_TRUE(root != NULL);
+        if (root) {
+            const bool windows = strcmp(SDL_GetPlatform(), "Windows") == 0;
+            root[SDL2_DirectoryRootLength(root, windows)] = '\0';
+            if (*root)
+                ASSERT_TRUE(g_platform.host.create_directory(root));
+            g_platform.host.free_memory(root);
+        }
+        g_platform.host.free_memory(base);
+    }
     ASSERT_TRUE(!g_platform.host.remove_path(folder));
     ASSERT_TRUE(g_platform.host.remove_path(child));
     ASSERT_TRUE(g_platform.host.remove_path(folder));
@@ -474,6 +538,7 @@ int main() {
     RUN_TEST(test_event_payloads_and_borrowed_text);
     RUN_TEST(test_keyboard_and_gamepad_instance_ids);
     RUN_TEST(test_translated_event_union_bytes);
+    RUN_TEST(test_directory_parent_prefixes);
     RUN_TEST(test_host_services_and_diagnostics);
     g_platform.events.shutdown();
     ASSERT_EQ_UINT(0, SDL_WasInit(SDL_INIT_EVENTS));

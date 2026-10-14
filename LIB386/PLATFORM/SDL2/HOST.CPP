@@ -1,4 +1,5 @@
 #include "PRIVATE.H"
+#include "DIRECTORY_PATH.H"
 
 #include <errno.h>
 #include <stdio.h>
@@ -74,18 +75,28 @@ bool SDL2_CreateDirectory(const char *path) {
         Platform_Log(PLATFORM_LOG_ERROR, "%s", SDL_GetError());
         return false;
     }
-    bool ok = true;
-    for (size_t i = 1; ok; ++i) {
-        bool separator = copy[i] == '/';
 #ifdef _WIN32
-        separator = separator || copy[i] == '\\';
+    const bool windows = true;
+#else
+    const bool windows = false;
 #endif
-        if (copy[i] && !separator)
-            continue;
+    size_t cursor = SDL2_DirectoryRootLength(copy, windows);
+    size_t i = SDL2_NextDirectoryPrefix(copy, &cursor, windows);
+    bool ok = true;
+    if (!i) {
+        struct stat info;
+        if (stat(copy, &info) != 0)
+            ok = HostError("stat");
+        else if ((info.st_mode & S_IFMT) != S_IFDIR) {
+            errno = ENOTDIR;
+            ok = HostError("stat");
+        }
+    }
+    while (ok && i != 0) {
         const char saved = copy[i];
         copy[i] = '\0';
 #ifdef _WIN32
-        const int result = i == 2 && copy[1] == ':' ? 0 : _mkdir(copy);
+        const int result = _mkdir(copy);
 #else
         const int result = mkdir(copy, 0770);
 #endif
@@ -95,8 +106,7 @@ bool SDL2_CreateDirectory(const char *path) {
                 ok = HostError("mkdir");
         }
         copy[i] = saved;
-        if (!saved)
-            break;
+        i = SDL2_NextDirectoryPrefix(copy, &cursor, windows);
     }
     SDL_free(copy);
     return ok;
