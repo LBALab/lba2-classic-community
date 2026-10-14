@@ -594,9 +594,10 @@ made mid-session in a deep exterior scene reports a tick 0 mismatch in them and 
 not show it, which is why the shipped fixtures never see it. Nothing in the file is wrong: the same
 bytes read two ways.
 
-**Some settings have to match, and they are not in the save.** A replay reads the live config, so a
-config edited between recording and replay reads as the simulation diverging. Each of these was
-found by changing one cfg key at a time on the replay side of a recorded session:
+**Some settings have to match, and they are not in the save, so a replay borrows them.** Left to
+the live config, a setting edited between recording and replay reads as the simulation diverging.
+Each of these was found by changing one cfg key at a time on the replay side of a recorded session,
+which is what `--replay-own-settings` is for now that a replay no longer runs on the live config:
 
 | Setting | Diverges at | Why |
 |---|---|---|
@@ -633,8 +634,23 @@ The header carries every setting in the settings tables (`SOURCES/CONFIG_FILE.CP
 and gamepad, `SOURCES/FOLLOWCAM.CPP` for the Auto camera, `SOURCES/AMBIANCE.CPP` for audio) unless
 its row is marked `SETTING_NOT_RECORDED`. It used to be a list kept by hand of the ones the sweeps
 above found, and the Auto camera's later settings never reached it. A row added now is carried
-unless its author says otherwise, so a replay names the ones that differ as it starts, by the key
-the player would edit:
+unless its author says otherwise.
+
+A replay borrows each carried setting that differs from the player's for its own duration, the
+way it borrows the key tables, and says so as it starts, by the key the player would edit:
+
+```
+[rec] borrowed for this replay: settings.MouseSensitivityX=4 (yours: 8, given back when it ends)
+```
+
+The player's values come back when the replay ends, however it ends, and `lba2.cfg` is never
+written with a borrowed one: the cfg writer persists the value it is to give back, and on the way
+out the recorder's exit handler returns the borrow before the one that writes the cfg runs.
+`DetailLevel` re-derives rain and shadows when it is borrowed and when it is given back, because
+`MainLoop` derives them once on entry and the replay starts after that.
+
+`--replay-own-settings` replays on the live config instead, and reports the differences without
+borrowing them:
 
 ```
 [rec] mode differs: settings.MouseSensitivityX=4 (this run: 8)
@@ -648,9 +664,12 @@ is `mode.audio`; `VSync` and `FixedTimestep`, which are already `mode.vsync` and
 table, so not carried: the key bindings, which the header hashes as `bindings.digest`, and
 `FlagDisplayText`.
 
-A recording made before a setting was carried names it as a trait it predates, and a build that
-does not know a setting names it as absent. Neither is a divergence; both say which settings the
-replay could not check.
+A setting the recording does not carry is not borrowed: the replay runs on the player's value and
+names it as a trait the recording predates. There is no value it could safely put in its place. A
+recording made before a setting existed ran as though it were off, but one made after it existed
+and before the header carried it ran on whatever the recorder had, which for the Auto camera's later
+settings was on by default. A build that does not know a setting a recording carries names it as
+absent. Neither is a divergence; both say which settings the replay could not check.
 
 **The console is not recorded, and used to take the clock with it.** Its toggle arrives as an
 SDL key event rather than through the polled key table the recorder samples, so a replay never

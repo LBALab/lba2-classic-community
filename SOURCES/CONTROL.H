@@ -120,6 +120,11 @@ int Control_IsVerbose(void);
    is not what this is: nothing leaves the machine. */
 int Control_RecordTelemetry(void);
 
+/* Non-zero if --replay-own-settings was supplied: a replay runs on this run's settings
+   rather than borrowing the recording's, and only reports where they differ. For the
+   sweeps that find which settings a replay turns on. */
+int Control_ReplayOwnSettings(void);
+
 /* Log verbosity via --log-level <debug|info|warn|error>. Control_HasLogLevel is
    non-zero if the flag was supplied; Control_GetLogLevel returns the LogSeverity
    value (as int) to hand to Log_SetLevel. Applied in PERSO.CPP right after
@@ -362,6 +367,14 @@ S32 Control_InstallUncarried(const char *hdr);
 
 /* Hand the run's own back. A no-op if nothing is held. */
 void Control_RestoreUncarried(void);
+
+/* Borrow, for a replay, every recorded setting whose `settings.` header line differs from
+   this run's, saying each one on stderr. Returns how many were borrowed. A setting the
+   header does not carry is left alone. */
+S32 Control_InstallSettings(const char *hdr);
+
+/* Give the player's settings back. A no-op if nothing is borrowed. */
+void Control_RestoreSettings(void);
 
 /* ---- savegames the harness drives ------------------------------------------ */
 

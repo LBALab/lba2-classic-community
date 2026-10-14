@@ -98,6 +98,7 @@ static int s_exit = 0;
 static int s_demo = 0;
 static int s_verbose = 0;
 static int s_record_telemetry = 0;
+static int s_replay_own_settings = 0;
 static int s_have_log_level = 0;
 static LogSeverity s_log_level = LOG_INFO;
 
@@ -383,6 +384,12 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 1;
             continue;
         }
+        if (!strcmp(a, "--replay-own-settings")) {
+            s_replay_own_settings = 1;
+            s_active = 1;
+            read += 1;
+            continue;
+        }
         if (!strcmp(a, "--log-level") && has_val) {
             /* Master log level for every sink (file, terminal, F12 console).
                Applied in PERSO.CPP right after Log_Init. Not a harness flag, so
@@ -635,6 +642,10 @@ int Control_IsVerbose(void) {
 
 int Control_RecordTelemetry(void) {
     return s_record_telemetry;
+}
+
+int Control_ReplayOwnSettings(void) {
+    return s_replay_own_settings;
 }
 
 int Control_HasLogLevel(void) {
@@ -2091,28 +2102,13 @@ unsigned long long Control_StateDigest(void) {
     M(DIGEST_SAVED, VueOffsetY);
     M(DIGEST_SAVED, VueOffsetZ);
     /* A cfg setting, not game state: SOURCES/CONFIG_FILE.CPP binds it to the
-       `FollowCamera` key. The recording carries it as a `settings.` header line and the
-       replay reports the difference without installing it, so it is compared against a
-       value the replay has not been given.
+       `FollowCamera` key, and no load restores it. The recording carries it as a
+       `settings.` header line and the replay borrows it (Control_InstallSettings), so it
+       is carried rather than saved. Both classes mix, so the hash is what it was.
 
-       The class is untrue of this one field, and is left that way deliberately rather
-       than quietly: no load restores it, so DIGEST_SAVED claims something nothing does.
-       It is the counter-example to the rule the column exists to enforce, and it is named
-       here so that reading the column is still enough to know which fields are sound.
-
-       Both honest alternatives cost more than saying so. DIGEST_LOOSE takes a value out
-       of the hash, which is a membership change and moves CONTROL_DIGEST_VERSION, so
-       every recording made before it compares against a set that no longer exists.
-       DIGEST_CARRIED needs an install, and this is the only borrowed value with a file
-       behind it: the cfg row means the configuration is written back on the way out, so
-       an install without a guaranteed restore leaves a borrowed value in the player's
-       own configuration. The precedent for borrowing exists either way -- the binding
-       tables are installed for a replay's duration and handed back -- and there is a
-       third shape nobody has priced, which is to make the `settings.` line the file
-       already carries installable rather than adding a `state.` key beside it.
-
-       Issue #652 carries that design. Until it lands, the honest thing is the comment. */
-    M(DIGEST_SAVED, FollowCamera);
+       Under --replay-own-settings it is compared against the player's value, which is
+       what that flag is for: finding the settings a replay turns on. */
+    M(DIGEST_CARRIED, FollowCamera);
     M(DIGEST_SAVED, VueCamera);
     M(DIGEST_SAVED, CameraZone);
     M(DIGEST_SAVED, CinemaMode);
@@ -2321,6 +2317,60 @@ void Control_RestoreUncarried(void) {
     for (i = 0; i < UNCARRIED_COUNT; i++)
         uncarried_set(i, s_uncarriedSaved[i]);
     s_uncarriedHeld = 0;
+}
+
+/* ---- the settings a recording was made under -------------------------------- */
+
+/* A replay reads the live config, so a setting the player has changed since the
+   recording was made reads as the simulation diverging: the camera is in the digest,
+   and rain draws from the shared random stream. The header carries every recorded
+   setting (Control_DescribeState), and this borrows the ones that differ for the
+   replay's duration, on the borrow-and-return the key tables and the `state.` lines
+   use. Each borrow is said, so a reader knows the run is not on their own settings.
+
+   A setting the recording does not carry is left at the player's value, and the mode
+   report names it as one the file predates. There is no safe value to put in its
+   place: a recording made before a setting existed ran as though it were off, and one
+   made after it existed but before the header carried it ran on whatever the recorder
+   had, which for the Auto camera's later settings was on by default.
+
+   --replay-own-settings skips this, for the sweeps that find which settings a replay
+   turns on, which work by changing one on the replay side. */
+S32 Control_InstallSettings(const char *hdr) {
+    const T_SETTING *table;
+    S32 count;
+    S32 t, i;
+    S32 borrowed = 0;
+
+    for (t = 0; (table = ConfigFile_SettingTable(t, &count)) != NULL; t++) {
+        for (i = 0; i < count; i++) {
+            const T_SETTING *s = &table[i];
+            char key[80];
+            S32 theirs, mine;
+
+            if (s->key == NULL || s->record != SETTING_RECORDED)
+                continue;
+            snprintf(key, sizeof key, "settings.%s=", s->key);
+            if (!RecFmt_ReadInt(hdr, key, &theirs))
+                continue;
+            mine = *s->value;
+            if (Settings_Coerce(s, theirs) == mine)
+                continue;
+            if (!Settings_Borrow(s, theirs)) {
+                fprintf(stderr, "[rec] could not borrow %s%d; the replay runs on yours (%d)\n", key,
+                        (int)theirs, (int)mine);
+                continue;
+            }
+            fprintf(stderr, "[rec] borrowed for this replay: %s%d (yours: %d, given back when it ends)\n",
+                    key, (int)*s->value, (int)mine);
+            borrowed++;
+        }
+    }
+    return borrowed;
+}
+
+void Control_RestoreSettings(void) {
+    Settings_ReturnBorrowed();
 }
 
 /* The part of a run's description that comes from the engine rather than from whoever

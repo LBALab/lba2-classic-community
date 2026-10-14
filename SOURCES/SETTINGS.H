@@ -265,10 +265,28 @@ static inline S32 Settings_DescribeRecorded(const T_SETTING *table, S32 count, c
 /* Apply the cfg to every row that names a key, clamped. */
 extern void Settings_ReadConfig(const T_SETTING *table, S32 count);
 
-/* Persist every row that names a key, in table order. */
+/* Persist every row that names a key, in table order. A row a replay has
+ * borrowed persists the value it is to be given back, not the borrowed one. */
 extern void Settings_WriteConfig(const T_SETTING *table, S32 count);
 
 /* Register every row that names a cvar, carrying its range to the console. */
 extern void Settings_RegisterCvars(const T_SETTING *table, S32 count);
+
+/* A replay borrows the settings its recording was made under, and gives the
+ * player's own back when it ends, the way it already borrows the key tables.
+ *
+ * Settings_Borrow stores `value`, coerced, and tells the row's owner; the first
+ * borrow of a row keeps what it held, and a second keeps the first's. Returns 0
+ * if no more rows can be borrowed. Settings_ReturnBorrowed puts every borrowed
+ * row back and tells the owners.
+ *
+ * The cfg writer persists the kept value of a borrowed row, so a run that writes
+ * lba2.cfg mid-replay (the options menu, the resolution switch) leaves the
+ * player's settings in it. On the way out the recorder's exit handler returns
+ * the borrow first: TheEndInfo, which writes the cfg, is registered with atexit
+ * at boot and the recorder's handler after it, and atexit runs them in reverse.
+ * The writer's check covers that order changing. A crash writes nothing. */
+extern S32 Settings_Borrow(const T_SETTING *s, S32 value);
+extern void Settings_ReturnBorrowed(void);
 
 #endif /* SETTINGS_H */

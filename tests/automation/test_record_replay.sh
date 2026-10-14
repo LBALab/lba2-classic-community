@@ -1292,7 +1292,9 @@ bootleft="$(find "$(user_dir)/recordings" -name '*.boot.lba' 2>/dev/null | tr '\
 # The divergence is manufactured rather than found, so the arm does not depend on a bug
 # staying unfixed: the recording ran under the config the engine defaults to and the
 # replay is given FollowCamera flipped, which docs/RECORDING.md's settings table records
-# as a tick 0 divergence because the camera is in the digest.
+# as a tick 0 divergence because the camera is in the digest. A replay borrows the
+# recording's settings, which would put the flip right, so these runs pass
+# --replay-own-settings; the arm after this one checks the borrow.
 eqdir="$(mktemp -d)"
 clean_add "$eqdir"
 eqrec="$eqdir/eq.rec"
@@ -1318,7 +1320,7 @@ eqverdict() { # eqverdict <label> [--load ...]
     clean_add "$dir"
     printf 'FollowCamera=%s\n' "$eqflip" >"$dir/lba2.cfg"
     local out
-    out="$(LBA2_USER_DIR="$dir" ctl --fixed-dt 16 "$@" --replay "$eqrec" \
+    out="$(LBA2_USER_DIR="$dir" ctl --fixed-dt 16 "$@" --replay-own-settings --replay "$eqrec" \
         --tick 400 --exit 2>&1)" ||
         fail "equivalence/$label: replay run exited non-zero ($?); it hung or crashed"
     EQ="$(printf '%s\n' "$out" | grep -m1 'replay ended' |
@@ -1346,6 +1348,41 @@ case "$eqwith" in
 esac
 [ "$eqwith" = "$eqwithout" ] ||
     fail "equivalence: --load changed the verdict ($eqwith with, $eqwithout without)"
+
+# --- a replay borrows the settings the recording was made under -----------------------
+#
+# The same flip without --replay-own-settings. The replay borrows the recording's
+# FollowCamera, says so, and matches; and the player's lba2.cfg still holds the player's
+# value afterwards, which is the hazard issue #652 names: a borrowed value written into the
+# configuration the next real game boots from. Twice, because the cfg is written on two
+# different terms: once after the stream ran out and the replay gave everything back, and
+# once with the run ending mid-replay, where the order of the exit handlers is what returns
+# the borrow before the cfg is written.
+for bticks in 400 100; do
+    bdir="$(mktemp -d)"
+    clean_add "$bdir"
+    printf 'FollowCamera=%s\n' "$eqflip" >"$bdir/lba2.cfg"
+    bout="$(LBA2_USER_DIR="$bdir" ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --replay "$eqrec" \
+        --tick "$bticks" --exit 2>&1)" ||
+        fail "borrow/$bticks: replay run exited non-zero ($?); it hung or crashed"
+    case "$bout" in
+    *"borrowed for this replay: settings.FollowCamera=$eqcam (yours: $eqflip"*) ;;
+    *) fail "borrow/$bticks: the replay did not say it borrowed FollowCamera=$eqcam over the player's $eqflip" ;;
+    esac
+    case "$bout" in
+    *"mode differs: settings.FollowCamera"*)
+        fail "borrow/$bticks: FollowCamera was still reported as differing after the borrow" ;;
+    esac
+    if [ "$bticks" = 400 ]; then
+        case "$bout" in
+        *"first hash mismatch -1"*) ;;
+        *) fail "borrow: the flipped replay did not match on the recording's settings: $(printf '%s\n' "$bout" | grep -m1 'replay ended')" ;;
+        esac
+    fi
+    bkept="$(grep -E -m1 '^FollowCamera *[=:]' "$bdir/lba2.cfg" | tr -dc '0-9')"
+    [ "$bkept" = "$eqflip" ] ||
+        fail "borrow/$bticks: lba2.cfg holds FollowCamera=${bkept:-nothing} after the replay; the player's was $eqflip"
+done
 
 # A recording older than the format that carries its savegame inside it. legacy-v10.rec
 # names a sibling in `setup.snapshot=` instead, and the boot load has to find it there or
@@ -1494,4 +1531,4 @@ esac
 
 pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a video played to its end and replayed ($vidchecked ticks over $vidpolls polls); a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
 'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster; a recording on a host-sampled clock crossed a scene change instead of wedging in the fade; \
-a command ran where the recording ran it, for an inline verb and for a deferred one; the state dump was the same at a 400 and a 4000 tick budget; a recording that opens a menu was replayed through it ($escchecked ticks); a replay with no --load booted from the recording's own starting state and still matched ($noloadchecked ticks); a session recorded from a fresh boot carried no starting state and replayed into one; a deliberately diverging replay reported '$eqwith' with and without --load; a pre-inline recording loaded its sibling savegame with no --load and left it intact; the step's arming point was carried ($armtick against a replay's 0) without being reported, on a pair that replays clean"
+a command ran where the recording ran it, for an inline verb and for a deferred one; the state dump was the same at a 400 and a 4000 tick budget; a recording that opens a menu was replayed through it ($escchecked ticks); a replay with no --load booted from the recording's own starting state and still matched ($noloadchecked ticks); a session recorded from a fresh boot carried no starting state and replayed into one; a deliberately diverging replay reported '$eqwith' with and without --load; a replay on the player's own flipped FollowCamera borrowed the recording's, matched, and left the player's in lba2.cfg; a pre-inline recording loaded its sibling savegame with no --load and left it intact; the step's arming point was carried ($armtick against a replay's 0) without being reported, on a pair that replays clean"

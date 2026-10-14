@@ -71,6 +71,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a divergence names the field that moved instead of only the tick. Requires
   `--fixed-dt`, and `docs/RECORDING.md` says why. Console verbs `rec
   start|stop|play|info` do the same from a point you choose.
+- A replay runs under the settings its recording was made with. The recording
+  lists every setting the game may read, and a replay sets yours to those while
+  it plays and gives yours back when it ends; `lba2.cfg` keeps yours throughout.
+  `--replay-own-settings` replays under your own settings instead and reports
+  the ones that differ.
 
 ### Changed
 

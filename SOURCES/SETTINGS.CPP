@@ -1,5 +1,5 @@
-#include "C_EXTERN.H"
-
+/* No C_EXTERN.H: nothing here touches engine state but through the rows it is handed,
+   and without it tests/settings links this file on its own. */
 #include "SETTINGS.H"
 #include "CONSOLE/CONSOLE.H"
 #include <SYSTEM/DEFFILE.H>
@@ -52,17 +52,69 @@ void Settings_ReadConfig(const T_SETTING *table, S32 count) {
     }
 }
 
+/* Rows a replay has borrowed, with what each held before. Sized well past the
+ * recorded rows (38 today); a borrow past it is refused and reported by the
+ * caller rather than dropped. */
+#define SETTINGS_BORROW_MAX 128
+
+typedef struct {
+    const T_SETTING *row;
+    S32 kept;
+} T_SETTING_BORROW;
+
+static T_SETTING_BORROW s_borrowed[SETTINGS_BORROW_MAX];
+static S32 s_borrowedCount = 0;
+
+static T_SETTING_BORROW *find_borrow(const T_SETTING *s) {
+    S32 i;
+
+    for (i = 0; i < s_borrowedCount; i++) {
+        if (s_borrowed[i].row == s)
+            return &s_borrowed[i];
+    }
+    return NULL;
+}
+
+S32 Settings_Borrow(const T_SETTING *s, S32 value) {
+    T_SETTING_BORROW *b = find_borrow(s);
+
+    if (b == NULL) {
+        if (s_borrowedCount >= SETTINGS_BORROW_MAX)
+            return 0;
+        b = &s_borrowed[s_borrowedCount++];
+        b->row = s;
+        b->kept = *s->value;
+    }
+    /* The source is left alone: it says where the player's value came from, and
+       the player's value is the one the writer persists while this lasts. */
+    *s->value = Settings_Coerce(s, value);
+    if (s->on_change != NULL)
+        s->on_change(*s->value);
+    return 1;
+}
+
+void Settings_ReturnBorrowed(void) {
+    while (s_borrowedCount > 0) {
+        const T_SETTING_BORROW *b = &s_borrowed[--s_borrowedCount];
+        *b->row->value = b->kept;
+        if (b->row->on_change != NULL)
+            b->row->on_change(b->kept);
+    }
+}
+
 void Settings_WriteConfig(const T_SETTING *table, S32 count) {
     S32 i;
 
     for (i = 0; i < count; i++) {
         const T_SETTING *s = &table[i];
+        const T_SETTING_BORROW *b;
         S32 value;
 
         if (s->key == NULL)
             continue;
 
-        value = *s->value;
+        b = find_borrow(s);
+        value = (b != NULL) ? b->kept : *s->value;
         if (s->stored != NULL AND s->forced != NULL) {
             value = (s->source != NULL)
                         ? Settings_ValueToPersistFrom(value, *s->stored, s->forced(), *s->source)
