@@ -1191,15 +1191,16 @@ void FollowCamNoteScene(S32 exterior) {
  * A setting that switches on something the Auto camera did not do before gives
  * the value that switches it off, as SETTING_BEFORE. The camera fixtures start
  * from those values (`settings_before cam_`, CAM_PLAIN in camlib.sh) and switch
- * on only what they measure; a row without one stays at its default in every
- * fixture that does not set it. */
+ * on only what they measure. A row with no such value says SETTING_BEFORE_NONE
+ * and stays at its default in every fixture that does not set it; a cam_ row
+ * that says neither fails scripts/ci/check-settings-before.py. */
 static const T_SETTING FollowCamSettings[] = {
     {"FollowCamReengageFrames", NULL, "cam_recenter_delay", &FollowCamReengageFrames, SETTING_CLAMP,
      FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT, 0, 600, NULL, NULL, NULL, NULL,
-     "Frames before auto-cam re-centers after a manual pan"},
+     "Frames before auto-cam re-centers after a manual pan", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"FollowCamDriftDivisor", NULL, "cam_recenter_drift", &FollowCamDriftDivisor, SETTING_CLAMP,
      FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT, 1, 200, NULL, NULL, NULL, NULL,
-     "Auto-cam re-center drift divisor (higher = gentler)"},
+     "Auto-cam re-center drift divisor (higher = gentler)", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"FollowCamSceneCarry", NULL, "cam_scene_carry", &FollowCamSceneCarry, SETTING_TRUTHY,
      FOLLOW_CAM_SCENE_CARRY_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Auto cam: start behind the hero in a new outdoor scene, pitch kept", SETTING_RECORDED, SETTING_BEFORE(0)},
@@ -1211,37 +1212,37 @@ static const T_SETTING FollowCamSettings[] = {
      "Auto cam: eased obstruction clearance in place of the classic search", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamObstructHurryDivisor", NULL, "cam_obstruct_hurry", &FollowCamObstructHurryDivisor, SETTING_CLAMP,
      FOLLOW_CAM_OBSTRUCT_HURRY_DEFAULT, 1, FOLLOW_CAM_OBSTRUCT_EASE, NULL, NULL, NULL, NULL,
-     "cam_obstruct: ease divisor while the hero is hidden (1 = cut, 10 = no hurry)"},
+     "cam_obstruct: ease divisor while the hero is hidden (1 = cut, 10 = no hurry)", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"FollowCamHDRecompose", NULL, "cam_hd", &FollowCamHDRecompose, SETTING_TRUTHY,
      FOLLOW_CAM_HD_RECOMPOSE_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
-     "Auto cam HD recompose: pull in + steepen at tall render heights"},
+     "Auto cam HD recompose: pull in + steepen at tall render heights", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"FollowCamHDExcessCap", NULL, "cam_hd_cap", &FollowCamHDExcessCap, SETTING_CLAMP,
      FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT, 0, SETTING_MAX_NONE, NULL, NULL, NULL, NULL,
-     "Cap on recompose strength so tall res converges (0 = pure linear; 70 ~= 816p)"},
+     "Cap on recompose strength so tall res converges (0 = pure linear; 70 ~= 816p)", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"FollowCamHDPitchGain", NULL, "cam_hd_pitch", &FollowCamHDPitchGain, SETTING_CLAMP,
      FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL, NULL,
-     "HD recompose pitch gain (AlphaCam units per 1.0 of k-1)"},
+     "HD recompose pitch gain (AlphaCam units per 1.0 of k-1)", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"FollowCamHDDistGain", NULL, "cam_hd_dist", &FollowCamHDDistGain, SETTING_CLAMP,
      FOLLOW_CAM_HD_DIST_GAIN_DEFAULT, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL, NULL,
-     "HD recompose distance pull (% of boom per 1.0 of k-1)"},
+     "HD recompose distance pull (% of boom per 1.0 of k-1)", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"FollowCamHDLeanGain", NULL, "cam_hd_lean", &FollowCamHDLeanGain, SETTING_CLAMP,
      FOLLOW_CAM_HD_LEAN_GAIN_DEFAULT, SETTING_MIN_NONE, SETTING_MAX_NONE, NULL, NULL, NULL, NULL,
-     "HD recompose forward-lean cut (% per 1.0 of k-1)"},
+     "HD recompose forward-lean cut (% per 1.0 of k-1)", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"FollowCamGround", NULL, "cam_ground", &FollowCamGround, SETTING_TRUTHY,
      FOLLOW_CAM_GROUND_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
-     "Auto cam: smooth terrain ground-clearance lift"},
+     "Auto cam: smooth terrain ground-clearance lift", SETTING_RECORDED, SETTING_BEFORE_NONE},
     /* The ceiling keeps (g + clearance - hy) * 100 inside S32 in the occlusion
      * march below, which is why it is stated with the setting rather than at the
      * one surface that used to check it. */
     {"FollowCamGroundClearance", NULL, "cam_ground_clear", &FollowCamGroundClearance, SETTING_CLAMP,
      FOLLOW_CAM_GROUND_CLEARANCE_DEFAULT, 0, 20000, NULL, NULL, NULL, NULL,
-     "Ground clearance: keep the eye this far above the ground under it"},
+     "Ground clearance: keep the eye this far above the ground under it", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"FollowCamManualHoldFrames", NULL, "cam_manual_hold", &FollowCamManualHoldFrames, SETTING_CLAMP,
      FOLLOW_CAM_MANUAL_HOLD_DEFAULT, 0, FOLLOW_CAM_MANUAL_HOLD_MAX, NULL, NULL, NULL, NULL,
-     "Frames the pitch/distance auto-assist yields after a manual camera nudge"},
+     "Frames the pitch/distance auto-assist yields after a manual camera nudge", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"FollowCamHoldAngle", NULL, "cam_hold_angle", &FollowCamHoldAngle, SETTING_TRUTHY,
      FOLLOW_CAM_HOLD_ANGLE_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
-     "Hold the manual camera rotation (free-camera); off = classic auto-recenter drift"},
+     "Hold the manual camera rotation (free-camera); off = classic auto-recenter drift", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"FollowCamZoneReturn", NULL, "cam_zone_return", &FollowCamZoneReturn, SETTING_TRUTHY,
      FOLLOW_CAM_ZONE_RETURN_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
      "Auto cam: give a scripted shot's yaw and pitch back when the hero leaves its box", SETTING_RECORDED, SETTING_BEFORE(0)},
@@ -1253,7 +1254,7 @@ static const T_SETTING FollowCamSettings[] = {
      "Prototype: hold the camera's world direction while the hero turns (off = it turns with him)", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamWorldReturn", NULL, "cam_world_return", &FollowCamWorldReturn, SETTING_CLAMP,
      FOLLOW_CAM_WORLD_RETURN_DEFAULT, 0, FOLLOW_CAM_WORLD_RETURN_MAX, NULL, NULL, NULL, NULL,
-     "cam_world_anchor with cam_hold_angle 0: units walked forward that pace the return behind the hero (0 = none)"},
+     "cam_world_anchor with cam_hold_angle 0: units walked forward that pace the return behind the hero (0 = none)", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"FollowCamEaseMs", NULL, "cam_ease_ms", &FollowCamEaseMs, SETTING_CLAMP,
      FOLLOW_CAM_EASE_MS_DEFAULT, 0, FOLLOW_CAM_EASE_MS_MAX, NULL, NULL, NULL, NULL,
      "Auto cam: time constant of the turn behind the hero, ms (0 = per-frame lerp, 300 = retail, 600 = the lerp at 60 fps)", SETTING_RECORDED, SETTING_BEFORE(0)},
@@ -1265,7 +1266,7 @@ static const T_SETTING FollowCamSettings[] = {
        fallback and its own rule; giving this row a key would read the same
        global twice under two rules, and this table runs last. */
     {NULL, NULL, "cam_follow", &FollowCamera, SETTING_TRUTHY, FALSE, 0, 1, NULL, NULL, NULL, NULL,
-     "Auto camera (third-person follow) enable"},
+     "Auto camera (third-person follow) enable", SETTING_RECORDED, SETTING_BEFORE_NONE},
 };
 #define FOLLOW_CAM_SETTING_COUNT ((S32)(sizeof(FollowCamSettings) / sizeof(FollowCamSettings[0])))
 

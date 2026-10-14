@@ -104,7 +104,13 @@ typedef enum {
  *
  * Left out of a row, it is zero: the row has none. That is right for a setting
  * that only tunes another one, and for one whose value is the thing a fixture
- * sets itself. There is no value that would be safe to assume instead. */
+ * sets itself. There is no value that would be safe to assume instead.
+ *
+ * Leaving it out and deciding there is none read the same here, so a row the
+ * fixtures reset says which it is: SETTING_BEFORE(v) or SETTING_BEFORE_NONE.
+ * A new setting that switched a later behaviour on and forgot would stay on in
+ * every fixture, and nothing would fail. scripts/ci/check-settings-before.py
+ * holds every row named by the fixtures' prefix (CAM_PLAIN in camlib.sh) to it. */
 typedef struct {
     S32 has; /* 0: no value from before the setting */
     S32 value;
@@ -113,6 +119,7 @@ typedef struct {
 /* Unformatted: clang-format 18.1.3 (CI) and 18.1.8 disagree on a braced macro body. */
 // clang-format off
 #define SETTING_BEFORE(v) {1, (v)}
+#define SETTING_BEFORE_NONE {0, 0}
 // clang-format on
 
 /* Tagged so a header that only hands out a pointer to a table can say
@@ -141,7 +148,7 @@ typedef struct T_SETTING {
     T_SETTING_SOURCE *source;     /* where the live value came from; NULL to not track it */
     const char *help;             /* console help text */
     T_SETTING_RECORD record;      /* left out of a row, it is recorded; see above */
-    T_SETTING_BEFORE before;      /* left out of a row, it has none; see above */
+    T_SETTING_BEFORE before;      /* left out of a row, it has none; a cam_ row must say; see above */
 } T_SETTING;
 
 /* Store a value into a setting and tell its owner, which is what "setting" a
