@@ -378,6 +378,8 @@ Fixtures live in `tests/automation/`, with `camlib.sh` turning a run into a per-
 | `camzone_hold` | both cameras leave an authored shot in the same place |
 | `camzone_return` | with `cam_zone_return` or `cam_zone_anchor` on, a shot's yaw and pitch come back on leaving its box, the player's own stay, and a latching shot holds its world angle |
 
+Most of them start from `CAM_PLAIN`, which is `settings_before cam_`: every Auto camera setting that switches on a later behaviour is set to the value that switches it off, and the fixture then switches on what it measures. Which settings those are is said by their rows in `FOLLOWCAM.CPP` (`SETTING_BEFORE`), so a new setting of that kind declares it there and every fixture starts without it.
+
 Two habits are worth keeping when adding to these. **Run a new fixture against a build without the thing it guards** and confirm it fails there; several of these passed at first because their setup never happened rather than because the engine was right. And **assert the cause when the symptom is unobservable**: the realign runs in the input pass, before the camera update logs anything, so on a working engine the divergence it corrects leaves no trace at all.
 
 ### Future work

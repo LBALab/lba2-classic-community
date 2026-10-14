@@ -12,3 +12,31 @@ set_target_properties(test_settings_coerce PROPERTIES CXX_STANDARD 11)
 
 add_test(NAME test_settings_coerce COMMAND test_settings_coerce)
 register_host_test(test_settings_coerce)
+
+# A replay's borrow of the recording's settings, through a real cfg file: the borrowed value
+# must never be what the cfg writer persists. Links SETTINGS.CPP and the cfg reader; the
+# console it registers cvars with is stubbed in the test.
+add_executable(test_settings_borrow
+    test_settings_borrow.cpp
+    ${CMAKE_SOURCE_DIR}/SOURCES/SETTINGS.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DEFFILE.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/FILES.CPP
+    # FILES.CPP falls back to the disc-image source; pull in its (unexercised
+    # here) implementation and the ISO9660 reader it needs so the link resolves.
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DISCIMG.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ISO9660.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOADSAVE.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOGPRINT.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ITOA.CPP)
+
+target_include_directories(test_settings_borrow PRIVATE
+    ${CMAKE_SOURCE_DIR}/SOURCES
+    ${CMAKE_SOURCE_DIR}/LIB386/H
+    ${CMAKE_SOURCE_DIR}/tests
+)
+target_compile_definitions(test_settings_borrow PRIVATE LBA_LOG_NO_PLATFORM)
+set_target_properties(test_settings_borrow PROPERTIES CXX_STANDARD 11)
+
+add_test(NAME test_settings_borrow COMMAND test_settings_borrow)
+register_host_test(test_settings_borrow)

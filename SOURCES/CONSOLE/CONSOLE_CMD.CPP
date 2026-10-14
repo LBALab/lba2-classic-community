@@ -1616,6 +1616,31 @@ static void cmd_resolution(int argc, const char *argv[]) {
     }
 }
 
+/* settings_before [prefix]: set every setting whose console name starts with
+   prefix to its value from before it existed (SETTINGS.H), and print each one.
+   No prefix sets them all. The camera fixtures run `settings_before cam_` to
+   measure from the Auto camera without its later behaviours. */
+static void cmd_settings_before(int argc, const char *argv[]) {
+    const char *prefix = (argc >= 2) ? argv[1] : "";
+    const size_t len = strlen(prefix);
+    const T_SETTING *table;
+    S32 count, t, i, set = 0;
+
+    for (t = 0; (table = ConfigFile_SettingTable(t, &count)) != NULL; t++) {
+        for (i = 0; i < count; i++) {
+            const T_SETTING *s = &table[i];
+            if (s->cvar == NULL || strncmp(s->cvar, prefix, len) != 0)
+                continue;
+            if (Settings_ApplyBefore(s)) {
+                Console_Print("%s = %d", s->cvar, (int)*s->value);
+                set++;
+            }
+        }
+    }
+    if (set == 0)
+        Console_Print("settings_before: no setting named '%s*' has a value from before it", prefix);
+}
+
 /* vsync [on|off|toggle]: cap the frame rate to the display refresh. No args
    prints the current state. Mirrors the Display-menu Vsync toggle; persists to
    lba2.cfg (VSync key) immediately, the same way the distrib verb does. */
@@ -2461,6 +2486,13 @@ void Console_RegisterAll(void) {
                               "(W%8==0, range 320x200..1920x1024); native snaps to the current display; "
                               "--all expands the list with advanced modes. The switch applies to this "
                               "run only; lba2.cfg keeps the resolution the game boots at.");
+
+    Console_RegisterCommandEx("settings_before", cmd_settings_before,
+                              "Set settings to their value from before they existed",
+                              "settings_before [prefix]",
+                              "Sets each setting named prefix* (all without one) to the value that "
+                              "switches its behaviour off. `settings_before cam_` is the Auto camera "
+                              "the camera fixtures measure from.");
 
     Console_RegisterCommandEx("vsync", cmd_vsync,
                               "Toggle vertical sync (no args = show state)",

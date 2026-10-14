@@ -1186,7 +1186,13 @@ void FollowCamNoteScene(S32 exterior) {
  * in this order, and reordering rows would reorder every player's file.
  *
  * cam_follow has no key here. FollowCamera is persisted by CONFIG_FILE.CPP at its
- * own position in the file, apart from this block. */
+ * own position in the file, apart from this block.
+ *
+ * A setting that switches on something the Auto camera did not do before gives
+ * the value that switches it off, as SETTING_BEFORE. The camera fixtures start
+ * from those values (`settings_before cam_`, CAM_PLAIN in camlib.sh) and switch
+ * on only what they measure; a row without one stays at its default in every
+ * fixture that does not set it. */
 static const T_SETTING FollowCamSettings[] = {
     {"FollowCamReengageFrames", NULL, "cam_recenter_delay", &FollowCamReengageFrames, SETTING_CLAMP,
      FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT, 0, 600, NULL, NULL, NULL, NULL,
@@ -1196,13 +1202,13 @@ static const T_SETTING FollowCamSettings[] = {
      "Auto-cam re-center drift divisor (higher = gentler)"},
     {"FollowCamSceneCarry", NULL, "cam_scene_carry", &FollowCamSceneCarry, SETTING_TRUTHY,
      FOLLOW_CAM_SCENE_CARRY_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
-     "Auto cam: start behind the hero in a new outdoor scene, pitch kept"},
+     "Auto cam: start behind the hero in a new outdoor scene, pitch kept", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamZoneSkip", NULL, "cam_zone_skip", &FollowCamZoneSkip, SETTING_TRUTHY,
      FOLLOW_CAM_ZONE_SKIP_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
-     "Auto cam: leave scripted shots that only latch unfired while steering"},
+     "Auto cam: leave scripted shots that only latch unfired while steering", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamObstruct", NULL, "cam_obstruct", &FollowCamObstruct, SETTING_TRUTHY,
      FOLLOW_CAM_OBSTRUCT_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
-     "Auto cam: eased obstruction clearance in place of the classic search"},
+     "Auto cam: eased obstruction clearance in place of the classic search", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamObstructHurryDivisor", NULL, "cam_obstruct_hurry", &FollowCamObstructHurryDivisor, SETTING_CLAMP,
      FOLLOW_CAM_OBSTRUCT_HURRY_DEFAULT, 1, FOLLOW_CAM_OBSTRUCT_EASE, NULL, NULL, NULL, NULL,
      "cam_obstruct: ease divisor while the hero is hidden (1 = cut, 10 = no hurry)"},
@@ -1238,22 +1244,22 @@ static const T_SETTING FollowCamSettings[] = {
      "Hold the manual camera rotation (free-camera); off = classic auto-recenter drift"},
     {"FollowCamZoneReturn", NULL, "cam_zone_return", &FollowCamZoneReturn, SETTING_TRUTHY,
      FOLLOW_CAM_ZONE_RETURN_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
-     "Auto cam: give a scripted shot's yaw and pitch back when the hero leaves its box"},
+     "Auto cam: give a scripted shot's yaw and pitch back when the hero leaves its box", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamZoneAnchor", NULL, "cam_zone_anchor", &FollowCamZoneAnchor, SETTING_TRUTHY,
      FOLLOW_CAM_ZONE_ANCHOR_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
-     "Prototype: hold a latching shot's world yaw while the hero is inside its box"},
+     "Prototype: hold a latching shot's world yaw while the hero is inside its box", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamWorldAnchor", NULL, "cam_world_anchor", &FollowCamWorldAnchor, SETTING_TRUTHY,
      FOLLOW_CAM_WORLD_ANCHOR_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
-     "Prototype: hold the camera's world direction while the hero turns (off = it turns with him)"},
+     "Prototype: hold the camera's world direction while the hero turns (off = it turns with him)", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamWorldReturn", NULL, "cam_world_return", &FollowCamWorldReturn, SETTING_CLAMP,
      FOLLOW_CAM_WORLD_RETURN_DEFAULT, 0, FOLLOW_CAM_WORLD_RETURN_MAX, NULL, NULL, NULL, NULL,
      "cam_world_anchor with cam_hold_angle 0: units walked forward that pace the return behind the hero (0 = none)"},
     {"FollowCamEaseMs", NULL, "cam_ease_ms", &FollowCamEaseMs, SETTING_CLAMP,
      FOLLOW_CAM_EASE_MS_DEFAULT, 0, FOLLOW_CAM_EASE_MS_MAX, NULL, NULL, NULL, NULL,
-     "Auto cam: time constant of the turn behind the hero, ms (0 = per-frame lerp, 300 = retail, 600 = the lerp at 60 fps)"},
+     "Auto cam: time constant of the turn behind the hero, ms (0 = per-frame lerp, 300 = retail, 600 = the lerp at 60 fps)", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamTargetMs", NULL, "cam_target_ms", &FollowCamTargetMs, SETTING_CLAMP,
      FOLLOW_CAM_TARGET_MS_DEFAULT, 0, FOLLOW_CAM_EASE_MS_MAX, NULL, NULL, NULL, NULL,
-     "Auto cam: time constant of the look-at point trailing the hero, ms (0 = pinned to him, 300 = retail)"},
+     "Auto cam: time constant of the look-at point trailing the hero, ms (0 = pinned to him, 300 = retail)", SETTING_RECORDED, SETTING_BEFORE(0)},
     /* cvar only, and it must stay that way. FollowCamera's cfg row lives in
        CONFIG_FILE.CPP's table, which reads it with the legacy AutoCameraCenter
        fallback and its own rule; giving this row a key would read the same

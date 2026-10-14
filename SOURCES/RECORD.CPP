@@ -1187,6 +1187,7 @@ static void record_flush_at_exit(void) {
     Record_Stop();
     bindings_restore();
     Control_RestoreUncarried();
+    Control_RestoreSettings();
     /* A replay that ended before its reload landed still has the snapshot staged. The
        reload path drops it as soon as the load has read it; this is the other way out,
        and it is here for the same reason the binding restore is: the run can stop at
@@ -1837,6 +1838,7 @@ int Record_Stop(void) {
         s_deviceSaved = -1;
     }
     Control_RestoreUncarried();
+    Control_RestoreSettings();
     record_release_step();
     record_restore_player();
     return 1;
@@ -2705,6 +2707,11 @@ static void replay_begin(void) {
                 "difference in them that is the file's age and not a divergence\n",
                 s_recPath);
     }
+    /* The settings the recording was made under, borrowed where they differ from the
+       player's. Before the mode report, so what it still names is what this run could
+       not match rather than what it was about to put right. */
+    if (!Control_ReplayOwnSettings())
+        Control_InstallSettings(s_headerBuf);
     /* The recorded commands are executed through the console, and a run that never used
        --exec has never registered its table: every replayed command then dispatches to
        nothing, silently, and the replay diverges wherever the recording relied on one.

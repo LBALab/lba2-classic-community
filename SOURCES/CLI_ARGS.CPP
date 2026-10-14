@@ -134,6 +134,8 @@ static const T_CLI_FLAG CliFlags[] = {
                                                  "tick, so a divergence names the field and not\n"
                                                  "only the tick; about 2 KB a tick"},
     {"--replay", 1, 0, 0, 0, NULL, "<name>", "replay a recording and report where it stops matching"},
+    {"--replay-own-settings", 0, 0, 0, 0, NULL, "", "replay on this run's settings instead of borrowing\n"
+                                                    "the recording's; differences are only reported"},
     {"--ignore-focus", 0, 0, 0, 0, NULL, "", "keep the clock running when the window loses focus\n"
                                              "(--listen implies this)"},
 

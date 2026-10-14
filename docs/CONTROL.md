@@ -723,7 +723,8 @@ records the console commands alongside the input so a recording can stand in for
 | Flag | What it does |
 |---|---|
 | `--record <name>` | Record from the first input poll, menus included. One file, holding the savegames at each end of the session. A name with no directory in it lands in `<userDir>/recordings/` |
-| `--replay <name>` | Replay a recording and report where it stops matching. Resolved the same way |
+| `--replay <name>` | Replay a recording and report where it stops matching. Resolved the same way. The settings the recording was made under are borrowed for the replay and given back ([RECORDING.md](RECORDING.md)) |
+| `--replay-own-settings` | Replay on this run's settings instead of borrowing the recording's, and only report where they differ. For finding which settings a replay turns on |
 | `--record-telemetry` | Store every value the state digest mixes, every tick, so a divergence names the field and not only the tick. About 2 KB a tick. Only the recording run needs it; a replay reads the values out of the file |
 
 Both need `--fixed-dt`: on the host-sampled clock a replay is not exact, which was measured rather

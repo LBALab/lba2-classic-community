@@ -40,7 +40,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 #
 # Translation units that end up with SOURCES/DEFINES.H in front of them. This ceiling only
 # falls: every module that leaves the aggregation takes TUs off it. Raising it is not a fix.
-DEFINES_FANIN = 57
+DEFINES_FANIN = 56
 DEFINES_HEADER = "SOURCES/DEFINES.H"
 
 CANDIDATES = ("build", "build-clang", "out/build/linux", "out/build/linux_clang")

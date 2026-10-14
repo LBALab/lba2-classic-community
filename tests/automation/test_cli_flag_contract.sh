@@ -67,6 +67,7 @@ MODES="
 --record|--record \"$tmp/contract.rec\"
 --record-telemetry|--record-telemetry
 --replay|--replay \"$tmp/contract.rec\"
+--replay-own-settings|--replay-own-settings --replay \"$tmp/contract.rec\"
 "
 # --replay reads the file the --record case above just wrote, so the order of those
 # two lines is load-bearing: a replay of a file that does not exist reports and

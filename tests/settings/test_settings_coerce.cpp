@@ -36,6 +36,8 @@ static T_SETTING row(T_SETTING_TYPE type, S32 def, S32 min, S32 max) {
     s.source = NULL;
     s.help = NULL;
     s.record = SETTING_RECORDED;
+    s.before.has = 0;
+    s.before.value = 0;
     return s;
 }
 
@@ -364,6 +366,41 @@ static void test_the_header_appends_and_refuses_a_cut_line(void) {
     ASSERT_EQ_INT((S32)strlen(out), (S32)at);
 }
 
+/* `settings_before` sets a row the way the console does, so its owner hears of
+   it: a camera fixture switching a behaviour off must reach whatever caches it. */
+static void test_a_value_from_before_is_applied_and_told(void) {
+    S32 live = 1;
+    T_SETTING s = row(SETTING_TRUTHY, 1, 0, 1);
+    T_SETTING_BEFORE before = SETTING_BEFORE(0);
+    s.value = &live;
+    s.on_change = record_apply;
+    s.before = before;
+
+    reset_apply();
+    ASSERT_EQ_INT(1, Settings_ApplyBefore(&s));
+    ASSERT_EQ_INT(0, live);
+    ASSERT_EQ_INT(1, s_applied_calls);
+    ASSERT_EQ_INT(0, s_applied_value);
+}
+
+/* A row with no value from before is left as it is. Zero is a real value from
+   before, so a row that has none must not be read as one that says zero: it
+   would switch off every tuning a fixture leaves at its default. */
+static void test_a_row_without_one_is_left_alone(void) {
+    S32 live = 700;
+    T_SETTING s = row(SETTING_CLAMP, 700, 0, 20000);
+    s.value = &live;
+    s.on_change = record_apply;
+
+    reset_apply();
+    ASSERT_EQ_INT(0, Settings_ApplyBefore(&s));
+    ASSERT_EQ_INT(700, live);
+    ASSERT_EQ_INT(0, s_applied_calls);
+
+    memset(&s, 0, sizeof s);
+    ASSERT_EQ_INT(0, s.before.has);
+}
+
 int main(void) {
     RUN_TEST(test_every_rule_passes_an_in_range_value_through);
     RUN_TEST(test_clamp_moves_to_the_nearer_bound);
@@ -389,6 +426,8 @@ int main(void) {
     RUN_TEST(test_the_header_carries_what_is_not_opted_out);
     RUN_TEST(test_a_row_that_does_not_mention_recording_is_recorded);
     RUN_TEST(test_the_header_appends_and_refuses_a_cut_line);
+    RUN_TEST(test_a_value_from_before_is_applied_and_told);
+    RUN_TEST(test_a_row_without_one_is_left_alone);
     TEST_SUMMARY();
     return test_failures != 0;
 }

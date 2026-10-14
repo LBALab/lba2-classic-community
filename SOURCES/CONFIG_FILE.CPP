@@ -8,6 +8,7 @@
 #include "DISTRIB.H"         /* Distrib_* : the release the data says it is */
 #include "FOLLOWCAM.H"       /* the Auto camera's settings */
 #include "FOLLOWCAM_CFG.H"   /* and their defaults */
+#include "GAMEMENU.H"        /* SetDetailLevel */
 #include "INPUT.H"           /* Read/WriteInputConfig, Read/WriteGamepadConfig */
 #include "JOYSTICK.H"        /* JoystickDeadzone */
 #include "RES_SWITCH.H"
@@ -107,6 +108,15 @@ static void ApplyPresentFilter(S32 mode) {
     Window_SetPresentFilter(PLATFORM_FILTER_NEAREST);
 }
 
+/* MainLoop derives Shadow, RainEnable and the sea and horizon from DetailLevel on
+   entry, so a value set after that, by a replay borrowing the recording's, only
+   counts once they are derived again. RainEnable matters to a replay: rain draws
+   from the shared random stream. */
+static void ApplyDetailLevel(S32 level) {
+    (void)level;
+    SetDetailLevel();
+}
+
 /* LBA2_PRESENT_FILTER takes the names, or the numbers the cfg and console use. */
 static S32 ParsePresentFilter(const char *text) {
     static const char *const names[] = {"nearest", "linear", "pixelart"};
@@ -140,7 +150,8 @@ static const T_SETTING BootSettings[] = {
     /* User-facing name: "Auto camera" (menu/docs); the legacy spelling is read
        so an existing cfg keeps working. The camera module owns its cvar. */
     {"FollowCamera", "AutoCameraCenter", NULL, &FollowCamera, SETTING_OR_DEFAULT, FALSE, 0, 1, NULL, NULL, NULL},
-    {"DetailLevel", NULL, NULL, &DetailLevel, SETTING_CLAMP, MAX_DETAIL_LEVEL, 0, MAX_DETAIL_LEVEL, NULL, NULL, NULL},
+    {"DetailLevel", NULL, NULL, &DetailLevel, SETTING_CLAMP, MAX_DETAIL_LEVEL, 0, MAX_DETAIL_LEVEL, NULL, NULL,
+     ApplyDetailLevel},
     {"FullScreen", NULL, NULL, &VideoFullScreen, SETTING_OR_DEFAULT, TRUE, 0, 1, NULL, NULL, NULL, NULL, NULL,
      SETTING_NOT_RECORDED},
     {"DisplayFullScreen", NULL, NULL, &DisplayFullScreen, SETTING_OR_DEFAULT, TRUE, 0, 1, NULL, NULL, NULL, NULL, NULL,
