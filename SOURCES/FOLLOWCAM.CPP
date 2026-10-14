@@ -1174,6 +1174,10 @@ void FollowCamShotTookView(void) {
     FollowCamShotHadView = TRUE;
 }
 
+void FollowCamShotAtOnce(void) {
+    FollowCamBlendOn = FALSE;
+}
+
 S32 FollowCamBlending(void) {
     return FollowCamBlendOn;
 }
