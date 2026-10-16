@@ -29,10 +29,14 @@ LOG="$REPO_DIR/build_logs/switch-build-$(date +%Y%m%d_%H%M%S).log"
 echo "Switch SDK: $IMAGE"
 echo "Build log: $LOG"
 
+# Bind mounts change inode/ctime/ownership fields cached in the host's Git index.
 docker run --rm \
     --user "$(id -u):$(id -g)" \
     --env SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
     --env TZ=UTC --env LC_ALL=C \
+    --env GIT_CONFIG_COUNT=2 \
+    --env GIT_CONFIG_KEY_0=core.trustctime --env GIT_CONFIG_VALUE_0=false \
+    --env GIT_CONFIG_KEY_1=core.checkstat --env GIT_CONFIG_VALUE_1=minimal \
     --env HOME=/src/out/switch-home \
     --volume "$REPO_DIR:/src" --workdir /src \
     "$IMAGE" bash -euc '

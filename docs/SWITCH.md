@@ -22,7 +22,7 @@ Outputs:
 | `out/switch/switch/lba2cc/lba2cc.nro` | Homebrew executable with NACP metadata and devkitPro's default icon |
 | `out/switch/debug/lba2cc.elf` | Unstripped, matching executable for debugging; not needed on the SD card |
 
-The wrapper sets `SOURCE_DATE_EPOCH` from the HEAD commit time, fixing compiler date/time macros and ZIP timestamps. ZIP packaging includes only the three installation files, omits host UID/access-time metadata and uses UTC. Reproducibility means the same source revision, working-tree contents and SDK architecture; native amd64 and arm64 compiler distributions are not assumed to emit identical binaries. The engine still labels modified sources as dirty. A different image digest is an explicit SDK upgrade, and should be verified with a clean build.
+The wrapper sets `SOURCE_DATE_EPOCH` from the HEAD commit time, fixing compiler date/time macros and ZIP timestamps. ZIP packaging includes only the three installation files, omits host UID/access-time metadata and uses UTC. Reproducibility means the same source revision, working-tree contents and SDK architecture; native amd64 and arm64 compiler distributions are not assumed to emit identical binaries. Container-only Git settings ignore bind-mount inode, ctime and ownership differences without changing the host's configuration; the engine still labels modified sources as dirty. A different image digest is an explicit SDK upgrade, and should be verified with a clean build.
 
 ## Install and supply game data
 
