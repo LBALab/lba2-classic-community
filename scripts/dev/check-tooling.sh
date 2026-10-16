@@ -359,6 +359,11 @@ if want_tier 3; then
     elif have docker && docker info >/dev/null 2>&1; then
         if docker image inspect "$switch_image" >/dev/null 2>&1; then
             row ok "Switch Docker SDK" "pinned image cached — scripts/dev/build-switch.sh"
+            if docker run --rm "$switch_image" sh -c 'command -v nxlink' >/dev/null 2>&1; then
+                row ok "Switch nxlink" "in pinned image — scripts/dev/run-switch.sh"
+            else
+                row gap "Switch nxlink" "not executable in pinned image — scripts/dev/run-switch.sh"
+            fi
         else
             row info "Switch Docker SDK" "scripts/dev/build-switch.sh pulls the image pinned in docker/switch-image.txt"
         fi

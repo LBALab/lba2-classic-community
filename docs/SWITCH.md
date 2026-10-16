@@ -48,6 +48,23 @@ The backend reports `sdmc:/switch/lba2cc/` as its installation root regardless o
 
 Missing-data and other message boxes use libnx's application-error applet and include the SD-card setup paths. Clipboard and folder-picker support are not added; the installation layout avoids needing a desktop picker.
 
+## Upload and run over the network
+
+The Switch launcher is called Homebrew Menu (hbmenu). Its NetLoader receives an NRO over the local network and launches it, so development rebuilds do not require moving the SD card.
+
+Install the SD-card layout and retail files once, including the `switch/lba2cc/` directory. Connect the computer and Switch to the same trusted LAN. Open Homebrew Menu in application mode and press Y to activate NetLoader; note the console's IPv4 address. Then run:
+
+```bash
+bash scripts/dev/build-switch.sh
+bash scripts/dev/run-switch.sh 192.168.1.42
+```
+
+Replace the example address with the Switch's address. The [run wrapper](../scripts/dev/run-switch.sh) uses nxlink from the same pinned Docker image; no host nxlink installation is needed. It uploads the existing build to `sdmc:/switch/lba2cc/lba2cc.nro`, replaces that executable and launches it. It does not transfer retail files, saves, settings or the package's README/license, and does not rebuild automatically.
+
+The explicit address avoids UDP broadcast discovery across Docker Desktop's network boundary. Uploads connect to the Switch's TCP port 28280; the wrapper publishes the computer's TCP port 28771 for the game's reverse stdout/stderr connection. Allow that inbound port through the host firewall on the trusted LAN, and do not expose it to the internet. A Docker daemon on a different machine is not supported by this wrapper: the source bind mount and published port belong to the daemon's host.
+
+The terminal streams game logs until the game exits. Ctrl-C disconnects log streaming; it is not a remote Quit command. Use the game's menu for a clean exit. Normal SD-card launches do not initialize network logging. If a network launch cannot establish logging, the game displays a warning and continues; the on-disk log remains available in `user/adeline.log`.
+
 ## Platform boundary
 
 Switch-specific code stays in the [SDL2 backend](../LIB386/PLATFORM/SDL2/). The native bridge is C because current libnx headers require newer C++ features, while the game and C++ backend remain C++98. No libnx SDK type enters the public PAL contract.
@@ -82,5 +99,6 @@ Record console/system version, launch mode, controller configuration and tested 
 - [ ] Controller disconnect/reconnect does not leave held movement or stale input; another supported controller can regain control.
 - [ ] Dock/undock and HOME/sleep/wake restore usable video, input and audio without a simulation-time burst.
 - [ ] Quit returns to the Homebrew Menu, writes settings and leaves no truncated save.
+- [ ] NetLoader upload replaces the intended NRO, launches with existing retail data and streams logs; quitting closes the log server, while ordinary SD-card launches need no network.
 
 Single sideways Joy-Con play and custom save-name entry are not first-milestone requirements. Existing desktop crash capture does not install a native Switch exception handler; retain the matching debug ELF and collect the system's report for native crashes.

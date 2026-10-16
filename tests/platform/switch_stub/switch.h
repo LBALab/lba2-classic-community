@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <netinet/in.h>
 
 typedef uint32_t Result;
 #define R_SUCCEEDED(result) ((result) == 0)
@@ -22,6 +23,10 @@ extern "C" {
 AppletOperationMode appletGetOperationMode(void);
 Result errorApplicationCreate(ErrorApplicationConfig *config, const char *dialog, const char *fullscreen);
 Result errorApplicationShow(ErrorApplicationConfig *config);
+extern struct in_addr __nxlink_host;
+Result socketInitializeDefault(void);
+int nxlinkStdio(void);
+void socketExit(void);
 
 #ifdef __cplusplus
 }

@@ -2,13 +2,50 @@
 #include "../../LIB386/PLATFORM/SDL2/SWITCH.H"
 
 #include <SDL.h>
+#include <errno.h>
 #include <switch.h>
+#include <unistd.h>
 #include <string>
 
 static AppletOperationMode mode;
 static Result createResult, showResult;
 static int creates, shows, errors;
 static std::string dialogText, fullscreenText;
+static Result socketResult;
+static int socketInits, socketExits, connections, warnings;
+static int connectionSocket = -1;
+static bool connectionFails;
+
+extern "C" {
+struct in_addr __nxlink_host = {0};
+}
+
+extern "C" Result socketInitializeDefault(void) {
+    ++socketInits;
+    return socketResult;
+}
+extern "C" int nxlinkStdio(void) {
+    ++connections;
+    if (connectionFails) {
+        errno = ECONNREFUSED;
+        return -1;
+    }
+    connectionSocket = dup(fileno(stderr));
+    ASSERT_TRUE(connectionSocket >= 0);
+    return connectionSocket;
+}
+extern "C" void socketExit(void) {
+    ++socketExits;
+    if (connectionSocket >= 0) {
+        const int probe = dup(connectionSocket);
+        const int probeError = errno;
+        if (probe >= 0)
+            close(probe);
+        ASSERT_EQ_INT(-1, probe);
+        ASSERT_EQ_INT(EBADF, probeError);
+        connectionSocket = -1;
+    }
+}
 
 extern "C" AppletOperationMode appletGetOperationMode(void) {
     return mode;
@@ -29,6 +66,61 @@ extern "C" Result errorApplicationShow(ErrorApplicationConfig *config) {
 static void capture_log(void *, PlatformLogLevel level, const char *) {
     if (level == PLATFORM_LOG_ERROR)
         ++errors;
+    if (level == PLATFORM_LOG_WARN)
+        ++warnings;
+}
+
+static void test_netloader_lifecycle_and_failures() {
+    socketResult = 0;
+    socketInits = socketExits = connections = warnings = 0;
+    connectionFails = false;
+    __nxlink_host.s_addr = 0;
+    Platform_SetLogOutput(capture_log, NULL);
+
+    ASSERT_TRUE(SDL2_SwitchInitNetloader());
+    SDL2_SwitchEndNetloader();
+    ASSERT_EQ_INT(0, socketInits);
+    ASSERT_EQ_INT(0, connections);
+    ASSERT_EQ_INT(0, socketExits);
+
+    __nxlink_host.s_addr = 1;
+    socketResult = 0x789;
+    ASSERT_TRUE(!SDL2_SwitchInitNetloader());
+    ASSERT_TRUE(strstr(SDL_GetError(), "0x00000789") != NULL);
+    SDL2_SwitchEndNetloader();
+    ASSERT_EQ_INT(1, socketInits);
+    ASSERT_EQ_INT(0, connections);
+    ASSERT_EQ_INT(0, socketExits);
+    ASSERT_EQ_INT(1, warnings);
+
+    socketResult = 0;
+    connectionFails = true;
+    ASSERT_TRUE(!SDL2_SwitchInitNetloader());
+    ASSERT_TRUE(strstr(SDL_GetError(), strerror(ECONNREFUSED)) != NULL);
+    SDL2_SwitchEndNetloader();
+    ASSERT_EQ_INT(2, socketInits);
+    ASSERT_EQ_INT(1, connections);
+    ASSERT_EQ_INT(1, socketExits);
+    ASSERT_EQ_INT(2, warnings);
+
+    connectionFails = false;
+    ASSERT_TRUE(SDL2_SwitchInitNetloader());
+    ASSERT_TRUE(SDL2_SwitchInitNetloader());
+    ASSERT_EQ_INT(3, socketInits);
+    ASSERT_EQ_INT(2, connections);
+    ASSERT_EQ_INT(1, socketExits);
+    SDL2_SwitchEndNetloader();
+    SDL2_SwitchEndNetloader();
+    ASSERT_EQ_INT(2, socketExits);
+    ASSERT_EQ_INT(2, warnings);
+
+    ASSERT_TRUE(SDL2_SwitchInitNetloader());
+    SDL2_SwitchEndNetloader();
+    ASSERT_EQ_INT(4, socketInits);
+    ASSERT_EQ_INT(3, connections);
+    ASSERT_EQ_INT(3, socketExits);
+    __nxlink_host.s_addr = 0;
+    Platform_SetLogOutput(NULL, NULL);
 }
 
 static void test_installation_and_output_dimensions() {
@@ -89,6 +181,7 @@ static void test_native_message_and_failures() {
 }
 
 int main() {
+    RUN_TEST(test_netloader_lifecycle_and_failures);
     RUN_TEST(test_installation_and_output_dimensions);
     RUN_TEST(test_native_message_and_failures);
     TEST_SUMMARY();

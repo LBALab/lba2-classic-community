@@ -1,8 +1,44 @@
 #include "SWITCH.H"
 
 #include <SDL.h>
+#include <errno.h>
+#include <netinet/in.h>
 #include <stdio.h>
+#include <string.h>
 #include <switch.h>
+#include <unistd.h>
+
+static int s_nxlinkSocket = -1;
+
+bool SDL2_SwitchInitNetloader(void) {
+    if (!__nxlink_host.s_addr || s_nxlinkSocket >= 0)
+        return true;
+    const Result result = socketInitializeDefault();
+    if (R_FAILED(result)) {
+        SDL_SetError("Unable to initialize Switch network logging: 0x%08x", (unsigned int)result);
+        Platform_Log(PLATFORM_LOG_WARN, "%s", SDL_GetError());
+        return false;
+    }
+    s_nxlinkSocket = nxlinkStdio();
+    if (s_nxlinkSocket < 0) {
+        SDL_SetError("Unable to connect Switch network logging: %s", strerror(errno));
+        socketExit();
+        Platform_Log(PLATFORM_LOG_WARN, "%s", SDL_GetError());
+        return false;
+    }
+    return true;
+}
+
+void SDL2_SwitchEndNetloader(void) {
+    if (s_nxlinkSocket < 0)
+        return;
+    fflush(stdout);
+    fflush(stderr);
+    if (close(s_nxlinkSocket) < 0)
+        Platform_Log(PLATFORM_LOG_WARN, "Unable to close Switch network logging: %s", strerror(errno));
+    s_nxlinkSocket = -1;
+    socketExit();
+}
 
 const char *SDL2_SwitchBasePath(void) {
     return "sdmc:/switch/lba2cc/";
