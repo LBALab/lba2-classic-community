@@ -29,22 +29,26 @@ The wrapper sets `SOURCE_DATE_EPOCH` from the HEAD commit time, fixing compiler 
 Extract the ZIP onto the SD-card root, then supply files from a legally owned retail installation:
 
 ```text
-sdmc:/switch/lba2cc/
-    lba2cc.nro
-    README.txt
-    LICENSE
-    data/
+sdmc:/
+    lba2/
         LBA2.HQR
         ... other retail HQR files ...
         Music/
         VIDEO/
         VOX/
-    user/
+    switch/
+        lba2cc/
+            lba2cc.nro
+            README.txt
+            LICENSE
+            user/
 ```
 
-The HQR files belong directly in `data/`; preserve the installation's music, movie and voice subdirectories and their contents. They are not included in the package. Use application mode/title takeover to launch the Homebrew Menu, rather than the memory-constrained Album applet. Use the game's Quit option to return cleanly.
+The HQR files belong directly in `sdmc:/lba2/`; preserve the installation's music, movie and voice subdirectories and their contents. No extra `data/` folder is needed. They are not included in the package. Use application mode/title takeover to launch the Homebrew Menu, rather than the memory-constrained Album applet. Use the game's Quit option to return cleanly.
 
-The backend reports `sdmc:/switch/lba2cc/` as its installation root regardless of the launcher's working directory. Existing discovery finds its `data/` subdirectory without a Switch branch in game code. Writable settings, saves, persisted resource discovery and logs live under `sdmc:/switch/lba2cc/user/`; back up this directory before upgrading. Existing `--game-dir`, `--user-dir` and environment overrides retain their normal precedence if supplied by a launcher. Retail configuration remains an underlay, not a file to overwrite.
+The Switch entry sets `LBA2_GAME_DIR` to `sdmc:/lba2/` unless the launcher supplies a non-empty value. Existing `--game-dir` arguments take precedence. This uses the normal explicit-path resolver: missing data produces setup guidance rather than falling through to another install or a remembered path. Retail configuration remains an underlay, not a file to overwrite.
+
+The backend still reports `sdmc:/switch/lba2cc/` as its executable installation root regardless of the launcher's working directory. Writable settings, saves, persisted resource discovery and logs remain under `sdmc:/switch/lba2cc/user/`; back up this directory before upgrading. Existing `--user-dir` and environment overrides retain their normal precedence if supplied by a launcher.
 
 Missing-data and other message boxes use libnx's application-error applet and include the SD-card setup paths. Clipboard and folder-picker support are not added; the installation layout avoids needing a desktop picker.
 

@@ -10,6 +10,18 @@
 
 static int s_nxlinkSocket = -1;
 
+bool SDL2_SwitchInitGameData(void) {
+    const char *path = SDL_getenv("LBA2_GAME_DIR");
+    if (path && *path)
+        return true;
+    if (SDL_setenv("LBA2_GAME_DIR", "sdmc:/lba2/", 1) != 0) {
+        SDL_SetError("Unable to set the Switch game-data directory");
+        Platform_Log(PLATFORM_LOG_ERROR, "%s", SDL_GetError());
+        return false;
+    }
+    return true;
+}
+
 bool SDL2_SwitchInitNetloader(void) {
     if (!__nxlink_host.s_addr || s_nxlinkSocket >= 0)
         return true;
@@ -57,7 +69,7 @@ void SDL2_SwitchWindowSize(int *width, int *height) {
 bool SDL2_SwitchMessageBox(const char *title, const char *message) {
     char body[2048];
     const int length = snprintf(body, sizeof(body),
-                                "%s\n\n%s\n\nGame files: sdmc:/switch/lba2cc/data/\n"
+                                "%s\n\n%s\n\nGame files: sdmc:/lba2/\n"
                                 "Settings, saves and logs: sdmc:/switch/lba2cc/user/\n"
                                 "See README.txt for setup help.",
                                 title, message);

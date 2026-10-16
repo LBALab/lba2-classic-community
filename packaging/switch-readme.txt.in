@@ -11,11 +11,11 @@ GAME FILES
 This source port does not include Little Big Adventure 2 game files.
 Copy your legally owned retail installation's data to:
 
-    sdmc:/switch/lba2cc/data/
+    sdmc:/lba2/
 
-LBA2.HQR and the other HQR files go directly inside data/. Preserve the
+LBA2.HQR and the other HQR files go directly inside lba2/. Preserve the
 Music/, VIDEO/ and VOX/ subfolders from your installation, including their
-contents. Do not put an extra Common/ folder between data/ and LBA2.HQR.
+contents. No extra data/ folder is needed.
 
 SAVES, SETTINGS AND LOGS
 

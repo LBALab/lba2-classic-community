@@ -19,6 +19,10 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Unable to register Switch platform shutdown\n");
         return EXIT_FAILURE;
     }
+    if (!SDL2_SwitchInitGameData()) {
+        SDL2_SwitchMessageBox("Game data setup failed", SDL_GetError());
+        return EXIT_FAILURE;
+    }
     if (!SDL2_SwitchInitNetloader())
         SDL2_SwitchMessageBox("Network logging unavailable", SDL_GetError());
     return Lba2Main(argc, argv);

@@ -141,6 +141,25 @@ static void test_installation_and_output_dimensions() {
     ASSERT_EQ_INT(720, height);
 }
 
+static void test_default_game_data_and_launcher_override() {
+    const char *initial = SDL_getenv("LBA2_GAME_DIR");
+    const std::string saved = initial ? initial : "";
+    ASSERT_EQ_INT(0, SDL_setenv("LBA2_GAME_DIR", "", 1));
+    ASSERT_TRUE(SDL2_SwitchInitGameData());
+    ASSERT_TRUE(strcmp(SDL_getenv("LBA2_GAME_DIR"), "sdmc:/lba2/") == 0);
+    ASSERT_TRUE(SDL2_SwitchInitGameData());
+    ASSERT_TRUE(strcmp(SDL_getenv("LBA2_GAME_DIR"), "sdmc:/lba2/") == 0);
+
+    ASSERT_EQ_INT(0, SDL_setenv("LBA2_GAME_DIR", "sdmc:/another-install/", 1));
+    ASSERT_TRUE(SDL2_SwitchInitGameData());
+    ASSERT_TRUE(strcmp(SDL_getenv("LBA2_GAME_DIR"), "sdmc:/another-install/") == 0);
+
+    ASSERT_EQ_INT(0, SDL_setenv("LBA2_GAME_DIR", "", 1));
+    ASSERT_TRUE(SDL2_SwitchInitGameData());
+    ASSERT_TRUE(strcmp(SDL_getenv("LBA2_GAME_DIR"), "sdmc:/lba2/") == 0);
+    ASSERT_EQ_INT(0, SDL_setenv("LBA2_GAME_DIR", saved.c_str(), 1));
+}
+
 static void test_native_message_and_failures() {
     createResult = showResult = 0;
     creates = shows = errors = 0;
@@ -151,7 +170,7 @@ static void test_native_message_and_failures() {
     ASSERT_TRUE(dialogText == "Game data not found");
     ASSERT_TRUE(fullscreenText ==
                 "Game data not found\n\nMissing LBA2.HQR\n\n"
-                "Game files: sdmc:/switch/lba2cc/data/\n"
+                "Game files: sdmc:/lba2/\n"
                 "Settings, saves and logs: sdmc:/switch/lba2cc/user/\n"
                 "See README.txt for setup help.");
     ASSERT_EQ_INT(0, errors);
@@ -183,6 +202,7 @@ static void test_native_message_and_failures() {
 int main() {
     RUN_TEST(test_netloader_lifecycle_and_failures);
     RUN_TEST(test_installation_and_output_dimensions);
+    RUN_TEST(test_default_game_data_and_launcher_override);
     RUN_TEST(test_native_message_and_failures);
     TEST_SUMMARY();
     return test_failures ? 1 : 0;
