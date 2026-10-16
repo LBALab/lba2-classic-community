@@ -177,6 +177,14 @@ all three, and `check-tooling.sh` expects most hosts to lack the last two.
 `make test` sets `LBA2_BUILD_ASM_EQUIV_TESTS=OFF`, so none of this is needed for
 the host-only pass.
 
+### Nintendo Switch homebrew
+
+| Tool | Needed for | Version owner | Install |
+|------|-----------|---------------|---------|
+| Docker | [build-switch.sh](../scripts/dev/build-switch.sh): cross-build and package an NRO without a host SDK | [docker/switch-image.txt](../docker/switch-image.txt) pins the complete devkitPro SDK image by digest | Docker Engine or Docker Desktop; the wrapper pulls the image |
+
+The image includes CMake, Ninja, devkitA64, libnx, Switch SDL2 and its static dependencies, the NACP/NRO tools and ZIP packaging. No host devkitPro installation or package update is needed. The image supports native Linux amd64 and arm64 hosts, including Docker Desktop on Apple Silicon. The tooling probe checks the daemon and whether the pinned image is cached without pulling it. See [SWITCH.md](SWITCH.md).
+
 ### Releasing
 
 Maintainer lane; see [RELEASING.md](RELEASING.md).

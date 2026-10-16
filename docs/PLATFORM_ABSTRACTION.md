@@ -68,6 +68,12 @@ Some distributions package `sdl2-compat`, which implements the SDL2 API on SDL3.
 
 The independent Linux SDL2 CI job builds genuine upstream SDL2 at the supported API floor read from CMake, disables SDL3 package discovery, builds the whole game and host suite, rejects SDL3 dynamic linkage, and runs dummy-driver conformance plus an isolated missing-data boot.
 
+### Nintendo Switch SDL2 target
+
+The Switch homebrew preset reuses SDL2 with a native C bridge for SD-card roots, output dimensions and libnx application-error dialogs. It selects static portlibs and a Switch entry point that registers teardown for `exit()` as well as normal returns. The backend advertises fullscreen-only operation; GLES2 scales the unchanged software framebuffer to handheld/docked output. Device roots such as `sdmc:/` are preserved during parent-directory creation. SDL's desktop filesystem helpers are not used on Switch because the pinned portlibs disable them.
+
+See [SWITCH.md](SWITCH.md) for the Docker build, fixed installation and writable paths, supported scope and required hardware checks. SDL3 remains the desktop default and the Android backend.
+
 ## Dependency direction
 
 ```text
@@ -160,6 +166,7 @@ Audio mixing remains AIL-owned. The software rasteriser and ASM-equivalence math
 | `test_platform_sdl3` | Complete production table; physical-ID/keymap/modifier compatibility; exact event payloads and native polling housekeeping; fullscreen requests versus actual state, vsync, present filter read back from stretched pixels, relative mouse, cursor and text-input behavior; native virtual-gamepad sampling; paths/directory/allocator/error ownership; modal dispatch and worker-thread folder results; diagnostic severity/userdata; and byte-exact pixels read from the actual SDL renderer |
 | `test_platform_sdl3_staging` | The same conformance checks compiled with the persistent-buffer/upload path, including frame resizing |
 | `test_platform_sdl2` | Desktop SDL2 event payloads and borrowed text, unmodified mouse/finger coordinates, controller instance IDs and sampling, fullscreen rollback, host services/errors, diagnostics, lifecycle and byte-exact real-renderer frames |
+| `test_switch_host` | Switch C bridge against a native-service stub: fixed SD-card paths, handheld/docked dimensions, exact dialog contents and propagation of create/show/oversize failures; not a native applet or GPU test |
 | `test_platform_callbacks` | Every callback on the selected production backend is non-null; named-field checks are generated from the public contract, and each deliberately omitted callback is detected |
 | `test_sdl_audio` | Simultaneous sample/music/video transports, queued source bytes, gain, pause and WAV loading on either SDK; SDL2 additionally compares full converted output against an independent native converter over deterministic random inputs and checks mixing, EOF, independent stream lifetime and recursive callback locking |
 | `test_sdl_audio_device` | SDL2 production callback/device consumption with dummy audio, without deterministic-read probes |

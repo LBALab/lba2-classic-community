@@ -352,6 +352,21 @@ fi
 # ---------------------------------------------------------------------------
 heading 3 "per lane (required only if you work on that lane)"
 
+if want_tier 3; then
+    switch_image="$(tr -d '[:space:]' < "$REPO_ROOT/docker/switch-image.txt")"
+    if [[ ! "$switch_image" =~ ^devkitpro/devkita64@sha256:[0-9a-f]{64}$ ]]; then
+        row gap "Switch Docker SDK" "invalid pin in docker/switch-image.txt"
+    elif have docker && docker info >/dev/null 2>&1; then
+        if docker image inspect "$switch_image" >/dev/null 2>&1; then
+            row ok "Switch Docker SDK" "pinned image cached — scripts/dev/build-switch.sh"
+        else
+            row info "Switch Docker SDK" "scripts/dev/build-switch.sh pulls the image pinned in docker/switch-image.txt"
+        fi
+    else
+        row gap "Switch Docker SDK" "Docker daemon required — scripts/dev/build-switch.sh"
+    fi
+fi
+
 SDL2_MIN="$(sed -n 's/.*find_package(SDL2 \([0-9.]*\) REQUIRED CONFIG).*/\1/p' \
     "$REPO_ROOT/LIB386/PLATFORM/CMakeLists.txt" | head -1)"
 if [ -z "$SDL2_MIN" ] || [ -z "$CMAKE_MIN" ]; then

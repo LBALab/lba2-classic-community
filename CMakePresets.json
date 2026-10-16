@@ -18,6 +18,25 @@
       }
     },
     {
+      "name": "switch",
+      "inherits": "default",
+      "displayName": "Nintendo Switch homebrew",
+      "description": "Build an NRO with the pinned devkitPro Docker image via scripts/dev/build-switch.sh",
+      "toolchainFile": "$env{DEVKITPRO}/cmake/Switch.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "PLATFORM_BACKEND": "sdl2",
+        "SOUND_BACKEND": "sdl",
+        "MVIDEO_BACKEND": "smacker",
+        "LBA2_LINK_STATIC": "ON",
+        "LBA2_RELEASE_SYMBOLS": "ON",
+        "ENABLE_ASM": "OFF",
+        "LBA2_BUILD_TESTS": "OFF",
+        "LBA2_BUILD_ASM_EQUIV_TESTS": "OFF",
+        "LBA2_NATIVE_ARCH": "OFF"
+      }
+    },
+    {
       "name": "cross_linux2win",
       "inherits": "default",
       "displayName": "Cross Linux 2 Windows",
@@ -185,6 +204,10 @@
     }
   ],
   "buildPresets": [
+    {
+      "name": "switch",
+      "configurePreset": "switch"
+    },
     {
       "name": "linux",
       "configurePreset": "linux"

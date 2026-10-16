@@ -51,7 +51,9 @@ char *SDL2_CurrentDirectory() {
     return copy;
 }
 const char *SDL2_HomePath() {
-#ifdef _WIN32
+#ifdef __SWITCH__
+    const char *home = SDL2_SwitchBasePath();
+#elif defined(_WIN32)
     const char *home = SDL_getenv("USERPROFILE");
 #else
     const char *home = SDL_getenv("HOME");
@@ -80,7 +82,12 @@ bool SDL2_CreateDirectory(const char *path) {
 #else
     const bool windows = false;
 #endif
-    size_t cursor = SDL2_DirectoryRootLength(copy, windows);
+#ifdef __SWITCH__
+    const bool device = true;
+#else
+    const bool device = false;
+#endif
+    size_t cursor = SDL2_DirectoryRootLength(copy, windows, device);
     size_t i = SDL2_NextDirectoryPrefix(copy, &cursor, windows);
     bool ok = true;
     if (!i) {
@@ -120,6 +127,9 @@ bool SDL2_RemovePath(const char *path) {
     return remove(path) == 0 || errno == ENOENT || HostError("remove");
 }
 bool SDL2_MessageBox(PlatformMessageKind kind, const char *title, const char *message) {
+#ifdef __SWITCH__
+    return SDL2_SwitchMessageBox(title, message);
+#else
     if (!SDL2_InitVideo())
         return false;
     const Uint32 flags = kind == PLATFORM_MESSAGE_ERROR ? SDL_MESSAGEBOX_ERROR : kind == PLATFORM_MESSAGE_WARNING ? SDL_MESSAGEBOX_WARNING
@@ -135,6 +145,7 @@ bool SDL2_MessageBox(PlatformMessageKind kind, const char *title, const char *me
         return true;
     Platform_Log(PLATFORM_LOG_WARN, "Unable to show SDL2 message box: %s", SDL_GetError());
     return false;
+#endif
 }
 PlatformFolderDialog *SDL2_BeginFolderDialog(const char *) {
     Unavailable();

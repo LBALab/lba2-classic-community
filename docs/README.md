@@ -47,6 +47,7 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 | [TOOLING.md](TOOLING.md) | Every external tool the repo expects, tiered by what breaks without it: build & run, pass review, per lane, nice to have. Version floors are cited, never restated. `scripts/dev/check-tooling.sh` probes the lot. |
 | [WINDOWS.md](WINDOWS.md) | Building on Windows with MSYS2; game files, toolchain. |
 | [ANDROID.md](ANDROID.md) | Building, packaging, and running on Android (arm64-v8a / armeabi-v7a): NDK + SDL3 cross-build, APK bundler, 16 KB pages, game-data placement, touch overlay. |
+| [SWITCH.md](SWITCH.md) | Nintendo Switch homebrew: pinned Docker SDK, SDL2 backend, NRO packaging, SD-card layout and hardware acceptance checklist. |
 | [GAME_DATA.md](GAME_DATA.md) | Retail game files: `LBA2_GAME_DIR`, `--game-dir`, discovery order, dev layouts. |
 | [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md) | Reading retail assets straight from a raw ISO/BIN disc image (GOG `LBA2.GOG`): ISO9660 reader, mount + `OpenRead` fallback, in-image music. Plus the retail CD assessment (US "Twinsen's Odyssey" rip) and the plan for CD-DA music, other containers and multi-track cues. |
 | [DEBUG.md](DEBUG.md) | Original Adeline debug tools (DEBUG_TOOLS=ON): overlay, F9 screenshot, bug save/load, cheats, scene selection. |

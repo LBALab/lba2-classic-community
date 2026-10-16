@@ -97,6 +97,7 @@ PLATFORM_MACROS = (
     "__APPLE__",
     "__MACH__",
     "__ANDROID__",
+    "__SWITCH__",
     "__linux__",
     "__unix__",
     "__unix",

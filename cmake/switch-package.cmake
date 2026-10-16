@@ -1,0 +1,21 @@
+set(_SWITCH_NACP "${CMAKE_CURRENT_BINARY_DIR}/${LBA2_EXECUTABLE_NAME}.nacp")
+set(_SWITCH_NRO "${CMAKE_CURRENT_BINARY_DIR}/${LBA2_EXECUTABLE_NAME}.nro")
+string(STRIP "${_LBA2_VER_RAW}" _SWITCH_VERSION)
+string(LENGTH "${_SWITCH_VERSION}" _SWITCH_VERSION_LENGTH)
+if(_SWITCH_VERSION_LENGTH GREATER 15)
+    message(FATAL_ERROR "Switch NACP versions must fit in 15 bytes: '${_SWITCH_VERSION}'.")
+endif()
+nx_generate_nacp(OUTPUT "${_SWITCH_NACP}"
+    NAME "${LBA2_PRODUCT_NAME}" AUTHOR "LBALab"
+    VERSION "${_SWITCH_VERSION}")
+nx_create_nro(${LBA2_EXECUTABLE_NAME} OUTPUT "${_SWITCH_NRO}" NACP "${_SWITCH_NACP}")
+configure_file("${CMAKE_SOURCE_DIR}/packaging/switch-readme.txt.in"
+    "${CMAKE_BINARY_DIR}/packaging/switch-README.txt" @ONLY)
+
+install(FILES "${_SWITCH_NRO}" DESTINATION "switch/lba2cc" COMPONENT switch)
+install(FILES "${CMAKE_BINARY_DIR}/packaging/switch-README.txt"
+    DESTINATION "switch/lba2cc" RENAME README.txt COMPONENT switch)
+install(FILES "${CMAKE_SOURCE_DIR}/LICENSE"
+    DESTINATION "switch/lba2cc" COMPONENT switch)
+install(FILES "$<TARGET_FILE:${LBA2_EXECUTABLE_NAME}>"
+    DESTINATION debug RENAME "${LBA2_EXECUTABLE_NAME}.elf" COMPONENT switch)
