@@ -40,7 +40,7 @@ not maintained tooling.
 | [dev/check-tooling.sh](dev/check-tooling.sh) | Probe the external tools the repo expects, tier by tier, including the optional SDL2 CMake SDK; non-zero only when the default clone build lacks prerequisites. Reads every version floor from the file that pins it. | `make check-tooling`, [TOOLING.md](../docs/TOOLING.md) |
 | [dev/build-android.sh](dev/build-android.sh) | Build the engine for Android (arm64-v8a default, armeabi-v7a via `--abi`). | manual ([ANDROID.md](../docs/ANDROID.md)) |
 | [dev/build-switch.sh](dev/build-switch.sh) | Build and package Nintendo Switch homebrew using the digest-pinned devkitPro Docker SDK. | manual, CI ([SWITCH.md](../docs/SWITCH.md)) |
-| [dev/run-switch.sh](dev/run-switch.sh) | Upload the built NRO to Homebrew Menu's netloader and stream logs using the pinned Docker SDK's nxlink. | manual ([SWITCH.md](../docs/SWITCH.md#upload-and-run-over-the-network)) |
+| [dev/run-switch.sh](dev/run-switch.sh) | Upload the built NRO to Homebrew Menu's netloader and stream unbuffered logs using the pinned Docker SDK's nxlink. | manual ([SWITCH.md](../docs/SWITCH.md#upload-and-run-over-the-network)) |
 | [dev/build-sdl3-android.sh](dev/build-sdl3-android.sh) | Cross-build SDL3 for Android and install it to a known prefix (prerequisite for `build-android.sh`). | manual ([ANDROID.md](../docs/ANDROID.md)) |
 | [dev/check-16k-align.sh](dev/check-16k-align.sh) | Verify an Android APK is safe on 16 KB memory-page devices (segment alignment + uncompressed `.so`). | CI (android), [ANDROID.md](../docs/ANDROID.md) |
 

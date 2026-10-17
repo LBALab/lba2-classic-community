@@ -67,7 +67,7 @@ Replace the example address with the Switch's address. The [run wrapper](../scri
 
 The explicit address avoids UDP broadcast discovery across Docker Desktop's network boundary. Uploads connect to the Switch's TCP port 28280; the wrapper publishes the computer's TCP port 28771 for the game's reverse stdout/stderr connection. Allow that inbound port through the host firewall on the trusted LAN, and do not expose it to the internet. A Docker daemon on a different machine is not supported by this wrapper: the source bind mount and published port belong to the daemon's host.
 
-The terminal streams game logs until the game exits. Ctrl-C disconnects log streaming; it is not a remote Quit command. Use the game's menu for a clean exit. Normal SD-card launches do not initialize network logging. If a network launch cannot establish logging, the game displays a warning and continues; the on-disk log remains available in `user/adeline.log`.
+The terminal streams game logs until the game exits. The wrapper runs nxlink with stdout/stderr buffering disabled inside the container, so short messages appear while the game is still running rather than waiting for a full buffer or process exit. No pseudo-terminal is needed; redirected or piped output stays live too. Ctrl-C disconnects log streaming; it is not a remote Quit command. Use the game's menu for a clean exit. Normal SD-card launches do not initialize network logging. If a network launch cannot establish logging, the game displays a warning and continues; the on-disk log remains available in `user/adeline.log`.
 
 ## Platform boundary
 
@@ -89,6 +89,8 @@ Cross-compilation and successful NRO packaging do not prove runtime support. The
 | Real console | The installation, lifecycle and controller-only experience actually work |
 
 Run the desktop SDL2 commands in [PLATFORM_ABSTRACTION.md](PLATFORM_ABSTRACTION.md#sdl2-desktop-backend), plus `./run_tests_docker.sh` and `make arch-check`. The [Switch workflow](../.github/workflows/switch.yml) calls the same Docker wrapper and uploads the SD-card ZIP and separate debug ELF. It does not publish a release or claim hardware validation.
+
+After building, the workflow also runs the [NetLoader regression test](../tests/platform/test_switch_netloader.py) inside the pinned SDK image. It executes the launcher's real nxlink command through a Docker shim and a loopback protocol peer, checks the exact uploaded path and NRO bytes, and requires short log messages with and without a newline to reach piped stdout before closing the connection. It does not require console hardware or test Docker port forwarding.
 
 ### Hardware acceptance checklist
 

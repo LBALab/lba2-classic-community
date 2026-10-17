@@ -34,5 +34,5 @@ exec docker run --rm --init --interactive \
     --user "$(id -u):$(id -g)" \
     --publish 28771:28771/tcp \
     --volume "$REPO_DIR/out/switch:/app:ro" --workdir /app \
-    "$IMAGE" nxlink --address "$1" --path lba2cc/lba2cc.nro \
+    "$IMAGE" stdbuf -o0 -e0 nxlink --address "$1" --path lba2cc/lba2cc.nro \
     --server switch/lba2cc/lba2cc.nro
