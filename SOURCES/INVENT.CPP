@@ -3,6 +3,7 @@
 #include "CONTROL.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
+#include "MENU_INPUT.H"
 #include "IMAGE_LOAD.H"
 #include "UI_LAYOUT.H" /* UI_VCENTER_OFS */
 
@@ -1162,6 +1163,7 @@ void MenuInventory(U32 tempo) {
 
     while (MyKey != K_ESC AND !(Input & I_MENUS)
                         AND(!tempo OR TimerRefHR <= timerslide)) {
+        U32 navigation = 0;
         ManageTime();
 
 #ifdef DEBUG_TOOLS
@@ -1176,14 +1178,15 @@ void MenuInventory(U32 tempo) {
             MyGetInput();
 
             myinput = Input;
+            navigation = MenuInput_Get();
 
-            if (myinput & (I_JOY | I_FIRE)) {
+            if ((myinput & I_FIRE) || navigation) {
                 flag = 1;
             }
         } else {
             myinput = 0;
             MyGetInput();
-            if (!(Input & (I_JOY | I_FIRE)))
+            if (!(Input & I_FIRE) && !MenuInput_Held())
                 flag = 0;
         }
 
@@ -1192,28 +1195,28 @@ void MenuInventory(U32 tempo) {
         }
 
         if ((FlagZoomed != 4) AND(FlagZoomed != 6)) {
-            if (myinput & I_DOWN) {
+            if (navigation & MENU_INPUT_DOWN) {
                 InvSelect++;
                 if (InvSelect >= MAX_BOX_INVENTORY)
                     InvSelect = 0;
                 flagname = 1;
             }
 
-            if (myinput & I_UP) {
+            if (navigation & MENU_INPUT_UP) {
                 InvSelect--;
                 if (InvSelect < 0)
                     InvSelect = MAX_BOX_INVENTORY - 1;
                 flagname = 1;
             }
 
-            if (myinput & I_LEFT) {
+            if (navigation & MENU_INPUT_LEFT) {
                 InvSelect -= INV_NBOBJ_Y;
                 if (InvSelect < 0)
                     InvSelect = MAX_BOX_INVENTORY + InvSelect;
                 flagname = 1;
             }
 
-            if (myinput & I_RIGHT) {
+            if (navigation & MENU_INPUT_RIGHT) {
                 InvSelect += INV_NBOBJ_Y;
                 if (InvSelect >= MAX_BOX_INVENTORY)
                     InvSelect = InvSelect - MAX_BOX_INVENTORY;
@@ -1399,6 +1402,9 @@ void MenuInventory(U32 tempo) {
 
     InitWaitNoInput(I_INVENTORY | I_RETURN | I_MENUS); // fait dans la boucle du jeu
     InitWaitNoKey();
+    /* A held D-pad navigation key must not cast its gameplay spell on return. */
+    if (MenuInput_Held())
+        WaitNoInput();
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -2240,6 +2246,7 @@ void GereArdoise() {
     S32 savetimer;
 
     InitWaitNoInput(ALL_INPUTS); // fait dans la boucle
+    MenuInput_Suppress(MENU_INPUT_ALL);
     InitWaitNoKey();
 
     DrawArdoise();
@@ -2250,7 +2257,7 @@ void GereArdoise() {
         ManageTime();
         MyGetInput();
 
-        if (Input & I_LEFT AND CurrentArdoise > 0) {
+        if (MenuInput_Get() & MENU_INPUT_LEFT AND CurrentArdoise > 0) {
             savetimer = TimerRefHR;
 
             DrawLeftArdoiseArrow(ARROW_DN);
@@ -2267,11 +2274,12 @@ void GereArdoise() {
             InitWaitNoInput(Input);
 
             CurrentArdoise--;
+            MenuInput_Suppress(MENU_INPUT_ALL);
             DrawArdoiseArrows();
             ChangeArdoise(1);
         }
 
-        if (Input & I_RIGHT AND CurrentArdoise < NbArdoise - 1) {
+        if (MenuInput_Get() & MENU_INPUT_RIGHT AND CurrentArdoise < NbArdoise - 1) {
             savetimer = TimerRefHR;
 
             DrawRightArdoiseArrow(ARROW_DN);
@@ -2288,6 +2296,7 @@ void GereArdoise() {
             InitWaitNoInput(Input);
 
             CurrentArdoise++;
+            MenuInput_Suppress(MENU_INPUT_ALL);
             DrawArdoiseArrows();
             ChangeArdoise(0);
         }
@@ -2295,6 +2304,8 @@ void GereArdoise() {
         BoxUpdate();
     }
 
+    if (MenuInput_Held())
+        WaitNoInput();
     BoxReset();
     FadeToBlack(PtrPalNormal);
     FlagFade = TRUE;

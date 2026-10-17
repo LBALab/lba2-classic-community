@@ -15,6 +15,7 @@
 #include "FLOW.H"
 #include "GAMEMENU.H"
 #include "MENU_KEYNAV.H"
+#include "MENU_INPUT.H"
 #include "INTEXT.H" /* CameraCenter, SaveCamera / RestoreCamera */
 #include "INVENT.H" /* BackupScreen / RestoreScreen / DrawCadre / ALL_ANGLES */
 #include "PERSO.H"  /* WriteConfigFile (persist on dialog Keep) */
@@ -708,6 +709,7 @@ ResRevertChoice Res_RunRevertDialogIfPending(void) {
        pick a side or toggle focus. */
     InitWaitNoKey();
     InitWaitNoInput(I_FIRE | I_ACTION | I_MENUS | I_UP | I_DOWN);
+    MenuInput_Suppress(MENU_INPUT_ALL);
 
     while (TimerRefHR < endMs) {
         /* Under --fixed-dt the harness pins time to the per-tick advance done
@@ -730,9 +732,9 @@ ResRevertChoice Res_RunRevertDialogIfPending(void) {
            UP / DOWN matches the rest of the engine's menus (NPC choice
            menus, options menu, save list — all vertical stacks navigated
            with the same keys, on both keyboard and gamepad). */
-        if (Input & I_UP)
+        if (MenuInput_Get() & MENU_INPUT_UP)
             focused = RES_BTN_REVERT;
-        if (Input & I_DOWN)
+        if (MenuInput_Get() & MENU_INPUT_DOWN)
             focused = RES_BTN_KEEP;
 
         /* Confirm selected. I_FIRE covers the action / inventory / return /

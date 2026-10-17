@@ -38,7 +38,7 @@ Fold `GamepadKeys` into the table `InitInput` builds beside `DefKeys`, so the fu
 
 # Non-goals
 
-- **Bindable menu navigation.** The pad's menu keys are still synthesised scancodes compared raw by each screen; whether that second table should be data is an open product question, not settled here.
+- **Sharing UI and gameplay directions.** [Shared UI navigation](/subsystems/input.md) has its own keyboard/gamepad tables and release latch. Those actions do not consume gameplay bits or change this decision's gameplay folding contract.
 - **Typing on a pad.** A pad button never becomes a character; text entry is the keyboard's.
 - **A stick as "any key".** Movement axes and triggers are movement, and a wait that ends on them ends by accident.
 

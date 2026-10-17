@@ -12,6 +12,7 @@
 #include "held_keys.h"
 
 static std::set<U32> g_held;
+static U32 g_releaseAfterPolls = 0;
 
 void HoldNone(void) { g_held.clear(); }
 void HoldOnly(U32 key) {
@@ -20,8 +21,12 @@ void HoldOnly(U32 key) {
 }
 void HoldAdd(U32 key) { g_held.insert(key); }
 void HoldRemove(U32 key) { g_held.erase(key); }
+void ReleaseAfterPolls(U32 polls) { g_releaseAfterPolls = polls; }
 
 extern "C" {
-void ManageKeyboard(void) {}
+void ManageKeyboard(void) {
+    if (g_releaseAfterPolls && --g_releaseAfterPolls == 0)
+        g_held.clear();
+}
 S32 CheckKey(U32 key) { return g_held.count(key) ? 1 : 0; }
 }

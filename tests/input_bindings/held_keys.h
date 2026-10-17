@@ -11,5 +11,6 @@ void HoldNone(void);
 void HoldOnly(U32 key);
 void HoldAdd(U32 key);
 void HoldRemove(U32 key);
+void ReleaseAfterPolls(U32 polls);
 
 #endif // TESTS_INPUT_BINDINGS_HELD_KEYS_H
