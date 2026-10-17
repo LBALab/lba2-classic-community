@@ -409,7 +409,8 @@ void CurrentSaveGame() {
 #endif // EDITLBA2
 
 /*──────────────────────────────────────────────────────────────────────────*/
-void SaveGame(S32 flagmess) {
+S32 SaveGame(S32 flagmess) {
+    S32 written;
     U8 *sizeptr;
     U8 *memoptr;
     S32 sizefile = 0;
@@ -538,9 +539,9 @@ if (NumVersion & SAVE_COMPRESS) // Version compactee
 }
 
 #ifndef EDITLBA2
-Save(GamePathname, BufSpeak + 50000L, PtrSave - (BufSpeak + 50000L));
+written = Save(GamePathname, BufSpeak + 50000L, PtrSave - (BufSpeak + 50000L));
 #else
-    Save(GamePathname, (U8 *)Screen, PtrSave - (U8 *)Screen);
+    written = Save(GamePathname, (U8 *)Screen, PtrSave - (U8 *)Screen);
 #endif
 
 // Save audit trail. Debug level, so it's off by default and surfaces (in
@@ -548,7 +549,9 @@ Save(GamePathname, BufSpeak + 50000L, PtrSave - (BufSpeak + 50000L));
 // debug` / `loglevel debug`. Covers every save path: AutoSaveGame
 // (autosave.lba), CurrentSaveGame (current.lba), and the menu's named saves --
 // GamePathname distinguishes which, NumCube which scene.
-Log_Debug("save: wrote \"%s\" (cube %d)", GamePathname, (int)NumCube);
+if (written)
+    Log_Debug("save: wrote \"%s\" (cube %d)", GamePathname, (int)NumCube);
+return written;
 }
 
 // Version 4 : LBA II only !! (LoadSize + read limit via SaveLoadFileToScreen)

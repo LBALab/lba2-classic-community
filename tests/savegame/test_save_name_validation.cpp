@@ -64,7 +64,91 @@ int main() {
         fails++;
     }
 
-    assert(fails == 0);
-    std::printf("test_save_name_validation: %zu cases passed\n", n + 1);
+    /* SaveFileStemFromName: names are CP850, as the game holds them. */
+    struct StemCase {
+        const char *name;
+        const char *stem;
+        const char *why;
+    };
+    const StemCase stems[] = {
+        {"D\x82sert de la Feuille Blanche - 2026-10-17 23-38-06",
+         "Desert de la Feuille Blanche - 2026-10-17 23-38-06", "French island, the #719 repro"},
+        {"Sendell-H\x94hle", "Sendell-Hohle", "German o umlaut"},
+        {"W\x81ste des Leeren Blattes", "Wuste des Leeren Blattes", "German u umlaut"},
+        {"Celebraci\xA2n", "Celebracion", "Spanish o acute"},
+        {"Celebra\x87\xC6o", "Celebracao", "Portuguese c cedilla, a tilde"},
+        {"Po\x87os de Sendell", "Pocos de Sendell", "Portuguese c cedilla"},
+        {"\x90t\x82", "Ete", "capital E acute"},
+        {"Stra\xE1"
+         "e",
+         "Strasse", "sharp s folds to two letters"},
+        {"\xC9\xCD", "__", "box drawing has no letter"},
+        {"Citadel Island - 2026-10-17 23-38-06", "Citadel Island - 2026-10-17 23-38-06",
+         "ASCII passes through"},
+        {"a/b\\c:d*e?f\"g<h>i|j", "a_b_c_d_e_f_g_h_i_j", "characters Windows forbids"},
+        {"tab\there", "tab_here", "control character"},
+        {"name. . ", "name", "trailing dots and spaces"},
+        {"...", "save", "nothing left"},
+        {"", "save", "empty"},
+        {"CON", "_CON", "device name"},
+        {"nul", "_nul", "device name, any case"},
+        {"Com7", "_Com7", "COM port"},
+        {"lpt1.x", "_lpt1.x", "device name before a dot"},
+        {"CONSOLE", "CONSOLE", "longer than a device name"},
+        {"COM0", "COM0", "COM0 is not a device"},
+    };
+    const size_t ns = sizeof(stems) / sizeof(stems[0]);
+    for (size_t i = 0; i < ns; i++) {
+        char out[128];
+        SaveFileStemFromName(stems[i].name, out, sizeof out);
+        if (std::strcmp(out, stems[i].stem) != 0) {
+            std::fprintf(stderr, "FAIL: stem of \"%s\" = \"%s\", expected \"%s\" (%s)\n",
+                         stems[i].name, out, stems[i].stem, stems[i].why);
+            fails++;
+        }
+    }
+
+    /* A small buffer truncates and stays terminated, with room for the
+     * device-name prefix. */
+    {
+        char out[8];
+        SaveFileStemFromName("\x90t\x82 2026", out, sizeof out);
+        if (std::strcmp(out, "Ete 20") != 0) {
+            std::fprintf(stderr, "FAIL: truncated stem = \"%s\"\n", out);
+            fails++;
+        }
+        SaveFileStemFromName("aux", out, sizeof out);
+        if (std::strcmp(out, "_aux") != 0) {
+            std::fprintf(stderr, "FAIL: short-buffer device stem = \"%s\"\n", out);
+            fails++;
+        }
+        SaveFileStemFromName(NULL, out, sizeof out);
+        if (std::strcmp(out, "save") != 0) {
+            std::fprintf(stderr, "FAIL: NULL name stem = \"%s\"\n", out);
+            fails++;
+        }
+    }
+
+    /* Every stem is printable ASCII with no forbidden character, for every
+     * byte a name can hold. */
+    for (int c = 1; c < 256; c++) {
+        char name[4] = {'x', (char)c, 'x', '\0'};
+        char out[16];
+        SaveFileStemFromName(name, out, sizeof out);
+        for (const char *p = out; *p; p++) {
+            const unsigned char u = (unsigned char)*p;
+            if (u < 32 || u > 126 || std::strchr("<>:\"/\\|?*", u) != NULL) {
+                std::fprintf(stderr, "FAIL: byte 0x%02X gave stem byte 0x%02X\n", c, u);
+                fails++;
+                break;
+            }
+        }
+    }
+
+    if (fails != 0) {
+        std::fprintf(stderr, "test_save_name_validation: %zu failures\n", fails);
+        return 1;
+    }
+    std::printf("test_save_name_validation: %zu cases passed\n", n + 1 + ns + 3 + 255);
     return 0;
 }
