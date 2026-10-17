@@ -1,6 +1,6 @@
 # Game menu
 
-Primary UI for start/load/save and options. Entry point: main() in [SOURCES/PERSO.CPP](../SOURCES/PERSO.CPP) calls `MainGameMenu(load)` at line 2398. In-game, Options/Save/Load keys open submenus; ESC/MENUS opens pause. Option changes are persisted in lba2.cfg at exit (see [CONFIG.md](CONFIG.md)).
+Primary UI for start/load/save and options. Entry point: `Lba2Main()` in [SOURCES/PERSO.CPP](../SOURCES/PERSO.CPP) calls `MainGameMenu()`. In-game, Options/Save/Load keys open submenus; ESC/MENUS opens pause. Option changes are persisted in lba2.cfg at exit (see [CONFIG.md](CONFIG.md)).
 
 ## Menu tree
 
@@ -17,6 +17,12 @@ Main Menu
 │       └── SavedConfirmMenu: Cancel (24) / Delete (48)
 ├── Options (74)
 │   ├── Back (26)
+│   ├── Display [custom localized label]
+│   │   ├── Back (26)
+│   │   ├── Resolution: <current> [custom localized label]
+│   │   │   └── Back (26) + one row per resolution in the catalog
+│   │   ├── Vsync OFF/ON          [custom localized label]
+│   │   └── Fullscreen / Windowed [custom localized label, hidden on always-fullscreen devices]
 │   ├── Sound volume (11)
 │   │   ├── Back (26)
 │   │   ├── Samples (19)       [slider]
@@ -34,9 +40,11 @@ Main Menu
 │   │   ├── Movie camera OFF/ON (46/47)
 │   │   ├── Auto camera / Classic camera [custom localized label, community addition]
 │   │   ├── Small videos / Full screen videos (27/28)
-│   │   ├── Fullscreen display OFF/ON     [custom localized label]
 │   │   └── Don't display text / Display text (16/17)
-│   ├── Keyboard Config (14)
+│   └── Controls [custom localized label]
+│       ├── Back (26)
+│       ├── Keyboard Config (14)
+│       └── Configure gamepad [custom localized label]
 └── Quit (75)
 ```
 
@@ -53,7 +61,7 @@ Main Menu
 
 ## Entry and flow
 
-- `MainGameMenu(load)` in [SOURCES/GAMEMENU.CPP](../SOURCES/GAMEMENU.CPP) (line 2651)
+- `MainGameMenu(load, resumeInGame)` in [SOURCES/GAMEMENU.CPP](../SOURCES/GAMEMENU.CPP). The game runs inside its loop: `MainLoop` returns when the player presses Menus, and the loop shows the menu again. `resumeInGame` is set only by a control-harness run, whose load is already done
 - First-time vs returning: `IsFirstGameLaunched()` skips to intro; otherwise `BuildGameMainMenu()` builds the visible entries
 - Plasma background, `InitPlasmaMenu()`, `FlagShadeMenu`
 
@@ -71,17 +79,19 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 
 ## Submenus
 
-- **Options** (`OptionsMenu`): top-level submenu for Sound volume, Choose language, Advanced options, and Keyboard Config. Reuses original `TEXT.HQR` labels where they already exist and keeps custom localized labels only for the new submenu concepts. Calls `GereVolumeMenu()`, `GereLanguageMenu()`, `GereAdvancedOptionsMenu()`, and `MenuConfig()`. Calls `SetDetailLevel()` on exit.
+- **Options** (`OptionsMenu`): top-level submenu for Display, Sound volume, Choose language, Advanced options, and Controls. Reuses original `TEXT.HQR` labels where they already exist and keeps custom localized labels only for the new submenu concepts. Calls `GereDisplayMenu()`, `GereVolumeMenu()`, `GereLanguageMenu()`, `GereAdvancedOptionsMenu()`, and `GereControllerMenu()`. Calls `SetDetailLevel()` on exit.
+- **Display** (`GereDisplayMenu`, `DisplayMenu`): the resolution row opens `GereResolutionMenu`, a page built at run time from the resolution catalog; the Vsync and Fullscreen rows toggle. Fullscreen is the last row, so on always-fullscreen devices the menu drops it by count.
 - **Volume** (`GereVolumeMenu`): `VolumeMenuVoice` / `VolumeMenuNoVoice` depending on `FlagSpeak`. Sliders for Sample, Voice, Music, and General volume. Persisted via [CONFIG.md](CONFIG.md).
 - **Language** (`GereLanguageMenu`): cycles text language and voice language independently. Text changes reload `TEXT.HQR` immediately; voice changes update the active `LanguageCD` setting.
-- **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, follow camera, video playback size, window fullscreen mode, and subtitle display; includes the existing Detail Level slider.
+- **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, follow camera, video playback size, and subtitle display; includes the existing Detail Level slider. Fullscreen moved to Display.
 - **Save/Load** (`SavedGameManagement`, `ChoosePlayerName`): Player name selection, save slots, `GameChoiceMenu[]`, `SavedConfirmMenu[]` for delete
+- **Controls** (`GereControllerMenu`, `ControllerMenu`): Keyboard Config opens `MenuConfig`, Configure gamepad opens `MenuGamepadConfig` (both in [SOURCES/CONFIG.CPP](../SOURCES/CONFIG.CPP)).
 - **Keyboard config** (`MenuConfig`): standalone config tool in [SOURCES/CONFIG/](../SOURCES/CONFIG/) or in-game `ReadInputConfig`/`WriteInputConfig`
 
 ## Menu data format
 
 - `U16 *ptrmenu`: `[selected, nb_entries, y_center, dia_num, (type, text_id)*]`
-- `DrawGameMenu()`, `DoGameMenu()` in GAMEMENU.CPP (lines 1760, 1823)
+- `DrawGameMenu()`, `DoGameMenu()` in GAMEMENU.CPP
 - Text IDs from `TEXT.HQR` / dialogue system (`GetMultiText`), plus synthetic IDs (e.g. `MENU_ID_*` in the 2100 range) resolved in `BuildCustomMenuText()`
 - Type in each entry: 0 = plain text/toggle, 2–6 = volume sliders, 7 = Detail Level slider, 8 = text language cycle, 9 = voice language cycle
 
@@ -102,7 +112,7 @@ Save/load slot list: `NB_GAME_CHOICE` (5 visible rows), `Y_START_CHOICE` (205), 
 
 ## Languages and localization
 
-The main menu still uses only the six template actions (70–75). Options (74) adds in-game Choose language and Advanced options (see menu tree): top-level `GameOptionMenu` has 5 rows in display order — Back (26), Sound volume, Choose language, Advanced options, Keyboard Config (14).
+The main menu still uses only the six template actions (70–75). Options (74) adds in-game Choose language and Advanced options (see menu tree): top-level `GameOptionMenu` has 6 rows in display order: Back (26), Display, Sound volume, Choose language, Advanced options, Controls.
 
 | Mechanism | Where | Notes |
 |-----------|--------|--------|
@@ -133,11 +143,12 @@ For the text engine underneath all of this (the `TEXT.HQR` format, id resolution
 
 - **Plasma background**: A hallmark of LBA1 and LBA2 menus. `InitPlasmaMenu()` (ANIMTEX.CPP) sets up an animated plasma texture; `DrawFireBar` / `DrawFire` render textured bars (selection highlight, sliders, input fields). The effect is plasma (not the separate fire algorithm); `SelectPlasmaBank(12)` for selection, `SelectPlasmaBank(4)` for sliders.
 - **Save screenshot**: Generated at save time in `SaveGame()` (SAVEGAME.CPP); shown via `LoadGameScreen()` and `DrawScreenSave()`. See [SAVEGAME.md](SAVEGAME.md) for the full flow.
-- **DEMO build**: Save/Load (72, 73) are disabled (greyed out, skipped by Up/Down). After ~50 min idle (or Shift+D), `SlideShow()` runs; returns `9999` to trigger credits.
+- **Attract demo from the main menu**: one minute after the main menu opens (`TimerRefHR - chrono > 50 * 20 * 60`, in milliseconds; `chrono` is set when `DoGameMenu` starts and input does not reset it), or on Shift+D, `DoGameMenu` starts the attract demo (`BeginDemoSlide`, new cube 193). The DEMO build runs `SlideShow()` instead.
+- **DEMO build**: Save/Load (72, 73) are disabled (greyed out, skipped by Up/Down).
 - **Volume sliders**: Type 2–6 map to globals; left/right adjust with `VOLUME_TIMER_KEY` (5 ticks) debounce. Sample and General volume sliders play random SFX preview when focused.
-- **DetailLevel → Shadow**: `SetDetailLevel()` (GAMEMENU.CPP line 458) derives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon from DetailLevel. Shadow in config is read at startup but overwritten when leaving Options.
+- **DetailLevel → Shadow**: `SetDetailLevel()` (GAMEMENU.CPP) derives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon from DetailLevel. Shadow in config is read at startup but overwritten when leaving Options.
 - **Localized custom labels**: See "Mixed localization (new Options strings)" above — split between `TEXT.HQR` and `LocalizedMenuLabels` / CP850.
-- **Options entry count**: Top-level `GameOptionMenu[1]` is 5 in `OptionsMenu()`. Nested volume/language/advanced menus set their own entry counts per `DEMO` / `FlagSpeak` / CDROM.
+- **Options entry count**: Top-level `GameOptionMenu[1]` is 6 in `OptionsMenu()`. Nested volume/language/advanced menus set their own entry counts per `DEMO` / `FlagSpeak` / CDROM.
 
 ## Limitations
 
@@ -201,7 +212,7 @@ For broader preservation (ASCII art, French comments, developer culture), see [F
 | Main menu entry   | GAMEMENU.CPP | MainGameMenu, BuildGameMainMenu                                       |
 | Menu render/input | GAMEMENU.CPP | DoGameMenu, DrawGameMenu                                               |
 | Menu mouse        | GAMEMENU_MOUSE.CPP | MenuMouseAcquire/Release, hit-test, wheel/slider helpers        |
-| Options submenu   | GAMEMENU.CPP | OptionsMenu, GereVolumeMenu, GereLanguageMenu, GereAdvancedOptionsMenu |
+| Options submenu   | GAMEMENU.CPP | OptionsMenu, GereDisplayMenu, GereResolutionMenu, GereVolumeMenu, GereLanguageMenu, GereAdvancedOptionsMenu, GereControllerMenu |
 | Save/Load list    | GAMEMENU.CPP, SAVEGAME.CPP | PlayerGameList, ChoosePlayerName, DeleteSavedGame, LoadGameScreen, DrawScreenSave |
 | Menu label text   | GAMEMENU.CPP | `BuildCustomMenuText`, `GetMultiText`                                 |
 | UI language / text | MESSAGE.CPP | InitLanguage, GetMultiText, `Language`, `LanguageCD`                  |
