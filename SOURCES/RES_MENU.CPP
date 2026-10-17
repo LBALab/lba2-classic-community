@@ -13,7 +13,7 @@
 #include "RES_MENU.H"
 
 #include "RES_CATALOG.H" /* Res_BuildMenuList */
-#include <SVGA/SCREEN.H> /* ModeDesiredX / ModeDesiredY */
+#include "RES_SWITCH.H"  /* Res_BaseDimensions */
 
 #include <stdio.h>
 #include <string.h>
@@ -42,8 +42,11 @@ S32 Display_BuildEntries(DisplayEntry *out) {
 }
 
 S32 Display_FindCurrentEntry(const DisplayEntry *entries, S32 count) {
+    U32 baseW, baseH;
+    Res_BaseDimensions(&baseW, &baseH);
+
     for (S32 i = 0; i < count; i++) {
-        if (entries[i].w == ModeDesiredX && entries[i].h == ModeDesiredY)
+        if (entries[i].w == baseW && entries[i].h == baseH)
             return i;
     }
     return -1;
@@ -59,7 +62,9 @@ void Display_FormatCurrentLabel(char *out, S32 outSize) {
         /* Not in the curated list: show the bare dimensions so the value
            isn't blank. Reachable if the player launched at a console-verb
            resolution that the recommended tier doesn't enumerate. */
+        U32 baseW, baseH;
+        Res_BaseDimensions(&baseW, &baseH);
         snprintf(out, (size_t)outSize, "%ux%u",
-                 (unsigned)ModeDesiredX, (unsigned)ModeDesiredY);
+                 (unsigned)baseW, (unsigned)baseH);
     }
 }
