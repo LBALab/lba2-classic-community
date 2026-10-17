@@ -114,9 +114,7 @@ void Init3DExtView(void) {
         nearClip = CLIP_NEAR * 480 / (S32)ModeDesiredY;
     SetProjection((S32)(ModeDesiredX / 2), (S32)(ModeDesiredY / 2),
                   nearClip, ChampX, ChampZ);
-    SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
-                    AlphaCam, BetaCam, GammaCam,
-                    VueDistance);
+    FollowCamApplyShownView();
 
     SetLightVector(AlphaLight, BetaLight, 0);
 }
