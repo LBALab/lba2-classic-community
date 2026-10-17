@@ -261,8 +261,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `save\shoot\` and `recordings\` are created, so screenshots and recordings
   can be written
   ([#613](https://github.com/LBALab/lba2-classic-community/pull/613)).
-- On macOS, a save named without a keyboard on an island with an accent in its
-  name (in French, German, Spanish or Portuguese) is written again. It was
+- On macOS and Android, a save named without a keyboard on an island with an
+  accent in its name (in French, German, Spanish or Portuguese) is written
+  again. It was
   silently dropped while the menu said "Game saved". Save files now get plain
   ASCII names, while the save list still shows the accented name, and a save
   that cannot be written says "Save failed"
