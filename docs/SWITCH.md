@@ -100,15 +100,15 @@ The desktop SDL2 suite's [native-bridge test](../tests/platform/test_switch_host
 
 Record console/system version, launch mode, controller configuration and tested commit with each result. None of the following is implied by a successful CI build:
 
-- [ ] Missing data produces readable setup guidance, then exits without a hang.
-- [ ] Data in the documented SD-card layout is discovered without launcher arguments.
-- [ ] Boot logos and main menu render; the framebuffer keeps its aspect ratio.
-- [ ] Start a new game with attached Joy-Cons, a detached Joy-Con pair and a Pro Controller; all required gameplay/menu actions work without a keyboard.
-- [ ] Save, quit, relaunch and load; settings and saves survive in `user/`, with retail data untouched.
-- [ ] Sound effects, music, speech and Smacker movies play; pause/resume and scene transitions do not lose audio.
-- [ ] Controller disconnect/reconnect does not leave held movement or stale input; another supported controller can regain control.
-- [ ] Dock/undock and HOME/sleep/wake restore usable video, input and audio without a simulation-time burst.
-- [ ] Quit returns to the Homebrew Menu, writes settings and leaves no truncated save.
-- [ ] NetLoader upload replaces the intended NRO, launches with existing retail data and streams logs; quitting closes the log server, while ordinary SD-card launches need no network.
+- [x] Missing data produces readable setup guidance, then exits without a hang.
+- [x] Data in the documented SD-card layout is discovered without launcher arguments.
+- [x] Boot logos and main menu render; the framebuffer keeps its aspect ratio.
+- [x] Start a new game with attached Joy-Cons, a detached Joy-Con pair and a Pro Controller; all required gameplay/menu actions work without a keyboard.
+- [x] Save, quit, relaunch and load; settings and saves survive in `user/`, with retail data untouched.
+- [x] Sound effects, music, speech and Smacker movies play; pause/resume and scene transitions do not lose audio.
+- [x] Controller disconnect/reconnect does not leave held movement or stale input; another supported controller can regain control.
+- [x] Dock/undock and HOME/sleep/wake restore usable video, input and audio without a simulation-time burst.
+- [x] Quit returns to the Homebrew Menu, writes settings and leaves no truncated save.
+- [x] NetLoader upload replaces the intended NRO, launches with existing retail data and streams logs; quitting closes the log server, while ordinary SD-card launches need no network.
 
 Single sideways Joy-Con play and custom save-name entry are not first-milestone requirements. Existing desktop crash capture does not install a native Switch exception handler; retain the matching debug ELF and collect the system's report for native crashes.
