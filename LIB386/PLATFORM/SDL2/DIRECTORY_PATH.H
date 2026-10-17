@@ -6,7 +6,15 @@ static inline bool SDL2_DirectorySeparator(char c, bool windows) {
     return c == '/' || (windows && c == '\\');
 }
 
-static inline size_t SDL2_DirectoryRootLength(const char *path, bool windows) {
+static inline size_t SDL2_DirectoryRootLength(const char *path, bool windows, bool allowDevicePrefix = false) {
+    if (allowDevicePrefix) {
+        /* Switch roots such as sdmc:/ name existing mounts, not mkdir targets. */
+        size_t end = 0;
+        while (path[end] && path[end] != ':' && path[end] != '/')
+            ++end;
+        if (end && path[end] == ':' && path[end + 1] == '/')
+            return end + 2;
+    }
     if (windows && SDL2_DirectorySeparator(path[0], windows) &&
         SDL2_DirectorySeparator(path[1], windows)) {
         /* UNC server/share names identify an existing root, not mkdir targets. */

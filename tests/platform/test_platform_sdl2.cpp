@@ -462,6 +462,7 @@ static void test_directory_parent_prefixes() {
         const char *root;
         const char *first;
         const char *second;
+        bool allowDevicePrefix;
     };
     const Case cases[] = {
         {"\\\\server\\share\\profile\\saves", true, "\\\\server\\share", "\\\\server\\share\\profile", "\\\\server\\share\\profile\\saves"},
@@ -482,10 +483,17 @@ static void test_directory_parent_prefixes() {
         {"C:\\", true, "C:\\", NULL, NULL},
         {"profile//saves", false, "", "profile", "profile//saves"},
         {"\\\\server\\share\\\\profile\\saves\\", true, "\\\\server\\share", "\\\\server\\share\\\\profile", "\\\\server\\share\\\\profile\\saves"},
+        {"sdmc:/switch/lba2cc", false, "sdmc:/", "sdmc:/switch", "sdmc:/switch/lba2cc", true},
+        {"sdmc:/", false, "sdmc:/", NULL, NULL, true},
+        {"sdmc://switch//lba2cc/", false, "sdmc:/", "sdmc://switch", "sdmc://switch//lba2cc", true},
+        {"romfs:/data", false, "romfs:/", "romfs:/data", NULL, true},
+        {"/switch/lba2cc", false, "/", "/switch", "/switch/lba2cc", true},
+        {"switch/lba2cc", false, "", "switch", "switch/lba2cc", true},
+        {"sdmc:/switch", false, "", "sdmc:", "sdmc:/switch", false},
     };
     for (size_t c = 0; c < sizeof(cases) / sizeof(cases[0]); ++c) {
         const Case &fixture = cases[c];
-        size_t cursor = SDL2_DirectoryRootLength(fixture.path, fixture.windows);
+        size_t cursor = SDL2_DirectoryRootLength(fixture.path, fixture.windows, fixture.allowDevicePrefix);
         ASSERT_TRUE(std::string(fixture.path, cursor) == fixture.root);
         std::vector<std::string> prefixes;
         size_t end;

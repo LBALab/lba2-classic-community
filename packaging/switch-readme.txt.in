@@ -1,0 +1,44 @@
+@LBA2_PRODUCT_NAME@ @LBA2_VERSION_STRING_CONFIG@ - Nintendo Switch homebrew
+
+INSTALL
+
+Copy the switch/ folder from this package to the root of your SD card.
+Launch switch/lba2cc/@LBA2_EXECUTABLE_NAME@.nro through the Homebrew Menu
+in application mode (title takeover), not the Album applet.
+
+GAME FILES
+
+This source port does not include Little Big Adventure 2 game files.
+Copy your legally owned retail installation's data to:
+
+    sdmc:/lba2/
+
+LBA2.HQR and the other HQR files go directly inside lba2/. Preserve the
+Music/, VIDEO/ and VOX/ subfolders from your installation, including their
+contents. No extra data/ folder is needed.
+
+SAVES, SETTINGS AND LOGS
+
+Writable files live in sdmc:/switch/lba2cc/user/, separately from game data.
+Back up this folder before replacing the application. Existing controller
+save handling generates names automatically; no keyboard is required.
+
+CONTROLS AND EXIT
+
+Use the existing gamepad controls with attached Joy-Cons, a Joy-Con pair,
+or a Pro Controller. Single sideways Joy-Con play is not a supported target.
+Use the game's Quit option to save settings and return to the Homebrew Menu.
+
+STATUS
+
+This is an initial homebrew port. A successful build does not certify
+hardware compatibility. Verify boot, menus, gameplay, save/load, music,
+speech, movies, dock/undock, sleep/wake and clean exit on a real console.
+
+DEBUGGING AND LICENSE
+
+The separate debug/ folder contains the unstripped ELF for debugging; it
+does not need to be copied to the SD card. Logs are in user/adeline.log.
+The engine is distributed under GPL v2; see LICENSE. SDL2 and devkitPro's
+Switch libraries provide the platform support. The source is available at:
+https://github.com/LBALab/lba2-classic-community

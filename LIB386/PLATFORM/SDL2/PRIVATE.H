@@ -33,6 +33,10 @@ PlatformFolderDialog *SDL2_BeginFolderDialog(const char *initial);
 PlatformDialogResult SDL2_PollFolderDialog(PlatformFolderDialog *dialog, const char **path);
 void SDL2_EndFolderDialog(PlatformFolderDialog *dialog);
 
+#ifdef __SWITCH__
+#include "SWITCH.H"
+#endif
+
 #ifdef LBA2_SDL2_TESTS
 SDL_Window *SDL2_TestWindow(void);
 void SDL2_SetPresentationProbe(void (*probe)(SDL_Renderer *));

@@ -102,8 +102,21 @@ bool SDL2_CreateWindow(uint32_t width, uint32_t height, bool fullscreen) {
         SDL_SetError("Window is not ready for surface creation");
         return Error("SDL2 create");
     }
+    int nativeWidth = (int)width, nativeHeight = (int)height;
+    Uint32 flags = SDL_WINDOW_RESIZABLE | (fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+#ifdef __SWITCH__
+    /* Switch needs EGL before window creation; SDL's software renderer cannot present there. */
+    if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES) != 0 ||
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2) != 0 ||
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0) != 0)
+        return Error("Unable to configure Switch GLES");
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
+    SDL2_SwitchWindowSize(&nativeWidth, &nativeHeight);
+    flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+    fullscreen = true;
+#endif
     s_window = SDL_CreateWindow(s_title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                (int)width, (int)height, SDL_WINDOW_RESIZABLE | (fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+                                nativeWidth, nativeHeight, flags);
     if (!s_window)
         return Error("Unable to create SDL2 window");
     s_fullscreen = fullscreen;
@@ -135,7 +148,7 @@ bool SDL2_ResizeWindow(uint32_t width, uint32_t height, bool keepSize) {
     s_texture = texture;
     s_width = width;
     s_height = height;
-    if (!keepSize)
+    if (!keepSize && g_platform.capabilities.windowed)
         SDL_SetWindowSize(s_window, (int)width, (int)height);
     return true;
 }
@@ -184,6 +197,10 @@ void SDL2_SurfaceCoords(int32_t x, int32_t y, int32_t *sx, int32_t *sy) {
     *sy = Coordinate(y, area.y, area.h, s_height);
 }
 void SDL2_SetFullscreen(bool enabled) {
+    if (!g_platform.capabilities.windowed) {
+        s_fullscreen = true;
+        return;
+    }
     const bool previous = s_fullscreen;
     s_fullscreen = enabled;
     if (!s_window)
@@ -204,7 +221,8 @@ void SDL2_SetFullscreen(bool enabled) {
 }
 bool SDL2_GetFullscreen() { return s_fullscreen; }
 bool SDL2_IsFullscreen() {
-    return s_window && (SDL_GetWindowFlags(s_window) & SDL_WINDOW_FULLSCREEN) != 0;
+    return s_window && (!g_platform.capabilities.windowed ||
+                        (SDL_GetWindowFlags(s_window) & SDL_WINDOW_FULLSCREEN) != 0);
 }
 void SDL2_SetVSync(bool enabled) {
     if (s_renderer && SDL_RenderSetVSync(s_renderer, enabled ? 1 : 0) != 0)
