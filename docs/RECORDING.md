@@ -682,6 +682,15 @@ is `mode.audio`; `VSync` and `FixedTimestep`, which are already `mode.vsync` and
 table, so not carried: the key bindings, which the header hashes as `bindings.digest`, and
 `FlagDisplayText`.
 
+**The resolution is the exception to "how a frame is shown".** The game reads which actors were on
+screen: the lightning spell strikes only the enemies drawn on the last frame, and cast from the same
+save on the same tick it killed more at 1920x1080 than at 640x480 in five of twelve saves measured.
+A replay at another resolution than its recording's says so as `mode differs: mode.resolution=`,
+and does not take the recorded one on, so on a session that casts the spell that line predicts a
+divergence: the Sword save's cast, recorded at 640x480 and replayed at 1920x1080, differs in the
+world at tick 191 and nowhere in the view. The measurement is in the Quirk
+[the-game-counts-what-is-on-screen.md](knowledge/quirks/the-game-counts-what-is-on-screen.md).
+
 A setting the recording does not carry is not borrowed: the replay runs on the player's value and
 names it as a trait the recording predates. There is no value it could safely put in its place. A
 recording made before a setting existed ran as though it were off, but one made after it existed
