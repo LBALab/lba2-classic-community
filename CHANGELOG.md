@@ -521,13 +521,10 @@ the chosen resolution indoors
 Thanks to [@saisilcastro](https://github.com/saisilcastro) for reporting the
 magic ball and attacks not firing
 ([#456](https://github.com/LBALab/lba2-classic-community/issues/456)), to
-[@JeremyCB](https://github.com/JeremyCB) for confirming the fix on macOS, to
-[@aurelienfalco](https://github.com/aurelienfalco) for reporting game data
+[@JeremyCB](https://github.com/JeremyCB) for confirming the fix on macOS, and
+to [@aurelienfalco](https://github.com/aurelienfalco) for reporting game data
 going unfound when its file names mix upper and lower case
-([#687](https://github.com/LBALab/lba2-classic-community/issues/687)), and to
-[@dk5488](https://github.com/dk5488) for offering to take on the dither's
-checkerboard
-([#500](https://github.com/LBALab/lba2-classic-community/issues/500)).
+([#687](https://github.com/LBALab/lba2-classic-community/issues/687)).
 
 Thanks to [@xesf](https://github.com/xesf) for the Steam Deck install the game
 could not find
