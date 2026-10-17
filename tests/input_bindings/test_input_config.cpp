@@ -42,8 +42,12 @@
 #include <SYSTEM/KEYBOARD_KEYS.H> // K_*
 
 #include "INPUT.H" // SOURCES/INPUT.H
+#include "MENU_INPUT.H"
 
 #include "held_keys.h"
+
+extern int TestConsoleOpen;
+extern int TestConsoleSuppress;
 
 static int fails = 0;
 
@@ -331,6 +335,177 @@ void CheckGamepadRoundTrip(void) {
     }
 }
 
+void ResetMenuInput(void) {
+    RestoreInput();
+    InitInput();
+    ClearNoRepeatInput();
+    MenuInput_RestoreDefaults(0);
+    MenuInput_RestoreDefaults(1);
+    HoldNone();
+    MyGetInput();
+}
+
+void CheckMenuDirections(void) {
+    ResetMenuInput();
+    const U32 keyboard[4][2] = {
+        {K_UP, K_NUMPAD_8},
+        {K_DOWN, K_NUMPAD_2},
+        {K_LEFT, K_NUMPAD_4},
+        {K_RIGHT, K_NUMPAD_6},
+    };
+    const U32 gamepad[4][2] = {
+        {K_GAMEPAD_LSTICK_UP, K_GAMEPAD_DPAD_UP},
+        {K_GAMEPAD_LSTICK_DOWN, K_GAMEPAD_DPAD_DOWN},
+        {K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_DPAD_LEFT},
+        {K_GAMEPAD_LSTICK_RIGHT, K_GAMEPAD_DPAD_RIGHT},
+    };
+    for (int direction = 0; direction < MENU_INPUT_COUNT; direction++) {
+        for (int alternate = 0; alternate < 2; alternate++) {
+            HoldOnly(keyboard[direction][alternate]);
+            MyGetInput();
+            CHECK(MenuInput_Get() == (1u << direction),
+                  "keyboard direction %d alternate %d", direction, alternate);
+            HoldOnly(gamepad[direction][alternate]);
+            MyGetInput();
+            CHECK(MenuInput_Get() == (1u << direction),
+                  "gamepad direction %d alternate %d", direction, alternate);
+        }
+    }
+    HoldOnly(K_GAMEPAD_RTRIGGER);
+    MyGetInput();
+    CHECK((Input & I_UP) && !MenuInput_Get(), "RT moves forward, never navigates UI");
+    HoldOnly(K_GAMEPAD_LTRIGGER);
+    MyGetInput();
+    CHECK((Input & I_DOWN) && !MenuInput_Get(), "LT moves backward, never navigates UI");
+    HoldNone();
+    MyGetInput();
+    CHECK(!MenuInput_Get() && !MenuInput_Held(), "release clears UI state");
+    U32 random = 0xDEADBEEFu;
+    for (int round = 0; round < 50; round++) {
+        random = random * 1103515245u + 12345u;
+        U32 directions = (random >> 16) & MENU_INPUT_ALL;
+        HoldNone();
+        for (int n = 0; n < MENU_INPUT_COUNT; n++) {
+            if (directions & (1u << n))
+                HoldAdd((round & 1) ? keyboard[n][round & 1] : gamepad[n][round & 1]);
+        }
+        MyGetInput();
+        CHECK(MenuInput_Get() == directions, "UI simultaneous directions round %d", round);
+    }
+}
+
+void CheckMenuRebindIsolation(void) {
+    ResetMenuInput();
+    DefKeys[0].Key1 = K_Z;
+    DefKeys[0].Key2 = 0;
+    InitInput();
+    HoldOnly(K_Z);
+    MyGetInput();
+    CHECK((Input & I_UP) && !MenuInput_Get(), "gameplay rebind does not navigate UI");
+    HoldOnly(K_UP);
+    MyGetInput();
+    CHECK(!(Input & I_UP) && MenuInput_Get() == MENU_INPUT_UP,
+          "UI arrows survive gameplay rebind");
+
+    MenuInput_KeyboardBindings()[0].Key1 = K_Q;
+    MenuInput_KeyboardBindings()[0].Key2 = 0;
+    MenuInput_GamepadBindings()[0].Key1 = K_GAMEPAD_RSTICK_UP;
+    MenuInput_GamepadBindings()[0].Key2 = 0;
+    HoldOnly(K_UP);
+    MyGetInput();
+    CHECK(!MenuInput_Get(), "old UI key stops navigating after rebind");
+    HoldOnly(K_Q);
+    MyGetInput();
+    CHECK(MenuInput_Get() == MENU_INPUT_UP && !(Input & I_UP),
+          "UI keyboard rebind is immediate and leaves gameplay alone");
+    HoldOnly(K_GAMEPAD_DPAD_UP);
+    MyGetInput();
+    CHECK(!MenuInput_Get(), "old UI gamepad alternate stops navigating after rebind");
+    HoldOnly(K_GAMEPAD_RSTICK_UP);
+    MyGetInput();
+    CHECK(MenuInput_Get() == MENU_INPUT_UP, "UI gamepad rebind is immediate");
+}
+
+void CheckMenuSuppression(void) {
+    ResetMenuInput();
+    HoldOnly(K_GAMEPAD_DPAD_UP);
+    MyGetInput();
+    MenuInput_Suppress(MENU_INPUT_UP);
+    MyGetInput();
+    CHECK(!MenuInput_Get() && MenuInput_Held() == MENU_INPUT_UP,
+          "suppressed held direction still participates in release waits");
+    HoldAdd(K_GAMEPAD_DPAD_RIGHT);
+    MyGetInput();
+    CHECK(MenuInput_Get() == MENU_INPUT_RIGHT, "suppression is per direction");
+    HoldNone();
+    MyGetInput();
+    HoldOnly(K_UP);
+    MyGetInput();
+    CHECK(MenuInput_Get() == MENU_INPUT_UP, "release rearms direction");
+    TestConsoleOpen = 1;
+    MyGetInput();
+    CHECK(!MenuInput_Get() && !MenuInput_Held(), "console isolates UI input and waits");
+    TestConsoleOpen = 0;
+    TestConsoleSuppress = 1;
+    MyGetInput();
+    CHECK(!MenuInput_Get() && !MenuInput_Held(), "console close frame isolates UI input");
+    TestConsoleSuppress = 0;
+    MyGetInput();
+    CHECK(!MenuInput_Get(), "held console key cannot leak into UI on close");
+    HoldNone();
+    MyGetInput();
+    HoldOnly(K_UP);
+    MyGetInput();
+    CHECK(MenuInput_Get() == MENU_INPUT_UP, "UI navigation resumes after release");
+    HoldOnly(K_GAMEPAD_LSTICK_UP);
+    ReleaseAfterPolls(3);
+    WaitNoInput();
+    CHECK(!MenuInput_Held(), "release wait drains directions absent from gameplay Input");
+    MenuInput_Reset(MENU_INPUT_UP);
+    HoldOnly(K_UP);
+    MyGetInput();
+    CHECK(!MenuInput_Get() && MenuInput_Suppressed() == MENU_INPUT_UP,
+          "replay restores the recorded UI latch");
+    MenuInput_Reset(0);
+    MyGetInput();
+    CHECK(MenuInput_Get() == MENU_INPUT_UP, "unsuppressed first replay poll is not discarded");
+}
+
+void CheckMenuConfigRoundTrip(void) {
+    ResetMenuInput();
+    WriteCfg("WinMode: 1\n");
+    OpenCfg();
+    ReadInputConfig();
+    CHECK(MenuInput_KeyboardBindings()[0].Key1 == K_UP &&
+              MenuInput_GamepadBindings()[0].Key2 == K_GAMEPAD_DPAD_UP,
+          "existing configs acquire UI defaults without changing gameplay slots");
+    for (int n = 0; n < MENU_INPUT_COUNT; n++) {
+        MenuInput_KeyboardBindings()[n].Key1 = K_A + n;
+        MenuInput_KeyboardBindings()[n].Key2 = 0;
+        MenuInput_GamepadBindings()[n].Key1 = K_GAMEPAD_BASE + n;
+        MenuInput_GamepadBindings()[n].Key2 = K_GAMEPAD_BASE + n + 4;
+    }
+    WriteInputConfig();
+    OpenCfg();
+    MenuInput_RestoreDefaults(0);
+    MenuInput_RestoreDefaults(1);
+    ReadInputConfig();
+    for (int n = 0; n < MENU_INPUT_COUNT; n++) {
+        CHECK(MenuInput_KeyboardBindings()[n].Key1 == (U32)(K_A + n) &&
+                  MenuInput_KeyboardBindings()[n].Key2 == 0,
+              "UI keyboard slot %d round trip preserves explicit unbinding", n);
+        CHECK(MenuInput_GamepadBindings()[n].Key1 == (U32)(K_GAMEPAD_BASE + n) &&
+                  MenuInput_GamepadBindings()[n].Key2 == (U32)(K_GAMEPAD_BASE + n + 4),
+              "UI gamepad slot %d round trip", n);
+    }
+    WriteCfg("MenuInput0_1: 29\nMenuInput0_2: 0\n");
+    OpenCfg();
+    ReadInputConfig();
+    CHECK(MenuInput_KeyboardBindings()[0].Key1 == 29 &&
+              MenuInput_KeyboardBindings()[0].Key2 == 0,
+          "UI bindings load even without WinMode");
+}
+
 } // namespace
 
 int main() {
@@ -339,6 +514,10 @@ int main() {
     CheckAllZeroGuard();
     CheckWinModeAbsentTakesDefaults();
     CheckGamepadRoundTrip();
+    CheckMenuDirections();
+    CheckMenuRebindIsolation();
+    CheckMenuSuppression();
+    CheckMenuConfigRoundTrip();
 
     RemoveCfg();
 

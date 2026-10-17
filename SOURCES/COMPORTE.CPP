@@ -9,6 +9,7 @@
 #include "C_EXTERN.H"
 
 #include "INPUT.H"
+#include "MENU_INPUT.H"
 #include "UI_LAYOUT.H" /* UI_VCENTER_OFS */
 
 #include <SVGA/SCREEN.H>
@@ -521,7 +522,7 @@ void MenuComportement(S32 affone) {
     ManageTime();
     savetimer = TimerRefHR;
 
-    while (Input & I_JOY) {
+    while (MenuInput_Held()) {
         ManageTime();
         MyGetInput();
         DrawComportement(IndexComportement, Comportement, -1, TRUE);
@@ -552,11 +553,11 @@ void MenuComportement(S32 affone) {
             }
         }
 
-        if (Input & I_UP) {
+        if (MenuInput_Get() & MENU_INPUT_UP) {
             ComportementMenu = GetPreviousMenuComp();
         }
 
-        if (Input & I_DOWN) {
+        if (MenuInput_Get() & MENU_INPUT_DOWN) {
             ComportementMenu = GetNextMenuComp();
         }
 
@@ -578,20 +579,20 @@ void MenuComportement(S32 affone) {
 
             DrawMenuComportement(-1);
 
-            while (Input & I_JOY) {
+            while (MenuInput_Held()) {
                 ManageTime();
                 MyGetInput();
                 DrawComportement(IndexComportement, Comportement, -1, TRUE);
             }
         }
 
-        if (Input & I_RIGHT) {
+        if (MenuInput_Get() & MENU_INPUT_RIGHT) {
             IndexComportement++;
             if (IndexComportement >= ptrmcomp->NbComps)
                 IndexComportement = 0;
         }
 
-        if (Input & I_LEFT) {
+        if (MenuInput_Get() & MENU_INPUT_LEFT) {
             IndexComportement--;
             if (IndexComportement < 0)
                 IndexComportement = ptrmcomp->NbComps - 1;
@@ -606,7 +607,7 @@ void MenuComportement(S32 affone) {
 
             InitMove(&RealRot, -1024);
 
-            while (Input & I_JOY) {
+            while (MenuInput_Held()) {
                 ManageTime();
                 MyGetInput();
                 DrawComportement(IndexComportement, Comportement, -1, TRUE);
@@ -617,6 +618,8 @@ void MenuComportement(S32 affone) {
 
     InitWaitNoInput(I_COMPORTEMENT | I_RETURN | I_MENUS); // fait dans la boucle du jeu
     InitWaitNoKey();
+    if (MenuInput_Held())
+        WaitNoInput();
 
     if (oldcomp == C_BUGGY AND Comportement != C_BUGGY) {
         ptrobj->Move = MOVE_MANUAL;

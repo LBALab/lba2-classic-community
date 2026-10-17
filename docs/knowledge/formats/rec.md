@@ -4,7 +4,6 @@ title: Session recording file (.rec)
 description: One self-framing file per session, format 14 with a read floor of 9, a text header, both savegames as framed chunks, and a binary record stream indexed by input poll.
 status: draft
 equivalence: tested
-as_of: d9cf303d
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T16:00:00Z }
 owner: /subsystems/recording.md
 constrains:
@@ -41,7 +40,7 @@ sources:
     title: The replay coverage gate, whose description leaves the mode predicate out on purpose
 ---
 
-The layout and the versioning rule are structural. The header line table and the current version numbers are read from the commit in `as_of`.
+The layout and versioning rule are structural. Header additions follow the named-field contract and do not change the binary poll records.
 
 # Evidence
 
@@ -83,10 +82,11 @@ Grouped by prefix. A compared line is diffed against the live run when a replay 
 | `numeric.` | `rng`, `long_double_bits`, `digest` | compared: the arithmetic and the digest set a replay has to agree with |
 | `data.` | `master` | compared: the data lineage |
 | `input.` | `keyboard` | installed: the device the player was last on |
+| `input.` | `menu_suppressed` | installed: UI directions waiting for release at the recording's first poll |
 | `setup.` | `cube` | compared: the scene the session began in, and below zero the reader's cue that it began at a fresh boot |
 | `setup.` | `snapshot`, `reloaded`, `reload_clock` | installed: how the session started, acted on rather than matched |
 | `clock.` | `timer_ref_hr`, `sim_carry`, `rng_seed` | installed: the baseline, the sub-step carry, the boot seed |
-| `bindings.` | `keyboard`, `gamepad` | installed; `digest` compared |
+| `bindings.` | `keyboard`, `gamepad`, `menu_keyboard`, `menu_gamepad` | installed and restored on replay exit; gameplay `digest` and UI `menu_digest` compared separately. Missing UI tables leave the live UI bindings in place and print a warning: legacy menu navigation may diverge |
 | `state.` | `dial_obj`, `choice`, `choices`, `fade`, `blackpal` | installed: the five globals no savegame carries, all or nothing |
 | `settings.` | Every setting in the settings tables (boot, mouse, gamepad, the Auto camera, audio), each named by its lba2.cfg key, unless its row is marked `SETTING_NOT_RECORDED` or has no cfg key; the display settings, the volumes, the stereo swap (`ReverseStereo`), `VSync`, `FixedTimestep` and `Shadow` are left out. At 372f920f this row replaces an earlier, hand-kept list of keys | borrowed: a replay installs each carried setting that differs from the player's for its own duration, says so by key as it starts, and gives the player's value back however it ends, and `lba2.cfg` is never written with a borrowed value. `--replay-own-settings` runs on the live config instead and reports each difference as a mode line. A setting the recording does not carry is not borrowed and is named as a trait the recording predates; one the build does not know is named as absent. The keys are there because a mismatch was measured to diverge, one cfg key changed at a time on the replay side of a recorded session: `FollowCamera` at tick 0, `FollowCamGroundClearance` at tick 2, `DetailLevel` at tick 235 through the rain's draws on the shared random stream, the mouse and stick keys on the gesture each shapes.[^recording-doc] |
 

@@ -36,11 +36,35 @@ Main Menu
 │   │   ├── Small videos / Full screen videos (27/28)
 │   │   ├── Fullscreen display OFF/ON     [custom localized label]
 │   │   └── Don't display text / Display text (16/17)
-│   ├── Keyboard Config (14)
+│   └── Controls [custom localized label]
+│       ├── Back (26)
+│       ├── Keyboard Config (14) [gameplay]
+│       ├── Configure gamepad [gameplay]
+│       ├── Menu keyboard [shared UI directions]
+│       └── Menu gamepad [shared UI directions]
 └── Quit (75)
 ```
 
 `DoGameMenu` returns the selected text ID, or `1000` for ESC.
+
+## Navigation
+
+Four shared UI actions navigate ordinary menus and save lists, inventory and memo pages, the behaviour selector, holomap and resolution confirmation:
+
+| Action | Keyboard | Controller |
+|---|---|---|
+| Navigate up | Up / keypad 8 | Left stick up / D-pad up |
+| Navigate down | Down / keypad 2 | Left stick down / D-pad down |
+| Navigate left | Left / keypad 4 | Left stick left / D-pad left |
+| Navigate right | Right / keypad 6 | Left stick right / D-pad right |
+
+These bindings do not consume the 36 gameplay slots or their 32-bit action word. Rebinding gameplay movement does not change UI navigation, and rebinding UI navigation does not change movement. RT/LT retain forward/backward in gameplay but do not navigate by default. Confirm, back, item use, page shortcuts and mouse controls are unchanged. Inventory and holomap drain held UI directions before returning, so a D-pad navigation gesture cannot cast its gameplay spell on exit.
+
+Options → Controls → Menu keyboard / Menu gamepad opens the four-row binding editors. Both alternatives, clear, defaults, previous configuration, accept and cancel work as in the gameplay editors. Fixed keyboard navigation remains available inside binding editors as a recovery path. Controller confirmation/back gestures in those editors still use their existing gameplay bindings and Start/Back rescue buttons.
+
+[MENU_INPUT.CPP](../SOURCES/MENU_INPUT.CPP) owns the UI tables and held-until-release suppression. `MyGetInput` in [INPUT.CPP](../SOURCES/INPUT.CPP) samples UI directions from the same keyboard/gamepad snapshot as gameplay without a second poll, isolates them while the console is open, and drains held UI keys in input waits. The [config](CONFIG.md) stores the new tables independently; existing files without these entries receive the defaults above.
+
+The control harness can capture either navigation editor directly with `ui config <path> menu-keyboard` or `ui config <path> menu-gamepad`. The existing `key <scancode> <polls> <delay>` injector also drives these modal loops, so navigation and rebinding can be reproduced without a physical controller.
 
 ## Terms
 
@@ -71,12 +95,12 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 
 ## Submenus
 
-- **Options** (`OptionsMenu`): top-level submenu for Sound volume, Choose language, Advanced options, and Keyboard Config. Reuses original `TEXT.HQR` labels where they already exist and keeps custom localized labels only for the new submenu concepts. Calls `GereVolumeMenu()`, `GereLanguageMenu()`, `GereAdvancedOptionsMenu()`, and `MenuConfig()`. Calls `SetDetailLevel()` on exit.
+- **Options** (`OptionsMenu`): top-level submenu for Display, Sound volume, Choose language, Advanced options, and Controls. Reuses original `TEXT.HQR` labels where they already exist and keeps custom localized labels for new submenu concepts. Controls groups gameplay keyboard/gamepad remapping and the shared UI navigation editors. Calls `SetDetailLevel()` on exit.
 - **Volume** (`GereVolumeMenu`): `VolumeMenuVoice` / `VolumeMenuNoVoice` depending on `FlagSpeak`. Sliders for Sample, Voice, Music, and General volume. Persisted via [CONFIG.md](CONFIG.md).
 - **Language** (`GereLanguageMenu`): cycles text language and voice language independently. Text changes reload `TEXT.HQR` immediately; voice changes update the active `LanguageCD` setting.
 - **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, follow camera, video playback size, window fullscreen mode, and subtitle display; includes the existing Detail Level slider.
 - **Save/Load** (`SavedGameManagement`, `ChoosePlayerName`): Player name selection, save slots, `GameChoiceMenu[]`, `SavedConfirmMenu[]` for delete
-- **Keyboard config** (`MenuConfig`): standalone config tool in [SOURCES/CONFIG/](../SOURCES/CONFIG/) or in-game `ReadInputConfig`/`WriteInputConfig`
+- **Controls** (`GereControllerMenu`): `MenuConfig` and `MenuGamepadConfig` edit gameplay bindings; `MenuNavigationConfig` reuses those editors for the four UI actions. The standalone legacy config tool remains in [SOURCES/CONFIG/](../SOURCES/CONFIG/).
 
 ## Menu data format
 
@@ -102,7 +126,7 @@ Save/load slot list: `NB_GAME_CHOICE` (5 visible rows), `Y_START_CHOICE` (205), 
 
 ## Languages and localization
 
-The main menu still uses only the six template actions (70–75). Options (74) adds in-game Choose language and Advanced options (see menu tree): top-level `GameOptionMenu` has 5 rows in display order — Back (26), Sound volume, Choose language, Advanced options, Keyboard Config (14).
+The main menu still uses only the six template actions (70–75). Top-level `GameOptionMenu` has six rows in display order: Back (26), Display, Sound volume, Choose language, Advanced options, Controls.
 
 | Mechanism | Where | Notes |
 |-----------|--------|--------|

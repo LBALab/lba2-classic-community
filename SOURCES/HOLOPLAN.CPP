@@ -2,6 +2,7 @@
 #include "DIRECTORIES.H"
 #include "IMAGE_LOAD.H"
 #include "INPUT.H"
+#include "MENU_INPUT.H"
 
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
@@ -817,7 +818,7 @@ void HoloPlan(S32 numplan) {
         }
 
         if (testrelease) {
-            if (!(Input & I_JOY)) {
+            if (!MenuInput_Held()) {
                 testrelease = 0;
             }
         } else if (testnofire) {
@@ -828,16 +829,16 @@ void HoloPlan(S32 numplan) {
                 break;
             }
 
-            if (Input & I_JOY) {
+            if (MenuInput_Get()) {
                 dir = 0;
 
-                if (Input & I_LEFT)
+                if (MenuInput_Get() & MENU_INPUT_LEFT)
                     dir |= 1;
-                if (Input & I_UP)
+                if (MenuInput_Get() & MENU_INPUT_UP)
                     dir |= 2;
-                if (Input & I_RIGHT)
+                if (MenuInput_Get() & MENU_INPUT_RIGHT)
                     dir |= 4;
-                if (Input & I_DOWN)
+                if (MenuInput_Get() & MENU_INPUT_DOWN)
                     dir |= 8;
 
                 if (dir) {
