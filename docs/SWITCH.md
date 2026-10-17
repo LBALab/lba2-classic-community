@@ -69,6 +69,8 @@ The explicit address avoids UDP broadcast discovery across Docker Desktop's netw
 
 The terminal streams game logs until the game exits. The wrapper runs nxlink with stdout/stderr buffering disabled inside the container, so short messages appear while the game is still running rather than waiting for a full buffer or process exit. No pseudo-terminal is needed; redirected or piped output stays live too. Ctrl-C disconnects log streaming; it is not a remote Quit command. Use the game's menu for a clean exit. Normal SD-card launches do not initialize network logging. If a network launch cannot establish logging, the game displays a warning and continues; the on-disk log remains available in `user/adeline.log`.
 
+The native bridge preserves the original stdout/stderr descriptors before nxlink redirects them. After platform shutdown it flushes and restores both streams, closes the connection and only then shuts down the socket service. libc closes its streams after the `atexit` handlers; leaving either stream attached to the removed socket device makes that final cleanup unsafe. Connection failures also release the saved descriptors.
+
 ## Platform boundary
 
 Switch-specific code stays in the [SDL2 backend](../LIB386/PLATFORM/SDL2/). The native bridge is C because current libnx headers require newer C++ features, while the game and C++ backend remain C++98. No libnx SDK type enters the public PAL contract.
@@ -91,6 +93,8 @@ Cross-compilation and successful NRO packaging do not prove runtime support. The
 Run the desktop SDL2 commands in [PLATFORM_ABSTRACTION.md](PLATFORM_ABSTRACTION.md#sdl2-desktop-backend), plus `./run_tests_docker.sh` and `make arch-check`. The [Switch workflow](../.github/workflows/switch.yml) calls the same Docker wrapper and uploads the SD-card ZIP and separate debug ELF. It does not publish a release or claim hardware validation.
 
 After building, the workflow also runs the [NetLoader regression test](../tests/platform/test_switch_netloader.py) inside the pinned SDK image. It executes the launcher's real nxlink command through a Docker shim and a loopback protocol peer, checks the exact uploaded path and NRO bytes, and requires short log messages with and without a newline to reach piped stdout before closing the connection. It does not require console hardware or test Docker port forwarding.
+
+The desktop SDL2 suite's [native-bridge test](../tests/platform/test_switch_host.cpp) models nxlink's stdout/stderr duplication, requires both streams to be detached before socket-service shutdown, and checks buffered output and repeated setup/teardown. This checks descriptor ownership, not a native crash report or the return to Homebrew Menu; recheck Quit on hardware after both NetLoader and ordinary icon launches.
 
 ### Hardware acceptance checklist
 

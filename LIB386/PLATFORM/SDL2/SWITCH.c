@@ -9,6 +9,22 @@
 #include <unistd.h>
 
 static int s_nxlinkSocket = -1;
+static int s_savedStdout = -1;
+static int s_savedStderr = -1;
+
+static void RestoreOutput(int *saved, int output) {
+    if (*saved < 0)
+        return;
+    if (dup2(*saved, output) < 0) {
+        const int error = errno;
+        if (close(output) < 0 && errno != EBADF)
+            Platform_Log(PLATFORM_LOG_WARN, "Unable to close Switch output %d: %s", output, strerror(errno));
+        Platform_Log(PLATFORM_LOG_WARN, "Unable to restore Switch output %d: %s", output, strerror(error));
+    }
+    if (close(*saved) < 0)
+        Platform_Log(PLATFORM_LOG_WARN, "Unable to close saved Switch output %d: %s", output, strerror(errno));
+    *saved = -1;
+}
 
 bool SDL2_SwitchInitGameData(void) {
     const char *path = SDL_getenv("LBA2_GAME_DIR");
@@ -31,9 +47,22 @@ bool SDL2_SwitchInitNetloader(void) {
         Platform_Log(PLATFORM_LOG_WARN, "%s", SDL_GetError());
         return false;
     }
+    s_savedStdout = dup(STDOUT_FILENO);
+    if (s_savedStdout >= 0)
+        s_savedStderr = dup(STDERR_FILENO);
+    if (s_savedStdout < 0 || s_savedStderr < 0) {
+        SDL_SetError("Unable to preserve Switch standard output: %s", strerror(errno));
+        RestoreOutput(&s_savedStdout, STDOUT_FILENO);
+        RestoreOutput(&s_savedStderr, STDERR_FILENO);
+        socketExit();
+        Platform_Log(PLATFORM_LOG_WARN, "%s", SDL_GetError());
+        return false;
+    }
     s_nxlinkSocket = nxlinkStdio();
     if (s_nxlinkSocket < 0) {
         SDL_SetError("Unable to connect Switch network logging: %s", strerror(errno));
+        RestoreOutput(&s_savedStdout, STDOUT_FILENO);
+        RestoreOutput(&s_savedStderr, STDERR_FILENO);
         socketExit();
         Platform_Log(PLATFORM_LOG_WARN, "%s", SDL_GetError());
         return false;
@@ -46,6 +75,11 @@ void SDL2_SwitchEndNetloader(void) {
         return;
     fflush(stdout);
     fflush(stderr);
+    /* libc closes stdio after atexit; socketExit removes its device table. */
+    RestoreOutput(&s_savedStdout, STDOUT_FILENO);
+    RestoreOutput(&s_savedStderr, STDERR_FILENO);
+    clearerr(stdout);
+    clearerr(stderr);
     if (close(s_nxlinkSocket) < 0)
         Platform_Log(PLATFORM_LOG_WARN, "Unable to close Switch network logging: %s", strerror(errno));
     s_nxlinkSocket = -1;

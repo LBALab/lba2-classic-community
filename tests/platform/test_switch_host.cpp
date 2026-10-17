@@ -4,6 +4,7 @@
 #include <SDL.h>
 #include <errno.h>
 #include <switch.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <string>
 
@@ -15,6 +16,14 @@ static Result socketResult;
 static int socketInits, socketExits, connections, warnings;
 static int connectionSocket = -1;
 static bool connectionFails;
+static FILE *connectionOutput;
+static bool stdoutDetachedAtExit, stderrDetachedAtExit;
+
+static bool same_file(int a, int b) {
+    struct stat first, second;
+    return fstat(a, &first) == 0 && fstat(b, &second) == 0 &&
+           first.st_dev == second.st_dev && first.st_ino == second.st_ino;
+}
 
 extern "C" {
 struct in_addr __nxlink_host = {0};
@@ -30,12 +39,22 @@ extern "C" int nxlinkStdio(void) {
         errno = ECONNREFUSED;
         return -1;
     }
-    connectionSocket = dup(fileno(stderr));
+    connectionSocket = dup(fileno(connectionOutput ? connectionOutput : stderr));
     ASSERT_TRUE(connectionSocket >= 0);
+    if (connectionOutput) {
+        fflush(stdout);
+        ASSERT_EQ_INT(STDOUT_FILENO, dup2(connectionSocket, STDOUT_FILENO));
+        fflush(stderr);
+        ASSERT_EQ_INT(STDERR_FILENO, dup2(connectionSocket, STDERR_FILENO));
+    }
     return connectionSocket;
 }
 extern "C" void socketExit(void) {
     ++socketExits;
+    if (connectionOutput) {
+        stdoutDetachedAtExit = !same_file(STDOUT_FILENO, fileno(connectionOutput));
+        stderrDetachedAtExit = !same_file(STDERR_FILENO, fileno(connectionOutput));
+    }
     if (connectionSocket >= 0) {
         const int probe = dup(connectionSocket);
         const int probeError = errno;
@@ -141,6 +160,104 @@ static void test_installation_and_output_dimensions() {
     ASSERT_EQ_INT(720, height);
 }
 
+static void test_netloader_restores_stdio_before_socket_exit() {
+    const int originalStdout = dup(STDOUT_FILENO);
+    const int originalStderr = dup(STDERR_FILENO);
+    ASSERT_TRUE(originalStdout >= 0);
+    ASSERT_TRUE(originalStderr >= 0);
+    if (originalStdout < 0 || originalStderr < 0) {
+        if (originalStdout >= 0)
+            close(originalStdout);
+        if (originalStderr >= 0)
+            close(originalStderr);
+        return;
+    }
+
+    connectionOutput = fopen("switch-netloader-stdio.tmp", "w+b");
+    ASSERT_TRUE(connectionOutput != NULL);
+    if (!connectionOutput) {
+        close(originalStdout);
+        close(originalStderr);
+        return;
+    }
+    const int availableDescriptor = dup(originalStdout);
+    ASSERT_TRUE(availableDescriptor >= 0);
+    if (availableDescriptor >= 0)
+        close(availableDescriptor);
+    socketResult = 0;
+    connectionFails = false;
+    __nxlink_host.s_addr = 1;
+    Platform_SetLogOutput(capture_log, NULL);
+
+    for (int round = 0; round < 2; ++round) {
+        ASSERT_TRUE(SDL2_SwitchInitNetloader());
+        ASSERT_TRUE(same_file(STDOUT_FILENO, fileno(connectionOutput)));
+        ASSERT_TRUE(same_file(STDERR_FILENO, fileno(connectionOutput)));
+        fputs("stdout\n", stdout);
+        fflush(stdout);
+        fputs("stderr\n", stderr);
+        fflush(stderr);
+        fputs("buffered tail", stdout);
+        SDL2_SwitchEndNetloader();
+        const bool stdoutRestored = same_file(STDOUT_FILENO, originalStdout);
+        const bool stderrRestored = same_file(STDERR_FILENO, originalStderr);
+
+        /* Keep a broken teardown from swallowing the test runner's failures. */
+        fflush(stdout);
+        fflush(stderr);
+        ASSERT_EQ_INT(STDOUT_FILENO, dup2(originalStdout, STDOUT_FILENO));
+        ASSERT_EQ_INT(STDERR_FILENO, dup2(originalStderr, STDERR_FILENO));
+        ASSERT_TRUE(stdoutDetachedAtExit);
+        ASSERT_TRUE(stderrDetachedAtExit);
+        ASSERT_TRUE(stdoutRestored);
+        ASSERT_TRUE(stderrRestored);
+        SDL2_SwitchEndNetloader();
+        const int probe = dup(originalStdout);
+        ASSERT_EQ_INT(availableDescriptor, probe);
+        if (probe >= 0)
+            close(probe);
+    }
+
+    rewind(connectionOutput);
+    char output[128] = {0};
+    const char expected[] = "stdout\nstderr\nbuffered tailstdout\nstderr\nbuffered tail";
+    ASSERT_EQ_INT(sizeof(expected) - 1, fread(output, 1, sizeof(output), connectionOutput));
+    ASSERT_TRUE(strcmp(expected, output) == 0);
+    ASSERT_EQ_INT(0, fclose(connectionOutput));
+    connectionOutput = NULL;
+    ASSERT_EQ_INT(0, remove("switch-netloader-stdio.tmp"));
+    ASSERT_EQ_INT(0, close(originalStdout));
+    ASSERT_EQ_INT(0, close(originalStderr));
+    __nxlink_host.s_addr = 0;
+    Platform_SetLogOutput(NULL, NULL);
+}
+
+static void test_netloader_descriptor_failure() {
+    fflush(stdout);
+    const int originalStdout = dup(STDOUT_FILENO);
+    ASSERT_TRUE(originalStdout >= 0);
+    if (originalStdout < 0)
+        return;
+
+    socketResult = 0;
+    socketInits = socketExits = connections = warnings = 0;
+    __nxlink_host.s_addr = 1;
+    Platform_SetLogOutput(capture_log, NULL);
+    ASSERT_EQ_INT(0, close(STDOUT_FILENO));
+    const bool initialized = SDL2_SwitchInitNetloader();
+    ASSERT_EQ_INT(STDOUT_FILENO, dup2(originalStdout, STDOUT_FILENO));
+    ASSERT_EQ_INT(0, close(originalStdout));
+    SDL2_SwitchEndNetloader();
+    ASSERT_TRUE(!initialized);
+    ASSERT_TRUE(strstr(SDL_GetError(), "Unable to preserve Switch standard output:") != NULL);
+    ASSERT_EQ_INT(1, socketInits);
+    ASSERT_EQ_INT(1, socketExits);
+    ASSERT_EQ_INT(0, connections);
+    ASSERT_EQ_INT(1, warnings);
+    __nxlink_host.s_addr = 0;
+    Platform_SetLogOutput(NULL, NULL);
+}
+
 static void test_default_game_data_and_launcher_override() {
     const char *initial = SDL_getenv("LBA2_GAME_DIR");
     const std::string saved = initial ? initial : "";
@@ -201,6 +318,8 @@ static void test_native_message_and_failures() {
 
 int main() {
     RUN_TEST(test_netloader_lifecycle_and_failures);
+    RUN_TEST(test_netloader_restores_stdio_before_socket_exit);
+    RUN_TEST(test_netloader_descriptor_failure);
     RUN_TEST(test_installation_and_output_dimensions);
     RUN_TEST(test_default_game_data_and_launcher_override);
     RUN_TEST(test_native_message_and_failures);
