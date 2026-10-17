@@ -1923,13 +1923,14 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                             // Scene-aware name: "<island> - <datetime>", with
                             // bare datetime as fallback. Island names live in
                             // text file 2 (gam); MainGameMenu has file 0 (sys)
-                            // loaded right now (InitDial(0) at ~line 3330), so
-                            // bracket the lookup and restore sys after — the
-                            // menu redraws on the next loop iteration assume
-                            // sys is still loaded. TabArrow defaults to zeros
-                            // before the player opens the holomap, so the
-                            // Mess > 0 guard avoids querying message 0 (which
-                            // is a real but unrelated entry in some banks).
+                            // loaded right now (its InitDial(0) before
+                            // DoGameMenu), so bracket the lookup and restore
+                            // sys after — the menu redraws on the next loop
+                            // iteration assume sys is still loaded. TabArrow is
+                            // loaded from HOLO.HQR at startup (InitHoloMap); the
+                            // Mess > 0 guard skips an entry with no name, so
+                            // message 0 (a real but unrelated entry in some
+                            // banks) is never queried.
                             char islandName[256];
                             islandName[0] = '\0';
                             if (Island >= 0 && Island < MAX_ISLAND && TabArrow[Island].Mess > 0) {
