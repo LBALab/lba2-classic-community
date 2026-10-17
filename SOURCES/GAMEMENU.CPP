@@ -1337,6 +1337,36 @@ S32 InputPlayerName(S32 choice, char *name) {
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
+// The file for a save called `name`. The name is CP850 and lives inside the
+// file; the file name is its portable ASCII stem (SaveFileStemFromName), since
+// macOS refuses a name that is not UTF-8. With `unique`, a stem another save
+// already uses gets " (2)", " (3)"... so two names that fold alike ("Ete",
+// "\x90t\x82") never share a file; `own`, the file being renamed, may be kept.
+static void BuildSavePath(char *path, const char *name, S32 unique, const char *own, S32 bug) {
+    char stem[MAX_SIZE_PLAYER_NAME + 1];
+    char file[ADELINE_MAX_PATH];
+    S32 n;
+
+    (void)bug; /* only read with DEBUG_TOOLS */
+    SaveFileStemFromName(name, stem, sizeof stem);
+    for (n = 1; n < 100; n++) {
+        if (n == 1)
+            snprintf(file, sizeof file, "%s.LBA", stem);
+        else
+            snprintf(file, sizeof file, "%s (%d).LBA", stem, (int)n);
+#ifdef DEBUG_TOOLS
+        if (bug)
+            GetBugPath(path, ADELINE_MAX_PATH, file);
+        else
+#endif
+            GetSavePath(path, ADELINE_MAX_PATH, file);
+        if (!unique OR !ExistsFileOrDir(path) OR(own != NULL AND !ade_strcasecmp(path, own)))
+            return;
+    }
+    // 99 saves on one stem: the last candidate is overwritten.
+}
+
+/*──────────────────────────────────────────────────────────────────────────*/
 #define TEMPO_SCREEN_SAVE 110
 #define TEMPO_REPEAT_KEY 150
 
@@ -1879,18 +1909,28 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
 
             if (flagnew) // Nouvelle partie
             {
+                // The file the chosen slot was read from, or empty for the
+                // New entry or a slot whose file was not found.
                 char memoname[ADELINE_MAX_PATH];
+#ifdef DEBUG_TOOLS
+                const S32 bugPaths = isBugMode;
+#else
+                const S32 bugPaths = FALSE;
+#endif
 
+                memoname[0] = '\0';
                 if (select == nb - 1)
                     strcpy(PlayerName, "");
                 else {
+                    S32 found;
 #ifdef DEBUG_TOOLS
                     if (isBugMode)
-                        FindBugFile(PlayerName);
+                        found = FindBugFile(PlayerName);
                     else
 #endif
-                        FindPlayerFile();
-                    strcpy(memoname, GamePathname);
+                        found = FindPlayerFile();
+                    if (found)
+                        strcpy(memoname, GamePathname);
                 }
 
                 while (Input & I_FIRE OR MenuKey_NumpadToNav(MyKey) == K_ENTER)
@@ -1962,21 +2002,15 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                             }
                         }
                     }
-                    // Existing slot: PlayerName already holds the slot name
-                    // from the strcpy earlier in this loop (around line 1660),
-                    // so nothing to fill — just resolve the path.
+                    // Existing slot: PlayerName already holds the slot name, and
+                    // the save is overwritten in the file it was read from, so
+                    // a file named before names were made portable is not left
+                    // beside a second copy.
                     if (ok) {
-                        char tmpPlayerFilename[ADELINE_MAX_PATH];
-                        snprintf(tmpPlayerFilename, ADELINE_MAX_PATH, "%s.LBA",
-                                 PlayerName);
-#ifdef DEBUG_TOOLS
-                        if (isBugMode)
-                            GetBugPath(GamePathname, ADELINE_MAX_PATH,
-                                       tmpPlayerFilename);
+                        if (memoname[0])
+                            strcpy(GamePathname, memoname);
                         else
-#endif
-                            GetSavePath(GamePathname, ADELINE_MAX_PATH,
-                                        tmpPlayerFilename);
+                            BuildSavePath(GamePathname, PlayerName, FALSE, NULL, bugPaths);
                         retval = 2;
                         break;
                     }
@@ -1986,28 +2020,11 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                 }
 
                 if (InputPlayerName(select - start, PlayerName)) {
-                    char tmpPlayerFilename[ADELINE_MAX_PATH];
-                    if (select == nb - 1) {
-                        do {
-                            snprintf(tmpPlayerFilename, ADELINE_MAX_PATH, "%s.LBA", PlayerName);
-#ifdef DEBUG_TOOLS
-                            if (isBugMode)
-                                GetBugPath(GamePathname, ADELINE_MAX_PATH, tmpPlayerFilename);
-                            else
-#endif
-                                GetSavePath(GamePathname, ADELINE_MAX_PATH, tmpPlayerFilename);
-                        } while (FileSize(GamePathname) != 0); // TODO: Review this sorcery
-                    } else {
-                        // renommer une sauvegarde
-                        snprintf(tmpPlayerFilename, ADELINE_MAX_PATH, "%s.LBA", PlayerName);
-#ifdef DEBUG_TOOLS
-                        if (isBugMode)
-                            GetBugPath(GamePathname, ADELINE_MAX_PATH, tmpPlayerFilename);
-                        else
-#endif
-                            GetSavePath(GamePathname, ADELINE_MAX_PATH, tmpPlayerFilename);
-                    }
-
+                    // A typed name is new to the list (InputPlayerName refuses
+                    // one already there), but two names can share a file name
+                    // stem, so take a free file. A rename may keep its own.
+                    BuildSavePath(GamePathname, PlayerName, TRUE,
+                                  memoname[0] ? memoname : NULL, bugPaths);
                     retval = 2;
                     break;
                 } else {
@@ -3710,7 +3727,11 @@ S32 IsFirstGameLaunched(void) {
 // the skip-press doesn't immediately re-trigger menu navigation when control
 // returns to the surrounding menu loop.
 static void ShowSaveConfirmation(enum MenuLocalizedLabel label) {
-    HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
+    if (label == MENU_LABEL_SAVE_FAILED) {
+        PlayErrorSample();
+    } else {
+        HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
+    }
     CopyScreen(Screen, Log);
     ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
     {
@@ -3741,10 +3762,22 @@ static void ShowSaveConfirmation(enum MenuLocalizedLabel label) {
 }
 
 // Non-static entry so the in-game quick-save (PERSO.CPP) can show the same
-// "Game Saved" chime + overlay as the main-menu Save path. Keeps the localized
-// label enum internal to this module.
-void ShowGameSavedConfirmation(void) {
-    ShowSaveConfirmation(MENU_LABEL_GAME_SAVED);
+// overlay as the main-menu Save path: "Game Saved" with a chime, or "Save
+// failed" with the error sound. Keeps the localized label enum internal to
+// this module.
+void ShowGameSaveResult(S32 saved) {
+    ShowSaveConfirmation(saved ? MENU_LABEL_GAME_SAVED : MENU_LABEL_SAVE_FAILED);
+}
+
+// After a save into `GamePathname` that renamed a slot, removes the slot's old
+// file (OldGamePathname), but only once the new file is written, so a failed
+// save never costs the old one. Same path in another case is the same file on
+// macOS and Windows, so it is kept.
+void FinishSaveRename(S32 saved) {
+    if (saved AND OldGamePathname[0] AND ade_strcasecmp(OldGamePathname, GamePathname)
+            AND FileSize(OldGamePathname))
+        Delete(OldGamePathname);
+    OldGamePathname[0] = '\0';
 }
 
 void BuildGameMainMenu(S32 firstloop) {
@@ -4207,18 +4240,17 @@ S32 MainGameMenu(S32 load, S32 resumeInGame) {
                 savenewcube = NewCube;
 
                 if (ChoosePlayerName(42, FALSE, TRUE)) {
+                    S32 saved;
                     NumVersion = NUM_VERSION | SAVE_COMPRESS;
                     CopyScreen(Screen, Log);
-                    if (FileSize(OldGamePathname))
-                        Delete(OldGamePathname);
-                    SaveGame(TRUE);
+                    saved = SaveGame(TRUE);
+                    FinishSaveRename(saved);
                     HQ_ResumeSamples();
                     UnsetClipWindow();
 
-                    // Success feedback: chime + brief overlay, skippable.
-                    // See ShowSaveConfirmation. Benefits keyboard, mouse,
-                    // and gamepad flows equally — pre-PR, this was silent.
-                    ShowSaveConfirmation(MENU_LABEL_GAME_SAVED);
+                    // Feedback: chime + brief overlay, skippable, or the error
+                    // sound and "Save failed". See ShowSaveConfirmation.
+                    ShowGameSaveResult(saved);
                 }
 
                 CopyScreen(Screen, Log);
@@ -4294,10 +4326,10 @@ S32 MainGameMenu(S32 load, S32 resumeInGame) {
                 if (ChoosePlayerName(42 | 0x40000000, FALSE, TRUE)) {
                     NumVersion = NUM_VERSION | SAVE_COMPRESS;
                     CopyScreen(Screen, Log);
-                    SaveGame(TRUE);
+                    S32 saved = SaveGame(TRUE);
                     NewCube = savenewcube;
                     HQ_ResumeSamples();
-                    ShowSaveConfirmation(MENU_LABEL_BUG_SAVED);
+                    ShowSaveConfirmation(saved ? MENU_LABEL_BUG_SAVED : MENU_LABEL_SAVE_FAILED);
                 }
 
                 CopyScreen(Screen, Log);

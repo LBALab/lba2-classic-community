@@ -261,6 +261,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `save\shoot\` and `recordings\` are created, so screenshots and recordings
   can be written
   ([#613](https://github.com/LBALab/lba2-classic-community/pull/613)).
+- On macOS, a save named without a keyboard on an island with an accent in its
+  name (in French, German, Spanish or Portuguese) is written again. It was
+  silently dropped while the menu said "Game saved". Save files now get plain
+  ASCII names, while the save list still shows the accented name, and a save
+  that cannot be written says "Save failed"
+  ([#741](https://github.com/LBALab/lba2-classic-community/pull/741)).
 - The game no longer rewrites the modification time of installed `.VOX` voice
   files, which the 1997 CD voice cache reads to pick what to delete, and the
   cache skips the game folder

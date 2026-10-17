@@ -2481,9 +2481,9 @@ S32 Control_WriteSnapshot(const char *path) {
     strncpy(PlayerName, "rec", MAX_SIZE_PLAYER_NAME);
     PlayerName[MAX_SIZE_PLAYER_NAME] = 0;
     NumVersion = NUM_VERSION | SAVE_COMPRESS;
-    SaveGame(TRUE);
+    S32 saved = SaveGame(TRUE);
     Control_ReturnSaveContext();
-    return 1;
+    return saved ? 1 : 0;
 }
 
 /* MainLoop clears FlagLoadGame at `restartloop`, which it passes through on entry and

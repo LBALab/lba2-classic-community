@@ -974,15 +974,14 @@ restartloop:
                     if (ChoosePlayerName(42, FALSE, TRUE)) {
                         NumVersion = NUM_VERSION | SAVE_COMPRESS;
                         CopyScreen(Screen, Log);
-                        if (FileSize(OldGamePathname))
-                            Delete(OldGamePathname);
-                        SaveGame(TRUE);
+                        S32 saved = SaveGame(TRUE);
+                        FinishSaveRename(saved);
                         // Match the main-menu Save path: resume samples for the
-                        // chime, then show the "Game Saved" confirmation. Without
-                        // it the quick-save writes silently, so a successful save
-                        // looks identical to a failure (menu just closes).
+                        // chime, then show "Game Saved" or "Save failed".
+                        // Without it the quick-save writes silently, so a
+                        // successful save looks identical to a failure.
                         HQ_ResumeSamples();
-                        ShowGameSavedConfirmation();
+                        ShowGameSaveResult(saved);
                     }
                     ClearPlasmaMenu();
 #endif

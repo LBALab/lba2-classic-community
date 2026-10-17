@@ -14,6 +14,8 @@ Truth hierarchy: code > this document > external sources.
 
 Path resolution: `GetSavePath(outPath, pathMaxSize, saveFilename)` → `<userDir>/save/` + filename ([SOURCES/DIRECTORIES.CPP](../SOURCES/DIRECTORIES.CPP)).
 
+A named save's name is CP850 text stored inside the file, and the save list reads it from there, so the file name only has to be unique and portable. The menu names the file from an ASCII copy of the name, `SaveFileStemFromName` ([SOURCES/SAVENAME_VALIDATION.CPP](../SOURCES/SAVENAME_VALIDATION.CPP)): accented letters fold to plain ones, characters Windows forbids become `_`, and a Windows device name gets a leading `_`. A new or renamed save takes `<stem> (2).LBA` when another save already uses the stem. An overwrite writes to the file the save was found in, so saves named before this rule keep their files. macOS refuses a file name that is not UTF-8, which is what the raw CP850 name was.
+
 ### Bug saves (`save/bugs/`)
 
 **Purpose:** Repro / QA snapshots kept **separate** from player slots. Same **`.lba` binary format** and **`SaveGame()` / `LoadGame()`** machinery as normal saves ([SOURCES/SAVEGAME.CPP](../SOURCES/SAVEGAME.CPP)); only **path**, **who triggers the write**, and **default compression** differ.

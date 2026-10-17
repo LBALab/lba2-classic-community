@@ -49,7 +49,8 @@ extern S32 InputPlayerName(S32 choice, char *name);
 /*--------------------------------------------------------------------------*/
 extern S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew);
 /*--------------------------------------------------------------------------*/
-extern void ShowGameSavedConfirmation(void);
+extern void ShowGameSaveResult(S32 saved);
+extern void FinishSaveRename(S32 saved);
 /*--------------------------------------------------------------------------*/
 extern void DrawOneChoice(S32 x, S32 y, S32 type, S32 num, S32 select);
 /*--------------------------------------------------------------------------*/
