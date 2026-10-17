@@ -6,8 +6,9 @@ static inline bool SDL2_DirectorySeparator(char c, bool windows) {
     return c == '/' || (windows && c == '\\');
 }
 
-static inline size_t SDL2_DirectoryRootLength(const char *path, bool windows, bool device = false) {
-    if (device) {
+static inline size_t SDL2_DirectoryRootLength(const char *path, bool windows, bool allowDevicePrefix = false) {
+    if (allowDevicePrefix) {
+        /* Switch roots such as sdmc:/ name existing mounts, not mkdir targets. */
         size_t end = 0;
         while (path[end] && path[end] != ':' && path[end] != '/')
             ++end;

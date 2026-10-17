@@ -462,7 +462,7 @@ static void test_directory_parent_prefixes() {
         const char *root;
         const char *first;
         const char *second;
-        bool device;
+        bool allowDevicePrefix;
     };
     const Case cases[] = {
         {"\\\\server\\share\\profile\\saves", true, "\\\\server\\share", "\\\\server\\share\\profile", "\\\\server\\share\\profile\\saves"},
@@ -493,7 +493,7 @@ static void test_directory_parent_prefixes() {
     };
     for (size_t c = 0; c < sizeof(cases) / sizeof(cases[0]); ++c) {
         const Case &fixture = cases[c];
-        size_t cursor = SDL2_DirectoryRootLength(fixture.path, fixture.windows, fixture.device);
+        size_t cursor = SDL2_DirectoryRootLength(fixture.path, fixture.windows, fixture.allowDevicePrefix);
         ASSERT_TRUE(std::string(fixture.path, cursor) == fixture.root);
         std::vector<std::string> prefixes;
         size_t end;

@@ -83,11 +83,11 @@ bool SDL2_CreateDirectory(const char *path) {
     const bool windows = false;
 #endif
 #ifdef __SWITCH__
-    const bool device = true;
+    const bool allowDevicePrefix = true;
 #else
-    const bool device = false;
+    const bool allowDevicePrefix = false;
 #endif
-    size_t cursor = SDL2_DirectoryRootLength(copy, windows, device);
+    size_t cursor = SDL2_DirectoryRootLength(copy, windows, allowDevicePrefix);
     size_t i = SDL2_NextDirectoryPrefix(copy, &cursor, windows);
     bool ok = true;
     if (!i) {
