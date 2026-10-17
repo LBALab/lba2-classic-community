@@ -321,6 +321,19 @@ void Control_InputTrace(int on);
    variables. Refills the value table below as it goes. */
 unsigned long long Control_StateDigest(void);
 
+/* The same walk split in two, from the last Control_StateDigest call. The view hash is
+   the camera's own fields: angles, distance, offsets, the preset, the camera-zone flag
+   and the FollowCamera setting. The world hash is everything else. Between them they mix
+   exactly the fields the combined digest mixes, in the same order, so the combined
+   digest is unchanged and these two are additions beside it.
+
+   The split is what lets a replay under different camera settings say whether the game
+   itself ran the same: the combined digest moves with the camera by construction, so it
+   cannot tell "seen differently" from "happened differently". A camera field that leaks
+   into the game shows up as world fields moving, which is the finding. */
+unsigned long long Control_StateDigestWorld(void);
+unsigned long long Control_StateDigestView(void);
+
 /* The values the digest just mixed, in the order it mixed them. Valid until the next
    Control_StateDigest call. */
 S32 Control_StateValueCount(void);

@@ -10,7 +10,7 @@ divergence.
     scripts/dev/dump_recording.py session.rec            # header + summary + keyframes
     scripts/dev/dump_recording.py session.rec keys       # keyframe deltas only
     scripts/dev/dump_recording.py session.rec cmds       # console commands only
-    scripts/dev/dump_recording.py session.rec ticks      # tick, TimerRefHR, hash
+    scripts/dev/dump_recording.py session.rec ticks      # tick, TimerRefHR, hash[, world, view]
     scripts/dev/dump_recording.py session.rec analog     # polls carrying mouse or stick
     scripts/dev/dump_recording.py session.rec device     # where the input device changed
     scripts/dev/dump_recording.py session.rec clock      # what the game clock did, per tick
@@ -145,6 +145,7 @@ REC_KEY = 0x50   # keyframe: u32 tick, u16 count (v12+), then count * s32
 REC_TELE = 0x51  # verbose telemetry: u32 tick, u16 count, then count * s32
 REC_CMD = 0x40   # console command: u32 tick, u16 len, then len bytes
 REC_DEVICE = 0x52  # input device changed: u8, the new LastInputWasKeyboard
+REC_SPLIT = 0x53   # v15+: u32 tick, u64 world hash, u64 view hash, behind each tick record
 REC_SYNC = 0x60  # sync marker: u32 magic, u32 poll, u32 tick
 SYNC_MAGIC = 0x53594E43  # "SYNC"
 REC_SNAP_START = 0x70  # the savegame the session started from
@@ -194,6 +195,8 @@ def parse(path):
     # (poll, value) each time LastInputWasKeyboard changed. The value the session
     # started on is in the header, not here, so an empty list means it never moved.
     devices = []
+    # tick -> (world, view), from format 15. Empty for an older file, which carries none.
+    splits = {}
     held = None  # last analog tuple written, for the version >= 13 hold-last rule
     syncs = 0
     snaps = {}
@@ -206,7 +209,7 @@ def parse(path):
         if got is None:
             print("start snapshot at byte %d does not close; the rest is unreadable" % p)
             return (header, polls, ticks, keys, cmds, teles, syncs, snaps, analog,
-                    devices)
+                    devices, splits)
         snaps["start"] = got[1]
         p = got[2]
 
@@ -243,6 +246,10 @@ def parse(path):
             elif flags == REC_DEVICE:
                 devices.append((polls, data[p]))
                 p += 1
+            elif flags == REC_SPLIT:
+                tick, world, view = struct.unpack_from("<IQQ", data, p)
+                p += 20
+                splits[tick] = (world, view)
             elif flags == REC_CMD:
                 tick, length = struct.unpack_from("<IH", data, p)
                 p += 6
@@ -303,7 +310,7 @@ def parse(path):
             print("truncated at byte %d" % start)
             break
 
-    return header, polls, ticks, keys, cmds, teles, syncs, snaps, analog, devices
+    return header, polls, ticks, keys, cmds, teles, syncs, snaps, analog, devices, splits
 
 
 def write_saves(path, snaps):
@@ -485,7 +492,7 @@ def main(argv):
     path = argv[1]
     what = argv[2] if len(argv) > 2 else "all"
     (header, polls, ticks, keys, cmds, teles, syncs, snaps, analog,
-     devices) = parse(path)
+     devices, splits) = parse(path)
 
     if what == "saves":
         write_saves(path, snaps)
@@ -499,9 +506,9 @@ def main(argv):
     # wrote one on nearly every poll.
     wrote = sum(1 for a in analog if a[7])
     print("polls=%d ticks=%d keyframes=%d telemetry=%d cmds=%d syncs=%d analog=%d "
-          "analog_held=%d devices=%d"
+          "analog_held=%d devices=%d splits=%d"
           % (polls, len(ticks), len(keys), len(teles), len(cmds), syncs, wrote,
-             len(analog) - wrote, len(devices)))
+             len(analog) - wrote, len(devices), len(splits)))
     # No end snapshot means the session did not stop cleanly, which is worth saying
     # rather than leaving to be noticed.
     print("savegames: start %s, end %s"
@@ -555,7 +562,10 @@ def main(argv):
 
     if what == "ticks":
         for tick, ref, h in ticks:
-            print("%d %d %016x" % (tick, ref, h))
+            if tick in splits:
+                print("%d %d %016x %016x %016x" % ((tick, ref, h) + splits[tick]))
+            else:
+                print("%d %d %016x" % (tick, ref, h))
 
 
 if __name__ == "__main__":

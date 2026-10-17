@@ -40,6 +40,30 @@ rec="$(user_dir)/session.rec"
 # command substitution, because `fail` ends the shell it runs in: inside $( ) that is
 # the subshell, and the caller carries on to print PASS over the top of a failure.
 CHECKED=""
+# The world/view split (REC_SPLIT, format 15): the combined digest's first mismatch has to
+# be the earlier of the world hash's and the view hash's, because between them they mix
+# exactly the combined digest's fields. Sets SPLIT_H, SPLIT_W and SPLIT_V to the three
+# first-mismatch ticks (-1 for none). Called directly, not in $( ), so `fail` ends the test.
+split_verdict() { # split_verdict <label> <replay output>
+    local label="$1" out="$2" line summary
+    summary="$(printf '%s\n' "$out" | grep -m1 'replay ended')" ||
+        fail "$label: replay printed no summary"
+    line="$(printf '%s\n' "$out" | grep -m1 'world/view: compared on')" ||
+        fail "$label: the replay printed no world/view line; $(printf '%s\n' "$out" | grep -m1 'world/view' || echo 'none at all')"
+    SPLIT_H="$(printf '%s\n' "$summary" | sed -n 's/.*first hash mismatch \(-*[0-9]*\).*/\1/p')"
+    SPLIT_W="$(printf '%s\n' "$line" | sed -n 's/.*first world mismatch \(-*[0-9]*\).*/\1/p')"
+    SPLIT_V="$(printf '%s\n' "$line" | sed -n 's/.*first view mismatch \(-*[0-9]*\).*/\1/p')"
+    [ -n "$SPLIT_H" ] && [ -n "$SPLIT_W" ] && [ -n "$SPLIT_V" ] ||
+        fail "$label: could not read the verdicts ($summary / $line)"
+    local first=-1
+    for t in "$SPLIT_W" "$SPLIT_V"; do
+        if [ "$t" -ge 0 ] && { [ "$first" -lt 0 ] || [ "$t" -lt "$first" ]; }; then
+            first="$t"
+        fi
+    done
+    [ "$first" = "$SPLIT_H" ] ||
+        fail "$label: the combined hash first differs at $SPLIT_H, but world says $SPLIT_W and view $SPLIT_V; the split does not cover the digest ($line)"
+}
 record_and_replay() { # record_and_replay <label> [extra record args...]
     local label="$1"
     shift
@@ -128,6 +152,13 @@ record_and_replay() { # record_and_replay <label> [extra record args...]
     case "$summary" in
     *"first hash mismatch -1"*) ;;
     *) fail "$label: $summary" ;;
+    esac
+
+    # A clean replay is clean on both sides, on every tick the combined hash compared.
+    split_verdict "$label" "$out"
+    case "$out" in
+    *"world/view: compared on $checked ticks,"*) ;;
+    *) fail "$label: the world/view hashes were not compared on all $checked ticks; $(printf '%s\n' "$out" | grep -m1 'world/view')" ;;
     esac
 
     CHECKED="$checked"
@@ -427,6 +458,11 @@ case "$bout" in
         grep -m1 -e 'consistency failure' -e 'state differs' || echo 'no divergence reported')"
     ;;
 esac
+# A script variable is world state, so the world hash is the side that broke, on the
+# combined hash's tick.
+split_verdict "verbose/world" "$bout"
+[ "$SPLIT_W" -ge 0 ] && [ "$SPLIT_W" = "$SPLIT_H" ] ||
+    fail "verbose/world: changing var.game[77] did not break the world hash first (combined $SPLIT_H, world $SPLIT_W, view $SPLIT_V)"
 
 # The other half of the mode.audio check above. That one shows the line is written; this
 # shows the replay acts on it, which is the half that decides whether a recording made
@@ -1324,7 +1360,7 @@ eqverdict() { # eqverdict <label> [--load ...]
         --tick 400 --exit 2>&1)" ||
         fail "equivalence/$label: replay run exited non-zero ($?); it hung or crashed"
     EQ="$(printf '%s\n' "$out" | grep -m1 'replay ended' |
-        sed -n 's/.*\(first hash mismatch -\?[0-9]*\).*/\1/p')"
+        sed -n 's/.*\(first hash mismatch -*[0-9]*\).*/\1/p')"
     [ -n "$EQ" ] || fail "equivalence/$label: replay printed no verdict"
 
     # The arm's self-description, checked. A one-line cfg leaves every other setting at
@@ -1335,6 +1371,16 @@ eqverdict() { # eqverdict <label> [--load ...]
     *"mode differs: settings.FollowCamera"*) ;;
     *) fail "equivalence/$label: the run did not report differing on settings.FollowCamera; the arm is not testing what it says" ;;
     esac
+
+    # FollowCamera is a view field, so the view hash breaks on the combined hash's tick.
+    # Where the world hash goes under the flip is what the split exists to measure, so
+    # it is reported, not asserted: a world mismatch here is the camera reaching the game.
+    split_verdict "equivalence/$label" "$out"
+    [ "$SPLIT_V" -ge 0 ] && [ "$SPLIT_V" = "$SPLIT_H" ] ||
+        fail "equivalence/$label: the FollowCamera flip did not break the view hash first (combined $SPLIT_H, world $SPLIT_W, view $SPLIT_V)"
+    printf 'equivalence/%s: FollowCamera flip: view first differs at %s, world at %s\n' \
+        "$label" "$SPLIT_V" "$SPLIT_W"
+    EQWORLD="$SPLIT_W"
 }
 
 eqverdict "with --load" --load "$LBA2_TEST_SAVE"
@@ -1529,6 +1575,6 @@ esac
 [ -e "$(user_dir)/menu-esc.json" ] ||
     fail "menu: no --dump-state was written from a run that replayed its whole recording"
 
-pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a video played to its end and replayed ($vidchecked ticks over $vidpolls polls); a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
+pass "replayed clean: $bounded ticks checked with --tick, $unbounded without; a video played to its end and replayed ($vidchecked ticks over $vidpolls polls); a cut and a corrupted snapshot were both refused; a bare name went to the recordings folder; format 10 still reads ($lchecked ticks); telemetry named the injected change; the world/view hashes matched on every clean replay, the injected variable broke the world hash and the FollowCamera flip the view hash, each on the combined hash's tick (world under the flip: $EQWORLD); mode.audio was written from the driver and reported both ways; a session recorded in one run replayed in the next with no flags and no paths; \
 'rec start verbose' carried telemetry and a plain one carried none; a recorded walk moved the hero and the replay walked it again; the recorder gave the step back and left the flag's alone; a playback put the player back where it found them, stopped early or run out; a window holding a scene change ran at ${modalrate}x real, not faster; a recording on a host-sampled clock crossed a scene change instead of wedging in the fade; \
 a command ran where the recording ran it, for an inline verb and for a deferred one; the state dump was the same at a 400 and a 4000 tick budget; a recording that opens a menu was replayed through it ($escchecked ticks); a replay with no --load booted from the recording's own starting state and still matched ($noloadchecked ticks); a session recorded from a fresh boot carried no starting state and replayed into one; a deliberately diverging replay reported '$eqwith' with and without --load; a replay on the player's own flipped FollowCamera borrowed the recording's, matched, and left the player's in lba2.cfg; a pre-inline recording loaded its sibling savegame with no --load and left it intact; the step's arming point was carried ($armtick against a replay's 0) without being reported, on a pair that replays clean"

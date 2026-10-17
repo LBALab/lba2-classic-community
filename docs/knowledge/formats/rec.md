@@ -1,7 +1,7 @@
 ---
 type: Format
 title: Session recording file (.rec)
-description: One self-framing file per session, format 14 with a read floor of 9, a text header, both savegames as framed chunks, and a binary record stream indexed by input poll.
+description: One self-framing file per session, format 15 with a read floor of 9, a text header, both savegames as framed chunks, and a binary record stream indexed by input poll.
 status: draft
 equivalence: tested
 as_of: d9cf303d
@@ -53,7 +53,7 @@ Little-endian throughout. Four parts, in order.
 
 | Part | Shape |
 |---|---|
-| Header | `LBA2REC 14`, then `key=value` lines, then a blank line. Text, so `rec info` can diff it against a live run without a parser. At most 4096 bytes. |
+| Header | `LBA2REC 15`, then `key=value` lines, then a blank line. Text, so `rec info` can diff it against a live run without a parser. At most 4096 bytes. |
 | Start savegame | A chunk with op `0x70`: the state the session started from, written once between the header and the first record, when the session began inside a game. Its payload is a compressed file of [the .lba Format](/formats/lba-save.md), written by the engine's own save path under the player name `rec`. A session recorded with no cube live writes none and declares `setup.snapshot=-`, because a fresh boot is the state it began from. |
 | Record stream | One flags byte per record, then a payload whose length the reader must already know. Flushed every tick. |
 | End savegame | A chunk with op `0x71`, written only when the session stopped while a scene was live. Its absence is the record of a session that did not finish, which is what a crash repro wants. |
@@ -69,6 +69,7 @@ One flags byte per record, then a payload. The file comment at the top of RECORD
 - A poll where nothing changed is one byte, and the low flag bits say which of the key table, `Key`, the analog block and the clock delta follow. The analog block is written when it differs from the last block written, not from zero, so the poll that releases a held button or stick is recorded.
 - A record's length is known only to a reader that knows its type. The dispatch is therefore a whitelist, and a type the reader does not know loses the stream until the next sync marker, one every 64 polls.
 - A console command is stamped with the tick already recorded, so stream order is execution order. The keyframe carries its count since version 12, and versions 9 to 11 wrote exactly 23 fields. The device record carries no count and cannot grow.
+- From format 15 every tick record is followed by a split record, `0x53`: the tick, then the world hash and the view hash, 64-bit each also under `LBA2_REC_HASH32`. The combined hash in the tick record is unchanged and stays the verdict; the split says which side moved, so a replay under different camera settings can say whether the game itself ran the same. The view side is the camera's own fields and `FollowCamera`, the world side everything else, and the combined hash's first mismatch is always the earlier of the two.[^control-cpp]
 - A new record type costs four sites, and missing one fails a different way: the whitelist and the step-over chain in `replay_poll`, and the table and the decoder in `dump_recording.py`. A type registered in the chain alone works only when it happens to follow a sync marker, so a fixture for a new type wants records on both sides of a marker. Nothing in the stream may be sized from the live build.
 
 ## Header lines
@@ -102,7 +103,7 @@ Three cases, kept apart on purpose.[^record-cpp]
 | adds a record type | `REC_VERSION` only | an older recording reads as it always did; an older build refuses the newer file outright, because the dispatch is a whitelist and cannot step over an unknown type |
 | changes what the engine computes | neither | the format still means what it meant; the `numeric.` lines report the difference per recording |
 
-Current values: `REC_VERSION` 14, `REC_VERSION_MIN` 9, `CONTROL_DIGEST_VERSION` 2. The last is the set of fields hashed, declared as `numeric.digest`; an unknown higher value is refused and every known lower one is reproduced, because fields are appended and never interleaved. Version 12 changed a meaning and left the floor at 9 on purpose: only a mouse-camera session reads differently, and no such session had ever replayed clean.
+Current values: `REC_VERSION` 15, `REC_VERSION_MIN` 9, `CONTROL_DIGEST_VERSION` 2. The last is the set of fields hashed, declared as `numeric.digest`; an unknown higher value is refused and every known lower one is reproduced, because fields are appended and never interleaved. Version 12 changed a meaning and left the floor at 9 on purpose: only a mouse-camera session reads differently, and no such session had ever replayed clean.
 
 # What it does not tell you
 
