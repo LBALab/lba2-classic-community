@@ -30,7 +30,10 @@ A clean replay ends with `first hash mismatch -1`. Anything else names the tick:
 
 From format 15 a recording also carries the digest split in two, a **world** hash (everything but
 the camera) and a **view** hash (the camera's angles, distance, offsets, preset, camera-zone flag and
-the `FollowCamera` setting), and the replay says which side moved first:
+the `FollowCamera` setting), and the replay says which side moved first. From format 16 the two
+bits the renderer writes on the hero, `WAS_DRAWN` and `DRAW_SHADOW`, are on the view side too,
+because they say what was on screen rather than what happened; a format 15 file's split is read but
+not compared, since it was hashed the old way:
 
 ```
 [rec] view hash first differs at tick 0
