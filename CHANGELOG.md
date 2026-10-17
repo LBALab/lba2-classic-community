@@ -157,8 +157,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ([#452](https://github.com/LBALab/lba2-classic-community/pull/452)).
 - `LBA2_ISO_DIV=2`, up to 4, draws interiors at a half, up to a quarter, of the
   chosen resolution and stretches them to the window, so a room fills a large
-  screen. Outdoor scenes keep the full resolution. It is read once at launch
-  ([#452](https://github.com/LBALab/lba2-classic-community/pull/452)).
+  screen. Outdoor scenes keep the full resolution, and the Display menu shows
+  the chosen one indoors too. It is read once at launch
+  ([#452](https://github.com/LBALab/lba2-classic-community/pull/452), [#714](https://github.com/LBALab/lba2-classic-community/pull/714)).
 - `DitherShading` in `lba2.cfg` (`gfx_dither`), off by default, dithers the
   terrain's shading so the steps between light levels become a gradient
   ([#455](https://github.com/LBALab/lba2-classic-community/pull/455)).
@@ -469,17 +470,17 @@ right stick snapping the camera round
 main menu opening when skipping a line after a choice
 ([#451](https://github.com/LBALab/lba2-classic-community/issues/451)), keypad
 Enter in the save-name box
-([#497](https://github.com/LBALab/lba2-classic-community/issues/497)) and the
+([#497](https://github.com/LBALab/lba2-classic-community/issues/497)), the
 main menu's extra blink
-([#410](https://github.com/LBALab/lba2-classic-community/issues/410)). He
+([#410](https://github.com/LBALab/lba2-classic-community/issues/410)) and the
+Display menu showing the interior render size
+([#499](https://github.com/LBALab/lba2-classic-community/issues/499)). He
 helped pin down the magic ball report
 ([#456](https://github.com/LBALab/lba2-classic-community/issues/456)), and
 reported what is still open: the camera clipping into scenery
 ([#363](https://github.com/LBALab/lba2-classic-community/issues/363)), the
 first bat's jumping flight path, which `objtrace` was built to chase
-([#498](https://github.com/LBALab/lba2-classic-community/issues/498)), the
-Display menu showing the interior render size
-([#499](https://github.com/LBALab/lba2-classic-community/issues/499)) and the
+([#498](https://github.com/LBALab/lba2-classic-community/issues/498)) and the
 dither's checkerboard
 ([#500](https://github.com/LBALab/lba2-classic-community/issues/500)). A full
 speedrun he recorded and sent in shaped the recording format and its dump
@@ -494,7 +495,7 @@ builds the whole game without SDL
 desktop SDL2 backend with audio on top of it
 ([#691](https://github.com/LBALab/lba2-classic-community/pull/691)).
 
-Welcome to two new contributors since v0.12.0:
+Welcome to three new contributors since v0.12.0:
 [@makseq](https://github.com/makseq) for texture filtering and scaled
 interiors
 ([#452](https://github.com/LBALab/lba2-classic-community/pull/452)), recovery
@@ -503,10 +504,13 @@ from a config with every binding unset
 terrain shading
 ([#455](https://github.com/LBALab/lba2-classic-community/pull/455)) and the
 choosable present filter that landed as
-[#692](https://github.com/LBALab/lba2-classic-community/pull/692); and
+[#692](https://github.com/LBALab/lba2-classic-community/pull/692);
 [@iibaranov-IG](https://github.com/iibaranov-IG) for finding disc images on
 Android
-([#675](https://github.com/LBALab/lba2-classic-community/pull/675)).
+([#675](https://github.com/LBALab/lba2-classic-community/pull/675)); and
+[@ColumbusLabs](https://github.com/ColumbusLabs) for the Display menu showing
+the chosen resolution indoors
+([#714](https://github.com/LBALab/lba2-classic-community/pull/714)).
 
 Thanks to [@saisilcastro](https://github.com/saisilcastro) for reporting the
 magic ball and attacks not firing
