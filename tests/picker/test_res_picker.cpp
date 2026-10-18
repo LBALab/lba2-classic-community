@@ -68,6 +68,7 @@ int main(void) {
     check_message("InvalidPick", kPickerMsgInvalidPick);
     check_message("NoPicker", kPickerMsgNoPicker);
     check_message("AndroidData", kPickerMsgAndroidData);
+    check_message("AndroidNoAccess", kPickerMsgAndroidNoAccess);
 
     /* Each message must carry the action it promises.
      *
@@ -89,6 +90,10 @@ int main(void) {
           "NoPicker: points at README.txt");
     check(strstr(kPickerMsgAndroidData, "/sdcard/lba2cc/") != NULL,
           "AndroidData: names the copy target");
+    check(strstr(kPickerMsgAndroidNoAccess, "All files access") != NULL,
+          "AndroidNoAccess: names the setting to turn on");
+    check(strstr(kPickerMsgAndroidNoAccess, "Relaunch") != NULL,
+          "AndroidNoAccess: says to relaunch");
 
     /* Off-Android, the gate must fall through to the desktop picker:
        Android_GetExternalFilesDir is a no-op returning 0 here. */

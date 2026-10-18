@@ -38,6 +38,7 @@ extern const char kPickerMsgDataNotFound[];
 extern const char kPickerMsgInvalidPick[];
 extern const char kPickerMsgNoPicker[];
 extern const char kPickerMsgAndroidData[];
+extern const char kPickerMsgAndroidNoAccess[];
 
 #ifdef __cplusplus
 }
