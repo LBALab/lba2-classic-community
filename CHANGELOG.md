@@ -30,6 +30,15 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   you come back without turning access on, the game now says so instead of
   asking you to copy files that are already there.
 
+### Display & render
+
+- At widths such as 800, 1280 and 1920, walls in front of a magic ball, a
+  bonus, a door or another sprite now cover it right up to the sprite's left
+  edge; a strip up to 16 pixels wide used to show through. In the two
+  labyrinth scenes the bricks at the left edge of the screen are drawn again
+  instead of leaving a strip of the same width empty. 640x480 and 1024x768
+  were never affected.
+
 ## [0.13.0] - 2026-10-18
 
 ### Android: updating from 0.12.0 erases your saves, once
