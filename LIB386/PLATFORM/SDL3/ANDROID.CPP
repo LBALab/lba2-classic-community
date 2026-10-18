@@ -91,20 +91,21 @@ S32 IsAndroidTVDevice(void) {
 
 /* Waiting for an answer once Settings has been opened.
 
-   The bound is spent time, not elapsed time: Android freezes a backgrounded
-   process, so this loop does not run at all while the player is on the Settings
-   screen. What it measures is how long the game sits in front of somebody with
-   nothing happening, which is why it is short.
+   PermissionHelper watches the game's activity: it reports when Settings sends
+   the game to the background and when the player comes back. While the game is
+   behind Settings the wait has no time limit, because the player is reading or
+   deciding there. Some devices freeze a backgrounded app and others (Samsung)
+   keep it running, so the game's own clock cannot say how long the player took.
 
-   A player who grants is detected on their next poll and never sees it. A player
-   who declines used to serve out the whole bound looking at a blank game, so a
-   return is treated as an answer in itself: coming back is visible here as a
-   poll that took seconds of wall clock instead of the quarter second it asked
-   for, which is the process being thawed. Whatever the permission says at that
-   moment is the answer, and the boot carries on with it. */
+   A player who grants is detected on the next poll and never sees the wait. A
+   return is an answer in itself: whatever the permission says then is what the
+   boot carries on with.
+
+   If the game never goes to the background (Settings failed to open, or opened
+   beside the game in split screen), nothing will report a return, so the wait
+   gives up after a short spell in front of the player. */
 #define ANDROID_PERM_WAIT_MS 15000
 #define ANDROID_PERM_POLL_MS 250
-#define ANDROID_PERM_THAW_MS 2000
 
 bool Android_HasExternalStoragePermission(void) {
 #ifdef __ANDROID__
@@ -165,22 +166,36 @@ bool Android_EnsureExternalStoragePermission(void) {
                        long after that, and while Settings is up both would be
                        decided against a state the player is in the middle of
                        changing. */
-                    U32 waited = 0;
-                    U32 lastTick = g_platform.system.ticks_ms();
+                    jmethodID leftM =
+                        env->GetStaticMethodID(permHelper, "hasLeftForSettings", "()Z");
+                    jmethodID returnedM =
+                        env->GetStaticMethodID(permHelper, "hasReturnedFromSettings", "()Z");
+                    jmethodID stopM = env->GetStaticMethodID(permHelper, "stopWatching",
+                                                             "(Ljava/lang/Object;)V");
+                    if (env->ExceptionCheck())
+                        env->ExceptionClear();
+
+                    const U32 start = g_platform.system.ticks_ms();
+                    U32 inFront = 0; /* time waited with the game in front */
                     bool returned = false;
-                    while (!granted && !returned && waited < ANDROID_PERM_WAIT_MS) {
+                    while (!granted && !returned && inFront < ANDROID_PERM_WAIT_MS) {
                         g_platform.system.delay_ms(ANDROID_PERM_POLL_MS);
-                        const U32 tick = g_platform.system.ticks_ms();
-                        const U32 slept = tick - lastTick;
-                        lastTick = tick;
-                        waited += ANDROID_PERM_POLL_MS;
                         granted =
                             env->CallStaticBooleanMethod(permHelper, isMgr) != JNI_FALSE;
-                        /* Far more clock passed than was asked for, so this
-                           process was frozen and has just been thawed: the
-                           player is looking at the game again. */
-                        returned = (slept > ANDROID_PERM_THAW_MS);
+                        const bool left =
+                            leftM != NULL &&
+                            env->CallStaticBooleanMethod(permHelper, leftM) != JNI_FALSE;
+                        returned =
+                            returnedM != NULL &&
+                            env->CallStaticBooleanMethod(permHelper, returnedM) != JNI_FALSE;
+                        if (!left)
+                            inFront += ANDROID_PERM_POLL_MS;
                     }
+                    if (stopM != NULL)
+                        env->CallStaticVoidMethod(permHelper, stopM, activity);
+                    if (env->ExceptionCheck())
+                        env->ExceptionClear();
+                    const U32 waited = g_platform.system.ticks_ms() - start;
                     if (granted) {
                         Platform_Log(PLATFORM_LOG_INFO, "MANAGE_EXTERNAL_STORAGE granted after %ums.\n", waited);
                     } else if (returned) {
