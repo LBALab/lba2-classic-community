@@ -270,10 +270,10 @@ extern "C" {
  * Added in format 15, which is why that version exists: an older build's dispatch is a
  * whitelist and would lose its place at this type rather than step over it.
  *
- * Format 16 moved the hero's WAS_DRAWN bit from the world side to the view side (the
- * combined hash is unchanged). A format 15 file's split was hashed the old way, so it is
- * read and stepped over but not compared: every tick would differ in a field that did not
- * move. REC_SPLIT_COMPARED_FROM says which formats a replay compares. */
+ * Format 16 moved the hero's WAS_DRAWN and DRAW_SHADOW bits from the world side to the
+ * view side (the combined hash is unchanged). A format 15 file's split was hashed the old
+ * way, so it is read and stepped over but not compared: every tick would differ in a field
+ * that did not move. REC_SPLIT_COMPARED_FROM says which formats a replay compares. */
 #define REC_SPLIT 0x53
 #define REC_SPLIT_COMPARED_FROM 16
 

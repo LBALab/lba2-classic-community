@@ -59,7 +59,7 @@ A scan of `SCENE.HQR` (GOG data, every one of its 223 scenes parsed) found 24 te
 
 - **It is the one way the screen reaches the game.** A camera or a resolution that changes which actors are drawn can change who the spell kills and which branch a script takes. The rings Decision counts this as the original's rule applied to a different screen, not as a setting leaking into the game.[^control]
 - **The replay digest has to say which side the mark is on.** The hero's `WAS_DRAWN`, and the draw list's `DRAW_SHADOW` beside it, are hashed on the view side from recording format 16: a camera that frames the hero differently moves them with nothing else changed, and when the game does act on the mark, the fields it changes are on the world side.
-- **Deciding "on screen" from the 1997 frame** would make the spell the same at every resolution. It would also strike enemies a player at 1920x1080 can see not being struck, and an actor waiting to be off screen could act in plain view. Neither is chosen; this page is where that choice starts.
+- **Deciding "on screen" from the 1997 frame** would make the spell the same at every resolution. It would also leave enemies a player can see at 1920x1080 untouched, and an actor waiting to be off screen could act in plain view. Neither is chosen; this page is where that choice starts.
 
 # What it does not tell you
 

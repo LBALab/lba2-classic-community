@@ -114,6 +114,8 @@ nest_frame again
 [ "$NF" = "$base" ] || fail "nest: two unflipped runs drew different frames at tick $NEST_TICK"
 for flip in "${RING_FLIPS[@]}"; do
     nest_frame "${flip%%=*}"
+    grep -q "^\[control\] *${flip%%=*} = ${flip#*=}\$" "$work/nest.${flip%%=*}.out" ||
+        fail "nest: the console never confirmed ${flip%%=*} = ${flip#*=}, so the flip may not have happened"
     [ "$NF" = "$base" ] || fail "nest: ${flip%%=*} ${flip#*=} changed the frame with the icon up and the Auto camera off"
 done
 

@@ -56,7 +56,7 @@ Two contracts for the Auto camera's settings, each checked by a fixture that fli
 
 # Non-goals
 
-- **Making the game independent of the screen.** Deciding "on screen" from the 1997 frame would give the lightning spell the same strength at every resolution, and would strike enemies a player can see not being struck. It is possible later, for the spell alone; a setting for it now would be a commitment made before anyone has asked for it, so the Quirk records it instead.
+- **Making the game independent of the screen.** Deciding "on screen" from the 1997 frame would give the lightning spell the same strength at every resolution, and would leave enemies a player can see untouched. It is possible later, for the spell alone; a setting for it now would be a commitment made before anyone has asked for it, so the Quirk records it instead.
 - **Every other setting.** The contracts cover the Auto camera's. Resolution changes the game through the same door and is not yet carried by a recording; `DetailLevel` changes the rain's draws from the shared random stream, which is original. A ring tag on each settings row, and presets built from them, are later.
 - **What the routes do not walk.** Cutscenes, camera writes from scripts, and other actors' drawn marks, which are not hashed, are outside both fixtures.
 

@@ -235,9 +235,10 @@ ring_read() {
     wv="$(sed -n 's/.*world\/view: compared on \([0-9]*\) ticks, first world mismatch \(-*[0-9]*\), first view mismatch \(-*[0-9]*\).*/\1 \2 \3/p' "$out" | head -1)"
     [ -n "$wv" ] || fail "$scene/$tag: the replay printed no world/view line; it cannot be said to have matched"
     read -r RT RW RV <<<"$wv"
-    # The recording holds SCENE_TICKS + 1 ticks. Fewer compared means the reader lost the
-    # stream, which reads like a match on the ticks it did compare.
-    [ "$RT" -ge "$SCENE_TICKS" ] || fail "$scene/$tag: compared $RT ticks of the $((SCENE_TICKS + 1)) recorded"
+    # The recording holds SCENE_TICKS + 1 ticks, tick 0 included, and a clean replay
+    # compares all of them. Fewer means the reader lost the stream, which reads like a
+    # match on the ticks it did compare.
+    [ "$RT" -ge $((SCENE_TICKS + 1)) ] || fail "$scene/$tag: compared $RT ticks of the $((SCENE_TICKS + 1)) recorded"
     [ -f "$work/$scene.$tag.png" ] || fail "$scene/$tag: no screenshot"
     RF="$(python3 "$REPO/scripts/dev/png_hash.py" "$work/$scene.$tag.png")" ||
         fail "$scene/$tag: could not hash the screenshot"
