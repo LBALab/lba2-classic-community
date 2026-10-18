@@ -3,6 +3,8 @@
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -16,6 +18,16 @@ extern "C" {
  * A trailing word ("2026-05-17 hero") or partial date ("2026-05-17") is
  * still accepted. Extracted from GAMEMENU.CPP so it's unit-testable. */
 extern S32 IsDatetimeReservedShape(const char *s);
+
+/* Writes the file name stem (no extension) for a save called `name` into
+ * `out`. A save's name is CP850 text stored inside the file, where the save
+ * list reads it, so the file name only has to be unique and portable: accented
+ * letters fold to ASCII ("D\x82sert" -> "Desert"), other bytes outside
+ * printable ASCII and the characters Windows forbids become '_', trailing dots
+ * and spaces are dropped, and a Windows device name (CON, NUL, COM1...) gets a
+ * leading '_'. An empty result becomes "save". `out` is always terminated;
+ * `outSize` must be at least 8. */
+extern void SaveFileStemFromName(const char *name, char *out, size_t outSize);
 
 #ifdef __cplusplus
 }

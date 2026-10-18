@@ -1922,14 +1922,26 @@ extern "C" U32 Rnd_Draws(void);
  *   - a short keyframe of the fields a person reads first
  */
 
-static unsigned long long s_h;
-static void mix(const void *p, unsigned n) {
+#define FNV_OFFSET 14695981039346656037ULL
+static unsigned long long s_h;  /* the combined digest: every compared field */
+static unsigned long long s_hw; /* the world side: everything but the camera */
+static unsigned long long s_hv; /* the view side: the camera's own fields */
+static void fnv(unsigned long long *h, const void *p, unsigned n) {
     const unsigned char *b = (const unsigned char *)p;
     unsigned i;
     for (i = 0; i < n; i++) {
-        s_h ^= b[i];
-        s_h *= 1099511628211ULL;
+        *h ^= b[i];
+        *h *= 1099511628211ULL;
     }
+}
+/* Which side of the split a field is on. Only the camera's own fields are view. A field
+   the game reads stays world even when its name sounds like presentation: CinemaMode
+   locks the hero's input, so it is world. */
+#define SIDE_WORLD 0
+#define SIDE_VIEW 1
+static void mix(S32 side, const void *p, unsigned n) {
+    fnv(&s_h, p, n);
+    fnv(side == SIDE_VIEW ? &s_hv : &s_hw, p, n);
 }
 /* Mix a value into the digest and keep it, named, for the telemetry. The name is the
    expression itself, which is what stops the two drifting apart: a field cannot be
@@ -1937,6 +1949,8 @@ static void mix(const void *p, unsigned n) {
    named without anyone remembering to name it. Scalars carry index -1; the loops below
    pass the array index they are on. */
 #define M(cls, v) MI(cls, #v, -1, v)
+/* The same for one of the camera's own fields, which goes to the view side. */
+#define MV(cls, v) MIS(SIDE_VIEW, cls, #v, -1, v)
 /* Does a field of this class take part in the verdict? Only DIGEST_SAVED and
    DIGEST_CARRIED are state a replay can be made to start from, so only those two can
    answer "did the simulation reach the same state". Nothing is DIGEST_LOOSE today, and
@@ -1947,11 +1961,12 @@ static void mix(const void *p, unsigned n) {
 static int digest_mixes(S32 cls) {
     return cls != DIGEST_LOOSE && cls != DIGEST_PROBE;
 }
-#define MI(cls, nm, ix, v)                    \
+#define MI(cls, nm, ix, v) MIS(SIDE_WORLD, cls, nm, ix, v)
+#define MIS(side, cls, nm, ix, v)             \
     do {                                      \
         S32 t_ = (S32)(v);                    \
         if (digest_mixes(cls))                \
-            mix(&t_, sizeof t_);              \
+            mix(side, &t_, sizeof t_);        \
         if (s_teleN < TELE_MAX) {             \
             s_teleName[s_teleN] = (nm);       \
             s_teleIdx[s_teleN] = (S16)(ix);   \
@@ -2062,7 +2077,7 @@ void Control_KeyframeFill(S32 *v) {
 unsigned long long Control_StateDigest(void) {
     T_OBJET *hero = &ListObjet[NUM_PERSO];
     S32 i;
-    s_h = 14695981039346656037ULL;
+    s_h = s_hw = s_hv = FNV_OFFSET;
     s_teleN = 0;
     /* Scene identity. The savegame carries NumCube; the load recomputes the rest from
        the cube's own data file (SOURCES/DISKFUNC.CPP, Island and CubeMode), so they are
@@ -2092,15 +2107,16 @@ unsigned long long Control_StateDigest(void) {
     M(DIGEST_SAVED, hero->ZoneSce);
     M(DIGEST_SAVED, hero->Flags);
     M(DIGEST_SAVED, hero->WorkFlags);
-    /* The camera. Written and read unconditionally in the save's camera block. */
-    M(DIGEST_SAVED, BetaCam);
-    M(DIGEST_SAVED, AlphaCam);
-    M(DIGEST_SAVED, GammaCam);
-    M(DIGEST_SAVED, AddBetaCam);
-    M(DIGEST_SAVED, VueDistance);
-    M(DIGEST_SAVED, VueOffsetX);
-    M(DIGEST_SAVED, VueOffsetY);
-    M(DIGEST_SAVED, VueOffsetZ);
+    /* The camera. Written and read unconditionally in the save's camera block. These
+       and the three below are the view side of the split; everything else is world. */
+    MV(DIGEST_SAVED, BetaCam);
+    MV(DIGEST_SAVED, AlphaCam);
+    MV(DIGEST_SAVED, GammaCam);
+    MV(DIGEST_SAVED, AddBetaCam);
+    MV(DIGEST_SAVED, VueDistance);
+    MV(DIGEST_SAVED, VueOffsetX);
+    MV(DIGEST_SAVED, VueOffsetY);
+    MV(DIGEST_SAVED, VueOffsetZ);
     /* A cfg setting, not game state: SOURCES/CONFIG_FILE.CPP binds it to the
        `FollowCamera` key, and no load restores it. The recording carries it as a
        `settings.` header line and the replay borrows it (Control_InstallSettings), so it
@@ -2108,9 +2124,12 @@ unsigned long long Control_StateDigest(void) {
 
        Under --replay-own-settings it is compared against the player's value, which is
        what that flag is for: finding the settings a replay turns on. */
-    M(DIGEST_CARRIED, FollowCamera);
-    M(DIGEST_SAVED, VueCamera);
-    M(DIGEST_SAVED, CameraZone);
+    MV(DIGEST_CARRIED, FollowCamera);
+    MV(DIGEST_SAVED, VueCamera);
+    /* View: SetZoneCamera raises it when the hero walks into a camera zone, and every
+       reader is camera code (the recentre, the follow, the shot handling). The zone
+       itself is world -- hero->ZoneSce above. */
+    MV(DIGEST_SAVED, CameraZone);
     M(DIGEST_SAVED, CinemaMode);
     M(DIGEST_SAVED, MagicLevel);
     M(DIGEST_SAVED, MagicPoint);
@@ -2173,6 +2192,9 @@ unsigned long long Control_StateDigest(void) {
         MI(DIGEST_SAVED, "var.cube", i, ListVarCube[i]);
     return s_h;
 }
+
+unsigned long long Control_StateDigestWorld(void) { return s_hw; }
+unsigned long long Control_StateDigestView(void) { return s_hv; }
 
 S32 Control_StateValueCount(void) {
     if (s_teleDropped) {
@@ -2459,9 +2481,9 @@ S32 Control_WriteSnapshot(const char *path) {
     strncpy(PlayerName, "rec", MAX_SIZE_PLAYER_NAME);
     PlayerName[MAX_SIZE_PLAYER_NAME] = 0;
     NumVersion = NUM_VERSION | SAVE_COMPRESS;
-    SaveGame(TRUE);
+    S32 saved = SaveGame(TRUE);
     Control_ReturnSaveContext();
-    return 1;
+    return saved ? 1 : 0;
 }
 
 /* MainLoop clears FlagLoadGame at `restartloop`, which it passes through on entry and

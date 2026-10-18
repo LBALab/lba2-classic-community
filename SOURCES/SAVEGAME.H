@@ -27,7 +27,8 @@ extern void AutoSaveGame(void);
 /*--------------------------------------------------------------------------*/
 extern void CurrentSaveGame(void);
 /*--------------------------------------------------------------------------*/
-extern void SaveGame(S32 flagmess);
+/* TRUE when the whole save reached the file. */
+extern S32 SaveGame(S32 flagmess);
 /*--------------------------------------------------------------------------*/
 extern void LoadGameNumCube(void);
 /*--------------------------------------------------------------------------*/

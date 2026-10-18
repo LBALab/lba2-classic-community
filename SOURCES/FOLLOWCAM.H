@@ -58,6 +58,14 @@ extern S32 FollowCamRenderExtraPitch(void);
  * exactly the globals, with cam_obstruct's extra pitch added. */
 extern void FollowCamSetView(void);
 
+/* Set the exterior camera back to the view the last scene render showed, with no
+ * side effects: for code that borrows the 3D camera mid-frame (a 3D icon) and
+ * puts it back. On a frame with no simulation step the terrain is not redrawn,
+ * so the actors drawn after it must use the camera that terrain was drawn with,
+ * not the globals, which hold a blend's end view. Falls back to the globals and
+ * cam_obstruct's extra pitch when no Auto-camera view of this scene is live. */
+extern void FollowCamApplyShownView(void);
+
 /* cam_shot_blend_ms. A camera zone is about to write its shot into the globals:
  * blend into it from the view on screen, and blend out of it on the next update
  * the Auto camera runs. Called before the zone writes anything. */

@@ -97,7 +97,7 @@ Lets the player change render resolution from a console verb or a Display option
 
 This phase had two strands. The UI strand is done; the HD strand moved to its own phase.
 
-- UI strategy: **C2 chosen and shipped.** The re-anchor campaign (PRs #213–#228, plus #260, #289, #291, #310) routed every menu, inventory, holomap, dialogue, and save surface through `ModeDesiredX/Y`, so the 2D UI is correct in a wider frame. The [vertical re-anchor](#ui-vertical-re-anchor-tall-framebuffers) below extends the same discipline to a taller frame. See [UI strategy](#ui-strategy-c1-vs-c2) for why C2 over C1.
+- UI strategy: **C2 chosen and shipped.** The re-anchor campaign (PRs #213–#228, plus #260, #289, #291, #310) routed every menu, inventory, holomap, dialogue, and save surface through `ModeDesiredX/Y`, so the 2D UI is correct in a wider frame. The [vertical re-anchor](#ui-vertical-re-anchor-tall-framebuffers) below extends the same discipline to a taller frame. What shipped is not the scaled buffer the [UI strategy](#ui-strategy-c1-vs-c2) table below describes as C2: the UI is drawn into the game framebuffer at its authored 640×480 size and centred, with no scaling, so at HD it is a 640×480 block in the middle of the frame. Text size at HD is [Phase 7](#phase-7-native-hd)'s bitmap-font item.
 - HD-only concerns (filler precision, bitmap fonts, the 16-bit Z-buffer and `Fill_ZBuffer_Factor`, mouse-coordinate inversion, Smacker upscale): **moved to [Phase 7](#phase-7-native-hd).** Widescreen shipped without resolving them, so they are tracked separately as the native-HD frontier. The analysis below is the record of what the X-axis campaign settled for HD.
 
 #### UI vertical re-anchor (tall framebuffers)
@@ -357,6 +357,8 @@ Phase 5's UI work has two mutually exclusive flavours. Pick based on whether hig
 | **C2 — scaled UI** | Render UI into its own 640×480 logical buffer, scale-blit it to the framebuffer at present time. UI literals stay untouched. | Yes — works at any output resolution. | More plumbing in `LIB386/SVGA/` to thread the target-buffer choice through the draw primitives. |
 
 C1 is the cheaper path if widescreen-at-480 is the only target. C2 is the correct path if the engine should run at arbitrary resolutions. Committing to C1 first is a dead end for HD.
+
+The two names drifted during the campaign. The re-anchor that shipped (PRs #213–#228) was called C2, as it is in [WIDESCREEN_HARDCODED_DIMS_AUDIT.md](WIDESCREEN_HARDCODED_DIMS_AUDIT.md), where C2 means routing the UI literals through `ModeDesiredX/Y`. By this table it is closer to C1: the UI keeps its 640×480 layout and is centred, not scaled. The scaled-buffer C2 above was not built.
 
 ## What does not need to change
 

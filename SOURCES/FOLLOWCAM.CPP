@@ -1169,6 +1169,19 @@ void FollowCamSetView(void) {
     FollowCamShownLive = TRUE;
 }
 
+void FollowCamApplyShownView(void) {
+    if (FollowCamBlendApplies() AND FollowCamShownLive AND FollowCamShownCube == NumCube) {
+        SetFollowCamera(FollowCamShown.X, FollowCamShown.Y, FollowCamShown.Z,
+                        FollowCamShown.Alpha, FollowCamShown.Beta, FollowCamShown.Gamma,
+                        FollowCamShown.Dist);
+        return;
+    }
+
+    SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
+                    AlphaCam + FollowCamRenderExtraPitch(), BetaCam, GammaCam,
+                    VueDistance);
+}
+
 void FollowCamShotTookView(void) {
     FollowCamBlendFromShown();
     FollowCamShotHadView = TRUE;

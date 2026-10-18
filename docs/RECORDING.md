@@ -28,6 +28,21 @@ A clean replay ends with `first hash mismatch -1`. Anything else names the tick:
 [rec] replay ended at poll 10305: 397 ticks checked, first hash mismatch 296, clock drift max 0 ms
 ```
 
+From format 15 a recording also carries the digest split in two, a **world** hash (everything but
+the camera) and a **view** hash (the camera's angles, distance, offsets, preset, camera-zone flag and
+the `FollowCamera` setting), and the replay says which side moved first:
+
+```
+[rec] view hash first differs at tick 0
+[rec] world/view: compared on 301 ticks, first world mismatch -1, first view mismatch 0
+```
+
+The verdict is still the combined hash, and its first mismatch is always the earlier of the two.
+The split answers a question the combined hash cannot: a replay under different camera settings
+fails the combined hash on tick 0 by construction, and the world hash says whether the game itself
+ran the same. A camera setting that reaches the game shows up as the world hash moving. An older
+recording says `world/view: none in this recording`.
+
 A replay that gives up rather than ending prints no `replay ended` line at all. A run waiting on
 input the recording does not contain says so under `[rec] replay stalled`, and the figures the
 verdict would have carried follow it under `[rec] at the stall`. That split is deliberate: the
@@ -602,7 +617,7 @@ which is what `--replay-own-settings` is for now that a replay no longer runs on
 
 | Setting | Diverges at | Why |
 |---|---|---|
-| `FollowCamera` | tick 0 | The camera is in the digest |
+| `FollowCamera` | tick 0 | The camera is in the digest; the world hash is what says whether the game moved too |
 | `FollowCamGroundClearance` | tick 2 | The camera settles at a different distance |
 | `DetailLevel` 3 to 0 | tick 235 | `SetDetailLevel` turns `RainEnable` off, and rain draws from the one shared `rand()` stream |
 | `MouseCamera` 1 to 0 | tick 61 | The recorded motion is discarded instead of turning the camera |

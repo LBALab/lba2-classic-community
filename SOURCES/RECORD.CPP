@@ -128,7 +128,7 @@ extern "C" {
 /* ---- live state ---------------------------------------------------------- */
 
 #define REC_MAGIC "LBA2REC"
-#define REC_VERSION 14
+#define REC_VERSION 15
 
 /* The oldest format this build still reads. Every version since has only added record
    types the reader probes for and steps over, so an older recording reads the same as
@@ -257,6 +257,21 @@ extern "C" {
  * digest hashes, so the run diverges silently and still exits clean. */
 #define REC_DEVICE 0x52
 
+/* The digest split in two, written right behind every tick record: u32 tick, u64 world
+ * hash, u64 view hash (Control_StateDigestWorld / View). The tick record's own hash is
+ * still the verdict and is unchanged; this says which side of it moved.
+ *
+ * The combined digest mixes the camera's fields with the world's, so a replay under
+ * different camera settings fails it on tick 0 whether or not the game ran differently.
+ * The world hash is the one that can answer that: the same inputs giving the same world
+ * hash is the same game, however it was shown.
+ *
+ * Always 64-bit, also under LBA2_REC_HASH32, because a fold of the two would be a third
+ * format for one record. 21 bytes a tick, written only on the ticks that carry a hash.
+ * Added in format 15, which is why that version exists: an older build's dispatch is a
+ * whitelist and would lose its place at this type rather than step over it. */
+#define REC_SPLIT 0x53
+
 /* The savegames the file carries: the state the session started from, written once
  * between the header and the first record, and the state it finished at, appended when
  * it stops. Framed by RECORD_FORMAT.H, which is also where the reasoning about a torn
@@ -365,6 +380,12 @@ static S32 s_deviceSaved = -1;
 static long s_clockMismatchPoll = -1;
 static long s_hashMismatchTick = -1;
 static long s_ticksChecked = 0;
+/* The split's side of the same comparison, from REC_SPLIT. Counted apart from
+   s_ticksChecked because a recording before format 15 carries none, and "no world
+   mismatch" over zero ticks checked is not a match. */
+static long s_worldMismatchTick = -1;
+static long s_viewMismatchTick = -1;
+static long s_splitChecked = 0;
 /* What report_extent found, kept rather than printed and dropped. -1 is "not known": the
    scan finds no marker in a file cut inside its start snapshot, and a run with no
    denominator has to be judged on the numerator alone rather than on a divide. */
@@ -1737,6 +1758,23 @@ static int replay_covered_the_file(void) {
     return s_ticksChecked >= s_extentTicks / 2;
 }
 
+/* The split's verdict, beside the combined one rather than inside it: the `replay ended`
+   line is parsed by the fixtures, and the combined hash is still what passes or fails a
+   replay. Worded so it never says "ticks checked": the torn-recording arms take that
+   count from whichever line carries it, nor "is format", which is how they spot a
+   refused file. A file before format 15 says so instead of reporting -1 over nothing. */
+static void replay_report_split(void) {
+    if (s_recVersion < 15) {
+        fprintf(stderr, "[rec] world/view: none in this recording (format %d, they start at 15)\n",
+                s_recVersion);
+        return;
+    }
+    fprintf(stderr,
+            "[rec] world/view: compared on %ld ticks, first world mismatch %ld, first view "
+            "mismatch %ld\n",
+            s_splitChecked, s_worldMismatchTick, s_viewMismatchTick);
+}
+
 static void replay_report(T_ReplayEnd how) {
     /* The stream running out is how a healthy replay ends and how a truncated one ends, so
        the call site cannot tell them apart -- it knows the stream stopped, not whether the
@@ -1774,6 +1812,7 @@ static void replay_report(T_ReplayEnd how) {
                 "stream drift first at poll %ld\n",
                 replay_end_name(how), s_ticksChecked, s_refDriftMax,
                 s_refDriftFirstTick, s_syncDriftPoll);
+        replay_report_split();
         return;
     }
     if (s_endSaid)
@@ -1785,6 +1824,7 @@ static void replay_report(T_ReplayEnd how) {
             "longest stale run %ld\n",
             s_polls, s_ticksChecked, s_hashMismatchTick, s_refDriftMax, s_refDriftFirstTick,
             s_syncDriftPoll, s_stalePeak);
+    replay_report_split();
 }
 
 int Record_Stop(void) {
@@ -2485,7 +2525,7 @@ static int replay_poll(void) {
         return 0;
     }
     if (flags > 0x0F && flags != REC_SYNC && flags != REC_KEY && flags != REC_TELE &&
-        flags != REC_DEVICE && flags != 0x40 && flags != REC_SNAP_START &&
+        flags != REC_DEVICE && flags != REC_SPLIT && flags != 0x40 && flags != REC_SNAP_START &&
         !(flags & 0x80)) {
         if (!replay_resync()) {
             s_eof = 1;
@@ -2530,6 +2570,13 @@ static int replay_poll(void) {
             if (!get8(&d))
                 return 0;
             s_device = d ? 1 : 0;
+        } else if (flags == REC_SPLIT) {
+            /* The tick path reads it behind its tick record; met here only after a
+               resync or a stale poll, where its tick has gone by. */
+            U32 st;
+            unsigned long long sw, sv;
+            if (!get32(&st) || !get64(&sw) || !get64(&sv))
+                return 0;
         } else if (flags == REC_SNAP_START) {
             /* Not where one is written, and stepped over rather than resynced past all
                the same: the length is right there, so skipping it costs nothing and
@@ -2729,6 +2776,8 @@ static void replay_begin(void) {
     s_mtCalls = 0;
     s_clockMismatchPoll = -1;
     s_hashMismatchTick = -1;
+    s_worldMismatchTick = s_viewMismatchTick = -1;
+    s_splitChecked = 0;
     s_eof = 0;
     record_arm_atexit();
     bindings_install();
@@ -3414,6 +3463,10 @@ void Record_TickHook(void) {
             put32((U32)(h ^ (h >> 32)));
         else
             put64(h);
+        put8(REC_SPLIT);
+        put32((U32)s_ticks);
+        put64(Control_StateDigestWorld());
+        put64(Control_StateDigestView());
         if ((s_ticks % REC_KEY_EVERY) == 0 && record_keyframe_fit()) {
             S32 kf[REC_KF_MAX];
             S32 nkf = Control_KeyframeCount();
@@ -3508,6 +3561,34 @@ void Record_TickHook(void) {
                     (unsigned)t, rh, h);
         }
         s_ticks++;
+
+        /* The split, if this file carries it: which side of the hash just compared moved.
+           Probed rather than expected, because a file before format 15 has none. */
+        {
+            long ps = ftell(s_f);
+            U8 fs;
+            if (get8(&fs)) {
+                if (fs == REC_SPLIT) {
+                    U32 st;
+                    unsigned long long rw, rv;
+                    if (get32(&st) && get64(&rw) && get64(&rv)) {
+                        s_splitChecked++;
+                        if (s_worldMismatchTick < 0 && rw != Control_StateDigestWorld()) {
+                            s_worldMismatchTick = (long)st;
+                            fprintf(stderr, "[rec] world hash first differs at tick %u\n",
+                                    (unsigned)st);
+                        }
+                        if (s_viewMismatchTick < 0 && rv != Control_StateDigestView()) {
+                            s_viewMismatchTick = (long)st;
+                            fprintf(stderr, "[rec] view hash first differs at tick %u\n",
+                                    (unsigned)st);
+                        }
+                    }
+                } else {
+                    fseek(s_f, ps, SEEK_SET);
+                }
+            }
+        }
 
         /* A keyframe, if this tick carries one: compare it field by field and name what
            moved. The hash has already said whether this tick matches; this says why,

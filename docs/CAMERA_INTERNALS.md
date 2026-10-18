@@ -142,6 +142,8 @@ Everything `CameraZone` gates stays on, so a shot authored for a spot where the 
 
 The blend is in the frame only. `FollowCamSetView()` sets the exterior camera for `CameraCenter` and the scene render from the globals, or from the blend while one runs; the globals are what they would be without it. The scene is drawn whole on each frame of a blend.
 
+Code that borrows the 3D camera mid-frame (a 3D icon such as the holomap globe, the inventory, the behaviour menu) puts it back with `Init3DExtView`, which applies the view the last scene render showed (`FollowCamApplyShownView()`), not the globals. Above 60 fps a frame with no simulation step does not redraw the terrain, so the actors drawn on it must use the camera the terrain was drawn with; the globals hold the shot's end view during a blend and leave out `cam_obstruct`'s extra pitch.
+
 - **A hero hidden mid-blend is not answered.** The hidden-hero recovery and `cam_obstruct`'s reply wait for the blend to end.
 - **It never runs across a cut.** A blend starts only from a view the Auto camera showed of the same scene with nothing else having had the view since, and ends at once at Center camera, every `CameraCenter(1)` or `(2)`, the quarter-turn key, a scene change, a building, a cutscene, a load or the Auto camera switched off. A shot over a door that fires on arrival is therefore a cut; walking out of it blends.
 - **A sign's shot is shown at once.** A sign that names a camera zone (`GereZoneMessage`) applies the shot, draws one frame and holds it still under the message. A blend in would freeze its first instant, so that shot is applied whole (`FollowCamShotAtOnce()`); closing the message blends back out.

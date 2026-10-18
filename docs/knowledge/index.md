@@ -57,7 +57,7 @@ What is true about this engine and why, one concept per file, for agents and for
 ## Formats
 
 * [Control socket line protocol](formats/control-socket-protocol.md) - One command per line in; that command's console output back verbatim and a line reading <<END>>; pushed log records prefixed "! "; loopback only, one client, alive only on a build that enabled it and a run that asked for it.
-* [Session recording file (.rec)](formats/rec.md) - One self-framing file per session, format 14 with a read floor of 9, a text header, both savegames as framed chunks, and a binary record stream indexed by input poll.
+* [Session recording file (.rec)](formats/rec.md) - One self-framing file per session, format 15 with a read floor of 9, a text header, both savegames as framed chunks, and a binary record stream indexed by input poll.
 * [Savegame file (.lba)](formats/lba-save.md) - One byte of layout version and compression bit, the cube, the player's name, then a 19200-byte thumbnail and a field-by-field game context that are LZSS-compressed as one block when the bit is set; layout 36 on every host, with three structs pinned to their 32-bit retail width.
 
 ## Quirks
