@@ -2,6 +2,17 @@
 
 #include "SDK.H"
 
+#include <SYSTEM/EXIT.H>
+
+/* The game quits with exit(), which runs the exit handlers and then the static
+   destructors of every loaded library while the audio device's callback thread is
+   still running. On Android that thread locks a mutex inside the system audio
+   library after its destructor has run, and the process aborts on every quit.
+   Closing audio stops and joins that thread. Registered once audio is up, so it
+   runs after the later handlers that stop the music (TheEndInfo) and before the
+   destructors of the libraries audio init loaded. */
+static void ClearAIL(void) { SDL_QuitSubSystem(SDL_INIT_AUDIO); }
+
 bool AIL_SetHeadless(void) {
     SDL_SetHint(AIL_AUDIO_DRIVER_HINT, "dummy");
     const char *driver = SDL_GetHint(AIL_AUDIO_DRIVER_HINT);
@@ -22,5 +33,7 @@ void InitAIL() {
 #endif
     if (!initialized) {
         SDL_Log("SDL AIL: Could not init audio: %s", SDL_GetError());
+        return;
     }
+    RegisterInitClear(InitAIL, ClearAIL);
 }
