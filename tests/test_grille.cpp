@@ -469,6 +469,211 @@ static void test_grille_random_stress(void) {
     }
 }
 
+/* ---------- left-edge bricks at widths off the 24-px grid ----------
+ * Map2Screen puts a brick at XScreen = 24 * (x - z) + ModeDesiredX / 2 - 32,
+ * so every brick sits at 24k + s with s = (ModeDesiredX / 2 - 32) % 24. At
+ * 640 (and 1024, 1600) s is 0, which is all the original ever ran at. At
+ * 1920 s is 16, and the column and cull arithmetic below has to hold there
+ * too. Bricks here are a solid 48x38 rectangle with hotspot 0,0 (every brick
+ * in the game data has a hotspot >= 0 and fits in 48x38). */
+
+typedef struct {
+    S16 Xm, Ym, Zm, Xs, Ys, Brick, Col;
+} T_COLONB_TEST; /* GRILLE.CPP T_COLONB */
+
+extern T_COLONB_TEST ListBrickColon[256][256];
+extern S16 NbBrickColon[256];
+extern "C" PTR_U8 BufferMaskBrick;
+extern U32 CreateMaskGph(U8 *ptsrc, U8 *ptdst);
+extern void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax);
+extern void DrawOverBrickCage(S32 xm, S32 ym, S32 zm);
+extern void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z);
+extern void AffBrickBlockColon(S32 block, S32 brick, S16 x, S16 y, S16 z);
+extern void AffBrickBlockOnly(S32 block, S32 brick, S16 x, S16 y, S16 z);
+extern "C" void *Log;
+extern "C" void *Screen;
+extern "C" U32 TabOffLine[];
+extern "C" S32 ClipXMin, ClipYMin, ClipXMax, ClipYMax;
+
+#define EDGE_W_MAX 1920
+#define EDGE_H_MAX 1080
+#define EDGE_BRICK_COLOR 0x11
+#define EDGE_SCREEN_COLOR 0xAA
+
+static U8 g_edge_log[EDGE_W_MAX * EDGE_H_MAX];
+static U8 g_edge_screen[EDGE_W_MAX * EDGE_H_MAX];
+static U8 g_edge_bricks[4096];
+static U8 g_edge_masks[4096];
+static U8 g_edge_blocks[64];
+
+static void edge_setup(U32 w, U32 h) {
+    ModeDesiredX = w;
+    ModeDesiredY = h;
+    for (U32 y = 0; y < h; y++)
+        TabOffLine[y] = y * w;
+    memset(g_edge_log, 0, sizeof(g_edge_log));
+    memset(g_edge_screen, EDGE_SCREEN_COLOR, sizeof(g_edge_screen));
+    Log = g_edge_log;
+    Screen = g_edge_screen;
+    ClipXMin = 0;
+    ClipYMin = 0;
+    ClipXMax = (S32)w - 1;
+    ClipYMax = (S32)h - 1;
+    memset(NbBrickColon, 0, sizeof(NbBrickColon));
+
+    /* Brick bank: one 48x38 solid brick. */
+    memset(g_edge_bricks, 0, sizeof(g_edge_bricks));
+    U8 *b = g_edge_bricks + 8;
+    b[0] = 48;
+    b[1] = 38;
+    b[2] = 0;
+    b[3] = 0;
+    U8 *p = b + 4;
+    for (int row = 0; row < 38; row++) {
+        *p++ = 1;
+        *p++ = (U8)(0x80 | 47);
+        *p++ = EDGE_BRICK_COLOR;
+    }
+    ((U32 *)g_edge_bricks)[0] = 8;
+    ((U32 *)g_edge_bricks)[1] = (U32)(p - g_edge_bricks);
+    BufferBrick = g_edge_bricks;
+    CreateMaskGph(g_edge_bricks, g_edge_masks);
+    BufferMaskBrick = g_edge_masks;
+
+    /* Block 0: 1x1x1, its one cell holding brick 1. */
+    memset(g_edge_blocks, 0, sizeof(g_edge_blocks));
+    ((U32 *)g_edge_blocks)[0] = 4;
+    g_edge_blocks[4] = 1;
+    g_edge_blocks[5] = 1;
+    g_edge_blocks[6] = 1;
+    g_edge_blocks[7 + 2] = 1; /* numbrick U16 at cell + 2 */
+    TabBlock = g_edge_blocks;
+    StartXCube = StartYCube = StartZCube = 0;
+}
+
+static void edge_restore(void) {
+    ModeDesiredX = 640;
+    ModeDesiredY = 480;
+    init_grille_fixture();
+}
+
+static U8 edge_log(S32 x, S32 y) {
+    return g_edge_log[y * (S32)ModeDesiredX + x];
+}
+
+/* One brick in front of the object, in the column AffBrickBlock buckets it
+   in, and a clip window that starts inside the brick's right part. */
+static void edge_put_front_brick(S32 xs, S32 ys) {
+    S32 col = (xs + 24) / 24;
+    T_COLONB_TEST *e = &ListBrickColon[col][NbBrickColon[col]++];
+    e->Xm = 5;
+    e->Ym = 10;
+    e->Zm = 5;
+    e->Xs = (S16)xs;
+    e->Ys = (S16)ys;
+    e->Brick = 0;
+    e->Col = 0;
+}
+
+/* At 1920 a brick at XScreen 880 is bucketed in column 37 and covers x
+   880..927. A sprite clipped to x 915..940 must get x 915..927 re-masked
+   from Screen; a start column of col(ClipXMin) - 1 = 38 skipped it. */
+static void check_overbrick_left_column(int cage) {
+    edge_setup(1920, 1080);
+    edge_put_front_brick(880, 200);
+    ClipXMin = 915;
+    ClipXMax = 940;
+    ClipYMin = 200;
+    ClipYMax = 237;
+    if (cage)
+        DrawOverBrickCage(0, 0, 0);
+    else
+        DrawOverBrick3(0, 0, 0, 0);
+    for (S32 x = 915; x <= 927; x++)
+        ASSERT_EQ_UINT(EDGE_SCREEN_COLOR, edge_log(x, 210));
+    for (S32 x = 928; x <= 940; x++)
+        ASSERT_EQ_UINT(0, edge_log(x, 210));
+    edge_restore();
+}
+
+static void test_drawoverbrick3_left_column_1920(void) {
+    check_overbrick_left_column(0);
+}
+
+static void test_drawoverbrickcage_left_column_1920(void) {
+    check_overbrick_left_column(1);
+}
+
+/* 640 control: bricks sit on multiples of 24, so the column left of
+   col(ClipXMin) - 1 ends before ClipXMin and must not draw. */
+static void test_drawoverbrick3_640_unchanged(void) {
+    edge_setup(640, 480);
+    edge_put_front_brick(432, 200); /* col 19, x 432..479 */
+    edge_put_front_brick(456, 200); /* col 20, x 456..503 */
+    ClipXMin = 490;
+    ClipXMax = 520;
+    ClipYMin = 200;
+    ClipYMax = 237;
+    DrawOverBrick3(0, 0, 0, 0);
+    for (S32 x = 490; x <= 503; x++)
+        ASSERT_EQ_UINT(EDGE_SCREEN_COLOR, edge_log(x, 210));
+    for (S32 x = 504; x <= 520; x++)
+        ASSERT_EQ_UINT(0, edge_log(x, 210));
+    edge_restore();
+}
+
+/* At 1920, x - z = -40 puts the brick at XScreen -32: its x 0..15 are on
+   screen. x = 0, z = 40, y = 0 gives YScreen 1006. */
+static void test_affbrickblock_left_strip_bucketed_1920(void) {
+    edge_setup(1920, 1080);
+    AffBrickBlock(0, 0, 0, 0, 40);
+    ASSERT_EQ_INT(-32, XScreen);
+    ASSERT_EQ_UINT(EDGE_BRICK_COLOR, edge_log(0, 1006));
+    ASSERT_EQ_UINT(EDGE_BRICK_COLOR, edge_log(15, 1006));
+    ASSERT_EQ_INT(1, NbBrickColon[0]);
+    ASSERT_EQ_INT(-32, ListBrickColon[0][0].Xs);
+    edge_restore();
+}
+
+static void test_affbrickblockcolon_left_strip_bucketed_1920(void) {
+    edge_setup(1920, 1080);
+    AffBrickBlockColon(0, 0, 0, 0, 40);
+    ASSERT_EQ_INT(1, NbBrickColon[0]);
+    ASSERT_EQ_INT(-32, ListBrickColon[0][0].Xs);
+    edge_restore();
+}
+
+static void test_affbrickblockonly_left_strip_drawn_1920(void) {
+    edge_setup(1920, 1080);
+    AffBrickBlockOnly(0, 0, 0, 0, 40);
+    ASSERT_EQ_UINT(EDGE_BRICK_COLOR, edge_log(0, 1006));
+    ASSERT_EQ_UINT(EDGE_BRICK_COLOR, edge_log(15, 1006));
+    ASSERT_EQ_UINT(0, edge_log(16, 1006));
+    edge_restore();
+}
+
+/* 640 control: x - z = -14 puts a brick at -48 (fully off screen, never
+   drawn or bucketed); x - z = -13 puts one at -24 (drawn and bucketed). */
+static void test_affbrickblock_left_edge_640_unchanged(void) {
+    edge_setup(640, 480);
+    AffBrickBlock(0, 0, 0, 0, 14);
+    ASSERT_EQ_INT(-48, XScreen);
+    ASSERT_EQ_INT(0, NbBrickColon[0]);
+    AffBrickBlockColon(0, 0, 0, 0, 14);
+    ASSERT_EQ_INT(0, NbBrickColon[0]);
+    AffBrickBlockOnly(0, 0, 0, 0, 14);
+    for (S32 x = 0; x < 48; x++)
+        ASSERT_EQ_UINT(0, edge_log(x, 12 * 14 + 226));
+
+    AffBrickBlock(0, 0, 0, 0, 13);
+    ASSERT_EQ_INT(-24, XScreen);
+    ASSERT_EQ_INT(1, NbBrickColon[0]);
+    ASSERT_EQ_UINT(EDGE_BRICK_COLOR, edge_log(0, 12 * 13 + 226));
+    ASSERT_EQ_UINT(EDGE_BRICK_COLOR, edge_log(23, 12 * 13 + 226));
+    ASSERT_EQ_UINT(0, edge_log(24, 12 * 13 + 226));
+    edge_restore();
+}
+
 int main(void) {
     /* Pin render dims to the default 4:3 so Map2Screen's framebuffer-derived
        origin offsets evaluate to the original 288/226 the ASM compares against. */
@@ -484,6 +689,13 @@ int main(void) {
     RUN_TEST(test_getworldcolbrickvisible_equivalence);
     RUN_TEST(test_worldcolbrickfull_equivalence);
     RUN_TEST(test_grille_random_stress);
+    RUN_TEST(test_drawoverbrick3_left_column_1920);
+    RUN_TEST(test_drawoverbrickcage_left_column_1920);
+    RUN_TEST(test_drawoverbrick3_640_unchanged);
+    RUN_TEST(test_affbrickblock_left_strip_bucketed_1920);
+    RUN_TEST(test_affbrickblockcolon_left_strip_bucketed_1920);
+    RUN_TEST(test_affbrickblockonly_left_strip_drawn_1920);
+    RUN_TEST(test_affbrickblock_left_edge_640_unchanged);
     TEST_SUMMARY();
     return test_failures != 0;
 }

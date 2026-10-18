@@ -323,12 +323,15 @@ that's 768, 800, 1280, 1366, 1920 (and similar). It silently hides on
 consumer-broken pattern as A1/A2/A3 above and as the prior
 [T_COLONB col round-trip fix (#206)](../SOURCES/GRILLE.CPP).
 
-Fix: relax to `XScreen >= -47` and skip `ListBrickColon` bucketing for
-`XScreen < -24` (col index would go negative otherwise — DrawOverBrick
-just won't re-blit the leftmost pixel column, acceptable edge case).
-`AffBrickBlockColon` (the mask-only sibling used by labyrinth mode at
-GRILLE.CPP:820) keeps `>= -24` — relaxing it would be a no-op since
-it can't bucket negative-col bricks anyway.
+Fix: relax to `XScreen >= -47`. The col index cannot go negative:
+for `XScreen` in `[-47, -25]`, `(XScreen + 24) / 24` truncates to 0, so
+those bricks are bucketed in col 0 and `DrawOverBrick*` re-masks their
+on-screen strip like any other. The two siblings use the same `-47`:
+`AffBrickBlockColon` (buckets bricks for labyrinth mode) and
+`AffBrickBlockOnly` (draws the non-labyrinth bricks in labyrinth mode).
+With `-24` the latter left a strip `(ModeDesiredX/2 - 32) % 24` px wide
+undrawn at the left edge of scenes 26 and 202: x 0-14 at 1920x1080 and
+x 0-7 at 1280x720 in headless screenshots, unchanged at 640x480.
 
 ### A8. DrawOverBrick col-scan miss for south walls
 
@@ -367,10 +370,15 @@ equivalent narrow run fired it 287 times across 82 calls.
 Fix: widen the bias to `-2` and clamp `startcol >= 0`. The extra col is
 a harmless scan when empty; when populated, the per-brick
 `recouvre`/`infront` filter (world-cube coords, alignment-independent)
-keeps wrong walls out of the re-blit. `DrawOverBrick3` and
-`DrawOverBrickCage` use the same `-1` formula but apply to different
-object classes (sprites and the end-of-game cage) — not yet observed to
-manifest the visual bug at any width, so left alone pending evidence.
+keeps wrong walls out of the re-blit. `DrawOverBrick3` (sprites, doors,
+3DS anims and extras through `DrawRecover3`) and `DrawOverBrickCage`
+(`OBJ_ZBUFFER` / water objects) take the same `-2` and clamp. With `-1`,
+a brick in col `c` sits at `XScreen = 24c - 24 + s` (`s` the offset
+remainder above) and covers up to `24c + 23 + s`, but a clip starting at
+`24(c + 1) + r` with `r < s` scans from col `c + 1`, so the clip's left
+`s - r` px were not re-masked: at 1920
+(`s = 16`) a brick at 880 and a clip from 915 left x 915-927 uncovered.
+`tests/test_grille.cpp` pins both, with 640 controls.
 
 ### A9. Holomap planet-detail image loads with no stride awareness
 
