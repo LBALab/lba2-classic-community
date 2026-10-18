@@ -20,6 +20,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   phones with a smaller address space, such as the Galaxy S22+, most frames
   were numbers that matched no library
   ([#756](https://github.com/LBALab/lba2-classic-community/pull/756)).
+- Quitting no longer crashes on the way out. The game closed either way, but
+  almost every quit aborted in Android's own audio or drawing code and left a
+  crash report in the log
+  ([#757](https://github.com/LBALab/lba2-classic-community/pull/757)).
 
 ## [0.13.0] - 2026-10-18
 
