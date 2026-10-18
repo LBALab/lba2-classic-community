@@ -129,9 +129,13 @@ int16_t Axis(PlatformGamepad *pad, PlatformGamepadAxis axis) {
     return SDL_GameControllerGetAxis((SDL_GameController *)pad, (SDL_GameControllerAxis)axis);
 }
 const char *BasePath() {
+#ifdef __SWITCH__
+    return SDL2_SwitchBasePath();
+#else
     if (!s_basePath)
         s_basePath = SDL_GetBasePath();
     return s_basePath;
+#endif
 }
 bool Clipboard(const char *text) { return SDL_SetClipboardText(text) == 0; }
 char *Preferences(const char *org, const char *app) {
@@ -140,13 +144,26 @@ char *Preferences(const char *org, const char *app) {
         Platform_Log(PLATFORM_LOG_ERROR, "%s", SDL_GetError());
         return NULL;
     }
+#ifdef __SWITCH__
+    const char *path = SDL2_SwitchUserPath();
+    if (!SDL2_CreateDirectory(path))
+        return NULL;
+    char *copy = SDL_strdup(path);
+    if (!copy)
+        Platform_Log(PLATFORM_LOG_ERROR, "%s", SDL_GetError());
+    return copy;
+#else
     return SDL_GetPrefPath(org, app);
+#endif
 }
 
 PlatformInterface Interface() {
     PlatformInterface api = {};
     api.name = "sdl2";
     api.capabilities.windowed = true;
+#ifdef __SWITCH__
+    api.capabilities.windowed = false;
+#endif
     api.system.init = Init;
     api.system.shutdown = Shutdown;
     api.system.set_headless = Headless;

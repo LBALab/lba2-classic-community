@@ -106,12 +106,13 @@ For platform-specific builds, use the presets in `CMakePresets.json` (all use th
 - **macOS:** `cmake --preset macos_arm64 && cmake --build --preset macos_arm64` (or `macos_x86_64`)
 - **Windows:** `cmake --preset windows_ucrt64 && cmake --build --preset windows_ucrt64` — see [docs/WINDOWS.md](docs/WINDOWS.md)
 - **Cross-compile Windows from Linux:** `cmake --preset cross_linux2win && cmake --build --preset cross_linux2win`. To skip the preset, use the toolchain file directly: `cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-i686.cmake`.
+- **Nintendo Switch homebrew:** `bash scripts/dev/build-switch.sh` — builds an SDL2 `.nro` and SD-card ZIP inside a digest-pinned devkitPro Docker image. No host SDK needed; hardware validation remains pending. See [docs/SWITCH.md](docs/SWITCH.md).
 
 ## Build options
 
 | Option | Values | Default | Description |
 |--------|--------|---------|-------------|
-| `PLATFORM_BACKEND` | `sdl3`, `sdl2`, `null` | `sdl3` | Window, presentation, input, clocks and host services. SDL3 is the default; SDL2 supports desktop with audio, but no native folder picker. Android requires SDL3. `null` presents offscreen without an SDK and requires `SOUND_BACKEND=null`. See [docs/PLATFORM_ABSTRACTION.md](docs/PLATFORM_ABSTRACTION.md). |
+| `PLATFORM_BACKEND` | `sdl3`, `sdl2`, `null` | `sdl3` | Window, presentation, input, clocks and host services. SDL3 is the default; SDL2 supports desktop and Switch homebrew with audio, but no native folder picker. Android requires SDL3. `null` presents offscreen without an SDK and requires `SOUND_BACKEND=null`. See [docs/PLATFORM_ABSTRACTION.md](docs/PLATFORM_ABSTRACTION.md). |
 | `SOUND_BACKEND` | `null`, `miles`, `sdl` | `sdl` | Sound backend. `sdl` uses the selected SDL2/SDL3 platform's SDK. `miles` requires the proprietary Miles Sound System SDK. See [docs/AUDIO.md](docs/AUDIO.md). |
 | `MVIDEO_BACKEND` | `null`, `smacker` | `smacker` | Motion video backend. Use `smacker` for FMV playback via the bundled open-source libsmacker. |
 | `DEBUG_TOOLS` | `ON`, `OFF` | `OFF` | Enable original Adeline developer debug tools: overlay, FPS counter, screenshots, collision visualization, benchmarks, cheat codes, bug save/load, command-line scene selection. See [docs/DEBUG.md](docs/DEBUG.md). |

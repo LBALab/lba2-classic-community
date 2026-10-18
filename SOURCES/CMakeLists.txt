@@ -168,6 +168,9 @@ target_include_directories(${LBA2_EXECUTABLE_NAME} PRIVATE
 target_compile_definitions(${LBA2_EXECUTABLE_NAME} PRIVATE ONE_GAME_DIRECTORY LBA_GAME CDROM
         $<$<STREQUAL:${MVIDEO_BACKEND},null>:USE_MVIDEO_NULL>
         $<$<STREQUAL:${MVIDEO_BACKEND},smacker>:USE_MVIDEO_SMACKER>)
+if(NINTENDO_SWITCH)
+    include(${CMAKE_SOURCE_DIR}/cmake/switch-package.cmake)
+endif()
 if(MVIDEO_BACKEND STREQUAL "smacker")
   target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE libsmacker video_audio_resample)
 endif()

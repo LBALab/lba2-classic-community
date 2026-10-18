@@ -102,6 +102,15 @@ if(PLATFORM_BACKEND STREQUAL "sdl3")
 endif()
 
 if(PLATFORM_BACKEND STREQUAL "sdl2")
+    add_executable(test_switch_host test_switch_host.cpp
+        ${CMAKE_SOURCE_DIR}/LIB386/PLATFORM/SDL2/SWITCH.c)
+    target_include_directories(test_switch_host PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/switch_stub)
+    target_link_libraries(test_switch_host PRIVATE lba2_platform ${LBA2_SDL_TARGET})
+    set_target_properties(test_switch_host PROPERTIES CXX_STANDARD 11 C_STANDARD 11)
+    add_test(NAME test_switch_host COMMAND test_switch_host)
+    register_host_test(test_switch_host)
+
     add_executable(test_platform_sdl2 test_platform_sdl2.cpp)
     target_include_directories(test_platform_sdl2 PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
     target_compile_definitions(test_platform_sdl2 PRIVATE LBA2_SDL2_TESTS=1)

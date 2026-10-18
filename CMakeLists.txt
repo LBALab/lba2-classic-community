@@ -126,6 +126,14 @@ if(LBA2_NATIVE_ARCH)
 endif()
 
 # The selected platform owns its SDK dependencies and entry point.
+if(NINTENDO_SWITCH)
+    if(NOT PLATFORM_BACKEND STREQUAL "sdl2" OR NOT LBA2_LINK_STATIC)
+        message(FATAL_ERROR "Nintendo Switch requires PLATFORM_BACKEND=sdl2 and LBA2_LINK_STATIC=ON. Use the switch preset.")
+    endif()
+    if(ENABLE_ASM OR LBA2_NATIVE_ARCH OR LBA2_BUILD_TESTS OR LBA2_CONTROL_SERVER)
+        message(FATAL_ERROR "Nintendo Switch does not support x86 ASM, native-host tuning, desktop test executables or the control server.")
+    endif()
+endif()
 add_subdirectory(LIB386/PLATFORM)
 
 # Engine version string. Reads the canonical value from the VERSION file

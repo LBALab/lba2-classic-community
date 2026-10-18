@@ -1,0 +1,58 @@
+name: Nintendo Switch
+
+on:
+  push:
+    paths-ignore: &doc-paths
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.vscode/**'
+      - '.editorconfig'
+      - '.git-blame-ignore-revs'
+      - 'cliff.toml'
+  pull_request:
+    paths-ignore: *doc-paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build-switch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and package with the pinned Docker SDK
+        run: bash scripts/dev/build-switch.sh
+      - name: Check live NetLoader logs with the pinned SDK
+        run: |
+          image="$(tr -d '[:space:]' < docker/switch-image.txt)"
+          docker run --rm --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/src" --workdir /src \
+            "$image" python3 tests/platform/test_switch_netloader.py
+      - name: Upload SD-card package
+        uses: actions/upload-artifact@v4
+        with:
+          name: lba2cc-switch
+          path: out/lba2cc-switch.zip
+          if-no-files-found: error
+      - name: Upload matching debug ELF
+        uses: actions/upload-artifact@v4
+        with:
+          name: lba2cc-switch-debug
+          path: out/switch/debug/lba2cc.elf
+          if-no-files-found: error
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lba2cc-switch-build-log
+          path: build_logs/switch-build-*.log
+          if-no-files-found: warn

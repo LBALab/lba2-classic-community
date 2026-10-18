@@ -177,6 +177,16 @@ all three, and `check-tooling.sh` expects most hosts to lack the last two.
 `make test` sets `LBA2_BUILD_ASM_EQUIV_TESTS=OFF`, so none of this is needed for
 the host-only pass.
 
+### Nintendo Switch homebrew
+
+| Tool | Needed for | Version owner | Install |
+|------|-----------|---------------|---------|
+| Docker | [build-switch.sh](../scripts/dev/build-switch.sh): cross-build and package an NRO without a host SDK | [docker/switch-image.txt](../docker/switch-image.txt) pins the complete devkitPro SDK image by digest | Docker Engine or Docker Desktop; the wrapper pulls the image |
+| nxlink | [run-switch.sh](../scripts/dev/run-switch.sh): upload and launch through Homebrew Menu's netloader, with streamed logs | [docker/switch-image.txt](../docker/switch-image.txt) | Included in the pinned Docker image; no host installation |
+| stdbuf | [run-switch.sh](../scripts/dev/run-switch.sh): disable nxlink's stdout/stderr buffering so short logs arrive immediately | [docker/switch-image.txt](../docker/switch-image.txt) | GNU coreutils in the pinned Docker image; no host installation |
+
+The image includes CMake, Ninja, devkitA64, libnx, Switch SDL2 and its static dependencies, the NACP/NRO tools, nxlink, GNU coreutils, Python 3 and ZIP packaging. No host devkitPro installation or package update is needed. The image supports native Linux amd64 and arm64 hosts, including Docker Desktop on Apple Silicon. The tooling probe checks the daemon, whether the pinned image is cached, and nxlink/stdbuf in a cached image without pulling it. See [SWITCH.md](SWITCH.md).
+
 ### Releasing
 
 Maintainer lane; see [RELEASING.md](RELEASING.md).
