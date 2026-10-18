@@ -24,6 +24,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   almost every quit aborted in Android's own audio or drawing code and left a
   crash report in the log
   ([#757](https://github.com/LBALab/lba2-classic-community/pull/757)).
+- On first launch the game now waits for you to come back from the All files
+  access page, however long you take there. It used to stop waiting after
+  about 15 seconds on some phones and then report the game data missing. If
+  you come back without turning access on, the game now says so instead of
+  asking you to copy files that are already there.
 
 ## [0.13.0] - 2026-10-18
 
