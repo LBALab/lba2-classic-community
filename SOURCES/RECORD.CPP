@@ -127,7 +127,7 @@ extern "C" {
 /* ---- live state ---------------------------------------------------------- */
 
 #define REC_MAGIC "LBA2REC"
-#define REC_VERSION 15
+#define REC_VERSION 16
 
 /* The oldest format this build still reads. Every version since has only added record
    types the reader probes for and steps over, so an older recording reads the same as
@@ -268,8 +268,14 @@ extern "C" {
  * Always 64-bit, also under LBA2_REC_HASH32, because a fold of the two would be a third
  * format for one record. 21 bytes a tick, written only on the ticks that carry a hash.
  * Added in format 15, which is why that version exists: an older build's dispatch is a
- * whitelist and would lose its place at this type rather than step over it. */
+ * whitelist and would lose its place at this type rather than step over it.
+ *
+ * Format 16 moved the hero's WAS_DRAWN and DRAW_SHADOW bits from the world side to the
+ * view side (the combined hash is unchanged). A format 15 file's split was hashed the old
+ * way, so it is read and stepped over but not compared: every tick would differ in a field
+ * that did not move. REC_SPLIT_COMPARED_FROM says which formats a replay compares. */
 #define REC_SPLIT 0x53
+#define REC_SPLIT_COMPARED_FROM 16
 
 /* The savegames the file carries: the state the session started from, written once
  * between the header and the first record, and the state it finished at, appended when
@@ -380,8 +386,8 @@ static long s_clockMismatchPoll = -1;
 static long s_hashMismatchTick = -1;
 static long s_ticksChecked = 0;
 /* The split's side of the same comparison, from REC_SPLIT. Counted apart from
-   s_ticksChecked because a recording before format 15 carries none, and "no world
-   mismatch" over zero ticks checked is not a match. */
+   s_ticksChecked because a recording before REC_SPLIT_COMPARED_FROM has none this
+   build compares, and "no world mismatch" over zero ticks checked is not a match. */
 static long s_worldMismatchTick = -1;
 static long s_viewMismatchTick = -1;
 static long s_splitChecked = 0;
@@ -1723,11 +1729,12 @@ static int replay_covered_the_file(void) {
    line is parsed by the fixtures, and the combined hash is still what passes or fails a
    replay. Worded so it never says "ticks checked": the torn-recording arms take that
    count from whichever line carries it, nor "is format", which is how they spot a
-   refused file. A file before format 15 says so instead of reporting -1 over nothing. */
+   refused file. A file before REC_SPLIT_COMPARED_FROM says so instead of reporting -1
+   over nothing. */
 static void replay_report_split(void) {
-    if (s_recVersion < 15) {
-        fprintf(stderr, "[rec] world/view: none in this recording (format %d, they start at 15)\n",
-                s_recVersion);
+    if (s_recVersion < REC_SPLIT_COMPARED_FROM) {
+        fprintf(stderr, "[rec] world/view: none in this recording (format %d, they start at %d)\n",
+                s_recVersion, REC_SPLIT_COMPARED_FROM);
         return;
     }
     fprintf(stderr,
@@ -3510,7 +3517,8 @@ void Record_TickHook(void) {
         s_ticks++;
 
         /* The split, if this file carries it: which side of the hash just compared moved.
-           Probed rather than expected, because a file before format 15 has none. */
+           Probed rather than expected, because a file before format 15 has none, and
+           compared only from REC_SPLIT_COMPARED_FROM, whose sides this build hashes. */
         {
             long ps = ftell(s_f);
             U8 fs;
@@ -3518,7 +3526,8 @@ void Record_TickHook(void) {
                 if (fs == REC_SPLIT) {
                     U32 st;
                     unsigned long long rw, rv;
-                    if (get32(&st) && get64(&rw) && get64(&rv)) {
+                    if (get32(&st) && get64(&rw) && get64(&rv) &&
+                        s_recVersion >= REC_SPLIT_COMPARED_FROM) {
                         s_splitChecked++;
                         if (s_worldMismatchTick < 0 && rw != Control_StateDigestWorld()) {
                             s_worldMismatchTick = (long)st;
