@@ -30,6 +30,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   you come back without turning access on, the game now says so instead of
   asking you to copy files that are already there.
 
+### Stability
+
+- Opening the inventory with the conch empty, or down to its last charge, no
+  longer crashes the game. The empty bar under the conch is a box whose right
+  edge sits one pixel left of its left edge: the original draws nothing for
+  it, and this port kept drawing until it crashed.
+
 ## [0.13.0] - 2026-10-18
 
 ### Android: updating from 0.12.0 erases your saves, once
