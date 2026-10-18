@@ -10,7 +10,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Android
+
+- Plugging in or pairing a keyboard no longer closes the game. Android
+  restarted the game's screen when a keyboard appeared, and the game quit
+  instead of restarting, with no message
+  ([#756](https://github.com/LBALab/lba2-classic-community/pull/756)).
+- Crash reports from 64-bit Android phones name every frame of the crash. On
+  phones with a smaller address space, such as the Galaxy S22+, most frames
+  were numbers that matched no library
+  ([#756](https://github.com/LBALab/lba2-classic-community/pull/756)).
 
 ## [0.13.0] - 2026-10-18
 

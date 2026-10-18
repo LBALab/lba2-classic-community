@@ -304,12 +304,23 @@ static int read_words(uintptr_t address, uintptr_t words[2]) {
 
 #if defined(__aarch64__)
 /* The top byte of a pointer may carry a memory tag, and a return address a pointer
-   authentication code below it. */
-#define CODE_ADDRESS_MASK 0x0000ffffffffffffULL
+   authentication code below it. The PAC occupies the bits above the virtual address
+   width, so its position depends on the kernel: on a device with a 39-bit address
+   space it starts at bit 39, a fixed 48-bit mask leaves bits 39-47 in place, and the
+   address then resolves against no module. xpaclri strips the return-address PAC at whatever width
+   the hardware uses, and is a no-op instruction where pointer authentication is
+   absent, so only the tag byte needs masking off by hand. */
+#define CODE_ADDRESS_TAG_MASK 0x00ffffffffffffffULL
+
+static uintptr_t strip_code_address(uintptr_t address) {
+    register uintptr_t lr __asm__("x30") = address & CODE_ADDRESS_TAG_MASK;
+    __asm__("hint #7" : "+r"(lr)); /* xpaclri */
+    return lr;
+}
 
 static void walk_frame_records(void *argument) {
     Registers regs = read_registers((const ucontext_t *)argument);
-    uintptr_t lr = regs.lr & CODE_ADDRESS_MASK;
+    uintptr_t lr = strip_code_address(regs.lr);
     uintptr_t fp = regs.fp;
     uintptr_t record[2];
     uintptr_t firstReturn = 0;
@@ -327,7 +338,7 @@ static void walk_frame_records(void *argument) {
        may also be a stale address in frame 0's own function, which a symbolizer can
        tell. */
     if (fp && !(fp & 7) && read_words(fp, record))
-        firstReturn = record[1] & CODE_ADDRESS_MASK;
+        firstReturn = strip_code_address(record[1]);
     if (lr && lr != firstReturn && CrashModule_Find(lr) >= 0) {
         CrashBlock_Frame(lr);
         frames++;
@@ -336,7 +347,7 @@ static void walk_frame_records(void *argument) {
         uintptr_t ret;
         if (fp == 0 || (fp & 7) || fp < regs.sp || !read_words(fp, record))
             return;
-        ret = record[1] & CODE_ADDRESS_MASK;
+        ret = strip_code_address(record[1]);
         if (ret == 0)
             return;
         CrashBlock_Frame(ret);

@@ -52,7 +52,7 @@
 
         <!-- SDL3 provides the Java Activity wrapper -->
         <activity android:name="org.libsdl.app.SDLActivity"
-            android:configChanges="keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize"
             android:screenOrientation="sensorLandscape"
             android:exported="true">
 
