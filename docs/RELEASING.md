@@ -117,16 +117,6 @@ git push origin main
 git push origin "$VERSION"
 
 # 4. Sanity-check the binary picks it up.
-#
-# If --version still reports "<version>-dirty" after this rebuild on
-# a clean working tree, delete the cached header and rebuild:
-#
-#     rm build/VERSION_GENERATED.h build/VERSION.txt
-#     cmake --build build
-#
-# The generator's DEPENDS list doesn't include .git/HEAD or .git/index,
-# so a fresh commit doesn't invalidate the cached header on its own.
-# Tracked as #156; once that lands this note can be removed.
 cmake --build build
 ./build/SOURCES/lba2cc --version    # expect: 0.9.0
 cat build/VERSION.txt                  # expect: 0.9.0

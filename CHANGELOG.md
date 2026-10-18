@@ -10,6 +10,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.13.0] - 2026-10-18
+
 ### Android: updating from 0.12.0 erases your saves, once
 
 - Android will not install this version over 0.12.0 or any earlier build. It
@@ -409,6 +413,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and draws offscreen. See
   [docs/PLATFORM_ABSTRACTION.md](docs/PLATFORM_ABSTRACTION.md)
   ([#688](https://github.com/LBALab/lba2-classic-community/pull/688), [#689](https://github.com/LBALab/lba2-classic-community/pull/689), [#691](https://github.com/LBALab/lba2-classic-community/pull/691)).
+- The game runs on a Nintendo Switch as homebrew, on the SDL2 backend.
+  `scripts/dev/build-switch.sh` builds it in Docker, no SDK to install, into
+  a ZIP to extract onto the SD card; the retail game data goes in
+  `sdmc:/lba2/`, and saves and settings stay in `sdmc:/switch/lba2cc/user/`.
+  Releases do not ship it yet. `scripts/dev/run-switch.sh` sends a build to
+  the Homebrew Menu's NetLoader over the network and shows its log live. See
+  [docs/SWITCH.md](docs/SWITCH.md)
+  ([#716](https://github.com/LBALab/lba2-classic-community/pull/716)).
 - The Linux tarball, macOS and Android builds bundle SDL 3.4.18 (was 3.2.16),
   so the pixelart present filter works in them. The Windows build and the
   AppImage use the SDL of the system they are built on
@@ -497,9 +509,11 @@ tool
 Thanks to [@sergiou87](https://github.com/sergiou87) for the platform layer:
 an SDK-free host contract with the SDL3 backend behind it, a null backend that
 builds the whole game without SDL
-([#688](https://github.com/LBALab/lba2-classic-community/pull/688)), and a
+([#688](https://github.com/LBALab/lba2-classic-community/pull/688)), a
 desktop SDL2 backend with audio on top of it
-([#691](https://github.com/LBALab/lba2-classic-community/pull/691)).
+([#691](https://github.com/LBALab/lba2-classic-community/pull/691)), and the
+Nintendo Switch port built on that
+([#716](https://github.com/LBALab/lba2-classic-community/pull/716)).
 
 Welcome to three new contributors since v0.12.0:
 [@makseq](https://github.com/makseq) for texture filtering and scaled
@@ -1631,7 +1645,8 @@ Special thanks to the contributors whose foundational work this fork stands on:
 A big thank you to Gwen Gourevich ([@gwen-gg](https://github.com/gwen-gg)) and [2.21](https://discord.gg/e2ZXpzrM) for open-sourcing the original code, and to the original Adeline
 Software team whose code this builds on.
 
-[Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.9.0...v0.10.0
