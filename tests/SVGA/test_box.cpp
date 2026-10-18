@@ -289,14 +289,14 @@ static void test_edge_sweep(void) {
     ASSERT_TRUE(box_partial_cases > 1000);
 }
 
-/* ---------- inverted by one column (x0 == x1 + 1) ----------
+/* ---------- inverted boxes ----------
  * Callers build bars as Box(start + 1, ..., fill_end, ...) where fill_end can
  * equal start: INVENT.CPP AffValueBar draws the conch's value bar that way, so
- * an empty conch (PtMagie 0) passes x0 == x1 + 1. In BOX.ASM that gives
- * ECX = x1 - x0 + 1 = 0, both rep counts are 0 and nothing is written. The
- * C++ port computes deltaX = x1 - x0 as U32 0xFFFFFFFF and loops
- * `for (int i = 0; i <= deltaX; i++)`, which never ends. Each side runs in a
- * child process so a crash or hang fails this test instead of the binary. */
+ * a conch at 0 or 1 (the fill rounds down) passes x0 == x1 + 1. In BOX.ASM
+ * that gives ECX = x1 - x0 + 1 = 0, both rep counts are 0 and nothing is
+ * written. With U32 deltas the C++ loops would never end, so Box returns
+ * early for an inverted box. Each side runs in a child process so a crash or
+ * hang fails this test instead of the binary. */
 static int box_run_in_child(int use_asm, S32 x0, S32 y0, S32 x1, S32 y1, int *sig) {
     static const BoxClip full = {"full", 0, 0, 639, 479};
     U8 expect[BOX_GUARDED_SIZE];
@@ -322,13 +322,14 @@ static int box_run_in_child(int use_asm, S32 x0, S32 y0, S32 x1, S32 y1, int *si
     return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
 
-static void test_inverted_by_one_column_red(void) {
-    static const S32 cases[][4] = {
+static void test_inverted_box_draws_nothing(void) {
+    /* Inverted by one column: the ASM draws nothing, the C++ must match. */
+    static const S32 by_one[][4] = {
         {201, 300, 200, 315}, /* AffValueBar shape, empty bar */
         {0, 0, -1, 10},       /* rejected by the x1 < ClipXMin test anyway */
     };
-    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
-        const S32 *c = cases[i];
+    for (size_t i = 0; i < sizeof(by_one) / sizeof(by_one[0]); i++) {
+        const S32 *c = by_one[i];
         char label[96];
         int asm_sig, cpp_sig;
         int asm_rc = box_run_in_child(1, c[0], c[1], c[2], c[3], &asm_sig);
@@ -338,6 +339,25 @@ static void test_inverted_by_one_column_red(void) {
         ASSERT_ASM_CPP_EQ_INT(asm_rc, cpp_rc, label);
         ASSERT_ASM_CPP_EQ_INT(0, asm_rc, label);
     }
+
+    /* Inverted further, or by one row: the ASM runs a negative rep count and
+       crashes, so there is nothing to match. The C++ draws nothing. */
+    static const S32 further[][4] = {
+        {202, 300, 200, 315},
+        {300, 300, 101, 315},
+        {200, 301, 260, 300},
+        {200, 320, 260, 300},
+        {260, 320, 200, 300},
+    };
+    for (size_t i = 0; i < sizeof(further) / sizeof(further[0]); i++) {
+        const S32 *c = further[i];
+        char label[96];
+        int cpp_sig;
+        int cpp_rc = box_run_in_child(0, c[0], c[1], c[2], c[3], &cpp_sig);
+        snprintf(label, sizeof(label), "Box (%d,%d)-(%d,%d) draws nothing (cpp sig %d)",
+                 (int)c[0], (int)c[1], (int)c[2], (int)c[3], cpp_sig);
+        ASSERT_ASM_CPP_EQ_INT(0, cpp_rc, label);
+    }
 }
 
 int main(void) {
@@ -345,7 +365,7 @@ int main(void) {
     RUN_TEST(test_random_equivalence);
     RUN_TEST(test_exact_clip_boundaries);
     RUN_TEST(test_edge_sweep);
-    RUN_TEST(test_inverted_by_one_column_red);
+    RUN_TEST(test_inverted_box_draws_nothing);
     TEST_SUMMARY();
     return test_failures != 0;
 }

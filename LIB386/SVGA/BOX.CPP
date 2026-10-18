@@ -23,6 +23,13 @@ void Box(S32 x0, S32 y0, S32 x1, S32 y1, S32 col) {
         y1 = ClipYMax;
     }
 
+    // An inverted box draws nothing. BOX.ASM gets there by a zero rep count
+    // when x0 == x1 + 1 (the empty value bar in the inventory); with U32
+    // deltas the loops below would never end.
+    if (x1 < x0 || y1 < y0) {
+        return;
+    }
+
     U32 screenWidth = TabOffLine[1];
     U32 deltaY = y1 - y0;
     U32 deltaX = x1 - x0;
