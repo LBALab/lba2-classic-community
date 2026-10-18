@@ -1815,6 +1815,17 @@ void DoFoundObj(S32 numvar) {
 
     ptrobj->WorkFlags = workflag;
 
+    /* The loop above swaps the hero's body anim with ObjectInitAnim, which leaves
+       GenAnim naming the anim he had on entry (walking, say). The manual move code
+       trusts GenAnim: with the same direction still held, InitAnim(GEN_ANIM_MARCHE)
+       finds it "already playing" and returns, so he stands in the idle body, turns at
+       the walking rate, and only recovers once every direction is released. Bring
+       GenAnim back in line with the idle body he now has. */
+    if (ptrobj->GenAnim != GEN_ANIM_RIEN AND ptrobj->FlagAnim != ANIM_FINAL) {
+        ptrobj->FlagAnim = ANIM_REPEAT; // InitAnim refuses ANIM_REPEAT over ANIM_ALL_THEN
+        InitAnim(GEN_ANIM_RIEN, ANIM_REPEAT, NUM_PERSO);
+    }
+
     //	FlagNoFlip = 0			;
 
 #ifdef CDROM
