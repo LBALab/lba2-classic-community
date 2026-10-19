@@ -38,7 +38,7 @@ Fold `GamepadKeys` into the table `InitInput` builds beside `DefKeys`, so the fu
 
 # Non-goals
 
-- **Bindable menu navigation.** Whether menu directions should be configurable is a separate product question, not settled here.
+- **Bindable menu navigation.** The pad's menu keys are still synthesised scancodes compared raw by each screen; whether that second table should be data is an open product question, not settled here.
 - **Typing on a pad.** A pad button never becomes a character; text entry is the keyboard's.
 - **A stick as "any key".** Movement axes and triggers are movement, and a wait that ends on them ends by accident.
 
