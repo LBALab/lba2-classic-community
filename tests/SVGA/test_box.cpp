@@ -305,6 +305,10 @@ static int box_run_in_child(int use_asm, S32 x0, S32 y0, S32 x1, S32 y1, int *si
 
     fflush(stdout);
     pid_t pid = fork();
+    if (pid < 0) {
+        *sig = 0;
+        return -2; /* no child ran: never reads as "drew nothing" */
+    }
     if (pid == 0) {
         alarm(3);
         int devnull = open("/dev/null", O_WRONLY);
@@ -317,7 +321,10 @@ static int box_run_in_child(int use_asm, S32 x0, S32 y0, S32 x1, S32 y1, int *si
         _exit(memcmp(expect, guarded_buf, sizeof(expect)) == 0 ? 0 : 1);
     }
     int status = 0;
-    waitpid(pid, &status, 0);
+    if (waitpid(pid, &status, 0) != pid) {
+        *sig = 0;
+        return -2;
+    }
     *sig = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
     return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
