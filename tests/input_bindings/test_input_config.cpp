@@ -339,8 +339,7 @@ void ResetMenuInput(void) {
     RestoreInput();
     InitInput();
     ClearNoRepeatInput();
-    MenuInput_RestoreDefaults(0);
-    MenuInput_RestoreDefaults(1);
+    MenuInput_Reset(0);
     HoldNone();
     MyGetInput();
 }
@@ -407,23 +406,34 @@ void CheckMenuRebindIsolation(void) {
     CHECK(!(Input & I_UP) && MenuInput_Get() == MENU_INPUT_UP,
           "UI arrows survive gameplay rebind");
 
-    MenuInput_KeyboardBindings()[0].Key1 = K_Q;
-    MenuInput_KeyboardBindings()[0].Key2 = 0;
-    MenuInput_GamepadBindings()[0].Key1 = K_GAMEPAD_RSTICK_UP;
-    MenuInput_GamepadBindings()[0].Key2 = 0;
-    HoldOnly(K_UP);
-    MyGetInput();
-    CHECK(!MenuInput_Get(), "old UI key stops navigating after rebind");
+    GamepadKeys[0].Key1 = K_GAMEPAD_RSTICK_UP;
+    GamepadKeys[0].Key2 = 0;
+    InitInput();
     HoldOnly(K_Q);
     MyGetInput();
-    CHECK(MenuInput_Get() == MENU_INPUT_UP && !(Input & I_UP),
-          "UI keyboard rebind is immediate and leaves gameplay alone");
+    CHECK(!MenuInput_Get(), "other keyboard keys do not navigate UI");
     HoldOnly(K_GAMEPAD_DPAD_UP);
     MyGetInput();
-    CHECK(!MenuInput_Get(), "old UI gamepad alternate stops navigating after rebind");
+    CHECK(MenuInput_Get() == MENU_INPUT_UP, "UI D-pad survives gameplay rebind");
     HoldOnly(K_GAMEPAD_RSTICK_UP);
     MyGetInput();
-    CHECK(MenuInput_Get() == MENU_INPUT_UP, "UI gamepad rebind is immediate");
+    CHECK((Input & I_UP) && !MenuInput_Get(), "gameplay right-stick rebind does not navigate UI");
+
+    for (int n = 0; n < MAX_INPUT_SLOTS; n++) {
+        DefKeys[n].Key1 = DefKeys[n].Key2 = 0;
+        GamepadKeys[n].Key1 = GamepadKeys[n].Key2 = 0;
+    }
+    InitInput();
+    const U32 fixedKeys[] = {K_DOWN, K_NUMPAD_4, K_GAMEPAD_LSTICK_UP, K_GAMEPAD_DPAD_RIGHT};
+    const U32 directions[] = {MENU_INPUT_DOWN, MENU_INPUT_LEFT, MENU_INPUT_UP, MENU_INPUT_RIGHT};
+    const S32 navigation[] = {K_DOWN, K_LEFT, K_UP, K_RIGHT};
+    for (int n = 0; n < 4; n++) {
+        HoldOnly(fixedKeys[n]);
+        MyGetInput();
+        CHECK(!Input && MenuInput_Get() == directions[n] &&
+                  MenuInput_NavigationKey() == navigation[n],
+              "fixed direction %d survives clearing every gameplay binding", n);
+    }
 }
 
 void CheckMenuSuppression(void) {
@@ -471,39 +481,40 @@ void CheckMenuSuppression(void) {
     CHECK(MenuInput_Get() == MENU_INPUT_UP, "unsuppressed first replay poll is not discarded");
 }
 
-void CheckMenuConfigRoundTrip(void) {
+void CheckMenuIgnoresConfig(void) {
     ResetMenuInput();
-    WriteCfg("WinMode: 1\n");
+    WriteCfg(Line("WinMode: 1\nInput0_1: %u\nInput0_2: 0\n"
+                  "MenuInput0_1: %u\nMenuInput0_2: 0\n"
+                  "MenuGamepad0_1: %u\nMenuGamepad0_2: 0\n",
+                  (U32)K_Q, (U32)K_Q, (U32)K_GAMEPAD_RSTICK_UP));
     OpenCfg();
     ReadInputConfig();
-    CHECK(MenuInput_KeyboardBindings()[0].Key1 == K_UP &&
-              MenuInput_GamepadBindings()[0].Key2 == K_GAMEPAD_DPAD_UP,
-          "existing configs acquire UI defaults without changing gameplay slots");
-    for (int n = 0; n < MENU_INPUT_COUNT; n++) {
-        MenuInput_KeyboardBindings()[n].Key1 = K_A + n;
-        MenuInput_KeyboardBindings()[n].Key2 = 0;
-        MenuInput_GamepadBindings()[n].Key1 = K_GAMEPAD_BASE + n;
-        MenuInput_GamepadBindings()[n].Key2 = K_GAMEPAD_BASE + n + 4;
-    }
+    HoldOnly(K_UP);
+    MyGetInput();
+    CHECK(MenuInput_Get() == MENU_INPUT_UP, "config cannot replace fixed UI arrows");
+    HoldOnly(K_GAMEPAD_DPAD_UP);
+    MyGetInput();
+    CHECK(MenuInput_Get() == MENU_INPUT_UP, "config cannot replace fixed UI D-pad");
+    HoldOnly(K_Q);
+    MyGetInput();
+    CHECK((Input & I_UP) && !MenuInput_Get(), "only gameplay uses configured movement");
+    HoldOnly(K_GAMEPAD_RSTICK_UP);
+    MyGetInput();
+    CHECK(!MenuInput_Get(), "config cannot bind right stick to UI navigation");
+
+    RemoveCfg();
+    OpenCfg();
     WriteInputConfig();
-    OpenCfg();
-    MenuInput_RestoreDefaults(0);
-    MenuInput_RestoreDefaults(1);
-    ReadInputConfig();
-    for (int n = 0; n < MENU_INPUT_COUNT; n++) {
-        CHECK(MenuInput_KeyboardBindings()[n].Key1 == (U32)(K_A + n) &&
-                  MenuInput_KeyboardBindings()[n].Key2 == 0,
-              "UI keyboard slot %d round trip preserves explicit unbinding", n);
-        CHECK(MenuInput_GamepadBindings()[n].Key1 == (U32)(K_GAMEPAD_BASE + n) &&
-                  MenuInput_GamepadBindings()[n].Key2 == (U32)(K_GAMEPAD_BASE + n + 4),
-              "UI gamepad slot %d round trip", n);
+    FILE *f = std::fopen(kCfgPath, "rb");
+    CHECK(f != NULL, "gameplay config is written");
+    if (f) {
+        char contents[64 * 1024];
+        const size_t count = std::fread(contents, 1, sizeof contents - 1, f);
+        std::fclose(f);
+        contents[count] = '\0';
+        CHECK(!std::strstr(contents, "MenuInput") && !std::strstr(contents, "MenuGamepad"),
+              "writing gameplay bindings adds no UI binding settings");
     }
-    WriteCfg("MenuInput0_1: 29\nMenuInput0_2: 0\n");
-    OpenCfg();
-    ReadInputConfig();
-    CHECK(MenuInput_KeyboardBindings()[0].Key1 == 29 &&
-              MenuInput_KeyboardBindings()[0].Key2 == 0,
-          "UI bindings load even without WinMode");
 }
 
 } // namespace
@@ -517,7 +528,7 @@ int main() {
     CheckMenuDirections();
     CheckMenuRebindIsolation();
     CheckMenuSuppression();
-    CheckMenuConfigRoundTrip();
+    CheckMenuIgnoresConfig();
 
     RemoveCfg();
 

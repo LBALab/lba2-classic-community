@@ -62,15 +62,6 @@
 S32 SelectConfig = 0;
 S32 SelectKey = 0;
 
-static S32 s_ConfigMenuNavigation = FALSE;
-#define CFG_INPUT_SLOTS (s_ConfigMenuNavigation ? MENU_INPUT_COUNT : MAX_INPUT_SLOTS)
-
-static T_DEF_KEY *ConfigKeys(S32 gamepad) {
-    if (s_ConfigMenuNavigation)
-        return gamepad ? MenuInput_GamepadBindings() : MenuInput_KeyboardBindings();
-    return gamepad ? GamepadKeys : DefKeys;
-}
-
 /* The config screen is a fixed 620-px-wide three-column layout (margins of
    10 each side in the 4:3 layout). At wider framebuffers, centre the 620-px
    region rather than letting it cling to the left edge — keeps the
@@ -80,7 +71,7 @@ static T_DEF_KEY *ConfigKeys(S32 gamepad) {
 #define CFG_X0 ((S32)ModeDesiredX / 2 - 310)
 #define CFG_Y0 10
 #define CFG_X1 ((S32)ModeDesiredX / 2 + 310)
-#define CFG_Y1 (CFG_Y0 + CFG_INPUT_SLOTS * 10 + 35)
+#define CFG_Y1 (CFG_Y0 + MAX_INPUT_SLOTS * 10 + 35)
 
 #define ACTION_X (CFG_X0 + 20)
 #define KEY1_X (CFG_X0 + 371)
@@ -355,9 +346,9 @@ void GetKeyText(char *string, U32 scan) {
 void InitKeyStrings(void) {
     S32 n;
 
-    for (n = 0; n < CFG_INPUT_SLOTS; n++) {
-        GetKeyText(KeyStrings[n * 2], ConfigKeys(FALSE)[n].Key1);
-        GetKeyText(KeyStrings[n * 2 + 1], ConfigKeys(FALSE)[n].Key2);
+    for (n = 0; n < MAX_INPUT_SLOTS; n++) {
+        GetKeyText(KeyStrings[n * 2], DefKeys[n].Key1);
+        GetKeyText(KeyStrings[n * 2 + 1], DefKeys[n].Key2);
     }
 }
 
@@ -391,11 +382,7 @@ void DrawOneConfig(S32 n) {
 
     BoxStaticAdd(x0, y0, x1, y1);
 
-    if (s_ConfigMenuNavigation)
-        CopyUtf8ToCp850(string, sizeof string,
-                        GetLocalizedMenuLabel(LocalizedMenuLabels[MENU_LABEL_NAV_UP + n].id));
-    else
-        GetMultiText(START_ACTION_TXT + n, string);
+    GetMultiText(START_ACTION_TXT + n, string);
     GraphPrintf(FALSE, x, y, string);
 
     // Key 1
@@ -471,12 +458,12 @@ void DrawOneConfigMenu(S32 n) {
     S32 x0, y0, x1, y1;
     S32 y;
 
-    if (n < CFG_INPUT_SLOTS) {
+    if (n < MAX_INPUT_SLOTS) {
         DrawOneConfig(n);
         return;
     }
 
-    n -= CFG_INPUT_SLOTS;
+    n -= MAX_INPUT_SLOTS;
     y = CFG_MENU_Y0 + 7 + n * 10;
 
     GetMultiText(START_MENUS_TXT + CFG_TXT_DEFAUT + n, txt);
@@ -493,7 +480,7 @@ void DrawOneConfigMenu(S32 n) {
         ShadeBoxBlk(x0, y0, x1, y1, CONFIG_SHADE_LVL);
     }
 
-    if ((SelectConfig - CFG_INPUT_SLOTS) == n) {
+    if ((SelectConfig - MAX_INPUT_SLOTS) == n) {
         CoulText(COUL_KEY, -1);
         BackupAngles(x0, y0, x1, y1);
         DrawConfigFire(x0, y0, x1, y1, FIRE_SELECT_MENU);
@@ -621,11 +608,11 @@ void DrawScreenConfig(S32 gamepadTripleFooter) {
 
     DrawStatusConfig(STATUS_MENU);
 
-    for (n = 0; n < CFG_INPUT_SLOTS; n++) {
+    for (n = 0; n < MAX_INPUT_SLOTS; n++) {
         DrawOneConfig(n);
     }
 
-    for (n = CFG_INPUT_SLOTS; n < CFG_INPUT_SLOTS + 3; n++) {
+    for (n = MAX_INPUT_SLOTS; n < MAX_INPUT_SLOTS + 3; n++) {
         DrawOneConfigMenu(n);
     }
 
@@ -636,8 +623,8 @@ void DrawScreenConfig(S32 gamepadTripleFooter) {
 S32 CheckKeyConfig(S32 key) {
     S32 n;
 
-    for (n = 0; n < CFG_INPUT_SLOTS; n++) {
-        if (ConfigKeys(FALSE)[n].Key1 == key OR ConfigKeys(FALSE)[n].Key2 == key) {
+    for (n = 0; n < MAX_INPUT_SLOTS; n++) {
+        if (DefKeys[n].Key1 == key OR DefKeys[n].Key2 == key) {
             return n;
         }
     }
@@ -669,20 +656,11 @@ void Config_RequestCapture(const char *path) {
                                         + initial DrawScreenConfig settle */
 }
 
-static S32 CaptureConfigIfReady(void) {
-    if (!s_config_capture_path[0] || --s_config_capture_countdown > 0)
-        return FALSE;
-    SavePNG(s_config_capture_path, Log, (S32)ModeDesiredX,
-            (S32)ModeDesiredY, PtrPal);
-    s_config_capture_path[0] = '\0';
-    return TRUE;
-}
-
 /* Full harness entry: set up the screen background MenuConfig expects from
    its in-game invocation chain (Main Menu → Options → Controls loads the
    menu PCX into Screen), arm the capture, and call MenuConfig. Mirror of
    GAMEMENU.CPP's Menu_MainCapture. */
-void Config_MainCapture(const char *path, S32 menuNavigation, S32 gamepad) {
+void Config_MainCapture(const char *path) {
     char tmpFilePathScreen[ADELINE_MAX_PATH];
 
     GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
@@ -692,12 +670,7 @@ void Config_MainCapture(const char *path, S32 menuNavigation, S32 gamepad) {
     PaletteSync(PtrPalNormal);
 
     Config_RequestCapture(path);
-    if (menuNavigation)
-        MenuNavigationConfig(gamepad);
-    else if (gamepad)
-        MenuGamepadConfig();
-    else
-        MenuConfig();
+    MenuConfig();
     Config_RequestCapture(NULL); /* disarm if MenuConfig exited some other way */
 }
 
@@ -708,7 +681,6 @@ void MenuConfig(void) {
     U32 repeattime;
     S32 ok = FALSE;
     S32 memoclipwindow = FALSE;
-    T_DEF_KEY *keys = ConfigKeys(FALSE);
 
     if (ClipWindowYMin > 0) {
         // on vient du jeu en cinema mode
@@ -718,7 +690,8 @@ void MenuConfig(void) {
     }
 
     // premiere fois
-    InitKeyStrings();
+    if (!KeyStrings[0][0])
+        InitKeyStrings();
 
     PaletteSync(PtrPalNormal);
 
@@ -728,7 +701,7 @@ void MenuConfig(void) {
 
     oldselect = SelectConfig;
 
-    memcpy(MemoDefKeys, keys, sizeof(T_DEF_KEY) * CFG_INPUT_SLOTS);
+    memcpy(MemoDefKeys, DefKeys, sizeof(T_DEF_KEY) * MAX_INPUT_SLOTS);
 
     MyKey = 0;
     ManageTime();
@@ -742,7 +715,10 @@ void MenuConfig(void) {
 
         BoxUpdate();
 
-        if (CaptureConfigIfReady()) {
+        if (s_config_capture_path[0] && --s_config_capture_countdown <= 0) {
+            SavePNG(s_config_capture_path, Log, (S32)ModeDesiredX,
+                    (S32)ModeDesiredY, PtrPal);
+            s_config_capture_path[0] = '\0';
             ok = TRUE; /* exit cleanly without restoring MemoDefKeys */
             break;
         }
@@ -821,21 +797,21 @@ void MenuConfig(void) {
         if (MyKey == K_UP) {
             SelectConfig--;
             if (SelectConfig < 0)
-                SelectConfig = CFG_INPUT_SLOTS - 1 + 3;
+                SelectConfig = MAX_INPUT_SLOTS - 1 + 3;
         } else if (MyKey == K_DOWN) {
             SelectConfig++;
-            if (SelectConfig >= (CFG_INPUT_SLOTS + 3))
+            if (SelectConfig >= (MAX_INPUT_SLOTS + 3))
                 SelectConfig = 0;
         } else if (MyKey == K_ENTER) {
-            if (SelectConfig < CFG_INPUT_SLOTS) {
+            if (SelectConfig < MAX_INPUT_SLOTS) {
                 S32 memokey;
                 U32 *ptr;
 
                 // define new key
                 if (SelectKey == 0) {
-                    ptr = &keys[SelectConfig].Key1;
+                    ptr = &DefKeys[SelectConfig].Key1;
                 } else {
-                    ptr = &keys[SelectConfig].Key2;
+                    ptr = &DefKeys[SelectConfig].Key2;
                 }
 
                 memokey = *ptr;
@@ -887,19 +863,16 @@ void MenuConfig(void) {
 
                 WaitNoInput();
             } else {
-                switch ((SelectConfig - CFG_INPUT_SLOTS)) {
+                switch ((SelectConfig - MAX_INPUT_SLOTS)) {
                 case 0: // Configuration par Défaut
-                    memcpy(MemoDefKeys, keys, sizeof(T_DEF_KEY) * CFG_INPUT_SLOTS);
-                    if (s_ConfigMenuNavigation)
-                        MenuInput_RestoreDefaults(FALSE);
-                    else
-                        RestoreInput();
+                    memcpy(MemoDefKeys, DefKeys, sizeof(T_DEF_KEY) * MAX_INPUT_SLOTS);
+                    RestoreInput();
                     InitKeyStrings();
                     DrawScreenConfig(0);
                     break;
 
                 case 1: // Restaurer Configuration Précédente
-                    memcpy(keys, MemoDefKeys, sizeof(T_DEF_KEY) * CFG_INPUT_SLOTS);
+                    memcpy(DefKeys, MemoDefKeys, sizeof(T_DEF_KEY) * MAX_INPUT_SLOTS);
                     InitKeyStrings();
                     DrawScreenConfig(0);
                     break;
@@ -921,8 +894,8 @@ void MenuConfig(void) {
 
         case K_PAGE_DOWN:
             SelectConfig += 10;
-            if (SelectConfig >= (CFG_INPUT_SLOTS + 3))
-                SelectConfig = CFG_INPUT_SLOTS - 1 + 3;
+            if (SelectConfig >= (MAX_INPUT_SLOTS + 3))
+                SelectConfig = MAX_INPUT_SLOTS - 1 + 3;
             break;
 
         case K_HOME:
@@ -930,12 +903,12 @@ void MenuConfig(void) {
             break;
 
         case K_END:
-            SelectConfig = CFG_INPUT_SLOTS - 1 + 3;
+            SelectConfig = MAX_INPUT_SLOTS - 1 + 3;
             break;
 
         case K_ESC:
-            if (SelectConfig != CFG_INPUT_SLOTS + 2) {
-                SelectConfig = CFG_INPUT_SLOTS + 2; // Menu Accepter Configuration
+            if (SelectConfig != MAX_INPUT_SLOTS + 2) {
+                SelectConfig = MAX_INPUT_SLOTS + 2; // Menu Accepter Configuration
             } else {
                 goto endloop;
             }
@@ -947,16 +920,16 @@ void MenuConfig(void) {
             oldselect = SelectConfig;
         }
 
-        if (SelectConfig < CFG_INPUT_SLOTS) {
+        if (SelectConfig < MAX_INPUT_SLOTS) {
             if (MyKey == K_LEFT OR MyKey == K_RIGHT) {
                 SelectKey ^= 1;
             }
 
             if (MyKey == K_SUPPR) {
                 if (SelectKey == 0)
-                    keys[SelectConfig].Key1 = 0;
+                    DefKeys[SelectConfig].Key1 = 0;
                 else
-                    keys[SelectConfig].Key2 = 0;
+                    DefKeys[SelectConfig].Key2 = 0;
 
                 strcpy(KeyStrings[SelectConfig * 2 + SelectKey], KEY_STRING_EMPTY);
             }
@@ -966,7 +939,7 @@ endloop:
     if (!ok) // Sortie par <ESC>
     {
         // restaure config
-        memcpy(keys, MemoDefKeys, sizeof(T_DEF_KEY) * CFG_INPUT_SLOTS);
+        memcpy(DefKeys, MemoDefKeys, sizeof(T_DEF_KEY) * MAX_INPUT_SLOTS);
         InitKeyStrings();
     }
 
@@ -1008,15 +981,15 @@ static S32 GamepadRebindAllowed(S32 scan) {
 }
 
 static void InitGamepadKeyStrings(void) {
-    for (S32 n = 0; n < CFG_INPUT_SLOTS; n++) {
-        GetKeyText(KeyStrings[n * 2], ConfigKeys(TRUE)[n].Key1);
-        GetKeyText(KeyStrings[n * 2 + 1], ConfigKeys(TRUE)[n].Key2);
+    for (S32 n = 0; n < MAX_INPUT_SLOTS; n++) {
+        GetKeyText(KeyStrings[n * 2], GamepadKeys[n].Key1);
+        GetKeyText(KeyStrings[n * 2 + 1], GamepadKeys[n].Key2);
     }
 }
 
 static S32 CheckGamepadKeyConfig(S32 key) {
-    for (S32 n = 0; n < CFG_INPUT_SLOTS; n++) {
-        if ((S32)ConfigKeys(TRUE)[n].Key1 == key OR(S32) ConfigKeys(TRUE)[n].Key2 == key) {
+    for (S32 n = 0; n < MAX_INPUT_SLOTS; n++) {
+        if ((S32)GamepadKeys[n].Key1 == key OR(S32) GamepadKeys[n].Key2 == key) {
             return n;
         }
     }
@@ -1030,8 +1003,6 @@ void MenuGamepadConfig(void) {
     S32 ok = FALSE;
     S32 memoclipwindow = FALSE;
     T_DEF_KEY MemoGamepadKeys[MAX_INPUT_SLOTS];
-    T_DEF_KEY *keys = ConfigKeys(TRUE);
-    size_t bindingsSize = sizeof(T_DEF_KEY) * CFG_INPUT_SLOTS;
     S32 padMenuPrev7 = 0;
     S32 padMenuPrev8 = 0;
     S32 padMenuPrev9 = 0;
@@ -1054,7 +1025,7 @@ void MenuGamepadConfig(void) {
     oldselect = SelectConfig;
     SelectKey = 0;
 
-    memcpy(MemoGamepadKeys, keys, bindingsSize);
+    memcpy(MemoGamepadKeys, GamepadKeys, sizeof(MemoGamepadKeys));
 
     MyKey = 0;
     ManageTime();
@@ -1071,11 +1042,6 @@ void MenuGamepadConfig(void) {
 
         DrawOneConfigMenu(SelectConfig);
         BoxUpdate();
-
-        if (CaptureConfigIfReady()) {
-            ok = TRUE;
-            break;
-        }
 
         oldkey = MyKey;
         DetectJoys();
@@ -1163,16 +1129,16 @@ void MenuGamepadConfig(void) {
         if (MyKey == K_UP) {
             SelectConfig--;
             if (SelectConfig < 0)
-                SelectConfig = CFG_INPUT_SLOTS - 1 + 3;
+                SelectConfig = MAX_INPUT_SLOTS - 1 + 3;
         } else if (MyKey == K_DOWN) {
             SelectConfig++;
-            if (SelectConfig >= (CFG_INPUT_SLOTS + 3))
+            if (SelectConfig >= (MAX_INPUT_SLOTS + 3))
                 SelectConfig = 0;
         } else if (MyKey == K_ENTER) {
-            if (SelectConfig < CFG_INPUT_SLOTS) {
+            if (SelectConfig < MAX_INPUT_SLOTS) {
                 S32 memokey;
                 U32 *ptr =
-                    (SelectKey == 0) ? &keys[SelectConfig].Key1 : &keys[SelectConfig].Key2;
+                    (SelectKey == 0) ? &GamepadKeys[SelectConfig].Key1 : &GamepadKeys[SelectConfig].Key2;
                 memokey = (S32)*ptr;
 
                 WaitNoInput();
@@ -1215,19 +1181,16 @@ void MenuGamepadConfig(void) {
                 GetKeyText(KeyStrings[SelectConfig * 2 + SelectKey], (U32)MyKey);
                 WaitNoInput();
             } else {
-                switch ((SelectConfig - CFG_INPUT_SLOTS)) {
+                switch ((SelectConfig - MAX_INPUT_SLOTS)) {
                 case 0: // restore defaults
-                    memcpy(MemoGamepadKeys, keys, bindingsSize);
-                    if (s_ConfigMenuNavigation)
-                        MenuInput_RestoreDefaults(TRUE);
-                    else
-                        memcpy(keys, GamepadKeysDefault, bindingsSize);
+                    memcpy(MemoGamepadKeys, GamepadKeys, sizeof(MemoGamepadKeys));
+                    memcpy(GamepadKeys, GamepadKeysDefault, sizeof(GamepadKeys));
                     InitGamepadKeyStrings();
                     DrawScreenConfig(1);
                     break;
 
                 case 1: // restore previous
-                    memcpy(keys, MemoGamepadKeys, bindingsSize);
+                    memcpy(GamepadKeys, MemoGamepadKeys, sizeof(GamepadKeys));
                     InitGamepadKeyStrings();
                     DrawScreenConfig(1);
                     break;
@@ -1247,18 +1210,18 @@ void MenuGamepadConfig(void) {
             break;
         case K_PAGE_DOWN:
             SelectConfig += 10;
-            if (SelectConfig >= (CFG_INPUT_SLOTS + 3))
-                SelectConfig = CFG_INPUT_SLOTS - 1 + 3;
+            if (SelectConfig >= (MAX_INPUT_SLOTS + 3))
+                SelectConfig = MAX_INPUT_SLOTS - 1 + 3;
             break;
         case K_HOME:
             SelectConfig = 0;
             break;
         case K_END:
-            SelectConfig = CFG_INPUT_SLOTS - 1 + 3;
+            SelectConfig = MAX_INPUT_SLOTS - 1 + 3;
             break;
         case K_ESC:
-            if (SelectConfig != CFG_INPUT_SLOTS + 2) {
-                SelectConfig = CFG_INPUT_SLOTS + 2;
+            if (SelectConfig != MAX_INPUT_SLOTS + 2) {
+                SelectConfig = MAX_INPUT_SLOTS + 2;
             } else {
                 goto endloop_pad;
             }
@@ -1270,23 +1233,23 @@ void MenuGamepadConfig(void) {
             oldselect = SelectConfig;
         }
 
-        if (SelectConfig < CFG_INPUT_SLOTS && MyKey == K_SUPPR) {
+        if (SelectConfig < MAX_INPUT_SLOTS && MyKey == K_SUPPR) {
             if (SelectKey == 0)
-                keys[SelectConfig].Key1 = 0;
+                GamepadKeys[SelectConfig].Key1 = 0;
             else
-                keys[SelectConfig].Key2 = 0;
+                GamepadKeys[SelectConfig].Key2 = 0;
             GetKeyText(KeyStrings[SelectConfig * 2 + SelectKey], 0);
             DrawStatusConfig(STATUS_MENU);
         }
 
-        if (SelectConfig < CFG_INPUT_SLOTS && (MyKey == K_LEFT OR MyKey == K_RIGHT)) {
+        if (SelectConfig < MAX_INPUT_SLOTS && (MyKey == K_LEFT OR MyKey == K_RIGHT)) {
             SelectKey ^= 1;
         }
     }
 endloop_pad:
     if (!ok) {
         // ESC without accepting — restore pre-entry values.
-        memcpy(keys, MemoGamepadKeys, bindingsSize);
+        memcpy(GamepadKeys, MemoGamepadKeys, sizeof(GamepadKeys));
     }
 
     s_ConfigGamepadTripleFooter = 0;
@@ -1315,22 +1278,6 @@ endloop_pad:
 //              Petit Module pour demander l'insertion du CDROM
 //
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-
-void MenuNavigationConfig(S32 gamepad) {
-    S32 savedSelect = SelectConfig;
-    S32 savedKey = SelectKey;
-    s_ConfigMenuNavigation = TRUE;
-    SelectConfig = 0;
-    SelectKey = 0;
-    if (gamepad)
-        MenuGamepadConfig();
-    else
-        MenuConfig();
-    s_ConfigMenuNavigation = FALSE;
-    SelectConfig = savedSelect;
-    SelectKey = savedKey;
-    InitKeyStrings();
-}
 
 #define CONFIRM_SHADE_LVL 15
 

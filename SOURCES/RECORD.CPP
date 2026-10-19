@@ -517,12 +517,7 @@ static T_DEF_KEY s_savedDefKeys[MAX_INPUT_SLOTS];
 static T_DEF_KEY s_savedGamepadKeys[MAX_INPUT_SLOTS];
 static T_DEF_KEY s_recDefKeys[MAX_INPUT_SLOTS];
 static T_DEF_KEY s_recGamepadKeys[MAX_INPUT_SLOTS];
-static T_DEF_KEY s_savedMenuKeys[MENU_INPUT_COUNT];
-static T_DEF_KEY s_savedMenuPadKeys[MENU_INPUT_COUNT];
-static T_DEF_KEY s_recMenuKeys[MENU_INPUT_COUNT];
-static T_DEF_KEY s_recMenuPadKeys[MENU_INPUT_COUNT];
 static int s_haveRecBindings = 0;
-static int s_haveRecMenuBindings = 0;
 static U32 s_recMenuSuppression = 0;
 static U32 s_savedMenuSuppression = 0;
 static int s_bindingsInstalled = 0;
@@ -533,15 +528,9 @@ static void bindings_install(void) {
         return;
     memcpy(s_savedDefKeys, DefKeys, MAX_INPUT_SLOTS * sizeof DefKeys[0]);
     memcpy(s_savedGamepadKeys, GamepadKeys, MAX_INPUT_SLOTS * sizeof GamepadKeys[0]);
-    memcpy(s_savedMenuKeys, MenuInput_KeyboardBindings(), sizeof s_savedMenuKeys);
-    memcpy(s_savedMenuPadKeys, MenuInput_GamepadBindings(), sizeof s_savedMenuPadKeys);
     s_savedMenuSuppression = MenuInput_Suppressed();
     memcpy(DefKeys, s_recDefKeys, MAX_INPUT_SLOTS * sizeof DefKeys[0]);
     memcpy(GamepadKeys, s_recGamepadKeys, MAX_INPUT_SLOTS * sizeof GamepadKeys[0]);
-    if (s_haveRecMenuBindings) {
-        memcpy(MenuInput_KeyboardBindings(), s_recMenuKeys, sizeof s_recMenuKeys);
-        memcpy(MenuInput_GamepadBindings(), s_recMenuPadKeys, sizeof s_recMenuPadKeys);
-    }
     MenuInput_Reset(s_recMenuSuppression);
     /* The combined (key, mask) table is what CheckKey scans; changing the two source
        tables without rebuilding it changes nothing. */
@@ -554,8 +543,6 @@ static void bindings_restore(void) {
         return;
     memcpy(DefKeys, s_savedDefKeys, MAX_INPUT_SLOTS * sizeof DefKeys[0]);
     memcpy(GamepadKeys, s_savedGamepadKeys, MAX_INPUT_SLOTS * sizeof GamepadKeys[0]);
-    memcpy(MenuInput_KeyboardBindings(), s_savedMenuKeys, sizeof s_savedMenuKeys);
-    memcpy(MenuInput_GamepadBindings(), s_savedMenuPadKeys, sizeof s_savedMenuPadKeys);
     MenuInput_Reset(s_savedMenuSuppression);
     InitInput();
     s_bindingsInstalled = 0;
@@ -582,17 +569,6 @@ static unsigned long long bindings_digest(void) {
         bindings_mix(&h, (S32)DefKeys[i].Key2);
         bindings_mix(&h, (S32)GamepadKeys[i].Key1);
         bindings_mix(&h, (S32)GamepadKeys[i].Key2);
-    }
-    return h;
-}
-
-static unsigned long long menu_bindings_digest(void) {
-    unsigned long long h = 14695981039346656037ULL;
-    for (S32 i = 0; i < MENU_INPUT_COUNT; i++) {
-        bindings_mix(&h, (S32)MenuInput_KeyboardBindings()[i].Key1);
-        bindings_mix(&h, (S32)MenuInput_KeyboardBindings()[i].Key2);
-        bindings_mix(&h, (S32)MenuInput_GamepadBindings()[i].Key1);
-        bindings_mix(&h, (S32)MenuInput_GamepadBindings()[i].Key2);
     }
     return h;
 }
@@ -767,8 +743,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          "clock.sim_carry=%u\n"
                          "clock.rng_seed=%u\n"
                          "data.master=%s\n"
-                         "bindings.digest=%016llx\n"
-                         "bindings.menu_digest=%016llx\n",
+                         "bindings.digest=%016llx\n",
                          LBA2_VERSION_STRING,
                          Control_IsHeadless(),
                          Control_AudioActive(),
@@ -790,7 +765,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          (unsigned)LastSimRefHR,
                          (unsigned)Rnd_LastSeed(),
                          Distrib_MasterName(Distrib_GetMaster()),
-                         bindings_digest(), menu_bindings_digest());
+                         bindings_digest());
     if (wrote <= 0 || (size_t)wrote >= n)
         return 0;
     /* The rest comes from the engine, which this module deliberately cannot see. */
@@ -1508,12 +1483,6 @@ static int record_begin(const char *path, int haveSnapshot) {
         if (RecFmt_WriteBindings(tab, sizeof tab, GamepadKeys, MAX_INPUT_SLOTS,
                                  "bindings.gamepad="))
             fputs(tab, s_f);
-        if (RecFmt_WriteBindings(tab, sizeof tab, MenuInput_KeyboardBindings(), MENU_INPUT_COUNT,
-                                 "bindings.menu_keyboard="))
-            fputs(tab, s_f);
-        if (RecFmt_WriteBindings(tab, sizeof tab, MenuInput_GamepadBindings(), MENU_INPUT_COUNT,
-                                 "bindings.menu_gamepad="))
-            fputs(tab, s_f);
     }
     fputc('\n', s_f);
 
@@ -2103,8 +2072,6 @@ static int mode_line_ignored(const char *line) {
         "setup.reload_clock=",
         "bindings.keyboard=", /* payload a replay installs; bindings.digest is the comparison */
         "bindings.gamepad=",
-        "bindings.menu_keyboard=",
-        "bindings.menu_gamepad=",
         /* The globals no savegame carries. Payload a replay installs, on the same
            footing as the binding tables: the digest is what compares them, and
            reporting the difference here would name as a mode mismatch the very thing
@@ -2991,17 +2958,8 @@ int Record_Play(const char *path) {
                              MAX_INPUT_SLOTS);
     if (!s_haveRecBindings)
         Console_Print("rec: %s carries no binding table; replaying through this run's own", path);
-    s_haveRecMenuBindings =
-        RecFmt_ParseBindings(s_headerBuf, "bindings.menu_keyboard=", s_recMenuKeys,
-                             MENU_INPUT_COUNT) &&
-        RecFmt_ParseBindings(s_headerBuf, "bindings.menu_gamepad=", s_recMenuPadKeys,
-                             MENU_INPUT_COUNT);
     s_recMenuSuppression = 0;
     RecFmt_ReadU32(s_headerBuf, "input.menu_suppressed=", &s_recMenuSuppression);
-    if (!s_haveRecMenuBindings)
-        Console_Print("rec: %s carries no complete menu bindings; using this run's own. "
-                      "Legacy menu navigation may diverge.",
-                      path);
 
     /* The one header line that decides whether this replay reloads. A recording that
        reloaded its own snapshot begins from the post-load state, so a replay reaches
@@ -3960,8 +3918,7 @@ void Record_Report(const char *path) {
             nl = strchr(line, '\n');
             if (nl)
                 *nl = 0;
-            if (!strncmp(line, "bindings.keyboard=", 18) || !strncmp(line, "bindings.gamepad=", 17) ||
-                !strncmp(line, "bindings.menu_keyboard=", 23) || !strncmp(line, "bindings.menu_gamepad=", 22)) {
+            if (!strncmp(line, "bindings.keyboard=", 18) || !strncmp(line, "bindings.gamepad=", 17)) {
                 /* Payload rather than mode: a few hundred characters of table that
                    bindings.digest above already answers for. */
                 continue;

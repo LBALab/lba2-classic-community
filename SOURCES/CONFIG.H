@@ -15,13 +15,11 @@ extern void Config_RequestCapture(const char *path);
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 /* Like Config_RequestCapture, but also performs the screen-background setup
    (menu PCX into Screen) that MenuConfig expects from its normal in-game
-   invocation path (Main Menu → Options → Controls). menuNavigation selects
-   the four shared UI actions; gamepad selects their controller bindings.
-   Use from the harness without the surrounding menu chain. */
-extern void Config_MainCapture(const char *path, S32 menuNavigation = FALSE, S32 gamepad = FALSE);
+   invocation path (Main Menu → Options → Controls). Use from the harness
+   when MenuConfig is invoked directly without the surrounding menu chain. */
+extern void Config_MainCapture(const char *path);
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern void MenuGamepadConfig(void);
-extern void MenuNavigationConfig(S32 gamepad);
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern S32 AskForCD(void);
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀

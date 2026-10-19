@@ -38,7 +38,7 @@ Fold `GamepadKeys` into the table `InitInput` builds beside `DefKeys`, so the fu
 
 # Non-goals
 
-- **Sharing UI and gameplay directions.** [Shared UI navigation](/subsystems/input.md) has its own keyboard/gamepad tables and release latch. Those actions do not consume gameplay bits or change this decision's gameplay folding contract.
+- **Sharing UI and gameplay directions.** [Shared UI navigation](/subsystems/input.md) uses fixed arrows/keypad and left stick/D-pad with its own release latch, not configurable bindings. Those directions do not consume gameplay bits or change this decision's gameplay folding contract.
 - **Typing on a pad.** A pad button never becomes a character; text entry is the keyboard's.
 - **A stick as "any key".** Movement axes and triggers are movement, and a wait that ends on them ends by accident.
 

@@ -101,7 +101,6 @@ void ReadInputConfig(void) {
     }
 
     InitInput();
-    MenuInput_ReadConfig();
 }
 
 //-------------------------------------------------------------------------
@@ -129,7 +128,6 @@ void WriteInputConfig(void) {
         snprintf(id, sizeof(id), "Input%d_2", n);
         DefFileBufferWriteValue(id, DefKeys[n].Key2);
     }
-    MenuInput_WriteConfig();
 }
 
 //-------------------------------------------------------------------------

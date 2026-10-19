@@ -4,9 +4,9 @@ How the manual camera works and which input sources drive it.
 
 ## Menu navigation
 
-UI directions are independent of gameplay movement. By default, the left stick and D-pad navigate menus, save lists, inventory, the behaviour selector and holomap; RT/LT remain gameplay forward/backward and do not navigate these screens. Confirm, back and item-use buttons retain their existing bindings.
+UI navigation uses fixed controls, independent of gameplay movement: the left stick and D-pad navigate menus, save lists, inventory, memo pages, the behaviour selector and holomap. RT/LT remain gameplay forward/backward and do not navigate these screens. Confirm, back and item-use buttons retain their existing bindings.
 
-Change the four UI directions under Options → Controls → Menu gamepad. Each direction accepts two alternatives. Menu keyboard configures the same UI actions for the keyboard, defaulting to arrows and keypad 8/2/4/6. The gameplay keyboard/gamepad editors remain separate. See [MENU.md](MENU.md#navigation) and [CONFIG.md](CONFIG.md) for persistence.
+Keyboard navigation uses arrows and keypad 8/2/4/6. These UI controls are not configurable and have no binding editor or config entries; Options → Controls edits gameplay bindings only. See [MENU.md](MENU.md#navigation).
 
 ## Manual camera (Auto camera mode)
 

@@ -94,8 +94,6 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY 2114
 #define MENU_ID_RESOLUTION 2115
 #define MENU_ID_DISPLAY_VSYNC 2116
-#define MENU_ID_MENU_KEYBOARD 2117
-#define MENU_ID_MENU_GAMEPAD 2118
 
 // Resolution sub-page rows occupy a reserved id range: row i carries id
 // MENU_ID_RESOLUTION_BASE + i, which BuildCustomMenuText and GereResolutionMenu
@@ -197,7 +195,7 @@ static S32 s_menuMarkRow = -1;
 // so adding the pad doesn't clutter the top-level Options screen.
 U16 ControllerMenu[] = {
     0,   // selected
-    5,   // nb entries
+    3,   // nb entries
     260, // y center
     0,   // .dia num
 
@@ -207,10 +205,6 @@ U16 ControllerMenu[] = {
     14, // Configuration Clavier (existing keyboard remap screen)
     0,
     MENU_ID_GAMEPAD_CONFIG,
-    0,
-    MENU_ID_MENU_KEYBOARD,
-    0,
-    MENU_ID_MENU_GAMEPAD,
 };
 
 U16 LanguageMenu[] = {
@@ -444,14 +438,6 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_GAMEPAD_CONFIG:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_GAME_CONTROLLER));
-        break;
-
-    case MENU_ID_MENU_KEYBOARD:
-        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_MENU_KEYBOARD));
-        break;
-
-    case MENU_ID_MENU_GAMEPAD:
-        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_MENU_GAMEPAD));
         break;
 
     case MENU_ID_TEXT_LANGUAGE:
@@ -3418,14 +3404,6 @@ S32 GereControllerMenu(void) {
 
         case MENU_ID_GAMEPAD_CONFIG:
             MenuGamepadConfig();
-            break;
-
-        case MENU_ID_MENU_KEYBOARD:
-            MenuNavigationConfig(FALSE);
-            break;
-
-        case MENU_ID_MENU_GAMEPAD:
-            MenuNavigationConfig(TRUE);
             break;
         }
     }

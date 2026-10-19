@@ -703,21 +703,7 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
            menu PCX into Screen (the background MenuConfig normally inherits
            from its Main Menu → Options → Controls invocation chain), arms a
            one-shot SavePNG, and calls MenuConfig directly. */
-        S32 menuNavigation = FALSE;
-        S32 gamepad = FALSE;
-        if (argc >= 4) {
-            if (!strcmp(argv[3], "menu-keyboard"))
-                menuNavigation = TRUE;
-            else if (!strcmp(argv[3], "menu-gamepad"))
-                menuNavigation = gamepad = TRUE;
-            else if (!strcmp(argv[3], "gamepad"))
-                gamepad = TRUE;
-            else {
-                Console_Print("Usage: ui config <path> [menu-keyboard|menu-gamepad|gamepad]");
-                return;
-            }
-        }
-        Config_MainCapture(argv[2], menuNavigation, gamepad);
+        Config_MainCapture(argv[2]);
         Console_Print("ui config -> %s", argv[2]);
         return;
     }
@@ -793,7 +779,6 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
         return;
     }
     Console_Print("Usage: ui [--black-bg] inventory <path>");
-    Console_Print("       ui config <path> [menu-keyboard|menu-gamepad|gamepad]");
     Console_Print("       ui holomap <path>");
     Console_Print("       ui holoplan <island> <path>");
     Console_Print("       ui video <name> <path>");

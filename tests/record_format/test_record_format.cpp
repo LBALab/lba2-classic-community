@@ -45,7 +45,6 @@
 
 #include "INPUT_BINDINGS.H"
 #include "RECORD_FORMAT.H"
-#include "MENU_INPUT.H"
 
 static int fails = 0;
 
@@ -92,31 +91,6 @@ void CheckBindingRoundTrip() {
     CHECK(RecFmt_ParseBindings(line, "bindings.keyboard=", dst, MAX_INPUT_SLOTS) == 1,
           "reading it back must succeed");
     CHECK(Same(src, dst, MAX_INPUT_SLOTS), "the table must survive the round trip");
-}
-
-void CheckMenuBindingRoundTrip() {
-    const int slots = MENU_INPUT_COUNT;
-    T_DEF_KEY src[slots], dst[slots];
-    char keyboard[512], gamepad[512], header[1024];
-    FillDistinct(src, slots);
-    src[0].Key1 = 0;
-    src[3].Key2 = 0xFFFFFFFFu;
-    CHECK(RecFmt_WriteBindings(keyboard, sizeof keyboard, src, slots,
-                               "bindings.menu_keyboard=") == 1,
-          "UI keyboard table fits");
-    CHECK(RecFmt_WriteBindings(gamepad, sizeof gamepad, src, slots,
-                               "bindings.menu_gamepad=") == 1,
-          "UI gamepad table fits");
-    std::snprintf(header, sizeof header, "%s%s", keyboard, gamepad);
-    CHECK(RecFmt_ParseBindings(header, "bindings.menu_keyboard=", dst, slots) == 1 &&
-              Same(src, dst, slots),
-          "UI keyboard metadata round trip");
-    CHECK(RecFmt_ParseBindings(header, "bindings.menu_gamepad=", dst, slots) == 1 &&
-              Same(src, dst, slots),
-          "UI gamepad metadata round trip");
-    CHECK(RecFmt_ParseBindings("bindings.keyboard=1:2\n", "bindings.menu_keyboard=",
-                               dst, slots) == 0,
-          "legacy recordings do not invent UI bindings");
 }
 
 /* The retail tables specifically, since those are what a real recording carries. */
@@ -458,7 +432,6 @@ void CheckShortBuffersAreRefused() {
 
 int main() {
     CheckBindingRoundTrip();
-    CheckMenuBindingRoundTrip();
     CheckRetailTablesRoundTrip();
     CheckLineIsLongerThanAHeaderLineLooks();
     CheckTruncationIsRefused();

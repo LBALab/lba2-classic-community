@@ -61,8 +61,6 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | CDVolume | int | 0–127 | 66 | CD audio volume (no-op when no CD); still supported in config but no longer shown in the in-game volume submenu |
 | MasterVolume | int | 0–127 | 127 | Master volume, scales samples and music |
 | Input0_1..Input35_2 | int | Key scancodes | DefKeysDefault95 | 36 inputs × 2 keys each (`MAX_INPUT_SLOTS` in INPUT_BINDINGS.H). Only read when WinMode=1 |
-| MenuInput0_1..MenuInput3_2 | int | Key scancodes, 0=unbound | Arrows + keypad 8/2/4/6 | Independent UI up/down/left/right, two alternatives each. Read regardless of WinMode |
-| MenuGamepad0_1..MenuGamepad3_2 | int | Gamepad scancodes, 0=unbound | Left stick + D-pad | Independent UI up/down/left/right, two alternatives each |
 | WinMode | int | 0, 1 | 0 | 0=ignore Input* keys, use defaults; 1=read Input* keys. WriteInputConfig always writes WinMode=1 |
 | CompressSave | int | 0, 1 | 1 | 0=uncompressed saves, 1=compressed |
 | Version | int | 0–5, distributor ID | 0 (UNKNOWN_VERSION) | Which publisher's edition this is (`DistribVersion`): Activision, EA, Virgin, regional variants. Installer-written; set via the `distrib` console command. See [VERSIONS.md](VERSIONS.md) |
@@ -107,7 +105,6 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | Key | Purpose | Source | Menu |
 |-----|---------|--------|------|
 | MenuMouse | Optional mouse UX in game menus (`FlagMenuMouse` in code). Default 1 (on). Set 0 to match classic keyboard/joystick-only menus. See [MENU.md](MENU.md) | ReadConfigFile / WriteConfigFile | Options → Advanced options |
-| MenuInput0_1..MenuInput3_2, MenuGamepad0_1..MenuGamepad3_2 | Shared UI direction bindings, separate from gameplay. Missing entries take their compiled default; explicit zero stays unbound | `MenuInput_ReadConfig` / `MenuInput_WriteConfig` in [MENU_INPUT.CPP](../SOURCES/MENU_INPUT.CPP), called by the input config hooks | Options → Controls → Menu keyboard / Menu gamepad |
 | FollowCamera | Auto camera for exterior scenes (0=classic, 1=auto). Community addition, not in original game; menu label is "Auto camera" / "Classic camera" | ReadConfigFile / WriteConfigFile | Options → Advanced options |
 | TextureFilter, DitherShading | Software-rasterizer smoothing, both off by default. Console cvars `gfx_texfilter` / `gfx_dither` | ReadConfigFile / WriteConfigFile | console only |
 | PresentFilter | Filter that stretches the frame to the window, nearest by default. Console cvar `gfx_presentfilter` | ReadConfigFile / WriteConfigFile | console only |
