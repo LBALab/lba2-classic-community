@@ -2106,7 +2106,30 @@ unsigned long long Control_StateDigest(void) {
     M(DIGEST_SAVED, hero->Move);
     M(DIGEST_SAVED, hero->ZoneSce);
     M(DIGEST_SAVED, hero->Flags);
-    M(DIGEST_SAVED, hero->WorkFlags);
+    /* Whole into the combined hash, as it always was. On the split, the two bits the
+       renderer writes go to the view: a camera that frames the hero differently moves
+       them with nothing else having changed. WAS_DRAWN is set for an actor on screen;
+       the game does read it (LF_OBJECT_DISPLAYED, the lightning spell), and what follows
+       from that read lands in the fields it changes, which are on the world side.
+       DRAW_SHADOW is the draw list's note to draw a shadow, cleared when it is drawn, and
+       nothing else reads it. The rings Decision,
+       docs/knowledge/decisions/a-camera-setting-is-watched-not-played.md, says why. */
+    {
+        S32 wf_ = (S32)hero->WorkFlags;
+        S32 drawn_ = wf_ & (WAS_DRAWN | DRAW_SHADOW);
+        S32 rest_ = wf_ & ~(WAS_DRAWN | DRAW_SHADOW);
+        fnv(&s_h, &wf_, sizeof wf_);
+        fnv(&s_hw, &rest_, sizeof rest_);
+        fnv(&s_hv, &drawn_, sizeof drawn_);
+        if (s_teleN < TELE_MAX) {
+            s_teleName[s_teleN] = "hero->WorkFlags";
+            s_teleIdx[s_teleN] = -1;
+            s_teleClass[s_teleN] = (S8)DIGEST_SAVED;
+            s_tele[s_teleN++] = wf_;
+        } else {
+            s_teleDropped++;
+        }
+    }
     /* The camera. Written and read unconditionally in the save's camera block. These
        and the three below are the view side of the split; everything else is world. */
     MV(DIGEST_SAVED, BetaCam);

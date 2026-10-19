@@ -89,6 +89,24 @@ When the maps are solid enough to act on, the order the three axes agree on:
 Each step is a facade drawn *over* frozen code, proven behaviour-identical against the
 polyrec/projrec harnesses before the next. No rewrite.
 
+## The rings: what a setting may change
+
+Features grow in three rings, each inside the next. **Original** is the game as a 1997 player
+met it: every setting at its value from before (`SETTING_BEFORE` in
+[SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). **Modern** settings change how the game is shown
+or handled, never what happens in it. **Experimental** is anything else, and comes out without
+ceremony. The replay digest is how the line is checked: its world hash is what the game holds,
+its view hash the camera, and the same inputs giving the same world hash is the same game.
+
+The Auto camera's settings are held to that by two fixtures, one per ring, and the one door
+between the rings is the original game's own reading of what is on screen: the lightning spell
+and a life-script condition act on the actors that were drawn, so a resolution or a camera can
+change them. The Decision
+[a-camera-setting-is-watched-not-played.md](knowledge/decisions/a-camera-setting-is-watched-not-played.md)
+has the contracts and the Quirk
+[the-game-counts-what-is-on-screen.md](knowledge/quirks/the-game-counts-what-is-on-screen.md)
+the measurement. Read the Decision before a change that lets a setting reach the simulation.
+
 ## How to use these docs
 
 Start here, then the three axes (structure → layer → time), then the per-domain subsystem

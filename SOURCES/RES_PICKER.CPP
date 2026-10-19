@@ -60,6 +60,14 @@ extern "C" const char kPickerMsgAndroidData[] =
     "    /sdcard/lba2cc/\n\n"
     "then relaunch the app.";
 
+/* The data may be in place already: without All files access the game cannot
+   see inside /sdcard/lba2cc/, so asking for a copy would send the player after
+   files that are already there. Relaunching opens the Settings page again. */
+extern "C" const char kPickerMsgAndroidNoAccess[] =
+    "Little Big Adventure 2 can't read /sdcard/lba2cc/ because storage access "
+    "wasn't granted.\n\n"
+    "Relaunch the app and turn on All files access when Settings opens.";
+
 namespace {
 
 struct PickerState {
@@ -177,6 +185,11 @@ void ShowAndroidDataMessage(void) {
                                 kPickerMsgAndroidData);
 }
 
+void ShowAndroidNoAccessMessage(void) {
+    g_platform.host.message_box(PLATFORM_MESSAGE_WARNING, "Storage access needed",
+                                kPickerMsgAndroidNoAccess);
+}
+
 } // namespace
 
 extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
@@ -188,8 +201,13 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
      * picker below -- the seam keeps this caller #ifdef-free. */
     char androidProbe[ADELINE_MAX_PATH];
     if (Android_GetExternalFilesDir(androidProbe, ADELINE_MAX_PATH)) {
-        Log_Info("RES_PICKER: Android - no folder picker; showing data-copy hint");
-        ShowAndroidDataMessage();
+        if (!Android_HasExternalStoragePermission()) {
+            Log_Info("RES_PICKER: Android - no storage access; showing permission hint");
+            ShowAndroidNoAccessMessage();
+        } else {
+            Log_Info("RES_PICKER: Android - no folder picker; showing data-copy hint");
+            ShowAndroidDataMessage();
+        }
         return false;
     }
 

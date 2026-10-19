@@ -100,10 +100,68 @@ static void test_random_positions(void) {
     }
 }
 
+/* Masks that cross the clip window, the top edge above all (#356: a brick
+ * over a door at the top of the screen starts at a negative y). */
+static U8 g_bank_tall[64];
+
+static void build_tall_mask_bank(void) {
+    memset(g_bank_tall, 0, sizeof(g_bank_tall));
+    U32 *offsets = (U32 *)g_bank_tall;
+    offsets[0] = 4;
+    U8 *b = g_bank_tall + 4;
+    b[0] = 12; /* DeltaX */
+    b[1] = 4;  /* DeltaY */
+    b[2] = 0;
+    b[3] = 0;
+    /* Each line: skip 2, copy 8, skip 2 (3 blocks), a different shape per line
+     * would not matter here; the rows are told apart by the source. */
+    for (int line = 0; line < 4; ++line) {
+        b[4 + line * 4 + 0] = 3;
+        b[4 + line * 4 + 1] = (U8)(line & 1);
+        b[4 + line * 4 + 2] = 8;
+        b[4 + line * 4 + 3] = (U8)(4 - (line & 1));
+    }
+}
+
+static void test_clipped_positions(void) {
+    static U8 cpp_buf[640 * 480];
+    static U8 asm_buf[640 * 480];
+    static const S32 pos[][2] = {
+        {100, -1}, {100, -3}, {-5, -2}, {634, -2}, {100, 478}, {-5, 100}, {634, 100}, {100, 18}, {25, 40}, {100, -10}};
+    static const S32 clip[][4] = {{0, 0, 639, 479}, {30, 20, 600, 470}};
+    build_tall_mask_bank();
+    for (int j = 0; j < 640 * 480; j++)
+        srcbuf[j] = (U8)((j * 31 + 7) & 0xFF);
+    for (unsigned c = 0; c < sizeof(clip) / sizeof(clip[0]); c++) {
+        for (unsigned i = 0; i < sizeof(pos) / sizeof(pos[0]); i++) {
+            setup_screen();
+            ClipXMin = clip[c][0];
+            ClipYMin = clip[c][1];
+            ClipXMax = clip[c][2];
+            ClipYMax = clip[c][3];
+            CopyMask(0, pos[i][0], pos[i][1], g_bank_tall, srcbuf);
+            memcpy(cpp_buf, framebuf, sizeof(cpp_buf));
+
+            setup_screen();
+            ClipXMin = clip[c][0];
+            ClipYMin = clip[c][1];
+            ClipXMax = clip[c][2];
+            ClipYMax = clip[c][3];
+            asm_CopyMask(0, pos[i][0], pos[i][1], g_bank_tall, srcbuf);
+            memcpy(asm_buf, framebuf, sizeof(asm_buf));
+
+            char label[80];
+            snprintf(label, sizeof(label), "CopyMask clipped (%d,%d) clip %u", pos[i][0], pos[i][1], c);
+            ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), label);
+        }
+    }
+}
+
 int main(void) {
     RUN_TEST(test_cpp_basic);
     RUN_TEST(test_asm_equiv);
     RUN_TEST(test_random_positions);
+    RUN_TEST(test_clipped_positions);
     TEST_SUMMARY();
     return test_failures != 0;
 }

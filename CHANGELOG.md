@@ -10,6 +10,66 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Android
+
+- Plugging in or pairing a keyboard no longer closes the game. Android
+  restarted the game's screen when a keyboard appeared, and the game quit
+  instead of restarting, with no message
+  ([#756](https://github.com/LBALab/lba2-classic-community/pull/756)).
+- Crash reports from 64-bit Android phones name every frame of the crash. On
+  phones with a smaller address space, such as the Galaxy S22+, most frames
+  were numbers that matched no library
+  ([#756](https://github.com/LBALab/lba2-classic-community/pull/756)).
+- Quitting no longer crashes on the way out. The game closed either way, but
+  almost every quit aborted in Android's own audio or drawing code and left a
+  crash report in the log
+  ([#757](https://github.com/LBALab/lba2-classic-community/pull/757)).
+- On first launch the game now waits for you to come back from the All files
+  access page, however long you take there. It used to stop waiting after
+  about 15 seconds on some phones and then report the game data missing. If
+  you come back without turning access on, the game now says so instead of
+  asking you to copy files that are already there.
+
+### Display & render
+
+- At widths such as 800, 1280 and 1920, walls in front of a magic ball, a
+  bonus, a door or another sprite now cover it right up to the sprite's left
+  edge; a strip up to 16 pixels wide used to show through. In the two
+  labyrinth scenes the bricks at the left edge of the screen are drawn again
+  instead of leaving a strip of the same width empty. 640x480 and 1024x768
+  were never affected
+  ([#763](https://github.com/LBALab/lba2-classic-community/pull/763)).
+- Doors and other scenery near the top of the screen indoors no longer lose a
+  brick-shaped piece to black. The wall bricks drawn back over them were moved
+  down to the top edge of the screen instead of being cut off there, and
+  brought the empty opening behind the door with them. It happened at every
+  resolution, wherever the camera left a door near the top; recentring the
+  camera hid it until next time
+  ([#356](https://github.com/LBALab/lba2-classic-community/issues/356)).
+
+### Input & controller
+
+- On the Game Controller screen, Left, Right and Tab on the keyboard switch
+  between the two binding columns, as they do on the keyboard screen. The
+  second column could only be reached with the pad, so a pad that was not
+  working could not be fixed there
+  ([#770](https://github.com/LBALab/lba2-classic-community/pull/770)).
+
+### Stability
+
+- Opening the inventory with the conch empty, or down to its last charge, no
+  longer crashes the game. The empty bar under the conch is a box whose right
+  edge sits one pixel left of its left edge: the original draws nothing for
+  it, and this port kept drawing until it crashed
+  ([#762](https://github.com/LBALab/lba2-classic-community/pull/762)).
+
+### Contributors
+
+Thanks to EPmager for reporting the black bricks, and for a screenshot from the
+current build that showed where to look.
+
+## [0.13.0] - 2026-10-18
+
 ### Android: updating from 0.12.0 erases your saves, once
 
 - Android will not install this version over 0.12.0 or any earlier build. It
@@ -409,6 +469,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and draws offscreen. See
   [docs/PLATFORM_ABSTRACTION.md](docs/PLATFORM_ABSTRACTION.md)
   ([#688](https://github.com/LBALab/lba2-classic-community/pull/688), [#689](https://github.com/LBALab/lba2-classic-community/pull/689), [#691](https://github.com/LBALab/lba2-classic-community/pull/691)).
+- The game runs on a Nintendo Switch as homebrew, on the SDL2 backend.
+  `scripts/dev/build-switch.sh` builds it in Docker, no SDK to install, into
+  a ZIP to extract onto the SD card; the retail game data goes in
+  `sdmc:/lba2/`, and saves and settings stay in `sdmc:/switch/lba2cc/user/`.
+  Releases do not ship it yet. `scripts/dev/run-switch.sh` sends a build to
+  the Homebrew Menu's NetLoader over the network and shows its log live. See
+  [docs/SWITCH.md](docs/SWITCH.md)
+  ([#716](https://github.com/LBALab/lba2-classic-community/pull/716)).
 - The Linux tarball, macOS and Android builds bundle SDL 3.4.18 (was 3.2.16),
   so the pixelart present filter works in them. The Windows build and the
   AppImage use the SDL of the system they are built on
@@ -497,9 +565,11 @@ tool
 Thanks to [@sergiou87](https://github.com/sergiou87) for the platform layer:
 an SDK-free host contract with the SDL3 backend behind it, a null backend that
 builds the whole game without SDL
-([#688](https://github.com/LBALab/lba2-classic-community/pull/688)), and a
+([#688](https://github.com/LBALab/lba2-classic-community/pull/688)), a
 desktop SDL2 backend with audio on top of it
-([#691](https://github.com/LBALab/lba2-classic-community/pull/691)).
+([#691](https://github.com/LBALab/lba2-classic-community/pull/691)), and the
+Nintendo Switch port built on that
+([#716](https://github.com/LBALab/lba2-classic-community/pull/716)).
 
 Welcome to three new contributors since v0.12.0:
 [@makseq](https://github.com/makseq) for texture filtering and scaled
@@ -1631,7 +1701,8 @@ Special thanks to the contributors whose foundational work this fork stands on:
 A big thank you to Gwen Gourevich ([@gwen-gg](https://github.com/gwen-gg)) and [2.21](https://discord.gg/e2ZXpzrM) for open-sourcing the original code, and to the original Adeline
 Software team whose code this builds on.
 
-[Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.9.0...v0.10.0
