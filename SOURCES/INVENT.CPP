@@ -3,6 +3,7 @@
 #include "CONTROL.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
+#include "RETAILFIX.H" /* RetailFix_On (DoFoundObj) */
 #include "IMAGE_LOAD.H"
 #include "UI_LAYOUT.H" /* UI_VCENTER_OFS */
 
@@ -1820,8 +1821,9 @@ void DoFoundObj(S32 numvar) {
        trusts GenAnim: with the same direction still held, InitAnim(GEN_ANIM_MARCHE)
        finds it "already playing" and returns, so he stands in the idle body, turns at
        the walking rate, and only recovers once every direction is released. Bring
-       GenAnim back in line with the idle body he now has. */
-    if (ptrobj->GenAnim != GEN_ANIM_RIEN AND ptrobj->FlagAnim != ANIM_FINAL) {
+       GenAnim back in line with the idle body he now has. The 1997 code has the
+       same slip, so this is a retail fix: off gives back the original's stuck walk. */
+    if (RetailFix_On(RETAIL_FIX_FOUND_OBJ_WALK) AND ptrobj->GenAnim != GEN_ANIM_RIEN AND ptrobj->FlagAnim != ANIM_FINAL) {
         ptrobj->FlagAnim = ANIM_REPEAT; // InitAnim refuses ANIM_REPEAT over ANIM_ALL_THEN
         InitAnim(GEN_ANIM_RIEN, ANIM_REPEAT, NUM_PERSO);
     }
