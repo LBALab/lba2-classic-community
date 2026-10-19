@@ -47,6 +47,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   camera hid it until next time
   ([#356](https://github.com/LBALab/lba2-classic-community/issues/356)).
 
+### Input & controller
+
+- On the Game Controller screen, Left, Right and Tab on the keyboard switch
+  between the two binding columns, as they do on the keyboard screen. The
+  second column could only be reached with the pad, so a pad that was not
+  working could not be fixed there
+  ([#770](https://github.com/LBALab/lba2-classic-community/pull/770)).
+
 ### Stability
 
 - Opening the inventory with the conch empty, or down to its last charge, no

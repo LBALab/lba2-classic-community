@@ -1057,10 +1057,12 @@ void MenuGamepadConfig(void) {
         MyKey = MenuKey_NumpadToNav(MyKey);
 
         switch (MyKey) {
-        /* This screen's own aliases. Left and Right are missing from the list
-           below, which leaves the Key1/Key2 column switch at the bottom of the
-           loop reachable only from the pad itself. Kept as-is here so this
-           stays a mapping change; see the tracking issue for the gap. */
+        /* This screen's own aliases, the same as the keyboard screen's. Left
+           and Right switch between the two columns, so the keyboard can reach
+           every control here: a player on this screen may have no working pad. */
+        case K_TAB:
+            MyKey = K_RIGHT;
+            break;
         case K_BACKSPACE:
             MyKey = K_SUPPR;
             break;
@@ -1069,6 +1071,8 @@ void MenuGamepadConfig(void) {
             break;
         case K_UP:
         case K_DOWN:
+        case K_LEFT:
+        case K_RIGHT:
         case K_PAGE_UP:
         case K_PAGE_DOWN:
         case K_HOME:
