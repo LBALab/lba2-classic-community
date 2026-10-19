@@ -144,16 +144,11 @@ static void check(const char *label, S32 got) {
    separation drives behaviour, so a difference here is a different game, not a
    different picture.
  *
- * Every case below stays inside the defined domain, and the domain is smaller
- * than it looks. DISTANCE.CPP squares the deltas in `int` before promoting the
- * sum to long double, so `dx * dx` overflows a signed 32-bit integer once the
- * separation passes 46340 in 2D, or 26754 on each axis in 3D. That is undefined
- * behaviour, which means it is not a value to pin: it is not stable across
- * compilers or optimisation levels, so a vector containing it would be a flaky
- * test rather than a contract. The last case of each set sits on the boundary,
- * which is where a future widening of that arithmetic would first show up.
- *
- * The overflow itself is a live defect and is not this test's to fix. */
+ * It no longer goes through long double: DISTANCE.CPP sums 64-bit squares and
+ * takes QSqr's integer root, as the 1997 DISTANCE.ASM does, so these values are
+ * the same on every host. They stay in the vector as a guard. The cases past the
+ * old 32-bit overflow (46340 in 2D, 26754 per axis in 3D) are asserted directly
+ * in test_distance_properties, so the committed vector does not need to change. */
 static void case_distance(void) {
     static const S32 d2[][4] = {
         {0, 0, 0, 0},
@@ -333,12 +328,8 @@ static void test_vector(void) {
  * the run above measures, and these still fail if the arithmetic is broken
  * rather than merely different. */
 
-/* Distance needs its own, smaller, coordinate set. kCoords runs out to 16777217
-   for the rotations, where the products go through long double and are fine, but
-   DISTANCE.CPP squares in `int` first, so feeding it those values is the
-   overflow described above rather than a test of anything. Every combination
-   below stays inside the domain: the largest sum of three squares here is
-   3 * 15000^2, well under the 2147483647 that would wrap. */
+/* Distance needs its own coordinate set: kCoords runs out to 16777217 for the
+   rotations, and these are the sizes actors actually sit at. */
 static const S32 kDistCoords[] = {0, 1, -1, 511, -512, 4096, -4096, 15000, -15000};
 
 #define NDIST ((int)(sizeof kDistCoords / sizeof kDistCoords[0]))
@@ -358,12 +349,25 @@ static void test_distance_properties(void) {
     ASSERT_EQ_UINT(5u, Distance2D(0, 0, 3, 4));
     ASSERT_EQ_UINT(13u, Distance3D(0, 0, 0, 3, 4, 12));
 
-    /* The edge of the defined domain, named so that the next person to widen a
-       distance case knows where the cliff is rather than discovering it as a
-       vector that will not reproduce. Both of these are the last input that does
-       not overflow the `int` squaring inside DISTANCE.CPP. */
+    /* Past the old 32-bit overflow. DISTANCE.CPP used to square in `int`, which
+       returned 0 for the first 2D case below and 22472 for the 40000 3D case.
+       The 1997 DISTANCE.ASM squares into 64 bits, and these are its answers. */
     ASSERT_EQ_UINT(46340u, Distance2D(0, 0, 46340, 0));
+    ASSERT_EQ_UINT(46341u, Distance2D(0, 0, 46341, 0));
+    ASSERT_EQ_UINT(92680u, Distance2D(32767, 32767, -32768, -32768));
     ASSERT_EQ_UINT(46339u, Distance3D(0, 0, 0, 26754, 26754, 26754));
+    ASSERT_EQ_UINT(46342u, Distance3D(0, 0, 0, 26756, 26756, 26756));
+    ASSERT_EQ_UINT(69282u, Distance3D(0, 0, 0, 40000, 40000, 40000));
+
+    /* Rounded down, like QSqr: 65535^2 + 1 is just past a square, and
+       46334^2 + 740^2 + 318^2 is 46341^2 - 1, just below one. */
+    ASSERT_EQ_UINT(65535u, Distance2D(0, 0, 65535, 1));
+    ASSERT_EQ_UINT(46340u, Distance3D(0, 0, 0, 46334, 740, 318));
+
+    /* The largest deltas there are: each square is 2^62, so the sum needs the
+       full 64 bits. QSqr gives 3037000497 for 2^63, two under the exact root,
+       and so does the 1997 ASM (tests/3D/test_distance), so that is the answer. */
+    ASSERT_EQ_UINT(3037000497u, Distance2D((S32)0x80000000, (S32)0x80000000, 0, 0));
 }
 
 static void test_rotation_properties(void) {

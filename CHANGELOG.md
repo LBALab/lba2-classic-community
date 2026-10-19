@@ -56,6 +56,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `lba2.cfg` and the console (`fix_` followed by its name); changing one there
   shows the row as Custom
   ([#760](https://github.com/LBALab/lba2-classic-community/issues/760)).
+- Two characters, or the camera and a sound, very far apart no longer
+  measure as close together, or as no distance at all. Past about 46,000
+  units, which only opposite corners of an outdoor scene reach, this port's
+  arithmetic overflowed. The 1997 game measured these correctly, and now
+  this port does too
+  ([#600](https://github.com/LBALab/lba2-classic-community/issues/600)).
 
 ### Input & controller
 
