@@ -61,7 +61,7 @@ Fixed UI controls navigate ordinary menus and save lists, inventory and memo pag
 | Navigate left | Left / keypad 4 | Left stick left / D-pad left |
 | Navigate right | Right / keypad 6 | Left stick right / D-pad right |
 
-These controls are not configurable and do not consume the 36 gameplay slots or their 32-bit action word. Rebinding gameplay movement does not change UI navigation. RT/LT retain forward/backward in gameplay but do not navigate UI. Confirm, back, item use, page shortcuts and mouse controls are unchanged. Inventory and holomap drain held UI directions before returning, so a D-pad navigation gesture cannot cast its gameplay spell on exit.
+These controls are not configurable and do not consume the 36 gameplay slots or their 32-bit action word. Rebinding gameplay movement does not change UI navigation: custom movement keys such as WASD move the hero but do not navigate menus; use the fixed arrows/keypad or left stick/D-pad instead. RT/LT retain forward/backward in gameplay but do not navigate UI. Confirm, back, item use, page shortcuts and mouse controls are unchanged. Inventory and holomap drain held UI directions before returning, so a D-pad navigation gesture cannot cast its gameplay spell on exit.
 
 Options → Controls contains only the gameplay keyboard and gamepad binding editors. Fixed navigation remains available inside those editors as a recovery path. Controller confirmation/back gestures in those editors still use their existing gameplay bindings and Start/Back rescue buttons.
 

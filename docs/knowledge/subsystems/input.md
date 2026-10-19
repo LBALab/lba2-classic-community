@@ -114,7 +114,7 @@ Distilled from [docs/plan/INPUT_RESEARCH.md](../../plan/INPUT_RESEARCH.md), whic
 [^input-cpp]: [SOURCES/INPUT.CPP](../../../SOURCES/INPUT.CPP), `MyGetInput`, `WaitNoMenuInput`, `ReadInputConfig` and `WriteInputConfig`.
 [^bindings]: [SOURCES/INPUT_BINDINGS.CPP](../../../SOURCES/INPUT_BINDINGS.CPP), `DefKeysDefault95`, `DefKeys`, `GamepadKeys` and `InitInput`.
 [^menu-input]: [SOURCES/MENU_INPUT.CPP](../../../SOURCES/MENU_INPUT.CPP), `MenuInput_Poll`, `MenuInput_Get`, `MenuInput_Held`, `MenuInput_Suppress`, `MenuInput_Suppressed` and `MenuInput_Reset`.
-[^joystick]: [SOURCES/JOYSTICK.CPP](../../../SOURCES/JOYSTICK.CPP), `ApplyStickDirection`, `JoystickMenuNavOnly`, `JoystickMenuAction`, `JoystickFirstPressedScancode` and `JoystickButtonPressed`.
+[^joystick]: [SOURCES/JOYSTICK.CPP](../../../SOURCES/JOYSTICK.CPP), `ApplyStickDirection`, `UpdateJoystick`, `JoystickFirstPressedScancode` and `JoystickButtonPressed`.
 [^touch]: [SOURCES/TOUCH_INPUT.CPP](../../../SOURCES/TOUCH_INPUT.CPP), the button table and `ApplyVirtualKeys`; `LastInputWasTouch` is set there.
 [^perso]: [SOURCES/PERSO.CPP](../../../SOURCES/PERSO.CPP), `MainLoop`: the `LastInput` assignment before `MyGetInput`, the `Control_InputCurrentMask` block, and the `Timer_ForceStepIfPending` call with its comment.
 [^input-h]: [SOURCES/INPUT.H](../../../SOURCES/INPUT.H), the `I_` bits, `I_JOY`, `I_FIRE` and `I_ACTION_EDGE`.
