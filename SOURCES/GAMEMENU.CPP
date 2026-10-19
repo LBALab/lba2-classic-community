@@ -2596,6 +2596,10 @@ void Menu_RequestCapture(const char *path) {
                                       menu fade-in and dynamic-item initial draws */
 }
 
+S32 Menu_CaptureMatchesPresented(void) {
+    return s_menu_capture_matches_presented;
+}
+
 S32 Menu_MainOptionsCapture(const char *path) {
     Menu_MainCapture(path);
     CopyScreen(Screen, Log);
@@ -3007,10 +3011,17 @@ S32 DoGameMenu(U16 *ptrmenu) {
         /* Capture the visible frame, not the prepared offscreen page: dirty
            rectangles must propagate every restored backdrop pixel to Phys. */
         if (s_menu_capture_path[0] && --s_menu_capture_countdown <= 0) {
+            /* The menu pointer is drawn into Phys only. Hide it and present
+               once more so its box is cleaned from Log, or a host pointer
+               crossing the window during a run ends up in the capture. */
+            ShowMouse(false);
+            BoxUpdate();
+            /* Phys has its own geometry (ModeResX x ModeResY). The compare
+               needs Log's to be the same; save Phys as it is either way. */
             s_menu_capture_matches_presented =
+                ModeResX == ModeDesiredX && ModeResY == ModeDesiredY &&
                 memcmp(Phys, Log, (size_t)ModeDesiredX * (size_t)ModeDesiredY) == 0;
-            SavePNG(s_menu_capture_path, Phys, (S32)ModeDesiredX,
-                    (S32)ModeDesiredY, PtrPal);
+            SavePNG(s_menu_capture_path, Phys, (S32)ModeResX, (S32)ModeResY, PtrPal);
             s_menu_capture_path[0] = '\0';
             AsciiMode = FALSE;
             return 1000;
