@@ -2,8 +2,8 @@
 
 Target: ~72 FPS (13.9 ms/frame) on Quest 3, stereo (OpenXR) mode.
 Constraints: desktop-only verification (Linux build + host tests + Docker
-ASM suite); every change gated so desktop behavior is unchanged; nothing
-committed until the owner says so.
+ASM suite); every change gated so desktop behavior is unchanged. The
+changes below land in small commits on the optimization branch.
 
 ## Baseline (Quest 3, in-game, third-person auto camera, MSAA on)
 
@@ -22,14 +22,14 @@ reach 13.9 ms — and the measured CPU times include GL stalls from the GPU
 being the bottleneck, so the GPU-side cuts below should also collapse the
 stall component of those numbers.
 
-## Changes made (all in working tree, uncommitted)
+## Changes landed on this branch
 
 ### GPU / frame pipeline
 
 | # | Change | File | Expected effect |
 |---|---|---|---|
 | 1 | **Horizon capture color-only** (eye 0, every frame): the full color+depth resolve became color-only, and the capture blit drops its depth half under MSAA (the MSAA restore path never reads horizon depth — confirmed by its own comment). | RENDER_GL.CPP | −1 full-surface depth resolve + smaller blit per frame |
-| ~~1a~~ | ~~MSAA color resolve-in-tile via EXT_multisampled_render_to_texture~~ **v2 landed.** The first attempt came back black because it sampled `s_fboColorTex` without ever forcing the tile-discard resolve — Adreno keeps the multisample content live (and the sampled texture stale) until `glInvalidateFramebuffer` marks the attachments disposable. v2 invalidates the color attachment (never depth — the readback reads it live) wherever a resolve used to run, and the full resolve degrades to a depth-only blit (a color blit would copy the texture onto itself). Kill switch: `#define GL_INTILE_MSAA 0` in RENDER_GL.CPP, one rebuild. | RENDER_GL.CPP | −2 full-surface color resolves per frame |
+| ~~1a~~ | **Resolve-in-tile disabled after on-device graphical issues.** The first attempt came back black because it sampled `s_fboColorTex` without forcing the tile-discard resolve. v2 added `glInvalidateFramebuffer` hints, but Adreno treats invalidation of a resolve attachment as discard-don't-resolve, so the image broke. The explicit-resolve scheme below stays; the experiment is behind `#define GL_INTILE_MSAA 0` in RENDER_GL.CPP. | RENDER_GL.CPP | (deferred: needs a driver-safe resolve scheme) |
 | 3 | ~~Swapchain-image FBOs cached per image index~~ **REVERTED — found by on-device bisection.** The Meta runtime does not tolerate a persistent FBO attachment on its swapchain textures across xrAcquire/xrRelease (or re-backs the images on session resume): the composited frame landed in orphaned memory and the eyes saw black with only the 2D overlay (rain) showing. The original fresh `glGenFramebuffers` + attach + delete per present is restored — its cost is negligible next to the blit. | OPENXR.CPP | (would have removed per-frame FBO churn) |
 | 4 | **Frame pacing**: `xrWaitFrame` + `xrBeginFrame` now run at frame START (from `OpenXR_BeginFrame`, one-shot `OpenXR_EnsureFrameBegun`) instead of after both eye renders inside `OpenXR_PresentMono`. CPU render work now overlaps the compositor's wait window and frames submit on time instead of late. Menu/title paths still funnel through the same one-shot. | OPENXR.CPP | removes submit lateness; pacing/stutter win |
 | 5 | **Fixed foveation LOW** (XR_FB_foveation + configuration + swapchain_update_state, all ext-gated): the tiler renders the periphery at reduced bin density. The swapchain is created with `XR_SWAPCHAIN_CREATE_FOVEATION_SCALED_BIN_BIT_FB` — the method Adreno implements; chaining the create-info with flags 0 (the first attempt) left the runtime rendering the swapchain undefined. LOW chosen to be invisible behind the engine-resolution upscale; the knob is one enum (`XR_FOVEATION_LEVEL_*_FB`). | OPENXR.CPP | major fill-rate save on Quest |
@@ -43,6 +43,9 @@ stall component of those numbers.
 | 8 | **Horizon-capture reuse**: the capture (eye 0) now skips its resolve-and-blit whenever the camera pose is unchanged since the previous capture AND no missing-cube sea placeholder drew this frame (`HorizonBackdropStable()` from TERRAIN.CPP guards against freezing a half-streamed backdrop). The common VR case — rig standing still, head looking around — previously paid the capture every frame for an identical image. | RENDER_GL.CPP, TERRAIN.CPP, EXTFUNC.CPP | removes a full-surface blit per frame while stationary |
 | 10 | **Per-eye terrain snapshot skip**: `GL_SnapshotTerrain()` (full-surface color+depth blit at eye resolution) ran once per EYE every frame, but its output is consumed only by incremental-frame restores — and stereo eye passes are always AFF_ALL_FLIP full redraws. Skipped inside stereo eye passes (`GL_GetStereoEye() < 0` gate); mono/menu frames still snapshot. | SOURCES/EXTFUNC.CPP | −1 full-surface blit per eye per frame (2/frame) |
 | 9 | **Build fixes that unblock the ASM suite**: (a) `SVGA/SDL.CPP` referenced `GPURendererActive` outside the `USE_GPURENDERER` guards (added in 0ee18ee0); (b) `DisplayBrightness`/`Contrast`/`Saturation`/`VrFovScale` declarations lived in a GL-only guard while the console cvars and cfg load/save reference them unconditionally, and the definitions were guarded too (moved out — the values are inert without the GL renderer). Every non-GL configuration — including the Docker linux_test preset the ASM equivalence suite runs in — failed to compile; the suite now builds and runs again on this branch. No behavior change with the GL renderer on. | LIB386/SVGA/SDL.CPP, SOURCES/C_EXTERN.H, SOURCES/GLOBAL.CPP | Docker ASM↔CPP suite builds and runs again on this branch |
+| 11 | **Stereo depth-readback removal**: `GL_ReadbackDepthBuffer()` resolves the full depth buffer into a PBO and maps it on the next call. Stereo eye passes are always `AFF_ALL_FLIP`: each `AffGrilleExt` clears `PtrZBuffer` before the object pass, so neither eye can observe the readback. Skip it when `GL_GetStereoEye() >= 0`; mono incremental frames keep the one-frame-old depth. | SOURCES/OBJECT.CPP | −1 full-surface depth resolve + PBO read per frame |
+| 12 | **Empty-overlay direct present**: the indexed present already detects an all-zero Log overlay. When that overlay is empty, the viewport is full, the display transform is neutral, no FXAA/SMAA is active, and the scene FBO is content-sized, OpenXR can blit the resolved 3D scene directly for mono and for stereo eye 1 (the last eye rendered). Eye 0 still composites because eye 1 overwrites the scene FBO. A new `GL_StereoEyeSceneDirect()` handshake tells the stereo present to read the scene for the right eye; `GL_PresentSceneDirect()` reports the same safety for the mono fast path. The previous mono fast path could bypass a non-neutral display transform; it now shares the full gate. | RENDER_GL.CPP, OPENXR.CPP, RENDER_GL.H | −1 full-screen composite on mono/eye-1 empty-overlay frames |
+| 13 | **Present state cleanup**: drop the redundant full-target `glViewport` before the scissored letterbox clear (`glClear` ignores the viewport), and the duplicate vertex-array/program teardown at the end of the plain present branch. | RENDER_GL.CPP | small CPU/driver-state win |
 
 ### CPU measurement (Linux micro-benchmark, tests/bench_terrain)
 
@@ -100,6 +103,10 @@ the number.
   fixed build. If anything still misbehaves, the remaining suspects bisect
   one line each: foveation (`s_extFoveation = 0` at resolve time), pacing
   (`OpenXR_BeginFrame`'s swapchain branch), perf level.
+- The items added in #11–#13 are built for desktop and Quest but were not
+  re-measured or visually checked on the headset (the owner asked for
+  verification-free work); pair a future device run with `StereoPerf` and
+  `GrillePerf` before treating the numbers as final.
 
 ## Remaining levers (deliberately NOT taken — behavior changes, owner's call)
 
