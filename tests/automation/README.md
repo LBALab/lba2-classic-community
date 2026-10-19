@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-90 fixtures.
+91 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -106,6 +106,7 @@ suite still passes, since CI cannot say so.
 | [test_ui_inventory_wide.sh](test_ui_inventory_wide.sh) | ui inventory @ 768x480: re-renders the inventory wheel at the Steam Deck render width and asserts the centred 640x480 crop of the capture is byte-identical to the existing 640 golden. | UI goldens |
 | [test_ui_menu_main.sh](test_ui_menu_main.sh) | ui menu-main: the boot main menu as a returning player sees it (Resume / New / Load / Options / Quit over the cloudy-sky background, save thumbnail on top), byte-compared to the committed golden. | UI goldens |
 | [test_ui_menu_main_fresh.sh](test_ui_menu_main_fresh.sh) | ui menu-main on a new install: New Game / Options Menu / Quit, no Resume row, no Load row, no save thumbnail, and the menu sitting at its higher vertical centre (275 rather than the 335 a Resume row moves it to). | UI goldens |
+| [test_ui_menu_main_options.sh](test_ui_menu_main_options.sh) | The presented Options page must replace every pixel of the main menu. | save fixture |
 | [test_ui_menu_options.sh](test_ui_menu_options.sh) | ui menu-options: capture the in-game options/pause menu (the screen pressing ESC during gameplay opens), byte-compare to the committed golden. | UI goldens |
 | [test_ui_menu_options_hd.sh](test_ui_menu_options_hd.sh) | ui menu-options @ 1280x720: the first mode the resolution menu offers where the framebuffer is taller than the 480-line authored canvas, so UI_VCENTER_OFS is non-zero and the UI floats vertically as well as horizontally. | UI goldens |
 | [test_ui_menu_options_uhd.sh](test_ui_menu_options_uhd.sh) | ui menu-options @ 1920x1080: the tallest framebuffer the engine accepts (ADELINE_MAX_Y_RES, which sizes TabOffLine[]), and so the largest vertical float the authored canvas ever sits at: UI_VCENTER_OFS is 300 here against 120 at 720. | UI goldens |
