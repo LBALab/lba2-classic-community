@@ -32,9 +32,10 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src) {
     S32 screenWidth = (S32)TabOffLine[1];
 
     Struc_Mask_Header *maskHeader = (Struc_Mask_Header *)(bankmask + ((U32 *)bankmask)[nummask]);
-    // Geometry must be signed: callers pass x as low as -24 (DrawOverBrick3,
-    // col=0). On the original 32-bit build, U32 arithmetic combined with 32-bit
-    // pointer wraparound made Log + (U32)-24 land at Log - 24. On 64-bit, that
+    // Geometry must be signed: callers pass x as low as -47 (the DrawOverBrick
+    // family re-masks column 0, which holds bricks from XScreen -47). On the
+    // original 32-bit build, U32 arithmetic combined with 32-bit pointer
+    // wraparound made Log + (U32)-24 land at Log - 24. On 64-bit, that
     // zero-extends to Log + 4 GiB and segfaults — and the U32 clip test
     // (xMin < ClipXMin) silently fails for negative xMin, so margins stay 0.
     S32 xMin = (S32)maskHeader->HotX + x;
