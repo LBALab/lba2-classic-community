@@ -863,8 +863,9 @@ void HoloPlan(S32 numplan) {
 
             // Zoom-in animates from the reticule centre (CENTERX/Y are
             // image-relative) out to the image rect, not the framebuffer
-            // rect — at wider widths the sidebars stay black through the
-            // whole animation.
+            // rect. Only the growing box is marked, so everything outside
+            // it, sidebars included, keeps the last globe frame until the
+            // full flip below, as in the original.
             const S32 anim_imageX0 = ((S32)ModeDesiredX - IMAGE_AUTHORED_WIDTH) / 2;
             const S32 anim_imageY0 = ((S32)ModeDesiredY - IMAGE_AUTHORED_HEIGHT) / 2;
             const S32 anim_imageX1 = anim_imageX0 + IMAGE_AUTHORED_WIDTH - 1;

@@ -5339,6 +5339,13 @@ void EffectPcx(U8 numpcx, U8 *screen, U8 effect, U8 flagbcl) {
            bands now wipe in from black instead of the previous frame. */
         memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
 
+        /* Each step below marks from its band down to the bottom of the
+           frame, so on frames taller than 480 lines the rows above the image
+           would never reach the screen and keep the previous scene. Mark
+           them once; the first BoxUpdate presents them black. */
+        if (yOff > 0)
+            BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, yOff - 1);
+
         for (y = 0; y <= IMAGE_AUTHORED_HEIGHT - 1; y++) {
             CopyBlock(xOff, yOff + y, xOff + IMAGE_AUTHORED_WIDTH - 1, yOff + y + 4,
                       screen, xOff, yOff + y, Log);
