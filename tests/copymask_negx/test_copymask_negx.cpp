@@ -216,10 +216,69 @@ static void test_right_edge_clip(void) {
     }
 }
 
+/* Issue #356: a brick mask that starts above the screen. DrawOverBrick3
+ * re-stamps the bricks over a door at their own position, which is above
+ * row 0 when the door sits at the top edge. The rows above the screen must
+ * be skipped, as the original does. Clamping y to 0 instead moved the whole
+ * mask down and pasted the empty door opening from Screen over the door. */
+static void build_48x4_opaque_mask(void) {
+    memset(g_bank, 0, sizeof(g_bank));
+    U32 *offsets = (U32 *)g_bank;
+    offsets[0] = 4;
+    U8 *b = g_bank + 4;
+    b[0] = 48;
+    b[1] = 4;
+    b[2] = 0;
+    b[3] = 0;
+    for (int line = 0; line < 4; ++line) {
+        b[4 + line * 3 + 0] = 2;
+        b[4 + line * 3 + 1] = 0;
+        b[4 + line * 3 + 2] = 48;
+    }
+}
+
+static void test_negative_y_top_clip(void) {
+    setup_screen();
+    build_48x4_opaque_mask();
+
+    CopyMask(0, 100, -2, g_bank, g_srcbuf);
+
+    check_guards("negative_y_top_clip");
+
+    /* Mask rows 2 and 3 land on screen rows 0 and 1. */
+    for (int sy = 0; sy < 2; ++sy) {
+        for (int x = 0; x < 48; ++x) {
+            S32 sx = 100 + x;
+            U8 expected = g_srcbuf[sy * SCREEN_W + sx];
+            U8 actual = g_framebuf[sy * SCREEN_W + sx];
+            if (actual != expected) {
+                fprintf(stderr,
+                        "FAIL: top-clip row %d col %d: expected 0x%02X got 0x%02X\n",
+                        sy, sx, expected, actual);
+                ++g_failures;
+                return;
+            }
+        }
+    }
+    /* Nothing below: a mask moved down to row 0 would write rows 2 and 3. */
+    for (int sy = 2; sy < SCREEN_H; ++sy) {
+        for (int x = 0; x < SCREEN_W; ++x) {
+            if (g_framebuf[sy * SCREEN_W + x] != SENTINEL) {
+                fprintf(stderr,
+                        "FAIL: top-clip wrote row %d col %d: 0x%02X\n",
+                        sy, x, g_framebuf[sy * SCREEN_W + x]);
+                ++g_failures;
+                return;
+            }
+        }
+    }
+}
+
 int main(void) {
     test_negative_x_school_crash();
     test_in_bounds_unchanged();
     test_right_edge_clip();
+    test_negative_y_top_clip();
 
     if (g_failures) {
         fprintf(stderr, "test_copymask_negx: %d failure(s)\n", g_failures);

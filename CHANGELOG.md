@@ -30,12 +30,28 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   you come back without turning access on, the game now says so instead of
   asking you to copy files that are already there.
 
+### Display & render
+
+- Doors and other scenery near the top of the screen indoors no longer lose a
+  brick-shaped piece to black. The wall bricks drawn back over them were moved
+  down to the top edge of the screen instead of being cut off there, and
+  brought the empty opening behind the door with them. It happened at every
+  resolution, wherever the camera left a door near the top; recentring the
+  camera hid it until next time
+  ([#356](https://github.com/LBALab/lba2-classic-community/issues/356)).
+
 ### Stability
 
 - Opening the inventory with the conch empty, or down to its last charge, no
   longer crashes the game. The empty bar under the conch is a box whose right
   edge sits one pixel left of its left edge: the original draws nothing for
-  it, and this port kept drawing until it crashed.
+  it, and this port kept drawing until it crashed
+  ([#762](https://github.com/LBALab/lba2-classic-community/pull/762)).
+
+### Contributors
+
+Thanks to EPmager for reporting the black bricks, and for a screenshot from the
+current build that showed where to look.
 
 ## [0.13.0] - 2026-10-18
 
