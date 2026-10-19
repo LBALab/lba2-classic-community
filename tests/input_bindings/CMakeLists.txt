@@ -38,6 +38,8 @@ add_executable(test_input_config
     engine_stubs.cpp
     ${CMAKE_SOURCE_DIR}/SOURCES/INPUT.CPP
     ${CMAKE_SOURCE_DIR}/SOURCES/INPUT_BINDINGS.CPP
+    ${CMAKE_SOURCE_DIR}/SOURCES/MENU_INPUT.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/TIMER.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT_FLOW.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DEFFILE.CPP
@@ -50,6 +52,8 @@ add_executable(test_input_config
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOGPRINT.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ITOA.CPP)
+
+target_link_libraries(test_input_config PRIVATE lba2_platform)
 
 foreach(target test_input_bindings test_input_suppression test_input_reverse test_input_config)
     target_include_directories(${target} PRIVATE

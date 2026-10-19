@@ -11,6 +11,7 @@
 #include "RETAILFIX.H"  /* the Fix retail bugs row */
 #include "RES_SWITCH.H" /* Res_Switch (apply on cycle) */
 #include "MENU_KEYNAV.H"
+#include "MENU_INPUT.H"
 #include "SAVENAME_VALIDATION.H"
 #include "CONSOLE/CONSOLE.H"
 #include "MESSAGE.H"
@@ -1394,7 +1395,6 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
     U8 *ptr;
     S32 timerzoom;
     S32 timeranotherkey;
-    S32 padNavDir = 0;
     S32 timerdraw = 1;
     U32 draw = 1;
     U32 newcube = NewCube;
@@ -1492,7 +1492,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
     InitDial(0);
 
     InitWaitNoKey();
-    padNavDir = JoystickMenuNavOnly();
+    MenuInput_Suppress(MENU_INPUT_ALL);
 
     MenuMouseAcquire();
     save_press = -1;
@@ -1603,24 +1603,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
            without a dedicated navigation block. */
         MyKey = MenuKey_NumpadToNav(MyKey);
 
-        /* Suppress nav keys outside the repeat window; translate gamepad
-           D-pad / stick to K_GRAY_UP/DOWN when the window is open.
-           Edge-only for gamepad: fire on direction change so a deflected
-           stick on menu entry does not auto-fire. */
-        if (TimerRefHR <= timeranotherkey) {
-            if (MyKey == K_GRAY_UP || MyKey == K_GRAY_DOWN)
-                MyKey = 0;
-            Input &= ~(I_UP | I_DOWN);
-        } else if (!MyKey) {
-            S32 jdir = JoystickMenuNavOnly();
-            if (jdir != padNavDir) {
-                padNavDir = jdir;
-                if (jdir == K_UP)
-                    MyKey = K_GRAY_UP;
-                else if (jdir == K_DOWN)
-                    MyKey = K_GRAY_DOWN;
-            }
-        }
+        U32 navigation = TimerRefHR > timeranotherkey ? MenuInput_Get() : 0;
 
         if (FlagMenuMouse && MenuMouse_GetRefCount() > 0) {
             S32 hitSel = -1;
@@ -1720,7 +1703,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
         DrawOneString(UI_CENTER_X, ys, ptrlist[select], draw);
         BoxUpdate();
 
-        if (Input & I_DOWN OR MyKey == K_GRAY_DOWN) {
+        if (navigation & MENU_INPUT_DOWN) {
             if (select < (nb - 1)) {
                 select++;
                 if (select >= (start + NB_GAME_CHOICE)) {
@@ -1740,7 +1723,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
             }
         }
 
-        if (Input & I_UP OR MyKey == K_GRAY_UP) {
+        if (navigation & MENU_INPUT_UP) {
             if (select > 0) {
                 select--;
 
@@ -2615,10 +2598,6 @@ S32 DoGameMenu(U16 *ptrmenu) {
     S32 flag = 1;
     U32 chrono;
     S32 timerkey;
-    // Gamepad D-pad / stick fallback: edge-only, matching the keyboard-arrow
-    // feel (one step per press, no auto-repeat). Primed below so a stick
-    // already deflected on menu entry does not auto-fire.
-    S32 padNavDir = 0;
     S16 nb, selected;
 
     selected = ptrmenu[0];
@@ -2629,12 +2608,12 @@ S32 DoGameMenu(U16 *ptrmenu) {
 
     InitWaitNoKey();
     InitWaitNoInput(I_JOY | I_FIRE | I_MENUS | I_ACTION);
+    MenuInput_Suppress(MENU_INPUT_ALL);
 
     MenuIncrustText = NULL;
     MenuIncrustSprite = -1;
 
     timerkey = TimerRefHR + VOLUME_TIMER_KEY;
-    padNavDir = JoystickMenuNavOnly();
 
     InitShakeChoice(); //     NEW
 
@@ -2643,24 +2622,6 @@ S32 DoGameMenu(U16 *ptrmenu) {
     while (TRUE) {
         ManageTime();
         MyGetInput();
-
-        // Gamepad D-pad / left stick feed the same codes as keyboard arrows.
-        // Edge-only: fire one K_GRAY_* on the direction change so a held
-        // stick/dpad behaves like a held keyboard arrow (one step, stay).
-        if (!MyKey) {
-            S32 rawDir = JoystickMenuNavOnly();
-            if (rawDir != padNavDir) {
-                padNavDir = rawDir;
-                if (rawDir == K_UP)
-                    MyKey = K_GRAY_UP;
-                else if (rawDir == K_DOWN)
-                    MyKey = K_GRAY_DOWN;
-                else if (rawDir == K_LEFT)
-                    MyKey = K_GRAY_LEFT;
-                else if (rawDir == K_RIGHT)
-                    MyKey = K_GRAY_RIGHT;
-            }
-        }
 
         if (FlagMenuMouse && MenuMouse_GetRefCount() > 0) {
             S32 mret = GameMenuMouseProcessDoGameMenu(ptrmenu, &selected, &flag);
@@ -2734,7 +2695,7 @@ S32 DoGameMenu(U16 *ptrmenu) {
             }
         }
 
-        if (Input & I_DOWN OR MyKey == K_GRAY_DOWN) {
+        if (MenuInput_Get() & MENU_INPUT_DOWN) {
 #ifdef DEMO
             if (ptrmenu == GameMainMenu) {
                 do {
@@ -2752,7 +2713,7 @@ S32 DoGameMenu(U16 *ptrmenu) {
             flag = 1;
         }
 
-        if (Input & I_UP OR MyKey == K_GRAY_UP) {
+        if (MenuInput_Get() & MENU_INPUT_UP) {
 #ifdef DEMO
             if (ptrmenu == GameMainMenu) {
                 do {
@@ -2776,12 +2737,12 @@ S32 DoGameMenu(U16 *ptrmenu) {
 
         case 2: // volume sample
 
-            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)
+            if ((MenuInput_Get() & MENU_INPUT_LEFT)
                     AND TimerRefHR > timerkey AND SampleVolume > 0) {
                 timerkey = TimerRefHR + VOLUME_TIMER_KEY;
                 SampleVolume -= 1;
             }
-            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)
+            if ((MenuInput_Get() & MENU_INPUT_RIGHT)
                     AND TimerRefHR > timerkey AND SampleVolume < 127) {
                 timerkey = TimerRefHR + VOLUME_TIMER_KEY;
                 SampleVolume += 1;
@@ -2790,12 +2751,12 @@ S32 DoGameMenu(U16 *ptrmenu) {
 
         case 3: // volume voix (jouer 1 voix ?)
 
-            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)
+            if ((MenuInput_Get() & MENU_INPUT_LEFT)
                     AND TimerRefHR > timerkey AND VoiceVolume > 0) {
                 timerkey = TimerRefHR + VOLUME_TIMER_KEY;
                 VoiceVolume -= 1;
             }
-            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)
+            if ((MenuInput_Get() & MENU_INPUT_RIGHT)
                     AND TimerRefHR > timerkey AND VoiceVolume < 127) {
                 timerkey = TimerRefHR + VOLUME_TIMER_KEY;
                 VoiceVolume += 1;
@@ -2804,13 +2765,13 @@ S32 DoGameMenu(U16 *ptrmenu) {
 
         case 4: // volume musiques
 
-            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)
+            if ((MenuInput_Get() & MENU_INPUT_LEFT)
                     AND TimerRefHR > timerkey AND JingleVolume > 0) {
                 timerkey = TimerRefHR + VOLUME_TIMER_KEY;
                 JingleVolume -= 1;
                 SetVolumeJingle(JingleVolume);
             }
-            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)
+            if ((MenuInput_Get() & MENU_INPUT_RIGHT)
                     AND TimerRefHR > timerkey AND JingleVolume < 127) {
                 timerkey = TimerRefHR + VOLUME_TIMER_KEY;
                 JingleVolume += 1;
@@ -2820,14 +2781,14 @@ S32 DoGameMenu(U16 *ptrmenu) {
 
         case 5: // volume cd
 #ifdef CDROM
-            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)
+            if ((MenuInput_Get() & MENU_INPUT_LEFT)
                     AND TimerRefHR > timerkey AND CDVolume > 0) {
                 timerkey = TimerRefHR + VOLUME_TIMER_KEY;
                 CDVolume -= 1;
                 SetVolumeCD(CDVolume);
                 SetVolumeJingle(CDVolume);
             }
-            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)
+            if ((MenuInput_Get() & MENU_INPUT_RIGHT)
                     AND TimerRefHR > timerkey AND CDVolume < 127) {
                 timerkey = TimerRefHR + VOLUME_TIMER_KEY;
                 CDVolume += 1;
@@ -2839,7 +2800,7 @@ S32 DoGameMenu(U16 *ptrmenu) {
 
         case 6: // volume master
 
-            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)
+            if ((MenuInput_Get() & MENU_INPUT_LEFT)
                     AND TimerRefHR > timerkey AND MasterVolume > 0) {
                 timerkey = TimerRefHR + VOLUME_TIMER_KEY;
                 MasterVolume -= 1;
@@ -2849,7 +2810,7 @@ S32 DoGameMenu(U16 *ptrmenu) {
                 SetVolumeCD(CDVolume);
 #endif
             }
-            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)
+            if ((MenuInput_Get() & MENU_INPUT_RIGHT)
                     AND TimerRefHR > timerkey AND MasterVolume < 127) {
                 timerkey = TimerRefHR + VOLUME_TIMER_KEY;
                 MasterVolume += 1;
@@ -2863,50 +2824,56 @@ S32 DoGameMenu(U16 *ptrmenu) {
 
         case 7: // Niveau détails
 
-            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)
+            if ((MenuInput_Get() & MENU_INPUT_LEFT)
                     AND(DetailLevel > 0)) {
                 DetailLevel--;
                 InitWaitNoInput(I_LEFT);
+                MenuInput_Suppress(MENU_INPUT_LEFT);
                 InitWaitNoKey();
             }
 
-            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)
+            if ((MenuInput_Get() & MENU_INPUT_RIGHT)
                     AND(DetailLevel < MAX_DETAIL_LEVEL)) {
                 DetailLevel++;
                 InitWaitNoInput(I_RIGHT);
+                MenuInput_Suppress(MENU_INPUT_RIGHT);
                 InitWaitNoKey();
             }
             break;
 
         case MENU_TYPE_TEXT_LANGUAGE:
-            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)) {
+            if ((MenuInput_Get() & MENU_INPUT_LEFT)) {
                 CycleTextLanguage(-1);
                 flag = 1;
                 InitWaitNoInput(I_LEFT);
+                MenuInput_Suppress(MENU_INPUT_LEFT);
                 InitWaitNoKey();
             }
 
-            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)) {
+            if ((MenuInput_Get() & MENU_INPUT_RIGHT)) {
                 CycleTextLanguage(1);
                 flag = 1;
                 InitWaitNoInput(I_RIGHT);
+                MenuInput_Suppress(MENU_INPUT_RIGHT);
                 InitWaitNoKey();
             }
             break;
 
 #ifdef CDROM
         case MENU_TYPE_VOICE_LANGUAGE:
-            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)) {
+            if ((MenuInput_Get() & MENU_INPUT_LEFT)) {
                 CycleVoiceLanguage(-1);
                 flag = 1;
                 InitWaitNoInput(I_LEFT);
+                MenuInput_Suppress(MENU_INPUT_LEFT);
                 InitWaitNoKey();
             }
 
-            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)) {
+            if ((MenuInput_Get() & MENU_INPUT_RIGHT)) {
                 CycleVoiceLanguage(1);
                 flag = 1;
                 InitWaitNoInput(I_RIGHT);
+                MenuInput_Suppress(MENU_INPUT_RIGHT);
                 InitWaitNoKey();
             }
             break;
@@ -2963,7 +2930,7 @@ S32 DoGameMenu(U16 *ptrmenu) {
             do {
                 DrawGameMenu(ptrmenu, TRUE);
                 MyGetInput();
-            } while (MyKey OR Input);
+            } while (MyKey OR Input OR MenuInput_Held());
 
             flag = 0;
         } else {

@@ -46,15 +46,6 @@ void Joystick_SetVirtualPad(S32 present);
 // Human-readable controller name for the boot log, or "not detected".
 const char *JoystickGetName(void);
 
-// Returns a scancode for menu navigation (K_ENTER / K_UP / K_DOWN / K_LEFT /
-// K_RIGHT), or 0 if no menu-relevant input is active. Used by CONFIG.CPP.
-S32 JoystickMenuAction(void);
-
-// D-pad + left stick arrows only (no face buttons). Used on the gamepad remap
-// screen so list navigation stays usable when movement is on triggers and
-// confirm/clear/exit come from player bindings instead.
-S32 JoystickMenuNavOnly(void);
-
 // Virtual scancode of the first gamepad button/stick/trigger pressed this
 // frame (edge-detected), or 0 if none. Used to feed MyKey so "press any key"
 // waits light up on any pad input without per-callsite changes.

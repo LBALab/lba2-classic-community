@@ -50,6 +50,27 @@ Main Menu
 
 `DoGameMenu` returns the selected text ID, or `1000` for ESC.
 
+## Navigation
+
+Fixed UI controls navigate ordinary menus and save lists, inventory and memo pages, the behaviour selector, holomap and resolution confirmation:
+
+| Action | Keyboard | Controller |
+|---|---|---|
+| Navigate up | Up / keypad 8 | Left stick up / D-pad up |
+| Navigate down | Down / keypad 2 | Left stick down / D-pad down |
+| Navigate left | Left / keypad 4 | Left stick left / D-pad left |
+| Navigate right | Right / keypad 6 | Left stick right / D-pad right |
+
+These controls are not configurable and do not consume the 36 gameplay slots or their 32-bit action word. Rebinding gameplay movement does not change UI navigation: custom movement keys such as WASD move the hero but do not navigate menus; use the fixed arrows/keypad or left stick/D-pad instead. RT/LT retain forward/backward in gameplay but do not navigate UI. Confirm, back, item use, page shortcuts and mouse controls are unchanged. Inventory and holomap drain held UI directions before returning, so a D-pad navigation gesture cannot cast its gameplay spell on exit.
+
+Options → Controls contains only the gameplay keyboard and gamepad binding editors. Fixed navigation remains available inside those editors as a recovery path. Controller confirmation/back gestures in those editors still use their existing gameplay bindings and Start/Back rescue buttons.
+
+[MENU_INPUT.CPP](../SOURCES/MENU_INPUT.CPP) reads the fixed physical keys and owns held-until-release suppression. `MyGetInput` in [INPUT.CPP](../SOURCES/INPUT.CPP) samples UI directions from the same keyboard/gamepad snapshot as gameplay without a second poll, isolates them while the console is open, and drains held UI keys in input waits. There are no UI binding tables or config entries.
+
+The control harness's `key <scancode> <polls> <delay>` injector drives the same fixed controls inside modal loops, so navigation can be reproduced without a physical controller.
+
+Inventory uses `WaitNoMenuInput` to drain UI directions in its own timer-save bracket. Resolution confirmation uses the same wait before restoring its modal timer. Waiting for release does not advance gameplay time or wait for unrelated gameplay controls such as RT.
+
 ## Terms
 
 | Term | Definition |
@@ -79,14 +100,13 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 
 ## Submenus
 
-- **Options** (`OptionsMenu`): top-level submenu for Display, Sound volume, Choose language, Advanced options, and Controls. Reuses original `TEXT.HQR` labels where they already exist and keeps custom localized labels only for the new submenu concepts. Calls `GereDisplayMenu()`, `GereVolumeMenu()`, `GereLanguageMenu()`, `GereAdvancedOptionsMenu()`, and `GereControllerMenu()`. Calls `SetDetailLevel()` on exit.
+- **Options** (`OptionsMenu`): top-level submenu for Display, Sound volume, Choose language, Advanced options, and Controls. Reuses original `TEXT.HQR` labels where they already exist and keeps custom localized labels for new submenu concepts. Controls groups gameplay keyboard/gamepad remapping. Calls `GereDisplayMenu()`, `GereVolumeMenu()`, `GereLanguageMenu()`, `GereAdvancedOptionsMenu()`, and `GereControllerMenu()`. Calls `SetDetailLevel()` on exit.
 - **Display** (`GereDisplayMenu`, `DisplayMenu`): the resolution row opens `GereResolutionMenu`, a page built at run time from the resolution catalog; the Vsync and Fullscreen rows toggle. Fullscreen is the last row, so on always-fullscreen devices the menu drops it by count.
 - **Volume** (`GereVolumeMenu`): `VolumeMenuVoice` / `VolumeMenuNoVoice` depending on `FlagSpeak`. Sliders for Sample, Voice, Music, and General volume. Persisted via [CONFIG.md](CONFIG.md).
 - **Language** (`GereLanguageMenu`): cycles text language and voice language independently. Text changes reload `TEXT.HQR` immediately; voice changes update the active `LanguageCD` setting.
 - **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, follow camera, video playback size, and subtitle display; includes the existing Detail Level slider. Fullscreen moved to Display.
 - **Save/Load** (`SavedGameManagement`, `ChoosePlayerName`): Player name selection, save slots, `GameChoiceMenu[]`, `SavedConfirmMenu[]` for delete
-- **Controls** (`GereControllerMenu`, `ControllerMenu`): Keyboard Config opens `MenuConfig`, Configure gamepad opens `MenuGamepadConfig` (both in [SOURCES/CONFIG.CPP](../SOURCES/CONFIG.CPP)).
-- **Keyboard config** (`MenuConfig`): standalone config tool in [SOURCES/CONFIG/](../SOURCES/CONFIG/) or in-game `ReadInputConfig`/`WriteInputConfig`
+- **Controls** (`GereControllerMenu`, `ControllerMenu`): `MenuConfig` and `MenuGamepadConfig` edit gameplay bindings (both in [SOURCES/CONFIG.CPP](../SOURCES/CONFIG.CPP)). The standalone legacy config tool remains in [SOURCES/CONFIG/](../SOURCES/CONFIG/).
 
 ## Menu data format
 
@@ -112,7 +132,7 @@ Save/load slot list: `NB_GAME_CHOICE` (5 visible rows), `Y_START_CHOICE` (205), 
 
 ## Languages and localization
 
-The main menu still uses only the six template actions (70–75). Options (74) adds in-game Choose language and Advanced options (see menu tree): top-level `GameOptionMenu` has 6 rows in display order: Back (26), Display, Sound volume, Choose language, Advanced options, Controls.
+The main menu still uses only the six template actions (70–75). Top-level `GameOptionMenu` has six rows in display order: Back (26), Display, Sound volume, Choose language, Advanced options, Controls.
 
 | Mechanism | Where | Notes |
 |-----------|--------|--------|

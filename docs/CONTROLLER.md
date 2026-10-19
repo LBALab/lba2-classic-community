@@ -2,6 +2,12 @@
 
 How the manual camera works and which input sources drive it.
 
+## Menu navigation
+
+UI navigation uses fixed controls, independent of gameplay movement: the left stick and D-pad navigate menus, save lists, inventory, memo pages, the behaviour selector and holomap. RT/LT remain gameplay forward/backward and do not navigate these screens. Confirm, back and item-use buttons retain their existing bindings.
+
+Keyboard navigation uses arrows and keypad 8/2/4/6. These UI controls are not configurable and have no binding editor or config entries; Options → Controls edits gameplay bindings only. See [MENU.md](MENU.md#navigation).
+
 ## Manual camera (Auto camera mode)
 
 In exterior scenes with Auto camera (`FollowCamera`) on, the player can orbit,

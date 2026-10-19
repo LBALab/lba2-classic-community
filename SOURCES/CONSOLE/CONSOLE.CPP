@@ -1518,6 +1518,10 @@ int Console_ShouldSuppressInputThisFrame(void) {
     return 1;
 }
 
+int Console_InputIsolated(void) {
+    return s_console_open || s_just_closed;
+}
+
 void Console_RegisterCommandEx(const char *name, Console_CmdFn callback, const char *help, const char *usage, const char *context) {
     if (s_cmd_count >= CONSOLE_MAX_CMDS) {
         fprintf(stderr, "console: command table full (%d), dropped '%s' (raise CONSOLE_MAX_CMDS)\n",

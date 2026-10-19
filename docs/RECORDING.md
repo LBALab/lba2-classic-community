@@ -397,7 +397,9 @@ wrong.
 | Polled device state, one sample per input poll | Indexed by poll rather than by tick, because a modal can spin thousands of polls inside a single tick |
 | The mouse, the right stick and the pad's first-pressed scancode | None of the three has a scancode, so none rides the key table the rest of the input rides. Twenty bytes on the polls that carry any of them, nothing on the polls that do not |
 | The console commands the session was driven with | Otherwise a recording cannot stand in for a harness-driven fixture |
-| The keyboard and gamepad binding tables | A replay borrows them for its duration, so a recording is not tied to the cfg it was made under, and returns the player's own on the way out |
+| Gameplay keyboard/gamepad binding tables | A replay borrows both tables for its duration and returns the player's own on exit. UI navigation uses fixed physical keys, not binding tables; recordings made with gameplay-driven UI directions can diverge when replayed through a modal |
+| UI release latch | `input.menu_suppressed` carries directions suppressed until release, so starting replay does not discard an unsuppressed first UI press |
+| UI input samples | From format 17, poll flag `0x10` carries one byte when fixed UI directions or console isolation change. This preserves held directions hidden from the gameplay key stream while the console is open, including its closing frame; replay keeps them suppressed until release |
 | A savegame at each end | Where the session started, and where it finished. Both inside the file |
 | An FNV-1a digest of simulation state, per tick | Scene, hero, camera, the other actors, the open modal, and all 336 script variables |
 | A keyframe of named state, every 32 ticks | The digest says *when* a replay stopped matching; this says *what* moved |
@@ -421,7 +423,7 @@ They are framed so a run that dies mid-write leaves a file that still reads up t
 finished writing:
 
 ```
-LBA2REC 11 + key=value header lines, ending in a blank line
+LBA2REC 17 + key=value header lines, ending in a blank line
 [0x70][u32 len][savegame][u32 len][magic]   the state the session started from
 ... polls, ticks, keyframes, telemetry, commands, sync markers, flushed every tick ...
 [0x71][u32 len][savegame][u32 len][magic]   the state it ended at
@@ -679,8 +681,7 @@ Left out, each for a reason given beside its row: the display settings, which ch
 shown and not what happens in it; the volumes and the stereo swap, since whether sound runs at all
 is `mode.audio`; `VSync` and `FixedTimestep`, which are already `mode.vsync` and
 `mode.fixed_timestep`; and `Shadow`, which `SetDetailLevel` overwrites at MainLoop entry. Not in a
-table, so not carried: the key bindings, which the header hashes as `bindings.digest`, and
-`FlagDisplayText`.
+settings table, so handled separately: gameplay bindings, whose tables are carried alongside `bindings.digest`. UI navigation is fixed and has no binding settings. `FlagDisplayText` is not carried.
 
 **The resolution is the exception to "how a frame is shown".** The game reads which actors were on
 screen: the lightning spell strikes only the enemies drawn on the last frame, and cast from the same

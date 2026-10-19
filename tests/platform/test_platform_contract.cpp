@@ -465,7 +465,6 @@ static void test_gamepad_state_edges_and_hotplug() {
     ASSERT_TRUE(CheckKey(K_GAMEPAD_RSTICK_UP));
     ASSERT_TRUE(CheckKey(K_GAMEPAD_LTRIGGER));
     ASSERT_EQ_UINT(K_GAMEPAD_A, JoystickFirstPressedScancode());
-    ASSERT_EQ_INT(K_ENTER, JoystickMenuAction());
     UpdateJoystick();
     ASSERT_EQ_UINT(0, JoystickFirstPressedScancode());
     S16 x = 0, y = 0;

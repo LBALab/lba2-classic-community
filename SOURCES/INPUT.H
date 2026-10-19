@@ -107,6 +107,8 @@ extern void WriteInputConfig(void);
 extern void MyGetInput(void);
 //-------------------------------------------------------------------------
 extern void WaitNoInput(void);
+/* Drain only UI directions without charging their release time to gameplay. */
+extern void WaitNoMenuInput(void);
 //-------------------------------------------------------------------------
 extern void WaitInput(void);
 //-------------------------------------------------------------------------

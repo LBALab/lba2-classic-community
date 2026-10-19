@@ -236,7 +236,7 @@ static OverlayLevel CurrentLevel(void) {
         return (s_tvDevice || JoystickIsPresent()) ? OVL_OFF : OVL_DIM;
 
     /* The player picked up the pad. Step aside until a finger says otherwise --
-       and the pad drives the menus too (JoystickMenuAction), so nothing here
+       and the pad drives menus through fixed UI directions, so nothing here
        is reachable only by touch. */
     if (!LastInputWasTouch)
         return OVL_OFF;

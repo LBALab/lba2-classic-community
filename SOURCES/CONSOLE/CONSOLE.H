@@ -53,6 +53,8 @@ int Console_GetToggleScancode(void);
 
 /** Returns 1 for one frame after closing the console; call from input path and suppress game input when 1. Clears the flag. */
 int Console_ShouldSuppressInputThisFrame(void);
+/** Non-consuming isolation state for the recorder's upstream input sample. */
+int Console_InputIsolated(void);
 
 /** Set to 1 when entering demo slide show, 0 when leaving. Prevents opening console during slide (avoids segfault). */
 void Console_SetSlideShowActive(int active);

@@ -26,3 +26,11 @@ set_target_properties(test_record_format PROPERTIES CXX_STANDARD 11)
 
 add_test(NAME test_record_format COMMAND test_record_format)
 register_host_test(test_record_format)
+
+find_program(RECORD_TEST_PYTHON NAMES python3)
+if(RECORD_TEST_PYTHON)
+    add_custom_target(test_record_ui_stream)
+    add_test(NAME test_record_ui_stream
+        COMMAND ${RECORD_TEST_PYTHON} ${CMAKE_CURRENT_SOURCE_DIR}/test_dump_recording.py)
+    register_host_test(test_record_ui_stream)
+endif()

@@ -5,6 +5,7 @@
 #include "C_EXTERN.H" // include LBA2
 #include "DIRECTORIES.H"
 #include "INPUT.H"
+#include "MENU_INPUT.H"
 #include "UI_LAYOUT.H" /* UI_VCENTER_OFS */
 
 #include <FILEIO/SAVEPNG.H>
@@ -1057,13 +1058,13 @@ void HoloGlobe(S32 planet) {
                 testnofire = FALSE;
         } else {
             if (FlagMap != 1) {
-                if (Input & I_LEFT)
+                if (MenuInput_Get() & MENU_INPUT_LEFT)
                     HoloBeta = (HoloBeta + holoRotStep) & 4095;
-                if (Input & I_RIGHT)
+                if (MenuInput_Get() & MENU_INPUT_RIGHT)
                     HoloBeta = (HoloBeta - holoRotStep) & 4095;
-                if (Input & I_UP)
+                if (MenuInput_Get() & MENU_INPUT_UP)
                     HoloAlpha = (HoloAlpha - holoRotStep) & 4095;
-                if (Input & I_DOWN)
+                if (MenuInput_Get() & MENU_INPUT_DOWN)
                     HoloAlpha = (HoloAlpha + holoRotStep) & 4095;
 
                 if (((Input == I_ACTION_M) OR(Input == I_RETURN)) // espace
@@ -1100,6 +1101,7 @@ void HoloGlobe(S32 planet) {
                 BoxUpdate();
                 FlagMap = 0;
                 InitWaitNoInput(I_JOY);
+                MenuInput_Suppress(MENU_INPUT_ALL);
                 memotime = TimerRefHR;
             }
         }
@@ -1307,6 +1309,9 @@ void HoloMap() {
 
     InitWaitNoInput(I_HOLOMAP | I_MENUS);
     InitWaitNoKey();
+    /* D-pad navigation shares physical keys with the gameplay spell bindings. */
+    if (MenuInput_Held())
+        WaitNoInput();
 
     if (flagproto) {
         RestoreTimer();

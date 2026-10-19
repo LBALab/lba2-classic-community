@@ -458,37 +458,6 @@ void GetJoys(U32 *bitfield) {
     UpdateJoystick();
 }
 
-//***************************************************************************
-S32 JoystickMenuAction(void) {
-    if (s_gamepad == NULL) {
-        return 0;
-    }
-    if (g_platform.input.gamepad_button(s_gamepad, PLATFORM_GAMEPAD_BUTTON_SOUTH) ||
-        g_platform.input.gamepad_button(s_gamepad, PLATFORM_GAMEPAD_BUTTON_START)) {
-        return K_ENTER;
-    }
-    return JoystickMenuNavOnly();
-}
-
-//***************************************************************************
-S32 JoystickMenuNavOnly(void) {
-    if (s_gamepad == NULL) {
-        return 0;
-    }
-    S16 lx = g_platform.input.gamepad_axis(s_gamepad, PLATFORM_GAMEPAD_AXIS_LEFTX);
-    S16 ly = g_platform.input.gamepad_axis(s_gamepad, PLATFORM_GAMEPAD_AXIS_LEFTY);
-    S16 dz = (S16)JoystickDeadzone;
-    if (g_platform.input.gamepad_button(s_gamepad, PLATFORM_GAMEPAD_BUTTON_DPAD_UP) || ly < -dz)
-        return K_UP;
-    if (g_platform.input.gamepad_button(s_gamepad, PLATFORM_GAMEPAD_BUTTON_DPAD_DOWN) || ly > dz)
-        return K_DOWN;
-    if (g_platform.input.gamepad_button(s_gamepad, PLATFORM_GAMEPAD_BUTTON_DPAD_LEFT) || lx < -dz)
-        return K_LEFT;
-    if (g_platform.input.gamepad_button(s_gamepad, PLATFORM_GAMEPAD_BUTTON_DPAD_RIGHT) || lx > dz)
-        return K_RIGHT;
-    return 0;
-}
-
 #ifdef __cplusplus
 }
 #endif
