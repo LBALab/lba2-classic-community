@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Revert dialog: the keep/revert modal that appears after every successful
-# `resolution` console verb (per docs/RUNTIME_RESOLUTION.md). Verifies the
-# 15 s timeout path — without any Y/N input the dialog must time out and
+# Resolution confirmation: timeout reverts; held D-pad navigation cannot activate
+# jetpack or advance gameplay time after confirmation.
+#
+# Verifies the 15 s timeout path — without any Y/N input the dialog must time out and
 # fire the orchestrator a second time to restore the previous resolution.
 # Confirming with D-pad Down held must not activate jetpack on return or
 # charge the direction-release wait to gameplay time.
