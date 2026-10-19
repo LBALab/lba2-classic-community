@@ -108,6 +108,8 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 - **Save/Load** (`SavedGameManagement`, `ChoosePlayerName`): Player name selection, save slots, `GameChoiceMenu[]`, `SavedConfirmMenu[]` for delete
 - **Controls** (`GereControllerMenu`, `ControllerMenu`): `MenuConfig` and `MenuGamepadConfig` edit gameplay bindings (both in [SOURCES/CONFIG.CPP](../SOURCES/CONFIG.CPP)). The standalone legacy config tool remains in [SOURCES/CONFIG/](../SOURCES/CONFIG/).
 
+`OptionsMenu` marks the entire backdrop dirty after its screen backup. The backup resets dirty rectangles, so a mark made by the caller cannot cover the submenu's first present. Both the shaded in-game backdrop and the unshaded boot-menu backdrop must replace the preceding page in that present; otherwise the main menu's save thumbnail and rows remain visible outside the Options panel. `ui menu-main-options` reproduces this transition and compares every presented indexed pixel with the composed page; [the regression fixture](../tests/automation/test_ui_menu_main_options.sh) covers fresh and returning players, English and Spanish, and standard and widescreen resolutions.
+
 ## Menu data format
 
 - `U16 *ptrmenu`: `[selected, nb_entries, y_center, dia_num, (type, text_id)*]`

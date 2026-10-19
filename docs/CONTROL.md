@@ -542,7 +542,7 @@ whole savegame baseline corpus) are byte-identical to the merged behaviour. See
 
 ## UI capture
 
-Six console verbs drive each modal UI surface from the harness, render a settled frame,
+Console verbs drive each modal UI surface from the harness, render a settled frame,
 write a PNG via `SavePNG`, then exit cleanly. The world-space `--dump-state` is the
 guardrail for *simulation* state; these are the guardrail for *UI* rendering — what
 widescreen, font, palette, or layout changes are most likely to disturb.
@@ -555,6 +555,7 @@ widescreen, font, palette, or layout changes are most likely to disturb.
 | `ui menu-options <path>` | The in-game ESC menu (Volume / Language / Advanced / Controls) over the shaded scene |
 | `ui menu-advanced <path>` | The Advanced options page (camera, movies, text, Fix retail bugs) |
 | `ui menu-main <path>` | The boot-time main menu (Resume / New Game / Load / Options / Quit) |
+| `ui menu-main-options <path>` | Options entered from the boot main menu; reports `presented_matches_rendered=1` only if every visible indexed pixel matches the composed page |
 | `ui found-object <numvar> <path>` | The found-object cinematic — 3D rotation of `TabInv[numvar]`'s item + dialogue |
 
 Each verb takes the destination path as its last argument. Compose with `--load` and
@@ -707,11 +708,7 @@ following:
   normal call site and replicate everything it does, gated on capture-armed so
   non-harness callers see no behaviour change.
 
-- **Capture from `Log`, not `Screen`, for most modals.** `Log` is the back buffer the
-  modal composites into; `BoxUpdate` only flushes dirty regions to `Screen`, so
-  capturing `Screen` on the harness path (no prior frame populating it) leaves
-  un-flushed regions black. Five of six surfaces need `Log`. Inventory is the lone
-  exception — its render path happens to leave `Screen` valid.
+- **Distinguish the composed page from the visible frame.** `Log` is the render buffer, `Screen` is the clean backdrop, and `BoxUpdate` copies dirty rectangles to persistent `Phys` for presentation. Most modal captures read `Log`; inventory's render path leaves `Screen` valid. Menu captures read `Phys` so missing backdrop updates cannot hide behind a correct offscreen image. `ui menu-main-options` also compares the entire indexed `Phys` and `Log` buffers at capture time to detect stale pixels outside the submenu rows.
 
 - **Pre-arm `PtrMap`/`ObjPtrMap`** for any modal that renders 3D bodies via
   `BodyDisplay`. Without it the texture filler dereferences a null/stale pointer and

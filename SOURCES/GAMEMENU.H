@@ -74,6 +74,9 @@ extern void Menu_RequestCapture(const char *path);
    Skips the surrounding MainGameMenu while-loop, fade transitions, and any
    case-driven cinematic playback so the verb is non-blocking. */
 extern void Menu_MainCapture(const char *path);
+/* Capture Options entered from the boot menu. Returns whether every visible
+   indexed pixel matches the composed page, including the restored backdrop. */
+extern S32 Menu_MainOptionsCapture(const char *path);
 /* Harness hook: capture the Display submenu (Phase 2 runtime-resolution
    UX). Mirrors Menu_MainCapture: does the minimal pre-pass the regular
    OptionsMenu -> GereDisplayMenu path does (InitPlasmaMenu, palette
