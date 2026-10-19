@@ -17,10 +17,13 @@ Main Menu
 │       └── SavedConfirmMenu: Cancel (24) / Delete (48)
 ├── Options (74)
 │   ├── Back (26)
-│   ├── Display [custom localized label]
-│   │   └── Resolution / Renderer / Filter / Antialias / Quality /
-│   │       Brightness / Contrast / Saturation [sliders] / Vsync /
-│   │       Fullscreen (community addition; see RUNTIME_RESOLUTION.md and GFX_OPTIONS.md)
+│   ├── Display [custom localized label; community addition]
+│   │   ├── Resolution / Graphics / Image / VR [OpenXR only] / Window
+│   │   ├── Graphics [GL only]: Renderer / Filter / Antialias / Quality
+│   │   ├── Image [GL only]: Brightness / Contrast / Saturation [sliders]
+│   │   ├── VR [OpenXR only]: Stereo 3D / VR zoom / Foveation
+│   │   └── Window: Vsync / Fullscreen [windowed builds]
+│   │       (see RUNTIME_RESOLUTION.md and GFX_OPTIONS.md)
 │   ├── Sound volume (11)
 │   │   ├── Back (26)
 │   │   ├── Samples (19)       [slider]
@@ -86,7 +89,7 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 - **Options** (`OptionsMenu`): top-level submenu for Sound volume, Choose language, Advanced options, and Keyboard Config. Reuses original `text.hqr` labels where they already exist and keeps custom localized labels only for the new submenu concepts. Calls `GereVolumeMenu()`, `GereLanguageMenu()`, `GereAdvancedOptionsMenu()`, and `MenuConfig()`. Calls `SetDetailLevel()` on exit.
 - **Volume** (`GereVolumeMenu`): `VolumeMenuVoice` / `VolumeMenuNoVoice` depending on `FlagSpeak`. Sliders for Sample, Voice, Music, and General volume. Persisted via [CONFIG.md](CONFIG.md).
 - **Language** (`GereLanguageMenu`): cycles text language and voice language independently. Text changes reload `text.hqr` immediately; voice changes update the active `LanguageCD` setting.
-- **Display** (`GereDisplayMenu`): runtime resolution entry point plus GL renderer toggles; see [RUNTIME_RESOLUTION.md](RUNTIME_RESOLUTION.md) and [GFX_OPTIONS.md](GFX_OPTIONS.md). The Brightness / Contrast / Saturation rows (GL renderer) are image sliders (menu types 10–12): left/right (or mouse wheel) steps the signed -20..+20 value by 1 with the volume sliders' key repeat, the bar is zero-centred, the change previews live at composite time, and the values are written to lba2.cfg once when the submenu closes.
+- **Display** (`GereDisplayMenu`): a compact parent page — Resolution, Graphics, Image, VR when an OpenXR session is active, and Window — plus one child page per group. The split keeps every page within the 50px-row budget of the 480px canvas; an eleven-row Display list placed its first row above y=0 and crashed in `BackupAngles`. Resolution opens the generated mode list; Graphics (GL) holds Renderer / Filter / Antialias / Quality; Image (GL) holds the Brightness / Contrast / Saturation sliders; VR (OpenXR) holds Stereo 3D / VR zoom / Foveation; Window holds Vsync / Fullscreen. See [RUNTIME_RESOLUTION.md](RUNTIME_RESOLUTION.md) and [GFX_OPTIONS.md](GFX_OPTIONS.md). The image sliders (menu types 10–12) use left/right or the mouse wheel to step the signed -20..+20 value by 1 with the volume sliders' key repeat, draw a zero-centred bar, preview live at composite time, and write lba2.cfg once when the Display menu closes.
 - **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, the camera setting (Classic camera / Auto camera / First person), video playback size, window fullscreen mode, subtitle display, and the frame-rate counter, plus a frame-rate limiter (Off/30/60/72/90/120); includes the existing Detail Level slider.
 - **Save/Load** (`SavedGameManagement`, `ChoosePlayerName`): Player name selection, save slots, `GameChoiceMenu[]`, `SavedConfirmMenu[]` for delete
 - **Keyboard config** (`MenuConfig`): standalone config tool in [SOURCES/CONFIG/](../SOURCES/CONFIG/) or in-game `ReadInputConfig`/`WriteInputConfig`
@@ -158,6 +161,7 @@ For the text engine underneath all of this (the `text.hqr` format, id resolution
 | Limit | Value | Notes |
 |-------|-------|-------|
 | Main menu entries | 6 | `MAX_MAIN_MENUS`, `GameMainMenu[4+6*2]` |
+| Display parent rows | 6 | Back, Resolution, Graphics, Image, VR (OpenXR only), Window; child pages hold at most 5 rows |
 | Save slots visible | 5 | `NB_GAME_CHOICE`, `Y_START_CHOICE`; list scrolls |
 | Player name length | 100 chars | `MAX_SIZE_PLAYER_NAME` |
 | Resolution | 640×480 (default) | See "Menu layout"; window may scale; internal layout as above |

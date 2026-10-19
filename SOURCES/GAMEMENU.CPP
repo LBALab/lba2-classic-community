@@ -106,6 +106,10 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_FPS 2121
 #define MENU_ID_FPS_LIMIT 2122
 #define MENU_ID_CHEATS 2124
+#define MENU_ID_DISPLAY_GRAPHICS 2130
+#define MENU_ID_DISPLAY_IMAGE 2131
+#define MENU_ID_DISPLAY_VR 2132
+#define MENU_ID_DISPLAY_WINDOW 2133
 
 // Resolution sub-page rows occupy a reserved id range: row i carries id
 // MENU_ID_RESOLUTION_BASE + i, which BuildCustomMenuText and GereResolutionMenu
@@ -174,16 +178,20 @@ U16 GameOptionMenu[] = {
     MENU_ID_CHEATS,
 };
 
-// Display submenu: a "Resolution: <current>" row that opens the resolution
-// sub-page (GereResolutionMenu), plus "Renderer" and "Filter" toggles (GL
-// only), a "Vsync" toggle, and the "Fullscreen" toggle (moved here from
-// Advanced options because it belongs with the other display settings). Plain
-// "Back" returns to Options. Fullscreen stays the last entry so the
-// always-fullscreen-device path in GereDisplayMenu can drop it by count.
-// See GereDisplayMenu + GereResolutionMenu.
-U16 DisplayMenu[4 + 12 * 2] = {
-    0,   // selected
-    4,   // nb entries (overridden at runtime)
+// Display submenu: the small top-level page of display settings. Each group
+// that would otherwise push the list past the 480px framebuffer lives in its
+// own sub-page (Graphics, Image, VR, Window): a row is 50px plus a 6px gap, and
+// eleven rows put the first row above y=0, where BackupAngles indexes
+// TabOffLine[] out of bounds. Keeping the parent at six rows or fewer leaves
+// room for the OpenXR and windowed-mode variants. "Resolution" stays on the
+// parent because it is the primary action and opens its own generated list.
+U16 DisplayMenu[4 + 6 * 2] = {
+    0, // selected
+#ifdef USE_GPURENDERER
+    5, // nb entries (Back, Resolution, Graphics, Image, Window)
+#else
+    3, // nb entries (Back, Resolution, Window)
+#endif
     260, // y center
     0,   // .dia num
 
@@ -193,62 +201,116 @@ U16 DisplayMenu[4 + 12 * 2] = {
     MENU_ID_RESOLUTION,
 #ifdef USE_GPURENDERER
     0,
-    MENU_ID_DISPLAY_RENDERER,
+    MENU_ID_DISPLAY_GRAPHICS,
     0,
-    MENU_ID_DISPLAY_TEXFILTER,
-    0,
-    MENU_ID_DISPLAY_ANTIALIAS,
-    0,
-    MENU_ID_DISPLAY_QUALITY,
+    MENU_ID_DISPLAY_IMAGE,
 #endif
     0,
-    MENU_ID_DISPLAY_VSYNC,
-    0,
-    MENU_ID_DISPLAY_FULLSCREEN,
+    MENU_ID_DISPLAY_WINDOW,
 };
 
+// Child pages. Each is rebuilt before its DoGameMenu loop, so the count always
+// matches the rows written; the arrays are sized for their full fixed lists.
+#ifdef USE_GPURENDERER
+static U16 DisplayGraphicsMenu[4 + 5 * 2];
+static U16 DisplayImageMenu[4 + 4 * 2];
+static U16 DisplayVrMenu[4 + 4 * 2];
+#endif
+static U16 DisplayWindowMenu[4 + 3 * 2];
+
 /* Rebuild the Display submenu rows at runtime. The static initializer above
- * only backs the buffer; the pair list is conditional (stereo row only with
- * an immersive OpenXR session, fullscreen only where windowed mode exists),
- * and the count must match the pairs actually written or DoGameMenu reads
- * past the intended rows. */
+ * only backs the buffer; the pair list is conditional (the VR page only with
+ * an immersive OpenXR session, and the Window page drops Fullscreen where
+ * windowed mode is unsupported). The count must match the pairs actually
+ * written or DoGameMenu reads past the intended rows. */
 static void BuildDisplayMenuEntries(void) {
     U16 *p = DisplayMenu + 4;
+    DisplayMenu[0] = 0;
     *p++ = 0;
     *p++ = 26; /* menu precedent */
     *p++ = 0;
     *p++ = MENU_ID_RESOLUTION;
 #ifdef USE_GPURENDERER
     *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_GRAPHICS;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_IMAGE;
+    if (OpenXR_IsActive()) {
+        *p++ = 0;
+        *p++ = MENU_ID_DISPLAY_VR;
+    }
+#endif
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_WINDOW;
+    DisplayMenu[1] = (U16)((p - DisplayMenu - 4) / 2);
+}
+
+#ifdef USE_GPURENDERER
+static void BuildDisplayGraphicsMenu(void) {
+    U16 *p = DisplayGraphicsMenu + 4;
+    DisplayGraphicsMenu[0] = 0;
+    DisplayGraphicsMenu[2] = 260;
+    DisplayGraphicsMenu[3] = 0;
+    *p++ = 0;
+    *p++ = 26;
+    *p++ = 0;
     *p++ = MENU_ID_DISPLAY_RENDERER;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_TEXFILTER;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_ANTIALIAS;
-    if (OpenXR_IsActive()) {
-        *p++ = 0;
-        *p++ = MENU_ID_DISPLAY_STEREO3D;
-        *p++ = 0;
-        *p++ = MENU_ID_DISPLAY_VRZOOM;
-        *p++ = 0;
-        *p++ = MENU_ID_DISPLAY_FOVEATION;
-    }
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_QUALITY;
+    DisplayGraphicsMenu[1] = (U16)((p - DisplayGraphicsMenu - 4) / 2);
+}
+
+static void BuildDisplayImageMenu(void) {
+    U16 *p = DisplayImageMenu + 4;
+    DisplayImageMenu[0] = 0;
+    DisplayImageMenu[2] = 260;
+    DisplayImageMenu[3] = 0;
+    *p++ = 0;
+    *p++ = 26;
     *p++ = MENU_TYPE_IMAGE_BRIGHTNESS;
     *p++ = MENU_ID_DISPLAY_BRIGHTNESS;
     *p++ = MENU_TYPE_IMAGE_CONTRAST;
     *p++ = MENU_ID_DISPLAY_CONTRAST;
     *p++ = MENU_TYPE_IMAGE_SATURATION;
     *p++ = MENU_ID_DISPLAY_SATURATION;
+    DisplayImageMenu[1] = (U16)((p - DisplayImageMenu - 4) / 2);
+}
+
+static void BuildDisplayVrMenu(void) {
+    U16 *p = DisplayVrMenu + 4;
+    DisplayVrMenu[0] = 0;
+    DisplayVrMenu[2] = 260;
+    DisplayVrMenu[3] = 0;
+    *p++ = 0;
+    *p++ = 26;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_STEREO3D;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_VRZOOM;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_FOVEATION;
+    DisplayVrMenu[1] = (U16)((p - DisplayVrMenu - 4) / 2);
+}
 #endif
+
+static void BuildDisplayWindowMenu(void) {
+    U16 *p = DisplayWindowMenu + 4;
+    DisplayWindowMenu[0] = 0;
+    DisplayWindowMenu[2] = 260;
+    DisplayWindowMenu[3] = 0;
+    *p++ = 0;
+    *p++ = 26;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_VSYNC;
     if (Window_SupportsWindowedMode()) {
         *p++ = 0;
         *p++ = MENU_ID_DISPLAY_FULLSCREEN;
     }
-    DisplayMenu[1] = (U16)((p - DisplayMenu - 4) / 2);
+    DisplayWindowMenu[1] = (U16)((p - DisplayWindowMenu - 4) / 2);
 }
 
 // Resolution sub-page, opened from the Display submenu's Resolution row.
@@ -557,6 +619,22 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_DISPLAY));
+        break;
+
+    case MENU_ID_DISPLAY_GRAPHICS:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_GRAPHICS));
+        break;
+
+    case MENU_ID_DISPLAY_IMAGE:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_IMAGE));
+        break;
+
+    case MENU_ID_DISPLAY_VR:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_VR));
+        break;
+
+    case MENU_ID_DISPLAY_WINDOW:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_WINDOW));
         break;
 
     case MENU_ID_CHEATS:
@@ -3401,6 +3479,8 @@ void Display_MainCapture(const char *path) {
     HQ_StopSample();
     InitPlasmaMenu();
 
+    BuildDisplayMenuEntries();
+
     CopyScreen(Screen, Log);
     BoxStaticFullflip();
     PtrPal = PtrPalNormal;
@@ -3526,9 +3606,212 @@ static S32 GereResolutionMenu(void) {
     return FALSE;
 }
 
-// Display submenu: a self-contained submenu of OptionsMenu. The "Resolution:
-// <current>" row opens GereResolutionMenu; Renderer and Filter are GL-only
-// toggles; Vsync and Fullscreen are toggles.
+// Restore the menu backdrop after a child page has drawn over it. Screen holds
+// the clean scene/menu image (DrawOneChoice only modifies Log), so copying it
+// back and re-applying the shade leaves the parent page clean.
+static void DisplayMenuResetBackdrop(void) {
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
+
+    if (FlagShadeMenu) {
+        ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
+    }
+}
+
+// Apply a leaf display setting. The parent page and the Graphics/Image/VR/
+// Window child pages share this; Back, Resolution, and the child-page entry
+// rows are handled by their callers.
+static void DisplayMenuApplyChoice(S32 select) {
+    switch (select) {
+    case MENU_ID_DISPLAY_FULLSCREEN:
+        DisplayFullScreen ^= 1;
+        SetWindowFullscreen(DisplayFullScreen != FALSE);
+        break;
+
+    case MENU_ID_DISPLAY_VSYNC:
+        DisplayVSync ^= 1;
+        Window_SetVSync(DisplayVSync);
+        break;
+
+#ifdef USE_GPURENDERER
+    case MENU_ID_DISPLAY_RENDERER: {
+        /* Tear down current renderer, recreate window for the other
+           backend, initialize new renderer, rebuild the scene backdrop.
+           Same pattern as ApplyResolutionChoice but dimensions stay
+           the same — only the rendering backend changes. */
+        const bool wasGL = GPURendererActive != FALSE;
+        const bool wantGL = !wasGL;
+
+        if (wantGL) {
+            /* SW → GL: destroy SDL_Renderer window, create GL window */
+            GL_Renderer_Shutdown();
+            if (!Window_RecreateWindowForGL(ModeDesiredX, ModeDesiredY,
+                                            DisplayFullScreen != FALSE)) {
+                /* Window recreation failed — leave everything as-is. */
+                break;
+            }
+            if (!GL_Renderer_Init(ModeDesiredX, ModeDesiredY)) {
+                /* GL init failed — fall back to SW. */
+                GL_Renderer_Shutdown();
+                Window_RecreateWindowForSW(ModeDesiredX, ModeDesiredY,
+                                           DisplayFullScreen != FALSE);
+                break;
+            }
+            GPURendererActive = TRUE;
+        } else {
+            /* GL → SW: shut down GL, recreate SDL_Renderer window */
+            GL_Renderer_Shutdown();
+            if (!Window_RecreateWindowForSW(ModeDesiredX, ModeDesiredY,
+                                            DisplayFullScreen != FALSE)) {
+                /* Window recreation failed — we have no renderer. Try
+                   to re-init GL as a last resort. */
+                if (Window_RecreateWindowForGL(ModeDesiredX, ModeDesiredY,
+                                               DisplayFullScreen != FALSE)) {
+                    GL_Renderer_Init(ModeDesiredX, ModeDesiredY);
+                }
+                break;
+            }
+            GPURendererActive = FALSE;
+        }
+
+        /* Rebuild the scene backdrop the same way ApplyResolutionChoice
+           does — the scene needs a full redraw after the window swap. */
+        BoxReset();
+        BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
+        if (FlagShadeMenu) {
+            AffScene(AFF_ALL_FLIP);
+        } else {
+            char tmpFilePathScreen[ADELINE_MAX_PATH];
+            GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+            Image_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
+            CopyScreen(Screen, Log);
+        }
+        BackupScreen(TRUE);
+        InitPlasmaMenu();
+        if (FlagShadeMenu) {
+            ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1,
+                        (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
+        }
+        BoxStaticFullflip();
+        PresentCurrentFrame();
+        WriteConfigFile();
+        break;
+    }
+
+    case MENU_ID_DISPLAY_TEXFILTER:
+        /* 0 = Nearest, 1 = Bilinear, 2 = Scale2x (2D overlay in GL mode;
+         * the 3D atlas samples bilinear for any non-zero value). */
+        DisplayTexFilter = (DisplayTexFilter + 1) % 3;
+        WriteConfigFile();
+        break;
+
+    case MENU_ID_DISPLAY_ANTIALIAS: {
+        /* 0 = Off, 1 = FXAA, 2 = MSAA×2, 3 = MSAA×4 (desktop), 4 = SMAA
+         * (4xMSAA is desktop-only: it stalls mobile GPUs; SMAA is the
+         * mobile-friendly morphological option). */
+        static const S32 aaModes[] = {
+#ifdef __ANDROID__
+            0, 1, 2, 4
+#else
+            0, 1, 2, 3, 4
+#endif
+        };
+        const S32 aaCount = (S32)(sizeof(aaModes) / sizeof(aaModes[0]));
+        S32 idx = 0;
+        for (S32 i = 0; i < aaCount; i++) {
+            if (DisplayAntiAlias == aaModes[i])
+                idx = i;
+        }
+        DisplayAntiAlias = aaModes[(idx + 1) % aaCount];
+        GL_SetAntiAlias(DisplayAntiAlias);
+        WriteConfigFile();
+        break;
+    }
+
+    case MENU_ID_DISPLAY_STEREO3D:
+        DisplayStereo3D ^= 1;
+        OpenXR_SetStereoEnabled(DisplayStereo3D);
+        WriteConfigFile();
+        break;
+
+    case MENU_ID_DISPLAY_VRZOOM:
+        /* Percent of the eye's natural FOV the world spans; 120 is the
+         * widest the authored terrain grid and sky backdrop cover. */
+        VrFovScale += 10;
+        if (VrFovScale > 120)
+            VrFovScale = 50;
+        WriteConfigFile();
+        break;
+
+    case MENU_ID_DISPLAY_FOVEATION:
+        /* 0 = Off, 1 = Low, 2 = Medium, 3 = High (fixed foveation:
+         * peripheral rendering density on the Quest, see OPENXR.CPP). */
+        VrFoveation = (VrFoveation + 1) % 4;
+        OpenXR_SetFoveationLevel(VrFoveation);
+        WriteConfigFile();
+        break;
+
+    case MENU_ID_DISPLAY_QUALITY:
+        if (RenderQuality < 4)
+            RenderQuality *= 2;
+        else
+            RenderQuality = 1;
+        GL_SetRenderQuality(RenderQuality);
+        WriteConfigFile();
+        break;
+#endif
+
+    default:
+        break;
+    }
+}
+
+// Drive one of the Display child pages. The caller has already rebuilt the
+// child's rows. Reset the backdrop before the first draw (erasing the parent
+// page) and again after the last (erasing the child rows for the parent's
+// redraw).
+static void GereDisplaySubMenu(U16 *menu) {
+    DisplayMenuResetBackdrop();
+
+    for (;;) {
+        S32 select = DoGameMenu(menu);
+
+        if (select == 26 || select == 1000)
+            break;
+
+        DisplayMenuApplyChoice(select);
+    }
+
+    DisplayMenuResetBackdrop();
+    WaitNoInput();
+}
+
+#ifdef USE_GPURENDERER
+static void GereDisplayGraphicsMenu(void) {
+    BuildDisplayGraphicsMenu();
+    GereDisplaySubMenu(DisplayGraphicsMenu);
+}
+
+static void GereDisplayImageMenu(void) {
+    BuildDisplayImageMenu();
+    GereDisplaySubMenu(DisplayImageMenu);
+}
+
+static void GereDisplayVrMenu(void) {
+    BuildDisplayVrMenu();
+    GereDisplaySubMenu(DisplayVrMenu);
+}
+#endif
+
+static void GereDisplayWindowMenu(void) {
+    BuildDisplayWindowMenu();
+    GereDisplaySubMenu(DisplayWindowMenu);
+}
+
+// Display submenu: the small top-level page of display settings. Resolution
+// opens its generated list; Graphics, Image, VR (OpenXR only), and Window open
+// fixed child pages. Keeping the groups separate stops the list outgrowing the
+// 480px framebuffer.
 S32 GereDisplayMenu(void) {
     S32 select;
     S32 flag = 0;
@@ -3541,17 +3824,11 @@ S32 GereDisplayMenu(void) {
 
     /* Rows are rebuilt by BuildDisplayMenuEntries so the count always
        matches the (type, id) pairs actually written: Back + Resolution
-       + [Renderer + TexFilter + Stereo + Quality if GPURENDERER, with
-       Stereo only while an immersive OpenXR session is active] + Vsync
-       + [Fullscreen if windowed mode supported]. */
+       + [Graphics + Image if GPURENDERER] + [VR if an immersive OpenXR
+       session is active] + Window. */
     BuildDisplayMenuEntries();
 
-    CopyScreen(Screen, Log);
-    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
-
-    if (FlagShadeMenu) {
-        ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
-    }
+    DisplayMenuResetBackdrop();
 
     while (!flag) {
         select = DoGameMenu(DisplayMenu);
@@ -3565,145 +3842,30 @@ S32 GereDisplayMenu(void) {
         case MENU_ID_RESOLUTION:
             // Open the resolution list sub-page.
             GereResolutionMenu();
-            break;
-
-        case MENU_ID_DISPLAY_FULLSCREEN:
-            DisplayFullScreen ^= 1;
-            SetWindowFullscreen(DisplayFullScreen != FALSE);
-            break;
-
-        case MENU_ID_DISPLAY_VSYNC:
-            DisplayVSync ^= 1;
-            Window_SetVSync(DisplayVSync);
+            DisplayMenuResetBackdrop();
             break;
 
 #ifdef USE_GPURENDERER
-        case MENU_ID_DISPLAY_RENDERER: {
-            /* Tear down current renderer, recreate window for the other
-               backend, initialize new renderer, rebuild the scene backdrop.
-               Same pattern as ApplyResolutionChoice but dimensions stay
-               the same — only the rendering backend changes. */
-            const bool wasGL = GPURendererActive != FALSE;
-            const bool wantGL = !wasGL;
-
-            if (wantGL) {
-                /* SW → GL: destroy SDL_Renderer window, create GL window */
-                GL_Renderer_Shutdown();
-                if (!Window_RecreateWindowForGL(ModeDesiredX, ModeDesiredY,
-                                                DisplayFullScreen != FALSE)) {
-                    /* Window recreation failed — leave everything as-is. */
-                    break;
-                }
-                if (!GL_Renderer_Init(ModeDesiredX, ModeDesiredY)) {
-                    /* GL init failed — fall back to SW. */
-                    GL_Renderer_Shutdown();
-                    Window_RecreateWindowForSW(ModeDesiredX, ModeDesiredY,
-                                               DisplayFullScreen != FALSE);
-                    break;
-                }
-                GPURendererActive = TRUE;
-            } else {
-                /* GL → SW: shut down GL, recreate SDL_Renderer window */
-                GL_Renderer_Shutdown();
-                if (!Window_RecreateWindowForSW(ModeDesiredX, ModeDesiredY,
-                                                DisplayFullScreen != FALSE)) {
-                    /* Window recreation failed — we have no renderer. Try
-                       to re-init GL as a last resort. */
-                    if (Window_RecreateWindowForGL(ModeDesiredX, ModeDesiredY,
-                                                   DisplayFullScreen != FALSE)) {
-                        GL_Renderer_Init(ModeDesiredX, ModeDesiredY);
-                    }
-                    break;
-                }
-                GPURendererActive = FALSE;
-            }
-
-            /* Rebuild the scene backdrop the same way ApplyResolutionChoice
-               does — the scene needs a full redraw after the window swap. */
-            BoxReset();
-            BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
-            if (FlagShadeMenu) {
-                AffScene(AFF_ALL_FLIP);
-            } else {
-                char tmpFilePathScreen[ADELINE_MAX_PATH];
-                GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-                Image_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
-                CopyScreen(Screen, Log);
-            }
-            BackupScreen(TRUE);
-            InitPlasmaMenu();
-            if (FlagShadeMenu) {
-                ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1,
-                            (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
-            }
-            BoxStaticFullflip();
-            PresentCurrentFrame();
-            WriteConfigFile();
-            break;
-        }
-
-        case MENU_ID_DISPLAY_TEXFILTER:
-            /* 0 = Nearest, 1 = Bilinear, 2 = Scale2x (2D overlay in GL mode;
-             * the 3D atlas samples bilinear for any non-zero value). */
-            DisplayTexFilter = (DisplayTexFilter + 1) % 3;
-            WriteConfigFile();
+        case MENU_ID_DISPLAY_GRAPHICS:
+            GereDisplayGraphicsMenu();
             break;
 
-        case MENU_ID_DISPLAY_ANTIALIAS: {
-            /* 0 = Off, 1 = FXAA, 2 = MSAA×2, 3 = MSAA×4 (desktop), 4 = SMAA
-             * (4xMSAA is desktop-only: it stalls mobile GPUs; SMAA is the
-             * mobile-friendly morphological option). */
-            static const S32 aaModes[] = {
-#ifdef __ANDROID__
-                0, 1, 2, 4
-#else
-                0, 1, 2, 3, 4
-#endif
-            };
-            const S32 aaCount = (S32)(sizeof(aaModes) / sizeof(aaModes[0]));
-            S32 idx = 0;
-            for (S32 i = 0; i < aaCount; i++) {
-                if (DisplayAntiAlias == aaModes[i])
-                    idx = i;
-            }
-            DisplayAntiAlias = aaModes[(idx + 1) % aaCount];
-            GL_SetAntiAlias(DisplayAntiAlias);
-            WriteConfigFile();
-            break;
-        }
-
-        case MENU_ID_DISPLAY_STEREO3D:
-            DisplayStereo3D ^= 1;
-            OpenXR_SetStereoEnabled(DisplayStereo3D);
-            WriteConfigFile();
+        case MENU_ID_DISPLAY_IMAGE:
+            GereDisplayImageMenu();
             break;
 
-        case MENU_ID_DISPLAY_VRZOOM:
-            /* Percent of the eye's natural FOV the world spans; 120 is the
-             * widest the authored terrain grid and sky backdrop cover. */
-            VrFovScale += 10;
-            if (VrFovScale > 120)
-                VrFovScale = 50;
-            WriteConfigFile();
-            break;
-
-        case MENU_ID_DISPLAY_FOVEATION:
-            /* 0 = Off, 1 = Low, 2 = Medium, 3 = High (fixed foveation:
-             * peripheral rendering density on the Quest, see OPENXR.CPP). */
-            VrFoveation = (VrFoveation + 1) % 4;
-            OpenXR_SetFoveationLevel(VrFoveation);
-            WriteConfigFile();
-            break;
-
-        case MENU_ID_DISPLAY_QUALITY:
-            if (RenderQuality < 4)
-                RenderQuality *= 2;
-            else
-                RenderQuality = 1;
-            GL_SetRenderQuality(RenderQuality);
-            WriteConfigFile();
+        case MENU_ID_DISPLAY_VR:
+            GereDisplayVrMenu();
             break;
 #endif
+
+        case MENU_ID_DISPLAY_WINDOW:
+            GereDisplayWindowMenu();
+            break;
+
+        default:
+            DisplayMenuApplyChoice(select);
+            break;
         }
     }
 
@@ -3714,8 +3876,7 @@ S32 GereDisplayMenu(void) {
         WriteConfigFile();
     }
 
-    CopyScreen(Screen, Log);
-    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+    DisplayMenuResetBackdrop();
 
     WaitNoInput();
 
