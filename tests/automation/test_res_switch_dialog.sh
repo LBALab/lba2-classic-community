@@ -3,6 +3,8 @@
 # `resolution` console verb (per docs/RUNTIME_RESOLUTION.md). Verifies the
 # 15 s timeout path — without any Y/N input the dialog must time out and
 # fire the orchestrator a second time to restore the previous resolution.
+# Confirming with D-pad Down held must not activate jetpack on return or
+# charge the direction-release wait to gameplay time.
 #
 # Under --fixed-dt the dialog's TimerRefHR-based countdown is pumped by
 # Timer_FixedDtPump() once per modal iteration, so the 15 s timeout maps
@@ -14,7 +16,8 @@ need_save
 
 out="$(mktemp)"
 json="$(mktemp)"
-trap 'rm -f "$out" "$json"' EXIT
+navuser="$(mktemp -d)"
+trap 'rm -f "$out" "$json"; rm -rf "$navuser"' EXIT
 
 # Switch to 768x480 via console; no input means the dialog times out and
 # reverts to 640x480. Dump final state so we can confirm the resolution
@@ -38,4 +41,30 @@ rh=$(jget "$json" "d['scene']['render_h']")
 [ "$rw" = "640" ] && [ "$rh" = "480" ] \
     || fail "auto-revert did not restore 640x480 (final ${rw}x${rh})"
 
-pass "forward switch -> 15s timeout -> auto-revert chain works end-to-end"
+# Pin the spell binding rather than inheriting the retail install's config.
+printf 'WinMode: 1\nGamepad33: 1036\nGamepad33_2: 0\n' > "$navuser/lba2.cfg"
+for arm in control held; do
+    keys="key 28 3 100" # Y: keep without a navigation gesture.
+    if [ "$arm" = held ]; then
+        # D-pad Down selects Keep and remains held while Enter confirms.
+        keys="key 1036 200 60; key enter 3 100"
+    fi
+    ctl_headless --user-dir "$navuser" --load "$LBA2_TEST_SAVE" \
+        --exec-at 10 "vargame 12 1; behaviour 0; $keys; resolution 768x480" \
+        --fixed-dt 16 --tick 16 --dump-state "$json" --exit >"$out" 2>&1 \
+        || fail "$arm: direction-release run hung or crashed"
+    grep -q "Res_Switch: revert dialog -> KEEP" "$out" \
+        || fail "$arm: confirmation did not keep the new resolution"
+    behaviour=$(jget "$json" "d['hero']['behaviour']")
+    [ "$behaviour" = "0" ] \
+        || fail "$arm: dialog navigation activated the jetpack (behaviour=$behaviour)"
+    if [ "$arm" = control ]; then
+        control_time=$(jget "$json" "d['timer_ref_hr']")
+    else
+        held_time=$(jget "$json" "d['timer_ref_hr']")
+        [ "$held_time" = "$control_time" ] \
+            || fail "navigation release advanced gameplay time ($control_time -> $held_time)"
+    fi
+done
+
+pass "timeout reverts; confirmation drains navigation without activating jetpack or advancing gameplay time"

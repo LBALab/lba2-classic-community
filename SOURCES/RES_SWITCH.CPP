@@ -781,6 +781,7 @@ ResRevertChoice Res_RunRevertDialogIfPending(void) {
        rendering picks up from a known-good frame on the next tick. */
     RestoreScreen();
     RestoreCamera();
+    WaitNoMenuInput();
     RestoreTimer();
 
     if (choice == RES_REVERT_KEEP) {

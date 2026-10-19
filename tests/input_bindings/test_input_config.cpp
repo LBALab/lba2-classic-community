@@ -38,7 +38,8 @@
 
 #include <SYSTEM/ADELINE_TYPES.H>
 #include <SYSTEM/DEFFILE.H>
-#include <SYSTEM/INPUT.H>         // Input, GetInput, ClearNoRepeatInput
+#include <SYSTEM/INPUT.H> // Input, GetInput, ClearNoRepeatInput
+#include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H> // K_*
 #include <SYSTEM/TIMER.H>
 
@@ -572,9 +573,10 @@ void AdvanceReleasePoll(void) {
 }
 
 void CheckPausedMenuRelease(void) {
-    const U32 directions[] = {K_UP, K_GAMEPAD_LSTICK_UP, K_GAMEPAD_DPAD_UP};
+    const U32 directions[] = {K_UP, K_GAMEPAD_LSTICK_UP, K_GAMEPAD_DPAD_UP,
+                              K_GAMEPAD_DPAD_DOWN, K_GAMEPAD_DPAD_LEFT, K_GAMEPAD_DPAD_RIGHT};
     for (int nested = 0; nested < 2; ++nested) {
-        for (int direction = 0; direction < 3; ++direction) {
+        for (unsigned direction = 0; direction < sizeof(directions) / sizeof(directions[0]); ++direction) {
             ResetMenuInput();
             Timer_EnableFixedDt(16);
             Timer_FixedDtAdvance();
@@ -598,6 +600,7 @@ void CheckPausedMenuRelease(void) {
             CHECK(releasePolls == 3, "UI release wait must ignore held RT");
             CHECK(Input & I_UP, "RT remains held after UI release");
             CHECK(!MenuInput_Held(), "UI direction is released before returning");
+            CHECK(!CheckKey(releaseDirection), "UI direction cannot reach raw gameplay spell checks");
         }
     }
     HoldNone();

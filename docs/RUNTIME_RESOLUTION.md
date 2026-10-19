@@ -132,7 +132,8 @@ Modern OSes give you ~15s to confirm a display change. Without it, picking 1920Ã
 
 - Renders at the **new** resolution (so we know the new mode is at least drawing something).
 - 15-second countdown; default action is revert.
-- Any input that isn't Y/Enter reverts.
+- Fixed UI Up/Down selects Revert or Keep; Enter/Space or the gameplay action confirms focus. Esc, the menu/back action or N reverts; Y/O/J/S keeps regardless of focus.
+- `Res_RunRevertDialogIfPending` drains held UI directions before restoring gameplay time, so a D-pad gesture cannot activate a gameplay spell on return.
 - Revert path reuses the same `Res_Switch()` orchestrator with the previous (W, H) values.
 
 If the new mode failed to allocate (out of memory) or SDL refused to create the texture, the switch is aborted before the dialog ever appears â€” the old resolution is restored and an error is logged.

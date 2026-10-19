@@ -90,7 +90,7 @@ suite still passes, since CI cannot say so.
 | [test_res_switch.sh](test_res_switch.sh) | Runtime resolution switch: load a save, fire Res_Switch mid-session via the `--res-switch-test WxH@TICK` harness flag, run more ticks, dump state. | save fixture |
 | [test_res_switch_cfg.sh](test_res_switch_cfg.sh) | Persistence: lba2.cfg's ResolutionX / ResolutionY are read at boot. | save fixture |
 | [test_res_switch_console.sh](test_res_switch_console.sh) | Console verb `resolution`: drive Res_Switch through the user-facing path. | save fixture |
-| [test_res_switch_dialog.sh](test_res_switch_dialog.sh) | Revert dialog: the keep/revert modal that appears after every successful `resolution` console verb (per docs/RUNTIME_RESOLUTION.md). | save fixture |
+| [test_res_switch_dialog.sh](test_res_switch_dialog.sh) | Resolution confirmation: timeout reverts; a held D-pad direction is drained before gameplay without activating jetpack or advancing game time. | save fixture |
 | [test_ring_off_is_gone.sh](test_ring_off_is_gone.sh) | With the Auto camera off, none of its settings changes anything: the game, the camera or the picture. | - |
 | [test_ring_watch_not_play.sh](test_ring_watch_not_play.sh) | With the Auto camera on, flipping any of its settings changes how a run is seen, never what happens in it. | - |
 | [test_screenshot.sh](test_screenshot.sh) | --screenshot: writes a real PNG of the rendered frame. | save fixture |
