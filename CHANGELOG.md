@@ -63,7 +63,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   leaves Twinsen stuck afterwards. With the key still held, Forward did not
   move him and Left or Right turned him at half speed until every direction
   was let go. The 1997 code has the same slip, so this is a retail fix, and
-  Fix retail bugs (below) switches it off
+  Fix retail bugs (above) switches it off
   ([#747](https://github.com/LBALab/lba2-classic-community/issues/747)).
 - On the Game Controller screen, Left, Right and Tab on the keyboard switch
   between the two binding columns, as they do on the keyboard screen. The
