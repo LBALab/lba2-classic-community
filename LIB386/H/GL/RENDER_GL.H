@@ -95,20 +95,24 @@ void GL_SnapshotTerrain(void);
 void GL_RestoreTerrainSnapshot(void);
 
 //! Stereo horizon share: capture the FBO after the current cube's horizon
-//! (DrawHorizon2ZBuf) in eye 0, then blit it in eye 1 instead of re-running
-//! the pass — the backdrop's stereo disparity is sub-pixel.  The capture
-//! clears at GL_BeginFrame, so frames that never captured (menus, mono)
-//! draw the horizon normally.  When @p backdropStable is true (no missing
-//! cube placeholders) and the camera pose is unchanged since the previous
-//! capture, the previous capture is reused as-is.
+//! (DrawHorizon2ZBuf) in eye 0, then restore it in eye 1 instead of
+//! re-running the pass — the backdrop's stereo disparity is sub-pixel.  The
+//! capture is bounded to the horizon's tracked footprint plus a small margin;
+//! a missing-cube placeholder captures the full surface.  When @p
+//! backdropStable is true and the camera pose is unchanged since the previous
+//! capture, the previous capture is reused as-is.  The capture clears at
+//! GL_BeginFrame, so frames that never captured (menus, mono) draw the
+//! horizon normally.
 void GL_CaptureHorizon(S32 backdropStable);
 void GL_RestoreHorizon(void);
 S32 GL_HorizonValid(void);
 
 //! Latest horizon-capture split, for the GrillePerf diagnostic: @p resolveUs
 //! and @p blitUs are the resolve and blit cost in microseconds, @p rectPct is
-//! the measured horizon footprint in the FBO (percent of the surface).  All
-//! three are zero when the last capture was a prefix-pose cache hit.
+//! the captured region in the FBO (percent of the surface).  With explicit
+//! MSAA the resolve happens inside the blit, so @p resolveUs is zero and
+//! @p blitUs includes it; resolve-in-tile reports its invalidate separately.
+//! All three are zero when the last capture was a prefix-pose cache hit.
 void GL_GetHorizonPerf(U32 *resolveUs, U32 *blitUs, U32 *rectPct);
 
 //! Draw the projected ground-shadow polygon directly into the FBO (GL

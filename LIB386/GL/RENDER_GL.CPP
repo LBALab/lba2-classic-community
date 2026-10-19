@@ -4090,7 +4090,7 @@ void GL_RestoreTerrainSnapshot(void) {
    but its stereo disparity is sub-pixel: the backdrop sits a cube or more
    away (>= 32k units) and the eye separation is ~30 units, which projects
    to ~0.5 px at that depth.  Eye 0 captures the horizon after drawing it;
-   eye 1 blits the capture instead of re-projecting ~34k grid vertices
+   eye 1 restores the capture instead of re-projecting ~34k grid vertices
    (the measured 4 ms).  The capture is valid within one frame only:
    GL_BeginFrame clears it, so menu/mono frames (no eye 0 capture) draw
    the horizon normally. */
@@ -4111,34 +4111,57 @@ static S32 s_hznCapX = 0, s_hznCapY = 0, s_hznCapZ = 0;
 static S32 s_hznCapAlpha = 0, s_hznCapBeta = 0, s_hznCapGamma = 0;
 static U32 s_hznCapW = 0, s_hznCapH = 0;
 
+/* Capture region in FBO pixels, GL bottom-left origin.  Eye 1 restores
+   exactly this rect; a two-screen-pixel margin covers the sub-pixel stereo
+   disparity at the backdrop's depth. */
+static S32 s_hznCapRectX0 = 0, s_hznCapRectY0 = 0;
+static S32 s_hznCapRectX1 = 0, s_hznCapRectY1 = 0;
+static S32 s_hznCapRectValid = 0;
+
 /* Latest capture cost split and footprint, read by GL_GetHorizonPerf for
    the GrillePerf diagnostic.  Zeroed on a cache-hit capture. */
 static U64 s_hznPerfResolveTicks = 0;
 static U64 s_hznPerfBlitTicks = 0;
 static U32 s_hznPerfRectPct = 0;
 
-/* Footprint of everything drawn since GL_ClearFBO (screen-space dirty rect
-   scaled to FBO pixels), as a percentage of the FBO surface.  Measured at
-   the capture point, where the FBO holds the horizon pass alone. */
-static U32 GL_HorizonCapturePct(void) {
+/* Convert the tracked draw region (screen coords, top-left origin) to a
+   clamped FBO rect.  Every draw in the horizon pass registers its screen
+   footprint (batch polygons and sprite quads alike), so the rect bounds
+   the backdrop exactly.  Returns FALSE when nothing was drawn. */
+static S32 GL_HorizonDirtyRect(S32 *rx0, S32 *ry0, S32 *rx1, S32 *ry1) {
     S32 qx0, qy0, qx1, qy1;
-    U64 area, total;
+    const S32 margin = 2 * (S32)s_renderQuality;
 
-    if (!s_fboDirtyActive || s_fboDirtyX1 < s_fboDirtyX0) {
-        return 0;
+    if (!s_fboDirtyActive || s_fboDirtyX1 < s_fboDirtyX0 ||
+        s_fboWidth == 0 || s_fboHeight == 0) {
+        return FALSE;
     }
-    qx0 = s_fboDirtyX0 * (S32)s_renderQuality;
-    qy0 = s_fboDirtyY0 * (S32)s_renderQuality;
-    qx1 = (s_fboDirtyX1 + 1) * (S32)s_renderQuality;
-    qy1 = (s_fboDirtyY1 + 1) * (S32)s_renderQuality;
+    qx0 = s_fboDirtyX0 * (S32)s_renderQuality - margin;
+    qy0 = s_fboDirtyY0 * (S32)s_renderQuality - margin;
+    qx1 = (s_fboDirtyX1 + 1) * (S32)s_renderQuality + margin;
+    qy1 = (s_fboDirtyY1 + 1) * (S32)s_renderQuality + margin;
     if (qx0 < 0) qx0 = 0;
     if (qy0 < 0) qy0 = 0;
     if (qx1 > (S32)s_fboWidth) qx1 = (S32)s_fboWidth;
     if (qy1 > (S32)s_fboHeight) qy1 = (S32)s_fboHeight;
-    if (qx1 <= qx0 || qy1 <= qy0 || s_fboWidth == 0 || s_fboHeight == 0) {
+    if (qx1 <= qx0 || qy1 <= qy0) {
+        return FALSE;
+    }
+    /* Screen-space Y grows downward, GL blit/quad space grows upward. */
+    *rx0 = qx0;
+    *ry0 = (S32)s_fboHeight - qy1;
+    *rx1 = qx1;
+    *ry1 = (S32)s_fboHeight - qy0;
+    return TRUE;
+}
+
+static U32 GL_HorizonRectPct(S32 x0, S32 y0, S32 x1, S32 y1) {
+    U64 area, total;
+
+    if (x1 <= x0 || y1 <= y0 || s_fboWidth == 0 || s_fboHeight == 0) {
         return 0;
     }
-    area = (U64)(qx1 - qx0) * (U64)(qy1 - qy0);
+    area = (U64)(x1 - x0) * (U64)(y1 - y0);
     total = (U64)s_fboWidth * (U64)s_fboHeight;
     return (U32)(area * 100 / total);
 }
@@ -4166,7 +4189,7 @@ void GL_CaptureHorizon(S32 backdropStable) {
     }
     GL_FlushBatch();
 
-    if (s_hznCapValid && backdropStable &&
+    if (s_hznCapValid && s_hznCapRectValid && backdropStable &&
         s_hznCapW == s_fboWidth && s_hznCapH == s_fboHeight &&
         s_hznCapX == CameraX && s_hznCapY == CameraY && s_hznCapZ == CameraZ &&
         s_hznCapAlpha == CameraAlpha && s_hznCapBeta == CameraBeta &&
@@ -4180,7 +4203,27 @@ void GL_CaptureHorizon(S32 backdropStable) {
         s_horizonValid = 1;
         return;
     }
-    s_hznCapValid = 1;
+
+    /* Capture the horizon's own footprint in the steady state.  A missing
+       cube sea placeholder can cover the whole frame, so those transition
+       frames keep the full-surface path.  An empty footprint means the
+       horizon drew nothing: eye 1 then draws its (equally empty) horizon
+       itself instead of restoring a stale capture. */
+    S32 rx0 = 0, ry0 = 0;
+    S32 rx1 = (S32)s_fboWidth, ry1 = (S32)s_fboHeight;
+    if (backdropStable && !GL_HorizonDirtyRect(&rx0, &ry0, &rx1, &ry1)) {
+        s_hznCapValid = 0;
+        s_hznCapRectValid = 0;
+        s_horizonValid = 0;
+        s_hznPerfResolveTicks = 0;
+        s_hznPerfBlitTicks = 0;
+        s_hznPerfRectPct = 0;
+        return;
+    }
+
+    /* A placeholder capture must not seed the pose cache: when the cube
+       streams in, the same pose has to recapture real terrain. */
+    s_hznCapValid = backdropStable ? 1 : 0;
     s_hznCapX = CameraX;
     s_hznCapY = CameraY;
     s_hznCapZ = CameraZ;
@@ -4189,21 +4232,12 @@ void GL_CaptureHorizon(S32 backdropStable) {
     s_hznCapGamma = CameraGamma;
     s_hznCapW = s_fboWidth;
     s_hznCapH = s_fboHeight;
-
-    s_hznPerfRectPct = GL_HorizonCapturePct();
-
-    /* The MSAA restore path (GL_RestoreHorizon) redraws the backdrop as a
-       color-only quad and never reads the horizon FBO's depth, so under
-       MSAA only color is captured — and only the color half needs
-       resolving.  The depth copy matters solely for the non-MSAA restore,
-       which cannot run while MSAA is on. */
-    {
-        U64 resolveT0 = SDL_GetPerformanceCounter();
-        if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3)) {
-            GL_ResolveMSAAColor();
-        }
-        s_hznPerfResolveTicks = SDL_GetPerformanceCounter() - resolveT0;
-    }
+    s_hznCapRectX0 = rx0;
+    s_hznCapRectY0 = ry0;
+    s_hznCapRectX1 = rx1;
+    s_hznCapRectY1 = ry1;
+    s_hznCapRectValid = 1;
+    s_hznPerfRectPct = GL_HorizonRectPct(rx0, ry0, rx1, ry1);
 
     const U32 w = s_fboWidth;
     const U32 h = s_fboHeight;
@@ -4216,8 +4250,11 @@ void GL_CaptureHorizon(S32 backdropStable) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_UPLOAD_FORMAT, w, h, 0,
-                     GL_UPLOAD_FORMAT, GL_UNSIGNED_BYTE, NULL);
+        /* GL_RGBA internally, not GL_UPLOAD_FORMAT: this is a blit
+           destination, and matching the RGBA8 scene target keeps the
+           resolve blit format-compatible on every driver. */
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, NULL);
         if (s_horizonFbo == 0) {
             glGenFramebuffers(1, &s_horizonFbo);
         }
@@ -4238,16 +4275,29 @@ void GL_CaptureHorizon(S32 backdropStable) {
 
     /* Color + depth: the current-cube terrain drawn after the restore must
        depth-test against the backdrop exactly as if it had drawn it.
-       Under MSAA the restore reads only color (see above), so the blit
-       drops the depth half. */
+       Under MSAA the restore reads only color (see below), so the blit
+       drops the depth half.  With explicit MSAA the color read comes
+       straight from the multisampled FBO, so the blit resolves just this
+       rect instead of resolving the whole surface into s_fbo first.  The
+       resolve-in-tile path has to invalidate for its tile resolve; after
+       that s_fbo holds the color texture and is the blit source. */
     {
+        const S32 msaaActive =
+            (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3)) ? 1 : 0;
+        U64 resolveT0 = SDL_GetPerformanceCounter();
+        if (msaaActive && s_msaaInTile) {
+            GL_InvalidateMSAA();
+        }
+        s_hznPerfResolveTicks = SDL_GetPerformanceCounter() - resolveT0;
+
         U64 blitT0 = SDL_GetPerformanceCounter();
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, s_fbo);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER,
+                          (msaaActive && !s_msaaInTile) ? s_msaaFbo : s_fbo);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_horizonFbo);
-        glBlitFramebuffer(0, 0, w, h, 0, 0, w, h,
-                          (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3))
-                              ? GL_COLOR_BUFFER_BIT
-                              : (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT),
+        glBlitFramebuffer(rx0, ry0, rx1, ry1, rx0, ry0, rx1, ry1,
+                          msaaActive ? GL_COLOR_BUFFER_BIT
+                                     : (GL_COLOR_BUFFER_BIT |
+                                        GL_DEPTH_BUFFER_BIT),
                           GL_NEAREST);
         /* Mid-frame invariant: keep drawing into the scene FBO. */
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
@@ -4257,11 +4307,16 @@ void GL_CaptureHorizon(S32 backdropStable) {
 }
 
 void GL_RestoreHorizon(void) {
-    
-    if (!s_initialized || !s_fbo || !s_horizonValid || s_horizonFbo == 0) {
+    if (!s_initialized || !s_fbo || !s_horizonValid || !s_hznCapRectValid ||
+        s_horizonFbo == 0 || s_horizonW == 0 || s_horizonH == 0) {
         return;
     }
     if (!Window_GLMakeCurrent()) {
+        return;
+    }
+    const S32 rx0 = s_hznCapRectX0, ry0 = s_hznCapRectY0;
+    const S32 rx1 = s_hznCapRectX1, ry1 = s_hznCapRectY1;
+    if (rx1 <= rx0 || ry1 <= ry0) {
         return;
     }
     if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3)) {
@@ -4271,11 +4326,19 @@ void GL_RestoreHorizon(void) {
            drawn after this and near-always passes; the per-pixel depth test
            against the backdrop matters only where near hills occlude it,
            which the terrain's own depth writes rebuild anyway. */
+        GLfloat fw = (GLfloat)s_fboWidth;
+        GLfloat fh = (GLfloat)s_fboHeight;
+        GLfloat tw = (GLfloat)s_horizonW;
+        GLfloat th = (GLfloat)s_horizonH;
         GLfloat rverts[4][4] = {
-            {-1.0f, -1.0f, 0.0f, 0.0f},
-            {1.0f, -1.0f, 1.0f, 0.0f},
-            {-1.0f, 1.0f, 0.0f, 1.0f},
-            {1.0f, 1.0f, 1.0f, 1.0f}};
+            {2.0f * (GLfloat)rx0 / fw - 1.0f, 2.0f * (GLfloat)ry0 / fh - 1.0f,
+             (GLfloat)rx0 / tw, (GLfloat)ry0 / th},
+            {2.0f * (GLfloat)rx1 / fw - 1.0f, 2.0f * (GLfloat)ry0 / fh - 1.0f,
+             (GLfloat)rx1 / tw, (GLfloat)ry0 / th},
+            {2.0f * (GLfloat)rx0 / fw - 1.0f, 2.0f * (GLfloat)ry1 / fh - 1.0f,
+             (GLfloat)rx0 / tw, (GLfloat)ry1 / th},
+            {2.0f * (GLfloat)rx1 / fw - 1.0f, 2.0f * (GLfloat)ry1 / fh - 1.0f,
+             (GLfloat)rx1 / tw, (GLfloat)ry1 / th}};
         glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
         glViewport(0, 0, s_fboWidth, s_fboHeight);
         glDisable(GL_DEPTH_TEST);
@@ -4303,8 +4366,7 @@ void GL_RestoreHorizon(void) {
     } else {
         glBindFramebuffer(GL_READ_FRAMEBUFFER, s_horizonFbo);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
-        glBlitFramebuffer(0, 0, s_horizonW, s_horizonH, 0, 0, s_horizonW,
-                          s_horizonH,
+        glBlitFramebuffer(rx0, ry0, rx1, ry1, rx0, ry0, rx1, ry1,
                           GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
                           GL_NEAREST);
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);

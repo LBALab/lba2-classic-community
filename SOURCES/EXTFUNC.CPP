@@ -405,7 +405,7 @@ void AffGrilleExt() {
 #ifdef USE_GPURENDERER
         /* Stereo: the neighbor-cube backdrop's disparity is sub-pixel (the
            backdrop sits >= 32k units away, the eye separation is ~30) —
-           eye 1 blits eye 0's capture instead of re-projecting ~34k grid
+           eye 1 restores eye 0's capture instead of re-projecting ~34k grid
            vertices.  DrawSkySeaZBuf below still runs per eye (the sky/sea
            quads are few and the fog colour differs with the shifted
            camera). */
