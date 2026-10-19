@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-89 fixtures.
+90 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -62,6 +62,7 @@ suite still passes, since CI cannot say so.
 | [test_followcam_scene_carry.sh](test_followcam_scene_carry.sh) | Arriving in an outdoor scene: with cam_scene_carry on, the Auto camera starts behind the hero with the pitch the player had, and with his pan unless he came out of a building. | - |
 | [test_followcam_tracking.sh](test_followcam_tracking.sh) | What the player asks the camera for is what the camera should do: hold the stick at a given orbit speed and, once the lerp has caught up, the camera turns at that speed. | - |
 | [test_followcam_world_anchor.sh](test_followcam_world_anchor.sh) | cam_world_anchor: the Auto camera holds a direction in the world instead of an offset from the hero's facing. | - |
+| [test_found_obj_held_walk.sh](test_found_obj_held_walk.sh) | A direction held through the found-object popup must still move the hero afterwards (#747). | - |
 | [test_getascii_text_input.sh](test_getascii_text_input.sh) | Typed characters come from the engine's polled sample, so an injected key reaches the screens that read them. | save fixture |
 | [test_icon_blend_camera.sh](test_icon_blend_camera.sh) | A 3D icon puts back the camera the frame was drawn with, so actors stay on the scenery on frames that run no simulation step. | - |
 | [test_input_combos.sh](test_input_combos.sh) | Contradictory input: what the engine does when two inputs ask for opposite things. | - |

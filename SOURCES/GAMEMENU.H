@@ -87,6 +87,8 @@ extern void Display_MainCapture(const char *path);
    Display submenu's Resolution row). Like Display_MainCapture but builds the
    runtime ResolutionMenu first, then drives DoGameMenu on it. */
 extern void Resolution_MainCapture(const char *path);
+/* Harness hook: capture the Advanced options page, as Display_MainCapture. */
+extern void Advanced_MainCapture(const char *path);
 /*--------------------------------------------------------------------------*/
 extern void VolumeOptions(void);
 /*--------------------------------------------------------------------------*/

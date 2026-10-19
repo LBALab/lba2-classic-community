@@ -8,6 +8,7 @@
 #include "JOYSTICK.H"
 #include "PERSO.H" /* WriteConfigFile (persist on resolution change) */
 #include "RES_MENU.H"
+#include "RETAILFIX.H"  /* the Fix retail bugs row */
 #include "RES_SWITCH.H" /* Res_Switch (apply on cycle) */
 #include "MENU_KEYNAV.H"
 #include "SAVENAME_VALIDATION.H"
@@ -93,6 +94,7 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY 2114
 #define MENU_ID_RESOLUTION 2115
 #define MENU_ID_DISPLAY_VSYNC 2116
+#define MENU_ID_RETAIL_FIXES 2117
 
 // Resolution sub-page rows occupy a reserved id range: row i carries id
 // MENU_ID_RESOLUTION_BASE + i, which BuildCustomMenuText and GereResolutionMenu
@@ -228,7 +230,7 @@ U16 LanguageMenu[] = {
 
 U16 AdvancedOptionMenu[] = {
     0,   // selected
-    7,   // nb entries
+    8,   // nb entries
     260, // y center
     0,   // .dia num
 
@@ -246,6 +248,8 @@ U16 AdvancedOptionMenu[] = {
     MENU_ID_VIDEO_SIZE,
     0,
     MENU_ID_DISPLAY_TEXT,
+    0,
+    MENU_ID_RETAIL_FIXES,
 };
 
 U16 SavedConfirmMenu[] = {
@@ -479,6 +483,13 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_TEXT:
         GetMultiText(16 + FlagDisplayText, string);
+        break;
+
+    case MENU_ID_RETAIL_FIXES:
+        CopyUtf8ToCp850(string, 256,
+                        GetLocalizedMenuLabel(RetailFixes == RETAIL_FIXES_NO       ? MENU_LABEL_RETAIL_FIXES_NO
+                                              : RetailFixes == RETAIL_FIXES_CUSTOM ? MENU_LABEL_RETAIL_FIXES_CUSTOM
+                                                                                   : MENU_LABEL_RETAIL_FIXES_YES));
         break;
 
     case MENU_ID_GENERAL_VOLUME:
@@ -3183,6 +3194,22 @@ void Display_MainCapture(const char *path) {
     Menu_RequestCapture(NULL); /* disarm if DoGameMenu somehow exited otherwise */
 }
 
+// Harness one-shot capture of the Advanced options page, the same way.
+void Advanced_MainCapture(const char *path) {
+    HQ_StopSample();
+    InitPlasmaMenu();
+
+    CopyScreen(Screen, Log);
+    BoxStaticFullflip();
+    PtrPal = PtrPalNormal;
+    PaletteSync(PtrPalNormal);
+    InitDial(0);
+
+    Menu_RequestCapture(path);
+    DoGameMenu(AdvancedOptionMenu);
+    Menu_RequestCapture(NULL);
+}
+
 // Harness one-shot capture of the resolution sub-page. Same shape as
 // Display_MainCapture but builds the runtime ResolutionMenu first (the page is
 // generated, not a static array), then drives DoGameMenu(ResolutionMenu) with
@@ -3388,6 +3415,10 @@ S32 GereAdvancedOptionsMenu(void) {
 
         case MENU_ID_VIDEO_SIZE:
             VideoFullScreen ^= 1;
+            break;
+
+        case MENU_ID_RETAIL_FIXES:
+            RetailFix_MenuSelect();
             break;
 
         case MENU_ID_DISPLAY_TEXT:

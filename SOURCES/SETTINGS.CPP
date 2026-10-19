@@ -65,6 +65,13 @@ typedef struct {
 static T_SETTING_BORROW s_borrowed[SETTINGS_BORROW_MAX];
 static S32 s_borrowedCount = 0;
 
+/* Set while a borrow or its return is telling a row's owner; see SETTINGS.H. */
+static S32 s_borrowing = 0;
+
+S32 Settings_Borrowing(void) {
+    return s_borrowing;
+}
+
 static T_SETTING_BORROW *find_borrow(const T_SETTING *s) {
     S32 i;
 
@@ -88,8 +95,11 @@ S32 Settings_Borrow(const T_SETTING *s, S32 value) {
     /* The source is left alone: it says where the player's value came from, and
        the player's value is the one the writer persists while this lasts. */
     *s->value = Settings_Coerce(s, value);
-    if (s->on_change != NULL)
+    if (s->on_change != NULL) {
+        s_borrowing = 1;
         s->on_change(*s->value);
+        s_borrowing = 0;
+    }
     return 1;
 }
 
@@ -97,8 +107,11 @@ void Settings_ReturnBorrowed(void) {
     while (s_borrowedCount > 0) {
         const T_SETTING_BORROW *b = &s_borrowed[--s_borrowedCount];
         *b->row->value = b->kept;
-        if (b->row->on_change != NULL)
+        if (b->row->on_change != NULL) {
+            s_borrowing = 1;
             b->row->on_change(b->kept);
+            s_borrowing = 0;
+        }
     }
 }
 

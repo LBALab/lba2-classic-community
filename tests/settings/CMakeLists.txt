@@ -40,3 +40,17 @@ set_target_properties(test_settings_borrow PROPERTIES CXX_STANDARD 11)
 
 add_test(NAME test_settings_borrow COMMAND test_settings_borrow)
 register_host_test(test_settings_borrow)
+
+# The retail-fix rows' arithmetic (SOURCES/RETAILFIX.H): the master row over each fix's
+# own, and the options menu's cycle. Header-only, like the coercion above.
+add_executable(test_retail_fix test_retail_fix.cpp)
+
+target_include_directories(test_retail_fix PRIVATE
+    ${CMAKE_SOURCE_DIR}/SOURCES
+    ${CMAKE_SOURCE_DIR}/LIB386/H
+    ${CMAKE_SOURCE_DIR}/tests
+)
+set_target_properties(test_retail_fix PROPERTIES CXX_STANDARD 11)
+
+add_test(NAME test_retail_fix COMMAND test_retail_fix)
+register_host_test(test_retail_fix)

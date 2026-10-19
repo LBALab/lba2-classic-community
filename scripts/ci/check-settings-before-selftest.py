@@ -65,9 +65,17 @@ CVAR_MACRO = HEAD + SAYS_BEFORE + row("CAM_NAME") + TAIL
 # `const` after the type name is the same table and must be read, not skipped.
 CONST_AFTER = CLEAN + "static T_SETTING const More[] = {\n" + LEAVES_OUT + TAIL
 
+# A retail fix's row must give a value; "none" would leave it on under retail rules.
+FIX_VALUE = CLEAN + "static const T_SETTING Fixes[] = {\n" + row('"fix_a"', ", SETTING_RECORDED, SETTING_BEFORE(0)") + TAIL
+FIX_NONE = CLEAN + "static const T_SETTING Fixes[] = {\n" + row('"fix_b"', ", SETTING_RECORDED, SETTING_BEFORE_NONE") + TAIL
+FIX_MISSING = CLEAN + "static const T_SETTING Fixes[] = {\n" + row('"fix_c"') + TAIL
+
 # name, source, camlib, expected exit, expected substring in combined output
 CASES = [
     ("rows that say a value or none pass", CLEAN, CAMLIB, 0, "clean (2 row(s)"),
+    ("a fix_ row with a value passes", FIX_VALUE, CAMLIB, 0, "and 1 named `fix_*`"),
+    ("a fix_ row saying none fails", FIX_NONE, CAMLIB, 1, "fix_b gives `SETTING_BEFORE_NONE`"),
+    ("a fix_ row leaving it out fails", FIX_MISSING, CAMLIB, 1, "fix_c leaves it out"),
     ("a cam_ row that leaves it out fails", MISSING, CAMLIB, 1, "cam_c leaves it out"),
     ("the failure names the file and line", MISSING, CAMLIB, 1, "SOURCES/T.CPP:5: cam_c"),
     ("a row the prefix does not name is not held to it", OTHER_PREFIX_MISSING, CAMLIB, 0, "clean (1 row(s)"),

@@ -47,8 +47,24 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   camera hid it until next time
   ([#356](https://github.com/LBALab/lba2-classic-community/issues/356)).
 
+### Gameplay
+
+- Options → Advanced options has a new row, **Fix retail bugs**. Some bugs
+  are in the original 1997 game, and fixing them changes how it plays. They
+  are fixed by default; choose No to play by the original's rules, including
+  for fixes added in later versions. Each fix also has its own setting in
+  `lba2.cfg` and the console (`fix_` followed by its name); changing one there
+  shows the row as Custom
+  ([#760](https://github.com/LBALab/lba2-classic-community/issues/760)).
+
 ### Input & controller
 
+- Holding a direction through the popup for a newly found item no longer
+  leaves Twinsen stuck afterwards. With the key still held, Forward did not
+  move him and Left or Right turned him at half speed until every direction
+  was let go. The 1997 code has the same slip, so this is a retail fix, and
+  Fix retail bugs (above) switches it off
+  ([#747](https://github.com/LBALab/lba2-classic-community/issues/747)).
 - On the Game Controller screen, Left, Right and Tab on the keyboard switch
   between the two binding columns, as they do on the keyboard screen. The
   second column could only be reached with the pad, so a pad that was not
@@ -66,7 +82,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Contributors
 
 Thanks to EPmager for reporting the black bricks, and for a screenshot from the
-current build that showed where to look.
+current build that showed where to look. Thanks to EPmager as well for
+reporting that a direction held through a found-item popup left Twinsen stuck
+([#747](https://github.com/LBALab/lba2-classic-community/issues/747)).
 
 ## [0.13.0] - 2026-10-18
 

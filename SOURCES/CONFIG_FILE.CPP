@@ -12,6 +12,7 @@
 #include "INPUT.H"           /* Read/WriteInputConfig, Read/WriteGamepadConfig */
 #include "JOYSTICK.H"        /* JoystickDeadzone */
 #include "RES_SWITCH.H"
+#include "RETAILFIX.H"         /* the retail fixes' settings */
 #include <PLATFORM/PLATFORM.H> /* PLATFORM_FILTER_*, and why a mode was refused */
 #include <POLYGON/POLYFILT.H>  /* PolyTexFilter / EnvTexFilter */
 #include <SVGA/SCREEN.H>
@@ -239,6 +240,8 @@ const T_SETTING *ConfigFile_SettingTable(S32 i, S32 *count) {
         return FollowCam_Settings(count);
     case 4:
         return Audio_Settings(count);
+    case 5:
+        return RetailFix_Settings(count);
     default:
         *count = 0;
         return NULL;
@@ -380,6 +383,7 @@ void ReadConfigFile(void) {
 
     Settings_ReadConfig(MouseSettings, MOUSE_SETTING_COUNT);
     FollowCam_ReadConfig();
+    RetailFix_ReadConfig();
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -456,6 +460,7 @@ void WriteConfigFile(void) {
 
     Settings_WriteConfig(MouseSettings, MOUSE_SETTING_COUNT);
     FollowCam_WriteConfig();
+    RetailFix_WriteConfig();
 
     if (batched) {
         DefFileBufferEndBatch();
