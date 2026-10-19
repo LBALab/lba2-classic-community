@@ -56,7 +56,7 @@ void DestroyVideoSurface() {
 bool ResizeVideoSurface(U32 newW, U32 newH) {
     if (Phys)
         free(Phys);
-    Phys = malloc((size_t)newW * (size_t)newH);
+    Phys = calloc((size_t)newW, (size_t)newH);
     if (Phys == NULL) {
         Log_Error("Unable to allocate video surface at %ux%u", newW, newH);
         return false;
@@ -74,7 +74,7 @@ bool ResizeVideoSurface(U32 newW, U32 newH) {
 // --- Interface ---------------------------------------------------------------
 bool CreateVideoSurface(U32 resX, U32 resY) {
     assert(!paletteInitialized);
-    Phys = malloc((size_t)resX * (size_t)resY);
+    Phys = calloc((size_t)resX, (size_t)resY);
     if (Phys == NULL) {
         Log_Error("Unable to allocate video surface at %ux%u", resX, resY);
         return false;
@@ -147,16 +147,14 @@ void SetVideoPaletteSync(const U8 src[]) { SetVideoPalette(src, 0, PAL_MAX_COLOR
 void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[], const T_BOX *area) {
     assert((src != Phys) && "Presentation surface as 'src' is not supported");
     assert((src != dst) && "Copy to same video memory is not supported");
-    if (dst == Phys) {
+    if (dst == Phys)
         frameDirty = true;
-        return;
-    }
     U8 *dstMem = (U8 *)dst;
     const U8 *srcMem = (const U8 *)src;
-    U32 pitch = tabOffDst[1];
+    U32 srcPitch = dst == Phys ? ModeDesiredX : tabOffDst[1];
     for (int y = area->y0; y < area->y1; ++y) {
-        U8 *dstRow = dstMem + (y * pitch) + area->x0;
-        const U8 *srcRow = srcMem + (y * pitch) + area->x0;
+        U8 *dstRow = dstMem + tabOffDst[y] + area->x0;
+        const U8 *srcRow = srcMem + (y * srcPitch) + area->x0;
         memcpy(dstRow, srcRow, area->x1 - area->x0);
     }
 }
@@ -177,13 +175,15 @@ static void ApplyOverlays(U32 *pixels, U32 pitch, U32, U32, const U8 *palette) {
 
 static void PresentFrame() {
     assert(paletteInitialized);
-    assert(Log != NULL);
+    assert(Phys != NULL);
     /* An overlay can execute a command that changes the palette. Its colour
        table must still describe the pixels already converted for this frame. */
     static U8 framePalette[PAL_MAX_COLORS * 3];
     memcpy(framePalette, paletteRgb, sizeof(framePalette));
+    /* Log can hold an offscreen destination while only a growing zoom
+       rectangle is copied to Phys. Pixels outside that rectangle stay visible. */
     PlatformFrame frame = {
-        (const U8 *)Log, ModeDesiredX, ModeDesiredY, ModeDesiredX, framePalette,
+        (const U8 *)Phys, ModeResX, ModeResY, VideoSurfacePitch(), framePalette,
         (s_prePresent || s_overlayPrePresent) ? ApplyOverlays : NULL};
     g_platform.window.present(&frame);
 }

@@ -110,6 +110,8 @@ Event payloads are plain data. Mouse coordinates are window pixels; finger coord
 
 The software renderer still owns its 8-bit framebuffer, palette, dirty markers, nested lock count, and timing/overlay hooks. The historical `LIB386/SVGA/SDL.CPP` filename now contains an SDK-free framebuffer facade.
 
+`CopyVideoArea` copies dirty rectangles from the render buffer into the persistent indexed presentation surface, `Phys`. `PresentFrame` submits that surface, not `Log`: the renderer may prepare a full destination image offscreen while a zoom reveals only part of it. Pixels outside the updated rectangles retain the previous visible frame. Creation and resizing initialise the presentation surface to colour index zero.
+
 The backend receives a `PlatformFrame`: indexed pixels, width/height/byte pitch, 256 RGB triples, and an optional ARGB overlay callback. There is no global-framebuffer lookup or mandatory GPU/texture object in this boundary. Pixels and palette are borrowed for the duration of the present call.
 
 Palette updates retain the existing API's source ordering, including partial updates. Each present snapshots its palette before callbacks run: a console command may change the next frame's palette, but must not change the table describing pixels already converted for the current frame.
@@ -162,7 +164,7 @@ Audio mixing remains AIL-owned. The software rasteriser and ASM-equivalence math
 
 | Target | Coverage |
 |---|---|
-| `test_platform_contract` | SDL-free link of real engine facades and input policy; C11 and C++98 header compilation (including absence of C99 integer-constant macros); event order, focus/audio/timer coupling, fixed-dt/wrap, input hooks, pad edges/hotplug, touch wake/reapply/release, full-buffer conversion, palette snapshots and nested present/overlay ordering |
+| `test_platform_contract` | SDL-free link of real engine facades and input policy; C11 and C++98 header compilation (including absence of C99 integer-constant macros); event order, focus/audio/timer coupling, fixed-dt/wrap, input hooks, pad edges/hotplug, touch wake/reapply/release, full-buffer conversion, palette snapshots, zoom rectangles preserving the visible background and nested present/overlay ordering |
 | `test_platform_sdl3` | Complete production table; physical-ID/keymap/modifier compatibility; exact event payloads and native polling housekeeping; fullscreen requests versus actual state, vsync, present filter read back from stretched pixels, relative mouse, cursor and text-input behavior; native virtual-gamepad sampling; paths/directory/allocator/error ownership; modal dispatch and worker-thread folder results; diagnostic severity/userdata; and byte-exact pixels read from the actual SDL renderer |
 | `test_platform_sdl3_staging` | The same conformance checks compiled with the persistent-buffer/upload path, including frame resizing |
 | `test_platform_sdl2` | Desktop SDL2 event payloads and borrowed text, unmodified mouse/finger coordinates, controller instance IDs and sampling, fullscreen rollback, host services/errors, diagnostics, lifecycle and byte-exact real-renderer frames |

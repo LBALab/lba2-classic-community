@@ -613,6 +613,88 @@ static void test_present_lock_palette_and_overlay_order() {
     Log = NULL;
 }
 
+static void test_zoom_presents_only_updated_rectangles() {
+    const U32 width = 8, height = 6;
+    U8 indexed[width * height];
+    U8 expected[sizeof(indexed)];
+    U32 expectedArgb[width * height];
+    U8 palette[768];
+    for (size_t i = 0; i < sizeof(palette); ++i)
+        palette[i] = (U8)i;
+    Log = indexed;
+    ASSERT_TRUE(CreateVideoSurface(width, height));
+    SetVideoPaletteSync(palette);
+
+    /* The holomap builds the full destination in Log without presenting it.
+       Only the expanding zoom rectangle may replace the visible globe. The
+       save-menu zoom uses the same partial-present contract. */
+    for (U32 background = 1; background <= 2; ++background) {
+        memset(indexed, background, sizeof(indexed));
+        memset(expected, background, sizeof(expected));
+        T_BOX full = {0, 0, width, height};
+        s_orderLength = 0;
+        LockVideoSurface();
+        CopyVideoArea(Phys, Log, TabOffPhysLine, &full);
+        UnlockVideoSurface();
+
+        for (S16 step = 0; step < 3; ++step) {
+            memset(indexed, 70 + step, sizeof(indexed));
+            T_BOX zoom = {(S16)(3 - step), (S16)(2 - step),
+                          (S16)(5 + step), (S16)(4 + step)};
+            for (S16 y = zoom.y0; y < zoom.y1; ++y)
+                for (S16 x = zoom.x0; x < zoom.x1; ++x)
+                    expected[y * width + x] = indexed[y * width + x];
+
+            int before = s_presentCalls;
+            s_orderLength = 0;
+            LockVideoSurface();
+            CopyVideoArea(Phys, Log, TabOffPhysLine, &zoom);
+            UnlockVideoSurface();
+            ASSERT_EQ_INT(before + 1, s_presentCalls);
+            for (size_t i = 0; i < sizeof(expected); ++i) {
+                U32 index = expected[i] * 3;
+                expectedArgb[i] = 0xFF000000 | ((U32)palette[index] << 16) |
+                                  ((U32)palette[index + 1] << 8) | palette[index + 2];
+            }
+            ASSERT_MEM_EQ(expectedArgb, &s_presented[0], sizeof(expectedArgb));
+        }
+    }
+    DestroyVideoSurface();
+    Log = NULL;
+}
+
+static void test_partial_present_after_resize() {
+    U8 indexed[8 * 6];
+    U8 expected[16 * 8] = {};
+    U32 expectedArgb[16 * 8];
+    U8 palette[768];
+    for (size_t i = 0; i < sizeof(palette); ++i)
+        palette[i] = (U8)i;
+    for (size_t i = 0; i < sizeof(indexed); ++i)
+        indexed[i] = (U8)(i + 1);
+    Log = indexed;
+    ASSERT_TRUE(CreateVideoSurface(8, 6));
+    ASSERT_TRUE(ResizeVideoSurface(16, 8));
+    ASSERT_TRUE(ResizeWindowSurface(16, 8, false));
+    SetVideoPaletteSync(palette);
+    T_BOX area = {2, 1, 7, 5};
+    for (S16 y = area.y0; y < area.y1; ++y)
+        for (S16 x = area.x0; x < area.x1; ++x)
+            expected[y * 16 + x] = indexed[y * 8 + x];
+    s_orderLength = 0;
+    LockVideoSurface();
+    CopyVideoArea(Phys, Log, TabOffPhysLine, &area);
+    UnlockVideoSurface();
+    for (size_t i = 0; i < sizeof(expected); ++i) {
+        U32 index = expected[i] * 3;
+        expectedArgb[i] = 0xFF000000 | ((U32)palette[index] << 16) |
+                          ((U32)palette[index + 1] << 8) | palette[index + 2];
+    }
+    ASSERT_MEM_EQ(expectedArgb, &s_presented[0], sizeof(expectedArgb));
+    DestroyVideoSurface();
+    Log = NULL;
+}
+
 static void test_touch_wake_hold_release_and_reapply() {
     ModeDesiredX = ModeResX = 640;
     ModeDesiredY = ModeResY = 480;
@@ -661,6 +743,8 @@ int main() {
     RUN_TEST(test_gamepad_state_edges_and_hotplug);
     RUN_TEST(test_indexed_conversion_exact_bytes);
     RUN_TEST(test_present_lock_palette_and_overlay_order);
+    RUN_TEST(test_zoom_presents_only_updated_rectangles);
+    RUN_TEST(test_partial_present_after_resize);
     RUN_TEST(test_touch_wake_hold_release_and_reapply);
     EndWindow();
     EndEvents();
