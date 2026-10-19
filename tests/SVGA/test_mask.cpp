@@ -27,7 +27,7 @@ static S32 call_asm_AffMask(S32 num, S32 x, S32 y, void *bank) {
 
 static U8 g_cpp_framebuf[640 * 480];
 static U8 g_asm_framebuf[640 * 480];
-static U8 g_bank[1024];
+static U8 g_bank[8192];
 
 typedef struct MaskRunResult {
     S32 ret;
@@ -387,6 +387,198 @@ static void test_randomized_stress(void) {
     }
 }
 
+/* ── Edge sweep ──────────────────────────────────────────────────────────
+ * Realistic-size masks walked across each edge and corner of a clip window
+ * in 1-px steps. Masks come from CalcGraphMsk of bricks, so the shapes are
+ * brick-like: a hexagon outline (iso top face + sides) with transparent
+ * jump runs inside, rows that end on a fill and rows that end on a jump,
+ * an empty row and a 1-on/1-off striped row in the large shape. */
+
+typedef struct SweepShape {
+    const char *name;
+    U8 width;
+    U8 height;
+    U8 hot_x;
+    U8 hot_y;
+    U8 taper; /* rows of the iso top/bottom slope */
+    int big;  /* extra holes, an empty row and a striped row */
+} SweepShape;
+
+typedef struct SweepWindow {
+    const char *name;
+    S32 xmin;
+    S32 ymin;
+    S32 xmax;
+    S32 ymax;
+} SweepWindow;
+
+static const SweepShape k_sweep_shapes[] = {
+    {"brick48x38", 48, 38, 0, 0, 12, 0},
+    {"brick48x38 hot 0xFF/0x81", 48, 38, 0xFF, 0x81, 12, 0},
+    {"mask100x80 hot 0x80/0xF0", 100, 80, 0x80, 0xF0, 25, 1},
+};
+
+static const SweepWindow k_sweep_windows[] = {
+    {"full", 0, 0, 639, 479},
+    {"inner", 100, 80, 539, 399},
+    {"thin row", 100, 240, 539, 240},
+    {"thin column", 320, 80, 320, 399},
+};
+
+static U8 g_sweep_pixels[256 * 256];
+static S32 g_sweep_total; /* opaque pixels in the current shape */
+
+static int sweep_shape_pixel(const SweepShape *sh, S32 col, S32 row) {
+    S32 w = sh->width;
+    S32 h = sh->height;
+    S32 dist = row < sh->taper ? sh->taper - row : (row >= h - sh->taper ? row - (h - sh->taper - 1) : 0);
+    /* Half width shrinks by w/(2*taper) per row of slope, never below 1. */
+    S32 inset = (dist * w) / (2 * sh->taper + 2);
+    if (col < inset || col >= w - inset)
+        return 0;
+    /* A hole a few px wide on some rows, wandering across the brick. */
+    if (row % 5 == 2) {
+        S32 hx = 3 + (row * 7) % (w - 8);
+        if (col >= hx && col < hx + 1 + row % 4)
+            return 0;
+    }
+    if (sh->big) {
+        if (row == h / 2 - 7)
+            return 0; /* empty row: one jump block of the full width */
+        if (row == h / 2 + 3)
+            return col & 1; /* 1-on/1-off stripes */
+        if (row % 9 == 4 && (col / 6) % 3 == 1)
+            return 0; /* several holes on one row */
+    }
+    return 1;
+}
+
+static void build_sweep_bank(const SweepShape *sh) {
+    static U8 line_bytes[6000];
+    size_t pos = 0;
+    g_sweep_total = 0;
+    for (S32 row = 0; row < sh->height; row++) {
+        size_t count_pos = pos++;
+        U8 blocks = 0;
+        S32 col = 0;
+        while (col < sh->width) {
+            S32 jump = 0;
+            while (col < sh->width && !sweep_shape_pixel(sh, col, row)) {
+                jump++;
+                col++;
+            }
+            line_bytes[pos++] = (U8)jump;
+            blocks++;
+            if (col >= sh->width)
+                break;
+            S32 fill = 0;
+            while (col < sh->width && sweep_shape_pixel(sh, col, row)) {
+                fill++;
+                col++;
+            }
+            line_bytes[pos++] = (U8)fill;
+            blocks++;
+            g_sweep_total += fill;
+        }
+        line_bytes[count_pos] = blocks;
+    }
+    build_mask_bank_from_lines(sh->width, sh->height, sh->hot_x, sh->hot_y, line_bytes, pos);
+}
+
+static S32 count_color(const U8 *fb, U8 color) {
+    S32 n = 0;
+    for (S32 i = 0; i < 640 * 480; i++)
+        n += fb[i] == color;
+    return n;
+}
+
+typedef struct SweepStats {
+    int cases;
+    int partial; /* some but not all opaque pixels drawn */
+    int none;
+    int full;
+} SweepStats;
+
+/* left/top are where the mask's top-left pixel lands; hotspot is undone. */
+static void sweep_case(const char *what, const SweepShape *sh, const SweepWindow *win,
+                       S32 left, S32 top, SweepStats *st) {
+    char label[192];
+    U8 color = (U8)(0x40 + (st->cases % 0xB0));
+    S32 x = left - sh->hot_x;
+    S32 y = top - sh->hot_y;
+    snprintf(label, sizeof(label), "AffMask sweep %s %s window=%s left=%d top=%d",
+             sh->name, what, win->name, left, top);
+    assert_case_matches(label, x, y, color, win->xmin, win->ymin, win->xmax, win->ymax);
+    S32 drawn = count_color(g_cpp_framebuf, color);
+    st->cases++;
+    if (drawn == 0)
+        st->none++;
+    else if (drawn == g_sweep_total)
+        st->full++;
+    else
+        st->partial++;
+}
+
+static void sweep_shape_window(const SweepShape *sh, const SweepWindow *win) {
+    int prev = test_failures;
+    S32 w = sh->width;
+    S32 h = sh->height;
+    S32 midx = (win->xmin + win->xmax) / 2 - w / 2;
+    S32 midy = (win->ymin + win->ymax) / 2 - h / 2;
+    SweepStats edge[4] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
+    SweepStats corner = {0, 0, 0, 0};
+    S32 steps = w > h ? w : h;
+
+    build_sweep_bank(sh);
+
+    for (S32 l = win->xmin - w; l <= win->xmin && test_failures == prev; l++)
+        sweep_case("left edge", sh, win, l, midy, &edge[0]);
+    for (S32 l = win->xmax + 1; l >= win->xmax - w + 1 && test_failures == prev; l--)
+        sweep_case("right edge", sh, win, l, midy, &edge[1]);
+    for (S32 t = win->ymin - h; t <= win->ymin && test_failures == prev; t++)
+        sweep_case("top edge", sh, win, midx, t, &edge[2]);
+    for (S32 t = win->ymax + 1; t >= win->ymax - h + 1 && test_failures == prev; t--)
+        sweep_case("bottom edge", sh, win, midx, t, &edge[3]);
+
+    /* Corners: the shape moves diagonally from fully outside to fully inside. */
+    for (S32 d = 0; d <= steps && test_failures == prev; d++) {
+        S32 dx = (d * w) / steps;
+        S32 dy = (d * h) / steps;
+        sweep_case("top-left corner", sh, win, win->xmin - w + dx, win->ymin - h + dy, &corner);
+        sweep_case("top-right corner", sh, win, win->xmax + 1 - dx, win->ymin - h + dy, &corner);
+        sweep_case("bottom-left corner", sh, win, win->xmin - w + dx, win->ymax + 1 - dy, &corner);
+        sweep_case("bottom-right corner", sh, win, win->xmax + 1 - dx, win->ymax + 1 - dy, &corner);
+    }
+
+    if (test_failures != prev)
+        return;
+
+    /* The sweep must hit the clip path: every edge walk starts with nothing
+     * drawn and has positions that draw only part of the mask. */
+    for (int e = 0; e < 4; e++) {
+        ASSERT_TRUE(edge[e].none > 0);
+        ASSERT_TRUE(edge[e].partial > 0);
+    }
+    ASSERT_TRUE(corner.partial > 0);
+}
+
+static void test_edge_sweep_full_screen(void) {
+    for (size_t s = 0; s < sizeof(k_sweep_shapes) / sizeof(k_sweep_shapes[0]); s++)
+        sweep_shape_window(&k_sweep_shapes[s], &k_sweep_windows[0]);
+}
+
+static void test_edge_sweep_inner_window(void) {
+    for (size_t s = 0; s < sizeof(k_sweep_shapes) / sizeof(k_sweep_shapes[0]); s++)
+        sweep_shape_window(&k_sweep_shapes[s], &k_sweep_windows[1]);
+}
+
+static void test_edge_sweep_thin_windows(void) {
+    for (size_t s = 0; s < sizeof(k_sweep_shapes) / sizeof(k_sweep_shapes[0]); s++) {
+        sweep_shape_window(&k_sweep_shapes[s], &k_sweep_windows[2]);
+        sweep_shape_window(&k_sweep_shapes[s], &k_sweep_windows[3]);
+    }
+}
+
 int main(void) {
     RUN_TEST(test_cpp_basic);
     RUN_TEST(test_solid_and_pattern_fixed_cases);
@@ -396,6 +588,9 @@ int main(void) {
     RUN_TEST(test_highbit_hotspot_cases);
     RUN_TEST(test_fully_clipped_noop_cases);
     RUN_TEST(test_randomized_stress);
+    RUN_TEST(test_edge_sweep_full_screen);
+    RUN_TEST(test_edge_sweep_inner_window);
+    RUN_TEST(test_edge_sweep_thin_windows);
     TEST_SUMMARY();
     return test_failures != 0;
 }

@@ -40,6 +40,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   camera hid it until next time
   ([#356](https://github.com/LBALab/lba2-classic-community/issues/356)).
 
+### Stability
+
+- Opening the inventory with the conch empty, or down to its last charge, no
+  longer crashes the game. The empty bar under the conch is a box whose right
+  edge sits one pixel left of its left edge: the original draws nothing for
+  it, and this port kept drawing until it crashed
+  ([#762](https://github.com/LBALab/lba2-classic-community/pull/762)).
+
 ### Contributors
 
 Thanks to EPmager for reporting the black bricks, and for a screenshot from the
