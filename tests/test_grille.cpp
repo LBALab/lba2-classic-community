@@ -481,7 +481,8 @@ typedef struct {
     S16 Xm, Ym, Zm, Xs, Ys, Brick, Col;
 } T_COLONB_TEST; /* GRILLE.CPP T_COLONB */
 
-extern T_COLONB_TEST ListBrickColon[256][256];
+/* sizes must match NB_COLON and MAX_BRICK in GRILLE.CPP */
+extern T_COLONB_TEST ListBrickColon[256][512];
 extern S16 NbBrickColon[256];
 extern "C" PTR_U8 BufferMaskBrick;
 extern U32 CreateMaskGph(U8 *ptsrc, U8 *ptdst);

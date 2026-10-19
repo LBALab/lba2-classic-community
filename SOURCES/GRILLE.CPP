@@ -24,8 +24,10 @@ extern S32 XS0, YS0, XS1, YS1, XS2, YS2, XS3, YS3; // bezier.c
 S32 XpOrgw;
 S32 YpOrgw;
 
-#define NB_COLON 256  // 28
-#define MAX_BRICK 256 // 150
+#define NB_COLON 256 // 28
+// Bricks per column (originally 150). Column 0 holds two diagonals, the
+// bricks from XScreen -47 to -1: at 1920x1080 cube 11 puts 201 there.
+#define MAX_BRICK 512
 
 S16 NbBrickColon[NB_COLON];
 
