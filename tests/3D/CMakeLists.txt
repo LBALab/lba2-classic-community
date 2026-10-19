@@ -30,6 +30,13 @@ add_asm_cpp_test(NAME test_getang3d  TEST_SOURCE test_getang3d.cpp  ASM_SOURCE $
 add_asm_cpp_test(NAME test_sqrroot   TEST_SOURCE test_sqrroot.cpp   ASM_SOURCE ${_3D_ASM_DIR}/SQRROOT.ASM   RENAME_SYMS Sqr QSqr
     LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC}
     STRIP_C_ADAPT)
+# Distance2D/3D are bare Watcom procs that jump to QSqr, so SQRROOT.ASM comes
+# along as a renamed dep, stripped back to bare procs.
+add_asm_cpp_test(NAME test_distance  TEST_SOURCE test_distance.cpp  ASM_SOURCE ${_3D_ASM_DIR}/DISTANCE.ASM  RENAME_SYMS Distance2D Distance3D
+    LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC}
+    STRIP_C_ADAPT
+    ASM_DEPS ${_3D_ASM_DIR}/SQRROOT.ASM
+    ASM_DEP_RENAME_SYMS Sqr QSqr)
 add_asm_cpp_test(NAME test_regle3    TEST_SOURCE test_regle3.cpp    ASM_SOURCE ${_3D_ASM_DIR}/REGLE3.ASM    RENAME_SYMS RegleTrois BoundRegleTrois                       LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
 
 # ── Matrix ops ────────────────────────────────────────────────────────────

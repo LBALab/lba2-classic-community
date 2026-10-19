@@ -8,11 +8,12 @@ exists in both `.ASM` and `.CPP` form.
 
 ---
 
-## 3D/ — 3D math & projection (23 pairs)
+## 3D/ — 3D math & projection (24 pairs)
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
 | [x] | `3D/COPYMATF.ASM` | `3D/COPYMATF.CPP` | `CopyMatrixF` | Copy 3×3 rotation matrix (float) | `tests/3D/test_copymatf.cpp` now covers identity-like, mixed-sign, finite edge-value, zero-matrix, and 200-round deterministic random matrix cases, comparing the full `TYPE_MAT` byte-for-byte and verifying the source matrix remains unchanged in both ASM and CPP. Important test-domain note: `CopyMatrixF` is validated on real float-matrix inputs, not arbitrary raw 48-byte patterns, because the ASM implementation copies via `fld/fstp qword` pairs rather than raw integer moves. |
+| [x] | `3D/DISTANCE.ASM` | `3D/DISTANCE.CPP` | `Distance2D`, `Distance3D` | Integer distance: 64-bit sum of squares, root via `QSqr` | `tests/3D/test_distance.cpp` covers both sides of the old 32-bit overflow (46340 in 2D, 26754 per axis in 3D), deltas that wrap, the largest sums of squares, and 900 deterministic random cases at 17, 20 and 32 bits. The ASM was removed as unused in 9d5c84ea and restored from 333929a for this test. Fixed CPP parity bug: the port squared in 32-bit `int` and returned 0 or a wrong small number past those limits ([#600](https://github.com/LBALab/lba2-classic-community/issues/600)). |
 | [x] | `3D/GETANG2D.ASM` | `3D/GETANG2D.CPP` | `GetAngleVector2D` | 2D angle from (x, z) via tangent table binary search | `tests/3D/test_getang2d.cpp` now covers axis cases, all quadrants, exact and near-45-degree swap boundaries, small signed crossover pairs, large-magnitude inputs, and 200 deterministic LCG stress rounds against `TanTab`-driven ASM output. |
 | [x] | `3D/GETANG3D.ASM` | `3D/GETANG3D.CPP` | `GetAngleVector3D` | 3D angle from (x, y, z); writes `X0`, `Y0` | `tests/3D/test_getang3d.cpp` now covers axis and diagonal vectors, vertical and near-vertical cases, sign/quadrant combinations, wrap-sensitive XZ-length cases, near-boundary cases, and 200 deterministic LCG stress rounds while comparing both the return value and written globals `X0`/`Y0`. |
 | [x] | `3D/IMATSTDF.ASM` | `3D/IMATSTDF.CPP` | `InitMatrixStdF` | Init rotation matrix from Euler angles (α, β, γ) | `tests/3D/test_imatstdf.cpp` now covers axis rotations, diagonal/mixed rotations, wraparound and negative angles, plus 200 deterministic LCG stress rounds, comparing the full `TYPE_MAT` byte-for-byte against ASM output. |
