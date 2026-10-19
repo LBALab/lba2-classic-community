@@ -34,6 +34,9 @@ sources:
   - id: record-cpp
     resource: ../../../SOURCES/RECORD.CPP
     title: RECORD.CPP, the replay outcomes and the poll and tick counters
+  - id: video-cpp
+    resource: ../../../LIB386/SVGA/SDL.CPP
+    title: SDL.CPP, persistent indexed presentation surface
 ---
 
 Distilled from [docs/TRANSITIONS.md](../../TRANSITIONS.md), which stays the walk-through contributors read and owns the mechanism descriptions and the regression history; this concept holds the contracts, the seams, and what the doc does not say. The principles are structural. The call sites and the open defects are read at `as_of`.
@@ -49,6 +52,7 @@ Distilled from [docs/TRANSITIONS.md](../../TRANSITIONS.md), which stays the walk
 
 | Contract | Statement |
 |---|---|
+| Zooms reveal rectangles, not the offscreen destination | The holomap island zoom and saved-game zoom update only their growing rectangles. `CopyVideoArea` copies those pixels into persistent `Phys`, and `PresentFrame` submits `Phys`, not `Log`. The full destination may already be in `Log`; pixels outside the copied rectangles must retain the preceding visible frame. The platform contract test compares the full presented buffer across growing rectangles.[^video-cpp] |
 | A genuine transition is marked | `NewCube` is set by a zone crossing, a Life script `LM_CHANGE_CUBE`, the phantom teleport, a cutscene ending on a destination cube (`ResetCinemaMode`), the console `cube` verb, and a load, which reads it from the file. Only the first three set `FlagChgCube`, 1, 2 and 1. `MainLoop` reads `NewCube != -1` at the top of its loop and calls `ChangeCube`.[^object-cpp] |
 | What `FlagChgCube` gates | The timer bracket `ChangeCube` opens, the autosave at the tail of `AffScene` (not for the phantom cube), `FlagReinit`, and which camera centring runs. A console warp, a load and a cutscene's destination cube are cube changes that are not genuine transitions: no autosave, no bracket.[^object-cpp] |
 | The load path is silent | With `FlagLoadGame` set, `LoadScene` skips the fade-out and the clear, `ChangeCube` arms neither `FlagFade` nor `FlagPal`, and the tail of `AffScene` syncs the palette instantly. The menu reveals a load its own way, through the save-thumbnail zoom, and that instant sync is original. A harness `--load` therefore never fades, and a screenshot of its first frames is lit.[^object-cpp] |
@@ -84,3 +88,4 @@ Distilled from [docs/TRANSITIONS.md](../../TRANSITIONS.md), which stays the walk
 [^perso-cpp]: [SOURCES/PERSO.CPP](../../../SOURCES/PERSO.CPP), `MainLoop`: the `NewCube != -1` block at the top with its `#ifdef DEMO` half, the one `Control_TickHook()` call after it, the `DoTrack` and `DoLife` calls in the per-object loop, the `AffScene(FirstTime)` call at the end of the iteration, and the `goto startloop` inside the per-object loop.
 [^control-cpp]: [SOURCES/CONTROL.CPP](../../../SOURCES/CONTROL.CPP), the comment above `s_uncarried` and the `DIGEST_CARRIED` lines in `Control_StateDigest`.
 [^record-cpp]: [SOURCES/RECORD.CPP](../../../SOURCES/RECORD.CPP), `REPLAY_END_STALL` in the `T_ReplayEnd` enum and its comment, and the `s_polls` and `s_ticks` counters.
+[^video-cpp]: [LIB386/SVGA/SDL.CPP](../../../LIB386/SVGA/SDL.CPP), `CopyVideoArea` and `PresentFrame`; [tests/platform/test_platform_contract.cpp](../../../tests/platform/test_platform_contract.cpp), `test_zoom_presents_only_updated_rectangles`.

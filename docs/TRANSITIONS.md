@@ -83,6 +83,12 @@ can never break the visual fade (part of the #353 fix).
 - `BoxBlit()` -> `PresentFrame()` -- one present. Every fade step presents (via
   `FadePal` -> `BoxBlit` -> `PresentFrame`), so a 200 ms fade is many presents.
 
+### Holomap and saved-game zooms
+
+`HoloPlan` in [HOLOPLAN.CPP](../SOURCES/HOLOPLAN.CPP) prepares the island view in `Log` and copies it to `BufSpeak`, then expands a scaled rectangle over the visible globe. `ZoomSavedGame` in [GAMEMENU.CPP](../SOURCES/GAMEMENU.CPP) expands the loaded scene over the save menu. These are rectangle reveals, not palette fades: only the zoom rectangle is copied to `Phys` on each step, and the final full-screen copy completes the reveal.
+
+The presentation facade must retain `Phys` between updates and present it rather than the full `Log` buffer. Preparing the destination in `Log` must not reveal it outside the zoom rectangle. `test_zoom_presents_only_updated_rectangles` in [the platform contract test](../tests/platform/test_platform_contract.cpp) checks every presented pixel across growing rectangles with two distinct backgrounds.
+
 ## Scene transition orchestration (`ChangeCube`)
 
 Entry: the main loop (`MainLoop`, `SOURCES/PERSO.CPP`) sees `NewCube != -1` at the top
