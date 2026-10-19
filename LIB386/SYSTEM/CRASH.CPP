@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <SYSTEM/CRASH.H>
 #include <SYSTEM/CRASH_CORE.H>
 
@@ -26,21 +25,6 @@
 #define CRASH_ARCH_NAME "arm"
 #else
 #define CRASH_ARCH_NAME "unknown"
-#endif
-
-#if !defined(CRASH_BACKEND_POSIX) && !defined(CRASH_BACKEND_WINDOWS)
-void Crash_Install(const char *logPath, const char *version, const char *commit) {
-    (void)logPath;
-    (void)version;
-    (void)commit;
-}
-
-void Crash_PrepareThread(void) {
-}
-
-void CrashSys_Write(const char *data, U32 size) {
-    fwrite(data, 1, size, stderr);
-}
 #endif
 
 //----------------------------------------------------------------------------
