@@ -328,4 +328,12 @@ extern void Settings_RegisterCvars(const T_SETTING *table, S32 count);
 extern S32 Settings_Borrow(const T_SETTING *s, S32 value);
 extern void Settings_ReturnBorrowed(void);
 
+/* Non-zero while Settings_Borrow or Settings_ReturnBorrowed is calling a row's
+ * on_change. A hook that writes another setting checks it: the borrow installs
+ * and gives back only the rows it borrowed, so a second row the hook wrote would
+ * keep the recording's effect after the replay and be persisted to lba2.cfg as
+ * the player's choice. The retail-fix rows are the case (RETAILFIX.CPP): a fix's
+ * row switches the master row to Custom, which a replay must not do. */
+extern S32 Settings_Borrowing(void);
+
 #endif /* SETTINGS_H */
