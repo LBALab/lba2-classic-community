@@ -447,6 +447,14 @@ static void GL_UploadImageAdjust(GLint uB, GLint uC, GLint uS) {
     glUniform1f(uS, 1.0f + (GLfloat)DisplaySaturation / 100.0f);
 }
 
+/* The present composite applies the display sliders on top of the 3D scene
+ * texture.  When they are neutral the composite is a pure copy, so a
+ * present that only needs the scene can skip it. */
+static S32 GL_ImageAdjustNeutral(void) {
+    return DisplayBrightness == 0 && DisplayContrast == 0 &&
+           DisplaySaturation == 0;
+}
+
 static const char *s_presentIndexedFragSrc =
     GLSL_FRAG_HEADER
     GLSL_IMAGE_ADJUST
@@ -966,7 +974,9 @@ static S32 s_curActiveUnit = -1;
 static GLuint s_curProgram = (GLuint)-1;
 static S32 s_clutAttribsDirty = 1; /* vertex arrays need enable + re-spec */
 static GLintptr s_clutAttribsBase = -1; /* ring offset the pointers point at */
-static S32 s_overlayEmptyLast = 0; /* last indexed present had a 2D-empty overlay */
+/* Last indexed present can be read as the scene alone: empty overlay, no
+   present-side post-process, and a content-sized scene FBO. */
+static S32 s_directScenePresent = 0;
 
 static void GL_UseProgramCached(GLuint prog) {
     if (s_curProgram != prog) {
@@ -1286,6 +1296,10 @@ static S32 s_stereoEye = -1; /* -1 = mono, 0/1 = capturing that eye */
  * menu/movie frames (no per-eye render) submit the mono layer instead of
  * a stale half. */
 static S32 s_stereoPairReady = 0;
+/* Set by eye 1's present when the 2D overlay is empty, so the right-eye
+ * composite was skipped and OpenXR_PresentMono can read the resolved 3D
+ * scene FBO directly.  Cleared by every present and by leaving stereo. */
+static S32 s_stereoEye1SceneDirect = 0;
 
 /* Set to 1 by GL_ClearFBO() at the start of terrain rendering, cleared by
    GL_BeginFrame().  Used by GL_RenderTriangleList to route body/shadow
@@ -1506,6 +1520,8 @@ void GL_SetStereoEye(S32 eye) {
     if (eye < -1 || eye > 1)
         eye = -1;
     s_stereoEye = eye;
+    if (eye != 1)
+        s_stereoEye1SceneDirect = 0;
     if (eye < 0) {
         /* Leaving stereo: clear the eye shifts so mono frames project
          * exactly as before. Per-eye shift values are the caller's job —
@@ -1529,6 +1545,10 @@ U32 GL_GetStereoEyeFBO(S32 eye) {
     if (eye < 0 || eye > 1)
         return 0;
     return (U32)s_stereoEyeFBO[eye];
+}
+
+S32 GL_StereoEyeSceneDirect(void) {
+    return s_stereoEye1SceneDirect;
 }
 
 static void GL_CreatePresentFBO(U32 width, U32 height) {
@@ -5004,6 +5024,9 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
 
     U64 profT0 = SDL_GetPerformanceCounter();
 
+    /* A fresh present supersedes the previous eye's direct-scene decision. */
+    s_stereoEye1SceneDirect = 0;
+
     /* Flush any remaining batched 3D geometry from the current frame.
        This draws into the FBO if SSAA is active, or the default
        framebuffer otherwise. */
@@ -5084,7 +5107,8 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
             vpY = (winH - vpH) / 2;
         }
     }
-    glViewport(0, 0, winW, winH);
+    /* glClear is unaffected by the viewport, so the bar clear needs no
+       full-target viewport switch; go straight to the content rect. */
     GL_ClearLetterboxBars(vpX, vpY, vpW, vpH, winW, winH);
     glViewport(vpX, vpY, vpW, vpH);
 
@@ -5135,8 +5159,6 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
                               4 * sizeof(GLfloat),
                               (const void *)(2 * sizeof(GLfloat)));
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        glDisableVertexAttribArray(s_aPosLoc);
-        glDisableVertexAttribArray(s_aTexCoordLoc);
         }
         GL_BindArrayBuffer(0);
         glUseProgram(0);
@@ -5227,7 +5249,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
     U64 profT1 = SDL_GetPerformanceCounter();
     s_profAccumTicks[0] += profT1 - profT0;
     GL_ProfFrameDone();
-    s_overlayEmptyLast = 0;
+    s_directScenePresent = 0;
     /* The present quads rebind programs, textures and attrib locations
        0/1 for their own VBOs — the next frame's flushes must re-specify. */
     GL_InvalidateGLState();
@@ -5249,6 +5271,9 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     }
 
     U64 profT0 = SDL_GetPerformanceCounter();
+
+    /* A fresh present supersedes the previous eye's direct-scene decision. */
+    s_stereoEye1SceneDirect = 0;
 
     /* Same frame plumbing as GL_Present: flush 3D, pick the composite
      * target, letterbox, draw the 3D FBO content, then the 2D overlay. */
@@ -5305,95 +5330,10 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         }
     }
 
-    glViewport(0, 0, winW, winH);
+    /* glClear is unaffected by the viewport, so the bar clear needs no
+       full-target viewport switch; go straight to the content rect. */
     GL_ClearLetterboxBars(vpX, vpY, vpW, vpH, winW, winH);
     glViewport(vpX, vpY, vpW, vpH);
-
-    if (s_fbo) {
-        GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, s_fboColorTex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        GL_BindArrayBuffer(s_fboVbo);
-        if (s_antiAlias == 1 && s_fxaaProgram) {
-            /* FXAA post-process: edge-detecting AA on the scene texture. */
-            glUseProgram(s_fxaaProgram);
-            glUniform1i(s_fxaa_uTex, 0);
-            glUniform2f(s_fxaa_uTexel, 1.0f / (GLfloat)s_texWidth,
-                        1.0f / (GLfloat)s_texHeight);
-            GL_UploadImageAdjust(s_fxaaAdj_uBrightness, s_fxaaAdj_uContrast,
-                                 s_fxaaAdj_uSaturation);
-            glEnableVertexAttribArray(s_fxaa_aPos);
-            glVertexAttribPointer(s_fxaa_aPos, 2, GL_FLOAT, GL_FALSE,
-                                  4 * sizeof(GLfloat), (const void *)0);
-            glEnableVertexAttribArray(s_fxaa_aTexCoord);
-            glVertexAttribPointer(s_fxaa_aTexCoord, 2, GL_FLOAT, GL_FALSE,
-                                  4 * sizeof(GLfloat),
-                                  (const void *)(2 * sizeof(GLfloat)));
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-            glDisableVertexAttribArray(s_fxaa_aPos);
-            glDisableVertexAttribArray(s_fxaa_aTexCoord);
-        } else if (s_antiAlias == 4 && s_smaaBlendProgram) {
-            /* SMAA post-process: three-pass morphological AA on the scene
-               texture; draws the blended result into the current target. */
-            GL_SmaaPresent(vpX, vpY, vpW, vpH);
-        } else {
-        glUseProgram(s_program);
-        glUniform1i(s_uTexLoc, 0);
-        /* The hi-res FBO is always drawn plainly; the Scale2x mode below is
-         * for the 640x480 overlay only.  Pin it here or a stale Scale2x from
-         * the previous frame's overlay draw would smear the FBO blit. */
-        GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
-                             s_adj_uSaturation);
-        glUniform1i(s_uFilterLoc, 1);
-        glEnableVertexAttribArray(s_aPosLoc);
-        glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
-                              4 * sizeof(GLfloat), (const void *)0);
-        glEnableVertexAttribArray(s_aTexCoordLoc);
-        glVertexAttribPointer(s_aTexCoordLoc, 2, GL_FLOAT, GL_FALSE,
-                              4 * sizeof(GLfloat),
-                              (const void *)(2 * sizeof(GLfloat)));
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        glDisableVertexAttribArray(s_aPosLoc);
-        glDisableVertexAttribArray(s_aTexCoordLoc);
-        }
-        GL_BindArrayBuffer(0);
-        glUseProgram(0);
-
-        glDisableVertexAttribArray(s_aPosLoc);
-        glDisableVertexAttribArray(s_aTexCoordLoc);
-        GL_BindArrayBuffer(0);
-        glUseProgram(0);
-    }
-
-    /* Upload the raw palette indices (1 byte per pixel instead of 4) —
-       unless the overlay is entirely empty.  In GL mode the 3D scene lives
-       in the FBO and Log only carries the 2D overlay; an all-zero overlay
-       composites to exactly nothing (every pixel is palette index 0 with
-       alpha 0), so skipping the upload and the overlay quad is
-       pixel-identical and saves a full-screen texture transfer per frame.
-       The GL exterior path zeroes Log at the start of every frame, so the
-       comparison is a cheap way to detect "nothing 2D drew this frame". */
-    {
-        /* temp: dump the raw Log overlay once for comparison */
-        static S32 s_logDumped = 0;
-        if (!s_logDumped && getenv("LBA2_DUMP_LOG")) {
-            U8 *rgb2 = (U8 *)malloc((size_t)width * height * 3);
-            if (rgb2) {
-                const U8 *src = (const U8 *)indices;
-                for (U32 i = 0; i < width * height; i++) {
-                    U32 c = paletteU32[src[i]];
-                    rgb2[i * 3 + 0] = (U8)(c >> 16);
-                    rgb2[i * 3 + 1] = (U8)(c >> 8);
-                    rgb2[i * 3 + 2] = (U8)(c);
-                }
-                SavePNGRGB("/tmp/gl_log.png", rgb2, (S32)width, (S32)height);
-                free(rgb2);
-                s_logDumped = 1;
-            }
-        }
-    }
 
     /* Diff the Log overlay against the copy the texture currently holds:
        upload only the rows that changed, and skip the overlay draw entirely
@@ -5534,7 +5474,114 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         }
     }
 
-    s_overlayEmptyLast = overlayEmpty;
+    /* An empty overlay composites to exactly the 3D scene.  On OpenXR the
+     * swapchain blit can read that scene directly for mono frames and for
+     * stereo eye 1 (the last eye rendered), so skip the intermediate
+     * full-screen composite there.  Eye 0 cannot skip: its scene FBO is
+     * overwritten by the second eye before the submit.  Keep the composite
+     * when a post-process or a non-neutral display transform would change
+     * the pixels. */
+    /* The direct read assumes the scene texture is exactly the content size:
+       OpenXR blits ModeDesiredX x ModeDesiredY texels.  An SSAA FBO is
+       larger and must go through the downscaling composite. */
+    S32 sceneFboMatches = (s_fboWidth == width && s_fboHeight == height);
+    /* A direct scene read is only equivalent to the composite when the
+       overlay adds nothing, the content fills the target, the scene is
+       content-sized, and no post-process or display transform is active. */
+    S32 directSceneSafe = overlayEmpty && s_fbo && sceneFboMatches &&
+                          !s_msaaInTile && vpX == 0 && vpY == 0 &&
+                          vpW == winW && vpH == winH &&
+                          s_antiAlias != 1 && s_antiAlias != 4 &&
+                          GL_ImageAdjustNeutral();
+    S32 sceneOnlyPresent = 0;
+    if (directSceneSafe && OpenXR_IsActive() &&
+        (s_stereoEye < 0 || s_stereoEye == 1)) {
+        sceneOnlyPresent = 1;
+        if (s_stereoEye == 1) {
+            s_stereoEye1SceneDirect = 1;
+        }
+    }
+
+    if (s_fbo && !sceneOnlyPresent) {
+        GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, s_fboColorTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        GL_BindArrayBuffer(s_fboVbo);
+        if (s_antiAlias == 1 && s_fxaaProgram) {
+            /* FXAA post-process: edge-detecting AA on the scene texture. */
+            glUseProgram(s_fxaaProgram);
+            glUniform1i(s_fxaa_uTex, 0);
+            glUniform2f(s_fxaa_uTexel, 1.0f / (GLfloat)s_texWidth,
+                        1.0f / (GLfloat)s_texHeight);
+            GL_UploadImageAdjust(s_fxaaAdj_uBrightness, s_fxaaAdj_uContrast,
+                                 s_fxaaAdj_uSaturation);
+            glEnableVertexAttribArray(s_fxaa_aPos);
+            glVertexAttribPointer(s_fxaa_aPos, 2, GL_FLOAT, GL_FALSE,
+                                  4 * sizeof(GLfloat), (const void *)0);
+            glEnableVertexAttribArray(s_fxaa_aTexCoord);
+            glVertexAttribPointer(s_fxaa_aTexCoord, 2, GL_FLOAT, GL_FALSE,
+                                  4 * sizeof(GLfloat),
+                                  (const void *)(2 * sizeof(GLfloat)));
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            glDisableVertexAttribArray(s_fxaa_aPos);
+            glDisableVertexAttribArray(s_fxaa_aTexCoord);
+        } else if (s_antiAlias == 4 && s_smaaBlendProgram) {
+            /* SMAA post-process: three-pass morphological AA on the scene
+               texture; draws the blended result into the current target. */
+            GL_SmaaPresent(vpX, vpY, vpW, vpH);
+        } else {
+        glUseProgram(s_program);
+        glUniform1i(s_uTexLoc, 0);
+        /* The hi-res FBO is always drawn plainly; the Scale2x mode below is
+         * for the 640x480 overlay only.  Pin it here or a stale Scale2x from
+         * the previous frame's overlay draw would smear the FBO blit. */
+        GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
+                             s_adj_uSaturation);
+        glUniform1i(s_uFilterLoc, 1);
+        glEnableVertexAttribArray(s_aPosLoc);
+        glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
+                              4 * sizeof(GLfloat), (const void *)0);
+        glEnableVertexAttribArray(s_aTexCoordLoc);
+        glVertexAttribPointer(s_aTexCoordLoc, 2, GL_FLOAT, GL_FALSE,
+                              4 * sizeof(GLfloat),
+                              (const void *)(2 * sizeof(GLfloat)));
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        }
+        GL_BindArrayBuffer(0);
+        glUseProgram(0);
+
+        glDisableVertexAttribArray(s_aPosLoc);
+        glDisableVertexAttribArray(s_aTexCoordLoc);
+        GL_BindArrayBuffer(0);
+        glUseProgram(0);
+    }
+
+    {
+        /* Optional one-shot dump of the raw Log overlay for comparison. */
+        static S32 s_logDumped = 0;
+        if (!s_logDumped && getenv("LBA2_DUMP_LOG")) {
+            U8 *rgb2 = (U8 *)malloc((size_t)width * height * 3);
+            if (rgb2) {
+                const U8 *src = (const U8 *)indices;
+                for (U32 i = 0; i < width * height; i++) {
+                    U32 c = paletteU32[src[i]];
+                    rgb2[i * 3 + 0] = (U8)(c >> 16);
+                    rgb2[i * 3 + 1] = (U8)(c >> 8);
+                    rgb2[i * 3 + 2] = (U8)(c);
+                }
+                SavePNGRGB("/tmp/gl_log.png", rgb2, (S32)width, (S32)height);
+                free(rgb2);
+                s_logDumped = 1;
+            }
+        }
+    }
+
+    /* PresentMono's mono fast path reads the scene directly when this is 1;
+       advertise it only under the same conditions as sceneOnlyPresent, so a
+       post-processed or display-adjusted composite is not bypassed. */
+    s_directScenePresent = directSceneSafe;
     if (!overlayEmpty) {
         /* The index texture and its band uploads are maintained by the
            diff block above; here we only refresh the palette (when the
@@ -5616,11 +5663,12 @@ U32 GL_GetPresentFBO(void) {
     return (U32)s_presentFBO;
 }
 
-/* Quest present fast path: when the last indexed present had an empty 2D
- * overlay, PresentMono can blit the 3D FBO straight into the swapchain and
- * skip the intermediate fullscreen composite. */
-S32 GL_PresentOverlayEmpty(void) {
-    return s_overlayEmptyLast;
+/* Quest present fast path: when the last indexed present was a plain
+ * scene (empty overlay, no post-process, content-sized FBO), PresentMono
+ * can blit the 3D FBO straight into the swapchain and skip the
+ * intermediate fullscreen composite. */
+S32 GL_PresentSceneDirect(void) {
+    return s_directScenePresent;
 }
 
 U32 GL_Get3DColorTex(void) {

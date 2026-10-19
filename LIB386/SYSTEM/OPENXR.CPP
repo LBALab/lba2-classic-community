@@ -195,8 +195,9 @@ static S32 s_foveationLevel = 1;
 
 /* GL renderer stereo eye capture (RENDER_GL.CPP). */
 extern "C" U32 GL_GetStereoEyeFBO(S32 eye);
+extern "C" S32 GL_StereoEyeSceneDirect(void);
 extern "C" S32 GL_TakeStereoPair(void);
-extern "C" S32 GL_PresentOverlayEmpty(void);
+extern "C" S32 GL_PresentSceneDirect(void);
 extern "C" U32 GL_Get3DColorTex(void);
 extern "C" U32 GL_Get3DFBO(void);
 
@@ -1806,6 +1807,12 @@ S32 OpenXR_PresentMono(void) {
                  * recommended 1680x1760 resolution with no vertical loss. */
                 GLuint eyeFBO0 = GL_GetStereoEyeFBO(0);
                 GLuint eyeFBO1 = GL_GetStereoEyeFBO(1);
+                if (GL_StereoEyeSceneDirect()) {
+                    GLuint sceneFbo = GL_Get3DFBO();
+                    if (sceneFbo != 0) {
+                        eyeFBO1 = sceneFbo;
+                    }
+                }
                 /* Fill the FULL per-eye half — the compositor maps the whole
                  * imageRect to the eye FOV, maximising the visible area; no
                  * black margins.  The engine's projection maps the 3D
@@ -1872,7 +1879,7 @@ S32 OpenXR_PresentMono(void) {
                      * just the 3D FBO — blit it directly and skip the
                      * intermediate fullscreen pass entirely. */
                     GLuint readFbo = (GLuint)prevFb;
-                    if (GL_PresentOverlayEmpty() && GL_Get3DFBO() != 0) {
+                    if (GL_PresentSceneDirect() && GL_Get3DFBO() != 0) {
                         readFbo = GL_Get3DFBO();
                         srcX = 0;
                         srcY = 0;
@@ -1887,7 +1894,7 @@ S32 OpenXR_PresentMono(void) {
                         if (++s_pmDiag % 300 == 1) {
                             OXR_LOGI("PMono: fast=%d ovlEmpty=%d read=%s",
                                      (readFbo != (GLuint)prevFb),
-                                     GL_PresentOverlayEmpty(),
+                                     GL_PresentSceneDirect(),
                                      readFbo == GL_Get3DFBO() ? "3dfbo"
                                                               : "composite");
                         }
