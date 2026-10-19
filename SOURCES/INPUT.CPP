@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include <SYSTEM/KEYBOARD.H>
+#include <SYSTEM/TIMER.H>
 
 #include "INPUT.H"
 #include "MENU_INPUT.H"
@@ -256,6 +257,15 @@ void WaitNoInput(void) {
 #endif
     )
         MyGetInput();
+}
+
+void WaitNoMenuInput(void) {
+    if (!MenuInput_Held())
+        return;
+    SaveTimer();
+    while (MenuInput_Held())
+        MyGetInput();
+    RestoreTimer();
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/

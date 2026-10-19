@@ -16,6 +16,7 @@ S32 MyKey = 0;
 U8 TabKeys[TABKEYS_NUM_KEYS];
 int TestConsoleOpen = 0;
 int TestConsoleSuppress = 0;
+bool AppActive = true;
 
 // --- Screen geometry the console's forced present reads ---------------------
 U32 ModeDesiredX = 640;
@@ -24,10 +25,6 @@ U32 ModeDesiredY = 480;
 extern "C" {
 void BoxStaticAdd(S32, S32, S32, S32) {}
 void BoxUpdate(void) {}
-/* The console's redraw marks itself as an overlay so it does not step the fixed-dt
-   clock; the clock itself is not linked here. tests/timer covers the behaviour. */
-void Timer_FixedDtOverlayPresent(void) {}
-
 int Console_IsOpen(void) { return TestConsoleOpen; }
 void Console_Update(void) {}
 int Console_GetToggleScancode(void) { return 0; }

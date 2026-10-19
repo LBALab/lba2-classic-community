@@ -1404,8 +1404,7 @@ void MenuInventory(U32 tempo) {
     InitWaitNoInput(I_INVENTORY | I_RETURN | I_MENUS); // fait dans la boucle du jeu
     InitWaitNoKey();
     /* A held D-pad navigation key must not cast its gameplay spell on return. */
-    if (MenuInput_Held())
-        WaitNoInput();
+    WaitNoMenuInput();
 }
 
 /*══════════════════════════════════════════════════════════════════════════*

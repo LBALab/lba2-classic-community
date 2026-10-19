@@ -69,6 +69,8 @@ Options → Controls contains only the gameplay keyboard and gamepad binding edi
 
 The control harness's `key <scancode> <polls> <delay>` injector drives the same fixed controls inside modal loops, so navigation can be reproduced without a physical controller.
 
+Inventory uses `WaitNoMenuInput` to drain UI directions in its own timer-save bracket. Waiting for release does not advance gameplay time or wait for unrelated gameplay controls such as RT.
+
 ## Terms
 
 | Term | Definition |

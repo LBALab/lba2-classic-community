@@ -40,6 +40,7 @@
 #include <SYSTEM/DEFFILE.H>
 #include <SYSTEM/INPUT.H>         // Input, GetInput, ClearNoRepeatInput
 #include <SYSTEM/KEYBOARD_KEYS.H> // K_*
+#include <SYSTEM/TIMER.H>
 
 #include "INPUT.H" // SOURCES/INPUT.H
 #include "MENU_INPUT.H"
@@ -559,6 +560,56 @@ void CheckConsoleMenuReplay(void) {
     CHECK(!MenuInput_Get(), "ending replay returns UI sampling to physical keys");
 }
 
+static int releasePolls = 0;
+static U32 releaseDirection = K_GAMEPAD_DPAD_UP;
+
+void AdvanceReleasePoll(void) {
+    Timer_FixedDtAdvance();
+    if (++releasePolls == 3)
+        HoldRemove(releaseDirection);
+    if (releasePolls == 7)
+        HoldRemove(K_GAMEPAD_RTRIGGER);
+}
+
+void CheckPausedMenuRelease(void) {
+    const U32 directions[] = {K_UP, K_GAMEPAD_LSTICK_UP, K_GAMEPAD_DPAD_UP};
+    for (int nested = 0; nested < 2; ++nested) {
+        for (int direction = 0; direction < 3; ++direction) {
+            ResetMenuInput();
+            Timer_EnableFixedDt(16);
+            Timer_FixedDtAdvance();
+            ManageTime();
+            const U32 before = TimerRefHR;
+            releaseDirection = directions[direction];
+            HoldOnly(releaseDirection);
+            HoldAdd(K_GAMEPAD_RTRIGGER);
+            MyGetInput();
+            if (nested)
+                SaveTimer();
+            releasePolls = 0;
+            SetPollHook(AdvanceReleasePoll);
+            WaitNoMenuInput();
+            SetPollHook(NULL);
+            CHECK(CmptMemoTimerRef == nested, "UI release wait balances timer depth %d", nested);
+            if (nested)
+                RestoreTimer();
+            ManageTime();
+            CHECK(TimerRefHR == before, "UI release wait must not advance gameplay time");
+            CHECK(releasePolls == 3, "UI release wait must ignore held RT");
+            CHECK(Input & I_UP, "RT remains held after UI release");
+            CHECK(!MenuInput_Held(), "UI direction is released before returning");
+        }
+    }
+    HoldNone();
+    MyGetInput();
+    releasePolls = 0;
+    SetPollHook(AdvanceReleasePoll);
+    WaitNoMenuInput();
+    SetPollHook(NULL);
+    CHECK(releasePolls == 0, "no UI direction means no extra input poll");
+    Timer_DisableFixedDt();
+}
+
 } // namespace
 
 int main() {
@@ -572,6 +623,7 @@ int main() {
     CheckMenuSuppression();
     CheckMenuIgnoresConfig();
     CheckConsoleMenuReplay();
+    CheckPausedMenuRelease();
 
     RemoveCfg();
 
