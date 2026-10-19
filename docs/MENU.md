@@ -43,8 +43,8 @@ Main Menu
 │   │   └── Don't display text / Display text (16/17)
 │   └── Controls [custom localized label]
 │       ├── Back (26)
-│       ├── Keyboard Config (14) [gameplay]
-│       └── Configure gamepad [gameplay]
+│       ├── Keyboard Config (14)
+│       └── Configure gamepad [custom localized label]
 └── Quit (75)
 ```
 
