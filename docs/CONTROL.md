@@ -595,6 +595,22 @@ This verb needs a voice line to be playing, so it is the one place that cannot u
 every wait-for-the-line loop falls straight through. `ctl_voice` in `tests/automation/lib.sh`
 is the windowless-but-audible pairing; see `test_askchoice_menus_consume.sh`.
 
+`ui config-pad` opens the Game Controller screen and neither captures nor exits on its own: it
+runs until something accepts or leaves it. No command runs while it is up, so arm the `key`
+holds that drive it in the same command line, before the verb, each with its own delay:
+
+```bash
+lba2cc --headless --fixed-dt 16 --user-dir /tmp/u \
+    --exec-at 5 "key right 3 30; key enter 3 60; key 1039 3 90; key end 3 120; key enter 3 150; ui config-pad" \
+    --tick 20 --exit
+# -> row 0's Key2 is the left stick up (1039), saved to /tmp/u/lba2.cfg as Gamepad0_2
+```
+
+Right moves to the second column, Enter starts a rebind, the pad input binds, End and Enter
+accept. A run reads its result back from the saved `Gamepad<n>` and `Gamepad<n>_2` keys. Pick a
+pad input no binding already uses: the screen refuses a duplicate and silently puts the old one
+back. See `test_pad_config_columns.sh`.
+
 ### Test fixtures and goldens
 
 Ten `tests/automation/test_ui_*.sh` fixtures byte-compare each verb's output against a

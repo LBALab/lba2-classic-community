@@ -465,6 +465,9 @@ static const struct {
     {"down", K_GRAY_DOWN},
     {"left", K_GRAY_LEFT},
     {"right", K_GRAY_RIGHT},
+    {"tab", K_TAB},
+    {"end", K_END},
+    {"delete", K_SUPPR},
     {"pad-start", K_GAMEPAD_START}, /* the default I_MENUS pad binding */
     {"pad-a", K_GAMEPAD_A},
     {"pad-b", K_GAMEPAD_B},
@@ -705,6 +708,14 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
            one-shot SavePNG, and calls MenuConfig directly. */
         Config_MainCapture(argv[2]);
         Console_Print("ui config -> %s", argv[2]);
+        return;
+    }
+    if (argc >= 2 && !strcmp(argv[1], "config-pad")) {
+        /* Game Controller screen. It neither captures nor exits on its own, so arm
+           the `key` holds that drive it before this, in the same command line: no
+           command runs while the screen is up. */
+        Config_GamepadOpen();
+        Console_Print("ui config-pad done");
         return;
     }
     if (argc >= 4 && !strcmp(argv[1], "askchoice")) {
@@ -2354,7 +2365,7 @@ static void cmd_input(int argc, const char *argv[]) {
 static void cmd_key(int argc, const char *argv[]) {
     if (argc < 2) {
         Console_Print("Usage: key <name|scancode> [polls] [delay] | key off");
-        Console_Print("Names: esc menus enter space action up down left right");
+        Console_Print("Names: esc menus enter space action up down left right tab end delete");
         Console_Print("       pad-start pad-a pad-b pad-x pad-y (or a raw scancode)");
         Console_Print("Polls are keyboard samples, not frames, so this reaches modals; `input` does not.");
         return;
@@ -2472,7 +2483,7 @@ void Console_RegisterAll(void) {
                               "Without a path, writes state_<time>.json under shoot/. Diffing two "
                               "dumps from one session says what changed between two moments.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui {inventory|holomap|menu-options|menu-main|config|slideshow} <path> | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal] | ui askchoice [--press <key>] <question-id> <choice-id>...",
+                              "ui {inventory|holomap|menu-options|menu-main|config|slideshow} <path> | ui config-pad | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal] | ui askchoice [--press <key>] <question-id> <choice-id>...",
                               "Composite verb for UI regression fixtures: opens a UI modal "
                               "with a deterministic auto-exit, writes the settled frame to <path> "
                               "via SavePNG, then closes.  Compose with --load / --exec to drive "
@@ -2583,6 +2594,7 @@ void Console_RegisterAll(void) {
                               "Holds a raw scancode in TabKeys for N input polls, so unlike "
                               "`input` it reaches menus, dialogue and the "
                               "choice list. Names: esc menus enter space action up down left right "
+                              "tab end delete "
                               "pad-start pad-a pad-b pad-x pad-y. Use [delay] to land a press "
                               "inside a modal that has not opened yet: a menu masks whatever was "
                               "already held when it opened.");

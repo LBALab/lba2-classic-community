@@ -659,7 +659,7 @@ void Config_RequestCapture(const char *path) {
    its in-game invocation chain (Main Menu → Options → Controls loads the
    menu PCX into Screen), arm the capture, and call MenuConfig. Mirror of
    GAMEMENU.CPP's Menu_MainCapture. */
-void Config_MainCapture(const char *path) {
+static void Config_LoadMenuBackground(void) {
     char tmpFilePathScreen[ADELINE_MAX_PATH];
 
     GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
@@ -667,10 +667,22 @@ void Config_MainCapture(const char *path) {
     CopyScreen(Screen, Log);
     PtrPal = PtrPalNormal;
     PaletteSync(PtrPalNormal);
+}
+
+void Config_MainCapture(const char *path) {
+    Config_LoadMenuBackground();
 
     Config_RequestCapture(path);
     MenuConfig();
     Config_RequestCapture(NULL); /* disarm if MenuConfig exited some other way */
+}
+
+/* Harness entry to the Game Controller screen, on the same background. No capture
+   and no auto-exit: the screen runs until it is accepted or left, so a caller
+   drives it with `key` holds armed beforehand. */
+void Config_GamepadOpen(void) {
+    Config_LoadMenuBackground();
+    MenuGamepadConfig();
 }
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
@@ -1057,10 +1069,12 @@ void MenuGamepadConfig(void) {
         MyKey = MenuKey_NumpadToNav(MyKey);
 
         switch (MyKey) {
-        /* This screen's own aliases. Left and Right are missing from the list
-           below, which leaves the Key1/Key2 column switch at the bottom of the
-           loop reachable only from the pad itself. Kept as-is here so this
-           stays a mapping change; see the tracking issue for the gap. */
+        /* This screen's own aliases, the same as the keyboard screen's. Left
+           and Right switch between the two columns, so the keyboard can reach
+           every control here: a player on this screen may have no working pad. */
+        case K_TAB:
+            MyKey = K_RIGHT;
+            break;
         case K_BACKSPACE:
             MyKey = K_SUPPR;
             break;
@@ -1069,6 +1083,8 @@ void MenuGamepadConfig(void) {
             break;
         case K_UP:
         case K_DOWN:
+        case K_LEFT:
+        case K_RIGHT:
         case K_PAGE_UP:
         case K_PAGE_DOWN:
         case K_HOME:

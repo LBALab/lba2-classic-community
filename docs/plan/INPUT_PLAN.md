@@ -50,11 +50,10 @@ Frozen: `DefKeysDefault95`'s action-to-key mapping, and the bits `GetInput` prod
 key state including `NoRepeatInput`'s masking. Free: everything behind those, including how the
 combined table is built and where the code lives.
 
-Two exceptions are already known and expected to be taken, each in the increment that owns it:
+One exception is already known and expected to be taken, in the increment that owns it:
 
 | Exception | Where | Why |
 |---|---|---|
-| `K_NUMPAD_POINT` offered but unpressable (#508) | increment 3 | the alias names `SDL_SCANCODE_KP_DECIMAL`; hardware sends `KP_PERIOD` |
 | A rebind drops the action's keypad twin (#507) | increment 4 | the twin is a layout fact sharing a slot with a preference |
 
 ## The refactor, named
@@ -607,8 +606,11 @@ key config screen in more than one language.
 
 **What it costs.** Small. A 69-entry table and a fallback.
 
-**Exception taken here.** #508's keypad-period alias, which is a key identity question rather than
-a screen question.
+**Not an exception after all.** #508 also reported the keypad period as offered but unpressable,
+because `ScanKnown` in [CONFIG.CPP](../../SOURCES/CONFIG.CPP) lists `K_NUMPAD_POINT`
+(`KP_DECIMAL`) where a keypad sends `KP_PERIOD`. Nothing reads `ScanKnown`: the original game used
+it to name keys, and `GetKeyText` now asks SDL instead. The keyboard screen accepts any keyboard
+scancode, so the keypad period binds and shows its name.
 
 **Not included.** #61's other half, names in the cfg file. These ids are LBA's own, not a text form
 of a scancode, so a written config wants its own vocabulary. That is a later step and it belongs
