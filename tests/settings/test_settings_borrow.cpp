@@ -121,6 +121,65 @@ static void test_after_the_return_the_writer_persists_the_live_value(void) {
     ASSERT_EQ_INT(0, cfg_camera());
 }
 
+/* A hook that writes a second setting, the way a retail fix's row switches the
+   master row to Custom (RETAILFIX.CPP). The borrow gives back only the rows it
+   borrowed, so the hook has to stand down while it is told about one. */
+static S32 g_master = 1;
+static S32 g_fix = 1;
+static S32 g_borrowingSeen = -1;
+
+static void master_to_custom(S32 value);
+
+static const T_SETTING kLinked[] = {
+    {"Fix", NULL, NULL, &g_fix, SETTING_TRUTHY, 1, 0, 1, NULL, NULL, master_to_custom, NULL, NULL},
+    {"Master", NULL, NULL, &g_master, SETTING_OR_DEFAULT, 1, 0, 2, NULL, NULL, NULL, NULL, NULL},
+};
+
+static void master_to_custom(S32 value) {
+    (void)value;
+    g_borrowingSeen = Settings_Borrowing();
+    if (!Settings_Borrowing())
+        Settings_Apply(&kLinked[1], 2);
+}
+
+static void reset_linked(void) {
+    Settings_ReturnBorrowed();
+    write_cfg("Fix: 1\nMaster: 1\n");
+    open_cfg();
+    Settings_ReadConfig(kLinked, 2);
+    g_borrowingSeen = -1;
+}
+
+/* Outside a borrow the flag is down, and the hook does its work. */
+static void test_a_runtime_write_runs_the_linked_hook(void) {
+    reset_linked();
+    ASSERT_EQ_INT(0, Settings_Borrowing());
+    Settings_Apply(&kLinked[0], 0);
+    ASSERT_EQ_INT(0, g_borrowingSeen);
+    ASSERT_EQ_INT(2, g_master);
+}
+
+/* The trap the flag closes: a replay borrowing the fix row must leave the master
+   alone, both ways, and the cfg must keep the player's master. */
+static void test_a_borrow_and_its_return_leave_the_linked_row_alone(void) {
+    reset_linked();
+    Settings_Borrow(&kLinked[0], 0);
+    ASSERT_EQ_INT(1, g_borrowingSeen);
+    ASSERT_EQ_INT(0, g_fix);
+    ASSERT_EQ_INT(1, g_master);
+    open_cfg();
+    Settings_WriteConfig(kLinked, 2);
+    open_cfg();
+    ASSERT_EQ_INT(1, DefFileBufferReadValueDefault("Master", -1));
+
+    g_borrowingSeen = -1;
+    Settings_ReturnBorrowed();
+    ASSERT_EQ_INT(1, g_borrowingSeen);
+    ASSERT_EQ_INT(1, g_fix);
+    ASSERT_EQ_INT(1, g_master);
+    ASSERT_EQ_INT(0, Settings_Borrowing());
+}
+
 int main(void) {
     RUN_TEST(test_a_borrow_installs_and_tells_the_owner);
     RUN_TEST(test_a_cfg_written_mid_borrow_keeps_the_players_value);
@@ -128,6 +187,8 @@ int main(void) {
     RUN_TEST(test_a_second_borrow_keeps_the_first_ones_value);
     RUN_TEST(test_a_borrowed_value_is_coerced);
     RUN_TEST(test_after_the_return_the_writer_persists_the_live_value);
+    RUN_TEST(test_a_runtime_write_runs_the_linked_hook);
+    RUN_TEST(test_a_borrow_and_its_return_leave_the_linked_row_alone);
     Settings_ReturnBorrowed();
     remove(kCfgPath);
     TEST_SUMMARY();

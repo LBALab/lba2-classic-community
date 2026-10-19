@@ -20,6 +20,12 @@ taken apart by brace and parenthesis depth, with comments blanked first. A parse
 drifts fails in the worst direction, finding no rows and reporting clean, so the check
 also fails when it finds no row the prefix names, or a table it could not read.
 
+A second prefix is held to more. `settings_before fix_` is the original's rules from the
+console (SOURCES/RETAILFIX.H): every retail fix off, then the master row on No. A fix_ row
+with no value from before would stay on in it, so a fix_ row must give SETTING_BEFORE(v);
+SETTING_BEFORE_NONE is not enough there. No fix_ row at all is fine: the cam_ rows already
+catch a parser that finds nothing.
+
 Usage: python3 scripts/ci/check-settings-before.py [--root DIR]   (or: make settings-before-check)
        scripts/ci/check-settings-before-selftest.py exercises it.
 """
@@ -43,6 +49,10 @@ CAM_PLAIN_RE = re.compile(r'^CAM_PLAIN="settings_before ([A-Za-z0-9_]+)"[ \t]*$'
 TABLE_DECL_RE = re.compile(r"\bT_SETTING\s+(?:const\s+)?(\w+)\s*\[")
 TABLE_INIT_RE = re.compile(r"\bT_SETTING\s+(?:const\s+)?(\w+)\s*\[\s*\]\s*=\s*\{")
 BEFORE_OK_RE = re.compile(r"^(SETTING_BEFORE\s*\(.*\)|SETTING_BEFORE_NONE)$", re.DOTALL)
+BEFORE_VALUE_RE = re.compile(r"^SETTING_BEFORE\s*\(.*\)$", re.DOTALL)
+
+# The retail fixes' prefix (SOURCES/RETAILFIX.CPP). Its rows must give a value.
+FIX_PREFIX = "fix_"
 STRING_RE = re.compile(r'^"((?:[^"\\]|\\.)*)"$')
 
 
@@ -167,7 +177,7 @@ def main(argv: list[str]) -> int:
         return 1
     prefix = prefixes[0]
 
-    errors, tables, named = [], 0, 0
+    errors, tables, named, fixes = [], 0, 0, 0
     for path in source_files(root):
         rel = os.path.relpath(path, root)
         with open(path, encoding="utf-8", errors="replace") as fh:
@@ -196,10 +206,19 @@ def main(argv: list[str]) -> int:
                                   f"`{fields[CVAR_FIELD]}`, not a string or NULL; cannot tell "
                                   f"whether `settings_before {prefix}` names it")
                     continue
-                if cvar is None or not cvar.startswith(prefix):
+                if cvar is None:
+                    continue
+                before = fields[BEFORE_FIELD] if len(fields) > BEFORE_FIELD else None
+                if cvar.startswith(FIX_PREFIX):
+                    fixes += 1
+                    if before is None or not BEFORE_VALUE_RE.match(before):
+                        said = "leaves it out" if before is None else f"gives `{before}`"
+                        errors.append(f"{rel}:{line}: {cvar} {said}. A retail fix must give "
+                                      "SETTING_BEFORE(v), the value that switches it off: "
+                                      f"`settings_before {FIX_PREFIX}` is the original's rules")
+                if not cvar.startswith(prefix):
                     continue
                 named += 1
-                before = fields[BEFORE_FIELD] if len(fields) > BEFORE_FIELD else None
                 if before is None or not BEFORE_OK_RE.match(before):
                     said = "leaves it out" if before is None else f"gives `{before}`"
                     errors.append(f"{rel}:{line}: {cvar} {said}. Say its value from before: "
@@ -218,8 +237,8 @@ def main(argv: list[str]) -> int:
               f"`settings_before {prefix}`; a row it names that does not say its value from "
               "before stays at its default in every one of them.")
         return 1
-    print(f"settings-before: clean ({named} row(s) named `{prefix}*` in {tables} table(s), "
-          "each says its value from before)")
+    print(f"settings-before: clean ({named} row(s) named `{prefix}*` and {fixes} named "
+          f"`{FIX_PREFIX}*` in {tables} table(s), each says its value from before)")
     return 0
 
 

@@ -186,4 +186,30 @@ const struct MenuLabelRow LocalizedMenuLabels[MENU_LABEL_COUNT] = {
       "<%s> Salir   <%s> Tecla   <%s> Borrar",
       "<%s> Esci   <%s> Tasto   <%s> Cancella",
       "<%s> Sair   <%s> Tecla   <%s> Apagar"}},
+    /* The Fix retail bugs row (RETAILFIX.H): bugs the 1997 release has. Custom
+       shows once a fix's own setting has been changed from the console. The
+       translations read "original bugs: fixed / not fixed / custom", because
+       a literal "fix ... : yes" ran past the row at 640x480 (31 characters
+       fit). */
+    {MENU_LABEL_RETAIL_FIXES_YES,
+     {"Fix retail bugs: Yes",
+      "Bugs d'origine : corrigés",
+      "Originalfehler: behoben",
+      "Fallos originales: corregidos",
+      "Bug originali: corretti",
+      "Bugs originais: corrigidos"}},
+    {MENU_LABEL_RETAIL_FIXES_NO,
+     {"Fix retail bugs: No",
+      "Bugs d'origine : non corrigés",
+      "Originalfehler: nicht behoben",
+      "Fallos originales: sin corregir",
+      "Bug originali: non corretti",
+      "Bugs originais: não corrigidos"}},
+    {MENU_LABEL_RETAIL_FIXES_CUSTOM,
+     {"Fix retail bugs: Custom",
+      "Bugs d'origine : sur mesure",
+      "Originalfehler: angepasst",
+      "Fallos originales: a medida",
+      "Bug originali: su misura",
+      "Bugs originais: sob medida"}},
 };

@@ -8,7 +8,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 2. **Preserve the nature of the game:** Do not change gameplay, feel, or behavior by default. Fix bugs that alter behavior; do not "improve" behavior without explicit agreement.
 
-3. **Optional features behind flags:** New behavior or features that change the experience must be opt-in (build options, config flags, runtime toggles). Default builds should match original behavior.
+3. **Optional features behind flags:** New behaviour that changes the experience is opt-in (build options, config flags, runtime toggles). A fix to a bug the original has is on by default and can be switched off; the original stays reachable. See [the retail-fix Decision](docs/knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md).
 
 4. **Quality over speed:** Equivalence tests must pass. Do not relax tests to unblock. Prefer smaller, well-tested changes. Fix bugs before merging.
 
