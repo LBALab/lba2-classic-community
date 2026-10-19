@@ -13,7 +13,7 @@ trap 'rm -rf "$tmp"' EXIT
 for state in fresh returning; do
     export LBA2_USER_DIR="$tmp/$state"
     seed_menu_save_dir "$LBA2_USER_DIR" "$state" || fail "$state: save setup failed"
-    for language in EN ES; do
+    for language in EN SP; do
         for resolution in 640x480 1280x720; do
             out="$tmp/options.png"
             rm -f "$out"
@@ -22,6 +22,9 @@ for state in fresh returning; do
                 --fixed-dt 16 --tick 200 --exit >"$tmp/run.log" 2>&1; then
                 tail -30 "$tmp/run.log"
                 fail "$state/$language/$resolution: engine failed"
+            fi
+            if grep -Fq -- '[control] --language: invalid' "$tmp/run.log"; then
+                fail "$state/$language/$resolution: language override rejected"
             fi
             [ -s "$out" ] || fail "$state/$language/$resolution: capture missing"
             grep -q 'presented_matches_rendered=1' "$tmp/run.log" \
