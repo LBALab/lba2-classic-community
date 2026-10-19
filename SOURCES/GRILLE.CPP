@@ -24,8 +24,10 @@ extern S32 XS0, YS0, XS1, YS1, XS2, YS2, XS3, YS3; // bezier.c
 S32 XpOrgw;
 S32 YpOrgw;
 
-#define NB_COLON 256  // 28
-#define MAX_BRICK 256 // 150
+#define NB_COLON 256 // 28
+// Bricks per column (originally 150). Column 0 holds two diagonals, the
+// bricks from XScreen -47 to -1: at 1920x1080 cube 11 puts 201 there.
+#define MAX_BRICK 512
 
 S16 NbBrickColon[NB_COLON];
 
@@ -741,7 +743,13 @@ void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax) {
     S32 col, i;
     S32 startcol, endcol;
 
-    startcol = (ClipXMin + 24) / 24 - 1;
+    // Bias -2 and clamp, as in DrawOverBrick: at widths where
+    // (ModeDesiredX/2 - 32) % 24 != 0 a brick bucketed in column c (x from
+    // 24c - 24 to 24c + 46) reaches up to 23 px into column c + 2, so it can
+    // cover ClipXMin from two columns back, which -1 skips.
+    startcol = (ClipXMin + 24) / 24 - 2;
+    if (startcol < 0)
+        startcol = 0;
     endcol = (ClipXMax + 24) / 24;
 
     for (col = startcol; col <= endcol; col++) {
@@ -782,7 +790,13 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
     S32 col, i;
     S32 startcol, endcol;
 
-    startcol = (ClipXMin + 24) / 24 - 1;
+    // Bias -2 and clamp, as in DrawOverBrick: at widths where
+    // (ModeDesiredX/2 - 32) % 24 != 0 a brick bucketed in column c (x from
+    // 24c - 24 to 24c + 46) reaches up to 23 px into column c + 2, so it can
+    // cover ClipXMin from two columns back, which -1 skips.
+    startcol = (ClipXMin + 24) / 24 - 2;
+    if (startcol < 0)
+        startcol = 0;
     endcol = (ClipXMax + 24) / 24;
 
     for (col = startcol; col <= endcol; col++) {
@@ -882,15 +896,9 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
         if (XScreen >= -47 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
             AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
 
-            // ListBrickColon is indexed by `col = (XScreen+24)/24`, which goes
-            // negative below -24 and would corrupt the array. Bricks in the
-            // newly-painted [-47,-24) strip aren't bucketed for DrawOverBrick
-            // re-blits — acceptable, they sit on the leftmost pixel column and
-            // their visible pixels are already painted by AffGraph above.
-            if (XScreen < -24) {
-                return;
-            }
-
+            // For XScreen in [-47,-25], (XScreen+24)/24 truncates to 0, so
+            // those bricks share column 0 and DrawOverBrick* can re-mask their
+            // on-screen strip over an actor at the left edge.
             col = (XScreen + 24) / 24; /* 48 / 2 colonne intercalée */
 
             nb = NbBrickColon[col];
@@ -974,7 +982,9 @@ void AffBrickBlockColon(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     if (numbrick AND numbrick != ForbidenBrick AND BrickInBank(numbrick)) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
 
-        if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
+        // Same left cull as AffBrickBlock: a brick at -47..-25 still has
+        // pixels on screen when the width is off the 24-px grid.
+        if (XScreen >= -47 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
             col = (XScreen + 24) / 24; /* 48 / 2 colonne intercalée */
 
             nb = NbBrickColon[col];
@@ -1060,7 +1070,9 @@ void AffBrickBlockOnly(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     if (numbrick AND numbrick != ForbidenBrick AND BrickInBank(numbrick)) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
 
-        if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
+        // Same left cull as AffBrickBlock: a brick at -47..-25 still has
+        // pixels on screen when the width is off the 24-px grid.
+        if (XScreen >= -47 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
             AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
         }
     }

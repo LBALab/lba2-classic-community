@@ -32,6 +32,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Display & render
 
+- At widths such as 800, 1280 and 1920, walls in front of a magic ball, a
+  bonus, a door or another sprite now cover it right up to the sprite's left
+  edge; a strip up to 16 pixels wide used to show through. In the two
+  labyrinth scenes the bricks at the left edge of the screen are drawn again
+  instead of leaving a strip of the same width empty. 640x480 and 1024x768
+  were never affected
+  ([#763](https://github.com/LBALab/lba2-classic-community/pull/763)).
 - Doors and other scenery near the top of the screen indoors no longer lose a
   brick-shaped piece to black. The wall bricks drawn back over them were moved
   down to the top edge of the screen instead of being cut off there, and
