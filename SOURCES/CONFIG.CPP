@@ -659,7 +659,7 @@ void Config_RequestCapture(const char *path) {
    its in-game invocation chain (Main Menu → Options → Controls loads the
    menu PCX into Screen), arm the capture, and call MenuConfig. Mirror of
    GAMEMENU.CPP's Menu_MainCapture. */
-void Config_MainCapture(const char *path) {
+static void Config_LoadMenuBackground(void) {
     char tmpFilePathScreen[ADELINE_MAX_PATH];
 
     GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
@@ -667,10 +667,22 @@ void Config_MainCapture(const char *path) {
     CopyScreen(Screen, Log);
     PtrPal = PtrPalNormal;
     PaletteSync(PtrPalNormal);
+}
+
+void Config_MainCapture(const char *path) {
+    Config_LoadMenuBackground();
 
     Config_RequestCapture(path);
     MenuConfig();
     Config_RequestCapture(NULL); /* disarm if MenuConfig exited some other way */
+}
+
+/* Harness entry to the Game Controller screen, on the same background. No capture
+   and no auto-exit: the screen runs until it is accepted or left, so a caller
+   drives it with `key` holds armed beforehand. */
+void Config_GamepadOpen(void) {
+    Config_LoadMenuBackground();
+    MenuGamepadConfig();
 }
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
