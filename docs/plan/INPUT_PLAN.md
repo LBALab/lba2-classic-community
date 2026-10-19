@@ -275,14 +275,10 @@ non-keyboard player needs in order to type a save name (G4, the `TODO(input)` at
 [GAMEMENU.CPP:1175](../../SOURCES/GAMEMENU.CPP)) does not exist and is unrelated. Two different
 things under one word, and the second one has no owner in this plan.
 
-## Three fixes that should not wait for any of this
+## Two fixes that should not wait for any of this
 
 Not increments. Independent bug fixes, each small, none blocked on the plan:
 
-- **#509**, the disc prompt cannot be answered with a gamepad. `ConfirmMenu` reads only `MyKey`
-  and matches no pad scancode, so a pad-only player sits in `while (flag == -1)` with no way out
-  and `CDROM` is unconditional in the default build. This is a lock, and it should go first of
-  everything on this page.
 - **#508**, the Key2 column is unreachable from the keyboard on the gamepad screen, because the
   screen's key filter swallows Left and Right before the line that would toggle the column. A
   player is on that screen precisely when the pad is not working.
@@ -726,14 +722,17 @@ available and an Android device is not:
 | 6 | real play, and the first place a community tester sees something a test cannot |
 | 7 | an Android device, so a community tester, for the touch half only |
 
-The three independent fixes each need a pad, and #509 needs a build with no keyboard reachable to
-confirm the lock is gone.
+The two independent fixes each need a pad.
 
 ## What this plan does not buy
 
-**It does not make the game feel different.** Nothing above changes how the hero moves. The one
-user-visible change in the whole plan is #509 unblocking a player who cannot currently proceed,
-and that is listed as an independent fix rather than an increment.
+**It does not make the game feel different.** Nothing above changes how the hero moves.
+
+**It does not reach the disc prompt.** `ConfirmMenu`, behind `AskForCD`, reads only `MyKey` and
+would not answer a pad (#509). It never shows: every backend that builds returns a drive from
+`OpenCD` without checking the disc, so the prompt is unreachable
+([VERSIONS.md](../VERSIONS.md#which-of-those-you-can-actually-see)). It matters again only if a
+real disc check comes back.
 
 **It does not settle the scheme question**, and increment 6 is the most it does toward it: a place
 for an answer to live once the direction call is made.
