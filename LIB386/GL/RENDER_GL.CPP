@@ -5360,6 +5360,10 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
             fullUpload = 1; /* mirror restarted: reseed the texture */
         }
         if (s_prevUpload != NULL && s_rowNonZero != NULL) {
+            /* The overlay upload used to follow the scene composite, which
+               left unit 0 active.  It now runs first, so select unit 0
+               explicitly before binding the index texture. */
+            glActiveTexture(GL_TEXTURE0);
             if (fullUpload) {
                 if (s_logIndexTex == 0) {
                     glGenTextures(1, &s_logIndexTex);
