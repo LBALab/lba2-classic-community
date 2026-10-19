@@ -742,8 +742,9 @@ void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax) {
     S32 startcol, endcol;
 
     // Bias -2 and clamp, as in DrawOverBrick: at widths where
-    // (ModeDesiredX/2 - 32) % 24 != 0 a brick reaches up to 23 px into the
-    // column after its own, which -1 skips.
+    // (ModeDesiredX/2 - 32) % 24 != 0 a brick bucketed in column c (x from
+    // 24c - 24 to 24c + 46) reaches up to 23 px into column c + 2, so it can
+    // cover ClipXMin from two columns back, which -1 skips.
     startcol = (ClipXMin + 24) / 24 - 2;
     if (startcol < 0)
         startcol = 0;
@@ -788,8 +789,9 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
     S32 startcol, endcol;
 
     // Bias -2 and clamp, as in DrawOverBrick: at widths where
-    // (ModeDesiredX/2 - 32) % 24 != 0 a brick reaches up to 23 px into the
-    // column after its own, which -1 skips.
+    // (ModeDesiredX/2 - 32) % 24 != 0 a brick bucketed in column c (x from
+    // 24c - 24 to 24c + 46) reaches up to 23 px into column c + 2, so it can
+    // cover ClipXMin from two columns back, which -1 skips.
     startcol = (ClipXMin + 24) / 24 - 2;
     if (startcol < 0)
         startcol = 0;
