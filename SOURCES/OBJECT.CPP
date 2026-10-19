@@ -1165,6 +1165,7 @@ void ChangeCube() {
     T_OBJET *ptrobj = &ListObjet[NUM_PERSO];
     S32 oldcube;
     S32 flagload;
+    U32 cubeT0 = SDL_GetTicks();
 
     APtObj = ptrobj;
 
@@ -1426,6 +1427,9 @@ void ChangeCube() {
 
     LastValidePos = ValidePos = FALSE;
     ptrobj->CarryBy = -1;
+
+    Log_Info("CubePerf: cube=%d mode=%d load=%dms", (S32)NumCube, (S32)CubeMode,
+             (S32)(SDL_GetTicks() - cubeT0));
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -5686,14 +5690,29 @@ startaffscene:
     case AFF_ALL_NO_FLIP:
         LockTimer();
         BoxReset();
-        Cls();
+        if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+            /* GL exterior: the 3D scene composites from the FBO, and
+               AffGrilleExt clears Log wholesale before the object pass.
+               The full-screen static box only needs to mark the frame for
+               present — filling Log here (and again in ClsTerrainZBuf)
+               would be overwritten unused. */
+            BoxStaticAdd(BoxClipXMin, BoxClipYMin, BoxClipXMax - 1,
+                         BoxClipYMax - 1);
+        } else {
+            Cls();
+        }
 
         RefreshGrille();
 
         ChangeIncrustPos(oldxporg, oldyporg, XpOrgw, YpOrgw);
         //			HQ_ChangeBalanceSamples( oldxporg, oldyporg ) ;
 
-        CopyScreen(Log, Screen);
+        /* GL exterior: AffGrilleExt zeroed Log and Screen, so this copy is
+           zero over zero.  Interior GL and the software renderer keep the
+           background in Screen. */
+        if (!(GPURendererActive && CubeMode == CUBE_EXTERIEUR)) {
+            CopyScreen(Log, Screen);
+        }
 
         if (flagflip == AFF_ALL_FLIP
                                 AND !CinemaMode AND MemoClipWindowYMin > 0) {

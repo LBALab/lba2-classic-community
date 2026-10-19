@@ -381,7 +381,7 @@ void AffGrilleExt() {
 
     ClearAniPoly();
 
-    ClsTerrainZBuf();
+    ClsTerrainZBuf(!GPURendererActive);
 
     ManageSystem(); // for streaming
 
@@ -391,7 +391,17 @@ void AffGrilleExt() {
     if (FlagDrawHorizon)
 #endif
     {
+#ifdef USE_GPURENDERER
+        S32 hzEye = GL_GetStereoEye();
+#else
+        S32 hzEye = -1;
+#endif
+        U64 hzRestoreTicks = 0;
+        U32 hzResolveUs = 0;
+        U32 hzBlitUs = 0;
+        U32 hzRectPct = 0;
         U32 hzT0 = SDL_GetTicks();
+        U32 hzDrawT1;
 #ifdef USE_GPURENDERER
         /* Stereo: the neighbor-cube backdrop's disparity is sub-pixel (the
            backdrop sits >= 32k units away, the eye separation is ~30) —
@@ -399,24 +409,39 @@ void AffGrilleExt() {
            vertices.  DrawSkySeaZBuf below still runs per eye (the sky/sea
            quads are few and the fog colour differs with the shifted
            camera). */
-        if (GPURendererActive && GL_GetStereoEye() == 1 && GL_HorizonValid()) {
+        if (GPURendererActive && hzEye == 1 && GL_HorizonValid()) {
+            U64 hzRestoreT0 = SDL_GetPerformanceCounter();
             GL_RestoreHorizon();
+            hzRestoreTicks = SDL_GetPerformanceCounter() - hzRestoreT0;
+            hzDrawT1 = SDL_GetTicks();
         } else
 #endif
         {
             DrawHorizon2ZBuf();
+            hzDrawT1 = SDL_GetTicks();
 #ifdef USE_GPURENDERER
-            if (GPURendererActive && GL_GetStereoEye() == 0) {
+            if (GPURendererActive && hzEye == 0) {
                 GL_CaptureHorizon(HorizonBackdropStable());
+                GL_GetHorizonPerf(&hzResolveUs, &hzBlitUs, &hzRectPct);
             }
 #endif
         }
-        U32 hzT1 = SDL_GetTicks();
         {
-            static U32 s_hzPerfFrame = 0;
-            s_hzPerfFrame++;
-            if (s_hzPerfFrame % 300 == 150) {
-                Log_Info("GrillePerf: horizon=%dms", (S32)(hzT1 - hzT0));
+            U32 hzT1 = SDL_GetTicks();
+            /* One counter per eye: a single alternating counter would land
+               on the same eye every time and hide its counterpart. */
+            static U32 s_hzPerfFrame[2] = {0, 0};
+            U32 *perfFrame = &s_hzPerfFrame[hzEye == 1 ? 1 : 0];
+            (*perfFrame)++;
+            if (*perfFrame % 300 == 150) {
+                Log_Info("GrillePerf: horizon=%dms draw=%dms capture=%dms "
+                         "restore=%dus resolve=%dus blit=%dus rect=%d%% eye=%d",
+                         (S32)(hzT1 - hzT0), (S32)(hzDrawT1 - hzT0),
+                         (S32)(hzT1 - hzDrawT1),
+                         (S32)(hzRestoreTicks * 1000000
+                               / SDL_GetPerformanceFrequency()),
+                         (S32)hzResolveUs, (S32)hzBlitUs, (S32)hzRectPct,
+                         (S32)hzEye);
             }
         }
     }

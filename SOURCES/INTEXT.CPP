@@ -507,7 +507,7 @@ void FlyCamera(S32 offx, S32 offy, S32 offz,
                 NbAniPoly = 0;
                 PtrAniPoly = PtrPolySea;
 
-                ClsTerrainZBuf();
+                ClsTerrainZBuf(TRUE);
 
 #ifdef LBA_EDITOR
                 if (FlagInfos & INFO_HORIZON)

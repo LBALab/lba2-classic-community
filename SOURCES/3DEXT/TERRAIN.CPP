@@ -86,9 +86,13 @@ void DrawSkySeaZBuf() {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
-void ClsTerrainZBuf() {
+/* clearLog: fill Log with the fog colour before drawing.  GL mode renders
+   the terrain into the FBO, so the caller passes FALSE and Log is cleared
+   once, wholesale, after the terrain (see AffGrilleExt). */
+void ClsTerrainZBuf(S32 clearLog) {
     SetClearColor((U8)FogCoul);
-    Cls();
+    if (clearLog)
+        Cls();
     SetClearColor(0);
 
     memset(PtrZBuffer, 255, SIZE_Z_BUFFER); // Clear ZBuffer

@@ -105,6 +105,12 @@ void GL_CaptureHorizon(S32 backdropStable);
 void GL_RestoreHorizon(void);
 S32 GL_HorizonValid(void);
 
+//! Latest horizon-capture split, for the GrillePerf diagnostic: @p resolveUs
+//! and @p blitUs are the resolve and blit cost in microseconds, @p rectPct is
+//! the measured horizon footprint in the FBO (percent of the surface).  All
+//! three are zero when the last capture was a prefix-pose cache hit.
+void GL_GetHorizonPerf(U32 *resolveUs, U32 *blitUs, U32 *rectPct);
+
 //! Draw the projected ground-shadow polygon directly into the FBO (GL
 //! replacement for the SW DrawShadow/ShadeBoxBlk/DrawRecover pass).  xs/ys
 //! walk the Bezier-rounded outline the SW span filler fills (BuildOmbreOutline),
