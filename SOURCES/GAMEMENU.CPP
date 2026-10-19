@@ -2596,6 +2596,10 @@ void Menu_RequestCapture(const char *path) {
                                       menu fade-in and dynamic-item initial draws */
 }
 
+S32 Menu_CaptureMatchesPresented(void) {
+    return s_menu_capture_matches_presented;
+}
+
 S32 Menu_MainOptionsCapture(const char *path) {
     Menu_MainCapture(path);
     CopyScreen(Screen, Log);
@@ -3007,10 +3011,17 @@ S32 DoGameMenu(U16 *ptrmenu) {
         /* Capture the visible frame, not the prepared offscreen page: dirty
            rectangles must propagate every restored backdrop pixel to Phys. */
         if (s_menu_capture_path[0] && --s_menu_capture_countdown <= 0) {
+            /* The menu pointer is drawn into Phys only. Hide it and present
+               once more so its box is cleaned from Log, or a host pointer
+               crossing the window during a run ends up in the capture. */
+            ShowMouse(false);
+            BoxUpdate();
+            /* Phys has its own geometry (ModeResX x ModeResY). The compare
+               needs Log's to be the same; save Phys as it is either way. */
             s_menu_capture_matches_presented =
+                ModeResX == ModeDesiredX && ModeResY == ModeDesiredY &&
                 memcmp(Phys, Log, (size_t)ModeDesiredX * (size_t)ModeDesiredY) == 0;
-            SavePNG(s_menu_capture_path, Phys, (S32)ModeDesiredX,
-                    (S32)ModeDesiredY, PtrPal);
+            SavePNG(s_menu_capture_path, Phys, (S32)ModeResX, (S32)ModeResY, PtrPal);
             s_menu_capture_path[0] = '\0';
             AsciiMode = FALSE;
             return 1000;
@@ -5338,6 +5349,13 @@ void EffectPcx(U8 numpcx, U8 *screen, U8 effect, U8 flagbcl) {
            is unchanged (the reveal fills the whole frame); the un-revealed
            bands now wipe in from black instead of the previous frame. */
         memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+
+        /* Each step below marks from its band down to the bottom of the
+           frame, so on frames taller than 480 lines the rows above the image
+           would never reach the screen and keep the previous scene. Mark
+           them once; the first BoxUpdate presents them black. */
+        if (yOff > 0)
+            BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, yOff - 1);
 
         for (y = 0; y <= IMAGE_AUTHORED_HEIGHT - 1; y++) {
             CopyBlock(xOff, yOff + y, xOff + IMAGE_AUTHORED_WIDTH - 1, yOff + y + 4,

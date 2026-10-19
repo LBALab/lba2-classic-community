@@ -606,7 +606,8 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
            sentinel) and OptionsMenu's case-1000 exits cleanly. */
         Menu_RequestCapture(argv[2]);
         OptionsMenu(FALSE);
-        Console_Print("ui menu-options -> %s", argv[2]);
+        Console_Print("ui menu-options -> %s (presented_matches_rendered=%d)", argv[2],
+                      (int)Menu_CaptureMatchesPresented());
         return;
     }
     if (argc >= 3 && !strcmp(argv[1], "display")) {
@@ -621,7 +622,8 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
             memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
         }
         Display_MainCapture(argv[2]);
-        Console_Print("ui display -> %s", argv[2]);
+        Console_Print("ui display -> %s (presented_matches_rendered=%d)", argv[2],
+                      (int)Menu_CaptureMatchesPresented());
         return;
     }
     if (argc >= 3 && !strcmp(argv[1], "menu-advanced")) {
@@ -632,7 +634,8 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
             memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
         }
         Advanced_MainCapture(argv[2]);
-        Console_Print("ui menu-advanced -> %s", argv[2]);
+        Console_Print("ui menu-advanced -> %s (presented_matches_rendered=%d)", argv[2],
+                      (int)Menu_CaptureMatchesPresented());
         return;
     }
     if (argc >= 3 && !strcmp(argv[1], "resolution")) {
@@ -645,7 +648,8 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
             memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
         }
         Resolution_MainCapture(argv[2]);
-        Console_Print("ui resolution -> %s", argv[2]);
+        Console_Print("ui resolution -> %s (presented_matches_rendered=%d)", argv[2],
+                      (int)Menu_CaptureMatchesPresented());
         return;
     }
     if (argc >= 3 && !strcmp(argv[1], "menu-main")) {
@@ -654,7 +658,8 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
            cinematic side effects, arms the capture, and calls DoGameMenu
            directly. */
         Menu_MainCapture(argv[2]);
-        Console_Print("ui menu-main -> %s", argv[2]);
+        Console_Print("ui menu-main -> %s (presented_matches_rendered=%d)", argv[2],
+                      (int)Menu_CaptureMatchesPresented());
         return;
     }
     if (argc >= 3 && !strcmp(argv[1], "menu-main-options")) {

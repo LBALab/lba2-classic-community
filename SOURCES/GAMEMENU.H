@@ -77,6 +77,9 @@ extern void Menu_MainCapture(const char *path);
 /* Capture Options entered from the boot menu. Returns whether every visible
    indexed pixel matches the composed page, including the restored backdrop. */
 extern S32 Menu_MainOptionsCapture(const char *path);
+/* Whether the last menu capture's presented frame matched the composed page
+   (every visible indexed pixel). FALSE until a capture has fired. */
+extern S32 Menu_CaptureMatchesPresented(void);
 /* Harness hook: capture the Display submenu (Phase 2 runtime-resolution
    UX). Mirrors Menu_MainCapture: does the minimal pre-pass the regular
    OptionsMenu -> GereDisplayMenu path does (InitPlasmaMenu, palette
