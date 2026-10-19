@@ -6106,8 +6106,14 @@ startaffscene:
 #ifdef USE_GPURENDERER
     /* GL mode: refresh PtrZBuffer after the object pass so it contains
        terrain AND model depth — the Log-layer sprites (eyes, hands) test
-       their occlusion against it on the next frame. */
-    if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+       their occlusion against it on the next frame.
+
+       Stereo eye passes are full redraws: each AffGrilleExt clears the
+       buffer before the object pass, so the readback can never be observed
+       by either eye.  Skip the depth resolve and PBO read there; the mono
+       incremental path still needs the one-frame-old depth. */
+    if (GPURendererActive && CubeMode == CUBE_EXTERIEUR &&
+        GL_GetStereoEye() < 0) {
         GL_ReadbackDepthBuffer();
     }
     GL_ArrayWindowEnd();
