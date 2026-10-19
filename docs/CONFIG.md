@@ -108,6 +108,26 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | FollowCamera | Auto camera for exterior scenes (0=classic, 1=auto). Community addition, not in original game; menu label is "Auto camera" / "Classic camera" | ReadConfigFile / WriteConfigFile | Options → Advanced options |
 | TextureFilter, DitherShading | Software-rasterizer smoothing, both off by default. Console cvars `gfx_texfilter` / `gfx_dither` | ReadConfigFile / WriteConfigFile | console only |
 | PresentFilter | Filter that stretches the frame to the window, nearest by default. Console cvar `gfx_presentfilter` | ReadConfigFile / WriteConfigFile | console only |
+| RetailFixes | Fix retail bugs: 0 no, 1 yes (default), 2 custom. Console cvar `fix_retail`. See "Retail fixes" below | RetailFix_ReadConfig / RetailFix_WriteConfig | Options → Advanced options |
+| RetailFixFoundObjWalk | A direction held through a found-item popup still moves Twinsen afterwards. 1 (default) on. Console cvar `fix_found_obj_walk`. Applies only while `RetailFixes` is 2 | RetailFix_ReadConfig / RetailFix_WriteConfig | console only |
+
+### Retail fixes
+
+A retail fix changes a bug the 1997 release has, so it changes play against the original. Each
+has its own key, named `RetailFix<Name>`, and `RetailFixes` decides which apply:
+
+- **0, No:** every fix is off, including fixes added in later versions. These are the original's
+  rules.
+- **1, Yes:** every fix is on, whatever its own key says.
+- **2, Custom:** each fix's own key decides.
+
+Yes and No never rewrite the per-fix keys, so switching back to Custom brings the choices back.
+Setting a fix from the console switches `RetailFixes` to 2 by itself. Editing this file does not:
+the reader cannot tell a key changed on purpose from one kept under Yes or No. So a hand edit of a
+`RetailFix<Name>` key also needs `RetailFixes: 2`.
+
+A fix that writes game state (a quest flag, a count) leaves it in the save. Switching the fix off
+later changes the rules from then on and does not undo what it wrote.
 
 ## How a key is declared
 

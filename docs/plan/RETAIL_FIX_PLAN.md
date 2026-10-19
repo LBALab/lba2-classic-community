@@ -55,8 +55,7 @@ typedef enum {
 #define RETAIL_FIXES_CUSTOM 2
 
 S32 RetailFix_On(T_RETAIL_FIX fix);   /* what a fix site asks */
-S32 RetailFix_AnyCustom(void);        /* any per-fix setting off its default */
-S32 RetailFix_NextMenuValue(S32 cur); /* the menu row's cycle */
+void RetailFix_MenuSelect(void);      /* the menu row: the next value, through Settings_Apply */
 void RetailFix_ReadConfig(void);
 void RetailFix_WriteConfig(void);
 void RetailFix_RegisterCvars(void);
@@ -69,23 +68,25 @@ const T_SETTING *RetailFix_Settings(S32 *count);
 master == RETAIL_FIXES_CUSTOM ? per_fix[fix] : master
 ```
 
-The arithmetic for `RetailFix_On`, `RetailFix_AnyCustom` and the cycle goes in the header as
+The arithmetic (`RetailFix_Effective`, `RetailFix_NextMenuValue`) goes in the header as
 `static inline` over plain values, the way `Settings_Coerce` is, so a host test covers it without
 booting anything.
 
 ### Rows
 
-| cfg key | cvar | type | default | min..max | before | recorded |
-|---|---|---|---|---|---|---|
-| `RetailFixFoundObjWalk` | `fix_found_obj_walk` | TRUTHY | 1 | 0..1 | 0 | yes |
-| `RetailFixes` | `fix_retail` | OR_DEFAULT | 1 | 0..2 | 0 | yes |
+| cfg key | cvar | type | default | min..max | before | recorded | lifecycle |
+|---|---|---|---|---|---|---|---|
+| `RetailFixFoundObjWalk` | `fix_found_obj_walk` | TRUTHY | 1 | 0..1 | 0 | yes | retail fix: permanent |
+| `RetailFixes` | `fix_retail` | OR_DEFAULT | 1 | 0..2 | 0 | yes | master: permanent |
 
 - cfg keys follow the cfg's CamelCase and cvars the console's prefix_snake, as every other row
   does. All cvars start with `fix_`, so `settings_before fix_` is retail rules.
 - **The master row goes last in the table.** `settings_before fix_` applies rows in table order,
   and each per-fix row switches the master to Custom as it changes (below). With the master last,
   it ends on its own value from before, No.
-- Help strings name the issue the fix closes, so `help fix_found_obj_walk` says what it is.
+- Help strings say what the fix changes, in the player's words. They don't name the issue: issue
+  numbers stay out of what a player reads. The table's comment names it instead.
+- The lifecycle column says how long a setting is meant to live (see "Retiring a setting").
 
 ### Switching to Custom
 
@@ -113,8 +114,11 @@ so next to the keys.
 - `MENU_ID_RETAIL_FIXES` added to `AdvancedOptionMenu` (GAMEMENU.CPP), which takes it from 7
   rows to 8. **Check that 8 rows fit at 640x480**: no menu has more than 7 today. Capture it with
   the `ui` command at `--resolution 640x480 --fixed-dt 16`.
-- Labels in MENU_LABELS.CPP, six languages: "Fix retail bugs: Yes / No / Custom". Have
-  the translations checked by someone who speaks each language.
+- Labels in MENU_LABELS.CPP, six languages. English is "Fix retail bugs: Yes / No / Custom". The
+  other five read "original bugs: fixed / not fixed / custom", because a literal translation ran
+  past the row at 640x480 (about 31 characters fit). Only the selected row scrolls a long label
+  (the marquee in `DrawOneChoice`); unselected, it is clipped from the right, which would hide
+  the value. Have the translations checked by someone who speaks each language.
 - Selecting the row sets `RetailFix_NextMenuValue(master)` **through `Settings_Apply`**, so the
   setting is marked as set this run and persists. The Auto/Classic camera row assigns its global
   directly (`FollowCamera ^= 1`); don't copy that.
@@ -199,8 +203,8 @@ alone does not decide it.
 | #750 | Wannie mines clover box respawns | fix | game-data fix, below |
 | #751 | two clover boxes share one quest flag | fix | game-data fix, below |
 | #600 | Distance2D/3D overflow | port bug | not retail: restore the original, no setting (below) |
-| #707 | one-brick skip at an outdoor scene boundary | to decide | two code paths, below |
-| #538 | NPCs respawn on every outdoor crossing | likely enhancement | two code paths, below |
+| #707 | one-brick skip at an outdoor scene boundary | fix (decided 2026-10-19) | two code paths, below |
+| #538 | NPCs respawn on every outdoor crossing | enhancement (decided 2026-10-19) | two code paths, below |
 | #745 | catching on wall corners | port difference | the 1997 CD release does not catch; lba2cc follows Classic's regression, so the fix restores the original, no setting |
 | #735, #144 | texture swim, terrain seams | display option | not `fix_` |
 | #498, #59 | the bat's path, lava rock collision | unknown | no confirmed cause or retail check yet |
@@ -246,10 +250,12 @@ The bug is in the original life scripts, not in engine code, so the fix override
 ### Two code paths (#707, #538)
 
 A setting works mechanically, but the original path has to stay alive and tested next to a
-large new one. Before either starts:
+large new one. Buckets, decided 2026-10-19:
 
-- Decide its bucket. #538 keeps actors resident across a crossing, which is a design change;
-  #707 is closer to a bug, but the maintainer wants it fixed in the engine.
+- #707 is a **fix**: nobody designed a one-brick skip. It gets a `fix_` setting, on, under the
+  master row, even though the new crossing is a large separate path.
+- #538 is an **enhancement**: respawning on a crossing is how the engine was built to work.
+  Its own setting, off by default, outside the master row.
 - If it gets a setting, the original path keeps its own fixture. #707 notes that moving the
   arrival point makes every later position differ in a recording that crosses a boundary, so
   the setting off has to replay the committed recordings unchanged.
@@ -262,6 +268,34 @@ retail rules once a play-changing enhancement exists. A watermark or an Original
 check every setting that changes play, not just this row. Nothing to build now; just don't
 describe the row as more than it is.
 
+## Retiring a setting
+
+Feature flags are usually sorted by how long they are meant to live, and only the short-lived
+kind gets a plan for removal. Here there are three kinds:
+
+- **Experiments** (`cam_zone_anchor`, the HUD flags) are meant to be retired. Each names the
+  issue that decides it when it is added.
+- **Enhancements** are permanent: being opt-in is the point.
+- **Retail fixes** are permanent too. Principle 3 says the original stays reachable, and
+  removing a fix's switch makes it unreachable for that bug. Baking one in is a decision about
+  that principle, stated in its PR with what still reaches the original.
+
+What a removed row leaves behind today:
+
+- `lba2.cfg`: the writer updates keys in place, so an old key stays as a line nothing reads.
+  Harmless.
+- Recordings: a recording carries every setting. One made with the setting off, replayed on a
+  build without the row, reports it as absent and runs on the baked value, so it may diverge
+  with only a generic message. This is the one that matters.
+- Console scripts and fixtures that set it fail with an unknown cvar. Loud, which is good.
+- Saves: what a game-data fix wrote stays, whatever the setting says.
+
+Build nothing for this until the first real removal. Then add a list of retired settings to
+SETTINGS.CPP, each with its key, the value it was fixed at and the version. With it, a replay
+of a recording carrying the key at another value says "recorded with fix_x off; removed in
+0.15, this replay will differ", the console says the setting is retired and what it is fixed
+at, and docs/CONFIG.md gets a "Retired settings" section.
+
 ## Out of scope
 
 - #745 (no setting; the CD release's behaviour), #511 (restored retail).
@@ -271,17 +305,14 @@ describe the row as more than it is.
 - Retrofitting past fixes: last session's audit found no merged fix that changes play against
   retail apart from #511. The rest are port bugs, undefined behaviour or presentation.
 
-## Open for the maintainer
+## Answered by the maintainer (2026-10-19)
 
-1. **Principle 3's new wording.** A suggestion: "New behaviour that changes the experience is
-   opt-in. A fix to a bug the original has is on by default and can be switched off; the
-   original stays reachable."
-2. **Names.** `RetailFixes` / `fix_retail` for the row, `RetailFix<Name>` / `fix_<name>` for the
-   fixes. The fix's own name is `found_obj_walk` here; something shorter is fine.
-3. **Switching to Custom:** the flag in SETTINGS.CPP (recommended), or a console note with no
-   switch.
-4. **The bucket rule** in "What the backlog needs" (fix, enhancement, display option), and which
-   bucket #707 and #538 go in.
+1. **Principle 3** is reworded as suggested: "New behaviour that changes the experience is opt-in.
+   A fix to a bug the original has is on by default and can be switched off; the original stays
+   reachable."
+2. **Names** as above: `RetailFixes` / `fix_retail`, `RetailFix<Name>` / `fix_<name>`.
+3. **Switching to Custom:** the `Settings_Borrowing()` flag in SETTINGS.CPP.
+4. **The bucket rule** as written, with #707 a fix and #538 an enhancement.
 
 ## Order of work
 
