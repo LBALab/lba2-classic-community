@@ -517,6 +517,48 @@ void CheckMenuIgnoresConfig(void) {
     }
 }
 
+void CheckConsoleMenuReplay(void) {
+    const int held[] = {1, 1, 1, 0, 1};
+    const int open[] = {1, 0, 0, 0, 0};
+    const int closing[] = {0, 1, 0, 0, 0};
+    U32 active[5], waiting[5], suppressed[5];
+    U8 samples[5];
+    ResetMenuInput();
+    for (int i = 0; i < 5; ++i) {
+        HoldNone();
+        if (held[i])
+            HoldOnly(K_UP);
+        TestConsoleOpen = open[i];
+        TestConsoleSuppress = closing[i];
+        samples[i] = (U8)MenuInput_Capture(open[i] || closing[i], 0);
+        MyGetInput();
+        active[i] = MenuInput_Get();
+        waiting[i] = MenuInput_Held();
+        suppressed[i] = MenuInput_Suppressed();
+    }
+
+    TestConsoleOpen = TestConsoleSuppress = 0;
+    ResetMenuInput();
+    for (int i = 0; i < 5; ++i) {
+        HoldNone();
+        if (held[i] && !open[i])
+            HoldOnly(K_UP);
+        MenuInput_SetReplaySample(samples[i]);
+        MyGetInput();
+        CHECK(MenuInput_Get() == active[i], "console replay active directions at poll %d", i);
+        CHECK(MenuInput_Held() == waiting[i], "console replay held directions at poll %d", i);
+        CHECK(MenuInput_Suppressed() == suppressed[i], "console replay release latch at poll %d", i);
+    }
+    MenuInput_SetReplaySample(-1);
+    HoldOnly(K_UP);
+    CHECK(!(MenuInput_Capture(0, K_UP) & MENU_INPUT_UP), "console toggle is not a UI key");
+    HoldAdd(K_NUMPAD_8);
+    CHECK(MenuInput_Capture(0, K_UP) & MENU_INPUT_UP, "reserving toggle preserves alternate UI keys");
+    HoldNone();
+    MyGetInput();
+    CHECK(!MenuInput_Get(), "ending replay returns UI sampling to physical keys");
+}
+
 } // namespace
 
 int main() {
@@ -529,6 +571,7 @@ int main() {
     CheckMenuRebindIsolation();
     CheckMenuSuppression();
     CheckMenuIgnoresConfig();
+    CheckConsoleMenuReplay();
 
     RemoveCfg();
 

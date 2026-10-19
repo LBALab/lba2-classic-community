@@ -399,6 +399,7 @@ wrong.
 | The console commands the session was driven with | Otherwise a recording cannot stand in for a harness-driven fixture |
 | Gameplay keyboard/gamepad binding tables | A replay borrows both tables for its duration and returns the player's own on exit. UI navigation uses fixed physical keys, not binding tables; recordings made with gameplay-driven UI directions can diverge when replayed through a modal |
 | UI release latch | `input.menu_suppressed` carries directions suppressed until release, so starting replay does not discard an unsuppressed first UI press |
+| UI input samples | From format 17, poll flag `0x10` carries one byte when fixed UI directions or console isolation change. This preserves held directions hidden from the gameplay key stream while the console is open, including its closing frame; replay keeps them suppressed until release |
 | A savegame at each end | Where the session started, and where it finished. Both inside the file |
 | An FNV-1a digest of simulation state, per tick | Scene, hero, camera, the other actors, the open modal, and all 336 script variables |
 | A keyframe of named state, every 32 ticks | The digest says *when* a replay stopped matching; this says *what* moved |
@@ -422,7 +423,7 @@ They are framed so a run that dies mid-write leaves a file that still reads up t
 finished writing:
 
 ```
-LBA2REC 11 + key=value header lines, ending in a blank line
+LBA2REC 17 + key=value header lines, ending in a blank line
 [0x70][u32 len][savegame][u32 len][magic]   the state the session started from
 ... polls, ticks, keyframes, telemetry, commands, sync markers, flushed every tick ...
 [0x71][u32 len][savegame][u32 len][magic]   the state it ended at

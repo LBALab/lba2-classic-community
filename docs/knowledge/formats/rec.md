@@ -1,7 +1,7 @@
 ---
 type: Format
 title: Session recording file (.rec)
-description: One self-framing file per session, format 16 with a read floor of 9, a text header, both savegames as framed chunks, and a binary record stream indexed by input poll.
+description: One self-framing file per session, format 17 with a read floor of 9, a text header, both savegames as framed chunks, and a binary record stream indexed by input poll.
 status: draft
 equivalence: tested
 generated: { by: claude-code/claude-fable-5-1, at: 2026-09-09T16:00:00Z }
@@ -52,7 +52,7 @@ Little-endian throughout. Four parts, in order.
 
 | Part | Shape |
 |---|---|
-| Header | `LBA2REC 15`, then `key=value` lines, then a blank line. Text, so `rec info` can diff it against a live run without a parser. At most 4096 bytes. |
+| Header | `LBA2REC 17`, then `key=value` lines, then a blank line. Text, so `rec info` can diff it against a live run without a parser. At most 4096 bytes. |
 | Start savegame | A chunk with op `0x70`: the state the session started from, written once between the header and the first record, when the session began inside a game. Its payload is a compressed file of [the .lba Format](/formats/lba-save.md), written by the engine's own save path under the player name `rec`. A session recorded with no cube live writes none and declares `setup.snapshot=-`, because a fresh boot is the state it began from. |
 | Record stream | One flags byte per record, then a payload whose length the reader must already know. Flushed every tick. |
 | End savegame | A chunk with op `0x71`, written only when the session stopped while a scene was live. Its absence is the record of a session that did not finish, which is what a crash repro wants. |
@@ -66,6 +66,7 @@ Little-endian throughout. Four parts, in order.
 One flags byte per record, then a payload. The file comment at the top of RECORD.CPP owns the layout of every record, bit by bit, and `scripts/dev/dump_recording.py` is its second reader; neither is repeated here.[^record-cpp] What the layout guarantees, and where it bites:
 
 - A poll where nothing changed is one byte, and the low flag bits say which of the key table, `Key`, the analog block and the clock delta follow. The analog block is written when it differs from the last block written, not from zero, so the poll that releases a held button or stick is recorded.
+- From format 17, poll flag `0x10` adds one byte after the clock delta when UI input changes: four direction bits plus bit `0x10` for console isolation. These samples retain the physical directions that the console removes from the gameplay key stream, so replay reproduces the UI release latch through opening and closing the console.
 - A record's length is known only to a reader that knows its type. The dispatch is therefore a whitelist, and a type the reader does not know loses the stream until the next sync marker, one every 64 polls.
 - A console command is stamped with the tick already recorded, so stream order is execution order. The keyframe carries its count since version 12, and versions 9 to 11 wrote exactly 23 fields. The device record carries no count and cannot grow.
 - From format 15 every tick record is followed by a split record, `0x53`: the tick, then the world hash and the view hash, 64-bit each also under `LBA2_REC_HASH32`. The combined hash in the tick record is unchanged and stays the verdict; the split says which side moved, so a replay under different camera settings can say whether the game itself ran the same. The view side is the camera's own fields, `FollowCamera` and, from format 16, the hero's `WAS_DRAWN` and `DRAW_SHADOW` bits; the world side is everything else, and the combined hash's first mismatch is always the earlier of the two. Format 16 changed what the split means and nothing else, so a format 15 file is read whole, its split stepped over rather than compared, and the replay says it has none to compare.[^control-cpp]
@@ -100,10 +101,10 @@ Three cases, kept apart on purpose.[^record-cpp]
 | Change | Moves | Rule |
 |---|---|---|
 | alters what an existing record means | `REC_VERSION_MIN` up to `REC_VERSION` | a reader that cannot tell the versions apart must refuse the file |
-| adds a record type | `REC_VERSION` only | an older recording reads as it always did; an older build refuses the newer file outright, because the dispatch is a whitelist and cannot step over an unknown type |
+| adds a record type or optional poll field | `REC_VERSION` only | an older recording reads as it always did; an older build refuses the newer file outright, because it cannot step over an unknown type or payload |
 | changes what the engine computes | neither | the format still means what it meant; the `numeric.` lines report the difference per recording |
 
-Current values: `REC_VERSION` 16, `REC_VERSION_MIN` 9, `CONTROL_DIGEST_VERSION` 2. The last is the set of fields hashed, declared as `numeric.digest`; an unknown higher value is refused and every known lower one is reproduced, because fields are appended and never interleaved. Version 12 changed a meaning and left the floor at 9 on purpose: only a mouse-camera session reads differently, and no such session had ever replayed clean. Version 16 changed the split's meaning and left the floor too, because the reader tells the two apart: it compares the split only from 16 and steps over a format 15 one.
+Current values: `REC_VERSION` 17, `REC_VERSION_MIN` 9, `CONTROL_DIGEST_VERSION` 2. The last is the set of fields hashed, declared as `numeric.digest`; an unknown higher value is refused and every known lower one is reproduced, because fields are appended and never interleaved. Version 12 changed a meaning and left the floor at 9 on purpose: only a mouse-camera session reads differently, and no such session had ever replayed clean. Version 16 changed the split's meaning and left the floor too, because the reader tells the two apart: it compares the split only from 16 and steps over a format 15 one.
 
 # What it does not tell you
 

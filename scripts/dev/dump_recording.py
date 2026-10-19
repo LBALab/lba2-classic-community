@@ -276,7 +276,7 @@ def parse(path):
                     h = struct.unpack_from("<Q", data, p)[0]
                     p += 8
                 ticks.append((tick, ref, h))
-            elif flags > 0x0F:
+            elif flags > 0x1F:
                 print("unknown record 0x%02x at byte %d" % (flags, start))
                 break
             else:
@@ -306,6 +306,9 @@ def parse(path):
                         analog.append((polls,) + held + (False,))
                 if flags & 0x08:      # clock delta
                     p += 4
+                if flags & 0x10:      # fixed UI directions and console isolation (v17+)
+                    struct.unpack_from("<B", data, p)
+                    p += 1
         except (IndexError, struct.error):
             print("truncated at byte %d" % start)
             break

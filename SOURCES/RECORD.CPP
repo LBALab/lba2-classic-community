@@ -19,15 +19,15 @@
  *   bit1  Key changed:           s32
  *   bit2  analog block present:  s16 rsx, s16 rsy, u32 padFirst, s32 mdx, s32 mdy, s32 click
  *   bit3  clock delta changed:   u32
+ *   bit4  UI sample changed:     u8 directions and console-isolation bit (format 17+)
  * A poll where nothing changed is one byte.
  *
  * Records that stand outside that encoding are told apart by the flags byte being
- * above 0x0F. 0x60 is a sync marker (see below), 0x50 is a keyframe: u32 tick, u16
+ * above 0x1F. 0x60 is a sync marker (see below), 0x50 is a keyframe: u32 tick, u16
  * count, then count * s32, and 0x52 is the input device: u8, the new value of
  * LastInputWasKeyboard.
  *
- * What a new record type costs, because the shape of it is not obvious and the low
- * nibble being full is only the first half.
+ * What a new record type costs, because its length is not carried outside its payload.
  *
  * A record is [flags][payload] and nothing says how long the payload is. The poll's
  * length is in its own flag bits, a tick record's payload is a fixed 16 bytes or 12, a
@@ -128,10 +128,10 @@ extern "C" {
 /* ---- live state ---------------------------------------------------------- */
 
 #define REC_MAGIC "LBA2REC"
-#define REC_VERSION 16
+#define REC_VERSION 17
 
-/* The oldest format this build still reads. Every version since has only added record
-   types the reader probes for and steps over, so an older recording reads the same as
+/* The oldest format this build still reads. Optional poll fields and additional record
+   types leave older recordings readable, so an older recording reads the same as
    it always did -- and a recording of a session someone played once is worth more than
    the tidiness of a single supported version. A change that alters what an existing
    record *means* moves this up to REC_VERSION; a change that only adds one does not.
@@ -319,6 +319,7 @@ static U8 s_prevKeys[TABKEYS_NUM_KEYS];
    button down for the rest of the replay. */
 static S32 s_prevAnalog[6];
 static S32 s_prevKey = 0;
+static S32 s_menuSample = -1;
 static U32 s_prevSrcDelta = 0xFFFFFFFFu;
 static U32 s_prevSrc = 0;
 static U32 s_replaySrc = 0;
@@ -1506,6 +1507,7 @@ static int record_begin(const char *path, int haveSnapshot) {
     memset(s_prevKeys, 0, sizeof s_prevKeys);
     memset(s_prevAnalog, 0, sizeof s_prevAnalog);
     s_prevKey = 0;
+    s_menuSample = -1;
     s_prevSrcDelta = 0xFFFFFFFFu;
     s_prevSrc = Timer_ClockSource();
     /* Say so at the moment of recording rather than leaving it to be discovered on
@@ -1876,6 +1878,7 @@ int Record_Stop(void) {
     s_f = NULL;
     s_recording = 0;
     s_replaying = 0;
+    MenuInput_SetReplaySample(-1);
     /* With the session, not with the run: the next `rec start` decides for itself, and a
        header written from outside a session should not still be reporting this one's. */
     s_teleWrite = 0;
@@ -1908,6 +1911,8 @@ static void record_poll(void) {
     U32 delta = src - s_prevSrc;
     S32 mute;
     S32 key;
+    U32 menuSample = MenuInput_Capture(Console_InputIsolated(),
+                                       (U32)Console_GetToggleScancode());
     record_hold_clock(src);
 
     /* Record what gameplay is about to be given, which is nothing while the console is
@@ -1964,6 +1969,8 @@ static void record_poll(void) {
     }
     if (delta != s_prevSrcDelta)
         flags |= 0x08;
+    if ((S32)menuSample != s_menuSample)
+        flags |= 0x10;
 
     /* Ahead of the poll's own flags byte, so the reader steps over it and has it in
        hand for the poll it belongs to.
@@ -2006,6 +2013,9 @@ static void record_poll(void) {
     }
     if (flags & 0x08)
         put32(delta);
+    if (flags & 0x10)
+        put8((U8)menuSample);
+    s_menuSample = (S32)menuSample;
 
     if (flags == 0)
         s_quietPolls++;
@@ -2381,6 +2391,7 @@ static int replay_take_sync(U8 *flags) {
  * never do. They do not advance s_polls, because no poll was consumed from the file. */
 static void replay_inject(void) {
     memcpy(TabKeys, s_prevKeys, sizeof s_prevKeys);
+    MenuInput_SetReplaySample(s_menuSample);
     Key = s_prevKey;
     Joystick_SetReplayState(s_padFirst, s_rsx, s_rsy);
     /* Restoring the axes is only half of it: the analog camera asks whether a pad is
@@ -2498,7 +2509,7 @@ static int replay_poll(void) {
         s_eof = 1;
         return 0;
     }
-    if (flags > 0x0F && flags != REC_SYNC && flags != REC_KEY && flags != REC_TELE &&
+    if (flags > 0x1F && flags != REC_SYNC && flags != REC_KEY && flags != REC_TELE &&
         flags != REC_DEVICE && flags != REC_SPLIT && flags != 0x40 && flags != REC_SNAP_START &&
         !(flags & 0x80)) {
         if (!replay_resync()) {
@@ -2686,6 +2697,19 @@ static int replay_poll(void) {
         }
         s_prevSrcDelta = d;
     }
+    if (flags & 0x10) {
+        U8 sample;
+        if (!get8(&sample)) {
+            s_eof = 1;
+            return 0;
+        }
+        if (sample & ~(MENU_INPUT_ALL | MENU_INPUT_ISOLATED)) {
+            fprintf(stderr, "[rec] invalid UI input sample %u\n", (unsigned)sample);
+            s_eof = 1;
+            return 0;
+        }
+        s_menuSample = sample;
+    }
 
     /* Before this frame's delta rather than after it, because the recording banks that
        delta and a replay installing the baseline on top of it does not. `record_begin`
@@ -2727,6 +2751,7 @@ static int replay_poll(void) {
    clock it compares against has to be the one it begins on. */
 static void replay_begin(void) {
     Timer_SetSimAudioClock(1);
+    s_menuSample = -1;
     memset(s_prevKeys, 0, sizeof s_prevKeys);
     s_prevKey = 0;
     s_rsx = s_rsy = 0;

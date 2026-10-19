@@ -51,6 +51,7 @@ int main(void) {
     int lo = 0, hi = 0;
 
     Console_Toggle(); /* open so the two-stage Escape test can close it */
+    CHECK(Console_InputIsolated() == 1);
     Console_RegisterCommand("cube", cmd_noop, "");
     Console_RegisterCommand("clear", cmd_noop, "");
     Console_RegisterCommand("close", cmd_noop, "");
@@ -138,6 +139,11 @@ int main(void) {
     CHECK(Console_IsOpen() == 1);
     Console_TestSpecial(CONSOLE_TKEY_ESC, 0);
     CHECK(Console_IsOpen() == 0);
+    CHECK(Console_InputIsolated() == 1);
+    CHECK(Console_InputIsolated() == 1);
+    CHECK(Console_ShouldSuppressInputThisFrame() == 1);
+    CHECK(Console_InputIsolated() == 0);
+    CHECK(Console_ShouldSuppressInputThisFrame() == 0);
 
     if (g_failures == 0)
         printf("test_console_input: OK\n");

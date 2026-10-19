@@ -6,23 +6,31 @@
 static U32 s_held = 0;
 static U32 s_input = 0;
 static U32 s_suppressed = 0;
+static S32 s_replaySample = -1;
+
+U32 MenuInput_Capture(S32 isolated, U32 reservedKey) {
+    static const U32 keys[MENU_INPUT_COUNT][4] = {
+        {K_UP, K_NUMPAD_8, K_GAMEPAD_LSTICK_UP, K_GAMEPAD_DPAD_UP},
+        {K_DOWN, K_NUMPAD_2, K_GAMEPAD_LSTICK_DOWN, K_GAMEPAD_DPAD_DOWN},
+        {K_LEFT, K_NUMPAD_4, K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_DPAD_LEFT},
+        {K_RIGHT, K_NUMPAD_6, K_GAMEPAD_LSTICK_RIGHT, K_GAMEPAD_DPAD_RIGHT}};
+    U32 sample = isolated ? MENU_INPUT_ISOLATED : 0;
+    for (S32 direction = 0; direction < MENU_INPUT_COUNT; ++direction)
+        for (S32 key = 0; key < 4; ++key)
+            if (keys[direction][key] != reservedKey && CheckKey(keys[direction][key]))
+                sample |= 1u << direction;
+    return sample;
+}
+
+void MenuInput_SetReplaySample(S32 sample) {
+    s_replaySample = sample;
+}
 
 void MenuInput_Poll(S32 isolated) {
-    s_held = 0;
-    if (CheckKey(K_UP) || CheckKey(K_NUMPAD_8) ||
-        CheckKey(K_GAMEPAD_LSTICK_UP) || CheckKey(K_GAMEPAD_DPAD_UP))
-        s_held |= MENU_INPUT_UP;
-    if (CheckKey(K_DOWN) || CheckKey(K_NUMPAD_2) ||
-        CheckKey(K_GAMEPAD_LSTICK_DOWN) || CheckKey(K_GAMEPAD_DPAD_DOWN))
-        s_held |= MENU_INPUT_DOWN;
-    if (CheckKey(K_LEFT) || CheckKey(K_NUMPAD_4) ||
-        CheckKey(K_GAMEPAD_LSTICK_LEFT) || CheckKey(K_GAMEPAD_DPAD_LEFT))
-        s_held |= MENU_INPUT_LEFT;
-    if (CheckKey(K_RIGHT) || CheckKey(K_NUMPAD_6) ||
-        CheckKey(K_GAMEPAD_LSTICK_RIGHT) || CheckKey(K_GAMEPAD_DPAD_RIGHT))
-        s_held |= MENU_INPUT_RIGHT;
+    U32 sample = s_replaySample >= 0 ? (U32)s_replaySample : MenuInput_Capture(isolated, 0);
+    s_held = sample & MENU_INPUT_ALL;
     s_suppressed &= s_held;
-    if (isolated) {
+    if (sample & MENU_INPUT_ISOLATED) {
         s_suppressed |= s_held;
         s_held = s_input = 0;
         return;
