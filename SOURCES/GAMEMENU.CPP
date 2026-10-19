@@ -2581,6 +2581,7 @@ void Menu_MainCapture(const char *path) {
    animations time to settle into a steady visual state. */
 static char s_menu_capture_path[ADELINE_MAX_PATH] = "";
 static int s_menu_capture_countdown = 0;
+static S32 s_menu_capture_matches_presented = FALSE;
 
 void Menu_RequestCapture(const char *path) {
     if (!path || !path[0]) {
@@ -2590,8 +2591,19 @@ void Menu_RequestCapture(const char *path) {
     }
     strncpy(s_menu_capture_path, path, ADELINE_MAX_PATH - 1);
     s_menu_capture_path[ADELINE_MAX_PATH - 1] = '\0';
+    s_menu_capture_matches_presented = FALSE;
     s_menu_capture_countdown = 60; /* iterations -- ~1 s at fixed-dt 16, past any
                                       menu fade-in and dynamic-item initial draws */
+}
+
+S32 Menu_MainOptionsCapture(const char *path) {
+    Menu_MainCapture(path);
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
+    Menu_RequestCapture(path);
+    OptionsMenu(TRUE);
+    Menu_RequestCapture(NULL);
+    return s_menu_capture_matches_presented;
 }
 
 S32 DoGameMenu(U16 *ptrmenu) {
@@ -2992,15 +3004,12 @@ S32 DoGameMenu(U16 *ptrmenu) {
             return 1000;
         }
 
-        /* Harness one-shot capture: count down per iteration; on reaching
-           zero SavePNG the rendered menu and return the ESC sentinel so
-           the wrapping menu loop exits cleanly.  Read Log (back buffer),
-           not Screen -- DrawGameMenu composites the menu into Log, and the
-           BoxUpdate inside only flushes dirty regions to Screen; without a
-           prior frame populating Screen, the unflushed regions stay black.
-           The third surface to need this (after holomap and dialog). */
+        /* Capture the visible frame, not the prepared offscreen page: dirty
+           rectangles must propagate every restored backdrop pixel to Phys. */
         if (s_menu_capture_path[0] && --s_menu_capture_countdown <= 0) {
-            SavePNG(s_menu_capture_path, Log, (S32)ModeDesiredX,
+            s_menu_capture_matches_presented =
+                memcmp(Phys, Log, (size_t)ModeDesiredX * (size_t)ModeDesiredY) == 0;
+            SavePNG(s_menu_capture_path, Phys, (S32)ModeDesiredX,
                     (S32)ModeDesiredY, PtrPal);
             s_menu_capture_path[0] = '\0';
             AsciiMode = FALSE;
@@ -3476,7 +3485,7 @@ S32 OptionsMenu(S32 flagflip) {
 
        All gated on capture-armed; non-harness callers see no behaviour
        change. */
-    if (s_menu_capture_path[0]) {
+    if (s_menu_capture_path[0] && !flagflip) {
         StopSpeak();
         InitDial(0);
         InitPlasmaMenu();
@@ -3497,9 +3506,10 @@ S32 OptionsMenu(S32 flagflip) {
 */
     if (FlagShadeMenu) {
         ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
-        BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
         PaletteSync(PtrPalNormal);
     }
+    // BackupScreen resets dirty boxes; the restored backdrop must replace the previous page.
+    BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
 
     HQ_StopSample();
     RestartRainSample = TRUE;
