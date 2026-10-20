@@ -381,6 +381,7 @@ static void test_mouse_and_focus_event_order() {
     motion.motion.y = 8;
     motion.motion.xrel = 4;
     motion.motion.yrel = 4;
+    motion.motion.touch = true; // made by a finger: moves, but keeps touch
     s_events.push_back(motion);
     LastInputWasTouch = 1;
     ManageEvents();
@@ -391,6 +392,12 @@ static void test_mouse_and_focus_event_order() {
     ASSERT_EQ_UINT(4, MouseY);
     ASSERT_EQ_INT(0, LastInputWasKeyboard);
     ASSERT_EQ_INT(1, LastInputWasTouch);
+    ResetEvents();
+    motion.motion.touch = false; // a real mouse hands the device back
+    s_events.push_back(motion);
+    ManageEvents();
+    ManageMouse();
+    ASSERT_EQ_INT(0, LastInputWasTouch);
     ResetEvents();
     PlatformEvent button = {};
     button.type = PLATFORM_EVENT_MOUSE_BUTTON_DOWN;

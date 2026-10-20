@@ -8,6 +8,7 @@ name: Release latest (rolling)
 # workflows in trigger only — same reusable build workflows, same packaging
 # scripts, same artifact shape. So `latest` is functionally a tag-release at
 # HEAD-of-main with a rolling tag instead of a versioned one.
+# The Switch homebrew ZIP also ships here, built by switch.yml.
 #
 # Marked prerelease: true and make_latest: false so the v0.x.y stable tag
 # stays as the GitHub-promoted "Latest" on the Releases page; this workflow's
@@ -71,9 +72,14 @@ jobs:
     # For the Android release key, so the rolling build updates in place too.
     secrets: inherit
 
+  build-switch:
+    uses: ./.github/workflows/switch.yml
+    with:
+      artifact-name: latest-switch
+
   release:
     name: Update rolling latest release
-    needs: [build-linux, build-linux-tarball, build-windows, build-macos, build-android]
+    needs: [build-linux, build-linux-tarball, build-windows, build-macos, build-android, build-switch]
     # Run even if a build leg failed — partial release with whatever
     # platforms succeeded is more useful for community testers than
     # blocking the whole rolling release on one flaky leg. Don't run if
@@ -107,7 +113,7 @@ jobs:
           - Commit: [\`${SHA_SHORT}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
           - Built: ${TIMESTAMP}
 
-            Same artifact shape as tagged releases — Linux AppImage and portable tarball (x86_64, aarch64), Windows portable ZIP (x64), macOS DMG (arm64), Android APK (arm64-v8a, armeabi-v7a). May contain in-progress changes that haven't been play-tested. If you're chasing a specific bug or sharing with others, prefer a tagged release.
+            Same artifact shape as tagged releases — Linux AppImage and portable tarball (x86_64, aarch64), Windows portable ZIP (x64), macOS DMG (arm64), Android APK (arm64-v8a, armeabi-v7a) — plus a Nintendo Switch homebrew SD-card ZIP containing the NRO (no retail game data). May contain in-progress changes that haven't been play-tested. If you're chasing a specific bug or sharing with others, prefer a tagged release where available.
 
           If a particular platform's artifact is missing below, that platform's build leg failed for this commit; the other platforms still updated. Earlier rolling builds remain accessible via the [commit history](https://github.com/${{ github.repository }}/commits/main).
           EOF
@@ -125,6 +131,7 @@ jobs:
             lba2cc-*-windows-x64.zip
             lba2cc-*-macos-arm64.dmg
             lba2cc-*-android-*.apk
+            lba2cc-switch.zip
           # Keep the most recent stable v0.x.y tag as GitHub's "Latest"
           # badge. This rolling release sits below it as a clearly-labeled
           # pre-release.
@@ -135,9 +142,9 @@ jobs:
           # step below moves it. Body and assets do update in place.
           fail_on_unmatched_files: false
 
-      # Asset names embed the version, so an upload never collides with the
-      # previous build's files and they accumulate on the release forever.
-      # Delete whatever this run did not produce.
+      # Versioned assets accumulate on the release; fixed-name assets such
+      # as the Switch ZIP are overwritten in place. Delete whatever this
+      # run did not produce.
       #
       # The keep list is every file the artifact download put here rather than
       # a copy of the upload globs above, so adding a platform cannot silently

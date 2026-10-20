@@ -46,6 +46,7 @@ bool SDL3_TranslateEvent(const SDL_Event *source, PlatformEvent *event) {
         event->motion.y = source->motion.y;
         event->motion.xrel = source->motion.xrel;
         event->motion.yrel = source->motion.yrel;
+        event->motion.touch = source->motion.which == SDL_TOUCH_MOUSEID;
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
     case SDL_EVENT_MOUSE_BUTTON_UP:
@@ -53,6 +54,7 @@ bool SDL3_TranslateEvent(const SDL_Event *source, PlatformEvent *event) {
         event->button.button = source->button.button;
         event->button.x = source->button.x;
         event->button.y = source->button.y;
+        event->button.touch = source->button.which == SDL_TOUCH_MOUSEID;
         break;
     case SDL_EVENT_MOUSE_WHEEL:
         event->type = PLATFORM_EVENT_MOUSE_WHEEL;

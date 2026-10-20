@@ -40,6 +40,10 @@ volatile S32 MouseWheelYAccum = 0;
 static bool s_showSpriteAfterFirstMotion = false;
 static U32 s_lastPointerActivityMs = 0;
 static bool s_mouseMotionFlag = false;
+/* The last pointer event came from a finger. A finger moves the pointer and
+ * clicks like a mouse, but it is already on the spot it points at, so the
+ * sprite stays hidden until a real mouse moves. */
+static bool s_pointerIsFinger = false;
 
 static void MousePointerMarkActivity(void) {
     s_lastPointerActivityMs = g_platform.system.ticks_ms();
@@ -54,6 +58,20 @@ extern U8 BinGphMouse[];
 // Cleared here on any mouse activity: a mouse is not a keyboard, so the save
 // menu uses the auto-name (controller) flow when the user reaches for the mouse.
 extern "C" S32 LastInputWasKeyboard;
+// Touch overlay's last-device flag (SYSTEM/KEYBOARD.H). Only a real mouse
+// clears it: SDL turns every finger into mouse events too, and clearing on
+// those would cancel the touch that made them.
+extern "C" S32 LastInputWasTouch;
+
+/* Bookkeeping for one pointer event, finger or mouse. */
+static void NotePointerSource(bool touch) {
+    s_pointerIsFinger = touch;
+    LastInputWasKeyboard = 0;
+    if (touch)
+        return;
+    LastInputWasTouch = 0;
+    MousePointerMarkActivity();
+}
 
 // --- Initialization ----------------------------------------------------------
 void InitMouse() {
@@ -73,6 +91,8 @@ bool MouseSpriteShouldDraw(void) {
     if (s_showSpriteAfterFirstMotion)
         return false;
     if (MouseSpriteGraphic == NULL)
+        return false;
+    if (s_pointerIsFinger)
         return false;
     {
         U32 now = g_platform.system.ticks_ms();
@@ -189,9 +209,8 @@ void HandleEventsMouse(const PlatformEvent *event) {
         LibMouseYDep += curY - prevY;
         SetMousePos((U32)curX, (U32)curY);
 
-        MousePointerMarkActivity();
         s_mouseMotionFlag = true;
-        LastInputWasKeyboard = 0;
+        NotePointerSource(platformEvent->motion.touch);
 
         if (s_showSpriteAfterFirstMotion) {
             s_showSpriteAfterFirstMotion = false;
@@ -200,28 +219,28 @@ void HandleEventsMouse(const PlatformEvent *event) {
     } break;
 
     case PLATFORM_EVENT_MOUSE_BUTTON_DOWN:
-        MousePointerMarkActivity();
         Click |= (platformEvent->button.button == 1) ? 1 : 0;
         Click |= (platformEvent->button.button == 2) ? 4 : 0;
         Click |= (platformEvent->button.button == 3) ? 2 : 0;
-        LastInputWasKeyboard = 0;
+        NotePointerSource(platformEvent->button.touch);
         break;
 
     case PLATFORM_EVENT_MOUSE_BUTTON_UP:
-        MousePointerMarkActivity();
+        if (!platformEvent->button.touch)
+            MousePointerMarkActivity();
         Click &= (platformEvent->button.button == 1) ? ~1 : Click;
         Click &= (platformEvent->button.button == 2) ? ~4 : Click;
         Click &= (platformEvent->button.button == 3) ? ~2 : Click;
         break;
 
     case PLATFORM_EVENT_MOUSE_WHEEL:
-        MousePointerMarkActivity();
+        // No finger makes a wheel event: this is a mouse or a touchpad.
+        NotePointerSource(false);
         MouseWheelYAccum += (S32)lround((double)platformEvent->wheel.y);
         if (MouseWheelYAccum > MOUSE_WHEEL_ACCUM_CAP)
             MouseWheelYAccum = MOUSE_WHEEL_ACCUM_CAP;
         if (MouseWheelYAccum < -MOUSE_WHEEL_ACCUM_CAP)
             MouseWheelYAccum = -MOUSE_WHEEL_ACCUM_CAP;
-        LastInputWasKeyboard = 0;
         break;
     default:
         break;

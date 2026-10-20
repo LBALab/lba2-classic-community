@@ -62,6 +62,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   arithmetic overflowed. The 1997 game measured these correctly, and now
   this port does too
   ([#600](https://github.com/LBALab/lba2-classic-community/issues/600)).
+- Walking into a slanted edge of the ground outdoors, such as the foot of a
+  cliff, slides Twinsen along it again instead of stopping him dead. This
+  port's arithmetic overflowed and worked out the slide as nothing. The 1997
+  CD release slides here; the 2022 Classic release stops, as this port did.
+  Catching on the corners of buildings, rocks and other scenery is a
+  separate case and is not changed
+  ([#745](https://github.com/LBALab/lba2-classic-community/issues/745)).
 
 ### Input & controller
 
@@ -98,6 +105,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - With free orbit (`MouseCameraDrag` 0), the mouse leaves the camera's
   relative mode when you go indoors or open a menu. It used to stay in it,
   because the code that switched it off only ran outdoors.
+- On a touch screen, tapping a menu no longer draws the mouse pointer where
+  the finger lands. Taps still select and confirm as before, and a mouse
+  brings the pointer back. Using a mouse after touching the screen also hides
+  the on-screen touch buttons, as a keyboard or controller already did.
 
 ### Music
 
@@ -142,6 +153,9 @@ partway through
 Thanks to EPmager for reporting that a click outside the window during a
 camera play test paused the game
 ([#726](https://github.com/LBALab/lba2-classic-community/issues/726)).
+Thanks to EPmager for reporting that Twinsen catches on edges outdoors, and
+for checking it against the CD release
+([#745](https://github.com/LBALab/lba2-classic-community/issues/745)).
 
 ## [0.13.0] - 2026-10-18
 

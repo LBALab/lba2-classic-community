@@ -15,6 +15,13 @@ on:
   pull_request:
     paths-ignore: *doc-paths
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      artifact-name:
+        description: Name of the SD-card package artifact for the caller to download.
+        type: string
+        required: false
+        default: lba2cc-switch
 
 permissions:
   contents: read
@@ -40,7 +47,7 @@ jobs:
       - name: Upload SD-card package
         uses: actions/upload-artifact@v4
         with:
-          name: lba2cc-switch
+          name: ${{ inputs.artifact-name || 'lba2cc-switch' }}
           path: out/lba2cc-switch.zip
           if-no-files-found: error
       - name: Upload matching debug ELF
