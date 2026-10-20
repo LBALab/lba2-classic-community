@@ -479,8 +479,8 @@ void CurrentSaveGame() {
 /*──────────────────────────────────────────────────────────────────────────*/
 S32 SaveGame(S32 flagmess) {
     S32 written;
-    U8 *sizeptr;
-    U8 *memoptr;
+    U8 *sizeptr = NULL; // both set and used only when SAVE_COMPRESS is on
+    U8 *memoptr = NULL;
     S32 sizefile = 0;
 #ifndef EDITLBA2
     S32 savetimerrefhr;
