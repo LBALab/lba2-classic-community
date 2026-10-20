@@ -90,7 +90,7 @@ Cross-compilation and successful NRO packaging do not prove runtime support. The
 | Docker ASM-equivalence suite | Original x86 behavior remains byte-for-byte matched by the portable engine implementations |
 | Real console | The installation, lifecycle and controller-only experience actually work |
 
-Run the desktop SDL2 commands in [PLATFORM_ABSTRACTION.md](PLATFORM_ABSTRACTION.md#sdl2-desktop-backend), plus `./run_tests_docker.sh` and `make arch-check`. The [Switch workflow](../.github/workflows/switch.yml) calls the same Docker wrapper and uploads the SD-card ZIP and separate debug ELF. It does not publish a release or claim hardware validation.
+Run the desktop SDL2 commands in [PLATFORM_ABSTRACTION.md](PLATFORM_ABSTRACTION.md#sdl2-desktop-backend), plus `./run_tests_docker.sh` and `make arch-check`. The [Switch workflow](../.github/workflows/switch.yml) calls the same Docker wrapper and uploads the SD-card ZIP and separate debug ELF. The [rolling pre-release workflow](../.github/workflows/release-latest.yml) reuses it to publish `lba2cc-switch.zip` on the [`latest` release](https://github.com/LBALab/lba2-classic-community/releases/tag/latest); the debug ELF and build log remain workflow artifacts, not release downloads. Publishing a build does not claim hardware validation.
 
 After building, the workflow also runs the [NetLoader regression test](../tests/platform/test_switch_netloader.py) inside the pinned SDK image. It executes the launcher's real nxlink command through a Docker shim and a loopback protocol peer, checks the exact uploaded path and NRO bytes, and requires short log messages with and without a newline to reach piped stdout before closing the connection. It does not require console hardware or test Docker port forwarding.
 
