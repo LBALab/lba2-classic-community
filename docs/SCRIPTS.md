@@ -46,6 +46,17 @@ s16, `GenBody` s8, `GenAnim` s16, `Sprite` s16, X Y Z s16, `HitForce` s8,
 `Armure` and `LifePoint` (s8), then its Track and its Life, each a u16 length
 and the script. Zones, points and the rest of the scene follow the objects.
 
+Life and Track come only from here: `LoadScene` is the one place that points an
+object at its scripts. Two other compiled command streams live in `RESS.HQR`:
+
+- **Impact scripts**, entry 47 (`RESS_IMPACT`): the effects a hit or explosion
+  spawns, run by `DoImpact` (`SOURCES/IMPACT.CPP`). See
+  [IMPACT_SCRIPTS.md](IMPACT_SCRIPTS.md) and `scripts/dev/impact_disasm.py`.
+- **Animation actions**, in the object sheets of entry 44 (`RESS_FILE3D`): each
+  sheet lists an object's bodies and animations, and each animation carries
+  commands (`F_HIT`, `F_SAMPLE`, `F_THROW`, `F_IMPACT` and others) fired on given
+  frames by `GereAnimAction` (`SOURCES/FICHE.CPP`). Nothing decodes these yet.
+
 ## Encoding
 
 A script is a sequence of instructions: one opcode byte, then its operands, all
