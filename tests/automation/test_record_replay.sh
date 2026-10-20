@@ -381,10 +381,14 @@ esac
 # tests/automation/recordings/README.md says why not.
 #
 # Two properties, and they fail differently. The tick count says the reader walked the
-# stream correctly, which is what a record whose layout moved would break. The clean
-# result says the sibling savegame was found and loaded, which is the only coverage the
+# stream correctly, which is what a record whose layout moved would break. A clean tick 0
+# says the sibling savegame was found and loaded, which is the only coverage the
 # pre-single-file snapshot path has: measured, the same file with its .rec.lba moved
 # away diverges at tick 0.
+#
+# Ticks after 0 are play, not format. The file cannot be remade (this build writes no
+# format 10), so a deliberate change to play, such as #801's rounding fix (it diverges at
+# tick 1), would otherwise fail it for good. A later mismatch is printed, not failed.
 legacy="$REPO/tests/automation/recordings/legacy-v10.rec"
 legacy_save="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Anon1.LBA"
 if [ ! -f "$legacy" ] || [ ! -f "$legacy".lba ]; then
@@ -408,14 +412,18 @@ lchecked="$(printf '%s\n' "$lsummary" | sed -n 's/.*: \([0-9]*\) ticks checked.*
 [ "$lchecked" = "198" ] ||
     fail "legacy: read ${lchecked:-0} ticks, the file holds 198 — the reader has lost the stream"
 
-case "$lsummary" in
-*"first hash mismatch -1"*) ;;
-*)
+lfirst="$(printf '%s\n' "$lsummary" | sed -n 's/.*first hash mismatch \(-\{0,1\}[0-9]*\).*/\1/p')"
+case "$lfirst" in
+-1) ;;
+0 | "")
     # Every differing mode line, not the first: a divergence from different retail data
     # reads exactly like a reader bug, and the line that says so can sit behind an
     # engine version that differs on any working tree.
     fail "legacy: $lsummary; $(printf '%s\n' "$lout" | grep 'mode differs' | tr '\n' ';' ||
         echo 'no mode line differed, so this is the format path')"
+    ;;
+*)
+    echo "note: legacy: snapshot loaded and the stream read; play differs from tick $lfirst (a change to play, not to the format)"
     ;;
 esac
 
@@ -1450,16 +1458,15 @@ legout="$(LBA2_USER_DIR="$legdir" ctl --fixed-dt 16 \
     --replay "$REPO/tests/automation/recordings/legacy-v10.rec" --tick 400 --exit 2>&1)" ||
     fail "legacy no --load: replay run exited non-zero ($?); it hung or crashed"
 
-case "$legout" in
-*"consistency failure"*)
-    fail "legacy no --load: $(printf '%s\n' "$legout" | grep -m1 'consistency failure')"
-    ;;
-esac
 legsummary="$(printf '%s\n' "$legout" | grep -m1 'replay ended')" ||
     fail "legacy no --load: replay printed no summary"
-case "$legsummary" in
-*"first hash mismatch -1"*) ;;
-*) fail "legacy no --load: $legsummary" ;;
+# A boot that missed the sibling diverges at tick 0; a later tick is play (see the
+# legacy arm above), so it is printed, not failed.
+legfirst="$(printf '%s\n' "$legsummary" | sed -n 's/.*first hash mismatch \(-\{0,1\}[0-9]*\).*/\1/p')"
+case "$legfirst" in
+-1) ;;
+0 | "") fail "legacy no --load: $legsummary" ;;
+*) echo "note: legacy no --load: sibling loaded; play differs from tick $legfirst" ;;
 esac
 
 [ "$(md5sum <"$legsib")" = "$legsum_before" ] ||

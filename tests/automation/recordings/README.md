@@ -111,6 +111,11 @@ So the rule is simple: **never re-record this.** Regenerating it against the cur
 build turns it back into the same-build check it exists to replace. If it fails, the
 build has stopped reading format 10, and that is the finding.
 
+What it pins is reading, not play. The fixture requires every tick to be read and tick 0
+to match, which is what a missing or misread snapshot breaks. Ticks after that are the
+engine's behaviour, which deliberate changes are allowed to move (#801 moves it from
+tick 1), so a later mismatch is reported, not failed.
+
 ### What it holds
 
 | | |
