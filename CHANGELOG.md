@@ -62,6 +62,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   arithmetic overflowed. The 1997 game measured these correctly, and now
   this port does too
   ([#600](https://github.com/LBALab/lba2-classic-community/issues/600)).
+- Walking into a slanted edge of the ground outdoors, such as the foot of a
+  cliff, slides Twinsen along it again instead of stopping him dead. This
+  port's arithmetic overflowed and worked out the slide as nothing. The 1997
+  CD release slides here; the 2022 Classic release stops, as this port did.
+  Catching on the corners of buildings, rocks and other scenery is a
+  separate case and is not changed
+  ([#745](https://github.com/LBALab/lba2-classic-community/issues/745)).
 
 ### Input & controller
 
@@ -134,6 +141,9 @@ reporting that a direction held through a found-item popup left Twinsen stuck
 Thanks to EPmager for reporting that the main menu restarted finished music
 partway through
 ([#427](https://github.com/LBALab/lba2-classic-community/issues/427)).
+Thanks to EPmager for reporting that Twinsen catches on edges outdoors, and
+for checking it against the CD release
+([#745](https://github.com/LBALab/lba2-classic-community/issues/745)).
 
 ## [0.13.0] - 2026-10-18
 
