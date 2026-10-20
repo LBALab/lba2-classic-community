@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #include <SVGA/SCREEN.H>
+#include <SYSTEM/LE.H>
 #include "DIRECTORIES.H"
 #include "IMAGE_LOAD.H" // ImageStaging — scratch for the thumbnail downscale
 #include "INPUT.H"
@@ -84,24 +85,23 @@ char *ListDemoSave[NB_DEMOSAVE] = {
 
 #define LbaReadByte(ptr) ptr = *PtrSave++;
 
-/* Words and longs go through memcpy, never a cast: PtrSave sits at any offset,
-   odd after the player name, and a compiler may merge two adjacent casts into one
+/* Words and longs go through LE.H, never a cast: PtrSave sits at any offset, odd
+   after the player name, and a compiler may merge two adjacent casts into one
    paired load (LDRD/STRD on 32-bit ARM) that faults with SIGBUS on a misaligned
-   address. memcpy promises no alignment and compiles to the same single load. */
-#define LbaReadWord(ptr)               \
-    do {                               \
-        S16 lbaWord_;                  \
-        memcpy(&lbaWord_, PtrSave, 2); \
-        (ptr) = lbaWord_;              \
-        PtrSave += 2;                  \
+   address. The save file is little-endian, so this also reads it right on a
+   big-endian CPU. On x86 and ARM it compiles to the same single load. */
+#define LbaReadWord(ptr)                    \
+    do {                                    \
+        S16 lbaWord_ = ReadLE_S16(PtrSave); \
+        (ptr) = lbaWord_;                   \
+        PtrSave += 2;                       \
     } while (0)
 
-#define LbaReadLong(ptr)               \
-    do {                               \
-        S32 lbaLong_;                  \
-        memcpy(&lbaLong_, PtrSave, 4); \
-        (ptr) = lbaLong_;              \
-        PtrSave += 4;                  \
+#define LbaReadLong(ptr)                    \
+    do {                                    \
+        S32 lbaLong_ = ReadLE_S32(PtrSave); \
+        (ptr) = lbaLong_;                   \
+        PtrSave += 4;                       \
     } while (0)
 
 //-------- Ecriture
@@ -111,18 +111,16 @@ char *ListDemoSave[NB_DEMOSAVE] = {
 
 #define LbaWriteByte(val) *PtrSave++ = val;
 
-#define LbaWriteWord(val)              \
-    do {                               \
-        S16 lbaWord_ = (S16)(val);     \
-        memcpy(PtrSave, &lbaWord_, 2); \
-        PtrSave += 2;                  \
+#define LbaWriteWord(val)                 \
+    do {                                  \
+        WriteLE_S16(PtrSave, (S16)(val)); \
+        PtrSave += 2;                     \
     } while (0)
 
-#define LbaWriteLong(val)              \
-    do {                               \
-        S32 lbaLong_ = (S32)(val);     \
-        memcpy(PtrSave, &lbaLong_, 4); \
-        PtrSave += 4;                  \
+#define LbaWriteLong(val)                 \
+    do {                                  \
+        WriteLE_S32(PtrSave, (S32)(val)); \
+        PtrSave += 4;                     \
     } while (0)
 
 #ifndef EDITLBA2
@@ -217,7 +215,7 @@ static S32 SaveLoadDecompressIfNeeded(U8 *buf_base, U32 buf_cap, S32 loaded_byte
 
     if (!SaveLoadRoom(sizeof(S32)))
         return FALSE;
-    memcpy(&sizefile, PtrSave, sizeof(S32));
+    sizefile = ReadLE_S32(PtrSave);
     PtrSave += sizeof(S32);
 
     compressed_size = (S32)((buf_base + (U32)loaded_bytes) - PtrSave);
@@ -1255,11 +1253,11 @@ void SaveContexte(S32 savetimerrefhr) {
             break;
 
         case 2:
-            LbaWriteWord(*(S16 *)(PtrScene + ptrpatch->Offset));
+            LbaWriteWord(ReadLE_S16(PtrScene + ptrpatch->Offset));
             break;
 
         case 4:
-            LbaWriteLong(*(S32 *)(PtrScene + ptrpatch->Offset));
+            LbaWriteLong(ReadLE_S32(PtrScene + ptrpatch->Offset));
             break;
 
         default:
@@ -1267,7 +1265,7 @@ void SaveContexte(S32 savetimerrefhr) {
         }
     }
 
-    *(U32 *)saveptr = (U32)(PtrSave - saveptr - 4);
+    WriteLE_U32(saveptr, (U32)(PtrSave - saveptr - 4));
 #endif
     //-----------------------------------
 
@@ -1431,25 +1429,23 @@ void SaveContexte(S32 savetimerrefhr) {
     } while (0)
 
 #undef LbaReadWord
-#define LbaReadWord(ptr)               \
-    do {                               \
-        if (!SaveLoadRoom(2))          \
-            return SAVELOAD_CTX_ERR;   \
-        S16 lbaWord_;                  \
-        memcpy(&lbaWord_, PtrSave, 2); \
-        (ptr) = lbaWord_;              \
-        PtrSave += 2;                  \
+#define LbaReadWord(ptr)                    \
+    do {                                    \
+        if (!SaveLoadRoom(2))               \
+            return SAVELOAD_CTX_ERR;        \
+        S16 lbaWord_ = ReadLE_S16(PtrSave); \
+        (ptr) = lbaWord_;                   \
+        PtrSave += 2;                       \
     } while (0)
 
 #undef LbaReadLong
-#define LbaReadLong(ptr)               \
-    do {                               \
-        if (!SaveLoadRoom(4))          \
-            return SAVELOAD_CTX_ERR;   \
-        S32 lbaLong_;                  \
-        memcpy(&lbaLong_, PtrSave, 4); \
-        (ptr) = lbaLong_;              \
-        PtrSave += 4;                  \
+#define LbaReadLong(ptr)                    \
+    do {                                    \
+        if (!SaveLoadRoom(4))               \
+            return SAVELOAD_CTX_ERR;        \
+        S32 lbaLong_ = ReadLE_S32(PtrSave); \
+        (ptr) = lbaLong_;                   \
+        PtrSave += 4;                       \
     } while (0)
 
 /* Issue #62: read NbObjets objects from PtrSave at the configured stride and
@@ -1719,7 +1715,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
 
         {
             U32 zoneClimb;
-            memcpy(&zoneClimb, PtrSave, 4);
+            zoneClimb = ReadLE_U32(PtrSave);
             PtrZoneClimb = (T_ZONE *)(uintptr_t)zoneClimb;
         }
         PtrSave += 4;
@@ -1904,13 +1900,20 @@ S32 LoadContexte(S32 *savetimerrefhr) {
                 LbaReadByte(*(PtrScene + ptrpatch->Offset));
                 break;
 
-            case 2:
-                LbaReadWord(*(S16 *)(PtrScene + ptrpatch->Offset));
+            // The scripts stay little-endian in memory (GERELIFE, GERETRAK)
+            case 2: {
+                S16 word;
+                LbaReadWord(word);
+                WriteLE_S16(PtrScene + ptrpatch->Offset, word);
                 break;
+            }
 
-            case 4:
-                LbaReadLong(*(S32 *)(PtrScene + ptrpatch->Offset));
+            case 4: {
+                S32 dword;
+                LbaReadLong(dword);
+                WriteLE_S32(PtrScene + ptrpatch->Offset, dword);
                 break;
+            }
 
             default:
                 LbaRead(PtrScene + ptrpatch->Offset, ptrpatch->Size);
@@ -2119,20 +2122,18 @@ S32 LoadContexte(S32 *savetimerrefhr) {
 #define LbaReadByte(ptr) ptr = *PtrSave++;
 
 #undef LbaReadWord
-#define LbaReadWord(ptr)               \
-    do {                               \
-        S16 lbaWord_;                  \
-        memcpy(&lbaWord_, PtrSave, 2); \
-        (ptr) = lbaWord_;              \
-        PtrSave += 2;                  \
+#define LbaReadWord(ptr)                    \
+    do {                                    \
+        S16 lbaWord_ = ReadLE_S16(PtrSave); \
+        (ptr) = lbaWord_;                   \
+        PtrSave += 2;                       \
     } while (0)
 
 #undef LbaReadLong
-#define LbaReadLong(ptr)               \
-    do {                               \
-        S32 lbaLong_;                  \
-        memcpy(&lbaLong_, PtrSave, 4); \
-        (ptr) = lbaLong_;              \
-        PtrSave += 4;                  \
+#define LbaReadLong(ptr)                    \
+    do {                                    \
+        S32 lbaLong_ = ReadLE_S32(PtrSave); \
+        (ptr) = lbaLong_;                   \
+        PtrSave += 4;                       \
     } while (0)
 #endif

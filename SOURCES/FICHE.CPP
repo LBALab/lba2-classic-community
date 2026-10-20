@@ -1,6 +1,8 @@
 #include "C_EXTERN.H"
 #include "AMBIANCE.H"
 
+#include <SYSTEM/LE.H>
+
 /*══════════════════════════════════════════════════════════════════════════*
 		      ██▀▀▀ █▀▀▀▀ █▀▀▀█  █    █▀▀▀█ ▀▀█▀▀
 		      ▀▀▀▀█ ██    ██▀█▀  ██   ██▀▀▀   ██
@@ -288,12 +290,9 @@ void InitBodyZV(T_OBJET *ptrobj) {
 /* recherche des options d'anims */
 
 #define GET_S8 (*ptrc++)
-#define GET_S16     \
-    (*(S16 *)ptrc); \
-    ptrc += 2
-#define GET_S32     \
-    (*(S32 *)ptrc); \
-    ptrc += 4
+// Animation command lists are packed little-endian: read through LE.H
+#define GET_S16 (ptrc += 2, ReadLE_S16(ptrc - 2))
+#define GET_S32 (ptrc += 4, ReadLE_S32(ptrc - 4))
 
 void GereAnimAction(T_OBJET *ptrobj, U8 numobj) {
     T_EXTRA *ptrextra = NULL;
@@ -380,7 +379,7 @@ void GereAnimAction(T_OBJET *ptrobj, U8 numobj) {
 
         case F_SAMPLE:
             if (testframe == *ptrc++) {
-                HQ_3D_MixSample(*(S16 *)ptrc, 0x1000, 0, 1,
+                HQ_3D_MixSample(ReadLE_S16(ptrc), 0x1000, 0, 1,
                                 ptrobj->Obj.X, ptrobj->Obj.Y, ptrobj->Obj.Z);
             }
             ptrc += 2;
@@ -972,14 +971,14 @@ S32 SearchAnim(U16 numanim, S32 numobj) {
     while ((command = *ptrc++) != 255) {
         switch (command) {
         case F_ANIM:
-            numgene = *(U16 *)ptrc; // lit num name generique
+            numgene = ReadLE_U16(ptrc); // lit num name generique
             ptrc += 2;
 
             if (numanim == numgene) // ok trouve
             {
                 ptrc++; // saute size anim
 
-                hqranim = *(S16 *)ptrc;
+                hqranim = ReadLE_S16(ptrc);
 
                 ptrc += 2;
 
@@ -1024,7 +1023,7 @@ S32 SearchBody(U8 numbody, S32 numobj) {
             {
                 ptrc++; // saute size anim
 
-                hqrbody = *(S16 *)ptrc;
+                hqrbody = ReadLE_S16(ptrc);
 
                 ptrc += 2;
 
@@ -1033,17 +1032,17 @@ S32 SearchBody(U8 numbody, S32 numobj) {
                 if (*ptrc++) // body possede action ?
                 {
                     if (*ptrc++ == F_ZV) {
-                        M_XMin = *(S16 *)ptrc;
+                        M_XMin = ReadLE_S16(ptrc);
                         ptrc += 2;
-                        M_YMin = *(S16 *)ptrc;
+                        M_YMin = ReadLE_S16(ptrc);
                         ptrc += 2;
-                        M_ZMin = *(S16 *)ptrc;
+                        M_ZMin = ReadLE_S16(ptrc);
                         ptrc += 2;
-                        M_XMax = *(S16 *)ptrc;
+                        M_XMax = ReadLE_S16(ptrc);
                         ptrc += 2;
-                        M_YMax = *(S16 *)ptrc;
+                        M_YMax = ReadLE_S16(ptrc);
                         ptrc += 2;
-                        M_ZMax = *(S16 *)ptrc;
+                        M_ZMax = ReadLE_S16(ptrc);
                         ptrc += 2;
                     }
                 }
