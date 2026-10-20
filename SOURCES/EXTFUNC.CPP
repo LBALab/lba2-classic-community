@@ -516,7 +516,13 @@ void AffGrilleExt() {
            Screen→Log restores as no-op clears. */
         U32 rbT0 = SDL_GetTicks();
         memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
-        memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY + 512);
+        /* A static stereo overlay is screen-space HUD only: eye 1 redraws
+           the same pixels over eye 0's buffer, so clearing it again only
+           throws away the copy the present reuses.  Any moving 2D content
+           keeps the clear so old sprite positions cannot ghost. */
+        if (!GL_StereoOverlayReusable()) {
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY + 512);
+        }
         /* Snapshot the completed terrain FBO: incremental frames restore it
            before the object pass to erase last frame's GL body/shadow
            pixels (the FBO is not cleared on AFF_OBJETS_* frames).

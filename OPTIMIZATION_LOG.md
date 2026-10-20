@@ -638,3 +638,40 @@ The measured OpenXR present was 0.51 ms with a 0.05 ms blit, so the expected
 win is under 0.2 ms/frame plus fewer driver-query spikes. No new metrics were
 captured because no device was attached. Morning verification should confirm
 both eyes, the double-wide display transform, and the mono/menu path.
+
+## Phase 4 report: overlay and 2D duplication (2026-10-20)
+
+Status: implemented and compile-verified against the Quest preset. Device
+verification is deferred to the morning with the rest of the night's work.
+
+### Changes
+
+- `BoxHadMovingWrites()` records whether the 2D pass added a moving dirty box.
+  Moving boxes are the world sprites, dialogue, counters and erase operations
+  whose projection can differ between the eyes; static boxes are the
+  screen-space HUD.
+- Eye 0 still scans and uploads the overlay.  Eye 1 skips that scan and the
+  upload only when neither eye wrote a moving box.  Any moving content takes
+  the original per-eye diff and upload path.
+- Eye 1 also keeps eye 0's `Log` buffer, instead of clearing it, under the
+  same static-overlay condition.  The static HUD pass redraws the same
+  pixels; a dynamic overlay still gets the clear so old sprite positions
+  cannot ghost.
+- `GLPerf` now reports `ovlReuse`, the fraction of presents that reused the
+  eye 0 overlay texture.
+- The duplicate full-target clear was already removed by the double-wide
+  clear's scissor rectangle; no new clear change was needed.
+
+### Deliberate limit
+
+The 2D drawing is interleaved with the object/incrust pass, not a separate
+static pass, so eye 1 still redraws it.  Freezing those writers would require
+a writer-level overlay flag across the game code; the dirty-box classification
+gets the safe part of the win without that risk.  A frame with moving 2D
+content keeps the original scan and upload.
+
+The expected effect is roughly 0.2--0.5 ms on static-HUD frames, with no
+change on dynamic frames.  Morning verification should include subtitles,
+counter text, the medallion chain, world sprite disparity, and the F6 FPS
+counter.  `ovlReuse` near 0.5 means the static path is active; a value near
+zero means the scene kept moving boxes and the fallback is doing the work.

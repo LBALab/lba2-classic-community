@@ -43,6 +43,10 @@ static T_BOX *pBoxFree = NULL;
 static T_BOX *pBoxStaticList = NULL;
 static T_BOX *pBoxOptList = NULL;
 static T_BOX *pBoxMovingList = NULL;
+/* A moving box marks 2D content that can differ between stereo eyes (world
+ * sprites, dialogue, counters).  The GL present path uses this to decide
+ * whether eye 1 may reuse eye 0's overlay texture. */
+static S32 s_BoxMovingWrites = 0;
 
 // --- Private functions -------------------------------------------------------
 void NewBox(T_BOX **boxlist, S32 x0, S32 y0, S32 x1, S32 y1);
@@ -330,6 +334,7 @@ again:
 void BoxMovingAdd(S32 x0, S32 y0, S32 x1, S32 y1) {
     CheckClip();
 
+    s_BoxMovingWrites = 1;
     NewBox(&pBoxMovingList, x0, y0, x1, y1);
 }
 
@@ -344,6 +349,7 @@ void BoxUnstaticAdd(S32 x0, S32 y0, S32 x1, S32 y1) {
 
     CheckClip();
 
+    s_BoxMovingWrites = 1;
     x0 &= BoxMask;
     x1 = (x1 + BoxAlign) & BoxMask;
 
@@ -363,6 +369,7 @@ void BoxCls(S32 x0, S32 y0, S32 x1, S32 y1) {
 
     CheckClip();
 
+    s_BoxMovingWrites = 1;
     x0 &= BoxMask;
     x1 = (x1 + BoxAlign) & BoxMask;
 
@@ -381,6 +388,11 @@ void BoxReset() {
     EmptyList(&pBoxMovingList);
     EmptyList(&pBoxStaticList);
     EmptyList(&pBoxOptList);
+    s_BoxMovingWrites = 0;
+}
+
+S32 BoxHadMovingWrites(void) {
+    return s_BoxMovingWrites;
 }
 
 void BoxBlitStaticListToScreen() {

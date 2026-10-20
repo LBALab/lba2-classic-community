@@ -43,6 +43,7 @@ void BoxBlit();
 void BoxClean();
 void BoxUpdate();
 void BoxReset();
+S32 BoxHadMovingWrites(void);
 void BoxChangeClip(S32 x0, S32 y0, S32 x1, S32 y1, S32 clean);
 
 extern void DefaultBoxOneBlit(T_BOX *pbox);

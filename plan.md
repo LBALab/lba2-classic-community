@@ -312,6 +312,13 @@ dirty tracking around that writer rather than assuming gameplay is overlay-free.
 
 Expected effect: 0.5--1 ms/frame and less CPU variance.
 
+Status: implemented and compile-verified against the Quest preset; committed
+as the Phase 4 change, with the headset check deferred to the morning.  The
+dirty-box classification makes the eye-1 overlay reuse safe for static HUD
+frames.  The 2D pass itself remains interleaved with the object pass, so eye 1
+still redraws it; only the duplicate scan, upload, and clear are skipped.
+`GLPerf` reports `ovlReuse` to show how often the static path fires.
+
 ## Phase 5: horizon reuse in vertex space, not image space
 
 Do not restore item 14's capture copy. The correct reuse is geometric:

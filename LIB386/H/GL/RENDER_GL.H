@@ -208,6 +208,10 @@ void GL_SetStereoEye(S32 eye);
 //! Current stereo capture eye (-1 = mono / not capturing).
 S32 GL_GetStereoEye(void);
 
+//! True when eye 1 can keep eye 0's Log overlay: the pair is active and
+//! eye 0 drew only static HUD content.
+S32 GL_StereoOverlayReusable(void);
+
 //! Returns 1 if a fresh left+right eye capture pair is available for this
 //! frame and consumes the flag. PresentMono uses it to decide between the
 //! stereo layer and the mono full-image copy.

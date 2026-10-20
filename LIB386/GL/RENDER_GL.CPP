@@ -4,6 +4,7 @@
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/WINDOW.H>
 #include <SYSTEM/OPENXR.H>
+#include <SVGA/DIRTYBOX.H>
 
 #ifdef USE_GPURENDERER
 
@@ -438,6 +439,14 @@ static GLint s_adj_uSaturation = -1;
 static GLint s_idxAdj_uBrightness = -1;
 static GLint s_idxAdj_uContrast = -1;
 static GLint s_idxAdj_uSaturation = -1;
+/* A frame whose Log overlay is screen-space HUD only is identical for both
+ * stereo eyes.  Eye 0 scans and uploads it; eye 1 then reuses the texture
+ * and the empty/not-empty result instead of walking the same 3 MB again.
+ * Moving 2D content (world sprites, dialogue) disables the reuse.
+ * GL_SetStereoEye invalidates the cache on every transition away from eye 1. */
+static S32 s_overlayScanValid = 0;
+static S32 s_overlayEmptyCached = 0;
+static S32 s_overlayEye0Dynamic = 0;
 static GLint s_fxaaAdj_uBrightness = -1;
 static GLint s_fxaaAdj_uContrast = -1;
 static GLint s_fxaaAdj_uSaturation = -1;
@@ -607,6 +616,7 @@ static U32 s_profTris = 0;       /* triangles submitted to the CLUT program */
 static U32 s_profSpriteUps = 0;  /* gameplay sprite texture uploads */
 static U32 s_profDepthSkips = 0; /* depth readback consumes skipped (GPU behind) */
 static U32 s_profOverlayEmpty = 0; /* presents whose 2D overlay had no content */
+static U32 s_profOverlayReuse = 0; /* presents that reused eye 0's overlay scan */
 static U32 s_profDirectScene = 0;  /* presents that can read the scene directly */
 static U32 s_flushRsnAlpha = 0;  /* throwaway flush-reason attribution */
 static U32 s_flushRsnFog = 0;
@@ -625,7 +635,7 @@ static void GL_ProfFrameDone(void) {
         Log_Warn("[GLPerf] frames=%u present=%.2f readback=%.2f convert=%.2f "
                  "flush=%.2f snapshot=%.2f restore=%.2f mapwait=%.2f (ms) "
                  "flushes=%.1f tris=%.0f sprUp=%.1f skips=%u "
-                 "ovlEmpty=%.2f direct=%.2f "
+                 "ovlEmpty=%.2f ovlReuse=%.2f direct=%.2f "
                  "rsn a=%.1f f=%.1f t=%.1f z=%.1f n=%.1f arr=%u/%u",
                  s_profFrames,
                  GL_ProfMs(s_profAccumTicks[GL_PROF_PRESENT], msPerTick,
@@ -647,6 +657,7 @@ static void GL_ProfFrameDone(void) {
                  (double)s_profSpriteUps / (double)s_profFrames,
                  s_profDepthSkips,
                  (double)s_profOverlayEmpty / (double)s_profFrames,
+                 (double)s_profOverlayReuse / (double)s_profFrames,
                  (double)s_profDirectScene / (double)s_profFrames,
                  (double)s_flushRsnAlpha / (double)s_profFrames,
                  (double)s_flushRsnFog / (double)s_profFrames,
@@ -663,6 +674,7 @@ static void GL_ProfFrameDone(void) {
         s_profSpriteUps = 0;
         s_profDepthSkips = 0;
         s_profOverlayEmpty = 0;
+        s_profOverlayReuse = 0;
         s_profDirectScene = 0;
         s_flushRsnAlpha = 0;
         s_flushRsnFog = 0;
@@ -1605,6 +1617,14 @@ void GL_SetStereoEye(S32 eye) {
     if (eye < -1 || eye > 1)
         eye = -1;
 
+    /* Eye 1 consumes the overlay scan cached by eye 0.  Any other transition
+     * starts a fresh scan. */
+    if (eye != 1) {
+        s_overlayScanValid = 0;
+        s_overlayEmptyCached = 0;
+        s_overlayEye0Dynamic = 0;
+    }
+
     if (eye == 0) {
         /* Stereo eye passes are full redraws and skip GL_SnapshotTerrain.
          * Drop a snapshot left over from mono before the target switch. */
@@ -1638,6 +1658,10 @@ void GL_SetStereoEye(S32 eye) {
 
 S32 GL_GetStereoEye(void) {
     return s_stereoEye;
+}
+
+S32 GL_StereoOverlayReusable(void) {
+    return s_stereoEye == 1 && s_overlayScanValid && !s_overlayEye0Dynamic;
 }
 
 S32 GL_TakeStereoPair(void) {
@@ -6034,7 +6058,15 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
        entry 0).  A full 900 KB upload + full-screen memcmp every frame was
        a measurable slice of the present cost on slow CPUs. */
     S32 overlayEmpty = 0;
-    {
+    /* Eye 1 can reuse eye 0's texture only when neither pass wrote moving
+     * 2D content.  Moving boxes cover world sprites, dialogue and counters,
+     * whose projection differs between the eyes; static boxes are the
+     * screen-space HUD, which is identical for the pair. */
+    if (s_stereoEye == 1 && s_overlayScanValid && !s_overlayEye0Dynamic &&
+        !BoxHadMovingWrites()) {
+        overlayEmpty = s_overlayEmptyCached;
+        s_profOverlayReuse++;
+    } else {
         static U8 *s_prevUpload = NULL;  /* mirror of s_logIndexTex content */
         static U8 *s_rowNonZero = NULL;  /* per row: 1 = has any nonzero */
         static U32 s_prevCap = 0;
@@ -6167,6 +6199,11 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
                 }
                 overlayEmpty = !hasContent;
             }
+        }
+        if (s_stereoEye == 0) {
+            s_overlayScanValid = (s_logIndexTex != 0 || overlayEmpty);
+            s_overlayEmptyCached = overlayEmpty;
+            s_overlayEye0Dynamic = BoxHadMovingWrites();
         }
     }
 
