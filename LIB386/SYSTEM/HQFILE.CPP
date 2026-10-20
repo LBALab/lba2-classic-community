@@ -14,6 +14,7 @@ static COMPRESSED_HEADER HQF_header;
 /*──────────────────────────────────────────────────────────────────────────*/
 U32 HQF_Init(const char *name, S32 index) {
     S32 nbbloc;
+    U8 raw[4];
 
     HQF_File = OpenRead(name);
     if (!HQF_File) {
@@ -22,7 +23,8 @@ U32 HQF_Init(const char *name, S32 index) {
     }
 
     index *= 4;
-    Read(HQF_File, &nbbloc, 4);
+    Read(HQF_File, raw, 4);
+    nbbloc = ReadLE_S32(raw);
 
     if (index >= nbbloc) {
     error:
@@ -31,7 +33,8 @@ U32 HQF_Init(const char *name, S32 index) {
     }
 
     Seek(HQF_File, index, SEEK_FROM_START);
-    Read(HQF_File, &index, 4);
+    Read(HQF_File, raw, 4);
+    index = ReadLE_S32(raw);
 
     if (!index) {
         goto error;
@@ -39,6 +42,7 @@ U32 HQF_Init(const char *name, S32 index) {
 
     Seek(HQF_File, index, SEEK_FROM_START);
     Read(HQF_File, (void *)&HQF_header, sizeof(HQF_header));
+    HQR_HeaderFromLE(&HQF_header);
 
     return HQF_header.SizeFile;
 }
@@ -92,13 +96,15 @@ S32 HQF_ResSize(const char *name, S32 index) {
 S32 HQF_NbRes(char *name) {
     S32 handle;
     S32 nbbloc;
+    U8 raw[4];
 
     handle = OpenRead(name);
     if (!handle) {
         return 0;
     }
 
-    Read(handle, &nbbloc, 4);
+    Read(handle, raw, 4);
+    nbbloc = ReadLE_S32(raw);
     Close(handle);
 
     return (nbbloc / 4 - 1);

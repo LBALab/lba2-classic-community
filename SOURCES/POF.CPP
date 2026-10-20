@@ -1,17 +1,20 @@
 #include "C_EXTERN.H"
 
+#include <SYSTEM/LE.H>
+
 //***************************************************************************
 S32 PofDisplay3DExt(S32 x, S32 y, S32 z, S32 num_pof, S32 scale, S32 rotation) {
     S32 coul, n;
     S32 x0, y0, scale3d;
     S32 xpc, ypc;
-    S16 *ptr_point, *ptrw;
+    S16 *ptr_point;
+    U8 *ptrw; // the POF's points: X and Z as S16 LE pairs, at any offset
     U8 p;
     U8 *ptr_pof;
 
     //	ptr_pof = (U8*)HQR_Get( HQR_Pof, num_pof ) ;
 
-    ptr_pof = BufferPof + *(((U32 *)BufferPof) + num_pof);
+    ptr_pof = BufferPof + ReadLE_U32(BufferPof + num_pof * 4);
 
     LongWorldRotatePoint(x, y, z);
     x0 = Z0;
@@ -34,11 +37,11 @@ S32 PofDisplay3DExt(S32 x, S32 y, S32 z, S32 num_pof, S32 scale, S32 rotation) {
     ClearScreenMinMax();
 
     if (rotation != 0) {
-        ptrw = (S16 *)ptr_pof;
+        ptrw = ptr_pof;
         ptr_point = (S16 *)Obj_ListRotatedPoints;
 
         for (p = 0; p < n; p++) {
-            Rotate(ptrw[0], ptrw[1], rotation);
+            Rotate(ReadLE_S16(ptrw), ReadLE_S16(ptrw + 2), rotation);
 
             Xp = (xpc + X0 * scale3d) / 65536;
             Yp = (ypc + Z0 * scale3d) / 65536;
@@ -47,17 +50,18 @@ S32 PofDisplay3DExt(S32 x, S32 y, S32 z, S32 num_pof, S32 scale, S32 rotation) {
 
             *ptr_point++ = (S16)Xp;
             *ptr_point++ = (S16)Yp;
-            ptrw += 2;
+            ptrw += 4;
         }
 
-        ptr_pof = (U8 *)ptrw;
+        ptr_pof = ptrw;
     } else {
-        ptrw = (S16 *)ptr_pof;
+        ptrw = ptr_pof;
         ptr_point = (S16 *)Obj_ListRotatedPoints;
 
         for (p = 0; p < n; p++) {
-            Xp = (xpc + (*ptrw++) * scale3d) / 65536;
-            Yp = (ypc + (*ptrw++) * scale3d) / 65536;
+            Xp = (xpc + ReadLE_S16(ptrw) * scale3d) / 65536;
+            Yp = (ypc + ReadLE_S16(ptrw + 2) * scale3d) / 65536;
+            ptrw += 4;
 
             AdjustScreenMinMax();
 
@@ -65,7 +69,7 @@ S32 PofDisplay3DExt(S32 x, S32 y, S32 z, S32 num_pof, S32 scale, S32 rotation) {
             *ptr_point++ = (S16)Yp;
         }
 
-        ptr_pof = (U8 *)ptrw;
+        ptr_pof = ptrw;
     }
 
     n = *ptr_pof++; // nb line

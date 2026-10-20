@@ -3,6 +3,8 @@
 
 #include <3D/PROJREC.H>
 #include <SVGA/SCREEN.H>
+#include <SYSTEM/HQR.H>
+#include <SYSTEM/LE.H>
 
 /*══════════════════════════════════════════════════════════════════════════*
 		      █▀▀▀▀ █▀▀▀█  █    █     █     █▀▀▀▀
@@ -86,6 +88,22 @@ typedef struct
 
 T_BKG_HEADER BkgHeader;
 
+// The bank header is little-endian on disk: 6 U16 then 4 U32, no padding.
+static void BkgHeaderFromLE(T_BKG_HEADER *h) {
+    U8 raw[sizeof(T_BKG_HEADER)];
+    memcpy(raw, h, sizeof(raw));
+    h->Gri_Start = ReadLE_U16(raw + 0);
+    h->Grm_Start = ReadLE_U16(raw + 2);
+    h->Bll_Start = ReadLE_U16(raw + 4);
+    h->Brk_Start = ReadLE_U16(raw + 6);
+    h->Max_Brk = ReadLE_U16(raw + 8);
+    h->ForbidenBrick = ReadLE_U16(raw + 10);
+    h->Max_Size_Gri = ReadLE_U32(raw + 12);
+    h->Max_Size_Bll = ReadLE_U32(raw + 16);
+    h->Max_Size_Brick_Cube = ReadLE_U32(raw + 20);
+    h->Max_Size_Mask_Brick_Cube = ReadLE_U32(raw + 24);
+}
+
 typedef struct
 {
     U8 My_Bll;        //	Index Style ( + Bll_Start )
@@ -109,14 +127,14 @@ S32 LoadUsedBrick() {
     U32 i, j, b;
     U8 *pt;
     U8 *ptb;
-    U16 *ptw;
+    U8 *ptw; // a block's bricks: 4 bytes each after its 3-byte header, the brick number (U16 LE) last
     U32 *ptoff;
     U8 *ptdata;
     U32 offset;
     U32 maxbrk;
     U32 brick;
     U32 offseek;
-    U32 *ptseek;
+    U8 *ptseek;
     U32 handle;
     U16 *tabflag;
     U16 *ptflag;
@@ -144,12 +162,12 @@ S32 LoadUsedBrick() {
         if (!b)
             continue;
 
-        ptb = TabBlock + *(U32 *)(TabBlock + ((i - 1) << 2));
-        ptw = (U16 *)(ptb + 5);                  /* Jump dx dy dz et collis */
+        ptb = GetAdrBlock(i - 1);
+        ptw = ptb + 5;                           /* Jump dx dy dz et collis */
         maxbrk = *ptb * *(ptb + 1) * *(ptb + 2); /* dx*dy*dz*/
 
-        for (j = 0; j < maxbrk; j++, ptw += 2) {
-            brick = *ptw;
+        for (j = 0; j < maxbrk; j++, ptw += 4) {
+            brick = ReadLE_U16(ptw);
 
             if (brick) {
                 brick--;
@@ -190,15 +208,16 @@ S32 LoadUsedBrick() {
 
     nbbrick = 0;
 
-    ptseek = (U32 *)Screen;
+    ptseek = (U8 *)Screen; // the file's brick offsets, U32 LE
 
     for (i = min; i <= max; i++, ptflag++) {
         if (*ptflag) {
             nbbrick++;              /*	One More*/
             *ptflag = (S16)nbbrick; /*	Brick+1, for BLL */
-            offseek = *(ptseek + i);
+            offseek = ReadLE_U32(ptseek + i * 4);
             Seek(handle, offseek, SEEK_FROM_START);
             Read(handle, &header, sizeof(header));
+            HQR_HeaderFromLE(&header);
             switch (header.CompressMethod) {
             case 0: //	No compression
                 Read(handle, ptdata, header.SizeFile);
@@ -225,13 +244,14 @@ S32 LoadUsedBrick() {
         if (!b)
             continue;
 
-        ptb = TabBlock + *(U32 *)(TabBlock + ((i - 1) << 2));
-        ptw = (U16 *)(ptb + 5);                  /* Jump dx dy dz et collis */
+        ptb = GetAdrBlock(i - 1);
+        ptw = ptb + 5;                           /* Jump dx dy dz et collis */
         maxbrk = *ptb * *(ptb + 1) * *(ptb + 2); /* dx*dy*dz*/
 
-        for (j = 0; j < maxbrk; j++, ptw += 2) {
-            if (*ptw)
-                *ptw = tabflag[(*ptw) - 1];
+        for (j = 0; j < maxbrk; j++, ptw += 4) {
+            brick = ReadLE_U16(ptw);
+            if (brick)
+                WriteLE_U16(ptw, tabflag[brick - 1]);
         }
     }
 
@@ -273,7 +293,7 @@ void InitGrille(U32 numcube) {
 
     ManageSystem(); // for streaming
 
-    NbBlock = (*(U32 *)TabBlock) / 4;
+    NbBlock = ReadLE_U32(TabBlock) / 4;
 
     CopyMapToCube();
 
@@ -304,7 +324,7 @@ void FreeGrille() {}
 U8 *GetAdrColonneMap(S32 x, S32 z) {
     U32 offset;
 
-    offset = *(U16 *)(BufMap + sizeof(T_GRI_HEADER) + (x + (z * SIZE_CUBE_Z)) * 2);
+    offset = ReadLE_U16(BufMap + sizeof(T_GRI_HEADER) + (x + (z * SIZE_CUBE_Z)) * 2);
 
     return (BufMap + sizeof(T_GRI_HEADER) + offset);
 }
@@ -619,6 +639,7 @@ void InitBufferCube() {
 
     //	pas de RECOVER_AREA car BkgHeader en stored et pas en LZSS
     Load_HQR(tmpFilePath, &BkgHeader, 0); // HEADER
+    BkgHeaderFromLE(&BkgHeader);
 
     // 	pas de RECOVER_AREA car TabAllCube en stored et pas en LZSS
     Load_HQR(tmpFilePath, (void *)TabAllCube, BkgHeader.Brk_Start + BkgHeader.Max_Brk);
@@ -881,7 +902,7 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     brickcol = *adr;
     adr += 2;
 
-    numbrick = *(U16 *)adr; /* & 32767 */
+    numbrick = ReadLE_U16(adr); /* & 32767 */
 
     if (numbrick AND numbrick != ForbidenBrick AND BrickInBank(numbrick)) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
@@ -977,7 +998,7 @@ void AffBrickBlockColon(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     brickcol = *adr;
     adr += 2;
 
-    numbrick = *(U16 *)adr; /* & 32767 */
+    numbrick = ReadLE_U16(adr); /* & 32767 */
 
     if (numbrick AND numbrick != ForbidenBrick AND BrickInBank(numbrick)) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
@@ -1065,7 +1086,7 @@ void AffBrickBlockOnly(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     adr += (brick << 2); /* 4 Bytes to Jump	*/
     adr += 2;
 
-    numbrick = *(U16 *)adr; /* & 32767 */
+    numbrick = ReadLE_U16(adr); /* & 32767 */
 
     if (numbrick AND numbrick != ForbidenBrick AND BrickInBank(numbrick)) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
@@ -1566,5 +1587,5 @@ void Map2Screen(S32 x, S32 y, S32 z) {
 
 //-------------------------------------------------------------------
 U8 *GetAdrBlock(S32 numblock) {
-    return TabBlock + ((U32 *)TabBlock)[numblock];
+    return TabBlock + ReadLE_U32(TabBlock + numblock * 4);
 }

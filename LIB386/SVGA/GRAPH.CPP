@@ -3,6 +3,7 @@
 #include <SVGA/SCREENXY.H>
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
+#include <SYSTEM/LE.H>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -38,11 +39,10 @@ U8 BufferClip[512];
 
 // -----------------------------------------------------------------------------
 S32 GetDxDyGraph(U8 numgraph, S32 *x, S32 *y, const void *bankgraph) {
-    const U32 *graphMem = (const U32 *)bankgraph;
     const U8 *graphBytes = (const U8 *)bankgraph;
 
     // Don't know if the value is really a signed int, but works for now
-    U32 offset = graphMem[numgraph];
+    U32 offset = ReadLE_U32(graphBytes + numgraph * 4);
 
     *x = (graphBytes[offset] & 0xFF);
     *y = (graphBytes[offset + 1] & 0xFF);
@@ -57,7 +57,7 @@ S32 ClippingGraph(S32 x0, S32 y0, S32 x1, S32 y1, U8 *graphics);
 
 S32 AffGraph(S32 numgraph, S32 x, S32 y, const void *bankgraph) {
     LIB386_TRACE_CPP("AffGraph", "1", "num=%d x=%d y=%d bank=%p", numgraph, x, y, (void *)bankgraph);
-    U8 *data = (U8 *)bankgraph + ((U32 *)bankgraph)[numgraph];
+    U8 *data = (U8 *)bankgraph + ReadLE_U32((const U8 *)bankgraph + numgraph * 4);
     U8 deltaX = data[0];
     U8 nbLine = data[1]; // delta Y
     S8 hotX = data[2];
@@ -240,7 +240,7 @@ S32 ClippingGraph(S32 x0, S32 y0, S32 x1, S32 y1, U8 *graphics) {
 
 S32 GetBoxGraph(S32 numgraph, S32 *x0, S32 *y0, S32 *x1, S32 *y1,
                 const void *bankgraph) {
-    U8 *bank = (U8 *)bankgraph + ((U32 *)bankgraph)[numgraph];
+    U8 *bank = (U8 *)bankgraph + ReadLE_U32((const U8 *)bankgraph + numgraph * 4);
 
     U8 dx = bank[0];
     U8 dy = bank[1];
