@@ -31,6 +31,10 @@ out, at the tick the old one did.
 `combo-set.rec` is format 17, recorded after the terrain slide fix of
 [#745](https://github.com/LBALab/lba2-classic-community/issues/745): the session walks
 into a slanted ground edge at tick 219, where Twinsen now slides instead of stopping.
+It was remade again for [#801](https://github.com/LBALab/lba2-classic-community/issues/801),
+which puts the FPU back in round-to-nearest after each triangle: the walk rounds as in
+1997 and Twinsen's path moves from tick 111. Remade on main first, the file matched the
+committed one apart from the engine line; the new one fails on main at tick 111.
 `combo-controls.rec` reaches the edge once without the slide moving anything the digest
 covers, and is the original format 12 file.
 
