@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-91 fixtures.
+92 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -93,6 +93,7 @@ suite still passes, since CI cannot say so.
 | [test_res_switch_dialog.sh](test_res_switch_dialog.sh) | Resolution confirmation: timeout reverts; held D-pad navigation cannot activate jetpack or advance gameplay time after confirmation. | save fixture |
 | [test_ring_off_is_gone.sh](test_ring_off_is_gone.sh) | With the Auto camera off, none of its settings changes anything: the game, the camera or the picture. | - |
 | [test_ring_watch_not_play.sh](test_ring_watch_not_play.sh) | With the Auto camera on, flipping any of its settings changes how a run is seen, never what happens in it. | - |
+| [test_save_auto_name_refresh.sh](test_save_auto_name_refresh.sh) | Overwriting a save with an automatic name gives it a fresh one. | save fixture |
 | [test_screenshot.sh](test_screenshot.sh) | --screenshot: writes a real PNG of the rendered frame. | save fixture |
 | [test_skip_modals.sh](test_skip_modals.sh) | `skipmodals` console command: a headless run gets past a give/talk dialog instead of hanging. | - |
 | [test_spell_keys_bypass.sh](test_spell_keys_bypass.sh) | The spell keys reach the game without reaching Input, and this is what that costs. | - |
