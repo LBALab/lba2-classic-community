@@ -36,7 +36,9 @@ typedef enum PlatformEventType {
 } PlatformEventType;
 
 /* Text is borrowed until the next event poll. Coordinates are window pixels;
-   finger coordinates are normalised to the whole display, including bars. */
+   finger coordinates are normalised to the whole display, including bars.
+   A finger also arrives as mouse motion and buttons, so a tap still points and
+   clicks; `touch` marks those, so the pointer can act without being drawn. */
 typedef struct PlatformEvent {
     PlatformEventType type;
     union {
@@ -50,10 +52,12 @@ typedef struct PlatformEvent {
         } text;
         struct {
             float x, y, xrel, yrel;
+            bool touch;
         } motion;
         struct {
             float x, y;
             uint8_t button;
+            bool touch;
         } button;
         struct {
             float y;
