@@ -46,7 +46,7 @@ stall component of those numbers.
 | 11 | **Stereo depth-readback removal**: `GL_ReadbackDepthBuffer()` resolves the full depth buffer into a PBO and maps it on the next call. Stereo eye passes are always `AFF_ALL_FLIP`: each `AffGrilleExt` clears `PtrZBuffer` before the object pass, so neither eye can observe the readback. Skip it when `GL_GetStereoEye() >= 0`; mono incremental frames keep the one-frame-old depth. | SOURCES/OBJECT.CPP | −1 full-surface depth resolve + PBO read per frame |
 | 12 | **Empty-overlay direct present**: the indexed present already detects an all-zero Log overlay. When that overlay is empty, the viewport is full, the display transform is neutral, no FXAA/SMAA is active, and the scene FBO is content-sized, OpenXR can blit the resolved 3D scene directly for mono and for stereo eye 1 (the last eye rendered). Eye 0 still composites because eye 1 overwrites the scene FBO. A new `GL_StereoEyeSceneDirect()` handshake tells the stereo present to read the scene for the right eye; `GL_PresentSceneDirect()` reports the same safety for the mono fast path. The previous mono fast path could bypass a non-neutral display transform; it now shares the full gate. | RENDER_GL.CPP, OPENXR.CPP, RENDER_GL.H | −1 full-screen composite on mono/eye-1 empty-overlay frames |
 | 13 | **Present state cleanup**: drop the redundant full-target `glViewport` before the scissored letterbox clear (`glClear` ignores the viewport), and the duplicate vertex-array/program teardown at the end of the plain present branch. | RENDER_GL.CPP | small CPU/driver-state win |
-| 14 | **Stereo horizon capture lifetime**: `GL_BeginFrame` runs at every eye's present, so clearing `s_horizonValid` there discarded eye 0's capture between the two eyes; eye 1 always redrew the horizon (`GrillePerf eye=1 draw=2–7 ms, restore=0`). The flag is now owned by `GL_SetStereoEye`: cleared when a pair starts and when stereo is left, preserved across eye 0's present. Mono/menu frames still start invalid. | RENDER_GL.CPP | removes the duplicate eye-1 horizon pass (~2–7 ms/frame) |
+| 14 | **Stereo horizon capture lifetime (reverted)**: `GL_BeginFrame` runs at every eye's present, so clearing `s_horizonValid` there discarded eye 0's capture between the two eyes; eye 1 always redrew the horizon (`GrillePerf eye=1 draw=2–7 ms, restore=0`). Moving the flag to `GL_SetStereoEye` made eye 1 restore it (`restore=41–53 us`) and cut the one-minute frame median from 30 ms to 17 ms, but Iceland showed terrain seams: near neighbour-cube terrain has real stereo disparity, so eye 0's capture is not valid for eye 1. Reverted to per-eye drawing. | RENDER_GL.CPP | no net effect; a correct reuse needs parallax-aware compositing or a neutral far-horizon prepass |
 
 The v3 in-tile path sets `GL_INTILE_MSAA 1`. Desktop GL does not expose
 `GL_EXT_multisampled_render_to_texture`, so desktop keeps the explicit path;
@@ -125,11 +125,15 @@ the number.
   capture blit, with no black frames. Desktop has no
   `GL_EXT_multisampled_render_to_texture`, so the in-tile branch itself
   remains device-only coverage.
-- Item 14 (stereo horizon capture lifetime): Quest native build clean and
-  APK rebuilt. The pre-fix one-minute sample showed eye 1 redrawing the
-  horizon every frame (`draw=2–7 ms`, `restore=0`); on-device A/B
-  verification is pending because the headset disconnected after that
-  sample.
+- Item 14 (stereo horizon capture lifetime): the lifetime fix worked as
+  measured on 2026-10-20 12:06–12:07 — every `GrillePerf eye=1` sample
+  logged `horizon=0ms draw=0ms restore=41–53us`, and ten `StereoPerf`
+  samples ran 11–25 ms (median 17 ms). But Iceland showed terrain split
+  into misaligned parts: adjacent neighbour-cube terrain is often close
+  enough to have visible stereo disparity, so eye 0's capture cannot stand
+  in for eye 1. The code change was reverted; the pre-fix per-eye draw is
+  the correct behavior. The numbers remain useful as the ceiling for a
+  parallax-aware reuse.
 
 ## Remaining levers (deliberately NOT taken — behavior changes, owner's call)
 
@@ -180,7 +184,11 @@ Eye 1 logged `draw=` and `restore=0` on every sample: it was redrawing the
 horizon that eye 0 had already captured.  The 14 ms best case coincides with
 a frame where both horizon draws measured 0 ms; it is not the steady state.
 The runtime line at the start of the sample read `FPS=32/72`,
-`CPU&GPU=37.68ms`, so the frame is still GPU-bound.  Item 14 removes eye 1's
-2–7 ms duplicate; the next sample should show `eye=1 restore=` with a small
-microsecond cost.  Eye 0's horizon and the two scene passes are the next
-targets after that.
+`CPU&GPU=37.68ms`, so the frame is still GPU-bound.
+
+Item 14 reproduced the predicted win (eye 1 `restore=41–53 us`, frame median
+17 ms) but failed visually in Iceland, so it is reverted.  Eye 0's horizon
+and the two scene passes remain the biggest costs.  A future horizon reuse
+needs to handle near neighbour-cube parallax — for example a depth-aware
+composite that restores only the far backdrop, or a neutral-camera horizon
+prepass — rather than treating the whole capture as eye-independent.
