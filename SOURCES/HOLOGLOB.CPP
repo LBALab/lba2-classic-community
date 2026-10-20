@@ -804,7 +804,8 @@ U8 *LoadHoloMalloc_HQR(const char *name, S32 index) {
 // A body from HOLOMAP.HQR, converted from little-endian to the CPU's order
 U8 *LoadHoloBody_HQR(const char *name, S32 index) {
     U8 *pt = LoadHoloMalloc_HQR(name, index);
-    ObjectBodyFromLE(pt, (S32)HQF_ResSize(name, index));
+    if (LBA_BIG_ENDIAN) // the size costs a file open; only big-endian needs it
+        ObjectBodyFromLE(pt, (S32)HQF_ResSize(name, index));
     return (pt);
 }
 //────────────────────────────────────────────────────────────────────────────
@@ -849,8 +850,9 @@ void InitHoloGlobe(S32 planet) {
 
     PtrCoorGlobe = (U16 *)HoloMalloc(SIZE_COOR_GLOBE);
 
-    PtrMapping = (U16 *)LoadHoloMalloc_HQR(tmpFilePath, HQR_COORMAPP_HMM);       // CoorMapp.HMM
-    FromLE16InPlace(PtrMapping, HQF_ResSize(tmpFilePath, HQR_COORMAPP_HMM) / 2); // U16 u, v pairs, LE
+    PtrMapping = (U16 *)LoadHoloMalloc_HQR(tmpFilePath, HQR_COORMAPP_HMM); // CoorMapp.HMM
+    if (LBA_BIG_ENDIAN)                                                    // U16 u, v pairs, LE; the size costs a file open
+        FromLE16InPlace(PtrMapping, HQF_ResSize(tmpFilePath, HQR_COORMAPP_HMM) / 2);
 
     id = HQR_TWINSUN_HMT + (Planet * 2);
 

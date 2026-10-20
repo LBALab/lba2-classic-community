@@ -4586,6 +4586,8 @@ void GameOver() {
     ptr3do = (S16 *)LoadMalloc_HQR(tmpFilePath, RESS_GAME_OVER);
     if (!ptr3do)
         return;
+    if (LBA_BIG_ENDIAN)
+        ObjectBodyFromLE(ptr3do, (S32)HQF_ResSize(tmpFilePath, RESS_GAME_OVER));
 
     // lance un sample ou music de game over ??
 
