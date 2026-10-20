@@ -2,6 +2,7 @@
 #include "DIRECTORIES.H"
 
 #include <SYSTEM/ADELINE.H>
+#include <SYSTEM/LE.H>
 #include <SYSTEM/LOG.H>
 
 #include <PLATFORM/PLATFORM.H>
@@ -14,13 +15,43 @@ U8 *PtrScene;
 S32 CubeMode = 0;     // 0-->Intérieur - 1-->Extérieur
 S32 LastCubeMode = 0; // 0-->Intérieur - 1-->Extérieur
 
+/* The scene file is packed little-endian: after the variable-length scripts a
+   field can sit at any offset, so it is read through LE.H, never a cast pointer. */
+static inline S16 SceGetS16() {
+    S16 v = ReadLE_S16(PtrSce);
+    PtrSce += 2;
+    return v;
+}
+
+static inline U32 SceGetU32() {
+    U32 v = ReadLE_U32(PtrSce);
+    PtrSce += 4;
+    return v;
+}
+
 #define GET_S8 (*PtrSce++)
-#define GET_S16       \
-    (*(S16 *)PtrSce); \
-    PtrSce += 2
-#define GET_U32       \
-    (*(U32 *)PtrSce); \
-    PtrSce += 4
+#define GET_S16 SceGetS16()
+#define GET_U32 SceGetU32()
+
+/* The zone, track-point and patch tables are copied out of the scene into these
+   native arrays. The scene's own copies sit at odd offsets in most scenes (166 of
+   222), where a typed read is undefined and faults on 32-bit ARM, and their
+   fields are little-endian. No patch offset reaches them, so saves, which copy
+   script bytes by offset from PtrScene, are unaffected. */
+static T_ZONE SceneZones[MAX_ZONES];
+static T_TRACK SceneTracks[MAX_TRACKS];
+static T_PATCH ScenePatches[MAX_PATCHES];
+
+/* Reads a table count and keeps it within the native array. The retail scenes
+   stay far below every limit (70 zones, 120 track points, 317 patches at most). */
+static S32 SceGetCount(S32 count, S32 max, const char *what) {
+    if (count < 0 || count > max) {
+        LogPrintf("LoadScene: %d %s, more than the %d the engine holds; keeping %d\n",
+                  (int)count, what, (int)max, (int)(count < 0 ? 0 : max));
+        return count < 0 ? 0 : max;
+    }
+    return count;
+}
 
 /*══════════════════════════════════════════════════════════════════════════*
 	     █▀▀▀▄  █    ██▀▀▀ █  ▄▀       █▀▀▀▀ █   █ ██▄ █ █▀▀▀▀
@@ -235,9 +266,29 @@ S32 LoadScene(S32 numscene) {
 
     // zone declechement: ZONE
 
-    NbZones = GET_S16;
-    ListZone = (T_ZONE *)PtrSce;
-    PtrSce += NbZones * sizeof(T_ZONE);
+    NbZones = SceGetCount(GET_S16, MAX_ZONES, "zones");
+    ListZone = SceneZones;
+
+    // 60 bytes a zone on disk: X0 Y0 Z0 X1 Y1 Z1 Info0..Info7 (S32), Type Num (S16)
+    for (n = 0, ptrz = ListZone; n < NbZones; n++, ptrz++) {
+        memset(ptrz, 0, sizeof(*ptrz));
+        ptrz->X0 = (S32)GET_U32;
+        ptrz->Y0 = (S32)GET_U32;
+        ptrz->Z0 = (S32)GET_U32;
+        ptrz->X1 = (S32)GET_U32;
+        ptrz->Y1 = (S32)GET_U32;
+        ptrz->Z1 = (S32)GET_U32;
+        ptrz->Info0 = (S32)GET_U32;
+        ptrz->Info1 = (S32)GET_U32;
+        ptrz->Info2 = (S32)GET_U32;
+        ptrz->Info3 = (S32)GET_U32;
+        ptrz->Info4 = (S32)GET_U32;
+        ptrz->Info5 = (S32)GET_U32;
+        ptrz->Info6 = (S32)GET_U32;
+        ptrz->Info7 = (S32)GET_U32;
+        ptrz->Type = GET_S16;
+        ptrz->Num = GET_S16;
+    }
 
     ptrz = ListZone;
 
@@ -283,13 +334,23 @@ S32 LoadScene(S32 numscene) {
 
     // point track: TRACK
 
-    NbBrickTrack = GET_S16;
-    ListBrickTrack = (T_TRACK *)PtrSce;
-    PtrSce += NbBrickTrack * sizeof(T_TRACK);
+    NbBrickTrack = SceGetCount(GET_S16, MAX_TRACKS, "track points");
+    ListBrickTrack = SceneTracks;
+
+    for (S32 t = 0; t < NbBrickTrack; t++) {
+        SceneTracks[t].X = (S32)GET_U32;
+        SceneTracks[t].Y = (S32)GET_U32;
+        SceneTracks[t].Z = (S32)GET_U32;
+    }
 
     //--------- PATCHES ----------
-    NbPatches = GET_U32;
-    ListPatches = (T_PATCH *)PtrSce;
+    NbPatches = SceGetCount((S32)GET_U32, MAX_PATCHES, "patches");
+    ListPatches = ScenePatches;
+
+    for (S32 t = 0; t < NbPatches; t++) {
+        ScenePatches[t].Size = GET_S16;
+        ScenePatches[t].Offset = GET_S16;
+    }
     //----------------------------
 
     if (NumCube == NUM_CUBE_PHANTOM) {
