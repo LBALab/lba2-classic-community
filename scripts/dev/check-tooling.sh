@@ -372,6 +372,31 @@ if want_tier 3; then
     fi
 fi
 
+if want_tier 3; then
+    vita_image="$(tr -d '[:space:]' < "$REPO_ROOT/docker/vita-image.txt")"
+    if [[ ! "$vita_image" =~ ^vitasdk/vitasdk@sha256:[0-9a-f]{64}$ ]]; then
+        row gap "Vita Docker SDK" "invalid pin in docker/vita-image.txt"
+    elif have docker && docker info >/dev/null 2>&1; then
+        if docker image inspect "$vita_image" >/dev/null 2>&1; then
+            row ok "Vita Docker SDK" "pinned image cached — scripts/dev/build-vita.sh"
+            if docker run --rm "$vita_image" python3 -c 'import ftplib, socket' >/dev/null 2>&1; then
+                row ok "Vita deployment" "Python FTP/TCP client in pinned image — scripts/dev/run-vita.sh"
+            else
+                row gap "Vita deployment" "Python FTP/TCP unavailable in pinned image"
+            fi
+            if docker run --rm "$vita_image" sh -c 'test -f "$VITASDK/arm-vita-eabi/lib/libdebugnet.a"' >/dev/null 2>&1; then
+                row ok "Vita DEBUGNET" "SDK library for optional --diagnostics; host Python receives UDP"
+            else
+                row gap "Vita DEBUGNET" "optional diagnostic library unavailable in pinned image"
+            fi
+        else
+            row info "Vita Docker SDK" "scripts/dev/build-vita.sh pulls the image pinned in docker/vita-image.txt"
+        fi
+    else
+        row gap "Vita Docker SDK" "Docker daemon required — scripts/dev/build-vita.sh"
+    fi
+fi
+
 SDL2_MIN="$(sed -n 's/.*find_package(SDL2 \([0-9.]*\) REQUIRED CONFIG).*/\1/p' \
     "$REPO_ROOT/LIB386/PLATFORM/CMakeLists.txt" | head -1)"
 if [ -z "$SDL2_MIN" ] || [ -z "$CMAKE_MIN" ]; then
@@ -549,7 +574,7 @@ else
     row info "run-clang-tidy" "clang-tools-extra; never runs in CI (.clang-tidy)"
 fi
 if python3 -c "from PIL import Image" >/dev/null 2>&1; then
-    row ok "Pillow" "screenshot comparison in tests/automation"
+    row ok "Pillow" "screenshot comparison and optional Vita icon regeneration"
 else
     row info "Pillow" "pip install Pillow — image asserts skip without it (tests/automation/lib.sh)"
 fi

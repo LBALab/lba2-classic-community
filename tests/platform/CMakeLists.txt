@@ -13,6 +13,16 @@ set(_PLATFORM_FACADES
     ${CMAKE_SOURCE_DIR}/SOURCES/JOYSTICK.CPP
     ${CMAKE_SOURCE_DIR}/SOURCES/TOUCH_INPUT.CPP)
 
+# Vita's newlib and Linux libc both provide the cookie-stream API.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(test_vita_diagnostics test_vita_diagnostics.cpp
+        ${CMAKE_SOURCE_DIR}/LIB386/PLATFORM/SDL2/VITA_LOG.CPP)
+    target_include_directories(test_vita_diagnostics PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vita_stub)
+    set_target_properties(test_vita_diagnostics PROPERTIES CXX_STANDARD 11)
+    add_test(NAME test_vita_diagnostics COMMAND test_vita_diagnostics)
+    register_host_test(test_vita_diagnostics)
+endif()
+
 add_library(test_platform_header_cpp98 OBJECT test_platform_header_cpp98.cpp)
 target_include_directories(test_platform_header_cpp98 PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
 set_target_properties(test_platform_header_cpp98 PROPERTIES
@@ -102,6 +112,13 @@ if(PLATFORM_BACKEND STREQUAL "sdl3")
 endif()
 
 if(PLATFORM_BACKEND STREQUAL "sdl2")
+    add_executable(test_vita_host test_vita_host.cpp
+        ${CMAKE_SOURCE_DIR}/LIB386/PLATFORM/SDL2/VITA.CPP)
+    target_link_libraries(test_vita_host PRIVATE lba2_platform ${LBA2_SDL_TARGET})
+    set_target_properties(test_vita_host PROPERTIES CXX_STANDARD 11)
+    add_test(NAME test_vita_host COMMAND test_vita_host)
+    register_host_test(test_vita_host)
+
     add_executable(test_switch_host test_switch_host.cpp
         ${CMAKE_SOURCE_DIR}/LIB386/PLATFORM/SDL2/SWITCH.c)
     target_include_directories(test_switch_host PRIVATE

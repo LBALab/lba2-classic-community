@@ -68,20 +68,29 @@ static U32 CombinedInputMasks[INPUT_TABLE_SLOTS * 4];
 T_DEF_KEY GamepadKeys[MAX_INPUT_SLOTS];
 
 const T_DEF_KEY GamepadKeysDefault[MAX_INPUT_SLOTS] = {
-    {K_GAMEPAD_RTRIGGER, 0},                         // 0  I_UP
-    {K_GAMEPAD_LTRIGGER, 0},                         // 1  I_DOWN
-    {K_GAMEPAD_LSTICK_LEFT, 0},                      // 2  I_LEFT
-    {K_GAMEPAD_LSTICK_RIGHT, 0},                     // 3  I_RIGHT
-    {K_GAMEPAD_RSHOULDER, 0},                        // 4  I_THROW
-    {K_GAMEPAD_LSHOULDER, 0},                        // 5  I_COMPORTEMENT
-    {K_GAMEPAD_Y, 0},                                // 6  I_INVENTORY
-    {K_GAMEPAD_X, 0},                                // 7  I_ACTION_M
-    {K_GAMEPAD_A, 0},                                // 8  I_ACTION_ALWAYS
-    {K_GAMEPAD_B, 0},                                // 9  I_RETURN
-    {K_GAMEPAD_START, 0},                            // 10 I_MENUS
-    {K_GAMEPAD_BACK, 0},                             // 11 I_HOLOMAP
-    {0, 0},                                          // 12 I_PAUSE (unbound; Start opens the in-game menu)
-    {K_GAMEPAD_LSTICK_BTN, K_GAMEPAD_RSTICK_BTN},    // 13 I_ESQUIVE
+#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+    {K_GAMEPAD_LSTICK_UP, 0},   // 0  I_UP
+    {K_GAMEPAD_LSTICK_DOWN, 0}, // 1  I_DOWN
+#else
+    {K_GAMEPAD_RTRIGGER, 0}, // 0  I_UP
+    {K_GAMEPAD_LTRIGGER, 0}, // 1  I_DOWN
+#endif
+    {K_GAMEPAD_LSTICK_LEFT, 0},  // 2  I_LEFT
+    {K_GAMEPAD_LSTICK_RIGHT, 0}, // 3  I_RIGHT
+    {K_GAMEPAD_RSHOULDER, 0},    // 4  I_THROW
+    {K_GAMEPAD_LSHOULDER, 0},    // 5  I_COMPORTEMENT
+    {K_GAMEPAD_Y, 0},            // 6  I_INVENTORY
+    {K_GAMEPAD_X, 0},            // 7  I_ACTION_M
+    {K_GAMEPAD_A, 0},            // 8  I_ACTION_ALWAYS
+    {K_GAMEPAD_B, 0},            // 9  I_RETURN
+    {K_GAMEPAD_START, 0},        // 10 I_MENUS
+    {K_GAMEPAD_BACK, 0},         // 11 I_HOLOMAP
+    {0, 0},                      // 12 I_PAUSE (unbound; Start opens the in-game menu)
+#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+    {0, 0}, // 13 I_ESQUIVE
+#else
+    {K_GAMEPAD_LSTICK_BTN, K_GAMEPAD_RSTICK_BTN}, // 13 I_ESQUIVE
+#endif
     {0, 0},                                          // 14 I_NORMAL
     {0, 0},                                          // 15 I_SPORTIF
     {0, 0},                                          // 16 I_AGRESSIF

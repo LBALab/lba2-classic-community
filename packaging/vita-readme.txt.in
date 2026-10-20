@@ -1,0 +1,32 @@
+@LBA2_PRODUCT_NAME@ - PlayStation Vita homebrew
+
+Install lba2cc-vita.vpk with VitaShell. Title ID: @LBA2_VITA_TITLE_ID@.
+This package contains no retail game assets.
+
+Copy files from your legally owned LBA2 installation to ux0:/data/lba2/.
+Put LBA2.HQR and the other retail HQR files directly in that directory.
+Keep the installation's Music/, VIDEO/ and VOX/ folders and their contents.
+
+Settings, saves and logs: ux0:/data/lba2cc/user/
+Back up this directory before upgrading. Reinstalling the VPK does not
+replace it or the retail data. Use the game's Quit option to exit cleanly.
+
+The SDL2 GXM renderer scales the software framebuffer to 960x544 with
+letterboxing. No shader compiler plugin is needed for this renderer.
+Left stick: move forward/backward and turn. L: behaviour. R: throw.
+Triangle: inventory. Square: action. Cross: always-action. Circle: return.
+Start: menu. Select: holomap. Right stick: camera. D-pad: spells.
+Dodge is unbound because the handheld has no stick-click buttons.
+Existing explicit gamepad bindings in lba2.cfg take precedence.
+Custom save-name keyboard entry and touch controls are not added.
+Further hardware validation remains required.
+
+Diagnostic builds (--diagnostics when building)
+----------------------------------------------
+The game creates its user directory automatically.
+Diagnostic builds also write ux0:/data/lba2cc-boot.log before SDL starts.
+This file is replaced each launch; preserve it after a failed boot.
+For optional DEBUGNET streaming, put the receiver computer's LAN IPv4 address
+in ux0:/data/lba2cc-debugnet.txt. Receive on that computer's UDP port 18194.
+No console plugin is required. Use only a trusted LAN; logs are unencrypted.
+Missing receiver configuration disables network output, not local capture.

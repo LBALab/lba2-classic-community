@@ -41,6 +41,11 @@ not maintained tooling.
 | [dev/build-android.sh](dev/build-android.sh) | Build the engine for Android (arm64-v8a default, armeabi-v7a via `--abi`). | manual ([ANDROID.md](../docs/ANDROID.md)) |
 | [dev/build-switch.sh](dev/build-switch.sh) | Build and package Nintendo Switch homebrew using the digest-pinned devkitPro Docker SDK. | manual, CI ([SWITCH.md](../docs/SWITCH.md)) |
 | [dev/run-switch.sh](dev/run-switch.sh) | Upload the built NRO to Homebrew Menu's netloader and stream unbuffered logs using the pinned Docker SDK's nxlink. | manual ([SWITCH.md](../docs/SWITCH.md#upload-and-run-over-the-network)) |
+| [dev/build-vita.sh](dev/build-vita.sh) | Build the pinned GXM-only SDK image, cross-compile and package a PlayStation Vita VPK; `--diagnostics` adds early file capture and optional DEBUGNET. | manual, CI ([VITA.md](../docs/VITA.md)) |
+| [dev/run-vita.sh](dev/run-vita.sh) | Upload an existing Vita SELF/VPK, optionally launching through vitacompanion; uses the pinned Docker SDK. | manual ([VITA.md](../docs/VITA.md#upload-and-launch-over-the-network)) |
+| [dev/vita-deploy.py](dev/vita-deploy.py) | Standard-library FTP/TCP client, with explicit upload/launch error handling. | `dev/run-vita.sh`, loopback regression |
+| [dev/vita-log.py](dev/vita-log.py) | Receive DEBUGNET UDP output on a trusted LAN with host Python 3 (stdlib only). | manual, loopback regression ([VITA.md](../docs/VITA.md#stream-diagnostic-output-with-debugnet)) |
+| [packaging/make-vita-icons.py](packaging/make-vita-icons.py) | Regenerate committed Vita LiveArea images from `packaging/lba2cc.png`; needs Pillow only when regenerating. | manual ([VITA.md](../docs/VITA.md)) |
 | [dev/build-sdl3-android.sh](dev/build-sdl3-android.sh) | Cross-build SDL3 for Android and install it to a known prefix (prerequisite for `build-android.sh`). | manual ([ANDROID.md](../docs/ANDROID.md)) |
 | [dev/check-16k-align.sh](dev/check-16k-align.sh) | Verify an Android APK is safe on 16 KB memory-page devices (segment alignment + uncompressed `.so`). | CI (android), [ANDROID.md](../docs/ANDROID.md) |
 

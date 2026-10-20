@@ -63,6 +63,9 @@ else()
     add_executable(${LBA2_EXECUTABLE_NAME} ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN} ${SOURCES_FILES_MACOS} ${EMBEDDED_LBA2_CFG_CPP})
 endif()
 target_sources(${LBA2_EXECUTABLE_NAME} PRIVATE $<TARGET_OBJECTS:lba2_platform_entry>)
+if(LBA2_GAMEPAD_STICK_LAYOUT)
+    target_compile_definitions(${LBA2_EXECUTABLE_NAME} PRIVATE LBA2_GAMEPAD_STICK_LAYOUT=1)
+endif()
 
 # macOS .app bundle metadata: marks the target as a bundled .app, points
 # at the configured Info.plist, and routes the .icns to Contents/Resources/.
@@ -170,6 +173,9 @@ target_compile_definitions(${LBA2_EXECUTABLE_NAME} PRIVATE ONE_GAME_DIRECTORY LB
         $<$<STREQUAL:${MVIDEO_BACKEND},smacker>:USE_MVIDEO_SMACKER>)
 if(NINTENDO_SWITCH)
     include(${CMAKE_SOURCE_DIR}/cmake/switch-package.cmake)
+endif()
+if(VITA)
+    include(${CMAKE_SOURCE_DIR}/cmake/vita-package.cmake)
 endif()
 if(MVIDEO_BACKEND STREQUAL "smacker")
   target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE libsmacker video_audio_resample)

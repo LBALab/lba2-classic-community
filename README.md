@@ -115,6 +115,7 @@ For platform-specific builds, use the presets in `CMakePresets.json` (all use th
 - **Windows:** `cmake --preset windows_ucrt64 && cmake --build --preset windows_ucrt64` — see [docs/WINDOWS.md](docs/WINDOWS.md)
 - **Cross-compile Windows from Linux:** `cmake --preset cross_linux2win && cmake --build --preset cross_linux2win`. To skip the preset, use the toolchain file directly: `cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-i686.cmake`.
 - **Nintendo Switch homebrew:** `bash scripts/dev/build-switch.sh` — builds an SDL2 `.nro` and SD-card ZIP inside a digest-pinned devkitPro Docker image. No host SDK needed; hardware validation remains pending. See [docs/SWITCH.md](docs/SWITCH.md).
+- **PlayStation Vita homebrew:** `bash scripts/dev/build-vita.sh` — builds an SDL2/GXM VPK using the pinned VitaSDK Docker environment. Includes FTP/companion deployment and optional early-boot/DEBUGNET diagnostics. Basic boot is confirmed on hardware; broader acceptance checks remain pending. See [docs/VITA.md](docs/VITA.md).
 
 ## Build options
 

@@ -1,0 +1,20 @@
+ARG VITA_SDK_IMAGE
+FROM ${VITA_SDK_IMAGE}
+
+# GXM-only SDL avoids the optional vitaGL shader compiler/plugin dependencies.
+# Source hash matches VitaSDK's sdl2 recipe; the full SDK ships sdl2_vitagl.
+ARG SDL2_VERSION=2.32.8
+ARG SDL2_SHA256=0ca83e9c9b31e18288c7ec811108e58bac1f1bb5ec6577ad386830eac51c787e
+RUN mkdir /tmp/lba2-sdl2 \
+    && cd /tmp/lba2-sdl2 \
+    && curl -fL --retry 3 "https://github.com/libsdl-org/SDL/releases/download/release-${SDL2_VERSION}/SDL2-${SDL2_VERSION}.tar.gz" -o SDL2.tar.gz \
+    && echo "${SDL2_SHA256}  SDL2.tar.gz" | sha256sum -c - \
+    && tar -xzf SDL2.tar.gz \
+    && cmake -S "SDL2-${SDL2_VERSION}" -B build -G Ninja \
+        -DCMAKE_TOOLCHAIN_FILE="${VITASDK}/share/vita.toolchain.cmake" \
+        -DCMAKE_BUILD_TYPE=Release -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF \
+        -DVIDEO_VITA_PVR=OFF -DVIDEO_VITA_PIB=OFF \
+        "-DCMAKE_C_FLAGS=-Wno-error=implicit-function-declaration -Wno-error=int-conversion -Wno-error=incompatible-pointer-types" \
+    && cmake --build build --parallel \
+    && cmake --install build \
+    && rm -rf /tmp/lba2-sdl2

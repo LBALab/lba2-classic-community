@@ -14,9 +14,13 @@
 namespace {
 #ifdef LBA2_SDL2_TESTS
 int (*s_messageProbe)(Uint32, const char *, const char *, SDL_Window *) = NULL;
+int (*s_mkdirProbe)(const char *) = NULL;
 #endif
-bool HostError(const char *operation) {
-    SDL_SetError("%s: %s", operation, strerror(errno));
+bool HostError(const char *operation, const char *path = NULL) {
+    if (path)
+        SDL_SetError("%s '%s': %s", operation, path, strerror(errno));
+    else
+        SDL_SetError("%s: %s", operation, strerror(errno));
     Platform_Log(PLATFORM_LOG_ERROR, "%s", SDL_GetError());
     return false;
 }
@@ -31,6 +35,9 @@ bool Unavailable() {
 #ifdef LBA2_SDL2_TESTS
 void SDL2_SetMessageProbe(int (*probe)(Uint32, const char *, const char *, SDL_Window *)) {
     s_messageProbe = probe;
+}
+void SDL2_SetMkdirProbe(int (*probe)(const char *)) {
+    s_mkdirProbe = probe;
 }
 #endif
 
@@ -53,6 +60,8 @@ char *SDL2_CurrentDirectory() {
 const char *SDL2_HomePath() {
 #ifdef __SWITCH__
     const char *home = SDL2_SwitchBasePath();
+#elif defined(__vita__)
+    const char *home = SDL2_VitaUserPath();
 #elif defined(_WIN32)
     const char *home = SDL_getenv("USERPROFILE");
 #else
@@ -82,7 +91,7 @@ bool SDL2_CreateDirectory(const char *path) {
 #else
     const bool windows = false;
 #endif
-#ifdef __SWITCH__
+#if defined(__SWITCH__) || defined(__vita__)
     const bool allowDevicePrefix = true;
 #else
     const bool allowDevicePrefix = false;
@@ -93,24 +102,43 @@ bool SDL2_CreateDirectory(const char *path) {
     if (!i) {
         struct stat info;
         if (stat(copy, &info) != 0)
-            ok = HostError("stat");
+            ok = HostError("stat", copy);
         else if ((info.st_mode & S_IFMT) != S_IFDIR) {
             errno = ENOTDIR;
-            ok = HostError("stat");
+            ok = HostError("stat", copy);
         }
     }
     while (ok && i != 0) {
         const char saved = copy[i];
         copy[i] = '\0';
-#ifdef _WIN32
-        const int result = _mkdir(copy);
-#else
-        const int result = mkdir(copy, 0770);
+        struct stat info;
+        if (stat(copy, &info) == 0) {
+            /* A readable parent need not grant permission to create it again. */
+            if ((info.st_mode & S_IFMT) != S_IFDIR) {
+                errno = ENOTDIR;
+                ok = HostError("mkdir", copy);
+            }
+        } else {
+            int result;
+#ifdef LBA2_SDL2_TESTS
+            if (s_mkdirProbe)
+                result = s_mkdirProbe(copy);
+            else
 #endif
-        if (result != 0) {
-            struct stat info;
-            if (errno != EEXIST || stat(copy, &info) != 0 || (info.st_mode & S_IFMT) != S_IFDIR)
-                ok = HostError("mkdir");
+            {
+#ifdef _WIN32
+                result = _mkdir(copy);
+#else
+                result = mkdir(copy, 0770);
+#endif
+            }
+            if (result != 0) {
+                const int creationError = errno;
+                if (stat(copy, &info) != 0 || (info.st_mode & S_IFMT) != S_IFDIR) {
+                    errno = creationError;
+                    ok = HostError("mkdir", copy);
+                }
+            }
         }
         copy[i] = saved;
         i = SDL2_NextDirectoryPrefix(copy, &cursor, windows);
