@@ -65,7 +65,7 @@ function(add_asm_cpp_test)
         # ASM objects may contain text relocations (R_386_32 in .text) that
         # are incompatible with PIE.  Disable PIE for ASM test binaries.
         set_target_properties(${ARG_NAME} PROPERTIES POSITION_INDEPENDENT_CODE OFF)
-        target_link_options(${ARG_NAME} PRIVATE -no-pie)
+        target_link_options(${ARG_NAME} PRIVATE -no-pie -Wl,-z,noexecstack)
 
         # Assemble the ASM file ------------------------------------------
         get_filename_component(_asm_name ${ARG_ASM_SOURCE} NAME_WE)

@@ -104,6 +104,17 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     endif()
 endif()
 
+# The link lines repeat some static libraries because GNU ld resolves them in
+# order (see SOURCES/CMakeLists.txt). Apple's linker resolves them in any order
+# and warns about each repeat, so turn that one warning off there.
+if(APPLE)
+    include(CheckLinkerFlag)
+    check_linker_flag(CXX "-Wl,-no_warn_duplicate_libraries" LBA2_LD_NO_WARN_DUPLICATE_LIBS)
+    if(LBA2_LD_NO_WARN_DUPLICATE_LIBS)
+        add_link_options(-Wl,-no_warn_duplicate_libraries)
+    endif()
+endif()
+
 # Type-based alias analysis has to stay off. The 1997 sources read a struct
 # field back through a pointer of another type to get at its packed halves --
 # `*(U32 *)&current->V_MapU` in the polygon clipper, the same shape in the
