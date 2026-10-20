@@ -31,8 +31,6 @@ We want this to be the way to play LBA2 today, made with the same love and care 
 
 Care here starts with the 1997 game as the reference. When the port drifts from the original DOS release without meaning to, that is a bug, and we check the original rather than guess. Where the original has a bug of its own, fixing it is the player's choice (Options → Advanced options → Fix retail bugs), not a silent change. What we learn about the engine goes into [docs/knowledge/](docs/knowledge/index.md) with the evidence behind it, so nobody has to find it out twice.
 
-Use whatever tools help you, AI assistants included (see [CONTRIBUTING.md](CONTRIBUTING.md)). What makes a change good is not who or what typed it, but whether someone cared enough to play it, check it against the original and explain why it is right.
-
 ## Playing
 
 Pre-built binaries for Linux, macOS, Windows, Android, and Nintendo Switch homebrew.
@@ -192,6 +190,8 @@ Please note this license only applies to **Little Big Adventure 2** engine sourc
 ## How can I contribute?
 
 Read our [Contribution Guidelines](https://github.com/LBALab/lba2-classic-community/blob/main/CONTRIBUTING.md) and the [Code Style](https://github.com/LBALab/lba2-classic-community/blob/main/CODESTYLE.md) reference.
+
+Use whatever tools help you, AI assistants included. What makes a change good is not who or what typed it, but whether someone cared enough to play it, check it against the original and explain why it is right.
 
 ## Links
 
