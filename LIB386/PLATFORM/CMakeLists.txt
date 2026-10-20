@@ -8,7 +8,10 @@ if(PLATFORM_BACKEND STREQUAL "sdl2")
     if(ANDROID)
         message(FATAL_ERROR "PLATFORM_BACKEND=sdl2 supports desktop only; Android requires sdl3.")
     endif()
-    find_package(SDL2 2.0.22 REQUIRED CONFIG)
+    # Bounded conversion needs integer-phase resampling: floating phase can
+    # change PCM at submission boundaries even for integer rate ratios.
+    # See docs/AUDIO.md, "SDL2 and SDL3 output transport".
+    find_package(SDL2 2.28.0 REQUIRED CONFIG)
     if(LBA2_LINK_STATIC)
         set(_SDL2_TARGET SDL2::SDL2-static)
     else()

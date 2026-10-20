@@ -74,7 +74,7 @@ Save creation keeps the existing automatic-name path for non-keyboard input. Cus
 
 SDL2 owns controller sampling, lifecycle events and audio. GXM scales the unchanged indexed software framebuffer to the handheld's 960x544 output with letterboxing, without OpenGL contexts or shader compiler plugins. The backend advertises fullscreen-only operation, so framebuffer resolution changes do not resize the physical display. The entry reserves a 128 MiB newlib heap for engine caches and registers shutdown with `atexit`, covering both normal returns and existing game `exit()` paths.
 
-The shared SDL2 audio transport converts queued PCM in bounded playback chunks, rather than converting a whole music track on the game thread. This avoids multi-second conversion stalls on Vita without changing music routing or pause/resume. WAV reading and ADPCM decoding still happen before playback; see [AUDIO.md](AUDIO.md#sdl2-and-sdl3-output-transport).
+The shared SDL2 audio transport converts queued PCM in bounded playback chunks, rather than converting a whole music track on the game thread. WAV reading and ADPCM decoding use a bounded background producer after a small initial prefill, with a private reader for music in a mounted disc image. This avoids multi-second conversion and loading stalls on Vita without changing music routing or pause/resume. The pinned Vita SDL already satisfies the resampler requirement; see [AUDIO.md](AUDIO.md#sdl2-and-sdl3-output-transport).
 
 ## Upload and launch over the network
 

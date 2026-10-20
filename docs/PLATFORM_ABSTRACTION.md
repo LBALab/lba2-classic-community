@@ -46,7 +46,7 @@ SDL package discovery is disabled in the Linux SDK-free CI job, which builds the
 
 ## SDL2 desktop backend
 
-The [SDL2 backend](../LIB386/PLATFORM/SDL2/BACKEND.CPP) implements the same contract without linking SDL3. Its minimum SDK version is specified by `find_package` in [the platform CMake file](../LIB386/PLATFORM/CMakeLists.txt); driver hints require that floor. SDL3 remains the default and the only Android implementation.
+The [SDL2 backend](../LIB386/PLATFORM/SDL2/BACKEND.CPP) implements the same contract without linking SDL3. Its minimum SDK version is specified by `find_package` in [the platform CMake file](../LIB386/PLATFORM/CMakeLists.txt); it selects the integer-phase resampler required by bounded audio conversion, not just the driver-hint APIs. See [the audio transport contract](AUDIO.md#sdl2-and-sdl3-output-transport) for the failure in older SDL and the byte-equivalence checks this preserves. SDL3 remains the default and the only Android implementation.
 
 ```bash
 cmake -S . -B build-sdl2 -DPLATFORM_BACKEND=sdl2 -DSOUND_BACKEND=sdl \
