@@ -47,15 +47,26 @@ The smell: a renderer-adjacent function takes signed coordinates but stores them
 
 ---
 
-## 2. Endianness &nbsp;&nbsp;&nbsp;&nbsp; ✗ exposed
+## 2. Endianness and alignment of game data &nbsp;&nbsp;&nbsp;&nbsp; ✓ contained
 
-The engine assumes little-endian throughout. HQR readers cast raw bytes through `*(U32 *)ptr`. Save reads and writes use `memcpy` with no byteswap. There is no byteswap helper layer in the tree. Every supported target today is little-endian, so this has not bitten anyone, but the assumption is wide and the call sites do not name it.
+Game files and saves are little-endian and packed: a 16- or 32-bit field can sit at any byte offset. The engine used to read them through cast pointers (`*(S16 *)ptr`), which assumed both a little-endian CPU and one that tolerates misaligned loads. 32-bit ARM does not: clang merges two adjacent loads into one `LDRD`, which faults on an odd address, so the armeabi-v7a build died with SIGBUS on every save load (#684).
 
-- HQR offset reads as raw casts — `LIB386/SYSTEM/HQRMEM.CPP:17,22`
-- Save read/write macros (no byteswap) — `SOURCES/SAVEGAME.CPP:60-90` (`LbaRead` / `LbaWrite`)
-- No byteswap helpers anywhere in the tree (notable absence).
+Every multi-byte read of game data now takes one of two routes:
 
-**Next:** Document as immutable for now. Introduce a byteswap layer only if a big-endian or mixed-endian target enters scope.
+- **Read at the site** through `ReadLE_*` / `WriteLE_*` in [`LIB386/H/SYSTEM/LE.H`](../LIB386/H/SYSTEM/LE.H), which build the value from single bytes: defined at any offset, the same value on either byte order, and one plain load on x86 and arm64. Used for the scene file, life and track bytecode, animation commands, saves, bricks, impacts, sprite and font banks, HQR headers and text.
+- **Converted once at load** for data the renderer and animation code read through typed pointers in their inner loops: bodies and animations (`ObjectBodyFromLE` in `LIB386/OBJECT/BODY_LE.CPP`, `AnimFromLE` in `LIB386/ANIM/ANIM_LE.CPP`), hooked into the HQR cache with `HQR_Set_Fixup` (`LIB386/SYSTEM/HQRRESS.CPP`), plus island tables, holomap data and the credits blob. On a little-endian CPU these compile to nothing (`LBA_BIG_ENDIAN` in LE.H).
+
+Saves copy a few structs whole. On a big-endian CPU each is swapped field by field on the way out and back in, following a layout string per struct (`SaveSwapLayout` and `SAVE_LAYOUT_*` in `SOURCES/SAVEGAME.CPP`), so a save file is the same bytes on any CPU.
+
+Big-endian has been checked under emulation only: s390x in qemu, where the save corpus and the demo scenes match a little-endian build. No real big-endian hardware has run it.
+
+Still byte-order dependent, on purpose:
+
+- The legacy native 64-bit save records (see [SAVEGAME.md](SAVEGAME.md)) hold host pointers and are read as they are.
+- Recordings and the control digest (`fnv` in `SOURCES/CONTROL.CPP`) hash native bytes, so a recording does not replay across byte orders.
+- Editor-only code (`EDITLBA2`, the impact compiler) is untouched.
+
+**Rule for new code:** read and write game data and save bytes through LE.H, never through a cast pointer. A new resource the renderer reads through typed pointers gets a conversion at load.
 
 ---
 

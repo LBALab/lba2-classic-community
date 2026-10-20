@@ -11,9 +11,9 @@ the zone's type. Nothing in the code names them, so this is the map.
 ## Where they come from
 
 Zones are part of the scene file, read by `LoadScene` (`SOURCES/DISKFUNC.CPP`) into
-`ListZone` / `NbZones`. They point straight into the loaded scene buffer rather than
-being copied, so `Info` writes are runtime state that lasts until the cube is
-reloaded, and several types use that deliberately (see `ZONE_ACTIVE` and the
+`ListZone` / `NbZones`. `LoadScene` copies them out of the scene file into a native
+array (the file's copy sits at an odd offset in most scenes). `Info` writes go to
+that array, so they are runtime state that lasts until the cube is reloaded, and several types use that deliberately (see `ZONE_ACTIVE` and the
 already-taken and cooldown slots below).
 
 `T_ZONE` (`SOURCES/COMMON.H`) is the box `(X0,Y0,Z0)-(X1,Y1,Z1)`, then `Info0`
