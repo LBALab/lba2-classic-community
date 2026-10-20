@@ -78,14 +78,15 @@ extern "C" {
 float F_256 = 256.0f;
 }
 
-/* INV64 is not in POLY.ASM (it was likely a compiler intrinsic or
- * inline in the original Watcom build).  Replicate the exact x86
- * instruction sequence: xor eax,eax / mov edx,1 / idiv <a>. */
+/* INV64 is not in POLY.ASM: it is an inline pragma in the original
+ * LIB386/H/POLYGON/POLY.H (a99f1de6), the same three instructions the DOS
+ * LBA2.DOS runs in Draw_Poly: mov eax,80000000h / xor edx,edx / idiv <a>.
+ * EDX:EAX is 2^31 (NB_BITS_INV64 is 31). */
 static S32 asm_INV64(S32 a) {
     S32 result;
     __asm__ __volatile__(
-        "xorl %%eax, %%eax\n\t"
-        "movl $1, %%edx\n\t"
+        "movl $0x80000000, %%eax\n\t"
+        "xorl %%edx, %%edx\n\t"
         "idivl %[divisor]"
         : "=a"(result)
         : [divisor] "rm"(a)
@@ -151,20 +152,20 @@ static void call_asm_Line_A(S32 x0, S32 y0, S32 x1, S32 y1, S32 col) {
 /* ── INV64 ─────────────────────────────────────────────────────── */
 
 static void test_inv64_positive(void) {
-    /* INV64(a) = (1<<32) / a — integer reciprocal for 16.16 fixed point */
+    /* INV64(a) = 2^31 / a, a 1.31 fixed-point reciprocal */
     S32 r = INV64(65536);
-    ASSERT_EQ_INT(65536, r);
+    ASSERT_EQ_INT(32768, r);
 }
 
 static void test_inv64_small(void) {
-    S32 r = INV64(1);
-    /* ASM idiv overflows for |a| <= 2, so this stays a CPP-only invalid-domain check. */
-    ASSERT_EQ_INT(0, r);
+    /* Smallest divisor the ASM accepts: 2^31 / 2. a = 1 overflows idiv. */
+    S32 r = INV64(2);
+    ASSERT_EQ_INT(0x40000000, r);
 }
 
 static void test_inv64_negative(void) {
     S32 r = INV64(-65536);
-    ASSERT_EQ_INT(-65536, r);
+    ASSERT_EQ_INT(-32768, r);
 }
 
 /* ── SetFog ────────────────────────────────────────────────────── */
@@ -319,8 +320,8 @@ static void test_asm_random_inv64(void) {
     while (rounds < 300) {
         /* Generate a full 32-bit random value (both positive and negative) */
         S32 a = (S32)((poly_rng_next() << 17) | (poly_rng_next() << 2) | (poly_rng_next() & 0x3));
-        /* Avoid values that cause x86 idiv #DE overflow:
-         * a == 0 (div-by-zero), |a| <= 2 (quotient > INT32_MAX). */
+        /* Avoid values that cause x86 idiv #DE: a == 0 (divide by zero),
+         * a == 1 (quotient 2^31 > INT32_MAX). The range is kept at |a| <= 2. */
         if (a >= -2 && a <= 2)
             continue;
 
