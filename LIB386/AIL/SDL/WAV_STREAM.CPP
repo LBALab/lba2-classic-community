@@ -40,7 +40,8 @@ bool Read(AILWavSource *s, void *buffer, U32 bytes) {
             if (s->image)
                 got = iso_pread(s->image, s->extent, s->size, s->position, s->cache, count);
             else {
-                if ((Uint64)s->position > (Uint64)LONG_MAX || fseek(s->file, (long)s->position, SEEK_SET) != 0)
+                long offset = (long)s->position;
+                if (offset < 0 || (Uint64)offset != (Uint64)s->position || fseek(s->file, offset, SEEK_SET) != 0)
                     return Error("Unable to seek music WAV");
                 got = (int)fread(s->cache, 1, count, s->file);
             }

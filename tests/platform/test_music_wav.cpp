@@ -195,7 +195,7 @@ static void test_partial_blocks() {
                     compare(wav);
                 }
     }
-    SDL_ResetHint(SDL_HINT_WAVE_TRUNCATION);
+    SDL_SetHint(SDL_HINT_WAVE_TRUNCATION, "");
 }
 static void test_seek_and_fact_trimming() {
     for (U32 code : {1u, 2u, 17u}) {
@@ -205,7 +205,7 @@ static void test_seek_and_fact_trimming() {
                 compare(fixture(code, 2, 90, true), skip);
         }
     }
-    SDL_ResetHint(SDL_HINT_WAVE_FACT_CHUNK);
+    SDL_SetHint(SDL_HINT_WAVE_FACT_CHUNK, "");
 }
 static void test_bounded_first_read() {
     std::vector<Uint8> wav = fixture(2, 2, 20000);
@@ -308,7 +308,7 @@ static void test_invalid_input() {
         ASSERT_EQ_INT(-1, result);
         AILWav_Close(source);
     }
-    SDL_ResetHint(SDL_HINT_WAVE_FACT_CHUNK);
+    SDL_SetHint(SDL_HINT_WAVE_FACT_CHUNK, "");
 }
 int main() {
 #ifdef LBA2_USE_SDL2
