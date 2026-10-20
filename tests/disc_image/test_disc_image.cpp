@@ -27,6 +27,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <thread>
 
 #ifndef TEST_TMP_DIR
 #define TEST_TMP_DIR "."
@@ -302,10 +303,51 @@ static void test_prefers_raw_over_cooked(void) {
     remove((dir + "/zzz_disc.bin").c_str());
 }
 
+static void test_independent_reader(void) {
+    std::string path = g_base + "video/VIDEO.HQR";
+    U32 lba = 0, size = 0;
+    iso9660_t *reader = DiscImage_OpenIndependent(path.c_str(), &lba, &size);
+    ASSERT_TRUE(reader != NULL);
+    if (!reader)
+        return;
+    S32 asset = DiscImage_OpenRead(path.c_str());
+    ASSERT_TRUE(asset > 0);
+    bool workerOK = true;
+    std::thread worker([&]() {
+        U8 data[113];
+        for (U32 i = 0; i < 1000; ++i) {
+            U32 offset = i * 977 % (size - sizeof(data));
+            if (iso_pread(reader, lba, size, offset, data, sizeof(data)) != sizeof(data))
+                workerOK = false;
+            for (U32 j = 0; j < sizeof(data); ++j)
+                if (data[j] != (U8)(offset + j))
+                    workerOK = false;
+        }
+    });
+    U8 data[97];
+    for (U32 i = 0; i < 1000; ++i) {
+        U32 offset = i * 179 % (size - sizeof(data));
+        ASSERT_EQ_INT((S32)offset, DiscImage_Seek(asset, (S32)offset, SEEK_FROM_START));
+        ASSERT_EQ_INT(sizeof(data), DiscImage_Read(asset, data, sizeof(data)));
+        for (U32 j = 0; j < sizeof(data); ++j)
+            ASSERT_EQ_UINT((U8)(offset + j), data[j]);
+    }
+    worker.join();
+    ASSERT_TRUE(workerOK);
+    DiscImage_Close(asset);
+    DiscImage_Unmount();
+    ASSERT_EQ_INT(sizeof(data), iso_pread(reader, lba, size, 0, data, sizeof(data)));
+    for (U32 j = 0; j < sizeof(data); ++j)
+        ASSERT_EQ_UINT((U8)j, data[j]);
+    iso_close(reader);
+    ASSERT_TRUE(DiscImage_Mount(g_base.c_str(), "lba2.hqr"));
+}
+
 int main(void) {
     setup_mount();
     RUN_TEST(test_mount_and_banner);
     RUN_TEST(test_stream_video);
+    RUN_TEST(test_independent_reader);
     RUN_TEST(test_generic_resolution);
     RUN_TEST(test_existence);
     RUN_TEST(test_misses);

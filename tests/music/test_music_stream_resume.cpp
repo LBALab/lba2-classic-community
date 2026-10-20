@@ -15,7 +15,7 @@
 // Every case runs on three source setups, because each reopens the track
 // through a different path in STREAM.CPP:
 //   wav       - track and menu theme are WAV (a disc or extracted install):
-//               SetupWavStream from a byte offset.
+//               bounded WAV producer from a frame offset.
 //   ogg       - OGG track, WAV menu theme: the track stays in the one-slot
 //               decoded-PCM cache, so a restore is PlayOggFile's cache hit.
 //   ogg-ogg   - both OGG, as in the Steam and GOG Classic releases: decoding
@@ -26,6 +26,7 @@
 // the build tree as track.ogg and menu.ogg.
 #include "../test_harness.h"
 #include "../../LIB386/AIL/SDL/AUDIO_DEVICE.H"
+#include "../../LIB386/AIL/SDL/WAV_STREAM.H"
 
 #include <AIL/STREAM.H>
 #include <SYSTEM/CRASH.H>
@@ -55,16 +56,21 @@ struct FakeStream {
     int bytesPerFrame;
     int queued;
     int pushed;
-    int puts; // one for a WAV or an OGG cache hit, one per chunk from the decoder
+    int puts; // one for an OGG cache hit, one per chunk from a producer
+    int consumed;
+    int openedFrame;
+    bool wav;
     bool paused;
     bool flushed;
     bool settled; // WaitDecoded has already waited for this stream's decode thread
 };
 
-// The OGG decode thread pushes from its own thread, so the fake locks.
+// Producers push from their own thread, so the fake locks.
 static std::mutex g_lock;
 static FakeStream *g_live = NULL; // the stream STREAM.CPP currently owns
 static int g_opens = 0;
+static bool g_openWav = false;
+static int g_openFrame = 0;
 
 static FakeStream *Fake(AILAudioStream *s) { return reinterpret_cast<FakeStream *>(s); }
 
@@ -77,6 +83,9 @@ AILAudioStream *AILAudio_Open(const SDL_AudioSpec *spec, AILAudioCallback, void 
     s->queued = 0;
     s->pushed = 0;
     s->puts = 0;
+    s->consumed = 0;
+    s->openedFrame = g_openFrame;
+    s->wav = g_openWav;
     s->paused = true; // SDL device streams open paused; FinishStream resumes them
     s->flushed = false;
     s->settled = false;
@@ -164,20 +173,61 @@ bool AILAudio_LoadWAV(const char *path, SDL_AudioSpec *spec, Uint8 **data, Uint3
 
 bool AILAudio_LoadWAVMemory(const void *, int, SDL_AudioSpec *, Uint8 **, Uint32 *) { return false; }
 
+struct AILWavSource {
+    SDL_AudioSpec spec;
+    Uint32 remaining;
+};
+
+AILWavSource *AILWav_Open(const char *path, bool image, S32 frame, bool *recognized) {
+    *recognized = false;
+    g_openWav = false;
+    if (image)
+        return NULL;
+    AILWavSource *source = new AILWavSource();
+    Uint8 *pcm = NULL;
+    if (!AILAudio_LoadWAV(path, &source->spec, &pcm, &source->remaining)) {
+        delete source;
+        return NULL;
+    }
+    SDL_free(pcm);
+    Uint32 skip = (Uint32)frame * BYTES_PER_FRAME;
+    source->remaining -= skip < source->remaining ? skip : source->remaining;
+    *recognized = true;
+    g_openWav = true;
+    g_openFrame = frame;
+    return source;
+}
+
+int AILWav_Read(AILWavSource *source, SDL_AudioSpec *spec, Uint8 **pcm, Uint32 *bytes) {
+    *pcm = NULL;
+    *bytes = 0;
+    if (!source->remaining)
+        return 0;
+    *spec = source->spec;
+    *bytes = source->remaining < 8192 ? source->remaining : 8192;
+    *pcm = (Uint8 *)SDL_calloc(1, *bytes);
+    source->remaining -= *bytes;
+    return *pcm ? 1 : -1;
+}
+
+void AILWav_Close(AILWavSource *source) { delete source; }
+
 // ── Clock ───────────────────────────────────────────────────────────────────
 
-// Wait for the OGG decode thread to push the whole track and exit, so the
+// Wait for the WAV queue to fill or the OGG decode thread to finish, so the
 // virtual clock never races it. The flush is its last call on the stream, but
 // the thread then stores the decoded track in the cache, and a PlayStream that
 // joined it first would stop it short of that and turn the next cache hit into
 // a decode. So a decoded stream (more than one put) also gets a settle delay,
-// once. WAV and cache hits push and flush before PlayStream returns.
+// once. WAV's producer parks at its queue bound until the virtual clock advances.
 static void WaitDecoded() {
     bool decoded = false;
     for (int i = 0; i < 5000; i++) {
         {
             std::lock_guard<std::mutex> hold(g_lock);
             if (!g_live || g_live->settled)
+                return;
+            if (g_live->wav && !g_live->flushed && g_live->queued > 65536 - 8192)
                 return;
             if (g_live->flushed) {
                 decoded = g_live->puts > 1;
@@ -193,12 +243,18 @@ static void WaitDecoded() {
 
 // The device plays `ms` of whatever is live and unpaused.
 static void Advance(int ms) {
+    int left = MsToBytes(ms);
+    while (left > 0) {
+        WaitDecoded();
+        std::lock_guard<std::mutex> hold(g_lock);
+        if (!g_live || g_live->paused || !g_live->queued)
+            break;
+        int count = left < g_live->queued ? left : g_live->queued;
+        g_live->queued -= count;
+        g_live->consumed += count;
+        left -= count;
+    }
     WaitDecoded();
-    std::lock_guard<std::mutex> hold(g_lock);
-    if (!g_live || g_live->paused)
-        return;
-    int bytes = MsToBytes(ms);
-    g_live->queued = (bytes >= g_live->queued) ? 0 : g_live->queued - bytes;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -211,7 +267,7 @@ static int g_trackBytes = 0; // the whole track as the device receives it
 static int OpenedAtMs() {
     WaitDecoded();
     std::lock_guard<std::mutex> hold(g_lock);
-    int frames = (g_trackBytes - g_live->pushed) / BYTES_PER_FRAME;
+    int frames = g_live->wav ? g_live->openedFrame : (g_trackBytes - g_live->pushed) / BYTES_PER_FRAME;
     return (int)((long long)frames * 1000 / RATE);
 }
 
@@ -250,7 +306,7 @@ static void StartTrack() {
     PlayStream(g_track);
     WaitDecoded();
     std::lock_guard<std::mutex> hold(g_lock);
-    g_trackBytes = g_live ? g_live->pushed : 0;
+    g_trackBytes = g_live ? (g_live->wav ? MsToBytes(WAV_TRACK_MS) : g_live->pushed) : 0;
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────────
@@ -265,8 +321,8 @@ static void test_one_menu_trip_resumes_in_place() {
     ASSERT_TRUE(g_live != NULL);
     ASSERT_TRUE(strcmp(StreamName(), g_track) == 0);
     AssertOpenedAt(4000);
-    // Pin the path each setup claims to cover: only ogg-ogg re-decodes.
-    if (g_setup == SETUP_OGG_OGG)
+    // WAV and cold OGG restore through their producers; cached OGG pushes once.
+    if (g_setup != SETUP_OGG)
         ASSERT_TRUE(g_live->puts > 1);
     else
         ASSERT_EQ_INT(1, g_live->puts);
@@ -327,7 +383,7 @@ static void test_dialogue_pause_unpauses_in_place() {
     ASSERT_TRUE(g_live == before);
     ASSERT_TRUE(!g_live->paused);
     ASSERT_EQ_INT(1, g_opens);
-    ASSERT_EQ_INT(g_trackBytes - MsToBytes(3000), g_live->queued);
+    ASSERT_EQ_INT(MsToBytes(3000), g_live->consumed);
 }
 
 // Escape parks the track, then the player loads a game from the menu, which

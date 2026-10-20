@@ -12,6 +12,7 @@
 //──────────────────────────────────────────────────────────────────────────
 #include <SYSTEM/ADELINE_TYPES.H>
 #include <SYSTEM/LIMITS.H>
+#include <SYSTEM/ISO9660.H>
 
 #include <stddef.h>
 
@@ -94,6 +95,9 @@ bool DiscImage_IsHandle(S32 handle);
 // path is not under the base, or the file is not in the image. The handle
 // streams lazily and does not buffer the file. Valid for Read/Seek/Close below.
 S32 DiscImage_OpenRead(const char *filename);
+/* Resolve on the asset thread. The returned reader owns a separate image file
+   cursor, may be used by one worker, and survives unmount. Caller iso_close's it. */
+iso9660_t *DiscImage_OpenIndependent(const char *filename, U32 *lba, U32 *size);
 S32 DiscImage_Read(S32 handle, void *buffer, U32 maxBytes);
 // `origin` takes the ESeekOrigin values (start/current/end); returns the new
 // absolute position, or -1 on a bad handle.

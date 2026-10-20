@@ -138,10 +138,29 @@ if(PLATFORM_BACKEND STREQUAL "sdl2")
 endif()
 
 if(PLATFORM_BACKEND MATCHES "^sdl[23]$")
+    add_executable(test_music_wav test_music_wav.cpp
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/WAV_STREAM.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/AUDIO_DEVICE.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DISCIMG.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ISO9660.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/FILES.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP)
+    target_include_directories(test_music_wav PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
+    target_link_libraries(test_music_wav PRIVATE ${LBA2_SDL_TARGET})
+    target_compile_definitions(test_music_wav PRIVATE LBA_LOG_NO_PLATFORM LBA2_MUSIC_TESTS
+        TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    if(PLATFORM_BACKEND STREQUAL "sdl2")
+        target_compile_definitions(test_music_wav PRIVATE LBA2_USE_SDL2=1)
+    endif()
+    set_target_properties(test_music_wav PROPERTIES CXX_STANDARD 11)
+    add_test(NAME test_music_wav COMMAND test_music_wav)
+    register_host_test(test_music_wav)
+
     add_executable(test_sdl_audio_playback test_sdl_audio_playback.cpp
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/AUDIO_DEVICE.CPP
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/COMMON.CPP
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/STREAM.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/WAV_STREAM.CPP
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/VIDEO_AUDIO_SDL.CPP
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/stb_vorbis.c
         ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CDDA.CPP
@@ -153,7 +172,7 @@ if(PLATFORM_BACKEND MATCHES "^sdl[23]$")
         ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP)
     target_include_directories(test_sdl_audio_playback PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
     target_link_libraries(test_sdl_audio_playback PRIVATE ${LBA2_SDL_TARGET})
-    target_compile_definitions(test_sdl_audio_playback PRIVATE LBA_LOG_NO_PLATFORM
+    target_compile_definitions(test_sdl_audio_playback PRIVATE LBA_LOG_NO_PLATFORM LBA2_MUSIC_TESTS
         TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}")
     if(PLATFORM_BACKEND STREQUAL "sdl2")
         target_compile_definitions(test_sdl_audio_playback PRIVATE LBA2_USE_SDL2=1)

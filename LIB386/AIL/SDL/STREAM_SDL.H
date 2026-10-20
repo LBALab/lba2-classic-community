@@ -9,6 +9,9 @@ extern "C" {
 #endif
 
 extern S32 streamVolume;
+#ifdef LBA2_MUSIC_TESTS
+int Stream_TestQueuedBytes(void);
+#endif
 
 /* MusicLogEnable / MusicLogIsEnabled are part of the abstract AIL API
    (see <AIL/STREAM.H>); every backend provides them. */
