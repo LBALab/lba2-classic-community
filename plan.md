@@ -292,6 +292,10 @@ Expected effect: under 0.2 ms/frame on the measured path, plus fewer `Stale`
 spikes if the validation calls interact badly with a loaded driver. This is
 lower risk than the render-target change but also much lower payoff.
 
+Status: implemented, compile-verified against the Quest preset, and committed
+as the Phase 3 change. The headset was disconnected, so on-device install and
+the visual check are deferred to the morning.
+
 ## Phase 4: overlay, clear, and 2D duplication
 
 Phase 0 measured `ovlEmpty=0.00` in every sample, so the direct path never

@@ -179,6 +179,11 @@ static U32                     s_renderViewCount = 0;
 static XrSwapchainImageOpenGLESKHR *s_swapchainImages = NULL;
 static U32                     s_swapchainImageCount = 0;
 static U32                     s_swapchainImageIndex = 0;
+/* Swapchain FBO completeness is validated on first use of each image; the
+ * image format does not change inside a swapchain. Bit 0 means the index is
+ * out of the cached range and the status is checked every time. */
+static U64                     s_swapFboChecked = 0;
+static U64                     s_swapFboInvalid = 0;
 
 /* Predicted display time of the frame currently inside xrWaitFrame/xrEndFrame. */
 /* 1 between a successful xrBeginFrame and its xrEndFrame (see
@@ -619,6 +624,8 @@ static S32 OpenXR_CreateSession(void) {
  * the user sees the same picture in left and right (mono). */
 static S32 OpenXR_CreateSwapchain(void) {
 #ifdef __ANDROID__
+    s_swapFboChecked = 0;
+    s_swapFboInvalid = 0;
     XrSystemId sysId = s_systemId;
     if (sysId == XR_NULL_SYSTEM_ID) {
         Log_Warn("OpenXR: no system id, cannot create swapchain");
@@ -834,6 +841,8 @@ static void OpenXR_DestroySession(void) {
     }
     s_swapchainImageCount = 0;
     s_swapchainImageIndex = 0;
+    s_swapFboChecked = 0;
+    s_swapFboInvalid = 0;
     s_frameBegun = 0;
     s_swapchainWidth = 0;
     s_swapchainHeight = 0;
@@ -1557,19 +1566,64 @@ static S32 OpenXR_EnsureFrameBegun(void) {
 #endif
 }
 
+/* GL error checks are a runtime diagnostic, not part of every present. */
+static S32 OpenXR_GLDebugEnabled(void) {
+    static S32 enabled = -1;
+    if (enabled < 0) {
+        const char *value = getenv("LBA2_OXR_GLDEBUG");
+        enabled = (value != NULL && value[0] != '\0' && value[0] != '0') ? 1 : 0;
+    }
+    return enabled;
+}
+
+static void OpenXR_GLDebugCheck(const char *where) {
+    if (!OpenXR_GLDebugEnabled()) {
+        return;
+    }
+    GLenum err;
+    while ((err = glGetError()) != GL_NO_ERROR) {
+        OXR_LOGW("PresentMono: GL error 0x%x at %s", (unsigned)err, where);
+    }
+}
+
 /* Composite FBO for a swapchain image.  A fresh FBO is created and attached
  * for every present: keeping a persistent attachment on a runtime-owned
  * swapchain texture across xrAcquire/xrRelease cycles rendered the
  * composited frame into orphaned memory on the Quest (black output — the
- * per-present glGenFramebuffers cost is negligible next to the blit). */
+ * per-present glGenFramebuffers cost is negligible next to the blit).
+ * Completeness is checked once per image; an incomplete image is marked and
+ * takes the copy fallback without creating another FBO. */
 static U32 OpenXR_SwapchainFBO(U32 imageIndex) {
 #ifdef LBA2_OPENXR
+    if (imageIndex >= s_swapchainImageCount) {
+        return 0;
+    }
+    U64 bit = (imageIndex < 64) ? ((U64)1 << imageIndex) : 0;
+    if (bit != 0 && (s_swapFboInvalid & bit) != 0) {
+        return 0;
+    }
     GLuint fbo;
     GLuint imgTex = s_swapchainImages[imageIndex].image;
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                            GL_TEXTURE_2D, imgTex, 0);
+    if (bit == 0 || (s_swapFboChecked & bit) == 0) {
+        GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        if (bit != 0) {
+            s_swapFboChecked |= bit;
+        }
+        if (status != GL_FRAMEBUFFER_COMPLETE) {
+            if (bit != 0) {
+                s_swapFboInvalid |= bit;
+            }
+            OXR_LOGW("PresentMono: swapchain FBO incomplete (0x%x) image=%u",
+                     (unsigned)status, (unsigned)imageIndex);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glDeleteFramebuffers(1, &fbo);
+            return 0;
+        }
+    }
     return fbo;
 #else
     (void)imageIndex;
@@ -1718,32 +1772,8 @@ S32 OpenXR_PresentMono(void) {
             }
         }
         if (winW > 0 && winH > 0) {
-            GLint prevFb = 0;
-            glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFb);
-            GLint prevTex = 0;
-            glGetIntegerv(GL_TEXTURE_BINDING_2D, &prevTex);
             GLuint presentFBO = GL_GetPresentFBO();
-            GLenum fbSource = GL_INVALID_ENUM;
-            if (presentFBO != 0) {
-                /* Quest path: read from the GL renderer's present FBO. */
-                glBindFramebuffer(GL_FRAMEBUFFER, presentFBO);
-                fbSource = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-            } else {
-                /* Desktop path: read from the default framebuffer. */
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                fbSource = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-            }
 
-            {
-                static int s_fbLogCount = 0;
-                if (s_fbLogCount < 3) {
-                    OXR_LOGI("PresentMono: prevFb=%d sourceFbStatus=0x%x (0x8CD5=complete) presentFBO=%u", (int)prevFb, (unsigned)fbSource, (unsigned)presentFBO);
-                    s_fbLogCount++;
-                }
-            }
-
-            /* Clear any stale GL error before binding the swapchain texture */
-            glGetError();
             glBindTexture(GL_TEXTURE_2D, imgTex);
             /* Clear the swapchain texture to black first (runtime may leave it
              * as a debug color). Upload a black image since GLES 2.0 has no
@@ -1756,19 +1786,11 @@ S32 OpenXR_PresentMono(void) {
                     if (blackImg) {
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, (GLsizei)s_swapchainWidth, (GLsizei)s_swapchainHeight,
                                         GL_RGBA, GL_UNSIGNED_BYTE, blackImg);
-                        GLenum clearErr = glGetError();
-                        OXR_LOGI("PresentMono: cleared swapchain to black, err=0x%x", (unsigned)clearErr);
+                        OXR_LOGI("PresentMono: cleared swapchain to black");
+                        OpenXR_GLDebugCheck("swapchain black clear");
                         free(blackImg);
                     }
                     s_clearLogCount++;
-                }
-            }
-            {
-                GLenum err = glGetError();
-                static int s_texLogCount = 0;
-                if (s_texLogCount < 3) {
-                    OXR_LOGI("PresentMono: imgTex=%u errAfterBind=0x%x", (unsigned)imgTex, (unsigned)err);
-                    s_texLogCount++;
                 }
             }
 
@@ -1855,8 +1877,7 @@ S32 OpenXR_PresentMono(void) {
                 S32 marginY = 0;
 
                 GLuint swapFbo = OpenXR_SwapchainFBO(s_swapchainImageIndex);
-                if (glCheckFramebufferStatus(GL_FRAMEBUFFER) ==
-                    GL_FRAMEBUFFER_COMPLETE) {
+                if (swapFbo != 0) {
                     if (pairFbo != 0) {
                         /* Both eyes are already side by side in one
                          * single-sample source.  With neutral display
@@ -1902,18 +1923,22 @@ S32 OpenXR_PresentMono(void) {
                                 eyeFBO1 = sceneFbo;
                             }
                         }
+                        GLenum eyeFilter =
+                            (srcW == eyeDstW && srcH == eyeDstH)
+                                ? GL_NEAREST
+                                : GL_LINEAR;
                         glBindFramebuffer(GL_READ_FRAMEBUFFER, eyeFBO0);
                         /* Eye 0: blit into the LEFT half of the swapchain. */
                         glBlitFramebuffer(0, 0, srcW, srcH,
                                           eyeDstX0, marginY,
                                           eyeDstX0 + eyeDstW, marginY + eyeDstH,
-                                          GL_COLOR_BUFFER_BIT, GL_LINEAR);
+                                          GL_COLOR_BUFFER_BIT, eyeFilter);
                         glBindFramebuffer(GL_READ_FRAMEBUFFER, eyeFBO1);
                         /* Eye 1: blit into the RIGHT half. */
                         glBlitFramebuffer(0, 0, srcW, srcH,
                                           eyeDstX1, marginY,
                                           eyeDstX1 + eyeDstW, marginY + eyeDstH,
-                                          GL_COLOR_BUFFER_BIT, GL_LINEAR);
+                                          GL_COLOR_BUFFER_BIT, eyeFilter);
                         glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
                     }
                 } else if (pairFbo != 0 &&
@@ -1942,23 +1967,23 @@ S32 OpenXR_PresentMono(void) {
                     glCopyTexSubImage2D(GL_TEXTURE_2D, 0, eyeDstX1, marginY,
                                         0, 0, (GLsizei)eyeDstW, (GLsizei)eyeDstH);
                 }
-                glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
-                glDeleteFramebuffers(1, &swapFbo);
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                if (swapFbo != 0) {
+                    glDeleteFramebuffers(1, &swapFbo);
+                }
+                OpenXR_GLDebugCheck("stereo present");
                 {
                     static int s_stBlitLogCount = 0;
-                    GLenum glErr = glGetError();
                     if (s_stBlitLogCount < 3) {
                         OXR_LOGI("PresentMono stereo: %s src=%ux%u "
-                                 "dst=(%d,%d)/(%d,%d) glError=0x%x",
+                                 "dst=(%d,%d)/(%d,%d)",
                                  pairFbo != 0 ? "double-wide" : "per-eye",
                                  (unsigned)(pairFbo != 0 ? pairW : (U32)srcW),
                                  (unsigned)(pairFbo != 0 ? pairH : (U32)srcH),
-                                 eyeDstX0, marginY, eyeDstX1, marginY,
-                                 (unsigned)glErr);
+                                 eyeDstX0, marginY, eyeDstX1, marginY);
                         s_stBlitLogCount++;
                     }
                 }
-                glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
             }
 
             if (!stereoThisFrame) {
@@ -1967,13 +1992,11 @@ S32 OpenXR_PresentMono(void) {
                    downscale to fit instead of cropping, which the 1:1
                    glCopyTexSubImage2D path could not do. */
                 GLuint swapFbo = OpenXR_SwapchainFBO(s_swapchainImageIndex);
-                GLenum blitErr = glGetError();
-                if (blitErr == 0 && glCheckFramebufferStatus(GL_FRAMEBUFFER) ==
-                                        GL_FRAMEBUFFER_COMPLETE) {
+                if (swapFbo != 0) {
                     /* Fast path: an empty 2D overlay means the composite is
                      * just the 3D FBO — blit it directly and skip the
                      * intermediate fullscreen pass entirely. */
-                    GLuint readFbo = (GLuint)prevFb;
+                    GLuint readFbo = presentFBO;
                     if (GL_PresentSceneDirect() && GL_Get3DFBO() != 0) {
                         readFbo = GL_Get3DFBO();
                         srcX = 0;
@@ -1987,8 +2010,7 @@ S32 OpenXR_PresentMono(void) {
                          * empty? */
                         static U32 s_pmDiag = 0;
                         if (++s_pmDiag % 300 == 1) {
-                            OXR_LOGI("PMono: fast=%d ovlEmpty=%d read=%s",
-                                     (readFbo != (GLuint)prevFb),
+                            OXR_LOGI("PMono: direct=%d read=%s",
                                      GL_PresentSceneDirect(),
                                      readFbo == GL_Get3DFBO() ? "3dfbo"
                                                               : "composite");
@@ -1999,44 +2021,44 @@ S32 OpenXR_PresentMono(void) {
                        binding swapFbo above set READ = swapFbo, and a
                        same-buffer blit is INVALID_OPERATION. */
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, readFbo);
+                    GLenum filter = (srcW == dstW && srcH == dstH)
+                                        ? GL_NEAREST
+                                        : GL_LINEAR;
                     glBlitFramebuffer(srcX, srcY, srcX + srcW, srcY + srcH,
                                       dstX, dstY, dstX + dstW, dstY + dstH,
-                                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
-                    blitErr = glGetError();
-                    if (blitErr != 0) {
-                        OXR_LOGW("scale blit failed (0x%x), 1:1 copy",
-                                 (unsigned)blitErr);
-                        glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prevFb);
-                        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, dstX, dstY, srcX,
-                                            srcY, (GLsizei)srcW,
-                                            (GLsizei)srcH);
-                    }
+                                      GL_COLOR_BUFFER_BIT, filter);
+                    OpenXR_GLDebugCheck("mono present");
                 } else {
                     /* FBO attach rejected: fall back to the 1:1 copy. */
-                    OXR_LOGW("swapchain FBO attach failed (0x%x), 1:1 copy",
-                             (unsigned)blitErr);
+                    OXR_LOGW("swapchain FBO unavailable, 1:1 copy");
+                    GLuint copyFbo = presentFBO;
+                    if (GL_PresentSceneDirect() && GL_Get3DFBO() != 0) {
+                        copyFbo = GL_Get3DFBO();
+                    }
+                    glBindFramebuffer(GL_READ_FRAMEBUFFER, copyFbo);
                     glCopyTexSubImage2D(GL_TEXTURE_2D, 0, dstX, dstY, srcX,
                                         srcY, (GLsizei)srcW, (GLsizei)srcH);
+                    OpenXR_GLDebugCheck("mono copy");
                 }
-                glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
-                glDeleteFramebuffers(1, &swapFbo);
-                glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                if (swapFbo != 0) {
+                    glDeleteFramebuffers(1, &swapFbo);
+                }
 
                 {
                     static int s_blitLogCount = 0;
-                    GLenum glErr = glGetError();
                     if (s_blitLogCount < 3) {
-                        OXR_LOGI("PresentMono: blit src=(%d,%d %dx%d) win=(%dx%d) -> dst=(%d,%d) swapchain=(%ux%u) imgIdx=%u glError=0x%x",
+                        OXR_LOGI("PresentMono: blit src=(%d,%d %dx%d) win=(%dx%d) -> dst=(%d,%d) swapchain=(%ux%u) imgIdx=%u",
                                  srcX, srcY, srcW, srcH, winW, winH, dstX, dstY,
                                  (unsigned)s_swapchainWidth, (unsigned)s_swapchainHeight,
-                                 (unsigned)s_swapchainImageIndex, (unsigned)glErr);
+                                 (unsigned)s_swapchainImageIndex);
                         s_blitLogCount++;
                     }
                 }
             }
             s_oxrPerfBlitTicks += SDL_GetPerformanceCounter() - perfBlitT0;
-            glBindTexture(GL_TEXTURE_2D, (GLuint)prevTex);
-            glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
         }
     }
 

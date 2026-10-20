@@ -607,3 +607,34 @@ The frame time ranged from 14 to 30 ms depending on the scene, with a median
 of 23 ms. The memory win is clear and the path is now real, but this does not
 yet reach the 72 FPS target. The next work should attack the steady frame
 cost rather than the activation gate.
+
+## Phase 3 report: OpenXR present cleanup (2026-10-20)
+
+Status: implemented and compile-verified against the Quest preset. The headset
+was disconnected for this phase, so the owner deferred the on-device visual
+check to the morning; the change is committed on that basis.
+
+### Changes
+
+- The release present path no longer calls `glGetError` on every frame. A
+  `LBA2_OXR_GLDEBUG=1` environment flag enables the checks and logs the first
+  error at each present stage.
+- `glGetIntegerv(GL_FRAMEBUFFER_BINDING)` and
+  `glGetIntegerv(GL_TEXTURE_BINDING_2D)` are gone. The present restores the
+  framebuffer to 0 and the texture to 0; the renderer invalidates its state
+  cache at the end of every present, so the next frame rebinds explicitly.
+- Each swapchain image's FBO completeness is checked on first use, not every
+  present. The result is cached per session and reset when the swapchain is
+  recreated. An incomplete image takes the existing copy fallback; the fresh
+  FBO object per present is unchanged.
+- Exact 1:1 per-eye and mono blits use `GL_NEAREST`; scaled blits keep
+  `GL_LINEAR`.
+- The stereo pair still uses the shader when display adjustment is
+  non-neutral, and the plain blit otherwise.
+
+### Expected effect and verification
+
+The measured OpenXR present was 0.51 ms with a 0.05 ms blit, so the expected
+win is under 0.2 ms/frame plus fewer driver-query spikes. No new metrics were
+captured because no device was attached. Morning verification should confirm
+both eyes, the double-wide display transform, and the mono/menu path.
