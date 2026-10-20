@@ -117,7 +117,10 @@ S32 Fill_Trame_Parity = 0; ///< Parity for trame polygons
 Fill_Jump_Fn *Fill_Saut_Normal = Fill_N_Table_Jumps; // Filler table
 
 // -----------------------------------------------------------------------------
-S32 INV64(S32 a) { return (S32)((1LL << 32) / a); }
+// 1.31 fixed-point inverse: 2^31 / a. The original was an inline pragma in
+// POLY.H (mov eax, 80000000h / xor edx, edx / idiv ebx), so EDX:EAX holds 2^31.
+// NB_BITS_INV64 is 31. Callers pass a clipped depth, never 0, 1 or -1.
+S32 INV64(S32 a) { return (S32)((1LL << 31) / a); }
 
 S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB);
 

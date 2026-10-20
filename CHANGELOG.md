@@ -36,6 +36,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Display & render
 
+- Outdoors, the sea, lava and sky are textured as in the 1997 game again.
+  A depth value their texture mapping uses was twice the original, so here
+  and there a texel or the edge of a fog band came out one step off.
 - At widths such as 800, 1280 and 1920, walls in front of a magic ball, a
   bonus, a door or another sprite now cover it right up to the sprite's left
   edge; a strip up to 16 pixels wide used to show through. In the two
