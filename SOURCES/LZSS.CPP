@@ -12,6 +12,8 @@
 
 #include "C_EXTERN.H"
 
+#include <SYSTEM/LE.H>
+
 /*
  * Various constants used to define the compression parameters.  The
  * INDEX_BIT_COUNT tells how many bits we allocate to indices into the
@@ -258,10 +260,11 @@ unsigned long Compress_LZSS(char *input, char *output, unsigned long length) {
             if ((len = len + 2) >= save_length)
                 return (save_length);
 
-            *(short *)write =
-                (short)((MOD_WINDOW(Current_position - Match_position - 1)
-                         << LENGTH_BIT_COUNT) |
-                        (match_length - BREAK_EVEN - 1));
+            // little-endian at any offset: ExpandLZ reads it a byte at a time
+            WriteLE_U16(write,
+                        (U16)((MOD_WINDOW(Current_position - Match_position - 1)
+                               << LENGTH_BIT_COUNT) |
+                              (match_length - BREAK_EVEN - 1)));
 
             write += 2;
             replace_count = match_length;
