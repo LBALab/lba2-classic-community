@@ -63,7 +63,7 @@
 #define Rnd(n) (Rnd_Next() % (n))
 
 //──────────────────────────────────────────────────────────────────────────
-S32 MULDIV64(S32 x, S32 mul, S32 div); // (x*mul)/div
+S32 MULDIV64(S32 x, S32 mul, S32 div); // (x*mul)/div, 64-bit product, truncated
 
 //──────────────────────────────────────────────────────────────────────────
 // Hard coded breakpoint
