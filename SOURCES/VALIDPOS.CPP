@@ -10,6 +10,7 @@ S32 LastValidePos = TRUE;
 T_OBJET ValideHero;
 U32 SizeOfBufferValidePos;
 U8 *BufferValidePos;
+S32 ValidePosAbi = SAVELOAD_ABI_WIRE32;
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 void SaveValidePos(void) {
@@ -30,6 +31,7 @@ void SaveValidePos(void) {
     SaveContexte(timerrefhr);
 
     SizeOfBufferValidePos = (U32)(PtrSave - BufferValidePos);
+    ValidePosAbi = SAVELOAD_ABI_WIRE32; /* SaveContexte writes wire on every host */
 
     memcpy(ptrobj, &memoobj, sizeof(T_OBJET));
 
@@ -49,9 +51,11 @@ void RestartValidePos(void) {
 
 #ifndef EDITLBA2
     SaveLoadSetReadLimit(BufferValidePos + SIZE_BUFFER_VALIDE_POS);
+    SaveLoadSetAbi(ValidePosAbi);
 #endif
     flagload = LoadContexte(&savetimerrefhr);
 #ifndef EDITLBA2
+    SaveLoadSetAbi(SAVELOAD_ABI_AUTO);
     SaveLoadClearReadLimit();
 #endif
 

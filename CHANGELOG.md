@@ -84,6 +84,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   edge sits one pixel left of its left edge: the original draws nothing for
   it, and this port kept drawing until it crashed
   ([#762](https://github.com/LBALab/lba2-classic-community/pull/762)).
+- A clover leaf reviving Twinsen reads back its snapshot of the scene in the
+  layout it was written in, instead of guessing, which could crash in a scene
+  with very few characters
+  ([#772](https://github.com/LBALab/lba2-classic-community/issues/772)).
 
 ### Documentation
 
