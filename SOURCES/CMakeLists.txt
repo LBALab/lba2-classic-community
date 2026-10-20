@@ -178,6 +178,7 @@ if(VITA)
     include(${CMAKE_SOURCE_DIR}/cmake/vita-package.cmake)
 endif()
 if(MVIDEO_BACKEND STREQUAL "smacker")
+  target_sources(${LBA2_EXECUTABLE_NAME} PRIVATE VIDEO_SOURCE.CPP)
   target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE libsmacker video_audio_resample)
 endif()
 
