@@ -1047,12 +1047,14 @@ S32 DoCornerReajustExtPt(void) {
 
             d = Distance2D(OldX, OldZ, Nxw, Nzw);
 
+            // sin << 16, written as a multiply: a negative sine shifted left
+            // is undefined in C++98.
             if (MapPolyGround[IndexMapPolyTested].Sens == 0) {
                 // sens 0
-                tx = tz = MULDIV64(d, (S32)(SinTab[(angle - 512 + 1024) & 4095]) << 16, SQR_2);
+                tx = tz = MULDIV64(d, (S32)SinTab[(angle - 512 + 1024) & 4095] * 65536, SQR_2);
             } else {
                 // sens 1
-                tz = MULDIV64(d, (S32)(SinTab[(angle + 512 + 1024) & 4095]) << 16, SQR_2);
+                tz = MULDIV64(d, (S32)SinTab[(angle + 512 + 1024) & 4095] * 65536, SQR_2);
                 tx = -tz;
             }
 
