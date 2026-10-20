@@ -133,7 +133,7 @@ static void test_absent_devices_and_explicit_errors() {
     ASSERT_TRUE(g_platform.input.gamepad_name(NULL)[0] == '\0');
     ASSERT_TRUE(!g_platform.input.gamepad_button(NULL, PLATFORM_GAMEPAD_BUTTON_SOUTH));
     ASSERT_EQ_INT(0, g_platform.input.gamepad_axis(NULL, PLATFORM_GAMEPAD_AXIS_LEFTX));
-    ASSERT_EQ_INT(9, records);
+    ASSERT_EQ_INT(10, records);
     Platform_SetLogOutput(quiet_log, NULL);
 }
 static void test_host_services_and_clock() {
