@@ -1,13 +1,11 @@
 /* Test: Box — draw rectangle outline with clipping */
 #include "test_harness.h"
+#include "run_in_child.h"
 
 #include <SVGA/BOX.H>
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
 #include <string.h>
-#include <fcntl.h>
-#include <sys/wait.h>
-#include <unistd.h>
 
 extern "C" void asm_Box(S32 x0, S32 y0, S32 x1, S32 y1, S32 col);
 
@@ -297,39 +295,27 @@ static void test_edge_sweep(void) {
  * written. With U32 deltas the C++ loops would never end, so Box returns
  * early for an inverted box. Each side runs in a child process so a crash or
  * hang fails this test instead of the binary. */
-static int box_run_in_child(int use_asm, S32 x0, S32 y0, S32 x1, S32 y1, int *sig) {
-    static const BoxClip full = {"full", 0, 0, 639, 479};
-    U8 expect[BOX_GUARDED_SIZE];
-    setup_guarded(&full);
-    memcpy(expect, guarded_buf, sizeof(expect));
+struct BoxCall {
+    int use_asm;
+    S32 x0, y0, x1, y1;
+};
+static U8 box_expect[BOX_GUARDED_SIZE];
 
-    fflush(stdout);
-    pid_t pid = fork();
-    if (pid < 0) {
-        *sig = 0;
-        return -2; /* no child ran: never reads as "drew nothing" */
-    }
-    if (pid == 0) {
-        alarm(3);
-        int devnull = open("/dev/null", O_WRONLY);
-        if (devnull >= 0)
-            dup2(devnull, 1);
-        if (use_asm)
-            asm_Box(x0, y0, x1, y1, 0x77);
-        else
-            Box(x0, y0, x1, y1, 0x77);
-        _exit(memcmp(expect, guarded_buf, sizeof(expect)) == 0 ? 0 : 1);
-    }
-    int status = 0;
-    if (waitpid(pid, &status, 0) != pid) {
-        *sig = 0;
-        return -2;
-    }
-    *sig = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
-    return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+/* Child: 0 when the guarded buffer did not change. */
+static int box_draws_nothing(void *ctx) {
+    const BoxCall *c = (const BoxCall *)ctx;
+    if (c->use_asm)
+        asm_Box(c->x0, c->y0, c->x1, c->y1, 0x77);
+    else
+        Box(c->x0, c->y0, c->x1, c->y1, 0x77);
+    return memcmp(box_expect, guarded_buf, sizeof(box_expect)) == 0 ? 0 : 1;
 }
 
 static void test_inverted_box_draws_nothing(void) {
+    static const BoxClip full = {"full", 0, 0, 639, 479};
+    setup_guarded(&full);
+    memcpy(box_expect, guarded_buf, sizeof(box_expect));
+
     /* Inverted by one column: the ASM draws nothing, the C++ must match. */
     static const S32 by_one[][4] = {
         {201, 300, 200, 315}, /* AffValueBar shape, empty bar */
@@ -339,16 +325,18 @@ static void test_inverted_box_draws_nothing(void) {
         const S32 *c = by_one[i];
         char label[96];
         int asm_sig, cpp_sig;
-        int asm_rc = box_run_in_child(1, c[0], c[1], c[2], c[3], &asm_sig);
-        int cpp_rc = box_run_in_child(0, c[0], c[1], c[2], c[3], &cpp_sig);
+        BoxCall asm_call = {1, c[0], c[1], c[2], c[3]};
+        BoxCall cpp_call = {0, c[0], c[1], c[2], c[3]};
+        int asm_rc = run_in_child(box_draws_nothing, &asm_call, &asm_sig);
+        int cpp_rc = run_in_child(box_draws_nothing, &cpp_call, &cpp_sig);
         snprintf(label, sizeof(label), "Box (%d,%d)-(%d,%d) exit code (asm sig %d, cpp sig %d)",
                  (int)c[0], (int)c[1], (int)c[2], (int)c[3], asm_sig, cpp_sig);
         ASSERT_ASM_CPP_EQ_INT(asm_rc, cpp_rc, label);
-        ASSERT_ASM_CPP_EQ_INT(0, asm_rc, label);
+        ASSERT_EQ_INT_MSG(0, asm_rc, label);
     }
 
     /* Inverted further, or by one row: the ASM runs a negative rep count and
-       crashes, so there is nothing to match. The C++ draws nothing. */
+       dies, so there is nothing to match. The C++ draws nothing. */
     static const S32 further[][4] = {
         {202, 300, 200, 315},
         {300, 300, 101, 315},
@@ -359,11 +347,17 @@ static void test_inverted_box_draws_nothing(void) {
     for (size_t i = 0; i < sizeof(further) / sizeof(further[0]); i++) {
         const S32 *c = further[i];
         char label[96];
-        int cpp_sig;
-        int cpp_rc = box_run_in_child(0, c[0], c[1], c[2], c[3], &cpp_sig);
+        int asm_sig, cpp_sig;
+        BoxCall asm_call = {1, c[0], c[1], c[2], c[3]};
+        BoxCall cpp_call = {0, c[0], c[1], c[2], c[3]};
+        int asm_rc = run_in_child(box_draws_nothing, &asm_call, &asm_sig);
+        int cpp_rc = run_in_child(box_draws_nothing, &cpp_call, &cpp_sig);
+        snprintf(label, sizeof(label), "Box (%d,%d)-(%d,%d) ASM dies (sig %d)",
+                 (int)c[0], (int)c[1], (int)c[2], (int)c[3], asm_sig);
+        ASSERT_EQ_INT_MSG(-1, asm_rc, label);
         snprintf(label, sizeof(label), "Box (%d,%d)-(%d,%d) draws nothing (cpp sig %d)",
                  (int)c[0], (int)c[1], (int)c[2], (int)c[3], cpp_sig);
-        ASSERT_ASM_CPP_EQ_INT(0, cpp_rc, label);
+        ASSERT_EQ_INT_MSG(0, cpp_rc, label);
     }
 }
 

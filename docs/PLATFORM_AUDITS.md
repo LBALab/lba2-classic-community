@@ -30,8 +30,8 @@ Verdicts:
 | `LIB386/SVGA/GRAPH.CPP` | `AffGraph`, `ClippingGraph` | safe | Fast-path `AffGraph` dispatches negative-or-overhanging cases to `ClippingGraph`. Both compute pointers as `Log + TabOffLine[y] + x` (pointer + S32, not pointer + U32 — the failing pattern). |
 | `LIB386/SVGA/MASK.CPP` | `AffMask`, `ClippingMask` | safe | Geometry locals already `S32`; clipping explicit before pointer math. |
 | `LIB386/SVGA/PLOT.CPP` | `Plot`, `GetPlot` | safe | Hard signed clip-rect check at entry; returns early on out-of-range. |
-| `LIB386/SVGA/RESBLOCK.CPP` | `RestoreBlock` | safe (convention) | No defensive clipping; mirrored with `SaveBlock` so callers pair the two with the same coords. All call sites use non-negative menu/UI coords. |
-| `LIB386/SVGA/SAVBLOCK.CPP` | `SaveBlock` | safe (convention) | Same pattern and caller set as `RestoreBlock`. |
+| `LIB386/SVGA/RESBLOCK.CPP` | `RestoreBlock` | fixed | Clips the rectangle to the screen before pointer math, reading the buffer in the whole rectangle's layout so it pairs with `SaveBlock` on the same coords (#788). An inverted rectangle copies nothing (#766). |
+| `LIB386/SVGA/SAVBLOCK.CPP` | `SaveBlock` | fixed | Same clipping and buffer layout as `RestoreBlock` (#788). |
 | `LIB386/SVGA/SCALEBOX.CPP` | `ScaleBox` | safe (convention) | No defensive clipping. All call sites pass full-screen or hard-coded non-negative source rects. |
 | `LIB386/SVGA/SCALESPI.CPP` | `ScaleSprite` | safe | All-S32 clipping clamps `sx/sy/end_x/end_y` to the clip rect before pointer math. |
 | `LIB386/SVGA/SCALESPT.CPP` | `ScaleSpriteTransp` | safe | Both fast (1:1) and scaled paths clip with signed compares before pointer math. |
@@ -71,6 +71,6 @@ pol_work is safe *by construction* — `Fill_PolyClip` is the unconditional gate
 
 ## Sweep complete
 
-Renderer-side U32-wrap class is fully audited. Across SVGA + pol_work + 3D + 3DEXT + GRILLE + INTEXT — roughly 80 files touched — only **one real bug** (CopyMask, #84) and **six "safe by convention" latent traps** (`AFFSTR`, `CLRBOXF`, `RESBLOCK`, `SAVBLOCK`, `SCALEBOX`, `BOXZBUF`). The rest is safe-by-construction or safe-because-defensively-clipped.
+Renderer-side U32-wrap class is fully audited. Across SVGA + pol_work + 3D + 3DEXT + GRILLE + INTEXT — roughly 80 files touched — only **one real bug** (CopyMask, #84) and **six "safe by convention" latent traps** (`AFFSTR`, `CLRBOXF`, `RESBLOCK`, `SAVBLOCK`, `SCALEBOX`, `BOXZBUF`); `RESBLOCK` and `SAVBLOCK` have since been made to clip (#788). The rest is safe-by-construction or safe-because-defensively-clipped.
 
 Best architectural protection in the codebase: the `Fill_PolyClip` gateway in pol_work, which lets the entire filler family use `U32` legitimately by guaranteeing non-negative inputs upstream.

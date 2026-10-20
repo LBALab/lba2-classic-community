@@ -156,6 +156,10 @@ camera play test paused the game
 Thanks to EPmager for reporting that Twinsen catches on edges outdoors, and
 for checking it against the CD release
 ([#745](https://github.com/LBALab/lba2-classic-community/issues/745)).
+Thanks to [@ColumbusLabs](https://github.com/ColumbusLabs) for making an
+inverted rectangle copy nothing in the screen save and restore routines, with
+tests that run the original assembly alongside
+([#787](https://github.com/LBALab/lba2-classic-community/pull/787)).
 
 ## [0.13.0] - 2026-10-18
 
