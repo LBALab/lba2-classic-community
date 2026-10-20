@@ -368,9 +368,10 @@ flush path. The first two phases are the ones to build and verify first.
 
 ## Phase 1 report: double-wide stereo scene target (2026-10-20)
 
-Status: implemented in the working tree, built for Quest, and installed as
-`0.13.0-dev` at 2026-10-20 14:00:55. Device visual and performance
-verification is pending; nothing is committed.
+Status: implemented, built for Quest, installed as `0.13.0-dev`, and
+committed as `542ef99a`. The user reported better performance and no visual
+issues after the first device run. The captured run still selected the
+per-eye fallback, so the double-wide path itself was not exercised on device.
 
 ### Design
 
@@ -418,8 +419,9 @@ The renderer logs `surfaces(stereo-double)` when the target is created and
 `surfaces(stereo-per-eye)` when it falls back. With no snapshot or horizon
 surface, the existing accounting estimate is about 101.5 MiB versus the
 Phase 0 124.1 MiB figure; the logger counts depth as 4 bytes, so the real
-depth-16 total is lower. If a mono frame allocated snapshot or horizon
-surfaces before stereo started, those allocations remain until Phase 2.
+depth-16 total is lower. Phase 2 now drops the mono snapshot when stereo
+starts; the per-eye fallback still allocates the horizon surface because it
+consumes the capture.
 
 ### What to verify on device
 
@@ -474,3 +476,58 @@ the immediate investigation.
   horizon is the known-good behavior from the reverted image-reuse attempt; do
   not restore the capture copy.
 - No resolution, MSAA, foveation, or settings change is part of this phase.
+
+## Phase 2 report: surface teardown (2026-10-20)
+
+Status: implemented, built, installed as `0.13.0-dev`, and committed as the
+Phase 2 memory change. The latest device run still selected the per-eye path,
+so only the snapshot teardown was exercised on device.
+
+### Changes
+
+- `GL_SetStereoEye(0)` drops any snapshot left over from a mono frame before
+  the stereo target switch. Stereo eye passes are full redraws and do not call
+  `GL_SnapshotTerrain`, so the surface is dead.
+- `GL_SetStereoTargetMode(1)` drops the snapshot, horizon capture, and mono
+  present target before allocating the double-wide scene. This avoids an
+  extra full-resolution peak at the transition.
+- The mono present target is created lazily by `GL_EnsurePresentFBO()` when a
+  mono or fallback present needs it.
+- `GL_Renderer_Resize` keeps the present target absent while the double-wide
+  path is active.
+- The horizon surface is now destroyed on renderer shutdown instead of being
+  leaked.
+
+### Device run (2026-10-20 14:23–14:26)
+
+The run was single-wide throughout: `Scene FBO 1680x1760`, no
+`[GL] Stereo scene target: double-wide`, and no `surfaces(stereo-double)`
+line. The snapshot teardown did fire: `surfaces(snapshot)` reported 79.0 MiB
+with the snapshot, then `surfaces(horizon)` reported 79.0 MiB with
+`snapshot=0` and the per-eye horizon surface at 22.6 MiB. The 2x MSAA target
+was created later in the run, so those samples exclude it; with the same
+accounting it would be about 101.7 MiB, roughly 22 MiB below the Phase 1
+124.1 MiB figure.
+
+| Signal | Phase 1 run | Phase 2 run |
+|---|---|---|
+| `StereoPerf eye0` | 12 ms | 13 ms |
+| `StereoPerf eye1` | 10 ms | 9 ms |
+| `StereoPerf frame` | 21 ms | 21 ms |
+| `GLPerf present` | 1.50 ms | 1.53 ms |
+| `GLPerf flush` | 2.33 ms | 2.62 ms |
+| `GrillePerf horizon` | 2.5 ms | 2.0 ms |
+| `OpenXRPerf total` | 0.56 ms | 0.56 ms |
+
+Performance is within noise of Phase 1. The double-wide-only frees (horizon
+and present) were not exercised, and the memory target cannot be confirmed
+until that path activates.
+
+### Next priority
+
+The per-eye fallback is now the blocking issue. The double-wide gate still
+rejects the run, most likely because the display brightness, contrast, or
+saturation is non-neutral: the double-wide present has no display-transform
+pass. The next change must either apply that transform in the final
+pair-to-swapchain pass or report the exact gate reason so the fallback can be
+removed deliberately. Do not ask the user to reset display settings.

@@ -916,6 +916,7 @@ static void GL_CreateMSAAFbo(U32 w, U32 h, S32 samples);
 static void GL_ResolveMSAA(void);
 static void GL_LogSurfaceBudget(const char *when);
 static void GL_ResolveMSAAColor(void);
+static void GL_DestroyHorizon(void);
 /* Material of the polygon currently being queued (low byte = mode/alpha/
    chroma/persp flags, high byte = flat colour or shadow level). */
 static U16 s_currentMaterial = 0;
@@ -1415,6 +1416,27 @@ static U32 s_snapshotH = 0;
 static U32 s_snapshotGen = 0; /* GL_ClearFBO generation the snapshot matches */
 static U32 s_fboGen = 0;      /* bumped by GL_ClearFBO */
 
+/* Drop the incremental-redraw snapshot.  Stereo full-redraw frames do not
+ * call GL_RestoreTerrainSnapshot, and the double-wide target replaces the
+ * single-wide scene it was captured from. */
+static void GL_DestroySnapshot(void) {
+    if (s_snapshotDepthTex) {
+        glDeleteTextures(1, &s_snapshotDepthTex);
+        s_snapshotDepthTex = 0;
+    }
+    if (s_snapshotFbo) {
+        glDeleteFramebuffers(1, &s_snapshotFbo);
+        s_snapshotFbo = 0;
+    }
+    if (s_snapshotTex) {
+        glDeleteTextures(1, &s_snapshotTex);
+        s_snapshotTex = 0;
+    }
+    s_snapshotW = 0;
+    s_snapshotH = 0;
+    s_snapshotGen = 0;
+}
+
 /* ── Fullscreen quad: position (x,y) + texcoord (u,v) ───────────────────── */
 
 /* 2D overlay quad — V is flipped because glTexSubImage2D uploads row 0
@@ -1573,6 +1595,9 @@ void GL_SetStereoEye(S32 eye) {
         eye = -1;
 
     if (eye == 0) {
+        /* Stereo eye passes are full redraws and skip GL_SnapshotTerrain.
+         * Drop a snapshot left over from mono before the target switch. */
+        GL_DestroySnapshot();
         S32 wantDoubleWide = GL_StereoDoubleWideAllowed();
         if (wantDoubleWide != s_stereoDoubleWide)
             GL_SetStereoTargetMode(wantDoubleWide);
@@ -1660,6 +1685,18 @@ static void GL_CreatePresentFBO(U32 width, U32 height) {
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     Log_Info("[GL] Present FBO created %ux%u (fbo=%u tex=%u)", width, height, (unsigned)s_presentFBO, (unsigned)s_presentColorTex);
+}
+
+/* Mono/menu presents need the intermediate composite target.  The stereo
+ * double-wide path does not, so the surface is created on demand there. */
+static void GL_EnsurePresentFBO(void) {
+    if (s_presentFBO != 0)
+        return;
+    U32 w = s_texWidth ? s_texWidth : s_fboWidth;
+    U32 h = s_texHeight ? s_texHeight : s_fboHeight;
+    if (w == 0 || h == 0)
+        return;
+    GL_CreatePresentFBO(w, h);
 }
 
 static void GL_CreateFBO(U32 width, U32 height) {
@@ -2160,24 +2197,11 @@ void GL_Renderer_Shutdown(void) {
         s_atlasTexCache[i].tex = 0;
     }
     s_atlasTexNext = 0;
-    if (s_snapshotDepthTex) {
-        glDeleteTextures(1, &s_snapshotDepthTex);
-        s_snapshotDepthTex = 0;
-    }
+    GL_DestroySnapshot();
     if (s_depthRestoreProgram) {
         glDeleteProgram(s_depthRestoreProgram);
         s_depthRestoreProgram = 0;
     }
-    if (s_snapshotFbo) {
-        glDeleteFramebuffers(1, &s_snapshotFbo);
-        s_snapshotFbo = 0;
-    }
-    if (s_snapshotTex) {
-        glDeleteTextures(1, &s_snapshotTex);
-        s_snapshotTex = 0;
-    }
-    s_snapshotW = 0;
-    s_snapshotH = 0;
     if (s_clutTex) {
         glDeleteTextures(1, &s_clutTex);
         s_clutTex = 0;
@@ -2253,6 +2277,7 @@ void GL_Renderer_Shutdown(void) {
     GL_DestroyFBO();
     GL_DestroyPresentFBO();
     GL_DestroyStereoEyeFBOs();
+    GL_DestroyHorizon();
 
     Window_DestroyGLContext();
     s_initialized = 0;
@@ -2301,11 +2326,13 @@ void GL_Renderer_Resize(U32 resX, U32 resY) {
                          (s_antiAlias == 3) ? 4 : 2);
     }
 
-    /* Recreate present FBO at the new size */
-    GL_CreatePresentFBO(resX, resY);
+    /* Recreate present FBO only for the mono/fallback path.  Stereo
+     * double-wide presents read the scene target directly. */
     if (s_stereoDoubleWide) {
+        GL_DestroyPresentFBO();
         GL_DestroyStereoEyeFBOs();
     } else {
+        GL_CreatePresentFBO(resX, resY);
         GL_CreateStereoEyeFBOs(resX, resY);
     }
     s_sceneEyeX = 0;
@@ -2871,6 +2898,17 @@ static void GL_SetStereoTargetMode(S32 doubleWide) {
 
     Log_Info("[GL] Stereo scene target: %s",
              doubleWide ? "double-wide" : "per-eye");
+
+    /* Full-redraw stereo cannot consume the incremental snapshot or the
+     * horizon capture, and it does not use the mono present target.  Drop
+     * them before allocating the double-wide scene so the transition has no
+     * extra full-resolution peak. */
+    if (doubleWide) {
+        GL_DestroySnapshot();
+        GL_DestroyHorizon();
+        GL_DestroyPresentFBO();
+    }
+
     s_stereoDoubleWide = doubleWide;
     GL_CreateFBO(w, h);
     if (doubleWide && s_fbo == 0) {
@@ -4496,6 +4534,32 @@ static U64 s_hznPerfResolveTicks = 0;
 static U64 s_hznPerfBlitTicks = 0;
 static U32 s_hznPerfRectPct = 0;
 
+/* Free the horizon capture surface.  Stereo draws the horizon per eye, so the
+ * capture cannot be consumed there; mono/fallback frames allocate it lazily
+ * in GL_CaptureHorizon. */
+static void GL_DestroyHorizon(void) {
+    if (s_horizonFbo) {
+        glDeleteFramebuffers(1, &s_horizonFbo);
+        s_horizonFbo = 0;
+    }
+    if (s_horizonDepthRbo) {
+        glDeleteRenderbuffers(1, &s_horizonDepthRbo);
+        s_horizonDepthRbo = 0;
+    }
+    if (s_horizonTex) {
+        glDeleteTextures(1, &s_horizonTex);
+        s_horizonTex = 0;
+    }
+    s_horizonW = 0;
+    s_horizonH = 0;
+    s_horizonValid = 0;
+    s_hznCapValid = 0;
+    s_hznCapRectValid = 0;
+    s_hznPerfResolveTicks = 0;
+    s_hznPerfBlitTicks = 0;
+    s_hznPerfRectPct = 0;
+}
+
 /* Convert the tracked draw region (screen coords, top-left origin) to a
    clamped FBO rect.  Every draw in the horizon pass registers its screen
    footprint (batch polygons and sprite quads alike), so the rect bounds
@@ -5561,6 +5625,9 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
         return;
     }
 
+    if (OpenXR_IsActive())
+        GL_EnsurePresentFBO();
+
     if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3))
         GL_ResolveMSAAColor();
 
@@ -5796,6 +5863,9 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
      * target, letterbox, draw the 3D FBO content, then the 2D overlay. */
     S32 useDoubleWide = (s_stereoDoubleWide && s_stereoEye >= 0);
     GL_FlushBatch();
+
+    if (!useDoubleWide && OpenXR_IsActive())
+        GL_EnsurePresentFBO();
 
     if (!useDoubleWide && s_msaaFbo &&
         (s_antiAlias == 2 || s_antiAlias == 3))

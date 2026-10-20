@@ -201,15 +201,14 @@ renderer logs `[GL] Stereo scene target: double-wide` and a
 
 ## Phase 2: remove dead and duplicate full-resolution surfaces
 
-- `GL_CaptureHorizon` is already disabled in stereo (Phase 1). Free any horizon
-  and snapshot surfaces allocated before the session entered stereo, and
-  allocate them lazily only when a fallback or mono frame needs them. The
-  eye-1 image reuse stays gone: near neighbour-cube terrain has real stereo
+- Free the incremental snapshot as soon as any stereo pass begins. Stereo eye
+  passes are full redraws and skip `GL_SnapshotTerrain`; allocate it lazily
+  when a mono frame needs it again.
+- Free the horizon capture and the mono present target when the double-wide
+  path is active, and allocate them lazily if a fallback frame needs them. The
+  per-eye fallback still uses both, so they cannot be freed there. The eye-1
+  image reuse stays gone: near neighbour-cube terrain has real stereo
   disparity and produced Iceland seams.
-- Allocate `s_presentFBO` only for mono/menu frames. It is not used by the
-  stereo eye path.
-- Free the stereo snapshot and `s_fbo` surfaces when the double-wide path is
-  active; allocate them lazily if a fallback frame needs them.
 - Do not allocate the old eye FBOs in the double-wide path. They remain only
   for fallback (already true after Phase 1).
 - Re-read the app GPU telemetry after the change. Target below 120 MB, ideally
@@ -217,6 +216,44 @@ renderer logs `[GL] Stereo scene target: double-wide` and a
 
 Expected effect: fewer driver evictions and fewer memory stalls. This may not
 show up as a clean CPU-millisecond win, but it removes a hard ceiling.
+
+Status: implemented, built, installed, and committed as the Phase 2 memory
+change. The latest device run still selected the per-eye path (`Scene FBO
+1680x1760 single`), so only the snapshot teardown was exercised. The logged surfaces
+were 56.4 MiB at init, 79.0 MiB after the mono snapshot, and 79.0 MiB after
+stereo entry replaced it with the per-eye horizon surface; the 2x MSAA target
+added later is not included in those samples. Medians from the run: eye 0
+13 ms, eye 1 9 ms, frame 21 ms, GL present 1.53 ms, flush 2.62 ms, OpenXR
+present 0.56 ms, horizon 2.0 ms. Performance is within noise of Phase 1.
+
+The double-wide gate is now the blocking issue: the path cannot remove the
+remaining surfaces or exercise the pair target until it actually activates.
+
+## Phase 1b: activate the double-wide path (priority)
+
+The Phase 1 and Phase 2 captures both used the per-eye fallback. The gate
+requires neutral brightness, contrast, and saturation because the double-wide
+present does not yet apply the display transform that the per-eye composite
+does. Fix that rather than asking the user to reset display settings.
+
+- Log the first gate failure with the live values: environment override,
+  `DisplayStereo3D`, OpenXR active, stereo enabled, AA mode, brightness,
+  contrast, and saturation. One line per distinct reason, not per frame.
+- Apply the display transform in the final pair-to-swapchain pass. The pair is
+  already a resolved single-sample texture; a full-screen shader that samples
+  it and applies the same brightness/contrast/saturation formula replaces the
+  plain blit without adding another scene composite.
+- Keep the per-eye fallback for FXAA/SMAA and for a double-wide FBO failure.
+  Keep the fresh swapchain FBO lifecycle; do not revive the persistent
+  attachment experiment.
+- If the swapchain FBO attach is rejected, the copy fallback cannot apply the
+  transform. Keep non-neutral image adjustment on the per-eye path when that
+  fallback is selected, or provide a temporary adjusted target first.
+- Verify the gate log, `Scene FBO 3360x1760`, `surfaces(stereo-double)`,
+  `PresentMono stereo: double-wide`, and the visual checks below.
+
+Expected effect: enables the Phase 1 path for users with non-default display
+settings, unlocking the memory and present savings already built.
 
 ## Phase 3: clean up the OpenXR present hot path
 
