@@ -36,7 +36,9 @@ which puts the FPU back in round-to-nearest after each triangle: the walk rounds
 1997 and Twinsen's path moves from tick 111. Remade on main first, the file matched the
 committed one apart from the engine line; the new one fails on main at tick 111.
 `combo-controls.rec` reaches the edge once without the slide moving anything the digest
-covers, and is the original format 12 file.
+covers. It was the original format 12 file until #801 moved its walk from tick 111 as well;
+it is now format 17, remade the same way (commands, ticks and keyframes unchanged, the
+newer header lines added).
 
 **Remaking one.** A recording carries the commands that drove it, so the session can be
 run again exactly: list them with `scripts/dev/dump_recording.py <file>` (the `cmd @tick`
