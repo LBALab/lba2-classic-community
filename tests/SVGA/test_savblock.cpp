@@ -3,8 +3,11 @@
 
 #include <SVGA/SAVBLOCK.H>
 #include <SVGA/SCREEN.H>
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 extern "C" void asm_SaveBlock(void *screen, void *buffer, S32 x0, S32 y0, S32 x1, S32 y1);
 
@@ -17,6 +20,7 @@ static U8 cpp_screen[kBufferSize];
 static U8 asm_screen[kBufferSize];
 static U8 cpp_buffer[kBufferSize];
 static U8 asm_buffer[kBufferSize];
+static U8 buffer_init[kBufferSize];
 static U32 rng_state;
 
 static void rng_seed(U32 seed) {
@@ -88,9 +92,90 @@ static void test_random_equivalence(void) {
     }
 }
 
+/* ---------- inverted rectangles ----------
+ * Inverted by one column (x1 == x0 - 1), SAVBLOCK.ASM gets zero rep counts
+ * and copies nothing. Inverted further, or by one row, its counts wrap to
+ * about 4 G and the copy runs past both buffers. With U32 deltas the C++
+ * would do the same, so SaveBlock returns early for any inverted
+ * rectangle. Each side runs in a child process so a crash or hang fails
+ * this test instead of the binary. */
+static int saveblock_run_in_child(int use_asm, S32 x0, S32 y0, S32 x1, S32 y1, int *sig) {
+    setup_screen();
+    fill_screen_pattern(7u);
+    fill_buffer_pattern(buffer_init, 8u);
+    memcpy(cpp_screen, screen_init, sizeof(cpp_screen));
+    memcpy(cpp_buffer, buffer_init, sizeof(cpp_buffer));
+
+    fflush(stdout);
+    pid_t pid = fork();
+    if (pid < 0) {
+        *sig = 0;
+        return -2; /* no child ran: never reads as "copied nothing" */
+    }
+    if (pid == 0) {
+        alarm(3);
+        int devnull = open("/dev/null", O_WRONLY);
+        if (devnull >= 0)
+            dup2(devnull, 1);
+        if (use_asm)
+            asm_SaveBlock(cpp_screen, cpp_buffer, x0, y0, x1, y1);
+        else
+            SaveBlock(cpp_screen, cpp_buffer, x0, y0, x1, y1);
+        int same = memcmp(screen_init, cpp_screen, sizeof(cpp_screen)) == 0 &&
+                   memcmp(buffer_init, cpp_buffer, sizeof(cpp_buffer)) == 0;
+        _exit(same ? 0 : 1);
+    }
+    int status = 0;
+    if (waitpid(pid, &status, 0) != pid) {
+        *sig = 0;
+        return -2;
+    }
+    *sig = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
+    return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+}
+
+static void test_inverted_rect_copies_nothing(void) {
+    /* Inverted by one column: the ASM copies nothing, the C++ must match. */
+    static const S32 by_one[][4] = {
+        {201, 300, 200, 315},
+        {0, 0, -1, 479},
+    };
+    for (size_t i = 0; i < sizeof(by_one) / sizeof(by_one[0]); i++) {
+        const S32 *c = by_one[i];
+        char label[96];
+        int asm_sig, cpp_sig;
+        int asm_rc = saveblock_run_in_child(1, c[0], c[1], c[2], c[3], &asm_sig);
+        int cpp_rc = saveblock_run_in_child(0, c[0], c[1], c[2], c[3], &cpp_sig);
+        snprintf(label, sizeof(label), "SaveBlock (%d,%d)-(%d,%d) (asm sig %d, cpp sig %d)",
+                 (int)c[0], (int)c[1], (int)c[2], (int)c[3], asm_sig, cpp_sig);
+        ASSERT_ASM_CPP_EQ_INT(asm_rc, cpp_rc, label);
+        ASSERT_ASM_CPP_EQ_INT(0, asm_rc, label);
+    }
+
+    /* Inverted further, or by one row: the ASM runs a wrapped count and
+       crashes, so there is nothing to match. The C++ copies nothing. */
+    static const S32 further[][4] = {
+        {202, 300, 200, 315},
+        {300, 300, 101, 315},
+        {200, 301, 260, 300},
+        {200, 320, 260, 300},
+        {260, 320, 200, 300},
+    };
+    for (size_t i = 0; i < sizeof(further) / sizeof(further[0]); i++) {
+        const S32 *c = further[i];
+        char label[96];
+        int cpp_sig;
+        int cpp_rc = saveblock_run_in_child(0, c[0], c[1], c[2], c[3], &cpp_sig);
+        snprintf(label, sizeof(label), "SaveBlock (%d,%d)-(%d,%d) copies nothing (cpp sig %d)",
+                 (int)c[0], (int)c[1], (int)c[2], (int)c[3], cpp_sig);
+        ASSERT_ASM_CPP_EQ_INT(0, cpp_rc, label);
+    }
+}
+
 int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
+    RUN_TEST(test_inverted_rect_copies_nothing);
     TEST_SUMMARY();
     return test_failures != 0;
 }

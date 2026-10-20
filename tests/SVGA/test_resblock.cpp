@@ -3,8 +3,11 @@
 #include <SVGA/RESBLOCK.H>
 #include <SVGA/SAVBLOCK.H>
 #include <SVGA/SCREEN.H>
+#include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 extern "C" void asm_RestoreBlock(void *screen, void *buffer, S32 x0, S32 y0, S32 x1, S32 y1);
 
@@ -17,6 +20,8 @@ static U32 rng_next(void) {
 
 static U8 screen_buf[640 * 480];
 static U8 save_buf[640 * 480];
+static U8 screen_init[640 * 480];
+static U8 save_init[640 * 480];
 
 static void setup(void) {
     ModeDesiredX = 640;
@@ -141,6 +146,88 @@ static void test_random_batch(void) {
     }
 }
 
+/* ---------- inverted rectangles ----------
+ * Inverted by one column (x1 == x0 - 1), RESBLOCK.ASM gets zero rep counts
+ * and copies nothing. Inverted further, or by one row, its counts wrap to
+ * about 4 G and the copy runs past both buffers. With U32 deltas the C++
+ * would do the same, so RestoreBlock returns early for any inverted
+ * rectangle. Each side runs in a child process so a crash or hang fails
+ * this test instead of the binary. */
+static int restoreblock_run_in_child(int use_asm, S32 x0, S32 y0, S32 x1, S32 y1, int *sig) {
+    setup();
+    for (U32 i = 0; i < sizeof(screen_init); i++) {
+        screen_init[i] = (U8)((i * 23u + (i >> 1)) & 0xFFu);
+        save_init[i] = (U8)((i * 7u + 0x3Cu) & 0xFFu);
+    }
+    memcpy(screen_buf, screen_init, sizeof(screen_buf));
+    memcpy(save_buf, save_init, sizeof(save_buf));
+
+    fflush(stdout);
+    pid_t pid = fork();
+    if (pid < 0) {
+        *sig = 0;
+        return -2; /* no child ran: never reads as "copied nothing" */
+    }
+    if (pid == 0) {
+        alarm(3);
+        int devnull = open("/dev/null", O_WRONLY);
+        if (devnull >= 0)
+            dup2(devnull, 1);
+        if (use_asm)
+            asm_RestoreBlock(screen_buf, save_buf, x0, y0, x1, y1);
+        else
+            RestoreBlock(screen_buf, save_buf, x0, y0, x1, y1);
+        int same = memcmp(screen_init, screen_buf, sizeof(screen_buf)) == 0 &&
+                   memcmp(save_init, save_buf, sizeof(save_buf)) == 0;
+        _exit(same ? 0 : 1);
+    }
+    int status = 0;
+    if (waitpid(pid, &status, 0) != pid) {
+        *sig = 0;
+        return -2;
+    }
+    *sig = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
+    return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+}
+
+static void test_inverted_rect_copies_nothing(void) {
+    /* Inverted by one column: the ASM copies nothing, the C++ must match. */
+    static const S32 by_one[][4] = {
+        {201, 300, 200, 315},
+        {0, 0, -1, 479},
+    };
+    for (size_t i = 0; i < sizeof(by_one) / sizeof(by_one[0]); i++) {
+        const S32 *c = by_one[i];
+        char label[96];
+        int asm_sig, cpp_sig;
+        int asm_rc = restoreblock_run_in_child(1, c[0], c[1], c[2], c[3], &asm_sig);
+        int cpp_rc = restoreblock_run_in_child(0, c[0], c[1], c[2], c[3], &cpp_sig);
+        snprintf(label, sizeof(label), "RestoreBlock (%d,%d)-(%d,%d) (asm sig %d, cpp sig %d)",
+                 (int)c[0], (int)c[1], (int)c[2], (int)c[3], asm_sig, cpp_sig);
+        ASSERT_ASM_CPP_EQ_INT(asm_rc, cpp_rc, label);
+        ASSERT_ASM_CPP_EQ_INT(0, asm_rc, label);
+    }
+
+    /* Inverted further, or by one row: the ASM runs a wrapped count and
+       crashes, so there is nothing to match. The C++ copies nothing. */
+    static const S32 further[][4] = {
+        {202, 300, 200, 315},
+        {300, 300, 101, 315},
+        {200, 301, 260, 300},
+        {200, 320, 260, 300},
+        {260, 320, 200, 300},
+    };
+    for (size_t i = 0; i < sizeof(further) / sizeof(further[0]); i++) {
+        const S32 *c = further[i];
+        char label[96];
+        int cpp_sig;
+        int cpp_rc = restoreblock_run_in_child(0, c[0], c[1], c[2], c[3], &cpp_sig);
+        snprintf(label, sizeof(label), "RestoreBlock (%d,%d)-(%d,%d) copies nothing (cpp sig %d)",
+                 (int)c[0], (int)c[1], (int)c[2], (int)c[3], cpp_sig);
+        ASSERT_ASM_CPP_EQ_INT(0, cpp_rc, label);
+    }
+}
+
 int main(void) {
     RUN_TEST(test_restore_simple);
     RUN_TEST(test_restore_single_pixel);
@@ -148,6 +235,7 @@ int main(void) {
     RUN_TEST(test_asm_equiv);
     RUN_TEST(test_asm_equiv_large);
     RUN_TEST(test_random_batch);
+    RUN_TEST(test_inverted_rect_copies_nothing);
     TEST_SUMMARY();
     return test_failures != 0;
 }

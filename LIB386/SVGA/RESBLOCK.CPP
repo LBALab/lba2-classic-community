@@ -7,6 +7,14 @@
 
 void RestoreBlock(void *screen, void *buffer, S32 x0, S32 y0, S32 x1, S32 y1) {
     LIB386_TRACE_CPP("RestoreBlock", "1", "scr=%p buf=%p x0=%d y0=%d x1=%d y1=%d", screen, buffer, x0, y0, x1, y1);
+    // An inverted rectangle copies nothing, as RESBLOCK.ASM does for
+    // x1 == x0 - 1 (zero rep counts). Inverted further, or by a row, the
+    // U32 deltas below wrap to about 4 G and the copy runs past both
+    // buffers.
+    if (x1 < x0 || y1 < y0) {
+        return;
+    }
+
     U8 *src = (U8 *)buffer;
     U8 *dst = (U8 *)screen + TabOffLine[y0] + x0;
     U32 deltaY = y1 - y0 + 1;
