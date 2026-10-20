@@ -7,7 +7,7 @@ This repository is the community fork of the classic source release — a source
 ## Features
 
 - **The complete game** — the original 1997 engine, ported to 64-bit and modern compilers; bring your own copy of LBA2
-- **Native builds** — Linux, macOS, Windows, and Android / Android TV (7.0+, API 24)
+- **Native builds** — Linux, macOS, Windows, Android / Android TV (7.0+, API 24), and experimental Nintendo Switch homebrew
 - **Widescreen and HD** — render resolutions up to 1080p, offered per monitor from the Display menu; the classic 640×480 4:3 mode is still there ([docs/RUNTIME_RESOLUTION.md](docs/RUNTIME_RESOLUTION.md))
 - **Reads disc images directly** — retail assets straight out of a raw ISO/BIN or `.cue` pair, so a GOG Original Edition install or a CD rip needs no extraction step
 - **Retail-compatible saves** — 1997 saves load directly, and every build of this port writes the same 32-bit save bytes
@@ -27,7 +27,7 @@ The original LBA2 engine source is the [`lba2-classic`](https://github.com/2poin
 
 ## Playing
 
-Pre-built binaries for Linux, macOS, and Windows.
+Pre-built binaries for Linux, macOS, Windows, Android, and Nintendo Switch homebrew.
 
 **Stable** — [the latest tagged release](https://github.com/LBALab/lba2-classic-community/releases/latest). A milestone build with less churn than rolling. Pre-1.0 — bugs are still being ironed out, and full-playthrough testing isn't part of the release criteria yet (see the [1.0 bar](docs/RELEASING.md) for what changes at 1.0).
 
@@ -39,7 +39,7 @@ All releases: [Releases page](https://github.com/LBALab/lba2-classic-community/r
 
 You need a legitimate copy of LBA2 ([GOG](https://www.gog.com/game/little_big_adventure_2), [Steam](https://store.steampowered.com/app/398000/Little_Big_Adventure_2/), or your retail CD) — the engine doesn't ship assets.
 
-On first launch a folder picker opens; point it at the directory containing `LBA2.HQR` (alongside `music/`, `video/`, `vox/`, …, or under a `Common/` / `CommonClassic/` subfolder for Steam/GOG re-releases). Your choice is remembered.
+On desktop, a folder picker opens on first launch; point it at the directory containing `LBA2.HQR` (alongside `music/`, `video/`, `vox/`, …, or under a `Common/` / `CommonClassic/` subfolder for Steam/GOG re-releases). Your choice is remembered.
 
 To skip the picker, pass an explicit path:
 
@@ -72,6 +72,14 @@ Download `lba2cc-<version>-windows-x64.zip`, unzip anywhere, run `lba2cc.exe`. P
 ### Android
 
 Download the `lba2cc-<version>-android-arm64-v8a.apk` (or `armeabi-v7a`). Requires **Android 7.0 (API 24)** or later. You must provide your own retail game data (see [Game data](#game-data) and [docs/ANDROID.md](docs/ANDROID.md) for setup).
+
+### Nintendo Switch
+
+Experimental homebrew build: download `lba2cc-switch.zip` from the [rolling pre-release](https://github.com/LBALab/lba2-classic-community/releases/tag/latest) and extract it onto the SD-card root. The executable lands at `sdmc:/switch/lba2cc/lba2cc.nro`.
+
+Copy your retail HQR files, including `LBA2.HQR`, directly into `sdmc:/lba2/`, preserving the installation's music, movie and voice subdirectories. No game assets are included. Launch through Homebrew Menu in application mode/title takeover, not the memory-constrained Album applet.
+
+Saves, settings and logs live under `sdmc:/switch/lba2cc/user/`; back up this directory before upgrading. See [docs/SWITCH.md](docs/SWITCH.md) for the SD-card layout, network launching and hardware-validation limits.
 
 ## Building from source quick start
 

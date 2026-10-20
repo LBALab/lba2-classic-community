@@ -780,12 +780,14 @@ rolling release sits below it, clearly labeled.
 | **`make_latest`** | `false` (vs default — versioned tags get GitHub's "Latest" promotion) |
 | **Concurrency** | Single `release-latest` group, `cancel-in-progress: true`. Back-to-back commits don't queue; newest wins. |
 | **Partial release on failure** | `if: always() && !cancelled()` on the release job. If one platform's build leg fails, the rolling release still updates with the platforms that succeeded. Tag releases are stricter (`if: startsWith(github.ref, 'refs/tags/')`) because a tagged release is meant to be complete. |
-| **Asset pruning** | Assets not produced by the current run are deleted after upload. Filenames embed the version, so uploads never overwrite the previous build and would otherwise pile up indefinitely. Tag releases need no pruning: each has its own tag. Consequence: a failed build leg drops that platform's download rather than leaving an older version sitting there looking current. Skipped entirely when a run produces no artifacts at all, so a total build failure cannot empty the release. |
+| **Asset pruning** | Assets not produced by the current run are deleted after upload. Versioned filenames would otherwise pile up indefinitely; the fixed-name Switch ZIP is overwritten in place. Tag releases need no pruning: each has its own tag. Consequence: a failed build leg drops that platform's download rather than leaving an older version sitting there looking current. Skipped entirely when a run produces no artifacts at all, so a total build failure cannot empty the release. |
 
 Same packaging scripts (`make-appimage.sh`, `bundle-linux-tarball.sh`,
 `bundle-windows.sh`, `bundle-macos.sh`), same artifact shape, same
 naming. The rolling release is functionally a tag-release at HEAD-of-main
 with a moving tag instead of a fixed semver.
+
+The rolling release also includes Nintendo Switch homebrew as `lba2cc-switch.zip`, containing the NRO, README and license in an SD-card installation tree, without retail game data. It calls [the Switch workflow](../.github/workflows/switch.yml) with the package artifact named `latest-switch`, so the existing `latest-*` download includes it. The matching debug ELF and build log keep separate artifact names outside that pattern and are not attached to the release. Switch is not added to the tag-triggered releases. See [SWITCH.md](SWITCH.md) for installation and hardware-validation limits.
 
 **Read the name, not the timestamp.** A release's `published_at` is stamped
 once, when it is first published; updating a release in place never advances
