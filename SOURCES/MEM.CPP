@@ -84,6 +84,7 @@ void AdjustLba2Mem(void) {
     // Load size plus grosse Scene
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCENE_HQR_NAME);
     Load_HQR(tmpFilePath, &PtrSceneMem, 0);
+    FromLE32InPlace(&PtrSceneMem, 1);
 
     PtrSceneMem += RECOVER_AREA;
 
@@ -124,6 +125,7 @@ void AdjustHQRMem(void) {
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
     Load_HQR(tmpFilePath, &sizeinfo, RESS_EXT_SIZE_INFO);
+    FromLE32InPlace(&sizeinfo, sizeof(sizeinfo) / 4);
 
     CubeInfosMem = (islemem / 5) / 10;
     ListDecorsMem = islemem / 10;

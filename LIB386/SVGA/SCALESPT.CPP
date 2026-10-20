@@ -1,4 +1,5 @@
 #include <SVGA/SCALESPT.H>
+#include <SYSTEM/LE.H>
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/SCREENXY.H>
@@ -54,8 +55,7 @@ void ScaleSpriteTransp(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
         factory = 0x7FFFFFFF;
     }
 
-    U32 *bank = (U32 *)ptrbank;
-    U8 *spritePtr = (U8 *)ptrbank + bank[num];
+    U8 *spritePtr = (U8 *)ptrbank + ReadLE_U32((U8 *)ptrbank + num * 4); // offsets U32 LE
     SpriteStruct *sprite = (SpriteStruct *)spritePtr;
     U8 *transpTable = (U8 *)ptr_transp;
     U8 *srcBase = spritePtr + sizeof(SpriteStruct);

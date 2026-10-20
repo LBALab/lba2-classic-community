@@ -6,6 +6,8 @@
 #include "FOLLOWCAM.H" /* FollowCamera (Auto/Classic camera menu label) */
 #include "INPUT.H"
 #include "JOYSTICK.H"
+
+#include <SYSTEM/LE.H>
 #include "PERSO.H" /* WriteConfigFile (persist on resolution change) */
 #include "RES_MENU.H"
 #include "RETAILFIX.H"  /* the Fix retail bugs row */
@@ -2135,13 +2137,15 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
 S32 HQR_GiveOffset(T_HQR_HEADER *header, S32 index) {
     S32 handle;
     S32 nbbloc;
+    U8 raw[4];
 
     handle = OpenRead(header->Name);
     if (!handle)
         return 0;
 
     index *= 4;
-    Read(handle, &nbbloc, 4);
+    Read(handle, raw, 4);
+    nbbloc = ReadLE_S32(raw);
 
     if (index >= nbbloc) {
         Close(handle);
@@ -2149,7 +2153,8 @@ S32 HQR_GiveOffset(T_HQR_HEADER *header, S32 index) {
     }
 
     Seek(handle, index, SEEK_FROM_START);
-    Read(handle, &index, 4);
+    Read(handle, raw, 4);
+    index = ReadLE_S32(raw);
 
     Close(handle);
     return index;
@@ -4845,7 +4850,9 @@ S32 SlideShow(void) {
     GetResPath(tmpScrshotFilePath, ADELINE_MAX_PATH, SCRSHOT_HQR_NAME);
     handle = OpenRead(tmpScrshotFilePath);
     if (handle) {
-        Read(handle, &nbshots, 4);
+        U8 raw[4];
+        Read(handle, raw, 4);
+        nbshots = ReadLE_S32(raw);
         nbshots = ((nbshots / 4) - 1) / 2; // /2 car il y a aussi les palettes
         Close(handle);
     } else

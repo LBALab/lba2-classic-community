@@ -53,6 +53,7 @@ T_HQR_HEADER *HQR_Init_Ressource(const char *hqrname,
     header->MaxSize = maxsize;
     header->MaxIndex = maxrsrc;
     header->Buffer = buffer;
+    header->Fixup = NULL;
 
     if (!HQR_Change_Ressource(header, hqrname)) {
         Free(buffer);
@@ -60,6 +61,13 @@ T_HQR_HEADER *HQR_Init_Ressource(const char *hqrname,
     }
 
     return header; // header
+}
+
+//──────────────────────────────────────────────────────────────────────────
+void HQR_Set_Fixup(T_HQR_HEADER *header, HQR_LOAD_FIXUP *fixup) {
+    if (header) {
+        header->Fixup = fixup;
+    }
 }
 
 //──────────────────────────────────────────────────────────────────────────
@@ -145,7 +153,7 @@ static inline void HQR_Del_Bloc(T_HQR_HEADER *header, S32 index) {
 
         // shift index value
         for (n = index; n < (header->NbIndex - 1); n++) {
-            *(S32 *)&(ptrbloc[n].Ptr) -= delsize;
+            ptrbloc[n].Ptr = (U8 *)ptrbloc[n].Ptr - delsize;
         }
     }
 
@@ -229,6 +237,10 @@ void *HQR_Get(T_HQR_HEADER *header, S32 index, S32 *outSize) {
         // load it
         if (!HQF_LoadClose(ptr)) {
             goto error;
+        }
+
+        if (header->Fixup) {
+            header->Fixup(ptr, size);
         }
 
         header->NbIndex++;

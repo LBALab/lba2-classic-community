@@ -55,6 +55,19 @@ extern U32 MapIntensityMem;
 	     ██    ██  █ ██▀▀█ ██  █        ██   ▀▀▀▀█ ██    ██▀▀
 	     ▀▀▀▀▀ ▀▀▀▀▀ ▀▀  ▀ ▀▀▀▀         ▀▀   ▀▀▀▀▀ ▀▀▀▀▀ ▀▀▀▀▀
  *══════════════════════════════════════════════════════════════════════════*/
+
+/* The island's tables are little-endian on disk and read through typed pointers;
+   each cache converts an entry once when it loads it (nothing to do on a
+   little-endian CPU). INF and DOB are S32 throughout, GRD is one 32-bit word per
+   half-square, TXD is U16 and Y is S16; LUM is bytes. */
+static void IsleFromLE32(void *ptr, S32 size) {
+    FromLE32InPlace(ptr, (U32)size / 4);
+}
+
+static void IsleFromLE16(void *ptr, S32 size) {
+    FromLE16InPlace(ptr, (U32)size / 2);
+}
+
 /*──────────────────────────────────────────────────────────────────────────*/
 
 // MAX_OBJ_DECORS pour tous les cubes de toutes les iles
@@ -86,28 +99,34 @@ S32 InitExternalView() {
        decor bodies stay resident rather than evicting; pairs with the larger
        MAX_ISLE_OBJ_MEM. The block table is ~20 bytes/slot, so this is a few KB. */
     HQR_Isle_Obj = HQR_Init_Ressource("", IsleObjMem, 1024);
+    HQR_Set_Fixup(HQR_Isle_Obj, ObjectBodyFromLE);
     if (!HQR_Isle_Obj)
         TheEnd(NOT_ENOUGH_MEM, "HQR_Isle_Obj (3DExt)");
 
     HQR_CubeInfos = HQR_Init_Ressource("", CubeInfosMem, MAX_CUBES_PER_ISLE);
     if (!HQR_CubeInfos)
         TheEnd(NOT_ENOUGH_MEM, "HQR_CubeInfos (3DExt)");
+    HQR_Set_Fixup(HQR_CubeInfos, IsleFromLE32);
 
     HQR_ListDecors = HQR_Init_Ressource("", ListDecorsMem, MAX_CUBES_PER_ISLE);
     if (!HQR_ListDecors)
         TheEnd(NOT_ENOUGH_MEM, "HQR_ListDecors (3DExt)");
+    HQR_Set_Fixup(HQR_ListDecors, IsleFromLE32);
 
     HQR_MapPGround = HQR_Init_Ressource("", MapPGroundMem, 200 /*MAX_CUBES_PER_ISLE*/);
     if (!HQR_MapPGround)
         TheEnd(NOT_ENOUGH_MEM, "HQR_MapPGround (3DExt)");
+    HQR_Set_Fixup(HQR_MapPGround, IsleFromLE32);
 
     HQR_ListTexDef = HQR_Init_Ressource("", ListTexDefMem, MAX_CUBES_PER_ISLE);
     if (!HQR_ListTexDef)
         TheEnd(NOT_ENOUGH_MEM, "HQR_ListTexDef (3DExt)");
+    HQR_Set_Fixup(HQR_ListTexDef, IsleFromLE16);
 
     HQR_MapSommetY = HQR_Init_Ressource("", MapSommetYMem, MAX_CUBES_PER_ISLE);
     if (!HQR_MapSommetY)
         TheEnd(NOT_ENOUGH_MEM, "HQR_MapSommetY (3DExt)");
+    HQR_Set_Fixup(HQR_MapSommetY, IsleFromLE16);
 
     HQR_MapIntensity = HQR_Init_Ressource("", MapIntensityMem, MAX_CUBES_PER_ISLE);
     if (!HQR_MapIntensity)

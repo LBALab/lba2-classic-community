@@ -1,5 +1,6 @@
 
 #include <SVGA/SCALESPI.H>
+#include <SYSTEM/LE.H>
 
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
@@ -68,8 +69,7 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory, void *ptrbank)
         factory = 0x7FFFFFFF;
     }
 
-    U32 *bank = (U32 *)ptrbank;
-    U8 *spritePtr = (U8 *)ptrbank + bank[num];
+    U8 *spritePtr = (U8 *)ptrbank + ReadLE_U32((U8 *)ptrbank + num * 4); // offsets U32 LE
     Struc_Sprite *sprite = (Struc_Sprite *)spritePtr;
     U8 *srcBase = spritePtr + sizeof(Struc_Sprite);
     const S32 clipXMaxPlusOne = ClipXMax + 1;

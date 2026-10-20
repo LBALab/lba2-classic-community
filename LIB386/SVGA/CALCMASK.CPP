@@ -13,12 +13,13 @@
 */
 
 #include <SVGA/CALCMASK.H>
+#include <SYSTEM/LE.H>
 #include <stdio.h>
 #include <SYSTEM/DEBUG_TRACES.H>
 
 S32 CalcGraphMsk(S32 numbrick, U8 *bankbrick, U8 *ptmask) {
     LIB386_TRACE_CPP("CalcGraphMsk", "1", "num=%d bank=%p mask=%p", numbrick, (void *)bankbrick, (void *)ptmask);
-    U8 *srcData = bankbrick + *((U32 *)bankbrick + numbrick);
+    U8 *srcData = bankbrick + ReadLE_U32(bankbrick + numbrick * 4); // a sprite bank: offsets U32 LE
     U8 *dstData = ptmask;
     dstData[0] = srcData[0]; // Delta X
     dstData[1] = srcData[1]; // Delta Y

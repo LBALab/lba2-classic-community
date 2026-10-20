@@ -10,6 +10,9 @@ extern "C" {
 #endif
 
 //****************************************************************************
+// Converts a freshly loaded animation from little-endian to the CPU's order, in place
+extern void AnimFromLE(void *anim, S32 size);
+
 extern void ObjectInitAnim(T_OBJ_3D *obj, void *anim);
 
 #pragma aux ObjectInitAnim "*" parm caller[ebx][esi] modify exact[eax ecx edx esi edi]

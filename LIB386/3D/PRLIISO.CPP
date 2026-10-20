@@ -32,8 +32,10 @@ void ProjectListIso(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
 		   mov [vertex+4], edx
 		   Since TYPE_VT16 is packed as X,Y,Z,Grp, this intentionally overwrites
 		   both Z and Grp with the computed sort key. Keep the full-width write to
-		   preserve byte-for-byte behavior. */
-        memcpy(&v->Z, &sortZ, sizeof(sortZ));
+		   preserve byte-for-byte behavior. Written as its two halves, low half
+		   into Z, so a big-endian CPU gets the same fields as the x86 store. */
+        v->Z = (S16)(U16)((U32)sortZ & 0xFFFF);
+        v->Grp = (S16)(U16)((U32)sortZ >> 16);
 
         S32 newX = XCentre + (((x - z) * 3) >> 6);              // IsoScale
         S32 newY = YCentre + 1 + (((x + z) * 6 - y * 15) >> 8); // IsoScale

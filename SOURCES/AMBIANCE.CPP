@@ -469,6 +469,7 @@ void ChoicePalette(void) {
         GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
         if (!Load_HQR(tmpFilePath, PtrXplPalette, IdxPalette))
             TheEnd(ERROR_NOT_FOUND_FILE, tmpFilePath);
+        FromLE32InPlace(PtrXplPalette, sizeof(XPL_HEADER) / 4); // header: S32 LE
 
         LastIdxPalette = IdxPalette;
     }

@@ -243,16 +243,23 @@ static U32 BuildEnvMappedUv(const TYPE_VT32 *rotated, U16 scale) {
     return (U32)mapU | packedMapV;
 }
 
+// U in the low half, V in the high half, written field by field so the halves
+// land in the right fields on any byte order
+static inline void SetMapUv(Struc_Point *point, U32 uv) {
+    point->Pt_MapU = (U16)uv;
+    point->Pt_MapV = (U16)(uv >> 16);
+}
+
 static void SetEnvMappedTriangleUvs(Struc_Point *points, const STRUC_POLY3_ENV *poly) {
     const TYPE_VT16 *normals = (TYPE_VT16 *)((U8 *)lBody + lBody->OffNormales);
     TYPE_VT32 rotated;
 
     rotated = RotateEnvNormal(&normals[poly->P1]);
-    *(U32 *)&points[0].Pt_MapU = BuildEnvMappedUv(&rotated, poly->Scale);
+    SetMapUv(&points[0], BuildEnvMappedUv(&rotated, poly->Scale));
     rotated = RotateEnvNormal(&normals[poly->P2]);
-    *(U32 *)&points[1].Pt_MapU = BuildEnvMappedUv(&rotated, poly->Scale);
+    SetMapUv(&points[1], BuildEnvMappedUv(&rotated, poly->Scale));
     rotated = RotateEnvNormal(&normals[poly->P3]);
-    *(U32 *)&points[2].Pt_MapU = BuildEnvMappedUv(&rotated, poly->Scale);
+    SetMapUv(&points[2], BuildEnvMappedUv(&rotated, poly->Scale));
     X0 = rotated.X;
     Y0 = rotated.Y;
     Z0 = rotated.Z;
@@ -263,13 +270,13 @@ static void SetEnvMappedQuadUvs(Struc_Point *points, const STRUC_POLY4_ENV *poly
     TYPE_VT32 rotated;
 
     rotated = RotateEnvNormal(&normals[poly->P1]);
-    *(U32 *)&points[0].Pt_MapU = BuildEnvMappedUv(&rotated, poly->Scale);
+    SetMapUv(&points[0], BuildEnvMappedUv(&rotated, poly->Scale));
     rotated = RotateEnvNormal(&normals[poly->P2]);
-    *(U32 *)&points[1].Pt_MapU = BuildEnvMappedUv(&rotated, poly->Scale);
+    SetMapUv(&points[1], BuildEnvMappedUv(&rotated, poly->Scale));
     rotated = RotateEnvNormal(&normals[poly->P3]);
-    *(U32 *)&points[2].Pt_MapU = BuildEnvMappedUv(&rotated, poly->Scale);
+    SetMapUv(&points[2], BuildEnvMappedUv(&rotated, poly->Scale));
     rotated = RotateEnvNormal(&normals[poly->P4]);
-    *(U32 *)&points[3].Pt_MapU = BuildEnvMappedUv(&rotated, poly->Scale);
+    SetMapUv(&points[3], BuildEnvMappedUv(&rotated, poly->Scale));
     X0 = rotated.X;
     Y0 = rotated.Y;
     Z0 = rotated.Z;
@@ -1365,8 +1372,8 @@ S32 EntityCreation(T_BODY_HEADER *body) {
     // @@Loop_Polys:
     while (currentPoly != lines) {
         T_POLY_HEADER *header = (T_POLY_HEADER *)currentPoly;
-        U32 mask = 0;
-        memcpy(&mask, header, sizeof(U32));
+        // The quad and environment bits are bits 15 and 14 of TypePoly
+        U32 mask = header->TypePoly;
         U8 typePoly = header->TypePoly & 0xFF;
         currentPoly = (void *)((U8 *)currentPoly + sizeof(T_POLY_HEADER));
         bodyOffset += sizeof(T_POLY_HEADER);

@@ -13,6 +13,11 @@ extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
+// Called once on each entry HQR_Get loads, before it is returned, to convert
+// it in place (for example from little-endian to the CPU's byte order).
+typedef void(HQR_LOAD_FIXUP)(void *ptr, S32 size);
+
+//──────────────────────────────────────────────────────────────────────────
 #pragma pack(push, 4)
 
 //──────────────────────────────────────────────────────────────────────────
@@ -22,6 +27,7 @@ typedef struct {
     S32 MaxIndex;
     S32 NbIndex;
     void *Buffer;
+    HQR_LOAD_FIXUP *Fixup;
     char Name[ADELINE_MAX_PATH];
 } T_HQR_HEADER;
 
@@ -48,6 +54,9 @@ extern S32 HQR_Flag;
 extern T_HQR_HEADER *HQR_Init_Ressource(const char *hqrname,
                                         S32 maxsize,
                                         S32 maxrsrc);
+
+//──────────────────────────────────────────────────────────────────────────
+extern void HQR_Set_Fixup(T_HQR_HEADER *header, HQR_LOAD_FIXUP *fixup);
 
 //──────────────────────────────────────────────────────────────────────────
 #define HQR_Lock_Ressource(header)

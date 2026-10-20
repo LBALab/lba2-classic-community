@@ -127,8 +127,8 @@ S32 LoadUsedBrick() {
     U32 i, j, b;
     U8 *pt;
     U8 *ptb;
-    U8 *ptw; // a block's bricks: 4 bytes each after its 3-byte header, the brick number (U16 LE) last
-    U32 *ptoff;
+    U8 *ptw;   // a block's bricks: 4 bytes each after its 3-byte header, the brick number (U16 LE) last
+    U8 *ptoff; // the brick bank's offset table: U32 LE, like any sprite bank AffGraph draws
     U8 *ptdata;
     U32 offset;
     U32 maxbrk;
@@ -198,11 +198,12 @@ S32 LoadUsedBrick() {
 
     ptflag = tabflag + min;
 
-    ptoff = (U32 *)BufferBrick;
+    ptoff = BufferBrick;
 
     offset = (nbbrick + 1) * 4L;
 
-    *ptoff++ = offset; /* First Offset        */
+    WriteLE_U32(ptoff, offset); /* First Offset        */
+    ptoff += 4;
 
     ptdata = BufferBrick + offset; /* Jump nbbrick+1 Offset	*/
 
@@ -231,7 +232,8 @@ S32 LoadUsedBrick() {
             }
             ptdata += header.SizeFile;
             offset += header.SizeFile;
-            *ptoff++ = offset;
+            WriteLE_U32(ptoff, offset);
+            ptoff += 4;
         }
     }
 
@@ -557,7 +559,7 @@ U32 CreateMaskGph(U8 *ptsrc, U8 *ptdst) {
 
     ptoff = (U32 *)ptdst;
 
-    off = *(U32 *)ptsrc; /*	First Offset Src	*/
+    off = ReadLE_U32(ptsrc); /*	First Offset Src	*/
 
     *ptoff++ = off; /*	First Offset	*/
 
@@ -605,21 +607,25 @@ static U32 MaxResSize(const char *name, U32 first, U32 last) {
     U32 handle, offset, i;
     U32 biggest = 0;
     S32 tablesize = 0;
+    U8 raw[4];
 
     handle = OpenRead(name);
     if (!handle)
         return 0;
 
-    Read(handle, &tablesize, 4); //	le premier offset donne la taille de la table
+    Read(handle, raw, 4); //	le premier offset donne la taille de la table
+    tablesize = ReadLE_S32(raw);
 
     for (i = first; i < last && (S32)(i * 4) < tablesize; i++) {
         Seek(handle, i * 4, SEEK_FROM_START);
-        Read(handle, &offset, 4);
+        Read(handle, raw, 4);
+        offset = ReadLE_U32(raw);
         if (!offset)
             continue;
 
         Seek(handle, offset, SEEK_FROM_START);
         Read(handle, &header, sizeof(header));
+        HQR_HeaderFromLE(&header);
 
         if (header.SizeFile > biggest)
             biggest = header.SizeFile;
@@ -868,7 +874,7 @@ static S32 BrickInBank(S32 numbrick) {
     if (!BufferBrick)
         return FALSE;
 
-    packed = (S32)((*(U32 *)BufferBrick) / 4) - 1;
+    packed = (S32)(ReadLE_U32(BufferBrick) / 4) - 1;
 
     return numbrick >= 1 && numbrick <= packed;
 }

@@ -2,6 +2,8 @@
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
+#include <string.h>
+
 /* Little-endian data access.
 
    Game data on disk (HQR entries, scenes, scripts, saves) is little-endian and
@@ -51,4 +53,38 @@ static inline void WriteLE_U32(void *ptr, U32 value) {
 
 static inline void WriteLE_S32(void *ptr, S32 value) {
     WriteLE_U32(ptr, (U32)value);
+}
+
+/* Converting a whole resource once, at load.
+
+   The renderer and the animation code read bodies, animations and similar
+   tables through typed pointers in their inner loops. Rather than change every
+   such read, a loader converts the resource in place right after loading it,
+   from little-endian to the CPU's order. On a little-endian CPU there is
+   nothing to do, and these compile to nothing. */
+
+#if defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define LBA_BIG_ENDIAN 1
+#else
+#define LBA_BIG_ENDIAN 0
+#endif
+
+static inline void FromLE16InPlace(void *ptr, U32 count) {
+    if (LBA_BIG_ENDIAN) {
+        U8 *b = (U8 *)ptr;
+        for (U32 i = 0; i < count; i++, b += 2) {
+            const U16 v = ReadLE_U16(b);
+            memcpy(b, &v, 2);
+        }
+    }
+}
+
+static inline void FromLE32InPlace(void *ptr, U32 count) {
+    if (LBA_BIG_ENDIAN) {
+        U8 *b = (U8 *)ptr;
+        for (U32 i = 0; i < count; i++, b += 4) {
+            const U32 v = ReadLE_U32(b);
+            memcpy(b, &v, 4);
+        }
+    }
 }

@@ -446,6 +446,7 @@ void InitHoloPlan() {
     Image_LoadCentered(tmpFilePath, Log, id);
 
     Load_HQR(tmpFilePath, buffer, id + 1);
+    FromLE32InPlace(buffer, 9); // the camera record: nine S32, little-endian
 
     // Anchor UI to the *image* rect, not the framebuffer rect. The corner
     // brackets sit on the image corners; the 3D projection used for arrows
@@ -482,10 +483,10 @@ void InitHoloPlan() {
     orgmx = (orgmx * SCE) + offx;
     orgmz = (orgmz * SCE) + offz;
 
-    BufFleche = (U8 *)LoadHoloMalloc_HQR(tmpFilePath, HQR_FLECHE);
-    BufLoFleche = (U8 *)LoadHoloMalloc_HQR(tmpFilePath, HQR_LOFLECHE);
-    BufBuggy = (U8 *)LoadHoloMalloc_HQR(tmpFilePath, HQR_BUGGY);
-    BufDyno = (U8 *)LoadHoloMalloc_HQR(tmpFilePath, HQR_DYNO);
+    BufFleche = LoadHoloBody_HQR(tmpFilePath, HQR_FLECHE);
+    BufLoFleche = LoadHoloBody_HQR(tmpFilePath, HQR_LOFLECHE);
+    BufBuggy = LoadHoloBody_HQR(tmpFilePath, HQR_BUGGY);
+    BufDyno = LoadHoloBody_HQR(tmpFilePath, HQR_DYNO);
 
     ScaleRotBody3D(BufFleche, ArrowFactorScale[ZoomedIsland], FALSE);
     ScaleRotBody3D(BufLoFleche, ArrowFactorScale[ZoomedIsland], FALSE);

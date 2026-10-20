@@ -15,6 +15,9 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD.H>
+#include <SYSTEM/LE.H>
+
+#include <stddef.h>
 #include "AMBIANCE.H"
 
 /* The on-disk record layout (S_CRED_OBJ_2_DISK), the size assertions, and
@@ -125,7 +128,6 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
     S32 distance;
     T_SORT *ptrtri;
 
-    S_CRED_INFOS_2 *ptrinfos;
     S_CRED_OBJ_2 *ptrcrdobj;
     S_CRED_OBJ_2 *ptrobj;
 
@@ -151,7 +153,6 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
     }
 
     ptr = PtrCredits;
-    ptrinfos = (S_CRED_INFOS_2 *)ptr;
 
     /* Hand the loaded blob to the pure parser. Nothing on the parse path
      * touches game globals, so it is host-testable in isolation —
@@ -173,6 +174,40 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
             s_cred_objects[i].OffAnim[1] = parsed[i].OffAnim[1];
         }
         ptrcrdobj = s_cred_objects;
+
+        /* The blob is little-endian. Convert what the renderer and the
+           animation code read through typed pointers once, here: the palette
+           header and each distinct embedded body and animation. Nothing to do
+           on a little-endian CPU. */
+        if (LBA_BIG_ENDIAN) {
+            const S32 offXpl = ReadLE_S32(PtrCredits + offsetof(S_CRED_INFOS_2, OffXpl));
+            if (offXpl > 0 && offXpl + (S32)sizeof(XPL_HEADER) <= blob_size)
+                FromLE32InPlace(PtrCredits + offXpl, sizeof(XPL_HEADER) / 4);
+            S32 done[CRED_MAX_OBJECTS * 3];
+            S32 nbdone = 0;
+            for (S32 i = 0; i < NbObjects; i++) {
+                const S32 offs[3] = {parsed[i].OffBody, parsed[i].OffAnim[0], parsed[i].OffAnim[1]};
+                for (S32 k = 0; k < 3; k++) {
+                    const S32 off = offs[k];
+                    S32 seen = 0;
+                    for (S32 d = 0; d < nbdone; d++)
+                        seen |= (done[d] == off);
+                    if (seen || off <= 0 || off + 8 > blob_size)
+                        continue;
+                    done[nbdone++] = off;
+                    if (k == 0) {
+                        ObjectBodyFromLE(PtrCredits + off, blob_size - off);
+                    } else {
+                        // 8-byte header (frames, groups), then frames of (groups + 1) * 8 bytes
+                        const S32 frames = ReadLE_U16(PtrCredits + off);
+                        const S32 groups = ReadLE_U16(PtrCredits + off + 2);
+                        const S32 size = 8 + frames * (groups + 1) * 8;
+                        if (size <= blob_size - off)
+                            AnimFromLE(PtrCredits + off, size);
+                    }
+                }
+            }
+        }
     }
 
     InitObjects(BufferAnim, SIZE_BUFFER_ANIM, NULL, NULL);
@@ -185,7 +220,7 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
 */
     LastIdxPalette = -1;
 
-    InitXplPalette(PtrCredits + ptrinfos->OffXpl);
+    InitXplPalette(PtrCredits + ReadLE_S32(PtrCredits + offsetof(S_CRED_INFOS_2, OffXpl)));
     //	Palette( PalCredits ) ;
     if (PtrPal)
         FadeToBlackAndSamples(PtrPal);
@@ -306,7 +341,7 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
 */
     //	BoxReset();
 
-    ptr = ptrl = ptrlist = PtrCredits + ptrinfos->OffTxt;
+    ptr = ptrl = ptrlist = PtrCredits + ReadLE_S32(PtrCredits + offsetof(S_CRED_INFOS_2, OffTxt));
 
     nbl = ((y1 - y0) + 1) / FontHeight;
 
