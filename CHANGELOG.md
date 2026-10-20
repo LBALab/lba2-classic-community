@@ -89,6 +89,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   used to be drawn past the box's right edge, or off screen for the longest
   automatic names
   ([#779](https://github.com/LBALab/lba2-classic-community/issues/779)).
+- On a touch screen, tapping a menu no longer draws the mouse pointer where
+  the finger lands. Taps still select and confirm as before, and a mouse
+  brings the pointer back. Using a mouse after touching the screen also hides
+  the on-screen touch buttons, as a keyboard or controller already did.
 
 ### Music
 

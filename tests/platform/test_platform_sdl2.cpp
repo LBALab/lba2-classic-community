@@ -384,6 +384,9 @@ static void test_translated_event_union_bytes() {
                 expected.motion.y = source.motion.y;
                 expected.motion.xrel = source.motion.xrel;
                 expected.motion.yrel = source.motion.yrel;
+                // Alternate a finger-made event with a real mouse one.
+                source.motion.which = (round & 1) ? SDL_TOUCH_MOUSEID : 1;
+                expected.motion.touch = (round & 1) != 0;
             } else if (source.type == SDL_MOUSEBUTTONDOWN || source.type == SDL_MOUSEBUTTONUP) {
                 source.button.button = SDL_BUTTON_RIGHT;
                 source.button.x = round;
@@ -391,6 +394,8 @@ static void test_translated_event_union_bytes() {
                 expected.button.button = PLATFORM_BUTTON_RIGHT;
                 expected.button.x = source.button.x;
                 expected.button.y = source.button.y;
+                source.button.which = (round & 1) ? SDL_TOUCH_MOUSEID : 1;
+                expected.button.touch = (round & 1) != 0;
             } else if (source.type == SDL_MOUSEWHEEL) {
                 source.wheel.preciseY = (float)round / 4;
                 expected.wheel.y = source.wheel.preciseY;
