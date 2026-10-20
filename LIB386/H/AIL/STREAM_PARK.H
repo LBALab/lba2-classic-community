@@ -26,31 +26,9 @@ typedef enum {
 } StreamResumeAction;
 
 /* PauseStream: park + pause only a live stream that is not already logically paused
-   (pausing an already-paused stream would overwrite its parked position) and still
-   has audio left to play. A track that has played out but was never detached (no
-   one polled IsStreamPlaying) must not be parked: resuming it would replay its tail,
-   or worse, while retail's PauseCD saves nothing for a stopped track. */
-static inline int Stream_ShouldPark(int hasStream, int streamPaused, int hasAudioLeft) {
-    return hasStream && !streamPaused && hasAudioLeft;
-}
-
-/* Playback position in source frames, counted from the start of the track.
- *   baseFrame     - the frame the stream was opened at (non-zero after a seeked restore)
- *   pushedBytes   - source bytes handed to the stream since it was opened
- *   queuedBytes   - source bytes still waiting to be consumed
- *   bytesPerFrame - source frame size; 0 means no stream geometry
- * Without baseFrame, a stream restored at frame P would report P frames too few,
- * and the next pause/resume would jump back into the middle of the track. */
-static inline int Stream_PositionFrames(int baseFrame, int pushedBytes, int queuedBytes,
-                                        int bytesPerFrame) {
-    if (bytesPerFrame <= 0)
-        return 0;
-    int consumed = pushedBytes - queuedBytes;
-    if (consumed < 0)
-        consumed = 0;
-    if (baseFrame < 0)
-        baseFrame = 0;
-    return baseFrame + consumed / bytesPerFrame;
+   (pausing an already-paused stream would overwrite its parked position). */
+static inline int Stream_ShouldPark(int hasStream, int streamPaused) {
+    return hasStream && !streamPaused;
 }
 
 /* ResumeStream: choose fast-unpause vs restore-from-park vs nothing.

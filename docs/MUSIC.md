@@ -222,10 +222,15 @@ is SDL and library territory). Three targets under `tests/music/`:
   to park, and the parked position after a restore.
 - **`test_music_stream_resume.cpp`** compiles the real SDL `STREAM.CPP` against a
   fake audio device (the `AILAudio_*` seam) with a virtual clock: the device plays
-  only when the test advances it, and any `*.wav` name loads as silent PCM of a
-  known length. Covers where a stream resumes after menu round trips (one, two,
-  after the track has ended) and the dialogue fast-unpause. WAV only; the OGG
-  paths share the bookkeeping but no test runs them.
+  only when the test advances it. Covers where a stream resumes after menu round
+  trips (one, two, after the track has ended) and the dialogue fast-unpause, on
+  three source setups, one per reopen path: WAV (faked as silent PCM of a known
+  length), an OGG track with a WAV menu theme (the decoded-PCM cache hit), and both
+  OGG as in the Steam and GOG Classic releases (the menu theme evicts the track, so
+  the restore re-decodes from a `stb_vorbis` seek on the decode thread). The OGG is
+  `tests/music/fixtures/silence-10s.ogg`, decoded for real. A decoder seek lands on
+  the start of a Vorbis frame, a few ms before the parked frame; the test allows
+  50 ms there.
 
 Why a mock rather than the real backend: the runtime control harness (`--exec`,
 `--tick`) cannot reproduce music-state bugs, because its headless audio never

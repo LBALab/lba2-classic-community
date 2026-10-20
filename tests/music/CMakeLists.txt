@@ -62,7 +62,9 @@ register_host_test(test_cd_track_path)
 
 # Where the SDL music stream resumes after a pause: the real STREAM.CPP against a
 # fake audio device (the AILAudio_* seam) with a virtual clock. Needs SDL for its
-# types and SDL_Log, but never opens a device or reads a game asset.
+# types, SDL_Log and the OGG decode thread, but never opens a device or reads a
+# game asset. fixtures/silence-10s.ogg is 10 s of silence, 44.1 kHz stereo, made with
+# ffmpeg -f lavfi -i anullsrc=r=44100:cl=stereo -t 10 -c:a vorbis -strict -2.
 if(PLATFORM_BACKEND MATCHES "^sdl[23]$")
     add_executable(test_music_stream_resume test_music_stream_resume.cpp
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/STREAM.CPP
@@ -76,7 +78,9 @@ if(PLATFORM_BACKEND MATCHES "^sdl[23]$")
         ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP)
     target_include_directories(test_music_stream_resume PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
     target_link_libraries(test_music_stream_resume PRIVATE ${LBA2_SDL_TARGET})
-    target_compile_definitions(test_music_stream_resume PRIVATE LBA_LOG_NO_PLATFORM)
+    target_compile_definitions(test_music_stream_resume PRIVATE LBA_LOG_NO_PLATFORM
+        TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}"
+        TEST_FIXTURE_OGG="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/silence-10s.ogg")
     if(PLATFORM_BACKEND STREQUAL "sdl2")
         target_compile_definitions(test_music_stream_resume PRIVATE LBA2_USE_SDL2=1)
     endif()
