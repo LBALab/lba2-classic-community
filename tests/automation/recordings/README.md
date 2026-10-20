@@ -21,8 +21,34 @@ holding both directions runs the same branch either way and says nothing until t
 session presses one on its own. A combination without its control pins the one session
 where the rule under test happens not to matter.
 
-Regenerate only for a deliberate format change, and never to make a failing replay pass:
-a baseline re-recorded against the build it is meant to be judging has stopped being one.
+Regenerate only for a deliberate format change or a deliberate change to play, and never
+to make a failing replay pass: a baseline re-recorded against the build it is meant to be
+judging has stopped being one. A change to play earns a new file only once the divergence
+is traced to that change, by showing the replay goes clean with the change backed out.
+Regenerate only the file that diverged; the new one should fail with the change backed
+out, at the tick the old one did.
+
+`combo-set.rec` is format 17, recorded after the terrain slide fix of
+[#745](https://github.com/LBALab/lba2-classic-community/issues/745): the session walks
+into a slanted ground edge at tick 219, where Twinsen now slides instead of stopping.
+`combo-controls.rec` reaches the edge once without the slide moving anything the digest
+covers, and is the original format 12 file.
+
+**Remaking one.** A recording carries the commands that drove it, so the session can be
+run again exactly: list them with `scripts/dev/dump_recording.py <file>` (the `cmd @tick`
+lines) and pass them back with `--record`, joining the commands of one tick with `; `,
+since a run takes at most 16 `--exec-at`:
+
+```bash
+lba2cc --headless --no-autosave --user-dir "$(mktemp -d)" --fixed-dt 16 \
+    --load "tests/savegame/corpus/saves/steam_classic_2023/Wannies fragment.LBA" \
+    --record combo-set.rec --exec "skipmodals 1" \
+    --exec-at 20 "key 80 60; key 79 60" ... --tick 660 --exit
+```
+
+Record on x86-64 Linux, as every file here was. Before committing, remake the old file
+the same way with the change backed out and compare the two: the same commands, clock
+readings and keyframes on every tick show the method reproduced the session.
 
 ## The menu file
 
