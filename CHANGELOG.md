@@ -77,6 +77,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   working could not be fixed there
   ([#770](https://github.com/LBALab/lba2-classic-community/pull/770)).
 
+### Music
+
+- Coming back from the main menu after a scene's music has finished leaves the
+  music silent, as the 1997 game does, instead of starting the last track again
+  partway through. Opening the menu more than once during a track also resumes
+  it where it was, instead of jumping back
+  ([#427](https://github.com/LBALab/lba2-classic-community/issues/427)).
+
 ### Stability
 
 - Opening the inventory with the conch empty, or down to its last charge, no
@@ -106,6 +114,9 @@ Thanks to EPmager for reporting the black bricks, and for a screenshot from the
 current build that showed where to look. Thanks to EPmager as well for
 reporting that a direction held through a found-item popup left Twinsen stuck
 ([#747](https://github.com/LBALab/lba2-classic-community/issues/747)).
+Thanks to EPmager for reporting that the main menu restarted finished music
+partway through
+([#427](https://github.com/LBALab/lba2-classic-community/issues/427)).
 
 ## [0.13.0] - 2026-10-18
 

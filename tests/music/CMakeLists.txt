@@ -59,3 +59,28 @@ add_executable(test_cd_track_path test_cd_track_path.cpp)
 set_target_properties(test_cd_track_path PROPERTIES CXX_STANDARD 11)
 add_test(NAME test_cd_track_path COMMAND test_cd_track_path)
 register_host_test(test_cd_track_path)
+
+# Where the SDL music stream resumes after a pause: the real STREAM.CPP against a
+# fake audio device (the AILAudio_* seam) with a virtual clock. Needs SDL for its
+# types and SDL_Log, but never opens a device or reads a game asset.
+if(PLATFORM_BACKEND MATCHES "^sdl[23]$")
+    add_executable(test_music_stream_resume test_music_stream_resume.cpp
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/STREAM.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/stb_vorbis.c
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CDDA.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CDTRACKS.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CUE.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DISCIMG.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ISO9660.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/FILES.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP)
+    target_include_directories(test_music_stream_resume PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
+    target_link_libraries(test_music_stream_resume PRIVATE ${LBA2_SDL_TARGET})
+    target_compile_definitions(test_music_stream_resume PRIVATE LBA_LOG_NO_PLATFORM)
+    if(PLATFORM_BACKEND STREQUAL "sdl2")
+        target_compile_definitions(test_music_stream_resume PRIVATE LBA2_USE_SDL2=1)
+    endif()
+    set_target_properties(test_music_stream_resume PROPERTIES CXX_STANDARD 11)
+    add_test(NAME test_music_stream_resume COMMAND test_music_stream_resume)
+    register_host_test(test_music_stream_resume)
+endif()
