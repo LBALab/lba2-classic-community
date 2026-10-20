@@ -338,6 +338,15 @@ rendered per eye. That is less exact but still avoids the image copy.
 
 Expected effect: 1.5--3 ms/frame in scenes where horizon is 4--6 ms/frame.
 
+Status: implemented and compile-verified against the Quest preset; committed
+as the Phase 5 change, with the headset check deferred to the morning.  Eye 0
+fills a per-neighbor cache of rotated camera-space points; eye 1 reuses them
+but still projects, clips, culls and sorts per eye.  The only translation is
+the existing per-eye `CameraXr`/`CameraYr` and `StereoProjShiftX`, so no
+screen-space copy returns.  The cache is rejected when the pair token, world
+matrix, `BetaCam` orientation, current cube or projection type changes.
+`TerrainSplit2` now includes the eye number for direct eye-0/eye-1 comparison.
+
 ## Phase 6: submission-side cleanup
 
 - Skip the redundant `glBindFramebuffer` on every flush. Bind only when the

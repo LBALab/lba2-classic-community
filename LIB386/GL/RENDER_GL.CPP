@@ -1365,6 +1365,7 @@ static GLuint s_stereoEyeTex[2] = {0, 0};
 static U32 s_stereoEyeWidth = 0;
 static U32 s_stereoEyeHeight = 0;
 static S32 s_stereoEye = -1; /* -1 = mono, 0/1 = capturing that eye */
+static U32 s_stereoFrameSeq = 0; /* increments when a stereo pair starts */
 /* Set when eye 0's composite has been captured for the current frame and
  * not yet consumed by the OpenXR submit; cleared by any mono present so
  * menu/movie frames (no per-eye render) submit the mono layer instead of
@@ -1628,6 +1629,7 @@ void GL_SetStereoEye(S32 eye) {
     if (eye == 0) {
         /* Stereo eye passes are full redraws and skip GL_SnapshotTerrain.
          * Drop a snapshot left over from mono before the target switch. */
+        s_stereoFrameSeq++;
         GL_DestroySnapshot();
         S32 wantDoubleWide = GL_StereoDoubleWideAllowed();
         if (wantDoubleWide != s_stereoDoubleWide)
@@ -1658,6 +1660,10 @@ void GL_SetStereoEye(S32 eye) {
 
 S32 GL_GetStereoEye(void) {
     return s_stereoEye;
+}
+
+U32 GL_GetStereoFrameSeq(void) {
+    return s_stereoFrameSeq;
 }
 
 S32 GL_StereoOverlayReusable(void) {

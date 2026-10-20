@@ -675,3 +675,40 @@ change on dynamic frames.  Morning verification should include subtitles,
 counter text, the medallion chain, world sprite disparity, and the F6 FPS
 counter.  `ovlReuse` near 0.5 means the static path is active; a value near
 zero means the scene kept moving boxes and the fallback is doing the work.
+
+## Phase 5 report: horizon vertex reuse (2026-10-20)
+
+Status: implemented and compile-verified against the Quest preset. Device
+verification is deferred to the morning.
+
+### Changes
+
+- The double-wide path still does not restore the old image-space horizon
+  copy.  Instead, `DrawHorizon2ZBuf` fills a per-neighbor-slot cache with eye
+  0's rotated camera-space points for the 65x65 terrain grid.
+- Eye 1 reads those points, then runs its own projection, near-plane clip,
+  frustum flags, tile culling and sort.  The lateral eye shift is applied by
+  the existing `CameraXr`/`CameraYr` and `StereoProjShiftX` state inside
+  `LongProjectPoint`, so no point translation is added to the cache.
+- The cache is accepted only within one `GL_GetStereoFrameSeq()` pair, with
+  the same world matrix (`CameraAlpha/Beta/Gamma`), the same `BetaCam`
+  neighbor orientation, the same current cube, and the same projection type.
+  Any mismatch falls back to the original rotation path.
+- `TerrainSplit2` now logs the stereo eye alongside `obj` and `rot`, so the
+  morning run can compare eye 0 and eye 1 rotation cost directly.
+
+### Correctness notes
+
+The cache holds the rotated point, not a screen-space image and not an eye-0
+projection.  Depth, near clipping, fog, tile sorting and per-eye culling are
+still recomputed for eye 1, so a vertex just outside the left eye is still
+considered for the right eye.  Decor objects and the sea placeholder remain
+per-eye.  If the runtime supplies slightly different per-eye view
+orientations, the angle check disables reuse rather than showing a stale
+horizon.
+
+Expected effect: removes one 34k-vertex world-matrix rotation pass from the
+right eye, leaving the projection and tile work.  The measured `rot` field
+should drop on eye 1 while eye 0 stays unchanged.  Morning checks: Iceland
+horizon and terrain seams, near/far stereo disparity, head rotation, and the
+transition back to mono.

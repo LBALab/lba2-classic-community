@@ -212,6 +212,10 @@ S32 GL_GetStereoEye(void);
 //! eye 0 drew only static HUD content.
 S32 GL_StereoOverlayReusable(void);
 
+//! Monotonic token for the current stereo pair, incremented when eye 0
+//! starts.  Per-pair caches use it to reject data left by an earlier frame.
+U32 GL_GetStereoFrameSeq(void);
+
 //! Returns 1 if a fresh left+right eye capture pair is available for this
 //! frame and consumes the flag. PresentMono uses it to decide between the
 //! stereo layer and the mono full-image copy.

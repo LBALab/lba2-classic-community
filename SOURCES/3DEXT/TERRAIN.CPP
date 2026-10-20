@@ -958,6 +958,28 @@ extern S32 PtrProjectPoint(S32 xw, S32 yw, S32 zw);
  * frame (cube not streamed in yet): the backdrop is still changing. */
 static S32 s_hznSeaDrew = 0;
 
+#ifdef USE_GPURENDERER
+/* Eye 0 rotates each horizon cube's 65x65 vertex grid into camera space for
+ * projection.  Eye 1 only differs by the camera-space eye shift, which
+ * LongProjectPoint applies through CameraXr/CameraYr, so the rotated points
+ * are reused and only the per-eye projection and clipping run again.  Slots
+ * are keyed by the 3x3 neighbor offset; the pair token rejects stale data. */
+#define HZN_CACHE_SLOTS 9
+#define HZN_CACHE_VERTS ((NB_COTE + 1) * (NB_COTE + 1))
+static S32 s_hznRotX[HZN_CACHE_SLOTS][HZN_CACHE_VERTS];
+static S32 s_hznRotY[HZN_CACHE_SLOTS][HZN_CACHE_VERTS];
+static S32 s_hznRotZ[HZN_CACHE_SLOTS][HZN_CACHE_VERTS];
+static U8 s_hznRotValid[HZN_CACHE_SLOTS];
+static S32 s_hznRotSlot = -1;
+static S32 s_hznRotEye = -1;
+static U32 s_hznRotSeq = 0;
+static S32 s_hznRotAlpha = 0, s_hznRotBeta = 0, s_hznRotGamma = 0;
+static S32 s_hznRotBetaCam = 0;
+static S32 s_hznRotCubeX = 0, s_hznRotCubeY = 0;
+static S32 s_hznRotTypeProj = 0;
+static S32 s_hznCacheActive = 0;
+#endif
+
 /* Conservative whole-cube frustum reject for the horizon backdrop.  The
  * camera sits inside the neighbour-cube grid, so cubes regularly fall
  * entirely outside the view cone and their 65x65 vertex transform is pure
@@ -1014,6 +1036,35 @@ void DrawHorizon2ZBuf() {
     S32 cz = CameraZ;
     s_hznSeaDrew = 0;
 
+#ifdef USE_GPURENDERER
+    S32 hzEye = GL_GetStereoEye();
+    s_hznRotSlot = -1;
+    s_hznCacheActive = 0;
+    if (GPURendererActive && hzEye == 0) {
+        memset(s_hznRotValid, 0, sizeof(s_hznRotValid));
+        s_hznRotAlpha = CameraAlpha;
+        s_hznRotBeta = CameraBeta;
+        s_hznRotGamma = CameraGamma;
+        s_hznRotBetaCam = BetaCam;
+        s_hznRotCubeX = CurrentCubeX;
+        s_hznRotCubeY = CurrentCubeY;
+        s_hznRotTypeProj = TypeProj;
+        s_hznRotSeq = GL_GetStereoFrameSeq();
+        s_hznRotEye = 0;
+        s_hznCacheActive = 1;
+    } else if (GPURendererActive && hzEye == 1 && s_hznRotEye == 0 &&
+               s_hznRotSeq == GL_GetStereoFrameSeq() &&
+               s_hznRotAlpha == CameraAlpha && s_hznRotBeta == CameraBeta &&
+               s_hznRotGamma == CameraGamma && s_hznRotBetaCam == BetaCam &&
+               s_hznRotCubeX == CurrentCubeX &&
+               s_hznRotCubeY == CurrentCubeY &&
+               s_hznRotTypeProj == TypeProj) {
+        s_hznCacheActive = 1;
+    } else {
+        s_hznRotEye = -1;
+    }
+#endif
+
     if (BetaCam >= 0 AND BetaCam < 1024) {
         TerrainTri = TerrSO;
     } else if (BetaCam >= 1024 AND BetaCam < 2048) {
@@ -1063,6 +1114,10 @@ void DrawHorizon2ZBuf() {
 #endif
                     if (LoadCube(x, y)) {
                         if (!HorizonCubeOffscreen()) {
+#ifdef USE_GPURENDERER
+                            s_hznRotSlot =
+                                (TerrainTri->x + 1) * 3 + (TerrainTri->y + 1);
+#endif
                             AffichageTerrainZBuf();
                         }
                         flag = TRUE;
@@ -1085,6 +1140,14 @@ void DrawHorizon2ZBuf() {
             s_hznSeaDrew = 1;
         }
     }
+
+#ifdef USE_GPURENDERER
+    s_hznCacheActive = 0;
+    s_hznRotSlot = -1;
+    if (hzEye != 0) {
+        s_hznRotEye = -1;
+    }
+#endif
 }
 
 /* 1 when the last DrawHorizon2ZBuf rendered terrain for every candidate
@@ -1142,18 +1205,40 @@ void AffichageTerrainZBuf(void) {
     ptrs = &SommetRot[0][0];
 
     S32 rotIdx = 0;
+    S32 hzEyeLog = -1;
+#ifdef USE_GPURENDERER
+    hzEyeLog = GL_GetStereoEye();
+    S32 hzCacheSlot = s_hznRotSlot;
+    S32 hzUseCache = s_hznCacheActive && GL_GetStereoEye() == 1 &&
+                     hzCacheSlot >= 0 && hzCacheSlot < HZN_CACHE_SLOTS &&
+                     s_hznRotValid[hzCacheSlot];
+    S32 hzStoreCache = s_hznCacheActive && GL_GetStereoEye() == 0 &&
+                       hzCacheSlot >= 0 && hzCacheSlot < HZN_CACHE_SLOTS;
+#endif
     for (S32 z = 0; z <= NB_COTE * 512; z += 512) {
         for (S32 x = 0; x <= NB_COTE * 512; x += 512) {
             S32 zr;
 
-            LongWorldRotatePoint(x, *ptrm, z);
-
 #ifdef USE_GPURENDERER
+            if (hzUseCache) {
+                X0 = s_hznRotX[hzCacheSlot][rotIdx];
+                Y0 = s_hznRotY[hzCacheSlot][rotIdx];
+                Z0 = s_hznRotZ[hzCacheSlot][rotIdx];
+            } else {
+                LongWorldRotatePoint(x, *ptrm, z);
+                if (hzStoreCache) {
+                    s_hznRotX[hzCacheSlot][rotIdx] = X0;
+                    s_hznRotY[hzCacheSlot][rotIdx] = Y0;
+                    s_hznRotZ[hzCacheSlot][rotIdx] = Z0;
+                }
+            }
             /* Camera-space position kept for the near-plane tile clip. */
             s_nearClipRX[rotIdx] = X0;
             s_nearClipRY[rotIdx] = Y0;
             s_nearClipRZ[rotIdx] = Z0;
             rotIdx++;
+#else
+            LongWorldRotatePoint(x, *ptrm, z);
 #endif
 
             zr = CameraZr - Z0;
@@ -1194,6 +1279,12 @@ void AffichageTerrainZBuf(void) {
         }
     }
 
+#ifdef USE_GPURENDERER
+    if (hzStoreCache) {
+        s_hznRotValid[hzCacheSlot] = 1;
+    }
+#endif
+
     PtrMap = GroundTexture;
     RepMask = 0xFFFF;
 
@@ -1201,7 +1292,7 @@ void AffichageTerrainZBuf(void) {
         U32 tRot2 = SDL_GetTicks();
         static S32 s_rotLog = 0;
         if (s_rotLog < 40) {
-            Log_Info("TerrainSplit2: obj=%dms rot=%dms",
+            Log_Info("TerrainSplit2: eye=%d obj=%dms rot=%dms", hzEyeLog,
                      (S32)(tRot1 - tRot0), (S32)(tRot2 - tRot1));
             s_rotLog++;
         }
