@@ -195,7 +195,7 @@ When `MenuMouse` is enabled (`FlagMenuMouse`, default on), the game shows the so
 
 **When the sprite appears:** On first `MenuMouseAcquire`, the engine calls `ShowMouseAfterFirstMotion()` — the sprite stays off until the first `SDL_EVENT_MOUSE_MOTION` (keyboard-only menu use stays pointer-free). After it is shown, `MouseSpriteShouldDraw()` in [LIB386/SYSTEM/MOUSE.CPP](../LIB386/SYSTEM/MOUSE.CPP) hides the software sprite again after 3 seconds without mouse motion, buttons, or wheel; any of those refreshes the timer and shows the sprite. The internal `LIB386/MENU` file dialogs call `ShowMouse(true)` and get an immediate pointer and the same idle-hide behaviour.
 
-**Logo screens** (`AdelineLogo`, `ShowLogo`): no menu pointer; left click still skips the wait (`Click` from SDL). **Name entry / “dialog” caret:** `CursorActif` and `DrawCursor()` in [SOURCES/GAMEMENU.CPP](../SOURCES/GAMEMENU.CPP) (`DrawOneString`) draw a blinking text caret from `HQR_Get(HQRPtrSprite, 9)` — that is not the mouse pointer; it only indicates the typing position when editing the save name.
+**Logo screens** (`AdelineLogo`, `ShowLogo`): no menu pointer; left click still skips the wait (`Click` from SDL). **Name entry / “dialog” caret:** `CursorActif` and `DrawCursor()` in [SOURCES/GAMEMENU.CPP](../SOURCES/GAMEMENU.CPP) (`DrawOneString`) draw a blinking text caret from `HQR_Get(HQRPtrSprite, 9)` — that is not the mouse pointer; it only indicates the typing position when editing the save name. While editing, a name too wide for the box is drawn with its end at the box's right edge and the caret after it; elsewhere a selected long name scrolls back and forth.
 
 Set `MenuMouse: 0` in `lba2.cfg` for keyboard/joystick-only menus.
 
