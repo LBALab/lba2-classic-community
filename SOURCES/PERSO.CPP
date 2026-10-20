@@ -1051,6 +1051,7 @@ restartloop:
     startloop:
 
         Perftrace_FrameBegin();
+        Perftrace_PhaseBegin(PERFTRACE_PHASE_SIMULATION);
 
         if (CmptFrame < 5) Log_Info("MainLoop: frame %d, NewCube=%d", CmptFrame, NewCube);
 
@@ -2550,9 +2551,12 @@ restartloop:
         /* affiche tout */
 
     skip_simulation:
+        Perftrace_PhaseEnd(PERFTRACE_PHASE_SIMULATION);
         OpenXR_PollEvents();
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SCENE);
+        Perftrace_PhaseBegin(PERFTRACE_PHASE_OPENXR);
         OpenXR_BeginFrame();
+        Perftrace_PhaseEnd(PERFTRACE_PHASE_OPENXR);
         if (CmptFrame < 5) Log_Info("MainLoop: calling AffScene FirstTime=%d", FirstTime);
         /* AffScene presents the frame itself: its BoxBlit funnels through
          * PresentFrame -> GL_Present -> Window_GL_SwapWindow, which on the
@@ -2781,7 +2785,13 @@ restartloop:
                 }
                 if (eye == 1)
                     stereoT1 = SDL_GetTicks();
-                AffScene(AFF_ALL_FLIP);
+                {
+                    S32 eyePhase = (eye == 0) ? PERFTRACE_PHASE_EYE0
+                                              : PERFTRACE_PHASE_EYE1;
+                    Perftrace_PhaseBegin(eyePhase);
+                    AffScene(AFF_ALL_FLIP);
+                    Perftrace_PhaseEnd(eyePhase);
+                }
             }
             U32 stereoT2 = SDL_GetTicks();
             LFactorX = gameLFactorX;
@@ -2809,6 +2819,12 @@ restartloop:
         } else
 #endif
         {
+            /* Mono frames still call this after stereo was switched off so
+             * the double-wide target is released before the scene draws into
+             * what it expects to be a single-wide FBO. */
+#ifdef USE_GPURENDERER
+            GL_SetStereoEye(-1);
+#endif
             AffScene(FirstTime);
         }
         Perftrace_PhaseEnd(PERFTRACE_PHASE_SCENE);
@@ -2925,6 +2941,7 @@ void ReadConfigFile(void) {
     if (FpsLimit < 0)
         FpsLimit = 0;
     Window_SetFrameLimit(FpsLimit);
+    Log_Info("[Perf] FpsLimit=%d", FpsLimit);
 
     DetailLevel = DefFileBufferReadValueDefault("DetailLevel", MAX_DETAIL_LEVEL);
 

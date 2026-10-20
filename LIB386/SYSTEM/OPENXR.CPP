@@ -118,6 +118,19 @@ static S32 s_lastPresentTick = -1;
  * submit blits two per-eye composites into the swapchain halves. */
 static S32 s_stereoEnabled = 0;
 
+/* Low-volume present breakdown. xrWaitFrame happens at frame start in the
+ * gameplay path, so frameBegin and presentBegin are separate buckets. */
+static U64 s_oxrPerfFrameBeginTicks = 0;
+static U32 s_oxrPerfFrameBeginCalls = 0;
+static U64 s_oxrPerfPresentBeginTicks = 0;
+static U64 s_oxrPerfAcquireTicks = 0;
+static U64 s_oxrPerfWaitTicks = 0;
+static U64 s_oxrPerfBlitTicks = 0;
+static U64 s_oxrPerfReleaseTicks = 0;
+static U64 s_oxrPerfEndTicks = 0;
+static U64 s_oxrPerfTotalTicks = 0;
+static U32 s_oxrPerfPresentCalls = 0;
+
 /* Session / frame handles. */
 static XrInstance              s_instance = XR_NULL_HANDLE;
 static XrSession               s_session  = XR_NULL_HANDLE;
@@ -195,6 +208,9 @@ static S32 s_foveationLevel = 1;
 
 /* GL renderer stereo eye capture (RENDER_GL.CPP). */
 extern "C" U32 GL_GetStereoEyeFBO(S32 eye);
+extern "C" U32 GL_GetStereoPairFBO(void);
+extern "C" U32 GL_GetStereoPairWidth(void);
+extern "C" U32 GL_GetStereoPairHeight(void);
 extern "C" S32 GL_StereoEyeSceneDirect(void);
 extern "C" S32 GL_TakeStereoPair(void);
 extern "C" S32 GL_PresentSceneDirect(void);
@@ -1377,7 +1393,11 @@ S32 OpenXR_BeginFrame(void) {
      * screen and menu presents (which skip this function) still begin
      * their frame correctly, and gameplay never waits twice. */
     if (s_swapchain != XR_NULL_HANDLE) {
-        return OpenXR_EnsureFrameBegun();
+        U64 perfT0 = SDL_GetPerformanceCounter();
+        S32 begun = OpenXR_EnsureFrameBegun();
+        s_oxrPerfFrameBeginTicks += SDL_GetPerformanceCounter() - perfT0;
+        s_oxrPerfFrameBeginCalls++;
+        return begun;
     }
     /* Input-only path (no swapchain): no frame to present, but still sync
      * actions every frame so JOYSTICK.CPP sees live controller state. */
@@ -1602,6 +1622,7 @@ S32 OpenXR_PresentMono(void) {
     }
     s_skip = 0; /* reset counter when we successfully present */
     s_lastPresentTick = (S32)SDL_GetTicks();
+    U64 perfPresentT0 = SDL_GetPerformanceCounter();
     {
         static int s_presentLogCount = 0;
         if (s_presentLogCount < 3) {
@@ -1617,14 +1638,22 @@ S32 OpenXR_PresentMono(void) {
      * start (the normal gameplay path, which lets the CPU render work
      * overlap the compositor's wait window). */
     XrResult rc;
-    if (!OpenXR_EnsureFrameBegun())
-        return 0;
+    {
+        U64 perfT0 = SDL_GetPerformanceCounter();
+        if (!OpenXR_EnsureFrameBegun())
+            return 0;
+        s_oxrPerfPresentBeginTicks += SDL_GetPerformanceCounter() - perfT0;
+    }
 
     /* 2. Acquire + wait for a swapchain image. */
     XrSwapchainImageAcquireInfo acquireInfo;
     memset(&acquireInfo, 0, sizeof(acquireInfo));
     acquireInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO;
-    rc = xrAcquireSwapchainImage(s_swapchain, &acquireInfo, &s_swapchainImageIndex);
+    {
+        U64 perfT0 = SDL_GetPerformanceCounter();
+        rc = xrAcquireSwapchainImage(s_swapchain, &acquireInfo, &s_swapchainImageIndex);
+        s_oxrPerfAcquireTicks += SDL_GetPerformanceCounter() - perfT0;
+    }
     if (XR_FAILED(rc)) {
         Log_Warn("OpenXR: xrAcquireSwapchainImage failed (0x%x)", (unsigned)rc);
         return 0;
@@ -1640,7 +1669,11 @@ S32 OpenXR_PresentMono(void) {
     memset(&waitInfo, 0, sizeof(waitInfo));
     waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
     waitInfo.timeout = XR_INFINITE_DURATION;
-    rc = xrWaitSwapchainImage(s_swapchain, &waitInfo);
+    {
+        U64 perfT0 = SDL_GetPerformanceCounter();
+        rc = xrWaitSwapchainImage(s_swapchain, &waitInfo);
+        s_oxrPerfWaitTicks += SDL_GetPerformanceCounter() - perfT0;
+    }
     if (XR_FAILED(rc)) {
         Log_Warn("OpenXR: xrWaitSwapchainImage failed (0x%x)", (unsigned)rc);
         return 0;
@@ -1797,22 +1830,15 @@ S32 OpenXR_PresentMono(void) {
             /* Stereo layer only when this frame actually captured a fresh
              * per-eye pair; menu/movie frames (no per-eye render) fall back
              * to the mono full-image copy so no stale half is shown. */
+            U32 pairFbo = GL_GetStereoPairFBO();
+            U32 pairW = GL_GetStereoPairWidth();
+            U32 pairH = GL_GetStereoPairHeight();
             stereoThisFrame = s_stereoEnabled && GL_TakeStereoPair() &&
-                                  GL_GetStereoEyeFBO(0) != 0 &&
-                                  GL_GetStereoEyeFBO(1) != 0;
+                                  ((pairFbo != 0 && pairW > 0 && pairH > 0) ||
+                                   (GL_GetStereoEyeFBO(0) != 0 &&
+                                    GL_GetStereoEyeFBO(1) != 0));
+            U64 perfBlitT0 = SDL_GetPerformanceCounter();
             if (stereoThisFrame) {
-                /* Native stereo: each eye's composite lives in its capture
-                 * FBO and goes scaled-to-fit, centred, into its own LEFT/RIGHT
-                 * half of the double-wide swapchain — each eye gets the FULL
-                 * recommended 1680x1760 resolution with no vertical loss. */
-                GLuint eyeFBO0 = GL_GetStereoEyeFBO(0);
-                GLuint eyeFBO1 = GL_GetStereoEyeFBO(1);
-                if (GL_StereoEyeSceneDirect()) {
-                    GLuint sceneFbo = GL_Get3DFBO();
-                    if (sceneFbo != 0) {
-                        eyeFBO1 = sceneFbo;
-                    }
-                }
                 /* Fill the FULL per-eye half — the compositor maps the whole
                  * imageRect to the eye FOV, maximising the visible area; no
                  * black margins.  The engine's projection maps the 3D
@@ -1828,21 +1854,66 @@ S32 OpenXR_PresentMono(void) {
                 GLuint swapFbo = OpenXR_SwapchainFBO(s_swapchainImageIndex);
                 if (glCheckFramebufferStatus(GL_FRAMEBUFFER) ==
                     GL_FRAMEBUFFER_COMPLETE) {
-                    glBindFramebuffer(GL_READ_FRAMEBUFFER, eyeFBO0);
-                    /* Eye 0: blit into the LEFT half of the swapchain. */
-                    glBlitFramebuffer(0, 0, srcW, srcH,
-                                      eyeDstX0, marginY,
-                                      eyeDstX0 + eyeDstW, marginY + eyeDstH,
-                                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
-                    glBindFramebuffer(GL_READ_FRAMEBUFFER, eyeFBO1);
-                    /* Eye 1: blit into the RIGHT half. */
-                    glBlitFramebuffer(0, 0, srcW, srcH,
-                                      eyeDstX1, marginY,
-                                      eyeDstX1 + eyeDstW, marginY + eyeDstH,
-                                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+                    if (pairFbo != 0) {
+                        /* Both eyes are already side by side in one
+                         * single-sample source: one blit for the whole pair.
+                         * At matching sizes NEAREST is exact and cheaper;
+                         * only scale with LINEAR when the sizes differ. */
+                        GLenum pairFilter =
+                            (pairW == (U32)(eyeDstX1 + eyeDstW) &&
+                             pairH == (U32)eyeDstH)
+                                ? GL_NEAREST
+                                : GL_LINEAR;
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, pairFbo);
+                        glBlitFramebuffer(0, 0, (GLint)pairW, (GLint)pairH,
+                                          eyeDstX0, marginY,
+                                          eyeDstX1 + eyeDstW,
+                                          marginY + eyeDstH,
+                                          GL_COLOR_BUFFER_BIT, pairFilter);
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+                    } else {
+                        /* Fallback: per-eye capture FBOs. */
+                        GLuint eyeFBO0 = GL_GetStereoEyeFBO(0);
+                        GLuint eyeFBO1 = GL_GetStereoEyeFBO(1);
+                        if (GL_StereoEyeSceneDirect()) {
+                            GLuint sceneFbo = GL_Get3DFBO();
+                            if (sceneFbo != 0) {
+                                eyeFBO1 = sceneFbo;
+                            }
+                        }
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, eyeFBO0);
+                        /* Eye 0: blit into the LEFT half of the swapchain. */
+                        glBlitFramebuffer(0, 0, srcW, srcH,
+                                          eyeDstX0, marginY,
+                                          eyeDstX0 + eyeDstW, marginY + eyeDstH,
+                                          GL_COLOR_BUFFER_BIT, GL_LINEAR);
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, eyeFBO1);
+                        /* Eye 1: blit into the RIGHT half. */
+                        glBlitFramebuffer(0, 0, srcW, srcH,
+                                          eyeDstX1, marginY,
+                                          eyeDstX1 + eyeDstW, marginY + eyeDstH,
+                                          GL_COLOR_BUFFER_BIT, GL_LINEAR);
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+                    }
+                } else if (pairFbo != 0 &&
+                           pairW == (U32)(eyeDstX1 + eyeDstW) &&
+                           pairH == (U32)eyeDstH) {
+                    /* FBO attach rejected but dimensions are exact: a 1:1
+                     * copy of the pair still works. */
+                    glBindFramebuffer(GL_READ_FRAMEBUFFER, pairFbo);
+                    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
+                                        (GLsizei)pairW, (GLsizei)pairH);
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-                } else {
+                } else if (pairFbo == 0) {
                     /* FBO attach rejected: 1:1 copies as before. */
+                    GLuint eyeFBO0 = GL_GetStereoEyeFBO(0);
+                    GLuint eyeFBO1 = GL_GetStereoEyeFBO(1);
+                    if (GL_StereoEyeSceneDirect()) {
+                        GLuint sceneFbo = GL_Get3DFBO();
+                        if (sceneFbo != 0) {
+                            eyeFBO1 = sceneFbo;
+                        }
+                    }
                     glBindFramebuffer(GL_FRAMEBUFFER, eyeFBO0);
                     glCopyTexSubImage2D(GL_TEXTURE_2D, 0, eyeDstX0, marginY,
                                         0, 0, (GLsizei)eyeDstW, (GLsizei)eyeDstH);
@@ -1856,9 +1927,12 @@ S32 OpenXR_PresentMono(void) {
                     static int s_stBlitLogCount = 0;
                     GLenum glErr = glGetError();
                     if (s_stBlitLogCount < 3) {
-                        OXR_LOGI("PresentMono stereo: eyes %dx%d dst=(%d,%d)/(%d,%d) glError=0x%x",
-                                 eyeDstW, eyeDstH, eyeDstX0, marginY,
-                                 eyeDstX1, marginY,
+                        OXR_LOGI("PresentMono stereo: %s src=%ux%u "
+                                 "dst=(%d,%d)/(%d,%d) glError=0x%x",
+                                 pairFbo != 0 ? "double-wide" : "per-eye",
+                                 (unsigned)(pairFbo != 0 ? pairW : (U32)srcW),
+                                 (unsigned)(pairFbo != 0 ? pairH : (U32)srcH),
+                                 eyeDstX0, marginY, eyeDstX1, marginY,
                                  (unsigned)glErr);
                         s_stBlitLogCount++;
                     }
@@ -1939,6 +2013,7 @@ S32 OpenXR_PresentMono(void) {
                     }
                 }
             }
+            s_oxrPerfBlitTicks += SDL_GetPerformanceCounter() - perfBlitT0;
             glBindTexture(GL_TEXTURE_2D, (GLuint)prevTex);
             glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFb);
         }
@@ -1948,7 +2023,11 @@ S32 OpenXR_PresentMono(void) {
     XrSwapchainImageReleaseInfo releaseInfo;
     memset(&releaseInfo, 0, sizeof(releaseInfo));
     releaseInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO;
-    rc = xrReleaseSwapchainImage(s_swapchain, &releaseInfo);
+    {
+        U64 perfT0 = SDL_GetPerformanceCounter();
+        rc = xrReleaseSwapchainImage(s_swapchain, &releaseInfo);
+        s_oxrPerfReleaseTicks += SDL_GetPerformanceCounter() - perfT0;
+    }
     if (XR_FAILED(rc)) {
         Log_Warn("OpenXR: xrReleaseSwapchainImage failed (0x%x)", (unsigned)rc);
     }
@@ -2200,7 +2279,11 @@ S32 OpenXR_PresentMono(void) {
     endInfo.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
     endInfo.layerCount = (layerPtr != NULL) ? 1 : 0;
     endInfo.layers = (layerPtr != NULL) ? &layerPtr : NULL;
-    rc = xrEndFrame(s_session, &endInfo);
+    {
+        U64 perfT0 = SDL_GetPerformanceCounter();
+        rc = xrEndFrame(s_session, &endInfo);
+        s_oxrPerfEndTicks += SDL_GetPerformanceCounter() - perfT0;
+    }
     s_frameBegun = 0; /* the next frame must wait+begin again */
     if (XR_FAILED(rc)) {
         OXR_LOGE("xrEndFrame failed: %s (0x%x)", OXR_ResultStr(rc), (unsigned)rc);
@@ -2211,6 +2294,40 @@ S32 OpenXR_PresentMono(void) {
             OXR_LOGI("xrEndFrame OK, displayTime=%lld layers=%u", (long long)s_predictedDisplayTime, endInfo.layerCount);
             s_endFrameLogCount++;
         }
+    }
+
+    s_oxrPerfTotalTicks += SDL_GetPerformanceCounter() - perfPresentT0;
+    s_oxrPerfPresentCalls++;
+    if (s_oxrPerfPresentCalls >= 300) {
+        const double msPerTick =
+            1000.0 / (double)SDL_GetPerformanceFrequency();
+        const double calls = (double)s_oxrPerfPresentCalls;
+        const double frameBegin =
+            s_oxrPerfFrameBeginCalls
+                ? (double)s_oxrPerfFrameBeginTicks * msPerTick /
+                      (double)s_oxrPerfFrameBeginCalls
+                : 0.0;
+        Log_Info("OpenXRPerf: n=%u frameBegin=%.2f presentBegin=%.2f "
+                 "acquire=%.2f wait=%.2f blit=%.2f release=%.2f end=%.2f "
+                 "total=%.2f (ms)",
+                 (unsigned)s_oxrPerfPresentCalls, frameBegin,
+                 (double)s_oxrPerfPresentBeginTicks * msPerTick / calls,
+                 (double)s_oxrPerfAcquireTicks * msPerTick / calls,
+                 (double)s_oxrPerfWaitTicks * msPerTick / calls,
+                 (double)s_oxrPerfBlitTicks * msPerTick / calls,
+                 (double)s_oxrPerfReleaseTicks * msPerTick / calls,
+                 (double)s_oxrPerfEndTicks * msPerTick / calls,
+                 (double)s_oxrPerfTotalTicks * msPerTick / calls);
+        s_oxrPerfFrameBeginTicks = 0;
+        s_oxrPerfFrameBeginCalls = 0;
+        s_oxrPerfPresentBeginTicks = 0;
+        s_oxrPerfAcquireTicks = 0;
+        s_oxrPerfWaitTicks = 0;
+        s_oxrPerfBlitTicks = 0;
+        s_oxrPerfReleaseTicks = 0;
+        s_oxrPerfEndTicks = 0;
+        s_oxrPerfTotalTicks = 0;
+        s_oxrPerfPresentCalls = 0;
     }
 
     s_swapchainOwnsPresent = 1;

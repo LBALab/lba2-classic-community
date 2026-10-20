@@ -178,10 +178,12 @@ by editing the `kButtons[]` table (normalised 0..1 coordinates).
 
 Optional, off by default. The Quest build preset (`cmake --preset quest`)
 turns on `-DLBA2_OPENXR=ON` and makes the engine speak to the OpenXR
-runtime on the headset. With the Stereo 3D display option enabled, the
-scene is rendered once per eye into per-eye capture FBOs that
-`OpenXR_PresentMono` blits into the left/right halves of the double-wide
-swapchain. In first person, each eye renders from its tracked view
+runtime on the headset. With the Stereo 3D display option enabled, both
+eyes render into the left and right halves of one double-wide MSAA scene
+target, and `OpenXR_PresentMono` blits that target into the double-wide
+swapchain in one pass. Per-eye capture FBOs remain as a fallback for
+non-neutral image adjustment and FXAA/SMAA. In first person, each eye
+renders from its tracked view
 (`OpenXR_GetEyeView`): the orientation comes from the runtime-located
 pose and the IPD split runs along the view-space right axis, so the
 compositor's time-warp reprojects head rotation cleanly and the stereo

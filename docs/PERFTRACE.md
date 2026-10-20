@@ -28,7 +28,10 @@ Per frame (loop iteration in `MainLoop`):
 | Field | Source | Meaning |
 |---|---|---|
 | `frame_us` | `Perftrace_FrameBegin` → `Perftrace_FrameEnd` | Total per-iteration wall time. |
-| `scene_us` | `Perftrace_PhaseBegin/End(SCENE)` around `AffScene` | Scene render including any presents fired from inside it. |
+| `sim_us` | `Perftrace_PhaseBegin/End(SIMULATION)` from the top of the loop to `skip_simulation` | Input, game logic, fixed-timestep catch-up, and camera update. |
+| `openxr_us` | `Perftrace_PhaseBegin/End(OPENXR)` around `OpenXR_BeginFrame` | `xrWaitFrame` / `xrBeginFrame` and action sync on the immersive path. |
+| `eye0_us`, `eye1_us` | `Perftrace_PhaseBegin/End(EYE0/EYE1)` around each stereo `AffScene` | One eye's scene pass, including the present fired from inside it. |
+| `scene_us` | `Perftrace_PhaseBegin/End(SCENE)` around both eye passes | Scene render including any presents fired from inside it. |
 | `present_us` | `PresentTimingFn` around `PresentFrame` | All `PresentFrame()` invocations during the frame (palette LUT scan + texture upload + GL submit + vsync wait). |
 | `scene_tag` | `CubeMode` at FrameEnd | `iso` (interior cube), `ext` (exterior), or `?` (pre-load). |
 
@@ -63,8 +66,7 @@ The dump is plain text with three sections:
 
 ## All frames  (n=256)
   frame_us  min=10620  avg=12700  p50=12529  p95=14484  p99=17036  max=18223  (~78.7 fps)
-  scene avg=12623 us  (99.3% of frame)
-  present avg=12112 us  (95.3% of frame)
+  phase avg (us):  scene=12623  present=12112  sim=1840  openxr=210  eye0=6400  eye1=6100
 
 ## Interior / iso  (n=256)
   ... same stats filtered to iso frames ...
@@ -73,9 +75,9 @@ The dump is plain text with three sections:
   ... same stats filtered to exterior frames ...
 
 ## Per-frame samples (oldest first, microseconds)
-# idx  tag    frame   scene  present
-    0  iso    12969   12904   12425
-    1  iso    15268   15188   14696
+# idx  tag    frame    sim  openxr   eye0   eye1  scene  present
+    0  iso    12969   1810     205   6480   6190  12670    12425
+    1  iso    15268   1902     220   7600   7350  14950    14696
     ...
 ```
 
@@ -133,8 +135,8 @@ returns from `MainLoop`. No interactive console needed.
 | State | Cost |
 |---|---|
 | Inactive (`!Perftrace_IsActive()`) | One branch test per `FrameBegin`/`FrameEnd`/`PhaseBegin`/`PhaseEnd` call (~5 ns each). |
-| Active | `SDL_GetPerformanceCounter` + 32-byte ring write per frame (~1 µs total). |
-| At-rest binary size | ~10 KB (one BSS ring of 256 × 32 B + the module code). |
+| Active | `SDL_GetPerformanceCounter` + ~64-byte ring write per frame (~2 µs total). |
+| At-rest binary size | ~130 KB (one BSS ring of 2048 × ~64 B + the module code). |
 
 Hooks are unconditionally compiled in — the LIB386_TRACE precedent. No `-D`
 flag to set or build to recreate. Type the verb when you need it.
@@ -165,15 +167,16 @@ void Perftrace_PresentEnd(void);
 ```
 
 Adding a new phase: bump `PERFTRACE_PHASE_COUNT` in `PERFTRACE.H`, add the
-enum entry, and the dump format auto-includes the new column.
+enum entry and its label in `s_phase_names`, and the dump format
+auto-includes the new column.
 
 ## What perftrace is not
 
 - **Not a profiler.** It tells you which *phase* of the frame is heavy, not which
   function inside that phase. For that, run `perf record` / Instruments / VTune
   with the capture active and dump as a pointer.
-- **Not a long-running telemetry stream.** The ring is 256 frames (≈ 4 s at 60
-  fps). Long-running aggregate counters (`total_frames`, `capture_window`,
+- **Not a long-running telemetry stream.** The ring is 2048 frames (≈ 28 s at
+  72 fps). Long-running aggregate counters (`total_frames`, `capture_window`,
   `FrameEnd/s`) extend the visible window but the per-frame trace is bounded.
 - **Not deterministic.** Timing varies run-to-run. For repeatable timing
   invariants use the projection corpus

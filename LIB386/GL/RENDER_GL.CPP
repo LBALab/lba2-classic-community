@@ -61,6 +61,7 @@ S32 GL_LastRejectReason = 0;
 /* ── External texture filter toggle (from GLOBAL.CPP) ────────────────────── */
 extern "C" S32 DisplayTexFilter;
 extern "C" S32 DisplayAntiAlias;
+extern "C" S32 DisplayStereo3D;
 
 /* Temporary perf instrumentation: draw calls flushed since GL_BeginFrame */
 extern "C" S32 GL_BatchFlushCount;
@@ -594,6 +595,8 @@ static U32 s_profFlushes = 0;    /* batch flushes (≈ CLUT-program draw calls) 
 static U32 s_profTris = 0;       /* triangles submitted to the CLUT program */
 static U32 s_profSpriteUps = 0;  /* gameplay sprite texture uploads */
 static U32 s_profDepthSkips = 0; /* depth readback consumes skipped (GPU behind) */
+static U32 s_profOverlayEmpty = 0; /* presents whose 2D overlay had no content */
+static U32 s_profDirectScene = 0;  /* presents that can read the scene directly */
 static U32 s_flushRsnAlpha = 0;  /* throwaway flush-reason attribution */
 static U32 s_flushRsnFog = 0;
 static U32 s_flushRsnAtlas = 0;
@@ -611,6 +614,7 @@ static void GL_ProfFrameDone(void) {
         Log_Warn("[GLPerf] frames=%u present=%.2f readback=%.2f convert=%.2f "
                  "flush=%.2f snapshot=%.2f restore=%.2f mapwait=%.2f (ms) "
                  "flushes=%.1f tris=%.0f sprUp=%.1f skips=%u "
+                 "ovlEmpty=%.2f direct=%.2f "
                  "rsn a=%.1f f=%.1f t=%.1f z=%.1f n=%.1f arr=%u/%u",
                  s_profFrames,
                  GL_ProfMs(s_profAccumTicks[GL_PROF_PRESENT], msPerTick,
@@ -631,6 +635,8 @@ static void GL_ProfFrameDone(void) {
                  (double)s_profTris / (double)s_profFrames,
                  (double)s_profSpriteUps / (double)s_profFrames,
                  s_profDepthSkips,
+                 (double)s_profOverlayEmpty / (double)s_profFrames,
+                 (double)s_profDirectScene / (double)s_profFrames,
                  (double)s_flushRsnAlpha / (double)s_profFrames,
                  (double)s_flushRsnFog / (double)s_profFrames,
                  (double)s_flushRsnAtlas / (double)s_profFrames,
@@ -645,6 +651,8 @@ static void GL_ProfFrameDone(void) {
         s_profTris = 0;
         s_profSpriteUps = 0;
         s_profDepthSkips = 0;
+        s_profOverlayEmpty = 0;
+        s_profDirectScene = 0;
         s_flushRsnAlpha = 0;
         s_flushRsnFog = 0;
         s_flushRsnAtlas = 0;
@@ -906,6 +914,7 @@ static S32 GL_MSAATextureExtAvailable(void) {
 static void GL_DestroyMSAAFbo(void);
 static void GL_CreateMSAAFbo(U32 w, U32 h, S32 samples);
 static void GL_ResolveMSAA(void);
+static void GL_LogSurfaceBudget(const char *when);
 static void GL_ResolveMSAAColor(void);
 /* Material of the polygon currently being queued (low byte = mode/alpha/
    chroma/persp flags, high byte = flat colour or shadow level). */
@@ -1254,6 +1263,22 @@ static GLuint s_msaaColorTex = 0;
 static GLuint s_msaaResolveFbo = 0;
 static S32 s_msaaInTile = 0;
 
+/* Stereo double-wide target.  In stereo the scene FBO is twice the content
+ * width, with eye 0 in the left half and eye 1 in the right half.  The
+ * per-eye viewport/scissor selects the half; OpenXR reads the whole surface
+ * in one blit.  s_fboWidth/s_fboHeight stay the per-eye content size so the
+ * existing screen-space projection and HUD paths keep their coordinates. */
+static S32 s_stereoDoubleWide = 0;
+static U32 s_sceneTargetW = 0;
+static U32 s_sceneTargetH = 0;
+static S32 s_sceneEyeX = 0;
+static void GL_SetStereoTargetMode(S32 doubleWide);
+static S32 GL_StereoDoubleWideAllowed(void);
+
+static void GL_SetSceneViewport(void) {
+    glViewport(s_sceneEyeX, 0, (GLsizei)s_fboWidth, (GLsizei)s_fboHeight);
+}
+
 static GLuint GL_SceneColorTex(void) {
     if (s_msaaInTile && s_msaaColorTex)
         return s_msaaColorTex;
@@ -1479,6 +1504,8 @@ static void GL_DestroyFBO(void) {
     }
     s_fboWidth = 0;
     s_fboHeight = 0;
+    s_sceneTargetW = 0;
+    s_sceneTargetH = 0;
 }
 
 static void GL_DestroyPresentFBO(void) {
@@ -1544,7 +1571,24 @@ static void GL_CreateStereoEyeFBOs(U32 width, U32 height) {
 void GL_SetStereoEye(S32 eye) {
     if (eye < -1 || eye > 1)
         eye = -1;
+
+    if (eye == 0) {
+        S32 wantDoubleWide = GL_StereoDoubleWideAllowed();
+        if (wantDoubleWide != s_stereoDoubleWide)
+            GL_SetStereoTargetMode(wantDoubleWide);
+        s_stereoPairReady = 0;
+    } else if (eye < 0 && s_stereoDoubleWide &&
+               (!DisplayStereo3D || !OpenXR_GetStereoEnabled() ||
+                !OpenXR_IsActive())) {
+        /* Stereo was switched off (or the session ended): the mono
+         * composite expects a single-wide scene, not the left half of a
+         * stereo pair. */
+        GL_SetStereoTargetMode(0);
+    }
+
     s_stereoEye = eye;
+    s_sceneEyeX =
+        (eye == 1 && s_stereoDoubleWide) ? (S32)s_fboWidth : 0;
     if (eye != 1)
         s_stereoEye1SceneDirect = 0;
     if (eye < 0) {
@@ -1570,6 +1614,18 @@ U32 GL_GetStereoEyeFBO(S32 eye) {
     if (eye < 0 || eye > 1)
         return 0;
     return (U32)s_stereoEyeFBO[eye];
+}
+
+U32 GL_GetStereoPairFBO(void) {
+    return s_stereoDoubleWide ? (U32)GL_SceneReadFbo() : 0;
+}
+
+U32 GL_GetStereoPairWidth(void) {
+    return s_stereoDoubleWide ? s_fboWidth * 2 : 0;
+}
+
+U32 GL_GetStereoPairHeight(void) {
+    return s_stereoDoubleWide ? s_fboHeight : 0;
 }
 
 S32 GL_StereoEyeSceneDirect(void) {
@@ -1609,6 +1665,11 @@ static void GL_CreatePresentFBO(U32 width, U32 height) {
 static void GL_CreateFBO(U32 width, U32 height) {
     GL_DestroyFBO();
 
+    /* s_fboWidth is the per-eye content width.  In stereo the single
+     * allocation is twice as wide and holds both eye viewports. */
+    const U32 targetW = s_stereoDoubleWide ? width * 2 : width;
+    const U32 targetH = height;
+
     /* Color texture attachment */
     glGenTextures(1, &s_fboColorTex);
     glBindTexture(GL_TEXTURE_2D, s_fboColorTex);
@@ -1616,14 +1677,15 @@ static void GL_CreateFBO(U32 width, U32 height) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, targetW, targetH, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, NULL);
     glBindTexture(GL_TEXTURE_2D, 0);
 
     /* Depth renderbuffer attachment */
     glGenRenderbuffers(1, &s_fboDepthRbo);
     glBindRenderbuffer(GL_RENDERBUFFER, s_fboDepthRbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, width, height);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, targetW,
+                          targetH);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
     /* Framebuffer object */
@@ -1644,6 +1706,10 @@ static void GL_CreateFBO(U32 width, U32 height) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     s_fboWidth = width;
     s_fboHeight = height;
+    s_sceneTargetW = targetW;
+    s_sceneTargetH = targetH;
+    Log_Info("[GL] Scene FBO %ux%u (eye %ux%u, %s)", targetW, targetH, width,
+             height, s_stereoDoubleWide ? "double-wide" : "single");
 }
 
 /* ── Public API ─────────────────────────────────────────────────────────── */
@@ -2065,6 +2131,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
        but at boot nothing else did, so the cfg value was silently dead and
        the composite rendered unsmoothed. */
     GL_SetAntiAlias(DisplayAntiAlias);
+    GL_LogSurfaceBudget("init");
     Log_Info("[GL] Renderer initialized OK.");
     return TRUE;
 }
@@ -2200,6 +2267,10 @@ void GL_Renderer_Shutdown(void) {
     s_batchNZW = 0;
     s_frameActive = 0;
     s_fboHasTerrain = 0;
+    s_stereoDoubleWide = 0;
+    s_sceneEyeX = 0;
+    s_sceneTargetW = 0;
+    s_sceneTargetH = 0;
     GL_InvalidateGLState();
     Log_Info("[GL] Renderer shut down.");
 }
@@ -2232,7 +2303,12 @@ void GL_Renderer_Resize(U32 resX, U32 resY) {
 
     /* Recreate present FBO at the new size */
     GL_CreatePresentFBO(resX, resY);
-    GL_CreateStereoEyeFBOs(resX, resY);
+    if (s_stereoDoubleWide) {
+        GL_DestroyStereoEyeFBOs();
+    } else {
+        GL_CreateStereoEyeFBOs(resX, resY);
+    }
+    s_sceneEyeX = 0;
 }
 
 void GL_SetRenderQuality(U32 quality) {
@@ -2628,6 +2704,8 @@ static void GL_DestroyMSAAFbo(void) {
 
 static void GL_CreateMSAAFbo(U32 w, U32 h, S32 samples) {
     GL_DestroyMSAAFbo();
+    const U32 targetW = s_stereoDoubleWide ? w * 2 : w;
+    const U32 targetH = h;
     glGenFramebuffers(1, &s_msaaFbo);
     glGenRenderbuffers(1, &s_msaaDepthRb);
     glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
@@ -2645,7 +2723,7 @@ static void GL_CreateMSAAFbo(U32 w, U32 h, S32 samples) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, targetW, targetH, 0, GL_RGBA,
                      GL_UNSIGNED_BYTE, NULL);
         glBindTexture(GL_TEXTURE_2D, 0);
         p_glFramebufferTexture2DMultisampleEXT(
@@ -2659,14 +2737,14 @@ static void GL_CreateMSAAFbo(U32 w, U32 h, S32 samples) {
         glGenRenderbuffers(1, &s_msaaColorRb);
         glBindRenderbuffer(GL_RENDERBUFFER, s_msaaColorRb);
         glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_RGBA8,
-                                         w, h);
+                                         targetW, targetH);
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                                   GL_RENDERBUFFER, s_msaaColorRb);
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
     }
     glBindRenderbuffer(GL_RENDERBUFFER, s_msaaDepthRb);
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples,
-                                     GL_DEPTH_COMPONENT16, w, h);
+                                     GL_DEPTH_COMPONENT16, targetW, targetH);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                               GL_RENDERBUFFER, s_msaaDepthRb);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
@@ -2751,10 +2829,76 @@ static void GL_CreateMSAAFbo(U32 w, U32 h, S32 samples) {
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     s_msaaInTile = inTile;
-    s_msaaW = w;
-    s_msaaH = h;
-    Log_Info("[GL] MSAA FBO created %ux%u samples=%d (%s)", w, h, samples,
-             s_msaaInTile ? "resolve-in-tile" : "explicit resolve");
+    s_msaaW = targetW;
+    s_msaaH = targetH;
+    Log_Info("[GL] MSAA FBO created %ux%u samples=%d (%s)", targetW, targetH,
+             samples, s_msaaInTile ? "resolve-in-tile" : "explicit resolve");
+}
+
+/* A double-wide target bypasses the per-eye scene composite.  That is only
+ * equivalent to the old path while the display transform is neutral and MSAA
+ * (not FXAA/SMAA) is the active AA mode; otherwise the composite pass is
+ * still needed for image adjustment or the post-process.  The environment
+ * escape hatch lets a device run compare the old path without a rebuild. */
+static S32 GL_StereoDoubleWideAllowed(void) {
+    if (getenv("LBA2_NO_STEREO_DW") != NULL)
+        return 0;
+    if (!DisplayStereo3D || !OpenXR_IsActive() ||
+        !OpenXR_GetStereoEnabled())
+        return 0;
+    if (s_antiAlias != 2 && s_antiAlias != 3)
+        return 0;
+    if (!GL_ImageAdjustNeutral())
+        return 0;
+    return 1;
+}
+
+static void GL_SetStereoTargetMode(S32 doubleWide) {
+    if (!s_initialized || !Window_GLMakeCurrent())
+        return;
+    doubleWide = doubleWide ? 1 : 0;
+    if (doubleWide == s_stereoDoubleWide)
+        return;
+
+    U32 w = s_fboWidth;
+    U32 h = s_fboHeight;
+    if (w == 0 || h == 0) {
+        w = s_texWidth * s_renderQuality;
+        h = s_texHeight * s_renderQuality;
+    }
+    if (w == 0 || h == 0)
+        return;
+
+    Log_Info("[GL] Stereo scene target: %s",
+             doubleWide ? "double-wide" : "per-eye");
+    s_stereoDoubleWide = doubleWide;
+    GL_CreateFBO(w, h);
+    if (doubleWide && s_fbo == 0) {
+        Log_Warn("[GL] Double-wide scene FBO failed; using per-eye targets");
+        s_stereoDoubleWide = 0;
+        GL_CreateFBO(w, h);
+    }
+
+    if (s_antiAlias == 2 || s_antiAlias == 3) {
+        GL_CreateMSAAFbo(w, h, (s_antiAlias == 3) ? 4 : 2);
+    } else {
+        GL_DestroyMSAAFbo();
+    }
+
+    if (s_stereoDoubleWide) {
+        GL_DestroyStereoEyeFBOs();
+    } else {
+        GL_CreateStereoEyeFBOs(w, h);
+    }
+
+    s_frameActive = 0;
+    s_fboHasTerrain = 0;
+    s_sceneEyeX = 0;
+    s_stereoPairReady = 0;
+    s_stereoEye1SceneDirect = 0;
+    GL_InvalidateGLState();
+    GL_LogSurfaceBudget(s_stereoDoubleWide ? "stereo-double"
+                                          : "stereo-per-eye");
 }
 
 /* Blit (resolve) from the MSAA FBO to the regular s_fbo.  Snapshot frames
@@ -2807,6 +2951,18 @@ void GL_SetAntiAlias(S32 mode) {
     s_antiAlias = mode;
     if (!s_initialized || !Window_GLMakeCurrent())
         return;
+
+    /* A target-mode change recreates the scene FBOs itself.  This also
+     * covers leaving MSAA for FXAA/SMAA, where the double-wide scene cannot
+     * be used because the post-process needs a per-eye composite. */
+    {
+        S32 wantDoubleWide = GL_StereoDoubleWideAllowed();
+        if (wantDoubleWide != s_stereoDoubleWide) {
+            GL_SetStereoTargetMode(wantDoubleWide);
+            return;
+        }
+    }
+
     if ((s_antiAlias == 2 || s_antiAlias == 3) && s_fbo) {
         GLint samples = (s_antiAlias == 3) ? 4 : 2;
         GL_CreateMSAAFbo(s_texWidth * s_renderQuality,
@@ -3146,7 +3302,7 @@ static void FlushActiveBatch(void) {
         s_frameActive = 1;
         if (s_fbo) {
             glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
-            glViewport(0, 0, s_fboWidth, s_fboHeight);
+            GL_SetSceneViewport();
         } else {
             glViewport(0, 0, s_texWidth, s_texHeight);
         }
@@ -3520,7 +3676,7 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
         s_frameActive = 1;
         if (s_fbo) {
             glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
-            glViewport(0, 0, s_fboWidth, s_fboHeight);
+            GL_SetSceneViewport();
         } else {
             glViewport(0, 0, s_texWidth, s_texHeight);
         }
@@ -3670,7 +3826,7 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
         s_frameActive = 1;
         if (s_fbo) {
             glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
-            glViewport(0, 0, s_fboWidth, s_fboHeight);
+            GL_SetSceneViewport();
         } else {
             glViewport(0, 0, s_texWidth, s_texHeight);
         }
@@ -3785,7 +3941,7 @@ void GL_DrawLineFBO(S32 x0, S32 y0, S32 x1, S32 y1, S32 colorIndex,
         s_frameActive = 1;
         if (s_fbo) {
             glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
-            glViewport(0, 0, s_fboWidth, s_fboHeight);
+            GL_SetSceneViewport();
         } else {
             glViewport(0, 0, s_texWidth, s_texHeight);
         }
@@ -3884,7 +4040,7 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
         s_frameActive = 1;
         if (s_fbo) {
             glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
-            glViewport(0, 0, s_fboWidth, s_fboHeight);
+            GL_SetSceneViewport();
         } else {
             glViewport(0, 0, s_texWidth, s_texHeight);
         }
@@ -4018,10 +4174,10 @@ void GL_ClearFBO(void) {
 
     if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3)) {
         glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
-        glViewport(0, 0, s_fboWidth, s_fboHeight);
+        GL_SetSceneViewport();
     } else if (s_fbo) {
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
-        glViewport(0, 0, s_fboWidth, s_fboHeight);
+        GL_SetSceneViewport();
     } else {
         glViewport(0, 0, s_texWidth, s_texHeight);
     }
@@ -4036,8 +4192,16 @@ void GL_ClearFBO(void) {
        ending in a blended batch — a masked clear would leave last frame's
        depth in place (black frame with terrain blinking through it). */
     GL_SetDepthWrite(1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+    if (s_stereoDoubleWide) {
+        /* glClear ignores the viewport but honours the scissor.  Clear only
+         * the current eye half, or eye 1 would erase eye 0's scene. */
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(s_sceneEyeX, 0, (GLsizei)s_fboWidth, (GLsizei)s_fboHeight);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDisable(GL_SCISSOR_TEST);
+    } else {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    }
 
     s_terrainRenderedThisFrame = 1;
     s_fboHasTerrain = 1;
@@ -4115,6 +4279,7 @@ void GL_SnapshotTerrain(void) {
                                GL_TEXTURE_2D, s_snapshotDepthTex, 0);
         s_snapshotW = w;
         s_snapshotH = h;
+        GL_LogSurfaceBudget("snapshot");
     }
 
     /* Color + depth: the depth must be restored too, otherwise a body that
@@ -4212,7 +4377,7 @@ void GL_RestoreTerrainSnapshot(void) {
             {2.0f * (GLfloat)qx1 / fw - 1.0f, 2.0f * (GLfloat)glY1 / fh - 1.0f,
              (GLfloat)qx1 / fw, (GLfloat)glY1 / fh}};
         glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
-        glViewport(0, 0, s_fboWidth, s_fboHeight);
+        GL_SetSceneViewport();
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
         GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -4246,7 +4411,7 @@ void GL_RestoreTerrainSnapshot(void) {
                multisampled draw framebuffer are illegal, so this goes
                through a fragDepth quad. */
             glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
-            glViewport(0, 0, s_fboWidth, s_fboHeight);
+            GL_SetSceneViewport();
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_ALWAYS);
             glDepthMask(GL_TRUE);
@@ -4394,6 +4559,23 @@ void GL_CaptureHorizon(S32 backdropStable) {
     if (!Window_GLMakeCurrent()) {
         return;
     }
+
+    /* Eye 1 never restored the capture: GL_BeginFrame clears the valid flag
+     * before the second eye starts, and each eye renders its own horizon.
+     * Skipping the capture in double-wide stereo also avoids allocating the
+     * full-resolution horizon surface.  Flush here anyway: the viewport and
+     * target must select this eye's half before the next eye starts. */
+    if (s_stereoDoubleWide && s_stereoEye >= 0) {
+        GL_FlushBatch();
+        s_hznCapValid = 0;
+        s_hznCapRectValid = 0;
+        s_horizonValid = 0;
+        s_hznPerfResolveTicks = 0;
+        s_hznPerfBlitTicks = 0;
+        s_hznPerfRectPct = 0;
+        return;
+    }
+
     GL_FlushBatch();
 
     if (s_hznCapValid && s_hznCapRectValid && backdropStable &&
@@ -4478,6 +4660,7 @@ void GL_CaptureHorizon(S32 backdropStable) {
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
         s_horizonW = w;
         s_horizonH = h;
+        GL_LogSurfaceBudget("horizon");
     }
 
     /* Color + depth: the current-cube terrain drawn after the restore must
@@ -4496,7 +4679,8 @@ void GL_CaptureHorizon(S32 backdropStable) {
         U64 blitT0 = SDL_GetPerformanceCounter();
         glBindFramebuffer(GL_READ_FRAMEBUFFER, sceneFbo);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_horizonFbo);
-        glBlitFramebuffer(rx0, ry0, rx1, ry1, rx0, ry0, rx1, ry1,
+        glBlitFramebuffer(s_sceneEyeX + rx0, ry0, s_sceneEyeX + rx1, ry1,
+                          rx0, ry0, rx1, ry1,
                           msaaActive ? GL_COLOR_BUFFER_BIT
                                      : (GL_COLOR_BUFFER_BIT |
                                         GL_DEPTH_BUFFER_BIT),
@@ -4504,6 +4688,7 @@ void GL_CaptureHorizon(S32 backdropStable) {
         /* Mid-frame invariant: keep drawing into the scene FBO.  In-tile
            mode the scene FBO is the multisample target, not s_fbo. */
         glBindFramebuffer(GL_FRAMEBUFFER, sceneFbo);
+        GL_SetSceneViewport();
         s_hznPerfBlitTicks = SDL_GetPerformanceCounter() - blitT0;
     }
     s_horizonValid = 1;
@@ -4542,8 +4727,8 @@ void GL_RestoreHorizon(void) {
              (GLfloat)rx0 / tw, (GLfloat)ry1 / th},
             {2.0f * (GLfloat)rx1 / fw - 1.0f, 2.0f * (GLfloat)ry1 / fh - 1.0f,
              (GLfloat)rx1 / tw, (GLfloat)ry1 / th}};
-        glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
-        glViewport(0, 0, s_fboWidth, s_fboHeight);
+        glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
+        GL_SetSceneViewport();
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
         GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -4568,12 +4753,55 @@ void GL_RestoreHorizon(void) {
         GL_InvalidateGLState();
     } else {
         glBindFramebuffer(GL_READ_FRAMEBUFFER, s_horizonFbo);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
-        glBlitFramebuffer(rx0, ry0, rx1, ry1, rx0, ry0, rx1, ry1,
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, GL_SceneDrawFbo());
+        glBlitFramebuffer(rx0, ry0, rx1, ry1, s_sceneEyeX + rx0, ry0,
+                          s_sceneEyeX + rx1, ry1,
                           GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
                           GL_NEAREST);
-        glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
+        GL_SetSceneViewport();
     }
+}
+
+/* Approximate GPU footprint of the render targets the engine allocates. */
+static U64 GL_TargetBytes(U32 w, U32 h, U32 bpp) {
+    return (U64)w * (U64)h * (U64)bpp;
+}
+
+static void GL_LogSurfaceBudget(const char *when) {
+    U64 fbo = 0, msaa = 0, eyes = 0, present = 0, snapshot = 0;
+    U64 horizon = 0, overlay = 0;
+    if (s_fboColorTex)
+        fbo += GL_TargetBytes(s_sceneTargetW, s_sceneTargetH, 4);
+    if (s_fboDepthRbo)
+        fbo += GL_TargetBytes(s_sceneTargetW, s_sceneTargetH, 4);
+    if (s_msaaColorTex) msaa += GL_TargetBytes(s_msaaW, s_msaaH, 4);
+    if (s_msaaColorRb) msaa += GL_TargetBytes(s_msaaW, s_msaaH, 4);
+    if (s_msaaDepthRb) msaa += GL_TargetBytes(s_msaaW, s_msaaH, 4);
+    for (int i = 0; i < 2; i++) {
+        if (s_stereoEyeTex[i])
+            eyes += GL_TargetBytes(s_stereoEyeWidth, s_stereoEyeHeight, 4);
+    }
+    if (s_presentColorTex)
+        present += GL_TargetBytes(s_texWidth, s_texHeight, 4);
+    if (s_snapshotTex)
+        snapshot += GL_TargetBytes(s_snapshotW, s_snapshotH, 4);
+    if (s_snapshotDepthTex)
+        snapshot += GL_TargetBytes(s_snapshotW, s_snapshotH, 4);
+    if (s_horizonTex)
+        horizon += GL_TargetBytes(s_horizonW, s_horizonH, 4);
+    if (s_horizonDepthRbo)
+        horizon += GL_TargetBytes(s_horizonW, s_horizonH, 4);
+    if (s_logIndexTex)
+        overlay += GL_TargetBytes(s_logIndexTexW, s_logIndexTexH, 1);
+    U64 total = fbo + msaa + eyes + present + snapshot + horizon + overlay;
+    const double mib = 1.0 / (1024.0 * 1024.0);
+    Log_Info("[Perf] surfaces(%s): fbo=%.1f msaa=%.1f eyes=%.1f present=%.1f "
+             "snapshot=%.1f horizon=%.1f overlay=%.1f total=%.1f MiB",
+             when, (double)fbo * mib, (double)msaa * mib, (double)eyes * mib,
+             (double)present * mib, (double)snapshot * mib,
+             (double)horizon * mib, (double)overlay * mib,
+             (double)total * mib);
 }
 
 S32 GL_HorizonValid(void) {
@@ -4913,7 +5141,7 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
         s_frameActive = 1;
         if (s_fbo) {
             glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
-            glViewport(0, 0, s_fboWidth, s_fboHeight);
+            GL_SetSceneViewport();
         } else {
             glViewport(0, 0, s_texWidth, s_texHeight);
         }
@@ -5207,6 +5435,81 @@ static void GL_ClearLetterboxBars(int vpX, int vpY, int vpW, int vpH,
     glDisable(GL_SCISSOR_TEST);
 }
 
+/* Draw the ARGB 2D overlay into the currently bound target/viewport. */
+static void GL_DrawArgbOverlay(const void *argbPixels, U32 pitch, U32 width,
+                               U32 height, S32 filterLinear) {
+    /* Upload the ARGB framebuffer to the GL texture (2D overlay) */
+    glBindTexture(GL_TEXTURE_2D, s_texture);
+
+    /* Set filter mode (bilinear vs nearest; Scale2x samples exact texels) */
+    GLenum filter = (filterLinear == 1) ? GL_LINEAR : GL_NEAREST;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+
+    /* GL_UNPACK_ROW_LENGTH is GLES 3.0+; the project's minimum is GLES 2.0,
+       so guard the pixel-store call (row length falls back to width when
+       unset, which is what we want anyway because pitch == width*4 here). */
+    /* Stereo eye 1 reuses eye 0's overlay texture — the Log content is
+       identical for both eyes, so skip the CPU swizzle and the upload. */
+    if (s_stereoEye != 1) {
+        const void *uploadPixels = argbPixels;
+#if defined(__ANDROID__)
+        static U32 *s_uploadBuf = NULL;
+        static U32 s_uploadBufPixels = 0;
+        U32 needed = width * height;
+        if (s_uploadBufPixels < needed) {
+            free(s_uploadBuf);
+            s_uploadBuf = (U32 *)malloc(needed * sizeof(U32));
+            s_uploadBufPixels = s_uploadBuf ? needed : 0;
+        }
+        if (s_uploadBuf != NULL) {
+            GL_SwizzleBGRAtoRGBA(s_uploadBuf, (const U32 *)argbPixels, needed);
+            uploadPixels = s_uploadBuf;
+        }
+#endif
+#ifdef GL_UNPACK_ROW_LENGTH
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / 4);
+#endif
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_UPLOAD_FORMAT,
+                        GL_UNSIGNED_BYTE, uploadPixels);
+#ifdef GL_UNPACK_ROW_LENGTH
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+    }
+
+    /* Enable alpha blending so palette index 0 (alpha=0) is transparent,
+       letting the 3D scene (or black background) show through underneath. */
+    GL_SetBlendFunc(1, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    /* Draw fullscreen quad for 2D overlay */
+    glUseProgram(s_program);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, s_texture);
+    glUniform1i(s_uTexLoc, 0);
+    GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
+                         s_adj_uSaturation);
+    glUniform2f(s_uTexelLoc, 1.0f / (GLfloat)width, 1.0f / (GLfloat)height);
+    glUniform1i(s_uFilterLoc, filterLinear);
+
+    GL_BindArrayBuffer(s_vbo);
+    glEnableVertexAttribArray(s_aPosLoc);
+    glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat), (const void *)0);
+    glEnableVertexAttribArray(s_aTexCoordLoc);
+    glVertexAttribPointer(s_aTexCoordLoc, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat),
+                          (const void *)(2 * sizeof(GLfloat)));
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glDisableVertexAttribArray(s_aPosLoc);
+    glDisableVertexAttribArray(s_aTexCoordLoc);
+    GL_BindArrayBuffer(0);
+    glUseProgram(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
 void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
                 S32 filterLinear) {
     if (!s_initialized || argbPixels == NULL) {
@@ -5228,6 +5531,35 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
        This draws into the FBO if SSAA is active, or the default
        framebuffer otherwise. */
     GL_FlushBatch();
+
+    /* Double-wide stereo: both eyes are already in the scene target, so
+       there is no per-eye scene composite.  Draw this eye's HUD straight
+       into its half, then resolve once after the second eye. */
+    if (s_stereoDoubleWide && s_stereoEye >= 0) {
+        s_frameActive = 0;
+        glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
+        glDisable(GL_DEPTH_TEST);
+        glViewport(s_sceneEyeX, 0, (GLsizei)s_fboWidth,
+                   (GLsizei)s_fboHeight);
+        GL_DrawArgbOverlay(argbPixels, pitch, width, height, filterLinear);
+
+        if (s_stereoEye == 0) {
+            s_stereoPairReady = 0;
+        } else {
+            GL_ResolveMSAAColor();
+            s_stereoPairReady = 1;
+        }
+
+        U64 profT1 = SDL_GetPerformanceCounter();
+        s_profAccumTicks[0] += profT1 - profT0;
+        GL_ProfFrameDone();
+        s_directScenePresent = 0;
+        GL_InvalidateGLState();
+        if (s_stereoEye == 1) {
+            Window_GL_SwapWindow();
+        }
+        return;
+    }
 
     if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3))
         GL_ResolveMSAAColor();
@@ -5366,79 +5698,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
         glUseProgram(0);
     }
 
-    /* Upload the ARGB framebuffer to the GL texture (2D overlay) */
-    glBindTexture(GL_TEXTURE_2D, s_texture);
-
-    /* Set filter mode (bilinear vs nearest; Scale2x samples exact texels) */
-    GLenum filter = (filterLinear == 1) ? GL_LINEAR : GL_NEAREST;
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
-
-    /* GL_UNPACK_ROW_LENGTH is GLES 3.0+; the project's minimum is GLES 2.0,
-       so guard the pixel-store call (row length falls back to width when
-       unset, which is what we want anyway because pitch == width*4 here). */
-    const void *uploadPixels = argbPixels;
-#if defined(__ANDROID__)
-    {
-        static U32 *s_uploadBuf = NULL;
-        static U32 s_uploadBufPixels = 0;
-        U32 needed = width * height;
-        if (s_uploadBufPixels < needed) {
-            free(s_uploadBuf);
-            s_uploadBuf = (U32 *)malloc(needed * sizeof(U32));
-            s_uploadBufPixels = s_uploadBuf ? needed : 0;
-        }
-        if (s_uploadBuf != NULL) {
-            GL_SwizzleBGRAtoRGBA(s_uploadBuf, (const U32 *)argbPixels, needed);
-            uploadPixels = s_uploadBuf;
-        }
-    }
-#endif
-
-    /* Stereo eye 1 reuses eye 0's overlay texture — the Log content is
-       identical for both eyes, so skip the ~12 MB re-upload. */
-    if (s_stereoEye != 1) {
-#ifdef GL_UNPACK_ROW_LENGTH
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / 4);
-#endif
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_UPLOAD_FORMAT,
-                        GL_UNSIGNED_BYTE, uploadPixels);
-#ifdef GL_UNPACK_ROW_LENGTH
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-#endif
-    }
-
-    /* Enable alpha blending so palette index 0 (alpha=0) is transparent,
-       letting the 3D scene (or black background) show through underneath. */
-    GL_SetBlendFunc(1, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    /* Draw fullscreen quad for 2D overlay */
-    glUseProgram(s_program);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, s_texture);
-    glUniform1i(s_uTexLoc, 0);
-    GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
-                         s_adj_uSaturation);
-    glUniform2f(s_uTexelLoc, 1.0f / (GLfloat)width, 1.0f / (GLfloat)height);
-    glUniform1i(s_uFilterLoc, filterLinear);
-
-    GL_BindArrayBuffer(s_vbo);
-    glEnableVertexAttribArray(s_aPosLoc);
-    glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
-                          4 * sizeof(GLfloat), (const void *)0);
-    glEnableVertexAttribArray(s_aTexCoordLoc);
-    glVertexAttribPointer(s_aTexCoordLoc, 2, GL_FLOAT, GL_FALSE,
-                          4 * sizeof(GLfloat),
-                          (const void *)(2 * sizeof(GLfloat)));
-
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-    glDisableVertexAttribArray(s_aPosLoc);
-    glDisableVertexAttribArray(s_aTexCoordLoc);
-    GL_BindArrayBuffer(0);
-    glUseProgram(0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    GL_DrawArgbOverlay(argbPixels, pitch, width, height, filterLinear);
 
     /* Eye 0 stops here (its content is captured, not presented). Eye 1 and
      * every mono path continue to the swap, which on the Quest routes into
@@ -5457,6 +5717,66 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
 
 /* ── Indexed present (GPU palette expansion) ─────────────────────────────── */
 
+/* Draw the indexed 2D overlay into the currently bound target/viewport.
+   The index texture and its band uploads are maintained by the caller. */
+static void GL_DrawIndexedOverlay(U32 width, U32 height,
+                                  const U32 *paletteU32, S32 filterLinear) {
+    /* Refresh the 256x1 palette texture only when the palette changed. */
+    {
+        static U32 s_lutCache[256];
+        static S32 s_lutCacheValid = 0;
+        if (!s_lutCacheValid ||
+            memcmp(s_lutCache, paletteU32, 256 * sizeof(U32)) != 0) {
+            U8 rgba[256 * 4];
+            for (int i = 0; i < 256; i++) {
+                U32 c = paletteU32[i];
+                rgba[i * 4 + 0] = (U8)(c >> 16); /* R */
+                rgba[i * 4 + 1] = (U8)(c >> 8);  /* G */
+                rgba[i * 4 + 2] = (U8)(c);       /* B */
+                rgba[i * 4 + 3] = (U8)(c >> 24); /* A (0 for index 0) */
+            }
+            glBindTexture(GL_TEXTURE_2D, s_lutTex);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1, GL_RGBA,
+                            GL_UNSIGNED_BYTE, rgba);
+            memcpy(s_lutCache, paletteU32, 256 * sizeof(U32));
+            s_lutCacheValid = 1;
+        }
+    }
+
+    GL_SetBlendFunc(1, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glUseProgram(s_presentIndexedProgram);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
+    glUniform1i(s_idx_uIndices, 0);
+    GL_UploadImageAdjust(s_idxAdj_uBrightness, s_idxAdj_uContrast,
+                         s_idxAdj_uSaturation);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, s_lutTex);
+    glUniform1i(s_idx_uPalette, 1);
+    glUniform2f(s_idx_uTexel, 1.0f / (GLfloat)width, 1.0f / (GLfloat)height);
+    glUniform1i(s_idx_uFilter, filterLinear);
+
+    GL_BindArrayBuffer(s_vbo);
+    glEnableVertexAttribArray(s_idx_aPos);
+    glVertexAttribPointer(s_idx_aPos, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat), (const void *)0);
+    glEnableVertexAttribArray(s_idx_aTexCoord);
+    glVertexAttribPointer(s_idx_aTexCoord, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat),
+                          (const void *)(2 * sizeof(GLfloat)));
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glDisableVertexAttribArray(s_idx_aPos);
+    glDisableVertexAttribArray(s_idx_aTexCoord);
+    GL_BindArrayBuffer(0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glUseProgram(0);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
 void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
                        const U32 *paletteU32, S32 filterLinear) {
     if (!s_initialized || indices == NULL || paletteU32 == NULL) {
@@ -5474,63 +5794,74 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
 
     /* Same frame plumbing as GL_Present: flush 3D, pick the composite
      * target, letterbox, draw the 3D FBO content, then the 2D overlay. */
+    S32 useDoubleWide = (s_stereoDoubleWide && s_stereoEye >= 0);
     GL_FlushBatch();
 
-    if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3))
+    if (!useDoubleWide && s_msaaFbo &&
+        (s_antiAlias == 2 || s_antiAlias == 3))
         GL_ResolveMSAAColor();
 
     s_frameActive = 0;
 
-    if (s_stereoEye >= 0 && s_stereoEyeFBO[s_stereoEye]) {
-        glBindFramebuffer(GL_FRAMEBUFFER, s_stereoEyeFBO[s_stereoEye]);
-        if (s_stereoEye == 0)
-            s_stereoPairReady = 1;
-    } else {
-        s_stereoPairReady = 0;
-        if (OpenXR_IsActive() && s_presentFBO) {
-            glBindFramebuffer(GL_FRAMEBUFFER, s_presentFBO);
-        } else {
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        }
-    }
-
-    glDisable(GL_DEPTH_TEST);
-
-    SDL_Window *win = Window_GetSDLWindow();
     int winW = (int)width, winH = (int)height;
-    if (win) {
-        SDL_GetWindowSize(win, &winW, &winH);
-    }
-    if (OpenXR_IsActive() && s_presentFBO) {
-        winW = (int)width;
-        winH = (int)height;
-    }
-
-    int vpX, vpY, vpW, vpH;
-    {
-        double windowAspect = (double)winW / (double)winH;
-        double contentAspect = (double)width / (double)height;
-        if (windowAspect > contentAspect) {
-            vpH = winH;
-            vpW = (int)((double)winH * contentAspect + 0.5);
-            vpW = (vpW + 1) & ~1;
-            if (vpW > winW) vpW = winW;
-            vpX = (winW - vpW) / 2;
-            vpY = 0;
+    int vpX = 0, vpY = 0, vpW = (int)width, vpH = (int)height;
+    if (useDoubleWide) {
+        /* The scene for both eyes is already in the double-wide target.
+         * Bind it directly and draw this eye's HUD into its half. */
+        glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
+        glDisable(GL_DEPTH_TEST);
+        glViewport(s_sceneEyeX, 0, (GLsizei)s_fboWidth,
+                   (GLsizei)s_fboHeight);
+    } else {
+        if (s_stereoEye >= 0 && s_stereoEyeFBO[s_stereoEye]) {
+            glBindFramebuffer(GL_FRAMEBUFFER, s_stereoEyeFBO[s_stereoEye]);
+            if (s_stereoEye == 0)
+                s_stereoPairReady = 1;
         } else {
-            vpW = winW;
-            vpH = (int)((double)winW / contentAspect + 0.5);
-            vpH = (vpH + 1) & ~1;
-            if (vpH > winH) vpH = winH;
-            vpX = 0;
-            vpY = (winH - vpH) / 2;
+            s_stereoPairReady = 0;
+            if (OpenXR_IsActive() && s_presentFBO) {
+                glBindFramebuffer(GL_FRAMEBUFFER, s_presentFBO);
+            } else {
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            }
         }
-    }
 
-    /* glClear is unaffected by the viewport, so the bar clear needs no
-       full-target viewport switch; go straight to the content rect. */
-    GL_ClearLetterboxBars(vpX, vpY, vpW, vpH, winW, winH);
-    glViewport(vpX, vpY, vpW, vpH);
+        glDisable(GL_DEPTH_TEST);
+
+        SDL_Window *win = Window_GetSDLWindow();
+        if (win) {
+            SDL_GetWindowSize(win, &winW, &winH);
+        }
+        if (OpenXR_IsActive() && s_presentFBO) {
+            winW = (int)width;
+            winH = (int)height;
+        }
+
+        {
+            double windowAspect = (double)winW / (double)winH;
+            double contentAspect = (double)width / (double)height;
+            if (windowAspect > contentAspect) {
+                vpH = winH;
+                vpW = (int)((double)winH * contentAspect + 0.5);
+                vpW = (vpW + 1) & ~1;
+                if (vpW > winW) vpW = winW;
+                vpX = (winW - vpW) / 2;
+                vpY = 0;
+            } else {
+                vpW = winW;
+                vpH = (int)((double)winW / contentAspect + 0.5);
+                vpH = (vpH + 1) & ~1;
+                if (vpH > winH) vpH = winH;
+                vpX = 0;
+                vpY = (winH - vpH) / 2;
+            }
+        }
+
+        /* glClear is unaffected by the viewport, so the bar clear needs no
+           full-target viewport switch; go straight to the content rect. */
+        GL_ClearLetterboxBars(vpX, vpY, vpW, vpH, winW, winH);
+        glViewport(vpX, vpY, vpW, vpH);
+    }
 
     /* Diff the Log overlay against the copy the texture currently holds:
        upload only the rows that changed, and skip the overlay draw entirely
@@ -5675,6 +6006,34 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         }
     }
 
+    if (useDoubleWide) {
+        if (overlayEmpty) {
+            s_profOverlayEmpty++;
+        } else {
+            GL_DrawIndexedOverlay(width, height, paletteU32, filterLinear);
+        }
+
+        if (s_stereoEye == 0) {
+            s_stereoPairReady = 0;
+        } else {
+            /* The overlay is part of the scene target now, so this single
+             * resolve covers both eyes' 3D and HUD content. */
+            GL_ResolveMSAAColor();
+            s_stereoPairReady = 1;
+        }
+        s_profDirectScene++;
+
+        U64 profT1 = SDL_GetPerformanceCounter();
+        s_profAccumTicks[0] += profT1 - profT0;
+        GL_ProfFrameDone();
+        s_directScenePresent = 0;
+        GL_InvalidateGLState();
+        if (s_stereoEye == 1) {
+            Window_GL_SwapWindow();
+        }
+        return;
+    }
+
     /* An empty overlay composites to exactly the 3D scene.  On OpenXR the
      * swapchain blit can read that scene directly for mono frames and for
      * stereo eye 1 (the last eye rendered), so skip the intermediate
@@ -5689,8 +6048,8 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     /* A direct scene read is only equivalent to the composite when the
        overlay adds nothing, the content fills the target, the scene is
        content-sized, and no post-process or display transform is active. */
-    S32 directSceneSafe = overlayEmpty && s_fbo && sceneFboMatches &&
-                          vpX == 0 && vpY == 0 &&
+    S32 directSceneSafe = overlayEmpty && s_fbo && !s_stereoDoubleWide &&
+                          sceneFboMatches && vpX == 0 && vpY == 0 &&
                           vpW == winW && vpH == winH &&
                           s_antiAlias != 1 && s_antiAlias != 4 &&
                           GL_ImageAdjustNeutral();
@@ -5702,6 +6061,8 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
             s_stereoEye1SceneDirect = 1;
         }
     }
+    if (overlayEmpty) s_profOverlayEmpty++;
+    if (directSceneSafe) s_profDirectScene++;
 
     if (s_fbo && !sceneOnlyPresent) {
         GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -5784,64 +6145,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
        post-processed or display-adjusted composite is not bypassed. */
     s_directScenePresent = directSceneSafe;
     if (!overlayEmpty) {
-        /* The index texture and its band uploads are maintained by the
-           diff block above; here we only refresh the palette (when the
-           palette changed) and draw the overlay. */
-
-        /* Refresh the 256x1 palette texture only when the palette changed. */
-        {
-            static U32 s_lutCache[256];
-            static S32 s_lutCacheValid = 0;
-            if (!s_lutCacheValid ||
-                memcmp(s_lutCache, paletteU32, 256 * sizeof(U32)) != 0) {
-                U8 rgba[256 * 4];
-                for (int i = 0; i < 256; i++) {
-                    U32 c = paletteU32[i];
-                    rgba[i * 4 + 0] = (U8)(c >> 16); /* R */
-                    rgba[i * 4 + 1] = (U8)(c >> 8);  /* G */
-                    rgba[i * 4 + 2] = (U8)(c);       /* B */
-                    rgba[i * 4 + 3] = (U8)(c >> 24); /* A (0 for index 0) */
-                }
-                glBindTexture(GL_TEXTURE_2D, s_lutTex);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1, GL_RGBA,
-                                GL_UNSIGNED_BYTE, rgba);
-                memcpy(s_lutCache, paletteU32, 256 * sizeof(U32));
-                s_lutCacheValid = 1;
-            }
-        }
-
-        GL_SetBlendFunc(1, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-        glUseProgram(s_presentIndexedProgram);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
-        glUniform1i(s_idx_uIndices, 0);
-        GL_UploadImageAdjust(s_idxAdj_uBrightness, s_idxAdj_uContrast,
-                             s_idxAdj_uSaturation);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, s_lutTex);
-        glUniform1i(s_idx_uPalette, 1);
-        glUniform2f(s_idx_uTexel, 1.0f / (GLfloat)width, 1.0f / (GLfloat)height);
-        glUniform1i(s_idx_uFilter, filterLinear);
-
-        GL_BindArrayBuffer(s_vbo);
-        glEnableVertexAttribArray(s_idx_aPos);
-        glVertexAttribPointer(s_idx_aPos, 2, GL_FLOAT, GL_FALSE,
-                              4 * sizeof(GLfloat), (const void *)0);
-        glEnableVertexAttribArray(s_idx_aTexCoord);
-        glVertexAttribPointer(s_idx_aTexCoord, 2, GL_FLOAT, GL_FALSE,
-                              4 * sizeof(GLfloat),
-                              (const void *)(2 * sizeof(GLfloat)));
-
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-        glDisableVertexAttribArray(s_idx_aPos);
-        glDisableVertexAttribArray(s_idx_aTexCoord);
-        GL_BindArrayBuffer(0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glUseProgram(0);
-        GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL_DrawIndexedOverlay(width, height, paletteU32, filterLinear);
     }
 
     U64 profT1 = SDL_GetPerformanceCounter();
@@ -5869,7 +6173,10 @@ U32 GL_GetPresentFBO(void) {
  * can blit the 3D FBO straight into the swapchain and skip the
  * intermediate fullscreen composite. */
 S32 GL_PresentSceneDirect(void) {
-    return s_directScenePresent;
+    /* The mono fast path reads a single content-sized scene.  A double-wide
+     * target is a stereo pair, not a mono frame, even if stereo was just
+     * switched off. */
+    return s_stereoDoubleWide ? 0 : s_directScenePresent;
 }
 
 U32 GL_Get3DColorTex(void) {

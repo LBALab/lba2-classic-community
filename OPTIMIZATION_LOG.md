@@ -16,11 +16,12 @@ From `adb logcat` (`StereoPerf` / `GrillePerf` lines, 2026-09-25 23:29):
 | Terrain (`GrillePerf terrain`) | 0–6 ms per eye (CPU) |
 | Batch flushes per frame | 1 (batching is fine) |
 
-`eye0 > eye1` is the horizon path: full MSAA resolve + full-surface blit +
-8 neighbour cubes worth of vertex transforms. Frame time must drop ~2× to
-reach 13.9 ms — and the measured CPU times include GL stalls from the GPU
-being the bottleneck, so the GPU-side cuts below should also collapse the
-stall component of those numbers.
+`eye0 > eye1` was attributed here to the horizon path: full MSAA resolve +
+full-surface blit + 8 neighbour cubes worth of vertex transforms. The
+2026-10-20 re-audit below shows the eye-0 present composite is a second,
+independent contributor. Frame time must drop ~2× to reach 13.9 ms — and the
+measured CPU times include GL stalls from the GPU being the bottleneck, so the
+GPU-side cuts below should also collapse the stall component of those numbers.
 
 ## Changes landed on this branch
 
@@ -158,12 +159,12 @@ graphical issues; the explicit-resolve scheme stays).  25 samples of
 
 ~25% median improvement and the frame floor now touches the 72 Hz budget,
 but the median is still above 13.9 ms — the remaining GPU per-frame cost
-(two full scene passes at 1680x1760 with MSAA×2 + composite + copy) needs
-either a working resolve-in-tile, a lower ladder step, foveation MEDIUM,
-or MSAA→FXAA to close the gap.  All are recorded above; the first two are
-driver-behavior experiments that need on-device iteration, the last two
-are one-line trade-offs.  Item 1a v3 is the resolve-in-tile candidate for
-that next device run.
+(two full scene passes at 1680×1760 with MSAA×2, the eye-0 composite, and the
+two OpenXR swapchain blits) needs either a working resolve-in-tile, a lower
+ladder step, foveation MEDIUM, or MSAA→FXAA to close the gap.  All are
+recorded above; the first two are driver-behavior experiments that need
+on-device iteration, the last two are one-line trade-offs.  Item 1a v3 is the
+resolve-in-tile candidate for that next device run.
 
 ## One-minute sample before item 14 (Quest 3, 2026-10-20 11:54-11:55)
 
@@ -187,8 +188,289 @@ The runtime line at the start of the sample read `FPS=32/72`,
 `CPU&GPU=37.68ms`, so the frame is still GPU-bound.
 
 Item 14 reproduced the predicted win (eye 1 `restore=41–53 us`, frame median
-17 ms) but failed visually in Iceland, so it is reverted.  Eye 0's horizon
-and the two scene passes remain the biggest costs.  A future horizon reuse
-needs to handle near neighbour-cube parallax — for example a depth-aware
-composite that restores only the far backdrop, or a neutral-camera horizon
-prepass — rather than treating the whole capture as eye-independent.
+17 ms) but failed visually in Iceland, so it is reverted.  Eye 0's horizon,
+the two scene passes, and the eye-0 composite/OpenXR blits remain the biggest
+costs.  A future horizon reuse needs to handle near neighbour-cube parallax —
+for example a depth-aware composite that restores only the far backdrop, or a
+neutral-camera horizon prepass — rather than treating the whole capture as
+eye-independent.
+
+## 2026-10-20 re-audit: present chain and GPU memory
+
+Current branch `quest-good-perf` at `04365c82` (body-line depth fix on top of
+the reverted horizon reuse and resolve-in-tile v3). This audit was read-only;
+the implementation plan is in [plan.md](plan.md).
+
+### Measurements
+
+Latest in-game sample:
+
+| Metric | Value |
+|---|---|
+| `StereoPerf eye0` | 10 ms (14–15 ms in heavier scenes) |
+| `StereoPerf eye1` | 6 ms (11–12 ms in heavier scenes) |
+| `StereoPerf frame` | 16 ms (25–27 ms in heavier scenes) |
+| `GrillePerf horizon` | 4 ms eye 0, 2 ms eye 1 |
+| `GrillePerf terrain` | 1 ms per eye |
+| `GrillePerf skysea` | 0–1 ms |
+| `GLPerf present` | about 2.3–2.6 ms per present |
+| `GLPerf flush` | about 1.3 ms per present |
+| `GLPerf flushes` | 53–78 per sample |
+
+The device log also confirms the current Android path is **2x MSAA** at
+1680×1760 (`SetAntiAlias: 1 -> 2`, `MSAA FBO created 1680x1760 samples=2
+(resolve-in-tile)`). The target remains 72 FPS; no quality setting changes are
+part of this plan.
+
+The last captured app telemetry reported `GPU=154.1/154.1 MiB (100%
+allocated)`. That sample predates the body-line commit, but the set of
+full-resolution surfaces has not been reduced since. The accounting is on the
+order of 150 MiB: scene MSAA color (~22.6 MiB), scene depth (~11.3 MiB),
+`s_fbo` (~17.7 MiB), two eye FBOs (~23.6 MiB), present FBO (~11.8 MiB),
+horizon FBO (~17.7 MiB), snapshot FBO (~17.7 MiB), log index (~3 MiB), texture
+array (16 MiB), and atlas cache (~8 MiB). Not every surface is live at every
+instant, but the engine is operating with no GPU memory headroom.
+
+### Findings
+
+1. **The eye-0 composite is a large avoidable asymmetry.** Phase 0 measured a
+   2–4 ms gap between the eyes. Part of the extra is the horizon; the rest is
+   `GL_PresentIndexed` compositing the full scene into `s_stereoEyeFBO[0]`.
+2. **The present chain makes four full-resolution copies and two resolves
+   per frame.** Both eye composites run, then both eye FBOs are blitted into
+   the swapchain. The eye-1 direct path was inactive in the measured scene
+   because the overlay was non-empty. Present is 2.35 ms per present and
+   flush is 2.99 ms per present; their sum is an upper bound of roughly 10.7
+   ms/frame because present includes any pending flush at its start.
+3. **The horizon capture is dead in stereo.** `GL_CaptureHorizon` still runs
+   for eye 0 and still allocates a full-resolution color/depth surface, but
+   `GL_BeginFrame` clears `s_horizonValid` before eye 1 and item 14's restore
+   is reverted. Eye 1 redraws the horizon correctly. The capture can be
+   disabled without changing the current image.
+4. **Several full-resolution surfaces are allocated but unused in the stereo
+   fast path.** `s_stereoEyeFBO[1]` is not read when eye 1 is direct.
+   `s_presentFBO` is a mono/menu target. The snapshot and `s_fbo` surfaces are
+   not used by full-redraw stereo eye passes. They can be lazy or freed when
+   the stereo double-wide target is active.
+5. **OpenXR present performs per-frame validation and state queries.** A
+   fresh swapchain FBO per present is intentional (item 3 records the black
+   frames from persistent attachments), but `glGetError`,
+   `glCheckFramebufferStatus`, and `glGetIntegerv` do not need to run on every
+   release frame. They can be debug-only, while keeping the fresh FBO object.
+6. **The overlay path scans and clears full-resolution buffers per eye.** The
+   indexed present does a row-by-row `memcmp` of the `Log` buffer for each eye
+   to detect an empty overlay, and `ExtFunc` memsets both `Screen` and `Log`
+   for each eye. Phase 0 measured `ovlEmpty=0.00` in every gameplay sample,
+   so the direct path never activated. Identify the 2D writer that keeps `Log`
+   non-empty, then drive the scan from a dirty flag instead of assuming an
+   empty overlay.
+7. **The atlas content version is global.** Any animated water, plasma, or
+   terrain mutation invalidates every array layer and every cached atlas page,
+   so one changed page can re-upload many unchanged pages. This is a likely
+   source of `Stale` spikes and should be replaced by per-page dirty tracking.
+8. **The batch flush rebinds the framebuffer on every flush.** The first-flush
+   path already binds the scene FBO; the unconditional rebind later in
+   `FlushActiveBatch` is redundant. The flush reason fields are also all zero,
+   so there is no current attribution for the 30–110 flushes per 300 presents.
+9. **The 1:1 stereo blits use `GL_LINEAR`.** At exact source and destination
+   sizes, `GL_NEAREST` is visually identical and cheaper.
+10. **The direct eye-1 path is inactive in gameplay.** Phase 0 measured
+    `ovlEmpty=0.00` and `direct=0.00` in all 21 consecutive 300-present
+    windows (about 55 s of play). The overlay is not empty, so eye 1 takes the
+    full composite path. This is no longer a startup/menu-only observation.
+
+### What this changes
+
+The 2026-09-25 conclusion that the frame is GPU-bound still holds, but the
+attribution needs to include the present chain. The horizon measured 3–6
+ms/frame in Phase 0; it is not the only large cost, and optimizing it alone
+cannot reach 13.9 ms. Both eye composites plus the two swapchain blits are a
+comparable, largely avoidable bucket.
+
+Item 12 is only a partial fix: it removes the eye-1 composite when the direct
+path can activate, and Phase 0 shows that condition is false in the measured
+gameplay. Item 14 stays reverted; future horizon reuse must be vertex-space or
+depth-aware, not an image copy. The eye-0/eye-1 cost gap is not proof that the
+horizon is the only problem.
+
+### Phase 0 measurement (2026-10-20)
+
+55 s mixed-scene sample on the Quest 3: 11 `StereoPerf` windows, 21 `GLPerf`
+windows, and 93 VrApi samples. Medians unless noted:
+
+| Signal | Measurement |
+|---|---|
+| `StereoPerf eye0` | 14 ms (mean 14.7, p90 19, max 20) |
+| `StereoPerf eye1` | 12 ms (mean 12.5, p90 17, max 18) |
+| `StereoPerf frame` | 26 ms (mean 27.2, p90 37, max 37) |
+| `GrillePerf horizon` | 3 ms (mean 3.8, p90 6.9) |
+| `GrillePerf terrain` | 3 ms (max 5) |
+| `GLPerf present` | 2.35 ms per present |
+| `GLPerf flush` | 2.99 ms per present |
+| `GLPerf flushes` | 82 per 300 presents (30–110) |
+| `OpenXRPerf total` | 0.56 ms per present; wait 0.00, blit 0.06 |
+| `VrApi FPS` | 41 median (p90 67.6) |
+| `VrApi CPU&GPU` | 29.8 ms median |
+| `VrApi App` | 4.7 ms median |
+
+Key results:
+
+- **OpenXR is not the bottleneck.** `frameBegin` is 0.11 ms, `wait` and
+  `acquire` are 0.00, `blit` is 0.06, and `end` is 0.43. The frame time is in
+  scene rendering and the GL present/flush path.
+- **Both eyes composite.** `ovlEmpty=0.00` and `direct=0.00` in every sample.
+  The eye-1 direct path never activated, so the frame pays two eye composites,
+  two resolves, and two swapchain blits.
+- **Flush time tracks scene load.** `GLPerf flush` rises from about 1.1 ms per
+  present at 30 flushes to 4.7 ms at 110 flushes. `FlushActiveBatch` wraps
+  `glDrawArrays`, so this includes GPU backpressure, not just CPU submission.
+- **Memory is tight.** The engine surface estimate is 79.0 MiB at init, 101.5
+  MiB after the snapshot target, and 124.1 MiB after the horizon target,
+  before the texture array and atlas cache.
+- **Configuration is as expected.** `FpsLimit=0`; `SetAntiAlias` is 2x MSAA;
+  `truepose=0` in `StereoPerf`.
+
+### Plan
+
+The full phased plan is in [plan.md](plan.md). The order is deliberate:
+
+1. Measure simulation, OpenXR wait, eye phases, presents, and surface bytes.
+2. Replace the per-eye scene copies with one double-wide MSAA scene target and
+   one present blit. This removes both eye composites and two full-screen
+   copies while preserving per-eye resolution and 2x MSAA.
+3. Disable the dead horizon capture and lazy/free the unused full-resolution
+   surfaces.
+4. Remove per-frame OpenXR validation/state queries while keeping the fresh
+   swapchain FBO lifecycle that item 3 requires.
+5. Remove duplicate overlay scans/clears and redundant per-flush framebuffer
+   binds.
+6. Reuse eye 0's horizon vertices in camera space for eye 1; never restore the
+   image capture.
+7. Only if more headroom is needed, attach the swapchain texture directly to
+   the MSAA FBO and remove the final blit.
+
+Expected combined effect is larger than the eye-0 composite alone: 3–5 ms from
+the double-wide present path, 0.5–2 ms from OpenXR cleanup, 0.5–1 ms from
+overlay/clear, 1.5–3 ms from vertex-space horizon reuse, and 1–2 ms from the
+flush path. The first two phases are the ones to build and verify first.
+
+### Open questions
+
+- Confirmed: `FpsLimit=0`, 2x MSAA is active, and the gameplay overlay is
+  non-empty, so the direct path is inactive.
+- Add GPU timer queries before treating `GLPerf present` or `GLPerf flush` as
+  pure CPU time; the wall-clock numbers include driver stalls.
+- Verify whether the Adreno 740 accepts a double-wide in-tile MSAA texture and
+  resolve view at 3360×1760. If not, fall back to the current per-eye path.
+- Re-check `VrApi` `App`, `CPU&GPU`, and `GPU%` after the present change; the
+  current fields are not sufficient to separate CPU submission from GPU
+  memory stalls.
+
+## Phase 1 report: double-wide stereo scene target (2026-10-20)
+
+Status: implemented in the working tree, built for Quest, and installed as
+`0.13.0-dev` at 2026-10-20 14:00:55. Device visual and performance
+verification is pending; nothing is committed.
+
+### Design
+
+- `s_fbo` and `s_msaaFbo` are physically double-wide (`2 * eyeWidth` by
+  `eyeHeight`). `s_fboWidth`/`s_fboHeight` stay the per-eye content size, so
+  projection, object culling, HUD coordinates, snapshots, and the mono path
+  keep their existing math.
+- Eye 0 renders at viewport `(0, 0, eyeWidth, eyeHeight)`; eye 1 renders at
+  `(eyeWidth, 0, eyeWidth, eyeHeight)`. `GL_SetSceneViewport()` is used by
+  every scene bind (batch flush, shadow, sphere, line, shade box, sprite,
+  snapshot restore, horizon restore) and by the present overlay.
+- `GL_ClearFBO` clears only the current eye half with a scissor. A full-target
+  clear would erase the first eye before the second one renders.
+- `GL_PresentIndexed` and `GL_Present` no longer composite the scene. They bind
+  the scene target, draw only the current eye's HUD into its half, and on
+  eye 1 resolve the target once and mark the stereo pair ready.
+- `OpenXR_PresentMono` reads the resolved pair through the new
+  `GL_GetStereoPairFBO/Width/Height` accessors and performs one blit from
+  `(0,0,2*eyeWidth,eyeHeight)` to the full double-wide swapchain. The blit uses
+  `GL_NEAREST` at matching sizes and `GL_LINEAR` only when scaling.
+- `GL_CaptureHorizon` returns early during stereo passes. Eye 1 still draws its
+  own horizon, so the image is unchanged; the capture surface is not allocated
+  and the dead capture blit is not paid. The early return still flushes the
+  current eye's horizon batch before the next eye starts.
+- Eye FBOs are not allocated while the double-wide path is active. They are
+  created when the renderer switches back to the per-eye fallback.
+
+### Fallback gates
+
+The double-wide path is used only when all of these hold:
+
+- OpenXR is active and stereo is enabled.
+- Anti-aliasing is MSAA 2x or 4x.
+- Brightness, contrast, and saturation are neutral.
+
+Non-neutral image adjustment and FXAA/SMAA need the per-eye scene composite,
+so they use the old eye-FBO path. An incomplete double-wide FBO also falls
+back. `LBA2_NO_STEREO_DW=1` forces the old path for an on-device A/B without a
+rebuild. The fallback still uses `s_sceneEyeX=0`, so its behavior is the same
+as before.
+
+### Memory
+
+The renderer logs `surfaces(stereo-double)` when the target is created and
+`surfaces(stereo-per-eye)` when it falls back. With no snapshot or horizon
+surface, the existing accounting estimate is about 101.5 MiB versus the
+Phase 0 124.1 MiB figure; the logger counts depth as 4 bytes, so the real
+depth-16 total is lower. If a mono frame allocated snapshot or horizon
+surfaces before stereo started, those allocations remain until Phase 2.
+
+### What to verify on device
+
+1. Same Iceland exterior save, same camera mode, MSAA 2x, stereo on.
+2. Run for at least one minute with `perftrace start`.
+3. Check that the startup log contains:
+   - `[GL] Stereo scene target: double-wide`
+   - `[GL] Scene FBO 3360x1760 (eye 1680x1760, double-wide)`
+   - `[GL] MSAA FBO created 3360x1760 samples=2 (resolve-in-tile)`
+   - `[Perf] surfaces(stereo-double): ...`
+   - `[OpenXR] PresentMono stereo: double-wide ...` once
+4. Compare `StereoPerf eye0`, `eye1`, and `frame`, `GLPerf present`,
+   `flush`, `ovlEmpty`, and `direct`, `OpenXRPerf blit`, `GrillePerf horizon`,
+   and the VrApi `FPS`, `CPU&GPU`, and `App` lines against the Phase 0 table.
+5. Visual checks: terrain seams in Iceland, horizon stability, HUD alignment
+   (both eyes), medallion chain and whiskers occlusion, console overlay, and a
+   short interior check.
+
+### Device run (2026-10-20 14:04–14:05)
+
+User report: performance is better, with no visual issues detected. The
+captured run is 13 `StereoPerf` windows, 30 `GLPerf` windows, and 17
+`OpenXRPerf` windows. Medians unless noted:
+
+| Signal | Phase 0 | Phase 1 run |
+|---|---|---|
+| `StereoPerf eye0` | 14 ms | 12 ms |
+| `StereoPerf eye1` | 12 ms | 10 ms |
+| `StereoPerf frame` | 26 ms | 21 ms |
+| `GLPerf present` | 2.35 ms | 1.50 ms |
+| `GLPerf flush` | 2.99 ms | 2.33 ms |
+| `GrillePerf horizon` | 3 ms | 2.5 ms |
+| `OpenXRPerf blit` | 0.06 ms | 0.06 ms |
+
+The captured surface log still reported the per-eye totals (`79.0 MiB` at
+init, `124.1 MiB` after snapshot and horizon), and `PresentMono stereo:
+per-eye`; the `stereo-double` line was not present in this capture. The gate
+state is left for the Phase 2 memory pass to recheck, per the request to stop
+the immediate investigation.
+
+### Risks and rollback
+
+- The main risk is Adreno rejecting or mis-resolving the 3360x1760 in-tile
+  MSAA target. The existing probe and FBO-complete checks fall back to the
+  explicit MSAA path, and an incomplete double-wide FBO falls back to the old
+  eye-FBO path. If the device shows black or torn eye halves, set
+  `LBA2_NO_STEREO_DW=1` and report the first `[GL]`/`[OpenXR]` warning.
+- HUD alignment is the other risk: the overlay viewport and scissor must match
+  the eye half. A horizontal offset or duplicated HUD means the eye viewport
+  did not follow `s_sceneEyeX`.
+- The horizon capture is intentionally off in stereo. Eye 1 drawing its own
+  horizon is the known-good behavior from the reverted image-reuse attempt; do
+  not restore the capture copy.
+- No resolution, MSAA, foveation, or settings change is part of this phase.

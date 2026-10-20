@@ -198,10 +198,11 @@ U32 GL_Get3DColorTex(void);
 U32 GL_Get3DFBO(void);
 
 //! Stereo (dual-eye) capture control. With eye >= 0, the next GL_Present
-//! composites into that eye's offscreen FBO instead of the present FBO and
-//! skips the window swap; the caller then re-renders the scene for the other
-//! eye normally. Also sets the 3D camera/projection eye shifts (see
-//! StereoCamShiftX / StereoProjShiftX in 3D/CAMERA.H); eye -1 restores mono.
+//! draws the HUD into that eye's half of the scene target and skips the
+//! window swap until the second eye is ready. Also sets the 3D
+//! camera/projection eye shifts (see StereoCamShiftX / StereoProjShiftX in
+//! 3D/CAMERA.H); eye -1 restores mono and releases the double-wide target
+//! when stereo is no longer active.
 void GL_SetStereoEye(S32 eye);
 
 //! Current stereo capture eye (-1 = mono / not capturing).
@@ -215,6 +216,14 @@ S32 GL_TakeStereoPair(void);
 //! Offscreen FBO holding the captured composite for the given eye (0 = left,
 //! 1 = right), or 0 if none. For OpenXR_PresentMono's stereo blit.
 U32 GL_GetStereoEyeFBO(S32 eye);
+
+//! Single-sample FBO containing both eye halves side by side, or 0 when the
+//! double-wide stereo path is inactive.
+U32 GL_GetStereoPairFBO(void);
+
+//! Width and height of the double-wide stereo source, or 0 when inactive.
+U32 GL_GetStereoPairWidth(void);
+U32 GL_GetStereoPairHeight(void);
 
 //! Returns 1 when eye 1's composite was skipped because the overlay was
 //! empty; the stereo present then reads GL_Get3DFBO() for the right eye.
