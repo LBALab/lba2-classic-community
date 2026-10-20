@@ -109,10 +109,10 @@ S32 GL_HorizonValid(void);
 
 //! Latest horizon-capture split, for the GrillePerf diagnostic: @p resolveUs
 //! and @p blitUs are the resolve and blit cost in microseconds, @p rectPct is
-//! the captured region in the FBO (percent of the surface).  With explicit
-//! MSAA the resolve happens inside the blit, so @p resolveUs is zero and
-//! @p blitUs includes it; resolve-in-tile reports its invalidate separately.
-//! All three are zero when the last capture was a prefix-pose cache hit.
+//! the captured region in the FBO (percent of the surface).  Both MSAA modes
+//! resolve the captured rect inside the blit, so @p resolveUs is zero and
+//! @p blitUs includes it.  All three are zero when the last capture was a
+//! prefix-pose cache hit.
 void GL_GetHorizonPerf(U32 *resolveUs, U32 *blitUs, U32 *rectPct);
 
 //! Draw the projected ground-shadow polygon directly into the FBO (GL
@@ -153,8 +153,8 @@ void GL_ReadbackDepthBuffer(void);
 //! Read back the FBO color buffer and convert ARGB pixels to 8-bit palette
 //! indices, storing the result in the Screen buffer.  Used by AffGrilleExt()
 //! to copy terrain into Log so ShadeBoxBlk (shadow darkening) has real pixels
-//! to operate on.  Must be called after GL_ReadbackDepthBuffer() (FBO must
-//! be bound).  Handles SSAA downscaling.  No-op when no FBO is active.
+//! to operate on.  Must be called after GL_ReadbackDepthBuffer().  Handles
+//! SSAA downscaling.  No-op when no FBO is active.
 void GL_ReadbackColorBuffer(void);
 
 //! Draw one gameplay sprite (eyes, hands, extras) as a chroma-keyed,
@@ -185,6 +185,9 @@ U32 GL_GetPresentColorTex(void);
    safe to read as the scene alone, skipping the intermediate composite
    (empty overlay, no post-process, content-sized FBO). */
 S32 GL_PresentSceneDirect(void);
+//! Scene color texture and single-sample read FBO.  Resolve-in-tile exposes
+//! the dedicated resolve texture/view; explicit MSAA returns the regular
+//! s_fbo color texture/view.
 U32 GL_Get3DColorTex(void);
 U32 GL_Get3DFBO(void);
 

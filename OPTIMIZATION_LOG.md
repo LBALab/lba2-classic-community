@@ -29,7 +29,7 @@ stall component of those numbers.
 | # | Change | File | Expected effect |
 |---|---|---|---|
 | 1 | **Horizon capture color-only** (eye 0, every frame): the full color+depth resolve became color-only, and the capture blit drops its depth half under MSAA (the MSAA restore path never reads horizon depth — confirmed by its own comment). | RENDER_GL.CPP | −1 full-surface depth resolve + smaller blit per frame |
-| ~~1a~~ | **Resolve-in-tile disabled after on-device graphical issues.** The first attempt came back black because it sampled `s_fboColorTex` without forcing the tile-discard resolve. v2 added `glInvalidateFramebuffer` hints, but Adreno treats invalidation of a resolve attachment as discard-don't-resolve, so the image broke. The explicit-resolve scheme below stays; the experiment is behind `#define GL_INTILE_MSAA 0` in RENDER_GL.CPP. | RENDER_GL.CPP | (deferred: needs a driver-safe resolve scheme) |
+| 1a | **Resolve-in-tile v3 (enabled, device-unverified)**: the first attempt sampled `s_fboColorTex` without forcing a resolve; v2 added `glInvalidateFramebuffer`, which Adreno treats as discard-don't-resolve. Both attached `s_fboColorTex` to the MSAA FBO as well as the scene FBO. v3 gives the MSAA FBO a dedicated `s_msaaColorTex`, attached only to that FBO and a single-sample resolve-view FBO. The composite samples the texture directly; the OpenXR direct present blits from the resolve view; snapshot frames explicitly copy color+depth into `s_fbo`. No `glInvalidateFramebuffer`. Driver rejection of either FBO, or a failed resolve probe, falls back to explicit resolve for the session. | RENDER_GL.CPP | removes the full-surface color resolve from every present; direct present resolves the scene once inside its blit |
 | 3 | ~~Swapchain-image FBOs cached per image index~~ **REVERTED — found by on-device bisection.** The Meta runtime does not tolerate a persistent FBO attachment on its swapchain textures across xrAcquire/xrRelease (or re-backs the images on session resume): the composited frame landed in orphaned memory and the eyes saw black with only the 2D overlay (rain) showing. The original fresh `glGenFramebuffers` + attach + delete per present is restored — its cost is negligible next to the blit. | OPENXR.CPP | (would have removed per-frame FBO churn) |
 | 4 | **Frame pacing**: `xrWaitFrame` + `xrBeginFrame` now run at frame START (from `OpenXR_BeginFrame`, one-shot `OpenXR_EnsureFrameBegun`) instead of after both eye renders inside `OpenXR_PresentMono`. CPU render work now overlaps the compositor's wait window and frames submit on time instead of late. Menu/title paths still funnel through the same one-shot. | OPENXR.CPP | removes submit lateness; pacing/stutter win |
 | 5 | **Fixed foveation LOW** (XR_FB_foveation + configuration + swapchain_update_state, all ext-gated): the tiler renders the periphery at reduced bin density. The swapchain is created with `XR_SWAPCHAIN_CREATE_FOVEATION_SCALED_BIN_BIT_FB` — the method Adreno implements; chaining the create-info with flags 0 (the first attempt) left the runtime rendering the swapchain undefined. LOW chosen to be invisible behind the engine-resolution upscale; the knob is one enum (`XR_FOVEATION_LEVEL_*_FB`). | OPENXR.CPP | major fill-rate save on Quest |
@@ -46,6 +46,15 @@ stall component of those numbers.
 | 11 | **Stereo depth-readback removal**: `GL_ReadbackDepthBuffer()` resolves the full depth buffer into a PBO and maps it on the next call. Stereo eye passes are always `AFF_ALL_FLIP`: each `AffGrilleExt` clears `PtrZBuffer` before the object pass, so neither eye can observe the readback. Skip it when `GL_GetStereoEye() >= 0`; mono incremental frames keep the one-frame-old depth. | SOURCES/OBJECT.CPP | −1 full-surface depth resolve + PBO read per frame |
 | 12 | **Empty-overlay direct present**: the indexed present already detects an all-zero Log overlay. When that overlay is empty, the viewport is full, the display transform is neutral, no FXAA/SMAA is active, and the scene FBO is content-sized, OpenXR can blit the resolved 3D scene directly for mono and for stereo eye 1 (the last eye rendered). Eye 0 still composites because eye 1 overwrites the scene FBO. A new `GL_StereoEyeSceneDirect()` handshake tells the stereo present to read the scene for the right eye; `GL_PresentSceneDirect()` reports the same safety for the mono fast path. The previous mono fast path could bypass a non-neutral display transform; it now shares the full gate. | RENDER_GL.CPP, OPENXR.CPP, RENDER_GL.H | −1 full-screen composite on mono/eye-1 empty-overlay frames |
 | 13 | **Present state cleanup**: drop the redundant full-target `glViewport` before the scissored letterbox clear (`glClear` ignores the viewport), and the duplicate vertex-array/program teardown at the end of the plain present branch. | RENDER_GL.CPP | small CPU/driver-state win |
+
+The v3 in-tile path sets `GL_INTILE_MSAA 1`. Desktop GL does not expose
+`GL_EXT_multisampled_render_to_texture`, so desktop keeps the explicit path;
+the Quest native build compiles the in-tile branch. The failure mode of the
+earlier attempts is removed: the resolve texture is never attached to
+`s_fbo`, and the resolve is triggered by sampling/blitting the texture rather
+than by invalidating it. At creation the renderer clears the MSAA target and
+reads one pixel through the resolve view; a stale or black read falls back to
+explicit resolve for the session instead of risking a black headset.
 
 ### CPU measurement (Linux micro-benchmark, tests/bench_terrain)
 
@@ -107,6 +116,13 @@ the number.
   re-measured or visually checked on the headset (the owner asked for
   verification-free work); pair a future device run with `StereoPerf` and
   `GrillePerf` before treating the numbers as final.
+- Resolve-in-tile v3: Linux and Quest native builds clean. Linux headless
+  scene capture and `ui_display` pass on the software path. A windowed Mesa
+  GL run created the explicit MSAA FBO, but this host's pre-existing shader
+  compile failures prevent a useful image comparison. Desktop has no
+  `GL_EXT_multisampled_render_to_texture`, so the in-tile branch itself was
+  not exercised; a headset run must confirm the first frames are not black
+  and that `[GL] MSAA FBO created ... (resolve-in-tile)` appears once.
 
 ## Remaining levers (deliberately NOT taken — behavior changes, owner's call)
 
@@ -135,4 +151,5 @@ but the median is still above 13.9 ms — the remaining GPU per-frame cost
 either a working resolve-in-tile, a lower ladder step, foveation MEDIUM,
 or MSAA→FXAA to close the gap.  All are recorded above; the first two are
 driver-behavior experiments that need on-device iteration, the last two
-are one-line trade-offs.
+are one-line trade-offs.  Item 1a v3 is the resolve-in-tile candidate for
+that next device run.
