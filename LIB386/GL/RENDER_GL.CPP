@@ -1057,6 +1057,12 @@ static void GL_SetBlendFunc(S32 on, GLenum src, GLenum dst) {
     s_blendDstCur = dst;
 }
 
+/* Track the draw-framebuffer binding so the batch flush can skip the same
+   scene bind hundreds of times per frame.  Every bind in this file goes
+   through the wrapper below; the value is reset to "unknown" whenever another
+   path may have changed the context state. */
+static GLuint s_boundDrawFbo = 0;
+
 static void GL_InvalidateGLState(void) {
     s_curBoundTex[0] = (GLuint)-1;
     s_curBoundTex[1] = (GLuint)-1;
@@ -1070,6 +1076,23 @@ static void GL_InvalidateGLState(void) {
     s_blendOnCur = -1;
     s_blendSrcCur = 0;
     s_blendDstCur = 0;
+}
+
+/* Define after the state reset and before the first bind in this file.  The
+   wrapper body calls the real GL entry point; the macro covers every later
+   call, including the one-shot snapshot, horizon and present paths. */
+static void GL_BindFramebufferTracked(GLenum target, GLuint fbo) {
+    glBindFramebuffer(target, fbo);
+    if (target == GL_FRAMEBUFFER || target == GL_DRAW_FRAMEBUFFER) {
+        s_boundDrawFbo = fbo;
+    }
+}
+#define glBindFramebuffer GL_BindFramebufferTracked
+
+/* Deleting the bound framebuffer silently rebinds zero, so the tracked ID
+   is no longer trustworthy after a teardown. */
+static void GL_ForgetFboBinding(void) {
+    s_boundDrawFbo = (GLuint)-1;
 }
 
 /* Cached depth-state setters: a full frame can submit hundreds of small
@@ -1451,6 +1474,7 @@ static void GL_DestroySnapshot(void) {
     if (s_snapshotFbo) {
         glDeleteFramebuffers(1, &s_snapshotFbo);
         s_snapshotFbo = 0;
+        GL_ForgetFboBinding();
     }
     if (s_snapshotTex) {
         glDeleteTextures(1, &s_snapshotTex);
@@ -1539,6 +1563,7 @@ static void GL_DestroyFBO(void) {
     if (s_fbo) {
         glDeleteFramebuffers(1, &s_fbo);
         s_fbo = 0;
+        GL_ForgetFboBinding();
     }
     if (s_fboColorTex) {
         glDeleteTextures(1, &s_fboColorTex);
@@ -1558,6 +1583,7 @@ static void GL_DestroyPresentFBO(void) {
     if (s_presentFBO) {
         glDeleteFramebuffers(1, &s_presentFBO);
         s_presentFBO = 0;
+        GL_ForgetFboBinding();
     }
     if (s_presentColorTex) {
         glDeleteTextures(1, &s_presentColorTex);
@@ -1571,6 +1597,7 @@ static void GL_DestroyStereoEyeFBOs(void) {
         if (s_stereoEyeFBO[i]) {
             glDeleteFramebuffers(1, &s_stereoEyeFBO[i]);
             s_stereoEyeFBO[i] = 0;
+            GL_ForgetFboBinding();
         }
         if (s_stereoEyeTex[i]) {
             glDeleteTextures(1, &s_stereoEyeTex[i]);
@@ -2332,6 +2359,7 @@ void GL_Renderer_Shutdown(void) {
     if (s_depthSmallFbo) {
         glDeleteFramebuffers(1, &s_depthSmallFbo);
         s_depthSmallFbo = 0;
+        GL_ForgetFboBinding();
     }
     if (s_depthSmallRbo) {
         glDeleteRenderbuffers(1, &s_depthSmallRbo);
@@ -2648,6 +2676,7 @@ static void GL_SmaaTargetsDestroy(void) {
     if (s_smaaEdgeFbo) {
         glDeleteFramebuffers(1, &s_smaaEdgeFbo);
         s_smaaEdgeFbo = 0;
+        GL_ForgetFboBinding();
     }
     if (s_smaaEdgeTex) {
         glDeleteTextures(1, &s_smaaEdgeTex);
@@ -2656,6 +2685,7 @@ static void GL_SmaaTargetsDestroy(void) {
     if (s_smaaWeightFbo) {
         glDeleteFramebuffers(1, &s_smaaWeightFbo);
         s_smaaWeightFbo = 0;
+        GL_ForgetFboBinding();
     }
     if (s_smaaWeightTex) {
         glDeleteTextures(1, &s_smaaWeightTex);
@@ -2800,10 +2830,12 @@ static void GL_DestroyMSAAFbo(void) {
     if (s_msaaResolveFbo) {
         glDeleteFramebuffers(1, &s_msaaResolveFbo);
         s_msaaResolveFbo = 0;
+        GL_ForgetFboBinding();
     }
     if (s_msaaFbo) {
         glDeleteFramebuffers(1, &s_msaaFbo);
         s_msaaFbo = 0;
+        GL_ForgetFboBinding();
     }
     if (s_msaaColorTex) {
         glDeleteTextures(1, &s_msaaColorTex);
@@ -3679,13 +3711,19 @@ static void FlushActiveBatch(void) {
         GL_SetDepthWrite(0);
     }
 
-    /* Draw all batched triangles.  Re-bind the render FBO: intermediate
-       texture/state changes between GL_ClearFBO and this draw can reset
-       the FBO binding on some drivers. */
-    if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3))
-        glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
-    else if (s_fbo)
-        glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+    /* Draw all batched triangles.  The first flush of the frame binds the
+       scene target; mid-frame paths that bind another target either restore
+       the scene themselves or invalidate the tracked binding.  Checking the
+       cache avoids re-binding the same FBO on every one of the hundreds of
+       flushes a terrain/object pass can emit. */
+    if (s_fbo) {
+        GLuint sceneFbo = (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3))
+                              ? s_msaaFbo
+                              : s_fbo;
+        if (s_boundDrawFbo != sceneFbo) {
+            glBindFramebuffer(GL_FRAMEBUFFER, sceneFbo);
+        }
+    }
     glDrawArrays(GL_TRIANGLES, 0, s_batchVertCount);
 
     /* Restore depth state lazily: the caches hold the batch's values until
@@ -3702,6 +3740,9 @@ static void FlushActiveBatch(void) {
 
 
 void GL_FlushBatch(void) {
+    if (s_batchVertCount == 0 && s_deferVertCount == 0) {
+        return;
+    }
     if (!Window_GLMakeCurrent()) {
         return;
     }
@@ -4650,6 +4691,7 @@ static void GL_DestroyHorizon(void) {
     if (s_horizonFbo) {
         glDeleteFramebuffers(1, &s_horizonFbo);
         s_horizonFbo = 0;
+        GL_ForgetFboBinding();
     }
     if (s_horizonDepthRbo) {
         glDeleteRenderbuffers(1, &s_horizonDepthRbo);
@@ -4987,6 +5029,10 @@ void GL_BeginFrame(void) {
     if (!s_initialized) {
         return;
     }
+
+    /* The present path and the window layer bind their own targets; the next
+       frame's first flush must not trust the previous frame's cache. */
+    GL_ForgetFboBinding();
 
     /* Read the texture filter toggle once per frame so GL_FlushBatch
        (which may fire mid-frame when the batch fills) uses the
@@ -6589,14 +6635,15 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
            enable blending), and the fog-smooth mode pins the depth func to
            ALWAYS when NZW (sea/sky over terrain) — everything else
            (mode/chroma/perspective) branches per fragment in the shader. */
-        S32 trigger = ((s_currentMatFlags & 0x18) != (matFlags & 0x18) ||
-                       ((matFlags & 7) == 5) !=
-                           ((s_currentMatFlags & 7) == 5) ||
-                       (typePoly >= POLY_TEXTURE && !arrNow &&
-                        s_batchAtlas != (const void *)PtrMap) ||
-                       s_batchArray != arrNow ||
-                       s_batchZBuffer != Fill_Flag_ZBuffer ||
-                       s_batchNZW != Fill_Flag_NZW);
+        S32 rsnAlpha = ((s_currentMatFlags & 0x18) != (matFlags & 0x18));
+        S32 rsnFog = (((matFlags & 7) == 5) !=
+                      ((s_currentMatFlags & 7) == 5));
+        S32 rsnAtlas = ((typePoly >= POLY_TEXTURE && !arrNow &&
+                         s_batchAtlas != (const void *)PtrMap) ||
+                        s_batchArray != arrNow);
+        S32 rsnZbuf = (s_batchZBuffer != Fill_Flag_ZBuffer);
+        S32 rsnNzw = (s_batchNZW != Fill_Flag_NZW);
+        S32 trigger = (rsnAlpha || rsnFog || rsnAtlas || rsnZbuf || rsnNzw);
         if (trigger) {
             /* NZW alternation (terrain <-> animated per tile) is the dominant
                flush driver: route to the defer pool instead of flushing.
@@ -6605,7 +6652,7 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
             S32 poolable = !(matFlags & 8) && ((matFlags & 7) != 5) &&
                            !(s_currentMatFlags & 8) &&
                            ((s_currentMatFlags & 7) != 5);
-            if (poolable && s_batchNZW != Fill_Flag_NZW) {
+            if (poolable && rsnNzw) {
                 if (s_deferVertCount > 0 &&
                     s_deferNZW == (U8)Fill_Flag_NZW) {
                     GL_SwapBatchWithDefer();
@@ -6613,9 +6660,21 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
                     GL_SwapBatchWithDefer();
                 } else {
                     GL_FlushBatch();
+                    s_flushRsnNzw++;
                 }
             } else {
                 GL_FlushBatch();
+                if (rsnNzw) {
+                    s_flushRsnNzw++;
+                } else if (rsnAlpha) {
+                    s_flushRsnAlpha++;
+                } else if (rsnFog) {
+                    s_flushRsnFog++;
+                } else if (rsnAtlas) {
+                    s_flushRsnAtlas++;
+                } else if (rsnZbuf) {
+                    s_flushRsnZbuf++;
+                }
             }
         }
     } else if (s_deferVertCount > 0 && s_deferNZW == (U8)Fill_Flag_NZW &&

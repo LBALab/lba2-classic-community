@@ -362,6 +362,14 @@ matrix, `BetaCam` orientation, current cube or projection type changes.
 
 Expected effect: 1--2 ms/frame.
 
+Status: implemented and compile-verified against the Quest preset; committed
+as the Phase 6 change, with the headset check deferred to the morning.  The
+flush path tracks the draw FBO and skips the repeated scene bind, empty
+flushes return before make-current, and the `rsn` fields now attribute actual
+batch splits.  Attribute state was already cached, so no VAO was added.  The
+ring path and any terrain-array extension wait for the counters and for
+Adreno verification.
+
 ## Phase 7: direct-to-swapchain MSAA, only if needed
 
 Once the double-wide path is stable, try attaching the acquired swapchain

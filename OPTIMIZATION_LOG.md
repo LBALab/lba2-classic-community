@@ -712,3 +712,35 @@ right eye, leaving the projection and tile work.  The measured `rot` field
 should drop on eye 1 while eye 0 stays unchanged.  Morning checks: Iceland
 horizon and terrain seams, near/far stereo disparity, head rotation, and the
 transition back to mono.
+
+## Phase 6 report: submission-side cleanup (2026-10-20)
+
+Status: implemented and compile-verified against the Quest preset. Device
+verification is deferred to the morning.
+
+### Changes
+
+- A file-local wrapper around `glBindFramebuffer` tracks the draw target.
+  `FlushActiveBatch` now re-binds the scene only when the tracked target is
+  not already the scene FBO.  The first flush of every frame still binds it,
+  the snapshot/restore/horizon paths still rebind it, and FBO deletion plus
+  `GL_BeginFrame` invalidate the tracked value.
+- `GL_FlushBatch` returns before `Window_GLMakeCurrent` when both the active
+  and deferred pools are empty.
+- The `[GLPerf] rsn` fields now count actual batch-split flushes: NZW first,
+  then alpha, fog-smooth, atlas/array and Z-buffer changes.  End-of-frame and
+  full-buffer flushes are not attributed, so the fields are a split driver
+  ranking rather than a complete flush census.
+- No VAO was added.  With the default orphan path the attribute pointers
+  reference buffer storage, not the storage's contents, so they already
+  survive `glBufferData`; the 12-call setup only reruns when the opt-in ring
+  moves the base.  A VAO would duplicate the existing cache without removing
+  work from the default path.
+- The ring path stays opt-in and untested on Adreno until the headset is
+  attached.  The counters are the input for deciding whether sub-rect terrain
+  pages are worth extending.
+
+Expected effect: one fewer GL bind per batch flush (hundreds per frame) and
+no empty-batch make-current calls.  Morning checks: missing or black geometry
+in either eye, the menu and mono transition, terrain restore after a moving
+camera, the horizon, and the `rsn` split reported by the F6/GLPerf log.
