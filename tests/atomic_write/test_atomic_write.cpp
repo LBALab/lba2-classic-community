@@ -63,7 +63,7 @@ std::string ReadRaw(const char *path) {
     std::fseek(f, 0, SEEK_SET);
     std::string out((size_t)n, '\0');
     if (n > 0)
-        std::fread(&out[0], 1, (size_t)n, f);
+        CHECK(std::fread(&out[0], 1, (size_t)n, f) == (size_t)n);
     std::fclose(f);
     return out;
 }
