@@ -1119,14 +1119,14 @@ ctl --load "$LBA2_TEST_SAVE" --record "$loosedir/s.rec" \
 # the arm keeps passing on the day the scripted `cube` stops arriving, having crossed no
 # fade and tested nothing. The keyframe records the cube it changed to, so the reader can
 # be asked rather than the exit code trusted.
-# Matched with `case` rather than counted with `grep -c`, which exits 1 on no match: the
+# The cube it came from is the save's: 3 for the default 001 Start, 48 for 002 Downtown.
+# Matched in the shell rather than counted with `grep -c`, which exits 1 on no match: the
 # `||` would then report the reader as broken on the one failure this check is here for.
 loosedump="$(python3 "$REPO/scripts/dev/dump_recording.py" "$loosedir/s.rec")" ||
     fail "loose clock: could not read the recording back"
-case "$loosedump" in
-*"cube 3->154"*) ;;
-*) fail "loose clock: the recording carries no cube 3->154 keyframe, so the run never crossed a scene change and this arm tested nothing" ;;
-esac
+loose_change='cube [0-9]+->154([^0-9]|$)'
+[[ "$loosedump" =~ $loose_change ]] ||
+    fail "loose clock: the recording carries no keyframe changing cube to 154, so the run never crossed a scene change and this arm tested nothing"
 
 # --- a command runs where the recording ran it ----------------------------------------
 #
