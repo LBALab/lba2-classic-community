@@ -255,6 +255,14 @@ does. Fix that rather than asking the user to reset display settings.
 Expected effect: enables the Phase 1 path for users with non-default display
 settings, unlocking the memory and present savings already built.
 
+Status: implemented, installed, device-verified, and committed as the
+Phase 1b change. The run selects the path: `Scene FBO 3360x1760`, `MSAA FBO
+3360x1760 samples=2`, `surfaces(stereo-double)` at 90.2 MiB, and repeated
+`PresentMono stereo: double-wide` lines with `glError=0x0`. The user confirmed
+no graphical issues in the headset, including the display transform. The
+latest run's medians were eye 0 13 ms, eye 1 10 ms, frame 23 ms, GL present
+1.40 ms, flush 2.86 ms, OpenXR total 0.51 ms, and horizon 3.0 ms.
+
 ## Phase 3: clean up the OpenXR present hot path
 
 Phase 0 measured the whole OpenXR present at 0.56 ms per present (`wait` and

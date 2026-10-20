@@ -211,6 +211,9 @@ extern "C" U32 GL_GetStereoEyeFBO(S32 eye);
 extern "C" U32 GL_GetStereoPairFBO(void);
 extern "C" U32 GL_GetStereoPairWidth(void);
 extern "C" U32 GL_GetStereoPairHeight(void);
+extern "C" S32 GL_StereoPairNeedsPresentShader(void);
+extern "C" S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight,
+                                           U32 dstWidth, U32 dstHeight);
 extern "C" S32 GL_StereoEyeSceneDirect(void);
 extern "C" S32 GL_TakeStereoPair(void);
 extern "C" S32 GL_PresentSceneDirect(void);
@@ -1856,21 +1859,39 @@ S32 OpenXR_PresentMono(void) {
                     GL_FRAMEBUFFER_COMPLETE) {
                     if (pairFbo != 0) {
                         /* Both eyes are already side by side in one
-                         * single-sample source: one blit for the whole pair.
-                         * At matching sizes NEAREST is exact and cheaper;
-                         * only scale with LINEAR when the sizes differ. */
-                        GLenum pairFilter =
-                            (pairW == (U32)(eyeDstX1 + eyeDstW) &&
-                             pairH == (U32)eyeDstH)
-                                ? GL_NEAREST
-                                : GL_LINEAR;
-                        glBindFramebuffer(GL_READ_FRAMEBUFFER, pairFbo);
-                        glBlitFramebuffer(0, 0, (GLint)pairW, (GLint)pairH,
-                                          eyeDstX0, marginY,
-                                          eyeDstX1 + eyeDstW,
-                                          marginY + eyeDstH,
-                                          GL_COLOR_BUFFER_BIT, pairFilter);
-                        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+                         * single-sample source.  With neutral display
+                         * sliders this is a plain blit; otherwise the pair
+                         * shader applies brightness/contrast/saturation to
+                         * the whole composite in this same pass. */
+                        S32 pairDrawn = 0;
+                        if (GL_StereoPairNeedsPresentShader()) {
+                            pairDrawn = GL_BlitStereoPairToCurrent(
+                                pairW, pairH,
+                                (U32)(eyeDstX1 + eyeDstW), (U32)eyeDstH);
+                            if (!pairDrawn) {
+                                static int s_adjFallbackLogCount = 0;
+                                if (s_adjFallbackLogCount < 3) {
+                                    OXR_LOGW("PresentMono: display-transform "
+                                             "shader unavailable; plain pair "
+                                             "blit");
+                                    s_adjFallbackLogCount++;
+                                }
+                            }
+                        }
+                        if (!pairDrawn) {
+                            GLenum pairFilter =
+                                (pairW == (U32)(eyeDstX1 + eyeDstW) &&
+                                 pairH == (U32)eyeDstH)
+                                    ? GL_NEAREST
+                                    : GL_LINEAR;
+                            glBindFramebuffer(GL_READ_FRAMEBUFFER, pairFbo);
+                            glBlitFramebuffer(
+                                0, 0, (GLint)pairW, (GLint)pairH, eyeDstX0,
+                                marginY, eyeDstX1 + eyeDstW,
+                                marginY + eyeDstH, GL_COLOR_BUFFER_BIT,
+                                pairFilter);
+                            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+                        }
                     } else {
                         /* Fallback: per-eye capture FBOs. */
                         GLuint eyeFBO0 = GL_GetStereoEyeFBO(0);

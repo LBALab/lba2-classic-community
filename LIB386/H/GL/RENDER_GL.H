@@ -225,6 +225,17 @@ U32 GL_GetStereoPairFBO(void);
 U32 GL_GetStereoPairWidth(void);
 U32 GL_GetStereoPairHeight(void);
 
+//! Returns 1 when the double-wide pair needs the display-transform shader
+//! instead of a plain blit into the swapchain.
+S32 GL_StereoPairNeedsPresentShader(void);
+
+//! Draw the resolved double-wide pair into the currently bound framebuffer,
+//! applying the display transform. The target FBO is bound by the caller;
+//! this sets the viewport to cover dstWidth x dstHeight. Returns 1 if the
+//! draw was issued.
+S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight, U32 dstWidth,
+                               U32 dstHeight);
+
 //! Returns 1 when eye 1's composite was skipped because the overlay was
 //! empty; the stereo present then reads GL_Get3DFBO() for the right eye.
 S32 GL_StereoEyeSceneDirect(void);

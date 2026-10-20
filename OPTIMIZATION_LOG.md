@@ -523,11 +523,87 @@ Performance is within noise of Phase 1. The double-wide-only frees (horizon
 and present) were not exercised, and the memory target cannot be confirmed
 until that path activates.
 
-### Next priority
+### Next priority (resolved)
 
-The per-eye fallback is now the blocking issue. The double-wide gate still
-rejects the run, most likely because the display brightness, contrast, or
-saturation is non-neutral: the double-wide present has no display-transform
-pass. The next change must either apply that transform in the final
-pair-to-swapchain pass or report the exact gate reason so the fallback can be
-removed deliberately. Do not ask the user to reset display settings.
+The per-eye fallback was the blocking issue. The double-wide gate still
+rejected the run because the display brightness, contrast, or saturation was
+non-neutral: the double-wide present had no display-transform pass. Phase 1b
+below applies that transform in the final pair-to-swapchain pass, so the
+fallback no longer depends on the user's display settings.
+
+## Phase 1b report: double-wide present transform (2026-10-20)
+
+Status: implemented, built, installed as `0.13.0-dev`, device-verified, and
+committed as the Phase 1b change. The headset user confirmed that the double-
+wide path has no graphical issues.
+
+### Root cause
+
+After Phase 2, the per-eye fallback was still selected. Once the MSAA and
+OpenXR conditions were true, the remaining gate was the display transform:
+the per-eye composite applied brightness/contrast/saturation, while the
+double-wide present was a plain blit. Removing that condition immediately
+selected the double-wide target on device, confirming that non-neutral display
+settings were keeping the fallback alive. The correct fix was to move the
+transform into the final pair pass, not to ask the user to reset the sliders.
+
+### Changes
+
+- `GL_StereoDoubleWideAllowed` no longer rejects non-neutral brightness,
+  contrast, or saturation. It now logs one line per distinct gate failure with
+  the live values, so a future fallback is diagnosable from a device run.
+- `GL_StereoPairNeedsPresentShader` selects the transform pass when the
+  display sliders are non-neutral. Neutral settings keep the cheaper plain
+  `glBlitFramebuffer` path.
+- `GL_BlitStereoPairToCurrent` draws the resolved double-wide pair into the
+  already-bound swapchain framebuffer through the existing present shader.
+  That pass applies the same display transform as the per-eye composite. It
+  uses nearest sampling at exact 1:1 sizes and linear sampling when scaling.
+- The HUD drawn into the double-wide scene skips per-layer image adjustment.
+  The final pair pass applies the affine transform once to the combined scene
+  and overlay, which is equivalent through alpha blending.
+- FXAA/SMAA and double-wide FBO failure still use the per-eye fallback. The
+  fresh per-present swapchain FBO remains unchanged.
+- If the swapchain FBO attach is rejected, the copy fallback cannot apply the
+  display transform. The current Quest path completes the FBO and uses the
+  shader; a future portable fallback should composite through a temporary
+  target instead of silently dropping the sliders.
+
+### Device run (2026-10-20 14:51–14:52)
+
+The path was active from startup:
+
+```
+Scene FBO 3360x1760 (eye 1680x1760, double-wide)
+MSAA FBO created 3360x1760 samples=2 (resolve-in-tile)
+surfaces(stereo-double): fbo=45.1 msaa=45.1 ... total=90.2 MiB
+PresentMono stereo: double-wide src=3360x1760 ... glError=0x0
+```
+
+The double-wide surface line has no snapshot, horizon, or present target.
+A later mono/menu frame allocated the snapshot and present target
+(`surfaces(snapshot)` showed 124.1 MiB); the next stereo entry frees the
+snapshot, but the present target can remain allocated because the target mode
+is already double-wide. That residual is a small follow-up, not a visual
+issue.
+
+The startup screenshot showed distinct left/right eye views with correct
+orientation. The user then confirmed in the headset that both eyes, the
+display transform, and the previously sensitive terrain/body/HUD cases look
+correct.
+
+| Signal | Phase 2 run | Phase 1b run |
+|---|---|---|
+| `StereoPerf eye0` | 13 ms | 13 ms |
+| `StereoPerf eye1` | 9 ms | 10 ms |
+| `StereoPerf frame` | 21 ms | 23 ms |
+| `GLPerf present` | 1.53 ms | 1.40 ms |
+| `GLPerf flush` | 2.62 ms | 2.86 ms |
+| `GrillePerf horizon` | 2.0 ms | 3.0 ms |
+| `OpenXRPerf total` | 0.56 ms | 0.51 ms |
+| `OpenXRPerf blit` | 0.06 ms | 0.05 ms |
+
+The frame time ranged from 14 to 30 ms depending on the scene, with a median
+of 23 ms. The memory win is clear and the path is now real, but this does not
+yet reach the 72 FPS target. The next work should attack the steady frame
+cost rather than the activation gate.

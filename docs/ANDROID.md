@@ -181,8 +181,10 @@ turns on `-DLBA2_OPENXR=ON` and makes the engine speak to the OpenXR
 runtime on the headset. With the Stereo 3D display option enabled, both
 eyes render into the left and right halves of one double-wide MSAA scene
 target, and `OpenXR_PresentMono` blits that target into the double-wide
-swapchain in one pass. Per-eye capture FBOs remain as a fallback for
-non-neutral image adjustment and FXAA/SMAA. In first person, each eye
+swapchain in one pass. When brightness, contrast, or saturation is
+non-neutral, that final pass applies the display transform to the whole
+pair instead of costing a second composite. Per-eye capture FBOs remain as
+a fallback for FXAA/SMAA or a double-wide FBO failure. In first person, each eye
 renders from its tracked view
 (`OpenXR_GetEyeView`): the orientation comes from the runtime-located
 pose and the IPD split runs along the view-space right axis, so the

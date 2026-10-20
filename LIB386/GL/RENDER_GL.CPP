@@ -456,6 +456,17 @@ static S32 GL_ImageAdjustNeutral(void) {
            DisplaySaturation == 0;
 }
 
+/* Double-wide draws the HUD into the scene target; its final pair-to-
+ * swapchain pass applies the display transform to the whole composite.
+ * Per-eye and mono composites still apply it while each layer is drawn. */
+static S32 s_overlayImageAdjust = 1;
+
+static void GL_UploadNeutralImageAdjust(GLint uB, GLint uC, GLint uS) {
+    glUniform1f(uB, 0.0f);
+    glUniform1f(uC, 1.0f);
+    glUniform1f(uS, 1.0f);
+}
+
 static const char *s_presentIndexedFragSrc =
     GLSL_FRAG_HEADER
     GLSL_IMAGE_ADJUST
@@ -1651,6 +1662,58 @@ U32 GL_GetStereoPairWidth(void) {
 
 U32 GL_GetStereoPairHeight(void) {
     return s_stereoDoubleWide ? s_fboHeight : 0;
+}
+
+S32 GL_StereoPairNeedsPresentShader(void) {
+    return s_stereoDoubleWide && !GL_ImageAdjustNeutral();
+}
+
+S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight, U32 dstWidth,
+                               U32 dstHeight) {
+    if (!s_initialized || !s_stereoDoubleWide || s_program == 0 ||
+        s_fboVbo == 0 || srcWidth == 0 || srcHeight == 0 || dstWidth == 0 ||
+        dstHeight == 0)
+        return 0;
+
+    GLuint tex = GL_SceneColorTex();
+    if (tex == 0)
+        return 0;
+
+    S32 exact = (srcWidth == dstWidth && srcHeight == dstHeight);
+    GLenum filter = exact ? GL_NEAREST : GL_LINEAR;
+
+    GL_UseProgramCached(s_program);
+    GL_BindTexUnit(0, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+    glUniform1i(s_uTexLoc, 0);
+    GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
+                         s_adj_uSaturation);
+    glUniform2f(s_uTexelLoc, 1.0f / (GLfloat)srcWidth,
+                1.0f / (GLfloat)srcHeight);
+    glUniform1i(s_uFilterLoc, exact ? 0 : 1);
+
+    GL_SetDepthTest(0);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_SCISSOR_TEST);
+    glViewport(0, 0, (GLsizei)dstWidth, (GLsizei)dstHeight);
+
+    GL_BindArrayBuffer(s_fboVbo);
+    glEnableVertexAttribArray(s_aPosLoc);
+    glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat), (const void *)0);
+    glEnableVertexAttribArray(s_aTexCoordLoc);
+    glVertexAttribPointer(s_aTexCoordLoc, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat),
+                          (const void *)(2 * sizeof(GLfloat)));
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glDisableVertexAttribArray(s_aPosLoc);
+    glDisableVertexAttribArray(s_aTexCoordLoc);
+
+    GL_BindArrayBuffer(0);
+    GL_BindTexUnit(0, 0);
+    GL_UseProgramCached(0);
+    return 1;
 }
 
 S32 GL_StereoEyeSceneDirect(void) {
@@ -2862,21 +2925,37 @@ static void GL_CreateMSAAFbo(U32 w, U32 h, S32 samples) {
              samples, s_msaaInTile ? "resolve-in-tile" : "explicit resolve");
 }
 
-/* A double-wide target bypasses the per-eye scene composite.  That is only
- * equivalent to the old path while the display transform is neutral and MSAA
- * (not FXAA/SMAA) is the active AA mode; otherwise the composite pass is
- * still needed for image adjustment or the post-process.  The environment
- * escape hatch lets a device run compare the old path without a rebuild. */
+/* A double-wide target bypasses the per-eye scene composite.  MSAA (not
+ * FXAA/SMAA) is required because those post-processes need a per-eye
+ * single-sample composite.  Brightness/contrast/saturation do not force the
+ * fallback: the final pair-to-swapchain pass applies them to the whole
+ * composite.  The environment escape hatch lets a device run compare the old
+ * path without a rebuild. */
 static S32 GL_StereoDoubleWideAllowed(void) {
+    const char *reason = NULL;
     if (getenv("LBA2_NO_STEREO_DW") != NULL)
+        reason = "LBA2_NO_STEREO_DW";
+    else if (!DisplayStereo3D)
+        reason = "DisplayStereo3D=0";
+    else if (!OpenXR_IsActive())
+        reason = "OpenXR inactive";
+    else if (!OpenXR_GetStereoEnabled())
+        reason = "stereo disabled";
+    else if (s_antiAlias != 2 && s_antiAlias != 3)
+        reason = "AA not MSAA2/4";
+
+    if (reason != NULL) {
+        static const char *s_lastReason = NULL;
+        if (reason != s_lastReason) {
+            Log_Info("[GL] Double-wide unavailable: %s (stereo=%d openxr=%d "
+                     "enabled=%d aa=%d bright=%d contrast=%d sat=%d)",
+                     reason, DisplayStereo3D, OpenXR_IsActive() ? 1 : 0,
+                     OpenXR_GetStereoEnabled() ? 1 : 0, s_antiAlias,
+                     DisplayBrightness, DisplayContrast, DisplaySaturation);
+            s_lastReason = reason;
+        }
         return 0;
-    if (!DisplayStereo3D || !OpenXR_IsActive() ||
-        !OpenXR_GetStereoEnabled())
-        return 0;
-    if (s_antiAlias != 2 && s_antiAlias != 3)
-        return 0;
-    if (!GL_ImageAdjustNeutral())
-        return 0;
+    }
     return 1;
 }
 
@@ -5550,8 +5629,13 @@ static void GL_DrawArgbOverlay(const void *argbPixels, U32 pitch, U32 width,
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, s_texture);
     glUniform1i(s_uTexLoc, 0);
-    GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
-                         s_adj_uSaturation);
+    if (s_overlayImageAdjust) {
+        GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
+                             s_adj_uSaturation);
+    } else {
+        GL_UploadNeutralImageAdjust(s_adj_uBrightness, s_adj_uContrast,
+                                    s_adj_uSaturation);
+    }
     glUniform2f(s_uTexelLoc, 1.0f / (GLfloat)width, 1.0f / (GLfloat)height);
     glUniform1i(s_uFilterLoc, filterLinear);
 
@@ -5605,7 +5689,12 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
         glDisable(GL_DEPTH_TEST);
         glViewport(s_sceneEyeX, 0, (GLsizei)s_fboWidth,
                    (GLsizei)s_fboHeight);
-        GL_DrawArgbOverlay(argbPixels, pitch, width, height, filterLinear);
+        {
+            S32 savedAdjust = s_overlayImageAdjust;
+            s_overlayImageAdjust = 0;
+            GL_DrawArgbOverlay(argbPixels, pitch, width, height, filterLinear);
+            s_overlayImageAdjust = savedAdjust;
+        }
 
         if (s_stereoEye == 0) {
             s_stereoPairReady = 0;
@@ -5816,8 +5905,13 @@ static void GL_DrawIndexedOverlay(U32 width, U32 height,
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
     glUniform1i(s_idx_uIndices, 0);
-    GL_UploadImageAdjust(s_idxAdj_uBrightness, s_idxAdj_uContrast,
-                         s_idxAdj_uSaturation);
+    if (s_overlayImageAdjust) {
+        GL_UploadImageAdjust(s_idxAdj_uBrightness, s_idxAdj_uContrast,
+                             s_idxAdj_uSaturation);
+    } else {
+        GL_UploadNeutralImageAdjust(s_idxAdj_uBrightness, s_idxAdj_uContrast,
+                                    s_idxAdj_uSaturation);
+    }
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, s_lutTex);
     glUniform1i(s_idx_uPalette, 1);
@@ -6080,7 +6174,10 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         if (overlayEmpty) {
             s_profOverlayEmpty++;
         } else {
+            S32 savedAdjust = s_overlayImageAdjust;
+            s_overlayImageAdjust = 0;
             GL_DrawIndexedOverlay(width, height, paletteU32, filterLinear);
+            s_overlayImageAdjust = savedAdjust;
         }
 
         if (s_stereoEye == 0) {
