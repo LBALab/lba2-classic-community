@@ -29,6 +29,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   about 15 seconds on some phones and then report the game data missing. If
   you come back without turning access on, the game now says so instead of
   asking you to copy files that are already there.
+- The 32-bit build (armeabi-v7a) loads saves and starts a new game on 64-bit
+  phones. Both died at once with a bus error, from game data read at
+  addresses 32-bit ARM does not allow
+  ([#684](https://github.com/LBALab/lba2-classic-community/issues/684)).
 
 ### Display & render
 
@@ -111,6 +115,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Stability
 
+- Game data and save files are read the same way on every processor: at any
+  byte offset, and in the files' own byte order. Besides fixing 32-bit
+  Android, this is what a port to a big-endian processor, such as the
+  PowerPC in the Wii and Wii U, needs; the game was checked on an emulated
+  big-endian processor. A save written on one kind of processor loads on the
+  other
+  ([#684](https://github.com/LBALab/lba2-classic-community/issues/684)).
 - Opening the inventory with the conch empty, or down to its last charge, no
   longer crashes the game. The empty bar under the conch is a box whose right
   edge sits one pixel left of its left edge: the original draws nothing for
