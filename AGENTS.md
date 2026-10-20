@@ -62,6 +62,8 @@ Apply these behavior rules on every non-trivial task:
 - **Game data:** Retail files are not in the repo. See `docs/GAME_DATA.md`. Set `LBA2_GAME_DIR`, use `--game-dir`, or place data in `./data` / `../LBA2` relative to the repo. From anywhere in the clone: `./scripts/dev/build-and-run.sh` or `make run` (repo root).
 - **Tests:** Run via Docker: `./run_tests_docker.sh`. Works on Linux, macOS (Docker + QEMU), and Windows (Docker Desktop). Tests require 32-bit x86 + UASM inside the container.
 - **Host tests:** `make test` (or `ctest -L host_quick` after configure with `-DLBA2_BUILD_TESTS=ON -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF`). No Docker, no retail files. CI runs these on Linux, macOS, and Windows (see `.github/workflows/*.yml`).
+- **Quest (Android/OpenXR):** set `ANDROID_HOME`, `ANDROID_NDK`, and `SDL3_ANDROID_DIR`, then run `scripts/dev/build-and-install-quest.sh`. It aborts when `adb devices` is empty and prompts for the game-data push and launch; in automation pipe `printf 'y\nn\n\n'`. A compile-only pass is `cmake --build out/build/quest -- -j"$(nproc)"` once that preset is configured.
+- **Quest visual check:** host tests do not exercise the GLES/OpenXR present path. Headset rendering or present changes need an on-device screenshot or in-headset confirmation before commit; a green compile is not enough.
 - **Filter:** `./run_tests_docker.sh test_getang2d test_lirot3df`
 - **Bisect:** `./run_tests_docker.sh --bisect` to find first divergent draw call
 - **Before considering done:** Run `./run_tests_docker.sh` (or N/A if docs-only). If modifying formatted files: run `bash ./scripts/ci/apply-format.sh` (or enable the pre-commit hook — see "Code conventions"); CI also runs the format check.
@@ -82,6 +84,7 @@ Apply these behavior rules on every non-trivial task:
 | Adding ASM↔CPP test | Use `add_asm_cpp_test()`, include stress test, update `docs/ASM_VALIDATION_PROGRESS.md`; check `docs/ASM_TEST_COVERAGE_AUDIT.md` for the coverage rubric | docs/TESTING.md, docs/ASM_TEST_COVERAGE_AUDIT.md, .github/copilot-instructions.md |
 | Audio/video | AIL in LIB386/AIL/; backends SDL, Miles, null | docs/AUDIO.md |
 | Android-specific behaviour (JNI, TV detection, storage permission) | Put it behind `LIB386/SYSTEM/ANDROID.{CPP,H}` with a stub-on-desktop; keep callers `#ifdef`-free; `<jni.h>` in that TU only; LIB386 must not include `SOURCES/` | docs/ANDROID.md, docs/PLATFORM.md §8 |
+| OpenXR / Quest present path | Keep the fresh per-present swapchain FBO; validate on-device, not only in a host build | docs/ANDROID.md |
 | Debug tools | DEBUG_TOOLS (console is always available) | docs/DEBUG.md, docs/CONSOLE.md |
 | Verifying a runtime change (scene, hero, inventory, render) | Drive the engine non-interactively and assert on dumped state / a screenshot instead of manual play | docs/CONTROL.md |
 | Config / lba2.cfg | Keys, persistence, installer vs game, embedded default | docs/CONFIG.md, docs/GAME_DATA.md |
