@@ -1541,12 +1541,22 @@ static void GL_CreateStereoEyeFBOs(U32 width, U32 height) {
     Log_Info("[GL] Stereo eye FBOs created %ux%u", width, height);
 }
 
+/* Eye 0's horizon capture survives its own present so eye 1 can restore it;
+   GL_SetStereoEye clears it at the stereo-pair boundaries below. */
+static S32 s_horizonValid = 0;
+
 void GL_SetStereoEye(S32 eye) {
     if (eye < -1 || eye > 1)
         eye = -1;
     s_stereoEye = eye;
     if (eye != 1)
         s_stereoEye1SceneDirect = 0;
+    /* A stereo pair owns exactly one horizon capture: eye 0 raises it when
+       it draws the backdrop, eye 1 restores it, and the next pair (or
+       leaving stereo) starts clean.  GL_BeginFrame cannot clear it: that
+       runs at every eye's present, i.e. between eye 0's capture and eye 1. */
+    if (eye <= 0)
+        s_horizonValid = 0;
     if (eye < 0) {
         /* Leaving stereo: clear the eye shifts so mono frames project
          * exactly as before. Per-eye shift values are the caller's job —
@@ -4195,15 +4205,15 @@ void GL_RestoreTerrainSnapshot(void) {
    away (>= 32k units) and the eye separation is ~30 units, which projects
    to ~0.5 px at that depth.  Eye 0 captures the horizon after drawing it;
    eye 1 restores the capture instead of re-projecting ~34k grid vertices
-   (the measured 4 ms).  The capture is valid within one frame only:
-   GL_BeginFrame clears it, so menu/mono frames (no eye 0 capture) draw
-   the horizon normally. */
+   (the measured 4 ms).  The capture lives for one stereo pair: eye 0's
+   draw raises s_horizonValid, eye 1 consumes it, and GL_SetStereoEye drops
+   it at the pair boundaries so mono/menu frames draw the horizon normally.
+   GL_BeginFrame must not drop it — it runs once per eye present. */
 static GLuint s_horizonTex = 0;
 static GLuint s_horizonFbo = 0;
 static GLuint s_horizonDepthRbo = 0;
 static U32 s_horizonW = 0;
 static U32 s_horizonH = 0;
-static S32 s_horizonValid = 0;
 
 /* Backdrop capture reuse: the horizon capture depends only on the camera
  * pose, and while the pose (and the streamed-in cube set — see
@@ -4492,7 +4502,8 @@ void GL_BeginFrame(void) {
     s_frameSeq++;
     GL_BatchFlushCount = 0;
     s_terrainRenderedThisFrame = 0;
-    s_horizonValid = 0; /* horizon capture is per-frame (eye 0 only) */
+    /* s_horizonValid belongs to the stereo pair, not to one eye's present:
+       GL_SetStereoEye owns its lifetime so eye 0's capture reaches eye 1. */
 }
 
 /* ── Depth readback (GL → SW Z-buffer) ──────────────────────────────────── */

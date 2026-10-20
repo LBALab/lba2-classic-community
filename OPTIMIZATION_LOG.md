@@ -29,7 +29,7 @@ stall component of those numbers.
 | # | Change | File | Expected effect |
 |---|---|---|---|
 | 1 | **Horizon capture color-only** (eye 0, every frame): the full color+depth resolve became color-only, and the capture blit drops its depth half under MSAA (the MSAA restore path never reads horizon depth — confirmed by its own comment). | RENDER_GL.CPP | −1 full-surface depth resolve + smaller blit per frame |
-| 1a | **Resolve-in-tile v3 (enabled, device-unverified)**: the first attempt sampled `s_fboColorTex` without forcing a resolve; v2 added `glInvalidateFramebuffer`, which Adreno treats as discard-don't-resolve. Both attached `s_fboColorTex` to the MSAA FBO as well as the scene FBO. v3 gives the MSAA FBO a dedicated `s_msaaColorTex`, attached only to that FBO and a single-sample resolve-view FBO. The composite samples the texture directly; the OpenXR direct present blits from the resolve view; snapshot frames explicitly copy color+depth into `s_fbo`. No `glInvalidateFramebuffer`. Driver rejection of either FBO, or a failed resolve probe, falls back to explicit resolve for the session. | RENDER_GL.CPP | removes the full-surface color resolve from every present; direct present resolves the scene once inside its blit |
+| 1a | **Resolve-in-tile v3 (enabled, device-verified)**: the first attempt sampled `s_fboColorTex` without forcing a resolve; v2 added `glInvalidateFramebuffer`, which Adreno treats as discard-don't-resolve. Both attached `s_fboColorTex` to the MSAA FBO as well as the scene FBO. v3 gives the MSAA FBO a dedicated `s_msaaColorTex`, attached only to that FBO and a single-sample resolve-view FBO. The composite samples the texture directly; the OpenXR direct present blits from the resolve view; snapshot frames explicitly copy color+depth into `s_fbo`. No `glInvalidateFramebuffer`. Driver rejection of either FBO, or a failed resolve probe, falls back to explicit resolve for the session. | RENDER_GL.CPP | removes the full-surface color resolve from every present; direct present resolves the scene once inside its blit |
 | 3 | ~~Swapchain-image FBOs cached per image index~~ **REVERTED — found by on-device bisection.** The Meta runtime does not tolerate a persistent FBO attachment on its swapchain textures across xrAcquire/xrRelease (or re-backs the images on session resume): the composited frame landed in orphaned memory and the eyes saw black with only the 2D overlay (rain) showing. The original fresh `glGenFramebuffers` + attach + delete per present is restored — its cost is negligible next to the blit. | OPENXR.CPP | (would have removed per-frame FBO churn) |
 | 4 | **Frame pacing**: `xrWaitFrame` + `xrBeginFrame` now run at frame START (from `OpenXR_BeginFrame`, one-shot `OpenXR_EnsureFrameBegun`) instead of after both eye renders inside `OpenXR_PresentMono`. CPU render work now overlaps the compositor's wait window and frames submit on time instead of late. Menu/title paths still funnel through the same one-shot. | OPENXR.CPP | removes submit lateness; pacing/stutter win |
 | 5 | **Fixed foveation LOW** (XR_FB_foveation + configuration + swapchain_update_state, all ext-gated): the tiler renders the periphery at reduced bin density. The swapchain is created with `XR_SWAPCHAIN_CREATE_FOVEATION_SCALED_BIN_BIT_FB` — the method Adreno implements; chaining the create-info with flags 0 (the first attempt) left the runtime rendering the swapchain undefined. LOW chosen to be invisible behind the engine-resolution upscale; the knob is one enum (`XR_FOVEATION_LEVEL_*_FB`). | OPENXR.CPP | major fill-rate save on Quest |
@@ -46,6 +46,7 @@ stall component of those numbers.
 | 11 | **Stereo depth-readback removal**: `GL_ReadbackDepthBuffer()` resolves the full depth buffer into a PBO and maps it on the next call. Stereo eye passes are always `AFF_ALL_FLIP`: each `AffGrilleExt` clears `PtrZBuffer` before the object pass, so neither eye can observe the readback. Skip it when `GL_GetStereoEye() >= 0`; mono incremental frames keep the one-frame-old depth. | SOURCES/OBJECT.CPP | −1 full-surface depth resolve + PBO read per frame |
 | 12 | **Empty-overlay direct present**: the indexed present already detects an all-zero Log overlay. When that overlay is empty, the viewport is full, the display transform is neutral, no FXAA/SMAA is active, and the scene FBO is content-sized, OpenXR can blit the resolved 3D scene directly for mono and for stereo eye 1 (the last eye rendered). Eye 0 still composites because eye 1 overwrites the scene FBO. A new `GL_StereoEyeSceneDirect()` handshake tells the stereo present to read the scene for the right eye; `GL_PresentSceneDirect()` reports the same safety for the mono fast path. The previous mono fast path could bypass a non-neutral display transform; it now shares the full gate. | RENDER_GL.CPP, OPENXR.CPP, RENDER_GL.H | −1 full-screen composite on mono/eye-1 empty-overlay frames |
 | 13 | **Present state cleanup**: drop the redundant full-target `glViewport` before the scissored letterbox clear (`glClear` ignores the viewport), and the duplicate vertex-array/program teardown at the end of the plain present branch. | RENDER_GL.CPP | small CPU/driver-state win |
+| 14 | **Stereo horizon capture lifetime**: `GL_BeginFrame` runs at every eye's present, so clearing `s_horizonValid` there discarded eye 0's capture between the two eyes; eye 1 always redrew the horizon (`GrillePerf eye=1 draw=2–7 ms, restore=0`). The flag is now owned by `GL_SetStereoEye`: cleared when a pair starts and when stereo is left, preserved across eye 0's present. Mono/menu frames still start invalid. | RENDER_GL.CPP | removes the duplicate eye-1 horizon pass (~2–7 ms/frame) |
 
 The v3 in-tile path sets `GL_INTILE_MSAA 1`. Desktop GL does not expose
 `GL_EXT_multisampled_render_to_texture`, so desktop keeps the explicit path;
@@ -96,8 +97,9 @@ the number.
 - Desktop build clean; host_quick suite 48/49 — the one failure
   (`test_poly_geometry`) fails at the base commit too (pre-existing).
 - Quest native build (NDK, real OpenXR headers) clean; fixed APK
-  (`lba2cc-0.13.0-dev-android-arm64-v8a.apk`) built, installed on the
-  headset, awaiting an on-head session for re-measure.
+  (`lba2cc-0.13.0-dev-android-arm64-v8a.apk`) built. On-device 2026-10-20:
+  `[GL] MSAA FBO created 1680x1760 samples=2 (resolve-in-tile)` appeared and
+  the scene rendered, confirming the in-tile probe passed on the Adreno 740.
 - Docker ASM↔CPP suite: builds again after #9 (it had been broken on this
   branch since 0ee18ee0). 123/143 pass. The 20 failures (test_poly,
   test_polyrec_*, test_aff_obj, test_testvuef, test_poly_geometry) are all
@@ -117,12 +119,17 @@ the number.
   verification-free work); pair a future device run with `StereoPerf` and
   `GrillePerf` before treating the numbers as final.
 - Resolve-in-tile v3: Linux and Quest native builds clean. Linux headless
-  scene capture and `ui_display` pass on the software path. A windowed Mesa
-  GL run created the explicit MSAA FBO, but this host's pre-existing shader
-  compile failures prevent a useful image comparison. Desktop has no
-  `GL_EXT_multisampled_render_to_texture`, so the in-tile branch itself was
-  not exercised; a headset run must confirm the first frames are not black
-  and that `[GL] MSAA FBO created ... (resolve-in-tile)` appears once.
+  scene capture and `ui_display` pass on the software path. Quest 3
+  (Adreno 740) confirms `[GL] MSAA FBO created 1680x1760 samples=2
+  (resolve-in-tile)`; `GrillePerf` shows `resolve=0us` and a 28–95 us
+  capture blit, with no black frames. Desktop has no
+  `GL_EXT_multisampled_render_to_texture`, so the in-tile branch itself
+  remains device-only coverage.
+- Item 14 (stereo horizon capture lifetime): Quest native build clean and
+  APK rebuilt. The pre-fix one-minute sample showed eye 1 redrawing the
+  horizon every frame (`draw=2–7 ms`, `restore=0`); on-device A/B
+  verification is pending because the headset disconnected after that
+  sample.
 
 ## Remaining levers (deliberately NOT taken — behavior changes, owner's call)
 
@@ -153,3 +160,27 @@ or MSAA→FXAA to close the gap.  All are recorded above; the first two are
 driver-behavior experiments that need on-device iteration, the last two
 are one-line trade-offs.  Item 1a v3 is the resolve-in-tile candidate for
 that next device run.
+
+## One-minute sample before item 14 (Quest 3, 2026-10-20 11:54-11:55)
+
+Resolve-in-tile v3 is active.  Seven `StereoPerf` samples (logged every
+300 frames) and fourteen `GrillePerf` eye samples during normal play:
+
+| Metric | min | median | max |
+|---|---|---|---|
+| `StereoPerf eye0` | 10 ms | 16 ms | 19 ms |
+| `StereoPerf eye1` | 4 ms | 14 ms | 16 ms |
+| `StereoPerf frame` | 14 ms | 30 ms | 35 ms |
+| `GrillePerf horizon` eye 0 | 3 ms | 5 ms | 7 ms |
+| `GrillePerf horizon` eye 1 | 2 ms | 4 ms | 7 ms |
+| `GrillePerf terrain` | 0 ms | 1 ms | 6 ms |
+| `GrillePerf skysea` | 0 ms | 0 ms | 1 ms |
+
+Eye 1 logged `draw=` and `restore=0` on every sample: it was redrawing the
+horizon that eye 0 had already captured.  The 14 ms best case coincides with
+a frame where both horizon draws measured 0 ms; it is not the steady state.
+The runtime line at the start of the sample read `FPS=32/72`,
+`CPU&GPU=37.68ms`, so the frame is still GPU-bound.  Item 14 removes eye 1's
+2–7 ms duplicate; the next sample should show `eye=1 restore=` with a small
+microsecond cost.  Eye 0's horizon and the two scene passes are the next
+targets after that.
