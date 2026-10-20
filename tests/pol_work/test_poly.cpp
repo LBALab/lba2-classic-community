@@ -494,9 +494,11 @@ static void test_asm_random_fill_polyclip(void) {
 /* Draw_Triangle switches the FPU to truncation (fldcw [Status_Int]) and
  * the ASM switches it back to round-to-nearest (fldcw [Status_Float]) on
  * the way out. Every later lrint/lrintl in the engine (projection,
- * rotation, light lists) depends on that. Checked on both sides, for a
- * normal triangle and for one whose edges are collinear (the early
- * return when the common denominator is 0). */
+ * rotation, light lists) depends on that, and the C++ side's RoundType
+ * must agree with the FPU. Checked on both sides for a normal triangle,
+ * one whose edges are collinear (the early return when the common
+ * denominator is 0), a 4-point polygon (drawn as several triangles) and
+ * polygons that go through the clippers. */
 static int x87_rounding_bits(void) {
     U16 cw;
     __asm__ __volatile__("fnstcw %0" : "=m"(cw));
@@ -504,35 +506,45 @@ static int x87_rounding_bits(void) {
 }
 
 static void test_fill_polyclip_restores_rounding(void) {
-    static const S16 tri[2][3][2] = {
-        {{10, 10}, {60, 20}, {30, 50}}, /* ordinary triangle */
-        {{10, 10}, {20, 20}, {40, 40}}, /* collinear: denominator 0 */
+    static const struct {
+        const char *name;
+        int n;
+        S16 xy[4][2];
+    } shapes[] = {
+        {"triangle", 3, {{10, 10}, {60, 20}, {30, 50}}},
+        {"collinear (denominator 0)", 3, {{10, 10}, {20, 20}, {40, 40}}},
+        {"4-point polygon", 4, {{20, 20}, {20, 80}, {100, 80}, {100, 20}}},
+        {"clipped at XMin", 3, {{-30, 10}, {60, 20}, {30, 50}}},
+        {"clipped at YMax", 3, {{10, 10}, {60, 20}, {30, TEST_POLY_H + 40}}},
     };
-    for (int t = 0; t < 2; t++) {
-        Struc_Point pts[3];
+    for (size_t t = 0; t < sizeof(shapes) / sizeof(shapes[0]); t++) {
+        Struc_Point pts[4];
         char msg[96];
 
-        for (int v = 0; v < 3; v++)
-            pts[v] = make_point(tri[t][v][0], tri[t][v][1]);
+        for (int v = 0; v < shapes[t].n; v++)
+            pts[v] = make_point(shapes[t].xy[v][0], shapes[t].xy[v][1]);
         setup_polygon_screen();
         Fill_Filler = Filler_Flat;
         Fill_ClipFlag = 1; /* CLIP_FLAT */
         Fill_Color.Num = 0x0505;
         fesetround(FE_TONEAREST);
-        Fill_PolyClip(3, pts);
-        snprintf(msg, sizeof(msg), "CPP rounding mode after triangle %d", t);
+        RoundType = ROUND_TYPE_FLOAT;
+        Fill_PolyClip(shapes[t].n, pts);
+        snprintf(msg, sizeof(msg), "CPP rounding mode after %s", shapes[t].name);
         ASSERT_EQ_INT_MSG(FE_TONEAREST, fegetround(), msg);
+        snprintf(msg, sizeof(msg), "CPP RoundType after %s", shapes[t].name);
+        ASSERT_EQ_INT_MSG(ROUND_TYPE_FLOAT, RoundType, msg);
 
-        for (int v = 0; v < 3; v++)
-            pts[v] = make_point(tri[t][v][0], tri[t][v][1]);
+        for (int v = 0; v < shapes[t].n; v++)
+            pts[v] = make_point(shapes[t].xy[v][0], shapes[t].xy[v][1]);
         setup_polygon_screen();
         call_asm_Switch_Fillers(FILL_POLY_NO_TEXTURES);
         Fill_Filler = (Fill_Filler_Func)(void *)&asm_Filler_Flat;
         Fill_ClipFlag = 1; /* CLIP_FLAT */
         Fill_Color.Num = 0x0505;
         fesetround(FE_TONEAREST);
-        call_asm_Fill_PolyClip(3, pts);
-        snprintf(msg, sizeof(msg), "ASM x87 rounding bits after triangle %d", t);
+        call_asm_Fill_PolyClip(shapes[t].n, pts);
+        snprintf(msg, sizeof(msg), "ASM x87 rounding bits after %s", shapes[t].name);
         ASSERT_EQ_INT_MSG(0, x87_rounding_bits(), msg);
         fesetround(FE_TONEAREST);
     }

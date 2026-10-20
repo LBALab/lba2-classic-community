@@ -1460,6 +1460,9 @@ legout="$(LBA2_USER_DIR="$legdir" ctl --fixed-dt 16 \
 
 legsummary="$(printf '%s\n' "$legout" | grep -m1 'replay ended')" ||
     fail "legacy no --load: replay printed no summary"
+legchecked="$(printf '%s\n' "$legsummary" | sed -n 's/.*: \([0-9]*\) ticks checked.*/\1/p')"
+[ "$legchecked" = "198" ] ||
+    fail "legacy no --load: read ${legchecked:-0} ticks, the file holds 198 — the reader has lost the stream"
 # A boot that missed the sibling diverges at tick 0; a later tick is play (see the
 # legacy arm above), so it is printed, not failed.
 legfirst="$(printf '%s\n' "$legsummary" | sed -n 's/.*first hash mismatch \(-\{0,1\}[0-9]*\).*/\1/p')"

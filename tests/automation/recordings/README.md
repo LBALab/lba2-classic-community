@@ -37,8 +37,9 @@ which puts the FPU back in round-to-nearest after each triangle: the walk rounds
 committed one apart from the engine line; the new one fails on main at tick 111.
 `combo-controls.rec` reaches the edge once without the slide moving anything the digest
 covers. It was the original format 12 file until #801 moved its walk from tick 111 as well;
-it is now format 17, remade the same way (commands, ticks and keyframes unchanged, the
-newer header lines added).
+it is now format 17, remade the same way: the same commands at the same ticks and
+keyframes at the same ticks, the newer header lines added. The keyframes' contents follow
+the new walk, so the hero's position in them differs from tick 128 on.
 
 **Remaking one.** A recording carries the commands that drove it, so the session can be
 run again exactly: list them with `scripts/dev/dump_recording.py <file>` (the `cmd @tick`

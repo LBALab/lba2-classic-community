@@ -1,7 +1,7 @@
 # projrec-corpus-hash v1
 # 5-tick deterministic replay (--fixed-dt 16 --tick 5) per committed save,
 # at render width 640 (the binary's compiled RESOLUTION_X).
-# Regenerate with: scripts/dev/regen_projrec_baselines.sh
+# Regenerate with: LBA2_PROJECTION_REGEN=1 bash tests/automation/test_projection_corpus.sh
 Anon1.LBA                        events=8393      fnv1a=c36da32ae008d735
 Anon2.LBA                        events=5635      fnv1a=d5ee8b4c33970a1d
 Ball of Sendell.LBA              events=4507      fnv1a=aabc0c6210cec92c

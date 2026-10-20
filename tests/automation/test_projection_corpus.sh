@@ -33,7 +33,7 @@ OUT="$(mktemp -t "${TESTNAME}.XXXXXX.hash")"
     echo "# projrec-corpus-hash v1"
     echo "# 5-tick deterministic replay (--fixed-dt 16 --tick 5) per committed save,"
     echo "# at render width ${LBA2_PROJREC_WIDTH} (the binary's compiled RESOLUTION_X)."
-    echo "# Regenerate with: scripts/dev/regen_projrec_baselines.sh"
+    echo "# Regenerate with: LBA2_PROJECTION_REGEN=1 bash tests/automation/test_projection_corpus.sh"
 } > "$OUT"
 
 n=0
