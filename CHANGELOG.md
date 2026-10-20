@@ -10,6 +10,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.13.1] - 2026-10-20
+
 ### Android
 
 - Plugging in or pairing a keyboard no longer closes the game. Android
@@ -28,7 +32,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   access page, however long you take there. It used to stop waiting after
   about 15 seconds on some phones and then report the game data missing. If
   you come back without turning access on, the game now says so instead of
-  asking you to copy files that are already there.
+  asking you to copy files that are already there
+  ([#754](https://github.com/LBALab/lba2-classic-community/issues/754)).
 - The 32-bit build (armeabi-v7a) loads saves and starts a new game on 64-bit
   phones. Both died at once with a bus error, from game data read at
   addresses 32-bit ARM does not allow
@@ -38,10 +43,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Outdoors, the sea, lava and sky are textured as in the 1997 game again.
   A depth value their texture mapping uses was twice the original, so here
-  and there a texel or the edge of a fog band came out one step off.
+  and there a texel or the edge of a fog band came out one step off
+  ([#798](https://github.com/LBALab/lba2-classic-community/pull/798)).
 - At widths such as 800, 1280 and 1920, walls in front of a magic ball, a
   bonus, a door or another sprite now cover it right up to the sprite's left
-  edge; a strip up to 16 pixels wide used to show through. In the two
+  edge; a strip up to 20 pixels wide used to show through. In the two
   labyrinth scenes the bricks at the left edge of the screen are drawn again
   instead of leaving a strip of the same width empty. 640x480 and 1024x768
   were never affected
@@ -53,15 +59,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   resolution, wherever the camera left a door near the top; recentring the
   camera hid it until next time
   ([#356](https://github.com/LBALab/lba2-classic-community/issues/356)).
+- When the holomap zooms in on an island, the holomap stays on screen around
+  the growing picture. The whole island picture used to appear at once behind
+  its own zoom. The zoom from the save menu into a loaded game had the same
+  fault and is fixed too
+  ([#771](https://github.com/LBALab/lba2-classic-community/pull/771)).
 
 ### Gameplay
 
 - Options → Advanced options has a new row, **Fix retail bugs**. Some bugs
   are in the original 1997 game, and fixing them changes how it plays. They
   are fixed by default; choose No to play by the original's rules, including
-  for fixes added in later versions. Each fix also has its own setting in
-  `lba2.cfg` and the console (`fix_` followed by its name); changing one there
-  shows the row as Custom
+  for fixes added in later versions. Each fix also has its own console
+  setting (`fix_` followed by its name) and `lba2.cfg` key (`RetailFix`
+  followed by its name). Changing one from the console shows the row as
+  Custom; a fix's key edited in `lba2.cfg` only applies with
+  `RetailFixes: 2`
   ([#760](https://github.com/LBALab/lba2-classic-community/issues/760)).
 - Two characters, or the camera and a sound, very far apart no longer
   measure as close together, or as no distance at all. Past about 46,000
@@ -79,10 +92,17 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Input & controller
 
+- Menus, save lists, the inventory, memo pages, behaviour selection, the
+  holomap and the resolution confirmation always move with the arrow keys or
+  keypad and with the left stick or D-pad, whatever the movement controls are
+  bound to. Custom movement keys such as WASD no longer move through them. On
+  a controller the inventory could need RT and LT to move up and down instead
+  of the left stick. In-game controls and their bindings are unchanged
+  ([#718](https://github.com/LBALab/lba2-classic-community/pull/718)).
 - Holding a direction through the popup for a newly found item no longer
   leaves Twinsen stuck afterwards. With the key still held, Forward did not
   move him and Left or Right turned him at half speed until every direction
-  was let go. The 1997 code has the same slip, so this is a retail fix, and
+  was let go. The 1997 game has the same slip, so this is a retail fix, and
   Fix retail bugs (above) switches it off
   ([#747](https://github.com/LBALab/lba2-classic-community/issues/747)).
 - On the Game Controller screen, Left, Right and Tab on the keyboard switch
@@ -111,11 +131,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ([#726](https://github.com/LBALab/lba2-classic-community/issues/726)).
 - With free orbit (`MouseCameraDrag` 0), the mouse leaves the camera's
   relative mode when you go indoors or open a menu. It used to stay in it,
-  because the code that switched it off only ran outdoors.
+  because the code that switched it off only ran outdoors
+  ([#789](https://github.com/LBALab/lba2-classic-community/pull/789)).
 - On a touch screen, tapping a menu no longer draws the mouse pointer where
   the finger lands. Taps still select and confirm as before, and a mouse
   brings the pointer back. Using a mouse after touching the screen also hides
-  the on-screen touch buttons, as a keyboard or controller already did.
+  the on-screen touch buttons, as a keyboard or controller already did
+  ([#785](https://github.com/LBALab/lba2-classic-community/pull/785)).
 
 ### Music
 
@@ -131,8 +153,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   byte offset, and in the files' own byte order. Besides fixing 32-bit
   Android, this is what a port to a big-endian processor, such as the
   PowerPC in the Wii and Wii U, needs; the game was checked on an emulated
-  big-endian processor. A save written on one kind of processor loads on the
-  other
+  big-endian processor. Save files stay little-endian on every processor, and
+  existing saves load on the emulated big-endian one
   ([#684](https://github.com/LBALab/lba2-classic-community/issues/684)).
 - Opening the inventory with the conch empty, or down to its last charge, no
   longer crashes the game. The empty bar under the conch is a box whose right
@@ -140,9 +162,17 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it, and this port kept drawing until it crashed
   ([#762](https://github.com/LBALab/lba2-classic-community/pull/762)).
 - A clover leaf reviving Twinsen reads back its snapshot of the scene in the
-  layout it was written in, instead of guessing, which could crash in a scene
-  with very few characters
+  layout it was written in, instead of guessing. The guess crashed the game in
+  a scene with a single character, which only a test save has, and could
+  misread the snapshot in the seven scenes with two
   ([#772](https://github.com/LBALab/lba2-classic-community/issues/772)).
+
+### Build & packaging
+
+- The rolling `latest` pre-release now carries a Nintendo Switch homebrew
+  build, `lba2cc-switch.zip`, and the README says how to install it. Tagged
+  releases do not ship it yet
+  ([#784](https://github.com/LBALab/lba2-classic-community/pull/784)).
 
 ### Documentation
 
@@ -170,10 +200,26 @@ camera play test paused the game
 Thanks to EPmager for reporting that Twinsen catches on edges outdoors, and
 for checking it against the CD release
 ([#745](https://github.com/LBALab/lba2-classic-community/issues/745)).
+Thanks to EPmager for suggesting that overwriting an automatically named save
+should rename it
+([#736](https://github.com/LBALab/lba2-classic-community/issues/736)), and for
+proposing the single Fix retail bugs switch with Yes, No and Custom, and
+for checking that the found-item slip is in the 1997 game and in Classic
+([#760](https://github.com/LBALab/lba2-classic-community/issues/760)).
 Thanks to [@ColumbusLabs](https://github.com/ColumbusLabs) for making an
 inverted rectangle copy nothing in the screen save and restore routines, with
 tests that run the original assembly alongside
-([#787](https://github.com/LBALab/lba2-classic-community/pull/787)).
+([#787](https://github.com/LBALab/lba2-classic-community/pull/787)), and for
+letting the crash tests link on targets with no crash backend
+([#764](https://github.com/LBALab/lba2-classic-community/pull/764)).
+Thanks to [@sergiou87](https://github.com/sergiou87) for fixed menu
+navigation that no longer follows rebound movement keys
+([#718](https://github.com/LBALab/lba2-classic-community/pull/718)), the
+holomap and save zooms that keep their background
+([#771](https://github.com/LBALab/lba2-classic-community/pull/771)), a clean
+Options backdrop
+([#774](https://github.com/LBALab/lba2-classic-community/pull/774)), and Switch builds in the rolling pre-release
+([#784](https://github.com/LBALab/lba2-classic-community/pull/784)).
 
 ## [0.13.0] - 2026-10-18
 
@@ -1808,7 +1854,8 @@ Special thanks to the contributors whose foundational work this fork stands on:
 A big thank you to Gwen Gourevich ([@gwen-gg](https://github.com/gwen-gg)) and [2.21](https://discord.gg/e2ZXpzrM) for open-sourcing the original code, and to the original Adeline
 Software team whose code this builds on.
 
-[Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/LBALab/lba2-classic-community/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.10.0...v0.11.0

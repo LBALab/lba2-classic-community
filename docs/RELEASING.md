@@ -28,6 +28,10 @@ releases ship fixes. Don't wait for `1.0` to bump versions — there's
 plenty of new work in the fork already, and incremental `0.x` releases
 keep momentum.
 
+The road from `0.13` to `1.0` is patch releases only: there is no
+`0.14.0`. A `0.13.x` release can carry small features and settings
+alongside its fixes.
+
 ### Engine version vs `NUM_VERSION`
 
 These are independent:
