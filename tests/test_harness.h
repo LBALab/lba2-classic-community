@@ -80,6 +80,16 @@ static inline const char *_strip_root(const char *path) {
             FAIL_MSG("expected %lld, got %lld", _e, _a); \
     } while (0)
 
+/* Integer equality with a label, for checks inside a loop */
+#define ASSERT_EQ_INT_MSG(expected, actual, label)                     \
+    do {                                                               \
+        assert_count++;                                                \
+        long long _e = (long long)(expected);                          \
+        long long _a = (long long)(actual);                            \
+        if (_e != _a)                                                  \
+            FAIL_MSG("[%s] expected %lld, got %lld", (label), _e, _a); \
+    } while (0)
+
 /* Unsigned equality */
 #define ASSERT_EQ_UINT(expected, actual)                        \
     do {                                                        \
