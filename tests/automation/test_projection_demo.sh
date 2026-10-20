@@ -50,7 +50,7 @@ TMP="$(mktemp -t "${TESTNAME}.body.XXXXXX.hash")"
     echo "# projrec-hash v1"
     echo "# 30000-tick attract-reel snapshot (--demo --fixed-dt 16 --tick 30000)"
     echo "# at render width ${LBA2_PROJREC_WIDTH} (the binary's compiled RESOLUTION_X)."
-    echo "# Regenerate with: scripts/dev/regen_projrec_baselines.sh"
+    echo "# Regenerate with: PROJREC_RUN_DEMO=1 LBA2_PROJECTION_REGEN=1 bash tests/automation/test_projection_demo.sh"
     grep '^SCENE' "$OUT" 2>/dev/null
 } > "$TMP"
 mv "$TMP" "$OUT"
