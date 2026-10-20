@@ -2,6 +2,10 @@
 
 Newest first. One entry per change to the bundle. Findings that bear on what the profile should say are logged here too, because SCHEMA.md is a draft and the first slices exist to test it.
 
+## 2026-10-20
+
+**A Quirk checked against the 1997 DOS executable.** A landed 3D extra is placed by byte 6 of the body header, the padding `Dummy`, where `YMin` looks intended. Found while sweeping data reads for little-endian access. The initial import has it, and so does `LBA2.DOS`, read with a disassembler; the concept gives the addresses in its body, since nothing in the bundle cites a binary yet. `Dummy` is 0 in every shipped body and the dart's `YMin` is 0, so nothing differs in play, and the code is left as the original wrote it.
+
 ## 2026-10-14
 
 **The fixture comment corrected.** `test_camzone_model.sh` now says the two zone shapes are about half each outdoors, with the census counts, and the zone Quirk's gap that named the overstatement now says what it was protecting against instead.
