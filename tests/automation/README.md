@@ -19,7 +19,7 @@ LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one f
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-92 fixtures.
+93 fixtures.
 
 | Fixture | What it pins | Also needs |
 |---|---|---|
@@ -73,6 +73,7 @@ suite still passes, since CI cannot say so.
 | [test_jump_takeoff_foot.sh](test_jump_takeoff_foot.sh) | The running jump takes off from whichever foot is down, and the press frame decides which. | - |
 | [test_load.sh](test_load.sh) | --load: restore a save before the loop, then advance and dump. | save fixture |
 | [test_melee_throttle.sh](test_melee_throttle.sh) | The fixed-timestep throttle must not drop the hero's melee press EDGE (#407 case 1). | - |
+| [test_mouse_capture.sh](test_mouse_capture.sh) | The mouse camera's relative mode must end when the camera stops asking for it. | - |
 | [test_move_framerate.sh](test_move_framerate.sh) | High-frame-rate movement invariance (issue #358). | save fixture |
 | [test_move_substep.sh](test_move_substep.sh) | Low-frame-rate movement invariance (issue #358, phase 2). | save fixture |
 | [test_negative.sh](test_negative.sh) | Robustness: a bad --load path must fail gracefully (clean exit + message), not hang or crash. | - |
