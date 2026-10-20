@@ -58,6 +58,16 @@ recenters behind the hero. Tunables in `lba2.cfg`:
 | `MouseInvertY` | 0 | invert elevation axis |
 | `MouseCameraDivisor` | 4 | pixel-to-angle scaling (lower = faster, 1-16) |
 | `MouseCameraSmoothing` | 2 | orbit lerp (1 = snap, higher = laggier, 1-16) |
+| `MouseConfine` | 1 | keep the cursor inside the window: 0 never, 1 in fullscreen, 2 always |
+
+The pointer is invisible in play, so between drags a click could land on
+another monitor and take the focus away, which pauses the game. With
+`MouseConfine` the cursor stays inside the window; switching apps (Alt-Tab,
+Cmd-Tab) still works, and the window lets go while it is not focused. During
+an orbit, or all the time with free orbit, the mouse is in relative mode
+instead, which ends on the second frame the camera stops asking for it: a
+menu, an interior or a cutscene ends it without doing anything.
+`mouse_capture` in the console shows which of the three the window is in.
 
 ### Gamepad right stick
 
@@ -98,6 +108,7 @@ completes names.
 | `cam_stick_max_x` / `cam_stick_max_y` | right-stick orbit / elevation speed ceiling (at sens 10) |
 | `pad_deadzone` | gamepad stick deadzone (SDL units) |
 | `cam_mouse` / `cam_mouse_drag` | mouse camera enable / right-drag vs free orbit |
+| `mouse_confine` | keep the cursor in the window: 0 never, 1 fullscreen, 2 always |
 | `cam_mouse_x` / `cam_mouse_y` | mouse orbit / elevation sensitivity (1-10) |
 | `cam_mouse_invert` / `cam_mouse_div` | invert mouse elevation / pixel-to-angle divisor |
 | `cam_smooth` | manual orbit lerp (1 = snap, higher = laggier) |

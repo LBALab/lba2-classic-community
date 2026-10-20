@@ -38,6 +38,7 @@ extern S32 GfxDitherShading;
 #include "FOLLOWCAM_CFG.H" /* the *_DEFAULT tunables, read and written by the cfg below */
 #include "BOOT_EXIT.H"
 #include "UI_LAYOUT.H" /* UI_VCENTER_OFS */
+#include "MOUSE_CAPTURE.H"
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 
@@ -2205,6 +2206,8 @@ static bool ProfileNameOrExit(const char *name, const char *source) {
 static void ControlPrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
                               const U8 *palette_rgb) {
     Control_ServiceListen();
+    /* Every mode presents, so this is where the mouse's capture is decided. */
+    MouseCapture_Update();
     Console_PrePresent(frameBuffer, pitch, width, height, palette_rgb);
 }
 

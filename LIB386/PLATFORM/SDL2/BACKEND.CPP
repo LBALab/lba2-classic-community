@@ -198,6 +198,7 @@ PlatformInterface Interface() {
     api.window.set_vsync = SDL2_SetVSync;
     api.window.set_present_filter = SDL2_SetPresentFilter;
     api.window.set_relative_mouse = SDL2_SetRelativeMouse;
+    api.window.set_mouse_grab = SDL2_SetMouseGrab;
     api.window.present = SDL2_Present;
     api.input.keyboard_state = Keyboard;
     api.input.keycode = Keycode;

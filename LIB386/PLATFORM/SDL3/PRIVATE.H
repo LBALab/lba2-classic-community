@@ -40,6 +40,7 @@ bool SDL3_IsFullscreen(void);
 void SDL3_SetVSync(bool enabled);
 bool SDL3_SetPresentFilter(PlatformPresentFilter mode);
 void SDL3_SetRelativeMouse(bool enabled);
+void SDL3_SetMouseGrab(bool enabled);
 void SDL3_HandleWindowEvent(const SDL_Event *event);
 bool SDL3_Present(const PlatformFrame *frame);
 #ifdef LBA2_SDL3_TESTS

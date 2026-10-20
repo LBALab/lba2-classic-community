@@ -34,6 +34,7 @@ extern S32 GfxDitherShading;
 #include "../RES_SWITCH.H"
 #include "../PERFTRACE.H"
 #include "../PERSO.H" /* WriteConfigValue (persist one setting) */
+#include "../MOUSE_CAPTURE.H"
 #include <SYSTEM/CDTRACKS.H>
 #include <SYSTEM/CUE.H>
 #include <SYSTEM/DISCIMG.H>
@@ -1988,6 +1989,14 @@ static void cmd_cubetrace(int argc, const char *argv[]) {
     Console_Print("cubetrace: %s", DbgCubeTrace ? "ON" : "OFF");
 }
 
+/* mouse_capture: what the window is doing with the mouse right now (free, confined or
+   relative). Read-only; mouse_confine is the setting. */
+static void cmd_mouse_capture(int argc, const char *argv[]) {
+    (void)argc;
+    (void)argv;
+    Console_Print("mouse_capture: %s", MouseCapture_Name(MouseCapture_Current()));
+}
+
 /* camnudge <dBeta> [dAlpha] [frames]: drive the analog camera without a mouse or a gamepad. Feeds
    the same per-frame nudge the right stick and the mouse drag feed, for `frames` frames (default 1,
    i.e. a single-frame stick touch). Positive dBeta orbits the way a right-stick push does. */
@@ -2575,6 +2584,10 @@ void Console_RegisterAll(void) {
                               "useitem <n> [frames] [delay] | useitem trace <0|1>",
                               "Injects InventoryAction=n (drives LF_USE_INVENTORY without menu input); "
                               "'trace 1' logs each result.");
+    Console_RegisterCommandEx("mouse_capture", cmd_mouse_capture, "Show what the window does with the mouse",
+                              "mouse_capture",
+                              "Prints free, confined (cursor kept in the window, see mouse_confine) or "
+                              "relative (the mouse camera is orbiting).");
     Console_RegisterCommandEx("cubetrace", cmd_cubetrace, "Log every cube transition",
                               "cubetrace <0|1>",
                               "Logs island + from -> to cube on each ChangeCube, tracing the game's "

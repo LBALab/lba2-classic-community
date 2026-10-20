@@ -188,6 +188,11 @@ static void test_window_frames_modes_and_lifetime() {
             SDL_SetRelativeMouseMode(state ? SDL_FALSE : SDL_TRUE);
         g_platform.window.set_relative_mouse(state != 0);
         ASSERT_EQ_INT(expectedRelative, SDL_GetRelativeMouseMode());
+        SDL_SetWindowGrab(SDL2_TestWindow(), state ? SDL_TRUE : SDL_FALSE);
+        const SDL_bool expectedGrab = SDL_GetWindowGrab(SDL2_TestWindow());
+        SDL_SetWindowGrab(SDL2_TestWindow(), state ? SDL_FALSE : SDL_TRUE);
+        g_platform.window.set_mouse_grab(state != 0);
+        ASSERT_EQ_INT(expectedGrab, SDL_GetWindowGrab(SDL2_TestWindow()));
         g_platform.input.cursor_visible(state != 0);
         ASSERT_EQ_INT(state, SDL_ShowCursor(SDL_QUERY));
         g_platform.input.text_input(state != 0);

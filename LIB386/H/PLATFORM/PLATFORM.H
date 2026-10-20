@@ -169,6 +169,9 @@ typedef struct PlatformWindow {
        with an error and leaves the current one in place. */
     bool (*set_present_filter)(PlatformPresentFilter mode);
     void (*set_relative_mouse)(bool enabled);
+    /* Keep the cursor inside the window. The host lifts it while the window
+       is unfocused and puts it back on focus, as it does relative mode. */
+    void (*set_mouse_grab)(bool enabled);
     bool (*present)(const PlatformFrame *frame);
 } PlatformWindow;
 

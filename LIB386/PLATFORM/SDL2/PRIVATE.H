@@ -20,6 +20,7 @@ bool SDL2_IsFullscreen(void);
 void SDL2_SetVSync(bool enabled);
 bool SDL2_SetPresentFilter(PlatformPresentFilter mode);
 void SDL2_SetRelativeMouse(bool enabled);
+void SDL2_SetMouseGrab(bool enabled);
 bool SDL2_Present(const PlatformFrame *frame);
 void SDL2_HandleWindowEvent(const SDL_Event *event);
 bool SDL2_TranslateEvent(const SDL_Event *source, PlatformEvent *event);

@@ -89,6 +89,15 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   used to be drawn past the box's right edge, or off screen for the longest
   automatic names
   ([#779](https://github.com/LBALab/lba2-classic-community/issues/779)).
+- In fullscreen the mouse cursor now stays inside the game window. The cursor
+  is invisible in play, so a click between camera drags could land on another
+  monitor and pause the game. Alt-Tab and Cmd-Tab still switch away. The new
+  `MouseConfine` setting (`mouse_confine` in the console) also confines it in
+  a window (2) or switches it off (0)
+  ([#726](https://github.com/LBALab/lba2-classic-community/issues/726)).
+- With free orbit (`MouseCameraDrag` 0), the mouse leaves the camera's
+  relative mode when you go indoors or open a menu. It used to stay in it,
+  because the code that switched it off only ran outdoors.
 
 ### Music
 
@@ -130,6 +139,9 @@ reporting that a direction held through a found-item popup left Twinsen stuck
 Thanks to EPmager for reporting that the main menu restarted finished music
 partway through
 ([#427](https://github.com/LBALab/lba2-classic-community/issues/427)).
+Thanks to EPmager for reporting that a click outside the window during a
+camera play test paused the game
+([#726](https://github.com/LBALab/lba2-classic-community/issues/726)).
 
 ## [0.13.0] - 2026-10-18
 

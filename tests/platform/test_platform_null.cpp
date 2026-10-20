@@ -117,7 +117,7 @@ static void test_absent_devices_and_explicit_errors() {
     int records = 0;
     Platform_SetLogOutput(quiet_log, &records);
     void (*modes[])(bool) = {
-        g_platform.window.set_vsync, g_platform.window.set_relative_mouse,
+        g_platform.window.set_vsync, g_platform.window.set_relative_mouse, g_platform.window.set_mouse_grab,
         g_platform.input.text_input, g_platform.input.cursor_visible};
     for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); ++i) {
         g_platform.system.clear_error();
