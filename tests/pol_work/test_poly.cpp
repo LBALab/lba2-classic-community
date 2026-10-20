@@ -489,6 +489,55 @@ static void test_asm_random_fill_polyclip(void) {
     }
 }
 
+/* ── Rounding mode after a triangle ───────────────────────────── */
+
+/* Draw_Triangle switches the FPU to truncation (fldcw [Status_Int]) and
+ * the ASM switches it back to round-to-nearest (fldcw [Status_Float]) on
+ * the way out. Every later lrint/lrintl in the engine (projection,
+ * rotation, light lists) depends on that. Checked on both sides, for a
+ * normal triangle and for one whose edges are collinear (the early
+ * return when the common denominator is 0). */
+static int x87_rounding_bits(void) {
+    U16 cw;
+    __asm__ __volatile__("fnstcw %0" : "=m"(cw));
+    return (cw >> 10) & 3; /* 0 = nearest, 3 = chop */
+}
+
+static void test_fill_polyclip_restores_rounding(void) {
+    static const S16 tri[2][3][2] = {
+        {{10, 10}, {60, 20}, {30, 50}}, /* ordinary triangle */
+        {{10, 10}, {20, 20}, {40, 40}}, /* collinear: denominator 0 */
+    };
+    for (int t = 0; t < 2; t++) {
+        Struc_Point pts[3];
+        char msg[96];
+
+        for (int v = 0; v < 3; v++)
+            pts[v] = make_point(tri[t][v][0], tri[t][v][1]);
+        setup_polygon_screen();
+        Fill_Filler = Filler_Flat;
+        Fill_ClipFlag = 1; /* CLIP_FLAT */
+        Fill_Color.Num = 0x0505;
+        fesetround(FE_TONEAREST);
+        Fill_PolyClip(3, pts);
+        snprintf(msg, sizeof(msg), "CPP rounding mode after triangle %d", t);
+        ASSERT_EQ_INT_MSG(FE_TONEAREST, fegetround(), msg);
+
+        for (int v = 0; v < 3; v++)
+            pts[v] = make_point(tri[t][v][0], tri[t][v][1]);
+        setup_polygon_screen();
+        call_asm_Switch_Fillers(FILL_POLY_NO_TEXTURES);
+        Fill_Filler = (Fill_Filler_Func)(void *)&asm_Filler_Flat;
+        Fill_ClipFlag = 1; /* CLIP_FLAT */
+        Fill_Color.Num = 0x0505;
+        fesetround(FE_TONEAREST);
+        call_asm_Fill_PolyClip(3, pts);
+        snprintf(msg, sizeof(msg), "ASM x87 rounding bits after triangle %d", t);
+        ASSERT_EQ_INT_MSG(0, x87_rounding_bits(), msg);
+        fesetround(FE_TONEAREST);
+    }
+}
+
 /* ── Fill_Sphere: 300-round ASM-vs-CPP ──────────────────────────── */
 
 static void test_asm_random_fill_sphere(void) {
@@ -1621,6 +1670,7 @@ int main(void) {
     RUN_TEST(test_asm_random_setclut);
     RUN_TEST(test_asm_random_switch_fillers);
     RUN_TEST(test_asm_random_fill_polyclip);
+    RUN_TEST(test_fill_polyclip_restores_rounding);
     RUN_TEST(test_asm_fill_poly_random);
     RUN_TEST(test_asm_random_fill_sphere);
     RUN_TEST(test_asm_random_line_a);

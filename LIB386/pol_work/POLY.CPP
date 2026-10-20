@@ -680,7 +680,9 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points) {
 
     if (raw_Denom == 0) {
         LIB386_TRACE_CPP("Draw_Triangle", "9", "denom==0, early return");
+        // ASM @@End: fldcw [Status_Float]
         RoundType = ROUND_TYPE_FLOAT;
+        fesetround(FE_TONEAREST);
         return Fill_LeftSlope;
     }
 
@@ -693,8 +695,11 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points) {
 
     // ASM hardcodes Jmp_XSlopeZBufFPU regardless of rendering mode
     S32 result = Jmp_XSlopeZBufFPU[Fill_Type](Fill_Type, PtA, PtB, PtC);
-    // ASM restores fldcw [Status_Float] — round-to-nearest mode
+    // ASM restores fldcw [Status_Float] — round-to-nearest mode. The whole
+    // triangle (slopes, edges, filler) is drawn by now; every lrint after
+    // this point, in the engine too, expects round-to-nearest.
     RoundType = ROUND_TYPE_FLOAT;
+    fesetround(FE_TONEAREST);
     LIB386_TRACE_CPP("Draw_Triangle", "9", "return=%d LeftSlope=%d", result, Fill_LeftSlope);
     return result;
 }
