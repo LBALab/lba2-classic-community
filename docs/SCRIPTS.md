@@ -17,8 +17,11 @@ assembler yet.
 scripts/dev/scene_disasm.py <data>/SCENE.HQR --cube 0             # one cube's scripts
 scripts/dev/scene_disasm.py <data>/SCENE.HQR --check              # decode and verify all of them
 scripts/dev/scene_disasm.py <data>/SCENE.HQR --find LM_PCX TM_LOOP
+scripts/dev/scene_disasm.py <data>/SCENE.HQR --sweep              # what --check can catch
 scripts/dev/scene_disasm.py --table                               # the tables below
 ```
+
+`--game lba1` reads LBA1's scenes instead; see [LBA1](#lba1).
 
 ## Where the scripts are
 
@@ -377,11 +380,12 @@ an instruction start in the script it names. All shipped data passes:
 
 In the GOG data that covers 43,767 jump and behaviour offsets and 11,052
 `SET_TRACK`, `SET_TRACK_OBJ` and `SET_COMPORTEMENT_OBJ` offsets.
-To see what they catch, every opcode and condition that occurs in the data was
-given a wrong size, one at a time (an extra byte, a byte field read as two, a
-two-byte field read as one, a missing last field): 572 of the 585 changes break
-the check. The other 13 shift into bytes that still decode, so those sizes rest
-on the source alone: `SUB_LIFE_POINT_OBJ` and `PARM_SAMPLE` occur once each and
+To see what they catch, `--sweep` gives every opcode that occurs in the data a
+wrong size, one change at a time (an extra byte, a byte field read as two, a
+two-byte field read as one, the last field dropped), and every condition a wrong
+compare width and a wrong parameter count. In the GOG data 543 of the 555
+changes break the check. The other 12 shift into bytes that still decode, so
+those sizes rest on the source alone: `SUB_LIFE_POINT_OBJ` and `PARM_SAMPLE` occur once each and
 `PLUIE` three times, and `TM_OPEN_UP`, `TM_OPEN_DOWN`, `TM_START_ANIM_3DS` and
 `TM_WAIT_FRAME_3DS` are followed by opcodes that take no operands.
 
@@ -398,3 +402,58 @@ Never used by any shipped script, so checked against the source only:
 - No shipped script asks for the venetian-blind picture reveal: all 32 `LM_PCX`
   and `LM_PCX_MESS_OBJ` uses pass effect 0, the fade, so `EffectPcx`'s
   `PCX_V_SHADE` branch is reachable only from a modified scene.
+
+## LBA1
+
+LBA1 scripts work the same way, and `--game lba1` decodes them with the same
+checks. Its tables are read off the released LBA1 source at
+[lba1-classic `7404567`](https://github.com/LBALab/lba1-classic/tree/7404567be143c36f1c885537f3d5d0273f4d4728),
+the commit that matches the GOG build: `DoLife`, `DoFuncLife` and `DoTest` in
+`GERELIFE.C`, `DoTrack` in `GERETRAK.C`, `LoadScene` in `DISKFUNC.C`, and the
+opcode numbers in `COMMON.H`. That source is not in this repository, so the tool
+carries LBA1's opcode numbers itself; `--game lba1 --table` prints its tables.
+
+| Data | Scenes | Track scripts | Life scripts | Instructions |
+|---|---|---|---|---|
+| GOG and CD (identical `SCENE.HQR`) | 120 | 1238 | 1238 | 49,470 |
+| Demo | 120 | 533 | 533 | 20,366 |
+
+That covers 14,747 jump offsets and 3,249 `SET_TRACK`, `SET_TRACK_OBJ` and
+`SET_COMPORTEMENT_OBJ` offsets in the GOG data. `--sweep` catches 343 of 349 changes there. The other six still
+decode, so those sizes rest on the source alone: an extra byte after
+`FADE_ALARM_RED`, `FADE_PAL_RED` and `PROJ_ISO` (one use each) or `TM_CLOSE`, and
+`SUB_FUEL` or `TM_REPEAT_SAMPLE` without its operand. The preview release's
+`SCENE.HQR` (17 scenes) has an older layout and does not load.
+
+How LBA1 differs from LBA2:
+
+- **Scene file.** Scene `N` is entry `N`, from 0. The header before the hero
+  start is 39 bytes, not 56, with three values per ambiance sample, not five.
+  An object's record is 34 bytes: `Flags` u16, `GenAnim` u8, `Move` u16,
+  `NbBonus` u8, and no `ANIM_3DS` block.
+- **No switch.** There is no `SWITCH`, `CASE`, `AND_IF` or `BREAK`; branching is
+  `IF`, `SWIF`, `ONEIF`, `OR_IF` and `ELSE` only.
+- **Narrower values.** Game flags are bytes: `SET_FLAG_GAME` writes one and
+  `LF_FLAG_GAME` compares one, where LBA2's game variables are s16. Animation
+  numbers (`ANIM`, `ANIM_OBJ`, `ANIM_SET`, `TM_ANIM`) are u8, not u16. Life
+  points, fuel and animation conditions compare a byte.
+- **Signed compares.** Every byte compare is signed; LBA2 compares Track labels
+  and cube variables unsigned.
+- **Changed operands.** `TM_LOOP` takes none and restarts the Track; LBA2's is a
+  counted loop. `SET_GRM` takes one byte, not two. `SET_DIR` reads an extra
+  byte only for `MOVE_FOLLOW`.
+- **-1 as a target.** `TM_GOTO -1` and `SET_COMPORTEMENT -1` stop the script,
+  and the data uses both (cube 8 objects 13 to 15, cube 15 object 2). LBA2's
+  data never does, so `--check` accepts -1 only for LBA1.
+- **Opcode numbers.** About 70 of LBA1's 101 Life opcodes keep their number in
+  LBA2, some renamed (`FLAG` became `VAR`, `PLAY_FLA` became `PLAY_ACF`).
+  `PLAY_MIDI` moved from 65 to 100 as `PLAY_MUSIC`. LBA1's `LABEL` (10),
+  `SET_LIFE` (21) and `SET_LIFE_OBJ` (22) sit where LBA2 has `PALETTE`,
+  `SET_CAMERA` and `CAMERA_CENTER`, and its palette fades, `MESSAGE_SENDELL`,
+  `HOLOMAP_TRAJ`, `TEXT` and the projection opcodes have no LBA2 counterpart.
+  LBA2 adds 72 Life opcodes, 18 Track opcodes and 16 conditions.
+  `scripts/dev/lba1_script_remap.py` maps the numbers between the two.
+
+As in LBA2, every Track change a Life script makes (2,868 in the GOG data) lands
+on a Track label, and no compiled script holds a `COMPORTEMENT` or `LABEL`
+marker.

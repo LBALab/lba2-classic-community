@@ -92,7 +92,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   conditions are encoded, and the operands of every opcode.
   `scripts/dev/scene_disasm.py` lists a cube's scripts as text, finds every use
   of an opcode, and with `--check` decodes all of them. Every script in the GOG,
-  Steam, US CD and demo data decodes
+  Steam, US CD and demo data decodes. `--game lba1` does the same for LBA1, and
+  the page lists how LBA1's scripts differ
   ([#181](https://github.com/LBALab/lba2-classic-community/issues/181)).
 
 ### Contributors
