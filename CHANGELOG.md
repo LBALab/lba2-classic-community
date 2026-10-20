@@ -76,6 +76,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   second column could only be reached with the pad, so a pad that was not
   working could not be fixed there
   ([#770](https://github.com/LBALab/lba2-classic-community/pull/770)).
+- Saving over a save with an automatic name, such as
+  `Citadel Island - 2026-07-23 18-32-07`, now renames it to the current
+  island and time. It used to keep the place and time of the first save. With
+  a keyboard, Enter on that name now saves; before, the name could not be
+  kept or typed after, so the save could not be overwritten without retyping
+  the whole name. A name you typed stays as it is
+  ([#736](https://github.com/LBALab/lba2-classic-community/issues/736)).
 
 ### Stability
 
