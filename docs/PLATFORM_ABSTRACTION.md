@@ -12,7 +12,7 @@ This implements the platform-decoupling and headless-backend parts of [discussio
 |---|---|
 | `system` | Initialisation, wall-clock milliseconds, delay, performance counter/frequency, thread identity, CPU/RAM probes, errors, diagnostic callback |
 | `events` | Initialisation, pumping, and polling backend-neutral `PlatformEvent` values |
-| `window` | Surface lifetime, logical/window/display dimensions, coordinate mapping, fullscreen/vsync/present filter/relative mouse, indexed-frame presentation |
+| `window` | Surface lifetime, logical/window/display dimensions, coordinate mapping, fullscreen/vsync/present filter/relative mouse/mouse grab, indexed-frame presentation |
 | `input` | Physical-key snapshot, layout-aware keycodes/names/modifiers, text input/cursor, gamepad lifetime and sampling |
 | `host` | Executable/current/preference/home paths, directory operations, message boxes, asynchronous folder requests, clipboard, allocator pairing |
 | `capabilities` | Meaningful windowed mode, temporary loss of a native window, touch-overlay support |

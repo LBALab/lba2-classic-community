@@ -274,6 +274,11 @@ static void test_window_and_input_modes() {
             ASSERT_TRUE(SDL_SetWindowRelativeMouseMode(window, !enabled));
         g_platform.window.set_relative_mouse(enabled);
         ASSERT_EQ_INT(expectedRelative, SDL_GetWindowRelativeMouseMode(window));
+        SDL_SetWindowMouseGrab(window, enabled);
+        const bool expectedGrab = SDL_GetWindowMouseGrab(window);
+        SDL_SetWindowMouseGrab(window, !enabled);
+        g_platform.window.set_mouse_grab(enabled);
+        ASSERT_EQ_INT(expectedGrab, SDL_GetWindowMouseGrab(window));
         g_platform.input.cursor_visible(enabled);
         ASSERT_EQ_INT(enabled, SDL_CursorVisible());
         g_platform.input.text_input(enabled);

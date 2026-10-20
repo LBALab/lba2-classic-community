@@ -11,6 +11,7 @@
 #include "GAMEMENU.H"        /* SetDetailLevel */
 #include "INPUT.H"           /* Read/WriteInputConfig, Read/WriteGamepadConfig */
 #include "JOYSTICK.H"        /* JoystickDeadzone */
+#include "MOUSE_CAPTURE.H"   /* MouseConfine */
 #include "RES_SWITCH.H"
 #include "RETAILFIX.H"         /* the retail fixes' settings */
 #include <PLATFORM/PLATFORM.H> /* PLATFORM_FILTER_*, and why a mode was refused */
@@ -181,6 +182,10 @@ static const T_SETTING BootSettings[] = {
  * above cam_glide's tail never decays. */
 static const T_SETTING MouseSettings[] = {
     {"MenuMouse", NULL, NULL, &FlagMenuMouse, SETTING_TRUTHY, TRUE, 0, 1, NULL, NULL, NULL, NULL},
+    /* Not recorded: it changes where the cursor may go, not what the game does with it. */
+    {"MouseConfine", NULL, "mouse_confine", &MouseConfine, SETTING_CLAMP, MOUSE_CONFINE_DEFAULT, MOUSE_CONFINE_NEVER,
+     MOUSE_CONFINE_ALWAYS, NULL, NULL, NULL, NULL, "Keep the cursor in the window: 0 never, 1 fullscreen, 2 always",
+     SETTING_NOT_RECORDED, SETTING_BEFORE(MOUSE_CONFINE_NEVER)},
     {"MouseCamera", NULL, "cam_mouse", &FlagMouseCamera, SETTING_TRUTHY, TRUE, 0, 1, NULL, NULL, NULL, NULL,
      "Mouse camera enable", SETTING_RECORDED, SETTING_BEFORE_NONE},
     {"MouseCameraDrag", NULL, "cam_mouse_drag", &FlagMouseCameraDrag, SETTING_TRUTHY, TRUE, 0, 1,

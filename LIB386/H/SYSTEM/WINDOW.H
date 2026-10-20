@@ -79,6 +79,8 @@ void Window_SetVSync(int enabled);
 bool Window_SetPresentFilter(int mode);
 
 void SetWindowRelativeMouse(bool enable);
+// Keep the cursor inside the window (lifted by the host while unfocused).
+void SetWindowMouseGrab(bool enable);
 void ManageWindow();
 void HandleEventsWindow(const PlatformEvent *event);
 

@@ -16,12 +16,12 @@
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/MOUSE.H>
-#include <SYSTEM/WINDOW.H>
 #include "FOLLOWCAM.H"
 #include "FOLLOWCAM_CFG.H"
 #include "FOLLOWCAM_MATH.H"
 #include "JOYSTICK.H"
 #include "BOOT_EXIT.H"
+#include "MOUSE_CAPTURE.H"
 
 extern S32 Nxw, Nyw, Nzw;
 extern S32 SaveNxw, SaveNzw;
@@ -2415,20 +2415,12 @@ S32 GereExtKeys(U32 key)
         /* --- Manual camera: mouse drag orbit, elevation, wheel zoom, recenter --- */
         ManualCameraOrbitPrev = ManualCameraOrbitActive;
         ManualCameraOrbitActive = FALSE;
-        {
-            /* Relative mouse mode: deltas keep flowing past window edge.
-             * Drag mode: active while right button held.
-             * Free mode: always active.
-             * Disabled when mouse camera conditions not met. */
-            static S32 prevRelative = 0;
-            S32 wantRelative = 0;
-            if (FlagMouseCamera AND CubeMode == CUBE_EXTERIEUR)
-                wantRelative = FlagMouseCameraDrag ? (Click & 2) : 1;
-            if (wantRelative != prevRelative) {
-                SetWindowRelativeMouse(wantRelative ? true : false);
-                prevRelative = wantRelative;
-            }
-        }
+        /* Relative mouse mode, so motion keeps flowing past the window edge: while the
+         * right button is held, or all the time in free orbit. Asked for on each frame it
+         * applies; the frame that stops asking, here or because this code no longer runs
+         * (a menu, an interior), ends it. See MOUSE_CAPTURE.H. */
+        if (FlagMouseCamera AND CubeMode == CUBE_EXTERIEUR AND(FlagMouseCameraDrag ? (Click & 2) : 1))
+            MouseCapture_RequestOrbit();
         if (FlagMouseCamera AND CubeMode == CUBE_EXTERIEUR) {
             ManageMouse();
 

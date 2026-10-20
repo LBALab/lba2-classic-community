@@ -117,7 +117,7 @@ static void test_absent_devices_and_explicit_errors() {
     int records = 0;
     Platform_SetLogOutput(quiet_log, &records);
     void (*modes[])(bool) = {
-        g_platform.window.set_vsync, g_platform.window.set_relative_mouse,
+        g_platform.window.set_vsync, g_platform.window.set_relative_mouse, g_platform.window.set_mouse_grab,
         g_platform.input.text_input, g_platform.input.cursor_visible};
     for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); ++i) {
         g_platform.system.clear_error();
@@ -133,7 +133,7 @@ static void test_absent_devices_and_explicit_errors() {
     ASSERT_TRUE(g_platform.input.gamepad_name(NULL)[0] == '\0');
     ASSERT_TRUE(!g_platform.input.gamepad_button(NULL, PLATFORM_GAMEPAD_BUTTON_SOUTH));
     ASSERT_EQ_INT(0, g_platform.input.gamepad_axis(NULL, PLATFORM_GAMEPAD_AXIS_LEFTX));
-    ASSERT_EQ_INT(9, records);
+    ASSERT_EQ_INT(10, records);
     Platform_SetLogOutput(quiet_log, NULL);
 }
 static void test_host_services_and_clock() {

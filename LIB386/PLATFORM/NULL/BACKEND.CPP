@@ -495,6 +495,7 @@ PlatformInterface Interface() {
     api.window.set_vsync = DeviceMode;
     api.window.set_present_filter = PresentFilter;
     api.window.set_relative_mouse = DeviceMode;
+    api.window.set_mouse_grab = DeviceMode;
     api.window.present = Present;
     api.input.keyboard_state = Keyboard;
     api.input.keycode = Keycode;

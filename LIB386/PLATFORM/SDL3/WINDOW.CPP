@@ -322,6 +322,11 @@ void SDL3_SetRelativeMouse(bool enabled) {
         SDL_SetWindowRelativeMouseMode(s_window, enabled);
 }
 
+void SDL3_SetMouseGrab(bool enabled) {
+    if (s_window && !SDL_SetWindowMouseGrab(s_window, enabled))
+        Platform_Log(PLATFORM_LOG_WARN, "Unable to change SDL3 mouse grab: %s", SDL_GetError());
+}
+
 void SDL3_SetFullscreen(bool fullscreen) {
     fullscreen = CoerceFullscreen(fullscreen);
     const bool previous = s_fullscreen;

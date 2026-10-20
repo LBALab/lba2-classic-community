@@ -256,6 +256,10 @@ void SDL2_SetRelativeMouse(bool enabled) {
     if (s_window && SDL_SetRelativeMouseMode(enabled ? SDL_TRUE : SDL_FALSE) != 0)
         Platform_Log(PLATFORM_LOG_WARN, "Unable to change SDL2 relative mouse mode: %s", SDL_GetError());
 }
+void SDL2_SetMouseGrab(bool enabled) {
+    if (s_window)
+        SDL_SetWindowGrab(s_window, enabled ? SDL_TRUE : SDL_FALSE);
+}
 void SDL2_HandleWindowEvent(const SDL_Event *event) {
     if (!s_window || event->type != SDL_WINDOWEVENT)
         return;

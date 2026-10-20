@@ -33,6 +33,7 @@ void WindowToSurfaceCoords(S32 x, S32 y, S32 *sx, S32 *sy) {
     g_platform.window.surface_coords(x, y, sx, sy);
 }
 void SetWindowRelativeMouse(bool enabled) { g_platform.window.set_relative_mouse(enabled); }
+void SetWindowMouseGrab(bool enabled) { g_platform.window.set_mouse_grab(enabled); }
 void SetWindowFullscreen(bool fullscreen) { g_platform.window.set_fullscreen(fullscreen); }
 bool GetWindowFullscreen() { return g_platform.window.get_fullscreen(); }
 bool Window_IsFullscreen(void) { return g_platform.window.is_fullscreen(); }
