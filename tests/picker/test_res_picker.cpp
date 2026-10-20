@@ -53,7 +53,7 @@ static void check_message(const char *name, const char *body) {
     check(!HasEmDash(body), ctx);
 
     /* Release artifacts ship README.txt, not the .md docs, so a user-facing
-       dialog must never point the player at a docs/*.md file they don't have. */
+       dialog must never point the player at a .md file under docs/ they don't have. */
     snprintf(ctx, sizeof ctx, "%s: no .md pointer (not shipped with release)",
              name);
     check(strstr(body, ".md") == NULL, ctx);

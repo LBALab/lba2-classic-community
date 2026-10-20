@@ -1317,8 +1317,10 @@ static S32 recording_filler(U32 nbLines, U32 xmin, U32 xmax) {
 }
 
 static RecFillerCall g_asm_rec_calls[REC_MAX_CALLS];
-extern "C" U32 g_asm_rec_count = 0;
-extern "C" void *g_asm_real_filler_ptr = NULL;
+extern "C" {
+U32 g_asm_rec_count = 0;
+void *g_asm_real_filler_ptr = NULL;
+}
 
 extern "C" void asm_record_filler_call(U32 nbLines, U32 xmin, U32 xmax) {
     if (g_asm_rec_count < REC_MAX_CALLS) {

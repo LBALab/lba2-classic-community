@@ -61,6 +61,7 @@ jobs:
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-ninja
             ${{ matrix.sdl3_pkg }}
+            make
             xz
             zip
 

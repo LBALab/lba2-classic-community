@@ -17,10 +17,12 @@ add_executable(test_music_pause_resume
 # the -I path shadows a LIB386/H header in that chain and breaks the parse
 # (matches how the shipping lba2cc target compiles MUSIC.CPP). The test file
 # therefore declares the few SOURCES-side symbols itself.
+# libsmacker comes before LIB386/H, as in the game target, so <smacker.h> finds
+# libsmacker's header and not LIB386/H/SMACKER.H on a case-insensitive filesystem.
 target_include_directories(test_music_pause_resume PRIVATE
     ${CMAKE_SOURCE_DIR}/SOURCES/CONSOLE
-    ${CMAKE_SOURCE_DIR}/LIB386/H
     ${CMAKE_SOURCE_DIR}/LIB386/libsmacker
+    ${CMAKE_SOURCE_DIR}/LIB386/H
     ${CMAKE_BINARY_DIR}
 )
 

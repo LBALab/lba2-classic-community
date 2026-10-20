@@ -45,11 +45,14 @@ jobs:
           # in unpack time and in the size of the pacman cache the action
           # stores in the Actions cache. Same package set as
           # reusable-build-windows.yml, minus the packaging-only `zip`.
+          # `make` is for GCC: its LTO step runs the link's code generation
+          # in parallel through make, and without it links serially and warns.
           install: >-
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-sdl3
+            make
 
       - name: Code Checkout
         uses: actions/checkout@v5

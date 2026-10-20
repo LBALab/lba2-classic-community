@@ -252,7 +252,7 @@ target_compile_definitions(replay_polyrec_asm PRIVATE
 set_target_properties(replay_polyrec_asm PROPERTIES
     POSITION_INDEPENDENT_CODE OFF
 )
-target_link_options(replay_polyrec_asm PRIVATE -no-pie -Wl,--allow-multiple-definition)
+target_link_options(replay_polyrec_asm PRIVATE -no-pie -Wl,--allow-multiple-definition -Wl,-z,noexecstack)
 
 # Register polyrec comparison tests for each fixture
 set(COMPARE_POLYREC_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/compare_polyrec.sh")

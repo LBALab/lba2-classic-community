@@ -1,5 +1,7 @@
 #include "AIL.H"
 
+#include <SYSTEM/LIMITS.H>
+
 // === CD ======================================================================
 const char *OpenCD(char *volume_name) { return "D"; }
 void PlayCD(S32 track) {}
@@ -68,6 +70,8 @@ void ResumeStream() {}
 void SuspendStreamOutput() {}
 void ResumeStreamOutput() {}
 S32 IsStreamPlaying() { return FALSE; }
-char *StreamName() { return ""; }
+// Same shape as the SDL backend's name buffer; nothing ever plays, so it stays empty.
+static char streamPathName[ADELINE_MAX_PATH] = "";
+char *StreamName() { return streamPathName; }
 void MusicLogEnable(int enable) { (void)enable; }
 int MusicLogIsEnabled(void) { return 0; }

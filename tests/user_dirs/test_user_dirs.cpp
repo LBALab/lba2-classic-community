@@ -118,12 +118,12 @@ int main(void) {
     /* Nested, and with a trailing separator, which is the shape every caller
        passes: the paths come from GetSavePath and friends, which end with one. */
     char nested[ADELINE_MAX_PATH];
-    snprintf(nested, sizeof nested, "%s" SEP "save" SEP "shoot" SEP, root);
+    check(snprintf(nested, sizeof nested, "%s" SEP "save" SEP "shoot" SEP, root) < (int)sizeof nested, "the test path does not fit in nested");
     check(AddDirIfNot(nested) != 0, "AddDirIfNot reported failure creating a nested path");
     check(is_dir(nested), "the nested path was not created");
 
     char parent[ADELINE_MAX_PATH];
-    snprintf(parent, sizeof parent, "%s" SEP "save", root);
+    check(snprintf(parent, sizeof parent, "%s" SEP "save", root) < (int)sizeof parent, "the test path does not fit in parent");
     check(is_dir(parent), "the missing parent was not created");
 
     /* Idempotent: a folder already there is success, not a failure to report. */
@@ -132,7 +132,7 @@ int main(void) {
     /* A name taken by a file is the one failure that never reaches SDL, and the
        caller has to be able to tell it from success. */
     char taken[ADELINE_MAX_PATH];
-    snprintf(taken, sizeof taken, "%s" SEP "afile", root);
+    check(snprintf(taken, sizeof taken, "%s" SEP "afile", root) < (int)sizeof taken, "the test path does not fit in taken");
     FILE *f = fopen(taken, "wb");
     check(f != NULL, "could not write the file that takes the name");
     if (f != NULL) {
@@ -152,7 +152,7 @@ int main(void) {
         return 1;
     }
     volume_root_of(root, volume, sizeof volume);
-    snprintf(fromroot, sizeof fromroot, "%s" SEP "recordings" SEP, root);
+    check(snprintf(fromroot, sizeof fromroot, "%s" SEP "recordings" SEP, root) < (int)sizeof fromroot, "the test path does not fit in fromroot");
     check(chdir_portable(volume) == 0, "could not move to the volume root to test from");
     check(AddDirIfNot(fromroot) != 0, "AddDirIfNot failed when run from the volume root");
     check(is_dir(fromroot), "the folder was not created when run from the volume root");

@@ -136,7 +136,7 @@ static int random_round(int idx) {
     char str[32];
     U8 cpp_buf[640 * 480];
     U8 asm_buf[640 * 480];
-    char label[64];
+    char label[128];
 
     /* Random position — keep inside safe screen area */
     S32 x = (S32)(rng_next() % 500); /* 0 .. 499 */

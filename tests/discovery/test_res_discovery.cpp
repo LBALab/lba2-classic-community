@@ -1703,12 +1703,16 @@ static bool test_userdir_selects_first_writable_root() {
      * the closest a host gets to /sdcard without All Files Access, where the
      * path is visible and unwritable at the same time. */
     char blocker[ADELINE_MAX_PATH];
-    snprintf(blocker, sizeof(blocker), "%s/blocker", good);
+    if (snprintf(blocker, sizeof(blocker), "%s/blocker", good) >= (int)sizeof(blocker)) {
+        return false;
+    }
     if (!write_text_file(blocker, "not a directory")) {
         return false;
     }
     char blocked[ADELINE_MAX_PATH];
-    snprintf(blocked, sizeof(blocked), "%s/blocker/user", good);
+    if (snprintf(blocked, sizeof(blocked), "%s/blocker/user", good) >= (int)sizeof(blocked)) {
+        return false;
+    }
 
     const char *candidates[2];
     candidates[0] = blocked;
@@ -1730,7 +1734,9 @@ static bool test_userdir_select_creates_a_missing_root() {
         return false;
     }
     char nested[ADELINE_MAX_PATH];
-    snprintf(nested, sizeof(nested), "%s/lba2cc/user/LBA2", base);
+    if (snprintf(nested, sizeof(nested), "%s/lba2cc/user/LBA2", base) >= (int)sizeof(nested)) {
+        return false;
+    }
 
     const char *candidates[1];
     candidates[0] = nested;
@@ -1749,15 +1755,21 @@ static bool test_userdir_select_reports_no_writable_root() {
         return false;
     }
     char blocker[ADELINE_MAX_PATH];
-    snprintf(blocker, sizeof(blocker), "%s/blocker", base);
+    if (snprintf(blocker, sizeof(blocker), "%s/blocker", base) >= (int)sizeof(blocker)) {
+        return false;
+    }
     if (!write_text_file(blocker, "not a directory")) {
         return false;
     }
 
     char one[ADELINE_MAX_PATH];
     char two[ADELINE_MAX_PATH];
-    snprintf(one, sizeof(one), "%s/blocker/a", base);
-    snprintf(two, sizeof(two), "%s/blocker/b", base);
+    if (snprintf(one, sizeof(one), "%s/blocker/a", base) >= (int)sizeof(one)) {
+        return false;
+    }
+    if (snprintf(two, sizeof(two), "%s/blocker/b", base) >= (int)sizeof(two)) {
+        return false;
+    }
 
     const char *candidates[2];
     candidates[0] = one;
@@ -1969,7 +1981,9 @@ static bool test_userdir_reconcile_reports_a_partial_copy() {
     }
 
     char locked[ADELINE_MAX_PATH];
-    snprintf(locked, sizeof(locked), "%s/recordings", src);
+    if (snprintf(locked, sizeof(locked), "%s/recordings", src) >= (int)sizeof(locked)) {
+        return false;
+    }
     if (chmod(locked, 0) != 0) {
         fprintf(stderr, "[skip] test_userdir_reconcile_reports_a_partial_copy: chmod refused\n");
         return true;
@@ -2103,7 +2117,9 @@ static bool test_userdir_reconcile_ignores_an_aliased_root() {
      * takes on a device; "." is the portable way to write one here, and it is
      * the same test: two different strings naming one folder. */
     char aliased[ADELINE_MAX_PATH];
-    snprintf(aliased, sizeof(aliased), "%s/.", real_dir);
+    if (snprintf(aliased, sizeof(aliased), "%s/.", real_dir) >= (int)sizeof(aliased)) {
+        return false;
+    }
 
     const char *lower[1];
     lower[0] = aliased;
@@ -2207,7 +2223,9 @@ static bool test_userdir_reconcile_skips_a_game_data_folder() {
     }
     /* And the HQR files stayed where they were rather than being dragged along. */
     char stray[ADELINE_MAX_PATH];
-    snprintf(stray, sizeof(stray), "%s/%s", dest, Directories_GetResMarker());
+    if (snprintf(stray, sizeof(stray), "%s/%s", dest, Directories_GetResMarker()) >= (int)sizeof(stray)) {
+        return false;
+    }
     return !ExistsFileOrDir(stray);
 }
 
