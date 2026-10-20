@@ -90,6 +90,7 @@ S32 DisplayVSync = TRUE;
 S32 FixedTimestep = 16;
 
 S32 FlagMenuMouse = TRUE;
+S32 FlagMousePointerInPlay = TRUE;
 
 //S32	FlagPalettePcx = FALSE ;
 S32 FlagFade = FALSE;

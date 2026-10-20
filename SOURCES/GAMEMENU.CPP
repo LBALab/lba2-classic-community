@@ -4048,12 +4048,13 @@ S32 MainGameMenu(S32 load, S32 resumeInGame) {
 
                 FlagShadeMenu = TRUE;
 
-                /* Menu mouse is for menu UI only; do not composite it during MainLoop (gameplay). */
                 MenuMouseRelease();
             }
             resumeFirstPass = FALSE;
 
+            GamePointerEnterPlay();
             ret = MainLoop();
+            GamePointerLeavePlay();
 
             /* A resume hands control back the moment MainLoop returns for a reason that is
                not the menu. The switch below is the game's end-of-session handling -- it

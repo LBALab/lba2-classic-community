@@ -59,6 +59,7 @@ recenters behind the hero. Tunables in `lba2.cfg`:
 | `MouseCameraDivisor` | 4 | pixel-to-angle scaling (lower = faster, 1-16) |
 | `MouseCameraSmoothing` | 2 | orbit lerp (1 = snap, higher = laggier, 1-16) |
 | `MouseConfine` | 1 | keep the cursor inside the window: 0 never, 1 in fullscreen, 2 always |
+| `MousePointerInPlay` | 1 | show the pointer in play when the mouse moves (hidden after 3 s idle and while orbiting) |
 
 The pointer is invisible in play, so between drags a click could land on
 another monitor and take the focus away, which pauses the game. With
@@ -109,6 +110,7 @@ completes names.
 | `pad_deadzone` | gamepad stick deadzone (SDL units) |
 | `cam_mouse` / `cam_mouse_drag` | mouse camera enable / right-drag vs free orbit |
 | `mouse_confine` | keep the cursor in the window: 0 never, 1 fullscreen, 2 always |
+| `mouse_pointer_play` | show the pointer in play when the mouse moves |
 | `cam_mouse_x` / `cam_mouse_y` | mouse orbit / elevation sensitivity (1-10) |
 | `cam_mouse_invert` / `cam_mouse_div` | invert mouse elevation / pixel-to-angle divisor |
 | `cam_smooth` | manual orbit lerp (1 = snap, higher = laggier) |

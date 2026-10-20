@@ -95,6 +95,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `MouseConfine` setting (`mouse_confine` in the console) also confines it in
   a window (2) or switches it off (0)
   ([#726](https://github.com/LBALab/lba2-classic-community/issues/726)).
+- The mouse pointer now shows in play when you move the mouse, as it does in
+  menus, and hides again after 3 seconds without mouse activity. It stays
+  hidden while you orbit the camera and while the console is open, and never
+  appears if you play with a keyboard or controller only.
+  `MousePointerInPlay` 0 (`mouse_pointer_play` in the console) keeps it off.
 - With free orbit (`MouseCameraDrag` 0), the mouse leaves the camera's
   relative mode when you go indoors or open a menu. It used to stay in it,
   because the code that switched it off only ran outdoors.

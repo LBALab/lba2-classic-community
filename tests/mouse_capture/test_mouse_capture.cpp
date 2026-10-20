@@ -16,6 +16,8 @@ static bool s_relative = false;
 static bool s_grab = false;
 static int s_relativeCalls = 0;
 static int s_grabCalls = 0;
+static bool s_spriteSuppressed = false;
+static int s_hiddenBySetting = 0;
 
 // Stand-ins for the window and the console (C linkage, as declared).
 extern "C" {
@@ -29,6 +31,8 @@ void SetWindowMouseGrab(bool enabled) {
     s_grabCalls++;
 }
 int Console_IsOpen(void) { return s_consoleOpen; }
+void SetMouseSpriteSuppressed(bool suppressed) { s_spriteSuppressed = suppressed; }
+S32 GamePointer_HiddenBySetting(void) { return s_hiddenBySetting; }
 }
 
 static int fails = 0;
@@ -70,11 +74,14 @@ static void testUpdate(void) {
     MouseCapture_Update();
     expect(s_relativeCalls == relativeCalls && s_grabCalls == grabCalls, "an unchanged mode is not re-applied");
 
+    expect(!s_spriteSuppressed, "the pointer may show when confined");
+
     // The camera orbits on each gameplay frame.
     for (int i = 0; i < 5; i++) {
         MouseCapture_RequestOrbit();
         MouseCapture_Update();
         expectMode(MOUSE_CAPTURE_RELATIVE, "orbiting");
+        expect(s_spriteSuppressed, "no pointer while orbiting");
     }
 
     // A present with no gameplay frame in between keeps it...
@@ -83,6 +90,15 @@ static void testUpdate(void) {
     // ...the second one ends it: a menu or an interior that never asks.
     MouseCapture_Update();
     expectMode(MOUSE_CAPTURE_CONFINED, "relative ends when the camera stops asking");
+    expect(!s_spriteSuppressed, "the pointer may show again after an orbit");
+
+    // MousePointerInPlay off hides it in play.
+    s_hiddenBySetting = 1;
+    MouseCapture_Update();
+    expect(s_spriteSuppressed, "the setting hides the pointer in play");
+    s_hiddenBySetting = 0;
+    MouseCapture_Update();
+    expect(!s_spriteSuppressed, "and gives it back");
 
     // Leaving fullscreen frees the cursor on the next present.
     s_fullscreen = false;
@@ -95,6 +111,7 @@ static void testUpdate(void) {
     MouseCapture_RequestOrbit();
     MouseCapture_Update();
     expectMode(MOUSE_CAPTURE_CONFINED, "console open while orbiting");
+    expect(s_spriteSuppressed, "no game pointer under the console, which shows the host's");
     s_consoleOpen = 0;
 }
 

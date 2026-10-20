@@ -1,6 +1,8 @@
 #include "MOUSE_CAPTURE.H"
 
 #include "CONSOLE/CONSOLE.H" /* Console_IsOpen */
+#include "GAMEMENU_MOUSE.H"  /* GamePointer_HiddenBySetting */
+#include <SYSTEM/MOUSE.H>
 #include <SYSTEM/WINDOW.H>
 
 S32 MouseConfine = MOUSE_CONFINE_DEFAULT;
@@ -32,6 +34,10 @@ void MouseCapture_Update(void) {
 
     const T_MOUSE_CAPTURE want =
         MouseCapture_Decide(MouseConfine, Window_IsFullscreen() ? 1 : 0, Console_IsOpen(), orbit);
+
+    /* No sprite while orbiting (relative mode has no position to draw it at), while the
+       console shows the host's cursor, or in play with the setting off. */
+    SetMouseSpriteSuppressed(want == MOUSE_CAPTURE_RELATIVE || Console_IsOpen() || GamePointer_HiddenBySetting());
     if (s_applied && want == s_current)
         return;
 

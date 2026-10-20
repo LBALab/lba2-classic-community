@@ -182,6 +182,9 @@ static const T_SETTING BootSettings[] = {
  * above cam_glide's tail never decays. */
 static const T_SETTING MouseSettings[] = {
     {"MenuMouse", NULL, NULL, &FlagMenuMouse, SETTING_TRUTHY, TRUE, 0, 1, NULL, NULL, NULL, NULL},
+    {"MousePointerInPlay", NULL, "mouse_pointer_play", &FlagMousePointerInPlay, SETTING_TRUTHY, TRUE, 0, 1, NULL,
+     NULL, NULL, NULL, "Show the mouse pointer in play when the mouse moves", SETTING_NOT_RECORDED,
+     SETTING_BEFORE(0)},
     /* Not recorded: it changes where the cursor may go, not what the game does with it. */
     {"MouseConfine", NULL, "mouse_confine", &MouseConfine, SETTING_CLAMP, MOUSE_CONFINE_DEFAULT, MOUSE_CONFINE_NEVER,
      MOUSE_CONFINE_ALWAYS, NULL, NULL, NULL, NULL, "Keep the cursor in the window: 0 never, 1 fullscreen, 2 always",

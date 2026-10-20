@@ -41,6 +41,20 @@ void MenuMouseAcquire(void) {
     }
 }
 
+/* Set while MainLoop runs. A menu opened from play hands the pointer back to play,
+ * not to nothing. */
+static bool s_inPlay = false;
+
+/* The pointer with no menu up: in play it waits for the mouse to move (and
+ * MousePointerInPlay can still hide it, see GamePointer_HiddenBySetting); outside
+ * play it is off. */
+static void ApplyRestPointer(void) {
+    if (s_inPlay)
+        ShowMouseAfterFirstMotion();
+    else
+        ShowMouse(false);
+}
+
 void MenuMouseRelease(void) {
     if (!FlagMenuMouse)
         return;
@@ -48,9 +62,25 @@ void MenuMouseRelease(void) {
         s_menuMouseRefCount--;
     if (s_menuMouseRefCount == 0) {
         GameMenuMouseResetPress();
-        ShowMouse(false);
         InitMouse();
+        ApplyRestPointer();
     }
+}
+
+void GamePointerEnterPlay(void) {
+    s_inPlay = true;
+    if (s_menuMouseRefCount == 0)
+        ApplyRestPointer();
+}
+
+void GamePointerLeavePlay(void) {
+    s_inPlay = false;
+    if (s_menuMouseRefCount == 0)
+        ApplyRestPointer();
+}
+
+S32 GamePointer_HiddenBySetting(void) {
+    return s_inPlay && s_menuMouseRefCount == 0 && !FlagMousePointerInPlay;
 }
 
 S32 MenuMouse_GetRefCount(void) {

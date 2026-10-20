@@ -113,6 +113,7 @@ extern S32 FixedTimestep; ///< #358: min ms of game-time per sim step (0 = off).
 
 /// 1 = mouse hover / click / wheel in plasma menus (see docs/MENU.md). Read from lba2.cfg `MenuMouse`.
 extern S32 FlagMenuMouse;
+extern S32 FlagMousePointerInPlay;
 
 extern S32 FlecheForcee;
 

@@ -37,6 +37,9 @@ void EndMouse();
 void ShowMouse(bool show);
 /// Like ShowMouse(true), but the software sprite stays off until the next mouse motion (menus).
 void ShowMouseAfterFirstMotion(void);
+/// Keep the sprite off while true, whatever else asks for it (an orbit, the console). When
+/// lifted, a shown sprite waits for the next motion: the position it had may be stale.
+void SetMouseSpriteSuppressed(bool suppressed);
 void SetMousePos(U32 x, U32 y);
 void SetMouseBox(U32 x0, U32 y0, U32 x1, U32 y1); ///< Set mouse position limits
 void ClearMouseBox();                             ///< Reset mouse position limits to screen size

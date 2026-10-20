@@ -13,6 +13,13 @@ void MenuMouseApplyCursorSprite(void);
 void GameMenuMouseResetPress(void);
 void GameMenuMousePollFocus(void);
 
+/// Around MainLoop: in play, the pointer shows on mouse motion and hides after idle, as in
+/// menus. A menu opened from play gives it back to play when it closes.
+void GamePointerEnterPlay(void);
+void GamePointerLeavePlay(void);
+/// Non-zero in play, with no menu up, when MousePointerInPlay is off.
+S32 GamePointer_HiddenBySetting(void);
+
 /// Non-zero when menu mouse cursor should be active (config + refcount).
 S32 MenuMouse_GetRefCount(void);
 

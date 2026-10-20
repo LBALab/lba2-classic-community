@@ -40,6 +40,7 @@ volatile S32 MouseWheelYAccum = 0;
 static bool s_showSpriteAfterFirstMotion = false;
 static U32 s_lastPointerActivityMs = 0;
 static bool s_mouseMotionFlag = false;
+static bool s_spriteSuppressed = false;
 
 static void MousePointerMarkActivity(void) {
     s_lastPointerActivityMs = g_platform.system.ticks_ms();
@@ -74,6 +75,8 @@ bool MouseSpriteShouldDraw(void) {
         return false;
     if (MouseSpriteGraphic == NULL)
         return false;
+    if (s_spriteSuppressed)
+        return false;
     {
         U32 now = g_platform.system.ticks_ms();
         U32 elapsed = now - s_lastPointerActivityMs;
@@ -105,6 +108,14 @@ void ShowMouse(bool show) {
 void ShowMouseAfterFirstMotion(void) {
     s_showSpriteAfterFirstMotion = true;
     FlagMouse = false;
+}
+
+void SetMouseSpriteSuppressed(bool suppressed) {
+    if (suppressed == s_spriteSuppressed)
+        return;
+    s_spriteSuppressed = suppressed;
+    if (!suppressed && FlagMouse)
+        ShowMouseAfterFirstMotion();
 }
 
 void SetMousePos(U32 x, U32 y) {
