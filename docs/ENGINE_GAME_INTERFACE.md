@@ -113,19 +113,21 @@ Each opcode body calls engine C functions directly. Categories:
 ## 5. Script storage and script-visible variables
 
 **Storage:** scripts are not a dedicated resource — they are embedded inline in the
-per-cube scene blob. `LoadScene(numscene)` (`SOURCES/DISKFUNC.CPP:50`) loads the scene from
+per-cube scene blob. `LoadScene(numscene)` (`SOURCES/DISKFUNC.CPP:85`) loads the scene from
 `SCENE.HQR` into `PtrScene`, then walks the blob with a byte cursor, reading for the hero
 and each object a length-prefixed Track stream then a Life stream:
 
 ```c
-sizetoload = GET_S16; ptrobj->PtrTrack = PtrSce; PtrSce += sizetoload;  // DISKFUNC.CPP:135
-sizetoload = GET_S16; ptrobj->PtrLife  = PtrSce; PtrSce += sizetoload;  // DISKFUNC.CPP:139
+sizetoload = GET_S16; ptrobj->PtrTrack = PtrSce; PtrSce += sizetoload;  // DISKFUNC.CPP:178
+sizetoload = GET_S16; ptrobj->PtrLife  = PtrSce; PtrSce += sizetoload;  // DISKFUNC.CPP:182
 ```
 
-So `PtrLife`/`PtrTrack` (`DEFINES.H:412`) point **directly into the scene buffer**, and
-`OffsetLife`/`OffsetTrack` are the per-object PCs (`-1` = halted). The same blob supplies
-`ListBrickTrack` (the named waypoints `TM_GOTO_POINT`/`LM_POS_POINT` index), zones, and
-patches.
+So `PtrLife`/`PtrTrack` (`DEFINES.H:431`, `:436`) point **directly into the scene buffer**, and
+`OffsetLife`/`OffsetTrack` are the per-object PCs (`-1` = halted). The scripts sit at odd
+offsets in most scenes and their operands are little-endian, so the interpreters read them
+through `LIB386/H/SYSTEM/LE.H`. The same blob supplies `ListBrickTrack` (the named waypoints
+`TM_GOTO_POINT`/`LM_POS_POINT` index), zones, and patches; those three tables are copied
+out into native arrays at load.
 
 **Script-visible variables** (`GLOBAL.CPP:262`):
 

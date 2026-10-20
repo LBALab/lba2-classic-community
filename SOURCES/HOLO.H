@@ -206,6 +206,7 @@ extern S32 SizeHoloMalloc;
 extern void InitHoloMalloc(void);
 extern U8 *HoloMalloc(U32 size);
 extern U8 *LoadHoloMalloc_HQR(const char *name, S32 index);
+extern U8 *LoadHoloBody_HQR(const char *name, S32 index);
 
 extern void ScaleRotBody3D(U8 *ptbody, S32 scale, S32 flagrot);
 extern U32 GetSizeBody3D(U8 *ptbody);

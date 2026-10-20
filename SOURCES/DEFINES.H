@@ -31,7 +31,7 @@
 // Détermine le nombre d'éléments d'un tableau Static
 #define NbTabIndex(tab) (sizeof(tab) / sizeof(tab[0]))
 
-#define LoadFile3D(index) (BufferFile3D + *((U32 *)BufferFile3D + (index)))
+#define LoadFile3D(index) (BufferFile3D + ReadLE_U32(BufferFile3D + (index) * 4)) // offsets are U32 LE
 
 /*----------------*/
 
@@ -156,6 +156,7 @@
 #include <time.h>
 
 #include <SYSTEM.H>
+#include <SYSTEM/LE.H>
 #include <SVGA.H>
 #include <3D.H>
 #include <OBJECT.H>

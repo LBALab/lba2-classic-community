@@ -1,4 +1,5 @@
 #include "SAMPLE_SDL.H"
+#include <SYSTEM/LE.H>
 #include "STREAM_SDL.H"
 #include "VOC_HEADER.H"
 
@@ -579,6 +580,8 @@ U32 PlaySample(void *buffer, S32 sizeBytes, U32 userhandle, S32 pitchbend,
         V->data = (const U8 *)copy;
         V->sizeBytes = payloadSize;
         V->is8bit = hadVoc ? vocIs8bit : (hadWav ? (wavBits == 8) : 1);
+        if (!V->is8bit)
+            FromLE16InPlace(copy, (U32)payloadSize / 2); // 16-bit PCM is little-endian in the file
         V->sourceRateHz = hadVoc ? vocHz : (hadWav ? wavHz : SAMPLE_RATE);
         V->sourceChannels = hadWav ? wavChannels : 1;
     }

@@ -2,6 +2,8 @@
 
 #include <SYSTEM/INPUT_FLOW.H>
 #include <POLYGON/POLYFILT.H>
+#include <SYSTEM/LE.H>
+#include <SYSTEM/LOADMALL.H>
 
 extern S32 GfxDitherShading;
 #include "IMAGE_LOAD.H"
@@ -240,14 +242,16 @@ void CheckSaveLogPcx(U8 *pal) {
 
 void LoadListAnim3DS(void) {
     U32 handle, buffer;
+    U8 raw[4];
     S32 n;
     char tmpFilePath[ADELINE_MAX_PATH];
 
     // recupere nombre d'anim dans la banque
     handle = OpenRead(HQRPtrAnim3DS->Name);
     if (handle) {
-        Read(handle, &buffer, 4);
+        Read(handle, raw, 4);
         Close(handle);
+        buffer = ReadLE_U32(raw);
         n = (buffer / 4) - 2;
     }
 
@@ -256,6 +260,10 @@ void LoadListAnim3DS(void) {
     ListAnim3DS = (T_ANIM_3DS *)LoadMalloc_HQR(tmpFilePath, n);
     if (!ListAnim3DS)
         TheEndCheckFile(tmpFilePath);
+
+    // 8 bytes an entry: char Name[4], then S16 Deb and S16 Fin, little-endian
+    for (U32 e = 0; e < LoadMallocFileSize / 8; e++)
+        FromLE16InPlace((U8 *)ListAnim3DS + e * 8 + 4, 2);
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -2833,20 +2841,24 @@ int Lba2Main(int argc, char *argv[]) {
     InitTextureAnimation(); // pour initialiser l'affaire
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+    // The sprite bounding-box tables (.GPC) are S16, eight a sprite, little-endian
     PtrZvExtra = (S16 *)LoadMalloc_HQR(tmpFilePath, RESS_GOODIES_GPC);
     if (!PtrZvExtra)
         TheEndCheckFile(tmpFilePath);
+    FromLE16InPlace(PtrZvExtra, LoadMallocFileSize / 2);
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
     PtrZvExtraRaw = (S16 *)LoadMalloc_HQR(tmpFilePath, RESS_GOODRAW_GPC);
     if (!PtrZvExtraRaw)
         TheEndCheckFile(tmpFilePath);
+    FromLE16InPlace(PtrZvExtraRaw, LoadMallocFileSize / 2);
 
 #ifndef DEMO
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
     PtrZvAnim3DS = (S16 *)LoadMalloc_HQR(tmpFilePath, RESS_ANIM3DS_GPC);
     if (!PtrZvAnim3DS)
         TheEndCheckFile(tmpFilePath);
+    FromLE16InPlace(PtrZvAnim3DS, LoadMallocFileSize / 2);
 #endif
 
     //-------------------   buffer sprites
@@ -2900,6 +2912,7 @@ int Lba2Main(int argc, char *argv[]) {
 
     if (!HQR_Anims)
         TheEndCheckFile(tmpFilePath);
+    HQR_Set_Fixup(HQR_Anims, AnimFromLE);
 
     //-------------------   buffer bodys
 
@@ -2911,6 +2924,7 @@ int Lba2Main(int argc, char *argv[]) {
 
     if (!HQR_Bodys)
         TheEndCheckFile(tmpFilePath);
+    HQR_Set_Fixup(HQR_Bodys, ObjectBodyFromLE);
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, OBJFIX_HQR_NAME);
     HQR_ObjFix = HQR_Init_Ressource(
@@ -2920,6 +2934,7 @@ int Lba2Main(int argc, char *argv[]) {
 
     if (!HQR_ObjFix)
         TheEndCheckFile(tmpFilePath);
+    HQR_Set_Fixup(HQR_ObjFix, ObjectBodyFromLE);
 
     /* (No per-type asset counts here: the ressource HQRs load lazily and only
        expose a cache-slot budget, not the file's real entry count. The asset

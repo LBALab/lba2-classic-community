@@ -19,6 +19,7 @@
 #include "INPUT.H"
 
 #include <FILEIO/SAVEPNG.H>
+#include <SYSTEM/LE.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include "DIRECTORIES.H"
@@ -874,6 +875,7 @@ void CloseFdNar() {
 /*-------------------------------------------------------------------------*/
 void InitFileNar(char *file, S32 from) {
     U32 offset;
+    U8 raw[4];
 
     CloseFdNar();
 
@@ -891,7 +893,8 @@ void InitFileNar(char *file, S32 from) {
 
     while (!offset) // Sans Filet
     {
-        Read(FdNar, &offset, 4L);
+        Read(FdNar, raw, 4L);
+        offset = ReadLE_U32(raw);
     }
 
     MaxVoice = (offset / 4) - 1; // Normalement en phase
@@ -903,6 +906,7 @@ void InitFileNar(char *file, S32 from) {
         CloseFdNar();
         goto error;
     }
+    FromLE32InPlace(BufMemoSeek, offset / 4); // the VOX offset table, little-endian
 
     FlagVoiceCD = from; //     0 si HD, 1 si CD (cf InitSpeak )
 
@@ -968,6 +972,7 @@ void PlaySpeakVoc(S32 fd) {
     S32 size;
     S32 sizelzss;
     S16 method;
+    U8 raw[10];
     U32 pan = 64;
     S32 volume;
 
@@ -975,9 +980,11 @@ void PlaySpeakVoc(S32 fd) {
     if (IsSamplePlaying(SPEAK_SAMPLE))
         StopOneSample(SPEAK_SAMPLE);
 
-    Read(fd, &size, 4L);
-    Read(fd, &sizelzss, 4L);
-    Read(fd, &method, 2L);
+    // entry header, little-endian: S32 size, S32 compressed size, S16 method
+    Read(fd, raw, 10L);
+    size = ReadLE_S32(raw);
+    sizelzss = ReadLE_S32(raw + 4);
+    method = ReadLE_S16(raw + 8);
 
     if (method == 0) {
         Read(fd, BufSpeak, size);
@@ -1236,6 +1243,7 @@ void InitDial(S32 file) {
     MaxText = (U16)(Load_HQR(FileText, BufOrder,
                              (Language * MAX_TEXT_LANG * 2) + (file * 2) + 0) /
                     2);
+    FromLE16InPlace(BufOrder, MaxText); // text numbers, U16 little-endian
 
     Load_HQR(FileText, BufText,
              (Language * MAX_TEXT_LANG * 2) + (file * 2) + 1);
@@ -1549,8 +1557,8 @@ S32 GetText(S32 text) {
     if (num == -1)
         return (0L); //   RETURN
 
-    offset0 = *(U16 *)(BufText + ((num + 0) * 2L));
-    offset1 = *(U16 *)(BufText + ((num + 1) * 2L));
+    offset0 = ReadLE_U16(BufText + ((num + 0) * 2L));
+    offset1 = ReadLE_U16(BufText + ((num + 1) * 2L));
 
     PtText = BufText + offset0;
 

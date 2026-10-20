@@ -46,7 +46,7 @@ a use-after-free, a leak, or undefined arithmetic. It builds `host_tests`
 only: the `build` job already covers the game target, and no CI job has the
 retail data needed to run it.
 
-Two flags in that preset are load-bearing and worth not "tidying away".
+Two settings in that preset are load-bearing and worth not "tidying away".
 
 `-fno-sanitize-recover=undefined` turns a UBSan finding into an abort.
 UBSan's default is to print a diagnostic and continue, which exits zero:
@@ -55,17 +55,21 @@ flag the job is a decoration rather than a gate. If you want to *explore*
 rather than gate, rebuild without it so a run reports every site instead of
 stopping at the first.
 
-`-fno-sanitize=alignment` switches off the misaligned-access check. That
-one is not noise-suppression, it is a deferred decision: a headless
-playthrough under UBSan reports 326 distinct misaligned load/store/member
-sites, and every one of them is the same 1997 pattern of reading a packed
-file or bytecode buffer through a cast pointer. `LbaReadWord` and friends in
-`SAVEGAME.CPP`, `GET_S16` in `DISKFUNC.CPP` and `FICHE.CPP`, and structs
-overlaid directly onto scene data in `OBJECT.CPP`. Fixing them is a real
-piece of work with no observed x86 symptom, so the check stays off until
-someone takes the class on deliberately; leaving it on would mean the gate
-could never be green. Everything else UBSan checks is on, and the
-playthrough found zero of it.
+The misaligned-access check is on, and it guards a real bug class. Game
+files and saves are packed, so a 16- or 32-bit field can sit at any byte
+offset; reading one through a cast pointer is undefined, and on 32-bit ARM
+it is a SIGBUS (#684). The engine now reads game data through
+`LIB386/H/SYSTEM/LE.H` (see [PLATFORM.md](PLATFORM.md)), and the host tests
+are clean with the check on. A new cast read of packed data that a host test
+reaches will fail this job. The check was off until #684, when a headless
+playthrough reported 326 distinct misaligned sites.
+
+The host tests are clean under every other UBSan check too. The game itself
+is not: a UBSan run of gameplay reports about 60 distinct sites, nearly all
+left shifts of negative or overflowing `S32` values in the renderer
+(`LIB386/pol_work/`, `LIB386/OBJECT/AFF_OBJ.CPP`, `SOURCES/BEZIER.CPP`). With
+`-fno-sanitize-recover=undefined` a game built with this preset aborts at the
+first of them, so the preset is for host tests, not for playing.
 
 ## The warning baseline
 

@@ -1,6 +1,8 @@
 #include "C_EXTERN.H"
 #include "AMBIANCE.H"
 
+#include <SYSTEM/LE.H>
+
 //
 // Uniquement en version Outil: interprétation des impacts
 //
@@ -432,7 +434,7 @@ void DoImpact(S32 num, S32 x, S32 y, S32 z, U8 owner)
 
     RestoreTimer();
 #else
-    ptr = BufferImpact + *(((U32 *)BufferImpact) + num);
+    ptr = BufferImpact + ReadLE_U32(BufferImpact + num * 4);
 #endif
 
     if (ptr) {
@@ -446,11 +448,11 @@ void DoImpact(S32 num, S32 x, S32 y, S32 z, U8 owner)
             switch (command) {
             // SAMPLE nom[.wav] volume
             case IMP_SAMPLE:
-                wword = *(S16 *)ptr; // NumSample
+                wword = ReadLE_S16(ptr); // NumSample
                 ptr += 2;
-                wword2 = *(S16 *)ptr; // Frequence
+                wword2 = ReadLE_S16(ptr); // Frequence
                 ptr += 2;
-                wlong = *(S16 *)ptr; // Decalage
+                wlong = ReadLE_S16(ptr); // Decalage
                 ptr += 2;
                 ParmSampleVolume = *ptr++; // Volume
 
@@ -469,15 +471,15 @@ void DoImpact(S32 num, S32 x, S32 y, S32 z, U8 owner)
 
             // THROW sprite alpha beta speed poids force
             case IMP_THROW:
-                wword = *(S16 *)ptr; // Sprite
+                wword = ReadLE_S16(ptr); // Sprite
                 ptr += 2;
-                wlong = *(S16 *)ptr; // alpha
+                wlong = ReadLE_S16(ptr); // alpha
                 ptr += 2;
-                wlong2 = *(S16 *)ptr; // beta
+                wlong2 = ReadLE_S16(ptr); // beta
                 ptr += 2;
-                wlong3 = *(S16 *)ptr; // Speed
+                wlong3 = ReadLE_S16(ptr); // Speed
                 ptr += 2;
-                wword2 = *(S16 *)ptr; // Poids
+                wword2 = ReadLE_S16(ptr); // Poids
                 ptr += 2;
                 wbyte = *ptr++; // Force
 
@@ -507,18 +509,18 @@ void DoImpact(S32 num, S32 x, S32 y, S32 z, U8 owner)
                 ptr++; // Skip '\0'
                 wword = 0;
 #else
-                wword = *(S16 *)ptr; // num body
+                wword = ReadLE_S16(ptr); // num body
                 ptr += 2;
 #endif
-                wlong = *(S16 *)ptr; // alpha
+                wlong = ReadLE_S16(ptr); // alpha
                 ptr += 2;
-                wlong2 = *(S16 *)ptr; // beta
+                wlong2 = ReadLE_S16(ptr); // beta
                 ptr += 2;
-                wlong3 = *(S16 *)ptr; // Speed
+                wlong3 = ReadLE_S16(ptr); // Speed
                 ptr += 2;
-                wword2 = *(S16 *)ptr; // Poids
+                wword2 = ReadLE_S16(ptr); // Poids
                 ptr += 2;
-                wword3 = *(S16 *)ptr; // Rotation
+                wword3 = ReadLE_S16(ptr); // Rotation
                 ptr += 2;
 
                 wlong2 = (wlong2 + beta) & 4095;
@@ -548,16 +550,16 @@ void DoImpact(S32 num, S32 x, S32 y, S32 z, U8 owner)
 
             // THROW_POF nom[.pof] alpha beta speed poids scale
             case IMP_THROW_POF:
-                wword = *(S16 *)ptr; // Num Pof
+                wword = ReadLE_S16(ptr); // Num Pof
                 ptr += 2;
 
-                wlong = *(S16 *)ptr; // alpha
+                wlong = ReadLE_S16(ptr); // alpha
                 ptr += 2;
-                wlong2 = *(S16 *)ptr; // beta
+                wlong2 = ReadLE_S16(ptr); // beta
                 ptr += 2;
-                wlong3 = *(S16 *)ptr; // Speed
+                wlong3 = ReadLE_S16(ptr); // Speed
                 ptr += 2;
-                wword2 = *(S16 *)ptr; // Poids
+                wword2 = ReadLE_S16(ptr); // Poids
                 ptr += 2;
 
                 wlong2 = (wlong2 + beta) & 4095;
@@ -565,7 +567,7 @@ void DoImpact(S32 num, S32 x, S32 y, S32 z, U8 owner)
                 InitExtraPof(x, y, z, wword,
                              wlong, wlong2,
                              wlong3, wword2,
-                             *(S32 *)ptr, *(S32 *)ptr, 0, // Scale
+                             ReadLE_S32(ptr), ReadLE_S32(ptr), 0, // Scale
                              0, 0);
 
                 ptr += 4;
@@ -573,13 +575,13 @@ void DoImpact(S32 num, S32 x, S32 y, S32 z, U8 owner)
 
             // SPRITE deb fin tempo scale transparent
             case IMP_SPRITE:
-                wword = *(S16 *)ptr; // Deb
+                wword = ReadLE_S16(ptr); // Deb
                 ptr += 2;
-                wword2 = *(S16 *)ptr; // Fin
+                wword2 = ReadLE_S16(ptr); // Fin
                 ptr += 2;
-                wlong = *(S32 *)ptr; // tempo
+                wlong = ReadLE_S32(ptr); // tempo
                 ptr += 4;
-                wlong2 = *(S32 *)ptr; // scale
+                wlong2 = ReadLE_S32(ptr); // scale
                 ptr += 4;
                 wbyte = *ptr++;  // transparent
                 wbyte2 = *ptr++; // force
@@ -592,14 +594,14 @@ void DoImpact(S32 num, S32 x, S32 y, S32 z, U8 owner)
 
             // FLOW_SPRITE nom[.flow] deb fin tempo scale transparent force
             case IMP_FLOW_SPRITE:
-                wbyte = *ptr++;      // num flow
-                wword = *(S16 *)ptr; // deb
+                wbyte = *ptr++;          // num flow
+                wword = ReadLE_S16(ptr); // deb
                 ptr += 2;
-                wword2 = *(S16 *)ptr; // fin
+                wword2 = ReadLE_S16(ptr); // fin
                 ptr += 2;
-                wlong3 = *(S32 *)ptr; // tempo
+                wlong3 = ReadLE_S32(ptr); // tempo
                 ptr += 4;
-                wlong2 = *(S32 *)ptr; // scale
+                wlong2 = ReadLE_S32(ptr); // scale
                 ptr += 4;
                 wbyte2 = *ptr++; // transparent
                 wlong = *ptr++;  // force
@@ -621,7 +623,7 @@ void DoImpact(S32 num, S32 x, S32 y, S32 z, U8 owner)
                 ptr++; // Skip '\0'
                 wword = 0;
 #else
-                wword = *(S16 *)ptr; // num body
+                wword = ReadLE_S16(ptr); // num body
                 ptr += 2;
 #endif
                 wlong = *ptr++; // force
@@ -637,16 +639,16 @@ void DoImpact(S32 num, S32 x, S32 y, S32 z, U8 owner)
             case IMP_FLOW_POF:
                 wbyte = *ptr++; // Num Flow
 
-                wword = *(S16 *)ptr; // Num Pof
+                wword = ReadLE_S16(ptr); // Num Pof
                 ptr += 2;
 
-                wlong = *(S32 *)ptr; // scale_deb
+                wlong = ReadLE_S32(ptr); // scale_deb
                 ptr += 4;
-                wlong2 = *(S32 *)ptr; // scale_fin
+                wlong2 = ReadLE_S32(ptr); // scale_fin
                 ptr += 4;
-                wlong3 = *(S32 *)ptr; // tempo
+                wlong3 = ReadLE_S32(ptr); // tempo
                 ptr += 4;
-                wword2 = *(S16 *)ptr; // SpeedRot
+                wword2 = ReadLE_S16(ptr); // SpeedRot
                 ptr += 2;
 
                 CreateExtraParticleFlow(FLOW_EXTRA_POF,

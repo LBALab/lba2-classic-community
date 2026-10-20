@@ -19,10 +19,12 @@ Three parts, and the third is the one people miss.
    A command per PRESENT is the trap: the engine needs to actually tick between actions.
 
 2. **ASan and UBSan.** Configure with
-   `-fsanitize=address,undefined -fno-sanitize=alignment -fno-omit-frame-pointer -g`.
-   Turn the alignment check off. Misaligned access is endemic by design here (packed Adeline data,
-   `U16 *` casts on odd offsets) and floods roughly 160 reports before the title screen, which
-   buries everything else. It still matters for the arm64 builds, as its own exercise.
+   `-fsanitize=address,undefined -fno-omit-frame-pointer -g`.
+   Keep the alignment check on. Game data is read through `LIB386/H/SYSTEM/LE.H`, so loading the
+   save corpus reports no misaligned access; a new report is a new cast read of packed data, which
+   is a SIGBUS on 32-bit ARM (#684). Expect about 60 pre-existing reports of shifted negative
+   values in the renderer, so leave recovery on (no `-fno-sanitize-recover`) or the game stops at
+   the first.
 
 3. **Un-merge the arena.** `InitMainBuffer()` in SOURCES/MEM.CPP hands eleven buffers out of a
    single `Malloc`. A spill from one region into its neighbour never leaves that allocation, so

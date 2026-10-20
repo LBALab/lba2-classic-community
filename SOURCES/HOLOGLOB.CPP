@@ -799,6 +799,15 @@ U8 *LoadHoloMalloc_HQR(const char *name, S32 index) {
 
     return (pt);
 }
+
+//────────────────────────────────────────────────────────────────────────────
+// A body from HOLOMAP.HQR, converted from little-endian to the CPU's order
+U8 *LoadHoloBody_HQR(const char *name, S32 index) {
+    U8 *pt = LoadHoloMalloc_HQR(name, index);
+    if (LBA_BIG_ENDIAN) // the size costs a file open; only big-endian needs it
+        ObjectBodyFromLE(pt, (S32)HQF_ResSize(name, index));
+    return (pt);
+}
 //────────────────────────────────────────────────────────────────────────────
 void InitHoloGlobe(S32 planet) {
     S32 id;
@@ -816,10 +825,10 @@ void InitHoloGlobe(S32 planet) {
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, HOLO_HQR_NAME);
 
-    BufFleche = (U8 *)LoadHoloMalloc_HQR(tmpFilePath, HQR_FLECHE);
+    BufFleche = LoadHoloBody_HQR(tmpFilePath, HQR_FLECHE);
     ScaleRotBody3D(BufFleche, SCALE_OBJ_GLOBE, TRUE);
 
-    BufLoFleche = (U8 *)LoadHoloMalloc_HQR(tmpFilePath, HQR_LOFLECHE);
+    BufLoFleche = LoadHoloBody_HQR(tmpFilePath, HQR_LOFLECHE);
     ScaleRotBody3D(BufLoFleche, SCALE_OBJ_GLOBE, TRUE);
 
     //----- Recuperation Body Twinsen et Scale
@@ -842,6 +851,8 @@ void InitHoloGlobe(S32 planet) {
     PtrCoorGlobe = (U16 *)HoloMalloc(SIZE_COOR_GLOBE);
 
     PtrMapping = (U16 *)LoadHoloMalloc_HQR(tmpFilePath, HQR_COORMAPP_HMM); // CoorMapp.HMM
+    if (LBA_BIG_ENDIAN)                                                    // U16 u, v pairs, LE; the size costs a file open
+        FromLE16InPlace(PtrMapping, HQF_ResSize(tmpFilePath, HQR_COORMAPP_HMM) / 2);
 
     id = HQR_TWINSUN_HMT + (Planet * 2);
 
@@ -1198,8 +1209,12 @@ void InitHoloMap() {
     char tmpFilePath[ADELINE_MAX_PATH];
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, HOLO_HQR_NAME);
-    if (!Load_HQR(tmpFilePath, TabArrow, HQR_ARROWBIN))
+    const U32 size = Load_HQR(tmpFilePath, TabArrow, HQR_ARROWBIN);
+    if (!size)
         TheEndCheckFile(tmpFilePath);
+    // 32 bytes an arrow on disk: seven S32 little-endian, then four bytes
+    for (U32 a = 0; a < size / sizeof(T_ARROW); a++)
+        FromLE32InPlace(&TabArrow[a], 7);
 }
 /*══════════════════════════════════════════════════════════════════════════*/
 void HoloMap() {

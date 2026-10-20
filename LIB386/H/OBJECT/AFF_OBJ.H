@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SYSTEM/ADELINE_TYPES.H>
+#include <SYSTEM/LE.H>
 #include <ANIM/LIBINIT.H>
 
 // -----------------------------------------------------------------------------
@@ -19,9 +20,16 @@ typedef struct {
 #pragma pack(pop)
 
 #pragma pack(push, 1)
+// The game stores a body or animation number through Ptr and reads it back as
+// Num. On a 64-bit big-endian CPU an S32 Num would overlap the pointer's high
+// half, so there it is as wide as the pointer.
 typedef union {
     void *Ptr;
+#if LBA_BIG_ENDIAN && defined(__SIZEOF_POINTER__) && __SIZEOF_POINTER__ == 8
+    S64 Num;
+#else
     S32 Num;
+#endif
 } T_PTR_NUM;
 #pragma pack(pop)
 
@@ -142,6 +150,9 @@ extern S32 BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,
                        void *obj);
 extern S32 BodyDisplay_AlphaBeta(S32 x, S32 y, S32 z, S32 alpha, S32 beta,
                                  S32 gamma, void *obj);
+
+// Converts a freshly loaded body from little-endian to the CPU's order, in place
+extern void ObjectBodyFromLE(void *body, S32 size);
 
 // =============================================================================
 #ifdef __cplusplus

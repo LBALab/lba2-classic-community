@@ -1,4 +1,5 @@
 #include <SVGA/MASK.H>
+#include <SYSTEM/LE.H>
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/SCREENXY.H>
@@ -125,7 +126,7 @@ S32 ClippingMask(S32 x0, S32 y0, S32 x1, S32 y1, U8 *graphics) {
 }
 
 S32 AffMask(S32 nummask, S32 x, S32 y, void *bankmask) {
-    U8 *data = (U8 *)bankmask + ((U32 *)bankmask)[nummask];
+    U8 *data = (U8 *)bankmask + ReadLE_U32((U8 *)bankmask + nummask * 4); // a font: offsets U32 LE
     U8 deltaX = data[0];
     U8 nbLine = data[1]; // delta Y
     S32 hotX = data[2];

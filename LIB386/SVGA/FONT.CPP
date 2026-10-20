@@ -1,4 +1,5 @@
 #include <SVGA/FONT.H>
+#include <SYSTEM/LE.H>
 
 #include <unistd.h>
 #include <SYSTEM/DEBUG_TRACES.H>
@@ -15,7 +16,7 @@ S32 SizeFont(char *str) {
         if (c == 32) {
             size += InterSpace;
         } else {
-            U32 charSize = *(U32 *)((U8 *)PtrFont + c * 4);
+            U32 charSize = ReadLE_U32((U8 *)PtrFont + c * 4);
             size += InterLeave;
             size += *((U8 *)PtrFont + charSize);
         }
@@ -30,7 +31,7 @@ S32 CarFont(S32 x, S32 y, U8 c) {
         return InterSpace;
     }
 
-    S32 charSize = *(S32 *)((U8 *)PtrFont + c * 4);
+    S32 charSize = ReadLE_S32((U8 *)PtrFont + c * 4);
     S32 size = InterLeave + *((U8 *)PtrFont + charSize);
     AffMask(c, x, y, PtrFont);
     return size;
@@ -47,7 +48,7 @@ S32 Font(S32 x, S32 y, const char *str) {
             x += InterSpace;
         } else {
             AffMask(c, x, y, PtrFont);
-            S32 charSize = *(S32 *)((U8 *)PtrFont + c * 4);
+            S32 charSize = ReadLE_S32((U8 *)PtrFont + c * 4);
             x += InterLeave;
             x += *((U8 *)PtrFont + charSize);
         }

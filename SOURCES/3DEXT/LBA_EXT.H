@@ -6,6 +6,7 @@
 
 #include <POLYGON/POLY.H>
 #include <SYSTEM/HQRRESS.H>
+#include <SYSTEM/LE.H>
 
 S32	Min3( S32 a, S32 b, S32 c ) ;
 /*
@@ -137,8 +138,11 @@ typedef struct {
 
 //****************************************************************************
 // structure map poly mode jeu ( 32 Bits)
+// The fields are listed from bit 0 up. The island loader converts each word to
+// the CPU's byte order; a big-endian compiler allocates bitfields from the top
+// bit, so there the same fields are listed in reverse to land on the same bits.
 typedef	struct	{
-
+#if !LBA_BIG_ENDIAN
 		U32	Bank		:4 ;	// coul bank poly
 		U32	TexFlag		:2 ;	// flag texture 00 rien 01 triste 10 flat 11 gouraud
 		U32	PolyFlag	:2 ;	// flag poly 00 rien 01 flat 10 gouraud 11 dither
@@ -148,7 +152,17 @@ typedef	struct	{
 		U32	Col		:1 ;
 		U32	Dummy		:1 ;
 		U32	IndexTex	:13 ;	// index texture 8192
-
+#else
+		U32	IndexTex	:13 ;
+		U32	Dummy		:1 ;
+		U32	Col		:1 ;
+		U32	Sens		:1 ;
+		U32	CodeJeu		:4 ;
+		U32	SampleStep	:4 ;
+		U32	PolyFlag	:2 ;
+		U32	TexFlag		:2 ;
+		U32	Bank		:4 ;
+#endif
 		}	T_HALF_POLY ;		// 1 long
 
 typedef struct	{

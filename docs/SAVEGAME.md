@@ -371,7 +371,7 @@ The portable canonical wire format that this section used to list as future work
 
 - **`EDITLBA2`:** The tree still contains **`#ifdef EDITLBA2`** / **`#ifndef EDITLBA2`** branches around save/load and tools; the classic community build does not ship that editor configuration. A future cleanup may fold or remove those dead paths; behaviour documented here is the **non-editor** path unless stated otherwise.
 - **Offsets:** All byte offsets in this doc are relative to the stated base (header, screenshot, or game context).
-- **Endianness:** Little-endian (x86).
+- **Endianness:** Little-endian on every CPU. Fields sit at any byte offset; the engine reads them through `LIB386/H/SYSTEM/LE.H`, and on a big-endian CPU it swaps the structs it copies whole (`SaveSwapLayout`), so a save moves between CPUs unchanged. The legacy native 64-bit records are the exception: they hold host pointers.
 - **Validation:** Engine checks `NUM_VERSION` (low 7 bits of version byte) and `Checksum`. Checksum mismatch sets `SceneStartX=-1` (fallback to scene start) and, in DEBUG_TOOLS/TEST_TOOLS, shows: *"Warning: The save doesn't match the scenario!"* (French: *La sauvegarde ne correspond pas au scénario !*).
 - **Scene codes:** Hex scene codes (e.g. `0x00` = Twinsen's house, `0x5D` = Celebration temple) are documented in [LBA File Info – Savegame](https://lbafileinfo.kaziq.net/index.php/LBA2:Savegame) (scene codes table by island).
 

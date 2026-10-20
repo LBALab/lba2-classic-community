@@ -2,6 +2,8 @@
 
 #include <cstddef>
 
+#include <SYSTEM/LE.H>
+
 /* Lock the on-disk record layout at compile time. If any of these fail, the
  * credits HQR layout has drifted from the 1997 32-bit DOS ABI and the parser
  * below will read garbage. See docs/ABI.md and issue #65. */
@@ -18,13 +20,15 @@ S32 ParseCreditsBlob(const U8 *blob, S32 blob_size,
     if (blob_size < (S32)sizeof(S_CRED_INFOS_2))
         return CRED_PARSE_ERR_TRUNC_HDR;
 
-    const S_CRED_INFOS_2 *infos = (const S_CRED_INFOS_2 *)blob;
-    const S32 nb = infos->NbObjects;
+    /* The blob is little-endian: read each field at its offset in the layout
+       locked above rather than through the structs. */
+    const S32 nb = ReadLE_S32(blob + offsetof(S_CRED_INFOS_2, NbObjects));
+    const S32 offTxt = ReadLE_S32(blob + offsetof(S_CRED_INFOS_2, OffTxt));
 
     if (nb < 0 || nb > out_max)
         return CRED_PARSE_ERR_NB_RANGE;
 
-    const S32 disk_block = infos->OffTxt - (S32)sizeof(S_CRED_INFOS_2);
+    const S32 disk_block = offTxt - (S32)sizeof(S_CRED_INFOS_2);
     const S32 expected = (S32)sizeof(S_CRED_OBJ_2_DISK) * nb;
     if (disk_block != expected)
         return CRED_PARSE_ERR_DISK_BLOCK;
@@ -32,12 +36,12 @@ S32 ParseCreditsBlob(const U8 *blob, S32 blob_size,
     if (blob_size < (S32)sizeof(S_CRED_INFOS_2) + expected)
         return CRED_PARSE_ERR_TRUNC_RECS;
 
-    const S_CRED_OBJ_2_DISK *recs =
-        (const S_CRED_OBJ_2_DISK *)(blob + sizeof(S_CRED_INFOS_2));
+    const U8 *recs = blob + sizeof(S_CRED_INFOS_2);
     for (S32 i = 0; i < nb; i++) {
-        out[i].OffBody = recs[i].OffBody;
-        out[i].OffAnim[0] = recs[i].OffAnim[0];
-        out[i].OffAnim[1] = recs[i].OffAnim[1];
+        const U8 *rec = recs + (size_t)i * sizeof(S_CRED_OBJ_2_DISK);
+        out[i].OffBody = ReadLE_S32(rec + offsetof(S_CRED_OBJ_2_DISK, OffBody));
+        out[i].OffAnim[0] = ReadLE_S32(rec + offsetof(S_CRED_OBJ_2_DISK, OffAnim));
+        out[i].OffAnim[1] = ReadLE_S32(rec + offsetof(S_CRED_OBJ_2_DISK, OffAnim) + 4);
     }
 
     return nb;

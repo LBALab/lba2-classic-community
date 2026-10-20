@@ -1,6 +1,8 @@
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
 
+#include <SYSTEM/LE.H>
+
 /*══════════════════════════════════════════════════════════════════════════*
 	     █▀▀▀█ █▀▀▀█ █▀▀▀█ ▀▀█▀▀  █    █▀▀▀▀ █     █▀▀▀▀ ██▀▀▀
 	     ██▀▀▀ ██▀▀█ ██▀█▀   ██   ██   ██    ██    ██▀▀  ▀▀▀▀█
@@ -109,7 +111,14 @@ U32 InitPartFlow() {
     BoxUpdate();
 #else
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
-    Load_HQR(tmpFilePath, TabPartFlow, RESS_FLOW);
+    {
+        // T_FLOW is 36 bytes on disk, little-endian: 15 S16, two U8, U32 Flags
+        const U32 size = Load_HQR(tmpFilePath, TabPartFlow, RESS_FLOW);
+        for (U32 f = 0; f < size / sizeof(T_FLOW); f++) {
+            FromLE16InPlace(&TabPartFlow[f], 15);
+            FromLE32InPlace(&TabPartFlow[f].Flags, 1);
+        }
+    }
 #endif
 
 #ifdef LBA_EDITOR

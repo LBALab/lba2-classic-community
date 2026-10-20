@@ -108,6 +108,10 @@ That split is worth reaching for because it is the same line as the testable one
 - **Standard:** C++98 for engine and game code; tests may use C11/C++11.
 - **Macro names:** a macro this project defines must not take a name the C or POSIX standard headers own. `MAX_INPUT` was ours for the 36 bindable actions and is also POSIX's, where `<linux/limits.h>` gives it the value 255; Bionic reaches it through `<limits.h>` and desktop glibc does not, so the collision compiled on every host but Android and surfaced only when someone cut a release. Whether it bites at all depends on include order, which makes it a landmine rather than a build failure. Names are cheap: `MAX_INPUT_SLOTS` costs nothing and cannot be clobbered.
 
+## Game data and saves
+
+Game files and saves are little-endian and packed: a 16- or 32-bit field can sit at any byte offset. Read and write those fields through [`LIB386/H/SYSTEM/LE.H`](LIB386/H/SYSTEM/LE.H) (`ReadLE_S16`, `WriteLE_U32` and the rest), never through a cast such as `*(S16 *)ptr`. A cast read is undefined at a misaligned address, faults with SIGBUS on 32-bit ARM, and reads byte-swapped values on a big-endian CPU. A resource the renderer reads through typed pointers is converted once at load instead; see [PLATFORM.md §2](docs/PLATFORM.md). The host tests run with UBSan's alignment check on, so a cast read they reach fails CI.
+
 ## Strings a player reads
 
 Help text, console command descriptions, log lines, on-screen messages and dialogs reach people who have only the binary. **No user-facing string names the repository:** no `docs/*.md`, no source paths, no issue numbers. Point at `README.txt`, which ships, or better, say the thing itself. `--help` in particular is read by players, not only by agents driving the harness.
