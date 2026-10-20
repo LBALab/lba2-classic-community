@@ -155,7 +155,9 @@ There are two independent pause layers, both driving the one stream device:
    - A track that has played out is not parked, as `PauseCD` saves nothing for a
      stopped track. Nothing detaches a spent stream once the `NextMusic` queue
      is empty (only `IsStreamPlaying()` does that), so `PauseStream` checks for
-     audio left itself.
+     audio left itself. Such a pause also drops any older park: an Escape whose
+     menu loaded a game never resumed, and its track would otherwise come back
+     at the next dialogue once the loaded scene's track had ended.
 2. **Device** `SuspendStreamOutput` / `ResumeStreamOutput` (window focus loss, in
    `AMBIANCE.CPP`). A device-only pause that does **not** touch the parked
    position, and `ResumeStreamOutput` un-pauses the device only if the stream is
@@ -223,7 +225,8 @@ is SDL and library territory). Three targets under `tests/music/`:
 - **`test_music_stream_resume.cpp`** compiles the real SDL `STREAM.CPP` against a
   fake audio device (the `AILAudio_*` seam) with a virtual clock: the device plays
   only when the test advances it. Covers where a stream resumes after menu round
-  trips (one, two, after the track has ended) and the dialogue fast-unpause, on
+  trips (one, two, after the track has ended), a game loaded from the menu, and
+  the dialogue fast-unpause, on
   three source setups, one per reopen path: WAV (faked as silent PCM of a known
   length), an OGG track with a WAV menu theme (the decoded-PCM cache hit), and both
   OGG as in the Steam and GOG Classic releases (the menu theme evicts the track, so

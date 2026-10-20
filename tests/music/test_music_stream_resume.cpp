@@ -330,6 +330,27 @@ static void test_dialogue_pause_unpauses_in_place() {
     ASSERT_EQ_INT(g_trackBytes - MsToBytes(3000), g_live->queued);
 }
 
+// Escape parks the track, then the player loads a game from the menu, which
+// stops the music without resuming it. The loaded scene's own track plays out,
+// and a dialogue pauses and resumes. The old game's track must not come back.
+// (The menu file stands in for the loaded scene's track.)
+static void test_load_from_menu_forgets_the_old_track() {
+    Reset();
+    StartTrack();
+    Advance(4000);
+    PauseStream();      // Escape
+    PlayStream(g_menu); // main menu theme
+    Advance(1000);
+    StopStream();       // Load game: StopMusic, no ResumeMusic
+    PlayStream(g_menu); // the loaded scene's track
+    Advance(TrackMs() + 1000);
+    int opensBefore = g_opens;
+    PauseStream(); // dialogue
+    ResumeStream();
+    ASSERT_EQ_INT(opensBefore, g_opens);
+    ASSERT_TRUE(g_live == NULL || strcmp(StreamName(), g_track) != 0);
+}
+
 // ── Fixture files ───────────────────────────────────────────────────────────
 
 static bool CopyFile(const char *from, const char *to) {
@@ -356,6 +377,7 @@ static void RunAll() {
     RUN_TEST(test_finished_track_after_a_trip_stays_silent);
     RUN_TEST(test_finished_track_stays_silent);
     RUN_TEST(test_dialogue_pause_unpauses_in_place);
+    RUN_TEST(test_load_from_menu_forgets_the_old_track);
 }
 
 int main() {

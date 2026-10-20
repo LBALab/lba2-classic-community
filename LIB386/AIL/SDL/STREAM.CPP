@@ -1064,6 +1064,11 @@ void PauseStream() {
             SDL_Log("[MUSIC] PauseStream park=%s frame=%d", rememberedPath, (int)rememberedFrame);
         AILAudio_Pause(stream);
         streamPaused = true;
+    } else if (stream != NULL && !streamPaused) {
+        /* The current track has played out, so this pause has nothing to resume.
+           Drop an older park too: one left by an Escape that never resumed (the
+           player loaded a game from the menu) would bring that track back here. */
+        hasRemembered = false;
     }
 }
 
