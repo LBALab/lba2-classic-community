@@ -43,6 +43,8 @@ void MenuMouseAcquire(void) {
 
 /* Set while MainLoop runs. A menu opened from play hands the pointer back to play,
  * not to nothing. */
+S32 FlagMousePointerInPlay = TRUE;
+
 static bool s_inPlay = false;
 
 /* The pointer with no menu up: in play it waits for the mouse to move (and

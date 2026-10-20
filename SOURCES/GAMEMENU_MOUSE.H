@@ -17,6 +17,9 @@ void GameMenuMousePollFocus(void);
 /// menus. A menu opened from play gives it back to play when it closes.
 void GamePointerEnterPlay(void);
 void GamePointerLeavePlay(void);
+/// MousePointerInPlay / mouse_pointer_play: 1 (default) shows the pointer in play.
+extern S32 FlagMousePointerInPlay;
+
 /// Non-zero in play, with no menu up, when MousePointerInPlay is off.
 S32 GamePointer_HiddenBySetting(void);
 

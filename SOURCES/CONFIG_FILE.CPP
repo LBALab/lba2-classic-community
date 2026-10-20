@@ -9,6 +9,7 @@
 #include "FOLLOWCAM.H"       /* the Auto camera's settings */
 #include "FOLLOWCAM_CFG.H"   /* and their defaults */
 #include "GAMEMENU.H"        /* SetDetailLevel */
+#include "GAMEMENU_MOUSE.H"  /* FlagMousePointerInPlay */
 #include "INPUT.H"           /* Read/WriteInputConfig, Read/WriteGamepadConfig */
 #include "JOYSTICK.H"        /* JoystickDeadzone */
 #include "MOUSE_CAPTURE.H"   /* MouseConfine */
