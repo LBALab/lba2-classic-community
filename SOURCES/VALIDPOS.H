@@ -11,6 +11,9 @@ extern S32 LastValidePos;
 extern T_OBJET ValideHero;
 extern U32 SizeOfBufferValidePos;
 extern U8 *BufferValidePos;
+/* Record layout of BufferValidePos (SAVELOAD_ABI_*): wire when SaveValidePos
+ * wrote it, the file's own layout when a save file carried it. */
+extern S32 ValidePosAbi;
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern void SaveValidePos(void);

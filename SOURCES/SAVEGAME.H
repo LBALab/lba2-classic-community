@@ -3,10 +3,22 @@
 
 extern U8 *PtrSave;
 
+/* Layout of the object records LoadContexte reads. AUTO tries the legacy
+ * 64-bit stride first and falls back to the 32-bit wire one; that guess is
+ * unreliable when the context holds one or two objects, so a caller that knows
+ * the layout passes it. SaveLoadLastAbi() reports what the last LoadContexte
+ * read (WIRE32 or NATIVE). */
+#define SAVELOAD_ABI_AUTO 0
+#define SAVELOAD_ABI_WIRE32 1
+#define SAVELOAD_ABI_NATIVE 2
+
 #ifndef EDITLBA2
 /* Issue #62: bounded reads — set before LoadContexte / load tail; clear after. */
 void SaveLoadSetReadLimit(U8 *end_exclusive);
 void SaveLoadClearReadLimit(void);
+
+void SaveLoadSetAbi(S32 abi);
+S32 SaveLoadLastAbi(void);
 #endif
 
 #ifdef DEMO

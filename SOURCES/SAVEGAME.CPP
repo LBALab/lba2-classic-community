@@ -136,6 +136,17 @@ void SaveLoadClearReadLimit(void) {
     g_save_read_limit = NULL;
 }
 
+static S32 g_save_load_abi = SAVELOAD_ABI_AUTO;
+static S32 g_save_load_last_abi = SAVELOAD_ABI_WIRE32;
+
+void SaveLoadSetAbi(S32 abi) {
+    g_save_load_abi = abi;
+}
+
+S32 SaveLoadLastAbi(void) {
+    return g_save_load_last_abi;
+}
+
 /* SAVELOAD_CTX_ERR is declared in SAVEGAME.H so RestartValidePos / external
  * callers can compare against the symbolic value rather than `flagload < 0`. */
 
@@ -760,6 +771,8 @@ S32 LoadGame(void) {
         if (!SaveLoadRoom((size_t)SizeOfBufferValidePos))
             goto loadgame_tail_fail;
         LbaRead(BufferValidePos, SizeOfBufferValidePos);
+        /* The program that wrote the file wrote this snapshot too. */
+        ValidePosAbi = SaveLoadLastAbi();
     }
 
     SaveLoadClearReadLimit();
@@ -1816,6 +1829,17 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             const char *abi_env = getenv("LBA2_SAVE_LOAD_ABI");
             S32 force_wire = (abi_env AND !strcmp(abi_env, "32")) ? 1 : 0;
             S32 force_native = (abi_env AND !strcmp(abi_env, "64")) ? 1 : 0;
+            /* A caller that knows the layout overrides the guess and the
+             * environment. The valid-position snapshot needs it: SaveContexte
+             * writes it as wire, and a scene with one or two objects can pass
+             * the native check by chance (#772). */
+            if (g_save_load_abi == SAVELOAD_ABI_WIRE32) {
+                force_wire = 1;
+                force_native = 0;
+            } else if (g_save_load_abi == SAVELOAD_ABI_NATIVE) {
+                force_wire = 0;
+                force_native = 1;
+            }
             U8 *obj_checkpoint;
             S32 r;
 
@@ -1844,6 +1868,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             }
             if (r != 1)
                 return SAVELOAD_CTX_ERR;
+            g_save_load_last_abi = wire32_abi ? SAVELOAD_ABI_WIRE32 : SAVELOAD_ABI_NATIVE;
         }
 #endif
 

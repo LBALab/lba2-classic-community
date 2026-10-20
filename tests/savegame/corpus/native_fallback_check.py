@@ -15,9 +15,12 @@ Checks:
                                 multi_object save)
   native fixtures, auto      -> load (flagload=0): read correctly as native
   native fixtures, ABI=64    -> load (flagload=0): forced-native read is valid
+  single_object, walk        -> the hero dies and a clover leaf revives him
+                                without a crash (#772: the snapshot it restores
+                                was read at the wrong stride)
   steam corpus (sample), ABI=64 -> reject: forced-native cannot read wire records
 """
-import argparse, os, re, subprocess, sys
+import argparse, json, os, re, subprocess, sys, tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -69,6 +72,26 @@ def load_rc(lba2, game_dir, save, abi):
     return p.returncode
 
 
+def walk_hero(lba2, game_dir, save, tick):
+    """Hold up from tick 10 and report (exit code, hero life at `tick`).
+
+    In single_object.lba's room that walks Twinsen off a ledge: he dies by tick
+    220 and a clover leaf revives him by 228. The revival reloads the
+    valid-position snapshot, which an auto-guessed stride misread (#772)."""
+    with tempfile.TemporaryDirectory() as user:
+        state = Path(user) / "state.json"
+        p = subprocess.run([lba2, "--game-dir", game_dir, "--user-dir", user, "--headless",
+                            "--no-autosave", "--load", save, "--fixed-dt", "16",
+                            "--exec-at", "10", "input up 1500", "--tick", str(tick),
+                            "--dump-state", str(state), "--exit"],
+                           env=_env(None), capture_output=True, timeout=120)
+        try:
+            life = json.loads(state.read_text())["hero"]["life"]
+        except (OSError, ValueError, KeyError):
+            life = None
+    return p.returncode, life
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lba2")
@@ -97,6 +120,15 @@ def main():
                        f"{s.name} auto: loads"))
         checks.append((flagload(lba2, game_dir, str(s), "64") == 0,
                        f"{s.name} ABI=64: loads"))
+
+    # A clover leaf revives the hero from the valid-position snapshot (#772).
+    single = str(nat / "single_object.lba")
+    rc, life = walk_hero(lba2, game_dir, single, 220)
+    checks.append((rc == 0 and life is not None and life <= 0,
+                   f"single_object walk: hero dead at tick 220 (rc={rc}, life={life})"))
+    rc, life = walk_hero(lba2, game_dir, single, 240)
+    checks.append((rc == 0 and life is not None and life > 0,
+                   f"single_object walk: clover revives the hero by tick 240 (rc={rc}, life={life})"))
 
     # Forced-native must reject retail wire saves (audit).
     for s in sorted(steam.glob("*.LBA"))[:5]:
