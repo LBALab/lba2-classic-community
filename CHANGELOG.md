@@ -85,6 +85,17 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it, and this port kept drawing until it crashed
   ([#762](https://github.com/LBALab/lba2-classic-community/pull/762)).
 
+### Documentation
+
+- [docs/SCRIPTS.md](docs/SCRIPTS.md) describes the compiled Life and Track
+  scripts every scene object runs: where they sit in `SCENE.HQR`, how jumps and
+  conditions are encoded, and the operands of every opcode.
+  `scripts/dev/scene_disasm.py` lists a cube's scripts as text, finds every use
+  of an opcode, and with `--check` decodes all of them. Every script in the GOG,
+  Steam, US CD and demo data decodes. `--game lba1` does the same for LBA1, and
+  the page lists how LBA1's scripts differ
+  ([#181](https://github.com/LBALab/lba2-classic-community/issues/181)).
+
 ### Contributors
 
 Thanks to EPmager for reporting the black bricks, and for a screenshot from the

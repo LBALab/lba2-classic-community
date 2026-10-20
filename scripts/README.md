@@ -109,6 +109,7 @@ for reproducibility; cited from the format and effects docs.
 |--------|--------------|------------|
 | [dev/hqr_inspect.py](dev/hqr_inspect.py) | List / extract / decompress HQR archive entries (LZSS + LZMIT). Also a **shared library** imported by the art and LBA1 tools below. | [ENGINE_FILE_FORMATS.md](../docs/ENGINE_FILE_FORMATS.md), imported |
 | [dev/impact_disasm.py](dev/impact_disasm.py) | Disassemble and round-trip IMPACT effect bytecode (`RESS_IMPACT=47`). | [IMPACT_SCRIPTS.md](../docs/IMPACT_SCRIPTS.md) |
+| [dev/scene_disasm.py](dev/scene_disasm.py) | Disassemble the Life and Track scripts in `SCENE.HQR`, LBA2 or (`--game lba1`) LBA1: one cube as text, `--find` uses of an opcode, `--check` that every script decodes, `--sweep` what the check catches. | [SCRIPTS.md](../docs/SCRIPTS.md) |
 | [dev/flow_dump.py](dev/flow_dump.py) | Decode FLOW particle-emitter definitions (`RESS_FLOW=45`). | [IMPACT_SCRIPTS.md](../docs/IMPACT_SCRIPTS.md) |
 | [dev/pof_dump.py](dev/pof_dump.py) | Decode POF 2D wireframe shapes (`RESS_POF=46`). | [IMPACT_SCRIPTS.md](../docs/IMPACT_SCRIPTS.md) |
 | [dev/iso_bin.py](dev/iso_bin.py) | Read the ISO9660 filesystem out of a raw Mode1/2352 (or cooked 2048) CD image on the fly. | [DISC_IMAGE_SOURCE.md](../docs/DISC_IMAGE_SOURCE.md) |
