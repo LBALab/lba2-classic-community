@@ -382,7 +382,20 @@ and the previous persistent-attachment experiment produced black frames. Keep
 it behind a flag and keep the double-wide blit path as the fallback.
 
 Expected effect: another 2--3 ms/frame and a large memory reduction. Do not
-make it the first change.
+make it the first change.  The CPU-side present blit measured only 0.05 ms, so
+the real target is the resolve/copy bandwidth the timer does not attribute to
+that blit.
+
+Status: implemented as a default-off opt-in experiment and compile-verified
+against the Quest preset; committed as the Phase 7 change, with the headset
+check deferred to the morning.  Configure with `-DLBA2_OXR_DIRECT=ON` or set
+`LBA2_OXR_DIRECT=1` at runtime.  The path acquires the swapchain image before
+the scene, attaches it to a fresh per-frame MSAA FBO, renders both eyes and the
+HUD in place, and releases the image in present without a blit.  It falls back
+to the normal double-wide blit unless the resolve-in-tile probe passed, the
+display transform is neutral, and the sizes match exactly.  The unverified
+link is whether the compositor's sampling triggers the implicit resolve; a
+black or single-eye image means it does not.
 
 ## Phase 8: hitch and streaming audit
 

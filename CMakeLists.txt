@@ -69,6 +69,7 @@ option(GPURENDERER "Enable GPU renderer (OpenGL 2.1 / GLES 2.0)" ON)
 # to be called before xrCreateInstance; the Khronos 1.1.x loader
 # performs that handshake correctly against current Quest firmware).
 option(LBA2_OPENXR "Enable OpenXR runtime support (Quest 3 / Android)" OFF)
+option(LBA2_OXR_DIRECT "Default the Quest stereo path to direct-to-swapchain MSAA (opt-in experiment)" OFF)
 if(LBA2_OPENXR)
     set(LBA2_OPENXR_BASE_DIR "" CACHE PATH "Path to a base OpenXR SDK install providing <openxr/openxr.h> and the openxr_loader target (used on Android when not building the loader from source).")
     if(LBA2_OPENXR_BASE_DIR)
@@ -186,7 +187,7 @@ set(LBA2_BUNDLE_IDENTIFIER  "org.lbalab.lba2cc"             CACHE STRING "macOS 
 
 # Build info header (timestamp from compile, flags from configure,
 # version macro from the include of VERSION_GENERATED.h inside BUILD_INFO.h.in).
-set(BUILD_FLAGS_STR "SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} GPURENDERER=${GPURENDERER} ENABLE_ASM=${ENABLE_ASM} LBA2_OPENXR=${LBA2_OPENXR}")
+set(BUILD_FLAGS_STR "SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} GPURENDERER=${GPURENDERER} ENABLE_ASM=${ENABLE_ASM} LBA2_OPENXR=${LBA2_OPENXR} LBA2_OXR_DIRECT=${LBA2_OXR_DIRECT}")
 configure_file(${CMAKE_SOURCE_DIR}/SOURCES/BUILD_INFO.h.in ${CMAKE_BINARY_DIR}/BUILD_INFO.h)
 
 # Generate the .desktop entry and AppImage env file from the product metadata

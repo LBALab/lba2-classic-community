@@ -86,6 +86,19 @@ void OpenXR_SetStereoEnabled(S32 enabled);
 /* Current stereo-present mode (0 = mono, 1 = per-eye). */
 S32 OpenXR_GetStereoEnabled(void);
 
+/* Opt-in direct-to-swapchain stereo (LBA2_OXR_DIRECT): acquire and wait for
+ * the swapchain image before the scene renders, and return the runtime-owned
+ * GL texture plus its allocation size.  The caller sets up the direct MSAA
+ * target with GL_BeginDirectStereo, renders both eyes, and calls
+ * OpenXR_PresentMono, which releases the held image instead of acquiring and
+ * blitting.  Returns 0 when direct mode is disabled, unsupported, or the
+ * image could not be acquired; the normal present path then runs unchanged. */
+S32 OpenXR_AcquireStereoImage(U32 *texture, U32 *width, U32 *height);
+
+/* End the direct target and release the held image if present did not get
+ * that far.  Idempotent; safe to call every frame. */
+void OpenXR_AbortDirectStereo(void);
+
 /* Set the fixed foveation level (0 = off, 1 = low, 2 = medium, 3 = high).
  * Applies immediately when a swapchain is live, otherwise is remembered
  * for when the session starts.  No-op outside OpenXR builds. */

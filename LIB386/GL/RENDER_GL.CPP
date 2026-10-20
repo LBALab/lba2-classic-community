@@ -1322,6 +1322,18 @@ static S32 s_sceneEyeX = 0;
 static void GL_SetStereoTargetMode(S32 doubleWide);
 static S32 GL_StereoDoubleWideAllowed(void);
 
+/* Opt-in direct-to-swapchain stereo: a fresh FBO attaches the runtime's
+ * acquired swapchain texture with EXT_multisampled_render_to_texture, so both
+ * eyes and the HUD render into the presented image and the resolve/blit pair
+ * disappears.  The FBO is per frame because a persistent attachment on a
+ * runtime-owned texture survives acquire/release as orphaned memory on Adreno
+ * (the same failure the present blit avoids). */
+static GLuint s_directFbo = 0;
+static S32 s_directActive = 0;
+static S32 s_directUnsupported = 0;
+static S32 s_directFailLogged = 0;
+static S32 s_directLogOnce = 0;
+
 static void GL_SetSceneViewport(void) {
     glViewport(s_sceneEyeX, 0, (GLsizei)s_fboWidth, (GLsizei)s_fboHeight);
 }
@@ -1344,6 +1356,8 @@ static GLuint GL_SceneReadFbo(void) {
  * sphere, shade rect, sprite) must bind this, not s_fbo: under MSAA the
  * multisample target owns the live color and depth attachments. */
 static GLuint GL_SceneDrawFbo(void) {
+    if (s_directActive && s_directFbo)
+        return s_directFbo;
     if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3))
         return s_msaaFbo;
     return s_fbo;
@@ -1683,6 +1697,83 @@ void GL_SetStereoEye(S32 eye) {
         StereoCamShiftX = 0;
         StereoProjShiftX = 0;
     }
+}
+
+/* Direct-to-swapchain readiness.  It deliberately requires the resolve-in-tile
+ * probe to have passed: the same driver path that accepts and resolves the
+ * dedicated MSAA texture has to accept the runtime-owned one.  A non-neutral
+ * display transform is excluded because the normal present applies it while
+ * sampling the pair; direct rendering has no such pass. */
+S32 GL_DirectStereoSupported(void) {
+    if (s_directUnsupported || !s_initialized || !s_stereoDoubleWide ||
+        !s_msaaInTile || s_msaaDepthRb == 0 || s_msaaEXTAvailable != 1 ||
+        p_glFramebufferTexture2DMultisampleEXT == NULL ||
+        (s_antiAlias != 2 && s_antiAlias != 3) || !GL_ImageAdjustNeutral())
+        return 0;
+    return 1;
+}
+
+S32 GL_BeginDirectStereo(U32 texture, U32 width, U32 height) {
+    if (!Window_GLMakeCurrent())
+        return 0;
+    GL_EndDirectStereo();
+    if (texture == 0 || width == 0 || height == 0)
+        return 0;
+    if (!GL_DirectStereoSupported())
+        return 0;
+    if (width != s_msaaW || height != s_msaaH)
+        return 0;
+
+    const GLsizei samples = (s_antiAlias == 3) ? 4 : 2;
+    glGenFramebuffers(1, &s_directFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, s_directFbo);
+    p_glFramebufferTexture2DMultisampleEXT(
+        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, (GLuint)texture,
+        0, samples);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                              GL_RENDERBUFFER, s_msaaDepthRb);
+    const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        if (!s_directFailLogged) {
+            Log_Warn("[GL] Direct stereo target incomplete (0x%x) %ux%u "
+                     "samples=%d",
+                     (unsigned)status, (unsigned)width, (unsigned)height,
+                     (int)samples);
+            s_directFailLogged = 1;
+        }
+        if (s_directFbo) {
+            glDeleteFramebuffers(1, &s_directFbo);
+            s_directFbo = 0;
+        }
+        s_directUnsupported = 1;
+        GL_ForgetFboBinding();
+        return 0;
+    }
+
+    s_directActive = 1;
+    s_frameActive = 0;
+    GL_ForgetFboBinding();
+    if (!s_directLogOnce) {
+        Log_Info("[GL] Direct stereo target %ux%u samples=%d tex=%u", width,
+                 height, (int)samples, (unsigned)texture);
+        s_directLogOnce = 1;
+    }
+    return 1;
+}
+
+void GL_EndDirectStereo(void) {
+    if (s_directFbo) {
+        glDeleteFramebuffers(1, &s_directFbo);
+        s_directFbo = 0;
+        GL_ForgetFboBinding();
+    }
+    s_directActive = 0;
+    s_frameActive = 0;
+}
+
+S32 GL_DirectStereoActive(void) {
+    return s_directActive;
 }
 
 S32 GL_GetStereoEye(void) {
@@ -2827,6 +2918,7 @@ static void GL_SmaaPresent(S32 bX, S32 bY, S32 bW, S32 bH) {
 /* ── Antialiasing (MSAA render target + FXAA post-process) ───────────────── */
 
 static void GL_DestroyMSAAFbo(void) {
+    GL_EndDirectStereo();
     if (s_msaaResolveFbo) {
         glDeleteFramebuffers(1, &s_msaaResolveFbo);
         s_msaaResolveFbo = 0;
@@ -3027,6 +3119,12 @@ static void GL_SetStereoTargetMode(S32 doubleWide) {
     doubleWide = doubleWide ? 1 : 0;
     if (doubleWide == s_stereoDoubleWide)
         return;
+
+    /* A target switch recreates the depth renderbuffer and the scene size;
+       a direct failure from the previous target must not poison the new one. */
+    GL_EndDirectStereo();
+    s_directUnsupported = 0;
+    s_directFailLogged = 0;
 
     U32 w = s_fboWidth;
     U32 h = s_fboHeight;
@@ -4360,14 +4458,14 @@ void GL_ClearFBO(void) {
         return;
     }
 
-    if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3)) {
-        glBindFramebuffer(GL_FRAMEBUFFER, s_msaaFbo);
-        GL_SetSceneViewport();
-    } else if (s_fbo) {
-        glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
-        GL_SetSceneViewport();
-    } else {
-        glViewport(0, 0, s_texWidth, s_texHeight);
+    {
+        GLuint drawFbo = GL_SceneDrawFbo();
+        if (drawFbo != 0) {
+            glBindFramebuffer(GL_FRAMEBUFFER, drawFbo);
+            GL_SetSceneViewport();
+        } else {
+            glViewport(0, 0, s_texWidth, s_texHeight);
+        }
     }
 
 #if defined(__ANDROID__)
@@ -5131,13 +5229,15 @@ void GL_ReadbackDepthBuffer(void) {
        (terrain + bodies + shadows) before we read back its depth. */
     GL_FlushBatch();
 
-    if (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3)) {
+    GLuint sceneDrawFbo = GL_SceneDrawFbo();
+    if (sceneDrawFbo != 0 && sceneDrawFbo != s_fbo &&
+        (s_antiAlias == 2 || s_antiAlias == 3)) {
         if (depthNative) {
             /* The PBO read below consumes a single-sample buffer, and at
                quality 1 that buffer is s_fbo itself — refresh only its
                depth (the color half of GL_ResolveMSAA is re-resolved by
                GL_Present and would be a full-surface copy wasted here). */
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, s_msaaFbo);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, sceneDrawFbo);
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_fbo);
             glBlitFramebuffer(0, 0, fboW, fboH, 0, 0, fboW, fboH,
                               GL_DEPTH_BUFFER_BIT, GL_NEAREST);
@@ -5170,9 +5270,9 @@ void GL_ReadbackDepthBuffer(void) {
             s_depthSmallH = scrH;
         }
 
-    /* With MSAA, the scene depth is in the MSAA depth renderbuffer:
+    /* With MSAA, the scene depth is in the scene target's depth renderbuffer:
        glBlitFramebuffer auto-resolves multisample to single-sample. */
-    GLuint depthSrcFbo = (s_msaaFbo && (s_antiAlias == 2 || s_antiAlias == 3)) ? s_msaaFbo : s_fbo;
+    GLuint depthSrcFbo = sceneDrawFbo != 0 ? sceneDrawFbo : s_fbo;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, depthSrcFbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_depthSmallFbo);
     glBlitFramebuffer(0, 0, fboW, fboH, 0, 0, scrW, scrH,
@@ -5775,7 +5875,8 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
         if (s_stereoEye == 0) {
             s_stereoPairReady = 0;
         } else {
-            GL_ResolveMSAAColor();
+            if (!s_directActive)
+                GL_ResolveMSAAColor();
             s_stereoPairReady = 1;
         }
 
@@ -6273,8 +6374,10 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
             s_stereoPairReady = 0;
         } else {
             /* The overlay is part of the scene target now, so this single
-             * resolve covers both eyes' 3D and HUD content. */
-            GL_ResolveMSAAColor();
+             * resolve covers both eyes' 3D and HUD content.  A direct target
+             * resolves when the compositor samples the swapchain texture. */
+            if (!s_directActive)
+                GL_ResolveMSAAColor();
             s_stereoPairReady = 1;
         }
         s_profDirectScene++;

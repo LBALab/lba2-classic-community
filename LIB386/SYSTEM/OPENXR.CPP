@@ -130,6 +130,7 @@ static U64 s_oxrPerfReleaseTicks = 0;
 static U64 s_oxrPerfEndTicks = 0;
 static U64 s_oxrPerfTotalTicks = 0;
 static U32 s_oxrPerfPresentCalls = 0;
+static U32 s_oxrPerfDirectCalls = 0;
 
 /* Session / frame handles. */
 static XrInstance              s_instance = XR_NULL_HANDLE;
@@ -179,6 +180,11 @@ static U32                     s_renderViewCount = 0;
 static XrSwapchainImageOpenGLESKHR *s_swapchainImages = NULL;
 static U32                     s_swapchainImageCount = 0;
 static U32                     s_swapchainImageIndex = 0;
+#ifdef __ANDROID__
+/* Opt-in direct-to-swapchain stereo holds the acquired image across the
+ * scene render, so present only has to release it. */
+static S32                     s_directStereoArmed = 0;
+#endif
 /* Swapchain FBO completeness is validated on first use of each image; the
  * image format does not change inside a swapchain. Bit 0 means the index is
  * out of the cached range and the status is checked every time. */
@@ -224,6 +230,9 @@ extern "C" S32 GL_TakeStereoPair(void);
 extern "C" S32 GL_PresentSceneDirect(void);
 extern "C" U32 GL_Get3DColorTex(void);
 extern "C" U32 GL_Get3DFBO(void);
+extern "C" S32 GL_DirectStereoSupported(void);
+extern "C" S32 GL_DirectStereoActive(void);
+extern "C" void GL_EndDirectStereo(void);
 
 /* -------------------------------------------------------------------------- */
 static int hasExt(const XrExtensionProperties *list, U32 count, const char *name) {
@@ -1566,6 +1575,7 @@ static S32 OpenXR_EnsureFrameBegun(void) {
 #endif
 }
 
+#ifdef __ANDROID__
 /* GL error checks are a runtime diagnostic, not part of every present. */
 static S32 OpenXR_GLDebugEnabled(void) {
     static S32 enabled = -1;
@@ -1584,6 +1594,136 @@ static void OpenXR_GLDebugCheck(const char *where) {
     while ((err = glGetError()) != GL_NO_ERROR) {
         OXR_LOGW("PresentMono: GL error 0x%x at %s", (unsigned)err, where);
     }
+}
+#endif
+
+/* Direct-to-swapchain stereo is a device experiment, not the default: the
+ * runtime-owned texture is attached to the MSAA FBO before either eye draws,
+ * which removes the resolve/blit pair but has no fallback if the driver
+ * resolves runtime textures differently.  LBA2_OXR_DIRECT=0 overrides a
+ * build-time default of 1. */
+#ifndef LBA2_OXR_DIRECT_DEFAULT
+#define LBA2_OXR_DIRECT_DEFAULT 0
+#endif
+#ifdef __ANDROID__
+static S32 OpenXR_DirectStereoRequested(void) {
+    static S32 enabled = -1;
+    if (enabled < 0) {
+        const char *value = getenv("LBA2_OXR_DIRECT");
+        if (value != NULL && value[0] != '\0')
+            enabled = (value[0] != '0') ? 1 : 0;
+        else
+            enabled = LBA2_OXR_DIRECT_DEFAULT;
+    }
+    return enabled;
+}
+#endif
+
+void OpenXR_AbortDirectStereo(void) {
+#ifdef LBA2_OPENXR
+#ifdef __ANDROID__
+    if (!s_directStereoArmed)
+        return;
+    GL_EndDirectStereo();
+    if (s_swapchain != XR_NULL_HANDLE) {
+        XrSwapchainImageReleaseInfo releaseInfo;
+        memset(&releaseInfo, 0, sizeof(releaseInfo));
+        releaseInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO;
+        XrResult rc = xrReleaseSwapchainImage(s_swapchain, &releaseInfo);
+        if (XR_FAILED(rc)) {
+            OXR_LOGW("Direct stereo: release failed (0x%x)", (unsigned)rc);
+        }
+    }
+    s_directStereoArmed = 0;
+#endif
+#endif
+}
+
+S32 OpenXR_AcquireStereoImage(U32 *texture, U32 *width, U32 *height) {
+#ifdef LBA2_OPENXR
+#ifdef __ANDROID__
+    if (texture != NULL)
+        *texture = 0;
+    if (width != NULL)
+        *width = 0;
+    if (height != NULL)
+        *height = 0;
+    if (!OpenXR_DirectStereoRequested() || s_directStereoArmed ||
+        !s_stereoEnabled || s_swapchain == XR_NULL_HANDLE ||
+        s_swapchainImages == NULL || s_swapchainImageCount == 0 ||
+        s_swapchainAllocW == 0 || s_swapchainHeight == 0)
+        return 0;
+    if (!GL_DirectStereoSupported())
+        return 0;
+    if (!OpenXR_EnsureFrameBegun())
+        return 0;
+
+    XrSwapchainImageAcquireInfo acquireInfo;
+    memset(&acquireInfo, 0, sizeof(acquireInfo));
+    acquireInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO;
+    XrResult rc;
+    {
+        U64 perfT0 = SDL_GetPerformanceCounter();
+        rc = xrAcquireSwapchainImage(s_swapchain, &acquireInfo,
+                                     &s_swapchainImageIndex);
+        s_oxrPerfAcquireTicks += SDL_GetPerformanceCounter() - perfT0;
+    }
+    if (XR_FAILED(rc)) {
+        OXR_LOGW("Direct stereo: acquire failed (0x%x)", (unsigned)rc);
+        return 0;
+    }
+
+    XrSwapchainImageWaitInfo waitInfo;
+    memset(&waitInfo, 0, sizeof(waitInfo));
+    waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
+    waitInfo.timeout = XR_INFINITE_DURATION;
+    {
+        U64 perfT0 = SDL_GetPerformanceCounter();
+        rc = xrWaitSwapchainImage(s_swapchain, &waitInfo);
+        s_oxrPerfWaitTicks += SDL_GetPerformanceCounter() - perfT0;
+    }
+    if (XR_FAILED(rc) || s_swapchainImageIndex >= s_swapchainImageCount) {
+        OXR_LOGW("Direct stereo: wait failed (0x%x) image=%u/%u",
+                 (unsigned)rc, (unsigned)s_swapchainImageIndex,
+                 (unsigned)s_swapchainImageCount);
+        XrSwapchainImageReleaseInfo releaseInfo;
+        memset(&releaseInfo, 0, sizeof(releaseInfo));
+        releaseInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO;
+        xrReleaseSwapchainImage(s_swapchain, &releaseInfo);
+        return 0;
+    }
+
+    s_directStereoArmed = 1;
+    if (texture != NULL)
+        *texture = (U32)s_swapchainImages[s_swapchainImageIndex].image;
+    if (width != NULL)
+        *width = s_swapchainAllocW;
+    if (height != NULL)
+        *height = s_swapchainHeight;
+    {
+        static int s_directAcquireLogCount = 0;
+        if (s_directAcquireLogCount < 3) {
+            OXR_LOGI("Direct stereo: acquired image=%u tex=%u %ux%u",
+                     (unsigned)s_swapchainImageIndex,
+                     (unsigned)(texture != NULL ? *texture : 0),
+                     (unsigned)s_swapchainAllocW,
+                     (unsigned)s_swapchainHeight);
+            s_directAcquireLogCount++;
+        }
+    }
+    return 1;
+#else
+    (void)texture;
+    (void)width;
+    (void)height;
+    return 0;
+#endif
+#else
+    (void)texture;
+    (void)width;
+    (void)height;
+    return 0;
+#endif
 }
 
 /* Composite FBO for a swapchain image.  A fresh FBO is created and attached
@@ -1652,13 +1792,18 @@ S32 OpenXR_PresentMono(void) {
      * so the loop runs at a bounded rate instead. */
     static S32 s_skip = 0;
     if (!s_openxrActive) {
+        OpenXR_AbortDirectStereo();
         if (s_skip < 3) { OXR_LOGI("PresentMono: skip, not active"); s_skip++; }
         SDL_Delay(1);
         return 0;
     }
     OpenXR_PollEvents();
-    if (!s_openxrActive) return 0; /* PollEvents may have torn the session down */
+    if (!s_openxrActive) { /* PollEvents may have torn the session down */
+        OpenXR_AbortDirectStereo();
+        return 0;
+    }
     if (!s_sessionRunning) {
+        OpenXR_AbortDirectStereo();
         if (s_skip < 3) { OXR_LOGI("PresentMono: skip, session not running (state=%d)", (int)s_sessionState); s_skip++; }
         SDL_Delay(1);
         return 0;
@@ -1667,12 +1812,14 @@ S32 OpenXR_PresentMono(void) {
         s_sessionState != XR_SESSION_STATE_VISIBLE &&
         s_sessionState != XR_SESSION_STATE_READY &&
         s_sessionState != XR_SESSION_STATE_SYNCHRONIZED) {
+        OpenXR_AbortDirectStereo();
         if (s_skip < 3) { OXR_LOGI("PresentMono: skip, sessionState=%d", (int)s_sessionState); s_skip++; }
         SDL_Delay(1);
         return 0;
     }
     if (s_swapchain == XR_NULL_HANDLE) {
         /* Input-only path: no swapchain to present. */
+        OpenXR_AbortDirectStereo();
         OXR_LOGI("PresentMono: skip, no swapchain");
         SDL_Delay(1);
         return 0;
@@ -1697,50 +1844,69 @@ S32 OpenXR_PresentMono(void) {
     XrResult rc;
     {
         U64 perfT0 = SDL_GetPerformanceCounter();
-        if (!OpenXR_EnsureFrameBegun())
+        if (!OpenXR_EnsureFrameBegun()) {
+            OpenXR_AbortDirectStereo();
             return 0;
+        }
         s_oxrPerfPresentBeginTicks += SDL_GetPerformanceCounter() - perfT0;
     }
 
-    /* 2. Acquire + wait for a swapchain image. */
-    XrSwapchainImageAcquireInfo acquireInfo;
-    memset(&acquireInfo, 0, sizeof(acquireInfo));
-    acquireInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO;
-    {
-        U64 perfT0 = SDL_GetPerformanceCounter();
-        rc = xrAcquireSwapchainImage(s_swapchain, &acquireInfo, &s_swapchainImageIndex);
-        s_oxrPerfAcquireTicks += SDL_GetPerformanceCounter() - perfT0;
-    }
-    if (XR_FAILED(rc)) {
-        Log_Warn("OpenXR: xrAcquireSwapchainImage failed (0x%x)", (unsigned)rc);
-        return 0;
-    }
-    {
-        static int s_acquireLogCount = 0;
-        if (s_acquireLogCount < 3) {
-            OXR_LOGI("xrAcquireSwapchainImage OK, imgIdx=%u", (unsigned)s_swapchainImageIndex);
-            s_acquireLogCount++;
+    /* 2. Acquire + wait for a swapchain image.  Direct stereo already holds
+     * the image acquired before the scene render; it only has to be released
+     * after xrEndFrame. */
+    const S32 directStereo = s_directStereoArmed && GL_DirectStereoActive();
+    if (!s_directStereoArmed) {
+        XrSwapchainImageAcquireInfo acquireInfo;
+        memset(&acquireInfo, 0, sizeof(acquireInfo));
+        acquireInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO;
+        {
+            U64 perfT0 = SDL_GetPerformanceCounter();
+            rc = xrAcquireSwapchainImage(s_swapchain, &acquireInfo, &s_swapchainImageIndex);
+            s_oxrPerfAcquireTicks += SDL_GetPerformanceCounter() - perfT0;
         }
-    }
-    XrSwapchainImageWaitInfo waitInfo;
-    memset(&waitInfo, 0, sizeof(waitInfo));
-    waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
-    waitInfo.timeout = XR_INFINITE_DURATION;
-    {
-        U64 perfT0 = SDL_GetPerformanceCounter();
-        rc = xrWaitSwapchainImage(s_swapchain, &waitInfo);
-        s_oxrPerfWaitTicks += SDL_GetPerformanceCounter() - perfT0;
-    }
-    if (XR_FAILED(rc)) {
-        Log_Warn("OpenXR: xrWaitSwapchainImage failed (0x%x)", (unsigned)rc);
+        if (XR_FAILED(rc)) {
+            Log_Warn("OpenXR: xrAcquireSwapchainImage failed (0x%x)", (unsigned)rc);
+            return 0;
+        }
+        {
+            static int s_acquireLogCount = 0;
+            if (s_acquireLogCount < 3) {
+                OXR_LOGI("xrAcquireSwapchainImage OK, imgIdx=%u", (unsigned)s_swapchainImageIndex);
+                s_acquireLogCount++;
+            }
+        }
+        XrSwapchainImageWaitInfo waitInfo;
+        memset(&waitInfo, 0, sizeof(waitInfo));
+        waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
+        waitInfo.timeout = XR_INFINITE_DURATION;
+        {
+            U64 perfT0 = SDL_GetPerformanceCounter();
+            rc = xrWaitSwapchainImage(s_swapchain, &waitInfo);
+            s_oxrPerfWaitTicks += SDL_GetPerformanceCounter() - perfT0;
+        }
+        if (XR_FAILED(rc)) {
+            Log_Warn("OpenXR: xrWaitSwapchainImage failed (0x%x)", (unsigned)rc);
+            return 0;
+        }
+    } else if (s_swapchainImageIndex >= s_swapchainImageCount) {
+        OpenXR_AbortDirectStereo();
         return 0;
     }
 
     /* 3. Copy the composited frame into the swapchain image.
        On Quest with OpenXR there is no SDL window, so the default framebuffer
        (FBO 0) has no color attachment. GL_Present draws into the GL renderer's
-       present FBO instead; we copy from that into the swapchain texture. */
-    if (s_swapchainImageIndex < s_swapchainImageCount) {
+       present FBO instead; we copy from that into the swapchain texture.
+       Direct stereo already rendered both eyes and the HUD in place. */
+    if (directStereo) {
+        /* Drop the per-frame attachment before the runtime takes the image
+         * back; the command stream keeps the queued eye/HUD draws ordered. */
+        stereoThisFrame = 1;
+        s_oxrPerfDirectCalls++;
+        GL_TakeStereoPair();
+        GL_EndDirectStereo();
+        OpenXR_GLDebugCheck("direct stereo present");
+    } else if (s_swapchainImageIndex < s_swapchainImageCount) {
         GLuint imgTex = s_swapchainImages[s_swapchainImageIndex].image;
         extern SDL_Window *Window_GetSDLWindow(void);
         extern void Window_GetRenderSize(int *w, int *h);
@@ -2063,6 +2229,7 @@ S32 OpenXR_PresentMono(void) {
     }
 
     /* 4. Release the swapchain image. */
+    s_directStereoArmed = 0;
     XrSwapchainImageReleaseInfo releaseInfo;
     memset(&releaseInfo, 0, sizeof(releaseInfo));
     releaseInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO;
@@ -2350,10 +2517,11 @@ S32 OpenXR_PresentMono(void) {
                 ? (double)s_oxrPerfFrameBeginTicks * msPerTick /
                       (double)s_oxrPerfFrameBeginCalls
                 : 0.0;
-        Log_Info("OpenXRPerf: n=%u frameBegin=%.2f presentBegin=%.2f "
+        Log_Info("OpenXRPerf: n=%u direct=%u frameBegin=%.2f presentBegin=%.2f "
                  "acquire=%.2f wait=%.2f blit=%.2f release=%.2f end=%.2f "
                  "total=%.2f (ms)",
-                 (unsigned)s_oxrPerfPresentCalls, frameBegin,
+                 (unsigned)s_oxrPerfPresentCalls,
+                 (unsigned)s_oxrPerfDirectCalls, frameBegin,
                  (double)s_oxrPerfPresentBeginTicks * msPerTick / calls,
                  (double)s_oxrPerfAcquireTicks * msPerTick / calls,
                  (double)s_oxrPerfWaitTicks * msPerTick / calls,
@@ -2371,6 +2539,7 @@ S32 OpenXR_PresentMono(void) {
         s_oxrPerfEndTicks = 0;
         s_oxrPerfTotalTicks = 0;
         s_oxrPerfPresentCalls = 0;
+        s_oxrPerfDirectCalls = 0;
     }
 
     s_swapchainOwnsPresent = 1;

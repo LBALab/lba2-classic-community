@@ -237,6 +237,24 @@ U32 GL_GetStereoPairHeight(void);
 //! instead of a plain blit into the swapchain.
 S32 GL_StereoPairNeedsPresentShader(void);
 
+//! 1 when the double-wide MSAA target can render directly into a runtime
+//! swapchain texture (resolve-in-tile extension present, neutral display
+//! transform, MSAA active).  The caller must still call
+//! GL_BeginDirectStereo with the acquired texture and size.
+S32 GL_DirectStereoSupported(void);
+
+//! Attach an acquired runtime swapchain texture to a fresh multisample scene
+//! FBO and make it the draw target.  Returns 0 and leaves the normal scene
+//! target active on any mismatch or incompleteness.  The caller must call
+//! GL_EndDirectStereo before releasing the swapchain image.
+S32 GL_BeginDirectStereo(U32 texture, U32 width, U32 height);
+
+//! Detach and delete the direct scene FBO.  Safe to call when inactive.
+void GL_EndDirectStereo(void);
+
+//! 1 while the direct scene FBO is the active draw target.
+S32 GL_DirectStereoActive(void);
+
 //! Draw the resolved double-wide pair into the currently bound framebuffer,
 //! applying the display transform. The target FBO is bound by the caller;
 //! this sets the viewport to cover dstWidth x dstHeight. Returns 1 if the

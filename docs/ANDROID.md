@@ -186,7 +186,19 @@ non-neutral, that final pass applies the display transform to the whole
 pair instead of costing a second composite. Per-eye capture FBOs remain as
 a fallback for FXAA/SMAA or a double-wide FBO failure. Set
 `LBA2_OXR_GLDEBUG=1` to log GL errors from the present stages; release runs
-skip the per-present error queries. In first person, each eye
+skip the per-present error queries.
+
+For a device experiment, `LBA2_OXR_DIRECT=1` (or a build configured with
+`-DLBA2_OXR_DIRECT=ON`) renders both eyes and the HUD directly into the
+acquired swapchain texture with `EXT_multisampled_render_to_texture`, removing
+the resolve/blit pair. It is off by default, requires the resolve-in-tile probe
+to pass and a neutral display transform, and falls back to the normal
+double-wide blit on any mismatch or incomplete FBO. The runtime resolves the
+texture when the compositor samples it; if the headset shows a black or
+single-eye image, leave it off. `OpenXRPerf` reports a `direct=` count when the
+path is active.
+
+In first person, each eye
 renders from its tracked view
 (`OpenXR_GetEyeView`): the orientation comes from the runtime-located
 pose and the IPD split runs along the view-space right axis, so the

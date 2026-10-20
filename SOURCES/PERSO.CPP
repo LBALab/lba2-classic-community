@@ -2785,6 +2785,21 @@ restartloop:
                 }
                 if (eye == 1)
                     stereoT1 = SDL_GetTicks();
+                if (eye == 0) {
+                    /* Opt-in: hold the swapchain image across both eye passes
+                     * and render straight into it.  Failure leaves the normal
+                     * double-wide target and blit path untouched. */
+                    U32 directTexture = 0;
+                    U32 directWidth = 0;
+                    U32 directHeight = 0;
+                    if (OpenXR_AcquireStereoImage(&directTexture, &directWidth,
+                                                  &directHeight)) {
+                        if (!GL_BeginDirectStereo(directTexture, directWidth,
+                                                  directHeight)) {
+                            OpenXR_AbortDirectStereo();
+                        }
+                    }
+                }
                 {
                     S32 eyePhase = (eye == 0) ? PERFTRACE_PHASE_EYE0
                                               : PERFTRACE_PHASE_EYE1;
@@ -2793,6 +2808,9 @@ restartloop:
                     Perftrace_PhaseEnd(eyePhase);
                 }
             }
+            /* Present normally releases the held image.  This abort covers a
+             * frame that left the eye loop without presenting. */
+            OpenXR_AbortDirectStereo();
             U32 stereoT2 = SDL_GetTicks();
             LFactorX = gameLFactorX;
             LFactorY = gameLFactorY;

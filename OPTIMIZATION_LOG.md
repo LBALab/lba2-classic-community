@@ -744,3 +744,67 @@ Expected effect: one fewer GL bind per batch flush (hundreds per frame) and
 no empty-batch make-current calls.  Morning checks: missing or black geometry
 in either eye, the menu and mono transition, terrain restore after a moving
 camera, the horizon, and the `rsn` split reported by the F6/GLPerf log.
+
+## Phase 7 report: direct-to-swapchain stereo (2026-10-20)
+
+Status: implemented behind a default-off opt-in flag and compile-verified
+against the Quest preset. Device verification is deferred to the morning; the
+Quest was disconnected during the session.
+
+### Changes
+
+- `OpenXR_AcquireStereoImage` acquires and waits for the swapchain image after
+  `GL_SetStereoEye(0)` and before the scene render, then returns the runtime's
+  GL texture at its double-wide allocation size.
+- `GL_BeginDirectStereo` creates a fresh FBO for that image, attaches it with
+  `glFramebufferTexture2DMultisampleEXT` at the active sample count, and shares
+  the existing MSAA depth renderbuffer.  Both eye passes and the HUD render
+  into the two halves in place.  The FBO is deleted in present, as before:
+  a persistent attachment on a runtime-owned texture is not used.
+- The eye-1 color resolve is skipped in direct mode.  The runtime resolves the
+  texture when the compositor samples it.
+- `OpenXR_PresentMono` releases the held image without acquiring or blitting.
+  `OpenXRPerf` gains a `direct=` count.
+- Fallbacks: the flag is off by default; the runtime extension and the
+  resolve-in-tile probe must both have succeeded, the display transform must
+  be neutral, the swapchain and scene sizes must match exactly, and the FBO
+  must be complete.  Any failure ends the direct FBO, releases the acquired
+  image, and lets the normal double-wide blit path run.  An armed image that
+  loses its direct target before present still takes the normal blit path into
+  the already-acquired image.
+- The depth readback now names `GL_SceneDrawFbo()` rather than the MSAA FBO,
+  although stereo frames skip the readback in `OBJECT.CPP`, so direct mode does
+  not exercise it.
+
+### Correctness notes
+
+Direct mode renders a full redraw per eye, and `AffGrilleExt` clears the
+current eye half at the start of terrain rendering.  The display transform is
+already a pair-wide pass in the normal present; direct mode requires it to be
+neutral rather than dropping it.  The per-frame FBO is the same shape as the
+existing MSAA target, so attaching the runtime texture does not change the
+render resolution or sample count.
+
+The unproven link is the implicit resolve: the normal in-tile path resolves
+when the dedicated scene texture is sampled by the present blit, while direct
+mode relies on the compositor sampling the swapchain texture.  A black image,
+a single-eye image, or a stale half means the runtime did not trigger the
+resolve; leave the flag off and keep the blit path.
+
+### Verification
+
+No device metrics were collected.  The measured present blit was already
+0.05 ms, so the CPU-side saving is small; the expected gain is the resolve and
+copy bandwidth that the CPU timer does not attribute to the blit.  Morning
+checks: both eyes and HUD in the direct build, neutral brightness/contrast/
+saturation, head rotation and stereo disparity, the menu/mono transition, and
+`OpenXRPerf direct=` near the present count.  Compare `StereoPerf` and
+`OpenXRPerf` with `-DLBA2_OXR_DIRECT=ON` against the default build in the same
+scene.
+
+### Enabling it
+
+- Build-time default: configure with `-DLBA2_OXR_DIRECT=ON`.  The Quest
+  default remains off.
+- Runtime override: `LBA2_OXR_DIRECT=1` enables it, `LBA2_OXR_DIRECT=0`
+  disables it.
