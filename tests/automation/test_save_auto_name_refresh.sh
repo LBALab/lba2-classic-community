@@ -6,7 +6,8 @@
 # and removes the old file. A name the player typed is theirs and stays. With a keyboard,
 # Enter on a slot's automatic name, untouched, does the same; before, the name editor
 # refused it (the shape is reserved) and typing was dropped (the name fills the field),
-# so the save could not be overwritten without retyping.
+# so the save could not be overwritten without retyping. The first letter typed now
+# replaces the automatic name, as in a selected field.
 #
 # The automatic name carries the wall-clock second, so the arms sleep between sessions.
 TESTNAME=save_auto_name_refresh
@@ -42,6 +43,7 @@ name_in() { tail -c +6 "$1" | LC_ALL=C tr '\0' '\n' | head -1; }
 NEW='key 59 2; key enter 6 60'
 OVERWRITE='key 59 2; key up 6 60; key enter 6 120; key enter 6 220'
 TYPE_ABC='key 59 2; key enter 6 60; key 4 6 400; key 5 6 500; key 6 6 600; key enter 6 800'
+OVERTYPE_ABC='key 59 2; key up 6 60; key enter 6 120; key 4 6 400; key 5 6 500; key 6 6 600; key enter 6 800'
 
 session() { # session <input_keyboard> <keys>
     ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --exec "input_keyboard $1" \
@@ -73,6 +75,14 @@ refresh_arm() { # refresh_arm <arm> <input_keyboard for the overwrite>
 refresh_arm pad 0
 refresh_arm keyboard 1
 
+# Typing over an automatic name replaces it, and the old file goes.
+arm=overtype
+arm_dir overtype
+session 0 "$NEW"
+session 1 "$OVERTYPE_ABC"
+[ "$(saves)" = "abc.LBA" ] ||
+    fail "overtype: typing over an automatic name left: $(saves | tr '\n' '|')"
+
 # Control: a typed name stays when the save is overwritten without a keyboard.
 arm=typed
 arm_dir typed
@@ -85,4 +95,4 @@ session 0 "$OVERWRITE"
 now="$(stat -f %m "$save_dir/abc.LBA" 2>/dev/null || stat -c %Y "$save_dir/abc.LBA")"
 [ "$now" != "$before" ] || fail "typed: abc.LBA was not rewritten, so the overwrite never ran"
 
-pass "automatic names refreshed with and without a keyboard; typed name kept"
+pass "automatic names refreshed with and without a keyboard, typed over; typed name kept"

@@ -1226,6 +1226,11 @@ S32 InputPlayerName(S32 choice, char *name) {
 
     len = strlen(PlayerName);
 
+    // A slot's automatic name is wider than the field, so nothing could be
+    // typed after it. Like a selected field, the first character typed
+    // replaces it; Enter keeps it and Backspace edits it.
+    S32 replaceOnType = IsDatetimeReservedShape(PlayerName);
+
     x = UI_CENTER_X;
     y = Y_START_CHOICE + choice * 60;
 
@@ -1296,6 +1301,7 @@ S32 InputPlayerName(S32 choice, char *name) {
                     PlayErrorSample();
                     strcpy(PlayerName, memoplayername);
                     len = strlen(PlayerName);
+                    replaceOnType = IsDatetimeReservedShape(PlayerName);
                     flag = 1;
                 } else if (strcmp(PlayerName, "")
                                AND((FindPlayerFile() == FALSE)
@@ -1306,12 +1312,14 @@ S32 InputPlayerName(S32 choice, char *name) {
                     PlayErrorSample();
                     strcpy(PlayerName, memoplayername);
                     len = strlen(PlayerName);
+                    replaceOnType = IsDatetimeReservedShape(PlayerName);
                     flag = 1;
                 }
                 break;
 
             case A_LEFT:
             case A_BACKSPACE:
+                replaceOnType = FALSE;
                 if (len > 0) {
                     PlayerName[--len] = '\0';
                     flag = 1;
@@ -1326,6 +1334,14 @@ S32 InputPlayerName(S32 choice, char *name) {
                    the field. */
                 if (!A_IS_CHARACTER(akey))
                     break;
+
+                if (replaceOnType AND akey >= 32 AND akey <= 122) {
+                    replaceOnType = FALSE;
+                    len = 0;
+                    PlayerName[0] = '\0';
+                    x = UI_CENTER_X;
+                    flag = 1;
+                }
 
                 /* Max input cursor X = original 550 = centre(320) + 230 px. Keep the
                    same 230 px half-width at any resolution so the name-entry field
