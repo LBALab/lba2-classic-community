@@ -84,6 +84,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   save could not be overwritten without deleting the whole name first. A name
   you typed stays as it is
   ([#736](https://github.com/LBALab/lba2-classic-community/issues/736)).
+- When a save name is too wide for the name box, the box now shows the end of
+  the name with the text cursor right after it, inside the frame. The cursor
+  used to be drawn past the box's right edge, or off screen for the longest
+  automatic names
+  ([#779](https://github.com/LBALab/lba2-classic-community/issues/779)).
 
 ### Music
 
