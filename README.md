@@ -25,6 +25,14 @@ For a history of project changes, please see the [CHANGELOG.md](CHANGELOG.md).
 
 The original LBA2 engine source is the [`lba2-classic`](https://github.com/2point21/lba2-classic) codebase: it is mostly assembly, with C++ for game logic, and is the canonical historical release. `lba2-classic-community` is a community fork for evolving and modernizing the code: ports of assembly to C++, SDL3 for graphics/audio/input, libsmacker for FMV, native Linux/macOS/Windows/Android builds, and player-facing additions such as widescreen support, gamepad play, and an always-on debug console. The goal is to preserve the history and culture of the original while making the codebase easier to build and extend. See [ASM_TO_CPP_REFERENCE.md](docs/ASM_TO_CPP_REFERENCE.md) for which modules have been ported from ASM to C++ in this fork.
 
+## Why this project
+
+We want this to be the way to play LBA2 today, made with the same love and care Adeline put into the original.
+
+Care here starts with the 1997 game as the reference. When the port drifts from the original DOS release without meaning to, that is a bug, and we check the original rather than guess. Where the original has a bug of its own, fixing it is the player's choice (Options → Advanced options → Fix retail bugs), not a silent change. What we learn about the engine goes into [docs/knowledge/](docs/knowledge/index.md) with the evidence behind it, so nobody has to find it out twice.
+
+Use whatever tools help you, AI assistants included (see [CONTRIBUTING.md](CONTRIBUTING.md)). What makes a change good is not who or what typed it, but whether someone cared enough to play it, check it against the original and explain why it is right.
+
 ## Playing
 
 Pre-built binaries for Linux, macOS, Windows, Android, and Nintendo Switch homebrew.
