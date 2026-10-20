@@ -78,6 +78,65 @@ char *ListDemoSave[NB_DEMOSAVE] = {
  *══════════════════════════════════════════════════════════════════════════*/
 #define PtrOpen() PtrSave = Screen
 
+/* Saves are little-endian. A few structs are copied whole rather than field by
+   field; on a big-endian CPU their fields are swapped on the way out and back
+   in, following a layout: one character per field, its width in bytes. The
+   size locks below keep each layout in step with its struct. On a
+   little-endian CPU none of this does anything. */
+#define SAVE_LAYOUT_COORD "444"
+#define SAVE_LAYOUT_BOUND_MOVE "44444"
+#define SAVE_LAYOUT_EXE_SWITCH "112"
+#define SAVE_LAYOUT_OBJ3D_WIRE32 "4444444444444444444444444444444444"
+#define SAVE_LAYOUT_EXTRA_WIRE32 "444444442222442222111144"
+#define SAVE_LAYOUT_INCRUST "2222224"
+#define SAVE_LAYOUT_FLOW_WIRE32 "444444444444444"
+#define SAVE_LAYOUT_ONE_DOT "4444444444"
+#define SAVE_LAYOUT_BUGGY "4444444444444444444444444444"
+
+static void SaveSwapLayout(void *ptr, const char *layout, U32 count) {
+    if (!LBA_BIG_ENDIAN)
+        return;
+    U8 *b = (U8 *)ptr;
+    for (U32 i = 0; i < count; i++) {
+        for (const char *f = layout; *f; f++) {
+            if (*f == '2') {
+                FromLE16InPlace(b, 1);
+                b += 2;
+            } else if (*f == '4') {
+                FromLE32InPlace(b, 1);
+                b += 4;
+            } else {
+                b += 1;
+            }
+        }
+    }
+}
+
+// Swap, write, swap back: the live data is left as it was
+#define LbaWriteLE(ptr, size, layout, count)      \
+    do {                                          \
+        SaveSwapLayout((ptr), (layout), (count)); \
+        LbaWrite((ptr), (size));                  \
+        SaveSwapLayout((ptr), (layout), (count)); \
+    } while (0)
+
+#define LbaReadLE(ptr, size, layout, count)       \
+    do {                                          \
+        LbaRead((ptr), (size));                   \
+        SaveSwapLayout((ptr), (layout), (count)); \
+    } while (0)
+
+#ifndef EDITLBA2
+typedef char save_layout_coord_lock[sizeof(((T_OBJET *)0)->Coord) == 12 ? 1 : -1];
+typedef char save_layout_bound_move_lock[sizeof(BOUND_MOVE) == 20 ? 1 : -1];
+typedef char save_layout_exe_switch_lock[sizeof(T_EXE_SWITCH) == 4 ? 1 : -1];
+typedef char save_layout_extra_wire32_lock[sizeof(T_EXTRA_WIRE32) == 68 ? 1 : -1];
+typedef char save_layout_incrust_lock[sizeof(T_INCRUST_DISP) == 16 ? 1 : -1];
+typedef char save_layout_flow_wire32_lock[sizeof(S_PART_FLOW_WIRE32) == 60 ? 1 : -1];
+typedef char save_layout_one_dot_lock[sizeof(S_ONE_DOT) == 40 ? 1 : -1];
+typedef char save_layout_buggy_lock[sizeof(S_BUGGY) == 112 ? 1 : -1];
+#endif
+
 //-------- Lecture
 #define LbaRead(ptr, size)      \
     memcpy(ptr, PtrSave, size); \
@@ -598,7 +657,7 @@ void LoadGameNumCube() {
         SaveLoadClearReadLimit();
         return;
     }
-    LbaRead(ListVarGame, MAX_VARS_GAME * sizeof(ListVarGame[0]));
+    LbaReadLE(ListVarGame, MAX_VARS_GAME * sizeof(ListVarGame[0]), "2", MAX_VARS_GAME);
 
     SaveLoadClearReadLimit();
 }
@@ -951,10 +1010,10 @@ S32 LoadGameOldVersion(void) {
 
     // list Var game and cube
 #ifdef EDITLBA2
-    LbaRead(SaveListVarGame, MAX_VARS_GAME * sizeof(SaveListVarGame[0]));
+    LbaReadLE(SaveListVarGame, MAX_VARS_GAME * sizeof(SaveListVarGame[0]), "2", MAX_VARS_GAME);
     LbaRead(SaveListVarCube, MAX_VARS_CUBE * sizeof(SaveListVarCube[0]));
 #else
-    LbaRead(ListVarGame, MAX_VARS_GAME * sizeof(ListVarGame[0]));
+    LbaReadLE(ListVarGame, MAX_VARS_GAME * sizeof(ListVarGame[0]), "2", MAX_VARS_GAME);
     LbaRead(ListVarCube, MAX_VARS_CUBE * sizeof(ListVarCube[0]));
 #endif
 
@@ -1061,10 +1120,10 @@ void SaveContexte(S32 savetimerrefhr) {
 
     // list vars game et cube
 #ifdef EDITLBA2
-    LbaWrite(SaveListVarGame, MAX_VARS_GAME * sizeof(SaveListVarGame[0]));
+    LbaWriteLE(SaveListVarGame, MAX_VARS_GAME * sizeof(SaveListVarGame[0]), "2", MAX_VARS_GAME);
     LbaWrite(SaveListVarCube, MAX_VARS_CUBE * sizeof(SaveListVarCube[0]));
 #else
-    LbaWrite(ListVarGame, MAX_VARS_GAME * sizeof(ListVarGame[0]));
+    LbaWriteLE(ListVarGame, MAX_VARS_GAME * sizeof(ListVarGame[0]), "2", MAX_VARS_GAME);
     LbaWrite(ListVarCube, MAX_VARS_CUBE * sizeof(ListVarCube[0]));
 #endif
 
@@ -1164,7 +1223,7 @@ void SaveContexte(S32 savetimerrefhr) {
         LbaWriteLong(ptrobj->Info2);
         LbaWriteLong(ptrobj->Info3);
 
-        LbaWrite(&(ptrobj->Coord), sizeof(ptrobj->Coord));
+        LbaWriteLE(&(ptrobj->Coord), sizeof(ptrobj->Coord), SAVE_LAYOUT_COORD, 1);
 
         LbaWriteWord(ptrobj->SizeSHit);
         LbaWriteByte(ptrobj->HitBy);
@@ -1194,7 +1253,7 @@ void SaveContexte(S32 savetimerrefhr) {
         LbaWriteWord(ptrobj->ZMax);
 
         LbaWriteLong(ptrobj->OldBeta);
-        LbaWrite(&(ptrobj->BoundAngle), sizeof(ptrobj->BoundAngle));
+        LbaWriteLE(&(ptrobj->BoundAngle), sizeof(ptrobj->BoundAngle), SAVE_LAYOUT_BOUND_MOVE, 1);
         //	U8	*PtrTrack ;
         LbaWriteWord(ptrobj->OffsetTrack);
         LbaWriteWord(ptrobj->SRot);
@@ -1212,7 +1271,7 @@ void SaveContexte(S32 savetimerrefhr) {
         LbaWriteWord(ptrobj->DoorWidth);
         LbaWriteByte(ptrobj->FlagAnim);
         LbaWriteByte(ptrobj->CodeJeu);
-        LbaWrite(&(ptrobj->ExeSwitch), sizeof(ptrobj->ExeSwitch));
+        LbaWriteLE(&(ptrobj->ExeSwitch), sizeof(ptrobj->ExeSwitch), SAVE_LAYOUT_EXE_SWITCH, 1);
 
         //	S16	MessageChapter[MAX_CHAPTER] ;
 
@@ -1227,7 +1286,7 @@ void SaveContexte(S32 savetimerrefhr) {
         {
             T_OBJ_3D_WIRE32 w32;
             SavegameObj3dToWire32(&(ptrobj->Obj), &w32);
-            LbaWrite(&w32, sizeof(w32));
+            LbaWriteLE(&w32, sizeof(w32), SAVE_LAYOUT_OBJ3D_WIRE32, 1);
         }
 #else
         LbaWrite(&(ptrobj->Obj), sizeof(ptrobj->Obj) - sizeof(ptrobj->Obj.CurrentFrame));
@@ -1282,7 +1341,7 @@ void SaveContexte(S32 savetimerrefhr) {
         if (ptre->Sprite != -1) {
             T_EXTRA_WIRE32 ew32;
             SavegameExtraToWire32(ptre, &ew32);
-            LbaWrite(&ew32, sizeof(ew32));
+            LbaWriteLE(&ew32, sizeof(ew32), SAVE_LAYOUT_EXTRA_WIRE32, 1);
             wbyte++;
         }
     }
@@ -1313,7 +1372,7 @@ void SaveContexte(S32 savetimerrefhr) {
 
     for (n = 0; n < MAX_INCRUST_DISP; n++, ptrdisp++) {
         if (ptrdisp->Num != -1) {
-            LbaWrite(ptrdisp, sizeof(T_INCRUST_DISP));
+            LbaWriteLE(ptrdisp, sizeof(T_INCRUST_DISP), SAVE_LAYOUT_INCRUST, 1);
             wbyte++;
         }
     }
@@ -1332,7 +1391,7 @@ void SaveContexte(S32 savetimerrefhr) {
         if (ptrf->NbDot > 0) {
             S_PART_FLOW_WIRE32 fw32;
             SavegameFlowToWire32(ptrf, &fw32);
-            LbaWrite(&fw32, sizeof(fw32));
+            LbaWriteLE(&fw32, sizeof(fw32), SAVE_LAYOUT_FLOW_WIRE32, 1);
 
             ptrpt = ptrf->PtrListDot;
             wbyte2 = 0;
@@ -1340,7 +1399,7 @@ void SaveContexte(S32 savetimerrefhr) {
 
             for (i = 0; i < ptrf->NbDot; i++, ptrpt++) {
                 if (ptrpt->Mode) {
-                    LbaWrite(ptrpt, sizeof(S_ONE_DOT));
+                    LbaWriteLE(ptrpt, sizeof(S_ONE_DOT), SAVE_LAYOUT_ONE_DOT, 1);
                     wbyte2++;
                 }
             }
@@ -1396,7 +1455,7 @@ void SaveContexte(S32 savetimerrefhr) {
 
     LbaWriteByte(NumBuggy);
 
-    LbaWrite(ListBuggy, sizeof(S_BUGGY) * MAX_BUGGYS);
+    LbaWriteLE(ListBuggy, sizeof(S_BUGGY) * MAX_BUGGYS, SAVE_LAYOUT_BUGGY, MAX_BUGGYS);
 
     // a integrer dans la prochaine version de sauvegarde
     LbaWrite(ListArdoise, MAX_ARDOISE * sizeof(S8));
@@ -1470,7 +1529,7 @@ static S32 LoadContexteReadObjectsAtStride(S32 use_wire32) {
         LbaReadLong(ptrobj->Info1);
         LbaReadLong(ptrobj->Info2);
         LbaReadLong(ptrobj->Info3);
-        LbaRead(&(ptrobj->Coord), sizeof(ptrobj->Coord));
+        LbaReadLE(&(ptrobj->Coord), sizeof(ptrobj->Coord), SAVE_LAYOUT_COORD, 1);
         LbaReadWord(ptrobj->SizeSHit);
         LbaReadByte(ptrobj->HitBy);
         LbaReadByte(ptrobj->HitForce);
@@ -1492,7 +1551,7 @@ static S32 LoadContexteReadObjectsAtStride(S32 use_wire32) {
             LbaRead(&TempoRealAngle, sizeof(TempoRealAngle));
         } else
 #endif
-            LbaRead(&(ptrobj->BoundAngle), sizeof(ptrobj->BoundAngle));
+            LbaReadLE(&(ptrobj->BoundAngle), sizeof(ptrobj->BoundAngle), SAVE_LAYOUT_BOUND_MOVE, 1);
         LbaReadWord(ptrobj->OffsetTrack);
         LbaReadWord(ptrobj->SRot);
         LbaReadWord(ptrobj->OffsetLife);
@@ -1509,7 +1568,7 @@ static S32 LoadContexteReadObjectsAtStride(S32 use_wire32) {
         LbaReadWord(ptrobj->DoorWidth);
         LbaReadByte(ptrobj->FlagAnim);
         LbaReadByte(ptrobj->CodeJeu);
-        LbaRead(&(ptrobj->ExeSwitch), sizeof(ptrobj->ExeSwitch));
+        LbaReadLE(&(ptrobj->ExeSwitch), sizeof(ptrobj->ExeSwitch), SAVE_LAYOUT_EXE_SWITCH, 1);
 #if defined(DEBUG_TOOLS) || defined(TEST_TOOLS) || defined(EDITLBA2)
         if (NumVersion >= 35)
 #endif
@@ -1520,7 +1579,7 @@ static S32 LoadContexteReadObjectsAtStride(S32 use_wire32) {
             LbaReadByte(ptrobj->SampleVolume);
         if (use_wire32) {
             T_OBJ_3D_WIRE32 w32;
-            LbaRead(&w32, sizeof(w32));
+            LbaReadLE(&w32, sizeof(w32), SAVE_LAYOUT_OBJ3D_WIRE32, 1);
             SavegameObj3dFromWire32(&w32, &ptrobj->Obj);
         } else {
             LbaRead(&(ptrobj->Obj), sizeof(ptrobj->Obj) - sizeof(ptrobj->Obj.CurrentFrame));
@@ -1573,10 +1632,10 @@ S32 LoadContexte(S32 *savetimerrefhr) {
 
     // list Var game and cube
 #ifdef EDITLBA2
-    LbaRead(SaveListVarGame, MAX_VARS_GAME * sizeof(SaveListVarGame[0]));
+    LbaReadLE(SaveListVarGame, MAX_VARS_GAME * sizeof(SaveListVarGame[0]), "2", MAX_VARS_GAME);
     LbaRead(SaveListVarCube, MAX_VARS_CUBE * sizeof(SaveListVarCube[0]));
 #else
-    LbaRead(ListVarGame, MAX_VARS_GAME * sizeof(ListVarGame[0]));
+    LbaReadLE(ListVarGame, MAX_VARS_GAME * sizeof(ListVarGame[0]), "2", MAX_VARS_GAME);
     LbaRead(ListVarCube, MAX_VARS_CUBE * sizeof(ListVarCube[0]));
 #endif
 
@@ -1749,7 +1808,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             LbaReadLong(ptrobj->Info1);
             LbaReadLong(ptrobj->Info2);
             LbaReadLong(ptrobj->Info3);
-            LbaRead(&(ptrobj->Coord), sizeof(ptrobj->Coord));
+            LbaReadLE(&(ptrobj->Coord), sizeof(ptrobj->Coord), SAVE_LAYOUT_COORD, 1);
             LbaReadWord(ptrobj->SizeSHit);
             LbaReadByte(ptrobj->HitBy);
             LbaReadByte(ptrobj->HitForce);
@@ -1769,7 +1828,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             if (NumVersion < 34) {
                 LbaRead(&TempoRealAngle, sizeof(TempoRealAngle));
             } else
-                LbaRead(&(ptrobj->BoundAngle), sizeof(ptrobj->BoundAngle));
+                LbaReadLE(&(ptrobj->BoundAngle), sizeof(ptrobj->BoundAngle), SAVE_LAYOUT_BOUND_MOVE, 1);
             LbaReadWord(ptrobj->OffsetTrack);
             LbaReadWord(ptrobj->SRot);
             LbaReadWord(ptrobj->OffsetLife);
@@ -1786,7 +1845,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             LbaReadWord(ptrobj->DoorWidth);
             LbaReadByte(ptrobj->FlagAnim);
             LbaReadByte(ptrobj->CodeJeu);
-            LbaRead(&(ptrobj->ExeSwitch), sizeof(ptrobj->ExeSwitch));
+            LbaReadLE(&(ptrobj->ExeSwitch), sizeof(ptrobj->ExeSwitch), SAVE_LAYOUT_EXE_SWITCH, 1);
             if (NumVersion >= 35)
                 LbaReadLong(ptrobj->SampleAlways);
             if (NumVersion >= 36)
@@ -1939,7 +1998,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
                 return SAVELOAD_CTX_ERR;
             for (n = 0; n < wbyte; n++) {
                 T_EXTRA_WIRE32 w32;
-                LbaRead(&w32, sizeof(w32));
+                LbaReadLE(&w32, sizeof(w32), SAVE_LAYOUT_EXTRA_WIRE32, 1);
                 SavegameExtraFromWire32(&w32, &ListExtra[n]);
             }
         } else
@@ -1999,7 +2058,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             return SAVELOAD_CTX_ERR;
 #endif
 
-        LbaRead(ListIncrustDisp, sizeof(T_INCRUST_DISP) * wbyte);
+        LbaReadLE(ListIncrustDisp, sizeof(T_INCRUST_DISP) * wbyte, SAVE_LAYOUT_INCRUST, wbyte);
 
 #ifndef EDITLBA2
         for (n = 0; n < wbyte; n++) {
@@ -2033,7 +2092,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
                 S_PART_FLOW_WIRE32 fw32;
                 if (!SaveLoadRoom(sizeof(fw32)))
                     return SAVELOAD_CTX_ERR;
-                LbaRead(&fw32, sizeof(fw32));
+                LbaReadLE(&fw32, sizeof(fw32), SAVE_LAYOUT_FLOW_WIRE32, 1);
                 SavegameFlowFromWire32(&fw32, ptrf);
             } else {
                 LbaRead(ptrf, sizeof(S_PART_FLOW));
@@ -2042,7 +2101,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             LbaReadByte(wbyte2);
             if (wbyte2 > MAX_FLOW_DOTS)
                 return SAVELOAD_CTX_ERR;
-            LbaRead(ptrf->PtrListDot, sizeof(S_ONE_DOT) * wbyte2);
+            LbaReadLE(ptrf->PtrListDot, sizeof(S_ONE_DOT) * wbyte2, SAVE_LAYOUT_ONE_DOT, wbyte2);
 #endif
         }
 
@@ -2091,7 +2150,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         LbaReadLong(ParmSampleVolume);
 
         LbaReadByte(NumBuggy);
-        LbaRead(ListBuggy, sizeof(S_BUGGY) * MAX_BUGGYS);
+        LbaReadLE(ListBuggy, sizeof(S_BUGGY) * MAX_BUGGYS, SAVE_LAYOUT_BUGGY, MAX_BUGGYS);
 
         LbaRead(ListArdoise, MAX_ARDOISE * sizeof(S8));
 
