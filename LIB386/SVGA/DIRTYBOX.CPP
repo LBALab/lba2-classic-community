@@ -397,6 +397,10 @@ void BoxBlit() {
     S32 SaveClipXMin, SaveClipYMin, SaveClipXMax, SaveClipYMax;
     /* Safe defaults if mouse cursor graphic is missing (restore block must not use garbage). */
     S32 x0 = 0, y0 = 0, x1 = -1, y1 = -1;
+    /* Decided once per frame. The present below can take a whole frame, and the pointer's
+       idle timeout or suppression can change during it; asking again before the restore
+       would leave a drawn sprite baked into Log. */
+    bool spriteDrawn = false;
 
     // One presented frame. Under fixed-dt this steps the virtual clock for modal inner
     // loops (no-op for the main loop's own render and for non-fixed-dt runs).
@@ -450,6 +454,7 @@ void BoxBlit() {
             ClipYMax = ModeDesiredY - 1;
 
             AffGraph(MouseSpriteGraphicNum, sx, sy, MouseSpriteGraphic);
+            spriteDrawn = true;
 
             // add box in optlist for immediate blit
             NewBox(&pBoxOptList, x0, y0, x1, y1);
@@ -482,7 +487,7 @@ void BoxBlit() {
 
     UnlockVideoSurface(); // Release screen
 
-    if (MouseSpriteShouldDraw() && (x1 > x0) && (y1 > y0)) // remove sprite from Log
+    if (spriteDrawn) // remove sprite from Log
     {
         // Clean Log
         RestoreBlock(Log, BufferSprite, x0, y0, x1 - 1, y1 - 1);
