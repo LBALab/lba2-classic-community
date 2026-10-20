@@ -147,6 +147,17 @@ There are two independent pause layers, both driving the one stream device:
    theme) played and tore this one down in between. `ResumeStream` then either
    fast-unpauses the still-live parked stream, or re-opens the parked file and
    seeks back (mirrors the MILES redbook `PauseCD`/`ResumeCD`).
+   - The parked frame counts from the top of the track. A restored stream is
+     handed only the PCM after its seek point, so `STREAM.CPP` keeps the frame
+     it was opened at (`streamBaseFrame`) and adds it back; without it a second
+     menu trip in one track jumped back, and a finished track came back mid-way
+     (#427).
+   - A track that has played out is not parked, as `PauseCD` saves nothing for a
+     stopped track. Nothing detaches a spent stream once the `NextMusic` queue
+     is empty (only `IsStreamPlaying()` does that), so `PauseStream` checks for
+     audio left itself. Such a pause also drops any older park: an Escape whose
+     menu loaded a game never resumed, and its track would otherwise come back
+     at the next dialogue once the loaded scene's track had ended.
 2. **Device** `SuspendStreamOutput` / `ResumeStreamOutput` (window focus loss, in
    `AMBIANCE.CPP`). A device-only pause that does **not** touch the parked
    position, and `ResumeStreamOutput` un-pauses the device only if the stream is
@@ -155,7 +166,8 @@ There are two independent pause layers, both driving the one stream device:
 
 The decision logic for both (fast-unpause vs restore-from-park vs nothing; and the
 focus nesting rule) is extracted, SDL-free, into `LIB386/H/AIL/STREAM_PARK.H`
-(`Stream_ShouldPark`, `Stream_ResumeAction`, `Stream_ShouldResumeDeviceOnFocus`).
+(`Stream_ShouldPark`, `Stream_PositionFrames`, `Stream_ResumeAction`,
+`Stream_ShouldResumeDeviceOnFocus`).
 `STREAM.CPP`'s `PauseStream`/`ResumeStream`/`ResumeStreamOutput` are thin wrappers
 that call these and run the SDL side effects, so the invariants are unit-testable.
 
@@ -198,7 +210,7 @@ Three consequences worth knowing:
 ## Testing
 
 The music state machine is host-tested; the stream *decode/threading* is not (that
-is SDL and library territory). Two targets under `tests/music/`:
+is SDL and library territory). Three targets under `tests/music/`:
 
 - **`test_music_pause_resume.cpp`** compiles the real `MUSIC.CPP` against a spy AIL
   backend (records ordered calls; a small model of "what is playing" that the test
@@ -208,7 +220,20 @@ is SDL and library territory). Two targets under `tests/music/`:
   `StopLastMusic`), `CheckNextMusic` timing and empty-queue edges, the `GetMusic`
   round-trip, and fade convergence.
 - **`test_music_stream_park.cpp`** unit-tests the pure `STREAM_PARK.H` decisions:
-  fast-unpause vs restore-from-park vs nothing, and the focus-nesting invariant.
+  fast-unpause vs restore-from-park vs nothing, the focus-nesting invariant, when
+  to park, and the parked position after a restore.
+- **`test_music_stream_resume.cpp`** compiles the real SDL `STREAM.CPP` against a
+  fake audio device (the `AILAudio_*` seam) with a virtual clock: the device plays
+  only when the test advances it. Covers where a stream resumes after menu round
+  trips (one, two, after the track has ended), a game loaded from the menu, and
+  the dialogue fast-unpause, on
+  three source setups, one per reopen path: WAV (faked as silent PCM of a known
+  length), an OGG track with a WAV menu theme (the decoded-PCM cache hit), and both
+  OGG as in the Steam and GOG Classic releases (the menu theme evicts the track, so
+  the restore re-decodes from a `stb_vorbis` seek on the decode thread). The OGG is
+  `tests/music/fixtures/silence-10s.ogg`, decoded for real. A decoder seek lands on
+  the start of a Vorbis frame, a few ms before the parked frame; the test allows
+  50 ms there.
 
 Why a mock rather than the real backend: the runtime control harness (`--exec`,
 `--tick`) cannot reproduce music-state bugs, because its headless audio never
@@ -221,6 +246,12 @@ scenario as behaviour is pinned down.
 
 - `audio global log 1` (console) turns on the `[MUSIC]`/`[CD]` trace channel.
 - `cube <N>` jumps to a scene, which runs the cube-entry music path.
+- `playmusic <num> 1` starts a track by number. On the US CD, 5 is CD track 6,
+  the shortest at 54 s, which makes it the quickest way to reach end-of-track.
+- With a `-DLBA2_CONTROL_SERVER=ON` build and `--listen`, `key esc` reaches the
+  main menu too, so a menu round trip can be driven from outside (Esc to the
+  menu, Esc again to resume) and read back from the `PauseStream park=` and
+  `ResumeStream restore` lines.
 - Traces land in `adeline.log` and on stderr (the terminal sink emits plain,
   tagged lines even when redirected), so grep the file or read stderr; logs never
   go to `stdout`. (These `[MUSIC]`/`[CD]` lines are INFO, so the toggle alone

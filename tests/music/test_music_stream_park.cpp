@@ -12,10 +12,30 @@
 #include <cstdio>
 
 int main(void) {
-    // ── Stream_ShouldPark: park a live, not-already-paused stream ──
-    assert(!Stream_ShouldPark(0, 0) && "no stream -> nothing to park");
-    assert(Stream_ShouldPark(1, 0) && "live and unpaused -> park it");
-    assert(!Stream_ShouldPark(1, 1) && "already paused -> do not re-park (would lose the position)");
+    // ── Stream_ShouldPark: park a live, not-already-paused stream with audio left ──
+    assert(!Stream_ShouldPark(0, 0, 0) && "no stream -> nothing to park");
+    assert(Stream_ShouldPark(1, 0, 1) && "live and unpaused -> park it");
+    assert(!Stream_ShouldPark(1, 1, 1) && "already paused -> do not re-park (would lose the position)");
+    assert(!Stream_ShouldPark(1, 0, 0) &&
+           "played out but not detached -> nothing to park (a resume would replay it)");
+
+    // ── Stream_PositionFrames: absolute position, counted from the track start ──
+    // 4 bytes per frame (16-bit stereo).
+    assert(Stream_PositionFrames(0, 400, 0, 4) == 100 && "fresh stream, all consumed");
+    assert(Stream_PositionFrames(0, 400, 100, 4) == 75 && "fresh stream, part still queued");
+    // Restored at frame 1000 and then played 100 frames: position is 1100, not 100.
+    assert(Stream_PositionFrames(1000, 400, 0, 4) == 1100 &&
+           "a restored stream counts from its seek point");
+    assert(Stream_PositionFrames(1000, 0, 0, 4) == 1000 && "restored, nothing played yet");
+    assert(Stream_PositionFrames(0, 100, 400, 4) == 0 && "queue above pushed clamps to 0");
+    assert(Stream_PositionFrames(1000, 400, 0, 0) == 0 && "no geometry -> 0");
+    assert(Stream_PositionFrames(-5, 400, 0, 4) == 100 && "a negative base is treated as 0");
+    // Two menu trips in one track: pause at 1000, restore, play 500 more, pause again.
+    {
+        int first = Stream_PositionFrames(0, 1000 * 4, 0, 4);
+        int second = Stream_PositionFrames(first, 500 * 4, 0, 4);
+        assert(first == 1000 && second == 1500 && "the second park continues from the first");
+    }
 
     // ── Stream_ResumeAction: fast-unpause vs restore-from-park vs nothing ──
     // Dialogue/holomap: the parked stream is still current and paused -> just unpause.

@@ -39,6 +39,9 @@ static bool streamPaused = false;
    queued-byte backlog into a frame offset (see StreamPositionFrames). */
 static int streamBytesPerFrame = 0;
 static AILAtomicInt streamPushedBytes; // total source bytes handed to `stream`
+/* Frame of the track the stream was opened at: non-zero after a seeked restore,
+   whose pushed bytes start there and not at the top of the track. */
+static int streamBaseFrame = 0;
 
 /* Parked playback position for a pause that outlives its stream. PauseStream
    snapshots {path, frame}; ResumeStream either cheap-unpauses the still-alive
@@ -180,20 +183,17 @@ static void StopDecodeThread(void) {
     AIL_AtomicSet(&decodeActive, 0);
 }
 
-/* Current playback offset in source frames: everything pushed to the stream
-   minus what is still queued (not yet consumed by the device). Works while the
-   decode thread is still filling the stream because both sides count source
-   bytes. The device's own buffer makes this a slight overestimate (tens of ms),
-   which is fine for re-seeking music. */
+/* Current playback offset in source frames, from the top of the track: the
+   frame the stream was opened at plus everything pushed minus what is still
+   queued (not yet consumed by the device). Works while the decode thread is
+   still filling the stream because both sides count source bytes. The device's
+   own buffer makes this a slight overestimate (tens of ms), which is fine for
+   re-seeking music. */
 static S32 StreamPositionFrames(void) {
-    if (!stream || streamBytesPerFrame <= 0)
+    if (!stream)
         return 0;
-    int pushed = AIL_AtomicGet(&streamPushedBytes);
-    int queued = (int)AILAudio_Queued(stream);
-    int consumed = pushed - queued;
-    if (consumed < 0)
-        consumed = 0;
-    return (S32)(consumed / streamBytesPerFrame);
+    return (S32)Stream_PositionFrames(streamBaseFrame, AIL_AtomicGet(&streamPushedBytes),
+                                      (int)AILAudio_Queued(stream), streamBytesPerFrame);
 }
 
 /* ── Init / Stop ───────────────────────────────────────────────────────── */
@@ -207,6 +207,7 @@ static void StopStreamInternal(void) {
     streamPathName[0] = '\0';
     streamPaused = false;
     streamBytesPerFrame = 0;
+    streamBaseFrame = 0;
     AIL_AtomicSet(&streamPushedBytes, 0);
     /* Deliberately keep rememberedPath/Frame: a StopStream here may be the menu
        theme replacing parked game music, which ResumeStream must still restore. */
@@ -221,6 +222,7 @@ void OpenStream() {
     streamPathName[0] = '\0';
     streamPaused = false;
     streamBytesPerFrame = 0;
+    streamBaseFrame = 0;
     AIL_AtomicSet(&streamPushedBytes, 0);
     rememberedPath[0] = '\0';
     rememberedFrame = 0;
@@ -355,6 +357,7 @@ static bool PlayOggFile(const char *oggPath, S32 startFrame) {
         else if (offsetBytes > oggCache.numBytes)
             offsetBytes = oggCache.numBytes;
         Uint32 playBytes = oggCache.numBytes - offsetBytes;
+        streamBaseFrame = (bpf > 0) ? (int)(offsetBytes / bpf) : 0;
         AILAudio_Put(stream, oggCache.pcm + offsetBytes / sizeof(short), playBytes);
         AIL_AtomicAdd(&streamPushedBytes, (int)playBytes);
         AILAudio_Flush(stream); // all input pushed -> let the converter drain to 0 at EOF (#406)
@@ -372,12 +375,13 @@ static bool PlayOggFile(const char *oggPath, S32 startFrame) {
         return false;
     }
 
+    unsigned int seekFrame = 0;
     if (startFrame > 0) {
         /* Clamp a slightly-overestimated resume frame (StreamPositionFrames can
            read a device-buffer ahead of true playback) so a seek past end-of-file
            cannot leave the decoder at an undefined position or replay from 0. */
         unsigned int lenFrames = stb_vorbis_stream_length_in_samples(v);
-        unsigned int seekFrame = (unsigned int)startFrame;
+        seekFrame = (unsigned int)startFrame;
         if (lenFrames > 0 && seekFrame >= lenFrames)
             seekFrame = lenFrames - 1;
         stb_vorbis_seek_frame(v, seekFrame);
@@ -394,6 +398,7 @@ static bool PlayOggFile(const char *oggPath, S32 startFrame) {
         return false;
     }
     streamBytesPerFrame = (int)info.channels * (int)sizeof(short);
+    streamBaseFrame = (int)seekFrame;
 
     DecodeThreadData *d = (DecodeThreadData *)malloc(sizeof(DecodeThreadData));
     if (!d) {
@@ -443,6 +448,7 @@ static bool SetupWavStream(const SDL_AudioSpec *spec, const Uint8 *wavData,
         if (offsetBytes > wavLen)
             offsetBytes = wavLen;
     }
+    streamBaseFrame = (streamBytesPerFrame > 0) ? (int)(offsetBytes / (Uint32)streamBytesPerFrame) : 0;
     AILAudio_Put(stream, wavData + offsetBytes, wavLen - offsetBytes);
     AIL_AtomicAdd(&streamPushedBytes, (int)(wavLen - offsetBytes));
     AILAudio_Flush(stream); // all input pushed -> let the converter drain to 0 at EOF (#406)
@@ -1042,7 +1048,11 @@ void StopStream() {
 }
 
 void PauseStream() {
-    if (Stream_ShouldPark(stream != NULL, streamPaused)) {
+    /* A stream that has played out is never detached unless something polls
+       IsStreamPlaying, which nothing does once the music queue is empty. */
+    int hasAudioLeft = stream != NULL &&
+                       (AIL_AtomicGet(&decodeActive) || AILAudio_Queued(stream) > 0);
+    if (Stream_ShouldPark(stream != NULL, streamPaused, hasAudioLeft)) {
         /* Park the position so a later Resume can restore even if a different
            stream (e.g. the in-game menu theme) plays and tears this one down in
            the meantime. MILES does the same in PauseCD (save Cur/End/track). */
@@ -1054,6 +1064,11 @@ void PauseStream() {
             SDL_Log("[MUSIC] PauseStream park=%s frame=%d", rememberedPath, (int)rememberedFrame);
         AILAudio_Pause(stream);
         streamPaused = true;
+    } else if (stream != NULL && !streamPaused) {
+        /* The current track has played out, so this pause has nothing to resume.
+           Drop an older park too: one left by an Escape that never resumed (the
+           player loaded a game from the menu) would bring that track back here. */
+        hasRemembered = false;
     }
 }
 
