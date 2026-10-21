@@ -48,6 +48,12 @@ add_asm_cpp_test(NAME test_imatstdf   TEST_SOURCE test_imatstdf.cpp   ASM_SOURCE
     ASM_DEPS ${_3D_ASM_DIR}/SINTABF.ASM
     ASM_DEP_RENAME_SYMS SinTabF CosTabF)
 add_asm_cpp_test(NAME test_imattraf   TEST_SOURCE test_imattraf.cpp   ASM_SOURCE ${_3D_ASM_DIR}/IMATTRAF.ASM   RENAME_SYMS InitMatrixTrans InitMatrixTransF               LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
+# The 1997 integer path (486 build): IMATSTDI reads SinTab/CosTab[register], so
+# SINTAB.ASM comes along with its tables renamed (the CPP CosTab is a pointer).
+add_asm_cpp_test(NAME test_imatstdi   TEST_SOURCE test_imatstdi.cpp   ASM_SOURCE ${_3D_ASM_DIR}/IMATSTDI.ASM   RENAME_SYMS InitMatrixStdI
+    LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC}
+    ASM_DEPS ${_3D_ASM_DIR}/SINTAB.ASM
+    ASM_DEP_RENAME_SYMS SinTab CosTab)
 add_asm_cpp_test(NAME test_mulmatf    TEST_SOURCE test_mulmatf.cpp    ASM_SOURCE ${_3D_ASM_DIR}/MULMATF.ASM    RENAME_SYMS MulMatrix MulMatrixF                           LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
 # RotateMatrixU calls [InitMatrixStd]+jmp [MulMatrix] (non-leaf, Watcom register convention).
 # Include callee ASM deps so function pointers resolve to Watcom-convention procs.
@@ -65,7 +71,9 @@ add_asm_cpp_test(NAME test_lrot2df    TEST_SOURCE test_lrot2df.cpp    ASM_SOURCE
     ASM_DEPS ${_3D_ASM_DIR}/SINTABF.ASM
     ASM_DEP_RENAME_SYMS SinTabF CosTabF)
 add_asm_cpp_test(NAME test_lrot3df    TEST_SOURCE test_lrot3df.cpp    ASM_SOURCE ${_3D_ASM_DIR}/LROT3DF.ASM    RENAME_SYMS LongRotatePoint RotatePoint RotatePointNoMMX LongRotatePointF  LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
+add_asm_cpp_test(NAME test_lrot3di    TEST_SOURCE test_lrot3di.cpp    ASM_SOURCE ${_3D_ASM_DIR}/LROT3DI.ASM    RENAME_SYMS LongRotatePointI                               LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
 add_asm_cpp_test(NAME test_lirot3df   TEST_SOURCE test_lirot3df.cpp   ASM_SOURCE ${_3D_ASM_DIR}/LIROT3DF.ASM   RENAME_SYMS LongInverseRotatePoint LongInverseRotatePointF LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
+add_asm_cpp_test(NAME test_lirot3di   TEST_SOURCE test_lirot3di.cpp   ASM_SOURCE ${_3D_ASM_DIR}/LIROT3DI.ASM   RENAME_SYMS LongInverseRotatePointI                        LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
 add_asm_cpp_test(NAME test_rotralif   TEST_SOURCE test_rotralif.cpp   ASM_SOURCE ${_3D_ASM_DIR}/ROTRALIF.ASM   RENAME_SYMS RotTransList RotTransListF                     LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
 # RotateVector calls [InitMatrixStd]+jmp [LongRotatePoint] (non-leaf, Watcom register convention).
 # Include callee ASM deps so function pointers resolve to Watcom-convention procs.
@@ -79,6 +87,7 @@ add_asm_cpp_test(NAME test_rotvect    TEST_SOURCE test_rotvect.cpp    ASM_SOURCE
 add_asm_cpp_test(NAME test_proj       TEST_SOURCE test_proj.cpp       ASM_SOURCE ${_3D_ASM_DIR}/PROJ.ASM       RENAME_SYMS SetProjection SetIsoProjection                  LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
 target_link_options(test_proj PRIVATE -Wl,--unresolved-symbols=ignore-in-object-files)
 add_asm_cpp_test(NAME test_lproj3df   TEST_SOURCE test_lproj3df.cpp   ASM_SOURCE ${_3D_ASM_DIR}/LPROJ3DF.ASM   RENAME_SYMS LongProjectPoint3D LongProjectPoint LongProjectPoint3DF  LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
+add_asm_cpp_test(NAME test_lproj3di   TEST_SOURCE test_lproj3di.cpp   ASM_SOURCE ${_3D_ASM_DIR}/LPROJ3DI.ASM   RENAME_SYMS LongProjectPoint3DI                            LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
 add_asm_cpp_test(NAME test_lprojiso   TEST_SOURCE test_lprojiso.cpp   ASM_SOURCE ${_3D_ASM_DIR}/LPROJISO.ASM   RENAME_SYMS LongProjectPointIso                            LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
 add_asm_cpp_test(NAME test_prli3df    TEST_SOURCE test_prli3df.cpp    ASM_SOURCE ${_3D_ASM_DIR}/PRLI3DF.ASM    RENAME_SYMS ProjectList3D ProjectList ProjectList3DF        LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
 add_asm_cpp_test(NAME test_prliiso    TEST_SOURCE test_prliiso.cpp    ASM_SOURCE ${_3D_ASM_DIR}/PRLIISO.ASM    RENAME_SYMS ProjectListIso                                 LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})

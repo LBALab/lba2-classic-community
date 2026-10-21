@@ -32,6 +32,12 @@ inputs:
     description: CMake build type for SDL3 itself (not for our code).
     required: false
     default: Release
+  osx-architectures:
+    description: >-
+      macOS only: CMAKE_OSX_ARCHITECTURES for SDL3, e.g. "arm64;x86_64" for a
+      universal build. Empty builds for the runner's own architecture.
+    required: false
+    default: ""
 
 outputs:
   prefix:
@@ -57,6 +63,7 @@ runs:
       env:
         LINK: ${{ inputs.link }}
         BUILD_TYPE: ${{ inputs.build-type }}
+        OSX_ARCHS: ${{ inputs.osx-architectures }}
         OS: ${{ runner.os }}
         ARCH: ${{ runner.arch }}
       run: |
@@ -80,12 +87,17 @@ runs:
         # matches the tree. The Android leg hashes its workflow for the same
         # reason.
         recipe="$(git -C "${GITHUB_WORKSPACE}" hash-object .github/actions/setup-sdl3/action.yml)"
+        # A universal SDL3 must not share a key with a single-arch one.
+        archs="${ARCH}"
+        if [ -n "${OSX_ARCHS}" ]; then
+          archs="$(printf '%s' "${OSX_ARCHS}" | tr ';' '+')"
+        fi
         {
           echo "version=${version}"
           echo "prefix=${RUNNER_TEMP}/sdl3-${LINK}"
           echo "src=${RUNNER_TEMP}/sdl3-src"
           echo "build=${RUNNER_TEMP}/sdl3-build"
-          echo "key=sdl3-${version}-${OS}-${ARCH}-${LINK}-${BUILD_TYPE}-${recipe:0:12}"
+          echo "key=sdl3-${version}-${OS}-${archs}-${LINK}-${BUILD_TYPE}-${recipe:0:12}"
         } >> "$GITHUB_OUTPUT"
 
     - name: Restore SDL3 from the cache
@@ -161,6 +173,7 @@ runs:
         SDL3_PREFIX: ${{ steps.plan.outputs.prefix }}
         SDL3_LINK: ${{ inputs.link }}
         SDL3_BUILD_TYPE: ${{ inputs.build-type }}
+        SDL3_OSX_ARCHS: ${{ inputs.osx-architectures }}
       run: |
         set -euo pipefail
         # Same reasoning as the apt phase: a stalled clone is bounded by the
@@ -198,11 +211,23 @@ runs:
         # (Dockerfile.test, the Android leg). Both hosted runner images ship
         # it, and the tarball job apt-installs it before this action runs.
         #
+        # On macOS, SDL3 must target the same oldest macOS as the game
+        # (CMAKE_OSX_DEPLOYMENT_TARGET in the root CMakeLists.txt). Left to
+        # the default it targets the runner's own macOS, and a static SDL3
+        # built that way can call APIs older Macs do not have.
+        os_args=()
+        if [ "$(uname -s)" = "Darwin" ]; then
+          os_args+=("-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0")
+          if [ -n "${SDL3_OSX_ARCHS}" ]; then
+            os_args+=("-DCMAKE_OSX_ARCHITECTURES=${SDL3_OSX_ARCHS}")
+          fi
+        fi
+
         # shellcheck disable=SC2086 # link_args is a deliberate word split.
         cmake -S "${SDL3_SRC}" -B "${SDL3_BUILD}" -G Ninja \
           -DCMAKE_BUILD_TYPE="${SDL3_BUILD_TYPE}" \
           -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF \
-          ${link_args}
+          ${link_args} "${os_args[@]}"
         cmake --build "${SDL3_BUILD}" --parallel
         cmake --install "${SDL3_BUILD}" --prefix "${SDL3_PREFIX}"
 

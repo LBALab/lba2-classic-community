@@ -7,7 +7,9 @@
 #                     --arch <arm64-v8a> \
 #                     --build-dir <cmake-build-dir> \
 #                     --sdk-root <android-sdk> \
-#                     --sdl3-java-src <path-to-sdl3-java-sources> \
+#                     --sdl3-java-src <SDL3 source root, the folder holding android-project/> \
+#                     --sdl3-lib <path/to/libSDL3.so, or its folder> \
+#                     [--cxx-shared-lib <path/to/libc++_shared.so>] \
 #                     --output-dir <where-to-drop-the-apk> \
 #                     [--keystore <file> --keystore-pass <pass> \
 #                      --key-alias <alias> [--key-pass <pass>]] \
@@ -155,9 +157,14 @@ mkdir -p "$STAGING/res/values"
 
 # 1. Place native libraries
 cp "$LIB_PATH" "$STAGING/lib/$ARCH/$LIB_NAME"
-# Bundle all SDL3 shared libs from the install prefix
+# Bundle all SDL3 shared libs from the install prefix. --sdl3-lib names
+# libSDL3.so or the folder holding it; every .so beside it comes along.
 if [[ -n "$SDL3_LIB" ]]; then
-    SDL3_LIBDIR="$(dirname "$SDL3_LIB")"
+    if [[ -d "$SDL3_LIB" ]]; then
+        SDL3_LIBDIR="$SDL3_LIB"
+    else
+        SDL3_LIBDIR="$(dirname "$SDL3_LIB")"
+    fi
     if [[ -d "$SDL3_LIBDIR" ]]; then
         for lib in "$SDL3_LIBDIR"/*.so; do
             [[ -f "$lib" ]] && cp "$lib" "$STAGING/lib/$ARCH/"
@@ -209,6 +216,19 @@ if grep -aq 'libc++_shared\.so' "$LIB_PATH" 2>/dev/null \
     echo "bundle-android: $LIB_PATH links against libc++_shared.so, which could" >&2
     echo "  not be located from the build directory. Pass it explicitly with" >&2
     echo "  --cxx-shared-lib <path to libc++_shared.so>." >&2
+    exit 1
+fi
+
+# The same for SDL: the engine loads libSDL3.so at start, and without it the
+# app stops on "dlopen failed: library libSDL3.so not found".
+if grep -aq 'libSDL3\.so' "$LIB_PATH" 2>/dev/null \
+   && [[ ! -f "$STAGING/lib/$ARCH/libSDL3.so" ]]; then
+    if [[ -n "$SDL3_LIB" ]]; then
+        echo "bundle-android: $LIB_PATH links against libSDL3.so, which is not in $SDL3_LIBDIR." >&2
+    else
+        echo "bundle-android: $LIB_PATH links against libSDL3.so, and no --sdl3-lib was given." >&2
+    fi
+    echo "  Pass --sdl3-lib <path to libSDL3.so, or its folder>." >&2
     exit 1
 fi
 
@@ -299,7 +319,18 @@ fi
 ALL_JAVA_FILES="${SDL_JAVA_FILES} ${REPO_JAVA_FILES}"
 ALL_JAVA_FILES="${ALL_JAVA_FILES#"${ALL_JAVA_FILES%%[![:space:]]*}"}"
 ALL_JAVA_FILES="${ALL_JAVA_FILES%"${ALL_JAVA_FILES##*[![:space:]]}"}"
-if [[ -n "$ALL_JAVA_FILES" && -x "$D8" ]]; then
+# Without SDL's Java the APK installs and then stops at launch on
+# "ClassNotFoundException: org.libsdl.app.SDLActivity", so a miss ends here.
+if [[ ! -f "$SDL_JAVA_DIR/org/libsdl/app/SDLActivity.java" ]]; then
+    echo "bundle-android: no SDLActivity.java under $SDL_JAVA_DIR." >&2
+    echo "  --sdl3-java-src takes the SDL3 source root, the folder holding android-project/." >&2
+    exit 1
+fi
+if [[ ! -x "$D8" ]]; then
+    echo "bundle-android: d8 not found at $D8, so the Java could not be compiled to DEX." >&2
+    exit 1
+fi
+if [[ -n "$ALL_JAVA_FILES" ]]; then
     mkdir -p "$STAGING/obj"
     javac -d "$STAGING/obj" \
         -classpath "$SDK_ROOT/platforms/android-34/android.jar" \

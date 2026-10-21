@@ -144,6 +144,15 @@
       }
     },
     {
+      "name": "macos_universal",
+      "inherits": "macos_arm64",
+      "displayName": "macOS universal (arm64 + x86_64)",
+      "description": "One binary for Apple Silicon and Intel Macs, built on either. SDL3 must be built for both architectures too.",
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "arm64;x86_64"
+      }
+    },
+    {
       "name": "windows",
       "inherits": "default",
       "displayName": "Windows MinGW32 (32-bit legacy)",
@@ -259,6 +268,10 @@
     {
       "name": "macos_x86_64",
       "configurePreset": "macos_x86_64"
+    },
+    {
+      "name": "macos_universal",
+      "configurePreset": "macos_universal"
     },
     {
       "name": "windows",

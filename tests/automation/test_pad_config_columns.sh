@@ -23,6 +23,7 @@
 # the spell rows), which would read as the bind never landing.
 #
 # Local-only (needs the binary and retail data); skips cleanly otherwise.
+# Tier: medium
 TESTNAME=pad_config_columns
 . "$(dirname "$0")/lib.sh"
 precheck

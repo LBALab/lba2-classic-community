@@ -19,6 +19,7 @@ register_host_test(test_settings_coerce)
 add_executable(test_settings_borrow
     test_settings_borrow.cpp
     ${CMAKE_SOURCE_DIR}/SOURCES/SETTINGS.CPP
+    ${CMAKE_SOURCE_DIR}/SOURCES/RETAILFIX.CPP # a fix the recording predates
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DEFFILE.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/FILES.CPP
     # FILES.CPP falls back to the disc-image source; pull in its (unexercised

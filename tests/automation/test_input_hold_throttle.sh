@@ -14,6 +14,7 @@
 # unrelated to input delivery (that is issue #412 territory, not this test's concern).
 #
 # Local-only: needs retail data + a build + the tracked steam_classic_2023 corpus; skips otherwise.
+# Tier: medium
 TESTNAME=input_hold_throttle
 . "$(dirname "$0")/lib.sh"
 precheck
@@ -24,7 +25,7 @@ SAVE="$REPO/tests/savegame/corpus/saves/steam_classic_2023/V Jump.LBA"
 # Distance the hero floats holding forward for 30s of game-time at a given throttle.
 dist_after_hold() { # fixedtimestep-ms
     local fts="$1" sv d0 d1
-    sv="$(mktemp --suffix=.LBA)"; d0="$(mktemp)"; d1="$(mktemp)"; cp "$SAVE" "$sv"
+    sv="$(mktemp_ext .LBA)"; d0="$(mktemp)"; d1="$(mktemp)"; cp "$SAVE" "$sv"
     ctl_headless --load "$sv" --fixed-dt 16 --tick 3 --dump-state "$d0" --exit >/dev/null 2>&1
     ctl_headless --load "$sv" --fixed-dt 16 --fixed-timestep "$fts" \
         --exec "input up 100000" --tick 1875 --dump-state "$d1" --exit >/dev/null 2>&1

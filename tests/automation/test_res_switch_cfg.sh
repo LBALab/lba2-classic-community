@@ -11,6 +11,7 @@
 # Tests isolate the user environment by pointing LBA2_USER_DIR at a temp
 # dir, which is then the whole user folder, so the real user cfg at
 # ~/.local/share/Twinsen/LBA2/lba2.cfg is never touched.
+# Tier: small
 TESTNAME=res_switch_cfg
 . "$(dirname "$0")/lib.sh"
 precheck

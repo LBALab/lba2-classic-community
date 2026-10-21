@@ -20,6 +20,7 @@
 # Local-only: needs retail data + a build + the tracked steam_classic_2023 corpus; skips cleanly
 # otherwise. The corpus saves are git-tracked, so each run works on a temp copy (a --load run
 # autosaves and must not mutate the fixture).
+# Tier: medium
 TESTNAME=blowgun_release_throttle
 . "$(dirname "$0")/lib.sh"
 precheck
@@ -38,7 +39,7 @@ is_firing_anim() { [ "$1" = "35" ] || [ "$1" = "45" ]; } # GEN_ANIM_SARBACANE / 
 # ticks plus a settle window to elapse (else the throttled run ends mid-fire and looks "stuck").
 gen_anim_after_fire() { # save-src fixedtimestep-ms
     local src="$1" fts="$2" sv dump ga
-    sv="$(mktemp --suffix=.LBA)"; dump="$(mktemp)"
+    sv="$(mktemp_ext .LBA)"; dump="$(mktemp)"
     cp "$src" "$sv"
     ctl_headless --load "$sv" --fixed-dt 8 --fixed-timestep "$fts" \
         --exec "input throw 6" --tick 300 --dump-state "$dump" --exit >/dev/null 2>&1

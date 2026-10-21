@@ -17,6 +17,12 @@ T_RAIN TabRain[MAX_RAIN];
 S32 LastTimer = 0;
 S32 DeltaRain = 0;
 
+/* Set when the next full redraw only moves the camera smoothly (the Auto
+ * camera following the hero). The original camera only moved on a cut, and
+ * every cut cleared the splashes. The Auto camera redraws on every frame it
+ * moves, so clearing then would erase each splash before its first draw. */
+S32 KeepImpactRain = FALSE;
+
 //----------------------------------------------------------------------------
 void InitOneRain(T_RAIN *pt) {
     S32 rndy;

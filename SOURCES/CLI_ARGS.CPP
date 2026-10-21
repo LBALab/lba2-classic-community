@@ -138,6 +138,9 @@ static const T_CLI_FLAG CliFlags[] = {
                                                     "the recording's; differences are only reported"},
     {"--ignore-focus", 0, 0, 0, 0, NULL, "", "keep the clock running when the window loses focus\n"
                                              "(--listen implies this)"},
+    {"--no-pace", 0, 0, 0, 0, NULL, "", "never hold the clock to real time, even while\n"
+                                        "recording: for scripted runs, which then finish\n"
+                                        "sooner; what is recorded is the same"},
 
     {"--polyrec", 1, 0, 0, 0, "Engine self-tests", "<path>", "record polygon draw calls (ENABLE_POLY_RECORDING builds)"},
     {"--capture-projection", 1, 0, 0, 0, NULL, "<path>", "capture projection records"},

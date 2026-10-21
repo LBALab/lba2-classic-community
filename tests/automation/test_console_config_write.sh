@@ -14,6 +14,7 @@
 # which is exactly the case that was never broken.
 #
 # Local-only (needs the binary and retail data); skips cleanly otherwise.
+# Tier: small
 TESTNAME=console_config_write
 . "$(dirname "$0")/lib.sh"
 precheck

@@ -15,6 +15,7 @@
 # worth an assertion of its own rather than being left implicit in a expected angle.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: small
 TESTNAME=classiccam_controls
 . "$(dirname "$0")/lib.sh"
 . "$(dirname "$0")/camlib.sh"

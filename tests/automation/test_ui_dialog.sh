@@ -5,6 +5,7 @@
 # consigne pour escapé.").
 #
 # Regenerate the golden with: LBA2_UI_REGEN=1 bash tests/automation/test_ui_dialog.sh
+# Tier: small
 TESTNAME=ui_dialog
 . "$(dirname "$0")/lib.sh"
 precheck

@@ -68,6 +68,10 @@ lba2cc --help                 print the player-facing flag list and exit (an unk
        --tick <N>             advance N simulation ticks
        --fixed-dt <ms>        advance the clock by a constant <ms> per tick (deterministic,
                               but only in a --headless run)
+       --no-pace              never hold the clock to real time. A recording (--record, the
+                              console's `rec start`) normally plays at real speed for the
+                              player making it; a scripted run has no player, so the test
+                              harness passes this and the same recording finishes sooner
        --fixed-timestep <ms>  set the sim throttle (FixedTimestep) for this run only, no cfg
                               persist (0 = off); combine with a small --fixed-dt to force skips
        --vsync <on|off>       set the vsync setting (DisplayVSync) for this run only, no cfg
@@ -776,6 +780,7 @@ run, so ordering can be diffed without wall-clock state.
 | `SETPROJ` | `SetProjection` (exterior 3D perspective setup) | `seq= xc= yc= clip= fx= fy=` |
 | `SETISO` | `SetIsoProjection` (interior orthographic setup) | `seq= xc= yc=` |
 | `PROJ` | `LongProjectPoint3D` (per-vertex perspective projection) | `seq= x= y= z= -> ret= xp= yp=` |
+| `PROJI` | `LongProjectPointIRound` (the exterior terrain, sea and sky on the integer path, while `fix_terrain_seams` applies) | `seq= x= y= z= cam=xr,yr,zr -> ret= xp= yp=` |
 | `PROJISO` | `LongProjectPointIso` (per-vertex orthographic projection) | `seq= x= y= z= -> xp= yp=` |
 | `PRLI` | `ProjectList3DF` (batched perspective) | `seq= nbpt= orgx= orgy= orgz=` |
 | `PRLIISO` | `ProjectListIso` (batched orthographic) | `seq= nbpt= orgx= orgy= orgz=` |
@@ -849,8 +854,8 @@ diff /tmp/prior.projrec /tmp/current.projrec | head
 ```
 
 The sequence number on the first divergent event tells you which projection call
-changed — `SETPROJ` for the setup, `PROJ`/`PROJISO` for individual vertices, `M2S`
-for the isometric brick origin. Cross-reference with `tests/projection/README.md`
+changed — `SETPROJ` for the setup, `PROJ`/`PROJISO` for individual vertices, `PROJI`
+for the exterior ground on the integer path, `M2S` for the isometric brick origin. Cross-reference with `tests/projection/README.md`
 for the workflow notes.
 
 If the divergence is non-deterministic (same build produces different hashes), the

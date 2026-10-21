@@ -26,6 +26,7 @@
 # give back, and a camera that was never moved is trivially where it started.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: big
 TESTNAME=camzone_return
 . "$(dirname "$0")/lib.sh"
 . "$(dirname "$0")/camlib.sh"

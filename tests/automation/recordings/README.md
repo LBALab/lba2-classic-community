@@ -31,8 +31,15 @@ out, at the tick the old one did.
 `combo-set.rec` is format 17, recorded after the terrain slide fix of
 [#745](https://github.com/LBALab/lba2-classic-community/issues/745): the session walks
 into a slanted ground edge at tick 219, where Twinsen now slides instead of stopping.
+It was remade again for [#801](https://github.com/LBALab/lba2-classic-community/issues/801),
+which puts the FPU back in round-to-nearest after each triangle: the walk rounds as in
+1997 and Twinsen's path moves from tick 111. Remade on main first, the file matched the
+committed one apart from the engine line; the new one fails on main at tick 111.
 `combo-controls.rec` reaches the edge once without the slide moving anything the digest
-covers, and is the original format 12 file.
+covers. It was the original format 12 file until #801 moved its walk from tick 111 as well;
+it is now format 17, remade the same way: the same commands at the same ticks and
+keyframes at the same ticks, the newer header lines added. The keyframes' contents follow
+the new walk, so the hero's position in them differs from tick 128 on.
 
 **Remaking one.** A recording carries the commands that drove it, so the session can be
 run again exactly: list them with `scripts/dev/dump_recording.py <file>` (the `cmd @tick`
@@ -104,6 +111,11 @@ is the only thing that notices.
 So the rule is simple: **never re-record this.** Regenerating it against the current
 build turns it back into the same-build check it exists to replace. If it fails, the
 build has stopped reading format 10, and that is the finding.
+
+What it pins is reading, not play. The fixture requires every tick to be read and tick 0
+to match, which is what a missing or misread snapshot breaks. Ticks after that are the
+engine's behaviour, which deliberate changes are allowed to move (#801 moves it from
+tick 1), so a later mismatch is reported, not failed.
 
 ### What it holds
 

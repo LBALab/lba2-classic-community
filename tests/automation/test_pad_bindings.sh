@@ -36,6 +36,7 @@
 # identity below failing, and is what a rebind regression would look like.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: medium
 TESTNAME=pad_bindings
 . "$(dirname "$0")/lib.sh"
 precheck

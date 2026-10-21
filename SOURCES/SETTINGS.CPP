@@ -60,6 +60,7 @@ void Settings_ReadConfig(const T_SETTING *table, S32 count) {
 typedef struct {
     const T_SETTING *row;
     S32 kept;
+    S32 absent; /* borrowed because the recording predates the row */
 } T_SETTING_BORROW;
 
 static T_SETTING_BORROW s_borrowed[SETTINGS_BORROW_MAX];
@@ -82,7 +83,7 @@ static T_SETTING_BORROW *find_borrow(const T_SETTING *s) {
     return NULL;
 }
 
-S32 Settings_Borrow(const T_SETTING *s, S32 value) {
+static S32 borrow(const T_SETTING *s, S32 value, S32 absent) {
     T_SETTING_BORROW *b = find_borrow(s);
 
     if (b == NULL) {
@@ -92,6 +93,8 @@ S32 Settings_Borrow(const T_SETTING *s, S32 value) {
         b->row = s;
         b->kept = *s->value;
     }
+    /* Set before the owner hears of it, so an owner that asks sees why. */
+    b->absent = absent;
     /* The source is left alone: it says where the player's value came from, and
        the player's value is the one the writer persists while this lasts. */
     *s->value = Settings_Coerce(s, value);
@@ -101,6 +104,21 @@ S32 Settings_Borrow(const T_SETTING *s, S32 value) {
         s_borrowing = 0;
     }
     return 1;
+}
+
+S32 Settings_Borrow(const T_SETTING *s, S32 value) {
+    return borrow(s, value, 0);
+}
+
+S32 Settings_BorrowAbsent(const T_SETTING *s) {
+    if (!s->before.has)
+        return 0;
+    return borrow(s, s->before.value, 1);
+}
+
+S32 Settings_BorrowedAbsent(const T_SETTING *s) {
+    const T_SETTING_BORROW *b = find_borrow(s);
+    return b != NULL && b->absent;
 }
 
 void Settings_ReturnBorrowed(void) {

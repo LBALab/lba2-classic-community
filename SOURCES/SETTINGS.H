@@ -116,6 +116,21 @@ typedef struct {
     S32 value;
 } T_SETTING_BEFORE;
 
+/* What a replay does with a row its recording does not carry.
+ *
+ * Left out of a row, it keeps the player's value: a recording made before the
+ * header carried every row may have run on either value, so there is none it
+ * would be safe to put in its place (CONTROL.CPP, Control_InstallSettings).
+ *
+ * SETTING_ABSENT_BEFORE is for a row added after the header carried every row:
+ * a recording without it was made before it existed, so it ran as the row's
+ * value from before, and the replay borrows that. The row must say its value
+ * from before. */
+typedef enum {
+    SETTING_ABSENT_KEEP = 0, /* keep the player's value */
+    SETTING_ABSENT_BEFORE    /* replay at the row's value from before */
+} T_SETTING_ABSENT;
+
 /* Unformatted: clang-format 18.1.3 (CI) and 18.1.8 disagree on a braced macro body. */
 // clang-format off
 #define SETTING_BEFORE(v) {1, (v)}
@@ -149,6 +164,7 @@ typedef struct T_SETTING {
     const char *help;             /* console help text */
     T_SETTING_RECORD record;      /* left out of a row, it is recorded; see above */
     T_SETTING_BEFORE before;      /* left out of a row, it has none; a cam_ row must say; see above */
+    T_SETTING_ABSENT absent;      /* left out of a row, a replay keeps the player's value; see above */
 } T_SETTING;
 
 /* Store a value into a setting and tell its owner, which is what "setting" a
@@ -327,6 +343,15 @@ extern void Settings_RegisterCvars(const T_SETTING *table, S32 count);
  * The writer's check covers that order changing. A crash writes nothing. */
 extern S32 Settings_Borrow(const T_SETTING *s, S32 value);
 extern void Settings_ReturnBorrowed(void);
+
+/* For a row the recording does not carry and that says SETTING_ABSENT_BEFORE:
+ * borrow its value from before, marked as borrowed because the recording
+ * predates the row. Returns 0 if the row has no value from before or no more
+ * rows can be borrowed. Settings_BorrowedAbsent says whether a row is borrowed
+ * that way now, for an owner whose rows are overridden by another row the
+ * recording may well carry: the retail fixes and their master row. */
+extern S32 Settings_BorrowAbsent(const T_SETTING *s);
+extern S32 Settings_BorrowedAbsent(const T_SETTING *s);
 
 /* Non-zero while Settings_Borrow or Settings_ReturnBorrowed is calling a row's
  * on_change. A hook that writes another setting checks it: the borrow installs

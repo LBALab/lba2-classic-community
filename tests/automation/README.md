@@ -12,107 +12,115 @@ generated from the fixtures so at least the list cannot drift, and
 [last-run.md](last-run.md) records what happened the last time somebody ran them.
 
 ```bash
-LBA2_GAME_DIR=/path/to/data tests/automation/run.sh     # the whole suite
+LBA2_GAME_DIR=/path/to/data tests/automation/run.sh           # the whole suite
+LBA2_GAME_DIR=/path/to/data tests/automation/run.sh --fast    # the small tier, for iterating
+LBA2_GAME_DIR=/path/to/data tests/automation/run.sh -j 8      # eight fixtures at once
 LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one fixture
 ```
+
+Each fixture declares a tier on a `# Tier:` line, a cost budget on an Apple Silicon Mac:
+**small** finishes within 3 s, **medium** within 15 s, **big** takes longer. `run.sh`
+times every fixture, reports the ones over their tier's budget, and keeps the times in
+`.runs/history.tsv`; `run.sh --profile` also counts engine runs. See
+[docs/TESTING.md](../../docs/TESTING.md#control-harness-tiers-and-timing).
 
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-93 fixtures.
+93 fixtures: 54 small, 28 medium, 11 big.
 
-| Fixture | What it pins | Also needs |
-|---|---|---|
-| [test_action_substep.sh](test_action_substep.sh) | Hero action input is frame-rate independent under fixed-timestep sub-stepping (issue #456). | - |
-| [test_askchoice_menus_consume.sh](test_askchoice_menus_consume.sh) | Skipping a post-choice dialogue line must skip the line and nothing else. | save fixture, voice data |
-| [test_attack_melee.sh](test_attack_melee.sh) | The Aggressive melee attack: that it fires, and that a held press keeps the same blow. | - |
-| [test_attack_repress.sh](test_attack_repress.sh) | Holding the attack against re-pressing it: the combo the 1997 comment describes. | - |
-| [test_autocam_orbit_snap.sh](test_autocam_orbit_snap.sh) | Auto camera: touching the stick must not snap the view through rotation the hero accumulated while turning in place (#450). | - |
-| [test_behaviour_cancels_jump.sh](test_behaviour_cancels_jump.sh) | A behaviour press cancels the animation in progress, on the frame it arrives. | - |
-| [test_blowgun_release_throttle.sh](test_blowgun_release_throttle.sh) | #407 regression: the fixed-timestep throttle must not drop a hero input EDGE. | - |
-| [test_camera_axes.sh](test_camera_axes.sh) | Elevation and zoom: the two Auto-camera axes that are not orbit. | - |
-| [test_camera_interior.sh](test_camera_interior.sh) | The Auto camera must stay out of interiors, whatever the player has it set to. | - |
-| [test_camlib_tsv.sh](test_camlib_tsv.sh) | camlib's trace reader returns every frame the log recorded, including the ones glued behind a console echo. | - |
-| [test_camzone_blend.sh](test_camzone_blend.sh) | A scripted shot taking the view from the Auto camera, and giving it back, is a blend with cam_shot_blend_ms on, not a cut. | - |
-| [test_camzone_hold.sh](test_camzone_hold.sh) | A camera zone's authored angle must survive the Auto camera being switched on. | - |
-| [test_camzone_model.sh](test_camzone_model.sh) | Camera zones come in two shapes, and the difference is a flag in the authored data. | - |
-| [test_camzone_return.sh](test_camzone_return.sh) | A scripted shot borrows the Auto camera: with cam_zone_return on, the yaw and pitch it took are given back when the hero leaves its box. | - |
-| [test_camzone_skip.sh](test_camzone_skip.sh) | With cam_zone_skip on, a camera zone that only latches is left unfired while the player steers under the Auto camera; forced zones and the classic camera are unaffected. | - |
-| [test_classiccam_controls.sh](test_classiccam_controls.sh) | The classic camera's own controls: quarter turns, recentre, and the two view presets. | - |
-| [test_cli_contract.sh](test_cli_contract.sh) | The CLI contract that automation depends on (#433). | save fixture |
-| [test_cli_flag_contract.sh](test_cli_flag_contract.sh) | Every flag against the contract its own table declares. | - |
-| [test_cli_override_persistence.sh](test_cli_override_persistence.sh) | A flag that says "this run only" leaves nothing behind, and still takes effect. | - |
-| [test_combo_baseline.sh](test_combo_baseline.sh) | The input baseline: what the engine did before the input work started moving it. | - |
-| [test_config_upgrade.sh](test_config_upgrade.sh) | An lba2.cfg that already exists keeps working across an engine update. | - |
-| [test_config_volumes.sh](test_config_volumes.sh) | The volume keys survive a boot, and an out-of-range one is brought into range rather than passed through. | - |
-| [test_console_audio_cvars.sh](test_console_audio_cvars.sh) | The audio cvars are the same settings the cfg holds, from the other end. | - |
-| [test_console_audio_stereo.sh](test_console_audio_stereo.sh) | What the console does to reverse stereo is what the cfg holds afterwards. | - |
-| [test_console_config_write.sh](test_console_config_write.sh) | The console verbs that persist a setting actually persist it. | - |
-| [test_demo.sh](test_demo.sh) | --demo: deterministic scripted-playthrough fixture. | - |
-| [test_demo_behaviour_menu.sh](test_demo_behaviour_menu.sh) | #358 regression: the fixed-timestep throttle must not skip a full-scene-flip frame. | - |
-| [test_dodge_direction.sh](test_dodge_direction.sh) | The dodge is a modifier: it changes what a direction means rather than doing anything itself. | - |
-| [test_dump.sh](test_dump.sh) | --dump-state: the hand-written JSON is well-formed and has the expected shape. | save fixture |
-| [test_exec.sh](test_exec.sh) | --exec: console commands mutate observable state. | save fixture |
-| [test_followcam_ease.sh](test_followcam_ease.sh) | The two eases the Auto camera paces by the game clock. | - |
-| [test_followcam_hold.sh](test_followcam_hold.sh) | Hold-angle is the free-camera contract: once the player has set an angle, the camera keeps it while the hero turns underneath, and gives it up only on a scene change or Center camera. | - |
-| [test_followcam_interrupt.sh](test_followcam_interrupt.sh) | An orbit interrupted by something else taking the camera must not resume afterwards, and must not leave the next orbit thinking it is already under way. | - |
-| [test_followcam_obstruct.sh](test_followcam_obstruct.sh) | With cam_obstruct on, the Auto camera tilts over what stands behind the hero as an extra that eases away again, and the player's own pitch is never rewritten. | - |
-| [test_followcam_recenter.sh](test_followcam_recenter.sh) | The classic camera (cam_hold_angle 0) drifts back behind the hero after a manual pan, but only once he is walking and only after a grace window. | - |
-| [test_followcam_release.sh](test_followcam_release.sh) | Letting go of the stick should ease the camera to a stop, not halt it from full speed. | - |
-| [test_followcam_scene_carry.sh](test_followcam_scene_carry.sh) | Arriving in an outdoor scene: with cam_scene_carry on, the Auto camera starts behind the hero with the pitch the player had, and with his pan unless he came out of a building. | - |
-| [test_followcam_tracking.sh](test_followcam_tracking.sh) | What the player asks the camera for is what the camera should do: hold the stick at a given orbit speed and, once the lerp has caught up, the camera turns at that speed. | - |
-| [test_followcam_world_anchor.sh](test_followcam_world_anchor.sh) | cam_world_anchor: the Auto camera holds a direction in the world instead of an offset from the hero's facing. | - |
-| [test_found_obj_held_walk.sh](test_found_obj_held_walk.sh) | A direction held through the found-object popup must still move the hero afterwards (#747). | - |
-| [test_getascii_text_input.sh](test_getascii_text_input.sh) | Typed characters come from the engine's polled sample, so an injected key reaches the screens that read them. | save fixture |
-| [test_icon_blend_camera.sh](test_icon_blend_camera.sh) | A 3D icon puts back the camera the frame was drawn with, so actors stay on the scenery on frames that run no simulation step. | - |
-| [test_input_combos.sh](test_input_combos.sh) | Contradictory input: what the engine does when two inputs ask for opposite things. | - |
-| [test_input_hold_throttle.sh](test_input_hold_throttle.sh) | Phase 1 harness regression (docs/plan/INPUT_SIM_PLAN.md): a sustained `input` hold is metered in SIM ticks and OR'd into Input every rendered frame, so it is consumed on every sim step and drives the hero the same over equal game-time whatever the fixed-timestep throttle does. | - |
-| [test_input_injection.sh](test_input_injection.sh) | `input` console command: the harness can drive the hero's input without a keyboard. | - |
-| [test_item_use_throttle.sh](test_item_use_throttle.sh) | #392 regression: the fixed-timestep throttle must not drop a one-frame inventory item-use. | - |
-| [test_jump_hold_repress.sh](test_jump_hold_repress.sh) | A jump survives Up being held through it, and ends on the frame Up is re-pressed. | - |
-| [test_jump_takeoff_foot.sh](test_jump_takeoff_foot.sh) | The running jump takes off from whichever foot is down, and the press frame decides which. | - |
-| [test_load.sh](test_load.sh) | --load: restore a save before the loop, then advance and dump. | save fixture |
-| [test_melee_throttle.sh](test_melee_throttle.sh) | The fixed-timestep throttle must not drop the hero's melee press EDGE (#407 case 1). | - |
-| [test_mouse_capture.sh](test_mouse_capture.sh) | The mouse camera's relative mode must end when the camera stops asking for it. | - |
-| [test_move_framerate.sh](test_move_framerate.sh) | High-frame-rate movement invariance (issue #358). | save fixture |
-| [test_move_substep.sh](test_move_substep.sh) | Low-frame-rate movement invariance (issue #358, phase 2). | save fixture |
-| [test_negative.sh](test_negative.sh) | Robustness: a bad --load path must fail gracefully (clean exit + message), not hang or crash. | - |
-| [test_pad_bindings.sh](test_pad_bindings.sh) | The gamepad's binding table resolves to the same actions the keyboard's does. | - |
-| [test_pad_config_columns.sh](test_pad_config_columns.sh) | The keyboard reaches both binding columns of the Game Controller screen. | - |
-| [test_polyrec.sh](test_polyrec.sh) | --polyrec: trigger the existing polygon draw-call recorder at a scripted --load/--tick state (instead of the manual Alt+F9). | save fixture |
-| [test_profile_bind.sh](test_profile_bind.sh) | A named profile binds to one install, and moving it has to say so. | - |
-| [test_projection_corpus.sh](test_projection_corpus.sh) | projection corpus: capture the per-save projection-pipeline FNV-1a digest for every committed save in tests/savegame/corpus/, byte-compare to the committed golden. | - |
-| [test_projection_demo.sh](test_projection_demo.sh) | projection demo: capture the projection-pipeline FNV-1a digest of a 30000-tick attract-mode snapshot, byte-compare to the committed golden. | - |
-| [test_record_analog.sh](test_record_analog.sh) | The analog camera survives a recording: mouse and right stick both round-trip. | - |
-| [test_record_input_device.sh](test_record_input_device.sh) | A recording carries which device the player was last on, so a replay saves under the name the session typed. | save fixture |
-| [test_record_replay.sh](test_record_replay.sh) | Session recorder: a recording replays into the same simulation it captured. | save fixture |
-| [test_release_detection.sh](test_release_detection.sh) | The release line reports what the config declared and what the data measures as. | - |
-| [test_res_catalog_sweep.sh](test_res_catalog_sweep.sh) | Resolution catalog sweep: boot the engine at every resolution the catalog can offer and confirm each one boots, renders the resolution sub-page, and writes a frame at exactly that size. | - |
-| [test_res_switch.sh](test_res_switch.sh) | Runtime resolution switch: load a save, fire Res_Switch mid-session via the `--res-switch-test WxH@TICK` harness flag, run more ticks, dump state. | save fixture |
-| [test_res_switch_cfg.sh](test_res_switch_cfg.sh) | Persistence: lba2.cfg's ResolutionX / ResolutionY are read at boot. | save fixture |
-| [test_res_switch_console.sh](test_res_switch_console.sh) | Console verb `resolution`: drive Res_Switch through the user-facing path. | save fixture |
-| [test_res_switch_dialog.sh](test_res_switch_dialog.sh) | Resolution confirmation: timeout reverts; held D-pad navigation cannot activate jetpack or advance gameplay time after confirmation. | save fixture |
-| [test_ring_off_is_gone.sh](test_ring_off_is_gone.sh) | With the Auto camera off, none of its settings changes anything: the game, the camera or the picture. | - |
-| [test_ring_watch_not_play.sh](test_ring_watch_not_play.sh) | With the Auto camera on, flipping any of its settings changes how a run is seen, never what happens in it. | - |
-| [test_save_auto_name_refresh.sh](test_save_auto_name_refresh.sh) | Overwriting a save with an automatic name gives it a fresh one. | save fixture |
-| [test_screenshot.sh](test_screenshot.sh) | --screenshot: writes a real PNG of the rendered frame. | save fixture |
-| [test_skip_modals.sh](test_skip_modals.sh) | `skipmodals` console command: a headless run gets past a give/talk dialog instead of hanging. | - |
-| [test_spell_keys_bypass.sh](test_spell_keys_bypass.sh) | The spell keys reach the game without reaching Input, and this is what that costs. | - |
-| [test_tick.sh](test_tick.sh) | --tick: the keystone differential test. | save fixture |
-| [test_ui_dialog.sh](test_ui_dialog.sh) | ui dialog: capture the dialogue bubble + portrait + typewriter text for a known text-id, byte-compare to the committed golden. | UI goldens |
-| [test_ui_display.sh](test_ui_display.sh) | ui display: capture the Display options modal (the Phase 2 menu surface for runtime resolution switching) and byte-compare to the committed golden. | UI goldens |
-| [test_ui_found_object.sh](test_ui_found_object.sh) | ui found-object: capture the found-object cinematic (3D rotation of the discovered item alongside the typewriter dialogue), byte-compare to the committed golden. | UI goldens |
-| [test_ui_holomap.sh](test_ui_holomap.sh) | ui holomap: capture the rotating planet view + island name strip, byte- compare to the committed golden. | UI goldens |
-| [test_ui_holoplan.sh](test_ui_holoplan.sh) | ui holoplan: capture the zoomed-in planet/island view (post-globe-select) for the Citadel island (0), byte-compare to the committed golden. | UI goldens |
-| [test_ui_inventory.sh](test_ui_inventory.sh) | ui inventory: capture the in-game inventory wheel and byte-compare to the committed golden. | UI goldens |
-| [test_ui_inventory_wide.sh](test_ui_inventory_wide.sh) | ui inventory @ 768x480: re-renders the inventory wheel at the Steam Deck render width and asserts the centred 640x480 crop of the capture is byte-identical to the existing 640 golden. | UI goldens |
-| [test_ui_menu_main.sh](test_ui_menu_main.sh) | ui menu-main: the boot main menu as a returning player sees it (Resume / New / Load / Options / Quit over the cloudy-sky background, save thumbnail on top), byte-compared to the committed golden. | UI goldens |
-| [test_ui_menu_main_fresh.sh](test_ui_menu_main_fresh.sh) | ui menu-main on a new install: New Game / Options Menu / Quit, no Resume row, no Load row, no save thumbnail, and the menu sitting at its higher vertical centre (275 rather than the 335 a Resume row moves it to). | UI goldens |
-| [test_ui_menu_main_options.sh](test_ui_menu_main_options.sh) | The presented Options page must replace every pixel of the main menu. | save fixture |
-| [test_ui_menu_options.sh](test_ui_menu_options.sh) | ui menu-options: capture the in-game options/pause menu (the screen pressing ESC during gameplay opens), byte-compare to the committed golden. | UI goldens |
-| [test_ui_menu_options_hd.sh](test_ui_menu_options_hd.sh) | ui menu-options @ 1280x720: the first mode the resolution menu offers where the framebuffer is taller than the 480-line authored canvas, so UI_VCENTER_OFS is non-zero and the UI floats vertically as well as horizontally. | UI goldens |
-| [test_ui_menu_options_uhd.sh](test_ui_menu_options_uhd.sh) | ui menu-options @ 1920x1080: the tallest framebuffer the engine accepts (ADELINE_MAX_Y_RES, which sizes TabOffLine[]), and so the largest vertical float the authored canvas ever sits at: UI_VCENTER_OFS is 300 here against 120 at 720. | UI goldens |
-| [test_ui_menu_options_wide.sh](test_ui_menu_options_wide.sh) | ui menu-options @ 768x480: re-renders the in-game options/pause menu at the Steam Deck render width and asserts the centred 640x480 crop of the capture is byte-identical to the existing 640 golden. | UI goldens |
-| [test_ui_video.sh](test_ui_video.sh) | ui video: capture the first composited frame of the INTRO cinematic, byte- compare to the committed golden. | UI goldens |
-| [test_user_dirs.sh](test_user_dirs.sh) | The folders the engine writes into have to exist before it writes into them, and it has to say so when one cannot be made. | - |
-| [test_walkthrough_opening.sh](test_walkthrough_opening.sh) | Walkthrough e2e: drive the OPENING of the game through the engine, from a cold boot, with no savegame. | - |
+| Fixture | Tier | What it pins | Also needs |
+|---|---|---|---|
+| [test_action_substep.sh](test_action_substep.sh) | medium | Hero action input is frame-rate independent under fixed-timestep sub-stepping (issue #456). | - |
+| [test_askchoice_menus_consume.sh](test_askchoice_menus_consume.sh) | big | Skipping a post-choice dialogue line must skip the line and nothing else. | save fixture, voice data |
+| [test_attack_melee.sh](test_attack_melee.sh) | small | The Aggressive melee attack: that it fires, and that a held press keeps the same blow. | - |
+| [test_attack_repress.sh](test_attack_repress.sh) | medium | Holding the attack against re-pressing it: the combo the 1997 comment describes. | - |
+| [test_autocam_orbit_snap.sh](test_autocam_orbit_snap.sh) | small | Auto camera: touching the stick must not snap the view through rotation the hero accumulated while turning in place (#450). | - |
+| [test_behaviour_cancels_jump.sh](test_behaviour_cancels_jump.sh) | medium | A behaviour press cancels the animation in progress, on the frame it arrives. | - |
+| [test_blowgun_release_throttle.sh](test_blowgun_release_throttle.sh) | medium | #407 regression: the fixed-timestep throttle must not drop a hero input EDGE. | - |
+| [test_camera_axes.sh](test_camera_axes.sh) | medium | Elevation and zoom: the two Auto-camera axes that are not orbit. | - |
+| [test_camera_interior.sh](test_camera_interior.sh) | small | The Auto camera must stay out of interiors, whatever the player has it set to. | - |
+| [test_camlib_tsv.sh](test_camlib_tsv.sh) | small | camlib's trace reader returns every frame the log recorded, including the ones glued behind a console echo. | - |
+| [test_camzone_blend.sh](test_camzone_blend.sh) | medium | A scripted shot taking the view from the Auto camera, and giving it back, is a blend with cam_shot_blend_ms on, not a cut. | - |
+| [test_camzone_hold.sh](test_camzone_hold.sh) | medium | A camera zone's authored angle must survive the Auto camera being switched on. | - |
+| [test_camzone_model.sh](test_camzone_model.sh) | small | Camera zones come in two shapes, and the difference is a flag in the authored data. | - |
+| [test_camzone_return.sh](test_camzone_return.sh) | big | A scripted shot borrows the Auto camera: with cam_zone_return on, the yaw and pitch it took are given back when the hero leaves its box. | - |
+| [test_camzone_skip.sh](test_camzone_skip.sh) | medium | With cam_zone_skip on, a camera zone that only latches is left unfired while the player steers under the Auto camera; forced zones and the classic camera are unaffected. | - |
+| [test_classiccam_controls.sh](test_classiccam_controls.sh) | small | The classic camera's own controls: quarter turns, recentre, and the two view presets. | - |
+| [test_cli_contract.sh](test_cli_contract.sh) | small | The CLI contract that automation depends on (#433). | save fixture |
+| [test_cli_flag_contract.sh](test_cli_flag_contract.sh) | medium | Every flag against the contract its own table declares. | - |
+| [test_cli_override_persistence.sh](test_cli_override_persistence.sh) | small | A flag that says "this run only" leaves nothing behind, and still takes effect. | - |
+| [test_combo_baseline.sh](test_combo_baseline.sh) | medium | The input baseline: what the engine did before the input work started moving it. | - |
+| [test_config_upgrade.sh](test_config_upgrade.sh) | small | An lba2.cfg that already exists keeps working across an engine update. | - |
+| [test_config_volumes.sh](test_config_volumes.sh) | small | The volume keys survive a boot, and an out-of-range one is brought into range rather than passed through. | - |
+| [test_console_audio_cvars.sh](test_console_audio_cvars.sh) | small | The audio cvars are the same settings the cfg holds, from the other end. | - |
+| [test_console_audio_stereo.sh](test_console_audio_stereo.sh) | small | What the console does to reverse stereo is what the cfg holds afterwards. | - |
+| [test_console_config_write.sh](test_console_config_write.sh) | small | The console verbs that persist a setting actually persist it. | - |
+| [test_demo.sh](test_demo.sh) | medium | --demo: deterministic scripted-playthrough fixture. | - |
+| [test_demo_behaviour_menu.sh](test_demo_behaviour_menu.sh) | big | #358 regression: the fixed-timestep throttle must not skip a full-scene-flip frame. | - |
+| [test_dodge_direction.sh](test_dodge_direction.sh) | medium | The dodge is a modifier: it changes what a direction means rather than doing anything itself. | - |
+| [test_dump.sh](test_dump.sh) | small | --dump-state: the hand-written JSON is well-formed and has the expected shape. | save fixture |
+| [test_exec.sh](test_exec.sh) | small | --exec: console commands mutate observable state. | save fixture |
+| [test_followcam_ease.sh](test_followcam_ease.sh) | big | The two eases the Auto camera paces by the game clock. | - |
+| [test_followcam_hold.sh](test_followcam_hold.sh) | small | Hold-angle is the free-camera contract: once the player has set an angle, the camera keeps it while the hero turns underneath, and gives it up only on a scene change or Center camera. | - |
+| [test_followcam_interrupt.sh](test_followcam_interrupt.sh) | small | An orbit interrupted by something else taking the camera must not resume afterwards, and must not leave the next orbit thinking it is already under way. | - |
+| [test_followcam_obstruct.sh](test_followcam_obstruct.sh) | medium | With cam_obstruct on, the Auto camera tilts over what stands behind the hero as an extra that eases away again, and the player's own pitch is never rewritten. | - |
+| [test_followcam_recenter.sh](test_followcam_recenter.sh) | small | The classic camera (cam_hold_angle 0) drifts back behind the hero after a manual pan, but only once he is walking and only after a grace window. | - |
+| [test_followcam_release.sh](test_followcam_release.sh) | small | Letting go of the stick should ease the camera to a stop, not halt it from full speed. | - |
+| [test_followcam_scene_carry.sh](test_followcam_scene_carry.sh) | medium | Arriving in an outdoor scene: with cam_scene_carry on, the Auto camera starts behind the hero with the pitch the player had, and with his pan unless he came out of a building. | - |
+| [test_followcam_tracking.sh](test_followcam_tracking.sh) | medium | What the player asks the camera for is what the camera should do: hold the stick at a given orbit speed and, once the lerp has caught up, the camera turns at that speed. | - |
+| [test_followcam_world_anchor.sh](test_followcam_world_anchor.sh) | big | cam_world_anchor: the Auto camera holds a direction in the world instead of an offset from the hero's facing. | - |
+| [test_found_obj_held_walk.sh](test_found_obj_held_walk.sh) | medium | A direction held through the found-object popup must still move the hero afterwards (#747). | - |
+| [test_getascii_text_input.sh](test_getascii_text_input.sh) | medium | Typed characters come from the engine's polled sample, so an injected key reaches the screens that read them. | save fixture |
+| [test_icon_blend_camera.sh](test_icon_blend_camera.sh) | medium | A 3D icon puts back the camera the frame was drawn with, so actors stay on the scenery on frames that run no simulation step. | - |
+| [test_input_combos.sh](test_input_combos.sh) | medium | Contradictory input: what the engine does when two inputs ask for opposite things. | - |
+| [test_input_hold_throttle.sh](test_input_hold_throttle.sh) | medium | Phase 1 harness regression (docs/plan/INPUT_SIM_PLAN.md): a sustained `input` hold is metered in SIM ticks and OR'd into Input every rendered frame, so it is consumed on every sim step and drives the hero the same over equal game-time whatever the fixed-timestep throttle does. | - |
+| [test_input_injection.sh](test_input_injection.sh) | small | `input` console command: the harness can drive the hero's input without a keyboard. | - |
+| [test_item_use_throttle.sh](test_item_use_throttle.sh) | small | #392 regression: the fixed-timestep throttle must not drop a one-frame inventory item-use. | - |
+| [test_jump_hold_repress.sh](test_jump_hold_repress.sh) | small | A jump survives Up being held through it, and ends on the frame Up is re-pressed. | - |
+| [test_jump_takeoff_foot.sh](test_jump_takeoff_foot.sh) | small | The running jump takes off from whichever foot is down, and the press frame decides which. | - |
+| [test_load.sh](test_load.sh) | small | --load: restore a save before the loop, then advance and dump. | save fixture |
+| [test_melee_throttle.sh](test_melee_throttle.sh) | small | The fixed-timestep throttle must not drop the hero's melee press EDGE (#407 case 1). | - |
+| [test_mouse_capture.sh](test_mouse_capture.sh) | small | The mouse camera's relative mode must end when the camera stops asking for it. | - |
+| [test_move_framerate.sh](test_move_framerate.sh) | small | High-frame-rate movement invariance (issue #358). | save fixture |
+| [test_move_substep.sh](test_move_substep.sh) | small | Low-frame-rate movement invariance (issue #358, phase 2). | save fixture |
+| [test_negative.sh](test_negative.sh) | small | Robustness: a bad --load path must fail gracefully (clean exit + message), not hang or crash. | - |
+| [test_pad_bindings.sh](test_pad_bindings.sh) | medium | The gamepad's binding table resolves to the same actions the keyboard's does. | - |
+| [test_pad_config_columns.sh](test_pad_config_columns.sh) | medium | The keyboard reaches both binding columns of the Game Controller screen. | - |
+| [test_polyrec.sh](test_polyrec.sh) | small | --polyrec: trigger the existing polygon draw-call recorder at a scripted --load/--tick state (instead of the manual Alt+F9). | save fixture |
+| [test_profile_bind.sh](test_profile_bind.sh) | small | A named profile binds to one install, and moving it has to say so. | - |
+| [test_projection_corpus.sh](test_projection_corpus.sh) | medium | projection corpus: capture the per-save projection-pipeline FNV-1a digest for every committed save in tests/savegame/corpus/, byte-compare to the committed golden. | - |
+| [test_projection_demo.sh](test_projection_demo.sh) | big | projection demo: capture the projection-pipeline FNV-1a digest of a 30000-tick attract-mode snapshot, byte-compare to the committed golden. | - |
+| [test_record_analog.sh](test_record_analog.sh) | medium | The analog camera survives a recording: mouse and right stick both round-trip. | - |
+| [test_record_input_device.sh](test_record_input_device.sh) | big | A recording carries which device the player was last on, so a replay saves under the name the session typed. | save fixture |
+| [test_record_replay.sh](test_record_replay.sh) | big | Session recorder: a recording replays into the same simulation it captured. | save fixture |
+| [test_release_detection.sh](test_release_detection.sh) | small | The release line reports what the config declared and what the data measures as. | - |
+| [test_res_catalog_sweep.sh](test_res_catalog_sweep.sh) | medium | Resolution catalog sweep: boot the engine at every resolution the catalog can offer and confirm each one boots, renders the resolution sub-page, and writes a frame at exactly that size. | - |
+| [test_res_switch.sh](test_res_switch.sh) | small | Runtime resolution switch: load a save, fire Res_Switch mid-session via the `--res-switch-test WxH@TICK` harness flag, run more ticks, dump state. | save fixture |
+| [test_res_switch_cfg.sh](test_res_switch_cfg.sh) | small | Persistence: lba2.cfg's ResolutionX / ResolutionY are read at boot. | save fixture |
+| [test_res_switch_console.sh](test_res_switch_console.sh) | medium | Console verb `resolution`: drive Res_Switch through the user-facing path. | save fixture |
+| [test_res_switch_dialog.sh](test_res_switch_dialog.sh) | small | Resolution confirmation: timeout reverts; held D-pad navigation cannot activate jetpack or advance gameplay time after confirmation. | save fixture |
+| [test_ring_off_is_gone.sh](test_ring_off_is_gone.sh) | big | With the Auto camera off, none of its settings changes anything: the game, the camera or the picture. | - |
+| [test_ring_watch_not_play.sh](test_ring_watch_not_play.sh) | big | With the Auto camera on, flipping any of its settings changes how a run is seen, never what happens in it. | - |
+| [test_save_auto_name_refresh.sh](test_save_auto_name_refresh.sh) | big | Overwriting a save with an automatic name gives it a fresh one. | save fixture |
+| [test_screenshot.sh](test_screenshot.sh) | small | --screenshot: writes a real PNG of the rendered frame. | save fixture |
+| [test_skip_modals.sh](test_skip_modals.sh) | small | `skipmodals` console command: a headless run gets past a give/talk dialog instead of hanging. | - |
+| [test_spell_keys_bypass.sh](test_spell_keys_bypass.sh) | small | The spell keys reach the game without reaching Input, and this is what that costs. | - |
+| [test_tick.sh](test_tick.sh) | small | --tick: the keystone differential test. | save fixture |
+| [test_ui_dialog.sh](test_ui_dialog.sh) | small | ui dialog: capture the dialogue bubble + portrait + typewriter text for a known text-id, byte-compare to the committed golden. | UI goldens |
+| [test_ui_display.sh](test_ui_display.sh) | small | ui display: capture the Display options modal (the Phase 2 menu surface for runtime resolution switching) and byte-compare to the committed golden. | UI goldens |
+| [test_ui_found_object.sh](test_ui_found_object.sh) | small | ui found-object: capture the found-object cinematic (3D rotation of the discovered item alongside the typewriter dialogue), byte-compare to the committed golden. | UI goldens |
+| [test_ui_holomap.sh](test_ui_holomap.sh) | small | ui holomap: capture the rotating planet view + island name strip, byte- compare to the committed golden. | UI goldens |
+| [test_ui_holoplan.sh](test_ui_holoplan.sh) | small | ui holoplan: capture the zoomed-in planet/island view (post-globe-select) for the Citadel island (0), byte-compare to the committed golden. | UI goldens |
+| [test_ui_inventory.sh](test_ui_inventory.sh) | small | ui inventory: capture the in-game inventory wheel and byte-compare to the committed golden. | UI goldens |
+| [test_ui_inventory_wide.sh](test_ui_inventory_wide.sh) | small | ui inventory @ 768x480: re-renders the inventory wheel at the Steam Deck render width and asserts the centred 640x480 crop of the capture is byte-identical to the existing 640 golden. | UI goldens |
+| [test_ui_menu_main.sh](test_ui_menu_main.sh) | small | ui menu-main: the boot main menu as a returning player sees it (Resume / New / Load / Options / Quit over the cloudy-sky background, save thumbnail on top), byte-compared to the committed golden. | UI goldens |
+| [test_ui_menu_main_fresh.sh](test_ui_menu_main_fresh.sh) | small | ui menu-main on a new install: New Game / Options Menu / Quit, no Resume row, no Load row, no save thumbnail, and the menu sitting at its higher vertical centre (275 rather than the 335 a Resume row moves it to). | UI goldens |
+| [test_ui_menu_main_options.sh](test_ui_menu_main_options.sh) | medium | The presented Options page must replace every pixel of the main menu. | save fixture |
+| [test_ui_menu_options.sh](test_ui_menu_options.sh) | small | ui menu-options: capture the in-game options/pause menu (the screen pressing ESC during gameplay opens), byte-compare to the committed golden. | UI goldens |
+| [test_ui_menu_options_hd.sh](test_ui_menu_options_hd.sh) | small | ui menu-options @ 1280x720: the first mode the resolution menu offers where the framebuffer is taller than the 480-line authored canvas, so UI_VCENTER_OFS is non-zero and the UI floats vertically as well as horizontally. | UI goldens |
+| [test_ui_menu_options_uhd.sh](test_ui_menu_options_uhd.sh) | small | ui menu-options @ 1920x1080: the tallest framebuffer the engine accepts (ADELINE_MAX_Y_RES, which sizes TabOffLine[]), and so the largest vertical float the authored canvas ever sits at: UI_VCENTER_OFS is 300 here against 120 at 720. | UI goldens |
+| [test_ui_menu_options_wide.sh](test_ui_menu_options_wide.sh) | small | ui menu-options @ 768x480: re-renders the in-game options/pause menu at the Steam Deck render width and asserts the centred 640x480 crop of the capture is byte-identical to the existing 640 golden. | UI goldens |
+| [test_ui_video.sh](test_ui_video.sh) | small | ui video: capture the first composited frame of the INTRO cinematic, byte- compare to the committed golden. | UI goldens |
+| [test_user_dirs.sh](test_user_dirs.sh) | small | The folders the engine writes into have to exist before it writes into them, and it has to say so when one cannot be made. | - |
+| [test_walkthrough_opening.sh](test_walkthrough_opening.sh) | medium | Walkthrough e2e: drive the OPENING of the game through the engine, from a cold boot, with no savegame. | - |

@@ -518,8 +518,9 @@ point, and a diff that flagged the platform every time would teach a reader to i
 
 The second line is there ahead of needing it. `LIB386/3D` computes projection, rotation and
 distance in `long double` and rounds with `lrintl`, chosen to match x87's 80-bit registers. Both
-x86-64 hosts have those registers, so Linux and Windows agree. ARM does not, so on macOS and
-Android `long double` is a plain `double` and the same expressions round differently. A recording
+x86-64 hosts have those registers, so Linux and Windows agree. ARM does not: on macOS and
+32-bit Android `long double` is a plain `double`, on 64-bit Android a 128-bit software type, and
+the same expressions round differently on each. A recording
 from an x86-64 host will not reproduce there yet, and because the trait is in the header, such a
 replay opens by naming the arithmetic it disagrees about instead of diverging in the middle and
 reading like a bug in the simulation. Making that case replay means taking those paths off the
@@ -698,6 +699,17 @@ recording made before a setting existed ran as though it were off, but one made 
 and before the header carried it ran on whatever the recorder had, which for the Auto camera's later
 settings was on by default. A build that does not know a setting a recording carries names it as
 absent. Neither is a divergence; both say which settings the replay could not check.
+
+The exception is a setting added after the header carried every setting: a recording without it was
+made before it existed, so it ran on the setting's value from before, and the replay borrows that
+and says so (`SETTING_ABSENT_BEFORE` in `SETTINGS.H`). The terrain-seams retail fix,
+`RetailFixTerrainSeams`, is the one that does, because its depths reach rain splashes and the
+random stream: an older recording replays with the outdoor ground on the float path it was made
+on, whatever **Fix retail bugs** says, and the console reads
+
+```
+[rec] this recording predates RetailFixTerrainSeams: replaying at its value from before, 0 (yours: 1, given back when it ends)
+```
 
 **The console is not recorded, and used to take the clock with it.** Its toggle arrives as an
 SDL key event rather than through the polled key table the recorder samples, so a replay never

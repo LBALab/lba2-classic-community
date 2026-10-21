@@ -25,6 +25,12 @@ For a history of project changes, please see the [CHANGELOG.md](CHANGELOG.md).
 
 The original LBA2 engine source is the [`lba2-classic`](https://github.com/2point21/lba2-classic) codebase: it is mostly assembly, with C++ for game logic, and is the canonical historical release. `lba2-classic-community` is a community fork for evolving and modernizing the code: ports of assembly to C++, SDL3 for graphics/audio/input, libsmacker for FMV, native Linux/macOS/Windows/Android builds, and player-facing additions such as widescreen support, gamepad play, and an always-on debug console. The goal is to preserve the history and culture of the original while making the codebase easier to build and extend. See [ASM_TO_CPP_REFERENCE.md](docs/ASM_TO_CPP_REFERENCE.md) for which modules have been ported from ASM to C++ in this fork.
 
+## Why this project
+
+We want this to be the way to play LBA2 today, made with the same love and care Adeline put into the original.
+
+Care here starts with the 1997 game as the reference. When the port drifts from the original DOS release without meaning to, that is a bug, and we check the original rather than guess. Where the original has a bug of its own, fixing it is the player's choice (Options → Advanced options → Fix retail bugs), not a silent change. What we learn about the engine goes into [docs/knowledge/](docs/knowledge/index.md) with the evidence behind it, so nobody has to find it out twice.
+
 ## Playing
 
 Pre-built binaries for Linux, macOS, Windows, Android, and Nintendo Switch homebrew.
@@ -63,7 +69,7 @@ chmod +x lba2cc-*-anylinux-*.AppImage
 
 ### macOS
 
-Download `lba2cc-<version>-macos-arm64.dmg`, open it, drag `LBA2 Classic Community.app` to Applications. First launch needs right-click → **Open** (macOS Gatekeeper blocks unsigned apps on double-click). The DMG ships its own README covering this — read it before the first launch.
+Download `lba2cc-<version>-macos-universal.dmg` (runs on Apple Silicon and Intel Macs, macOS 11 or later), open it, drag `LBA2 Classic Community.app` to Applications. First launch needs right-click → **Open** (macOS Gatekeeper blocks unsigned apps on double-click). The DMG ships its own README covering this — read it before the first launch.
 
 ### Windows
 
@@ -111,7 +117,7 @@ Run `./scripts/dev/check-tooling.sh` to see what your machine is missing. That c
 For platform-specific builds, use the presets in `CMakePresets.json` (all use the `Ninja` generator, so `ninja` must be on `PATH`):
 
 - **Linux:** `cmake --preset linux && cmake --build --preset linux`
-- **macOS:** `cmake --preset macos_arm64 && cmake --build --preset macos_arm64` (or `macos_x86_64`)
+- **macOS:** `cmake --preset macos_arm64 && cmake --build --preset macos_arm64` (or `macos_x86_64`, or `macos_universal` for both in one binary)
 - **Windows:** `cmake --preset windows_ucrt64 && cmake --build --preset windows_ucrt64` — see [docs/WINDOWS.md](docs/WINDOWS.md)
 - **Cross-compile Windows from Linux:** `cmake --preset cross_linux2win && cmake --build --preset cross_linux2win`. To skip the preset, use the toolchain file directly: `cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-i686.cmake`.
 - **Nintendo Switch homebrew:** `bash scripts/dev/build-switch.sh` — builds an SDL2 `.nro` and SD-card ZIP inside a digest-pinned devkitPro Docker image. No host SDK needed; hardware validation remains pending. See [docs/SWITCH.md](docs/SWITCH.md).
@@ -185,6 +191,8 @@ Please note this license only applies to **Little Big Adventure 2** engine sourc
 ## How can I contribute?
 
 Read our [Contribution Guidelines](https://github.com/LBALab/lba2-classic-community/blob/main/CONTRIBUTING.md) and the [Code Style](https://github.com/LBALab/lba2-classic-community/blob/main/CODESTYLE.md) reference.
+
+Use whatever tools help you, AI assistants included. What makes a change good is not who or what typed it, but whether someone cared enough to play it, check it against the original and explain why it is right.
 
 ## Links
 

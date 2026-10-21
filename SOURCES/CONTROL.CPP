@@ -567,6 +567,14 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 1;
             continue;
         }
+        if (!strcmp(a, "--no-pace")) {
+            /* A recording holds the game to real time, for the player making it. A scripted
+               run has no player, so the harness asks for the step without the wait: the
+               recording is the same, only sooner. Describes the run, so no s_active. */
+            Timer_RefusePacing(1);
+            read += 1;
+            continue;
+        }
         if (!strcmp(a, "--no-audio")) {
             /* Boolean flag — skip InitAIL() and InitSampleDriver() at boot so
                the SDL audio subsystem never opens a stream and the dummy
@@ -2377,7 +2385,9 @@ void Control_RestoreUncarried(void) {
    report names it as one the file predates. There is no safe value to put in its
    place: a recording made before a setting existed ran as though it were off, and one
    made after it existed but before the header carried it ran on whatever the recorder
-   had, which for the Auto camera's later settings was on by default.
+   had, which for the Auto camera's later settings was on by default. A row added after
+   the header carried every row has only the first case, and says so with
+   SETTING_ABSENT_BEFORE (SETTINGS.H): its value from before is borrowed instead.
 
    --replay-own-settings skips this, for the sweeps that find which settings a replay
    turns on, which work by changing one on the replay side. */
@@ -2396,8 +2406,22 @@ S32 Control_InstallSettings(const char *hdr) {
             if (s->key == NULL || s->record != SETTING_RECORDED)
                 continue;
             snprintf(key, sizeof key, "settings.%s=", s->key);
-            if (!RecFmt_ReadInt(hdr, key, &theirs))
+            if (!RecFmt_ReadInt(hdr, key, &theirs)) {
+                if (s->absent != SETTING_ABSENT_BEFORE)
+                    continue;
+                mine = *s->value;
+                if (!Settings_BorrowAbsent(s)) {
+                    fprintf(stderr, "[rec] this recording predates %s, but its value from before could not be "
+                                    "borrowed; the replay runs on yours (%d)\n",
+                            s->key, (int)mine);
+                    continue;
+                }
+                fprintf(stderr, "[rec] this recording predates %s: replaying at its value from before, %d (yours: %d, "
+                                "given back when it ends)\n",
+                        s->key, (int)*s->value, (int)mine);
+                borrowed++;
                 continue;
+            }
             mine = *s->value;
             if (Settings_Coerce(s, theirs) == mine)
                 continue;

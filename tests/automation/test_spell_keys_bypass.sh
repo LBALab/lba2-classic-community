@@ -33,6 +33,7 @@
 # lost the flag would fail the first assertion rather than pass a weaker test.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: small
 TESTNAME=spell_keys_bypass
 . "$(dirname "$0")/lib.sh"
 precheck

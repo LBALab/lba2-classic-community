@@ -134,7 +134,7 @@ jobs:
             *.AppImage.zsync
             lba2cc-*-linux-*.tar.gz
             lba2cc-*-windows-x64.zip
-            lba2cc-*-macos-arm64.dmg
+            lba2cc-*-macos-universal.dmg
             lba2cc-*-android-*.apk
             lba2cc-switch.zip
             lba2cc-vita.vpk

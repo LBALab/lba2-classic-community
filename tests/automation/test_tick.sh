@@ -2,6 +2,7 @@
 # --tick: the keystone differential test. Proves the loop actually STEPS the simulation,
 # not just counts a hook. Same load at two tick counts; assert that tick-sensitive state
 # advanced (timer monotonic; hero idle animation frame changed).
+# Tier: small
 TESTNAME=tick
 . "$(dirname "$0")/lib.sh"
 precheck

@@ -31,6 +31,7 @@
 # failing, and mixing it in would make this fixture measure two things at once.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: medium
 TESTNAME=attack_repress
 . "$(dirname "$0")/lib.sh"
 precheck

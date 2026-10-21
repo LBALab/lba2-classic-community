@@ -13,6 +13,7 @@
 # the live sky scene rather than --black-bg, and a wider frame shows more of that
 # scene: the crop differs by ~133k pixels at 768 before anything about the UI has
 # moved. Only the cleanroom capture can be compared this way.
+# Tier: small
 TESTNAME=ui_menu_options_hd
 . "$(dirname "$0")/lib.sh"
 precheck

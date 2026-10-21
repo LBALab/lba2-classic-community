@@ -10,8 +10,11 @@ set(SOURCES_FILES_ASM POLY.CPP POLY_JMP.CPP POLYCLIP.CPP POLYDISC.CPP POLYFLAT.C
 add_library(poly ${SOURCES_FILES} ${SOURCES_FILES_ASM})
 
 # Propagate ENABLE_POLY_RECORDING to the poly library so recording hooks compile
+# The hooks call into the recorder, so the library brings it along: a test that links
+# poly without the game (tests/inv64) failed to link otherwise.
 if(ENABLE_POLY_RECORDING)
   target_compile_definitions(poly PRIVATE ENABLE_POLY_RECORDING)
+  target_link_libraries(poly PUBLIC snapshot)
 endif()
 
 

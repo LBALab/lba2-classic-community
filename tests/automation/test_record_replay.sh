@@ -22,6 +22,7 @@
 # an older engine, in a format this build reads and does not write, and is replayed as it
 # stands: a same-binary round trip cannot see a change that breaks the writer and the
 # reader together.
+# Tier: big
 TESTNAME="record_replay"
 . "$(dirname "$0")/lib.sh"
 precheck
@@ -381,10 +382,14 @@ esac
 # tests/automation/recordings/README.md says why not.
 #
 # Two properties, and they fail differently. The tick count says the reader walked the
-# stream correctly, which is what a record whose layout moved would break. The clean
-# result says the sibling savegame was found and loaded, which is the only coverage the
+# stream correctly, which is what a record whose layout moved would break. A clean tick 0
+# says the sibling savegame was found and loaded, which is the only coverage the
 # pre-single-file snapshot path has: measured, the same file with its .rec.lba moved
 # away diverges at tick 0.
+#
+# Ticks after 0 are play, not format. The file cannot be remade (this build writes no
+# format 10), so a deliberate change to play, such as #801's rounding fix (it diverges at
+# tick 1), would otherwise fail it for good. A later mismatch is printed, not failed.
 legacy="$REPO/tests/automation/recordings/legacy-v10.rec"
 legacy_save="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Anon1.LBA"
 if [ ! -f "$legacy" ] || [ ! -f "$legacy".lba ]; then
@@ -408,14 +413,18 @@ lchecked="$(printf '%s\n' "$lsummary" | sed -n 's/.*: \([0-9]*\) ticks checked.*
 [ "$lchecked" = "198" ] ||
     fail "legacy: read ${lchecked:-0} ticks, the file holds 198 — the reader has lost the stream"
 
-case "$lsummary" in
-*"first hash mismatch -1"*) ;;
-*)
+lfirst="$(printf '%s\n' "$lsummary" | sed -n 's/.*first hash mismatch \(-\{0,1\}[0-9]*\).*/\1/p')"
+case "$lfirst" in
+-1) ;;
+0 | "")
     # Every differing mode line, not the first: a divergence from different retail data
     # reads exactly like a reader bug, and the line that says so can sit behind an
     # engine version that differs on any working tree.
     fail "legacy: $lsummary; $(printf '%s\n' "$lout" | grep 'mode differs' | tr '\n' ';' ||
         echo 'no mode line differed, so this is the format path')"
+    ;;
+*)
+    echo "note: legacy: snapshot loaded and the stream read; play differs from tick $lfirst (a change to play, not to the format)"
     ;;
 esac
 
@@ -958,7 +967,8 @@ rate_of() { # rate_of <label> [extra args...] -- game seconds per wall second, o
     # python rather than `date +%s.%N`: %N is GNU-only, and a BSD date passes the literal
     # N through to the arithmetic below, where the arm fails as though the run had hung.
     t0="$(python3 -c 'import time; print(time.time())')"
-    LBA2_USER_DIR="$ud" ctl --load "$LBA2_TEST_SAVE" \
+    # ctl_paced: this arm is about the real-time pacing the harness otherwise turns off.
+    LBA2_USER_DIR="$ud" ctl_paced --load "$LBA2_TEST_SAVE" \
         --exec-at 20 "dumpstate $ud/before.json" \
         --exec-at 40 "key up 800" \
         --tick 900 --dump-state "$ud/after.json" --exit "$@" >/dev/null 2>&1 || return 1
@@ -976,10 +986,17 @@ print('%.3f' % (game / wall))"
 
 # Not in a command substitution that swallows it: `fail` ends the shell it runs in, so a
 # failure inside $( ) would kill the subshell and let the caller print PASS over the top.
-rate_ctl="$(rate_of control)" ||
+#
+# The two run side by side: each is held to the wall clock, so neither waits on the other,
+# and whatever load the machine is under falls on both alike, which the ratio below wants.
+rate_of control >"$ratedir/control.rate" & ctl_pid=$!
+rate_of recording --record "$ratedir/recording/s.rec" >"$ratedir/recording.rate" & rec_pid=$!
+wait "$ctl_pid" ||
     fail "rate: the control run exited non-zero or dumped no clock — hang, crash, or a stopped clock"
-rate_rec="$(rate_of recording --record "$ratedir/recording/s.rec")" ||
+wait "$rec_pid" ||
     fail "rate: the recording run exited non-zero or dumped no clock — hang, crash, or a stopped clock"
+rate_ctl="$(cat "$ratedir/control.rate")"
+rate_rec="$(cat "$ratedir/recording.rate")"
 
 # The band is wide on purpose, and the floor especially. It has one job -- separate real
 # time from a pinned step, which reads about 3.5 -- and two reasons not to be tight: boot
@@ -1047,7 +1064,8 @@ analog_ok="$(python3 -c "print(1 if $rateanalog <= $ratepolls // 10 else 0)")"
 modaldir="$(mktemp -d)"
 clean_add "$modaldir"
 
-ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$modaldir/s.rec" \
+# ctl_paced: the pacing is what this arm measures, so the harness's --no-pace stays off.
+ctl_paced --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$modaldir/s.rec" \
     --exec-at 40 "key up 200" \
     --exec-at 295 "dumpstate $modaldir/w0.json" \
     --exec-at 300 "cube 154" \
@@ -1450,16 +1468,18 @@ legout="$(LBA2_USER_DIR="$legdir" ctl --fixed-dt 16 \
     --replay "$REPO/tests/automation/recordings/legacy-v10.rec" --tick 400 --exit 2>&1)" ||
     fail "legacy no --load: replay run exited non-zero ($?); it hung or crashed"
 
-case "$legout" in
-*"consistency failure"*)
-    fail "legacy no --load: $(printf '%s\n' "$legout" | grep -m1 'consistency failure')"
-    ;;
-esac
 legsummary="$(printf '%s\n' "$legout" | grep -m1 'replay ended')" ||
     fail "legacy no --load: replay printed no summary"
-case "$legsummary" in
-*"first hash mismatch -1"*) ;;
-*) fail "legacy no --load: $legsummary" ;;
+legchecked="$(printf '%s\n' "$legsummary" | sed -n 's/.*: \([0-9]*\) ticks checked.*/\1/p')"
+[ "$legchecked" = "198" ] ||
+    fail "legacy no --load: read ${legchecked:-0} ticks, the file holds 198 — the reader has lost the stream"
+# A boot that missed the sibling diverges at tick 0; a later tick is play (see the
+# legacy arm above), so it is printed, not failed.
+legfirst="$(printf '%s\n' "$legsummary" | sed -n 's/.*first hash mismatch \(-\{0,1\}[0-9]*\).*/\1/p')"
+case "$legfirst" in
+-1) ;;
+0 | "") fail "legacy no --load: $legsummary" ;;
+*) echo "note: legacy no --load: sibling loaded; play differs from tick $legfirst" ;;
 esac
 
 [ "$(md5sum <"$legsib")" = "$legsum_before" ] ||

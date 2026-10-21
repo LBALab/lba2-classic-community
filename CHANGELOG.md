@@ -10,7 +10,71 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Display & render
+
+- Outdoors, the thin seams where two parts of an island meet are mostly
+  gone. The ground, sea and sky are now drawn with the whole-number maths the
+  1997 game used on 486 and non-Intel processors, so neighbouring parts agree
+  on the edge they share, and they draw the same on every platform. On a
+  64-bit Android phone, frames with the camera turning outdoors took about a
+  third less time. It is a retail fix, so **Fix retail bugs** set to No in
+  Advanced options brings back the old drawing, seams included
+  ([#807](https://github.com/LBALab/lba2-classic-community/pull/807)).
+- Outdoors in the storm, raindrops splash on the ground again while the Auto
+  camera moves. The camera redraws the scene on every frame it moves, and each
+  redraw cleared the splashes before they were first drawn, so you only saw
+  them while the camera stood still
+  ([#810](https://github.com/LBALab/lba2-classic-community/pull/810)).
+- On Zeelich, playing the ferryman's song at the Wannies, Mosquibees and
+  Island Under Celebration landings brings rain with the lightning again, as
+  in the original. The storm itself still stays on Citadel Island
+  ([#812](https://github.com/LBALab/lba2-classic-community/pull/812)).
+
+### Input & controller
+
+- Dragging the camera with the right mouse button orbits smoothly again with
+  VSync off or on a display faster than 60 Hz. Above 60 frames a second the
+  mouse left and re-entered relative mode on every game step, so the camera
+  jittered back and forth over a short arc instead of following the drag
+  ([#803](https://github.com/LBALab/lba2-classic-community/issues/803)).
+
+### Build & packaging
+
+- The Android packaging script stops with a message when SDL's Java sources
+  or `libSDL3.so` are not where its arguments point, instead of building an APK
+  that installs and then cannot start
+  ([#811](https://github.com/LBALab/lba2-classic-community/pull/811)).
+- The macOS build starts again on macOS 11 (Big Sur) and later. Since 0.12 the
+  game itself was marked as needing macOS 26, the version on the machine that
+  builds the releases, so earlier macOS versions refused to open it
+  ([#813](https://github.com/LBALab/lba2-classic-community/issues/813)).
+- The macOS download now runs on Intel Macs too. It is one universal app for
+  Apple Silicon and Intel, `lba2cc-<version>-macos-universal.dmg`, in place of
+  the Apple Silicon-only `macos-arm64` DMG.
+
+### Tests
+
+- The engine-driving test suite times every test and sorts them into small,
+  medium and big, so a change can be checked against the small ones in about
+  ten seconds; `tests/automation/run.sh -j 8` runs them side by side. On an
+  Apple Silicon Mac the whole suite went from about 15 minutes to under 4.
+  `--no-pace` lets a scripted run record without being held to real time, and
+  the Docker and host test suites run in parallel too. The suite also runs on
+  macOS now, where one test had passed without loading the save it tests, and
+  on Windows the tests that handed the game a temporary path it could not open
+  pass ([#814](https://github.com/LBALab/lba2-classic-community/pull/814)).
+
+### Contributors
+
+Thanks to EPmager for reporting the jittery mouse orbit with VSync off, with a
+video of all four cases
+([#803](https://github.com/LBALab/lba2-classic-community/issues/803)).
+Thanks to EPmager for checking that the seams between parts of an island are
+in the 1997 game, and for raising them again for HD and the Auto camera
+([#144](https://github.com/LBALab/lba2-classic-community/issues/144)).
+Thanks to lev1voloshin for reporting that the macOS build would not open on
+macOS 15, with a screenshot of the message
+([#813](https://github.com/LBALab/lba2-classic-community/issues/813)).
 
 ## [0.13.1] - 2026-10-20
 

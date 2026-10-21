@@ -19,6 +19,7 @@
 # for the blend to take away, which the run with the setting at 0 shows is there.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: medium
 TESTNAME=camzone_blend
 . "$(dirname "$0")/lib.sh"
 . "$(dirname "$0")/camlib.sh"

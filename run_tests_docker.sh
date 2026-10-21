@@ -279,7 +279,9 @@ docker run --rm \
             if [ -n "${CTEST_REGEX}" ]; then
                 ctest --test-dir build -V -R "${CTEST_REGEX}"
             else
-                ctest --test-dir build --output-on-failure
+                # In parallel: the suite runs 32-bit code under emulation on an Apple
+                # Silicon host, where one at a time took 225 s.
+                ctest --test-dir build --output-on-failure -j"$(nproc)"
             fi
         fi
     ' 2>&1 | tee "${TEST_LOG}"

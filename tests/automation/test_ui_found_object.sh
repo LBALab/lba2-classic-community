@@ -5,6 +5,7 @@
 # shows "Tu viens de retrouver ton Holomap!" with the holomap object).
 #
 # Regenerate the golden with: LBA2_UI_REGEN=1 bash tests/automation/test_ui_found_object.sh
+# Tier: small
 TESTNAME=ui_found_object
 . "$(dirname "$0")/lib.sh"
 precheck

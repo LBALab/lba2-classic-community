@@ -19,6 +19,7 @@
 # view puts them, some ten thousand pixels away.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: medium
 TESTNAME=icon_blend_camera
 . "$(dirname "$0")/lib.sh"
 precheck

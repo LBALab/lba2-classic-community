@@ -3,6 +3,7 @@
 # compare to the committed golden.  Fixture: Anon1 (Citadel Island).
 #
 # Regenerate the golden with: LBA2_UI_REGEN=1 bash tests/automation/test_ui_holomap.sh
+# Tier: small
 TESTNAME=ui_holomap
 . "$(dirname "$0")/lib.sh"
 precheck

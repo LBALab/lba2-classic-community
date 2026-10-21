@@ -11,6 +11,7 @@
 # -> TRUE in the flushed log). Isolated XDG dir so we read only this run's log.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: small
 TESTNAME=skip_modals
 . "$(dirname "$0")/lib.sh"
 precheck

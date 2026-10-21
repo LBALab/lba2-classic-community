@@ -61,9 +61,12 @@ bash scripts/packaging/bundle-android.sh \
 adb install -r dist/lba2cc-*-android-arm64-v8a.apk
 ```
 
-`--sdl3-lib` is required — without it `libSDL3.so` is omitted from the APK
-and the app fails to load. `--cxx-shared-lib` points the bundler at the
-NDK's `libc++_shared.so`; CI passes both explicitly.
+`--sdl3-lib` is required and takes `libSDL3.so` or the folder holding it.
+`--sdl3-java-src` takes the SDL3 source root, the folder holding
+`android-project/`, not the Java folder inside it. The bundler stops with a
+message when either misses, rather than building an APK that installs and then
+fails to start. `--cxx-shared-lib` points the bundler at the NDK's
+`libc++_shared.so`; CI passes all three explicitly.
 
 ## 16 KB page support
 

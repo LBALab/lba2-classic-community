@@ -20,6 +20,7 @@
 #   4. an empty config is a config to fill in, not a fatal
 #
 # Local-only (needs the binary and retail data); skips cleanly otherwise.
+# Tier: small
 TESTNAME=config_upgrade
 . "$(dirname "$0")/lib.sh"
 precheck

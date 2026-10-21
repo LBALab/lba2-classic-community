@@ -10,6 +10,7 @@
 #
 # This needs no engine and no game data: it feeds the reader a capture written out by hand, in
 # the shapes the collisions take, and checks what comes back.
+# Tier: small
 TESTNAME=camlib_tsv
 . "$(dirname "$0")/lib.sh"
 . "$(dirname "$0")/camlib.sh"

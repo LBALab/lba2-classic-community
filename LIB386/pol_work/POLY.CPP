@@ -548,6 +548,20 @@ S32 Fill_ClipYMax(S32 Nb_Points, Struc_Point *Ptr_Points) {
     return Fill_Clip(Nb_Points, Ptr_Points, CLIP_YMAX);
 }
 
+// Truncation for the span of one triangle, as the ASM's fldcw [Status_Int] ..
+// fldcw [Status_Float] pair. Restores round-to-nearest however the triangle
+// returns.
+struct TriangleTruncateScope {
+    TriangleTruncateScope() {
+        RoundType = ROUND_TYPE_INT;
+        fesetround(FE_TOWARDZERO);
+    }
+    ~TriangleTruncateScope() {
+        RoundType = ROUND_TYPE_FLOAT;
+        fesetround(FE_TONEAREST);
+    }
+};
+
 // ╔════════════════════════════════════════════════════════════════════════════════╗
 // ║  Draw_Triangle : Remplissage d'un triangle                                     ║
 // ╟────────────────────────────────────────────────────────────────────────────────╢
@@ -657,9 +671,12 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points) {
     // esi = Fill_LeftPoint = PtA
     // edi = leftPoint = PtB
     // ebp = rightPoint = PtC
-    // ASM sets fldcw [Status_Int] here — truncation rounding mode
-    RoundType = ROUND_TYPE_INT;
-    fesetround(FE_TOWARDZERO);
+    // ASM sets fldcw [Status_Int] here — truncation rounding mode — and
+    // fldcw [Status_Float] (round-to-nearest) at @@End. The whole triangle
+    // (slopes, edges, filler) is drawn inside this scope; every lrint after
+    // it, in the engine too, expects round-to-nearest, so the guard restores
+    // it on every exit.
+    TriangleTruncateScope truncate;
 
     Struc_Point *PtA = Fill_LeftPoint;
     Struc_Point *PtB = leftPoint;
@@ -680,7 +697,6 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points) {
 
     if (raw_Denom == 0) {
         LIB386_TRACE_CPP("Draw_Triangle", "9", "denom==0, early return");
-        RoundType = ROUND_TYPE_FLOAT;
         return Fill_LeftSlope;
     }
 
@@ -693,8 +709,6 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points) {
 
     // ASM hardcodes Jmp_XSlopeZBufFPU regardless of rendering mode
     S32 result = Jmp_XSlopeZBufFPU[Fill_Type](Fill_Type, PtA, PtB, PtC);
-    // ASM restores fldcw [Status_Float] — round-to-nearest mode
-    RoundType = ROUND_TYPE_FLOAT;
     LIB386_TRACE_CPP("Draw_Triangle", "9", "return=%d LeftSlope=%d", result, Fill_LeftSlope);
     return result;
 }

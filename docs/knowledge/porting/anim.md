@@ -4,13 +4,13 @@ title: "Porting status, LIB386/ANIM"
 description: "Per-routine equivalence status of the 10 ASM and C++ pairs under LIB386/ANIM, projected from ASM_VALIDATION_PROGRESS.md."
 status: stable
 subsystem: anim
-generated: { by: process:knowledge-porting, at: 2026-05-08T15:33:38Z }
-stale_after: 2026-11-04T15:33:38Z
+generated: { by: process:knowledge-porting, at: 2026-10-21T09:07:33Z }
+stale_after: 2027-04-19T09:07:33Z
 sources:
   - id: progress
     resource: ../../ASM_VALIDATION_PROGRESS.md
     title: ASM to C validation progress
-    last_modified: 2026-05-08T15:33:38Z
+    last_modified: 2026-10-21T09:07:33Z
   - id: reference
     resource: ../../ASM_TO_CPP_REFERENCE.md
     title: ASM to C++ reference

@@ -89,6 +89,34 @@ static void testUpdate(void) {
     MouseCapture_Update();
     expectMode(MOUSE_CAPTURE_FREE, "windowed with confine 1");
 
+    // Above the step rate most gameplay frames skip the simulation, where the
+    // camera asks; the loop carries the request over them. Eight frames a step
+    // must keep relative mode throughout, with nothing re-applied.
+    MouseCapture_RequestOrbit();
+    MouseCapture_Update();
+    expectMode(MOUSE_CAPTURE_RELATIVE, "orbit before the skipped frames");
+    {
+        const int before = s_relativeCalls;
+        for (int step = 0; step < 4; step++) {
+            for (int frame = 0; frame < 7; frame++) {
+                MouseCapture_CarryOrbit();
+                MouseCapture_Update();
+                expectMode(MOUSE_CAPTURE_RELATIVE, "a frame that skips the simulation keeps the orbit");
+            }
+            MouseCapture_RequestOrbit();
+            MouseCapture_Update();
+        }
+        expect(s_relativeCalls == before, "relative mode is not toggled between steps");
+    }
+    // A menu's own loop does not carry: the second present ends it as before.
+    MouseCapture_Update();
+    MouseCapture_Update();
+    expectMode(MOUSE_CAPTURE_FREE, "relative ends once frames stop carrying");
+    // Carrying makes no request of its own.
+    MouseCapture_CarryOrbit();
+    MouseCapture_Update();
+    expectMode(MOUSE_CAPTURE_FREE, "a carry with no orbit under way does nothing");
+
     // The console while orbiting gets a cursor back.
     MouseConfine = MOUSE_CONFINE_ALWAYS;
     s_consoleOpen = 1;

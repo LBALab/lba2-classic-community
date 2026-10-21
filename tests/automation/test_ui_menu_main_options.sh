@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # The presented Options page must replace every pixel of the main menu.
+# Tier: medium
 TESTNAME=ui_menu_main_options
 . "$(dirname "$0")/lib.sh"
 precheck

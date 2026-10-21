@@ -28,6 +28,7 @@
 # Runs in an exterior, where the Auto camera and its analog orbit live. The default
 # config wants the right button held for the drag orbit, which is why the injected
 # button mask matters as much as the motion.
+# Tier: medium
 TESTNAME="record_analog"
 . "$(dirname "$0")/lib.sh"
 precheck

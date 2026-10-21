@@ -11,6 +11,7 @@
 # Asserts the engine survives each switch, the right [control] echoes come
 # out for both success and error paths, and the recommended list always
 # contains the 640x480 classic anchor.
+# Tier: medium
 TESTNAME=res_switch_console
 . "$(dirname "$0")/lib.sh"
 precheck

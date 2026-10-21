@@ -5492,7 +5492,8 @@ startaffscene:
             UnsetClipWindow();
         }
 
-        ClearImpactRain();
+        if (!KeepImpactRain)
+            ClearImpactRain();
 
     case AFF_ALL_NO_FLIP:
         LockTimer();
@@ -5860,7 +5861,7 @@ startaffscene:
 
     /*------------------------------------------------------------------------*/
     if (CubeMode == CUBE_EXTERIEUR) {
-        if (Island == 0 AND TEMPETE_ACTIVE AND RainEnable)
+        if (RAIN_FALLS AND RainEnable)
             AffRain();
 
         SetCLUT(PalLevel);
