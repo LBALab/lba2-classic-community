@@ -567,6 +567,14 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 1;
             continue;
         }
+        if (!strcmp(a, "--no-pace")) {
+            /* A recording holds the game to real time, for the player making it. A scripted
+               run has no player, so the harness asks for the step without the wait: the
+               recording is the same, only sooner. Describes the run, so no s_active. */
+            Timer_RefusePacing(1);
+            read += 1;
+            continue;
+        }
         if (!strcmp(a, "--no-audio")) {
             /* Boolean flag — skip InitAIL() and InitSampleDriver() at boot so
                the SDL audio subsystem never opens a stream and the dummy

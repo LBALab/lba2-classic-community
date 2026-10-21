@@ -46,6 +46,7 @@ static S32 FixedDtTicking = 0;        // set on the first tick advance; gates pr
 static S32 FixedDtSkipPresent = 0;    // makes the first present after each tick advance free
 static S32 FixedDtOverlayPresent = 0; // the next present draws an overlay, not a frame
 static S32 FixedDtPaced = 0;          // spend real time per step; see Timer_SetFixedDtPaced
+static S32 PacingRefused = 0;         // --no-pace; see Timer_RefusePacing
 static U32 PaceAnchor = 0;            // wall clock when pacing was armed or last re-anchored
 static U32 PaceSteps = 0;             // steps minted since then
 static S32 SimAudioClock = 0;         // see Timer_SimAudioClock (TIMER.H)
@@ -263,11 +264,17 @@ S32 Timer_FixedDtActive() {
 }
 
 void Timer_SetFixedDtPaced(S32 on) {
-    FixedDtPaced = on ? 1 : 0;
+    FixedDtPaced = (on && !PacingRefused) ? 1 : 0;
     /* Anchor on the arm, not on the first step: the caller arms this at the moment it
        wants real time to start counting from. */
     PaceAnchor = g_platform.system.ticks_ms();
     PaceSteps = 0;
+}
+
+void Timer_RefusePacing(S32 refuse) {
+    PacingRefused = refuse ? 1 : 0;
+    if (PacingRefused)
+        FixedDtPaced = 0;
 }
 
 void Timer_SetSimAudioClock(S32 on) {

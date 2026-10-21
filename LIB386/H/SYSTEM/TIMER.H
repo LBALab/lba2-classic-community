@@ -91,6 +91,12 @@ void Timer_FixedDtPumpPolled();
 // that skips itself. Inert outside fixed-dt. Cleared when the clock is disarmed.
 void Timer_SetFixedDtPaced(S32 on);
 
+// Refuse the above for the rest of the run: Timer_SetFixedDtPaced(1) then leaves the clock
+// unpaced. For a scripted run that records (--no-pace): nobody is playing, the input comes
+// from the script, so holding it to real time only makes it slower. What is recorded does
+// not change, because the pinned clock hands out the same steps either way.
+void Timer_RefusePacing(S32 refuse);
+
 /* Sleep until the wall clock reaches `target`; answers how far ahead of it the call was,
    negative when it was already past. For anything that mints a step of clock and has to
    spend the real time the step stands for. */
