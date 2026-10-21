@@ -129,7 +129,7 @@ jobs:
             *.AppImage.zsync
             lba2cc-*-linux-*.tar.gz
             lba2cc-*-windows-x64.zip
-            lba2cc-*-macos-arm64.dmg
+            lba2cc-*-macos-universal.dmg
             lba2cc-*-android-*.apk
             lba2cc-switch.zip
           # Keep the most recent stable v0.x.y tag as GitHub's "Latest"

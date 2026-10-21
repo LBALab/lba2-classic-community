@@ -69,7 +69,7 @@ chmod +x lba2cc-*-anylinux-*.AppImage
 
 ### macOS
 
-Download `lba2cc-<version>-macos-arm64.dmg`, open it, drag `LBA2 Classic Community.app` to Applications. First launch needs right-click → **Open** (macOS Gatekeeper blocks unsigned apps on double-click). The DMG ships its own README covering this — read it before the first launch.
+Download `lba2cc-<version>-macos-universal.dmg` (runs on Apple Silicon and Intel Macs, macOS 11 or later), open it, drag `LBA2 Classic Community.app` to Applications. First launch needs right-click → **Open** (macOS Gatekeeper blocks unsigned apps on double-click). The DMG ships its own README covering this — read it before the first launch.
 
 ### Windows
 
@@ -117,7 +117,7 @@ Run `./scripts/dev/check-tooling.sh` to see what your machine is missing. That c
 For platform-specific builds, use the presets in `CMakePresets.json` (all use the `Ninja` generator, so `ninja` must be on `PATH`):
 
 - **Linux:** `cmake --preset linux && cmake --build --preset linux`
-- **macOS:** `cmake --preset macos_arm64 && cmake --build --preset macos_arm64` (or `macos_x86_64`)
+- **macOS:** `cmake --preset macos_arm64 && cmake --build --preset macos_arm64` (or `macos_x86_64`, or `macos_universal` for both in one binary)
 - **Windows:** `cmake --preset windows_ucrt64 && cmake --build --preset windows_ucrt64` — see [docs/WINDOWS.md](docs/WINDOWS.md)
 - **Cross-compile Windows from Linux:** `cmake --preset cross_linux2win && cmake --build --preset cross_linux2win`. To skip the preset, use the toolchain file directly: `cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-i686.cmake`.
 - **Nintendo Switch homebrew:** `bash scripts/dev/build-switch.sh` — builds an SDL2 `.nro` and SD-card ZIP inside a digest-pinned devkitPro Docker image. No host SDK needed; hardware validation remains pending. See [docs/SWITCH.md](docs/SWITCH.md).

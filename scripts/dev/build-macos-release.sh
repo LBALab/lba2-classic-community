@@ -6,6 +6,8 @@
 # --preset to force the other arch (cross-arch build via --preset
 # macos_x86_64 on Apple Silicon works only if you have an x86_64 SDK
 # installed and Rosetta-friendly tooling — usually fine on a recent Xcode).
+# --preset macos_universal builds the arm64 + x86_64 binary CI ships; it
+# needs an SDL3 built for both architectures (brew's is single-arch).
 #
 # Outputs: dist/lba2cc-<version>-macos-<arch>.dmg
 #
@@ -65,6 +67,7 @@ else
     case "$PRESET" in
         macos_arm64)  ARCH="arm64"  ;;
         macos_x86_64) ARCH="x86_64" ;;
+        macos_universal) ARCH="universal" ;;
         *)
             echo "Unsupported preset: $PRESET" >&2
             exit 1

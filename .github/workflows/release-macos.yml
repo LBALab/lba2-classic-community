@@ -1,6 +1,6 @@
 name: Release macOS
 
-# Tag-triggered macOS DMG release (Apple Silicon). Build steps live in
+# Tag-triggered macOS DMG release (universal: Apple Silicon and Intel). Build steps live in
 # .github/workflows/reusable-build-macos.yml so release-latest.yml can
 # share them. See docs/RELEASING.md "Release workflow conventions" and
 # "Adding a new release target".

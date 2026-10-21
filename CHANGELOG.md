@@ -48,6 +48,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   game itself was marked as needing macOS 26, the version on the machine that
   builds the releases, so earlier macOS versions refused to open it
   ([#813](https://github.com/LBALab/lba2-classic-community/issues/813)).
+- The macOS download now runs on Intel Macs too. It is one universal app for
+  Apple Silicon and Intel, `lba2cc-<version>-macos-universal.dmg`, in place of
+  the Apple Silicon-only `macos-arm64` DMG.
 
 ### Contributors
 
