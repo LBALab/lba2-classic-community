@@ -259,8 +259,14 @@ static void BuildDisplayGraphicsMenu(void) {
     *p++ = MENU_ID_DISPLAY_TEXFILTER;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_ANTIALIAS;
+#ifndef __ANDROID__
+    /* SSAA multiplies the framebuffer per axis. The Android build clamps it
+       to Native in PERSO/GL_SetRenderQuality because 2x/4x at headset
+       resolution exceeds the mobile fill-rate and memory budget, so the row
+       would only offer values that cannot take effect. */
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_QUALITY;
+#endif
     DisplayGraphicsMenu[1] = (U16)((p - DisplayGraphicsMenu - 4) / 2);
 }
 
@@ -3751,6 +3757,7 @@ static void DisplayMenuApplyChoice(S32 select) {
         WriteConfigFile();
         break;
 
+#ifndef __ANDROID__
     case MENU_ID_DISPLAY_QUALITY:
         if (RenderQuality < 4)
             RenderQuality *= 2;
@@ -3759,6 +3766,7 @@ static void DisplayMenuApplyChoice(S32 select) {
         GL_SetRenderQuality(RenderQuality);
         WriteConfigFile();
         break;
+#endif
 #endif
 
     default:

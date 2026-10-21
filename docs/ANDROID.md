@@ -160,6 +160,10 @@ by editing the `kButtons[]` table (normalised 0..1 coordinates).
 - **Software renderer**: The game uses a software 8-bit→ARGB pipeline.
   Performance on modern ARM64 devices is acceptable at 640x480.
   On older 32-bit ARM (armeabi-v7a) devices, expect lower framerates.
+- **Graphics quality (SSAA)**: The Display → Graphics → Quality row is
+  desktop-only. Android fixes render quality at Native: 2x/4x SSAA at headset
+  resolution exceeds the mobile GPU's fill-rate and memory budget. Use
+  Antialiasing (MSAA×2 or SMAA) or the resolution ladder instead.
 - **CD audio**: CD-ROM music tracks are not available. Use the digital
   sample backend (`SOUND_BACKEND=sdl`).
 - **Text input**: Console commands still require a hardware keyboard. Save-game
