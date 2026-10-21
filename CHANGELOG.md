@@ -25,6 +25,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   redraw cleared the splashes before they were first drawn, so you only saw
   them while the camera stood still
   ([#810](https://github.com/LBALab/lba2-classic-community/pull/810)).
+- On Zeelich, playing the ferryman's song at the Wannies, Mosquibees and
+  Island Under Celebration landings brings rain with the lightning again, as
+  in the original. The storm itself still stays on Citadel Island
+  ([#812](https://github.com/LBALab/lba2-classic-community/pull/812)).
 
 ### Input & controller
 
