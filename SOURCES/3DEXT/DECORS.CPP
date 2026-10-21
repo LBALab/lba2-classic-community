@@ -166,8 +166,15 @@ int sub_qsort_decors(const void *a, const void *b) {
 /*══════════════════════════════════════════════════════════════════════════*/
 // sous routine de tri temporaire
 
+// Objects at the same depth keep the order they were listed in (Num), so the
+// draw order does not depend on the C library's qsort.
 int sub_qsort_decors_zbuf(const void *a, const void *b) {
-    return (((T_LIST_TRI *)b)->Zrot - ((T_LIST_TRI *)a)->Zrot);
+    const T_LIST_TRI *ta = (const T_LIST_TRI *)a;
+    const T_LIST_TRI *tb = (const T_LIST_TRI *)b;
+    if (ta->Zrot != tb->Zrot) {
+        return tb->Zrot - ta->Zrot;
+    }
+    return ta->Num - tb->Num;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
