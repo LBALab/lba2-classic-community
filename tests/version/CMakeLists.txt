@@ -15,3 +15,7 @@ add_test(NAME test_version_drift
 set_tests_properties(test_version_drift PROPERTIES
     LABELS host_quick
     REQUIRED_FILES "${CMAKE_BINARY_DIR}/VERSION.txt;${CMAKE_BINARY_DIR}/VERSION_GENERATED.h")
+
+add_test(NAME test_vita_package_version
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/check_vita_version.cmake)
+set_tests_properties(test_vita_package_version PROPERTIES LABELS host_quick)

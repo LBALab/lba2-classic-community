@@ -206,10 +206,9 @@ configure_file(${CMAKE_SOURCE_DIR}/packaging/appimage_env.sh.in
 # the binary on Windows builds via SOURCES/CMakeLists.txt; harmlessly
 # generated and ignored on non-Windows.
 #
-# Configure-time substitution: re-run cmake to refresh after VERSION or
-# git dirty-state changes. Release builds (CI on tag) run on fresh
-# checkouts so this is invisible there; for local dev it just means a
-# stale "Properties → Version" until reconfigure.
+# VERSION changes refresh configure-time package metadata automatically.
+# Git dirty-state changes still need a reconfigure for this metadata.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/VERSION")
 file(READ "${CMAKE_SOURCE_DIR}/VERSION" _LBA2_VER_RAW)
 string(STRIP "${_LBA2_VER_RAW}" LBA2_VERSION_STRING_CONFIG)
 if(GIT_EXECUTABLE AND EXISTS "${CMAKE_SOURCE_DIR}/.git"

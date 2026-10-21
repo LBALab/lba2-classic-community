@@ -81,6 +81,8 @@ root. CMake reads it, embeds it in the binary, and writes it to
 cut also bumps that file: `0.9.0-dev` → `0.9.0` for the release commit,
 then `0.10.0-dev` for the next development cycle.
 
+Console package metadata follows the same root `VERSION` file. Switch keeps the full string in its NACP display version (up to 15 bytes). Vita retains only the major and minor components, zero-padded to `NN.NN`: `0.13.2` becomes `00.13`. Patch releases intentionally share a Vita package version; the engine still reports its full version. No separate console version bump is needed. Changes to `VERSION` trigger CMake reconfiguration on the next build so local packages do not retain stale metadata.
+
 ```bash
 VERSION=v0.9.0
 DATE=$(date +%Y-%m-%d)

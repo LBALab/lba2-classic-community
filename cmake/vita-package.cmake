@@ -1,11 +1,10 @@
 include("${VITASDK}/share/vita.cmake" REQUIRED)
+include("${CMAKE_SOURCE_DIR}/cmake/vita-version.cmake")
 
 # Deployment reads the generated title-id.txt rather than duplicating this ID.
 set(LBA2_VITA_TITLE_ID "LBA2CC001")
-set(LBA2_VITA_APP_VERSION "00.01" CACHE STRING "Vita package version (NN.NN; engine version remains in VERSION)")
-if(NOT LBA2_VITA_APP_VERSION MATCHES "^[0-9][0-9]\\.[0-9][0-9]$")
-    message(FATAL_ERROR "LBA2_VITA_APP_VERSION must have the Vita NN.NN format.")
-endif()
+string(STRIP "${_LBA2_VER_RAW}" _VITA_ENGINE_VERSION)
+lba2_vita_package_version("${_VITA_ENGINE_VERSION}" LBA2_VITA_APP_VERSION)
 file(WRITE "${CMAKE_BINARY_DIR}/packaging/vita-title-id.txt" "${LBA2_VITA_TITLE_ID}\n")
 configure_file("${CMAKE_SOURCE_DIR}/packaging/vita-readme.txt.in"
     "${CMAKE_BINARY_DIR}/packaging/vita-README.txt" @ONLY)
