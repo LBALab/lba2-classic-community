@@ -26,11 +26,12 @@ static const T_SETTING RetailFixSettings[] = {
     /* #144. The exterior terrain, sea and sky draw on the 1997 integer path
        instead of the float one, without the 1-unit nudge (TERRAIN.CPP). Recorded:
        rain splashes test the depths it draws and draw from the shared random
-       stream. */
+       stream. Added after the header carried every row, so a recording without
+       it predates the fix and replays with it off. */
     {"RetailFixTerrainSeams", NULL, "fix_terrain_seams", &RetailFixOn[RETAIL_FIX_TERRAIN_SEAMS], SETTING_TRUTHY,
      1, 0, 1, NULL, NULL, RetailFix_FixChanged, NULL,
      "Retail fix: hairline seams show between the cubes of the outdoor ground", SETTING_RECORDED,
-     SETTING_BEFORE(0)},
+     SETTING_BEFORE(0), SETTING_ABSENT_BEFORE},
     {"RetailFixes", NULL, "fix_retail", &RetailFixes, SETTING_OR_DEFAULT, RETAIL_FIXES_YES, RETAIL_FIXES_NO,
      RETAIL_FIXES_CUSTOM, NULL, NULL, NULL, NULL,
      "Fix retail bugs: 0 no (the original's rules), 1 yes, 2 custom (each fix_ setting decides)", SETTING_RECORDED,
@@ -58,6 +59,11 @@ static void RetailFix_FixChanged(S32 value) {
 S32 RetailFix_On(T_RETAIL_FIX fix) {
     if ((S32)fix < 0 || fix >= RETAIL_FIX_COUNT)
         return 0;
+    /* A replay of a recording made before this fix existed borrowed its value
+       from before (SETTING_ABSENT_BEFORE): the build it was made on had no such
+       fix, so the master row, which the recording may carry, does not decide. */
+    if (Settings_BorrowedAbsent(&RetailFixSettings[fix]))
+        return RetailFixOn[fix] ? 1 : 0;
     return RetailFix_Effective(RetailFixes, RetailFixOn[fix]);
 }
 

@@ -8,6 +8,7 @@
  * the options menu replays that write. So the writer itself persists what it is to give
  * back, and this checks that through a real cfg file.
  */
+#include "RETAILFIX.H"
 #include "SETTINGS.H"
 #include "test_harness.h"
 
@@ -180,6 +181,78 @@ static void test_a_borrow_and_its_return_leave_the_linked_row_alone(void) {
     ASSERT_EQ_INT(0, Settings_Borrowing());
 }
 
+/* A row added after recordings carried every row: a recording without it
+   predates it, and the replay borrows the row's value from before. */
+static S32 g_newRow = 1;
+static const T_SETTING kAbsent[] = {
+    {"NewRow", NULL, NULL, &g_newRow, SETTING_TRUTHY, 1, 0, 1, NULL, NULL, NULL, NULL, NULL, SETTING_RECORDED,
+     SETTING_BEFORE(0), SETTING_ABSENT_BEFORE},
+    {"NoBefore", NULL, NULL, &g_camera, SETTING_TRUTHY, 0, 0, 1, NULL, NULL, NULL, NULL, NULL, SETTING_RECORDED,
+     SETTING_BEFORE_NONE, SETTING_ABSENT_BEFORE},
+};
+
+static void test_an_absent_row_borrows_its_value_from_before(void) {
+    Settings_ReturnBorrowed();
+    g_newRow = 1;
+    ASSERT_EQ_INT(1, Settings_BorrowAbsent(&kAbsent[0]));
+    ASSERT_EQ_INT(0, g_newRow);
+    ASSERT_EQ_INT(1, Settings_BorrowedAbsent(&kAbsent[0]));
+    Settings_ReturnBorrowed();
+    ASSERT_EQ_INT(1, g_newRow);
+    ASSERT_EQ_INT(0, Settings_BorrowedAbsent(&kAbsent[0]));
+}
+
+/* No value from before, nothing to borrow: the player's value stays. */
+static void test_an_absent_row_without_a_value_from_before_is_left(void) {
+    Settings_ReturnBorrowed();
+    g_camera = 1;
+    ASSERT_EQ_INT(0, Settings_BorrowAbsent(&kAbsent[1]));
+    ASSERT_EQ_INT(1, g_camera);
+    ASSERT_EQ_INT(0, Settings_BorrowedAbsent(&kAbsent[1]));
+}
+
+/* A borrow of a row the recording does carry is not marked absent. */
+static void test_an_ordinary_borrow_is_not_marked_absent(void) {
+    Settings_ReturnBorrowed();
+    g_newRow = 1;
+    Settings_Borrow(&kAbsent[0], 0);
+    ASSERT_EQ_INT(0, Settings_BorrowedAbsent(&kAbsent[0]));
+    Settings_ReturnBorrowed();
+}
+
+/* The case it is for: the terrain-seams fix under Fix retail bugs, Yes. A
+   recording that predates the fix replays with it off although the master says
+   Yes, leaves the master and the other fixes alone, and gives it all back. */
+static const T_SETTING *retail_row(T_RETAIL_FIX fix) {
+    S32 n = 0;
+    const T_SETTING *rows = RetailFix_Settings(&n);
+    ASSERT_EQ_INT(RETAIL_FIX_COUNT + 1, n);
+    return &rows[fix];
+}
+
+static void test_a_fix_the_recording_predates_is_off_under_yes(void) {
+    Settings_ReturnBorrowed();
+    const T_SETTING *seams = retail_row(RETAIL_FIX_TERRAIN_SEAMS);
+    ASSERT_EQ_INT(SETTING_ABSENT_BEFORE, seams->absent);
+    ASSERT_EQ_INT(RETAIL_FIXES_YES, RetailFixes);
+    ASSERT_EQ_INT(1, RetailFix_On(RETAIL_FIX_TERRAIN_SEAMS));
+
+    ASSERT_EQ_INT(1, Settings_BorrowAbsent(seams));
+    ASSERT_EQ_INT(0, RetailFix_On(RETAIL_FIX_TERRAIN_SEAMS));
+    ASSERT_EQ_INT(1, RetailFix_On(RETAIL_FIX_FOUND_OBJ_WALK));
+    ASSERT_EQ_INT(RETAIL_FIXES_YES, RetailFixes);
+
+    Settings_ReturnBorrowed();
+    ASSERT_EQ_INT(1, RetailFix_On(RETAIL_FIX_TERRAIN_SEAMS));
+    ASSERT_EQ_INT(RETAIL_FIXES_YES, RetailFixes);
+}
+
+/* The found-item fix keeps today's rule: a recording without its row replays on
+   the player's value. Only the terrain fix opted in. */
+static void test_the_found_item_fix_keeps_the_players_value(void) {
+    ASSERT_EQ_INT(SETTING_ABSENT_KEEP, retail_row(RETAIL_FIX_FOUND_OBJ_WALK)->absent);
+}
+
 int main(void) {
     RUN_TEST(test_a_borrow_installs_and_tells_the_owner);
     RUN_TEST(test_a_cfg_written_mid_borrow_keeps_the_players_value);
@@ -189,6 +262,11 @@ int main(void) {
     RUN_TEST(test_after_the_return_the_writer_persists_the_live_value);
     RUN_TEST(test_a_runtime_write_runs_the_linked_hook);
     RUN_TEST(test_a_borrow_and_its_return_leave_the_linked_row_alone);
+    RUN_TEST(test_an_absent_row_borrows_its_value_from_before);
+    RUN_TEST(test_an_absent_row_without_a_value_from_before_is_left);
+    RUN_TEST(test_an_ordinary_borrow_is_not_marked_absent);
+    RUN_TEST(test_a_fix_the_recording_predates_is_off_under_yes);
+    RUN_TEST(test_the_found_item_fix_keeps_the_players_value);
     Settings_ReturnBorrowed();
     remove(kCfgPath);
     TEST_SUMMARY();

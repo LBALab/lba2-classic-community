@@ -700,6 +700,17 @@ and before the header carried it ran on whatever the recorder had, which for the
 settings was on by default. A build that does not know a setting a recording carries names it as
 absent. Neither is a divergence; both say which settings the replay could not check.
 
+The exception is a setting added after the header carried every setting: a recording without it was
+made before it existed, so it ran on the setting's value from before, and the replay borrows that
+and says so (`SETTING_ABSENT_BEFORE` in `SETTINGS.H`). The terrain-seams retail fix,
+`RetailFixTerrainSeams`, is the one that does, because its depths reach rain splashes and the
+random stream: an older recording replays with the outdoor ground on the float path it was made
+on, whatever **Fix retail bugs** says, and the console reads
+
+```
+[rec] this recording predates RetailFixTerrainSeams: replaying at its value from before, 0 (yours: 1, given back when it ends)
+```
+
 **The console is not recorded, and used to take the clock with it.** Its toggle arrives as an
 SDL key event rather than through the polled key table the recorder samples, so a replay never
 opens it. Two consequences, both found by replaying a real session and both now fixed:

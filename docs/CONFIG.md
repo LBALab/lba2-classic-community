@@ -130,6 +130,10 @@ the reader cannot tell a key changed on purpose from one kept under Yes or No. S
 A fix that writes game state (a quest flag, a count) leaves it in the save. Switching the fix off
 later changes the rules from then on and does not undo what it wrote.
 
+A replay runs a fix the way its recording did: every fix row and the master row are recorded. A
+recording made before `RetailFixTerrainSeams` existed replays with it off, whatever `RetailFixes`
+says ([RECORDING.md](RECORDING.md)).
+
 ## How a key is declared
 
 A key is one row in a table, in the module that owns the setting. The cfg reader, the cfg writer and
