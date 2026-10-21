@@ -373,6 +373,9 @@ void CheckMenuDirections(void) {
                   "gamepad direction %d alternate %d", direction, alternate);
         }
     }
+    GamepadKeys[0].Key1 = K_GAMEPAD_RTRIGGER;
+    GamepadKeys[1].Key1 = K_GAMEPAD_LTRIGGER;
+    InitInput();
     HoldOnly(K_GAMEPAD_RTRIGGER);
     MyGetInput();
     CHECK((Input & I_UP) && !MenuInput_Get(), "RT moves forward, never navigates UI");
@@ -500,6 +503,52 @@ void CheckTouchGameplayLifetime(void) {
     TestConsoleSuppress = 0;
 }
 
+#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+void CheckCircleContextRelease(void) {
+    const U32 directions[] = {K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN,
+                              K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT};
+    RestoreInput();
+    InitInput();
+    ClearNoRepeatInput();
+    HoldNone();
+    MyGetInput();
+    for (int direction = 0; direction < 4; ++direction) {
+        HoldOnly(K_GAMEPAD_B);
+        MyGetInput();
+        CHECK(Input == I_RETURN, "fresh Circle press confirms in modal context");
+        InitWaitNoInput(I_INVENTORY | I_RETURN | I_MENUS);
+        MyGetGameplayInput();
+        CHECK(!Input, "held modal Circle must not become gameplay dodge");
+        HoldAdd(directions[direction]);
+        for (int frame = 0; frame < 3; ++frame) {
+            MyGetGameplayInput();
+            CHECK(Input == (1u << direction), "Circle remains blocked until physical release");
+        }
+        HoldAdd(K_X);
+        MyGetGameplayInput();
+        CHECK(Input == (I_ESQUIVE | (1u << direction)), "Circle suppression must not block keyboard dodge");
+        HoldRemove(K_X);
+        HoldRemove(K_GAMEPAD_B);
+        MyGetGameplayInput();
+        CHECK(Input == (1u << direction), "Circle release preserves held movement");
+        HoldAdd(K_GAMEPAD_B);
+        for (int frame = 0; frame < 3; ++frame) {
+            MyGetGameplayInput();
+            CHECK(Input == (I_ESQUIVE | (1u << direction)), "fresh Circle dodge remains held across gameplay frames");
+        }
+        MyGetInput();
+        CHECK(Input == (1u << direction), "held gameplay Circle must not confirm a modal");
+        HoldNone();
+        MyGetInput();
+        HoldOnly(K_GAMEPAD_B);
+        MyGetInput();
+        CHECK(Input == I_RETURN, "Circle release rearms modal confirmation");
+        HoldNone();
+        MyGetInput();
+    }
+}
+#endif
+
 void CheckMenuIgnoresConfig(void) {
     ResetMenuInput();
     WriteCfg(Line("WinMode: 1\nInput0_1: %u\nInput0_2: 0\n"
@@ -595,6 +644,8 @@ void CheckPausedMenuRelease(void) {
     for (int nested = 0; nested < 2; ++nested) {
         for (unsigned direction = 0; direction < sizeof(directions) / sizeof(directions[0]); ++direction) {
             ResetMenuInput();
+            GamepadKeys[0].Key1 = K_GAMEPAD_RTRIGGER;
+            InitInput();
             Timer_EnableFixedDt(16);
             Timer_FixedDtAdvance();
             ManageTime();
@@ -642,6 +693,9 @@ int main() {
     CheckMenuRebindIsolation();
     CheckMenuSuppression();
     CheckTouchGameplayLifetime();
+#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+    CheckCircleContextRelease();
+#endif
     CheckMenuIgnoresConfig();
     CheckConsoleMenuReplay();
     CheckPausedMenuRelease();

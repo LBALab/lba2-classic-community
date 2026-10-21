@@ -3,6 +3,7 @@
 #include <string.h> // memcpy
 
 #include <SYSTEM/INPUT.H>         // DefineInputKeys
+#include <SYSTEM/KEYBOARD.H>      // CheckKey
 #include <SYSTEM/KEYBOARD_KEYS.H> // K_*
 
 // The 1997 source carried two default layouts, DefKeysDefault for DOS and this
@@ -123,6 +124,7 @@ U32 NbInput = MAX_INPUT_SLOTS;
 
 #ifdef LBA2_GAMEPAD_STICK_LAYOUT
 static S32 s_gameplay = 0;
+static S32 s_circleSuppressed = 0;
 #endif
 
 //-------------------------------------------------------------------------
@@ -143,11 +145,15 @@ void InitInput(void) {
         CombinedInputKeys[n] = GamepadKeys[i].Key2;
         CombinedInputMasks[n++] = mask;
 #ifdef LBA2_GAMEPAD_STICK_LAYOUT
-        /* Circle retains its Return action in modal interfaces. */
-        if (!s_gameplay && i == 13) {
+        /* An action remap must not turn a held modal press into a new action. */
+        if (i == 13) {
             for (S32 key = n - 2; key < n; ++key)
-                if (CombinedInputKeys[key] == K_GAMEPAD_B)
-                    CombinedInputMasks[key] = 1u << 9;
+                if (CombinedInputKeys[key] == K_GAMEPAD_B) {
+                    if (s_circleSuppressed)
+                        CombinedInputMasks[key] = 0;
+                    else if (!s_gameplay)
+                        CombinedInputMasks[key] = 1u << 9;
+                }
         }
 #endif
     }
@@ -159,8 +165,15 @@ void InitInput(void) {
 
 void Bindings_SetGameplay(S32 gameplay) {
 #ifdef LBA2_GAMEPAD_STICK_LAYOUT
-    if (s_gameplay != (gameplay != 0)) {
-        s_gameplay = gameplay != 0;
+    gameplay = gameplay != 0;
+    S32 suppressed = s_circleSuppressed;
+    if (!CheckKey(K_GAMEPAD_B))
+        suppressed = 0;
+    else if (s_gameplay != gameplay)
+        suppressed = 1;
+    if (s_gameplay != gameplay || s_circleSuppressed != suppressed) {
+        s_gameplay = gameplay;
+        s_circleSuppressed = suppressed;
         InitInput();
     }
 #else

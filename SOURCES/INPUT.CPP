@@ -250,6 +250,7 @@ static void PollInput(void) {
 }
 
 void MyGetInput(void) {
+    Bindings_SetGameplay(0);
     TouchInput_SetGameplay(0);
     PollInput();
 }
@@ -259,7 +260,6 @@ void MyGetGameplayInput(void) {
     TouchInput_SetGameplay(!Console_IsOpen());
     PollInput();
     TouchInput_EndGameplayPoll();
-    Bindings_SetGameplay(0);
 }
 
 //***************************************************************************

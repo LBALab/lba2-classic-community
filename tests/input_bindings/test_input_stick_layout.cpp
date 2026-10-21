@@ -55,6 +55,8 @@ static void test_dodge_directions_and_modal_circle() {
         GetInput(0);
         ASSERT_EQ_UINT(I_ESQUIVE | (1u << i), Input);
     }
+    HoldNone();
+    GetInput(0);
     Bindings_SetGameplay(0);
     HoldOnly(K_GAMEPAD_B);
     GetInput(0);
