@@ -34,6 +34,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Thanks to EPmager for reporting the jittery mouse orbit with VSync off, with a
 video of all four cases
 ([#803](https://github.com/LBALab/lba2-classic-community/issues/803)).
+Thanks to EPmager for checking that the seams between parts of an island are
+in the 1997 game, and for raising them again for HD and the Auto camera
+([#144](https://github.com/LBALab/lba2-classic-community/issues/144)).
 
 ## [0.13.1] - 2026-10-20
 
