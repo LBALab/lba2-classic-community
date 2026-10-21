@@ -49,7 +49,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Apple Silicon Mac the whole suite went from about 15 minutes to under 4.
   `--no-pace` lets a scripted run record without being held to real time, and
   the Docker and host test suites run in parallel too. The suite also runs on
-  macOS now, where one test had passed without loading the save it tests.
+  macOS now, where one test had passed without loading the save it tests
+  ([#814](https://github.com/LBALab/lba2-classic-community/pull/814)).
 
 ### Contributors
 
