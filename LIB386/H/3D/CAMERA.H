@@ -74,11 +74,17 @@ void SetPosCameraI(S32 x, S32 y, S32 z);
 // One camera's world rotation and projection, picked once and called through,
 // as the Chooser bound a routine. Both read the live camera, so a path picked
 // before a SetPosCamera still draws from where the camera is now.
+
+// A world point through the path's matrix, into X0, Y0, Z0.
+typedef void(Func_CameraWorldRotate)(S32 x, S32 y, S32 z);
+// A rotated point to Xp, Yp; 0 when it is clipped.
+typedef S32(Func_CameraProject)(S32 x, S32 y, S32 z);
+
 typedef struct {
-    void (*WorldRotate)(S32 x, S32 y, S32 z); // world point through the path's matrix, into X0, Y0, Z0
-    S32 (*Project)
-    (S32 x, S32 y, S32 z); // rotated point to Xp, Yp; 0 when it is clipped
-    const S32 *Xr;         // the path's camera, rotated
+    Func_CameraWorldRotate *WorldRotate;
+    Func_CameraProject *Project;
+    // The path's camera, rotated.
+    const S32 *Xr;
     const S32 *Yr;
     const S32 *Zr;
 } T_CAMERA_PATH;
