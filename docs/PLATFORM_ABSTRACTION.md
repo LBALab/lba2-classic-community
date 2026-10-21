@@ -15,9 +15,9 @@ This implements the platform-decoupling and headless-backend parts of [discussio
 | `window` | Surface lifetime, logical/window/display dimensions, coordinate mapping, fullscreen/vsync/present filter/relative mouse/mouse grab, indexed-frame presentation |
 | `input` | Physical-key snapshot, layout-aware keycodes/names/modifiers, text input/cursor, gamepad lifetime and sampling |
 | `host` | Executable/current/preference/home paths, directory operations, message boxes, asynchronous folder requests, clipboard, allocator pairing |
-| `capabilities` | Meaningful windowed mode, temporary loss of a native window, touch-overlay support, gameplay touch recentering |
+| `capabilities` | Meaningful windowed mode, temporary loss of a native window |
 
-Finger events distinguish direct screen input from indirect devices such as Vita's rear panel. Vita advertises gameplay touch recentering without enabling the Android overlay; other backends leave this shortcut disabled.
+Finger events distinguish direct screen input from indirect devices such as Vita's rear panel. Bindings, modal remaps, overlay layouts and tap actions belong to [build-time input profiles](CONFIG.md#build-time-input-profiles), not backend capabilities. Vita selects a direct/front recenter tap with indirect/rear touch unbound; Android composes touch buttons with the same keyboard/full-controller defaults as desktop.
 
 [The platform CMake file](../LIB386/PLATFORM/CMakeLists.txt) selects exactly one implementation at build time:
 
@@ -170,7 +170,7 @@ Audio mixing remains AIL-owned. The software rasteriser and ASM-equivalence math
 
 | Target | Coverage |
 |---|---|
-| `test_platform_contract` | SDL-free link of real engine facades and input policy; C11 and C++98 header compilation (including absence of C99 integer-constant macros); event order, focus/audio/timer coupling, fixed-dt/wrap, input hooks, pad edges/hotplug, touch wake/reapply/release, full-buffer conversion, palette snapshots, zoom rectangles preserving the visible background and nested present/overlay ordering |
+| `test_platform_contract`, profile-specific input variants and `test_platform_custom_touch` | SDL-free link of real engine facades and input policy; C11 and C++98 header compilation (including absence of C99 integer-constant macros); event order, focus/audio/timer coupling, fixed-dt/wrap, input hooks, pad edges/hotplug, profile-selected touch wake/reapply/release, independent direct/indirect tap actions, alternate overlay geometry/key IDs, full-buffer conversion, palette snapshots, zoom rectangles preserving the visible background and nested present/overlay ordering |
 | `test_platform_sdl3` | Complete production table; physical-ID/keymap/modifier compatibility; exact event payloads and native polling housekeeping; fullscreen requests versus actual state, vsync, present filter read back from stretched pixels, relative mouse, cursor and text-input behavior; native virtual-gamepad sampling; paths/directory/allocator/error ownership; modal dispatch and worker-thread folder results; diagnostic severity/userdata; and byte-exact pixels read from the actual SDL renderer |
 | `test_platform_sdl3_staging` | The same conformance checks compiled with the persistent-buffer/upload path, including frame resizing |
 | `test_platform_sdl2` | Desktop SDL2 event payloads and borrowed text, unmodified mouse/finger coordinates, controller instance IDs and sampling, fullscreen rollback, host services/errors, diagnostics, lifecycle and byte-exact real-renderer frames |

@@ -58,22 +58,49 @@ add_executable(test_input_config
 target_link_libraries(test_input_config PRIVATE lba2_platform)
 
 get_target_property(_INPUT_CONFIG_SOURCES test_input_config SOURCES)
-add_executable(test_input_config_stick_layout ${_INPUT_CONFIG_SOURCES})
-target_compile_definitions(test_input_config_stick_layout PRIVATE LBA2_GAMEPAD_STICK_LAYOUT=1)
-target_link_libraries(test_input_config_stick_layout PRIVATE lba2_platform)
+add_executable(test_input_config_vita ${_INPUT_CONFIG_SOURCES})
+lba2_target_input_profile(test_input_config_vita "${CMAKE_SOURCE_DIR}/cmake/input/vita.cmake")
+target_link_libraries(test_input_config_vita PRIVATE lba2_platform)
+add_executable(test_input_config_alternate ${_INPUT_CONFIG_SOURCES})
+lba2_target_input_profile(test_input_config_alternate "${CMAKE_CURRENT_SOURCE_DIR}/alternate_profile.cmake")
+target_link_libraries(test_input_config_alternate PRIVATE lba2_platform)
+add_executable(test_input_config_android ${_INPUT_CONFIG_SOURCES})
+lba2_target_input_profile(test_input_config_android "${CMAKE_SOURCE_DIR}/cmake/input/android.cmake")
+target_link_libraries(test_input_config_android PRIVATE lba2_platform)
 
-foreach(target test_input_config test_input_config_stick_layout)
+foreach(target test_input_config test_input_config_vita test_input_config_alternate test_input_config_android)
     target_compile_definitions(${target} PRIVATE TEST_CFG_PATH="${target}.cfg")
 endforeach()
 
-add_executable(test_input_stick_layout
-    test_input_stick_layout.cpp held_keys.cpp
+add_test(NAME test_input_profile_config
+    COMMAND ${CMAKE_COMMAND}
+        "-DMODULE=${CMAKE_SOURCE_DIR}/cmake/input-profile.cmake"
+        "-DROOT=${CMAKE_SOURCE_DIR}"
+        "-DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/profile-config-tests"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/check_input_profile.cmake)
+set_tests_properties(test_input_profile_config PROPERTIES LABELS host_quick)
+
+set(_INPUT_CONFIG_SUPPORT ${_INPUT_CONFIG_SOURCES})
+list(REMOVE_ITEM _INPUT_CONFIG_SUPPORT test_input_config.cpp)
+add_executable(test_input_vita test_input_vita.cpp ${_INPUT_CONFIG_SUPPORT})
+lba2_target_input_profile(test_input_vita "${CMAKE_SOURCE_DIR}/cmake/input/vita.cmake")
+target_link_libraries(test_input_vita PRIVATE lba2_platform)
+
+foreach(target test_input_config test_input_config_vita test_input_config_alternate test_input_config_android test_input_vita)
+    add_dependencies(${target} lba2_embedded_cfg)
+endforeach()
+
+add_executable(test_input_context test_input_context.cpp held_keys.cpp
     ${CMAKE_SOURCE_DIR}/SOURCES/INPUT_BINDINGS.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT_FLOW.CPP)
-target_compile_definitions(test_input_stick_layout PRIVATE LBA2_GAMEPAD_STICK_LAYOUT=1)
+lba2_target_input_profile(test_input_context "${CMAKE_CURRENT_SOURCE_DIR}/alternate_profile.cmake")
 
-foreach(target test_input_bindings test_input_suppression test_input_reverse test_input_config test_input_config_stick_layout test_input_stick_layout)
+foreach(target test_input_bindings test_input_suppression test_input_reverse test_input_config)
+    lba2_target_input_profile(${target} "${CMAKE_SOURCE_DIR}/cmake/input/default.cmake")
+endforeach()
+
+foreach(target test_input_bindings test_input_suppression test_input_reverse test_input_config test_input_config_vita test_input_config_alternate test_input_config_android test_input_vita test_input_context)
     target_include_directories(${target} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_SOURCE_DIR}/LIB386/H

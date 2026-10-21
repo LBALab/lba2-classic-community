@@ -1,4 +1,5 @@
 #include "TOUCH_INPUT.H"
+#include <INPUT_PROFILE_CONFIG.H>
 
 #include "JOYSTICK.H" /* JoystickIsPresent: the pad half of the visibility rule */
 #include "INPUT_BINDINGS.H"
@@ -40,8 +41,8 @@ extern S32 LastInputWasKeyboard;
 /* ---------------------------------------------------------------------------
  * Constants
  * ---------------------------------------------------------------------------
- * Layout constants in normalised 0..1 coordinate space.  These are tuned
- * for a ~16:9 landscape phone held in both hands, thumbs on the screen.
+ * The Android profile uses normalised 0..1 coordinates tuned for a ~16:9
+ * landscape phone held in both hands, thumbs on the screen.
  *
  *    +--(ESC)---------(HIDE)---------(MEN)(CAM)-+
  *    |                                           |
@@ -53,59 +54,21 @@ extern S32 LastInputWasKeyboard;
  *    +-------------------------------------------+
  */
 
-#define NUM_TOUCH_BUTTONS 14
-
 /* Maximum simultaneous touch points we track. */
 #define MAX_FINGERS 8
 
-enum TouchButtonId {
-    BTN_ESC,
-    BTN_HIDE,
-    BTN_MENU,
-    BTN_CAMERA,
-    BTN_DPAD_UP,
-    BTN_DPAD_DOWN,
-    BTN_DPAD_LEFT,
-    BTN_DPAD_RIGHT,
-    BTN_ACTION,
-    BTN_SPACE,
-    BTN_ENTER,
-    BTN_ALT,
-    BTN_SHIFT,
-    BTN_CTRL,
-};
-
 typedef struct {
-    enum TouchButtonId id;
+    S32 hide;
     const char *label;
     float cx;     /* normalised centre X (0..1) */
     float cy;     /* normalised centre Y (0..1) */
     float rx;     /* normalised half-width */
     float ry;     /* normalised half-height */
-    U32 scanCode; /* SDL scancode to inject */
+    U32 scanCode; /* engine key ID to inject */
 } TouchButton;
 
-static const TouchButton kButtons[NUM_TOUCH_BUTTONS] = {
-    /* Top-left: ESC */
-    {BTN_ESC, "ESC", 0.065f, 0.045f, 0.055f, 0.038f, K_ESC},
-    /* Top-centre: dismiss the overlay until the next touch */
-    {BTN_HIDE, "HIDE", 0.48f, 0.045f, 0.055f, 0.038f, 0},
-    /* Top-right: Menu (F10) + Camera toggle */
-    {BTN_MENU, "MEN", 0.85f, 0.045f, 0.055f, 0.038f, K_F10},
-    {BTN_CAMERA, "CAM", 0.96f, 0.045f, 0.045f, 0.038f, K_BACKSPACE},
-    /* Bottom-left: D-pad (thumb zone) */
-    {BTN_DPAD_UP, "U", 0.10f, 0.65f, 0.055f, 0.048f, K_UP},
-    {BTN_DPAD_DOWN, "D", 0.10f, 0.85f, 0.055f, 0.048f, K_DOWN},
-    {BTN_DPAD_LEFT, "L", 0.04f, 0.75f, 0.040f, 0.048f, K_LEFT},
-    {BTN_DPAD_RIGHT, "R", 0.16f, 0.75f, 0.040f, 0.048f, K_RIGHT},
-    /* Bottom-right corner: action cluster */
-    {BTN_CTRL, "MD", 0.68f, 0.84f, 0.055f, 0.045f, K_CTRL},
-    {BTN_SPACE, "ACT", 0.81f, 0.84f, 0.065f, 0.050f, K_SPACE},
-    {BTN_ENTER, "USE", 0.94f, 0.84f, 0.055f, 0.045f, K_ENTER},
-    {BTN_ALT, "THR", 0.68f, 0.95f, 0.055f, 0.045f, K_ALT},
-    {BTN_SHIFT, "INV", 0.81f, 0.95f, 0.055f, 0.045f, K_SHIFT},
-    {BTN_ACTION, "W", 0.94f, 0.95f, 0.055f, 0.045f, K_W},
-};
+static const TouchButton kButtons[] = {LBA2_INPUT_TOUCH_BUTTONS{0, "", 0, 0, 1, 1, 0}};
+enum { NUM_TOUCH_BUTTONS = sizeof(kButtons) / sizeof(kButtons[0]) - 1 };
 
 /* ---------------------------------------------------------------------------
  * Visibility policy
@@ -115,7 +78,7 @@ static const TouchButton kButtons[NUM_TOUCH_BUTTONS] = {
  * input is accepted -- so there was nowhere to put a policy answer. They are
  * separate now:
  *
- *   s_supported   this build can draw an overlay at all: Android only.
+ *   s_supported   the build-time profile provides overlay buttons.
  *   s_tvDevice    leanback, so assume no touchscreen until a finger proves otherwise.
  *   s_lastTouchMs when a finger was last down, which drives the fade.
  *
@@ -160,25 +123,25 @@ typedef enum {
  * State
  * --------------------------------------------------------------------------- */
 
-static S32 s_supported = 0;   /* Android build: an overlay is possible here */
+static S32 s_supported = 0;   /* the profile provides overlay buttons */
 static S32 s_tvDevice = 0;    /* leanback: start off, but a finger still overrides */
 static S32 s_dismissed = 0;   /* HIDE was pressed; cleared by the next finger down */
 static U32 s_lastTouchMs = 0; /* g_platform.system.ticks_ms at the last finger-down/motion; 0 = never */
-static S32 s_pressed[NUM_TOUCH_BUTTONS];
-static U8 s_virtual_keys[256]; /* virtual key states in 0x80-bit format */
+static S32 s_pressed[NUM_TOUCH_BUTTONS + 1];
+static U8 s_virtual_keys[sizeof(TabKeys)];
 static S32 s_gameplay = 0;
 static S32 s_gameplayPoll = 0;
 static S32 s_focused = 1;
-static S32 s_recenterPending = 0;
-static U32 s_injectedIndex = 0;
-static U8 s_injectedBit = 0;
+static U32 s_actionPending = 0;
+static U8 s_injectedBits[sizeof(TabKeys)];
 
 /* Per-finger tracking: which button (or -1) each finger is on. */
 static struct {
     S32 buttonIndex; /* -1 = not touching any button */
     S32 touchId;     /* SDL finger ID */
-    S32 active;      /* 1 = slot in use */
-    S32 actuate;     /* 0 = this finger only woke the overlay, it presses nothing */
+    S32 indirect;
+    S32 active;  /* 1 = slot in use */
+    S32 actuate; /* 0 = this finger only woke the overlay, it presses nothing */
 } s_fingers[MAX_FINGERS];
 
 /* ---------------------------------------------------------------------------
@@ -193,9 +156,9 @@ static S32 FindFreeFingerSlot(void) {
     return -1;
 }
 
-static S32 FindFingerByTouchId(S32 touchId) {
+static S32 FindFingerByTouchId(S32 touchId, S32 indirect) {
     for (S32 i = 0; i < MAX_FINGERS; i++) {
-        if (s_fingers[i].active && s_fingers[i].touchId == touchId)
+        if (s_fingers[i].active && s_fingers[i].touchId == touchId && s_fingers[i].indirect == indirect)
             return i;
     }
     return -1;
@@ -303,68 +266,75 @@ static S32 HitTest(float nx, float ny) {
     return -1;
 }
 
+static S32 KeyAddress(U32 key, U32 *index, U8 *bit) {
+    *index = key < 256 ? key : 256 - 32 + (key >> 3);
+    *bit = key < 256 ? 0x80 : (U8)(1u << (key & 7));
+    return key != 0 && *index < sizeof(TabKeys);
+}
+
 static void SetButtonState(S32 idx, S32 pressed) {
     if (idx < 0 || idx >= NUM_TOUCH_BUTTONS)
         return;
     if (s_pressed[idx] == pressed)
         return;
     s_pressed[idx] = pressed;
-    U32 sc = kButtons[idx].scanCode;
-    if (sc < 256) {
-        if (pressed) {
-            TabKeys[sc] |= 0x80;
-            s_virtual_keys[sc] = 0x80;
-        } else {
-            TabKeys[sc] &= ~0x80;
-            s_virtual_keys[sc] = 0;
+    const U32 key = kButtons[idx].scanCode;
+    U32 index;
+    U8 bit;
+    if (!KeyAddress(key, &index, &bit))
+        return;
+    for (S32 i = 0; i < NUM_TOUCH_BUTTONS; ++i)
+        if (s_pressed[i] && kButtons[i].scanCode == key) {
+            TabKeys[index] |= bit;
+            s_virtual_keys[index] |= bit;
+            return;
         }
+    TabKeys[index] &= ~bit;
+    s_virtual_keys[index] &= ~bit;
+}
+
+static void InjectAction(S32 slot) {
+    U32 keys[4];
+    const S32 count = Bindings_KeysForSlot(slot, keys, 4);
+    for (S32 i = 0; i < count; ++i) {
+        U32 index;
+        U8 bit;
+        if (!KeyAddress(keys[i], &index, &bit))
+            continue;
+        if (!(TabKeys[index] & bit)) {
+            s_injectedBits[index] |= bit;
+            TabKeys[index] |= bit;
+        }
+        return;
     }
+    Log_Warn("Touch action has no usable binding for slot %d.", slot);
 }
 
 /* Re-apply virtual key states after UpdateKeyboardState clears TabKeys[0..255].
    Called from the weak hook in KEYBOARD.CPP:UpdateKeyboardState. */
 void ApplyVirtualKeys(void) {
-    if (s_recenterPending && s_gameplayPoll) {
-        s_recenterPending = 0;
-        U32 keys[4];
-        const S32 count = Bindings_KeysForSlot(9, keys, 4);
-        S32 injected = 0;
-        for (S32 i = 0; i < count; ++i) {
-            const U32 index = keys[i] < 256 ? keys[i] : 256 - 32 + (keys[i] >> 3);
-            const U8 bit = keys[i] < 256 ? 0x80 : (U8)(1u << (keys[i] & 7));
-            if (index >= sizeof(TabKeys))
-                continue;
-            if (!(TabKeys[index] & bit)) {
-                s_injectedIndex = index;
-                s_injectedBit = bit;
-                TabKeys[index] |= bit;
-            }
-            injected = 1;
-            break;
-        }
-        if (!injected)
-            Log_Warn("Touch recenter has no usable camera-recenter binding.");
+    if (s_gameplayPoll) {
+        for (S32 slot = 0; slot < 32; ++slot)
+            if (s_actionPending & (1u << slot))
+                InjectAction(slot);
+        s_actionPending = 0;
     }
-    for (S32 i = 0; i < NUM_TOUCH_BUTTONS; i++) {
-        U32 sc = kButtons[i].scanCode;
-        if (sc < 256 && s_virtual_keys[sc])
-            TabKeys[sc] |= 0x80;
-    }
+    for (U32 i = 0; i < sizeof(TabKeys); ++i)
+        TabKeys[i] |= s_virtual_keys[i];
 }
 
 void TouchInput_EndGameplayPoll(void) {
     s_gameplayPoll = 0;
-    if (s_injectedBit) {
-        TabKeys[s_injectedIndex] &= ~s_injectedBit;
-        s_injectedBit = 0;
-    }
+    for (U32 i = 0; i < sizeof(TabKeys); ++i)
+        TabKeys[i] &= ~s_injectedBits[i];
+    memset(s_injectedBits, 0, sizeof(s_injectedBits));
 }
 
 void TouchInput_SetGameplay(S32 gameplay) {
     s_gameplay = gameplay != 0;
     s_gameplayPoll = s_gameplay;
     if (!s_gameplay) {
-        s_recenterPending = 0;
+        s_actionPending = 0;
         TouchInput_EndGameplayPoll();
     }
 }
@@ -376,7 +346,7 @@ void TouchInput_SetGameplay(S32 gameplay) {
 void TouchOverlay_Init(void) {
     TouchInput_SetGameplay(0);
     s_focused = 1;
-    s_supported = g_platform.capabilities.touch_overlay ? 1 : 0;
+    s_supported = NUM_TOUCH_BUTTONS != 0;
     s_tvDevice = 0;
     if (s_supported) {
         s_tvDevice = IsAndroidTVDevice();
@@ -422,21 +392,24 @@ S32 TouchOverlay_HandleEvent(const PlatformEvent *event) {
     if (event == NULL)
         return 0;
 
-    if (g_platform.capabilities.touch_recenter) {
-        if (event->type == PLATFORM_EVENT_WINDOW_FOCUS_LOST) {
-            s_focused = 0;
-            s_recenterPending = 0;
-        } else if (event->type == PLATFORM_EVENT_WINDOW_FOCUS_GAINED) {
-            s_focused = 1;
-        } else if (event->type == PLATFORM_EVENT_FINGER_DOWN && !event->tfinger.indirect) {
-            if (s_gameplay && s_focused) {
-                s_recenterPending = 1;
-                LastInputWasKeyboard = 0;
-                return 1;
-            }
+    if (event->type == PLATFORM_EVENT_WINDOW_FOCUS_LOST) {
+        s_focused = 0;
+        s_actionPending = 0;
+    } else if (event->type == PLATFORM_EVENT_WINDOW_FOCUS_GAINED) {
+        s_focused = 1;
+    } else if (event->type == PLATFORM_EVENT_FINGER_DOWN) {
+        const S32 slot = event->tfinger.indirect ? LBA2_INPUT_INDIRECT_TOUCH_SLOT : LBA2_INPUT_DIRECT_TOUCH_SLOT;
+        if (slot >= 0 && s_gameplay && s_focused) {
+            s_actionPending |= 1u << slot;
+            LastInputWasKeyboard = 0;
+            return 1;
         }
     }
     if (!s_supported)
+        return 0;
+    if ((event->type == PLATFORM_EVENT_FINGER_DOWN || event->type == PLATFORM_EVENT_FINGER_UP ||
+         event->type == PLATFORM_EVENT_FINGER_MOTION) &&
+        !(event->tfinger.indirect ? LBA2_INPUT_OVERLAY_INDIRECT : LBA2_INPUT_OVERLAY_DIRECT))
         return 0;
 
     const PlatformEvent *ev = event;
@@ -468,13 +441,14 @@ S32 TouchOverlay_HandleEvent(const PlatformEvent *event) {
 
         s_fingers[slot].active = 1;
         s_fingers[slot].touchId = (S32)ev->tfinger.fingerID;
+        s_fingers[slot].indirect = ev->tfinger.indirect;
         s_fingers[slot].buttonIndex = idx;
         s_fingers[slot].actuate = actuate;
 
         if (idx < 0)
             break; /* empty glass: the wake above was the whole effect */
 
-        if (kButtons[idx].id == BTN_HIDE) {
+        if (kButtons[idx].hide) {
             /* Gated like any other button: a palm brush from a pad session
                wakes the overlay rather than dismissing it again. */
             if (actuate) {
@@ -492,7 +466,7 @@ S32 TouchOverlay_HandleEvent(const PlatformEvent *event) {
         break;
     }
     case PLATFORM_EVENT_FINGER_UP: {
-        S32 slot = FindFingerByTouchId((S32)ev->tfinger.fingerID);
+        S32 slot = FindFingerByTouchId((S32)ev->tfinger.fingerID, ev->tfinger.indirect);
         if (slot < 0)
             break;
         S32 idx = s_fingers[slot].buttonIndex;
@@ -507,7 +481,7 @@ S32 TouchOverlay_HandleEvent(const PlatformEvent *event) {
         break;
     }
     case PLATFORM_EVENT_FINGER_MOTION: {
-        S32 slot = FindFingerByTouchId((S32)ev->tfinger.fingerID);
+        S32 slot = FindFingerByTouchId((S32)ev->tfinger.fingerID, ev->tfinger.indirect);
         if (slot < 0)
             break;
         float nx = ev->tfinger.x;

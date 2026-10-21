@@ -5,7 +5,7 @@
  * the Input bitfield.
  *
  * Table lookups do no file IO or polling. The context switch reads the current
- * physical Circle state so a held press cannot change action across contexts.
+ * physical key state so a held press cannot change action across contexts.
  * INPUT.CPP owns config IO and sampling the keyboard, pad and console.
  *
  * INPUT.H includes this header, so the eighteen files that already include it
@@ -35,7 +35,7 @@ typedef struct {
     U32 Key2;
 } T_DEF_KEY;
 
-// The Windows 95 default layout: what RestoreInput installs, and the value a
+// The build-time keyboard profile: what RestoreInput installs, and the value a
 // binding the config file leaves unset falls back to. Const like the pad table
 // below it, since a default nothing may edit is the point of having one.
 extern const T_DEF_KEY DefKeysDefault95[MAX_INPUT_SLOTS + 1];
@@ -61,8 +61,8 @@ extern U32 NbInput;
 
 //-------------------------------------------------------------------------
 extern void InitInput(void);
-/* Modal interfaces keep Circle's Return action; context changes require release.
-   Call before every gameplay or modal poll to rearm a released Circle. */
+/* Apply the compiled context mappings. A held key whose effective actions change
+   must be released. Call before every poll to rearm released keys. */
 extern void Bindings_SetGameplay(S32 gameplay);
 //-------------------------------------------------------------------------
 extern void RestoreInput(void);
