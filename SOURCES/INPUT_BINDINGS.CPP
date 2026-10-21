@@ -123,9 +123,25 @@ const T_DEF_KEY GamepadKeysDefault[MAX_INPUT_SLOTS] = {
 U32 NbInput = MAX_INPUT_SLOTS;
 
 #ifdef LBA2_GAMEPAD_STICK_LAYOUT
+static S32 s_modalCircle = 1;
+#else
+static S32 s_modalCircle = 0;
+#endif
 static S32 s_gameplay = 0;
 static S32 s_circleSuppressed = 0;
-#endif
+
+U32 Bindings_GetContext(void) {
+    return (s_modalCircle ? BINDINGS_CONTEXT_MODAL_CIRCLE : 0) |
+           (s_gameplay ? BINDINGS_CONTEXT_GAMEPLAY : 0) |
+           (s_circleSuppressed ? BINDINGS_CONTEXT_CIRCLE_SUPPRESSED : 0);
+}
+
+void Bindings_SetContext(U32 context) {
+    s_modalCircle = (context & BINDINGS_CONTEXT_MODAL_CIRCLE) != 0;
+    s_gameplay = (context & BINDINGS_CONTEXT_GAMEPLAY) != 0;
+    s_circleSuppressed = (context & BINDINGS_CONTEXT_CIRCLE_SUPPRESSED) != 0;
+    InitInput();
+}
 
 //-------------------------------------------------------------------------
 void InitInput(void) {
@@ -144,9 +160,8 @@ void InitInput(void) {
         CombinedInputMasks[n++] = mask;
         CombinedInputKeys[n] = GamepadKeys[i].Key2;
         CombinedInputMasks[n++] = mask;
-#ifdef LBA2_GAMEPAD_STICK_LAYOUT
         /* An action remap must not turn a held modal press into a new action. */
-        if (i == 13) {
+        if (s_modalCircle && i == 13) {
             for (S32 key = n - 2; key < n; ++key)
                 if (CombinedInputKeys[key] == K_GAMEPAD_B) {
                     if (s_circleSuppressed)
@@ -155,7 +170,6 @@ void InitInput(void) {
                         CombinedInputMasks[key] = 1u << 9;
                 }
         }
-#endif
     }
 
     NbInput = (U32)n;
@@ -164,7 +178,8 @@ void InitInput(void) {
 }
 
 void Bindings_SetGameplay(S32 gameplay) {
-#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+    if (!s_modalCircle)
+        return;
     gameplay = gameplay != 0;
     S32 suppressed = s_circleSuppressed;
     if (!CheckKey(K_GAMEPAD_B))
@@ -176,9 +191,6 @@ void Bindings_SetGameplay(S32 gameplay) {
         s_circleSuppressed = suppressed;
         InitInput();
     }
-#else
-    (void)gameplay;
-#endif
 }
 
 //-------------------------------------------------------------------------

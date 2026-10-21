@@ -64,6 +64,14 @@ extern void InitInput(void);
 /* Modal interfaces keep Circle's Return action; context changes require release.
    Call before every gameplay or modal poll to rearm a released Circle. */
 extern void Bindings_SetGameplay(S32 gameplay);
+/* The remapping mode, selected context and physical release latch travel with
+   replay bindings, independently of the receiving build's default layout. */
+#define BINDINGS_CONTEXT_MODAL_CIRCLE 1u
+#define BINDINGS_CONTEXT_GAMEPLAY 2u
+#define BINDINGS_CONTEXT_CIRCLE_SUPPRESSED 4u
+#define BINDINGS_CONTEXT_MASK 7u
+extern U32 Bindings_GetContext(void);
+extern void Bindings_SetContext(U32 context);
 //-------------------------------------------------------------------------
 extern void RestoreInput(void);
 //-------------------------------------------------------------------------
