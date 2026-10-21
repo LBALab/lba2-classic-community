@@ -20,6 +20,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   third less time. It is a retail fix, so **Fix retail bugs** set to No in
   Advanced options brings back the old drawing, seams included
   ([#807](https://github.com/LBALab/lba2-classic-community/pull/807)).
+- Outdoors in the storm, raindrops splash on the ground again while the Auto
+  camera moves. The camera redraws the scene on every frame it moves, and each
+  redraw cleared the splashes before they were first drawn, so you only saw
+  them while the camera stood still.
 
 ### Input & controller
 
