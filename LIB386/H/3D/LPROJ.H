@@ -19,6 +19,13 @@ extern Func_LongProjectPoint *LongProjectPoint;
 extern Func_LongProjectPoint LongProjectPointIso; ///< Do Not call from C
 extern Func_LongProjectPoint LongProjectPoint3D;  ///< Do Not call from C
 
+// The 1997 integer path (LPROJ3DI.ASM): truncating integer divide.
+extern S32 LongProjectPoint3DI(S32 x, S32 y, S32 z);
+
+// lba2cc: LongProjectPoint3DI against an explicit camera, rounded to nearest
+// (ties to even) so it lands where the float projection does. LPROJ3DI.CPP.
+extern S32 LongProjectPointIRound(S32 x, S32 y, S32 z, S32 camXr, S32 camYr, S32 camZr);
+
 // -----------------------------------------------------------------------------
 typedef void(Func_ProjectList)(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
                                S32 OrgY, S32 OrgZ);
