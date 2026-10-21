@@ -32,9 +32,6 @@ target_compile_definitions(test_numeric_contract PRIVATE
 
 set_target_properties(test_numeric_contract PROPERTIES CXX_STANDARD 11)
 
-# Built like the 3D library, which these sources come from (LIB386/3D/CMakeLists.txt).
-target_compile_options(test_numeric_contract PRIVATE $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-ffp-contract=off>)
-
 add_test(NAME test_numeric_contract COMMAND test_numeric_contract)
 
 register_host_test(test_numeric_contract)

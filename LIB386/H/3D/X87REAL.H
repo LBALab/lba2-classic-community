@@ -28,8 +28,8 @@
  * rounding mode, which is round-to-nearest-even here:
  * the only change of mode is truncation inside one triangle's span in
  * pol_work/POLY.CPP, which these routines never run inside. It needs |v| < 2^51,
- * far above anything that still fits the S32 the callers store. The library is
- * built with -ffp-contract=off (LIB386/3D/CMakeLists.txt): GCC otherwise fuses a
+ * far above anything that still fits the S32 the callers store. Everything is
+ * built with -ffp-contract=off (the top CMakeLists.txt): GCC otherwise fuses a
  * caller's multiply into the first addition, which is one rounding instead of
  * two and moves ties.
  */

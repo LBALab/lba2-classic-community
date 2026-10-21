@@ -25,9 +25,6 @@ target_compile_definitions(test_precision_paths PRIVATE
 
 set_target_properties(test_precision_paths PROPERTIES CXX_STANDARD 11)
 
-# Built like the 3D library, which these sources come from (LIB386/3D/CMakeLists.txt).
-target_compile_options(test_precision_paths PRIVATE $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-ffp-contract=off>)
-
 add_test(NAME test_precision_paths COMMAND test_precision_paths)
 
 register_host_test(test_precision_paths)

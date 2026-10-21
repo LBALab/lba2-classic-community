@@ -6,7 +6,7 @@
  * up to the 2^51 bound. X87Round is checked the same way on whichever branch
  * this host takes.
  *
- * The last test is for the -ffp-contract=off flag the 3D library is built with.
+ * The last test is for the -ffp-contract=off flag the build sets (CMakeLists.txt).
  * A product that rounds to an exact half in double, but is not exactly a half,
  * rounds to even only if the multiply and the add are rounded separately. With
  * them fused (GCC's default where the CPU has an FMA) it goes the other way. */
@@ -60,18 +60,20 @@ static void test_zero_and_near_ties() {
 static void test_large_values() {
     // Inside S32, on both branches.
     const double inside[] = {2147483647.0, -2147483648.0, 2147483646.5, -2147483647.5, 1073741824.5, -1073741823.5};
-    for (double v : inside)
+    for (double v : inside) {
         CheckBoth(v);
+    }
 
-        // Beyond S32, up to the bound: the inline rounding gives the low 32 bits, as
-        // lrintl's 64-bit long cast to S32 does on x86-64. Not asked of X87Round:
-        // where long is 32 bits (32-bit x86) lrintl gives INT_MIN there instead, as
-        // the 1997 fistp to a 32-bit integer does. The routines never get there.
+    // Beyond S32, up to the bound: the inline rounding gives the low 32 bits, as
+    // lrintl's 64-bit long cast to S32 does on x86-64. Not asked of X87Round:
+    // where long is 32 bits (32-bit x86) lrintl gives INT_MIN there instead, as
+    // the 1997 fistp to a 32-bit integer does. The routines never get there.
 #ifdef X87_HAVE_ROUND_DOUBLE
     const double beyond[] = {4294967296.5, 1125899906842623.5, -1125899906842623.5, 2251799813685247.0,
                              -2251799813685247.0};
-    for (double v : beyond)
+    for (double v : beyond) {
         ASSERT_EQ_INT((S32)llrint(v), X87RoundDouble(v));
+    }
 #endif
 }
 
