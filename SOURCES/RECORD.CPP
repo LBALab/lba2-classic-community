@@ -115,8 +115,8 @@
    LIB386/SYSTEM/KEYBOARD.CPP; MOUSE.CPP and TOUCH_INPUT.CPP declare it the same way. */
 extern S32 LastInputWasKeyboard;
 
-#include <dirent.h> /* the recordings folder, for `rec play` with no argument */
-#include <float.h>  /* LDBL_MANT_DIG, one half of the numeric contract */
+#include <dirent.h>     /* the recordings folder, for `rec play` with no argument */
+#include <3D/X87REAL.H> /* X87_REAL_MANT_DIG, one half of the numeric contract */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -679,15 +679,14 @@ static void snapshot_beside(const char *recPath, const char *name, char *out, si
    different RAND_MAX per platform, which on its own is enough to make a recording
    unreplayable anywhere but the machine that made it.
 
-   `numeric.long_double_bits` is LDBL_MANT_DIG, and it is here ahead of needing it. The
-   projection, rotation and distance paths (LIB386/3D) compute in `long double` and
-   round with lrintl, chosen to match x87's 80 bit registers: 64 mantissa bits on both
-   x86-64 hosts, which is why Linux and Windows agree on them. ARM has no x87, so on
-   macOS and Android `long double` is a plain double and the same expressions round
-   differently. Recording the trait means such a replay opens by naming the arithmetic
-   it disagrees about, instead of diverging somewhere in the middle and reading like a
-   bug in the simulation. Making that case actually replay is a separate job, and it is
-   a bigger one: it means taking those paths off the host's extended precision.
+   `numeric.long_double_bits` is the mantissa the float projection and rotation
+   routines (LIB386/3D) compute in, X87_REAL_MANT_DIG from 3D/X87REAL.H; the name is
+   older than that header. 64 where long double is the x87's 80-bit type, which is both
+   x86-64 hosts, so Linux and Windows agree; 53 everywhere else (ARM, PowerPC), where
+   the routines compute in double. The two differ only at exact half-pixel ties in
+   the projection, but a replay can still diverge on one, so recording the trait
+   means such a replay opens by naming the arithmetic it disagrees about, instead of
+   diverging somewhere in the middle and reading like a bug in the simulation.
 
    The settings block is the Auto camera's, and it is there because it was measured:
    replaying a session against a config missing FollowCamera diverges at tick 0, and one
@@ -761,7 +760,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          Sys_PlatformName(),
                          Rnd_StreamName(),
                          CONTROL_DIGEST_VERSION,
-                         (int)LDBL_MANT_DIG,
+                         (int)X87_REAL_MANT_DIG,
                          (unsigned)ModeDesiredX, (unsigned)ModeDesiredY,
                          (int)Language,
                          LastInputWasKeyboard ? 1 : 0,

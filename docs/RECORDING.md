@@ -511,20 +511,18 @@ because the platform is not what decides it:
 | Line | Meaning |
 |---|---|
 | `numeric.rng` | Which generator `Rnd` draws from. A recording made against another one cannot reproduce. |
-| `numeric.long_double_bits` | `LDBL_MANT_DIG`. 64 on both x86-64 hosts, which is why they agree on projection and distance. |
+| `numeric.long_double_bits` | The mantissa `LIB386/3D`'s float routines compute in (`X87_REAL_MANT_DIG`, `3D/X87REAL.H`). 64 on both x86-64 hosts, which is why they agree on projection; 53 on ARM and PowerPC. |
 
 `build.platform` is recorded too, but deliberately not compared: a cross-platform replay is the
 point, and a diff that flagged the platform every time would teach a reader to ignore the report.
 
-The second line is there ahead of needing it. `LIB386/3D` computes projection, rotation and
-distance in `long double` and rounds with `lrintl`, chosen to match x87's 80-bit registers. Both
-x86-64 hosts have those registers, so Linux and Windows agree. ARM does not: on macOS and
-32-bit Android `long double` is a plain `double`, on 64-bit Android a 128-bit software type, and
-the same expressions round differently on each. A recording
-from an x86-64 host will not reproduce there yet, and because the trait is in the header, such a
-replay opens by naming the arithmetic it disagrees about instead of diverging in the middle and
-reading like a bug in the simulation. Making that case replay means taking those paths off the
-host's extended precision, which is a separate and larger job.
+`LIB386/3D` computes projection and rotation in the x87's 80-bit format where `long double` is
+that format, which both x86-64 hosts have, so Linux and Windows agree. Everywhere else (ARM,
+PowerPC) the same expressions compute in `double`, and all of those agree with each other. The
+two differ only where a projected value is an exact half pixel, about one value in 100,000, so a
+recording from an x86-64 host can still diverge on an ARM host. Because the trait is in the header,
+such a replay opens by naming the arithmetic it disagrees about instead of diverging in the middle
+and reading like a bug in the simulation.
 
 ### Checking it
 
