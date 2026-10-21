@@ -46,6 +46,9 @@ sources:
   - id: deadzone-config
     resource: ../../../SOURCES/CONFIG_FILE.CPP
     title: The configurable gamepad deadzone row
+  - id: seed
+    resource: ../../../SOURCES/LBA2.CFG
+    title: The embedded fresh-profile config seed
   - id: analog-deadzone
     resource: ../../../SOURCES/EXTFUNC.CPP
     title: The right-stick analog camera deadzone
@@ -97,7 +100,7 @@ Distilled from [docs/plan/INPUT_RESEARCH.md](../../plan/INPUT_RESEARCH.md), whic
 | The overlay | Fourteen on-screen buttons, each with a hardcoded default scancode; `ApplyVirtualKeys` re-applies them into `TabKeys` after the poll cleared it and leaves `Key` alone. So a button reaches any consumer that reads `Input` or `CheckKey` and no site that tests `Key` or `MyKey`, and nothing in TOUCH_INPUT.CPP reads `DefKeys`, so rebinding the keyboard silently disconnects the overlay. Visibility follows the last device through `LastInputWasTouch`, which the keyboard flag cannot supply because a pad and a finger both leave it zero.[^touch] |
 | Text entry | `GetAscii` converts the poll's first held physical ID through the platform keymap and consults no binding; three call sites, the save-name field twice and the cheat codes. The original Windows module drained a character buffer filled by window messages; the port reads the poll. No device but the keyboard writes `Key`, so a pad or touch player never sees the field and is routed by `!LastInputWasKeyboard` to a datetime stem, silently.[^gamemenu] |
 | Device facts | `LastInputWasKeyboard` is 1 after a real key-down event and 0 after the mouse, the pad or the overlay. It is in no digest, the save menu gates on it, and the recorder carries it by [its own decision](/decisions/a-missing-field-is-not-a-value.md).[^keyboard] |
-| Bindings on disk | Gameplay uses `Input%d_1`, `Input%d_2`, `Gamepad%d` and `Gamepad%d_2` in lba2.cfg. These tables are outside `SETTINGS.H` provenance rules. Readers use the layered cfg and writers persist every slot, including on first exit without an existing file. Gameplay round trips are host-tested. UI navigation reads and writes no config entries.[^input-cpp][^menu-input] |
+| Bindings on disk | Gameplay uses `Input%d_1`, `Input%d_2`, `Gamepad%d` and `Gamepad%d_2` in lba2.cfg. These tables are outside `SETTINGS.H` provenance rules. The embedded fresh-profile seed omits layout-dependent forward/backward, Return and dodge bindings so the compiled defaults apply; explicit user or game-data bindings still win. Readers use the layered cfg and writers persist every slot, including on first exit without an existing file. Round trips and loading the real embedded seed are host-tested for desktop and handheld layouts. UI navigation reads and writes no config entries.[^input-cpp][^menu-input][^seed] |
 | Three injectors | The harness reaches the poll three ways. `Control_KeyHold` holds a scancode for a span of polls, up to eight at once, and writes `Key` too, so it reaches the raw sites the overlay cannot. The `input` timeline holds action masks metered in simulated ticks, or in rendered frames for `fseq`, by [decision](/decisions/the-harness-meters-input-in-sim-ticks.md). `Control_MouseMove` drives the accumulator the analog camera reads, which no scancode reaches, one move at a time.[^control-h] |
 | The recorder | Samples and injects at the poll's tail, carries gameplay binding tables and their digest, records the device flag at the start and on each change, and carries the analog block beside the key table. Fixed UI direction samples and console isolation are carried separately because console-held directions are absent from the gameplay key stream. Replay restores the player's gameplay tables and UI release latch on exit; fixed UI directions need no binding metadata. [The .rec Format](/formats/rec.md) owns the lines.[^keyboard] |
 
@@ -129,6 +132,7 @@ Distilled from [docs/plan/INPUT_RESEARCH.md](../../plan/INPUT_RESEARCH.md), whic
 [^joystick]: [SOURCES/JOYSTICK.CPP](../../../SOURCES/JOYSTICK.CPP), `ApplyStickDirection`, `UpdateJoystick`, `JoystickFirstPressedScancode` and `JoystickButtonPressed`.
 [^deadzone-default]: [SOURCES/JOYSTICK.H](../../../SOURCES/JOYSTICK.H), `LBA2_GAMEPAD_DEADZONE_DEFAULT`; [SOURCES/CMakeLists.txt](../../../SOURCES/CMakeLists.txt) selects the Vita value.
 [^deadzone-config]: [SOURCES/CONFIG_FILE.CPP](../../../SOURCES/CONFIG_FILE.CPP), `GamepadSettings`; [SOURCES/LBA2.CFG](../../../SOURCES/LBA2.CFG) leaves the key unset.
+[^seed]: [SOURCES/LBA2.CFG](../../../SOURCES/LBA2.CFG), the built-in config seed.
 [^analog-deadzone]: [SOURCES/EXTFUNC.CPP](../../../SOURCES/EXTFUNC.CPP), `StickAxisToCamStep`.
 [^touch]: [SOURCES/TOUCH_INPUT.CPP](../../../SOURCES/TOUCH_INPUT.CPP), the button table, `TouchInput_SetGameplay`, `TouchInput_EndGameplayPoll`, `TouchOverlay_HandleEvent` and `ApplyVirtualKeys`; `LastInputWasTouch` is set there.
 [^perso]: [SOURCES/PERSO.CPP](../../../SOURCES/PERSO.CPP), `MainLoop`: the `LastInput` assignment before `MyGetInput`, the `Control_InputCurrentMask` block, and the `Timer_ForceStepIfPending` call with its comment.

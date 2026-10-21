@@ -7,7 +7,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 - Filename: `lba2.cfg` ([SOURCES/COMMON.H](../SOURCES/COMMON.H) line 83: `CFG_NAME`)
 - User config path: `GetCfgPath(PathConfigFile, ..., CFG_NAME)` → `directoriesCfgDir` + filename ([SOURCES/DIRECTORIES.CPP](../SOURCES/DIRECTORIES.CPP))
 - Default (assets): `GetDefaultCfgPath()` → `directoriesResDir` + filename (same folder as `LBA2.HQR`, i.e. the game assets directory)
-- If user config missing: copy from assets to config dir ([SOURCES/INITADEL.C](../SOURCES/INITADEL.C)). If the assets folder has no `lba2.cfg`, the engine writes an embedded copy (generated at build time from [SOURCES/LBA2.CFG](../SOURCES/LBA2.CFG) via [cmake/embed_lba2_cfg.cmake](../cmake/embed_lba2_cfg.cmake)) into the user config path instead of exiting.
+- The assets config is read as a layer under the user config, not copied into it. If neither file exists, the engine writes an embedded seed into the user config path ([SOURCES/INITADEL.C](../SOURCES/INITADEL.C)), generated at build time from [SOURCES/LBA2.CFG](../SOURCES/LBA2.CFG) via [cmake/embed_lba2_cfg.cmake](../cmake/embed_lba2_cfg.cmake).
 - **Default config source**: Prefer the file in the asset directory (`directoriesResDir`). The repo has `SOURCES/LBA2.CFG` and `SOURCES/CONFIG/LBA2.CFG` as reference/templates. See [GAME_DATA.md](GAME_DATA.md) for where assets live.
 
 ## File format
@@ -62,6 +62,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | MasterVolume | int | 0–127 | 127 | Master volume, scales samples and music |
 | Input0_1..Input35_2 | int | Key scancodes | DefKeysDefault95 | 36 inputs × 2 keys each (`MAX_INPUT_SLOTS` in INPUT_BINDINGS.H). Only read when WinMode=1 |
 | WinMode | int | 0, 1 | 0 | 0=ignore Input* keys, use defaults; 1=read Input* keys. WriteInputConfig always writes WinMode=1 |
+| Gamepad0..Gamepad35, Gamepad0_2..Gamepad35_2 | int | Virtual scancodes; 0=unbound | GamepadKeysDefault in [INPUT_BINDINGS.CPP](../SOURCES/INPUT_BINDINGS.CPP) | The embedded seed leaves forward/backward, Return and dodge bindings unset so fresh profiles inherit the compiled layout. Explicit user or game-data values still override it; existing configurations are not migrated |
 | GamepadDeadzone | int | 0–32767 | 13107 on Vita; 8000 elsewhere | Shared by both sticks and the analog camera. Vita defaults to 40% of the axis range; other builds use about 24%. Explicit profile or game-data values override the compiled default; the built-in template leaves this key unset |
 | CompressSave | int | 0, 1 | 1 | 0=uncompressed saves, 1=compressed |
 | Version | int | 0–5, distributor ID | 0 (UNKNOWN_VERSION) | Which publisher's edition this is (`DistribVersion`): Activision, EA, Virgin, regional variants. Installer-written; set via the `distrib` console command. See [VERSIONS.md](VERSIONS.md) |

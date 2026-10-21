@@ -51,6 +51,7 @@
 extern int TestConsoleOpen;
 extern int TestConsoleSuppress;
 extern S32 TestTouchGameplay;
+extern "C" int WriteEmbeddedDefaultLba2Cfg(const char *destPath);
 
 static int fails = 0;
 
@@ -67,7 +68,7 @@ static int fails = 0;
 
 namespace {
 
-const char *kCfgPath = "test_input_config.cfg";
+const char *kCfgPath = TEST_CFG_PATH;
 
 char g_buffer[64 * 1024];
 
@@ -336,6 +337,52 @@ void CheckGamepadRoundTrip(void) {
                   GamepadKeys[n].Key2 == (U32)(400 + n),
               "slot %d: pad binding did not survive the round trip", n);
     }
+}
+
+void CheckEmbeddedGamepadDefaults(void) {
+    RemoveCfg();
+    CHECK(WriteEmbeddedDefaultLba2Cfg(kCfgPath), "write the actual embedded fresh-profile seed");
+    OpenCfg();
+    ScribbleBindings();
+    ScribblePad();
+    ReadInputConfig();
+    ReadGamepadConfig();
+    const int slots[] = {0, 1, 9, 13};
+    for (unsigned n = 0; n < sizeof(slots) / sizeof(slots[0]); ++n) {
+        const int slot = slots[n];
+        CHECK(GamepadKeys[slot].Key1 == GamepadKeysDefault[slot].Key1 &&
+                  GamepadKeys[slot].Key2 == GamepadKeysDefault[slot].Key2,
+              "embedded seed must inherit compiled gamepad defaults for slot %d", slot);
+    }
+    HoldNone();
+    MyGetInput();
+    HoldOnly(GamepadKeysDefault[0].Key1);
+    MyGetGameplayInput();
+    CHECK(Input == I_UP, "fresh-profile default forward binding reaches gameplay");
+    HoldOnly(GamepadKeysDefault[1].Key1);
+    MyGetGameplayInput();
+    CHECK(Input == I_DOWN, "fresh-profile default backward binding reaches gameplay");
+    HoldOnly(GamepadKeysDefault[13].Key1);
+    MyGetGameplayInput();
+    CHECK(Input == I_ESQUIVE, "fresh-profile default dodge binding reaches gameplay");
+    HoldNone();
+    MyGetInput();
+
+    const U32 overrides[] = {K_GAMEPAD_RTRIGGER, K_GAMEPAD_LTRIGGER,
+                             K_GAMEPAD_B, K_GAMEPAD_LSTICK_BTN};
+    for (unsigned n = 0; n < sizeof(slots) / sizeof(slots[0]); ++n) {
+        const std::string key = Line("Gamepad%d", slots[n]);
+        CHECK(DefFileBufferWriteValue(key.c_str(), overrides[n]),
+              "write explicit override for slot %d", slots[n]);
+    }
+    CHECK(DefFileBufferWriteValue("Gamepad13_2", K_GAMEPAD_RSTICK_BTN),
+          "write explicit secondary dodge override");
+    OpenCfg();
+    ScribblePad();
+    ReadGamepadConfig();
+    for (unsigned n = 0; n < sizeof(slots) / sizeof(slots[0]); ++n)
+        CHECK(GamepadKeys[slots[n]].Key1 == overrides[n], "explicit slot %d overrides the compiled layout", slots[n]);
+    CHECK(GamepadKeys[13].Key2 == K_GAMEPAD_RSTICK_BTN, "explicit secondary dodge override survives loading");
 }
 
 void ResetMenuInput(void) {
@@ -689,6 +736,7 @@ int main() {
     CheckAllZeroGuard();
     CheckWinModeAbsentTakesDefaults();
     CheckGamepadRoundTrip();
+    CheckEmbeddedGamepadDefaults();
     CheckMenuDirections();
     CheckMenuRebindIsolation();
     CheckMenuSuppression();

@@ -36,6 +36,8 @@ add_executable(test_input_config
     test_input_config.cpp
     held_keys.cpp
     engine_stubs.cpp
+    ${CMAKE_SOURCE_DIR}/SOURCES/EMBEDDED_CFG_WRITE.CPP
+    ${CMAKE_BINARY_DIR}/SOURCES/embedded_lba2_cfg_data.cpp
     ${CMAKE_SOURCE_DIR}/SOURCES/INPUT.CPP
     ${CMAKE_SOURCE_DIR}/SOURCES/INPUT_BINDINGS.CPP
     ${CMAKE_SOURCE_DIR}/SOURCES/MENU_INPUT.CPP
@@ -59,6 +61,10 @@ get_target_property(_INPUT_CONFIG_SOURCES test_input_config SOURCES)
 add_executable(test_input_config_stick_layout ${_INPUT_CONFIG_SOURCES})
 target_compile_definitions(test_input_config_stick_layout PRIVATE LBA2_GAMEPAD_STICK_LAYOUT=1)
 target_link_libraries(test_input_config_stick_layout PRIVATE lba2_platform)
+
+foreach(target test_input_config test_input_config_stick_layout)
+    target_compile_definitions(${target} PRIVATE TEST_CFG_PATH="${target}.cfg")
+endforeach()
 
 add_executable(test_input_stick_layout
     test_input_stick_layout.cpp held_keys.cpp
