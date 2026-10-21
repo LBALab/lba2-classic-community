@@ -73,6 +73,7 @@ add_asm_cpp_test(NAME test_lrot2df    TEST_SOURCE test_lrot2df.cpp    ASM_SOURCE
 add_asm_cpp_test(NAME test_lrot3df    TEST_SOURCE test_lrot3df.cpp    ASM_SOURCE ${_3D_ASM_DIR}/LROT3DF.ASM    RENAME_SYMS LongRotatePoint RotatePoint RotatePointNoMMX LongRotatePointF  LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
 add_asm_cpp_test(NAME test_lrot3di    TEST_SOURCE test_lrot3di.cpp    ASM_SOURCE ${_3D_ASM_DIR}/LROT3DI.ASM    RENAME_SYMS LongRotatePointI                               LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
 add_asm_cpp_test(NAME test_lirot3df   TEST_SOURCE test_lirot3df.cpp   ASM_SOURCE ${_3D_ASM_DIR}/LIROT3DF.ASM   RENAME_SYMS LongInverseRotatePoint LongInverseRotatePointF LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
+add_asm_cpp_test(NAME test_lirot3di   TEST_SOURCE test_lirot3di.cpp   ASM_SOURCE ${_3D_ASM_DIR}/LIROT3DI.ASM   RENAME_SYMS LongInverseRotatePointI                        LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
 add_asm_cpp_test(NAME test_rotralif   TEST_SOURCE test_rotralif.cpp   ASM_SOURCE ${_3D_ASM_DIR}/ROTRALIF.ASM   RENAME_SYMS RotTransList RotTransListF                     LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
 # RotateVector calls [InitMatrixStd]+jmp [LongRotatePoint] (non-leaf, Watcom register convention).
 # Include callee ASM deps so function pointers resolve to Watcom-convention procs.
