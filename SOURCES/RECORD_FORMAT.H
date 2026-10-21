@@ -42,6 +42,11 @@ extern S32 RecFmt_WriteBindings(char *out, size_t n, const T_DEF_KEY *tab, S32 s
  * different bindings, so there is no useful half-answer. `key` includes the `=`. */
 extern S32 RecFmt_ParseBindings(const char *hdr, const char *key, T_DEF_KEY *tab, S32 slots);
 
+/* Reads bindings.context. Returns 1 for a known context, 0 when absent, or -1
+   for malformed/unsupported metadata. Leaves *out untouched on either failure. */
+extern S32 RecFmt_ReadBindingContext(const char *hdr, T_BINDING_CONTEXT *out);
+extern S32 RecFmt_WriteBindingContext(char *out, size_t n, const T_BINDING_CONTEXT &context);
+
 /* Field readers. Each returns 1 when the key was present and its value parsed, and
  * leaves `*out` untouched otherwise, so a caller can pre-set its default. `key`
  * includes the `=`. RecFmt_ReadStr reads to the end of the line, so a value may

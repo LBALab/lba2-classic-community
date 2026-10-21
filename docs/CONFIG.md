@@ -33,7 +33,7 @@ Android builds select their profile automatically; the Vita preset selects its f
 |---|---|
 | `INPUT_KEYBOARD_<slot>` / `INPUT_GAMEPAD_<slot>` | Two engine key IDs per slot: primary and alternate; `0` means unbound. Slots follow [INPUT_BINDINGS.H](../SOURCES/INPUT_BINDINGS.H) |
 | `INPUT_DEADZONE` | Default for the existing runtime `GamepadDeadzone` setting, from 0 to 32767 |
-| `INPUT_MODAL_REMAPS` | List of `"K_<key>,gameplay_slot,modal_slot"` rows. A row applies only when that physical key remains bound to its source slot |
+| `INPUT_MODAL_REMAPS` | Up to 32 `"K_<key>,gameplay_slot,modal_slot"` rows. A row applies only when that physical key remains bound to its source slot. Recordings carry the active rules and release latches independently of the receiving build's profile |
 | `INPUT_DIRECT_TOUCH_SLOT` / `INPUT_INDIRECT_TOUCH_SLOT` | Gameplay tap action slot, 0–31, or `-1` to leave that source unbound. Vita's panels are direct/front and indirect/rear; these are event-source classes, not universal screen names |
 | `input_touch_button(KEY <key> <label> <cx> <cy> <rx> <ry>)` | Append an overlay button with an engine key ID, ASCII alphanumeric/space label, centre and positive half-extents in normalised 0.0–1.0 coordinates |
 | `input_touch_button(HIDE 0 <label> <cx> <cy> <rx> <ry>)` | Append the overlay-dismiss button |

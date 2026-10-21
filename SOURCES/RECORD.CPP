@@ -525,6 +525,9 @@ static T_DEF_KEY s_savedGamepadKeys[MAX_INPUT_SLOTS];
 static T_DEF_KEY s_recDefKeys[MAX_INPUT_SLOTS];
 static T_DEF_KEY s_recGamepadKeys[MAX_INPUT_SLOTS];
 static int s_haveRecBindings = 0;
+static T_BINDING_CONTEXT s_recBindingContext;
+static T_BINDING_CONTEXT s_savedBindingContext;
+static int s_haveRecBindingContext = 0;
 static U32 s_recMenuSuppression = 0;
 static U32 s_savedMenuSuppression = 0;
 static int s_bindingsInstalled = 0;
@@ -535,13 +538,17 @@ static void bindings_install(void) {
         return;
     memcpy(s_savedDefKeys, DefKeys, MAX_INPUT_SLOTS * sizeof DefKeys[0]);
     memcpy(s_savedGamepadKeys, GamepadKeys, MAX_INPUT_SLOTS * sizeof GamepadKeys[0]);
+    s_savedBindingContext = Bindings_GetContext();
     s_savedMenuSuppression = MenuInput_Suppressed();
     memcpy(DefKeys, s_recDefKeys, MAX_INPUT_SLOTS * sizeof DefKeys[0]);
     memcpy(GamepadKeys, s_recGamepadKeys, MAX_INPUT_SLOTS * sizeof GamepadKeys[0]);
     MenuInput_Reset(s_recMenuSuppression);
     /* The combined (key, mask) table is what CheckKey scans; changing the two source
        tables without rebuilding it changes nothing. */
-    InitInput();
+    if (s_haveRecBindingContext)
+        Bindings_SetContext(s_recBindingContext);
+    else
+        InitInput();
     s_bindingsInstalled = 1;
 }
 
@@ -551,7 +558,7 @@ static void bindings_restore(void) {
     memcpy(DefKeys, s_savedDefKeys, MAX_INPUT_SLOTS * sizeof DefKeys[0]);
     memcpy(GamepadKeys, s_savedGamepadKeys, MAX_INPUT_SLOTS * sizeof GamepadKeys[0]);
     MenuInput_Reset(s_savedMenuSuppression);
-    InitInput();
+    Bindings_SetContext(s_savedBindingContext);
     s_bindingsInstalled = 0;
 }
 
@@ -775,6 +782,9 @@ static S32 write_mode_lines(char *out, size_t n) {
                          bindings_digest());
     if (wrote <= 0 || (size_t)wrote >= n)
         return 0;
+    if (!RecFmt_WriteBindingContext(out + wrote, n - (size_t)wrote, Bindings_GetContext()))
+        return 0;
+    wrote = (int)strlen(out);
     /* The rest comes from the engine, which this module deliberately cannot see. */
     if (!Control_DescribeState(out + wrote, n - (size_t)wrote))
         return 0;
@@ -2089,6 +2099,7 @@ static int mode_line_ignored(const char *line) {
         "setup.reload_clock=",
         "bindings.keyboard=", /* payload a replay installs; bindings.digest is the comparison */
         "bindings.gamepad=",
+        "bindings.context=", /* remapping mode, poll context and release latch are borrowed */
         /* The globals no savegame carries. Payload a replay installs, on the same
            footing as the binding tables: the digest is what compares them, and
            reporting the difference here would name as a mode mismatch the very thing
@@ -2903,6 +2914,28 @@ int Record_Play(const char *path) {
         strncat(s_headerBuf, line, sizeof s_headerBuf - strlen(s_headerBuf) - 1);
     }
 
+    s_haveRecBindingContext = RecFmt_ReadBindingContext(s_headerBuf, &s_recBindingContext);
+    s_haveRecBindings =
+        RecFmt_ParseBindings(s_headerBuf, "bindings.keyboard=", s_recDefKeys,
+                             MAX_INPUT_SLOTS) &&
+        RecFmt_ParseBindings(s_headerBuf, "bindings.gamepad=", s_recGamepadKeys,
+                             MAX_INPUT_SLOTS);
+    if (s_haveRecBindingContext < 0 || (s_haveRecBindingContext && !s_haveRecBindings)) {
+        Console_Print("rec: %s has invalid or unsupported binding context metadata", path);
+        fprintf(stderr, "[rec] %s has invalid or unsupported binding context metadata\n", path);
+        fclose(s_f);
+        s_f = NULL;
+        return 0;
+    }
+    if (!s_haveRecBindings)
+        Console_Print("rec: %s carries no binding table; replaying through this run's own", path);
+    if (!s_haveRecBindingContext) {
+        Console_Print("rec: %s carries no binding context; keeping this run's controller mode", path);
+        fprintf(stderr, "[rec] %s carries no binding context; keeping this run's controller mode\n", path);
+    }
+    s_recMenuSuppression = 0;
+    RecFmt_ReadU32(s_headerBuf, "input.menu_suppressed=", &s_recMenuSuppression);
+
     /* The snapshot the session started from, if this recording carries one. It sits
        between the header and the first record, so it is read here rather than probed
        for in the stream: a reader that reached it through the record dispatcher would
@@ -2982,16 +3015,6 @@ int Record_Play(const char *path) {
     }
 
     report_extent();
-
-    s_haveRecBindings =
-        RecFmt_ParseBindings(s_headerBuf, "bindings.keyboard=", s_recDefKeys,
-                             MAX_INPUT_SLOTS) &&
-        RecFmt_ParseBindings(s_headerBuf, "bindings.gamepad=", s_recGamepadKeys,
-                             MAX_INPUT_SLOTS);
-    if (!s_haveRecBindings)
-        Console_Print("rec: %s carries no binding table; replaying through this run's own", path);
-    s_recMenuSuppression = 0;
-    RecFmt_ReadU32(s_headerBuf, "input.menu_suppressed=", &s_recMenuSuppression);
 
     /* The one header line that decides whether this replay reloads. A recording that
        reloaded its own snapshot begins from the post-load state, so a replay reaches

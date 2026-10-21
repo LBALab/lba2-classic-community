@@ -34,21 +34,40 @@ const T_DEF_KEY GamepadKeysDefault[MAX_INPUT_SLOTS] = {LBA2_INPUT_GAMEPAD_DEFAUL
 
 U32 NbInput = MAX_INPUT_SLOTS;
 
-typedef struct {
-    U32 key;
-    S32 gameplaySlot;
-    S32 modalSlot;
-} T_CONTEXT_REMAP;
+static const T_BINDING_REMAP CompiledRemaps[] = {LBA2_INPUT_MODAL_REMAPS{0, 0, 0, 0}};
+static T_BINDING_CONTEXT s_context = {
+    0, sizeof(CompiledRemaps) / sizeof(CompiledRemaps[0]) - 1, {LBA2_INPUT_MODAL_REMAPS}};
 
-static const T_CONTEXT_REMAP ContextRemaps[] = {LBA2_INPUT_MODAL_REMAPS{0, 0, 0}};
-enum { NUM_CONTEXT_REMAPS = sizeof(ContextRemaps) / sizeof(ContextRemaps[0]) - 1 };
-static S32 s_gameplay = 0;
-static U8 s_contextSuppressed[NUM_CONTEXT_REMAPS + 1];
+T_BINDING_CONTEXT Bindings_GetContext(void) {
+    return s_context;
+}
+
+void Bindings_SetContext(const T_BINDING_CONTEXT &context) {
+    s_context = context;
+    InitInput();
+}
+
+S32 Bindings_ContextValid(const T_BINDING_CONTEXT &context) {
+    if (context.gameplay > 1 || context.count > MAX_BINDING_REMAPS)
+        return 0;
+    for (U32 n = 0; n < context.count; ++n) {
+        const T_BINDING_REMAP &remap = context.remaps[n];
+        if (!remap.key || remap.key >= TABKEYS_NUM_KEYS * 8 ||
+            remap.gameplaySlot >= INPUT_TABLE_SLOTS ||
+            remap.modalSlot >= INPUT_TABLE_SLOTS || remap.suppressed > 1)
+            return 0;
+        for (U32 prior = 0; prior < n; ++prior)
+            if (context.remaps[prior].key == remap.key &&
+                context.remaps[prior].gameplaySlot == remap.gameplaySlot)
+                return 0;
+    }
+    return 1;
+}
 
 static U32 ContextMask(S32 slot, U32 key, S32 gameplay) {
     if (!gameplay) {
-        for (S32 n = 0; n < NUM_CONTEXT_REMAPS; ++n) {
-            const T_CONTEXT_REMAP *remap = &ContextRemaps[n];
+        for (U32 n = 0; n < s_context.count; ++n) {
+            const T_BINDING_REMAP *remap = &s_context.remaps[n];
             if (remap->key == key && remap->gameplaySlot == slot)
                 return 1u << remap->modalSlot;
         }
@@ -69,8 +88,8 @@ static U32 KeyContextMask(U32 key, S32 gameplay) {
 }
 
 static S32 KeyContextSuppressed(U32 key) {
-    for (S32 n = 0; n < NUM_CONTEXT_REMAPS; ++n)
-        if (ContextRemaps[n].key == key && s_contextSuppressed[n])
+    for (U32 n = 0; n < s_context.count; ++n)
+        if (s_context.remaps[n].key == key && s_context.remaps[n].suppressed)
             return 1;
     return 0;
 }
@@ -87,7 +106,7 @@ void InitInput(void) {
                              GamepadKeys[i].Key1, GamepadKeys[i].Key2};
         for (S32 k = 0; k < 4; ++k) {
             CombinedInputKeys[n] = keys[k];
-            CombinedInputMasks[n++] = KeyContextSuppressed(keys[k]) ? 0 : ContextMask(i, keys[k], s_gameplay);
+            CombinedInputMasks[n++] = KeyContextSuppressed(keys[k]) ? 0 : ContextMask(i, keys[k], s_context.gameplay);
         }
     }
 
@@ -98,20 +117,20 @@ void InitInput(void) {
 
 void Bindings_SetGameplay(S32 gameplay) {
     gameplay = gameplay != 0;
-    S32 rebuild = s_gameplay != gameplay && NUM_CONTEXT_REMAPS != 0;
-    for (S32 n = 0; n < NUM_CONTEXT_REMAPS; ++n) {
-        U32 key = ContextRemaps[n].key;
-        U8 suppressed = s_contextSuppressed[n];
+    S32 rebuild = s_context.gameplay != (U32)gameplay && s_context.count != 0;
+    for (U32 n = 0; n < s_context.count; ++n) {
+        U32 key = s_context.remaps[n].key;
+        U32 suppressed = s_context.remaps[n].suppressed;
         if (!CheckKey(key))
             suppressed = 0;
-        else if (s_gameplay != gameplay &&
-                 KeyContextMask(key, s_gameplay) != KeyContextMask(key, gameplay))
+        else if (s_context.gameplay != (U32)gameplay &&
+                 KeyContextMask(key, s_context.gameplay) != KeyContextMask(key, gameplay))
             suppressed = 1;
-        if (s_contextSuppressed[n] != suppressed)
+        if (s_context.remaps[n].suppressed != suppressed)
             rebuild = 1;
-        s_contextSuppressed[n] = suppressed;
+        s_context.remaps[n].suppressed = suppressed;
     }
-    s_gameplay = gameplay;
+    s_context.gameplay = gameplay;
     if (rebuild)
         InitInput();
 }

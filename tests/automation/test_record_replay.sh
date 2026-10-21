@@ -116,6 +116,10 @@ record_and_replay() { # record_and_replay <label> [extra record args...]
     *"numeric.long_double_bits="*) ;;
     *) fail "$label: the header does not declare numeric.long_double_bits" ;;
     esac
+    case "$head" in
+    *"bindings.context="*) ;;
+    *) fail "$label: the header does not carry the controller binding context" ;;
+    esac
     # Whether audio came up is a simulation input rather than a presentation detail: the
     # ambience pan is drawn only `if (!IsSamplePlaying(...))`, from the one stream actor
     # behaviour draws from, and a dialogue with the text off runs until the voice sample

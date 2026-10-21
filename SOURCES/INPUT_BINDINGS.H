@@ -61,9 +61,31 @@ extern U32 NbInput;
 
 //-------------------------------------------------------------------------
 extern void InitInput(void);
-/* Apply the compiled context mappings. A held key whose effective actions change
+/* Apply the active context mappings. A held key whose effective actions change
    must be released. Call before every poll to rearm released keys. */
 extern void Bindings_SetGameplay(S32 gameplay);
+/* Remapping rules and release latches travel with replay bindings, independently
+   of the receiving build's compiled profile. */
+#define MAX_BINDING_REMAPS 32
+typedef struct {
+    U32 key;
+    U32 gameplaySlot;
+    U32 modalSlot;
+    U32 suppressed;
+} T_BINDING_REMAP;
+typedef struct {
+    U32 gameplay;
+    U32 count;
+    T_BINDING_REMAP remaps[MAX_BINDING_REMAPS];
+} T_BINDING_CONTEXT;
+/* Legacy recording bits, decoded into an explicit Circle rule. */
+#define BINDINGS_CONTEXT_MODAL_CIRCLE 1u
+#define BINDINGS_CONTEXT_GAMEPLAY 2u
+#define BINDINGS_CONTEXT_CIRCLE_SUPPRESSED 4u
+#define BINDINGS_CONTEXT_MASK 7u
+extern T_BINDING_CONTEXT Bindings_GetContext(void);
+extern void Bindings_SetContext(const T_BINDING_CONTEXT &context);
+extern S32 Bindings_ContextValid(const T_BINDING_CONTEXT &context);
 //-------------------------------------------------------------------------
 extern void RestoreInput(void);
 //-------------------------------------------------------------------------
