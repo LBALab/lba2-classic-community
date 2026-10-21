@@ -18,7 +18,8 @@ cam_precheck
 INTERIOR_CUBE=154
 
 log="$(mktemp)"
-trap 'rm -f "$log"' EXIT
+# Chain lib.sh's cleanup so its temporary user folder goes too.
+trap 'rm -f "$log" "${log2:-}"; _lib_cleanup' EXIT
 
 ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
     --exec-at 15 "cam_follow 1; cam_mouse 1; cam_mouse_drag 0; mouse_confine 2; cubetrace 1" \
@@ -46,7 +47,6 @@ set -- $modes
 # come back once a step. --fixed-dt 2 gives eight frames a 16 ms step; a right-drag sampled on
 # nine frames in a row must read relative on every one.
 log2="$(mktemp)"
-trap 'rm -f "$log" "$log2"' EXIT
 samples=()
 for t in 100 101 102 103 104 105 106 107 108; do
     samples+=(--exec-at "$t" "mouse_capture")
