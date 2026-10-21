@@ -1,3 +1,4 @@
+#include "../sdl_main_ready.h"
 #include "../test_harness.h"
 #include "../../LIB386/AIL/SDL/SDK.H"
 #include <AIL/COMMON.H>
@@ -57,6 +58,7 @@ static void test_enabled_audio_and_real_errors() {
 }
 
 int main() {
+    TEST_SDL_MAIN_READY();
 #ifdef LBA2_USE_SDL2
     SDL_SetMainReady();
 #endif

@@ -24,6 +24,7 @@
 // WAV loading is faked (silent PCM of a known length for any "*.wav" name);
 // OGG decoding is real, from tests/music/fixtures/silence-10s.ogg, copied into
 // the build tree as track.ogg and menu.ogg.
+#include "../sdl_main_ready.h"
 #include "../test_harness.h"
 #include "../../LIB386/AIL/SDL/AUDIO_DEVICE.H"
 
@@ -381,6 +382,7 @@ static void RunAll() {
 }
 
 int main() {
+    TEST_SDL_MAIN_READY();
 #ifdef LBA2_USE_SDL2
     SDL_SetMainReady();
 #endif

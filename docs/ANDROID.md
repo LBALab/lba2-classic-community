@@ -383,19 +383,18 @@ under translation and reports a green result that means nothing.
 `scripts/dev/android-lib.sh` refuses a non-ARM target for that reason, rather
 than warning and continuing.
 
-**An x86_64 host cannot emulate an arm64 device, so this needs real hardware.**
-The Android emulator refuses the AVD outright:
+**Where to run it.** An Apple Silicon Mac runs an `arm64-v8a` emulator image
+natively, so an emulator there is a valid target for `arm64-v8a`. An x86_64
+host cannot run one at all; the emulator refuses the AVD:
 
 ```
 FATAL | Avd's CPU Architecture 'arm64' is not supported by the QEMU2 emulator
         on x86_64 host. System image must match the host architecture.
 ```
 
-That is a policy gate rather than a missing capability, which is worth knowing
-before trying to work around it: `qemu-system-aarch64.exe` does ship in the
-emulator directory. Downloading an `arm64-v8a` system image (3.2 GB) and writing
-the AVD by hand still ends at that line. Plug in an ARM phone or tablet, or run
-the lane somewhere ARM-hosted.
+`armeabi-v7a` needs a physical device on either host: Apple Silicon has no
+32-bit ARM mode, and an x86 emulator would only translate it. With more than one
+target attached, set `ANDROID_SERIAL`.
 
 ### The host test suite on ARM
 
@@ -415,7 +414,29 @@ ctest --test-dir out/build/android_arm64_tests --output-on-failure
 ```
 
 `LBA2_BUILD_ASM_EQUIV_TESTS=OFF` is required. It defaults ON and those tests need
-UASM and x86.
+UASM and x86. Point `SDL3_DIR` at an install of the version in
+`.github/sdl3-version.txt`.
+
+`android-exec.sh` copies each test, `libc++_shared.so` and `libSDL3.so` to
+`/data/local/tmp/lba2cc` (skipping files already there), runs the test in an
+empty `run/<test>` folder and returns its exit code. Repo files a test opens are
+listed in its `CMakeLists.txt` with `lba2_test_device_data()` and copied to
+`repo/`; scratch folders come from `lba2_test_tmp_dir()`. Both give absolute
+paths, because SDL on Android resolves a relative path through the Java
+Activity.
+
+A test run this way is a plain executable with no Activity and no JVM, which
+limits it in three ways:
+
+- `SDL_Init` refuses to start until main is marked ready. Tests that start SDL
+  include `tests/sdl_main_ready.h` and call `TEST_SDL_MAIN_READY()`.
+- SDL asks Java for the app name the first time it creates a thread, and
+  crashes when there is none. `android-exec.sh` sets `SDL_APP_NAME`, which SDL
+  reads first.
+- Creating a renderer, starting the event system and `SDL_GetPrefPath` all need
+  the Activity: the first two wait for it forever and the third crashes. Tests
+  that do these are marked with `lba2_test_needs_android_activity()` and show as
+  not run, or skip themselves (`test_getascii`).
 
 **What this adds over the macOS CI job, which is less than it first appears.**
 `macos-latest` is Apple Silicon and `.github/workflows/macos.yml` already runs
@@ -433,8 +454,8 @@ What a device still adds:
   what all current Android TV hardware runs. No Apple target says anything at
   all about it.
 - **The engine, not just the host tests.** macOS CI runs `tests/`, which is pure
-  computation. `tests/automation/` drives the actual game, and Phases 2 and 3
-  above are the only way to run it anywhere ARM.
+  computation. `tests/automation/` drives the actual game, and the executable
+  below is the way to run it anywhere ARM.
 
 So read the numeric measurement from the macOS job. Use a device for the three
 things above.
@@ -454,13 +475,14 @@ normal one.
 **`--user-dir` is mandatory in this shape.** `ResolveDefaultUserDirRoot`
 (`SOURCES/DIRECTORIES.CPP`) gates its `/sdcard/...` candidates on
 `Android_GetExternalFilesDir()` and falls back to `SDL_GetPrefPath`, and both need
-JNI. With no Activity there is no JVM, so neither answers and the boot stops with
-an empty user directory. Automation always sets one, so this costs nothing in
-practice, but a bare `./lba2cc --headless --tick 1 --exit` will fail without it.
+JNI. With no JVM, `SDL_GetPrefPath` crashes in SDL 3.4. Automation always sets a
+user directory.
 
-`--headless` is otherwise safe with no JVM: the dummy video and audio hints are
-set before `SDL_Init`, so the Android video driver, the only part that needs the
-Activity, is never selected.
+**Not yet usable for the automation suite.** `--headless` selects SDL's dummy
+video driver, but the SDL3 window code still calls `SDL_CreateRenderer`, which on
+Android waits for the Activity (see above). The executable needs a way around
+that, such as the null platform backend, before `tests/automation/` can run on a
+device.
 
 ## Limitations
 

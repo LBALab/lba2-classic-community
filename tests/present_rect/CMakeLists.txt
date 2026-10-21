@@ -11,3 +11,4 @@ set_target_properties(test_present_rect PROPERTIES CXX_STANDARD 11)
 add_test(NAME test_present_rect COMMAND test_present_rect)
 
 register_host_test(test_present_rect)
+lba2_test_needs_android_activity(test_present_rect)

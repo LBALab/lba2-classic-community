@@ -111,8 +111,15 @@ if [[ -z "$CACHE" ]]; then
     exit 1
 fi
 
+# NDK r28 caches neither CMAKE_ANDROID_NDK nor CMAKE_ANDROID_ARCH_ABI, only
+# the toolchain file and the ANDROID_ABI given on the command line.
 NDK="$(cache_value "$CACHE" CMAKE_ANDROID_NDK)"
+if [[ -z "$NDK" ]]; then
+    NDK="$(cache_value "$CACHE" CMAKE_TOOLCHAIN_FILE)"
+    NDK="${NDK%/build/cmake/android.toolchain.cmake}"
+fi
 ABI="$(cache_value "$CACHE" CMAKE_ANDROID_ARCH_ABI)"
+[[ -n "$ABI" ]] || ABI="$(cache_value "$CACHE" ANDROID_ABI)"
 SDL3_CFG="$(cache_value "$CACHE" SDL3_DIR)"
 
 case "$ABI" in
@@ -129,35 +136,92 @@ if [[ "$ABI" != "$ANDROID_ABI_ON_DEVICE" && ! ("$ABI" == armeabi-v7a && "$ANDROI
     exit 1
 fi
 
-STL="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/$TRIPLE/libc++_shared.so"
-SDL3_SO="${SDL3_CFG%/lib/cmake/SDL3}/lib/libSDL3.so"
+# The prebuilt folder is named after the build host (linux-x86_64,
+# darwin-x86_64, windows-x86_64), so take whichever one this NDK has.
+STL=""
+for d in "$NDK"/toolchains/llvm/prebuilt/*/sysroot/usr/lib/"$TRIPLE"; do
+    [[ -f "$d/libc++_shared.so" ]] && STL="$d/libc++_shared.so" && break
+done
+if [[ -z "$STL" ]]; then
+    echo "android-exec: no libc++_shared.so for $TRIPLE under $NDK" >&2
+    exit 1
+fi
+android_push_cached "$STL" "$ANDROID_DEVICE_DIR/lib" 755 || exit 1
 
-[[ -f "$STL" ]] && android_push_cached "$STL" "$ANDROID_DEVICE_DIR/lib" 755
-[[ -f "$SDL3_SO" ]] && android_push_cached "$SDL3_SO" "$ANDROID_DEVICE_DIR/lib" 755
+# Tests that never link SDL3 run without it, so a build with no SDL3_DIR is
+# fine. One that names an SDL3 install which is not there is not.
+if [[ -n "$SDL3_CFG" ]]; then
+    SDL3_SO="${SDL3_CFG%/lib/cmake/SDL3}/lib/libSDL3.so"
+    if [[ ! -f "$SDL3_SO" ]]; then
+        echo "android-exec: SDL3_DIR is $SDL3_CFG but $SDL3_SO is missing" >&2
+        exit 1
+    fi
+    android_push_cached "$SDL3_SO" "$ANDROID_DEVICE_DIR/lib" 755 || exit 1
+fi
+
+# Repo files the tests open at run time, listed by tests/CMakeLists.txt with
+# the device root they are compiled to expect on the first line. One marker
+# covers the whole set, so a run checks the device once rather than per file.
+DATA_LIST="$(dirname "$CACHE")/android-test-data.txt"
+if [[ -f "$DATA_LIST" ]]; then
+    REPO_ROOT="$(cd "$HERE/../.." && pwd)"
+    data_device_dir="$(head -1 "$DATA_LIST")"
+    if [[ "$data_device_dir" != "$ANDROID_DEVICE_DIR" ]]; then
+        echo "android-exec: tests were built for $data_device_dir but LBA2_ANDROID_DIR is $ANDROID_DEVICE_DIR" >&2
+        exit 1
+    fi
+    DATA_ROOT="$ANDROID_DEVICE_DIR/repo"
+    data_files=()
+    while IFS= read -r rel; do
+        [[ -n "$rel" ]] && data_files+=("$rel")
+    done < <(tail -n +2 "$DATA_LIST")
+    if [[ ${#data_files[@]} -gt 0 ]]; then
+        data_hash="$(cd "$REPO_ROOT" && cat "${data_files[@]}" | sha256sum | cut -c1-16)"
+        if [[ -z "$data_hash" ]] || ! exists_on_device "$DATA_ROOT/.data-$data_hash"; then
+            for rel in "${data_files[@]}"; do
+                if [[ ! -f "$REPO_ROOT/$rel" ]]; then
+                    echo "android-exec: test data $rel is missing from $REPO_ROOT" >&2
+                    exit 1
+                fi
+                "$ADB" shell "mkdir -p '$DATA_ROOT/$(dirname "$rel")'" >/dev/null 2>&1
+                if ! "$ADB" push "$(host_to_adb_path "$REPO_ROOT/$rel")" "$DATA_ROOT/$rel" >/dev/null 2>&1; then
+                    echo "android-exec: push failed: $rel" >&2
+                    exit 1
+                fi
+            done
+            "$ADB" shell "rm -f '$DATA_ROOT'/.data-* && touch '$DATA_ROOT/.data-$data_hash'" >/dev/null 2>&1
+        fi
+    fi
+fi
 
 BASE="$(basename "$BIN")"
 if ! android_push_cached "$BIN" "$ANDROID_DEVICE_DIR/bin" 755; then
     exit 1
 fi
 
-# Give each run its own scratch and TMPDIR. A test that leaves a file behind
-# must not be able to change the next test's answer, and two runs sharing one
-# device must not be able to see each other's temp files.
-RUN_DIR="$ANDROID_DEVICE_DIR/run/$BASE.$$"
+# Give each run its own scratch and TMPDIR, emptied first so a file left
+# behind cannot change the next run's answer. The path is fixed per test
+# because tests/CMakeLists.txt compiles it into the tests that write scratch
+# files (lba2_test_tmp_dir).
+RUN_DIR="$ANDROID_DEVICE_DIR/run/$BASE"
 
 quoted=""
 for a in "$@"; do
     quoted+=" $(printf '%q' "$a")"
 done
 
+# SDL_APP_NAME stands in for the Activity. With no app name set, SDL3 asks
+# Java for the executable name the first time anything creates a thread, and
+# with no JVM in this process that is a null dereference inside libSDL3.so.
+#
 # Run with cwd inside the scratch dir. Exit code comes back through adb shell
 # (protocol v2); the probe already established whether that is true, and a
 # device where it is not gets a marker instead of a silent 0.
 if [[ "$ANDROID_EXIT_CODES_PROPAGATE" == "1" ]]; then
-    "$ADB" shell "mkdir -p '$RUN_DIR' && cd '$RUN_DIR' && TMPDIR='$RUN_DIR' LD_LIBRARY_PATH='$ANDROID_DEVICE_DIR/lib' '$ANDROID_DEVICE_DIR/bin/$BASE'$quoted"
+    "$ADB" shell "rm -rf '$RUN_DIR' && mkdir -p '$RUN_DIR' && cd '$RUN_DIR' && TMPDIR='$RUN_DIR' SDL_APP_NAME='$BASE' LD_LIBRARY_PATH='$ANDROID_DEVICE_DIR/lib' '$ANDROID_DEVICE_DIR/bin/$BASE'$quoted"
     rc=$?
 else
-    out="$("$ADB" shell "mkdir -p '$RUN_DIR' && cd '$RUN_DIR' && TMPDIR='$RUN_DIR' LD_LIBRARY_PATH='$ANDROID_DEVICE_DIR/lib' '$ANDROID_DEVICE_DIR/bin/$BASE'$quoted; echo __RC=\$?" 2>&1)"
+    out="$("$ADB" shell "rm -rf '$RUN_DIR' && mkdir -p '$RUN_DIR' && cd '$RUN_DIR' && TMPDIR='$RUN_DIR' SDL_APP_NAME='$BASE' LD_LIBRARY_PATH='$ANDROID_DEVICE_DIR/lib' '$ANDROID_DEVICE_DIR/bin/$BASE'$quoted; echo __RC=\$?" 2>&1)"
     printf '%s\n' "${out%__RC=*}"
     rc="${out##*__RC=}"
     rc="$(printf '%s' "$rc" | tr -d '\r\n ')"
