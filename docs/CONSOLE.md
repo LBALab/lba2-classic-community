@@ -109,6 +109,7 @@ Get/set with `varname` (print value) or `varname value` (set).
 | **zv** | bool | Draw ZV boxes. |
 | **fix_retail** | int | Fix retail bugs: 0 no (the original's rules), 1 yes, 2 custom (each `fix_` setting decides). The Options → Advanced options row. See [CONFIG.md](CONFIG.md#retail-fixes). |
 | **fix_found_obj_walk** | bool | Retail fix: a direction held through a found-item popup still moves Twinsen afterwards. Setting it switches `fix_retail` to 2. |
+| **fix_terrain_seams** | bool | Retail fix: hairline seams show between the cubes of the outdoor ground. On, the terrain, sea and sky draw on the 1997 integer path. Setting it switches `fix_retail` to 2. |
 
 ## Layout
 

@@ -1,4 +1,12 @@
 
+// A world point through the terrain's camera path, as a clip vertex.
+static void PathVertex(STRUC_CLIPVERTEX *v, S32 x, S32 y, S32 z) {
+    TerrPath->WorldRotate(x, y, z);
+    v->V_X0 = X0 - *TerrPath->Xr;
+    v->V_Y0 = Y0 - *TerrPath->Yr;
+    v->V_Z0 = *TerrPath->Zr - Z0;
+}
+
 S32 Draw_Poly(STRUC_CLIPVERTEX src[], S32 type) {
     S32 k, l;
     STRUC_CLIPVERTEX dst[10];
@@ -10,8 +18,8 @@ S32 Draw_Poly(STRUC_CLIPVERTEX src[], S32 type) {
         k = ClipperZ(dst, dst1, k, Fill_Z_Fog_Far, -1);
         if (k) {
             for (l = 0; l != k; l++) {
-                if (!LongProjectPointIRound(dst[l].V_X0 + CameraXrI, dst[l].V_Y0 + CameraYrI, CameraZrI - dst[l].V_Z0,
-                                            CameraXrI, CameraYrI, CameraZrI))
+                if (!TerrPath->Project(dst[l].V_X0 + *TerrPath->Xr, dst[l].V_Y0 + *TerrPath->Yr,
+                                       *TerrPath->Zr - dst[l].V_Z0))
                     return FALSE;
                 if ((Xp != (S32)(S16)Xp) OR(Yp != (S32)(S16)Yp))
                     return FALSE;
@@ -34,7 +42,7 @@ S32 Draw_Poly(STRUC_CLIPVERTEX src[], S32 type) {
 /*──────────────────────────────────────────────────────────────────────────*/
 
 void DrawSky(S32 y) {
-    SetCameraI();
+    PickTerrainPath();
 
     U32 xx, zz, i, j;
     STRUC_CLIPVERTEX src[10];
@@ -57,26 +65,10 @@ void DrawSky(S32 y) {
     for (i = 0; i < NB_POLYS_COTE * 3; i++, zz += WORLD_SIZE / NB_POLYS_COTE) {
         xx = -WORLD_SIZE;
         for (j = 0; j < NB_POLYS_COTE * 3; j++, xx += WORLD_SIZE / NB_POLYS_COTE) {
-            LongWorldRotatePointI(xx, y, zz);
-            src[0].V_X0 = X0 - CameraXrI;
-            src[0].V_Y0 = Y0 - CameraYrI;
-            src[0].V_Z0 = CameraZrI - Z0;
-
-            LongWorldRotatePointI(xx + WORLD_SIZE / NB_POLYS_COTE, y, zz);
-            src[1].V_X0 = X0 - CameraXrI;
-            src[1].V_Y0 = Y0 - CameraYrI;
-            src[1].V_Z0 = CameraZrI - Z0;
-
-            LongWorldRotatePointI(xx + WORLD_SIZE / NB_POLYS_COTE, y, zz + WORLD_SIZE / NB_POLYS_COTE);
-            src[2].V_X0 = X0 - CameraXrI;
-            src[2].V_Y0 = Y0 - CameraYrI;
-            src[2].V_Z0 = CameraZrI - Z0;
-
-            LongWorldRotatePointI(xx, y, zz + WORLD_SIZE / NB_POLYS_COTE);
-            src[3].V_X0 = X0 - CameraXrI;
-            src[3].V_Y0 = Y0 - CameraYrI;
-            src[3].V_Z0 = CameraZrI - Z0;
-
+            PathVertex(&src[0], xx, y, zz);
+            PathVertex(&src[1], xx + WORLD_SIZE / NB_POLYS_COTE, y, zz);
+            PathVertex(&src[2], xx + WORLD_SIZE / NB_POLYS_COTE, y, zz + WORLD_SIZE / NB_POLYS_COTE);
+            PathVertex(&src[3], xx, y, zz + WORLD_SIZE / NB_POLYS_COTE);
             Draw_Poly(&src[0], 24);
         }
     }
@@ -84,7 +76,7 @@ void DrawSky(S32 y) {
 
 void DrawOneSea(S32 y) // Si on souhaite que l'eau ne soit pas au niveau 0 :)
 {
-    SetCameraI();
+    PickTerrainPath();
 
     STRUC_CLIPVERTEX src[10];
     U32 i, j, xx, zz;
@@ -111,26 +103,10 @@ void DrawOneSea(S32 y) // Si on souhaite que l'eau ne soit pas au niveau 0 :)
         xx = 0;
         for (j = 0; j < NB_POLYS_COTE; j++, xx += WORLD_SIZE / NB_POLYS_COTE) {
             if (CubeBitField & (1 << b)) {
-                LongWorldRotatePointI(xx, y, zz);
-                src[0].V_X0 = X0 - CameraXrI;
-                src[0].V_Y0 = Y0 - CameraYrI;
-                src[0].V_Z0 = CameraZrI - Z0;
-
-                LongWorldRotatePointI(xx, y, zz + WORLD_SIZE / NB_POLYS_COTE);
-                src[1].V_X0 = X0 - CameraXrI;
-                src[1].V_Y0 = Y0 - CameraYrI;
-                src[1].V_Z0 = CameraZrI - Z0;
-
-                LongWorldRotatePointI(xx + WORLD_SIZE / NB_POLYS_COTE, y, zz + WORLD_SIZE / NB_POLYS_COTE);
-                src[2].V_X0 = X0 - CameraXrI;
-                src[2].V_Y0 = Y0 - CameraYrI;
-                src[2].V_Z0 = CameraZrI - Z0;
-
-                LongWorldRotatePointI(xx + WORLD_SIZE / NB_POLYS_COTE, y, zz);
-                src[3].V_X0 = X0 - CameraXrI;
-                src[3].V_Y0 = Y0 - CameraYrI;
-                src[3].V_Z0 = CameraZrI - Z0;
-
+                PathVertex(&src[0], xx, y, zz);
+                PathVertex(&src[1], xx, y, zz + WORLD_SIZE / NB_POLYS_COTE);
+                PathVertex(&src[2], xx + WORLD_SIZE / NB_POLYS_COTE, y, zz + WORLD_SIZE / NB_POLYS_COTE);
+                PathVertex(&src[3], xx + WORLD_SIZE / NB_POLYS_COTE, y, zz);
                 Draw_Poly(src, 24);
             } else {
                 // poly noir ?

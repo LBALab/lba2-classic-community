@@ -47,6 +47,7 @@ a new subsystem"). It exposes:
 ```c
 typedef enum {
     RETAIL_FIX_FOUND_OBJ_WALK, /* #747 */
+    RETAIL_FIX_TERRAIN_SEAMS,  /* #144, added later */
     RETAIL_FIX_COUNT
 } T_RETAIL_FIX;
 
@@ -77,6 +78,7 @@ booting anything.
 | cfg key | cvar | type | default | min..max | before | recorded | lifecycle |
 |---|---|---|---|---|---|---|---|
 | `RetailFixFoundObjWalk` | `fix_found_obj_walk` | TRUTHY | 1 | 0..1 | 0 | yes | retail fix: permanent |
+| `RetailFixTerrainSeams` | `fix_terrain_seams` | TRUTHY | 1 | 0..1 | 0 | yes | retail fix: permanent (#144, added later) |
 | `RetailFixes` | `fix_retail` | OR_DEFAULT | 1 | 0..2 | 0 | yes | master: permanent |
 
 - cfg keys follow the cfg's CamelCase and cvars the console's prefix_snake, as every other row

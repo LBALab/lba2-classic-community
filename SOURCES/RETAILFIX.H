@@ -26,6 +26,7 @@ struct T_SETTING; /* SETTINGS.H; a pointer to a table needs no more */
 
 typedef enum {
     RETAIL_FIX_FOUND_OBJ_WALK, /* a direction held through the found-item popup sticks */
+    RETAIL_FIX_TERRAIN_SEAMS,  /* hairline seams between the outdoor ground's cubes */
     RETAIL_FIX_COUNT
 } T_RETAIL_FIX;
 

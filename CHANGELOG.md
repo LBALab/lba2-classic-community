@@ -17,7 +17,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   1997 game used on 486 and non-Intel processors, so neighbouring parts agree
   on the edge they share, and they draw the same on every platform. On a
   64-bit Android phone, frames with the camera turning outdoors took about a
-  third less time
+  third less time. It is a retail fix, so **Fix retail bugs** set to No in
+  Advanced options brings back the old drawing, seams included
   ([#807](https://github.com/LBALab/lba2-classic-community/pull/807)).
 
 ## [0.13.1] - 2026-10-20

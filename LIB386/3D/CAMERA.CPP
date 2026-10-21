@@ -5,6 +5,7 @@
 #include <3D/IMATSTD.H>
 #include <3D/LIGHT.H>
 #include <3D/LIROT3D.H>
+#include <3D/LPROJ.H>
 #include <3D/LROT3D.H>
 #include <3D/PROJ.H>
 
@@ -51,8 +52,32 @@ float FRatioY = 0.0f;
 U64 MMX_DEMI = (8192LL << 32) | 8192LL;
 U64 MMX_DEMI2 = (4096LL << 32) | 4096LL;
 
+S32 CameraXI = 0;
+S32 CameraYI = 0;
+S32 CameraZI = 0;
+
+S32 CameraXrI = 0;
+S32 CameraYrI = 0;
+S32 CameraZrI = 0;
+
 // -----------------------------------------------------------------------------
-void SetCamera(S32 x, S32 y, S32 z) {
+// Each camera call moves the integer camera first and the float one last, so
+// X0, Y0, Z0 are left as the float path alone leaves them.
+
+static void SetCameraIOnly(S32 x, S32 y, S32 z) {
+    if (TypeProj != TYPE_3D) {
+        CameraXrI = x;
+        CameraYrI = y;
+        CameraZrI = z;
+    } else {
+        LongRotatePointI(&MatriceWorldI, x, y, z);
+        CameraXrI = X0;
+        CameraYrI = Y0;
+        CameraZrI = Z0;
+    }
+}
+
+static void SetCameraFOnly(S32 x, S32 y, S32 z) {
     if (TypeProj != TYPE_3D) {
         // iso:
         CameraXr = x;
@@ -67,6 +92,11 @@ void SetCamera(S32 x, S32 y, S32 z) {
         CameraZr = Z0;
         CameraZrClip = Z0 - NearClip;
     }
+}
+
+void SetCamera(S32 x, S32 y, S32 z) {
+    SetCameraIOnly(x, y, z);
+    SetCameraFOnly(x, y, z);
 }
 
 void SetTargetCamera(S32 x, S32 y, S32 z, S32 gamma) {
@@ -95,21 +125,36 @@ void SetAngleCamera(S32 alpha, S32 beta, S32 gamma) {
     CameraAlpha = alpha;
     CameraBeta = beta;
     CameraGamma = gamma;
+    InitMatrixStdI(&MatriceWorldI, alpha, beta, gamma);
     InitMatrixStd(&MatriceWorld, alpha, beta, gamma);
     RecomputeLight();
 
-    SetCamera(CameraX, CameraY, CameraZ);
+    SetCameraIOnly(CameraXI, CameraYI, CameraZI);
+    SetCameraFOnly(CameraX, CameraY, CameraZ);
 }
 
 void SetPosCamera(S32 x, S32 y, S32 z) {
+    CameraXI = x;
+    CameraYI = y;
+    CameraZI = z;
     CameraX = x;
     CameraY = y;
     CameraZ = z;
     SetCamera(x, y, z);
 }
 
+void SetPosCameraI(S32 x, S32 y, S32 z) {
+    CameraXI = x;
+    CameraYI = y;
+    CameraZI = z;
+    SetCameraIOnly(x, y, z);
+}
+
 void SetFollowCamera(S32 targetx, S32 targety, S32 targetz, S32 alpha, S32 beta,
                      S32 gamma, S32 camzoom) {
+    CameraXI = targetx;
+    CameraYI = targety;
+    CameraZI = targetz;
     CameraX = targetx;
     CameraY = targety;
     CameraZ = targetz;
@@ -117,6 +162,14 @@ void SetFollowCamera(S32 targetx, S32 targety, S32 targetz, S32 alpha, S32 beta,
     SetAngleCamera(alpha, beta, gamma);
 
     if (TypeProj == TYPE_3D) {
+        // Back out along the view by camzoom, each camera by its own maths: the
+        // integer one as a 486 placed it, so nothing float reaches it.
+        CameraZrI = CameraZrI + camzoom;
+        LongInverseRotatePointI(&MatriceWorldI, CameraXrI, CameraYrI, CameraZrI);
+        CameraXI = X0;
+        CameraYI = Y0;
+        CameraZI = Z0;
+
         CameraZr = CameraZr + camzoom;
         CameraZrClip = CameraZrClip + camzoom;
 
@@ -126,6 +179,26 @@ void SetFollowCamera(S32 targetx, S32 targety, S32 targetz, S32 alpha, S32 beta,
         CameraZ = Z0;
     }
 }
+
+// -----------------------------------------------------------------------------
+static void WorldRotateFloat(S32 x, S32 y, S32 z) {
+    LongRotatePoint(&MatriceWorld, x, y, z);
+}
+
+static S32 ProjectFloat(S32 x, S32 y, S32 z) {
+    return LongProjectPoint(x, y, z);
+}
+
+static void WorldRotateInteger(S32 x, S32 y, S32 z) {
+    LongRotatePointI(&MatriceWorldI, x, y, z);
+}
+
+static S32 ProjectInteger(S32 x, S32 y, S32 z) {
+    return LongProjectPointIRound(x, y, z, CameraXrI, CameraYrI, CameraZrI);
+}
+
+const T_CAMERA_PATH CameraPathFloat = {WorldRotateFloat, ProjectFloat, &CameraXr, &CameraYr, &CameraZr};
+const T_CAMERA_PATH CameraPathInteger = {WorldRotateInteger, ProjectInteger, &CameraXrI, &CameraYrI, &CameraZrI};
 
 // =============================================================================
 #ifdef __cplusplus

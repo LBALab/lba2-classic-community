@@ -4,7 +4,7 @@
 /* See RETAILFIX.H. */
 
 S32 RetailFixes = RETAIL_FIXES_YES;
-static S32 RetailFixOn[RETAIL_FIX_COUNT] = {1};
+static S32 RetailFixOn[RETAIL_FIX_COUNT] = {1, 1};
 
 static void RetailFix_FixChanged(S32 value);
 
@@ -22,6 +22,14 @@ static const T_SETTING RetailFixSettings[] = {
     {"RetailFixFoundObjWalk", NULL, "fix_found_obj_walk", &RetailFixOn[RETAIL_FIX_FOUND_OBJ_WALK], SETTING_TRUTHY,
      1, 0, 1, NULL, NULL, RetailFix_FixChanged, NULL,
      "Retail fix: a direction held through a found-item popup still moves Twinsen afterwards", SETTING_RECORDED,
+     SETTING_BEFORE(0)},
+    /* #144. The exterior terrain, sea and sky draw on the 1997 integer path
+       instead of the float one, without the 1-unit nudge (TERRAIN.CPP). Recorded:
+       rain splashes test the depths it draws and draw from the shared random
+       stream. */
+    {"RetailFixTerrainSeams", NULL, "fix_terrain_seams", &RetailFixOn[RETAIL_FIX_TERRAIN_SEAMS], SETTING_TRUTHY,
+     1, 0, 1, NULL, NULL, RetailFix_FixChanged, NULL,
+     "Retail fix: hairline seams show between the cubes of the outdoor ground", SETTING_RECORDED,
      SETTING_BEFORE(0)},
     {"RetailFixes", NULL, "fix_retail", &RetailFixes, SETTING_OR_DEFAULT, RETAIL_FIXES_YES, RETAIL_FIXES_NO,
      RETAIL_FIXES_CUSTOM, NULL, NULL, NULL, NULL,
