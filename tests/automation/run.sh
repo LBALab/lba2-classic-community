@@ -159,8 +159,13 @@ run_one() {
     name="$(basename "$t" .sh)"
     sandbox="$work/$name"
     mkdir -p "$sandbox/tmp"
+    # Under MSYS2 a temp path reads /tmp/..., which the native engine and a native python
+    # cannot open when a fixture hands it over inside a console command or a script. The
+    # mixed spelling (D:/msys64/tmp/...) means the same folder to MSYS tools and to them.
+    local tmp="$sandbox/tmp"
+    command -v cygpath >/dev/null 2>&1 && tmp="$(cygpath -m "$tmp")"
     t0="$(now_ms)"
-    (cd "$sandbox" && TMPDIR="$sandbox/tmp" LBA2_PROFILE_LOG="$work/$name.engine" bash "$t") \
+    (cd "$sandbox" && TMPDIR="$tmp" LBA2_PROFILE_LOG="$work/$name.engine" bash "$t") \
         >"$work/$name.out" 2>&1
     rc=$?
     echo "$(($(now_ms) - t0))" >"$work/$name.ms"
@@ -202,18 +207,41 @@ report() {
         "$verdict" >>"$HISTORY"
 }
 
+# progress: one line for each fixture that has finished since the last call, with how far
+# the run has got, so a long run shows where it is. A fixture has finished once its .rc
+# file is there, which run_one writes last.
+total=${#selected[@]} finished=0 announced=" "
+progress() {
+    local t name rc verdict
+    for t in "${selected[@]}"; do
+        name="$(basename "$t" .sh)"
+        case "$announced" in *" $name "*) continue ;; esac
+        [ -f "$work/$name.rc" ] || continue
+        announced="$announced$name "
+        finished=$((finished + 1))
+        rc="$(cat "$work/$name.rc")"
+        case "$rc" in 0) verdict=pass ;; 77) verdict=skip ;; *) verdict=FAIL ;; esac
+        printf '[%d/%d %3d%%] %s %s %ss, %ss into the run\n' "$finished" "$total" \
+            $((finished * 100 / total)) "$verdict" "$name" "$(secs "$(cat "$work/$name.ms")")" \
+            "$(secs $(($(now_ms) - t_start)))"
+    done
+}
+
 t_start="$(now_ms)"
 if [ "$jobs" -eq 1 ]; then
-    for t in "${selected[@]}"; do run_one "$t"; report "$t"; done
+    for t in "${selected[@]}"; do run_one "$t"; progress; report "$t"; done
 else
     running=0
     for t in "${selected[@]}"; do
         run_one "$t" &
         running=$((running + 1))
-        if [ "$running" -ge "$jobs" ]; then wait -n; running=$((running - 1)); fi
+        if [ "$running" -ge "$jobs" ]; then wait -n; running=$((running - 1)); progress; fi
     done
+    while [ "$running" -gt 0 ]; do wait -n; running=$((running - 1)); progress; done
     wait
+    progress
     # Reported in name order once all are done, so the log reads the same at any -j.
+    echo "----------------------------------------"
     while IFS= read -r t; do report "$t"; done < <(printf '%s\n' "${selected[@]}" | sort)
 fi
 wall_ms=$(($(now_ms) - t_start))
