@@ -10,7 +10,19 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Input & controller
+
+- Dragging the camera with the right mouse button orbits smoothly again with
+  VSync off or on a display faster than 60 Hz. Above 60 frames a second the
+  mouse left and re-entered relative mode on every game step, so the camera
+  jittered back and forth over a short arc instead of following the drag
+  ([#803](https://github.com/LBALab/lba2-classic-community/issues/803)).
+
+### Contributors
+
+Thanks to EPmager for reporting the jittery mouse orbit with VSync off, with a
+video of all four cases
+([#803](https://github.com/LBALab/lba2-classic-community/issues/803)).
 
 ## [0.13.1] - 2026-10-20
 
