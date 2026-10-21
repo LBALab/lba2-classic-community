@@ -66,7 +66,9 @@ another monitor and take the focus away, which pauses the game. With
 Cmd-Tab) still works, and the window lets go while it is not focused. During
 an orbit, or all the time with free orbit, the mouse is in relative mode
 instead, which ends on the second frame the camera stops asking for it: a
-menu, an interior or a cutscene ends it without doing anything.
+menu, an interior or a cutscene ends it without doing anything. A gameplay
+frame that runs no game step, which is most of them above 60 frames a second,
+keeps the request of the step before it.
 `mouse_capture` in the console shows which of the three the window is in.
 
 ### Gamepad right stick

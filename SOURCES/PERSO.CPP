@@ -1643,6 +1643,10 @@ restartloop:
                    inside here, and hoisting it out to share one call would edit
                    the throttle to measure it. */
                 InputFlow_NoteSimFrame(Input ^ LastInput, I_ACTION_EDGE, FALSE);
+                /* The mouse camera asks for relative mode from inside a step, so
+                   a frame without one would end it and the next step would turn
+                   it back on: once a step, an orbit that jitters in place. */
+                MouseCapture_CarryOrbit();
                 goto skip_simulation; // high-fps skip (remainder carries) or clock rewind (re-anchored)
             }
         }
