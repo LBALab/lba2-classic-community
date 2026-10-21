@@ -5,6 +5,12 @@ default-off and Phase 8 is compile-verified. Phase 1b was headset-verified;
 device verification for Phases 2--8 is pending because `adb devices` was
 empty at the end of the session.
 
+Foveation audit (2026-10-21): the GLES texture and framebuffer foveation
+entry points are a no-op on the Quest 3 driver. Only the XR compositor hint
+(`VrFoveation`) remains; it does not change the engine frame time because the
+scene target is still rendered at full resolution. See `docs/ANDROID.md` and
+`OPTIMIZATION_LOG.md`.
+
 Latest measured sample (headset, after Phase 1b, before Phases 2--8):
 `StereoPerf` eye0 13 ms, eye1 10 ms, frame 23 ms; `GLPerf` present 1.40 ms,
 flush 2.86 ms; `OpenXRPerf` total 0.51 ms, blit 0.05 ms; horizon 3.0 ms;
@@ -478,7 +484,9 @@ owner asks for it.
 
 - No resolution-ladder change.
 - No MSAA sample-count change.
-- No foveation change.
+- No foveation change beyond the `VrFoveation` XR compositor hint; the GLES
+  texture/framebuffer foveation path is a driver no-op on Quest 3 (see
+  `docs/ANDROID.md`).
 - No gameplay, timing, or feel change.
 - No restoration of the eye-1 horizon image capture.
 - No speculative abstraction around the render targets; keep the fallback

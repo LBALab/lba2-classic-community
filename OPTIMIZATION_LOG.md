@@ -33,7 +33,7 @@ GPU-side cuts below should also collapse the stall component of those numbers.
 | 1a | **Resolve-in-tile v3 (enabled, device-verified)**: the first attempt sampled `s_fboColorTex` without forcing a resolve; v2 added `glInvalidateFramebuffer`, which Adreno treats as discard-don't-resolve. Both attached `s_fboColorTex` to the MSAA FBO as well as the scene FBO. v3 gives the MSAA FBO a dedicated `s_msaaColorTex`, attached only to that FBO and a single-sample resolve-view FBO. The composite samples the texture directly; the OpenXR direct present blits from the resolve view; snapshot frames explicitly copy color+depth into `s_fbo`. No `glInvalidateFramebuffer`. Driver rejection of either FBO, or a failed resolve probe, falls back to explicit resolve for the session. | RENDER_GL.CPP | removes the full-surface color resolve from every present; direct present resolves the scene once inside its blit |
 | 3 | ~~Swapchain-image FBOs cached per image index~~ **REVERTED — found by on-device bisection.** The Meta runtime does not tolerate a persistent FBO attachment on its swapchain textures across xrAcquire/xrRelease (or re-backs the images on session resume): the composited frame landed in orphaned memory and the eyes saw black with only the 2D overlay (rain) showing. The original fresh `glGenFramebuffers` + attach + delete per present is restored — its cost is negligible next to the blit. | OPENXR.CPP | (would have removed per-frame FBO churn) |
 | 4 | **Frame pacing**: `xrWaitFrame` + `xrBeginFrame` now run at frame START (from `OpenXR_BeginFrame`, one-shot `OpenXR_EnsureFrameBegun`) instead of after both eye renders inside `OpenXR_PresentMono`. CPU render work now overlaps the compositor's wait window and frames submit on time instead of late. Menu/title paths still funnel through the same one-shot. | OPENXR.CPP | removes submit lateness; pacing/stutter win |
-| 5 | **Fixed foveation LOW** (XR_FB_foveation + configuration + swapchain_update_state, all ext-gated): the tiler renders the periphery at reduced bin density. The swapchain is created with `XR_SWAPCHAIN_CREATE_FOVEATION_SCALED_BIN_BIT_FB` — the method Adreno implements; chaining the create-info with flags 0 (the first attempt) left the runtime rendering the swapchain undefined. LOW chosen to be invisible behind the engine-resolution upscale; the knob is one enum (`XR_FOVEATION_LEVEL_*_FB`). | OPENXR.CPP | major fill-rate save on Quest |
+| 5 | **Fixed foveation LOW** (XR_FB_foveation + configuration + swapchain_update_state, all ext-gated): the tiler renders the periphery at reduced bin density. The swapchain is created with `XR_SWAPCHAIN_CREATE_FOVEATION_SCALED_BIN_BIT_FB` — the method Adreno implements; chaining the create-info with flags 0 (the first attempt) left the runtime rendering the swapchain undefined. LOW chosen to be invisible behind the engine-resolution upscale; the knob is one enum (`XR_FOVEATION_LEVEL_*_FB`). | OPENXR.CPP | compositor-side fill-rate save; the engine frame time is unchanged because the scene target stays full-resolution (see the 2026-10-21 audit) |
 | 6 | **Clock governor** (XR_EXT_performance_settings, ext-gated): GPU = BOOST, CPU = SUSTAINED_HIGH at session begin. | OPENXR.CPP | clocks needed for 72 Hz |
 
 ### CPU
@@ -135,6 +135,32 @@ the number.
   in for eye 1. The code change was reverted; the pre-fix per-eye draw is
   the correct behavior. The numbers remain useful as the ceiling for a
   parallax-aware reuse.
+
+## Foveation audit (2026-10-21)
+
+`VrFoveation` reaches the runtime through `XR_FB_foveation` and remains the
+only working foveation control. The compositor samples the swapchain at the
+requested density; the engine still renders the full-resolution double-wide
+scene target, so the setting does not change `StereoPerf` frame time.
+
+`GL_QCOM_framebuffer_foveated` and `GL_QCOM_texture_foveated` were probed as
+a way to reduce the scene target's own shading cost on Quest 3 (Adreno 740).
+The driver advertises both extensions (`features=0x7`, two focal points) and
+accepts the configuration, but framebuffer foveation returns `provided=0x0`
+and texture foveation produces no visible blur or frame-time change on:
+
+- a `GL_TEXTURE_2D_MULTISAMPLE` scene target with scaled-bin (0x3) or
+  subsampled-layout (0x5) feature bits;
+- a single-sample `GL_TEXTURE_2D` target with scaled-bin, presented by blit;
+- a single-sample subsampled-layout target sampled by a
+  `layout(subsampled) sampler2D` present shader (no blit reconstruction).
+
+A blit from a subsampled-layout target reconstructs to full resolution by
+specification, so it cannot preserve that layout's foveation. The GLES
+foveation entry points are a no-op on this driver; the explicit-MSAA target
+was reverted and the in-tile path remains the baseline. Direct-to-swapchain
+stereo is the only route that would let the XR compositor foveation apply to
+the engine's writes, and that path is currently off by default and black.
 
 ## Remaining levers (deliberately NOT taken — behavior changes, owner's call)
 

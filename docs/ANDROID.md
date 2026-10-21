@@ -198,6 +198,39 @@ texture when the compositor samples it; if the headset shows a black or
 single-eye image, leave it off. `OpenXRPerf` reports a `direct=` count when the
 path is active.
 
+### Foveation on Quest
+
+`VrFoveation` in the Display menu sets the fixed-foveation level forwarded to
+the OpenXR compositor (`XR_FB_foveation` plus
+`XR_FB_foveation_configuration`). It is a compositor-side setting: the runtime
+samples the submitted swapchain at reduced density away from the focal point.
+The engine still renders the double-wide scene target at full resolution, so
+this setting does not reduce the engine's render cost; it can reduce the
+compositor's sampling cost.
+
+`GL_QCOM_framebuffer_foveated` and `GL_QCOM_texture_foveated` are not a
+substitute on the Quest 3 Adreno 740 driver. The driver advertises the
+extensions and reports `features=0x7` with two focal points, and accepts the
+feature bits and focal-point parameters without a GL error, but:
+
+- framebuffer foveation reports `provided=0x0` (the entry points are stubs);
+- texture foveation produces no peripheral blur and no frame-time change on
+  a multisample or single-sample scene target, with the scaled-bin or
+  subsampled-layout method, including a present shader compiled with
+  `layout(subsampled) sampler2D`.
+
+A `glBlitFramebuffer` from a subsampled-layout target also reconstructs the
+storage to full resolution, per the extension specification, so a blit-based
+present cannot show that layout's foveation. Treat the GLES foveation entry
+points as non-functional on this driver; do not re-add an explicit-MSAA
+foveation target without re-validating on a driver that actually reduces
+density. The in-tile MSAA path is the baseline.
+
+The only remaining route to foveate the engine's own rendering is to render
+directly into the runtime swapchain (`LBA2_OXR_DIRECT`), where the compositor's
+foveation applies to the app's writes. That path is currently off by default
+and is not validated; see the direct-stereo paragraph above.
+
 In first person, each eye
 renders from its tracked view
 (`OpenXR_GetEyeView`): the orientation comes from the runtime-located
