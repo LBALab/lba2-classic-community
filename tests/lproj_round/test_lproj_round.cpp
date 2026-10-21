@@ -4,7 +4,8 @@
  * projection (LongProjectPoint3DI, whose ASM equivalence is in tests/3D) with
  * the quotient rounded to nearest, ties to even, instead of truncated. Checks:
  * exact ties go to even; wherever the division is exact it agrees with the
- * truncating port; the clip branch is the same; and against the float
+ * truncating port; the clip branch is the same, and with no near clip a point
+ * at or behind the camera is clipped rather than divided; and against the float
  * projection the objects use it is never more than a pixel away, and lands on
  * the same pixel nearly always. */
 
@@ -55,23 +56,24 @@ static void TestTies() {
         Fail("near", 0, 8, -3, Yp, -3);
 }
 
-static void TestClipAndExact() {
+static void TestClipAndExact(U32 seed) {
+    rng_state = seed;
     SetProjection(368, 240, 5, 600, 600);
     CameraXr = 1200;
     CameraYr = -800;
     CameraZr = 20000;
     CameraZrClip = CameraZr - NearClip;
     for (int i = 0; i < 200000; i++) {
-        const S32 dz = -(S32)(1 + Next() % 50000u);
-        /* Multiples of dz make the division exact on both axes. */
+        /* One case in seven sits at the clip: dz from 0 to -9, where up to -4
+           is inside it (z > CameraZr - NearClip) and from -5 projects. */
+        const S32 dz = (i % 7 == 0) ? -(S32)(Next() % 10u) : -(S32)(1 + Next() % 50000u);
         const S32 kx = (S32)(Next() % 400u) - 200;
         const S32 ky = (S32)(Next() % 400u) - 200;
-        S32 z = CameraZr + dz;
-        /* An offset of k * dz makes the quotient -k * 600 exactly. */
+        /* An offset of k * dz makes the quotient -k * 600 exactly, on both
+           axes, so rounding and truncation must agree wherever it projects. */
         const S32 x = CameraXr + kx * dz;
         const S32 y = CameraYr + ky * dz;
-        if (i % 7 == 0)
-            z = CameraZr - (S32)(Next() % 10u); /* inside the clip: z > CameraZr - NearClip */
+        const S32 z = CameraZr + dz;
 
         const S32 retT = LongProjectPoint3DI(x, y, z);
         const S32 xpT = Xp, ypT = Yp;
@@ -83,6 +85,22 @@ static void TestClipAndExact() {
         if (Yp != ypT)
             Fail("exact Yp", x, y, z, Yp, ypT);
     }
+}
+
+/* With no near clip (isometric mode leaves NearClip at 0), a point at the
+   camera's depth or behind it would divide by zero or by a positive depth: it
+   is clipped instead, as the 3D clip would have it. */
+static void TestNoNearClip() {
+    SetProjection(368, 240, 0, 600, 600);
+    const S32 zs[] = {20000, 20001, 30000};
+    for (unsigned i = 0; i < sizeof(zs) / sizeof(zs[0]); i++) {
+        const S32 ret = LongProjectPointIRound(1300, -700, zs[i], 1200, -800, 20000);
+        if (ret != 0 || Xp != -2147483647 - 1 || Yp != -2147483647 - 1)
+            Fail("no near clip", 1300, -700, zs[i], ret, 0);
+    }
+    const S32 ret = LongProjectPointIRound(1300, -700, 19999, 1200, -800, 20000);
+    if (ret != 1)
+        Fail("no near clip, just in front", 1300, -700, 19999, ret, 1);
 }
 
 /* Against the float projection objects use: same point, same camera. */
@@ -121,7 +139,11 @@ static void TestAgainstFloat() {
 
 int main() {
     TestTies();
-    TestClipAndExact();
+    /* Exact by construction, so any seed holds: three show it is not one. */
+    TestClipAndExact(0x5EA5EA5Eu);
+    TestClipAndExact(0x12345679u);
+    TestClipAndExact(0xC0FFEE01u);
+    TestNoNearClip();
     TestAgainstFloat();
     if (failures) {
         std::printf("%d failure(s)\n", failures);

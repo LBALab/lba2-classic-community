@@ -32,7 +32,8 @@ S32 LongProjectPoint3DI(S32 x, S32 y, S32 z) {
 }
 
 // n / d to the nearest integer, ties to even: what lrintl does to the float
-// path's quotient in round-to-nearest mode. d is never 0 here.
+// path's quotient in round-to-nearest mode. d is never 0: the caller's clip
+// keeps it negative.
 static S32 DivRoundNearestEven(S64 n, S64 d) {
     S64 q = n / d;
     const S64 r = n % d;
@@ -50,10 +51,17 @@ static S32 DivRoundNearestEven(S64 n, S64 d) {
  * sea and sky take the integer path while objects stay on the float one, whose
  * projection rounds; truncating here would sit the ground one pixel off the
  * objects standing on it at about three contact points in four. Same clip,
- * same Xp/Yp outputs, same return value as LongProjectPoint3DI.
+ * same Xp/Yp outputs, same return value as LongProjectPoint3DI, except that a
+ * point at or behind the camera is always clipped, where the 1997 routine
+ * would divide by zero or by a positive depth with no near clip.
  */
 S32 LongProjectPointIRound(S32 x, S32 y, S32 z, S32 camXr, S32 camYr, S32 camZr) {
-    if (z > (S32)((U32)camZr - (U32)NearClip)) {
+    const S32 dz = (S32)((U32)z - (U32)camZr);
+
+    /* The divide needs dz < 0. The clip gives it whenever NearClip > 0; the
+       second test keeps it with a NearClip of 0, which isometric mode sets, and
+       sends a point at or behind the camera to the clip branch. */
+    if (z > (S32)((U32)camZr - (U32)NearClip) || dz >= 0) {
         Xp = -2147483647 - 1;
         Yp = -2147483647 - 1;
         Projrec_LongProjectPointI(x, y, z, camXr, camYr, camZr, 0, Xp, Yp);
@@ -62,7 +70,6 @@ S32 LongProjectPointIRound(S32 x, S32 y, S32 z, S32 camXr, S32 camYr, S32 camZr)
 
     const S32 dx = (S32)(0u - ((U32)x - (U32)camXr));
     const S32 dy = (S32)((U32)y - (U32)camYr);
-    const S32 dz = (S32)((U32)z - (U32)camZr);
 
     Xp = (S32)((U32)DivRoundNearestEven((S64)dx * LFactorX, dz) + (U32)XCentre);
     Yp = (S32)((U32)DivRoundNearestEven((S64)dy * LFactorY, dz) + (U32)YCentre);
