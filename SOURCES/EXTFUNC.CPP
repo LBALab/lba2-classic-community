@@ -2677,6 +2677,9 @@ S32 GereExtKeys(U32 key)
                  * the head here. */
                 s_tiltFloorExtra = 90; /* alpha floor 150 -> 60 (~5 deg): the
                                           camera can approach the ground */
+                /* StereoEyeBeta owns the head yaw; a rig nudge here would
+                   orbit the camera around Twinsen and double-apply the look. */
+                dBeta = 0;
                 dZoom = StickAxisToCamStep(rsx, GamepadCameraSensX,
                                            FOLLOW_CAM_ZOOM_STEP * 2);
                 dAlpha = StickAxisToCamStep(rsy, GamepadCameraSensY,
