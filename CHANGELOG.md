@@ -29,6 +29,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   jittered back and forth over a short arc instead of following the drag
   ([#803](https://github.com/LBALab/lba2-classic-community/issues/803)).
 
+### Build & packaging
+
+- The Android packaging script stops with a message when SDL's Java sources
+  or `libSDL3.so` are not where its arguments point, instead of building an APK
+  that installs and then cannot start
+  ([#811](https://github.com/LBALab/lba2-classic-community/pull/811)).
+
 ### Contributors
 
 Thanks to EPmager for reporting the jittery mouse orbit with VSync off, with a
