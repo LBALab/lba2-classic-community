@@ -14,6 +14,27 @@
 #define ANI_POLY_STEP_Y 2
 #define ANI_POLY_STEP_X 5
 
+/* The terrain, sea and sky go through the 1997 integer path (IMATSTDI,
+ * LROT3DI, LPROJ3DI): integer maths gives two neighbouring cubes the same
+ * pixels on the edge they share, where the float path leaves hairline seams,
+ * and the same on every platform. Decors and objects stay on the float path.
+ * The projection rounds instead of truncating, so the ground lands where the
+ * float objects standing on it do (LongProjectPointIRound). The matrix and
+ * camera position are rebuilt from the camera's angles and world position
+ * each time, so the float camera stays the one the rest of the game uses. */
+static TYPE_MAT MatriceWorldI;
+static S32 CameraXrI, CameraYrI, CameraZrI;
+
+static void SetCameraI(void) {
+    InitMatrixStdI(&MatriceWorldI, CameraAlpha, CameraBeta, CameraGamma);
+    LongRotatePointI(&MatriceWorldI, CameraX, CameraY, CameraZ);
+    CameraXrI = X0;
+    CameraYrI = Y0;
+    CameraZrI = Z0;
+}
+
+#define LongWorldRotatePointI(x, y, z) LongRotatePointI(&MatriceWorldI, x, y, z)
+
 #include "DRAWSKY.CPP"
 
 S32 Sky_Y;
@@ -731,7 +752,11 @@ void DrawHorizon2ZBuf() {
 */
                 {
 #ifdef LBA_GAME
-                    SetPosCamera(cx - OffPosCamera[TerrainTri->x + 1] + TerrainTri->x, cy, cz - OffPosCamera[TerrainTri->y + 1] + TerrainTri->y);
+                    // The 1997 game adds TerrainTri->x and ->y here, a 1-unit nudge
+                    // per neighbouring cube (LBA2.DOS 0x65e2b, on every CPU path).
+                    // With the integer terrain it opens seams instead of hiding
+                    // them, so the camera moves by whole cubes only.
+                    SetPosCamera(cx - OffPosCamera[TerrainTri->x + 1], cy, cz - OffPosCamera[TerrainTri->y + 1]);
 #else
                     SetPosCamera(cx - OffPosCamera[TerrainTri->x + 1] + TerrainTri->x * Reglage, cy, cz - OffPosCamera[TerrainTri->y + 1] + TerrainTri->y * Reglage);
 #endif
@@ -793,6 +818,7 @@ void AffichageTerrainZBuf(void) {
     AffichageObjetDecorsZBuf();
 
     // calcul les coordonnées 2D de chaque points
+    SetCameraI();
     ptra = &SommetAffichable[0][0];
     ptrm = MapSommetY;
     ptrs = &SommetRot[0][0];
@@ -801,16 +827,16 @@ void AffichageTerrainZBuf(void) {
         for (S32 x = 0; x <= NB_COTE * 512; x += 512) {
             S32 zr;
 
-            LongWorldRotatePoint(x, *ptrm, z);
+            LongWorldRotatePointI(x, *ptrm, z);
 
-            zr = CameraZr - Z0;
+            zr = CameraZrI - Z0;
 
             // cone clipping
 
             if (zr <= NearClip) {
                 *ptra = 32;
             } else if ((zr < ClipZFar)
-                           AND LongProjectPoint(X0, Y0, Z0)) {
+                           AND LongProjectPointIRound(X0, Y0, Z0, CameraXrI, CameraYrI, CameraZrI)) {
                 U8 flag;
 
                 flag = 16;
