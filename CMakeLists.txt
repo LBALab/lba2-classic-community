@@ -45,7 +45,10 @@ endif ()
 # Testing options
 option(LBA2_BUILD_TESTS "Build test suites" OFF)
 option(LBA2_BUILD_ASM_EQUIV_TESTS "Build ASM↔CPP equivalence tests (requires objcopy; use OFF for host-only discovery tests)" ON)
-option(ENABLE_POLY_RECORDING "Enable polygon call recording for ASM-vs-CPP testing" OFF)
+# On by default in a build with tests, so test_polyrec.sh runs without a second build; off in
+# a player's build. Idle, it is a flag test per draw call: 2400 headless ticks took the same
+# 4.6 s with it and without on an Apple Silicon Mac.
+option(ENABLE_POLY_RECORDING "Enable polygon call recording for ASM-vs-CPP testing" ${LBA2_BUILD_TESTS})
 
 # Debug tools (original Adeline developer debug features)
 option(DEBUG_TOOLS "Enable developer debug tools (collision viz, benchmarks, bug saves)" OFF)
