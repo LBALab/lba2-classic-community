@@ -70,6 +70,10 @@ void Projrec_SetIsoProjection(S32 xc, S32 yc);
 void Projrec_LongProjectPoint3D(S32 x, S32 y, S32 z, S32 ret, S32 xp, S32 yp);
 void Projrec_LongProjectPointIso(S32 x, S32 y, S32 z, S32 xp, S32 yp);
 
+/* LongProjectPointIRound capture: the integer projection the exterior terrain,
+   sea and sky use (LPROJ3DI.CPP), with the camera it was given. */
+void Projrec_LongProjectPointI(S32 x, S32 y, S32 z, S32 camx, S32 camy, S32 camz, S32 ret, S32 xp, S32 yp);
+
 /* Batched projection list captures. Called once per ProjectList3DF /
    ProjectListIso invocation; the captured event includes the call's input
    (NbPt + origin) but not the per-vertex output — per-vertex coverage is

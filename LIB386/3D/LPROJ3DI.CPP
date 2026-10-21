@@ -1,6 +1,7 @@
 #include <3D/LPROJ.H>
 
 #include <3D/CAMERA.H>
+#include <3D/PROJREC.H>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -55,6 +56,7 @@ S32 LongProjectPointIRound(S32 x, S32 y, S32 z, S32 camXr, S32 camYr, S32 camZr)
     if (z > (S32)((U32)camZr - (U32)NearClip)) {
         Xp = -2147483647 - 1;
         Yp = -2147483647 - 1;
+        Projrec_LongProjectPointI(x, y, z, camXr, camYr, camZr, 0, Xp, Yp);
         return 0;
     }
 
@@ -64,6 +66,7 @@ S32 LongProjectPointIRound(S32 x, S32 y, S32 z, S32 camXr, S32 camYr, S32 camZr)
 
     Xp = (S32)((U32)DivRoundNearestEven((S64)dx * LFactorX, dz) + (U32)XCentre);
     Yp = (S32)((U32)DivRoundNearestEven((S64)dy * LFactorY, dz) + (U32)YCentre);
+    Projrec_LongProjectPointI(x, y, z, camXr, camYr, camZr, 1, Xp, Yp);
     return 1;
 }
 

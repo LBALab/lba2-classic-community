@@ -24,6 +24,7 @@ Run `--projection-hash` against every committed save:
 | Path | Function(s) | Saves exercising it | Total events across corpus |
 |---|---|---|---|
 | Exterior 3D perspective | `SetProjection`, `LongProjectPoint3D`, `ProjectList3DF` | **22 of 50** | 22 `SETPROJ`, 237K `PROJ`, 2K `PRLI` |
+| Exterior terrain, sea and sky (integer path) | `LongProjectPointIRound` | outdoor saves | `PROJI`, one per terrain vertex and per sea and sky corner; counted before it was added, so not in the totals |
 | Interior orthographic | `SetIsoProjection`, `LongProjectPointIso`, `ProjectListIso` | **50 of 50** (all touch `SETISO` via menu pre-arm) | 79 `SETISO`, 12K `PROJISO`, 394 `PRLIISO` |
 | Isometric brick world→screen | `Map2Screen` (`GRILLE.CPP`) | **28 of 50** | 102K `M2S` |
 
@@ -77,7 +78,7 @@ diff /tmp/prior.projrec /tmp/current.projrec | head
 
 The sequence number on the first divergent line tells you which
 projection call changed — `SETPROJ` for the setup, `PROJ`/`PROJISO` for
-individual vertices, `M2S` for the isometric brick origin. Cross-
+individual vertices, `PROJI` for the outdoor terrain, sea and sky, `M2S` for the isometric brick origin. Cross-
 reference with [`docs/CONTROL.md`'s Projection capture section](../../docs/CONTROL.md#projection-capture).
 
 If the divergence is non-deterministic (same build produces different

@@ -156,6 +156,15 @@ void Projrec_LongProjectPoint3D(S32 x, S32 y, S32 z, S32 ret, S32 xp, S32 yp) {
          (long)ret, (long)xp, (long)yp);
 }
 
+void Projrec_LongProjectPointI(S32 x, S32 y, S32 z, S32 camx, S32 camy, S32 camz, S32 ret, S32 xp, S32 yp) {
+    if (!Projrec_IsActive())
+        return;
+    ++s_event_count;
+    emit("PROJI seq=%ld x=%ld y=%ld z=%ld cam=%ld,%ld,%ld -> ret=%ld xp=%ld yp=%ld\n",
+         s_event_count, (long)x, (long)y, (long)z, (long)camx, (long)camy, (long)camz,
+         (long)ret, (long)xp, (long)yp);
+}
+
 void Projrec_LongProjectPointIso(S32 x, S32 y, S32 z, S32 xp, S32 yp) {
     if (!Projrec_IsActive())
         return;
