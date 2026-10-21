@@ -40,6 +40,15 @@ sources:
   - id: joystick
     resource: ../../../SOURCES/JOYSTICK.CPP
     title: JOYSTICK.CPP, the pad's two paths
+  - id: deadzone-default
+    resource: ../../../SOURCES/JOYSTICK.H
+    title: The compiled stick deadzone default
+  - id: deadzone-config
+    resource: ../../../SOURCES/CONFIG_FILE.CPP
+    title: The configurable gamepad deadzone row
+  - id: analog-deadzone
+    resource: ../../../SOURCES/EXTFUNC.CPP
+    title: The right-stick analog camera deadzone
   - id: touch
     resource: ../../../SOURCES/TOUCH_INPUT.CPP
     title: TOUCH_INPUT.CPP, the overlay's virtual keys
@@ -84,6 +93,7 @@ Distilled from [docs/plan/INPUT_RESEARCH.md](../../plan/INPUT_RESEARCH.md), whic
 | Handheld touch recenter | The backend's `touch_recenter` capability enables one front-screen recenter pulse during the main-loop input poll. Indirect/rear touch, motion, modal polls and unfocused presses do not queue recentering. The pulse uses a configured Return key before the recording hook, restores only the injected key state afterwards, and never opens the Android overlay or marks touch as a typing device.[^touch][^input-cpp] |
 | Shared UI directions | Menus, save lists, inventory, memo pages, the behaviour selector, holomap and resolution confirmation read `MenuInput_Get`. Fixed controls are arrows/keypad and left stick/D-pad; triggers retain gameplay forward/backward only. UI suppression lasts until release, release waits also see held UI directions, and console isolation hides both active and held UI state without leaking a held direction on close. Inventory and resolution confirmation use `WaitNoMenuInput` to drain only UI directions inside a balanced timer-save bracket, excluding release time from gameplay without waiting for unrelated controls. No UI binding editor, mutable table or config entries exist.[^menu-input][^input-cpp] |
 | The pad's two paths | Digital gameplay resolves configurable virtual scancodes; UI navigation reads the fixed left-stick/D-pad scancodes. A stick is quantised to eight directions on its way in. The right-stick camera under `GamepadCameraAnalog` with Auto camera on an exterior bypasses the digital funnel; while it owns the stick, digital right-stick scancodes are unavailable to gameplay bindings.[^joystick] |
+| Stick deadzone | `GamepadDeadzone` controls both sticks: digital directions use a radial deadzone and the analog camera uses it per axis. Vita builds default to 13107 (40% of the axis range); other builds retain 8000. The runtime initializer and config row share the compiled default, and the built-in config leaves the key unset. Explicit layered config values still win; directional snap and hysteresis do not change.[^joystick][^deadzone-default][^deadzone-config][^analog-deadzone] |
 | The overlay | Fourteen on-screen buttons, each with a hardcoded default scancode; `ApplyVirtualKeys` re-applies them into `TabKeys` after the poll cleared it and leaves `Key` alone. So a button reaches any consumer that reads `Input` or `CheckKey` and no site that tests `Key` or `MyKey`, and nothing in TOUCH_INPUT.CPP reads `DefKeys`, so rebinding the keyboard silently disconnects the overlay. Visibility follows the last device through `LastInputWasTouch`, which the keyboard flag cannot supply because a pad and a finger both leave it zero.[^touch] |
 | Text entry | `GetAscii` converts the poll's first held physical ID through the platform keymap and consults no binding; three call sites, the save-name field twice and the cheat codes. The original Windows module drained a character buffer filled by window messages; the port reads the poll. No device but the keyboard writes `Key`, so a pad or touch player never sees the field and is routed by `!LastInputWasKeyboard` to a datetime stem, silently.[^gamemenu] |
 | Device facts | `LastInputWasKeyboard` is 1 after a real key-down event and 0 after the mouse, the pad or the overlay. It is in no digest, the save menu gates on it, and the recorder carries it by [its own decision](/decisions/a-missing-field-is-not-a-value.md).[^keyboard] |
@@ -117,6 +127,9 @@ Distilled from [docs/plan/INPUT_RESEARCH.md](../../plan/INPUT_RESEARCH.md), whic
 [^bindings]: [SOURCES/INPUT_BINDINGS.CPP](../../../SOURCES/INPUT_BINDINGS.CPP), `DefKeysDefault95`, `DefKeys`, `GamepadKeys`, `Bindings_SetGameplay` and `InitInput`.
 [^menu-input]: [SOURCES/MENU_INPUT.CPP](../../../SOURCES/MENU_INPUT.CPP), `MenuInput_Poll`, `MenuInput_Get`, `MenuInput_Held`, `MenuInput_Suppress`, `MenuInput_Suppressed` and `MenuInput_Reset`.
 [^joystick]: [SOURCES/JOYSTICK.CPP](../../../SOURCES/JOYSTICK.CPP), `ApplyStickDirection`, `UpdateJoystick`, `JoystickFirstPressedScancode` and `JoystickButtonPressed`.
+[^deadzone-default]: [SOURCES/JOYSTICK.H](../../../SOURCES/JOYSTICK.H), `LBA2_GAMEPAD_DEADZONE_DEFAULT`; [SOURCES/CMakeLists.txt](../../../SOURCES/CMakeLists.txt) selects the Vita value.
+[^deadzone-config]: [SOURCES/CONFIG_FILE.CPP](../../../SOURCES/CONFIG_FILE.CPP), `GamepadSettings`; [SOURCES/LBA2.CFG](../../../SOURCES/LBA2.CFG) leaves the key unset.
+[^analog-deadzone]: [SOURCES/EXTFUNC.CPP](../../../SOURCES/EXTFUNC.CPP), `StickAxisToCamStep`.
 [^touch]: [SOURCES/TOUCH_INPUT.CPP](../../../SOURCES/TOUCH_INPUT.CPP), the button table, `TouchInput_SetGameplay`, `TouchOverlay_HandleEvent` and `ApplyVirtualKeys`; `LastInputWasTouch` is set there.
 [^perso]: [SOURCES/PERSO.CPP](../../../SOURCES/PERSO.CPP), `MainLoop`: the `LastInput` assignment before `MyGetInput`, the `Control_InputCurrentMask` block, and the `Timer_ForceStepIfPending` call with its comment.
 [^input-h]: [SOURCES/INPUT.H](../../../SOURCES/INPUT.H), the `I_` bits, `I_JOY`, `I_FIRE` and `I_ACTION_EDGE`.

@@ -55,20 +55,25 @@ set_target_properties(test_platform_callbacks PROPERTIES CXX_STANDARD 11)
 add_test(NAME test_platform_callbacks COMMAND test_platform_callbacks)
 register_host_test(test_platform_callbacks)
 
-add_executable(test_platform_contract
-    test_platform_contract.cpp
-    test_platform_header.c
-    $<TARGET_OBJECTS:test_platform_header_cpp98>
-    ${CMAKE_SOURCE_DIR}/LIB386/PLATFORM/PLATFORM.CPP
-    ${_PLATFORM_FACADES})
-target_include_directories(test_platform_contract PRIVATE
-    ${CMAKE_SOURCE_DIR}/LIB386/H
-    ${CMAKE_SOURCE_DIR}/SOURCES)
-target_compile_definitions(test_platform_contract PRIVATE LBA_LOG_NO_PLATFORM)
-set_target_properties(test_platform_contract PROPERTIES CXX_STANDARD 11 C_STANDARD 11)
-if(UNIX)
-    target_link_libraries(test_platform_contract PRIVATE m)
-endif()
+foreach(target test_platform_contract test_platform_vita_deadzone)
+    add_executable(${target}
+        test_platform_contract.cpp
+        test_platform_header.c
+        $<TARGET_OBJECTS:test_platform_header_cpp98>
+        ${CMAKE_SOURCE_DIR}/LIB386/PLATFORM/PLATFORM.CPP
+        ${_PLATFORM_FACADES})
+    target_include_directories(${target} PRIVATE
+        ${CMAKE_SOURCE_DIR}/LIB386/H
+        ${CMAKE_SOURCE_DIR}/SOURCES)
+    target_compile_definitions(${target} PRIVATE LBA_LOG_NO_PLATFORM)
+    set_target_properties(${target} PROPERTIES CXX_STANDARD 11 C_STANDARD 11)
+    if(UNIX)
+        target_link_libraries(${target} PRIVATE m)
+    endif()
+    add_test(NAME ${target} COMMAND ${target})
+    register_host_test(${target})
+endforeach()
+target_compile_definitions(test_platform_vita_deadzone PRIVATE LBA2_GAMEPAD_DEADZONE_DEFAULT=13107)
 
 if(PLATFORM_BACKEND STREQUAL "null")
     add_executable(test_platform_null test_platform_null.cpp)
@@ -89,9 +94,6 @@ if(PLATFORM_BACKEND STREQUAL "null")
     set_tests_properties(test_platform_null_game PROPERTIES LABELS host_quick)
     add_dependencies(host_tests ${LBA2_EXECUTABLE_NAME})
 endif()
-add_test(NAME test_platform_contract COMMAND test_platform_contract)
-register_host_test(test_platform_contract)
-
 if(PLATFORM_BACKEND STREQUAL "sdl3")
     foreach(kind sdl3 sdl3_staging)
         set(target test_platform_${kind})

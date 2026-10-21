@@ -60,6 +60,8 @@ Directory creation checks existing parents before attempting to create missing c
 
 The handheld has no L2/R2 triggers or stick-click buttons. The Vita preset enables `LBA2_GAMEPAD_STICK_LAYOUT`: left-stick up/down replaces trigger-based forward/backward movement, and Circle plus a direction dodges during gameplay. Circle retains its Return action in modal interfaces, including inventory and holomap. The same build option is available on desktop for regression checks; it is off by default and Switch/desktop defaults remain unchanged. Explicit cfg bindings override compiled defaults: an existing Vita profile or a copied PC cfg may need its gamepad bindings reset before Circle dodges.
 
+Vita builds default `GamepadDeadzone` to `13107` (40% of the axis range), shared by both sticks, including the right-stick analog camera. Desktop and Switch defaults remain `8000` (about 24%). Directional snap and hysteresis are unchanged. Explicit values in the profile or game-data config still override the default; existing profiles are not rewritten. The built-in config template leaves this key unset so a fresh profile inherits the platform default.
+
 | Control | Action |
 |---------|--------|
 | Left stick | Move forward/backward, turn |

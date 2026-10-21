@@ -62,6 +62,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | MasterVolume | int | 0–127 | 127 | Master volume, scales samples and music |
 | Input0_1..Input35_2 | int | Key scancodes | DefKeysDefault95 | 36 inputs × 2 keys each (`MAX_INPUT_SLOTS` in INPUT_BINDINGS.H). Only read when WinMode=1 |
 | WinMode | int | 0, 1 | 0 | 0=ignore Input* keys, use defaults; 1=read Input* keys. WriteInputConfig always writes WinMode=1 |
+| GamepadDeadzone | int | 0–32767 | 13107 on Vita; 8000 elsewhere | Shared by both sticks and the analog camera. Vita defaults to 40% of the axis range; other builds use about 24%. Explicit profile or game-data values override the compiled default; the built-in template leaves this key unset |
 | CompressSave | int | 0, 1 | 1 | 0=uncompressed saves, 1=compressed |
 | Version | int | 0–5, distributor ID | 0 (UNKNOWN_VERSION) | Which publisher's edition this is (`DistribVersion`): Activision, EA, Virgin, regional variants. Installer-written; set via the `distrib` console command. See [VERSIONS.md](VERSIONS.md) |
 | Version_US | int | any | -1 when absent | Read into `Version_US` and never used anywhere. Unrelated to `Version`. See [VERSIONS.md](VERSIONS.md#version_us) |

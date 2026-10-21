@@ -19,6 +19,8 @@ Circle plus left-stick direction: dodge. Circle remains Return in menus.
 Start: menu. Select: holomap. Right stick: camera. D-pad: spells.
 Tap the front screen during gameplay to recenter the camera.
 Holding or dragging does not repeat it; rear touch is ignored.
+Both sticks default to a 40% center deadzone (GamepadDeadzone: 13107).
+An existing deadzone setting in lba2.cfg still takes precedence.
 Existing explicit gamepad bindings in lba2.cfg take precedence.
 Reset gamepad bindings if an existing profile still uses Circle to recenter.
 Custom save-name keyboard entry and touch overlays are not added.

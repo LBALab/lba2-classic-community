@@ -42,7 +42,7 @@ static S16 s_rstickY = 0;
 static S32 s_virtualPad = 0;
 
 //***************************************************************************
-S32 JoystickDeadzone = 8000;
+S32 JoystickDeadzone = LBA2_GAMEPAD_DEADZONE_DEFAULT;
 
 static PlatformGamepad *s_gamepad = NULL;
 static U32 s_gamepadId = 0;

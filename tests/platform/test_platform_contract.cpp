@@ -464,6 +464,42 @@ static void test_wall_clock_wrap_and_fixed_dt() {
     Timer_DisableFixedDt();
 }
 
+static void test_gamepad_deadzone_defaults_and_boundaries() {
+    ASSERT_EQ_INT(LBA2_GAMEPAD_DEADZONE_DEFAULT, JoystickDeadzone);
+    const S32 savedAnalog = GamepadCameraAnalog;
+    GamepadCameraAnalog = 0;
+    memset(s_buttons, 0, sizeof(s_buttons));
+    InitJoystick();
+    const PlatformGamepadAxis leftAxes[] = {PLATFORM_GAMEPAD_AXIS_LEFTX, PLATFORM_GAMEPAD_AXIS_LEFTY};
+    const PlatformGamepadAxis rightAxes[] = {PLATFORM_GAMEPAD_AXIS_RIGHTX, PLATFORM_GAMEPAD_AXIS_RIGHTY};
+    const U32 leftKeys[][2] = {
+        {K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT},
+        {K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN}};
+    const U32 rightKeys[][2] = {
+        {K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT},
+        {K_GAMEPAD_RSTICK_UP, K_GAMEPAD_RSTICK_DOWN}};
+    for (int axis = 0; axis < 2; ++axis) {
+        for (int direction = 0; direction < 2; ++direction) {
+            for (int offset = -1; offset <= 1; ++offset) {
+                memset(s_axes, 0, sizeof(s_axes));
+                const S16 value = (S16)((direction ? 1 : -1) * (LBA2_GAMEPAD_DEADZONE_DEFAULT + offset));
+                s_axes[leftAxes[axis]] = s_axes[rightAxes[axis]] = value;
+                UpdateJoystick();
+                U8 expected[TABKEYS_NUM_KEYS] = {};
+                if (offset >= 0) {
+                    SetExpectedKey(expected, leftKeys[axis][direction]);
+                    SetExpectedKey(expected, rightKeys[axis][direction]);
+                }
+                ASSERT_MEM_EQ(expected, TabKeys, sizeof(expected));
+            }
+        }
+    }
+    memset(s_axes, 0, sizeof(s_axes));
+    UpdateJoystick();
+    EndJoystick();
+    GamepadCameraAnalog = savedAnalog;
+}
+
 static void test_gamepad_state_edges_and_hotplug() {
     memset(TabKeys, 0, sizeof(TabKeys));
     InitJoystick();
@@ -855,6 +891,7 @@ int main() {
     RUN_TEST(test_keyboard_layout_filters_and_replay_order);
     RUN_TEST(test_mouse_and_focus_event_order);
     RUN_TEST(test_wall_clock_wrap_and_fixed_dt);
+    RUN_TEST(test_gamepad_deadzone_defaults_and_boundaries);
     RUN_TEST(test_gamepad_state_edges_and_hotplug);
     RUN_TEST(test_indexed_conversion_exact_bytes);
     RUN_TEST(test_present_lock_palette_and_overlay_order);
