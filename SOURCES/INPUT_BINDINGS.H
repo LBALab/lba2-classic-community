@@ -63,6 +63,8 @@ extern U32 NbInput;
 
 //-------------------------------------------------------------------------
 extern void InitInput(void);
+/* Modal interfaces keep Circle's Return action in the handheld layout. */
+extern void Bindings_SetGameplay(S32 gameplay);
 //-------------------------------------------------------------------------
 extern void RestoreInput(void);
 //-------------------------------------------------------------------------

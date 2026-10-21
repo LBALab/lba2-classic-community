@@ -58,17 +58,20 @@ Directory creation checks existing parents before attempting to create missing c
 
 ## Controls and presentation
 
-The handheld has no L2/R2 triggers or stick-click buttons. The Vita preset enables `LBA2_GAMEPAD_STICK_LAYOUT`: left-stick up/down replaces trigger-based forward/backward movement, and dodge is unbound. The same build option is available on desktop for regression checks; it is off by default and Switch/desktop defaults remain unchanged. Explicit cfg bindings override compiled defaults, so a copied PC cfg containing `Gamepad*` keys may need its bindings reset or edited.
+The handheld has no L2/R2 triggers or stick-click buttons. The Vita preset enables `LBA2_GAMEPAD_STICK_LAYOUT`: left-stick up/down replaces trigger-based forward/backward movement, and Circle plus a direction dodges during gameplay. Circle retains its Return action in modal interfaces, including inventory and holomap. The same build option is available on desktop for regression checks; it is off by default and Switch/desktop defaults remain unchanged. Explicit cfg bindings override compiled defaults: an existing Vita profile or a copied PC cfg may need its gamepad bindings reset before Circle dodges.
 
 | Control | Action |
 |---------|--------|
 | Left stick | Move forward/backward, turn |
 | L / R | Behaviour / throw |
 | Triangle / Square | Inventory / action |
-| Cross / Circle | Always-action / return |
+| Cross / Circle | Always-action / dodge (Circle remains Return in modal interfaces) |
 | Start / Select | Menu / holomap |
 | Right stick | Existing camera controls |
 | D-pad | Existing spell bindings; fixed UI navigation in menus |
+| Front-screen tap | Recenter camera during gameplay |
+
+A front-screen press produces one recenter input through the configured camera-recenter binding, including a tap completed between polls. Holding or dragging does not repeat it. Touches in modal interfaces or while unfocused do not queue an action for later, and the rear touch panel is ignored. This is a camera shortcut, not the Android touch overlay; no on-screen buttons appear.
 
 Save creation keeps the existing automatic-name path for non-keyboard input. Custom save-name keyboard entry, touch overlays, rear-touch bindings, clock-speed overrides and a new controller-disconnect policy are not added.
 
@@ -165,7 +168,7 @@ Record console model/firmware, controller configuration, launch method and teste
 - [ ] Install VPK; icon, LiveArea and title appear correctly.
 - [ ] Missing data produces readable setup guidance and exits without a hang.
 - [x] Boot with the documented data layout (confirmed by a player on a physical Vita).
-- [ ] Handheld controls reach required gameplay/menu actions; dodge remains deliberately unbound.
+- [ ] Circle plus each left-stick direction dodges; front-screen taps recenter once; rear touch and menu touches do not recenter. Circle retains its modal Return action.
 - [ ] Save, quit, relaunch and load; settings survive and retail files remain untouched.
 - [ ] Effects, music, speech and Smacker video play through scene changes.
 - [ ] PS/HOME, suspend and resume restore usable video/input/audio without a simulation burst.

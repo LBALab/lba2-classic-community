@@ -7,6 +7,7 @@
 
 #include "INPUT.H"
 #include "MENU_INPUT.H"
+#include "TOUCH_INPUT.H"
 
 #include <SYSTEM/LOG.H>
 #include "JOYSTICK.H"
@@ -244,6 +245,14 @@ void MyGetInput() {
             WaitNoClick = 0;
     }
 #endif
+}
+
+void MyGetGameplayInput(void) {
+    Bindings_SetGameplay(1);
+    TouchInput_SetGameplay(1);
+    MyGetInput();
+    TouchInput_SetGameplay(0);
+    Bindings_SetGameplay(0);
 }
 
 //***************************************************************************

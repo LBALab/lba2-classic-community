@@ -82,12 +82,16 @@ const T_DEF_KEY GamepadKeysDefault[MAX_INPUT_SLOTS] = {
     {K_GAMEPAD_Y, 0},            // 6  I_INVENTORY
     {K_GAMEPAD_X, 0},            // 7  I_ACTION_M
     {K_GAMEPAD_A, 0},            // 8  I_ACTION_ALWAYS
-    {K_GAMEPAD_B, 0},            // 9  I_RETURN
-    {K_GAMEPAD_START, 0},        // 10 I_MENUS
-    {K_GAMEPAD_BACK, 0},         // 11 I_HOLOMAP
-    {0, 0},                      // 12 I_PAUSE (unbound; Start opens the in-game menu)
 #ifdef LBA2_GAMEPAD_STICK_LAYOUT
-    {0, 0}, // 13 I_ESQUIVE
+    {0, 0}, // 9  I_RETURN (front-screen tap)
+#else
+    {K_GAMEPAD_B, 0}, // 9  I_RETURN
+#endif
+    {K_GAMEPAD_START, 0}, // 10 I_MENUS
+    {K_GAMEPAD_BACK, 0},  // 11 I_HOLOMAP
+    {0, 0},               // 12 I_PAUSE (unbound; Start opens the in-game menu)
+#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+    {K_GAMEPAD_B, 0}, // 13 I_ESQUIVE
 #else
     {K_GAMEPAD_LSTICK_BTN, K_GAMEPAD_RSTICK_BTN}, // 13 I_ESQUIVE
 #endif
@@ -117,6 +121,10 @@ const T_DEF_KEY GamepadKeysDefault[MAX_INPUT_SLOTS] = {
 
 U32 NbInput = MAX_INPUT_SLOTS;
 
+#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+static S32 s_gameplay = 0;
+#endif
+
 //-------------------------------------------------------------------------
 void InitInput(void) {
     // Rebuild the combined table from the current keyboard (DefKeys) and gamepad
@@ -134,11 +142,30 @@ void InitInput(void) {
         CombinedInputMasks[n++] = mask;
         CombinedInputKeys[n] = GamepadKeys[i].Key2;
         CombinedInputMasks[n++] = mask;
+#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+        /* Circle retains its Return action in modal interfaces. */
+        if (!s_gameplay && i == 13) {
+            for (S32 key = n - 2; key < n; ++key)
+                if (CombinedInputKeys[key] == K_GAMEPAD_B)
+                    CombinedInputMasks[key] = 1u << 9;
+        }
+#endif
     }
 
     NbInput = (U32)n;
 
     DefineInputKeys(n, CombinedInputKeys, CombinedInputMasks);
+}
+
+void Bindings_SetGameplay(S32 gameplay) {
+#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+    if (s_gameplay != (gameplay != 0)) {
+        s_gameplay = gameplay != 0;
+        InitInput();
+    }
+#else
+    (void)gameplay;
+#endif
 }
 
 //-------------------------------------------------------------------------

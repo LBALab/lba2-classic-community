@@ -15,7 +15,9 @@ This implements the platform-decoupling and headless-backend parts of [discussio
 | `window` | Surface lifetime, logical/window/display dimensions, coordinate mapping, fullscreen/vsync/present filter/relative mouse/mouse grab, indexed-frame presentation |
 | `input` | Physical-key snapshot, layout-aware keycodes/names/modifiers, text input/cursor, gamepad lifetime and sampling |
 | `host` | Executable/current/preference/home paths, directory operations, message boxes, asynchronous folder requests, clipboard, allocator pairing |
-| `capabilities` | Meaningful windowed mode, temporary loss of a native window, touch-overlay support |
+| `capabilities` | Meaningful windowed mode, temporary loss of a native window, touch-overlay support, gameplay touch recentering |
+
+Finger events distinguish direct screen input from indirect devices such as Vita's rear panel. Vita advertises gameplay touch recentering without enabling the Android overlay; other backends leave this shortcut disabled.
 
 [The platform CMake file](../LIB386/PLATFORM/CMakeLists.txt) selects exactly one implementation at build time:
 

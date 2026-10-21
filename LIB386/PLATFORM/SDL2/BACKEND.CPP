@@ -167,6 +167,9 @@ PlatformInterface Interface() {
     PlatformInterface api = {};
     api.name = "sdl2";
     api.capabilities.windowed = true;
+#ifdef __vita__
+    api.capabilities.touch_recenter = true;
+#endif
 #if defined(__SWITCH__) || defined(__vita__)
     api.capabilities.windowed = false;
 #endif

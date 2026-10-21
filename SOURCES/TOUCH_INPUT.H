@@ -66,6 +66,9 @@ S32 TouchOverlay_IsSupported(void);
 
 void ApplyVirtualKeys(void);
 
+/* Scope one main-loop poll; modal polls never actuate touch recentering. */
+void TouchInput_SetGameplay(S32 gameplay);
+
 #ifdef __cplusplus
 }
 #endif

@@ -16,6 +16,7 @@
 
 #include "JOYSTICK.H"
 #include "TOUCH_INPUT.H"
+#include "INPUT_BINDINGS.H"
 
 #include <cstdlib>
 #include <cstring>
@@ -220,6 +221,7 @@ PlatformInterface Fixture() {
     api.name = "contract-fixture";
     api.capabilities.windowed = true;
     api.capabilities.touch_overlay = true;
+    api.capabilities.touch_recenter = true;
     api.system.init = Success;
     api.system.shutdown = Noop;
     api.system.get_error = Error;
@@ -746,6 +748,105 @@ static void test_touch_wake_hold_release_and_reapply() {
     ASSERT_EQ_INT(0, TouchOverlay_HandleEvent(&touch));
 }
 
+static void test_touch_recenter_scope_pulse_and_bindings() {
+    RestoreInput();
+    InitInput();
+    ClearNoRepeatInput();
+    memset(TabKeys, 0, sizeof(TabKeys));
+    TouchOverlay_Init();
+    LastInputWasTouch = 0;
+    PlatformEvent touch = {};
+    touch.type = PLATFORM_EVENT_FINGER_DOWN;
+    touch.tfinger.fingerID = 77;
+    touch.tfinger.x = touch.tfinger.y = 0.5f;
+    TouchOverlay_HandleEvent(&touch);
+    ManageKeyboard();
+    ASSERT_TRUE(!CheckKey(K_ENTER));
+
+    TouchInput_SetGameplay(1);
+    LastInputWasTouch = 0;
+    LastInputWasKeyboard = 1;
+    ASSERT_EQ_INT(1, TouchOverlay_HandleEvent(&touch));
+    /* A complete tap between polls still reaches the input funnel. */
+    touch.type = PLATFORM_EVENT_FINGER_UP;
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    ASSERT_EQ_UINT(1u << 9, Input);
+    ASSERT_TRUE(CheckKey(K_ENTER));
+    ASSERT_EQ_INT(0, LastInputWasKeyboard);
+    ASSERT_EQ_INT(0, LastInputWasTouch);
+    ASSERT_EQ_INT(0, Key);
+    TouchInput_SetGameplay(0);
+    ASSERT_TRUE(!CheckKey(K_ENTER));
+    TouchInput_SetGameplay(1);
+    touch.type = PLATFORM_EVENT_FINGER_MOTION;
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    TouchInput_SetGameplay(0);
+
+    TouchInput_SetGameplay(1);
+    touch.type = PLATFORM_EVENT_FINGER_DOWN;
+    touch.tfinger.indirect = true;
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    touch.tfinger.indirect = false;
+    TouchOverlay_HandleEvent(&touch);
+    PlatformEvent focus = {};
+    focus.type = PLATFORM_EVENT_WINDOW_FOCUS_LOST;
+    TouchOverlay_HandleEvent(&focus);
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    focus.type = PLATFORM_EVENT_WINDOW_FOCUS_GAINED;
+    TouchOverlay_HandleEvent(&focus);
+
+    DefKeys[9].Key1 = K_F12;
+    DefKeys[9].Key2 = GamepadKeys[9].Key1 = GamepadKeys[9].Key2 = 0;
+    InitInput();
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    ASSERT_EQ_UINT(1u << 9, Input);
+    ASSERT_TRUE(CheckKey(K_F12));
+    TouchInput_SetGameplay(0);
+    ASSERT_TRUE(!CheckKey(K_F12));
+
+    DefKeys[9].Key1 = 0;
+    GamepadKeys[9].Key1 = K_GAMEPAD_GUIDE;
+    InitInput();
+    TouchInput_SetGameplay(1);
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    ASSERT_EQ_UINT(1u << 9, Input);
+    ASSERT_TRUE(CheckKey(K_GAMEPAD_GUIDE));
+    TouchInput_SetGameplay(0);
+    ASSERT_TRUE(!CheckKey(K_GAMEPAD_GUIDE));
+    RestoreInput();
+    InitInput();
+    s_keyboard[K_ENTER] = 1;
+    TouchInput_SetGameplay(1);
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    TouchInput_SetGameplay(0);
+    ASSERT_TRUE(CheckKey(K_ENTER));
+    s_keyboard[K_ENTER] = 0;
+    ManageKeyboard();
+    ASSERT_TRUE(!CheckKey(K_ENTER));
+
+    TouchInput_SetGameplay(1);
+    TouchOverlay_HandleEvent(&touch);
+    s_recordKey = K_A;
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    ASSERT_EQ_INT(K_A, Key);
+    s_recordKey = 0;
+    TouchInput_SetGameplay(0);
+    TouchOverlay_Shutdown();
+    RestoreInput();
+    InitInput();
+}
+
 int main() {
     if (!InitEvents() || !InitWindow("Contract fixture") ||
         !CreateWindowSurface(8, 6, false))
@@ -760,6 +861,7 @@ int main() {
     RUN_TEST(test_zoom_presents_only_updated_rectangles);
     RUN_TEST(test_partial_present_after_resize);
     RUN_TEST(test_touch_wake_hold_release_and_reapply);
+    RUN_TEST(test_touch_recenter_scope_pulse_and_bindings);
     EndWindow();
     EndEvents();
     TEST_SUMMARY();

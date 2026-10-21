@@ -9,6 +9,7 @@
 
 #include "CONSOLE/CONSOLE.H"
 #include "JOYSTICK.H"
+#include "TOUCH_INPUT.H"
 
 // --- Keyboard state MyGetInput() copies out ---------------------------------
 S32 Key = 0;
@@ -31,5 +32,6 @@ int Console_GetToggleScancode(void) { return 0; }
 int Console_ShouldSuppressInputThisFrame(void) { return TestConsoleSuppress; }
 
 void GetJoys(U32 *) {}
+void TouchInput_SetGameplay(S32) {}
 U32 JoystickFirstPressedScancode(void) { return 0; }
 }

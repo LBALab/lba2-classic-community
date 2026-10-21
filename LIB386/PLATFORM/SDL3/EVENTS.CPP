@@ -77,13 +77,16 @@ bool SDL3_TranslateEvent(const SDL_Event *source, PlatformEvent *event) {
         break;
     case SDL_EVENT_FINGER_DOWN:
     case SDL_EVENT_FINGER_UP:
-    case SDL_EVENT_FINGER_MOTION:
+    case SDL_EVENT_FINGER_MOTION: {
         event->type = source->type == SDL_EVENT_FINGER_DOWN ? PLATFORM_EVENT_FINGER_DOWN : source->type == SDL_EVENT_FINGER_UP ? PLATFORM_EVENT_FINGER_UP
                                                                                                                                : PLATFORM_EVENT_FINGER_MOTION;
         event->tfinger.fingerID = source->tfinger.fingerID;
         event->tfinger.x = source->tfinger.x;
         event->tfinger.y = source->tfinger.y;
+        const SDL_TouchDeviceType device = SDL_GetTouchDeviceType(source->tfinger.touchID);
+        event->tfinger.indirect = device == SDL_TOUCH_DEVICE_INDIRECT_ABSOLUTE || device == SDL_TOUCH_DEVICE_INDIRECT_RELATIVE;
         break;
+    }
     default:
         event->type = PLATFORM_EVENT_OTHER;
         break;

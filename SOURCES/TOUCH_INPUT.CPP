@@ -1,11 +1,13 @@
 #include "TOUCH_INPUT.H"
 
 #include "JOYSTICK.H" /* JoystickIsPresent: the pad half of the visibility rule */
+#include "INPUT_BINDINGS.H"
 
 #include <SYSTEM/ANDROID.H>
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOGPRINT.H>
+#include <SYSTEM/LOG.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/WINDOW.H>
 
@@ -164,6 +166,11 @@ static S32 s_dismissed = 0;   /* HIDE was pressed; cleared by the next finger do
 static U32 s_lastTouchMs = 0; /* g_platform.system.ticks_ms at the last finger-down/motion; 0 = never */
 static S32 s_pressed[NUM_TOUCH_BUTTONS];
 static U8 s_virtual_keys[256]; /* virtual key states in 0x80-bit format */
+static S32 s_gameplay = 0;
+static S32 s_focused = 1;
+static S32 s_recenterPending = 0;
+static U32 s_injectedIndex = 0;
+static U8 s_injectedBit = 0;
 
 /* Per-finger tracking: which button (or -1) each finger is on. */
 static struct {
@@ -316,10 +323,42 @@ static void SetButtonState(S32 idx, S32 pressed) {
 /* Re-apply virtual key states after UpdateKeyboardState clears TabKeys[0..255].
    Called from the weak hook in KEYBOARD.CPP:UpdateKeyboardState. */
 void ApplyVirtualKeys(void) {
+    if (s_recenterPending) {
+        s_recenterPending = 0;
+        U32 keys[4];
+        const S32 count = Bindings_KeysForSlot(9, keys, 4);
+        S32 injected = 0;
+        for (S32 i = 0; i < count; ++i) {
+            const U32 index = keys[i] < 256 ? keys[i] : 256 - 32 + (keys[i] >> 3);
+            const U8 bit = keys[i] < 256 ? 0x80 : (U8)(1u << (keys[i] & 7));
+            if (index >= sizeof(TabKeys))
+                continue;
+            if (!(TabKeys[index] & bit)) {
+                s_injectedIndex = index;
+                s_injectedBit = bit;
+                TabKeys[index] |= bit;
+            }
+            injected = 1;
+            break;
+        }
+        if (!injected)
+            Log_Warn("Touch recenter has no usable camera-recenter binding.");
+    }
     for (S32 i = 0; i < NUM_TOUCH_BUTTONS; i++) {
         U32 sc = kButtons[i].scanCode;
         if (sc < 256 && s_virtual_keys[sc])
             TabKeys[sc] |= 0x80;
+    }
+}
+
+void TouchInput_SetGameplay(S32 gameplay) {
+    s_gameplay = gameplay != 0;
+    if (!s_gameplay) {
+        s_recenterPending = 0;
+        if (s_injectedBit) {
+            TabKeys[s_injectedIndex] &= ~s_injectedBit;
+            s_injectedBit = 0;
+        }
     }
 }
 
@@ -328,6 +367,8 @@ void ApplyVirtualKeys(void) {
  * --------------------------------------------------------------------------- */
 
 void TouchOverlay_Init(void) {
+    TouchInput_SetGameplay(0);
+    s_focused = 1;
     s_supported = g_platform.capabilities.touch_overlay ? 1 : 0;
     s_tvDevice = 0;
     if (s_supported) {
@@ -361,6 +402,7 @@ static void ReleaseAllButtons(void) {
 }
 
 void TouchOverlay_Shutdown(void) {
+    TouchInput_SetGameplay(0);
     ReleaseAllButtons();
     s_supported = 0;
 }
@@ -370,7 +412,24 @@ S32 TouchOverlay_IsSupported(void) {
 }
 
 S32 TouchOverlay_HandleEvent(const PlatformEvent *event) {
-    if (event == NULL || !s_supported)
+    if (event == NULL)
+        return 0;
+
+    if (g_platform.capabilities.touch_recenter) {
+        if (event->type == PLATFORM_EVENT_WINDOW_FOCUS_LOST) {
+            s_focused = 0;
+            s_recenterPending = 0;
+        } else if (event->type == PLATFORM_EVENT_WINDOW_FOCUS_GAINED) {
+            s_focused = 1;
+        } else if (event->type == PLATFORM_EVENT_FINGER_DOWN && !event->tfinger.indirect) {
+            if (s_gameplay && s_focused) {
+                s_recenterPending = 1;
+                LastInputWasKeyboard = 0;
+                return 1;
+            }
+        }
+    }
+    if (!s_supported)
         return 0;
 
     const PlatformEvent *ev = event;

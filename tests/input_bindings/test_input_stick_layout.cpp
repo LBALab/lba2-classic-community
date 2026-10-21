@@ -12,7 +12,8 @@ static void test_stick_defaults_and_restore() {
     ASSERT_EQ_UINT(K_GAMEPAD_LSTICK_RIGHT, GamepadKeys[3].Key1);
     ASSERT_EQ_UINT(K_GAMEPAD_RSHOULDER, GamepadKeys[4].Key1);
     ASSERT_EQ_UINT(K_GAMEPAD_LSHOULDER, GamepadKeys[5].Key1);
-    ASSERT_EQ_UINT(0, GamepadKeys[13].Key1);
+    ASSERT_EQ_UINT(0, GamepadKeys[9].Key1);
+    ASSERT_EQ_UINT(K_GAMEPAD_B, GamepadKeys[13].Key1);
     ASSERT_EQ_UINT(0, GamepadKeys[13].Key2);
     GamepadKeys[0].Key1 = K_GAMEPAD_RTRIGGER;
     RestoreInput();
@@ -42,9 +43,46 @@ static void test_movement_and_absent_buttons() {
     HoldNone();
 }
 
+static void test_dodge_directions_and_modal_circle() {
+    RestoreInput();
+    ClearNoRepeatInput();
+    Bindings_SetGameplay(1);
+    const U32 directions[] = {K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN,
+                              K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT};
+    for (U32 i = 0; i < 4; ++i) {
+        HoldOnly(K_GAMEPAD_B);
+        HoldAdd(directions[i]);
+        GetInput(0);
+        ASSERT_EQ_UINT(I_ESQUIVE | (1u << i), Input);
+    }
+    Bindings_SetGameplay(0);
+    HoldOnly(K_GAMEPAD_B);
+    GetInput(0);
+    ASSERT_EQ_UINT(I_RETURN, Input);
+    GetInput(I_RETURN);
+    ASSERT_EQ_UINT(0, Input);
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    HoldNone();
+    GetInput(0);
+    HoldOnly(K_GAMEPAD_B);
+    GetInput(0);
+    ASSERT_EQ_UINT(I_RETURN, Input);
+    GamepadKeys[13].Key1 = K_GAMEPAD_RSHOULDER;
+    InitInput();
+    Bindings_SetGameplay(1);
+    HoldOnly(K_GAMEPAD_RSHOULDER);
+    GetInput(0);
+    ASSERT_TRUE(Input & I_ESQUIVE);
+    ASSERT_TRUE(!(Input & I_RETURN));
+    Bindings_SetGameplay(0);
+    HoldNone();
+}
+
 int main() {
     RUN_TEST(test_stick_defaults_and_restore);
     RUN_TEST(test_movement_and_absent_buttons);
+    RUN_TEST(test_dodge_directions_and_modal_circle);
     TEST_SUMMARY();
     return test_failures != 0;
 }
