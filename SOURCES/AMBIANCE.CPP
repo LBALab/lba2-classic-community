@@ -484,7 +484,7 @@ void ChoicePalette(void) {
     PalLevel = PtrXplHeader->ShadeNormalLevel;
 
     // Fixe Palette
-    if (CubeMode == CUBE_INTERIEUR OR TEMPETE_FINIE) {
+    if (CubeMode == CUBE_INTERIEUR OR !RAIN_FALLS) {
         if (IsSamplePlaying(SAMPLE_RAIN))
             HQ_StopOneSample(SAMPLE_RAIN);
     }
@@ -496,13 +496,9 @@ void ChoicePalette(void) {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
-// Island guard: rain is only intended for Citadel Island (Island 0). Without this,
-// loading or warping to Desert/other exterior cubes would incorrectly play rain
-// because TEMPETE_ACTIVE is global (chapter-based) and StartRainSample did not
-// check Island.
 void StartRainSample(void) {
     if (SamplesEnable
-            AND Island == 0 AND CubeMode == CUBE_EXTERIEUR AND !TEMPETE_FINIE AND !IsSamplePlaying(SAMPLE_RAIN)) {
+            AND CubeMode == CUBE_EXTERIEUR AND RAIN_FALLS AND !IsSamplePlaying(SAMPLE_RAIN)) {
         HQ_MixSample(SAMPLE_RAIN,
                      0x1000, 300, // frequence, decalage
                      0, 64, VOLUME_RAIN);
