@@ -23,7 +23,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Outdoors in the storm, raindrops splash on the ground again while the Auto
   camera moves. The camera redraws the scene on every frame it moves, and each
   redraw cleared the splashes before they were first drawn, so you only saw
-  them while the camera stood still.
+  them while the camera stood still
+  ([#810](https://github.com/LBALab/lba2-classic-community/pull/810)).
 
 ### Input & controller
 
