@@ -301,6 +301,16 @@ typedef	struct	{
 #define	TEMPETE_FINIE	(ListVarGame[FLAG_CHAPTER]>=2 AND !FlagRain)
 #endif
 
+// Where rain falls: the chapter 0-1 storm on Citadel (island 0), or a script's
+// rain (LM_PLUIE) anywhere. The original used TEMPETE_ACTIVE, which also rains
+// on other islands during chapters 0-1; play cannot leave Citadel then, but a
+// debug cube warp can.
+#ifdef	LBA_EDITOR
+#define	RAIN_FALLS	((Island==0 AND ListVarGame[FLAG_CHAPTER].Value<2) OR FlagRain)
+#else
+#define	RAIN_FALLS	((Island==0 AND ListVarGame[FLAG_CHAPTER]<2) OR FlagRain)
+#endif
+
 #define	INV_MAX_VALUE	100	// Capacité des objets inventaires VALUE (conque)
 
 #define	BODY_3D_CLOVER		60	// voir objfix.lst

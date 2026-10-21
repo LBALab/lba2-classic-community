@@ -215,11 +215,10 @@ This section maps how the engine uses the AIL API in gameplay. It guides targete
 **Where:** `AMBIANCE.CPP` — `StartRainSample`, `ChoicePalette`, `GereRain`-related paths.
 
 **Conditions:**
-- `Island==0` (Citadel only; storm is story-specific to Citadel Island).
-- `CubeMode==CUBE_EXTERIEUR` AND `!TEMPETE_FINIE` (storm active).
-- Stopped when `CubeMode==CUBE_INTERIEUR` OR `TEMPETE_FINIE`.
+- `CubeMode==CUBE_EXTERIEUR` AND `RAIN_FALLS` (COMMON.H): the chapter 0-1 storm on Citadel (`Island==0`), or a script's rain (`LM_PLUIE` sets `FlagRain`) on any island.
+- Stopped when `CubeMode==CUBE_INTERIEUR` OR `!RAIN_FALLS`.
 
-Without the Island check, loading or warping to Desert (or other exterior cubes) would incorrectly play rain, since `TEMPETE_ACTIVE` is a global chapter-based flag.
+The original tested `TEMPETE_ACTIVE` (chapter < 2 OR `FlagRain`), which has no island term. Play cannot leave Citadel before chapter 2, but a debug cube warp can, and it then rained on other islands. `RAIN_FALLS` keeps the storm on Citadel and leaves script rain where the scripts put it: the three Zeelich ferry landings (cubes 97, 105, 132) play 5 seconds of rain with a lightning flash when the hero plays the ferryman's song (item 18).
 
 **Pattern:** `HQ_MixSample(SAMPLE_RAIN, 0x1000, 300, 0, 64, volume)` — infinite loop, center pan, decalage 300 for variation.
 
@@ -249,7 +248,7 @@ Without the Island check, loading or warping to Desert (or other exterior cubes)
 | Scene type | Cubes | Notes |
 |------------|-------|------|
 | **Desert exterior** | 55–73, 198–220 (White Leaf Desert) | `SampleAmbiance[0..3]` from scene file — cicadas, wind, ambient. Often multiple infinite loops. |
-| **Rain / storm** | Citadel Island (0) exterior when `TEMPETE_ACTIVE` | `SAMPLE_RAIN` overlay on ambience. |
+| **Rain / storm** | Citadel Island (0) exterior in chapters 0-1; Zeelich ferry landings for 5 s when called | `SAMPLE_RAIN` overlay on ambience. |
 | **Escalator buildings** | e.g. baggage claim (5, 6, 16) | Conveyor belt + ambience. |
 | **Protection zones** | Various | Continuous alarm + other SFX. |
 | **Buggy / Protopack** | Desert, exterior | `SampleAlways` engine/jetpack + ambience + possible music. |
