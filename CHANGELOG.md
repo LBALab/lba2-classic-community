@@ -20,7 +20,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   drawn in whatever order the system's sort left them in, which can differ
   from one system to the next, and now keep the order they are listed in,
   which is what Linux already drew. A recording made on macOS or Android
-  before this change can play out differently where a particle effect fires.
+  before this change can play out differently where a particle effect fires
+  ([#821](https://github.com/LBALab/lba2-classic-community/pull/821)).
 
 - Outdoors, the thin seams where two parts of an island meet are mostly
   gone. The ground, sea and sky are now drawn with the whole-number maths the
