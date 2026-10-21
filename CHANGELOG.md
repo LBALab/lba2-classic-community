@@ -41,6 +41,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that installs and then cannot start
   ([#811](https://github.com/LBALab/lba2-classic-community/pull/811)).
 
+### Tests
+
+- The engine-driving test suite times every test and sorts them into small,
+  medium and big, so a change can be checked against the small ones in about
+  ten seconds; `tests/automation/run.sh -j 8` runs them side by side. On an
+  Apple Silicon Mac the whole suite went from about 15 minutes to under 4.
+  `--no-pace` lets a scripted run record without being held to real time, and
+  the Docker and host test suites run in parallel too. The suite also runs on
+  macOS now, where one test had passed without loading the save it tests.
+
 ### Contributors
 
 Thanks to EPmager for reporting the jittery mouse orbit with VSync off, with a
