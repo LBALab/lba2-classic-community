@@ -23,6 +23,7 @@
 # that lands hits on a real enemy is a separate thing and wants an actor confirmed hostile first.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: small
 TESTNAME=attack_melee
 . "$(dirname "$0")/lib.sh"
 precheck

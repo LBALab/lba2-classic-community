@@ -30,6 +30,7 @@
 #
 # Local-only (needs retail data and a save fixture). Not in host_quick CI. The
 # same function's contract is covered without an engine by tests/getascii.
+# Tier: medium
 TESTNAME=getascii_text_input
 . "$(dirname "$0")/lib.sh"
 precheck

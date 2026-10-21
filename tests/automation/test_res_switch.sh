@@ -7,6 +7,7 @@
 # This covers the docs/RUNTIME_RESOLUTION.md Phase 0 contract: the orchestrator
 # is correct across both wider (640->1280) and narrower (768->640) targets,
 # including the cube-data reload path (PtrInitGrille + ChoicePalette).
+# Tier: small
 TESTNAME=res_switch
 . "$(dirname "$0")/lib.sh"
 precheck

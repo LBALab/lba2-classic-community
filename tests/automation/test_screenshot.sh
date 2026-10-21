@@ -2,12 +2,13 @@
 # --screenshot: writes a real PNG of the rendered frame. Asserts the PNG magic and a
 # nonzero size; best-effort checks the frame isn't a single uniform colour (something
 # rendered). --screenshot forces a minimum of 1 tick so a frame is actually drawn.
+# Tier: small
 TESTNAME=screenshot
 . "$(dirname "$0")/lib.sh"
 precheck
 need_save
 
-png="$(mktemp --suffix=.png)"
+png="$(mktemp_ext .png)"
 trap 'rm -f "$png"' EXIT
 
 ctl --load "$LBA2_TEST_SAVE" --tick 2 --screenshot "$png" --exit >/dev/null 2>&1 \

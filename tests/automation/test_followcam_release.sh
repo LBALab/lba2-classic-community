@@ -11,6 +11,7 @@
 # was written to catch would otherwise pass for the wrong reason.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: small
 TESTNAME=followcam_release
 . "$(dirname "$0")/lib.sh"
 . "$(dirname "$0")/camlib.sh"

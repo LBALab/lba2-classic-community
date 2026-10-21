@@ -28,6 +28,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 SUITE = os.path.join(ROOT, "tests", "automation")
 INDEX = os.path.join(SUITE, "README.md")
 RUN_RECORD = "last-run.md"
+RUNNER = os.path.join(SUITE, "run.sh")
+TIERS = ("small", "medium", "big")
 
 # Helpers a fixture calls when it needs more than a binary, data and a display.
 EXTRA = (
@@ -50,9 +52,17 @@ generated from the fixtures so at least the list cannot drift, and
 [{record}]({record}) records what happened the last time somebody ran them.
 
 ```bash
-LBA2_GAME_DIR=/path/to/data tests/automation/run.sh     # the whole suite
+LBA2_GAME_DIR=/path/to/data tests/automation/run.sh           # the whole suite
+LBA2_GAME_DIR=/path/to/data tests/automation/run.sh --fast    # the small tier, for iterating
+LBA2_GAME_DIR=/path/to/data tests/automation/run.sh -j 8      # eight fixtures at once
 LBA2_GAME_DIR=/path/to/data bash tests/automation/test_cli_contract.sh   # one fixture
 ```
+
+Each fixture declares a tier on a `# Tier:` line, a cost budget on an Apple Silicon Mac:
+**small** finishes within {small} s, **medium** within {medium} s, **big** takes longer. `run.sh`
+times every fixture, reports the ones over their tier's budget, and keeps the times in
+`.runs/history.tsv`; `run.sh --profile` also counts engine runs. See
+[docs/TESTING.md](../../docs/TESTING.md#control-harness-tiers-and-timing).
 
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
@@ -79,6 +89,27 @@ def summary(path):
     return text.replace("|", r"\|")
 
 
+def tier(path):
+    """The fixture's `# Tier:` line, which run.sh selects on."""
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            m = re.match(r"^# Tier:\s*(\S+)", line)
+            if m:
+                return m.group(1)
+    return None
+
+
+def budgets():
+    """The tier budgets, read from run.sh so the index cannot quote other numbers."""
+    with open(RUNNER, encoding="utf-8") as fh:
+        text = fh.read()
+    small = re.search(r"^SMALL_S=(\d+)", text, re.M)
+    medium = re.search(r"^MEDIUM_S=(\d+)", text, re.M)
+    if not small or not medium:
+        raise SystemExit("error: run.sh no longer sets SMALL_S and MEDIUM_S")
+    return small.group(1), medium.group(1)
+
+
 def requirements(path):
     with open(path, encoding="utf-8") as fh:
         body = fh.read()
@@ -90,16 +121,26 @@ def build():
         f for f in os.listdir(SUITE) if f.startswith("test_") and f.endswith(".sh")
     )
     rows = []
+    untiered = []
     for name in names:
         path = os.path.join(SUITE, name)
         extra = requirements(path)
-        rows.append((name, summary(path), ", ".join(extra) if extra else "-"))
+        t = tier(path)
+        if t not in TIERS:
+            untiered.append(f"{name} ({t or 'no # Tier: line'})")
+        rows.append((name, t, summary(path), ", ".join(extra) if extra else "-"))
+    if untiered:
+        raise SystemExit("error: every fixture needs a `# Tier: small|medium|big` line "
+                         "before TESTNAME=:\n  " + "\n  ".join(untiered))
 
-    parts = [HEADER.format(record=RUN_RECORD)]
-    parts.append(f"{len(rows)} fixtures.\n\n")
-    parts.append("| Fixture | What it pins | Also needs |\n|---|---|---|\n")
-    for name, text, extra in rows:
-        parts.append(f"| [{name}]({name}) | {text} | {extra} |\n")
+    small, medium = budgets()
+    counts = {t: sum(1 for r in rows if r[1] == t) for t in TIERS}
+    parts = [HEADER.format(record=RUN_RECORD, small=small, medium=medium)]
+    parts.append(f"{len(rows)} fixtures: {counts['small']} small, {counts['medium']} medium, "
+                 f"{counts['big']} big.\n\n")
+    parts.append("| Fixture | Tier | What it pins | Also needs |\n|---|---|---|---|\n")
+    for name, t, text, extra in rows:
+        parts.append(f"| [{name}]({name}) | {t} | {text} | {extra} |\n")
     return "".join(parts)
 
 

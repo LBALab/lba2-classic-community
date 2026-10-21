@@ -12,6 +12,7 @@
 # through the pointer and leave a value the reader would never have allowed.
 #
 # Local-only (needs the binary and retail data); skips cleanly otherwise.
+# Tier: small
 TESTNAME=console_audio_cvars
 . "$(dirname "$0")/lib.sh"
 precheck

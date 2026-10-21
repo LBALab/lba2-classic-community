@@ -22,6 +22,7 @@
 # or:
 #   bash scripts/dev/regen_projrec_baselines.sh
 
+# Tier: medium
 TESTNAME=projection_corpus
 . "$(dirname "$0")/lib.sh"
 precheck

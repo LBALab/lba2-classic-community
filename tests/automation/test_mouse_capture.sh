@@ -10,6 +10,7 @@
 # The same run checks that mouse_confine reaches the window: with it off, an interior is free.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: small
 TESTNAME=mouse_capture
 . "$(dirname "$0")/lib.sh"
 . "$(dirname "$0")/camlib.sh"

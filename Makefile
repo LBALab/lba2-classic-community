@@ -6,6 +6,9 @@ REPO_ROOT := $(shell "$(MAKEFILE_DIR)scripts/dev/repo_root.sh" 2>/dev/null || ec
 BUILD_DIR ?= $(REPO_ROOT)/build
 CMAKE ?= cmake
 NINJA ?= ninja
+# Host tests run side by side, one per processor. On an Apple Silicon Mac the first run
+# after a rebuild took 80 s one at a time and 21 s this way; a warm run, 7 s and 3.5 s.
+TEST_JOBS ?= $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
 GAME_DIR ?=
 TIMEOUT ?=
 ABIS ?=
@@ -51,7 +54,7 @@ test tests:
 		-DLBA2_BUILD_TESTS=ON \
 		-DLBA2_BUILD_ASM_EQUIV_TESTS=OFF
 	$(CMAKE) --build "$(BUILD_DIR)" --target host_tests
-	cd "$(BUILD_DIR)" && ctest -L host_quick --output-on-failure
+	cd "$(BUILD_DIR)" && ctest -L host_quick --output-on-failure -j $(TEST_JOBS)
 
 test-docker:
 	@cd "$(REPO_ROOT)" && ./run_tests_docker.sh

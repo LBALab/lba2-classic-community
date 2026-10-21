@@ -18,6 +18,7 @@
 #
 # Local-only: needs retail data + a build + the tracked steam_classic_2023 corpus; skips cleanly
 # otherwise. Each run works on a temp copy of the save.
+# Tier: medium
 TESTNAME=found_obj_held_walk
 . "$(dirname "$0")/lib.sh"
 precheck

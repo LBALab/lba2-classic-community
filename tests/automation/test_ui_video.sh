@@ -9,6 +9,7 @@
 # decode. Anon1 is the standard corpus save.
 #
 # Regenerate the golden with: LBA2_UI_REGEN=1 bash tests/automation/test_ui_video.sh
+# Tier: small
 TESTNAME=ui_video
 . "$(dirname "$0")/lib.sh"
 precheck

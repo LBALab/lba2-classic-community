@@ -39,6 +39,7 @@
 # Needs cam_zone_skip, so the shots over the door and the seam do not take the view.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: medium
 TESTNAME=followcam_obstruct
 . "$(dirname "$0")/lib.sh"
 . "$(dirname "$0")/camlib.sh"

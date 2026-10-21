@@ -15,6 +15,7 @@
 # adeline.log is read (Log_Info fflushes per line; stdout is block-buffered and lost on the kill).
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: small
 TESTNAME=item_use_throttle
 . "$(dirname "$0")/lib.sh"
 precheck
@@ -27,15 +28,17 @@ user="$(mktemp -d)"
 trap 'rm -rf "$user"' EXIT
 log="$user/adeline.log"
 
-# The give-dialog blocks the tick loop, so the run never exits cleanly: bound it and SIGKILL.
+# The give-dialog blocks the tick loop, so the run never exits cleanly: stop it as soon as the
+# poll's answer is in the log, or after 20 seconds without one.
 LBA2_USER_DIR="$user" SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
-    timeout -s KILL 20 "$LBA2_BIN" \
+    "$LBA2_BIN" \
     --language English --no-audio --resolution 640x480 --load "$FIX" \
     --fixed-timestep 100 --fixed-dt 8 --exec "useitem trace 1; useitem 18 1 5" --tick 20 --exit \
-    >/dev/null 2>&1
+    >/dev/null 2>&1 &
+wait_for_line "$log" "num=18 .*InvAct=18.* -> TRUE" $! 20 && seen=1 || seen=0
 
 [ -f "$log" ] || fail "no log written ($log) -- run did not boot?"
-grep -q "num=18 .*InvAct=18.* -> TRUE" "$log" \
+[ "$seen" = 1 ] \
     || fail "item-use dropped on a throttle-skip frame -- #392 regression (log: $log)"
 
 pass "item-use survived the throttle (registered on a forced skip frame)"

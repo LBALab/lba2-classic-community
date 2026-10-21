@@ -21,6 +21,7 @@
 # records and are meant to differ. Settings and saves are the subject.
 #
 # Local-only (needs the binary and retail data); skips cleanly otherwise.
+# Tier: medium
 TESTNAME=cli_flag_contract
 . "$(dirname "$0")/lib.sh"
 precheck
@@ -64,6 +65,7 @@ MODES="
 --res-switch-test|--res-switch-test 2:1280x720
 --save-load-test|--save-load-test \"$tmp/slt.lba\"
 --ignore-focus|--ignore-focus
+--no-pace|--no-pace
 --record|--record \"$tmp/contract.rec\"
 --record-telemetry|--record-telemetry
 --replay|--replay \"$tmp/contract.rec\"

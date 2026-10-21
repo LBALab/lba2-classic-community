@@ -8,6 +8,7 @@
 # walking, so it is asserted as a duration rather than only as an end state.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: small
 TESTNAME=followcam_recenter
 . "$(dirname "$0")/lib.sh"
 . "$(dirname "$0")/camlib.sh"

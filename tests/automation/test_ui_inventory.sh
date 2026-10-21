@@ -7,6 +7,7 @@
 # scene, so the golden is cleanroom UI-only.  See cmd_ui in CONSOLE_CMD.CPP.
 #
 # Regenerate the golden with: LBA2_UI_REGEN=1 bash tests/automation/test_ui_inventory.sh
+# Tier: small
 TESTNAME=ui_inventory
 . "$(dirname "$0")/lib.sh"
 precheck

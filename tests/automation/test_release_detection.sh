@@ -13,6 +13,7 @@
 # not work at all on an install mounted from a disc image.
 #
 # Local-only (needs the binary and retail data); skips cleanly otherwise.
+# Tier: small
 TESTNAME=release_detection
 . "$(dirname "$0")/lib.sh"
 precheck

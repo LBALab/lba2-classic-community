@@ -20,6 +20,7 @@
 # has rebuilt and would not exercise it (docs/plan/INPUT_PLAN.md, increment 1).
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: medium
 TESTNAME=input_combos
 . "$(dirname "$0")/lib.sh"
 precheck

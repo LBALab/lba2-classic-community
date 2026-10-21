@@ -9,6 +9,7 @@
 # is the boundary: a rounding or clamp error in the float that stays invisible
 # at 720 has 300 lines to show itself in here, and this is the mode where a row
 # table overrun would land outside the buffer rather than inside the next one.
+# Tier: small
 TESTNAME=ui_menu_options_uhd
 . "$(dirname "$0")/lib.sh"
 precheck

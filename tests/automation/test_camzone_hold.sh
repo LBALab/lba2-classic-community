@@ -12,6 +12,7 @@
 # the shot failing to happen, which is checked separately.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: medium
 TESTNAME=camzone_hold
 . "$(dirname "$0")/lib.sh"
 . "$(dirname "$0")/camlib.sh"

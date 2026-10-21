@@ -17,6 +17,7 @@
 # actors off the scenery (#717) passes here. test_ring_off_is_gone.sh checks the picture.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: big
 TESTNAME=ring_watch_not_play
 . "$(dirname "$0")/lib.sh"
 . "$(dirname "$0")/ringlib.sh"
@@ -57,8 +58,13 @@ for scene in ${RING_SCENES_ONLY:-$RING_SCENES}; do
         ring_is_default "$name" "$value" && continue
         ring_launch "$work" "$scene" 1 "$name" "$name $value"
     done
-    ring_wait
+done
+# Every scene's replays are started before any is read, so no scene waits for the slowest
+# run of the one before it.
+ring_wait
 
+for scene in ${RING_SCENES_ONLY:-$RING_SCENES}; do
+    ring_use_defaults "$work" "$scene"
     ring_read "$work" "$scene" none
     [ "$RW" = -1 ] && [ "$RV" = -1 ] ||
         fail "$scene: the unflipped replay mismatched (world $RW, view $RV): nothing a flip shows can be told from that"

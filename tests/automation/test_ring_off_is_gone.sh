@@ -19,6 +19,7 @@
 # the view, so the checks can see a camera change at all.
 #
 # Local-only (needs retail data + the tracked corpus saves). Not in host_quick CI.
+# Tier: big
 TESTNAME=ring_off_is_gone
 . "$(dirname "$0")/lib.sh"
 . "$(dirname "$0")/ringlib.sh"
@@ -34,6 +35,8 @@ ring_check_rows
 work="$(mktemp -d -t lba2-ring-off-XXXXXX)"
 trap 'rm -rf "$work"' EXIT
 
+# Every scene's replays are started before any is read, so the runs of one scene fill the
+# slots the last runs of the one before leave idle; the holomap icon's runs join them.
 flips=0
 for scene in ${RING_SCENES_ONLY:-$RING_SCENES}; do
     ring_record "$work" "$scene" 0
@@ -47,8 +50,47 @@ for scene in ${RING_SCENES_ONLY:-$RING_SCENES}; do
         ring_is_default "$name" "$value" && continue
         ring_launch "$work" "$scene" 0 "$name" "$name $value"
     done
-    ring_wait
+done
 
+# The icon path. The nest route sets the three game variables the scene reads to just
+# before Zoe's line about the healing wizard, which shows the holomap icon; tick 445 is a
+# frame with the icon up. --fixed-dt 2 under --fixed-timestep 16 draws eight frames a step,
+# as a display above 400 fps does, so most frames run no step and are drawn with the view
+# Init3DExtView hands back.
+NEST_TICK=445
+nest_run() { # nest_run <tag> <console>
+    local ud="$work/nest.$1.ud"
+    mkdir -p "$ud"
+    printf 'FollowCamera: 0\n' >"$ud/lba2.cfg"
+    (
+        LBA2_USER_DIR="$ud" timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" --headless --no-autosave \
+            --language English --resolution 640x480 --vsync on --verbose --load "$NEST_SAVE" \
+            --fixed-dt 2 --fixed-timestep 16 \
+            --exec "vargame 253 2; vargame 56 5; vargame 62 0; skipmodals 1${2:+; $2}" \
+            --exec-at 16 "cube 49" --exec-at 80 "teleport 14600 2000 14300 3363" \
+            --exec-at 160 "input up 30" \
+            --tick "$NEST_TICK" --screenshot "$work/nest.$1.png" --exit >"$work/nest.$1.out" 2>&1
+        echo $? >"$work/nest.$1.rc"
+        [ -f "$work/nest.$1.png" ] &&
+            python3 "$REPO/scripts/dev/png_hash.py" "$work/nest.$1.png" >"$work/nest.$1.fhash"
+    ) &
+    ring_spawned
+}
+nest_frame() { # nest_frame <tag>: the frame's hash into NF
+    [ "$(cat "$work/nest.$1.rc" 2>/dev/null)" = 0 ] || fail "nest/$1: run exited non-zero: hang or crash"
+    NF="$(cat "$work/nest.$1.fhash" 2>/dev/null)"
+    [ -n "$NF" ] || fail "nest/$1: no frame"
+}
+
+nest_run none ""
+nest_run again ""
+for flip in "${RING_FLIPS[@]}"; do
+    nest_run "${flip%%=*}" "${flip%%=*} ${flip#*=}"
+done
+ring_wait
+
+for scene in ${RING_SCENES_ONLY:-$RING_SCENES}; do
+    ring_use_defaults "$work" "$scene"
     ring_read "$work" "$scene" none
     [ "$RW" = -1 ] && [ "$RV" = -1 ] ||
         fail "$scene: the unflipped replay mismatched (world $RW, view $RV): nothing a flip shows can be told from that"
@@ -73,40 +115,6 @@ for scene in ${RING_SCENES_ONLY:-$RING_SCENES}; do
     done
 done
 
-# The icon path. The nest route sets the three game variables the scene reads to just
-# before Zoe's line about the healing wizard, which shows the holomap icon; tick 445 is a
-# frame with the icon up. --fixed-dt 2 under --fixed-timestep 16 draws eight frames a step,
-# as a display above 400 fps does, so most frames run no step and are drawn with the view
-# Init3DExtView hands back.
-NEST_TICK=445
-nest_run() { # nest_run <tag> <console>
-    local ud="$work/nest.$1.ud"
-    mkdir -p "$ud"
-    printf 'FollowCamera: 0\n' >"$ud/lba2.cfg"
-    (
-        LBA2_USER_DIR="$ud" timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" --headless --no-autosave \
-            --language English --resolution 640x480 --vsync on --verbose --load "$NEST_SAVE" \
-            --fixed-dt 2 --fixed-timestep 16 \
-            --exec "vargame 253 2; vargame 56 5; vargame 62 0; skipmodals 1${2:+; $2}" \
-            --exec-at 16 "cube 49" --exec-at 80 "teleport 14600 2000 14300 3363" \
-            --exec-at 160 "input up 30" \
-            --tick "$NEST_TICK" --screenshot "$work/nest.$1.png" --exit >"$work/nest.$1.out" 2>&1
-        echo $? >"$work/nest.$1.rc"
-    ) &
-    RING_RUNNING=$((RING_RUNNING + 1))
-    if [ "$RING_RUNNING" -ge "$RING_JOBS" ]; then wait; RING_RUNNING=0; fi
-}
-nest_frame() { # nest_frame <tag>: the frame's hash into NF
-    [ "$(cat "$work/nest.$1.rc" 2>/dev/null)" = 0 ] || fail "nest/$1: run exited non-zero: hang or crash"
-    NF="$(python3 "$REPO/scripts/dev/png_hash.py" "$work/nest.$1.png")" || fail "nest/$1: no frame"
-}
-
-nest_run none ""
-nest_run again ""
-for flip in "${RING_FLIPS[@]}"; do
-    nest_run "${flip%%=*}" "${flip%%=*} ${flip#*=}"
-done
-ring_wait
 grep -q 'Dial(text=951' "$work/nest.none.out" ||
     fail "nest: Zoe's line never opened, so the icon was never up: the route missed the nest"
 nest_frame none; base="$NF"

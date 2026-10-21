@@ -22,6 +22,7 @@
 # an older engine, in a format this build reads and does not write, and is replayed as it
 # stands: a same-binary round trip cannot see a change that breaks the writer and the
 # reader together.
+# Tier: big
 TESTNAME="record_replay"
 . "$(dirname "$0")/lib.sh"
 precheck
@@ -966,7 +967,8 @@ rate_of() { # rate_of <label> [extra args...] -- game seconds per wall second, o
     # python rather than `date +%s.%N`: %N is GNU-only, and a BSD date passes the literal
     # N through to the arithmetic below, where the arm fails as though the run had hung.
     t0="$(python3 -c 'import time; print(time.time())')"
-    LBA2_USER_DIR="$ud" ctl --load "$LBA2_TEST_SAVE" \
+    # ctl_paced: this arm is about the real-time pacing the harness otherwise turns off.
+    LBA2_USER_DIR="$ud" ctl_paced --load "$LBA2_TEST_SAVE" \
         --exec-at 20 "dumpstate $ud/before.json" \
         --exec-at 40 "key up 800" \
         --tick 900 --dump-state "$ud/after.json" --exit "$@" >/dev/null 2>&1 || return 1
@@ -984,10 +986,17 @@ print('%.3f' % (game / wall))"
 
 # Not in a command substitution that swallows it: `fail` ends the shell it runs in, so a
 # failure inside $( ) would kill the subshell and let the caller print PASS over the top.
-rate_ctl="$(rate_of control)" ||
+#
+# The two run side by side: each is held to the wall clock, so neither waits on the other,
+# and whatever load the machine is under falls on both alike, which the ratio below wants.
+rate_of control >"$ratedir/control.rate" & ctl_pid=$!
+rate_of recording --record "$ratedir/recording/s.rec" >"$ratedir/recording.rate" & rec_pid=$!
+wait "$ctl_pid" ||
     fail "rate: the control run exited non-zero or dumped no clock — hang, crash, or a stopped clock"
-rate_rec="$(rate_of recording --record "$ratedir/recording/s.rec")" ||
+wait "$rec_pid" ||
     fail "rate: the recording run exited non-zero or dumped no clock — hang, crash, or a stopped clock"
+rate_ctl="$(cat "$ratedir/control.rate")"
+rate_rec="$(cat "$ratedir/recording.rate")"
 
 # The band is wide on purpose, and the floor especially. It has one job -- separate real
 # time from a pinned step, which reads about 3.5 -- and two reasons not to be tight: boot
@@ -1055,7 +1064,8 @@ analog_ok="$(python3 -c "print(1 if $rateanalog <= $ratepolls // 10 else 0)")"
 modaldir="$(mktemp -d)"
 clean_add "$modaldir"
 
-ctl --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$modaldir/s.rec" \
+# ctl_paced: the pacing is what this arm measures, so the harness's --no-pace stays off.
+ctl_paced --fixed-dt 16 --load "$LBA2_TEST_SAVE" --record "$modaldir/s.rec" \
     --exec-at 40 "key up 200" \
     --exec-at 295 "dumpstate $modaldir/w0.json" \
     --exec-at 300 "cube 154" \

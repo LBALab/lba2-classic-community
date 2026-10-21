@@ -4,6 +4,7 @@
 # golden.  Fixture: Anon1 (Citadel Island scene shaded behind the menu).
 #
 # Regenerate the golden with: LBA2_UI_REGEN=1 bash tests/automation/test_ui_menu_options.sh
+# Tier: small
 TESTNAME=ui_menu_options
 . "$(dirname "$0")/lib.sh"
 precheck

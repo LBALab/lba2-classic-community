@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # --dump-state: the hand-written JSON is well-formed and has the expected shape.
 # Guards against malformed output (the real risk of hand-rolling JSON).
+# Tier: small
 TESTNAME=dump
 . "$(dirname "$0")/lib.sh"
 precheck

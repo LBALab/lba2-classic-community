@@ -52,6 +52,18 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Apple Silicon and Intel, `lba2cc-<version>-macos-universal.dmg`, in place of
   the Apple Silicon-only `macos-arm64` DMG.
 
+### Tests
+
+- The engine-driving test suite times every test and sorts them into small,
+  medium and big, so a change can be checked against the small ones in about
+  ten seconds; `tests/automation/run.sh -j 8` runs them side by side. On an
+  Apple Silicon Mac the whole suite went from about 15 minutes to under 4.
+  `--no-pace` lets a scripted run record without being held to real time, and
+  the Docker and host test suites run in parallel too. The suite also runs on
+  macOS now, where one test had passed without loading the save it tests, and
+  on Windows the tests that handed the game a temporary path it could not open
+  pass ([#814](https://github.com/LBALab/lba2-classic-community/pull/814)).
+
 ### Contributors
 
 Thanks to EPmager for reporting the jittery mouse orbit with VSync off, with a

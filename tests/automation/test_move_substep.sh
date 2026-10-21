@@ -15,6 +15,7 @@
 # Assumes the default throttle (FixedTimestep=16); the run does not touch it, so it neither
 # depends on nor rewrites lba2.cfg. Local-only (needs retail data + a save); skips cleanly
 # otherwise. Not in CI.
+# Tier: small
 TESTNAME=move_substep
 . "$(dirname "$0")/lib.sh"
 precheck

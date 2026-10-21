@@ -230,6 +230,38 @@ Things that have caught camera work out:
 - **A render-only change can still reach state**: the hidden-hero recovery reads what was drawn. Compare every trace field the change does not show against the run with it off, as `test_camzone_blend.sh` does.
 - **Count steps from `$LBA2_USER_DIR/adeline.log`**, not the stdout capture, where lines collide with the console echo.
 
+## Control-harness tiers and timing
+
+`tests/automation/run.sh` times every fixture, and each fixture declares what it costs, so a change can be checked in seconds and the whole suite kept for when it matters.
+
+```bash
+tests/automation/run.sh --fast -j 8        # the small tier: about 10 s on an Apple Silicon Mac
+tests/automation/run.sh -j 8               # everything: about 4 minutes there
+tests/automation/run.sh camzone followcam  # fixtures whose name has one of these words
+tests/automation/run.sh --tier medium      # one tier (or a list: small,medium)
+tests/automation/run.sh --list             # each fixture's tier and last time
+tests/automation/run.sh --profile ring     # also count engine runs and engine seconds
+```
+
+**Tiers.** A `# Tier:` line just before `TESTNAME=` puts a fixture in one, by what it costs on its own on an Apple Silicon Mac: **small** within 3 s, **medium** within 15 s, **big** beyond. `make automation-index` refuses a fixture without one. A serial run (`-j 1`) reports any fixture past its tier's budget; that is a prompt to look, not a failure, and when the fixture really is that expensive, move it up a tier.
+
+**Telemetry.** Every run appends one line per fixture to `tests/automation/.runs/history.tsv` (untracked): date, commit, host, `-j`, fixture, tier, milliseconds, verdict. `-j` starts the slowest fixtures first from it. `--profile` puts `engine-profile.sh` in front of the binary and adds each fixture's engine runs and engine seconds to its line; a fixture whose wall time is well above its engine time is waiting on something.
+
+**Running several at once.** Each fixture runs in a folder of its own, used as its working directory and `TMPDIR` and removed afterwards, so fixtures do not meet in a shared path and what they leak goes with the folder. `-j` needs bash 4.3 or newer (macOS's `/bin/bash` is 3.2; Homebrew's is fine). The two ring fixtures start their own engine runs, one per processor unless `RING_JOBS` says otherwise.
+
+**What a fixture costs.** A headless run is not tied to the clock, so a fixture costs what its engine runs cost. Measured on an Apple Silicon Mac at 640x480:
+
+- about 0.3 s to boot, so a fixture that makes 40 runs pays 12 s before it simulates anything;
+- about 2 ms a tick, twice that at 1920x1080, and eight times as much under `--fixed-dt 2`, which draws eight frames a step;
+- a recording (`--record`, `rec start`) is held to real time for the player making it, 16 ms a tick. The `lib.sh` helpers pass `--no-pace`, which drops the wait and records the same thing, so a fixture that calls the binary itself should too. A fixture that measures the pacing uses `ctl_paced`.
+
+Writing a fixture that stays cheap:
+
+- **Go through the helpers** (`ctl`, `ctl_headless`, `ring_engine`): they isolate the user folder and pass `--no-pace`.
+- **Never wait out a timeout.** A run that ends in a dialogue that waits for a key never exits; `wait_for_line` stops it as soon as the line the fixture wants is in the log, instead of a fixed `timeout -s KILL`.
+- **Run independent engine runs side by side** (`&` and `wait`), as `test_demo_behaviour_menu.sh` does with its two.
+- **Keep to POSIX and bash.** `mktemp --suffix`, `date +%N`, `sed '\?'` and `wc`'s unpadded output are GNU-only; on a Mac they fail quietly and the fixture can pass without testing anything. `lib.sh` has `mktemp_ext` for a temp file with an extension, and falls back to Homebrew's `gtimeout` when there is no `timeout`.
+
 ## Test harness
 
 `tests/test_harness.h` provides a minimal TAP-style harness with no external

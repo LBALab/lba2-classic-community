@@ -25,6 +25,7 @@ export LBA2_TEST_TIMEOUT
 # or:
 #   bash scripts/dev/regen_projrec_baselines.sh
 
+# Tier: big
 TESTNAME=projection_demo
 . "$(dirname "$0")/lib.sh"
 precheck

@@ -14,6 +14,7 @@
 #   picker          a headless run exits instead of hanging on the modal folder dialog
 #   --no-autosave   blocks autosaves but NOT an explicit save: the console's `savebug`
 #                   writes to the bugs dir and must keep working
+# Tier: small
 TESTNAME=cli_contract
 . "$(dirname "$0")/lib.sh"
 precheck
