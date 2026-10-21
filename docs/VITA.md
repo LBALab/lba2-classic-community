@@ -73,7 +73,7 @@ Vita builds default `GamepadDeadzone` to `13107` (40% of the axis range), shared
 | D-pad | Existing spell bindings; fixed UI navigation in menus |
 | Front-screen tap | Recenter camera during gameplay |
 
-A front-screen press produces one recenter input through the configured camera-recenter binding, including a tap completed between polls. Holding or dragging does not repeat it. Touches in modal interfaces or while unfocused do not queue an action for later, and the rear touch panel is ignored. This is a camera shortcut, not the Android touch overlay; no on-screen buttons appear.
+A front-screen press produces one recenter input through the configured camera-recenter binding, including a tap completed between polls or delivered by the rendering event pump. It remains queued until the next gameplay poll; entering a modal interface or losing focus discards it. Holding or dragging does not repeat it. Touches in modal interfaces or while unfocused do not queue an action for later, and the rear touch panel is ignored. This is a camera shortcut, not the Android touch overlay; no on-screen buttons appear.
 
 Save creation keeps the existing automatic-name path for non-keyboard input. Custom save-name keyboard entry, touch overlays, rear-touch bindings, clock-speed overrides and a new controller-disconnect policy are not added.
 

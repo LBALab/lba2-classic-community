@@ -50,6 +50,7 @@
 
 extern int TestConsoleOpen;
 extern int TestConsoleSuppress;
+extern S32 TestTouchGameplay;
 
 static int fails = 0;
 
@@ -483,6 +484,22 @@ void CheckMenuSuppression(void) {
     CHECK(MenuInput_Get() == MENU_INPUT_UP, "unsuppressed first replay poll is not discarded");
 }
 
+void CheckTouchGameplayLifetime(void) {
+    ResetMenuInput();
+    MyGetGameplayInput();
+    CHECK(TestTouchGameplay, "gameplay touch eligibility must survive into rendering");
+    MyGetInput();
+    CHECK(!TestTouchGameplay, "modal polling must end gameplay touch eligibility");
+    TestConsoleOpen = 1;
+    MyGetGameplayInput();
+    CHECK(!TestTouchGameplay, "console presentation must not queue gameplay touches");
+    TestConsoleOpen = 0;
+    TestConsoleSuppress = 1;
+    MyGetGameplayInput();
+    CHECK(!TestTouchGameplay, "console closing frame must discard gameplay touches");
+    TestConsoleSuppress = 0;
+}
+
 void CheckMenuIgnoresConfig(void) {
     ResetMenuInput();
     WriteCfg(Line("WinMode: 1\nInput0_1: %u\nInput0_2: 0\n"
@@ -624,6 +641,7 @@ int main() {
     CheckMenuDirections();
     CheckMenuRebindIsolation();
     CheckMenuSuppression();
+    CheckTouchGameplayLifetime();
     CheckMenuIgnoresConfig();
     CheckConsoleMenuReplay();
     CheckPausedMenuRelease();

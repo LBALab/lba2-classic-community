@@ -883,6 +883,55 @@ static void test_touch_recenter_scope_pulse_and_bindings() {
     InitInput();
 }
 
+static void test_touch_recenter_between_gameplay_polls() {
+    RestoreInput();
+    InitInput();
+    ClearNoRepeatInput();
+    memset(TabKeys, 0, sizeof(TabKeys));
+    TouchOverlay_Init();
+    LastInputWasTouch = 0;
+    PlatformEvent touch = {};
+    touch.type = PLATFORM_EVENT_FINGER_DOWN;
+    touch.tfinger.fingerID = 78;
+    touch.tfinger.x = touch.tfinger.y = 0.5f;
+
+    TouchInput_SetGameplay(1);
+    GetInput(0);
+    TouchInput_EndGameplayPoll();
+
+    /* BoxBlit also pumps events after the gameplay poll has ended. */
+    ResetEvents();
+    s_events.push_back(touch);
+    touch.type = PLATFORM_EVENT_FINGER_UP;
+    s_events.push_back(touch);
+    ManageEvents();
+    ASSERT_TRUE(!CheckKey(K_ENTER));
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    TouchInput_SetGameplay(1);
+    GetInput(0);
+    ASSERT_EQ_UINT(1u << 9, Input);
+    TouchInput_EndGameplayPoll();
+    ASSERT_TRUE(!CheckKey(K_ENTER));
+    TouchInput_SetGameplay(1);
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    TouchInput_EndGameplayPoll();
+
+    touch.type = PLATFORM_EVENT_FINGER_DOWN;
+    TouchOverlay_HandleEvent(&touch);
+    TouchInput_SetGameplay(0);
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    TouchOverlay_HandleEvent(&touch);
+    TouchInput_SetGameplay(1);
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    TouchInput_EndGameplayPoll();
+    TouchOverlay_Shutdown();
+    ResetEvents();
+}
+
 int main() {
     if (!InitEvents() || !InitWindow("Contract fixture") ||
         !CreateWindowSurface(8, 6, false))
@@ -899,6 +948,7 @@ int main() {
     RUN_TEST(test_partial_present_after_resize);
     RUN_TEST(test_touch_wake_hold_release_and_reapply);
     RUN_TEST(test_touch_recenter_scope_pulse_and_bindings);
+    RUN_TEST(test_touch_recenter_between_gameplay_polls);
     EndWindow();
     EndEvents();
     TEST_SUMMARY();

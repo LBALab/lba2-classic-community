@@ -167,6 +167,7 @@ static U32 s_lastTouchMs = 0; /* g_platform.system.ticks_ms at the last finger-d
 static S32 s_pressed[NUM_TOUCH_BUTTONS];
 static U8 s_virtual_keys[256]; /* virtual key states in 0x80-bit format */
 static S32 s_gameplay = 0;
+static S32 s_gameplayPoll = 0;
 static S32 s_focused = 1;
 static S32 s_recenterPending = 0;
 static U32 s_injectedIndex = 0;
@@ -323,7 +324,7 @@ static void SetButtonState(S32 idx, S32 pressed) {
 /* Re-apply virtual key states after UpdateKeyboardState clears TabKeys[0..255].
    Called from the weak hook in KEYBOARD.CPP:UpdateKeyboardState. */
 void ApplyVirtualKeys(void) {
-    if (s_recenterPending) {
+    if (s_recenterPending && s_gameplayPoll) {
         s_recenterPending = 0;
         U32 keys[4];
         const S32 count = Bindings_KeysForSlot(9, keys, 4);
@@ -351,14 +352,20 @@ void ApplyVirtualKeys(void) {
     }
 }
 
+void TouchInput_EndGameplayPoll(void) {
+    s_gameplayPoll = 0;
+    if (s_injectedBit) {
+        TabKeys[s_injectedIndex] &= ~s_injectedBit;
+        s_injectedBit = 0;
+    }
+}
+
 void TouchInput_SetGameplay(S32 gameplay) {
     s_gameplay = gameplay != 0;
+    s_gameplayPoll = s_gameplay;
     if (!s_gameplay) {
         s_recenterPending = 0;
-        if (s_injectedBit) {
-            TabKeys[s_injectedIndex] &= ~s_injectedBit;
-            s_injectedBit = 0;
-        }
+        TouchInput_EndGameplayPoll();
     }
 }
 
