@@ -406,6 +406,10 @@ static const char *s_clutFragSrc =
 static GLuint s_program = 0;
 static GLuint s_vbo = 0;
 static GLuint s_fboVbo = 0; /* non-flipped UV quad for FBO→screen draw */
+/* Left half of the scene texture.  Mono frames (menus, dialogue) render into
+ * the left eye's half of the double-wide target; a mono present must sample
+ * only that half or both eye images appear side by side in each eye. */
+static GLuint s_fboHalfVbo = 0;
 static GLuint s_texture = 0;
 static GLint s_uTexLoc = -1;
 static GLint s_uTexelLoc = -1;  /* present overlay: 1/width, 1/height */
@@ -1358,6 +1362,11 @@ static GLuint GL_SceneColorTex(void) {
     return s_fboColorTex;
 }
 
+/* Scene quad for a mono composite.  A mono frame draws into the left half of
+ * the double-wide target, so its present must not sample the stale right-eye
+ * half: that squeezes both eye images into one eye. */
+static GLuint GL_PresentSceneVbo(void);
+
 /* Single-sample read view of the scene.  In-tile mode exposes the dedicated
  * resolve texture; explicit mode reads s_fbo as before. */
 static GLuint GL_SceneReadFbo(void) {
@@ -1442,6 +1451,12 @@ static S32 s_stereoPairReady = 0;
  * composite was skipped and OpenXR_PresentMono can read the resolved 3D
  * scene FBO directly.  Cleared by every present and by leaving stereo. */
 static S32 s_stereoEye1SceneDirect = 0;
+
+static GLuint GL_PresentSceneVbo(void) {
+    if (s_stereoDoubleWide && s_stereoEye < 0)
+        return s_fboHalfVbo;
+    return s_fboVbo;
+}
 
 /* Set to 1 by GL_ClearFBO() at the start of terrain rendering, cleared by
    GL_BeginFrame().  Used by GL_RenderTriangleList to route body/shadow
@@ -1551,6 +1566,15 @@ static const GLfloat s_fboQuadVerts[] = {
      1.0f, -1.0f,  1.0f, 0.0f,  /* bottom-right */
     -1.0f,  1.0f,  0.0f, 1.0f,  /* top-left      (V=1.0 = FBO top) */
      1.0f,  1.0f,  1.0f, 1.0f,  /* top-right */
+};
+
+/* Left-eye half of a double-wide scene texture. */
+static const GLfloat s_fboHalfQuadVerts[] = {
+    /* pos       texcoord */
+    -1.0f, -1.0f,  0.0f, 0.0f,  /* bottom-left  (V=0.0 = FBO bottom) */
+     1.0f, -1.0f,  0.5f, 0.0f,  /* bottom-right */
+    -1.0f,  1.0f,  0.0f, 1.0f,  /* top-left      (V=1.0 = FBO top) */
+     1.0f,  1.0f,  0.5f, 1.0f,  /* top-right */
 };
 
 /* ── Shader helpers ─────────────────────────────────────────────────────── */
@@ -2288,6 +2312,13 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                  GL_STATIC_DRAW);
     GL_BindArrayBuffer(0);
 
+    /* Mono present from a double-wide scene: sample the left eye's half. */
+    glGenBuffers(1, &s_fboHalfVbo);
+    GL_BindArrayBuffer(s_fboHalfVbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(s_fboHalfQuadVerts),
+                 s_fboHalfQuadVerts, GL_STATIC_DRAW);
+    GL_BindArrayBuffer(0);
+
     /* Batch VBO for 3D triangles (dynamic) */
     glGenBuffers(1, &s_batchVBO);
     GL_BindArrayBuffer(s_batchVBO);
@@ -2458,6 +2489,10 @@ void GL_Renderer_Shutdown(void) {
     if (s_fboVbo) {
         glDeleteBuffers(1, &s_fboVbo);
         s_fboVbo = 0;
+    }
+    if (s_fboHalfVbo) {
+        glDeleteBuffers(1, &s_fboHalfVbo);
+        s_fboHalfVbo = 0;
     }
     if (s_batchVBO) {
         glDeleteBuffers(1, &s_batchVBO);
@@ -6013,7 +6048,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
         glBindTexture(GL_TEXTURE_2D, GL_SceneColorTex());
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        GL_BindArrayBuffer(s_fboVbo);
+        GL_BindArrayBuffer(GL_PresentSceneVbo());
         if (s_antiAlias == 1 && s_fxaaProgram) {
             /* FXAA post-process: edge-detecting AA on the scene texture. */
             glUseProgram(s_fxaaProgram);
@@ -6461,7 +6496,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         glBindTexture(GL_TEXTURE_2D, GL_SceneColorTex());
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        GL_BindArrayBuffer(s_fboVbo);
+        GL_BindArrayBuffer(GL_PresentSceneVbo());
         if (s_antiAlias == 1 && s_fxaaProgram) {
             /* FXAA post-process: edge-detecting AA on the scene texture. */
             glUseProgram(s_fxaaProgram);
