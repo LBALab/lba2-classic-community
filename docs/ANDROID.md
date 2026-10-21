@@ -472,17 +472,56 @@ Give it its own build directory: `scripts/dev/build-android.sh` derives the buil
 directory from the ABI alone, so a variant build would otherwise overwrite the
 normal one.
 
-**`--user-dir` is mandatory in this shape.** `ResolveDefaultUserDirRoot`
-(`SOURCES/DIRECTORIES.CPP`) gates its `/sdcard/...` candidates on
-`Android_GetExternalFilesDir()` and falls back to `SDL_GetPrefPath`, and both need
-JNI. With no JVM, `SDL_GetPrefPath` crashes in SDL 3.4. Automation always sets a
-user directory.
+Build it on the null platform. SDL3 cannot work here: even with `--headless` its
+window code creates a renderer, and on Android that waits for the Activity
+(see above). The null platform needs no SDK, draws into its own buffer and stubs
+the Android calls, and the CMake check that keeps it off Android makes an
+exception for this build:
 
-**Not yet usable for the automation suite.** `--headless` selects SDL's dummy
-video driver, but the SDL3 window code still calls `SDL_CreateRenderer`, which on
-Android waits for the Activity (see above). The executable needs a way around
-that, such as the null platform backend, before `tests/automation/` can run on a
-device.
+```bash
+cmake -S . -B out/build/android_arm64_cli -G Ninja \
+    -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK/build/cmake/android.toolchain.cmake" \
+    -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=24 -DANDROID_STL=c++_shared \
+    -DCMAKE_BUILD_TYPE=Release -DLBA2_ANDROID_EXECUTABLE=ON \
+    -DPLATFORM_BACKEND=null -DSOUND_BACKEND=null -DCMAKE_DISABLE_FIND_PACKAGE_SDL3=ON
+cmake --build out/build/android_arm64_cli --target lba2cc
+```
+
+With no Activity there is no app storage either: the null platform's
+`Android_GetExternalFilesDir()` answers nothing and its preferences folder
+comes from `HOME`. Automation always sets a user directory, and
+`android-lba2cc.sh` points `HOME` inside its device folder.
+
+### The automation suite on a device
+
+`scripts/dev/android-lba2cc.sh` stands in for the engine binary, so the suite
+runs unchanged:
+
+```bash
+export ANDROID_SERIAL=emulator-5554   # or the phone's serial
+export LBA2_ANDROID_ENGINE=$PWD/out/build/android_arm64_cli/SOURCES/lba2cc
+export LBA2_BIN=$PWD/scripts/dev/android-lba2cc.sh
+export LBA2_GAME_DIR=/path/to/data LBA2_TEST_SAVE=/path/to/save.LBA
+tests/automation/run.sh --no-record -j 4
+```
+
+For each engine run it copies the engine, `libc++_shared.so`, the data folder and
+the save folder to `/data/local/tmp/lba2cc` (each once, until it changes),
+copies the repo and temp paths the arguments name, rewrites those paths for the
+device, runs the engine there and copies what it wrote back, mapping device
+paths in its output back to host paths. Compare the result with the suite on a
+null-platform build on the host, not with an SDL build: fixtures that need keys
+typed into a name editor, an audio device or another window size fail on the
+null platform anywhere.
+
+Limits:
+
+- A path the engine writes into a file keeps its device spelling, so
+  `test_profile_bind`, which reads the game folder a profile stored, fails.
+- Each engine run costs about a second of adb round trips. Fixtures that start
+  hundreds of runs (the ring fixtures) take several times longer than on the
+  host, and under `-j` they can reach their timeout.
+- An `armeabi-v7a` engine needs a physical device (see above).
 
 ## Limitations
 

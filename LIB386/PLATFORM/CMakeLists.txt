@@ -4,6 +4,12 @@ if(NOT PLATFORM_BACKEND MATCHES "^(sdl3|sdl2|null)$")
     message(FATAL_ERROR "Unsupported PLATFORM_BACKEND '${PLATFORM_BACKEND}'. Available backends: sdl3, sdl2, null")
 endif()
 
+# The on-device automation executable has no Java Activity. SDL3 on Android
+# waits for one before it creates a renderer, so only the null platform runs.
+if(LBA2_ANDROID_EXECUTABLE AND NOT PLATFORM_BACKEND STREQUAL "null")
+    message(FATAL_ERROR "LBA2_ANDROID_EXECUTABLE requires PLATFORM_BACKEND=null and SOUND_BACKEND=null: SDL3 on Android needs the Java Activity this build does not have.")
+endif()
+
 if(PLATFORM_BACKEND STREQUAL "sdl2")
     if(ANDROID)
         message(FATAL_ERROR "PLATFORM_BACKEND=sdl2 supports desktop only; Android requires sdl3.")
@@ -45,7 +51,10 @@ if(PLATFORM_BACKEND STREQUAL "null")
     if(NOT SOUND_BACKEND STREQUAL "null")
         message(FATAL_ERROR "PLATFORM_BACKEND=null requires SOUND_BACKEND=null; SDL audio requires an SDL2/SDL3 platform SDK.")
     endif()
-    if(ANDROID)
+    # LBA2_ANDROID_EXECUTABLE is the exception: it is a plain executable for
+    # automation on a device, and SDL3 without the Java Activity cannot create a
+    # renderer there, so the null platform is what lets it run at all.
+    if(ANDROID AND NOT LBA2_ANDROID_EXECUTABLE)
         message(FATAL_ERROR "PLATFORM_BACKEND=null builds a desktop executable, not an Android Activity library.")
     endif()
     find_package(Threads REQUIRED)

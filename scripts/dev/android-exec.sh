@@ -36,47 +36,7 @@ if [[ -z "$BIN" || ! -f "$BIN" ]]; then
 fi
 shift
 
-# The probe costs several adb round trips and ctest calls this once per test, so
-# cache it for the run. Keyed on the boot id as well as the serial: a reboot or
-# a different device must miss, or we would stage onto assumptions that belonged
-# to another machine.
-STATE_DIR="${TMPDIR:-/tmp}/lba2cc-android-exec"
-mkdir -p "$STATE_DIR" 2>/dev/null
-
-probe_cached() {
-    local boot_id serial state
-    serial="$("$ADB" get-serialno 2>/dev/null | tr -d '\r')"
-    boot_id="$("$ADB" shell cat /proc/sys/kernel/random/boot_id 2>/dev/null | tr -d '\r-')"
-    if [[ -z "$serial" || -z "$boot_id" ]]; then
-        android_probe
-        return $?
-    fi
-    state="$STATE_DIR/$serial.$boot_id"
-    if [[ -r "$state" ]]; then
-        # shellcheck disable=SC1090
-        . "$state"
-        # Replay why, not just the code. Under ctest this shim runs seventy
-        # times; a cached refusal that printed nothing would give seventy bare
-        # failures and no reason anywhere in the output.
-        [[ "${ANDROID_PROBE_RC:-1}" -ne 0 && -n "${ANDROID_PROBE_LOG:-}" ]] &&
-            printf '%s' "$ANDROID_PROBE_LOG" >&2
-        return "${ANDROID_PROBE_RC:-1}"
-    fi
-    android_probe
-    local rc=$?
-    {
-        echo "ANDROID_SERIAL='${ANDROID_SERIAL:-}'"
-        echo "ANDROID_ABI_ON_DEVICE='$ANDROID_ABI_ON_DEVICE'"
-        echo "ANDROID_IS_EMULATOR='$ANDROID_IS_EMULATOR'"
-        echo "ANDROID_EXIT_CODES_PROPAGATE='$ANDROID_EXIT_CODES_PROPAGATE'"
-        echo "ANDROID_PROBE_RC=$rc"
-        printf "ANDROID_PROBE_LOG=%q\n" "$ANDROID_PROBE_LOG"
-    } >"$state"
-    export ANDROID_SERIAL
-    return $rc
-}
-
-probe_cached
+android_probe_cached
 probe_rc=$?
 if [[ $probe_rc -eq 77 ]]; then
     echo "android-exec: device cannot execute from $ANDROID_DEVICE_DIR, skipping" >&2
@@ -86,78 +46,8 @@ if [[ $probe_rc -ne 0 ]]; then
     exit 1
 fi
 
-# Where the runtime libraries come from. Read the build's own CMakeCache rather
-# than the environment: the cache is what the binary was actually linked
-# against, and an ambient ANDROID_NDK pointing somewhere else would stage an STL
-# that does not match. bundle-android.sh reads the cache for the same reason.
-find_cache() {
-    local d
-    d="$(cd "$(dirname "$1")" && pwd)"
-    while [[ "$d" != "/" ]]; do
-        if [[ -f "$d/CMakeCache.txt" ]]; then
-            printf '%s' "$d/CMakeCache.txt"
-            return 0
-        fi
-        d="$(dirname "$d")"
-    done
-    return 1
-}
-
-cache_value() { sed -n "s|^$2:[^=]*=||p" "$1" | head -1; }
-
-CACHE="$(find_cache "$BIN")"
-if [[ -z "$CACHE" ]]; then
-    echo "android-exec: no CMakeCache.txt above $BIN; cannot find the runtime libs" >&2
-    exit 1
-fi
-
-# NDK r28 caches neither CMAKE_ANDROID_NDK nor CMAKE_ANDROID_ARCH_ABI, only
-# the toolchain file and the ANDROID_ABI given on the command line.
-NDK="$(cache_value "$CACHE" CMAKE_ANDROID_NDK)"
-if [[ -z "$NDK" ]]; then
-    NDK="$(cache_value "$CACHE" CMAKE_TOOLCHAIN_FILE)"
-    NDK="${NDK%/build/cmake/android.toolchain.cmake}"
-fi
-ABI="$(cache_value "$CACHE" CMAKE_ANDROID_ARCH_ABI)"
-[[ -n "$ABI" ]] || ABI="$(cache_value "$CACHE" ANDROID_ABI)"
-SDL3_CFG="$(cache_value "$CACHE" SDL3_DIR)"
-
-case "$ABI" in
-arm64-v8a) TRIPLE=aarch64-linux-android ;;
-armeabi-v7a) TRIPLE=arm-linux-androideabi ;;
-*)
-    echo "android-exec: unexpected CMAKE_ANDROID_ARCH_ABI '$ABI'" >&2
-    exit 1
-    ;;
-esac
-
-if [[ "$ABI" != "$ANDROID_ABI_ON_DEVICE" && ! ("$ABI" == armeabi-v7a && "$ANDROID_ABI_ON_DEVICE" == arm64-v8a) ]]; then
-    echo "android-exec: built $ABI but the target is $ANDROID_ABI_ON_DEVICE" >&2
-    exit 1
-fi
-
-# The prebuilt folder is named after the build host (linux-x86_64,
-# darwin-x86_64, windows-x86_64), so take whichever one this NDK has.
-STL=""
-for d in "$NDK"/toolchains/llvm/prebuilt/*/sysroot/usr/lib/"$TRIPLE"; do
-    [[ -f "$d/libc++_shared.so" ]] && STL="$d/libc++_shared.so" && break
-done
-if [[ -z "$STL" ]]; then
-    echo "android-exec: no libc++_shared.so for $TRIPLE under $NDK" >&2
-    exit 1
-fi
-android_push_cached "$STL" "$ANDROID_DEVICE_DIR/lib" 755 || exit 1
-
-# Tests that never link SDL3 run without it, so a build with no SDL3_DIR is
-# fine. One that names an SDL3 install which is not there is not.
-if [[ -n "$SDL3_CFG" ]]; then
-    SDL3_SO="${SDL3_CFG%/lib/cmake/SDL3}/lib/libSDL3.so"
-    if [[ ! -f "$SDL3_SO" ]]; then
-        echo "android-exec: SDL3_DIR is $SDL3_CFG but $SDL3_SO is missing" >&2
-        exit 1
-    fi
-    android_push_cached "$SDL3_SO" "$ANDROID_DEVICE_DIR/lib" 755 || exit 1
-fi
+android_stage_runtime "$BIN" || exit 1
+CACHE="$(android_find_cache "$BIN")"
 
 # Repo files the tests open at run time, listed by tests/CMakeLists.txt with
 # the device root they are compiled to expect on the first line. One marker
