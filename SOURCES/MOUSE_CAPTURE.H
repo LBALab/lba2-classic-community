@@ -40,6 +40,13 @@ T_MOUSE_CAPTURE MouseCapture_Decide(S32 confine, S32 fullscreen, S32 consoleOpen
  * an interior ends it without having to know about it. */
 void MouseCapture_RequestOrbit(void);
 
+/* Called by the gameplay loop on a frame that skips the simulation. The
+ * camera asks from inside a simulation step, and above the step rate most
+ * frames run none (VSync off, a fast display), so this carries the last step's
+ * request over such a frame. It only keeps a request in force, never makes
+ * one: with no orbit under way it does nothing. */
+void MouseCapture_CarryOrbit(void);
+
 /* Once per presented frame: decide and apply what changed. */
 void MouseCapture_Update(void);
 

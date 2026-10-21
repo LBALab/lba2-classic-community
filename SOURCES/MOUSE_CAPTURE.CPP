@@ -25,6 +25,11 @@ T_MOUSE_CAPTURE MouseCapture_Decide(S32 confine, S32 fullscreen, S32 consoleOpen
 
 void MouseCapture_RequestOrbit(void) { s_presentsSinceOrbit = 0; }
 
+void MouseCapture_CarryOrbit(void) {
+    if (s_presentsSinceOrbit <= ORBIT_GRACE_PRESENTS)
+        s_presentsSinceOrbit = 0;
+}
+
 void MouseCapture_Update(void) {
     const S32 orbit = s_presentsSinceOrbit <= ORBIT_GRACE_PRESENTS;
     if (s_presentsSinceOrbit <= ORBIT_GRACE_PRESENTS)
