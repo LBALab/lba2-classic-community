@@ -197,6 +197,76 @@ static void test_partial_blocks() {
     }
     SDL_SetHint(SDL_HINT_WAVE_TRUNCATION, "");
 }
+static void reject_riff(const std::vector<Uint8> &wav) {
+    SDL_AudioSpec spec;
+    Uint8 *pcm = NULL;
+    Uint32 bytes = 0;
+    ASSERT_TRUE(!AILAudio_LoadWAVMemory(&wav[0], (int)wav.size(), &spec, &pcm, &bytes));
+    SDL_free(pcm);
+    write_fixture(wav);
+    bool recognized = false;
+    AILWavSource *source = AILWav_Open(path, false, 0, &recognized);
+    ASSERT_TRUE(recognized && source == NULL);
+    if (source)
+        AILWav_Close(source);
+}
+static void test_riff_size_policies() {
+    for (U32 code : {1u, 2u, 17u}) {
+        for (const char *hint : {"", "ignorezero", "ignore", "maximum", "unknown"}) {
+            SDL_SetHint(SDL_HINT_WAVE_RIFF_CHUNK_SIZE, hint);
+            std::vector<Uint8> wav = fixture(code, 2, 73);
+            WriteLE_U32(&wav[4], 0);
+            compare(wav, 17);
+        }
+        for (const char *hint : {"ignore", "maximum"}) {
+            SDL_SetHint(SDL_HINT_WAVE_RIFF_CHUNK_SIZE, hint);
+            for (U32 size : {1u, 4u, 32u, 0xFFFFFFFFu}) {
+                std::vector<Uint8> wav = fixture(code, 2, 73);
+                WriteLE_U32(&wav[4], size);
+                compare(wav);
+            }
+        }
+        for (const char *hint : {"", "force", "ignorezero"}) {
+            SDL_SetHint(SDL_HINT_WAVE_RIFF_CHUNK_SIZE, hint);
+            std::vector<Uint8> wav = fixture(code, 2, 73);
+            U32 data = find_chunk(wav, "data");
+            /* RIFF bounds the chunk search, not a chunk's payload. */
+            for (U32 size : {data - 7, (U32)wav.size() + 123, 0xFFFFFFFFu}) {
+                WriteLE_U32(&wav[4], size);
+                compare(wav);
+            }
+            WriteLE_U32(&wav[4], data - 8);
+            reject_riff(wav);
+            WriteLE_U32(&wav[4], 4);
+            reject_riff(wav);
+        }
+        SDL_SetHint(SDL_HINT_WAVE_RIFF_CHUNK_SIZE, "force");
+        std::vector<Uint8> wav = fixture(code, 2, 73);
+        WriteLE_U32(&wav[4], 0);
+        reject_riff(wav);
+    }
+    SDL_SetHint(SDL_HINT_WAVE_RIFF_CHUNK_SIZE, "");
+}
+static void test_riff_strict_truncation() {
+    SDL_SetHint(SDL_HINT_WAVE_TRUNCATION, "verystrict");
+    for (const char *hint : {"force", "ignorezero"}) {
+        SDL_SetHint(SDL_HINT_WAVE_RIFF_CHUNK_SIZE, hint);
+        std::vector<Uint8> wav = fixture(1, 2, 73);
+        compare(wav);
+        WriteLE_U32(&wav[4], (U32)wav.size() - 9);
+        reject_riff(wav);
+        WriteLE_U32(&wav[4], 0xFFFFFFFFu);
+        reject_riff(wav);
+    }
+    for (const char *hint : {"", "ignorezero", "ignore", "maximum"}) {
+        SDL_SetHint(SDL_HINT_WAVE_RIFF_CHUNK_SIZE, hint);
+        std::vector<Uint8> wav = fixture(1, 2, 73);
+        WriteLE_U32(&wav[4], 0);
+        reject_riff(wav);
+    }
+    SDL_SetHint(SDL_HINT_WAVE_RIFF_CHUNK_SIZE, "");
+    SDL_SetHint(SDL_HINT_WAVE_TRUNCATION, "");
+}
 static void test_seek_and_fact_trimming() {
     for (U32 code : {1u, 2u, 17u}) {
         for (const char *hint : {"ignore", "truncate", "ignorezero", "strict"}) {
@@ -318,6 +388,8 @@ int main() {
     RUN_TEST(test_seek_and_fact_trimming);
     RUN_TEST(test_pcm_depths_and_extensible);
     RUN_TEST(test_partial_blocks);
+    RUN_TEST(test_riff_size_policies);
+    RUN_TEST(test_riff_strict_truncation);
     RUN_TEST(test_bounded_first_read);
     RUN_TEST(test_image_wav_survives_unmount);
     RUN_TEST(test_randomized);

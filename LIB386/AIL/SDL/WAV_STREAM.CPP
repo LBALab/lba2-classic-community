@@ -68,15 +68,33 @@ bool Header(AILWavSource *s) {
     if (!Read(s, header, sizeof(header)))
         return false;
     U32 riff = ReadLE_U32(header + 4);
-    if (riff < 4 || riff > s->size - 8)
-        return Error("Invalid music WAV RIFF length");
-    U32 end = riff + 8;
+    const char *riffHint = SDL_GetHint(SDL_HINT_WAVE_RIFF_CHUNK_SIZE);
+    bool force = riffHint && !strcmp(riffHint, "force");
+    bool ignore = riffHint && (!strcmp(riffHint, "ignore") || !strcmp(riffHint, "maximum"));
+    Uint64 end = (Uint64)riff + 8;
+    if (ignore || (!force && riff == 0))
+        end = (Uint64)UINT_MAX + 8;
+    const char *truncation = SDL_GetHint(SDL_HINT_WAVE_TRUNCATION);
+    bool strict = truncation && !strcmp(truncation, "verystrict");
+    if (strict && end > s->size)
+        return Error("Truncated music WAV RIFF chunk");
+    if (end > s->size)
+        end = s->size;
+    const char *hint = SDL_GetHint(SDL_HINT_WAVE_FACT_CHUNK);
+    bool findFact = hint && (!strcmp(hint, "truncate") || !strcmp(hint, "strict") ||
+                             !strcmp(hint, "ignorezero"));
     bool data = false;
-    while (s->position <= end && end - s->position >= 8) {
+    while (s->position < end) {
+        if (s->size - s->position < 8) {
+            if (strict)
+                return Error("Truncated music WAV chunk header");
+            break;
+        }
         if (!Read(s, header, 8))
             return false;
         U32 length = ReadLE_U32(header + 4), start = s->position;
-        if (length > end - start)
+        /* RIFF bounds the search; payloads are bounded by the physical source. */
+        if (length > s->size - start || (strict && (Uint64)start + length > end))
             return Error("Truncated music WAV chunk");
         if (memcmp(header, "fmt ", 4) == 0 && !s->formatBytes) {
             if (length < 16 || length > sizeof(s->format))
@@ -95,8 +113,10 @@ bool Header(AILWavSource *s) {
             s->hasFact = true;
         }
         s->position = start + length;
-        if ((length & 1) && s->position < end)
+        if ((length & 1) && s->position < s->size)
             ++s->position;
+        if (!strict && s->formatBytes && data && (s->hasFact || !findFact))
+            break;
     }
     if (!s->formatBytes || !data)
         return Error("Music WAV is missing format or data");
@@ -125,7 +145,6 @@ bool Header(AILWavSource *s) {
         return Error("Unsupported streamed music WAV encoding");
     if (!s->blockFrames)
         return Error("Invalid music WAV frames per block");
-    const char *hint = SDL_GetHint(SDL_HINT_WAVE_FACT_CHUNK);
     s->limitFact = s->hasFact && hint &&
                    (!strcmp(hint, "truncate") || !strcmp(hint, "strict") ||
                     (!strcmp(hint, "ignorezero") && s->fact != 0));
