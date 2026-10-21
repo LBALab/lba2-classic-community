@@ -18,7 +18,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   on the edge they share, and they draw the same on every platform. On a
   64-bit Android phone, frames with the camera turning outdoors took about a
   third less time
-  ([#144](https://github.com/LBALab/lba2-classic-community/issues/144)).
+  ([#807](https://github.com/LBALab/lba2-classic-community/pull/807)).
 
 ## [0.13.1] - 2026-10-20
 
