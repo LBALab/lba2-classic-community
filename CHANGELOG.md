@@ -10,6 +10,17 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Display & render
+
+- Outdoors, the thin seams where two parts of an island meet are mostly
+  gone. The ground, sea and sky are now drawn with the whole-number maths the
+  1997 game used on 486 and non-Intel processors, so neighbouring parts agree
+  on the edge they share, and they draw the same on every platform. On a
+  64-bit Android phone, frames with the camera turning outdoors took about a
+  third less time. It is a retail fix, so **Fix retail bugs** set to No in
+  Advanced options brings back the old drawing, seams included
+  ([#807](https://github.com/LBALab/lba2-classic-community/pull/807)).
+
 ### Input & controller
 
 - Dragging the camera with the right mouse button orbits smoothly again with
@@ -23,6 +34,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Thanks to EPmager for reporting the jittery mouse orbit with VSync off, with a
 video of all four cases
 ([#803](https://github.com/LBALab/lba2-classic-community/issues/803)).
+Thanks to EPmager for checking that the seams between parts of an island are
+in the 1997 game, and for raising them again for HD and the Auto camera
+([#144](https://github.com/LBALab/lba2-classic-community/issues/144)).
 
 ## [0.13.1] - 2026-10-20
 

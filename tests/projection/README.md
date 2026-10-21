@@ -10,9 +10,10 @@ hashes stable at 640×480.
 | File | Scope | Tests it |
 |---|---|---|
 | `baselines/corpus_640x480.projrec.hash` | One line per save across the 50 committed saves under `tests/savegame/corpus/saves/steam_classic_2023/` | [`tests/automation/test_projection_corpus.sh`](../automation/test_projection_corpus.sh) |
+| `baselines/corpus_640x480.seams-off.projrec.hash` | The same 50 saves with `fix_terrain_seams 0`: the golden from before the terrain-seams fix, kept as it was, so the switch is held to giving back the original | the same test, its second run |
 | `baselines/demo_640x480.projrec.hash` | 30000-tick attract-mode snapshot — cross-scene transitions saves can't reach | [`tests/automation/test_projection_demo.sh`](../automation/test_projection_demo.sh), opt-in via `PROJREC_RUN_DEMO=1` |
 
-Both fixtures are tiny — the corpus is ~3.8 KB (50 lines), the demo is a
+The fixtures are tiny — each corpus golden is ~3.8 KB (50 lines), the demo is a
 single line. What's hashed is the FNV-1a 64-bit digest over the full
 text event stream `--capture-projection` would have written for the same
 run; the full stream isn't committed (~hundreds of MB per save).
@@ -24,6 +25,7 @@ Run `--projection-hash` against every committed save:
 | Path | Function(s) | Saves exercising it | Total events across corpus |
 |---|---|---|---|
 | Exterior 3D perspective | `SetProjection`, `LongProjectPoint3D`, `ProjectList3DF` | **22 of 50** | 22 `SETPROJ`, 237K `PROJ`, 2K `PRLI` |
+| Exterior terrain, sea and sky (integer path) | `LongProjectPointIRound` | the outdoor saves, while `fix_terrain_seams` applies | `PROJI`: one per terrain vertex between the near clip and `ClipZFar`, and one per sea or sky vertex after Z clipping, up to the first that does not project; counted before it was added, so not in the totals. With the fix off these are `PROJ` events again |
 | Interior orthographic | `SetIsoProjection`, `LongProjectPointIso`, `ProjectListIso` | **50 of 50** (all touch `SETISO` via menu pre-arm) | 79 `SETISO`, 12K `PROJISO`, 394 `PRLIISO` |
 | Isometric brick world→screen | `Map2Screen` (`GRILLE.CPP`) | **28 of 50** | 102K `M2S` |
 
@@ -77,7 +79,7 @@ diff /tmp/prior.projrec /tmp/current.projrec | head
 
 The sequence number on the first divergent line tells you which
 projection call changed — `SETPROJ` for the setup, `PROJ`/`PROJISO` for
-individual vertices, `M2S` for the isometric brick origin. Cross-
+individual vertices, `PROJI` for the outdoor terrain, sea and sky, `M2S` for the isometric brick origin. Cross-
 reference with [`docs/CONTROL.md`'s Projection capture section](../../docs/CONTROL.md#projection-capture).
 
 If the divergence is non-deterministic (same build produces different

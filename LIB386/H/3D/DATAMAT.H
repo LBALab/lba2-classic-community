@@ -84,6 +84,8 @@ typedef struct {
 
 // -----------------------------------------------------------------------------
 extern TYPE_MAT MatriceWorld;
+// The same camera on the 1997 integer path, 2.14 in .I (CAMERA.CPP keeps it).
+extern TYPE_MAT MatriceWorldI;
 extern TYPE_MAT MatrixLib1;
 extern TYPE_MAT MatrixLib2;
 extern TYPE_MAT MatriceRot;

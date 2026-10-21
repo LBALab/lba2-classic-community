@@ -776,6 +776,7 @@ run, so ordering can be diffed without wall-clock state.
 | `SETPROJ` | `SetProjection` (exterior 3D perspective setup) | `seq= xc= yc= clip= fx= fy=` |
 | `SETISO` | `SetIsoProjection` (interior orthographic setup) | `seq= xc= yc=` |
 | `PROJ` | `LongProjectPoint3D` (per-vertex perspective projection) | `seq= x= y= z= -> ret= xp= yp=` |
+| `PROJI` | `LongProjectPointIRound` (the exterior terrain, sea and sky on the integer path, while `fix_terrain_seams` applies) | `seq= x= y= z= cam=xr,yr,zr -> ret= xp= yp=` |
 | `PROJISO` | `LongProjectPointIso` (per-vertex orthographic projection) | `seq= x= y= z= -> xp= yp=` |
 | `PRLI` | `ProjectList3DF` (batched perspective) | `seq= nbpt= orgx= orgy= orgz=` |
 | `PRLIISO` | `ProjectListIso` (batched orthographic) | `seq= nbpt= orgx= orgy= orgz=` |
@@ -849,8 +850,8 @@ diff /tmp/prior.projrec /tmp/current.projrec | head
 ```
 
 The sequence number on the first divergent event tells you which projection call
-changed — `SETPROJ` for the setup, `PROJ`/`PROJISO` for individual vertices, `M2S`
-for the isometric brick origin. Cross-reference with `tests/projection/README.md`
+changed — `SETPROJ` for the setup, `PROJ`/`PROJISO` for individual vertices, `PROJI`
+for the exterior ground on the integer path, `M2S` for the isometric brick origin. Cross-reference with `tests/projection/README.md`
 for the workflow notes.
 
 If the divergence is non-deterministic (same build produces different hashes), the
