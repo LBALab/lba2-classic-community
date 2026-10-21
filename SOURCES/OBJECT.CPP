@@ -5492,7 +5492,8 @@ startaffscene:
             UnsetClipWindow();
         }
 
-        ClearImpactRain();
+        if (!KeepImpactRain)
+            ClearImpactRain();
 
     case AFF_ALL_NO_FLIP:
         LockTimer();

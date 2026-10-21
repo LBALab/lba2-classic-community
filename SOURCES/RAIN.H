@@ -25,5 +25,6 @@ extern S32 OldRealTime;
 extern S32 DeltaRain;
 extern U32 RealTime;
 extern S32 LastTimer;
+extern S32 KeepImpactRain;
 
 #endif // RAIN_H

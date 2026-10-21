@@ -500,6 +500,10 @@ restartloop:
     while (TRUE) {
     startloop:
 
+        /* A new cube or a clover restarts the frame here, past the reset after
+         * AffScene: that redraw is a cut and must clear the splashes. */
+        KeepImpactRain = FALSE;
+
         Perftrace_FrameBegin();
 
         /* Runtime resolution-switch keep/revert dialog. Pending whenever
@@ -1940,8 +1944,10 @@ restartloop:
         /* A blend into or out of a scripted shot moves the view whether or not
          * anything else does, so the terrain is drawn again on every frame of
          * it. */
-        if (FollowCamBlending())
+        if (FollowCamBlending()) {
             FirstTime = AFF_ALL_FLIP;
+            KeepImpactRain = TRUE;
+        }
 
         if (!CameraZone) {
             if (FirstTime == AFF_OBJETS_FLIP) {
@@ -2037,6 +2043,7 @@ restartloop:
         }
 
         FirstTime = AFF_OBJETS_FLIP;
+        KeepImpactRain = FALSE;
         FirstLoop = FALSE;
 
         CmptFrame++;
