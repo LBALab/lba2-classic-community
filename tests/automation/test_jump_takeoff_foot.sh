@@ -25,6 +25,7 @@
 # moves at least one of these.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: small
 TESTNAME=jump_takeoff_foot
 . "$(dirname "$0")/lib.sh"
 precheck

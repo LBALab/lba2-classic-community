@@ -42,6 +42,7 @@
 # input poll per rendered frame, and objtrace emits one line per simulated frame.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: small
 TESTNAME=jump_hold_repress
 . "$(dirname "$0")/lib.sh"
 precheck

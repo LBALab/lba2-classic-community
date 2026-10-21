@@ -6,6 +6,7 @@
 # a baseline (no input) and a walk (input up 60), compared by how far the hero moved.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: small
 TESTNAME=input_injection
 . "$(dirname "$0")/lib.sh"
 precheck

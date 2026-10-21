@@ -20,6 +20,7 @@
 # the loudest setting.
 #
 # Local-only (needs the binary and retail data); skips cleanly otherwise.
+# Tier: small
 TESTNAME=config_volumes
 . "$(dirname "$0")/lib.sh"
 precheck

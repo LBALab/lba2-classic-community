@@ -14,6 +14,7 @@
 #
 # The [demo] line is a Log_Debug at the guard, so the run needs --log-level debug. Local-only:
 # needs retail data + a build; skips cleanly otherwise.
+# Tier: big
 TESTNAME=demo_behaviour_menu
 . "$(dirname "$0")/lib.sh"
 precheck
@@ -28,8 +29,10 @@ shown() {
         | sed -n 's/.*\[demo\] LM_COMPORTEMENT_HERO cube=\([0-9]*\).*menu=1/\1/p' | sort -un
 }
 
-shown --fixed-timestep 0   > "$base"   # no throttle: every frame simulates (ground truth)
-shown --fixed-timestep 100 > "$thr"    # throttle forcing frame-skips (the regression path)
+# The two runs are independent, so they run side by side.
+shown --fixed-timestep 0   > "$base" & # no throttle: every frame simulates (ground truth)
+shown --fixed-timestep 100 > "$thr" &  # throttle forcing frame-skips (the regression path)
+wait
 
 [ -s "$base" ] || fail "no behaviour-menu events in the no-throttle run: demo did not run or the trace is missing"
 

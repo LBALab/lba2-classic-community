@@ -13,6 +13,7 @@
 # that never bound anything would satisfy "--bind-game-dir changed it".
 #
 # Local-only (needs the binary and retail data); skips cleanly otherwise.
+# Tier: small
 TESTNAME=profile_bind
 . "$(dirname "$0")/lib.sh"
 precheck

@@ -15,6 +15,7 @@
 #
 # Local-only: needs the built binary and LBA2_GAME_DIR. No save fixture needed
 # (the resolution sub-page renders at the boot menu). Skips cleanly otherwise.
+# Tier: medium
 TESTNAME=res_catalog_sweep
 . "$(dirname "$0")/lib.sh"
 precheck

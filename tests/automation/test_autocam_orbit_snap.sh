@@ -13,6 +13,7 @@
 # for rather than by half the backlog.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: small
 TESTNAME=autocam_orbit_snap
 . "$(dirname "$0")/lib.sh"
 . "$(dirname "$0")/camlib.sh"

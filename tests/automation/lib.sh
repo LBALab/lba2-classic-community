@@ -41,8 +41,11 @@ REPO="$(cd "$_LIB_DIR/../.." && pwd)"
 
 : "${LBA2_BIN:=}"
 if [ -z "$LBA2_BIN" ]; then
+    # The macOS build is an app bundle, with the binary inside it.
     for _c in "$REPO/build/SOURCES/lba2cc" "$REPO/build/SOURCES/lba2" \
-              "$REPO"/out/build/*/SOURCES/lba2cc "$REPO"/out/build/*/SOURCES/lba2; do
+              "$REPO"/out/build/*/SOURCES/lba2cc "$REPO"/out/build/*/SOURCES/lba2 \
+              "$REPO"/build/SOURCES/*.app/Contents/MacOS/lba2cc \
+              "$REPO"/out/build/*/SOURCES/*.app/Contents/MacOS/lba2cc; do
         if [ -x "$_c" ]; then LBA2_BIN="$_c"; break; fi
     done
 fi
@@ -90,6 +93,28 @@ trap _lib_cleanup EXIT
 
 SKIP_RC=77 # autotools convention: a skipped test
 
+# timeout is GNU coreutils. macOS has none of its own; Homebrew's coreutils installs it as
+# gtimeout. Every run goes through it, so without one each fixture would fail on its first
+# engine run with "command not found", which reads like a crash.
+if ! command -v timeout >/dev/null 2>&1; then
+    if command -v gtimeout >/dev/null 2>&1; then
+        timeout() { gtimeout "$@"; }
+    else
+        timeout() { echo "timeout: not found (install GNU coreutils)" >&2; return 127; }
+    fi
+fi
+
+# mktemp_ext <ext> -- a new empty temp file whose name ends in <ext> (".LBA", ".png").
+#
+# `mktemp --suffix` is GNU-only. macOS mktemp rejects it and prints nothing, so a fixture
+# that wrote `sv="$(mktemp --suffix=.LBA)"; cp "$save" "$sv"` copied the save into the
+# current folder and then loaded an empty path: it passed on the Mac without its save.
+mktemp_ext() {
+    local f
+    f="$(mktemp "${TMPDIR:-/tmp}/lba2-XXXXXX")" || return 1
+    mv "$f" "$f$1" && printf '%s\n' "$f$1"
+}
+
 # user_dir -- the folder the engine writes to for this run: saves, lba2.cfg,
 # adeline.log, last_game_dir.txt. LBA2_USER_DIR when a test has isolated itself,
 # otherwise the per-user default SDL picks.
@@ -129,6 +154,28 @@ norm_path() { # norm_path <path>
     printf '%s\n' "$1" | tr -d '\r' | tr '\\' '/' | sed 's|/*$||'
 }
 
+# wait_for_line <file> <regex> <pid> <seconds>: wait until <file> has a line matching
+# <regex>, <pid> has exited, or <seconds> have passed; then make sure <pid> is gone.
+# Returns 0 when the line showed up.
+#
+# For a run that never ends by itself (a dialogue that blocks the tick loop), so a fixture
+# can stop as soon as the engine has written its answer instead of waiting out a timeout.
+wait_for_line() {
+    local file="$1" re="$2" pid="$3" left=$(($4 * 10)) found=1
+    while [ "$left" -gt 0 ]; do
+        if grep -qE -- "$re" "$file" 2>/dev/null; then found=0; break; fi
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.1
+        left=$((left - 1))
+    done
+    [ "$found" = 0 ] || ! grep -qE -- "$re" "$file" 2>/dev/null || found=0
+    # Its children first: under run.sh --profile <pid> is the logger, with the engine below it.
+    command -v pkill >/dev/null 2>&1 && pkill -KILL -P "$pid" 2>/dev/null
+    kill -KILL "$pid" 2>/dev/null
+    wait "$pid" 2>/dev/null
+    return "$found"
+}
+
 skip() { echo "SKIP: ${TESTNAME:-test}: $*"; exit $SKIP_RC; }
 fail() { echo "FAIL: ${TESTNAME:-test}: $*"; exit 1; }
 pass() { echo "PASS: ${TESTNAME:-test}${1:+ — $1}"; exit 0; }
@@ -160,6 +207,21 @@ need_save() {
     [ -n "$LBA2_TEST_SAVE" ] && [ -f "$LBA2_TEST_SAVE" ] || skip "no save fixture (set LBA2_TEST_SAVE)"
 }
 
+# NO_PACE -- the flag that tells the engine not to hold a recording to real time, as an
+# array for "${NO_PACE[@]+"${NO_PACE[@]}"}" (empty when it does not apply).
+#
+# A recording plays at real speed for the player making it. Fixtures record scripted
+# sessions, with nobody playing, so every recording run waited out its game time on the
+# wall clock: a 300-tick recording that plays a video took 47 s. --no-pace keeps the
+# pinned step and drops the wait; what is recorded is the same. Every helper below passes
+# it. A fixture about the pacing itself sets LBA2_PACE=1 to leave it off, and an older
+# binary that does not know the flag (an A/B against a past build) is not given it.
+NO_PACE=()
+if [ "${LBA2_PACE:-}" != 1 ] && [ -n "$LBA2_BIN" ] && [ -x "$LBA2_BIN" ] &&
+    "$LBA2_BIN" --help-all 2>/dev/null | grep -q -- '--no-pace'; then
+    NO_PACE=(--no-pace)
+fi
+
 # ctl <args...> — run the harness headless, with a hard timeout.
 #
 # --headless (not just SDL_AUDIODRIVER=dummy) because a visible window pauses the game when
@@ -169,7 +231,14 @@ need_save() {
 # --no-autosave because an in-game scene transition writes autosave.lba: without it, merely
 # running the suite mutates the developer's own save files.
 ctl() {
-    timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" --headless --no-autosave "$@"
+    timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" --headless --no-autosave ${NO_PACE[@]+"${NO_PACE[@]}"} "$@"
+}
+
+# ctl_paced <args...> — ctl with the real-time pacing a recording normally gets, for the
+# fixtures that measure that pacing (NO_PACE above).
+ctl_paced() {
+    local NO_PACE=()
+    ctl "$@"
 }
 
 # ctl_headless <args...> — same as ctl but also pins SDL_VIDEODRIVER=dummy,
@@ -204,7 +273,7 @@ ctl() {
 ctl_headless() {
     timeout "$LBA2_TEST_TIMEOUT" \
         "$LBA2_BIN" --headless --no-autosave --language English --resolution 640x480 \
-        --vsync on "$@"
+        --vsync on ${NO_PACE[@]+"${NO_PACE[@]}"} "$@"
 }
 
 # ctl_voice <args...> — windowless like ctl, but with the audio device left open.
@@ -253,7 +322,7 @@ have_voice() {
 # test should use ctl_headless so the boot resolution is deterministic.
 ctl_headless_cfg_driven() {
     SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" \
-        "$LBA2_BIN" --language English --no-audio "$@"
+        "$LBA2_BIN" --language English --no-audio ${NO_PACE[@]+"${NO_PACE[@]}"} "$@"
 }
 
 # ctl_headless_at <WxH> <args...> — same as ctl_headless but renders at
@@ -262,7 +331,7 @@ ctl_headless_cfg_driven() {
 ctl_headless_at() {
     local res="$1"; shift
     SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" \
-        "$LBA2_BIN" --language English --no-audio --resolution "$res" --vsync on "$@"
+        "$LBA2_BIN" --language English --no-audio --resolution "$res" --vsync on ${NO_PACE[@]+"${NO_PACE[@]}"} "$@"
 }
 
 # seed_menu_save_dir <user-dir> <fresh|returning> [save-file]

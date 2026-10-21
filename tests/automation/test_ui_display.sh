@@ -13,6 +13,7 @@
 # menu-options.
 #
 # Regenerate the golden with: LBA2_UI_REGEN=1 bash tests/automation/test_ui_display.sh
+# Tier: small
 TESTNAME=ui_display
 . "$(dirname "$0")/lib.sh"
 precheck

@@ -35,6 +35,7 @@
 # is the opening's first real quest event, which is why beat 4 waits for it.
 #
 # Local-only: needs retail data (LBA2_GAME_DIR) and a build. No save required.
+# Tier: medium
 TESTNAME=walkthrough_opening
 . "$(dirname "$0")/lib.sh"
 precheck

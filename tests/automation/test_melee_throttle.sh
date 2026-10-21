@@ -13,6 +13,7 @@
 # regression -- observed as a GEN_ANIM_COUP (17/18/19) in the per-sim-tick input trace.
 #
 # Local-only: needs retail data + a build + the tracked steam_classic_2023 corpus; skips otherwise.
+# Tier: small
 TESTNAME=melee_throttle
 . "$(dirname "$0")/lib.sh"
 precheck
@@ -25,7 +26,7 @@ SAVE="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Desert Island.LBA"
 # (walk), 0x80 = I_ACTION_M (action). An isolated user dir keeps the trace log to this run.
 coup_frames() { # action-start-frame
     local f="$1" sv home log n
-    sv="$(mktemp --suffix=.LBA)"
+    sv="$(mktemp_ext .LBA)"
     home="$(mktemp -d)"
     cp "$SAVE" "$sv"
     LBA2_USER_DIR="$home" ctl_headless --load "$sv" --fixed-dt 8 --fixed-timestep 24 --log-level debug \

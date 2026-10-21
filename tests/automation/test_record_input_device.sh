@@ -16,6 +16,7 @@
 # change. The header alone freezes a session that flipped part-way; the records alone
 # leave a session that never flipped -- a player who used the keyboard from boot to quit,
 # which is most of them -- carrying nothing at all.
+# Tier: big
 TESTNAME=record_input_device
 . "$(dirname "$0")/lib.sh"
 precheck

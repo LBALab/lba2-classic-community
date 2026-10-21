@@ -147,7 +147,7 @@ ring_engine() {
     mkdir -p "$ud"
     { printf 'FollowCamera: %s\n' "$follow"; [ -z "$cfg" ] || printf '%s\n' "$cfg"; } >"$ud/lba2.cfg"
     LBA2_USER_DIR="$ud" timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" --headless --no-autosave \
-        --language English --resolution "$res" --vsync on --fixed-dt 16 "$@"
+        ${NO_PACE[@]+"${NO_PACE[@]}"} --language English --resolution "$res" --vsync on --fixed-dt 16 "$@"
 }
 
 # ring_record <work> <scene> <follow>: record the scene with the Auto camera at <follow>.
@@ -183,8 +183,15 @@ ring_defaults() {
         fail "$scene: the defaults probe exited non-zero ($?)"
     RING_DEFAULTS="$(sed -n 's/^\[control\] *\(cam_[a-z_]*\) = \(-*[0-9]*\)$/\1=\2/p' "$work/$scene.defaults.out" |
         awk -F= '{ n[$1]++; if (n[$1] == 2) print }')"
+    printf '%s\n' "$RING_DEFAULTS" >"$work/$scene.defaults"
     [ "$(printf '%s\n' "$RING_DEFAULTS" | grep -c =)" = "${#RING_FLIPS[@]}" ] ||
         fail "$scene: the defaults probe read $(printf '%s\n' "$RING_DEFAULTS" | grep -c =) of ${#RING_FLIPS[@]} settings"
+}
+
+# ring_use_defaults <work> <scene>: make a scene's defaults current again, for reading its
+# replays after the other scenes have been set up.
+ring_use_defaults() {
+    RING_DEFAULTS="$(cat "$1/$2.defaults")"
 }
 
 # ring_is_default <name> <value>: whether the value is what the setting already holds in
@@ -193,11 +200,31 @@ ring_is_default() {
     printf '%s\n' "$RING_DEFAULTS" | grep -qx "$1=$2"
 }
 
+# At most RING_JOBS engine runs at once, one per processor unless set. Each is one
+# process doing one thing, so more than the processors only queues them.
+if [ -z "${RING_JOBS:-}" ]; then
+    RING_JOBS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 4)"
+fi
+RING_RUNNING=0
+
+# ring_spawned: count a run just started in the background, and once RING_JOBS are running
+# wait for one to finish. Waiting for any one (wait -n, bash 4.3) keeps every slot busy;
+# an older bash waits for the whole batch, so a batch takes as long as its slowest run.
+ring_spawned() {
+    RING_RUNNING=$((RING_RUNNING + 1))
+    [ "$RING_RUNNING" -ge "$RING_JOBS" ] || return 0
+    if [ "${BASH_VERSINFO[0]}" -gt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -ge 3 ]; }; then
+        wait -n
+        RING_RUNNING=$((RING_RUNNING - 1))
+    else
+        wait
+        RING_RUNNING=0
+    fi
+}
+
 # ring_launch <work> <scene> <follow> <tag> <console> [args...]: start one replay of the
 # scene's recording in the background, the console line run first. ring_read reads it.
-# At most RING_JOBS run at once; ring_wait waits for the rest.
-: "${RING_JOBS:=6}"
-RING_RUNNING=0
+# The screenshot is hashed in the same job, so the hashing runs in parallel too.
 ring_launch() {
     local work="$1" scene="$2" follow="$3" tag="$4" console="$5"
     shift 5
@@ -208,12 +235,10 @@ ring_launch() {
             --tick $((SCENE_TICKS + 60)) --screenshot "$work/$scene.$tag.png" --exit \
             >"$work/$scene.$tag.out" 2>&1
         echo $? >"$work/$scene.$tag.rc"
+        [ -f "$work/$scene.$tag.png" ] &&
+            python3 "$REPO/scripts/dev/png_hash.py" "$work/$scene.$tag.png" >"$work/$scene.$tag.fhash"
     ) &
-    RING_RUNNING=$((RING_RUNNING + 1))
-    if [ "$RING_RUNNING" -ge "$RING_JOBS" ]; then
-        wait
-        RING_RUNNING=0
-    fi
+    ring_spawned
 }
 ring_wait() { wait; RING_RUNNING=0; }
 
@@ -240,8 +265,8 @@ ring_read() {
     # match on the ticks it did compare.
     [ "$RT" -ge $((SCENE_TICKS + 1)) ] || fail "$scene/$tag: compared $RT ticks of the $((SCENE_TICKS + 1)) recorded"
     [ -f "$work/$scene.$tag.png" ] || fail "$scene/$tag: no screenshot"
-    RF="$(python3 "$REPO/scripts/dev/png_hash.py" "$work/$scene.$tag.png")" ||
-        fail "$scene/$tag: could not hash the screenshot"
+    RF="$(cat "$work/$scene.$tag.fhash" 2>/dev/null)"
+    [ -n "$RF" ] || fail "$scene/$tag: could not hash the screenshot"
     RS="$(sed -n 's/.*\[cam\] .* sbeta \(.*\)$/\1/p' "$work/$scene.$tag.ud/adeline.log" | cksum | cut -d' ' -f1)"
     RN="$(grep -c '\[cam\] ' "$work/$scene.$tag.ud/adeline.log")"
 }

@@ -10,6 +10,7 @@
 # replaces the automatic name, as in a selected field.
 #
 # The automatic name carries the wall-clock second, so the arms sleep between sessions.
+# Tier: big
 TESTNAME=save_auto_name_refresh
 . "$(dirname "$0")/lib.sh"
 precheck

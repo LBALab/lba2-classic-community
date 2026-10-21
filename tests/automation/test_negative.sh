@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Robustness: a bad --load path must fail gracefully (clean exit + message), not hang
 # or crash. Needs no save fixture.
+# Tier: small
 TESTNAME=negative
 . "$(dirname "$0")/lib.sh"
 precheck

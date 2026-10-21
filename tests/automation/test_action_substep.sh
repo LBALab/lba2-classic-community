@@ -23,6 +23,7 @@
 # --fixed-timestep 16 is passed explicitly: the throttle only sub-steps when on, and a developer's
 # lba2.cfg may have FixedTimestep:0 (throttle off), under which every lane runs one step and the bug
 # cannot appear. Local-only (needs retail data + a save); skips cleanly otherwise. Not in CI.
+# Tier: medium
 TESTNAME=action_substep
 . "$(dirname "$0")/lib.sh"
 precheck

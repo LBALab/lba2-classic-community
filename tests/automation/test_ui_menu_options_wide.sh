@@ -6,6 +6,7 @@
 # Pairs with test_ui_menu_options.sh (640 pinned). Relies on the 640 golden
 # being cleanroom (--black-bg, scene-free); strict byte-identical wouldn't
 # survive scene bleed at the wider FoV.
+# Tier: small
 TESTNAME=ui_menu_options_wide
 . "$(dirname "$0")/lib.sh"
 precheck

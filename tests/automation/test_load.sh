@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # --load: restore a save before the loop, then advance and dump.
 # Asserts the loaded scene is populated and the tick count is exact.
+# Tier: small
 TESTNAME=load
 . "$(dirname "$0")/lib.sh"
 precheck

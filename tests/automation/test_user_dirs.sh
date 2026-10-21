@@ -24,6 +24,7 @@
 # build however the engine is broken. The second arm is the one that runs everywhere: it
 # puts a file where a folder belongs, and pins the report. Deleting the warning fails the
 # fixture on any platform, which is what keeps this from being a Windows-only oracle.
+# Tier: small
 TESTNAME=user_dirs
 
 # Named before lib.sh, so the suite's own isolation does not make a second folder that

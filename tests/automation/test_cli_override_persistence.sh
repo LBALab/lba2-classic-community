@@ -18,6 +18,7 @@
 # engine that had simply stopped writing the config.
 #
 # Local-only (needs the binary and retail data); skips cleanly otherwise.
+# Tier: small
 TESTNAME=cli_override_persistence
 . "$(dirname "$0")/lib.sh"
 precheck

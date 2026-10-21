@@ -11,6 +11,7 @@
 # feature, leaves the feature's state and the driver's state disagreeing.
 #
 # Local-only (needs the binary and retail data); skips cleanly otherwise.
+# Tier: small
 TESTNAME=console_audio_stereo
 . "$(dirname "$0")/lib.sh"
 precheck

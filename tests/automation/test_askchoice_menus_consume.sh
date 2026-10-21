@@ -29,6 +29,7 @@
 #
 # Local-only: needs retail data and the per-scene VOX banks, because the window this
 # is about is a voice line playing. Not in host_quick CI.
+# Tier: big
 TESTNAME=askchoice_menus_consume
 . "$(dirname "$0")/lib.sh"
 precheck

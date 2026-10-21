@@ -10,6 +10,7 @@
 # Under --fixed-dt the dialog's TimerRefHR-based countdown is pumped by
 # Timer_FixedDtPump() once per modal iteration, so the 15 s timeout maps
 # to ~938 modal iterations rather than 15 wall-clock seconds.
+# Tier: small
 TESTNAME=res_switch_dialog
 . "$(dirname "$0")/lib.sh"
 precheck

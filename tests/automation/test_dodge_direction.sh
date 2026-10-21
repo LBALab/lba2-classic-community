@@ -30,6 +30,7 @@
 # reads GEN_ANIM_RIEN and looks exactly like a dodge that never fired.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: medium
 TESTNAME=dodge_direction
 . "$(dirname "$0")/lib.sh"
 precheck
@@ -75,7 +76,7 @@ check right $RIGHT 4 40; rgt="$DODGED"
 
 # Four directions, four dodges. A change that collapsed them to one, or that swapped the sideways
 # pair, still leaves every run above dodging.
-[ "$(printf '%s\n' "$fwd" "$back" "$lft" "$rgt" | sort -u | wc -l)" = 4 ] \
+[ "$(printf '%s\n' "$fwd" "$back" "$lft" "$rgt" | sort -u | wc -l | tr -d ' ')" = 4 ] \
     || fail "the four dodges are not four distinct animations: $fwd $back $lft $rgt"
 
 # The dodge on its own selects nothing: it is a modifier, and with no direction there is nothing

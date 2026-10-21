@@ -18,6 +18,7 @@
 #       still produces a --dump-state with scene.cube == 218 and tick < budget. This covers
 #       the Control_End wiring that the (1)/(2) test by design avoids (cube 193 with 500 ticks
 #       stays clear of any natural exit).
+# Tier: medium
 TESTNAME=demo
 . "$(dirname "$0")/lib.sh"
 precheck

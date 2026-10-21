@@ -14,6 +14,7 @@
 # empty.
 #
 # Regenerate the golden with: LBA2_UI_REGEN=1 bash tests/automation/test_ui_menu_main_fresh.sh
+# Tier: small
 TESTNAME=ui_menu_main_fresh
 . "$(dirname "$0")/lib.sh"
 precheck

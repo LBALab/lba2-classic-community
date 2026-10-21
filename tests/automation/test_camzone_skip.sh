@@ -15,6 +15,7 @@
 # him under a script's control, so that half rests on the condition as written.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: medium
 TESTNAME=camzone_skip
 . "$(dirname "$0")/lib.sh"
 . "$(dirname "$0")/camlib.sh"

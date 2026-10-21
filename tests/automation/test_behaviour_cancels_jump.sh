@@ -33,6 +33,7 @@
 # poll per rendered frame, and objtrace emits one line per simulated frame.
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
+# Tier: medium
 TESTNAME=behaviour_cancels_jump
 . "$(dirname "$0")/lib.sh"
 precheck
