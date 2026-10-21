@@ -500,6 +500,10 @@ restartloop:
     while (TRUE) {
     startloop:
 
+        /* A new cube or a clover restarts the frame here, past the reset after
+         * AffScene: that redraw is a cut and must clear the splashes. */
+        KeepImpactRain = FALSE;
+
         Perftrace_FrameBegin();
 
         /* Runtime resolution-switch keep/revert dialog. Pending whenever

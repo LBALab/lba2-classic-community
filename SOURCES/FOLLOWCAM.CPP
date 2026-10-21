@@ -1238,6 +1238,10 @@ void FollowCamSyncTarget(void) {
     FollowCamTargetBeta = BetaCam;
     /* The caller has just put the camera somewhere with a cut. */
     FollowCamEaseRestart();
+    /* A cut clears the rain splashes, as every camera move did in the original.
+     * Here and not in AffScene: the update later this frame may still ask the
+     * redraw to keep them (KeepImpactRain). */
+    ClearImpactRain();
     FollowCamBlendCut();
 }
 
