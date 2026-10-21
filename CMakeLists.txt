@@ -1,5 +1,18 @@
 cmake_minimum_required(VERSION 3.23)
 
+# Oldest macOS the build runs on. 11.0 (Big Sur) is the first release with
+# Apple Silicon, so nothing lower is possible for arm64. It has to be set
+# before project(): project() creates an empty cache entry, and a later
+# set(... CACHE) cannot replace it, so the compiler falls back to the SDK
+# version and the binary refuses to start on anything older than the build
+# machine. FORCE only fills an empty value, which build folders configured
+# before this fix still hold; a -D on the command line still wins. Ignored
+# off Apple.
+if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING
+        "Minimum macOS version the build runs on" FORCE)
+endif()
+
 project(LBA2)
 
 # Emit compile_commands.json so clang-tidy and other tooling can analyze the
@@ -234,14 +247,8 @@ configure_file(${CMAKE_SOURCE_DIR}/packaging/lba2cc.rc.in
 # Only meaningful when building on macOS — gated to avoid generating
 # stray files on other platforms.
 if(APPLE)
-    # Pin the deployment target to 11.0 (Big Sur) — first arm64 macOS,
-    # the floor for our universal2-style matrix (arm64 + x86_64). Below
-    # this the OS refuses to launch the .app.
-    if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
-        set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING
-            "Minimum macOS deployment target")
-    endif()
-
+    # LSMinimumSystemVersion comes from CMAKE_OSX_DEPLOYMENT_TARGET, set at
+    # the top of this file.
     configure_file(${CMAKE_SOURCE_DIR}/packaging/Info.plist.in
                    ${CMAKE_BINARY_DIR}/packaging/Info.plist @ONLY)
 

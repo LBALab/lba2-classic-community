@@ -198,11 +198,20 @@ runs:
         # (Dockerfile.test, the Android leg). Both hosted runner images ship
         # it, and the tarball job apt-installs it before this action runs.
         #
-        # shellcheck disable=SC2086 # link_args is a deliberate word split.
+        # On macOS, SDL3 must target the same oldest macOS as the game
+        # (CMAKE_OSX_DEPLOYMENT_TARGET in the root CMakeLists.txt). Left to
+        # the default it targets the runner's own macOS, and a static SDL3
+        # built that way can call APIs older Macs do not have.
+        os_args=""
+        if [ "$(uname -s)" = "Darwin" ]; then
+          os_args="-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"
+        fi
+
+        # shellcheck disable=SC2086 # link_args and os_args are deliberate word splits.
         cmake -S "${SDL3_SRC}" -B "${SDL3_BUILD}" -G Ninja \
           -DCMAKE_BUILD_TYPE="${SDL3_BUILD_TYPE}" \
           -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF \
-          ${link_args}
+          ${link_args} ${os_args}
         cmake --build "${SDL3_BUILD}" --parallel
         cmake --install "${SDL3_BUILD}" --prefix "${SDL3_PREFIX}"
 

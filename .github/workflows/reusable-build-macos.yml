@@ -69,6 +69,18 @@ jobs:
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }}
 
+      # macOS refuses to start a binary whose minimum version is newer than
+      # the running OS, whatever Info.plist says. Check the binary itself.
+      - name: Check minimum macOS version
+        run: |
+          BIN="out/build/${{ matrix.preset }}/SOURCES/LBA2 Classic Community.app/Contents/MacOS/lba2cc"
+          vtool -show-build "$BIN"
+          minos=$(vtool -show-build "$BIN" | awk '$1 == "minos" { print $2 }')
+          if [ "$minos" != "11.0" ]; then
+            echo "::error::lba2cc needs macOS $minos, expected 11.0"
+            exit 1
+          fi
+
       - name: Bundle DMG
         run: |
           BUILD_DIR=out/build/${{ matrix.preset }}
