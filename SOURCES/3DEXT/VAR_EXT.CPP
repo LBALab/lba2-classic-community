@@ -100,5 +100,37 @@ S32 OffsetAniPoly3;
 S32 OffsetAniPoly4;
 
 S32 AtlasTextureDirty = 0;
+U8 *AtlasTextureDirtyPtrs[ATLAS_DIRTY_MAX]; /* pages mutated since the last flush */
+S32 AtlasTextureDirtyCount = 0;
+S32 AtlasTextureDirtyAll = 0; /* unnamed or too many pages: refresh all */
+
+/* Name the page an in-place mutation touched.  The renderer invalidates just
+   those pages; a null page or more pages than the list holds falls back to
+   the conservative whole-cache refresh. */
+void Atlas_MarkDirty(U8 *page) {
+    S32 i;
+
+    if (page == (U8 *)0) {
+        AtlasTextureDirtyAll = 1;
+        AtlasTextureDirty = 1;
+        return;
+    }
+    if (AtlasTextureDirtyAll) {
+        AtlasTextureDirty = 1;
+        return;
+    }
+    for (i = 0; i < AtlasTextureDirtyCount; i++) {
+        if (AtlasTextureDirtyPtrs[i] == page) {
+            AtlasTextureDirty = 1;
+            return;
+        }
+    }
+    if (AtlasTextureDirtyCount < ATLAS_DIRTY_MAX) {
+        AtlasTextureDirtyPtrs[AtlasTextureDirtyCount++] = page;
+    } else {
+        AtlasTextureDirtyAll = 1;
+    }
+    AtlasTextureDirty = 1;
+}
 
 /*──────────────────────────────────────────────────────────────────────────*/

@@ -8,6 +8,13 @@
 extern S32 GPURendererActive;
 #endif
 
+/* Shared object page: DoTextureAnimation() may rebake effects in it between
+   water ticks.  Name it too so the page refresh keeps those effects current. */
+extern U8 *BufferTexture;
+/* DoTextureAnimation() runs while either flag is set. */
+extern U8 AnimateTexture;
+extern S32 ProtectActif;
+
 #define LIMITE_LOIN (60 * 1024)
 #define COLOR_LIMITE 255
 #define SIZE_TEXTURE 64
@@ -1613,7 +1620,10 @@ void DoAnimatedPolys() {
                          GroundTexture + OffsetAniPoly4);
         }
 
-        AtlasTextureDirty = 1;
+        Atlas_MarkDirty(GroundTexture);
+        if ((AnimateTexture || ProtectActif) && BufferTexture) {
+            Atlas_MarkDirty(BufferTexture);
+        }
         RefreshAniPoly = NbAniPoly;
         NbToRefresh = NbAniPoly / 4;
     }

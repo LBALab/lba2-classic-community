@@ -808,3 +808,82 @@ scene.
   default remains off.
 - Runtime override: `LBA2_OXR_DIRECT=1` enables it, `LBA2_OXR_DIRECT=0`
   disables it.
+
+## Phase 8 report: per-page atlas dirty tracking (2026-10-21)
+
+Status: implemented and compile-verified against the Quest preset. Device
+verification is deferred to the morning; the Quest was disconnected during the
+session.
+
+### Changes
+
+- `AtlasTextureDirtyPtrs` records the pages in-place mutations touched;
+  `AtlasTextureDirty` remains the flag.  `DoAnimatedPolys` names
+  `GroundTexture` after copying the water tiles and, while `AnimateTexture` or
+  `ProtectActif` is set, `BufferTexture` because `DoTextureAnimation` rebakes
+  effects there between them.
+  `FixePlasmaPtrMap` names the menu plasma page and `BufferTexture`, which
+  holds the scanned fire/plasma effects; those are the pages the fire-bar draw
+  needs refreshed, and the old global bump covered them by refreshing
+  everything.  The list holds 16 distinct pages, more than the three named
+  pages plus any future mutator.  The renderer treats a pointer inside a 64 KB
+  page as the containing page, so an effect at an offset also invalidates the
+  page-base entry used by the inventory draw.
+- An unnamed page or a seventeenth distinct page sets
+  `AtlasTextureDirtyAll` and falls back to the old global-version refresh.
+  Otherwise the listed pages are refreshed independently, so the water tick
+  stays cheap while the menu still refreshes its plasma and effect page.
+- At the next textured polygon, the renderer invalidates each listed page: the
+  matching 2D cache entry and every matching array layer get version 0, so
+  `GL_BindAtlasFor` / `GL_ArrayBind` re-upload them at flush time.  The global
+  content version no longer moves for a named page, so unrelated pages stay
+  resident.
+- `GLPerf` adds `atl=<2D uploads>/<array uploads>` and
+  `dty=<named>/<global>` counts.  In steady gameplay `dty` should report only
+  named events; a nonzero global count means a mutation did not name its page.
+
+### Why this was the likely hitch
+
+The old global bump made every active array layer stale.  On Android the array
+holds 256 layers of 64 KB each, so a water tick could upload up to 16 MB in the
+first array batch when every layer was active.  Animated water ticks four times
+a second, so that was a recurring multi-MB upload spike, not a one-off.  The 2D
+page cache re-uploaded every cached page on its next bind too.  The dirty-page
+path reduces the same tick to the pages that matter: the full-page water page,
+`BufferTexture` and its effect offsets, and one 2D sub-rect for terrain.
+
+### Streaming audit
+
+The other texture paths are already coalesced or event-driven:
+
+- The CLUT is 64 KB, but uploads at most once per frame, is gated by a sequence
+  number and a `memcmp` against the previous table, and only runs when the fog
+  table actually changed.
+- The palette is 1 KB and uploaded at most once per frame.
+- The 2D overlay uploads only changed rows, coalesced into bands.
+- Gameplay sprites are pointer-cached in 24 entries; `sprUp` in `GLPerf`
+  counts uploads if the working set grows.
+- Island and cube data load synchronously on a scene transition
+  (`Load_HQR`, `LoadIsland`, `LoadCube`), not during steady-state rendering.
+  There is no streaming worker to pre-warm or batch in this phase, and adding
+  one without `Stale` measurements would be speculative.
+
+The open measurement is whether the water/plasma upload spikes align with VrApi
+`Stale` counts; the headset run should answer that.  No pre-warm change is made
+until then.
+
+### Verification
+
+Quest preset and host `gly` / `lba2cc` compile.  The `host_quick` suite passes
+47/47 when excluding two targets unrelated to this change:
+`test_poly_geometry` fails its assembly comparison in the current tree, and
+`test_move_framerate` does not link the renderer symbols.  Neither target
+references the atlas cache.
+
+Morning checks: water animation on an exterior island and the menu plasma/fire
+bar should look unchanged while `GLPerf atl`/`arr` drop on dirty frames.
+`dty` should be named-only on water and menu frames; a global event means a
+mutation arrived without a page or the list overflowed.  `Stale` should no
+longer show the recurring multi-millisecond upload spikes.  If a page looks
+stale after a mutation, check that its mutator called `Atlas_MarkDirty` before
+the next textured polygon.

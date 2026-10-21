@@ -95,7 +95,9 @@ The GL backend uploads only the RepMask-sized region of each page (`GL_BindAtlas
 
 ### Animated water tiles
 
-`GroundTexture` is mutated in-place every 250ms: 32×32 blocks are copied from `SkySeaTexture` into specific locations in `GroundTexture` (`TERRAIN.CPP:1019-1053`). The GL backend must detect this and re-upload the dirty region via `glTexSubImage2D`, or re-upload the whole atlas (64KB, negligible).
+`GroundTexture` is mutated in place every 250 ms: `DoAnimatedPolys()` copies 32×32 blocks from the sky/sea page into specific locations in it (`TERRAIN.CPP`). The mutation sets `AtlasTextureDirty` and adds the page to the renderer's dirty-page list, along with `BufferTexture` while `DoTextureAnimation()` is active, because that rebakes effects there between ticks. At the next textured polygon the GL renderer marks each listed page stale: its 2D cache entry and any array layers that sample it are re-uploaded at flush time by `GL_BindAtlasFor` or `GL_ArrayBind`, while the other cached pages stay resident. A pointer inside a 64 KB page also invalidates the page-base entry, because the inventory draws `BufferTexture` while its effects live at offsets. A null page, or more distinct pages than the list holds, falls back to bumping the global content version and re-uploading every cached page.
+
+The menu fire bar calls `DoTextureAnimation()` and then `FixePlasmaPtrMap()`; the latter names the menu plasma page and `BufferTexture`, which holds the scanned fire/plasma effects. The plasma page and the effect page can be refreshed independently in one interval.
 
 ### UV coordinates
 
@@ -323,7 +325,7 @@ Both are runtime settings, not build-dependent. Read in `ReadConfigFile()` (`PER
 
 ## Risks and open questions
 
-1. **Animated water dirty-tracking:** `GroundTexture` is mutated in-place (32×32 copies from `SkySeaTexture`). Need to detect changes and re-upload. Options: dirty-flag per block, CRC check, or unconditional re-upload of the whole atlas each frame (64KB — negligible).
+1. **Animated water dirty-tracking:** resolved by the named-page dirty flag in "Animated water tiles". A caller that sets `AtlasTextureDirty` without a page still takes the conservative full-cache upload path.
 
 2. **Per-polygon RepMask for objects:** Object body polygons have individual RepMask from the texture handle table. This forces a batch flush per-polygon for objects, or RepMask must be encoded as a vertex attribute and handled in the shader via `mod()`.
 
@@ -380,7 +382,7 @@ Both are runtime settings, not build-dependent. Read in `ReadConfigFile()` (`PER
 
 - ✅ Atlas pointer tracked; re-uploaded to GL when `PtrMap` changes (single 256×256 page at a time)
 - ✅ `RepMask` UV wrapping handled via per-vertex attribute in fragment shader (no batch-flush needed)
-- ✅ Handle animated water tile mutations in `GroundTexture` — dirty flag in `DoAnimatedPolys()` forces re-upload
+- ✅ Handle animated water tile mutations in `GroundTexture` — the named dirty page in `DoAnimatedPolys()` forces a re-upload of that page
 - ✅ Per-polygon RepMask handling for object body textures (via `Pt_RepMask` vertex attribute)
 
 ### Phase 6: Full 3D scene rendering

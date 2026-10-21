@@ -1,7 +1,14 @@
 # Quest 72 FPS plan
 
-Status: Phase 0 measured on device; Phase 1 not started. Branch
-`quest-good-perf` at `04365c82`.
+Status: Phases 0--8 are implemented on branch `quest-good-perf`; Phase 7 is
+default-off and Phase 8 is compile-verified. Phase 1b was headset-verified;
+device verification for Phases 2--8 is pending because `adb devices` was
+empty at the end of the session.
+
+Latest measured sample (headset, after Phase 1b, before Phases 2--8):
+`StereoPerf` eye0 13 ms, eye1 10 ms, frame 23 ms; `GLPerf` present 1.40 ms,
+flush 2.86 ms; `OpenXRPerf` total 0.51 ms, blit 0.05 ms; horizon 3.0 ms;
+frame range 14--30 ms. Re-measure after install.
 
 Target: 72 FPS (13.9 ms/frame) on Quest in stereo OpenXR mode, with no
 resolution, MSAA, foveation, settings, gameplay, or timing changes.
@@ -125,7 +132,8 @@ the median, not only the average, and record `Stale2/5/10/max`.
 **Implemented in the working tree:** `Perftrace` records `sim`, `openxr`,
 `eye0`, `eye1`, `scene`, and `present`; `OpenXRPerf` logs frame-begin,
 present-begin, acquire, wait, blit, release, end, and total once per 300
-presents; `GLPerf` adds `ovlEmpty` and `direct`; surface totals are logged at
+presents; `GLPerf` adds `ovlEmpty`, `direct`, and the atlas upload/dirty
+counters (`atl`, `dty`); surface totals are logged at
 init and when snapshot/horizon targets are allocated; and `FpsLimit` is logged
 at startup. GPU timer queries are not wired in this pass; `GrillePerf` and the
 VrApi runtime line already provide the GPU-side totals, and no release
@@ -409,6 +417,18 @@ Track `Stale2/5/10/max` and investigate the streaming path separately:
   spikes.
 - Pre-warm or batch uploads only if the measurements show they cause hitches.
 
+Status: the per-page dirty scheme is implemented and compile-verified.  The
+water path names `GroundTexture` and, while texture animation is active,
+`BufferTexture` (effects rebaked between ticks); the menu plasma path names
+the plasma page and `BufferTexture`.
+The renderer marks each listed page's 2D cache entry and array layers stale,
+including the containing page for an offset effect.  An unnamed mutation or
+list overflow falls back to the global version.  `GLPerf` reports
+`atl=<2D>/<array>` and `dty=<named>/<global>` dirty events so the morning run
+can confirm that a water tick no longer re-uploads every active array layer.
+The streaming audit found the remaining upload paths already coalesced or
+event-driven; no pre-warm change is made without `Stale` measurements.
+
 ## Validation
 
 Visual checks:
@@ -427,6 +447,21 @@ Numeric checks:
 - GPU memory below 120 MB, ideally below 100 MB.
 - No regression in the measured heavier scene; report median and max, not
   only the best sample.
+
+Morning order:
+
+1. Build and install with Phase 7 off; run the visual checks and confirm the
+   double-wide path is active (`GLPerf direct=0.00`, `ovlReuse` near 0.5 in
+   static scenes).
+2. Compare `StereoPerf`, `GLPerf`, `OpenXRPerf`, VrApi, and memory with the
+   Phase 0 table.
+3. If the frame is still above budget, enable `LBA2_OXR_DIRECT=1` at runtime
+   and repeat. A black frame or one eye means the implicit MSAA resolve is
+   not triggered, so leave the direct path off.
+4. Compare `GLPerf atl`/`arr` and `dty` across a water tick: named-only dirty
+   events and fewer uploads are the Phase 8 result. Check VrApi `Stale` for
+   the recurring spike.
+5. Fix regressions before considering further tuning.
 
 Build and install:
 

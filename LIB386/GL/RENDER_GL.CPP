@@ -51,6 +51,9 @@ extern U32 Fill_ScaledFogNear;
 
 /* ── External dirty flag (from VAR_EXT.CPP) ─────────────────────────────── */
 extern "C" S32 AtlasTextureDirty;
+extern "C" U8 *AtlasTextureDirtyPtrs[];
+extern "C" S32 AtlasTextureDirtyCount;
+extern "C" S32 AtlasTextureDirtyAll;
 
 /* Temporary perf instrumentation: why the last poly fell back to SW
    (1=renderer down, 2=type range, 3=no zbuffer flag, 4=NZW without
@@ -623,6 +626,10 @@ static U32 s_flushRsnFog = 0;
 static U32 s_flushRsnAtlas = 0;
 static U32 s_flushRsnZbuf = 0;
 static U32 s_flushRsnNzw = 0;
+static U32 s_profAtlasUploads = 0;     /* 2D page uploads */
+static U32 s_profArrayUploads = 0;     /* array layer uploads */
+static U32 s_profAtlasDirtyKnown = 0;  /* dirty events with a named page */
+static U32 s_profAtlasDirtyGlobal = 0; /* dirty events forcing a full re-upload */
 
 static double GL_ProfMs(U64 ticks, double msPerTick, U32 frames) {
     return (double)ticks * msPerTick / (double)frames;
@@ -636,7 +643,8 @@ static void GL_ProfFrameDone(void) {
                  "flush=%.2f snapshot=%.2f restore=%.2f mapwait=%.2f (ms) "
                  "flushes=%.1f tris=%.0f sprUp=%.1f skips=%u "
                  "ovlEmpty=%.2f ovlReuse=%.2f direct=%.2f "
-                 "rsn a=%.1f f=%.1f t=%.1f z=%.1f n=%.1f arr=%u/%u",
+                 "rsn a=%.1f f=%.1f t=%.1f z=%.1f n=%.1f arr=%u/%u "
+                 "atl=%u/%u dty=%u/%u",
                  s_profFrames,
                  GL_ProfMs(s_profAccumTicks[GL_PROF_PRESENT], msPerTick,
                            s_profFrames),
@@ -664,7 +672,9 @@ static void GL_ProfFrameDone(void) {
                  (double)s_flushRsnAtlas / (double)s_profFrames,
                  (double)s_flushRsnZbuf / (double)s_profFrames,
                  (double)s_flushRsnNzw / (double)s_profFrames,
-                 s_arrCount, s_arrEvictions);
+                 s_arrCount, s_arrEvictions,
+                 s_profAtlasUploads, s_profArrayUploads,
+                 s_profAtlasDirtyKnown, s_profAtlasDirtyGlobal);
         s_profFrames = 0;
         for (S32 i = 0; i < GL_PROF_BUCKET_COUNT; i++) {
             s_profAccumTicks[i] = 0;
@@ -682,6 +692,10 @@ static void GL_ProfFrameDone(void) {
         s_flushRsnZbuf = 0;
         s_flushRsnNzw = 0;
         s_arrEvictions = 0;
+        s_profAtlasUploads = 0;
+        s_profArrayUploads = 0;
+        s_profAtlasDirtyKnown = 0;
+        s_profAtlasDirtyGlobal = 0;
     }
 }
 
@@ -1364,13 +1378,29 @@ static GLuint GL_SceneDrawFbo(void) {
 }
 static S32 s_frameActive = 0; /* 1 between GL_BeginFrame and GL_Present */
 static U32 s_frameSeq = 0;    /* incremented in GL_BeginFrame */
-static U32 s_atlasContentVersion = 1; /* bumped when atlas marked dirty */
+static U32 s_atlasContentVersion = 1; /* bumped only for an unnamed dirty page */
+/* A dirty pointer can name a page base or an offset inside it: the inventory
+   draws BufferTexture while its fire/plasma effects live at offsets.  Treat
+   both as the same 64 KB page so the base cache entry is refreshed too. */
+static int GL_AtlasSamePage(const void *a, const void *b) {
+    uintptr_t pa, pb;
+
+    if (a == NULL || b == NULL) {
+        return 0;
+    }
+    pa = (uintptr_t)a;
+    pb = (uintptr_t)b;
+    if (pa >= pb) {
+        return (pa - pb) < 256u * 256u;
+    }
+    return (pb - pa) < 256u * 256u;
+}
 /* One GL texture per atlas page (PtrMap), not one shared texture: terrain,
    decor bodies, NPC bodies and the sea each own a texture page and their
    draws interleave within a frame, so a shared texture would need a full
    64 KB re-upload on every switch.  Entries evict LRU; version matches
-   s_atlasContentVersion so in-place page mutations (animated water) still
-   re-upload. */
+   s_atlasContentVersion, and a named in-place mutation clears only that
+   page's version so it re-uploads without touching the others. */
 #define ATLAS_CACHE_SIZE 128
 typedef struct {
     const void *ptr;
@@ -3357,6 +3387,7 @@ static void GL_SetAtlasTexParams(GLuint tex) {
    without it the only correct source is the full 256x256 page, which this
    falls back to by forcing w/h. */
 static void GL_UploadAtlasRect(GLuint tex, const void *map, U32 *w, U32 *h) {
+    s_profAtlasUploads++;
     GL_BindTexUnit(0, tex);
 #ifndef GL_UNPACK_ROW_LENGTH
     *w = 256;
@@ -3536,6 +3567,7 @@ static void GL_ArrayBind(void) {
             glBindTexture(GL_TEXTURE_2D_ARRAY, s_arrayTex);
             glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, s_arrSlots[i].layer,
                             256, 256, 1, GL_RED, GL_UNSIGNED_BYTE, s_arrStage);
+            s_profArrayUploads++;
             s_arrSlots[i].ver = s_atlasContentVersion;
         }
     }
@@ -6826,13 +6858,36 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        in-place between scenes (same PtrCLUTFog pointer, different data). */
     GL_UploadCLUT();
     if (typePoly >= POLY_TEXTURE && AtlasTextureDirty) {
-        /* Animated polys (water, menu plasma) mark the atlas dirty mid
-           frame.  Bump the content version so the next flush of every page
-           re-uploads exactly once; GL_BindAtlasFor (flush time) does the
-           upload.  Uploading per polygon cost another ~40 MB per terrain
-           pass on mobile GPUs. */
-        s_atlasContentVersion++;
+        /* Animated polys (water, menu plasma) mutate pages in place.
+           A global version bump would re-upload every cached page and every
+           active array layer on the next flush — a 16 MB spike when the
+           water ticks.  Mark only the pages named by the mutators;
+           GL_BindAtlasFor and GL_ArrayBind upload each at flush time.  An
+           unnamed page or list overflow keeps the whole-cache bump. */
+        if (!AtlasTextureDirtyAll && AtlasTextureDirtyCount > 0) {
+            /* Version 0 forces the flush-time upload without moving the
+               global sequence, so unrelated pages stay resident. */
+            for (S32 p = 0; p < AtlasTextureDirtyCount; p++) {
+                const void *dirtyPage = (const void *)AtlasTextureDirtyPtrs[p];
+                for (S32 i = 0; i < ATLAS_CACHE_SIZE; i++) {
+                    if (GL_AtlasSamePage(s_atlasTexCache[i].ptr, dirtyPage)) {
+                        s_atlasTexCache[i].ver = 0;
+                    }
+                }
+                for (S32 i = 0; i < s_arrCount; i++) {
+                    if (GL_AtlasSamePage(s_arrSlots[i].map, dirtyPage)) {
+                        s_arrSlots[i].ver = 0;
+                    }
+                }
+            }
+            s_profAtlasDirtyKnown++;
+        } else {
+            s_atlasContentVersion++;
+            s_profAtlasDirtyGlobal++;
+        }
         AtlasTextureDirty = 0;
+        AtlasTextureDirtyCount = 0;
+        AtlasTextureDirtyAll = 0;
     }
     GL_UploadPalette(); /* re-upload every frame (cheap: 1 KB) */
 

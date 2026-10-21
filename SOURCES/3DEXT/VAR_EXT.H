@@ -109,3 +109,9 @@ extern S32 OffsetAniPoly3;
 extern S32 OffsetAniPoly4;
 
 extern S32 AtlasTextureDirty; /* GL renderer: set when any in-place texture mutation needs GPU re-upload */
+
+#define ATLAS_DIRTY_MAX 16
+extern U8 *AtlasTextureDirtyPtrs[ATLAS_DIRTY_MAX]; /* pages mutated since the last flush */
+extern S32 AtlasTextureDirtyCount;
+extern S32 AtlasTextureDirtyAll; /* unnamed mutation or list overflow: refresh every page */
+extern void Atlas_MarkDirty(U8 *page);
