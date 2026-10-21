@@ -44,6 +44,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   or `libSDL3.so` are not where its arguments point, instead of building an APK
   that installs and then cannot start
   ([#811](https://github.com/LBALab/lba2-classic-community/pull/811)).
+- The macOS build starts again on macOS 11 (Big Sur) and later. Since 0.12 the
+  game itself was marked as needing macOS 26, the version on the machine that
+  builds the releases, so earlier macOS versions refused to open it
+  ([#813](https://github.com/LBALab/lba2-classic-community/issues/813)).
 
 ### Contributors
 
@@ -53,6 +57,9 @@ video of all four cases
 Thanks to EPmager for checking that the seams between parts of an island are
 in the 1997 game, and for raising them again for HD and the Auto camera
 ([#144](https://github.com/LBALab/lba2-classic-community/issues/144)).
+Thanks to lev1voloshin for reporting that the macOS build would not open on
+macOS 15, with a screenshot of the message
+([#813](https://github.com/LBALab/lba2-classic-community/issues/813)).
 
 ## [0.13.1] - 2026-10-20
 
