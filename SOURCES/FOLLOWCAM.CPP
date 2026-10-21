@@ -997,6 +997,7 @@ void UpdateFollowCameraExt(void) {
         }
 
         FirstTime = AFF_ALL_FLIP;
+        KeepImpactRain = TRUE;
 
         FollowCamPrevHeroX = ptr3d->X;
         FollowCamPrevHeroY = ptr3d->Y;

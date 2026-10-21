@@ -1940,8 +1940,10 @@ restartloop:
         /* A blend into or out of a scripted shot moves the view whether or not
          * anything else does, so the terrain is drawn again on every frame of
          * it. */
-        if (FollowCamBlending())
+        if (FollowCamBlending()) {
             FirstTime = AFF_ALL_FLIP;
+            KeepImpactRain = TRUE;
+        }
 
         if (!CameraZone) {
             if (FirstTime == AFF_OBJETS_FLIP) {
@@ -2037,6 +2039,7 @@ restartloop:
         }
 
         FirstTime = AFF_OBJETS_FLIP;
+        KeepImpactRain = FALSE;
         FirstLoop = FALSE;
 
         CmptFrame++;
