@@ -518,8 +518,9 @@ point, and a diff that flagged the platform every time would teach a reader to i
 
 The second line is there ahead of needing it. `LIB386/3D` computes projection, rotation and
 distance in `long double` and rounds with `lrintl`, chosen to match x87's 80-bit registers. Both
-x86-64 hosts have those registers, so Linux and Windows agree. ARM does not, so on macOS and
-Android `long double` is a plain `double` and the same expressions round differently. A recording
+x86-64 hosts have those registers, so Linux and Windows agree. ARM does not: on macOS and
+32-bit Android `long double` is a plain `double`, on 64-bit Android a 128-bit software type, and
+the same expressions round differently on each. A recording
 from an x86-64 host will not reproduce there yet, and because the trait is in the header, such a
 replay opens by naming the arithmetic it disagrees about instead of diverging in the middle and
 reading like a bug in the simulation. Making that case replay means taking those paths off the
