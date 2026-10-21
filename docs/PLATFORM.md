@@ -72,9 +72,9 @@ Still byte-order dependent, on purpose:
 
 ## 3. Floating-point precision and FPU semantics &nbsp;&nbsp;&nbsp;&nbsp; ⚠ partial
 
-Projection and rotation paths use `long double` + `lrintl()` to match the original x87 FPU's round-to-nearest `fistp` behavior.
+Projection and rotation paths compute in `X87_REAL` and round with `X87Round` (`LIB386/H/3D/X87REAL.H`) to match the original x87 FPU's round-to-nearest `fistp` behavior. Where `long double` is the x87's 80-bit format they are `long double` and `lrintl`; everywhere else they are `double` and an inline round to nearest even, and the 3D library is built with `-ffp-contract=off` so GCC cannot fuse a multiply into that rounding.
 
-The split is between architectures, not between operating systems. Both x86-64 hosts carry a 64-bit mantissa (`LDBL_MANT_DIG`), Linux and Windows MSYS2 alike, because MinGW-w64 GCC keeps x87 extended precision; MSVC is the compiler that would not, and this tree does not build with it. ARM has no x87. On macOS arm64 and 32-bit Android (armeabi-v7a) `long double` is a plain double with a 53-bit mantissa; on 64-bit Android (arm64-v8a) and aarch64 Linux it is IEEE binary128, a 113-bit mantissa computed in software, which is also why the float path is slow there (`scripts/dev/bench-3d-path.sh --android`). With the terrain-seams retail fix on (the default), the exterior terrain, sea and sky take the integer routines (`IMATSTDI`, `LROT3DI`, `LIROT3DI`, `LPROJ3DI`) instead, from a camera placed by the same routines, and give the same values on every platform; decors and characters still take the float ones. Measured on each toolchain rather than inferred: `lrintl`, `sqrtl` and the projection factor-and-round shape are bit-identical across the two x86-64 hosts, including at ties and near-ties.
+The split is between architectures, not between operating systems. Both x86-64 hosts carry a 64-bit mantissa (`LDBL_MANT_DIG`), Linux and Windows MSYS2 alike, because MinGW-w64 GCC keeps x87 extended precision; MSVC is the compiler that would not, and this tree does not build with it. ARM and PowerPC have no x87, and their `long double` is no closer to it: a plain double on macOS arm64 and 32-bit Android, IEEE binary128 in software on 64-bit Android and aarch64 Linux, double-double on PowerPC. Measured over recorded game inputs, `double` gives the x87's rotation and lighting results exactly and misses only exact half-pixel ties in the projection (about one value in 100,000, by one pixel), as binary128 and double-double also do, and it costs about a hundredth of the software types on a phone (`scripts/dev/bench-3d-path.sh --android`). So every non-x87 platform now computes in `double` and gets the same results as every other. With the terrain-seams retail fix on (the default), the exterior terrain, sea and sky take the integer routines (`IMATSTDI`, `LROT3DI`, `LIROT3DI`, `LPROJ3DI`) instead, from a camera placed by the same routines, and give the same values on every platform; decors and characters still take the float ones. Measured on each toolchain rather than inferred: `lrintl`, `sqrtl` and the projection factor-and-round shape are bit-identical across the two x86-64 hosts, including at ties and near-ties.
 
 - `LongProjectPoint3D` — `LIB386/3D/LPROJ3DF.CPP:25-28`
 - `LongRotatePointF` — `LIB386/3D/LROT3DF.CPP:13-15`
@@ -95,7 +95,7 @@ Why it matters beyond the picture: a recorded session declares the mantissa widt
 simulation whose arithmetic rounds differently. `Distance` is the one entry point here that the
 simulation reads rather than the renderer.
 
-**Next:** Consolidate the `lrintl(long double)` callers behind a single helper TU (`lba_round_to_int`) so the platform divergence has one place to live.
+**Next:** `LIB386/pol_work` (POLY.CPP and the clippers) still computes its triangle setup in `long double`, unmeasured; it needs the same measurement before it can follow.
 
 ---
 

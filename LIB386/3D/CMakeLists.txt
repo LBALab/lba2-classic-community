@@ -13,6 +13,15 @@ set(SOURCES_FILES_ASM COPYMATF.CPP GETANG2D.CPP GETANG3D.CPP IMATSTDF.CPP IMATST
 
 add_library(3D ${SOURCES_FILES} ${SOURCES_FILES_ASM})
 
+# The float routines round with an inline add of 1.5 * 2^52 where long double is
+# not the x87's (3D/X87REAL.H). GCC's default -ffp-contract=fast fuses a multiply
+# into that add (one rounding instead of two), which moves exact ties; seen on
+# PowerPC, and aarch64 Linux builds with GCC too. Clang contracts only inside one
+# expression and is unaffected, but takes the same flag. x86 has no x87 FMA.
+# tests/numeric_contract and tests/precision_paths compile some of these files
+# themselves and repeat the flag.
+target_compile_options(3D PRIVATE $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-ffp-contract=off>)
+
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
 # foreach (FILE_ASM IN LISTS SOURCES_FILES_ASM)
 #     set_source_files_properties(${FILE_ASM} PROPERTIES LANGUAGE ASM_MASM)
