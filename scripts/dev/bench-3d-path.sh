@@ -19,9 +19,12 @@ if [ "${1:-}" != "--android" ]; then
 fi
 
 SDK="${ANDROID_HOME:-$HOME/Android/Sdk}"
-NDK="${ANDROID_NDK_HOME:-$(find "$SDK/ndk" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -V | tail -1)}"
-[ -d "$NDK" ] || { echo "no NDK found (set ANDROID_NDK_HOME)" >&2; exit 1; }
-BIN="$(find "$NDK/toolchains/llvm/prebuilt" -mindepth 2 -maxdepth 2 -name bin -type d | head -1)"
+# Each find may fail (no such folder); under pipefail that would end the script
+# before it can say why, so a miss is left for the checks below to report.
+NDK="${ANDROID_NDK_HOME:-$(find "$SDK/ndk" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -V | tail -1 || true)}"
+[ -n "$NDK" ] && [ -d "$NDK" ] || { echo "no NDK found (set ANDROID_NDK_HOME)" >&2; exit 1; }
+BIN="$(find "$NDK/toolchains/llvm/prebuilt" -mindepth 2 -maxdepth 2 -name bin -type d 2>/dev/null | head -1 || true)"
+[ -n "$BIN" ] || { echo "no LLVM toolchain under $NDK/toolchains/llvm/prebuilt" >&2; exit 1; }
 command -v adb > /dev/null || { echo "adb not on PATH" >&2; exit 1; }
 
 OUT="$(mktemp -d)"
