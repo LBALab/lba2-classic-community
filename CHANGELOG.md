@@ -10,6 +10,15 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.13.2] - 2026-10-22
+
+On a 64-bit Android phone, a Galaxy S22+, the attract reel with the Auto
+camera averages about 466 frames a second, against 110 in 0.13.0, and its
+heaviest outdoor scenes went from about 25 to between 175 and 215. Most of
+that comes from the three 64-bit Android entries under Display & render.
+
 ### Display & render
 
 - Particle effects and scenery come out the same on every platform, and as in
@@ -37,12 +46,19 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   on screen. Their maths imitated the 1997 processor with a number type that
   64-bit ARM phones can only work out in software; it now uses the one the
   phone has, which gives the same picture as before on every other platform
-  and moves a point by one pixel about once in 100,000 on these phones.
+  and moves a point by one pixel about once in 100,000 on these phones
+  ([#817](https://github.com/LBALab/lba2-classic-community/pull/817)).
 - On 64-bit Android, drawing the 3D scene takes about a third of the time it
   did, measured outdoors on a Galaxy S22+. The polygon drawing still worked
   out each triangle's edges and texture steps in the number type the phone can
   only handle in software; it now uses the one the phone has, and the picture
-  is the same as before on every platform.
+  is the same as before on every platform
+  ([#825](https://github.com/LBALab/lba2-classic-community/pull/825)).
+- Movies are read as they play. The game read and unpacked a whole movie
+  before its first frame and held it twice while it played. Long movies were
+  slow to start on the Nintendo Switch, and on the PlayStation Vita the New
+  Game intro loaded for about a minute and then crashed
+  ([#805](https://github.com/LBALab/lba2-classic-community/pull/805)).
 - Outdoors in the storm, raindrops splash on the ground again while the Auto
   camera moves. The camera redraws the scene on every frame it moves, and each
   redraw cleared the splashes before they were first drawn, so you only saw
@@ -53,13 +69,24 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in the original. The storm itself still stays on Citadel Island
   ([#812](https://github.com/LBALab/lba2-classic-community/pull/812)).
 
+### Gameplay
+
+- Numbers in the game logic round to the nearest whole number again, as in the
+  1997 game. Drawing the first triangle switched the processor to rounding
+  down and nothing switched it back, so from then on Twinsen's walk, thrown
+  objects, the buggy and points placed on screen all rounded down. Movement
+  can differ by a few units from earlier builds, and a recording made before
+  this change can play out differently
+  ([#804](https://github.com/LBALab/lba2-classic-community/pull/804)).
+
 ### Input & controller
 
 - Dragging the camera with the right mouse button orbits smoothly again with
   VSync off or on a display faster than 60 Hz. Above 60 frames a second the
   mouse left and re-entered relative mode on every game step, so the camera
   jittered back and forth over a short arc instead of following the drag
-  ([#803](https://github.com/LBALab/lba2-classic-community/issues/803)).
+  ([#803](https://github.com/LBALab/lba2-classic-community/issues/803),
+  [#809](https://github.com/LBALab/lba2-classic-community/pull/809)).
 
 ### Audio
 
@@ -68,6 +95,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   about one scene in ten needed 70 to 95 MB; they now play as they are read,
   like WAV music, and no scene measured needs more than 19 MB
   ([#829](https://github.com/LBALab/lba2-classic-community/pull/829)).
+- WAV music is decoded as it plays. A track was read and decoded whole
+  before it began; now a short start is decoded and the rest follows in the
+  background. On the PlayStation Vita a track change froze the game for
+  seconds
+  ([#805](https://github.com/LBALab/lba2-classic-community/pull/805),
+  [#823](https://github.com/LBALab/lba2-classic-community/pull/823)).
 
 ### Build & packaging
 
@@ -78,10 +111,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The macOS build starts again on macOS 11 (Big Sur) and later. Since 0.12 the
   game itself was marked as needing macOS 26, the version on the machine that
   builds the releases, so earlier macOS versions refused to open it
-  ([#813](https://github.com/LBALab/lba2-classic-community/issues/813)).
+  ([#813](https://github.com/LBALab/lba2-classic-community/issues/813),
+  [#815](https://github.com/LBALab/lba2-classic-community/pull/815)).
 - The macOS download now runs on Intel Macs too. It is one universal app for
   Apple Silicon and Intel, `lba2cc-<version>-macos-universal.dmg`, in place of
-  the Apple Silicon-only `macos-arm64` DMG.
+  the Apple Silicon-only `macos-arm64` DMG
+  ([#816](https://github.com/LBALab/lba2-classic-community/pull/816)).
+- The game runs on a PlayStation Vita as homebrew, on the SDL2 backend.
+  `scripts/dev/build-vita.sh` builds a VPK in Docker, with no SDK to install;
+  the Circle button with a direction dodges. The rolling `latest` pre-release
+  carries `lba2cc-vita.vpk`; tagged releases do not ship it yet. See
+  [docs/VITA.md](docs/VITA.md)
+  ([#805](https://github.com/LBALab/lba2-classic-community/pull/805)).
+- The SDL2 build needs SDL 2.28 or newer (was 2.0.22). Older SDL2 resamples
+  music differently when it arrives in pieces, as it now does; CMake stops
+  with a message on an older one. The default SDL3 builds are unchanged
+  ([#805](https://github.com/LBALab/lba2-classic-community/pull/805)).
 
 ### Tests
 
@@ -127,6 +172,12 @@ in the 1997 game, and for raising them again for HD and the Auto camera
 Thanks to lev1voloshin for reporting that the macOS build would not open on
 macOS 15, with a screenshot of the message
 ([#813](https://github.com/LBALab/lba2-classic-community/issues/813)).
+Thanks to [@sergiou87](https://github.com/sergiou87) for the PlayStation Vita
+port, and for movies and WAV music that are read as they play, found and
+measured on the Vita
+([#805](https://github.com/LBALab/lba2-classic-community/pull/805)), and for
+fewer wake-ups while WAV music plays
+([#823](https://github.com/LBALab/lba2-classic-community/pull/823)).
 
 ## [0.13.1] - 2026-10-20
 
@@ -1970,7 +2021,8 @@ Special thanks to the contributors whose foundational work this fork stands on:
 A big thank you to Gwen Gourevich ([@gwen-gg](https://github.com/gwen-gg)) and [2.21](https://discord.gg/e2ZXpzrM) for open-sourcing the original code, and to the original Adeline
 Software team whose code this builds on.
 
-[Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/v0.13.2...HEAD
+[0.13.2]: https://github.com/LBALab/lba2-classic-community/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/LBALab/lba2-classic-community/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.11.0...v0.12.0
