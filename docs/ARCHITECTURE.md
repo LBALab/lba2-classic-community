@@ -89,7 +89,9 @@ When the maps are solid enough to act on, the order the three axes agree on:
 Each step is a facade drawn *over* frozen code, proven behaviour-identical against the
 polyrec/projrec harnesses before the next. No rewrite.
 
-## The rings: what a setting may change
+## The rings and the core
+
+![Four nested rings: inner core (the game) inside outer core (the platform) inside Modern inside Experimental; features on the left and platforms on the right move inward](images/rings.svg)
 
 Features grow in three rings, each inside the next. **Original** is the game as a 1997 player
 met it: every setting at its value from before (`SETTING_BEFORE` in
@@ -106,6 +108,45 @@ change them. The Decision
 has the contracts and the Quirk
 [the-game-counts-what-is-on-screen.md](knowledge/quirks/the-game-counts-what-is-on-screen.md)
 the measurement. Read the Decision before a change that lets a setting reach the simulation.
+
+### The core
+
+Under the rings sits the core: what everything else is built on and cannot route around. The
+test is whether changing it could break a save, a recording, a fork or a mod. The core is not
+the same as Original. Original is the 1997 game, the reference the core is measured against;
+the core is what has to hold still so others can build on it.
+
+- **Inner core, the game.** Its rules, which the world hash measures, the save format and the
+  game data formats. Held to its oracle: the ASM, the retail release, the savegame corpus. It
+  changes only by a Decision, and a rule changes only as a retail fix with its own switch
+  ([the retail-fix Decision](knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md)).
+- **Outer core, the platform.** The [PAL](PLATFORM_ABSTRACTION.md) contract, console output,
+  recording and replay, the settings tables and the test harness. Each is a contract pinned
+  by tests; it grows by adding and does not break. A second game on the engine would share it.
+
+Some of the core is new, and some of the original is not core. The fixed 60 Hz step and the
+retail fixes are inner core though the 1997 game had neither; Miles audio and the DOS video
+modes were original and were replaced. The x86 ASM is the oracle, not part of the build.
+
+### Moving inward
+
+Dependencies point inward: an outer ring can come off without the inner ones noticing. The
+care a change takes rises toward the centre. Experimental comes out without ceremony, Modern
+needs evidence before it is on by default, and the core needs a Decision.
+
+Things move inward on evidence. For a setting moving from Experimental to Modern, or from off
+to on by default:
+
+1. Measure what it changes, on the data players have.
+2. With it off, nothing changes ([test_ring_off_is_gone.sh](../tests/automation/test_ring_off_is_gone.sh)).
+3. With it on, the world hash holds ([test_ring_watch_not_play.sh](../tests/automation/test_ring_watch_not_play.sh)).
+4. Anything judged by feel gets a play test, read back from its trace.
+
+The same holds for where the game runs. A port such as Switch or Vita starts outside, as a
+build, and moves inward as it meets what an inner platform is held to: it builds in CI, the
+test suite runs on it, a recording replays to the same world hash and a save from another
+platform loads. A second game moves the same way: LBA1
+work starts in Experimental, with its own inner core on the shared outer core.
 
 ## How to use these docs
 
