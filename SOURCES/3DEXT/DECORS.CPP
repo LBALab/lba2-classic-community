@@ -1,5 +1,7 @@
 #include "DEFINES.H"
 
+#include <SYSTEM/QSORT.H>
+
 /*══════════════════════════════════════════════════════════════════════════*
 		      █▀▀▀▄ █▀▀▀▀ █▀▀▀▀ █▀▀▀█ █▀▀▀█ ██▀▀▀
 		      ██  █ ██▀▀  ██    ██  █ ██▀█▀ ▀▀▀▀█
@@ -166,15 +168,8 @@ int sub_qsort_decors(const void *a, const void *b) {
 /*══════════════════════════════════════════════════════════════════════════*/
 // sous routine de tri temporaire
 
-// Objects at the same depth keep the order they were listed in (Num), so the
-// draw order does not depend on the C library's qsort.
 int sub_qsort_decors_zbuf(const void *a, const void *b) {
-    const T_LIST_TRI *ta = (const T_LIST_TRI *)a;
-    const T_LIST_TRI *tb = (const T_LIST_TRI *)b;
-    if (ta->Zrot != tb->Zrot) {
-        return tb->Zrot - ta->Zrot;
-    }
-    return ta->Num - tb->Num;
+    return (((T_LIST_TRI *)b)->Zrot - ((T_LIST_TRI *)a)->Zrot);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
@@ -366,7 +361,9 @@ void AffichageObjetDecorsZBuf(void) {
         return;
 
     // trie les objet en z 'front to back'
-    qsort(ListTriExt, NbObjScreen, sizeof(T_LIST_TRI), sub_qsort_decors_zbuf);
+    // The 1997 game's qsort: objects at the same depth are drawn in its order,
+    // which no C library's qsort gives (SYSTEM/QSORT.H).
+    RetailQsort(ListTriExt, NbObjScreen, sizeof(T_LIST_TRI), sub_qsort_decors_zbuf);
 
     clipzstart = ClipZFar - StartZFog;
 
