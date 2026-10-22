@@ -99,8 +99,8 @@
         "LBA2_BUILD_ASM_EQUIV_TESTS": "ON",
         "ENABLE_ASM": "ON",
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_C_FLAGS": "-m32",
-        "CMAKE_CXX_FLAGS": "-m32",
+        "CMAKE_C_FLAGS": "-m32 -D_FILE_OFFSET_BITS=64",
+        "CMAKE_CXX_FLAGS": "-m32 -D_FILE_OFFSET_BITS=64",
         "SDL3_DIR": "/usr/local/sdl3-32/lib/cmake/SDL3"
       }
     },
