@@ -1,3 +1,4 @@
+#include "../sdl_main_ready.h"
 #include "../test_harness.h"
 #include "../../LIB386/PLATFORM/SDL3/PRIVATE.H"
 
@@ -744,6 +745,7 @@ static void test_dialog_worker_result_and_error_ownership() {
 }
 
 int main() {
+    TEST_SDL_MAIN_READY();
     SDL_SetHintWithPriority(SDL_HINT_VIDEO_DRIVER, "dummy", SDL_HINT_OVERRIDE);
     SDL_SetHintWithPriority(SDL_HINT_AUDIO_DRIVER, "dummy", SDL_HINT_OVERRIDE);
     if (!g_platform.system.set_headless() || !g_platform.system.init() ||

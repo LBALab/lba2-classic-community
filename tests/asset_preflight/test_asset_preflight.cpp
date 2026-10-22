@@ -17,7 +17,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#define ROOT "asset_pf_testdir"
+#ifndef TEST_TMP_DIR
+#define TEST_TMP_DIR "."
+#endif
+#define ROOT TEST_TMP_DIR "/asset_pf_testdir"
 
 static void touch(const char *rel) {
     char p[512];

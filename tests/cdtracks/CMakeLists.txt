@@ -11,7 +11,9 @@ target_include_directories(test_cdtracks PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${CMAKE_SOURCE_DIR}/LIB386/H)
 
-target_compile_definitions(test_cdtracks PRIVATE TEST_SOURCE_ROOT="${CMAKE_SOURCE_DIR}/")
+lba2_test_device_data(SOURCES/MUSIC.CPP scripts/dev/disc_extract.py)
+target_compile_definitions(test_cdtracks PRIVATE TEST_SOURCE_ROOT="${CMAKE_SOURCE_DIR}/"
+    TEST_DATA_ROOT="${LBA2_TEST_DATA_ROOT}/")
 
 set_target_properties(test_cdtracks PROPERTIES CXX_STANDARD 11)
 

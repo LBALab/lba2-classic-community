@@ -43,6 +43,9 @@ not maintained tooling.
 | [dev/run-switch.sh](dev/run-switch.sh) | Upload the built NRO to Homebrew Menu's netloader and stream unbuffered logs using the pinned Docker SDK's nxlink. | manual ([SWITCH.md](../docs/SWITCH.md#upload-and-run-over-the-network)) |
 | [dev/build-sdl3-android.sh](dev/build-sdl3-android.sh) | Cross-build SDL3 for Android and install it to a known prefix (prerequisite for `build-android.sh`). | manual ([ANDROID.md](../docs/ANDROID.md)) |
 | [dev/check-16k-align.sh](dev/check-16k-align.sh) | Verify an Android APK is safe on 16 KB memory-page devices (segment alignment + uncompressed `.so`). | CI (android), [ANDROID.md](../docs/ANDROID.md) |
+| [dev/android-lib.sh](dev/android-lib.sh) | Shared adb helpers: target probe (refuses a non-ARM target), emulator detection and timeout scale, hash-cached push. Sourced, not run. | `android-exec.sh` |
+| [dev/android-exec.sh](dev/android-exec.sh) | Run one cross-built ARM executable on an attached device. Usable as CMake's `CMAKE_CROSSCOMPILING_EMULATOR`, so plain `ctest` drives the device. | manual ([ANDROID.md](../docs/ANDROID.md)) |
+| [dev/check-android-userdir.sh](dev/check-android-userdir.sh) | Check on a device that the game writes its user directory where it should. | manual ([ANDROID.md](../docs/ANDROID.md)) |
 
 ## Driving a running engine (`dev/`)
 

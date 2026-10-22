@@ -63,6 +63,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   macOS now, where one test had passed without loading the save it tests, and
   on Windows the tests that handed the game a temporary path it could not open
   pass ([#814](https://github.com/LBALab/lba2-classic-community/pull/814)).
+- The host tests and the engine-driving test suite can run on an Android phone
+  or emulator, driven from a Mac over adb, in both `arm64-v8a` and
+  `armeabi-v7a`. The engine runs there as a plain program on the null platform;
+  `docs/ANDROID.md` has the commands and the limits
+  ([#822](https://github.com/LBALab/lba2-classic-community/pull/822)).
 
 ### Contributors
 

@@ -25,3 +25,4 @@ set_target_properties(test_res_discovery PROPERTIES CXX_STANDARD 11)
 add_test(NAME test_res_discovery COMMAND test_res_discovery)
 
 register_host_test(test_res_discovery)
+lba2_test_needs_android_activity(test_res_discovery)
