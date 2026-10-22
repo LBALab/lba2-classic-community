@@ -2,7 +2,7 @@
 #ifndef LIB_AIL_STREAM_PARK
 #define LIB_AIL_STREAM_PARK
 
-/* Pure, SDL-free decision logic for the stream park/resume + focus-suspend model.
+/* Pure, SDL-free decision logic for stream parking, focus and queue waits.
  *
  * The music stream has two pause layers (see AIL/STREAM.H):
  *   - LOGICAL PauseStream/ResumeStream: parks {path, frame} so a resume can restore
@@ -24,6 +24,19 @@ typedef enum {
     STREAM_RESUME_UNPAUSE,  /* parked stream still live -> just unpause the device in place */
     STREAM_RESUME_RESTORE   /* a different stream replaced it -> re-open + seek the parked file */
 } StreamResumeAction;
+
+/* Source frequency and bytes per frame are positive. Wait for the next batch to
+   fit in the 64 KiB queue; bounded waits also cover a paused output. */
+static inline int Stream_QueueWaitMs(unsigned int queued, unsigned int count,
+                                     int frequency, int bytesPerFrame) {
+    unsigned long long total = (unsigned long long)queued + count;
+    if (total <= 65536)
+        return 0;
+    unsigned long long ms = (total - 65536) * 1000 /
+                                ((unsigned long long)frequency * bytesPerFrame) +
+                            1;
+    return ms > 250 ? 250 : (int)ms;
+}
 
 /* PauseStream: park + pause only a live stream that is not already logically paused
    (pausing an already-paused stream would overwrite its parked position) and still

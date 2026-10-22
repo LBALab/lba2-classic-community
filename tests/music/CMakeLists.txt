@@ -80,9 +80,11 @@ if(PLATFORM_BACKEND MATCHES "^sdl[23]$")
         ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP)
     target_include_directories(test_music_stream_resume PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
     target_link_libraries(test_music_stream_resume PRIVATE ${LBA2_SDL_TARGET})
+    lba2_test_tmp_dir(_tmp test_music_stream_resume)
+    lba2_test_device_data(tests/music/fixtures/silence-10s.ogg)
     target_compile_definitions(test_music_stream_resume PRIVATE LBA_LOG_NO_PLATFORM
-        TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}"
-        TEST_FIXTURE_OGG="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/silence-10s.ogg")
+        TEST_TMP_DIR="${_tmp}"
+        TEST_FIXTURE_OGG="${LBA2_TEST_DATA_ROOT}/tests/music/fixtures/silence-10s.ogg")
     if(PLATFORM_BACKEND STREQUAL "sdl2")
         target_compile_definitions(test_music_stream_resume PRIVATE LBA2_USE_SDL2=1)
     endif()

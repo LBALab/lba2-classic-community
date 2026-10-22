@@ -10,7 +10,9 @@ target_include_directories(test_asset_preflight PRIVATE
     ${CMAKE_SOURCE_DIR}/tests)
 
 # Log core bypasses SDL (no SDL_Init needed); DIRECTORIES resolvers use sys + SDL.
-target_compile_definitions(test_asset_preflight PRIVATE LBA_LOG_NO_PLATFORM LBA2_BUILD_TESTS)
+lba2_test_tmp_dir(_tmp test_asset_preflight)
+target_compile_definitions(test_asset_preflight PRIVATE LBA_LOG_NO_PLATFORM LBA2_BUILD_TESTS
+    TEST_TMP_DIR="${_tmp}")
 
 target_link_libraries(test_asset_preflight PRIVATE sys)
 

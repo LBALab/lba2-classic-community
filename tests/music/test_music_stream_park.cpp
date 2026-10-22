@@ -12,6 +12,16 @@
 #include <cstdio>
 
 int main(void) {
+    assert(Stream_QueueWaitMs(0, 16384, 22050, 4) == 0);
+    assert(Stream_QueueWaitMs(65535, 1, 22050, 4) == 0);
+    assert(Stream_QueueWaitMs(65536, 1, 22050, 4) == 1);
+    assert(Stream_QueueWaitMs(65536, 8192, 22050, 4) == 93);
+    assert(Stream_QueueWaitMs(65536, 8192, 44100, 4) == 47);
+    assert(Stream_QueueWaitMs(65536, 8192, 8000, 4) == 250);
+    assert(Stream_QueueWaitMs(65536, 8192, 8000, 1) == 250);
+    assert(Stream_QueueWaitMs(65536, 8192, 2147483647, 32) == 1);
+    assert(Stream_QueueWaitMs(0xffffffffu, 16384, 48000, 4) == 250);
+
     // ── Stream_ShouldPark: park a live, not-already-paused stream with audio left ──
     assert(!Stream_ShouldPark(0, 0, 0) && "no stream -> nothing to park");
     assert(Stream_ShouldPark(1, 0, 1) && "live and unpaused -> park it");

@@ -368,6 +368,161 @@ version over the game. DeviceDefault rather than the legacy
 `Theme.NoTitleBar.Fullscreen` from SDL's android-project template, because the
 theme also styles the dialogs SDL builds against the activity.
 
+## Running tests on a device
+
+[PLATFORM.md](PLATFORM.md) puts the floating-point split between *architectures*,
+not operating systems: on ARM `long double` is a plain 53-bit double. Every
+"works on x86, broken on ARM" question was previously answered by reading code.
+This lane answers it by measuring.
+
+**The target must be ARM.** An x86_64 Android image carries 80-bit `long double`
+exactly like an x86 desktop, so it cannot show the difference. This is not
+theoretical: an x86_64 emulator image can advertise
+`ro.product.cpu.abilist=x86_64,arm64-v8a`, which means an arm64 binary runs there
+under translation and reports a green result that means nothing.
+`scripts/dev/android-lib.sh` refuses a non-ARM target for that reason, rather
+than warning and continuing.
+
+**Where to run it.** An Apple Silicon Mac runs an `arm64-v8a` emulator image
+natively, so an emulator there is a valid target for `arm64-v8a`. An x86_64
+host cannot run one at all; the emulator refuses the AVD:
+
+```
+FATAL | Avd's CPU Architecture 'arm64' is not supported by the QEMU2 emulator
+        on x86_64 host. System image must match the host architecture.
+```
+
+`armeabi-v7a` needs a physical device on either host: Apple Silicon has no
+32-bit ARM mode, and an x86 emulator would only translate it. With more than one
+target attached, set `ANDROID_SERIAL`.
+
+### The host test suite on ARM
+
+The 69 test subdirectories under `tests/` build for `arm64-v8a` with no code
+change, and CMake can run them on a device through
+`CMAKE_CROSSCOMPILING_EMULATOR`, so plain `ctest` drives the device:
+
+```bash
+cmake -S . -B out/build/android_arm64_tests -G Ninja \
+    -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK/build/cmake/android.toolchain.cmake" \
+    -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=24 -DANDROID_STL=c++_shared \
+    -DSDL3_DIR="$SDL3_ANDROID_DIR/lib/cmake/SDL3" \
+    -DLBA2_BUILD_TESTS=ON -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF \
+    -DCMAKE_CROSSCOMPILING_EMULATOR="$PWD/scripts/dev/android-exec.sh"
+cmake --build out/build/android_arm64_tests --target host_tests
+ctest --test-dir out/build/android_arm64_tests --output-on-failure
+```
+
+`LBA2_BUILD_ASM_EQUIV_TESTS=OFF` is required. It defaults ON and those tests need
+UASM and x86. Point `SDL3_DIR` at an install of the version in
+`.github/sdl3-version.txt`.
+
+`android-exec.sh` copies each test, `libc++_shared.so` and `libSDL3.so` to
+`/data/local/tmp/lba2cc` (skipping files already there), runs the test in an
+empty `run/<test>` folder and returns its exit code. Repo files a test opens are
+listed in its `CMakeLists.txt` with `lba2_test_device_data()` and copied to
+`repo/`; scratch folders come from `lba2_test_tmp_dir()`. Both give absolute
+paths, because SDL on Android resolves a relative path through the Java
+Activity.
+
+A test run this way is a plain executable with no Activity and no JVM, which
+limits it in three ways:
+
+- `SDL_Init` refuses to start until main is marked ready. Tests that start SDL
+  include `tests/sdl_main_ready.h` and call `TEST_SDL_MAIN_READY()`.
+- SDL asks Java for the app name the first time it creates a thread, and
+  crashes when there is none. `android-exec.sh` sets `SDL_APP_NAME`, which SDL
+  reads first.
+- Creating a renderer, starting the event system and `SDL_GetPrefPath` all need
+  the Activity: the first two wait for it forever and the third crashes. Tests
+  that do these are marked with `lba2_test_needs_android_activity()` and show as
+  not run, or skip themselves (`test_getascii`).
+
+**What this adds over the macOS CI job, which is less than it first appears.**
+`macos-latest` is Apple Silicon and `.github/workflows/macos.yml` already runs
+`ctest -L host_quick` plus a verbose `test_numeric_contract` there on every push,
+specifically to report the ARM rounding figures. macOS arm64 and Android arm64
+share the same 53-bit `long double`, so the headline arithmetic question is
+already answered in CI and does not need a device.
+
+What a device still adds:
+
+- **Bionic, not Apple libc.** Same mantissa, different `libm`. Any rounding that
+  comes out of `sin`, `cos` or `pow` rather than out of the ABI can differ
+  between the two and neither host can speak for the other.
+- **`armeabi-v7a`.** 32-bit ARM, different pointer size and alignment rules, and
+  what all current Android TV hardware runs. No Apple target says anything at
+  all about it.
+- **The engine, not just the host tests.** macOS CI runs `tests/`, which is pure
+  computation. `tests/automation/` drives the actual game, and the executable
+  below is the way to run it anywhere ARM.
+
+So read the numeric measurement from the macOS job. Use a device for the three
+things above.
+
+### The engine as a command-line executable
+
+`-DLBA2_ANDROID_EXECUTABLE=ON` builds the Android target as a PIE executable
+instead of the `.so` the Java Activity loads. Run under `adb shell` it has real
+argv, stdout and stderr kept separate, and a real exit code, which is what the
+automation suite in `tests/automation/` reads and what the Activity cannot
+provide. It is a measurement tool, not a shippable artifact.
+
+Give it its own build directory: `scripts/dev/build-android.sh` derives the build
+directory from the ABI alone, so a variant build would otherwise overwrite the
+normal one.
+
+Build it on the null platform. SDL3 cannot work here: even with `--headless` its
+window code creates a renderer, and on Android that waits for the Activity
+(see above). The null platform needs no SDK, draws into its own buffer and stubs
+the Android calls, and the CMake check that keeps it off Android makes an
+exception for this build:
+
+```bash
+cmake -S . -B out/build/android_arm64_cli -G Ninja \
+    -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK/build/cmake/android.toolchain.cmake" \
+    -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=24 -DANDROID_STL=c++_shared \
+    -DCMAKE_BUILD_TYPE=Release -DLBA2_ANDROID_EXECUTABLE=ON \
+    -DPLATFORM_BACKEND=null -DSOUND_BACKEND=null -DCMAKE_DISABLE_FIND_PACKAGE_SDL3=ON
+cmake --build out/build/android_arm64_cli --target lba2cc
+```
+
+With no Activity there is no app storage either: the null platform's
+`Android_GetExternalFilesDir()` answers nothing and its preferences folder
+comes from `HOME`. Automation always sets a user directory, and
+`android-lba2cc.sh` points `HOME` inside its device folder.
+
+### The automation suite on a device
+
+`scripts/dev/android-lba2cc.sh` stands in for the engine binary, so the suite
+runs unchanged:
+
+```bash
+export ANDROID_SERIAL=emulator-5554   # or the phone's serial
+export LBA2_ANDROID_ENGINE=$PWD/out/build/android_arm64_cli/SOURCES/lba2cc
+export LBA2_BIN=$PWD/scripts/dev/android-lba2cc.sh
+export LBA2_GAME_DIR=/path/to/data LBA2_TEST_SAVE=/path/to/save.LBA
+tests/automation/run.sh --no-record -j 4
+```
+
+For each engine run it copies the engine, `libc++_shared.so`, the data folder and
+the save folder to `/data/local/tmp/lba2cc` (each once, until it changes),
+copies the repo and temp paths the arguments name, rewrites those paths for the
+device, runs the engine there and copies what it wrote back, mapping device
+paths in its output back to host paths. Compare the result with the suite on a
+null-platform build on the host, not with an SDL build: fixtures that need keys
+typed into a name editor, an audio device or another window size fail on the
+null platform anywhere.
+
+Limits:
+
+- A path the engine writes into a file keeps its device spelling, so
+  `test_profile_bind`, which reads the game folder a profile stored, fails.
+- Each engine run costs about a second of adb round trips. Fixtures that start
+  hundreds of runs (the ring fixtures) take several times longer than on the
+  host, and under `-j` they can reach their timeout.
+- An `armeabi-v7a` engine needs a physical device (see above).
+
 ## Limitations
 
 - **Software renderer**: The game uses a software 8-bit→ARGB pipeline.
