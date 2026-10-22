@@ -267,7 +267,7 @@ int main(int argc, char *argv[]) {
     if (zbuf_file && PtrZBuffer) {
         FILE *zf = fopen(zbuf_file, "wb");
         if (zf) {
-            fwrite(PtrZBuffer, sizeof(U16), 640 * 480, zf);
+            polyrec_write_zbuf(zf, (const U16 *)PtrZBuffer, 640 * 480);
             fclose(zf);
         }
     }

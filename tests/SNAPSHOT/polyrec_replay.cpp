@@ -15,6 +15,7 @@
 #include <POLYGON/POLY.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/CLIP.H>
+#include <SYSTEM/LE.H>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -97,6 +98,20 @@ typedef struct {
     U32 pos;
 } T_EVENT_READER;
 
+int polyrec_write_zbuf(FILE *f, const U16 *zbuf, U32 count) {
+    U8 chunk[4096];
+    while (count > 0) {
+        U32 n = count < sizeof(chunk) / 2 ? count : (U32)(sizeof(chunk) / 2);
+        for (U32 i = 0; i < n; i++)
+            WriteLE_U16(chunk + i * 2, zbuf[i]);
+        if (fwrite(chunk, 2, n, f) != n)
+            return -1;
+        zbuf += n;
+        count -= n;
+    }
+    return 0;
+}
+
 static U8 read_u8(T_EVENT_READER *r) {
     if (r->pos >= r->size)
         return POLYREC_EVT_EOF;
@@ -107,7 +122,7 @@ static U32 read_u32(T_EVENT_READER *r) {
     U32 v;
     if (r->pos + 4 > r->size)
         return 0;
-    memcpy(&v, r->data + r->pos, 4);
+    v = ReadLE_U32(r->data + r->pos);
     r->pos += 4;
     return v;
 }
@@ -116,7 +131,7 @@ static S32 read_s32(T_EVENT_READER *r) {
     S32 v;
     if (r->pos + 4 > r->size)
         return 0;
-    memcpy(&v, r->data + r->pos, 4);
+    v = ReadLE_S32(r->data + r->pos);
     r->pos += 4;
     return v;
 }
@@ -310,6 +325,7 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
                 if (copy_count > 64)
                     copy_count = 64;
                 memcpy(local_points, points_data, copy_count * 16);
+                polyrec_points_le(local_points, copy_count);
 
                 /* Debug: dump input data before Fill_Poly */
                 if (debug_slopes && (int)draw_count + 1 >= debug_slopes_from && (int)draw_count + 1 <= debug_slopes_to) {
@@ -438,7 +454,7 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
         }
         FILE *zf = fopen(zbuf_file, "wb");
         if (zf) {
-            fwrite(zbuffer, 2, fb_size, zf);
+            polyrec_write_zbuf(zf, zbuffer, fb_size);
             fclose(zf);
         }
     }

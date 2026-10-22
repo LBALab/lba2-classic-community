@@ -279,9 +279,11 @@ Two consequences follow from how the input is captured:
 - **Delta compression trusts the hooks.** State changed by any route that does
   not pass through the hooked setters or is not one of the values polled in
   `check_state_changes()` would not be reflected in the stream.
-- **Fixed format/endianness.** The loader rejects any magic or version other than
-  `LBA2PREC` / `1`. Structs are `#pragma pack(1)` and serialized by raw `memcpy`,
-  so fixtures are little-endian x86 artifacts.
+- **Fixed format.** The loader rejects any magic or version other than
+  `LBA2PREC` / `1`. Every multi-byte field is little-endian, including the
+  `Struc_Point` records in `FILL_POLY` events, whatever CPU wrote the file, so a
+  recording replays on big-endian hosts too. Z-buffer dumps are little-endian
+  `U16`s for the same reason.
 - **Whole-file comparison.** `compare_polyrec.sh` assumes both outputs have the
   same dimensions (true by construction — both replays use the recorded
   `width`/`height`). It has no concept of a sub-rectangle.

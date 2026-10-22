@@ -91,6 +91,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `armeabi-v7a`. The engine runs there as a plain program on the null platform;
   `docs/ANDROID.md` has the commands and the limits
   ([#822](https://github.com/LBALab/lba2-classic-community/pull/822)).
+- Polygon recordings are little-endian whatever processor writes them, so they
+  replay on big-endian processors too, with the same frames as on x86
+  ([#826](https://github.com/LBALab/lba2-classic-community/pull/826)).
 
 ### Contributors
 

@@ -323,6 +323,14 @@ int polyrec_load(const char *filename, T_POLYREC_LOADED *out);
  */
 void polyrec_free(T_POLYREC_LOADED *rec);
 
+/**
+ * Swap count 16-byte Struc_Point records between the file's little-endian order
+ * and the CPU's, in place. A swap undoes itself, so it serves both directions;
+ * on a little-endian CPU it does nothing. FILL_POLY events store their points
+ * little-endian: call this on a copy of them before drawing.
+ */
+void polyrec_points_le(void *points, U32 count);
+
 #ifdef __cplusplus
 }
 #endif
