@@ -18,6 +18,7 @@ bool AudioError() {
 
 #ifdef LBA2_USE_SDL2
 struct AILAudioStream {
+    SDL_AudioStream *input;
     SDL_AudioStream *converter;
     AILAudioCallback callback;
     void *userdata;
@@ -26,6 +27,7 @@ struct AILAudioStream {
     float gain;
     double pendingFrames;
     bool flushed;
+    bool converterFlushed;
     bool paused;
     AILAudioStream *next;
 };
@@ -36,8 +38,43 @@ SDL_AudioDeviceID s_device = 0;
 SDL_mutex *s_mutex = NULL;
 AILAudioStream *s_streams = NULL;
 
+bool ConvertInput(AILAudioStream *stream, int bytes) {
+    Uint8 input[8192];
+    const int frames = (int)(((Sint64)stream->sourceRate * 1024 + OUTPUT_RATE - 1) / OUTPUT_RATE);
+    const int capacity = SDL_min(frames, (int)sizeof(input) / stream->sourceBytesPerFrame) *
+                         stream->sourceBytesPerFrame;
+    for (;;) {
+        const int available = SDL_AudioStreamAvailable(stream->converter);
+        const int queued = SDL_AudioStreamAvailable(stream->input);
+        if (available < 0 || queued < 0)
+            return AudioError();
+        if (queued == 0) {
+            if (stream->flushed && !stream->converterFlushed) {
+                if (SDL_AudioStreamFlush(stream->converter) < 0)
+                    return AudioError();
+                stream->converterFlushed = true;
+            }
+            return true;
+        }
+        if (available >= bytes)
+            return true;
+        const int chunk = queued < capacity ? queued : capacity;
+        const int received = SDL_AudioStreamGet(stream->input, input, chunk);
+        if (received < 0)
+            return AudioError();
+        if (received == 0) {
+            SDL_SetError("Queued audio input made no progress");
+            return AudioError();
+        }
+        if (SDL_AudioStreamPut(stream->converter, input, received) < 0)
+            return AudioError();
+    }
+}
+
 void Read(AILAudioStream *stream, Uint8 *output, int bytes) {
     SDL_memset(output, 0, (size_t)bytes);
+    if (!ConvertInput(stream, bytes))
+        return;
     const int available = SDL_AudioStreamAvailable(stream->converter);
     if (available < 0) {
         AudioError();
@@ -48,6 +85,8 @@ void Read(AILAudioStream *stream, Uint8 *output, int bytes) {
                                      stream->sourceRate / OUTPUT_RATE);
         stream->callback(stream->userdata, stream, frames * stream->sourceBytesPerFrame,
                          frames * stream->sourceBytesPerFrame);
+        if (!ConvertInput(stream, bytes))
+            return;
     }
     const int received = SDL_AudioStreamGet(stream->converter, output, bytes);
     if (received < 0)
@@ -55,7 +94,8 @@ void Read(AILAudioStream *stream, Uint8 *output, int bytes) {
     else {
         stream->pendingFrames -= (double)received / (2 * sizeof(float)) * stream->sourceRate / OUTPUT_RATE;
         if (stream->pendingFrames < 0 ||
-            (stream->flushed && SDL_AudioStreamAvailable(stream->converter) == 0))
+            (stream->flushed && SDL_AudioStreamAvailable(stream->input) == 0 &&
+             SDL_AudioStreamAvailable(stream->converter) == 0))
             stream->pendingFrames = 0;
         float *samples = (float *)output;
         for (int i = 0; i < received / (int)sizeof(float); ++i)
@@ -123,17 +163,23 @@ AILAudioStream *AILAudio_Open(const SDL_AudioSpec *spec, AILAudioCallback callba
     }
     stream->converter = SDL_NewAudioStream(spec->format, spec->channels, spec->freq,
                                            AUDIO_F32SYS, 2, OUTPUT_RATE);
+    /* An identity stream copies source PCM without converting a whole music
+       track while the control thread holds the device mutex. */
+    stream->input = SDL_NewAudioStream(spec->format, spec->channels, spec->freq,
+                                       spec->format, spec->channels, spec->freq);
     stream->sourceRate = spec->freq;
     stream->sourceBytesPerFrame = SDL_AUDIO_BITSIZE(spec->format) / 8 * spec->channels;
     stream->gain = 1.0f;
     stream->callback = callback;
     stream->userdata = userdata;
     stream->paused = true;
-    if (!stream->converter || !OpenDevice()) {
-        if (!stream->converter)
+    if (!stream->converter || !stream->input || !OpenDevice()) {
+        if (!stream->converter || !stream->input)
             AudioError();
         if (stream->converter)
             SDL_FreeAudioStream(stream->converter);
+        if (stream->input)
+            SDL_FreeAudioStream(stream->input);
         SDL_free(stream);
         return NULL;
     }
@@ -153,6 +199,7 @@ void AILAudio_Destroy(AILAudioStream *stream) {
     if (*link)
         *link = stream->next;
     SDL_FreeAudioStream(stream->converter);
+    SDL_FreeAudioStream(stream->input);
     SDL_free(stream);
     const bool empty = s_streams == NULL;
     SDL_UnlockMutex(s_mutex);
@@ -167,19 +214,26 @@ void AILAudio_Lock(AILAudioStream *) { SDL_LockMutex(s_mutex); }
 void AILAudio_Unlock(AILAudioStream *) { SDL_UnlockMutex(s_mutex); }
 bool AILAudio_Put(AILAudioStream *stream, const void *data, int bytes) {
     AILAudio_Lock(stream);
-    const int result = SDL_AudioStreamPut(stream->converter, data, bytes);
+    const int result = SDL_AudioStreamPut(stream->input, data, bytes);
     if (result == 0) {
         stream->pendingFrames += (double)bytes / stream->sourceBytesPerFrame;
         stream->flushed = false;
+        stream->converterFlushed = false;
     }
     AILAudio_Unlock(stream);
     return result == 0 || AudioError();
 }
 bool AILAudio_Flush(AILAudioStream *stream) {
     AILAudio_Lock(stream);
-    const int result = SDL_AudioStreamFlush(stream->converter);
-    if (result == 0)
-        stream->flushed = true;
+    stream->flushed = true;
+    int result = 0;
+    const int queued = SDL_AudioStreamAvailable(stream->input);
+    if (queued < 0)
+        result = -1;
+    else if (queued == 0) {
+        result = SDL_AudioStreamFlush(stream->converter);
+        stream->converterFlushed = result == 0;
+    }
     AILAudio_Unlock(stream);
     return result == 0 || AudioError();
 }
@@ -234,6 +288,12 @@ void AILAudio_TestRead(AILAudioStream *stream, float *output, int samples) {
 }
 void AILAudio_TestMix(float *output, int samples) {
     Mix(NULL, (Uint8 *)output, samples * (int)sizeof(float));
+}
+int AILAudio_TestConvertedBytes(AILAudioStream *stream) {
+    AILAudio_Lock(stream);
+    const int bytes = SDL_AudioStreamAvailable(stream->converter);
+    AILAudio_Unlock(stream);
+    return bytes;
 }
 #endif
 

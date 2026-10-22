@@ -27,4 +27,5 @@ bool AILAudio_LoadWAVMemory(const void *data, int bytes, SDL_AudioSpec *spec, Ui
 #if defined(LBA2_USE_SDL2) && defined(LBA2_AUDIO_TESTS)
 void AILAudio_TestRead(AILAudioStream *stream, float *output, int samples);
 void AILAudio_TestMix(float *output, int samples);
+int AILAudio_TestConvertedBytes(AILAudioStream *stream);
 #endif

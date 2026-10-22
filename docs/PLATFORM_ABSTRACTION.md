@@ -1,6 +1,6 @@
 # Platform abstraction layer
 
-The platform abstraction layer (PAL) separates live engine and game code from SDL. SDL3 is the default interactive implementation; SDL2 is an optional desktop implementation with audio; the null implementation provides SDK-free offscreen presentation for desktop automation. The boundary covers window/presentation, events, keyboard/gamepad/touch input, clocks, host paths, dialogs, clipboard, and diagnostics. Android requires SDL3, and native Android context stays private to that backend. Audio keeps its existing, independent AIL backend contract.
+The platform abstraction layer (PAL) separates live engine and game code from SDL. SDL3 is the default interactive implementation; SDL2 supports desktop, Switch and Vita with audio; the null implementation provides SDK-free offscreen presentation for desktop automation. The boundary covers window/presentation, events, keyboard/gamepad/touch input, clocks, host paths, dialogs, clipboard, and diagnostics. Android requires SDL3, and native Android context stays private to that backend. Audio keeps its existing, independent AIL backend contract.
 
 This implements the platform-decoupling and headless-backend parts of [discussion #120](https://github.com/LBALab/lba2-classic-community/discussions/120), without the proposed directory-wide restructure, hardware renderer, or main-loop inversion. The preceding audit remains in [the PAL extraction plan](plan/PLATFORM_PAL_PLAN.md); this document describes shipped code.
 
@@ -15,7 +15,9 @@ This implements the platform-decoupling and headless-backend parts of [discussio
 | `window` | Surface lifetime, logical/window/display dimensions, coordinate mapping, fullscreen/vsync/present filter/relative mouse/mouse grab, indexed-frame presentation |
 | `input` | Physical-key snapshot, layout-aware keycodes/names/modifiers, text input/cursor, gamepad lifetime and sampling |
 | `host` | Executable/current/preference/home paths, directory operations, message boxes, asynchronous folder requests, clipboard, allocator pairing |
-| `capabilities` | Meaningful windowed mode, temporary loss of a native window, touch-overlay support |
+| `capabilities` | Meaningful windowed mode, temporary loss of a native window, touch-overlay support, gameplay touch recentering |
+
+Finger events distinguish direct screen input from indirect devices such as Vita's rear panel. Vita advertises gameplay touch recentering without enabling the Android overlay; other backends leave this shortcut disabled.
 
 [The platform CMake file](../LIB386/PLATFORM/CMakeLists.txt) selects exactly one implementation at build time:
 
@@ -46,7 +48,7 @@ SDL package discovery is disabled in the Linux SDK-free CI job, which builds the
 
 ## SDL2 desktop backend
 
-The [SDL2 backend](../LIB386/PLATFORM/SDL2/BACKEND.CPP) implements the same contract without linking SDL3. Its minimum SDK version is specified by `find_package` in [the platform CMake file](../LIB386/PLATFORM/CMakeLists.txt); driver hints require that floor. SDL3 remains the default and the only Android implementation.
+The [SDL2 backend](../LIB386/PLATFORM/SDL2/BACKEND.CPP) implements the same contract without linking SDL3. Its minimum SDK version is specified by `find_package` in [the platform CMake file](../LIB386/PLATFORM/CMakeLists.txt); it selects the integer-phase resampler required by bounded audio conversion, not just the driver-hint APIs. See [the audio transport contract](AUDIO.md#sdl2-and-sdl3-output-transport) for the failure in older SDL and the byte-equivalence checks this preserves. SDL3 remains the default and the only Android implementation.
 
 ```bash
 cmake -S . -B build-sdl2 -DPLATFORM_BACKEND=sdl2 -DSOUND_BACKEND=sdl \
@@ -73,6 +75,10 @@ The independent Linux SDL2 CI job builds genuine upstream SDL2 at the supported 
 The Switch homebrew preset reuses SDL2 with a native C bridge for SD-card roots, output dimensions and libnx application-error dialogs. It selects static portlibs and a Switch entry point that registers teardown for `exit()` as well as normal returns. The backend advertises fullscreen-only operation; GLES2 scales the unchanged software framebuffer to handheld/docked output. Device roots such as `sdmc:/` are preserved during parent-directory creation. SDL's desktop filesystem helpers are not used on Switch because the pinned portlibs disable them.
 
 See [SWITCH.md](SWITCH.md) for the Docker build, fixed installation and writable paths, supported scope and required hardware checks. SDL3 remains the desktop default and the Android backend.
+
+### PlayStation Vita SDL2 target
+
+The Vita homebrew preset also reuses SDL2. Its entry and host helpers provide `app0:/` executable and `ux0:/data/` writable/data roots, with fullscreen-only GXM presentation at 960x544. SDK-free helpers and the existing SDL2 message-box implementation suffice; no native SDK type enters the PAL. See [VITA.md](VITA.md) for the GXM-only Docker build, VPK, handheld binding defaults, FTP deployment and pending hardware checks.
 
 ## Dependency direction
 
@@ -169,6 +175,7 @@ Audio mixing remains AIL-owned. The software rasteriser and ASM-equivalence math
 | `test_platform_sdl3_staging` | The same conformance checks compiled with the persistent-buffer/upload path, including frame resizing |
 | `test_platform_sdl2` | Desktop SDL2 event payloads and borrowed text, unmodified mouse/finger coordinates, controller instance IDs and sampling, fullscreen rollback, host services/errors, diagnostics, lifecycle and byte-exact real-renderer frames |
 | `test_switch_host` | Switch C bridge against a native-service stub: fixed SD-card paths, handheld/docked dimensions, exact dialog contents and propagation of create/show/oversize failures; not a native applet or GPU test |
+| `test_vita_host` | Vita installation/user roots, default data path versus an explicit override, native output dimensions, GXM hint and failure propagation; not a native GPU test |
 | `test_platform_callbacks` | Every callback on the selected production backend is non-null; named-field checks are generated from the public contract, and each deliberately omitted callback is detected |
 | `test_sdl_audio` | Simultaneous sample/music/video transports, queued source bytes, gain, pause and WAV loading on either SDK; SDL2 additionally compares full converted output against an independent native converter over deterministic random inputs and checks mixing, EOF, independent stream lifetime and recursive callback locking |
 | `test_sdl_audio_device` | SDL2 production callback/device consumption with dummy audio, without deterministic-read probes |

@@ -3,6 +3,7 @@
 #include <string.h> // memcpy
 
 #include <SYSTEM/INPUT.H>         // DefineInputKeys
+#include <SYSTEM/KEYBOARD.H>      // CheckKey
 #include <SYSTEM/KEYBOARD_KEYS.H> // K_*
 
 // The 1997 source carried two default layouts, DefKeysDefault for DOS and this
@@ -68,20 +69,33 @@ static U32 CombinedInputMasks[INPUT_TABLE_SLOTS * 4];
 T_DEF_KEY GamepadKeys[MAX_INPUT_SLOTS];
 
 const T_DEF_KEY GamepadKeysDefault[MAX_INPUT_SLOTS] = {
-    {K_GAMEPAD_RTRIGGER, 0},                         // 0  I_UP
-    {K_GAMEPAD_LTRIGGER, 0},                         // 1  I_DOWN
-    {K_GAMEPAD_LSTICK_LEFT, 0},                      // 2  I_LEFT
-    {K_GAMEPAD_LSTICK_RIGHT, 0},                     // 3  I_RIGHT
-    {K_GAMEPAD_RSHOULDER, 0},                        // 4  I_THROW
-    {K_GAMEPAD_LSHOULDER, 0},                        // 5  I_COMPORTEMENT
-    {K_GAMEPAD_Y, 0},                                // 6  I_INVENTORY
-    {K_GAMEPAD_X, 0},                                // 7  I_ACTION_M
-    {K_GAMEPAD_A, 0},                                // 8  I_ACTION_ALWAYS
-    {K_GAMEPAD_B, 0},                                // 9  I_RETURN
-    {K_GAMEPAD_START, 0},                            // 10 I_MENUS
-    {K_GAMEPAD_BACK, 0},                             // 11 I_HOLOMAP
-    {0, 0},                                          // 12 I_PAUSE (unbound; Start opens the in-game menu)
-    {K_GAMEPAD_LSTICK_BTN, K_GAMEPAD_RSTICK_BTN},    // 13 I_ESQUIVE
+#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+    {K_GAMEPAD_LSTICK_UP, 0},   // 0  I_UP
+    {K_GAMEPAD_LSTICK_DOWN, 0}, // 1  I_DOWN
+#else
+    {K_GAMEPAD_RTRIGGER, 0}, // 0  I_UP
+    {K_GAMEPAD_LTRIGGER, 0}, // 1  I_DOWN
+#endif
+    {K_GAMEPAD_LSTICK_LEFT, 0},  // 2  I_LEFT
+    {K_GAMEPAD_LSTICK_RIGHT, 0}, // 3  I_RIGHT
+    {K_GAMEPAD_RSHOULDER, 0},    // 4  I_THROW
+    {K_GAMEPAD_LSHOULDER, 0},    // 5  I_COMPORTEMENT
+    {K_GAMEPAD_Y, 0},            // 6  I_INVENTORY
+    {K_GAMEPAD_X, 0},            // 7  I_ACTION_M
+    {K_GAMEPAD_A, 0},            // 8  I_ACTION_ALWAYS
+#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+    {0, 0}, // 9  I_RETURN (front-screen tap)
+#else
+    {K_GAMEPAD_B, 0}, // 9  I_RETURN
+#endif
+    {K_GAMEPAD_START, 0}, // 10 I_MENUS
+    {K_GAMEPAD_BACK, 0},  // 11 I_HOLOMAP
+    {0, 0},               // 12 I_PAUSE (unbound; Start opens the in-game menu)
+#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+    {K_GAMEPAD_B, 0}, // 13 I_ESQUIVE
+#else
+    {K_GAMEPAD_LSTICK_BTN, K_GAMEPAD_RSTICK_BTN}, // 13 I_ESQUIVE
+#endif
     {0, 0},                                          // 14 I_NORMAL
     {0, 0},                                          // 15 I_SPORTIF
     {0, 0},                                          // 16 I_AGRESSIF
@@ -108,6 +122,27 @@ const T_DEF_KEY GamepadKeysDefault[MAX_INPUT_SLOTS] = {
 
 U32 NbInput = MAX_INPUT_SLOTS;
 
+#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+static S32 s_modalCircle = 1;
+#else
+static S32 s_modalCircle = 0;
+#endif
+static S32 s_gameplay = 0;
+static S32 s_circleSuppressed = 0;
+
+U32 Bindings_GetContext(void) {
+    return (s_modalCircle ? BINDINGS_CONTEXT_MODAL_CIRCLE : 0) |
+           (s_gameplay ? BINDINGS_CONTEXT_GAMEPLAY : 0) |
+           (s_circleSuppressed ? BINDINGS_CONTEXT_CIRCLE_SUPPRESSED : 0);
+}
+
+void Bindings_SetContext(U32 context) {
+    s_modalCircle = (context & BINDINGS_CONTEXT_MODAL_CIRCLE) != 0;
+    s_gameplay = (context & BINDINGS_CONTEXT_GAMEPLAY) != 0;
+    s_circleSuppressed = (context & BINDINGS_CONTEXT_CIRCLE_SUPPRESSED) != 0;
+    InitInput();
+}
+
 //-------------------------------------------------------------------------
 void InitInput(void) {
     // Rebuild the combined table from the current keyboard (DefKeys) and gamepad
@@ -125,11 +160,37 @@ void InitInput(void) {
         CombinedInputMasks[n++] = mask;
         CombinedInputKeys[n] = GamepadKeys[i].Key2;
         CombinedInputMasks[n++] = mask;
+        /* An action remap must not turn a held modal press into a new action. */
+        if (s_modalCircle && i == 13) {
+            for (S32 key = n - 2; key < n; ++key)
+                if (CombinedInputKeys[key] == K_GAMEPAD_B) {
+                    if (s_circleSuppressed)
+                        CombinedInputMasks[key] = 0;
+                    else if (!s_gameplay)
+                        CombinedInputMasks[key] = 1u << 9;
+                }
+        }
     }
 
     NbInput = (U32)n;
 
     DefineInputKeys(n, CombinedInputKeys, CombinedInputMasks);
+}
+
+void Bindings_SetGameplay(S32 gameplay) {
+    if (!s_modalCircle)
+        return;
+    gameplay = gameplay != 0;
+    S32 suppressed = s_circleSuppressed;
+    if (!CheckKey(K_GAMEPAD_B))
+        suppressed = 0;
+    else if (s_gameplay != gameplay)
+        suppressed = 1;
+    if (s_gameplay != gameplay || s_circleSuppressed != suppressed) {
+        s_gameplay = gameplay;
+        s_circleSuppressed = suppressed;
+        InitInput();
+    }
 }
 
 //-------------------------------------------------------------------------

@@ -105,6 +105,8 @@ extern void ReadInputConfig(void);
 extern void WriteInputConfig(void);
 //-------------------------------------------------------------------------
 extern void MyGetInput(void);
+/* Main-loop sample; modal interfaces keep their own input context. */
+extern void MyGetGameplayInput(void);
 //-------------------------------------------------------------------------
 extern void WaitNoInput(void);
 /* Drain only UI directions without charging their release time to gameplay. */

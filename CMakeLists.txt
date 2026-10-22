@@ -62,6 +62,11 @@ option(LBA2_BUILD_ASM_EQUIV_TESTS "Build ASM↔CPP equivalence tests (requires o
 # a player's build. Idle, it is a flag test per draw call: 2400 headless ticks took the same
 # 4.6 s with it and without on an Apple Silicon Mac.
 option(ENABLE_POLY_RECORDING "Enable polygon call recording for ASM-vs-CPP testing" ${LBA2_BUILD_TESTS})
+option(LBA2_GAMEPAD_STICK_LAYOUT "Default to left-stick movement and east-button dodge (controllers without triggers or stick clicks)" OFF)
+option(LBA2_VITA_DIAGNOSTICS "Capture early Vita boot/stdout/stderr locally and enable optional DEBUGNET" OFF)
+if(LBA2_VITA_DIAGNOSTICS AND NOT VITA)
+    message(FATAL_ERROR "LBA2_VITA_DIAGNOSTICS requires the Vita toolchain.")
+endif()
 
 # Debug tools (original Adeline developer debug features)
 option(DEBUG_TOOLS "Enable developer debug tools (collision viz, benchmarks, bug saves)" OFF)
@@ -76,6 +81,20 @@ endif()
 option(LBA2_CONTROL_SERVER "Enable the --listen console command socket (debug builds only)" OFF)
 if(LBA2_CONTROL_SERVER)
     add_compile_definitions(LBA2_CONTROL_SERVER=1)
+endif()
+
+# Build the Android target as a command-line executable rather than the .so the
+# Java Activity loads. There is no Activity in that shape, so no argv comes from
+# an intent and no stdout is swallowed: `adb shell` hands back real arguments,
+# separated stdout and stderr, and a real exit code, which is what the
+# automation suite reads. It is for measuring ARM behaviour on a device and is
+# not a shippable artifact, and needs the null platform (see LIB386/PLATFORM).
+# See scripts/dev/android-lba2cc.sh and docs/ANDROID.md.
+option(LBA2_ANDROID_EXECUTABLE "Build the Android engine as a CLI executable for on-device automation" OFF)
+if(LBA2_ANDROID_EXECUTABLE)
+    if(NOT ANDROID)
+        message(FATAL_ERROR "LBA2_ANDROID_EXECUTABLE only means anything in an Android build")
+    endif()
 endif()
 
 # The 1997 playable demo. A separate SKU, not a mode: the demo build has three
@@ -144,6 +163,18 @@ if(NOT MSVC)
     add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-fno-strict-aliasing>)
 endif()
 
+# No fused multiply-add. Where long double is not the x87's, the float 3D
+# routines round with an inline add of 1.5 * 2^52 (LIB386/H/3D/X87REAL.H), and
+# GCC's default -ffp-contract=fast fuses a projection's multiply into that add:
+# one rounding instead of two, which moves exact half-pixel ties. Clang only
+# contracts inside one expression, but takes the same flag. It is set for every
+# target, not only the 3D library, because GCC applies the caller's setting to
+# code it inlines at the LTO link: with the flag on the library alone, a
+# projection inlined into another file fused again.
+if(NOT MSVC)
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-ffp-contract=off>)
+endif()
+
 if(LBA2_NATIVE_ARCH)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64|i[3-6]86")
         add_compile_options(-march=native)
@@ -159,6 +190,14 @@ if(NINTENDO_SWITCH)
     endif()
     if(ENABLE_ASM OR LBA2_NATIVE_ARCH OR LBA2_BUILD_TESTS OR LBA2_CONTROL_SERVER)
         message(FATAL_ERROR "Nintendo Switch does not support x86 ASM, native-host tuning, desktop test executables or the control server.")
+    endif()
+endif()
+if(VITA)
+    if(NOT PLATFORM_BACKEND STREQUAL "sdl2" OR NOT LBA2_LINK_STATIC)
+        message(FATAL_ERROR "PlayStation Vita requires PLATFORM_BACKEND=sdl2 and LBA2_LINK_STATIC=ON. Use the vita preset.")
+    endif()
+    if(ENABLE_ASM OR LBA2_NATIVE_ARCH OR LBA2_BUILD_TESTS OR LBA2_CONTROL_SERVER)
+        message(FATAL_ERROR "PlayStation Vita does not support x86 ASM, native-host tuning, desktop test executables or the control server.")
     endif()
 endif()
 add_subdirectory(LIB386/PLATFORM)
@@ -209,10 +248,9 @@ configure_file(${CMAKE_SOURCE_DIR}/packaging/appimage_env.sh.in
 # the binary on Windows builds via SOURCES/CMakeLists.txt; harmlessly
 # generated and ignored on non-Windows.
 #
-# Configure-time substitution: re-run cmake to refresh after VERSION or
-# git dirty-state changes. Release builds (CI on tag) run on fresh
-# checkouts so this is invisible there; for local dev it just means a
-# stale "Properties → Version" until reconfigure.
+# VERSION changes refresh configure-time package metadata automatically.
+# Git dirty-state changes still need a reconfigure for this metadata.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/VERSION")
 file(READ "${CMAKE_SOURCE_DIR}/VERSION" _LBA2_VER_RAW)
 string(STRIP "${_LBA2_VER_RAW}" LBA2_VERSION_STRING_CONFIG)
 if(GIT_EXECUTABLE AND EXISTS "${CMAKE_SOURCE_DIR}/.git"

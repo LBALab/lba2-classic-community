@@ -495,6 +495,9 @@ static void test_directory_parent_prefixes() {
         {"\\\\server\\share\\\\profile\\saves\\", true, "\\\\server\\share", "\\\\server\\share\\\\profile", "\\\\server\\share\\\\profile\\saves"},
         {"sdmc:/switch/lba2cc", false, "sdmc:/", "sdmc:/switch", "sdmc:/switch/lba2cc", true},
         {"sdmc:/", false, "sdmc:/", NULL, NULL, true},
+        {"ux0:/data/lba2cc", false, "ux0:/", "ux0:/data", "ux0:/data/lba2cc", true},
+        {"ux0:/", false, "ux0:/", NULL, NULL, true},
+        {"app0:/", false, "app0:/", NULL, NULL, true},
         {"sdmc://switch//lba2cc/", false, "sdmc:/", "sdmc://switch", "sdmc://switch//lba2cc", true},
         {"romfs:/data", false, "romfs:/", "romfs:/data", NULL, true},
         {"/switch/lba2cc", false, "/", "/switch", "/switch/lba2cc", true},
@@ -518,6 +521,26 @@ static void test_directory_parent_prefixes() {
                 ASSERT_TRUE(prefixes[1] == fixture.second);
         }
     }
+}
+
+static int protectedMkdirCalls;
+static int protected_directory_mkdir(const char *) {
+    ++protectedMkdirCalls;
+    errno = EACCES;
+    return -1;
+}
+
+static void test_existing_directory_needs_no_create_permission() {
+    char folder[128];
+    snprintf(folder, sizeof(folder), "sdl2-protected-%llu", (unsigned long long)SDL_GetPerformanceCounter());
+    ASSERT_TRUE(g_platform.host.create_directory(folder));
+    protectedMkdirCalls = 0;
+    SDL2_SetMkdirProbe(protected_directory_mkdir);
+    const bool ok = g_platform.host.create_directory(folder);
+    SDL2_SetMkdirProbe(NULL);
+    ASSERT_TRUE(ok);
+    ASSERT_EQ_INT(0, protectedMkdirCalls);
+    ASSERT_TRUE(g_platform.host.remove_path(folder));
 }
 
 static void test_host_services_and_diagnostics() {
@@ -609,6 +632,7 @@ int main() {
     RUN_TEST(test_keyboard_and_gamepad_instance_ids);
     RUN_TEST(test_translated_event_union_bytes);
     RUN_TEST(test_directory_parent_prefixes);
+    RUN_TEST(test_existing_directory_needs_no_create_permission);
     RUN_TEST(test_host_services_and_diagnostics);
     g_platform.events.shutdown();
     ASSERT_EQ_UINT(0, SDL_WasInit(SDL_INIT_EVENTS));

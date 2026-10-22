@@ -1,10 +1,13 @@
+#include "../sdl_main_ready.h"
 #include "../test_harness.h"
 #include "../../LIB386/AIL/SDL/SDK.H"
+#include "../../LIB386/AIL/SDL/STREAM_SDL.H"
 #include <AIL/COMMON.H>
 #include <AIL/STREAM.H>
 #include <AIL/VIDEO_AUDIO.H>
 #include <SYSTEM/CRASH.H>
 #include <string.h>
+#include <vector>
 
 /* Playback is tested without installing the process-wide crash handler. */
 void Crash_PrepareThread(void) {}
@@ -46,6 +49,50 @@ static void test_enabled_audio_and_real_errors() {
     PlayStream(wavPath);
     ASSERT_TRUE(strcmp(StreamName(), wavPath) == 0);
     StopStream();
+    char largePath[] = TEST_TMP_DIR "/audio-playback-large.wav";
+    std::vector<unsigned char> large(44 + 4 * 1024 * 1024, 128);
+    const unsigned char header[] = {
+        'R', 'I', 'F', 'F', 36, 0, 64, 0, 'W', 'A', 'V', 'E',
+        'f', 'm', 't', ' ', 16, 0, 0, 0, 1, 0, 1, 0, 0x22, 0x56, 0, 0,
+        0x22, 0x56, 0, 0, 1, 0, 8, 0, 'd', 'a', 't', 'a', 0, 0, 64, 0};
+    memcpy(&large[0], header, sizeof(header));
+    FILE *file = fopen(largePath, "wb");
+    ASSERT_TRUE(file != NULL);
+    if (file) {
+        ASSERT_EQ_INT((int)large.size(), (int)fwrite(&large[0], 1, large.size(), file));
+        fclose(file);
+        PlayStream(largePath);
+        ASSERT_TRUE(IsStreamPlaying());
+        ASSERT_TRUE(Stream_TestQueuedBytes() <= 65536);
+        PauseStream();
+        Uint32 filling = (Uint32)SDL_GetTicks();
+        while (Stream_TestQueuedBytes() <= 65536 - 2048 &&
+               (Uint32)SDL_GetTicks() - filling < 2000)
+            SDL_Delay(2);
+        int queued = Stream_TestQueuedBytes();
+        ASSERT_TRUE(queued > 65536 - 2048 && queued <= 65536);
+        ResumeStreamOutput();
+        SDL_Delay(40);
+        ASSERT_EQ_INT(queued, Stream_TestQueuedBytes());
+        ASSERT_EQ_INT(0, IsStreamPlaying());
+        ResumeStream();
+        ASSERT_TRUE(IsStreamPlaying());
+        PauseStream();
+        PlayStream(wavPath);
+        ResumeStream();
+        ASSERT_TRUE(strcmp(StreamName(), largePath) == 0);
+        ASSERT_TRUE(IsStreamPlaying());
+        PauseStream();
+        Uint32 stopped = (Uint32)SDL_GetTicks();
+        StopStream();
+        ASSERT_TRUE((Uint32)SDL_GetTicks() - stopped < 500);
+        remove(largePath);
+    }
+    PlayStream(wavPath);
+    Uint32 playing = (Uint32)SDL_GetTicks();
+    while (IsStreamPlaying() && (Uint32)SDL_GetTicks() - playing < 2000)
+        SDL_Delay(2);
+    ASSERT_EQ_INT(0, IsStreamPlaying());
     ASSERT_EQ_INT(1, StartVideoAudio(22050, 1, 0));
     StopVideoAudio();
     ASSERT_EQ_INT(0, logCalls);
@@ -57,6 +104,7 @@ static void test_enabled_audio_and_real_errors() {
 }
 
 int main() {
+    TEST_SDL_MAIN_READY();
 #ifdef LBA2_USE_SDL2
     SDL_SetMainReady();
 #endif

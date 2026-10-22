@@ -94,6 +94,27 @@ S32 RecFmt_ParseBindings(const char *hdr, const char *key, T_DEF_KEY *tab, S32 s
 }
 
 //-------------------------------------------------------------------------
+S32 RecFmt_ReadBindingContext(const char *hdr, U32 *out) {
+    const char *p = field(hdr, "bindings.context=");
+    if (p == NULL)
+        return 0;
+    if (out == NULL || *p < '0' || *p > '9')
+        return -1;
+    U32 value = 0;
+    while (*p >= '0' && *p <= '9') {
+        value = value * 10 + (U32)(*p++ - '0');
+        if (value > BINDINGS_CONTEXT_MASK)
+            return -1;
+    }
+    if (*p == '\r')
+        ++p;
+    if (*p && *p != '\n')
+        return -1;
+    *out = value;
+    return 1;
+}
+
+//-------------------------------------------------------------------------
 S32 RecFmt_ReadU32(const char *hdr, const char *key, U32 *out) {
     const char *p = field(hdr, key);
     unsigned v = 0;

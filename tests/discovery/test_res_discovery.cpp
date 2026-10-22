@@ -33,7 +33,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
+extern "C" const unsigned char g_embeddedLba2CfgBytes[];
 extern "C" const U32 g_embeddedLba2CfgBytesSize;
 extern "C" int WriteEmbeddedDefaultLba2Cfg(const char *destPath);
 
@@ -688,6 +690,11 @@ static bool test_sibling_scan_is_not_user_input() {
 }
 
 static bool test_embedded_cfg_write() {
+    const std::string contents((const char *)g_embeddedLba2CfgBytes, g_embeddedLba2CfgBytesSize);
+    if (contents.find("GamepadDeadzone:") != std::string::npos) {
+        printf("FAIL embedded config: explicit deadzone overrides the platform default\n");
+        return false;
+    }
 #ifndef _WIN32
     char dir[] = "/tmp/lba2emb_XXXXXX";
     if (mkdtemp(dir) == NULL) {

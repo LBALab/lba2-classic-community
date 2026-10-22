@@ -465,6 +465,18 @@ extern "C" S32 DiscImage_Read(S32 handle, void *buffer, U32 maxBytes) {
     return got;
 }
 
+extern "C" iso9660_t *DiscImage_OpenIndependent(const char *filename, U32 *lba, U32 *size) {
+    char path[ADELINE_MAX_PATH];
+    if (!g_iso || !filename || !lba || !size || !MapToImagePath(filename, path, sizeof(path)))
+        return NULL;
+    if (iso_stat(g_iso, path, lba, size) != 0)
+        return NULL;
+    iso9660_t *reader = iso_open_ex(g_imagePath, 1);
+    if (!reader)
+        Log_Error("DISCIMG: unable to open independent reader for %s", g_imagePath);
+    return reader;
+}
+
 //──────────────────────────────────────────────────────────────────────────
 extern "C" S32 DiscImage_Seek(S32 handle, S32 offset, S32 origin) {
     DiscHandle *h = HandleSlot(handle);

@@ -1,4 +1,4 @@
-/* The arithmetic a recording is replayed against: LIB386/3D's long double paths.
+/* The arithmetic a recording is replayed against: LIB386/3D's float paths.
  *
  * A `.rec` header declares `numeric.long_double_bits` so that a replay on a host
  * whose arithmetic differs opens by saying so (docs/RECORDING.md). Until this
@@ -17,7 +17,7 @@
  *   LDBL_MANT_DIG == 64 (x86-64, where every committed baseline was made)
  *       Asserts the committed vector. This is the regression net.
  *
- *   Anything else (ARM: macOS, Android, where long double is a plain double)
+ *   Anything else (ARM, PowerPC: the routines compute in double, 3D/X87REAL.H)
  *       Reports each value against the vector and the largest difference, and
  *       asserts only the properties that hold on any host. It does not assert
  *       the vector, because inventing a precision contract for a platform nobody

@@ -11,7 +11,18 @@ set(_PLATFORM_FACADES
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOGPRINT.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SVGA/SDL.CPP
     ${CMAKE_SOURCE_DIR}/SOURCES/JOYSTICK.CPP
+    ${CMAKE_SOURCE_DIR}/SOURCES/INPUT_BINDINGS.CPP
     ${CMAKE_SOURCE_DIR}/SOURCES/TOUCH_INPUT.CPP)
+
+# Vita's newlib and Linux libc both provide the cookie-stream API.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(test_vita_diagnostics test_vita_diagnostics.cpp
+        ${CMAKE_SOURCE_DIR}/LIB386/PLATFORM/SDL2/VITA_LOG.CPP)
+    target_include_directories(test_vita_diagnostics PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vita_stub)
+    set_target_properties(test_vita_diagnostics PROPERTIES CXX_STANDARD 11)
+    add_test(NAME test_vita_diagnostics COMMAND test_vita_diagnostics)
+    register_host_test(test_vita_diagnostics)
+endif()
 
 add_library(test_platform_header_cpp98 OBJECT test_platform_header_cpp98.cpp)
 target_include_directories(test_platform_header_cpp98 PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
@@ -44,20 +55,25 @@ set_target_properties(test_platform_callbacks PROPERTIES CXX_STANDARD 11)
 add_test(NAME test_platform_callbacks COMMAND test_platform_callbacks)
 register_host_test(test_platform_callbacks)
 
-add_executable(test_platform_contract
-    test_platform_contract.cpp
-    test_platform_header.c
-    $<TARGET_OBJECTS:test_platform_header_cpp98>
-    ${CMAKE_SOURCE_DIR}/LIB386/PLATFORM/PLATFORM.CPP
-    ${_PLATFORM_FACADES})
-target_include_directories(test_platform_contract PRIVATE
-    ${CMAKE_SOURCE_DIR}/LIB386/H
-    ${CMAKE_SOURCE_DIR}/SOURCES)
-target_compile_definitions(test_platform_contract PRIVATE LBA_LOG_NO_PLATFORM)
-set_target_properties(test_platform_contract PROPERTIES CXX_STANDARD 11 C_STANDARD 11)
-if(UNIX)
-    target_link_libraries(test_platform_contract PRIVATE m)
-endif()
+foreach(target test_platform_contract test_platform_vita_deadzone)
+    add_executable(${target}
+        test_platform_contract.cpp
+        test_platform_header.c
+        $<TARGET_OBJECTS:test_platform_header_cpp98>
+        ${CMAKE_SOURCE_DIR}/LIB386/PLATFORM/PLATFORM.CPP
+        ${_PLATFORM_FACADES})
+    target_include_directories(${target} PRIVATE
+        ${CMAKE_SOURCE_DIR}/LIB386/H
+        ${CMAKE_SOURCE_DIR}/SOURCES)
+    target_compile_definitions(${target} PRIVATE LBA_LOG_NO_PLATFORM)
+    set_target_properties(${target} PROPERTIES CXX_STANDARD 11 C_STANDARD 11)
+    if(UNIX)
+        target_link_libraries(${target} PRIVATE m)
+    endif()
+    add_test(NAME ${target} COMMAND ${target})
+    register_host_test(${target})
+endforeach()
+target_compile_definitions(test_platform_vita_deadzone PRIVATE LBA2_GAMEPAD_DEADZONE_DEFAULT=13107)
 
 if(PLATFORM_BACKEND STREQUAL "null")
     add_executable(test_platform_null test_platform_null.cpp)
@@ -78,9 +94,6 @@ if(PLATFORM_BACKEND STREQUAL "null")
     set_tests_properties(test_platform_null_game PROPERTIES LABELS host_quick)
     add_dependencies(host_tests ${LBA2_EXECUTABLE_NAME})
 endif()
-add_test(NAME test_platform_contract COMMAND test_platform_contract)
-register_host_test(test_platform_contract)
-
 if(PLATFORM_BACKEND STREQUAL "sdl3")
     foreach(kind sdl3 sdl3_staging)
         set(target test_platform_${kind})
@@ -97,11 +110,19 @@ if(PLATFORM_BACKEND STREQUAL "sdl3")
         endif()
 
         add_test(NAME ${target} COMMAND ${target})
+        lba2_test_needs_android_activity(${target})
         register_host_test(${target})
     endforeach()
 endif()
 
 if(PLATFORM_BACKEND STREQUAL "sdl2")
+    add_executable(test_vita_host test_vita_host.cpp
+        ${CMAKE_SOURCE_DIR}/LIB386/PLATFORM/SDL2/VITA.CPP)
+    target_link_libraries(test_vita_host PRIVATE lba2_platform ${LBA2_SDL_TARGET})
+    set_target_properties(test_vita_host PROPERTIES CXX_STANDARD 11)
+    add_test(NAME test_vita_host COMMAND test_vita_host)
+    register_host_test(test_vita_host)
+
     add_executable(test_switch_host test_switch_host.cpp
         ${CMAKE_SOURCE_DIR}/LIB386/PLATFORM/SDL2/SWITCH.c)
     target_include_directories(test_switch_host PRIVATE
@@ -121,10 +142,30 @@ if(PLATFORM_BACKEND STREQUAL "sdl2")
 endif()
 
 if(PLATFORM_BACKEND MATCHES "^sdl[23]$")
+    add_executable(test_music_wav test_music_wav.cpp
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/WAV_STREAM.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/AUDIO_DEVICE.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DISCIMG.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ISO9660.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/FILES.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP)
+    target_include_directories(test_music_wav PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
+    target_link_libraries(test_music_wav PRIVATE ${LBA2_SDL_TARGET})
+    lba2_test_tmp_dir(_tmp test_music_wav)
+    target_compile_definitions(test_music_wav PRIVATE LBA_LOG_NO_PLATFORM LBA2_MUSIC_TESTS
+        TEST_TMP_DIR="${_tmp}")
+    if(PLATFORM_BACKEND STREQUAL "sdl2")
+        target_compile_definitions(test_music_wav PRIVATE LBA2_USE_SDL2=1)
+    endif()
+    set_target_properties(test_music_wav PROPERTIES CXX_STANDARD 11)
+    add_test(NAME test_music_wav COMMAND test_music_wav)
+    register_host_test(test_music_wav)
+
     add_executable(test_sdl_audio_playback test_sdl_audio_playback.cpp
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/AUDIO_DEVICE.CPP
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/COMMON.CPP
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/STREAM.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/WAV_STREAM.CPP
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/VIDEO_AUDIO_SDL.CPP
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/stb_vorbis.c
         ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/CDDA.CPP
@@ -136,8 +177,9 @@ if(PLATFORM_BACKEND MATCHES "^sdl[23]$")
         ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP)
     target_include_directories(test_sdl_audio_playback PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
     target_link_libraries(test_sdl_audio_playback PRIVATE ${LBA2_SDL_TARGET})
-    target_compile_definitions(test_sdl_audio_playback PRIVATE LBA_LOG_NO_PLATFORM
-        TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    lba2_test_tmp_dir(_tmp test_sdl_audio_playback)
+    target_compile_definitions(test_sdl_audio_playback PRIVATE LBA_LOG_NO_PLATFORM LBA2_MUSIC_TESTS
+        TEST_TMP_DIR="${_tmp}")
     if(PLATFORM_BACKEND STREQUAL "sdl2")
         target_compile_definitions(test_sdl_audio_playback PRIVATE LBA2_USE_SDL2=1)
     endif()

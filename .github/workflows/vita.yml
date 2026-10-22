@@ -1,0 +1,68 @@
+name: PlayStation Vita
+
+on:
+  push:
+    paths-ignore: &doc-paths
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.vscode/**'
+      - '.editorconfig'
+      - '.git-blame-ignore-revs'
+      - 'cliff.toml'
+  pull_request:
+    paths-ignore: *doc-paths
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      artifact-name:
+        description: Name of the VPK artifact for the caller to download.
+        type: string
+        required: false
+        default: lba2cc-vita
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vita-${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build-vita:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and package with the pinned Docker SDK
+        run: bash scripts/dev/build-vita.sh
+      - name: Check VPK and network deployment with the pinned SDK
+        run: |
+          image="$(tr -d '[:space:]' < docker/vita-image.txt)"
+          docker run --rm --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/src" --workdir /src \
+            "$image" python3 tests/platform/test_vita_deploy.py
+      - name: Upload VPK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name || 'lba2cc-vita' }}
+          path: out/vita/lba2cc-vita.vpk
+          if-no-files-found: error
+      - name: Upload matching debug ELF and deployment files
+        uses: actions/upload-artifact@v4
+        with:
+          name: lba2cc-vita-debug
+          path: |
+            out/vita/debug/lba2cc.elf
+            out/vita/eboot.bin
+            out/vita/title-id.txt
+          if-no-files-found: error
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lba2cc-vita-build-log
+          path: build_logs/vita-build-*.log
+          if-no-files-found: warn

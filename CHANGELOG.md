@@ -33,6 +33,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   third less time. It is a retail fix, so **Fix retail bugs** set to No in
   Advanced options brings back the old drawing, seams included
   ([#807](https://github.com/LBALab/lba2-classic-community/pull/807)).
+- On 64-bit Android, characters, objects and scenery cost far less to place
+  on screen. Their maths imitated the 1997 processor with a number type that
+  64-bit ARM phones can only work out in software; it now uses the one the
+  phone has, which gives the same picture as before on every other platform
+  and moves a point by one pixel about once in 100,000 on these phones.
 - Outdoors in the storm, raindrops splash on the ground again while the Auto
   camera moves. The camera redraws the scene on every frame it moves, and each
   redraw cleared the splashes before they were first drawn, so you only saw
@@ -76,6 +81,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   macOS now, where one test had passed without loading the save it tests, and
   on Windows the tests that handed the game a temporary path it could not open
   pass ([#814](https://github.com/LBALab/lba2-classic-community/pull/814)).
+- The host tests and the engine-driving test suite can run on an Android phone
+  or emulator, driven from a Mac over adb, in both `arm64-v8a` and
+  `armeabi-v7a`. The engine runs there as a plain program on the null platform;
+  `docs/ANDROID.md` has the commands and the limits
+  ([#822](https://github.com/LBALab/lba2-classic-community/pull/822)).
 
 ### Contributors
 

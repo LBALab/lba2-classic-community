@@ -16,12 +16,15 @@ target_include_directories(test_disc_image PRIVATE
     ${CMAKE_SOURCE_DIR}/LIB386/H)
 
 # Log core bypasses SDL (dispatches straight to sinks), so no SDL is needed.
+lba2_test_tmp_dir(_tmp test_disc_image)
 target_compile_definitions(test_disc_image PRIVATE
     LBA_LOG_NO_PLATFORM
     TEST_SOURCE_ROOT="${CMAKE_SOURCE_DIR}/"
-    TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    TEST_TMP_DIR="${_tmp}")
 
 set_target_properties(test_disc_image PROPERTIES CXX_STANDARD 11)
 
 add_test(NAME test_disc_image COMMAND test_disc_image)
 register_host_test(test_disc_image)
+find_package(Threads REQUIRED)
+target_link_libraries(test_disc_image PRIVATE Threads::Threads)

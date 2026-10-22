@@ -115,8 +115,8 @@
    LIB386/SYSTEM/KEYBOARD.CPP; MOUSE.CPP and TOUCH_INPUT.CPP declare it the same way. */
 extern S32 LastInputWasKeyboard;
 
-#include <dirent.h> /* the recordings folder, for `rec play` with no argument */
-#include <float.h>  /* LDBL_MANT_DIG, one half of the numeric contract */
+#include <dirent.h>     /* the recordings folder, for `rec play` with no argument */
+#include <3D/X87REAL.H> /* X87_REAL_MANT_DIG, one half of the numeric contract */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -525,6 +525,9 @@ static T_DEF_KEY s_savedGamepadKeys[MAX_INPUT_SLOTS];
 static T_DEF_KEY s_recDefKeys[MAX_INPUT_SLOTS];
 static T_DEF_KEY s_recGamepadKeys[MAX_INPUT_SLOTS];
 static int s_haveRecBindings = 0;
+static U32 s_recBindingContext = 0;
+static U32 s_savedBindingContext = 0;
+static int s_haveRecBindingContext = 0;
 static U32 s_recMenuSuppression = 0;
 static U32 s_savedMenuSuppression = 0;
 static int s_bindingsInstalled = 0;
@@ -535,13 +538,17 @@ static void bindings_install(void) {
         return;
     memcpy(s_savedDefKeys, DefKeys, MAX_INPUT_SLOTS * sizeof DefKeys[0]);
     memcpy(s_savedGamepadKeys, GamepadKeys, MAX_INPUT_SLOTS * sizeof GamepadKeys[0]);
+    s_savedBindingContext = Bindings_GetContext();
     s_savedMenuSuppression = MenuInput_Suppressed();
     memcpy(DefKeys, s_recDefKeys, MAX_INPUT_SLOTS * sizeof DefKeys[0]);
     memcpy(GamepadKeys, s_recGamepadKeys, MAX_INPUT_SLOTS * sizeof GamepadKeys[0]);
     MenuInput_Reset(s_recMenuSuppression);
     /* The combined (key, mask) table is what CheckKey scans; changing the two source
        tables without rebuilding it changes nothing. */
-    InitInput();
+    if (s_haveRecBindingContext)
+        Bindings_SetContext(s_recBindingContext);
+    else
+        InitInput();
     s_bindingsInstalled = 1;
 }
 
@@ -551,7 +558,7 @@ static void bindings_restore(void) {
     memcpy(DefKeys, s_savedDefKeys, MAX_INPUT_SLOTS * sizeof DefKeys[0]);
     memcpy(GamepadKeys, s_savedGamepadKeys, MAX_INPUT_SLOTS * sizeof GamepadKeys[0]);
     MenuInput_Reset(s_savedMenuSuppression);
-    InitInput();
+    Bindings_SetContext(s_savedBindingContext);
     s_bindingsInstalled = 0;
 }
 
@@ -679,15 +686,14 @@ static void snapshot_beside(const char *recPath, const char *name, char *out, si
    different RAND_MAX per platform, which on its own is enough to make a recording
    unreplayable anywhere but the machine that made it.
 
-   `numeric.long_double_bits` is LDBL_MANT_DIG, and it is here ahead of needing it. The
-   projection, rotation and distance paths (LIB386/3D) compute in `long double` and
-   round with lrintl, chosen to match x87's 80 bit registers: 64 mantissa bits on both
-   x86-64 hosts, which is why Linux and Windows agree on them. ARM has no x87, so on
-   macOS and Android `long double` is a plain double and the same expressions round
-   differently. Recording the trait means such a replay opens by naming the arithmetic
-   it disagrees about, instead of diverging somewhere in the middle and reading like a
-   bug in the simulation. Making that case actually replay is a separate job, and it is
-   a bigger one: it means taking those paths off the host's extended precision.
+   `numeric.long_double_bits` is the mantissa the float projection and rotation
+   routines (LIB386/3D) compute in, X87_REAL_MANT_DIG from 3D/X87REAL.H; the name is
+   older than that header. 64 where long double is the x87's 80-bit type, which is both
+   x86-64 hosts, so Linux and Windows agree; 53 everywhere else (ARM, PowerPC), where
+   the routines compute in double. The two differ only at exact half-pixel ties in
+   the projection, but a replay can still diverge on one, so recording the trait
+   means such a replay opens by naming the arithmetic it disagrees about, instead of
+   diverging somewhere in the middle and reading like a bug in the simulation.
 
    The settings block is the Auto camera's, and it is there because it was measured:
    replaying a session against a config missing FollowCamera diverges at tick 0, and one
@@ -743,6 +749,7 @@ static S32 write_mode_lines(char *out, size_t n) {
                          "mode.language=%d\n"
                          "input.keyboard=%d\n"
                          "input.menu_suppressed=%u\n"
+                         "bindings.context=%u\n"
                          "setup.snapshot=%s\n"
                          "setup.reloaded=%d\n"
                          "setup.reload_clock=%u\n"
@@ -761,11 +768,12 @@ static S32 write_mode_lines(char *out, size_t n) {
                          Sys_PlatformName(),
                          Rnd_StreamName(),
                          CONTROL_DIGEST_VERSION,
-                         (int)LDBL_MANT_DIG,
+                         (int)X87_REAL_MANT_DIG,
                          (unsigned)ModeDesiredX, (unsigned)ModeDesiredY,
                          (int)Language,
                          LastInputWasKeyboard ? 1 : 0,
                          (unsigned)MenuInput_Suppressed(),
+                         (unsigned)Bindings_GetContext(),
                          s_snapInline ? "(inline)" : path_leaf(s_snapshot),
                          s_reloaded, s_reloadClock,
                          (unsigned)TimerRefHR,
@@ -2089,6 +2097,7 @@ static int mode_line_ignored(const char *line) {
         "setup.reload_clock=",
         "bindings.keyboard=", /* payload a replay installs; bindings.digest is the comparison */
         "bindings.gamepad=",
+        "bindings.context=", /* remapping mode, poll context and release latch are borrowed */
         /* The globals no savegame carries. Payload a replay installs, on the same
            footing as the binding tables: the digest is what compares them, and
            reporting the difference here would name as a mode mismatch the very thing
@@ -2903,6 +2912,28 @@ int Record_Play(const char *path) {
         strncat(s_headerBuf, line, sizeof s_headerBuf - strlen(s_headerBuf) - 1);
     }
 
+    s_haveRecBindingContext = RecFmt_ReadBindingContext(s_headerBuf, &s_recBindingContext);
+    s_haveRecBindings =
+        RecFmt_ParseBindings(s_headerBuf, "bindings.keyboard=", s_recDefKeys,
+                             MAX_INPUT_SLOTS) &&
+        RecFmt_ParseBindings(s_headerBuf, "bindings.gamepad=", s_recGamepadKeys,
+                             MAX_INPUT_SLOTS);
+    if (s_haveRecBindingContext < 0 || (s_haveRecBindingContext && !s_haveRecBindings)) {
+        Console_Print("rec: %s has invalid or unsupported binding context metadata", path);
+        fprintf(stderr, "[rec] %s has invalid or unsupported binding context metadata\n", path);
+        fclose(s_f);
+        s_f = NULL;
+        return 0;
+    }
+    if (!s_haveRecBindings)
+        Console_Print("rec: %s carries no binding table; replaying through this run's own", path);
+    if (!s_haveRecBindingContext) {
+        Console_Print("rec: %s carries no binding context; keeping this run's controller mode", path);
+        fprintf(stderr, "[rec] %s carries no binding context; keeping this run's controller mode\n", path);
+    }
+    s_recMenuSuppression = 0;
+    RecFmt_ReadU32(s_headerBuf, "input.menu_suppressed=", &s_recMenuSuppression);
+
     /* The snapshot the session started from, if this recording carries one. It sits
        between the header and the first record, so it is read here rather than probed
        for in the stream: a reader that reached it through the record dispatcher would
@@ -2982,16 +3013,6 @@ int Record_Play(const char *path) {
     }
 
     report_extent();
-
-    s_haveRecBindings =
-        RecFmt_ParseBindings(s_headerBuf, "bindings.keyboard=", s_recDefKeys,
-                             MAX_INPUT_SLOTS) &&
-        RecFmt_ParseBindings(s_headerBuf, "bindings.gamepad=", s_recGamepadKeys,
-                             MAX_INPUT_SLOTS);
-    if (!s_haveRecBindings)
-        Console_Print("rec: %s carries no binding table; replaying through this run's own", path);
-    s_recMenuSuppression = 0;
-    RecFmt_ReadU32(s_headerBuf, "input.menu_suppressed=", &s_recMenuSuppression);
 
     /* The one header line that decides whether this replay reloads. A recording that
        reloaded its own snapshot begins from the post-load state, so a replay reaches

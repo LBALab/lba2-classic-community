@@ -7,6 +7,7 @@
 
 #include "INPUT.H"
 #include "MENU_INPUT.H"
+#include "TOUCH_INPUT.H"
 
 #include <SYSTEM/LOG.H>
 #include "JOYSTICK.H"
@@ -166,7 +167,7 @@ void WriteGamepadConfig(void) {
 }
 
 //-------------------------------------------------------------------------
-void MyGetInput() {
+static void PollInput(void) {
     S32 suppressConsole;
     // GetJoys() writes the gamepad state into TabKeys; GetInput() then folds
     // both keyboard and gamepad into Input through the combined table built by
@@ -196,6 +197,7 @@ void MyGetInput() {
     MenuInput_Poll(suppressConsole || Console_IsOpen());
     /* When we just closed the console, suppress all game input for one frame so the toggle key doesn't trigger camera etc. */
     if (suppressConsole) {
+        TouchInput_SetGameplay(0);
         Key = 0;
         Input = 0;
         MyKey = 0;
@@ -205,6 +207,7 @@ void MyGetInput() {
         return;
     }
     if (Console_IsOpen()) {
+        TouchInput_SetGameplay(0);
         Console_Update();
         /* While the console is open, completely isolate game input:
 		   no keys or joystick bits should be visible to gameplay or debug tools. */
@@ -244,6 +247,19 @@ void MyGetInput() {
             WaitNoClick = 0;
     }
 #endif
+}
+
+void MyGetInput(void) {
+    Bindings_SetGameplay(0);
+    TouchInput_SetGameplay(0);
+    PollInput();
+}
+
+void MyGetGameplayInput(void) {
+    Bindings_SetGameplay(1);
+    TouchInput_SetGameplay(!Console_IsOpen());
+    PollInput();
+    TouchInput_EndGameplayPoll();
 }
 
 //***************************************************************************

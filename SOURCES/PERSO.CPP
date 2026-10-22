@@ -621,7 +621,7 @@ restartloop:
 
         LastInput = Input;
 
-        MyGetInput();
+        MyGetGameplayInput();
 
         // Harness input timeline (docs/plan/INPUT_SIM_PLAN.md): OR the currently-held injected bits into
         // this frame's Input so the harness drives the hero without a keyboard. A `seq` hold is

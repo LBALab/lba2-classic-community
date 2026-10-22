@@ -37,7 +37,7 @@ for abi in armeabi-v7a arm64-v8a; do
     arm64-v8a) cxx="$BIN/aarch64-linux-android24-clang++" ;;
     esac
     # LIB386/3D compiled in directly; the narrowing flag matches the project's build of SINTAB.
-    "$cxx" -std=c++17 -O3 -Wno-c++11-narrowing -static-libstdc++ -DLBA2_BENCH_STANDALONE \
+    "$cxx" -std=c++17 -O3 -ffp-contract=off -Wno-c++11-narrowing -static-libstdc++ -DLBA2_BENCH_STANDALONE \
         -I"$ROOT/LIB386/H" "$ROOT/tools/bench_3d_path.cpp" "$ROOT"/LIB386/3D/*.CPP -o "$OUT/bench-$abi"
     adb push "$OUT/bench-$abi" /data/local/tmp/ > /dev/null
     echo "== $abi"

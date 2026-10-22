@@ -79,7 +79,7 @@ static void test_round_trip(void) {
 /* Pull the quoted entries of MUSIC.CPP's ListJingle initialiser, in order. */
 static std::vector<std::string> read_list_jingle(void) {
     std::vector<std::string> names;
-    std::string path = std::string(TEST_SOURCE_ROOT) + "SOURCES/MUSIC.CPP";
+    std::string path = std::string(TEST_DATA_ROOT) + "SOURCES/MUSIC.CPP";
     FILE *f = fopen(path.c_str(), "rb");
     if (!f)
         return names;
@@ -161,7 +161,7 @@ static void test_theme_list_matches_music_cpp(void) {
    nothing fails, the themes just come out under each other's names. Read its
    `CD_TRACK_NAMES = { 2: "TADPCM2", ... }` and require an exact match. */
 static void test_agrees_with_extractor(void) {
-    std::string path = std::string(TEST_SOURCE_ROOT) + "scripts/dev/disc_extract.py";
+    std::string path = std::string(TEST_DATA_ROOT) + "scripts/dev/disc_extract.py";
     FILE *f = fopen(path.c_str(), "rb");
     ASSERT_TRUE(f != NULL);
     if (!f)
@@ -209,7 +209,7 @@ static void test_agrees_with_extractor(void) {
 /* The extractor keeps its own ordered copy of the theme list for the same
    positional rule, so it has to agree element for element. */
 static void test_theme_list_matches_extractor(void) {
-    std::string path = std::string(TEST_SOURCE_ROOT) + "scripts/dev/disc_extract.py";
+    std::string path = std::string(TEST_DATA_ROOT) + "scripts/dev/disc_extract.py";
     FILE *f = fopen(path.c_str(), "rb");
     ASSERT_TRUE(f != NULL);
     if (!f)
@@ -348,7 +348,7 @@ static void test_missing_theme_index_counts_disagree(void) {
 /* Pull a `U8 <name>[] = { ... };` initialiser out of MUSIC.CPP as (value, hasJingleFlag)
    pairs. Entries look like "JINGLE | 9, // comment" or "3, // comment". */
 static bool read_track_table(const char *table, std::vector<std::pair<int, bool>> &out) {
-    std::string path = std::string(TEST_SOURCE_ROOT) + "SOURCES/MUSIC.CPP";
+    std::string path = std::string(TEST_DATA_ROOT) + "SOURCES/MUSIC.CPP";
     FILE *f = fopen(path.c_str(), "rb");
     if (!f)
         return false;

@@ -1,7 +1,9 @@
+#include "../sdl_main_ready.h"
 #include "../test_harness.h"
 #include "../../LIB386/AIL/SDL/AUDIO_DEVICE.H"
 #include <AIL/COMMON.H>
 #include <SYSTEM/CRASH.H>
+#include <algorithm>
 #include <vector>
 
 #if defined(LBA2_USE_SDL2) && defined(LBA2_AUDIO_TESTS)
@@ -116,10 +118,12 @@ static void test_mix_prepares_thread_before_output() {
     AILAudio_Destroy(stream);
 }
 
-static void test_converted_output_bytes_and_eof() {
+static void check_converted_output_bytes_and_eof(bool streamedReference) {
     Uint32 rng = 0xDEADBEEF;
+    const int rates[] = {8000, 11025, 22050, 32000, 44100, 48000, 96000};
     for (int round = 0; round < 40; ++round) {
-        SDL_AudioSpec spec = specification(round % 2 ? 1 : 2, round % 3 ? 44100 : 22050);
+        SDL_AudioSpec spec = specification(round % 2 ? 1 : 2,
+                                           streamedReference ? rates[round % 7] : (round % 3 ? 44100 : 22050));
         if (round % 4 == 0)
             spec.format = AIL_AUDIO_U8;
         const int frames = 4096;
@@ -140,7 +144,17 @@ static void test_converted_output_bytes_and_eof() {
         ASSERT_TRUE(AILAudio_Put(stream, &input[0], (int)input.size()));
         ASSERT_EQ_INT(input.size(), AILAudio_Queued(stream));
         ASSERT_TRUE(AILAudio_Flush(stream));
-        ASSERT_EQ_INT(0, SDL_AudioStreamPut(reference, &input[0], (int)input.size()));
+        /* SDL2 restarts fractional resampling phase at submission boundaries.
+           Non-integer ratios use the same bounded submissions as playback. */
+        const size_t framesPerSubmission = ((size_t)spec.freq * 1024 + 44100 - 1) / 44100;
+        const size_t sourceBytesPerFrame = spec.channels * (AIL_AUDIO_BITSIZE(spec.format) / 8);
+        const size_t boundedBytes = std::min((size_t)8192, framesPerSubmission * sourceBytesPerFrame);
+        const size_t submission = streamedReference ? boundedBytes : input.size();
+        for (size_t offset = 0; offset < input.size(); offset += submission) {
+            const size_t remaining = input.size() - offset;
+            ASSERT_EQ_INT(0, SDL_AudioStreamPut(reference, &input[offset],
+                                                (int)(remaining < submission ? remaining : submission)));
+        }
         ASSERT_EQ_INT(0, SDL_AudioStreamFlush(reference));
         const int bytes = SDL_AudioStreamAvailable(reference);
         ASSERT_TRUE(bytes > 0);
@@ -150,12 +164,66 @@ static void test_converted_output_bytes_and_eof() {
         ASSERT_TRUE(AILAudio_Gain(stream, 0.5f));
         for (size_t i = 0; i < expected.size(); ++i)
             expected[i] *= 0.5f;
-        AILAudio_TestRead(stream, &actual[0], (int)actual.size());
+        for (size_t offset = 0; offset < actual.size(); offset += 256) {
+            const size_t remaining = actual.size() - offset;
+            AILAudio_TestRead(stream, &actual[offset], (int)(remaining < 256 ? remaining : 256));
+        }
         ASSERT_MEM_EQ(&expected[0], &actual[0], expected.size() * sizeof(float));
         ASSERT_EQ_INT(0, AILAudio_Queued(stream));
         AILAudio_Destroy(stream);
         SDL_FreeAudioStream(reference);
     }
+}
+
+static void test_converted_output_bytes_and_eof() {
+    check_converted_output_bytes_and_eof(false);
+}
+
+static void test_streamed_rates_match_sdl_converter() {
+    check_converted_output_bytes_and_eof(true);
+}
+
+static void test_large_queue_converts_on_demand() {
+    SDL_AudioSpec spec = specification(1, 22050);
+    std::vector<short> samples(65536);
+    Uint32 rng = 0xDEADBEEF;
+    for (size_t i = 0; i < samples.size(); ++i) {
+        rng = rng * 1103515245u + 12345u;
+        samples[i] = (short)(rng >> 16);
+    }
+    AILAudioStream *stream = AILAudio_Open(&spec, NULL, NULL);
+    SDL_AudioStream *reference = SDL_NewAudioStream(spec.format, spec.channels, spec.freq,
+                                                    AUDIO_F32SYS, 2, 44100);
+    ASSERT_TRUE(stream && reference);
+    if (!stream || !reference) {
+        AILAudio_Destroy(stream);
+        SDL_FreeAudioStream(reference);
+        return;
+    }
+    const int inputBytes = (int)(samples.size() * sizeof(short));
+    ASSERT_TRUE(AILAudio_Put(stream, &samples[0], inputBytes));
+    ASSERT_TRUE(AILAudio_Flush(stream));
+    ASSERT_EQ_INT(inputBytes, AILAudio_Queued(stream));
+    ASSERT_EQ_INT(0, AILAudio_TestConvertedBytes(stream));
+    ASSERT_EQ_INT(0, SDL_AudioStreamPut(reference, &samples[0], inputBytes));
+    ASSERT_EQ_INT(0, SDL_AudioStreamFlush(reference));
+    const int expectedBytes = SDL_AudioStreamAvailable(reference);
+    std::vector<float> expected(expectedBytes / sizeof(float));
+    ASSERT_EQ_INT(expectedBytes, SDL_AudioStreamGet(reference, &expected[0], expectedBytes));
+    std::fill(samples.begin(), samples.end(), 0);
+    std::vector<float> actual(expected.size());
+    const int chunkBytes = 1024 * 2 * sizeof(float);
+    for (int offset = 0; offset < expectedBytes; offset += chunkBytes) {
+        int bytes = expectedBytes - offset;
+        if (bytes > chunkBytes)
+            bytes = chunkBytes;
+        AILAudio_TestRead(stream, &actual[offset / sizeof(float)], bytes / sizeof(float));
+        ASSERT_TRUE(AILAudio_TestConvertedBytes(stream) < chunkBytes * 8);
+    }
+    ASSERT_MEM_EQ(&expected[0], &actual[0], expectedBytes);
+    ASSERT_EQ_INT(0, AILAudio_Queued(stream));
+    AILAudio_Destroy(stream);
+    SDL_FreeAudioStream(reference);
 }
 
 static void test_mix_pause_and_independent_lifetimes() {
@@ -216,6 +284,7 @@ static void test_pull_callback_and_recursive_lock() {
 #endif
 
 int main() {
+    TEST_SDL_MAIN_READY();
 #ifdef LBA2_USE_SDL2
     SDL_SetMainReady();
 #endif
@@ -228,6 +297,8 @@ int main() {
 #if defined(LBA2_USE_SDL2) && defined(LBA2_AUDIO_TESTS)
     RUN_TEST(test_mix_prepares_thread_before_output);
     RUN_TEST(test_converted_output_bytes_and_eof);
+    RUN_TEST(test_streamed_rates_match_sdl_converter);
+    RUN_TEST(test_large_queue_converts_on_demand);
     RUN_TEST(test_mix_pause_and_independent_lifetimes);
     RUN_TEST(test_pull_callback_and_recursive_lock);
 #endif

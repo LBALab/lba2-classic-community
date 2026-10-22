@@ -9,6 +9,7 @@
 
 #include "CONSOLE/CONSOLE.H"
 #include "JOYSTICK.H"
+#include "TOUCH_INPUT.H"
 
 // --- Keyboard state MyGetInput() copies out ---------------------------------
 S32 Key = 0;
@@ -16,6 +17,7 @@ S32 MyKey = 0;
 U8 TabKeys[TABKEYS_NUM_KEYS];
 int TestConsoleOpen = 0;
 int TestConsoleSuppress = 0;
+S32 TestTouchGameplay = 0;
 bool AppActive = true;
 
 // --- Screen geometry the console's forced present reads ---------------------
@@ -31,5 +33,7 @@ int Console_GetToggleScancode(void) { return 0; }
 int Console_ShouldSuppressInputThisFrame(void) { return TestConsoleSuppress; }
 
 void GetJoys(U32 *) {}
+void TouchInput_SetGameplay(S32 gameplay) { TestTouchGameplay = gameplay; }
+void TouchInput_EndGameplayPoll(void) {}
 U32 JoystickFirstPressedScancode(void) { return 0; }
 }

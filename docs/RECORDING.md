@@ -398,6 +398,7 @@ wrong.
 | The mouse, the right stick and the pad's first-pressed scancode | None of the three has a scancode, so none rides the key table the rest of the input rides. Twenty bytes on the polls that carry any of them, nothing on the polls that do not |
 | The console commands the session was driven with | Otherwise a recording cannot stand in for a harness-driven fixture |
 | Gameplay keyboard/gamepad binding tables | A replay borrows both tables for its duration and returns the player's own on exit. UI navigation uses fixed physical keys, not binding tables; recordings made with gameplay-driven UI directions can diverge when replayed through a modal |
+| Controller binding context | `bindings.context` carries the modal Circle remapping mode, gameplay/modal selection and physical release latch. Replay borrows and restores them with the tables, so handheld recordings retain Circle's modal Return action on desktop builds. Older recordings without the field keep the replaying run's controller mode and report that limitation; malformed or unsupported context metadata is refused before replay starts |
 | UI release latch | `input.menu_suppressed` carries directions suppressed until release, so starting replay does not discard an unsuppressed first UI press |
 | UI input samples | From format 17, poll flag `0x10` carries one byte when fixed UI directions or console isolation change. This preserves held directions hidden from the gameplay key stream while the console is open, including its closing frame; replay keeps them suppressed until release |
 | A savegame at each end | Where the session started, and where it finished. Both inside the file |
@@ -511,20 +512,18 @@ because the platform is not what decides it:
 | Line | Meaning |
 |---|---|
 | `numeric.rng` | Which generator `Rnd` draws from. A recording made against another one cannot reproduce. |
-| `numeric.long_double_bits` | `LDBL_MANT_DIG`. 64 on both x86-64 hosts, which is why they agree on projection and distance. |
+| `numeric.long_double_bits` | The mantissa `LIB386/3D`'s float routines compute in (`X87_REAL_MANT_DIG`, `3D/X87REAL.H`). 64 on both x86-64 hosts, which is why they agree on projection; 53 on ARM and PowerPC. |
 
 `build.platform` is recorded too, but deliberately not compared: a cross-platform replay is the
 point, and a diff that flagged the platform every time would teach a reader to ignore the report.
 
-The second line is there ahead of needing it. `LIB386/3D` computes projection, rotation and
-distance in `long double` and rounds with `lrintl`, chosen to match x87's 80-bit registers. Both
-x86-64 hosts have those registers, so Linux and Windows agree. ARM does not: on macOS and
-32-bit Android `long double` is a plain `double`, on 64-bit Android a 128-bit software type, and
-the same expressions round differently on each. A recording
-from an x86-64 host will not reproduce there yet, and because the trait is in the header, such a
-replay opens by naming the arithmetic it disagrees about instead of diverging in the middle and
-reading like a bug in the simulation. Making that case replay means taking those paths off the
-host's extended precision, which is a separate and larger job.
+`LIB386/3D` computes projection and rotation in the x87's 80-bit format where `long double` is
+that format, which both x86-64 hosts have, so Linux and Windows agree. Everywhere else (ARM,
+PowerPC) the same expressions compute in `double`, and all of those agree with each other. The
+two differ only where a projected value is an exact half pixel, about one value in 100,000, so a
+recording from an x86-64 host can still diverge on an ARM host. Because the trait is in the header,
+such a replay opens by naming the arithmetic it disagrees about instead of diverging in the middle
+and reading like a bug in the simulation.
 
 ### Checking it
 
