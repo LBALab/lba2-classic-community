@@ -88,7 +88,6 @@ static void ClearOggCache(void) {
 /* ── Background decode thread ──────────────────────────────────────────── */
 
 static SDL_Thread *decodeThread = NULL;
-static AILSemaphore *decodeWake = NULL;
 static AILAtomicInt decodeStop;
 static AILAtomicInt decodeActive;
 
@@ -178,14 +177,8 @@ static int SDLCALL DecodeThreadFunc(void *userdata) {
 static void StopDecodeThread(void) {
     if (decodeThread) {
         AIL_AtomicSet(&decodeStop, 1);
-        if (decodeWake && !AIL_SignalSemaphore(decodeWake))
-            SDL_Log("SDL AIL: unable to wake WAV producer: %s", SDL_GetError());
         SDL_WaitThread(decodeThread, NULL);
         decodeThread = NULL;
-    }
-    if (decodeWake) {
-        SDL_DestroySemaphore(decodeWake);
-        decodeWake = NULL;
     }
     AIL_AtomicSet(&decodeStop, 0);
     AIL_AtomicSet(&decodeActive, 0);
@@ -225,13 +218,8 @@ static int SDLCALL WavDecodeThread(void *userdata) {
             failed = true;
             break;
         }
-        int waitMs = Stream_QueueWaitMs((Uint32)queued, count, d->spec.freq, (int)frameBytes);
-        if (waitMs) {
-            if (AIL_WaitSemaphoreTimeout(decodeWake, waitMs) < 0) {
-                SDL_Log("SDL AIL: WAV queue wait failed: %s", SDL_GetError());
-                failed = true;
-                break;
-            }
+        if ((Uint32)queued + count > 65536) {
+            SDL_Delay(2);
             continue;
         }
         if (AIL_AtomicGet(&decodeStop))
@@ -299,13 +287,8 @@ static bool PlayWavFile(const char *name, bool image, S32 startFrame, bool *reco
                 (unsigned)d->offset, (unsigned)((Uint32)SDL_GetTicks() - started), name);
     AIL_AtomicSet(&decodeStop, 0);
     AIL_AtomicSet(&decodeActive, 1);
-    decodeWake = SDL_CreateSemaphore(0);
-    decodeThread = decodeWake ? SDL_CreateThread(WavDecodeThread, "WAVDecode", d) : NULL;
+    decodeThread = SDL_CreateThread(WavDecodeThread, "WAVDecode", d);
     if (!decodeThread) {
-        if (decodeWake) {
-            SDL_DestroySemaphore(decodeWake);
-            decodeWake = NULL;
-        }
         AIL_AtomicSet(&decodeActive, 0);
         SDL_free(d->pcm);
         AILWav_Close(source);
