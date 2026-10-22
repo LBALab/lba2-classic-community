@@ -118,6 +118,34 @@ static void test_byte_swap_mechanics(void) {
     CdDa_ByteSwap(NULL, 16); /* must not crash */
 }
 
+/* A streaming reader sees only the probe windows, never the whole track. Read
+   at CdDa_ProbeOffset, they must give the same answer as the whole buffer does,
+   for every kind of signal above. */
+static int windows_verdict(const std::vector<uint8_t> &track) {
+    std::vector<uint8_t> w((size_t)CDDA_PROBE_COUNT * CDDA_PROBE_WINDOW);
+    for (int p = 0; p < CDDA_PROBE_COUNT; p++)
+        memcpy(&w[(size_t)p * CDDA_PROBE_WINDOW], &track[CdDa_ProbeOffset(track.size(), p)],
+               CDDA_PROBE_WINDOW);
+    return CdDa_NeedsByteSwapWindows(w.data(), track.size());
+}
+
+static void test_windows_match_the_whole_buffer(void) {
+    const size_t sizes[] = {BUF, BUF + 2, 40u * 1024 * 1024 + 2352};
+    for (size_t i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++) {
+        std::vector<uint8_t> music = music_buffer(sizes[i], 4000);
+        std::vector<uint8_t> wrong = swapped(music);
+        std::vector<uint8_t> noise = noise_buffer(sizes[i]);
+        ASSERT_EQ_INT(CdDa_NeedsByteSwap(music.data(), music.size()), windows_verdict(music));
+        ASSERT_EQ_INT(CdDa_NeedsByteSwap(wrong.data(), wrong.size()), windows_verdict(wrong));
+        ASSERT_EQ_INT(CdDa_NeedsByteSwap(noise.data(), noise.size()), windows_verdict(noise));
+        ASSERT_EQ_INT(1, windows_verdict(wrong));
+        ASSERT_EQ_INT(0, windows_verdict(music));
+    }
+    ASSERT_EQ_INT(0, CdDa_NeedsByteSwapWindows(NULL, BUF));
+    std::vector<uint8_t> w((size_t)CDDA_PROBE_COUNT * CDDA_PROBE_WINDOW, 0x80);
+    ASSERT_EQ_INT(0, CdDa_NeedsByteSwapWindows(w.data(), CDDA_PROBE_WINDOW)); /* too short */
+}
+
 int main(void) {
     RUN_TEST(test_correct_order_is_left_alone);
     RUN_TEST(test_swapped_music_is_detected);
@@ -126,6 +154,7 @@ int main(void) {
     RUN_TEST(test_silence_and_short_buffers_do_nothing);
     RUN_TEST(test_noise_has_no_preferred_order);
     RUN_TEST(test_byte_swap_mechanics);
+    RUN_TEST(test_windows_match_the_whole_buffer);
     TEST_SUMMARY();
     return test_failures != 0;
 }

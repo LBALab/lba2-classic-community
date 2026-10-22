@@ -61,6 +61,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   jittered back and forth over a short arc instead of following the drag
   ([#803](https://github.com/LBALab/lba2-classic-community/issues/803)).
 
+### Audio
+
+- Music needs far less memory. CD audio and OGG tracks (the Steam and GOG
+  Classic music) were loaded whole, and held twice while they started, so
+  about one scene in ten needed 70 to 95 MB; they now play as they are read,
+  like WAV music, and no scene measured needs more than 19 MB
+  ([#829](https://github.com/LBALab/lba2-classic-community/pull/829)).
+
 ### Build & packaging
 
 - The Android packaging script stops with a message when SDL's Java sources

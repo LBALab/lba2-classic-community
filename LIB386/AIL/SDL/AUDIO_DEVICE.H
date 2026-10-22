@@ -31,9 +31,13 @@ int AILAudio_TestConvertedBytes(AILAudioStream *stream);
 #endif
 
 #ifdef LBA2_STREAM_TESTS
-/* For a fake device that drains in virtual time: wakes the WAV producer
+/* For a fake device that drains in virtual time: wakes the music producer
    (STREAM.CPP) after the device takes bytes, so it refills at once instead of
    sleeping out the real drain time. Call it from the thread that plays and
    stops streams. */
 void AILStream_TestWakeProducer(void);
+/* Non-zero while the producer is parked on a full queue. */
+int AILStream_TestProducerWaiting(void);
+/* The frame of the track the live stream was opened at (0 when none). */
+int AILStream_TestBaseFrame(void);
 #endif

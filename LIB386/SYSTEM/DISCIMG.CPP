@@ -400,6 +400,16 @@ extern "C" S32 DiscImage_ReadRawSectors(U32 lba, U32 count, void *buffer) {
 }
 
 //──────────────────────────────────────────────────────────────────────────
+extern "C" iso9660_t *DiscImage_OpenRawIndependent(void) {
+    if (g_iso == NULL)
+        return NULL;
+    iso9660_t *reader = iso_open_ex(g_imagePath, 1);
+    if (!reader)
+        Log_Error("DISCIMG: unable to open independent reader for %s", g_imagePath);
+    return reader;
+}
+
+//──────────────────────────────────────────────────────────────────────────
 extern "C" bool DiscImage_IsMountedFile(const char *name) {
     if (g_iso == NULL || name == NULL || name[0] == '\0')
         return false;

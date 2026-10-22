@@ -12,26 +12,26 @@
 // track, the main menu plays its theme, StopMusic ends it on the way back, and
 // ResumeMusic restores the parked track.
 //
-// Every case runs on three source setups, because each reopens the track
-// through a different path in STREAM.CPP:
+// Every case runs on three source setups. All of them feed the device through
+// the one bounded producer, but each reopens the track differently:
 //   wav       - track and menu theme are WAV (a disc or extracted install):
-//               bounded WAV producer from a frame offset.
-//   ogg       - OGG track, WAV menu theme: the track stays in the one-slot
-//               decoded-PCM cache, so a restore is PlayOggFile's cache hit.
-//   ogg-ogg   - both OGG, as in the Steam and GOG Classic releases: decoding
-//               the menu theme evicts the track, so a restore re-decodes it
-//               from a stb_vorbis seek on the background thread.
+//               the WAV reader opens at a frame offset.
+//   ogg       - OGG track, WAV menu theme: a restore seeks the decoder.
+//   ogg-ogg   - both OGG, as in the Steam and GOG Classic releases.
 // WAV loading is faked (patterned PCM of a known length for any "*.wav" name);
 // OGG decoding is real, from tests/music/fixtures/silence-10s.ogg, copied into
-// the build tree as track.ogg and menu.ogg.
+// the build tree as track.ogg and menu.ogg. CD audio is real too, read from a
+// generated two-track bin+cue (see the CD tests at the end).
 #include "../sdl_main_ready.h"
 #include "../test_harness.h"
 #include "../../LIB386/AIL/SDL/AUDIO_DEVICE.H"
 #include "../../LIB386/AIL/SDL/WAV_STREAM.H"
+#include "../../LIB386/AIL/SDL/stb_vorbis.h"
 
 #include <AIL/STREAM.H>
 #include <SYSTEM/CRASH.H>
 
+#include <math.h>
 #include <mutex>
 #include <stdio.h>
 #include <string.h>
@@ -43,6 +43,8 @@
 #include <sys/stat.h>
 #define MakeDir(path) mkdir(path, 0755)
 #endif
+
+extern "C" unsigned int stb_vorbis_stream_length_in_samples(stb_vorbis *f);
 
 /* Playback is tested without installing the process-wide crash handler. */
 void Crash_PrepareThread(void) {}
@@ -58,7 +60,8 @@ struct FakeStream {
     int bytesPerFrame;
     int queued;
     int pushed;
-    int puts; // one for an OGG cache hit, one per chunk from a producer
+    int puts; // one per chunk from the producer
+    int maxQueued;
     int consumed;
     int openedFrame;
     bool wav;
@@ -88,6 +91,7 @@ AILAudioStream *AILAudio_Open(const SDL_AudioSpec *spec, AILAudioCallback, void 
     s->queued = 0;
     s->pushed = 0;
     s->puts = 0;
+    s->maxQueued = 0;
     s->consumed = 0;
     s->openedFrame = g_openFrame;
     s->wav = g_openWav;
@@ -115,6 +119,8 @@ bool AILAudio_Put(AILAudioStream *stream, const void *data, int bytes) {
     Fake(stream)->queued += bytes;
     Fake(stream)->pushed += bytes;
     Fake(stream)->puts++;
+    if (Fake(stream)->queued > Fake(stream)->maxQueued)
+        Fake(stream)->maxQueued = Fake(stream)->queued;
     if (g_capturePCM)
         g_capturePCM->insert(g_capturePCM->end(), (const Uint8 *)data, (const Uint8 *)data + bytes);
     return true;
@@ -233,31 +239,23 @@ void AILWav_Close(AILWavSource *source) { delete source; }
 
 // ── Clock ───────────────────────────────────────────────────────────────────
 
-// Wait for the WAV queue to fill or the OGG decode thread to finish, so the
-// virtual clock never races it. The flush is its last call on the stream, but
-// the thread then stores the decoded track in the cache, and a PlayStream that
-// joined it first would stop it short of that and turn the next cache hit into
-// a decode. So a decoded stream (more than one put) also gets a settle delay,
-// once. WAV's producer parks at its queue bound until the virtual clock advances.
+// Wait for the producer to fill the queue or finish the track, so the virtual
+// clock never races it. It parks at its queue bound until the clock advances.
 static void WaitDecoded() {
-    bool decoded = false;
     for (int i = 0; i < 5000; i++) {
         {
             std::lock_guard<std::mutex> hold(g_lock);
             if (!g_live || g_live->settled)
                 return;
-            if (g_live->wav && !g_live->flushed && g_live->queued > 65536 - 8192)
+            if (!g_live->flushed && AILStream_TestProducerWaiting())
                 return;
             if (g_live->flushed) {
-                decoded = g_live->puts > 1;
                 g_live->settled = true;
-                break;
+                return;
             }
         }
         SDL_Delay(1);
     }
-    if (decoded)
-        SDL_Delay(100);
 }
 
 // The device plays `ms` of whatever is live and unpaused.
@@ -281,25 +279,28 @@ static void Advance(int ms) {
 
 static char g_track[] = TEST_TMP_DIR "/music/track.wav";
 static char g_menu[] = TEST_TMP_DIR "/music/menu.wav";
-static int g_trackBytes = 0; // the whole track as the device receives it
+static int g_trackBytes = 0;          // the whole track as the device receives it
+static int g_oggBytes = 0;            // the silent fixture's decoded length
+static std::vector<Uint8> g_chirpPcm; // the chirp fixture decoded straight through
+static char g_chirp[] = TEST_TMP_DIR "/music/chirp.wav";
 
-// Where the live stream was opened, in ms: whatever of the track it was not handed.
+// Where the live stream was opened, in ms. The fake WAV reader records the
+// frame it was asked for; OGG and CD audio report it through the test hook.
 static int OpenedAtMs() {
     WaitDecoded();
     std::lock_guard<std::mutex> hold(g_lock);
-    int frames = g_live->wav ? g_live->openedFrame : (g_trackBytes - g_live->pushed) / BYTES_PER_FRAME;
+    int frames = g_live->wav ? g_live->openedFrame : AILStream_TestBaseFrame();
     return (int)((long long)frames * 1000 / RATE);
 }
 
 static int TrackMs() { return (int)((long long)g_trackBytes / BYTES_PER_FRAME * 1000 / RATE); }
 
-// A decoder seek lands on the start of the Vorbis frame holding the target, up
-// to one long block (2048 samples, 46 ms) early. WAV and the cache are exact.
+// The frame asked of the source. (A Vorbis seek then lands on the start of the
+// frame holding it, up to one long block early, which this does not see.)
 static void AssertOpenedAt(int expectMs) {
     int got = OpenedAtMs();
-    int slack = (g_setup == SETUP_OGG_OGG) ? 50 : 0;
-    if (got < expectMs - slack || got > expectMs) {
-        printf("    [%s] opened at %d ms, expected %d ms (-%d)\n", SetupName(), got, expectMs, slack);
+    if (got != expectMs) {
+        printf("    [%s] opened at %d ms, expected %d ms\n", SetupName(), got, expectMs);
         ASSERT_TRUE(!"stream opened at the wrong place");
     } else {
         ASSERT_TRUE(true);
@@ -326,7 +327,7 @@ static void StartTrack() {
     PlayStream(g_track);
     WaitDecoded();
     std::lock_guard<std::mutex> hold(g_lock);
-    g_trackBytes = g_live ? (g_live->wav ? MsToBytes(WAV_TRACK_MS) : g_live->pushed) : 0;
+    g_trackBytes = g_live ? (g_live->wav ? MsToBytes(WAV_TRACK_MS) : g_oggBytes) : 0;
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────────
@@ -392,11 +393,7 @@ static void test_one_menu_trip_resumes_in_place() {
     ASSERT_TRUE(g_live != NULL);
     ASSERT_TRUE(strcmp(StreamName(), g_track) == 0);
     AssertOpenedAt(4000);
-    // WAV and cold OGG restore through their producers; cached OGG pushes once.
-    if (g_setup != SETUP_OGG)
-        ASSERT_TRUE(g_live->puts > 1);
-    else
-        ASSERT_EQ_INT(1, g_live->puts);
+    ASSERT_TRUE(g_live->puts > 1); // through the producer, never one whole-track push
 }
 
 // Two trips in one track: the second resume continues from the first.
@@ -478,6 +475,155 @@ static void test_load_from_menu_forgets_the_old_track() {
     ASSERT_TRUE(g_live == NULL || strcmp(StreamName(), g_track) != 0);
 }
 
+// #797: an OGG track is fed as it plays. The queue never holds more than the
+// producer's bound, and the whole track still arrives, exactly, then the flush.
+// The chirp, not the silent fixture, so the comparison sees content and order.
+static void test_ogg_queue_stays_bounded() {
+    Reset();
+    std::vector<Uint8> actual;
+    g_capturePCM = &actual;
+    PlayStream(g_chirp);
+    WaitDecoded();
+    const int bytes = (int)g_chirpPcm.size();
+    {
+        std::lock_guard<std::mutex> hold(g_lock);
+        ASSERT_TRUE(g_live != NULL);
+        if (!g_live) {
+            g_capturePCM = NULL;
+            return;
+        }
+        ASSERT_TRUE(!g_live->flushed);
+        ASSERT_TRUE(g_live->pushed < bytes / 4);
+    }
+    Advance(bytes / BYTES_PER_FRAME * 1000 / RATE + 1000);
+    {
+        std::lock_guard<std::mutex> hold(g_lock);
+        ASSERT_TRUE(g_live != NULL);
+        if (g_live) {
+            ASSERT_TRUE(g_live->maxQueued <= 65536);
+            ASSERT_EQ_INT(bytes, g_live->pushed);
+            ASSERT_TRUE(g_live->flushed);
+        }
+    }
+    StopStream();
+    g_capturePCM = NULL;
+    ASSERT_EQ_INT(bytes, (int)actual.size());
+    if ((int)actual.size() == bytes && bytes > 0)
+        ASSERT_MEM_EQ(&g_chirpPcm[0], &actual[0], actual.size());
+}
+
+// ── CD audio ────────────────────────────────────────────────────────────────
+
+// A rip with one BINARY file per disc that the mount does not cover: track 2 is
+// sectors 0..299 (4 s), track 3 follows. TADPCM2 is CD track 2 on the US table.
+static const int CD_SECTOR = 2352;
+static const int CD_TRACK_SECTORS = 300;
+static const int CD_FILE_SECTORS = 400;
+static char g_cdTrack[] = TEST_TMP_DIR "/cd/music/TADPCM2.WAV";
+
+// Music-like 16-bit stereo: a sine well below a quarter of full scale, the
+// level the byte-order check treats as correctly ordered.
+static std::vector<Uint8> CdPcm() {
+    std::vector<Uint8> pcm((size_t)CD_FILE_SECTORS * CD_SECTOR);
+    for (size_t i = 0; i < pcm.size() / 4; ++i) {
+        short v = (short)(8000.0 * sin((double)i * 2.0 * 3.14159265358979 * 441.0 / 44100.0));
+        for (int c = 0; c < 2; ++c) {
+            pcm[i * 4 + c * 2] = (Uint8)(v & 0xff);
+            pcm[i * 4 + c * 2 + 1] = (Uint8)((v >> 8) & 0xff);
+        }
+    }
+    return pcm;
+}
+
+static bool WriteCdDisc(bool bigEndian) {
+    std::vector<Uint8> pcm = CdPcm();
+    if (bigEndian) {
+        for (size_t i = 0; i + 1 < pcm.size(); i += 2) {
+            Uint8 t = pcm[i];
+            pcm[i] = pcm[i + 1];
+            pcm[i + 1] = t;
+        }
+    }
+    FILE *bin = fopen(TEST_TMP_DIR "/cd/disc.bin", "wb");
+    if (!bin)
+        return false;
+    bool ok = fwrite(&pcm[0], 1, pcm.size(), bin) == pcm.size();
+    ok = (fclose(bin) == 0) && ok;
+    FILE *cue = fopen(TEST_TMP_DIR "/cd/disc.cue", "wb");
+    if (!cue)
+        return false;
+    fputs("FILE \"disc.bin\" BINARY\n"
+          "  TRACK 02 AUDIO\n"
+          "    INDEX 01 00:00:00\n"
+          "  TRACK 03 AUDIO\n"
+          "    INDEX 01 00:04:00\n",
+          cue);
+    return (fclose(cue) == 0) && ok;
+}
+
+static int CdTrackMs() { return CD_TRACK_SECTORS * CD_SECTOR / BYTES_PER_FRAME * 1000 / RATE; }
+
+// Plays the track to its end and checks what the device got against `expected`,
+// from byte `from` of the track.
+static void PlayCdToEndAndCompare(std::vector<Uint8> &actual, size_t from) {
+    Advance(CdTrackMs() + 1000);
+    {
+        std::lock_guard<std::mutex> hold(g_lock);
+        ASSERT_TRUE(g_live != NULL);
+        if (g_live) {
+            ASSERT_TRUE(g_live->flushed);
+            ASSERT_TRUE(g_live->maxQueued <= 65536);
+        }
+    }
+    StopStream();
+    g_capturePCM = NULL;
+    std::vector<Uint8> pcm = CdPcm();
+    size_t trackBytes = (size_t)CD_TRACK_SECTORS * CD_SECTOR;
+    ASSERT_EQ_INT((int)(trackBytes - from), (int)actual.size());
+    if (actual.size() == trackBytes - from)
+        ASSERT_MEM_EQ(&pcm[from], &actual[0], actual.size());
+}
+
+static void test_cd_track_streams_exact_pcm() {
+    for (int bigEndian = 0; bigEndian <= 1; ++bigEndian) {
+        ASSERT_TRUE(WriteCdDisc(bigEndian != 0));
+        Reset();
+        std::vector<Uint8> actual;
+        g_capturePCM = &actual;
+        PlayStream(g_cdTrack);
+        WaitDecoded();
+        {
+            std::lock_guard<std::mutex> hold(g_lock);
+            ASSERT_TRUE(g_live != NULL);
+            if (!g_live) {
+                g_capturePCM = NULL;
+                return;
+            }
+            ASSERT_TRUE(!g_live->flushed); // fed as it plays, not pushed whole
+        }
+        // A big-endian rip comes out byte-swapped into the same samples.
+        PlayCdToEndAndCompare(actual, 0);
+    }
+}
+
+// Escape part-way into a CD track, then back: the track picks up mid-sector at
+// the frame it left, which is where its first bytes come from.
+static void test_cd_track_resumes_mid_sector() {
+    ASSERT_TRUE(WriteCdDisc(false));
+    Reset();
+    PlayStream(g_cdTrack);
+    Advance(1100); // 48510 frames: sector 82 and a half
+    PauseStream();
+    PlayStream(g_menu);
+    Advance(500);
+    StopStream();
+    std::vector<Uint8> actual;
+    g_capturePCM = &actual;
+    ResumeStream();
+    AssertOpenedAt(1100);
+    PlayCdToEndAndCompare(actual, (size_t)MsToBytes(1100));
+}
+
 // ── Fixture files ───────────────────────────────────────────────────────────
 
 static bool CopyFile(const char *from, const char *to) {
@@ -516,10 +662,31 @@ int main() {
     // STREAM.CPP's .ogg fallback looks for them.
     MakeDir(TEST_TMP_DIR "/music"); // may already exist from an earlier run
     if (!CopyFile(TEST_FIXTURE_OGG, TEST_TMP_DIR "/music/track.ogg") ||
-        !CopyFile(TEST_FIXTURE_OGG, TEST_TMP_DIR "/music/menu.ogg")) {
+        !CopyFile(TEST_FIXTURE_OGG, TEST_TMP_DIR "/music/menu.ogg") ||
+        !CopyFile(TEST_FIXTURE_CHIRP_OGG, TEST_TMP_DIR "/music/chirp.ogg")) {
         printf("could not stage %s\n", TEST_FIXTURE_OGG);
         return 1;
     }
+
+    int vorbisError = 0;
+    stb_vorbis *fixture = stb_vorbis_open_filename(TEST_FIXTURE_OGG, &vorbisError, NULL);
+    if (!fixture) {
+        printf("could not open %s\n", TEST_FIXTURE_OGG);
+        return 1;
+    }
+    g_oggBytes = (int)stb_vorbis_stream_length_in_samples(fixture) * BYTES_PER_FRAME;
+    stb_vorbis_close(fixture);
+    stb_vorbis *chirp = stb_vorbis_open_filename(TEST_FIXTURE_CHIRP_OGG, &vorbisError, NULL);
+    if (!chirp) {
+        printf("could not open %s\n", TEST_FIXTURE_CHIRP_OGG);
+        return 1;
+    }
+    short batch[4096];
+    int frames;
+    while ((frames = stb_vorbis_get_samples_short_interleaved(chirp, 2, batch, 4096)) > 0)
+        g_chirpPcm.insert(g_chirpPcm.end(), (const Uint8 *)batch, (const Uint8 *)(batch + frames * 2));
+    stb_vorbis_close(chirp);
+    MakeDir(TEST_TMP_DIR "/cd");
 
     OpenStream();
     RUN_TEST(test_wav_full_queue_wait_and_stop);
@@ -530,6 +697,11 @@ int main() {
         printf("# setup: %s\n", SetupName());
         RunAll();
     }
+    g_setup = SETUP_OGG;
+    RUN_TEST(test_ogg_queue_stays_bounded);
+    g_setup = SETUP_WAV;
+    RUN_TEST(test_cd_track_streams_exact_pcm);
+    RUN_TEST(test_cd_track_resumes_mid_sector);
     StopStream();
     TEST_SUMMARY();
     return test_failures != 0;

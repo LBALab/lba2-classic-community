@@ -118,6 +118,11 @@ bool DiscImage_Exists(const char *path);
 // sector count of 0, which is the signal to leave CD music alone.
 U32 DiscImage_RawSectorCount(void);
 S32 DiscImage_ReadRawSectors(U32 lba, U32 count, void *buffer);
+/* A reader of its own on the mounted image, for raw sectors read off the
+   asset thread (streamed CD music). Same rules as DiscImage_OpenIndependent:
+   one worker, survives unmount, caller iso_close's it. NULL when nothing is
+   mounted. */
+iso9660_t *DiscImage_OpenRawIndependent(void);
 
 // Sectors the data filesystem occupies, which is where the data track ends.
 // Audio cannot start before it: a cue that says otherwise is pointing at the
