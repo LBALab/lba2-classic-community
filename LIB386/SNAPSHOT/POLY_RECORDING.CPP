@@ -9,7 +9,9 @@
 #include <POLYGON/POLY.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/CLIP.H>
+#include <SYSTEM/LE.H>
 
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -50,12 +52,12 @@ static void emit_u8(U8 v) {
 }
 
 static void emit_u32(U32 v) {
-    memcpy(g_rec.event_buf + g_rec.event_buf_used, &v, 4);
+    WriteLE_U32(g_rec.event_buf + g_rec.event_buf_used, v);
     g_rec.event_buf_used += 4;
 }
 
 static void emit_s32(S32 v) {
-    memcpy(g_rec.event_buf + g_rec.event_buf_used, &v, 4);
+    WriteLE_S32(g_rec.event_buf + g_rec.event_buf_used, v);
     g_rec.event_buf_used += 4;
 }
 
@@ -72,10 +74,51 @@ static int read_bytes(FILE *f, void *data, size_t size) {
     return (fread(data, 1, size, f) == size) ? 0 : -1;
 }
 
+/* The file is little-endian. Each of these swaps a struct's multi-byte fields
+   between little-endian and the CPU's order. A swap undoes itself, so the same
+   call converts a copy before writing and the struct after reading. On a
+   little-endian CPU they do nothing. */
+
+static void le_file_header(T_POLYREC_FILE_HEADER *h) {
+    U8 *b = (U8 *)h;
+    FromLE32InPlace(b + offsetof(T_POLYREC_FILE_HEADER, version), 1);
+    FromLE16InPlace(b + offsetof(T_POLYREC_FILE_HEADER, screen_width), 2);
+    FromLE32InPlace(b + offsetof(T_POLYREC_FILE_HEADER, screen_pitch), 6);
+}
+
+static void le_section_header(T_POLYREC_SECTION_HEADER *h) {
+    FromLE32InPlace(h, 2);
+}
+
+static void le_clut_header(T_POLYREC_CLUT_HEADER *h) {
+    FromLE32InPlace((U8 *)h + offsetof(T_POLYREC_CLUT_HEADER, initial_clut_line), 1);
+}
+
+static void le_texture_entry(T_POLYREC_TEXTURE_ENTRY *e) {
+    FromLE32InPlace(e, 3);
+}
+
+static void le_textures_header(T_POLYREC_TEXTURES_HEADER *h) {
+    FromLE32InPlace(h, 1);
+}
+
+static void le_init_state(T_POLYREC_INIT_STATE *s) {
+    FromLE32InPlace(s, 10);
+}
+
+void polyrec_points_le(void *points, U32 count) {
+    U8 *b = (U8 *)points;
+    for (U32 i = 0; i < count; i++, b += sizeof(Struc_Point)) {
+        FromLE16InPlace(b + offsetof(Struc_Point, Pt_XE), 6);
+        FromLE32InPlace(b + offsetof(Struc_Point, Pt_W), 1);
+    }
+}
+
 static int write_section_header(FILE *f, U32 type, U32 size) {
     T_POLYREC_SECTION_HEADER hdr;
     hdr.type = type;
     hdr.size = size;
+    le_section_header(&hdr);
     return write_bytes(f, &hdr, sizeof(hdr));
 }
 
@@ -369,6 +412,7 @@ void polyrec_record_fill_poly(S32 type_poly, S32 color_poly, S32 nb_points,
     emit_s32(color_poly);
     emit_s32(nb_points);
     emit_bytes(ptr_points, points_size);
+    polyrec_points_le(g_rec.event_buf + g_rec.event_buf_used - points_size, (U32)nb_points);
     g_rec.num_events++;
 }
 
@@ -466,6 +510,7 @@ int polyrec_stop(void) {
         hdr.clip_ymin = g_rec.init_state.clip_ymin;
         hdr.clip_xmax = g_rec.init_state.clip_xmax;
         hdr.clip_ymax = g_rec.init_state.clip_ymax;
+        le_file_header(&hdr);
         if (write_bytes(f, &hdr, sizeof(hdr)) != 0)
             goto fail;
     }
@@ -480,6 +525,7 @@ int polyrec_stop(void) {
         clut_hdr.has_rgb_palette = g_rec.has_rgb_palette;
         memset(clut_hdr._pad, 0, sizeof(clut_hdr._pad));
         clut_hdr.initial_clut_line = g_rec.initial_clut_line;
+        le_clut_header(&clut_hdr);
 
         clut_data_size = sizeof(clut_hdr);
         if (g_rec.clut_fog)
@@ -505,6 +551,7 @@ int polyrec_stop(void) {
     {
         T_POLYREC_TEXTURES_HEADER tex_hdr;
         tex_hdr.num_textures = g_rec.num_textures;
+        le_textures_header(&tex_hdr);
 
         section_size = sizeof(tex_hdr);
         for (i = 0; i < g_rec.num_textures; i++) {
@@ -521,6 +568,7 @@ int polyrec_stop(void) {
             entry.texture_id = g_rec.textures[i].texture_id;
             entry.rep_mask = g_rec.textures[i].rep_mask;
             entry.data_size = g_rec.textures[i].data_size;
+            le_texture_entry(&entry);
             if (write_bytes(f, &entry, sizeof(entry)) != 0)
                 goto fail;
             if (write_bytes(f, g_rec.textures[i].data, g_rec.textures[i].data_size) != 0)
@@ -531,15 +579,21 @@ int polyrec_stop(void) {
     /* ── INIT_STATE section ── */
     if (write_section_header(f, POLYREC_SECTION_INIT_STATE, sizeof(T_POLYREC_INIT_STATE)) != 0)
         goto fail;
-    if (write_bytes(f, &g_rec.init_state, sizeof(T_POLYREC_INIT_STATE)) != 0)
-        goto fail;
+    {
+        T_POLYREC_INIT_STATE init_state = g_rec.init_state;
+        le_init_state(&init_state);
+        if (write_bytes(f, &init_state, sizeof(init_state)) != 0)
+            goto fail;
+    }
 
     /* ── EVENTS section ── */
     {
         U32 events_section_size = sizeof(U32) + g_rec.event_buf_used;
         if (write_section_header(f, POLYREC_SECTION_EVENTS, events_section_size) != 0)
             goto fail;
-        if (write_bytes(f, &g_rec.num_events, sizeof(U32)) != 0)
+        U8 num_events[4];
+        WriteLE_U32(num_events, g_rec.num_events);
+        if (write_bytes(f, num_events, sizeof(num_events)) != 0)
             goto fail;
         if (write_bytes(f, g_rec.event_buf, g_rec.event_buf_used) != 0)
             goto fail;
@@ -611,6 +665,7 @@ int polyrec_load(const char *filename, T_POLYREC_LOADED *out) {
     /* Read file header */
     if (read_bytes(f, &out->header, sizeof(T_POLYREC_FILE_HEADER)) != 0)
         goto fail;
+    le_file_header(&out->header);
     if (memcmp(out->header.magic, POLYREC_MAGIC, POLYREC_MAGIC_SIZE) != 0)
         goto fail;
     if (out->header.version != POLYREC_VERSION)
@@ -621,6 +676,7 @@ int polyrec_load(const char *filename, T_POLYREC_LOADED *out) {
         T_POLYREC_SECTION_HEADER sec_hdr;
         if (read_bytes(f, &sec_hdr, sizeof(sec_hdr)) != 0)
             goto fail;
+        le_section_header(&sec_hdr);
 
         switch (sec_hdr.type) {
         case POLYREC_SECTION_CLUT: {
@@ -630,6 +686,7 @@ int polyrec_load(const char *filename, T_POLYREC_LOADED *out) {
                 goto fail;
             if (read_bytes(f, &clut_hdr, sizeof(clut_hdr)) != 0)
                 goto fail;
+            le_clut_header(&clut_hdr);
 
             memcpy(out->palette, clut_hdr.palette, POLYREC_PALETTE_SIZE);
             memcpy(out->rgb_palette, clut_hdr.rgb_palette, POLYREC_RGB_PALETTE_SIZE);
@@ -666,6 +723,7 @@ int polyrec_load(const char *filename, T_POLYREC_LOADED *out) {
             U32 j;
             if (read_bytes(f, &tex_hdr, sizeof(tex_hdr)) != 0)
                 goto fail;
+            le_textures_header(&tex_hdr);
             if (tex_hdr.num_textures > POLYREC_MAX_TEXTURES)
                 goto fail;
             out->num_textures = tex_hdr.num_textures;
@@ -674,6 +732,7 @@ int polyrec_load(const char *filename, T_POLYREC_LOADED *out) {
                 T_POLYREC_TEXTURE_ENTRY entry;
                 if (read_bytes(f, &entry, sizeof(entry)) != 0)
                     goto fail;
+                le_texture_entry(&entry);
                 out->textures[j].texture_id = entry.texture_id;
                 out->textures[j].rep_mask = entry.rep_mask;
                 out->textures[j].data_size = entry.data_size;
@@ -692,16 +751,17 @@ int polyrec_load(const char *filename, T_POLYREC_LOADED *out) {
                 goto fail;
             if (read_bytes(f, &out->init_state, sizeof(T_POLYREC_INIT_STATE)) != 0)
                 goto fail;
+            le_init_state(&out->init_state);
             break;
 
         case POLYREC_SECTION_EVENTS: {
-            U32 num_events;
+            U8 num_events[4];
             U32 data_size;
-            if (sec_hdr.size < sizeof(U32))
+            if (sec_hdr.size < sizeof(num_events))
                 goto fail;
-            if (read_bytes(f, &num_events, sizeof(U32)) != 0)
+            if (read_bytes(f, num_events, sizeof(num_events)) != 0)
                 goto fail;
-            out->num_events = num_events;
+            out->num_events = ReadLE_U32(num_events);
             data_size = sec_hdr.size - sizeof(U32);
             if (data_size > 0) {
                 out->event_data = (U8 *)malloc(data_size);

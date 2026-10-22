@@ -8,9 +8,15 @@
 
 #include <SNAPSHOT/POLY_RECORDING.H>
 
+#include <stdio.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* Write count Z-buffer values as little-endian U16, so a dump from any CPU
+   compares byte for byte with one from x86. Returns 0 on success. */
+int polyrec_write_zbuf(FILE *f, const U16 *zbuf, U32 count);
 
 /**
  * Load a polygon recording, apply initial state, allocate framebuffer + Z-buffer,
