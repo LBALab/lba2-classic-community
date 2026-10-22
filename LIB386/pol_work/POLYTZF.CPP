@@ -8,6 +8,7 @@
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/UTILS.H>
 #include <SYSTEM/DEBUG_TRACES.H>
+#include <3D/X87REAL.H>
 
 // External variables from POLY.CPP
 extern U32 Fill_Fog_Factor;
@@ -23,9 +24,9 @@ static S32 Fill_Next_ZBuf;
 #define POLYTZF_PERSP_VALUE 32
 #define POLYTZF_PERSP_SHIFT 5
 
-/* Perspective inverse W — stored as volatile long double to match
- * x87 80-bit extended precision used by the ASM filler. */
-static volatile long double POLYTZF_PerspInvW;
+/* Perspective inverse W — kept in X87_REAL, the x87 width where long double
+ * is the x87 and double elsewhere (3D/X87REAL.H). */
+static volatile X87_REAL POLYTZF_PerspInvW;
 
 /* W queue for POLYTZF — ASM fills ascending on the hardware stack then
  * reads via pop (FIFO: first stored = first consumed).  We replicate this
@@ -53,13 +54,13 @@ static void POLYTZF_WStack_pop(void) {
 static U32 POLYTZF_WStack_size(void) { return POLYTZF_WStack.write_index - POLYTZF_WStack.read_index; }
 
 static S32 tzf_persp_eval(S32 val) {
-    volatile long double product = (long double)val * POLYTZF_PerspInvW;
-    return (S32)lrintl(product);
+    volatile X87_REAL product = (X87_REAL)val * POLYTZF_PerspInvW;
+    return X87Fistp(product);
 }
 
 static S32 tzf_persp_eval_zbuf(S32 val) {
-    volatile long double product = (long double)val * POLYTZF_PerspInvW * 256.0f;
-    return (S32)lrintl(product);
+    volatile X87_REAL product = (X87_REAL)val * POLYTZF_PerspInvW * 256.0f;
+    return X87Fistp(product);
 }
 
 static void POLYTZF_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth) {
@@ -73,7 +74,7 @@ static void POLYTZF_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth) {
     Fill_Cur_MapVOverW = lineV;
     S32 wXSlope = Fill_W_XSlope << POLYTZF_PERSP_SHIFT;
 
-    POLYTZF_PerspInvW = (long double)256.0f / (long double)w;
+    POLYTZF_PerspInvW = (X87_REAL)256.0f / (X87_REAL)w;
 
     POLYTZF_WStack_clear();
     U32 stackLength = fillWidth + POLYTZF_PERSP_VALUE - 1;
@@ -93,7 +94,7 @@ static void POLYTZF_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth) {
     Fill_Cur_MapV = tzf_persp_eval(Fill_Cur_MapVOverW);
     Fill_CurZBuf = tzf_persp_eval_zbuf(POLYTZF_Cur_ZBufOverW);
 
-    POLYTZF_PerspInvW = (long double)256.0f / (long double)Fill_Cur_W;
+    POLYTZF_PerspInvW = (X87_REAL)256.0f / (X87_REAL)Fill_Cur_W;
 }
 
 static void POLYTZF_Loop_Perspective(U32 fillWidth) {
@@ -108,7 +109,7 @@ static void POLYTZF_Loop_Perspective(U32 fillWidth) {
     if (fillWidth > POLYTZF_PERSP_VALUE) {
         Fill_Next_W = POLYTZF_WStack_top();
         POLYTZF_WStack_pop();
-        POLYTZF_PerspInvW = (long double)256.0f / (long double)Fill_Next_W;
+        POLYTZF_PerspInvW = (X87_REAL)256.0f / (X87_REAL)Fill_Next_W;
     }
 }
 

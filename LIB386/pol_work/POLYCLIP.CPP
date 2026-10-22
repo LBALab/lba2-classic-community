@@ -1,11 +1,12 @@
 #include <POLYGON/CLIPPERZ.H>
 #include <fenv.h>
 #include <SYSTEM/DEBUG_TRACES.H>
+#include <3D/X87REAL.H>
 
 /* ASM Clipping_ZFPU sets the x87 FPU to chop (truncate-toward-zero) rounding
  * via fldcw [Status_Int] before computing, then restores round-to-nearest via
  * fldcw [Status_Float].  We replicate this with fesetround so that ALL
- * intermediate long double arithmetic (fdiv, fmul, fadd) truncates, matching
+ * intermediate X87_REAL arithmetic (fdiv, fmul, fadd) truncates, matching
  * the ASM bit-for-bit. */
 void Clipping_ZFPU(STRUC_CLIPVERTEX *current, STRUC_CLIPVERTEX *last, STRUC_CLIPVERTEX *dst, int zclip) {
     LIB386_TRACE_CPP("Clipping_ZFPU", "1", "cur=(%d,%d,%d) last=(%d,%d,%d) zclip=%d",
@@ -15,7 +16,7 @@ void Clipping_ZFPU(STRUC_CLIPVERTEX *current, STRUC_CLIPVERTEX *last, STRUC_CLIP
 
     S32 currentZ = current->V_Z0;
     S32 lastZ = last->V_Z0;
-    volatile long double factor = (long double)(zclip - lastZ) / (long double)(currentZ - lastZ);
+    volatile X87_REAL factor = (X87_REAL)(zclip - lastZ) / (X87_REAL)(currentZ - lastZ);
 
     U32 currentMapU = *(U32 *)&current->V_MapU;
     U32 lastMapU = *(U32 *)&last->V_MapU;
@@ -32,11 +33,11 @@ void Clipping_ZFPU(STRUC_CLIPVERTEX *current, STRUC_CLIPVERTEX *last, STRUC_CLIP
     S32 lastLight = last->V_Light & 0xFFFF;
     S32 diffLight = currentLight - lastLight;
 
-    volatile long double interpX = (long double)last->V_X0 + (long double)(current->V_X0 - last->V_X0) * factor;
-    volatile long double interpY = (long double)last->V_Y0 + (long double)(current->V_Y0 - last->V_Y0) * factor;
-    volatile long double interpU = (long double)lastU + (long double)diffU * factor;
-    volatile long double interpV = (long double)lastV + (long double)diffV * factor;
-    volatile long double interpLight = (long double)lastLight + (long double)diffLight * factor;
+    volatile X87_REAL interpX = (X87_REAL)last->V_X0 + (X87_REAL)(current->V_X0 - last->V_X0) * factor;
+    volatile X87_REAL interpY = (X87_REAL)last->V_Y0 + (X87_REAL)(current->V_Y0 - last->V_Y0) * factor;
+    volatile X87_REAL interpU = (X87_REAL)lastU + (X87_REAL)diffU * factor;
+    volatile X87_REAL interpV = (X87_REAL)lastV + (X87_REAL)diffV * factor;
+    volatile X87_REAL interpLight = (X87_REAL)lastLight + (X87_REAL)diffLight * factor;
 
     dst->V_X0 = (S32)interpX;
     dst->V_Y0 = (S32)interpY;

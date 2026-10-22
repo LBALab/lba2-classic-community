@@ -9,12 +9,17 @@
  * The last test is for the -ffp-contract=off flag the build sets (CMakeLists.txt).
  * A product that rounds to an exact half in double, but is not exactly a half,
  * rounds to even only if the multiply and the add are rounded separately. With
- * them fused (GCC's default where the CPU has an FMA) it goes the other way. */
+ * them fused (GCC's default where the CPU has an FMA) it goes the other way.
+ *
+ * X87Fistp is the rounding of the polygon fillers, which draw each triangle
+ * under truncation: it has to follow the current mode as fistp does, where the
+ * inline rounding would floor a negative value instead of truncating it. */
 
 #include "test_harness.h"
 
 #include <3D/X87REAL.H>
 
+#include <fenv.h>
 #include <math.h>
 #include <stdio.h>
 
@@ -122,6 +127,40 @@ static void test_multiply_is_not_fused() {
 #endif
 }
 
+static void test_fistp_follows_the_mode() {
+    // volatile, so no rounding is folded at compile time in the default mode.
+    volatile double values[] = {0.0, -0.0, 0.25, -0.25, 2.5, -2.5, 3.5, -3.5, 7.99999, -7.99999,
+                                -9471.000001, 155477.75, -155477.75, 2147483646.5, -2147483647.5};
+    for (double v : values) {
+        ASSERT_EQ_INT((S32)llrint(v), X87Fistp((X87_REAL)v));
+    }
+    for (int i = 0; i < 100000; i++) {
+        volatile double v = (double)(S32)Next() / (double)((Next() >> 8) | 1);
+        ASSERT_EQ_INT((S32)llrint(v), X87Fistp((X87_REAL)v));
+    }
+
+    int floored = 0;
+    fesetround(FE_TOWARDZERO);
+    for (double v : values) {
+        ASSERT_EQ_INT((S32)v, X87Fistp((X87_REAL)v));
+    }
+    for (int i = 0; i < 100000; i++) {
+        volatile double v = (double)(S32)Next() / (double)((Next() >> 8) | 1);
+        ASSERT_EQ_INT((S32)v, X87Fistp((X87_REAL)v));
+#ifdef X87_HAVE_ROUND_DOUBLE
+        if (X87RoundDouble(v) != (S32)v)
+            floored++;
+#endif
+    }
+    fesetround(FE_TONEAREST);
+#ifdef X87_HAVE_ROUND_DOUBLE
+    // Why the fillers do not use X87Round: under truncation the inline rounding
+    // floors the negative values.
+    printf("  under truncation, the inline rounding missed %d of 100000\n", floored);
+    ASSERT_TRUE(floored > 10000);
+#endif
+}
+
 int main() {
     printf("X87REAL.H: long double has %d mantissa bits, X87_REAL is %s\n", (int)LDBL_MANT_DIG,
            sizeof(X87_REAL) == sizeof(double) ? "double" : "long double");
@@ -130,6 +169,7 @@ int main() {
     RUN_TEST(test_large_values);
     RUN_TEST(test_random_values);
     RUN_TEST(test_multiply_is_not_fused);
+    RUN_TEST(test_fistp_follows_the_mode);
     TEST_SUMMARY();
     return test_failures != 0;
 }

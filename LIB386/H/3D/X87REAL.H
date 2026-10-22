@@ -26,12 +26,21 @@
  * The double branch rounds inline instead of through lrint, which is a library
  * call on 32-bit ARM. Adding 1.5 * 2^52 rounds v to an integer by the current
  * rounding mode, which is round-to-nearest-even here:
- * the only change of mode is truncation inside one triangle's span in
- * pol_work/POLY.CPP, which these routines never run inside. It needs |v| < 2^51,
+ * the only changes of mode are truncation inside one triangle's span in
+ * pol_work/POLY.CPP and inside Clipping_ZFPU in pol_work/POLYCLIP.CPP, which
+ * these routines never run inside. It needs |v| < 2^51,
  * far above anything that still fits the S32 the callers store. Everything is
  * built with -ffp-contract=off (the top CMakeLists.txt): GCC otherwise fuses a
  * caller's multiply into the first addition, which is one rounding instead of
  * two and moves ties.
+ */
+
+/*
+ * X87Fistp rounds by the current rounding mode, as fistp does. The polygon
+ * fillers in LIB386/pol_work draw each triangle under truncation (the ASM's
+ * fldcw [Status_Int]), so they use it instead of X87Round, whose inline
+ * rounding is right only in round-to-nearest: under truncation it would floor
+ * a negative value instead of truncating it.
  */
 
 #include <float.h>
@@ -78,6 +87,10 @@ static inline S32 X87Round(X87_REAL v) {
     return (S32)lrintl(v);
 }
 
+static inline S32 X87Fistp(X87_REAL v) {
+    return (S32)lrintl(v);
+}
+
 #else
 
 #ifndef X87_HAVE_ROUND_DOUBLE
@@ -89,6 +102,10 @@ typedef double X87_REAL;
 
 static inline S32 X87Round(X87_REAL v) {
     return X87RoundDouble(v);
+}
+
+static inline S32 X87Fistp(X87_REAL v) {
+    return (S32)lrint(v);
 }
 
 #endif

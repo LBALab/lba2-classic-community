@@ -25,6 +25,7 @@
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/UTILS.H>
 #include <SYSTEM/DEBUG_TRACES.H>
+#include <3D/X87REAL.H>
 
 PTR_U16 POLYTEXZ_PtrZBuffer1 = NULL;
 PTR_U16 POLYTEXZ_PtrZBuffer2 = NULL;
@@ -52,17 +53,18 @@ static PerspectiveWStack_t PerspectiveWStack = {{0}, 0, 0};
 /* Perspective correction: replicate ASM x87 FPU behavior.
  *
  * The ASM keeps 256.0f/W on the FPU stack in 80-bit extended precision,
- * then multiplies each MapOverW value by it and stores via fistp (which
- * uses FPU rounding = round-to-nearest-even).
+ * then multiplies each MapOverW value by it and stores via fistp, which
+ * rounds by the FPU's mode: truncation, which Draw_Triangle sets for the
+ * whole triangle.
  *
- * In C we use volatile long double to force 80-bit stores, and lrintl()
- * to match fistp rounding.
+ * In C we keep it in volatile X87_REAL (3D/X87REAL.H) and round with
+ * X87Fistp, which honours the current mode as fistp does.
  *
  * The ASM loads F_256 as a 32-bit float (DWORD), so we must use float
  * for the constant to ensure the same representation.
  */
 
-static volatile long double PerspectiveInvW;
+static volatile X87_REAL PerspectiveInvW;
 
 /* Queue operations — FIFO to match ASM hardware stack behavior */
 static void PerspectiveWStack_clear(void) {
@@ -95,8 +97,8 @@ static U32 PerspectiveWStack_size(void) {
 }
 
 static S32 persp_eval(S32 val) {
-    volatile long double product = (long double)val * PerspectiveInvW;
-    return (S32)lrintl(product);
+    volatile X87_REAL product = (X87_REAL)val * PerspectiveInvW;
+    return X87Fistp(product);
 }
 
 // ╔═════════════════════════════════════════════════════════════╗
@@ -113,7 +115,7 @@ static void Fill_Init_Perspective_Impl(S32 lineU, S32 lineV, U32 fillWidth) {
     Fill_Cur_MapUOverW = lineU;
     Fill_Cur_MapVOverW = lineV;
     S32 wXSlope = Fill_W_XSlope << PERSP_SHIFT;
-    PerspectiveInvW = (long double)256.0f / (long double)w;
+    PerspectiveInvW = (X87_REAL)256.0f / (X87_REAL)w;
 
     PerspectiveWStack_clear();
     U32 stackLength = fillWidth + PERSP_VALUE - 1;
@@ -133,7 +135,7 @@ static void Fill_Init_Perspective_Impl(S32 lineU, S32 lineV, U32 fillWidth) {
 
     Fill_Cur_MapU = persp_eval(Fill_Cur_MapUOverW);
     Fill_Cur_MapV = persp_eval(Fill_Cur_MapVOverW);
-    PerspectiveInvW = (long double)256.0f / (long double)Fill_Cur_W;
+    PerspectiveInvW = (X87_REAL)256.0f / (X87_REAL)Fill_Cur_W;
 }
 
 // ╔═════════════════════════════════════════════════════════════╗
@@ -149,7 +151,7 @@ static void Fill_Loop_Perspective_Impl(U32 fillWidth) {
     if (fillWidth > PERSP_VALUE) {
         Fill_Next_W = PerspectiveWStack_top();
         PerspectiveWStack_pop();
-        PerspectiveInvW = (long double)256.0f / (long double)Fill_Next_W;
+        PerspectiveInvW = (X87_REAL)256.0f / (X87_REAL)Fill_Next_W;
     }
 }
 
