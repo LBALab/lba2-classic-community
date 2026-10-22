@@ -1535,7 +1535,8 @@ static void cmd_perftrace_print_sink(const char *line) {
 
 static void cmd_perftrace(int argc, const char *argv[]) {
     if (argc < 2) {
-        Console_Print("perftrace: active=%d. Use start | stop | reset | status | dump [path] | autodump [path]",
+        Console_Print("perftrace: active=%d. Use start | stop | reset | status | dump [path] | autodump [path] | "
+                      "log <path|off>",
                       Perftrace_IsActive());
         Perftrace_PrintStatus(cmd_perftrace_print_sink);
         return;
@@ -1575,6 +1576,21 @@ static void cmd_perftrace(int argc, const char *argv[]) {
         const char *path = (argc >= 3) ? argv[2] : "/tmp/perftrace.txt";
         Perftrace_SetAutoDumpPath(path);
         Console_Print("perftrace: will dump to '%s' on exit", path);
+        return;
+    }
+    if (!strcmp(sub, "log")) {
+        if (argc < 3) {
+            Console_Print("perftrace: log needs a path, or off");
+            return;
+        }
+        if (!strcmp(argv[2], "off")) {
+            Perftrace_SetLogPath(NULL);
+            Console_Print("perftrace: log closed");
+        } else if (Perftrace_SetLogPath(argv[2]) == 0) {
+            Console_Print("perftrace: logging every frame to '%s'", argv[2]);
+        } else {
+            Console_Print("perftrace: log failed (open '%s')", argv[2]);
+        }
         return;
     }
     Console_Print("perftrace: unknown subcommand '%s'", sub);
@@ -2644,11 +2660,13 @@ void Console_RegisterAll(void) {
 
     Console_RegisterCommandEx("perftrace", cmd_perftrace,
                               "Per-frame timing capture (ring buffer, no log spam)",
-                              "perftrace [start | stop | reset | status | dump [path] | autodump [path]]",
+                              "perftrace [start | stop | reset | status | dump [path] | autodump [path] | "
+                              "log <path|off>]",
                               "Ring buffer of the last 256 frames of (frame, scene, present) timing. "
                               "`start` enables capture, `stop` halts it, `dump` writes a summary file "
                               "(default /tmp/perftrace.txt) with iso vs exterior breakdown. "
                               "`autodump` arms a dump on process exit (useful for headless --exec runs). "
+                              "`log` writes every captured frame to a file with its cube, no ring limit. "
                               "Cost when active is ~1 us/frame; zero when inactive.");
 
     Console_RegisterCvar("fps", &DebugFps, CONSOLE_CVAR_BOOL, "Frame rate display");

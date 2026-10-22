@@ -40,6 +40,11 @@ static U64 s_capture_start_ticks;
 static U64 s_capture_last_ticks;
 static U64 s_total_frames;
 
+/* Optional per-frame log: one line for every captured frame, so a run longer
+   than the ring (a whole attract reel) keeps every sample and its scene. */
+static FILE *s_log;
+static U32 s_presents; /* presents in the current frame: more than one means a fade or wait loop */
+
 static U64 perf_now(void) {
     return (U64)g_platform.system.performance_counter();
 }
@@ -87,6 +92,35 @@ void Perftrace_FrameBegin(void) {
         return;
     s_frame_start = perf_now();
     memset(s_phase_acc, 0, sizeof(s_phase_acc));
+    s_presents = 0;
+}
+
+static const char *tag_name(U8 t) {
+    switch (t) {
+    case 1:
+        return "iso";
+    case 2:
+        return "ext";
+    default:
+        return "?";
+    }
+}
+
+static void perftrace_register_atexit(void);
+
+int Perftrace_SetLogPath(const char *path) {
+    if (s_log) {
+        fclose(s_log);
+        s_log = NULL;
+    }
+    if (!path || !*path)
+        return 0;
+    s_log = fopen(path, "w");
+    if (!s_log)
+        return -1;
+    perftrace_register_atexit();
+    fprintf(s_log, "# perftrace log: cube tag frame_us scene_us present_us presents\n");
+    return 0;
 }
 
 void Perftrace_FrameEnd(void) {
@@ -104,6 +138,12 @@ void Perftrace_FrameEnd(void) {
         out->scene_tag = 2;
     else
         out->scene_tag = 0;
+
+    if (s_log) {
+        fprintf(s_log, "%ld %s %lu %lu %lu %lu\n", (long)NumCube, tag_name(out->scene_tag),
+                (unsigned long)out->frame_us, (unsigned long)out->phase_us[PERFTRACE_PHASE_SCENE],
+                (unsigned long)out->phase_us[PERFTRACE_PHASE_PRESENT], (unsigned long)s_presents);
+    }
 
     s_ring_head = (s_ring_head + 1) % PERFTRACE_RING_SIZE;
     if (s_ring_count < PERFTRACE_RING_SIZE)
@@ -133,6 +173,8 @@ void Perftrace_PhaseEnd(int phase) {
 }
 
 void Perftrace_PresentBegin(void) {
+    if (s_active)
+        s_presents++;
     Perftrace_PhaseBegin(PERFTRACE_PHASE_PRESENT);
 }
 
@@ -146,9 +188,20 @@ static char s_autodump_path[512];
 static int s_autodump_registered;
 
 static void perftrace_atexit(void) {
+    if (s_log) {
+        fclose(s_log);
+        s_log = NULL;
+    }
     if (s_autodump_path[0] == '\0')
         return;
     Perftrace_Dump(s_autodump_path, PERFTRACE_RING_SIZE);
+}
+
+static void perftrace_register_atexit(void) {
+    if (!s_autodump_registered) {
+        atexit(perftrace_atexit);
+        s_autodump_registered = 1;
+    }
 }
 
 void Perftrace_SetAutoDumpPath(const char *path) {
@@ -161,10 +214,7 @@ void Perftrace_SetAutoDumpPath(const char *path) {
         n = sizeof(s_autodump_path) - 1;
     memcpy(s_autodump_path, path, n);
     s_autodump_path[n] = '\0';
-    if (!s_autodump_registered) {
-        atexit(perftrace_atexit);
-        s_autodump_registered = 1;
-    }
+    perftrace_register_atexit();
 }
 
 /* ---------- summary helpers ---------- */
@@ -208,17 +258,6 @@ static void compute_summary(const U64 *vals, const U64 (*phase_vals)[PERFTRACE_P
         }
     }
     free(tmp);
-}
-
-static const char *tag_name(U8 t) {
-    switch (t) {
-    case 1:
-        return "iso";
-    case 2:
-        return "ext";
-    default:
-        return "?";
-    }
 }
 
 static int slice(int max_samples, int tag_filter, U64 *out_frame,
