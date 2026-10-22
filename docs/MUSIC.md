@@ -180,7 +180,7 @@ cue audio. WAV and OGG then reach the stream very differently:
 | | WAV | OGG (`PlayOggFile`) |
 |---|---|---|
 | Decode | one small prefill, then block-aligned batches on a background thread through SDL's WAV decoder | `stb_vorbis` on a background decode thread, incrementally |
-| Push | chunks up to 16 KiB; rate-derived semaphore waits when 64 KiB of source PCM is queued, capped at 250 ms and interrupted by stop | chunks pushed as decoded |
+| Push | chunks up to 16 KiB; producer waits when 64 KiB of source PCM is queued | chunks pushed as decoded |
 | Cache | none | one-slot decoded-PCM cache (`oggCache`), keyed by path |
 | Seek/restore | seek to the containing encoded block, decode it and discard frames before the parked position | `stb_vorbis_seek_frame` (a seeked decode is not cached), or offset on a cache hit |
 
@@ -222,21 +222,19 @@ The music state machine and stream lifecycle are host-tested. Three targets unde
   round-trip, and fade convergence.
 - **`test_music_stream_park.cpp`** unit-tests the pure `STREAM_PARK.H` decisions:
   fast-unpause vs restore-from-park vs nothing, the focus-nesting invariant, when
-  to park, the parked position after a restore, and exact rate-derived queue waits.
+  to park, and the parked position after a restore.
 - **`test_music_stream_resume.cpp`** compiles the real SDL `STREAM.CPP` against a
   fake audio device (the `AILAudio_*` seam) with a virtual clock: the device plays
   only when the test advances it. Covers where a stream resumes after menu round
   trips (one, two, after the track has ended), a game loaded from the menu, bounded-producer refills, and
   the dialogue fast-unpause, on
-  three source setups, one per reopen path: WAV (a bounded fake source of patterned PCM with a known
+  three source setups, one per reopen path: WAV (a bounded fake source of silent PCM with a known
   length), an OGG track with a WAV menu theme (the decoded-PCM cache hit), and both
   OGG as in the Steam and GOG Classic releases (the menu theme evicts the track, so
   the restore re-decodes from a `stb_vorbis` seek on the decode thread). The OGG is
   `tests/music/fixtures/silence-10s.ogg`, decoded for real. A decoder seek lands on
   the start of a Vorbis frame, a few ms before the parked frame; the test allows
   50 ms there.
-
-The WAV producer regression also checks reduced queue queries while paused, prompt cancellation of a full-queue wait over repeated stop/start cycles, and byte-exact PCM across a complete track.
 
 `tests/platform/test_music_wav.cpp` compares every decoded byte against whole-file SDL decoding for PCM at several bit depths, extensible PCM, float, A-law, mu-law, MS ADPCM and IMA ADPCM. It covers mono/stereo, seeked restores, fact hints, partial blocks, deterministic randomized inputs, malformed files, bounded initial reads and image-source ownership after unmount. `test_sdl_audio_playback` uses the production transport with dummy output to pin the 64 KiB queue bound, cancellation while full, pause/focus nesting, menu restore and natural EOF. `test_disc_image` interleaves asset and independent-reader access on separate threads and checks that the private reader survives global unmount.
 
