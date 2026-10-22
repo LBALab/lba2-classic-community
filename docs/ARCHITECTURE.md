@@ -91,6 +91,22 @@ polyrec/projrec harnesses before the next. No rewrite.
 
 ## The rings and the core
 
+The rings, the core and the platform tiers below follow from a few principles. When a case
+comes up that no rule covers, reason from these.
+
+- **The original is the reference.** The 1997 game is what the rest is measured against, and
+  it stays playable: with the settings off, the game plays as the original.
+- **Understand before you change.** Read the code and its Quirks before calling behaviour a
+  bug. A change to the core starts from a Decision.
+- **Every claim can be re-derived** by someone else, from a test, a recording or a source.
+- **Measure to prove yourself wrong.** A change moves inward on evidence from the data
+  players have.
+- **Leave room to play.** An experiment is cheap to add and cheap to take out.
+- **Quality keeps people; novelty does not.** Care rises toward the centre, and polishing what
+  is there comes before adding more.
+- **Promise only what you test.** A platform is supported as far as it is tested; building on
+  it is not supporting it.
+
 ![Four nested rings: inner core (the game) inside outer core (the platform) inside Modern inside Experimental; features such as the Auto camera, HD and LBA1 move inward](images/rings.svg)
 
 Settings grow in two rings around the core, Modern inside Experimental. **Original**, the game
