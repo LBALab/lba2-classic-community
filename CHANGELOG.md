@@ -94,6 +94,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Polygon recordings are little-endian whatever processor writes them, so they
   replay on big-endian processors too, with the same frames as on x86
   ([#826](https://github.com/LBALab/lba2-classic-community/pull/826)).
+- The Docker test suite runs on Apple Silicon Macs with one known failure
+  instead of four: the 32-bit test build now lists directories correctly under
+  emulation ([#827](https://github.com/LBALab/lba2-classic-community/pull/827)).
 
 ### Contributors
 

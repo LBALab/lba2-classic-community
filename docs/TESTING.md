@@ -323,6 +323,19 @@ CTest.
 This is especially important on macOS ARM64, where the Docker-based workflow
 avoids local 32-bit toolchain and UASM compatibility issues.
 
+On Apple Silicon, Docker Desktop runs the 32-bit test binaries under
+`qemu-i386` on an arm64 kernel, which differs from CI in two ways:
+
+- The kernel treats the emulated program as a 64-bit caller and returns 64-bit
+  directory offsets, which a 32-bit `readdir` cannot hold: it fails with
+  `EOVERFLOW` and lists nothing. The `linux_test` preset builds with
+  `-D_FILE_OFFSET_BITS=64` so directory listings work there too.
+- `test_crash_report` fails its stack-overflow cases: GCC's unwinder cannot
+  step through `qemu-i386`'s signal frame, so the crash block stops after its
+  first frame. A minimal program that unwinds from a signal handler fails the
+  same way under `qemu-i386`, so this is the emulator, not the crash handler.
+  CI runs on x86-64 and is the check for that test.
+
 ### Common commands
 
 Run the entire suite:
