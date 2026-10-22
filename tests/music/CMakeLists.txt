@@ -83,6 +83,7 @@ if(PLATFORM_BACKEND MATCHES "^sdl[23]$")
     lba2_test_tmp_dir(_tmp test_music_stream_resume)
     lba2_test_device_data(tests/music/fixtures/silence-10s.ogg)
     target_compile_definitions(test_music_stream_resume PRIVATE LBA_LOG_NO_PLATFORM
+        LBA2_STREAM_TESTS
         TEST_TMP_DIR="${_tmp}"
         TEST_FIXTURE_OGG="${LBA2_TEST_DATA_ROOT}/tests/music/fixtures/silence-10s.ogg")
     if(PLATFORM_BACKEND STREQUAL "sdl2")

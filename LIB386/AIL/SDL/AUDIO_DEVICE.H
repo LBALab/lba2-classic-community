@@ -29,3 +29,11 @@ void AILAudio_TestRead(AILAudioStream *stream, float *output, int samples);
 void AILAudio_TestMix(float *output, int samples);
 int AILAudio_TestConvertedBytes(AILAudioStream *stream);
 #endif
+
+#ifdef LBA2_STREAM_TESTS
+/* For a fake device that drains in virtual time: wakes the WAV producer
+   (STREAM.CPP) after the device takes bytes, so it refills at once instead of
+   sleeping out the real drain time. Call it from the thread that plays and
+   stops streams. */
+void AILStream_TestWakeProducer(void);
+#endif

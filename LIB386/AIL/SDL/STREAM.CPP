@@ -191,6 +191,13 @@ static void StopDecodeThread(void) {
     AIL_AtomicSet(&decodeActive, 0);
 }
 
+#ifdef LBA2_STREAM_TESTS
+void AILStream_TestWakeProducer(void) {
+    if (decodeWake)
+        AIL_SignalSemaphore(decodeWake);
+}
+#endif
+
 struct WavDecodeData {
     AILWavSource *source;
     SDL_AudioSpec spec;
