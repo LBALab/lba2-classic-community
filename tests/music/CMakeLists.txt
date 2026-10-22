@@ -67,6 +67,10 @@ register_host_test(test_cd_track_path)
 # types, SDL_Log and the OGG decode thread, but never opens a device or reads a
 # game asset. fixtures/silence-10s.ogg is 10 s of silence, 44.1 kHz stereo, made with
 # ffmpeg -f lavfi -i anullsrc=r=44100:cl=stereo -t 10 -c:a vorbis -strict -2.
+# fixtures/chirp-3s.ogg is a different rising tone on each channel, so a test that
+# compares decoded PCM sees order and content, not only length; made with
+# ffmpeg -f lavfi -i "aevalsrc=0.3*sin(2*PI*(200+300*t)*t)|0.3*sin(2*PI*(500+100*t)*t):s=44100:d=3"
+#   -c:a vorbis -strict -2 -ac 2.
 if(PLATFORM_BACKEND MATCHES "^sdl[23]$")
     add_executable(test_music_stream_resume test_music_stream_resume.cpp
         ${CMAKE_SOURCE_DIR}/LIB386/AIL/SDL/STREAM.CPP
@@ -82,10 +86,12 @@ if(PLATFORM_BACKEND MATCHES "^sdl[23]$")
     target_link_libraries(test_music_stream_resume PRIVATE ${LBA2_SDL_TARGET})
     lba2_test_tmp_dir(_tmp test_music_stream_resume)
     lba2_test_device_data(tests/music/fixtures/silence-10s.ogg)
+    lba2_test_device_data(tests/music/fixtures/chirp-3s.ogg)
     target_compile_definitions(test_music_stream_resume PRIVATE LBA_LOG_NO_PLATFORM
         LBA2_STREAM_TESTS
         TEST_TMP_DIR="${_tmp}"
-        TEST_FIXTURE_OGG="${LBA2_TEST_DATA_ROOT}/tests/music/fixtures/silence-10s.ogg")
+        TEST_FIXTURE_OGG="${LBA2_TEST_DATA_ROOT}/tests/music/fixtures/silence-10s.ogg"
+        TEST_FIXTURE_CHIRP_OGG="${LBA2_TEST_DATA_ROOT}/tests/music/fixtures/chirp-3s.ogg")
     if(PLATFORM_BACKEND STREQUAL "sdl2")
         target_compile_definitions(test_music_stream_resume PRIVATE LBA2_USE_SDL2=1)
     endif()

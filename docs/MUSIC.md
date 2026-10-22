@@ -171,41 +171,45 @@ focus nesting rule) is extracted, SDL-free, into `LIB386/H/AIL/STREAM_PARK.H`
 `STREAM.CPP`'s `PauseStream`/`ResumeStream`/`ResumeStreamOutput` are thin wrappers
 that call these and run the SDL side effects, so the invariants are unit-testable.
 
-## Stream backend: WAV vs OGG
+## Stream backend: one bounded producer
 
 The game always requests `.WAV`; `PlayStreamInternal` (`STREAM.CPP`) resolves it,
 trying filesystem WAV, then the `.ogg` transcode, then a mounted disc image, then
-cue audio. WAV and OGG then reach the stream very differently:
+the disc's own CD audio tracks, then cue audio. Whatever it finds, the music reaches
+the device the same way: `StartProducer` queues the source's first batch, and a
+background producer thread feeds the rest as it plays. A track is never held whole
+(it is 30 to 40 MB of PCM), so music costs the same few hundred KB in every scene.
 
-| | WAV | OGG (`PlayOggFile`) |
+| Source | Batches | Seek/restore |
 |---|---|---|
-| Decode | one small prefill, then block-aligned batches on a background thread through SDL's WAV decoder | `stb_vorbis` on a background decode thread, incrementally |
-| Push | chunks up to 16 KiB; rate-derived semaphore waits when 64 KiB of source PCM is queued, capped at 250 ms and interrupted by stop | chunks pushed as decoded |
-| Cache | none | one-slot decoded-PCM cache (`oggCache`), keyed by path |
-| Seek/restore | seek to the containing encoded block, decode it and discard frames before the parked position | `stb_vorbis_seek_frame` (a seeked decode is not cached), or offset on a cache hit |
+| WAV (filesystem, image, cue) | block-aligned batches through SDL's WAV decoder | seek to the containing encoded block, decode it and discard frames before the parked position |
+| OGG (`PlayOggFile`) | `stb_vorbis`, 2048 frames at a time | `stb_vorbis_seek_frame` |
+| CD audio (image or per-track BINARY file) | 14 raw 2352-byte sectors at a time | sector plus byte offset within it |
 
-[WAV_STREAM.CPP](../LIB386/AIL/SDL/WAV_STREAM.CPP), `AILWav_Read`, wraps bounded, complete ADPCM blocks in a RIFF packet with the original format metadata, retaining SDL's exact predictor/coefficient handling, fact-chunk policy and final partial-block handling rather than introducing another decoder. Filesystem WAVs, WAVs in mounted images and cue-referenced WAVs share this source. [DISCIMG.CPP](../LIB386/SYSTEM/DISCIMG.CPP), `DiscImage_OpenIndependent`, resolves an image file on the control thread and opens a private image reader for the producer; the asset loader's shared seek cursor is never used by that worker. Raw CD-DA still uses its separate whole-range loading path.
+The producer pushes chunks of up to 16 KiB and waits on a semaphore, for a
+rate-derived time capped at 250 ms, whenever 64 KiB of source PCM is queued. A
+stop interrupts the wait.
 
-Three consequences worth knowing:
+[WAV_STREAM.CPP](../LIB386/AIL/SDL/WAV_STREAM.CPP), `AILWav_Read`, wraps bounded, complete ADPCM blocks in a RIFF packet with the original format metadata, retaining SDL's exact predictor/coefficient handling, fact-chunk policy and final partial-block handling rather than introducing another decoder. Filesystem WAVs, WAVs in mounted images and cue-referenced WAVs share this source. Neither disc-image source uses the asset loader's shared seek cursor: [DISCIMG.CPP](../LIB386/SYSTEM/DISCIMG.CPP), `DiscImage_OpenIndependent` (an image WAV) and `DiscImage_OpenRawIndependent` (CD audio), opens a private image reader for the producer.
 
-- **Cold-OGG first-audio gap.** `FinishStream` resumes the device right after
-  `PlayOggFile` launches the decode thread, so the device can run dry for tens of
-  ms until the first chunk is pushed. WAV pushes a small prefill and an OGG-cache-hit pushes all its PCM
-  first, so neither starts with an empty queue. A scene switch is always a different track (a
-  cache miss), so it always takes the cold OGG path.
-- **The cache and the queue do not compose.** The OGG cache is a single slot for
-  *same-track* replay/restore. The `NextMusic` queue exists to switch to a
-  *different* track, which is a cache miss that also evicts the previous track.
-  So the cache buys nothing on queue-driven area changes, and toggling between two
-  adjacent areas re-decodes each time. This is an efficiency gap, not a bug (the
-  cache is path-keyed; partial/seeked decodes are correctly not cached).
+CD audio's byte order is measured once, when the track opens, from the same
+sixteen windows of the whole track that `CdDa_NeedsByteSwap` samples
+(`CdDa_NeedsByteSwapWindows`), so a streamed track gets the same answer as a
+loaded one.
+
+There is no decoded-PCM cache. Opening an OGG and decoding its first 16 KiB takes
+about 0.5 ms on a Galaxy S22+, and seeking to mid-track about 2.5 ms, so a replayed
+track does not need a 38 MB copy kept around (#797).
+
+One consequence worth knowing:
+
 - **EOF needs a flush.** `SDL_OpenAudioDeviceStream` opens the device at its native
   format, so SDL sits a format converter in the path. The converter holds a small
   tail of input it will not emit until told no more is coming, so
   `SDL_GetAudioStreamQueued` sticks a few bytes above 0 forever and the stream never
-  reports end-of-track. Each source therefore calls `SDL_FlushAudioStream` once its
-  whole PCM has been pushed (WAV/OGG decode thread on natural finish, OGG cache-hit),
-  which lets the queue drain to 0 so `IsStreamPlaying()` can report EOF. This matters
+  reports end-of-track. The producer therefore calls `SDL_FlushAudioStream` once the
+  source's whole PCM has been pushed (on a natural finish, not after a stop), which
+  lets the queue drain to 0 so `IsStreamPlaying()` can report EOF. This matters
   for the deferred-switch queue (#406): the queued track waits on `IsStreamPlaying()`
   going false, so without the flush it would wait forever.
 
@@ -227,16 +231,17 @@ The music state machine and stream lifecycle are host-tested. Three targets unde
   fake audio device (the `AILAudio_*` seam) with a virtual clock: the device plays
   only when the test advances it. Covers where a stream resumes after menu round
   trips (one, two, after the track has ended), a game loaded from the menu, bounded-producer refills, and
-  the dialogue fast-unpause, on
-  three source setups, one per reopen path: WAV (a bounded fake source of patterned PCM with a known
-  length), an OGG track with a WAV menu theme (the decoded-PCM cache hit), and both
-  OGG as in the Steam and GOG Classic releases (the menu theme evicts the track, so
-  the restore re-decodes from a `stb_vorbis` seek on the decode thread). The OGG is
-  `tests/music/fixtures/silence-10s.ogg`, decoded for real. A decoder seek lands on
-  the start of a Vorbis frame, a few ms before the parked frame; the test allows
-  50 ms there.
+  the dialogue fast-unpause, on three source setups: WAV (a bounded fake source of
+  patterned PCM with a known length), an OGG track with a WAV menu theme, and both
+  OGG as in the Steam and GOG Classic releases. The OGG is
+  `tests/music/fixtures/silence-10s.ogg`, decoded for real; the frame a restore asks
+  the decoder for is read through a test hook. The byte-exact OGG check uses
+  `tests/music/fixtures/chirp-3s.ogg` instead, a different rising tone on each
+  channel, since silence would only prove the length. CD audio is read for real from a
+  generated two-track bin+cue: byte-exact PCM in both byte orders, and a resume that
+  lands mid-sector.
 
-The WAV producer regression also checks reduced queue queries while paused, prompt cancellation of a full-queue wait over repeated stop/start cycles, and byte-exact PCM across a complete track.
+The producer tests also check reduced queue queries while paused, prompt cancellation of a full-queue wait over repeated stop/start cycles, a queue that never holds more than 64 KiB, and byte-exact PCM across a complete WAV, OGG and CD track.
 
 `tests/platform/test_music_wav.cpp` compares every decoded byte against whole-file SDL decoding for PCM at several bit depths, extensible PCM, float, A-law, mu-law, MS ADPCM and IMA ADPCM. It covers mono/stereo, seeked restores, fact hints, partial blocks, deterministic randomized inputs, malformed files, bounded initial reads and image-source ownership after unmount. `test_sdl_audio_playback` uses the production transport with dummy output to pin the 64 KiB queue bound, cancellation while full, pause/focus nesting, menu restore and natural EOF. `test_disc_image` interleaves asset and independent-reader access on separate threads and checks that the private reader survives global unmount.
 

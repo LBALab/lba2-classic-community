@@ -12,6 +12,7 @@
 #include <SYSTEM/CUE.H>
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/FILES.H> /* ESeekOrigin */
+#include <SYSTEM/ISO9660.H>
 
 #include <ctype.h>
 #include <stdio.h>
@@ -27,6 +28,7 @@
    declared here so ResumeStream can re-seek a re-opened file. */
 extern "C" {
 int stb_vorbis_seek_frame(stb_vorbis *f, unsigned int sample_number);
+int stb_vorbis_seek_start(stb_vorbis *f);
 unsigned int stb_vorbis_stream_length_in_samples(stb_vorbis *f);
 }
 
@@ -66,176 +68,122 @@ static struct {
 } pathCache[PATH_CACHE_MAX];
 static int pathCacheN = 0;
 
-/* ── Decoded PCM cache (most recently decoded OGG) ─────────────────────── */
+/* ── Background producer ───────────────────────────────────────────────── */
 
-static struct {
-    char path[ADELINE_MAX_PATH];
-    short *pcm;
-    Uint32 numBytes;
-    int sample_rate;
-    int channels;
-} oggCache = {"", NULL, 0, 0, 0};
-
-static void ClearOggCache(void) {
-    if (oggCache.pcm) {
-        free(oggCache.pcm);
-        oggCache.pcm = NULL;
-    }
-    oggCache.path[0] = '\0';
-    oggCache.numBytes = 0;
-}
-
-/* ── Background decode thread ──────────────────────────────────────────── */
+/* Music is fed to the device as it plays, never held whole: a track is 30 to 40
+   MB of PCM (#797). One producer thread per stream pulls batches from a source
+   and keeps about 64 KiB queued (Stream_QueueWaitMs), sleeping on decodeWake
+   in between. WAV files, OGG files and CD audio sectors are the sources. */
 
 static SDL_Thread *decodeThread = NULL;
 static AILSemaphore *decodeWake = NULL;
 static AILAtomicInt decodeStop;
 static AILAtomicInt decodeActive;
+static AILAtomicInt producerWaiting; // parked on a full queue (read by the tests)
 
-#define DECODE_CHUNK_SHORTS 4096
+/* Largest batch handed to the device at once, rounded down to whole frames. */
+#define PRODUCER_PUT_BYTES 16384
 
-typedef struct {
+/* Where the producer gets PCM. Read hands back the next batch in `spec`'s
+   format, owned by the source and valid until the next Read: 1 = data,
+   0 = end of track, -1 = error (SDL error set). */
+class MusicSource {
+  public:
+    SDL_AudioSpec spec;
+    MusicSource() { SDL_zero(spec); }
+    virtual ~MusicSource() {}
+    virtual int Read(const Uint8 **pcm, Uint32 *bytes) = 0;
+};
+
+class WavMusicSource : public MusicSource {
+  public:
+    explicit WavMusicSource(AILWavSource *source) : source(source), batch(NULL) {}
+    ~WavMusicSource() {
+        SDL_free(batch);
+        AILWav_Close(source);
+    }
+    int Read(const Uint8 **pcm, Uint32 *bytes) {
+        SDL_free(batch);
+        batch = NULL;
+        int result = AILWav_Read(source, &spec, &batch, bytes);
+        *pcm = batch;
+        return result;
+    }
+
+  private:
+    AILWavSource *source;
+    Uint8 *batch;
+};
+
+#define OGG_BATCH_SHORTS 4096
+
+class OggMusicSource : public MusicSource {
+  public:
+    OggMusicSource(stb_vorbis *vorbis, int channels, int rate) : vorbis(vorbis), channels(channels) {
+        spec.freq = rate;
+        spec.format = AIL_AUDIO_S16;
+        spec.channels = (Uint8)channels;
+    }
+    ~OggMusicSource() { stb_vorbis_close(vorbis); }
+    int Read(const Uint8 **pcm, Uint32 *bytes) {
+        int frames = stb_vorbis_get_samples_short_interleaved(vorbis, channels, batch,
+                                                              OGG_BATCH_SHORTS);
+        *pcm = (const Uint8 *)batch;
+        *bytes = frames > 0 ? (Uint32)(frames * channels) * (Uint32)sizeof(short) : 0;
+        return frames > 0 ? 1 : 0;
+    }
+
+  private:
     stb_vorbis *vorbis;
     int channels;
-    int sample_rate;
-    bool cacheResult; // false when decoding from a mid-file seek (partial PCM)
-    char oggPath[ADELINE_MAX_PATH];
-} DecodeThreadData;
+    short batch[OGG_BATCH_SHORTS];
+};
 
-static int SDLCALL DecodeThreadFunc(void *userdata) {
-    DecodeThreadData *d = (DecodeThreadData *)userdata;
-    short buf[DECODE_CHUNK_SHORTS];
-
-    Crash_PrepareThread();
-
-    int totalShorts = 0;
-    int capacity = 0;
-    short *fullPcm = NULL;
-
-    while (!AIL_AtomicGet(&decodeStop)) {
-        int n = stb_vorbis_get_samples_short_interleaved(
-            d->vorbis, d->channels, buf, DECODE_CHUNK_SHORTS);
-        if (n <= 0)
-            break;
-
-        int chunkShorts = n * d->channels;
-        int chunkBytes = chunkShorts * (int)sizeof(short);
-        AILAudio_Put(stream, buf, chunkBytes);
-        AIL_AtomicAdd(&streamPushedBytes, chunkBytes);
-
-        /* Only accumulate the full-track PCM when it will be cached (startFrame
-           == 0). A seeked restore decode yields partial PCM that is never cached
-           (see below), so building it here would be pure waste. */
-        if (!d->cacheResult)
-            continue;
-
-        if (totalShorts + chunkShorts > capacity) {
-            int newCap = (capacity == 0) ? 131072 : capacity * 2;
-            while (newCap < totalShorts + chunkShorts)
-                newCap *= 2;
-            short *p = (short *)realloc(fullPcm, (size_t)newCap * sizeof(short));
-            if (!p) {
-                free(fullPcm);
-                fullPcm = NULL;
-                break;
-            }
-            fullPcm = p;
-            capacity = newCap;
-        }
-        memcpy(fullPcm + totalShorts, buf, (size_t)chunkShorts * sizeof(short));
-        totalShorts += chunkShorts;
-    }
-
-    /* All of the track's PCM has been pushed. Signal end-of-input so SDL's
-       device-format converter emits its held tail; otherwise AILAudio_Queued
-       sticks a few bytes above 0 forever (the device format differs from the source,
-       so a converter sits in the path) and the stream never reports EOF -- which
-       stalls the deferred-music switch (#406). Only on a natural finish: if we were
-       stopped mid-decode the stream is being torn down anyway. */
-    if (!AIL_AtomicGet(&decodeStop) && stream)
-        AILAudio_Flush(stream);
-
-    stb_vorbis_close(d->vorbis);
-
-    if (!AIL_AtomicGet(&decodeStop) && d->cacheResult && fullPcm && totalShorts > 0) {
-        short *trimmed = (short *)realloc(fullPcm, (size_t)totalShorts * sizeof(short));
-        ClearOggCache();
-        oggCache.pcm = trimmed ? trimmed : fullPcm;
-        oggCache.numBytes = (Uint32)((size_t)totalShorts * sizeof(short));
-        oggCache.sample_rate = d->sample_rate;
-        oggCache.channels = d->channels;
-        strncpy(oggCache.path, d->oggPath, ADELINE_MAX_PATH - 1);
-        oggCache.path[ADELINE_MAX_PATH - 1] = '\0';
-    } else {
-        free(fullPcm);
-    }
-
-    AIL_AtomicSet(&decodeActive, 0);
-    free(d);
-    return 0;
-}
-
-static void StopDecodeThread(void) {
-    if (decodeThread) {
-        AIL_AtomicSet(&decodeStop, 1);
-        if (decodeWake && !AIL_SignalSemaphore(decodeWake))
-            SDL_Log("SDL AIL: unable to wake WAV producer: %s", SDL_GetError());
-        SDL_WaitThread(decodeThread, NULL);
-        decodeThread = NULL;
-    }
-    if (decodeWake) {
-        SDL_DestroySemaphore(decodeWake);
-        decodeWake = NULL;
-    }
-    AIL_AtomicSet(&decodeStop, 0);
-    AIL_AtomicSet(&decodeActive, 0);
-}
-
-#ifdef LBA2_STREAM_TESTS
-void AILStream_TestWakeProducer(void) {
-    if (decodeWake)
-        AIL_SignalSemaphore(decodeWake);
-}
-#endif
-
-struct WavDecodeData {
-    AILWavSource *source;
-    SDL_AudioSpec spec;
-    Uint8 *pcm;
+struct ProducerData {
+    MusicSource *source;
+    const Uint8 *pcm; // the source's current batch
     Uint32 bytes, offset;
 };
 
-static int SDLCALL WavDecodeThread(void *userdata) {
+static Uint32 SourceFrameBytes(const MusicSource *source) {
+    return AIL_AUDIO_BITSIZE(source->spec.format) / 8 * source->spec.channels;
+}
+
+static Uint32 NextPutBytes(const ProducerData *d, Uint32 frameBytes) {
+    Uint32 count = d->bytes - d->offset;
+    return count > PRODUCER_PUT_BYTES ? PRODUCER_PUT_BYTES / frameBytes * frameBytes : count;
+}
+
+static int SDLCALL ProducerThread(void *userdata) {
     Crash_PrepareThread();
-    WavDecodeData *d = (WavDecodeData *)userdata;
-    const Uint32 frameBytes = AIL_AUDIO_BITSIZE(d->spec.format) / 8 * d->spec.channels;
+    ProducerData *d = (ProducerData *)userdata;
+    const Uint32 frameBytes = SourceFrameBytes(d->source);
     bool failed = false;
     while (!AIL_AtomicGet(&decodeStop)) {
         if (d->offset == d->bytes) {
-            SDL_free(d->pcm);
-            d->pcm = NULL;
-            int result = AILWav_Read(d->source, &d->spec, &d->pcm, &d->bytes);
+            int result = d->source->Read(&d->pcm, &d->bytes);
             d->offset = 0;
             if (result <= 0) {
                 if (result < 0) {
-                    SDL_Log("SDL AIL: WAV streaming failed: %s", SDL_GetError());
+                    SDL_Log("SDL AIL: music streaming failed: %s", SDL_GetError());
                     failed = true;
                 }
                 break;
             }
         }
-        Uint32 count = d->bytes - d->offset;
-        if (count > 16384)
-            count = 16384 / frameBytes * frameBytes;
+        Uint32 count = NextPutBytes(d, frameBytes);
         int queued = AILAudio_Queued(stream);
         if (queued < 0) {
             failed = true;
             break;
         }
-        int waitMs = Stream_QueueWaitMs((Uint32)queued, count, d->spec.freq, (int)frameBytes);
+        int waitMs = Stream_QueueWaitMs((Uint32)queued, count, d->source->spec.freq, (int)frameBytes);
         if (waitMs) {
-            if (AIL_WaitSemaphoreTimeout(decodeWake, waitMs) < 0) {
-                SDL_Log("SDL AIL: WAV queue wait failed: %s", SDL_GetError());
+            AIL_AtomicSet(&producerWaiting, 1);
+            int waited = AIL_WaitSemaphoreTimeout(decodeWake, waitMs);
+            AIL_AtomicSet(&producerWaiting, 0);
+            if (waited < 0) {
+                SDL_Log("SDL AIL: music queue wait failed: %s", SDL_GetError());
                 failed = true;
                 break;
             }
@@ -251,50 +199,87 @@ static int SDLCALL WavDecodeThread(void *userdata) {
         d->offset += count;
     }
     if (failed)
-        SDL_Log("SDL AIL: music WAV producer stopped after an error");
-    SDL_free(d->pcm);
-    AILWav_Close(d->source);
+        SDL_Log("SDL AIL: music producer stopped after an error");
+    delete d->source;
     free(d);
+    /* All of the track has been pushed. Signal end-of-input so SDL's device-format
+       converter emits its held tail; otherwise AILAudio_Queued sticks a few bytes
+       above 0 forever and the stream never reports EOF, which stalls the
+       deferred-music switch (#406). Not after a stop: the stream is going away. */
     if (!AIL_AtomicGet(&decodeStop))
         AILAudio_Flush(stream);
     AIL_AtomicSet(&decodeActive, 0);
     return 0;
 }
 
-static bool PlayWavFile(const char *name, bool image, S32 startFrame, bool *recognized) {
-    Uint32 started = (Uint32)SDL_GetTicks();
-    AILWavSource *source = AILWav_Open(name, image, startFrame, recognized);
-    if (!source)
-        return false;
-    WavDecodeData *d = (WavDecodeData *)calloc(1, sizeof(*d));
+static void StopDecodeThread(void) {
+    if (decodeThread) {
+        AIL_AtomicSet(&decodeStop, 1);
+        if (decodeWake && !AIL_SignalSemaphore(decodeWake))
+            SDL_Log("SDL AIL: unable to wake music producer: %s", SDL_GetError());
+        SDL_WaitThread(decodeThread, NULL);
+        decodeThread = NULL;
+    }
+    if (decodeWake) {
+        SDL_DestroySemaphore(decodeWake);
+        decodeWake = NULL;
+    }
+    AIL_AtomicSet(&decodeStop, 0);
+    AIL_AtomicSet(&decodeActive, 0);
+}
+
+#ifdef LBA2_STREAM_TESTS
+void AILStream_TestWakeProducer(void) {
+    if (decodeWake) {
+        AIL_AtomicSet(&producerWaiting, 0); // until it looks at the queue again
+        AIL_SignalSemaphore(decodeWake);
+    }
+}
+
+int AILStream_TestProducerWaiting(void) {
+    return AIL_AtomicGet(&producerWaiting);
+}
+
+int AILStream_TestBaseFrame(void) {
+    return stream ? streamBaseFrame : 0;
+}
+#endif
+
+/* Open the device stream for `source`, queue its first batch and start the
+   producer on the rest. `baseFrame` is the frame of the track the source starts
+   at (non-zero on a resume); `started` is SDL_GetTicks from before the source
+   was opened, for the log. Takes ownership of `source` either way.
+
+   Returns true with no stream when a resume lands at or past the end of the
+   track: there is nothing left to play, which is not a failure. */
+static bool StartProducer(MusicSource *source, S32 baseFrame, const char *name, Uint32 started) {
+    ProducerData *d = (ProducerData *)calloc(1, sizeof(*d));
     if (!d) {
-        AILWav_Close(source);
-        SDL_SetError("Unable to allocate WAV music producer");
+        delete source;
+        SDL_SetError("Unable to allocate music producer");
         return false;
     }
     d->source = source;
-    int first = AILWav_Read(source, &d->spec, &d->pcm, &d->bytes);
-    if (first == 0 && startFrame > 0) {
-        AILWav_Close(source);
+    int first = source->Read(&d->pcm, &d->bytes);
+    if (first == 0 && baseFrame > 0) {
+        delete source;
         free(d);
         return true;
     }
     if (first > 0)
-        stream = AILAudio_Open(&d->spec, NULL, NULL);
+        stream = AILAudio_Open(&source->spec, NULL, NULL);
     if (first <= 0 || !stream) {
         if (first == 0)
-            SDL_SetError("Music WAV has no playable frames");
-        SDL_free(d->pcm);
-        AILWav_Close(source);
+            SDL_SetError("Music track has no playable frames");
+        delete source;
         free(d);
         return false;
     }
-    streamBytesPerFrame = AIL_AUDIO_BITSIZE(d->spec.format) / 8 * d->spec.channels;
-    streamBaseFrame = startFrame > 0 ? startFrame : 0;
-    d->offset = d->bytes > 16384 ? 16384 / streamBytesPerFrame * streamBytesPerFrame : d->bytes;
+    streamBytesPerFrame = (int)SourceFrameBytes(source);
+    streamBaseFrame = baseFrame > 0 ? baseFrame : 0;
+    d->offset = NextPutBytes(d, (Uint32)streamBytesPerFrame);
     if (!AILAudio_Put(stream, d->pcm, (int)d->offset)) {
-        SDL_free(d->pcm);
-        AILWav_Close(source);
+        delete source;
         free(d);
         AILAudio_Destroy(stream);
         stream = NULL;
@@ -302,26 +287,33 @@ static bool PlayWavFile(const char *name, bool image, S32 startFrame, bool *reco
     }
     AIL_AtomicAdd(&streamPushedBytes, (int)d->offset);
     if (musicLogEnabled)
-        SDL_Log("[MUSIC] WAV prefill %u bytes in %u ms: %s",
+        SDL_Log("[MUSIC] opened and prefilled %u bytes in %u ms: %s",
                 (unsigned)d->offset, (unsigned)((Uint32)SDL_GetTicks() - started), name);
     AIL_AtomicSet(&decodeStop, 0);
     AIL_AtomicSet(&decodeActive, 1);
     decodeWake = SDL_CreateSemaphore(0);
-    decodeThread = decodeWake ? SDL_CreateThread(WavDecodeThread, "WAVDecode", d) : NULL;
+    decodeThread = decodeWake ? SDL_CreateThread(ProducerThread, "MusicStream", d) : NULL;
     if (!decodeThread) {
         if (decodeWake) {
             SDL_DestroySemaphore(decodeWake);
             decodeWake = NULL;
         }
         AIL_AtomicSet(&decodeActive, 0);
-        SDL_free(d->pcm);
-        AILWav_Close(source);
+        delete source;
         free(d);
         AILAudio_Destroy(stream);
         stream = NULL;
         return false;
     }
     return true;
+}
+
+static bool PlayWavFile(const char *name, bool image, S32 startFrame, bool *recognized) {
+    Uint32 started = (Uint32)SDL_GetTicks();
+    AILWavSource *source = AILWav_Open(name, image, startFrame, recognized);
+    if (!source)
+        return false;
+    return StartProducer(new WavMusicSource(source), startFrame, name, started);
 }
 
 /* Current playback offset in source frames, from the top of the track: the
@@ -369,7 +361,6 @@ void OpenStream() {
     rememberedFrame = 0;
     hasRemembered = false;
     pathCacheN = 0;
-    ClearOggCache();
     if (musicLogEnabled)
         SDL_Log("[MUSIC] OpenStream init");
 }
@@ -470,41 +461,13 @@ static bool ResolveOggPath(const char *wavPath, char *resolvedPath, int pathMax)
     return false;
 }
 
-/* ── PlayOggFile: cache hit -> instant, cache miss -> stream decode ───── */
-/* startFrame > 0 resumes mid-file (ResumeStream restore path): the cache hit
-   pushes from a byte offset; the cache miss seeks the decoder and skips caching
-   the resulting partial PCM. */
+/* ── PlayOggFile ───────────────────────────────────────────────────────── */
+/* startFrame > 0 resumes mid-file (ResumeStream restore path) by seeking the
+   decoder. Opening and decoding the first batch costs about half a millisecond
+   on a phone, so a replayed track needs no decoded copy kept around (#797). */
 
 static bool PlayOggFile(const char *oggPath, S32 startFrame) {
-    if (oggCache.pcm && strcmp(oggCache.path, oggPath) == 0) {
-        SDL_AudioSpec spec;
-        SDL_zero(spec);
-        spec.freq = oggCache.sample_rate;
-        spec.format = AIL_AUDIO_S16;
-        spec.channels = (Uint8)oggCache.channels;
-        stream = AILAudio_Open(&spec, NULL, NULL);
-        if (!stream)
-            return false;
-        streamBytesPerFrame = oggCache.channels * (int)sizeof(short);
-        Uint32 offsetBytes = (startFrame > 0)
-                                 ? (Uint32)startFrame * (Uint32)streamBytesPerFrame
-                                 : 0;
-        /* Leave at least one frame so a slightly-overestimated resume near EOF
-           replays a short tail instead of pushing zero bytes (matches the
-           decode-path seek clamp). */
-        Uint32 bpf = (Uint32)streamBytesPerFrame;
-        if (bpf > 0 && oggCache.numBytes >= bpf && offsetBytes > oggCache.numBytes - bpf)
-            offsetBytes = oggCache.numBytes - bpf;
-        else if (offsetBytes > oggCache.numBytes)
-            offsetBytes = oggCache.numBytes;
-        Uint32 playBytes = oggCache.numBytes - offsetBytes;
-        streamBaseFrame = (bpf > 0) ? (int)(offsetBytes / bpf) : 0;
-        AILAudio_Put(stream, oggCache.pcm + offsetBytes / sizeof(short), playBytes);
-        AIL_AtomicAdd(&streamPushedBytes, (int)playBytes);
-        AILAudio_Flush(stream); // all input pushed -> let the converter drain to 0 at EOF (#406)
-        return true;
-    }
-
+    Uint32 started = (Uint32)SDL_GetTicks();
     int vorbisError = 0;
     stb_vorbis *v = stb_vorbis_open_filename(oggPath, &vorbisError, NULL);
     if (!v)
@@ -525,76 +488,24 @@ static bool PlayOggFile(const char *oggPath, S32 startFrame) {
         seekFrame = (unsigned int)startFrame;
         if (lenFrames > 0 && seekFrame >= lenFrames)
             seekFrame = lenFrames - 1;
-        stb_vorbis_seek_frame(v, seekFrame);
+        if (!stb_vorbis_seek_frame(v, seekFrame)) {
+            /* The decoder's position is unknown after a failed seek: play the
+               track from the top rather than from somewhere unknown. */
+            SDL_Log("SDL AIL: could not seek '%s' to frame %u, playing it from the start",
+                    oggPath, seekFrame);
+            seekFrame = 0;
+            if (!stb_vorbis_seek_start(v)) {
+                stb_vorbis_close(v);
+                return false;
+            }
+        }
     }
 
-    SDL_AudioSpec spec;
-    SDL_zero(spec);
-    spec.freq = (int)info.sample_rate;
-    spec.format = AIL_AUDIO_S16;
-    spec.channels = (Uint8)info.channels;
-    stream = AILAudio_Open(&spec, NULL, NULL);
-    if (!stream) {
-        stb_vorbis_close(v);
-        return false;
-    }
-    streamBytesPerFrame = (int)info.channels * (int)sizeof(short);
-    streamBaseFrame = (int)seekFrame;
-
-    DecodeThreadData *d = (DecodeThreadData *)malloc(sizeof(DecodeThreadData));
-    if (!d) {
-        stb_vorbis_close(v);
-        AILAudio_Destroy(stream);
-        stream = NULL;
-        return false;
-    }
-    d->vorbis = v;
-    d->channels = (int)info.channels;
-    d->sample_rate = (int)info.sample_rate;
-    d->cacheResult = (startFrame == 0); // a seeked decode yields partial PCM; don't cache it
-    strncpy(d->oggPath, oggPath, ADELINE_MAX_PATH - 1);
-    d->oggPath[ADELINE_MAX_PATH - 1] = '\0';
-
-    AIL_AtomicSet(&decodeStop, 0);
-    AIL_AtomicSet(&decodeActive, 1);
-    decodeThread = SDL_CreateThread(DecodeThreadFunc, "OGGDecode", d);
-    if (!decodeThread) {
-        AIL_AtomicSet(&decodeActive, 0);
-        stb_vorbis_close(v);
-        free(d);
-        AILAudio_Destroy(stream);
-        stream = NULL;
-        return false;
-    }
-
-    return true;
+    return StartProducer(new OggMusicSource(v, info.channels, (int)info.sample_rate),
+                         (S32)seekFrame, oggPath, started);
 }
 
 /* ── WAV + disc-image helpers ──────────────────────────────────────────── */
-
-/* Open the device stream for a decoded WAV and queue its PCM from `startFrame`.
-   Returns false (and logs) if the device stream cannot open. Does not free
-   `wavData` (the caller owns it). */
-static bool SetupWavStream(const SDL_AudioSpec *spec, const Uint8 *wavData,
-                           Uint32 wavLen, S32 startFrame) {
-    stream = AILAudio_Open(spec, NULL, NULL);
-    if (!stream) {
-        SDL_Log("SDL AIL: Could not open audio stream: %s", SDL_GetError());
-        return false;
-    }
-    streamBytesPerFrame = (int)(AIL_AUDIO_BITSIZE(spec->format) / 8) * spec->channels;
-    Uint32 offsetBytes = 0;
-    if (startFrame > 0 && streamBytesPerFrame > 0) {
-        offsetBytes = (Uint32)startFrame * (Uint32)streamBytesPerFrame;
-        if (offsetBytes > wavLen)
-            offsetBytes = wavLen;
-    }
-    streamBaseFrame = (streamBytesPerFrame > 0) ? (int)(offsetBytes / (Uint32)streamBytesPerFrame) : 0;
-    AILAudio_Put(stream, wavData + offsetBytes, wavLen - offsetBytes);
-    AIL_AtomicAdd(&streamPushedBytes, (int)(wavLen - offsetBytes));
-    AILAudio_Flush(stream); // all input pushed -> let the converter drain to 0 at EOF (#406)
-    return true;
-}
 
 /* Apply the current volume, start playback, and record the source path. Common
    tail shared by every successful source. */
@@ -649,46 +560,138 @@ static bool InstallDirFromMusicPath(const char *name, char *outDir, int max) {
 
 /* ── Redbook tracks (a mixed-mode retail disc) ─────────────────────────── */
 
-/* Stream one CD audio track straight out of the mounted image. Audio sectors
-   are already 16-bit stereo 44.1 kHz PCM, so there is nothing to decode beyond
-   putting the bytes in the order the mixer wants: read the sector range and hand
-   it to the same stream setup a WAV uses, which is what gives it the existing
-   volume, pause and resume behaviour. */
-static bool PlayCdAudioBuffer(Uint8 *pcm, size_t pcmBytes, uint32_t startSector, S32 skipFrames) {
-    /* Red Book is MSB-first and a ripper is meant to swap it; some do not, so
-       the order is measured rather than assumed. See LIB386/SYSTEM/CDDA.CPP. */
-    if (CdDa_NeedsByteSwap(pcm, pcmBytes)) {
-        CdDa_ByteSwap(pcm, pcmBytes);
-        if (musicLogEnabled)
-            SDL_Log("[MUSIC] CD audio at sector %u is big-endian, byte-swapped it",
-                    (unsigned)startSector);
+#define CD_SECTOR_BYTES 2352
+#define CD_BATCH_SECTORS 14 // about 190 ms of audio per read
+
+/* Sectors a byte-order probe window touches when it starts `within` bytes into
+   its first sector. */
+static uint32_t ProbeSpanSectors(size_t within) {
+    return (uint32_t)((within + CDDA_PROBE_WINDOW + CD_SECTOR_BYTES - 1) / CD_SECTOR_BYTES);
+}
+
+/* Stream one CD audio track, from the mounted image or from a BINARY file of
+   its own. Audio sectors are already 16-bit stereo 44.1 kHz PCM, so there is
+   nothing to decode beyond putting the bytes in the order the mixer wants.
+   The image is read through a handle of its own, never the asset loader's. */
+class CdAudioMusicSource : public MusicSource {
+  public:
+    CdAudioMusicSource(iso9660_t *iso, FILE *file, uint32_t startSector, uint32_t endSector)
+        : iso(iso), file(file), start(startSector), next(startSector), end(endSector),
+          skipBytes(0), swap(false) {
+        spec.freq = 44100;
+        spec.format = AIL_AUDIO_S16LE;
+        spec.channels = 2;
+    }
+    ~CdAudioMusicSource() {
+        if (iso)
+            iso_close(iso);
+        if (file)
+            fclose(file);
     }
 
-    SDL_AudioSpec spec;
-    SDL_zero(spec);
-    spec.freq = 44100;
-    spec.format = AIL_AUDIO_S16LE;
-    spec.channels = 2;
-    return SetupWavStream(&spec, pcm, (Uint32)pcmBytes, skipFrames);
+    /* Measure the byte order and move to `skipFrames` into the track. */
+    void Prepare(S32 skipFrames) {
+        /* Red Book is MSB-first and a ripper is meant to swap it; some do not, so
+           the order is measured rather than assumed, over the same windows of the
+           whole track as before. See LIB386/SYSTEM/CDDA.CPP. */
+        swap = MeasureNeedsSwap();
+        if (swap && musicLogEnabled)
+            SDL_Log("[MUSIC] CD audio at sector %u is big-endian, byte-swapping it",
+                    (unsigned)start);
+        if (skipFrames > 0) {
+            uint64_t skip = (uint64_t)skipFrames * 4;
+            uint64_t total = (uint64_t)(end - start) * CD_SECTOR_BYTES;
+            if (skip >= total) {
+                next = end;
+            } else {
+                next = start + (uint32_t)(skip / CD_SECTOR_BYTES);
+                skipBytes = (Uint32)(skip % CD_SECTOR_BYTES);
+            }
+        }
+    }
+
+    int Read(const Uint8 **pcm, Uint32 *bytes) {
+        *pcm = batch;
+        *bytes = 0;
+        if (next >= end)
+            return 0;
+        uint32_t want = end - next;
+        if (want > CD_BATCH_SECTORS)
+            want = CD_BATCH_SECTORS;
+        int got = ReadSectors(next, want, batch);
+        if (got < 0) {
+            SDL_SetError("CD audio read failed at sector %u", (unsigned)next);
+            return -1;
+        }
+        /* A short read is the end of what the image holds; play what came. */
+        next = ((uint32_t)got < want) ? end : next + (uint32_t)got;
+        Uint32 n = (Uint32)got * CD_SECTOR_BYTES;
+        if (swap)
+            CdDa_ByteSwap(batch, n);
+        Uint32 skip = skipBytes < n ? skipBytes : n;
+        skipBytes = 0;
+        *pcm = batch + skip;
+        *bytes = n - skip;
+        return *bytes > 0 ? 1 : 0;
+    }
+
+  private:
+    iso9660_t *iso;
+    FILE *file;
+    uint32_t start, next, end;
+    Uint32 skipBytes;
+    bool swap;
+    Uint8 batch[CD_BATCH_SECTORS * CD_SECTOR_BYTES];
+
+    /* Whole sectors read, or -1. */
+    int ReadSectors(uint32_t lba, uint32_t count, Uint8 *out) {
+        if (iso)
+            return iso_read_raw(iso, lba, count, out);
+        if (fseek(file, (long)lba * CD_SECTOR_BYTES, SEEK_SET) != 0)
+            return -1;
+        return (int)(fread(out, 1, (size_t)count * CD_SECTOR_BYTES, file) / CD_SECTOR_BYTES);
+    }
+
+    bool MeasureNeedsSwap() {
+        size_t total = (size_t)(end - start) * CD_SECTOR_BYTES;
+        if (total < (size_t)CDDA_PROBE_WINDOW * 2)
+            return false;
+        const uint32_t spanSectors = ProbeSpanSectors(CD_SECTOR_BYTES - 1); // the most any window needs
+        Uint8 *windows = (Uint8 *)malloc((size_t)CDDA_PROBE_COUNT * CDDA_PROBE_WINDOW);
+        Uint8 *span = (Uint8 *)malloc((size_t)spanSectors * CD_SECTOR_BYTES);
+        bool ok = windows && span;
+        for (int p = 0; ok && p < CDDA_PROBE_COUNT; p++) {
+            size_t off = CdDa_ProbeOffset(total, p);
+            uint32_t sector = (uint32_t)(off / CD_SECTOR_BYTES);
+            size_t within = off % CD_SECTOR_BYTES;
+            uint32_t count = ProbeSpanSectors(within);
+            ok = ReadSectors(start + sector, count, span) == (int)count;
+            if (ok)
+                memcpy(windows + (size_t)p * CDDA_PROBE_WINDOW, span + within, CDDA_PROBE_WINDOW);
+        }
+        /* An unreadable track is left alone: a needless swap turns music into noise. */
+        bool needs = ok && CdDa_NeedsByteSwapWindows(windows, total);
+        free(span);
+        free(windows);
+        return needs;
+    }
+};
+
+static bool PlayCdAudio(iso9660_t *iso, FILE *file, uint32_t startSector, uint32_t endSector,
+                        S32 skipFrames, const char *name, Uint32 started) {
+    CdAudioMusicSource *source = new CdAudioMusicSource(iso, file, startSector, endSector);
+    source->Prepare(skipFrames);
+    return StartProducer(source, skipFrames, name, started);
 }
 
 static bool PlayCdAudioFromImage(uint32_t startSector, uint32_t endSector, S32 skipFrames) {
     if (endSector <= startSector)
         return false;
-    uint32_t sectors = endSector - startSector;
-    Uint8 *pcm = (Uint8 *)malloc((size_t)sectors * 2352);
-    if (!pcm)
+    Uint32 started = (Uint32)SDL_GetTicks();
+    iso9660_t *reader = DiscImage_OpenRawIndependent();
+    if (!reader)
         return false;
-
-    S32 got = DiscImage_ReadRawSectors(startSector, sectors, pcm);
-    if (got <= 0) {
-        free(pcm);
-        return false;
-    }
-
-    bool ok = PlayCdAudioBuffer(pcm, (size_t)got * 2352, startSector, skipFrames);
-    free(pcm);
-    return ok;
+    return PlayCdAudio(reader, NULL, startSector, endSector, skipFrames, "CD audio (image)", started);
 }
 
 /* How many whole 2352-byte audio sectors a file holds. */
@@ -700,7 +703,7 @@ static uint32_t RawSectorsInFile(const char *path) {
     if (fseek(f, 0, SEEK_END) == 0) {
         long size = ftell(f);
         if (size > 0)
-            sectors = (uint32_t)(size / 2352);
+            sectors = (uint32_t)(size / CD_SECTOR_BYTES);
     }
     fclose(f);
     return sectors;
@@ -715,27 +718,11 @@ static bool PlayCdAudioFromFile(const char *path, uint32_t startSector, uint32_t
                                 S32 skipFrames) {
     if (endSector <= startSector)
         return false;
+    Uint32 started = (Uint32)SDL_GetTicks();
     FILE *f = fopen(path, "rb");
     if (!f)
         return false;
-
-    size_t want = (size_t)(endSector - startSector) * 2352;
-    Uint8 *pcm = (Uint8 *)malloc(want);
-    if (!pcm) {
-        fclose(f);
-        return false;
-    }
-    bool read = (fseek(f, (long)startSector * 2352, SEEK_SET) == 0) &&
-                (fread(pcm, 1, want, f) == want);
-    fclose(f);
-    if (!read) {
-        free(pcm);
-        return false;
-    }
-
-    bool ok = PlayCdAudioBuffer(pcm, want, startSector, skipFrames);
-    free(pcm);
-    return ok;
+    return PlayCdAudio(NULL, f, startSector, endSector, skipFrames, path, started);
 }
 
 /* True for the redbook "track" music (TADPCM<N> / Track<N>), the kind a cue's
@@ -1077,8 +1064,8 @@ static void PlayStreamInternal(const char *name, S32 startFrame) {
     /* 6) Cue external audio: a redbook track shipped as a standalone file the
           data image does not contain (GOG's LBA2.OGG = music track 6, listed in
           LBA2.DAT). Only for redbook "track" requests, not jingles. The file is
-          on the filesystem (install root), so decode it directly: WAV via
-          SDL_LoadWAV, otherwise OGG via PlayOggFile. */
+          on the filesystem (install root), so decode it directly: WAV through
+          the WAV reader, otherwise OGG via PlayOggFile. */
     if (IsRedbookTrackName(name)) {
         char installDir[ADELINE_MAX_PATH];
         char cueAudio[ADELINE_MAX_PATH];
@@ -1218,9 +1205,9 @@ S32 IsStreamPlaying() {
         return FALSE;
     if (AIL_AtomicGet(&decodeActive))
         return TRUE;
-    /* The stream is fully pushed and flushed (see PlayOggFile / SetupWavStream /
-       DecodeThreadFunc), so once the device has consumed everything the queue reaches
-       0 and the track is done. Without the flush the device-format converter would
+    /* The producer has pushed and flushed the whole track (ProducerThread), so
+       once the device has consumed everything the queue reaches 0 and the track
+       is done. Without the flush the device-format converter would
        hold a few bytes here forever and the stream would never report EOF (#406). */
     int queued = AILAudio_Queued(stream);
     if (queued <= 0) {

@@ -36,6 +36,16 @@ extern "C" {
 // audio alone is the safe failure, since a needless swap turns music into noise.
 int CdDa_NeedsByteSwap(const uint8_t *pcm, size_t bytes);
 
+// The same answer for a reader that streams the track instead of holding it.
+// The decision looks at CDDA_PROBE_COUNT windows of CDDA_PROBE_WINDOW bytes;
+// window `probe` of a `bytes`-long track starts at CdDa_ProbeOffset(bytes,
+// probe). Read them into one buffer, in order, and pass it with the track's
+// length. Tracks shorter than two windows are never swapped, as above.
+#define CDDA_PROBE_WINDOW 8192
+#define CDDA_PROBE_COUNT 16
+size_t CdDa_ProbeOffset(size_t bytes, int probe);
+int CdDa_NeedsByteSwapWindows(const uint8_t *windows, size_t bytes);
+
 //──────────────────────────────────────────────────────────────────────────
 // Swap the byte pairs of `bytes` bytes of 16-bit PCM in place. A trailing odd
 // byte is left as it is.
