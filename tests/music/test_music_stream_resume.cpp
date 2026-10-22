@@ -272,6 +272,7 @@ static void Advance(int ms) {
         g_live->queued -= count;
         g_live->consumed += count;
         left -= count;
+        AILStream_TestWakeProducer(); // the producer sleeps in real time; this clock is virtual
     }
     WaitDecoded();
 }
