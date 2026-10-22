@@ -1464,9 +1464,13 @@ void InitHitExtraPof(S32 x, S32 y, S32 z, S32 hitforce) {
 
     while (hitforce >= 1 AND nb < MAX_HIT_POFS) // on limite à 5 étoiles
     {
+        // Beta drawn before alpha, as the 1997 build draws them; inside the
+        // argument list the order is the compiler's choice.
+        const S32 rnd_beta = MyRnd((1024 * MUL_ANGLE));
+        const S32 rnd_alpha = MyRnd((256 * MUL_ANGLE));
         InitExtraPof(x, y, z, 0,
-                     MyRnd((256 * MUL_ANGLE)) + (128 * MUL_ANGLE),
-                     MyRnd((1024 * MUL_ANGLE)),
+                     rnd_alpha + (128 * MUL_ANGLE),
+                     rnd_beta,
                      50, 20,
                      POF_CHOC_SCALE, POF_CHOC_SCALE, 0, POF_CHOC_TIMER, POF_CHOC_DUREE);
 

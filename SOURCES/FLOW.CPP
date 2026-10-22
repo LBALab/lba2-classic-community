@@ -309,6 +309,10 @@ U32 CreateExtraParticleFlow(S32 type, S32 owner, S32 num, S32 num2,
     S32 delay;
     S32 speedrot;
     S32 shadow = 0; // yaz
+    // The spread of each throw is drawn beta first, then alpha, as the 1997
+    // build does. Inside the argument list the order is the compiler's choice:
+    // GCC draws them this way round, clang the other.
+    S32 rnd_alpha, rnd_beta;
 
     flow = LoadPartFlow(num_flow);
     if (!flow)
@@ -345,14 +349,16 @@ U32 CreateExtraParticleFlow(S32 type, S32 owner, S32 num, S32 num2,
 
         switch (type) {
         case FLOW_EXTRA_OBJ:
+            rnd_beta = MyRnd(flow->OuvertureBeta);
+            rnd_alpha = MyRnd(flow->OuvertureAlpha);
             num_extra = ThrowExtraObj((U8)owner, orgx, orgy, orgz,
 #ifdef LBA_EDITOR
                                       FicName,
 #else
                                       num,
 #endif
-                                      flow->Alpha + MyRnd(flow->OuvertureAlpha) - demi_ouvalpha,
-                                      beta + MyRnd(flow->OuvertureBeta) - demi_ouvbeta,
+                                      flow->Alpha + rnd_alpha - demi_ouvalpha,
+                                      beta + rnd_beta - demi_ouvbeta,
                                       vitesse,
                                       -1, // alpharot suivant la trajectoire du throw
                                       (U8)poids, (U8)hitforce);
@@ -367,10 +373,12 @@ U32 CreateExtraParticleFlow(S32 type, S32 owner, S32 num, S32 num2,
         case FLOW_EXTRA_SPRITE:
             if (num == num2) // Pas une anim
             {
+                rnd_beta = MyRnd(flow->OuvertureBeta);
+                rnd_alpha = MyRnd(flow->OuvertureAlpha);
                 num_extra = ThrowExtra((U8)owner, orgx, orgy, orgz,
                                        (S16)num,
-                                       flow->Alpha + MyRnd(flow->OuvertureAlpha) - demi_ouvalpha,
-                                       beta + MyRnd(flow->OuvertureBeta) - demi_ouvbeta,
+                                       flow->Alpha + rnd_alpha - demi_ouvalpha,
+                                       beta + rnd_beta - demi_ouvbeta,
                                        vitesse, (U8)poids, (U8)hitforce);
 
                 if (num_extra != -1) {
@@ -384,9 +392,11 @@ U32 CreateExtraParticleFlow(S32 type, S32 owner, S32 num, S32 num2,
                                                 transparent, (U8)hitforce);
 
                 if (num_extra != -1) {
+                    rnd_beta = MyRnd(flow->OuvertureBeta);
+                    rnd_alpha = MyRnd(flow->OuvertureAlpha);
                     InitFly(&ListExtra[num_extra],
-                            flow->Alpha + MyRnd(flow->OuvertureAlpha) - demi_ouvalpha,
-                            beta + MyRnd(flow->OuvertureBeta) - demi_ouvbeta,
+                            flow->Alpha + rnd_alpha - demi_ouvalpha,
+                            beta + rnd_beta - demi_ouvbeta,
                             vitesse, (U8)poids);
                 }
             }
@@ -404,10 +414,12 @@ U32 CreateExtraParticleFlow(S32 type, S32 owner, S32 num, S32 num2,
             else
                 speedrot = num2;
 
+            rnd_beta = MyRnd(flow->OuvertureBeta);
+            rnd_alpha = MyRnd(flow->OuvertureAlpha);
             num_extra = InitExtraPof(orgx, orgy, orgz,
                                      (S16)num,
-                                     flow->Alpha + MyRnd(flow->OuvertureAlpha) - demi_ouvalpha,
-                                     beta + MyRnd(flow->OuvertureBeta) - demi_ouvbeta,
+                                     flow->Alpha + rnd_alpha - demi_ouvalpha,
+                                     beta + rnd_beta - demi_ouvbeta,
                                      vitesse, poids,
                                      scale, transparent, tempo,
                                      speedrot, 0);

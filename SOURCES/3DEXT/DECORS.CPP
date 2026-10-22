@@ -1,5 +1,7 @@
 #include "DEFINES.H"
 
+#include <SYSTEM/QSORT.H>
+
 /*══════════════════════════════════════════════════════════════════════════*
 		      █▀▀▀▄ █▀▀▀▀ █▀▀▀▀ █▀▀▀█ █▀▀▀█ ██▀▀▀
 		      ██  █ ██▀▀  ██    ██  █ ██▀█▀ ▀▀▀▀█
@@ -359,7 +361,9 @@ void AffichageObjetDecorsZBuf(void) {
         return;
 
     // trie les objet en z 'front to back'
-    qsort(ListTriExt, NbObjScreen, sizeof(T_LIST_TRI), sub_qsort_decors_zbuf);
+    // The 1997 game's qsort: objects at the same depth are drawn in its order,
+    // which no C library's qsort gives (SYSTEM/QSORT.H).
+    RetailQsort(ListTriExt, NbObjScreen, sizeof(T_LIST_TRI), sub_qsort_decors_zbuf);
 
     clipzstart = ClipZFar - StartZFog;
 

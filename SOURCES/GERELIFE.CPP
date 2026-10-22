@@ -2168,10 +2168,15 @@ HERCULE( HPrintf( "errno= %d: %s\n", errno, strerror(errno) ) ) ;
         case LM_FLOW_OBJ:
             num = *PtrPrg++;
             if (ListObjet[num].LifePoint > 0) {
+                // Z, Y, then X, as the 1997 build draws them; inside the
+                // argument list the order is the compiler's choice.
+                const S32 rnd_z = MyRnd(256);
+                const S32 rnd_y = MyRnd(128);
+                const S32 rnd_x = MyRnd(256);
                 CreateParticleFlow(0, num, 0,
-                                   ListObjet[num].Obj.X + MyRnd(256) - 128,
-                                   ListObjet[num].Obj.Y + MyRnd(128),
-                                   ListObjet[num].Obj.Z + MyRnd(256) - 128,
+                                   ListObjet[num].Obj.X + rnd_x - 128,
+                                   ListObjet[num].Obj.Y + rnd_y,
+                                   ListObjet[num].Obj.Z + rnd_z - 128,
                                    ListObjet[num].Obj.Beta,
                                    *PtrPrg);
             }

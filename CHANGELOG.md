@@ -12,6 +12,19 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Display & render
 
+- Particle effects and scenery come out the same on every platform, and as in
+  the 1997 game. Where a particle's spread draws two or three random numbers
+  in one call, the order they were drawn in was left to the compiler, so in
+  builds made with clang (macOS, Android) the particles flew in other
+  directions; they now follow the order the 1997 game draws them in. Scenery
+  objects at the same depth were drawn in whatever order the system's sort
+  left them in, which differs from one system to the next; they are now sorted
+  with the 1997 game's own sort, so where two meet, such as a shop awning under
+  its roof in the Citadel Island rain, the one-pixel edge between them is the
+  original's. A recording made on macOS or Android before this change can play
+  out differently where a particle effect fires
+  ([#821](https://github.com/LBALab/lba2-classic-community/pull/821)).
+
 - Outdoors, the thin seams where two parts of an island meet are mostly
   gone. The ground, sea and sky are now drawn with the whole-number maths the
   1997 game used on 486 and non-Intel processors, so neighbouring parts agree
