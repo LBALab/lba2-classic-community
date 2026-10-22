@@ -49,6 +49,11 @@ int Perftrace_Dump(const char *path, int max_samples);
    `perftrace dump` between the tick loop and exit. NULL or empty disarms. */
 void Perftrace_SetAutoDumpPath(const char *path);
 
+/* Write one line per captured frame to `path` (cube, tag, frame/scene/present
+   microseconds, number of presents), with no ring limit; the file is closed on exit. NULL or empty
+   closes it. Returns 0 on success, -1 if the file cannot be opened. */
+int Perftrace_SetLogPath(const char *path);
+
 /* Short status line to a caller-provided sink (the console, typically).
    Avoids a Console_Print direct dependency. */
 typedef void (*Perftrace_PrintFn)(const char *line);

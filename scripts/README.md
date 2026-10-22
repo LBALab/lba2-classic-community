@@ -63,6 +63,7 @@ one process faults and a sweep that stops at the first fault covers almost nothi
 | Script | What it does | Invoked by |
 |--------|--------------|------------|
 | [dev/lba2ctl.py](dev/lba2ctl.py) | Speak the line protocol: a REPL for looking around, a `Control` class for scripting a probe loop. Its docstring carries the traps that cost the most to rediscover. | manual, and imported by the sweeps below |
+| [dev/bench_compare.py](dev/bench_compare.py) | Time two builds on the attract reel (or a scripted walk) and print frames per second per scene: average, 1% low, slowest and fastest frame. See [docs/PERFTRACE.md](../docs/PERFTRACE.md#comparing-two-builds). | manual |
 | [dev/probe_bench.py](dev/probe_bench.py) | Measure one probe over the socket against the process-per-probe it replaces. | manual |
 | [dev/probe_zones.py](dev/probe_zones.py) | Parse `zonelist` into structured zones, including which cube gates wait on a door collision. Imported by the two sweeps below. | manual |
 | [dev/probe_gate_scan.py](dev/probe_gate_scan.py) | Sweep every cube for transition gates that are enabled, separating ones switched off from ones waiting on a door collision: `zonelist` reports the two identically and they want opposite fixes. | manual |
