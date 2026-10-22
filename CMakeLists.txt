@@ -163,6 +163,18 @@ if(NOT MSVC)
     add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-fno-strict-aliasing>)
 endif()
 
+# No fused multiply-add. Where long double is not the x87's, the float 3D
+# routines round with an inline add of 1.5 * 2^52 (LIB386/H/3D/X87REAL.H), and
+# GCC's default -ffp-contract=fast fuses a projection's multiply into that add:
+# one rounding instead of two, which moves exact half-pixel ties. Clang only
+# contracts inside one expression, but takes the same flag. It is set for every
+# target, not only the 3D library, because GCC applies the caller's setting to
+# code it inlines at the LTO link: with the flag on the library alone, a
+# projection inlined into another file fused again.
+if(NOT MSVC)
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-ffp-contract=off>)
+endif()
+
 if(LBA2_NATIVE_ARCH)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64|i[3-6]86")
         add_compile_options(-march=native)

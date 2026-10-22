@@ -1,9 +1,10 @@
 /* bench_3d_path: what the 3D maths costs, float path against integer path.
  *
- * The float routines (the F files in LIB386/3D) imitate the x87 with long double and
- * lrintl. long double is 80-bit on x86, 64-bit on Apple arm64, MSVC and armv7,
- * and a 128-bit software type on aarch64 Linux and Android, so the same code
- * costs very different amounts per platform. The exterior terrain, sea and sky
+ * The float routines (the F files in LIB386/3D) imitate the x87 in X87_REAL
+ * (3D/X87REAL.H): long double and lrintl where that is the x87's 80-bit type,
+ * double and an inline rounding everywhere else. Before that they used long
+ * double everywhere, a 128-bit software type on aarch64 Linux and Android,
+ * which made a body point cost about 100 times more on a phone. The exterior terrain, sea and sky
  * use the 1997 integer routines (the I files); decors and characters still use the
  * float ones.
  *
@@ -23,6 +24,7 @@
 #include <3D/LROT3D.H>
 #include <3D/PROJ.H>
 #include <3D/ROTRALIS.H>
+#include <3D/X87REAL.H>
 
 #include <chrono>
 #include <cstdio>
@@ -116,7 +118,8 @@ int main() {
     SetProjection(368, 240, 1, 600, 600);
     SetPosCamera(16000, 4000, 16000);
     SetAngleCamera(300, 1024, 0);
-    std::printf("bench_3d_path: long double is %d bytes here\n", (int)sizeof(long double));
+    std::printf("bench_3d_path: long double is %d bytes here, the float routines compute in %d mantissa bits\n",
+                (int)sizeof(long double), (int)X87_REAL_MANT_DIG);
     for (int rep = 1; rep <= 3; rep++) {
         TerrainFrame(rep);
         BodyPoints(rep);

@@ -1,6 +1,6 @@
 #include <3D/LPROJ.H>
 
-#include <math.h>
+#include <3D/X87REAL.H>
 #include <3D/CAMERA.H>
 #include <3D/PROJREC.H>
 #include <SVGA/SCREENXY.H>
@@ -29,10 +29,10 @@ void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt,
         Y0 = y;
         Z0 = z;
 
-        long double factor = (long double)FRatioX / (long double)z;
+        X87_REAL factor = (X87_REAL)FRatioX / (X87_REAL)z;
 
-        S32 Xe = (S32)lrintl((long double)x * factor);
-        S32 Ye = (S32)lrintl((long double)y * factor * (long double)FRatioY);
+        S32 Xe = (S32)X87Round((X87_REAL)x * factor);
+        S32 Ye = (S32)X87Round((X87_REAL)y * factor * (X87_REAL)FRatioY);
 
         Xp = Xe;
         Yp = Ye;
