@@ -114,6 +114,11 @@ bool SDL2_CreateWindow(uint32_t width, uint32_t height, bool fullscreen) {
     SDL2_SwitchWindowSize(&nativeWidth, &nativeHeight);
     flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
     fullscreen = true;
+#elif defined(__vita__)
+    if (!SDL2_VitaConfigureWindow(&nativeWidth, &nativeHeight))
+        return false;
+    flags = SDL_WINDOW_SHOWN;
+    fullscreen = true;
 #endif
     s_window = SDL_CreateWindow(s_title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                 nativeWidth, nativeHeight, flags);

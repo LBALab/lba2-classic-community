@@ -63,6 +63,17 @@ extern "C" {
 smk smk_open_file(const char* filename, unsigned char mode);
 /** open an smk (from a file pointer) */
 smk smk_open_filepointer(FILE* file, unsigned char mode);
+/** Seekable byte source. A valid source is closed on both open failure and smk_close.
+    Positions are relative to the start of the Smacker data. */
+typedef struct smk_io {
+	void* userdata;
+	size_t (*read)(void* userdata, void* buffer, size_t bytes);
+	int (*seek)(void* userdata, long offset, int origin);
+	long (*tell)(void* userdata);
+	void (*close)(void* userdata);
+} smk_io;
+/** Open a custom source in disk-streaming mode; callbacks are copied. */
+smk smk_open_stream(const smk_io* source);
 /** read an smk (from a memory buffer) */
 smk smk_open_memory(const unsigned char* buffer, unsigned long size);
 
@@ -90,11 +101,11 @@ const unsigned char* smk_get_audio(const smk object, unsigned char track);
 unsigned long smk_get_audio_size(const smk object, unsigned char track);
 
 /** rewind to first frame and unpack */
-char smk_first(smk object);
+signed char smk_first(smk object);
 /** advance to next frame and unpack */
-char smk_next(smk object);
+signed char smk_next(smk object);
 /** seek to first keyframe before/at N in an smk */
-char smk_seek_keyframe(smk object, unsigned long frame);
+signed char smk_seek_keyframe(smk object, unsigned long frame);
 
 #ifdef __cplusplus
 }

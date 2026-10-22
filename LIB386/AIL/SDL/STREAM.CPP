@@ -1,6 +1,7 @@
 #include "STREAM_SDL.H"
 
 #include "AUDIO_DEVICE.H"
+#include "WAV_STREAM.H"
 
 #include "stb_vorbis.h"
 
@@ -181,6 +182,122 @@ static void StopDecodeThread(void) {
     }
     AIL_AtomicSet(&decodeStop, 0);
     AIL_AtomicSet(&decodeActive, 0);
+}
+
+struct WavDecodeData {
+    AILWavSource *source;
+    SDL_AudioSpec spec;
+    Uint8 *pcm;
+    Uint32 bytes, offset;
+};
+
+static int SDLCALL WavDecodeThread(void *userdata) {
+    Crash_PrepareThread();
+    WavDecodeData *d = (WavDecodeData *)userdata;
+    const Uint32 frameBytes = AIL_AUDIO_BITSIZE(d->spec.format) / 8 * d->spec.channels;
+    bool failed = false;
+    while (!AIL_AtomicGet(&decodeStop)) {
+        if (d->offset == d->bytes) {
+            SDL_free(d->pcm);
+            d->pcm = NULL;
+            int result = AILWav_Read(d->source, &d->spec, &d->pcm, &d->bytes);
+            d->offset = 0;
+            if (result <= 0) {
+                if (result < 0) {
+                    SDL_Log("SDL AIL: WAV streaming failed: %s", SDL_GetError());
+                    failed = true;
+                }
+                break;
+            }
+        }
+        Uint32 count = d->bytes - d->offset;
+        if (count > 16384)
+            count = 16384 / frameBytes * frameBytes;
+        int queued = AILAudio_Queued(stream);
+        if (queued < 0) {
+            failed = true;
+            break;
+        }
+        if ((Uint32)queued + count > 65536) {
+            SDL_Delay(2);
+            continue;
+        }
+        if (AIL_AtomicGet(&decodeStop))
+            break;
+        if (!AILAudio_Put(stream, d->pcm + d->offset, (int)count)) {
+            failed = true;
+            break;
+        }
+        AIL_AtomicAdd(&streamPushedBytes, (int)count);
+        d->offset += count;
+    }
+    if (failed)
+        SDL_Log("SDL AIL: music WAV producer stopped after an error");
+    SDL_free(d->pcm);
+    AILWav_Close(d->source);
+    free(d);
+    if (!AIL_AtomicGet(&decodeStop))
+        AILAudio_Flush(stream);
+    AIL_AtomicSet(&decodeActive, 0);
+    return 0;
+}
+
+static bool PlayWavFile(const char *name, bool image, S32 startFrame, bool *recognized) {
+    Uint32 started = (Uint32)SDL_GetTicks();
+    AILWavSource *source = AILWav_Open(name, image, startFrame, recognized);
+    if (!source)
+        return false;
+    WavDecodeData *d = (WavDecodeData *)calloc(1, sizeof(*d));
+    if (!d) {
+        AILWav_Close(source);
+        SDL_SetError("Unable to allocate WAV music producer");
+        return false;
+    }
+    d->source = source;
+    int first = AILWav_Read(source, &d->spec, &d->pcm, &d->bytes);
+    if (first == 0 && startFrame > 0) {
+        AILWav_Close(source);
+        free(d);
+        return true;
+    }
+    if (first > 0)
+        stream = AILAudio_Open(&d->spec, NULL, NULL);
+    if (first <= 0 || !stream) {
+        if (first == 0)
+            SDL_SetError("Music WAV has no playable frames");
+        SDL_free(d->pcm);
+        AILWav_Close(source);
+        free(d);
+        return false;
+    }
+    streamBytesPerFrame = AIL_AUDIO_BITSIZE(d->spec.format) / 8 * d->spec.channels;
+    streamBaseFrame = startFrame > 0 ? startFrame : 0;
+    d->offset = d->bytes > 16384 ? 16384 / streamBytesPerFrame * streamBytesPerFrame : d->bytes;
+    if (!AILAudio_Put(stream, d->pcm, (int)d->offset)) {
+        SDL_free(d->pcm);
+        AILWav_Close(source);
+        free(d);
+        AILAudio_Destroy(stream);
+        stream = NULL;
+        return false;
+    }
+    AIL_AtomicAdd(&streamPushedBytes, (int)d->offset);
+    if (musicLogEnabled)
+        SDL_Log("[MUSIC] WAV prefill %u bytes in %u ms: %s",
+                (unsigned)d->offset, (unsigned)((Uint32)SDL_GetTicks() - started), name);
+    AIL_AtomicSet(&decodeStop, 0);
+    AIL_AtomicSet(&decodeActive, 1);
+    decodeThread = SDL_CreateThread(WavDecodeThread, "WAVDecode", d);
+    if (!decodeThread) {
+        AIL_AtomicSet(&decodeActive, 0);
+        SDL_free(d->pcm);
+        AILWav_Close(source);
+        free(d);
+        AILAudio_Destroy(stream);
+        stream = NULL;
+        return false;
+    }
+    return true;
 }
 
 /* Current playback offset in source frames, from the top of the track: the
@@ -458,6 +575,8 @@ static bool SetupWavStream(const SDL_AudioSpec *spec, const Uint8 *wavData,
 /* Apply the current volume, start playback, and record the source path. Common
    tail shared by every successful source. */
 static void FinishStream(const char *name) {
+    if (!stream)
+        return;
     float gain = (streamVolume <= 0) ? 0.0f : (float)streamVolume / 127.0f;
     if (gain > 1.0f)
         gain = 1.0f;
@@ -469,63 +588,14 @@ static void FinishStream(const char *name) {
     streamPathName[ADELINE_MAX_PATH - 1] = '\0';
 }
 
-/* Read a whole file out of the mounted disc image into a malloc'd buffer (caller
-   frees). Returns NULL if no image is mounted or the file is not in it. */
-static Uint8 *ReadWholeFromImage(const char *name, Uint32 *outLen) {
-    S32 h = DiscImage_OpenRead(name);
-    if (!h)
-        return NULL;
-    S32 size = DiscImage_Seek(h, 0, SEEK_FROM_END);
-    DiscImage_Seek(h, 0, SEEK_FROM_START);
-    if (size <= 0) {
-        DiscImage_Close(h);
-        return NULL;
-    }
-    Uint8 *buf = (Uint8 *)malloc((size_t)size);
-    if (!buf) {
-        DiscImage_Close(h);
-        return NULL;
-    }
-    S32 got = 0;
-    while (got < size) {
-        S32 n = DiscImage_Read(h, buf + got, (U32)(size - got));
-        if (n <= 0)
-            break;
-        got += n;
-    }
-    DiscImage_Close(h);
-    if (got != size) {
-        free(buf);
-        return NULL;
-    }
-    *outLen = (Uint32)size;
-    return buf;
-}
-
-/* Disc-image fallback: read the file's bytes through the disc seam (the
-   filesystem lookups above already missed) and decode the WAV from memory. This
-   reaches music that ships only inside a mounted image, e.g. LBA2-GOG's in-BIN
-   JADPCM and TADPCM WAV files. Returns true with `stream` set up on success. */
-static bool PlayWavFromImage(const char *name, S32 startFrame) {
-    Uint32 rawLen = 0;
-    Uint8 *raw = ReadWholeFromImage(name, &rawLen);
-    if (!raw)
-        return false;
-
-    SDL_AudioSpec spec;
-    Uint8 *wav_data = NULL;
-    Uint32 wav_data_len = 0;
-    /* closeio=true closes `io` whether or not the load succeeds; it does not own
-       `raw`, which we free below once SDL has copied the PCM into wav_data. */
-    bool loaded = AILAudio_LoadWAVMemory(raw, rawLen, &spec, &wav_data, &wav_data_len);
-    free(raw);
-    if (!loaded)
-        return false; // present in the image but not a WAV we can decode
-
-    if (musicLogEnabled)
+/* Disc-image WAVs use a private cursor so the producer cannot move the
+   asset loader's seek position. */
+static bool PlayWavFromImage(const char *name, S32 startFrame, bool *recognized) {
+    bool ok = PlayWavFile(name, true, startFrame, recognized);
+    if (*recognized && !ok)
+        SDL_Log("SDL AIL: could not stream image WAV '%s': %s", name, SDL_GetError());
+    if (ok && musicLogEnabled)
         SDL_Log("[MUSIC] PlayStream start WAV (disc): %s", name);
-    bool ok = SetupWavStream(&spec, wav_data, wav_data_len, startFrame);
-    SDL_free(wav_data);
     return ok;
 }
 
@@ -711,16 +781,12 @@ static RedbookOutcome PlayTocTrack(const CueTrack *t, const CueTrack *toc, int n
         int w = snprintf(path, sizeof(path), "%s%s", tocDir, t->file);
         if (w < 0 || (size_t)w >= sizeof(path))
             return REDBOOK_HANDLED;
-        SDL_AudioSpec spec;
-        Uint8 *wav = NULL;
-        Uint32 wavLen = 0;
-        bool played;
-        if (AILAudio_LoadWAV(path, &spec, &wav, &wavLen)) {
-            played = SetupWavStream(&spec, wav, wavLen, startFrame);
-            SDL_free(wav);
-        } else {
+        bool recognized = false;
+        bool played = PlayWavFile(path, false, startFrame, &recognized);
+        if (!played && !recognized)
             played = PlayOggFile(path, startFrame);
-        }
+        if (!played)
+            SDL_Log("SDL AIL: could not stream cue track '%s': %s", path, SDL_GetError());
         if (played && musicLogEnabled)
             SDL_Log("[MUSIC] PlayStream start cue track %s: %s (from %s)", label, path, name);
         return played ? REDBOOK_PLAYED : REDBOOK_HANDLED;
@@ -923,17 +989,15 @@ static void PlayStreamInternal(const char *name, S32 startFrame) {
     StopStreamInternal();
 
     /* 1) Filesystem WAV. PlayJingle/PlayCD request "*.WAV"; some installs ship it. */
-    SDL_AudioSpec spec;
-    Uint8 *wav_data = NULL;
-    Uint32 wav_data_len = 0;
-    if (AILAudio_LoadWAV(name, &spec, &wav_data, &wav_data_len)) {
+    bool recognized = false;
+    if (PlayWavFile(name, false, startFrame, &recognized)) {
         if (musicLogEnabled)
             SDL_Log("[MUSIC] PlayStream start WAV: %s", name);
-        bool ok = SetupWavStream(&spec, wav_data, wav_data_len, startFrame);
-        SDL_free(wav_data);
-        if (!ok)
-            return;
         FinishStream(name);
+        return;
+    }
+    if (recognized) {
+        SDL_Log("SDL AIL: could not stream WAV '%s': %s", name, SDL_GetError());
         return;
     }
 
@@ -957,12 +1021,13 @@ static void PlayStreamInternal(const char *name, S32 startFrame) {
         return;
     }
 
-    /* 3) Disc image: read bytes through the seam and decode the WAV from memory.
-          Reaches music that lives only inside a mounted disc image. */
-    if (PlayWavFromImage(name, startFrame)) {
+    /* 3) Disc image: bounded WAV decoding on an independent image reader. */
+    if (PlayWavFromImage(name, startFrame, &recognized)) {
         FinishStream(name);
         return;
     }
+    if (recognized)
+        return;
 
     /* 4) Redbook by position, the rule that holds across every pressing: the
           disc's audio tracks, in order, are the themes it did not ship as
@@ -995,16 +1060,10 @@ static void PlayStreamInternal(const char *name, S32 startFrame) {
         char cueAudio[ADELINE_MAX_PATH];
         if (InstallDirFromMusicPath(name, installDir, (int)sizeof(installDir)) &&
             Cue_ResolveInDir(installDir, cueAudio, sizeof(cueAudio))) {
-            SDL_AudioSpec cspec;
-            Uint8 *cwav = NULL;
-            Uint32 cwavLen = 0;
-            bool played;
-            if (AILAudio_LoadWAV(cueAudio, &cspec, &cwav, &cwavLen)) {
-                played = SetupWavStream(&cspec, cwav, cwavLen, startFrame);
-                SDL_free(cwav);
-            } else {
+            bool recognized = false;
+            bool played = PlayWavFile(cueAudio, false, startFrame, &recognized);
+            if (!played && !recognized)
                 played = PlayOggFile(cueAudio, startFrame);
-            }
             if (!played) {
                 SDL_Log("SDL AIL: Failed to decode cue audio '%s'", cueAudio);
                 return;
@@ -1159,3 +1218,9 @@ void MusicLogEnable(int enable) {
 int MusicLogIsEnabled(void) {
     return musicLogEnabled;
 }
+
+#ifdef LBA2_MUSIC_TESTS
+int Stream_TestQueuedBytes(void) {
+    return stream ? AILAudio_Queued(stream) : 0;
+}
+#endif

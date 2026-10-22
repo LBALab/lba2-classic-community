@@ -73,6 +73,7 @@ typedef struct PlatformEvent {
         struct {
             uint64_t fingerID;
             float x, y;
+            bool indirect; /* trackpad/rear panel, not the display */
         } tfinger;
     };
 } PlatformEvent;
@@ -128,6 +129,7 @@ typedef struct PlatformCapabilities {
     bool windowed;
     bool transient_window_loss;
     bool touch_overlay;
+    bool touch_recenter; /* front-screen presses recenter during gameplay */
 } PlatformCapabilities;
 
 typedef struct PlatformSystem {

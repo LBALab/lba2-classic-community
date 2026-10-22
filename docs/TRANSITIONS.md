@@ -136,6 +136,16 @@ RestoreTimer();
 
 The reveal is again the game loop's next `AffScene` consuming `FlagFade`.
 
+### Movie input and loading
+
+`Video_OpenSource` in [VIDEO_SOURCE.CPP](../SOURCES/VIDEO_SOURCE.CPP) opens the selected HQR entry through the engine file API, including banks inside mounted disc images. The Smacker decoder uses seekable callbacks and reads one compressed movie frame at a time instead of loading the entire movie and making a second copy of every frame. This path is shared by SDL2 and SDL3, including Switch and Vita.
+
+Input buffering uses a 64 KiB decoded cache. HQR compression methods 1 and 2 additionally use a 4 KiB encoded cache and a 4 KiB sliding history window; stored entries need no decompression. The decoder still keeps its frame index, Huffman trees, output buffers and current compressed frame, so memory depends on those structures rather than the entire movie payload. Opening indexes frame offsets without reading every frame. A backward read outside the cache restarts HQR decompression for compressed banks; stored banks seek directly.
+
+The existing audio prefill, track selection, frame pacing and palette transitions are unchanged. A frame read failure is logged and follows the normal stop-audio, close-decoder, fade-to-black and resume-samples cleanup rather than replaying stale frame data.
+
+`test_video_source` in [the host tests](../tests/video_source/test_video_source.cpp) compares complete decoded frames, palettes and audio against the memory decoder, including rewind, keyframe seeks, both HQR compression methods, short reads and deterministic randomized inputs. It also limits bytes read while opening a large synthetic movie and decoding its first frame, and checks archive ownership on input failures. GCC and Clang also run `test_video_source_unsigned_char`, rebuilding the decoder with unsigned plain `char` to pin error propagation under ARM compiler defaults; frame and read statuses must represent `SMK_ERROR` as a negative value.
+
 ### The `PlayAcf` contract (critical)
 
 `PlayAcf` (`SOURCES/PLAYACF.CPP`) **fades the video out and leaves the screen black on

@@ -80,6 +80,8 @@ root. CMake reads it, embeds it in the binary, and writes it to
 cut also bumps that file: `0.9.0-dev` → `0.9.0` for the release commit,
 then `0.10.0-dev` for the next development cycle.
 
+Console package metadata follows the same root `VERSION` file. Switch keeps the full string in its NACP display version (up to 15 bytes). Vita retains only the major and minor components, zero-padded to `NN.NN`: `0.13.2` becomes `00.13`. Patch releases intentionally share a Vita package version; the engine still reports its full version. No separate console version bump is needed. Changes to `VERSION` trigger CMake reconfiguration on the next build so local packages do not retain stale metadata.
+
 ```bash
 VERSION=v0.9.0
 DATE=$(date +%Y-%m-%d)
@@ -791,6 +793,8 @@ naming. The rolling release is functionally a tag-release at HEAD-of-main
 with a moving tag instead of a fixed semver.
 
 The rolling release also includes Nintendo Switch homebrew as `lba2cc-switch.zip`, containing the NRO, README and license in an SD-card installation tree, without retail game data. It calls [the Switch workflow](../.github/workflows/switch.yml) with the package artifact named `latest-switch`, so the existing `latest-*` download includes it. The matching debug ELF and build log keep separate artifact names outside that pattern and are not attached to the release. Switch is not added to the tag-triggered releases. See [SWITCH.md](SWITCH.md) for installation and hardware-validation limits.
+
+PlayStation Vita homebrew follows the same rolling-only policy as `lba2cc-vita.vpk`, without retail data. [The Vita workflow](../.github/workflows/vita.yml) supplies the `latest-vita` package artifact; matching debug ELF, executable-deployment files and logs remain separate from release assets. [VITA.md](VITA.md) covers VPK installation, FTP/companion deployment and the hardware checks still required.
 
 **Read the name, not the timestamp.** A release's `published_at` is stamped
 once, when it is first published; updating a release in place never advances

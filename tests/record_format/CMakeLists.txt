@@ -27,6 +27,25 @@ set_target_properties(test_record_format PROPERTIES CXX_STANDARD 11)
 add_test(NAME test_record_format COMMAND test_record_format)
 register_host_test(test_record_format)
 
+foreach(target test_record_binding_context test_record_binding_context_stick_layout)
+    add_executable(${target}
+        test_record_binding_context.cpp
+        ${CMAKE_SOURCE_DIR}/SOURCES/RECORD_FORMAT.CPP
+        ${CMAKE_SOURCE_DIR}/SOURCES/INPUT_BINDINGS.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT.CPP
+        ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/INPUT_FLOW.CPP
+        ${CMAKE_SOURCE_DIR}/tests/input_bindings/held_keys.cpp)
+    target_include_directories(${target} PRIVATE
+        ${CMAKE_SOURCE_DIR}/tests/input_bindings
+        ${CMAKE_SOURCE_DIR}/LIB386/H
+        ${CMAKE_SOURCE_DIR}/SOURCES)
+    target_compile_definitions(${target} PRIVATE LBA_LOG_NO_PLATFORM)
+    set_target_properties(${target} PROPERTIES CXX_STANDARD 11)
+    add_test(NAME ${target} COMMAND ${target})
+    register_host_test(${target})
+endforeach()
+target_compile_definitions(test_record_binding_context_stick_layout PRIVATE LBA2_GAMEPAD_STICK_LAYOUT=1)
+
 find_program(RECORD_TEST_PYTHON NAMES python3)
 if(RECORD_TEST_PYTHON)
     add_custom_target(test_record_ui_stream)

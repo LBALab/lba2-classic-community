@@ -16,6 +16,7 @@
 
 #include "JOYSTICK.H"
 #include "TOUCH_INPUT.H"
+#include "INPUT_BINDINGS.H"
 
 #include <cstdlib>
 #include <cstring>
@@ -220,6 +221,7 @@ PlatformInterface Fixture() {
     api.name = "contract-fixture";
     api.capabilities.windowed = true;
     api.capabilities.touch_overlay = true;
+    api.capabilities.touch_recenter = true;
     api.system.init = Success;
     api.system.shutdown = Noop;
     api.system.get_error = Error;
@@ -460,6 +462,42 @@ static void test_wall_clock_wrap_and_fixed_dt() {
     ManageTime();
     ASSERT_EQ_UINT(32, TimerRefHR);
     Timer_DisableFixedDt();
+}
+
+static void test_gamepad_deadzone_defaults_and_boundaries() {
+    ASSERT_EQ_INT(LBA2_GAMEPAD_DEADZONE_DEFAULT, JoystickDeadzone);
+    const S32 savedAnalog = GamepadCameraAnalog;
+    GamepadCameraAnalog = 0;
+    memset(s_buttons, 0, sizeof(s_buttons));
+    InitJoystick();
+    const PlatformGamepadAxis leftAxes[] = {PLATFORM_GAMEPAD_AXIS_LEFTX, PLATFORM_GAMEPAD_AXIS_LEFTY};
+    const PlatformGamepadAxis rightAxes[] = {PLATFORM_GAMEPAD_AXIS_RIGHTX, PLATFORM_GAMEPAD_AXIS_RIGHTY};
+    const U32 leftKeys[][2] = {
+        {K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT},
+        {K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN}};
+    const U32 rightKeys[][2] = {
+        {K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT},
+        {K_GAMEPAD_RSTICK_UP, K_GAMEPAD_RSTICK_DOWN}};
+    for (int axis = 0; axis < 2; ++axis) {
+        for (int direction = 0; direction < 2; ++direction) {
+            for (int offset = -1; offset <= 1; ++offset) {
+                memset(s_axes, 0, sizeof(s_axes));
+                const S16 value = (S16)((direction ? 1 : -1) * (LBA2_GAMEPAD_DEADZONE_DEFAULT + offset));
+                s_axes[leftAxes[axis]] = s_axes[rightAxes[axis]] = value;
+                UpdateJoystick();
+                U8 expected[TABKEYS_NUM_KEYS] = {};
+                if (offset >= 0) {
+                    SetExpectedKey(expected, leftKeys[axis][direction]);
+                    SetExpectedKey(expected, rightKeys[axis][direction]);
+                }
+                ASSERT_MEM_EQ(expected, TabKeys, sizeof(expected));
+            }
+        }
+    }
+    memset(s_axes, 0, sizeof(s_axes));
+    UpdateJoystick();
+    EndJoystick();
+    GamepadCameraAnalog = savedAnalog;
 }
 
 static void test_gamepad_state_edges_and_hotplug() {
@@ -746,6 +784,154 @@ static void test_touch_wake_hold_release_and_reapply() {
     ASSERT_EQ_INT(0, TouchOverlay_HandleEvent(&touch));
 }
 
+static void test_touch_recenter_scope_pulse_and_bindings() {
+    RestoreInput();
+    InitInput();
+    ClearNoRepeatInput();
+    memset(TabKeys, 0, sizeof(TabKeys));
+    TouchOverlay_Init();
+    LastInputWasTouch = 0;
+    PlatformEvent touch = {};
+    touch.type = PLATFORM_EVENT_FINGER_DOWN;
+    touch.tfinger.fingerID = 77;
+    touch.tfinger.x = touch.tfinger.y = 0.5f;
+    TouchOverlay_HandleEvent(&touch);
+    ManageKeyboard();
+    ASSERT_TRUE(!CheckKey(K_ENTER));
+
+    TouchInput_SetGameplay(1);
+    LastInputWasTouch = 0;
+    LastInputWasKeyboard = 1;
+    ASSERT_EQ_INT(1, TouchOverlay_HandleEvent(&touch));
+    /* A complete tap between polls still reaches the input funnel. */
+    touch.type = PLATFORM_EVENT_FINGER_UP;
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    ASSERT_EQ_UINT(1u << 9, Input);
+    ASSERT_TRUE(CheckKey(K_ENTER));
+    ASSERT_EQ_INT(0, LastInputWasKeyboard);
+    ASSERT_EQ_INT(0, LastInputWasTouch);
+    ASSERT_EQ_INT(0, Key);
+    TouchInput_SetGameplay(0);
+    ASSERT_TRUE(!CheckKey(K_ENTER));
+    TouchInput_SetGameplay(1);
+    touch.type = PLATFORM_EVENT_FINGER_MOTION;
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    TouchInput_SetGameplay(0);
+
+    TouchInput_SetGameplay(1);
+    touch.type = PLATFORM_EVENT_FINGER_DOWN;
+    touch.tfinger.indirect = true;
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    touch.tfinger.indirect = false;
+    TouchOverlay_HandleEvent(&touch);
+    PlatformEvent focus = {};
+    focus.type = PLATFORM_EVENT_WINDOW_FOCUS_LOST;
+    TouchOverlay_HandleEvent(&focus);
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    focus.type = PLATFORM_EVENT_WINDOW_FOCUS_GAINED;
+    TouchOverlay_HandleEvent(&focus);
+
+    DefKeys[9].Key1 = K_F12;
+    DefKeys[9].Key2 = GamepadKeys[9].Key1 = GamepadKeys[9].Key2 = 0;
+    InitInput();
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    ASSERT_EQ_UINT(1u << 9, Input);
+    ASSERT_TRUE(CheckKey(K_F12));
+    TouchInput_SetGameplay(0);
+    ASSERT_TRUE(!CheckKey(K_F12));
+
+    DefKeys[9].Key1 = 0;
+    GamepadKeys[9].Key1 = K_GAMEPAD_GUIDE;
+    InitInput();
+    TouchInput_SetGameplay(1);
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    ASSERT_EQ_UINT(1u << 9, Input);
+    ASSERT_TRUE(CheckKey(K_GAMEPAD_GUIDE));
+    TouchInput_SetGameplay(0);
+    ASSERT_TRUE(!CheckKey(K_GAMEPAD_GUIDE));
+    RestoreInput();
+    InitInput();
+    s_keyboard[K_ENTER] = 1;
+    TouchInput_SetGameplay(1);
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    TouchInput_SetGameplay(0);
+    ASSERT_TRUE(CheckKey(K_ENTER));
+    s_keyboard[K_ENTER] = 0;
+    ManageKeyboard();
+    ASSERT_TRUE(!CheckKey(K_ENTER));
+
+    TouchInput_SetGameplay(1);
+    TouchOverlay_HandleEvent(&touch);
+    s_recordKey = K_A;
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    ASSERT_EQ_INT(K_A, Key);
+    s_recordKey = 0;
+    TouchInput_SetGameplay(0);
+    TouchOverlay_Shutdown();
+    RestoreInput();
+    InitInput();
+}
+
+static void test_touch_recenter_between_gameplay_polls() {
+    RestoreInput();
+    InitInput();
+    ClearNoRepeatInput();
+    memset(TabKeys, 0, sizeof(TabKeys));
+    TouchOverlay_Init();
+    LastInputWasTouch = 0;
+    PlatformEvent touch = {};
+    touch.type = PLATFORM_EVENT_FINGER_DOWN;
+    touch.tfinger.fingerID = 78;
+    touch.tfinger.x = touch.tfinger.y = 0.5f;
+
+    TouchInput_SetGameplay(1);
+    GetInput(0);
+    TouchInput_EndGameplayPoll();
+
+    /* BoxBlit also pumps events after the gameplay poll has ended. */
+    ResetEvents();
+    s_events.push_back(touch);
+    touch.type = PLATFORM_EVENT_FINGER_UP;
+    s_events.push_back(touch);
+    ManageEvents();
+    ASSERT_TRUE(!CheckKey(K_ENTER));
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    TouchInput_SetGameplay(1);
+    GetInput(0);
+    ASSERT_EQ_UINT(1u << 9, Input);
+    TouchInput_EndGameplayPoll();
+    ASSERT_TRUE(!CheckKey(K_ENTER));
+    TouchInput_SetGameplay(1);
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    TouchInput_EndGameplayPoll();
+
+    touch.type = PLATFORM_EVENT_FINGER_DOWN;
+    TouchOverlay_HandleEvent(&touch);
+    TouchInput_SetGameplay(0);
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    TouchOverlay_HandleEvent(&touch);
+    TouchInput_SetGameplay(1);
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    TouchInput_EndGameplayPoll();
+    TouchOverlay_Shutdown();
+    ResetEvents();
+}
+
 int main() {
     if (!InitEvents() || !InitWindow("Contract fixture") ||
         !CreateWindowSurface(8, 6, false))
@@ -754,12 +940,15 @@ int main() {
     RUN_TEST(test_keyboard_layout_filters_and_replay_order);
     RUN_TEST(test_mouse_and_focus_event_order);
     RUN_TEST(test_wall_clock_wrap_and_fixed_dt);
+    RUN_TEST(test_gamepad_deadzone_defaults_and_boundaries);
     RUN_TEST(test_gamepad_state_edges_and_hotplug);
     RUN_TEST(test_indexed_conversion_exact_bytes);
     RUN_TEST(test_present_lock_palette_and_overlay_order);
     RUN_TEST(test_zoom_presents_only_updated_rectangles);
     RUN_TEST(test_partial_present_after_resize);
     RUN_TEST(test_touch_wake_hold_release_and_reapply);
+    RUN_TEST(test_touch_recenter_scope_pulse_and_bindings);
+    RUN_TEST(test_touch_recenter_between_gameplay_polls);
     EndWindow();
     EndEvents();
     TEST_SUMMARY();

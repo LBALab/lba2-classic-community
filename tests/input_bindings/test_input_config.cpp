@@ -50,6 +50,8 @@
 
 extern int TestConsoleOpen;
 extern int TestConsoleSuppress;
+extern S32 TestTouchGameplay;
+extern "C" int WriteEmbeddedDefaultLba2Cfg(const char *destPath);
 
 static int fails = 0;
 
@@ -66,7 +68,7 @@ static int fails = 0;
 
 namespace {
 
-const char *kCfgPath = "test_input_config.cfg";
+const char *kCfgPath = TEST_CFG_PATH;
 
 char g_buffer[64 * 1024];
 
@@ -337,6 +339,52 @@ void CheckGamepadRoundTrip(void) {
     }
 }
 
+void CheckEmbeddedGamepadDefaults(void) {
+    RemoveCfg();
+    CHECK(WriteEmbeddedDefaultLba2Cfg(kCfgPath), "write the actual embedded fresh-profile seed");
+    OpenCfg();
+    ScribbleBindings();
+    ScribblePad();
+    ReadInputConfig();
+    ReadGamepadConfig();
+    const int slots[] = {0, 1, 9, 13};
+    for (unsigned n = 0; n < sizeof(slots) / sizeof(slots[0]); ++n) {
+        const int slot = slots[n];
+        CHECK(GamepadKeys[slot].Key1 == GamepadKeysDefault[slot].Key1 &&
+                  GamepadKeys[slot].Key2 == GamepadKeysDefault[slot].Key2,
+              "embedded seed must inherit compiled gamepad defaults for slot %d", slot);
+    }
+    HoldNone();
+    MyGetInput();
+    HoldOnly(GamepadKeysDefault[0].Key1);
+    MyGetGameplayInput();
+    CHECK(Input == I_UP, "fresh-profile default forward binding reaches gameplay");
+    HoldOnly(GamepadKeysDefault[1].Key1);
+    MyGetGameplayInput();
+    CHECK(Input == I_DOWN, "fresh-profile default backward binding reaches gameplay");
+    HoldOnly(GamepadKeysDefault[13].Key1);
+    MyGetGameplayInput();
+    CHECK(Input == I_ESQUIVE, "fresh-profile default dodge binding reaches gameplay");
+    HoldNone();
+    MyGetInput();
+
+    const U32 overrides[] = {K_GAMEPAD_RTRIGGER, K_GAMEPAD_LTRIGGER,
+                             K_GAMEPAD_B, K_GAMEPAD_LSTICK_BTN};
+    for (unsigned n = 0; n < sizeof(slots) / sizeof(slots[0]); ++n) {
+        const std::string key = Line("Gamepad%d", slots[n]);
+        CHECK(DefFileBufferWriteValue(key.c_str(), overrides[n]),
+              "write explicit override for slot %d", slots[n]);
+    }
+    CHECK(DefFileBufferWriteValue("Gamepad13_2", K_GAMEPAD_RSTICK_BTN),
+          "write explicit secondary dodge override");
+    OpenCfg();
+    ScribblePad();
+    ReadGamepadConfig();
+    for (unsigned n = 0; n < sizeof(slots) / sizeof(slots[0]); ++n)
+        CHECK(GamepadKeys[slots[n]].Key1 == overrides[n], "explicit slot %d overrides the compiled layout", slots[n]);
+    CHECK(GamepadKeys[13].Key2 == K_GAMEPAD_RSTICK_BTN, "explicit secondary dodge override survives loading");
+}
+
 void ResetMenuInput(void) {
     RestoreInput();
     InitInput();
@@ -372,6 +420,9 @@ void CheckMenuDirections(void) {
                   "gamepad direction %d alternate %d", direction, alternate);
         }
     }
+    GamepadKeys[0].Key1 = K_GAMEPAD_RTRIGGER;
+    GamepadKeys[1].Key1 = K_GAMEPAD_LTRIGGER;
+    InitInput();
     HoldOnly(K_GAMEPAD_RTRIGGER);
     MyGetInput();
     CHECK((Input & I_UP) && !MenuInput_Get(), "RT moves forward, never navigates UI");
@@ -483,6 +534,68 @@ void CheckMenuSuppression(void) {
     CHECK(MenuInput_Get() == MENU_INPUT_UP, "unsuppressed first replay poll is not discarded");
 }
 
+void CheckTouchGameplayLifetime(void) {
+    ResetMenuInput();
+    MyGetGameplayInput();
+    CHECK(TestTouchGameplay, "gameplay touch eligibility must survive into rendering");
+    MyGetInput();
+    CHECK(!TestTouchGameplay, "modal polling must end gameplay touch eligibility");
+    TestConsoleOpen = 1;
+    MyGetGameplayInput();
+    CHECK(!TestTouchGameplay, "console presentation must not queue gameplay touches");
+    TestConsoleOpen = 0;
+    TestConsoleSuppress = 1;
+    MyGetGameplayInput();
+    CHECK(!TestTouchGameplay, "console closing frame must discard gameplay touches");
+    TestConsoleSuppress = 0;
+}
+
+#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+void CheckCircleContextRelease(void) {
+    const U32 directions[] = {K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN,
+                              K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT};
+    RestoreInput();
+    InitInput();
+    ClearNoRepeatInput();
+    HoldNone();
+    MyGetInput();
+    for (int direction = 0; direction < 4; ++direction) {
+        HoldOnly(K_GAMEPAD_B);
+        MyGetInput();
+        CHECK(Input == I_RETURN, "fresh Circle press confirms in modal context");
+        InitWaitNoInput(I_INVENTORY | I_RETURN | I_MENUS);
+        MyGetGameplayInput();
+        CHECK(!Input, "held modal Circle must not become gameplay dodge");
+        HoldAdd(directions[direction]);
+        for (int frame = 0; frame < 3; ++frame) {
+            MyGetGameplayInput();
+            CHECK(Input == (1u << direction), "Circle remains blocked until physical release");
+        }
+        HoldAdd(K_X);
+        MyGetGameplayInput();
+        CHECK(Input == (I_ESQUIVE | (1u << direction)), "Circle suppression must not block keyboard dodge");
+        HoldRemove(K_X);
+        HoldRemove(K_GAMEPAD_B);
+        MyGetGameplayInput();
+        CHECK(Input == (1u << direction), "Circle release preserves held movement");
+        HoldAdd(K_GAMEPAD_B);
+        for (int frame = 0; frame < 3; ++frame) {
+            MyGetGameplayInput();
+            CHECK(Input == (I_ESQUIVE | (1u << direction)), "fresh Circle dodge remains held across gameplay frames");
+        }
+        MyGetInput();
+        CHECK(Input == (1u << direction), "held gameplay Circle must not confirm a modal");
+        HoldNone();
+        MyGetInput();
+        HoldOnly(K_GAMEPAD_B);
+        MyGetInput();
+        CHECK(Input == I_RETURN, "Circle release rearms modal confirmation");
+        HoldNone();
+        MyGetInput();
+    }
+}
+#endif
+
 void CheckMenuIgnoresConfig(void) {
     ResetMenuInput();
     WriteCfg(Line("WinMode: 1\nInput0_1: %u\nInput0_2: 0\n"
@@ -578,6 +691,8 @@ void CheckPausedMenuRelease(void) {
     for (int nested = 0; nested < 2; ++nested) {
         for (unsigned direction = 0; direction < sizeof(directions) / sizeof(directions[0]); ++direction) {
             ResetMenuInput();
+            GamepadKeys[0].Key1 = K_GAMEPAD_RTRIGGER;
+            InitInput();
             Timer_EnableFixedDt(16);
             Timer_FixedDtAdvance();
             ManageTime();
@@ -621,9 +736,14 @@ int main() {
     CheckAllZeroGuard();
     CheckWinModeAbsentTakesDefaults();
     CheckGamepadRoundTrip();
+    CheckEmbeddedGamepadDefaults();
     CheckMenuDirections();
     CheckMenuRebindIsolation();
     CheckMenuSuppression();
+    CheckTouchGameplayLifetime();
+#ifdef LBA2_GAMEPAD_STICK_LAYOUT
+    CheckCircleContextRelease();
+#endif
     CheckMenuIgnoresConfig();
     CheckConsoleMenuReplay();
     CheckPausedMenuRelease();

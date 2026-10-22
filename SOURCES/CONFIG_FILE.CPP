@@ -210,7 +210,7 @@ static const T_SETTING MouseSettings[] = {
  * bindings stay with INPUT.CPP, which writes them straight after these. The
  * deadzone's ceiling is load-bearing too: JOYSTICK.CPP narrows it to S16. */
 static const T_SETTING GamepadSettings[] = {
-    {"GamepadDeadzone", NULL, "pad_deadzone", &JoystickDeadzone, SETTING_CLAMP, 8000, 0, 32767,
+    {"GamepadDeadzone", NULL, "pad_deadzone", &JoystickDeadzone, SETTING_CLAMP, LBA2_GAMEPAD_DEADZONE_DEFAULT, 0, 32767,
      NULL, NULL, NULL, NULL, "Gamepad stick deadzone (SDL units 0-32767)"},
     {"GamepadCameraAnalog", NULL, "cam_stick_analog", &GamepadCameraAnalog, SETTING_TRUTHY, TRUE, 0, 1,
      NULL, NULL, NULL, NULL, "Analog right-stick camera in Auto cam", SETTING_RECORDED, SETTING_BEFORE_NONE},

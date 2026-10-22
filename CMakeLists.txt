@@ -62,6 +62,11 @@ option(LBA2_BUILD_ASM_EQUIV_TESTS "Build ASM↔CPP equivalence tests (requires o
 # a player's build. Idle, it is a flag test per draw call: 2400 headless ticks took the same
 # 4.6 s with it and without on an Apple Silicon Mac.
 option(ENABLE_POLY_RECORDING "Enable polygon call recording for ASM-vs-CPP testing" ${LBA2_BUILD_TESTS})
+option(LBA2_GAMEPAD_STICK_LAYOUT "Default to left-stick movement and east-button dodge (controllers without triggers or stick clicks)" OFF)
+option(LBA2_VITA_DIAGNOSTICS "Capture early Vita boot/stdout/stderr locally and enable optional DEBUGNET" OFF)
+if(LBA2_VITA_DIAGNOSTICS AND NOT VITA)
+    message(FATAL_ERROR "LBA2_VITA_DIAGNOSTICS requires the Vita toolchain.")
+endif()
 
 # Debug tools (original Adeline developer debug features)
 option(DEBUG_TOOLS "Enable developer debug tools (collision viz, benchmarks, bug saves)" OFF)
@@ -175,6 +180,14 @@ if(NINTENDO_SWITCH)
         message(FATAL_ERROR "Nintendo Switch does not support x86 ASM, native-host tuning, desktop test executables or the control server.")
     endif()
 endif()
+if(VITA)
+    if(NOT PLATFORM_BACKEND STREQUAL "sdl2" OR NOT LBA2_LINK_STATIC)
+        message(FATAL_ERROR "PlayStation Vita requires PLATFORM_BACKEND=sdl2 and LBA2_LINK_STATIC=ON. Use the vita preset.")
+    endif()
+    if(ENABLE_ASM OR LBA2_NATIVE_ARCH OR LBA2_BUILD_TESTS OR LBA2_CONTROL_SERVER)
+        message(FATAL_ERROR "PlayStation Vita does not support x86 ASM, native-host tuning, desktop test executables or the control server.")
+    endif()
+endif()
 add_subdirectory(LIB386/PLATFORM)
 
 # Engine version string. Reads the canonical value from the VERSION file
@@ -223,10 +236,9 @@ configure_file(${CMAKE_SOURCE_DIR}/packaging/appimage_env.sh.in
 # the binary on Windows builds via SOURCES/CMakeLists.txt; harmlessly
 # generated and ignored on non-Windows.
 #
-# Configure-time substitution: re-run cmake to refresh after VERSION or
-# git dirty-state changes. Release builds (CI on tag) run on fresh
-# checkouts so this is invisible there; for local dev it just means a
-# stale "Properties → Version" until reconfigure.
+# VERSION changes refresh configure-time package metadata automatically.
+# Git dirty-state changes still need a reconfigure for this metadata.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/VERSION")
 file(READ "${CMAKE_SOURCE_DIR}/VERSION" _LBA2_VER_RAW)
 string(STRIP "${_LBA2_VER_RAW}" LBA2_VERSION_STRING_CONFIG)
 if(GIT_EXECUTABLE AND EXISTS "${CMAKE_SOURCE_DIR}/.git"

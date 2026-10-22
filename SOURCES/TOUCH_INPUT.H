@@ -66,6 +66,11 @@ S32 TouchOverlay_IsSupported(void);
 
 void ApplyVirtualKeys(void);
 
+/* Gameplay eligibility spans rendering; modal entry discards queued taps. */
+void TouchInput_SetGameplay(S32 gameplay);
+/* End key injection without discarding taps received during presentation. */
+void TouchInput_EndGameplayPoll(void);
+
 #ifdef __cplusplus
 }
 #endif

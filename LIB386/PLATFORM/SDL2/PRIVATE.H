@@ -37,10 +37,14 @@ void SDL2_EndFolderDialog(PlatformFolderDialog *dialog);
 #ifdef __SWITCH__
 #include "SWITCH.H"
 #endif
+#ifdef __vita__
+#include "VITA.H"
+#endif
 
 #ifdef LBA2_SDL2_TESTS
 SDL_Window *SDL2_TestWindow(void);
 void SDL2_SetPresentationProbe(void (*probe)(SDL_Renderer *));
 void SDL2_SetFullscreenProbe(int (*probe)(SDL_Window *, Uint32));
 void SDL2_SetMessageProbe(int (*probe)(Uint32, const char *, const char *, SDL_Window *));
+void SDL2_SetMkdirProbe(int (*probe)(const char *));
 #endif

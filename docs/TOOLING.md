@@ -187,6 +187,17 @@ the host-only pass.
 
 The image includes CMake, Ninja, devkitA64, libnx, Switch SDL2 and its static dependencies, the NACP/NRO tools, nxlink, GNU coreutils, Python 3 and ZIP packaging. No host devkitPro installation or package update is needed. The image supports native Linux amd64 and arm64 hosts, including Docker Desktop on Apple Silicon. The tooling probe checks the daemon, whether the pinned image is cached, and nxlink/stdbuf in a cached image without pulling it. See [SWITCH.md](SWITCH.md).
 
+### PlayStation Vita homebrew
+
+| Tool | Needed for | Version owner | Install |
+|------|-----------|---------------|---------|
+| Docker | [build-vita.sh](../scripts/dev/build-vita.sh): cross-build and package without a host SDK | [docker/vita-image.txt](../docker/vita-image.txt) pins VitaSDK; [Dockerfile.vita](../docker/Dockerfile.vita) pins GXM-only SDL2 source and checksum | Docker Engine or Docker Desktop; wrapper builds the cached SDK image |
+| Python 3 (stdlib) | [run-vita.sh](../scripts/dev/run-vita.sh): FTP upload and companion TCP launch | [docker/vita-image.txt](../docker/vita-image.txt) | Included in the pinned image; no host Python, curl or netcat required |
+| Python 3 (host stdlib) | [vita-log.py](../scripts/dev/vita-log.py): optional DEBUGNET UDP receiver | Tier 1 Python probe | Host Python; no third-party packages |
+| Pillow | [make-vita-icons.py](../scripts/packaging/make-vita-icons.py): regenerate LiveArea images after changing the source icon | — | `pip install Pillow`; normal builds use committed images |
+
+The SDK supports native Linux amd64/arm64 hosts, including Docker Desktop on Apple Silicon. The probe checks the daemon, cached base image, Python FTP/TCP imports and the SDK's optional DEBUGNET library without pulling or rebuilding. The existing Pillow probe covers optional image regeneration, and the host Python probe covers the optional receiver. DEBUGNET is linked only by `build-vita.sh --diagnostics`; ordinary VPKs do not depend on it. See [VITA.md](VITA.md).
+
 ### Releasing
 
 Maintainer lane; see [RELEASING.md](RELEASING.md).
@@ -326,8 +337,8 @@ Named here so nobody adds them by accident:
 - **Node, Rust, or Go toolchains.** `git-cliff` ships prebuilt binaries; nothing
   else needs them.
 - **Third-party Python packages**, with one exception. Pillow is the only one,
-  and it is needed by exactly three asset scripts — `art_catalog_screen.py`,
-  `art_treatment_preview.py`, `acf_decode.py` — plus the automation suite's
+  and it is needed by the asset scripts — `art_catalog_screen.py`,
+  `art_treatment_preview.py`, `acf_decode.py`, `make-vita-icons.py` — plus the automation suite's
   optional image asserts. Everything else, including the save probes and the
   corpus harness, runs on a bare `python3`. Keep it that way: a new script that
   needs numpy needs a conversation first.

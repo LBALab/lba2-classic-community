@@ -177,19 +177,21 @@ The game always requests `.WAV`; `PlayStreamInternal` (`STREAM.CPP`) resolves it
 trying filesystem WAV, then the `.ogg` transcode, then a mounted disc image, then
 cue audio. WAV and OGG then reach the stream very differently:
 
-| | WAV (`SetupWavStream`) | OGG (`PlayOggFile`) |
+| | WAV | OGG (`PlayOggFile`) |
 |---|---|---|
-| Decode | `SDL_LoadWAV` decodes the whole file up front (synchronous) | `stb_vorbis` on a **background decode thread**, incrementally |
-| Push | all PCM in one call, before the device resumes | chunks pushed as decoded |
+| Decode | one small prefill, then block-aligned batches on a background thread through SDL's WAV decoder | `stb_vorbis` on a background decode thread, incrementally |
+| Push | chunks up to 16 KiB; producer waits when 64 KiB of source PCM is queued | chunks pushed as decoded |
 | Cache | none | one-slot decoded-PCM cache (`oggCache`), keyed by path |
-| Seek/restore | byte offset into the loaded PCM | `stb_vorbis_seek_frame` (a seeked decode is not cached), or offset on a cache hit |
+| Seek/restore | seek to the containing encoded block, decode it and discard frames before the parked position | `stb_vorbis_seek_frame` (a seeked decode is not cached), or offset on a cache hit |
+
+[WAV_STREAM.CPP](../LIB386/AIL/SDL/WAV_STREAM.CPP), `AILWav_Read`, wraps bounded, complete ADPCM blocks in a RIFF packet with the original format metadata, retaining SDL's exact predictor/coefficient handling, fact-chunk policy and final partial-block handling rather than introducing another decoder. Filesystem WAVs, WAVs in mounted images and cue-referenced WAVs share this source. [DISCIMG.CPP](../LIB386/SYSTEM/DISCIMG.CPP), `DiscImage_OpenIndependent`, resolves an image file on the control thread and opens a private image reader for the producer; the asset loader's shared seek cursor is never used by that worker. Raw CD-DA still uses its separate whole-range loading path.
 
 Three consequences worth knowing:
 
 - **Cold-OGG first-audio gap.** `FinishStream` resumes the device right after
   `PlayOggFile` launches the decode thread, so the device can run dry for tens of
-  ms until the first chunk is pushed. WAV and OGG-cache-hit push all their PCM
-  first, so they have no such gap. A scene switch is always a different track (a
+  ms until the first chunk is pushed. WAV pushes a small prefill and an OGG-cache-hit pushes all its PCM
+  first, so neither starts with an empty queue. A scene switch is always a different track (a
   cache miss), so it always takes the cold OGG path.
 - **The cache and the queue do not compose.** The OGG cache is a single slot for
   *same-track* replay/restore. The `NextMusic` queue exists to switch to a
@@ -202,15 +204,14 @@ Three consequences worth knowing:
   tail of input it will not emit until told no more is coming, so
   `SDL_GetAudioStreamQueued` sticks a few bytes above 0 forever and the stream never
   reports end-of-track. Each source therefore calls `SDL_FlushAudioStream` once its
-  whole PCM has been pushed (OGG decode thread on natural finish, OGG cache-hit, WAV),
+  whole PCM has been pushed (WAV/OGG decode thread on natural finish, OGG cache-hit),
   which lets the queue drain to 0 so `IsStreamPlaying()` can report EOF. This matters
   for the deferred-switch queue (#406): the queued track waits on `IsStreamPlaying()`
   going false, so without the flush it would wait forever.
 
 ## Testing
 
-The music state machine is host-tested; the stream *decode/threading* is not (that
-is SDL and library territory). Three targets under `tests/music/`:
+The music state machine and stream lifecycle are host-tested. Three targets under `tests/music/`:
 
 - **`test_music_pause_resume.cpp`** compiles the real `MUSIC.CPP` against a spy AIL
   backend (records ordered calls; a small model of "what is playing" that the test
@@ -225,15 +226,17 @@ is SDL and library territory). Three targets under `tests/music/`:
 - **`test_music_stream_resume.cpp`** compiles the real SDL `STREAM.CPP` against a
   fake audio device (the `AILAudio_*` seam) with a virtual clock: the device plays
   only when the test advances it. Covers where a stream resumes after menu round
-  trips (one, two, after the track has ended), a game loaded from the menu, and
+  trips (one, two, after the track has ended), a game loaded from the menu, bounded-producer refills, and
   the dialogue fast-unpause, on
-  three source setups, one per reopen path: WAV (faked as silent PCM of a known
+  three source setups, one per reopen path: WAV (a bounded fake source of silent PCM with a known
   length), an OGG track with a WAV menu theme (the decoded-PCM cache hit), and both
   OGG as in the Steam and GOG Classic releases (the menu theme evicts the track, so
   the restore re-decodes from a `stb_vorbis` seek on the decode thread). The OGG is
   `tests/music/fixtures/silence-10s.ogg`, decoded for real. A decoder seek lands on
   the start of a Vorbis frame, a few ms before the parked frame; the test allows
   50 ms there.
+
+`tests/platform/test_music_wav.cpp` compares every decoded byte against whole-file SDL decoding for PCM at several bit depths, extensible PCM, float, A-law, mu-law, MS ADPCM and IMA ADPCM. It covers mono/stereo, seeked restores, fact hints, partial blocks, deterministic randomized inputs, malformed files, bounded initial reads and image-source ownership after unmount. `test_sdl_audio_playback` uses the production transport with dummy output to pin the 64 KiB queue bound, cancellation while full, pause/focus nesting, menu restore and natural EOF. `test_disc_image` interleaves asset and independent-reader access on separate threads and checks that the private reader survives global unmount.
 
 Why a mock rather than the real backend: the runtime control harness (`--exec`,
 `--tick`) cannot reproduce music-state bugs, because its headless audio never
@@ -244,7 +247,7 @@ scenario as behaviour is pinned down.
 
 ## Debugging on a live game
 
-- `audio global log 1` (console) turns on the `[MUSIC]`/`[CD]` trace channel.
+- `audio global log 1` (console) turns on the `[MUSIC]`/`[CD]` trace channel, including WAV prefill bytes and setup time in milliseconds.
 - `cube <N>` jumps to a scene, which runs the cube-entry music path.
 - `playmusic <num> 1` starts a track by number. On the US CD, 5 is CD track 6,
   the shortest at 54 s, which makes it the quickest way to reach end-of-track.

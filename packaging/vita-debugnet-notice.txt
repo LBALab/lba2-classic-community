@@ -1,0 +1,9 @@
+This diagnostic build links the DEBUGNET library.
+
+Copyright (C) 2010, 2015 Antonio Jose Ramos Marquez (bigboss).
+DEBUGNET is available under the Mozilla Public License, version 2.0.
+License: https://mozilla.org/MPL/2.0/
+Source code: https://github.com/psxdev/debugnet
+
+The library is supplied by the digest-pinned VitaSDK image identified in
+docker/vita-image.txt in the LBA2 Classic Community source distribution.

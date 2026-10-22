@@ -131,6 +131,8 @@ int16_t Axis(PlatformGamepad *pad, PlatformGamepadAxis axis) {
 const char *BasePath() {
 #ifdef __SWITCH__
     return SDL2_SwitchBasePath();
+#elif defined(__vita__)
+    return SDL2_VitaBasePath();
 #else
     if (!s_basePath)
         s_basePath = SDL_GetBasePath();
@@ -144,8 +146,12 @@ char *Preferences(const char *org, const char *app) {
         Platform_Log(PLATFORM_LOG_ERROR, "%s", SDL_GetError());
         return NULL;
     }
+#if defined(__SWITCH__) || defined(__vita__)
 #ifdef __SWITCH__
     const char *path = SDL2_SwitchUserPath();
+#else
+    const char *path = SDL2_VitaUserPath();
+#endif
     if (!SDL2_CreateDirectory(path))
         return NULL;
     char *copy = SDL_strdup(path);
@@ -161,7 +167,10 @@ PlatformInterface Interface() {
     PlatformInterface api = {};
     api.name = "sdl2";
     api.capabilities.windowed = true;
-#ifdef __SWITCH__
+#ifdef __vita__
+    api.capabilities.touch_recenter = true;
+#endif
+#if defined(__SWITCH__) || defined(__vita__)
     api.capabilities.windowed = false;
 #endif
     api.system.init = Init;

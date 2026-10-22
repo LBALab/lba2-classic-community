@@ -18,6 +18,26 @@
       }
     },
     {
+      "name": "vita",
+      "inherits": "default",
+      "displayName": "PlayStation Vita homebrew",
+      "description": "Build a VPK with the pinned VitaSDK Docker image via scripts/dev/build-vita.sh",
+      "toolchainFile": "$env{VITASDK}/share/vita.toolchain.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "PLATFORM_BACKEND": "sdl2",
+        "SOUND_BACKEND": "sdl",
+        "MVIDEO_BACKEND": "smacker",
+        "LBA2_LINK_STATIC": "ON",
+        "LBA2_RELEASE_SYMBOLS": "ON",
+        "ENABLE_ASM": "OFF",
+        "LBA2_BUILD_TESTS": "OFF",
+        "LBA2_BUILD_ASM_EQUIV_TESTS": "OFF",
+        "LBA2_NATIVE_ARCH": "OFF",
+        "LBA2_GAMEPAD_STICK_LAYOUT": "ON"
+      }
+    },
+    {
       "name": "switch",
       "inherits": "default",
       "displayName": "Nintendo Switch homebrew",
@@ -213,6 +233,10 @@
     }
   ],
   "buildPresets": [
+    {
+      "name": "vita",
+      "configurePreset": "vita"
+    },
     {
       "name": "switch",
       "configurePreset": "switch"

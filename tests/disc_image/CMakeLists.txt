@@ -26,3 +26,5 @@ set_target_properties(test_disc_image PROPERTIES CXX_STANDARD 11)
 
 add_test(NAME test_disc_image COMMAND test_disc_image)
 register_host_test(test_disc_image)
+find_package(Threads REQUIRED)
+target_link_libraries(test_disc_image PRIVATE Threads::Threads)
