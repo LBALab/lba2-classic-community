@@ -91,11 +91,13 @@ polyrec/projrec harnesses before the next. No rewrite.
 
 ## The rings and the core
 
-![Four nested rings: inner core (the game) inside outer core (the platform) inside Modern inside Experimental; features on the left and platforms on the right move inward](images/rings.svg)
+![Four nested rings: inner core (the game) inside outer core (the platform) inside Modern inside Experimental; features such as the Auto camera, HD and LBA1 move inward](images/rings.svg)
 
-Features grow in three rings, each inside the next. **Original** is the game as a 1997 player
-met it: every setting at its value from before (`SETTING_BEFORE` in
-[SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). **Modern** settings change how the game is shown
+Settings grow in two rings around the core, Modern inside Experimental. **Original**, the game
+as a 1997 player met it, is not a ring but the reference: every setting at its value from
+before (`SETTING_BEFORE` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). It stays reachable:
+with the settings off the game plays as the original, and a change that breaks that is a
+regression, whichever ring it came from. **Modern** settings change how the game is shown
 or handled, never what happens in it. **Experimental** is anything else, and comes out without
 ceremony. The replay digest is how the line is checked: its world hash is what the game holds,
 its view hash the camera, and the same inputs giving the same world hash is the same game.
@@ -142,11 +144,23 @@ to on by default:
 3. With it on, the world hash holds ([test_ring_watch_not_play.sh](../tests/automation/test_ring_watch_not_play.sh)).
 4. Anything judged by feel gets a play test, read back from its trace.
 
-The same holds for where the game runs. A port such as Switch or Vita starts outside, as a
-build, and moves inward as it meets what an inner platform is held to: it builds in CI, the
-test suite runs on it, a recording replays to the same world hash and a save from another
-platform loads. A second game moves the same way: LBA1
-work starts in Experimental, with its own inner core on the shared outer core.
+A second game moves the same way: LBA1 work starts in Experimental, with its own inner core
+on the shared outer core.
+
+### Where it runs
+
+Platforms are a second axis, not a ring: every platform runs the same core. Each is pinned to
+one [PAL](PLATFORM_ABSTRACTION.md) backend: desktop on SDL3 (SDL2 is a build option), Android
+on SDL3 only, Switch and Vita on SDL2, and headless automation on the null backend. What a
+platform is promised depends on how it is tested:
+
+- **Tier 1, tested on hardware before a release:** Windows, Linux, macOS and Android.
+- **Tier 2, tested in emulation only.**
+- **Tier 3, builds but is not supported.**
+
+A platform moves up as it meets what the tier above is held to: it builds in CI, the test
+suite runs on it, a recording replays to the same world hash and a save from another platform
+loads.
 
 ## How to use these docs
 

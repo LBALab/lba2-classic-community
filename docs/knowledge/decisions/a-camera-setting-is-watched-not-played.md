@@ -32,7 +32,7 @@ sources:
 
 # Context
 
-The project keeps the original game knowable while play grows around it. It does that in three rings, each inside the next: **Original**, the game as a 1997 player met it; **Modern**, settings that change how it is shown or handled; **Experimental**, anything else, removable without ceremony. A player who never touches a setting plays Original, and a purist loses nothing to the outer rings as long as they never reach into it.
+The project keeps the original game knowable while play grows around it. It does that in three rings, each inside the next: **Original**, the game as a 1997 player met it; **Modern**, settings that change how it is shown or handled; **Experimental**, anything else, removable without ceremony. A player who never touches a setting plays Original, and a purist loses nothing to the outer rings as long as they never reach into it. Since this Decision, a core sits under the rings and Original is the reference rather than the innermost ring ([ARCHITECTURE.md "The rings and the core"](../../ARCHITECTURE.md#the-rings-and-the-core)); the contracts below are unchanged.
 
 Written as prose, that promise could only be believed. Splitting the replay digest into a world hash and a view hash made it measurable: the same inputs giving the same world hash is the same game, however it was shown.[^pr-739] The Auto camera was measured with it over 315 replays and the world hash never moved. Turning that measurement into fixtures found two things the prose had wrong:
 
