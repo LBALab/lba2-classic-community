@@ -28,8 +28,9 @@ static char *Med3(char *a, char *b, char *c, QsortCmp cmp) {
     return cmp(b, c) > 0 ? c : b;
 }
 
-// Each pushed range is at most half of the one it came from, so 32 entries
-// cover 2^32 elements; the original keeps the same 32.
+// The larger side of each split is pushed and the smaller one kept, so each
+// range kept is at most half of the one split and the stack never holds more
+// than log2(n) entries: 32 cover 2^32 elements. The original keeps the same 32.
 #define QSORT_STACK 32
 
 void RetailQsort(void *vbase, size_t n, size_t size, QsortCmp cmp) {
@@ -40,7 +41,11 @@ void RetailQsort(void *vbase, size_t n, size_t size, QsortCmp cmp) {
     // A 4-byte element at an aligned address is compared through a copy of the
     // pivot; anything else has its pivot swapped to the front of the range.
     const int pivotCopy = size == 4 && !(((size_t)base | size) & 3);
-    char pivot[4];
+    // The comparator reads the copy as a 4-byte value, so it is kept aligned.
+    union {
+        char bytes[4];
+        int align;
+    } pivot;
 
     for (;;) {
         if (n > 1 && n < 16) {
@@ -73,8 +78,8 @@ void RetailQsort(void *vbase, size_t n, size_t size, QsortCmp cmp) {
             }
             char *pv;
             if (pivotCopy) {
-                memcpy(pivot, m, 4);
-                pv = pivot;
+                memcpy(pivot.bytes, m, 4);
+                pv = pivot.bytes;
             } else {
                 SwapBytes(base, m, size);
                 pv = base;
