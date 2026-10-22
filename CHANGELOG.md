@@ -33,7 +33,6 @@ that comes from the three 64-bit Android entries under Display & render.
   original's. A recording made on macOS or Android before this change can play
   out differently where a particle effect fires
   ([#821](https://github.com/LBALab/lba2-classic-community/pull/821)).
-
 - Outdoors, the thin seams where two parts of an island meet are mostly
   gone. The ground, sea and sky are now drawn with the whole-number maths the
   1997 game used on 486 and non-Intel processors, so neighbouring parts agree
