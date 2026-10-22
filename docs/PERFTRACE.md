@@ -41,7 +41,7 @@ Plus aggregate counters that survive ring rotation:
 ## Console verb
 
 ```
-perftrace [start | stop | reset | status | dump [path] | autodump [path]]
+perftrace [start | stop | reset | status | dump [path] | autodump [path] | log <path|off>]
 ```
 
 | Subcommand | Effect |
@@ -53,6 +53,7 @@ perftrace [start | stop | reset | status | dump [path] | autodump [path]]
 | `status` | Print a one-line summary to the console scrollback. |
 | `dump [path]` | Write a detailed dump to `path` (default `/tmp/perftrace.txt`). |
 | `autodump [path]` | Arm a dump at process exit. Useful for headless `--exec`-driven captures where you can't type `dump` between the tick loop and exit. |
+| `log <path\|off>` | Write one line per captured frame to `path`, with no ring limit: `cube tag frame_us scene_us present_us presents`. A frame with more than one present is a fade or a wait loop that the game ran inside one frame. Lines are written only while capture is on; the file is closed at exit or by `log off`. For runs longer than the ring, such as a whole attract reel. |
 
 The dump is plain text with three sections:
 
@@ -128,6 +129,34 @@ fixed cost (vsync wait blocking on the compositor).
 `autodump` arms an `atexit` handler so the dump is written when the engine
 returns from `MainLoop`. No interactive console needed.
 
+### Comparing two builds
+
+`scripts/dev/bench_compare.py` times two builds on the same work and prints
+frames per second for every scene: the average, the 1% low, the slowest and the
+fastest frame, and the engine's own milliseconds per frame (frame minus
+present). By default each run plays the attract reel, once with its own
+cameras and once with the Auto camera, in a window with vsync off; the builds
+take turns, three runs each.
+
+```
+scripts/dev/bench_compare.py --game-dir /path/to/data \
+    --arm 0.13.0=/path/to/old/lba2cc --arm main=/path/to/new/lba2cc
+```
+
+It reads `perftrace log`, so both builds need it; for a tag that predates it,
+apply this module's changes before building the tag. Fades and waits, frames
+that present more than once, are counted apart from the frame rate: a fade
+lasts half a second however fast the machine is. `--headless`, `--resolution`,
+`--camera` and `--save` / `--seq` (a scripted walk instead of the reel) are in
+`--help`; `--from <folder>` rebuilds the report from an earlier run's logs.
+The script's docstring says what each number means.
+
+Read the engine column before the frame rate when the two disagree. In a
+window, presenting can be most of the frame: on an Apple Silicon Mac at 736x480
+the game draws a frame in well under a millisecond and then waits several in
+the present, because macOS paces a window's presents even with vsync off. The
+frame rate then shows the system, and the engine column shows the build.
+
 ## Cost
 
 | State | Cost |
@@ -173,7 +202,7 @@ enum entry, and the dump format auto-includes the new column.
   function inside that phase. For that, run `perf record` / Instruments / VTune
   with the capture active and dump as a pointer.
 - **Not a long-running telemetry stream.** The ring is 256 frames (≈ 4 s at 60
-  fps). Long-running aggregate counters (`total_frames`, `capture_window`,
+  fps); `perftrace log` keeps every frame when you need more. Long-running aggregate counters (`total_frames`, `capture_window`,
   `FrameEnd/s`) extend the visible window but the per-frame trace is bounded.
 - **Not deterministic.** Timing varies run-to-run. For repeatable timing
   invariants use the projection corpus

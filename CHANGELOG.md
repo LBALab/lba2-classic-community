@@ -87,6 +87,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `docs/ANDROID.md` has the commands and the limits
   ([#822](https://github.com/LBALab/lba2-classic-community/pull/822)).
 
+### Developer tools
+
+- `scripts/dev/bench_compare.py` compares the frame rate of two builds scene by
+  scene: it plays the attract reel in each, with the scripted cameras and with
+  the Auto camera, and prints the average, 1% low, slowest and fastest frame
+  for every scene, with the engine's own time per frame beside it.
+  `perftrace log <path>` writes every frame to a file, with no
+  limit on length, for this and for any other long capture
+  ([#828](https://github.com/LBALab/lba2-classic-community/pull/828)).
+
 ### Contributors
 
 Thanks to EPmager for reporting the jittery mouse orbit with VSync off, with a
