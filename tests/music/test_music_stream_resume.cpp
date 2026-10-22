@@ -21,7 +21,7 @@
 //   ogg-ogg   - both OGG, as in the Steam and GOG Classic releases: decoding
 //               the menu theme evicts the track, so a restore re-decodes it
 //               from a stb_vorbis seek on the background thread.
-// WAV loading is faked (silent PCM of a known length for any "*.wav" name);
+// WAV loading is faked (patterned PCM of a known length for any "*.wav" name);
 // OGG decoding is real, from tests/music/fixtures/silence-10s.ogg, copied into
 // the build tree as track.ogg and menu.ogg.
 #include "../sdl_main_ready.h"
@@ -35,6 +35,7 @@
 #include <mutex>
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 #ifdef _WIN32
 #include <direct.h>
 #define MakeDir(path) _mkdir(path)
@@ -72,6 +73,9 @@ static FakeStream *g_live = NULL; // the stream STREAM.CPP currently owns
 static int g_opens = 0;
 static bool g_openWav = false;
 static int g_openFrame = 0;
+static int g_sourceRate = RATE;
+static int g_queueQueries = 0;
+static std::vector<Uint8> *g_capturePCM = NULL;
 
 static FakeStream *Fake(AILAudioStream *s) { return reinterpret_cast<FakeStream *>(s); }
 
@@ -106,11 +110,13 @@ void AILAudio_Destroy(AILAudioStream *stream) {
 void AILAudio_Lock(AILAudioStream *) {}
 void AILAudio_Unlock(AILAudioStream *) {}
 
-bool AILAudio_Put(AILAudioStream *stream, const void *, int bytes) {
+bool AILAudio_Put(AILAudioStream *stream, const void *data, int bytes) {
     std::lock_guard<std::mutex> hold(g_lock);
     Fake(stream)->queued += bytes;
     Fake(stream)->pushed += bytes;
     Fake(stream)->puts++;
+    if (g_capturePCM)
+        g_capturePCM->insert(g_capturePCM->end(), (const Uint8 *)data, (const Uint8 *)data + bytes);
     return true;
 }
 
@@ -122,6 +128,7 @@ bool AILAudio_Flush(AILAudioStream *stream) {
 
 int AILAudio_Queued(AILAudioStream *stream) {
     std::lock_guard<std::mutex> hold(g_lock);
+    ++g_queueQueries;
     return Fake(stream)->queued;
 }
 
@@ -155,7 +162,7 @@ static const char *SetupName() {
 static bool TrackIsOgg() { return g_setup != SETUP_WAV; }
 static bool MenuIsOgg() { return g_setup == SETUP_OGG_OGG; }
 
-// A WAV name loads as silent PCM unless this setup has an OGG for it, in which
+// A WAV name loads as PCM unless this setup has an OGG for it, in which
 // case it fails, as on a Classic install, and STREAM.CPP falls back to the .ogg.
 bool AILAudio_LoadWAV(const char *path, SDL_AudioSpec *spec, Uint8 **data, Uint32 *bytes) {
     size_t n = strlen(path);
@@ -164,7 +171,7 @@ bool AILAudio_LoadWAV(const char *path, SDL_AudioSpec *spec, Uint8 **data, Uint3
     bool menu = strstr(path, "menu") != NULL;
     if (menu ? MenuIsOgg() : TrackIsOgg())
         return false;
-    spec->freq = RATE;
+    spec->freq = g_sourceRate;
     spec->format = AIL_AUDIO_S16;
     spec->channels = 2;
     *bytes = (Uint32)MsToBytes(menu ? WAV_MENU_MS : WAV_TRACK_MS);
@@ -177,7 +184,12 @@ bool AILAudio_LoadWAVMemory(const void *, int, SDL_AudioSpec *, Uint8 **, Uint32
 struct AILWavSource {
     SDL_AudioSpec spec;
     Uint32 remaining;
+    Uint32 position;
 };
+
+static Uint8 PCMByte(Uint32 offset) {
+    return (Uint8)((offset * 37u) ^ (offset >> 8));
+}
 
 AILWavSource *AILWav_Open(const char *path, bool image, S32 frame, bool *recognized) {
     *recognized = false;
@@ -192,6 +204,7 @@ AILWavSource *AILWav_Open(const char *path, bool image, S32 frame, bool *recogni
     }
     SDL_free(pcm);
     Uint32 skip = (Uint32)frame * BYTES_PER_FRAME;
+    source->position = skip;
     source->remaining -= skip < source->remaining ? skip : source->remaining;
     *recognized = true;
     g_openWav = true;
@@ -207,6 +220,11 @@ int AILWav_Read(AILWavSource *source, SDL_AudioSpec *spec, Uint8 **pcm, Uint32 *
     *spec = source->spec;
     *bytes = source->remaining < 8192 ? source->remaining : 8192;
     *pcm = (Uint8 *)SDL_calloc(1, *bytes);
+    if (*pcm) {
+        for (Uint32 i = 0; i < *bytes; ++i)
+            (*pcm)[i] = PCMByte(source->position + i);
+        source->position += *bytes;
+    }
     source->remaining -= *bytes;
     return *pcm ? 1 : -1;
 }
@@ -311,6 +329,57 @@ static void StartTrack() {
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────────
+
+static void test_wav_full_queue_wait_and_stop() {
+    g_sourceRate = 8000;
+    for (int round = 0; round < 3; ++round) {
+        Reset();
+        StartTrack();
+        PauseStream();
+        WaitDecoded();
+        int queries, queued;
+        {
+            std::lock_guard<std::mutex> hold(g_lock);
+            queries = g_queueQueries;
+            queued = g_live->queued;
+        }
+        Uint64 started = AIL_Ticks();
+        SDL_Delay(50);
+        Uint64 elapsed = AIL_Ticks() - started;
+        {
+            std::lock_guard<std::mutex> hold(g_lock);
+            ASSERT_EQ_INT(queued, g_live->queued);
+            ASSERT_TRUE(queued <= 65536);
+            ASSERT_TRUE(g_queueQueries - queries <= (int)(elapsed / 250) + 2);
+        }
+        started = AIL_Ticks();
+        StopStream();
+        ASSERT_TRUE(AIL_Ticks() - started < 150);
+        ASSERT_TRUE(!IsStreamPlaying());
+        ASSERT_TRUE(g_live == NULL);
+    }
+    g_sourceRate = RATE;
+}
+
+static void test_wav_full_track_pcm_is_exact() {
+    Reset();
+    std::vector<Uint8> actual;
+    g_capturePCM = &actual;
+    StartTrack();
+    Advance(WAV_TRACK_MS);
+    {
+        std::lock_guard<std::mutex> hold(g_lock);
+        ASSERT_TRUE(g_live->flushed);
+    }
+    StopStream();
+    g_capturePCM = NULL;
+    std::vector<Uint8> expected(MsToBytes(WAV_TRACK_MS));
+    for (size_t i = 0; i < expected.size(); ++i)
+        expected[i] = PCMByte((Uint32)i);
+    ASSERT_EQ_INT((int)expected.size(), (int)actual.size());
+    if (expected.size() == actual.size())
+        ASSERT_MEM_EQ(&expected[0], &actual[0], expected.size());
+}
 
 // Control: one trip mid-track resumes where it left off (worked before the fix).
 static void test_one_menu_trip_resumes_in_place() {
@@ -452,6 +521,8 @@ int main() {
     }
 
     OpenStream();
+    RUN_TEST(test_wav_full_queue_wait_and_stop);
+    RUN_TEST(test_wav_full_track_pcm_is_exact);
     const Setup setups[] = {SETUP_WAV, SETUP_OGG, SETUP_OGG_OGG};
     for (int i = 0; i < 3; i++) {
         g_setup = setups[i];
