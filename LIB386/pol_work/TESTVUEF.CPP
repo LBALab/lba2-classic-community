@@ -2,6 +2,7 @@
 
 #include <SYSTEM/UTILS.H>
 #include <SYSTEM/DEBUG_TRACES.H>
+#include <3D/X87REAL.H>
 
 // ╔═════════════════════════════════════════════════════════════════╗
 // ║ TestVisible : Tests the visibility of a poly                    ║
@@ -16,6 +17,6 @@ S32 TestVuePoly(Struc_Point *ptr) {
     Struc_Point *ptr2 = ptr + 1;
     Struc_Point *ptr3 = ptr + 2;
 
-    long double result = ((long double)ptr2->Pt_XE - (long double)ptr->Pt_XE) * ((long double)ptr->Pt_YE - (long double)ptr3->Pt_YE) - ((long double)ptr->Pt_XE - (long double)ptr3->Pt_XE) * ((long double)ptr2->Pt_YE - (long double)ptr->Pt_YE);
+    X87_REAL result = ((X87_REAL)ptr2->Pt_XE - (X87_REAL)ptr->Pt_XE) * ((X87_REAL)ptr->Pt_YE - (X87_REAL)ptr3->Pt_YE) - ((X87_REAL)ptr->Pt_XE - (X87_REAL)ptr3->Pt_XE) * ((X87_REAL)ptr2->Pt_YE - (X87_REAL)ptr->Pt_YE);
     return ROUND(result) >= 0.0;
 }

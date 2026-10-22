@@ -38,6 +38,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   64-bit ARM phones can only work out in software; it now uses the one the
   phone has, which gives the same picture as before on every other platform
   and moves a point by one pixel about once in 100,000 on these phones.
+- On 64-bit Android, drawing the 3D scene takes about a third of the time it
+  did, measured outdoors on a Galaxy S22+. The polygon drawing still worked
+  out each triangle's edges and texture steps in the number type the phone can
+  only handle in software; it now uses the one the phone has, and the picture
+  is the same as before on every platform.
 - Outdoors in the storm, raindrops splash on the ground again while the Auto
   camera moves. The camera redraws the scene on every frame it moves, and each
   redraw cleared the splashes before they were first drawn, so you only saw

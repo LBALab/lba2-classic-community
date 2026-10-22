@@ -78,7 +78,7 @@ The split is between architectures, not between operating systems. Both x86-64 h
 
 - `LongProjectPoint3D` — `LIB386/3D/LPROJ3DF.CPP:25-28`
 - `LongRotatePointF` — `LIB386/3D/LROT3DF.CPP:13-15`
-- POLY.CPP slope `volatile long double` — `LIB386/pol_work/POLY.CPP:263, 668, 686, 859-863, 921-936`
+- Polygon slopes, edges and perspective (`X87_REAL`, `X87Fistp`) — `LIB386/pol_work/POLY.CPP`, `POLYTEXZ.CPP`, `POLYTZF.CPP`, `POLYCLIP.CPP`
 - FPU control word reference (test) — `tests/fpu_precision/fpu_ops.asm:15-16`
 - `volatile` barrier rationale (forces FPU stack → memory round-trip) — `tests/fpu_precision/test_fpu_precision.cpp:109,125`
 
@@ -95,7 +95,7 @@ Why it matters beyond the picture: a recorded session declares the mantissa widt
 simulation whose arithmetic rounds differently. `Distance` is the one entry point here that the
 simulation reads rather than the renderer.
 
-**Next:** `LIB386/pol_work` (POLY.CPP and the clippers) still computes its triangle setup in `long double`, unmeasured; it needs the same measurement before it can follow.
+The polygon fillers in `LIB386/pol_work` (triangle setup, edge slopes, the perspective fillers and the sky's Z clipper) compute in `X87_REAL` too, but round with `X87Fistp`, which follows the current rounding mode as `fistp` does: the 1997 code draws each triangle under truncation (`fldcw [Status_Int]`), and the inline round to nearest would floor negative values there. Measured by replaying 120 recorded game frames (the 16 polyrec fixtures and 104 frames from 52 saves at 640x480 and 1280x720, 6.5 million rounded values) and 48,584 recorded Z-clipper calls: x87, `double` (macOS, aarch64 and armv7 Linux, ppc64le), binary128 and double-double all give the same values, framebuffers and Z-buffers. Truncation has no half-way case, and half-way cases are where `double` and the x87 differ in the projection.
 
 ---
 
