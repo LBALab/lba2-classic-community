@@ -52,7 +52,10 @@ endif()
 
 # On Android the game is built as a shared library (.so) loaded by SDL3's Java
 # Activity wrapper. On all other platforms it is a standalone executable.
-if(ANDROID)
+# LBA2_ANDROID_EXECUTABLE takes the executable branch on Android too, for the
+# on-device automation lane, which needs argv and an exit code the Activity
+# cannot give it.
+if(ANDROID AND NOT LBA2_ANDROID_EXECUTABLE)
     add_library(${LBA2_EXECUTABLE_NAME} SHARED ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN} ${SOURCES_FILES_MACOS} ${EMBEDDED_LBA2_CFG_CPP})
     # The APK ships the library as libmain.so, the name SDL's activity loads, and a
     # tombstone names a library by its SONAME. Matching them lets a tombstone and

@@ -1,3 +1,4 @@
+#include "../sdl_main_ready.h"
 #include "../test_harness.h"
 #include "../../LIB386/AIL/SDL/AUDIO_DEVICE.H"
 #include <AIL/COMMON.H>
@@ -283,6 +284,7 @@ static void test_pull_callback_and_recursive_lock() {
 #endif
 
 int main() {
+    TEST_SDL_MAIN_READY();
 #ifdef LBA2_USE_SDL2
     SDL_SetMainReady();
 #endif

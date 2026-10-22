@@ -14,6 +14,7 @@
  * below absorbs).
  */
 
+#include "../sdl_main_ready.h"
 #include <SDL3/SDL.h>
 
 #include <cstdio>
@@ -86,6 +87,7 @@ static void checkPoint(const char *name, int winW, int winH, int surfW, int surf
 }
 
 int main() {
+    TEST_SDL_MAIN_READY();
     SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::printf("test_present_rect: SDL_Init failed: %s\n", SDL_GetError());

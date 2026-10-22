@@ -16,6 +16,43 @@ function(register_host_test test_name)
     set_tests_properties(${test_name} PROPERTIES LABELS host_quick)
 endfunction()
 
+# Where a test reads repo files and writes scratch files while it runs. On a
+# host that is the checkout and the test's own build folder. An Android build
+# runs its tests on a device through scripts/dev/android-exec.sh, which empties
+# <device dir>/run/<test> before each run and first copies the repo files named
+# with lba2_test_device_data() under <device dir>/repo. Both are absolute: SDL
+# on Android resolves a relative path through the Java Activity, which a test
+# run as a plain executable does not have.
+if(ANDROID)
+    set(LBA2_TEST_DEVICE_DIR "/data/local/tmp/lba2cc")
+    set(LBA2_TEST_DATA_ROOT "${LBA2_TEST_DEVICE_DIR}/repo")
+else()
+    set(LBA2_TEST_DATA_ROOT "${CMAKE_SOURCE_DIR}")
+endif()
+
+function(lba2_test_tmp_dir out_var test_name)
+    if(ANDROID)
+        set(${out_var} "${LBA2_TEST_DEVICE_DIR}/run/${test_name}" PARENT_SCOPE)
+    else()
+        set(${out_var} "${CMAKE_CURRENT_BINARY_DIR}" PARENT_SCOPE)
+    endif()
+endfunction()
+
+# Tests that need the Java Activity, which a test run as a plain executable on
+# a device does not have: creating an SDL renderer waits for the Activity
+# forever, and SDL_GetPrefPath asks it for the app's storage folder and
+# crashes. ctest lists them as not run.
+function(lba2_test_needs_android_activity)
+    if(ANDROID)
+        set_tests_properties(${ARGN} PROPERTIES DISABLED TRUE)
+    endif()
+endfunction()
+
+# Repo-relative paths a test opens at run time.
+function(lba2_test_device_data)
+    set_property(GLOBAL APPEND PROPERTY LBA2_TEST_DEVICE_DATA ${ARGN})
+endfunction()
+
 add_subdirectory(discovery)
 add_subdirectory(picker)
 add_subdirectory(console)
@@ -153,4 +190,13 @@ add_subdirectory(SNAPSHOT)
 add_subdirectory(fpu_precision)
 add_subdirectory(VIDEO_AUDIO)
 
+endif()
+
+# Read by android-exec.sh: the device dir on the first line, then the
+# repo-relative paths to copy under <device dir>/repo.
+if(ANDROID)
+    get_property(_device_data GLOBAL PROPERTY LBA2_TEST_DEVICE_DATA)
+    list(REMOVE_DUPLICATES _device_data)
+    list(JOIN _device_data "\n" _device_data)
+    file(WRITE "${CMAKE_BINARY_DIR}/android-test-data.txt" "${LBA2_TEST_DEVICE_DIR}\n${_device_data}\n")
 endif()
