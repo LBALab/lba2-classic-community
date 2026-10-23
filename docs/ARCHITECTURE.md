@@ -91,21 +91,8 @@ polyrec/projrec harnesses before the next. No rewrite.
 
 ## The rings and the core
 
-The rings, the core and the platform tiers below follow from a few principles. When a case
-comes up that no rule covers, reason from these.
-
-- **The original is the reference.** The 1997 game is what the rest is measured against, and
-  it stays playable: with the settings off, the game plays as the original.
-- **Understand before you change.** Read the code and its Quirks before calling behaviour a
-  bug. A change to the core starts from a Decision.
-- **Every claim can be re-derived** by someone else, from a test, a recording or a source.
-- **Measure to prove yourself wrong.** A change moves inward on evidence from the data
-  players have.
-- **Leave room to play.** An experiment is cheap to add and cheap to take out.
-- **Quality keeps people; novelty does not.** Care rises toward the centre, and polishing what
-  is there comes before adding more.
-- **Promise only what you test.** A platform is supported as far as it is tested; building on
-  it is not supporting it.
+The rings, the core and the platform tiers below follow from the principles in
+[PRINCIPLES.md](PRINCIPLES.md). When a case comes up that no rule covers, reason from those.
 
 ![Four nested rings: inner core (the game) inside outer core (the platform) inside Modern inside Experimental; features such as the Auto camera, HD and LBA1 move inward](images/rings.svg)
 
@@ -114,7 +101,8 @@ as a 1997 player met it, is not a ring but the reference: every setting at its v
 before (`SETTING_BEFORE` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). It stays reachable:
 with the settings off the game plays as the original, and a change that breaks that is a
 regression, whichever ring it came from. **Modern** settings change how the game is shown
-or handled, never what happens in it. **Experimental** is anything else, and comes out without
+or handled, never its rules; what they can change is what the original itself reads from the
+screen (below). **Experimental** is anything else, and comes out without
 ceremony. The replay digest is how the line is checked: its world hash is what the game holds,
 its view hash the camera, and the same inputs giving the same world hash is the same game.
 
@@ -157,7 +145,10 @@ to on by default:
 
 1. Measure what it changes, on the data players have.
 2. With it off, nothing changes ([test_ring_off_is_gone.sh](../tests/automation/test_ring_off_is_gone.sh)).
-3. With it on, the world hash holds ([test_ring_watch_not_play.sh](../tests/automation/test_ring_watch_not_play.sh)).
+3. With it on, a Modern setting keeps the world hash, apart from what the screen door lets
+   through ([test_ring_watch_not_play.sh](../tests/automation/test_ring_watch_not_play.sh)). A
+   retail fix is meant to change play: its on arm is recorded, not held to the hash. A setting
+   that recordings do not carry needs only step 2.
 4. Anything judged by feel gets a play test, read back from its trace.
 
 A second game moves the same way: LBA1 work starts in Experimental, with its own inner core
