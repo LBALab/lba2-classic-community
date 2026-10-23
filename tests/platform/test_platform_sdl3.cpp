@@ -256,7 +256,6 @@ static void test_window_and_input_modes() {
     ASSERT_TRUE((SDL_GetWindowFlags(window) & SDL_WINDOW_HIGH_PIXEL_DENSITY) != 0);
     ASSERT_TRUE(g_platform.capabilities.windowed);
     ASSERT_TRUE(!g_platform.capabilities.transient_window_loss);
-    ASSERT_TRUE(!g_platform.capabilities.touch_overlay);
     SDL3_SetTextInputFocusProbe(test_window);
     for (int i = 0; i < 2; ++i) {
         const bool enabled = i == 0;

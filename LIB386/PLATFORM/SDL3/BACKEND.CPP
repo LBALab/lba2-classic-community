@@ -6,7 +6,6 @@ PlatformInterface Interface() {
     api.name = "sdl3";
 #ifdef __ANDROID__
     api.capabilities.transient_window_loss = true;
-    api.capabilities.touch_overlay = true;
 #else
     api.capabilities.windowed = true;
 #endif
