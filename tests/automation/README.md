@@ -27,7 +27,7 @@ times every fixture, reports the ones over their tier's budget, and keeps the ti
 Attaching the run record to a PR that touches engine behaviour is the cheapest way to show the
 suite still passes, since CI cannot say so.
 
-93 fixtures: 54 small, 28 medium, 11 big.
+94 fixtures: 54 small, 29 medium, 11 big.
 
 | Fixture | Tier | What it pins | Also needs |
 |---|---|---|---|
@@ -61,6 +61,7 @@ suite still passes, since CI cannot say so.
 | [test_dodge_direction.sh](test_dodge_direction.sh) | medium | The dodge is a modifier: it changes what a direction means rather than doing anything itself. | - |
 | [test_dump.sh](test_dump.sh) | small | --dump-state: the hand-written JSON is well-formed and has the expected shape. | save fixture |
 | [test_exec.sh](test_exec.sh) | small | --exec: console commands mutate observable state. | save fixture |
+| [test_first_frame_screens.sh](test_first_frame_screens.sh) | medium | A screen opened on the first frame back from the pause menu shows the scene, not the menu. | save fixture |
 | [test_followcam_ease.sh](test_followcam_ease.sh) | big | The two eases the Auto camera paces by the game clock. | - |
 | [test_followcam_hold.sh](test_followcam_hold.sh) | small | Hold-angle is the free-camera contract: once the player has set an angle, the camera keeps it while the hero turns underneath, and gives it up only on a scene change or Center camera. | - |
 | [test_followcam_interrupt.sh](test_followcam_interrupt.sh) | small | An orbit interrupted by something else taking the camera must not resume afterwards, and must not leave the next orbit thinking it is already under way. | - |
