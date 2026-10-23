@@ -33,7 +33,7 @@ Care here starts with the 1997 game as the reference. When the port drifts from 
 
 ## Playing
 
-Pre-built binaries for Linux, macOS, Windows, Android, and Nintendo Switch homebrew.
+Pre-built binaries for Linux, macOS, Windows and Android, plus an experimental Nintendo Switch homebrew build in the rolling pre-release.
 
 **Stable** — [the latest tagged release](https://github.com/LBALab/lba2-classic-community/releases/latest). A milestone build with less churn than rolling. Pre-1.0 — bugs are still being ironed out, and full-playthrough testing isn't part of the release criteria yet (see the [1.0 bar](docs/RELEASING.md) for what changes at 1.0).
 
@@ -69,7 +69,7 @@ chmod +x lba2cc-*-anylinux-*.AppImage
 
 ### macOS
 
-Download `lba2cc-<version>-macos-universal.dmg` (runs on Apple Silicon and Intel Macs, macOS 11 or later), open it, drag `LBA2 Classic Community.app` to Applications. First launch needs right-click → **Open** (macOS Gatekeeper blocks unsigned apps on double-click). The DMG ships its own README covering this — read it before the first launch.
+Download `lba2cc-<version>-macos-universal.dmg` (one app for Apple Silicon and Intel Macs, built for macOS 11 or later; tested on Apple Silicon with a current macOS, while Intel Macs and older macOS versions are untested), open it, drag `LBA2 Classic Community.app` to Applications. First launch needs right-click → **Open** (macOS Gatekeeper blocks unsigned apps on double-click). The DMG ships its own README covering this — read it before the first launch.
 
 ### Windows
 
@@ -85,7 +85,7 @@ Experimental homebrew build: download `lba2cc-switch.zip` from the [rolling pre-
 
 Copy your retail HQR files, including `LBA2.HQR`, directly into `sdmc:/lba2/`, preserving the installation's music, movie and voice subdirectories. No game assets are included. Launch through Homebrew Menu in application mode/title takeover, not the memory-constrained Album applet.
 
-Saves, settings and logs live under `sdmc:/switch/lba2cc/user/`; back up this directory before upgrading. See [docs/SWITCH.md](docs/SWITCH.md) for the SD-card layout, network launching and hardware-validation limits.
+Saves, settings and logs live under `sdmc:/switch/lba2cc/user/`; back up this directory before upgrading. See [docs/SWITCH.md](docs/SWITCH.md) for the SD-card layout, network launching and the hardware checklist.
 
 ## Building from source quick start
 
@@ -120,7 +120,7 @@ For platform-specific builds, use the presets in `CMakePresets.json` (all use th
 - **macOS:** `cmake --preset macos_arm64 && cmake --build --preset macos_arm64` (or `macos_x86_64`, or `macos_universal` for both in one binary)
 - **Windows:** `cmake --preset windows_ucrt64 && cmake --build --preset windows_ucrt64` — see [docs/WINDOWS.md](docs/WINDOWS.md)
 - **Cross-compile Windows from Linux:** `cmake --preset cross_linux2win && cmake --build --preset cross_linux2win`. To skip the preset, use the toolchain file directly: `cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-i686.cmake`.
-- **Nintendo Switch homebrew:** `bash scripts/dev/build-switch.sh` — builds an SDL2 `.nro` and SD-card ZIP inside a digest-pinned devkitPro Docker image. No host SDK needed; hardware validation remains pending. See [docs/SWITCH.md](docs/SWITCH.md).
+- **Nintendo Switch homebrew:** `bash scripts/dev/build-switch.sh` — builds an SDL2 `.nro` and SD-card ZIP inside a digest-pinned devkitPro Docker image. No host SDK needed. Tested on a Switch console against the hardware checklist in [docs/SWITCH.md](docs/SWITCH.md).
 - **PlayStation Vita homebrew:** `bash scripts/dev/build-vita.sh` — builds an SDL2/GXM VPK using the pinned VitaSDK Docker environment. Includes FTP/companion deployment and optional early-boot/DEBUGNET diagnostics. Basic boot is confirmed on hardware; broader acceptance checks remain pending. See [docs/VITA.md](docs/VITA.md).
 
 ## Build options

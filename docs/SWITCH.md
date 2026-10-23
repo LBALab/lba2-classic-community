@@ -1,6 +1,6 @@
 # Nintendo Switch homebrew
 
-The Switch target uses devkitPro/libnx and the SDL2 backend, with SDL audio and Smacker video. It produces a Homebrew Menu NRO, not a licensed Nintendo SDK application. Desktop defaults and gameplay bindings are unchanged. Hardware validation is required before treating the port as supported.
+The Switch target uses devkitPro/libnx and the SDL2 backend, with SDL audio and Smacker video. It produces a Homebrew Menu NRO, not a licensed Nintendo SDK application. Desktop defaults and gameplay bindings are unchanged. The [hardware acceptance checklist](#hardware-acceptance-checklist) has been passed on a Switch console; CI builds the port but cannot run it on one.
 
 ## Build with Docker
 
