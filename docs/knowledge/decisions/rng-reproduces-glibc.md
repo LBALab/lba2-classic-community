@@ -29,7 +29,7 @@ libc `rand()` is not one function. glibc and UCRT differ in sequence and in `RAN
 
 The generator is `Rnd_Next` in [RANDOM.CPP](../../../LIB386/SYSTEM/RANDOM.CPP), glibc's TYPE_3 additive-feedback generator reimplemented, and the `Rnd` macro draws from it instead of `rand()`. Reproducing glibc specifically is the whole trick: every committed baseline, corpus save and reference recording was made on Linux, so the change costs Linux nothing and puts every other platform on the sequence those artifacts already describe.[^random-h]
 
-A recording declares what a replay has to agree with as traits, not platforms: `numeric.rng` names the generator and `numeric.long_double_bits` carries `LDBL_MANT_DIG`. `build.platform` is recorded and deliberately not compared.[^recording-doc]
+A recording declares what a replay has to agree with as traits, not platforms: `numeric.rng` names the generator and `numeric.long_double_bits` carries the mantissa the 3D float routines compute in (`X87_REAL_MANT_DIG`, since #817; before that `LDBL_MANT_DIG`). `build.platform` is recorded and deliberately not compared.[^recording-doc]
 
 The proof needs its negative control. A Linux recording replaying 301 ticks on Windows proves nothing alone, since a quiet scene passes either way; with the generator patched back to `rand()` on the Windows side the same recording fails at tick 2. `tests/random` pins both halves: a committed vector of draws runs on every platform, and a live comparison against the system `rand()` builds only on glibc and is compiled out elsewhere rather than skipped, because a skipped check exits 0 and reads like a pass.[^recording-doc]
 
