@@ -73,7 +73,8 @@ The original is the game as the 1990s CD release played it, not the 2022 Classic
 - Fixing and polishing come before new features.
 - Anything judged by feel gets a play test, read back from its trace: a new setting and a fix
   to an existing one alike. A rule that runs each game step is checked at `--fixed-dt 2`.
-- One PR, one change. A port, a streaming rewrite and an SDK floor are three PRs.
+- One commit, one change, each revertible on its own. Clean commits are enough; a PR need
+  not be split if its commits already separate the changes.
 - A feature nobody maintains stays Experimental, or comes out.
 
 ## 7. Promise only what you test
