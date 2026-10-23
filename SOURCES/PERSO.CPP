@@ -867,6 +867,18 @@ restartloop:
         /*-------------------------------------------------------------------------*/
         /* gestion clavier */ /* game */
 
+        /* The screens below take the picture in Log and Screen as their backdrop (BackupScreen,
+           the save thumbnail). On the first frame of a loop that picture is whatever was there
+           before: after the pause menu it is the menu, because the scene is only drawn by the
+           AffScene at the end of this frame. Draw it first, as the GameOver path does. A pending
+           fade-in already keeps the screens shut (!FlagFade), so only that case is left. */
+        const U32 screenInputs = I_HELP | I_MENUS | I_OPTIONS | I_SAVE | I_LOAD | I_PAUSE |
+                                 I_INVENTORY | I_COMPORTEMENT | I_HOLOMAP;
+        if (!FlagFade && FirstTime == AFF_ALL_FLIP &&
+            ((Input & screenInputs) || MyKey == K_ESC || MyKey == K_G)) {
+            AffScene(AFF_ALL_FLIP);
+        }
+
         if (!FlagFade) {
             if (Input & I_HELP) {
                 SaveTimer();
