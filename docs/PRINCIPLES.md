@@ -14,8 +14,10 @@ The original is the game as the 1990s CD release played it, not the 2022 Classic
 - With every setting at its value from before (`SETTING_BEFORE` in
   [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)), the game plays as the original. A change that
   moves it away is a regression; a change that brings it back is a fix and needs no switch.
-- A fix to a bug the original itself had goes behind its own switch, off by default
+- A fix to a bug the original itself had gets its own switch, on by default, under **Fix
+  retail bugs**, whose No gives back the original's rules
   ([the retail-fix Decision](knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md)).
+  A change to the design is an enhancement: its own setting, off by default.
 - When the source and the release disagree, the release wins, unless a Decision keeps the
   port's choice and says why.
 - Where the original has nothing to say, the surface is ours: save names, touch, the name
@@ -73,8 +75,8 @@ The original is the game as the 1990s CD release played it, not the 2022 Classic
 - Fixing and polishing come before new features.
 - Anything judged by feel gets a play test, read back from its trace: a new setting and a fix
   to an existing one alike. A rule that runs each game step is checked at `--fixed-dt 2`.
-- One commit, one change, each revertible on its own. Clean commits are enough; a PR need
-  not be split if its commits already separate the changes.
+- One topic per PR, one change per commit, each revertible on its own. A PR whose commits
+  already separate its changes need not be split.
 - A feature nobody maintains stays Experimental, or comes out.
 
 ## 7. Promise only what you test

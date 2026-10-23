@@ -10,7 +10,9 @@ A few notes that keep it sustainable:
 
 ## Doing good work here
 
-A few principles. The *why* matters more than the rule — once you understand the why, you can apply judgment in cases the rule doesn't cover. None of this is unique to this project; it's how good engineering works generally. It's written down because this is a community project where reviewer time is scarce, and these habits are what keep quality high *without* anyone having to police it.
+A few principles. The *why* matters more than the rule — once you understand the why, you can apply judgment in cases the rule doesn't cover. None of this is unique to this project; it's how good engineering works generally. It's written down because this is a community project where reviewer time is scarce, and these habits are what keep quality high *without* anyone having to police it. The
+project's own principles, the ones its architecture follows from, are in
+[docs/PRINCIPLES.md](docs/PRINCIPLES.md).
 
 - **Own what you ship.** If you used an AI assistant, you are still the author. Read the diff yourself before opening the PR; you should be able to explain every line and defend every decision under review. *Why:* outsourcing typing is fine — outsourcing *understanding* is how subtle bugs land in old code. Your name on the PR is a commitment.
 

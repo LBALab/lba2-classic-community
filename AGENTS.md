@@ -4,6 +4,9 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 ## Principles
 
+The project's principles, each with why it holds and what follows, are in
+[docs/PRINCIPLES.md](docs/PRINCIPLES.md). The five below are how they apply to day-to-day work.
+
 1. **Truth hierarchy and doc accuracy:** Code > project docs > external sources. Prefer `docs/GLOSSARY.md`, `docs/LIFECYCLES.md`, etc. over inference. When code and docs conflict, code wins — fix the docs in the same commit or PR (environment trumps willpower; maintainers may forget). Keep `docs/ASM_VALIDATION_PROGRESS.md` and `docs/ASM_TO_CPP_REFERENCE.md` current.
 
 2. **Preserve the nature of the game:** Do not change gameplay, feel, or behavior by default. Fix bugs that alter behavior; do not "improve" behavior without explicit agreement.
