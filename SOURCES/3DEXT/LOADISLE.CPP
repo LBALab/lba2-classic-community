@@ -178,6 +178,9 @@ void LoadIsland() {
 
     if (!Load_HQR(islandFilePath, ObjTexture, HQR_TEX_OBJ))
         TheEndCheckFile(islandFilePath);
+
+    /* New per-cube HQR data now backs the same cube coordinates. */
+    GPU_Terrain_InvalidateAll();
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -276,4 +279,8 @@ void InitSeaCube(void) {
     }
 
     CubeBitField = 0xFFFF;
+
+    /* The phantom cube reuses the MapSommetY/MapPolyGround storage behind the
+       current coordinates; any cached VBO keyed by them is stale. */
+    GPU_Terrain_InvalidateAll();
 }

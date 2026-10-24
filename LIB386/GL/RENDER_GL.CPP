@@ -1,6 +1,7 @@
 #include <GL/RENDER_GL.H>
 
 #include <3D/CAMERA.H>
+#include <3D/DATAMAT.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/WINDOW.H>
 #include <SYSTEM/OPENXR.H>
@@ -22,6 +23,8 @@
 
 #include <SDL3/SDL.h>
 #include <string.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
 #include <FILEIO/SAVEPNG.H>
@@ -92,14 +95,14 @@ S32 GL_BatchFlushCount = 0;
  * present-side shader.  The transform is affine in the color channels, so
  * drawing every fragment of a frame with it — the scene quad and the blended
  * overlay quad alike — composes exactly through alpha blending. */
-#define GLSL_IMAGE_ADJUST                                                    \
-    "uniform float uBrightness;\n"                                           \
-    "uniform float uContrast;\n"                                             \
-    "uniform float uSaturation;\n"                                           \
-    "vec3 ImageAdjust(vec3 c) {\n"                                           \
+#define GLSL_IMAGE_ADJUST                                                     \
+    "uniform float uBrightness;\n"                                            \
+    "uniform float uContrast;\n"                                              \
+    "uniform float uSaturation;\n"                                            \
+    "vec3 ImageAdjust(vec3 c) {\n"                                            \
     "    c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, uSaturation);\n" \
-    "    c = (c - 0.5) * uContrast + 0.5 + uBrightness;\n"                   \
-    "    return c;\n"                                                        \
+    "    c = (c - 0.5) * uContrast + 0.5 + uBrightness;\n"                    \
+    "    return c;\n"                                                         \
     "}\n"
 
 static const char *s_vertSrc =
@@ -113,8 +116,7 @@ static const char *s_vertSrc =
     "}\n";
 
 static const char *s_fragSrc =
-    GLSL_FRAG_HEADER
-    GLSL_IMAGE_ADJUST
+    GLSL_FRAG_HEADER GLSL_IMAGE_ADJUST
     "uniform sampler2D uTex;\n"
     "uniform vec2 uTexel;\n"
     "uniform int uFilter;\n" /* 0 = nearest, 1 = bilinear, 2 = Scale2x */
@@ -183,6 +185,7 @@ static const char *s_clutVertSrc =
     "varying vec2 vTexCoord;\n"
     "varying vec2 vTexCoordOverW;\n"
     "varying float vInvW;\n"
+    "varying float vW;\n"
     "varying float vLight;\n"
     "varying float vRepMask;\n"
     "varying float vZ;\n"
@@ -196,6 +199,7 @@ static const char *s_clutVertSrc =
     "    vTexCoord = aTexCoord;\n"
     "    vTexCoordOverW = aTexCoord * invW;\n"
     "    vInvW = invW;\n"
+    "    vW = 1.0;\n"
     "    vLight = aLight;\n"
     "    vRepMask = aRepMask;\n"
     "    vZ = aZ;\n"
@@ -203,19 +207,120 @@ static const char *s_clutVertSrc =
     "    vMaterial = aMaterial;\n"
     "}\n";
 
-static const char *s_clutFragSrc =
-    GLSL_FRAG_HEADER
-    "uniform sampler2D uAtlas;\n"   /* 256×256 LUMINANCE (or sprite page) */
-    "uniform vec2 uAtlasScale;\n"   /* texture dims for texel-space UVs */
-    "uniform sampler2D uCLUT;\n"    /* 256×256 LUMINANCE (fog table) */
-    "uniform sampler2D uPalette;\n" /* 256×1 BGRA (paletteLUT) */
-    "uniform float uCLUTBaseRow;\n" /* legacy row offset (now per vertex) */
-    "uniform float uScaledFogNear;\n" /* Fill_ScaledFogNear (fog-smooth distance, mode 5) */
-    "uniform float uFogRowScale;\n"   /* Fill_Fog_Factor / 65536 (fog-smooth distance, mode 5) */
-    "uniform int uBilinear;\n"      /* 0=nearest 1=bilinear CLUT sampling */
+/* Terrain shader: the same fragment program as the batch, with the CPU
+   projection supplied per vertex.  Positions are cube-local world
+   coordinates, exactly the frame SetPosCamera() shifts the camera into,
+   so the rotated camera and the vertices stay small enough for float
+   precision.  The CPU's LongProjectPoint3D math is reproduced here:
+   factor = FRatioX / (CameraZr - z), screen = centre + delta * factor,
+   NDC y is flipped once for GL.  aFogPos is the tile's top-left corner,
+   which selects the whole tile's fog row just like DrawFeuillePolyZBuf. */
+static const char *s_terrainVertSrc =
+    GLSL_VERT_HEADER
+    "attribute vec3 aPos;\n"
+    "attribute vec2 aTexCoord;\n" /* 8.8 fixed-point atlas texels */
+    "attribute float aLight;\n"
+    "attribute float aRepMask;\n"
+    "attribute float aMaterial;\n"
+    "attribute vec3 aFogPos;\n"
+    "uniform mat3 uRot;\n"    /* MatriceWorld, transposed for GL */
+    "uniform vec3 uCamera;\n" /* CameraXr/Yr/Zr (cube-local frame) */
+    "uniform vec2 uFocal;\n"  /* FRatioX, FRatioY */
+    "uniform vec2 uCentre;\n" /* XCentre, YCentre */
+    "uniform float uProjShiftX;\n"
+    "uniform vec2 uScreenScale;\n"    /* 2.0/resX, 2.0/resY */
+    "uniform float uZBufferFactor;\n" /* Fill_ZBuffer_Factor / 65536 */
+    "uniform float uStartZFog;\n"
+    "uniform float uFogStepScale;\n" /* 15 / (ClipZFar - StartZFog) */
+    "uniform float uPalLevel;\n"
     "varying vec2 vTexCoord;\n"
     "varying vec2 vTexCoordOverW;\n"
     "varying float vInvW;\n"
+    "varying float vW;\n"
+    "varying float vLight;\n"
+    "varying float vRepMask;\n"
+    "varying float vZ;\n"
+    "varying float vZOverW;\n"
+    "varying float vMaterial;\n"
+    "void main() {\n"
+    "    vec3 p = uRot * aPos;\n"
+    "    float depth = uCamera.z - p.z;\n"
+    "    float denom = depth;\n"
+    "    if (abs(denom) < 0.0001) {\n"
+    "        denom = (denom < 0.0) ? -0.0001 : 0.0001;\n"
+    "    }\n"
+    "    float factor = uFocal.x / denom;\n"
+    "    float xp = uCentre.x + uProjShiftX + (p.x - uCamera.x) * factor;\n"
+    "    float yp = uCentre.y + (p.y - uCamera.y) * factor * uFocal.y;\n"
+    "    float az = clamp(floor(max(depth, 0.0) * uZBufferFactor), 0.0, 65535.0);\n"
+    /* Clip w is the camera-space depth: positive in front, negative
+       behind, zero on the eye.  Keeping it linear in the world position
+       (no near-plane offset) makes the homogeneous edge the rasterizer
+       clips at w = 0 the true perspective edge; the fragment shader
+       discards the sub-NearClip sliver.  Premultiplying the screen-linear
+       varyings by w and dividing by the interpolated w in the fragment
+       shader undoes GL's perspective correction. */
+    "    float w = depth;\n"
+    "    gl_Position = vec4((xp * uScreenScale.x - 1.0) * w,\n"
+    "                       (1.0 - yp * uScreenScale.y) * w,\n"
+    "                       (1.0 - az / 65535.0) * w, w);\n"
+    "    float invW = 1.0 / max(az, 1.0);\n"
+    "    vTexCoord = aTexCoord * w;\n"
+    "    vTexCoordOverW = aTexCoord * invW;\n"
+    "    vInvW = invW;\n"
+    "    vW = w;\n"
+    "    vLight = aLight;\n"
+    "    vZ = depth * w;\n"
+    "    vZOverW = depth * invW;\n"
+    /* One fog sample per tile, from its top-left corner.  SetCLUT()
+       masks the row to 0xF0, so fold the same mask in before packing
+       the value into the material high byte / RepMask row. */
+    "    float fogDepth = uCamera.z - (uRot * aFogPos).z;\n"
+    "    float fogLevel = 0.0;\n"
+    "    if (uFogStepScale > 0.0) {\n"
+    "        fogLevel = clamp(floor((fogDepth - uStartZFog) * uFogStepScale),\n"
+    "                         0.0, 15.0);\n"
+    "    } else if (fogDepth > uStartZFog) {\n"
+    /* Degenerate fog range: BoundRegleTrois(0,15,range<=0,delta)
+       returns 15 for any positive delta and 0 otherwise. */
+    "        fogLevel = 15.0;\n"
+    "    }\n"
+    "    float fogRow = mod(floor((uPalLevel + 16.0 * fogLevel) / 16.0), 16.0) * 16.0;\n"
+    "    float mFlags = mod(aMaterial, 256.0);\n"
+    "    int mMode = int(mod(mFlags, 8.0) + 0.5);\n"
+    "    float material = aMaterial;\n"
+    "    float repMask = aRepMask;\n"
+    "    if (mMode == 0) {\n"
+    "        material = aMaterial + fogRow * 256.0;\n"
+    "    } else if (mMode == 3) {\n"
+    "        repMask = fogRow;\n"
+    "    }\n"
+    "    vMaterial = material;\n"
+    "    vRepMask = repMask;\n"
+    "}\n";
+
+static const char *s_clutFragSrc =
+    GLSL_FRAG_HEADER
+    "uniform sampler2D uAtlas;\n"     /* 256×256 LUMINANCE (or sprite page) */
+    "uniform vec2 uAtlasScale;\n"     /* texture dims for texel-space UVs */
+    "uniform sampler2D uCLUT;\n"      /* 256×256 LUMINANCE (fog table) */
+    "uniform sampler2D uPalette;\n"   /* 256×1 BGRA (paletteLUT) */
+    "uniform float uCLUTBaseRow;\n"   /* legacy row offset (now per vertex) */
+    "uniform float uScaledFogNear;\n" /* Fill_ScaledFogNear (fog-smooth distance, mode 5) */
+    "uniform float uFogRowScale;\n"   /* Fill_Fog_Factor / 65536 (fog-smooth distance, mode 5) */
+    "uniform int uBilinear;\n"        /* 0=nearest 1=bilinear CLUT sampling */
+    /* Terrain far-plane discard.  The static terrain VBO path projects
+       cube-local world positions in the vertex shader, where the CPU
+       path's per-vertex ClipZFar cull cannot run; the terrain vertex
+       shader leaves the true camera-space depth in vZ so this fragment
+       test reproduces the far cut.  Zero for every other program. */
+    "uniform float uTerrainFarClip;\n"
+    "uniform float uTerrainFar;\n"
+    "uniform float uNearClip;\n"
+    "varying vec2 vTexCoord;\n"
+    "varying vec2 vTexCoordOverW;\n"
+    "varying float vInvW;\n"
+    "varying float vW;\n"
     "varying float vLight;\n"
     "varying float vRepMask;\n"
     "varying float vZ;\n"
@@ -270,6 +375,12 @@ static const char *s_clutFragSrc =
     "    return mix(mix(c00, c10, fu), mix(c01, c11, fu), fv);\n"
     "}\n"
     "void main() {\n"
+    "    float terrainInvW =\n"
+    "        (uTerrainFarClip > 0.5 && vW > 0.0001) ? 1.0 / vW : 0.0;\n"
+    "    if (uTerrainFarClip > 0.5) {\n"
+    "        float dpt = vZ * terrainInvW;\n"
+    "        if (dpt < uNearClip || dpt >= uTerrainFar) discard;\n"
+    "    }\n"
     "    vec4 color;\n"
     "    float alphaOverride = 0.0;\n"
     /* Per-vertex material word, flat across the polygon. */
@@ -290,26 +401,35 @@ static const char *s_clutFragSrc =
        (SW POLYTEXT/POLYGTEX) interpolate affinely. */
     "    vec2 tc = mix(vTexCoord, vTexCoordOverW / vInvW, mPersp);\n"
     "    float vZsel = mix(vZ, vZOverW / vInvW, mPersp);\n"
-     "    if (mMode == 0) {\n"
-     /* Textured: atlas → CLUT → palette */
-     "        tc = tc / 256.0;\n"
-     "        float widthMask = mod(vRepMask, 256.0);\n"
-     "        float heightMask = floor(vRepMask / 256.0);\n"
-     /* SW init: Fill_CurGouraudMin = (Pt_Light << 8) + 0x8000.
+    "    if (uTerrainFarClip > 0.5) {\n"
+    /* Terrain: the vertex shader outputs a real clip w, so GL's
+       perspective-correct varyings must be converted back to the
+       SW rasterizer's screen-linear ones.  The vertex shader
+       premultiplies by w; multiplying by 1/w cancels the
+       perspective correction. */
+    "        tc = vTexCoord * terrainInvW;\n"
+    "        vZsel = vZ * terrainInvW;\n"
+    "    }\n"
+    "    if (mMode == 0) {\n"
+    /* Textured: atlas → CLUT → palette */
+    "        tc = tc / 256.0;\n"
+    "        float widthMask = mod(vRepMask, 256.0);\n"
+    "        float heightMask = floor(vRepMask / 256.0);\n"
+    /* SW init: Fill_CurGouraudMin = (Pt_Light << 8) + 0x8000.
         The +128 (0x80) rounding bias shifts the CLUT row by 1 in some
         cases — same bias applied in polyMode 2.  The CLUT base row rides
         in the material's high byte (see GL_RenderTriangleList): SetCLUT()
         changes it per terrain tile, and carrying it per vertex lets
         tiles share one draw call. */
-     "        float gouraudRow = floor((vLight + 128.0) / 256.0) + mColor;\n"
+    "        float gouraudRow = floor((vLight + 128.0) / 256.0) + mColor;\n"
     "        if (uBilinear != 0) {\n"
     "            color = bilinearCLUT(tc, widthMask, heightMask, gouraudRow, mChroma);\n"
-     "        } else {\n"
-     "            float wrappedU = mod(tc.x, widthMask + 1.0);\n"
-     "            float wrappedV = mod(tc.y, heightMask + 1.0);\n"
-     "            vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
-     "                                (floor(wrappedV) + 0.5) / 256.0);\n"
-     "            float texel = texture2D(uAtlas, atlasUV).r * 255.0;\n"
+    "        } else {\n"
+    "            float wrappedU = mod(tc.x, widthMask + 1.0);\n"
+    "            float wrappedV = mod(tc.y, heightMask + 1.0);\n"
+    "            vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
+    "                                (floor(wrappedV) + 0.5) / 256.0);\n"
+    "            float texel = texture2D(uAtlas, atlasUV).r * 255.0;\n"
     /* Chroma key: atlas texel 0 = transparent (skipped by SW rasterizer
        at the Log buffer level).  Discard before CLUT so the fog table
        cannot remap index 0 to an opaque value.
@@ -336,14 +456,14 @@ static const char *s_clutFragSrc =
        SW Filler_Texture / Filler_TextureChromaKey writes texel as palette
        index directly (*line = texel).  No CLUT lookup — the atlas texel
        IS the palette index.  Chroma key controlled by mChroma. */
-     "        tc = tc / 256.0;\n"
-     "        float widthMask = mod(vRepMask, 256.0);\n"
-     "        float heightMask = floor(vRepMask / 256.0);\n"
-      "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
-      "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
-      "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / uAtlasScale.x,\n"
-      "                            (floor(wrappedV) + 0.5) / uAtlasScale.y);\n"
-      "        float palIdx = texture2D(uAtlas, atlasUV).r * 255.0;\n"
+    "        tc = tc / 256.0;\n"
+    "        float widthMask = mod(vRepMask, 256.0);\n"
+    "        float heightMask = floor(vRepMask / 256.0);\n"
+    "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
+    "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
+    "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / uAtlasScale.x,\n"
+    "                            (floor(wrappedV) + 0.5) / uAtlasScale.y);\n"
+    "        float palIdx = texture2D(uAtlas, atlasUV).r * 255.0;\n"
     /* Chroma key: atlas texel 0 = transparent.
        Only INCRUST types have chroma key. */
     "        if (mChroma > 0.5 && palIdx < 0.5) discard;\n"
@@ -362,17 +482,17 @@ static const char *s_clutFragSrc =
        fogRow/256 = ((fogDist * Fill_Fog_Factor) >> 16) & 0xF0.
        uFogRowScale = Fill_Fog_Factor / 65536, so
         floor(zDist * uFogRowScale) = (fogDist * Fill_Fog_Factor) >> 16. */
-     "        tc = tc / 256.0;\n"
-     "        float widthMask = mod(vRepMask, 256.0);\n"
+    "        tc = tc / 256.0;\n"
+    "        float widthMask = mod(vRepMask, 256.0);\n"
     "        float heightMask = floor(vRepMask / 256.0);\n"
-     "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
-     "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
-     "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
-     "                            (floor(wrappedV) + 0.5) / 256.0);\n"
-     "        float texel = texture2D(uAtlas, atlasUV).r * 255.0;\n"
+    "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
+    "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
+    "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
+    "                            (floor(wrappedV) + 0.5) / 256.0);\n"
+    "        float texel = texture2D(uAtlas, atlasUV).r * 255.0;\n"
     /* Chroma key: type 24 is non-INCRUST (bit 2 clear), so index 0 is
        written unconditionally — no discard here. */
-     "        float fogDist = max(vZsel - uScaledFogNear, 0.0);\n"
+    "        float fogDist = max(vZsel - uScaledFogNear, 0.0);\n"
     "        float fogRow16 = floor(fogDist * uFogRowScale);\n"
     "        float clutRow = 12.0 + floor(mod(fogRow16, 256.0) / 16.0) * 16.0;\n"
     "        color = clutLookup(texel, clutRow);\n"
@@ -489,8 +609,7 @@ static void GL_UploadNeutralImageAdjust(GLint uB, GLint uC, GLint uS) {
 }
 
 static const char *s_presentIndexedFragSrc =
-    GLSL_FRAG_HEADER
-    GLSL_IMAGE_ADJUST
+    GLSL_FRAG_HEADER GLSL_IMAGE_ADJUST
     "uniform sampler2D uIndices;\n"
     "uniform sampler2D uPalette;\n"
     "uniform vec2 uTexel;\n"
@@ -533,8 +652,7 @@ static const char *s_presentIndexedFragSrc =
 /* Post-process edge-smoothing shader applied during the present pass. */
 
 static const char *s_fxaaFragSrc =
-    GLSL_FRAG_HEADER
-    GLSL_IMAGE_ADJUST
+    GLSL_FRAG_HEADER GLSL_IMAGE_ADJUST
     "uniform sampler2D uTex;\n"
     "uniform vec2 uTexel;\n"
     "varying vec2 vTexCoord;\n"
@@ -619,18 +737,18 @@ enum {
     GL_PROF_MAPWAIT = 6,
     GL_PROF_BUCKET_COUNT = 7
 };
-static S32 s_arrCount;           /* defined with the array manager below */
+static S32 s_arrCount; /* defined with the array manager below */
 static U32 s_arrEvictions;
 static U64 s_profAccumTicks[GL_PROF_BUCKET_COUNT] = {0};
 static U32 s_profFrames = 0;
-static U32 s_profFlushes = 0;    /* batch flushes (≈ CLUT-program draw calls) */
-static U32 s_profTris = 0;       /* triangles submitted to the CLUT program */
-static U32 s_profSpriteUps = 0;  /* gameplay sprite texture uploads */
-static U32 s_profDepthSkips = 0; /* depth readback consumes skipped (GPU behind) */
+static U32 s_profFlushes = 0;      /* batch flushes (≈ CLUT-program draw calls) */
+static U32 s_profTris = 0;         /* triangles submitted to the CLUT program */
+static U32 s_profSpriteUps = 0;    /* gameplay sprite texture uploads */
+static U32 s_profDepthSkips = 0;   /* depth readback consumes skipped (GPU behind) */
 static U32 s_profOverlayEmpty = 0; /* presents whose 2D overlay had no content */
 static U32 s_profOverlayReuse = 0; /* presents that reused eye 0's overlay scan */
 static U32 s_profDirectScene = 0;  /* presents that can read the scene directly */
-static U32 s_flushRsnAlpha = 0;  /* throwaway flush-reason attribution */
+static U32 s_flushRsnAlpha = 0;    /* throwaway flush-reason attribution */
 static U32 s_flushRsnFog = 0;
 static U32 s_flushRsnAtlas = 0;
 static U32 s_flushRsnZbuf = 0;
@@ -722,7 +840,9 @@ static GLint s_clut3_uCLUTBaseRow = -1;
 static GLint s_clut3_uScaledFogNear = -1;
 static GLint s_clut3_uFogRowScale = -1;
 static GLint s_clut3_uBilinear = -1;
-static U8 s_batchArray = 0; /* batch samples the layer array (RepMask 0x8000) */
+static GLint s_clut3_uTerrainFarClip = -1;
+static GLint s_clut3_uTerrainFar = -1;
+static U8 s_batchArray = 0;   /* batch samples the layer array (RepMask 0x8000) */
 static S32 s_arrayWindow = 0; /* object-pass gate: only bodies/decors bin into
                                  the array; terrain stays on the legacy 2D path
                                  (its snapshot/pool flush paths predate the
@@ -904,11 +1024,45 @@ static GLint s_clut_uCLUTBaseRow = -1;
 static GLint s_clut_uScaledFogNear = -1;
 static GLint s_clut_uFogRowScale = -1;
 static GLint s_clut_uBilinear = -1;
+static GLint s_clut_uTerrainFarClip = -1;
+static GLint s_clut_uTerrainFar = -1;
+
+/* ── GL state — static terrain shader ───────────────────────────────────── */
+/* The terrain program shares the batch fragment shader (same CLUT, palette,
+   alpha and chroma semantics) but projects cube-local world vertices itself,
+   so a whole horizon cube is one VBO and one draw call. */
+static GLuint s_terrainProgram = 0;
+static GLint s_terrain_aPos = -1;
+static GLint s_terrain_aTexCoord = -1;
+static GLint s_terrain_aLight = -1;
+static GLint s_terrain_aRepMask = -1;
+static GLint s_terrain_aMaterial = -1;
+static GLint s_terrain_aFogPos = -1;
+static GLint s_terrain_uRot = -1;
+static GLint s_terrain_uCamera = -1;
+static GLint s_terrain_uFocal = -1;
+static GLint s_terrain_uCentre = -1;
+static GLint s_terrain_uProjShiftX = -1;
+static GLint s_terrain_uScreenScale = -1;
+static GLint s_terrain_uZBufferFactor = -1;
+static GLint s_terrain_uNearClip = -1;
+static GLint s_terrain_uStartZFog = -1;
+static GLint s_terrain_uFogStepScale = -1;
+static GLint s_terrain_uPalLevel = -1;
+static GLint s_terrain_uAtlas = -1;
+static GLint s_terrain_uCLUT = -1;
+static GLint s_terrain_uPalette = -1;
+static GLint s_terrain_uAtlasScale = -1;
+static GLint s_terrain_uBilinear = -1;
+static GLint s_terrain_uTerrainFarClip = -1;
+static GLint s_terrain_uTerrainFar = -1;
+static U32 s_terrainEpoch = 1; /* advances on context loss; caches drop stale */
+static GLuint s_terrainBoundVBO = 0;
 
 /* ── GL state — textures ────────────────────────────────────────────────── */
 
-static GLuint s_atlasTex = 0;  /* 256×256 LUMINANCE */
-static GLuint s_clutTex = 0;   /* 256×256 LUMINANCE (full fog table) */
+static GLuint s_atlasTex = 0;   /* 256×256 LUMINANCE */
+static GLuint s_clutTex = 0;    /* 256×256 LUMINANCE (full fog table) */
 static GLuint s_paletteTex = 0; /* 256×1 BGRA */
 
 /* ── GL state — batch buffer ─────────────────────────────────────────────── */
@@ -928,13 +1082,13 @@ static GLuint s_batchVBO = 0;
    orphaning the whole buffer — orphan+realloc per flush costs real driver
    time on mobile GPUs once batches reach triple digits. */
 #define BATCH_RING_SLOTS 64
-static U32 s_batchRingSize = 0;  /* bytes */
+static U32 s_batchRingSize = 0;    /* bytes */
 static GLsync s_ringWrapFence = 0; /* signals the GPU drained the last ring generation */
-static U32 s_batchRingOffset = 0; /* rotating upload offset into the ring */
-static U32 s_batchRingBase = 0;   /* ring offset of the batch being flushed */
-static U32 s_batchRingOff = 0;   /* next slot's byte offset */
-static U32 s_batchRingSlot = 0;  /* current flush's byte offset */
-static GLuint s_auxVBO = 0;      /* one-shot draws: shadow/sphere/shade/sprite */
+static U32 s_batchRingOffset = 0;  /* rotating upload offset into the ring */
+static U32 s_batchRingBase = 0;    /* ring offset of the batch being flushed */
+static U32 s_batchRingOff = 0;     /* next slot's byte offset */
+static U32 s_batchRingSlot = 0;    /* current flush's byte offset */
+static GLuint s_auxVBO = 0;        /* one-shot draws: shadow/sphere/shade/sprite */
 
 /* MSAA resolve-in-tile: GL_EXT_multisampled_render_to_texture lets the tiler
  * resolve MSAA as part of native tile processing instead of a separate
@@ -951,7 +1105,8 @@ static S32 GL_MSAATextureExtAvailable(void) {
         const char *exts = (const char *)glGetString(GL_EXTENSIONS);
         s_msaaEXTAvailable =
             (exts && strstr(exts, "GL_EXT_multisampled_render_to_texture"))
-                ? 1 : 0;
+                ? 1
+                : 0;
         Log_Info("[GL] EXT_multisampled_render_to_texture: %s",
                  s_msaaEXTAvailable ? "yes" : "no");
     }
@@ -998,7 +1153,7 @@ static GLfloat s_deferFogRowScale = 0.0f;
    4x-SSAA framebuffer costs a large fraction of every idle frame. */
 static S32 s_fboDirtyX0 = 0, s_fboDirtyY0 = 0;
 static S32 s_fboDirtyX1 = -1, s_fboDirtyY1 = -1; /* empty: X1 < X0 */
-static S32 s_fboDirtyActive = 0; /* 1 while a snapshot is current */
+static S32 s_fboDirtyActive = 0;                 /* 1 while a snapshot is current */
 
 static void GL_MarkFBORegion(S32 x0, S32 y0, S32 x1, S32 y1) {
     if (!s_fboDirtyActive) {
@@ -1011,10 +1166,14 @@ static void GL_MarkFBORegion(S32 x0, S32 y0, S32 x1, S32 y1) {
         s_fboDirtyY1 = y1;
         return;
     }
-    if (x0 < s_fboDirtyX0) s_fboDirtyX0 = x0;
-    if (y0 < s_fboDirtyY0) s_fboDirtyY0 = y0;
-    if (x1 > s_fboDirtyX1) s_fboDirtyX1 = x1;
-    if (y1 > s_fboDirtyY1) s_fboDirtyY1 = y1;
+    if (x0 < s_fboDirtyX0)
+        s_fboDirtyX0 = x0;
+    if (y0 < s_fboDirtyY0)
+        s_fboDirtyY0 = y0;
+    if (x1 > s_fboDirtyX1)
+        s_fboDirtyX1 = x1;
+    if (y1 > s_fboDirtyY1)
+        s_fboDirtyY1 = y1;
 }
 static U16 s_currentMatFlags = 0; /* flags only — the flush trigger */
 static U8 s_batchTextured = 0;    /* batch samples the atlas page */
@@ -1028,7 +1187,7 @@ static U8 s_batchTextured = 0;    /* batch samples the atlas page */
 static GLuint s_curBoundTex[3] = {(GLuint)-1, (GLuint)-1, (GLuint)-1};
 static S32 s_curActiveUnit = -1;
 static GLuint s_curProgram = (GLuint)-1;
-static S32 s_clutAttribsDirty = 1; /* vertex arrays need enable + re-spec */
+static S32 s_clutAttribsDirty = 1;      /* vertex arrays need enable + re-spec */
 static GLintptr s_clutAttribsBase = -1; /* ring offset the pointers point at */
 /* Last indexed present can be read as the scene alone: empty overlay, no
    present-side post-process, and a content-sized scene FBO. */
@@ -1170,7 +1329,7 @@ static void GL_BindTexUnit(S32 unit, GLuint tex) {
     }
 }
 
-static GLfloat s_ussX = -1.0f, s_ussY = -1.0f;         /* uScreenScale */
+static GLfloat s_ussX = -1.0f, s_ussY = -1.0f; /* uScreenScale */
 static GLfloat s_atlasScaleX = -1.0f, s_atlasScaleY = -1.0f;
 static GLint s_bilinearCached = -1;
 static GLfloat s_clutRowCached = -1.0f;
@@ -1244,17 +1403,17 @@ static inline U8 GL_ReversePaletteLookup(U32 argb) {
 /* ── State tracking for texture re-upload ───────────────────────────────── */
 
 static const void *s_boundCLUT = NULL;
-static const void *s_batchAtlas = NULL;  /* PtrMap at batch start */
-static U16 s_batchMaxMask = 0; /* OR of every RepMask queued for this batch */
+static const void *s_batchAtlas = NULL; /* PtrMap at batch start */
+static U16 s_batchMaxMask = 0;          /* OR of every RepMask queued for this batch */
 static U32 s_currentTypePoly = 0;
 static U32 s_currentColorPoly = 0;
-static S32 s_bilinearCLUT = 0; /* bilinear CLUT sampling flag for 3D */
-static GLfloat s_batchCLUTBaseRow = 0.0f; /* CLUT row offset captured at batch start */
-static GLfloat s_batchScaledFogNear = 0.0f; /* Fill_ScaledFogNear captured at batch start */
-static GLfloat s_batchFogRowScale = 0.0f; /* Fill_Fog_Factor / 65536 captured at batch start */
+static S32 s_bilinearCLUT = 0;                /* bilinear CLUT sampling flag for 3D */
+static GLfloat s_batchCLUTBaseRow = 0.0f;     /* CLUT row offset captured at batch start */
+static GLfloat s_batchScaledFogNear = 0.0f;   /* Fill_ScaledFogNear captured at batch start */
+static GLfloat s_batchFogRowScale = 0.0f;     /* Fill_Fog_Factor / 65536 captured at batch start */
 static const void *s_batchCLUTGouraud = NULL; /* PtrCLUTGouraud at batch start */
-static U8 s_batchZBuffer = 0;   /* Fill_Flag_ZBuffer captured at batch start */
-static U8 s_batchNZW = 0;       /* Fill_Flag_NZW captured at batch start */
+static U8 s_batchZBuffer = 0;                 /* Fill_Flag_ZBuffer captured at batch start */
+static U8 s_batchNZW = 0;                     /* Fill_Flag_NZW captured at batch start */
 
 /* Exchange the active batch with the NZW defer pool (verts + flush state). */
 static U8 s_swapTmp[BATCH_MAX_VERTS * BATCH_VERT_BYTES];
@@ -1390,8 +1549,8 @@ static GLuint GL_SceneDrawFbo(void) {
         return s_msaaFbo;
     return s_fbo;
 }
-static S32 s_frameActive = 0; /* 1 between GL_BeginFrame and GL_Present */
-static U32 s_frameSeq = 0;    /* incremented in GL_BeginFrame */
+static S32 s_frameActive = 0;         /* 1 between GL_BeginFrame and GL_Present */
+static U32 s_frameSeq = 0;            /* incremented in GL_BeginFrame */
 static U32 s_atlasContentVersion = 1; /* bumped only for an unnamed dirty page */
 /* A dirty pointer can name a page base or an offset inside it: the inventory
    draws BufferTexture while its fire/plasma effects live at offsets.  Treat
@@ -1445,7 +1604,7 @@ static GLuint s_stereoEyeFBO[2] = {0, 0};
 static GLuint s_stereoEyeTex[2] = {0, 0};
 static U32 s_stereoEyeWidth = 0;
 static U32 s_stereoEyeHeight = 0;
-static S32 s_stereoEye = -1; /* -1 = mono, 0/1 = capturing that eye */
+static S32 s_stereoEye = -1;     /* -1 = mono, 0/1 = capturing that eye */
 static U32 s_stereoFrameSeq = 0; /* increments when a stereo pair starts */
 /* Set when eye 0's composite has been captured for the current frame and
  * not yet consumed by the OpenXR submit; cleared by any mono present so
@@ -1556,10 +1715,10 @@ static void GL_DestroySnapshot(void) {
    here maps game Y=0 → screen top. */
 static const GLfloat s_quadVerts[] = {
     /* pos       texcoord */
-    -1.0f, -1.0f,  0.0f, 1.0f,  /* bottom-left  (flip Y: texcoord 1.0) */
-     1.0f, -1.0f,  1.0f, 1.0f,  /* bottom-right */
-    -1.0f,  1.0f,  0.0f, 0.0f,  /* top-left      (flip Y: texcoord 0.0) */
-     1.0f,  1.0f,  1.0f, 0.0f,  /* top-right */
+    -1.0f, -1.0f, 0.0f, 1.0f, /* bottom-left  (flip Y: texcoord 1.0) */
+    1.0f, -1.0f, 1.0f, 1.0f,  /* bottom-right */
+    -1.0f, 1.0f, 0.0f, 0.0f,  /* top-left      (flip Y: texcoord 0.0) */
+    1.0f, 1.0f, 1.0f, 0.0f,   /* top-right */
 };
 
 /* FBO quad — V is NOT flipped. The CLUT vertex shader already maps game
@@ -1567,19 +1726,19 @@ static const GLfloat s_quadVerts[] = {
    correctly without an extra flip. */
 static const GLfloat s_fboQuadVerts[] = {
     /* pos       texcoord */
-    -1.0f, -1.0f,  0.0f, 0.0f,  /* bottom-left  (V=0.0 = FBO bottom) */
-     1.0f, -1.0f,  1.0f, 0.0f,  /* bottom-right */
-    -1.0f,  1.0f,  0.0f, 1.0f,  /* top-left      (V=1.0 = FBO top) */
-     1.0f,  1.0f,  1.0f, 1.0f,  /* top-right */
+    -1.0f, -1.0f, 0.0f, 0.0f, /* bottom-left  (V=0.0 = FBO bottom) */
+    1.0f, -1.0f, 1.0f, 0.0f,  /* bottom-right */
+    -1.0f, 1.0f, 0.0f, 1.0f,  /* top-left      (V=1.0 = FBO top) */
+    1.0f, 1.0f, 1.0f, 1.0f,   /* top-right */
 };
 
 /* Left-eye half of a double-wide scene texture. */
 static const GLfloat s_fboHalfQuadVerts[] = {
     /* pos       texcoord */
-    -1.0f, -1.0f,  0.0f, 0.0f,  /* bottom-left  (V=0.0 = FBO bottom) */
-     1.0f, -1.0f,  0.5f, 0.0f,  /* bottom-right */
-    -1.0f,  1.0f,  0.0f, 1.0f,  /* top-left      (V=1.0 = FBO top) */
-     1.0f,  1.0f,  0.5f, 1.0f,  /* top-right */
+    -1.0f, -1.0f, 0.0f, 0.0f, /* bottom-left  (V=0.0 = FBO bottom) */
+    1.0f, -1.0f, 0.5f, 0.0f,  /* bottom-right */
+    -1.0f, 1.0f, 0.0f, 1.0f,  /* top-left      (V=1.0 = FBO top) */
+    1.0f, 1.0f, 0.5f, 1.0f,   /* top-right */
 };
 
 /* ── Shader helpers ─────────────────────────────────────────────────────── */
@@ -2184,8 +2343,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     /* Same attribute layout for both programs: explicit binding indices so
        one vertex-array spec serves the legacy and array variants. */
     {
-        static const char *names[6] = {"aPos",     "aTexCoord", "aLight",
-                                       "aZ",       "aRepMask",  "aMaterial"};
+        static const char *names[6] = {"aPos", "aTexCoord", "aLight",
+                                       "aZ", "aRepMask", "aMaterial"};
         for (S32 i = 0; i < 6; i++) {
             glBindAttribLocation(clutVert, i, names[i]);
         }
@@ -2213,6 +2372,9 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_clut_uScaledFogNear = glGetUniformLocation(s_clutProgram, "uScaledFogNear");
     s_clut_uFogRowScale = glGetUniformLocation(s_clutProgram, "uFogRowScale");
     s_clut_uBilinear = glGetUniformLocation(s_clutProgram, "uBilinear");
+    s_clut_uTerrainFarClip =
+        glGetUniformLocation(s_clutProgram, "uTerrainFarClip");
+    s_clut_uTerrainFar = glGetUniformLocation(s_clutProgram, "uTerrainFar");
 
     /* Sampler unit assignments are program state: set them once here
        instead of per draw call. */
@@ -2220,6 +2382,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     glUniform1i(s_clut_uAtlas, 0);
     glUniform1i(s_clut_uCLUT, 1);
     glUniform1i(s_clut_uPalette, 2);
+    glUniform1f(s_clut_uTerrainFarClip, 0.0f);
     GL_UseProgramCached(0);
 
     /* ── GLSL-3 CLUT variant with the texture-array sampler ──
@@ -2227,8 +2390,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
        in/out and texture() renames, an injected arraySample() used when a
        polygon's RepMask carries the 0x8000|layer array stamp. */
     {
-        static const char *attrNames[6] = {"aPos",     "aTexCoord", "aLight",
-                                           "aZ",       "aRepMask",  "aMaterial"};
+        static const char *attrNames[6] = {"aPos", "aTexCoord", "aLight",
+                                           "aZ", "aRepMask", "aMaterial"};
         char *vert3 = GL_ShaderToV3(s_clutVertSrc, 1);
         char *frag3 = GL_ShaderToV3(s_clutFragSrc, 0);
         if (frag3 != NULL) {
@@ -2266,12 +2429,88 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             s_clut3_uFogRowScale =
                 glGetUniformLocation(s_clut3Program, "uFogRowScale");
             s_clut3_uBilinear = glGetUniformLocation(s_clut3Program, "uBilinear");
+            s_clut3_uTerrainFarClip =
+                glGetUniformLocation(s_clut3Program, "uTerrainFarClip");
+            s_clut3_uTerrainFar =
+                glGetUniformLocation(s_clut3Program, "uTerrainFar");
             GL_UseProgramCached(s_clut3Program);
             glUniform1i(s_clut3_uAtlas, 0);
             glUniform1i(s_clut3_uCLUT, 1);
             glUniform1i(s_clut3_uPalette, 2);
             glUniform1i(s_clut3_uAtlasArr, 3);
+            glUniform1f(s_clut3_uTerrainFarClip, 0.0f);
             GL_UseProgramCached(0);
+        }
+    }
+
+    /* ── Terrain shader: the batch fragment program with the CPU's
+       projection moved into the vertex stage ── */
+    {
+        static const char *attrNames[6] = {"aPos", "aTexCoord", "aLight",
+                                           "aRepMask", "aMaterial", "aFogPos"};
+        GLuint tv = CompileShader(GL_VERTEX_SHADER, s_terrainVertSrc);
+        GLuint tf = CompileShader(GL_FRAGMENT_SHADER, s_clutFragSrc);
+        if (tv != 0 && tf != 0) {
+            for (S32 i = 0; i < 6; i++) {
+                glBindAttribLocation(tv, i, attrNames[i]);
+            }
+            s_terrainProgram = LinkProgram(tv, tf);
+        }
+        glDeleteShader(tv);
+        glDeleteShader(tf);
+        if (s_terrainProgram == 0) {
+            Log_Warn("[GL] terrain program failed; horizon stays on the CPU path");
+        } else {
+            s_terrain_aPos = glGetAttribLocation(s_terrainProgram, "aPos");
+            s_terrain_aTexCoord =
+                glGetAttribLocation(s_terrainProgram, "aTexCoord");
+            s_terrain_aLight = glGetAttribLocation(s_terrainProgram, "aLight");
+            s_terrain_aRepMask =
+                glGetAttribLocation(s_terrainProgram, "aRepMask");
+            s_terrain_aMaterial =
+                glGetAttribLocation(s_terrainProgram, "aMaterial");
+            s_terrain_aFogPos = glGetAttribLocation(s_terrainProgram, "aFogPos");
+            s_terrain_uRot = glGetUniformLocation(s_terrainProgram, "uRot");
+            s_terrain_uCamera =
+                glGetUniformLocation(s_terrainProgram, "uCamera");
+            s_terrain_uFocal = glGetUniformLocation(s_terrainProgram, "uFocal");
+            s_terrain_uCentre = glGetUniformLocation(s_terrainProgram, "uCentre");
+            s_terrain_uProjShiftX =
+                glGetUniformLocation(s_terrainProgram, "uProjShiftX");
+            s_terrain_uScreenScale =
+                glGetUniformLocation(s_terrainProgram, "uScreenScale");
+            s_terrain_uZBufferFactor =
+                glGetUniformLocation(s_terrainProgram, "uZBufferFactor");
+            s_terrain_uNearClip =
+                glGetUniformLocation(s_terrainProgram, "uNearClip");
+            s_terrain_uStartZFog =
+                glGetUniformLocation(s_terrainProgram, "uStartZFog");
+            s_terrain_uFogStepScale =
+                glGetUniformLocation(s_terrainProgram, "uFogStepScale");
+            s_terrain_uPalLevel =
+                glGetUniformLocation(s_terrainProgram, "uPalLevel");
+            s_terrain_uAtlas = glGetUniformLocation(s_terrainProgram, "uAtlas");
+            s_terrain_uCLUT = glGetUniformLocation(s_terrainProgram, "uCLUT");
+            s_terrain_uPalette =
+                glGetUniformLocation(s_terrainProgram, "uPalette");
+            s_terrain_uAtlasScale =
+                glGetUniformLocation(s_terrainProgram, "uAtlasScale");
+            s_terrain_uBilinear =
+                glGetUniformLocation(s_terrainProgram, "uBilinear");
+            s_terrain_uTerrainFarClip =
+                glGetUniformLocation(s_terrainProgram, "uTerrainFarClip");
+            s_terrain_uTerrainFar =
+                glGetUniformLocation(s_terrainProgram, "uTerrainFar");
+            GL_UseProgramCached(s_terrainProgram);
+            glUniform1i(s_terrain_uAtlas, 0);
+            glUniform1i(s_terrain_uCLUT, 1);
+            glUniform1i(s_terrain_uPalette, 2);
+            glUniform1f(s_terrain_uAtlasScale, 256.0f);
+            glUniform1i(s_terrain_uBilinear, 0);
+            glUniform1f(s_terrain_uTerrainFarClip, 0.0f);
+            GL_UseProgramCached(0);
+            s_terrainEpoch++;
+            Log_Info("[GL] Terrain GPU transform program ready.");
         }
     }
 
@@ -2282,9 +2521,9 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             s_fxaaProgram = LinkProgram(fv, ff);
             s_fxaa_uTex = glGetUniformLocation(s_fxaaProgram, "uTex");
             s_fxaa_uTexel = glGetUniformLocation(s_fxaaProgram, "uTexel");
-    s_fxaaAdj_uBrightness = glGetUniformLocation(s_fxaaProgram, "uBrightness");
-    s_fxaaAdj_uContrast = glGetUniformLocation(s_fxaaProgram, "uContrast");
-    s_fxaaAdj_uSaturation = glGetUniformLocation(s_fxaaProgram, "uSaturation");
+            s_fxaaAdj_uBrightness = glGetUniformLocation(s_fxaaProgram, "uBrightness");
+            s_fxaaAdj_uContrast = glGetUniformLocation(s_fxaaProgram, "uContrast");
+            s_fxaaAdj_uSaturation = glGetUniformLocation(s_fxaaProgram, "uSaturation");
             s_fxaa_aPos = glGetAttribLocation(s_fxaaProgram, "aPos");
             s_fxaa_aTexCoord = glGetAttribLocation(s_fxaaProgram, "aTexCoord");
         }
@@ -2372,16 +2611,16 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                  GL_UNSIGNED_BYTE, NULL);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-     /* Palette texture (256×1, BGRA — paletteLUT) */
-     glGenTextures(1, &s_paletteTex);
-     glBindTexture(GL_TEXTURE_2D, s_paletteTex);
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, GL_UPLOAD_FORMAT,
-                   GL_UNSIGNED_BYTE, NULL);
-     glBindTexture(GL_TEXTURE_2D, 0);
+    /* Palette texture (256×1, BGRA — paletteLUT) */
+    glGenTextures(1, &s_paletteTex);
+    glBindTexture(GL_TEXTURE_2D, s_paletteTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, GL_UPLOAD_FORMAT,
+                 GL_UNSIGNED_BYTE, NULL);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     /* Surface format problems (e.g. a rejected transfer format) are silent
        otherwise: the texture stays incomplete and just samples black. */
@@ -2400,8 +2639,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
 
     /* GL state */
     p_glFramebufferTexture2DMultisampleEXT =
-        (PFN_GLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXT)
-            (PFN_GLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXT)
+        (PFN_GLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXT)(PFN_GLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXT)
             SDL_GL_GetProcAddress("glFramebufferTexture2DMultisampleEXT");
     glViewport(0, 0, resX, resY);
     glDisable(GL_DEPTH_TEST);
@@ -2550,6 +2788,14 @@ void GL_Renderer_Shutdown(void) {
         glDeleteProgram(s_clutProgram);
         s_clutProgram = 0;
     }
+    if (s_clut3Program) {
+        glDeleteProgram(s_clut3Program);
+        s_clut3Program = 0;
+    }
+    if (s_terrainProgram) {
+        glDeleteProgram(s_terrainProgram);
+        s_terrainProgram = 0;
+    }
     if (s_fxaaProgram) {
         glDeleteProgram(s_fxaaProgram);
         s_fxaaProgram = 0;
@@ -2578,6 +2824,8 @@ void GL_Renderer_Shutdown(void) {
     s_sceneEyeX = 0;
     s_sceneTargetW = 0;
     s_sceneTargetH = 0;
+    s_terrainBoundVBO = 0;
+    s_terrainEpoch++;
     GL_InvalidateGLState();
     Log_Info("[GL] Renderer shut down.");
 }
@@ -2621,8 +2869,10 @@ void GL_Renderer_Resize(U32 resX, U32 resY) {
 }
 
 void GL_SetRenderQuality(U32 quality) {
-    if (quality == 0) quality = 1;
-    if (quality > 4) quality = 4;
+    if (quality == 0)
+        quality = 1;
+    if (quality > 4)
+        quality = 4;
 #ifdef __ANDROID__
     /* Single choke point (boot AND the in-game menu): SSAA multiplies the
      * framebuffer per axis, and quality 4 at 1680x945 is a 25-megapixel
@@ -2633,7 +2883,8 @@ void GL_SetRenderQuality(U32 quality) {
         quality = 1;
     }
 #endif
-    if (s_renderQuality == quality) return;
+    if (s_renderQuality == quality)
+        return;
     Log_Info("[GL] SetRenderQuality: %u -> %u (tex=%ux%u)",
              s_renderQuality, quality, s_texWidth, s_texHeight);
     s_renderQuality = quality;
@@ -2667,8 +2918,7 @@ static const char *s_smaaEdgeVertSrc =
     "in vec2 aPos;\n"
     "in vec2 aTexCoord;\n"
     "out vec2 vTexCoord;\n"
-    "out vec4 offset[3];\n"
-    SMAA_HLSL_SRC
+    "out vec4 offset[3];\n" SMAA_HLSL_SRC
     "void main() {\n"
     "    gl_Position = vec4(aPos, 0.0, 1.0);\n"
     "    vTexCoord = aTexCoord;\n"
@@ -2684,8 +2934,7 @@ static const char *s_smaaEdgeFragSrc =
     "uniform vec2 uTexel;\n"
     "in vec2 vTexCoord;\n"
     "in vec4 offset[3];\n"
-    "out vec4 fragColor;\n"
-    SMAA_HLSL_SRC
+    "out vec4 fragColor;\n" SMAA_HLSL_SRC
     "void main() {\n"
     "    fragColor = vec4(SMAALumaEdgeDetectionPS(vTexCoord, offset, uTex), 0.0, 0.0);\n"
     "}\n";
@@ -2699,8 +2948,7 @@ static const char *s_smaaWeightVertSrc =
     "in vec2 aTexCoord;\n"
     "out vec2 vTexCoord;\n"
     "out vec2 pixcoord;\n"
-    "out vec4 offset[3];\n"
-    SMAA_HLSL_SRC
+    "out vec4 offset[3];\n" SMAA_HLSL_SRC
     "void main() {\n"
     "    gl_Position = vec4(aPos, 0.0, 1.0);\n"
     "    vTexCoord = aTexCoord;\n"
@@ -2718,8 +2966,7 @@ static const char *s_smaaWeightFragSrc =
     "in vec2 vTexCoord;\n"
     "in vec2 pixcoord;\n"
     "in vec4 offset[3];\n"
-    "out vec4 fragColor;\n"
-    SMAA_HLSL_SRC
+    "out vec4 fragColor;\n" SMAA_HLSL_SRC
     "void main() {\n"
     "    fragColor = SMAABlendingWeightCalculationPS(vTexCoord, pixcoord, offset,\n"
     "                                                uEdges, uArea, uSearch,\n"
@@ -2732,8 +2979,7 @@ static const char *s_smaaBlendVertSrc =
     "in vec2 aPos;\n"
     "in vec2 aTexCoord;\n"
     "out vec2 vTexCoord;\n"
-    "out vec4 offset;\n"
-    SMAA_HLSL_SRC
+    "out vec4 offset;\n" SMAA_HLSL_SRC
     "void main() {\n"
     "    gl_Position = vec4(aPos, 0.0, 1.0);\n"
     "    vTexCoord = aTexCoord;\n"
@@ -2749,9 +2995,7 @@ static const char *s_smaaBlendFragSrc =
     "uniform vec2 uTexel;\n"
     "in vec2 vTexCoord;\n"
     "in vec4 offset;\n"
-    "out vec4 fragColor;\n"
-    GLSL_IMAGE_ADJUST
-    SMAA_HLSL_SRC
+    "out vec4 fragColor;\n" GLSL_IMAGE_ADJUST SMAA_HLSL_SRC
     "void main() {\n"
     "    vec3 rgb = SMAANeighborhoodBlendingPS(vTexCoord, offset, uTex, uBlend).rgb;\n"
     "    fragColor = vec4(ImageAdjust(rgb), 1.0);\n"
@@ -3132,7 +3376,8 @@ static void GL_CreateMSAAFbo(U32 w, U32 h, S32 samples) {
             glEnable(GL_SCISSOR_TEST);
         if (probe[0] < 250 || probe[1] > 5 || probe[2] > 5) {
             Log_Warn("[GL] resolve-in-tile probe read %u,%u,%u; using "
-                     "explicit resolve", probe[0], probe[1], probe[2]);
+                     "explicit resolve",
+                     probe[0], probe[1], probe[2]);
             GL_DestroyMSAAFbo();
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             s_msaaEXTAvailable = 0;
@@ -3245,7 +3490,7 @@ static void GL_SetStereoTargetMode(S32 doubleWide) {
     s_stereoEye1SceneDirect = 0;
     GL_InvalidateGLState();
     GL_LogSurfaceBudget(s_stereoDoubleWide ? "stereo-double"
-                                          : "stereo-per-eye");
+                                           : "stereo-per-eye");
 }
 
 /* Blit (resolve) from the MSAA FBO to the regular s_fbo.  Snapshot frames
@@ -3281,8 +3526,10 @@ static void GL_ResolveMSAAColor(void) {
 }
 
 void GL_SetAntiAlias(S32 mode) {
-    if (mode < 0) mode = 0;
-    if (mode > 3) mode = 3;
+    if (mode < 0)
+        mode = 0;
+    if (mode > 3)
+        mode = 3;
 #ifdef __ANDROID__
     /* 4xMSAA quadruples the tile bandwidth on mobile GPUs and stalled the
      * whole frame loop; the AA menu offers SMAA in its place and a cfg
@@ -3293,7 +3540,8 @@ void GL_SetAntiAlias(S32 mode) {
         mode = 2;
     }
 #endif
-    if (s_antiAlias == mode) return;
+    if (s_antiAlias == mode)
+        return;
     Log_Info("[GL] SetAntiAlias: %d -> %d", s_antiAlias, mode);
     s_antiAlias = mode;
     if (!s_initialized || !Window_GLMakeCurrent())
@@ -3331,7 +3579,6 @@ void GL_SetAntiAlias(S32 mode) {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Texture uploads ────────────────────────────────────────────────────── */
-
 
 static void GL_UploadPalette(void) {
     /* Uploaded once per frame per LUT pointer, not per polygon — same
@@ -3632,7 +3879,6 @@ void GL_ArrayWindowEnd(void) {
 /* ── Batch management ───────────────────────────────────────────────────── */
 
 static void FlushActiveBatch(void) {
-
     if (s_batchVertCount == 0) {
         return;
     }
@@ -3726,16 +3972,16 @@ static void FlushActiveBatch(void) {
         glUniform1i(s_clut3_uBilinear, s_bilinearCLUT);
         GL_ArrayBind();
     } else {
-    /* Set screen-scale uniform: maps pixel coords → clip space */
-    {
-        GLfloat sx = 2.0f / (GLfloat)s_texWidth;
-        GLfloat sy = 2.0f / (GLfloat)s_texHeight;
-        if (s_ussX != sx || s_ussY != sy) {
-            glUniform2f(s_clut_uScreenScale, sx, sy);
-            s_ussX = sx;
-            s_ussY = sy;
+        /* Set screen-scale uniform: maps pixel coords → clip space */
+        {
+            GLfloat sx = 2.0f / (GLfloat)s_texWidth;
+            GLfloat sy = 2.0f / (GLfloat)s_texHeight;
+            if (s_ussX != sx || s_ussY != sy) {
+                glUniform2f(s_clut_uScreenScale, sx, sy);
+                s_ussX = sx;
+                s_ussY = sy;
+            }
         }
-    }
     }
 
     /* Shading mode, alpha/chroma/perspective bits and flat colour now ride
@@ -3797,7 +4043,7 @@ static void FlushActiveBatch(void) {
        flush) or an outside path dirtied the attribs. */
     if (s_clutAttribsDirty ||
         s_clutAttribsBase != (GLintptr)s_batchRingBase) {
-        const GLvoid *ringBase = (const GLvoid *)(uintptr_t) s_batchRingBase;
+        const GLvoid *ringBase = (const GLvoid *)(uintptr_t)s_batchRingBase;
         glEnableVertexAttribArray(s_clut_aPos);
         glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
                               (const void *)((const U8 *)ringBase + 0));
@@ -3908,7 +4154,6 @@ static void FlushActiveBatch(void) {
     s_profAccumTicks[GL_PROF_FLUSH] += SDL_GetPerformanceCounter() - profT0;
 }
 
-
 void GL_FlushBatch(void) {
     if (s_batchVertCount == 0 && s_deferVertCount == 0) {
         return;
@@ -3962,6 +4207,254 @@ static void GL_FlushBatchTerrain(void) {
         FlushActiveBatch();
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Static terrain path — vertex-shader projection
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Animated polys (water, menu plasma) mutate pages in place.  A global
+   version bump would re-upload every cached page and every active array
+   layer on the next flush — a 16 MB spike when the water ticks.  Mark only
+   the pages named by the mutators; GL_BindAtlasFor and GL_ArrayBind upload
+   each at flush time.  An unnamed page or list overflow keeps the
+   whole-cache bump.  Shared by the batch path and the terrain VBO path,
+   which also samples the ground page without going through
+   GL_RenderTriangleList. */
+static void GL_ProcessAtlasDirty(void) {
+    if (!AtlasTextureDirty) {
+        return;
+    }
+    if (!AtlasTextureDirtyAll && AtlasTextureDirtyCount > 0) {
+        /* Version 0 forces the flush-time upload without moving the global
+           sequence, so unrelated pages stay resident. */
+        for (S32 p = 0; p < AtlasTextureDirtyCount; p++) {
+            const void *dirtyPage = (const void *)AtlasTextureDirtyPtrs[p];
+            for (S32 i = 0; i < ATLAS_CACHE_SIZE; i++) {
+                if (GL_AtlasSamePage(s_atlasTexCache[i].ptr, dirtyPage)) {
+                    s_atlasTexCache[i].ver = 0;
+                }
+            }
+            for (S32 i = 0; i < s_arrCount; i++) {
+                if (GL_AtlasSamePage(s_arrSlots[i].map, dirtyPage)) {
+                    s_arrSlots[i].ver = 0;
+                }
+            }
+        }
+        s_profAtlasDirtyKnown++;
+    } else {
+        s_atlasContentVersion++;
+        s_profAtlasDirtyGlobal++;
+    }
+    AtlasTextureDirty = 0;
+    AtlasTextureDirtyCount = 0;
+    AtlasTextureDirtyAll = 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Static terrain path — vertex-shader projection
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+S32 GL_TerrainGPUActive(void) {
+    static S32 s_force = -1;
+    if (s_force < 0) {
+        const char *e = getenv("LBA2_GPU_TERRAIN");
+        s_force = (e != NULL && e[0] == '0')   ? 0
+                  : (e != NULL && e[0] == '1') ? 1
+                                               : -2;
+    }
+    if (s_force == 0) {
+        return 0;
+    }
+    if (!s_initialized || s_terrainProgram == 0 || s_fbo == 0) {
+        return 0;
+    }
+    /* Stereo is the target: both eyes re-project the same VBOs with their
+       own camera uniforms, replacing the old horizon-capture shortcut.
+       Mono stays on the CPU path unless explicitly forced for testing. */
+    return (s_force == 1) ? 1 : (GL_GetStereoEye() >= 0);
+}
+
+U32 GL_TerrainVBOEpoch(void) { return s_terrainEpoch; }
+
+U32 GL_CreateTerrainVBO(const T_GL_TerrainVertex *verts, U32 vertexCount) {
+    if (!s_initialized || verts == NULL || vertexCount == 0) {
+        return 0;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return 0;
+    }
+
+    GLuint vbo = 0;
+    glGenBuffers(1, &vbo);
+    if (vbo == 0) {
+        return 0;
+    }
+    GL_BindArrayBuffer(vbo);
+    glBufferData(GL_ARRAY_BUFFER,
+                 (GLsizeiptr)(vertexCount * sizeof(T_GL_TerrainVertex)), verts,
+                 GL_STATIC_DRAW);
+    GL_BindArrayBuffer(0);
+    return (U32)vbo;
+}
+
+void GL_DeleteTerrainVBO(U32 vbo) {
+    if (vbo == 0) {
+        return;
+    }
+    if (s_terrainBoundVBO == vbo) {
+        s_terrainBoundVBO = 0;
+    }
+    /* After shutdown the handle belongs to a dead context: dropping it is
+       the only safe action, and the epoch counter stops the owner reusing
+       it. */
+    if (!s_initialized) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+    GLuint glVbo = (GLuint)vbo;
+    if (s_curArrayBuf == glVbo) {
+        GL_BindArrayBuffer(0);
+    }
+    glDeleteBuffers(1, &glVbo);
+}
+
+void GL_DrawTerrainVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
+                       S32 startZFog, S32 clipZFar, S32 palLevel) {
+    if (!s_initialized || s_terrainProgram == 0 || s_fbo == 0 || vbo == 0 ||
+        vertexCount == 0) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+
+    /* Decors were queued just before this call; draw them first so the
+       terrain depth-tests against them exactly as the CPU order does. */
+    GL_FlushBatch();
+
+    {
+        GLuint sceneFbo = GL_SceneDrawFbo();
+        if (sceneFbo != 0) {
+            if (s_boundDrawFbo != sceneFbo) {
+                glBindFramebuffer(GL_FRAMEBUFFER, sceneFbo);
+            }
+            GL_SetSceneViewport();
+        } else {
+            glViewport(0, 0, (GLsizei)s_texWidth, (GLsizei)s_texHeight);
+        }
+    }
+
+    GL_SetDepthTest(1);
+    GL_SetDepthFunc(GL_GEQUAL);
+    GL_SetDepthWrite(1);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    /* The CPU TestVuePoly accepts the screen-space winding that is CCW once
+       the shader flips Y into NDC; GL's front face follows the same rule.
+       LBA2_TERRAIN_NOCULL is a diagnostic escape hatch for comparing the
+       VBO path against the batch renderer. */
+    static S32 s_noCull = -1;
+    if (s_noCull < 0) {
+        s_noCull = getenv("LBA2_TERRAIN_NOCULL") ? 1 : 0;
+    }
+    if (!s_noCull) {
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+    } else {
+        glDisable(GL_CULL_FACE);
+    }
+
+    GL_UseProgramCached(s_terrainProgram);
+
+    GL_ProcessAtlasDirty();
+    GL_UploadCLUT();
+    GL_UploadPalette();
+    GL_BindAtlasFor(atlasPage, 0xFFFF);
+    GL_BindTexUnit(1, s_clutTex);
+    GL_BindTexUnit(2, s_paletteTex);
+
+    /* MatriceWorld is row-major and float (X' = M11*x + M12*y + M13*z,
+       LongRotatePointF loads the same F fields).  GLSL's mat3 * vec3 reads
+       columns, so pass the transpose with transpose=off. */
+    {
+        GLfloat rot[9];
+        rot[0] = MatriceWorld.F.M11;
+        rot[1] = MatriceWorld.F.M21;
+        rot[2] = MatriceWorld.F.M31;
+        rot[3] = MatriceWorld.F.M12;
+        rot[4] = MatriceWorld.F.M22;
+        rot[5] = MatriceWorld.F.M32;
+        rot[6] = MatriceWorld.F.M13;
+        rot[7] = MatriceWorld.F.M23;
+        rot[8] = MatriceWorld.F.M33;
+        glUniformMatrix3fv(s_terrain_uRot, 1, GL_FALSE, rot);
+    }
+    glUniform3f(s_terrain_uCamera, (GLfloat)CameraXr, (GLfloat)CameraYr,
+                (GLfloat)CameraZr);
+    glUniform2f(s_terrain_uFocal, FRatioX, FRatioY);
+    glUniform2f(s_terrain_uCentre, (GLfloat)XCentre, (GLfloat)YCentre);
+    glUniform1f(s_terrain_uProjShiftX, (GLfloat)StereoProjShiftX);
+    if (s_texWidth > 0 && s_texHeight > 0) {
+        glUniform2f(s_terrain_uScreenScale, 2.0f / (GLfloat)s_texWidth,
+                    2.0f / (GLfloat)s_texHeight);
+    }
+    glUniform1f(s_terrain_uZBufferFactor,
+                (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0));
+    glUniform1f(s_terrain_uNearClip, (GLfloat)NearClip);
+    glUniform1f(s_terrain_uStartZFog, (GLfloat)startZFog);
+    if (clipZFar > startZFog) {
+        glUniform1f(s_terrain_uFogStepScale,
+                    15.0f / (GLfloat)(clipZFar - startZFog));
+    } else {
+        glUniform1f(s_terrain_uFogStepScale, 0.0f);
+    }
+    glUniform1f(s_terrain_uPalLevel, (GLfloat)palLevel);
+    glUniform1i(s_terrain_uBilinear, s_bilinearCLUT);
+    glUniform1f(s_terrain_uTerrainFarClip, 1.0f);
+    glUniform1f(s_terrain_uTerrainFar, (GLfloat)clipZFar);
+
+    GL_BindArrayBuffer((GLuint)vbo);
+    const GLsizei stride = (GLsizei)sizeof(T_GL_TerrainVertex);
+    glEnableVertexAttribArray(s_terrain_aPos);
+    glVertexAttribPointer(
+        s_terrain_aPos, 3, GL_FLOAT, GL_FALSE, stride,
+        (const void *)(uintptr_t)offsetof(T_GL_TerrainVertex, X));
+    glEnableVertexAttribArray(s_terrain_aTexCoord);
+    glVertexAttribPointer(
+        s_terrain_aTexCoord, 2, GL_FLOAT, GL_FALSE, stride,
+        (const void *)(uintptr_t)offsetof(T_GL_TerrainVertex, U));
+    glEnableVertexAttribArray(s_terrain_aLight);
+    glVertexAttribPointer(
+        s_terrain_aLight, 1, GL_FLOAT, GL_FALSE, stride,
+        (const void *)(uintptr_t)offsetof(T_GL_TerrainVertex, Light));
+    glEnableVertexAttribArray(s_terrain_aRepMask);
+    glVertexAttribPointer(
+        s_terrain_aRepMask, 1, GL_FLOAT, GL_FALSE, stride,
+        (const void *)(uintptr_t)offsetof(T_GL_TerrainVertex, RepMask));
+    glEnableVertexAttribArray(s_terrain_aMaterial);
+    glVertexAttribPointer(
+        s_terrain_aMaterial, 1, GL_FLOAT, GL_FALSE, stride,
+        (const void *)(uintptr_t)offsetof(T_GL_TerrainVertex, Material));
+    glEnableVertexAttribArray(s_terrain_aFogPos);
+    glVertexAttribPointer(
+        s_terrain_aFogPos, 3, GL_FLOAT, GL_FALSE, stride,
+        (const void *)(uintptr_t)offsetof(T_GL_TerrainVertex, FogX));
+
+    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertexCount);
+
+    /* The batch's attribute pointers still name its ring; force a re-spec
+       on the next batch flush.  Disable culling so the batch (and the
+       one-shot draws) keep their unculled state. */
+    s_terrainBoundVBO = vbo;
+    s_clutAttribsDirty = 1;
+    s_clutAttribsBase = -1;
+    glDisable(GL_CULL_FACE);
+    GL_BindArrayBuffer(0);
+}
+
 /* Draw the projected ground-shadow polygon directly into the FBO, replacing
    the SW path (DrawShadow → DrawLineShade → per-scanline ShadeBoxBlk into
    Log + DrawRecover occlusion).  The caller walks the same Bezier-rounded
@@ -4068,10 +4561,14 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
     {
         S32 mx0 = xs[0], mx1 = mx0, my0 = ys[0], my1 = my0;
         for (i = 1; i < n; i++) {
-            if (xs[i] < mx0) mx0 = xs[i];
-            if (xs[i] > mx1) mx1 = xs[i];
-            if (ys[i] < my0) my0 = ys[i];
-            if (ys[i] > my1) my1 = ys[i];
+            if (xs[i] < mx0)
+                mx0 = xs[i];
+            if (xs[i] > mx1)
+                mx1 = xs[i];
+            if (ys[i] < my0)
+                my0 = ys[i];
+            if (ys[i] > my1)
+                my1 = ys[i];
         }
         GL_MarkFBORegion(mx0, my0, mx1, my1);
     }
@@ -4233,8 +4730,8 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
         }
         memcpy(v + 0, &x, 2);
         memcpy(v + 2, &y, 2);
-        memset(v + 4, 0, 4);  /* uv = 0 */
-        memset(v + 8, 0, 2);  /* light = 0 */
+        memset(v + 4, 0, 4); /* uv = 0 */
+        memset(v + 8, 0, 2); /* light = 0 */
         memcpy(v + 10, &zo16, 2);
         memset(v + 12, 0, 2); /* repmask = 0 */
         memcpy(v + 14, &sphereMat, 2);
@@ -4338,8 +4835,8 @@ void GL_DrawLineFBO(S32 x0, S32 y0, S32 x1, S32 y1, S32 colorIndex,
         U8 *v = verts + i * BATCH_VERT_BYTES;
         memcpy(v + 0, &px[i], 2);
         memcpy(v + 2, &py[i], 2);
-        memset(v + 4, 0, 4);  /* uv = 0 */
-        memset(v + 8, 0, 2);  /* light = 0 */
+        memset(v + 4, 0, 4); /* uv = 0 */
+        memset(v + 8, 0, 2); /* light = 0 */
         memcpy(v + 10, &pz[i], 2);
         memset(v + 12, 0, 2); /* repmask = 0 */
         memcpy(v + 14, &lineMat, 2);
@@ -4477,7 +4974,6 @@ static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
         GL_FlushBatch();
     }
 
-
     /* Copy one 16-byte vertex per corner into the batch buffer:
        Pt_XE(2) + Pt_YE(2) + Pt_MapU(2) + Pt_MapV(2) +
        Pt_Light(2) + Pt_ZO(2) + Pt_RepMask(2) + Material(2)
@@ -4485,7 +4981,7 @@ static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
        Pt_RepMask (offset 16) lands at vertex offset 12 and the current
        polygon material at offset 14. */
     U8 *dst = s_batchVerts + s_batchVertCount * BATCH_VERT_BYTES;
-    memcpy(dst + 0, p0, 12);   /* XE, YE, MapU, MapV, Light, ZO */
+    memcpy(dst + 0, p0, 12);                  /* XE, YE, MapU, MapV, Light, ZO */
     memcpy(dst + 12, (const U8 *)p0 + 16, 2); /* Pt_RepMask (skip Pt_W) */
     memcpy(dst + 14, &s_currentMaterial, 2);
     memcpy(dst + 16, p1, 12);
@@ -4500,14 +4996,22 @@ static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
     {
         S32 x0 = p0->Pt_XE, x1 = x0;
         S32 y0 = p0->Pt_YE, y1 = y0;
-        if (p1->Pt_XE < x0) x0 = p1->Pt_XE;
-        if (p1->Pt_XE > x1) x1 = p1->Pt_XE;
-        if (p1->Pt_YE < y0) y0 = p1->Pt_YE;
-        if (p1->Pt_YE > y1) y1 = p1->Pt_YE;
-        if (p2->Pt_XE < x0) x0 = p2->Pt_XE;
-        if (p2->Pt_XE > x1) x1 = p2->Pt_XE;
-        if (p2->Pt_YE < y0) y0 = p2->Pt_YE;
-        if (p2->Pt_YE > y1) y1 = p2->Pt_YE;
+        if (p1->Pt_XE < x0)
+            x0 = p1->Pt_XE;
+        if (p1->Pt_XE > x1)
+            x1 = p1->Pt_XE;
+        if (p1->Pt_YE < y0)
+            y0 = p1->Pt_YE;
+        if (p1->Pt_YE > y1)
+            y1 = p1->Pt_YE;
+        if (p2->Pt_XE < x0)
+            x0 = p2->Pt_XE;
+        if (p2->Pt_XE > x1)
+            x1 = p2->Pt_XE;
+        if (p2->Pt_YE < y0)
+            y0 = p2->Pt_YE;
+        if (p2->Pt_YE > y1)
+            y1 = p2->Pt_YE;
         GL_MarkFBORegion(x0, y0, x1, y1);
     }
 
@@ -4681,7 +5185,6 @@ void GL_SnapshotTerrain(void) {
    full-screen blit of a 4x-SSAA framebuffer is a large slice of an idle
    frame's GPU bandwidth. */
 void GL_RestoreTerrainSnapshot(void) {
-    
     if (!s_initialized || !s_fbo || s_snapshotFbo == 0) {
         return;
     }
@@ -4700,10 +5203,14 @@ void GL_RestoreTerrainSnapshot(void) {
     S32 qy0 = s_fboDirtyY0 * (S32)s_renderQuality;
     S32 qx1 = (s_fboDirtyX1 + 1) * (S32)s_renderQuality;
     S32 qy1 = (s_fboDirtyY1 + 1) * (S32)s_renderQuality;
-    if (qx0 < 0) qx0 = 0;
-    if (qy0 < 0) qy0 = 0;
-    if (qx1 > (S32)s_fboWidth) qx1 = (S32)s_fboWidth;
-    if (qy1 > (S32)s_fboHeight) qy1 = (S32)s_fboHeight;
+    if (qx0 < 0)
+        qx0 = 0;
+    if (qy0 < 0)
+        qy0 = 0;
+    if (qx1 > (S32)s_fboWidth)
+        qx1 = (S32)s_fboWidth;
+    if (qy1 > (S32)s_fboHeight)
+        qy1 = (S32)s_fboHeight;
     if (qx1 <= qx0 || qy1 <= qy0) {
         s_fboDirtyX1 = -1; /* nothing on-screen to erase */
         return;
@@ -4897,10 +5404,14 @@ static S32 GL_HorizonDirtyRect(S32 *rx0, S32 *ry0, S32 *rx1, S32 *ry1) {
     qy0 = s_fboDirtyY0 * (S32)s_renderQuality - margin;
     qx1 = (s_fboDirtyX1 + 1) * (S32)s_renderQuality + margin;
     qy1 = (s_fboDirtyY1 + 1) * (S32)s_renderQuality + margin;
-    if (qx0 < 0) qx0 = 0;
-    if (qy0 < 0) qy0 = 0;
-    if (qx1 > (S32)s_fboWidth) qx1 = (S32)s_fboWidth;
-    if (qy1 > (S32)s_fboHeight) qy1 = (S32)s_fboHeight;
+    if (qx0 < 0)
+        qx0 = 0;
+    if (qy0 < 0)
+        qy0 = 0;
+    if (qx1 > (S32)s_fboWidth)
+        qx1 = (S32)s_fboWidth;
+    if (qy1 > (S32)s_fboHeight)
+        qy1 = (S32)s_fboHeight;
     if (qx1 <= qx0 || qy1 <= qy0) {
         return FALSE;
     }
@@ -5160,9 +5671,12 @@ static void GL_LogSurfaceBudget(const char *when) {
         fbo += GL_TargetBytes(s_sceneTargetW, s_sceneTargetH, 4);
     if (s_fboDepthRbo)
         fbo += GL_TargetBytes(s_sceneTargetW, s_sceneTargetH, 4);
-    if (s_msaaColorTex) msaa += GL_TargetBytes(s_msaaW, s_msaaH, 4);
-    if (s_msaaColorRb) msaa += GL_TargetBytes(s_msaaW, s_msaaH, 4);
-    if (s_msaaDepthRb) msaa += GL_TargetBytes(s_msaaW, s_msaaH, 4);
+    if (s_msaaColorTex)
+        msaa += GL_TargetBytes(s_msaaW, s_msaaH, 4);
+    if (s_msaaColorRb)
+        msaa += GL_TargetBytes(s_msaaW, s_msaaH, 4);
+    if (s_msaaDepthRb)
+        msaa += GL_TargetBytes(s_msaaW, s_msaaH, 4);
     for (int i = 0; i < 2; i++) {
         if (s_stereoEyeTex[i])
             eyes += GL_TargetBytes(s_stereoEyeWidth, s_stereoEyeHeight, 4);
@@ -5342,15 +5856,15 @@ void GL_ReadbackDepthBuffer(void) {
             s_depthSmallH = scrH;
         }
 
-    /* With MSAA, the scene depth is in the scene target's depth renderbuffer:
+        /* With MSAA, the scene depth is in the scene target's depth renderbuffer:
        glBlitFramebuffer auto-resolves multisample to single-sample. */
-    GLuint depthSrcFbo = sceneDrawFbo != 0 ? sceneDrawFbo : s_fbo;
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, depthSrcFbo);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_depthSmallFbo);
-    glBlitFramebuffer(0, 0, fboW, fboH, 0, 0, scrW, scrH,
-                      GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        GLuint depthSrcFbo = sceneDrawFbo != 0 ? sceneDrawFbo : s_fbo;
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, depthSrcFbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_depthSmallFbo);
+        glBlitFramebuffer(0, 0, fboW, fboH, 0, 0, scrW, scrH,
+                          GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     }
 
     /* Pack buffers track the screen-sized read; recreating them after a
@@ -5761,7 +6275,6 @@ void GL_SavePresentPNG(const char *path) {
     glReadPixels(0, 0, fboW, fboH, FMT_BGRA, GL_UNSIGNED_BYTE, fboBuf);
 #endif
 
-
     /* Downsample (SSAA center pick) with the Y-flip glReadPixels implies,
        giving screen-space top-down ARGB like GL_Present's FBO draw. */
     const U32 scaleX = fboW / scrW;
@@ -6037,7 +6550,8 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
             vpH = winH;
             vpW = (int)((double)winH * contentAspect + 0.5);
             vpW = (vpW + 1) & ~1;
-            if (vpW > winW) vpW = winW;
+            if (vpW > winW)
+                vpW = winW;
             vpX = (winW - vpW) / 2;
             vpY = 0;
         } else {
@@ -6045,7 +6559,8 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
             vpW = winW;
             vpH = (int)((double)winW / contentAspect + 0.5);
             vpH = (vpH + 1) & ~1;
-            if (vpH > winH) vpH = winH;
+            if (vpH > winH)
+                vpH = winH;
             vpX = 0;
             vpY = (winH - vpH) / 2;
         }
@@ -6086,22 +6601,22 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
                texture; draws the blended result into the current target. */
             GL_SmaaPresent(vpX, vpY, vpW, vpH);
         } else {
-        glUseProgram(s_program);
-        glUniform1i(s_uTexLoc, 0);
-        /* The hi-res FBO is always drawn plainly; the Scale2x mode below is
+            glUseProgram(s_program);
+            glUniform1i(s_uTexLoc, 0);
+            /* The hi-res FBO is always drawn plainly; the Scale2x mode below is
          * for the 640x480 overlay only.  Pin it here or a stale Scale2x from
          * the previous frame's overlay draw would smear the FBO blit. */
-        GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
-                             s_adj_uSaturation);
-        glUniform1i(s_uFilterLoc, 1);
-        glEnableVertexAttribArray(s_aPosLoc);
-        glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
-                              4 * sizeof(GLfloat), (const void *)0);
-        glEnableVertexAttribArray(s_aTexCoordLoc);
-        glVertexAttribPointer(s_aTexCoordLoc, 2, GL_FLOAT, GL_FALSE,
-                              4 * sizeof(GLfloat),
-                              (const void *)(2 * sizeof(GLfloat)));
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
+                                 s_adj_uSaturation);
+            glUniform1i(s_uFilterLoc, 1);
+            glEnableVertexAttribArray(s_aPosLoc);
+            glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
+                                  4 * sizeof(GLfloat), (const void *)0);
+            glEnableVertexAttribArray(s_aTexCoordLoc);
+            glVertexAttribPointer(s_aTexCoordLoc, 2, GL_FLOAT, GL_FALSE,
+                                  4 * sizeof(GLfloat),
+                                  (const void *)(2 * sizeof(GLfloat)));
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         }
         GL_BindArrayBuffer(0);
         glUseProgram(0);
@@ -6266,14 +6781,16 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
                 vpH = winH;
                 vpW = (int)((double)winH * contentAspect + 0.5);
                 vpW = (vpW + 1) & ~1;
-                if (vpW > winW) vpW = winW;
+                if (vpW > winW)
+                    vpW = winW;
                 vpX = (winW - vpW) / 2;
                 vpY = 0;
             } else {
                 vpW = winW;
                 vpH = (int)((double)winW / contentAspect + 0.5);
                 vpH = (vpH + 1) & ~1;
-                if (vpH > winH) vpH = winH;
+                if (vpH > winH)
+                    vpH = winH;
                 vpX = 0;
                 vpY = (winH - vpH) / 2;
             }
@@ -6301,8 +6818,8 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         overlayEmpty = s_overlayEmptyCached;
         s_profOverlayReuse++;
     } else {
-        static U8 *s_prevUpload = NULL;  /* mirror of s_logIndexTex content */
-        static U8 *s_rowNonZero = NULL;  /* per row: 1 = has any nonzero */
+        static U8 *s_prevUpload = NULL; /* mirror of s_logIndexTex content */
+        static U8 *s_rowNonZero = NULL; /* per row: 1 = has any nonzero */
         static U32 s_prevCap = 0;
         static S32 s_prevH = 0;
         U32 needed = (U32)pitch * height;
@@ -6501,8 +7018,10 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
             s_stereoEye1SceneDirect = 1;
         }
     }
-    if (overlayEmpty) s_profOverlayEmpty++;
-    if (directSceneSafe) s_profDirectScene++;
+    if (overlayEmpty)
+        s_profOverlayEmpty++;
+    if (directSceneSafe)
+        s_profDirectScene++;
 
     if (s_fbo && !sceneOnlyPresent) {
         GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -6534,22 +7053,22 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
                texture; draws the blended result into the current target. */
             GL_SmaaPresent(vpX, vpY, vpW, vpH);
         } else {
-        glUseProgram(s_program);
-        glUniform1i(s_uTexLoc, 0);
-        /* The hi-res FBO is always drawn plainly; the Scale2x mode below is
+            glUseProgram(s_program);
+            glUniform1i(s_uTexLoc, 0);
+            /* The hi-res FBO is always drawn plainly; the Scale2x mode below is
          * for the 640x480 overlay only.  Pin it here or a stale Scale2x from
          * the previous frame's overlay draw would smear the FBO blit. */
-        GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
-                             s_adj_uSaturation);
-        glUniform1i(s_uFilterLoc, 1);
-        glEnableVertexAttribArray(s_aPosLoc);
-        glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
-                              4 * sizeof(GLfloat), (const void *)0);
-        glEnableVertexAttribArray(s_aTexCoordLoc);
-        glVertexAttribPointer(s_aTexCoordLoc, 2, GL_FLOAT, GL_FALSE,
-                              4 * sizeof(GLfloat),
-                              (const void *)(2 * sizeof(GLfloat)));
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
+                                 s_adj_uSaturation);
+            glUniform1i(s_uFilterLoc, 1);
+            glEnableVertexAttribArray(s_aPosLoc);
+            glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
+                                  4 * sizeof(GLfloat), (const void *)0);
+            glEnableVertexAttribArray(s_aTexCoordLoc);
+            glVertexAttribPointer(s_aTexCoordLoc, 2, GL_FLOAT, GL_FALSE,
+                                  4 * sizeof(GLfloat),
+                                  (const void *)(2 * sizeof(GLfloat)));
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         }
         GL_BindArrayBuffer(0);
         glUseProgram(0);
@@ -6788,7 +7307,8 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        SetCLUT in LIB386/pol_work/POLY.CPP. */
     if ((matFlags & 7) == 0 && PtrCLUTFog != NULL && PtrCLUTGouraud != NULL) {
         highByte = (U8)(((const U8 *)PtrCLUTGouraud -
-                         (const U8 *)PtrCLUTFog) >> 8);
+                         (const U8 *)PtrCLUTFog) >>
+                        8);
     }
     U16 material = (U16)(matFlags | ((U16)highByte << 8));
 
@@ -6906,37 +7426,8 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        CLUT re-uploads every frame because the game modifies the fog table
        in-place between scenes (same PtrCLUTFog pointer, different data). */
     GL_UploadCLUT();
-    if (typePoly >= POLY_TEXTURE && AtlasTextureDirty) {
-        /* Animated polys (water, menu plasma) mutate pages in place.
-           A global version bump would re-upload every cached page and every
-           active array layer on the next flush — a 16 MB spike when the
-           water ticks.  Mark only the pages named by the mutators;
-           GL_BindAtlasFor and GL_ArrayBind upload each at flush time.  An
-           unnamed page or list overflow keeps the whole-cache bump. */
-        if (!AtlasTextureDirtyAll && AtlasTextureDirtyCount > 0) {
-            /* Version 0 forces the flush-time upload without moving the
-               global sequence, so unrelated pages stay resident. */
-            for (S32 p = 0; p < AtlasTextureDirtyCount; p++) {
-                const void *dirtyPage = (const void *)AtlasTextureDirtyPtrs[p];
-                for (S32 i = 0; i < ATLAS_CACHE_SIZE; i++) {
-                    if (GL_AtlasSamePage(s_atlasTexCache[i].ptr, dirtyPage)) {
-                        s_atlasTexCache[i].ver = 0;
-                    }
-                }
-                for (S32 i = 0; i < s_arrCount; i++) {
-                    if (GL_AtlasSamePage(s_arrSlots[i].map, dirtyPage)) {
-                        s_arrSlots[i].ver = 0;
-                    }
-                }
-            }
-            s_profAtlasDirtyKnown++;
-        } else {
-            s_atlasContentVersion++;
-            s_profAtlasDirtyGlobal++;
-        }
-        AtlasTextureDirty = 0;
-        AtlasTextureDirtyCount = 0;
-        AtlasTextureDirtyAll = 0;
+    if (typePoly >= POLY_TEXTURE) {
+        GL_ProcessAtlasDirty();
     }
     GL_UploadPalette(); /* re-upload every frame (cheap: 1 KB) */
 
@@ -6963,7 +7454,8 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
     if ((matFlags & 7) == 3) {
         S32 row = (PtrCLUTFog != NULL && PtrCLUTGouraud != NULL)
                       ? (S32)(((const U8 *)PtrCLUTGouraud -
-                               (const U8 *)PtrCLUTFog) >> 8)
+                               (const U8 *)PtrCLUTFog) >>
+                              8)
                       : 0;
         for (S32 i = 0; i < nbPoints; i++) {
             ptrPoints[i].Pt_RepMask = (U16)row;
@@ -7001,12 +7493,14 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
 
 /* Stubs when GL renderer is compiled out */
 S32 GL_Renderer_Init(U32 resX, U32 resY) {
-    (void)resX; (void)resY;
+    (void)resX;
+    (void)resY;
     return FALSE;
 }
 void GL_Renderer_Shutdown(void) {}
 void GL_Renderer_Resize(U32 resX, U32 resY) {
-    (void)resX; (void)resY;
+    (void)resX;
+    (void)resY;
 }
 void GL_BeginFrame(void) {}
 void GL_ClearFBO(void) {}
@@ -7026,26 +7520,57 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
     (void)level;
 }
 void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
-    (void)x0; (void)y0; (void)x1; (void)y1; (void)level;
+    (void)x0;
+    (void)y0;
+    (void)x1;
+    (void)y1;
+    (void)level;
 }
 void GL_SetRenderQuality(U32 quality) { (void)quality; }
 void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
                 S32 filterLinear) {
-    (void)argbPixels; (void)pitch; (void)width; (void)height;
+    (void)argbPixels;
+    (void)pitch;
+    (void)width;
+    (void)height;
     (void)filterLinear;
 }
 void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
                        const U32 *paletteU32, S32 filterLinear) {
-    (void)indices; (void)pitch; (void)width; (void)height;
-    (void)paletteU32; (void)filterLinear;
+    (void)indices;
+    (void)pitch;
+    (void)width;
+    (void)height;
+    (void)paletteU32;
+    (void)filterLinear;
 }
 S32 GL_SphereTargetsFBO(void) { return 0; }
 void GL_ArrayWindowBegin(void) {}
 void GL_ArrayWindowEnd(void) {}
 S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
                           Struc_Point *ptrPoints) {
-    (void)typePoly; (void)colorPoly; (void)nbPoints; (void)ptrPoints;
+    (void)typePoly;
+    (void)colorPoly;
+    (void)nbPoints;
+    (void)ptrPoints;
     return 0;
+}
+S32 GL_TerrainGPUActive(void) { return 0; }
+U32 GL_TerrainVBOEpoch(void) { return 0; }
+U32 GL_CreateTerrainVBO(const T_GL_TerrainVertex *verts, U32 vertexCount) {
+    (void)verts;
+    (void)vertexCount;
+    return 0;
+}
+void GL_DeleteTerrainVBO(U32 vbo) { (void)vbo; }
+void GL_DrawTerrainVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
+                       S32 startZFog, S32 clipZFar, S32 palLevel) {
+    (void)vbo;
+    (void)vertexCount;
+    (void)atlasPage;
+    (void)startZFog;
+    (void)clipZFar;
+    (void)palLevel;
 }
 
 #endif /* USE_GPURENDERER */

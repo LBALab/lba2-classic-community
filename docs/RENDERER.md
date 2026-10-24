@@ -212,6 +212,12 @@ Triangles are collected into a VBO and flushed when:
 
 The CLUT row is *not* a flush trigger: `SetCLUT()` changes it per terrain tile (fog distance), and it rides per vertex instead — in the material word's high byte for CLUT-textured polygons (mode 0), in the RepMask vertex field for gouraud-table ones (mode 3) — so tiles share draw calls.
 
+### Static terrain VBO path (stereo)
+
+Exterior terrain bypasses the per-tile batch in stereo. `AffichageTerrainZBuf` uploads each cube once as a `T_GL_TerrainVertex` VBO (cube-local position, 8.8 atlas UV, light, RepMask, material, and the tile's top-left corner for the fog row) and draws the whole cube with one call through `s_terrainVertSrc`. The vertex shader applies `MatriceWorld` and the cube-local `CameraXr/Yr/Zr` and reproduces `LongProjectPoint3D`; `w` is the camera-space depth, so the GPU clips behind the eye, and the fragment shader discards the sub-`NearClip` sliver and anything past `ClipZFar`. The batch shader's screen-linear interpolation comes from `w = 1`, so the terrain shader premultiplies UV and depth by `w` and divides by the interpolated `w` in the fragment stage.
+
+The cache is keyed by cube `(x, y)`, holds 16 entries with LRU eviction, and is dropped when `LoadIsland()` or `InitSeaCube()` replaces the per-cube HQR data. Animated water/flower tiles remain in the VBO as their current frame and are also projected on the CPU into `PtrAniPoly` so the animated-poly pass is unchanged. The path is active only for a stereo eye unless `LBA2_GPU_TERRAIN=1` forces it; `LBA2_GPU_TERRAIN=0` is a kill switch and `LBA2_TERRAIN_NOCULL=1` disables culling for comparison. The mono desktop path stays on the batch.
+
 ### Texture array path
 
 Textured polys queued inside the decor/object windows (`GL_ArrayWindowBegin/End`) stamp `0x8000|layer` into the RepMask vertex field and sample a `GL_TEXTURE_2D_ARRAY` on unit 3 through a GLSL-3 variant of the CLUT program. Each layer holds the poly's `(PtrMap, w, h)` region *tiled* to 256×256, so the shader's `mod`-256 UV wrap reproduces the RepMask wrap for UVs pushed outside the region (raw 256×256 windows would sample the neighbouring texture block's bytes instead). This is what lets the decor pass — which interleaves a different page offset per poly group — merge into one batch instead of flushing per offset; `LBA2_NO_ARRAY=1` forces the 2D path for comparison.

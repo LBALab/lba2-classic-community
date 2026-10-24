@@ -106,6 +106,11 @@ void ClsTerrainZBuf(S32 clearLog) {
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
+/* Set while the GPU terrain path walks an animated tile: project it and
+   record its screen quad for the animated-poly pass, but do not fill it
+   again (the VBO already drew the tile). */
+static S32 s_gpuTerrainRecordOnly = 0;
+
 static inline void DrawFeuillePolyZBuf(S32 xi, S32 zi, T_SOMMET_ROT *ptrs) {
     S32 color;
     T_HALF_POLY *ptrh;
@@ -202,9 +207,11 @@ if (ptrh->Sens == 0) {
                     color += ((i0 + i1 + i2) * 21845) >> 24; // *21845 >> 16 EQU / 3
                 }
 
-                Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
-                          color, 3,
-                          Tab_Points);
+                if (!s_gpuTerrainRecordOnly) {
+                    Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
+                              color, 3,
+                              Tab_Points);
+                }
             }
 
             if (ptrh->TexFlag) {
@@ -225,7 +232,11 @@ if (ptrh->Sens == 0) {
 
                 type = (U8)ListTypePTexture[ptrh->TexFlag + (ptrh->PolyFlag << 2)];
 
-                if (Fill_Poly(type, color, 3, Tab_Points)) {
+                S32 filled = 1;
+                if (!s_gpuTerrainRecordOnly) {
+                    filled = Fill_Poly(type, color, 3, Tab_Points);
+                }
+                if (filled) {
                     if (MaxPolySea AND(ptrh->CodeJeu & 12) == 12) { // hihi je suis un polygone animé...
 
                         if (NbAniPoly < MaxPolySea - 1) {
@@ -286,9 +297,11 @@ if (ptrh->Sens == 0) {
                 if (ptrh->PolyFlag == 1) {
                     color += ((i0 + i2 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
                 }
-                Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
-                          color, 3,
-                          Tab_Points);
+                if (!s_gpuTerrainRecordOnly) {
+                    Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
+                              color, 3,
+                              Tab_Points);
+                }
             }
 
             if (ptrh->TexFlag) {
@@ -309,7 +322,11 @@ if (ptrh->Sens == 0) {
 
                 type = (U8)ListTypePTexture[ptrh->TexFlag + (ptrh->PolyFlag << 2)];
 
-                if (Fill_Poly(type, color, 3, Tab_Points)) {
+                S32 filled = 1;
+                if (!s_gpuTerrainRecordOnly) {
+                    filled = Fill_Poly(type, color, 3, Tab_Points);
+                }
+                if (filled) {
                     if (MaxPolySea AND(ptrh->CodeJeu & 12) == 12) { // hihi je suis un polygone animé...
                         if (NbAniPoly < MaxPolySea - 1) {
                             PtrAniPoly->X0 = (S16)Min3(x0, x2, x3);
@@ -369,9 +386,11 @@ if (ptrh->Sens == 0) {
                 if (ptrh->PolyFlag == 1) {
                     color += ((i0 + i1 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
                 }
-                Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
-                          color, 3,
-                          Tab_Points);
+                if (!s_gpuTerrainRecordOnly) {
+                    Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
+                              color, 3,
+                              Tab_Points);
+                }
             }
 
             if (ptrh->TexFlag) {
@@ -392,7 +411,11 @@ if (ptrh->Sens == 0) {
 
                 type = (U8)ListTypePTexture[ptrh->TexFlag + (ptrh->PolyFlag << 2)];
 
-                if (Fill_Poly(type, color, 3, Tab_Points)) {
+                S32 filled = 1;
+                if (!s_gpuTerrainRecordOnly) {
+                    filled = Fill_Poly(type, color, 3, Tab_Points);
+                }
+                if (filled) {
                     if (MaxPolySea AND(ptrh->CodeJeu & 12) == 12) { // hihi je suis un polygone animé...
                         if (NbAniPoly < MaxPolySea - 1) {
                             PtrAniPoly->X0 = (S16)Min3(x0, x1, x3);
@@ -453,9 +476,11 @@ if (ptrh->Sens == 0) {
                     color += ((i1 + i2 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
                 }
 
-                Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
-                          color, 3,
-                          Tab_Points);
+                if (!s_gpuTerrainRecordOnly) {
+                    Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
+                              color, 3,
+                              Tab_Points);
+                }
             }
 
             if (ptrh->TexFlag) {
@@ -476,7 +501,11 @@ if (ptrh->Sens == 0) {
 
                 type = (U8)ListTypePTexture[ptrh->TexFlag + (ptrh->PolyFlag << 2)];
 
-                if (Fill_Poly(type, color, 3, Tab_Points)) {
+                S32 filled = 1;
+                if (!s_gpuTerrainRecordOnly) {
+                    filled = Fill_Poly(type, color, 3, Tab_Points);
+                }
+                if (filled) {
                     if (MaxPolySea AND(ptrh->CodeJeu & 12) == 12) { // hihi je suis un polygone animé...
                         if (NbAniPoly < MaxPolySea - 1) {
                             PtrAniPoly->X0 = (S16)Min3(x1, x2, x3);
@@ -684,7 +713,6 @@ static S32 s_nearClipRX[65 * 65];
 static S32 s_nearClipRY[65 * 65];
 static S32 s_nearClipRZ[65 * 65];
 
-
 /* One clipped vertex: camera-space position plus the per-vertex attributes
    the ground fillers consume (light, atlas UV). */
 typedef struct {
@@ -829,8 +857,8 @@ static void FillNearClippedHalf(T_NEARCLIP_VERT *tri, U32 bank, U32 texFlag,
         }
 
         S32 fog = (S32)(PalLevel + 16 * BoundRegleTrois(0, 15,
-                                                       ClipZFar - StartZFog,
-                                                       (CameraZr - ((t[0]->rz + t[1]->rz + t[2]->rz) / 3)) - StartZFog));
+                                                        ClipZFar - StartZFog,
+                                                        (CameraZr - ((t[0]->rz + t[1]->rz + t[2]->rz) / 3)) - StartZFog));
         SetCLUT((U16)fog);
 
         S32 color = (S32)((bank << 4) + 11);
@@ -874,10 +902,8 @@ static void DrawNearClippedTileZBuf(S32 xi, S32 zi, T_SOMMET_ROT *ptrs, U8 *ptra
 
     /* Projection: |Xp - XCentre| = |dx| * LFactorX / zr, so bounding the
        projected offset to the screen + margin bounds |dx| to zr * K. */
-    s_ncKx16 = (S32)(((S64)((ModeDesiredX / 2 + NC_SCREEN_MARGIN) << 16)
-                      / LFactorX));
-    s_ncKy16 = (S32)(((S64)((ModeDesiredY / 2 + NC_SCREEN_MARGIN) << 16)
-                      / LFactorY));
+    s_ncKx16 = (S32)(((S64)((ModeDesiredX / 2 + NC_SCREEN_MARGIN) << 16) / LFactorX));
+    s_ncKy16 = (S32)(((S64)((ModeDesiredY / 2 + NC_SCREEN_MARGIN) << 16) / LFactorY));
 
     (void)ptrs;
     (void)ptra;
@@ -1002,8 +1028,7 @@ static S32 HorizonCubeOffscreen(void) {
     const S32 Y_MIN = -32768; /* full S16 height range: never cull a real peak */
     const S32 Y_MAX = 32767;
     static const S32 corner[8][3] = {
-        {0, Y_MIN, 0}, {CUBE, Y_MIN, 0}, {0, Y_MIN, CUBE}, {CUBE, Y_MIN, CUBE},
-        {0, Y_MAX, 0}, {CUBE, Y_MAX, 0}, {0, Y_MAX, CUBE}, {CUBE, Y_MAX, CUBE}};
+        {0, Y_MIN, 0}, {CUBE, Y_MIN, 0}, {0, Y_MIN, CUBE}, {CUBE, Y_MIN, CUBE}, {0, Y_MAX, 0}, {CUBE, Y_MAX, 0}, {0, Y_MAX, CUBE}, {CUBE, Y_MAX, CUBE}};
     S32 common = 63; /* every clip plane is a cull candidate */
     S32 i;
     for (i = 0; i < 8; i++) {
@@ -1035,6 +1060,434 @@ static S32 HorizonCubeOffscreen(void) {
     }
     return 1;
 }
+
+#ifdef USE_GPURENDERER
+/*══════════════════════════════════════════════════════════════════════════*
+   Static horizon terrain — VBOs and GPU projection
+ *══════════════════════════════════════════════════════════════════════════*/
+
+#define GPU_TERRAIN_CACHE_SIZE 16
+
+typedef struct {
+    S32 x, y;
+    U32 vbo;
+    U32 vertexCount;
+    U32 epoch;
+    U32 lastUse;
+    U16 *aniTiles; /* tile indices whose textured half animates */
+    U16 aniCount;
+    U8 valid;
+    U8 eligible;
+} T_GPU_TERRAIN_CACHE;
+
+static T_GPU_TERRAIN_CACHE s_gpuTerrainCache[GPU_TERRAIN_CACHE_SIZE];
+static U32 s_gpuTerrainUseSeq = 0;
+static S32 s_gpuTerrainCube = 0;
+static S32 s_gpuTerrainCubeX = 0;
+static S32 s_gpuTerrainCubeY = 0;
+
+/* The four terrain corners in the order DrawFeuillePolyZBuf builds the two
+   half-polys: TL, BL, BR, TR.  Sens selects the diagonal. */
+static const S32 s_gpuTerrainOrder0[2][3] = {{0, 1, 2}, {2, 3, 0}};
+static const S32 s_gpuTerrainOrder1[2][3] = {{3, 0, 1}, {1, 2, 3}};
+
+static void GPU_TerrainCacheDrop(T_GPU_TERRAIN_CACHE *e, U32 epoch) {
+    if (e->vbo != 0 && e->epoch == epoch) {
+        GL_DeleteTerrainVBO(e->vbo);
+    }
+    free(e->aniTiles);
+    e->aniTiles = NULL;
+    e->aniCount = 0;
+    e->vbo = 0;
+    e->vertexCount = 0;
+    e->epoch = 0;
+    e->lastUse = 0;
+    e->valid = 0;
+    e->eligible = 0;
+}
+
+void GPU_Terrain_InvalidateAll(void) {
+    U32 epoch = GL_TerrainVBOEpoch();
+    for (S32 i = 0; i < GPU_TERRAIN_CACHE_SIZE; i++) {
+        GPU_TerrainCacheDrop(&s_gpuTerrainCache[i], epoch);
+        s_gpuTerrainCache[i].x = -1;
+        s_gpuTerrainCache[i].y = -1;
+    }
+}
+
+/* Append one triangle carrying a half-poly's material.  `uv` is the six
+   8.8 atlas words in the triangle's point order; flat polys pass NULL.
+   `light` is the three per-vertex intensities, already in triangle order. */
+static void GPU_TerrainPush(T_GL_TerrainVertex *out, U32 *count, const S32 *px,
+                            const S32 *py, const S32 *pz, const S32 *light,
+                            const U16 *uv, S32 fogX, S32 fogY, S32 fogZ,
+                            U8 type, S32 color) {
+    U8 matFlags;
+    if (type == 8 || type == 12) {
+        matFlags = 4; /* direct palette index, no CLUT */
+    } else if (type < 8) {
+        if (type <= 1) {
+            matFlags = 1; /* flat */
+        } else if (type <= 5) {
+            matFlags = 2; /* gouraud */
+        } else {
+            matFlags = 3; /* gouraud table row from RepMask */
+        }
+    } else {
+        matFlags = 0; /* textured through the CLUT */
+    }
+    if (type >= 8 && (type & 4)) {
+        matFlags |= 32; /* INCRUST chroma key */
+    }
+
+    /* Level-9/13 flat textures take their fixed CLUT row from the low
+       nibble of the polygon colour; GL_RenderTriangleList does the same. */
+    const S32 flatLight = (color & 0xF) << 8;
+    const U16 material =
+        (U16)(matFlags | ((type < 8) ? ((color & 0xFF) << 8) : 0));
+    const U16 repMask = (type >= 8) ? 0xFFFF : 0;
+    for (S32 i = 0; i < 3; i++) {
+        T_GL_TerrainVertex *v = &out[(*count)++];
+        v->X = (float)px[i];
+        v->Y = (float)py[i];
+        v->Z = (float)pz[i];
+        v->U = (uv != NULL) ? (float)uv[i * 2] : 0.0f;
+        v->V = (uv != NULL) ? (float)uv[i * 2 + 1] : 0.0f;
+        v->Light = (float)((type == 9 || type == 13) ? flatLight : light[i]);
+        v->RepMask = (float)repMask;
+        v->Material = (float)material;
+        v->FogX = (float)fogX;
+        v->FogY = (float)fogY;
+        v->FogZ = (float)fogZ;
+    }
+}
+
+static void GPU_TerrainHalf(T_GL_TerrainVertex *out, U32 *count,
+                            const T_HALF_POLY *h, const S32 *px,
+                            const S32 *py, const S32 *pz, const S32 *light,
+                            const U16 *uv, S32 fogX, S32 fogY, S32 fogZ) {
+    if (!h->PolyFlag && !h->TexFlag) {
+        return;
+    }
+
+    /* Exactly Fill_Poly's colour mutation: the flat block adds the average
+       for type 1, and the textured block sees that value (type 2 override
+       still applies). */
+    S32 color = (h->Bank << 4) + 11;
+    S32 avg = ((light[0] + light[1] + light[2]) * 21845) >> 24;
+
+    if (h->PolyFlag) {
+        if (h->PolyFlag == 1) {
+            color += avg;
+        }
+        GPU_TerrainPush(out, count, px, py, pz, light, NULL, fogX, fogY,
+                        fogZ, (U8)ListTypePolygone[h->PolyFlag], color);
+    }
+    if (h->TexFlag) {
+        if (h->TexFlag == 2) {
+            color = avg;
+        }
+        GPU_TerrainPush(out, count, px, py, pz, light, uv, fogX, fogY, fogZ,
+                        (U8)ListTypePTexture[h->TexFlag + (h->PolyFlag << 2)],
+                        color);
+    }
+}
+
+/* Build the whole cube into a temporary vertex array.  Animated textured
+   halves are included in the VBO — the frame's static water/flower frame —
+   and their tile indices are returned separately so the caller can record
+   the projected quads the animated-poly pass replays.  Returns 1 when the
+   cube is renderable, 0 when it needs the CPU, -1 on allocation failure. */
+static S32 GPU_TerrainBuild(S32 x, S32 y, T_GL_TerrainVertex **outVerts,
+                            U32 *outCount, U16 **outAni, U16 *outAniCount) {
+    const U32 maxVerts = NB_COTE * NB_COTE * 2 * 2 * 3;
+    T_GL_TerrainVertex *verts = (T_GL_TerrainVertex *)malloc(
+        (size_t)maxVerts * sizeof(T_GL_TerrainVertex));
+    U32 count = 0;
+    U16 *ani = NULL;
+    U32 aniCount = 0;
+    U32 aniCap = 0;
+    (void)x;
+    (void)y;
+
+    if (verts == NULL) {
+        return -1;
+    }
+    if (MapSommetY == NULL || MapPolyGround == NULL || MapIntensity == NULL) {
+        free(verts);
+        return 0;
+    }
+
+    for (S32 zi = 0; zi < NB_COTE; zi++) {
+        for (S32 xi = 0; xi < NB_COTE; xi++) {
+            T_HALF_POLY *h0 = &MapPolyGround[(zi * NB_COTE + xi) * 2];
+            T_HALF_POLY *h1 = h0 + 1;
+            if (!h0->PolyFlag && !h0->TexFlag && !h1->PolyFlag &&
+                !h1->TexFlag) {
+                continue;
+            }
+
+            /* Animated sea/flower halves are also recorded into PtrAniPoly
+               by the CPU filler; remember them for the per-frame record
+               pass below. */
+            if ((h0->TexFlag && (h0->CodeJeu & 12) == 12) ||
+                (h1->TexFlag && (h1->CodeJeu & 12) == 12)) {
+                if (aniCount == aniCap) {
+                    U32 newCap = (aniCap == 0) ? 64 : aniCap * 2;
+                    U16 *grown =
+                        (U16 *)realloc(ani, (size_t)newCap * sizeof(U16));
+                    if (grown == NULL) {
+                        free(ani);
+                        free(verts);
+                        return -1;
+                    }
+                    ani = grown;
+                    aniCap = newCap;
+                }
+                ani[aniCount++] = (U16)(zi * NB_COTE + xi);
+            }
+
+            const S32 x0 = xi * 512;
+            const S32 x1 = (xi + 1) * 512;
+            const S32 z0 = zi * 512;
+            const S32 z1 = (zi + 1) * 512;
+
+            const S32 cx[4] = {x0, x0, x1, x1};
+            const S32 cz[4] = {z0, z1, z1, z0};
+            const S32 cy[4] = {
+                (S32)MapSommetY[zi * (NB_COTE + 1) + xi],
+                (S32)MapSommetY[(zi + 1) * (NB_COTE + 1) + xi],
+                (S32)MapSommetY[(zi + 1) * (NB_COTE + 1) + xi + 1],
+                (S32)MapSommetY[zi * (NB_COTE + 1) + xi + 1]};
+            S32 ci[4];
+            {
+                const S32 iidx[4] = {
+                    zi * (NB_COTE + 1) + xi,
+                    (zi + 1) * (NB_COTE + 1) + xi,
+                    (zi + 1) * (NB_COTE + 1) + xi + 1,
+                    zi * (NB_COTE + 1) + xi + 1};
+                for (S32 k = 0; k < 4; k++) {
+                    S32 l = (MapIntensity[iidx[k]] & 15) * 256 - 255;
+                    ci[k] = (l < 0) ? 0 : l;
+                }
+            }
+
+            const S32 sens = h0->Sens ? 1 : 0;
+            const S32(*order)[3] =
+                sens ? s_gpuTerrainOrder1 : s_gpuTerrainOrder0;
+
+            U16 uv0[6], uv1[6];
+            if (h0->TexFlag) {
+                if (ListTexDef == NULL) {
+                    free(ani);
+                    free(verts);
+                    return 0;
+                }
+                const T_HALF_TEX *t = &ListTexDef[h0->IndexTex];
+                uv0[0] = t->Tx0;
+                uv0[1] = t->Ty0;
+                uv0[2] = t->Tx1;
+                uv0[3] = t->Ty1;
+                uv0[4] = t->Tx2;
+                uv0[5] = t->Ty2;
+            }
+            if (h1->TexFlag) {
+                if (ListTexDef == NULL) {
+                    free(ani);
+                    free(verts);
+                    return 0;
+                }
+                const T_HALF_TEX *t = &ListTexDef[h1->IndexTex];
+                uv1[0] = t->Tx0;
+                uv1[1] = t->Ty0;
+                uv1[2] = t->Tx1;
+                uv1[3] = t->Ty1;
+                uv1[4] = t->Tx2;
+                uv1[5] = t->Ty2;
+            }
+
+            for (S32 half = 0; half < 2; half++) {
+                S32 px[3], py[3], pz[3], pl[3];
+                for (S32 k = 0; k < 3; k++) {
+                    const S32 pi = order[half][k];
+                    px[k] = cx[pi];
+                    py[k] = cy[pi];
+                    pz[k] = cz[pi];
+                    pl[k] = ci[pi];
+                }
+                GPU_TerrainHalf(verts, &count, half ? h1 : h0, px, py, pz, pl,
+                                half ? (h1->TexFlag ? uv1 : NULL)
+                                     : (h0->TexFlag ? uv0 : NULL),
+                                cx[0], cy[0], cz[0]);
+            }
+        }
+    }
+
+    *outVerts = verts;
+    *outCount = count;
+    *outAni = ani;
+    *outAniCount = (U16)aniCount;
+    return 1;
+}
+
+static T_GPU_TERRAIN_CACHE *GPU_TerrainCacheFind(S32 x, S32 y, U32 epoch) {
+    for (S32 i = 0; i < GPU_TERRAIN_CACHE_SIZE; i++) {
+        T_GPU_TERRAIN_CACHE *e = &s_gpuTerrainCache[i];
+        if (!e->valid) {
+            continue;
+        }
+        if (e->epoch != epoch) {
+            /* Handle from a previous context: drop it, never delete it. */
+            GPU_TerrainCacheDrop(e, epoch);
+            continue;
+        }
+        if (e->x == x && e->y == y) {
+            return e;
+        }
+    }
+    return NULL;
+}
+
+static T_GPU_TERRAIN_CACHE *GPU_TerrainCacheAlloc(S32 x, S32 y, U32 epoch) {
+    T_GPU_TERRAIN_CACHE *e = NULL;
+    for (S32 i = 0; i < GPU_TERRAIN_CACHE_SIZE; i++) {
+        if (!s_gpuTerrainCache[i].valid) {
+            e = &s_gpuTerrainCache[i];
+            break;
+        }
+    }
+    if (e == NULL) {
+        e = &s_gpuTerrainCache[0];
+        for (S32 i = 1; i < GPU_TERRAIN_CACHE_SIZE; i++) {
+            if (s_gpuTerrainCache[i].lastUse < e->lastUse) {
+                e = &s_gpuTerrainCache[i];
+            }
+        }
+    }
+    GPU_TerrainCacheDrop(e, epoch);
+    e->x = x;
+    e->y = y;
+    e->valid = 1;
+    e->epoch = epoch;
+    return e;
+}
+
+/* Project one animated tile with the CPU math and let the existing filler
+   body record its screen quad, without filling it: the VBO already drew the
+   tile.  Mimics AffichageTerrainZBuf's per-tile gate (every corner must be
+   projected in front of the near plane and inside the far plane). */
+static void GPU_TerrainRecordTile(S32 xi, S32 zi) {
+    const S32 corner[4][2] = {
+        {xi, zi}, {xi, zi + 1}, {xi + 1, zi + 1}, {xi + 1, zi}};
+    const S32 slot[4] = {0, 65, 66, 1};
+    T_SOMMET_ROT p[67];
+    U8 maskL = 0xFF;
+
+    for (S32 c = 0; c < 4; c++) {
+        const S32 cx = corner[c][0];
+        const S32 cz = corner[c][1];
+        const S32 y = MapSommetY[cz * (NB_COTE + 1) + cx];
+
+        LongWorldRotatePoint(cx * 512, y, cz * 512);
+        const S32 zr = CameraZr - Z0;
+        if (zr <= NearClip || zr >= ClipZFar) {
+            return;
+        }
+        if (!LongProjectPoint(X0, Y0, Z0)) {
+            return;
+        }
+        U8 flag = 16;
+        if (Xp < ClipXMin) {
+            flag |= 1;
+        }
+        if (Xp > ClipXMax) {
+            flag |= 2;
+        }
+        if (Yp < ClipYMin) {
+            flag |= 4;
+        }
+        if (Yp > ClipYMax) {
+            flag |= 8;
+        }
+        maskL &= flag;
+
+        p[slot[c]].Zrot = zr;
+        p[slot[c]].X2D = (S16)Xp;
+        p[slot[c]].Y2D = (S16)Yp;
+    }
+
+    /* MaskVisible()'s low byte: every corner projected, and no off-screen
+       side shared by all four (a tile visible in one corner but off-screen
+       in another still passes). */
+    if (maskL != 16) {
+        return;
+    }
+
+    s_gpuTerrainRecordOnly = 1;
+    DrawFeuillePolyZBuf(xi, zi, p);
+    s_gpuTerrainRecordOnly = 0;
+}
+
+static S32 GPU_TerrainDrawLoadedCube(S32 x, S32 y) {
+    const U32 epoch = GL_TerrainVBOEpoch();
+    T_GPU_TERRAIN_CACHE *e = GPU_TerrainCacheFind(x, y, epoch);
+    if (e == NULL) {
+        e = GPU_TerrainCacheAlloc(x, y, epoch);
+        if (e == NULL) {
+            return 0;
+        }
+
+        T_GL_TerrainVertex *verts = NULL;
+        U16 *ani = NULL;
+        U16 aniCount = 0;
+        U32 count = 0;
+        const S32 ok = GPU_TerrainBuild(x, y, &verts, &count, &ani, &aniCount);
+        if (ok < 0) {
+            /* Out of memory: do not cache a failure, retry next frame. */
+            GPU_TerrainCacheDrop(e, epoch);
+            return 0;
+        }
+        e->eligible = (U8)ok;
+        e->vertexCount = count;
+        e->aniTiles = ani;
+        e->aniCount = aniCount;
+        if (ok && count) {
+            e->vbo = GL_CreateTerrainVBO(verts, count);
+            if (e->vbo == 0) {
+                free(verts);
+                GPU_TerrainCacheDrop(e, epoch);
+                return 0;
+            }
+        }
+        free(verts);
+    }
+
+    e->lastUse = ++s_gpuTerrainUseSeq;
+    if (!e->eligible) {
+        return 0;
+    }
+    if (e->vertexCount == 0) {
+        return 1;
+    }
+    if (e->vbo == 0) {
+        return 0;
+    }
+    GL_DrawTerrainVBO(e->vbo, e->vertexCount, GroundTexture, StartZFog,
+                      ClipZFar, PalLevel);
+
+    /* Animated water/flower tiles still need their screen quad in
+       PtrAniPoly for the post-snapshot animation pass. */
+    if (MaxPolySea && e->aniCount > 0) {
+        for (U16 i = 0; i < e->aniCount && NbAniPoly < MaxPolySea - 1; i++) {
+            const S32 idx = (S32)e->aniTiles[i];
+            GPU_TerrainRecordTile(idx % NB_COTE, idx / NB_COTE);
+        }
+    }
+    return 1;
+}
+#else
+void GPU_Terrain_InvalidateAll(void) {}
+#endif /* USE_GPURENDERER */
 
 void DrawHorizon2ZBuf() {
     S32 flag = FALSE;
@@ -1124,8 +1577,14 @@ void DrawHorizon2ZBuf() {
 #ifdef USE_GPURENDERER
                             s_hznRotSlot =
                                 (TerrainTri->x + 1) * 3 + (TerrainTri->y + 1);
+                            s_gpuTerrainCube = 1;
+                            s_gpuTerrainCubeX = x;
+                            s_gpuTerrainCubeY = y;
 #endif
                             AffichageTerrainZBuf();
+#ifdef USE_GPURENDERER
+                            s_gpuTerrainCube = 0;
+#endif
                         }
                         flag = TRUE;
                     } else {
@@ -1203,6 +1662,24 @@ void AffichageTerrainZBuf(void) {
 
     // affichage des objets du decors
     AffichageObjetDecorsZBuf();
+
+#ifdef USE_GPURENDERER
+    /* Static terrain, static camera frame: one VBO and one draw for the
+       whole cube, with the CPU projection reproduced in the vertex shader.
+       The clip w is the camera-space distance to the near plane, so the GPU
+       clips geometry behind the camera the way the CPU's per-tile path does.
+       Horizon cubes set the coordinates around the call; the current cube
+       uses its own. */
+    if (GPURendererActive && GL_TerrainGPUActive()) {
+        const S32 gx = s_gpuTerrainCube ? s_gpuTerrainCubeX : CurrentCubeX;
+        const S32 gy = s_gpuTerrainCube ? s_gpuTerrainCubeY : CurrentCubeY;
+        if (GPU_TerrainDrawLoadedCube(gx, gy)) {
+            DrawOneSea(Y_SEA);
+            BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+            return;
+        }
+    }
+#endif
 
     tRot1 = SDL_GetTicks();
 
@@ -1673,13 +2150,11 @@ void DrawAnimatedPolys() {
     if (RefreshAniPoly < 0)
         RefreshAniPoly = 0;
 
-    // Met a jour Screen pour recouvrements
+        // Met a jour Screen pour recouvrements
 #ifdef USE_GPURENDERER
-    if (GPURendererActive)
-    {
+    if (GPURendererActive) {
         GL_FlushBatch();
-    }
-    else
+    } else
 #endif
     {
         BoxBlitStaticListToScreen();

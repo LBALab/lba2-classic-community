@@ -54,6 +54,10 @@ extern	T_SOMMET_ROT	SommetRot[65][65] ;
 
 extern S32 PalLevel;
 
+/* Drops every cached static-horizon terrain VBO; island and phantom-sea
+   loads change the per-cube HQR data behind the same cube coordinates. */
+void GPU_Terrain_InvalidateAll(void);
+
 #ifdef __cplusplus
 extern "C" S32 FogCoul;
 #else

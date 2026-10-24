@@ -235,6 +235,32 @@ directly into the runtime swapchain (`LBA2_OXR_DIRECT`), where the compositor's
 foveation applies to the app's writes. That path is currently off by default
 and is not validated; see the direct-stereo paragraph above.
 
+### Static terrain on the GPU
+
+Stereo draws exterior terrain through a static VBO path instead of the
+per-tile CPU projection. Each cube's heightfield, UVs, light and packed
+material word are uploaded once as a VBO in cube-local coordinates, the same
+frame `SetPosCamera()` shifts the camera into, and a vertex shader reproduces
+`LongProjectPoint3D`. Clip-space `w` is the camera-space depth, so the GPU
+clips geometry behind the eye; the fragment shader discards the sub-`NearClip`
+sliver and anything past `ClipZFar`, matching the software path's per-tile
+near/far gates. Screen-linear UV and depth interpolation, which the batch
+shader gets from `w = 1`, is restored by premultiplying those varyings by `w`
+and dividing by the interpolated `w`.
+
+The current cube and the eight horizon neighbours use the path; animated
+water/flower tiles stay in the VBO as their current frame and are also
+projected on the CPU into `PtrAniPoly` so the animated-poly pass keeps
+working. Cube VBOs are cached by `(x, y)` with LRU eviction and dropped when
+`LoadIsland()` or `InitSeaCube()` replaces the per-cube HQR data. The cache
+also drops stale handles after a renderer restart without deleting them.
+
+The path is enabled only while a stereo eye is active, so desktop mono builds
+and the ASM/CPU renderer are unchanged. `LBA2_GPU_TERRAIN=1` forces it on a
+desktop GL build for visual comparison, `LBA2_GPU_TERRAIN=0` disables it, and
+`LBA2_TERRAIN_NOCULL=1` turns off back-face culling while comparing against
+the batch path.
+
 In first person, each eye
 renders from its tracked view
 (`OpenXR_GetEyeView`): the orientation comes from the runtime-located

@@ -408,8 +408,11 @@ void AffGrilleExt() {
            eye 1 restores eye 0's capture instead of re-projecting ~34k grid
            vertices.  DrawSkySeaZBuf below still runs per eye (the sky/sea
            quads are few and the fog colour differs with the shifted
-           camera). */
-        if (GPURendererActive && hzEye == 1 && GL_HorizonValid()) {
+           camera).  The terrain VBO path re-projects the same static
+           vertices per eye in the vertex shader, so the capture is not
+           needed and must not overwrite the right eye's scene. */
+        if (GPURendererActive && hzEye == 1 && !GL_TerrainGPUActive() &&
+            GL_HorizonValid()) {
             U64 hzRestoreT0 = SDL_GetPerformanceCounter();
             GL_RestoreHorizon();
             hzRestoreTicks = SDL_GetPerformanceCounter() - hzRestoreT0;
@@ -420,7 +423,7 @@ void AffGrilleExt() {
             DrawHorizon2ZBuf();
             hzDrawT1 = SDL_GetTicks();
 #ifdef USE_GPURENDERER
-            if (GPURendererActive && hzEye == 0) {
+            if (GPURendererActive && hzEye == 0 && !GL_TerrainGPUActive()) {
                 GL_CaptureHorizon(HorizonBackdropStable());
                 GL_GetHorizonPerf(&hzResolveUs, &hzBlitUs, &hzRectPct);
             }

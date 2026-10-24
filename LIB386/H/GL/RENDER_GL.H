@@ -266,6 +266,46 @@ S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight, U32 dstWidth,
 //! empty; the stereo present then reads GL_Get3DFBO() for the right eye.
 S32 GL_StereoEyeSceneDirect(void);
 
+//! One vertex of the static terrain path: cube-local world position, the
+//! batch's 8.8 fixed-point atlas UV convention, the per-vertex light, the
+//! packed material word, and the tile's top-left corner (the whole tile
+//! takes its fog row from that corner).  Cube-local positions keep the
+//! rotated camera and the vertices in the same small frame the CPU path
+//! uses after SetPosCamera(), so float precision is not spent on the
+//! absolute world position of a 524k-unit map.
+typedef struct {
+    float X, Y, Z;
+    float U, V;
+    float Light;
+    float RepMask;
+    float Material;
+    float FogX, FogY, FogZ;
+} T_GL_TerrainVertex;
+
+//! 1 when the terrain program can render static exterior terrain this frame:
+//! a stereo eye is active (or LBA2_GPU_TERRAIN=1 forces it for desktop
+//! tests), the renderer and terrain program are up, and LBA2_GPU_TERRAIN != 0.
+S32 GL_TerrainGPUActive(void);
+
+//! Counter that changes whenever GL objects from an earlier context or
+//! program generation become invalid.  Cached VBO owners compare it and
+//! drop stale handles without deleting them.
+U32 GL_TerrainVBOEpoch(void);
+
+//! Upload a static terrain VBO.  Returns 0 on failure.
+U32 GL_CreateTerrainVBO(const T_GL_TerrainVertex *verts, U32 vertexCount);
+
+//! Delete a terrain VBO.  A stale handle (renderer shut down) is ignored.
+void GL_DeleteTerrainVBO(U32 vbo);
+
+//! Draw a terrain VBO into the current scene target (correct eye viewport,
+//! scene FBO, depth test/write, back-face culling).  Flushes any pending
+//! batch so decors drawn just before it keep their order.  startZFog,
+//! clipZFar and palLevel are the current cube's fog parameters, exactly as
+//! the CPU tile loop reads them.
+void GL_DrawTerrainVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
+                       S32 startZFog, S32 clipZFar, S32 palLevel);
+
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
 }
