@@ -7917,7 +7917,8 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
         /* Opt-in: the batch already carries aZ/1-over-W, so types 8-15
            (the affine POLYTEXT/POLYGTEX fillers) can take the same
            perspective-correct path as the Z-textured types. */
-        if (DisplayPerspectiveTextures && typePoly < POLY_TEXTURE_Z) {
+        if (DisplayPerspectiveTextures && s_arrayWindow &&
+            typePoly < POLY_TEXTURE_Z) {
             matFlags = (U16)(matFlags | (1 << 6));
         }
     }
