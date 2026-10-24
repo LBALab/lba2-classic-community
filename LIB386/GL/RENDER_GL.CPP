@@ -1229,14 +1229,24 @@ static U32 s_batchRingSlot = 0;    /* current flush's byte offset */
 static GLuint s_auxVBO = 0;        /* one-shot draws: shadow/sphere/shade/sprite */
 
 /* Decor batch: the decor pass's screen-space triangles are collected here
-   and drawn as one opaque and one alpha draw, instead of flushing the
-   shared batch whenever a decor changes atlas class or alpha mode. */
+   and drawn as opaque depth-writing, opaque depth-test-only, and alpha
+   streams, instead of flushing the shared batch whenever a decor changes
+   atlas class, alpha or depth-write mode. */
 #define DECOR_BATCH_MAX_VERTS (128 * 1024)
-static U8 *s_decorVerts[2] = {NULL, NULL};
-static U32 s_decorVertCount[2] = {0, 0};
-static U32 s_decorVertCap[2] = {0, 0};
+static U8 *s_decorVerts[3] = {NULL, NULL, NULL};
+static U32 s_decorVertCount[3] = {0, 0, 0};
+static U32 s_decorVertCap[3] = {0, 0, 0};
+/* Non-array decor polygons keep the legacy CLUT program and its ordering
+   relative to the static decor VBOs; they still batch instead of going
+   through the shared per-state path. */
+static U8 *s_decorLegacyVerts[5] = {NULL, NULL, NULL, NULL, NULL};
+static U32 s_decorLegacyCount[5] = {0, 0, 0, 0, 0};
+static U32 s_decorLegacyCap[5] = {0, 0, 0, 0, 0};
+static const void *s_decorLegacyPage[5] = {NULL, NULL, NULL, NULL, NULL};
+static U16 s_decorLegacyMask[5] = {0, 0, 0, 0, 0};
 static S32 s_decorBatch = 0;
 static GLuint s_decorVBO = 0;
+static void GL_DrawDecorLegacyStreams(void);
 
 /* MSAA resolve-in-tile: GL_EXT_multisampled_render_to_texture lets the tiler
  * resolve MSAA as part of native tile processing instead of a separate
@@ -2988,11 +2998,17 @@ void GL_Renderer_Shutdown(void) {
         glDeleteBuffers(1, &s_decorVBO);
         s_decorVBO = 0;
     }
-    for (S32 i = 0; i < 2; i++) {
+    for (S32 i = 0; i < 3; i++) {
         free(s_decorVerts[i]);
         s_decorVerts[i] = NULL;
         s_decorVertCount[i] = 0;
         s_decorVertCap[i] = 0;
+    }
+    for (S32 i = 0; i < 5; i++) {
+        free(s_decorLegacyVerts[i]);
+        s_decorLegacyVerts[i] = NULL;
+        s_decorLegacyCount[i] = 0;
+        s_decorLegacyCap[i] = 0;
     }
     s_decorBatch = 0;
     if (s_auxVBO) {
@@ -4803,6 +4819,7 @@ void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
     }
     /* Draw any CPU-fallback decor/render queued before this decor first. */
     GL_FlushBatch();
+    GL_DrawDecorLegacyStreams();
 
     GLuint sceneFbo = GL_SceneDrawFbo();
     if (sceneFbo != 0) {
@@ -5425,22 +5442,29 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
     GL_BindArrayBuffer(0);
 }
 
-static S32 GL_DecorBatchGrow(U32 group) {
-    U32 newCap = s_decorVertCap[group] ? s_decorVertCap[group] * 2 : 8192;
+static S32 GL_DecorBatchGrowBuf(U8 **verts, U32 *cap, U32 group) {
+    U32 newCap = cap[group] ? cap[group] * 2 : 8192;
     if (newCap > DECOR_BATCH_MAX_VERTS) {
         newCap = DECOR_BATCH_MAX_VERTS;
     }
-    if (newCap <= s_decorVertCap[group]) {
+    if (newCap <= cap[group]) {
         return 0;
     }
-    U8 *grown =
-        (U8 *)realloc(s_decorVerts[group], (size_t)newCap * BATCH_VERT_BYTES);
+    U8 *grown = (U8 *)realloc(verts[group], (size_t)newCap * BATCH_VERT_BYTES);
     if (grown == NULL) {
         return 0;
     }
-    s_decorVerts[group] = grown;
-    s_decorVertCap[group] = newCap;
+    verts[group] = grown;
+    cap[group] = newCap;
     return 1;
+}
+
+static S32 GL_DecorBatchGrow(U32 group) {
+    return GL_DecorBatchGrowBuf(s_decorVerts, s_decorVertCap, group);
+}
+
+static S32 GL_DecorLegacyGrow(U32 group) {
+    return GL_DecorBatchGrowBuf(s_decorLegacyVerts, s_decorLegacyCap, group);
 }
 
 /* Copy one 16-byte vertex per corner into a batch-format buffer:
@@ -5492,20 +5516,51 @@ static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
        vertex or in the two stream split, so the decor pass becomes two draws
        at GL_DecorBatchEnd instead of a flush per state change. */
     if (s_decorBatch) {
-        const U32 group = (s_currentMatFlags & 8) ? 1 : 0;
-        if (s_decorVertCount[group] + 3 > s_decorVertCap[group]) {
-            if (!GL_DecorBatchGrow(group)) {
+        /* Match the shared batch's depth-write rule per polygon: alpha and
+           non-Z-buffered decor polygons must not write depth, or their
+           transparent/background texels can occlude the sea and sky. */
+        const S32 alpha = (s_currentMatFlags & 8) ? 1 : 0;
+        const S32 write =
+            !alpha &&
+            (s_batchZBuffer || s_currentTypePoly >= POLY_TEXTURE_Z);
+        const S32 useArray = s_batchArray;
+        const S32 fog = (s_batchNZW && s_currentTypePoly == POLY_TEXTURE_Z_FOG);
+        const U32 group =
+            useArray ? (alpha ? 1 : (write ? 0 : 2))
+                     : (fog ? (alpha ? 4 : 3)
+                            : (alpha ? 1 : (write ? 0 : 2)));
+        if (!useArray && fog) {
+            if (s_decorLegacyPage[group] == NULL) {
+                s_decorLegacyPage[group] = s_batchAtlas;
+            }
+            s_decorLegacyMask[group] |= (U16)(RepMask & 0xFFFF);
+        }
+        U8 **verts = useArray ? s_decorVerts : s_decorLegacyVerts;
+        U32 *counts = useArray ? s_decorVertCount : s_decorLegacyCount;
+        U32 *caps = useArray ? s_decorVertCap : s_decorLegacyCap;
+
+        /* Non-array decors precede the array stream; draw them before the
+           first array decor so their image order stays that of the shared
+           batch, which the sea relies on. */
+        if (useArray && (s_decorLegacyCount[0] || s_decorLegacyCount[1] ||
+                         s_decorLegacyCount[2] || s_decorLegacyCount[3] ||
+                         s_decorLegacyCount[4])) {
+            GL_DrawDecorLegacyStreams();
+        }
+        if (counts[group] + 3 > caps[group]) {
+            const S32 grew =
+                useArray ? GL_DecorBatchGrow(group) : GL_DecorLegacyGrow(group);
+            if (!grew) {
                 /* Out of room: fall back to the shared batch for the rest
                    of the window. */
                 s_decorBatch = 0;
             }
         }
         if (s_decorBatch) {
-            U8 *dst = s_decorVerts[group] +
-                      (size_t)s_decorVertCount[group] * BATCH_VERT_BYTES;
+            U8 *dst = verts[group] + (size_t)counts[group] * BATCH_VERT_BYTES;
             GL_CopyBatchTriangle(dst, p0, p1, p2);
             GL_MarkTriangleRegion(p0, p1, p2);
-            s_decorVertCount[group] += 3;
+            counts[group] += 3;
             return;
         }
     }
@@ -5526,7 +5581,8 @@ static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
     s_batchTriCount++;
 }
 
-static void GL_DrawDecorStream(const U8 *data, U32 vertices, S32 alpha) {
+static void GL_DrawDecorStream(const U8 *data, U32 vertices, S32 alpha,
+                               S32 depthWrite) {
     if (vertices == 0) {
         return;
     }
@@ -5543,7 +5599,7 @@ static void GL_DrawDecorStream(const U8 *data, U32 vertices, S32 alpha) {
 
     GL_SetDepthTest(1);
     GL_SetDepthFunc(GL_GEQUAL);
-    GL_SetDepthWrite(1);
+    GL_SetDepthWrite(depthWrite ? 1 : 0);
     GL_SetBlendFunc(alpha ? 1 : 0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_CULL_FACE);
 
@@ -5598,9 +5654,146 @@ static void GL_DrawDecorStream(const U8 *data, U32 vertices, S32 alpha) {
     GL_BindArrayBuffer(0);
 }
 
+/* Draw the non-array decor stream through the legacy CLUT program.  These
+   polygons precede the array stream in the decor pass; the caller flushes
+   them before the first array decor or a static decor VBO so the image
+   order matches the shared batch. */
+static void GL_DrawDecorLegacyStream(const U8 *data, U32 vertices, S32 alpha,
+                                     S32 depthWrite, S32 depthAlways,
+                                     const void *page, U16 mask) {
+    if (vertices == 0) {
+        return;
+    }
+    GLuint sceneFbo = GL_SceneDrawFbo();
+    if (sceneFbo != 0) {
+        if (s_boundDrawFbo != sceneFbo) {
+            glBindFramebuffer(GL_FRAMEBUFFER, sceneFbo);
+        }
+        GL_SetSceneViewport();
+    } else {
+        glViewport(0, 0, (GLsizei)s_texWidth, (GLsizei)s_texHeight);
+    }
+    s_frameActive = 1;
+
+    GL_SetDepthTest(1);
+    GL_SetDepthFunc(depthAlways ? GL_ALWAYS : GL_GEQUAL);
+    GL_SetDepthWrite(depthWrite ? 1 : 0);
+    GL_SetBlendFunc(alpha ? 1 : 0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_CULL_FACE);
+
+    GL_UseProgramCached(s_clutProgram);
+    GL_ProcessAtlasDirty();
+    GL_UploadCLUT();
+    GL_UploadPalette();
+    if (page != NULL) {
+        GL_BindTexUnit(0, GL_BindAtlasFor(page, mask));
+    } else {
+        GL_BindTexUnit(0, s_atlasTex);
+    }
+    GL_BindTexUnit(1, s_clutTex);
+    GL_BindTexUnit(2, s_paletteTex);
+
+    {
+        const GLfloat sx = 2.0f / (GLfloat)s_texWidth;
+        const GLfloat sy = 2.0f / (GLfloat)s_texHeight;
+        glUniform2f(s_clut_uScreenScale, sx, sy);
+        s_ussX = sx;
+        s_ussY = sy;
+    }
+    glUniform2f(s_clut_uAtlasScale, 256.0f, 256.0f);
+    s_atlasScaleX = 256.0f;
+    s_atlasScaleY = 256.0f;
+    glUniform1f(s_clut_uCLUTBaseRow, 0.0f);
+    s_clutRowCached = 0.0f;
+    glUniform1f(s_clut_uScaledFogNear, (GLfloat)Fill_ScaledFogNear);
+    s_fogNearCached = (GLfloat)Fill_ScaledFogNear;
+    glUniform1f(s_clut_uFogRowScale,
+                (GLfloat)((double)Fill_Fog_Factor / 65536.0));
+    s_fogScaleCached = (GLfloat)((double)Fill_Fog_Factor / 65536.0);
+    glUniform1i(s_clut_uBilinear, s_bilinearCLUT);
+    s_bilinearCached = s_bilinearCLUT;
+
+    if (s_decorVBO == 0) {
+        glGenBuffers(1, &s_decorVBO);
+    }
+    GL_BindArrayBuffer(s_decorVBO);
+    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)vertices * BATCH_VERT_BYTES, data,
+                 GL_STREAM_DRAW);
+    glEnableVertexAttribArray(s_clut_aPos);
+    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
+                          (const void *)0);
+    glEnableVertexAttribArray(s_clut_aTexCoord);
+    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)4);
+    glEnableVertexAttribArray(s_clut_aLight);
+    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)8);
+    glEnableVertexAttribArray(s_clut_aZ);
+    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)10);
+    glEnableVertexAttribArray(s_clut_aRepMask);
+    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)12);
+    glEnableVertexAttribArray(s_clut_aMaterial);
+    glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)14);
+
+    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertices);
+
+    s_clutAttribsDirty = 1;
+    s_clutAttribsBase = -1;
+    s_clutAttribsProgram = 0;
+    GL_BindArrayBuffer(0);
+}
+
+static void GL_DrawDecorLegacyStreams(void) {
+    const U32 writeCount = s_decorLegacyCount[0];
+    const U32 alphaCount = s_decorLegacyCount[1];
+    const U32 noWriteCount = s_decorLegacyCount[2];
+    const U32 fogWriteCount = s_decorLegacyCount[3];
+    const U32 fogAlphaCount = s_decorLegacyCount[4];
+    s_decorLegacyCount[0] = 0;
+    s_decorLegacyCount[1] = 0;
+    s_decorLegacyCount[2] = 0;
+    s_decorLegacyCount[3] = 0;
+    s_decorLegacyCount[4] = 0;
+    if (!s_initialized || (writeCount == 0 && alphaCount == 0 &&
+                           noWriteCount == 0 && fogWriteCount == 0 &&
+                           fogAlphaCount == 0)) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+    GL_DrawDecorLegacyStream(s_decorLegacyVerts[0], writeCount, 0, 1, 0, NULL,
+                             0);
+    GL_DrawDecorLegacyStream(s_decorLegacyVerts[2], noWriteCount, 0, 0, 0,
+                             NULL, 0);
+    GL_DrawDecorLegacyStream(s_decorLegacyVerts[1], alphaCount, 1, 0, 0, NULL,
+                             0);
+    GL_DrawDecorLegacyStream(s_decorLegacyVerts[3], fogWriteCount, 0, 1, 1,
+                             s_decorLegacyPage[3], s_decorLegacyMask[3]);
+    GL_DrawDecorLegacyStream(s_decorLegacyVerts[4], fogAlphaCount, 1, 0, 1,
+                             s_decorLegacyPage[4], s_decorLegacyMask[4]);
+    s_decorLegacyPage[3] = NULL;
+    s_decorLegacyPage[4] = NULL;
+    s_decorLegacyMask[3] = 0;
+    s_decorLegacyMask[4] = 0;
+}
+
 void GL_DecorBatchBegin(void) {
     s_decorVertCount[0] = 0;
     s_decorVertCount[1] = 0;
+    s_decorVertCount[2] = 0;
+    s_decorLegacyCount[0] = 0;
+    s_decorLegacyCount[1] = 0;
+    s_decorLegacyCount[2] = 0;
+    s_decorLegacyCount[3] = 0;
+    s_decorLegacyCount[4] = 0;
+    s_decorLegacyPage[3] = NULL;
+    s_decorLegacyPage[4] = NULL;
+    s_decorLegacyMask[3] = 0;
+    s_decorLegacyMask[4] = 0;
     static S32 s_noDecorBatch = -1;
     if (s_noDecorBatch < 0) {
         s_noDecorBatch = getenv("LBA2_NO_DECOR_BATCH") ? 1 : 0;
@@ -5620,21 +5813,46 @@ void GL_DecorBatchEnd(void) {
     if (!s_decorBatch) {
         s_decorVertCount[0] = 0;
         s_decorVertCount[1] = 0;
+        s_decorVertCount[2] = 0;
+        s_decorLegacyCount[0] = 0;
+        s_decorLegacyCount[1] = 0;
+        s_decorLegacyCount[2] = 0;
+        s_decorLegacyCount[3] = 0;
+        s_decorLegacyCount[4] = 0;
         return;
     }
     s_decorBatch = 0;
-    const U32 opaqueCount = s_decorVertCount[0];
+    const U32 writeCount = s_decorVertCount[0];
     const U32 alphaCount = s_decorVertCount[1];
+    const U32 noWriteCount = s_decorVertCount[2];
+    const U32 legacyCount = s_decorLegacyCount[0] + s_decorLegacyCount[1] +
+                            s_decorLegacyCount[2] + s_decorLegacyCount[3] +
+                            s_decorLegacyCount[4];
     s_decorVertCount[0] = 0;
     s_decorVertCount[1] = 0;
-    if (!s_initialized || (opaqueCount == 0 && alphaCount == 0)) {
+    s_decorVertCount[2] = 0;
+    if (!s_initialized ||
+        (writeCount == 0 && alphaCount == 0 && noWriteCount == 0 &&
+         legacyCount == 0)) {
+        s_decorLegacyCount[0] = 0;
+        s_decorLegacyCount[1] = 0;
+        s_decorLegacyCount[2] = 0;
+        s_decorLegacyCount[3] = 0;
+        s_decorLegacyCount[4] = 0;
         return;
     }
     if (!Window_GLMakeCurrent()) {
+        s_decorLegacyCount[0] = 0;
+        s_decorLegacyCount[1] = 0;
+        s_decorLegacyCount[2] = 0;
+        s_decorLegacyCount[3] = 0;
+        s_decorLegacyCount[4] = 0;
         return;
     }
-    GL_DrawDecorStream(s_decorVerts[0], opaqueCount, 0);
-    GL_DrawDecorStream(s_decorVerts[1], alphaCount, 1);
+    GL_DrawDecorLegacyStreams();
+    GL_DrawDecorStream(s_decorVerts[0], writeCount, 0, 1);
+    GL_DrawDecorStream(s_decorVerts[2], noWriteCount, 0, 0);
+    GL_DrawDecorStream(s_decorVerts[1], alphaCount, 1, 0);
 }
 
 /* ── FBO clear (called at start of terrain rendering) ─────────────────────── */
