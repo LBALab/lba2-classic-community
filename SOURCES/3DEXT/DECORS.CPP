@@ -1,6 +1,9 @@
 #include "DEFINES.H"
 
 #include <SYSTEM/LOG.H>
+#include <3D/DECORVBO.H>
+#include <3D/IMATSTD.H>
+#include <3D/ROT3D.H>
 
 #include <GL/RENDER_GL.H> /* GL_ArrayWindowBegin/End */
 
@@ -271,9 +274,256 @@ void AffichageObjetDecorsZV(void) {
 }
 #endif
 
-/*══════════════════════════════════════════════════════════════════════════*/
+/*══════════════════════════════════════════════════════════════════════════*
+   Static decor VBO cache
+ *══════════════════════════════════════════════════════════════════════════*/
 
-// Version masques compris
+#define GPU_DECOR_CACHE_SIZE 64
+#define GPU_DECOR_MAX_LAYERS 64
+
+typedef struct {
+    const void *body;
+    U16 beta;
+    U32 vbo;
+    U32 vertexCount;
+    U32 epoch;
+    U32 lastUse;
+    U16 layerCount;
+    U16 layers[GPU_DECOR_MAX_LAYERS];
+    U8 valid;
+    U8 eligible;
+} T_GPU_DECOR;
+
+static T_GPU_DECOR s_gpuDecor[GPU_DECOR_CACHE_SIZE];
+static U32 s_gpuDecorUseSeq = 0;
+
+static void GPU_DecorDrop(T_GPU_DECOR *e, U32 epoch) {
+    /* A handle from a previous context must not be deleted against the new
+       context: names are reused. */
+    if (e->vbo != 0 && e->epoch == epoch) {
+        GL_DeleteDecorVBO(e->vbo);
+    }
+    for (S32 i = 0; i < e->layerCount; i++) {
+        GL_DecorArrayUnpin(e->layers[i]);
+    }
+    e->body = NULL;
+    e->vbo = 0;
+    e->vertexCount = 0;
+    e->epoch = 0;
+    e->lastUse = 0;
+    e->layerCount = 0;
+    e->valid = 0;
+    e->eligible = 0;
+}
+
+void GPU_Decor_InvalidateAll(void) {
+    U32 epoch = GL_DecorVBOEpoch();
+    for (S32 i = 0; i < GPU_DECOR_CACHE_SIZE; i++) {
+        GPU_DecorDrop(&s_gpuDecor[i], epoch);
+    }
+}
+
+static T_GPU_DECOR *GPU_DecorFind(const void *body, U16 beta, U32 epoch) {
+    for (S32 i = 0; i < GPU_DECOR_CACHE_SIZE; i++) {
+        T_GPU_DECOR *e = &s_gpuDecor[i];
+        if (!e->valid) {
+            continue;
+        }
+        if (e->epoch != epoch) {
+            GPU_DecorDrop(e, epoch);
+            continue;
+        }
+        if (e->body == body && e->beta == beta) {
+            return e;
+        }
+    }
+    return NULL;
+}
+
+static T_GPU_DECOR *GPU_DecorAlloc(const void *body, U16 beta, U32 epoch) {
+    T_GPU_DECOR *e = NULL;
+    for (S32 i = 0; i < GPU_DECOR_CACHE_SIZE; i++) {
+        if (!s_gpuDecor[i].valid) {
+            e = &s_gpuDecor[i];
+            break;
+        }
+    }
+    if (e == NULL) {
+        e = &s_gpuDecor[0];
+        for (S32 i = 1; i < GPU_DECOR_CACHE_SIZE; i++) {
+            if (s_gpuDecor[i].lastUse < e->lastUse) {
+                e = &s_gpuDecor[i];
+            }
+        }
+    }
+    GPU_DecorDrop(e, epoch);
+    e->body = body;
+    e->beta = beta;
+    e->epoch = epoch;
+    e->valid = 1;
+    return e;
+}
+
+static S32 GPU_DecorBuild(T_GPU_DECOR *e) {
+    T_DECORVBO_VERT *capture = NULL;
+    U32 captureCount = 0;
+    if (!DecorVBORecord((void *)e->body, &capture, &captureCount)) {
+        return 0;
+    }
+    T_GL_DecorVertex *verts = (T_GL_DecorVertex *)malloc(
+        (size_t)captureCount * sizeof(T_GL_DecorVertex));
+    if (verts == NULL) {
+        return 0;
+    }
+
+    TYPE_MAT mat;
+    InitMatrixStd(&mat, 0, e->beta, 0);
+
+    /* The same (page, region) usually repeats across a body's polys; pin it
+       once so the array layer survives every later batch. */
+    struct {
+        const void *map;
+        U16 w, h;
+        S32 layer;
+    } pages[GPU_DECOR_MAX_LAYERS];
+    U32 pageCount = 0;
+    S32 failed = 0;
+
+    for (U32 i = 0; i < captureCount && !failed; i++) {
+        const T_DECORVBO_VERT *in = &capture[i];
+        T_GL_DecorVertex *out = &verts[i];
+        RotatePoint(&mat, in->X, in->Y, in->Z);
+        out->X = (float)X0;
+        out->Y = (float)Y0;
+        out->Z = (float)Z0;
+        if (in->Flags & DECORVBO_FLAG_LIGHT) {
+            RotatePoint(&mat, in->NX, in->NY, in->NZ);
+            out->NX = (float)X0;
+            out->NY = (float)Y0;
+            out->NZ = (float)Z0;
+        } else {
+            out->NX = 0.0f;
+            out->NY = 0.0f;
+            out->NZ = 0.0f;
+        }
+        out->U = (float)in->U;
+        out->V = (float)in->V;
+
+        const U32 type = in->Type;
+        U16 matFlags;
+        if (type == 0 || type == 1) {
+            matFlags = 1; /* flat */
+        } else if (type == 4 || type == 5) {
+            matFlags = 2; /* gouraud */
+        } else if (type == 6 || type == 7) {
+            matFlags = 3; /* gouraud table */
+        } else if (type == 8 || type == 12) {
+            matFlags = 4; /* direct palette texture */
+        } else if (type == 9 || type == 10 || type == 11 || type == 13 ||
+                   type == 14 || type == 15) {
+            matFlags = 0; /* CLUT texture */
+        } else {
+            failed = 1;
+            break;
+        }
+        if (type >= 8 && (type & 4)) {
+            matFlags |= 32; /* INCRUST chroma key */
+        }
+        U8 flat = (type == 1) ? 1 : ((type == 9 || type == 13) ? 2 : 0);
+        U8 colorHi = 0;
+        if (type < 8) {
+            colorHi = in->Color;
+        }
+        out->Material = (float)(matFlags | ((U16)colorHi << 8));
+        out->Flat = (float)flat;
+
+        S32 layer = 0;
+        if (in->Flags & DECORVBO_FLAG_TEXTURED) {
+            const U32 w = (in->Mask & 0xFF) + 1;
+            const U32 h = (in->Mask >> 8) + 1;
+            U32 p = 0;
+            for (; p < pageCount; p++) {
+                if (pages[p].map == in->Map && pages[p].w == w &&
+                    pages[p].h == h) {
+                    layer = pages[p].layer;
+                    break;
+                }
+            }
+            if (p == pageCount) {
+                if (pageCount >= GPU_DECOR_MAX_LAYERS) {
+                    failed = 1;
+                    break;
+                }
+                layer = GL_DecorArrayPin(in->Map, w, h);
+                if (layer < 0) {
+                    failed = 1;
+                    break;
+                }
+                pages[pageCount].map = in->Map;
+                pages[pageCount].w = (U16)w;
+                pages[pageCount].h = (U16)h;
+                pages[pageCount].layer = layer;
+                pageCount++;
+            }
+        }
+        out->Layer = (float)layer;
+    }
+
+    if (!failed && captureCount > 0) {
+        e->vbo = GL_CreateDecorVBO(verts, captureCount);
+        if (e->vbo != 0) {
+            e->vertexCount = captureCount;
+            for (U32 p = 0; p < pageCount; p++) {
+                e->layers[e->layerCount++] = (U16)pages[p].layer;
+            }
+        } else {
+            failed = 1;
+        }
+    } else {
+        failed = 1;
+    }
+    free(verts);
+
+    if (failed) {
+        for (U32 p = 0; p < pageCount; p++) {
+            GL_DecorArrayUnpin(pages[p].layer);
+        }
+        return 0;
+    }
+    e->eligible = 1;
+    return 1;
+}
+
+/* Draw one static decor.  Returns 1 when the VBO handled it, 0 to let the
+   caller use the per-frame CPU filler (unsupported/transparent body). */
+static S32 GPU_DecorDraw(T_DECORS *ptrobj, S32 fogRow) {
+    if (!GL_DecorGPUActive()) {
+        return 0;
+    }
+    const void *body = HQR_Get(HQR_Isle_Obj, ptrobj->Body & 0xFFFF);
+    const U16 beta = (U16)(ptrobj->Beta & 0xFFFF);
+    const U32 epoch = GL_DecorVBOEpoch();
+    T_GPU_DECOR *e = GPU_DecorFind(body, beta, epoch);
+    if (e == NULL) {
+        e = GPU_DecorAlloc(body, beta, epoch);
+        if (e == NULL) {
+            return 0;
+        }
+        GPU_DecorBuild(e);
+    }
+    if (!e->eligible) {
+        return 0;
+    }
+    e->lastUse = ++s_gpuDecorUseSeq;
+    if (e->vbo == 0 || e->vertexCount == 0) {
+        return 0;
+    }
+    GL_DrawDecorVBO(e->vbo, e->vertexCount, ptrobj->Xworld, ptrobj->Yworld,
+                    ptrobj->Zworld, fogRow, ClipZFar);
+    return 1;
+}
+
+/*══════════════════════════════════════════════════════════════════════════*/
 
 void AffichageObjetDecorsZBuf(void) {
     S32 i;
@@ -282,6 +532,16 @@ void AffichageObjetDecorsZBuf(void) {
     S32 clipzstart;
     S32 numvar;
     S32 zr;
+
+    /* The decor VBO cache belongs to the current cube; dropping it on a cube
+       change also releases the texture-array layers it pinned. */
+    static S32 s_gpuDecorCubeX = 0x7FFFFFFF;
+    static S32 s_gpuDecorCubeY = 0x7FFFFFFF;
+    if (s_gpuDecorCubeX != CurrentCubeX || s_gpuDecorCubeY != CurrentCubeY) {
+        GPU_Decor_InvalidateAll();
+        s_gpuDecorCubeX = CurrentCubeX;
+        s_gpuDecorCubeY = CurrentCubeY;
+    }
 
     ObjPtrMap = ObjTexture; // texture obj
 
@@ -443,10 +703,14 @@ void AffichageObjetDecorsZBuf(void) {
         UnsetClip();
         ptrobj = ptrtri->PtrDec;
 
-        SetCLUT(PalLevel +
-                16 * BoundRegleTrois(0, 15,
-                                     clipzstart,
-                                     ptrtri->Zrot - StartZFog));
+        S32 fog = PalLevel + 16 * BoundRegleTrois(0, 15, clipzstart,
+                                                  ptrtri->Zrot - StartZFog);
+        SetCLUT(fog);
+
+        if (GPU_DecorDraw(ptrobj, fog & 0xF0)) {
+            ptrobj->Body |= DEC_DRAWN;
+            continue;
+        }
 
         if (BodyDisplay(ptrobj->Xworld,
                         ptrobj->Yworld,

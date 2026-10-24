@@ -58,6 +58,10 @@ extern S32 PalLevel;
    loads change the per-cube HQR data behind the same cube coordinates. */
 void GPU_Terrain_InvalidateAll(void);
 
+/* Drops the static decor VBOs and releases their pinned texture-array
+   layers; island loads replace the object HQR the body pointers come from. */
+void GPU_Decor_InvalidateAll(void);
+
 #ifdef __cplusplus
 extern "C" S32 FogCoul;
 #else

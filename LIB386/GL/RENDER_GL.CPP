@@ -2,6 +2,7 @@
 
 #include <3D/CAMERA.H>
 #include <3D/DATAMAT.H>
+#include <3D/LIGHT.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/WINDOW.H>
 #include <SYSTEM/OPENXR.H>
@@ -297,6 +298,94 @@ static const char *s_terrainVertSrc =
     "    }\n"
     "    vMaterial = material;\n"
     "    vRepMask = repMask;\n"
+    "}\n";
+
+/* Static decor shader: the decor body's positions/normals are already
+   rotated by the decor's beta (translation arrives per draw), so this only
+   applies MatriceWorld, the camera-space light and the CPU projection.
+   Flat shading needs the face-normal light byte; textured-flat polygons use
+   the same byte as a CLUT row selector (the terrain type-9/13 rule). */
+static const char *s_decorVertSrc =
+    GLSL_VERT_HEADER
+    "attribute vec3 aPos;\n"
+    "attribute vec3 aNormal;\n"
+    "attribute vec2 aTexCoord;\n" /* 8.8 fixed-point atlas texels */
+    "attribute float aMaterial;\n"
+    "attribute float aFlat;\n"  /* 0 none, 1 flat solid, 2 flat texture */
+    "attribute float aLayer;\n" /* pinned texture-array layer */
+    "uniform mat3 uRot;\n"
+    "uniform vec3 uCamera;\n"
+    "uniform vec3 uDecorPos;\n"
+    "uniform vec2 uFocal;\n"
+    "uniform vec2 uCentre;\n"
+    "uniform float uProjShiftX;\n"
+    "uniform vec2 uScreenScale;\n"
+    "uniform float uZBufferFactor;\n"
+    "uniform float uNearClip;\n"
+    "uniform float uFogRow;\n"
+    "uniform vec3 uLight;\n"
+    "uniform float uLightFactor;\n"
+    "varying vec2 vTexCoord;\n"
+    "varying vec2 vTexCoordOverW;\n"
+    "varying float vInvW;\n"
+    "varying float vW;\n"
+    "varying float vLight;\n"
+    "varying float vRepMask;\n"
+    "varying float vZ;\n"
+    "varying float vZOverW;\n"
+    "varying float vMaterial;\n"
+    "void main() {\n"
+    "    vec3 p = uRot * (aPos + uDecorPos);\n"
+    "    float depth = uCamera.z - p.z;\n"
+    "    float denom = depth;\n"
+    "    if (abs(denom) < 0.0001) {\n"
+    "        denom = (denom < 0.0) ? -0.0001 : 0.0001;\n"
+    "    }\n"
+    "    float factor = uFocal.x / denom;\n"
+    "    float xp = uCentre.x + uProjShiftX + (p.x - uCamera.x) * factor;\n"
+    "    float yp = uCentre.y + (p.y - uCamera.y) * factor * uFocal.y;\n"
+    "    float az = clamp(floor(max(depth, 0.0) * uZBufferFactor), 0.0, 65535.0);\n"
+    "    float w = depth;\n"
+    "    gl_Position = vec4((xp * uScreenScale.x - 1.0) * w,\n"
+    "                       (1.0 - yp * uScreenScale.y) * w,\n"
+    "                       (1.0 - az / 65535.0) * w, w);\n"
+    "    float invW = 1.0 / max(az, 1.0);\n"
+    "    vTexCoord = aTexCoord * w;\n"
+    "    vTexCoordOverW = aTexCoord * invW;\n"
+    "    vInvW = invW;\n"
+    "    vW = w;\n"
+    "    vZ = depth * w;\n"
+    "    vZOverW = depth * invW;\n"
+    "    float light = max(dot(uRot * aNormal, uLight) * uLightFactor, 0.0);\n"
+    /* LightList stores lrint(dot); the filler's >>8 and the CLUT row
+       (light+128)/256 both assume that rounded integer, so round once here
+       instead of feeding the raw dot into the flat byte / row math. */
+    "    light = floor(light + 0.5);\n"
+    "    vLight = light;\n"
+    "    float low = mod(aMaterial, 256.0);\n"
+    "    float raw = floor(aMaterial / 256.0);\n"
+    "    int mMode = int(mod(low, 8.0) + 0.5);\n"
+    "    float material = aMaterial;\n"
+    "    float rep = 0.0;\n"
+    "    if (aFlat > 1.5) {\n"
+    /* Textured flat (9/13): the SW handler passes the light byte itself as
+       the CLUT row selector; the body colour is not part of that row. */
+    "        float byte = floor(light / 256.0);\n"
+    "        vLight = mod(byte, 16.0) * 256.0;\n"
+    "        material = mod(low, 128.0) + uFogRow * 256.0;\n"
+    "        rep = 32768.0 + aLayer;\n"
+    "    } else if (aFlat > 0.5) {\n"
+    "        float byte = floor(light / 256.0);\n"
+    "        float col = mod(raw + byte, 256.0);\n"
+    "        material = low + col * 256.0;\n"
+    "    } else if (mMode == 0 || mMode == 4) {\n"
+    "        material = aMaterial + uFogRow * 256.0;\n"
+    "        rep = 32768.0 + aLayer;\n"
+    "    } else if (mMode == 3) {\n"
+    "        rep = uFogRow;\n"
+    "    }\n"
+    "    vMaterial = material;\n"
+    "    vRepMask = rep;\n"
     "}\n";
 
 static const char *s_clutFragSrc =
@@ -1067,6 +1156,35 @@ static GLint s_terrain_uTerrainFarClip = -1;
 static GLint s_terrain_uTerrainFar = -1;
 static U32 s_terrainEpoch = 1; /* advances on context loss; caches drop stale */
 static GLuint s_terrainBoundVBO = 0;
+
+/* ── GL state — static decor program ─────────────────────────────────────── */
+static GLuint s_decorProgram = 0;
+static GLint s_decor_aPos = -1;
+static GLint s_decor_aNormal = -1;
+static GLint s_decor_aTexCoord = -1;
+static GLint s_decor_aMaterial = -1;
+static GLint s_decor_aFlat = -1;
+static GLint s_decor_aLayer = -1;
+static GLint s_decor_uRot = -1;
+static GLint s_decor_uCamera = -1;
+static GLint s_decor_uDecorPos = -1;
+static GLint s_decor_uFocal = -1;
+static GLint s_decor_uCentre = -1;
+static GLint s_decor_uProjShiftX = -1;
+static GLint s_decor_uScreenScale = -1;
+static GLint s_decor_uZBufferFactor = -1;
+static GLint s_decor_uNearClip = -1;
+static GLint s_decor_uFogRow = -1;
+static GLint s_decor_uLight = -1;
+static GLint s_decor_uLightFactor = -1;
+static GLint s_decor_uAtlas = -1;
+static GLint s_decor_uCLUT = -1;
+static GLint s_decor_uPalette = -1;
+static GLint s_decor_uAtlasArr = -1;
+static GLint s_decor_uAtlasScale = -1;
+static GLint s_decor_uBilinear = -1;
+static GLint s_decor_uTerrainFarClip = -1;
+static GLint s_decor_uTerrainFar = -1;
 
 /* ── GL state — textures ────────────────────────────────────────────────── */
 
@@ -2543,6 +2661,85 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
         }
     }
 
+    /* ── Static decor program: CPU projection + camera-space light in the
+       vertex stage, array-sampled textures in the injected fragment ── */
+    {
+        static const char *attrNames[6] = {"aPos", "aNormal", "aTexCoord",
+                                           "aMaterial", "aFlat", "aLayer"};
+        char *v3 = GL_ShaderToV3(s_decorVertSrc, 1);
+        char *f3 = GL_ShaderToV3(s_clutFragSrc, 0);
+        if (f3 != NULL) {
+            f3 = GL_InjectArrayBranch(f3);
+        }
+        GLuint dv = 0, df = 0;
+        if (v3 != NULL && f3 != NULL) {
+            dv = CompileShader(GL_VERTEX_SHADER, v3);
+            df = CompileShader(GL_FRAGMENT_SHADER, f3);
+            for (S32 i = 0; i < 6; i++) {
+                glBindAttribLocation(dv, i, attrNames[i]);
+            }
+            s_decorProgram = LinkProgram(dv, df);
+        }
+        free(v3);
+        free(f3);
+        glDeleteShader(dv);
+        glDeleteShader(df);
+        if (s_decorProgram == 0) {
+            Log_Warn("[GL] decor program failed; decors stay on the CPU path");
+        } else {
+            s_decor_aPos = glGetAttribLocation(s_decorProgram, "aPos");
+            s_decor_aNormal = glGetAttribLocation(s_decorProgram, "aNormal");
+            s_decor_aTexCoord =
+                glGetAttribLocation(s_decorProgram, "aTexCoord");
+            s_decor_aMaterial =
+                glGetAttribLocation(s_decorProgram, "aMaterial");
+            s_decor_aFlat = glGetAttribLocation(s_decorProgram, "aFlat");
+            s_decor_aLayer = glGetAttribLocation(s_decorProgram, "aLayer");
+            s_decor_uRot = glGetUniformLocation(s_decorProgram, "uRot");
+            s_decor_uCamera = glGetUniformLocation(s_decorProgram, "uCamera");
+            s_decor_uDecorPos =
+                glGetUniformLocation(s_decorProgram, "uDecorPos");
+            s_decor_uFocal = glGetUniformLocation(s_decorProgram, "uFocal");
+            s_decor_uCentre = glGetUniformLocation(s_decorProgram, "uCentre");
+            s_decor_uProjShiftX =
+                glGetUniformLocation(s_decorProgram, "uProjShiftX");
+            s_decor_uScreenScale =
+                glGetUniformLocation(s_decorProgram, "uScreenScale");
+            s_decor_uZBufferFactor =
+                glGetUniformLocation(s_decorProgram, "uZBufferFactor");
+            s_decor_uNearClip =
+                glGetUniformLocation(s_decorProgram, "uNearClip");
+            s_decor_uFogRow = glGetUniformLocation(s_decorProgram, "uFogRow");
+            s_decor_uLight = glGetUniformLocation(s_decorProgram, "uLight");
+            s_decor_uLightFactor =
+                glGetUniformLocation(s_decorProgram, "uLightFactor");
+            s_decor_uAtlas = glGetUniformLocation(s_decorProgram, "uAtlas");
+            s_decor_uCLUT = glGetUniformLocation(s_decorProgram, "uCLUT");
+            s_decor_uPalette =
+                glGetUniformLocation(s_decorProgram, "uPalette");
+            s_decor_uAtlasArr =
+                glGetUniformLocation(s_decorProgram, "uAtlasArr");
+            s_decor_uAtlasScale =
+                glGetUniformLocation(s_decorProgram, "uAtlasScale");
+            s_decor_uBilinear =
+                glGetUniformLocation(s_decorProgram, "uBilinear");
+            s_decor_uTerrainFarClip =
+                glGetUniformLocation(s_decorProgram, "uTerrainFarClip");
+            s_decor_uTerrainFar =
+                glGetUniformLocation(s_decorProgram, "uTerrainFar");
+            GL_UseProgramCached(s_decorProgram);
+            glUniform1i(s_decor_uAtlas, 0);
+            glUniform1i(s_decor_uCLUT, 1);
+            glUniform1i(s_decor_uPalette, 2);
+            glUniform1i(s_decor_uAtlasArr, 3);
+            glUniform2f(s_decor_uAtlasScale, 256.0f, 256.0f);
+            glUniform1i(s_decor_uBilinear, 0);
+            glUniform1f(s_decor_uTerrainFarClip, 1.0f);
+            GL_UseProgramCached(0);
+            Log_Info("[GL] Static decor VBO program ready.");
+        }
+    }
+
     {
         GLuint fv = CompileShader(GL_VERTEX_SHADER, s_vertSrc);
         GLuint ff = CompileShader(GL_FRAGMENT_SHADER, s_fxaaFragSrc);
@@ -2835,6 +3032,10 @@ void GL_Renderer_Shutdown(void) {
     if (s_terrainProgram) {
         glDeleteProgram(s_terrainProgram);
         s_terrainProgram = 0;
+    }
+    if (s_decorProgram) {
+        glDeleteProgram(s_decorProgram);
+        s_decorProgram = 0;
     }
     if (s_fxaaProgram) {
         glDeleteProgram(s_fxaaProgram);
@@ -3809,6 +4010,7 @@ typedef struct {
     U32 ver;
     S32 layer;
     U32 lastUse;
+    S32 pin; /* static decor VBOs hold their layers */
 } GL_ArrSlot;
 static GL_ArrSlot s_arrSlots[GL_ARR_LAYERS];
 static U32 s_arrUseCounter = 0;
@@ -3834,7 +4036,8 @@ static GL_ArrSlot *GL_ArraySlotFor(const void *map, U32 w, U32 h) {
             slot = &s_arrSlots[i];
             break;
         }
-        if (lru == NULL || s_arrSlots[i].lastUse < lru->lastUse) {
+        if (s_arrSlots[i].pin == 0 &&
+            (lru == NULL || s_arrSlots[i].lastUse < lru->lastUse)) {
             lru = &s_arrSlots[i];
         }
     }
@@ -3844,6 +4047,9 @@ static GL_ArrSlot *GL_ArraySlotFor(const void *map, U32 w, U32 h) {
         } else {
             slot = lru;
         }
+        if (slot == NULL) {
+            return NULL; /* every layer is pinned by a static decor VBO */
+        }
         slot->map = map;
         slot->w = (U16)w;
         slot->h = (U16)h;
@@ -3851,10 +4057,38 @@ static GL_ArrSlot *GL_ArraySlotFor(const void *map, U32 w, U32 h) {
         slot->layer = (S32)(slot - s_arrSlots);
     }
     slot->lastUse = s_arrUseCounter;
-    if (s_arrCount >= GL_ARR_LAYERS) {
+    if (s_arrCount >= GL_ARR_LAYERS && slot == lru) {
         s_arrEvictions++; /* layer stolen from a map (may be in flight) */
     }
     return slot;
+}
+
+S32 GL_DecorArrayPin(const void *map, U32 w, U32 h) {
+    /* Leave half the layers for the per-frame batch.  A pinned layer can
+       never be evicted, and the batch path assumes GL_ArraySlotFor finds a
+       slot; bounding the static cache keeps that invariant after many
+       cubes without needing a null path through every batch caller. */
+    U32 pinned = 0;
+    for (S32 i = 0; i < s_arrCount; i++) {
+        if (s_arrSlots[i].pin > 0) {
+            pinned++;
+        }
+    }
+    if (pinned >= GL_ARR_LAYERS / 2) {
+        return -1;
+    }
+    GL_ArrSlot *slot = GL_ArraySlotFor(map, w, h);
+    if (slot == NULL) {
+        return -1;
+    }
+    slot->pin++;
+    return slot->layer;
+}
+
+void GL_DecorArrayUnpin(S32 layer) {
+    if (layer >= 0 && layer < s_arrCount && s_arrSlots[layer].pin > 0) {
+        s_arrSlots[layer].pin--;
+    }
 }
 
 static void GL_ArrayEnsureTexture(void) {
@@ -4500,6 +4734,173 @@ void GL_DrawTerrainVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
     s_terrainBoundVBO = vbo;
     s_clutAttribsDirty = 1;
     s_clutAttribsBase = -1;
+    glDisable(GL_CULL_FACE);
+    GL_BindArrayBuffer(0);
+}
+
+S32 GL_DecorGPUActive(void) {
+    static S32 s_noDecorVBO = -1;
+    if (s_noDecorVBO < 0) {
+        s_noDecorVBO = getenv("LBA2_NO_DECOR_VBO") ? 1 : 0;
+    }
+    if (s_noDecorVBO) {
+        return 0;
+    }
+    return (s_initialized && s_decorProgram != 0 && s_clut3Program != 0 &&
+            s_fbo != 0)
+               ? 1
+               : 0;
+}
+
+U32 GL_DecorVBOEpoch(void) { return s_terrainEpoch; }
+
+U32 GL_CreateDecorVBO(const T_GL_DecorVertex *verts, U32 vertexCount) {
+    if (!s_initialized || verts == NULL || vertexCount == 0) {
+        return 0;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return 0;
+    }
+    GLuint vbo = 0;
+    glGenBuffers(1, &vbo);
+    if (vbo == 0) {
+        return 0;
+    }
+    GL_BindArrayBuffer(vbo);
+    glBufferData(GL_ARRAY_BUFFER,
+                 (GLsizeiptr)(vertexCount * sizeof(T_GL_DecorVertex)), verts,
+                 GL_STATIC_DRAW);
+    GL_BindArrayBuffer(0);
+    return (U32)vbo;
+}
+
+void GL_DeleteDecorVBO(U32 vbo) {
+    if (vbo == 0 || !s_initialized) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+    GLuint glVbo = (GLuint)vbo;
+    if (s_curArrayBuf == glVbo) {
+        GL_BindArrayBuffer(0);
+    }
+    glDeleteBuffers(1, &glVbo);
+}
+
+void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, S32 x, S32 y, S32 z,
+                     S32 fogRow, S32 clipZFar) {
+    if (!s_initialized || s_decorProgram == 0 || s_fbo == 0 || vbo == 0 ||
+        vertexCount == 0) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+    /* Draw any CPU-fallback decor/render queued before this decor first. */
+    GL_FlushBatch();
+
+    GLuint sceneFbo = GL_SceneDrawFbo();
+    if (sceneFbo != 0) {
+        if (s_boundDrawFbo != sceneFbo) {
+            glBindFramebuffer(GL_FRAMEBUFFER, sceneFbo);
+        }
+        GL_SetSceneViewport();
+    } else {
+        glViewport(0, 0, (GLsizei)s_texWidth, (GLsizei)s_texHeight);
+    }
+    s_frameActive = 1;
+
+    GL_SetDepthTest(1);
+    GL_SetDepthFunc(GL_GEQUAL);
+    GL_SetDepthWrite(1);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    static S32 s_decorNoCull = -1;
+    if (s_decorNoCull < 0) {
+        s_decorNoCull = getenv("LBA2_DECOR_NOCULL") ? 1 : 0;
+    }
+    if (!s_decorNoCull) {
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+    } else {
+        glDisable(GL_CULL_FACE);
+    }
+
+    GL_UseProgramCached(s_decorProgram);
+    GL_ProcessAtlasDirty();
+    GL_UploadCLUT();
+    GL_UploadPalette();
+    GL_ArrayBind();
+    GL_BindTexUnit(0, s_atlasTex);
+    GL_BindTexUnit(1, s_clutTex);
+    GL_BindTexUnit(2, s_paletteTex);
+
+    {
+        GLfloat rot[9];
+        rot[0] = MatriceWorld.F.M11;
+        rot[1] = MatriceWorld.F.M21;
+        rot[2] = MatriceWorld.F.M31;
+        rot[3] = MatriceWorld.F.M12;
+        rot[4] = MatriceWorld.F.M22;
+        rot[5] = MatriceWorld.F.M32;
+        rot[6] = MatriceWorld.F.M13;
+        rot[7] = MatriceWorld.F.M23;
+        rot[8] = MatriceWorld.F.M33;
+        glUniformMatrix3fv(s_decor_uRot, 1, GL_FALSE, rot);
+    }
+    glUniform3f(s_decor_uCamera, (GLfloat)CameraXr, (GLfloat)CameraYr,
+                (GLfloat)CameraZr);
+    glUniform3f(s_decor_uDecorPos, (GLfloat)x, (GLfloat)y, (GLfloat)z);
+    glUniform2f(s_decor_uFocal, FRatioX, FRatioY);
+    glUniform2f(s_decor_uCentre, (GLfloat)XCentre, (GLfloat)YCentre);
+    glUniform1f(s_decor_uProjShiftX, (GLfloat)StereoProjShiftX);
+    if (s_texWidth > 0 && s_texHeight > 0) {
+        glUniform2f(s_decor_uScreenScale, 2.0f / (GLfloat)s_texWidth,
+                    2.0f / (GLfloat)s_texHeight);
+    }
+    glUniform1f(s_decor_uZBufferFactor,
+                (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0));
+    glUniform1f(s_decor_uNearClip, (GLfloat)NearClip);
+    glUniform1f(s_decor_uFogRow, (GLfloat)fogRow);
+    glUniform3f(s_decor_uLight, (GLfloat)CameraXLight,
+                (GLfloat)CameraYLight, (GLfloat)CameraZLight);
+    glUniform1f(s_decor_uLightFactor, 1.0f / 65536.0f);
+    glUniform1f(s_decor_uTerrainFarClip, 1.0f);
+    glUniform1f(s_decor_uTerrainFar, (GLfloat)clipZFar);
+
+    GL_BindArrayBuffer((GLuint)vbo);
+    const GLsizei stride = (GLsizei)sizeof(T_GL_DecorVertex);
+    glEnableVertexAttribArray(s_decor_aPos);
+    glVertexAttribPointer(
+        s_decor_aPos, 3, GL_FLOAT, GL_FALSE, stride,
+        (const void *)(uintptr_t)offsetof(T_GL_DecorVertex, X));
+    glEnableVertexAttribArray(s_decor_aNormal);
+    glVertexAttribPointer(
+        s_decor_aNormal, 3, GL_FLOAT, GL_FALSE, stride,
+        (const void *)(uintptr_t)offsetof(T_GL_DecorVertex, NX));
+    glEnableVertexAttribArray(s_decor_aTexCoord);
+    glVertexAttribPointer(
+        s_decor_aTexCoord, 2, GL_FLOAT, GL_FALSE, stride,
+        (const void *)(uintptr_t)offsetof(T_GL_DecorVertex, U));
+    glEnableVertexAttribArray(s_decor_aMaterial);
+    glVertexAttribPointer(
+        s_decor_aMaterial, 1, GL_FLOAT, GL_FALSE, stride,
+        (const void *)(uintptr_t)offsetof(T_GL_DecorVertex, Material));
+    glEnableVertexAttribArray(s_decor_aFlat);
+    glVertexAttribPointer(
+        s_decor_aFlat, 1, GL_FLOAT, GL_FALSE, stride,
+        (const void *)(uintptr_t)offsetof(T_GL_DecorVertex, Flat));
+    glEnableVertexAttribArray(s_decor_aLayer);
+    glVertexAttribPointer(
+        s_decor_aLayer, 1, GL_FLOAT, GL_FALSE, stride,
+        (const void *)(uintptr_t)offsetof(T_GL_DecorVertex, Layer));
+
+    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertexCount);
+
+    s_clutAttribsDirty = 1;
+    s_clutAttribsBase = -1;
+    s_clutAttribsProgram = 0;
     glDisable(GL_CULL_FACE);
     GL_BindArrayBuffer(0);
 }
@@ -5230,10 +5631,6 @@ void GL_DecorBatchEnd(void) {
 
 /* ── FBO clear (called at start of terrain rendering) ─────────────────────── */
 
-/* Clear the FBO color and depth buffers at the start of terrain rendering.
-   This is called from AffGrilleExt() instead of GL_FlushBatch() so that
-   frames with no terrain (e.g. Twinsen standing still) preserve the
-   previous frame's 3D content in the FBO. */
 void GL_ClearFBO(void) {
     if (!s_initialized) {
         return;
@@ -7770,6 +8167,31 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
 }
 S32 GL_TerrainGPUActive(void) { return 0; }
 U32 GL_TerrainVBOEpoch(void) { return 0; }
+S32 GL_DecorGPUActive(void) { return 0; }
+U32 GL_DecorVBOEpoch(void) { return 0; }
+U32 GL_CreateDecorVBO(const T_GL_DecorVertex *verts, U32 vertexCount) {
+    (void)verts;
+    (void)vertexCount;
+    return 0;
+}
+void GL_DeleteDecorVBO(U32 vbo) { (void)vbo; }
+S32 GL_DecorArrayPin(const void *map, U32 w, U32 h) {
+    (void)map;
+    (void)w;
+    (void)h;
+    return -1;
+}
+void GL_DecorArrayUnpin(S32 layer) { (void)layer; }
+void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, S32 x, S32 y, S32 z,
+                     S32 fogRow, S32 clipZFar) {
+    (void)vbo;
+    (void)vertexCount;
+    (void)x;
+    (void)y;
+    (void)z;
+    (void)fogRow;
+    (void)clipZFar;
+}
 U32 GL_CreateTerrainVBO(const T_GL_TerrainVertex *verts, U32 vertexCount) {
     (void)verts;
     (void)vertexCount;

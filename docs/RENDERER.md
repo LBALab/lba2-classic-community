@@ -228,6 +228,12 @@ The decor pass collects its screen-space triangles into two CPU streams, opaque 
 
 The array program is linked separately and Adreno assigns it different attribute slots from the legacy CLUT program, so both layouts are queried and the vertex-array spec is re-issued when the current program changes.
 
+### Static decor VBO
+
+Opaque, non-animated decor bodies bypass the per-frame CPU projection. The polygon handlers replay each body once in model space through `DecorVBORecord`, which captures positions, point/face normals, 8.8 UVs, the raw body colour and the pinned texture-array layer. A `T_GL_DecorVertex` VBO is cached per `(body, beta)`; the vertex shader applies the decor's beta rotation (baked at build), its world translation (a per-draw uniform) and `MatriceWorld`, then reproduces `LongProjectPoint3D` and the camera-space light. Flat and flat-textured shading select their palette/CLUT row from that light exactly as the CPU handlers do, and the per-decor fog row rides in the material word.
+
+Textured decors pin their `(PtrMap, w, h)` array layers so the batch LRU cannot evict a layer a VBO already references; `GPU_Decor_InvalidateAll()` releases the pins when `LoadIsland()` or `InitSeaCube()` replaces the object HQR. Bodies that are transparent, use alpha/stipple polygons, environment mapping, lines/spheres, or whose normals do not match their points stay on the per-frame CPU stream path. The static path is used in mono and stereo GL rendering, not only in a stereo eye. `LBA2_NO_DECOR_VBO=1` disables it and `LBA2_DECOR_NOCULL=1` disables back-face culling for comparison.
+
 ### Vertex format
 
 ```c

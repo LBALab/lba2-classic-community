@@ -11,6 +11,7 @@
 #include <3D/LITLISTF.H>
 #include <3D/COPYMAT.H>
 #include <3D/LPROJ.H>
+#include <3D/DECORVBO.H>
 #include <SVGA/CLIP.H>
 #include <POLYGON/POLY.H>
 
@@ -63,6 +64,105 @@ Func_TransNumPtr *TransFctBody = NULL; // Pointer to a conversion fct that conve
 
 // Light list
 U16 ListLights[MAX_NB_POINTS + MAX_NB_POLYS];
+
+/* Static decor VBO capture.  The polygon handlers replay a non-animated body
+   in model space; this buffer receives one entry per triangle vertex so the
+   renderer can bake the decor rotation/translation into a VBO once. */
+S32 DecorVBOActive = 0;
+S32 DecorVBOUnsupported = 0;
+static T_DECORVBO_VERT s_decorCapture[16384];
+static U32 s_decorCaptureCount = 0;
+static S32 s_decorNormal[4];
+static S32 s_decorFlatColor = 0;
+
+void DecorVBO_SetNormal(S32 slot, S32 index) {
+    if (slot >= 0 && slot < 4) {
+        s_decorNormal[slot] = index;
+    }
+}
+
+void DecorVBO_SetFlatColor(S32 color) { s_decorFlatColor = color; }
+
+static const TYPE_VT16 *DecorVBONormal(S32 index) {
+    if (lBody == NULL) {
+        return NULL;
+    }
+    if (index >= 0 && index < lBody->NbNormales) {
+        return (const TYPE_VT16 *)((const U8 *)lBody + lBody->OffNormales) +
+               index;
+    }
+    index -= lBody->NbNormales;
+    if (index >= 0 && index < lBody->NbNormFaces) {
+        return (const TYPE_VT16 *)((const U8 *)lBody + lBody->OffNormFaces) +
+               index;
+    }
+    return NULL;
+}
+
+void DecorVBO_CapturePoly(S32 type, S32 color, S32 n, Struc_Point *pts) {
+    if (!DecorVBOActive) {
+        return;
+    }
+    if (n < 3 || n > 4 || type < 0 || type >= 16) {
+        DecorVBOUnsupported = 1;
+        return;
+    }
+    /* Alpha/stipple (TRANS/TRAME) stay on the CPU filler for now. */
+    if (type == 2 || type == 3) {
+        DecorVBOUnsupported = 1;
+        return;
+    }
+    const S32 textured = (type >= 8);
+    const S32 gouraud = ((type >= 4 && type <= 7) || type >= 10);
+    const S32 flat = (type == 1);
+    const S32 flatTex = (type == 9 || type == 13);
+    const S32 light = gouraud || flat || flatTex;
+    if (textured && PtrMap == NULL) {
+        DecorVBOUnsupported = 1;
+        return;
+    }
+    if (s_decorCaptureCount + (U32)(n - 2) * 3 > 16384) {
+        DecorVBOUnsupported = 1;
+        return;
+    }
+
+    for (S32 t = 1; t < n - 1; t++) {
+        const S32 order[3] = {0, t, t + 1};
+        for (S32 k = 0; k < 3; k++) {
+            const S32 i = order[k];
+            T_DECORVBO_VERT *v = &s_decorCapture[s_decorCaptureCount++];
+            v->X = pts[i].Pt_XE;
+            v->Y = pts[i].Pt_YE;
+            v->Z = (S16)pts[i].Pt_ZO;
+            v->U = textured ? pts[i].Pt_MapU : 0;
+            v->V = textured ? pts[i].Pt_MapV : 0;
+            v->Type = (U8)type;
+            v->Color = (U8)((flat || flatTex) ? s_decorFlatColor : (color & 0xFF));
+            v->Flags = (U8)((textured ? DECORVBO_FLAG_TEXTURED : 0) |
+                            (gouraud ? DECORVBO_FLAG_GOURAUD : 0) |
+                            (flat ? DECORVBO_FLAG_FLAT : 0) |
+                            (flatTex ? DECORVBO_FLAG_FLAT_TEXTURE : 0));
+            v->Pad = 0;
+            v->Map = textured ? (const void *)PtrMap : NULL;
+            v->Mask = textured ? (U16)(RepMask & 0xFFFF) : 0;
+            if (light) {
+                const TYPE_VT16 *nr = DecorVBONormal(s_decorNormal[i]);
+                if (nr == NULL) {
+                    DecorVBOUnsupported = 1;
+                    return;
+                }
+                v->NX = nr->X;
+                v->NY = nr->Y;
+                v->NZ = nr->Z;
+                v->Flags |= DECORVBO_FLAG_LIGHT;
+            } else {
+                v->NX = 0;
+                v->NY = 0;
+                v->NZ = 0;
+            }
+        }
+    }
+}
 
 // Sort list:
 // * First half of list contain Z:Number
@@ -284,6 +384,11 @@ void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3) {
 
     for (int i = 0; i < 3; i++) {
         U16 idx = indices[i];
+        if (DecorVBOActive) {
+            /* Model-space Z is carried through the U16 field verbatim. */
+            dst[i].Pt_ZO = (U16)Obj_ListRotatedPoints[idx].Z;
+            continue;
+        }
         S32 Z = -Obj_ListRotatedPoints[idx].Z - PosZWr;
         dst[i].Pt_ZO = (Z * Fill_ZBuffer_Factor) >> 16;
     }
@@ -298,6 +403,10 @@ void GetZO4(Struc_Point *dst, U16 index1, U16 index2, U16 index3, U16 index4) {
 
     for (int i = 0; i < 4; i++) {
         U16 idx = indices[i];
+        if (DecorVBOActive) {
+            dst[i].Pt_ZO = (U16)Obj_ListRotatedPoints[idx].Z;
+            continue;
+        }
         S32 Z = -Obj_ListRotatedPoints[idx].Z - PosZWr;
         dst[i].Pt_ZO = (Z * Fill_ZBuffer_Factor) >> 16;
     }
@@ -354,6 +463,11 @@ S32 Triangle_Flat(U32 typePoly, void *poly) {
     U16 normal = ListLights[poly3->Normale] >> 8;
     U8 color = (poly3->Couleur + normal) & 0xFF;
 
+    DecorVBO_SetNormal(0, poly3->Normale);
+    DecorVBO_SetNormal(1, poly3->Normale);
+    DecorVBO_SetNormal(2, poly3->Normale);
+    DecorVBO_SetFlatColor(poly3->Couleur);
+
     return Fill_Poly(1, color, 3, ListFillPoly);
 }
 
@@ -373,6 +487,12 @@ S32 Quad_Flat(U32 typePoly, void *poly) {
 
     U16 normal = ListLights[poly4->Normale] >> 8;
     U8 color = (poly4->Couleur + normal) & 0xFF;
+
+    DecorVBO_SetNormal(0, poly4->Normale);
+    DecorVBO_SetNormal(1, poly4->Normale);
+    DecorVBO_SetNormal(2, poly4->Normale);
+    DecorVBO_SetNormal(3, poly4->Normale);
+    DecorVBO_SetFlatColor(poly4->Couleur);
 
     return Fill_Poly(1, color, 4, ListFillPoly);
 }
@@ -395,6 +515,10 @@ S32 Triangle_Gouraud(U32 typePoly, void *poly) {
     ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly3->P3].Y;
     ListFillPoly[2].Pt_Light = ListLights[poly3->P3];
 
+    DecorVBO_SetNormal(0, poly3->P1);
+    DecorVBO_SetNormal(1, poly3->P2);
+    DecorVBO_SetNormal(2, poly3->P3);
+
     return Fill_Poly(typePoly >> 2, poly3->Couleur, 3, ListFillPoly);
 }
 
@@ -414,6 +538,11 @@ S32 Quad_Gouraud(U32 typePoly, void *poly) {
     ListFillPoly[3].Pt_XE = Obj_ListProjectedPoints[poly4->P4].X;
     ListFillPoly[3].Pt_YE = Obj_ListProjectedPoints[poly4->P4].Y;
     ListFillPoly[3].Pt_Light = ListLights[poly4->P4];
+
+    DecorVBO_SetNormal(0, poly4->P1);
+    DecorVBO_SetNormal(1, poly4->P2);
+    DecorVBO_SetNormal(2, poly4->P3);
+    DecorVBO_SetNormal(3, poly4->P4);
 
     return Fill_Poly(typePoly >> 2, poly4->Couleur & 0xFF, 4, ListFillPoly);
 }
@@ -499,6 +628,11 @@ S32 Triangle_Texture_Flat(U32 typePoly, void *poly) {
 
     U16 normal = ListLights[poly3->Normale] >> 8;
 
+    DecorVBO_SetNormal(0, poly3->Normale);
+    DecorVBO_SetNormal(1, poly3->Normale);
+    DecorVBO_SetNormal(2, poly3->Normale);
+    DecorVBO_SetFlatColor(poly3->Couleur);
+
     return Fill_Poly(typePoly >> 2, normal, 3, ListFillPoly);
 }
 
@@ -529,6 +663,12 @@ S32 Quad_Texture_Flat(U32 typePoly, void *poly) {
 
     U16 normal = ListLights[poly4->Normale] >> 8;
 
+    DecorVBO_SetNormal(0, poly4->Normale);
+    DecorVBO_SetNormal(1, poly4->Normale);
+    DecorVBO_SetNormal(2, poly4->Normale);
+    DecorVBO_SetNormal(3, poly4->Normale);
+    DecorVBO_SetFlatColor(poly4->Couleur);
+
     return Fill_Poly(typePoly >> 2, normal, 4, ListFillPoly);
 }
 
@@ -558,6 +698,10 @@ S32 Triangle_Texture_Gouraud(U32 typePoly, void *poly) {
     U32 textureInfo = PtrTextures[poly3->HandleText];
     RepMask = textureInfo >> 16;
     PtrMap = ObjPtrMap + (textureInfo & 0xFFFF);
+
+    DecorVBO_SetNormal(0, poly3->P1);
+    DecorVBO_SetNormal(1, poly3->P2);
+    DecorVBO_SetNormal(2, poly3->P3);
 
     return Fill_Poly(typePoly >> 2, ListLights[poly3->P3], 3, ListFillPoly);
 }
@@ -591,6 +735,11 @@ S32 Quad_Texture_Gouraud(U32 typePoly, void *poly) {
     U32 textureInfo = PtrTextures[poly4->HandleText];
     RepMask = textureInfo >> 16;
     PtrMap = ObjPtrMap + (textureInfo & 0xFFFF);
+
+    DecorVBO_SetNormal(0, poly4->P1);
+    DecorVBO_SetNormal(1, poly4->P2);
+    DecorVBO_SetNormal(2, poly4->P3);
+    DecorVBO_SetNormal(3, poly4->P4);
 
     return Fill_Poly(typePoly >> 2, RepMask, 4, ListFillPoly);
 }
@@ -1279,7 +1428,7 @@ void InsertTriangle(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset
         // @@Do_Triangle:
         STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)*poly;
 
-        if (TestVisible(poly3)) {
+        if (DecorVBOActive || TestVisible(poly3)) {
             U32 zFar = TestZFar3(poly3);
 
             // | ZFar | Poly Number |
@@ -1316,13 +1465,13 @@ void InsertQuad(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset) {
         // @@Do_Quad:
         STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)*poly;
 
-        if (TestVisible(poly3)) {
+        if (DecorVBOActive || TestVisible(poly3)) {
             STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)*poly;
 
             S16 zFar = TestZFar4(poly3);
 
             TYPE_PT p4 = Obj_ListProjectedPoints[poly4->P4];
-            if (p4.X != -0x8000 || p4.Y != -0x8000) {
+            if (DecorVBOActive || p4.X != -0x8000 || p4.Y != -0x8000) {
                 U32 polyType = (header->TypePoly << 26);
                 if (type == 2) {
                     polyType |= (0b11 << 24); // Bit quad+environment
@@ -1373,6 +1522,9 @@ S32 EntityCreation(T_BODY_HEADER *body) {
         U32 mask = 0;
         memcpy(&mask, header, sizeof(U32));
         U8 typePoly = header->TypePoly & 0xFF;
+        if (DecorVBOActive && (mask & MASK_ENVIRONMENT)) {
+            DecorVBOUnsupported = 1;
+        }
         currentPoly = (void *)((U8 *)currentPoly + sizeof(T_POLY_HEADER));
         bodyOffset += sizeof(T_POLY_HEADER);
 
@@ -1499,6 +1651,51 @@ S32 EntityCreation(T_BODY_HEADER *body) {
         // @@Return_Display:
     }
 
+    return 1;
+}
+
+S32 DecorVBORecord(void *bodyPtr, T_DECORVBO_VERT **outVerts, U32 *outCount) {
+    T_BODY_HEADER *body = (T_BODY_HEADER *)bodyPtr;
+    if (body == NULL || body->NbLines != 0 || body->NbSpheres != 0 ||
+        (body->Info & MASK_OBJECT_TRANSPARENT)) {
+        return 0;
+    }
+    if (body->NbPoints <= 0 || body->NbPoints > MAX_NB_POINTS ||
+        body->NbNormales < body->NbPoints ||
+        body->NbNormales + body->NbNormFaces > MAX_NB_POINTS + MAX_NB_POLYS) {
+        return 0;
+    }
+
+    lBody = body;
+    const TYPE_VT16 *src =
+        (const TYPE_VT16 *)((const U8 *)body + body->OffPoints);
+    for (S32 i = 0; i < body->NbPoints; i++) {
+        Obj_ListRotatedPoints[i].X = src[i].X;
+        Obj_ListRotatedPoints[i].Y = src[i].Y;
+        Obj_ListRotatedPoints[i].Z = src[i].Z;
+        Obj_ListRotatedPoints[i].Group = src[i].Grp;
+        Obj_ListProjectedPoints[i].X = src[i].X;
+        Obj_ListProjectedPoints[i].Y = src[i].Y;
+    }
+    for (S32 i = 0; i < body->NbNormales + body->NbNormFaces; i++) {
+        ListLights[i] = (U16)i;
+    }
+
+    s_decorCaptureCount = 0;
+    s_decorFlatColor = 0;
+    for (S32 i = 0; i < 4; i++) {
+        s_decorNormal[i] = 0;
+    }
+    DecorVBOUnsupported = 0;
+    DecorVBOActive = 1;
+    EntityCreation(body);
+    DecorVBOActive = 0;
+
+    if (DecorVBOUnsupported || s_decorCaptureCount == 0) {
+        return 0;
+    }
+    *outVerts = s_decorCapture;
+    *outCount = s_decorCaptureCount;
     return 1;
 }
 

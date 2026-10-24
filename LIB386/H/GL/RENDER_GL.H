@@ -305,6 +305,44 @@ void GL_DeleteTerrainVBO(U32 vbo);
 void GL_DecorBatchBegin(void);
 void GL_DecorBatchEnd(void);
 
+//! One vertex of the static decor path: cube-local world position (decor
+//! rotation baked, translation in the draw uniform), world normal (decor
+//! rotation baked), 8.8 atlas UV, packed material word, flat-shading mode
+//! (0 none, 1 solid flat, 2 textured flat) and the pinned texture-array
+//! layer for textured polygons.
+typedef struct {
+    float X, Y, Z;
+    float NX, NY, NZ;
+    float U, V;
+    float Material;
+    float Flat;
+    float Layer;
+} T_GL_DecorVertex;
+
+//! 1 when the static decor path can render this frame: the renderer and its
+//! decor/array programs are up, the array texture exists, and
+//! LBA2_NO_DECOR_VBO is not set.  The path is used in mono and stereo.
+S32 GL_DecorGPUActive(void);
+
+//! Context generation counter for cached decor VBOs and pinned layers.
+U32 GL_DecorVBOEpoch(void);
+
+//! Upload/delete a static decor VBO.  A stale handle after renderer shutdown
+//! is ignored, like the terrain VBO API.
+U32 GL_CreateDecorVBO(const T_GL_DecorVertex *verts, U32 vertexCount);
+void GL_DeleteDecorVBO(U32 vbo);
+
+//! Pin a (page, region) texture in the decor array and return its layer, or
+//! -1 when the array has no room.  Each successful pin must be balanced by
+//! GL_DecorArrayUnpin when the owning VBO is dropped.
+S32 GL_DecorArrayPin(const void *map, U32 w, U32 h);
+void GL_DecorArrayUnpin(S32 layer);
+
+//! Draw one static decor VBO with the decor position added in the shader and
+//! the per-decor fog row baked into the material/RepMask word.
+void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, S32 x, S32 y, S32 z,
+                     S32 fogRow, S32 clipZFar);
+
 //! Draw a terrain VBO into the current scene target (correct eye viewport,
 //! scene FBO, depth test/write, back-face culling).  Flushes any pending
 //! batch so decors drawn just before it keep their order.  startZFog,

@@ -15,6 +15,7 @@
 
 #ifdef USE_GPURENDERER
 #include <GL/RENDER_GL.H>
+#include <3D/DECORVBO.H>
 extern S32 GPURendererActive;
 
 /* Temporary perf instrumentation: GL vs SW fallback counts in Fill_Poly */
@@ -159,6 +160,10 @@ S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
 #endif
 
 #ifdef USE_GPURENDERER
+    if (GPURendererActive && DecorVBOActive) {
+        DecorVBO_CapturePoly(Type_Poly, Color_Poly, Nb_Points, Ptr_Points);
+        return 1;
+    }
     if (GPURendererActive) {
         S32 glResult = GL_RenderTriangleList(Type_Poly, Color_Poly, Nb_Points,
                                              Ptr_Points);

@@ -279,6 +279,24 @@ composite copied to both halves. Controller state comes through the
 OpenXR action pipeline, mapped onto the same virtual-scancode space the
 SDL gamepad path uses so `JOYSTICK.CPP` picks it up unchanged.
 
+### Static decors on the GPU
+
+Opaque, non-animated decor bodies (buildings, rocks, signs, and similar
+props) are replayed once in model space and cached as a per-`(body, beta)`
+VBO. The vertex shader applies the decor rotation, the per-decor translation
+and `MatriceWorld`, reproduces the CPU projection, and computes the
+camera-space light; flat, flat-textured and gouraud shading select the same
+palette/CLUT rows as the software handlers. Textured decors pin their
+`(PtrMap, w, h)` layers in the texture array so batch eviction cannot
+invalidate a cached VBO; the pins are released on an island or phantom-sea
+reload.
+
+Transparent bodies, alpha/stipple polygons, environment mapping,
+lines/spheres and bodies whose normals do not match their points remain on
+the per-frame CPU stream path. The static path runs in mono and stereo GL
+rendering. `LBA2_NO_DECOR_VBO=1` disables it and
+`LBA2_DECOR_NOCULL=1` disables back-face culling for comparison.
+
 ### Where the loader comes from
 
 When `LBA2_OPENXR=ON`, the build consumes the official Khronos Android
