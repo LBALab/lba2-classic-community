@@ -294,7 +294,9 @@ reload.
 Transparent bodies, alpha/stipple polygons, environment mapping,
 lines/spheres and bodies whose normals do not match their points remain on
 the per-frame CPU stream path. The static path runs in mono and stereo GL
-rendering. `LBA2_NO_DECOR_VBO=1` disables it and
+rendering, but stays off by default on Android until the Adreno
+texture-array path is validated on device; `LBA2_GPU_DECOR=1` opts in for
+debugging. `LBA2_NO_DECOR_VBO=1` disables it and
 `LBA2_DECOR_NOCULL=1` disables back-face culling for comparison.
 
 ### Where the loader comes from

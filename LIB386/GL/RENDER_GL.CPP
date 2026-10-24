@@ -4746,6 +4746,19 @@ S32 GL_DecorGPUActive(void) {
     if (s_noDecorVBO) {
         return 0;
     }
+#ifdef __ANDROID__
+    /* The Adreno texture-array sampling used by the static decor program
+       still produces corrupt pages on Quest; keep the proven CPU/stream
+       path on device until that is fixed.  LBA2_GPU_DECOR=1 opts in for
+       on-device debugging. */
+    static S32 s_forceDecorVBO = -1;
+    if (s_forceDecorVBO < 0) {
+        s_forceDecorVBO = getenv("LBA2_GPU_DECOR") ? 1 : 0;
+    }
+    if (!s_forceDecorVBO) {
+        return 0;
+    }
+#endif
     return (s_initialized && s_decorProgram != 0 && s_clut3Program != 0 &&
             s_fbo != 0)
                ? 1
