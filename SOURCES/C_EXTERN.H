@@ -362,6 +362,7 @@ extern S32 FlagSpeak;
 
 //-------------------- ExtFunc.c
 extern U8 *PtrNuances; // Nuances gouraud
+extern U32 CLUTGeneration;
 
 extern U8 MagicHitForce[];
 extern U8 MagicBallHitForce[];

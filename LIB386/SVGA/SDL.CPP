@@ -42,6 +42,7 @@ static PrePresentActiveFn s_prePresentActive = NULL;
 static PresentTimingFn s_presentBegin = NULL;
 static PresentTimingFn s_presentEnd = NULL;
 static U32 paletteLUT[PAL_MAX_COLORS];
+static U32 s_paletteGeneration = 1;
 #if defined(__ANDROID__)
 /* Persistent staging buffer for the Android present path (see
  * AcquirePresentTarget): reused across frames, resized on demand, freed in
@@ -56,6 +57,10 @@ const U32 *GL_GetPaletteLUT(void) {
     return paletteLUT;
 }
 
+U32 GL_GetPaletteGeneration(void) {
+    return s_paletteGeneration;
+}
+
 static void RebuildPaletteLUT() {
     if (!sdlPalette) {
         return;
@@ -64,6 +69,7 @@ static void RebuildPaletteLUT() {
         SDL_Color c = sdlPalette->colors[i];
         paletteLUT[i] = ((U32)0xFF << 24) | ((U32)c.r << 16) | ((U32)c.g << 8) | c.b;
     }
+    s_paletteGeneration++;
 }
 
 // --- Initialization ----------------------------------------------------------
@@ -238,6 +244,7 @@ void SetVideoPaletteCol(S32 colorIdx, U8 r, U8 g, U8 b) {
     }
 
     paletteLUT[colorIdx] = ((U32)0xFF << 24) | ((U32)r << 16) | ((U32)g << 8) | b;
+    s_paletteGeneration++;
 }
 
 void SetVideoPaletteSync(const U8 src[]) {

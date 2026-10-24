@@ -470,6 +470,7 @@ void ChoicePalette(void) {
     RestartRainSample = TRUE;
     PtrPal = PtrPalCurrent;
     PtrCLUTGouraud = PtrCLUTFog = PtrNuances;
+    CLUTGeneration++;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/

@@ -127,6 +127,8 @@ The CLUT index formula: `gouraudIndex = ((gouraudValue >> 8) & 0xFF00) | texel`
 
 In the GL renderer, the full 64 KB fog table is uploaded once as a 256×256 LUMINANCE texture. The gouraud value's high byte (0–255) indexes the row directly — no need to track `SetCLUT` changes, since the shader samples the correct 16-row block within the full table.
 
+The upload is generation-tracked: `InitPalette()` bumps `CLUTGeneration` when it selects a new XPL fog table, and `GL_UploadCLUT` re-sends the table only when that generation or `PtrCLUTFog` changes. `SetVideoPalette()`/`SetVideoPaletteCol()` similarly bump a palette generation so the 1 KB palette texture is uploaded only when the palette actually changes.
+
 ### Fill_Logical_Palette
 
 A 256-byte copy of the current palette row (`POLY.CPP:251`), updated by `SetCLUT()`. Used by the SW rasterizer for palette lookups. The GL path uses the CLUT texture instead.

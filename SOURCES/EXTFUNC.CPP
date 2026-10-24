@@ -44,6 +44,7 @@ T_DECORS *PtrDecorsCol = 0; // Objet du decors en collision
 S16 NumDecorsCol = -1;      // avec l'objet courant
 
 U8 *PtrNuances; // Nuances gouraud
+U32 CLUTGeneration = 1;
 
 S32 LastIsland = -1;
 

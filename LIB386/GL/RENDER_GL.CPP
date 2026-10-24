@@ -37,6 +37,8 @@
 
 /* ── External palette getter (defined in SDL.CPP) ───────────────────────── */
 extern "C" const U32 *GL_GetPaletteLUT(void);
+extern "C" U32 GL_GetPaletteGeneration(void);
+extern "C" U32 CLUTGeneration;
 
 /* ── External CLUT / texture globals (from POLY.CPP) ────────────────────── */
 extern "C" {
@@ -3839,13 +3841,13 @@ void GL_SetAntiAlias(S32 mode) {
 static void GL_UploadPalette(void) {
     /* Uploaded once per frame per LUT pointer, not per polygon — same
        reasoning as GL_UploadCLUT above. */
-    static U32 s_palUpSeq = 0;
-    static const U32 *s_palUpPtr = NULL;
+    static U32 s_palUpGen = 0;
     const U32 *lut = GL_GetPaletteLUT();
     if (lut == NULL) {
         return;
     }
-    if (s_palUpSeq == s_frameSeq && s_palUpPtr == lut) {
+    const U32 gen = GL_GetPaletteGeneration();
+    if (s_palUpGen == gen) {
         return;
     }
 
@@ -3871,8 +3873,7 @@ static void GL_UploadPalette(void) {
 
     /* Invalidate cached reverse lookup so it gets rebuilt on next readback. */
     s_revLutHashValid = 0;
-    s_palUpSeq = s_frameSeq;
-    s_palUpPtr = lut;
+    s_palUpGen = gen;
 }
 
 static void GL_UploadCLUT(void) {
@@ -3881,35 +3882,25 @@ static void GL_UploadCLUT(void) {
        64 KB glTexSubImage2D per polygon meant ~500 MB of redundant uploads
        per pass (hundreds of ms on mobile GPUs).  The game only modifies
        the fog table in-place between scenes, so per-frame is sufficient. */
-    static U32 s_clutUpSeq = 0;
+    static U32 s_clutUpGen = 0;
     static const U8 *s_clutUpPtr = NULL;
     if (PtrCLUTFog == NULL) {
         return;
     }
-    if (s_clutUpSeq == s_frameSeq && s_clutUpPtr == PtrCLUTFog) {
+    if (s_clutUpGen == CLUTGeneration && s_clutUpPtr == PtrCLUTFog) {
         return;
     }
 
-    /* The table only actually changes between scenes (faded in gradually);
-       skip the 64 KB transfer on frames where no byte moved. */
-    static U8 s_clutShadow[256 * 256];
-    if (s_clutUpPtr == PtrCLUTFog &&
-        memcmp(s_clutShadow, PtrCLUTFog, sizeof(s_clutShadow)) == 0) {
-        s_clutUpSeq = s_frameSeq;
-        return;
-    }
-
-    /* Upload the full 64 KB fog table (256×256) once. SetCLUT selects a
-       16-row block within it; the gouraud value's high byte indexes into
-       the correct rows directly via the shader. */
+    /* Upload the full 64 KB fog table (256×256) only when InitPalette
+       selected a new table.  SetCLUT selects a 16-row block within it; the
+       gouraud value's high byte indexes the correct rows in the shader. */
     GL_BindTexUnit(0, s_clutTex);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_LUMINANCE,
                     GL_UNSIGNED_BYTE, PtrCLUTFog);
     GL_BindTexUnit(0, 0);
 
-    memcpy(s_clutShadow, PtrCLUTFog, sizeof(s_clutShadow));
     s_boundCLUT = PtrCLUTFog;
-    s_clutUpSeq = s_frameSeq;
+    s_clutUpGen = CLUTGeneration;
     s_clutUpPtr = PtrCLUTFog;
 }
 
