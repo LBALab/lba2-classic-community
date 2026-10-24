@@ -1,4 +1,37 @@
 
+/* Cheap sea/sky quad reject.  A quad that is wholly outside the frame
+   cannot contribute a pixel; its four rotations/projections and filler call
+   are pure sea-view CPU cost.  A failed projection or a near quad is kept
+   and left to Draw_Poly's exact clipper. */
+static S32 SkySeaQuadVisible(S32 x0, S32 z0, S32 y, S32 halfWorld) {
+    LongWorldRotatePoint(x0 + halfWorld, y, z0 + halfWorld);
+    if (!LongProjectPoint(X0, Y0, Z0)) {
+        return 1;
+    }
+    const S32 depth = CameraZr - Z0;
+    if (depth > ClipZFar) {
+        return 0;
+    }
+    if (depth < NearClip) {
+        return 1;
+    }
+    /* Use the nearest possible depth so the bound stays conservative for
+       the near half of the quad; the exact clipper still handles it. */
+    const S32 nearDepth = depth - halfWorld * 2;
+    if (nearDepth <= 0) {
+        return 1;
+    }
+    S32 halfX = (S32)((float)halfWorld * FRatioX / (float)nearDepth) + 3;
+    S32 halfY = (S32)((float)halfWorld * FRatioY / (float)nearDepth) + 3;
+    if (Xp + halfX < 0 || Xp - halfX > (S32)ModeDesiredX) {
+        return 0;
+    }
+    if (Yp + halfY < 0 || Yp - halfY > (S32)ModeDesiredY) {
+        return 0;
+    }
+    return 1;
+}
+
 S32 Draw_Poly(STRUC_CLIPVERTEX src[], S32 type) {
     S32 k, l;
     STRUC_CLIPVERTEX dst[10];
@@ -72,6 +105,10 @@ void DrawSky(S32 y) {
     for (i = 0; i < NB_POLYS_COTE * 3; i++, zz += WORLD_SIZE / NB_POLYS_COTE) {
         xx = -WORLD_SIZE;
         for (j = 0; j < NB_POLYS_COTE * 3; j++, xx += WORLD_SIZE / NB_POLYS_COTE) {
+            if (!SkySeaQuadVisible(xx, zz, y,
+                                   WORLD_SIZE / (NB_POLYS_COTE * 2))) {
+                continue;
+            }
             LongWorldRotatePoint(xx, y, zz);
             src[0].V_X0 = X0 - CameraXr;
             src[0].V_Y0 = Y0 - CameraYr;
@@ -124,6 +161,11 @@ void DrawOneSea(S32 y) // Si on souhaite que l'eau ne soit pas au niveau 0 :)
         xx = 0;
         for (j = 0; j < NB_POLYS_COTE; j++, xx += WORLD_SIZE / NB_POLYS_COTE) {
             if (CubeBitField & (1 << b)) {
+                if (!SkySeaQuadVisible(xx, zz, y,
+                                       WORLD_SIZE / (NB_POLYS_COTE * 2))) {
+                    b++;
+                    continue;
+                }
                 LongWorldRotatePoint(xx, y, zz);
                 src[0].V_X0 = X0 - CameraXr;
                 src[0].V_Y0 = Y0 - CameraYr;
