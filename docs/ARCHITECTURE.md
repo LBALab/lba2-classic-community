@@ -89,12 +89,20 @@ When the maps are solid enough to act on, the order the three axes agree on:
 Each step is a facade drawn *over* frozen code, proven behaviour-identical against the
 polyrec/projrec harnesses before the next. No rewrite.
 
-## The rings: what a setting may change
+## The rings and the core
 
-Features grow in three rings, each inside the next. **Original** is the game as a 1997 player
-met it: every setting at its value from before (`SETTING_BEFORE` in
-[SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). **Modern** settings change how the game is shown
-or handled, never what happens in it. **Experimental** is anything else, and comes out without
+The rings, the core and the platform tiers below follow from the principles in
+[PRINCIPLES.md](PRINCIPLES.md). When a case comes up that no rule covers, reason from those.
+
+![Four nested rings: inner core (the game) inside outer core (the platform) inside Modern inside Experimental; features such as the Auto camera, HD and LBA1 move inward](images/rings.svg)
+
+Settings grow in two rings around the core, Modern inside Experimental. **Original**, the game
+as a 1997 player met it, is not a ring but the reference: every setting at its value from
+before (`SETTING_BEFORE` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). It stays reachable:
+with the settings off the game plays as the original, and a change that breaks that is a
+regression, whichever ring it came from. **Modern** settings change how the game is shown
+or handled, never its rules; what they can change is what the original itself reads from the
+screen (below). **Experimental** is anything else, and comes out without
 ceremony. The replay digest is how the line is checked: its world hash is what the game holds,
 its view hash the camera, and the same inputs giving the same world hash is the same game.
 
@@ -106,6 +114,60 @@ change them. The Decision
 has the contracts and the Quirk
 [the-game-counts-what-is-on-screen.md](knowledge/quirks/the-game-counts-what-is-on-screen.md)
 the measurement. Read the Decision before a change that lets a setting reach the simulation.
+
+### The core
+
+Under the rings sits the core: what everything else is built on and cannot route around. The
+test is whether changing it could break a save, a recording, a fork or a mod. The core is not
+the same as Original. Original is the 1997 game, the reference the core is measured against;
+the core is what has to hold still so others can build on it.
+
+- **Inner core, the game.** Its rules, which the world hash measures, the save format and the
+  game data formats. Held to its oracle: the ASM, the retail release, the savegame corpus. It
+  changes only by a Decision, and a rule changes only as a retail fix with its own switch
+  ([the retail-fix Decision](knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md)).
+- **Outer core, the platform.** The [PAL](PLATFORM_ABSTRACTION.md) contract, console output,
+  recording and replay, the settings tables and the test harness. Each is a contract pinned
+  by tests; it grows by adding and does not break. A second game on the engine would share it.
+
+Some of the core is new, and some of the original is not core. The fixed 60 Hz step and the
+retail fixes are inner core though the 1997 game had neither; Miles audio and the DOS video
+modes were original and were replaced. The x86 ASM is the oracle, not part of the build.
+
+### Moving inward
+
+Dependencies point inward: an outer ring can come off without the inner ones noticing. The
+care a change takes rises toward the centre. Experimental comes out without ceremony, Modern
+needs evidence before it is on by default, and the core needs a Decision.
+
+Things move inward on evidence. For a setting moving from Experimental to Modern, or from off
+to on by default:
+
+1. Measure what it changes, on the data players have.
+2. With it off, nothing changes ([test_ring_off_is_gone.sh](../tests/automation/test_ring_off_is_gone.sh)).
+3. With it on, a Modern setting keeps the world hash, apart from what the screen door lets
+   through ([test_ring_watch_not_play.sh](../tests/automation/test_ring_watch_not_play.sh)). A
+   retail fix is meant to change play: its on arm is recorded, not held to the hash. A setting
+   that recordings do not carry needs only step 2.
+4. Anything judged by feel gets a play test, read back from its trace.
+
+A second game moves the same way: LBA1 work starts in Experimental, with its own inner core
+on the shared outer core.
+
+### Where it runs
+
+Platforms are a second axis, not a ring: every platform runs the same core. Each is pinned to
+one [PAL](PLATFORM_ABSTRACTION.md) backend: desktop on SDL3 (SDL2 is a build option), Android
+on SDL3 only, Switch and Vita on SDL2, and headless automation on the null backend. What a
+platform is promised depends on how it is tested:
+
+- **Tier 1, tested on hardware before a release:** Windows, Linux, macOS and Android.
+- **Tier 2, tested in emulation only.**
+- **Tier 3, builds but is not supported.**
+
+A platform moves up as it meets what the tier above is held to: it builds in CI, the test
+suite runs on it, a recording replays to the same world hash and a save from another platform
+loads.
 
 ## How to use these docs
 

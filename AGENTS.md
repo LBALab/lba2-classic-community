@@ -4,6 +4,9 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 ## Principles
 
+The project's principles, each with why it holds and what follows, are in
+[docs/PRINCIPLES.md](docs/PRINCIPLES.md). The five below are how they apply to day-to-day work.
+
 1. **Truth hierarchy and doc accuracy:** Code > project docs > external sources. Prefer `docs/GLOSSARY.md`, `docs/LIFECYCLES.md`, etc. over inference. When code and docs conflict, code wins — fix the docs in the same commit or PR (environment trumps willpower; maintainers may forget). Keep `docs/ASM_VALIDATION_PROGRESS.md` and `docs/ASM_TO_CPP_REFERENCE.md` current.
 
 2. **Preserve the nature of the game:** Do not change gameplay, feel, or behavior by default. Fix bugs that alter behavior; do not "improve" behavior without explicit agreement.
@@ -100,6 +103,7 @@ Apply these behavior rules on every non-trivial task:
 | Writing a plan, design trail, or research writeup before the work | Put it in `docs/plan/`, not `docs/`. Add it to the "Plans & research" table in docs/README.md with a status. `docs/` is what the engine does today; `docs/plan/` is what was proposed and why. When a plan lands, mark it Implemented and fold the durable parts into the reference doc; a plan must never be the only description of shipped behaviour | docs/README.md "Plans & research" |
 | Adding, moving, or removing a script under scripts/ | Add or update its row in scripts/README.md in the same commit | scripts/README.md |
 | Making a script or workflow depend on a new external tool | Add its row to docs/TOOLING.md **and** a probe to `scripts/dev/check-tooling.sh` in the same commit. Never restate a version in the doc — cite the file that pins it | docs/TOOLING.md |
+| A change to the core: the game's rules, its save or data formats, or a platform contract (PAL, console output, recording, settings tables, harness) | Find the Decision that covers it, or write one first; a contract grows by adding and does not break | docs/ARCHITECTURE.md "The rings and the core" |
 | Any code that affects documented behavior | Update the doc in the same commit | Principle 1 |
 | A subsystem the knowledge bundle has a concept for: timing, recording, control, console, transitions, save, input, movement | Read the owning Subsystem under `docs/knowledge/` and its Quirks before changing behaviour that looks wrong; a Quirk is original behaviour that is load bearing and looks like a defect. A change to a contract a concept carries updates the concept in the same PR, and a new load-bearing fact is a new concept rather than a comment. `make knowledge-check` is the gate | docs/knowledge/index.md, docs/knowledge/SCHEMA.md |
 | Fixing a bug | If the affected logic is pure-data, extract it to a pure function and add a host test. Otherwise add a manual repro hook (console command, debug flag) | CONTRIBUTING.md "Doing good work here" |

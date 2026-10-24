@@ -10,7 +10,9 @@ A few notes that keep it sustainable:
 
 ## Doing good work here
 
-A few principles. The *why* matters more than the rule — once you understand the why, you can apply judgment in cases the rule doesn't cover. None of this is unique to this project; it's how good engineering works generally. It's written down because this is a community project where reviewer time is scarce, and these habits are what keep quality high *without* anyone having to police it.
+A few principles. The *why* matters more than the rule — once you understand the why, you can apply judgment in cases the rule doesn't cover. None of this is unique to this project; it's how good engineering works generally. It's written down because this is a community project where reviewer time is scarce, and these habits are what keep quality high *without* anyone having to police it. The
+project's own principles, the ones its architecture follows from, are in
+[docs/PRINCIPLES.md](docs/PRINCIPLES.md).
 
 - **Own what you ship.** If you used an AI assistant, you are still the author. Read the diff yourself before opening the PR; you should be able to explain every line and defend every decision under review. *Why:* outsourcing typing is fine — outsourcing *understanding* is how subtle bugs land in old code. Your name on the PR is a commitment.
 
@@ -21,6 +23,8 @@ A few principles. The *why* matters more than the rule — once you understand t
 - **CI is on your side.** When it fails, read the log and fix the cause. Don't disable a check, skip a hook (`--no-verify`), or work around the failure to "unblock" yourself. *Why:* CI catches what you forgot to check on your machine — that's its whole job, and it's free. Fighting it just defers the same problem to whoever merges after you, often on a platform you didn't test.
 
 - **Explain *why*, not *what*.** In PR descriptions, commit messages, and code comments alike. *Why:* the diff already shows what changed. What it can't show is why this approach over the obvious alternative, what constraint you hit, or what you considered and rejected. That's the part future contributors (and your future self) will need.
+
+- **Experiments are welcome; the bar rises toward the core.** Something new can start as an Experimental setting, off by default, and come out again without ceremony. It moves inward on evidence, and the core, what saves, recordings and forks depend on, is held to the highest bar. See [ARCHITECTURE.md "The rings and the core"](docs/ARCHITECTURE.md#the-rings-and-the-core). *Why:* a core that holds still is what makes experimenting cheap, here and in every fork.
 
 - **Smaller is better.** The smallest change that solves the problem is easier to review, easier to revert if it turns out to be wrong, and easier to come back to after a break. *Why:* every line is a maintenance cost. Resist "while I'm here" cleanups; open a separate PR instead.
 

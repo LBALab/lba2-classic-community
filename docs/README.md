@@ -33,7 +33,8 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 
 | Doc | Description |
 |-----|-------------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Overview + roadmap: the three axes (structure / layer / time), the engine/game membrane, the north-star (one engine, two games). |
+| [PRINCIPLES.md](PRINCIPLES.md) | The principles the rules follow from, each with why it holds and what it means in practice. Reason from these where no rule covers a case. |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Overview + roadmap: the three axes (structure / layer / time), the engine/game membrane, the north-star (one engine, two games), the rings and the core. |
 | [ARCHITECTURE_GLOBALS.md](ARCHITECTURE_GLOBALS.md) | Structure axis: which of the ~200 globals each domain owns; the shared-state bus. |
 | [ENGINE_GAME_SEAM.md](ENGINE_GAME_SEAM.md) | Layer axis: engine vs game vs platform, with every module pinned (live/dormant) and the dual-path format seams. |
 | [ENGINE_GAME_INTERFACE.md](ENGINE_GAME_INTERFACE.md) | The engine↔game membrane: the Life/Track per-object script VM. |
