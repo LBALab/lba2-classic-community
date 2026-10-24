@@ -228,6 +228,8 @@ The decor pass collects its screen-space triangles into two CPU streams, opaque 
 
 The array program is linked separately and Adreno assigns it different attribute slots from the legacy CLUT program, so both layouts are queried and the vertex-array spec is re-issued when the current program changes.
 
+The GL batch interpolates texture coordinates affinely for the original POLYTEXT/POLYGTEX types (8–15), matching the software filler. On a large, oblique wall this is visible as texture swim/warp, especially in VR. The opt-in Display → Graphics → Perspective toggle stamps the material perspective bit for those types, reusing the batch’s existing per-vertex `1/W` varyings (the same path already used by Z-textured types 16–24). It is off by default; the software/CPU renderer and the default affine look are unchanged.
+
 ### Static decor VBO
 
 Opaque, non-animated decor bodies bypass the per-frame CPU projection. The polygon handlers replay each body once in model space through `DecorVBORecord`, which captures positions, point/face normals, 8.8 UVs, the raw body colour and the pinned texture-array layer. A `T_GL_DecorVertex` VBO is cached per `(body, beta)`; the vertex shader applies the decor's beta rotation (baked at build), its world translation (a per-draw uniform) and `MatriceWorld`, then reproduces `LongProjectPoint3D` and the camera-space light. Flat and flat-textured shading select their palette/CLUT row from that light exactly as the CPU handlers do, and the per-decor fog row rides in the material word.

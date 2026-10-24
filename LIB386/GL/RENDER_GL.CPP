@@ -68,6 +68,7 @@ S32 GL_LastRejectReason = 0;
 
 /* ── External texture filter toggle (from GLOBAL.CPP) ────────────────────── */
 extern "C" S32 DisplayTexFilter;
+extern "C" S32 DisplayPerspectiveTextures;
 extern "C" S32 DisplayAntiAlias;
 extern "C" S32 DisplayStereo3D;
 
@@ -7911,6 +7912,12 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
            rasterizer (Filler_TextureZ / FogSmooth divide MapU, MapV, ZBuf
            by W = 1/Z); types 8-15 (Filler_Texture / Gouraud) are affine. */
         if (typePoly >= POLY_TEXTURE_Z && typePoly <= POLY_TEXTURE_Z_FOG) {
+            matFlags = (U16)(matFlags | (1 << 6));
+        }
+        /* Opt-in: the batch already carries aZ/1-over-W, so types 8-15
+           (the affine POLYTEXT/POLYGTEX fillers) can take the same
+           perspective-correct path as the Z-textured types. */
+        if (DisplayPerspectiveTextures && typePoly < POLY_TEXTURE_Z) {
             matFlags = (U16)(matFlags | (1 << 6));
         }
     }

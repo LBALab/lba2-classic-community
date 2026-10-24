@@ -93,6 +93,7 @@ S32 FpsLimit = 0; /* 0 = unlimited, else frames-per-second ceiling */
 #ifdef USE_GPURENDERER
 S32 GPURendererActive = FALSE;
 S32 DisplayTexFilter = TRUE;
+S32 DisplayPerspectiveTextures = FALSE;                           /* opt-in perspective-correct decor/object batch mapping */
 S32 DisplayAntiAlias = 0; /* 0=off, 1=FXAA, 2=MSAA×2, 3=MSAA×4 */ /* bilinear by default in GL mode */
 S32 RenderQuality = 1; /* native resolution by default */
 #endif

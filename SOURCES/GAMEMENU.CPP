@@ -94,6 +94,7 @@ S32 FlagShowEndDemo = FALSE;
 #ifdef USE_GPURENDERER
 #define MENU_ID_DISPLAY_RENDERER 2117
 #define MENU_ID_DISPLAY_TEXFILTER 2118
+#define MENU_ID_DISPLAY_PERSPECTIVE 2134
 #define MENU_ID_DISPLAY_QUALITY 2119
 #define MENU_ID_DISPLAY_STEREO3D 2120 /* Quest OpenXR native stereo toggle */
 #define MENU_ID_DISPLAY_VRZOOM 2128   /* Quest stereo world zoom percent */
@@ -257,6 +258,8 @@ static void BuildDisplayGraphicsMenu(void) {
     *p++ = MENU_ID_DISPLAY_RENDERER;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_TEXFILTER;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_PERSPECTIVE;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_ANTIALIAS;
 #ifndef __ANDROID__
@@ -700,6 +703,10 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_TEXFILTER:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayTexFilter == 2 ? MENU_LABEL_TEXFILTER_SCALE2X : DisplayTexFilter ? MENU_LABEL_TEXFILTER_BILINEAR : MENU_LABEL_TEXFILTER_NEAREST));
+        break;
+
+    case MENU_ID_DISPLAY_PERSPECTIVE:
+        snprintf(string, 256, "Perspective: %s", DisplayPerspectiveTextures ? "On" : "Off");
         break;
 
     case MENU_ID_DISPLAY_ANTIALIAS:
@@ -3708,6 +3715,11 @@ static void DisplayMenuApplyChoice(S32 select) {
         /* 0 = Nearest, 1 = Bilinear, 2 = Scale2x (2D overlay in GL mode;
          * the 3D atlas samples bilinear for any non-zero value). */
         DisplayTexFilter = (DisplayTexFilter + 1) % 3;
+        WriteConfigFile();
+        break;
+
+    case MENU_ID_DISPLAY_PERSPECTIVE:
+        DisplayPerspectiveTextures = !DisplayPerspectiveTextures;
         WriteConfigFile();
         break;
 

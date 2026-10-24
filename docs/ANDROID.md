@@ -299,6 +299,12 @@ texture-array path is validated on device; `LBA2_GPU_DECOR=1` opts in for
 debugging. `LBA2_NO_DECOR_VBO=1` disables it and
 `LBA2_DECOR_NOCULL=1` disables back-face culling for comparison.
 
+The original software filler maps decor/object textures affinely
+(types 8–15), so a large wall seen obliquely swims as the head moves. The
+opt-in Display → Graphics → Perspective toggle makes the GL batch use its
+existing per-vertex 1/W path for those types; it is off by default and does
+not affect the software/CPU renderer.
+
 ### Where the loader comes from
 
 When `LBA2_OPENXR=ON`, the build consumes the official Khronos Android

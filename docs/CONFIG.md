@@ -88,6 +88,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | CameraFirstPerson | First-person camera (0=off, 1=on); VR headset builds render the tracked head pose per eye. Community addition, not in original game | ReadConfigFile / WriteConfigFile | Options → Advanced options (camera setting) |
 | DisplayBrightness / DisplayContrast / DisplaySaturation | Image adjustments applied at composite time in the GL present shaders. Community addition, not in original game | ReadConfigFile / WriteConfigFile | Options → Display menu |
 | VrFovScale | VR world zoom as a percent of the eye's natural FOV (50–120, default 100). Above 100 renders a wider field, zoomed out; past ~120 the frame outgrows the authored world. Quest stereo only | ReadConfigFile / WriteConfigFile | Options → Display menu (headset sessions) or console `vrzoom` |
+| DisplayPerspectiveTextures | 0/1; enables perspective-correct texture mapping for the GL batch’s textured decor/object polygons (the original software filler is affine). Default 0 preserves the original look. Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → Graphics → Perspective |
 
 ## Code reference
 
