@@ -222,6 +222,12 @@ The cache is keyed by cube `(x, y)`, holds 16 entries with LRU eviction, and is 
 
 Textured polys queued inside the decor/object windows (`GL_ArrayWindowBegin/End`) stamp `0x8000|layer` into the RepMask vertex field and sample a `GL_TEXTURE_2D_ARRAY` on unit 3 through a GLSL-3 variant of the CLUT program. Each layer holds the poly's `(PtrMap, w, h)` region *tiled* to 256×256, so the shader's `mod`-256 UV wrap reproduces the RepMask wrap for UVs pushed outside the region (raw 256×256 windows would sample the neighbouring texture block's bytes instead). This is what lets the decor pass — which interleaves a different page offset per poly group — merge into one batch instead of flushing per offset; `LBA2_NO_ARRAY=1` forces the 2D path for comparison.
 
+### Decor VBO streams
+
+The decor pass collects its screen-space triangles into two CPU streams, opaque and alpha (the same 16-byte batch vertex layout), and draws them as two VBO submissions at `GL_DecorBatchEnd` instead of flushing the shared batch whenever a decor changes atlas class or alpha mode. Alpha textured decors stay on the texture-array path inside the decor window, so their pages no longer split the pass. The opaques are drawn first, then the alpha stream in submission order. `LBA2_NO_DECOR_BATCH=1` keeps the per-state batch path for comparison.
+
+The array program is linked separately and Adreno assigns it different attribute slots from the legacy CLUT program, so both layouts are queried and the vertex-array spec is re-issued when the current program changes.
+
 ### Vertex format
 
 ```c

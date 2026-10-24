@@ -298,6 +298,13 @@ U32 GL_CreateTerrainVBO(const T_GL_TerrainVertex *verts, U32 vertexCount);
 //! Delete a terrain VBO.  A stale handle (renderer shut down) is ignored.
 void GL_DeleteTerrainVBO(U32 vbo);
 
+//! Begin/end a decor batch: the decor pass's screen-space triangles are
+//! collected into a growable CPU array and drawn in two calls (opaque and
+//! alpha) instead of flushing the shared batch on every decor state change.
+//! Requires the texture-array program; otherwise the normal batch is used.
+void GL_DecorBatchBegin(void);
+void GL_DecorBatchEnd(void);
+
 //! Draw a terrain VBO into the current scene target (correct eye viewport,
 //! scene FBO, depth test/write, back-face culling).  Flushes any pending
 //! batch so decors drawn just before it keep their order.  startZFog,

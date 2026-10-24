@@ -1015,6 +1015,15 @@ static GLint s_clut_aLight = -1;
 static GLint s_clut_aZ = -1;
 static GLint s_clut_aRepMask = -1;
 static GLint s_clut_aMaterial = -1;
+/* The array program is linked separately and some drivers assign its
+   attribute slots independently of the legacy program; the vertex-array
+   spec must name the slots of whichever program is current. */
+static GLint s_clut3_aPos = -1;
+static GLint s_clut3_aTexCoord = -1;
+static GLint s_clut3_aLight = -1;
+static GLint s_clut3_aZ = -1;
+static GLint s_clut3_aRepMask = -1;
+static GLint s_clut3_aMaterial = -1;
 static GLint s_clut_uAtlas = -1;
 static GLint s_clut_uCLUT = -1;
 static GLint s_clut_uPalette = -1;
@@ -1089,6 +1098,16 @@ static U32 s_batchRingBase = 0;    /* ring offset of the batch being flushed */
 static U32 s_batchRingOff = 0;     /* next slot's byte offset */
 static U32 s_batchRingSlot = 0;    /* current flush's byte offset */
 static GLuint s_auxVBO = 0;        /* one-shot draws: shadow/sphere/shade/sprite */
+
+/* Decor batch: the decor pass's screen-space triangles are collected here
+   and drawn as one opaque and one alpha draw, instead of flushing the
+   shared batch whenever a decor changes atlas class or alpha mode. */
+#define DECOR_BATCH_MAX_VERTS (128 * 1024)
+static U8 *s_decorVerts[2] = {NULL, NULL};
+static U32 s_decorVertCount[2] = {0, 0};
+static U32 s_decorVertCap[2] = {0, 0};
+static S32 s_decorBatch = 0;
+static GLuint s_decorVBO = 0;
 
 /* MSAA resolve-in-tile: GL_EXT_multisampled_render_to_texture lets the tiler
  * resolve MSAA as part of native tile processing instead of a separate
@@ -1189,6 +1208,7 @@ static S32 s_curActiveUnit = -1;
 static GLuint s_curProgram = (GLuint)-1;
 static S32 s_clutAttribsDirty = 1;      /* vertex arrays need enable + re-spec */
 static GLintptr s_clutAttribsBase = -1; /* ring offset the pointers point at */
+static GLuint s_clutAttribsProgram = 0; /* program whose slots the pointers use */
 /* Last indexed present can be read as the scene alone: empty overlay, no
    present-side post-process, and a content-sized scene FBO. */
 static S32 s_directScenePresent = 0;
@@ -2413,6 +2433,15 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
         if (s_clut3Program == 0) {
             Log_Warn("[GL] array CLUT program failed; staying on the 2D path");
         } else {
+            s_clut3_aPos = glGetAttribLocation(s_clut3Program, "aPos");
+            s_clut3_aTexCoord =
+                glGetAttribLocation(s_clut3Program, "aTexCoord");
+            s_clut3_aLight = glGetAttribLocation(s_clut3Program, "aLight");
+            s_clut3_aZ = glGetAttribLocation(s_clut3Program, "aZ");
+            s_clut3_aRepMask =
+                glGetAttribLocation(s_clut3Program, "aRepMask");
+            s_clut3_aMaterial =
+                glGetAttribLocation(s_clut3Program, "aMaterial");
             s_clut3_uAtlas = glGetUniformLocation(s_clut3Program, "uAtlas");
             s_clut3_uCLUT = glGetUniformLocation(s_clut3Program, "uCLUT");
             s_clut3_uPalette = glGetUniformLocation(s_clut3Program, "uPalette");
@@ -2741,6 +2770,17 @@ void GL_Renderer_Shutdown(void) {
         glDeleteBuffers(1, &s_batchVBO);
         s_batchVBO = 0;
     }
+    if (s_decorVBO) {
+        glDeleteBuffers(1, &s_decorVBO);
+        s_decorVBO = 0;
+    }
+    for (S32 i = 0; i < 2; i++) {
+        free(s_decorVerts[i]);
+        s_decorVerts[i] = NULL;
+        s_decorVertCount[i] = 0;
+        s_decorVertCap[i] = 0;
+    }
+    s_decorBatch = 0;
     if (s_auxVBO) {
         glDeleteBuffers(1, &s_auxVBO);
         s_auxVBO = 0;
@@ -4039,31 +4079,40 @@ static void FlushActiveBatch(void) {
     GL_BindTexUnit(2, s_paletteTex);
 
     /* Set up vertex attributes — 16 bytes per vertex: XE YE U V Light Z
-       RepMask Material.  Re-specified whenever the ring slot moves (every
-       flush) or an outside path dirtied the attribs. */
-    if (s_clutAttribsDirty ||
-        s_clutAttribsBase != (GLintptr)s_batchRingBase) {
+       RepMask Material.  Re-specified whenever the ring slot or the program
+       changes (the legacy and array programs can assign different slots). */
+    if (s_clutAttribsDirty || s_clutAttribsBase != (GLintptr)s_batchRingBase ||
+        s_clutAttribsProgram != prog) {
         const GLvoid *ringBase = (const GLvoid *)(uintptr_t)s_batchRingBase;
-        glEnableVertexAttribArray(s_clut_aPos);
-        glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
+        const S32 useArr = (prog == s_clut3Program);
+        const GLint aPos = useArr ? s_clut3_aPos : s_clut_aPos;
+        const GLint aTexCoord =
+            useArr ? s_clut3_aTexCoord : s_clut_aTexCoord;
+        const GLint aLight = useArr ? s_clut3_aLight : s_clut_aLight;
+        const GLint aZ = useArr ? s_clut3_aZ : s_clut_aZ;
+        const GLint aRepMask = useArr ? s_clut3_aRepMask : s_clut_aRepMask;
+        const GLint aMaterial = useArr ? s_clut3_aMaterial : s_clut_aMaterial;
+        glEnableVertexAttribArray(aPos);
+        glVertexAttribPointer(aPos, 2, GL_SHORT, GL_FALSE, 16,
                               (const void *)((const U8 *)ringBase + 0));
-        glEnableVertexAttribArray(s_clut_aTexCoord);
-        glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE,
-                              16, (const void *)((const U8 *)ringBase + 4));
-        glEnableVertexAttribArray(s_clut_aLight);
-        glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+        glEnableVertexAttribArray(aTexCoord);
+        glVertexAttribPointer(aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                              (const void *)((const U8 *)ringBase + 4));
+        glEnableVertexAttribArray(aLight);
+        glVertexAttribPointer(aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                               (const void *)((const U8 *)ringBase + 8));
-        glEnableVertexAttribArray(s_clut_aZ);
-        glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+        glEnableVertexAttribArray(aZ);
+        glVertexAttribPointer(aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                               (const void *)((const U8 *)ringBase + 10));
-        glEnableVertexAttribArray(s_clut_aRepMask);
-        glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE,
-                              16, (const void *)((const U8 *)ringBase + 12));
-        glEnableVertexAttribArray(s_clut_aMaterial);
-        glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE,
-                              16, (const void *)((const U8 *)ringBase + 14));
+        glEnableVertexAttribArray(aRepMask);
+        glVertexAttribPointer(aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                              (const void *)((const U8 *)ringBase + 12));
+        glEnableVertexAttribArray(aMaterial);
+        glVertexAttribPointer(aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                              (const void *)((const U8 *)ringBase + 14));
         s_clutAttribsDirty = 0;
         s_clutAttribsBase = (GLintptr)s_batchRingBase;
+        s_clutAttribsProgram = prog;
     }
 
     /* Depth testing: enable for ALL valid types (0–24).
@@ -4967,20 +5016,32 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
     GL_BindArrayBuffer(0);
 }
 
-static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
-                           Struc_Point *p2) {
-    /* Flush if batch is full */
-    if (s_batchVertCount + 3 > BATCH_MAX_VERTS) {
-        GL_FlushBatch();
+static S32 GL_DecorBatchGrow(U32 group) {
+    U32 newCap = s_decorVertCap[group] ? s_decorVertCap[group] * 2 : 8192;
+    if (newCap > DECOR_BATCH_MAX_VERTS) {
+        newCap = DECOR_BATCH_MAX_VERTS;
     }
+    if (newCap <= s_decorVertCap[group]) {
+        return 0;
+    }
+    U8 *grown =
+        (U8 *)realloc(s_decorVerts[group], (size_t)newCap * BATCH_VERT_BYTES);
+    if (grown == NULL) {
+        return 0;
+    }
+    s_decorVerts[group] = grown;
+    s_decorVertCap[group] = newCap;
+    return 1;
+}
 
-    /* Copy one 16-byte vertex per corner into the batch buffer:
-       Pt_XE(2) + Pt_YE(2) + Pt_MapU(2) + Pt_MapV(2) +
-       Pt_Light(2) + Pt_ZO(2) + Pt_RepMask(2) + Material(2)
-       Note: Pt_W (S32, offset 12 in Struc_Point) is skipped;
-       Pt_RepMask (offset 16) lands at vertex offset 12 and the current
-       polygon material at offset 14. */
-    U8 *dst = s_batchVerts + s_batchVertCount * BATCH_VERT_BYTES;
+/* Copy one 16-byte vertex per corner into a batch-format buffer:
+   Pt_XE(2) + Pt_YE(2) + Pt_MapU(2) + Pt_MapV(2) +
+   Pt_Light(2) + Pt_ZO(2) + Pt_RepMask(2) + Material(2).
+   Pt_W (S32, offset 12 in Struc_Point) is skipped; Pt_RepMask (offset 16)
+   lands at vertex offset 12 and the current polygon material at 14. */
+static void GL_CopyBatchTriangle(U8 *dst, const Struc_Point *p0,
+                                 const Struc_Point *p1,
+                                 const Struc_Point *p2) {
     memcpy(dst + 0, p0, 12);                  /* XE, YE, MapU, MapV, Light, ZO */
     memcpy(dst + 12, (const U8 *)p0 + 16, 2); /* Pt_RepMask (skip Pt_W) */
     memcpy(dst + 14, &s_currentMaterial, 2);
@@ -4990,33 +5051,181 @@ static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
     memcpy(dst + 32, p2, 12);
     memcpy(dst + 32 + 12, (const U8 *)p2 + 16, 2);
     memcpy(dst + 32 + 14, &s_currentMaterial, 2);
+}
+
+static void GL_MarkTriangleRegion(const Struc_Point *p0, const Struc_Point *p1,
+                                  const Struc_Point *p2) {
+    S32 x0 = p0->Pt_XE, x1 = x0;
+    S32 y0 = p0->Pt_YE, y1 = y0;
+    if (p1->Pt_XE < x0)
+        x0 = p1->Pt_XE;
+    if (p1->Pt_XE > x1)
+        x1 = p1->Pt_XE;
+    if (p1->Pt_YE < y0)
+        y0 = p1->Pt_YE;
+    if (p1->Pt_YE > y1)
+        y1 = p1->Pt_YE;
+    if (p2->Pt_XE < x0)
+        x0 = p2->Pt_XE;
+    if (p2->Pt_XE > x1)
+        x1 = p2->Pt_XE;
+    if (p2->Pt_YE < y0)
+        y0 = p2->Pt_YE;
+    if (p2->Pt_YE > y1)
+        y1 = p2->Pt_YE;
+    GL_MarkFBORegion(x0, y0, x1, y1);
+}
+
+static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
+                           Struc_Point *p2) {
+    /* Decor window: append to the opaque or alpha decor stream.  The state
+       that usually forces a batch flush (atlas class, alpha mode) rides per
+       vertex or in the two stream split, so the decor pass becomes two draws
+       at GL_DecorBatchEnd instead of a flush per state change. */
+    if (s_decorBatch) {
+        const U32 group = (s_currentMatFlags & 8) ? 1 : 0;
+        if (s_decorVertCount[group] + 3 > s_decorVertCap[group]) {
+            if (!GL_DecorBatchGrow(group)) {
+                /* Out of room: fall back to the shared batch for the rest
+                   of the window. */
+                s_decorBatch = 0;
+            }
+        }
+        if (s_decorBatch) {
+            U8 *dst = s_decorVerts[group] +
+                      (size_t)s_decorVertCount[group] * BATCH_VERT_BYTES;
+            GL_CopyBatchTriangle(dst, p0, p1, p2);
+            GL_MarkTriangleRegion(p0, p1, p2);
+            s_decorVertCount[group] += 3;
+            return;
+        }
+    }
+
+    /* Flush if batch is full */
+    if (s_batchVertCount + 3 > BATCH_MAX_VERTS) {
+        GL_FlushBatch();
+    }
+
+    U8 *dst = s_batchVerts + s_batchVertCount * BATCH_VERT_BYTES;
+    GL_CopyBatchTriangle(dst, p0, p1, p2);
 
     /* Track where the batch will draw (screen-space coords) for the
        region-bounded incremental restore. */
-    {
-        S32 x0 = p0->Pt_XE, x1 = x0;
-        S32 y0 = p0->Pt_YE, y1 = y0;
-        if (p1->Pt_XE < x0)
-            x0 = p1->Pt_XE;
-        if (p1->Pt_XE > x1)
-            x1 = p1->Pt_XE;
-        if (p1->Pt_YE < y0)
-            y0 = p1->Pt_YE;
-        if (p1->Pt_YE > y1)
-            y1 = p1->Pt_YE;
-        if (p2->Pt_XE < x0)
-            x0 = p2->Pt_XE;
-        if (p2->Pt_XE > x1)
-            x1 = p2->Pt_XE;
-        if (p2->Pt_YE < y0)
-            y0 = p2->Pt_YE;
-        if (p2->Pt_YE > y1)
-            y1 = p2->Pt_YE;
-        GL_MarkFBORegion(x0, y0, x1, y1);
-    }
+    GL_MarkTriangleRegion(p0, p1, p2);
 
     s_batchVertCount += 3;
     s_batchTriCount++;
+}
+
+static void GL_DrawDecorStream(const U8 *data, U32 vertices, S32 alpha) {
+    if (vertices == 0) {
+        return;
+    }
+    GLuint sceneFbo = GL_SceneDrawFbo();
+    if (sceneFbo != 0) {
+        if (s_boundDrawFbo != sceneFbo) {
+            glBindFramebuffer(GL_FRAMEBUFFER, sceneFbo);
+        }
+        GL_SetSceneViewport();
+    } else {
+        glViewport(0, 0, (GLsizei)s_texWidth, (GLsizei)s_texHeight);
+    }
+    s_frameActive = 1;
+
+    GL_SetDepthTest(1);
+    GL_SetDepthFunc(GL_GEQUAL);
+    GL_SetDepthWrite(1);
+    GL_SetBlendFunc(alpha ? 1 : 0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_CULL_FACE);
+
+    GL_UseProgramCached(s_clut3Program);
+    GL_ProcessAtlasDirty();
+    GL_UploadCLUT();
+    GL_UploadPalette();
+    GL_ArrayBind();
+    GL_BindTexUnit(0, s_atlasTex);
+    GL_BindTexUnit(1, s_clutTex);
+    GL_BindTexUnit(2, s_paletteTex);
+    glUniform2f(s_clut3_uScreenScale, 2.0f / (GLfloat)s_texWidth,
+                2.0f / (GLfloat)s_texHeight);
+    glUniform2f(s_clut3_uAtlasScale, 256.0f, 256.0f);
+    glUniform1f(s_clut3_uCLUTBaseRow, 0.0f);
+    glUniform1f(s_clut3_uScaledFogNear, (GLfloat)Fill_ScaledFogNear);
+    glUniform1f(s_clut3_uFogRowScale,
+                (GLfloat)((double)Fill_Fog_Factor / 65536.0));
+    glUniform1i(s_clut3_uBilinear, s_bilinearCLUT);
+    glUniform1f(s_clut3_uTerrainFarClip, 0.0f);
+
+    if (s_decorVBO == 0) {
+        glGenBuffers(1, &s_decorVBO);
+    }
+    GL_BindArrayBuffer(s_decorVBO);
+    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)vertices * BATCH_VERT_BYTES, data,
+                 GL_STREAM_DRAW);
+    glEnableVertexAttribArray(s_clut3_aPos);
+    glVertexAttribPointer(s_clut3_aPos, 2, GL_SHORT, GL_FALSE, 16,
+                          (const void *)0);
+    glEnableVertexAttribArray(s_clut3_aTexCoord);
+    glVertexAttribPointer(s_clut3_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)4);
+    glEnableVertexAttribArray(s_clut3_aLight);
+    glVertexAttribPointer(s_clut3_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)8);
+    glEnableVertexAttribArray(s_clut3_aZ);
+    glVertexAttribPointer(s_clut3_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)10);
+    glEnableVertexAttribArray(s_clut3_aRepMask);
+    glVertexAttribPointer(s_clut3_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)12);
+    glEnableVertexAttribArray(s_clut3_aMaterial);
+    glVertexAttribPointer(s_clut3_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)14);
+
+    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertices);
+
+    s_clutAttribsDirty = 1;
+    s_clutAttribsBase = -1;
+    s_clutAttribsProgram = 0;
+    GL_BindArrayBuffer(0);
+}
+
+void GL_DecorBatchBegin(void) {
+    s_decorVertCount[0] = 0;
+    s_decorVertCount[1] = 0;
+    static S32 s_noDecorBatch = -1;
+    if (s_noDecorBatch < 0) {
+        s_noDecorBatch = getenv("LBA2_NO_DECOR_BATCH") ? 1 : 0;
+    }
+    s_decorBatch = (!s_noDecorBatch && s_initialized && s_clut3Program != 0 &&
+                    s_arrayWindow)
+                       ? 1
+                       : 0;
+    if (s_decorBatch) {
+        /* Anything queued before the decor window (previous pass) must keep
+           its order relative to the decor stream. */
+        GL_FlushBatch();
+    }
+}
+
+void GL_DecorBatchEnd(void) {
+    if (!s_decorBatch) {
+        s_decorVertCount[0] = 0;
+        s_decorVertCount[1] = 0;
+        return;
+    }
+    s_decorBatch = 0;
+    const U32 opaqueCount = s_decorVertCount[0];
+    const U32 alphaCount = s_decorVertCount[1];
+    s_decorVertCount[0] = 0;
+    s_decorVertCount[1] = 0;
+    if (!s_initialized || (opaqueCount == 0 && alphaCount == 0)) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+    GL_DrawDecorStream(s_decorVerts[0], opaqueCount, 0);
+    GL_DrawDecorStream(s_decorVerts[1], alphaCount, 1);
 }
 
 /* ── FBO clear (called at start of terrain rendering) ─────────────────────── */
@@ -7323,9 +7532,11 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
     }
     U8 arrNow;
     if (typePoly >= POLY_TEXTURE) {
+        /* The decor stream groups the blend state itself, so alpha modes
+           can stay on the array path there. */
         arrNow = (U8)(!s_noArray && s_arrayWindow && s_clut3Program != 0 &&
                       ((matFlags & 7) == 0 || (matFlags & 7) == 4) &&
-                      !(matFlags & 0x18));
+                      (!(matFlags & 0x18) || s_decorBatch));
     } else {
         /* Non-sampling polys inherit the open batch's class: bodies mix
            textured and flat polys, and flipping the class per flat poly
@@ -7547,6 +7758,8 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
 S32 GL_SphereTargetsFBO(void) { return 0; }
 void GL_ArrayWindowBegin(void) {}
 void GL_ArrayWindowEnd(void) {}
+void GL_DecorBatchBegin(void) {}
+void GL_DecorBatchEnd(void) {}
 S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
                           Struc_Point *ptrPoints) {
     (void)typePoly;

@@ -290,6 +290,7 @@ void AffichageObjetDecorsZBuf(void) {
        the pass interleaves per-offset texture pages that would otherwise
        flush the batch once per distinct offset. */
     GL_ArrayWindowBegin();
+    GL_DecorBatchBegin();
 #endif
 
     ptrtri = ListTriExt;
@@ -466,6 +467,7 @@ void AffichageObjetDecorsZBuf(void) {
     UnsetClip();
 
 #ifdef USE_GPURENDERER
+    GL_DecorBatchEnd();
     GL_ArrayWindowEnd();
 #endif
 
