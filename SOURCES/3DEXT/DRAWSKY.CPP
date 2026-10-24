@@ -12,7 +12,25 @@ S32 Draw_Poly(STRUC_CLIPVERTEX src[], S32 type) {
             for (l = 0; l != k; l++) {
                 if (!LongProjectPoint(dst[l].V_X0 + CameraXr, dst[l].V_Y0 + CameraYr, CameraZr - dst[l].V_Z0))
                     return FALSE;
-                if ((Xp != (S32)(S16)Xp) OR(Yp != (S32)(S16)Yp))
+                static S32 s_noSeaClamp = -1;
+                if (s_noSeaClamp < 0) {
+                    s_noSeaClamp = getenv("LBA2_NO_SEA_CLAMP") ? 1 : 0;
+                }
+                if (GPURendererActive && !s_noSeaClamp) {
+                    /* A large sea/sky tile can have a corner project far
+                       outside S16; the GPU clips it, so clamping keeps the
+                       tile instead of dropping it and leaving a hole. */
+                    if (Xp < -32768) {
+                        Xp = -32768;
+                    } else if (Xp > 32767) {
+                        Xp = 32767;
+                    }
+                    if (Yp < -32768) {
+                        Yp = -32768;
+                    } else if (Yp > 32767) {
+                        Yp = 32767;
+                    }
+                } else if ((Xp != (S32)(S16)Xp) OR(Yp != (S32)(S16)Yp))
                     return FALSE;
                 Tab_Points[l].Pt_XE = (S16)Xp;
                 Tab_Points[l].Pt_YE = (S16)Yp;
