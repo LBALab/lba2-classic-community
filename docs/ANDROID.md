@@ -286,17 +286,15 @@ props) are replayed once in model space and cached as a per-`(body, beta)`
 VBO. The vertex shader applies the decor rotation, the per-decor translation
 and `MatriceWorld`, reproduces the CPU projection, and computes the
 camera-space light; flat, flat-textured and gouraud shading select the same
-palette/CLUT rows as the software handlers. Textured decors pin their
-`(PtrMap, w, h)` layers in the texture array so batch eviction cannot
-invalidate a cached VBO; the pins are released on an island or phantom-sea
-reload.
+palette/CLUT rows as the software handlers. The VBO is split into
+per-texture-page groups and samples the 2D atlas page cache with its
+`RepMask`, so the static path does not use the texture array that corrupted
+pages on Adreno.
 
 Transparent bodies, alpha/stipple polygons, environment mapping,
 lines/spheres and bodies whose normals do not match their points remain on
 the per-frame CPU stream path. The static path runs in mono and stereo GL
-rendering, but stays off by default on Android until the Adreno
-texture-array path is validated on device; `LBA2_GPU_DECOR=1` opts in for
-debugging. `LBA2_NO_DECOR_VBO=1` disables it and
+rendering. `LBA2_NO_DECOR_VBO=1` disables it and
 `LBA2_DECOR_NOCULL=1` disables back-face culling for comparison.
 
 The original software filler maps decor/object textures affinely

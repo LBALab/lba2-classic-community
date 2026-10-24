@@ -374,14 +374,14 @@ static const char *s_decorVertSrc =
     "        float byte = floor(light / 256.0);\n"
     "        vLight = mod(byte, 16.0) * 256.0;\n"
     "        material = mod(low, 128.0) + uFogRow * 256.0;\n"
-    "        rep = 32768.0 + aLayer;\n"
+    "        rep = aLayer;\n"
     "    } else if (aFlat > 0.5) {\n"
     "        float byte = floor(light / 256.0);\n"
     "        float col = mod(raw + byte, 256.0);\n"
     "        material = low + col * 256.0;\n"
     "    } else if (mMode == 0 || mMode == 4) {\n"
     "        material = aMaterial + uFogRow * 256.0;\n"
-    "        rep = 32768.0 + aLayer;\n"
+    "        rep = aLayer;\n"
     "    } else if (mMode == 3) {\n"
     "        rep = uFogRow;\n"
     "    }\n"
@@ -405,6 +405,7 @@ static const char *s_clutFragSrc =
        shader leaves the true camera-space depth in vZ so this fragment
        test reproduces the far cut.  Zero for every other program. */
     "uniform float uTerrainFarClip;\n"
+    "uniform float uTerrainPersp;\n"
     "uniform float uTerrainFar;\n"
     "uniform float uNearClip;\n"
     "varying vec2 vTexCoord;\n"
@@ -492,13 +493,16 @@ static const char *s_clutFragSrc =
     "    vec2 tc = mix(vTexCoord, vTexCoordOverW / vInvW, mPersp);\n"
     "    float vZsel = mix(vZ, vZOverW / vInvW, mPersp);\n"
     "    if (uTerrainFarClip > 0.5) {\n"
-    /* Terrain: the vertex shader outputs a real clip w, so GL's
-       perspective-correct varyings must be converted back to the
-       SW rasterizer's screen-linear ones.  The vertex shader
-       premultiplies by w; multiplying by 1/w cancels the
-       perspective correction. */
-    "        tc = vTexCoord * terrainInvW;\n"
-    "        vZsel = vZ * terrainInvW;\n"
+    /* The static decor path can opt into its camera-space perspective
+       varyings; the terrain path converts GL's perspective-correct
+       interpolation back to the SW rasterizer's screen-linear mapping. */
+    "        if (uTerrainPersp > 0.5) {\n"
+    "            tc = vTexCoordOverW / vInvW;\n"
+    "            vZsel = vZOverW / vInvW;\n"
+    "        } else {\n"
+    "            tc = vTexCoord * terrainInvW;\n"
+    "            vZsel = vZ * terrainInvW;\n"
+    "        }\n"
     "    }\n"
     "    if (mMode == 0) {\n"
     /* Textured: atlas → CLUT → palette */
@@ -931,6 +935,7 @@ static GLint s_clut3_uScaledFogNear = -1;
 static GLint s_clut3_uFogRowScale = -1;
 static GLint s_clut3_uBilinear = -1;
 static GLint s_clut3_uTerrainFarClip = -1;
+static GLint s_clut3_uTerrainPersp = -1;
 static GLint s_clut3_uTerrainFar = -1;
 static U8 s_batchArray = 0;   /* batch samples the layer array (RepMask 0x8000) */
 static S32 s_arrayWindow = 0; /* object-pass gate: only bodies/decors bin into
@@ -1124,6 +1129,7 @@ static GLint s_clut_uScaledFogNear = -1;
 static GLint s_clut_uFogRowScale = -1;
 static GLint s_clut_uBilinear = -1;
 static GLint s_clut_uTerrainFarClip = -1;
+static GLint s_clut_uTerrainPersp = -1;
 static GLint s_clut_uTerrainFar = -1;
 
 /* ── GL state — static terrain shader ───────────────────────────────────── */
@@ -1154,6 +1160,7 @@ static GLint s_terrain_uPalette = -1;
 static GLint s_terrain_uAtlasScale = -1;
 static GLint s_terrain_uBilinear = -1;
 static GLint s_terrain_uTerrainFarClip = -1;
+static GLint s_terrain_uTerrainPersp = -1;
 static GLint s_terrain_uTerrainFar = -1;
 static U32 s_terrainEpoch = 1; /* advances on context loss; caches drop stale */
 static GLuint s_terrainBoundVBO = 0;
@@ -1185,6 +1192,7 @@ static GLint s_decor_uAtlasArr = -1;
 static GLint s_decor_uAtlasScale = -1;
 static GLint s_decor_uBilinear = -1;
 static GLint s_decor_uTerrainFarClip = -1;
+static GLint s_decor_uTerrainPersp = -1;
 static GLint s_decor_uTerrainFar = -1;
 
 /* ── GL state — textures ────────────────────────────────────────────────── */
@@ -2579,6 +2587,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             s_clut3_uBilinear = glGetUniformLocation(s_clut3Program, "uBilinear");
             s_clut3_uTerrainFarClip =
                 glGetUniformLocation(s_clut3Program, "uTerrainFarClip");
+            s_clut3_uTerrainPersp =
+                glGetUniformLocation(s_clut3Program, "uTerrainPersp");
             s_clut3_uTerrainFar =
                 glGetUniformLocation(s_clut3Program, "uTerrainFar");
             GL_UseProgramCached(s_clut3Program);
@@ -2587,6 +2597,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             glUniform1i(s_clut3_uPalette, 2);
             glUniform1i(s_clut3_uAtlasArr, 3);
             glUniform1f(s_clut3_uTerrainFarClip, 0.0f);
+            glUniform1f(s_clut3_uTerrainPersp, 0.0f);
             GL_UseProgramCached(0);
         }
     }
@@ -2647,6 +2658,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                 glGetUniformLocation(s_terrainProgram, "uBilinear");
             s_terrain_uTerrainFarClip =
                 glGetUniformLocation(s_terrainProgram, "uTerrainFarClip");
+            s_terrain_uTerrainPersp =
+                glGetUniformLocation(s_terrainProgram, "uTerrainPersp");
             s_terrain_uTerrainFar =
                 glGetUniformLocation(s_terrainProgram, "uTerrainFar");
             GL_UseProgramCached(s_terrainProgram);
@@ -2656,6 +2669,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             glUniform1f(s_terrain_uAtlasScale, 256.0f);
             glUniform1i(s_terrain_uBilinear, 0);
             glUniform1f(s_terrain_uTerrainFarClip, 0.0f);
+            glUniform1f(s_terrain_uTerrainPersp, 0.0f);
             GL_UseProgramCached(0);
             s_terrainEpoch++;
             Log_Info("[GL] Terrain GPU transform program ready.");
@@ -2669,9 +2683,6 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                                            "aMaterial", "aFlat", "aLayer"};
         char *v3 = GL_ShaderToV3(s_decorVertSrc, 1);
         char *f3 = GL_ShaderToV3(s_clutFragSrc, 0);
-        if (f3 != NULL) {
-            f3 = GL_InjectArrayBranch(f3);
-        }
         GLuint dv = 0, df = 0;
         if (v3 != NULL && f3 != NULL) {
             dv = CompileShader(GL_VERTEX_SHADER, v3);
@@ -2726,6 +2737,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                 glGetUniformLocation(s_decorProgram, "uBilinear");
             s_decor_uTerrainFarClip =
                 glGetUniformLocation(s_decorProgram, "uTerrainFarClip");
+            s_decor_uTerrainPersp =
+                glGetUniformLocation(s_decorProgram, "uTerrainPersp");
             s_decor_uTerrainFar =
                 glGetUniformLocation(s_decorProgram, "uTerrainFar");
             GL_UseProgramCached(s_decorProgram);
@@ -2736,6 +2749,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             glUniform2f(s_decor_uAtlasScale, 256.0f, 256.0f);
             glUniform1i(s_decor_uBilinear, 0);
             glUniform1f(s_decor_uTerrainFarClip, 1.0f);
+            glUniform1f(s_decor_uTerrainPersp, 0.0f);
             GL_UseProgramCached(0);
             Log_Info("[GL] Static decor VBO program ready.");
         }
@@ -4747,23 +4761,7 @@ S32 GL_DecorGPUActive(void) {
     if (s_noDecorVBO) {
         return 0;
     }
-#ifdef __ANDROID__
-    /* The Adreno texture-array sampling used by the static decor program
-       still produces corrupt pages on Quest; keep the proven CPU/stream
-       path on device until that is fixed.  LBA2_GPU_DECOR=1 opts in for
-       on-device debugging. */
-    static S32 s_forceDecorVBO = -1;
-    if (s_forceDecorVBO < 0) {
-        s_forceDecorVBO = getenv("LBA2_GPU_DECOR") ? 1 : 0;
-    }
-    if (!s_forceDecorVBO) {
-        return 0;
-    }
-#endif
-    return (s_initialized && s_decorProgram != 0 && s_clut3Program != 0 &&
-            s_fbo != 0)
-               ? 1
-               : 0;
+    return (s_initialized && s_decorProgram != 0 && s_fbo != 0) ? 1 : 0;
 }
 
 U32 GL_DecorVBOEpoch(void) { return s_terrainEpoch; }
@@ -4802,8 +4800,9 @@ void GL_DeleteDecorVBO(U32 vbo) {
     glDeleteBuffers(1, &glVbo);
 }
 
-void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, S32 x, S32 y, S32 z,
-                     S32 fogRow, S32 clipZFar) {
+void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
+                     U16 atlasMask, S32 x, S32 y, S32 z, S32 fogRow,
+                     S32 clipZFar) {
     if (!s_initialized || s_decorProgram == 0 || s_fbo == 0 || vbo == 0 ||
         vertexCount == 0) {
         return;
@@ -4845,8 +4844,7 @@ void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, S32 x, S32 y, S32 z,
     GL_ProcessAtlasDirty();
     GL_UploadCLUT();
     GL_UploadPalette();
-    GL_ArrayBind();
-    GL_BindTexUnit(0, s_atlasTex);
+    GL_BindAtlasFor(atlasPage, atlasMask);
     GL_BindTexUnit(1, s_clutTex);
     GL_BindTexUnit(2, s_paletteTex);
 
@@ -4881,6 +4879,8 @@ void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, S32 x, S32 y, S32 z,
                 (GLfloat)CameraYLight, (GLfloat)CameraZLight);
     glUniform1f(s_decor_uLightFactor, 1.0f / 65536.0f);
     glUniform1f(s_decor_uTerrainFarClip, 1.0f);
+    glUniform1f(s_decor_uTerrainPersp,
+                DisplayPerspectiveTextures ? 1.0f : 0.0f);
     glUniform1f(s_decor_uTerrainFar, (GLfloat)clipZFar);
     /* Match the batch/terrain sampler; hardcoding nearest makes minified
        striped/stone decors alias into noise when the user picked bilinear. */
@@ -8206,8 +8206,9 @@ S32 GL_DecorArrayPin(const void *map, U32 w, U32 h) {
     return -1;
 }
 void GL_DecorArrayUnpin(S32 layer) { (void)layer; }
-void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, S32 x, S32 y, S32 z,
-                     S32 fogRow, S32 clipZFar) {
+void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
+                     U16 atlasMask, S32 x, S32 y, S32 z, S32 fogRow,
+                     S32 clipZFar) {
     (void)vbo;
     (void)vertexCount;
     (void)x;

@@ -279,17 +279,22 @@ void AffichageObjetDecorsZV(void) {
  *══════════════════════════════════════════════════════════════════════════*/
 
 #define GPU_DECOR_CACHE_SIZE 64
-#define GPU_DECOR_MAX_LAYERS 64
+#define GPU_DECOR_MAX_GROUPS 32
+
+typedef struct {
+    U32 vbo;
+    U32 vertexCount;
+    const void *map;
+    U16 mask;
+} T_GPU_DECOR_GROUP;
 
 typedef struct {
     const void *body;
     U16 beta;
-    U32 vbo;
-    U32 vertexCount;
     U32 epoch;
     U32 lastUse;
-    U16 layerCount;
-    U16 layers[GPU_DECOR_MAX_LAYERS];
+    U16 groupCount;
+    T_GPU_DECOR_GROUP groups[GPU_DECOR_MAX_GROUPS];
     U8 valid;
     U8 eligible;
 } T_GPU_DECOR;
@@ -297,21 +302,26 @@ typedef struct {
 static T_GPU_DECOR s_gpuDecor[GPU_DECOR_CACHE_SIZE];
 static U32 s_gpuDecorUseSeq = 0;
 
+static void GPU_DecorClearGroups(T_GPU_DECOR *e) {
+    for (U16 i = 0; i < e->groupCount; i++) {
+        if (e->groups[i].vbo != 0) {
+            GL_DeleteDecorVBO(e->groups[i].vbo);
+        }
+    }
+    e->groupCount = 0;
+}
+
 static void GPU_DecorDrop(T_GPU_DECOR *e, U32 epoch) {
     /* A handle from a previous context must not be deleted against the new
        context: names are reused. */
-    if (e->vbo != 0 && e->epoch == epoch) {
-        GL_DeleteDecorVBO(e->vbo);
-    }
-    for (S32 i = 0; i < e->layerCount; i++) {
-        GL_DecorArrayUnpin(e->layers[i]);
+    if (e->epoch == epoch) {
+        GPU_DecorClearGroups(e);
+    } else {
+        e->groupCount = 0;
     }
     e->body = NULL;
-    e->vbo = 0;
-    e->vertexCount = 0;
     e->epoch = 0;
     e->lastUse = 0;
-    e->layerCount = 0;
     e->valid = 0;
     e->eligible = 0;
 }
@@ -370,28 +380,29 @@ static S32 GPU_DecorBuild(T_GPU_DECOR *e) {
     if (!DecorVBORecord((void *)e->body, &capture, &captureCount)) {
         return 0;
     }
-    T_GL_DecorVertex *verts = (T_GL_DecorVertex *)malloc(
+    T_GL_DecorVertex *all = (T_GL_DecorVertex *)malloc(
         (size_t)captureCount * sizeof(T_GL_DecorVertex));
-    if (verts == NULL) {
+    U16 *groupOf = (U16 *)malloc((size_t)captureCount * sizeof(U16));
+    if (all == NULL || groupOf == NULL) {
+        free(all);
+        free(groupOf);
         return 0;
     }
 
     TYPE_MAT mat;
     InitMatrixStd(&mat, 0, e->beta, 0);
 
-    /* The same (page, region) usually repeats across a body's polys; pin it
-       once so the array layer survives every later batch. */
     struct {
         const void *map;
-        U16 w, h;
-        S32 layer;
-    } pages[GPU_DECOR_MAX_LAYERS];
-    U32 pageCount = 0;
+        U16 mask;
+        U32 count;
+    } groups[GPU_DECOR_MAX_GROUPS];
+    U32 groupCount = 0;
     S32 failed = 0;
 
-    for (U32 i = 0; i < captureCount && !failed; i++) {
+    for (U32 i = 0; i < captureCount; i++) {
         const T_DECORVBO_VERT *in = &capture[i];
-        T_GL_DecorVertex *out = &verts[i];
+        T_GL_DecorVertex *out = &all[i];
         RotatePoint(&mat, in->X, in->Y, in->Z);
         out->X = (float)X0;
         out->Y = (float)Y0;
@@ -437,57 +448,69 @@ static S32 GPU_DecorBuild(T_GPU_DECOR *e) {
         out->Material = (float)(matFlags | ((U16)colorHi << 8));
         out->Flat = (float)flat;
 
-        S32 layer = 0;
+        const void *map = NULL;
+        U16 mask = 0;
         if (in->Flags & DECORVBO_FLAG_TEXTURED) {
-            const U32 w = (in->Mask & 0xFF) + 1;
-            const U32 h = (in->Mask >> 8) + 1;
-            U32 p = 0;
-            for (; p < pageCount; p++) {
-                if (pages[p].map == in->Map && pages[p].w == w &&
-                    pages[p].h == h) {
-                    layer = pages[p].layer;
-                    break;
-                }
-            }
-            if (p == pageCount) {
-                if (pageCount >= GPU_DECOR_MAX_LAYERS) {
-                    failed = 1;
-                    break;
-                }
-                layer = GL_DecorArrayPin(in->Map, w, h);
-                if (layer < 0) {
-                    failed = 1;
-                    break;
-                }
-                pages[pageCount].map = in->Map;
-                pages[pageCount].w = (U16)w;
-                pages[pageCount].h = (U16)h;
-                pages[pageCount].layer = layer;
-                pageCount++;
+            map = in->Map;
+            mask = in->Mask;
+        }
+        U32 g = 0;
+        for (; g < groupCount; g++) {
+            if (groups[g].map == map && groups[g].mask == mask) {
+                break;
             }
         }
-        out->Layer = (float)layer;
+        if (g == groupCount) {
+            if (groupCount >= GPU_DECOR_MAX_GROUPS) {
+                failed = 1;
+                break;
+            }
+            groups[g].map = map;
+            groups[g].mask = mask;
+            groups[g].count = 0;
+            groupCount++;
+        }
+        groups[g].count++;
+        groupOf[i] = (U16)g;
+        /* The 2D path carries the page RepMask in the vertex field the array
+           path used for its pinned layer. */
+        out->Layer = (float)mask;
     }
 
     if (!failed && captureCount > 0) {
-        e->vbo = GL_CreateDecorVBO(verts, captureCount);
-        if (e->vbo != 0) {
-            e->vertexCount = captureCount;
-            for (U32 p = 0; p < pageCount; p++) {
-                e->layers[e->layerCount++] = (U16)pages[p].layer;
+        for (U32 g = 0; g < groupCount && !failed; g++) {
+            T_GL_DecorVertex *groupVerts = (T_GL_DecorVertex *)malloc(
+                (size_t)groups[g].count * sizeof(T_GL_DecorVertex));
+            if (groupVerts == NULL) {
+                failed = 1;
+                break;
             }
-        } else {
-            failed = 1;
+            U32 outIndex = 0;
+            for (U32 i = 0; i < captureCount; i++) {
+                if (groupOf[i] == g) {
+                    groupVerts[outIndex++] = all[i];
+                }
+            }
+            U32 vbo = GL_CreateDecorVBO(groupVerts, outIndex);
+            free(groupVerts);
+            if (vbo == 0) {
+                failed = 1;
+                break;
+            }
+            e->groups[e->groupCount].vbo = vbo;
+            e->groups[e->groupCount].vertexCount = outIndex;
+            e->groups[e->groupCount].map = groups[g].map;
+            e->groups[e->groupCount].mask = groups[g].mask;
+            e->groupCount++;
         }
     } else {
         failed = 1;
     }
-    free(verts);
+    free(all);
+    free(groupOf);
 
     if (failed) {
-        for (U32 p = 0; p < pageCount; p++) {
-            GL_DecorArrayUnpin(pages[p].layer);
-        }
+        GPU_DecorClearGroups(e);
         return 0;
     }
     e->eligible = 1;
@@ -511,15 +534,18 @@ static S32 GPU_DecorDraw(T_DECORS *ptrobj, S32 fogRow) {
         }
         GPU_DecorBuild(e);
     }
-    if (!e->eligible) {
+    if (!e->eligible || e->groupCount == 0) {
         return 0;
     }
     e->lastUse = ++s_gpuDecorUseSeq;
-    if (e->vbo == 0 || e->vertexCount == 0) {
-        return 0;
+    for (U16 g = 0; g < e->groupCount; g++) {
+        const T_GPU_DECOR_GROUP *gr = &e->groups[g];
+        if (gr->vbo != 0 && gr->vertexCount != 0) {
+            GL_DrawDecorVBO(gr->vbo, gr->vertexCount, gr->map, gr->mask,
+                            ptrobj->Xworld, ptrobj->Yworld, ptrobj->Zworld,
+                            fogRow, ClipZFar);
+        }
     }
-    GL_DrawDecorVBO(e->vbo, e->vertexCount, ptrobj->Xworld, ptrobj->Yworld,
-                    ptrobj->Zworld, fogRow, ClipZFar);
     return 1;
 }
 

@@ -338,10 +338,13 @@ void GL_DeleteDecorVBO(U32 vbo);
 S32 GL_DecorArrayPin(const void *map, U32 w, U32 h);
 void GL_DecorArrayUnpin(S32 layer);
 
-//! Draw one static decor VBO with the decor position added in the shader and
-//! the per-decor fog row baked into the material/RepMask word.
-void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, S32 x, S32 y, S32 z,
-                     S32 fogRow, S32 clipZFar);
+//! Draw one static decor VBO page group with the decor position added in the
+//! shader and the per-decor fog row baked into the material/RepMask word.
+//! atlasPage/atlasMask select the 2D atlas page and its RepMask; pass NULL/0
+//! for the non-textured group.
+void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
+                     U16 atlasMask, S32 x, S32 y, S32 z, S32 fogRow,
+                     S32 clipZFar);
 
 //! Draw a terrain VBO into the current scene target (correct eye viewport,
 //! scene FBO, depth test/write, back-face culling).  Flushes any pending
