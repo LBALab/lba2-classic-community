@@ -579,13 +579,30 @@ void AffichageObjetDecorsZBuf(void) {
     GL_DecorBatchBegin();
 #endif
 
+    /* Eye 1 is render-only and its camera is only the IPD away from eye 0.
+       Reuse eye 0's decor screen list/sort instead of re-projecting and
+       qsorting the same cube; the lateral reject already keeps generous
+       frame margins, so the IPD shift cannot hide a decor. */
+    const S32 stereoEye = GL_GetStereoEye();
+    static S32 s_decorListValidEye = -1;
+    static S32 s_decorListCubeX = 0x7FFFFFFF;
+    static S32 s_decorListCubeY = 0x7FFFFFFF;
+    static S32 s_decorListCount = -1;
+    const S32 reuseDecorList =
+        (stereoEye == 1 && s_decorListValidEye == 0 &&
+         s_decorListCubeX == CurrentCubeX &&
+         s_decorListCubeY == CurrentCubeY &&
+         s_decorListCount == NbObjDecors);
+
     ptrtri = ListTriExt;
     ptrobj = ListDecors;
 
     // projection des centres
-    NbObjScreen = 0;
     S32 culled4 = 0;
-    for (i = 0; i < NbObjDecors; i++, ptrobj++) {
+    if (!reuseDecorList) {
+        NbObjScreen = 0;
+    }
+    for (i = 0; i < NbObjDecors && !reuseDecorList; i++, ptrobj++) {
         ptrobj->Body &= ~(DEC_DRAWN | DEC_INVISIBLE);
 
         // Regarde si objet visible/invisible
@@ -713,11 +730,19 @@ void AffichageObjetDecorsZBuf(void) {
         }
     }
 
+    s_decorListCubeX = CurrentCubeX;
+    s_decorListCubeY = CurrentCubeY;
+    s_decorListCount = NbObjDecors;
+    s_decorListValidEye = (stereoEye == 0) ? 0 : 1;
+
     if (!NbObjScreen)
         return;
 
-    // trie les objet en z 'front to back'
-    qsort(ListTriExt, NbObjScreen, sizeof(T_LIST_TRI), sub_qsort_decors_zbuf);
+    // trie les objet en z 'front to back' (eye 0 only; eye 1 reuses it)
+    if (!reuseDecorList) {
+        qsort(ListTriExt, NbObjScreen, sizeof(T_LIST_TRI),
+              sub_qsort_decors_zbuf);
+    }
 
     clipzstart = ClipZFar - StartZFog;
 
