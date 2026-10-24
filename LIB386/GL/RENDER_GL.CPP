@@ -493,8 +493,8 @@ static const char *s_clutFragSrc =
     /* Chroma key: type 24 is non-INCRUST (bit 2 clear), so index 0 is
        written unconditionally — no discard here. */
     "        float fogDist = max(vZsel - uScaledFogNear, 0.0);\n"
-    "        float fogRow16 = floor(fogDist * uFogRowScale);\n"
-    "        float clutRow = 12.0 + floor(mod(fogRow16, 256.0) / 16.0) * 16.0;\n"
+    "        float fogRow16 = min(floor(fogDist * uFogRowScale), 255.0);\n"
+    "        float clutRow = 12.0 + floor(fogRow16 / 16.0) * 16.0;\n"
     "        color = clutLookup(texel, clutRow);\n"
     "    } else if (mMode == 6) {\n"
     /* Ground shadow (SW ShadeBoxBlk replacement): constant gray source
