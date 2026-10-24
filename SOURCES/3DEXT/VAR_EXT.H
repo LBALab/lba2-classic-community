@@ -57,6 +57,7 @@ extern S32 PalLevel;
 /* Drops every cached static-horizon terrain VBO; island and phantom-sea
    loads change the per-cube HQR data behind the same cube coordinates. */
 void GPU_Terrain_InvalidateAll(void);
+void GPU_TerrainDecorCube(S32 *x, S32 *y);
 
 /* Drops the static decor VBOs and releases their pinned texture-array
    layers; island loads replace the object HQR the body pointers come from. */

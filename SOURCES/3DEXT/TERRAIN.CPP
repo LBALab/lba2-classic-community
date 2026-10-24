@@ -1624,6 +1624,18 @@ S32 HorizonBackdropStable(void) {
     return !s_hznSeaDrew;
 }
 
+void GPU_TerrainDecorCube(S32 *x, S32 *y) {
+#ifdef USE_GPURENDERER
+    if (s_gpuTerrainCube) {
+        *x = s_gpuTerrainCubeX;
+        *y = s_gpuTerrainCubeY;
+        return;
+    }
+#endif
+    *x = CurrentCubeX;
+    *y = CurrentCubeY;
+}
+
 /*──────────────────────────────────────────────────────────────────────────*/
 U32 MaskVisible(U8 *in_ptr) {
     // This code conversion could be improved...

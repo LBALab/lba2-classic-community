@@ -588,10 +588,12 @@ void AffichageObjetDecorsZBuf(void) {
     static S32 s_decorListCubeX = 0x7FFFFFFF;
     static S32 s_decorListCubeY = 0x7FFFFFFF;
     static S32 s_decorListCount = -1;
+    S32 decorCubeX, decorCubeY;
+    GPU_TerrainDecorCube(&decorCubeX, &decorCubeY);
     const S32 reuseDecorList =
         (stereoEye == 1 && s_decorListValidEye == 0 &&
-         s_decorListCubeX == CurrentCubeX &&
-         s_decorListCubeY == CurrentCubeY &&
+         s_decorListCubeX == decorCubeX &&
+         s_decorListCubeY == decorCubeY &&
          s_decorListCount == NbObjDecors);
 
     ptrtri = ListTriExt;
@@ -730,8 +732,8 @@ void AffichageObjetDecorsZBuf(void) {
         }
     }
 
-    s_decorListCubeX = CurrentCubeX;
-    s_decorListCubeY = CurrentCubeY;
+    s_decorListCubeX = decorCubeX;
+    s_decorListCubeY = decorCubeY;
     s_decorListCount = NbObjDecors;
     s_decorListValidEye = (stereoEye == 0) ? 0 : 1;
 
