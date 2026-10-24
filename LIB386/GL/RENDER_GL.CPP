@@ -4868,6 +4868,9 @@ void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, S32 x, S32 y, S32 z,
     glUniform1f(s_decor_uLightFactor, 1.0f / 65536.0f);
     glUniform1f(s_decor_uTerrainFarClip, 1.0f);
     glUniform1f(s_decor_uTerrainFar, (GLfloat)clipZFar);
+    /* Match the batch/terrain sampler; hardcoding nearest makes minified
+       striped/stone decors alias into noise when the user picked bilinear. */
+    glUniform1i(s_decor_uBilinear, s_bilinearCLUT);
 
     GL_BindArrayBuffer((GLuint)vbo);
     const GLsizei stride = (GLsizei)sizeof(T_GL_DecorVertex);

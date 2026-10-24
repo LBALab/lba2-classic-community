@@ -126,10 +126,17 @@ void DecorVBO_CapturePoly(S32 type, S32 color, S32 n, Struc_Point *pts) {
         return;
     }
 
-    for (S32 t = 1; t < n - 1; t++) {
-        const S32 order[3] = {0, t, t + 1};
+    /* Match GL_TriangulatePolygon's first ear for a convex quad.  Its
+       ear-clipping starts at vertex 0 and emits (3,0,1), so the shared
+       diagonal is 1-3; the conventional 0-2 fan samples the texture through
+       the other diagonal and makes striped/stone quads look like noise. */
+    const S32 quadOrder[2][3] = {{1, 2, 3}, {1, 3, 0}};
+    const S32 triOrder[1][3] = {{0, 1, 2}};
+    const S32(*orders)[3] = (n == 4) ? quadOrder : triOrder;
+    const S32 orderCount = (n == 4) ? 2 : 1;
+    for (S32 t = 0; t < orderCount; t++) {
         for (S32 k = 0; k < 3; k++) {
-            const S32 i = order[k];
+            const S32 i = orders[t][k];
             T_DECORVBO_VERT *v = &s_decorCapture[s_decorCaptureCount++];
             v->X = pts[i].Pt_XE;
             v->Y = pts[i].Pt_YE;
