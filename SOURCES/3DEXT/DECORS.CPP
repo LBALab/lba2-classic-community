@@ -7,6 +7,20 @@
 
 #include <GL/RENDER_GL.H> /* GL_ArrayWindowBegin/End */
 
+/* Eye-1 decor reuse: the pass runs once per loaded cube (the current cube
+   plus up to eight horizon cubes), so keep one screen-list snapshot per cube
+   for the current stereo pair.  The pair sequence keeps a snapshot from being
+   reused by a later frame. */
+#define DECOR_CACHE_SLOTS 9
+typedef struct {
+    S32 x, y;
+    S32 screenCount;
+    S32 decorCount;
+    U32 seq;
+} T_DECOR_CACHE_KEY;
+static T_LIST_TRI s_decorCacheList[DECOR_CACHE_SLOTS][MAX_OBJ_DECORS];
+static T_DECOR_CACHE_KEY s_decorCache[DECOR_CACHE_SLOTS];
+
 /*══════════════════════════════════════════════════════════════════════════*
 		      █▀▀▀▄ █▀▀▀▀ █▀▀▀▀ █▀▀▀█ █▀▀▀█ ██▀▀▀
 		      ██  █ ██▀▀  ██    ██  █ ██▀█▀ ▀▀▀▀█
@@ -582,19 +596,29 @@ void AffichageObjetDecorsZBuf(void) {
     /* Eye 1 is render-only and its camera is only the IPD away from eye 0.
        Reuse eye 0's decor screen list/sort instead of re-projecting and
        qsorting the same cube; the lateral reject already keeps generous
-       frame margins, so the IPD shift cannot hide a decor. */
+       frame margins, so the IPD shift cannot hide a decor.  The pass runs
+       once per loaded cube (current plus horizon), so the snapshot is keyed
+       by cube and by the stereo pair. */
     const S32 stereoEye = GL_GetStereoEye();
-    static S32 s_decorListValidEye = -1;
-    static S32 s_decorListCubeX = 0x7FFFFFFF;
-    static S32 s_decorListCubeY = 0x7FFFFFFF;
-    static S32 s_decorListCount = -1;
+    const U32 decorPairSeq = GL_GetStereoFrameSeq();
     S32 decorCubeX, decorCubeY;
     GPU_TerrainDecorCube(&decorCubeX, &decorCubeY);
-    const S32 reuseDecorList =
-        (stereoEye == 1 && s_decorListValidEye == 0 &&
-         s_decorListCubeX == decorCubeX &&
-         s_decorListCubeY == decorCubeY &&
-         s_decorListCount == NbObjDecors);
+    S32 reuseDecorList = 0;
+    if (stereoEye == 1 && decorCubeX >= 0 && decorCubeX < 16 &&
+        decorCubeY >= 0 && decorCubeY < 16) {
+        for (S32 c = 0; c < DECOR_CACHE_SLOTS; c++) {
+            if (s_decorCache[c].seq == decorPairSeq &&
+                s_decorCache[c].x == decorCubeX &&
+                s_decorCache[c].y == decorCubeY &&
+                s_decorCache[c].decorCount == NbObjDecors) {
+                memcpy(ListTriExt, s_decorCacheList[c],
+                       (size_t)s_decorCache[c].screenCount * sizeof(T_LIST_TRI));
+                NbObjScreen = s_decorCache[c].screenCount;
+                reuseDecorList = 1;
+                break;
+            }
+        }
+    }
 
     ptrtri = ListTriExt;
     ptrobj = ListDecors;
@@ -732,19 +756,40 @@ void AffichageObjetDecorsZBuf(void) {
         }
     }
 
-    s_decorListCubeX = decorCubeX;
-    s_decorListCubeY = decorCubeY;
-    s_decorListCount = NbObjDecors;
-    s_decorListValidEye = (stereoEye == 0) ? 0 : 1;
+    // trie les objet en z 'front to back' (eye 0 only; eye 1 reuses it)
+    if (!reuseDecorList) {
+        if (NbObjScreen)
+            qsort(ListTriExt, NbObjScreen, sizeof(T_LIST_TRI),
+                  sub_qsort_decors_zbuf);
+    }
+
+    /* Snapshot the sorted list for eye 1, one slot per loaded cube. */
+    if (stereoEye == 0 && decorCubeX >= 0 && decorCubeX < 16 &&
+        decorCubeY >= 0 && decorCubeY < 16) {
+        S32 slot = -1;
+        for (S32 c = 0; c < DECOR_CACHE_SLOTS; c++) {
+            if (s_decorCache[c].seq == decorPairSeq &&
+                s_decorCache[c].x == decorCubeX &&
+                s_decorCache[c].y == decorCubeY) {
+                slot = c;
+                break;
+            }
+            if (slot < 0 && s_decorCache[c].seq != decorPairSeq)
+                slot = c;
+        }
+        if (slot < 0)
+            slot = 0;
+        memcpy(s_decorCacheList[slot], ListTriExt,
+               (size_t)NbObjScreen * sizeof(T_LIST_TRI));
+        s_decorCache[slot].x = decorCubeX;
+        s_decorCache[slot].y = decorCubeY;
+        s_decorCache[slot].screenCount = NbObjScreen;
+        s_decorCache[slot].decorCount = NbObjDecors;
+        s_decorCache[slot].seq = decorPairSeq;
+    }
 
     if (!NbObjScreen)
         return;
-
-    // trie les objet en z 'front to back' (eye 0 only; eye 1 reuses it)
-    if (!reuseDecorList) {
-        qsort(ListTriExt, NbObjScreen, sizeof(T_LIST_TRI),
-              sub_qsort_decors_zbuf);
-    }
 
     clipzstart = ClipZFar - StartZFog;
 

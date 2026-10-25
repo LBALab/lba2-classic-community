@@ -228,7 +228,7 @@ The decor pass collects its screen-space triangles into two CPU streams, opaque 
 
 The array program is linked separately and Adreno assigns it different attribute slots from the legacy CLUT program, so both layouts are queried and the vertex-array spec is re-issued when the current program changes.
 
-Eye 1 reuses eye 0’s decor screen list and sort order when the loaded cube and decor count match. The cube/count guard prevents a stale list at a cube boundary; the lateral reject’s frame margins cover the IPD shift.
+Eye 1 reuses eye 0’s decor screen list and sort order per loaded cube: the pass runs once for the current cube and once for each visible horizon cube, so one snapshot is kept for each cube for the current stereo pair (`GL_GetStereoFrameSeq()`). The cube/decor-count/pair guard prevents a stale list at a cube boundary, and the lateral reject’s frame margins cover the IPD shift.
 
 The GL batch interpolates texture coordinates affinely for the original POLYTEXT/POLYGTEX types (8–15), matching the software filler. On a large, oblique wall this is visible as texture swim/warp, especially in VR. The opt-in Display → Graphics → Perspective toggle stamps the material perspective bit for those types, reusing the batch’s existing per-vertex `1/W` varyings (the same path already used by Z-textured types 16–24). It is off by default; the software/CPU renderer and the default affine look are unchanged.
 
