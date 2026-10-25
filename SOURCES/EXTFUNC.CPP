@@ -10,6 +10,7 @@
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
+#include "MESSAGE.H"
 
 #include <stdio.h>
 
@@ -516,15 +517,30 @@ void AffGrilleExt() {
            ghost on incremental frames.  The depth readback moved after the
            object pass (see AffScene) so PtrZBuffer includes model geometry
            for sprite occlusion.  Zeroing Screen keeps the dirty-box
-           Screen→Log restores as no-op clears. */
+           Screen→Log restores as no-op clears.
+
+           An open dialogue owns the bottom strip of Log (box, text,
+           portrait) and its pristine copy in Screen; the stereo render is a
+           full redraw per eye, so clearing here would erase what the flat
+           dialogue's incremental frames used to preserve. */
         U32 rbT0 = SDL_GetTicks();
-        memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
-        /* A static stereo overlay is screen-space HUD only: eye 1 redraws
-           the same pixels over eye 0's buffer, so clearing it again only
-           throws away the copy the present reuses.  Any moving 2D content
-           keeps the clear so old sprite positions cannot ghost. */
-        if (!GL_StereoOverlayReusable()) {
+        if (Dial_OverlayActive()) {
+            /* Per-eye pass: clear Log so this eye's rain and incrust sprites
+               start clean (they project per eye and would otherwise stack up
+               in the shared overlay), then put the dialogue box, text and
+               portrait captured before the pass back for this eye's present.
+               Screen keeps the pristine dialogue window strip. */
             memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY + 512);
+            Dial_OverlayRestore();
+        } else {
+            memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+            /* A static stereo overlay is screen-space HUD only: eye 1 redraws
+               the same pixels over eye 0's buffer, so clearing it again only
+               throws away the copy the present reuses.  Any moving 2D content
+               keeps the clear so old sprite positions cannot ghost. */
+            if (!GL_StereoOverlayReusable()) {
+                memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY + 512);
+            }
         }
         /* Snapshot the completed terrain FBO: incremental frames restore it
            before the object pass to erase last frame's GL body/shadow

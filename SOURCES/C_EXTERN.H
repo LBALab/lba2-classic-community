@@ -244,6 +244,10 @@ extern S32 StereoLookViewAlpha(S32 baseAlpha, float pitchOff);
 extern void StereoLookHeadOffsetToWorld(float dxm, float dym, float dzm,
                                         S32 betaView, S32 *outX, S32 *outY,
                                         S32 *outZ);
+/* Shared stereo scene renderer and dialogue world advance. */
+extern S32 PERSO_StereoRenderActive(void);
+extern void PERSO_RenderStereo(S32 flagflip);
+extern void PERSO_DialogUpdateWorld(void);
 extern void CycleCameraSetting(void);
 extern S32 FollowCamBaseDist;
 extern S32 FlagMouseCamera;

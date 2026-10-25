@@ -192,6 +192,18 @@ a fallback for FXAA/SMAA or a double-wide FBO failure. Set
 `LBA2_OXR_GLDEBUG=1` to log GL errors from the present stages; release runs
 skip the per-present error queries.
 
+Modal dialogue renders outside `MainLoop`'s stereo block but uses the same
+per-eye renderer. Its box, text and portrait are 2D content in `Log`, and the
+per-eye present composites `Log` into each eye, so a stereo dialogue draws the
+overlay before the scene pass and lets that pass submit it once. A separate
+overlay blit must never present on its own: a mono frame between per-eye pairs
+makes both eyes sample the same half, which reads as one eye jumping every
+frame. The per-eye pass clears `Log` so per-eye 2D content (rain drops and
+object incrusts project per eye) cannot stack; the dialogue overlay is
+snapshotted before the pass and restored after each eye's clear. `Screen` keeps
+the pristine dialogue window strip the flat game only preserved because its
+dialogue frames were incremental.
+
 For a device experiment, `LBA2_OXR_DIRECT=1` (or a build configured with
 `-DLBA2_OXR_DIRECT=ON`) renders both eyes and the HUD directly into the
 acquired swapchain texture with `EXT_multisampled_render_to_texture`, removing

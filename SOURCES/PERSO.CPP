@@ -1001,6 +1001,366 @@ void CycleCameraSetting(void) {
     FirstTime = AFF_ALL_FLIP;
 }
 
+/* True when PERSO_RenderStereo renders the scene once per eye and therefore
+   owns the frame's present. */
+S32 PERSO_StereoRenderActive(void) {
+#if defined(LBA2_OPENXR) && defined(__ANDROID__)
+    return DisplayStereo3D AND OpenXR_IsActive() AND GPURendererActive;
+#else
+    return 0;
+#endif
+}
+
+/* Render one scene frame in stereo when the headset owns the view, or as a
+   single mono frame otherwise.  Shared by MainLoop and the modal dialogue
+   path so dialogue keeps the world in stereo. */
+void PERSO_RenderStereo(S32 flagflip) {
+#if defined(LBA2_OPENXR) && defined(__ANDROID__)
+    if (PERSO_StereoRenderActive()) {
+        /* Modal dialogue renders outside MainLoop's OpenXR frame start.
+           Begin the frame here; EnsureFrameBegun is a one-shot, so the
+           main loop's later BeginFrame is a no-op inside this same frame. */
+        OpenXR_BeginFrame();
+            /* Native stereo: render the scene once per eye. Full redraws per
+             * eye — the incremental dirty-box path would carry the other
+             * eye's leftovers. The left eye's composite is captured offscreen
+             * (present + clock step suppressed); the right eye renders
+             * through the normal path and its OpenXR_PresentMono submits
+             * both eye images. */
+            extern S32 VueDistance;
+            extern S32 ChampX;
+            extern S32 StereoCamShiftX;
+            extern S32 StereoCamShiftY;
+            extern S32 StereoProjShiftX;
+            /* Eye separation in world units (~1.5x natural IPD at LBA2's
+             * scale, for a moderate depth pop). */
+            const S32 stereoIPD = 30;
+            const float eyeSep = stereoIPD * 0.5f;
+            /* True per-eye poses: each eye renders from its tracked view —
+             * the compositor time-warps each submitted image from exactly
+             * the pose declared in the projection layer, so rendering from
+             * that same (one-frame-stale) pose turns head rotation into a
+             * clean reprojection instead of a warp from an unrelated rig
+             * camera, and the IPD split along the head's right axis makes
+             * the stereo depth real (no convergence shear, no flat-image
+             * roll damping).  Exterior only: interior room cameras sit
+             * inside walls, where free head look would show geometry from
+             * behind.  No cached views (first frame, mono session) falls
+             * back to the rig-offset pair below. */
+            float eyeQ[2][4];
+            float eyeP[2][3];
+            /* Both camera modes render the tracked view 1:1, anchored to the
+             * world: first person from the exact head pose, the classic and
+             * auto cameras from their rig framing captured when the look
+             * session engages, plus the head's world-relative rotation — the
+             * rig's later swings around Twinsen do not pan the view.  With
+             * no cached views (first frame, mono session) everything falls
+             * back to the plain rig-offset pair below. */
+            S32 haveViews = OpenXR_GetEyeView(0, eyeQ[0], eyeP[0]) AND
+                            OpenXR_GetEyeView(1, eyeQ[1], eyeP[1]);
+            S32 truePose = CameraFirstPerson AND
+                           CubeMode == CUBE_EXTERIEUR AND haveViews;
+            S32 lookPose = !CameraFirstPerson AND
+                           CubeMode == CUBE_EXTERIEUR AND haveViews;
+            float lookYawOff = 0.0f;
+            float lookPitchOff = 0.0f;
+            /* Head-centre tracked position: mid of the two eye views, metres
+             * on the tracking axes (X right, Y up, Z back). */
+            float headX = 0.0f;
+            float headY = 0.0f;
+            float headZ = 0.0f;
+            if (haveViews) {
+                headX = 0.5f * (eyeP[0][0] + eyeP[1][0]);
+                headY = 0.5f * (eyeP[0][1] + eyeP[1][1]);
+                headZ = 0.5f * (eyeP[0][2] + eyeP[1][2]);
+            }
+            if (lookPose) {
+                LookComputeOffsets(&lookYawOff, &lookPitchOff,
+                                   headX, headY, headZ);
+            } else {
+                LookAnchored = 0; /* re-capture the anchor on re-entry */
+            }
+            /* Tracked head translation relative to the pose reference
+             * captured when this camera mode engaged (or on recenter): a
+             * lean around the rig position, not a distance from the room's
+             * tracking origin. */
+            float headDx = 0.0f;
+            float headDy = 0.0f;
+            float headDz = 0.0f;
+            if (truePose) {
+                if (LookPosMode != 1 || LookRecenterReq) {
+                    LookRefPos[0] = headX;
+                    LookRefPos[1] = headY;
+                    LookRefPos[2] = headZ;
+                    LookPosMode = 1;
+                    LookRecenterReq = 0;
+                }
+                headDx = headX - LookRefPos[0];
+                headDy = headY - LookRefPos[1];
+                headDz = headZ - LookRefPos[2];
+            } else if (lookPose) {
+                if (LookPosMode != 0) {
+                    LookRefPos[0] = headX;
+                    LookRefPos[1] = headY;
+                    LookRefPos[2] = headZ;
+                    LookPosMode = 0;
+                }
+                headDx = headX - LookRefPos[0];
+                headDy = headY - LookRefPos[1];
+                headDz = headZ - LookRefPos[2];
+            }
+            S32 conv = 0;
+            S32 dx = 0;
+            S32 dy = 0;
+            if (!truePose && !lookPose) {
+                /* The zero-disparity plane sits at the convergence distance.
+                 * First person: the camera IS the hero's eyes, so
+                 * VueDistance is 0 - converging there would shear the whole
+                 * terrain.  Keep the comfort plane at walking distance. */
+                S32 convDist = VueDistance;
+                if (CameraFirstPerson AND convDist < 4000)
+                    convDist = 4000;
+                conv = stereoIPD * ChampX / (2 * (convDist + 512));
+                if (conv < 0)
+                    conv = 0;
+                /* The eyes roll with the head: rotate the IPD offset by the
+                 * head roll so the per-eye disparity direction matches what
+                 * a rolled head actually sees.  Without this, rolling pumps
+                 * the apparent size of objects (the offset stays
+                 * screen-level). */
+                const float rollRad = -GammaCam * 3.14159265358979f / 2048.0f;
+                dx = (S32)(eyeSep * cosf(rollRad));
+                dy = (S32)(eyeSep * sinf(rollRad));
+            }
+            /* The projection spans the headset's per-eye field (the values
+             * OPENXR.CPP derived from the runtime's eye FOVs), overriding
+             * the classic focal floors for these two passes only — restored
+             * after the pair so menus and the flat pipeline keep the game
+             * focal. */
+            const S32 gameLFactorX = LFactorX;
+            const S32 gameLFactorY = LFactorY;
+            const float gameFRatioX = FRatioX;
+            const float gameFRatioY = FRatioY;
+            U32 stereoT0 = SDL_GetTicks();
+            U32 stereoT1 = stereoT0;
+            for (S32 eye = 0; eye < 2; eye++) {
+                GL_SetStereoEye(eye);
+                if (truePose) {
+                    const float *q = eyeQ[eye];
+                    /* Orientation from the tracked quaternion, read the
+                     * convention-proof way: forward = q rotated (0,0,-1),
+                     * yaw/pitch off the forward vector, roll off the head
+                     * up vector's lean toward cross(forward, world up). */
+                    const float qx = q[0], qy = q[1], qz = q[2], qw = q[3];
+                    const float tx = -2.0f * qy, ty = 2.0f * qx;
+                    const float cx = -qz * ty;
+                    const float cy = qz * tx;
+                    const float cz = qx * ty - qy * tx;
+                    const float fx = qw * tx + cx;
+                    float fy = qw * ty + cy;
+                    const float fz = -1.0f + cz;
+                    if (fy > 1.0f)
+                        fy = 1.0f;
+                    else if (fy < -1.0f)
+                        fy = -1.0f;
+                    const float yaw = atan2f(fx, -fz);
+                    const float pitch = asinf(fy);
+                    /* Head up = q rotated (0,1,0). */
+                    const float ux = 2.0f * qx * qy - 2.0f * qw * qz;
+                    const float uy = 1.0f - 2.0f * qx * qx - 2.0f * qz * qz;
+                    const float uz = 2.0f * qw * qx + 2.0f * qy * qz;
+                    const float roll = atan2f(ux * (-fz) + uz * fx, uy);
+                    /* Engine angles: 4096 per turn, BetaCam = 2048 faces
+                     * straight ahead (same signs the first-person camera
+                     * uses for the same head pose).  The tracked angles go
+                     * into the stereo eye override, which AffGrilleExt
+                     * applies AFTER the rig's own SetFollowCamera: the rig
+                     * position stays the game-controlled one (plus the
+                     * tracked lean below) while the render orientation is
+                     * the exact tracked pose — the pose the compositor
+                     * time-warps from, which is what keeps head rotation
+                     * artifact-free.  Anything set only on the renderer
+                     * state before AffScene would be wiped by that
+                     * mid-frame SetFollowCamera. */
+                    const float K = 2048.0f / 3.14159265358979f;
+                    StereoEyeOverride = 1;
+                    StereoEyeBeta = (S32)(2048.0f + yaw * K) & 4095;
+                    StereoEyeAlpha = (S32)(-pitch * K);
+                    StereoEyeGamma = (S32)(roll * K);
+                    /* The camera rolls with the head, so the head's right
+                     * axis IS view-space X: the IPD split is a plain lateral
+                     * shift.  StereoCamShift rides inside SetCamera, so it
+                     * also survives the mid-frame re-application. */
+                    StereoCamShiftX = (eye == 0) ? -(S32)eyeSep : (S32)eyeSep;
+                    StereoCamShiftY = 0;
+                    StereoProjShiftX = 0;
+                    /* 6dof: the tracked translation leans the rig position
+                     * along the view this eye renders with. */
+                    StereoLookHeadOffsetToWorld(headDx, headDy, headDz,
+                                                StereoEyeBeta,
+                                                &StereoCamOffsetX,
+                                                &StereoCamOffsetY,
+                                                &StereoCamOffsetZ);
+                } else if (lookPose) {
+                    /* World-anchored head look: the rig framing captured at
+                     * anchor time plus the tracked view 1:1 (warp-free — the
+                     * applied orientation tracks the head exactly).  The
+                     * rig's later swings around Twinsen no longer pan the
+                     * view; the camera-center key recaptures the anchor on
+                     * the current framing.  Same surviving-injection rules
+                     * as the first-person path. */
+                    StereoEyeOverride = 1;
+                    StereoEyeAlpha = StereoLookViewAlpha(LookBaseAlpha,
+                                                         lookPitchOff);
+                    StereoEyeBeta = StereoLookViewBeta(LookBaseBeta,
+                                                       lookYawOff);
+                    StereoEyeGamma = LookBaseGamma;
+                    StereoCamShiftX = (eye == 0) ? -(S32)eyeSep : (S32)eyeSep;
+                    StereoCamShiftY = 0;
+                    StereoProjShiftX = 0;
+                    /* 6dof: the tracked translation leans the rig position
+                     * along the view this eye renders with. */
+                    StereoLookHeadOffsetToWorld(headDx, headDy, headDz,
+                                                StereoEyeBeta,
+                                                &StereoCamOffsetX,
+                                                &StereoCamOffsetY,
+                                                &StereoCamOffsetZ);
+                } else {
+                    StereoCamShiftX = (eye == 0) ? -dx : dx;
+                    StereoCamShiftY = (eye == 0) ? -dy : dy;
+                    StereoProjShiftX = (eye == 0) ? -conv : conv;
+                    StereoCamOffsetX = 0;
+                    StereoCamOffsetY = 0;
+                    StereoCamOffsetZ = 0;
+                }
+                if (StereoFocalX > 0 && StereoFocalY > 0) {
+                    LFactorX = StereoFocalX;
+                    LFactorY = StereoFocalY;
+                    FRatioX = (float)LFactorX;
+                    FRatioY = -(float)LFactorY / FRatioX;
+                }
+                if (eye == 1)
+                    stereoT1 = SDL_GetTicks();
+                if (eye == 0) {
+                    /* Opt-in: hold the swapchain image across both eye passes
+                     * and render straight into it.  Failure leaves the normal
+                     * double-wide target and blit path untouched. */
+                    U32 directTexture = 0;
+                    U32 directWidth = 0;
+                    U32 directHeight = 0;
+                    if (OpenXR_AcquireStereoImage(&directTexture, &directWidth,
+                                                  &directHeight)) {
+                        if (!GL_BeginDirectStereo(directTexture, directWidth,
+                                                  directHeight)) {
+                            OpenXR_AbortDirectStereo();
+                        }
+                    }
+                }
+                {
+                    S32 eyePhase = (eye == 0) ? PERFTRACE_PHASE_EYE0
+                                              : PERFTRACE_PHASE_EYE1;
+                    Perftrace_PhaseBegin(eyePhase);
+                    AffScene(AFF_ALL_FLIP);
+                    Perftrace_PhaseEnd(eyePhase);
+                }
+            }
+            /* Present normally releases the held image.  This abort covers a
+             * frame that left the eye loop without presenting. */
+            OpenXR_AbortDirectStereo();
+            U32 stereoT2 = SDL_GetTicks();
+            LFactorX = gameLFactorX;
+            LFactorY = gameLFactorY;
+            FRatioX = gameFRatioX;
+            FRatioY = gameFRatioY;
+            StereoEyeOverride = 0;
+            StereoCamShiftX = 0;
+            StereoCamShiftY = 0;
+            StereoProjShiftX = 0;
+            StereoCamOffsetX = 0;
+            StereoCamOffsetY = 0;
+            StereoCamOffsetZ = 0;
+            {
+                static U32 s_stereoPerfFrame = 0;
+                s_stereoPerfFrame++;
+                if (s_stereoPerfFrame % 300 == 150) {
+                    Log_Info("StereoPerf: eye0=%dms eye1=%dms frame=%dms flushes=%d truepose=%d",
+                             stereoT1 - stereoT0, stereoT2 - stereoT1,
+                             stereoT2 - stereoT0, GL_BatchFlushCount,
+                             truePose);
+                }
+            }
+            GL_SetStereoEye(-1);
+        return;
+    }
+#endif
+            /* Mono frames still call this after stereo was switched off so
+             * the double-wide target is released before the scene draws into
+             * what it expects to be a single-wide FBO. */
+#ifdef USE_GPURENDERER
+            GL_SetStereoEye(-1);
+#endif
+            AffScene(flagflip);
+}
+
+/* Advance the visible world while a modal dialogue blocks the main loop.
+   The hero and speaker are owned by the dialogue itself; other bodies keep
+   animating, and extras/rain/water/camera stay live. */
+void PERSO_DialogUpdateWorld(void) {
+    /* Per-eye IPD shift/lean belongs to the eye passes PERSO_RenderStereo
+       sets up; a value left from the previous frame must not reach the
+       camera update below. */
+    StereoCamShiftX = 0;
+    StereoCamShiftY = 0;
+    StereoProjShiftX = 0;
+    StereoCamOffsetX = 0;
+    StereoCamOffsetY = 0;
+    StereoCamOffsetZ = 0;
+    StereoEyeOverride = 0;
+
+    if (CameraFirstPerson AND CubeMode == CUBE_EXTERIEUR) {
+        UpdateFirstPersonCamera();
+    } else if (FollowCamera AND CubeMode == CUBE_EXTERIEUR) {
+        UpdateFollowCameraExt();
+    }
+
+    StepFalling = GetDeltaMove(&RealFalling);
+    StepShifting = GetDeltaMove(&RealShifting);
+    S32 pansample = GetDeltaMove(&SampleAlwaysMove);
+    (void)pansample;
+
+    CameraZone = FALSE;
+    GereAmbiance();
+    CheckNextMusic();
+    GereExtras();
+    AnimAllFlow();
+
+    if (CubeMode == CUBE_EXTERIEUR) {
+        if (Island == 0 AND TEMPETE_ACTIVE AND RainEnable)
+            GereRain();
+        DoAnimatedPolys();
+    }
+
+    for (S32 i = 0; i < NbObjets; i++) {
+        T_OBJET *o = &ListObjet[i];
+        if (i == NUM_PERSO || i == (S32)NumObjDial)
+            continue;
+        if (o->WorkFlags & OBJ_DEAD)
+            continue;
+        if (o->CarryBy == -1)
+            o->OldBeta = o->Obj.Beta;
+        DoDir((U8)i);
+        o->OldPosX = o->Obj.X;
+        o->OldPosY = o->Obj.Y;
+        o->OldPosZ = o->Obj.Z;
+        if (o->OffsetTrack != -1)
+            DoTrack((U8)i);
+        if (!FirstLoop)
+            PtrDoAnim((U8)i);
+    }
+
+    ManageSystem();
+}
+
 S32 MainLoop() {
     S32 xm, ym, zm;
     T_OBJET *ptrobj;
@@ -2563,288 +2923,7 @@ restartloop:
          * Quest owns the OpenXR present (xrEndFrame + input pump). No explicit
          * present here — that would double-present. This matches the original
          * PC path where AffScene was the sole presenter. */
-#if defined(LBA2_OPENXR) && defined(__ANDROID__)
-        if (DisplayStereo3D AND OpenXR_IsActive() AND GPURendererActive) {
-            /* Native stereo: render the scene once per eye. Full redraws per
-             * eye — the incremental dirty-box path would carry the other
-             * eye's leftovers. The left eye's composite is captured offscreen
-             * (present + clock step suppressed); the right eye renders
-             * through the normal path and its OpenXR_PresentMono submits
-             * both eye images. */
-            extern S32 VueDistance;
-            extern S32 ChampX;
-            extern S32 StereoCamShiftX;
-            extern S32 StereoCamShiftY;
-            extern S32 StereoProjShiftX;
-            /* Eye separation in world units (~1.5x natural IPD at LBA2's
-             * scale, for a moderate depth pop). */
-            const S32 stereoIPD = 30;
-            const float eyeSep = stereoIPD * 0.5f;
-            /* True per-eye poses: each eye renders from its tracked view —
-             * the compositor time-warps each submitted image from exactly
-             * the pose declared in the projection layer, so rendering from
-             * that same (one-frame-stale) pose turns head rotation into a
-             * clean reprojection instead of a warp from an unrelated rig
-             * camera, and the IPD split along the head's right axis makes
-             * the stereo depth real (no convergence shear, no flat-image
-             * roll damping).  Exterior only: interior room cameras sit
-             * inside walls, where free head look would show geometry from
-             * behind.  No cached views (first frame, mono session) falls
-             * back to the rig-offset pair below. */
-            float eyeQ[2][4];
-            float eyeP[2][3];
-            /* Both camera modes render the tracked view 1:1, anchored to the
-             * world: first person from the exact head pose, the classic and
-             * auto cameras from their rig framing captured when the look
-             * session engages, plus the head's world-relative rotation — the
-             * rig's later swings around Twinsen do not pan the view.  With
-             * no cached views (first frame, mono session) everything falls
-             * back to the plain rig-offset pair below. */
-            S32 haveViews = OpenXR_GetEyeView(0, eyeQ[0], eyeP[0]) AND
-                            OpenXR_GetEyeView(1, eyeQ[1], eyeP[1]);
-            S32 truePose = CameraFirstPerson AND
-                           CubeMode == CUBE_EXTERIEUR AND haveViews;
-            S32 lookPose = !CameraFirstPerson AND
-                           CubeMode == CUBE_EXTERIEUR AND haveViews;
-            float lookYawOff = 0.0f;
-            float lookPitchOff = 0.0f;
-            /* Head-centre tracked position: mid of the two eye views, metres
-             * on the tracking axes (X right, Y up, Z back). */
-            float headX = 0.0f;
-            float headY = 0.0f;
-            float headZ = 0.0f;
-            if (haveViews) {
-                headX = 0.5f * (eyeP[0][0] + eyeP[1][0]);
-                headY = 0.5f * (eyeP[0][1] + eyeP[1][1]);
-                headZ = 0.5f * (eyeP[0][2] + eyeP[1][2]);
-            }
-            if (lookPose) {
-                LookComputeOffsets(&lookYawOff, &lookPitchOff,
-                                   headX, headY, headZ);
-            } else {
-                LookAnchored = 0; /* re-capture the anchor on re-entry */
-            }
-            /* Tracked head translation relative to the pose reference
-             * captured when this camera mode engaged (or on recenter): a
-             * lean around the rig position, not a distance from the room's
-             * tracking origin. */
-            float headDx = 0.0f;
-            float headDy = 0.0f;
-            float headDz = 0.0f;
-            if (truePose) {
-                if (LookPosMode != 1 || LookRecenterReq) {
-                    LookRefPos[0] = headX;
-                    LookRefPos[1] = headY;
-                    LookRefPos[2] = headZ;
-                    LookPosMode = 1;
-                    LookRecenterReq = 0;
-                }
-                headDx = headX - LookRefPos[0];
-                headDy = headY - LookRefPos[1];
-                headDz = headZ - LookRefPos[2];
-            } else if (lookPose) {
-                if (LookPosMode != 0) {
-                    LookRefPos[0] = headX;
-                    LookRefPos[1] = headY;
-                    LookRefPos[2] = headZ;
-                    LookPosMode = 0;
-                }
-                headDx = headX - LookRefPos[0];
-                headDy = headY - LookRefPos[1];
-                headDz = headZ - LookRefPos[2];
-            }
-            S32 conv = 0;
-            S32 dx = 0;
-            S32 dy = 0;
-            if (!truePose && !lookPose) {
-                /* The zero-disparity plane sits at the convergence distance.
-                 * First person: the camera IS the hero's eyes, so
-                 * VueDistance is 0 - converging there would shear the whole
-                 * terrain.  Keep the comfort plane at walking distance. */
-                S32 convDist = VueDistance;
-                if (CameraFirstPerson AND convDist < 4000)
-                    convDist = 4000;
-                conv = stereoIPD * ChampX / (2 * (convDist + 512));
-                if (conv < 0)
-                    conv = 0;
-                /* The eyes roll with the head: rotate the IPD offset by the
-                 * head roll so the per-eye disparity direction matches what
-                 * a rolled head actually sees.  Without this, rolling pumps
-                 * the apparent size of objects (the offset stays
-                 * screen-level). */
-                const float rollRad = -GammaCam * 3.14159265358979f / 2048.0f;
-                dx = (S32)(eyeSep * cosf(rollRad));
-                dy = (S32)(eyeSep * sinf(rollRad));
-            }
-            /* The projection spans the headset's per-eye field (the values
-             * OPENXR.CPP derived from the runtime's eye FOVs), overriding
-             * the classic focal floors for these two passes only — restored
-             * after the pair so menus and the flat pipeline keep the game
-             * focal. */
-            const S32 gameLFactorX = LFactorX;
-            const S32 gameLFactorY = LFactorY;
-            const float gameFRatioX = FRatioX;
-            const float gameFRatioY = FRatioY;
-            U32 stereoT0 = SDL_GetTicks();
-            U32 stereoT1 = stereoT0;
-            for (S32 eye = 0; eye < 2; eye++) {
-                GL_SetStereoEye(eye);
-                if (truePose) {
-                    const float *q = eyeQ[eye];
-                    /* Orientation from the tracked quaternion, read the
-                     * convention-proof way: forward = q rotated (0,0,-1),
-                     * yaw/pitch off the forward vector, roll off the head
-                     * up vector's lean toward cross(forward, world up). */
-                    const float qx = q[0], qy = q[1], qz = q[2], qw = q[3];
-                    const float tx = -2.0f * qy, ty = 2.0f * qx;
-                    const float cx = -qz * ty;
-                    const float cy = qz * tx;
-                    const float cz = qx * ty - qy * tx;
-                    const float fx = qw * tx + cx;
-                    float fy = qw * ty + cy;
-                    const float fz = -1.0f + cz;
-                    if (fy > 1.0f)
-                        fy = 1.0f;
-                    else if (fy < -1.0f)
-                        fy = -1.0f;
-                    const float yaw = atan2f(fx, -fz);
-                    const float pitch = asinf(fy);
-                    /* Head up = q rotated (0,1,0). */
-                    const float ux = 2.0f * qx * qy - 2.0f * qw * qz;
-                    const float uy = 1.0f - 2.0f * qx * qx - 2.0f * qz * qz;
-                    const float uz = 2.0f * qw * qx + 2.0f * qy * qz;
-                    const float roll = atan2f(ux * (-fz) + uz * fx, uy);
-                    /* Engine angles: 4096 per turn, BetaCam = 2048 faces
-                     * straight ahead (same signs the first-person camera
-                     * uses for the same head pose).  The tracked angles go
-                     * into the stereo eye override, which AffGrilleExt
-                     * applies AFTER the rig's own SetFollowCamera: the rig
-                     * position stays the game-controlled one (plus the
-                     * tracked lean below) while the render orientation is
-                     * the exact tracked pose — the pose the compositor
-                     * time-warps from, which is what keeps head rotation
-                     * artifact-free.  Anything set only on the renderer
-                     * state before AffScene would be wiped by that
-                     * mid-frame SetFollowCamera. */
-                    const float K = 2048.0f / 3.14159265358979f;
-                    StereoEyeOverride = 1;
-                    StereoEyeBeta = (S32)(2048.0f + yaw * K) & 4095;
-                    StereoEyeAlpha = (S32)(-pitch * K);
-                    StereoEyeGamma = (S32)(roll * K);
-                    /* The camera rolls with the head, so the head's right
-                     * axis IS view-space X: the IPD split is a plain lateral
-                     * shift.  StereoCamShift rides inside SetCamera, so it
-                     * also survives the mid-frame re-application. */
-                    StereoCamShiftX = (eye == 0) ? -(S32)eyeSep : (S32)eyeSep;
-                    StereoCamShiftY = 0;
-                    StereoProjShiftX = 0;
-                    /* 6dof: the tracked translation leans the rig position
-                     * along the view this eye renders with. */
-                    StereoLookHeadOffsetToWorld(headDx, headDy, headDz,
-                                                StereoEyeBeta,
-                                                &StereoCamOffsetX,
-                                                &StereoCamOffsetY,
-                                                &StereoCamOffsetZ);
-                } else if (lookPose) {
-                    /* World-anchored head look: the rig framing captured at
-                     * anchor time plus the tracked view 1:1 (warp-free — the
-                     * applied orientation tracks the head exactly).  The
-                     * rig's later swings around Twinsen no longer pan the
-                     * view; the camera-center key recaptures the anchor on
-                     * the current framing.  Same surviving-injection rules
-                     * as the first-person path. */
-                    StereoEyeOverride = 1;
-                    StereoEyeAlpha = StereoLookViewAlpha(LookBaseAlpha,
-                                                         lookPitchOff);
-                    StereoEyeBeta = StereoLookViewBeta(LookBaseBeta,
-                                                       lookYawOff);
-                    StereoEyeGamma = LookBaseGamma;
-                    StereoCamShiftX = (eye == 0) ? -(S32)eyeSep : (S32)eyeSep;
-                    StereoCamShiftY = 0;
-                    StereoProjShiftX = 0;
-                    /* 6dof: the tracked translation leans the rig position
-                     * along the view this eye renders with. */
-                    StereoLookHeadOffsetToWorld(headDx, headDy, headDz,
-                                                StereoEyeBeta,
-                                                &StereoCamOffsetX,
-                                                &StereoCamOffsetY,
-                                                &StereoCamOffsetZ);
-                } else {
-                    StereoCamShiftX = (eye == 0) ? -dx : dx;
-                    StereoCamShiftY = (eye == 0) ? -dy : dy;
-                    StereoProjShiftX = (eye == 0) ? -conv : conv;
-                    StereoCamOffsetX = 0;
-                    StereoCamOffsetY = 0;
-                    StereoCamOffsetZ = 0;
-                }
-                if (StereoFocalX > 0 && StereoFocalY > 0) {
-                    LFactorX = StereoFocalX;
-                    LFactorY = StereoFocalY;
-                    FRatioX = (float)LFactorX;
-                    FRatioY = -(float)LFactorY / FRatioX;
-                }
-                if (eye == 1)
-                    stereoT1 = SDL_GetTicks();
-                if (eye == 0) {
-                    /* Opt-in: hold the swapchain image across both eye passes
-                     * and render straight into it.  Failure leaves the normal
-                     * double-wide target and blit path untouched. */
-                    U32 directTexture = 0;
-                    U32 directWidth = 0;
-                    U32 directHeight = 0;
-                    if (OpenXR_AcquireStereoImage(&directTexture, &directWidth,
-                                                  &directHeight)) {
-                        if (!GL_BeginDirectStereo(directTexture, directWidth,
-                                                  directHeight)) {
-                            OpenXR_AbortDirectStereo();
-                        }
-                    }
-                }
-                {
-                    S32 eyePhase = (eye == 0) ? PERFTRACE_PHASE_EYE0
-                                              : PERFTRACE_PHASE_EYE1;
-                    Perftrace_PhaseBegin(eyePhase);
-                    AffScene(AFF_ALL_FLIP);
-                    Perftrace_PhaseEnd(eyePhase);
-                }
-            }
-            /* Present normally releases the held image.  This abort covers a
-             * frame that left the eye loop without presenting. */
-            OpenXR_AbortDirectStereo();
-            U32 stereoT2 = SDL_GetTicks();
-            LFactorX = gameLFactorX;
-            LFactorY = gameLFactorY;
-            FRatioX = gameFRatioX;
-            FRatioY = gameFRatioY;
-            StereoEyeOverride = 0;
-            StereoCamShiftX = 0;
-            StereoCamShiftY = 0;
-            StereoProjShiftX = 0;
-            StereoCamOffsetX = 0;
-            StereoCamOffsetY = 0;
-            StereoCamOffsetZ = 0;
-            {
-                static U32 s_stereoPerfFrame = 0;
-                s_stereoPerfFrame++;
-                if (s_stereoPerfFrame % 300 == 150) {
-                    Log_Info("StereoPerf: eye0=%dms eye1=%dms frame=%dms flushes=%d truepose=%d",
-                             stereoT1 - stereoT0, stereoT2 - stereoT1,
-                             stereoT2 - stereoT0, GL_BatchFlushCount,
-                             truePose);
-                }
-            }
-            GL_SetStereoEye(-1);
-        } else
-#endif
-        {
-            /* Mono frames still call this after stereo was switched off so
-             * the double-wide target is released before the scene draws into
-             * what it expects to be a single-wide FBO. */
-#ifdef USE_GPURENDERER
-            GL_SetStereoEye(-1);
-#endif
-            AffScene(FirstTime);
-        }
+        PERSO_RenderStereo(FirstTime);
         Perftrace_PhaseEnd(PERFTRACE_PHASE_SCENE);
 
         if ((FirstLoop OR RestartMusic)

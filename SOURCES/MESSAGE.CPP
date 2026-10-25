@@ -1205,6 +1205,30 @@ static inline void FlushCar() {
     NbCar = MAX_SHADE - 1;
 }
 /*-------------------------------------------------------------------------*/
+/* Palette index 0 is the transparent key in the GL overlay, so the classic
+   BLACK glyph shadow disappears there.  Return the darkest non-zero entry of
+   the live palette for text outlines. */
+static U8 TextShadowColor(void) {
+    const U8 *pal = PtrPal;
+    S32 best = BLACK;
+    S32 bestLum = 0x7FFFFFFF;
+    S32 i;
+
+    if (pal == NULL)
+        return (U8)BLACK;
+    for (i = 1; i < 256; i++) {
+        const S32 lum = (S32)pal[i * 3] + (S32)pal[i * 3 + 1] +
+                        (S32)pal[i * 3 + 2];
+        if (lum < bestLum) {
+            bestLum = lum;
+            best = i;
+            if (lum == 0)
+                break;
+        }
+    }
+    return (U8)best;
+}
+
 void AffOneCar(S32 x, S32 y, char c, S32 coul) {
     S32 x0, y0, x1, y1;
 
@@ -1216,8 +1240,22 @@ void AffOneCar(S32 x, S32 y, char c, S32 coul) {
             if (!QuickMessage)
 #endif
             {
-                ColorFont(BLACK);
-                CarFont(x + 2, y + 4, c);
+                if (OpenXR_GetSwapchainWidth()) {
+                    /* Head-mount: index 0 is transparent in the overlay, so
+                       outline with the darkest real palette entry.  Two
+                       pixels all around, plus the drop shadow. */
+                    ColorFont(TextShadowColor());
+                    for (S32 dy = -2; dy <= 2; dy++) {
+                        for (S32 dx = -2; dx <= 2; dx++) {
+                            if (dx != 0 || dy != 0)
+                                CarFont(x + dx, y + dy, c);
+                        }
+                    }
+                    CarFont(x + 2, y + 4, c);
+                } else {
+                    ColorFont(BLACK);
+                    CarFont(x + 2, y + 4, c);
+                }
             }
 
         ColorFont(coul);
@@ -1273,10 +1311,11 @@ void NormalWinDial() {
     if (OpenXR_GetSwapchainWidth()) {
         Dial_Y1 = (S32)ModeDesiredY * 3 / 4;
         Dial_Y0 = Dial_Y1 - 129;
-        /* Centred at ~62% width so the text lines stay readable in the
-         * eye's visible band. */
-        Dial_X0 = (S32)ModeDesiredX * 3 / 16;
-        Dial_X1 = (S32)ModeDesiredX * 13 / 16;
+        /* Centred, about 43% of the frame width: wide enough for the
+         * authored three-line layout without covering the eye's visible
+         * band. */
+        Dial_X0 = (S32)ModeDesiredX * 2 / 7;
+        Dial_X1 = (S32)ModeDesiredX * 5 / 7;
         MaxLineDial = 3;
         DialMaxSize = ((Dial_X1 - 8) - (Dial_X0 + 8));
         return;
@@ -1824,9 +1863,59 @@ S32 NextDialCar() {
     return res;
 }
 /*-------------------------------------------------------------------------*/
+/* Stereo dialogue overlay snapshot.  The per-eye scene pass clears Log so
+   this eye's rain and incrust sprites start clean (they project per eye and
+   would otherwise stack up), then restores the box, text and portrait
+   composited before the pass.  The hold keeps the last snapshot alive through
+   the wait that follows the end of the text, as the flat incremental frames
+   used to. */
+static U8 *s_dialOverlay = NULL;
+static U32 s_dialOverlaySize = 0;
+static S32 s_dialOverlayValid = 0;
+static S32 s_dialOverlayHold = 0;
+
 void CloseDial() {
     FlagRunningDial = FALSE;
     NextDialCar(); // to force it to reset
+}
+
+/* See MESSAGE.H.  The stereo scene render is a full redraw per eye, while the
+   flat dialogue relied on incremental frames that left the strip below the
+   scene clip window untouched; a full redraw must skip that strip or the box
+   disappears. */
+S32 Dial_OverlayActive(void) {
+    return FlagRunningDial || s_dialOverlayHold;
+}
+
+void Dial_OverlayHold(S32 hold) {
+    s_dialOverlayHold = hold ? 1 : 0;
+    if (!s_dialOverlayHold)
+        Dial_OverlayInvalidate();
+}
+
+void Dial_OverlayCapture(void) {
+    const U32 size = ModeDesiredX * ModeDesiredY;
+    if (s_dialOverlay == NULL || s_dialOverlaySize < size) {
+        free(s_dialOverlay);
+        s_dialOverlay = (U8 *)malloc(size);
+        s_dialOverlaySize = s_dialOverlay ? size : 0;
+    }
+    s_dialOverlayValid = 0;
+    if (s_dialOverlay != NULL) {
+        memcpy(s_dialOverlay, Log, size);
+        s_dialOverlayValid = 1;
+    }
+}
+
+S32 Dial_OverlayRestore(void) {
+    if (!s_dialOverlayValid || s_dialOverlay == NULL)
+        return 0;
+    memcpy(Log, s_dialOverlay, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+    return 1;
+}
+
+void Dial_OverlayInvalidate(void) {
+    s_dialOverlayValid = 0;
 }
 /*-------------------------------------------------------------------------*/
 S32 FlagAnimWhoSpeak = 0;
@@ -1908,42 +1997,43 @@ void ClearWhoSpeak() {
 static char s_dial_capture_path[ADELINE_MAX_PATH] = "";
 static int s_dial_capture_countdown = 0;
 
-/* VR stereo: the dialog flow renders outside MainLoop's stereo block, so
-   its frames would keep the flat game focal while the compositor maps them
-   across the headset's wide eye field — the world visibly grows.  Render
-   one frame at the same eye-FOV focal the stereo passes use (the frame
-   stays mono, but at the scale the headset expects). */
+/* The dialog flow renders outside MainLoop's stereo block.  Use the same
+   shared stereo renderer so dialogue keeps the world in stereo and at the
+   headset's per-eye focal instead of falling back to a mono frame. */
 static void AffSceneVrScale(S32 flagflip) {
-    const S32 gameLFactorX = LFactorX;
-    const S32 gameLFactorY = LFactorY;
-    const float gameFRatioX = FRatioX;
-    const float gameFRatioY = FRatioY;
-    S32 stereoDialog = 0;
-#ifdef LBA2_OPENXR
-    stereoDialog = DisplayStereo3D AND OpenXR_IsActive() AND
-                   GPURendererActive AND StereoFocalX > 0 AND
-                   StereoFocalY > 0;
-#endif
-    if (stereoDialog) {
-        LFactorX = StereoFocalX;
-        LFactorY = StereoFocalY;
-        FRatioX = (float)LFactorX;
-        FRatioY = -(float)LFactorY / FRatioX;
-    }
-    AffScene(flagflip);
-    if (stereoDialog) {
-        LFactorX = gameLFactorX;
-        LFactorY = gameLFactorY;
-        FRatioX = gameFRatioX;
-        FRatioY = gameFRatioY;
-    }
+    PERSO_RenderStereo(flagflip);
+}
+
+/* The per-eye pass composites the 2D overlay (Log) into each eye and submits
+   the pair once, so a stereo dialogue draws its box, text and portrait before
+   the scene.  The flat flow draws them after the scene and presents them with
+   BoxUpdate. */
+static S32 DialogStereoScene(void) {
+    return PERSO_StereoRenderActive();
 }
 
 void SpeakAnimation() {
+    const S32 capture = s_dial_capture_path[0] && Console_GetCaptureBlackBg();
+    const S32 stereoScene = !capture && DialogStereoScene();
     S32 saveyclip;
+
+    /* Keep the world alive and the scene stereo while the dialogue blocks
+       the main loop. */
+    PERSO_DialogUpdateWorld();
 
     if (FlagZoomed)
         DrawOneInventory(InvSelect);
+
+    if (stereoScene) {
+        /* The strip below Dial_Y0 holds the box and text; everything above it
+           is per-frame 2D (rain, incrusts, portrait), cleared here so the
+           previous frame's sprites cannot trail.  The radio badge is drawn
+           full-width, as in the flat flow. */
+        if (Dial_Y0 > 0 && (U32)Dial_Y0 <= ModeDesiredY)
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)Dial_Y0);
+        if (FlagAnimWhoSpeak && !FlagDisplayText)
+            TestAndDrawRadio();
+    }
 
     if (FlagAnimWhoSpeak) {
         saveyclip = ClipWindowYMax;
@@ -1951,7 +2041,23 @@ void SpeakAnimation() {
         SetClipWindow(ClipWindowXMin, ClipWindowYMin, ClipWindowXMax, Dial_Y0 - 1);
         UnsetClip();
 
-        if (s_dial_capture_path[0] && Console_GetCaptureBlackBg()) {
+        if (stereoScene) {
+            /* Overlays that must be in Log before the per-eye pass composites
+               it: the per-eye GL_Present reads Log as the whole HUD. */
+            if (Bulle)
+                DrawBulle(NumObjDial);
+
+            ObjectSetInterDep(&PtrWhoSpeak->Obj);
+
+            PtrWhoSpeak->Obj.X = XSpeak;
+            PtrWhoSpeak->Obj.Y = YSpeak;
+            PtrWhoSpeak->Obj.Z = ZSpeak;
+
+            /* Snapshot the overlay, then the per-eye pass clears Log for each
+               eye's rain/incrusts and restores this on top. */
+            Dial_OverlayCapture();
+            AffSceneVrScale(AFF_OBJETS_NO_FLIP);
+        } else if (capture) {
             /* Cleanroom golden — clear only above Dial_Y0, matching the
                clip window set five lines up (which is what AffScene would
                have written into). The dialog strip below Dial_Y0 holds the
@@ -1963,30 +2069,35 @@ void SpeakAnimation() {
             memset(Screen, 0, bytes);
         } else {
             AffSceneVrScale(AFF_OBJETS_NO_FLIP);
+
+            if (Bulle)
+                DrawBulle(NumObjDial);
+
+            if (!FlagDisplayText)
+                TestAndDrawRadio();
+
+            ObjectSetInterDep(&PtrWhoSpeak->Obj);
+
+            PtrWhoSpeak->Obj.X = XSpeak;
+            PtrWhoSpeak->Obj.Y = YSpeak;
+            PtrWhoSpeak->Obj.Z = ZSpeak;
         }
 
-        if (Bulle)
-            DrawBulle(NumObjDial);
-
         SetClipWindow(ClipWindowXMin, ClipWindowYMin, ClipWindowXMax, saveyclip);
-
         UnsetClip();
-
-        if (!FlagDisplayText)
-            TestAndDrawRadio();
-
-        ObjectSetInterDep(&PtrWhoSpeak->Obj);
-
-        PtrWhoSpeak->Obj.X = XSpeak;
-        PtrWhoSpeak->Obj.Y = YSpeak;
-        PtrWhoSpeak->Obj.Z = ZSpeak;
+    } else if (stereoScene) {
+        /* No speaker animation, but the world still renders in stereo. */
+        Dial_OverlayCapture();
+        AffSceneVrScale(AFF_OBJETS_NO_FLIP);
     }
 
-    BoxUpdate(); // For Char & perhaps Speaking guy...
+    if (!stereoScene)
+        BoxUpdate(); // flat / capture: present the overlay on its own
 
     ManageTime();
     MyGetInput();
 }
+
 //────────────────────────────────────────────────────────────────────────────
 //                                 D I A L
 //────────────────────────────────────────────────────────────────────────────
@@ -2055,15 +2166,19 @@ void Dial(S32 text, S32 drawscene) {
 
     //----- Si CAM_FOLLOW juste avant MESSAGE ( cas dans grot01 )
     // Déplacé le 30/05/97
+    PERSO_DialogUpdateWorld();
     if (s_dial_capture_path[0] && Console_GetCaptureBlackBg()) {
         /* Cleanroom golden — dialog box composites over solid black. */
         memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
         memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
     } else if (FirstTime == AFF_ALL_FLIP) {
         AffSceneVrScale(AFF_ALL_FLIP);
+        if (!DialogStereoScene())
+            BoxBlit();
     } else if (!(FlagDial & (DIAL_BIG | DIAL_FUL | DIAL_EXP | DIAL_DEM))) {
         AffSceneVrScale(AFF_OBJETS_NO_FLIP);
-        BoxBlit();
+        if (!DialogStereoScene())
+            BoxBlit();
     }
     //-----
 
@@ -2111,6 +2226,11 @@ void Dial(S32 text, S32 drawscene) {
 
     InitWhoSpeak(NumObjDial);
 
+    /* Keep the box/text overlay alive through the post-dialogue wait: the
+       stereo pass is a full redraw and would otherwise erase it when the text
+       ends, while the flat incremental frames kept it on screen. */
+    Dial_OverlayHold(1);
+
     OpenDial(text);
 
     while (TRUE) {
@@ -2120,6 +2240,8 @@ void Dial(S32 text, S32 drawscene) {
         SpeakAnimation();
 
         TestSpeak();
+        /* Two renders per typewriter step: this is the original pacing, one
+           step of the message per two presented frames. */
         SpeakAnimation();
 
         /* Harness one-shot capture.  Read Log (back buffer), not Screen --
@@ -2209,6 +2331,9 @@ void Dial(S32 text, S32 drawscene) {
             }
     }
 
+    /* The await is over: let the next full redraw clear the frozen box. */
+    Dial_OverlayHold(0);
+
     RestoreClip();
 
     ClearWhoSpeak();
@@ -2222,9 +2347,11 @@ void Dial(S32 text, S32 drawscene) {
         BoxStaticAdd(0, 0, ModeDesiredX, ModeDesiredY);
         RestoreTimer();
         SaveTimer();
+        PERSO_DialogUpdateWorld();
         AffSceneVrScale(AFF_OBJETS_NO_FLIP);
         FixeCinemaMode(FALSE);
-        BoxBlit();
+        if (!DialogStereoScene())
+            BoxBlit();
     }
     //-----
 
@@ -2248,20 +2375,24 @@ S32 MyDial(S32 nummess) // attends une touche si autre page sinon continue
     BoxClean(); // Clean Log from last AffScene
 
     //----- Si CAM_FOLLOW juste avant MESSAGE ( cas dans grot01 )
+    PERSO_DialogUpdateWorld();
     if (s_dial_capture_path[0] && Console_GetCaptureBlackBg()) {
-        /* Cleanroom golden — see Dial() above. Per-page redraw clears the
-           same buffers each time so the dialog box composites cleanly even
-           across multi-page advances. */
+        /* Cleanroom golden — see Dial() above. Per-page redraw clears
+           the same buffers each time so the dialog box composites
+           cleanly even across multi-page advances. */
         memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
         memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
-    } else if (FirstTime == AFF_ALL_FLIP) {
-        AffSceneVrScale(AFF_ALL_NO_FLIP);
-    } else
-        AffSceneVrScale(AFF_OBJETS_NO_FLIP);
-    //-----
-
-    CopyScreen(Log, Screen);
-    BoxUpdate();
+        CopyScreen(Log, Screen);
+        BoxUpdate();
+    } else {
+        const S32 dialFlag = (FirstTime == AFF_ALL_FLIP) ? AFF_ALL_NO_FLIP
+                                                         : AFF_OBJETS_NO_FLIP;
+        AffSceneVrScale(dialFlag);
+        if (!DialogStereoScene()) {
+            CopyScreen(Log, Screen);
+            BoxUpdate();
+        }
+    }
 
     FlagGui = 0; //     NEW
 
@@ -2296,13 +2427,36 @@ S32 MyDial(S32 nummess) // attends une touche si autre page sinon continue
 
     //      while( dialstat AND !esc )
     while (!esc) {
+        PERSO_DialogUpdateWorld();
+
         ManageTime();
 
         dialstat = NextDialCar();
 
-        if (!FlagDisplayText AND Bulle)
-            DrawBulle(NumObjDial);
-        BoxUpdate();
+        if (DialogStereoScene()) {
+            /* The strip below Dial_Y0 holds the box and text; everything
+               above it is per-frame 2D and is cleared before the overlay is
+               snapshotted for the per-eye pass. */
+            if (Dial_Y0 > 0 && (U32)Dial_Y0 <= ModeDesiredY)
+                memset(Log, 0, (size_t)ModeDesiredX * (size_t)Dial_Y0);
+            {
+                const S32 saveyclip = ClipWindowYMax;
+                SetClipWindow(ClipWindowXMin, ClipWindowYMin,
+                              ClipWindowXMax, Dial_Y0 - 1);
+                UnsetClip();
+                if (!FlagDisplayText AND Bulle)
+                    DrawBulle(NumObjDial);
+                Dial_OverlayCapture();
+                AffSceneVrScale(AFF_OBJETS_NO_FLIP);
+                SetClipWindow(ClipWindowXMin, ClipWindowYMin,
+                              ClipWindowXMax, saveyclip);
+                UnsetClip();
+            }
+        } else {
+            if (!FlagDisplayText AND Bulle)
+                DrawBulle(NumObjDial);
+            BoxUpdate();
+        }
 
         TestSpeak();
         if (dialstat == 2) // encore 1 page
