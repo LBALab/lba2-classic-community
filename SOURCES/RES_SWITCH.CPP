@@ -104,9 +104,13 @@ static bool ResizeSdlSurfaces(U32 w, U32 h) {
     if (GPURendererActive) {
         /* GL mode: no sdlRenderer, so ResizeWindowSurface would fail.
            Use SDL_SetWindowSize to resize the window and tell the GL
-           renderer to update its internal texture + FBO dimensions. */
+           renderer to update its internal texture + FBO dimensions.  A
+           FALSE result means the (possibly supersampled) targets could not
+           be allocated, so Res_Switch reverts instead of leaving the engine
+           on a dead framebuffer. */
         Window_SetWindowSize(w, h);
-        GL_Renderer_Resize(w, h);
+        if (!GL_Renderer_Resize(w, h))
+            return false;
     } else
 #endif
     {

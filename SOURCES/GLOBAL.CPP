@@ -108,6 +108,9 @@ S32 VrFovScale = 100; /* VR world zoom, percent of the eye's natural FOV: >100
                          authored-world edge at about 120 */
 S32 VrFoveation = 1; /* Quest fixed foveation: 0 = off, 1 = low (default),
                         2 = medium, 3 = high */
+S32 VrSuperSample = 0; /* Quest supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x.
+                          Scales the GL scene target above the eye buffer;
+                          the present pass downsamples it. */
 
 // #358: min ms of game-time between simulation steps (0 = off, per-frame sim as before).
 // When > 0 the main loop runs the simulation at most once per this many ms of game clock,

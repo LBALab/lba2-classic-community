@@ -1631,6 +1631,20 @@ static GLuint s_fboDepthRbo = 0;
 static U32 s_fboWidth = 0;
 static U32 s_fboHeight = 0;
 static U32 s_renderQuality = 1; /* 1 = native, 2 = 2x, 4 = 4x */
+/* VR supersampling multiplier applied on top of s_renderQuality.  Integer
+   RenderQuality only reaches 2x/4x; the headset row offers 1.25x/1.5x, so the
+   scale is a fraction.  The scene target grows and the present pass
+   downsamples it. */
+static U32 s_ssNum = 1;
+static U32 s_ssDen = 1;
+
+/* Base render dimension -> scene-target dimension, combining the desktop
+   RenderQuality factor and the VR supersampling fraction.  Rounds to nearest
+   so odd dirty-box edges do not drift. */
+static U32 GL_ScaleRenderDim(U32 v) {
+    const U64 scaled = (U64)v * (U64)s_renderQuality * (U64)s_ssNum;
+    return (U32)((scaled + (U64)(s_ssDen / 2)) / (U64)s_ssDen);
+}
 static S32 s_antiAlias = 0;     /* 0=off, 1=FXAA, 2=MSAA×2, 3=MSAA×4 */
 static GLuint s_msaaFbo = 0;
 static GLuint s_msaaColorRb = 0;
@@ -2902,7 +2916,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
        that can be composited at the letterbox viewport alongside the
        2D overlay.  Without FBO, GL_Present's letterbox clear erases
        any 3D drawn directly to the default framebuffer. */
-    GL_CreateFBO(resX * s_renderQuality, resY * s_renderQuality);
+    GL_CreateFBO(GL_ScaleRenderDim(resX), GL_ScaleRenderDim(resY));
 
     /* Create present FBO for compositing. On Quest with OpenXR there is no
        SDL window, so the default framebuffer (FBO 0) is not a valid render
@@ -3104,9 +3118,9 @@ void GL_Renderer_Shutdown(void) {
     Log_Info("[GL] Renderer shut down.");
 }
 
-void GL_Renderer_Resize(U32 resX, U32 resY) {
+S32 GL_Renderer_Resize(U32 resX, U32 resY) {
     if (!s_initialized) {
-        return;
+        return TRUE;
     }
 
     glViewport(0, 0, resX, resY);
@@ -3124,9 +3138,9 @@ void GL_Renderer_Resize(U32 resX, U32 resY) {
 
     /* Recreate FBO at scaled resolution (always needed) */
     s_fboHasTerrain = 0;
-    GL_CreateFBO(resX * s_renderQuality, resY * s_renderQuality);
+    GL_CreateFBO(GL_ScaleRenderDim(resX), GL_ScaleRenderDim(resY));
     if ((s_antiAlias == 2 || s_antiAlias == 3)) {
-        GL_CreateMSAAFbo(resX * s_renderQuality, resY * s_renderQuality,
+        GL_CreateMSAAFbo(GL_ScaleRenderDim(resX), GL_ScaleRenderDim(resY),
                          (s_antiAlias == 3) ? 4 : 2);
     }
 
@@ -3140,6 +3154,31 @@ void GL_Renderer_Resize(U32 resX, U32 resY) {
         GL_CreateStereoEyeFBOs(resX, resY);
     }
     s_sceneEyeX = 0;
+
+    /* A resize that could not allocate its render targets must not leave the
+       engine with a dead framebuffer.  Res_Switch treats FALSE as "revert to
+       the previous size"; this is reachable when VR supersampling is active
+       and the new resolution pushes the scaled target past the device
+       budget. */
+    if (s_fbo == 0) {
+        Log_Error("[GL] Resize to %ux%u failed: no scene target",
+                  (unsigned)resX, (unsigned)resY);
+        return FALSE;
+    }
+    if (OpenXR_IsActive() && !s_stereoDoubleWide) {
+        if (DisplayStereo3D) {
+            if (s_stereoEyeFBO[0] == 0 || s_stereoEyeFBO[1] == 0) {
+                Log_Error("[GL] Resize to %ux%u failed: no stereo eye targets",
+                          (unsigned)resX, (unsigned)resY);
+                return FALSE;
+            }
+        } else if (s_presentFBO == 0) {
+            Log_Error("[GL] Resize to %ux%u failed: no present target",
+                      (unsigned)resX, (unsigned)resY);
+            return FALSE;
+        }
+    }
+    return TRUE;
 }
 
 void GL_SetRenderQuality(U32 quality) {
@@ -3151,7 +3190,8 @@ void GL_SetRenderQuality(U32 quality) {
     /* Single choke point (boot AND the in-game menu): SSAA multiplies the
      * framebuffer per axis, and quality 4 at 1680x945 is a 25-megapixel
      * render target that stalls the whole frame loop on a mobile GPU. The
-     * supersampled resolution ladder provides sharpness far cheaper. */
+     * Display -> VR -> Supersampling row is the headset's explicit
+     * 1.25x/1.5x version of the same trade-off. */
     if (quality > 1) {
         Log_Info("[GL] Android: RenderQuality %u clamped to 1", quality);
         quality = 1;
@@ -3169,13 +3209,76 @@ void GL_SetRenderQuality(U32 quality) {
         return;
     }
     s_fboHasTerrain = 0;
-    GL_CreateFBO(s_texWidth * quality, s_texHeight * quality);
+    GL_CreateFBO(GL_ScaleRenderDim(s_texWidth), GL_ScaleRenderDim(s_texHeight));
     if ((s_antiAlias == 2 || s_antiAlias == 3)) {
-        GL_CreateMSAAFbo(s_texWidth * quality, s_texHeight * quality,
+        GL_CreateMSAAFbo(GL_ScaleRenderDim(s_texWidth),
+                         GL_ScaleRenderDim(s_texHeight),
                          (s_antiAlias == 3) ? 4 : 2);
     }
     Log_Info("[GL] SetRenderQuality: FBO %s (s_fbo=%u).",
              s_fbo ? "OK" : "FAILED", s_fbo);
+}
+
+/* VR supersampling: scale the scene target above the engine framebuffer and
+   let the present pass downsample it.  Separate from RenderQuality so the
+   headset menu can offer 1.25x/1.5x without adding resolution entries; the
+   field of view is unchanged (the projection still uses ModeDesiredX/Y) and
+   only edge detail improves.  Returns FALSE when the enlarged target cannot
+   be allocated; the previous scale is restored in that case. */
+S32 GL_SetSuperSample(S32 mode) {
+    U32 num = 1;
+    U32 den = 1;
+    if (mode == 1) {
+        num = 5;
+        den = 4;
+    } else if (mode == 2) {
+        num = 3;
+        den = 2;
+    }
+
+    if (num == s_ssNum && den == s_ssDen)
+        return TRUE;
+
+    const U32 oldNum = s_ssNum;
+    const U32 oldDen = s_ssDen;
+    s_ssNum = num;
+    s_ssDen = den;
+
+    if (!s_initialized)
+        return TRUE;
+    if (!Window_GLMakeCurrent()) {
+        s_ssNum = oldNum;
+        s_ssDen = oldDen;
+        return FALSE;
+    }
+
+    s_fboHasTerrain = 0;
+    GL_CreateFBO(GL_ScaleRenderDim(s_texWidth), GL_ScaleRenderDim(s_texHeight));
+    if (s_antiAlias == 2 || s_antiAlias == 3) {
+        GL_CreateMSAAFbo(GL_ScaleRenderDim(s_texWidth),
+                         GL_ScaleRenderDim(s_texHeight),
+                         (s_antiAlias == 3) ? 4 : 2);
+    }
+    if (s_fbo == 0) {
+        Log_Error("[GL] Supersampling %s target failed; reverting to native",
+                  mode == 2 ? "1.5x" : mode == 1 ? "1.25x" : "off");
+        s_ssNum = oldNum;
+        s_ssDen = oldDen;
+        GL_CreateFBO(GL_ScaleRenderDim(s_texWidth),
+                     GL_ScaleRenderDim(s_texHeight));
+        if (s_antiAlias == 2 || s_antiAlias == 3) {
+            GL_CreateMSAAFbo(GL_ScaleRenderDim(s_texWidth),
+                             GL_ScaleRenderDim(s_texHeight),
+                             (s_antiAlias == 3) ? 4 : 2);
+        }
+        return FALSE;
+    }
+
+    Log_Info("[GL] Supersampling %s: scene target %ux%u",
+             mode == 2 ? "1.5x" : mode == 1 ? "1.25x" : "off",
+             (unsigned)s_fboWidth, (unsigned)s_fboHeight);
+    GL_LogSurfaceBudget("supersample");
+    return TRUE;
 }
 
 /* ── SMAA 1x (three-pass morphological antialiasing) ────────────────────── */
@@ -3718,8 +3821,8 @@ static void GL_SetStereoTargetMode(S32 doubleWide) {
     U32 w = s_fboWidth;
     U32 h = s_fboHeight;
     if (w == 0 || h == 0) {
-        w = s_texWidth * s_renderQuality;
-        h = s_texHeight * s_renderQuality;
+        w = GL_ScaleRenderDim(s_texWidth);
+        h = GL_ScaleRenderDim(s_texHeight);
     }
     if (w == 0 || h == 0)
         return;
@@ -3834,8 +3937,8 @@ void GL_SetAntiAlias(S32 mode) {
 
     if ((s_antiAlias == 2 || s_antiAlias == 3) && s_fbo) {
         GLint samples = (s_antiAlias == 3) ? 4 : 2;
-        GL_CreateMSAAFbo(s_texWidth * s_renderQuality,
-                         s_texHeight * s_renderQuality, samples);
+        GL_CreateMSAAFbo(GL_ScaleRenderDim(s_texWidth),
+                         GL_ScaleRenderDim(s_texHeight), samples);
     } else {
         glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
@@ -6030,11 +6133,11 @@ void GL_RestoreTerrainSnapshot(void) {
         return;
     }
 
-    /* Screen-space rect -> FBO pixels (SSAA), clamped. */
-    S32 qx0 = s_fboDirtyX0 * (S32)s_renderQuality;
-    S32 qy0 = s_fboDirtyY0 * (S32)s_renderQuality;
-    S32 qx1 = (s_fboDirtyX1 + 1) * (S32)s_renderQuality;
-    S32 qy1 = (s_fboDirtyY1 + 1) * (S32)s_renderQuality;
+    /* Screen-space rect -> FBO pixels (SSAA + VR supersampling), clamped. */
+    S32 qx0 = (S32)GL_ScaleRenderDim((U32)s_fboDirtyX0);
+    S32 qy0 = (S32)GL_ScaleRenderDim((U32)s_fboDirtyY0);
+    S32 qx1 = (S32)GL_ScaleRenderDim((U32)(s_fboDirtyX1 + 1));
+    S32 qy1 = (S32)GL_ScaleRenderDim((U32)(s_fboDirtyY1 + 1));
     if (qx0 < 0)
         qx0 = 0;
     if (qy0 < 0)
@@ -6226,16 +6329,16 @@ static void GL_DestroyHorizon(void) {
    the backdrop exactly.  Returns FALSE when nothing was drawn. */
 static S32 GL_HorizonDirtyRect(S32 *rx0, S32 *ry0, S32 *rx1, S32 *ry1) {
     S32 qx0, qy0, qx1, qy1;
-    const S32 margin = 2 * (S32)s_renderQuality;
+    const S32 margin = (S32)GL_ScaleRenderDim(2);
 
     if (!s_fboDirtyActive || s_fboDirtyX1 < s_fboDirtyX0 ||
         s_fboWidth == 0 || s_fboHeight == 0) {
         return FALSE;
     }
-    qx0 = s_fboDirtyX0 * (S32)s_renderQuality - margin;
-    qy0 = s_fboDirtyY0 * (S32)s_renderQuality - margin;
-    qx1 = (s_fboDirtyX1 + 1) * (S32)s_renderQuality + margin;
-    qy1 = (s_fboDirtyY1 + 1) * (S32)s_renderQuality + margin;
+    qx0 = (S32)GL_ScaleRenderDim((U32)s_fboDirtyX0) - margin;
+    qy0 = (S32)GL_ScaleRenderDim((U32)s_fboDirtyY0) - margin;
+    qx1 = (S32)GL_ScaleRenderDim((U32)(s_fboDirtyX1 + 1)) + margin;
+    qy1 = (S32)GL_ScaleRenderDim((U32)(s_fboDirtyY1 + 1)) + margin;
     if (qx0 < 0)
         qx0 = 0;
     if (qy0 < 0)
@@ -8339,9 +8442,10 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     return FALSE;
 }
 void GL_Renderer_Shutdown(void) {}
-void GL_Renderer_Resize(U32 resX, U32 resY) {
+S32 GL_Renderer_Resize(U32 resX, U32 resY) {
     (void)resX;
     (void)resY;
+    return TRUE;
 }
 void GL_BeginFrame(void) {}
 void GL_ClearFBO(void) {}
@@ -8368,6 +8472,10 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
     (void)level;
 }
 void GL_SetRenderQuality(U32 quality) { (void)quality; }
+S32 GL_SetSuperSample(S32 mode) {
+    (void)mode;
+    return TRUE;
+}
 void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
                 S32 filterLinear) {
     (void)argbPixels;

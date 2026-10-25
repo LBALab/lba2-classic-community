@@ -163,7 +163,10 @@ by editing the `kButtons[]` table (normalised 0..1 coordinates).
 - **Graphics quality (SSAA)**: The Display → Graphics → Quality row is
   desktop-only. Android fixes render quality at Native: 2x/4x SSAA at headset
   resolution exceeds the mobile GPU's fill-rate and memory budget. Use
-  Antialiasing (MSAA×2 or SMAA) or the resolution ladder instead.
+  Antialiasing (MSAA×2 or SMAA) or, on a headset, Display → VR → Supersampling
+  (Off / 1.25x / 1.5x). Supersampling renders the 3D scene above the eye buffer
+  and downsamples it on present; it costs fill rate and memory, and reverts to
+  the previous scale if the target cannot be allocated.
 - **CD audio**: CD-ROM music tracks are not available. Use the digital
   sample backend (`SOUND_BACKEND=sdl`).
 - **Text input**: Console commands still require a hardware keyboard. Save-game

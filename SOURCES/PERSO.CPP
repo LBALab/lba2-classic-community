@@ -3022,6 +3022,10 @@ void ReadConfigFile(void) {
         VrFoveation = 1;
     OpenXR_SetFoveationLevel(VrFoveation);
 
+    VrSuperSample = DefFileBufferReadValueDefault("VrSuperSample", 0);
+    if (VrSuperSample < 0 OR VrSuperSample > 2)
+        VrSuperSample = 0;
+
     DisplaySaturation = DefFileBufferReadValueDefault("DisplaySaturation", 0);
     if (DisplaySaturation < -20)
         DisplaySaturation = -20;
@@ -3189,6 +3193,12 @@ void ReadConfigFile(void) {
                  if (RenderQuality > 1) {
                      GL_SetRenderQuality(RenderQuality);
                  }
+                 if (!GL_SetSuperSample(VrSuperSample)) {
+                     Log_Warn("VrSuperSample %d unavailable; using native "
+                              "render size",
+                              VrSuperSample);
+                     VrSuperSample = 0;
+                 }
              }
          } else
 #endif
@@ -3342,6 +3352,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("CameraFirstPerson", CameraFirstPerson);
     DefFileBufferWriteValue("VrFovScale", VrFovScale);
     DefFileBufferWriteValue("VrFoveation", VrFoveation);
+    DefFileBufferWriteValue("VrSuperSample", VrSuperSample);
     DefFileBufferWriteValue("DisplayBrightness", DisplayBrightness);
     DefFileBufferWriteValue("DisplayContrast", DisplayContrast);
     DefFileBufferWriteValue("DisplaySaturation", DisplaySaturation);

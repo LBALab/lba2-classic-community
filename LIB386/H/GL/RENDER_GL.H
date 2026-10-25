@@ -17,7 +17,9 @@ S32 GL_Renderer_Init(U32 resX, U32 resY);
 void GL_Renderer_Shutdown(void);
 
 //! Notify the GL renderer of a resolution change (recreate viewport/textures).
-void GL_Renderer_Resize(U32 resX, U32 resY);
+//! Returns TRUE when the render targets were recreated; FALSE leaves the
+//! caller free to revert to the previous size.
+S32 GL_Renderer_Resize(U32 resX, U32 resY);
 
 //! Begin a new frame: clear the depth buffer so that GL_DEPTH_TEST starts
 //! with a clean slate. Must be called once per frame before any 3D drawing.
@@ -69,6 +71,11 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
 //! takes effect on the next frame.
 void GL_SetRenderQuality(U32 quality);
 void GL_SetAntiAlias(S32 mode); /* 0=off, 1=FXAA, 2=MSAAx2, 3=MSAAx4, 4=SMAA */
+/*! VR supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x.  Scales the scene target
+ *  above the engine framebuffer; the present pass downsamples it.  Returns
+ *  FALSE (and restores the previous scale) when the target cannot be
+ *  allocated. */
+S32 GL_SetSuperSample(S32 mode);
 
 //! Flush any pending batch of triangles to the FBO.
 //! Must be called after mid-frame rendering (e.g. DrawAnimatedPolys) that

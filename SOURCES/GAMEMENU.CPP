@@ -99,6 +99,7 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_STEREO3D 2120 /* Quest OpenXR native stereo toggle */
 #define MENU_ID_DISPLAY_VRZOOM 2128   /* Quest stereo world zoom percent */
 #define MENU_ID_DISPLAY_FOVEATION 2129 /* Quest fixed foveation level */
+#define MENU_ID_DISPLAY_VRSUPERSAMPLE 2135 /* Quest SSAA: off / 1.25x / 1.5x */
 #endif
 #define MENU_ID_DISPLAY_ANTIALIAS 2123
 #define MENU_ID_DISPLAY_BRIGHTNESS 2125
@@ -215,7 +216,7 @@ U16 DisplayMenu[4 + 6 * 2] = {
 #ifdef USE_GPURENDERER
 static U16 DisplayGraphicsMenu[4 + 5 * 2];
 static U16 DisplayImageMenu[4 + 4 * 2];
-static U16 DisplayVrMenu[4 + 4 * 2];
+static U16 DisplayVrMenu[4 + 6 * 2];
 #endif
 static U16 DisplayWindowMenu[4 + 3 * 2];
 
@@ -300,6 +301,8 @@ static void BuildDisplayVrMenu(void) {
     *p++ = MENU_ID_DISPLAY_STEREO3D;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_VRZOOM;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_VRSUPERSAMPLE;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_FOVEATION;
     DisplayVrMenu[1] = (U16)((p - DisplayVrMenu - 4) / 2);
@@ -719,6 +722,13 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_VRZOOM:
         snprintf(string, 256, "VR zoom: %d%%", VrFovScale);
+        break;
+
+    case MENU_ID_DISPLAY_VRSUPERSAMPLE:
+        snprintf(string, 256, "Supersampling: %s",
+                 VrSuperSample == 2 ? "1.5x"
+                 : VrSuperSample == 1 ? "1.25x"
+                                      : "Off");
         break;
 
     case MENU_ID_DISPLAY_FOVEATION:
@@ -3760,6 +3770,19 @@ static void DisplayMenuApplyChoice(S32 select) {
             VrFovScale = 50;
         WriteConfigFile();
         break;
+
+    case MENU_ID_DISPLAY_VRSUPERSAMPLE: {
+        /* Render the scene above the eye buffer and downsample on present.
+           Off is the shipping default; 1.25x is the practical step, 1.5x the
+           quality-at-any-cost step.  A target that cannot be allocated keeps
+           the previous scale and is not persisted. */
+        const S32 next = (VrSuperSample + 1) % 3;
+        if (GL_SetSuperSample(next)) {
+            VrSuperSample = next;
+            WriteConfigFile();
+        }
+        break;
+    }
 
     case MENU_ID_DISPLAY_FOVEATION:
         /* 0 = Off, 1 = Low, 2 = Medium, 3 = High (fixed foveation:
