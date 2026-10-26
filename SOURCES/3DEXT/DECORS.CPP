@@ -802,8 +802,17 @@ void AffichageObjetDecorsZBuf(void) {
         s_decorCache[slot].seq = decorPairSeq;
     }
 
-    if (!NbObjScreen)
+    if (!NbObjScreen) {
+#ifdef USE_GPURENDERER
+        /* The decor window is also the queue interval for GL_AddTriangle.
+           Leaving it open on a pass with no visible decor makes the next
+           sea/body polygons enter the decor streams, where they are never
+           submitted.  Close the window before the early return. */
+        GL_DecorBatchEnd();
+        GL_ArrayWindowEnd();
+#endif
         return;
+    }
 
     clipzstart = ClipZFar - StartZFog;
 
