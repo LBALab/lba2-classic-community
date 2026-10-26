@@ -3054,11 +3054,6 @@ void ReadConfigFile(void) {
     else if (VrFovScale > 120)
         VrFovScale = 120;
 
-    VrFoveation = DefFileBufferReadValueDefault("VrFoveation", 1);
-    if (VrFoveation < 0 OR VrFoveation > 3)
-        VrFoveation = 1;
-    OpenXR_SetFoveationLevel(VrFoveation);
-
     VrSuperSample = DefFileBufferReadValueDefault("VrSuperSample", 0);
     if (VrSuperSample < 0 OR VrSuperSample > 2)
         VrSuperSample = 0;
@@ -3388,7 +3383,6 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("FollowCamera", FollowCamera);
     DefFileBufferWriteValue("CameraFirstPerson", CameraFirstPerson);
     DefFileBufferWriteValue("VrFovScale", VrFovScale);
-    DefFileBufferWriteValue("VrFoveation", VrFoveation);
     DefFileBufferWriteValue("VrSuperSample", VrSuperSample);
     DefFileBufferWriteValue("DisplayBrightness", DisplayBrightness);
     DefFileBufferWriteValue("DisplayContrast", DisplayContrast);

@@ -121,7 +121,7 @@ extern S32 FpsLimit;
 extern S32 GPURendererActive; ///< 0 = Software, 1 = OpenGL/GLES
 extern S32 DisplayTexFilter;
 extern S32 DisplayPerspectiveTextures; ///< opt-in perspective-correct decor/object mapping (GL batch)
-extern S32 DisplayAntiAlias;  ///< 0 = Nearest, 1 = Bilinear, 2 = Scale2x (2D overlay in GL mode)
+extern S32 DisplayAntiAlias;  ///< 0 = off, 1 = FXAA, 2 = MSAA×2, 3 = MSAA×4
 extern S32 RenderQuality;     ///< 1 = native, 2 = 2x SSAA, 4 = 4x SSAA (GL mode only)
 #endif
 /* Display adjustments and the VR FOV zoom exist in every renderer config:
@@ -131,7 +131,6 @@ extern S32 DisplayBrightness; ///< image adjust: -20..+20, 0 = default (GL mode 
 extern S32 DisplayContrast;   ///< image adjust: -20..+20, 0 = default (GL mode only)
 extern S32 DisplaySaturation; ///< image adjust: -20..+20, 0 = default (GL mode only)
 extern S32 VrFovScale; ///< VR world zoom percent of the eye FOV: 100 = natural, 120 = widest safe (Quest)
-extern S32 VrFoveation; ///< Quest fixed foveation: 0 = off, 1 = low, 2 = medium, 3 = high
 extern S32 VrSuperSample; ///< Quest supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x
 extern S32 FixedTimestep; ///< #358: min ms of game-time per sim step (0 = off). See docs/MOVEMENT_FRAMERATE.md.
 

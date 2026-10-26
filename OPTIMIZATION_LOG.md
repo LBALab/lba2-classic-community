@@ -1,6 +1,9 @@
 # Quest 72 FPS night — optimization log
 
 Target: ~72 FPS (13.9 ms/frame) on Quest 3, stereo (OpenXR) mode.
+
+> Foveated rendering and SMAA were removed from the build; their entries below are historical.
+
 Constraints: desktop-only verification (Linux build + host tests + Docker
 ASM suite); every change gated so desktop behavior is unchanged. The
 changes below land in small commits on the optimization branch.

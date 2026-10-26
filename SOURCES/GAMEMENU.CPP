@@ -98,7 +98,6 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_QUALITY 2119
 #define MENU_ID_DISPLAY_STEREO3D 2120 /* Quest OpenXR native stereo toggle */
 #define MENU_ID_DISPLAY_VRZOOM 2128   /* Quest stereo world zoom percent */
-#define MENU_ID_DISPLAY_FOVEATION 2129 /* Quest fixed foveation level */
 #define MENU_ID_DISPLAY_VRSUPERSAMPLE 2135 /* Quest SSAA: off / 1.25x / 1.5x */
 #endif
 #define MENU_ID_DISPLAY_ANTIALIAS 2123
@@ -303,8 +302,6 @@ static void BuildDisplayVrMenu(void) {
     *p++ = MENU_ID_DISPLAY_VRZOOM;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_VRSUPERSAMPLE;
-    *p++ = 0;
-    *p++ = MENU_ID_DISPLAY_FOVEATION;
     DisplayVrMenu[1] = (U16)((p - DisplayVrMenu - 4) / 2);
 }
 #endif
@@ -713,7 +710,7 @@ static void BuildCustomMenuText(S32 num, char *string) {
         break;
 
     case MENU_ID_DISPLAY_ANTIALIAS:
-        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayAntiAlias == 4 ? MENU_LABEL_AA_SMAA : DisplayAntiAlias == 3 ? MENU_LABEL_AA_MSAA4 : DisplayAntiAlias == 2 ? MENU_LABEL_AA_MSAA2 : DisplayAntiAlias == 1 ? MENU_LABEL_AA_FXAA : MENU_LABEL_AA_OFF));
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayAntiAlias == 3 ? MENU_LABEL_AA_MSAA4 : DisplayAntiAlias == 2 ? MENU_LABEL_AA_MSAA2 : DisplayAntiAlias == 1 ? MENU_LABEL_AA_FXAA : MENU_LABEL_AA_OFF));
         break;
 
     case MENU_ID_DISPLAY_STEREO3D:
@@ -729,14 +726,6 @@ static void BuildCustomMenuText(S32 num, char *string) {
                  VrSuperSample == 2 ? "1.5x"
                  : VrSuperSample == 1 ? "1.25x"
                                       : "Off");
-        break;
-
-    case MENU_ID_DISPLAY_FOVEATION:
-        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(
-            VrFoveation == 3 ? MENU_LABEL_FOVEATION_HIGH
-            : VrFoveation == 2 ? MENU_LABEL_FOVEATION_MEDIUM
-            : VrFoveation == 1 ? MENU_LABEL_FOVEATION_LOW
-                               : MENU_LABEL_FOVEATION_OFF));
         break;
 
     case MENU_ID_DISPLAY_QUALITY:
@@ -3735,14 +3724,12 @@ static void DisplayMenuApplyChoice(S32 select) {
         break;
 
     case MENU_ID_DISPLAY_ANTIALIAS: {
-        /* 0 = Off, 1 = FXAA, 2 = MSAA×2, 3 = MSAA×4 (desktop), 4 = SMAA
-         * (4xMSAA is desktop-only: it stalls mobile GPUs; SMAA is the
-         * mobile-friendly morphological option). */
+        /* 0 = Off, 1 = FXAA, 2 = MSAA×2, 3 = MSAA×4 (desktop). */
         static const S32 aaModes[] = {
 #ifdef __ANDROID__
-            0, 1, 2, 4
+            0, 1, 2
 #else
-            0, 1, 2, 3, 4
+            0, 1, 2, 3
 #endif
         };
         const S32 aaCount = (S32)(sizeof(aaModes) / sizeof(aaModes[0]));
@@ -3784,14 +3771,6 @@ static void DisplayMenuApplyChoice(S32 select) {
         }
         break;
     }
-
-    case MENU_ID_DISPLAY_FOVEATION:
-        /* 0 = Off, 1 = Low, 2 = Medium, 3 = High (fixed foveation:
-         * peripheral rendering density on the Quest, see OPENXR.CPP). */
-        VrFoveation = (VrFoveation + 1) % 4;
-        OpenXR_SetFoveationLevel(VrFoveation);
-        WriteConfigFile();
-        break;
 
 #ifndef __ANDROID__
     case MENU_ID_DISPLAY_QUALITY:

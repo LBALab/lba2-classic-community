@@ -70,7 +70,7 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
 //! Recreates the FBO at the new internal resolution.  Safe to call at any time;
 //! takes effect on the next frame.
 void GL_SetRenderQuality(U32 quality);
-void GL_SetAntiAlias(S32 mode); /* 0=off, 1=FXAA, 2=MSAAx2, 3=MSAAx4, 4=SMAA */
+void GL_SetAntiAlias(S32 mode); /* 0=off, 1=FXAA, 2=MSAAx2, 3=MSAAx4 */
 /*! VR supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x.  Scales the scene target
  *  above the engine framebuffer; the present pass downsamples it.  Returns
  *  FALSE (and restores the previous scale) when the target cannot be

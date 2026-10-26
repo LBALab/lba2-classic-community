@@ -21,7 +21,7 @@ Status: Phase 1 and Phase 2 are committed on `quest-good-perf`. Phase 3 single-p
 - Earlier commits: `48566556` (redundant array binds), `7329683e` (release mono surfaces while stereo is active), `d3571b39` (baked CLUT + empty overlay discard + band scissor).
 - The earlier partial quad experiment was superseded by the completed Phase 2 quad-packed array.
 - Phase 3 code: `LIB386/GL/RENDER_GL.CPP`, `LIB386/H/GL/RENDER_GL.H`, `LIB386/OBJECT/AFF_OBJ.CPP`, `SOURCES/3DEXT/DECORS.CPP`, `SOURCES/3DEXT/TERRAIN.CPP`, `SOURCES/EXTFUNC.CPP`, `SOURCES/PERSO.CPP`, `SOURCES/SORT.CPP`.
-- Fixed settings: 1.5x supersampling, MSAA×2, foveation level 3, 1680×1760 eye swapchain, 5040×2640 double-wide scene target. Do not change them.
+- Fixed settings: 1.5x supersampling, MSAA×2, 1680×1760 eye swapchain, 5040×2640 double-wide scene target. Do not change them.
 
 ## Measured evidence
 
@@ -384,7 +384,7 @@ If a phase is rejected, revert only that phase's changes, keep the previous comm
 
 ## Constraints
 
-- Do not change resolution, supersampling, MSAA, foveation or menu/config values.
+- Do not change resolution, supersampling, MSAA or menu/config values.
 - Preserve the game's visual output and feel unless the user explicitly approves a change (the rain GL-line option is the only planned visible change).
 - No commits until the user says so.
 - One phase at a time; ask for a test after each phase.

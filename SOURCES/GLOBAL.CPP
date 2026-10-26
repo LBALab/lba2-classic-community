@@ -106,8 +106,6 @@ S32 DisplaySaturation = 0;  /* image adjust: saturation delta, -20..+20 */
 S32 VrFovScale = 100; /* VR world zoom, percent of the eye's natural FOV: >100
                          renders a wider field (zoomed out), capped by the
                          authored-world edge at about 120 */
-S32 VrFoveation = 1; /* Quest fixed foveation: 0 = off, 1 = low (default),
-                        2 = medium, 3 = high */
 S32 VrSuperSample = 0; /* Quest supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x.
                           Scales the GL scene target above the eye buffer;
                           the present pass downsamples it. */

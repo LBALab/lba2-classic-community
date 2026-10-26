@@ -203,19 +203,9 @@ static XrTime                  s_predictedDisplayTime = 0;
 static XrSystemId              s_systemId = XR_NULL_SYSTEM_ID;
 
 /* Optional runtime extensions (enabled only when enumerated, functions
- * resolved with xrGetInstanceProcAddr): performance clocks and fixed
- * foveation — the tiler renders fewer full-quality pixels in the
- * periphery, a large fill-rate save on mobile GPUs. */
+ * resolved with xrGetInstanceProcAddr): performance clocks. */
 static S32 s_extPerfSettings = 0;
-static S32 s_extFoveation = 0;
 static PFN_xrPerfSettingsSetPerformanceLevelEXT p_xrPerfSettingsSetPerformanceLevelEXT = NULL;
-static PFN_xrCreateFoveationProfileFB p_xrCreateFoveationProfileFB = NULL;
-static PFN_xrDestroyFoveationProfileFB p_xrDestroyFoveationProfileFB = NULL;
-static PFN_xrUpdateSwapchainFB p_xrUpdateSwapchainFB = NULL;
-static XrFoveationProfileFB s_foveationProfile = XR_NULL_HANDLE;
-/* Desired fixed-foveation level: 0 = off, 1 = low, 2 = medium, 3 = high
- * (matches the VrFoveation cfg value and the Display menu row). */
-static S32 s_foveationLevel = 1;
 
 /* GL renderer stereo eye capture (RENDER_GL.CPP). */
 extern "C" U32 GL_GetStereoEyeFBO(S32 eye);
@@ -418,17 +408,6 @@ static S32 OpenXR_CreateInstance(void) {
         if (s_extPerfSettings) {
             PUSH_EXT(XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME);
         }
-        /* Foveation needs all three: the profile/swapchain glue (foveation),
-         * the level configuration struct, and the state-update entry point. */
-        s_extFoveation =
-            HAS_EXT(XR_FB_FOVEATION_EXTENSION_NAME) &&
-            HAS_EXT(XR_FB_FOVEATION_CONFIGURATION_EXTENSION_NAME) &&
-            HAS_EXT(XR_FB_SWAPCHAIN_UPDATE_STATE_EXTENSION_NAME);
-        if (s_extFoveation) {
-            PUSH_EXT(XR_FB_FOVEATION_EXTENSION_NAME);
-            PUSH_EXT(XR_FB_FOVEATION_CONFIGURATION_EXTENSION_NAME);
-            PUSH_EXT(XR_FB_SWAPCHAIN_UPDATE_STATE_EXTENSION_NAME);
-        }
 
         XrInstanceCreateInfoAndroidKHR androidInfo;
         memset(&androidInfo, 0, sizeof(androidInfo));
@@ -473,19 +452,7 @@ static S32 OpenXR_CreateInstance(void) {
                 s_instance, "xrPerfSettingsSetPerformanceLevelEXT",
                 (PFN_xrVoidFunction *)&p_xrPerfSettingsSetPerformanceLevelEXT);
         }
-        if (s_extFoveation) {
-            xrGetInstanceProcAddr(s_instance, "xrCreateFoveationProfileFB",
-                                  (PFN_xrVoidFunction *)&p_xrCreateFoveationProfileFB);
-            xrGetInstanceProcAddr(s_instance, "xrDestroyFoveationProfileFB",
-                                  (PFN_xrVoidFunction *)&p_xrDestroyFoveationProfileFB);
-            xrGetInstanceProcAddr(s_instance, "xrUpdateSwapchainFB",
-                                  (PFN_xrVoidFunction *)&p_xrUpdateSwapchainFB);
-            s_extFoveation = (p_xrCreateFoveationProfileFB != NULL &&
-                              p_xrDestroyFoveationProfileFB != NULL &&
-                              p_xrUpdateSwapchainFB != NULL);
-        }
-        OXR_LOGI("optional ext: perfSettings=%d foveation=%d",
-                 s_extPerfSettings, s_extFoveation);
+        OXR_LOGI("optional ext: perfSettings=%d", s_extPerfSettings);
         SDL_free(available);
         SDL_free(enabled);
     }
@@ -498,7 +465,6 @@ static S32 OpenXR_CreateInstance(void) {
 /* -------------------------------------------------------------------------- */
 /* Immersive mono blit helpers (defined further down in the same TU; called
  * from OpenXR_CreateSession once the session handle is alive). */
-static S32 OpenXR_ApplyFoveationLevel(S32 level);
 static S32 OpenXR_CreateSwapchain(void);
 static void OpenXR_DestroySwapchain(void);
 
@@ -785,18 +751,6 @@ static S32 OpenXR_CreateSwapchain(void) {
     scInfo.faceCount = 1;
     scInfo.arraySize = 1;
     scInfo.mipCount = 1;
-    /* Fixed foveation: the swapchain opts into tiler-level peripheral
-     * subsampling; the actual profile (level LOW) is attached right after
-     * the images are enumerated.  SCALED_BIN is the method Adreno
-     * implements; flags 0 would ask for no valid method and the runtime
-     * renders the swapchain undefined. */
-    XrSwapchainCreateInfoFoveationFB foveationInfo;
-    memset(&foveationInfo, 0, sizeof(foveationInfo));
-    if (s_extFoveation) {
-        foveationInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO_FOVEATION_FB;
-        foveationInfo.flags = XR_SWAPCHAIN_CREATE_FOVEATION_SCALED_BIN_BIT_FB;
-        scInfo.next = &foveationInfo;
-    }
     rc = xrCreateSwapchain(s_session, &scInfo, &s_swapchain);
     if (XR_FAILED(rc)) {
         Log_Warn("OpenXR: xrCreateSwapchain failed (0x%x)", (unsigned)rc);
@@ -825,12 +779,6 @@ static S32 OpenXR_CreateSwapchain(void) {
         return 0;
     }
 
-    /* Attach the fixed foveation profile (level from the VrFoveation
-     * setting, default LOW: periphery renders at reduced bin density,
-     * invisible in practice behind the engine-resolution upscale). */
-    if (s_extFoveation) {
-        OpenXR_ApplyFoveationLevel(s_foveationLevel);
-    }
     return 1;
 #else
     return 0;
@@ -840,7 +788,6 @@ static S32 OpenXR_CreateSwapchain(void) {
 /* -------------------------------------------------------------------------- */
 static void OpenXR_DestroySession(void) {
 #ifdef __ANDROID__
-    s_foveationProfile = XR_NULL_HANDLE; /* session-scoped: freed by xrDestroySession */
     if (s_swapchain != XR_NULL_HANDLE) {        xrDestroySwapchain(s_swapchain);
         s_swapchain = XR_NULL_HANDLE;
     }
@@ -1429,79 +1376,6 @@ S32 OpenXR_BeginFrame(void) {
     return 0;
 #endif
 }
-
-/* -------------------------------------------------------------------------- */
-/* Build a foveation profile at the requested level and attach it to the
- * swapchain.  Safe to call again at runtime (the Display menu row): the old
- * profile is destroyed once the new one is live.  Level: 0 = off, 1 = low,
- * 2 = medium, 3 = high. */
-static S32 OpenXR_ApplyFoveationLevel(S32 level) {
-#ifdef LBA2_OPENXR
-    if (!s_extFoveation || s_swapchain == XR_NULL_HANDLE ||
-        s_session == XR_NULL_HANDLE ||
-        p_xrCreateFoveationProfileFB == NULL || p_xrUpdateSwapchainFB == NULL)
-        return 0;
-    static const XrFoveationLevelFB kLevels[4] = {
-        XR_FOVEATION_LEVEL_NONE_FB, XR_FOVEATION_LEVEL_LOW_FB,
-        XR_FOVEATION_LEVEL_MEDIUM_FB, XR_FOVEATION_LEVEL_HIGH_FB};
-    if (level < 0 || level > 3)
-        level = 1;
-    XrFoveationLevelProfileCreateInfoFB levelInfo;
-    memset(&levelInfo, 0, sizeof(levelInfo));
-    levelInfo.type = XR_TYPE_FOVEATION_LEVEL_PROFILE_CREATE_INFO_FB;
-    levelInfo.level = kLevels[level];
-    levelInfo.verticalOffset = 0.0f;
-    levelInfo.dynamic = XR_FOVEATION_DYNAMIC_DISABLED_FB;
-    XrFoveationProfileCreateInfoFB profileInfo;
-    memset(&profileInfo, 0, sizeof(profileInfo));
-    profileInfo.type = XR_TYPE_FOVEATION_PROFILE_CREATE_INFO_FB;
-    profileInfo.next = &levelInfo;
-    XrFoveationProfileFB newProfile = XR_NULL_HANDLE;
-    XrResult frc = p_xrCreateFoveationProfileFB(s_session, &profileInfo,
-                                                &newProfile);
-    if (XR_FAILED(frc) || newProfile == XR_NULL_HANDLE) {
-        Log_Warn("OpenXR: xrCreateFoveationProfileFB failed (0x%x)",
-                 (unsigned)frc);
-        return 0;
-    }
-    XrSwapchainStateFoveationFB foveationState;
-    memset(&foveationState, 0, sizeof(foveationState));
-    foveationState.type = XR_TYPE_SWAPCHAIN_STATE_FOVEATION_FB;
-    foveationState.profile = newProfile;
-    frc = p_xrUpdateSwapchainFB(s_swapchain,
-                                (XrSwapchainStateBaseHeaderFB *)
-                                    &foveationState);
-    if (XR_FAILED(frc)) {
-        Log_Warn("OpenXR: xrUpdateSwapchainFB (foveation) failed (0x%x)",
-                 (unsigned)frc);
-        p_xrDestroyFoveationProfileFB(newProfile);
-        return 0;
-    }
-    if (s_foveationProfile != XR_NULL_HANDLE &&
-        p_xrDestroyFoveationProfileFB != NULL)
-        p_xrDestroyFoveationProfileFB(s_foveationProfile);
-    s_foveationProfile = newProfile;
-    Log_Info("[OpenXR] fixed foveation level %d enabled", level);
-    return 1;
-#else
-    (void)level;
-    return 0;
-#endif
-}
-
-void OpenXR_SetFoveationLevel(S32 level) {
-#ifdef LBA2_OPENXR
-    if (level < 0 || level > 3)
-        level = 1;
-    s_foveationLevel = level;
-    /* No swapchain yet (boot, cfg load): CreateSwapchain applies the stored
-     * level when the session starts. */
-    OpenXR_ApplyFoveationLevel(level);
-#else
-    (void)level;
-#endif
-}
-
 
 /* -------------------------------------------------------------------------- */
 /* Quest 3 immersive (mono blit) path.
