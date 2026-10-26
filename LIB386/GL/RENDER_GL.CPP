@@ -7776,6 +7776,14 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     /* Same frame plumbing as GL_Present: flush 3D, pick the composite
      * target, letterbox, draw the 3D FBO content, then the 2D overlay. */
     S32 useDoubleWide = (s_stereoDoubleWide && s_stereoEye >= 0);
+    if (useDoubleWide) {
+        /* The stereo pair reads the scene target directly; the mono
+           present target and snapshot/horizon captures are dead weight
+           while it runs.  A later mono frame recreates them on demand. */
+        GL_DestroySnapshot();
+        GL_DestroyHorizon();
+        GL_DestroyPresentFBO();
+    }
     GL_FlushBatch();
 
     if (!useDoubleWide && OpenXR_IsActive())
