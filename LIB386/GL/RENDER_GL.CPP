@@ -933,6 +933,8 @@ static GLint s_clut3_uAtlas = -1;
 static GLint s_clut3_uCLUT = -1;
 static GLint s_clut3_uPalette = -1;
 static GLint s_clut3_uAtlasArr = -1;
+static GLint s_clut3_uAtlasQuadArr = -1;
+static GLint s_clut3_uAtlasQuadValid = -1;
 static GLint s_clut3_uScreenScale = -1;
 static GLint s_clut3_uAtlasScale = -1;
 static GLint s_clut3_uCLUTBaseRow = -1;
@@ -1016,6 +1018,8 @@ static char *GL_ShaderToV3(const char *src, S32 isVert) {
 
 static const char *s_arrayInject =
     "uniform sampler2DArray uAtlasArr;\n"
+    "uniform sampler2DArray uAtlasQuadArr;\n"
+    "uniform int uAtlasQuadValid;\n"
     "vec4 arraySample(vec2 tc, float rmask, float light, float mcolor,\n"
     "                 float chroma, float bilin) {\n"
     "    float layer = rmask - 32768.0;\n"
@@ -1034,19 +1038,31 @@ static const char *s_arrayInject =
     "    float iv = floor(wv);\n"
     "    float fu = wu - iu;\n"
     "    float fv = wv - iv;\n"
-    "    float iu1 = iu + 1.0;\n"
-    "    if (iu1 > 255.0) iu1 = 0.0;\n"
-    "    float iv1 = iv + 1.0;\n"
-    "    if (iv1 > 255.0) iv1 = 0.0;\n"
-    "    vec3 p00 = vec3((iu + 0.5) / 256.0,\n"
-    "                    (iv + 0.5) / 256.0, layer);\n"
-    "    vec3 p10 = vec3((iu1 + 0.5) / 256.0, p00.y, layer);\n"
-    "    vec3 p01 = vec3(p00.x, (iv1 + 0.5) / 256.0, layer);\n"
-    "    vec3 p11 = vec3(p10.x, p01.y, layer);\n"
-    "    float t00 = texture(uAtlasArr, p00).r * 255.0;\n"
-    "    float t10 = texture(uAtlasArr, p10).r * 255.0;\n"
-    "    float t01 = texture(uAtlasArr, p01).r * 255.0;\n"
-    "    float t11 = texture(uAtlasArr, p11).r * 255.0;\n"
+    "    float t00, t10, t01, t11;\n"
+    /* The quad layer stores the 2x2 neighbourhood in R,G,B,A, so the
+       common bilinear case is one atlas fetch plus four CLUT lookups. */
+    "    if (uAtlasQuadValid != 0) {\n"
+    "        vec4 q = texture(uAtlasQuadArr, vec3((iu + 0.5) / 256.0,\n"
+    "                                             (iv + 0.5) / 256.0, layer));\n"
+    "        t00 = q.r * 255.0;\n"
+    "        t10 = q.g * 255.0;\n"
+    "        t01 = q.b * 255.0;\n"
+    "        t11 = q.a * 255.0;\n"
+    "    } else {\n"
+    "        float iu1 = iu + 1.0;\n"
+    "        if (iu1 > 255.0) iu1 = 0.0;\n"
+    "        float iv1 = iv + 1.0;\n"
+    "        if (iv1 > 255.0) iv1 = 0.0;\n"
+    "        vec3 p00 = vec3((iu + 0.5) / 256.0,\n"
+    "                        (iv + 0.5) / 256.0, layer);\n"
+    "        vec3 p10 = vec3((iu1 + 0.5) / 256.0, p00.y, layer);\n"
+    "        vec3 p01 = vec3(p00.x, (iv1 + 0.5) / 256.0, layer);\n"
+    "        vec3 p11 = vec3(p10.x, p01.y, layer);\n"
+    "        t00 = texture(uAtlasArr, p00).r * 255.0;\n"
+    "        t10 = texture(uAtlasArr, p10).r * 255.0;\n"
+    "        t01 = texture(uAtlasArr, p01).r * 255.0;\n"
+    "        t11 = texture(uAtlasArr, p11).r * 255.0;\n"
+    "    }\n"
     "    if (chroma > 0.5 && t00 < 0.5) discard;\n"
     "    vec4 c00 = clutLookup(t00, gouraudRow);\n"
     "    vec4 c10 = clutLookup(t10, gouraudRow);\n"
@@ -1113,6 +1129,54 @@ static char *GL_InjectArrayBranch(char *src) {
     return out;
 }
 
+/* Add the resolved terrain table sampler and the one-fetch branch to the
+   transformed CLUT fragment source.  The branch replaces the bilinear
+   CLUT call only when the material is not an animated tile and not a
+   chroma-keyed INCRUST type; everything else keeps the exact legacy path. */
+static char *GL_InjectTerrainResolved(char *src) {
+    const char *uniformAnchor = strstr(src, "uniform sampler2D uPalette;");
+    const char *bilinearAnchor = strstr(src, "        if (uBilinear != 0) {");
+    if (uniformAnchor == NULL || bilinearAnchor == NULL) {
+        Log_Warn("[GL] terrain resolved anchors missing; using the 8-tap path");
+        return src;
+    }
+    const char *uniformEnd = strchr(uniformAnchor, '\n');
+    if (uniformEnd == NULL) {
+        return src;
+    }
+    size_t prefix = (size_t)(uniformEnd - src) + 1;
+    size_t bilinearPos = (size_t)(bilinearAnchor - src);
+    const char *uniforms =
+        "uniform sampler2DArray uResolved;\n"
+        "uniform int uResolvedValid;\n";
+    const char *branch =
+        "        if (uResolvedValid != 0 && mChroma < 0.5 &&\n"
+        "            floor(mod(mFlags, 256.0) / 128.0 + 0.5) < 0.5) {\n"
+        "            float ru = mod(tc.x, widthMask + 1.0) / 256.0;\n"
+        "            float rv = mod(tc.y, heightMask + 1.0) / 256.0;\n"
+        "            color = texture(uResolved, vec3(ru, rv, gouraudRow));\n"
+        "        } else if (uBilinear != 0) {\n";
+    const char *bilinearLine = "        if (uBilinear != 0) {\n";
+    size_t cap = strlen(src) + strlen(uniforms) + strlen(branch) + 2;
+    char *out = (char *)malloc(cap);
+    if (out == NULL) {
+        return src;
+    }
+    char *w = out;
+    memcpy(w, src, prefix);
+    w += prefix;
+    memcpy(w, uniforms, strlen(uniforms));
+    w += strlen(uniforms);
+    memcpy(w, src + prefix, bilinearPos - prefix);
+    w += bilinearPos - prefix;
+    memcpy(w, branch, strlen(branch));
+    w += strlen(branch);
+    memcpy(w, src + bilinearPos + strlen(bilinearLine),
+           strlen(src + bilinearPos + strlen(bilinearLine)) + 1);
+    free(src);
+    return out;
+}
+
 static GLint s_clut_aPos = -1;
 static GLint s_clut_aTexCoord = -1;
 static GLint s_clut_aLight = -1;
@@ -1171,6 +1235,22 @@ static GLint s_terrain_uBilinear = -1;
 static GLint s_terrain_uTerrainFarClip = -1;
 static GLint s_terrain_uTerrainPersp = -1;
 static GLint s_terrain_uTerrainFar = -1;
+static GLint s_terrain_uResolved = -1;
+static GLint s_terrain_uResolvedValid = -1;
+
+/* One-fetch terrain CLUT: a 256-layer RGBA texture-array holds, for each
+   gouraud row, the full 256x256 atlas page resolved through the palette.
+   The terrain's RepMask is 0xFFFF, so the page wrap is the full 256-page
+   repeat and needs no per-subrect tiling.  Animated sea/flower halves and
+   chroma-keyed halves stay on the multi-tap path via the material bit. */
+static GLuint s_terrainResolvedTex = 0;
+static GLuint s_boundTerrainResolvedTex = 0;
+static U32 s_terrainResolvedData[256 * 256 * 256];
+static const void *s_terrainResolvedPage = NULL;
+static U32 s_terrainResolvedCLUTGen = 0;
+static U32 s_terrainResolvedPalGen = 0;
+static S32 s_terrainResolvedValid = 0;
+static S32 s_terrainResolvedDirty = 1;
 static U32 s_terrainEpoch = 1; /* advances on context loss; caches drop stale */
 static GLuint s_terrainBoundVBO = 0;
 
@@ -2607,6 +2687,10 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             s_clut3_uPalette = glGetUniformLocation(s_clut3Program, "uPalette");
             s_clut3_uAtlasArr =
                 glGetUniformLocation(s_clut3Program, "uAtlasArr");
+            s_clut3_uAtlasQuadArr =
+                glGetUniformLocation(s_clut3Program, "uAtlasQuadArr");
+            s_clut3_uAtlasQuadValid =
+                glGetUniformLocation(s_clut3Program, "uAtlasQuadValid");
             s_clut3_uScreenScale =
                 glGetUniformLocation(s_clut3Program, "uScreenScale");
             s_clut3_uAtlasScale =
@@ -2629,6 +2713,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             glUniform1i(s_clut3_uCLUT, 1);
             glUniform1i(s_clut3_uPalette, 2);
             glUniform1i(s_clut3_uAtlasArr, 3);
+            glUniform1i(s_clut3_uAtlasQuadArr, 4);
+            glUniform1i(s_clut3_uAtlasQuadValid, 0);
             glUniform1f(s_clut3_uTerrainFarClip, 0.0f);
             glUniform1f(s_clut3_uTerrainPersp, 0.0f);
             GL_UseProgramCached(0);
@@ -2640,16 +2726,37 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     {
         static const char *attrNames[6] = {"aPos", "aTexCoord", "aLight",
                                            "aRepMask", "aMaterial", "aFogPos"};
-        GLuint tv = CompileShader(GL_VERTEX_SHADER, s_terrainVertSrc);
-        GLuint tf = CompileShader(GL_FRAGMENT_SHADER, s_clutFragSrc);
-        if (tv != 0 && tf != 0) {
-            for (S32 i = 0; i < 6; i++) {
-                glBindAttribLocation(tv, i, attrNames[i]);
+        GLuint tv = 0, tf = 0;
+        char *vert3 = GL_ShaderToV3(s_terrainVertSrc, 1);
+        char *frag3 = GL_ShaderToV3(s_clutFragSrc, 0);
+        if (vert3 != NULL && frag3 != NULL) {
+            frag3 = GL_InjectTerrainResolved(frag3);
+            tv = CompileShader(GL_VERTEX_SHADER, vert3);
+            tf = CompileShader(GL_FRAGMENT_SHADER, frag3);
+            if (tv != 0 && tf != 0) {
+                for (S32 i = 0; i < 6; i++) {
+                    glBindAttribLocation(tv, i, attrNames[i]);
+                }
+                s_terrainProgram = LinkProgram(tv, tf);
             }
-            s_terrainProgram = LinkProgram(tv, tf);
         }
+        free(vert3);
+        free(frag3);
         glDeleteShader(tv);
         glDeleteShader(tf);
+        if (s_terrainProgram == 0) {
+            /* GLES2 fallback: the exact 8-tap path, no resolved table. */
+            tv = CompileShader(GL_VERTEX_SHADER, s_terrainVertSrc);
+            tf = CompileShader(GL_FRAGMENT_SHADER, s_clutFragSrc);
+            if (tv != 0 && tf != 0) {
+                for (S32 i = 0; i < 6; i++) {
+                    glBindAttribLocation(tv, i, attrNames[i]);
+                }
+                s_terrainProgram = LinkProgram(tv, tf);
+            }
+            glDeleteShader(tv);
+            glDeleteShader(tf);
+        }
         if (s_terrainProgram == 0) {
             Log_Warn("[GL] terrain program failed; horizon stays on the CPU path");
         } else {
@@ -2695,17 +2802,26 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                 glGetUniformLocation(s_terrainProgram, "uTerrainPersp");
             s_terrain_uTerrainFar =
                 glGetUniformLocation(s_terrainProgram, "uTerrainFar");
+            s_terrain_uResolved =
+                glGetUniformLocation(s_terrainProgram, "uResolved");
+            s_terrain_uResolvedValid =
+                glGetUniformLocation(s_terrainProgram, "uResolvedValid");
             GL_UseProgramCached(s_terrainProgram);
             glUniform1i(s_terrain_uAtlas, 0);
             glUniform1i(s_terrain_uCLUT, 1);
             glUniform1i(s_terrain_uPalette, 2);
+            if (s_terrain_uResolved >= 0) {
+                glUniform1i(s_terrain_uResolved, 5);
+            }
+            glUniform1i(s_terrain_uResolvedValid, 0);
             glUniform1f(s_terrain_uAtlasScale, 256.0f);
             glUniform1i(s_terrain_uBilinear, 0);
             glUniform1f(s_terrain_uTerrainFarClip, 0.0f);
             glUniform1f(s_terrain_uTerrainPersp, 0.0f);
             GL_UseProgramCached(0);
             s_terrainEpoch++;
-            Log_Info("[GL] Terrain GPU transform program ready.");
+            Log_Info("[GL] Terrain GPU transform program ready%s.",
+                     s_terrain_uResolved >= 0 ? " (resolved CLUT)" : "");
         }
     }
 
@@ -3973,6 +4089,11 @@ void GL_SetAntiAlias(S32 mode) {
    the fog table or palette generation changes (scene/palette transitions). */
 static U32 s_bakedCLUT[256 * 256];
 
+void GL_TerrainResolvedInvalidate(void) {
+    s_terrainResolvedValid = 0;
+    s_terrainResolvedDirty = 1;
+}
+
 static void GL_UploadBakedCLUT(void) {
     static U32 s_upGen = 0;
     static const U8 *s_upPtr = NULL;
@@ -4014,6 +4135,7 @@ static void GL_UploadBakedCLUT(void) {
     s_upGen = CLUTGeneration;
     s_upPtr = PtrCLUTFog;
     s_upPalGen = palGen;
+    GL_TerrainResolvedInvalidate();
 }
 
 static void GL_UploadPalette(void) {
@@ -4184,7 +4306,11 @@ static GL_ArrSlot s_arrSlots[GL_ARR_LAYERS];
 static U32 s_arrUseCounter = 0;
 static GLuint s_arrayTex = 0;
 static GLuint s_boundArrayTex = 0; /* array currently bound on unit 3 */
+static GLuint s_arrayQuadTex = 0;  /* 2x2-packed RGBA array on unit 4 */
+static GLuint s_boundArrayQuadTex = 0;
+static S32 s_arrayQuadValid = 0;
 static U8 s_arrStage[256 * 256];
+static U8 s_arrQuadStage[256 * 256 * 4];
 
 /* The array layer holds the (w,h) region TILED to 256×256, so the shader's
    mod-256 UV wrap reproduces the SW rasterizer's RepMask wrap: UVs pushed
@@ -4272,13 +4398,37 @@ static void GL_ArrayEnsureTexture(void) {
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    /* 2x2-packed companion array: each texel carries the centre, right,
+       bottom and diagonal palette indices.  One fetch then feeds all four
+       CLUT taps.  If allocation fails the shader falls back to four R8
+       fetches through uAtlasQuadValid. */
+    glGenTextures(1, &s_arrayQuadTex);
+    if (s_arrayQuadTex != 0) {
+        glBindTexture(GL_TEXTURE_2D_ARRAY, s_arrayQuadTex);
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 256, 256,
+                     GL_ARR_LAYERS, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER,
+                        GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER,
+                        GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S,
+                        GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T,
+                        GL_CLAMP_TO_EDGE);
+    }
+    s_arrayQuadValid = (s_arrayQuadTex != 0) ? 1 : 0;
     glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+    s_boundArrayTex = 0;
+    s_boundArrayQuadTex = 0;
 }
 
-/* Upload stale layers as tiled regions, then bind the array on unit 3.
-   Called from FlushActiveBatch on array batches. */
+/* Upload stale layers as tiled regions, then bind the array on unit 3 and
+   its 2x2-packed companion on unit 4.  Called from FlushActiveBatch on
+   array batches. */
 static void GL_ArrayBind(void) {
     S32 i;
+    S32 uploaded = 0;
     GL_ArrayEnsureTexture();
     for (i = 0; i < s_arrCount; i++) {
         if (s_arrSlots[i].ver != s_atlasContentVersion &&
@@ -4297,9 +4447,34 @@ static void GL_ArrayBind(void) {
             glBindTexture(GL_TEXTURE_2D_ARRAY, s_arrayTex);
             glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, s_arrSlots[i].layer,
                             256, 256, 1, GL_RED, GL_UNSIGNED_BYTE, s_arrStage);
+            if (s_arrayQuadTex != 0) {
+                for (y = 0; y < 256; y++) {
+                    const U8 *row0 = s_arrStage + y * 256;
+                    const U8 *row1 = s_arrStage + ((y + 1) & 255) * 256;
+                    U8 *dst = s_arrQuadStage + y * 256 * 4;
+                    for (x = 0; x < 256; x++) {
+                        dst[0] = row0[x];
+                        dst[1] = row0[(x + 1) & 255];
+                        dst[2] = row1[x];
+                        dst[3] = row1[(x + 1) & 255];
+                        dst += 4;
+                    }
+                }
+                glBindTexture(GL_TEXTURE_2D_ARRAY, s_arrayQuadTex);
+                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0,
+                                s_arrSlots[i].layer, 256, 256, 1, GL_RGBA,
+                                GL_UNSIGNED_BYTE, s_arrQuadStage);
+            }
             s_profArrayUploads++;
             s_arrSlots[i].ver = s_atlasContentVersion;
+            uploaded = 1;
         }
+    }
+    if (uploaded) {
+        /* The uploads above may have rebound unit 3/4; force the final
+           bind and leave the caches consistent. */
+        s_boundArrayTex = 0;
+        s_boundArrayQuadTex = 0;
     }
     /* GL_BindTexUnit binds the GL_TEXTURE_2D target; the array sampler
        reads the GL_TEXTURE_2D_ARRAY target on the unit, so bind the array
@@ -4312,6 +4487,16 @@ static void GL_ArrayBind(void) {
         glBindTexture(GL_TEXTURE_2D_ARRAY, s_arrayTex);
         s_boundArrayTex = s_arrayTex;
     }
+    if (s_curActiveUnit != 4) {
+        glActiveTexture(GL_TEXTURE4);
+        s_curActiveUnit = 4;
+    }
+    if (s_arrayQuadTex != 0 &&
+        s_boundArrayQuadTex != s_arrayQuadTex) {
+        glBindTexture(GL_TEXTURE_2D_ARRAY, s_arrayQuadTex);
+        s_boundArrayQuadTex = s_arrayQuadTex;
+    }
+    glUniform1i(s_clut3_uAtlasQuadValid, s_arrayQuadValid);
 }
 
 void GL_ArrayWindowBegin(void) {
@@ -4775,6 +4960,59 @@ void GL_DeleteTerrainVBO(U32 vbo) {
     glDeleteBuffers(1, &glVbo);
 }
 
+/* Build and upload the one-fetch terrain table.  Row r of the array is the
+   full 256x256 atlas page resolved through palette row r; sampling that
+   layer with linear U/V returns exactly the four-tap bilinear CLUT mix. */
+static void GL_EnsureTerrainResolved(const void *page) {
+    if (page == NULL || s_terrainProgram == 0 || s_terrain_uResolved < 0) {
+        s_terrainResolvedValid = 0;
+        return;
+    }
+    const U32 palGen = GL_GetPaletteGeneration();
+    if (s_terrainResolvedValid && !s_terrainResolvedDirty &&
+        s_terrainResolvedPage == page &&
+        s_terrainResolvedCLUTGen == CLUTGeneration &&
+        s_terrainResolvedPalGen == palGen) {
+        return;
+    }
+
+    const U8 *atlas = (const U8 *)page;
+    for (U32 row = 0; row < 256; row++) {
+        const U32 *clutRow = s_bakedCLUT + row * 256;
+        U32 *dst = s_terrainResolvedData + row * 256 * 256;
+        for (U32 i = 0; i < 256u * 256u; i++) {
+            dst[i] = clutRow[atlas[i]];
+        }
+    }
+
+    if (s_terrainResolvedTex == 0) {
+        glGenTextures(1, &s_terrainResolvedTex);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, s_terrainResolvedTex);
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 256, 256, 256, 0,
+                     GL_UPLOAD_FORMAT, GL_UNSIGNED_BYTE, NULL);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+    }
+    glBindTexture(GL_TEXTURE_2D_ARRAY, s_terrainResolvedTex);
+#if defined(__ANDROID__)
+    GL_SwizzleBGRAtoRGBA(s_terrainResolvedData, s_terrainResolvedData,
+                         256u * 256u * 256u);
+#endif
+    glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, 256, 256, 256,
+                    GL_UPLOAD_FORMAT, GL_UNSIGNED_BYTE, s_terrainResolvedData);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+    s_boundTerrainResolvedTex = 0;
+
+    s_terrainResolvedPage = page;
+    s_terrainResolvedCLUTGen = CLUTGeneration;
+    s_terrainResolvedPalGen = palGen;
+    s_terrainResolvedValid = 1;
+    s_terrainResolvedDirty = 0;
+}
+
 void GL_DrawTerrainVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
                        S32 startZFog, S32 clipZFar, S32 palLevel) {
     if (!s_initialized || s_terrainProgram == 0 || s_fbo == 0 || vbo == 0 ||
@@ -4830,6 +5068,23 @@ void GL_DrawTerrainVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
     GL_BindAtlasFor(atlasPage, 0xFFFF);
     GL_BindTexUnit(1, s_clutTex);
     GL_BindTexUnit(2, s_paletteTex);
+
+    GL_EnsureTerrainResolved(atlasPage);
+    S32 useResolved = s_terrainResolvedValid && s_terrain_uResolved >= 0;
+    if (useResolved) {
+        if (s_curActiveUnit != 5) {
+            glActiveTexture(GL_TEXTURE5);
+            s_curActiveUnit = 5;
+        }
+        if (s_boundTerrainResolvedTex != s_terrainResolvedTex) {
+            glBindTexture(GL_TEXTURE_2D_ARRAY, s_terrainResolvedTex);
+            s_boundTerrainResolvedTex = s_terrainResolvedTex;
+        }
+        glUniform1i(s_terrain_uResolved, 5);
+        glUniform1i(s_terrain_uResolvedValid, 1);
+    } else {
+        glUniform1i(s_terrain_uResolvedValid, 0);
+    }
 
     /* MatriceWorld is row-major and float (X' = M11*x + M12*y + M13*z,
        LongRotatePointF loads the same F fields).  GLSL's mat3 * vec3 reads

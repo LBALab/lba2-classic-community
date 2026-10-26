@@ -1,493 +1,381 @@
-# Quest 72 FPS plan
-
-Status: Phases 0--8 are implemented on branch `quest-good-perf`; Phase 7 is
-default-off and Phase 8 is compile-verified. Phase 1b was headset-verified;
-device verification for Phases 2--8 is pending because `adb devices` was
-empty at the end of the session.
-
-Foveation audit (2026-10-21): the GLES texture and framebuffer foveation
-entry points are a no-op on the Quest 3 driver. Only the XR compositor hint
-(`VrFoveation`) remains; it does not change the engine frame time because the
-scene target is still rendered at full resolution. See `docs/ANDROID.md` and
-`OPTIMIZATION_LOG.md`.
-
-Latest measured sample (headset, after Phase 1b, before Phases 2--8):
-`StereoPerf` eye0 13 ms, eye1 10 ms, frame 23 ms; `GLPerf` present 1.40 ms,
-flush 2.86 ms; `OpenXRPerf` total 0.51 ms, blit 0.05 ms; horizon 3.0 ms;
-frame range 14--30 ms. Re-measure after install.
-
-Target: 72 FPS (13.9 ms/frame) on Quest in stereo OpenXR mode, with no
-resolution, MSAA, foveation, settings, gameplay, or timing changes.
-
-## Executive summary
-
-The largest remaining addressable cost is the stereo present chain, not the
-horizon alone. Both eyes are composited into full-resolution eye FBOs, then
-both are copied again into the double-wide OpenXR swapchain. The eye-1
-direct-scene path was inactive in the measured scene (`direct=0.00` because
-the overlay was non-empty), so the frame pays four full-resolution copies and
-two MSAA resolves. Eye 0 costs 2--4 ms more than eye 1; the horizon accounts
-for part of that gap, and the intermediate eye composites are the avoidable
-part.
-
-The second problem is GPU memory. The last telemetry run reported
-`GPU=154.1/154.1 MiB (100% allocated)`. The engine keeps or has kept alive the
-scene MSAA color/depth, `s_fbo`, two eye FBOs, the present FBO, the horizon
-FBO, and the snapshot FBO. That is roughly 125 MB of render targets before the
-texture array and atlas cache. At that point every new texture or render
-target competes for the same budget.
-
-The plan is therefore:
-
-1. Measure the present and main-loop phases precisely.
-2. Replace the per-eye scene copies with one double-wide MSAA scene target and
-   one present blit.
-3. Remove the dead and duplicate full-resolution surfaces.
-4. Remove per-frame OpenXR validation/state queries.
-5. Remove duplicate overlay, clear, flush, and horizon work.
-6. If more headroom is needed, render directly into the swapchain halves.
-
-The intent is to keep the existing per-eye fallback path until the new path is
-visually verified on Iceland, the medallion, the whiskers, menus, and the
-console overlay.
-
-## Current frame budget
-
-Phase 0 in-game sample (55 s, mixed light and heavy scenes; medians):
-
-| Metric | Value |
-|---|---|
-| `StereoPerf eye0` | 14 ms (mean 14.7, p90 19, max 20) |
-| `StereoPerf eye1` | 12 ms (mean 12.5, p90 17, max 18) |
-| `StereoPerf frame` | 26 ms (mean 27.2, p90 37, max 37) |
-| `GrillePerf horizon` | 3 ms median, 3.8 ms mean, 6.9 ms p90 |
-| `GrillePerf terrain` | 3 ms median, 5 ms max |
-| `GrillePerf skysea` | 0 ms |
-| `GLPerf present` | 2.35 ms per present, about 4.7 ms/frame |
-| `GLPerf flush` | 2.99 ms per present, about 6.0 ms/frame |
-| `GLPerf flushes` | 82 per 300 presents (range 30--110) |
-| `GLPerf ovlEmpty` | 0.00 in every sample |
-| `GLPerf direct` | 0.00 in every sample |
-| `OpenXRPerf total` | 0.56 ms per present; wait 0.00, blit 0.06 |
-| `VrApi FPS` | 41 median (p90 67.6) |
-| `VrApi CPU&GPU` | 29.8 ms median |
-| `VrApi App` | 4.7 ms median |
-| Surface estimate | 124.1 MiB after snapshot and horizon allocate |
-
-The eye-0 gap is about 2 ms median, not horizon alone. The larger issue is
-that `ovlEmpty=0` and `direct=0`: both eyes take the full scene+overlay
-composite, so the eye-1 direct path is not saving a copy today. Present is
-2.35 ms per present and flush is 2.99 ms per present; because present includes
-any pending flush at its start, their sum is an upper bound of roughly 10.7
-ms/frame before horizon and terrain. `GLPerf flush` includes `glDrawArrays`
-and can block on GPU backpressure; it is not pure CPU submission time.
-
-The current Android path is 2x MSAA at 1680x1760 per eye
-(`SetAntiAlias 1 -> 2`, samples=2, resolve-in-tile). The plan preserves that.
-
-## Why the present chain comes first
-
-`GL_PresentIndexed` currently does this for a stereo pair:
-
-1. Eye 0 renders the scene into the shared scene FBO.
-2. Eye 0 composites the scene plus the 2D overlay into `s_stereoEyeFBO[0]`, a
-   full-resolution copy.
-3. Eye 1 renders into the same scene FBO and composites again into
-   `s_stereoEyeFBO[1]`; the direct path is inactive because the measured
-   overlay is non-empty.
-4. `OpenXR_PresentMono` creates a swapchain FBO and blits both eye FBOs into
-   the double-wide swapchain.
-
-The horizon is still a 3--6 ms/frame cost, but it is already split per eye and
-has no zero-cost fix. The two intermediate eye composites and the extra MSAA
-resolve are the redundancy. Removing them is the highest-confidence large win.
-
-The old conclusion that the frame is GPU-bound still holds. What changes is
-the attribution: the GPU cost is not only the two scene passes and the horizon;
-it includes four full-resolution copies and two resolves.
-
-## Phase 0: measure before changing anything
-
-Add per-phase timing and keep it low-volume:
-
-- Simulation wall time before the stereo loop.
-- `OpenXR_BeginFrame` / `xrWaitFrame` time.
-- Eye 0 scene time, split into horizon, terrain, object pass, flush, present.
-- Eye 1 scene time, split the same way.
-- `OpenXR_PresentMono`: acquire, wait, swapchain FBO setup, eye 0 blit, eye 1
-  blit, release/end-frame.
-- GPU timer queries around horizon, terrain, clear/resolve, and present if
-  `EXT_disjoint_timer_query` is available. Do not add a release `glFinish`.
-- Surface accounting: scene color/depth, `s_fbo`, eye FBOs, present, horizon,
-  snapshot, log index, texture array, atlas cache.
-- Maximum `s_arrCount` and atlas cache occupancy over the run.
-- Flush reason counters. The current `rsn` values are all zero, so there is no
-  attribution today.
-
-Also verify, rather than assume:
-
-- `FpsLimit` is 0 or at least above 72.
-- Anti-aliasing is the intended 2x MSAA path.
-- The gameplay overlay is actually empty. The observed `overlayEmpty=0` was
-  from the startup/menu window, not a confirmed gameplay frame.
-- The current eye-1 direct path is actually active during gameplay.
-
-Use the same save, camera mode, and scene for every before/after run. Record
-the median, not only the average, and record `Stale2/5/10/max`.
-
-**Implemented in the working tree:** `Perftrace` records `sim`, `openxr`,
-`eye0`, `eye1`, `scene`, and `present`; `OpenXRPerf` logs frame-begin,
-present-begin, acquire, wait, blit, release, end, and total once per 300
-presents; `GLPerf` adds `ovlEmpty`, `direct`, and the atlas upload/dirty
-counters (`atl`, `dty`); surface totals are logged at
-init and when snapshot/horizon targets are allocated; and `FpsLimit` is logged
-at startup. GPU timer queries are not wired in this pass; `GrillePerf` and the
-VrApi runtime line already provide the GPU-side totals, and no release
-`glFinish` was added.
-
-## Phase 1: one double-wide MSAA scene target and one present blit
-
-This is the core change.
-
-- Allocate the stereo scene MSAA color texture at `2 * eyeWidth` by
-  `eyeHeight`, with one shared depth renderbuffer at the same size and the
-  existing single-sample resolve view.
-- Keep `s_texWidth` and `s_texHeight` at the per-eye content size so the
-  projection and all existing shader math are unchanged.
-- Set the scene FBO width to twice the eye width, but render eye 0 with
-  `glViewport(0, 0, eyeWidth, eyeHeight)` and eye 1 with
-  `glViewport(eyeWidth, 0, eyeWidth, eyeHeight)`.
-- Add a small scene-viewport helper and use it in `GL_ClearFBO`, the first
-  `FlushActiveBatch` of each eye, and every direct draw that currently assumes
-  a full-target viewport.
-- Clear with a scissor rectangle for the current eye half. Clear both halves
-  once before eye 0 if that is cheaper and the right half is still clean when
-  eye 1 starts.
-- `GL_PresentIndexed` no longer composites the scene. For each eye it binds the
-  double-wide MSAA FBO, sets that eye's viewport, and draws only the 2D overlay
-  if the overlay has content. The scene is already underneath it.
-- At eye 1's present, blit the one resolved double-wide scene into the
-  double-wide swapchain with a single `glBlitFramebuffer`. The swapchain is
-  already `2 * s_swapchainWidth` wide, so this is an exact 1:1 blit.
-- Use `GL_NEAREST` for the 1:1 blit. Keep `GL_LINEAR` only when scaling.
-- Remove both eye composites and the eye FBOs from the stereo fast path.
-- Keep the current eye FBO + scene-composite path as a fallback for:
-  - FBO incomplete or `GL_MAX_TEXTURE_SIZE`/renderbuffer size exceeded.
-  - Non-neutral image adjustment.
-  - FXAA or SMAA post-process.
-  - Any driver rejection of the double-wide target.
-- Keep the existing menu/mono path unchanged.
-
-Expected effect: one full-screen copy instead of four, one resolve instead of
-two, both intermediate eye composites gone, and about 22 MiB less
-render-target accounting once the stereo snapshot and horizon surfaces are
-absent. The target is 3--5 ms/frame.
-
-Primary files: `LIB386/GL/RENDER_GL.CPP`, `LIB386/SYSTEM/OPENXR.CPP`,
-`LIB386/H/GL/RENDER_GL.H`.
-
-**Implemented in the working tree (2026-10-20).** The existing `s_fbo` and
-`s_msaaFbo` are physically double-wide while `s_fboWidth`/`s_fboHeight` stay
-the per-eye content size. `GL_SetSceneViewport()` selects the eye half for
-batch flushes, clears, direct draws, snapshot/horizon restores, and the
-present overlay; `GL_ClearFBO` scissors the current half. `GL_PresentIndexed`
-and `GL_Present` bind the scene target, draw only the current eye's HUD, and
-on eye 1 resolve once and mark the pair ready. `OpenXR_PresentMono` takes the
-single resolved pair and performs one blit into the double-wide swapchain.
-
-The fast path is gated on an active OpenXR session, stereo enabled, MSAA 2x
-or 4x, and neutral brightness/contrast/saturation. Non-neutral image
-adjustment, FXAA/SMAA, an incomplete double-wide FBO, or
-`LBA2_NO_STEREO_DW=1` keep the per-eye FBO plus scene-composite fallback.
-Eye FBOs are not allocated while the double-wide path is active; they are
-created when the fallback is selected. `GL_CaptureHorizon` returns early in
-stereo, so the horizon surface is not allocated and the dead capture is not
-paid; eye 1 still draws its own horizon.
-
-Status: host `lba2cc` builds; Quest native build and install succeeded as
-`0.13.0-dev` on 2026-10-20 14:00:55. The user reports better performance and
-no visual issues. The latest captured run measured medians of 12 ms (eye 0),
-10 ms (eye 1), and 21 ms (frame), versus 14/12/26 ms in Phase 0. The captured
-surface log still reported the per-eye totals (`124.1 MiB` after snapshot and
-horizon), so Phase 2 rechecks the gate while removing the dead surfaces. The
-renderer logs `[GL] Stereo scene target: double-wide` and a
-`surfaces(stereo-double)` line when the double-wide path is selected.
-
-## Phase 2: remove dead and duplicate full-resolution surfaces
-
-- Free the incremental snapshot as soon as any stereo pass begins. Stereo eye
-  passes are full redraws and skip `GL_SnapshotTerrain`; allocate it lazily
-  when a mono frame needs it again.
-- Free the horizon capture and the mono present target when the double-wide
-  path is active, and allocate them lazily if a fallback frame needs them. The
-  per-eye fallback still uses both, so they cannot be freed there. The eye-1
-  image reuse stays gone: near neighbour-cube terrain has real stereo
-  disparity and produced Iceland seams.
-- Do not allocate the old eye FBOs in the double-wide path. They remain only
-  for fallback (already true after Phase 1).
-- Re-read the app GPU telemetry after the change. Target below 120 MB, ideally
-  below 100 MB.
-
-Expected effect: fewer driver evictions and fewer memory stalls. This may not
-show up as a clean CPU-millisecond win, but it removes a hard ceiling.
-
-Status: implemented, built, installed, and committed as the Phase 2 memory
-change. The latest device run still selected the per-eye path (`Scene FBO
-1680x1760 single`), so only the snapshot teardown was exercised. The logged surfaces
-were 56.4 MiB at init, 79.0 MiB after the mono snapshot, and 79.0 MiB after
-stereo entry replaced it with the per-eye horizon surface; the 2x MSAA target
-added later is not included in those samples. Medians from the run: eye 0
-13 ms, eye 1 9 ms, frame 21 ms, GL present 1.53 ms, flush 2.62 ms, OpenXR
-present 0.56 ms, horizon 2.0 ms. Performance is within noise of Phase 1.
-
-The double-wide gate is now the blocking issue: the path cannot remove the
-remaining surfaces or exercise the pair target until it actually activates.
-
-## Phase 1b: activate the double-wide path (priority)
-
-The Phase 1 and Phase 2 captures both used the per-eye fallback. The gate
-requires neutral brightness, contrast, and saturation because the double-wide
-present does not yet apply the display transform that the per-eye composite
-does. Fix that rather than asking the user to reset display settings.
-
-- Log the first gate failure with the live values: environment override,
-  `DisplayStereo3D`, OpenXR active, stereo enabled, AA mode, brightness,
-  contrast, and saturation. One line per distinct reason, not per frame.
-- Apply the display transform in the final pair-to-swapchain pass. The pair is
-  already a resolved single-sample texture; a full-screen shader that samples
-  it and applies the same brightness/contrast/saturation formula replaces the
-  plain blit without adding another scene composite.
-- Keep the per-eye fallback for FXAA/SMAA and for a double-wide FBO failure.
-  Keep the fresh swapchain FBO lifecycle; do not revive the persistent
-  attachment experiment.
-- If the swapchain FBO attach is rejected, the copy fallback cannot apply the
-  transform. Keep non-neutral image adjustment on the per-eye path when that
-  fallback is selected, or provide a temporary adjusted target first.
-- Verify the gate log, `Scene FBO 3360x1760`, `surfaces(stereo-double)`,
-  `PresentMono stereo: double-wide`, and the visual checks below.
-
-Expected effect: enables the Phase 1 path for users with non-default display
-settings, unlocking the memory and present savings already built.
-
-Status: implemented, installed, device-verified, and committed as the
-Phase 1b change. The run selects the path: `Scene FBO 3360x1760`, `MSAA FBO
-3360x1760 samples=2`, `surfaces(stereo-double)` at 90.2 MiB, and repeated
-`PresentMono stereo: double-wide` lines with `glError=0x0`. The user confirmed
-no graphical issues in the headset, including the display transform. The
-latest run's medians were eye 0 13 ms, eye 1 10 ms, frame 23 ms, GL present
-1.40 ms, flush 2.86 ms, OpenXR total 0.51 ms, and horizon 3.0 ms.
-
-## Phase 3: clean up the OpenXR present hot path
-
-Phase 0 measured the whole OpenXR present at 0.56 ms per present (`wait` and
-`acquire` 0.00, blit 0.06, end 0.43), so this is a small cleanup rather than
-a top-tier win. Do it after the present-target and memory work unless a
-capture shows otherwise.
-
-Do not reintroduce the failed persistent swapchain attachment. The log records
-that the Meta runtime did not tolerate a persistent FBO attachment across
-`xrAcquireSwapchainImage`/`xrReleaseSwapchainImage`; the fresh-FBO-per-present
-fix is intentional.
-
-Remove the per-frame validation and state queries instead:
-
-- Drop `glGetError` from release present paths. Keep it in a debug-only path.
-- Validate the swapchain FBO once at creation or on a debug flag, not every
-  frame.
-- Avoid `glGetIntegerv(GL_FRAMEBUFFER_BINDING)` and
-  `glGetIntegerv(GL_TEXTURE_BINDING_2D)` on every present. Save and restore the
-  known state once around the present, or use a dedicated present target and
-  restore explicitly.
-- Keep the fresh FBO object per present if the runtime still requires it, but
-  do not pay for per-frame error/status queries.
-- Use `GL_NEAREST` for exact 1:1 stereo blits.
-
-Expected effect: under 0.2 ms/frame on the measured path, plus fewer `Stale`
-spikes if the validation calls interact badly with a loaded driver. This is
-lower risk than the render-target change but also much lower payoff.
-
-Status: implemented, compile-verified against the Quest preset, and committed
-as the Phase 3 change. The headset was disconnected, so on-device install and
-the visual check are deferred to the morning.
-
-## Phase 4: overlay, clear, and 2D duplication
-
-Phase 0 measured `ovlEmpty=0.00` in every sample, so the direct path never
-activated. First identify which 2D content keeps `Log` non-empty, then add
-dirty tracking around that writer rather than assuming gameplay is overlay-free.
-
-- Maintain an overlay-dirty flag or dirty bounding box in the 2D draw path. If
-  nothing wrote to `Log`, set `overlayEmpty=1` without scanning the full
-  buffer.
-- Scan the overlay once per frame, not once per eye.
-- Skip the eye-1 `Log` memset and static 2D pass when the overlay is identical.
-- Avoid the duplicate full-target clear when one clear covers both eye halves.
-- Keep a fallback scan when the dirty tracking is uncertain.
-
-Expected effect: 0.5--1 ms/frame and less CPU variance.
-
-Status: implemented and compile-verified against the Quest preset; committed
-as the Phase 4 change, with the headset check deferred to the morning.  The
-dirty-box classification makes the eye-1 overlay reuse safe for static HUD
-frames.  The 2D pass itself remains interleaved with the object pass, so eye 1
-still redraws it; only the duplicate scan, upload, and clear are skipped.
-`GLPerf` reports `ovlReuse` to show how often the static path fires.
-
-## Phase 5: horizon reuse in vertex space, not image space
-
-Do not restore item 14's capture copy. The correct reuse is geometric:
-
-- Cache eye 0's horizon vertices in camera space.
-- For eye 1, apply the constant lateral eye translation in camera space,
-  then project and clip normally.
-- Re-cull per eye so a vertex that is just outside eye 0 is still considered
-  for eye 1.
-- Keep the eye-0 and eye-1 depth and sort behavior independent.
-
-This preserves real stereo disparity for near neighbour-cube terrain and
-avoids the image-space seams that killed the capture reuse.
-
-Fallback: split the horizon into a far backdrop rendered once and near cubes
-rendered per eye. That is less exact but still avoids the image copy.
-
-Expected effect: 1.5--3 ms/frame in scenes where horizon is 4--6 ms/frame.
-
-Status: implemented and compile-verified against the Quest preset; committed
-as the Phase 5 change, with the headset check deferred to the morning.  Eye 0
-fills a per-neighbor cache of rotated camera-space points; eye 1 reuses them
-but still projects, clips, culls and sorts per eye.  The only translation is
-the existing per-eye `CameraXr`/`CameraYr` and `StereoProjShiftX`, so no
-screen-space copy returns.  The cache is rejected when the pair token, world
-matrix, `BetaCam` orientation, current cube or projection type changes.
-`TerrainSplit2` now includes the eye number for direct eye-0/eye-1 comparison.
-
-## Phase 6: submission-side cleanup
-
-- Skip the redundant `glBindFramebuffer` on every flush. Bind only when the
-  scene target changes; the first-flush path already handles the initial bind.
-- Test the ring-buffer path on Adreno (`LBA2_RING=1`) and keep it only if it is
-  visually stable.
-- Use a VAO or avoid re-specifying unchanged attribute state.
-- Add flush-reason counters and attack the top state changes rather than
-  guessing. The current reason fields are all zero.
-- If terrain still dominates flushes, extend the array path to sub-rect
-  terrain pages or group opaque terrain by page. Do this only after the
-  counters show it is the cause.
-
-Expected effect: 1--2 ms/frame.
-
-Status: implemented and compile-verified against the Quest preset; committed
-as the Phase 6 change, with the headset check deferred to the morning.  The
-flush path tracks the draw FBO and skips the repeated scene bind, empty
-flushes return before make-current, and the `rsn` fields now attribute actual
-batch splits.  Attribute state was already cached, so no VAO was added.  The
-ring path and any terrain-array extension wait for the counters and for
-Adreno verification.
-
-## Phase 7: direct-to-swapchain MSAA, only if needed
-
-Once the double-wide path is stable, try attaching the acquired swapchain
-texture directly to the MSAA FBO with
-`glFramebufferTexture2DMultisampleEXT`, rendering eye 0 and eye 1 into the two
-halves in place. That removes the scene color texture and the final blit.
-
-This is the highest-risk step because the swapchain texture is runtime-owned
-and the previous persistent-attachment experiment produced black frames. Keep
-it behind a flag and keep the double-wide blit path as the fallback.
-
-Expected effect: another 2--3 ms/frame and a large memory reduction. Do not
-make it the first change.  The CPU-side present blit measured only 0.05 ms, so
-the real target is the resolve/copy bandwidth the timer does not attribute to
-that blit.
-
-Status: implemented as a default-off opt-in experiment and compile-verified
-against the Quest preset; committed as the Phase 7 change, with the headset
-check deferred to the morning.  Configure with `-DLBA2_OXR_DIRECT=ON` or set
-`LBA2_OXR_DIRECT=1` at runtime.  The path acquires the swapchain image before
-the scene, attaches it to a fresh per-frame MSAA FBO, renders both eyes and the
-HUD in place, and releases the image in present without a blit.  It falls back
-to the normal double-wide blit unless the resolve-in-tile probe passed, the
-display transform is neutral, and the sizes match exactly.  The unverified
-link is whether the compositor's sampling triggers the implicit resolve; a
-black or single-eye image means it does not.
-
-## Phase 8: hitch and streaming audit
-
-Average frame time is not sufficient if the runtime drops rate on spikes.
-Track `Stale2/5/10/max` and investigate the streaming path separately:
-
-- The atlas content version is global. An animated water or plasma page can
-  force every active array layer and cached atlas page to re-upload. Move to a
-  per-page dirty/version scheme.
-- Check whether cube streaming or texture uploads align with the `Stale`
-  spikes.
-- Pre-warm or batch uploads only if the measurements show they cause hitches.
-
-Status: the per-page dirty scheme is implemented and compile-verified.  The
-water path names `GroundTexture` and, while texture animation is active,
-`BufferTexture` (effects rebaked between ticks); the menu plasma path names
-the plasma page and `BufferTexture`.
-The renderer marks each listed page's 2D cache entry and array layers stale,
-including the containing page for an offset effect.  An unnamed mutation or
-list overflow falls back to the global version.  `GLPerf` reports
-`atl=<2D>/<array>` and `dty=<named>/<global>` dirty events so the morning run
-can confirm that a water tick no longer re-uploads every active array layer.
-The streaming audit found the remaining upload paths already coalesced or
-event-driven; no pre-warm change is made without `Stale` measurements.
-
-## Validation
-
-Visual checks:
-
-- Iceland horizon and terrain seams.
-- Medallion chain and whiskers occlusion, including the body-line path.
-- Stereo disparity near and far.
-- Menus, subtitles, console overlay, and any eye-specific 2D UI.
-- No black frame, no eye swapped, no half-frame stale content.
-
-Numeric checks:
-
-- `StereoPerf` eye 0 and eye 1 each at or below about 6.5 ms.
-- `StereoPerf frame` at or below about 10 ms in the reference scene.
-- VrApi 72 FPS, `CPU&GPU` at or below 13.9 ms, low `Stale` counts.
-- GPU memory below 120 MB, ideally below 100 MB.
-- No regression in the measured heavier scene; report median and max, not
-  only the best sample.
-
-Morning order:
-
-1. Build and install with Phase 7 off; run the visual checks and confirm the
-   double-wide path is active (`GLPerf direct=0.00`, `ovlReuse` near 0.5 in
-   static scenes).
-2. Compare `StereoPerf`, `GLPerf`, `OpenXRPerf`, VrApi, and memory with the
-   Phase 0 table.
-3. If the frame is still above budget, enable `LBA2_OXR_DIRECT=1` at runtime
-   and repeat. A black frame or one eye means the implicit MSAA resolve is
-   not triggered, so leave the direct path off.
-4. Compare `GLPerf atl`/`arr` and `dty` across a water tick: named-only dirty
-   events and fewer uploads are the Phase 8 result. Check VrApi `Stale` for
-   the recurring spike.
-5. Fix regressions before considering further tuning.
-
-Build and install:
-
-```sh
-bash scripts/dev/build-and-install-quest.sh
-```
-
-Use `--log-level info` for `StereoPerf`, `GrillePerf`, and `GLPerf`; use the
-VrApi line for the runtime frame budget. Run targeted host tests for any pure
-logic extracted during the change; do not run the full Docker suite unless the
-owner asks for it.
-
-## Non-goals
-
-- No resolution-ladder change.
-- No MSAA sample-count change.
-- No foveation change beyond the `VrFoveation` XR compositor hint; the GLES
-  texture/framebuffer foveation path is a driver no-op on Quest 3 (see
-  `docs/ANDROID.md`).
-- No gameplay, timing, or feel change.
-- No restoration of the eye-1 horizon image capture.
-- No speculative abstraction around the render targets; keep the fallback
-  path explicit and removable.
+# Quest 3 72 FPS optimization plan
+
+> This plan supersedes the previous `plan.md` at commit `48566556`. That plan's phases were implemented or superseded in the preceding sessions; its full text remains in git history (`git show 48566556:plan.md`). The phases below are the next implementation sequence.
+
+Status: Phase 1 and Phase 2 are committed on `quest-good-perf`. Device verification captured a heavy scene at 48 FPS median, with present reduced to 1.35 ms; the 19% battery kept the GPU at 545 MHz. Phase 3 is next; the full multiview rewrite remains a multi-step renderer change, so the contained eye-1 replay is the safe increment.
+
+## Current state
+
+- Branch: `quest-good-perf`.
+- Last commit: `48566556 perf(gl): avoid redundant texture-array binds`.
+- Earlier commits: `d3571b39` (baked CLUT + empty overlay discard + band scissor) and `7329683e` (release mono surfaces while stereo is active).
+- The earlier partial quad experiment was superseded by the completed Phase 2 quad-packed array.
+- Working tree: Phase 1 and Phase 2 code in `LIB386/GL/RENDER_GL.CPP`, `LIB386/H/GL/RENDER_GL.H`, `SOURCES/3DEXT/TERRAIN.CPP`, plus this `plan.md`.
+- Fixed settings: 1.5x supersampling, MSAA×2, foveation level 3, 1680×1760 eye swapchain, 5040×2640 double-wide scene target. Do not change them.
+
+## Measured evidence
+
+### Same-scene A/B (heavy autosave, 36% battery, 545 MHz)
+
+| Metric | Baseline | Current (committed) | Delta |
+|---|---:|---:|---:|
+| FPS app median | 45 | 47 | +4% |
+| eye0 / eye1 | 14 / 8 ms | 13 / 8 ms | −1 / 0 |
+| frame | 23 ms | 21 ms | −2 ms |
+| present | 1.36 ms | 1.41 ms | +0.05 |
+| flush | 1.225 ms | 1.205 ms | −0.02 |
+| triangles | 2180 | 2091 | slightly fewer |
+
+This shows the committed shader work helps, but the 4% is not enough, and this particular view is not GPU-bound (GPU about 50% busy).
+
+### Good and bad on-headset runs (same Citadel night-rain save)
+
+| Metric | Good | Bad | Why it matters |
+|---|---:|---:|---|
+| FPS app | 69.5 | 58.0 | target is 72 |
+| eye0 / eye1 | 11 / 3 ms | 12 / 5.5 ms | eye1 grows 83% |
+| frame | 14.0 ms | 17.5 ms | 3.5 ms over target |
+| present | 1.65 ms | 1.62 ms | stable, not the regression |
+| flush | 0.51 ms | 1.05 ms | doubles at 545 MHz |
+| triangles | 1594 | 1391 | bad run is lighter |
+| GPU clock | 599/640 | 545 | 9% lower |
+| GPU busy | 70.5% | 61% | lower, so not a heavier workload |
+| Stale | 4 | 15 | compositor repeats frames |
+
+The bad-run regression is GPU/driver side, not app CPU. The app CPU was effectively identical (9.36 vs 9.63 ms). The biggest remaining per-frame costs are:
+
+- Textured fragment work: the bilinear CLUT path still does 4 atlas + 4 CLUT fetches per fragment. The terrain alone is about 6604 polygons and takes about 3 ms.
+- The second eye: `eye1` is 3 to 8 ms and repeats scene traversal and draw submission.
+- The 1.5x full-screen 2D overlay: rain makes the content dense, so the band scissor cannot help and the present is about 1.4 ms per eye.
+- Driver/flush: 23 to 28 draw batches per frame, about 1.2 ms per present.
+- Heavy-scene CPU/compositor: terrain about 3 ms, object pass about 1.7 ms, app CPU about 9.4 ms, Stale up to 26 at 36% battery.
+- Startup surfaces: 265.1 MiB in the bad session, including 50.8 MiB snapshot and 11.3 MiB present target that stereo never reads. The 62 MiB fix is already committed.
+
+Power matters. The good run was 100% / full and boosted to 599/640 MHz. The bad run was 97% / discharging at 545 MHz. The current heavy test was 36% / charging and stayed at 545 MHz. The test gate for all later phases must include a 100% charge and the same save.
+
+## Order of implementation
+
+Ordered by the best possible performance gain, not by implementation effort.
+
+| Order | Phase | Maximum plausible gain | Evidence | Risk |
+|---:|---|---|---|---|
+| 1 | One-fetch resolved CLUT atlas for textured terrain | 2 to 5 ms GPU | 8 fetches per textured fragment; terrain is the largest fill; good/bad are GPU-bound | High |
+| 2 | Quad-packed atlas for the array path | 1 to 2 ms GPU | array path still does 4 atlas + 4 CLUT | Medium |
+| 3 | Single-pass stereo / multiview | 3 to 5 ms CPU and driver | eye1 5.5 to 8 ms; duplicate scene traversal and flush | Very high |
+| 4 | Rain/HUD overlay fill elimination | 1 to 2 ms GPU and CPU | full-screen 1.5x overlay; rain keeps bbox full; present 1.4 ms per eye | Medium |
+| 5 | Draw-call, flush and present-state reduction | 0.5 to 1.5 ms | 23 to 28 flushes; flush 1.2 ms; present invalidates batch state | Medium |
+| 6 | Terrain and object CPU reduction | 1 to 2 ms CPU | terrain 3 ms, object pass 1.7 ms, app CPU 9.4 ms | Medium |
+| 7 | Startup surfaces, warm-up and power | 0 to about 12 FPS external | 121 MiB extra GPU memory; 545 vs 599/640 MHz; 36% vs 100% battery | Low code risk, low control |
+| 8 | Compositor and system behaviour | Not app code | CPU&GPU 31.7 ms, Stale 26 | Out of scope |
+
+The first two phases attack the measured GPU-bound 545 MHz case. Phase 3 attacks the heavy-scene CPU/driver case. Phase 7 is not a substitute for code work, but every test must control it.
+
+## Phase 1 — One-fetch resolved CLUT atlas for the terrain
+
+### Goal
+
+Replace the bilinear terrain path's four atlas fetches plus four CLUT fetches with one texture fetch per fragment, while keeping the output pixel-identical.
+
+### Why first
+
+The terrain is the largest textured fill. The current fragment path samples 4 atlas texels and resolves each through the baked CLUT. The good and bad runs are GPU-bound at 545 to 640 MHz, and the bad run's eye0 and eye1 both grow when the GPU clock drops. This is the largest single GPU-work reduction available.
+
+### Design
+
+1. Build a tiled 256×256 palette-index page for each terrain RepMask used by the GPU terrain path. Reuse the tiling rule already in `GL_ArraySlotFor` so the +1 bilinear neighbours wrap exactly like the current `bilinearCLUT` code.
+2. For each CLUT row 0 to 255, resolve the tiled page through the palette into one RGBA slice. Store the slices in a `GL_TEXTURE_3D` of 256×256×256 RGBA (64 MiB) or an equivalent texture array.
+3. The terrain fragment path samples `texture(uResolvedCLUT, vec3(uv, row + 0.5))` with linear filtering in U and V and the row at its texel centre. That returns the exact bilinear mix of the four palette-resolved colours in one fetch.
+4. Keep the existing 8-fetch path as a fallback for:
+   - rows or pages not present in the table;
+   - unsupported GLES configurations;
+   - the array path's multi-page textures.
+5. Rebuild the table only when `CLUTGeneration`, the palette generation, the atlas page or the terrain mask changes. Keep a generation counter and a surface-budget log.
+6. Batch terrain draws by page/mask so one resolved table is current. If the number of masks makes 64 MiB per mask unreasonable, cache the masks actually used in the current cube and evict the rest.
+
+### Files
+
+- `LIB386/GL/RENDER_GL.CPP`: CLUT upload, shader sources, terrain program, texture units, fallback.
+- `SOURCES/3DEXT/TERRAIN.CPP`: terrain mask/page selection, per-mask draw batches, VBO material row if needed.
+- `SOURCES/EXTFUNC.CPP`: terrain draw ordering if batching changes.
+- `LIB386/H/GL/RENDER_GL.H` if a new renderer state/query is needed.
+
+### Risks
+
+- The RepMask edge wrap is the main correctness risk. The tiled page must match the current `mod(widthMask + 1)` rule.
+- The table is 64 MiB per mask and 16.7M palette lookups to build. A scene-load hitch is possible; measure it and consider a background/cached build.
+- `GL_TEXTURE_3D` is GLES3 class. The terrain program currently uses the GLSL-100 source; it needs a GLSL-3 variant like the array path.
+- Row addressing must be exact: the existing `gouraudRow` is an integer; sample the row centre, not between rows.
+- Palette/CLUT changes can occur between cubes; stale table slices must never survive a generation change.
+
+### Verification
+
+- Desktop fixed-dt screenshots on cube 3, cube 5, cube 100 and the rain save; compare against the committed binary. Any pixel difference is a failure except the known nondeterministic in-world sign.
+- Check the terrain edges, animated water tiles, sea/sky mode-5 path and fog rows.
+- Quest build/install; the user loads the same save at 100% battery; capture 120 s and compare FPS, eye0, eye1, frame, present, flush, GPU clock and Stale.
+- The phase is accepted only if the screenshot equivalence passes and the GPU-bound bad-run condition improves without a visual regression.
+
+## Phase 2 — Quad-packed atlas for the array path
+
+### Goal
+
+Reduce the array path's bilinear sampling from four atlas fetches plus four CLUT fetches to one quad fetch plus four CLUT fetches.
+
+### Why second
+
+The array path covers full-page bodies, decors, sky and sea. It is the second-largest textured fill after the terrain and has a lower implementation risk than the 3D table because the array layers are already tiled to the 256 wrap.
+
+### Design
+
+1. Add a second texture array, `GL_RGBA8`, 256×256×`GL_ARR_LAYERS` (64 MiB on Android, 128 MiB on desktop).
+2. For every stale array layer, after building the existing tiled R8 layer, build a quad layer where each texel stores `(x, y)`, `(x+1, y)`, `(x, y+1)`, `(x+1, y+1)` in R, G, B, A with wrap at 256.
+3. Upload the quad layer to unit 4 and bind it alongside the R8 array on unit 3.
+4. In `arraySample`, for the bilinear path sample the quad array once at the center texel, unpack the four indices, then keep the existing four CLUT lookups and mix.
+5. Keep the nearest path on the existing R8 array. Keep the 8-fetch path as a fallback if the quad allocation or sampler is unavailable.
+6. Cache the array and quad bindings. If any upload happens, clear the binding caches before re-binding unit 3 and unit 4.
+
+### Files
+
+- `LIB386/GL/RENDER_GL.CPP`: `s_arrayInject`, `GL_ArrayEnsureTexture`, `GL_ArrayBind`, `s_clut3Program` uniforms, texture-unit bindings.
+
+### Risks
+
+- 64 MiB extra texture memory. The current app uses about 280 MiB RSS; the Quest has headroom, but log the allocation.
+- The upload cost for stale layers is one 256 KiB RGBA upload each. The array first bind already does R8 uploads; measure the startup.
+- The binding cache must be invalidated after uploads, or unit 3 can be left with the quad texture bound and the shader will read RGBA as R8.
+- The array layer must already be tiled to 256; verify against the array tiling path.
+
+### Verification
+
+- Desktop fixed-dt screenshots on the same cube set; the array path covers bodies and decors.
+- Check chroma-key edges and tiled subrects.
+- Quest capture at the same save; compare eye0/eye1 and GPU busy.
+- The phase is accepted only if the image is pixel-identical and the GPU-bound condition improves.
+
+## Phase 3 — Single-pass stereo / multiview
+
+### Goal
+
+Render the 3D scene once for both eyes instead of traversing and submitting it twice, while preserving the exact stereo pair.
+
+### Why third
+
+The heavy-scene eye1 is 8 ms and the good/bad eye1 grows from 3 to 5.5 ms. The two eyes repeat scene traversal, culling, batching and draw submission. The GPU fill remains, but the CPU and driver work is duplicated, and the heavy scene is CPU/compositor limited.
+
+### Design
+
+1. Detect `GL_OVR_multiview` or `GL_EXT_multiview`; add a layered scene FBO with the two eye layers (or the double-wide equivalent).
+2. Add `gl_ViewID_OVR` to the stereo vertex shaders and supply the per-eye camera/projection matrix as a uniform array or `gl_ViewIndex`.
+3. Change the `PERSO.CPP` stereo loop to:
+   - update/track both eye poses;
+   - run the scene draw once with both views;
+   - keep the 2D overlay per eye, because rain/HUD content can differ;
+   - keep the present per eye.
+4. Preserve the existing per-eye culling result. If an object is visible in only one eye, the single-pass frustum must include it; otherwise use a conservative union frustum.
+5. Keep the current two-pass path as a fallback and as the pixel-equivalence reference.
+
+### Files
+
+- `SOURCES/PERSO.CPP`: `PERSO_RenderStereo`, eye loop, `StereoCamShift`, `StereoProjShift`, `AffScene` calls.
+- `LIB386/GL/RENDER_GL.CPP`: scene FBO, shaders, `GL_SetStereoEye`, present.
+- `LIB386/SYSTEM/OPENXR.CPP`: swapchain/present.
+- `LIB386/H/GL/RENDER_GL.H`: capability query.
+
+### Risks
+
+- Very high. The game runs logic per eye; the single pass must not duplicate or drop state changes.
+- Exact stereo poses, culling and overlay ordering are hard to preserve.
+- The overlay remains per eye, so the eye1 present cost does not disappear.
+- Driver support and layered-FBO completeness need a runtime fallback.
+
+### Verification
+
+- A stereo screenshot comparison against the two-pass path with both eyes.
+- Head-motion/pose test by the user; no eye swap, no culling pop, no missing overlay.
+- Same-scene capture; report frame, eye0/eye1, present, flush, GPU busy.
+- Accept only if the pair is visually identical and the frame time drops.
+
+## Phase 4 — Rain and HUD overlay fill
+
+### Goal
+
+Cut the full-screen 1.5x overlay draw in the rain scene, where the content is dense and the band scissor cannot help.
+
+### Why fourth
+
+The overlay is drawn twice per frame at 1.5x. The rain makes the bounding box full, so the band scissor falls back to one full-screen draw. The `discard` already skips the palette fetch and blend for empty pixels, but the full-screen rasterization and index fetch remain.
+
+### Options, in order of likely gain
+
+1. **Rain as a GL line pass.** Record rain line endpoints and palette/fog colours in `RAIN.CPP`; draw them with GL lines at the 1.5x scene target; remove rain from the Log overlay. The HUD overlay then becomes small and the band scissor works. This has the largest fill win but changes the rain rasterization; require a user visual approval and a screenshot comparison.
+2. **Coverage-tile scissor.** Keep the rain in the Log; add a compact dirty-tile grid (for example 16×16) to the 2D renderer and scissor the overlay to the non-empty tiles, merging neighbours and capping draw calls. This preserves rain pixels but adds draw calls and coverage bookkeeping.
+3. **Static HUD plus dynamic rain split.** Keep one overlay texture for the static HUD and a second small texture/atlas for the rain; draw the static HUD with the band scissor and the rain at full screen. This helps only if the HUD dominates, which is not the current case.
+
+### Files
+
+- `SOURCES/RAIN.CPP`: line recording or coverage boxes.
+- `LIB386/SVGA/DIRTYBOX.CPP`, `LIB386/H/SVGA/DIRTYBOX.H`: coverage/tile data if option 2.
+- `LIB386/GL/RENDER_GL.CPP`: overlay draw, scissor, optional GL line program.
+- `SOURCES/EXTFUNC.CPP`: draw order.
+
+### Risks
+
+- The rain is a visible gameplay/atmosphere element. The GL line path can change width, fog and clipping; the user must approve the comparison.
+- Coverage tiling can add dozens of draw calls, making the driver cost worse.
+- The 1.5x overlay is part of the current image quality; do not silently move it to 1x.
+
+### Verification
+
+- Rain-scene screenshot comparison; check line positions, width, fog and HUD.
+- Same-scene capture; compare present and GPU busy.
+- The user must explicitly approve any visible rain change.
+
+## Phase 5 — Draw-call, flush and present-state reduction
+
+### Goal
+
+Reduce the 23 to 28 draw batches and the 1.2 ms per-present flush cost.
+
+### Why fifth
+
+The flush doubles from 0.51 to 1.05 ms when the GPU clock drops to 545. The bad run has fewer triangles and fewer batches than the good run, so this is a driver/clock effect per batch. Fewer batches and fewer state changes directly reduce it.
+
+### Design
+
+1. Keep the array binding cache and extend the same idea to the 2D atlas pages and terrain page bindings.
+2. Move subrect terrain pages into the tiled array path where possible, so terrain stops forcing 2D page flushes.
+3. Avoid `GL_InvalidateGLState()` at the end of an eye present when the next eye's first flush can reuse the batch state; restore the batch program/textures instead.
+4. Merge batches that differ only in fog/alpha where the shader can select the mode from the material word.
+5. Record the per-flush reason counts before and after; target the `t=...` texture-page and `n=...` reasons first.
+
+### Files
+
+- `LIB386/GL/RENDER_GL.CPP`: `GL_ArrayBind`, `GL_BindTexUnit`, `GL_FlushBatch`, `GL_InvalidateGLState`, `GL_PresentIndexed`.
+- `SOURCES/3DEXT/TERRAIN.CPP`: terrain page/mask batching.
+
+### Risks
+
+- The batching state is shared across the scene, overlay and present; a stale texture or program binding can corrupt a frame.
+- The terrain array path was deliberately left on the 2D path; moving it needs the snapshot/pool checks.
+- Fewer batches can increase vertex buffer pressure or change draw order, which matters for blending.
+
+### Verification
+
+- Pixel-identical screenshots on all benchmark scenes.
+- Same-scene capture; compare flush, flushes, present and FPS.
+- Log the per-flush reason deltas.
+
+## Phase 6 — Terrain and object CPU reduction
+
+### Goal
+
+Reduce the terrain and object CPU costs in the heavy scene: terrain about 3 ms, object pass about 1.7 ms, app CPU about 9.4 ms.
+
+### Why sixth
+
+The heavy scene is not GPU-bound (50% busy) and the app frame is CPU/compositor limited. The terrain VBO is already cached, but the software terrain record and object traversal still run per frame. This phase only helps the heavy/CPU-bound cases, not the GPU-bound bad run.
+
+### Design
+
+1. Audit `AffichageTerrainZBuf` and `GPU_TerrainRecordTile`: skip the software terrain record when the GPU terrain VBO is valid and no animated tile needs the software post-pass.
+2. Cache the object draw list across eyes where the eye shift does not change visibility; use a conservative union for culling.
+3. Profile the object pass `sortDraw` and the per-object matrix updates; remove redundant transforms.
+4. If Phase 3 is not implemented, add an eye1 replay of the eye0 draw list for static geometry, with an eye1 camera uniform update.
+
+### Files
+
+- `SOURCES/3DEXT/TERRAIN.CPP`: `AffichageTerrainZBuf`, `GPU_TerrainRecordTile`, terrain cache.
+- `SOURCES/OBJECT.CPP`: object pass, sort/draw.
+- `SOURCES/EXTFUNC.CPP`: scene draw order.
+- `SOURCES/PERSO.CPP`: eye loop if replay is used.
+
+### Risks
+
+- The software terrain record also feeds animated tiles and the snapshot/pool paths; skipping it can drop water/flower animation.
+- Replaying a draw list across eyes can miss objects visible only in one eye.
+- Object state can change between eyes; the replay must use the same frame state.
+
+### Verification
+
+- Check animated water, flowers, shadows and the horizon.
+- Same-scene capture at the heavy autosave; compare app CPU, frame, eye0/eye1.
+- Pixel comparison for static scenes.
+
+## Phase 7 — Startup surfaces, warm-up and power
+
+### Goal
+
+Remove the remaining startup/session memory and establish a valid test condition for the 100% / boosted state.
+
+### Why seventh
+
+The bad session held 121 MiB more GPU memory than the good session. The 62 MiB snapshot/present fix is committed. The remaining gap is about 59 MiB of startup textures/driver state. This is a memory/session effect, not a per-frame shader win.
+
+The good run was 69.5 FPS at 100% / full and 599/640 MHz. The bad run was 58 FPS at 97% / discharging and 545 MHz. The current heavy test was 47 FPS at 36% / charging and 545 MHz. Battery and DVFS can outweigh a phase's code gain.
+
+### Design
+
+1. Audit the remaining `surfaces(snapshot)`/`surfaces(init)` allocations and texture caches; prewarm or release at scene load.
+2. Avoid creating the single/double/1.5x FBO chain during startup; create the final stereo target directly where the capability is known.
+3. Add a prewarm step for the scene atlas/array/CLUT uploads at load, so the first minutes do not pay lazy upload costs.
+4. Record `trans_stat`, battery status and GPU clock at the start and end of every capture.
+5. Use 100% / full charge and the same save for all target measurements.
+
+### Files
+
+- `LIB386/GL/RENDER_GL.CPP`: FBO creation, surface budget, atlas/array prewarm.
+- `LIB386/SYSTEM/OPENXR.CPP`: swapchain/session lifetime.
+- `SOURCES/PERSO.CPP`: scene load/prewarm hook.
+- `docs/ANDROID.md` if the test protocol changes.
+
+### Risks
+
+- Prewarming can add a visible load hitch.
+- Releasing surfaces too early can reintroduce the shutdown/present hazards; the current shutdown crash is in `OpenXR_Shutdown` and is pre-existing, not a render-loop crash.
+- Power/DVFS is outside the app's control; do not promise a code fix for it.
+
+### Verification
+
+- Compare `dumpsys gpu` and the surface-budget logs before/after.
+- Capture at 100% and at 545 MHz; report both.
+- The target is stable 72 at the default 545, not only the boosted 599/640 case.
+
+## Phase 8 — Compositor and system behaviour
+
+### Goal
+
+Document and, where possible, reduce the remaining compositor cost. This is not app renderer code.
+
+### Evidence
+
+The heavy scene reports `CPU&GPU 31.7 ms`, `Stale 26`, `TW 0.67`, while the app itself is about 9.4 ms CPU and the GPU is about 50% busy. The compositor is repeating frames and the app is not keeping the 72 Hz cadence.
+
+### Actions
+
+- Record `dumpsys` GPU/compositor metrics with each test.
+- Check battery/charger state, thermal status, GPU `trans_stat` and per-thread placement.
+- Confirm whether the Quest runtime is throttling a not-worn or low-battery session.
+- Do not change app settings or the display refresh rate.
+
+## Test gate after every phase
+
+Every phase stops at the same gate. Do not start the next phase before the user has tested and the result is reviewed.
+
+1. Build the desktop binary.
+2. Run fixed-dt screenshot comparisons on cube 3, cube 5, cube 100 and the rain save. Any pixel difference is a failure unless the phase explicitly changes the rain and the user approved it.
+3. Build the Quest shared library and bundle the APK.
+4. Install on `2G0YC1ZF9J0W5D`.
+5. Ask the user to put on the headset, charge to 100%, load the Citadel night-rain save, and confirm they are ready.
+6. Capture 120 s with `good_run/capture.sh`.
+7. Report FPS, eye0, eye1, frame, present, flush, triangles, GPU clock, GPU busy, Stale, battery and temperature.
+8. Compare against the baseline numbers above and the previous phase.
+9. Do not commit. Wait for the user's decision.
+
+If a phase is rejected, revert only that phase's changes, keep the previous committed baseline and move to the next candidate.
+
+## Constraints
+
+- Do not change resolution, supersampling, MSAA, foveation or menu/config values.
+- Preserve the game's visual output and feel unless the user explicitly approves a change (the rain GL-line option is the only planned visible change).
+- No commits until the user says so.
+- One phase at a time; ask for a test after each phase.
+- Record every measurement with the battery and GPU clock; a 36% battery capture is not a valid 72 FPS target test.

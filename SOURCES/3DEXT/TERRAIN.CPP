@@ -1107,6 +1107,7 @@ static void GPU_TerrainCacheDrop(T_GPU_TERRAIN_CACHE *e, U32 epoch) {
 }
 
 void GPU_Terrain_InvalidateAll(void) {
+    GL_TerrainResolvedInvalidate();
     U32 epoch = GL_TerrainVBOEpoch();
     for (S32 i = 0; i < GPU_TERRAIN_CACHE_SIZE; i++) {
         GPU_TerrainCacheDrop(&s_gpuTerrainCache[i], epoch);
@@ -1121,7 +1122,7 @@ void GPU_Terrain_InvalidateAll(void) {
 static void GPU_TerrainPush(T_GL_TerrainVertex *out, U32 *count, const S32 *px,
                             const S32 *py, const S32 *pz, const S32 *light,
                             const U16 *uv, S32 fogX, S32 fogY, S32 fogZ,
-                            U8 type, S32 color) {
+                            U8 type, S32 color, S32 animated) {
     U8 matFlags;
     if (type == 8 || type == 12) {
         matFlags = 4; /* direct palette index, no CLUT */
@@ -1138,6 +1139,9 @@ static void GPU_TerrainPush(T_GL_TerrainVertex *out, U32 *count, const S32 *px,
     }
     if (type >= 8 && (type & 4)) {
         matFlags |= 32; /* INCRUST chroma key */
+    }
+    if (animated) {
+        matFlags |= 128; /* animated tile: keep the exact multi-tap path */
     }
 
     /* Level-9/13 flat textures take their fixed CLUT row from the low
@@ -1181,15 +1185,16 @@ static void GPU_TerrainHalf(T_GL_TerrainVertex *out, U32 *count,
             color += avg;
         }
         GPU_TerrainPush(out, count, px, py, pz, light, NULL, fogX, fogY,
-                        fogZ, (U8)ListTypePolygone[h->PolyFlag], color);
+                        fogZ, (U8)ListTypePolygone[h->PolyFlag], color, 0);
     }
     if (h->TexFlag) {
         if (h->TexFlag == 2) {
             color = avg;
         }
+        const S32 animated = (h->CodeJeu & 12) == 12;
         GPU_TerrainPush(out, count, px, py, pz, light, uv, fogX, fogY, fogZ,
                         (U8)ListTypePTexture[h->TexFlag + (h->PolyFlag << 2)],
-                        color);
+                        color, animated);
     }
 }
 

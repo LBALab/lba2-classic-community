@@ -299,6 +299,10 @@ S32 GL_TerrainGPUActive(void);
 //! drop stale handles without deleting them.
 U32 GL_TerrainVBOEpoch(void);
 
+//! Drop the resolved CLUT terrain table.  Called on cube/terrain cache
+//! invalidation and whenever the palette/CLUT bake changes.
+void GL_TerrainResolvedInvalidate(void);
+
 //! Upload a static terrain VBO.  Returns 0 on failure.
 U32 GL_CreateTerrainVBO(const T_GL_TerrainVertex *verts, U32 vertexCount);
 
