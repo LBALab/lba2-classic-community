@@ -4,14 +4,14 @@ Variables and locations that can be changed or exposed as options to improve gra
 
 ## Shipped options
 
-All four are off by default, so a stock run renders exactly as before. None of them has a menu entry yet; set them from the console or the config file.
+All four are off by default, so a stock run renders exactly as before. Three of them have a row in the Options → Graphics submenu (see [MENU.md](MENU.md)); interior render scaling is read once at startup and stays environment-only. All of them can also be set from the console or the config file.
 
-| Option | Console | lba2.cfg | Environment | Values |
-|--------|---------|----------|-------------|--------|
-| Texture filtering | `gfx_texfilter` | `TextureFilter` | `LBA2_TEXFILTER` | 0 off, 1 horizontal 2-tap, 2 bilinear 4-tap |
-| Dithered shading | `gfx_dither` | `DitherShading` | (none) | 0 off, 1 on |
-| Interior render scaling | (none) | (none) | `LBA2_ISO_DIV` | 1 off, 2 to 4 |
-| Present filter | `gfx_presentfilter` | `PresentFilter` | `LBA2_PRESENT_FILTER` | 0 nearest, 1 linear, 2 pixelart |
+| Option | Menu row | Console | lba2.cfg | Environment | Values |
+|--------|----------|---------|----------|-------------|--------|
+| Texture filtering | Texture filter | `gfx_texfilter` | `TextureFilter` | `LBA2_TEXFILTER` | 0 off, 1 horizontal 2-tap, 2 bilinear 4-tap |
+| Dithered shading | Dithered shading | `gfx_dither` | `DitherShading` | (none) | 0 off, 1 on |
+| Interior render scaling | (none) | (none) | (none) | `LBA2_ISO_DIV` | 1 off, 2 to 4 |
+| Present filter | Scaling | `gfx_presentfilter` | `PresentFilter` | `LBA2_PRESENT_FILTER` | 0 nearest, 1 linear, 2 pixelart |
 
 **Texture filtering** smooths magnified texels on terrain, sea, and sky. The rasterizer works in palette indices, where averaging two entries is meaningless, so the blend is a precomputed table of the nearest palette index to each 25/50/75% RGB mix. Costs roughly 7% of frame time on terrain and 4% on a sea-heavy view at 1728x1080 with the 4-tap setting.
 
