@@ -395,7 +395,7 @@ static const char *s_clutFragSrc =
     GLSL_FRAG_HEADER
     "uniform sampler2D uAtlas;\n"     /* 256×256 LUMINANCE (or sprite page) */
     "uniform vec2 uAtlasScale;\n"     /* texture dims for texel-space UVs */
-    "uniform sampler2D uCLUT;\n"      /* 256×256 LUMINANCE (fog table) */
+    "uniform sampler2D uCLUT;\n"      /* 256×256 RGBA (baked CLUT+palette) */
     "uniform sampler2D uPalette;\n"   /* 256×1 BGRA (paletteLUT) */
     "uniform float uCLUTBaseRow;\n"   /* legacy row offset (now per vertex) */
     "uniform float uScaledFogNear;\n" /* Fill_ScaledFogNear (fog-smooth distance, mode 5) */
@@ -424,14 +424,15 @@ static const char *s_clutFragSrc =
        perspCorrect (bit 6); high byte = flat colour / shadow level.
        All three vertices of a triangle carry the same word, so the
        derived values are constant across the fragment. */
-    /* Look up a palette index through the CLUT, returning the final RGBA
-       color.  `palIdx` is the raw atlas texel (palette index) and
-       `gouraudRow` the CLUT row selected by the gouraud intensity. */
+    /* Look up a palette index through the baked CLUT, returning the final
+       RGBA color.  `palIdx` is the raw atlas texel (palette index) and
+       `gouraudRow` the CLUT row selected by the gouraud intensity.  The
+       texture already contains palette-resolved colors, so one fetch
+       replaces the old CLUT→palette pair. */
     "vec4 clutLookup(float palIdx, float gouraudRow) {\n"
     "    vec2 cuv = vec2((palIdx + 0.5) / 256.0,\n"
     "                     (gouraudRow + 0.5) / 256.0);\n"
-    "    float lit = texture2D(uCLUT, cuv).r * 255.0;\n"
-    "    return texture2D(uPalette, vec2((lit + 0.5) / 256.0, 0.5));\n"
+    "    return texture2D(uCLUT, cuv);\n"
     "}\n"
     /* Bilinear CLUT sampling: sample 4 atlas texels, CLUT each one, then
        interpolate the resulting RGBA colors.  This avoids the artifact
@@ -444,15 +445,15 @@ static const char *s_clutFragSrc =
     "    float iv = floor(v);\n"
     "    float fu = u - iu;\n"
     "    float fv = v - iv;\n"
-    "    /* Wrap each of the 4 texel positions */\n"
-    "    vec2 p00 = vec2(mod(iu, widthMask + 1.0),\n"
-    "                     mod(iv, heightMask + 1.0));\n"
-    "    vec2 p10 = vec2(mod(iu + 1.0, widthMask + 1.0),\n"
-    "                     mod(iv, heightMask + 1.0));\n"
-    "    vec2 p01 = vec2(mod(iu, widthMask + 1.0),\n"
-    "                     mod(iv + 1.0, heightMask + 1.0));\n"
-    "    vec2 p11 = vec2(mod(iu + 1.0, widthMask + 1.0),\n"
-    "                     mod(iv + 1.0, heightMask + 1.0));\n"
+    "    /* iu/iv are already in range; only the +1 neighbours wrap. */\n"
+    "    float iu1 = iu + 1.0;\n"
+    "    if (iu1 > widthMask) iu1 = 0.0;\n"
+    "    float iv1 = iv + 1.0;\n"
+    "    if (iv1 > heightMask) iv1 = 0.0;\n"
+    "    vec2 p00 = vec2(iu, iv);\n"
+    "    vec2 p10 = vec2(iu1, iv);\n"
+    "    vec2 p01 = vec2(iu, iv1);\n"
+    "    vec2 p11 = vec2(iu1, iv1);\n"
     "    /* Sample atlas → CLUT → palette for each texel */\n"
     "    float t00 = texture2D(uAtlas, (p00 + 0.5) / 256.0).r * 255.0;\n"
     "    float t10 = texture2D(uAtlas, (p10 + 0.5) / 256.0).r * 255.0;\n"
@@ -607,9 +608,7 @@ static const char *s_clutFragSrc =
     "        float gouraudRow = floor((vLight + 128.0) / 256.0) + vRepMask;\n"
     "        vec2 clutUV = vec2((mColor + 0.5) / 256.0,\n"
     "                           (gouraudRow + 0.5) / 256.0);\n"
-    "        float palIdx = texture2D(uCLUT, clutUV).r * 255.0;\n"
-    "        color = texture2D(uPalette,\n"
-    "                 vec2((palIdx + 0.5) / 256.0, 0.5));\n"
+    "        color = texture2D(uCLUT, clutUV);\n"
     "    }\n"
     /* TRAME stipple: discard every other fragment (50% coverage) */
     "    if (mAlpha > 1.5) {\n"
@@ -740,6 +739,10 @@ static const char *s_presentIndexedFragSrc =
     "            }\n"
     "        }\n"
     "    }\n"
+    /* Palette index 0 is transparent, so empty overlay pixels can skip the
+       palette fetch and the blend; the rain/HUD leaves most of the screen
+       empty. */
+    "    if (e < 0.5) discard;\n"
     "    vec4 pal = texture2D(uPalette, vec2((e + 0.5) / 256.0, 0.5));\n"
     "    gl_FragColor = vec4(ImageAdjust(pal.rgb), pal.a);\n"
     "}\n";
@@ -1031,10 +1034,14 @@ static const char *s_arrayInject =
     "    float iv = floor(wv);\n"
     "    float fu = wu - iu;\n"
     "    float fv = wv - iv;\n"
-    "    vec3 p00 = vec3((mod(iu, 256.0) + 0.5) / 256.0,\n"
-    "                    (mod(iv, 256.0) + 0.5) / 256.0, layer);\n"
-    "    vec3 p10 = vec3((mod(iu + 1.0, 256.0) + 0.5) / 256.0, p00.y, layer);\n"
-    "    vec3 p01 = vec3(p00.x, (mod(iv + 1.0, 256.0) + 0.5) / 256.0, layer);\n"
+    "    float iu1 = iu + 1.0;\n"
+    "    if (iu1 > 255.0) iu1 = 0.0;\n"
+    "    float iv1 = iv + 1.0;\n"
+    "    if (iv1 > 255.0) iv1 = 0.0;\n"
+    "    vec3 p00 = vec3((iu + 0.5) / 256.0,\n"
+    "                    (iv + 0.5) / 256.0, layer);\n"
+    "    vec3 p10 = vec3((iu1 + 0.5) / 256.0, p00.y, layer);\n"
+    "    vec3 p01 = vec3(p00.x, (iv1 + 0.5) / 256.0, layer);\n"
     "    vec3 p11 = vec3(p10.x, p01.y, layer);\n"
     "    float t00 = texture(uAtlasArr, p00).r * 255.0;\n"
     "    float t10 = texture(uAtlasArr, p10).r * 255.0;\n"
@@ -1200,7 +1207,7 @@ static GLint s_decor_uTerrainFar = -1;
 /* ── GL state — textures ────────────────────────────────────────────────── */
 
 static GLuint s_atlasTex = 0;   /* 256×256 LUMINANCE */
-static GLuint s_clutTex = 0;    /* 256×256 LUMINANCE (full fog table) */
+static GLuint s_clutTex = 0;    /* 256×256 RGBA (baked CLUT+palette) */
 static GLuint s_paletteTex = 0; /* 256×1 BGRA */
 
 /* ── GL state — batch buffer ─────────────────────────────────────────────── */
@@ -2867,14 +2874,16 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                  GL_UNSIGNED_BYTE, NULL);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    /* CLUT texture (256×256, 8-bit LUMINANCE — full fog table) */
+    /* CLUT texture (256×256 RGBA — full fog table already resolved through
+       the palette; sampling it replaces the old CLUT(indices) + palette(1D)
+       pair and removes one texture fetch per lookup). */
     glGenTextures(1, &s_clutTex);
     glBindTexture(GL_TEXTURE_2D, s_clutTex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, 256, 256, 0, GL_LUMINANCE,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_UPLOAD_FORMAT,
                  GL_UNSIGNED_BYTE, NULL);
     glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -3957,6 +3966,56 @@ void GL_SetAntiAlias(S32 mode) {
 
 /* ── Texture uploads ────────────────────────────────────────────────────── */
 
+/* CLUT + palette baked together.  The old shader did CLUT(index)→palette
+   per texel (and 4x per bilinear tap), which is the dominant fragment cost
+   at 1.5x supersampling.  A 256×256 RGBA table holding the final palette
+   colors lets the shader return the color in one fetch.  Rebuilt only when
+   the fog table or palette generation changes (scene/palette transitions). */
+static U32 s_bakedCLUT[256 * 256];
+
+static void GL_UploadBakedCLUT(void) {
+    static U32 s_upGen = 0;
+    static const U8 *s_upPtr = NULL;
+    static U32 s_upPalGen = 0;
+    const U32 *lut = GL_GetPaletteLUT();
+    if (PtrCLUTFog == NULL || lut == NULL) {
+        return;
+    }
+    const U32 palGen = GL_GetPaletteGeneration();
+    if (s_upGen == CLUTGeneration && s_upPtr == PtrCLUTFog &&
+        s_upPalGen == palGen) {
+        return;
+    }
+
+    U32 paletteCopy[256];
+    memcpy(paletteCopy, lut, sizeof(paletteCopy));
+    paletteCopy[0] &= 0x00FFFFFF; /* palette index 0 is transparent */
+
+    const U8 *clut = PtrCLUTFog;
+    for (U32 i = 0; i < 256u * 256u; i++) {
+        s_bakedCLUT[i] = paletteCopy[clut[i]];
+    }
+
+    GL_BindTexUnit(0, s_clutTex);
+#if defined(__ANDROID__)
+    {
+        static U32 bakedGL[256 * 256];
+        GL_SwizzleBGRAtoRGBA(bakedGL, s_bakedCLUT, 256 * 256);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_UPLOAD_FORMAT,
+                        GL_UNSIGNED_BYTE, bakedGL);
+    }
+#else
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_UPLOAD_FORMAT,
+                    GL_UNSIGNED_BYTE, s_bakedCLUT);
+#endif
+    GL_BindTexUnit(0, 0);
+
+    s_boundCLUT = PtrCLUTFog;
+    s_upGen = CLUTGeneration;
+    s_upPtr = PtrCLUTFog;
+    s_upPalGen = palGen;
+}
+
 static void GL_UploadPalette(void) {
     /* Uploaded once per frame per LUT pointer, not per polygon — same
        reasoning as GL_UploadCLUT above. */
@@ -3993,34 +4052,18 @@ static void GL_UploadPalette(void) {
     /* Invalidate cached reverse lookup so it gets rebuilt on next readback. */
     s_revLutHashValid = 0;
     s_palUpGen = gen;
+
+    /* The baked CLUT embeds palette colors; refresh it on a palette change
+       even when the fog table pointer is unchanged. */
+    GL_UploadBakedCLUT();
 }
 
 static void GL_UploadCLUT(void) {
-    /* The fog table is uploaded once per frame per pointer, not per
-       polygon.  GL_RenderTriangleList runs for every terrain tile, and a
-       64 KB glTexSubImage2D per polygon meant ~500 MB of redundant uploads
-       per pass (hundreds of ms on mobile GPUs).  The game only modifies
-       the fog table in-place between scenes, so per-frame is sufficient. */
-    static U32 s_clutUpGen = 0;
-    static const U8 *s_clutUpPtr = NULL;
-    if (PtrCLUTFog == NULL) {
-        return;
-    }
-    if (s_clutUpGen == CLUTGeneration && s_clutUpPtr == PtrCLUTFog) {
-        return;
-    }
-
-    /* Upload the full 64 KB fog table (256×256) only when InitPalette
-       selected a new table.  SetCLUT selects a 16-row block within it; the
-       gouraud value's high byte indexes the correct rows in the shader. */
-    GL_BindTexUnit(0, s_clutTex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_LUMINANCE,
-                    GL_UNSIGNED_BYTE, PtrCLUTFog);
-    GL_BindTexUnit(0, 0);
-
-    s_boundCLUT = PtrCLUTFog;
-    s_clutUpGen = CLUTGeneration;
-    s_clutUpPtr = PtrCLUTFog;
+    /* The baked CLUT+palette table is uploaded once per generation, not per
+       polygon.  GL_RenderTriangleList runs for every terrain tile; a 256 KB
+       upload per polygon would be worse than the old 64 KB LUMINANCE table.
+       The table only changes at scene/palette transitions. */
+    GL_UploadBakedCLUT();
 }
 
 static void GL_SetAtlasTexParams(GLuint tex) {
@@ -7646,6 +7689,75 @@ static void GL_DrawIndexedOverlay(U32 width, U32 height,
     GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
+/* Draw the overlay once per non-transparent band, scissoring the full-screen
+   quad to the content.  `offX/offY/dstW/dstH` describe the destination
+   viewport (eye half in double-wide stereo, letterboxed window in mono);
+   the band/bbox coordinates are in base overlay pixels. */
+static void GL_DrawOverlayRegions(U32 width, U32 height,
+                                  const U32 *paletteU32, S32 filterLinear,
+                                  S32 offX, S32 offY, U32 dstW, U32 dstH,
+                                  const S32 bands[6][4], S32 bandCount,
+                                  const S32 bbox[4]) {
+    S32 rects[7][4];
+    S32 rectCount = 0;
+    if (bandCount > 0 && bandCount <= 6) {
+        for (S32 i = 0; i < bandCount; i++) {
+            rects[rectCount][0] = bands[i][0];
+            rects[rectCount][1] = bands[i][1];
+            rects[rectCount][2] = bands[i][2];
+            rects[rectCount][3] = bands[i][3];
+            rectCount++;
+        }
+    } else if (bbox[2] > bbox[0] && bbox[3] > bbox[1]) {
+        rects[0][0] = bbox[0];
+        rects[0][1] = bbox[1];
+        rects[0][2] = bbox[2];
+        rects[0][3] = bbox[3];
+        rectCount = 1;
+    }
+
+    if (rectCount > 0 && width > 0 && height > 0 && dstW > 0 && dstH > 0) {
+        glEnable(GL_SCISSOR_TEST);
+        for (S32 i = 0; i < rectCount; i++) {
+            S32 bx0 = rects[i][0] - 2;
+            S32 by0 = rects[i][1] - 2;
+            S32 bx1 = rects[i][2] + 2;
+            S32 by1 = rects[i][3] + 2;
+            if (bx0 < 0) {
+                bx0 = 0;
+            }
+            if (by0 < 0) {
+                by0 = 0;
+            }
+            if (bx1 > (S32)width) {
+                bx1 = (S32)width;
+            }
+            if (by1 > (S32)height) {
+                by1 = (S32)height;
+            }
+            if (bx1 <= bx0 || by1 <= by0) {
+                continue;
+            }
+            S32 sx = offX + (bx0 * (S32)dstW) / (S32)width;
+            S32 sw = ((bx1 - bx0) * (S32)dstW) / (S32)width;
+            S32 sy = offY + (S32)dstH -
+                     (by1 * (S32)dstH) / (S32)height;
+            S32 sh = ((by1 - by0) * (S32)dstH) / (S32)height;
+            if (sw < 1) {
+                sw = 1;
+            }
+            if (sh < 1) {
+                sh = 1;
+            }
+            glScissor(sx, sy, (GLsizei)sw, (GLsizei)sh);
+            GL_DrawIndexedOverlay(width, height, paletteU32, filterLinear);
+        }
+        glDisable(GL_SCISSOR_TEST);
+    } else {
+        GL_DrawIndexedOverlay(width, height, paletteU32, filterLinear);
+    }
+}
+
 void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
                        const U32 *paletteU32, S32 filterLinear) {
     if (!s_initialized || indices == NULL || paletteU32 == NULL) {
@@ -7744,6 +7856,16 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
        entry 0).  A full 900 KB upload + full-screen memcmp every frame was
        a measurable slice of the present cost on slow CPUs. */
     S32 overlayEmpty = 0;
+    /* Bounding box of non-transparent overlay pixels (base framebuffer
+       coords).  Drawing the full-screen quad at 1.5x is pure waste when the
+       HUD occupies a small strip; the scissor limits the Scale2x shader to
+       the content. */
+    static S32 s_overlayBBox[4] = {0, 0, 0, 0};
+    /* Up to six horizontal bands of non-transparent overlay content.  A
+       single bounding box would span a top HUD and a bottom dialogue box,
+       drawing the empty middle at 1.5x; bands keep each region tight. */
+    static S32 s_overlayBands[6][4];
+    static S32 s_overlayBandCount = 0;
     /* Eye 1 can reuse eye 0's texture only when neither pass wrote moving
      * 2D content.  Moving boxes cover world sprites, dialogue and counters,
      * whose projection differs between the eyes; static boxes are the
@@ -7755,6 +7877,8 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     } else {
         static U8 *s_prevUpload = NULL; /* mirror of s_logIndexTex content */
         static U8 *s_rowNonZero = NULL; /* per row: 1 = has any nonzero */
+        static U16 *s_rowX0 = NULL;     /* first/last nonzero pixel per row */
+        static U16 *s_rowX1 = NULL;
         static U32 s_prevCap = 0;
         static S32 s_prevH = 0;
         U32 needed = (U32)pitch * height;
@@ -7763,13 +7887,26 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         if (s_prevCap < needed || s_prevH < (S32)height) {
             free(s_prevUpload);
             free(s_rowNonZero);
+            free(s_rowX0);
+            free(s_rowX1);
             s_prevUpload = (U8 *)calloc(1, needed);
             s_rowNonZero = (U8 *)calloc(1, height);
-            s_prevCap = s_prevUpload ? needed : 0;
-            s_prevH = s_rowNonZero ? (S32)height : 0;
+            s_rowX0 = (U16 *)malloc((size_t)height * sizeof(U16));
+            s_rowX1 = (U16 *)malloc((size_t)height * sizeof(U16));
+            if (s_rowX0 != NULL && s_rowX1 != NULL) {
+                for (U32 y = 0; y < height; y++) {
+                    s_rowX0[y] = (U16)width;
+                    s_rowX1[y] = 0;
+                }
+            }
+            s_prevCap = (s_prevUpload && s_rowNonZero && s_rowX0 && s_rowX1)
+                            ? needed
+                            : 0;
+            s_prevH = s_prevCap ? (S32)height : 0;
             fullUpload = 1; /* mirror restarted: reseed the texture */
         }
-        if (s_prevUpload != NULL && s_rowNonZero != NULL) {
+        if (s_prevUpload != NULL && s_rowNonZero != NULL &&
+            s_rowX0 != NULL && s_rowX1 != NULL) {
             /* The overlay upload used to follow the scene composite, which
                left unit 0 active.  It now runs first, so select unit 0
                explicitly before binding the index texture. */
@@ -7804,17 +7941,20 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
                 S32 hasContent = 0;
                 for (U32 y = 0; y < height; y++) {
                     const U8 *row = indices + (U32)y * pitch;
-                    const U8 *p = row;
-                    const U8 *end = row + pitch;
-                    U8 nz = 0;
-                    while (p < end) {
-                        if (*p++ != 0) {
-                            nz = 1;
-                            break;
+                    U16 x0 = (U16)width;
+                    U16 x1 = 0;
+                    for (U32 x = 0; x < width; x++) {
+                        if (row[x] != 0) {
+                            if (x0 == (U16)width) {
+                                x0 = (U16)x;
+                            }
+                            x1 = (U16)(x + 1);
                         }
                     }
-                    s_rowNonZero[y] = nz;
-                    if (nz) {
+                    s_rowX0[y] = x0;
+                    s_rowX1[y] = x1;
+                    s_rowNonZero[y] = (x1 > x0) ? 1 : 0;
+                    if (x1 > x0) {
                         hasContent = 1;
                     }
                 }
@@ -7834,16 +7974,19 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
                     U8 *prev = s_prevUpload + (U32)y * pitch;
                     S32 changed = (memcmp(row, prev, pitch) != 0);
                     if (changed) {
-                        const U8 *p = row;
-                        const U8 *end = row + pitch;
-                        U8 nz = 0;
-                        while (p < end) {
-                            if (*p++ != 0) {
-                                nz = 1;
-                                break;
+                        U16 x0 = (U16)width;
+                        U16 x1 = 0;
+                        for (U32 x = 0; x < width; x++) {
+                            if (row[x] != 0) {
+                                if (x0 == (U16)width) {
+                                    x0 = (U16)x;
+                                }
+                                x1 = (U16)(x + 1);
                             }
                         }
-                        s_rowNonZero[y] = nz;
+                        s_rowX0[y] = x0;
+                        s_rowX1[y] = x1;
+                        s_rowNonZero[y] = (x1 > x0) ? 1 : 0;
                         memcpy(prev, row, pitch);
                         if (band0 < 0) {
                             band0 = (S32)y;
@@ -7886,6 +8029,112 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
                 overlayEmpty = !hasContent;
             }
         }
+        {
+            /* Global bbox of the whole overlay, not just the rows uploaded
+               this frame: static HUD rows keep their per-row range. */
+            S32 bx0 = (S32)width;
+            S32 by0 = (S32)height;
+            S32 bx1 = 0;
+            S32 by1 = 0;
+            if (s_rowNonZero != NULL && s_rowX0 != NULL && s_rowX1 != NULL) {
+                for (U32 y = 0; y < height; y++) {
+                    if (!s_rowNonZero[y]) {
+                        continue;
+                    }
+                    if ((S32)s_rowX0[y] < bx0) {
+                        bx0 = (S32)s_rowX0[y];
+                    }
+                    if ((S32)s_rowX1[y] > bx1) {
+                        bx1 = (S32)s_rowX1[y];
+                    }
+                    if ((S32)y < by0) {
+                        by0 = (S32)y;
+                    }
+                    by1 = (S32)y + 1;
+                }
+            }
+            s_overlayBBox[0] = bx0;
+            s_overlayBBox[1] = by0;
+            s_overlayBBox[2] = bx1;
+            s_overlayBBox[3] = by1;
+        }
+        {
+            S32 bandStart[6];
+            S32 bandEnd[6];
+            S32 bandN = 0;
+            S32 bStart = -1;
+            S32 bLast = -1;
+            if (s_rowNonZero != NULL) {
+                for (U32 y = 0; y < height; y++) {
+                    if (s_rowNonZero[y]) {
+                        if (bStart < 0) {
+                            bStart = (S32)y;
+                        }
+                        bLast = (S32)y;
+                    } else if (bStart >= 0 && (S32)y - bLast > 8) {
+                        if (bandN < 6) {
+                            bandStart[bandN] = bStart;
+                            bandEnd[bandN] = bLast;
+                            bandN++;
+                        } else {
+                            bandN = -1;
+                            break;
+                        }
+                        bStart = -1;
+                    }
+                }
+            }
+            if (bandN >= 0 && bStart >= 0) {
+                if (bandN < 6) {
+                    bandStart[bandN] = bStart;
+                    bandEnd[bandN] = bLast;
+                    bandN++;
+                } else {
+                    bandN = -1;
+                }
+            }
+            if (bandN < 0) {
+                s_overlayBandCount = 0; /* too fragmented: use the bbox */
+            } else {
+                s_overlayBandCount = bandN;
+                for (S32 i = 0; i < bandN; i++) {
+                    S32 ix0 = (S32)width;
+                    S32 ix1 = 0;
+                    for (S32 y = bandStart[i]; y <= bandEnd[i]; y++) {
+                        if (s_rowNonZero[y]) {
+                            if ((S32)s_rowX0[y] < ix0) {
+                                ix0 = (S32)s_rowX0[y];
+                            }
+                            if ((S32)s_rowX1[y] > ix1) {
+                                ix1 = (S32)s_rowX1[y];
+                            }
+                        }
+                    }
+                    s_overlayBands[i][0] = ix0;
+                    s_overlayBands[i][1] = bandStart[i];
+                    s_overlayBands[i][2] = ix1;
+                    s_overlayBands[i][3] = bandEnd[i] + 1;
+                }
+                /* Dense content (rain, a full-screen cutscene) is cheaper as
+                   one bbox draw than as several nearly-full-width bands:
+                   splitting only pays when the bands leave a big empty gap. */
+                if (s_overlayBandCount > 1) {
+                    S32 bboxArea =
+                        (s_overlayBBox[2] - s_overlayBBox[0]) *
+                        (s_overlayBBox[3] - s_overlayBBox[1]);
+                    S32 bandArea = 0;
+                    for (S32 i = 0; i < s_overlayBandCount; i++) {
+                        bandArea += (s_overlayBands[i][2] -
+                                     s_overlayBands[i][0]) *
+                                    (s_overlayBands[i][3] -
+                                     s_overlayBands[i][1]);
+                    }
+                    if (bboxArea > 0 && bandArea * 2 >= bboxArea) {
+                        s_overlayBandCount = 0;
+                    }
+                }
+            }
+        }
         if (s_stereoEye == 0) {
             s_overlayScanValid = (s_logIndexTex != 0 || overlayEmpty);
             s_overlayEmptyCached = overlayEmpty;
@@ -7897,9 +8146,17 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         if (overlayEmpty) {
             s_profOverlayEmpty++;
         } else {
+            /* The overlay is a full-screen quad scaled into the 1.5x scene
+               target.  Draw only the non-transparent HUD bands: a single
+               bounding box would span a top HUD and a bottom dialogue box,
+               re-shading the empty middle at 1.5x.  The 2px margin covers
+               Scale2x's neighbour taps. */
             S32 savedAdjust = s_overlayImageAdjust;
             s_overlayImageAdjust = 0;
-            GL_DrawIndexedOverlay(width, height, paletteU32, filterLinear);
+            GL_DrawOverlayRegions(width, height, paletteU32, filterLinear,
+                                  (S32)s_sceneEyeX, 0, s_fboWidth,
+                                  s_fboHeight, s_overlayBands,
+                                  s_overlayBandCount, s_overlayBBox);
             s_overlayImageAdjust = savedAdjust;
         }
 
@@ -8039,7 +8296,9 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
        post-processed or display-adjusted composite is not bypassed. */
     s_directScenePresent = directSceneSafe;
     if (!overlayEmpty) {
-        GL_DrawIndexedOverlay(width, height, paletteU32, filterLinear);
+        GL_DrawOverlayRegions(width, height, paletteU32, filterLinear, vpX,
+                              vpY, (U32)vpW, (U32)vpH, s_overlayBands,
+                              s_overlayBandCount, s_overlayBBox);
     }
 
     U64 profT1 = SDL_GetPerformanceCounter();
