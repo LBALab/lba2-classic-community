@@ -4183,6 +4183,7 @@ typedef struct {
 static GL_ArrSlot s_arrSlots[GL_ARR_LAYERS];
 static U32 s_arrUseCounter = 0;
 static GLuint s_arrayTex = 0;
+static GLuint s_boundArrayTex = 0; /* array currently bound on unit 3 */
 static U8 s_arrStage[256 * 256];
 
 /* The array layer holds the (w,h) region TILED to 256×256, so the shader's
@@ -4307,7 +4308,10 @@ static void GL_ArrayBind(void) {
         glActiveTexture(GL_TEXTURE3);
         s_curActiveUnit = 3;
     }
-    glBindTexture(GL_TEXTURE_2D_ARRAY, s_arrayTex);
+    if (s_boundArrayTex != s_arrayTex) {
+        glBindTexture(GL_TEXTURE_2D_ARRAY, s_arrayTex);
+        s_boundArrayTex = s_arrayTex;
+    }
 }
 
 void GL_ArrayWindowBegin(void) {
