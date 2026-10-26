@@ -1698,7 +1698,16 @@ S32 DecorVBORecord(void *bodyPtr, T_DECORVBO_VERT **outVerts, U32 *outCount) {
     }
     DecorVBOUnsupported = 0;
     DecorVBOActive = 1;
+    /* The replay feeds model-space coordinates to the capture, so there is
+       no camera-space Z.  The software fillers still divide by
+       Z + PosZWr to build W even though the capture ignores W; keep that
+       denominator non-zero or a model point on the Z=0 plane raises SIGFPE.
+       The offset is outside the model-coordinate range and is restored
+       immediately after the replay. */
+    const S32 savedPosZWr = PosZWr;
+    PosZWr = 0x10000000;
     EntityCreation(body);
+    PosZWr = savedPosZWr;
     DecorVBOActive = 0;
 
     if (DecorVBOUnsupported || s_decorCaptureCount == 0) {
