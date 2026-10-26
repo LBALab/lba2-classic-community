@@ -1,6 +1,9 @@
 #include "C_EXTERN.H"
 
 #include <SVGA/SCREEN.H>
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+#endif
 
 S32 NbTriObj = 0;
 
@@ -164,6 +167,16 @@ S32 TreeInsert(S16 numtype, S32 posx, S32 posy, S32 posz,
     Elem *elem;
     S32 zrot = 0;
 
+#ifdef USE_GPURENDERER
+    /* Eye 1 owns only its 2D overlay in single-pass stereo; eye 0 already
+       submitted both 3D halves.  Skip the sort-list insertions here without
+       touching the caller's per-object state updates, so the object walk
+       keeps the same logic side effects as the two-pass path. */
+    if (GL_GetStereoEye() == 1 && GL_SinglePassStereoActive()) {
+        return FALSE;
+    }
+#endif
+
     if (CubeMode == CUBE_INTERIEUR) {
         // Serge: a optimiser
         LongProjectPoint(txmin, tymin, tzmax);
@@ -207,9 +220,17 @@ S32 TreeInsert(S16 numtype, S32 posx, S32 posy, S32 posz,
         zrot = CameraZrClip - Z0; // l'ecran
     }
 
-    // PreClipping
-    if ((x1 < 0) OR(x0 >= (S32)ModeDesiredX)
-            OR(y1 < 0) OR(y0 >= (S32)ModeDesiredY)) {
+    // PreClipping.  In single-pass stereo the bounds come from the eye-0
+    // projection, so widen them by the maximum second-eye disparity before
+    // rejecting: the second instance shifts this object inside its own
+    // half even when the eye-0 centre missed the frame.
+    S32 cullX = 0;
+    S32 cullY = 0;
+#ifdef USE_GPURENDERER
+    GL_GetSinglePassCullMargin(&cullX, &cullY);
+#endif
+    if ((x1 < -cullX) OR(x0 >= (S32)ModeDesiredX + cullX)
+            OR(y1 < -cullY) OR(y0 >= (S32)ModeDesiredY + cullY)) {
         if (!(numtype & SORT_NO_PRECLIP)) {
             return FALSE;
         }

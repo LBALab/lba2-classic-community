@@ -14,6 +14,9 @@
 #include <3D/DECORVBO.H>
 #include <SVGA/CLIP.H>
 #include <POLYGON/POLY.H>
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -1706,6 +1709,32 @@ S32 DecorVBORecord(void *bodyPtr, T_DECORVBO_VERT **outVerts, U32 *outCount) {
     return 1;
 }
 
+/* Screen bounds for the object visibility test.  Single-pass stereo
+   projects and culls with eye 0 but draws both eyes, so widen a full-screen
+   clip by the largest eye-1 disparity; otherwise an object just outside the
+   eye-0 edge is dropped before the second instance can place it on screen.
+   Sub-window clips stay exact: they mask a screen-space layer, not a
+   per-eye frustum. */
+static void Obj_GetCullBounds(S32 *xmin, S32 *ymin, S32 *xmax, S32 *ymax) {
+    *xmin = ClipXMin;
+    *ymin = ClipYMin;
+    *xmax = ClipXMax;
+    *ymax = ClipYMax;
+#ifdef USE_GPURENDERER
+    if (ClipXMin <= 0 && ClipYMin <= 0 &&
+        ClipXMax >= (S32)ModeDesiredX - 1 &&
+        ClipYMax >= (S32)ModeDesiredY - 1) {
+        S32 marginX = 0;
+        S32 marginY = 0;
+        GL_GetSinglePassCullMargin(&marginX, &marginY);
+        *xmin -= marginX;
+        *ymin -= marginY;
+        *xmax += marginX;
+        *ymax += marginY;
+    }
+#endif
+}
+
 S32 ObjectDisplay(T_OBJ_3D *obj) {
     LIB386_TRACE_CPP("ObjectDisplay", "1", "obj=%p", (void *)obj);
     // Must we change the texture pointer ?
@@ -1886,8 +1915,10 @@ S32 ObjectDisplay(T_OBJ_3D *obj) {
                 lBody->NbPoints, -PosXWr, -PosYWr, -PosZWr);
 
     // Is the object visible?
-    if (ScreenXMin > ClipXMax || ScreenYMin > ClipYMax ||
-        ScreenXMax < ClipXMin || ScreenYMax < ClipYMin) {
+    S32 cullXMin, cullYMin, cullXMax, cullYMax;
+    Obj_GetCullBounds(&cullXMin, &cullYMin, &cullXMax, &cullYMax);
+    if (ScreenXMin > cullXMax || ScreenYMin > cullYMax ||
+        ScreenXMax < cullXMin || ScreenYMax < cullYMin) {
         return 0;
     }
 
@@ -1909,8 +1940,10 @@ S32 Return_BodyDisplay(TYPE_MAT *srcMatrix, TYPE_MAT *dstMatrix, S32 alpha, S32 
                 lBody->NbPoints, -PosXWr, -PosYWr, -PosZWr);
 
     // Is the object visible?
-    if (ScreenXMin > ClipXMax || ScreenYMin > ClipYMax ||
-        ScreenXMax < ClipXMin || ScreenYMax < ClipYMin) {
+    S32 cullXMin, cullYMin, cullXMax, cullYMax;
+    Obj_GetCullBounds(&cullXMin, &cullYMin, &cullXMax, &cullYMax);
+    if (ScreenXMin > cullXMax || ScreenYMin > cullYMax ||
+        ScreenXMax < cullXMin || ScreenYMax < cullYMin) {
         return 0;
     }
 

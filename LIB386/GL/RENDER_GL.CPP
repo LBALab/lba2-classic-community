@@ -177,7 +177,13 @@ static const char *s_clutVertSrc =
     "attribute float aZ;\n"
     "attribute float aRepMask;\n"
     "attribute float aMaterial;\n"
+    "uniform float uEye;\n"
     "uniform vec2 uScreenScale;\n" /* 2.0/resX, 2.0/resY */
+    "uniform float uSinglePass;\n"
+    "uniform vec3 uEyeWorld;\n"
+    "uniform vec2 uEyeProj;\n"
+    "uniform vec2 uEyeFocal;\n"
+    "uniform float uEyeZScale;\n"
     /* Perspective-correct interpolation: the SW rasterizer
        (POLYTZF/POLYTEXZ, Z-textured types 16-24) interpolates
        MapU/MapV/ZBuf over W = 1/Z.  w=1.0 in clip space makes varyings
@@ -198,16 +204,38 @@ static const char *s_clutVertSrc =
     "void main() {\n"
     "    float cx = aPos.x * uScreenScale.x - 1.0;\n"
     "    float cy = 1.0 - aPos.y * uScreenScale.y;\n"
-    "    gl_Position = vec4(cx, cy, 1.0 - aZ / 65535.0, 1.0);\n"
-    "    float invW = 1.0 / max(aZ, 1.0);\n"
+    "    float eye = (uSinglePass > 0.5) ? uEye : 0.0;\n"
+    /* Screen-space effects (aZ == 0, e.g. the shade rect) carry no 3D
+       anchor: their second half is the same pixels, not a parallax-shifted
+       version, so only the half remap uses the eye index. */
+    "    float parallax = (uSinglePass > 0.5 && aZ > 0.5) ? eye : 0.0;\n"
+    "    float az = aZ;\n"
+    "    if (uSinglePass > 0.5) {\n"
+    "        /* Eye 1's camera is translated along Z as well as X/Y (head\n"
+    "           lean); its depth must move with it or objects depth-test\n"
+    "           against terrain drawn with the shifted eye. */\n"
+    "        az = clamp(aZ + parallax * uEyeWorld.z * uEyeZScale,\n"
+    "                     0.0, 65535.0);\n"
+    "        float z0 = max(az, 1.0) / max(uEyeZScale, 0.000001);\n"
+    "        float sx =\n"
+    "            parallax * (-uEyeWorld.x * uEyeFocal.x / z0 + uEyeProj.x);\n"
+    "        float sy = parallax *\n"
+    "                   (-uEyeWorld.y * uEyeFocal.x * uEyeFocal.y / z0 +\n"
+    "                    uEyeProj.y);\n"
+    "        cx = (aPos.x + sx) * uScreenScale.x - 1.0;\n"
+    "        cy = 1.0 - (aPos.y + sy) * uScreenScale.y;\n"
+    "        cx = (eye > 0.5) ? (cx * 0.5 + 0.5) : (cx * 0.5 - 0.5);\n"
+    "    }\n"
+    "    gl_Position = vec4(cx, cy, 1.0 - az / 65535.0, 1.0);\n"
+    "    float invW = 1.0 / max(az, 1.0);\n"
     "    vTexCoord = aTexCoord;\n"
     "    vTexCoordOverW = aTexCoord * invW;\n"
     "    vInvW = invW;\n"
     "    vW = 1.0;\n"
     "    vLight = aLight;\n"
     "    vRepMask = aRepMask;\n"
-    "    vZ = aZ;\n"
-    "    vZOverW = aZ * invW;\n"
+    "    vZ = az;\n"
+    "    vZOverW = az * invW;\n"
     "    vMaterial = aMaterial;\n"
     "}\n";
 
@@ -227,11 +255,15 @@ static const char *s_terrainVertSrc =
     "attribute float aRepMask;\n"
     "attribute float aMaterial;\n"
     "attribute vec3 aFogPos;\n"
+    "uniform float uEye;\n"
     "uniform mat3 uRot;\n"    /* MatriceWorld, transposed for GL */
     "uniform vec3 uCamera;\n" /* CameraXr/Yr/Zr (cube-local frame) */
     "uniform vec2 uFocal;\n"  /* FRatioX, FRatioY */
     "uniform vec2 uCentre;\n" /* XCentre, YCentre */
     "uniform float uProjShiftX;\n"
+    "uniform float uSinglePass;\n"
+    "uniform vec3 uEyeWorld;\n"
+    "uniform vec2 uEyeProj;\n"
     "uniform vec2 uScreenScale;\n"    /* 2.0/resX, 2.0/resY */
     "uniform float uZBufferFactor;\n" /* Fill_ZBuffer_Factor / 65536 */
     "uniform float uStartZFog;\n"
@@ -248,14 +280,21 @@ static const char *s_terrainVertSrc =
     "varying float vMaterial;\n"
     "void main() {\n"
     "    vec3 p = uRot * aPos;\n"
-    "    float depth = uCamera.z - p.z;\n"
+    "    float eye = (uSinglePass > 0.5) ? uEye : 0.0;\n"
+    "    float depth = uCamera.z + eye * uEyeWorld.z - p.z;\n"
     "    float denom = depth;\n"
     "    if (abs(denom) < 0.0001) {\n"
     "        denom = (denom < 0.0) ? -0.0001 : 0.0001;\n"
     "    }\n"
     "    float factor = uFocal.x / denom;\n"
-    "    float xp = uCentre.x + uProjShiftX + (p.x - uCamera.x) * factor;\n"
-    "    float yp = uCentre.y + (p.y - uCamera.y) * factor * uFocal.y;\n"
+    "    float xp = uCentre.x + uProjShiftX + eye * uEyeProj.x +\n"
+    "               (p.x - uCamera.x - eye * uEyeWorld.x) * factor;\n"
+    "    float yp = uCentre.y +\n"
+    "               (p.y - uCamera.y - eye * uEyeWorld.y) * factor * uFocal.y;\n"
+    "    float cx = xp * uScreenScale.x - 1.0;\n"
+    "    if (uSinglePass > 0.5) {\n"
+    "        cx = (eye > 0.5) ? (cx * 0.5 + 0.5) : (cx * 0.5 - 0.5);\n"
+    "    }\n"
     "    float az = clamp(floor(max(depth, 0.0) * uZBufferFactor), 0.0, 65535.0);\n"
     /* Clip w is the camera-space depth: positive in front, negative
        behind, zero on the eye.  Keeping it linear in the world position
@@ -265,7 +304,7 @@ static const char *s_terrainVertSrc =
        varyings by w and dividing by the interpolated w in the fragment
        shader undoes GL's perspective correction. */
     "    float w = depth;\n"
-    "    gl_Position = vec4((xp * uScreenScale.x - 1.0) * w,\n"
+    "    gl_Position = vec4(cx * w,\n"
     "                       (1.0 - yp * uScreenScale.y) * w,\n"
     "                       (1.0 - az / 65535.0) * w, w);\n"
     "    float invW = 1.0 / max(az, 1.0);\n"
@@ -316,12 +355,16 @@ static const char *s_decorVertSrc =
     "attribute float aMaterial;\n"
     "attribute float aFlat;\n"  /* 0 none, 1 flat solid, 2 flat texture */
     "attribute float aLayer;\n" /* pinned texture-array layer */
+    "uniform float uEye;\n"
     "uniform mat3 uRot;\n"
     "uniform vec3 uCamera;\n"
     "uniform vec3 uDecorPos;\n"
     "uniform vec2 uFocal;\n"
     "uniform vec2 uCentre;\n"
     "uniform float uProjShiftX;\n"
+    "uniform float uSinglePass;\n"
+    "uniform vec3 uEyeWorld;\n"
+    "uniform vec2 uEyeProj;\n"
     "uniform vec2 uScreenScale;\n"
     "uniform float uZBufferFactor;\n"
     "uniform float uNearClip;\n"
@@ -339,17 +382,24 @@ static const char *s_decorVertSrc =
     "varying float vMaterial;\n"
     "void main() {\n"
     "    vec3 p = uRot * (aPos + uDecorPos);\n"
-    "    float depth = uCamera.z - p.z;\n"
+    "    float eye = (uSinglePass > 0.5) ? uEye : 0.0;\n"
+    "    float depth = uCamera.z + eye * uEyeWorld.z - p.z;\n"
     "    float denom = depth;\n"
     "    if (abs(denom) < 0.0001) {\n"
     "        denom = (denom < 0.0) ? -0.0001 : 0.0001;\n"
     "    }\n"
     "    float factor = uFocal.x / denom;\n"
-    "    float xp = uCentre.x + uProjShiftX + (p.x - uCamera.x) * factor;\n"
-    "    float yp = uCentre.y + (p.y - uCamera.y) * factor * uFocal.y;\n"
+    "    float xp = uCentre.x + uProjShiftX + eye * uEyeProj.x +\n"
+    "               (p.x - uCamera.x - eye * uEyeWorld.x) * factor;\n"
+    "    float yp = uCentre.y +\n"
+    "               (p.y - uCamera.y - eye * uEyeWorld.y) * factor * uFocal.y;\n"
+    "    float cx = xp * uScreenScale.x - 1.0;\n"
+    "    if (uSinglePass > 0.5) {\n"
+    "        cx = (eye > 0.5) ? (cx * 0.5 + 0.5) : (cx * 0.5 - 0.5);\n"
+    "    }\n"
     "    float az = clamp(floor(max(depth, 0.0) * uZBufferFactor), 0.0, 65535.0);\n"
     "    float w = depth;\n"
-    "    gl_Position = vec4((xp * uScreenScale.x - 1.0) * w,\n"
+    "    gl_Position = vec4(cx * w,\n"
     "                       (1.0 - yp * uScreenScale.y) * w,\n"
     "                       (1.0 - az / 65535.0) * w, w);\n"
     "    float invW = 1.0 / max(az, 1.0);\n"
@@ -1183,6 +1233,12 @@ static GLint s_clut_aLight = -1;
 static GLint s_clut_aZ = -1;
 static GLint s_clut_aRepMask = -1;
 static GLint s_clut_aMaterial = -1;
+static GLint s_clut_uSinglePass = -1;
+static GLint s_clut_uEye = -1;
+static GLint s_clut_uEyeWorld = -1;
+static GLint s_clut_uEyeProj = -1;
+static GLint s_clut_uEyeFocal = -1;
+static GLint s_clut_uEyeZScale = -1;
 /* The array program is linked separately and some drivers assign its
    attribute slots independently of the legacy program; the vertex-array
    spec must name the slots of whichever program is current. */
@@ -1192,6 +1248,12 @@ static GLint s_clut3_aLight = -1;
 static GLint s_clut3_aZ = -1;
 static GLint s_clut3_aRepMask = -1;
 static GLint s_clut3_aMaterial = -1;
+static GLint s_clut3_uSinglePass = -1;
+static GLint s_clut3_uEye = -1;
+static GLint s_clut3_uEyeWorld = -1;
+static GLint s_clut3_uEyeProj = -1;
+static GLint s_clut3_uEyeFocal = -1;
+static GLint s_clut3_uEyeZScale = -1;
 static GLint s_clut_uAtlas = -1;
 static GLint s_clut_uCLUT = -1;
 static GLint s_clut_uPalette = -1;
@@ -1216,6 +1278,10 @@ static GLint s_terrain_aLight = -1;
 static GLint s_terrain_aRepMask = -1;
 static GLint s_terrain_aMaterial = -1;
 static GLint s_terrain_aFogPos = -1;
+static GLint s_terrain_uSinglePass = -1;
+static GLint s_terrain_uEye = -1;
+static GLint s_terrain_uEyeWorld = -1;
+static GLint s_terrain_uEyeProj = -1;
 static GLint s_terrain_uRot = -1;
 static GLint s_terrain_uCamera = -1;
 static GLint s_terrain_uFocal = -1;
@@ -1262,6 +1328,10 @@ static GLint s_decor_aTexCoord = -1;
 static GLint s_decor_aMaterial = -1;
 static GLint s_decor_aFlat = -1;
 static GLint s_decor_aLayer = -1;
+static GLint s_decor_uSinglePass = -1;
+static GLint s_decor_uEye = -1;
+static GLint s_decor_uEyeWorld = -1;
+static GLint s_decor_uEyeProj = -1;
 static GLint s_decor_uRot = -1;
 static GLint s_decor_uCamera = -1;
 static GLint s_decor_uDecorPos = -1;
@@ -1732,7 +1802,87 @@ static U32 GL_ScaleRenderDim(U32 v) {
     const U64 scaled = (U64)v * (U64)s_renderQuality * (U64)s_ssNum;
     return (U32)((scaled + (U64)(s_ssDen / 2)) / (U64)s_ssDen);
 }
-static S32 s_antiAlias = 0;     /* 0=off, 1=FXAA, 2=MSAA×2, 3=MSAA×4 */
+
+/* ── Multiview capability probe ─────────────────────────────────────────── */
+/* GL_OVR_multiview2 is the only layered way to render both eyes in one
+   scene pass on the Quest.  Probe the extension, the entry point and a
+   two-layer FBO before the layered path is enabled; the active single-pass
+   path uses the existing double-wide target instead. */
+#ifndef GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_NUM_VIEWS_OVR
+#define GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_NUM_VIEWS_OVR 0x9630
+#endif
+#ifndef GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_BASE_VIEW_INDEX_OVR
+#define GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_BASE_VIEW_INDEX_OVR 0x9632
+#endif
+typedef void (*PFN_GLFRAMEBUFFERTEXTUREMULTIVIEWOVR)(GLenum, GLenum, GLuint,
+                                                     GLint, GLint, GLsizei);
+static PFN_GLFRAMEBUFFERTEXTUREMULTIVIEWOVR
+    s_glFramebufferTextureMultiviewOVR = NULL;
+static S32 s_multiviewAvailable = 0;
+
+S32 GL_MultiviewAvailable(void) { return s_multiviewAvailable; }
+
+static void GL_ProbeMultiview(U32 w, U32 h) {
+    s_multiviewAvailable = 0;
+    const char *exts = (const char *)glGetString(GL_EXTENSIONS);
+    const S32 listed =
+        (exts != NULL && (strstr(exts, "GL_OVR_multiview2") != NULL ||
+                          strstr(exts, "GL_OVR_multiview") != NULL));
+    s_glFramebufferTextureMultiviewOVR =
+        (PFN_GLFRAMEBUFFERTEXTUREMULTIVIEWOVR)SDL_GL_GetProcAddress(
+            "glFramebufferTextureMultiviewOVR");
+    if (!listed || s_glFramebufferTextureMultiviewOVR == NULL) {
+        Log_Info("[GL] multiview unavailable (extension=%d entry=%d)",
+                 listed ? 1 : 0,
+                 s_glFramebufferTextureMultiviewOVR != NULL ? 1 : 0);
+        return;
+    }
+    if (w == 0 || h == 0) {
+        return;
+    }
+
+    while (glGetError() != GL_NO_ERROR) {
+    }
+    GLuint color = 0;
+    GLuint depth = 0;
+    GLuint fbo = 0;
+    glGenTextures(1, &color);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, color);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, (GLsizei)w, (GLsizei)h, 2,
+                 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glGenTextures(1, &depth);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, depth);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_DEPTH_COMPONENT24, (GLsizei)w,
+                 (GLsizei)h, 2, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    s_glFramebufferTextureMultiviewOVR(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                       color, 0, 0, 2);
+    s_glFramebufferTextureMultiviewOVR(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                                       depth, 0, 0, 2);
+    const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    const GLenum err = glGetError();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (status == GL_FRAMEBUFFER_COMPLETE && err == GL_NO_ERROR) {
+        s_multiviewAvailable = 1;
+        Log_Info("[GL] Multiview layered FBO probe %ux%u x2 OK", (unsigned)w,
+                 (unsigned)h);
+    } else {
+        Log_Warn("[GL] Multiview layered FBO probe failed "
+                 "(status=0x%x err=0x%x)",
+                 (unsigned)status, (unsigned)err);
+    }
+    glDeleteFramebuffers(1, &fbo);
+    glDeleteTextures(1, &depth);
+    glDeleteTextures(1, &color);
+}
+static S32 s_antiAlias = 0; /* 0=off, 1=FXAA, 2=MSAA×2, 3=MSAA×4 */
 static GLuint s_msaaFbo = 0;
 static GLuint s_msaaColorRb = 0;
 static GLuint s_msaaDepthRb = 0;
@@ -1761,6 +1911,8 @@ static S32 s_stereoDoubleWide = 0;
 static U32 s_sceneTargetW = 0;
 static U32 s_sceneTargetH = 0;
 static S32 s_sceneEyeX = 0;
+static S32 s_singlePassStereo = 0;
+static S32 s_stereoEye = -1;
 static void GL_SetStereoTargetMode(S32 doubleWide);
 static S32 GL_StereoDoubleWideAllowed(void);
 
@@ -1777,6 +1929,10 @@ static S32 s_directFailLogged = 0;
 static S32 s_directLogOnce = 0;
 
 static void GL_SetSceneViewport(void) {
+    if (s_singlePassStereo && s_stereoEye == 0) {
+        glViewport(0, 0, (GLsizei)s_sceneTargetW, (GLsizei)s_sceneTargetH);
+        return;
+    }
     glViewport(s_sceneEyeX, 0, (GLsizei)s_fboWidth, (GLsizei)s_fboHeight);
 }
 
@@ -1864,7 +2020,6 @@ static GLuint s_stereoEyeFBO[2] = {0, 0};
 static GLuint s_stereoEyeTex[2] = {0, 0};
 static U32 s_stereoEyeWidth = 0;
 static U32 s_stereoEyeHeight = 0;
-static S32 s_stereoEye = -1;     /* -1 = mono, 0/1 = capturing that eye */
 static U32 s_stereoFrameSeq = 0; /* increments when a stereo pair starts */
 /* Set when eye 0's composite has been captured for the current frame and
  * not yet consumed by the OpenXR submit; cleared by any mono present so
@@ -1875,6 +2030,148 @@ static S32 s_stereoPairReady = 0;
  * composite was skipped and OpenXR_PresentMono can read the resolved 3D
  * scene FBO directly.  Cleared by every present and by leaving stereo. */
 static S32 s_stereoEye1SceneDirect = 0;
+
+/* Single-pass stereo: eye 0 submits every 3D draw once as two instances,
+   each instance writing its eye half of the double-wide target.  Eye 1 then
+   draws only its 2D overlay and presents.  Eye offsets are the eye-1 total
+   camera change relative to the eye-0 base camera. */
+static float s_eye1World[3] = {0.0f, 0.0f, 0.0f};
+static float s_eye1Proj[2] = {0.0f, 0.0f};
+
+void GL_SetSinglePassStereo(S32 on) {
+    /* Both instances write halves of the double-wide target; without it the
+       eye-1 half would fall outside the FBO. */
+    s_singlePassStereo = (on && s_stereoDoubleWide) ? 1 : 0;
+}
+
+S32 GL_SinglePassStereoSupported(void) { return s_stereoDoubleWide ? 1 : 0; }
+
+S32 GL_SinglePassStereoActive(void) { return s_singlePassStereo; }
+
+void GL_SetSinglePassEyeDelta(float x, float y, float z, float projX,
+                              float projY) {
+    s_eye1World[0] = x;
+    s_eye1World[1] = y;
+    s_eye1World[2] = z;
+    s_eye1Proj[0] = projX;
+    s_eye1Proj[1] = projY;
+}
+
+/* Union-culling margin, in screen pixels, for the second eye.  CPU culling
+   projects once with the eye-0 camera; an object whose eye-0 projection
+   misses the frame can still enter the eye-1 half after the shader applies
+   the lateral/projection delta.  The disparity grows as depth approaches
+   the near plane, so bounding it there covers every visible depth. */
+void GL_GetSinglePassCullMargin(S32 *marginX, S32 *marginY) {
+    if (marginX != NULL)
+        *marginX = 0;
+    if (marginY != NULL)
+        *marginY = 0;
+    if (!s_singlePassStereo)
+        return;
+
+    S32 depth = NearClip;
+    if (depth < 64)
+        depth = 64;
+    const double invDepth = 1.0 / (double)depth;
+    const double focalX = (double)FRatioX;
+    const double focalY = focalX * fabs((double)FRatioY);
+    const S32 mx =
+        (S32)ceil(fabs((double)s_eye1World[0]) * focalX * invDepth +
+                  fabs((double)s_eye1Proj[0])) +
+        2;
+    const S32 my =
+        (S32)ceil(fabs((double)s_eye1World[1]) * focalY * invDepth +
+                  fabs((double)s_eye1Proj[1])) +
+        2;
+    if (marginX != NULL)
+        *marginX = mx;
+    if (marginY != NULL)
+        *marginY = my;
+}
+
+/* Both instances write into one double-wide target with the shader mapping
+   each eye to its own half.  Scissoring the pair per draw keeps vertices
+   that project past their eye's screen edge out of the other eye's half. */
+static void GL_BeginSinglePassEyeDraw(S32 eye) {
+    if (!s_singlePassStereo)
+        return;
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(eye == 1 ? (GLint)s_fboWidth : 0, 0, (GLsizei)s_fboWidth,
+              (GLsizei)s_fboHeight);
+}
+
+static void GL_EndSinglePassEyeDraw(void) {
+    if (!s_singlePassStereo)
+        return;
+    glDisable(GL_SCISSOR_TEST);
+}
+
+static void GL_SetClutEyeUniforms(void) {
+    glUniform1f(s_clut_uSinglePass, 1.0f);
+    glUniform3f(s_clut_uEyeWorld, s_eye1World[0], s_eye1World[1],
+                s_eye1World[2]);
+    glUniform2f(s_clut_uEyeProj, s_eye1Proj[0], s_eye1Proj[1]);
+    glUniform2f(s_clut_uEyeFocal, FRatioX, FRatioY);
+    glUniform1f(s_clut_uEyeZScale,
+                (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0));
+}
+
+static void GL_SetClut3EyeUniforms(void) {
+    glUniform1f(s_clut3_uSinglePass, 1.0f);
+    glUniform3f(s_clut3_uEyeWorld, s_eye1World[0], s_eye1World[1],
+                s_eye1World[2]);
+    glUniform2f(s_clut3_uEyeProj, s_eye1Proj[0], s_eye1Proj[1]);
+    glUniform2f(s_clut3_uEyeFocal, FRatioX, FRatioY);
+    glUniform1f(s_clut3_uEyeZScale,
+                (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0));
+}
+
+static void GL_DrawStereoClut(GLenum mode, GLint first, GLsizei count) {
+    if (s_singlePassStereo) {
+        if (s_stereoEye == 1) {
+            return;
+        }
+        GL_SetClutEyeUniforms();
+        glUniform1f(s_clut_uEye, 0.0f);
+        GL_BeginSinglePassEyeDraw(0);
+        glDrawArrays(mode, first, count);
+        glUniform1f(s_clut_uEye, 1.0f);
+        GL_BeginSinglePassEyeDraw(1);
+        glDrawArrays(mode, first, count);
+        GL_EndSinglePassEyeDraw();
+        glUniform1f(s_clut_uEye, 0.0f);
+        return;
+    }
+    /* Program state outlives a stereo frame; clear the single-pass switch
+       before a mono or two-pass draw samples it. */
+    glUniform1f(s_clut_uSinglePass, 0.0f);
+    glUniform1f(s_clut_uEye, 0.0f);
+    glDrawArrays(mode, first, count);
+}
+
+static void GL_DrawStereoClut3(GLenum mode, GLint first, GLsizei count) {
+    if (s_singlePassStereo) {
+        if (s_stereoEye == 1) {
+            return;
+        }
+        GL_SetClut3EyeUniforms();
+        glUniform1f(s_clut3_uEye, 0.0f);
+        GL_BeginSinglePassEyeDraw(0);
+        glDrawArrays(mode, first, count);
+        glUniform1f(s_clut3_uEye, 1.0f);
+        GL_BeginSinglePassEyeDraw(1);
+        glDrawArrays(mode, first, count);
+        GL_EndSinglePassEyeDraw();
+        glUniform1f(s_clut3_uEye, 0.0f);
+        return;
+    }
+    /* Program state outlives a stereo frame; clear the single-pass switch
+       before a mono or two-pass draw samples it. */
+    glUniform1f(s_clut3_uSinglePass, 0.0f);
+    glUniform1f(s_clut3_uEye, 0.0f);
+    glDrawArrays(mode, first, count);
+}
 
 static GLuint GL_PresentSceneVbo(void) {
     if (s_stereoDoubleWide && s_stereoEye < 0)
@@ -2136,6 +2433,14 @@ static void GL_CreateStereoEyeFBOs(U32 width, U32 height) {
 void GL_SetStereoEye(S32 eye) {
     if (eye < -1 || eye > 1)
         eye = -1;
+
+    /* Single-pass eye 1 suppresses 3D flushes, so drain eye 0's active and
+     * deferred pools while the eye-0 half is still the one being written.
+     * Otherwise the first aux draw in the eye-1 pass would discard queued
+     * eye-0 geometry. */
+    if (eye == 1 && s_singlePassStereo) {
+        GL_FlushBatch();
+    }
 
     /* Eye 1 consumes the overlay scan cached by eye 0.  Any other transition
      * starts a fresh scan. */
@@ -2623,6 +2928,12 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_clut_aZ = glGetAttribLocation(s_clutProgram, "aZ");
     s_clut_aRepMask = glGetAttribLocation(s_clutProgram, "aRepMask");
     s_clut_aMaterial = glGetAttribLocation(s_clutProgram, "aMaterial");
+    s_clut_uSinglePass = glGetUniformLocation(s_clutProgram, "uSinglePass");
+    s_clut_uEye = glGetUniformLocation(s_clutProgram, "uEye");
+    s_clut_uEyeWorld = glGetUniformLocation(s_clutProgram, "uEyeWorld");
+    s_clut_uEyeProj = glGetUniformLocation(s_clutProgram, "uEyeProj");
+    s_clut_uEyeFocal = glGetUniformLocation(s_clutProgram, "uEyeFocal");
+    s_clut_uEyeZScale = glGetUniformLocation(s_clutProgram, "uEyeZScale");
     s_clut_uAtlas = glGetUniformLocation(s_clutProgram, "uAtlas");
     s_clut_uCLUT = glGetUniformLocation(s_clutProgram, "uCLUT");
     s_clut_uPalette = glGetUniformLocation(s_clutProgram, "uPalette");
@@ -2642,6 +2953,12 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     glUniform1i(s_clut_uAtlas, 0);
     glUniform1i(s_clut_uCLUT, 1);
     glUniform1i(s_clut_uPalette, 2);
+    glUniform1f(s_clut_uSinglePass, 0.0f);
+    glUniform1f(s_clut_uEye, 0.0f);
+    glUniform3f(s_clut_uEyeWorld, 0.0f, 0.0f, 0.0f);
+    glUniform2f(s_clut_uEyeProj, 0.0f, 0.0f);
+    glUniform2f(s_clut_uEyeFocal, 1.0f, 1.0f);
+    glUniform1f(s_clut_uEyeZScale, 1.0f);
     glUniform1f(s_clut_uTerrainFarClip, 0.0f);
     GL_UseProgramCached(0);
 
@@ -2682,6 +2999,17 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                 glGetAttribLocation(s_clut3Program, "aRepMask");
             s_clut3_aMaterial =
                 glGetAttribLocation(s_clut3Program, "aMaterial");
+            s_clut3_uSinglePass =
+                glGetUniformLocation(s_clut3Program, "uSinglePass");
+            s_clut3_uEye = glGetUniformLocation(s_clut3Program, "uEye");
+            s_clut3_uEyeWorld =
+                glGetUniformLocation(s_clut3Program, "uEyeWorld");
+            s_clut3_uEyeProj =
+                glGetUniformLocation(s_clut3Program, "uEyeProj");
+            s_clut3_uEyeFocal =
+                glGetUniformLocation(s_clut3Program, "uEyeFocal");
+            s_clut3_uEyeZScale =
+                glGetUniformLocation(s_clut3Program, "uEyeZScale");
             s_clut3_uAtlas = glGetUniformLocation(s_clut3Program, "uAtlas");
             s_clut3_uCLUT = glGetUniformLocation(s_clut3Program, "uCLUT");
             s_clut3_uPalette = glGetUniformLocation(s_clut3Program, "uPalette");
@@ -2713,6 +3041,12 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             glUniform1i(s_clut3_uCLUT, 1);
             glUniform1i(s_clut3_uPalette, 2);
             glUniform1i(s_clut3_uAtlasArr, 3);
+            glUniform1f(s_clut3_uSinglePass, 0.0f);
+            glUniform1f(s_clut3_uEye, 0.0f);
+            glUniform3f(s_clut3_uEyeWorld, 0.0f, 0.0f, 0.0f);
+            glUniform2f(s_clut3_uEyeProj, 0.0f, 0.0f);
+            glUniform2f(s_clut3_uEyeFocal, 1.0f, 1.0f);
+            glUniform1f(s_clut3_uEyeZScale, 1.0f);
             glUniform1i(s_clut3_uAtlasQuadArr, 4);
             glUniform1i(s_clut3_uAtlasQuadValid, 0);
             glUniform1f(s_clut3_uTerrainFarClip, 0.0f);
@@ -2769,6 +3103,13 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             s_terrain_aMaterial =
                 glGetAttribLocation(s_terrainProgram, "aMaterial");
             s_terrain_aFogPos = glGetAttribLocation(s_terrainProgram, "aFogPos");
+            s_terrain_uSinglePass =
+                glGetUniformLocation(s_terrainProgram, "uSinglePass");
+            s_terrain_uEye = glGetUniformLocation(s_terrainProgram, "uEye");
+            s_terrain_uEyeWorld =
+                glGetUniformLocation(s_terrainProgram, "uEyeWorld");
+            s_terrain_uEyeProj =
+                glGetUniformLocation(s_terrainProgram, "uEyeProj");
             s_terrain_uRot = glGetUniformLocation(s_terrainProgram, "uRot");
             s_terrain_uCamera =
                 glGetUniformLocation(s_terrainProgram, "uCamera");
@@ -2810,6 +3151,10 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             glUniform1i(s_terrain_uAtlas, 0);
             glUniform1i(s_terrain_uCLUT, 1);
             glUniform1i(s_terrain_uPalette, 2);
+            glUniform1f(s_terrain_uSinglePass, 0.0f);
+            glUniform1f(s_terrain_uEye, 0.0f);
+            glUniform3f(s_terrain_uEyeWorld, 0.0f, 0.0f, 0.0f);
+            glUniform2f(s_terrain_uEyeProj, 0.0f, 0.0f);
             if (s_terrain_uResolved >= 0) {
                 glUniform1i(s_terrain_uResolved, 5);
             }
@@ -2856,6 +3201,13 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                 glGetAttribLocation(s_decorProgram, "aMaterial");
             s_decor_aFlat = glGetAttribLocation(s_decorProgram, "aFlat");
             s_decor_aLayer = glGetAttribLocation(s_decorProgram, "aLayer");
+            s_decor_uSinglePass =
+                glGetUniformLocation(s_decorProgram, "uSinglePass");
+            s_decor_uEye = glGetUniformLocation(s_decorProgram, "uEye");
+            s_decor_uEyeWorld =
+                glGetUniformLocation(s_decorProgram, "uEyeWorld");
+            s_decor_uEyeProj =
+                glGetUniformLocation(s_decorProgram, "uEyeProj");
             s_decor_uRot = glGetUniformLocation(s_decorProgram, "uRot");
             s_decor_uCamera = glGetUniformLocation(s_decorProgram, "uCamera");
             s_decor_uDecorPos =
@@ -2895,6 +3247,10 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             glUniform1i(s_decor_uCLUT, 1);
             glUniform1i(s_decor_uPalette, 2);
             glUniform1i(s_decor_uAtlasArr, 3);
+            glUniform1f(s_decor_uSinglePass, 0.0f);
+            glUniform1f(s_decor_uEye, 0.0f);
+            glUniform3f(s_decor_uEyeWorld, 0.0f, 0.0f, 0.0f);
+            glUniform2f(s_decor_uEyeProj, 0.0f, 0.0f);
             glUniform2f(s_decor_uAtlasScale, 256.0f, 256.0f);
             glUniform1i(s_decor_uBilinear, 0);
             glUniform1f(s_decor_uTerrainFarClip, 1.0f);
@@ -3075,6 +3431,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
        but at boot nothing else did, so the cfg value was silently dead and
        the composite rendered unsmoothed. */
     GL_SetAntiAlias(DisplayAntiAlias);
+    GL_ProbeMultiview(GL_ScaleRenderDim(s_texWidth),
+                      GL_ScaleRenderDim(s_texHeight));
     GL_LogSurfaceBudget("init");
     Log_Info("[GL] Renderer initialized OK.");
     return TRUE;
@@ -3386,7 +3744,8 @@ S32 GL_SetSuperSample(S32 mode) {
     }
     if (s_fbo == 0) {
         Log_Error("[GL] Supersampling %s target failed; reverting to native",
-                  mode == 2 ? "1.5x" : mode == 1 ? "1.25x" : "off");
+                  mode == 2 ? "1.5x" : mode == 1 ? "1.25x"
+                                                 : "off");
         s_ssNum = oldNum;
         s_ssDen = oldDen;
         GL_CreateFBO(GL_ScaleRenderDim(s_texWidth),
@@ -3400,7 +3759,8 @@ S32 GL_SetSuperSample(S32 mode) {
     }
 
     Log_Info("[GL] Supersampling %s: scene target %ux%u",
-             mode == 2 ? "1.5x" : mode == 1 ? "1.25x" : "off",
+             mode == 2 ? "1.5x" : mode == 1 ? "1.25x"
+                                            : "off",
              (unsigned)s_fboWidth, (unsigned)s_fboHeight);
     GL_LogSurfaceBudget("supersample");
     return TRUE;
@@ -4780,7 +5140,63 @@ static void FlushActiveBatch(void) {
             glBindFramebuffer(GL_FRAMEBUFFER, sceneFbo);
         }
     }
-    glDrawArrays(GL_TRIANGLES, 0, s_batchVertCount);
+    if (s_singlePassStereo) {
+        if (s_stereoEye == 1) {
+            /* Eye 1's 2D overlay is already present in both halves from the
+               eye-0 pass; discard both pools so a deferred eye-1 batch cannot
+               resurface under eye 0 next frame. */
+            s_batchVertCount = 0;
+            s_batchTriCount = 0;
+            s_deferVertCount = 0;
+            s_deferTriCount = 0;
+            s_profAccumTicks[GL_PROF_FLUSH] +=
+                SDL_GetPerformanceCounter() - profT0;
+            return;
+        }
+        const GLint useArr = (prog == s_clut3Program);
+        if (useArr) {
+            glUniform1f(s_clut3_uSinglePass, 1.0f);
+            glUniform3f(s_clut3_uEyeWorld, s_eye1World[0], s_eye1World[1],
+                        s_eye1World[2]);
+            glUniform2f(s_clut3_uEyeProj, s_eye1Proj[0], s_eye1Proj[1]);
+            glUniform2f(s_clut3_uEyeFocal, FRatioX, FRatioY);
+            glUniform1f(s_clut3_uEyeZScale,
+                        (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0));
+            glUniform1f(s_clut3_uEye, 0.0f);
+            GL_BeginSinglePassEyeDraw(0);
+            glDrawArrays(GL_TRIANGLES, 0, s_batchVertCount);
+            glUniform1f(s_clut3_uEye, 1.0f);
+            GL_BeginSinglePassEyeDraw(1);
+            glDrawArrays(GL_TRIANGLES, 0, s_batchVertCount);
+            GL_EndSinglePassEyeDraw();
+            glUniform1f(s_clut3_uEye, 0.0f);
+        } else {
+            glUniform1f(s_clut_uSinglePass, 1.0f);
+            glUniform3f(s_clut_uEyeWorld, s_eye1World[0], s_eye1World[1],
+                        s_eye1World[2]);
+            glUniform2f(s_clut_uEyeProj, s_eye1Proj[0], s_eye1Proj[1]);
+            glUniform2f(s_clut_uEyeFocal, FRatioX, FRatioY);
+            glUniform1f(s_clut_uEyeZScale,
+                        (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0));
+            glUniform1f(s_clut_uEye, 0.0f);
+            GL_BeginSinglePassEyeDraw(0);
+            glDrawArrays(GL_TRIANGLES, 0, s_batchVertCount);
+            glUniform1f(s_clut_uEye, 1.0f);
+            GL_BeginSinglePassEyeDraw(1);
+            glDrawArrays(GL_TRIANGLES, 0, s_batchVertCount);
+            GL_EndSinglePassEyeDraw();
+            glUniform1f(s_clut_uEye, 0.0f);
+        }
+    } else {
+        if (prog == s_clut3Program) {
+            glUniform1f(s_clut3_uSinglePass, 0.0f);
+            glUniform1f(s_clut3_uEye, 0.0f);
+        } else {
+            glUniform1f(s_clut_uSinglePass, 0.0f);
+            glUniform1f(s_clut_uEye, 0.0f);
+        }
+        glDrawArrays(GL_TRIANGLES, 0, s_batchVertCount);
+    }
 
     /* Restore depth state lazily: the caches hold the batch's values until
        GL_InvalidateGLState() or the next flush's setter changes them — the
@@ -5022,6 +5438,9 @@ void GL_DrawTerrainVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
     if (!Window_GLMakeCurrent()) {
         return;
     }
+    if (s_singlePassStereo && s_stereoEye == 1) {
+        return;
+    }
 
     /* Decors were queued just before this call; draw them first so the
        terrain depth-tests against them exactly as the CPU order does. */
@@ -5153,7 +5572,24 @@ void GL_DrawTerrainVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
         s_terrain_aFogPos, 3, GL_FLOAT, GL_FALSE, stride,
         (const void *)(uintptr_t)offsetof(T_GL_TerrainVertex, FogX));
 
-    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertexCount);
+    if (s_singlePassStereo) {
+        glUniform1f(s_terrain_uSinglePass, 1.0f);
+        glUniform3f(s_terrain_uEyeWorld, s_eye1World[0], s_eye1World[1],
+                    s_eye1World[2]);
+        glUniform2f(s_terrain_uEyeProj, s_eye1Proj[0], s_eye1Proj[1]);
+        glUniform1f(s_terrain_uEye, 0.0f);
+        GL_BeginSinglePassEyeDraw(0);
+        glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertexCount);
+        glUniform1f(s_terrain_uEye, 1.0f);
+        GL_BeginSinglePassEyeDraw(1);
+        glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertexCount);
+        GL_EndSinglePassEyeDraw();
+        glUniform1f(s_terrain_uEye, 0.0f);
+    } else {
+        glUniform1f(s_terrain_uSinglePass, 0.0f);
+        glUniform1f(s_terrain_uEye, 0.0f);
+        glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertexCount);
+    }
 
     /* The batch's attribute pointers still name its ring; force a re-spec
        on the next batch flush.  Disable culling so the batch (and the
@@ -5220,6 +5656,9 @@ void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
         return;
     }
     if (!Window_GLMakeCurrent()) {
+        return;
+    }
+    if (s_singlePassStereo && s_stereoEye == 1) {
         return;
     }
     /* Draw any CPU-fallback decor/render queued before this decor first. */
@@ -5326,7 +5765,24 @@ void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
         s_decor_aLayer, 1, GL_FLOAT, GL_FALSE, stride,
         (const void *)(uintptr_t)offsetof(T_GL_DecorVertex, Layer));
 
-    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertexCount);
+    if (s_singlePassStereo) {
+        glUniform1f(s_decor_uSinglePass, 1.0f);
+        glUniform3f(s_decor_uEyeWorld, s_eye1World[0], s_eye1World[1],
+                    s_eye1World[2]);
+        glUniform2f(s_decor_uEyeProj, s_eye1Proj[0], s_eye1Proj[1]);
+        glUniform1f(s_decor_uEye, 0.0f);
+        GL_BeginSinglePassEyeDraw(0);
+        glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertexCount);
+        glUniform1f(s_decor_uEye, 1.0f);
+        GL_BeginSinglePassEyeDraw(1);
+        glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertexCount);
+        GL_EndSinglePassEyeDraw();
+        glUniform1f(s_decor_uEye, 0.0f);
+    } else {
+        glUniform1f(s_decor_uSinglePass, 0.0f);
+        glUniform1f(s_decor_uEye, 0.0f);
+        glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertexCount);
+    }
 
     s_clutAttribsDirty = 1;
     s_clutAttribsBase = -1;
@@ -5494,7 +5950,7 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
         glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE,
                               16, (const void *)14);
 
-        glDrawArrays(GL_TRIANGLES, 0, nv);
+        GL_DrawStereoClut(GL_TRIANGLES, 0, nv);
         s_profTris += (U32)nv / 3;
     }
 
@@ -5639,7 +6095,7 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
     glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)14);
 
-    glDrawArrays(GL_TRIANGLE_FAN, 0, SEGMENTS + 2);
+    GL_DrawStereoClut(GL_TRIANGLE_FAN, 0, SEGMENTS + 2);
     s_profTris += SEGMENTS;
 
     GL_SetDepthWrite(1);
@@ -5743,7 +6199,7 @@ void GL_DrawLineFBO(S32 x0, S32 y0, S32 x1, S32 y1, S32 colorIndex,
     glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)14);
 
-    glDrawArrays(GL_LINES, 0, 2);
+    GL_DrawStereoClut(GL_LINES, 0, 2);
 
     GL_SetDepthWrite(1);
     GL_SetDepthTest(0);
@@ -5839,7 +6295,7 @@ void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
     glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)14);
 
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    GL_DrawStereoClut(GL_TRIANGLES, 0, 6);
 
     GL_SetDepthWrite(1);
     GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -6051,7 +6507,7 @@ static void GL_DrawDecorStream(const U8 *data, U32 vertices, S32 alpha,
     glVertexAttribPointer(s_clut3_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)14);
 
-    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertices);
+    GL_DrawStereoClut3(GL_TRIANGLES, 0, (GLsizei)vertices);
 
     s_clutAttribsDirty = 1;
     s_clutAttribsBase = -1;
@@ -6143,7 +6599,7 @@ static void GL_DrawDecorLegacyStream(const U8 *data, U32 vertices, S32 alpha,
     glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)14);
 
-    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertices);
+    GL_DrawStereoClut(GL_TRIANGLES, 0, (GLsizei)vertices);
 
     s_clutAttribsDirty = 1;
     s_clutAttribsBase = -1;
@@ -6271,6 +6727,10 @@ void GL_ClearFBO(void) {
         return;
     }
 
+    if (s_singlePassStereo && s_stereoEye == 1) {
+        return;
+    }
+
     {
         GLuint drawFbo = GL_SceneDrawFbo();
         if (drawFbo != 0) {
@@ -6291,7 +6751,7 @@ void GL_ClearFBO(void) {
        ending in a blended batch — a masked clear would leave last frame's
        depth in place (black frame with terrain blinking through it). */
     GL_SetDepthWrite(1);
-    if (s_stereoDoubleWide) {
+    if (s_stereoDoubleWide && !s_singlePassStereo) {
         /* glClear ignores the viewport but honours the scissor.  Clear only
          * the current eye half, or eye 1 would erase eye 0's scene. */
         glEnable(GL_SCISSOR_TEST);
@@ -6299,6 +6759,10 @@ void GL_ClearFBO(void) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glDisable(GL_SCISSOR_TEST);
     } else {
+        /* Single-pass eye 0 owns both halves: they are written in this one
+         * pass, so a half-scissored clear would leave last frame's second
+         * eye in place. */
+        glDisable(GL_SCISSOR_TEST);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
@@ -7386,7 +7850,7 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
     glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
                           (const void *)14);
 
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    GL_DrawStereoClut(GL_TRIANGLES, 0, 6);
     s_profTris += 2;
 
     GL_SetDepthWrite(1);

@@ -1143,8 +1143,17 @@ void PERSO_RenderStereo(S32 flagflip) {
             const float gameFRatioY = FRatioY;
             U32 stereoT0 = SDL_GetTicks();
             U32 stereoT1 = stereoT0;
-            for (S32 eye = 0; eye < 2; eye++) {
-                GL_SetStereoEye(eye);
+            /* Eye 1's camera setup runs once before the draw passes so
+               eye 0 can supply its world/projection delta to the per-eye
+               single-pass shaders. */
+            float eye1ShiftX = 0.0f, eye1ShiftY = 0.0f, eye1ShiftZ = 0.0f;
+            float eye1ProjX = 0.0f;
+            S32 eye1Captured = 0;
+            for (S32 pass = 0; pass < 3; pass++) {
+                const S32 eye = (pass == 0) ? 1 : (pass - 1);
+                if (pass > 0) {
+                    GL_SetStereoEye(eye);
+                }
                 if (truePose) {
                     const float *q = eyeQ[eye];
                     /* Orientation from the tracked quaternion, read the
@@ -1233,13 +1242,40 @@ void PERSO_RenderStereo(S32 flagflip) {
                     StereoCamOffsetY = 0;
                     StereoCamOffsetZ = 0;
                 }
+                if (pass == 0) {
+                    eye1ShiftX = (float)StereoCamShiftX + StereoCamOffsetX;
+                    eye1ShiftY = (float)StereoCamShiftY + StereoCamOffsetY;
+                    eye1ShiftZ = StereoCamOffsetZ;
+                    eye1ProjX = (float)StereoProjShiftX;
+                    eye1Captured = 1;
+                    continue;
+                }
+                if (pass == 1) {
+                    /* A tracked per-eye orientation is not a pure
+                       translation; keep the two-pass renderer there. */
+                    if (eye1Captured && !truePose &&
+                        GL_SinglePassStereoSupported()) {
+                        const float e0x =
+                            (float)StereoCamShiftX + StereoCamOffsetX;
+                        const float e0y =
+                            (float)StereoCamShiftY + StereoCamOffsetY;
+                        const float e0z = StereoCamOffsetZ;
+                        GL_SetSinglePassEyeDelta(
+                            eye1ShiftX - e0x, eye1ShiftY - e0y,
+                            eye1ShiftZ - e0z,
+                            eye1ProjX - (float)StereoProjShiftX, 0.0f);
+                        GL_SetSinglePassStereo(1);
+                    } else {
+                        GL_SetSinglePassStereo(0);
+                    }
+                }
                 if (StereoFocalX > 0 && StereoFocalY > 0) {
                     LFactorX = StereoFocalX;
                     LFactorY = StereoFocalY;
                     FRatioX = (float)LFactorX;
                     FRatioY = -(float)LFactorY / FRatioX;
                 }
-                if (eye == 1)
+                if (pass > 0 && eye == 1)
                     stereoT1 = SDL_GetTicks();
                 if (eye == 0) {
                     /* Opt-in: hold the swapchain image across both eye passes
@@ -1289,6 +1325,7 @@ void PERSO_RenderStereo(S32 flagflip) {
                              truePose);
                 }
             }
+            GL_SetSinglePassStereo(0);
             GL_SetStereoEye(-1);
         return;
     }

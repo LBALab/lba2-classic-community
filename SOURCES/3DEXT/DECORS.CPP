@@ -625,6 +625,13 @@ void AffichageObjetDecorsZBuf(void) {
 
     // projection des centres
     S32 culled4 = 0;
+#ifdef USE_GPURENDERER
+    /* Same union bound as the object list: eye 1 can see a decor whose
+       eye-0 projection sits just outside the lateral margin. */
+    S32 cullMarginX = 0;
+    S32 cullMarginY = 0;
+    GL_GetSinglePassCullMargin(&cullMarginX, &cullMarginY);
+#endif
     if (!reuseDecorList) {
         NbObjScreen = 0;
     }
@@ -663,9 +670,16 @@ void AffichageObjetDecorsZBuf(void) {
                 {0, 0, 0}, {0, 0, 1}, {1, 0, 0}, {1, 0, 1}};
             /* Frame bounds mirror COMMON.H's VIEW_* (3DEXT's DEFINES.H has
                no copy). */
+#ifdef USE_GPURENDERER
+            const S32 viewX0 = -50 - cullMarginX;
+            const S32 viewY0 = -30 - cullMarginY;
+            const S32 viewX1 = (S32)ModeDesiredX + 40 + cullMarginX;
+            const S32 viewY1 = (S32)ModeDesiredY + 100 + cullMarginY;
+#else
             const S32 viewX0 = -50, viewY0 = -30;
             const S32 viewX1 = (S32)ModeDesiredX + 40;
             const S32 viewY1 = (S32)ModeDesiredY + 100;
+#endif
             U8 andFlags = 0xFF;
             S32 cornerOK = 1;
             for (S32 ci = 0; ci < 4; ci++) {

@@ -195,6 +195,19 @@ a fallback for FXAA/SMAA or a double-wide FBO failure. Set
 `LBA2_OXR_GLDEBUG=1` to log GL errors from the present stages; release runs
 skip the per-present error queries.
 
+Exterior scenes use a single-pass path: the 3D scene is traversed once from
+the eye-0 camera, and each draw is submitted twice with its own scissor and
+an eye-1 camera delta supplied to the shader. The screen-space 2D overlay is
+also written into both halves during that pass. Eye 1 then runs the present
+stage; its own overlay draws are suppressed because the eye-0 pass already
+wrote both halves. Eye 1 also skips the terrain and decor walk, the object
+sort insertions and 3D GL calls; the object walk still performs its state
+updates. CPU culling widens edge candidates by the eye-1 disparity, so
+geometry visible only in the second eye is not rejected by the eye-0
+projection. Tracked per-eye orientation is not a pure translation, so true
+6dof first-person keeps the two-pass eye renderer. The two-pass path remains
+the fallback and the reference for visual comparisons.
+
 Modal dialogue renders outside `MainLoop`'s stereo block but uses the same
 per-eye renderer. Its box, text and portrait are 2D content in `Log`, and the
 per-eye present composites `Log` into each eye, so a stereo dialogue draws the

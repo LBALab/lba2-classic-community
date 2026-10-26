@@ -2,15 +2,25 @@
 
 > This plan supersedes the previous `plan.md` at commit `48566556`. That plan's phases were implemented or superseded in the preceding sessions; its full text remains in git history (`git show 48566556:plan.md`). The phases below are the next implementation sequence.
 
-Status: Phase 1 and Phase 2 are committed on `quest-good-perf`. Device verification captured a heavy scene at 48 FPS median, with present reduced to 1.35 ms; the 19% battery kept the GPU at 545 MHz. Phase 3 is next; the full multiview rewrite remains a multi-step renderer change, so the contained eye-1 replay is the safe increment.
+## Phase 3 status
+
+- Worktree: `/home/simsas/.local/share/opencode/worktree/2081ef/quest-phase3-multiview`
+- Capability probe on the Quest: `GL_OVR_multiview2` extension found, `glFramebufferTextureMultiviewOVR` resolved, and a 1680×1760 two-layer color/depth FBO completed successfully.
+- Implemented: the layered-FBO capability probe, single-pass stereo through the existing double-wide target, per-eye shader uniforms (`uEye`), per-eye depth for the 6dof Z shift, per-eye scissor, a full double-wide clear in the eye-0 pass, an eye-0 batch drain before eye 1 starts, and union culling margins for objects, decors and horizon cubes.
+- The single-pass path draws both eye halves from the eye-0 `AffScene`. Eye 1 runs only its overlay/present stage; the screen-space overlay was already submitted into both halves by the eye-0 pass. Eye 1 skips the terrain/decor walk, object sort insertions and 3D GL calls, while the object walk keeps its state updates. The two-pass path remains the fallback/reference, including true 6dof first-person where the per-eye orientation is not a pure translation.
+- The menu and an in-game Citadel rain scene render correctly in both eyes on device.
+- Capture at 2% battery: the installed build with the eye-1 terrain/decor skip measured `eye0=9-10 ms`, `eye1=0-1 ms`, `frame=10 ms`; the in-game counter showed 75 FPS. An earlier 60 s capture at 4% battery / 545 MHz measured `frame=16 ms` median (eye0 12, eye1 5) and 59 FPS median before that skip.
+- Phase 1/2 comparison: 48 FPS at 19% battery on the same class of scene.
+
+Status: Phase 1 and Phase 2 are committed on `quest-good-perf`. Phase 3 single-pass stereo is implemented and verified on device; the two-pass path remains the fallback.
 
 ## Current state
 
-- Branch: `quest-good-perf`.
-- Last commit: `48566556 perf(gl): avoid redundant texture-array binds`.
-- Earlier commits: `d3571b39` (baked CLUT + empty overlay discard + band scissor) and `7329683e` (release mono surfaces while stereo is active).
+- Branch: `quest-good-perf` (main checkout); Phase 3 worktree branch `quest-phase3-multiview`.
+- Last Phase 1/2 commit: `1badf45f perf(gl): add resolved terrain CLUT and quad-packed array atlas`.
+- Earlier commits: `48566556` (redundant array binds), `7329683e` (release mono surfaces while stereo is active), `d3571b39` (baked CLUT + empty overlay discard + band scissor).
 - The earlier partial quad experiment was superseded by the completed Phase 2 quad-packed array.
-- Working tree: Phase 1 and Phase 2 code in `LIB386/GL/RENDER_GL.CPP`, `LIB386/H/GL/RENDER_GL.H`, `SOURCES/3DEXT/TERRAIN.CPP`, plus this `plan.md`.
+- Phase 3 code: `LIB386/GL/RENDER_GL.CPP`, `LIB386/H/GL/RENDER_GL.H`, `LIB386/OBJECT/AFF_OBJ.CPP`, `SOURCES/3DEXT/DECORS.CPP`, `SOURCES/3DEXT/TERRAIN.CPP`, `SOURCES/EXTFUNC.CPP`, `SOURCES/PERSO.CPP`, `SOURCES/SORT.CPP`.
 - Fixed settings: 1.5x supersampling, MSAA×2, foveation level 3, 1680×1760 eye swapchain, 5040×2640 double-wide scene target. Do not change them.
 
 ## Measured evidence

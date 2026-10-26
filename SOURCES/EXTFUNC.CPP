@@ -379,6 +379,17 @@ void AffGrilleExt() {
 
     SetLightVector(AlphaLight, BetaLight, 0);
 
+#ifdef USE_GPURENDERER
+    /* Single-pass eye 1 has no 3D scene left to build: eye 0 already drew
+       both halves.  Keep the camera/light setup above for the 2D overlay
+       tail (rain, bubbles, counters), then skip the horizon/terrain/decor
+       CPU walk whose GL draws are suppressed anyway. */
+    if (GPURendererActive && CubeMode == CUBE_EXTERIEUR &&
+        GL_GetStereoEye() == 1 && GL_SinglePassStereoActive()) {
+        return;
+    }
+#endif
+
     Switch_Fillers(FILL_POLY_FOG_ZBUFFER);
 
     ClearAniPoly();

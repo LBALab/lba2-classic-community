@@ -244,6 +244,27 @@ U32 GL_GetStereoPairHeight(void);
 //! instead of a plain blit into the swapchain.
 S32 GL_StereoPairNeedsPresentShader(void);
 
+//! 1 when GL_OVR_multiview2, its FBO entry point and a two-layer color/depth
+//! FBO all probe successfully.  The probe is capability-only; the active
+//! single-pass path uses the double-wide target instead.
+S32 GL_MultiviewAvailable(void);
+
+//! 1 when the two-view path can be used.  Single-pass stereo renders both
+//! eye halves from one 3D pass, submitting each draw once per eye with the
+//! eye offset supplied as a shader uniform.
+S32 GL_SinglePassStereoSupported(void);
+void GL_SetSinglePassStereo(S32 on);
+//! 1 while the eye-0 pass is submitting both eye halves in one traversal.
+S32 GL_SinglePassStereoActive(void);
+void GL_SetSinglePassEyeDelta(float x, float y, float z, float projX,
+                              float projY);
+
+//! Extra screen-space margin, in pixels, that CPU culling must add on each
+//! side while single-pass stereo is active, so geometry visible only in the
+//! second eye is not rejected using the first eye's projection.  Returns 0
+//! when single-pass stereo is inactive.
+void GL_GetSinglePassCullMargin(S32 *marginX, S32 *marginY);
+
 //! 1 when the double-wide MSAA target can render directly into a runtime
 //! swapchain texture (resolve-in-tile extension present, neutral display
 //! transform, MSAA active).  The caller must still call

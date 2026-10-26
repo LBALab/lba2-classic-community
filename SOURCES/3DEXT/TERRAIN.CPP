@@ -1031,6 +1031,11 @@ static S32 HorizonCubeOffscreen(void) {
         {0, Y_MIN, 0}, {CUBE, Y_MIN, 0}, {0, Y_MIN, CUBE}, {CUBE, Y_MIN, CUBE}, {0, Y_MAX, 0}, {CUBE, Y_MAX, 0}, {0, Y_MAX, CUBE}, {CUBE, Y_MAX, CUBE}};
     S32 common = 63; /* every clip plane is a cull candidate */
     S32 i;
+#ifdef USE_GPURENDERER
+    S32 cullMarginX = 0;
+    S32 cullMarginY = 0;
+    GL_GetSinglePassCullMargin(&cullMarginX, &cullMarginY);
+#endif
     for (i = 0; i < 8; i++) {
         S32 flags;
         S32 zr;
@@ -1042,6 +1047,17 @@ static S32 HorizonCubeOffscreen(void) {
             flags = 2; /* beyond the far plane */
         } else if (!LongProjectPoint(X0, Y0, Z0)) {
             flags = 1; /* unprojectable: treat like near-clipped */
+#ifdef USE_GPURENDERER
+        } else if (Xp < ClipXMin - cullMarginX) {
+            flags = 4; /* fully left of both eyes' screens */
+        } else if (Xp > ClipXMax + cullMarginX) {
+            flags = 8;
+        } else if (Yp < ClipYMin - cullMarginY) {
+            flags = 16;
+        } else if (Yp > ClipYMax + cullMarginY) {
+            flags = 32;
+        } else {
+#else
         } else if (Xp < ClipXMin) {
             flags = 4; /* fully left of the screen */
         } else if (Xp > ClipXMax) {
@@ -1051,6 +1067,7 @@ static S32 HorizonCubeOffscreen(void) {
         } else if (Yp > ClipYMax) {
             flags = 32;
         } else {
+#endif
             flags = 0; /* this corner is on screen */
         }
         common &= flags;
@@ -1387,6 +1404,11 @@ static void GPU_TerrainRecordTile(S32 xi, S32 zi) {
     const S32 slot[4] = {0, 65, 66, 1};
     T_SOMMET_ROT p[67];
     U8 maskL = 0xFF;
+#ifdef USE_GPURENDERER
+    S32 cullMarginX = 0;
+    S32 cullMarginY = 0;
+    GL_GetSinglePassCullMargin(&cullMarginX, &cullMarginY);
+#endif
 
     for (S32 c = 0; c < 4; c++) {
         const S32 cx = corner[c][0];
@@ -1402,6 +1424,20 @@ static void GPU_TerrainRecordTile(S32 xi, S32 zi) {
             return;
         }
         U8 flag = 16;
+#ifdef USE_GPURENDERER
+        if (Xp < ClipXMin - cullMarginX) {
+            flag |= 1;
+        }
+        if (Xp > ClipXMax + cullMarginX) {
+            flag |= 2;
+        }
+        if (Yp < ClipYMin - cullMarginY) {
+            flag |= 4;
+        }
+        if (Yp > ClipYMax + cullMarginY) {
+            flag |= 8;
+        }
+#else
         if (Xp < ClipXMin) {
             flag |= 1;
         }
@@ -1414,6 +1450,7 @@ static void GPU_TerrainRecordTile(S32 xi, S32 zi) {
         if (Yp > ClipYMax) {
             flag |= 8;
         }
+#endif
         maskL &= flag;
 
         p[slot[c]].Zrot = zr;
