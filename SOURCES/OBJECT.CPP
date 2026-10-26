@@ -10,6 +10,7 @@
 #include <stdio.h>
 
 #include "INPUT.H"
+#include "MESSAGE.H"
 #ifdef ENABLE_POLY_RECORDING
 #include <SNAPSHOT/POLY_RECORDING.H>
 #endif
@@ -5712,6 +5713,16 @@ startaffscene:
            background in Screen. */
         if (!(GPURendererActive && CubeMode == CUBE_EXTERIEUR)) {
             CopyScreen(Log, Screen);
+#ifdef USE_GPURENDERER
+            /* Interior stereo: the full redraw copies the brick background
+               over Log, which also owns the dialog box/text/portrait strip.
+               Restore only that strip after the copy; the scene above it
+               must stay visible. */
+            if (GPURendererActive && CubeMode == CUBE_INTERIEUR &&
+                GL_GetStereoEye() >= 0 && Dial_OverlayActive()) {
+                Dial_OverlayRestoreFrom(Dial_Y0);
+            }
+#endif
         }
 
         if (flagflip == AFF_ALL_FLIP

@@ -1914,6 +1914,19 @@ S32 Dial_OverlayRestore(void) {
     return 1;
 }
 
+S32 Dial_OverlayRestoreFrom(S32 y0) {
+    if (!s_dialOverlayValid || s_dialOverlay == NULL)
+        return 0;
+    if (y0 < 0)
+        y0 = 0;
+    if ((U32)y0 >= ModeDesiredY)
+        return 0;
+    const size_t offset = (size_t)y0 * (size_t)ModeDesiredX;
+    memcpy((U8 *)Log + offset, s_dialOverlay + offset,
+           ((size_t)ModeDesiredY - (size_t)y0) * (size_t)ModeDesiredX);
+    return 1;
+}
+
 void Dial_OverlayInvalidate(void) {
     s_dialOverlayValid = 0;
 }

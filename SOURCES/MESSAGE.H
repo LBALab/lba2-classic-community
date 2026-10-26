@@ -45,6 +45,7 @@ extern S32 Dial_OverlayActive(void);
    captured before the pass and restored after each eye's clear. */
 extern void Dial_OverlayCapture(void);
 extern S32 Dial_OverlayRestore(void);
+extern S32 Dial_OverlayRestoreFrom(S32 y0);
 extern void Dial_OverlayInvalidate(void);
 
 /* Hold the last overlay snapshot alive through the post-dialogue wait (the
