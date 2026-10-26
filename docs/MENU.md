@@ -23,6 +23,11 @@ Main Menu
 │   │   │   └── Back (26) + one row per resolution in the catalog
 │   │   ├── Vsync OFF/ON          [custom localized label]
 │   │   └── Fullscreen / Windowed [custom localized label, hidden on always-fullscreen devices]
+│   ├── Graphics [custom localized label]
+│   │   ├── Back (26)
+│   │   ├── Texture filter: Off / Horizontal / Bilinear [custom localized label]
+│   │   ├── Dithered shading: Off / On               [custom localized label]
+│   │   └── Scaling: Nearest / Linear / Pixel art    [custom localized label]
 │   ├── Sound volume (11)
 │   │   ├── Back (26)
 │   │   ├── Samples (19)       [slider]
@@ -100,8 +105,9 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 
 ## Submenus
 
-- **Options** (`OptionsMenu`): top-level submenu for Display, Sound volume, Choose language, Advanced options, and Controls. Reuses original `TEXT.HQR` labels where they already exist and keeps custom localized labels for new submenu concepts. Controls groups gameplay keyboard/gamepad remapping. Calls `GereDisplayMenu()`, `GereVolumeMenu()`, `GereLanguageMenu()`, `GereAdvancedOptionsMenu()`, and `GereControllerMenu()`. Calls `SetDetailLevel()` on exit.
+- **Options** (`OptionsMenu`): top-level submenu for Display, Graphics, Sound volume, Choose language, Advanced options, and Controls. Reuses original `TEXT.HQR` labels where they already exist and keeps custom localized labels for new submenu concepts. Controls groups gameplay keyboard/gamepad remapping. Calls `GereDisplayMenu()`, `GereGraphicsMenu()`, `GereVolumeMenu()`, `GereLanguageMenu()`, `GereAdvancedOptionsMenu()`, and `GereControllerMenu()`. Calls `SetDetailLevel()` on exit.
 - **Display** (`GereDisplayMenu`, `DisplayMenu`): the resolution row opens `GereResolutionMenu`, a page built at run time from the resolution catalog; the Vsync and Fullscreen rows toggle. Fullscreen is the last row, so on always-fullscreen devices the menu drops it by count.
+- **Graphics** (`GereGraphicsMenu`, `GraphicsMenu`): one cycling row per rendering option in [GFX_OPTIONS.md](GFX_OPTIONS.md): texture filter, dithered shading, and the filter that scales the frame to the window. Each row reads and steps its `T_SETTING` through `ConfigFile_Setting` and `Settings_Apply`, so the range, the on-change hook and the "set this run" mark stay in the settings table; a change applies on the frame being shown and persists with the other settings through `WriteConfigFile`. Interior render scaling (`LBA2_ISO_DIV`) has no row: it is read once at startup.
 - **Volume** (`GereVolumeMenu`): `VolumeMenuVoice` / `VolumeMenuNoVoice` depending on `FlagSpeak`. Sliders for Sample, Voice, Music, and General volume. Persisted via [CONFIG.md](CONFIG.md).
 - **Language** (`GereLanguageMenu`): cycles text language and voice language independently. Text changes reload `TEXT.HQR` immediately; voice changes update the active `LanguageCD` setting.
 - **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, follow camera, video playback size, and subtitle display; includes the existing Detail Level slider. Fullscreen moved to Display.
@@ -134,7 +140,7 @@ Save/load slot list: `NB_GAME_CHOICE` (5 visible rows), `Y_START_CHOICE` (205), 
 
 ## Languages and localization
 
-The main menu still uses only the six template actions (70–75). Top-level `GameOptionMenu` has six rows in display order: Back (26), Display, Sound volume, Choose language, Advanced options, Controls.
+The main menu still uses only the six template actions (70–75). Top-level `GameOptionMenu` has seven rows in display order: Back (26), Display, Graphics, Sound volume, Choose language, Advanced options, Controls.
 
 | Mechanism | Where | Notes |
 |-----------|--------|--------|
@@ -234,7 +240,7 @@ For broader preservation (ASCII art, French comments, developer culture), see [F
 | Main menu entry   | GAMEMENU.CPP | MainGameMenu, BuildGameMainMenu                                       |
 | Menu render/input | GAMEMENU.CPP | DoGameMenu, DrawGameMenu                                               |
 | Menu mouse        | GAMEMENU_MOUSE.CPP | MenuMouseAcquire/Release, hit-test, wheel/slider helpers        |
-| Options submenu   | GAMEMENU.CPP | OptionsMenu, GereDisplayMenu, GereResolutionMenu, GereVolumeMenu, GereLanguageMenu, GereAdvancedOptionsMenu, GereControllerMenu |
+| Options submenu   | GAMEMENU.CPP | OptionsMenu, GereDisplayMenu, GereResolutionMenu, GereGraphicsMenu, GereVolumeMenu, GereLanguageMenu, GereAdvancedOptionsMenu, GereControllerMenu |
 | Save/Load list    | GAMEMENU.CPP, SAVEGAME.CPP | PlayerGameList, ChoosePlayerName, DeleteSavedGame, LoadGameScreen, DrawScreenSave |
 | Menu label text   | GAMEMENU.CPP | `BuildCustomMenuText`, `GetMultiText`                                 |
 | UI language / text | MESSAGE.CPP | InitLanguage, GetMultiText, `Language`, `LanguageCD`                  |

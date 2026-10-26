@@ -30,9 +30,11 @@
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 #include <SYSTEM/MOUSE.H>
+#include <PLATFORM/PLATFORM.H> /* PLATFORM_FILTER_* (Scaling row) */
+#include <POLYGON/POLYFILT.H>  /* POLY_TEX_FILTER_* (Texture filter row) */
 
 #include "GAMEMENU_MOUSE.H"
-#include "CONFIG_FILE.H" /* ConfigFile_MarkVSyncSetThisRun */
+#include "CONFIG_FILE.H" /* ConfigFile_MarkVSyncSetThisRun, ConfigFile_Setting (Graphics rows) */
 #include "UI_LAYOUT.H"   /* UI_CENTER_X, UI_VCENTER_OFS */
 
 #include <dirent.h>
@@ -98,6 +100,10 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_RESOLUTION 2115
 #define MENU_ID_DISPLAY_VSYNC 2116
 #define MENU_ID_RETAIL_FIXES 2117
+#define MENU_ID_GRAPHICS 2118
+#define MENU_ID_TEXTURE_FILTER 2119
+#define MENU_ID_DITHER_SHADING 2120
+#define MENU_ID_PRESENT_FILTER 2121
 
 // Resolution sub-page rows occupy a reserved id range: row i carries id
 // MENU_ID_RESOLUTION_BASE + i, which BuildCustomMenuText and GereResolutionMenu
@@ -133,7 +139,7 @@ U16 RealGameMainMenu[] = {
 
 U16 GameOptionMenu[] = {
     0,   // selected
-    6,   // nb entries
+    7,   // nb entries
     260, // y center
     0,   // .dia num
 
@@ -141,6 +147,8 @@ U16 GameOptionMenu[] = {
     26, // menu precedent
     0,
     MENU_ID_DISPLAY,
+    0,
+    MENU_ID_GRAPHICS,
     0,
     MENU_ID_SOUND_VOLUME,
     0,
@@ -171,6 +179,27 @@ U16 DisplayMenu[] = {
     MENU_ID_DISPLAY_VSYNC,
     0,
     MENU_ID_DISPLAY_FULLSCREEN,
+};
+
+// Graphics submenu: the rendering options BootSettings (CONFIG_FILE.CPP) own,
+// one cycling row each. Every row reads and writes its T_SETTING through
+// ConfigFile_Setting, so the range, the default and the "set this run" mark
+// that keeps a menu choice from being overwritten by a per-run environment
+// override all live in the table and nowhere here. See GereGraphicsMenu.
+U16 GraphicsMenu[] = {
+    0,   // selected
+    4,   // nb entries
+    260, // y center
+    0,   // .dia num
+
+    0,
+    26, // menu precedent
+    0,
+    MENU_ID_TEXTURE_FILTER,
+    0,
+    MENU_ID_DITHER_SHADING,
+    0,
+    MENU_ID_PRESENT_FILTER,
 };
 
 // Resolution sub-page, opened from the Display submenu's Resolution row.
@@ -405,6 +434,26 @@ const char *GetLocalizedResDialogLabel(int which) {
     return GetLocalizedMenuLabel(kMap[which]);
 }
 
+/* The live value of a Graphics row, read from the settings table rather than
+   from the global it writes, so the menu cannot name a variable the table does
+   not own. A key the table lacks is a programming error; the row then shows
+   its first value rather than reading through NULL. */
+static S32 GraphicsSettingValue(const char *key) {
+    const T_SETTING *decl = ConfigFile_Setting(key);
+    return (decl != NULL) ? *decl->value : 0;
+}
+
+/* Step a Graphics row to its next value, wrapping at the table's own range,
+   through Settings_Apply so the owner is told (the present filter reaches the
+   window backend through its on_change hook) and the run is marked as having
+   set it: without that mark a value that lands back on what LBA2_TEXFILTER or
+   LBA2_PRESENT_FILTER forced would be written back at the stored preference. */
+static void GraphicsSettingCycle(const char *key) {
+    const T_SETTING *decl = ConfigFile_Setting(key);
+    if (decl == NULL)
+        return;
+    Settings_Apply(decl, (*decl->value >= decl->max) ? decl->min : *decl->value + 1);
+}
 static void BuildCustomMenuText(S32 num, char *string) {
     // Resolution sub-page rows: id in the reserved range maps to a catalog
     // entry's label (e.g. "1280x720 (16:9)"). s_resMenuCount is set by
@@ -481,6 +530,34 @@ static void BuildCustomMenuText(S32 num, char *string) {
     case MENU_ID_DISPLAY_VSYNC:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayVSync ? MENU_LABEL_VSYNC_ON : MENU_LABEL_VSYNC_OFF));
         break;
+
+    case MENU_ID_GRAPHICS:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_GRAPHICS));
+        break;
+
+    case MENU_ID_TEXTURE_FILTER: {
+        const S32 v = GraphicsSettingValue("TextureFilter");
+        CopyUtf8ToCp850(string, 256,
+                        GetLocalizedMenuLabel(v == POLY_TEX_FILTER_BILINEAR     ? MENU_LABEL_TEXFILTER_BILINEAR
+                                              : v == POLY_TEX_FILTER_HORIZONTAL ? MENU_LABEL_TEXFILTER_HORIZONTAL
+                                                                                : MENU_LABEL_TEXFILTER_OFF));
+        break;
+    }
+
+    case MENU_ID_DITHER_SHADING:
+        CopyUtf8ToCp850(string, 256,
+                        GetLocalizedMenuLabel(GraphicsSettingValue("DitherShading") ? MENU_LABEL_DITHER_ON
+                                                                                    : MENU_LABEL_DITHER_OFF));
+        break;
+
+    case MENU_ID_PRESENT_FILTER: {
+        const S32 v = GraphicsSettingValue("PresentFilter");
+        CopyUtf8ToCp850(string, 256,
+                        GetLocalizedMenuLabel(v == PLATFORM_FILTER_PIXELART ? MENU_LABEL_PRESENT_PIXELART
+                                              : v == PLATFORM_FILTER_LINEAR ? MENU_LABEL_PRESENT_LINEAR
+                                                                            : MENU_LABEL_PRESENT_NEAREST));
+        break;
+    }
 
     case MENU_ID_FOLLOW_CAMERA:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(FollowCamera ? MENU_LABEL_AUTO_CAMERA : MENU_LABEL_CLASSIC_CAMERA));
@@ -3427,6 +3504,53 @@ S32 GereDisplayMenu(void) {
     return FALSE;
 }
 
+// Graphics submenu: a self-contained submenu of OptionsMenu, one cycling row
+// per rendering option. The Scaling row applies to the frame being shown; the
+// rasterizer rows show on the next scene frame, behind the shaded menu. All
+// persist with the rest of the settings through WriteConfigFile, as the
+// Display rows do.
+S32 GereGraphicsMenu(void) {
+    S32 select;
+    S32 flag = 0;
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    if (FlagShadeMenu) {
+        ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
+    }
+
+    while (!flag) {
+        select = DoGameMenu(GraphicsMenu);
+
+        switch (select) {
+        case 26:
+        case 1000:
+            flag = 1;
+            break;
+
+        case MENU_ID_TEXTURE_FILTER:
+            GraphicsSettingCycle("TextureFilter");
+            break;
+
+        case MENU_ID_DITHER_SHADING:
+            GraphicsSettingCycle("DitherShading");
+            break;
+
+        case MENU_ID_PRESENT_FILTER:
+            GraphicsSettingCycle("PresentFilter");
+            break;
+        }
+    }
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    WaitNoInput();
+
+    return FALSE;
+}
+
 /*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -3625,6 +3749,10 @@ S32 OptionsMenu(S32 flagflip) {
 
         case MENU_ID_DISPLAY:
             GereDisplayMenu();
+            break;
+
+        case MENU_ID_GRAPHICS:
+            GereGraphicsMenu();
             break;
         }
     }

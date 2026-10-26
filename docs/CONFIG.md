@@ -108,8 +108,8 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 |-----|---------|--------|------|
 | MenuMouse | Optional mouse UX in game menus (`FlagMenuMouse` in code). Default 1 (on). Set 0 to match classic keyboard/joystick-only menus. See [MENU.md](MENU.md) | ReadConfigFile / WriteConfigFile | Options → Advanced options |
 | FollowCamera | Auto camera for exterior scenes (0=classic, 1=auto). Community addition, not in original game; menu label is "Auto camera" / "Classic camera" | ReadConfigFile / WriteConfigFile | Options → Advanced options |
-| TextureFilter, DitherShading | Software-rasterizer smoothing, both off by default. Console cvars `gfx_texfilter` / `gfx_dither` | ReadConfigFile / WriteConfigFile | console only |
-| PresentFilter | Filter that stretches the frame to the window, nearest by default. Console cvar `gfx_presentfilter` | ReadConfigFile / WriteConfigFile | console only |
+| TextureFilter, DitherShading | Software-rasterizer smoothing, both off by default. Console cvars `gfx_texfilter` / `gfx_dither` | ReadConfigFile / WriteConfigFile | Options → Graphics |
+| PresentFilter | Filter that stretches the frame to the window, nearest by default. Console cvar `gfx_presentfilter` | ReadConfigFile / WriteConfigFile | Options → Graphics ("Scaling") |
 | RetailFixes | Fix retail bugs: 0 no, 1 yes (default), 2 custom. Console cvar `fix_retail`. See "Retail fixes" below | RetailFix_ReadConfig / RetailFix_WriteConfig | Options → Advanced options |
 | RetailFixFoundObjWalk | A direction held through a found-item popup still moves Twinsen afterwards. 1 (default) on. Console cvar `fix_found_obj_walk`. Applies only while `RetailFixes` is 2 | RetailFix_ReadConfig / RetailFix_WriteConfig | console only |
 | RetailFixTerrainSeams | Hairline seams show between the cubes of the outdoor ground. 1 (default) draws the terrain, sea and sky on the 1997 integer path, with no seams and the same on every platform; 0 keeps the float path the rest of the game uses, as lba2cc drew it before. Console cvar `fix_terrain_seams`. Applies only while `RetailFixes` is 2 | RetailFix_ReadConfig / RetailFix_WriteConfig | console only |
