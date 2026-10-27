@@ -38,7 +38,7 @@ Game logic (SOURCES/)
   │   ├─ Renders via GLSL shader
   │   └─ Writes to GL default framebuffer (depth + color)
   │
-  ├─ World sprites/extras: ScaleSprite GL quads into the FBO
+  ├─ World sprites/extras: ScaleSprite/GL sprite quads into the FBO
   └─ UI/text/menu: AffGraph(), text, menu → writes to Log (8-bit indexed)
       └─ Composited as a 2D overlay quad on top of the GL scene
 ```
@@ -50,6 +50,10 @@ The key insight: every world pixel is rasterized by GL, including the isometric 
 Interior worlds do not use the exterior perspective terrain path. `AffGrille` clears the scene FBO and draws each brick tile as a textured GL quad (`DrawBrickGL` in `SOURCES/GRILLE.CPP`). The brick RLE walk is reused through `AffGraph` into a scratch bitmap on first use and cached; the visible tile is then sampled from a GL texture. `GL_SetWorldGL` lets the interior object polygons enter `GL_RenderTriangleList` without a terrain depth buffer. In that world pass `ProjectListIso` has already replaced each body point's Z with its painter sort key, so `GetZO3`/`GetZO4` derive a view depth from that key and the object's camera-relative position. Opaque body batches then write FBO depth, which lets the body-model lines, spheres and sprite overlays depth-test against the body instead of x-raying through it. Lines and spheres take the same isometric depth and draw into the FBO; the Log overlay remains UI.
 
 `DrawOverBrick*` keeps foreground bricks above models, but it must restore the background, not repaint the selected brick. The software `CopyMask` copies the pristine background through the brick mask; a foreground brick can share its mask area with a brick painted later in the base order, so drawing the selected brick's texture would bring that buried brick back over the visible one. The GL path mirrors `CopyMask`: `OverlayBegin`/`OverlayReplayBase` re-walk the base brick order inside the object's clip window, `OverlayMark` masks that reconstruction per brick, and `OverlayFlush` draws the result into the FBO as one indexed patch. The patch uses nearest sampling through `GL_SetSpriteFilterOverride` because its pixels are already composed at screen resolution, and `GL_SetSpriteUploadAlways` forces each reused tile buffer through a fresh texture upload.
+
+Interior world sprites from the GPH sprite bank, including doors and extras, also draw into the FBO. `TYPE_OBJ_SPRITE` used to call `PtrAffGraph`, which wrote into `Log`; those pixels always composited over the GL scene, so a door leaf could cover a character standing in front of it. `DrawWorldSpriteGL` decodes the HQR sprite stream through `AffGraph` into a cached scratch bitmap (it is not the anim-3DS GPH stream), intersects the destination with the active `SPRITE_CLIP` rectangle, and draws the sub-rect as a depth-tested quad. The software path still uses `PtrAffGraph`.
+
+The foreground-brick pass has one GL-only door-frame exception. A door frame protrudes into the room, so `DrawOverBrick` would re-blit its top jamb over an actor's head while the rest of the actor stayed in front of the leaf. `OverlayIsDoorFrame` skips high bricks in the two-x/three-z cell neighborhood of a `SPRITE_CLIP` door when the actor is nearer in painter order; the base brick already supplies the frame behind the actor. Software keeps the original overlay set. Repro: load a cube 15 save, run `--exec-at 2 "cube 15" --exec-at 4 "teleport 25856 768 29000" --tick 30`, and verify the hero stays visible in front of the closed center door.
 
 The interior full flip copies `Screen` over `Log` every frame, which would erase an open dialogue strip. `SpeakAnimation` snapshots the strip before the scene pass and `AffScene` restores it after the copy, so the typewriter text, border and shade survive the full redraw in both mono and stereo.
 

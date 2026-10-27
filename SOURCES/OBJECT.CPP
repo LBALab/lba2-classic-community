@@ -4993,6 +4993,156 @@ static const U8 *Obj_DecodeGph(const void *bank, S32 *outW, S32 *outH,
     return raw;
 }
 
+#ifdef USE_GPURENDERER
+/* HQR sprite banks use a different RLE stream than the anim-3DS GPH cache
+   (the bank offset at [0], then a header).  Decode through AffGraph, whose
+   clipping also keeps malformed-looking edge runs inside the sprite. */
+#define WORLD_GPH_CACHE_SIZE 32
+typedef struct {
+    const U8 *src;
+    U8 *raw;
+    S32 w;
+    S32 h;
+    S32 hotX;
+    S32 hotY;
+} T_WORLD_GPH_CACHE;
+static T_WORLD_GPH_CACHE s_worldGphCache[WORLD_GPH_CACHE_SIZE];
+static S32 s_worldGphNext = 0;
+
+static const U8 *Obj_DecodeWorldGph(const U8 *bank, S32 *outW, S32 *outH,
+                                    S32 *outHotX, S32 *outHotY) {
+    const U8 *data = bank + ((const U32 *)bank)[0];
+    for (S32 i = 0; i < WORLD_GPH_CACHE_SIZE; i++) {
+        if (s_worldGphCache[i].src == data) {
+            *outW = s_worldGphCache[i].w;
+            *outH = s_worldGphCache[i].h;
+            *outHotX = s_worldGphCache[i].hotX;
+            *outHotY = s_worldGphCache[i].hotY;
+            return s_worldGphCache[i].raw;
+        }
+    }
+
+    const S32 w = data[0];
+    const S32 h = data[1];
+    const S32 hotX = (S8)data[2];
+    const S32 hotY = (S8)data[3];
+    if (w <= 0 || h <= 0)
+        return NULL;
+
+    U8 *scratch = (U8 *)malloc((size_t)ModeDesiredX * (size_t)h);
+    if (scratch == NULL)
+        return NULL;
+    memset(scratch, 0, (size_t)ModeDesiredX * (size_t)h);
+
+    void *savedLog = Log;
+    const S32 savedXMin = ClipXMin, savedYMin = ClipYMin;
+    const S32 savedXMax = ClipXMax, savedYMax = ClipYMax;
+    Log = scratch;
+    ClipXMin = 0;
+    ClipYMin = 0;
+    ClipXMax = w - 1;
+    ClipYMax = h - 1;
+    AffGraph(0, -hotX, -hotY, (void *)bank);
+    Log = savedLog;
+    ClipXMin = savedXMin;
+    ClipYMin = savedYMin;
+    ClipXMax = savedXMax;
+    ClipYMax = savedYMax;
+
+    U8 *raw = (U8 *)malloc((size_t)w * (size_t)h);
+    if (raw != NULL) {
+        for (S32 y = 0; y < h; y++)
+            memcpy(raw + (size_t)y * w, scratch + (size_t)y * ModeDesiredX,
+                   (size_t)w);
+    }
+    free(scratch);
+    if (raw == NULL)
+        return NULL;
+
+    T_WORLD_GPH_CACHE *e = &s_worldGphCache[s_worldGphNext];
+    s_worldGphNext = (s_worldGphNext + 1) % WORLD_GPH_CACHE_SIZE;
+    free(e->raw);
+    e->src = data;
+    e->raw = raw;
+    e->w = w;
+    e->h = h;
+    e->hotX = hotX;
+    e->hotY = hotY;
+    *outW = w;
+    *outH = h;
+    *outHotX = hotX;
+    *outHotY = hotY;
+    return raw;
+}
+
+/* Interior world sprites (doors, extras) were still blitted into Log, whose
+   pixels composite over the FBO and therefore cannot be occluded by the hero
+   or accept the sprite clip region.  Draw them as depth-tested quads inside
+   the current clip instead. */
+static void DrawWorldSpriteGL(S32 xp, S32 yp, S32 sprite, U16 zo) {
+    if (!GPURendererActive)
+        return;
+
+    if (sprite < 100) {
+        /* Raw sprites use ScaleSprite's own GL fast path. */
+        PtrAffGraph(xp, yp, sprite);
+        return;
+    }
+
+    if (zo == 0) {
+        /* Same fallback as ScaleSprite for a depth outside the view. */
+        PtrAffGraph(xp, yp, sprite);
+        return;
+    }
+
+    const U8 *bank = (const U8 *)GetPtrSprite(sprite);
+    if (bank == NULL) {
+        PtrAffGraph(xp, yp, sprite);
+        return;
+    }
+
+    S32 w, h, hotX, hotY;
+    const U8 *raw = Obj_DecodeWorldGph(bank, &w, &h, &hotX, &hotY);
+    if (raw == NULL) {
+        PtrAffGraph(xp, yp, sprite);
+        return;
+    }
+
+    const S32 dx = xp + hotX;
+    const S32 dy = yp + hotY;
+    S32 cx0 = dx;
+    S32 cy0 = dy;
+    S32 cx1 = dx + w;
+    S32 cy1 = dy + h;
+    if (cx0 < ClipXMin)
+        cx0 = ClipXMin;
+    if (cy0 < ClipYMin)
+        cy0 = ClipYMin;
+    if (cx1 > ClipXMax + 1)
+        cx1 = ClipXMax + 1;
+    if (cy1 > ClipYMax + 1)
+        cy1 = ClipYMax + 1;
+    if (cx1 <= cx0 || cy1 <= cy0) {
+        ScreenXMin = 1;
+        ScreenYMin = 1;
+        ScreenXMax = 0;
+        ScreenYMax = 0;
+        return;
+    }
+
+    ScreenXMin = cx0;
+    ScreenYMin = cy0;
+    ScreenXMax = cx1;
+    ScreenYMax = cy1;
+    GL_SetSpriteNoDepth(0);
+    GL_SetSpriteUploadAlways(1);
+    GL_DrawSpriteQuad(cx0, cy0, cx1, cy1,
+                      cx0 - dx, cy0 - dy, cx1 - dx, cy1 - dy,
+                      raw, w, h, zo, 0);
+    GL_SetSpriteUploadAlways(0);
+}
+#endif
+
 S32 AffOneObject(T_SORT *pt) {
     T_OBJET *ptrobj;
     T_EXTRA *ptrextra;
@@ -5217,12 +5367,22 @@ S32 AffOneObject(T_SORT *pt) {
             // sprites
             if (ClipXMin <= ClipXMax
                                 AND ClipYMin <= ClipYMax) {
-                PtrAffGraph(SpriteX, SpriteY, num);
+#ifdef USE_GPURENDERER
+                if (GPURendererActive)
+                    DrawWorldSpriteGL(SpriteX, SpriteY, num, SpriteGL_Zo);
+                else
+#endif
+                    PtrAffGraph(SpriteX, SpriteY, num);
                 UnsetClip();
                 SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
             }
         } else {
-            PtrAffGraph(SpriteX, SpriteY, num);
+#ifdef USE_GPURENDERER
+            if (GPURendererActive)
+                DrawWorldSpriteGL(SpriteX, SpriteY, num, SpriteGL_Zo);
+            else
+#endif
+                PtrAffGraph(SpriteX, SpriteY, num);
             SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
         }
 

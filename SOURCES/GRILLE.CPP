@@ -991,6 +991,39 @@ void InitBufferCube() {
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
+#ifdef USE_GPURENDERER
+/* A door frame protrudes one cell into the room.  When the actor stands in
+   front of the doorway, the frame's "bricks devant" pass re-blits the top
+   jamb over the head while the body remains in front of the door leaf.  Keep
+   an actor that is on the room side of a nearby door frame in front of it, so
+   the doorway reads as an opening rather than a mask. */
+static S32 OverlayIsDoorFrame(S32 xm, S32 ym, S32 zm, T_COLONB *ptrlbc) {
+    if (ptrlbc->Ym <= ym)
+        return FALSE;
+
+    for (S32 i = 0; i < NbObjets; i++) {
+        T_OBJET *ptrobj = &ListObjet[i];
+        if (!(ptrobj->Flags & SPRITE_CLIP))
+            continue;
+
+        const S32 ox = ptrobj->Obj.X / SIZE_BRICK_XZ;
+        const S32 oz = ptrobj->Obj.Z / SIZE_BRICK_XZ;
+
+        /* Painter order, not a screen-space guess: only reveal an actor that
+           is nearer to the camera than the door. */
+        if (xm + zm < ox + oz)
+            continue;
+
+        /* The jamb sits within two iso cells of the door anchor; three cells
+           of z reach the frame in front of the leaf. */
+        if (abs(ptrlbc->Xm - ox) <= 2 && abs(ptrlbc->Zm - oz) <= 3 &&
+            abs(xm - ox) <= 2 && abs(zm - oz) <= 3)
+            return TRUE;
+    }
+    return FALSE;
+}
+#endif
+
 void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
     register T_COLONB *ptrlbc;
     S32 col, i;
@@ -1039,6 +1072,11 @@ void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
                     recouvre = TRUE;
                 }
 
+#ifdef USE_GPURENDERER
+                if (recouvre && GPURendererActive &&
+                    OverlayIsDoorFrame(xm, ym, zm, ptrlbc))
+                    recouvre = FALSE;
+#endif
                 if (recouvre) {
                     xw = ptrlbc->Xm * SIZE_BRICK_XZ;
                     yw = ptrlbc->Ym * SIZE_BRICK_Y;
