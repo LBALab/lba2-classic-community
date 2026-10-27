@@ -1,5 +1,7 @@
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <3D/CAMERA.H>
 #include <3D/PROJ.H>
@@ -324,7 +326,9 @@ static void BaseLayerDepthStamp(const U8 *data, S32 x, S32 y, U8 dn) {
                         dst[c] = dn;
                 }
             }
-            g += (op == 1) ? count : 2;
+            /* `g` already sits past the control byte: a literal run carries
+               `count` bytes, a repeat run one (its value). */
+            g += (op == 1) ? count : 1;
             col += count;
         }
     }
@@ -414,6 +418,22 @@ static S32 BaseLayerCompose(void) {
     ClipXMax = savedXMax;
     ClipYMax = savedYMax;
 
+    if (getenv("LBA2_DUMP_DEPTH") != NULL) {
+        FILE *f = fopen("/tmp/opencode/parallax/depth.pgm", "wb");
+        if (f) {
+            fprintf(f, "P5 %d %d 255\n", w, h);
+            for (S32 y = 0; y < h; y++)
+                fwrite(s_baseDepth + (size_t)y * (size_t)w, 1, (size_t)w, f);
+            fclose(f);
+            FILE *c2 = fopen("/tmp/opencode/parallax/layer.pgm", "wb");
+            if (c2) {
+                fprintf(c2, "P5 %d %d 255\n", w, h);
+                for (S32 y = 0; y < h; y++)
+                    fwrite(s_baseLayer + (size_t)y * (size_t)w, 1, (size_t)w, c2);
+                fclose(c2);
+            }
+        }
+    }
     s_baseLayerX0 = bx0;
     s_baseLayerY0 = by0;
     s_baseLayerX1 = bx1;
