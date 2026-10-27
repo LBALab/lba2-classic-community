@@ -180,9 +180,9 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
                        const void *pixels, S32 w, S32 h,
                        U16 az, S32 transparent);
 
-//! Slots for GL_DrawIndexedLayer: one flat background plus the depth bands
-//! the isometric interior splits its brick layer into.
-#define GL_LAYER_SLOTS 7
+//! Slot for GL_DrawIndexedLayer: the interior draws its whole background,
+//! colour and depth, as a single quad.
+#define GL_LAYER_SLOTS 1
 
 //! Draw a full-screen 8-bit palette-index image as one quad, sampling with
 //! `filter` (the DisplayTexFilter value).  The image is uploaded only when
@@ -190,14 +190,15 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
 //! The composed isometric brick layer uses it: the sprite path cannot, since
 //! its 8-bit RepMask caps a quad's wrap window at 256 texels.
 //!
-//! `slot` selects an independent texture, so one frame can draw several
-//! images without re-uploading them.  `az` is the image's depth on the same
-//! scale as the scene polygons (0 = screen space, no eye parallax); the
-//! interior splits its background into depth bands and draws each band at its
-//! own az, which is what gives the flat brick art parallax against the models.
-void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
-                         U32 generation, S32 filter, S32 x0, S32 y0, S32 x1,
-                         S32 y1, U16 azTop, U16 azBottom);
+//! `depth`, when not NULL, is a screen-sized byte map with one depth per pixel
+//! of `pixels`, normalized over `azMin..azMin + azSpan - 1` (aZ units, the
+//! depth the polygon stages use).  In single-pass stereo the fragment stage
+//! shifts each pixel by the eye offset its own depth earns, so the background
+//! parallaxes with the models pixel by pixel instead of as one plane.  A NULL
+//! map draws the image flat, with no eye offset.
+void GL_DrawIndexedLayer(S32 slot, const void *pixels, const void *depth,
+                         S32 w, S32 h, U32 generation, S32 filter, S32 x0,
+                         S32 y0, S32 x1, S32 y1, U16 azMin, U16 azSpan);
 
 //! Mark the current frame as an isometric interior world.  Allows polygon
 //! paths that do not carry a terrain depth buffer into the GL batch.

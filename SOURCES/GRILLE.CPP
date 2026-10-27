@@ -244,15 +244,17 @@ static U32 s_baseLayerKey = 0;
 static S32 s_baseLayerValid = 0;
 static U32 s_baseLayerGen = 0;
 
-/* Depth bands the single-pass stereo path draws the layer in.  The whole
-   background used to sit at aZ = 0, which the polygon shader treats as screen
-   space: it got no eye offset while the models did, so the room read as a flat
-   painting behind them.  Splitting the composite by the same per-tile depth
-   the models use gives every band its own parallax; the bands are disjoint
-   composites of one painter walk, so drawing them far to near reproduces the
-   flat layer exactly. */
-static U16 s_baseAzFar = 0; /* top of the backdrop: the far end of the room */
-static U16 s_baseAzNear = 0; /* bottom: the floor at the camera's feet */
+/* Per-pixel scene depth of the composite, one U8 per screen pixel, painted
+   alongside the colour.  The whole background used to sit at aZ = 0, which the
+   polygon shader treats as screen space: it got no eye offset while the models
+   did, so the room read as a flat painting behind them.  Carrying each tile's
+   own depth per pixel lets the stereo fragment stage shift every pixel by the
+   offset its depth earns, which is what makes the background parallax with the
+   models instead of as one plane.  Values are normalized over the frame's
+   azMin..azMax so a room always uses the full byte range. */
+static U8 *s_baseDepth = NULL;
+static U16 s_baseAzMin = 0;  /* nearest plane in the frame, aZ units */
+static U16 s_baseAzSpan = 1; /* far - near + 1, so 0 never divides */
 
 /* Painted bounds: the layer image is screen-sized, but only this rectangle
    holds bricks, and the filter cost is per fragment. */
@@ -271,8 +273,61 @@ static U32 BaseLayerKey(void) {
         h = (h ^ (U32)(U16)p->Brick) * 16777619u;
         h = (h ^ (U32)(U16)p->Xs) * 16777619u;
         h = (h ^ (U32)(U16)p->Ys) * 16777619u;
+        /* Depth follows the camera, not only the painted rectangle, so it is
+           part of the key even when every tile keeps its screen position. */
+        h = (h ^ (U32)p->Az) * 16777619u;
     }
     return h;
+}
+
+/* Paint one tile's coverage into the depth map.  The brick data is a
+   run-length stream (LIB386/SVGA/GRAPH.CPP decodes it for the colour blit):
+   each control byte is two opcode bits and a count, opcode 0 skips pixels,
+   1 writes the following literals, 2 repeats the next byte.  Walking it here
+   in the same order as the colour composite marks exactly the pixels the
+   tile leaves visible, at its own depth.  Zero marks an untouched pixel; the
+   colour composite chroma-keys those, so their depth is never sampled. */
+static void BaseLayerDepthStamp(const U8 *data, S32 x, S32 y, U8 dn) {
+    const S32 deltaX = data[0];
+    const S32 nbLine = data[1];
+    const S32 x0 = x + (S8)data[2];
+    const S32 y0 = y + (S8)data[3];
+    if (x0 > ClipXMax || y0 > ClipYMax || x0 + deltaX - 1 < ClipXMin ||
+        y0 + nbLine - 1 < ClipYMin)
+        return;
+
+    const U8 *g = data + 4;
+    for (S32 line = 0; line < nbLine; line++) {
+        const S32 row = y0 + line;
+        U8 *dst = (row >= ClipYMin && row <= ClipYMax)
+                      ? s_baseDepth + (size_t)row * (size_t)s_baseLayerW
+                      : NULL;
+        const U8 nbBlock = *g++;
+        S32 col = x0;
+        for (S32 b = 0; b < nbBlock; b++) {
+            const U8 control = *g++;
+            const S32 op = (control >> 6) & 3;
+            const S32 count = (control & 0x3F) + 1;
+            if (op == 0) {
+                col += count;
+                continue;
+            }
+            S32 last = col + count - 1;
+            if (last > ClipXMax)
+                last = ClipXMax;
+            if (dst != NULL) {
+                for (S32 c = col < ClipXMin ? ClipXMin : col; c <= last; c++) {
+                    /* Literal runs are transparent per texel, repeat runs
+                       per run: index 0 is the chroma key. */
+                    const U8 texel = (op == 1) ? g[c - col] : g[0];
+                    if (texel != 0)
+                        dst[c] = dn;
+                }
+            }
+            g += (op == 1) ? count : 2;
+            col += count;
+        }
+    }
 }
 
 /* Compose the recorded brick order into s_baseLayer.  Returns 0 when the
@@ -292,6 +347,12 @@ static S32 BaseLayerCompose(void) {
             return 0;
         }
         s_baseLayer = grown;
+        U8 *grownDepth = (U8 *)realloc(s_baseDepth, (size_t)w * (size_t)h);
+        if (grownDepth == NULL) {
+            s_baseLayerValid = 0;
+            return 0;
+        }
+        s_baseDepth = grownDepth;
         s_baseLayerW = w;
         s_baseLayerH = h;
         s_baseLayerValid = 0;
@@ -301,6 +362,7 @@ static S32 BaseLayerCompose(void) {
     if (s_baseLayerValid && key == s_baseLayerKey)
         return 1;
     memset(s_baseLayer, 0, (size_t)w * (size_t)h);
+    memset(s_baseDepth, 0, (size_t)w * (size_t)h);
     void *savedLog = Log;
     const S32 savedXMin = ClipXMin, savedYMin = ClipYMin;
     const S32 savedXMax = ClipXMax, savedYMax = ClipYMax;
@@ -308,7 +370,7 @@ static S32 BaseLayerCompose(void) {
     ClipYMin = 0;
     ClipXMax = w - 1;
     ClipYMax = h - 1;
-    /* Depth range of this frame's tiles, for the band partition. */
+    /* Depth range of this frame's tiles, which normalizes the depth map. */
     U16 azMin = 65535, azMax = 0;
     for (S32 i2 = 0; i2 < s_brickOrderCount; i2++) {
         const U16 az = s_brickOrder[i2].Az;
@@ -323,20 +385,28 @@ static S32 BaseLayerCompose(void) {
     S32 bx0 = w, by0 = h, bx1 = -1, by1 = -1;
     for (S32 i2 = 0; i2 < s_brickOrderCount; i2++) {
         const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i2];
-        AffGraph(p->Brick, p->Xs, p->Ys, BufferBrick);
         const U8 *src = BufferBrick + ((const U32 *)BufferBrick)[p->Brick];
+        const U8 dn = (U8)(((S32)p->Az - (S32)azMin) * 255 / azSpan);
+        AffGraph(p->Brick, p->Xs, p->Ys, BufferBrick);
+        /* Depth in the same painter order, so the map names the tile whose
+           pixels are the ones left standing in the colour composite. */
+        BaseLayerDepthStamp(src, p->Xs, p->Ys, dn);
         const S32 x0 = p->Xs + (S8)src[2];
         const S32 y0 = p->Ys + (S8)src[3];
         const S32 x1 = x0 + src[0];
         const S32 y1 = y0 + src[1];
-        if (x0 < bx0) bx0 = x0;
-        if (y0 < by0) by0 = y0;
-        if (x1 > bx1) bx1 = x1;
-        if (y1 > by1) by1 = y1;
+        if (x0 < bx0)
+            bx0 = x0;
+        if (y0 < by0)
+            by0 = y0;
+        if (x1 > bx1)
+            bx1 = x1;
+        if (y1 > by1)
+            by1 = y1;
     }
 
-    s_baseAzFar = azMax;
-    s_baseAzNear = azMin;
+    s_baseAzMin = azMin;
+    s_baseAzSpan = (U16)azSpan;
 
     Log = savedLog;
     ClipXMin = savedXMin;
@@ -365,13 +435,13 @@ static S32 BaseLayerCompose(void) {
 static S32 DrawBaseLayerGL(void) {
     if (!BaseLayerCompose())
         return 0;
-    /* One quad, leaning from the far wall at its top to the floor at its
-       bottom.  A single image cannot open a seam, which is what a per-band
-       split did wherever a near wall met a far floor. */
-    GL_DrawIndexedLayer(0, s_baseLayer, s_baseLayerW, s_baseLayerH,
-                        s_baseLayerGen, DisplayTexFilter, s_baseLayerX0,
-                        s_baseLayerY0, s_baseLayerX1, s_baseLayerY1,
-                        s_baseAzFar, s_baseAzNear);
+    /* One quad carrying the colour and, next to it, the depth map the stereo
+       fragment stage warps by.  A single image cannot open a seam, which is
+       what a per-band split did wherever a near wall met a far floor. */
+    GL_DrawIndexedLayer(0, s_baseLayer, s_baseDepth, s_baseLayerW,
+                        s_baseLayerH, s_baseLayerGen, DisplayTexFilter,
+                        s_baseLayerX0, s_baseLayerY0, s_baseLayerX1,
+                        s_baseLayerY1, s_baseAzMin, s_baseAzSpan);
     return 1;
 }
 

@@ -76,6 +76,14 @@ extern "C" S32 DisplayStereo3D;
 extern "C" S32 GL_BatchFlushCount;
 S32 GL_BatchFlushCount = 0;
 
+/* Texture units the binding cache tracks, and the unit the indexed layer
+   takes for its depth map.  Units 0-2 are the atlas/CLUT/palette pair every
+   CLUT program samples, units 3-5 belong to the texture arrays the batch,
+   decor and terrain programs use, and the layer takes one of its own so its
+   2D depth texture never lands on a unit bound to another target. */
+#define GL_TEX_UNIT_CACHE 7
+#define GL_LAYER_DEPTH_UNIT 6
+
 /* ── Shader sources (GL 2.1 / GLES 2.0 compatible) ─────────────────────── */
 
 #if defined(__ANDROID__)
@@ -241,20 +249,19 @@ static const char *s_clutVertSrc =
    in the 8.8 fixed-point attribute pair, whose 16 bits cap a quad at 256
    texels — far below a scene-sized layer.  This variant takes normalized
    coordinates and scales them into the same 8.8 texel space in floating
-   point, so the shared fragment program is unchanged. */
+   point, so the shared fragment program is unchanged.
+
+   The quad itself never moves: both eyes cover the same screen rectangle and
+   the per-pixel depth warp happens in the fragment stage, where each pixel
+   can carry the offset its own depth earns. */
 static const char *s_layerVertSrc =
     GLSL_VERT_HEADER
     "attribute vec2 aPos;\n" /* screen pixels */
     "attribute vec2 aUV;\n"  /* normalized 0..1 */
     "attribute float aMaterial;\n"
-    "attribute float aZ;\n" /* scene depth of this corner */
     "uniform float uEye;\n"
     "uniform vec2 uScreenScale;\n"
     "uniform float uSinglePass;\n"
-    "uniform vec3 uEyeWorld;\n"
-    "uniform vec2 uEyeProj;\n"
-    "uniform vec2 uEyeFocal;\n"
-    "uniform float uEyeZScale;\n"
     "uniform vec2 uAtlasScale;\n"
     "varying vec2 vTexCoord;\n"
     "varying vec2 vTexCoordOverW;\n"
@@ -268,24 +275,11 @@ static const char *s_layerVertSrc =
     "void main() {\n"
     "    float cx = aPos.x * uScreenScale.x - 1.0;\n"
     "    float cy = 1.0 - aPos.y * uScreenScale.y;\n"
-    "    float eye = (uSinglePass > 0.5) ? uEye : 0.0;\n"
-    "    float parallax = (uSinglePass > 0.5 && aZ > 0.5) ? eye : 0.0;\n"
-    "    float az = aZ;\n"
     "    if (uSinglePass > 0.5) {\n"
-    /* Same parallax as the polygon vertex stage: a band at its scene depth
-       leans toward the eye by 1/z, so the background tracks the models. */
-    "        az = clamp(aZ + parallax * uEyeWorld.z * uEyeZScale,\n"
-    "                   0.0, 65535.0);\n"
-    "        float z0 = max(az, 1.0) / max(uEyeZScale, 0.000001);\n"
-    "        float sx =\n"
-    "            parallax * (-uEyeWorld.x * uEyeFocal.x / z0 + uEyeProj.x);\n"
-    "        float sy = parallax * (-uEyeWorld.y * uEyeFocal.x * uEyeFocal.y /\n"
-    "                               z0 + uEyeProj.y);\n"
-    "        cx = (aPos.x + sx) * uScreenScale.x - 1.0;\n"
-    "        cy = 1.0 - (aPos.y + sy) * uScreenScale.y;\n"
+    "        float eye = (uEye > 0.5) ? 1.0 : 0.0;\n"
     "        cx = (eye > 0.5) ? (cx * 0.5 + 0.5) : (cx * 0.5 - 0.5);\n"
     "    }\n"
-    "    gl_Position = vec4(cx, cy, 1.0 - az / 65535.0, 1.0);\n"
+    "    gl_Position = vec4(cx, cy, 1.0, 1.0);\n"
     "    vec2 tc = aUV * uAtlasScale * 256.0;\n"
     "    vTexCoord = tc;\n"
     "    vTexCoordOverW = tc;\n"
@@ -519,6 +513,18 @@ static const char *s_clutFragSrc =
     "uniform float uTerrainPersp;\n"
     "uniform float uTerrainFar;\n"
     "uniform float uNearClip;\n"
+    /* Indexed-layer per-pixel stereo warp (see GL_DrawIndexedLayer).  Only the
+       layer program declares these; LBA_LAYER_NO_WRAP, which GL_MakeLayerFragSrc
+       injects for that program alone, keeps them out of every other one. */
+    "#ifdef LBA_LAYER_NO_WRAP\n"
+    "uniform sampler2D uLayerDepth;\n" /* 8-bit depth, one per layer pixel */
+    "uniform float uLayerWarp;\n"      /* 0 = draw flat, 1 = warp per eye */
+    "uniform float uLayerAzMin;\n"     /* depth of byte 0, aZ units */
+    "uniform float uLayerAzSpan;\n"    /* depth of byte 255 minus byte 0 */
+    "uniform float uLayerAzShift;\n"   /* this eye's depth delta, aZ units */
+    "uniform vec2 uLayerShiftPx;\n"    /* this eye's fixed screen offset, px */
+    "uniform vec2 uLayerShiftPerAz;\n" /* this eye's 1/depth offset, px*aZ */
+    "#endif\n"
     "varying vec2 vTexCoord;\n"
     "varying vec2 vTexCoordOverW;\n"
     "varying float vInvW;\n"
@@ -871,6 +877,21 @@ static const char *s_clutFragSrc =
     "            vZsel = vZ * terrainInvW;\n"
     "        }\n"
     "    }\n"
+    /* Per-pixel stereo warp for the isometric brick layer.  The layer's own
+       depth map says how far the thing painted at this pixel is, so the pixel
+       takes the shift the polygon stage would give a point at that depth:
+       fixed screen offset plus a 1/depth term.  Sampling the depth at the
+       pixel's own (unshifted) texel is the point; sampling it at the shifted
+       one would feed the offset back into itself. */
+    "#ifdef LBA_LAYER_NO_WRAP\n"
+    "    if (uLayerWarp > 0.5) {\n"
+    "        vec2 texel = tc / 256.0;\n"
+    "        float dn = texture2D(uLayerDepth, texel / uAtlasScale).r;\n"
+    "        float az =\n"
+    "            max(uLayerAzMin + dn * uLayerAzSpan + uLayerAzShift, 1.0);\n"
+    "        tc = (texel - (uLayerShiftPx + uLayerShiftPerAz / az)) * 256.0;\n"
+    "    }\n"
+    "#endif\n"
     "    if (mMode == 0) {\n"
     /* Textured: atlas → CLUT → palette */
     "        tc = tc / 256.0;\n"
@@ -1775,18 +1796,21 @@ static GLuint s_layerProgram = 0;
 static GLint s_layer_aPos = -1;
 static GLint s_layer_aUV = -1;
 static GLint s_layer_aMaterial = -1;
-static GLint s_layer_aZ = -1;
 static GLint s_layer_uScreenScale = -1;
 static GLint s_layer_uAtlasScale = -1;
 static GLint s_layer_uBilinear = -1;
 static GLint s_layer_uSinglePass = -1;
 static GLint s_layer_uEye = -1;
-static GLint s_layer_uEyeWorld = -1;
-static GLint s_layer_uEyeProj = -1;
-static GLint s_layer_uEyeFocal = -1;
-static GLint s_layer_uEyeZScale = -1;
+static GLint s_layer_uDepth = -1;
+static GLint s_layer_uWarp = -1;
+static GLint s_layer_uAzMin = -1;
+static GLint s_layer_uAzSpan = -1;
+static GLint s_layer_uAzShift = -1;
+static GLint s_layer_uShiftPx = -1;
+static GLint s_layer_uShiftPerAz = -1;
 typedef struct {
     GLuint tex;
+    GLuint depthTex;
     S32 w;
     S32 h;
     U32 gen;
@@ -1974,7 +1998,10 @@ static U8 s_batchTextured = 0;    /* batch samples the atlas page */
    has so repeat flushes skip re-binding and re-specifying.  Anything that
    touches textures/programs/attribs outside the flush path (present quads,
    sprite/shadow/shade draws) invalidates through the sentinels below. */
-static GLuint s_curBoundTex[3] = {(GLuint)-1, (GLuint)-1, (GLuint)-1};
+static GLuint s_curBoundTex[GL_TEX_UNIT_CACHE] = {(GLuint)-1, (GLuint)-1,
+                                                  (GLuint)-1, (GLuint)-1,
+                                                  (GLuint)-1, (GLuint)-1,
+                                                  (GLuint)-1};
 static S32 s_curActiveUnit = -1;
 static GLuint s_curProgram = (GLuint)-1;
 static S32 s_clutAttribsDirty = 1;      /* vertex arrays need enable + re-spec */
@@ -2037,9 +2064,8 @@ static void GL_SetBlendFunc(S32 on, GLenum src, GLenum dst) {
 static GLuint s_boundDrawFbo = 0;
 
 static void GL_InvalidateGLState(void) {
-    s_curBoundTex[0] = (GLuint)-1;
-    s_curBoundTex[1] = (GLuint)-1;
-    s_curBoundTex[2] = (GLuint)-1;
+    for (S32 u = 0; u < GL_TEX_UNIT_CACHE; u++)
+        s_curBoundTex[u] = (GLuint)-1;
     s_curActiveUnit = -1;
     s_curProgram = (GLuint)-1;
     s_clutAttribsDirty = 1;
@@ -3761,7 +3787,6 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             glBindAttribLocation(lv, 0, "aPos");
             glBindAttribLocation(lv, 1, "aUV");
             glBindAttribLocation(lv, 2, "aMaterial");
-            glBindAttribLocation(lv, 3, "aZ");
             s_layerProgram = LinkProgram(lv, lf);
         }
         free(layerFrag);
@@ -3775,7 +3800,6 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             s_layer_aUV = glGetAttribLocation(s_layerProgram, "aUV");
             s_layer_aMaterial =
                 glGetAttribLocation(s_layerProgram, "aMaterial");
-            s_layer_aZ = glGetAttribLocation(s_layerProgram, "aZ");
             s_layer_uScreenScale =
                 glGetUniformLocation(s_layerProgram, "uScreenScale");
             s_layer_uAtlasScale =
@@ -3785,30 +3809,37 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             s_layer_uSinglePass =
                 glGetUniformLocation(s_layerProgram, "uSinglePass");
             s_layer_uEye = glGetUniformLocation(s_layerProgram, "uEye");
-            s_layer_uEyeWorld =
-                glGetUniformLocation(s_layerProgram, "uEyeWorld");
-            s_layer_uEyeProj =
-                glGetUniformLocation(s_layerProgram, "uEyeProj");
-            s_layer_uEyeFocal =
-                glGetUniformLocation(s_layerProgram, "uEyeFocal");
-            s_layer_uEyeZScale =
-                glGetUniformLocation(s_layerProgram, "uEyeZScale");
+            s_layer_uDepth =
+                glGetUniformLocation(s_layerProgram, "uLayerDepth");
+            s_layer_uWarp = glGetUniformLocation(s_layerProgram, "uLayerWarp");
+            s_layer_uAzMin =
+                glGetUniformLocation(s_layerProgram, "uLayerAzMin");
+            s_layer_uAzSpan =
+                glGetUniformLocation(s_layerProgram, "uLayerAzSpan");
+            s_layer_uAzShift =
+                glGetUniformLocation(s_layerProgram, "uLayerAzShift");
+            s_layer_uShiftPx =
+                glGetUniformLocation(s_layerProgram, "uLayerShiftPx");
+            s_layer_uShiftPerAz =
+                glGetUniformLocation(s_layerProgram, "uLayerShiftPerAz");
             GL_UseProgramCached(s_layerProgram);
             glUniform1i(glGetUniformLocation(s_layerProgram, "uAtlas"), 0);
             glUniform1i(glGetUniformLocation(s_layerProgram, "uCLUT"), 1);
             glUniform1i(glGetUniformLocation(s_layerProgram, "uPalette"), 2);
+            /* The depth map rides on its own unit: 0-2 are the atlas/CLUT/
+               palette set and 3-5 hold the texture arrays the batch, decor and
+               terrain programs sample, so a 2D texture on any of those would
+               fight the program that owns the unit. */
+            glUniform1i(s_layer_uDepth, GL_LAYER_DEPTH_UNIT);
             glUniform1f(
                 glGetUniformLocation(s_layerProgram, "uSinglePass"), 0.0f);
             glUniform1f(glGetUniformLocation(s_layerProgram, "uEye"), 0.0f);
-            glUniform3f(
-                glGetUniformLocation(s_layerProgram, "uEyeWorld"), 0.0f, 0.0f,
-                0.0f);
-            glUniform2f(
-                glGetUniformLocation(s_layerProgram, "uEyeProj"), 0.0f, 0.0f);
-            glUniform2f(
-                glGetUniformLocation(s_layerProgram, "uEyeFocal"), 1.0f, 1.0f);
-            glUniform1f(
-                glGetUniformLocation(s_layerProgram, "uEyeZScale"), 1.0f);
+            glUniform1f(s_layer_uWarp, 0.0f);
+            glUniform1f(s_layer_uAzMin, 0.0f);
+            glUniform1f(s_layer_uAzSpan, 1.0f);
+            glUniform1f(s_layer_uAzShift, 0.0f);
+            glUniform2f(s_layer_uShiftPx, 0.0f, 0.0f);
+            glUniform2f(s_layer_uShiftPerAz, 0.0f, 0.0f);
             glUniform1f(
                 glGetUniformLocation(s_layerProgram, "uCLUTBaseRow"), 0.0f);
             glUniform1f(
@@ -8199,9 +8230,30 @@ static char *GL_MakeLayerFragSrc(void) {
     return out;
 }
 
-void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
-                         U32 generation, S32 filter, S32 x0, S32 y0, S32 x1,
-                         S32 y1, U16 azTop, U16 azBottom) {
+/* Push the per-eye half of the layer warp: the screen shift a point at depth
+   `az` gets in the eye being drawn, in the terms the polygon vertex stage uses
+   — a fixed projection offset plus a 1/depth term scaled by the focal lengths.
+   Eye 0 renders with the reference camera, so both deltas are zero for it; a
+   draw without a depth map stays flat in every eye. */
+static void GL_SetLayerWarpUniforms(S32 eye, S32 hasDepth) {
+    const GLfloat warp = (hasDepth && s_singlePassStereo) ? 1.0f : 0.0f;
+    glUniform1f(s_layer_uWarp, warp);
+    if (warp < 0.5f || eye == 0) {
+        glUniform1f(s_layer_uAzShift, 0.0f);
+        glUniform2f(s_layer_uShiftPx, 0.0f, 0.0f);
+        glUniform2f(s_layer_uShiftPerAz, 0.0f, 0.0f);
+        return;
+    }
+    const GLfloat zScale = (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0);
+    glUniform1f(s_layer_uAzShift, s_eye1World[2] * zScale);
+    glUniform2f(s_layer_uShiftPx, s_eye1Proj[0], s_eye1Proj[1]);
+    glUniform2f(s_layer_uShiftPerAz, -s_eye1World[0] * FRatioX * zScale,
+                -s_eye1World[1] * FRatioX * FRatioY * zScale);
+}
+
+void GL_DrawIndexedLayer(S32 slot, const void *pixels, const void *depth,
+                         S32 w, S32 h, U32 generation, S32 filter, S32 x0,
+                         S32 y0, S32 x1, S32 y1, U16 azMin, U16 azSpan) {
     if (!s_initialized || pixels == NULL || w <= 0 || h <= 0 ||
         s_layerProgram == 0 || x1 <= x0 || y1 <= y0 || slot < 0 ||
         slot >= GL_LAYER_SLOTS) {
@@ -8224,14 +8276,25 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
     }
 
     T_LAYER_SLOT *ls = &s_layerSlots[slot];
-    if (ls->tex == 0) {
-        glGenTextures(1, &ls->tex);
-        glBindTexture(GL_TEXTURE_2D, ls->tex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    if (ls->tex == 0 || ls->depthTex == 0) {
+        if (ls->tex == 0) {
+            glGenTextures(1, &ls->tex);
+        }
+        if (ls->depthTex == 0) {
+            glGenTextures(1, &ls->depthTex);
+        }
+        GLuint tex2D[2] = {ls->tex, ls->depthTex};
+        for (S32 t = 0; t < 2; t++) {
+            glBindTexture(GL_TEXTURE_2D, tex2D[t]);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        }
         glBindTexture(GL_TEXTURE_2D, 0);
+        /* These binds land on whatever unit was active, behind the binding
+           cache's back. */
+        GL_InvalidateGLState();
         ls->w = 0;
         ls->h = 0;
         ls->hasGen = 0;
@@ -8240,22 +8303,38 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
     const S32 needUpload = !ls->hasGen || generation != ls->gen ||
                            w != ls->w || h != ls->h;
     if (needUpload) {
+        const S32 resized = (w != ls->w || h != ls->h);
         GLint unpackAlign = 4;
         glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpackAlign);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         glBindTexture(GL_TEXTURE_2D, ls->tex);
-        if (w != ls->w || h != ls->h) {
+        if (resized) {
             glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE,
                          GL_UNSIGNED_BYTE, pixels);
-            ls->w = w;
-            ls->h = h;
         } else {
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_LUMINANCE,
                             GL_UNSIGNED_BYTE, pixels);
         }
+        if (depth != NULL) {
+            /* One byte per pixel, same dimensions, sampled at the same texel
+               centres: the map is the composite's own geometry. */
+            glBindTexture(GL_TEXTURE_2D, ls->depthTex);
+            if (resized) {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0,
+                             GL_LUMINANCE, GL_UNSIGNED_BYTE, depth);
+            } else {
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_LUMINANCE,
+                                GL_UNSIGNED_BYTE, depth);
+            }
+        }
         glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlign);
+        ls->w = w;
+        ls->h = h;
         ls->gen = generation;
         ls->hasGen = 1;
+        /* Two textures were just bound on the active unit, so the binding
+           cache no longer describes the context. */
+        GL_InvalidateGLState();
     }
 
     GL_UseProgramCached(s_layerProgram);
@@ -8265,24 +8344,17 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
     glUniform2f(s_layer_uScreenScale, ssx, ssy);
     glUniform2f(s_layer_uAtlasScale, (GLfloat)w, (GLfloat)h);
     glUniform1i(s_layer_uBilinear, filter);
-
-    /* Eye state belongs to each program: the batch path pushes it in
-       GL_SetClutEyeUniforms, so the layer needs its own copy or the band
-       depths resolve to a zero eye offset. */
-    glUniform3f(s_layer_uEyeWorld, s_eye1World[0], s_eye1World[1],
-                s_eye1World[2]);
-    glUniform2f(s_layer_uEyeProj, s_eye1Proj[0], s_eye1Proj[1]);
-    glUniform2f(s_layer_uEyeFocal, FRatioX, FRatioY);
-    glUniform1f(s_layer_uEyeZScale,
-                (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0));
+    glUniform1f(s_layer_uAzMin, (GLfloat)azMin);
+    glUniform1f(s_layer_uAzSpan, (GLfloat)(azSpan > 1 ? azSpan - 1 : 0));
 
     GL_BindTexUnit(0, ls->tex);
     GL_BindTexUnit(1, s_clutTex);
     GL_BindTexUnit(2, s_paletteTex);
+    GL_BindTexUnit(GL_LAYER_DEPTH_UNIT, ls->depthTex);
 
-    /* Painter order still places the bands (they are drawn far to near, and
-       the composed art already carries its own occlusion), so the background
-       keeps out of the depth buffer exactly like the single-layer path. */
+    /* The composed art already carries its own occlusion, so the background
+       keeps out of the depth buffer and is placed by the painter order the
+       layer was built in. */
     GL_SetDepthTest(0);
     GL_SetDepthWrite(0);
     GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -8291,7 +8363,7 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
     /* One quad covering the whole layer.  Material: polyMode 4 (the texel is
        the palette index) with the chroma-key bit, so untouched texels stay
        transparent over the cleared scene instead of painting palette[0]. */
-    static GLfloat layerVerts[6 * 6];
+    static GLfloat layerVerts[6 * 5];
     static const S8 order[6] = {0, 1, 2, 0, 2, 3};
     const GLfloat u0 = (GLfloat)x0 / (GLfloat)w;
     const GLfloat v0 = (GLfloat)y0 / (GLfloat)h;
@@ -8302,17 +8374,14 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
     const GLfloat pu[4] = {u0, u1, u1, u0};
     const GLfloat pv[4] = {v0, v0, v1, v1};
     const GLfloat layerMat = (GLfloat)(4 | (1 << 5));
-    const GLfloat azTopF = (GLfloat)azTop;
-    const GLfloat azBottomF = (GLfloat)azBottom;
     for (S32 i = 0; i < 6; i++) {
-        GLfloat *v = layerVerts + i * 6;
-        S32 c = order[i];
+        GLfloat *v = layerVerts + i * 5;
+        const S32 c = order[i];
         v[0] = px[c];
         v[1] = py[c];
         v[2] = pu[c];
         v[3] = pv[c];
         v[4] = layerMat;
-        v[5] = (py[c] <= (GLfloat)y0) ? azTopF : azBottomF;
     }
 
     GL_BindArrayBuffer(s_batchVBO);
@@ -8320,30 +8389,29 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
                  GL_STREAM_DRAW);
     glEnableVertexAttribArray(s_layer_aPos);
     glVertexAttribPointer(s_layer_aPos, 2, GL_FLOAT, GL_FALSE,
-                          (GLsizei)(6 * sizeof(GLfloat)), (const void *)0);
+                          (GLsizei)(5 * sizeof(GLfloat)), (const void *)0);
     glEnableVertexAttribArray(s_layer_aUV);
     glVertexAttribPointer(s_layer_aUV, 2, GL_FLOAT, GL_FALSE,
-                          (GLsizei)(6 * sizeof(GLfloat)),
+                          (GLsizei)(5 * sizeof(GLfloat)),
                           (const void *)(2 * sizeof(GLfloat)));
     glEnableVertexAttribArray(s_layer_aMaterial);
     glVertexAttribPointer(s_layer_aMaterial, 1, GL_FLOAT, GL_FALSE,
-                          (GLsizei)(6 * sizeof(GLfloat)),
+                          (GLsizei)(5 * sizeof(GLfloat)),
                           (const void *)(4 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(s_layer_aZ);
-    glVertexAttribPointer(s_layer_aZ, 1, GL_FLOAT, GL_FALSE,
-                          (GLsizei)(6 * sizeof(GLfloat)),
-                          (const void *)(5 * sizeof(GLfloat)));
 
-    /* Single-pass stereo draws both eyes from one instance: the layer's own
-       vertex stage needs the same switch the batch programs get from
-       GL_DrawStereoClut, or each eye shows the unremapped full-width image. */
+    /* Single-pass stereo draws both eyes from one instance: the layer needs
+       the same switch the batch programs get from GL_DrawStereoClut, or each
+       eye shows the unremapped full-width image.  The warp uniforms are per
+       eye, so they change between the two draws. */
     if (s_singlePassStereo) {
         if (s_stereoEye == 0) {
             glUniform1f(s_layer_uSinglePass, 1.0f);
             glUniform1f(s_layer_uEye, 0.0f);
+            GL_SetLayerWarpUniforms(0, depth != NULL);
             GL_BeginSinglePassEyeDraw(0);
             glDrawArrays(GL_TRIANGLES, 0, 6);
             glUniform1f(s_layer_uEye, 1.0f);
+            GL_SetLayerWarpUniforms(1, depth != NULL);
             GL_BeginSinglePassEyeDraw(1);
             glDrawArrays(GL_TRIANGLES, 0, 6);
             GL_EndSinglePassEyeDraw();
@@ -8352,6 +8420,7 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
     } else {
         glUniform1f(s_layer_uSinglePass, 0.0f);
         glUniform1f(s_layer_uEye, 0.0f);
+        glUniform1f(s_layer_uWarp, 0.0f);
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }
     s_profTris += 2;
