@@ -27,14 +27,14 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | [Android](../cmake/input/android.cmake) | Common defaults + [Android touch buttons](../cmake/input/android-touch.cmake); keyboard and connected controllers remain usable |
 | [Vita](../cmake/input/vita.cmake) | Common defaults + limited-controller overrides, 40% stick deadzone, Circle's modal Return remap and direct/front-tap recenter; indirect/rear touch is unbound |
 
-Android builds select their profile automatically; the Vita preset selects its file explicitly. Another build can select either, or a new device profile, with `-DLBA2_INPUT_PROFILE=/absolute/path/to/device.cmake`. CMake tracks included components and regenerates the header when they change.
+Android builds select their profile automatically; the Vita preset selects its file explicitly. Another build can select either, or a new device profile, with `-DLBA2_INPUT_PROFILE=/absolute/path/to/device.cmake`. CMake tracks included components and the shared [action definitions](../SOURCES/INPUT_ACTIONS.H), regenerating the header when they change. That dependency-free header owns all 36 stable binding indexes; the generator reads only literal `#define INPUT_SLOT_<NAME> <integer>` declarations, without running a compiler. Existing `INPUT.H` masks derive from the same constants: `UP` through `WEAPON_7` use `Input`, while `PINGOUIN`, `JETPACK`, `PROTECTION` and `FOUDRE` use bits 0–3 of `Input2`.
 
 | Profile field | Meaning |
 |---|---|
-| `INPUT_KEYBOARD_<slot>` / `INPUT_GAMEPAD_<slot>` | Two engine key IDs per slot: primary and alternate; `0` means unbound. Slots follow [INPUT_BINDINGS.H](../SOURCES/INPUT_BINDINGS.H) |
+| `INPUT_KEYBOARD_<action>` / `INPUT_GAMEPAD_<action>` | Two engine key IDs per named action: primary and alternate; `0` means unbound. Use names from [INPUT_ACTIONS.H](../SOURCES/INPUT_ACTIONS.H), including spells; for example, `INPUT_GAMEPAD_ESQUIVE` |
 | `INPUT_DEADZONE` | Default for the existing runtime `GamepadDeadzone` setting, from 0 to 32767 |
-| `INPUT_MODAL_REMAPS` | Up to 32 `"K_<key>,gameplay_slot,modal_slot"` rows. A row applies only when that physical key remains bound to its source slot. Recordings carry the active rules and release latches independently of the receiving build's profile |
-| `INPUT_DIRECT_TOUCH_SLOT` / `INPUT_INDIRECT_TOUCH_SLOT` | Gameplay tap action slot, 0–31, or `-1` to leave that source unbound. Vita's panels are direct/front and indirect/rear; these are event-source classes, not universal screen names |
+| `INPUT_MODAL_REMAPS` | Up to 32 `"K_<key>,gameplay_action,modal_action"` rows, for example `"K_GAMEPAD_B,ESQUIVE,RETURN"`. Both actions must belong to `Input`, not `Input2`. A row applies only when that physical key remains bound to its source slot. Recordings carry the active rules and release latches independently of the receiving build's profile |
+| `INPUT_DIRECT_TOUCH_ACTION` / `INPUT_INDIRECT_TOUCH_ACTION` | Named gameplay tap action belonging to `Input`, or `NONE` to leave that source unbound. Vita's panels are direct/front and indirect/rear; these are event-source classes, not universal screen names |
 | `input_touch_button(KEY <key> <label> <cx> <cy> <rx> <ry>)` | Append an overlay button with an engine key ID, ASCII alphanumeric/space label, centre and positive half-extents in normalised 0.0–1.0 coordinates |
 | `input_touch_button(HIDE 0 <label> <cx> <cy> <rx> <ry>)` | Append the overlay-dismiss button |
 | `INPUT_OVERLAY_TOUCH_SOURCE` | `direct`, `indirect` or `both`; selects which touch sources operate the overlay. A source cannot also be assigned a gameplay tap action |
@@ -44,8 +44,10 @@ For example, a device can combine the existing touch layout on its direct screen
 ```cmake
 include("${CMAKE_SOURCE_DIR}/cmake/input/android-touch.cmake")
 set(INPUT_OVERLAY_TOUCH_SOURCE direct)
-set(INPUT_INDIRECT_TOUCH_SLOT 9)
+set(INPUT_INDIRECT_TOUCH_ACTION RETURN)
 ```
+
+Action names retain the original identifiers (`ESQUIVE`, not `DODGE`). Unknown names and numeric profile action syntax are rejected. `NONE` is valid only for disabling touch actions, never for a binding or modal remap. This naming affects build-time data only: configuration files and recording metadata retain their numeric slot formats.
 
 Touch button count, geometry, labels and keys come from data. Overlay buttons inject their specified keys, preserving Android's existing behavior: runtime keyboard rebinding does not retarget those buttons. Tap actions instead resolve the current binding for their action slot and pulse only during gameplay polling. Taps survive presentation event pumps; modal/console entry and focus loss discard pending actions.
 

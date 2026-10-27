@@ -24,7 +24,7 @@ U32 TabInputBit[MAX_INPUT_SLOTS * 2 + 1];
 // edge-filter, so held pad buttons edge-detect like keyboard keys and survive a
 // mid-frame GetInput() rebuild. Only the first 32 slots map to Input bits; four
 // keys per slot (keyboard Key1/Key2 + gamepad Key1/Key2) => 32 * 4 entries.
-#define INPUT_TABLE_SLOTS 32
+#define INPUT_TABLE_SLOTS INPUT_SLOT_PINGOUIN
 static U32 CombinedInputKeys[INPUT_TABLE_SLOTS * 4];
 static U32 CombinedInputMasks[INPUT_TABLE_SLOTS * 4];
 

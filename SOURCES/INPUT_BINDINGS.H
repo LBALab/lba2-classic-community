@@ -15,6 +15,7 @@
  */
 
 #include <SYSTEM/ADELINE_TYPES.H>
+#include "INPUT_ACTIONS.H"
 
 // The number of bindable actions. The first 32 are the Input word (INPUT.H's
 // I_* bits, one per slot); the last four are the spell bits of a second word,
@@ -28,7 +29,7 @@
 // at one size and define them at another, which the compiler reports as a
 // redefinition with a different type. A name this module owns cannot be
 // clobbered by include order, and that, rather than the number, is the point.
-#define MAX_INPUT_SLOTS 36
+#define MAX_INPUT_SLOTS (INPUT_SLOT_FOUDRE + 1)
 
 typedef struct {
     U32 Key1;

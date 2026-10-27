@@ -137,8 +137,8 @@ S32 RecFmt_ReadBindingContext(const char *hdr, T_BINDING_CONTEXT *out) {
         if (value & BINDINGS_CONTEXT_MODAL_CIRCLE) {
             context.count = 1;
             context.remaps[0].key = K_GAMEPAD_B;
-            context.remaps[0].gameplaySlot = 13;
-            context.remaps[0].modalSlot = 9;
+            context.remaps[0].gameplaySlot = INPUT_SLOT_ESQUIVE;
+            context.remaps[0].modalSlot = INPUT_SLOT_RETURN;
             context.remaps[0].suppressed = (value & BINDINGS_CONTEXT_CIRCLE_SUPPRESSED) != 0;
         }
     }
