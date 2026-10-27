@@ -3525,7 +3525,12 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                 glUniform1i(s_terrain_uResolved, 5);
             }
             glUniform1i(s_terrain_uResolvedValid, 0);
-            glUniform1f(s_terrain_uAtlasScale, 256.0f);
+            /* uAtlasScale is a vec2 in the shared fragment program: the
+               edge-directed filters and the direct-index path divide the v
+               coordinate by its y component.  A scalar upload leaves y = 0,
+               so every one of those taps resolves to the same clamped texel
+               row and the terrain loses all texture detail. */
+            glUniform2f(s_terrain_uAtlasScale, 256.0f, 256.0f);
             glUniform1i(s_terrain_uBilinear, 0);
             glUniform1f(s_terrain_uTerrainFarClip, 0.0f);
             glUniform1f(s_terrain_uTerrainPersp, 0.0f);
