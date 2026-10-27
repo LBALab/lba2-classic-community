@@ -1,6 +1,7 @@
 #include <GL/RENDER_GL.H>
 
 #include <3D/CAMERA.H>
+#include <3D/PROJ.H>
 #include <3D/DATAMAT.H>
 #include <3D/LIGHT.H>
 #include <SYSTEM/LOG.H>
@@ -66,6 +67,7 @@ S32 GL_LastRejectReason = 0;
 
 /* ── External texture filter toggle (from GLOBAL.CPP) ────────────────────── */
 extern "C" S32 DisplayTexFilter;
+extern "C" S32 Obj_GLWorld;
 extern "C" S32 DisplayPerspectiveTextures;
 extern "C" S32 DisplayAntiAlias;
 extern "C" S32 DisplayStereo3D;
@@ -2052,6 +2054,9 @@ static GLfloat s_batchScaledFogNear = 0.0f;   /* Fill_ScaledFogNear captured at 
 static GLfloat s_batchFogRowScale = 0.0f;     /* Fill_Fog_Factor / 65536 captured at batch start */
 static const void *s_batchCLUTGouraud = NULL; /* PtrCLUTGouraud at batch start */
 static U8 s_batchZBuffer = 0;                 /* Fill_Flag_ZBuffer captured at batch start */
+static S32 s_glWorld = 0;                     /* GL renders the whole scene world */
+static S32 s_batchWorld = 0;                  /* s_glWorld captured at batch start */
+static S32 s_deferWorld = 0;                  /* s_batchWorld in the NZW defer pool */
 static U8 s_batchNZW = 0;                     /* Fill_Flag_NZW captured at batch start */
 
 /* Exchange the active batch with the NZW defer pool (verts + flush state). */
@@ -2081,6 +2086,9 @@ static void GL_SwapBatchWithDefer(void) {
     U8 zb = s_batchZBuffer;
     s_batchZBuffer = s_deferZBuffer;
     s_deferZBuffer = zb;
+    S32 gw = s_batchWorld;
+    s_batchWorld = s_deferWorld;
+    s_deferWorld = gw;
     U8 nw = s_batchNZW;
     s_batchNZW = s_deferNZW;
     s_deferNZW = nw;
@@ -3910,6 +3918,8 @@ void GL_Renderer_Shutdown(void) {
     s_batchCLUTBaseRow = 0.0f;
     s_batchCLUTGouraud = NULL;
     s_batchZBuffer = 0;
+    s_batchWorld = 0;
+    s_deferWorld = 0;
     s_batchNZW = 0;
     s_frameActive = 0;
     s_fboHasTerrain = 0;
@@ -5070,17 +5080,21 @@ static void FlushActiveBatch(void) {
        equivalent is a depth test during rendering: the depth buffer still
        holds terrain Z values from the prior AffGrilleExt() pass.
 
-       GetZO3/GetZO4 always compute Pt_ZO (regardless of
-       Fill_Flag_ZBuffer), so all body polygons have valid Z values for
-       depth comparison.  This includes FLAT/SOLID types 0–7 which are
-       common in NPC body models and decoration objects.
+       GetZO3/GetZO4 compute Pt_ZO for perspective bodies and, while the
+       GL world flag is active, for isometric interior bodies as well.  That
+       gives all body polygons valid Z values for depth comparison.  This
+       includes FLAT/SOLID types 0–7 which are common in NPC body models and
+       decoration objects.
 
        Depth-write is gated separately:
        - Types 16–24 always write (they are inherently Z-buffered).
-       - Types 0–15 write only when Fill_Flag_ZBuffer was TRUE at batch
-         start (terrain overlays/base rendered under FILL_POLY_FOG_ZBUFFER).
-       - Types 0–15 without Z-buffered fillers (NPC path) Z-test only —
-         matches SW ZBufBoxOverWrite2 which reads terrain Z but never
+       - Types 0–15 write when Fill_Flag_ZBuffer was TRUE at batch start
+         (terrain overlays/base rendered under FILL_POLY_FOG_ZBUFFER), or
+         when the batch was collected while the GL world flag was active.
+         The latter keeps interior bodies in the FBO depth buffer so their
+         lines, spheres and sprite overlays can be occluded by the body.
+       - Types 0–15 without Z-buffered fillers in the software path Z-test
+         only — matches SW ZBufBoxOverWrite2 which reads terrain Z but never
          writes object Z into the buffer.
         - Fill_Flag_NZW suppresses write for animated polys and transparent
           objects that should read but not write depth.
@@ -5097,7 +5111,8 @@ static void FlushActiveBatch(void) {
             (s_batchNZW && s_currentTypePoly == POLY_TEXTURE_Z_FOG) ? GL_ALWAYS
                                                                     : GL_GEQUAL);
 
-        if (s_batchZBuffer || s_currentTypePoly >= POLY_TEXTURE_Z) {
+        if (s_batchZBuffer || s_currentTypePoly >= POLY_TEXTURE_Z ||
+            s_batchWorld) {
             /* Z-buffered path: write depth unless blending.  NZW opaque
                batches (bodies) ALSO write: the FBO depth then contains
                model geometry, which the Log-layer sprite occlusion
@@ -5963,20 +5978,20 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
 /* ── Body sphere disc (GL Fill_Sphere replacement) ───────────────────────── */
 
 /* Whether sphere discs belong in the FBO: mirrors GL_RenderTriangleList's
-   body-poly acceptance.  When the surrounding body polys fall back to the
-   SW rasterizer (non-Z-buffered fills, e.g. interior cubes) their pixels
-   land in the Log overlay, which composites OVER the FBO — a sphere sent
-   to the FBO there would be painted over by the body that surrounds it
-   (hair, eyes, buttons vanish).  Spheres must take the same route as the
-   polys they decorate. */
+   body-poly acceptance.  The software path still sends non-Z-buffered body
+   polys to Log; an FBO sphere there would be painted over by its own body
+   (hair, eyes, buttons vanish).  The isometric GL world is different: the
+   body polys themselves are FBO geometry, so spheres must follow them and
+   use the isometric depth computed by GetZO3/GetZO4. */
 S32 GL_SphereTargetsFBO(void) {
     if (!s_initialized) {
         return 0;
     }
-    if (!Fill_Flag_ZBuffer) {
+    const S32 isoWorld = s_glWorld && TypeProj != TYPE_3D;
+    if (!Fill_Flag_ZBuffer && !isoWorld) {
         return 0;
     }
-    if (Fill_Flag_NZW && !s_fboHasTerrain) {
+    if (Fill_Flag_NZW && !s_fboHasTerrain && !isoWorld) {
         return 0;
     }
     return 1;
@@ -6005,7 +6020,6 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
     if (!Window_GLMakeCurrent()) {
         return;
     }
-
     /* Pending batch first: it carries its own state. */
     GL_FlushBatch();
 
@@ -7682,11 +7696,11 @@ void GL_ReadbackDepthBuffer(void) {
 /* World flag: when set, polygon paths that normally require a terrain depth
    buffer are allowed into the FBO as well.  Interiors establish their scene
    with the brick layer; the object pass supplies its own depth. */
-static S32 s_glWorld = 0;
 static S32 s_spriteNoDepth = 0;
 
 void GL_SetWorldGL(S32 active) {
     s_glWorld = active ? 1 : 0;
+    Obj_GLWorld = s_glWorld;
 }
 
 void GL_SetSpriteNoDepth(S32 active) {
@@ -7842,7 +7856,7 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
                        (U16)(u0 << 8)};
     const U16 pv[4] = {(U16)(v0 << 8), (U16)(v0 << 8), (U16)(v1 << 8),
                        (U16)(v1 << 8)};
-    const U16 spriteRepMask = (U16)(((U16)(h - 1) << 8) | (U16)(w - 1));
+    const U16 spriteRepMask = 0xFFFF;
     glUniform1i(s_clut_uBilinear, DisplayTexFilter);
     for (S32 i = 0; i < 6; i++) {
         U8 *v = quadVerts + i * BATCH_VERT_BYTES;
@@ -9373,6 +9387,7 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
     }
     s_batchCLUTGouraud = (const void *)PtrCLUTGouraud;
     s_batchZBuffer = Fill_Flag_ZBuffer;
+    s_batchWorld = s_glWorld;
     s_batchNZW = Fill_Flag_NZW;
 
     /* Capture CLUT base row from current PtrCLUTGouraud.

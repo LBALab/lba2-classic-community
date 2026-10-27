@@ -2081,6 +2081,11 @@ void SpeakAnimation() {
             memset(Log, 0, bytes);
             memset(Screen, 0, bytes);
         } else {
+            /* GL interior forces a full flip per frame, which copies the
+               background over the typewriter strip.  Snapshot the strip
+               before the scene pass so AffScene can restore it after the
+               copy. */
+            Dial_OverlayCapture();
             AffSceneVrScale(AFF_OBJETS_NO_FLIP);
 
             if (Bulle)

@@ -8,6 +8,11 @@
 extern "C" {
 #endif
 
+/* Set while the GL renderer owns the world pass.  Interior (isometric)
+   bodies then need a view depth for FBO occlusion; the software path keeps
+   its painter-order primitive behavior. */
+extern S32 Obj_GLWorld;
+
 // -----------------------------------------------------------------------------
 #pragma pack(push, 1)
 typedef struct {

@@ -150,12 +150,10 @@ void Fill_Sphere(S32 Type_Sphere, S32 Color_Sphere, S32 Centre_X, S32 Centre_Y, 
 
 #ifdef USE_GPURENDERER
     /* GL path: the disc draws into the FBO with the same depth-test
-       semantics as the SW Log fillers — but only when the surrounding body
-       polys render into the FBO too.  When they fall back to the SW
-       rasterizer (non-Z-buffered fills, e.g. interior cubes) the sphere
-       must stay in the Log with them: the Log composites over the FBO, so
-       an FBO sphere there is painted over by its own body (hair, eyes and
-       buttons vanish). */
+       semantics as the SW Log fillers, but only when the surrounding body
+       polys render into the FBO too.  The software path still uses Log for
+       non-Z-buffered bodies; the isometric GL world puts those bodies in
+       the FBO and supplies isometric depth, so spheres follow them there. */
     if (GPURendererActive && GL_SphereTargetsFBO()) {
         Color_Sphere &= 0xFF;
         if (Fill_Flag_Fog) {

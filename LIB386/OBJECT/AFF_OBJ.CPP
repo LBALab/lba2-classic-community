@@ -186,6 +186,7 @@ Struc_Point ListFillPoly[4];
 S32 PosXWr = 0;
 S32 PosYWr = 0;
 S32 PosZWr = 0;
+S32 Obj_GLWorld = 0;
 
 // Temporary translation components
 S32 TransX = 0;
@@ -385,8 +386,31 @@ static void SetEnvMappedQuadUvs(Struc_Point *points, const STRUC_POLY4_ENV *poly
     Z0 = rotated.Z;
 }
 
+/* Isometric scenes draw bodies in painter order, but the GL world path puts
+   them in the scene FBO where sprite/line/sphere overlays need a real depth
+   to test against.  ProjectListIso replaces each rotated point's Z with the
+   painter sort key (x + z) / 2, so use that (plus the object's camera-relative
+   position) as the isometric view depth. */
+static U16 IsoDepth(const T_OBJ_POINT &p) {
+    S32 depth = ((PosXWr + PosZWr) >> 1) + (S32)p.Z;
+    S32 zo = 32768 - depth;
+    if (zo < 0) {
+        zo = 0;
+    } else if (zo > 65535) {
+        zo = 65535;
+    }
+    return (U16)zo;
+}
+
 void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3) {
     if (TypeProj != TYPE_3D) {
+        if (!Obj_GLWorld) {
+            return;
+        }
+        U16 indices[3] = {index1, index2, index3};
+        for (int i = 0; i < 3; i++) {
+            dst[i].Pt_ZO = IsoDepth(Obj_ListRotatedPoints[indices[i]]);
+        }
         return;
     }
 
@@ -406,6 +430,13 @@ void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3) {
 
 void GetZO4(Struc_Point *dst, U16 index1, U16 index2, U16 index3, U16 index4) {
     if (TypeProj != TYPE_3D) {
+        if (!Obj_GLWorld) {
+            return;
+        }
+        U16 indices[4] = {index1, index2, index3, index4};
+        for (int i = 0; i < 4; i++) {
+            dst[i].Pt_ZO = IsoDepth(Obj_ListRotatedPoints[indices[i]]);
+        }
         return;
     }
 
@@ -1189,7 +1220,10 @@ S32 Line(U32 typePoly, void *poly) {
     S32 z1 = 0;
     S32 z2 = 0;
 
-    if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D) {
+    if (TypeProj != TYPE_3D && Obj_GLWorld) {
+        z1 = IsoDepth(Obj_ListRotatedPoints[line->P1]);
+        z2 = IsoDepth(Obj_ListRotatedPoints[line->P2]);
+    } else if (Fill_Flag_ZBuffer) {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[line->P1];
         T_OBJ_POINT rotatedP2 = Obj_ListRotatedPoints[line->P2];
 
@@ -1262,7 +1296,9 @@ S32 Sphere(U32 typePoly, void *poly) {
 
     S32 z = 0;
 
-    if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D) {
+    if (TypeProj != TYPE_3D && Obj_GLWorld) {
+        z = IsoDepth(Obj_ListRotatedPoints[sphere->P1]);
+    } else if (Fill_Flag_ZBuffer) {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[sphere->P1];
         z = (Fill_ZBuffer_Factor * (-rotatedP1.Z - PosZWr)) >> 16;
     }
@@ -1321,7 +1357,9 @@ S32 Sphere_Transp(U32 typePoly, void *poly) {
     }
 
     S32 z = 0;
-    if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D) {
+    if (TypeProj != TYPE_3D && Obj_GLWorld) {
+        z = IsoDepth(Obj_ListRotatedPoints[sphere->P1]);
+    } else if (Fill_Flag_ZBuffer) {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[sphere->P1];
         z = (Fill_ZBuffer_Factor * (-rotatedP1.Z - PosZWr)) >> 16;
     }

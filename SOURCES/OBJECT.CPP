@@ -4881,6 +4881,24 @@ void AfficheShadow(T_SORT *pt, S32 beta) {
    depth-tested quad instead of into Log. */
 U16 SpriteGL_Zo = 0;
 
+/* Isometric world sprites sit at their object position; the perspective
+   CameraZr-Z0 depth has no meaning in the isometric projection.  Match the
+   body polygon depth from IsoDepth (AFF_OBJ.CPP) so a sprite body or extra
+   depth-tests against the interior FBO instead of x-raying through it. */
+static U16 SpriteGLDepth(S32 x, S32 z) {
+    if (CubeMode == CUBE_INTERIEUR) {
+        S32 depth = ((x - CameraXr) + (z - CameraZr)) >> 1;
+        S32 zo = 32768 - depth;
+        if (zo < 0) {
+            zo = 0;
+        } else if (zo > 65535) {
+            zo = 65535;
+        }
+        return (U16)zo;
+    }
+    return (U16)GET_ZO(CameraZr - Z0);
+}
+
 /* Temporary draw-path census counters */
 U32 s_censusA3DGL = 0;
 U32 s_censusIncrustGL = 0;
@@ -5187,7 +5205,7 @@ S32 AffOneObject(T_SORT *pt) {
 
 #ifdef USE_GPURENDERER
         if (GPURendererActive) {
-            SpriteGL_Zo = (U16)GET_ZO(CameraZr - Z0);
+            SpriteGL_Zo = SpriteGLDepth(ptrobj->Obj.X, ptrobj->Obj.Z);
         }
 #endif
 
@@ -5294,7 +5312,7 @@ S32 AffOneObject(T_SORT *pt) {
            The anchor depth is exact: the attachment point sits ON the model
            surface, and the live FBO depth test does the occlusion. */
         if (GPURendererActive) {
-            SpriteGL_Zo = (U16)GET_ZO(CameraZr - Z0);
+            SpriteGL_Zo = SpriteGLDepth(ptrobj->Obj.X, ptrobj->Obj.Z);
         }
 #endif
 
@@ -5407,7 +5425,7 @@ S32 AffOneObject(T_SORT *pt) {
 
 #ifdef USE_GPURENDERER
         if (GPURendererActive) {
-            SpriteGL_Zo = (U16)GET_ZO(CameraZr - Z0);
+            SpriteGL_Zo = SpriteGLDepth(ptrextra->PosX, ptrextra->PosZ);
         }
 #endif
         num = ptrextra->Sprite;
@@ -5726,13 +5744,19 @@ startaffscene:
         if (!(GPURendererActive && CubeMode == CUBE_EXTERIEUR)) {
             CopyScreen(Log, Screen);
 #ifdef USE_GPURENDERER
-            /* Interior stereo: the full redraw copies the brick background
-               over Log, which also owns the dialog box/text/portrait strip.
+            /* GL interior: the full redraw copies the brick background over
+               Log, which also owns the dialog box/text/portrait strip.
                Restore only that strip after the copy; the scene above it
                must stay visible. */
             if (GPURendererActive && CubeMode == CUBE_INTERIEUR &&
-                GL_GetStereoEye() >= 0 && Dial_OverlayActive()) {
+                Dial_OverlayActive()) {
                 Dial_OverlayRestoreFrom(Dial_Y0);
+                /* NewInitDialWindow shaded the FBO once; the per-frame full
+                   redraw clears it, so re-shade the strip after the scene. */
+                if (FlagMessageShade) {
+                    GL_ShadeBox(Dial_X0 + 1, Dial_Y0 + 1, Dial_X1 - 1,
+                                Dial_Y1 - 1, 8);
+                }
             }
 #endif
         }

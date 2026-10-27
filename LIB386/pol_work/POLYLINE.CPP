@@ -915,7 +915,7 @@ void Line_A(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
        rasterizes into the Log overlay, which composites over the FBO with
        no occlusion — a necklace drawn there x-rays through its own body
        whenever the camera looks at the owner's back. */
-    if (GPURendererActive && GL_SphereTargetsFBO() && Fill_Flag_ZBuffer) {
+    if (GPURendererActive && GL_SphereTargetsFBO()) {
         S32 c = col;
         if (Fill_Flag_Fog) {
             c = Fill_Logical_Palette[c & 0xFF];
