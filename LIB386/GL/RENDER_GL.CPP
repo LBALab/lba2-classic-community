@@ -237,6 +237,51 @@ static const char *s_clutVertSrc =
     "    vMaterial = aMaterial;\n"
     "}\n";
 
+/* Indexed layer vertex stage: the CLUT vertex program carries the atlas UV
+   in the 8.8 fixed-point attribute pair, whose 16 bits cap a quad at 256
+   texels — far below a scene-sized layer.  This variant takes normalized
+   coordinates and scales them into the same 8.8 texel space in floating
+   point, so the shared fragment program is unchanged. */
+static const char *s_layerVertSrc =
+    GLSL_VERT_HEADER
+    "attribute vec2 aPos;\n" /* screen pixels */
+    "attribute vec2 aUV;\n"  /* normalized 0..1 */
+    "attribute float aMaterial;\n"
+    "uniform float uEye;\n"
+    "uniform vec2 uScreenScale;\n"
+    "uniform float uSinglePass;\n"
+    "uniform vec3 uEyeWorld;\n"
+    "uniform vec2 uEyeProj;\n"
+    "uniform vec2 uAtlasScale;\n"
+    "varying vec2 vTexCoord;\n"
+    "varying vec2 vTexCoordOverW;\n"
+    "varying float vInvW;\n"
+    "varying float vW;\n"
+    "varying float vLight;\n"
+    "varying float vRepMask;\n"
+    "varying float vZ;\n"
+    "varying float vZOverW;\n"
+    "varying float vMaterial;\n"
+    "void main() {\n"
+    "    float cx = aPos.x * uScreenScale.x - 1.0;\n"
+    "    float cy = 1.0 - aPos.y * uScreenScale.y;\n"
+    "    float eye = (uSinglePass > 0.5) ? uEye : 0.0;\n"
+    "    if (uSinglePass > 0.5) {\n"
+    "        cx = (eye > 0.5) ? (cx * 0.5 + 0.5) : (cx * 0.5 - 0.5);\n"
+    "    }\n"
+    "    gl_Position = vec4(cx, cy, 1.0, 1.0);\n"
+    "    vec2 tc = aUV * uAtlasScale * 256.0;\n"
+    "    vTexCoord = tc;\n"
+    "    vTexCoordOverW = tc;\n"
+    "    vInvW = 1.0;\n"
+    "    vW = 1.0;\n"
+    "    vLight = 0.0;\n"
+    "    vRepMask = 0.0;\n"
+    "    vZ = 0.0;\n"
+    "    vZOverW = 0.0;\n"
+    "    vMaterial = aMaterial;\n"
+    "}\n";
+
 /* Terrain shader: the same fragment program as the batch, with the CPU
    projection supplied per vertex.  Positions are cube-local world
    coordinates, exactly the frame SetPosCamera() shifts the camera into,
@@ -505,8 +550,15 @@ static const char *s_clutFragSrc =
     "const vec4 xbrCy = vec4( 2.0,  0.0, -1.0,  0.5);\n"
     "const vec4 xbrCi = vec4(0.25, 0.25, 0.25, 0.25);\n"
     "float xbrIndex(vec2 p, vec2 whm) {\n"
+    /* A full-image layer has no wrap window: taps outside it must clamp at
+       the image edge, not jump to the opposite side. */
+    "#ifdef LBA_LAYER_NO_WRAP\n"
+    "    return texture2D(uAtlas, vec2((p.x + 0.5) / uAtlasScale.x,\n"
+    "                                  (p.y + 0.5) / uAtlasScale.y)).r * 255.0;\n"
+    "#else\n"
     "    return texture2D(uAtlas, vec2((mod(p.x, whm.x) + 0.5) / uAtlasScale.x,\n"
     "                                  (mod(p.y, whm.y) + 0.5) / uAtlasScale.y)).r * 255.0;\n"
+    "#endif\n"
     "}\n"
     "vec3 xbrPal(float idx) {\n"
     "    return texture2D(uPalette, vec2((idx + 0.5) / 256.0, 0.5)).rgb;\n"
@@ -806,8 +858,16 @@ static const char *s_clutFragSrc =
     "    if (mMode == 0) {\n"
     /* Textured: atlas → CLUT → palette */
     "        tc = tc / 256.0;\n"
+    /* RepMask carries the wrap window in a byte pair, which caps a quad at
+       256 texels.  The layer path is wider than that and must not wrap
+       inside its own image, so it takes the window from the texture size. */
+    "#ifdef LBA_LAYER_NO_WRAP\n"
+    "        float widthMask = uAtlasScale.x - 1.0;\n"
+    "        float heightMask = uAtlasScale.y - 1.0;\n"
+    "#else\n"
     "        float widthMask = mod(vRepMask, 256.0);\n"
     "        float heightMask = floor(vRepMask / 256.0);\n"
+    "#endif\n"
     /* SW init: Fill_CurGouraudMin = (Pt_Light << 8) + 0x8000.
         The +128 (0x80) rounding bias shifts the CLUT row by 1 in some
         cases — same bias applied in polyMode 2.  The CLUT base row rides
@@ -856,8 +916,16 @@ static const char *s_clutFragSrc =
        index directly (*line = texel).  No CLUT lookup — the atlas texel
        IS the palette index.  Chroma key controlled by mChroma. */
     "        tc = tc / 256.0;\n"
+    /* RepMask carries the wrap window in a byte pair, which caps a quad at
+       256 texels.  The layer path is wider than that and must not wrap
+       inside its own image, so it takes the window from the texture size. */
+    "#ifdef LBA_LAYER_NO_WRAP\n"
+    "        float widthMask = uAtlasScale.x - 1.0;\n"
+    "        float heightMask = uAtlasScale.y - 1.0;\n"
+    "#else\n"
     "        float widthMask = mod(vRepMask, 256.0);\n"
     "        float heightMask = floor(vRepMask / 256.0);\n"
+    "#endif\n"
     "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
     "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
     "        if (uBilinear == 3) {\n"
@@ -888,8 +956,16 @@ static const char *s_clutFragSrc =
        uFogRowScale = Fill_Fog_Factor / 65536, so
         floor(zDist * uFogRowScale) = (fogDist * Fill_Fog_Factor) >> 16. */
     "        tc = tc / 256.0;\n"
+    /* RepMask carries the wrap window in a byte pair, which caps a quad at
+       256 texels.  The layer path is wider than that and must not wrap
+       inside its own image, so it takes the window from the texture size. */
+    "#ifdef LBA_LAYER_NO_WRAP\n"
+    "        float widthMask = uAtlasScale.x - 1.0;\n"
+    "        float heightMask = uAtlasScale.y - 1.0;\n"
+    "#else\n"
     "        float widthMask = mod(vRepMask, 256.0);\n"
     "        float heightMask = floor(vRepMask / 256.0);\n"
+    "#endif\n"
     "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
     "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
     "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
@@ -1678,6 +1754,22 @@ static S32 s_terrainResolvedValid = 0;
 static S32 s_terrainResolvedDirty = 1;
 static U32 s_terrainEpoch = 1; /* advances on context loss; caches drop stale */
 static GLuint s_terrainBoundVBO = 0;
+
+static GLuint s_layerProgram = 0;
+static GLint s_layer_aPos = -1;
+static GLint s_layer_aUV = -1;
+static GLint s_layer_aMaterial = -1;
+static GLint s_layer_uScreenScale = -1;
+static GLint s_layer_uAtlasScale = -1;
+static GLint s_layer_uBilinear = -1;
+static GLint s_layer_uSinglePass = -1;
+static GLint s_layer_uEye = -1;
+static GLuint s_layerTex = 0;
+static S32 s_layerTexW = 0;
+static S32 s_layerTexH = 0;
+static U32 s_layerTexGen = 0;
+static S32 s_layerTexHasGen = 0;
+static char *GL_MakeLayerFragSrc(void);
 
 /* ── GL state — static decor program ─────────────────────────────────────── */
 static GLuint s_decorProgram = 0;
@@ -3628,6 +3720,71 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             glUniform1f(s_decor_uTerrainPersp, 0.0f);
             GL_UseProgramCached(0);
             Log_Info("[GL] Static decor VBO program ready.");
+        }
+    }
+
+    /* ── Indexed background layer: the shared CLUT fragment program with
+       the no-wrap layer path enabled.  One full-image quad per scene, so the
+       isometric brick layer costs one draw call instead of one per tile. ── */
+    {
+        char *layerFrag = GL_MakeLayerFragSrc();
+        GLuint lv = 0, lf = 0;
+        if (layerFrag != NULL) {
+            lv = CompileShader(GL_VERTEX_SHADER, s_layerVertSrc);
+            lf = CompileShader(GL_FRAGMENT_SHADER, layerFrag);
+        }
+        if (lv != 0 && lf != 0) {
+            glBindAttribLocation(lv, 0, "aPos");
+            glBindAttribLocation(lv, 1, "aUV");
+            glBindAttribLocation(lv, 2, "aMaterial");
+            s_layerProgram = LinkProgram(lv, lf);
+        }
+        free(layerFrag);
+        glDeleteShader(lv);
+        glDeleteShader(lf);
+        if (s_layerProgram == 0) {
+            Log_Warn("[GL] indexed layer program failed; the brick layer "
+                     "stays on per-tile quads");
+        } else {
+            s_layer_aPos = glGetAttribLocation(s_layerProgram, "aPos");
+            s_layer_aUV = glGetAttribLocation(s_layerProgram, "aUV");
+            s_layer_aMaterial =
+                glGetAttribLocation(s_layerProgram, "aMaterial");
+            s_layer_uScreenScale =
+                glGetUniformLocation(s_layerProgram, "uScreenScale");
+            s_layer_uAtlasScale =
+                glGetUniformLocation(s_layerProgram, "uAtlasScale");
+            s_layer_uBilinear =
+                glGetUniformLocation(s_layerProgram, "uBilinear");
+            s_layer_uSinglePass =
+                glGetUniformLocation(s_layerProgram, "uSinglePass");
+            s_layer_uEye = glGetUniformLocation(s_layerProgram, "uEye");
+            GL_UseProgramCached(s_layerProgram);
+            glUniform1i(glGetUniformLocation(s_layerProgram, "uAtlas"), 0);
+            glUniform1i(glGetUniformLocation(s_layerProgram, "uCLUT"), 1);
+            glUniform1i(glGetUniformLocation(s_layerProgram, "uPalette"), 2);
+            glUniform1f(
+                glGetUniformLocation(s_layerProgram, "uSinglePass"), 0.0f);
+            glUniform1f(glGetUniformLocation(s_layerProgram, "uEye"), 0.0f);
+            glUniform3f(
+                glGetUniformLocation(s_layerProgram, "uEyeWorld"), 0.0f, 0.0f,
+                0.0f);
+            glUniform2f(
+                glGetUniformLocation(s_layerProgram, "uEyeProj"), 0.0f, 0.0f);
+            glUniform2f(
+                glGetUniformLocation(s_layerProgram, "uEyeFocal"), 1.0f, 1.0f);
+            glUniform1f(
+                glGetUniformLocation(s_layerProgram, "uEyeZScale"), 1.0f);
+            glUniform1f(
+                glGetUniformLocation(s_layerProgram, "uCLUTBaseRow"), 0.0f);
+            glUniform1f(
+                glGetUniformLocation(s_layerProgram, "uScaledFogNear"), 0.0f);
+            glUniform1f(
+                glGetUniformLocation(s_layerProgram, "uFogRowScale"), 0.0f);
+            glUniform1f(
+                glGetUniformLocation(s_layerProgram, "uTerrainFarClip"), 0.0f);
+            GL_UseProgramCached(0);
+            Log_Info("[GL] Indexed layer program ready.");
         }
     }
 
@@ -7772,13 +7929,26 @@ static GLuint GL_BindSpriteTexture(const void *pixels, S32 w, S32 h) {
     static S32 s_noCache = -1;
     if (s_noCache < 0)
         s_noCache = getenv("LBA2_NO_SPRITE_CACHE") ? 1 : 0;
-    if (!s_noCache && !s_spriteUploadAlways)
+    if (!s_noCache)
         for (S32 i = 0; i < SPRITE_CACHE_SIZE; i++) {
-            if (s_spriteTexCache[i].ptr == pixels && s_spriteTexCache[i].w == w &&
-                s_spriteTexCache[i].h == h) {
-                GL_BindTexUnit(0, s_spriteTexCache[i].tex);
-                return s_spriteTexCache[i].tex;
+            SpriteTexEntry *e = &s_spriteTexCache[i];
+            if (e->ptr != pixels || e->w != w || e->h != h)
+                continue;
+            GL_BindTexUnit(0, e->tex);
+            if (s_spriteUploadAlways) {
+                /* A composed patch reuses its backing buffer at the same
+                   size, so the storage is already right: refresh it instead
+                   of reallocating (glTexImage2D re-creates the texture and
+                   stalls the pipe on every patch). */
+                GLint unpackAlign = 4;
+                glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpackAlign);
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_LUMINANCE,
+                                GL_UNSIGNED_BYTE, pixels);
+                glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlign);
+                s_profSpriteUps++;
             }
+            return e->tex;
         }
 
     SpriteTexEntry *e = &s_spriteTexCache[s_spriteTexNext];
@@ -7956,6 +8126,173 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
     GL_SetDepthWrite(1);
     GL_SetDepthTest(0);
     GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    GL_BindArrayBuffer(0);
+}
+
+/* ── Full-screen indexed background layer ────────────────────────────────
+   The isometric brick layer is a single 2D composite, so it is drawn as one
+   palette-indexed image instead of one quad per brick.  The sprite-quad
+   path cannot serve it: that path encodes the wrap window in the 8-bit
+   RepMask field, which caps a quad at 256 texels, and a whole layer is
+   wider than that.  This program is the same fragment source compiled with
+   LBA_LAYER_NO_WRAP, which takes the wrap window from the texture size and
+   lets the sampler clamp instead of wrapping — the edge-directed filters
+   then see the real neighbourhood across the whole image. */
+/* Insert the no-wrap define after the version/precision header so the
+   shared fragment source stays the single definition of the filters. */
+static char *GL_MakeLayerFragSrc(void) {
+    const char *nl = strchr(s_clutFragSrc, '\n');
+    if (nl == NULL) {
+        return NULL;
+    }
+    const char *define = "#define LBA_LAYER_NO_WRAP 1\n";
+    size_t prefix = (size_t)(nl - s_clutFragSrc) + 1;
+    size_t len = strlen(s_clutFragSrc);
+    char *out = (char *)malloc(len + strlen(define) + 1);
+    if (out == NULL) {
+        return NULL;
+    }
+    memcpy(out, s_clutFragSrc, prefix);
+    memcpy(out + prefix, define, strlen(define));
+    memcpy(out + prefix + strlen(define), s_clutFragSrc + prefix,
+           len - prefix + 1);
+    return out;
+}
+
+void GL_DrawIndexedLayer(const void *pixels, S32 w, S32 h, U32 generation,
+                         S32 filter, S32 x0, S32 y0, S32 x1, S32 y1) {
+    if (!s_initialized || pixels == NULL || w <= 0 || h <= 0 ||
+        s_layerProgram == 0 || x1 <= x0 || y1 <= y0) {
+        return;
+    }
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+
+    GL_FlushBatch();
+
+    if (!s_frameActive) {
+        s_frameActive = 1;
+        if (s_fbo) {
+            glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
+            GL_SetSceneViewport();
+        } else {
+            glViewport(0, 0, s_texWidth, s_texHeight);
+        }
+    }
+
+    if (s_layerTex == 0) {
+        glGenTextures(1, &s_layerTex);
+        glBindTexture(GL_TEXTURE_2D, s_layerTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        s_layerTexW = 0;
+        s_layerTexH = 0;
+        s_layerTexHasGen = 0;
+    }
+
+    const S32 needUpload = !s_layerTexHasGen || generation != s_layerTexGen ||
+                           w != s_layerTexW || h != s_layerTexH;
+    if (needUpload) {
+        GLint unpackAlign = 4;
+        glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpackAlign);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glBindTexture(GL_TEXTURE_2D, s_layerTex);
+        if (w != s_layerTexW || h != s_layerTexH) {
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE,
+                         GL_UNSIGNED_BYTE, pixels);
+            s_layerTexW = w;
+            s_layerTexH = h;
+        } else {
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_LUMINANCE,
+                            GL_UNSIGNED_BYTE, pixels);
+        }
+        glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlign);
+        s_layerTexGen = generation;
+        s_layerTexHasGen = 1;
+    }
+
+    GL_UseProgramCached(s_layerProgram);
+
+    const GLfloat ssx = 2.0f / (GLfloat)s_texWidth;
+    const GLfloat ssy = 2.0f / (GLfloat)s_texHeight;
+    glUniform2f(s_layer_uScreenScale, ssx, ssy);
+    glUniform2f(s_layer_uAtlasScale, (GLfloat)w, (GLfloat)h);
+    glUniform1i(s_layer_uBilinear, filter);
+
+    GL_BindTexUnit(0, s_layerTex);
+    GL_BindTexUnit(1, s_clutTex);
+    GL_BindTexUnit(2, s_paletteTex);
+
+    GL_SetDepthTest(0);
+    GL_SetDepthWrite(0);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    GL_MarkFBORegion(x0, y0, x1 - 1, y1 - 1);
+
+    /* One quad covering the whole layer.  Material: polyMode 4 (the texel is
+       the palette index) with the chroma-key bit, so untouched texels stay
+       transparent over the cleared scene instead of painting palette[0]. */
+    static GLfloat layerVerts[6 * 5];
+    static const S8 order[6] = {0, 1, 2, 0, 2, 3};
+    const GLfloat u0 = (GLfloat)x0 / (GLfloat)w;
+    const GLfloat v0 = (GLfloat)y0 / (GLfloat)h;
+    const GLfloat u1 = (GLfloat)x1 / (GLfloat)w;
+    const GLfloat v1 = (GLfloat)y1 / (GLfloat)h;
+    const GLfloat px[4] = {(GLfloat)x0, (GLfloat)x1, (GLfloat)x1, (GLfloat)x0};
+    const GLfloat py[4] = {(GLfloat)y0, (GLfloat)y0, (GLfloat)y1, (GLfloat)y1};
+    const GLfloat pu[4] = {u0, u1, u1, u0};
+    const GLfloat pv[4] = {v0, v0, v1, v1};
+    const GLfloat layerMat = (GLfloat)(4 | (1 << 5));
+    for (S32 i = 0; i < 6; i++) {
+        GLfloat *v = layerVerts + i * 5;
+        S32 c = order[i];
+        v[0] = px[c];
+        v[1] = py[c];
+        v[2] = pu[c];
+        v[3] = pv[c];
+        v[4] = layerMat;
+    }
+
+    GL_BindArrayBuffer(s_batchVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(layerVerts), layerVerts,
+                 GL_STREAM_DRAW);
+    glEnableVertexAttribArray(s_layer_aPos);
+    glVertexAttribPointer(s_layer_aPos, 2, GL_FLOAT, GL_FALSE,
+                          (GLsizei)(5 * sizeof(GLfloat)), (const void *)0);
+    glEnableVertexAttribArray(s_layer_aUV);
+    glVertexAttribPointer(s_layer_aUV, 2, GL_FLOAT, GL_FALSE,
+                          (GLsizei)(5 * sizeof(GLfloat)),
+                          (const void *)(2 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(s_layer_aMaterial);
+    glVertexAttribPointer(s_layer_aMaterial, 1, GL_FLOAT, GL_FALSE,
+                          (GLsizei)(5 * sizeof(GLfloat)),
+                          (const void *)(4 * sizeof(GLfloat)));
+
+    /* Single-pass stereo draws both eyes from one instance: the layer's own
+       vertex stage needs the same switch the batch programs get from
+       GL_DrawStereoClut, or each eye shows the unremapped full-width image. */
+    if (s_singlePassStereo) {
+        if (s_stereoEye == 0) {
+            glUniform1f(s_layer_uSinglePass, 1.0f);
+            glUniform1f(s_layer_uEye, 0.0f);
+            GL_BeginSinglePassEyeDraw(0);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            glUniform1f(s_layer_uEye, 1.0f);
+            GL_BeginSinglePassEyeDraw(1);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            GL_EndSinglePassEyeDraw();
+            glUniform1f(s_layer_uEye, 0.0f);
+        }
+    } else {
+        glUniform1f(s_layer_uSinglePass, 0.0f);
+        glUniform1f(s_layer_uEye, 0.0f);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+    s_profTris += 2;
 
     GL_BindArrayBuffer(0);
 }

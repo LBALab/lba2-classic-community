@@ -180,6 +180,14 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
                        const void *pixels, S32 w, S32 h,
                        U16 az, S32 transparent);
 
+//! Draw a full-screen 8-bit palette-index image as one quad, sampling with
+//! `filter` (the DisplayTexFilter value).  The image is uploaded only when
+//! `generation` or the size changes, so a static layer costs one draw call.
+//! The composed isometric brick layer uses it: the sprite path cannot, since
+//! its 8-bit RepMask caps a quad's wrap window at 256 texels.
+void GL_DrawIndexedLayer(const void *pixels, S32 w, S32 h, U32 generation,
+                         S32 filter, S32 x0, S32 y0, S32 x1, S32 y1);
+
 //! Mark the current frame as an isometric interior world.  Allows polygon
 //! paths that do not carry a terrain depth buffer into the GL batch.
 void GL_SetWorldGL(S32 active);

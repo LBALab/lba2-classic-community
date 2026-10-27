@@ -203,9 +203,153 @@ static void BrickOrderAdd(S32 brick, S32 xs, S32 ys) {
         s_brickOrderOverflow = 1;
 }
 
-/* Reconstructed base layer and the overlay mask patch, both at screen
-   stride in palette indices. */
-static U8 *s_overlayBase = NULL;
+/* ── Composed base brick layer ────────────────────────────────────────────
+   An interior is a painter-ordered 2D composite.  Drawing it one quad per
+   brick costs a texture upload and a draw call per tile; a room runs to
+   ~1500 tiles, far past what the sprite texture cache can hold, so the
+   interior frame is dominated by that per-tile overhead rather than by
+   rasterisation.
+
+   Instead, compose the layer through the same AffGraph walk the software
+   renderer uses — identical order, identical clipping, so the pixels match
+   the reference rasterizer by construction — and draw the composed image as
+   one palette-indexed quad.  Composing on the CPU also produces the pristine
+   background the foreground-brick overlay needs, so that path copies from
+   this image instead of replaying the whole brick order per clip window.
+
+   Brick data is immutable once a cube is loaded (BufferBrick is read-only),
+   so the composite only changes when the cube or the painted order does;
+   the key below captures both and skips the walk when neither moved. */
+
+static U8 *s_baseLayer = NULL;
+static S32 s_baseLayerW = 0;
+static S32 s_baseLayerH = 0;
+static U32 s_baseLayerKey = 0;
+static S32 s_baseLayerValid = 0;
+static U32 s_baseLayerGen = 0;
+/* Painted bounds: the layer image is screen-sized, but only this rectangle
+   holds bricks, and the filter cost is per fragment. */
+static S32 s_baseLayerX0 = 0, s_baseLayerY0 = 0;
+static S32 s_baseLayerX1 = -1, s_baseLayerY1 = -1;
+
+static U32 BaseLayerKey(void) {
+    U32 h = 2166136261u;
+    h = (h ^ (U32)(uintptr_t)BufferBrick) * 16777619u;
+    h = (h ^ (U32)NumCube) * 16777619u;
+    h = (h ^ (U32)ModeDesiredX) * 16777619u;
+    h = (h ^ (U32)ModeDesiredY) * 16777619u;
+    h = (h ^ (U32)s_brickOrderCount) * 16777619u;
+    for (S32 i = 0; i < s_brickOrderCount; i++) {
+        const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i];
+        h = (h ^ (U32)(U16)p->Brick) * 16777619u;
+        h = (h ^ (U32)(U16)p->Xs) * 16777619u;
+        h = (h ^ (U32)(U16)p->Ys) * 16777619u;
+    }
+    return h;
+}
+
+/* Compose the recorded brick order into s_baseLayer.  Returns 0 when the
+   layer cannot be produced (no cube, order overflow, allocation failure),
+   in which case the caller keeps the per-brick path. */
+static S32 BaseLayerCompose(void) {
+    const S32 w = (S32)ModeDesiredX;
+    const S32 h = (S32)ModeDesiredY;
+    if (w <= 0 || h <= 0 || BufferBrick == NULL || s_brickOrderCount == 0 ||
+        s_brickOrderOverflow)
+        return 0;
+
+    if (s_baseLayer == NULL || s_baseLayerW != w || s_baseLayerH != h) {
+        U8 *grown = (U8 *)realloc(s_baseLayer, (size_t)w * (size_t)h);
+        if (grown == NULL) {
+            s_baseLayerValid = 0;
+            return 0;
+        }
+        s_baseLayer = grown;
+        s_baseLayerW = w;
+        s_baseLayerH = h;
+        s_baseLayerValid = 0;
+    }
+
+    const U32 key = BaseLayerKey();
+    if (s_baseLayerValid && key == s_baseLayerKey)
+        return 1;
+    memset(s_baseLayer, 0, (size_t)w * (size_t)h);
+    void *savedLog = Log;
+    const S32 savedXMin = ClipXMin, savedYMin = ClipYMin;
+    const S32 savedXMax = ClipXMax, savedYMax = ClipYMax;
+    ClipXMin = 0;
+    ClipYMin = 0;
+    ClipXMax = w - 1;
+    ClipYMax = h - 1;
+    Log = s_baseLayer;
+    S32 bx0 = w, by0 = h, bx1 = -1, by1 = -1;
+    for (S32 i = 0; i < s_brickOrderCount; i++) {
+        const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i];
+        AffGraph(p->Brick, p->Xs, p->Ys, BufferBrick);
+        const U8 *src = BufferBrick + ((const U32 *)BufferBrick)[p->Brick];
+        const S32 x0 = p->Xs + (S8)src[2];
+        const S32 y0 = p->Ys + (S8)src[3];
+        const S32 x1 = x0 + src[0];
+        const S32 y1 = y0 + src[1];
+        if (x0 < bx0) bx0 = x0;
+        if (y0 < by0) by0 = y0;
+        if (x1 > bx1) bx1 = x1;
+        if (y1 > by1) by1 = y1;
+    }
+    Log = savedLog;
+    ClipXMin = savedXMin;
+    ClipYMin = savedYMin;
+    ClipXMax = savedXMax;
+    ClipYMax = savedYMax;
+
+    if (bx0 < 0)
+        bx0 = 0;
+    if (by0 < 0)
+        by0 = 0;
+    if (bx1 > w)
+        bx1 = w;
+    if (by1 > h)
+        by1 = h;
+    s_baseLayerX0 = bx0;
+    s_baseLayerY0 = by0;
+    s_baseLayerX1 = bx1;
+    s_baseLayerY1 = by1;
+    s_baseLayerKey = key;
+    s_baseLayerValid = 1;
+    s_baseLayerGen++;
+    return 1;
+}
+
+/* Draw the composed layer as one palette-indexed image.  A scene-sized
+   composite would otherwise need one quad per brick, and the sprite path
+   cannot take it as a single quad because its wrap window is capped at 256
+   texels.  The GL side uploads only when the composition generation changes,
+   so a static camera costs one draw call per frame.
+
+   Returns 0 when the composite could not be built, so the caller can fall
+   back to one quad per brick rather than leaving the room unpainted. */
+static S32 DrawBaseLayerGL(void) {
+    if (!BaseLayerCompose())
+        return 0;
+    if (s_baseLayerX1 <= s_baseLayerX0 || s_baseLayerY1 <= s_baseLayerY0)
+        return 1;
+    GL_DrawIndexedLayer(s_baseLayer, s_baseLayerW, s_baseLayerH,
+                        s_baseLayerGen, DisplayTexFilter, s_baseLayerX0,
+                        s_baseLayerY0, s_baseLayerX1, s_baseLayerY1);
+    return 1;
+}
+
+/* Degraded path: the recorded order still names every painted brick, so the
+   layer can fall back to the pre-composite draw when it is unavailable. */
+static void DrawBaseLayerFallbackGL(void) {
+    for (S32 i = 0; i < s_brickOrderCount; i++) {
+        const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i];
+        DrawBrickGL(p->Brick, p->Xs, p->Ys);
+    }
+}
+
+/* Overlay mask patch, at screen stride in palette indices.  The pristine
+   background it samples through the masks is the composed base layer. */
 static U8 *s_overlayPatch = NULL;
 static U8 *s_overlayDraw = NULL;
 static U8 *s_overlayTile = NULL;
@@ -218,11 +362,9 @@ static S32 s_overlayClipX0, s_overlayClipY0, s_overlayClipX1, s_overlayClipY1;
 static S32 s_overlayX0, s_overlayY0, s_overlayX1, s_overlayY1;
 
 static void OverlayFreeBuffers(void) {
-    free(s_overlayBase);
     free(s_overlayPatch);
     free(s_overlayDraw);
     free(s_overlayTile);
-    s_overlayBase = NULL;
     s_overlayPatch = NULL;
     s_overlayDraw = NULL;
     s_overlayTile = NULL;
@@ -237,12 +379,11 @@ static int OverlayEnsureBuffers(void) {
     const S32 h = (S32)ModeDesiredY;
     if (w <= 0 || h <= 0)
         return 0;
-    if (s_overlayBase != NULL && s_overlayAllocW == w && s_overlayAllocH == h)
+    if (s_overlayPatch != NULL && s_overlayAllocW == w && s_overlayAllocH == h)
         return 1;
     OverlayFreeBuffers();
-    s_overlayBase = (U8 *)malloc((size_t)w * (size_t)h);
     s_overlayPatch = (U8 *)malloc((size_t)w * (size_t)h);
-    if (s_overlayBase == NULL || s_overlayPatch == NULL) {
+    if (s_overlayPatch == NULL) {
         OverlayFreeBuffers();
         return 0;
     }
@@ -251,45 +392,13 @@ static int OverlayEnsureBuffers(void) {
     return 1;
 }
 
-/* Replay the base brick layer inside the clip window.  This is the same
-   AffGraph walk the software path uses, in the same draw order, so the
-   reconstructed window matches the base layer pixel for pixel. */
-static void OverlayReplayBase(void) {
-    void *savedLog = Log;
-    const S32 savedXMin = ClipXMin, savedYMin = ClipYMin;
-    const S32 savedXMax = ClipXMax, savedYMax = ClipYMax;
-    ClipXMin = s_overlayClipX0;
-    ClipYMin = s_overlayClipY0;
-    ClipXMax = s_overlayClipX1;
-    ClipYMax = s_overlayClipY1;
-    Log = s_overlayBase;
-    for (S32 i = 0; i < s_brickOrderCount; i++) {
-        const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i];
-        const U8 *src = BufferBrick + ((const U32 *)BufferBrick)[p->Brick];
-        const S32 w = src[0];
-        const S32 h = src[1];
-        const S32 x = p->Xs + (S8)src[2];
-        const S32 y = p->Ys + (S8)src[3];
-        if (x > s_overlayClipX1 || y > s_overlayClipY1 ||
-            x + w <= s_overlayClipX0 || y + h <= s_overlayClipY0)
-            continue;
-        AffGraph(p->Brick, p->Xs, p->Ys, BufferBrick);
-    }
-    Log = savedLog;
-    ClipXMin = savedXMin;
-    ClipYMin = savedYMin;
-    ClipXMax = savedXMax;
-    ClipYMax = savedYMax;
-}
-
 static void DrawBrickOverlayFallback(T_COLONB *ptrlbc);
 
 static void OverlayBegin(void) {
     s_overlayActive = 0;
     if (!(GPURendererActive && CubeMode == CUBE_INTERIEUR))
         return;
-    if (s_brickOrderCount == 0 || s_brickOrderOverflow || BufferBrick == NULL ||
-        !OverlayEnsureBuffers())
+    if (BufferBrick == NULL || !OverlayEnsureBuffers() || !s_baseLayerValid)
         return;
 
     S32 x0 = ClipXMin;
@@ -312,11 +421,8 @@ static void OverlayBegin(void) {
     s_overlayClipX1 = x1;
     s_overlayClipY1 = y1;
     const S32 span = x1 - x0 + 1;
-    for (S32 y = y0; y <= y1; y++) {
-        memset(s_overlayBase + (size_t)y * s_overlayAllocW + x0, 0, span);
+    for (S32 y = y0; y <= y1; y++)
         memset(s_overlayPatch + (size_t)y * s_overlayAllocW + x0, 0, span);
-    }
-    OverlayReplayBase();
     s_overlayX0 = x1 + 1;
     s_overlayY0 = y1 + 1;
     s_overlayX1 = x0 - 1;
@@ -361,7 +467,7 @@ static void OverlayMark(T_COLONB *ptrlbc) {
         U8 *dstRow = s_overlayPatch + (size_t)y * s_overlayAllocW + cx0;
         for (S32 x = cx0; x <= cx1; x++, srcRow++, dstRow++) {
             if (*srcRow != 0) {
-                *dstRow = s_overlayBase[(size_t)y * s_overlayAllocW + x];
+                *dstRow = s_baseLayer[(size_t)y * s_baseLayerW + x];
             }
         }
     }
@@ -1213,14 +1319,17 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
         // start having visible content. See WIDESCREEN_HARDCODED_DIMS_AUDIT.md.
         if (XScreen >= -47 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
 #ifdef USE_GPURENDERER
-            if (GPURendererActive && CubeMode == CUBE_INTERIEUR)
-                DrawBrickGL(numbrick - 1, XScreen, YScreen);
-            else
-#endif
+            /* GL paints the whole brick layer as one composed background
+               after this walk; recording the order is all the base pass
+               does.  The software path still blits each brick here. */
+            if (GPURendererActive && CubeMode == CUBE_INTERIEUR) {
+                BrickOrderAdd(numbrick - 1, XScreen, YScreen);
+            } else {
                 AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
-
-#ifdef USE_GPURENDERER
-            BrickOrderAdd(numbrick - 1, XScreen, YScreen);
+                BrickOrderAdd(numbrick - 1, XScreen, YScreen);
+            }
+#else
+            AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
 #endif
 
             // ListBrickColon is indexed by `col = (XScreen+24)/24`, which goes
@@ -1288,6 +1397,11 @@ void AffGrille() {
             }
         }
     }
+#ifdef USE_GPURENDERER
+    if (GPURendererActive && CubeMode == CUBE_INTERIEUR &&
+        !DrawBaseLayerGL())
+        DrawBaseLayerFallbackGL();
+#endif
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
