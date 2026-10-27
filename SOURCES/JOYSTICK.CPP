@@ -294,21 +294,17 @@ void UpdateJoystick(void) {
             ApplyStickDirection(x, y, left, right, up, down, prev); \
         } while(0)
 
-        /* In a stereo interior the left stick is the camera pan when the
-           player is standing still.  While a trigger is held it keeps its
-           locomotion bindings, so walking, turning and strafing are still
-           available; the pan code reads the raw axes in PERSO.CPP. */
+        STICK_DIR(0, OpenXR_LeftStickX, OpenXR_LeftStickY,
+                  K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT,
+                  K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN);
+
+        /* A stereo interior owns the right stick for the camera pan/zoom.
+           Sending its digital scancodes as well would also cycle the classic
+           camera presets; the raw axes are read in PERSO.CPP. */
         const S32 interiorCam = OpenXR_IsActive() && DisplayStereo3D &&
                                 CubeMode == CUBE_INTERIEUR;
-        if (interiorCam && !OpenXR_LeftTrigger && !OpenXR_RightTrigger) {
-            s_prevLeftDir = DIR_NEUTRAL;
-        } else {
-            STICK_DIR(0, OpenXR_LeftStickX, OpenXR_LeftStickY,
-                      K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT,
-                      K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN);
-        }
-
-        if (GamepadCameraAnalog && FollowCamera && CubeMode == CUBE_EXTERIEUR) {
+        if ((GamepadCameraAnalog && FollowCamera &&
+             CubeMode == CUBE_EXTERIEUR) || interiorCam) {
             s_prevRightDir = DIR_NEUTRAL;
         } else {
             STICK_DIR(1, OpenXR_RightStickX, OpenXR_RightStickY,

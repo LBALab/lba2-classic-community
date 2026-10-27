@@ -78,20 +78,19 @@ zoom stays on the keyboard and mouse.
 
 ### Quest interior camera
 
-In a stereo Quest session, an interior scene's isometric projection centre can
-be panned with the left stick. The pan is a view offset, not a change to the
-room or the hero: it is clamped to a quarter frame and resets when the cube
-changes or the player recenters with Enter. While a movement trigger is held the
-left stick keeps its ordinary locomotion bindings; at rest it pans instead, so
-walking and steering stay on their existing bindings.
+In a stereo Quest session, interior scenes keep the left stick's ordinary
+locomotion bindings. The right stick's horizontal axis pans the isometric
+projection centre sideways; the pan is a view offset, clamped to a quarter
+frame, and resets when the cube changes or the player recenters with Enter.
+The right stick's digital camera-preset bindings are suppressed in this mode so
+the analog pan does not also cycle the classic camera.
 
-The right thumbstick's touch sensor and the controller-body thumb rest are
-capacitive inputs on the Touch profile. Resting the right thumb on either one
-switches the left stick's vertical axis from pan to VR world zoom: up narrows
-the field (zoom in),
-down widens it (zoom out), clamped to the `VrFovScale` 50–120 range. The
-horizontal axis still pans while the modifier is held. Both sensors are bound to
-the same modifier, so either rest surface works on runtimes that expose it.
+The left thumbstick touch sensor and the controller-body thumb rest are
+capacitive inputs on the Touch profile. Resting the left thumb in either place,
+or leaving it on the stick without moving it, makes the right stick's vertical
+axis adjust VR world zoom: up narrows the field (zoom in), down widens it (zoom
+out), clamped to the `VrFovScale` 50–120 range. Moving the left stick resumes
+normal locomotion and disables the stick-touch modifier.
 
 ## Live tuning (console cvars)
 

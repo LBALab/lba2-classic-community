@@ -39,10 +39,9 @@ extern "C" S32 GL_BatchFlushCount;
 #ifdef LBA2_OPENXR
 /* Interior is an isometric projection centred on the framebuffer, so a
  * joystick pan is a centre offset; it moves the room under a fixed camera
- * rather than moving a perspective eye.  The existing locomotion bindings
- * are untouched: this is a view offset layered on top of the scene. */
+ * rather than moving a perspective eye.  The left stick keeps its ordinary
+ * locomotion bindings so walking and steering are unchanged. */
 static S32 s_InteriorCamPanX = 0;
-static S32 s_InteriorCamPanY = 0;
 static S32 s_InteriorCamLastCube = -1;
 static U32 s_InteriorCamLastZoom = 0;
 
@@ -59,10 +58,14 @@ static S32 InteriorCamStickStep(S16 axis) {
     return (axis < 0) ? -step : step;
 }
 
-/* Quest interior camera: left stick pans the isometric view.  With the
- * right thumb resting on the stick or its thumb rest, left-stick up/down
- * changes the VR world zoom instead.  Pan is bounded to a quarter frame so
- * the room cannot be scrolled completely off screen. */
+static S32 InteriorCamAxisAtRest(S16 axis) {
+    return (axis >= -JoystickDeadzone && axis <= JoystickDeadzone);
+}
+
+/* Quest interior camera: the right stick pans the isometric view sideways.
+ * Resting the left thumb on its thumb rest (or on the stick without moving it)
+ * turns the right stick's vertical axis into VR world zoom.  Pan is bounded to
+ * a quarter frame so the room cannot be scrolled completely off screen. */
 static void UpdateInteriorCameraControl(void) {
     if (CubeMode != CUBE_INTERIEUR)
         return;
@@ -72,22 +75,23 @@ static void UpdateInteriorCameraControl(void) {
     if (s_InteriorCamLastCube != (S32)NumCube) {
         s_InteriorCamLastCube = (S32)NumCube;
         s_InteriorCamPanX = 0;
-        s_InteriorCamPanY = 0;
     }
-    if (Input & I_RETURN) {
+    if (Input & I_RETURN)
         s_InteriorCamPanX = 0;
-        s_InteriorCamPanY = 0;
-    }
 
     const S32 baseX = (S32)ModeDesiredX / 2 - 9;
     const S32 baseY = (S32)ModeDesiredY / 2;
     const S32 oldPanX = s_InteriorCamPanX;
-    const S32 oldPanY = s_InteriorCamPanY;
-    const S32 zoomMode = OpenXR_RightThumbstickTouched ||
-                         OpenXR_RightThumbrestTouched;
-    const S32 stepX = InteriorCamStickStep(OpenXR_LeftStickX);
-    const S32 stepY = InteriorCamStickStep(OpenXR_LeftStickY);
-    const S32 moving = Input & (I_UP | I_DOWN | I_LEFT | I_RIGHT);
+    const S32 leftAtRest = InteriorCamAxisAtRest(OpenXR_LeftStickX) &&
+                           InteriorCamAxisAtRest(OpenXR_LeftStickY);
+    const S32 zoomMode = OpenXR_LeftThumbrestTouched ||
+                         (OpenXR_LeftThumbstickTouched && leftAtRest);
+    const S32 stepX = InteriorCamStickStep(OpenXR_RightStickX);
+    const S32 stepY = InteriorCamStickStep(OpenXR_RightStickY);
+
+    /* The right stick always owns the sideways pan; its vertical axis is
+     * repurposed only while the left thumb is in its rest zone. */
+    s_InteriorCamPanX -= stepX;
 
     if (zoomMode && PERSO_StereoRenderActive()) {
         if (stepY != 0 && (U32)(TimerRefHR - s_InteriorCamLastZoom) >= 40) {
@@ -105,31 +109,20 @@ static void UpdateInteriorCameraControl(void) {
             FirstTime = AFF_ALL_FLIP;
         }
     }
-    if (!moving) {
-        s_InteriorCamPanX -= stepX;
-        if (!zoomMode)
-            s_InteriorCamPanY -= stepY;
-    }
 
     const S32 limitX = (S32)ModeDesiredX / 4;
-    const S32 limitY = (S32)ModeDesiredY / 4;
     if (s_InteriorCamPanX < -limitX)
         s_InteriorCamPanX = -limitX;
     else if (s_InteriorCamPanX > limitX)
         s_InteriorCamPanX = limitX;
-    if (s_InteriorCamPanY < -limitY)
-        s_InteriorCamPanY = -limitY;
-    else if (s_InteriorCamPanY > limitY)
-        s_InteriorCamPanY = limitY;
 
-    if (s_InteriorCamPanX != oldPanX || s_InteriorCamPanY != oldPanY)
+    if (s_InteriorCamPanX != oldPanX)
         FirstTime = AFF_ALL_FLIP;
 
     /* Re-apply every frame: Init3DView and authored camera changes reset the
      * projection centre, and the pan must survive those without being baked
      * into the scene's own camera value. */
-    SetIsoProjection(baseX + s_InteriorCamPanX,
-                     baseY + s_InteriorCamPanY);
+    SetIsoProjection(baseX + s_InteriorCamPanX, baseY);
 }
 #endif
 

@@ -846,10 +846,10 @@ static S32 OpenXR_CreateActions(void) {
         "ltrigger", "rtrigger",
         "lgrip", "rgrip",
         "menu_click",
-        /* Capacitive thumb-presence sensors.  The thumbstick touch is the
-           right stick's rest zone; the separate thumbrest sensor covers the
-           controller-body rest area on runtimes that expose it. */
-        "rthumbstick_touch", "rthumbrest_touch",
+        /* Capacitive thumb-presence sensors on the left hand.  The separate
+           thumbrest sensor covers the controller-body rest area; the stick
+           touch is a fallback on runtimes that expose it. */
+        "lthumbstick_touch", "lthumbrest_touch",
     };
     U32 i;
     for (i = 0; i < sizeof(boolNames)/sizeof(boolNames[0]); i++) {
@@ -899,8 +899,8 @@ static S32 OpenXR_CreateActions(void) {
         "/user/hand/left/input/squeeze/value",
         "/user/hand/right/input/squeeze/value",
         "/user/hand/left/input/menu/click",
-        "/user/hand/right/input/thumbstick/touch",
-        "/user/hand/right/input/thumbrest/touch",
+        "/user/hand/left/input/thumbstick/touch",
+        "/user/hand/left/input/thumbrest/touch",
         "/user/hand/left/input/thumbstick",
         "/user/hand/right/input/thumbstick",
     };
@@ -993,8 +993,8 @@ static void OpenXR_ReadActions(void) {
             case 8: out = &OpenXR_LeftGripDown; break;
             case 9: out = &OpenXR_RightGripDown; break;
             case 10: out = &OpenXR_MenuBtn; break;
-            case 11: out = &OpenXR_RightThumbstickTouched; break;
-            case 12: out = &OpenXR_RightThumbrestTouched; break;
+            case 11: out = &OpenXR_LeftThumbstickTouched; break;
+            case 12: out = &OpenXR_LeftThumbrestTouched; break;
         }
         if (out != NULL) {
             /* Actions are filtered to both hand subaction paths, so query
@@ -1107,8 +1107,8 @@ S32 OpenXR_LeftTrigger = 0;
 S32 OpenXR_RightTrigger = 0;
 S32 OpenXR_LeftThumbstickDown = 0;
 S32 OpenXR_RightThumbstickDown = 0;
-S32 OpenXR_RightThumbstickTouched = 0;
-S32 OpenXR_RightThumbrestTouched = 0;
+S32 OpenXR_LeftThumbstickTouched = 0;
+S32 OpenXR_LeftThumbrestTouched = 0;
 S16 OpenXR_LeftStickX = 0;
 S16 OpenXR_LeftStickY = 0;
 S16 OpenXR_RightStickX = 0;
