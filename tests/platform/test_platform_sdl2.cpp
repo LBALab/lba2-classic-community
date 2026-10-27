@@ -73,7 +73,7 @@ static void test_present_filter_and_surface_recreation() {
 
 static void test_window_frames_modes_and_lifetime() {
     ASSERT_TRUE(g_platform.capabilities.windowed);
-    ASSERT_TRUE(!g_platform.capabilities.transient_window_loss && !g_platform.capabilities.touch_overlay);
+    ASSERT_TRUE(!g_platform.capabilities.transient_window_loss);
     ASSERT_TRUE(!g_platform.window.initialized());
     ASSERT_TRUE(g_platform.window.init("SDL2 conformance"));
     ASSERT_TRUE(g_platform.window.init("SDL2 conformance"));

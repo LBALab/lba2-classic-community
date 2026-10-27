@@ -15,6 +15,46 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 - DefFile format: `Key: value` or `Key= value`, `;` comments ([LIB386/SYSTEM/DEFFILE.CPP](../LIB386/SYSTEM/DEFFILE.CPP))
 - API: `DefFileBufferInit(file, buffer, size)`, `DefFileBufferReadString`/`ReadValue`/`ReadValueDefault`, `DefFileBufferWriteString`/`WriteValue`
 
+## Build-time input profiles
+
+`LBA2_INPUT_PROFILE` selects a CMake data file, not a player-facing setting. [The generator](../cmake/input-profile.cmake) first loads [the common composition](../cmake/input/default.cmake), then applies the selected file. Its generated header supplies keyboard and controller defaults, modal remaps, stick deadzone, touch buttons and gameplay tap actions without platform conditionals in input policy.
+
+| Component / profile | Composition |
+|---|---|
+| [Keyboard](../cmake/input/keyboard.cmake) | The Windows 95 layout, shared by all supplied profiles |
+| [Full controller](../cmake/input/full-controller.cmake) | Shared controller defaults, including horizontal right-stick camera controls |
+| [Default](../cmake/input/default.cmake) | Keyboard + full controller; desktop and Switch select this composition |
+| [Android](../cmake/input/android.cmake) | Common defaults + [Android touch buttons](../cmake/input/android-touch.cmake); keyboard and connected controllers remain usable |
+| [Vita](../cmake/input/vita.cmake) | Common defaults + limited-controller overrides, 40% stick deadzone, Circle's modal Return remap and direct/front-tap recenter; indirect/rear touch is unbound |
+
+Android builds select their profile automatically; the Vita preset selects its file explicitly. Another build can select either, or a new device profile, with `-DLBA2_INPUT_PROFILE=/absolute/path/to/device.cmake`. CMake tracks included components and regenerates the header when they change.
+
+| Profile field | Meaning |
+|---|---|
+| `INPUT_KEYBOARD_<slot>` / `INPUT_GAMEPAD_<slot>` | Two engine key IDs per slot: primary and alternate; `0` means unbound. Slots follow [INPUT_BINDINGS.H](../SOURCES/INPUT_BINDINGS.H) |
+| `INPUT_DEADZONE` | Default for the existing runtime `GamepadDeadzone` setting, from 0 to 32767 |
+| `INPUT_MODAL_REMAPS` | Up to 32 `"K_<key>,gameplay_slot,modal_slot"` rows. A row applies only when that physical key remains bound to its source slot. Recordings carry the active rules and release latches independently of the receiving build's profile |
+| `INPUT_DIRECT_TOUCH_SLOT` / `INPUT_INDIRECT_TOUCH_SLOT` | Gameplay tap action slot, 0–31, or `-1` to leave that source unbound. Vita's panels are direct/front and indirect/rear; these are event-source classes, not universal screen names |
+| `input_touch_button(KEY <key> <label> <cx> <cy> <rx> <ry>)` | Append an overlay button with an engine key ID, ASCII alphanumeric/space label, centre and positive half-extents in normalised 0.0–1.0 coordinates |
+| `input_touch_button(HIDE 0 <label> <cx> <cy> <rx> <ry>)` | Append the overlay-dismiss button |
+| `INPUT_OVERLAY_TOUCH_SOURCE` | `direct`, `indirect` or `both`; selects which touch sources operate the overlay. A source cannot also be assigned a gameplay tap action |
+
+For example, a device can combine the existing touch layout on its direct screen with a recenter tap on its indirect panel:
+
+```cmake
+include("${CMAKE_SOURCE_DIR}/cmake/input/android-touch.cmake")
+set(INPUT_OVERLAY_TOUCH_SOURCE direct)
+set(INPUT_INDIRECT_TOUCH_SLOT 9)
+```
+
+Touch button count, geometry, labels and keys come from data. Overlay buttons inject their specified keys, preserving Android's existing behavior: runtime keyboard rebinding does not retarget those buttons. Tap actions instead resolve the current binding for their action slot and pulse only during gameplay polling. Taps survive presentation event pumps; modal/console entry and focus loss discard pending actions.
+
+Digital stick deadzones compare squared axis values as unsigned integers, so the exact configured boundary is active on both x87 and other floating-point implementations; angular snap and hysteresis still use the existing angle calculation.
+
+Modal remaps use generic physical-key release protection. If a held key's aggregate action mask changes when switching between gameplay and a modal, every binding for that key is suppressed until release. Unchanged action masks, ordinary held gameplay actions and explicit rebindings outside the rule remain usable. Fixed UI directions retain their separate recovery/navigation contract; profiles do not add a UI binding editor.
+
+The embedded config contains no keyboard/gamepad binding rows or deadzone value, so a fresh profile inherits the complete build-time defaults. Existing user and game-data configurations still override those defaults, including explicit zero/unbound values; loading a new build does not migrate them. Fresh defaults therefore include horizontal right-stick camera control rather than the embedded template disabling it. Restoring bindings uses the same compiled keyboard/controller tables.
+
 ## Lifecycle
 
 - **Read**: `ReadConfigFile()` in [SOURCES/CONFIG_FILE.CPP](../SOURCES/CONFIG_FILE.CPP), invoked from `InitProgram()`
@@ -62,8 +102,8 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | MasterVolume | int | 0–127 | 127 | Master volume, scales samples and music |
 | Input0_1..Input35_2 | int | Key scancodes | DefKeysDefault95 | 36 inputs × 2 keys each (`MAX_INPUT_SLOTS` in INPUT_BINDINGS.H). Only read when WinMode=1 |
 | WinMode | int | 0, 1 | 0 | 0=ignore Input* keys, use defaults; 1=read Input* keys. WriteInputConfig always writes WinMode=1 |
-| Gamepad0..Gamepad35, Gamepad0_2..Gamepad35_2 | int | Virtual scancodes; 0=unbound | GamepadKeysDefault in [INPUT_BINDINGS.CPP](../SOURCES/INPUT_BINDINGS.CPP) | The embedded seed leaves forward/backward, Return and dodge bindings unset so fresh profiles inherit the compiled layout. Explicit user or game-data values still override it; existing configurations are not migrated |
-| GamepadDeadzone | int | 0–32767 | 13107 on Vita; 8000 elsewhere | Shared by both sticks and the analog camera. Vita defaults to 40% of the axis range; other builds use about 24%. Explicit profile or game-data values override the compiled default; the built-in template leaves this key unset |
+| Gamepad0..Gamepad35, Gamepad0_2..Gamepad35_2 | int | Virtual scancodes; 0=unbound | GamepadKeysDefault in [INPUT_BINDINGS.CPP](../SOURCES/INPUT_BINDINGS.CPP) | The embedded seed leaves every binding unset so fresh profiles inherit the build-time input profile. Explicit user or game-data values still override it; existing configurations are not migrated |
+| GamepadDeadzone | int | 0–32767 | Build-time input profile: 13107 on Vita; 8000 in default/Android profiles | Shared by both sticks and the analog camera. Vita defaults to 40% of the axis range; default/Android use about 24%. Explicit user or game-data values override the compiled default; the built-in template leaves this key unset |
 | CompressSave | int | 0, 1 | 1 | 0=uncompressed saves, 1=compressed |
 | Version | int | 0–5, distributor ID | 0 (UNKNOWN_VERSION) | Which publisher's edition this is (`DistribVersion`): Activision, EA, Virgin, regional variants. Installer-written; set via the `distrib` console command. See [VERSIONS.md](VERSIONS.md) |
 | Version_US | int | any | -1 when absent | Read into `Version_US` and never used anywhere. Unrelated to `Version`. See [VERSIONS.md](VERSIONS.md#version_us) |

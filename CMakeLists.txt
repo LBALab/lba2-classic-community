@@ -62,7 +62,15 @@ option(LBA2_BUILD_ASM_EQUIV_TESTS "Build ASM↔CPP equivalence tests (requires o
 # a player's build. Idle, it is a flag test per draw call: 2400 headless ticks took the same
 # 4.6 s with it and without on an Apple Silicon Mac.
 option(ENABLE_POLY_RECORDING "Enable polygon call recording for ASM-vs-CPP testing" ${LBA2_BUILD_TESTS})
-option(LBA2_GAMEPAD_STICK_LAYOUT "Default to left-stick movement and east-button dodge (controllers without triggers or stick clicks)" OFF)
+include(cmake/input-profile.cmake)
+set(_DEFAULT_INPUT_PROFILE default)
+if(ANDROID)
+    set(_DEFAULT_INPUT_PROFILE android)
+endif()
+set(LBA2_INPUT_PROFILE "${CMAKE_SOURCE_DIR}/cmake/input/${_DEFAULT_INPUT_PROFILE}.cmake" CACHE FILEPATH
+    "Build-time input profile (keyboard, controller, touch and modal defaults)")
+lba2_configure_input_profile("${LBA2_INPUT_PROFILE}" "${CMAKE_BINARY_DIR}/input-profile")
+include_directories("${CMAKE_BINARY_DIR}/input-profile")
 option(LBA2_VITA_DIAGNOSTICS "Capture early Vita boot/stdout/stderr locally and enable optional DEBUGNET" OFF)
 if(LBA2_VITA_DIAGNOSTICS AND NOT VITA)
     message(FATAL_ERROR "LBA2_VITA_DIAGNOSTICS requires the Vita toolchain.")

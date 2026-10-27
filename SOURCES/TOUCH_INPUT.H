@@ -7,11 +7,11 @@
 extern "C" {
 #endif
 
-/* Touch screen virtual gamepad for Android / mobile devices.
+/* Touch controls selected by the build-time input profile.
  *
- * Provides an on-screen overlay with a D-pad (left side), action buttons
- * (bottom right), and utility buttons (top corners). Touch events map to
- * keyboard scancodes injected into the game's input system. The overlay
+ * Profiles provide overlay buttons and/or gameplay tap actions, independently
+ * for direct and indirect touch. Overlay buttons inject engine key IDs; tap
+ * actions resolve the current bindings for their configured action slot. The overlay
  * renders semi-transparent buttons onto the ARGB framebuffer just before
  * presentation via the PrePresent callback.
  *
@@ -59,8 +59,8 @@ S32 TouchOverlay_HandleEvent(const PlatformEvent *event);
 void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
                          const U8 *palette_rgb);
 
-/* Whether the backend supports an overlay. SDL3 currently enables it on
-   Android; a TV can still wake it with a touch. Distinct from whether the
+/* Whether the build-time profile provides overlay buttons. The Android
+   profile does; a TV can still wake it with a touch. Distinct from whether the
    visibility policy draws anything this frame. */
 S32 TouchOverlay_IsSupported(void);
 

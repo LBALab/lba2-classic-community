@@ -5,7 +5,7 @@
  * the Input bitfield.
  *
  * Table lookups do no file IO or polling. The context switch reads the current
- * physical Circle state so a held press cannot change action across contexts.
+ * physical key state so a held press cannot change action across contexts.
  * INPUT.CPP owns config IO and sampling the keyboard, pad and console.
  *
  * INPUT.H includes this header, so the eighteen files that already include it
@@ -35,7 +35,7 @@ typedef struct {
     U32 Key2;
 } T_DEF_KEY;
 
-// The Windows 95 default layout: what RestoreInput installs, and the value a
+// The build-time keyboard profile: what RestoreInput installs, and the value a
 // binding the config file leaves unset falls back to. Const like the pad table
 // below it, since a default nothing may edit is the point of having one.
 extern const T_DEF_KEY DefKeysDefault95[MAX_INPUT_SLOTS + 1];
@@ -61,17 +61,31 @@ extern U32 NbInput;
 
 //-------------------------------------------------------------------------
 extern void InitInput(void);
-/* Modal interfaces keep Circle's Return action; context changes require release.
-   Call before every gameplay or modal poll to rearm a released Circle. */
+/* Apply the active context mappings. A held key whose effective actions change
+   must be released. Call before every poll to rearm released keys. */
 extern void Bindings_SetGameplay(S32 gameplay);
-/* The remapping mode, selected context and physical release latch travel with
-   replay bindings, independently of the receiving build's default layout. */
+/* Remapping rules and release latches travel with replay bindings, independently
+   of the receiving build's compiled profile. */
+#define MAX_BINDING_REMAPS 32
+typedef struct {
+    U32 key;
+    U32 gameplaySlot;
+    U32 modalSlot;
+    U32 suppressed;
+} T_BINDING_REMAP;
+typedef struct {
+    U32 gameplay;
+    U32 count;
+    T_BINDING_REMAP remaps[MAX_BINDING_REMAPS];
+} T_BINDING_CONTEXT;
+/* Legacy recording bits, decoded into an explicit Circle rule. */
 #define BINDINGS_CONTEXT_MODAL_CIRCLE 1u
 #define BINDINGS_CONTEXT_GAMEPLAY 2u
 #define BINDINGS_CONTEXT_CIRCLE_SUPPRESSED 4u
 #define BINDINGS_CONTEXT_MASK 7u
-extern U32 Bindings_GetContext(void);
-extern void Bindings_SetContext(U32 context);
+extern T_BINDING_CONTEXT Bindings_GetContext(void);
+extern void Bindings_SetContext(const T_BINDING_CONTEXT &context);
+extern S32 Bindings_ContextValid(const T_BINDING_CONTEXT &context);
 //-------------------------------------------------------------------------
 extern void RestoreInput(void);
 //-------------------------------------------------------------------------
