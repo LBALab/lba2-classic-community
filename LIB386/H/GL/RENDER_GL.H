@@ -129,7 +129,7 @@ void GL_GetHorizonPerf(U32 *resolveUs, U32 *blitUs, U32 *rectPct);
 //! Multiplies the scene color by (15 - level) / 15, depth-tested GEQUAL
 //! against the terrain so nearer geometry clips the shadow.
 void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
-                       U32 level);
+                       U32 level, S32 terrainBias);
 
 //! Draw one body sphere (eye, button, nostril — LBA bodies model round
 //! details as shaded discs) as a depth-tested flat-color disc in the FBO.
@@ -180,13 +180,24 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
                        const void *pixels, S32 w, S32 h,
                        U16 az, S32 transparent);
 
+//! Slots for GL_DrawIndexedLayer: one flat background plus the depth bands
+//! the isometric interior splits its brick layer into.
+#define GL_LAYER_SLOTS 7
+
 //! Draw a full-screen 8-bit palette-index image as one quad, sampling with
 //! `filter` (the DisplayTexFilter value).  The image is uploaded only when
 //! `generation` or the size changes, so a static layer costs one draw call.
 //! The composed isometric brick layer uses it: the sprite path cannot, since
 //! its 8-bit RepMask caps a quad's wrap window at 256 texels.
-void GL_DrawIndexedLayer(const void *pixels, S32 w, S32 h, U32 generation,
-                         S32 filter, S32 x0, S32 y0, S32 x1, S32 y1);
+//!
+//! `slot` selects an independent texture, so one frame can draw several
+//! images without re-uploading them.  `az` is the image's depth on the same
+//! scale as the scene polygons (0 = screen space, no eye parallax); the
+//! interior splits its background into depth bands and draws each band at its
+//! own az, which is what gives the flat brick art parallax against the models.
+void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
+                         U32 generation, S32 filter, S32 x0, S32 y0, S32 x1,
+                         S32 y1, U16 az);
 
 //! Mark the current frame as an isometric interior world.  Allows polygon
 //! paths that do not carry a terrain depth buffer into the GL batch.

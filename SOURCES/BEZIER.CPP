@@ -14,6 +14,7 @@
 #include "C_EXTERN.H"
 
 #ifdef USE_GPURENDERER
+#include <3D/PROJ.H>
 #include <GL/RENDER_GL.H> /* GL_DrawShadowPoly for DrawShadowGL */
 #endif
 
@@ -251,11 +252,15 @@ void DrawShadowGL(void) {
         }
         sx[i] = (S16)px[i];
         sy[i] = (S16)py[i];
+        /* The depth is already on the scene scale: ProjectShadow maps interior
+           corners through IsoDepthToAz, and the exterior keeps GET_ZO. */
         sz[i] = (U16)pz[i];
     }
 
     if (nb >= 3) {
-        GL_DrawShadowPoly(sx, sy, sz, nb, ShadowLevel);
+        /* Only the exterior has a terrain depth for the fill to fight. */
+        GL_DrawShadowPoly(sx, sy, sz, nb, ShadowLevel,
+                          CubeMode != CUBE_INTERIEUR);
     }
 }
 #endif

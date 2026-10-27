@@ -1,6 +1,8 @@
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
 
+#include <3D/CAMERA.H>
+#include <3D/PROJ.H>
 #include <3D/PROJREC.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
@@ -181,6 +183,7 @@ typedef struct {
     S16 Xs;
     S16 Ys;
     S16 Brick;
+    U16 Az; /* scene depth of the tile's cube column, same scale as models */
 } T_BRICK_ORDER_ENTRY;
 
 #define MAX_BRICK_ORDER 16384
@@ -193,14 +196,27 @@ static void BrickOrderReset(void) {
     s_brickOrderOverflow = 0;
 }
 
-static void BrickOrderAdd(S32 brick, S32 xs, S32 ys) {
+static void BrickOrderAdd(S32 brick, S32 xs, S32 ys, U16 az) {
     if (s_brickOrderCount < MAX_BRICK_ORDER) {
         T_BRICK_ORDER_ENTRY *e = &s_brickOrder[s_brickOrderCount++];
         e->Xs = (S16)xs;
         e->Ys = (S16)ys;
         e->Brick = (S16)brick;
+        e->Az = az;
     } else
         s_brickOrderOverflow = 1;
+}
+
+/* Scene depth of a brick column, on the scale IsoDepth() gives the model
+   polygons: the painter key is (x + z) / 2 in world units from the camera,
+   and aZ counts down from the far end.  Tiles at the same (x, z) share it, so
+   a wall keeps one depth over its whole height while the floor recedes by
+   row. */
+static U16 BrickDepthAz(S32 x, S32 z) {
+    const S32 depth =
+        (((x * SIZE_BRICK_XZ) - CameraX) + ((z * SIZE_BRICK_XZ) - CameraZ)) >>
+        1;
+    return IsoDepthToAz(depth);
 }
 
 /* ── Composed base brick layer ────────────────────────────────────────────
@@ -227,13 +243,47 @@ static S32 s_baseLayerH = 0;
 static U32 s_baseLayerKey = 0;
 static S32 s_baseLayerValid = 0;
 static U32 s_baseLayerGen = 0;
+
+/* Depth bands the single-pass stereo path draws the layer in.  The whole
+   background used to sit at aZ = 0, which the polygon shader treats as screen
+   space: it got no eye offset while the models did, so the room read as a flat
+   painting behind them.  Splitting the composite by the same per-tile depth
+   the models use gives every band its own parallax; the bands are disjoint
+   composites of one painter walk, so drawing them far to near reproduces the
+   flat layer exactly. */
+#define BASE_BANDS 6
+
+typedef struct {
+    U8 *pixels;
+    S32 x0, y0, x1, y1;
+    U32 count;
+    U32 azSum;
+    U16 az;
+} T_BASE_BAND;
+static T_BASE_BAND s_baseBands[BASE_BANDS];
+
+/* The band composites only exist for the double-wide stereo path. */
+static S32 BandsWanted(void) { return GL_SinglePassStereoActive(); }
+
+/* Which band a tile belongs to: 0 is the farthest, so drawing them in index
+   order is drawing them in painter order. */
+static S32 BaseBandOf(U16 az, U16 azMax, S32 azSpan) {
+    S32 b = ((S32)azMax - (S32)az) * BASE_BANDS / azSpan;
+    if (b < 0)
+        return 0;
+    if (b >= BASE_BANDS)
+        return BASE_BANDS - 1;
+    return b;
+}
+
 /* Painted bounds: the layer image is screen-sized, but only this rectangle
    holds bricks, and the filter cost is per fragment. */
 static S32 s_baseLayerX0 = 0, s_baseLayerY0 = 0;
 static S32 s_baseLayerX1 = -1, s_baseLayerY1 = -1;
 
-static U32 BaseLayerKey(void) {
+static U32 BaseLayerKey(S32 bands) {
     U32 h = 2166136261u;
+    h = (h ^ (U32)bands) * 16777619u;
     h = (h ^ (U32)(uintptr_t)BufferBrick) * 16777619u;
     h = (h ^ (U32)NumCube) * 16777619u;
     h = (h ^ (U32)ModeDesiredX) * 16777619u;
@@ -270,7 +320,11 @@ static S32 BaseLayerCompose(void) {
         s_baseLayerValid = 0;
     }
 
-    const U32 key = BaseLayerKey();
+    /* Only the double-wide stereo path draws the depth bands. */
+    /* Number of band composites, not a yes/no flag: the loops below partition
+       the tiles between `bands` images. */
+    const S32 bands = BandsWanted() ? BASE_BANDS : 0;
+    const U32 key = BaseLayerKey(bands);
     if (s_baseLayerValid && key == s_baseLayerKey)
         return 1;
     memset(s_baseLayer, 0, (size_t)w * (size_t)h);
@@ -281,10 +335,21 @@ static S32 BaseLayerCompose(void) {
     ClipYMin = 0;
     ClipXMax = w - 1;
     ClipYMax = h - 1;
+    /* Depth range of this frame's tiles, for the band partition. */
+    U16 azMin = 65535, azMax = 0;
+    for (S32 i2 = 0; i2 < s_brickOrderCount; i2++) {
+        const U16 az = s_brickOrder[i2].Az;
+        if (az < azMin)
+            azMin = az;
+        if (az > azMax)
+            azMax = az;
+    }
+    const S32 azSpan = (S32)azMax - (S32)azMin + 1;
+
     Log = s_baseLayer;
     S32 bx0 = w, by0 = h, bx1 = -1, by1 = -1;
-    for (S32 i = 0; i < s_brickOrderCount; i++) {
-        const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i];
+    for (S32 i2 = 0; i2 < s_brickOrderCount; i2++) {
+        const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i2];
         AffGraph(p->Brick, p->Xs, p->Ys, BufferBrick);
         const U8 *src = BufferBrick + ((const U32 *)BufferBrick)[p->Brick];
         const S32 x0 = p->Xs + (S8)src[2];
@@ -296,12 +361,78 @@ static S32 BaseLayerCompose(void) {
         if (x1 > bx1) bx1 = x1;
         if (y1 > by1) by1 = y1;
     }
+
+    /* Depth bands: one composite per band, each holding its own tiles in the
+       painter order of the walk above. */
+    for (S32 b = 0; b < BASE_BANDS; b++) {
+        s_baseBands[b].x0 = w;
+        s_baseBands[b].y0 = h;
+        s_baseBands[b].x1 = -1;
+        s_baseBands[b].y1 = -1;
+        s_baseBands[b].count = 0;
+        s_baseBands[b].azSum = 0;
+        s_baseBands[b].az = 0;
+    }
+    if (bands > 0) {
+        for (S32 i2 = 0; i2 < s_brickOrderCount; i2++) {
+            const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i2];
+            const U8 *src = BufferBrick + ((const U32 *)BufferBrick)[p->Brick];
+            T_BASE_BAND *band = &s_baseBands[BaseBandOf(p->Az, azMax, azSpan)];
+            const S32 x0 = p->Xs + (S8)src[2];
+            const S32 y0 = p->Ys + (S8)src[3];
+            const S32 x1 = x0 + src[0];
+            const S32 y1 = y0 + src[1];
+            if (x0 < band->x0)
+                band->x0 = x0;
+            if (y0 < band->y0)
+                band->y0 = y0;
+            if (x1 > band->x1)
+                band->x1 = x1;
+            if (y1 > band->y1)
+                band->y1 = y1;
+            band->count++;
+            band->azSum += p->Az;
+        }
+        for (S32 b = 0; b < bands; b++) {
+            T_BASE_BAND *band = &s_baseBands[b];
+            if (band->count == 0)
+                continue;
+            band->az = (U16)(band->azSum / band->count);
+            const size_t bytes = (size_t)w * (size_t)h;
+            if (band->pixels == NULL) {
+                band->pixels = (U8 *)malloc(bytes);
+                if (band->pixels == NULL)
+                    return 0;
+            }
+            memset(band->pixels, 0, bytes);
+            Log = band->pixels;
+            for (S32 i2 = 0; i2 < s_brickOrderCount; i2++) {
+                const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i2];
+                if (BaseBandOf(p->Az, azMax, azSpan) != b)
+                    continue;
+                AffGraph(p->Brick, p->Xs, p->Ys, BufferBrick);
+            }
+        }
+    }
     Log = savedLog;
     ClipXMin = savedXMin;
     ClipYMin = savedYMin;
     ClipXMax = savedXMax;
     ClipYMax = savedYMax;
 
+    for (S32 b = 0; b < bands; b++) {
+        T_BASE_BAND *band = &s_baseBands[b];
+        if (band->count == 0)
+            continue;
+        if (band->x0 < 0)
+            band->x0 = 0;
+        if (band->y0 < 0)
+            band->y0 = 0;
+        if (band->x1 > w)
+            band->x1 = w;
+        if (band->y1 > h)
+            band->y1 = h;
+    }
     if (bx0 < 0)
         bx0 = 0;
     if (by0 < 0)
@@ -331,11 +462,42 @@ static S32 BaseLayerCompose(void) {
 static S32 DrawBaseLayerGL(void) {
     if (!BaseLayerCompose())
         return 0;
-    if (s_baseLayerX1 <= s_baseLayerX0 || s_baseLayerY1 <= s_baseLayerY0)
+    if (!BandsWanted()) {
+        /* No eye offset to resolve in mono or per-eye passes: the flat
+           composite is cheaper and exactly the previous image. */
+        if (s_baseLayerX1 > s_baseLayerX0 && s_baseLayerY1 > s_baseLayerY0) {
+            GL_DrawIndexedLayer(0, s_baseLayer, s_baseLayerW, s_baseLayerH,
+                                s_baseLayerGen, DisplayTexFilter,
+                                s_baseLayerX0, s_baseLayerY0, s_baseLayerX1,
+                                s_baseLayerY1, 0);
+        }
         return 1;
-    GL_DrawIndexedLayer(s_baseLayer, s_baseLayerW, s_baseLayerH,
-                        s_baseLayerGen, DisplayTexFilter, s_baseLayerX0,
-                        s_baseLayerY0, s_baseLayerX1, s_baseLayerY1);
+    }
+    /* Underlay: the flat composite, at a middle depth.  The bands carry
+       different eye offsets, so where a near wall meets a far floor their
+       edges separate; without this the gap shows the cleared framebuffer as a
+       black join line, with it the pixel that was already there stays. */
+    if (s_baseLayerX1 > s_baseLayerX0 && s_baseLayerY1 > s_baseLayerY0) {
+        U16 mid = 0;
+        for (S32 b = BASE_BANDS / 2; b >= 0; b--) {
+            if (s_baseBands[b].count != 0) {
+                mid = s_baseBands[b].az;
+                break;
+            }
+        }
+        GL_DrawIndexedLayer(0, s_baseLayer, s_baseLayerW, s_baseLayerH,
+                            s_baseLayerGen, DisplayTexFilter, s_baseLayerX0,
+                            s_baseLayerY0, s_baseLayerX1, s_baseLayerY1, mid);
+    }
+    for (S32 b = 0; b < BASE_BANDS; b++) {
+        const T_BASE_BAND *band = &s_baseBands[b];
+        if (band->pixels == NULL || band->x1 <= band->x0 ||
+            band->y1 <= band->y0)
+            continue;
+        GL_DrawIndexedLayer(1 + b, band->pixels, s_baseLayerW,
+                            s_baseLayerH, s_baseLayerGen, DisplayTexFilter,
+                            band->x0, band->y0, band->x1, band->y1, band->az);
+    }
     return 1;
 }
 
@@ -360,6 +522,12 @@ static S32 s_overlayTileSize = 0;
 static S32 s_overlayActive = 0;
 static S32 s_overlayClipX0, s_overlayClipY0, s_overlayClipX1, s_overlayClipY1;
 static S32 s_overlayX0, s_overlayY0, s_overlayX1, s_overlayY1;
+/* Depth of the bricks in the current patch: the overlay restores background
+   pixels over a model, and it must sit at the same depth as the band they came
+   from or it lands a few pixels off the rest of the background. */
+static U32 s_overlayAzSum;
+static U32 s_overlayAzCount;
+static U16 s_overlayAz;
 
 static void OverlayFreeBuffers(void) {
     free(s_overlayPatch);
@@ -420,6 +588,9 @@ static void OverlayBegin(void) {
     s_overlayClipY0 = y0;
     s_overlayClipX1 = x1;
     s_overlayClipY1 = y1;
+    s_overlayAzSum = 0;
+    s_overlayAzCount = 0;
+    s_overlayAz = 0;
     const S32 span = x1 - x0 + 1;
     for (S32 y = y0; y <= y1; y++)
         memset(s_overlayPatch + (size_t)y * s_overlayAllocW + x0, 0, span);
@@ -480,6 +651,8 @@ static void OverlayMark(T_COLONB *ptrlbc) {
         s_overlayX1 = cx1;
     if (cy1 > s_overlayY1)
         s_overlayY1 = cy1;
+    s_overlayAzSum += BrickDepthAz(ptrlbc->Xm, ptrlbc->Zm);
+    s_overlayAzCount++;
 }
 
 /* Draw the composed patch into the scene FBO.  Tiles keep the sprite path's
@@ -491,6 +664,8 @@ static void OverlayFlush(void) {
     if (s_overlayX1 < s_overlayX0 || s_overlayY1 < s_overlayY0)
         return;
 
+    if (s_overlayAzCount > 0)
+        s_overlayAz = (U16)(s_overlayAzSum / s_overlayAzCount);
     const S32 w = s_overlayX1 - s_overlayX0 + 1;
     const S32 h = s_overlayY1 - s_overlayY0 + 1;
     const S32 need = w * h;
@@ -529,7 +704,8 @@ static void OverlayFlush(void) {
                        (size_t)tw);
             GL_DrawSpriteQuad(s_overlayX0 + tx, s_overlayY0 + ty,
                               s_overlayX0 + tx + tw, s_overlayY0 + ty + th,
-                              0, 0, tw, th, s_overlayTile, tw, th, 0, 0);
+                              0, 0, tw, th, s_overlayTile, tw, th,
+                              s_overlayAz, 0);
         }
     }
     GL_SetSpriteUploadAlways(0);
@@ -907,6 +1083,16 @@ void GetShadow(S32 xw, S32 yw, S32 zw) {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 /*--------------------------------------------------------------------------*/
+/* Shadow depth for the GL fill.  An interior shadow lies on the brick floor,
+   so it takes the floor's depth -- the isometric painter key of the corner --
+   exactly like the background bands and the model polygons.  Without it the
+   corners keep the stale perspective GET_ZO values from the last exterior
+   shadow, and in the headset the shadow sits several pixels off the floor it
+   is supposed to darken. */
+static U16 InteriorShadowAz(S32 worldX, S32 worldZ) {
+    return IsoDepthToAz(((worldX - CameraX) + (worldZ - CameraZ)) >> 1);
+}
+
 S32 ProjectShadow(T_SORT *ptrs, S32 beta) {
     S32 xmin, zmin, xmax, zmax, xw, yw, zw;
     S32 ys, cy;
@@ -944,6 +1130,7 @@ S32 ProjectShadow(T_SORT *ptrs, S32 beta) {
     else if (cy > altitude_ref + ALTITUDE_MAX)
         cy = altitude_ref + ALTITUDE_MAX;
 
+    ShadowZO[0] = InteriorShadowAz(X0, Z0);
     if (!LongProjectPoint(X0, cy, Z0))
         return FALSE;
     XS0 = Xp;
@@ -963,6 +1150,7 @@ S32 ProjectShadow(T_SORT *ptrs, S32 beta) {
     else if (cy > altitude_ref + ALTITUDE_MAX)
         cy = altitude_ref + ALTITUDE_MAX;
 
+    ShadowZO[1] = InteriorShadowAz(X0, Z0);
     if (!LongProjectPoint(X0, cy, Z0))
         return FALSE;
     XS1 = Xp;
@@ -982,6 +1170,7 @@ S32 ProjectShadow(T_SORT *ptrs, S32 beta) {
     else if (cy > altitude_ref + ALTITUDE_MAX)
         cy = altitude_ref + ALTITUDE_MAX;
 
+    ShadowZO[2] = InteriorShadowAz(X0, Z0);
     if (!LongProjectPoint(X0, cy, Z0))
         return FALSE;
     XS2 = Xp;
@@ -1001,6 +1190,7 @@ S32 ProjectShadow(T_SORT *ptrs, S32 beta) {
     else if (cy > altitude_ref + ALTITUDE_MAX)
         cy = altitude_ref + ALTITUDE_MAX;
 
+    ShadowZO[3] = InteriorShadowAz(X0, Z0);
     if (!LongProjectPoint(X0, cy, Z0))
         return FALSE;
     XS3 = Xp;
@@ -1323,10 +1513,12 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
                after this walk; recording the order is all the base pass
                does.  The software path still blits each brick here. */
             if (GPURendererActive && CubeMode == CUBE_INTERIEUR) {
-                BrickOrderAdd(numbrick - 1, XScreen, YScreen);
+                BrickOrderAdd(numbrick - 1, XScreen, YScreen,
+                              BrickDepthAz(x, z));
             } else {
                 AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
-                BrickOrderAdd(numbrick - 1, XScreen, YScreen);
+                BrickOrderAdd(numbrick - 1, XScreen, YScreen,
+                              BrickDepthAz(x, z));
             }
 #else
             AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);

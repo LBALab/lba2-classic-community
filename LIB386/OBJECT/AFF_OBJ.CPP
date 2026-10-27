@@ -392,14 +392,7 @@ static void SetEnvMappedQuadUvs(Struc_Point *points, const STRUC_POLY4_ENV *poly
    painter sort key (x + z) / 2, so use that (plus the object's camera-relative
    position) as the isometric view depth. */
 static U16 IsoDepth(const T_OBJ_POINT &p) {
-    S32 depth = ((PosXWr + PosZWr) >> 1) + (S32)p.Z;
-    S32 zo = 32768 - depth;
-    if (zo < 0) {
-        zo = 0;
-    } else if (zo > 65535) {
-        zo = 65535;
-    }
-    return (U16)zo;
+    return IsoDepthToAz(((PosXWr + PosZWr) >> 1) + (S32)p.Z);
 }
 
 void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3) {

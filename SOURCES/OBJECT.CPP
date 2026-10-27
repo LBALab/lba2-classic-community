@@ -17,6 +17,7 @@
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
+#include <3D/PROJ.H>
 #include <GL/RENDER_GL.H> /* GL_DrawShadowQuad */
 #include <SYSTEM/OPENXR.H> /* OpenXR_GetSwapchainWidth (head-mount fps position) */
 #include <SYSTEM/HQFILE.H>
@@ -4904,14 +4905,7 @@ U16 SpriteGL_Zo = 0;
    depth-tests against the interior FBO instead of x-raying through it. */
 static U16 SpriteGLDepth(S32 x, S32 z) {
     if (CubeMode == CUBE_INTERIEUR) {
-        S32 depth = ((x - CameraXr) + (z - CameraZr)) >> 1;
-        S32 zo = 32768 - depth;
-        if (zo < 0) {
-            zo = 0;
-        } else if (zo > 65535) {
-            zo = 65535;
-        }
-        return (U16)zo;
+        return IsoDepthToAz(((x - CameraXr) + (z - CameraZr)) >> 1);
     }
     return (U16)GET_ZO(CameraZr - Z0);
 }

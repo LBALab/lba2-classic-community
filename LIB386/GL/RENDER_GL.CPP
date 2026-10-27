@@ -252,7 +252,10 @@ static const char *s_layerVertSrc =
     "uniform float uSinglePass;\n"
     "uniform vec3 uEyeWorld;\n"
     "uniform vec2 uEyeProj;\n"
+    "uniform vec2 uEyeFocal;\n"
+    "uniform float uEyeZScale;\n"
     "uniform vec2 uAtlasScale;\n"
+    "uniform float uLayerAz;\n" /* image depth on the scene's aZ scale */
     "varying vec2 vTexCoord;\n"
     "varying vec2 vTexCoordOverW;\n"
     "varying float vInvW;\n"
@@ -266,10 +269,23 @@ static const char *s_layerVertSrc =
     "    float cx = aPos.x * uScreenScale.x - 1.0;\n"
     "    float cy = 1.0 - aPos.y * uScreenScale.y;\n"
     "    float eye = (uSinglePass > 0.5) ? uEye : 0.0;\n"
+    "    float parallax = (uSinglePass > 0.5 && uLayerAz > 0.5) ? eye : 0.0;\n"
+    "    float az = uLayerAz;\n"
     "    if (uSinglePass > 0.5) {\n"
+    /* Same parallax as the polygon vertex stage: a band at its scene depth
+       leans toward the eye by 1/z, so the background tracks the models. */
+    "        az = clamp(uLayerAz + parallax * uEyeWorld.z * uEyeZScale,\n"
+    "                   0.0, 65535.0);\n"
+    "        float z0 = max(az, 1.0) / max(uEyeZScale, 0.000001);\n"
+    "        float sx =\n"
+    "            parallax * (-uEyeWorld.x * uEyeFocal.x / z0 + uEyeProj.x);\n"
+    "        float sy = parallax * (-uEyeWorld.y * uEyeFocal.x * uEyeFocal.y /\n"
+    "                               z0 + uEyeProj.y);\n"
+    "        cx = (aPos.x + sx) * uScreenScale.x - 1.0;\n"
+    "        cy = 1.0 - (aPos.y + sy) * uScreenScale.y;\n"
     "        cx = (eye > 0.5) ? (cx * 0.5 + 0.5) : (cx * 0.5 - 0.5);\n"
     "    }\n"
-    "    gl_Position = vec4(cx, cy, 1.0, 1.0);\n"
+    "    gl_Position = vec4(cx, cy, 1.0 - az / 65535.0, 1.0);\n"
     "    vec2 tc = aUV * uAtlasScale * 256.0;\n"
     "    vTexCoord = tc;\n"
     "    vTexCoordOverW = tc;\n"
@@ -1764,11 +1780,19 @@ static GLint s_layer_uAtlasScale = -1;
 static GLint s_layer_uBilinear = -1;
 static GLint s_layer_uSinglePass = -1;
 static GLint s_layer_uEye = -1;
-static GLuint s_layerTex = 0;
-static S32 s_layerTexW = 0;
-static S32 s_layerTexH = 0;
-static U32 s_layerTexGen = 0;
-static S32 s_layerTexHasGen = 0;
+static GLint s_layer_uEyeWorld = -1;
+static GLint s_layer_uEyeProj = -1;
+static GLint s_layer_uEyeFocal = -1;
+static GLint s_layer_uEyeZScale = -1;
+static GLint s_layer_uLayerAz = -1;
+typedef struct {
+    GLuint tex;
+    S32 w;
+    S32 h;
+    U32 gen;
+    S32 hasGen;
+} T_LAYER_SLOT;
+static T_LAYER_SLOT s_layerSlots[GL_LAYER_SLOTS];
 static char *GL_MakeLayerFragSrc(void);
 
 /* ── GL state — static decor program ─────────────────────────────────────── */
@@ -3759,6 +3783,16 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             s_layer_uSinglePass =
                 glGetUniformLocation(s_layerProgram, "uSinglePass");
             s_layer_uEye = glGetUniformLocation(s_layerProgram, "uEye");
+            s_layer_uEyeWorld =
+                glGetUniformLocation(s_layerProgram, "uEyeWorld");
+            s_layer_uEyeProj =
+                glGetUniformLocation(s_layerProgram, "uEyeProj");
+            s_layer_uEyeFocal =
+                glGetUniformLocation(s_layerProgram, "uEyeFocal");
+            s_layer_uEyeZScale =
+                glGetUniformLocation(s_layerProgram, "uEyeZScale");
+            s_layer_uLayerAz =
+                glGetUniformLocation(s_layerProgram, "uLayerAz");
             GL_UseProgramCached(s_layerProgram);
             glUniform1i(glGetUniformLocation(s_layerProgram, "uAtlas"), 0);
             glUniform1i(glGetUniformLocation(s_layerProgram, "uCLUT"), 1);
@@ -3783,6 +3817,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                 glGetUniformLocation(s_layerProgram, "uFogRowScale"), 0.0f);
             glUniform1f(
                 glGetUniformLocation(s_layerProgram, "uTerrainFarClip"), 0.0f);
+            glUniform1f(s_layer_uLayerAz, 0.0f);
             GL_UseProgramCached(0);
             Log_Info("[GL] Indexed layer program ready.");
         }
@@ -6011,7 +6046,7 @@ void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
    colors, so the result does not depend on the FBO→palette reverse lookup
    staying faithful. */
 void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
-                       U32 level) {
+                       U32 level, S32 terrainBias) {
     Struc_Point pts[64];
     U16 tris[3 * 64];
     static U8 polyVerts[3 * 64 * BATCH_VERT_BYTES];
@@ -6061,7 +6096,12 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
             zmax = az[i];
         }
     }
-    S32 bias = (zmax - zmin) + 16; /* + margin: depth16 is (131070 - aZ) / 2 */
+    /* The bias exists so the fill cannot punch a hole at its own centre
+       against a hyperbolic terrain depth, which only the exterior has.
+       Without terrain the bias would lift the shadow off the depth of the
+       floor it lies on, and the eye offset goes as 1/aZ, so a few hundred aZ
+       units show up as a visible offset in the right eye. */
+    S32 bias = terrainBias ? (zmax - zmin) + 16 : 0;
 
     /* Pending batch first: it carries its own state. */
     GL_FlushBatch();
@@ -8160,10 +8200,12 @@ static char *GL_MakeLayerFragSrc(void) {
     return out;
 }
 
-void GL_DrawIndexedLayer(const void *pixels, S32 w, S32 h, U32 generation,
-                         S32 filter, S32 x0, S32 y0, S32 x1, S32 y1) {
+void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
+                         U32 generation, S32 filter, S32 x0, S32 y0, S32 x1,
+                         S32 y1, U16 az) {
     if (!s_initialized || pixels == NULL || w <= 0 || h <= 0 ||
-        s_layerProgram == 0 || x1 <= x0 || y1 <= y0) {
+        s_layerProgram == 0 || x1 <= x0 || y1 <= y0 || slot < 0 ||
+        slot >= GL_LAYER_SLOTS) {
         return;
     }
     if (!Window_GLMakeCurrent()) {
@@ -8182,38 +8224,39 @@ void GL_DrawIndexedLayer(const void *pixels, S32 w, S32 h, U32 generation,
         }
     }
 
-    if (s_layerTex == 0) {
-        glGenTextures(1, &s_layerTex);
-        glBindTexture(GL_TEXTURE_2D, s_layerTex);
+    T_LAYER_SLOT *ls = &s_layerSlots[slot];
+    if (ls->tex == 0) {
+        glGenTextures(1, &ls->tex);
+        glBindTexture(GL_TEXTURE_2D, ls->tex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glBindTexture(GL_TEXTURE_2D, 0);
-        s_layerTexW = 0;
-        s_layerTexH = 0;
-        s_layerTexHasGen = 0;
+        ls->w = 0;
+        ls->h = 0;
+        ls->hasGen = 0;
     }
 
-    const S32 needUpload = !s_layerTexHasGen || generation != s_layerTexGen ||
-                           w != s_layerTexW || h != s_layerTexH;
+    const S32 needUpload = !ls->hasGen || generation != ls->gen ||
+                           w != ls->w || h != ls->h;
     if (needUpload) {
         GLint unpackAlign = 4;
         glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpackAlign);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glBindTexture(GL_TEXTURE_2D, s_layerTex);
-        if (w != s_layerTexW || h != s_layerTexH) {
+        glBindTexture(GL_TEXTURE_2D, ls->tex);
+        if (w != ls->w || h != ls->h) {
             glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE,
                          GL_UNSIGNED_BYTE, pixels);
-            s_layerTexW = w;
-            s_layerTexH = h;
+            ls->w = w;
+            ls->h = h;
         } else {
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_LUMINANCE,
                             GL_UNSIGNED_BYTE, pixels);
         }
         glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlign);
-        s_layerTexGen = generation;
-        s_layerTexHasGen = 1;
+        ls->gen = generation;
+        ls->hasGen = 1;
     }
 
     GL_UseProgramCached(s_layerProgram);
@@ -8223,11 +8266,25 @@ void GL_DrawIndexedLayer(const void *pixels, S32 w, S32 h, U32 generation,
     glUniform2f(s_layer_uScreenScale, ssx, ssy);
     glUniform2f(s_layer_uAtlasScale, (GLfloat)w, (GLfloat)h);
     glUniform1i(s_layer_uBilinear, filter);
+    glUniform1f(s_layer_uLayerAz, (GLfloat)az);
 
-    GL_BindTexUnit(0, s_layerTex);
+    /* Eye state belongs to each program: the batch path pushes it in
+       GL_SetClutEyeUniforms, so the layer needs its own copy or the band
+       depths resolve to a zero eye offset. */
+    glUniform3f(s_layer_uEyeWorld, s_eye1World[0], s_eye1World[1],
+                s_eye1World[2]);
+    glUniform2f(s_layer_uEyeProj, s_eye1Proj[0], s_eye1Proj[1]);
+    glUniform2f(s_layer_uEyeFocal, FRatioX, FRatioY);
+    glUniform1f(s_layer_uEyeZScale,
+                (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0));
+
+    GL_BindTexUnit(0, ls->tex);
     GL_BindTexUnit(1, s_clutTex);
     GL_BindTexUnit(2, s_paletteTex);
 
+    /* Painter order still places the bands (they are drawn far to near, and
+       the composed art already carries its own occlusion), so the background
+       keeps out of the depth buffer exactly like the single-layer path. */
     GL_SetDepthTest(0);
     GL_SetDepthWrite(0);
     GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -9886,7 +9943,7 @@ void GL_SavePresentPNG(const char *path) {
 }
 void GL_RestoreTerrainSnapshot(void) {}
 void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
-                       U32 level) {
+                       U32 level, S32 terrainBias) {
     (void)xs;
     (void)ys;
     (void)az;
