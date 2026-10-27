@@ -1,4 +1,5 @@
-add_executable(test_xbr test_xbr.cpp ../../../LIB386/SVGA/XBR.CPP)
+add_executable(test_xbr test_xbr.cpp
+    ${CMAKE_SOURCE_DIR}/LIB386/SVGA/XBR.CPP)
 
 target_include_directories(test_xbr PRIVATE
     ${CMAKE_SOURCE_DIR}/LIB386/H
