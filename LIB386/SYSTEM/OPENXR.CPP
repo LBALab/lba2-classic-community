@@ -139,7 +139,7 @@ static XrSpace                 s_stageSpace = XR_NULL_HANDLE;
 static XrSpace                 s_localSpace = XR_NULL_HANDLE;
 static XrSpace                 s_viewSpace = XR_NULL_HANDLE;
 static XrActionSet             s_actionSet = XR_NULL_HANDLE;
-static XrAction                s_actions[13];
+static XrAction                s_actions[15];
 
 /* Subaction paths for both hands. The Quest runtime reports controller
  * actions per hand: created without subaction paths, actions bind
@@ -846,6 +846,10 @@ static S32 OpenXR_CreateActions(void) {
         "ltrigger", "rtrigger",
         "lgrip", "rgrip",
         "menu_click",
+        /* Capacitive thumb-presence sensors.  The thumbstick touch is the
+           right stick's rest zone; the separate thumbrest sensor covers the
+           controller-body rest area on runtimes that expose it. */
+        "rthumbstick_touch", "rthumbrest_touch",
     };
     U32 i;
     for (i = 0; i < sizeof(boolNames)/sizeof(boolNames[0]); i++) {
@@ -871,7 +875,8 @@ static S32 OpenXR_CreateActions(void) {
         aInfo.subactionPaths = s_handPaths;
         SDL_strlcpy(aInfo.actionName, vecNames[i], sizeof(aInfo.actionName));
         SDL_strlcpy(aInfo.localizedActionName, vecNames[i], sizeof(aInfo.localizedActionName));
-        rc = xrCreateAction(s_actionSet, &aInfo, &s_actions[11 + i]);
+        rc = xrCreateAction(s_actionSet, &aInfo,
+                            &s_actions[13 + i]);
         if (XR_FAILED(rc)) return 0;
     }
 
@@ -882,7 +887,7 @@ static S32 OpenXR_CreateActions(void) {
     XrPath profilePath = XR_NULL_PATH;
     xrStringToPath(s_instance, profileStr, &profilePath);
 
-    static const char *bindingStrs[13] = {
+    static const char *bindingStrs[15] = {
         "/user/hand/right/input/a/click",
         "/user/hand/right/input/b/click",
         "/user/hand/left/input/x/click",
@@ -894,12 +899,14 @@ static S32 OpenXR_CreateActions(void) {
         "/user/hand/left/input/squeeze/value",
         "/user/hand/right/input/squeeze/value",
         "/user/hand/left/input/menu/click",
+        "/user/hand/right/input/thumbstick/touch",
+        "/user/hand/right/input/thumbrest/touch",
         "/user/hand/left/input/thumbstick",
         "/user/hand/right/input/thumbstick",
     };
-    XrActionSuggestedBinding bindings[13];
+    XrActionSuggestedBinding bindings[15];
     U32 j;
-    for (j = 0; j < 13; j++) {
+    for (j = 0; j < 15; j++) {
         bindings[j].action = s_actions[j];
         xrStringToPath(s_instance, bindingStrs[j], &bindings[j].binding);
     }
@@ -909,7 +916,7 @@ static S32 OpenXR_CreateActions(void) {
     suggest.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING;
     suggest.interactionProfile = profilePath;
     suggest.suggestedBindings = bindings;
-    suggest.countSuggestedBindings = 13;
+    suggest.countSuggestedBindings = 15;
 
     rc = xrSuggestInteractionProfileBindings(s_instance, &suggest);
     if (XR_FAILED(rc)) {
@@ -967,7 +974,7 @@ static void OpenXR_ReadActions(void) {
     XrActionStateVector2f stv;
     U32 i;
 
-    for (i = 0; i < 11; i++) {
+    for (i = 0; i < 13; i++) {
         memset(&gi, 0, sizeof(gi));
         memset(&stb, 0, sizeof(stb));
         gi.type = XR_TYPE_ACTION_STATE_GET_INFO;
@@ -986,6 +993,8 @@ static void OpenXR_ReadActions(void) {
             case 8: out = &OpenXR_LeftGripDown; break;
             case 9: out = &OpenXR_RightGripDown; break;
             case 10: out = &OpenXR_MenuBtn; break;
+            case 11: out = &OpenXR_RightThumbstickTouched; break;
+            case 12: out = &OpenXR_RightThumbrestTouched; break;
         }
         if (out != NULL) {
             /* Actions are filtered to both hand subaction paths, so query
@@ -1003,7 +1012,7 @@ static void OpenXR_ReadActions(void) {
         }
     }
 
-    for (i = 11; i < 13; i++) {
+    for (i = 13; i < 15; i++) {
         memset(&gi, 0, sizeof(gi));
         memset(&stv, 0, sizeof(stv));
         gi.type = XR_TYPE_ACTION_STATE_GET_INFO;
@@ -1011,8 +1020,8 @@ static void OpenXR_ReadActions(void) {
         stv.type = XR_TYPE_ACTION_STATE_VECTOR2F;
         S16 *outx = NULL, *outy = NULL;
         switch (i) {
-            case 11: outx = &OpenXR_LeftStickX;  outy = &OpenXR_LeftStickY;  break;
-            case 12: outx = &OpenXR_RightStickX; outy = &OpenXR_RightStickY; break;
+            case 13: outx = &OpenXR_LeftStickX;  outy = &OpenXR_LeftStickY;  break;
+            case 14: outx = &OpenXR_RightStickX; outy = &OpenXR_RightStickY; break;
         }
         if (outx != NULL && outy != NULL) {
             /* Take whichever hand reports an active stick state. */
@@ -1098,6 +1107,8 @@ S32 OpenXR_LeftTrigger = 0;
 S32 OpenXR_RightTrigger = 0;
 S32 OpenXR_LeftThumbstickDown = 0;
 S32 OpenXR_RightThumbstickDown = 0;
+S32 OpenXR_RightThumbstickTouched = 0;
+S32 OpenXR_RightThumbrestTouched = 0;
 S16 OpenXR_LeftStickX = 0;
 S16 OpenXR_LeftStickY = 0;
 S16 OpenXR_RightStickX = 0;

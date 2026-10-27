@@ -36,6 +36,103 @@ extern "C" S32 GL_BatchFlushCount;
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 
+#ifdef LBA2_OPENXR
+/* Interior is an isometric projection centred on the framebuffer, so a
+ * joystick pan is a centre offset; it moves the room under a fixed camera
+ * rather than moving a perspective eye.  The existing locomotion bindings
+ * are untouched: this is a view offset layered on top of the scene. */
+static S32 s_InteriorCamPanX = 0;
+static S32 s_InteriorCamPanY = 0;
+static S32 s_InteriorCamLastCube = -1;
+static U32 s_InteriorCamLastZoom = 0;
+
+static S32 InteriorCamStickStep(S16 axis) {
+    S32 mag = (axis < 0) ? -(S32)axis : (S32)axis;
+    if (mag <= JoystickDeadzone)
+        return 0;
+    S32 den = 32767 - JoystickDeadzone;
+    if (den < 1)
+        den = 1;
+    S32 step = ((mag - JoystickDeadzone) * 6) / den;
+    if (step < 1)
+        step = 1;
+    return (axis < 0) ? -step : step;
+}
+
+/* Quest interior camera: left stick pans the isometric view.  With the
+ * right thumb resting on the stick or its thumb rest, left-stick up/down
+ * changes the VR world zoom instead.  Pan is bounded to a quarter frame so
+ * the room cannot be scrolled completely off screen. */
+static void UpdateInteriorCameraControl(void) {
+    if (CubeMode != CUBE_INTERIEUR)
+        return;
+    if (!OpenXR_IsActive() || !DisplayStereo3D || CinemaMode)
+        return;
+
+    if (s_InteriorCamLastCube != (S32)NumCube) {
+        s_InteriorCamLastCube = (S32)NumCube;
+        s_InteriorCamPanX = 0;
+        s_InteriorCamPanY = 0;
+    }
+    if (Input & I_RETURN) {
+        s_InteriorCamPanX = 0;
+        s_InteriorCamPanY = 0;
+    }
+
+    const S32 baseX = (S32)ModeDesiredX / 2 - 9;
+    const S32 baseY = (S32)ModeDesiredY / 2;
+    const S32 oldPanX = s_InteriorCamPanX;
+    const S32 oldPanY = s_InteriorCamPanY;
+    const S32 zoomMode = OpenXR_RightThumbstickTouched ||
+                         OpenXR_RightThumbrestTouched;
+    const S32 stepX = InteriorCamStickStep(OpenXR_LeftStickX);
+    const S32 stepY = InteriorCamStickStep(OpenXR_LeftStickY);
+    const S32 moving = Input & (I_UP | I_DOWN | I_LEFT | I_RIGHT);
+
+    if (zoomMode && PERSO_StereoRenderActive()) {
+        if (stepY != 0 && (U32)(TimerRefHR - s_InteriorCamLastZoom) >= 40) {
+            /* Stick up zooms in: shrinking the FOV percentage widens the
+             * rendered world into the same panel. */
+            if (stepY > 0)
+                VrFovScale++;
+            else
+                VrFovScale--;
+            if (VrFovScale < 50)
+                VrFovScale = 50;
+            else if (VrFovScale > 120)
+                VrFovScale = 120;
+            s_InteriorCamLastZoom = TimerRefHR;
+            FirstTime = AFF_ALL_FLIP;
+        }
+    }
+    if (!moving) {
+        s_InteriorCamPanX -= stepX;
+        if (!zoomMode)
+            s_InteriorCamPanY -= stepY;
+    }
+
+    const S32 limitX = (S32)ModeDesiredX / 4;
+    const S32 limitY = (S32)ModeDesiredY / 4;
+    if (s_InteriorCamPanX < -limitX)
+        s_InteriorCamPanX = -limitX;
+    else if (s_InteriorCamPanX > limitX)
+        s_InteriorCamPanX = limitX;
+    if (s_InteriorCamPanY < -limitY)
+        s_InteriorCamPanY = -limitY;
+    else if (s_InteriorCamPanY > limitY)
+        s_InteriorCamPanY = limitY;
+
+    if (s_InteriorCamPanX != oldPanX || s_InteriorCamPanY != oldPanY)
+        FirstTime = AFF_ALL_FLIP;
+
+    /* Re-apply every frame: Init3DView and authored camera changes reset the
+     * projection centre, and the pan must survive those without being baked
+     * into the scene's own camera value. */
+    SetIsoProjection(baseX + s_InteriorCamPanX,
+                     baseY + s_InteriorCamPanY);
+}
+#endif
+
 #ifdef DEBUG_TOOLS
 static inline U32 DosAvailableMem(void) { return 0; }
 #endif
@@ -2815,6 +2912,9 @@ restartloop:
             if (!CinemaMode) {
                 // AlphaCam (touches '+' et '-' *)
                 GereExtKeys(MyKey);
+#ifdef LBA2_OPENXR
+                UpdateInteriorCameraControl();
+#endif
 
                 if (Input & I_CAMERA) {
                     SaveTimer();

@@ -115,6 +115,11 @@ extern S32 OpenXR_LeftTrigger;
 extern S32 OpenXR_RightTrigger;
 extern S32 OpenXR_LeftThumbstickDown;
 extern S32 OpenXR_RightThumbstickDown;
+/* Capacitive thumb-presence sensors. The right stick rest zone and the
+ * controller-body thumb rest are separate inputs on the Touch profile; a
+ * camera modifier treats either as "thumb resting on the right hand". */
+extern S32 OpenXR_RightThumbstickTouched;
+extern S32 OpenXR_RightThumbrestTouched;
 
 /* Axes (SDL-style -32767..32767). Y is negated to match SDL's Y-down. */
 extern S16 OpenXR_LeftStickX;
