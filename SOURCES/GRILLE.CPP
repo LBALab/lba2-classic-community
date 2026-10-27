@@ -251,39 +251,16 @@ static U32 s_baseLayerGen = 0;
    the models use gives every band its own parallax; the bands are disjoint
    composites of one painter walk, so drawing them far to near reproduces the
    flat layer exactly. */
-#define BASE_BANDS 6
-
-typedef struct {
-    U8 *pixels;
-    S32 x0, y0, x1, y1;
-    U32 count;
-    U32 azSum;
-    U16 az;
-} T_BASE_BAND;
-static T_BASE_BAND s_baseBands[BASE_BANDS];
-
-/* The band composites only exist for the double-wide stereo path. */
-static S32 BandsWanted(void) { return GL_SinglePassStereoActive(); }
-
-/* Which band a tile belongs to: 0 is the farthest, so drawing them in index
-   order is drawing them in painter order. */
-static S32 BaseBandOf(U16 az, U16 azMax, S32 azSpan) {
-    S32 b = ((S32)azMax - (S32)az) * BASE_BANDS / azSpan;
-    if (b < 0)
-        return 0;
-    if (b >= BASE_BANDS)
-        return BASE_BANDS - 1;
-    return b;
-}
+static U16 s_baseAzFar = 0; /* top of the backdrop: the far end of the room */
+static U16 s_baseAzNear = 0; /* bottom: the floor at the camera's feet */
 
 /* Painted bounds: the layer image is screen-sized, but only this rectangle
    holds bricks, and the filter cost is per fragment. */
 static S32 s_baseLayerX0 = 0, s_baseLayerY0 = 0;
 static S32 s_baseLayerX1 = -1, s_baseLayerY1 = -1;
 
-static U32 BaseLayerKey(S32 bands) {
+static U32 BaseLayerKey(void) {
     U32 h = 2166136261u;
-    h = (h ^ (U32)bands) * 16777619u;
     h = (h ^ (U32)(uintptr_t)BufferBrick) * 16777619u;
     h = (h ^ (U32)NumCube) * 16777619u;
     h = (h ^ (U32)ModeDesiredX) * 16777619u;
@@ -320,11 +297,7 @@ static S32 BaseLayerCompose(void) {
         s_baseLayerValid = 0;
     }
 
-    /* Only the double-wide stereo path draws the depth bands. */
-    /* Number of band composites, not a yes/no flag: the loops below partition
-       the tiles between `bands` images. */
-    const S32 bands = BandsWanted() ? BASE_BANDS : 0;
-    const U32 key = BaseLayerKey(bands);
+    const U32 key = BaseLayerKey();
     if (s_baseLayerValid && key == s_baseLayerKey)
         return 1;
     memset(s_baseLayer, 0, (size_t)w * (size_t)h);
@@ -362,85 +335,15 @@ static S32 BaseLayerCompose(void) {
         if (y1 > by1) by1 = y1;
     }
 
-    /* Depth bands: one composite per band, each holding its own tiles in the
-       painter order of the walk above. */
-    for (S32 b = 0; b < BASE_BANDS; b++) {
-        s_baseBands[b].x0 = w;
-        s_baseBands[b].y0 = h;
-        s_baseBands[b].x1 = -1;
-        s_baseBands[b].y1 = -1;
-        s_baseBands[b].count = 0;
-        s_baseBands[b].azSum = 0;
-        s_baseBands[b].az = 0;
-    }
-    if (bands > 0) {
-        for (S32 i2 = 0; i2 < s_brickOrderCount; i2++) {
-            const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i2];
-            const U8 *src = BufferBrick + ((const U32 *)BufferBrick)[p->Brick];
-            T_BASE_BAND *band = &s_baseBands[BaseBandOf(p->Az, azMax, azSpan)];
-            const S32 x0 = p->Xs + (S8)src[2];
-            const S32 y0 = p->Ys + (S8)src[3];
-            const S32 x1 = x0 + src[0];
-            const S32 y1 = y0 + src[1];
-            if (x0 < band->x0)
-                band->x0 = x0;
-            if (y0 < band->y0)
-                band->y0 = y0;
-            if (x1 > band->x1)
-                band->x1 = x1;
-            if (y1 > band->y1)
-                band->y1 = y1;
-            band->count++;
-            band->azSum += p->Az;
-        }
-        for (S32 b = 0; b < bands; b++) {
-            T_BASE_BAND *band = &s_baseBands[b];
-            if (band->count == 0)
-                continue;
-            band->az = (U16)(band->azSum / band->count);
-            const size_t bytes = (size_t)w * (size_t)h;
-            if (band->pixels == NULL) {
-                band->pixels = (U8 *)malloc(bytes);
-                if (band->pixels == NULL)
-                    return 0;
-            }
-            memset(band->pixels, 0, bytes);
-            Log = band->pixels;
-            for (S32 i2 = 0; i2 < s_brickOrderCount; i2++) {
-                const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i2];
-                if (BaseBandOf(p->Az, azMax, azSpan) != b)
-                    continue;
-                AffGraph(p->Brick, p->Xs, p->Ys, BufferBrick);
-            }
-        }
-    }
+    s_baseAzFar = azMax;
+    s_baseAzNear = azMin;
+
     Log = savedLog;
     ClipXMin = savedXMin;
     ClipYMin = savedYMin;
     ClipXMax = savedXMax;
     ClipYMax = savedYMax;
 
-    for (S32 b = 0; b < bands; b++) {
-        T_BASE_BAND *band = &s_baseBands[b];
-        if (band->count == 0)
-            continue;
-        if (band->x0 < 0)
-            band->x0 = 0;
-        if (band->y0 < 0)
-            band->y0 = 0;
-        if (band->x1 > w)
-            band->x1 = w;
-        if (band->y1 > h)
-            band->y1 = h;
-    }
-    if (bx0 < 0)
-        bx0 = 0;
-    if (by0 < 0)
-        by0 = 0;
-    if (bx1 > w)
-        bx1 = w;
-    if (by1 > h)
-        by1 = h;
     s_baseLayerX0 = bx0;
     s_baseLayerY0 = by0;
     s_baseLayerX1 = bx1;
@@ -462,42 +365,13 @@ static S32 BaseLayerCompose(void) {
 static S32 DrawBaseLayerGL(void) {
     if (!BaseLayerCompose())
         return 0;
-    if (!BandsWanted()) {
-        /* No eye offset to resolve in mono or per-eye passes: the flat
-           composite is cheaper and exactly the previous image. */
-        if (s_baseLayerX1 > s_baseLayerX0 && s_baseLayerY1 > s_baseLayerY0) {
-            GL_DrawIndexedLayer(0, s_baseLayer, s_baseLayerW, s_baseLayerH,
-                                s_baseLayerGen, DisplayTexFilter,
-                                s_baseLayerX0, s_baseLayerY0, s_baseLayerX1,
-                                s_baseLayerY1, 0);
-        }
-        return 1;
-    }
-    /* Underlay: the flat composite, at a middle depth.  The bands carry
-       different eye offsets, so where a near wall meets a far floor their
-       edges separate; without this the gap shows the cleared framebuffer as a
-       black join line, with it the pixel that was already there stays. */
-    if (s_baseLayerX1 > s_baseLayerX0 && s_baseLayerY1 > s_baseLayerY0) {
-        U16 mid = 0;
-        for (S32 b = BASE_BANDS / 2; b >= 0; b--) {
-            if (s_baseBands[b].count != 0) {
-                mid = s_baseBands[b].az;
-                break;
-            }
-        }
-        GL_DrawIndexedLayer(0, s_baseLayer, s_baseLayerW, s_baseLayerH,
-                            s_baseLayerGen, DisplayTexFilter, s_baseLayerX0,
-                            s_baseLayerY0, s_baseLayerX1, s_baseLayerY1, mid);
-    }
-    for (S32 b = 0; b < BASE_BANDS; b++) {
-        const T_BASE_BAND *band = &s_baseBands[b];
-        if (band->pixels == NULL || band->x1 <= band->x0 ||
-            band->y1 <= band->y0)
-            continue;
-        GL_DrawIndexedLayer(1 + b, band->pixels, s_baseLayerW,
-                            s_baseLayerH, s_baseLayerGen, DisplayTexFilter,
-                            band->x0, band->y0, band->x1, band->y1, band->az);
-    }
+    /* One quad, leaning from the far wall at its top to the floor at its
+       bottom.  A single image cannot open a seam, which is what a per-band
+       split did wherever a near wall met a far floor. */
+    GL_DrawIndexedLayer(0, s_baseLayer, s_baseLayerW, s_baseLayerH,
+                        s_baseLayerGen, DisplayTexFilter, s_baseLayerX0,
+                        s_baseLayerY0, s_baseLayerX1, s_baseLayerY1,
+                        s_baseAzFar, s_baseAzNear);
     return 1;
 }
 

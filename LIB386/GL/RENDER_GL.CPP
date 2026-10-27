@@ -247,6 +247,7 @@ static const char *s_layerVertSrc =
     "attribute vec2 aPos;\n" /* screen pixels */
     "attribute vec2 aUV;\n"  /* normalized 0..1 */
     "attribute float aMaterial;\n"
+    "attribute float aZ;\n" /* scene depth of this corner */
     "uniform float uEye;\n"
     "uniform vec2 uScreenScale;\n"
     "uniform float uSinglePass;\n"
@@ -255,7 +256,6 @@ static const char *s_layerVertSrc =
     "uniform vec2 uEyeFocal;\n"
     "uniform float uEyeZScale;\n"
     "uniform vec2 uAtlasScale;\n"
-    "uniform float uLayerAz;\n" /* image depth on the scene's aZ scale */
     "varying vec2 vTexCoord;\n"
     "varying vec2 vTexCoordOverW;\n"
     "varying float vInvW;\n"
@@ -269,12 +269,12 @@ static const char *s_layerVertSrc =
     "    float cx = aPos.x * uScreenScale.x - 1.0;\n"
     "    float cy = 1.0 - aPos.y * uScreenScale.y;\n"
     "    float eye = (uSinglePass > 0.5) ? uEye : 0.0;\n"
-    "    float parallax = (uSinglePass > 0.5 && uLayerAz > 0.5) ? eye : 0.0;\n"
-    "    float az = uLayerAz;\n"
+    "    float parallax = (uSinglePass > 0.5 && aZ > 0.5) ? eye : 0.0;\n"
+    "    float az = aZ;\n"
     "    if (uSinglePass > 0.5) {\n"
     /* Same parallax as the polygon vertex stage: a band at its scene depth
        leans toward the eye by 1/z, so the background tracks the models. */
-    "        az = clamp(uLayerAz + parallax * uEyeWorld.z * uEyeZScale,\n"
+    "        az = clamp(aZ + parallax * uEyeWorld.z * uEyeZScale,\n"
     "                   0.0, 65535.0);\n"
     "        float z0 = max(az, 1.0) / max(uEyeZScale, 0.000001);\n"
     "        float sx =\n"
@@ -1775,6 +1775,7 @@ static GLuint s_layerProgram = 0;
 static GLint s_layer_aPos = -1;
 static GLint s_layer_aUV = -1;
 static GLint s_layer_aMaterial = -1;
+static GLint s_layer_aZ = -1;
 static GLint s_layer_uScreenScale = -1;
 static GLint s_layer_uAtlasScale = -1;
 static GLint s_layer_uBilinear = -1;
@@ -1784,7 +1785,6 @@ static GLint s_layer_uEyeWorld = -1;
 static GLint s_layer_uEyeProj = -1;
 static GLint s_layer_uEyeFocal = -1;
 static GLint s_layer_uEyeZScale = -1;
-static GLint s_layer_uLayerAz = -1;
 typedef struct {
     GLuint tex;
     S32 w;
@@ -3761,6 +3761,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             glBindAttribLocation(lv, 0, "aPos");
             glBindAttribLocation(lv, 1, "aUV");
             glBindAttribLocation(lv, 2, "aMaterial");
+            glBindAttribLocation(lv, 3, "aZ");
             s_layerProgram = LinkProgram(lv, lf);
         }
         free(layerFrag);
@@ -3774,6 +3775,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             s_layer_aUV = glGetAttribLocation(s_layerProgram, "aUV");
             s_layer_aMaterial =
                 glGetAttribLocation(s_layerProgram, "aMaterial");
+            s_layer_aZ = glGetAttribLocation(s_layerProgram, "aZ");
             s_layer_uScreenScale =
                 glGetUniformLocation(s_layerProgram, "uScreenScale");
             s_layer_uAtlasScale =
@@ -3791,8 +3793,6 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                 glGetUniformLocation(s_layerProgram, "uEyeFocal");
             s_layer_uEyeZScale =
                 glGetUniformLocation(s_layerProgram, "uEyeZScale");
-            s_layer_uLayerAz =
-                glGetUniformLocation(s_layerProgram, "uLayerAz");
             GL_UseProgramCached(s_layerProgram);
             glUniform1i(glGetUniformLocation(s_layerProgram, "uAtlas"), 0);
             glUniform1i(glGetUniformLocation(s_layerProgram, "uCLUT"), 1);
@@ -3817,7 +3817,6 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                 glGetUniformLocation(s_layerProgram, "uFogRowScale"), 0.0f);
             glUniform1f(
                 glGetUniformLocation(s_layerProgram, "uTerrainFarClip"), 0.0f);
-            glUniform1f(s_layer_uLayerAz, 0.0f);
             GL_UseProgramCached(0);
             Log_Info("[GL] Indexed layer program ready.");
         }
@@ -8202,7 +8201,7 @@ static char *GL_MakeLayerFragSrc(void) {
 
 void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
                          U32 generation, S32 filter, S32 x0, S32 y0, S32 x1,
-                         S32 y1, U16 az) {
+                         S32 y1, U16 azTop, U16 azBottom) {
     if (!s_initialized || pixels == NULL || w <= 0 || h <= 0 ||
         s_layerProgram == 0 || x1 <= x0 || y1 <= y0 || slot < 0 ||
         slot >= GL_LAYER_SLOTS) {
@@ -8266,7 +8265,6 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
     glUniform2f(s_layer_uScreenScale, ssx, ssy);
     glUniform2f(s_layer_uAtlasScale, (GLfloat)w, (GLfloat)h);
     glUniform1i(s_layer_uBilinear, filter);
-    glUniform1f(s_layer_uLayerAz, (GLfloat)az);
 
     /* Eye state belongs to each program: the batch path pushes it in
        GL_SetClutEyeUniforms, so the layer needs its own copy or the band
@@ -8293,7 +8291,7 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
     /* One quad covering the whole layer.  Material: polyMode 4 (the texel is
        the palette index) with the chroma-key bit, so untouched texels stay
        transparent over the cleared scene instead of painting palette[0]. */
-    static GLfloat layerVerts[6 * 5];
+    static GLfloat layerVerts[6 * 6];
     static const S8 order[6] = {0, 1, 2, 0, 2, 3};
     const GLfloat u0 = (GLfloat)x0 / (GLfloat)w;
     const GLfloat v0 = (GLfloat)y0 / (GLfloat)h;
@@ -8304,14 +8302,17 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
     const GLfloat pu[4] = {u0, u1, u1, u0};
     const GLfloat pv[4] = {v0, v0, v1, v1};
     const GLfloat layerMat = (GLfloat)(4 | (1 << 5));
+    const GLfloat azTopF = (GLfloat)azTop;
+    const GLfloat azBottomF = (GLfloat)azBottom;
     for (S32 i = 0; i < 6; i++) {
-        GLfloat *v = layerVerts + i * 5;
+        GLfloat *v = layerVerts + i * 6;
         S32 c = order[i];
         v[0] = px[c];
         v[1] = py[c];
         v[2] = pu[c];
         v[3] = pv[c];
         v[4] = layerMat;
+        v[5] = (py[c] <= (GLfloat)y0) ? azTopF : azBottomF;
     }
 
     GL_BindArrayBuffer(s_batchVBO);
@@ -8319,15 +8320,19 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
                  GL_STREAM_DRAW);
     glEnableVertexAttribArray(s_layer_aPos);
     glVertexAttribPointer(s_layer_aPos, 2, GL_FLOAT, GL_FALSE,
-                          (GLsizei)(5 * sizeof(GLfloat)), (const void *)0);
+                          (GLsizei)(6 * sizeof(GLfloat)), (const void *)0);
     glEnableVertexAttribArray(s_layer_aUV);
     glVertexAttribPointer(s_layer_aUV, 2, GL_FLOAT, GL_FALSE,
-                          (GLsizei)(5 * sizeof(GLfloat)),
+                          (GLsizei)(6 * sizeof(GLfloat)),
                           (const void *)(2 * sizeof(GLfloat)));
     glEnableVertexAttribArray(s_layer_aMaterial);
     glVertexAttribPointer(s_layer_aMaterial, 1, GL_FLOAT, GL_FALSE,
-                          (GLsizei)(5 * sizeof(GLfloat)),
+                          (GLsizei)(6 * sizeof(GLfloat)),
                           (const void *)(4 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(s_layer_aZ);
+    glVertexAttribPointer(s_layer_aZ, 1, GL_FLOAT, GL_FALSE,
+                          (GLsizei)(6 * sizeof(GLfloat)),
+                          (const void *)(5 * sizeof(GLfloat)));
 
     /* Single-pass stereo draws both eyes from one instance: the layer's own
        vertex stage needs the same switch the batch programs get from

@@ -197,7 +197,7 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
 //! own az, which is what gives the flat brick art parallax against the models.
 void GL_DrawIndexedLayer(S32 slot, const void *pixels, S32 w, S32 h,
                          U32 generation, S32 filter, S32 x0, S32 y0, S32 x1,
-                         S32 y1, U16 az);
+                         S32 y1, U16 azTop, U16 azBottom);
 
 //! Mark the current frame as an isometric interior world.  Allows polygon
 //! paths that do not carry a terrain depth buffer into the GL batch.
