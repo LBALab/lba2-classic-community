@@ -398,7 +398,8 @@ S32 TouchOverlay_HandleEvent(const PlatformEvent *event) {
     } else if (event->type == PLATFORM_EVENT_WINDOW_FOCUS_GAINED) {
         s_focused = 1;
     } else if (event->type == PLATFORM_EVENT_FINGER_DOWN) {
-        const S32 slot = event->tfinger.indirect ? LBA2_INPUT_INDIRECT_TOUCH_SLOT : LBA2_INPUT_DIRECT_TOUCH_SLOT;
+        const S32 slots[] = {LBA2_INPUT_DIRECT_TOUCH_SLOT, LBA2_INPUT_INDIRECT_TOUCH_SLOT};
+        const S32 slot = slots[event->tfinger.indirect != 0];
         if (slot >= 0 && s_gameplay && s_focused) {
             s_actionPending |= 1u << slot;
             LastInputWasKeyboard = 0;

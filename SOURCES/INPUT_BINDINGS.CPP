@@ -64,7 +64,7 @@ S32 Bindings_ContextValid(const T_BINDING_CONTEXT &context) {
     return 1;
 }
 
-static U32 ContextMask(S32 slot, U32 key, S32 gameplay) {
+static U32 ContextMask(U32 slot, U32 key, S32 gameplay) {
     if (!gameplay) {
         for (U32 n = 0; n < s_context.count; ++n) {
             const T_BINDING_REMAP *remap = &s_context.remaps[n];
