@@ -198,9 +198,10 @@ skip the per-present error queries.
 Exterior scenes use a single-pass path: the 3D scene is traversed once from
 the eye-0 camera, and each draw is submitted twice with its own scissor and
 an eye-1 camera delta supplied to the shader. The screen-space 2D overlay is
-also written into both halves during that pass. Eye 1 then runs the present
-stage; its own overlay draws are suppressed because the eye-0 pass already
-wrote both halves. Eye 1 also skips the terrain and decor walk, the object
+drawn once for the pair, at eye 1's present, after the scene resolve, and
+painted into both halves from one band list: the two eyes cannot drift apart,
+and the glyphs avoid the MSAA softening the scene target applies to everything
+else. Eye 1 also skips the terrain and decor walk, the object
 sort insertions and 3D GL calls; the object walk still performs its state
 updates. CPU culling widens edge candidates by the eye-1 disparity, so
 geometry visible only in the second eye is not rejected by the eye-0
@@ -229,6 +230,30 @@ double-wide blit on any mismatch or incomplete FBO. The runtime resolves the
 texture when the compositor samples it; if the headset shows a black or
 single-eye image, leave it off. `OpenXRPerf` reports a `direct=` count when the
 path is active.
+
+### Reviewing the stereo pair without the headset
+
+`adb exec-out screencap` on a headset captures the compositor's two eye views,
+but each half carries its own pose/reprojection, so the halves are not
+comparable pixel by pixel. A desktop GL build can render the same pair
+instead:
+
+- `LBA2_FAKE_STEREO=30` forces the double-wide single-pass target on a desktop
+  build and synthesises the eye-1 delta so a point at `aZ` 1000 lands 30 px
+  away (the headset's room depths sit near 900-1300). `--screenshot` then
+  writes both halves side by side at eye resolution.
+- `LBA2_FAKE_STEREO_SS=1` additionally raises the scene target to the
+  headset's 1.5x supersampling, so HUD band/scissor maths is exercised at a
+  non-1:1 scale.
+- `LBA2_FAKE_VR_DIALOG=1` takes the head-mount dialogue layout (strip lifted
+  above the eye's lower periphery), so the dialogue box can be reviewed over
+  the room rather than over the desktop letterbox.
+
+Repro: `LBA2_FAKE_STEREO=30 LBA2_FAKE_VR_DIALOG=1 xvfb-run -a lba2cc
+--no-autosave --load <save> --exec-at 2 "cube 15" --exec-at 4 "teleport 25856
+768 29000" --exec-at 30 "ui dialog 3 /tmp/dlg.png" --fixed-dt 16 --tick 120
+--exit`. The dialog capture path runs `GL_SavePresentPNG`, which writes the
+pair.
 
 ### Static terrain on the GPU
 

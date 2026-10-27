@@ -13,7 +13,10 @@
 
 #include "C_EXTERN.H"
 #include "IMAGE_LOAD.H"
-#include <3D/CAMERA.H> /* StereoFocalX/LFactorX: VR dialog projection scale */
+#include <stdlib.h>
+
+#include <3D/CAMERA.H>     /* StereoFocalX/LFactorX: VR dialog projection
+                          scale */
 #include <SYSTEM/OPENXR.H> /* OpenXR_GetSwapchainWidth (head-mount dialog lift) */
 #ifdef USE_GPURENDERER
 #include <GL/RENDER_GL.H> /* GL_SavePresentPNG for GL-mode dialog captures */
@@ -1307,8 +1310,9 @@ void NormalWinDial() {
     /* On a head-mount the bottom edge of the frame falls in the eye's lower
        periphery, effectively invisible; anchor the strip above it so the box
        renders inside the visible band (desktop keeps the authored
-       bottom-anchored position).  129 = the authored strip height at 480. */
-    if (OpenXR_GetSwapchainWidth()) {
+       bottom-anchored position).  129 = the authored strip height at 480.
+       LBA2_FAKE_VR_DIALOG lets a desktop build review that framing. */
+    if (OpenXR_GetSwapchainWidth() || getenv("LBA2_FAKE_VR_DIALOG") != NULL) {
         Dial_Y1 = (S32)ModeDesiredY * 3 / 4;
         Dial_Y0 = Dial_Y1 - 129;
         /* Centred, about 43% of the frame width: wide enough for the

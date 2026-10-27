@@ -2538,6 +2538,18 @@ static S32 s_stereoPairReady = 0;
  * scene FBO directly.  Cleared by every present and by leaving stereo. */
 static S32 s_stereoEye1SceneDirect = 0;
 
+/* ── Desktop stereo harness (debug) ───────────────────────────────────────
+   The only place the real stereo pair exists is the headset, and a
+   compositor screenshot there carries a per-eye pose difference that makes
+   the two halves incomparable.  LBA2_FAKE_STEREO=<px> renders the same
+   single-pass pair in a desktop build instead: the scene target goes
+   double-wide, eye 1 gets a synthesised delta that lands <px> of offset at
+   a reference depth, and --screenshot writes both halves side by side so
+   the pair can be inspected pixel by pixel.  Never set in a shipped run. */
+static S32 s_fakeStereoPx = 0;
+extern "C" U32 ModeDesiredX;
+extern "C" U32 ModeDesiredY;
+
 /* Single-pass stereo: eye 0 submits every 3D draw once as two instances,
    each instance writing its eye half of the double-wide target.  Eye 1 then
    draws only its 2D overlay and presents.  Eye offsets are the eye-1 total
@@ -2940,6 +2952,10 @@ static void GL_CreateStereoEyeFBOs(U32 width, U32 height) {
 void GL_SetStereoEye(S32 eye) {
     if (eye < -1 || eye > 1)
         eye = -1;
+    /* The harness has no eye loop: hold eye 0 so the single-pass draws (which
+       only issue from eye 0) run and the scene viewport stays double-wide. */
+    if (s_fakeStereoPx > 0)
+        eye = 0;
 
     /* Single-pass eye 1 suppresses 3D flushes, so drain eye 0's active and
      * deferred pools while the eye-0 half is still the one being written.
@@ -2966,7 +2982,7 @@ void GL_SetStereoEye(S32 eye) {
         if (wantDoubleWide != s_stereoDoubleWide)
             GL_SetStereoTargetMode(wantDoubleWide);
         s_stereoPairReady = 0;
-    } else if (eye < 0 && s_stereoDoubleWide &&
+    } else if (eye < 0 && s_stereoDoubleWide && s_fakeStereoPx == 0 &&
                (!DisplayStereo3D || !OpenXR_GetStereoEnabled() ||
                 !OpenXR_IsActive())) {
         /* Stereo was switched off (or the session ended): the mono
@@ -4025,6 +4041,36 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     GL_ProbeMultiview(GL_ScaleRenderDim(s_texWidth),
                       GL_ScaleRenderDim(s_texHeight));
     GL_LogSurfaceBudget("init");
+
+    /* Desktop stereo harness: the pair the headset renders, without the
+       headset (see s_fakeStereoPx). */
+    {
+        const char *fake = getenv("LBA2_FAKE_STEREO");
+        if (fake != NULL && *fake != '\0') {
+            s_fakeStereoPx = atoi(fake);
+            if (s_fakeStereoPx < 0) {
+                s_fakeStereoPx = 0;
+            }
+            if (s_fakeStereoPx > 0) {
+                /* GL_SetStereoTargetMode doubles whatever eye size it finds
+                   in s_fboWidth, which on a desktop also carries the
+                   render-quality multiplier: hand it the unscaled eye size
+                   so the harness target stays 2x the game resolution. */
+                s_fboWidth = ModeDesiredX;
+                s_fboHeight = ModeDesiredY;
+                GL_SetStereoTargetMode(1);
+                GL_SetSinglePassStereo(1);
+                /* Match the headset's supersampled target so the HUD path
+                   (scissor bands at a non-1:1 scale) is exercised too. */
+                if (getenv("LBA2_FAKE_STEREO_SS") != NULL)
+                    GL_SetSuperSample(2);
+                Log_Info("[GL] Fake stereo: %d px at az 1000, %s",
+                         (int)s_fakeStereoPx,
+                         s_singlePassStereo ? "single-pass" : "unavailable");
+            }
+        }
+    }
+
     Log_Info("[GL] Renderer initialized OK.");
     return TRUE;
 }
@@ -4262,6 +4308,10 @@ void GL_SetRenderQuality(U32 quality) {
         quality = 1;
     if (quality > 4)
         quality = 4;
+    /* The desktop stereo harness compares eye halves pixel for pixel, so a
+       supersampled target only makes the pair harder to read. */
+    if (s_fakeStereoPx > 0)
+        quality = 1;
 #ifdef __ANDROID__
     /* Single choke point (boot AND the in-game menu): SSAA multiplies the
      * framebuffer per axis, and quality 4 at 1680x945 is a 25-megapixel
@@ -4531,6 +4581,9 @@ static void GL_CreateMSAAFbo(U32 w, U32 h, S32 samples) {
  * composite.  The environment escape hatch lets a device run compare the old
  * path without a rebuild. */
 static S32 GL_StereoDoubleWideAllowed(void) {
+    /* The desktop harness asks for the pair explicitly. */
+    if (s_fakeStereoPx > 0)
+        return 1;
     const char *reason = NULL;
     if (getenv("LBA2_NO_STEREO_DW") != NULL)
         reason = "LBA2_NO_STEREO_DW";
@@ -7706,6 +7759,25 @@ void GL_BeginFrame(void) {
     GL_BatchFlushCount = 0;
     s_terrainRenderedThisFrame = 0;
     s_horizonValid = 0; /* horizon capture is per-frame (eye 0 only) */
+
+    if (s_fakeStereoPx > 0 && s_singlePassStereo) {
+        /* The harness has no eye loop: pretend eye 0 is current so the
+           single-pass draws (which only issue from eye 0) run. */
+        s_stereoEye = 0;
+        /* Same formula the polygon stages apply: offset = -eye.x * focal *
+           eyeZScale / aZ, so picking eye.x to land s_fakeStereoPx at
+           aZ = 1000 reproduces a plausible interocular delta. */
+        const double zScale = (double)Fill_ZBuffer_Factor / 65536.0;
+        const double focal = (double)FRatioX;
+        if (focal > 0.0 && zScale > 0.0) {
+            s_eye1World[0] = (float)(-(double)s_fakeStereoPx * 1000.0 /
+                                     (focal * zScale));
+            s_eye1World[1] = 0.0f;
+            s_eye1World[2] = 0.0f;
+            s_eye1Proj[0] = 0.0f;
+            s_eye1Proj[1] = 0.0f;
+        }
+    }
 }
 
 /* ── Depth readback (GL → SW Z-buffer) ──────────────────────────────────── */
@@ -8520,20 +8592,37 @@ void GL_SavePresentPNG(const char *path) {
 
     GL_FlushBatch();
 
-    const U32 fboW = s_fboWidth;
-    const U32 fboH = s_fboHeight;
+    /* The scene target is s_sceneTargetW wide, which is twice the per-eye
+       width when the pair shares one allocation. */
+    const U32 fboW = s_sceneTargetW;
+    const U32 fboH = s_sceneTargetH;
     const U32 scrW = ModeDesiredX;
     const U32 scrH = ModeDesiredY;
 
+    /* A double-wide target holds both eyes: dump them side by side at eye
+       resolution.  Each half gets the same overlay composite, which is what
+       GL_Present draws into each eye's half. */
+    const U32 eyes = s_stereoDoubleWide ? 2 : 1;
+    const U32 eyeW = fboW / eyes;
+    const U32 outW = scrW * eyes;
+    const U32 outH = scrH;
+    if (fboW == 0 || fboH == 0 || eyeW == 0) {
+        return;
+    }
+
     U32 *fboBuf = (U32 *)malloc((size_t)fboW * fboH * sizeof(U32));
     /* Composite holds 0xAARRGGBB words, same layout as paletteLUT. */
-    U32 *comp = (U32 *)malloc((size_t)scrW * scrH * sizeof(U32));
+    U32 *comp = (U32 *)malloc((size_t)outW * (size_t)outH * sizeof(U32));
     if (fboBuf == NULL || comp == NULL) {
         free(fboBuf);
         free(comp);
         return;
     }
 
+    /* A harness frame has no eye-1 present to run the deferred MSAA
+       resolve, so do it here before reading either half. */
+    if (s_stereoDoubleWide && s_msaaFbo != 0)
+        GL_ResolveMSAAColor();
     glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneReadFbo());
 #if defined(__ANDROID__)
     glReadPixels(0, 0, fboW, fboH, GL_RGBA, GL_UNSIGNED_BYTE, fboBuf);
@@ -8544,17 +8633,19 @@ void GL_SavePresentPNG(const char *path) {
 
     /* Downsample (SSAA center pick) with the Y-flip glReadPixels implies,
        giving screen-space top-down ARGB like GL_Present's FBO draw. */
-    const U32 scaleX = fboW / scrW;
+    const U32 scaleX = eyeW / scrW;
     const U32 scaleY = fboH / scrH;
-    for (U32 sy = 0; sy < scrH; sy++) {
-        const U32 fy = fboH - 1 - sy * scaleY - scaleY / 2;
-        const U32 *srcRow = fboBuf + fy * fboW;
-        U32 *dstRow = comp + sy * scrW;
-        if (scaleX == 1) {
-            memcpy(dstRow, srcRow, scrW * sizeof(U32));
-        } else {
-            for (U32 sx = 0; sx < scrW; sx++) {
-                dstRow[sx] = srcRow[sx * scaleX + scaleX / 2];
+    for (U32 eye = 0; eye < eyes; eye++) {
+        for (U32 sy = 0; sy < scrH; sy++) {
+            const U32 fy = fboH - 1 - sy * scaleY - scaleY / 2;
+            const U32 *srcRow = fboBuf + fy * fboW + eye * eyeW;
+            U32 *dstRow = comp + sy * outW + eye * scrW;
+            if (scaleX == 1) {
+                memcpy(dstRow, srcRow, scrW * sizeof(U32));
+            } else {
+                for (U32 sx = 0; sx < scrW; sx++) {
+                    dstRow[sx] = srcRow[sx * scaleX + scaleX / 2];
+                }
             }
         }
     }
@@ -8563,18 +8654,18 @@ void GL_SavePresentPNG(const char *path) {
        same rule PresentFrame applies before the GPU composite). */
     const U32 *lut = GL_GetPaletteLUT();
     const U8 *logIdx = (const U8 *)Log;
-    for (U32 i = 0; i < scrW * scrH; i++) {
-        U32 idx = logIdx[i];
-        if (idx != 0 && lut != NULL) {
-            comp[i] = lut[idx];
+    for (U32 eye = 0; eye < eyes; eye++) {
+        for (U32 i = 0; i < scrW * scrH; i++) {
+            U32 idx = logIdx[i];
+            if (idx != 0 && lut != NULL) {
+                comp[i + eye * scrW * scrH] = lut[idx];
+            }
         }
     }
 
     /* Texture filter modes sample inside the 3D pass; the present composite
        is what the player sees either way, so dump it as-is. */
     const U32 *outComp = comp;
-    U32 outW = scrW;
-    U32 outH = scrH;
 
     U8 *rgb = (U8 *)malloc((size_t)outW * outH * 3);
     if (rgb != NULL) {
@@ -9447,31 +9538,52 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     }
 
     if (useDoubleWide) {
-        if (overlayEmpty) {
-            s_profOverlayEmpty++;
-        } else {
-            /* The overlay is a full-screen quad scaled into the 1.5x scene
-               target.  Draw only the non-transparent HUD bands: a single
-               bounding box would span a top HUD and a bottom dialogue box,
-               re-shading the empty middle at 1.5x.  The 2px margin covers
-               Scale2x's neighbour taps. */
-            S32 savedAdjust = s_overlayImageAdjust;
-            s_overlayImageAdjust = 0;
-            GL_DrawOverlayRegions(width, height, paletteU32, filterLinear,
-                                  (S32)s_sceneEyeX, 0, s_fboWidth,
-                                  s_fboHeight, s_overlayBands,
-                                  s_overlayBandCount, s_overlayBBox);
-            s_overlayImageAdjust = savedAdjust;
-        }
-
-        if (s_stereoEye == 0) {
-            s_stereoPairReady = 0;
-        } else {
-            /* The overlay is part of the scene target now, so this single
-             * resolve covers both eyes' 3D and HUD content.  A direct target
-             * resolves when the compositor samples the swapchain texture. */
+        /* The HUD is the same picture in both eyes, so it is drawn once for
+           the pair, after the scene resolve: placement is identical by
+           construction, and the glyphs escape the MSAA softening the scene
+           target applies on the way out — a dialogue strip is read, not
+           looked at.  The harness has no eye-1 present, so it draws at eye 0
+           instead. */
+        const S32 drawHud = (s_stereoEye == 1) || s_fakeStereoPx > 0;
+        if (drawHud) {
+            /* A direct target resolves when the compositor samples the
+               swapchain texture; the double-wide scene target needs the
+               explicit resolve before the HUD lands on it. */
             if (!s_directActive)
                 GL_ResolveMSAAColor();
+            /* The resolve just wrote the single-sample scene texture; without
+               one, keep drawing into whatever GL_SceneDrawFbo() selected
+               (the tile-resolve MSAA target, or the direct swapchain image). */
+            if (!s_directActive && !s_msaaInTile && s_msaaFbo != 0 &&
+                s_fbo != 0)
+                glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+            if (overlayEmpty) {
+                s_profOverlayEmpty++;
+            } else {
+                /* The overlay is a full-screen quad scaled into the 1.5x
+                   scene target.  Draw only the non-transparent HUD bands: a
+                   single bounding box would span a top HUD and a bottom
+                   dialogue box, re-shading the empty middle at 1.5x.  The 2px
+                   margin covers Scale2x's neighbour taps.  One pass per half,
+                   from the same bands, so the pair cannot drift apart. */
+                S32 savedAdjust = s_overlayImageAdjust;
+                s_overlayImageAdjust = 0;
+                for (S32 eye = 0; eye < 2; eye++) {
+                    const S32 eyeX = eye ? (S32)s_fboWidth : 0;
+                    glViewport((GLint)eyeX, 0, (GLsizei)s_fboWidth,
+                               (GLsizei)s_fboHeight);
+                    GL_DrawOverlayRegions(width, height, paletteU32,
+                                          filterLinear, eyeX, 0, s_fboWidth,
+                                          s_fboHeight, s_overlayBands,
+                                          s_overlayBandCount, s_overlayBBox);
+                }
+                s_overlayImageAdjust = savedAdjust;
+            }
+        }
+
+        if (s_stereoEye == 0 && s_fakeStereoPx == 0) {
+            s_stereoPairReady = 0;
+        } else {
             s_stereoPairReady = 1;
         }
         s_profDirectScene++;

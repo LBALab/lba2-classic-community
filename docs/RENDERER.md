@@ -65,6 +65,8 @@ The foreground-brick pass has one GL-only door-frame exception. A door frame pro
 
 The interior full flip copies `Screen` over `Log` every frame, which would erase an open dialogue strip. `SpeakAnimation` snapshots the strip before the scene pass and `AffScene` restores it after the copy, so the typewriter text, border and shade survive the full redraw in both mono and stereo.
 
+In single-pass stereo the HUD is drawn once for the pair, not once per eye: `GL_PresentIndexed` resolves the double-wide scene target at eye 1's present and then draws the overlay's bands into each half from the same texture and the same band list. Placement is identical by construction, and the glyphs land after the MSAA resolve instead of inside it, which is what keeps a dialogue strip readable at headset resolutions — text drawn into the resolved target is the sharp one.
+
 Interior palettes are selected by `ChoicePalette`; it now syncs the video/GL palette LUT as well, which is what keeps indexed brick and sprite textures on the room's palette rather than the previous scene's.
 
 `DisplayTexFilter` is also honoured by gameplay sprite quads, including the decoded brick tiles: nearest, palette-resolved bilinear, Scale2x, and xBR are selected per draw through the CLUT shader. Filtering happens on palette indices and resolves through the palette texture, so the result does not interpolate raw palette indices. Sprite quads carry `RepMask = 0xFFFF` so the filter neighbourhood clamps at the texture edge instead of wrapping to the opposite edge of the tile; without that clamp, xBR drew a dark seam at every brick boundary. Chroma-keyed neighbour taps resolve to the centre texel instead of palette[0], so a filtered edge does not darken against the transparent key.
