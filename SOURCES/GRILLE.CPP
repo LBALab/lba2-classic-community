@@ -29,7 +29,6 @@ extern S32 XS0, YS0, XS1, YS1, XS2, YS2, XS3, YS3; // bezier.c
 S32 XpOrgw;
 S32 YpOrgw;
 
-
 #define NB_COLON 256  // 28
 #define MAX_BRICK 256 // 150
 
@@ -161,11 +160,293 @@ static void DrawBrickGL(S32 brick, S32 x, S32 y) {
     GL_SetSpriteNoDepth(0);
 }
 
-static void DrawBrickOverlayGL(T_COLONB *ptrlbc) {
+/* ── Foreground brick overlay ──────────────────────────────────────────────
+   The software renderer does not redraw a foreground brick from its own
+   pixels: CopyMask copies the pristine background from Screen through the
+   brick's mask.  A brick can be painted behind another brick that shares its
+   mask area, so drawing the overlay brick's texture there would paint the
+   buried brick over the visible one (a wall cap chopped by a notch of stone
+   when an actor stands in the doorway).
+
+   The GL overlay therefore rebuilds the pristine brick background for the
+   object's clip window and composites that background through the overlay
+   brick masks.  The base brick order is needed because the topmost brick at
+   a pixel is the one drawn last. */
+
+/* Every painted brick in base order; the overlay replays this list to
+   reconstruct what the base layer looked like before models were drawn.
+   The list carries values, not bucket pointers: bricks at the extreme left
+   edge are painted but deliberately not bucketed for DrawOverBrick. */
+typedef struct {
+    S16 Xs;
+    S16 Ys;
+    S16 Brick;
+} T_BRICK_ORDER_ENTRY;
+
+#define MAX_BRICK_ORDER 16384
+static T_BRICK_ORDER_ENTRY s_brickOrder[MAX_BRICK_ORDER];
+static S32 s_brickOrderCount = 0;
+static S32 s_brickOrderOverflow = 0;
+
+static void BrickOrderReset(void) {
+    s_brickOrderCount = 0;
+    s_brickOrderOverflow = 0;
+}
+
+static void BrickOrderAdd(S32 brick, S32 xs, S32 ys) {
+    if (s_brickOrderCount < MAX_BRICK_ORDER) {
+        T_BRICK_ORDER_ENTRY *e = &s_brickOrder[s_brickOrderCount++];
+        e->Xs = (S16)xs;
+        e->Ys = (S16)ys;
+        e->Brick = (S16)brick;
+    } else
+        s_brickOrderOverflow = 1;
+}
+
+/* Reconstructed base layer and the overlay mask patch, both at screen
+   stride in palette indices. */
+static U8 *s_overlayBase = NULL;
+static U8 *s_overlayPatch = NULL;
+static U8 *s_overlayDraw = NULL;
+static U8 *s_overlayTile = NULL;
+static S32 s_overlayAllocW = 0;
+static S32 s_overlayAllocH = 0;
+static S32 s_overlayDrawSize = 0;
+static S32 s_overlayTileSize = 0;
+static S32 s_overlayActive = 0;
+static S32 s_overlayClipX0, s_overlayClipY0, s_overlayClipX1, s_overlayClipY1;
+static S32 s_overlayX0, s_overlayY0, s_overlayX1, s_overlayY1;
+
+static void OverlayFreeBuffers(void) {
+    free(s_overlayBase);
+    free(s_overlayPatch);
+    free(s_overlayDraw);
+    free(s_overlayTile);
+    s_overlayBase = NULL;
+    s_overlayPatch = NULL;
+    s_overlayDraw = NULL;
+    s_overlayTile = NULL;
+    s_overlayAllocW = 0;
+    s_overlayAllocH = 0;
+    s_overlayDrawSize = 0;
+    s_overlayTileSize = 0;
+}
+
+static int OverlayEnsureBuffers(void) {
+    const S32 w = (S32)ModeDesiredX;
+    const S32 h = (S32)ModeDesiredY;
+    if (w <= 0 || h <= 0)
+        return 0;
+    if (s_overlayBase != NULL && s_overlayAllocW == w && s_overlayAllocH == h)
+        return 1;
+    OverlayFreeBuffers();
+    s_overlayBase = (U8 *)malloc((size_t)w * (size_t)h);
+    s_overlayPatch = (U8 *)malloc((size_t)w * (size_t)h);
+    if (s_overlayBase == NULL || s_overlayPatch == NULL) {
+        OverlayFreeBuffers();
+        return 0;
+    }
+    s_overlayAllocW = w;
+    s_overlayAllocH = h;
+    return 1;
+}
+
+/* Replay the base brick layer inside the clip window.  This is the same
+   AffGraph walk the software path uses, in the same draw order, so the
+   reconstructed window matches the base layer pixel for pixel. */
+static void OverlayReplayBase(void) {
+    void *savedLog = Log;
+    const S32 savedXMin = ClipXMin, savedYMin = ClipYMin;
+    const S32 savedXMax = ClipXMax, savedYMax = ClipYMax;
+    ClipXMin = s_overlayClipX0;
+    ClipYMin = s_overlayClipY0;
+    ClipXMax = s_overlayClipX1;
+    ClipYMax = s_overlayClipY1;
+    Log = s_overlayBase;
+    for (S32 i = 0; i < s_brickOrderCount; i++) {
+        const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i];
+        const U8 *src = BufferBrick + ((const U32 *)BufferBrick)[p->Brick];
+        const S32 w = src[0];
+        const S32 h = src[1];
+        const S32 x = p->Xs + (S8)src[2];
+        const S32 y = p->Ys + (S8)src[3];
+        if (x > s_overlayClipX1 || y > s_overlayClipY1 ||
+            x + w <= s_overlayClipX0 || y + h <= s_overlayClipY0)
+            continue;
+        AffGraph(p->Brick, p->Xs, p->Ys, BufferBrick);
+    }
+    Log = savedLog;
+    ClipXMin = savedXMin;
+    ClipYMin = savedYMin;
+    ClipXMax = savedXMax;
+    ClipYMax = savedYMax;
+}
+
+static void DrawBrickOverlayFallback(T_COLONB *ptrlbc);
+
+static void OverlayBegin(void) {
+    s_overlayActive = 0;
+    if (!(GPURendererActive && CubeMode == CUBE_INTERIEUR))
+        return;
+    if (s_brickOrderCount == 0 || s_brickOrderOverflow || BufferBrick == NULL ||
+        !OverlayEnsureBuffers())
+        return;
+
+    S32 x0 = ClipXMin;
+    S32 y0 = ClipYMin;
+    S32 x1 = ClipXMax;
+    S32 y1 = ClipYMax;
+    if (x0 < 0)
+        x0 = 0;
+    if (y0 < 0)
+        y0 = 0;
+    if (x1 >= s_overlayAllocW)
+        x1 = s_overlayAllocW - 1;
+    if (y1 >= s_overlayAllocH)
+        y1 = s_overlayAllocH - 1;
+    if (x1 < x0 || y1 < y0)
+        return;
+
+    s_overlayClipX0 = x0;
+    s_overlayClipY0 = y0;
+    s_overlayClipX1 = x1;
+    s_overlayClipY1 = y1;
+    const S32 span = x1 - x0 + 1;
+    for (S32 y = y0; y <= y1; y++) {
+        memset(s_overlayBase + (size_t)y * s_overlayAllocW + x0, 0, span);
+        memset(s_overlayPatch + (size_t)y * s_overlayAllocW + x0, 0, span);
+    }
+    OverlayReplayBase();
+    s_overlayX0 = x1 + 1;
+    s_overlayY0 = y1 + 1;
+    s_overlayX1 = x0 - 1;
+    s_overlayY1 = y0 - 1;
+    s_overlayActive = 1;
+}
+
+/* Queue one foreground brick: copy the pristine background through its
+   opaque texels into the patch. */
+static void OverlayMark(T_COLONB *ptrlbc) {
+    if (!s_overlayActive) {
+        DrawBrickOverlayFallback(ptrlbc);
+        return;
+    }
+    const U8 *src = BufferBrick + ((const U32 *)BufferBrick)[ptrlbc->Brick];
+    S32 w, h, hotX, hotY;
+    s_currentBrickGL = ptrlbc->Brick;
+    const U8 *raw = DecodeBrickGL(src, &w, &h, &hotX, &hotY);
+    s_currentBrickGL = -1;
+    if (raw == NULL)
+        return;
+
+    const S32 bx = ptrlbc->Xs + hotX;
+    const S32 by = ptrlbc->Ys + hotY;
+    S32 cx0 = bx;
+    S32 cy0 = by;
+    S32 cx1 = bx + w - 1;
+    S32 cy1 = by + h - 1;
+    if (cx0 < s_overlayClipX0)
+        cx0 = s_overlayClipX0;
+    if (cy0 < s_overlayClipY0)
+        cy0 = s_overlayClipY0;
+    if (cx1 > s_overlayClipX1)
+        cx1 = s_overlayClipX1;
+    if (cy1 > s_overlayClipY1)
+        cy1 = s_overlayClipY1;
+    if (cx1 < cx0 || cy1 < cy0)
+        return;
+
+    for (S32 y = cy0; y <= cy1; y++) {
+        const U8 *srcRow = raw + (size_t)(y - by) * w + (cx0 - bx);
+        U8 *dstRow = s_overlayPatch + (size_t)y * s_overlayAllocW + cx0;
+        for (S32 x = cx0; x <= cx1; x++, srcRow++, dstRow++) {
+            if (*srcRow != 0) {
+                *dstRow = s_overlayBase[(size_t)y * s_overlayAllocW + x];
+            }
+        }
+    }
+
+    if (cx0 < s_overlayX0)
+        s_overlayX0 = cx0;
+    if (cy0 < s_overlayY0)
+        s_overlayY0 = cy0;
+    if (cx1 > s_overlayX1)
+        s_overlayX1 = cx1;
+    if (cy1 > s_overlayY1)
+        s_overlayY1 = cy1;
+}
+
+/* Draw the composed patch into the scene FBO.  Tiles keep the sprite path's
+   implicit 256-texel repeat window from wrapping wide clip windows. */
+static void OverlayFlush(void) {
+    if (!s_overlayActive)
+        return;
+    s_overlayActive = 0;
+    if (s_overlayX1 < s_overlayX0 || s_overlayY1 < s_overlayY0)
+        return;
+
+    const S32 w = s_overlayX1 - s_overlayX0 + 1;
+    const S32 h = s_overlayY1 - s_overlayY0 + 1;
+    const S32 need = w * h;
+    if (need > s_overlayDrawSize) {
+        U8 *grown = (U8 *)realloc(s_overlayDraw, (size_t)need);
+        if (grown == NULL)
+            return;
+        s_overlayDraw = grown;
+        s_overlayDrawSize = need;
+    }
+    if (s_overlayTile == NULL || s_overlayTileSize < 240 * 240) {
+        U8 *grown = (U8 *)realloc(s_overlayTile, (size_t)(240 * 240));
+        if (grown == NULL)
+            return;
+        s_overlayTile = grown;
+        s_overlayTileSize = 240 * 240;
+    }
+
+    for (S32 y = 0; y < h; y++)
+        memcpy(s_overlayDraw + (size_t)y * w,
+               s_overlayPatch + (size_t)(s_overlayY0 + y) * s_overlayAllocW +
+                   s_overlayX0,
+               (size_t)w);
+
+    GL_SetSpriteNoDepth(1);
+    GL_SetSpriteFilterOverride(0);
+    GL_SetSpriteUploadAlways(1);
+    const S32 tile = 240;
+    for (S32 ty = 0; ty < h; ty += tile) {
+        const S32 th = (h - ty < tile) ? h - ty : tile;
+        for (S32 tx = 0; tx < w; tx += tile) {
+            const S32 tw = (w - tx < tile) ? w - tx : tile;
+            for (S32 y = 0; y < th; y++)
+                memcpy(s_overlayTile + (size_t)y * tw,
+                       s_overlayDraw + (size_t)(ty + y) * w + tx,
+                       (size_t)tw);
+            GL_DrawSpriteQuad(s_overlayX0 + tx, s_overlayY0 + ty,
+                              s_overlayX0 + tx + tw, s_overlayY0 + ty + th,
+                              0, 0, tw, th, s_overlayTile, tw, th, 0, 0);
+        }
+    }
+    GL_SetSpriteUploadAlways(0);
+    GL_SetSpriteFilterOverride(-1);
+    GL_SetSpriteNoDepth(0);
+}
+
+/* Software/fallback route: masked copy of the pristine background. */
+static void DrawBrickOverlayFallback(T_COLONB *ptrlbc) {
     if (GPURendererActive && CubeMode == CUBE_INTERIEUR) {
         DrawBrickGL(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys);
         return;
     }
+    CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+}
+#else
+/* Software-only builds keep the original CopyMask path and need no base-layer
+   reconstruction; the overlay state exists only for the GL renderer. */
+static void OverlayBegin(void) {}
+
+static void OverlayFlush(void) {}
+
+static void OverlayMark(T_COLONB *ptrlbc) {
     CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
 }
 #endif
@@ -717,6 +998,8 @@ void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
     S32 xw, yw, zw;
     S32 recouvre;
 
+    OverlayBegin();
+
     // Bias -2, not -1: a wall one iso-cube south of the actor projects to
     // XScreen = actor_iso_XScreen - 24, i.e. col = actor_iso_col - 1. The
     // historical -1 only catches that wall when the actor's iso center happens
@@ -772,13 +1055,14 @@ void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
                                    1
                                        //				AND WorldColBrick(xw+SIZE_BRICK_XZ,yw,zw)==1 ) )
                                        AND WorldColBrick(xw + SIZE_BRICK_XZ, yw, zw) >= 1)) {
-                        DrawBrickOverlayGL(ptrlbc);
+                        OverlayMark(ptrlbc);
                     }
                 }
             }
             ptrlbc++;
         }
     }
+    OverlayFlush();
 }
 
 /*--------------------------------------------------------------------------*/
@@ -789,6 +1073,7 @@ void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax) {
     S32 col, i;
     S32 startcol, endcol;
 
+    OverlayBegin();
     startcol = (ClipXMin + 24) / 24 - 1;
     endcol = (ClipXMax + 24) / 24;
 
@@ -802,22 +1087,23 @@ void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax) {
                 if (ptrlbc->Ym > ymax) {
                     if ((ptrlbc->Zm >= zm)
                             OR(ptrlbc->Xm >= xm)) {
-                        DrawBrickOverlayGL(ptrlbc);
+                        OverlayMark(ptrlbc);
                     }
                 } else if (ptrlbc->Ym >= ym) {
                     if ((ptrlbc->Zm == zm)
                             AND(ptrlbc->Xm == xm)) {
-                        DrawBrickOverlayGL(ptrlbc);
+                        OverlayMark(ptrlbc);
                     }
 
                     if ((ptrlbc->Zm > zm)
                             OR(ptrlbc->Xm > xm)) {
-                        DrawBrickOverlayGL(ptrlbc);
+                        OverlayMark(ptrlbc);
                     }
                 }
             }
         }
     }
+    OverlayFlush();
 }
 
 /*--------------------------------------------------------------------------*/
@@ -830,6 +1116,7 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
     S32 col, i;
     S32 startcol, endcol;
 
+    OverlayBegin();
     startcol = (ClipXMin + 24) / 24 - 1;
     endcol = (ClipXMax + 24) / 24;
 
@@ -844,17 +1131,18 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
                                  AND ptrlbc->Ym >= ym) {
                     if ((ptrlbc->Zm == zm)
                             AND(ptrlbc->Xm == xm)) {
-                        DrawBrickOverlayGL(ptrlbc);
+                        OverlayMark(ptrlbc);
                     }
 
                     if ((ptrlbc->Zm > zm)
                             OR(ptrlbc->Xm > xm)) {
-                        DrawBrickOverlayGL(ptrlbc);
+                        OverlayMark(ptrlbc);
                     }
                 }
             }
         }
     }
+    OverlayFlush();
 }
 
 /*--------------------------------------------------------------------------*/
@@ -892,6 +1180,10 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
             else
 #endif
                 AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
+
+#ifdef USE_GPURENDERER
+            BrickOrderAdd(numbrick - 1, XScreen, YScreen);
+#endif
 
             // ListBrickColon is indexed by `col = (XScreen+24)/24`, which goes
             // negative below -24 and would corrupt the array. Bricks in the
@@ -941,6 +1233,9 @@ void AffGrille() {
     YpOrgw = Yp;
 
     memset(NbBrickColon, 0, sizeof(S16) * NB_COLON);
+#ifdef USE_GPURENDERER
+    BrickOrderReset();
+#endif
 
     ptc = BufCube;
     for (z = 0; z < SIZE_CUBE_Z; z++) {
@@ -1023,6 +1318,9 @@ void AffGrilleOnly() {
     YpOrgw = Yp;
 
     memset(NbBrickColon, 0, sizeof(S16) * NB_COLON);
+#ifdef USE_GPURENDERER
+    BrickOrderReset();
+#endif
 
     ptc = BufCube;
 

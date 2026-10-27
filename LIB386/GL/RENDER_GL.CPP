@@ -7731,6 +7731,8 @@ void GL_ReadbackDepthBuffer(void) {
    buffer are allowed into the FBO as well.  Interiors establish their scene
    with the brick layer; the object pass supplies its own depth. */
 static S32 s_spriteNoDepth = 0;
+static S32 s_spriteFilterOverride = -1;
+static S32 s_spriteUploadAlways = 0;
 
 void GL_SetWorldGL(S32 active) {
     s_glWorld = active ? 1 : 0;
@@ -7739,6 +7741,14 @@ void GL_SetWorldGL(S32 active) {
 
 void GL_SetSpriteNoDepth(S32 active) {
     s_spriteNoDepth = active ? 1 : 0;
+}
+
+void GL_SetSpriteFilterOverride(S32 filter) {
+    s_spriteFilterOverride = filter;
+}
+
+void GL_SetSpriteUploadAlways(S32 active) {
+    s_spriteUploadAlways = active ? 1 : 0;
 }
 
 /* ── Gameplay sprite quads (GL AffGraph/ScaleSprite replacement) ─────────── */
@@ -7757,14 +7767,14 @@ static GLuint GL_BindSpriteTexture(const void *pixels, S32 w, S32 h) {
     static S32 s_noCache = -1;
     if (s_noCache < 0)
         s_noCache = getenv("LBA2_NO_SPRITE_CACHE") ? 1 : 0;
-    if (!s_noCache)
-    for (S32 i = 0; i < SPRITE_CACHE_SIZE; i++) {
-        if (s_spriteTexCache[i].ptr == pixels && s_spriteTexCache[i].w == w &&
-            s_spriteTexCache[i].h == h) {
-            GL_BindTexUnit(0, s_spriteTexCache[i].tex);
-            return s_spriteTexCache[i].tex;
+    if (!s_noCache && !s_spriteUploadAlways)
+        for (S32 i = 0; i < SPRITE_CACHE_SIZE; i++) {
+            if (s_spriteTexCache[i].ptr == pixels && s_spriteTexCache[i].w == w &&
+                s_spriteTexCache[i].h == h) {
+                GL_BindTexUnit(0, s_spriteTexCache[i].tex);
+                return s_spriteTexCache[i].tex;
+            }
         }
-    }
 
     SpriteTexEntry *e = &s_spriteTexCache[s_spriteTexNext];
     s_spriteTexNext = (s_spriteTexNext + 1) % SPRITE_CACHE_SIZE;
@@ -7891,7 +7901,9 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
     const U16 pv[4] = {(U16)(v0 << 8), (U16)(v0 << 8), (U16)(v1 << 8),
                        (U16)(v1 << 8)};
     const U16 spriteRepMask = 0xFFFF;
-    glUniform1i(s_clut_uBilinear, DisplayTexFilter);
+    glUniform1i(s_clut_uBilinear, s_spriteFilterOverride >= 0
+                                      ? s_spriteFilterOverride
+                                      : DisplayTexFilter);
     for (S32 i = 0; i < 6; i++) {
         U8 *v = quadVerts + i * BATCH_VERT_BYTES;
         S32 c = order[i];
