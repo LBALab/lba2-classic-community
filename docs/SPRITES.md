@@ -222,7 +222,7 @@ Wall collision (`EXTRA_END_COL`) routes by `MagicBallType`:
 
 Object hit (`EXTRA_END_OBJ`): explodes and returns. The trail extras (`EXTRA_TRAINEE`) follow the active ball's velocity and origin with a small delay (`(time - (Body+1)*20) / 20`), re-syncing on bounce via `NewMagicBallRebond`.
 
-`InitBackMagicBall` (`EXTRA.CPP:1629-1657`) sets `MagicBall` to a new search extra and `InitMagicBall = TRUE`, which makes `GereExtras` skip that slot for the current pass (so the ball doesn't process twice in the frame it's converted). The flag is cleared at the bottom of `GereExtras`.
+`InitBackMagicBall` (`EXTRA.CPP:1629-1657`) sets `MagicBall` to a new search extra and `InitMagicBall = TRUE`, which makes `GereExtras` skip that slot for the current pass (so the ball doesn't process twice in the frame it's converted). The flag is cleared at the bottom of `GereExtras`. `CoulRetourBalle` keeps the sprite the ball was thrown with across all magic levels; the `SPRITE_BALLE_SHADOW*` entries are stippled ground-shadow art, not returning-projectile variants. The key-homing path still returns `SPRITE_CLE`, because that return carries the key.
 
 ### Render — magic ball draw path
 
@@ -248,6 +248,10 @@ The bug: `ScaleSpriteTransp` always implemented the scaled path; `ScaleSprite` d
 ### Fix
 
 `ScaleSprite` now mirrors `ScaleSpriteTransp`'s structure verbatim — same negative-factor handling, same fast-vs-scaled split, same fractional walk — with the inner write changed from `*lineDst = transpTable[(s<<8)|d]` to `*lineDst = srcPixel`. The scaled path is byte-for-byte equivalent to the original `SCALESPI.ASM`, validated by `tests/SVGA/test_scalespi.cpp` against `asm_ScaleSprite` at non-unit factors (`0x18000` / `0x14000` scale up, `0x08000` / `0x0C000` scale down, negative-factor and zero-factor edge cases, plus 32 randomized cases per run).
+
+The GL sprite-quad path needs the same source span as the software walk. `GL_DrawSpriteQuad` receives a source rectangle; the scaled callers pass the distance the software loop advances between the first and last destination pixel, `(width - 1) * invFactor + 1` source texels, not the destination width in texels. Passing the destination width samples only the sprite's top-left corner when it is scaled down. Both `ScaleSprite` and `ScaleSpriteTransp` compute the rectangle in `gl_scaled_source_rect` and clamp it to the sprite bounds.
+
+Sprite banks are uploaded as tightly packed `GL_LUMINANCE` textures in `GL_BindSpriteTexture` (`LIB386/GL/RENDER_GL.CPP`). GL's default 4-byte unpack alignment pads rows whose width is not a multiple of four, shifting the following rows; the 14x14 level-1 ball and 13x13 level-4 ball sample from the wrong texels unless the upload sets `GL_UNPACK_ALIGNMENT` to 1 for the duration of `glTexImage2D`.
 
 In-game repro of the now-fixed bug: stand in any exterior cube, throw the magic ball at magic level 0–3 — before the fix, the sprite kept its size as the ball flew away; after, it shrinks with distance.
 

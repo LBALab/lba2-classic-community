@@ -7668,8 +7668,16 @@ static GLuint GL_BindSpriteTexture(const void *pixels, S32 w, S32 h) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    /* Sprite rows are tightly packed.  The default 4-byte unpack alignment
+       pads any row whose width is not a multiple of four, shifting the
+       remaining rows diagonally.  Restore the default afterwards for the
+       RGBA/LUMINANCE uploads elsewhere that assume it. */
+    GLint unpackAlign = 4;
+    glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpackAlign);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE,
                  GL_UNSIGNED_BYTE, pixels);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlign);
     s_profSpriteUps++;
     e->ptr = pixels;
     e->w = w;

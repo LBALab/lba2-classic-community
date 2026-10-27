@@ -41,6 +41,29 @@ static S32 sprite_center_16_16(U8 delta) {
     return (S32)(((U32)(delta >> 1) << 16) + ((delta & 1u) ? 0x8000u : 0u));
 }
 
+/* See ScaleSprite: the GL quad spans the source distance the software walk
+   covers, not one texel per destination pixel. */
+static void gl_scaled_source_rect(S32 startTexX, S32 startTexY,
+                                  S32 width, S32 height,
+                                  S32 invFactorX, S32 invFactorY,
+                                  S32 spriteW, S32 spriteH,
+                                  S32 *u0, S32 *v0, S32 *u1, S32 *v1) {
+    S32 lastX = startTexX + (S32)((long long)(width - 1) * invFactorX);
+    S32 lastY = startTexY + (S32)((long long)(height - 1) * invFactorY);
+    *u0 = startTexX >> 16;
+    *v0 = startTexY >> 16;
+    *u1 = (lastX >> 16) + 1;
+    *v1 = (lastY >> 16) + 1;
+    if (*u0 < 0) *u0 = 0;
+    if (*v0 < 0) *v0 = 0;
+    if (*u0 >= spriteW) *u0 = spriteW - 1;
+    if (*v0 >= spriteH) *v0 = spriteH - 1;
+    if (*u1 <= *u0) *u1 = *u0 + 1;
+    if (*v1 <= *v0) *v1 = *v0 + 1;
+    if (*u1 > spriteW) *u1 = spriteW;
+    if (*v1 > spriteH) *v1 = spriteH;
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -226,10 +249,14 @@ void ScaleSpriteTransp(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
 
 #ifdef USE_GPURENDERER
     if (SpriteGL_Zo != 0) {
+        S32 u0, v0, u1, v1;
+        gl_scaled_source_rect(startTexX, startTexY, width, height,
+                              invFactorX, invFactorY,
+                              sprite->deltaX, sprite->deltaY,
+                              &u0, &v0, &u1, &v1);
         GL_DrawSpriteQuad(ScreenXMin, ScreenYMin,
                           ScreenXMin + width, ScreenYMin + height,
-                          startTexX >> 16, startTexY >> 16,
-                          (startTexX >> 16) + width, (startTexY >> 16) + height,
+                          u0, v0, u1, v1,
                           srcBase, sprite->deltaX, sprite->deltaY,
                           SpriteGL_Zo, 1);
         SpriteGL_Zo = 0;
