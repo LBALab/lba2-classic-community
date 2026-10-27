@@ -3,6 +3,7 @@
 
 #include <3D/PROJREC.H>
 #include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
 
 #ifdef USE_GPURENDERER
 #include <GL/RENDER_GL.H>
@@ -27,6 +28,7 @@ extern S32 XS0, YS0, XS1, YS1, XS2, YS2, XS3, YS3; // bezier.c
 
 S32 XpOrgw;
 S32 YpOrgw;
+
 
 #define NB_COLON 256  // 28
 #define MAX_BRICK 256 // 150
@@ -53,6 +55,120 @@ typedef struct
 } T_COLONB;
 
 T_COLONB ListBrickColon[NB_COLON][MAX_BRICK];
+
+#ifdef USE_GPURENDERER
+/* The isometric brick bank stores RLE graphics.  The GL world path decodes
+   each tile once and keeps the raw palette-index bitmap for a textured quad;
+   the software AffGraph path keeps its own RLE walk when GL is off. */
+#define BRICK_GL_CACHE_SIZE 1024
+typedef struct {
+    const U8 *src;
+    U8 *raw;
+    S32 w;
+    S32 h;
+} T_BRICK_GL_CACHE;
+static T_BRICK_GL_CACHE BrickGLCache[BRICK_GL_CACHE_SIZE];
+static S32 BrickGLCacheNext = 0;
+
+static void ClearBrickGLCache(void) {
+    for (S32 i = 0; i < BRICK_GL_CACHE_SIZE; i++) {
+        if (BrickGLCache[i].raw != NULL)
+            free(BrickGLCache[i].raw);
+        BrickGLCache[i].src = NULL;
+        BrickGLCache[i].raw = NULL;
+    }
+    BrickGLCacheNext = 0;
+}
+
+static S32 s_currentBrickGL = -1;
+static const U8 *DecodeBrickGL(const U8 *src, S32 *outW, S32 *outH,
+                               S32 *outHotX, S32 *outHotY) {
+    for (S32 i = 0; i < BRICK_GL_CACHE_SIZE; i++) {
+        if (BrickGLCache[i].src == src) {
+            *outW = BrickGLCache[i].w;
+            *outH = BrickGLCache[i].h;
+            *outHotX = (S8)src[2];
+            *outHotY = (S8)src[3];
+            return BrickGLCache[i].raw;
+        }
+    }
+
+    const S32 w = src[0];
+    const S32 h = src[1];
+    if (w <= 0 || h <= 0)
+        return NULL;
+
+    /* Let AffGraph do the RLE walk: the brick bank's stream is the same one
+       the software layer decodes, so this avoids a second, subtly different
+       reader.  It writes into a scratch Log row grid; copy the tile out. */
+    U8 *scratch = (U8 *)malloc((size_t)ModeDesiredX * (size_t)h);
+    U8 *raw = (U8 *)malloc((size_t)w * (size_t)h);
+    if (scratch == NULL || raw == NULL) {
+        free(scratch);
+        free(raw);
+        return NULL;
+    }
+    memset(scratch, 0, (size_t)ModeDesiredX * (size_t)h);
+    memcpy(raw, scratch, 1); /* keep the allocator branch identical on failure */
+
+    void *savedLog = Log;
+    const S32 savedXMin = ClipXMin, savedYMin = ClipYMin;
+    const S32 savedXMax = ClipXMax, savedYMax = ClipYMax;
+    Log = scratch;
+    ClipXMin = 0;
+    ClipYMin = 0;
+    ClipXMax = w - 1;
+    ClipYMax = h - 1;
+    AffGraph(s_currentBrickGL, -(S8)src[2], -(S8)src[3], BufferBrick);
+    Log = savedLog;
+    ClipXMin = savedXMin;
+    ClipYMin = savedYMin;
+    ClipXMax = savedXMax;
+    ClipYMax = savedYMax;
+
+    for (S32 y = 0; y < h; y++)
+        memcpy(raw + y * w, scratch + y * ModeDesiredX, (size_t)w);
+
+    free(scratch);
+    T_BRICK_GL_CACHE *e = &BrickGLCache[BrickGLCacheNext];
+    BrickGLCacheNext = (BrickGLCacheNext + 1) % BRICK_GL_CACHE_SIZE;
+    if (e->raw != NULL)
+        free(e->raw);
+    e->src = src;
+    e->raw = raw;
+    e->w = w;
+    e->h = h;
+    *outW = w;
+    *outH = h;
+    *outHotX = (S8)src[2];
+    *outHotY = (S8)src[3];
+    return raw;
+}
+static void DrawBrickGL(S32 brick, S32 x, S32 y) {
+    if (BufferBrick == NULL || brick < 0)
+        return;
+    U8 *src = BufferBrick + ((U32 *)BufferBrick)[brick];
+    S32 w, h, hotX, hotY;
+    s_currentBrickGL = brick;
+    const U8 *raw = DecodeBrickGL(src, &w, &h, &hotX, &hotY);
+    s_currentBrickGL = -1;
+    if (raw == NULL)
+        return;
+    GL_SetSpriteNoDepth(1);
+    GL_DrawSpriteQuad(x + hotX, y + hotY,
+                      x + hotX + w, y + hotY + h,
+                      0, 0, w, h, raw, w, h, 0, 0);
+    GL_SetSpriteNoDepth(0);
+}
+
+static void DrawBrickOverlayGL(T_COLONB *ptrlbc) {
+    if (GPURendererActive && CubeMode == CUBE_INTERIEUR) {
+        DrawBrickGL(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys);
+        return;
+    }
+    CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+}
+#endif
 
 U8 *BufferMaskBrick = NULL;
 S32 NbBlock;
@@ -245,6 +361,9 @@ S32 LoadUsedBrick() {
 }
 /*-------------------------------------------------------------------------*/
 void InitGrille(U32 numcube) {
+#ifdef USE_GPURENDERER
+    ClearBrickGLCache();
+#endif
     U32 id_gri;
     U32 id_bll;
     char tmpFilePath[ADELINE_MAX_PATH];
@@ -653,7 +772,7 @@ void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
                                    1
                                        //				AND WorldColBrick(xw+SIZE_BRICK_XZ,yw,zw)==1 ) )
                                        AND WorldColBrick(xw + SIZE_BRICK_XZ, yw, zw) >= 1)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        DrawBrickOverlayGL(ptrlbc);
                     }
                 }
             }
@@ -683,17 +802,17 @@ void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax) {
                 if (ptrlbc->Ym > ymax) {
                     if ((ptrlbc->Zm >= zm)
                             OR(ptrlbc->Xm >= xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        DrawBrickOverlayGL(ptrlbc);
                     }
                 } else if (ptrlbc->Ym >= ym) {
                     if ((ptrlbc->Zm == zm)
                             AND(ptrlbc->Xm == xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        DrawBrickOverlayGL(ptrlbc);
                     }
 
                     if ((ptrlbc->Zm > zm)
                             OR(ptrlbc->Xm > xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        DrawBrickOverlayGL(ptrlbc);
                     }
                 }
             }
@@ -725,12 +844,12 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
                                  AND ptrlbc->Ym >= ym) {
                     if ((ptrlbc->Zm == zm)
                             AND(ptrlbc->Xm == xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        DrawBrickOverlayGL(ptrlbc);
                     }
 
                     if ((ptrlbc->Zm > zm)
                             OR(ptrlbc->Xm > xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        DrawBrickOverlayGL(ptrlbc);
                     }
                 }
             }
@@ -767,7 +886,12 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
         // the iso origin offset slides off that multiple and the rejected bricks
         // start having visible content. See WIDESCREEN_HARDCODED_DIMS_AUDIT.md.
         if (XScreen >= -47 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
-            AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
+#ifdef USE_GPURENDERER
+            if (GPURendererActive && CubeMode == CUBE_INTERIEUR)
+                DrawBrickGL(numbrick - 1, XScreen, YScreen);
+            else
+#endif
+                AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
 
             // ListBrickColon is indexed by `col = (XScreen+24)/24`, which goes
             // negative below -24 and would corrupt the array. Bricks in the
@@ -804,6 +928,8 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
 
 void AffGrille() {
 #ifdef USE_GPURENDERER
+    if (GPURendererActive && CubeMode == CUBE_INTERIEUR && PtrPal != NULL)
+        SetVideoPaletteSync(PtrPal);
     GL_ClearFBO();
 #endif
     S32 block;
@@ -943,7 +1069,12 @@ void AffBrickBlockOnly(S32 block, S32 brick, S16 x, S16 y, S16 z) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
 
         if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
-            AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
+#ifdef USE_GPURENDERER
+            if (GPURendererActive && CubeMode == CUBE_INTERIEUR)
+                DrawBrickGL(numbrick - 1, XScreen, YScreen);
+            else
+#endif
+                AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
         }
     }
 }

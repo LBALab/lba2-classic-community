@@ -5186,7 +5186,7 @@ S32 AffOneObject(T_SORT *pt) {
                          ptrobj->Obj.Z, num);
 
 #ifdef USE_GPURENDERER
-        if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+        if (GPURendererActive) {
             SpriteGL_Zo = (U16)GET_ZO(CameraZr - Z0);
         }
 #endif
@@ -5293,7 +5293,7 @@ S32 AffOneObject(T_SORT *pt) {
            quads in the FBO — Log pixels could never be occluded by models.
            The anchor depth is exact: the attachment point sits ON the model
            surface, and the live FBO depth test does the occlusion. */
-        if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+        if (GPURendererActive) {
             SpriteGL_Zo = (U16)GET_ZO(CameraZr - Z0);
         }
 #endif
@@ -5307,7 +5307,7 @@ S32 AffOneObject(T_SORT *pt) {
             if (ClipXMin <= ClipXMax
                                 AND ClipYMin <= ClipYMax) {
 #ifdef USE_GPURENDERER
-                if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+                if (GPURendererActive) {
                     S32 gw, gh, hotX, hotY;
                     const U8 *raw = Obj_DecodeGph(GetPtrAnim3DS(num), &gw, &gh,
                                                   &hotX, &hotY);
@@ -5332,7 +5332,7 @@ S32 AffOneObject(T_SORT *pt) {
             }
         } else {
 #ifdef USE_GPURENDERER
-            if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+            if (GPURendererActive) {
                 S32 gw, gh, hotX, hotY;
                 const U8 *raw = Obj_DecodeGph(GetPtrAnim3DS(num), &gw, &gh,
                                               &hotX, &hotY);
@@ -5406,7 +5406,7 @@ S32 AffOneObject(T_SORT *pt) {
         PtrProjectPoint(ptrextra->PosX, ptrextra->PosY, ptrextra->PosZ);
 
 #ifdef USE_GPURENDERER
-        if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+        if (GPURendererActive) {
             SpriteGL_Zo = (U16)GET_ZO(CameraZr - Z0);
         }
 #endif
@@ -5628,6 +5628,18 @@ startaffscene:
 
     oldxporg = XpOrgw;
     oldyporg = YpOrgw;
+
+#ifdef USE_GPURENDERER
+    GL_SetWorldGL(GPURendererActive);
+    /* The isometric world owns the FBO; its brick layer is painted only on
+       full redraws.  Keep that invariant while the GL interior path is
+       active instead of restoring a stale software background. */
+    if (GPURendererActive && CubeMode == CUBE_INTERIEUR &&
+        flagflip != AFF_ALL_FLIP && flagflip != AFF_ALL_NO_FLIP) {
+        flagflip = AFF_ALL_NO_FLIP;
+        FlagFlip = flagflip;
+    }
+#endif
 
     /*------------------------------------------------------------------------*/
 
@@ -6128,6 +6140,7 @@ startaffscene:
         GL_ReadbackDepthBuffer();
     }
     GL_ArrayWindowEnd();
+    GL_SetWorldGL(0);
 #endif
 
     /* Temporary census: what did this frame actually draw? */

@@ -469,6 +469,9 @@ void ChoicePalette(void) {
 
     RestartRainSample = TRUE;
     PtrPal = PtrPalCurrent;
+    /* The GL renderer's palette texture is driven by this LUT; interior
+       palettes are selected here, not through the exterior palette path. */
+    PaletteSync(PtrPal);
     PtrCLUTGouraud = PtrCLUTFog = PtrNuances;
     CLUTGeneration++;
 }

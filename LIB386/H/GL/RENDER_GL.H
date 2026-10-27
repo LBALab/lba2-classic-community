@@ -180,6 +180,14 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
                        const void *pixels, S32 w, S32 h,
                        U16 az, S32 transparent);
 
+//! Mark the current frame as an isometric interior world.  Allows polygon
+//! paths that do not carry a terrain depth buffer into the GL batch.
+void GL_SetWorldGL(S32 active);
+
+//! Draw the next GL_DrawSpriteQuad call as painter-ordered background art:
+//! no depth test and no depth write.  Used by the isometric brick layer.
+void GL_SetSpriteNoDepth(S32 active);
+
 //! Composite the current 3D FBO color with the Log overlay (index 0
 //! transparent) exactly as GL_Present draws them, and write the result as
 //! an RGB PNG. The Log buffer alone holds only the 2D overlay in GL mode,

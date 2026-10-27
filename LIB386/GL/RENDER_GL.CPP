@@ -7637,6 +7637,20 @@ void GL_ReadbackDepthBuffer(void) {
 
    Uses a cached 65536-entry hash table for O(1) ARGB→palette-index lookup.
    Handles SSAA downscaling (FBO may be larger than Screen). */
+/* World flag: when set, polygon paths that normally require a terrain depth
+   buffer are allowed into the FBO as well.  Interiors establish their scene
+   with the brick layer; the object pass supplies its own depth. */
+static S32 s_glWorld = 0;
+static S32 s_spriteNoDepth = 0;
+
+void GL_SetWorldGL(S32 active) {
+    s_glWorld = active ? 1 : 0;
+}
+
+void GL_SetSpriteNoDepth(S32 active) {
+    s_spriteNoDepth = active ? 1 : 0;
+}
+
 /* ── Gameplay sprite quads (GL AffGraph/ScaleSprite replacement) ─────────── */
 
 #define SPRITE_CACHE_SIZE 24
@@ -7650,6 +7664,10 @@ static SpriteTexEntry s_spriteTexCache[SPRITE_CACHE_SIZE];
 static S32 s_spriteTexNext = 0;
 
 static GLuint GL_BindSpriteTexture(const void *pixels, S32 w, S32 h) {
+    static S32 s_noCache = -1;
+    if (s_noCache < 0)
+        s_noCache = getenv("LBA2_NO_SPRITE_CACHE") ? 1 : 0;
+    if (!s_noCache)
     for (S32 i = 0; i < SPRITE_CACHE_SIZE; i++) {
         if (s_spriteTexCache[i].ptr == pixels && s_spriteTexCache[i].w == w &&
             s_spriteTexCache[i].h == h) {
@@ -7734,11 +7752,20 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
         s_atlasScaleY = sy;
     }
 
+    /* A sprite drawn before the first polygon batch would otherwise use the
+       previous scene's palette texture.  Upload it before binding unit 0:
+       GL_UploadPalette's temporary unit-0 bind would otherwise clear the
+       sprite texture. */
+    GL_UploadPalette();
     GL_BindTexUnit(0, GL_BindSpriteTexture(pixels, w, h));
     GL_BindTexUnit(1, s_clutTex);
     GL_BindTexUnit(2, s_paletteTex);
 
-    GL_SetDepthTest(1);
+    /* The isometric brick layer is a painter-ordered background: it must
+       not write depth or the first tile would reject every tile behind it.
+       FBO sprites keep the depth path. */
+    const S32 noDepth = s_spriteNoDepth;
+    GL_SetDepthTest(noDepth ? 0 : 1);
     GL_SetDepthFunc(GL_GEQUAL);
     /* Opaque sprites write depth: they draw through the immediate aux path
        while bodies batch into the NZW defer pool drained at frame end, so
@@ -7748,7 +7775,7 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
        chest decal seen from behind (owner body nearer to the camera, drawn
        after it) stays visible through the body.  Transparent sprites keep
        write-off so their blend never clips geometry behind them. */
-    GL_SetDepthWrite(transparent ? 0 : 1);
+    GL_SetDepthWrite(noDepth ? 0 : (transparent ? 0 : 1));
 
     if (transparent) {
         GL_SetBlendFunc(1, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -9080,7 +9107,7 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        Keeping bodies in Log ensures ShadeBoxBlk has real pixels to darken
        (producing correct transparent shadows) and bodies remain visible
        on top of the terrain in the final GL_Present composite. */
-    if (!Fill_Flag_ZBuffer) {
+    if (!Fill_Flag_ZBuffer && !s_glWorld) {
         GL_LastRejectReason = 3;
         return 0;
     }
@@ -9106,7 +9133,7 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        (objects, shadows) composites on top, so objects always appear in
        front of animated polys.  Falls back to SW when the FBO has no
        terrain (menu/modal loops, before the first GL_ClearFBO). */
-    if (Fill_Flag_NZW && !s_fboHasTerrain) {
+    if (Fill_Flag_NZW && !s_fboHasTerrain && !s_glWorld) {
         GL_LastRejectReason = 4;
         return 0;
     }

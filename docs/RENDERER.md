@@ -1,6 +1,8 @@
 # GPU Renderer (OpenGL 2.1 / GLES 2.0)
 
-Optional hardware-accelerated 3D rendering backend alongside the existing software rasterizer. The GL code is always compiled in (on platforms with GL headers). The user selects between Software and OpenGL at runtime via the Display menu. Vulkan is a future goal (not in scope for this work).
+Optional hardware-accelerated rendering backend alongside the existing software rasterizer. The GL code is always compiled in (on platforms with GL headers). The user selects between Software and OpenGL at runtime via the Display menu. Vulkan is a future goal (not in scope for this work).
+
+When OpenGL is active, the whole world is rendered through it: exterior terrain, decors, models and sprites, and the isometric interior brick layer, models and world sprites. The 8-bit `Log` path remains for UI, text and menus, then composites over the GL frame.
 
 **Scope:** OpenGL 2.1 for desktop, OpenGL ES 2.0 for Android. Vulkan is a future goal (not in scope for this work).
 
@@ -36,11 +38,18 @@ Game logic (SOURCES/)
   │   ├─ Renders via GLSL shader
   │   └─ Writes to GL default framebuffer (depth + color)
   │
-  └─ 2D sprites/UI: AffGraph(), text, menu → writes to Log (8-bit indexed)
-      └─ Composited as a 2D overlay quad on top of the GL 3D scene
+  ├─ World sprites/extras: ScaleSprite GL quads into the FBO
+  └─ UI/text/menu: AffGraph(), text, menu → writes to Log (8-bit indexed)
+      └─ Composited as a 2D overlay quad on top of the GL scene
 ```
 
-The key insight: 3D is fully GPU-rendered, 2D elements (sprites, HUD text, menu) still use the existing SW path writing to `Log`, then get composited as a textured quad.
+The key insight: every world pixel is rasterized by GL, including the isometric interior. UI and text still use the indexed `Log` buffer and are composited as a textured quad.
+
+### Isometric interior
+
+Interior worlds do not use the exterior perspective terrain path. `AffGrille` clears the scene FBO and draws each brick tile as a textured GL quad (`DrawBrickGL` in `SOURCES/GRILLE.CPP`). The brick RLE walk is reused through `AffGraph` into a scratch bitmap on first use and cached; the visible tile is then sampled from a GL texture. `DrawOverBrick*` redraws foreground tiles through the same GL path, keeping them above models. `GL_SetWorldGL` lets the interior object polygons enter `GL_RenderTriangleList` without a terrain depth buffer; sprites and extras use the GL sprite quads for both cube modes. The UI still lands in `Log`.
+
+Interior palettes are selected by `ChoicePalette`; it now syncs the video/GL palette LUT as well, which is what keeps indexed brick and sprite textures on the room's palette rather than the previous scene's.
 
 ### GL 2.1 vs GLES 2.0
 
