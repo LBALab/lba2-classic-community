@@ -51,6 +51,8 @@ Interior worlds do not use the exterior perspective terrain path. `AffGrille` cl
 
 Interior palettes are selected by `ChoicePalette`; it now syncs the video/GL palette LUT as well, which is what keeps indexed brick and sprite textures on the room's palette rather than the previous scene's.
 
+`DisplayTexFilter` is also honoured by gameplay sprite quads, including the decoded brick tiles: nearest, palette-resolved bilinear, Scale2x, and xBR are selected per draw through the CLUT shader. Filtering happens on palette indices and resolves through the palette texture, so the result does not interpolate raw palette indices.
+
 ### GL 2.1 vs GLES 2.0
 
 | Aspect | GL 2.1 (desktop) | GLES 2.0 (Android) |

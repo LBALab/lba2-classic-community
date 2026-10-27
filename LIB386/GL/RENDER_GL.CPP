@@ -503,8 +503,8 @@ static const char *s_clutFragSrc =
     "const vec4 xbrCy = vec4( 2.0,  0.0, -1.0,  0.5);\n"
     "const vec4 xbrCi = vec4(0.25, 0.25, 0.25, 0.25);\n"
     "float xbrIndex(vec2 p, vec2 whm) {\n"
-    "    return texture2D(uAtlas, vec2((mod(p.x, whm.x) + 0.5) / 256.0,\n"
-    "                                  (mod(p.y, whm.y) + 0.5) / 256.0)).r * 255.0;\n"
+    "    return texture2D(uAtlas, vec2((mod(p.x, whm.x) + 0.5) / uAtlasScale.x,\n"
+    "                                  (mod(p.y, whm.y) + 0.5) / uAtlasScale.y)).r * 255.0;\n"
     "}\n"
     "vec3 xbrPal(float idx) {\n"
     "    return texture2D(uPalette, vec2((idx + 0.5) / 256.0, 0.5)).rgb;\n"
@@ -692,6 +692,42 @@ static const char *s_clutFragSrc =
     "    vec4 c11 = clutLookup(t11, gouraudRow);\n"
     "    return mix(mix(c00, c10, fu), mix(c01, c11, fu), fv);\n"
     "}\n"
+    /* Palette-resolved sprite filters: the sprite texture stores palette
+       indices, so hardware filtering would blend indices.  Sample the
+       indices, then resolve through uPalette. */
+    "vec4 spriteScale2x(vec2 tc, float wm, float hm, float chroma) {\n"
+    "    vec2 whm = vec2(wm + 1.0, hm + 1.0);\n"
+    "    vec2 pC = floor(mod(tc, whm));\n"
+    "    vec2 fp = fract(mod(tc, whm));\n"
+    "    float e = xbrIndex(pC, whm);\n"
+    "    if (chroma > 0.5 && e < 0.5) discard;\n"
+    "    float b = xbrIndex(pC + vec2(0.0, -1.0), whm);\n"
+    "    float d = xbrIndex(pC + vec2(-1.0, 0.0), whm);\n"
+    "    float f = xbrIndex(pC + vec2(1.0, 0.0), whm);\n"
+    "    float h = xbrIndex(pC + vec2(0.0, 1.0), whm);\n"
+    "    float r = e;\n"
+    "    if (b != h && d != f) {\n"
+    "        if (fp.x < 0.5 && fp.y < 0.5) r = (d == b) ? d : e;\n"
+    "        else if (fp.x >= 0.5 && fp.y < 0.5) r = (b == f) ? f : e;\n"
+    "        else if (fp.x < 0.5) r = (d == h) ? d : e;\n"
+    "        else r = (h == f) ? f : e;\n"
+    "    }\n"
+    "    return texture2D(uPalette, vec2((r + 0.5) / 256.0, 0.5));\n"
+    "}\n"
+    "vec4 spriteBilinear(vec2 tc, float wm, float hm, float chroma) {\n"
+    "    vec2 whm = vec2(wm + 1.0, hm + 1.0);\n"
+    "    vec2 uvi = floor(mod(tc, whm));\n"
+    "    vec2 f = fract(mod(tc, whm));\n"
+    "    float i0 = uvi.x, i1 = mod(i0 + 1.0, whm.x);\n"
+    "    float j0 = uvi.y, j1 = mod(j0 + 1.0, whm.y);\n"
+    "    float t00 = xbrIndex(vec2(i0, j0), whm);\n"
+    "    if (chroma > 0.5 && t00 < 0.5) discard;\n"
+    "    vec4 c00 = texture2D(uPalette, vec2((t00 + 0.5) / 256.0, 0.5));\n"
+    "    vec4 c10 = texture2D(uPalette, vec2((xbrIndex(vec2(i1, j0), whm) + 0.5) / 256.0, 0.5));\n"
+    "    vec4 c01 = texture2D(uPalette, vec2((xbrIndex(vec2(i0, j1), whm) + 0.5) / 256.0, 0.5));\n"
+    "    vec4 c11 = texture2D(uPalette, vec2((xbrIndex(vec2(i1, j1), whm) + 0.5) / 256.0, 0.5));\n"
+    "    return mix(mix(c00, c10, f.x), mix(c01, c11, f.x), f.y);\n"
+    "}\n"
     "void main() {\n"
     "    float terrainInvW =\n"
     "        (uTerrainFarClip > 0.5 && vW > 0.0001) ? 1.0 / vW : 0.0;\n"
@@ -788,14 +824,20 @@ static const char *s_clutFragSrc =
     "        float heightMask = floor(vRepMask / 256.0);\n"
     "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
     "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
-    "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / uAtlasScale.x,\n"
-    "                            (floor(wrappedV) + 0.5) / uAtlasScale.y);\n"
-    "        float palIdx = texture2D(uAtlas, atlasUV).r * 255.0;\n"
-    /* Chroma key: atlas texel 0 = transparent.
-       Only INCRUST types have chroma key. */
-    "        if (mChroma > 0.5 && palIdx < 0.5) discard;\n"
-    "        color = texture2D(uPalette,\n"
-    "                 vec2((palIdx + 0.5) / 256.0, 0.5));\n"
+    "        if (uBilinear == 3) {\n"
+    "            color = clutXbr(tc, widthMask, heightMask, 0.0, mChroma, 1.0);\n"
+    "        } else if (uBilinear == 2) {\n"
+    "            color = spriteScale2x(tc, widthMask, heightMask, mChroma);\n"
+    "        } else if (uBilinear != 0) {\n"
+    "            color = spriteBilinear(tc, widthMask, heightMask, mChroma);\n"
+    "        } else {\n"
+    "            vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / uAtlasScale.x,\n"
+    "                                (floor(wrappedV) + 0.5) / uAtlasScale.y);\n"
+    "            float palIdx = texture2D(uAtlas, atlasUV).r * 255.0;\n"
+    "            if (mChroma > 0.5 && palIdx < 0.5) discard;\n"
+    "            color = texture2D(uPalette,\n"
+    "                     vec2((palIdx + 0.5) / 256.0, 0.5));\n"
+    "        }\n"
     "    } else if (mMode == 5) {\n"
     /* Texture Z Fog Smooth (type 24, e.g. sea/sky):
        SW Filler_TextureZFogSmoothZBuf / ...NZW use a fixed CLUT base
@@ -7800,6 +7842,8 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
                        (U16)(u0 << 8)};
     const U16 pv[4] = {(U16)(v0 << 8), (U16)(v0 << 8), (U16)(v1 << 8),
                        (U16)(v1 << 8)};
+    const U16 spriteRepMask = (U16)(((U16)(h - 1) << 8) | (U16)(w - 1));
+    glUniform1i(s_clut_uBilinear, DisplayTexFilter);
     for (S32 i = 0; i < 6; i++) {
         U8 *v = quadVerts + i * BATCH_VERT_BYTES;
         S32 c = order[i];
@@ -7813,7 +7857,7 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
         memcpy(v + 6, &vv, 2);
         memset(v + 8, 0, 2); /* light = 0 */
         memcpy(v + 10, &az, 2);
-        memset(v + 12, 0xFF, 2); /* RepMask = no in-sprite wrap */
+        memcpy(v + 12, &spriteRepMask, 2);
         memcpy(v + 14, &spriteMat, 2);
     }
 
