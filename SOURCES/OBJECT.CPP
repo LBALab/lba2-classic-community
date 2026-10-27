@@ -4845,6 +4845,23 @@ void AfficheShadow(T_SORT *pt, S32 beta) {
                on the FBO→palette readback staying faithful. */
             if (GPURendererActive) {
                 DrawShadowGL();
+
+                /* Interior foreground bricks are overlays with no FBO depth,
+                   so the depth-tested shadow would show through them.  Mirror
+                   the software DrawShadow -> DrawRecover sequence: repaint the
+                   bricks in front of the shadow after the GL polygon. */
+                if (CubeMode == CUBE_INTERIEUR) {
+                    S32 xmin, xmax, zmin, zmax;
+
+                    xmin = pt->XMin - pt->Xw;
+                    xmax = pt->XMax - pt->Xw;
+                    zmin = pt->ZMin - pt->Zw;
+                    zmax = pt->ZMax - pt->Zw;
+
+                    DrawRecoverFlag(pt->Xw, pt->Yw, pt->Zw,
+                                    pt->YMax - pt->Yw,
+                                    ade_max((xmax - xmin) / 2, (zmax - zmin) / 2));
+                }
                 return;
             }
 #endif
