@@ -113,6 +113,36 @@ const int kRetailCount = (int)(sizeof kRetail / sizeof kRetail[0]);
 // Slots the fold reaches. Above this the bindings exist but stay out of Input.
 const int kFoldedSlots = 32;
 
+void CheckActionConstants(void) {
+    const int slots[] = {
+        INPUT_SLOT_UP, INPUT_SLOT_DOWN, INPUT_SLOT_LEFT, INPUT_SLOT_RIGHT,
+        INPUT_SLOT_THROW, INPUT_SLOT_COMPORTEMENT, INPUT_SLOT_INVENTORY,
+        INPUT_SLOT_ACTION_M, INPUT_SLOT_ACTION_ALWAYS, INPUT_SLOT_RETURN,
+        INPUT_SLOT_MENUS, INPUT_SLOT_HOLOMAP, INPUT_SLOT_PAUSE, INPUT_SLOT_ESQUIVE,
+        INPUT_SLOT_NORMAL, INPUT_SLOT_SPORTIF, INPUT_SLOT_AGRESSIF, INPUT_SLOT_DISCRET,
+        INPUT_SLOT_HELP, INPUT_SLOT_SAVE, INPUT_SLOT_LOAD, INPUT_SLOT_OPTIONS,
+        INPUT_SLOT_CAMERA, INPUT_SLOT_CAMERA_LEVEL_PLUS, INPUT_SLOT_CAMERA_LEVEL_MOINS,
+        INPUT_SLOT_WEAPON_1, INPUT_SLOT_WEAPON_2, INPUT_SLOT_WEAPON_3,
+        INPUT_SLOT_WEAPON_4, INPUT_SLOT_WEAPON_5, INPUT_SLOT_WEAPON_6, INPUT_SLOT_WEAPON_7,
+        INPUT_SLOT_PINGOUIN, INPUT_SLOT_JETPACK, INPUT_SLOT_PROTECTION, INPUT_SLOT_FOUDRE};
+    const U32 masks[] = {
+        I_UP, I_DOWN, I_LEFT, I_RIGHT, I_THROW, I_COMPORTEMENT, I_INVENTORY,
+        I_ACTION_M, I_ACTION_ALWAYS, I_RETURN, I_MENUS, I_HOLOMAP, I_PAUSE, I_ESQUIVE,
+        I_NORMAL, I_SPORTIF, I_AGRESSIF, I_DISCRET, I_HELP, I_SAVE, I_LOAD, I_OPTIONS,
+        I_CAMERA, I_CAMERA_LEVEL_PLUS, I_CAMERA_LEVEL_MOINS,
+        I_WEAPON_1, I_WEAPON_2, I_WEAPON_3, I_WEAPON_4, I_WEAPON_5, I_WEAPON_6, I_WEAPON_7,
+        I_PINGOUIN, I_JETPACK, I_PROTECTION, I_FOUDRE};
+    CHECK(INPUT_SLOT_NONE == -1, "NONE must remain outside the binding table");
+    CHECK(sizeof(slots) / sizeof(slots[0]) == 36, "all 36 action slots are covered");
+    CHECK(sizeof(masks) / sizeof(masks[0]) == 36, "all 36 action masks are covered");
+    for (int i = 0; i < 36; ++i) {
+        CHECK(slots[i] == i, "%s: slot %d, expected %d", kRetail[i].action, slots[i], i);
+        const U32 expected = 1U << (i < 32 ? i : i - 32);
+        CHECK(masks[i] == expected, "%s: mask 0x%08X, expected 0x%08X",
+              kRetail[i].action, masks[i], expected);
+    }
+}
+
 // --- 1. The layout, as data -------------------------------------------------
 void CheckRetailLayout(void) {
     CHECK(kRetailCount == MAX_INPUT_SLOTS,
@@ -270,6 +300,7 @@ void CheckRebindNeedsRefold(void) {
 } // namespace
 
 int main() {
+    CheckActionConstants();
     CheckRetailLayout();
     CheckNoSharedKeys();
     CheckFold();

@@ -1,5 +1,6 @@
 #include "RECORD_FORMAT.H"
 
+#include <SYSTEM/KEYBOARD_KEYS.H>
 #include <stdio.h>  /* snprintf, sscanf */
 #include <string.h> /* strstr, strchr, strlen */
 
@@ -94,23 +95,82 @@ S32 RecFmt_ParseBindings(const char *hdr, const char *key, T_DEF_KEY *tab, S32 s
 }
 
 //-------------------------------------------------------------------------
-S32 RecFmt_ReadBindingContext(const char *hdr, U32 *out) {
+static S32 context_number(const char *&p, U32 *out) {
+    if (*p < '0' || *p > '9')
+        return 0;
+    U32 value = 0;
+    while (*p >= '0' && *p <= '9') {
+        U32 digit = (U32)(*p++ - '0');
+        if (value > (0xFFFFFFFFu - digit) / 10)
+            return 0;
+        value = value * 10 + digit;
+    }
+    *out = value;
+    return 1;
+}
+
+S32 RecFmt_ReadBindingContext(const char *hdr, T_BINDING_CONTEXT *out) {
     const char *p = field(hdr, "bindings.context=");
     if (p == NULL)
         return 0;
-    if (out == NULL || *p < '0' || *p > '9')
+    if (out == NULL)
         return -1;
-    U32 value = 0;
-    while (*p >= '0' && *p <= '9') {
-        value = value * 10 + (U32)(*p++ - '0');
-        if (value > BINDINGS_CONTEXT_MASK)
+    T_BINDING_CONTEXT context = {};
+    if (strncmp(p, "v1,", 3) == 0) {
+        p += 3;
+        if (!context_number(p, &context.gameplay) || *p++ != ',' ||
+            !context_number(p, &context.count) || context.count > MAX_BINDING_REMAPS)
             return -1;
+        for (U32 n = 0; n < context.count; ++n) {
+            T_BINDING_REMAP &remap = context.remaps[n];
+            if (*p++ != ',' || !context_number(p, &remap.key) ||
+                *p++ != ':' || !context_number(p, &remap.gameplaySlot) ||
+                *p++ != ':' || !context_number(p, &remap.modalSlot) ||
+                *p++ != ':' || !context_number(p, &remap.suppressed))
+                return -1;
+        }
+    } else {
+        U32 value;
+        if (!context_number(p, &value) || value > BINDINGS_CONTEXT_MASK)
+            return -1;
+        context.gameplay = (value & BINDINGS_CONTEXT_GAMEPLAY) != 0;
+        if (value & BINDINGS_CONTEXT_MODAL_CIRCLE) {
+            context.count = 1;
+            context.remaps[0].key = K_GAMEPAD_B;
+            context.remaps[0].gameplaySlot = INPUT_SLOT_ESQUIVE;
+            context.remaps[0].modalSlot = INPUT_SLOT_RETURN;
+            context.remaps[0].suppressed = (value & BINDINGS_CONTEXT_CIRCLE_SUPPRESSED) != 0;
+        }
     }
     if (*p == '\r')
         ++p;
-    if (*p && *p != '\n')
+    if ((*p && *p != '\n') || !Bindings_ContextValid(context))
         return -1;
-    *out = value;
+    *out = context;
+    return 1;
+}
+
+S32 RecFmt_WriteBindingContext(char *out, size_t n, const T_BINDING_CONTEXT &context) {
+    if (!out || !n || !Bindings_ContextValid(context))
+        return 0;
+    int wrote = snprintf(out, n, "bindings.context=v1,%u,%u",
+                         (unsigned)context.gameplay, (unsigned)context.count);
+    if (wrote < 0 || (size_t)wrote >= n)
+        return 0;
+    size_t at = (size_t)wrote;
+    for (U32 i = 0; i < context.count; ++i) {
+        const T_BINDING_REMAP &remap = context.remaps[i];
+        wrote = snprintf(out + at, n - at, ",%u:%u:%u:%u",
+                         (unsigned)remap.key, (unsigned)remap.gameplaySlot,
+                         (unsigned)remap.modalSlot, (unsigned)remap.suppressed);
+        if (wrote < 0 || (size_t)wrote >= n - at)
+            return 0;
+        at += (size_t)wrote;
+    }
+    if (at + 1 >= n)
+        return 0;
+    out[at] = '\n';
+    out[at + 1] = 0;
     return 1;
 }
 

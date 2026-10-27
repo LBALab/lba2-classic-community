@@ -34,7 +34,7 @@
         "LBA2_BUILD_TESTS": "OFF",
         "LBA2_BUILD_ASM_EQUIV_TESTS": "OFF",
         "LBA2_NATIVE_ARCH": "OFF",
-        "LBA2_GAMEPAD_STICK_LAYOUT": "ON"
+        "LBA2_INPUT_PROFILE": "${sourceDir}/cmake/input/vita.cmake"
       }
     },
     {
