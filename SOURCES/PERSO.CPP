@@ -3048,12 +3048,21 @@ restartloop:
         OpenXR_BeginFrame();
         Perftrace_PhaseEnd(PERFTRACE_PHASE_OPENXR);
         if (CmptFrame < 5) Log_Info("MainLoop: calling AffScene FirstTime=%d", FirstTime);
+        S32 renderFlip = FirstTime;
+#ifdef USE_GPURENDERER
+        /* The isometric world lives in the GL FBO, whose brick layer and
+           object pass are only re-established on a full flip.  Incremental
+           frames would leave the previous model pose in place until a menu
+           or scene change forces a redraw. */
+        if (GPURendererActive && CubeMode == CUBE_INTERIEUR)
+            renderFlip = AFF_ALL_FLIP;
+#endif
         /* AffScene presents the frame itself: its BoxBlit funnels through
          * PresentFrame -> GL_Present -> Window_GL_SwapWindow, which on the
          * Quest owns the OpenXR present (xrEndFrame + input pump). No explicit
          * present here — that would double-present. This matches the original
          * PC path where AffScene was the sole presenter. */
-        PERSO_RenderStereo(FirstTime);
+        PERSO_RenderStereo(renderFlip);
         Perftrace_PhaseEnd(PERFTRACE_PHASE_SCENE);
 
         if ((FirstLoop OR RestartMusic)
