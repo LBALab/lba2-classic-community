@@ -24,7 +24,7 @@ extern void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
 //! offset -- which goes as 1/aZ -- for the model polygons and for the
 //! background depth bands alike, so both keep one depth scale.  Depth-buffer
 //! ordering is unchanged: the map stays monotonic.
-#define ISO_DEPTH_AZ_DENOM 16
+#define ISO_DEPTH_AZ_DENOM 32
 
 //! Apply the same interior stereo gain to a value already on the aZ scale
 //! (the shadow polygons carry GET_ZO depths, not painter keys).
