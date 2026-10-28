@@ -1,4 +1,9 @@
 #include "C_EXTERN.H"
+#include "GRILLE.H"
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+extern S32 GPURendererActive;
+#endif
 #include "DIRECTORIES.H"
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -429,23 +434,49 @@ S32 AffParticleFlow(S_PART_FLOW *ptrf) {
     S32 n;
     S32 flag = FALSE;
     S_ONE_DOT *ptrd;
+#ifdef USE_GPURENDERER
+    /* A flow block drawn into Log is a fixed 2D stamp: in the near eye it
+       stays where mono put it while the room it belongs to moves away.  In
+       the isometric interior the dots carry a world position, so give them
+       their own depth and batch them into the scene instead. */
+    const S32 flowGL = GPURendererActive && CubeMode == CUBE_INTERIEUR &&
+                       GL_SinglePassStereoActive();
+    if (flowGL) {
+        GL_FlowBatchBegin();
+    }
+#endif
 
     ClearScreenMinMax();
     ptrd = ptrf->PtrListDot;
     for (n = 0; n < ptrf->NbDot; n++, ptrd++) {
         if (ptrd->Mode == DOT_DISPLAY) {
+#ifdef USE_GPURENDERER
+            const S32 flowWX = ptrd->X;
+            const S32 flowWZ = ptrd->Z;
+#endif
             X0 = ptrd->X;
             Y0 = ptrd->Y;
             Z0 = ptrd->Z;
 
             LongWorldRotatePoint(X0, Y0, Z0);
             if (LongProjectPoint(X0, Y0, Z0)) {
-#ifdef LBA_EDITOR
-                if (!(FlagInfos & INFO_BOX_FLOW))
-                    Plot(Xp, Yp, ptrd->Couleur);
-                else
+#ifdef USE_GPURENDERER
+                if (flowGL) {
+                    if (Xp >= ClipXMin && Xp < ClipXMax && Yp >= ClipYMin &&
+                        Yp < ClipYMax) {
+                        GL_FlowBatchRect(Xp, Yp, ptrd->Couleur,
+                                         InteriorWorldAz(flowWX, flowWZ));
+                    }
+                } else
 #endif
-                    BoxFlow(Xp, Yp, ptrd->Couleur);
+                {
+#ifdef LBA_EDITOR
+                    if (!(FlagInfos & INFO_BOX_FLOW))
+                        Plot(Xp, Yp, ptrd->Couleur);
+                    else
+#endif
+                        BoxFlow(Xp, Yp, ptrd->Couleur);
+                }
 
                 if (Xp < ScreenXMin)
                     ScreenXMin = Xp;
@@ -459,6 +490,12 @@ S32 AffParticleFlow(S_PART_FLOW *ptrf) {
             }
         }
     }
+
+#ifdef USE_GPURENDERER
+    if (flowGL) {
+        GL_FlowBatchEnd();
+    }
+#endif
 
 #ifdef LBA_EDITOR
     if (FlagInfos & INFO_DRAW_ZV) {

@@ -1216,6 +1216,12 @@ static U16 InteriorShadowAz(S32 worldX, S32 worldZ) {
     return IsoDepthToAz(((worldX - CameraX) + (worldZ - CameraZ)) >> 1);
 }
 
+/* Same key for anything else the room places by world position (particle
+   flows), so it parallaxes with the bricks and models around it. */
+U16 InteriorWorldAz(S32 worldX, S32 worldZ) {
+    return InteriorShadowAz(worldX, worldZ);
+}
+
 S32 ProjectShadow(T_SORT *ptrs, S32 beta) {
     S32 xmin, zmin, xmax, zmax, xw, yw, zw;
     S32 ys, cy;

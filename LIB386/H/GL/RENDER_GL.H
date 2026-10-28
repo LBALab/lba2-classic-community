@@ -217,6 +217,16 @@ void GL_GetLayerShiftMargin(U16 azMin, U16 azSpan, S32 *marginX, S32 *marginY);
 //! paths that do not carry a terrain depth buffer into the GL batch.
 void GL_SetWorldGL(S32 active);
 
+//! Batched flat 2x2 palette rects for the interior particle flows (candle
+//! flames, smoke, sparks).  A flow is a per-frame point cloud: each point
+//! paints a 2x2 block of one palette colour.  Batching them keeps a whole
+//! flow to one draw, and the caller supplies the isometric depth of each
+//! point so the block moves with the room instead of sitting in the 2D
+//! overlay.  No depth test, matching the overlay's paint-on-top order.
+void GL_FlowBatchBegin(void);
+void GL_FlowBatchRect(S32 x, S32 y, S32 colorIndex, U16 az);
+void GL_FlowBatchEnd(void);
+
 //! Draw the next GL_DrawSpriteQuad call as painter-ordered background art:
 //! no depth test and no depth write.  Used by the isometric brick layer.
 void GL_SetSpriteNoDepth(S32 active);

@@ -130,5 +130,11 @@ extern void DesIncrustGrm(T_ZONE *ptrz);
 extern void RedrawGRMs(void);
 
 //-------------------------------------------------------------------
+//! Isometric depth (aZ units) of a world position in the current interior.
+//! Anything the room draws by world position (particle flows) uses this so it
+//! parallaxes with the bricks and models around it.
+extern U16 InteriorWorldAz(S32 worldX, S32 worldZ);
+
+//-------------------------------------------------------------------
 
 #endif // GRILLE_H

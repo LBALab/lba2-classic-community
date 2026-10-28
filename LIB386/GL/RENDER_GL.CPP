@@ -6569,6 +6569,125 @@ void GL_DrawLineFBO(S32 x0, S32 y0, S32 x1, S32 y1, S32 colorIndex,
     GL_BindArrayBuffer(0);
 }
 
+/* ── Batched flat rects for the interior particle flows ───────────────────
+   A flow point paints a 2x2 palette block the way the SW BoxFlow does.  The
+   scene lives in the FBO, so a flow drawn into Log is a fixed 2D stamp: in
+   the near eye it stays at the mono position while the object it belongs to
+   moves away from it.  Batching the blocks into one indexed draw with the
+   point's own isometric depth keeps the flow on the room it belongs to. */
+#define GL_FLOW_MAX_RECTS 512
+static U8 s_flowVerts[GL_FLOW_MAX_RECTS * 6 * BATCH_VERT_BYTES];
+static S32 s_flowRects = 0;
+
+void GL_FlowBatchBegin(void) { s_flowRects = 0; }
+
+static void GL_FlowBatchFlush(void) {
+    if (s_flowRects <= 0) {
+        return;
+    }
+    const S32 rects = s_flowRects;
+    s_flowRects = 0;
+    if (!s_initialized || !Window_GLMakeCurrent()) {
+        return;
+    }
+
+    GL_FlushBatch();
+
+    if (!s_frameActive) {
+        s_frameActive = 1;
+        if (s_fbo) {
+            glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
+            GL_SetSceneViewport();
+        } else {
+            glViewport(0, 0, s_texWidth, s_texHeight);
+        }
+    }
+
+    GL_UseProgramCached(s_clutProgram);
+    glUniform2f(s_clut_uScreenScale, 2.0f / (GLfloat)s_texWidth,
+                2.0f / (GLfloat)s_texHeight);
+    s_ussX = 2.0f / (GLfloat)s_texWidth;
+    s_ussY = 2.0f / (GLfloat)s_texHeight;
+
+    GL_BindTexUnit(0, s_atlasTex);
+    GL_BindTexUnit(1, s_clutTex);
+    GL_BindTexUnit(2, s_paletteTex);
+
+    GL_SetDepthTest(0);
+    GL_SetDepthWrite(0);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    GL_BindArrayBuffer(s_batchVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 (GLsizei)((size_t)rects * 6 * BATCH_VERT_BYTES), s_flowVerts,
+                 GL_STREAM_DRAW);
+    glEnableVertexAttribArray(s_clut_aPos);
+    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
+                          (const void *)0);
+    glEnableVertexAttribArray(s_clut_aTexCoord);
+    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)4);
+    glEnableVertexAttribArray(s_clut_aLight);
+    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)8);
+    glEnableVertexAttribArray(s_clut_aZ);
+    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)10);
+    glEnableVertexAttribArray(s_clut_aRepMask);
+    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)12);
+    glEnableVertexAttribArray(s_clut_aMaterial);
+    glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)14);
+
+    GL_DrawStereoClut(GL_TRIANGLES, 0, rects * 6);
+    s_profTris += rects * 2;
+
+    GL_SetDepthWrite(1);
+    GL_SetDepthTest(0);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    GL_BindArrayBuffer(0);
+}
+
+void GL_FlowBatchRect(S32 x, S32 y, S32 colorIndex, U16 az) {
+    if (!s_initialized) {
+        return;
+    }
+    if (x < -16384 || y < -16384 || x > 16384 || y > 16384) {
+        return;
+    }
+    if (s_flowRects >= GL_FLOW_MAX_RECTS) {
+        GL_FlowBatchFlush();
+    }
+
+    /* Material: polyMode 1 (flat palette colour), opaque. */
+    const U16 mat = (U16)(1 | ((U16)(colorIndex & 0xFF) << 8));
+    const S16 px[4] = {(S16)x, (S16)(x + 2), (S16)(x + 2), (S16)x};
+    const S16 py[4] = {(S16)y, (S16)y, (S16)(y + 2), (S16)(y + 2)};
+    static const S8 order[6] = {0, 1, 2, 0, 2, 3};
+    U8 *dst = s_flowVerts + (size_t)s_flowRects * 6 * BATCH_VERT_BYTES;
+    for (S32 i = 0; i < 6; i++) {
+        U8 *v = dst + (size_t)i * BATCH_VERT_BYTES;
+        const S32 c = order[i];
+        const U16 uv = 0;
+        const U16 light = 0;
+        const U16 rep = 0;
+        memcpy(v + 0, &px[c], 2);
+        memcpy(v + 2, &py[c], 2);
+        memcpy(v + 4, &uv, 2);
+        memcpy(v + 6, &uv, 2);
+        memcpy(v + 8, &light, 2);
+        memcpy(v + 10, &az, 2);
+        memcpy(v + 12, &rep, 2);
+        memcpy(v + 14, &mat, 2);
+    }
+    s_flowRects++;
+    GL_MarkFBORegion(x, y, x + 1, y + 1);
+}
+
+void GL_FlowBatchEnd(void) { GL_FlowBatchFlush(); }
+
 /* ── Screen-space shade rect (GL ShadeBoxBlk replacement) ────────────────── */
 
 /* The SW ShadeBoxBlk darkens the Log pixels in place through the fog
@@ -8755,14 +8874,19 @@ void GL_SavePresentPNG(const char *path) {
     }
 
     /* Log overlay on top: palette index 0 is transparent (alpha forced 0,
-       same rule PresentFrame applies before the GPU composite). */
+       same rule PresentFrame applies before the GPU composite).  The source
+       and the pair are both row-major, so walk rows: indexing the pair
+       linearly would write every eye but the first to the wrong place. */
     const U32 *lut = GL_GetPaletteLUT();
     const U8 *logIdx = (const U8 *)Log;
-    for (U32 eye = 0; eye < eyes; eye++) {
-        for (U32 i = 0; i < scrW * scrH; i++) {
-            U32 idx = logIdx[i];
-            if (idx != 0 && lut != NULL) {
-                comp[i + eye * scrW * scrH] = lut[idx];
+    if (lut != NULL) {
+        for (U32 y = 0; y < scrH; y++) {
+            for (U32 x = 0; x < scrW; x++) {
+                const U32 idx = logIdx[(size_t)y * scrW + x];
+                if (idx == 0)
+                    continue;
+                for (U32 eye = 0; eye < eyes; eye++)
+                    comp[(size_t)y * outW + (size_t)eye * scrW + x] = lut[idx];
             }
         }
     }
