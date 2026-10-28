@@ -361,14 +361,19 @@ static const char *s_terrainVertSrc =
     "    gl_Position = vec4(cx * w,\n"
     "                       (1.0 - yp * uScreenScale.y) * w,\n"
     "                       (1.0 - az / 65535.0) * w, w);\n"
-    "    float invW = 1.0 / max(az, 1.0);\n"
     "    vTexCoord = aTexCoord * w;\n"
-    "    vTexCoordOverW = aTexCoord * invW;\n"
-    "    vInvW = invW;\n"
+    /* Clip w is the camera depth, so the hardware already interpolates a
+       plain varying perspective-correctly.  Premultiplying it by invW
+       would make the fragment's divide weight the samples by 1/w^2
+       instead of 1/w: the texture foreshortens too hard and swims as the
+       camera moves.  Keep the affine variant premultiplied by w; hand the
+       perspective variant over undivided. */
+    "    vTexCoordOverW = aTexCoord;\n"
+    "    vInvW = 1.0;\n"
     "    vW = w;\n"
     "    vLight = aLight;\n"
     "    vZ = depth * w;\n"
-    "    vZOverW = depth * invW;\n"
+    "    vZOverW = depth;\n"
     /* One fog sample per tile, from its top-left corner.  SetCLUT()
        masks the row to 0xF0, so fold the same mask in before packing
        the value into the material high byte / RepMask row. */
@@ -456,13 +461,18 @@ static const char *s_decorVertSrc =
     "    gl_Position = vec4(cx * w,\n"
     "                       (1.0 - yp * uScreenScale.y) * w,\n"
     "                       (1.0 - az / 65535.0) * w, w);\n"
-    "    float invW = 1.0 / max(az, 1.0);\n"
     "    vTexCoord = aTexCoord * w;\n"
-    "    vTexCoordOverW = aTexCoord * invW;\n"
-    "    vInvW = invW;\n"
+    /* Clip w is the camera depth, so the hardware already interpolates a
+       plain varying perspective-correctly.  Premultiplying it by invW
+       would make the fragment's divide weight the samples by 1/w^2
+       instead of 1/w: the texture foreshortens too hard and swims as the
+       camera moves.  Keep the affine variant premultiplied by w; hand the
+       perspective variant over undivided. */
+    "    vTexCoordOverW = aTexCoord;\n"
+    "    vInvW = 1.0;\n"
     "    vW = w;\n"
     "    vZ = depth * w;\n"
-    "    vZOverW = depth * invW;\n"
+    "    vZOverW = depth;\n"
     "    float light = max(dot(uRot * aNormal, uLight) * uLightFactor, 0.0);\n"
     /* LightList stores lrint(dot); the filler's >>8 and the CLUT row
        (light+128)/256 both assume that rounded integer, so round once here
