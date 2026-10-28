@@ -228,10 +228,6 @@ static S32 InteriorCamStickStep(S16 axis) {
     return (axis < 0) ? -step : step;
 }
 
-static S32 InteriorCamAxisAtRest(S16 axis) {
-    return (axis >= -JoystickDeadzone && axis <= JoystickDeadzone);
-}
-
 /* Quest interior camera: the right stick moves the isometric view in the
  * frame plane, X across and Y up/down.  Resting the left thumb on its thumb
  * rest (or on the stick without moving it) turns the right stick's vertical
@@ -278,12 +274,9 @@ static void UpdateInteriorCameraControl(void) {
     UpdateInteriorHover(&hoverPanX, &hoverPanY);
 
     /* The right stick moves the isometric view; the Y axis has a second job
-     * only while the left thumb is in its rest zone. */
+     * only while the left thumb rests on the capacitive area by the buttons. */
     {
-        const S32 leftAtRest = InteriorCamAxisAtRest(OpenXR_LeftStickX) &&
-                               InteriorCamAxisAtRest(OpenXR_LeftStickY);
-        const S32 zoomMode = OpenXR_LeftThumbrestTouched ||
-                             (OpenXR_LeftThumbstickTouched && leftAtRest);
+        const S32 zoomMode = OpenXR_LeftThumbrestTouched;
         const S32 stepX = InteriorCamStickStep(OpenXR_RightStickX);
         const S32 stepY = InteriorCamStickStep(OpenXR_RightStickY);
 

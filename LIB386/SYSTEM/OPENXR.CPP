@@ -207,6 +207,10 @@ static XrSystemId              s_systemId = XR_NULL_SYSTEM_ID;
 static S32 s_extPerfSettings = 0;
 static PFN_xrPerfSettingsSetPerformanceLevelEXT p_xrPerfSettingsSetPerformanceLevelEXT = NULL;
 
+/* Game globals consumed by the interior present (CUBE_INTERIEUR is 0). */
+extern S32 CubeMode;
+extern S32 VrFovScale;
+
 /* GL renderer stereo eye capture (RENDER_GL.CPP). */
 extern "C" U32 GL_GetStereoEyeFBO(S32 eye);
 extern "C" U32 GL_GetStereoPairFBO(void);
@@ -1929,6 +1933,59 @@ S32 OpenXR_PresentMono(void) {
 
                 GLuint swapFbo = OpenXR_SwapchainFBO(s_swapchainImageIndex);
                 if (swapFbo != 0) {
+                    S32 interiorZoomed = 0;
+                    if (pairFbo != 0 && CubeMode == 0 && VrFovScale != 100) {
+                        const S32 eyeW = (S32)(pairW / 2);
+                        const S32 eyeH = (S32)pairH;
+                        const S32 dstW = (S32)s_swapchainWidth;
+                        const S32 dstH = (S32)s_swapchainHeight;
+                        float zoom = (float)VrFovScale / 100.0f;
+                        if (zoom < 0.5f)
+                            zoom = 0.5f;
+                        if (zoom > 1.2f)
+                            zoom = 1.2f;
+                        glDisable(GL_SCISSOR_TEST);
+                        glViewport(0, 0, dstW * 2, dstH);
+                        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+                        glClear(GL_COLOR_BUFFER_BIT);
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, pairFbo);
+                        for (S32 eye = 0; eye < 2; eye++) {
+                            S32 sx0, sy0, sx1, sy1;
+                            S32 dx0, dy0, dx1, dy1;
+                            if (zoom < 1.0f) {
+                                /* Zoom in: sample a smaller centre of the eye. */
+                                const S32 sw = (S32)((float)eyeW * zoom);
+                                const S32 sh = (S32)((float)eyeH * zoom);
+                                sx0 = eye * eyeW + (eyeW - sw) / 2;
+                                sy0 = (eyeH - sh) / 2;
+                                sx1 = sx0 + sw;
+                                sy1 = sy0 + sh;
+                                dx0 = eye * dstW;
+                                dy0 = 0;
+                                dx1 = dx0 + dstW;
+                                dy1 = dstH;
+                            } else {
+                                /* Zoom out: the whole eye shrinks into a
+                                   centred rectangle; the rest is black. */
+                                const S32 dw = (S32)((float)dstW / zoom);
+                                const S32 dh = (S32)((float)dstH / zoom);
+                                sx0 = eye * eyeW;
+                                sy0 = 0;
+                                sx1 = sx0 + eyeW;
+                                sy1 = eyeH;
+                                dx0 = eye * dstW + (dstW - dw) / 2;
+                                dy0 = (dstH - dh) / 2;
+                                dx1 = dx0 + dw;
+                                dy1 = dy0 + dh;
+                            }
+                            glBlitFramebuffer(sx0, sy0, sx1, sy1, dx0, dy0, dx1,
+                                              dy1, GL_COLOR_BUFFER_BIT,
+                                              GL_LINEAR);
+                        }
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+                        interiorZoomed = 1;
+                    }
+                    if (!interiorZoomed) {
                     if (pairFbo != 0) {
                         /* Both eyes are already side by side in one
                          * single-sample source.  With neutral display
@@ -1991,6 +2048,7 @@ S32 OpenXR_PresentMono(void) {
                                           eyeDstX1 + eyeDstW, marginY + eyeDstH,
                                           GL_COLOR_BUFFER_BIT, eyeFilter);
                         glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+                    }
                     }
                 } else if (pairFbo != 0 &&
                            pairW == (U32)(eyeDstX1 + eyeDstW) &&

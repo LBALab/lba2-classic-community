@@ -84,12 +84,13 @@ pans it across, vertical pans it up and down, both clamped to a quarter frame
 so the room cannot be scrolled completely off screen. Enter and a cube change
 recenter it.
 
-Resting the left thumb on its thumb rest (or on the stick without moving it)
-turns the right stick's vertical axis into the `VrFovScale` world zoom
-(50–120) instead of a vertical pan. The left thumbstick touch sensor and the
-controller-body thumb rest are capacitive inputs on the Touch profile; moving
-the left stick resumes normal locomotion and disables the stick-touch
-modifier.
+Resting the left thumb on its capacitive thumb rest, the area by the buttons,
+turns the right stick's vertical axis into the `VrFovScale` zoom (50–120)
+instead of a vertical pan. The rest is a Touch-profile input; the left
+thumbstick's own touch sensor is not the modifier, so a thumb left on the
+stick still pans normally. The interior present scales the resolved stereo
+image about each eye's centre: below 100 the centre is cropped and magnified,
+above 100 the eye shrinks into a centred black frame.
 
 The right stick's digital camera-preset bindings are suppressed in this mode so
 the analog pan does not also cycle the classic camera.
