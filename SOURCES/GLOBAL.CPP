@@ -112,6 +112,9 @@ S32 VrSuperSample = 0; /* Quest supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x.
 S32 VrDioramaPanel = 0; /* Quest interiors: present the room as a
                            world-anchored panel instead of a screen-space
                            image glued to the face. */
+S32 VrInteriorHover = 0; /* Quest interiors: head-tracked hover camera.  A
+                            head turn keeps the room fixed in the world; a
+                            head lean adds depth parallax. */
 
 // #358: min ms of game-time between simulation steps (0 = off, per-frame sim as before).
 // When > 0 the main loop runs the simulation at most once per this many ms of game clock,

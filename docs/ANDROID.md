@@ -221,6 +221,22 @@ looking away leaves it where it was hung. The pane carries the whole
 composited frame (room, models and HUD). It is off by default; the normal
 screen-space interior presentation is unchanged.
 
+The optional interior hover rig (`VrInteriorHover`, Display → VR → Interior
+hover, console `vrhover`) treats the head as a camera flying over the room. A
+head turn moves the isometric projection centre by exactly the angle turned
+in the eye's own projection (`focal * tan(angle)`), so the room stays hung in
+the world instead of following the face; looking far enough carries it out of
+view. A head lean feeds the single-pass stereo stages a camera delta common
+to both eyes (`GL_SetSinglePassBaseDelta`), so near planes move further than
+far ones and the lean reads as depth. The brick background takes the same
+projection delta (`Map2ScreenPanned`), so models and room cannot slide
+against each other. Roll is held level: the room is one authored isometric
+composite and rolling it would only rotate a painted image with no hidden
+surfaces. The rig anchors the pose when it engages and recaptures on Enter or
+a cube change, so enabling it never jumps the view. The head look runs inside
+an authored camera zone too (the zone chooses the room framing, not the
+projection centre); only cinema scenes keep the authored view.
+
 Modal dialogue renders outside `MainLoop`'s stereo block but uses the same
 per-eye renderer. Its box, text and portrait are 2D content in `Log`, and the
 per-eye present composites `Log` into each eye, so a stereo dialogue draws the

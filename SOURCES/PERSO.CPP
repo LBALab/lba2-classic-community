@@ -37,13 +37,182 @@ extern "C" S32 GL_BatchFlushCount;
 #include <SYSTEM/WINDOW.H>
 
 #ifdef LBA2_OPENXR
+#include <stdio.h>
+#include <stdlib.h>
+
 /* Interior is an isometric projection centred on the framebuffer, so a
- * joystick pan is a centre offset; it moves the room under a fixed camera
+ * camera offset is a centre offset; it moves the room under a fixed camera
  * rather than moving a perspective eye.  The left stick keeps its ordinary
  * locomotion bindings so walking and steering are unchanged. */
 static S32 s_InteriorCamPanX = 0;
+static S32 s_InteriorCamAppliedPanY = 0;
 static S32 s_InteriorCamLastCube = -1;
 static U32 s_InteriorCamLastZoom = 0;
+
+/* Head-tracked hover rig.  The anchor is the pose captured when the rig
+ * engaged, so entering the mode never jumps the view; the pan is the view
+ * offset the current pose asks for. */
+static S32 s_HoverAnchored = 0;
+static float s_HoverAnchorYaw = 0.0f;
+static float s_HoverAnchorPitch = 0.0f;
+static float s_HoverAnchorX = 0.0f;
+static float s_HoverAnchorY = 0.0f;
+static float s_HoverAnchorZ = 0.0f;
+/* Last applied parallax delta; a change needs a full redraw, not an
+   incremental dirty-box patch. */
+static S32 s_HoverBaseX = 0;
+static S32 s_HoverBaseY = 0;
+static S32 s_HoverMoved = 0;
+
+static S32 InteriorHoverFakeActive(void) {
+    static S32 s_fake = -1;
+    if (s_fake < 0) {
+        const char *env = getenv("LBA2_FAKE_HOVER");
+        s_fake = (env != NULL && *env != '\0') ? 1 : 0;
+    }
+    return s_fake;
+}
+
+/* The desktop stereo harness renders the pair without a session, so the
+   hover rig's stereo gate has to accept it too. */
+static S32 InteriorHoverFakeStereo(void) {
+    static S32 s_fake = -1;
+    if (s_fake < 0) {
+        const char *env = getenv("LBA2_FAKE_STEREO");
+        s_fake = (env != NULL && *env != '\0') ? 1 : 0;
+    }
+    return s_fake;
+}
+
+/* Latest tracked head pose: yaw/pitch in radians, position in metres on the
+   tracking axes.  LBA2_FAKE_HOVER ("yawDeg,pitchDeg[,x,y,z]") injects one on
+   a desktop build so the stereo pair can be reviewed without a headset.
+   Returns 0 until the runtime has located a view, so the rig never captures
+   a neutral anchor from an all-zero placeholder pose. */
+static S32 InteriorHoverHeadPose(float *yaw, float *pitch, float *hx,
+                                 float *hy, float *hz) {
+    const char *fake = getenv("LBA2_FAKE_HOVER");
+    *yaw = 0.0f;
+    *pitch = 0.0f;
+    *hx = 0.0f;
+    *hy = 0.0f;
+    *hz = 0.0f;
+    if (fake != NULL && *fake != '\0') {
+        float yawDeg = 0.0f, pitchDeg = 0.0f;
+        sscanf(fake, "%f,%f,%f,%f,%f", &yawDeg, &pitchDeg, hx, hy, hz);
+        *yaw = yawDeg * (3.14159265358979f / 180.0f);
+        *pitch = pitchDeg * (3.14159265358979f / 180.0f);
+        return 1;
+    }
+    {
+        float q[4];
+        float p[3];
+        if (!OpenXR_GetEyeView(0, q, p))
+            return 0;
+        *hx = p[0];
+        *hy = p[1];
+        *hz = p[2];
+    }
+    *yaw = OpenXR_HeadYawDeg() * (3.14159265358979f / 180.0f);
+    *pitch = OpenXR_HeadPitchDeg() * (3.14159265358979f / 180.0f);
+    return 1;
+}
+
+static float InteriorHoverWrapPi(float a) {
+    while (a > 3.14159265f)
+        a -= 2.0f * 3.14159265f;
+    while (a < -3.14159265f)
+        a += 2.0f * 3.14159265f;
+    return a;
+}
+
+/* Aim the isometric view from the tracked head pose relative to the anchor.
+   A turn moves the room by exactly the angle turned in the eye's projection;
+   a lean becomes the scene's own eye delta so it lands as depth (near planes
+   move further than far ones) instead of sliding the whole diorama. */
+static void UpdateInteriorHover(S32 *outPanX, S32 *outPanY) {
+    *outPanX = 0;
+    *outPanY = 0;
+    s_HoverMoved = 0;
+#ifdef USE_GPURENDERER
+    GL_SetSinglePassBaseDelta(0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+#endif
+    if (!VrInteriorHover || (!DisplayStereo3D && !InteriorHoverFakeStereo()) ||
+        CinemaMode) {
+        s_HoverBaseX = 0;
+        s_HoverBaseY = 0;
+        return;
+    }
+    if (!OpenXR_IsActive() && !InteriorHoverFakeActive()) {
+        s_HoverBaseX = 0;
+        s_HoverBaseY = 0;
+        return;
+    }
+
+    float yaw, pitch, hx, hy, hz;
+    if (!InteriorHoverHeadPose(&yaw, &pitch, &hx, &hy, &hz)) {
+        s_HoverBaseX = 0;
+        s_HoverBaseY = 0;
+        return;
+    }
+    if (!s_HoverAnchored) {
+        /* The injected desktop pose is already an offset from neutral; the
+           device pose is absolute, so it becomes the neutral anchor. */
+        if (InteriorHoverFakeActive()) {
+            s_HoverAnchorYaw = 0.0f;
+            s_HoverAnchorPitch = 0.0f;
+            s_HoverAnchorX = 0.0f;
+            s_HoverAnchorY = 0.0f;
+            s_HoverAnchorZ = 0.0f;
+        } else {
+            s_HoverAnchorYaw = yaw;
+            s_HoverAnchorPitch = pitch;
+            s_HoverAnchorX = hx;
+            s_HoverAnchorY = hy;
+            s_HoverAnchorZ = hz;
+        }
+        s_HoverAnchored = 1;
+    }
+
+    const float yawOff = InteriorHoverWrapPi(yaw - s_HoverAnchorYaw);
+    const float pitchOff = pitch - s_HoverAnchorPitch;
+    const float dx = hx - s_HoverAnchorX;
+    const float dy = hy - s_HoverAnchorY;
+
+    /* The eye passes override the focal from the headset after this update,
+       so convert with what they will use.  The eye's vertical focal is the
+       horizontal one times the projection's |y ratio|. */
+    float focalX = FRatioX;
+    float focalYRatio = FRatioY;
+    if (StereoFocalX > 0 && StereoFocalY > 0) {
+        focalX = (float)StereoFocalX;
+        focalYRatio = -(float)StereoFocalY / focalX;
+    }
+    const float focalY =
+        focalX * (focalYRatio < 0.0f ? -focalYRatio : focalYRatio);
+
+    StereoHoverPoseToPan(yawOff, pitchOff, 0.0f, 0.0f, focalX, focalY,
+                         (S32)ModeDesiredX, (S32)ModeDesiredY, outPanX,
+                         outPanY);
+
+#ifdef USE_GPURENDERER
+    {
+        S32 leanX = 0, leanY = 0, wx = 0, wy = 0;
+        const float zScale = (float)((double)Fill_ZBuffer_Factor / 65536.0);
+        StereoHoverPoseToPan(0.0f, 0.0f, dx, dy, 0.0f, 0.0f,
+                             (S32)ModeDesiredX, (S32)ModeDesiredY, &leanX,
+                             &leanY);
+        StereoHoverPanToWorld(leanX, leanY, focalX, focalYRatio, zScale,
+                              STEREO_HOVER_REF_AZ, &wx, &wy);
+        GL_SetSinglePassBaseDelta((float)wx, (float)wy, 0.0f, 0.0f, 0.0f);
+        if (wx != s_HoverBaseX || wy != s_HoverBaseY) {
+            s_HoverBaseX = wx;
+            s_HoverBaseY = wy;
+            s_HoverMoved = 1;
+        }
+    }
+#endif
+}
 
 static S32 InteriorCamStickStep(S16 axis) {
     S32 mag = (axis < 0) ? -(S32)axis : (S32)axis;
@@ -67,46 +236,72 @@ static S32 InteriorCamAxisAtRest(S16 axis) {
  * turns the right stick's vertical axis into VR world zoom.  Pan is bounded to
  * a quarter frame so the room cannot be scrolled completely off screen. */
 static void UpdateInteriorCameraControl(void) {
-    if (CubeMode != CUBE_INTERIEUR)
+    if (CubeMode != CUBE_INTERIEUR) {
+        s_HoverAnchored = 0;
+        s_HoverBaseX = 0;
+        s_HoverBaseY = 0;
+#ifdef USE_GPURENDERER
+        GL_SetSinglePassBaseDelta(0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+#endif
         return;
-    if (!OpenXR_IsActive() || !DisplayStereo3D || CinemaMode)
+    }
+    if ((!OpenXR_IsActive() && !InteriorHoverFakeActive()) ||
+        (!DisplayStereo3D && !InteriorHoverFakeStereo()) || CinemaMode) {
+        s_HoverAnchored = 0;
+        s_HoverBaseX = 0;
+        s_HoverBaseY = 0;
+#ifdef USE_GPURENDERER
+        GL_SetSinglePassBaseDelta(0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+#endif
         return;
+    }
 
     if (s_InteriorCamLastCube != (S32)NumCube) {
         s_InteriorCamLastCube = (S32)NumCube;
         s_InteriorCamPanX = 0;
+        s_HoverAnchored = 0;
     }
-    if (Input & I_RETURN)
+    if (Input & I_RETURN) {
         s_InteriorCamPanX = 0;
+        s_HoverAnchored = 0;
+    }
 
     const S32 baseX = (S32)ModeDesiredX / 2 - 9;
     const S32 baseY = (S32)ModeDesiredY / 2;
     const S32 oldPanX = s_InteriorCamPanX;
-    const S32 leftAtRest = InteriorCamAxisAtRest(OpenXR_LeftStickX) &&
-                           InteriorCamAxisAtRest(OpenXR_LeftStickY);
-    const S32 zoomMode = OpenXR_LeftThumbrestTouched ||
-                         (OpenXR_LeftThumbstickTouched && leftAtRest);
-    const S32 stepX = InteriorCamStickStep(OpenXR_RightStickX);
-    const S32 stepY = InteriorCamStickStep(OpenXR_RightStickY);
+    S32 hoverPanX = 0, hoverPanY = 0;
+    UpdateInteriorHover(&hoverPanX, &hoverPanY);
 
-    /* The right stick always owns the sideways pan; its vertical axis is
-     * repurposed only while the left thumb is in its rest zone. */
-    s_InteriorCamPanX -= stepX;
+    /* The stick pan/zoom is a manual overlay on the authored framing, so it
+     * keeps the camera-zone gate; only the head look ignores zones. */
+    if (!CameraZone) {
+        const S32 leftAtRest = InteriorCamAxisAtRest(OpenXR_LeftStickX) &&
+                               InteriorCamAxisAtRest(OpenXR_LeftStickY);
+        const S32 zoomMode = OpenXR_LeftThumbrestTouched ||
+                             (OpenXR_LeftThumbstickTouched && leftAtRest);
+        const S32 stepX = InteriorCamStickStep(OpenXR_RightStickX);
+        const S32 stepY = InteriorCamStickStep(OpenXR_RightStickY);
 
-    if (zoomMode && PERSO_StereoRenderActive()) {
-        if (stepY != 0 && (U32)(TimerRefHR - s_InteriorCamLastZoom) >= 40) {
-            /* Stick up zooms in: shrinking the FOV percentage widens the
-             * rendered world into the same panel. */
-            if (stepY > 0)
-                VrFovScale++;
-            else
-                VrFovScale--;
-            if (VrFovScale < 50)
-                VrFovScale = 50;
-            else if (VrFovScale > 120)
-                VrFovScale = 120;
-            s_InteriorCamLastZoom = TimerRefHR;
-            FirstTime = AFF_ALL_FLIP;
+        /* The right stick always owns the sideways pan; its vertical axis is
+         * repurposed only while the left thumb is in its rest zone. */
+        s_InteriorCamPanX -= stepX;
+
+        if (zoomMode && PERSO_StereoRenderActive()) {
+            if (stepY != 0 &&
+                (U32)(TimerRefHR - s_InteriorCamLastZoom) >= 40) {
+                /* Stick up zooms in: shrinking the FOV percentage widens the
+                 * rendered world into the same panel. */
+                if (stepY > 0)
+                    VrFovScale++;
+                else
+                    VrFovScale--;
+                if (VrFovScale < 50)
+                    VrFovScale = 50;
+                else if (VrFovScale > 120)
+                    VrFovScale = 120;
+                s_InteriorCamLastZoom = TimerRefHR;
+                FirstTime = AFF_ALL_FLIP;
+            }
         }
     }
 
@@ -116,13 +311,20 @@ static void UpdateInteriorCameraControl(void) {
     else if (s_InteriorCamPanX > limitX)
         s_InteriorCamPanX = limitX;
 
-    if (s_InteriorCamPanX != oldPanX)
+    /* The head aim is not clamped to the stick's quarter frame: the room is
+     * a fixed object, so a large enough turn must be able to carry it out of
+     * view.  StereoHoverPoseToPan bounds it at four frames. */
+    S32 panX = s_InteriorCamPanX + hoverPanX;
+
+    if (panX != oldPanX || hoverPanY != s_InteriorCamAppliedPanY ||
+        s_HoverMoved)
         FirstTime = AFF_ALL_FLIP;
+    s_InteriorCamAppliedPanY = hoverPanY;
 
     /* Re-apply every frame: Init3DView and authored camera changes reset the
      * projection centre, and the pan must survive those without being baked
      * into the scene's own camera value. */
-    SetIsoProjection(baseX + s_InteriorCamPanX, baseY);
+    SetIsoProjection(baseX + panX, baseY + hoverPanY);
 }
 #endif
 
@@ -2928,6 +3130,15 @@ restartloop:
         /*-------------------------------------------------------------------------*/
         /* recentre sur hero (numobjfollow) */
 
+        /* The interior hover rig owns the isometric projection centre, and an
+           authored camera zone only chooses the room framing, not that
+           centre - so the head look runs in a zone too.  The stick pan/zoom
+           inside it stays gated on the zone below. */
+#ifdef LBA2_OPENXR
+        if (!CinemaMode)
+            UpdateInteriorCameraControl();
+#endif
+
         if (!CameraZone OR
             (CameraFirstPerson AND CubeMode == CUBE_EXTERIEUR)) {
             /* First person owns the camera everywhere, camera zones
@@ -2936,9 +3147,6 @@ restartloop:
             if (!CinemaMode) {
                 // AlphaCam (touches '+' et '-' *)
                 GereExtKeys(MyKey);
-#ifdef LBA2_OPENXR
-                UpdateInteriorCameraControl();
-#endif
 
                 if (Input & I_CAMERA) {
                     SaveTimer();
@@ -3193,6 +3401,9 @@ void ReadConfigFile(void) {
 
     VrDioramaPanel =
         DefFileBufferReadValueDefault("VrDioramaPanel", 0) ? TRUE : FALSE;
+
+    VrInteriorHover =
+        DefFileBufferReadValueDefault("VrInteriorHover", 0) ? TRUE : FALSE;
 
     DisplaySaturation = DefFileBufferReadValueDefault("DisplaySaturation", 0);
     if (DisplaySaturation < -20)
@@ -3521,6 +3732,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("VrFovScale", VrFovScale);
     DefFileBufferWriteValue("VrSuperSample", VrSuperSample);
     DefFileBufferWriteValue("VrDioramaPanel", VrDioramaPanel);
+    DefFileBufferWriteValue("VrInteriorHover", VrInteriorHover);
     DefFileBufferWriteValue("DisplayBrightness", DisplayBrightness);
     DefFileBufferWriteValue("DisplayContrast", DisplayContrast);
     DefFileBufferWriteValue("DisplaySaturation", DisplaySaturation);

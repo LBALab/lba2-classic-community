@@ -141,7 +141,98 @@ static void test_head_offset_matches_long_rotate(void) {
     }
 }
 
+/* Interior hover: a neutral pose pans nothing, and each axis has the sign a
+   headset user expects - turn/lean right moves the image left, look/lean up
+   moves it down.  A turn moves it by focal * tan(angle), the eye's own
+   projection; anything less and the room appears to follow the head. */
+static void test_hover_pan_zero_and_signs(void) {
+    S32 x = 99, y = 99;
+    const float focalX = 600.0f, focalY = 600.0f;
+
+    StereoHoverPoseToPan(0.0f, 0.0f, 0.0f, 0.0f, focalX, focalY, 640, 480,
+                         &x, &y);
+    ASSERT_EQ_INT(0, x);
+    ASSERT_EQ_INT(0, y);
+
+    StereoHoverPoseToPan(0.5f, 0.0f, 0.0f, 0.0f, focalX, focalY, 640, 480,
+                         &x, &y);
+    ASSERT_EQ_INT((S32)(-focalX * tanf(0.5f)), x);
+    ASSERT_EQ_INT(0, y);
+
+    StereoHoverPoseToPan(0.0f, 0.4f, 0.0f, 0.0f, focalX, focalY, 640, 480,
+                         &x, &y);
+    ASSERT_EQ_INT(0, x);
+    ASSERT_EQ_INT((S32)(focalY * tanf(0.4f)), y);
+
+    StereoHoverPoseToPan(0.0f, 0.0f, 0.25f, 0.0f, focalX, focalY, 640, 480,
+                         &x, &y);
+    ASSERT_EQ_INT(-12, x);
+    ASSERT_EQ_INT(0, y);
+
+    StereoHoverPoseToPan(0.0f, 0.0f, 0.0f, 0.25f, focalX, focalY, 640, 480,
+                         &x, &y);
+    ASSERT_EQ_INT(0, x);
+    ASSERT_EQ_INT(12, y);
+}
+
+/* Past 85 degrees the room is behind the viewer; the projection must stay
+   finite and the offset bounded to a few frames. */
+static void test_hover_pan_clamps(void) {
+    S32 x, y;
+    StereoHoverPoseToPan(10.0f, -10.0f, 0.0f, 0.0f, 600.0f, 600.0f, 640,
+                         480, &x, &y);
+    ASSERT_EQ_INT(-640 * 4, x);
+    ASSERT_EQ_INT(-480 * 4, y);
+
+    StereoHoverPoseToPan(-10.0f, 10.0f, 0.0f, 0.0f, 600.0f, 600.0f, 640,
+                         480, &x, &y);
+    ASSERT_EQ_INT(640 * 4, x);
+    ASSERT_EQ_INT(480 * 4, y);
+}
+
+/* Pixels are the authored unit: the same pose and projection pan the same
+   distance at a wider render. */
+static void test_hover_pan_is_resolution_independent(void) {
+    S32 x0, y0, x1, y1;
+    StereoHoverPoseToPan(0.1f, -0.1f, 0.05f, -0.05f, 600.0f, 600.0f, 640,
+                         480, &x0, &y0);
+    StereoHoverPoseToPan(0.1f, -0.1f, 0.05f, -0.05f, 600.0f, 600.0f, 1280,
+                         960, &x1, &y1);
+    ASSERT_EQ_INT(x0, x1);
+    ASSERT_EQ_INT(y0, y1);
+}
+
+/* The world delta must reproduce the pixel pan at the reference painter
+   depth under the same expression the vertex/fragment stages evaluate. */
+static void test_hover_pan_to_world(void) {
+    const float focalX = 300.0f;
+    const float focalY = -0.75f;
+    const float zScale = 0.25f;
+    S32 wx, wy;
+
+    StereoHoverPanToWorld(-30, 20, focalX, focalY, zScale,
+                          STEREO_HOVER_REF_AZ, &wx, &wy);
+    ASSERT_EQ_INT(400, wx);
+    ASSERT_EQ_INT(355, wy);
+
+    const float sx =
+        -(float)wx * focalX * zScale / (float)STEREO_HOVER_REF_AZ;
+    const float sy = -(float)wy * focalX * focalY * zScale /
+                     (float)STEREO_HOVER_REF_AZ;
+    ASSERT_NEAR_F(-30.0f, sx, 1.0f);
+    ASSERT_NEAR_F(20.0f, sy, 1.0f);
+
+    StereoHoverPanToWorld(-30, 20, 0.0f, focalY, zScale,
+                          STEREO_HOVER_REF_AZ, &wx, &wy);
+    ASSERT_EQ_INT(0, wx);
+    ASSERT_EQ_INT(0, wy);
+}
+
 int main(void) {
+    RUN_TEST(test_hover_pan_zero_and_signs);
+    RUN_TEST(test_hover_pan_clamps);
+    RUN_TEST(test_hover_pan_is_resolution_independent);
+    RUN_TEST(test_hover_pan_to_world);
     RUN_TEST(test_view_beta_composes_and_wraps);
     RUN_TEST(test_view_alpha_sign);
     RUN_TEST(test_head_offset_zero);

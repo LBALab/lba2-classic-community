@@ -1612,6 +1612,8 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
 
 /*--------------------------------------------------------------------------*/
 
+static void Map2ScreenPanned(S32 x, S32 y, S32 z);
+
 void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     U8 *adr;
     S32 nb, col;
@@ -1629,7 +1631,7 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     numbrick = *(U16 *)adr; /* & 32767 */
 
     if (numbrick AND numbrick != ForbidenBrick) {
-        Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
+        Map2ScreenPanned(x - StartXCube, y - StartYCube, z - StartZCube);
 
         // Left clip is -47 (one full brick width minus a pixel), not -24 (half-brick).
         // Many iso bricks have hotX=0 or +24 — their visible pixel range at XScreen=-32
@@ -1760,7 +1762,7 @@ void AffBrickBlockColon(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     numbrick = *(U16 *)adr; /* & 32767 */
 
     if (numbrick AND numbrick != ForbidenBrick) {
-        Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
+        Map2ScreenPanned(x - StartXCube, y - StartYCube, z - StartZCube);
 
         if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
             col = (XScreen + 24) / 24; /* 48 / 2 colonne intercalée */
@@ -1845,7 +1847,7 @@ void AffBrickBlockOnly(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     numbrick = *(U16 *)adr; /* & 32767 */
 
     if (numbrick AND numbrick != ForbidenBrick) {
-        Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
+        Map2ScreenPanned(x - StartXCube, y - StartYCube, z - StartZCube);
 
         if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
 #ifdef USE_GPURENDERER
@@ -2348,6 +2350,18 @@ void Map2Screen(S32 x, S32 y, S32 z) {
     XScreen = 24 * (x - z) + ((S32)ModeDesiredX / 2 - 32);
     YScreen = 12 * (z + x) - 15 * y + ((S32)ModeDesiredY / 2 - 14);
     Projrec_Map2Screen(x, y, z, XScreen, YScreen);
+}
+
+/* The brick grid is derived from the framebuffer centre, while the polygon
+   path projects through XCentre/YCentre.  SetIsoProjection moves the
+   projection centre (the interior hover rig pans the view that way), so the
+   background must take the same delta or models slide against a stationary
+   room.  Keep Map2Screen itself untouched: its ASM twin and the projection
+   corpus pin its output. */
+static void Map2ScreenPanned(S32 x, S32 y, S32 z) {
+    Map2Screen(x, y, z);
+    XScreen += XCentre - ((S32)ModeDesiredX / 2 - 9);
+    YScreen += YCentre - ((S32)ModeDesiredY / 2);
 }
 
 //-------------------------------------------------------------------

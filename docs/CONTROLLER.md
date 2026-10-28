@@ -92,6 +92,16 @@ axis adjust VR world zoom: up narrows the field (zoom in), down widens it (zoom
 out), clamped to the `VrFovScale` 50–120 range. Moving the left stick resumes
 normal locomotion and disables the stick-touch modifier.
 
+The head-tracked hover rig is opt-in (Display → VR → Interior hover, cfg
+`VrInteriorHover`, console `vrhover`). It anchors the head pose when it
+engages: a head turn moves the room by exactly the angle turned in the eye's
+projection, so the image stays hung in the world instead of following your
+face, and leaning left/right or up/down adds a depth-correct parallax (near
+planes move further than far ones). Looking far enough carries the room out
+of view. Roll is held level. Enter recaptures the anchor, and the right
+stick's pan and zoom still apply on top. The head look runs inside a camera
+zone too; only cinema scenes keep the authored view.
+
 ## Live tuning (console cvars)
 
 Open the console (default `F12`) to tune the camera live. `name` shows a value

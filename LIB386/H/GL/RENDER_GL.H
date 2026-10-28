@@ -328,6 +328,11 @@ S32 GL_SinglePassStereoActive(void);
 void GL_SetSinglePassEyeDelta(float x, float y, float z, float projX,
                               float projY);
 
+//! Camera delta common to both eyes of the single-pass pair (the interior
+//! hover rig leans the whole pair).  Cleared by GL_SetSinglePassStereo(0).
+void GL_SetSinglePassBaseDelta(float x, float y, float z, float projX,
+                               float projY);
+
 //! Extra screen-space margin, in pixels, that CPU culling must add on each
 //! side while single-pass stereo is active, so geometry visible only in the
 //! second eye is not rejected using the first eye's projection.  Returns 0

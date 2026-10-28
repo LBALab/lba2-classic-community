@@ -89,3 +89,88 @@ void StereoLookHeadOffsetToWorld(float dxm, float dym, float dzm,
     *outZ = (S32)(fwd * c + right * s);
     *outY = (S32)(dym * LOOK_UNITS_PER_METRE);
 }
+
+/*──────────────────────────────────────────────────────────────────────────*/
+/* Interior hover rig.
+ *
+ * An interior has no perspective camera: the room is a parallel projection
+ * of a fixed isometric composite, so there is no eye to move inside it.  The
+ * hover rig treats the head as a camera flying over that composite.  The
+ * engine draws the room into the eye, so the image is locked to the face;
+ * to hang it in the world instead, the view moves by exactly the angle the
+ * head turned, in the eye's own projection: focal * tan(angle).  A fixed
+ * gain cancels only part of the turn and the room still follows the head.
+ * A head lean becomes a depth-correct parallax through the scene's own
+ * single-pass eye delta, so near planes move further than far ones. */
+
+/* Pixels of parallax per metre of tracked head lean.  Kept near the interior
+   stereo baseline: a lean is a small viewpoint change, and a larger shift
+   tears the painted wall/floor joins the per-pixel warp cannot fill. */
+static const float HOVER_PAN_PX_PER_METRE = 48.0f;
+
+/* tan() grows without bound at a right angle; past this the room is behind
+   the viewer anyway, and the projection just needs a finite push. */
+static const float HOVER_MAX_LOOK_RAD = 1.48352986f; /* 85 degrees */
+
+/* Map a head pose, relative to the pose captured when the hover session
+   engaged, to the isometric view's pan.  (focalX, focalY) are the eye's
+   projection focal in pixels, so the shift is exactly the angle turned and
+   the room stays where it was hung.  Signs: turning or leaning right moves
+   the image left, looking or leaning up moves it down. */
+void StereoHoverPoseToPan(float yawOff, float pitchOff, float dxm, float dym,
+                          float focalX, float focalY, S32 frameW, S32 frameH,
+                          S32 *outPanX, S32 *outPanY) {
+    if (yawOff > HOVER_MAX_LOOK_RAD)
+        yawOff = HOVER_MAX_LOOK_RAD;
+    else if (yawOff < -HOVER_MAX_LOOK_RAD)
+        yawOff = -HOVER_MAX_LOOK_RAD;
+    if (pitchOff > HOVER_MAX_LOOK_RAD)
+        pitchOff = HOVER_MAX_LOOK_RAD;
+    else if (pitchOff < -HOVER_MAX_LOOK_RAD)
+        pitchOff = -HOVER_MAX_LOOK_RAD;
+
+    float panX = -focalX * tanf(yawOff) - dxm * HOVER_PAN_PX_PER_METRE;
+    float panY = focalY * tanf(pitchOff) + dym * HOVER_PAN_PX_PER_METRE;
+    /* The image is allowed to leave the view - that is what looking away
+       from a fixed object does - but keep the projection arithmetic finite. */
+    S32 limitX = frameW * 4;
+    S32 limitY = frameH * 4;
+
+    if (limitX < 0)
+        limitX = 0;
+    if (limitY < 0)
+        limitY = 0;
+    if (panX > (float)limitX)
+        panX = (float)limitX;
+    else if (panX < -(float)limitX)
+        panX = -(float)limitX;
+    if (panY > (float)limitY)
+        panY = (float)limitY;
+    else if (panY < -(float)limitY)
+        panY = -(float)limitY;
+
+    if (outPanX != NULL)
+        *outPanX = (S32)panX;
+    if (outPanY != NULL)
+        *outPanY = (S32)panY;
+}
+
+/* Convert a hover pan in pixels to the world-space delta the single-pass
+   eye stages consume.  A point at refAz then moves by exactly the pan,
+   nearer pixels move further and farther ones less, which is what makes a
+   lean read as depth rather than as a slide.  Zero when the projection has
+   no usable focal (mono, or a degenerate frame). */
+void StereoHoverPanToWorld(S32 panX, S32 panY, float focalX, float focalY,
+                           float zScale, S32 refAz, S32 *outX, S32 *outY) {
+    if (outX != NULL)
+        *outX = 0;
+    if (outY != NULL)
+        *outY = 0;
+    if (focalX <= 0.0f || zScale <= 0.0f || refAz <= 0)
+        return;
+    if (outX != NULL)
+        *outX = (S32)(-(float)panX * (float)refAz / (focalX * zScale));
+    if (outY != NULL && focalY != 0.0f)
+        *outY = (S32)(-(float)panY * (float)refAz /
+                      (focalX * focalY * zScale));
+}

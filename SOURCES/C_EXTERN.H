@@ -133,6 +133,7 @@ extern S32 DisplaySaturation; ///< image adjust: -20..+20, 0 = default (GL mode 
 extern S32 VrFovScale; ///< VR world zoom percent of the eye FOV: 100 = natural, 120 = widest safe (Quest)
 extern S32 VrSuperSample; ///< Quest supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x
 extern S32 VrDioramaPanel; ///< Quest interiors: world-anchored diorama panel (0 = screen-space view)
+extern S32 VrInteriorHover; ///< Quest interiors: head-tracked hover camera (0 = fixed isometric view)
 extern S32 FixedTimestep; ///< #358: min ms of game-time per sim step (0 = off). See docs/MOVEMENT_FRAMERATE.md.
 
 /// 1 = mouse hover / click / wheel in plasma menus (see docs/MENU.md). Read from lba2.cfg `MenuMouse`.
@@ -245,6 +246,16 @@ extern S32 StereoLookViewAlpha(S32 baseAlpha, float pitchOff);
 extern void StereoLookHeadOffsetToWorld(float dxm, float dym, float dzm,
                                         S32 betaView, S32 *outX, S32 *outY,
                                         S32 *outZ);
+/* Interior hover rig: head pose to isometric view pan, and that pan to the
+   per-pixel depth delta the single-pass stereo stages apply. */
+extern void StereoHoverPoseToPan(float yawOff, float pitchOff, float dxm,
+                                 float dym, float focalX, float focalY,
+                                 S32 frameW, S32 frameH, S32 *outPanX,
+                                 S32 *outPanY);
+extern void StereoHoverPanToWorld(S32 panX, S32 panY, float focalX,
+                                  float focalY, float zScale, S32 refAz,
+                                  S32 *outX, S32 *outY);
+#define STEREO_HOVER_REF_AZ 1000
 /* Shared stereo scene renderer and dialogue world advance. */
 extern S32 PERSO_StereoRenderActive(void);
 extern void PERSO_RenderStereo(S32 flagflip);

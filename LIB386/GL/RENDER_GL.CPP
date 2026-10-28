@@ -203,6 +203,8 @@ static const char *s_clutVertSrc =
     "uniform float uSinglePass;\n"
     "uniform vec3 uEyeWorld;\n"
     "uniform vec2 uEyeProj;\n"
+    "uniform vec3 uBaseWorld;\n" /* camera delta common to both eyes */
+    "uniform vec2 uBaseProj;\n"
     "uniform vec2 uEyeFocal;\n"
     "uniform float uEyeZScale;\n"
     /* Perspective-correct interpolation: the SW rasterizer
@@ -230,19 +232,27 @@ static const char *s_clutVertSrc =
        anchor: their second half is the same pixels, not a parallax-shifted
        version, so only the half remap uses the eye index. */
     "    float parallax = (uSinglePass > 0.5 && aZ > 0.5) ? eye : 0.0;\n"
+    /* The hover rig's delta applies to both eyes; a screen-space effect
+       (aZ == 0) has no 3D anchor and must not take it either. */
+    "    float base = (uSinglePass > 0.5 && aZ > 0.5) ? 1.0 : 0.0;\n"
     "    float az = aZ;\n"
     "    if (uSinglePass > 0.5) {\n"
     "        /* Eye 1's camera is translated along Z as well as X/Y (head\n"
     "           lean); its depth must move with it or objects depth-test\n"
     "           against terrain drawn with the shifted eye. */\n"
-    "        az = clamp(aZ + parallax * uEyeWorld.z * uEyeZScale,\n"
+    "        az = clamp(aZ + (parallax * uEyeWorld.z + base * uBaseWorld.z) *\n"
+    "                          uEyeZScale,\n"
     "                     0.0, 65535.0);\n"
     "        float z0 = max(az, 1.0) / max(uEyeZScale, 0.000001);\n"
     "        float sx =\n"
-    "            parallax * (-uEyeWorld.x * uEyeFocal.x / z0 + uEyeProj.x);\n"
+    "            parallax * (-uEyeWorld.x * uEyeFocal.x / z0 + uEyeProj.x) +\n"
+    "            base * (-uBaseWorld.x * uEyeFocal.x / z0 + uBaseProj.x);\n"
     "        float sy = parallax *\n"
     "                   (-uEyeWorld.y * uEyeFocal.x * uEyeFocal.y / z0 +\n"
-    "                    uEyeProj.y);\n"
+    "                    uEyeProj.y) +\n"
+    "                   base * (-uBaseWorld.y * uEyeFocal.x * uEyeFocal.y /\n"
+    "                               z0 +\n"
+    "                           uBaseProj.y);\n"
     "        cx = (aPos.x + sx) * uScreenScale.x - 1.0;\n"
     "        cy = 1.0 - (aPos.y + sy) * uScreenScale.y;\n"
     "        cx = (eye > 0.5) ? (cx * 0.5 + 0.5) : (cx * 0.5 - 0.5);\n"
@@ -332,6 +342,8 @@ static const char *s_terrainVertSrc =
     "uniform float uSinglePass;\n"
     "uniform vec3 uEyeWorld;\n"
     "uniform vec2 uEyeProj;\n"
+    "uniform vec3 uBaseWorld;\n" /* camera delta common to both eyes */
+    "uniform vec2 uBaseProj;\n"
     "uniform vec2 uScreenScale;\n"    /* 2.0/resX, 2.0/resY */
     "uniform float uZBufferFactor;\n" /* Fill_ZBuffer_Factor / 65536 */
     "uniform float uStartZFog;\n"
@@ -349,16 +361,18 @@ static const char *s_terrainVertSrc =
     "void main() {\n"
     "    vec3 p = uRot * aPos;\n"
     "    float eye = (uSinglePass > 0.5) ? uEye : 0.0;\n"
-    "    float depth = uCamera.z + eye * uEyeWorld.z - p.z;\n"
+    "    vec3 camDelta = eye * uEyeWorld + uBaseWorld;\n"
+    "    vec2 projDelta = eye * uEyeProj + uBaseProj;\n"
+    "    float depth = uCamera.z + camDelta.z - p.z;\n"
     "    float denom = depth;\n"
     "    if (abs(denom) < 0.0001) {\n"
     "        denom = (denom < 0.0) ? -0.0001 : 0.0001;\n"
     "    }\n"
     "    float factor = uFocal.x / denom;\n"
-    "    float xp = uCentre.x + uProjShiftX + eye * uEyeProj.x +\n"
-    "               (p.x - uCamera.x - eye * uEyeWorld.x) * factor;\n"
+    "    float xp = uCentre.x + uProjShiftX + projDelta.x +\n"
+    "               (p.x - uCamera.x - camDelta.x) * factor;\n"
     "    float yp = uCentre.y +\n"
-    "               (p.y - uCamera.y - eye * uEyeWorld.y) * factor * uFocal.y;\n"
+    "               (p.y - uCamera.y - camDelta.y) * factor * uFocal.y;\n"
     "    float cx = xp * uScreenScale.x - 1.0;\n"
     "    if (uSinglePass > 0.5) {\n"
     "        cx = (eye > 0.5) ? (cx * 0.5 + 0.5) : (cx * 0.5 - 0.5);\n"
@@ -456,16 +470,18 @@ static const char *s_decorVertSrc =
     "void main() {\n"
     "    vec3 p = uRot * (aPos + uDecorPos);\n"
     "    float eye = (uSinglePass > 0.5) ? uEye : 0.0;\n"
-    "    float depth = uCamera.z + eye * uEyeWorld.z - p.z;\n"
+    "    vec3 camDelta = eye * uEyeWorld + uBaseWorld;\n"
+    "    vec2 projDelta = eye * uEyeProj + uBaseProj;\n"
+    "    float depth = uCamera.z + camDelta.z - p.z;\n"
     "    float denom = depth;\n"
     "    if (abs(denom) < 0.0001) {\n"
     "        denom = (denom < 0.0) ? -0.0001 : 0.0001;\n"
     "    }\n"
     "    float factor = uFocal.x / denom;\n"
-    "    float xp = uCentre.x + uProjShiftX + eye * uEyeProj.x +\n"
-    "               (p.x - uCamera.x - eye * uEyeWorld.x) * factor;\n"
+    "    float xp = uCentre.x + uProjShiftX + projDelta.x +\n"
+    "               (p.x - uCamera.x - camDelta.x) * factor;\n"
     "    float yp = uCentre.y +\n"
-    "               (p.y - uCamera.y - eye * uEyeWorld.y) * factor * uFocal.y;\n"
+    "               (p.y - uCamera.y - camDelta.y) * factor * uFocal.y;\n"
     "    float cx = xp * uScreenScale.x - 1.0;\n"
     "    if (uSinglePass > 0.5) {\n"
     "        cx = (eye > 0.5) ? (cx * 0.5 + 0.5) : (cx * 0.5 - 0.5);\n"
@@ -1759,6 +1775,8 @@ static GLint s_clut_uSinglePass = -1;
 static GLint s_clut_uEye = -1;
 static GLint s_clut_uEyeWorld = -1;
 static GLint s_clut_uEyeProj = -1;
+static GLint s_clut_uBaseWorld = -1;
+static GLint s_clut_uBaseProj = -1;
 static GLint s_clut_uEyeFocal = -1;
 static GLint s_clut_uEyeZScale = -1;
 /* The array program is linked separately and some drivers assign its
@@ -1774,6 +1792,8 @@ static GLint s_clut3_uSinglePass = -1;
 static GLint s_clut3_uEye = -1;
 static GLint s_clut3_uEyeWorld = -1;
 static GLint s_clut3_uEyeProj = -1;
+static GLint s_clut3_uBaseWorld = -1;
+static GLint s_clut3_uBaseProj = -1;
 static GLint s_clut3_uEyeFocal = -1;
 static GLint s_clut3_uEyeZScale = -1;
 static GLint s_clut_uAtlas = -1;
@@ -1887,6 +1907,8 @@ static GLint s_decor_uSinglePass = -1;
 static GLint s_decor_uEye = -1;
 static GLint s_decor_uEyeWorld = -1;
 static GLint s_decor_uEyeProj = -1;
+static GLint s_decor_uBaseWorld = -1;
+static GLint s_decor_uBaseProj = -1;
 static GLint s_decor_uRot = -1;
 static GLint s_decor_uCamera = -1;
 static GLint s_decor_uDecorPos = -1;
@@ -2611,11 +2633,19 @@ extern "C" U32 ModeDesiredY;
    camera change relative to the eye-0 base camera. */
 static float s_eye1World[3] = {0.0f, 0.0f, 0.0f};
 static float s_eye1Proj[2] = {0.0f, 0.0f};
+/* Common to both eyes: the interior hover rig leans the whole pair, so the
+   two halves stay a true stereo pair of one camera. */
+static float s_baseWorld[3] = {0.0f, 0.0f, 0.0f};
+static float s_baseProj[2] = {0.0f, 0.0f};
 
 void GL_SetSinglePassStereo(S32 on) {
     /* Both instances write halves of the double-wide target; without it the
        eye-1 half would fall outside the FBO. */
     s_singlePassStereo = (on && s_stereoDoubleWide) ? 1 : 0;
+    if (!s_singlePassStereo) {
+        s_baseWorld[0] = s_baseWorld[1] = s_baseWorld[2] = 0.0f;
+        s_baseProj[0] = s_baseProj[1] = 0.0f;
+    }
 }
 
 S32 GL_SinglePassStereoSupported(void) { return s_stereoDoubleWide ? 1 : 0; }
@@ -2629,6 +2659,15 @@ void GL_SetSinglePassEyeDelta(float x, float y, float z, float projX,
     s_eye1World[2] = z;
     s_eye1Proj[0] = projX;
     s_eye1Proj[1] = projY;
+}
+
+void GL_SetSinglePassBaseDelta(float x, float y, float z, float projX,
+                               float projY) {
+    s_baseWorld[0] = x;
+    s_baseWorld[1] = y;
+    s_baseWorld[2] = z;
+    s_baseProj[0] = projX;
+    s_baseProj[1] = projY;
 }
 
 /* Union-culling margin, in screen pixels, for the second eye.  CPU culling
@@ -2650,14 +2689,21 @@ void GL_GetSinglePassCullMargin(S32 *marginX, S32 *marginY) {
     const double invDepth = 1.0 / (double)depth;
     const double focalX = (double)FRatioX;
     const double focalY = focalX * fabs((double)FRatioY);
-    const S32 mx =
-        (S32)ceil(fabs((double)s_eye1World[0]) * focalX * invDepth +
-                  fabs((double)s_eye1Proj[0])) +
-        2;
-    const S32 my =
-        (S32)ceil(fabs((double)s_eye1World[1]) * focalY * invDepth +
-                  fabs((double)s_eye1Proj[1])) +
-        2;
+    /* Eye 0 is base, eye 1 is base + its own delta: bound both. */
+    const double wx0 = fabs((double)s_baseWorld[0]);
+    const double wx1 = fabs((double)s_baseWorld[0] + (double)s_eye1World[0]);
+    const double wy0 = fabs((double)s_baseWorld[1]);
+    const double wy1 = fabs((double)s_baseWorld[1] + (double)s_eye1World[1]);
+    const double wx = (wx0 > wx1) ? wx0 : wx1;
+    const double wy = (wy0 > wy1) ? wy0 : wy1;
+    const double px0 = fabs((double)s_baseProj[0]);
+    const double px1 = fabs((double)s_baseProj[0] + (double)s_eye1Proj[0]);
+    const double py0 = fabs((double)s_baseProj[1]);
+    const double py1 = fabs((double)s_baseProj[1] + (double)s_eye1Proj[1]);
+    const double px = (px0 > px1) ? px0 : px1;
+    const double py = (py0 > py1) ? py0 : py1;
+    const S32 mx = (S32)ceil(wx * focalX * invDepth + px) + 2;
+    const S32 my = (S32)ceil(wy * focalY * invDepth + py) + 2;
     if (marginX != NULL)
         *marginX = mx;
     if (marginY != NULL)
@@ -2686,6 +2732,9 @@ static void GL_SetClutEyeUniforms(void) {
     glUniform3f(s_clut_uEyeWorld, s_eye1World[0], s_eye1World[1],
                 s_eye1World[2]);
     glUniform2f(s_clut_uEyeProj, s_eye1Proj[0], s_eye1Proj[1]);
+    glUniform3f(s_clut_uBaseWorld, s_baseWorld[0], s_baseWorld[1],
+                s_baseWorld[2]);
+    glUniform2f(s_clut_uBaseProj, s_baseProj[0], s_baseProj[1]);
     glUniform2f(s_clut_uEyeFocal, FRatioX, FRatioY);
     glUniform1f(s_clut_uEyeZScale,
                 (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0));
@@ -2696,6 +2745,9 @@ static void GL_SetClut3EyeUniforms(void) {
     glUniform3f(s_clut3_uEyeWorld, s_eye1World[0], s_eye1World[1],
                 s_eye1World[2]);
     glUniform2f(s_clut3_uEyeProj, s_eye1Proj[0], s_eye1Proj[1]);
+    glUniform3f(s_clut3_uBaseWorld, s_baseWorld[0], s_baseWorld[1],
+                s_baseWorld[2]);
+    glUniform2f(s_clut3_uBaseProj, s_baseProj[0], s_baseProj[1]);
     glUniform2f(s_clut3_uEyeFocal, FRatioX, FRatioY);
     glUniform1f(s_clut3_uEyeZScale,
                 (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0));
@@ -3608,6 +3660,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_clut_uEye = glGetUniformLocation(s_clutProgram, "uEye");
     s_clut_uEyeWorld = glGetUniformLocation(s_clutProgram, "uEyeWorld");
     s_clut_uEyeProj = glGetUniformLocation(s_clutProgram, "uEyeProj");
+    s_clut_uBaseWorld = glGetUniformLocation(s_clutProgram, "uBaseWorld");
+    s_clut_uBaseProj = glGetUniformLocation(s_clutProgram, "uBaseProj");
     s_clut_uEyeFocal = glGetUniformLocation(s_clutProgram, "uEyeFocal");
     s_clut_uEyeZScale = glGetUniformLocation(s_clutProgram, "uEyeZScale");
     s_clut_uAtlas = glGetUniformLocation(s_clutProgram, "uAtlas");
@@ -3683,6 +3737,10 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                 glGetUniformLocation(s_clut3Program, "uEyeWorld");
             s_clut3_uEyeProj =
                 glGetUniformLocation(s_clut3Program, "uEyeProj");
+            s_clut3_uBaseWorld =
+                glGetUniformLocation(s_clut3Program, "uBaseWorld");
+            s_clut3_uBaseProj =
+                glGetUniformLocation(s_clut3Program, "uBaseProj");
             s_clut3_uEyeFocal =
                 glGetUniformLocation(s_clut3Program, "uEyeFocal");
             s_clut3_uEyeZScale =
@@ -3890,6 +3948,10 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                 glGetUniformLocation(s_decorProgram, "uEyeWorld");
             s_decor_uEyeProj =
                 glGetUniformLocation(s_decorProgram, "uEyeProj");
+            s_decor_uBaseWorld =
+                glGetUniformLocation(s_decorProgram, "uBaseWorld");
+            s_decor_uBaseProj =
+                glGetUniformLocation(s_decorProgram, "uBaseProj");
             s_decor_uRot = glGetUniformLocation(s_decorProgram, "uRot");
             s_decor_uCamera = glGetUniformLocation(s_decorProgram, "uCamera");
             s_decor_uDecorPos =
@@ -4224,6 +4286,14 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                 s_fboHeight = ModeDesiredY;
                 GL_SetStereoTargetMode(1);
                 GL_SetSinglePassStereo(1);
+                /* Interiors never call SetProjection, so a run that starts
+                   inside has no focal yet and the synthesised delta would
+                   collapse to zero.  The iso projection does not read it;
+                   only the stereo eye shift does. */
+                if (FRatioX <= 0.0f) {
+                    FRatioX = 600.0f;
+                    FRatioY = -1.0f;
+                }
                 /* Match the headset's supersampled target so the HUD path
                    (scissor bands at a non-1:1 scale) is exercised too. */
                 if (getenv("LBA2_FAKE_STEREO_SS") != NULL)
@@ -5648,6 +5718,9 @@ static void FlushActiveBatch(void) {
             glUniform3f(s_clut3_uEyeWorld, s_eye1World[0], s_eye1World[1],
                         s_eye1World[2]);
             glUniform2f(s_clut3_uEyeProj, s_eye1Proj[0], s_eye1Proj[1]);
+            glUniform3f(s_clut3_uBaseWorld, s_baseWorld[0], s_baseWorld[1],
+                        s_baseWorld[2]);
+            glUniform2f(s_clut3_uBaseProj, s_baseProj[0], s_baseProj[1]);
             glUniform2f(s_clut3_uEyeFocal, FRatioX, FRatioY);
             glUniform1f(s_clut3_uEyeZScale,
                         (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0));
@@ -5664,6 +5737,9 @@ static void FlushActiveBatch(void) {
             glUniform3f(s_clut_uEyeWorld, s_eye1World[0], s_eye1World[1],
                         s_eye1World[2]);
             glUniform2f(s_clut_uEyeProj, s_eye1Proj[0], s_eye1Proj[1]);
+            glUniform3f(s_clut_uBaseWorld, s_baseWorld[0], s_baseWorld[1],
+                        s_baseWorld[2]);
+            glUniform2f(s_clut_uBaseProj, s_baseProj[0], s_baseProj[1]);
             glUniform2f(s_clut_uEyeFocal, FRatioX, FRatioY);
             glUniform1f(s_clut_uEyeZScale,
                         (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0));
@@ -6259,6 +6335,9 @@ void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
         glUniform3f(s_decor_uEyeWorld, s_eye1World[0], s_eye1World[1],
                     s_eye1World[2]);
         glUniform2f(s_decor_uEyeProj, s_eye1Proj[0], s_eye1Proj[1]);
+        glUniform3f(s_decor_uBaseWorld, s_baseWorld[0], s_baseWorld[1],
+                    s_baseWorld[2]);
+        glUniform2f(s_decor_uBaseProj, s_baseProj[0], s_baseProj[1]);
         glUniform1f(s_decor_uEye, 0.0f);
         GL_BeginSinglePassEyeDraw(0);
         glDrawArrays(GL_TRIANGLES, 0, (GLsizei)vertexCount);
@@ -8624,17 +8703,24 @@ static char *GL_MakeLayerFragSrc(void) {
 static void GL_SetLayerWarpUniforms(S32 eye, S32 hasDepth) {
     const GLfloat warp = (hasDepth && s_singlePassStereo) ? 1.0f : 0.0f;
     glUniform1f(s_layer_uWarp, warp);
-    if (warp < 0.5f || eye == 0) {
+    if (warp < 0.5f) {
         glUniform1f(s_layer_uAzShift, 0.0f);
         glUniform2f(s_layer_uShiftPx, 0.0f, 0.0f);
         glUniform2f(s_layer_uShiftPerAz, 0.0f, 0.0f);
         return;
     }
+    /* Eye 0 renders from the reference camera plus the common hover delta;
+       eye 1 adds its own eye delta on top. */
     const GLfloat zScale = (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0);
-    glUniform1f(s_layer_uAzShift, s_eye1World[2] * zScale);
-    glUniform2f(s_layer_uShiftPx, s_eye1Proj[0], s_eye1Proj[1]);
-    glUniform2f(s_layer_uShiftPerAz, -s_eye1World[0] * FRatioX * zScale,
-                -s_eye1World[1] * FRatioX * FRatioY * zScale);
+    const GLfloat wx = s_baseWorld[0] + ((eye == 0) ? 0.0f : s_eye1World[0]);
+    const GLfloat wy = s_baseWorld[1] + ((eye == 0) ? 0.0f : s_eye1World[1]);
+    const GLfloat wz = s_baseWorld[2] + ((eye == 0) ? 0.0f : s_eye1World[2]);
+    const GLfloat px = s_baseProj[0] + ((eye == 0) ? 0.0f : s_eye1Proj[0]);
+    const GLfloat py = s_baseProj[1] + ((eye == 0) ? 0.0f : s_eye1Proj[1]);
+    glUniform1f(s_layer_uAzShift, wz * zScale);
+    glUniform2f(s_layer_uShiftPx, px, py);
+    glUniform2f(s_layer_uShiftPerAz, -wx * FRatioX * zScale,
+                -wy * FRatioX * FRatioY * zScale);
 }
 
 void GL_GetLayerShiftMargin(U16 azMin, U16 azSpan, S32 *marginX, S32 *marginY) {
@@ -8650,7 +8736,11 @@ void GL_GetLayerShiftMargin(U16 azMin, U16 azSpan, S32 *marginX, S32 *marginY) {
        proj + perAz / az.  The shift is largest where az is smallest, so the
        depth range's low end bounds it. */
     const GLfloat zScale = (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0);
-    const GLfloat azShift = s_eye1World[2] * zScale;
+    /* Worst shift across the pair: eye 0 carries the base, eye 1 adds its
+       own delta. */
+    const GLfloat wz0 = s_baseWorld[2];
+    const GLfloat wz1 = s_baseWorld[2] + s_eye1World[2];
+    const GLfloat azShift = (fabs(wz0) > fabs(wz1)) ? wz0 : wz1;
     const GLfloat span = (azSpan > 1) ? (GLfloat)(azSpan - 1) : 0.0f;
     const GLfloat azLo = (GLfloat)azMin + azShift;
     const GLfloat azHi = (GLfloat)azMin + span + azShift;
@@ -8658,14 +8748,28 @@ void GL_GetLayerShiftMargin(U16 azMin, U16 azSpan, S32 *marginX, S32 *marginY) {
     if (az < 1.0f)
         az = 1.0f;
 
-    const GLfloat perAzX = -s_eye1World[0] * FRatioX * zScale;
-    const GLfloat perAzY = -s_eye1World[1] * FRatioX * FRatioY * zScale;
+    const GLfloat px0 = s_baseProj[0];
+    const GLfloat px1 = s_baseProj[0] + s_eye1Proj[0];
+    const GLfloat py0 = s_baseProj[1];
+    const GLfloat py1 = s_baseProj[1] + s_eye1Proj[1];
+    const GLfloat shiftX = (fabs(px0) > fabs(px1)) ? px0 : px1;
+    const GLfloat shiftY = (fabs(py0) > fabs(py1)) ? py0 : py1;
+    const GLfloat perAzX0 = -(s_baseWorld[0]) * FRatioX * zScale;
+    const GLfloat perAzX1 =
+        -(s_baseWorld[0] + s_eye1World[0]) * FRatioX * zScale;
+    const GLfloat perAzY0 = -(s_baseWorld[1]) * FRatioX * FRatioY * zScale;
+    const GLfloat perAzY1 =
+        -(s_baseWorld[1] + s_eye1World[1]) * FRatioX * FRatioY * zScale;
+    const GLfloat perAzX =
+        (fabs(perAzX0) > fabs(perAzX1)) ? perAzX0 : perAzX1;
+    const GLfloat perAzY =
+        (fabs(perAzY0) > fabs(perAzY1)) ? perAzY0 : perAzY1;
     if (marginX != NULL)
-        *marginX = (S32)ceil(fabs((double)s_eye1Proj[0]) +
+        *marginX = (S32)ceil(fabs((double)shiftX) +
                              fabs((double)perAzX) / (double)az) +
                    1;
     if (marginY != NULL)
-        *marginY = (S32)ceil(fabs((double)s_eye1Proj[1]) +
+        *marginY = (S32)ceil(fabs((double)shiftY) +
                              fabs((double)perAzY) / (double)az) +
                    1;
 }
