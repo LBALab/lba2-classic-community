@@ -3550,6 +3550,10 @@ void ReadConfigFile(void) {
           * no touchscreen and the Touch controllers drive the gamepad,
           * so the on-screen buttons would only cover the picture. */
          TouchOverlay_SetActive(0);
+         /* Init registered the overlay callback before the session existed;
+            leaving it registered would force the CPU-converted ARGB present
+            path every frame for an overlay that never draws. */
+         SetOverlayPrePresentCallback(NULL);
          LogPrintf("TouchOverlay: OpenXR session active, overlay disabled "
                    "(Touch controllers)\n");
          OpenXR_SetStereoEnabled(DisplayStereo3D);

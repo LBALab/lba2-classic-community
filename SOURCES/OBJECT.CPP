@@ -5146,11 +5146,12 @@ static void DrawWorldSpriteGL(S32 xp, S32 yp, S32 sprite, U16 zo) {
     ScreenXMax = cx1;
     ScreenYMax = cy1;
     GL_SetSpriteNoDepth(0);
-    GL_SetSpriteUploadAlways(1);
+    /* The decoded buffer is owned by the per-source GPH cache, so the same
+       pointer always carries the same pixels; the sprite texture cache can
+       keep the upload instead of refreshing it on every draw. */
     GL_DrawSpriteQuad(cx0, cy0, cx1, cy1,
                       cx0 - dx, cy0 - dy, cx1 - dx, cy1 - dy,
                       raw, w, h, zo, 0);
-    GL_SetSpriteUploadAlways(0);
 }
 #endif
 

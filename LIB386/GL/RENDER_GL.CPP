@@ -45,6 +45,7 @@ extern PTR_U8 PtrMap;
 extern S32 DisplayBrightness;
 extern S32 DisplayContrast;
 extern S32 DisplaySaturation;
+extern S32 CubeMode; /* CUBE_INTERIEUR = 0, from SOURCES/COMMON.H */
 extern S32 RepMask;
 extern U8 Fill_Flag_ZBuffer;
 extern U8 Fill_Flag_NZW;
@@ -6360,6 +6361,26 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
     if (n > 64) {
         n = 64;
     }
+
+    /* An off-screen shadow has no fragments to contribute; culling it here
+       avoids the batch flush and the full state setup below. */
+    S32 mx0 = xs[0], mx1 = mx0, my0 = ys[0], my1 = my0;
+    for (i = 1; i < n; i++) {
+        if (xs[i] < mx0)
+            mx0 = xs[i];
+        if (xs[i] > mx1)
+            mx1 = xs[i];
+        if (ys[i] < my0)
+            my0 = ys[i];
+        if (ys[i] > my1)
+            my1 = ys[i];
+    }
+    /* Keep a margin for the stereo eye offset: a shadow just outside the
+       mono box can still land inside one eye. */
+    if (mx1 < -64 || my1 < -64 || mx0 >= (S32)ModeDesiredX + 64 ||
+        my0 >= (S32)ModeDesiredY + 64)
+        return;
+
     if (!Window_GLMakeCurrent()) {
         return;
     }
@@ -6438,20 +6459,7 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
        camera, but corners ride terrain altitude, so a skewed projection
        can go concave — a fan from vertex 0 would spill outside the
        outline (same reason the batch polys triangulate). */
-    {
-        S32 mx0 = xs[0], mx1 = mx0, my0 = ys[0], my1 = my0;
-        for (i = 1; i < n; i++) {
-            if (xs[i] < mx0)
-                mx0 = xs[i];
-            if (xs[i] > mx1)
-                mx1 = xs[i];
-            if (ys[i] < my0)
-                my0 = ys[i];
-            if (ys[i] > my1)
-                my1 = ys[i];
-        }
-        GL_MarkFBORegion(mx0, my0, mx1, my1);
-    }
+    GL_MarkFBORegion(mx0, my0, mx1, my1);
     ntri = GL_TriangulatePolygon(pts, n, tris);
 
     if (ntri > 0) {
@@ -9765,8 +9773,13 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
      * 2D content.  Moving boxes cover world sprites, dialogue and counters,
      * whose projection differs between the eyes; static boxes are the
      * screen-space HUD, which is identical for the pair. */
-    if (s_stereoEye == 1 && s_overlayScanValid && !s_overlayEye0Dynamic &&
-        !BoxHadMovingWrites()) {
+    /* A single-pass interior draws all world content into the FBO, so the
+       Log moving boxes are HUD that is identical for the pair; the eye 1
+       scan can reuse eye 0's without the conservative box check. */
+    const S32 overlayPairStatic = s_singlePassStereo && CubeMode == 0;
+    if (s_stereoEye == 1 && s_overlayScanValid &&
+        (overlayPairStatic ||
+         (!s_overlayEye0Dynamic && !BoxHadMovingWrites()))) {
         overlayEmpty = s_overlayEmptyCached;
         s_profOverlayReuse++;
     } else {
@@ -10035,6 +10048,15 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
             s_overlayEmptyCached = overlayEmpty;
             s_overlayEye0Dynamic = BoxHadMovingWrites();
         }
+    }
+
+    if (useDoubleWide && s_stereoEye == 0) {
+        /* Publish eye 0's scan so the eye 1 present can reuse its texture
+           and bands; the double-wide path returns before the composite
+           bookkeeping at the end of this function. */
+        s_overlayScanValid = (s_logIndexTex != 0 || overlayEmpty);
+        s_overlayEmptyCached = overlayEmpty;
+        s_overlayEye0Dynamic = BoxHadMovingWrites();
     }
 
     if (useDoubleWide) {
