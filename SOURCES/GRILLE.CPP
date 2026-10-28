@@ -201,7 +201,7 @@ static S32 s_brickOrderOverflow = 0;
    margin on every side so the slide never exposes an edge.  Because the
    shift is a whole number of pixels, every on-screen texel is the one the
    unquantized pan would have painted. */
-#define INTERIOR_PAN_QUANTUM 32
+#define INTERIOR_PAN_QUANTUM 64
 #define INTERIOR_LAYER_MARGIN INTERIOR_PAN_QUANTUM
 static S32 s_layerResX = 0; /* exact view offset minus its quantized value */
 static S32 s_layerResY = 0;
@@ -567,10 +567,22 @@ static S32 s_overlayMarginY = 0;
 static S32 s_overlayWidened = 0;
 static S32 s_overlayWinX0, s_overlayWinY0, s_overlayWinX1, s_overlayWinY1;
 
+/* Eye 1's single-pass pass reuses the overlay eye 0 drew into both halves.
+   Marking and flushing again would rebuild the same mask for a discarded
+   draw, so the whole overlay is skipped there. */
+static S32 s_overlaySkipPass = 0;
+
+static S32 OverlaySecondEyePass(void) {
+    return GPURendererActive && CubeMode == CUBE_INTERIEUR &&
+           GL_SinglePassStereoActive() && GL_GetStereoEye() == 1;
+}
+
 /* Grow the candidate window for the marking walk and for the mask it writes.
    The model's own box is what the mono path marks and draws; stereo needs the
    band the other eye can move both the model and the wall into. */
 static void OverlayWidenWindow(void) {
+    if (s_overlaySkipPass)
+        return;
     if (!GL_SinglePassStereoActive())
         return;
     GL_GetLayerShiftMargin(s_baseAzMin, s_baseAzSpan, &s_overlayMarginX,
@@ -655,8 +667,13 @@ static void DrawBrickOverlayFallback(T_COLONB *ptrlbc);
 
 static void OverlayBegin(void) {
     s_overlayActive = 0;
+    s_overlaySkipPass = 0;
     if (!(GPURendererActive && CubeMode == CUBE_INTERIEUR))
         return;
+    if (OverlaySecondEyePass()) {
+        s_overlaySkipPass = 1;
+        return;
+    }
     if (BufferBrick == NULL || !OverlayEnsureBuffers() || !s_baseLayerValid)
         return;
 
@@ -702,6 +719,8 @@ static void OverlayBegin(void) {
 /* Queue one foreground brick: copy the pristine background through its
    opaque texels into the patch. */
 static void OverlayMark(T_COLONB *ptrlbc) {
+    if (s_overlaySkipPass)
+        return;
     if (!s_overlayActive) {
         DrawBrickOverlayFallback(ptrlbc);
         return;
@@ -762,6 +781,10 @@ static void OverlayMark(T_COLONB *ptrlbc) {
 /* Draw the composed patch into the scene FBO.  Tiles keep the sprite path's
    implicit 256-texel repeat window from wrapping wide clip windows. */
 static void OverlayFlush(void) {
+    if (s_overlaySkipPass) {
+        s_overlaySkipPass = 0;
+        return;
+    }
     if (!s_overlayActive)
         return;
     s_overlayActive = 0;
@@ -1775,6 +1798,12 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
 
 void AffGrille() {
 #ifdef USE_GPURENDERER
+    /* Single-pass stereo draws both halves from eye 0.  Eye 1 still presents
+       its half, but the brick order, colon list and composed layer are the
+       same, so walking the whole cube again would only rebuild them. */
+    if (GPURendererActive && CubeMode == CUBE_INTERIEUR &&
+        GL_SinglePassStereoActive() && GL_GetStereoEye() == 1)
+        return;
     if (GPURendererActive && CubeMode == CUBE_INTERIEUR && PtrPal != NULL)
         SetVideoPaletteSync(PtrPal);
     /* The isometric grid leaves the FBO edges uncovered where the room does

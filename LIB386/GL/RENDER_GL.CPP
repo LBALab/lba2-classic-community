@@ -2731,9 +2731,16 @@ static void GL_SetClut3EyeUniforms(void) {
                 (GLfloat)((double)Fill_ZBuffer_Factor / 65536.0));
 }
 
+/* True during the redundant eye 1 CPU pass of single-pass stereo.  Eye 0's
+   draw already covered both halves, so a per-pair path should not repeat its
+   upload or state setup here; only the present still needs this pass. */
+static S32 GL_SecondEyePass(void) {
+    return s_singlePassStereo && s_stereoEye == 1;
+}
+
 static void GL_DrawStereoClut(GLenum mode, GLint first, GLsizei count) {
     if (s_singlePassStereo) {
-        if (s_stereoEye == 1) {
+        if (GL_SecondEyePass()) {
             return;
         }
         GL_SetClutEyeUniforms();
@@ -2756,7 +2763,7 @@ static void GL_DrawStereoClut(GLenum mode, GLint first, GLsizei count) {
 
 static void GL_DrawStereoClut3(GLenum mode, GLint first, GLsizei count) {
     if (s_singlePassStereo) {
-        if (s_stereoEye == 1) {
+        if (GL_SecondEyePass()) {
             return;
         }
         GL_SetClut3EyeUniforms();
@@ -6345,6 +6352,8 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
        the shadow level — the shader derives (15 - level) / 15 from it. */
     const U16 shadowMat = (U16)(6 | ((U16)(level & 15) << 8));
 
+    if (GL_SecondEyePass())
+        return;
     if (!s_initialized || n < 3) {
         return;
     }
@@ -6532,6 +6541,8 @@ S32 GL_SphereTargetsFBO(void) {
    batch polys' depth-write rule (opaque writes, transparent does not). */
 void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
                    S32 zWrite, S32 transparent) {
+    if (GL_SecondEyePass())
+        return;
     if (!s_initialized || radius <= 0) {
         return;
     }
@@ -6648,6 +6659,8 @@ void GL_DrawSphere(S32 cx, S32 cy, S32 radius, S32 colorIndex, U32 zo,
    through the body whenever the camera looks at its back. */
 void GL_DrawLineFBO(S32 x0, S32 y0, S32 x1, S32 y1, S32 colorIndex,
                     U32 zo0, U32 zo1) {
+    if (GL_SecondEyePass())
+        return;
     if (!s_initialized) {
         return;
     }
@@ -6755,6 +6768,10 @@ static S32 s_flowRects = 0;
 void GL_FlowBatchBegin(void) { s_flowRects = 0; }
 
 static void GL_FlowBatchFlush(void) {
+    if (GL_SecondEyePass()) {
+        s_flowRects = 0;
+        return;
+    }
     if (s_flowRects <= 0) {
         return;
     }
@@ -6824,6 +6841,8 @@ static void GL_FlowBatchFlush(void) {
 }
 
 void GL_FlowBatchRect(S32 x, S32 y, S32 colorIndex, U16 az) {
+    if (GL_SecondEyePass())
+        return;
     if (!s_initialized) {
         return;
     }
@@ -6871,6 +6890,8 @@ void GL_FlowBatchEnd(void) { GL_FlowBatchFlush(); }
    counterpart of the fade row — with the depth test off so the band
    shades everything composited behind it. */
 void GL_ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 level) {
+    if (GL_SecondEyePass())
+        return;
     if (!s_initialized) {
         return;
     }
@@ -8487,6 +8508,10 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
                        S32 u0, S32 v0, S32 u1, S32 v1,
                        const void *pixels, S32 w, S32 h,
                        U16 az, S32 transparent) {
+    /* Eye 0's call already issued both instances; repeating the sprite in
+       the eye 1 pass would re-upload its page for a draw that is discarded. */
+    if (GL_SecondEyePass())
+        return;
     if (!s_initialized || pixels == NULL || w <= 0 || h <= 0 || x1 <= x0 ||
         y1 <= y0) {
         return;
@@ -8752,6 +8777,8 @@ void GL_DrawIndexedLayerOffset(S32 slot, const void *pixels, const void *depth,
                                S32 offY, U16 azMin, U16 azSpan,
                                const void *mask, S32 maskW, S32 maskH,
                                S32 maskX, S32 maskY) {
+    if (GL_SecondEyePass())
+        return;
     if (!s_initialized || pixels == NULL || w <= 0 || h <= 0 ||
         s_layerProgram == 0 || x1 <= x0 || y1 <= y0 || slot < 0 ||
         slot >= GL_LAYER_SLOTS) {
@@ -10316,6 +10343,12 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
         GL_LastRejectReason = 6;
         return 0;
     }
+
+    /* Eye 1's single-pass pass: the checks above have already routed every
+       SW fallback, and eye 0 drew this GL polygon into both halves, so only
+       the pair-wide batch packing is skipped here. */
+    if (GL_SecondEyePass())
+        return 1;
 
     /* Pack the polygon material: shading mode, alpha/chroma/perspective
        bits in the low byte, flat colour (or shadow level) in the high
