@@ -115,6 +115,9 @@ S32 VrDioramaPanel = 0; /* Quest interiors: present the room as a
 S32 VrInteriorHover = 0; /* Quest interiors: head-tracked hover camera.  A
                             head turn keeps the room fixed in the world; a
                             head lean adds depth parallax. */
+S32 VrPanelOffsetRight = 0;   /* diorama panel move, millimetres in panel space */
+S32 VrPanelOffsetUp = 0;
+S32 VrPanelOffsetForward = 0;
 
 // #358: min ms of game-time between simulation steps (0 = off, per-frame sim as before).
 // When > 0 the main loop runs the simulation at most once per this many ms of game clock,

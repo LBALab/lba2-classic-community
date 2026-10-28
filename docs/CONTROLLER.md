@@ -79,18 +79,24 @@ zoom stays on the keyboard and mouse.
 ### Quest interior camera
 
 In a stereo Quest session, interior scenes keep the left stick's ordinary
-locomotion bindings. The right stick's horizontal axis pans the isometric
-projection centre sideways; the pan is a view offset, clamped to a quarter
-frame, and resets when the cube changes or the player recenters with Enter.
+locomotion bindings. With the diorama panel enabled (Display → VR → Diorama
+panel), the right stick moves the pane through the room: horizontal moves it
+along its own right axis, vertical moves it up and down. Resting the left
+thumb on its thumb rest (or on the stick without moving it) switches the
+vertical axis to distance, pushing the pane away or pulling it closer. Each
+stick unit is half a centimetre; the pane is clamped to ±1.5 m across/up and
+±1.2 m in depth from the pose captured when it engaged. Enter and a cube
+change return it there. Moving the pane does not redraw the scene: only the
+present pass moves the quad.
+
 The right stick's digital camera-preset bindings are suppressed in this mode so
-the analog pan does not also cycle the classic camera.
+the analog panel move does not also cycle the classic camera. With the panel
+disabled, the right stick's vertical axis plus the left-thumb rest keeps the
+old `VrFovScale` world zoom (50–120).
 
 The left thumbstick touch sensor and the controller-body thumb rest are
-capacitive inputs on the Touch profile. Resting the left thumb in either place,
-or leaving it on the stick without moving it, makes the right stick's vertical
-axis adjust VR world zoom: up narrows the field (zoom in), down widens it (zoom
-out), clamped to the `VrFovScale` 50–120 range. Moving the left stick resumes
-normal locomotion and disables the stick-touch modifier.
+capacitive inputs on the Touch profile. Moving the left stick resumes normal
+locomotion and disables the stick-touch modifier.
 
 The head-tracked hover rig is opt-in (Display → VR → Interior hover, cfg
 `VrInteriorHover`, console `vrhover`). It anchors the head pose when it
@@ -98,9 +104,8 @@ engages: a head turn moves the room by exactly the angle turned in the eye's
 projection, so the image stays hung in the world instead of following your
 face, and leaning left/right or up/down adds a depth-correct parallax (near
 planes move further than far ones). Looking far enough carries the room out
-of view. Roll is held level. Enter recaptures the anchor, and the right
-stick's pan and zoom still apply on top. The head look runs inside a camera
-zone too; only cinema scenes keep the authored view.
+of view. Roll is held level. Enter recaptures the anchor. The head look runs
+inside a camera zone too; only cinema scenes keep the authored view.
 
 ## Live tuning (console cvars)
 

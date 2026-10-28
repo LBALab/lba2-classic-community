@@ -217,6 +217,7 @@ extern "C" S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight,
                                            U32 dstWidth, U32 dstHeight);
 extern "C" S32 GL_DrawStereoPanel(const float *eye0, const float *eye1,
                                   U32 viewW, U32 viewH, U32 texW, U32 texH);
+extern "C" void GL_ClearStereoPanels(U32 viewW, U32 viewH);
 extern "C" S32 GL_StereoEyeSceneDirect(void);
 extern "C" S32 GL_TakeStereoPair(void);
 extern "C" S32 GL_PresentSceneDirect(void);
@@ -1669,11 +1670,15 @@ static U32 OpenXR_SwapchainFBO(U32 imageIndex) {
    a per-eye camera offset. */
 extern S32 VrDioramaPanel;
 extern S32 CubeMode; /* CUBE_INTERIEUR is 0 */
+extern S32 VrPanelOffsetRight;
+extern S32 VrPanelOffsetUp;
+extern S32 VrPanelOffsetForward;
 
 static S32 s_panelAnchored = 0;
 static float s_panelCenter[3];
 static float s_panelRight[3];
 static float s_panelUp[3];
+static float s_panelFwd[3]; /* eye -> panel, away from the player */
 static float s_panelHalfW = 0.8f;
 static float s_panelHalfH = 0.8f;
 
@@ -1760,6 +1765,9 @@ static S32 OxrPanelBuild(float *eye0, float *eye1, U32 eyeW, U32 eyeH) {
         s_panelRight[0] = rp[0];
         s_panelRight[1] = rp[1];
         s_panelRight[2] = rp[2];
+        s_panelFwd[0] = pf[0];
+        s_panelFwd[1] = pf[1];
+        s_panelFwd[2] = pf[2];
         s_panelHalfW = 0.8f;
         s_panelHalfH = s_panelHalfW * (float)eyeH / (float)eyeW;
         s_panelAnchored = 1;
@@ -1800,6 +1808,20 @@ static S32 OxrPanelBuild(float *eye0, float *eye1, U32 eyeW, U32 eyeH) {
     const float denX = tanR - tanL;
     const float denY = tanU - tanD;
 
+    /* The stick offsets are in the pane's own frame, so moving right/up
+       follows the pane even when it was anchored at an angle, and forward
+       pushes it away from the player. */
+    const float offR = (float)VrPanelOffsetRight * 0.001f;
+    const float offU = (float)VrPanelOffsetUp * 0.001f;
+    const float offF = (float)VrPanelOffsetForward * 0.001f;
+    const float center[3] = {
+        s_panelCenter[0] + s_panelRight[0] * offR + s_panelUp[0] * offU +
+            s_panelFwd[0] * offF,
+        s_panelCenter[1] + s_panelRight[1] * offR + s_panelUp[1] * offU +
+            s_panelFwd[1] * offF,
+        s_panelCenter[2] + s_panelRight[2] * offR + s_panelUp[2] * offU +
+            s_panelFwd[2] * offF};
+
     for (S32 eye = 0; eye < 2; eye++) {
         const XrPosef *p = &s_renderViews[eye].pose;
         float er[3], eu[3], ef[3];
@@ -1807,13 +1829,13 @@ static S32 OxrPanelBuild(float *eye0, float *eye1, U32 eyeW, U32 eyeH) {
 
         float corners[4][3];
         for (S32 i = 0; i < 4; i++) {
-            corners[i][0] = s_panelCenter[0] +
+            corners[i][0] = center[0] +
                             s_panelRight[0] * sx[i] * s_panelHalfW +
                             s_panelUp[0] * sy[i] * s_panelHalfH;
-            corners[i][1] = s_panelCenter[1] +
+            corners[i][1] = center[1] +
                             s_panelRight[1] * sx[i] * s_panelHalfW +
                             s_panelUp[1] * sy[i] * s_panelHalfH;
-            corners[i][2] = s_panelCenter[2] +
+            corners[i][2] = center[2] +
                             s_panelRight[2] * sx[i] * s_panelHalfW +
                             s_panelUp[2] * sy[i] * s_panelHalfH;
         }
@@ -2130,6 +2152,13 @@ S32 OpenXR_PresentMono(void) {
                             panelDrawn = GL_DrawStereoPanel(
                                 panel0, panel1, (U32)s_swapchainWidth,
                                 (U32)s_swapchainHeight, pairW, pairH);
+                        } else {
+                            /* Pane behind the eye / off screen: the diorama
+                               still owns the frame, so show its void rather
+                               than the screen-space room it replaced. */
+                            GL_ClearStereoPanels((U32)s_swapchainWidth,
+                                                 (U32)s_swapchainHeight);
+                            panelDrawn = 1;
                         }
                     }
                     if (!panelDrawn) {

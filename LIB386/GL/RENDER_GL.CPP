@@ -3339,6 +3339,19 @@ S32 GL_DrawStereoPanel(const float *eye0, const float *eye1, U32 viewW,
     return 1;
 }
 
+/* Panel frames still own the swapchain when the pane is off-screen or behind
+   the eye: black it, rather than falling back to the screen-space composite
+   the diorama replaced. */
+void GL_ClearStereoPanels(U32 viewW, U32 viewH) {
+    if (!s_initialized || viewW == 0 || viewH == 0)
+        return;
+    glDisable(GL_SCISSOR_TEST);
+    glViewport(0, 0, (GLsizei)(viewW * 2), (GLsizei)viewH);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    GL_InvalidateGLState();
+}
+
 S32 GL_StereoEyeSceneDirect(void) {
     return s_stereoEye1SceneDirect;
 }

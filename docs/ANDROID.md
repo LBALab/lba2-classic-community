@@ -217,9 +217,12 @@ corners are projected through each tracked eye's declared FOV. Both eyes
 sample the left eye's half of the double-wide scene target, so the stereo
 depth is the panel's real position in space rather than a per-eye camera
 offset. The player can lean or move around the pane and see it from an angle;
-looking away leaves it where it was hung. The pane carries the whole
-composited frame (room, models and HUD). It is off by default; the normal
-screen-space interior presentation is unchanged.
+looking away leaves it where it was hung. The right stick moves the pane in
+its own plane and, with the left thumb on its rest zone, in depth; Enter and a
+cube change return it to the anchored pose. Moving it only changes the present
+quad, not the rendered room. The pane carries the whole composited frame
+(room, models and HUD). It is off by default; the normal screen-space interior
+presentation is unchanged.
 
 The optional interior hover rig (`VrInteriorHover`, Display → VR → Interior
 hover, console `vrhover`) treats the head as a camera flying over the room. A

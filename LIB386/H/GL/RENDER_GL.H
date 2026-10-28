@@ -371,6 +371,11 @@ S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight, U32 dstWidth,
 S32 GL_DrawStereoPanel(const float *eye0, const float *eye1, U32 viewW,
                        U32 viewH, U32 texW, U32 texH);
 
+//! Clear both eye halves to the panel background.  Used when the active
+//! diorama pane is off-screen or behind the eye, so the present does not
+//! fall back to the screen-space composite it replaced.
+void GL_ClearStereoPanels(U32 viewW, U32 viewH);
+
 //! Returns 1 when eye 1's composite was skipped because the overlay was
 //! empty; the stereo present then reads GL_Get3DFBO() for the right eye.
 S32 GL_StereoEyeSceneDirect(void);
