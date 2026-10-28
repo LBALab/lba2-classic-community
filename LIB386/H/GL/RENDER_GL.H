@@ -359,6 +359,13 @@ S32 GL_DirectStereoActive(void);
 S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight, U32 dstWidth,
                                U32 dstHeight);
 
+//! Draw the interior image as a world-anchored panel into the bound
+//! swapchain FBO.  Each eye gets six clip-space triangle vertices
+//! (x,y,z,w,u,v) sampling the left half of the double-wide scene texture.
+//! Returns 1 when the panel was drawn; 0 leaves the caller to blit normally.
+S32 GL_DrawStereoPanel(const float *eye0, const float *eye1, U32 viewW,
+                       U32 viewH, U32 texW, U32 texH);
+
 //! Returns 1 when eye 1's composite was skipped because the overlay was
 //! empty; the stereo present then reads GL_Get3DFBO() for the right eye.
 S32 GL_StereoEyeSceneDirect(void);

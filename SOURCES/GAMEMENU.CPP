@@ -99,6 +99,7 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_STEREO3D 2120 /* Quest OpenXR native stereo toggle */
 #define MENU_ID_DISPLAY_VRZOOM 2128   /* Quest stereo world zoom percent */
 #define MENU_ID_DISPLAY_VRSUPERSAMPLE 2135 /* Quest SSAA: off / 1.25x / 1.5x */
+#define MENU_ID_DISPLAY_VRDIORAMA 2137    /* Quest interiors: world-anchored diorama panel */
 #endif
 #define MENU_ID_DISPLAY_ANTIALIAS 2123
 #define MENU_ID_DISPLAY_BRIGHTNESS 2125
@@ -302,6 +303,8 @@ static void BuildDisplayVrMenu(void) {
     *p++ = MENU_ID_DISPLAY_VRZOOM;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_VRSUPERSAMPLE;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_VRDIORAMA;
     DisplayVrMenu[1] = (U16)((p - DisplayVrMenu - 4) / 2);
 }
 #endif
@@ -726,6 +729,11 @@ static void BuildCustomMenuText(S32 num, char *string) {
                  VrSuperSample == 2 ? "1.5x"
                  : VrSuperSample == 1 ? "1.25x"
                                       : "Off");
+        break;
+
+    case MENU_ID_DISPLAY_VRDIORAMA:
+        snprintf(string, 256, "Diorama panel: %s",
+                 VrDioramaPanel ? "On" : "Off");
         break;
 
     case MENU_ID_DISPLAY_QUALITY:
@@ -3771,6 +3779,11 @@ static void DisplayMenuApplyChoice(S32 select) {
         }
         break;
     }
+
+    case MENU_ID_DISPLAY_VRDIORAMA:
+        VrDioramaPanel ^= 1;
+        WriteConfigFile();
+        break;
 
 #ifndef __ANDROID__
     case MENU_ID_DISPLAY_QUALITY:

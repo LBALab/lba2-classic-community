@@ -3191,6 +3191,9 @@ void ReadConfigFile(void) {
     if (VrSuperSample < 0 OR VrSuperSample > 2)
         VrSuperSample = 0;
 
+    VrDioramaPanel =
+        DefFileBufferReadValueDefault("VrDioramaPanel", 0) ? TRUE : FALSE;
+
     DisplaySaturation = DefFileBufferReadValueDefault("DisplaySaturation", 0);
     if (DisplaySaturation < -20)
         DisplaySaturation = -20;
@@ -3517,6 +3520,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("CameraFirstPerson", CameraFirstPerson);
     DefFileBufferWriteValue("VrFovScale", VrFovScale);
     DefFileBufferWriteValue("VrSuperSample", VrSuperSample);
+    DefFileBufferWriteValue("VrDioramaPanel", VrDioramaPanel);
     DefFileBufferWriteValue("DisplayBrightness", DisplayBrightness);
     DefFileBufferWriteValue("DisplayContrast", DisplayContrast);
     DefFileBufferWriteValue("DisplaySaturation", DisplaySaturation);

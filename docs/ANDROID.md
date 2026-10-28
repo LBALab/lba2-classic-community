@@ -209,6 +209,18 @@ projection. Tracked per-eye orientation is not a pure translation, so true
 6dof first-person keeps the two-pass eye renderer. The two-pass path remains
 the fallback and the reference for visual comparisons.
 
+The interior diorama panel (`VrDioramaPanel`, Display → VR → Diorama panel,
+console `vrdiorama`) presents the room as a world-anchored pane instead of a
+screen-space image: on the first interior frame it is anchored 2 m in front of
+the player, 0.35 m below the gaze, tilted to face the eyes, and its four
+corners are projected through each tracked eye's declared FOV. Both eyes
+sample the left eye's half of the double-wide scene target, so the stereo
+depth is the panel's real position in space rather than a per-eye camera
+offset. The player can lean or move around the pane and see it from an angle;
+looking away leaves it where it was hung. The pane carries the whole
+composited frame (room, models and HUD). It is off by default; the normal
+screen-space interior presentation is unchanged.
+
 Modal dialogue renders outside `MainLoop`'s stereo block but uses the same
 per-eye renderer. Its box, text and portrait are 2D content in `Log`, and the
 per-eye present composites `Log` into each eye, so a stereo dialogue draws the
