@@ -352,7 +352,11 @@ void AffGrilleExt() {
     /* Clear the FBO at the start of terrain rendering.  This is done here
        instead of in GL_FlushBatch() so that frames with no terrain
        (e.g. Twinsen standing still) preserve the previous frame's 3D
-       content in the FBO. */
+       content in the FBO.  The software path clears the screen to FogCoul
+       before the horizon, and those pixels show through wherever no
+       polygon covers them (the sky band above the backdrop cubes), so the
+       FBO must start from the same palette entry instead of black. */
+    GL_SetSceneClearColor((U8)FogCoul);
     GL_ClearFBO();
 #endif
 

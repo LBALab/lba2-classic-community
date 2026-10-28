@@ -1692,6 +1692,12 @@ void AffGrille() {
 #ifdef USE_GPURENDERER
     if (GPURendererActive && CubeMode == CUBE_INTERIEUR && PtrPal != NULL)
         SetVideoPaletteSync(PtrPal);
+    /* The isometric grid leaves the FBO edges uncovered where the room does
+       not fill the screen.  The software path fills those with the clear
+       colour, which is palette 0 here — not the exterior fog entry that
+       AffGrilleExt uses — so pin the FBO rather than inherit the last
+       exterior's sky colour. */
+    GL_SetSceneClearColor(0);
     GL_ClearFBO();
 #endif
     S32 block;
@@ -1855,6 +1861,9 @@ void AffBrickBlockOnly(S32 block, S32 brick, S16 x, S16 y, S16 z) {
 // Redessine uniquement les block n'ayant pas le code jeu Invisible
 void AffGrilleLabyrinthe() {
 #ifdef USE_GPURENDERER
+    /* Same background rule as AffGrille: palette 0, never the last
+       exterior's fog entry. */
+    GL_SetSceneClearColor(0);
     GL_ClearFBO();
 #endif
     S32 block;

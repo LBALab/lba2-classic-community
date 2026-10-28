@@ -7198,6 +7198,16 @@ void GL_DecorBatchEnd(void) {
 
 /* ── FBO clear (called at start of terrain rendering) ─────────────────────── */
 
+/* Palette entry the scene FBO starts from.  The software renderer fills the
+   screen with the clear colour (Cls), and every GL scene clear passes the
+   same entry (see GL_SetSceneClearColor), so the pixels no polygon covers
+   read alike.  Index 0 before the first scene is boot black. */
+static U8 s_sceneClearPalIndex = 0;
+
+void GL_SetSceneClearColor(U8 palIndex) {
+    s_sceneClearPalIndex = palIndex;
+}
+
 void GL_ClearFBO(void) {
     if (!s_initialized) {
         return;
@@ -7218,6 +7228,16 @@ void GL_ClearFBO(void) {
             GL_SetSceneViewport();
         } else {
             glViewport(0, 0, s_texWidth, s_texHeight);
+        }
+    }
+
+    {
+        const U32 *lut = GL_GetPaletteLUT();
+        if (lut != NULL) {
+            const U32 c = lut[s_sceneClearPalIndex];
+            glClearColor((GLfloat)((c >> 16) & 0xFF) / 255.0f,
+                         (GLfloat)((c >> 8) & 0xFF) / 255.0f,
+                         (GLfloat)(c & 0xFF) / 255.0f, 1.0f);
         }
     }
 
@@ -10360,6 +10380,7 @@ S32 GL_Renderer_Resize(U32 resX, U32 resY) {
 }
 void GL_BeginFrame(void) {}
 void GL_ClearFBO(void) {}
+void GL_SetSceneClearColor(U8 palIndex) { (void)palIndex; }
 void GL_ReadbackDepthBuffer(void) {}
 void GL_ReadbackColorBuffer(void) {}
 void GL_SnapshotTerrain(void) {}

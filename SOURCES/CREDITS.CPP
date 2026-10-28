@@ -385,8 +385,10 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
 
 #ifdef USE_GPURENDERER
         /* The credits have no terrain pass, so GL_ClearFBO is never called
-         * from AffGrilleExt — clear the FBO here to prevent ghost trails. */
+         * from AffGrilleExt — clear the FBO here to prevent ghost trails.
+         * Same background as the software path's Cls(): the scene fog. */
         if (GPURendererActive) {
+            GL_SetSceneClearColor((U8)FogCoul);
             GL_ClearFBO();
         }
 #endif

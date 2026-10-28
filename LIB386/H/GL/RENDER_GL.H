@@ -30,6 +30,14 @@ void GL_BeginFrame(void);
 //! still) preserve the previous frame's 3D content in the FBO.
 void GL_ClearFBO(void);
 
+//! Palette index the FBO colour clear uses.  The software renderer fills the
+//! screen with the current clear colour (Cls) before drawing, so whatever no
+//! polygon covers — the sky band above the horizon cubes, the edges around the
+//! isometric grid — shows that colour.  GL clears its FBO to the same palette
+//! entry instead of black.  Call before GL_ClearFBO; the entry is resolved at
+//! clear time, so a palette change needs no extra call.
+void GL_SetSceneClearColor(U8 palIndex);
+
 //! Present a palette-converted ARGB framebuffer via GL with optional
 //! bilinear filtering. Called from PresentFrame() when GPURendererActive.
 //! @param argbPixels  ARGB8888 pixel data (ModeDesiredX * ModeDesiredY)
