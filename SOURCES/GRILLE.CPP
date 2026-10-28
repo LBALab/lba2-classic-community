@@ -461,7 +461,8 @@ static S32 DrawBaseLayerGL(void) {
     GL_DrawIndexedLayer(0, s_baseLayer, s_baseDepth, s_baseLayerW,
                         s_baseLayerH, s_baseLayerGen, DisplayTexFilter,
                         s_baseLayerX0, s_baseLayerY0, s_baseLayerX1,
-                        s_baseLayerY1, s_baseAzMin, s_baseAzSpan);
+                        s_baseLayerY1, s_baseAzMin, s_baseAzSpan, NULL, 0, 0,
+                        0, 0);
     return 1;
 }
 
@@ -486,6 +487,63 @@ static S32 s_overlayTileSize = 0;
 static S32 s_overlayActive = 0;
 static S32 s_overlayClipX0, s_overlayClipY0, s_overlayClipX1, s_overlayClipY1;
 static S32 s_overlayX0, s_overlayY0, s_overlayX1, s_overlayY1;
+
+/* Screen distance the near eye moves a point away from where mono draws it.
+   The overlay has to cover the model where the near eye puts it, and it reads
+   the wall's coverage one offset past that again, so both the marking window
+   and the draw rect are sized from this.  Zero in mono, where the reference
+   marking set is kept exactly. */
+static S32 s_overlayMarginX = 0;
+static S32 s_overlayMarginY = 0;
+static S32 s_overlayWidened = 0;
+static S32 s_overlayWinX0, s_overlayWinY0, s_overlayWinX1, s_overlayWinY1;
+
+/* Grow the candidate window for the marking walk and for the mask it writes.
+   The model's own box is what the mono path marks and draws; stereo needs the
+   band the other eye can move both the model and the wall into. */
+static void OverlayWidenWindow(void) {
+    if (!GL_SinglePassStereoActive())
+        return;
+    GL_GetLayerShiftMargin(s_baseAzMin, s_baseAzSpan, &s_overlayMarginX,
+                           &s_overlayMarginY);
+    if (s_overlayMarginX == 0 && s_overlayMarginY == 0)
+        return;
+    s_overlayWidened = 1;
+
+    const S32 mx = s_overlayMarginX * 2;
+    const S32 my = s_overlayMarginY * 2;
+    ClipXMin -= mx;
+    ClipYMin -= my;
+    ClipXMax += mx;
+    ClipYMax += my;
+    s_overlayClipX0 -= mx;
+    s_overlayClipY0 -= my;
+    s_overlayClipX1 += mx;
+    s_overlayClipY1 += my;
+    if (s_overlayClipX0 < 0)
+        s_overlayClipX0 = 0;
+    if (s_overlayClipY0 < 0)
+        s_overlayClipY0 = 0;
+    if (s_overlayClipX1 >= s_overlayAllocW)
+        s_overlayClipX1 = s_overlayAllocW - 1;
+    if (s_overlayClipY1 >= s_overlayAllocH)
+        s_overlayClipY1 = s_overlayAllocH - 1;
+
+    /* The walk writes the mask over that whole window, and a patch left over
+       from an earlier frame would still be there — as coverage.  That is what
+       made the near eye's occlusion alternate. */
+    const S32 span = s_overlayClipX1 - s_overlayClipX0 + 1;
+    for (S32 y = s_overlayClipY0; y <= s_overlayClipY1; y++)
+        memset(s_overlayPatch + (size_t)y * s_overlayAllocW + s_overlayClipX0,
+               0, span);
+}
+
+static void OverlayRestoreWindow(void) {
+    ClipXMin = s_overlayWinX0;
+    ClipYMin = s_overlayWinY0;
+    ClipXMax = s_overlayWinX1;
+    ClipYMax = s_overlayWinY1;
+}
 /* Depth of the bricks in the current patch: the overlay restores background
    pixels over a model, and it must sit at the same depth as the band they came
    from or it lands a few pixels off the rest of the background. */
@@ -552,9 +610,16 @@ static void OverlayBegin(void) {
     s_overlayClipY0 = y0;
     s_overlayClipX1 = x1;
     s_overlayClipY1 = y1;
+    s_overlayWinX0 = x0;
+    s_overlayWinY0 = y0;
+    s_overlayWinX1 = x1;
+    s_overlayWinY1 = y1;
     s_overlayAzSum = 0;
     s_overlayAzCount = 0;
     s_overlayAz = 0;
+    s_overlayMarginX = 0;
+    s_overlayMarginY = 0;
+    s_overlayWidened = 0;
     const S32 span = x1 - x0 + 1;
     for (S32 y = y0; y <= y1; y++)
         memset(s_overlayPatch + (size_t)y * s_overlayAllocW + x0, 0, span);
@@ -625,6 +690,96 @@ static void OverlayFlush(void) {
     if (!s_overlayActive)
         return;
     s_overlayActive = 0;
+    OverlayRestoreWindow();
+    if (getenv("LBA2_NO_OVERLAY") != NULL)
+        return;
+
+    /* Redraw the model's box from the composed layer, under a coverage mask of
+       the bricks that are in front of it.  The layer program shifts both the
+       colour and that mask by the pixel's own depth, so the patch is the
+       background's own pixels at the background's own offset — nothing here
+       is resampled differently from the wall around it.  In stereo the quad
+       and the mask window grow with the eye margin (OverlayWidenWindow),
+       because the model and the sampled texel both move by one eye offset. */
+    if (s_baseDepth != NULL && s_baseLayerW > 0 && s_baseLayerH > 0 &&
+        getenv("LBA2_OVERLAY_OLD") == NULL &&
+        s_overlayClipX1 >= s_overlayClipX0 &&
+        s_overlayClipY1 >= s_overlayClipY0) {
+        const int stereo = s_overlayWidened;
+        S32 mx0, my0, mx1, my1;
+        S32 dx0, dy0, dx1, dy1;
+        if (stereo) {
+            /* Mask over the whole marking window, so a texel outside a marked
+               brick reads as no coverage instead of clamping the tile's
+               border.  The quad covers the model's box widened by one eye
+               offset: that is where the near eye puts the model, and the
+               reference box would leave it standing in front of the wall. */
+            mx0 = s_overlayClipX0;
+            my0 = s_overlayClipY0;
+            mx1 = s_overlayClipX1 + 1;
+            my1 = s_overlayClipY1 + 1;
+            dx0 = s_overlayWinX0 - s_overlayMarginX;
+            dy0 = s_overlayWinY0 - s_overlayMarginY;
+            dx1 = s_overlayWinX1 + 1 + s_overlayMarginX;
+            dy1 = s_overlayWinY1 + 1 + s_overlayMarginY;
+        } else {
+            /* Mono: the marked patch's own bounds, exactly as the reference
+               overlay drew it. */
+            mx0 = s_overlayX0;
+            my0 = s_overlayY0;
+            mx1 = s_overlayX1 + 1;
+            my1 = s_overlayY1 + 1;
+            dx0 = mx0;
+            dy0 = my0;
+            dx1 = mx1;
+            dy1 = my1;
+        }
+        if (mx0 < 0)
+            mx0 = 0;
+        if (my0 < 0)
+            my0 = 0;
+        if (mx1 > s_baseLayerW)
+            mx1 = s_baseLayerW;
+        if (my1 > s_baseLayerH)
+            my1 = s_baseLayerH;
+        if (dx0 < 0)
+            dx0 = 0;
+        if (dy0 < 0)
+            dy0 = 0;
+        if (dx1 > s_baseLayerW)
+            dx1 = s_baseLayerW;
+        if (dy1 > s_baseLayerH)
+            dy1 = s_baseLayerH;
+        const S32 mw = mx1 - mx0;
+        const S32 mh = my1 - my0;
+        if (mw > 0 && mh > 0) {
+            if (s_overlayTile == NULL ||
+                s_overlayTileSize < mw * mh) {
+                U8 *grown = (U8 *)realloc(s_overlayTile, (size_t)(mw * mh));
+                if (grown == NULL)
+                    return;
+                s_overlayTile = grown;
+                s_overlayTileSize = mw * mh;
+            }
+            for (S32 y = 0; y < mh; y++) {
+                const U8 *src = s_overlayPatch +
+                                (size_t)(my0 + y) * (size_t)s_overlayAllocW +
+                                mx0;
+                U8 *dst = s_overlayTile + (size_t)y * mw;
+                for (S32 x = 0; x < mw; x++)
+                    dst[x] = (src[x] != 0) ? 0xFF : 0;
+            }
+            if (dx1 > dx0 && dy1 > dy0) {
+                GL_DrawIndexedLayer(
+                    0, s_baseLayer, s_baseDepth, s_baseLayerW, s_baseLayerH,
+                    s_baseLayerGen, DisplayTexFilter, dx0, dy0, dx1, dy1,
+                    s_baseAzMin, s_baseAzSpan, s_overlayTile, mw, mh, mx0,
+                    my0);
+            }
+            return;
+        }
+    }
+
     if (s_overlayX1 < s_overlayX0 || s_overlayY1 < s_overlayY0)
         return;
 
@@ -689,6 +844,10 @@ static void DrawBrickOverlayFallback(T_COLONB *ptrlbc) {
 /* Software-only builds keep the original CopyMask path and need no base-layer
    reconstruction; the overlay state exists only for the GL renderer. */
 static void OverlayBegin(void) {}
+
+static void OverlayWidenWindow(void) {}
+
+static void OverlayRestoreWindow(void) {}
 
 static void OverlayFlush(void) {}
 
@@ -1292,6 +1451,7 @@ void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
     S32 recouvre;
 
     OverlayBegin();
+    OverlayWidenWindow();
 
     // Bias -2, not -1: a wall one iso-cube south of the actor projects to
     // XScreen = actor_iso_XScreen - 24, i.e. col = actor_iso_col - 1. The
@@ -1372,6 +1532,7 @@ void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax) {
     S32 startcol, endcol;
 
     OverlayBegin();
+    OverlayWidenWindow();
     startcol = (ClipXMin + 24) / 24 - 1;
     endcol = (ClipXMax + 24) / 24;
 

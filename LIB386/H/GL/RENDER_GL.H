@@ -196,9 +196,22 @@ void GL_DrawSpriteQuad(S32 x0, S32 y0, S32 x1, S32 y1,
 //! shifts each pixel by the eye offset its own depth earns, so the background
 //! parallaxes with the models pixel by pixel instead of as one plane.  A NULL
 //! map draws the image flat, with no eye offset.
+//! `mask`, when not NULL, is a binary `maskW` x `maskH` coverage tile whose
+//! origin sits at `maskX/maskY` in layer pixels; pixels it leaves at zero are
+//! discarded.  It is read at the same shifted texel the colour is, so a
+//! silhouette moves with the pixels it covers.  The foreground-brick overlay
+//! uses it to put the composed background back over a model.
 void GL_DrawIndexedLayer(S32 slot, const void *pixels, const void *depth,
                          S32 w, S32 h, U32 generation, S32 filter, S32 x0,
-                         S32 y0, S32 x1, S32 y1, U16 azMin, U16 azSpan);
+                         S32 y0, S32 x1, S32 y1, U16 azMin, U16 azSpan,
+                         const void *mask, S32 maskW, S32 maskH, S32 maskX,
+                         S32 maskY);
+
+//! Screen distance the second eye can move a point of the indexed layer,
+//! over the depths `azMin..azMin + azSpan - 1` span.  A caller that has to
+//! cover the same feature in both eyes (the foreground-brick overlay) sizes
+//! its window with this; zero in mono, where the layer does not move.
+void GL_GetLayerShiftMargin(U16 azMin, U16 azSpan, S32 *marginX, S32 *marginY);
 
 //! Mark the current frame as an isometric interior world.  Allows polygon
 //! paths that do not carry a terrain depth buffer into the GL batch.

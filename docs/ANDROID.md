@@ -245,6 +245,11 @@ instead:
 - `LBA2_FAKE_STEREO_SS=1` additionally raises the scene target to the
   headset's 1.5x supersampling, so HUD band/scissor maths is exercised at a
   non-1:1 scale.
+- `LBA2_SS15=1` raises the scene target to the headset's 1.5x supersampling,
+  which is what makes resampling faults inside the interior's foreground-brick
+  patches visible at all.
+- `LBA2_OVERLAY_OLD=1` restores the earlier one-depth brick-overlay patch and
+  `LBA2_NO_OVERLAY=1` turns the overlay off, to compare what it paints.
 - `LBA2_FAKE_VR_DIALOG=1` takes the head-mount dialogue layout (strip lifted
   above the eye's lower periphery), so the dialogue box can be reviewed over
   the room rather than over the desktop letterbox.
