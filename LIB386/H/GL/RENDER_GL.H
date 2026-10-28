@@ -375,6 +375,10 @@ S32 GL_DirectStereoActive(void);
 S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight, U32 dstWidth,
                                U32 dstHeight);
 
+//! Draw the deferred exterior 2D overlay into the bound swapchain image,
+//! once per eye half, at the swapchain resolution.  Returns 1 if drawn.
+S32 GL_DrawStereoOverlayToSwapchain(U32 dstWidth, U32 dstHeight);
+
 //! Draw one sub-rect of the resolved double-wide pair into the currently
 //! bound framebuffer, applying the display transform. `src` is in pair-texel
 //! pixels and `dst` in pixels of the current viewport (both bottom-left

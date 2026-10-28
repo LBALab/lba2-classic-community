@@ -219,6 +219,7 @@ extern "C" U32 GL_GetStereoPairHeight(void);
 extern "C" S32 GL_StereoPairNeedsPresentShader(void);
 extern "C" S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight,
                                            U32 dstWidth, U32 dstHeight);
+extern "C" S32 GL_DrawStereoOverlayToSwapchain(U32 dstWidth, U32 dstHeight);
 extern "C" S32 GL_BlitStereoRectToCurrent(
     U32 srcX, U32 srcY, U32 srcWidth, U32 srcHeight, U32 texWidth,
     U32 texHeight, S32 dstX, S32 dstY, S32 dstWidth, S32 dstHeight,
@@ -2095,6 +2096,9 @@ S32 OpenXR_PresentMono(void) {
                     glCopyTexSubImage2D(GL_TEXTURE_2D, 0, eyeDstX1, marginY,
                                         0, 0, (GLsizei)eyeDstW, (GLsizei)eyeDstH);
                 }
+                if (swapFbo != 0)
+                    GL_DrawStereoOverlayToSwapchain(
+                        (U32)s_swapchainWidth, (U32)s_swapchainHeight);
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
                 if (swapFbo != 0) {
                     glDeleteFramebuffers(1, &swapFbo);

@@ -1138,6 +1138,15 @@ static GLint s_idxAdj_uSaturation = -1;
  * Moving 2D content (world sprites, dialogue) disables the reuse.
  * GL_SetStereoEye invalidates the cache on every transition away from eye 1. */
 static S32 s_overlayScanValid = 0;
+/* Exterior stereo defers the 2D overlay until after the pair blit so it is
+   composited at swapchain resolution instead of into the 1.5x scene target. */
+static S32 s_overlayPending = 0;
+static U32 s_overlayPendW = 0, s_overlayPendH = 0;
+static const U32 *s_overlayPendPalette = NULL;
+static S32 s_overlayPendFilter = 0;
+static S32 s_overlayBBox[4] = {0, 0, 0, 0};
+static S32 s_overlayBands[6][4];
+static S32 s_overlayBandCount = 0;
 static S32 s_overlayEmptyCached = 0;
 static S32 s_overlayEye0Dynamic = 0;
 static GLint s_fxaaAdj_uBrightness = -1;
@@ -3184,6 +3193,11 @@ U32 GL_GetStereoFrameSeq(void) {
 }
 
 S32 GL_StereoOverlayReusable(void) {
+    /* Exteriors mix per-eye 2D content (rain drops, object incrusts) into
+       Log, so the second eye must start from a cleared buffer.  Only the
+       screen-space interior HUD is identical for the pair. */
+    if (CubeMode != 0)
+        return 0;
     return s_stereoEye == 1 && s_overlayScanValid && !s_overlayEye0Dynamic;
 }
 
@@ -9321,6 +9335,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
 
     /* A fresh present supersedes the previous eye's direct-scene decision. */
     s_stereoEye1SceneDirect = 0;
+    s_overlayPending = 0;
 
     /* Flush any remaining batched 3D geometry from the current frame.
        This draws into the FBO if SSAA is active, or the default
@@ -9653,6 +9668,31 @@ static void GL_DrawOverlayRegions(U32 width, U32 height,
     }
 }
 
+/* Draw the deferred exterior overlay into the bound swapchain image, once
+   per eye half.  The scene pair was already blitted and display-transformed;
+   the HUD gets the transform here so it is applied once. */
+S32 GL_DrawStereoOverlayToSwapchain(U32 dstWidth, U32 dstHeight) {
+    if (!s_overlayPending || dstWidth == 0 || dstHeight == 0)
+        return 0;
+    s_overlayPending = 0;
+    if (!Window_GLMakeCurrent())
+        return 0;
+    glDisable(GL_DEPTH_TEST);
+    const S32 savedAdjust = s_overlayImageAdjust;
+    s_overlayImageAdjust = 1;
+    for (S32 eye = 0; eye < 2; eye++) {
+        const S32 vpX = eye ? (S32)dstWidth : 0;
+        glViewport((GLint)vpX, 0, (GLsizei)dstWidth, (GLsizei)dstHeight);
+        GL_DrawOverlayRegions(s_overlayPendW, s_overlayPendH,
+                              s_overlayPendPalette, s_overlayPendFilter, vpX,
+                              0, (S32)dstWidth, (S32)dstHeight,
+                              s_overlayBands, s_overlayBandCount,
+                              s_overlayBBox);
+    }
+    s_overlayImageAdjust = savedAdjust;
+    return 1;
+}
+
 void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
                        const U32 *paletteU32, S32 filterLinear) {
     if (!s_initialized || indices == NULL || paletteU32 == NULL) {
@@ -9667,6 +9707,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
 
     /* A fresh present supersedes the previous eye's direct-scene decision. */
     s_stereoEye1SceneDirect = 0;
+    s_overlayPending = 0;
 
     /* Same frame plumbing as GL_Present: flush 3D, pick the composite
      * target, letterbox, draw the 3D FBO content, then the 2D overlay. */
@@ -9763,12 +9804,8 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
        coords).  Drawing the full-screen quad at 1.5x is pure waste when the
        HUD occupies a small strip; the scissor limits the Scale2x shader to
        the content. */
-    static S32 s_overlayBBox[4] = {0, 0, 0, 0};
-    /* Up to six horizontal bands of non-transparent overlay content.  A
-       single bounding box would span a top HUD and a bottom dialogue box,
-       drawing the empty middle at 1.5x; bands keep each region tight. */
-    static S32 s_overlayBands[6][4];
-    static S32 s_overlayBandCount = 0;
+    /* Up to six horizontal bands of non-transparent overlay content, kept
+       at file scope so the deferred swapchain pass can reuse them. */
     /* Eye 1 can reuse eye 0's texture only when neither pass wrote moving
      * 2D content.  Moving boxes cover world sprites, dialogue and counters,
      * whose projection differs between the eyes; static boxes are the
@@ -9776,10 +9813,51 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     /* A single-pass interior draws all world content into the FBO, so the
        Log moving boxes are HUD that is identical for the pair; the eye 1
        scan can reuse eye 0's without the conservative box check. */
+    const S32 exteriorOverlay = (CubeMode != 0);
     const S32 overlayPairStatic = s_singlePassStereo && CubeMode == 0;
-    if (s_stereoEye == 1 && s_overlayScanValid &&
-        (overlayPairStatic ||
-         (!s_overlayEye0Dynamic && !BoxHadMovingWrites()))) {
+    if (exteriorOverlay && s_stereoEye == 0 && s_stereoDoubleWide) {
+        /* Only eye 1's Log is presented for the pair; eye 0's overlay scan
+           and upload would be thrown away. */
+        overlayEmpty = 0;
+    } else if (exteriorOverlay) {
+        /* Exterior 2D content (rain above all) changes every frame; diffing
+           and scanning 640x480 twice costs more than one full upload. */
+        if (s_logIndexTex == 0 || s_logIndexTexW != width ||
+            s_logIndexTexH != height) {
+            if (s_logIndexTex == 0)
+                glGenTextures(1, &s_logIndexTex);
+            glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                            GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+                            GL_CLAMP_TO_EDGE);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0,
+                         GL_LUMINANCE, GL_UNSIGNED_BYTE, NULL);
+            s_logIndexTexW = width;
+            s_logIndexTexH = height;
+        }
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, s_logIndexTex);
+#ifdef GL_UNPACK_ROW_LENGTH
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint)pitch);
+#endif
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, (GLsizei)width,
+                        (GLsizei)height, GL_LUMINANCE, GL_UNSIGNED_BYTE,
+                        indices);
+#ifdef GL_UNPACK_ROW_LENGTH
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+        overlayEmpty = 0;
+        s_overlayBBox[0] = 0;
+        s_overlayBBox[1] = 0;
+        s_overlayBBox[2] = (S32)width;
+        s_overlayBBox[3] = (S32)height;
+        s_overlayBandCount = 0;
+    } else if (s_stereoEye == 1 && s_overlayScanValid &&
+               (overlayPairStatic ||
+                (!s_overlayEye0Dynamic && !BoxHadMovingWrites()))) {
         overlayEmpty = s_overlayEmptyCached;
         s_profOverlayReuse++;
     } else {
@@ -10081,6 +10159,16 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
                 glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
             if (overlayEmpty) {
                 s_profOverlayEmpty++;
+            } else if (CubeMode != 0 && !s_directActive && s_stereoEye == 1) {
+                /* Exterior stereo: hold the overlay for the pair blit, then
+                   draw it at swapchain resolution.  Interiors keep it in the
+                   scene target because the zoom scales the whole composite;
+                   the fake-stereo harness draws at eye 0 and has no swap. */
+                s_overlayPending = 1;
+                s_overlayPendW = width;
+                s_overlayPendH = height;
+                s_overlayPendPalette = paletteU32;
+                s_overlayPendFilter = filterLinear;
             } else {
                 /* The overlay is a full-screen quad scaled into the 1.5x
                    scene target.  Draw only the non-transparent HUD bands: a

@@ -390,6 +390,15 @@ void AffGrilleExt() {
        CPU walk whose GL draws are suppressed anyway. */
     if (GPURendererActive && CubeMode == CUBE_EXTERIEUR &&
         GL_GetStereoEye() == 1 && GL_SinglePassStereoActive()) {
+        /* Eye 1 still runs the per-eye 2D tail (rain, incrusts, counters)
+           into Log, but this early return bypasses the clear below.  Clear
+           eye 0's overlay first or eye 1's drops stack on top of it. */
+        if (Dial_OverlayActive()) {
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY + 512);
+            Dial_OverlayRestore();
+        } else {
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY + 512);
+        }
         return;
     }
 #endif
