@@ -215,9 +215,6 @@ extern "C" U32 GL_GetStereoPairHeight(void);
 extern "C" S32 GL_StereoPairNeedsPresentShader(void);
 extern "C" S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight,
                                            U32 dstWidth, U32 dstHeight);
-extern "C" S32 GL_DrawStereoPanel(const float *eye0, const float *eye1,
-                                  U32 viewW, U32 viewH, U32 texW, U32 texH);
-extern "C" void GL_ClearStereoPanels(U32 viewW, U32 viewH);
 extern "C" S32 GL_StereoEyeSceneDirect(void);
 extern "C" S32 GL_TakeStereoPair(void);
 extern "C" S32 GL_PresentSceneDirect(void);
@@ -1659,215 +1656,6 @@ static U32 OpenXR_SwapchainFBO(U32 imageIndex) {
 #endif
 }
 
-#if defined(LBA2_OPENXR) && defined(__ANDROID__)
-/* ── Interior diorama panel ────────────────────────────────────────────────
-   The interior image is a flat isometric composite, but it does not have to
-   be glued to the face.  Anchor it as a panel at a fixed pose in tracking
-   space and project its four corners through each tracked eye: the room then
-   stays where it was hung while the head moves around it.  The image is the
-   left eye's half of the double-wide scene target; both eyes sample that
-   same pane, and the stereo comes from their real positions rather than from
-   a per-eye camera offset. */
-extern S32 VrDioramaPanel;
-extern S32 CubeMode; /* CUBE_INTERIEUR is 0 */
-extern S32 VrPanelOffsetRight;
-extern S32 VrPanelOffsetUp;
-extern S32 VrPanelOffsetForward;
-
-static S32 s_panelAnchored = 0;
-static float s_panelCenter[3];
-static float s_panelRight[3];
-static float s_panelUp[3];
-static float s_panelFwd[3]; /* eye -> panel, away from the player */
-static float s_panelHalfW = 0.8f;
-static float s_panelHalfH = 0.8f;
-
-static void OxrPanelQuatRot(const XrQuaternionf *q, float x, float y, float z,
-                            float out[3]) {
-    const float tx = 2.0f * (q->y * z - q->z * y);
-    const float ty = 2.0f * (q->z * x - q->x * z);
-    const float tz = 2.0f * (q->x * y - q->y * x);
-    out[0] = x + q->w * tx + q->y * tz - q->z * ty;
-    out[1] = y + q->w * ty + q->z * tx - q->x * tz;
-    out[2] = z + q->w * tz + q->x * ty - q->y * tx;
-}
-
-static float OxrPanelDot(const float a[3], const float b[3]) {
-    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-
-static void OxrPanelCross(const float a[3], const float b[3], float out[3]) {
-    out[0] = a[1] * b[2] - a[2] * b[1];
-    out[1] = a[2] * b[0] - a[0] * b[2];
-    out[2] = a[0] * b[1] - a[1] * b[0];
-}
-
-static float OxrPanelNormalize(float v[3]) {
-    const float len = sqrtf(OxrPanelDot(v, v));
-    if (len > 1.0e-6f) {
-        v[0] /= len;
-        v[1] /= len;
-        v[2] /= len;
-    }
-    return len;
-}
-
-/* Horizon-level eye basis: the engine declares the submission pose with roll
-   stripped, so the panel must use the same basis or it would tilt against
-   the pose the compositor reprojects. */
-static void OxrPanelEyeBasis(const XrQuaternionf *q, float er[3], float eu[3],
-                             float ef[3]) {
-    OxrPanelQuatRot(q, 0.0f, 0.0f, -1.0f, ef);
-    OxrPanelNormalize(ef);
-    er[0] = -ef[2];
-    er[1] = 0.0f;
-    er[2] = ef[0];
-    if (OxrPanelNormalize(er) < 0.1f) {
-        OxrPanelQuatRot(q, 1.0f, 0.0f, 0.0f, er);
-        OxrPanelNormalize(er);
-    }
-    OxrPanelCross(er, ef, eu);
-}
-
-/* Build six clip-space vertices per eye (two triangles), interleaved as
-   x,y,z,w,u,v.  The caller must have two located render views. */
-static S32 OxrPanelBuild(float *eye0, float *eye1, U32 eyeW, U32 eyeH) {
-    if (s_renderViewCount < 2 || eyeW == 0 || eyeH == 0)
-        return 0;
-
-    if (!s_panelAnchored) {
-        const XrPosef *p = &s_renderViews[0].pose;
-        float fwd[3], up[3], right[3];
-        OxrPanelEyeBasis(&p->orientation, right, up, fwd);
-        OxrPanelQuatRot(&p->orientation, 0.0f, 1.0f, 0.0f, up);
-        OxrPanelQuatRot(&p->orientation, 1.0f, 0.0f, 0.0f, right);
-        s_panelCenter[0] = p->position.x + fwd[0] * 2.0f - up[0] * 0.35f;
-        s_panelCenter[1] = p->position.y + fwd[1] * 2.0f - up[1] * 0.35f;
-        s_panelCenter[2] = p->position.z + fwd[2] * 2.0f - up[2] * 0.35f;
-
-        float pf[3] = {s_panelCenter[0] - p->position.x,
-                       s_panelCenter[1] - p->position.y,
-                       s_panelCenter[2] - p->position.z};
-        OxrPanelNormalize(pf);
-        float rp[3] = {right[0] - pf[0] * OxrPanelDot(right, pf),
-                       right[1] - pf[1] * OxrPanelDot(right, pf),
-                       right[2] - pf[2] * OxrPanelDot(right, pf)};
-        if (OxrPanelNormalize(rp) < 0.1f) {
-            rp[0] = 1.0f;
-            rp[1] = 0.0f;
-            rp[2] = 0.0f;
-            rp[0] -= pf[0] * OxrPanelDot(rp, pf);
-            rp[1] -= pf[1] * OxrPanelDot(rp, pf);
-            rp[2] -= pf[2] * OxrPanelDot(rp, pf);
-            OxrPanelNormalize(rp);
-        }
-        OxrPanelCross(rp, pf, s_panelUp);
-        s_panelRight[0] = rp[0];
-        s_panelRight[1] = rp[1];
-        s_panelRight[2] = rp[2];
-        s_panelFwd[0] = pf[0];
-        s_panelFwd[1] = pf[1];
-        s_panelFwd[2] = pf[2];
-        s_panelHalfW = 0.8f;
-        s_panelHalfH = s_panelHalfW * (float)eyeH / (float)eyeW;
-        s_panelAnchored = 1;
-        OXR_LOGI("Diorama panel: anchored (%.2fx%.2f m)",
-                 (double)(s_panelHalfW * 2.0f),
-                 (double)(s_panelHalfH * 2.0f));
-    }
-
-    static const float sx[4] = {-1.0f, 1.0f, 1.0f, -1.0f};
-    static const float sy[4] = {1.0f, 1.0f, -1.0f, -1.0f};
-    static const int order[6] = {0, 1, 2, 0, 2, 3};
-
-    /* The submission declares the symmetrized span the engine renders with,
-       which is what the compositor maps the image onto; use the same angles
-       here or the panel would not land where its pixels were sampled. */
-    double hxT = 0.0, hyT = 0.0;
-    for (S32 eye = 0; eye < 2; eye++) {
-        const XrFovf *fov = &s_renderViews[eye].fov;
-        const double tl = fabs(tan(fov->angleLeft));
-        const double tr = fabs(tan(fov->angleRight));
-        const double tu = fabs(tan(fov->angleUp));
-        const double td = fabs(tan(fov->angleDown));
-        if (tl > hxT)
-            hxT = tl;
-        if (tr > hxT)
-            hxT = tr;
-        if (tu > hyT)
-            hyT = tu;
-        if (td > hyT)
-            hyT = td;
-    }
-    if (hxT <= 0.0 || hyT <= 0.0)
-        return 0;
-    const float tanL = -(float)hxT;
-    const float tanR = (float)hxT;
-    const float tanU = (float)hyT;
-    const float tanD = -(float)hyT;
-    const float denX = tanR - tanL;
-    const float denY = tanU - tanD;
-
-    /* The stick offsets are in the pane's own frame, so moving right/up
-       follows the pane even when it was anchored at an angle, and forward
-       pushes it away from the player. */
-    const float offR = (float)VrPanelOffsetRight * 0.001f;
-    const float offU = (float)VrPanelOffsetUp * 0.001f;
-    const float offF = (float)VrPanelOffsetForward * 0.001f;
-    const float center[3] = {
-        s_panelCenter[0] + s_panelRight[0] * offR + s_panelUp[0] * offU +
-            s_panelFwd[0] * offF,
-        s_panelCenter[1] + s_panelRight[1] * offR + s_panelUp[1] * offU +
-            s_panelFwd[1] * offF,
-        s_panelCenter[2] + s_panelRight[2] * offR + s_panelUp[2] * offU +
-            s_panelFwd[2] * offF};
-
-    for (S32 eye = 0; eye < 2; eye++) {
-        const XrPosef *p = &s_renderViews[eye].pose;
-        float er[3], eu[3], ef[3];
-        OxrPanelEyeBasis(&p->orientation, er, eu, ef);
-
-        float corners[4][3];
-        for (S32 i = 0; i < 4; i++) {
-            corners[i][0] = center[0] +
-                            s_panelRight[0] * sx[i] * s_panelHalfW +
-                            s_panelUp[0] * sy[i] * s_panelHalfH;
-            corners[i][1] = center[1] +
-                            s_panelRight[1] * sx[i] * s_panelHalfW +
-                            s_panelUp[1] * sy[i] * s_panelHalfH;
-            corners[i][2] = center[2] +
-                            s_panelRight[2] * sx[i] * s_panelHalfW +
-                            s_panelUp[2] * sy[i] * s_panelHalfH;
-        }
-
-        float *out = (eye == 0) ? eye0 : eye1;
-        for (S32 v = 0; v < 6; v++) {
-            const S32 idx = order[v];
-            float vv[3];
-            vv[0] = corners[idx][0] - p->position.x;
-            vv[1] = corners[idx][1] - p->position.y;
-            vv[2] = corners[idx][2] - p->position.z;
-            const float x = OxrPanelDot(vv, er);
-            const float y = OxrPanelDot(vv, eu);
-            const float z = OxrPanelDot(vv, ef);
-            if (z <= 0.02f)
-                return 0;
-            const float ndcX = 2.0f * (x / z - tanL) / denX - 1.0f;
-            const float ndcY = 2.0f * (y / z - tanD) / denY - 1.0f;
-            float *o = out + v * 6;
-            o[0] = ndcX * z;
-            o[1] = ndcY * z;
-            o[2] = 0.0f;
-            o[3] = z;
-            /* Left eye's half of the pair; the corners run TL, TR, BR, BL. */
-            o[4] = (idx == 1 || idx == 2) ? 0.5f : 0.0f;
-            o[5] = (idx == 0 || idx == 1) ? 1.0f : 0.0f;
-        }
-    }
-    return 1;
-}
-#endif
-
 S32 OpenXR_PresentMono(void) {
 #ifdef LBA2_OPENXR
 #ifdef __ANDROID__
@@ -2141,27 +1929,6 @@ S32 OpenXR_PresentMono(void) {
 
                 GLuint swapFbo = OpenXR_SwapchainFBO(s_swapchainImageIndex);
                 if (swapFbo != 0) {
-                    if (!VrDioramaPanel || CubeMode != 0)
-                        s_panelAnchored = 0;
-                    S32 panelDrawn = 0;
-                    if (pairFbo != 0 && VrDioramaPanel && CubeMode == 0 &&
-                        s_renderViewCount >= 2) {
-                        float panel0[36];
-                        float panel1[36];
-                        if (OxrPanelBuild(panel0, panel1, pairW / 2, pairH)) {
-                            panelDrawn = GL_DrawStereoPanel(
-                                panel0, panel1, (U32)s_swapchainWidth,
-                                (U32)s_swapchainHeight, pairW, pairH);
-                        } else {
-                            /* Pane behind the eye / off screen: the diorama
-                               still owns the frame, so show its void rather
-                               than the screen-space room it replaced. */
-                            GL_ClearStereoPanels((U32)s_swapchainWidth,
-                                                 (U32)s_swapchainHeight);
-                            panelDrawn = 1;
-                        }
-                    }
-                    if (!panelDrawn) {
                     if (pairFbo != 0) {
                         /* Both eyes are already side by side in one
                          * single-sample source.  With neutral display
@@ -2224,7 +1991,6 @@ S32 OpenXR_PresentMono(void) {
                                           eyeDstX1 + eyeDstW, marginY + eyeDstH,
                                           GL_COLOR_BUFFER_BIT, eyeFilter);
                         glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-                    }
                     }
                 } else if (pairFbo != 0 &&
                            pairW == (U32)(eyeDstX1 + eyeDstW) &&

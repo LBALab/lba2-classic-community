@@ -126,20 +126,6 @@ static const char *s_vertSrc =
     "    vTexCoord = aTexCoord;\n"
     "}\n";
 
-/* Diorama panel: the same present fragment program, but the four vertices
-   arrive as clip-space coordinates with their own w.  The rasterizer then
-   interpolates the pane perspective-correctly, which is what makes a flat
-   interior image read as a world-anchored panel at a finite distance. */
-static const char *s_panelVertSrc =
-    GLSL_VERT_HEADER
-    "attribute vec4 aClip;\n"
-    "attribute vec2 aTexCoord;\n"
-    "varying vec2 vTexCoord;\n"
-    "void main() {\n"
-    "    gl_Position = aClip;\n"
-    "    vTexCoord = aTexCoord;\n"
-    "}\n";
-
 static const char *s_fragSrc =
     GLSL_FRAG_HEADER GLSL_IMAGE_ADJUST
     "uniform sampler2D uTex;\n"
@@ -1101,16 +1087,6 @@ static const char *s_clutFragSrc =
 /* ── GL state — present shader ──────────────────────────────────────────── */
 
 static GLuint s_program = 0;
-static GLuint s_panelProgram = 0;
-static GLuint s_panelVbo = 0;
-static GLint s_panel_aClip = -1;
-static GLint s_panel_aUV = -1;
-static GLint s_panel_uTex = -1;
-static GLint s_panel_uTexel = -1;
-static GLint s_panel_uFilter = -1;
-static GLint s_panel_uB = -1;
-static GLint s_panel_uC = -1;
-static GLint s_panel_uS = -1;
 static GLuint s_vbo = 0;
 static GLuint s_fboVbo = 0; /* non-flipped UV quad for FBO→screen draw */
 /* Left half of the scene texture.  Mono frames (menus, dialogue) render into
@@ -3277,81 +3253,6 @@ S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight, U32 dstWidth,
     return 1;
 }
 
-/* Draw the current interior image as a world-anchored panel.  `eye0` and
-   `eye1` each hold six triangle vertices (two triangles) in the eye's clip
-   space, interleaved as x,y,z,w,u,v.  The panel samples the left eye's half
-   of the double-wide scene texture and carries its own depth in w, so the
-   rasterizer interpolates the pane perspective-correctly while the texture
-   coordinates stay finite.  The caller has the swapchain FBO bound and has
-   already released the scene target for reading. */
-S32 GL_DrawStereoPanel(const float *eye0, const float *eye1, U32 viewW,
-                       U32 viewH, U32 texW, U32 texH) {
-    if (!s_initialized || s_panelProgram == 0 || s_panelVbo == 0 ||
-        s_panel_aClip < 0 || s_panel_aUV < 0 || viewW == 0 || viewH == 0 ||
-        texW == 0 || texH == 0) {
-        return 0;
-    }
-    GLuint tex = GL_SceneColorTex();
-    if (tex == 0)
-        return 0;
-
-    /* The panel does not fill the eye; everything else is the void. */
-    glDisable(GL_SCISSOR_TEST);
-    glViewport(0, 0, (GLsizei)(viewW * 2), (GLsizei)viewH);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    GL_UseProgramCached(s_panelProgram);
-    GL_BindTexUnit(0, tex);
-    glUniform1i(s_panel_uTex, 0);
-    glUniform2f(s_panel_uTexel, 1.0f / (GLfloat)texW,
-                1.0f / (GLfloat)texH);
-    glUniform1i(s_panel_uFilter, 1);
-    GL_UploadImageAdjust(s_panel_uB, s_panel_uC, s_panel_uS);
-    GL_SetDepthTest(0);
-    GL_SetDepthWrite(0);
-    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    const float *eyes[2] = {eye0, eye1};
-    for (S32 eye = 0; eye < 2; eye++) {
-        glViewport((GLsizei)(eye * viewW), 0, (GLsizei)viewW,
-                   (GLsizei)viewH);
-        glEnable(GL_SCISSOR_TEST);
-        glScissor((GLint)(eye * viewW), 0, (GLsizei)viewW, (GLsizei)viewH);
-        GL_BindArrayBuffer(s_panelVbo);
-        glBufferData(GL_ARRAY_BUFFER, 6 * 6 * sizeof(GLfloat), eyes[eye],
-                     GL_STREAM_DRAW);
-        glEnableVertexAttribArray((GLuint)s_panel_aClip);
-        glVertexAttribPointer((GLuint)s_panel_aClip, 4, GL_FLOAT, GL_FALSE,
-                              6 * sizeof(GLfloat), (const void *)0);
-        glEnableVertexAttribArray((GLuint)s_panel_aUV);
-        glVertexAttribPointer((GLuint)s_panel_aUV, 2, GL_FLOAT, GL_FALSE,
-                              6 * sizeof(GLfloat),
-                              (const void *)(4 * sizeof(GLfloat)));
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        glDisableVertexAttribArray((GLuint)s_panel_aClip);
-        glDisableVertexAttribArray((GLuint)s_panel_aUV);
-    }
-    glDisable(GL_SCISSOR_TEST);
-    GL_BindArrayBuffer(0);
-    GL_BindTexUnit(0, 0);
-    GL_InvalidateGLState();
-    return 1;
-}
-
-/* Panel frames still own the swapchain when the pane is off-screen or behind
-   the eye: black it, rather than falling back to the screen-space composite
-   the diorama replaced. */
-void GL_ClearStereoPanels(U32 viewW, U32 viewH) {
-    if (!s_initialized || viewW == 0 || viewH == 0)
-        return;
-    glDisable(GL_SCISSOR_TEST);
-    glViewport(0, 0, (GLsizei)(viewW * 2), (GLsizei)viewH);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    GL_InvalidateGLState();
-}
-
 S32 GL_StereoEyeSceneDirect(void) {
     return s_stereoEye1SceneDirect;
 }
@@ -3557,42 +3458,6 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
         } else {
             Log_Warn("[GL] depth restore program failed; MSAA idle frames "
                      "may show vanishing body fragments");
-        }
-    }
-
-    /* Diorama-panel program: the present fragment stage with a clip-space
-       vertex stage, so a pane can be drawn at a finite depth in each eye. */
-    {
-        GLuint pv = CompileShader(GL_VERTEX_SHADER, s_panelVertSrc);
-        GLuint pf = CompileShader(GL_FRAGMENT_SHADER, s_fragSrc);
-        if (pv != 0 && pf != 0) {
-            glBindAttribLocation(pv, 0, "aClip");
-            glBindAttribLocation(pv, 1, "aTexCoord");
-            s_panelProgram = LinkProgram(pv, pf);
-        }
-        glDeleteShader(pv);
-        glDeleteShader(pf);
-        if (s_panelProgram != 0) {
-            s_panel_aClip =
-                glGetAttribLocation(s_panelProgram, "aClip");
-            s_panel_aUV =
-                glGetAttribLocation(s_panelProgram, "aTexCoord");
-            s_panel_uTex = glGetUniformLocation(s_panelProgram, "uTex");
-            s_panel_uTexel = glGetUniformLocation(s_panelProgram, "uTexel");
-            s_panel_uFilter = glGetUniformLocation(s_panelProgram, "uFilter");
-            s_panel_uB =
-                glGetUniformLocation(s_panelProgram, "uBrightness");
-            s_panel_uC =
-                glGetUniformLocation(s_panelProgram, "uContrast");
-            s_panel_uS =
-                glGetUniformLocation(s_panelProgram, "uSaturation");
-            GL_UseProgramCached(s_panelProgram);
-            glUniform1i(s_panel_uTex, 0);
-            GL_UseProgramCached(0);
-            glGenBuffers(1, &s_panelVbo);
-            Log_Info("[GL] Diorama panel program ready.");
-        } else {
-            Log_Warn("[GL] Diorama panel program failed");
         }
     }
 

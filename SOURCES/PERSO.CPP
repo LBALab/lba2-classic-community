@@ -44,6 +44,8 @@ extern "C" S32 GL_BatchFlushCount;
  * camera offset is a centre offset; it moves the room under a fixed camera
  * rather than moving a perspective eye.  The left stick keeps its ordinary
  * locomotion bindings so walking and steering are unchanged. */
+static S32 s_InteriorCamPanX = 0;
+static S32 s_InteriorCamPanY = 0;
 static S32 s_InteriorCamAppliedPanY = 0;
 static S32 s_InteriorCamLastCube = -1;
 static U32 s_InteriorCamLastZoom = 0;
@@ -230,20 +232,16 @@ static S32 InteriorCamAxisAtRest(S16 axis) {
     return (axis >= -JoystickDeadzone && axis <= JoystickDeadzone);
 }
 
-/* Quest interior camera: in stereo the right stick moves the diorama panel
- * through the room instead of panning the isometric view.  X/Y move it in
- * the pane's own plane; resting the left thumb on its thumb rest (or on the
- * stick without moving it) turns the Y axis into distance, pushing the pane
- * away or pulling it closer.  The offsets are relative to the pose captured
- * when the panel engaged, so Enter and a cube change return it there. */
+/* Quest interior camera: the right stick moves the isometric view in the
+ * frame plane, X across and Y up/down.  Resting the left thumb on its thumb
+ * rest (or on the stick without moving it) turns the right stick's vertical
+ * axis into VR world zoom instead.  The head-tracked hover rig is a separate,
+ * opt-in layer on top of the same projection centre. */
 static void UpdateInteriorCameraControl(void) {
     if (CubeMode != CUBE_INTERIEUR) {
         s_HoverAnchored = 0;
         s_HoverBaseX = 0;
         s_HoverBaseY = 0;
-        VrPanelOffsetRight = 0;
-        VrPanelOffsetUp = 0;
-        VrPanelOffsetForward = 0;
 #ifdef USE_GPURENDERER
         GL_SetSinglePassBaseDelta(0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 #endif
@@ -254,85 +252,45 @@ static void UpdateInteriorCameraControl(void) {
         s_HoverAnchored = 0;
         s_HoverBaseX = 0;
         s_HoverBaseY = 0;
-        VrPanelOffsetRight = 0;
-        VrPanelOffsetUp = 0;
-        VrPanelOffsetForward = 0;
 #ifdef USE_GPURENDERER
         GL_SetSinglePassBaseDelta(0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 #endif
         return;
     }
 
-    if (!VrDioramaPanel) {
-        VrPanelOffsetRight = 0;
-        VrPanelOffsetUp = 0;
-        VrPanelOffsetForward = 0;
-    }
-
     if (s_InteriorCamLastCube != (S32)NumCube) {
         s_InteriorCamLastCube = (S32)NumCube;
-        VrPanelOffsetRight = 0;
-        VrPanelOffsetUp = 0;
-        VrPanelOffsetForward = 0;
+        s_InteriorCamPanX = 0;
+        s_InteriorCamPanY = 0;
         s_HoverAnchored = 0;
     }
     if (Input & I_RETURN) {
-        VrPanelOffsetRight = 0;
-        VrPanelOffsetUp = 0;
-        VrPanelOffsetForward = 0;
+        s_InteriorCamPanX = 0;
+        s_InteriorCamPanY = 0;
         s_HoverAnchored = 0;
     }
 
     const S32 baseX = (S32)ModeDesiredX / 2 - 9;
     const S32 baseY = (S32)ModeDesiredY / 2;
+    const S32 oldPanX = s_InteriorCamPanX;
+    const S32 oldPanY = s_InteriorCamPanY;
     S32 hoverPanX = 0, hoverPanY = 0;
     UpdateInteriorHover(&hoverPanX, &hoverPanY);
 
-    /* Panel movement is independent of the authored camera framing, so it is
-     * not gated on a camera zone.  Each stick unit is half a centimetre; the
-     * pane cannot be pushed outside arm's reach of its anchor. */
-    if (VrDioramaPanel) {
-        const S32 leftAtRest = InteriorCamAxisAtRest(OpenXR_LeftStickX) &&
-                               InteriorCamAxisAtRest(OpenXR_LeftStickY);
-        const S32 distanceMode =
-            OpenXR_LeftThumbrestTouched ||
-            (OpenXR_LeftThumbstickTouched && leftAtRest);
-        const S32 stepX = InteriorCamStickStep(OpenXR_RightStickX);
-        const S32 stepY = InteriorCamStickStep(OpenXR_RightStickY);
-
-        /* Stick Y is SDL-style (positive down): pushing up raises the panel
-           and, in distance mode, pushes it away. */
-        VrPanelOffsetRight += stepX * 5;
-        if (distanceMode)
-            VrPanelOffsetForward -= stepY * 5;
-        else
-            VrPanelOffsetUp -= stepY * 5;
-
-        if (VrPanelOffsetRight < -1500)
-            VrPanelOffsetRight = -1500;
-        else if (VrPanelOffsetRight > 1500)
-            VrPanelOffsetRight = 1500;
-        if (VrPanelOffsetUp < -1500)
-            VrPanelOffsetUp = -1500;
-        else if (VrPanelOffsetUp > 1500)
-            VrPanelOffsetUp = 1500;
-        if (VrPanelOffsetForward < -1200)
-            VrPanelOffsetForward = -1200;
-        else if (VrPanelOffsetForward > 1200)
-            VrPanelOffsetForward = 1200;
-    }
-
-    /* Panel-off keeps the old left-thumb FOV zoom; panel-on uses that thumb
-     * rest for pane distance instead. */
-    if (!CameraZone && !VrDioramaPanel) {
+    /* The right stick moves the isometric view; the Y axis has a second job
+     * only while the left thumb is in its rest zone. */
+    {
         const S32 leftAtRest = InteriorCamAxisAtRest(OpenXR_LeftStickX) &&
                                InteriorCamAxisAtRest(OpenXR_LeftStickY);
         const S32 zoomMode = OpenXR_LeftThumbrestTouched ||
                              (OpenXR_LeftThumbstickTouched && leftAtRest);
+        const S32 stepX = InteriorCamStickStep(OpenXR_RightStickX);
         const S32 stepY = InteriorCamStickStep(OpenXR_RightStickY);
 
-        if (zoomMode && PERSO_StereoRenderActive()) {
-            if (stepY != 0 &&
+        s_InteriorCamPanX -= stepX;
+
+        if (zoomMode) {
+            if (stepY != 0 && PERSO_StereoRenderActive() &&
                 (U32)(TimerRefHR - s_InteriorCamLastZoom) >= 40) {
                 /* Stick up zooms in: shrinking the FOV percentage widens the
                  * rendered world into the same panel. */
@@ -347,17 +305,39 @@ static void UpdateInteriorCameraControl(void) {
                 s_InteriorCamLastZoom = TimerRefHR;
                 FirstTime = AFF_ALL_FLIP;
             }
+        } else {
+            /* Stick Y is SDL-style (positive down): pushing up moves the
+               view up, which moves the room down the screen. */
+            s_InteriorCamPanY -= stepY;
         }
     }
 
-    if (hoverPanY != s_InteriorCamAppliedPanY || s_HoverMoved)
+    const S32 limitX = (S32)ModeDesiredX / 4;
+    const S32 limitY = (S32)ModeDesiredY / 4;
+    if (s_InteriorCamPanX < -limitX)
+        s_InteriorCamPanX = -limitX;
+    else if (s_InteriorCamPanX > limitX)
+        s_InteriorCamPanX = limitX;
+    if (s_InteriorCamPanY < -limitY)
+        s_InteriorCamPanY = -limitY;
+    else if (s_InteriorCamPanY > limitY)
+        s_InteriorCamPanY = limitY;
+
+    /* The head aim is not clamped to the stick's quarter frame: the room is
+     * a fixed object, so a large enough turn must be able to carry it out of
+     * view.  StereoHoverPoseToPan bounds it at four frames. */
+    const S32 panX = s_InteriorCamPanX + hoverPanX;
+    const S32 panY = s_InteriorCamPanY + hoverPanY;
+
+    if (panX != oldPanX || panY != oldPanY ||
+        hoverPanY != s_InteriorCamAppliedPanY || s_HoverMoved)
         FirstTime = AFF_ALL_FLIP;
     s_InteriorCamAppliedPanY = hoverPanY;
 
     /* Re-apply every frame: Init3DView and authored camera changes reset the
-     * projection centre, and the hover pan must survive those without being
-     * baked into the scene's own camera value. */
-    SetIsoProjection(baseX + hoverPanX, baseY + hoverPanY);
+     * projection centre, and the pan must survive those without being baked
+     * into the scene's own camera value. */
+    SetIsoProjection(baseX + panX, baseY + panY);
 }
 #endif
 
@@ -3432,8 +3412,6 @@ void ReadConfigFile(void) {
     if (VrSuperSample < 0 OR VrSuperSample > 2)
         VrSuperSample = 0;
 
-    VrDioramaPanel =
-        DefFileBufferReadValueDefault("VrDioramaPanel", 0) ? TRUE : FALSE;
 
     VrInteriorHover =
         DefFileBufferReadValueDefault("VrInteriorHover", 0) ? TRUE : FALSE;
@@ -3764,7 +3742,6 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("CameraFirstPerson", CameraFirstPerson);
     DefFileBufferWriteValue("VrFovScale", VrFovScale);
     DefFileBufferWriteValue("VrSuperSample", VrSuperSample);
-    DefFileBufferWriteValue("VrDioramaPanel", VrDioramaPanel);
     DefFileBufferWriteValue("VrInteriorHover", VrInteriorHover);
     DefFileBufferWriteValue("DisplayBrightness", DisplayBrightness);
     DefFileBufferWriteValue("DisplayContrast", DisplayContrast);

@@ -132,11 +132,7 @@ extern S32 DisplayContrast;   ///< image adjust: -20..+20, 0 = default (GL mode 
 extern S32 DisplaySaturation; ///< image adjust: -20..+20, 0 = default (GL mode only)
 extern S32 VrFovScale; ///< VR world zoom percent of the eye FOV: 100 = natural, 120 = widest safe (Quest)
 extern S32 VrSuperSample; ///< Quest supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x
-extern S32 VrDioramaPanel; ///< Quest interiors: world-anchored diorama panel (0 = screen-space view)
 extern S32 VrInteriorHover; ///< Quest interiors: head-tracked hover camera (0 = fixed isometric view)
-extern S32 VrPanelOffsetRight; ///< diorama panel move in panel space, millimetres
-extern S32 VrPanelOffsetUp;
-extern S32 VrPanelOffsetForward;
 extern S32 FixedTimestep; ///< #358: min ms of game-time per sim step (0 = off). See docs/MOVEMENT_FRAMERATE.md.
 
 /// 1 = mouse hover / click / wheel in plasma menus (see docs/MENU.md). Read from lba2.cfg `MenuMouse`.

@@ -79,24 +79,20 @@ zoom stays on the keyboard and mouse.
 ### Quest interior camera
 
 In a stereo Quest session, interior scenes keep the left stick's ordinary
-locomotion bindings. With the diorama panel enabled (Display → VR → Diorama
-panel), the right stick moves the pane through the room: horizontal moves it
-along its own right axis, vertical moves it up and down. Resting the left
-thumb on its thumb rest (or on the stick without moving it) switches the
-vertical axis to distance, pushing the pane away or pulling it closer. Each
-stick unit is half a centimetre; the pane is clamped to ±1.5 m across/up and
-±1.2 m in depth from the pose captured when it engaged. Enter and a cube
-change return it there. Moving the pane does not redraw the scene: only the
-present pass moves the quad.
+locomotion bindings. The right stick moves the isometric view: horizontal
+pans it across, vertical pans it up and down, both clamped to a quarter frame
+so the room cannot be scrolled completely off screen. Enter and a cube change
+recenter it.
+
+Resting the left thumb on its thumb rest (or on the stick without moving it)
+turns the right stick's vertical axis into the `VrFovScale` world zoom
+(50–120) instead of a vertical pan. The left thumbstick touch sensor and the
+controller-body thumb rest are capacitive inputs on the Touch profile; moving
+the left stick resumes normal locomotion and disables the stick-touch
+modifier.
 
 The right stick's digital camera-preset bindings are suppressed in this mode so
-the analog panel move does not also cycle the classic camera. With the panel
-disabled, the right stick's vertical axis plus the left-thumb rest keeps the
-old `VrFovScale` world zoom (50–120).
-
-The left thumbstick touch sensor and the controller-body thumb rest are
-capacitive inputs on the Touch profile. Moving the left stick resumes normal
-locomotion and disables the stick-touch modifier.
+the analog pan does not also cycle the classic camera.
 
 The head-tracked hover rig is opt-in (Display → VR → Interior hover, cfg
 `VrInteriorHover`, console `vrhover`). It anchors the head pose when it

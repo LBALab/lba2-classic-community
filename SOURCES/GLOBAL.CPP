@@ -109,15 +109,9 @@ S32 VrFovScale = 100; /* VR world zoom, percent of the eye's natural FOV: >100
 S32 VrSuperSample = 0; /* Quest supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x.
                           Scales the GL scene target above the eye buffer;
                           the present pass downsamples it. */
-S32 VrDioramaPanel = 0; /* Quest interiors: present the room as a
-                           world-anchored panel instead of a screen-space
-                           image glued to the face. */
 S32 VrInteriorHover = 0; /* Quest interiors: head-tracked hover camera.  A
                             head turn keeps the room fixed in the world; a
                             head lean adds depth parallax. */
-S32 VrPanelOffsetRight = 0;   /* diorama panel move, millimetres in panel space */
-S32 VrPanelOffsetUp = 0;
-S32 VrPanelOffsetForward = 0;
 
 // #358: min ms of game-time between simulation steps (0 = off, per-frame sim as before).
 // When > 0 the main loop runs the simulation at most once per this many ms of game clock,
