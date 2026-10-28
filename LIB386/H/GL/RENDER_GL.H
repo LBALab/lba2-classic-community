@@ -215,6 +215,17 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, const void *depth,
                          const void *mask, S32 maskW, S32 maskH, S32 maskX,
                          S32 maskY);
 
+//! Same, but the quad lands at `x0 + offX` while it samples the layer's own
+//! texels at `x0`.  `offX/offY` are in screen pixels.  The composed layer can
+//! then be built at a quantized view offset and slid by the leftover without
+//! rebuilding it; the mask stays in layer pixels like the texels it gates.
+void GL_DrawIndexedLayerOffset(S32 slot, const void *pixels, const void *depth,
+                               S32 w, S32 h, U32 generation, S32 filter,
+                               S32 x0, S32 y0, S32 x1, S32 y1, S32 offX,
+                               S32 offY, U16 azMin, U16 azSpan,
+                               const void *mask, S32 maskW, S32 maskH,
+                               S32 maskX, S32 maskY);
+
 //! Screen distance the second eye can move a point of the indexed layer,
 //! over the depths `azMin..azMin + azSpan - 1` span.  A caller that has to
 //! cover the same feature in both eyes (the foreground-brick overlay) sizes

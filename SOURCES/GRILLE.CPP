@@ -193,16 +193,48 @@ static T_BRICK_ORDER_ENTRY s_brickOrder[MAX_BRICK_ORDER];
 static S32 s_brickOrderCount = 0;
 static S32 s_brickOrderOverflow = 0;
 
+/* Quest stereo interiors pan the view every tracked frame.  Rebuilding the
+   whole brick composite for a one-pixel move costs more than the pan buys, so
+   the view offset is quantized: the composite is built at the quantized
+   offset and the composed image is slid by the leftover at draw time.  The
+   leftover stays below one quantum, and the canvas carries a quantum of
+   margin on every side so the slide never exposes an edge.  Because the
+   shift is a whole number of pixels, every on-screen texel is the one the
+   unquantized pan would have painted. */
+#define INTERIOR_PAN_QUANTUM 32
+#define INTERIOR_LAYER_MARGIN INTERIOR_PAN_QUANTUM
+static S32 s_layerResX = 0; /* exact view offset minus its quantized value */
+static S32 s_layerResY = 0;
+static S32 s_layerPanX = 0; /* quantized across offset, screen pixels */
+static S32 s_layerPanY = 0;
+
 static void BrickOrderReset(void) {
     s_brickOrderCount = 0;
     s_brickOrderOverflow = 0;
+    s_layerResX = 0;
+    s_layerResY = 0;
+    s_layerPanX = 0;
+    s_layerPanY = 0;
+#ifdef USE_GPURENDERER
+    if (GPURendererActive && CubeMode == CUBE_INTERIEUR &&
+        GL_SinglePassStereoActive()) {
+        const S32 panX = XCentre - ((S32)ModeDesiredX / 2 - 9);
+        const S32 panY = YCentre - ((S32)ModeDesiredY / 2);
+        s_layerPanX = panX - panX % INTERIOR_PAN_QUANTUM;
+        s_layerPanY = panY - panY % INTERIOR_PAN_QUANTUM;
+        s_layerResX = panX - s_layerPanX;
+        s_layerResY = panY - s_layerPanY;
+    }
+#endif
 }
 
 static void BrickOrderAdd(S32 brick, S32 xs, S32 ys, U16 az) {
     if (s_brickOrderCount < MAX_BRICK_ORDER) {
         T_BRICK_ORDER_ENTRY *e = &s_brickOrder[s_brickOrderCount++];
-        e->Xs = (S16)xs;
-        e->Ys = (S16)ys;
+        /* Store the composite-space position: the quantized pan is already
+           baked into the recorded order, the draw carries the rest. */
+        e->Xs = (S16)(xs - s_layerResX);
+        e->Ys = (S16)(ys - s_layerResY);
         e->Brick = (S16)brick;
         e->Az = az;
     } else
@@ -245,6 +277,12 @@ static S32 s_baseLayerH = 0;
 static U32 s_baseLayerKey = 0;
 static S32 s_baseLayerValid = 0;
 static U32 s_baseLayerGen = 0;
+
+/* AffGraph addresses its rows through TabOffLine, which carries the screen's
+   pitch.  The composed canvas is wider than the screen, so the walk needs a
+   canvas pitch while it runs and the screen's table back afterwards. */
+static U32 *s_basePitchSave = NULL;
+static S32 s_basePitchSaveH = 0;
 
 /* Per-pixel scene depth of the composite, one U8 per screen pixel, painted
    alongside the colour.  The whole background used to sit at aZ = 0, which the
@@ -338,11 +376,27 @@ static void BaseLayerDepthStamp(const U8 *data, S32 x, S32 y, U8 dn) {
    layer cannot be produced (no cube, order overflow, allocation failure),
    in which case the caller keeps the per-brick path. */
 static S32 BaseLayerCompose(void) {
-    const S32 w = (S32)ModeDesiredX;
-    const S32 h = (S32)ModeDesiredY;
-    if (w <= 0 || h <= 0 || BufferBrick == NULL || s_brickOrderCount == 0 ||
-        s_brickOrderOverflow)
+    const S32 screenW = (S32)ModeDesiredX;
+    const S32 screenH = (S32)ModeDesiredY;
+    /* The canvas is one quantum larger than the screen on each side.  Brick
+       positions are stored in composite space, so the extra band is only
+       there to be slid into view by a sub-quantum pan. */
+    const S32 w = screenW + 2 * INTERIOR_LAYER_MARGIN;
+    const S32 h = screenH + 2 * INTERIOR_LAYER_MARGIN;
+    if (screenW <= 0 || screenH <= 0 || BufferBrick == NULL ||
+        s_brickOrderCount == 0 || s_brickOrderOverflow)
         return 0;
+
+    if (s_basePitchSaveH < h) {
+        U32 *grown =
+            (U32 *)realloc(s_basePitchSave, (size_t)h * sizeof(U32));
+        if (grown == NULL) {
+            s_baseLayerValid = 0;
+            return 0;
+        }
+        s_basePitchSave = grown;
+        s_basePitchSaveH = h;
+    }
 
     if (s_baseLayer == NULL || s_baseLayerW != w || s_baseLayerH != h) {
         U8 *grown = (U8 *)realloc(s_baseLayer, (size_t)w * (size_t)h);
@@ -385,18 +439,27 @@ static S32 BaseLayerCompose(void) {
     }
     const S32 azSpan = (S32)azMax - (S32)azMin + 1;
 
+    /* Lend the canvas its own line pitch for the walk.  Restored below before
+       any other draw touches the screen table. */
+    for (S32 i2 = 0; i2 < h; i2++) {
+        s_basePitchSave[i2] = TabOffLine[i2];
+        TabOffLine[i2] = (U32)i2 * (U32)w;
+    }
+
     Log = s_baseLayer;
     S32 bx0 = w, by0 = h, bx1 = -1, by1 = -1;
     for (S32 i2 = 0; i2 < s_brickOrderCount; i2++) {
         const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i2];
         const U8 *src = BufferBrick + ((const U32 *)BufferBrick)[p->Brick];
         const U8 dn = (U8)(((S32)p->Az - (S32)azMin) * 255 / azSpan);
-        AffGraph(p->Brick, p->Xs, p->Ys, BufferBrick);
+        const S32 px = p->Xs + INTERIOR_LAYER_MARGIN;
+        const S32 py = p->Ys + INTERIOR_LAYER_MARGIN;
+        AffGraph(p->Brick, px, py, BufferBrick);
         /* Depth in the same painter order, so the map names the tile whose
            pixels are the ones left standing in the colour composite. */
-        BaseLayerDepthStamp(src, p->Xs, p->Ys, dn);
-        const S32 x0 = p->Xs + (S8)src[2];
-        const S32 y0 = p->Ys + (S8)src[3];
+        BaseLayerDepthStamp(src, px, py, dn);
+        const S32 x0 = px + (S8)src[2];
+        const S32 y0 = py + (S8)src[3];
         const S32 x1 = x0 + src[0];
         const S32 y1 = y0 + src[1];
         if (x0 < bx0)
@@ -412,6 +475,8 @@ static S32 BaseLayerCompose(void) {
     s_baseAzMin = azMin;
     s_baseAzSpan = (U16)azSpan;
 
+    for (S32 i2 = 0; i2 < h; i2++)
+        TabOffLine[i2] = s_basePitchSave[i2];
     Log = savedLog;
     ClipXMin = savedXMin;
     ClipYMin = savedYMin;
@@ -458,11 +523,13 @@ static S32 DrawBaseLayerGL(void) {
     /* One quad carrying the colour and, next to it, the depth map the stereo
        fragment stage warps by.  A single image cannot open a seam, which is
        what a per-band split did wherever a near wall met a far floor. */
-    GL_DrawIndexedLayer(0, s_baseLayer, s_baseDepth, s_baseLayerW,
-                        s_baseLayerH, s_baseLayerGen, DisplayTexFilter,
-                        s_baseLayerX0, s_baseLayerY0, s_baseLayerX1,
-                        s_baseLayerY1, s_baseAzMin, s_baseAzSpan, NULL, 0, 0,
-                        0, 0);
+    GL_DrawIndexedLayerOffset(
+        0, s_baseLayer, s_baseDepth, s_baseLayerW, s_baseLayerH,
+        s_baseLayerGen, DisplayTexFilter, s_baseLayerX0, s_baseLayerY0,
+        s_baseLayerX1, s_baseLayerY1,
+        s_layerResX - INTERIOR_LAYER_MARGIN,
+        s_layerResY - INTERIOR_LAYER_MARGIN, s_baseAzMin, s_baseAzSpan, NULL,
+        0, 0, 0, 0);
     return 1;
 }
 
@@ -471,7 +538,9 @@ static S32 DrawBaseLayerGL(void) {
 static void DrawBaseLayerFallbackGL(void) {
     for (S32 i = 0; i < s_brickOrderCount; i++) {
         const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i];
-        DrawBrickGL(p->Brick, p->Xs, p->Ys);
+        /* The order stores composite space; this path has no composite to
+           slide, so it puts each tile back on the exact screen position. */
+        DrawBrickGL(p->Brick, p->Xs + s_layerResX, p->Ys + s_layerResY);
     }
 }
 
@@ -665,9 +734,15 @@ static void OverlayMark(T_COLONB *ptrlbc) {
     for (S32 y = cy0; y <= cy1; y++) {
         const U8 *srcRow = raw + (size_t)(y - by) * w + (cx0 - bx);
         U8 *dstRow = s_overlayPatch + (size_t)y * s_overlayAllocW + cx0;
+        /* The patch stays screen-indexed; the composed layer sits in its own
+           canvas, quantized pan and margin included. */
+        const S32 ly = y - s_layerResY + INTERIOR_LAYER_MARGIN;
         for (S32 x = cx0; x <= cx1; x++, srcRow++, dstRow++) {
             if (*srcRow != 0) {
-                *dstRow = s_baseLayer[(size_t)y * s_baseLayerW + x];
+                const S32 lx = x - s_layerResX + INTERIOR_LAYER_MARGIN;
+                if (lx >= 0 && lx < s_baseLayerW && ly >= 0 &&
+                    ly < s_baseLayerH)
+                    *dstRow = s_baseLayer[(size_t)ly * s_baseLayerW + lx];
             }
         }
     }
@@ -738,18 +813,18 @@ static void OverlayFlush(void) {
             mx0 = 0;
         if (my0 < 0)
             my0 = 0;
-        if (mx1 > s_baseLayerW)
-            mx1 = s_baseLayerW;
-        if (my1 > s_baseLayerH)
-            my1 = s_baseLayerH;
+        if (mx1 > (S32)ModeDesiredX)
+            mx1 = (S32)ModeDesiredX;
+        if (my1 > (S32)ModeDesiredY)
+            my1 = (S32)ModeDesiredY;
         if (dx0 < 0)
             dx0 = 0;
         if (dy0 < 0)
             dy0 = 0;
-        if (dx1 > s_baseLayerW)
-            dx1 = s_baseLayerW;
-        if (dy1 > s_baseLayerH)
-            dy1 = s_baseLayerH;
+        if (dx1 > (S32)ModeDesiredX)
+            dx1 = (S32)ModeDesiredX;
+        if (dy1 > (S32)ModeDesiredY)
+            dy1 = (S32)ModeDesiredY;
         const S32 mw = mx1 - mx0;
         const S32 mh = my1 - my0;
         if (mw > 0 && mh > 0) {
@@ -770,11 +845,19 @@ static void OverlayFlush(void) {
                     dst[x] = (src[x] != 0) ? 0xFF : 0;
             }
             if (dx1 > dx0 && dy1 > dy0) {
-                GL_DrawIndexedLayer(
+                /* The screen rect is the model's exact box; the texels come
+                   from the layer's quantized canvas, a margin and a residual
+                   away.  The mask is read beside those texels, so it moves
+                   to the canvas origin too. */
+                const S32 srcOffX = s_layerResX - INTERIOR_LAYER_MARGIN;
+                const S32 srcOffY = s_layerResY - INTERIOR_LAYER_MARGIN;
+                GL_DrawIndexedLayerOffset(
                     0, s_baseLayer, s_baseDepth, s_baseLayerW, s_baseLayerH,
-                    s_baseLayerGen, DisplayTexFilter, dx0, dy0, dx1, dy1,
-                    s_baseAzMin, s_baseAzSpan, s_overlayTile, mw, mh, mx0,
-                    my0);
+                    s_baseLayerGen, DisplayTexFilter, dx0 - srcOffX,
+                    dy0 - srcOffY, dx1 - srcOffX, dy1 - srcOffY, srcOffX,
+                    srcOffY, s_baseAzMin, s_baseAzSpan, s_overlayTile, mw,
+                    mh, mx0 + INTERIOR_LAYER_MARGIN - s_layerResX,
+                    my0 + INTERIOR_LAYER_MARGIN - s_layerResY);
             }
             return;
         }

@@ -8657,6 +8657,17 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, const void *depth,
                          S32 y0, S32 x1, S32 y1, U16 azMin, U16 azSpan,
                          const void *mask, S32 maskW, S32 maskH, S32 maskX,
                          S32 maskY) {
+    GL_DrawIndexedLayerOffset(slot, pixels, depth, w, h, generation, filter,
+                              x0, y0, x1, y1, 0, 0, azMin, azSpan, mask,
+                              maskW, maskH, maskX, maskY);
+}
+
+void GL_DrawIndexedLayerOffset(S32 slot, const void *pixels, const void *depth,
+                               S32 w, S32 h, U32 generation, S32 filter,
+                               S32 x0, S32 y0, S32 x1, S32 y1, S32 offX,
+                               S32 offY, U16 azMin, U16 azSpan,
+                               const void *mask, S32 maskW, S32 maskH,
+                               S32 maskX, S32 maskY) {
     if (!s_initialized || pixels == NULL || w <= 0 || h <= 0 ||
         s_layerProgram == 0 || x1 <= x0 || y1 <= y0 || slot < 0 ||
         slot >= GL_LAYER_SLOTS) {
@@ -8798,7 +8809,7 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, const void *depth,
     GL_SetDepthTest(0);
     GL_SetDepthWrite(0);
     GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    GL_MarkFBORegion(x0, y0, x1 - 1, y1 - 1);
+    GL_MarkFBORegion(x0 + offX, y0 + offY, x1 - 1 + offX, y1 - 1 + offY);
 
     /* One quad covering the whole layer.  Material: polyMode 4 (the texel is
        the palette index) with the chroma-key bit, so untouched texels stay
@@ -8809,8 +8820,13 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, const void *depth,
     const GLfloat v0 = (GLfloat)y0 / (GLfloat)h;
     const GLfloat u1 = (GLfloat)x1 / (GLfloat)w;
     const GLfloat v1 = (GLfloat)y1 / (GLfloat)h;
-    const GLfloat px[4] = {(GLfloat)x0, (GLfloat)x1, (GLfloat)x1, (GLfloat)x0};
-    const GLfloat py[4] = {(GLfloat)y0, (GLfloat)y0, (GLfloat)y1, (GLfloat)y1};
+    /* The quad's screen position and the texels it samples are separable:
+       a caller that composed at a quantized view offset slides the whole
+       image by the leftover here, without re-uploading it. */
+    const GLfloat px[4] = {(GLfloat)(x0 + offX), (GLfloat)(x1 + offX),
+                           (GLfloat)(x1 + offX), (GLfloat)(x0 + offX)};
+    const GLfloat py[4] = {(GLfloat)(y0 + offY), (GLfloat)(y0 + offY),
+                           (GLfloat)(y1 + offY), (GLfloat)(y1 + offY)};
     const GLfloat pu[4] = {u0, u1, u1, u0};
     const GLfloat pv[4] = {v0, v0, v1, v1};
     const GLfloat layerMat = (GLfloat)(4 | (1 << 5));
