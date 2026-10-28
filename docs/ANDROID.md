@@ -250,6 +250,10 @@ instead:
   patches visible at all.
 - `LBA2_OVERLAY_OLD=1` restores the earlier one-depth brick-overlay patch and
   `LBA2_NO_OVERLAY=1` turns the overlay off, to compare what it paints.
+- `LBA2_INTERIOR_STEREO=<percent>` sets the interior stereo baseline as a
+  percentage of the full eye separation (default 55). It applies to the
+  game's own eye delta as well as to the fake pair, so a lower value shows the
+  flattened room the headset renders.
 - `LBA2_FAKE_VR_DIALOG=1` takes the head-mount dialogue layout (strip lifted
   above the eye's lower periphery), so the dialogue box can be reviewed over
   the room rather than over the desktop letterbox.

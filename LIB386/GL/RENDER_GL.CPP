@@ -7920,9 +7920,20 @@ void GL_BeginFrame(void) {
            aZ = 1000 reproduces a plausible interocular delta. */
         const double zScale = (double)Fill_ZBuffer_Factor / 65536.0;
         const double focal = (double)FRatioX;
+        /* LBA2_INTERIOR_STEREO matches the depth scale the game applies to
+           interior eye deltas, so the harness can show the flattened pair. */
+        double depthScale = 1.0;
+        const char *depthEnv = getenv("LBA2_INTERIOR_STEREO");
+        if (depthEnv != NULL) {
+            depthScale = (double)atoi(depthEnv) / 100.0;
+            if (depthScale < 0.1)
+                depthScale = 0.1;
+            if (depthScale > 1.0)
+                depthScale = 1.0;
+        }
         if (focal > 0.0 && zScale > 0.0) {
-            s_eye1World[0] = (float)(-(double)s_fakeStereoPx * 1000.0 /
-                                     (focal * zScale));
+            s_eye1World[0] = (float)(-(double)s_fakeStereoPx * depthScale *
+                                     1000.0 / (focal * zScale));
             s_eye1World[1] = 0.0f;
             s_eye1World[2] = 0.0f;
             s_eye1Proj[0] = 0.0f;

@@ -1101,6 +1101,24 @@ S32 PERSO_StereoRenderActive(void) {
 #endif
 }
 
+/* Depth factor for the interior stereo baseline: 1.0 is the full IPD, a
+   smaller value flattens the room's own parallax.  LBA2_INTERIOR_STEREO is a
+   percentage, for comparing builds without a rebuild. */
+static float InteriorStereoScale(void) {
+    static float scale = -1.0f;
+    if (scale < 0.0f) {
+        const char *env = getenv("LBA2_INTERIOR_STEREO");
+        float v = (env != NULL) ? (float)atoi(env) / 100.0f : 0.55f;
+        if (v < 0.1f)
+            v = 0.1f;
+        if (v > 1.0f)
+            v = 1.0f;
+        scale = v;
+        Log_Info("Interior stereo depth scale: %.2f", (double)scale);
+    }
+    return scale;
+}
+
 /* Render one scene frame in stereo when the headset owns the view, or as a
    single mono frame otherwise.  Shared by MainLoop and the modal dialogue
    path so dialogue keeps the world in stereo. */
@@ -1350,10 +1368,23 @@ void PERSO_RenderStereo(S32 flagflip) {
                         const float e0y =
                             (float)StereoCamShiftY + StereoCamOffsetY;
                         const float e0z = StereoCamOffsetZ;
+                        /* An isometric room is a painter-ordered
+                           composite, not real geometry: the full baseline
+                           separates a near wall from the wall behind it and
+                           opens a strip mono never showed.  Scaling the eye
+                           delta keeps that strip closed, and because every
+                           surface (background, models, flows) takes the same
+                           factor, nothing slides against anything else. */
+                        const float depthScale =
+                            (CubeMode == CUBE_INTERIEUR)
+                                ? InteriorStereoScale()
+                                : 1.0f;
                         GL_SetSinglePassEyeDelta(
-                            eye1ShiftX - e0x, eye1ShiftY - e0y,
-                            eye1ShiftZ - e0z,
-                            eye1ProjX - (float)StereoProjShiftX, 0.0f);
+                            (eye1ShiftX - e0x) * depthScale,
+                            (eye1ShiftY - e0y) * depthScale,
+                            (eye1ShiftZ - e0z) * depthScale,
+                            (eye1ProjX - (float)StereoProjShiftX) * depthScale,
+                            0.0f);
                         GL_SetSinglePassStereo(1);
                     } else {
                         GL_SetSinglePassStereo(0);
