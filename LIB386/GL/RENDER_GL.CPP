@@ -439,6 +439,8 @@ static const char *s_decorVertSrc =
     "uniform float uSinglePass;\n"
     "uniform vec3 uEyeWorld;\n"
     "uniform vec2 uEyeProj;\n"
+    "uniform vec3 uBaseWorld;\n" /* camera delta common to both eyes */
+    "uniform vec2 uBaseProj;\n"
     "uniform vec2 uScreenScale;\n"
     "uniform float uZBufferFactor;\n"
     "uniform float uNearClip;\n"
