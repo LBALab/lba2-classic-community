@@ -273,6 +273,29 @@ static void cmd_status(int argc, const char *argv[]) {
     Console_Print("Pos: (%d,%d,%d)", Nxw, Nyw, Nzw);
 }
 
+/* shot <path> — save the next frame to an explicit path.  Same capture as
+   `screenshot`, which can only reach the app's own save tree; this exists so a
+   frame can be inspected from outside the device. */
+static void cmd_shot(int argc, const char *argv[]) {
+    const char *path = (argc >= 2) ? argv[1] : NULL;
+#ifdef __ANDROID__
+    /* Default reachable from outside the app's private tree, so a captured
+       frame can be pulled off the device for inspection. */
+    if (path == NULL)
+        path = "/sdcard/lba2cc/shot.png";
+#endif
+    if (path == NULL) {
+        Console_Print("Usage: shot [path]");
+        return;
+    }
+    /* Drop the 2D overlay for this capture: the console's own text lives in
+       Log and would otherwise be composited into the frame. */
+    if (Log != NULL)
+        memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+    Console_RequestScreenshot(path, 1);
+    Console_Print("Screenshot -> %s", path);
+}
+
 static void cmd_screenshot(int argc, const char *argv[]) {
     (void)argc;
     (void)argv;
@@ -1969,6 +1992,9 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("timer", cmd_timer, "Advance timer by N ms (default 200)", "timer [ms]", "Advances high-res timer.");
     Console_RegisterCommandEx("status", cmd_status, "Print island, cube, chapter, objs, FPS, pos", "(no args)",
                               "Snapshot of current game state.");
+    Console_RegisterCommandEx("shot", cmd_shot,
+                              "Save the next frame to an explicit path",
+                              "shot <path>", "PNG, engine resolution.");
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
