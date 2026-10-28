@@ -264,6 +264,12 @@ static void UpdateInteriorCameraControl(void) {
         s_InteriorCamPanX = 0;
         s_InteriorCamPanY = 0;
         s_HoverAnchored = 0;
+        /* Recentering returns the view to its natural scale as well, so the
+         * key undoes the stick zoom as well as the pan. */
+        if (VrFovScale != 100) {
+            VrFovScale = 100;
+            FirstTime = AFF_ALL_FLIP;
+        }
     }
 
     const S32 baseX = (S32)ModeDesiredX / 2 - 9;

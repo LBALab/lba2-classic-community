@@ -81,8 +81,8 @@ zoom stays on the keyboard and mouse.
 In a stereo Quest session, interior scenes keep the left stick's ordinary
 locomotion bindings. The right stick moves the isometric view: horizontal
 pans it across, vertical pans it up and down, both clamped to a quarter frame
-so the room cannot be scrolled completely off screen. Enter and a cube change
-recenter it.
+so the room cannot be scrolled completely off screen. Enter recenters the pan
+and returns the zoom to 100%; a cube change only recenters the pan.
 
 Resting the left thumb on its capacitive thumb rest, the area by the buttons,
 turns the right stick's vertical axis into the `VrFovScale` zoom (50–120)
