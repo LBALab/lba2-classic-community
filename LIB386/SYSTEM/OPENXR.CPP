@@ -219,6 +219,10 @@ extern "C" U32 GL_GetStereoPairHeight(void);
 extern "C" S32 GL_StereoPairNeedsPresentShader(void);
 extern "C" S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight,
                                            U32 dstWidth, U32 dstHeight);
+extern "C" S32 GL_BlitStereoRectToCurrent(
+    U32 srcX, U32 srcY, U32 srcWidth, U32 srcHeight, U32 texWidth,
+    U32 texHeight, S32 dstX, S32 dstY, S32 dstWidth, S32 dstHeight,
+    S32 viewportWidth, S32 viewportHeight);
 extern "C" S32 GL_StereoEyeSceneDirect(void);
 extern "C" S32 GL_TakeStereoPair(void);
 extern "C" S32 GL_PresentSceneDirect(void);
@@ -1948,7 +1952,8 @@ S32 OpenXR_PresentMono(void) {
                         glViewport(0, 0, dstW * 2, dstH);
                         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
                         glClear(GL_COLOR_BUFFER_BIT);
-                        glBindFramebuffer(GL_READ_FRAMEBUFFER, pairFbo);
+                        const S32 applyAdjust =
+                            GL_StereoPairNeedsPresentShader();
                         for (S32 eye = 0; eye < 2; eye++) {
                             S32 sx0, sy0, sx1, sy1;
                             S32 dx0, dy0, dx1, dy1;
@@ -1978,9 +1983,23 @@ S32 OpenXR_PresentMono(void) {
                                 dx1 = dx0 + dw;
                                 dy1 = dy0 + dh;
                             }
-                            glBlitFramebuffer(sx0, sy0, sx1, sy1, dx0, dy0, dx1,
-                                              dy1, GL_COLOR_BUFFER_BIT,
-                                              GL_LINEAR);
+                            S32 drawn = 0;
+                            if (applyAdjust && swapFbo != 0) {
+                                /* The zoom is a present pass too: route it
+                                   through the display transform instead of
+                                   bypassing it with a raw blit. */
+                                glBindFramebuffer(GL_FRAMEBUFFER, swapFbo);
+                                drawn = GL_BlitStereoRectToCurrent(
+                                    (U32)sx0, (U32)sy0, (U32)(sx1 - sx0),
+                                    (U32)(sy1 - sy0), pairW, pairH, dx0, dy0,
+                                    dx1 - dx0, dy1 - dy0, dstW * 2, dstH);
+                            }
+                            if (!drawn) {
+                                glBindFramebuffer(GL_READ_FRAMEBUFFER, pairFbo);
+                                glBlitFramebuffer(
+                                    sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1,
+                                    GL_COLOR_BUFFER_BIT, GL_LINEAR);
+                            }
                         }
                         glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
                         interiorZoomed = 1;

@@ -1089,6 +1089,8 @@ static const char *s_clutFragSrc =
 static GLuint s_program = 0;
 static GLuint s_vbo = 0;
 static GLuint s_fboVbo = 0; /* non-flipped UV quad for FBO→screen draw */
+static GLuint s_presentRectVbo = 0; /* arbitrary src/dst rect through the
+                                       present shader (interior zoom) */
 /* Left half of the scene texture.  Mono frames (menus, dialogue) render into
  * the left eye's half of the double-wide target; a mono present must sample
  * only that half or both eye images appear side by side in each eye. */
@@ -3253,6 +3255,84 @@ S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight, U32 dstWidth,
     return 1;
 }
 
+/* One sub-rect of the double-wide pair through the present program, so the
+   display transform is applied in the same pass that crops or shrinks the
+   eye.  Unlike the full-pair blit this leaves the viewport alone: the caller
+   has already set it for the whole swapchain image. */
+S32 GL_BlitStereoRectToCurrent(U32 srcX, U32 srcY, U32 srcWidth, U32 srcHeight,
+                               U32 texWidth, U32 texHeight, S32 dstX, S32 dstY,
+                               S32 dstWidth, S32 dstHeight, S32 viewportWidth,
+                               S32 viewportHeight) {
+    if (!s_initialized || !s_stereoDoubleWide || s_program == 0 ||
+        srcWidth == 0 || srcHeight == 0 || texWidth == 0 || texHeight == 0 ||
+        dstWidth <= 0 || dstHeight <= 0 || viewportWidth <= 0 ||
+        viewportHeight <= 0 || srcX + srcWidth > texWidth ||
+        srcY + srcHeight > texHeight)
+        return 0;
+
+    GLuint tex = GL_SceneColorTex();
+    if (tex == 0)
+        return 0;
+
+    const S32 exact =
+        ((S32)srcWidth == dstWidth && (S32)srcHeight == dstHeight);
+    GLenum filter = exact ? GL_NEAREST : GL_LINEAR;
+
+    GL_UseProgramCached(s_program);
+    GL_BindTexUnit(0, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+    glUniform1i(s_uTexLoc, 0);
+    GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
+                         s_adj_uSaturation);
+    glUniform2f(s_uTexelLoc, 1.0f / (GLfloat)texWidth,
+                1.0f / (GLfloat)texHeight);
+    glUniform1i(s_uFilterLoc, exact ? 0 : 1);
+
+    GL_SetDepthTest(0);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_SCISSOR_TEST);
+
+    const GLfloat u0 = (GLfloat)srcX / (GLfloat)texWidth;
+    const GLfloat v0 = (GLfloat)srcY / (GLfloat)texHeight;
+    const GLfloat u1 = (GLfloat)(srcX + srcWidth) / (GLfloat)texWidth;
+    const GLfloat v1 = (GLfloat)(srcY + srcHeight) / (GLfloat)texHeight;
+    const GLfloat nx0 = 2.0f * (GLfloat)dstX / (GLfloat)viewportWidth - 1.0f;
+    const GLfloat nx1 =
+        2.0f * (GLfloat)(dstX + dstWidth) / (GLfloat)viewportWidth - 1.0f;
+    const GLfloat ny0 = 2.0f * (GLfloat)dstY / (GLfloat)viewportHeight - 1.0f;
+    const GLfloat ny1 =
+        2.0f * (GLfloat)(dstY + dstHeight) / (GLfloat)viewportHeight - 1.0f;
+    const GLfloat verts[4][4] = {
+        {nx0, ny0, u0, v0}, /* bottom-left  (V=0 = FBO bottom) */
+        {nx1, ny0, u1, v0}, /* bottom-right */
+        {nx0, ny1, u0, v1}, /* top-left */
+        {nx1, ny1, u1, v1}, /* top-right */
+    };
+
+    if (s_presentRectVbo == 0)
+        glGenBuffers(1, &s_presentRectVbo);
+    if (s_presentRectVbo == 0)
+        return 0;
+    GL_BindArrayBuffer(s_presentRectVbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STREAM_DRAW);
+    glEnableVertexAttribArray(s_aPosLoc);
+    glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat), (const void *)0);
+    glEnableVertexAttribArray(s_aTexCoordLoc);
+    glVertexAttribPointer(s_aTexCoordLoc, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat),
+                          (const void *)(2 * sizeof(GLfloat)));
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glDisableVertexAttribArray(s_aPosLoc);
+    glDisableVertexAttribArray(s_aTexCoordLoc);
+
+    GL_BindArrayBuffer(0);
+    GL_BindTexUnit(0, 0);
+    GL_UseProgramCached(0);
+    return 1;
+}
+
 S32 GL_StereoEyeSceneDirect(void) {
     return s_stereoEye1SceneDirect;
 }
@@ -4235,6 +4315,10 @@ void GL_Renderer_Shutdown(void) {
     if (s_fboHalfVbo) {
         glDeleteBuffers(1, &s_fboHalfVbo);
         s_fboHalfVbo = 0;
+    }
+    if (s_presentRectVbo) {
+        glDeleteBuffers(1, &s_presentRectVbo);
+        s_presentRectVbo = 0;
     }
     if (s_batchVBO) {
         glDeleteBuffers(1, &s_batchVBO);

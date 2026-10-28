@@ -375,6 +375,16 @@ S32 GL_DirectStereoActive(void);
 S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight, U32 dstWidth,
                                U32 dstHeight);
 
+//! Draw one sub-rect of the resolved double-wide pair into the currently
+//! bound framebuffer, applying the display transform. `src` is in pair-texel
+//! pixels and `dst` in pixels of the current viewport (both bottom-left
+//! origin). Used by the interior zoom, which crops or shrinks each eye and
+//! must still honour brightness/contrast/saturation. Returns 1 if drawn.
+S32 GL_BlitStereoRectToCurrent(U32 srcX, U32 srcY, U32 srcWidth,
+                               U32 srcHeight, U32 texWidth, U32 texHeight,
+                               S32 dstX, S32 dstY, S32 dstWidth, S32 dstHeight,
+                               S32 viewportWidth, S32 viewportHeight);
+
 //! Returns 1 when eye 1's composite was skipped because the overlay was
 //! empty; the stereo present then reads GL_Get3DFBO() for the right eye.
 S32 GL_StereoEyeSceneDirect(void);
