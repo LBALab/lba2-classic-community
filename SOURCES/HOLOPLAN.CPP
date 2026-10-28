@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include <GL/RENDER_GL.H>
 #include "DIRECTORIES.H"
 #include "IMAGE_LOAD.H"
 #include "INPUT.H"
@@ -798,6 +799,16 @@ void HoloPlan(S32 numplan) {
     while (!FlagHoloEnd) {
         ManageTime();
         MyGetInput();
+
+#ifdef USE_GPURENDERER
+        /* The island bitmap is opaque in the 8-bit Log, but its black field
+           is index 0, which the GL composite treats as transparent.  Clear
+           the scene FBO so the world behind cannot show through the plan. */
+        if (GPURendererActive) {
+            GL_SetSceneClearColor(0);
+            GL_ClearFBO();
+        }
+#endif
 
         if ((MyKey == K_ESC)
                 OR(Input & (I_MENUS | I_HOLOMAP))) {
