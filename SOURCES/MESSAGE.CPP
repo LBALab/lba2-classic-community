@@ -2111,6 +2111,12 @@ void SpeakAnimation() {
         /* No speaker animation, but the world still renders in stereo. */
         Dial_OverlayCapture();
         AffSceneVrScale(AFF_OBJETS_NO_FLIP);
+    } else if (!capture) {
+        /* Flat frame with no animated speaker (a sprite speaker, or one
+           behind the dialogue strip).  Redraw the world anyway: a dialogue
+           must not freeze the scene just because there is no speaker to
+           animate. */
+        AffSceneVrScale(AFF_OBJETS_NO_FLIP);
     }
 
     if (!stereoScene)
