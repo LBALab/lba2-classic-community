@@ -63,7 +63,12 @@ up/down change the camera preset (`I_CAMERA_LEVEL`). Pressing the right stick
 (`K_GAMEPAD_RSTICK_BTN`, input slot 36) cycles the camera setting — Classic
 camera / Auto camera / First person — the same three-way cycle as the
 Advanced-options row; configs saved before this binding existed migrate R3 off
-the dodge secondary automatically. Tunables in `lba2.cfg`:
+the dodge secondary automatically. The press does nothing in interiors, where
+the isometric camera has no first-person mode; a press held across the exit is
+consumed so it cannot fire on the threshold. Entering an interior while the
+first-person camera is active returns to the classic camera, recentred on the
+hero; entering the classic camera (from first person) also recenters on the
+hero instead of keeping the previous eye framing. Tunables in `lba2.cfg`:
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -71,6 +76,17 @@ the dodge secondary automatically. Tunables in `lba2.cfg`:
 | `GamepadCameraSensX` | 5 | orbit sensitivity (1-10) |
 | `GamepadCameraSensY` | 5 | elevation sensitivity (1-10) |
 | `GamepadCameraInvertY` | 0 | invert elevation axis |
+
+In first-person stereo the left stick moves camera-relative: forward/back and
+strafe, with diagonals taken from the stick angle. The movement pass points
+`Obj.Beta` along the stick vector and holds `I_UP` for that frame, so the
+normal walk animation and collision path carry the displacement; the body sits
+behind the camera, so the one-frame facing change is invisible. The right stick
+turns the view at 180°/s (after the shared deadzone). `UpdateJoystick`
+suppresses both sticks' digital scancodes in this mode; the raw right axis is
+integrated as a yaw offset in `UpdateFirstPersonCamera` and applied to both the
+base camera and the per-eye stereo override. The offset resets when the camera
+setting changes.
 
 The deadzone is shared with the rest of the gamepad (`GamepadDeadzone`). There is
 no stick zoom: the triggers are movement and the remaining buttons are bound, so

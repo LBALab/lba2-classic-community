@@ -10,6 +10,9 @@ extern "C" {
 
 /*--------------------------------------------------------------------------*/
 extern S32 JoystickDeadzone; // GamepadDeadzone config, SDL axis units (0..32767)
+/* Non-zero only for the gameplay input poll where first-person stereo owns
+ * the raw sticks. Menus leave it zero so their digital navigation works. */
+extern S32 JoystickFirstPersonStick;
 
 /*--------------------------------------------------------------------------*/
 void InitJoystick(void);

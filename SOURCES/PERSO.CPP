@@ -1105,6 +1105,68 @@ static U8 WaitNoKey36 = FALSE;
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
+#ifdef LBA2_OPENXR
+/* Right-stick steering for first-person stereo.  The raw axis is integrated
+ * here rather than through the digital I_CAMERA keys: those recenter the
+ * stereo look instead of rotating it, and the head-tracked camera overrides
+ * the hero's own turn.  Integrating on wall time keeps the turn rate stable
+ * across fixed-sim skip frames. */
+static S32 s_FirstPersonStickYaw = 0;
+static U32 s_FirstPersonStickTick = 0;
+
+static void UpdateFirstPersonStickYaw(void) {
+    const U32 now = (U32)SDL_GetTicks();
+    U32 dt = now - s_FirstPersonStickTick;
+    s_FirstPersonStickTick = now;
+    if (dt > 100)
+        dt = 100;
+    if (!(CameraFirstPerson && DisplayStereo3D && OpenXR_IsActive() &&
+          CubeMode == CUBE_EXTERIEUR && !CinemaMode)) {
+        s_FirstPersonStickYaw = 0;
+        return;
+    }
+    S32 axis = OpenXR_RightStickX;
+    S32 mag = axis < 0 ? -axis : axis;
+    if (mag <= JoystickDeadzone)
+        return;
+    S32 den = 32767 - JoystickDeadzone;
+    if (den < 1)
+        den = 1;
+    S32 rate = ((mag - JoystickDeadzone) * 2048) / den; /* 180 deg/s */
+    S32 delta = (rate * (S32)dt) / 1000;
+    if (axis < 0)
+        delta = -delta;
+    s_FirstPersonStickYaw = (s_FirstPersonStickYaw - delta) & 4095;
+}
+
+/* Camera-relative movement for first-person stereo.  The hero's walk
+ * animation carries its displacement in a frame rotated by Obj.Beta, so
+ * pointing Beta along the stick vector and holding I_UP makes the existing
+ * walk/collision path strafe, reverse and run diagonals without bypassing
+ * its collision checks.  The body is behind the camera in first person, so
+ * facing the movement vector for one frame is invisible. */
+static void ApplyFirstPersonStickInput(void) {
+    UpdateFirstPersonStickYaw();
+    if (!(CameraFirstPerson && DisplayStereo3D && OpenXR_IsActive() &&
+          CubeMode == CUBE_EXTERIEUR && !CinemaMode))
+        return;
+    const S32 ax = OpenXR_LeftStickX;
+    const S32 ay = OpenXR_LeftStickY;
+    const S32 dz = JoystickDeadzone;
+    if ((S32)ax * ax + (S32)ay * ay < dz * dz)
+        return;
+    const float yaw = OpenXR_HeadYawDeg();
+    const S32 viewBeta =
+        (((S32)(-yaw * 4096.0f / 360.0f)) + s_FirstPersonStickYaw) & 4095;
+    /* 0 = forward, +pi/2 = right, pi = backward.  Right of the gaze is a
+       negative Beta offset (the same sign the view yaw uses). */
+    const float angle = atan2f((float)ax, (float)(-ay));
+    const S32 turn = (S32)(angle * 4096.0f / 6.283185307179586f);
+    ListObjet[NumObjFollow].Obj.Beta = (viewBeta - turn) & 4095;
+    Input |= I_UP;
+}
+#endif
+
 /* First-person (VR): the camera sits at the hero's eye height.  In an
  * immersive session the head owns the view direction (absolute yaw/pitch);
  * without it the camera looks where the hero faces. */
@@ -1121,6 +1183,7 @@ static void UpdateFirstPersonCamera(void) {
         float yaw = OpenXR_HeadYawDeg();
         float pitch = OpenXR_HeadPitchDeg();
         beta = (S32)(-yaw * 4096.0f / 360.0f) & 4095;
+        beta = (beta + s_FirstPersonStickYaw) & 4095;
         alpha = (S32)(-pitch * 4096.0f / 360.0f);
         /* Roll is damped: a flat mono image cannot represent roll without
          * edge distortion, so tilt applies softened (40%) with a +-3
@@ -1293,9 +1356,21 @@ void StereoLookShiftAnchorPitch(S32 dAlpha) {
  * Shared by the Advanced-options camera row and the camera-switch input
  * (right stick press). */
 void CycleCameraSetting(void) {
+#ifdef LBA2_OPENXR
+    s_FirstPersonStickYaw = 0;
+#endif
     if (CameraFirstPerson) {
         CameraFirstPerson = 0;
         FollowCamera = 0;
+
+        /* Entering the classic camera starts from the hero, not from the
+           first-person eye pose the frame before. */
+        Rotate(0, DISTANCE_VISEE, ListObjet[NumObjFollow].Obj.Beta);
+        StartXCube = (ListObjet[NumObjFollow].Obj.X + X0) / SIZE_BRICK_XZ;
+        StartYCube =
+            ((ListObjet[NumObjFollow].Obj.Y + SIZE_BRICK_Y) / SIZE_BRICK_Y);
+        StartZCube = (ListObjet[NumObjFollow].Obj.Z + Z0) / SIZE_BRICK_XZ;
+        CameraCenter(1);
     } else if (FollowCamera) {
         FollowCamera = 0;
         CameraFirstPerson = 1;
@@ -1515,7 +1590,13 @@ void PERSO_RenderStereo(S32 flagflip) {
                      * mid-frame SetFollowCamera. */
                     const float K = 2048.0f / 3.14159265358979f;
                     StereoEyeOverride = 1;
-                    StereoEyeBeta = (S32)(2048.0f + yaw * K) & 4095;
+                    /* Right-stick steering is a Beta offset, not a head
+                       rotation: the base camera already carries it, and the
+                       per-eye override would otherwise render straight from
+                       the tracked pose and ignore the stick. */
+                    StereoEyeBeta =
+                        ((S32)(2048.0f + yaw * K) - s_FirstPersonStickYaw) &
+                        4095;
                     StereoEyeAlpha = (S32)(-pitch * K);
                     StereoEyeGamma = (S32)(roll * K);
                     /* The camera rolls with the head, so the head's right
@@ -1902,7 +1983,15 @@ restartloop:
 
         LastInput = Input;
 
+#ifdef LBA2_OPENXR
+        JoystickFirstPersonStick =
+            (CameraFirstPerson && DisplayStereo3D && OpenXR_IsActive() &&
+             CubeMode == CUBE_EXTERIEUR && !CinemaMode)
+                ? 1
+                : 0;
+#endif
         MyGetInput();
+        JoystickFirstPersonStick = 0;
 
         // Harness input timeline (docs/INPUT_SIM_PLAN.md): OR the currently-held injected bits into
         // this frame's Input so the harness drives the hero without a keyboard. A `seq` hold is
@@ -1914,6 +2003,10 @@ restartloop:
             Input |= Control_InputCurrentMask();
             Control_InputFrameTick();
         }
+
+#ifdef LBA2_OPENXR
+        ApplyFirstPersonStickInput();
+#endif
 
         ManageTime();
 
@@ -2726,13 +2819,20 @@ restartloop:
                     WaitNoKey35 = FALSE;
             }
 
-            if (CameraSwitchKeyDown()) {
-                if (!WaitNoKey36) {
-                    CycleCameraSetting();
+            {
+                const S32 cameraSwitchHeld = CameraSwitchKeyDown();
+                /* Interiors have no first-person camera; the switch there only
+                   cycles settings the room cannot show.  Still consume a held
+                   press so it cannot fire on the frame the player steps out. */
+                if (CubeMode == CUBE_EXTERIEUR && cameraSwitchHeld) {
+                    if (!WaitNoKey36) {
+                        CycleCameraSetting();
+                    }
+                    WaitNoKey36 = TRUE;
+                } else {
+                    WaitNoKey36 = (U8)(cameraSwitchHeld ? TRUE : FALSE);
                 }
-                WaitNoKey36 = TRUE;
-            } else
-                WaitNoKey36 = FALSE;
+            }
 
             if ((Input & (I_NORMAL | I_SPORTIF | I_AGRESSIF | I_DISCRET))
                     AND(PtrComportement->Flags & CF_COMPORTEMENT)
@@ -3141,6 +3241,13 @@ restartloop:
 
         /*-------------------------------------------------------------------------*/
         /* recentre sur hero (numobjfollow) */
+
+        /* First person is exterior-only.  A scene change while it is active
+           returns to the classic camera, recentred on the hero. */
+#ifdef LBA2_OPENXR
+        if (CameraFirstPerson && CubeMode == CUBE_INTERIEUR)
+            CycleCameraSetting();
+#endif
 
         /* The interior hover rig owns the isometric projection centre, and an
            authored camera zone only chooses the room framing, not that

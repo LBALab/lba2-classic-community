@@ -43,6 +43,7 @@ static S16 s_rstickY = 0;
 
 //***************************************************************************
 S32 JoystickDeadzone = 8000;
+S32 JoystickFirstPersonStick = 0;
 
 static SDL_Gamepad *s_gamepad = NULL;
 static SDL_JoystickID s_gamepadId = 0;
@@ -63,6 +64,13 @@ static U32 s_firstPressedThisFrame = 0;
 
 static inline void SetVirtualKeyDown(U32 scancode) {
     TabKeys[PAD_KEY_INDEX(scancode)] |= (U8)PAD_KEY_BIT(scancode);
+}
+
+/* ApplyStickDirection passes 0 for an axis it deliberately suppresses. */
+static inline void SetVirtualKeyDownIf(U32 scancode) {
+    if (scancode != 0) {
+        SetVirtualKeyDown(scancode);
+    }
 }
 
 // Clear the TabKeys bytes that hold gamepad bits. Called each frame before
@@ -237,32 +245,32 @@ static void ApplyStickDirection(S16 x, S16 y, U32 keyLeft, U32 keyRight,
 
     switch (sector) {
     case 0:
-        SetVirtualKeyDown(keyRight);
+        SetVirtualKeyDownIf(keyRight);
         break;
     case 1:
-        SetVirtualKeyDown(keyRight);
-        SetVirtualKeyDown(keyUp);
+        SetVirtualKeyDownIf(keyRight);
+        SetVirtualKeyDownIf(keyUp);
         break;
     case 2:
-        SetVirtualKeyDown(keyUp);
+        SetVirtualKeyDownIf(keyUp);
         break;
     case 3:
-        SetVirtualKeyDown(keyLeft);
-        SetVirtualKeyDown(keyUp);
+        SetVirtualKeyDownIf(keyLeft);
+        SetVirtualKeyDownIf(keyUp);
         break;
     case 4:
-        SetVirtualKeyDown(keyLeft);
+        SetVirtualKeyDownIf(keyLeft);
         break;
     case 5:
-        SetVirtualKeyDown(keyLeft);
-        SetVirtualKeyDown(keyDown);
+        SetVirtualKeyDownIf(keyLeft);
+        SetVirtualKeyDownIf(keyDown);
         break;
     case 6:
-        SetVirtualKeyDown(keyDown);
+        SetVirtualKeyDownIf(keyDown);
         break;
     case 7:
-        SetVirtualKeyDown(keyRight);
-        SetVirtualKeyDown(keyDown);
+        SetVirtualKeyDownIf(keyRight);
+        SetVirtualKeyDownIf(keyDown);
         break;
     }
     *prevState = (StickDir)(sector + 1);
@@ -294,9 +302,19 @@ void UpdateJoystick(void) {
             ApplyStickDirection(x, y, left, right, up, down, prev); \
         } while(0)
 
-        STICK_DIR(0, OpenXR_LeftStickX, OpenXR_LeftStickY,
-                  K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT,
-                  K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN);
+        /* First-person stereo uses raw sticks: left for camera-relative
+           movement, right for view yaw.  The digital scancodes would drive
+           the hero's own turn/animation against the head-tracked view. */
+        const S32 firstPersonStick = JoystickFirstPersonStick;
+        if (firstPersonStick) {
+            /* Both axes are consumed as raw values in PERSO.CPP: left stick
+               for camera-relative movement, right stick for yaw. */
+            s_prevLeftDir = DIR_NEUTRAL;
+        } else {
+            STICK_DIR(0, OpenXR_LeftStickX, OpenXR_LeftStickY,
+                      K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT,
+                      K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN);
+        }
 
         /* A stereo interior owns the right stick for the camera pan/zoom.
            Sending its digital scancodes as well would also cycle the classic
@@ -304,7 +322,7 @@ void UpdateJoystick(void) {
         const S32 interiorCam = OpenXR_IsActive() && DisplayStereo3D &&
                                 CubeMode == CUBE_INTERIEUR;
         if ((GamepadCameraAnalog && FollowCamera &&
-             CubeMode == CUBE_EXTERIEUR) || interiorCam) {
+             CubeMode == CUBE_EXTERIEUR) || interiorCam || firstPersonStick) {
             s_prevRightDir = DIR_NEUTRAL;
         } else {
             STICK_DIR(1, OpenXR_RightStickX, OpenXR_RightStickY,

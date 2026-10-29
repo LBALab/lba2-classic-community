@@ -382,7 +382,7 @@ The shipped option now cycles four values (`DisplayTexFilter`: 0 = Nearest, 1 = 
 
 **Scale2x (2)** compares raw atlas indices — exact integers — and replaces the centre texel with a neighbour only when the two guards of the sample's sub-quadrant agree; a replaced texel costs a single CLUT lookup. **xBR Textures (3)** runs Hyllian's xBR-lv2 rules (MIT, CORNER_C variant — CPU twin `XbrUpscale2x` in `LIB386/SVGA/XBR.CPP`, host-tested in `tests/xbr/`): edge weights come from unlit palette colors, and the blend applies those weights to the CLUT-lit neighbours, so gouraud lighting stays a per-texel lookup and only the smoothing changes. xBR keeps boundaries crisper than bilinear; Scale2x changes texels only where the documented rules fire, staying closest to the original art.
 
-The Renderer row is always selectable. The Texture Filter row's selectability depends on the current renderer. Both rows are always visible in the menu (when `GPURENDERER=ON` at build time). If the user's GPU doesn't support GL 2.1 / GLES 2.0, the OpenGL option is shown but produces an error message on selection.
+The Renderer row is always selectable. The Texture Filter row's selectability depends on the current renderer. Both rows are visible in the menu (when `GPURENDERER=ON` at build time), except that OpenXR/Quest builds omit the Renderer row: an immersive session presents the OpenXR GL swapchain, the software renderer's CPU surface cannot reach it, and the Quest build already forces the GL renderer on. If the user's GPU doesn't support GL 2.1 / GLES 2.0, the OpenGL option is shown but produces an error message on selection.
 
 ### Menu labels
 

@@ -215,7 +215,7 @@ U16 DisplayMenu[4 + 6 * 2] = {
 // Child pages. Each is rebuilt before its DoGameMenu loop, so the count always
 // matches the rows written; the arrays are sized for their full fixed lists.
 #ifdef USE_GPURENDERER
-static U16 DisplayGraphicsMenu[4 + 5 * 2];
+static U16 DisplayGraphicsMenu[4 + 6 * 2];
 static U16 DisplayImageMenu[4 + 4 * 2];
 static U16 DisplayVrMenu[4 + 6 * 2];
 #endif
@@ -256,8 +256,13 @@ static void BuildDisplayGraphicsMenu(void) {
     DisplayGraphicsMenu[3] = 0;
     *p++ = 0;
     *p++ = 26;
+#ifndef LBA2_OPENXR
+    /* Immersive Quest builds render through OpenXR's GL context and force the
+       GL renderer on, so offering a switch to the software renderer would
+       only produce a frame the headset cannot present. */
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_RENDERER;
+#endif
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_TEXFILTER;
     *p++ = 0;
