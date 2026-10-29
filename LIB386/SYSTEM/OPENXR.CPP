@@ -207,9 +207,32 @@ static XrSystemId              s_systemId = XR_NULL_SYSTEM_ID;
 static S32 s_extPerfSettings = 0;
 static PFN_xrPerfSettingsSetPerformanceLevelEXT p_xrPerfSettingsSetPerformanceLevelEXT = NULL;
 
+/* Passthrough (XR_FB_passthrough).  Enabled only when the runtime also
+ * exposes the extensions it builds on (triangle mesh and the alpha-blend
+ * composition layer), and when the system reports the passthrough
+ * capability.  The feature and its layer are created lazily on the first
+ * interior frame with the option on, then paused while it is unneeded. */
+static S32 s_extPassthrough = 0;
+static S32 s_passthroughCapable = 0;
+static S32 s_passthroughFailed = 0;
+static XrPassthroughFB s_passthrough = XR_NULL_HANDLE;
+static XrPassthroughLayerFB s_passthroughLayer = XR_NULL_HANDLE;
+static S32 s_passthroughFeatureRunning = 0;
+static S32 s_passthroughLayerRunning = 0;
+static PFN_xrCreatePassthroughFB p_xrCreatePassthroughFB = NULL;
+static PFN_xrDestroyPassthroughFB p_xrDestroyPassthroughFB = NULL;
+static PFN_xrPassthroughStartFB p_xrPassthroughStartFB = NULL;
+static PFN_xrPassthroughPauseFB p_xrPassthroughPauseFB = NULL;
+static PFN_xrCreatePassthroughLayerFB p_xrCreatePassthroughLayerFB = NULL;
+static PFN_xrDestroyPassthroughLayerFB p_xrDestroyPassthroughLayerFB = NULL;
+static PFN_xrPassthroughLayerPauseFB p_xrPassthroughLayerPauseFB = NULL;
+static PFN_xrPassthroughLayerResumeFB p_xrPassthroughLayerResumeFB = NULL;
+
 /* Game globals consumed by the interior present (CUBE_INTERIEUR is 0). */
 extern S32 CubeMode;
 extern S32 VrFovScale;
+extern S32 VrPassthrough;
+extern U8 CinemaMode;
 
 /* GL renderer stereo eye capture (RENDER_GL.CPP). */
 extern "C" U32 GL_GetStereoEyeFBO(S32 eye);
@@ -417,6 +440,17 @@ static S32 OpenXR_CreateInstance(void) {
         if (s_extPerfSettings) {
             PUSH_EXT(XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME);
         }
+        /* Passthrough depends on the triangle-mesh and alpha-blend layer
+         * extensions; enable the whole set or none of it. */
+        s_extPassthrough =
+            HAS_EXT(XR_FB_PASSTHROUGH_EXTENSION_NAME) &&
+            HAS_EXT(XR_FB_TRIANGLE_MESH_EXTENSION_NAME) &&
+            HAS_EXT(XR_FB_COMPOSITION_LAYER_ALPHA_BLEND_EXTENSION_NAME);
+        if (s_extPassthrough) {
+            PUSH_EXT(XR_FB_PASSTHROUGH_EXTENSION_NAME);
+            PUSH_EXT(XR_FB_TRIANGLE_MESH_EXTENSION_NAME);
+            PUSH_EXT(XR_FB_COMPOSITION_LAYER_ALPHA_BLEND_EXTENSION_NAME);
+        }
 
         XrInstanceCreateInfoAndroidKHR androidInfo;
         memset(&androidInfo, 0, sizeof(androidInfo));
@@ -461,7 +495,26 @@ static S32 OpenXR_CreateInstance(void) {
                 s_instance, "xrPerfSettingsSetPerformanceLevelEXT",
                 (PFN_xrVoidFunction *)&p_xrPerfSettingsSetPerformanceLevelEXT);
         }
-        OXR_LOGI("optional ext: perfSettings=%d", s_extPerfSettings);
+        if (s_extPassthrough) {
+            xrGetInstanceProcAddr(s_instance, "xrCreatePassthroughFB",
+                (PFN_xrVoidFunction *)&p_xrCreatePassthroughFB);
+            xrGetInstanceProcAddr(s_instance, "xrDestroyPassthroughFB",
+                (PFN_xrVoidFunction *)&p_xrDestroyPassthroughFB);
+            xrGetInstanceProcAddr(s_instance, "xrPassthroughStartFB",
+                (PFN_xrVoidFunction *)&p_xrPassthroughStartFB);
+            xrGetInstanceProcAddr(s_instance, "xrPassthroughPauseFB",
+                (PFN_xrVoidFunction *)&p_xrPassthroughPauseFB);
+            xrGetInstanceProcAddr(s_instance, "xrCreatePassthroughLayerFB",
+                (PFN_xrVoidFunction *)&p_xrCreatePassthroughLayerFB);
+            xrGetInstanceProcAddr(s_instance, "xrDestroyPassthroughLayerFB",
+                (PFN_xrVoidFunction *)&p_xrDestroyPassthroughLayerFB);
+            xrGetInstanceProcAddr(s_instance, "xrPassthroughLayerPauseFB",
+                (PFN_xrVoidFunction *)&p_xrPassthroughLayerPauseFB);
+            xrGetInstanceProcAddr(s_instance, "xrPassthroughLayerResumeFB",
+                (PFN_xrVoidFunction *)&p_xrPassthroughLayerResumeFB);
+        }
+        OXR_LOGI("optional ext: perfSettings=%d passthrough=%d",
+                 s_extPerfSettings, s_extPassthrough);
         SDL_free(available);
         SDL_free(enabled);
     }
@@ -494,6 +547,30 @@ static S32 OpenXR_CreateSession(void) {
     }
     s_systemId = sysId;
     OXR_LOGI("xrGetSystem OK sysId=%llu", (unsigned long long)sysId);
+
+    /* Passthrough is only usable when the headset reports the capability;
+     * enables the Display → VR row and gates layer creation. */
+    s_passthroughCapable = 0;
+    if (s_extPassthrough) {
+        XrSystemPassthroughProperties2FB ptProps;
+        XrSystemProperties sysProps;
+        memset(&ptProps, 0, sizeof(ptProps));
+        ptProps.type = XR_TYPE_SYSTEM_PASSTHROUGH_PROPERTIES2_FB;
+        memset(&sysProps, 0, sizeof(sysProps));
+        sysProps.type = XR_TYPE_SYSTEM_PROPERTIES;
+        sysProps.next = &ptProps;
+        XrResult ptRc = xrGetSystemProperties(s_instance, sysId, &sysProps);
+        if (XR_SUCCEEDED(ptRc)) {
+            s_passthroughCapable =
+                (ptProps.capabilities & XR_PASSTHROUGH_CAPABILITY_BIT_FB) != 0;
+        } else {
+            OXR_LOGW("xrGetSystemProperties(passthrough) failed: %s (0x%x)",
+                     OXR_ResultStr(ptRc), (unsigned)ptRc);
+        }
+        OXR_LOGI("passthrough capabilities=0x%llx supported=%d",
+                 (unsigned long long)ptProps.capabilities,
+                 s_passthroughCapable);
+    }
 
     /* Per the OpenXR spec, xrGetGraphicsRequirementsKHR MUST be called for
      * the chosen graphics API before xrCreateSession, otherwise the
@@ -795,8 +872,131 @@ static S32 OpenXR_CreateSwapchain(void) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Passthrough lifecycle.  The feature and its reconstruction layer are
+ * created on demand, then paused whenever the player is not in an interior
+ * or has the option off; leaving it running would keep environment
+ * reconstruction busy for nothing. */
+static S32 OpenXR_PassthroughRequested(void) {
+    return VrPassthrough && s_extPassthrough && s_passthroughCapable &&
+           !s_passthroughFailed;
+}
+
+static S32 OpenXR_EnsurePassthroughLayer(void) {
+    if (s_passthroughLayer != XR_NULL_HANDLE)
+        return 1;
+    if (!OpenXR_PassthroughRequested() || s_session == XR_NULL_HANDLE)
+        return 0;
+    if (p_xrCreatePassthroughFB == NULL ||
+        p_xrCreatePassthroughLayerFB == NULL ||
+        p_xrPassthroughStartFB == NULL ||
+        p_xrPassthroughLayerResumeFB == NULL) {
+        Log_Warn("OpenXR: passthrough entry points unavailable");
+        s_passthroughFailed = 1;
+        return 0;
+    }
+    if (s_passthrough == XR_NULL_HANDLE) {
+        XrPassthroughCreateInfoFB createInfo;
+        memset(&createInfo, 0, sizeof(createInfo));
+        createInfo.type = XR_TYPE_PASSTHROUGH_CREATE_INFO_FB;
+        /* Created paused; OpenXR_UpdatePassthrough starts it for interiors. */
+        createInfo.flags = 0;
+        XrResult rc = p_xrCreatePassthroughFB(s_session, &createInfo,
+                                              &s_passthrough);
+        if (XR_FAILED(rc)) {
+            OXR_LOGW("xrCreatePassthroughFB failed: %s (0x%x)",
+                     OXR_ResultStr(rc), (unsigned)rc);
+            Log_Warn("OpenXR: passthrough feature unavailable (0x%x)",
+                     (unsigned)rc);
+            s_passthrough = XR_NULL_HANDLE;
+            s_passthroughFailed = 1;
+            return 0;
+        }
+        OXR_LOGI("xrCreatePassthroughFB OK");
+    }
+    {
+        XrPassthroughLayerCreateInfoFB layerInfo;
+        memset(&layerInfo, 0, sizeof(layerInfo));
+        layerInfo.type = XR_TYPE_PASSTHROUGH_LAYER_CREATE_INFO_FB;
+        layerInfo.passthrough = s_passthrough;
+        layerInfo.purpose = XR_PASSTHROUGH_LAYER_PURPOSE_RECONSTRUCTION_FB;
+        layerInfo.flags = 0;
+        XrResult rc = p_xrCreatePassthroughLayerFB(
+            s_session, &layerInfo, &s_passthroughLayer);
+        if (XR_FAILED(rc)) {
+            OXR_LOGW("xrCreatePassthroughLayerFB failed: %s (0x%x)",
+                     OXR_ResultStr(rc), (unsigned)rc);
+            Log_Warn("OpenXR: passthrough layer unavailable (0x%x)",
+                     (unsigned)rc);
+            s_passthroughLayer = XR_NULL_HANDLE;
+            s_passthroughFailed = 1;
+            return 0;
+        }
+        OXR_LOGI("xrCreatePassthroughLayerFB OK");
+    }
+    return 1;
+}
+
+static void OpenXR_UpdatePassthrough(void) {
+    /* CUBE_INTERIEUR is 0 (see SOURCES/COMMON.H); LIB386 does not include
+       the game header. */
+    const S32 want = OpenXR_PassthroughRequested() && CubeMode == 0 &&
+                     !CinemaMode;
+    if (!want) {
+        if (s_passthroughLayer != XR_NULL_HANDLE && s_passthroughLayerRunning &&
+            p_xrPassthroughLayerPauseFB != NULL) {
+            p_xrPassthroughLayerPauseFB(s_passthroughLayer);
+            s_passthroughLayerRunning = 0;
+            OXR_LOGI("passthrough layer paused");
+        }
+        if (s_passthrough != XR_NULL_HANDLE && s_passthroughFeatureRunning &&
+            p_xrPassthroughPauseFB != NULL) {
+            p_xrPassthroughPauseFB(s_passthrough);
+            s_passthroughFeatureRunning = 0;
+        }
+        return;
+    }
+    if (!OpenXR_EnsurePassthroughLayer())
+        return;
+    if (!s_passthroughFeatureRunning) {
+        XrResult rc = p_xrPassthroughStartFB(s_passthrough);
+        if (XR_FAILED(rc)) {
+            OXR_LOGW("xrPassthroughStartFB failed: %s (0x%x)",
+                     OXR_ResultStr(rc), (unsigned)rc);
+            s_passthroughFailed = 1;
+            return;
+        }
+        s_passthroughFeatureRunning = 1;
+    }
+    if (!s_passthroughLayerRunning) {
+        XrResult rc = p_xrPassthroughLayerResumeFB(s_passthroughLayer);
+        if (XR_FAILED(rc)) {
+            OXR_LOGW("xrPassthroughLayerResumeFB failed: %s (0x%x)",
+                     OXR_ResultStr(rc), (unsigned)rc);
+            s_passthroughFailed = 1;
+            return;
+        }
+        s_passthroughLayerRunning = 1;
+        OXR_LOGI("passthrough layer running");
+    }
+}
+
+/* -------------------------------------------------------------------------- */
 static void OpenXR_DestroySession(void) {
 #ifdef __ANDROID__
+    if (s_passthroughLayer != XR_NULL_HANDLE &&
+        p_xrDestroyPassthroughLayerFB != NULL) {
+        p_xrDestroyPassthroughLayerFB(s_passthroughLayer);
+    }
+    s_passthroughLayer = XR_NULL_HANDLE;
+    s_passthroughLayerRunning = 0;
+    if (s_passthrough != XR_NULL_HANDLE &&
+        p_xrDestroyPassthroughFB != NULL) {
+        p_xrDestroyPassthroughFB(s_passthrough);
+    }
+    s_passthrough = XR_NULL_HANDLE;
+    s_passthroughFeatureRunning = 0;
+    s_passthroughFailed = 0;
+
     if (s_swapchain != XR_NULL_HANDLE) {        xrDestroySwapchain(s_swapchain);
         s_swapchain = XR_NULL_HANDLE;
     }
@@ -1374,6 +1574,10 @@ S32 OpenXR_BeginFrame(void) {
         OXR_LOGI("BeginFrame: skip, sessionState=%d", (int)s_sessionState);
         return 0;
     }
+    /* Menu frames reach this through PresentMono instead; doing it here too
+       lets the frame that enters an interior clear its scene with alpha 0
+       immediately. */
+    OpenXR_UpdatePassthrough();
     /* Quest 3 immersive (mono blit) path: xrWaitFrame + xrBeginFrame run
      * HERE, at frame start, so the CPU-side render work overlaps the
      * compositor's wait window instead of pushing the submit past its
@@ -1720,6 +1924,9 @@ S32 OpenXR_PresentMono(void) {
     }
     s_skip = 0; /* reset counter when we successfully present */
     s_lastPresentTick = (S32)SDL_GetTicks();
+    /* Start/resume the passthrough layer for interiors and pause it
+       everywhere else, including while the option is off. */
+    OpenXR_UpdatePassthrough();
     U64 perfPresentT0 = SDL_GetPerformanceCounter();
     {
         static int s_presentLogCount = 0;
@@ -1951,7 +2158,9 @@ S32 OpenXR_PresentMono(void) {
                             zoom = 1.2f;
                         glDisable(GL_SCISSOR_TEST);
                         glViewport(0, 0, dstW * 2, dstH);
-                        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+                        glClearColor(
+                            0.0f, 0.0f, 0.0f,
+                            OpenXR_InteriorPassthroughActive() ? 0.0f : 1.0f);
                         glClear(GL_COLOR_BUFFER_BIT);
                         const S32 applyAdjust =
                             GL_StereoPairNeedsPresentShader();
@@ -2305,7 +2514,10 @@ S32 OpenXR_PresentMono(void) {
      *    legal and the user sees the engine framebuffer. */
     XrCompositionLayerProjectionView projViews[2];
     XrCompositionLayerProjection projLayer;
+    XrCompositionLayerAlphaBlendFB projBlend;
+    XrCompositionLayerPassthroughFB ptCompLayer;
     XrCompositionLayerBaseHeader *layerPtr = NULL;
+    const S32 passthrough = OpenXR_InteriorPassthroughActive();
     U32 eyeCount = locatedCount;
     if (eyeCount == 0 && s_swapchainImageIndex < s_swapchainImageCount) {
         /* Synthesize a stereo pair with default FOV. The Quest
@@ -2444,17 +2656,51 @@ S32 OpenXR_PresentMono(void) {
         projLayer.space = s_localSpace;
         projLayer.viewCount = eyeCount;
         projLayer.views = projViews;
+        if (passthrough) {
+            /* The scene texture is transparent where no geometry covers the
+               interior's black margin.  Straight alpha keeps those pixels
+               out of the composite even when the display transform has
+               lifted their RGB away from black. */
+            memset(&projBlend, 0, sizeof(projBlend));
+            projBlend.type = XR_TYPE_COMPOSITION_LAYER_ALPHA_BLEND_FB;
+            projBlend.next = NULL;
+            projBlend.srcFactorColor = XR_BLEND_FACTOR_SRC_ALPHA_FB;
+            projBlend.dstFactorColor = XR_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA_FB;
+            projBlend.srcFactorAlpha = XR_BLEND_FACTOR_ONE_FB;
+            projBlend.dstFactorAlpha = XR_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA_FB;
+            projLayer.next = &projBlend;
+            projLayer.layerFlags |=
+                XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT |
+                XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+        }
         layerPtr = (XrCompositionLayerBaseHeader *)&projLayer;
     }
 
-    /* 7. End the frame, presenting the layer (or nothing if locate failed). */
+    /* 7. End the frame, presenting the layer (or nothing if locate failed).
+     *    Passthrough goes below the projection layer, so the transparent
+     *    parts of the scene show the camera feed instead of the clear
+     *    colour. */
+    XrCompositionLayerBaseHeader *layers[2];
+    U32 layerCount = 0;
+    if (passthrough && layerPtr != NULL && s_passthroughLayer != XR_NULL_HANDLE) {
+        memset(&ptCompLayer, 0, sizeof(ptCompLayer));
+        ptCompLayer.type = XR_TYPE_COMPOSITION_LAYER_PASSTHROUGH_FB;
+        ptCompLayer.next = NULL;
+        ptCompLayer.flags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+        ptCompLayer.space = XR_NULL_HANDLE;
+        ptCompLayer.layerHandle = s_passthroughLayer;
+        layers[layerCount++] = (XrCompositionLayerBaseHeader *)&ptCompLayer;
+    }
+    if (layerPtr != NULL) {
+        layers[layerCount++] = layerPtr;
+    }
     XrFrameEndInfo endInfo;
     memset(&endInfo, 0, sizeof(endInfo));
     endInfo.type = XR_TYPE_FRAME_END_INFO;
     endInfo.displayTime = s_predictedDisplayTime;
     endInfo.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
-    endInfo.layerCount = (layerPtr != NULL) ? 1 : 0;
-    endInfo.layers = (layerPtr != NULL) ? &layerPtr : NULL;
+    endInfo.layerCount = layerCount;
+    endInfo.layers = (layerCount > 0) ? layers : NULL;
     {
         U64 perfT0 = SDL_GetPerformanceCounter();
         rc = xrEndFrame(s_session, &endInfo);
@@ -2574,6 +2820,28 @@ S32 OpenXR_GetStereoEnabled(void) {
 #else
     return 0;
 #endif
+#else
+    return 0;
+#endif
+}
+
+S32 OpenXR_PassthroughSupported(void) {
+#ifdef LBA2_OPENXR
+    return (s_extPassthrough && s_passthroughCapable &&
+            !s_passthroughFailed) ? 1 : 0;
+#else
+    return 0;
+#endif
+}
+
+S32 OpenXR_InteriorPassthroughActive(void) {
+#ifdef LBA2_OPENXR
+    return (s_sessionRunning && s_passthroughLayerRunning &&
+            s_extPassthrough && s_passthroughCapable && !s_passthroughFailed &&
+            VrPassthrough && CubeMode == 0 /* CUBE_INTERIEUR */ &&
+            !CinemaMode)
+               ? 1
+               : 0;
 #else
     return 0;
 #endif

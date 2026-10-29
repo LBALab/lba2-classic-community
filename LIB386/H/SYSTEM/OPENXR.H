@@ -86,6 +86,17 @@ void OpenXR_SetStereoEnabled(S32 enabled);
 /* Current stereo-present mode (0 = mono, 1 = per-eye). */
 S32 OpenXR_GetStereoEnabled(void);
 
+/* 1 when the runtime exposes XR_FB_passthrough and the system reports the
+ * passthrough capability, so the passthrough option has an effect. */
+S32 OpenXR_PassthroughSupported(void);
+
+/* 1 while an interior frame should composite the scene's black background
+ * as transparent over the passthrough underlay.  The renderer reads this
+ * when clearing the scene target so pixels no polygon covers keep alpha 0;
+ * the present path then submits the passthrough layer below the projection
+ * layer and alpha-blends the latter. */
+S32 OpenXR_InteriorPassthroughActive(void);
+
 /* Opt-in direct-to-swapchain stereo (LBA2_OXR_DIRECT): acquire and wait for
  * the swapchain image before the scene renders, and return the runtime-owned
  * GL texture plus its allocation size.  The caller sets up the direct MSAA

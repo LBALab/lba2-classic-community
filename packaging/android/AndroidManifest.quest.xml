@@ -4,11 +4,9 @@
      but adds the features and intent filter that tell the Quest store and
      the in-headset launcher to treat this as a VR-capable title.
 
-     The engine still renders to a flat SDL window (the OpenXR layer in
-     LIB386/SYSTEM/OPENXR.CPP is input-only — see docs/ANDROID.md), so the
-     runtime on a Quest is "2D window on the headset display with head pose
-     and Quest controller input". For a fully immersive (stereo-rendered)
-     build, see docs/ANDROID.md "OpenXR (Meta Quest 3 controller input)".
+     The OpenXR layer in LIB386/SYSTEM/OPENXR.CPP drives the immersive
+     stereo present and Quest controller input; see docs/ANDROID.md
+     "OpenXR (Meta Quest 3)".
 
      The Quest-specific launcher entry is gated on the VR headtracking
      feature so the in-headset store / Oculus app surfaces the app under
@@ -35,6 +33,10 @@
          Quest 2/3/Pro launcher shows it as a flat 2D app. -->
     <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
     <uses-feature android:name="oculus.software.overlay_app" android:required="false" />
+    <!-- Passthrough is optional in-game (Display → VR → Passthrough), but
+         the OpenXR passthrough extensions are only advertised to apps that
+         declare the feature. Every supported headset can do passthrough. -->
+    <uses-feature android:name="com.oculus.feature.PASSTHROUGH" android:required="true" />
 
     <!-- Optional / non-VR features inherited from the generic manifest. -->
     <uses-feature android:name="android.software.leanback" android:required="false" />

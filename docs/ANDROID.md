@@ -225,6 +225,21 @@ a cube change, so enabling it never jumps the view. The head look runs inside
 an authored camera zone too (the zone chooses the room framing, not the
 projection centre); only cinema scenes keep the authored view.
 
+The optional interior passthrough (`VrPassthrough`, Display → VR →
+Passthrough, console `vrpassthrough`) makes the black margin around the
+isometric room transparent. `AffGrille` clears the scene target to palette 0
+with alpha 0 while the option is on and the scene is an interior; the present
+submits an `XR_FB_passthrough` reconstruction layer below the projection
+layer and alpha-blends the projection over it (straight alpha, so a
+non-neutral display transform cannot tint the transparent margin). Cutscenes
+(`CinemaMode`) and exterior scenes stay opaque, and a scene that fills the
+target simply shows no passthrough. The layer is created on first use and
+paused outside interiors. The runtime must expose `XR_FB_passthrough`,
+`XR_FB_triangle_mesh` and `XR_FB_composition_layer_alpha_blend`, the system
+must report the passthrough capability, and the Quest manifest declares
+`com.oculus.feature.PASSTHROUGH`; the VR row is hidden when any of that is
+missing, so desktop and non-Quest builds are unaffected.
+
 Modal dialogue renders outside `MainLoop`'s stereo block but uses the same
 per-eye renderer. Its box, text and portrait are 2D content in `Log`, and the
 per-eye present composites `Log` into each eye, so a stereo dialogue draws the

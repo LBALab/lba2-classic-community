@@ -2091,6 +2091,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCvar("saturation", &DisplaySaturation, CONSOLE_CVAR_INT, "Image saturation (-20..20)");
     Console_RegisterCvar("vrzoom", &VrFovScale, CONSOLE_CVAR_INT, "VR world zoom percent of eye FOV (50..120, 100 = natural)");
     Console_RegisterCvar("vrhover", &VrInteriorHover, CONSOLE_CVAR_BOOL, "Quest interior head-tracked hover camera");
+    Console_RegisterCvar("vrpassthrough", &VrPassthrough, CONSOLE_CVAR_BOOL, "Quest interiors: black scene background shows the passthrough camera");
     Console_RegisterCvar("horizon", (void *)&FlagDrawHorizon, CONSOLE_CVAR_BOOL_U8, "Draw horizon/cubes around");
     Console_RegisterCvar("zv", &DrawZVObjets, CONSOLE_CVAR_BOOL, "Draw ZV boxes");
 

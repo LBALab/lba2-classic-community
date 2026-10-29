@@ -3415,6 +3415,9 @@ void ReadConfigFile(void) {
     VrInteriorHover =
         DefFileBufferReadValueDefault("VrInteriorHover", 0) ? TRUE : FALSE;
 
+    VrPassthrough =
+        DefFileBufferReadValueDefault("VrPassthrough", 0) ? TRUE : FALSE;
+
     DisplaySaturation = DefFileBufferReadValueDefault("DisplaySaturation", 0);
     if (DisplaySaturation < -20)
         DisplaySaturation = -20;
@@ -3746,6 +3749,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("VrFovScale", VrFovScale);
     DefFileBufferWriteValue("VrSuperSample", VrSuperSample);
     DefFileBufferWriteValue("VrInteriorHover", VrInteriorHover);
+    DefFileBufferWriteValue("VrPassthrough", VrPassthrough);
     DefFileBufferWriteValue("DisplayBrightness", DisplayBrightness);
     DefFileBufferWriteValue("DisplayContrast", DisplayContrast);
     DefFileBufferWriteValue("DisplaySaturation", DisplaySaturation);

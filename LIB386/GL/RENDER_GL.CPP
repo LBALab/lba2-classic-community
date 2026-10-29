@@ -7450,12 +7450,16 @@ void GL_ClearFBO(void) {
     }
 
     {
+        /* Interior passthrough: pixels no polygon covers keep alpha 0 so the
+         * present path can composite the room over the camera feed. */
+        const GLfloat clearAlpha =
+            OpenXR_InteriorPassthroughActive() ? 0.0f : 1.0f;
         const U32 *lut = GL_GetPaletteLUT();
         if (lut != NULL) {
             const U32 c = lut[s_sceneClearPalIndex];
             glClearColor((GLfloat)((c >> 16) & 0xFF) / 255.0f,
                          (GLfloat)((c >> 8) & 0xFF) / 255.0f,
-                         (GLfloat)(c & 0xFF) / 255.0f, 1.0f);
+                         (GLfloat)(c & 0xFF) / 255.0f, clearAlpha);
         }
     }
 
