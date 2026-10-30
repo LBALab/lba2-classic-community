@@ -2,6 +2,8 @@
 #include "GRILLE.H"
 #ifdef USE_GPURENDERER
 #include <GL/RENDER_GL.H>
+#include <3D/CAMERA.H>
+#include <POLYGON/POLY.H>
 extern S32 GPURendererActive;
 #endif
 #include "DIRECTORIES.H"
@@ -435,14 +437,19 @@ S32 AffParticleFlow(S_PART_FLOW *ptrf) {
     S32 flag = FALSE;
     S_ONE_DOT *ptrd;
 #ifdef USE_GPURENDERER
-    /* A flow block drawn into Log is a fixed 2D stamp: in the near eye it
-       stays where mono put it while the room it belongs to moves away.  In
-       the isometric interior the dots carry a world position, so give them
-       their own depth and batch them into the scene instead. */
-    const S32 flowGL = GPURendererActive && CubeMode == CUBE_INTERIEUR &&
-                       GL_SinglePassStereoActive();
+    /* Dots drawn into Log are a fixed 2D stamp composited over the 3D FBO,
+       so they paint over buildings regardless of world position.  Batch them
+       into the scene instead: depth-tested for the perspective exterior, and
+       world-anchored (depth test off, painter order) for the isometric
+       interior stereo. */
+    const S32 flowGL = GPURendererActive &&
+                       (CubeMode == CUBE_EXTERIEUR ||
+                        (CubeMode == CUBE_INTERIEUR &&
+                         GL_SinglePassStereoActive()));
+    const S32 flowDepth = GPURendererActive &&
+                          CubeMode == CUBE_EXTERIEUR;
     if (flowGL) {
-        GL_FlowBatchBegin();
+        GL_FlowBatchBegin(flowDepth);
     }
 #endif
 
@@ -464,8 +471,11 @@ S32 AffParticleFlow(S_PART_FLOW *ptrf) {
                 if (flowGL) {
                     if (Xp >= ClipXMin && Xp < ClipXMax && Yp >= ClipYMin &&
                         Yp < ClipYMax) {
-                        GL_FlowBatchRect(Xp, Yp, ptrd->Couleur,
-                                         InteriorWorldAz(flowWX, flowWZ));
+                        const U16 az =
+                            flowDepth
+                                ? (U16)GET_ZO(CameraZr - Z0)
+                                : InteriorWorldAz(flowWX, flowWZ);
+                        GL_FlowBatchRect(Xp, Yp, ptrd->Couleur, az);
                     }
                 } else
 #endif

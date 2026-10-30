@@ -242,7 +242,9 @@ void GL_SetWorldGL(S32 active);
 //! flow to one draw, and the caller supplies the isometric depth of each
 //! point so the block moves with the room instead of sitting in the 2D
 //! overlay.  No depth test, matching the overlay's paint-on-top order.
-void GL_FlowBatchBegin(void);
+/* depthTest: 1 for perspective exterior (dots must be occluded by the
+ * scene), 0 for the painter-ordered isometric interior. */
+void GL_FlowBatchBegin(S32 depthTest);
 void GL_FlowBatchRect(S32 x, S32 y, S32 colorIndex, U16 az);
 void GL_FlowBatchEnd(void);
 

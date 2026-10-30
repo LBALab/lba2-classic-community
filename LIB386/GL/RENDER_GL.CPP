@@ -6788,8 +6788,12 @@ void GL_DrawLineFBO(S32 x0, S32 y0, S32 x1, S32 y1, S32 colorIndex,
 #define GL_FLOW_MAX_RECTS 512
 static U8 s_flowVerts[GL_FLOW_MAX_RECTS * 6 * BATCH_VERT_BYTES];
 static S32 s_flowRects = 0;
+static S32 s_flowDepthTest = 0;
 
-void GL_FlowBatchBegin(void) { s_flowRects = 0; }
+void GL_FlowBatchBegin(S32 depthTest) {
+    s_flowRects = 0;
+    s_flowDepthTest = depthTest;
+}
 
 static void GL_FlowBatchFlush(void) {
     if (GL_SecondEyePass()) {
@@ -6827,8 +6831,14 @@ static void GL_FlowBatchFlush(void) {
     GL_BindTexUnit(1, s_clutTex);
     GL_BindTexUnit(2, s_paletteTex);
 
-    GL_SetDepthTest(0);
-    GL_SetDepthWrite(0);
+    /* Exterior: depth-test the dots against the scene so a fountain behind a
+       wall stays behind it.  The isometric interior keeps the painter order
+       (its brick layer does not write depth). */
+    GL_SetDepthTest(s_flowDepthTest);
+    GL_SetDepthWrite(s_flowDepthTest);
+    if (s_flowDepthTest) {
+        GL_SetDepthFunc(GL_GEQUAL);
+    }
     GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     GL_BindArrayBuffer(s_batchVBO);
@@ -6858,7 +6868,9 @@ static void GL_FlowBatchFlush(void) {
     s_profTris += rects * 2;
 
     GL_SetDepthWrite(1);
-    GL_SetDepthTest(0);
+    /* Keep the 3D depth path for the exterior so objects drawn after the
+       flow still occlude correctly; the isometric interior stays 2D. */
+    GL_SetDepthTest(s_flowDepthTest);
     GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     GL_BindArrayBuffer(0);
