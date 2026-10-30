@@ -1314,12 +1314,12 @@ void NormalWinDial() {
        LBA2_FAKE_VR_DIALOG lets a desktop build review that framing. */
     if (OpenXR_GetSwapchainWidth() || getenv("LBA2_FAKE_VR_DIALOG") != NULL) {
         Dial_Y1 = (S32)ModeDesiredY * 3 / 4;
-        Dial_Y0 = Dial_Y1 - 129;
-        /* Centred, about 43% of the frame width: wide enough for the
-         * authored three-line layout without covering the eye's visible
-         * band. */
-        Dial_X0 = (S32)ModeDesiredX * 2 / 7;
-        Dial_X1 = (S32)ModeDesiredX * 5 / 7;
+        Dial_Y0 = Dial_Y1 - 112;
+        /* Centred, about 36% of the frame width.  A little smaller than the
+         * flat layout reads as a panel slightly farther from the face and
+         * leaves more of the eye's visible band around it. */
+        Dial_X0 = (S32)ModeDesiredX * 32 / 100;
+        Dial_X1 = (S32)ModeDesiredX * 68 / 100;
         MaxLineDial = 3;
         DialMaxSize = ((Dial_X1 - 8) - (Dial_X0 + 8));
         return;
