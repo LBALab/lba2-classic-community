@@ -205,6 +205,13 @@ void DrawSky(S32 y) {
     U32 xx, zz, i, j;
     STRUC_CLIPVERTEX src[10];
 
+    /* The sky is a flat sheet at Sky_Y.  From above it the software
+       rasterizer rejects the tiles, but the GL path would draw the sheet
+       over the view; skip it in both modes when the camera is not below. */
+    if (CameraY >= y) {
+        return;
+    }
+
     PtrMap = SkySeaTexture + 128;
     RepMask = 0x7F7F;
     PtrCLUTGouraud = PtrCLUTFog;
