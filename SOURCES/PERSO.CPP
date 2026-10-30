@@ -1439,17 +1439,7 @@ void PERSO_RenderStereo(S32 flagflip) {
             extern S32 StereoProjShiftX;
             /* Eye separation in world units (~1.5x natural IPD at LBA2's
              * scale, for a moderate depth pop). */
-            S32 stereoIPD = 30;
-            {
-                S32 ws = VrWorldScale;
-                if (ws < 50)
-                    ws = 50;
-                else if (ws > 200)
-                    ws = 200;
-                stereoIPD = (30 * 100) / ws;
-                if (stereoIPD < 15)
-                    stereoIPD = 15;
-            }
+            const S32 stereoIPD = 30;
             const float eyeSep = stereoIPD * 0.5f;
             /* True per-eye poses: each eye renders from its tracked view —
              * the compositor time-warps each submitted image from exactly
@@ -3542,6 +3532,10 @@ void ReadConfigFile(void) {
     VrSuperSample = DefFileBufferReadValueDefault("VrSuperSample", 0);
     if (VrSuperSample < 0 OR VrSuperSample > 2)
         VrSuperSample = 0;
+
+    Log_Debug("VR config: fov=%d supersample=%d worldscale=%d fullbody=%d",
+              (int)VrFovScale, (int)VrSuperSample, (int)VrWorldScale,
+              (int)VrFullBody);
 
 
     VrInteriorHover =

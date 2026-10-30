@@ -213,6 +213,15 @@ static void VrMatToEuler(const VR_MAT3 *m, S32 *alpha, S32 *beta, S32 *gamma) {
     }
 }
 
+/* Rotate the local +Y (back of the hand) by a quaternion, giving the hand's
+ * up vector in tracking space. */
+static void VrQuatUp(const float q[4], float out[3]) {
+    const float x = q[0], y = q[1], z = q[2], w = q[3];
+    out[0] = 2.0f * (x * y - w * z);
+    out[1] = 1.0f - 2.0f * (x * x + z * z);
+    out[2] = 2.0f * (y * z + w * x);
+}
+
 static void VrNormalize(float v[3]) {
     float n = sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
     if (n < 1e-6f) {
@@ -271,7 +280,8 @@ static void VrMatMul(VR_MAT3 *out, const VR_MAT3 *a, const VR_MAT3 *b) {
  * to the local hand direction after the upper-arm rotation. */
 static void VrSolveArm(const TYPE_MAT *parentMat, const float shoulder[3],
                        const float elbow[3], const float hand[3],
-                       const float target[3], S32 side, S32 out[2][3]) {
+                       const float target[3], const float handUp[3], S32 side,
+                       S32 out[2][3]) {
     float upperRest[3], foreRest[3];
     float d[3], u[3], pole[3], v[3];
     float l1, l2, dlen, a, hgt;
@@ -305,11 +315,12 @@ static void VrSolveArm(const TYPE_MAT *parentMat, const float shoulder[3],
     if (hgt < 0.0f)
         hgt = 0.0f;
     hgt = sqrtf(hgt);
-    /* Mostly backward and down, like a relaxed elbow, with only a slight
-       outward bias; this keeps the elbows rotating with the torso. */
-    pole[0] = (float)side * 0.15f;
-    pole[1] = -0.35f;
-    pole[2] = -0.95f;
+    /* Swivel follows the wrist: the elbow sits opposite the back of the
+       hand, with a small backward bias.  A fixed body-frame pole leaves the
+       elbow behind when the wrist rolls, which is what makes it flare. */
+    pole[0] = -handUp[0] + (float)side * 0.1f;
+    pole[1] = -handUp[1] - 0.2f;
+    pole[2] = -handUp[2] - 0.35f;
     {
         float dot = pole[0] * u[0] + pole[1] * u[1] + pole[2] * u[2];
         float len2 = 0.0f;
@@ -448,11 +459,25 @@ static void VrHandTargetLocal(const float head[3], const float headPos[3],
 }
 
 static S32 VrGetHandTarget(S32 hand, const float head[3],
-                           const float headPos[3], S32 twist, float out[3]) {
+                           const float headPos[3], S32 twist, float out[3],
+                           float handUp[3]) {
     float q[4], p[3];
     if (OpenXR_GetHandJointPose(hand, 1 /* wrist */, q, p) ||
         OpenXR_GetHandPose(hand, 1 /* grip fallback */, q, p)) {
         VrHandTargetLocal(head, headPos, p, twist, out);
+
+        /* Wrist orientation gives the elbow swivel: the arm is otherwise
+           free to roll arbitrarily when only the hand position is known. */
+        VrQuatUp(q, handUp);
+        {
+            const float a = (float)twist * (VR_PI / 2048.0f);
+            const float c = cosf(a);
+            const float s = sinf(a);
+            const float ux = handUp[0];
+            const float uz = handUp[2];
+            handUp[0] = c * ux + s * uz;
+            handUp[2] = -s * ux + c * uz;
+        }
         return 1;
     }
     return 0;
@@ -479,6 +504,7 @@ void VrBody_Update(void) {
     float headPos[3];
     float headWorld[3];
     float handTarget[2][3] = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
+    float handPole[2][3] = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
     S32 handValid[2] = {0, 0};
 
     s_vrActive = 0;
@@ -633,7 +659,7 @@ void VrBody_Update(void) {
         trackingHead[1] = 0.5f * (eye0P[1] + eye1P[1]);
         trackingHead[2] = 0.5f * (eye0P[2] + eye1P[2]);
         if (!VrGetHandTarget(hand, headLocal, trackingHead, bodyTwist,
-                             handTarget[hand])) {
+                             handTarget[hand], handPole[hand])) {
             s_smoothInit[hand] = 0;
             continue;
         }
@@ -710,8 +736,8 @@ void VrBody_Update(void) {
             handRest[2] = (float)p->Z;
         }
         VrSolveArm(&rig.mat[groups[upper].OrgGroupe], shoulder, elbow,
-                   handRest, handTarget[hand], hand == 0 ? 1 : -1,
-                   s_vrArmAngles[hand]);
+                   handRest, handTarget[hand], handPole[hand],
+                   hand == 0 ? 1 : -1, s_vrArmAngles[hand]);
         s_vrArmValid[hand] = 1;
     }
 
