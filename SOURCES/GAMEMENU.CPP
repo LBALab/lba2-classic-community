@@ -95,6 +95,7 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_RENDERER 2117
 #define MENU_ID_DISPLAY_TEXFILTER 2118
 #define MENU_ID_DISPLAY_PERSPECTIVE 2134
+#define MENU_ID_DISPLAY_DITHER 2143 /* ordered dither between palette/CLUT rows */
 #define MENU_ID_DISPLAY_QUALITY 2119
 #define MENU_ID_DISPLAY_STEREO3D 2120 /* Quest OpenXR native stereo toggle */
 #define MENU_ID_DISPLAY_VRZOOM 2128   /* Quest stereo world zoom percent */
@@ -271,6 +272,8 @@ static void BuildDisplayGraphicsMenu(void) {
     *p++ = MENU_ID_DISPLAY_TEXFILTER;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_PERSPECTIVE;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_DITHER;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_ANTIALIAS;
 #ifndef __ANDROID__
@@ -744,6 +747,10 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_ANTIALIAS:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayAntiAlias == 3 ? MENU_LABEL_AA_MSAA4 : DisplayAntiAlias == 2 ? MENU_LABEL_AA_MSAA2 : DisplayAntiAlias == 1 ? MENU_LABEL_AA_FXAA : MENU_LABEL_AA_OFF));
+        break;
+
+    case MENU_ID_DISPLAY_DITHER:
+        snprintf(string, 256, "Dithering: %s", DisplayDither ? "On" : "Off");
         break;
 
     case MENU_ID_DISPLAY_STEREO3D:
@@ -3776,6 +3783,11 @@ static void DisplayMenuApplyChoice(S32 select) {
 
     case MENU_ID_DISPLAY_PERSPECTIVE:
         DisplayPerspectiveTextures = !DisplayPerspectiveTextures;
+        WriteConfigFile();
+        break;
+
+    case MENU_ID_DISPLAY_DITHER:
+        DisplayDither ^= 1;
         WriteConfigFile();
         break;
 

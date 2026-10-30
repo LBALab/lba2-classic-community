@@ -3647,6 +3647,9 @@ void ReadConfigFile(void) {
     DisplayAntiAlias = DefFileBufferReadValueDefault("DisplayAntiAlias", 0);
     if (DisplayAntiAlias < 0 OR DisplayAntiAlias > 3)
         DisplayAntiAlias = 0;
+    DisplayDither = DefFileBufferReadValueDefault("DisplayDither", FALSE);
+    if (DisplayDither < 0 OR DisplayDither > 1)
+        DisplayDither = FALSE;
 #ifdef __ANDROID__
     if (DisplayAntiAlias == 3)
         DisplayAntiAlias = 2; /* MSAA×4 not offered on Android (GL_SetAntiAlias) */
@@ -3902,6 +3905,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("DisplayTexFilter", DisplayTexFilter);
     DefFileBufferWriteValue("DisplayPerspectiveTextures", DisplayPerspectiveTextures);
     DefFileBufferWriteValue("DisplayAntiAlias", DisplayAntiAlias);
+    DefFileBufferWriteValue("DisplayDither", DisplayDither);
     DefFileBufferWriteValue("DisplayStereo3D", DisplayStereo3D);
     DefFileBufferWriteValue("RenderQuality", RenderQuality);
 #endif

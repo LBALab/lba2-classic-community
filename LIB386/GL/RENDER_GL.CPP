@@ -71,6 +71,7 @@ extern "C" S32 DisplayTexFilter;
 extern "C" S32 Obj_GLWorld;
 extern "C" S32 DisplayPerspectiveTextures;
 extern "C" S32 DisplayAntiAlias;
+extern "C" S32 DisplayDither;
 extern "C" S32 DisplayStereo3D;
 
 /* Temporary perf instrumentation: draw calls flushed since GL_BeginFrame */
@@ -534,6 +535,7 @@ static const char *s_clutFragSrc =
     "uniform float uScaledFogNear;\n" /* Fill_ScaledFogNear (fog-smooth distance, mode 5) */
     "uniform float uFogRowScale;\n"   /* Fill_Fog_Factor / 65536 (fog-smooth distance, mode 5) */
     "uniform int uBilinear;\n"        /* 0=nearest 1=bilinear 2=Scale2x 3=xBR */
+    "uniform float uDither;\n"        /* 1 = ordered dither between CLUT rows */
     /* Terrain far-plane discard.  The static terrain VBO path projects
        cube-local world positions in the vertex shader, where the CPU
        path's per-vertex ClipZFar cull cannot run; the terrain vertex
@@ -584,6 +586,22 @@ static const char *s_clutFragSrc =
     "    vec2 cuv = vec2((palIdx + 0.5) / 256.0,\n"
     "                     (gouraudRow + 0.5) / 256.0);\n"
     "    return texture2D(uCLUT, cuv);\n"
+    "}\n"
+    /* 4x4 ordered dither (Bayer).  The software gouraud fillers add the low
+       byte of the interpolated shade to the row before quantising; this is
+       the per-pixel equivalent, so a gradient between two CLUT rows keeps the
+       palette average instead of snapping to one of them.  Recursive form of
+       the Bayer matrix: M(2n) = [[4M(n), 4M(n)+2], [4M(n)+3, 4M(n)+1]]. */
+    "float dither2x2(vec2 p) {\n"
+    "    float x = mod(p.x, 2.0);\n"
+    "    float y = mod(p.y, 2.0);\n"
+    "    if (x < 1.0)\n"
+    "        return (y < 1.0) ? 0.0 : 3.0;\n"
+    "    return (y < 1.0) ? 2.0 : 1.0;\n"
+    "}\n"
+    "float dither4x4(vec2 p) {\n"
+    "    return 4.0 * dither2x2(mod(p, 2.0)) +\n"
+    "           dither2x2(mod(floor(p * 0.5), 2.0));\n"
     "}\n"
     /* ── xBR-lv2 sampling (texture filter mode 3) ──────────────────────────
        Hyllian's xBR-lv2 edge rules (MIT; the CPU twin in LIB386/SVGA/XBR.CPP
@@ -895,6 +913,10 @@ static const char *s_clutFragSrc =
     "    float mChroma = floor(mod(mFlags, 64.0) / 32.0 + 0.5);\n"
     "    float mPersp = floor(mod(mFlags, 128.0) / 64.0 + 0.5);\n"
     "    float mColor = floor(vMaterial / 256.0);\n"
+    /* Ordered-dither phase: a centred fraction of one CLUT row for the
+       gouraud paths, and the raw 0..15 cell for the 16-row fog steps. */
+    "    float ditherIndex = dither4x4(gl_FragCoord.xy);\n"
+    "    float ditherPhase = ((ditherIndex + 0.5) / 16.0 - 0.5) * uDither;\n"
     /* Select perspective-corrected or affine texture/Z varyings.
        The persp bit is set for Z-textured types (16-24), where the SW
        rasterizer divides MapU/MapV/ZBuf by W = 1/Z; types 8-15
@@ -956,7 +978,8 @@ static const char *s_clutFragSrc =
         in the material's high byte (see GL_RenderTriangleList): SetCLUT()
         changes it per terrain tile, and carrying it per vertex lets
         tiles share one draw call. */
-    "        float gouraudRow = floor((vLight + 128.0) / 256.0) + mColor;\n"
+    "        float gouraudRow =\n"
+    "            floor((vLight + ditherPhase * 256.0 + 128.0) / 256.0) + mColor;\n"
     "        if (uBilinear == 3) {\n"
     "            color = clutXbr(tc, widthMask, heightMask, gouraudRow,\n"
     "                            mChroma, 0.0);\n"
@@ -989,7 +1012,8 @@ static const char *s_clutFragSrc =
        SW init: Fill_CurGouraudMin = (Pt_Light << 8) + 0x8000 + (color << 16).
        The +0x8000 rounding bias means the palette index is
        (color + (Pt_Light + 128) / 256), not (color + Pt_Light / 256). */
-    "        float palIdx = mod(mColor + floor((vLight + 128.0) / 256.0), 256.0);\n"
+    "        float palIdx = mod(mColor +\n"
+    "            floor((vLight + ditherPhase * 256.0 + 128.0) / 256.0), 256.0);\n"
     "        color = texture2D(uPalette,\n"
     "                 vec2((palIdx + 0.5) / 256.0, 0.5));\n"
     "    } else if (mMode == 4) {\n"
@@ -1057,7 +1081,14 @@ static const char *s_clutFragSrc =
        written unconditionally — no discard here. */
     "        float fogDist = max(vZsel - uScaledFogNear, 0.0);\n"
     "        float fogRow16 = min(floor(fogDist * uFogRowScale), 255.0);\n"
-    "        float clutRow = 12.0 + floor(fogRow16 / 16.0) * 16.0;\n"
+    /* The fog row is quantised to 16-row steps (SW masks the low nibble).
+       Dither the discarded fraction into the next step, ordered, so the
+       horizon keeps a smooth ramp instead of 16 bands. */
+    "        float fogLevel = floor(fogRow16 / 16.0) * 16.0;\n"
+    "        float fogFrac = fogRow16 - fogLevel;\n"
+    "        float fogCell = (ditherIndex + 0.5 < fogFrac) ? 16.0 : 0.0;\n"
+    "        float clutRow = 12.0 + fogLevel + fogCell * uDither;\n"
+    "        clutRow = min(clutRow, 255.0);\n"
     "        color = clutLookup(texel, clutRow);\n"
     "    } else if (mMode == 6) {\n"
     /* Ground shadow (SW ShadeBoxBlk replacement): constant gray source
@@ -1071,7 +1102,8 @@ static const char *s_clutFragSrc =
     /* Gouraud table (types 6/7): CLUT lookup, color = column.
        Same +128 rounding bias as polyMode 0.  The CLUT base row rides in
        the vertex RepMask field (see GL_RenderTriangleList). */
-    "        float gouraudRow = floor((vLight + 128.0) / 256.0) + vRepMask;\n"
+    "        float gouraudRow =\n"
+    "            floor((vLight + ditherPhase * 256.0 + 128.0) / 256.0) + vRepMask;\n"
     "        vec2 clutUV = vec2((mColor + 0.5) / 256.0,\n"
     "                           (gouraudRow + 0.5) / 256.0);\n"
     "        color = texture2D(uCLUT, clutUV);\n"
@@ -1786,6 +1818,7 @@ static GLint s_clut3_uBaseWorld = -1;
 static GLint s_clut3_uBaseProj = -1;
 static GLint s_clut3_uEyeFocal = -1;
 static GLint s_clut3_uEyeZScale = -1;
+static GLint s_clut3_uDither = -1;
 static GLint s_clut_uAtlas = -1;
 static GLint s_clut_uCLUT = -1;
 static GLint s_clut_uPalette = -1;
@@ -1795,6 +1828,7 @@ static GLint s_clut_uCLUTBaseRow = -1;
 static GLint s_clut_uScaledFogNear = -1;
 static GLint s_clut_uFogRowScale = -1;
 static GLint s_clut_uBilinear = -1;
+static GLint s_clut_uDither = -1;
 static GLint s_clut_uTerrainFarClip = -1;
 static GLint s_clut_uTerrainPersp = -1;
 static GLint s_clut_uTerrainFar = -1;
@@ -1830,6 +1864,7 @@ static GLint s_terrain_uCLUT = -1;
 static GLint s_terrain_uPalette = -1;
 static GLint s_terrain_uAtlasScale = -1;
 static GLint s_terrain_uBilinear = -1;
+static GLint s_terrain_uDither = -1;
 static GLint s_terrain_uTerrainFarClip = -1;
 static GLint s_terrain_uTerrainPersp = -1;
 static GLint s_terrain_uTerrainFar = -1;
@@ -1917,6 +1952,7 @@ static GLint s_decor_uPalette = -1;
 static GLint s_decor_uAtlasArr = -1;
 static GLint s_decor_uAtlasScale = -1;
 static GLint s_decor_uBilinear = -1;
+static GLint s_decor_uDither = -1;
 static GLint s_decor_uTerrainFarClip = -1;
 static GLint s_decor_uTerrainPersp = -1;
 static GLint s_decor_uTerrainFar = -1;
@@ -3655,6 +3691,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_clut_uScaledFogNear = glGetUniformLocation(s_clutProgram, "uScaledFogNear");
     s_clut_uFogRowScale = glGetUniformLocation(s_clutProgram, "uFogRowScale");
     s_clut_uBilinear = glGetUniformLocation(s_clutProgram, "uBilinear");
+    s_clut_uDither = glGetUniformLocation(s_clutProgram, "uDither");
     s_clut_uTerrainFarClip =
         glGetUniformLocation(s_clutProgram, "uTerrainFarClip");
     s_clut_uTerrainFar = glGetUniformLocation(s_clutProgram, "uTerrainFar");
@@ -3747,6 +3784,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             s_clut3_uFogRowScale =
                 glGetUniformLocation(s_clut3Program, "uFogRowScale");
             s_clut3_uBilinear = glGetUniformLocation(s_clut3Program, "uBilinear");
+            s_clut3_uDither = glGetUniformLocation(s_clut3Program, "uDither");
             s_clut3_uTerrainFarClip =
                 glGetUniformLocation(s_clut3Program, "uTerrainFarClip");
             s_clut3_uTerrainPersp =
@@ -3854,6 +3892,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                 glGetUniformLocation(s_terrainProgram, "uAtlasScale");
             s_terrain_uBilinear =
                 glGetUniformLocation(s_terrainProgram, "uBilinear");
+            s_terrain_uDither =
+                glGetUniformLocation(s_terrainProgram, "uDither");
             s_terrain_uTerrainFarClip =
                 glGetUniformLocation(s_terrainProgram, "uTerrainFarClip");
             s_terrain_uTerrainPersp =
@@ -3962,6 +4002,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
                 glGetUniformLocation(s_decorProgram, "uAtlasScale");
             s_decor_uBilinear =
                 glGetUniformLocation(s_decorProgram, "uBilinear");
+            s_decor_uDither =
+                glGetUniformLocation(s_decorProgram, "uDither");
             s_decor_uTerrainFarClip =
                 glGetUniformLocation(s_decorProgram, "uTerrainFarClip");
             s_decor_uTerrainPersp =
@@ -5489,6 +5531,12 @@ static void FlushActiveBatch(void) {
     GLuint prog = (s_batchArray && s_clut3Program != 0) ? s_clut3Program
                                                         : s_clutProgram;
     GL_UseProgramCached(prog);
+    if (prog == s_clut3Program) {
+        if (s_clut3_uDither >= 0)
+            glUniform1f(s_clut3_uDither, DisplayDither ? 1.0f : 0.0f);
+    } else if (s_clut_uDither >= 0) {
+        glUniform1f(s_clut_uDither, DisplayDither ? 1.0f : 0.0f);
+    }
 
     if (s_batchArray && s_clut3Program != 0) {
         /* Array variant: per-batch uniforms set directly — sharing the
@@ -6031,6 +6079,8 @@ void GL_DrawTerrainVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
     }
 
     GL_UseProgramCached(s_terrainProgram);
+    if (s_terrain_uDither >= 0)
+        glUniform1f(s_terrain_uDither, DisplayDither ? 1.0f : 0.0f);
 
     GL_ProcessAtlasDirty();
     GL_UploadCLUT();
@@ -6244,6 +6294,8 @@ void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
     }
 
     GL_UseProgramCached(s_decorProgram);
+    if (s_decor_uDither >= 0)
+        glUniform1f(s_decor_uDither, DisplayDither ? 1.0f : 0.0f);
     GL_ProcessAtlasDirty();
     GL_UploadCLUT();
     GL_UploadPalette();
