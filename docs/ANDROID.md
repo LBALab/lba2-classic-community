@@ -223,7 +223,9 @@ composite and rolling it would only rotate a painted image with no hidden
 surfaces. The rig anchors the pose when it engages and recaptures on Enter or
 a cube change, so enabling it never jumps the view. The head look runs inside
 an authored camera zone too (the zone chooses the room framing, not the
-projection centre); only cinema scenes keep the authored view.
+projection centre); only cinema scenes keep the authored view. A modal
+dialogue keeps the rig live: the world already advances behind the box, so
+the head look and the right-stick pan/zoom keep moving the room as well.
 
 The optional interior passthrough (`VrPassthrough`, Display → VR →
 Passthrough, console `vrpassthrough`) makes the black margin around the

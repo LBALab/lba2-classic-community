@@ -1784,6 +1784,15 @@ void PERSO_DialogUpdateWorld(void) {
         UpdateFollowCameraExt();
     }
 
+#ifdef LBA2_OPENXR
+    /* Interior: the hover rig and the right-stick pan/zoom stay live while a
+       dialogue blocks the main loop, as the exterior cameras above do.  The
+       room keeps its own projection centre, so a look or a pan still moves
+       the scene behind the box. */
+    if (!CinemaMode && CubeMode == CUBE_INTERIEUR)
+        UpdateInteriorCameraControl();
+#endif
+
     StepFalling = GetDeltaMove(&RealFalling);
     StepShifting = GetDeltaMove(&RealShifting);
     S32 pansample = GetDeltaMove(&SampleAlwaysMove);
