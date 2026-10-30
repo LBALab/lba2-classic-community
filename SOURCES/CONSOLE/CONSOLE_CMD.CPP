@@ -2092,6 +2092,8 @@ void Console_RegisterAll(void) {
 #ifdef USE_GPURENDERER
     Console_RegisterCvar("dither", &DisplayDither, CONSOLE_CVAR_BOOL,
                          "Ordered dithering between palette/CLUT rows (GL)");
+    Console_RegisterCvar("sharpen", &DisplaySharpen, CONSOLE_CVAR_INT,
+                         "Present sharpening: 0=off 1=low 2=high (GL)");
 #endif
     Console_RegisterCvar("vrzoom", &VrFovScale, CONSOLE_CVAR_INT, "VR world zoom percent of eye FOV (50..120, 100 = natural)");
     Console_RegisterCvar("vrhover", &VrInteriorHover, CONSOLE_CVAR_BOOL, "Quest interior head-tracked hover camera");

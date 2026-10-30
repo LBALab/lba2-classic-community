@@ -72,7 +72,17 @@ extern "C" S32 Obj_GLWorld;
 extern "C" S32 DisplayPerspectiveTextures;
 extern "C" S32 DisplayAntiAlias;
 extern "C" S32 DisplayDither;
+extern "C" S32 DisplaySharpen;
 extern "C" S32 DisplayStereo3D;
+
+/* Present-side sharpening strength: 0 = off, 1 = low, 2 = high. */
+static float GL_SharpenAmount(void) {
+    if (DisplaySharpen == 2)
+        return 0.7f;
+    if (DisplaySharpen == 1)
+        return 0.35f;
+    return 0.0f;
+}
 
 /* Temporary perf instrumentation: draw calls flushed since GL_BeginFrame */
 extern "C" S32 GL_BatchFlushCount;
@@ -133,6 +143,7 @@ static const char *s_fragSrc =
     "uniform sampler2D uTex;\n"
     "uniform vec2 uTexel;\n"
     "uniform int uFilter;\n" /* 0 = nearest, 1 = bilinear, 2 = Scale2x */
+    "uniform float uSharpen;\n" /* 0 = off, unsharp strength */
     "varying vec2 vTexCoord;\n"
     "void main() {\n"
     "    vec4 result;\n"
@@ -166,7 +177,19 @@ static const char *s_fragSrc =
     "    } else {\n"
     "        result = texture2D(uTex, vTexCoord);\n"
     "    }\n"
-    "    gl_FragColor = vec4(ImageAdjust(result.rgb), result.a);\n"
+    /* Unsharp mask on the composited scene.  Four cross taps at one source
+       texel keep it cheap; the overlay is drawn by a different program, so
+       text never gets halos. */
+    "    vec3 sharpened = result.rgb;\n"
+    "    if (uSharpen > 0.001) {\n"
+    "        vec3 sn = texture2D(uTex, vTexCoord + vec2(0.0, -uTexel.y)).rgb;\n"
+    "        vec3 ss = texture2D(uTex, vTexCoord + vec2(0.0, uTexel.y)).rgb;\n"
+    "        vec3 sw = texture2D(uTex, vTexCoord + vec2(-uTexel.x, 0.0)).rgb;\n"
+    "        vec3 se = texture2D(uTex, vTexCoord + vec2(uTexel.x, 0.0)).rgb;\n"
+    "        vec3 sblur = (sn + ss + sw + se) * 0.25;\n"
+    "        sharpened = result.rgb + (result.rgb - sblur) * uSharpen;\n"
+    "    }\n"
+    "    gl_FragColor = vec4(ImageAdjust(sharpened), result.a);\n"
     "}\n";
 
 /* ── CLUT shader (3D Gouraud-textured polygons) ─────────────────────────── */
@@ -1134,6 +1157,7 @@ static GLuint s_texture = 0;
 static GLint s_uTexLoc = -1;
 static GLint s_uTexelLoc = -1;  /* present overlay: 1/width, 1/height */
 static GLint s_uFilterLoc = -1; /* present overlay: 0 nearest, 1 bilinear, 2 Scale2x */
+static GLint s_uSharpenLoc = -1;
 static GLint s_aPosLoc = -1;
 static GLint s_aTexCoordLoc = -1;
 static U32 s_texWidth = 0;
@@ -1263,7 +1287,14 @@ static const char *s_fxaaFragSrc =
     GLSL_FRAG_HEADER GLSL_IMAGE_ADJUST
     "uniform sampler2D uTex;\n"
     "uniform vec2 uTexel;\n"
+    "uniform float uSharpen;\n"
     "varying vec2 vTexCoord;\n"
+    /* Unsharp mask from the FXAA corner taps; applied after the edge blend so
+       sharpening and FXAA can be used together. */
+    "vec3 SharpenColor(vec3 c, vec3 nw, vec3 ne, vec3 sw, vec3 se) {\n"
+    "    vec3 blur = (nw + ne + sw + se) * 0.25;\n"
+    "    return c + (c - blur) * uSharpen;\n"
+    "}\n"
     "void main() {\n"
     "    vec3 rgbNW = texture2D(uTex, vTexCoord + vec2(-1.0, -1.0) * uTexel).rgb;\n"
     "    vec3 rgbNE = texture2D(uTex, vTexCoord + vec2( 1.0, -1.0) * uTexel).rgb;\n"
@@ -1278,7 +1309,11 @@ static const char *s_fxaaFragSrc =
     "    float lumaM  = dot(rgbM, luma);\n"
     "    float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));\n"
     "    float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));\n"
-    "    if (lumaMax - lumaMin <= 0.08) { gl_FragColor = vec4(ImageAdjust(rgbM), 1.0); return; }\n"
+    "    if (lumaMax - lumaMin <= 0.08) {\n"
+    "        gl_FragColor = vec4(ImageAdjust(SharpenColor(\n"
+    "            rgbM, rgbNW, rgbNE, rgbSW, rgbSE)), 1.0);\n"
+    "        return;\n"
+    "    }\n"
     "    vec2 dir = vec2(-((lumaNW + lumaNE) - (lumaSW + lumaSE)),\n"
     "                    ((lumaNW + lumaSW) - (lumaNE + lumaSE)));\n"
     "    float dirReduce = max((lumaNW + lumaNE + lumaSW + lumaSE) * 0.03125, 0.0078125);\n"
@@ -1292,14 +1327,17 @@ static const char *s_fxaaFragSrc =
     "        texture2D(uTex, vTexCoord + dir * 0.5).rgb);\n"
     "    float lumaB = dot(rgbB, luma);\n"
     "    if (lumaB < lumaMin || lumaB > lumaMax)\n"
-    "        gl_FragColor = vec4(ImageAdjust(rgbA), 1.0);\n"
+    "        gl_FragColor = vec4(ImageAdjust(SharpenColor(\n"
+    "            rgbA, rgbNW, rgbNE, rgbSW, rgbSE)), 1.0);\n"
     "    else\n"
-    "        gl_FragColor = vec4(ImageAdjust(rgbB), 1.0);\n"
+    "        gl_FragColor = vec4(ImageAdjust(SharpenColor(\n"
+    "            rgbB, rgbNW, rgbNE, rgbSW, rgbSE)), 1.0);\n"
     "}\n";
 
 static GLuint s_fxaaProgram = 0;
 static GLint s_fxaa_uTex = -1;
 static GLint s_fxaa_uTexel = -1;
+static GLint s_fxaa_uSharpen = -1;
 static GLint s_fxaa_aPos = -1;
 static GLint s_fxaa_aTexCoord = -1;
 
@@ -3291,6 +3329,7 @@ S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight, U32 dstWidth,
     glUniform2f(s_uTexelLoc, 1.0f / (GLfloat)srcWidth,
                 1.0f / (GLfloat)srcHeight);
     glUniform1i(s_uFilterLoc, exact ? 0 : 1);
+    glUniform1f(s_uSharpenLoc, 0.0f);
 
     GL_SetDepthTest(0);
     GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -3348,6 +3387,7 @@ S32 GL_BlitStereoRectToCurrent(U32 srcX, U32 srcY, U32 srcWidth, U32 srcHeight,
     glUniform2f(s_uTexelLoc, 1.0f / (GLfloat)texWidth,
                 1.0f / (GLfloat)texHeight);
     glUniform1i(s_uFilterLoc, exact ? 0 : 1);
+    glUniform1f(s_uSharpenLoc, 0.0f);
 
     GL_SetDepthTest(0);
     GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -3604,6 +3644,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_uTexLoc = glGetUniformLocation(s_program, "uTex");
     s_uTexelLoc = glGetUniformLocation(s_program, "uTexel");
     s_uFilterLoc = glGetUniformLocation(s_program, "uFilter");
+    s_uSharpenLoc = glGetUniformLocation(s_program, "uSharpen");
     s_adj_uBrightness = glGetUniformLocation(s_program, "uBrightness");
     s_adj_uContrast = glGetUniformLocation(s_program, "uContrast");
     s_adj_uSaturation = glGetUniformLocation(s_program, "uSaturation");
@@ -4122,6 +4163,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             s_fxaaProgram = LinkProgram(fv, ff);
             s_fxaa_uTex = glGetUniformLocation(s_fxaaProgram, "uTex");
             s_fxaa_uTexel = glGetUniformLocation(s_fxaaProgram, "uTexel");
+            s_fxaa_uSharpen = glGetUniformLocation(s_fxaaProgram, "uSharpen");
             s_fxaaAdj_uBrightness = glGetUniformLocation(s_fxaaProgram, "uBrightness");
             s_fxaaAdj_uContrast = glGetUniformLocation(s_fxaaProgram, "uContrast");
             s_fxaaAdj_uSaturation = glGetUniformLocation(s_fxaaProgram, "uSaturation");
@@ -7736,6 +7778,7 @@ void GL_RestoreTerrainSnapshot(void) {
         glUseProgram(s_program);
         glUniform1i(s_uTexLoc, 0);
         glUniform1i(s_uFilterLoc, 1);
+        glUniform1f(s_uSharpenLoc, 0.0f);
         GL_BindTexUnit(0, s_snapshotTex);
         GL_BindArrayBuffer(s_auxVBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(rverts), rverts, GL_STREAM_DRAW);
@@ -8118,6 +8161,7 @@ void GL_RestoreHorizon(void) {
         glUseProgram(s_program);
         glUniform1i(s_uTexLoc, 0);
         glUniform1i(s_uFilterLoc, 1);
+        glUniform1f(s_uSharpenLoc, 0.0f);
         GL_BindTexUnit(0, s_horizonTex);
         GL_BindArrayBuffer(s_auxVBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(rverts), rverts, GL_STREAM_DRAW);
@@ -9360,6 +9404,7 @@ static void GL_DrawArgbOverlay(const void *argbPixels, U32 pitch, U32 width,
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, s_texture);
     glUniform1i(s_uTexLoc, 0);
+    glUniform1f(s_uSharpenLoc, 0.0f); /* never sharpen the 2D overlay */
     if (s_overlayImageAdjust) {
         GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
                              s_adj_uSaturation);
@@ -9546,6 +9591,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
             glUniform1i(s_fxaa_uTex, 0);
             glUniform2f(s_fxaa_uTexel, 1.0f / (GLfloat)s_texWidth,
                         1.0f / (GLfloat)s_texHeight);
+            glUniform1f(s_fxaa_uSharpen, GL_SharpenAmount());
             GL_UploadImageAdjust(s_fxaaAdj_uBrightness, s_fxaaAdj_uContrast,
                                  s_fxaaAdj_uSaturation);
             glEnableVertexAttribArray(s_fxaa_aPos);
@@ -9567,6 +9613,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
             GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
                                  s_adj_uSaturation);
             glUniform1i(s_uFilterLoc, 1);
+            glUniform1f(s_uSharpenLoc, GL_SharpenAmount());
             glEnableVertexAttribArray(s_aPosLoc);
             glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
                                   4 * sizeof(GLfloat), (const void *)0);
@@ -10324,6 +10371,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
             glUniform1i(s_fxaa_uTex, 0);
             glUniform2f(s_fxaa_uTexel, 1.0f / (GLfloat)s_texWidth,
                         1.0f / (GLfloat)s_texHeight);
+            glUniform1f(s_fxaa_uSharpen, GL_SharpenAmount());
             GL_UploadImageAdjust(s_fxaaAdj_uBrightness, s_fxaaAdj_uContrast,
                                  s_fxaaAdj_uSaturation);
             glEnableVertexAttribArray(s_fxaa_aPos);
@@ -10345,6 +10393,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
             GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
                                  s_adj_uSaturation);
             glUniform1i(s_uFilterLoc, 1);
+            glUniform1f(s_uSharpenLoc, GL_SharpenAmount());
             glEnableVertexAttribArray(s_aPosLoc);
             glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
                                   4 * sizeof(GLfloat), (const void *)0);
