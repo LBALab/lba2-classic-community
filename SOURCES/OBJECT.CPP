@@ -20,6 +20,7 @@
 #include <3D/PROJ.H>
 #include <GL/RENDER_GL.H> /* GL_DrawShadowQuad */
 #include <SYSTEM/OPENXR.H> /* OpenXR_GetSwapchainWidth (head-mount fps position) */
+#include "VRBODY.H"
 #include <SYSTEM/HQFILE.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <stdint.h>
@@ -6335,6 +6336,17 @@ startaffscene:
         GL_GetStereoEye() < 0) {
         GL_ReadbackDepthBuffer();
     }
+
+    /* First-person hero: the sort walk deliberately skipped the gameplay
+       body, so draw the IK ghost after all other bodies.  It goes after the
+       depth readback on purpose: the ghost surrounds the camera, so baking
+       its depth into PtrZBuffer makes the terrain in front of the player
+       look occluded and get culled on the next incremental frame. */
+    if (GPURendererActive && VrFullBody && CameraFirstPerson &&
+        CubeMode == CUBE_EXTERIEUR) {
+        VrBody_DrawFirstPerson(&ListObjet[NUM_PERSO]);
+    }
+
     GL_ArrayWindowEnd();
     GL_SetWorldGL(0);
 #endif

@@ -139,7 +139,23 @@ static XrSpace                 s_stageSpace = XR_NULL_HANDLE;
 static XrSpace                 s_localSpace = XR_NULL_HANDLE;
 static XrSpace                 s_viewSpace = XR_NULL_HANDLE;
 static XrActionSet             s_actionSet = XR_NULL_HANDLE;
-static XrAction                s_actions[15];
+static XrAction                s_actions[19];
+/* Tracked controller spaces: [hand][0 = aim, 1 = grip]. */
+static XrSpace                 s_handSpaces[2][2];
+static XrPosef                 s_handPoses[2][2];
+static U8                      s_handPoseValid[2][2];
+
+/* Optical hand tracking (XR_EXT_hand_tracking). */
+#define OXR_HAND_JOINT_COUNT 26
+#define OXR_HAND_JOINT_PALM 0
+#define OXR_HAND_JOINT_WRIST 1
+static S32                     s_extHandTracking = 0;
+static XrHandTrackerEXT        s_handTrackers[2] = {XR_NULL_HANDLE, XR_NULL_HANDLE};
+static XrHandJointLocationEXT  s_handJoints[2][OXR_HAND_JOINT_COUNT];
+static U8                      s_handJointsValid[2] = {0, 0};
+static PFN_xrCreateHandTrackerEXT p_xrCreateHandTrackerEXT = NULL;
+static PFN_xrDestroyHandTrackerEXT p_xrDestroyHandTrackerEXT = NULL;
+static PFN_xrLocateHandJointsEXT p_xrLocateHandJointsEXT = NULL;
 
 /* Subaction paths for both hands. The Quest runtime reports controller
  * actions per hand: created without subaction paths, actions bind
@@ -451,6 +467,15 @@ static S32 OpenXR_CreateInstance(void) {
             PUSH_EXT(XR_FB_TRIANGLE_MESH_EXTENSION_NAME);
             PUSH_EXT(XR_FB_COMPOSITION_LAYER_ALPHA_BLEND_EXTENSION_NAME);
         }
+        s_extHandTracking = HAS_EXT(XR_EXT_HAND_TRACKING_EXTENSION_NAME);
+        if (s_extHandTracking) {
+            PUSH_EXT(XR_EXT_HAND_TRACKING_EXTENSION_NAME);
+            /* Optional companion that reports whether the joints came from
+               optical tracking or a controller; harmless when absent. */
+            if (HAS_EXT(XR_EXT_HAND_TRACKING_DATA_SOURCE_EXTENSION_NAME)) {
+                PUSH_EXT(XR_EXT_HAND_TRACKING_DATA_SOURCE_EXTENSION_NAME);
+            }
+        }
 
         XrInstanceCreateInfoAndroidKHR androidInfo;
         memset(&androidInfo, 0, sizeof(androidInfo));
@@ -494,6 +519,14 @@ static S32 OpenXR_CreateInstance(void) {
             xrGetInstanceProcAddr(
                 s_instance, "xrPerfSettingsSetPerformanceLevelEXT",
                 (PFN_xrVoidFunction *)&p_xrPerfSettingsSetPerformanceLevelEXT);
+        }
+        if (s_extHandTracking) {
+            xrGetInstanceProcAddr(s_instance, "xrCreateHandTrackerEXT",
+                (PFN_xrVoidFunction *)&p_xrCreateHandTrackerEXT);
+            xrGetInstanceProcAddr(s_instance, "xrDestroyHandTrackerEXT",
+                (PFN_xrVoidFunction *)&p_xrDestroyHandTrackerEXT);
+            xrGetInstanceProcAddr(s_instance, "xrLocateHandJointsEXT",
+                (PFN_xrVoidFunction *)&p_xrLocateHandJointsEXT);
         }
         if (s_extPassthrough) {
             xrGetInstanceProcAddr(s_instance, "xrCreatePassthroughFB",
@@ -669,6 +702,30 @@ static S32 OpenXR_CreateSession(void) {
         Log_Warn("OpenXR: immersive swapchain unavailable, falling back to input-only");
     }
     OXR_LOGI("OpenXR_CreateSwapchain returned");
+
+    /* Optical hand trackers.  Absent extension or a rejected tracker just
+       leaves the controller-pose fallback in place. */
+    if (s_extHandTracking && p_xrCreateHandTrackerEXT != NULL) {
+        static const XrHandEXT handKinds[2] = {XR_HAND_LEFT_EXT,
+                                               XR_HAND_RIGHT_EXT};
+        for (S32 h = 0; h < 2; h++) {
+            XrHandTrackerCreateInfoEXT ci;
+            memset(&ci, 0, sizeof(ci));
+            ci.type = XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT;
+            ci.hand = handKinds[h];
+            ci.handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT;
+            XrResult hrc = p_xrCreateHandTrackerEXT(s_session, &ci,
+                                                    &s_handTrackers[h]);
+            if (XR_FAILED(hrc)) {
+                s_handTrackers[h] = XR_NULL_HANDLE;
+                OXR_LOGW("xrCreateHandTrackerEXT h%d failed: %s (0x%x)", h,
+                         OXR_ResultStr(hrc), (unsigned)hrc);
+            }
+        }
+        OXR_LOGI("hand tracking: ext=%d left=%d right=%d", s_extHandTracking,
+                 s_handTrackers[0] != XR_NULL_HANDLE,
+                 s_handTrackers[1] != XR_NULL_HANDLE);
+    }
 
     return 1;
 #else
@@ -997,6 +1054,23 @@ static void OpenXR_DestroySession(void) {
     s_passthroughFeatureRunning = 0;
     s_passthroughFailed = 0;
 
+    for (S32 h = 0; h < 2; h++) {
+        if (s_handTrackers[h] != XR_NULL_HANDLE) {
+            if (p_xrDestroyHandTrackerEXT != NULL) {
+                p_xrDestroyHandTrackerEXT(s_handTrackers[h]);
+            }
+            s_handTrackers[h] = XR_NULL_HANDLE;
+        }
+        s_handJointsValid[h] = 0;
+        for (S32 t = 0; t < 2; t++) {
+            if (s_handSpaces[h][t] != XR_NULL_HANDLE) {
+                xrDestroySpace(s_handSpaces[h][t]);
+                s_handSpaces[h][t] = XR_NULL_HANDLE;
+            }
+            s_handPoseValid[h][t] = 0;
+        }
+    }
+
     if (s_swapchain != XR_NULL_HANDLE) {        xrDestroySwapchain(s_swapchain);
         s_swapchain = XR_NULL_HANDLE;
     }
@@ -1092,11 +1166,31 @@ static S32 OpenXR_CreateActions(void) {
     /* Meta Quest 3 controllers are exposed under the oculus/touch_controller
      * interaction profile. Both hand mappings (left=ABXY swapped, right=ABXY
      * canonical) are covered so the binding set is profile-portable. */
+    static const char *poseNames[] = {
+        "laim_pose", "raim_pose", "lgrip_pose", "rgrip_pose",
+    };
+    for (i = 0; i < sizeof(poseNames) / sizeof(poseNames[0]); i++) {
+        XrActionCreateInfo aInfo;
+        memset(&aInfo, 0, sizeof(aInfo));
+        aInfo.type = XR_TYPE_ACTION_CREATE_INFO;
+        aInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
+        aInfo.countSubactionPaths = 2;
+        aInfo.subactionPaths = s_handPaths;
+        SDL_strlcpy(aInfo.actionName, poseNames[i], sizeof(aInfo.actionName));
+        SDL_strlcpy(aInfo.localizedActionName, poseNames[i],
+                    sizeof(aInfo.localizedActionName));
+        rc = xrCreateAction(s_actionSet, &aInfo, &s_actions[15 + i]);
+        if (XR_FAILED(rc)) return 0;
+    }
+
+    /* Meta Quest 3 controllers are exposed under the oculus/touch_controller
+     * interaction profile. Both hand mappings (left=ABXY swapped, right=ABXY
+     * canonical) are covered so the binding set is profile-portable. */
     static const char *profileStr = "/interaction_profiles/oculus/touch_controller";
     XrPath profilePath = XR_NULL_PATH;
     xrStringToPath(s_instance, profileStr, &profilePath);
 
-    static const char *bindingStrs[15] = {
+    static const char *bindingStrs[19] = {
         "/user/hand/right/input/a/click",
         "/user/hand/right/input/b/click",
         "/user/hand/left/input/x/click",
@@ -1112,10 +1206,14 @@ static S32 OpenXR_CreateActions(void) {
         "/user/hand/left/input/thumbrest/touch",
         "/user/hand/left/input/thumbstick",
         "/user/hand/right/input/thumbstick",
+        "/user/hand/left/input/aim/pose",
+        "/user/hand/right/input/aim/pose",
+        "/user/hand/left/input/grip/pose",
+        "/user/hand/right/input/grip/pose",
     };
-    XrActionSuggestedBinding bindings[15];
+    XrActionSuggestedBinding bindings[19];
     U32 j;
-    for (j = 0; j < 15; j++) {
+    for (j = 0; j < 19; j++) {
         bindings[j].action = s_actions[j];
         xrStringToPath(s_instance, bindingStrs[j], &bindings[j].binding);
     }
@@ -1125,7 +1223,7 @@ static S32 OpenXR_CreateActions(void) {
     suggest.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING;
     suggest.interactionProfile = profilePath;
     suggest.suggestedBindings = bindings;
-    suggest.countSuggestedBindings = 15;
+    suggest.countSuggestedBindings = 19;
 
     rc = xrSuggestInteractionProfileBindings(s_instance, &suggest);
     if (XR_FAILED(rc)) {
@@ -1141,6 +1239,24 @@ static S32 OpenXR_CreateActions(void) {
     if (XR_FAILED(rc)) {
         Log_Warn("OpenXR: xrAttachSessionActionSets failed (0x%x)", (unsigned)rc);
         return 0;
+    }
+
+    for (S32 h = 0; h < 2; h++) {
+        for (S32 t = 0; t < 2; t++) {
+            XrActionSpaceCreateInfo spaceInfo;
+            memset(&spaceInfo, 0, sizeof(spaceInfo));
+            spaceInfo.type = XR_TYPE_ACTION_SPACE_CREATE_INFO;
+            spaceInfo.action = s_actions[15 + t * 2 + h];
+            spaceInfo.subactionPath = s_handPaths[h];
+            spaceInfo.poseInActionSpace.orientation.w = 1.0f;
+            s_handSpaces[h][t] = XR_NULL_HANDLE;
+            rc = xrCreateActionSpace(s_session, &spaceInfo, &s_handSpaces[h][t]);
+            if (XR_FAILED(rc)) {
+                s_handSpaces[h][t] = XR_NULL_HANDLE;
+                Log_Warn("OpenXR: hand action space h%d t%d failed (0x%x)", h,
+                         t, (unsigned)rc);
+            }
+        }
     }
     OXR_LOGI("OpenXR_CreateActions: returning 1 (success)");
 
@@ -1477,6 +1593,67 @@ S32 OpenXR_GetEyeView(S32 eye, float *quat, float *pos) {
     return 1;
 #else
     (void)eye; (void)quat; (void)pos;
+    return 0;
+#endif
+}
+
+S32 OpenXR_GetHandPose(S32 hand, S32 aimOrGrip, float *quat, float *pos) {
+#ifdef LBA2_OPENXR
+    if (hand < 0 || hand > 1 || aimOrGrip < 0 || aimOrGrip > 1) {
+        return 0;
+    }
+    if (!s_handPoseValid[hand][aimOrGrip]) {
+        return 0;
+    }
+    const XrPosef *p = &s_handPoses[hand][aimOrGrip];
+    quat[0] = p->orientation.x;
+    quat[1] = p->orientation.y;
+    quat[2] = p->orientation.z;
+    quat[3] = p->orientation.w;
+    pos[0] = p->position.x;
+    pos[1] = p->position.y;
+    pos[2] = p->position.z;
+    return 1;
+#else
+    (void)hand; (void)aimOrGrip; (void)quat; (void)pos;
+    return 0;
+#endif
+}
+
+S32 OpenXR_GetHandJointPose(S32 hand, S32 joint, float *quat, float *pos) {
+#ifdef LBA2_OPENXR
+    if (hand < 0 || hand > 1 || joint < 0 || joint >= OXR_HAND_JOINT_COUNT) {
+        return 0;
+    }
+    if (!s_handJointsValid[hand]) {
+        return 0;
+    }
+    const XrHandJointLocationEXT *j = &s_handJoints[hand][joint];
+    const XrSpaceLocationFlags need =
+        XR_SPACE_LOCATION_POSITION_VALID_BIT |
+        XR_SPACE_LOCATION_ORIENTATION_VALID_BIT;
+    if ((j->locationFlags & need) != need) {
+        return 0;
+    }
+    quat[0] = j->pose.orientation.x;
+    quat[1] = j->pose.orientation.y;
+    quat[2] = j->pose.orientation.z;
+    quat[3] = j->pose.orientation.w;
+    pos[0] = j->pose.position.x;
+    pos[1] = j->pose.position.y;
+    pos[2] = j->pose.position.z;
+    return 1;
+#else
+    (void)hand; (void)joint; (void)quat; (void)pos;
+    return 0;
+#endif
+}
+
+S32 OpenXR_HandTrackingActive(S32 hand) {
+#ifdef LBA2_OPENXR
+    return (hand >= 0 && hand < 2 && s_handJointsValid[hand]) ? 1 : 0;
+#else
+    (void)hand;
     return 0;
 #endif
 }
@@ -2450,6 +2627,71 @@ S32 OpenXR_PresentMono(void) {
         U32 j;
         for (j = 0; j < s_renderViewCount; j++) {
             s_renderViews[j] = locatedViews[j];
+        }
+    }
+
+    /* Controller grip/aim poses and optical hand joints, located with the
+       same display time and LOCAL space as the eye views so head and hands
+       stay in one frame. */
+    for (S32 h = 0; h < 2; h++) {
+        for (S32 t = 0; t < 2; t++) {
+            s_handPoseValid[h][t] = 0;
+            if (s_handSpaces[h][t] == XR_NULL_HANDLE) {
+                continue;
+            }
+            XrActionStateGetInfo gi;
+            XrActionStatePose ps;
+            memset(&gi, 0, sizeof(gi));
+            memset(&ps, 0, sizeof(ps));
+            gi.type = XR_TYPE_ACTION_STATE_GET_INFO;
+            gi.action = s_actions[15 + t * 2 + h];
+            gi.subactionPath = s_handPaths[h];
+            ps.type = XR_TYPE_ACTION_STATE_POSE;
+            if (XR_FAILED(xrGetActionStatePose(s_session, &gi, &ps)) ||
+                !ps.isActive) {
+                continue;
+            }
+            XrSpaceLocation sl;
+            memset(&sl, 0, sizeof(sl));
+            sl.type = XR_TYPE_SPACE_LOCATION;
+            if (XR_FAILED(xrLocateSpace(s_handSpaces[h][t], s_localSpace,
+                                        s_predictedDisplayTime, &sl))) {
+                continue;
+            }
+            const XrSpaceLocationFlags need =
+                XR_SPACE_LOCATION_POSITION_VALID_BIT |
+                XR_SPACE_LOCATION_ORIENTATION_VALID_BIT;
+            if ((sl.locationFlags & need) != need) {
+                continue;
+            }
+            s_handPoses[h][t] = sl.pose;
+            s_handPoseValid[h][t] = 1;
+        }
+
+        s_handJointsValid[h] = 0;
+        if (s_handTrackers[h] != XR_NULL_HANDLE &&
+            p_xrLocateHandJointsEXT != NULL) {
+            XrHandJointsLocateInfoEXT li;
+            memset(&li, 0, sizeof(li));
+            li.type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT;
+            li.baseSpace = s_localSpace;
+            li.time = s_predictedDisplayTime;
+            XrHandJointLocationsEXT locs;
+            memset(&locs, 0, sizeof(locs));
+            locs.type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT;
+            locs.jointCount = OXR_HAND_JOINT_COUNT;
+            locs.jointLocations = s_handJoints[h];
+            if (XR_SUCCEEDED(p_xrLocateHandJointsEXT(s_handTrackers[h], &li,
+                                                    &locs)) &&
+                locs.isActive) {
+                const XrSpaceLocationFlags need =
+                    XR_SPACE_LOCATION_POSITION_VALID_BIT |
+                    XR_SPACE_LOCATION_ORIENTATION_VALID_BIT;
+                if ((s_handJoints[h][OXR_HAND_JOINT_WRIST].locationFlags &
+                     need) == need) {
+                    s_handJointsValid[h] = 1;
+                }
+            }
         }
     }
     { /* TEMP diag: locate health regardless of outcome */

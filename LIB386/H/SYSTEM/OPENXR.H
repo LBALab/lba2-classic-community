@@ -45,6 +45,21 @@ float OpenXR_HeadRollDeg(void); /* head roll, degrees, + = tilt right */
  * head rotation warp-free). Returns 0 when the eye has no fresh view. */
 S32 OpenXR_GetEyeView(S32 eye, float *quat, float *pos);
 
+/* Tracked controller pose from the same one-frame-stale locate as the eye
+ * views. hand: 0 = left, 1 = right. aimOrGrip: 0 = aim, 1 = grip.
+ * quat = x,y,z,w; pos = x,y,z in LOCAL tracking space (metres).
+ * Returns 0 when that action/space is not tracked this frame. */
+S32 OpenXR_GetHandPose(S32 hand, S32 aimOrGrip, float *quat, float *pos);
+
+/* Optical hand-tracking joint pose (XR_EXT_hand_tracking). joint uses the
+ * OpenXR XrHandJointEXT order: 0 = palm, 1 = wrist. quat/pos are LOCAL-space
+ * metres. Returns 0 when optical tracking is inactive or the joint is not
+ * valid; callers fall back to OpenXR_GetHandPose(grip). */
+S32 OpenXR_GetHandJointPose(S32 hand, S32 joint, float *quat, float *pos);
+
+/* 1 when the runtime is delivering optical hand joints for this hand. */
+S32 OpenXR_HandTrackingActive(S32 hand);
+
 /* Pump OpenXR events (session state changes, loss, etc.). */
 void OpenXR_PollEvents(void);
 

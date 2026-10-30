@@ -18,6 +18,7 @@ extern "C" S32 GL_BatchFlushCount;
 #include "EXIT_SCREEN.H"
 #include "PERFTRACE.H"
 #include "TOUCH_INPUT.H"
+#include "VRBODY.H"
 #include <SYSTEM/OPENXR.H>
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/LOG.H>
@@ -1114,6 +1115,10 @@ static U8 WaitNoKey36 = FALSE;
 static S32 s_FirstPersonStickYaw = 0;
 static U32 s_FirstPersonStickTick = 0;
 
+S32 FirstPersonStickYaw(void) {
+    return s_FirstPersonStickYaw;
+}
+
 static void UpdateFirstPersonStickYaw(void) {
     const U32 now = (U32)SDL_GetTicks();
     U32 dt = now - s_FirstPersonStickTick;
@@ -1214,10 +1219,12 @@ static void UpdateFirstPersonCamera(void) {
     StartXCube = VueOffsetX / SIZE_BRICK_XZ;
     StartYCube = VueOffsetY / SIZE_BRICK_Y;
     StartZCube = VueOffsetZ / SIZE_BRICK_XZ;
-    /* Walk where you look: the hero turns to the head/camera heading while
-     * movement input is held, so "up" goes along the gaze. */
-    if (Input & (I_UP | I_DOWN))
-        ListObjet[NumObjFollow].Obj.Beta = beta;
+    /* Walk where you look: the hero turns to the head/camera heading, so
+     * "up" goes along the gaze.  This also runs while standing: the body
+     * ghost is pinned to the view, and carried sprites (the hero's hands and
+     * held items) follow Obj.Beta, so leaving it stale after a right-stick
+     * turn keeps them facing the old direction. */
+    ListObjet[NumObjFollow].Obj.Beta = beta;
 #ifdef LBA2_OPENXR
     GammaCam = gamma;
 #endif
@@ -1412,6 +1419,7 @@ static float InteriorStereoScale(void) {
    single mono frame otherwise.  Shared by MainLoop and the modal dialogue
    path so dialogue keeps the world in stereo. */
 void PERSO_RenderStereo(S32 flagflip) {
+    VrBody_Update();
 #if defined(LBA2_OPENXR) && defined(__ANDROID__)
     if (PERSO_StereoRenderActive()) {
         /* Modal dialogue renders outside MainLoop's OpenXR frame start.
@@ -1431,7 +1439,17 @@ void PERSO_RenderStereo(S32 flagflip) {
             extern S32 StereoProjShiftX;
             /* Eye separation in world units (~1.5x natural IPD at LBA2's
              * scale, for a moderate depth pop). */
-            const S32 stereoIPD = 30;
+            S32 stereoIPD = 30;
+            {
+                S32 ws = VrWorldScale;
+                if (ws < 50)
+                    ws = 50;
+                else if (ws > 200)
+                    ws = 200;
+                stereoIPD = (30 * 100) / ws;
+                if (stereoIPD < 15)
+                    stereoIPD = 15;
+            }
             const float eyeSep = stereoIPD * 0.5f;
             /* True per-eye poses: each eye renders from its tracked view —
              * the compositor time-warps each submitted image from exactly
@@ -3496,6 +3514,13 @@ void ReadConfigFile(void) {
     if (CameraFirstPerson < 0 OR CameraFirstPerson > 1)
         CameraFirstPerson = FALSE;
 
+    VrFullBody = DefFileBufferReadValueDefault("VrFullBody", 0) ? TRUE : FALSE;
+    VrWorldScale = DefFileBufferReadValueDefault("VrWorldScale", 100);
+    if (VrWorldScale < 50)
+        VrWorldScale = 50;
+    else if (VrWorldScale > 200)
+        VrWorldScale = 200;
+
     DisplayBrightness = DefFileBufferReadValueDefault("DisplayBrightness", 0);
     if (DisplayBrightness < -20)
         DisplayBrightness = -20;
@@ -3853,6 +3878,8 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("AllCameras", AllCameras);
     DefFileBufferWriteValue("FollowCamera", FollowCamera);
     DefFileBufferWriteValue("CameraFirstPerson", CameraFirstPerson);
+    DefFileBufferWriteValue("VrFullBody", VrFullBody);
+    DefFileBufferWriteValue("VrWorldScale", VrWorldScale);
     DefFileBufferWriteValue("VrFovScale", VrFovScale);
     DefFileBufferWriteValue("VrSuperSample", VrSuperSample);
     DefFileBufferWriteValue("VrInteriorHover", VrInteriorHover);

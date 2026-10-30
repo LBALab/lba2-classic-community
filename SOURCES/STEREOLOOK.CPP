@@ -26,7 +26,14 @@ static const float LOOK_RAD_TO_ENGINE = 2048.0f / 3.14159265358979f;
 /* World units per metre of tracked head motion.  The stereo IPD (30 world
    units, PERSO.CPP) is documented as ~1.5x natural IPD at LBA2's scale,
    which puts the metre at ~317 units. */
-static const float LOOK_UNITS_PER_METRE = 320.0f;
+static float LookUnitsPerMetre(void) {
+    S32 scale = VrWorldScale;
+    if (scale < 50)
+        scale = 50;
+    else if (scale > 200)
+        scale = 200;
+    return 320.0f * 100.0f / (float)scale;
+}
 
 /* The tracked translation rides on the rig position, so it is a lean, not a
    teleport: clamp each metre axis before scaling. */
@@ -76,8 +83,8 @@ void StereoLookHeadOffsetToWorld(float dxm, float dym, float dzm,
     else if (dzm < -LOOK_MAX_TRACKED_M)
         dzm = -LOOK_MAX_TRACKED_M;
 
-    fwd = -dzm * LOOK_UNITS_PER_METRE;
-    right = dxm * LOOK_UNITS_PER_METRE;
+    fwd = -dzm * LookUnitsPerMetre();
+    right = dxm * LookUnitsPerMetre();
 
     betaView &= 4095;
     a = (float)(2048 - betaView) * LOOK_ENGINE_RAD;
@@ -87,7 +94,7 @@ void StereoLookHeadOffsetToWorld(float dxm, float dym, float dzm,
        (-c, s) */
     *outX = (S32)(fwd * s - right * c);
     *outZ = (S32)(fwd * c + right * s);
-    *outY = (S32)(dym * LOOK_UNITS_PER_METRE);
+    *outY = (S32)(dym * LookUnitsPerMetre());
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/

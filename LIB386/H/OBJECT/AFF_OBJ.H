@@ -137,6 +137,8 @@ typedef struct {
 
 // -----------------------------------------------------------------------------
 extern U8 *ObjPtrMap; // Ptr on the current texture page
+/* Optional render-time mask of body groups to skip (first-person head). */
+extern U32 ObjHiddenGroupMask;
 extern T_OBJ_POINT Obj_ListRotatedPoints[];
 
 extern Func_TransNumPtr *TransFctBody; // Pointer to a conversion fct that converts a body number into its address

@@ -37,6 +37,16 @@
          the OpenXR passthrough extensions are only advertised to apps that
          declare the feature. Every supported headset can do passthrough. -->
     <uses-feature android:name="com.oculus.feature.PASSTHROUGH" android:required="true" />
+    <!-- Optional optical hand tracking for the first-person body.  The app
+         falls back to controller grip poses, so neither is required. -->
+    <uses-permission android:name="com.oculus.permission.HAND_TRACKING" />
+    <uses-permission android:name="horizonos.permission.HAND_TRACKING" />
+    <!-- Horizon OS looks for the software feature under both the older
+         com.oculus name and the VrApi-era oculus.software name; declaring
+         both keeps the runtime from leaving the app in ControllersOnly. -->
+    <uses-feature android:name="com.oculus.handtracking" android:required="false" />
+    <uses-feature android:name="oculus.software.handtracking" android:required="false" />
+    <uses-feature android:name="com.oculus.handtracking.frequency" android:required="false" />
 
     <!-- Optional / non-VR features inherited from the generic manifest. -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -59,6 +69,8 @@
              covers every shipping headset. -->
         <meta-data android:name="com.oculus.supportedDevices"
             android:value="quest2|questpro|quest3|quest3s" />
+        <meta-data android:name="com.oculus.handtracking.frequency"
+            android:value="LOW" />
 
         <activity android:name="org.libsdl.app.SDLActivity"
             android:configChanges="keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode"

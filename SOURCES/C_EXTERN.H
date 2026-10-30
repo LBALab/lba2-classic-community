@@ -235,6 +235,13 @@ extern S32 Planet;
 extern S32 AllCameras;
 extern S32 FollowCamera;
 extern S32 CameraFirstPerson;
+#ifdef LBA2_OPENXR
+/* Accumulated right-stick yaw for first-person stereo, in engine angles. */
+S32 FirstPersonStickYaw(void);
+#endif
+extern S32 VrFullBody;   ///< 1 = first-person stereo body + hand IK
+extern S32 VrWorldScale; ///< world scale percent, 50..200, 100 = current
+extern S32 VrBodyHideGroups; ///< explicit body-group hide mask, -1 = per body
 extern S32 StereoHeadLookActive(void);
 extern void StereoLookShiftAnchorPitch(S32 dAlpha);
 /* Quest-stereo head-look camera math (STEREOLOOK.CPP) */

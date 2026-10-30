@@ -101,6 +101,9 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_VRSUPERSAMPLE 2135 /* Quest SSAA: off / 1.25x / 1.5x */
 #define MENU_ID_DISPLAY_VRHOVER 2138      /* Quest interiors: head-tracked hover camera */
 #define MENU_ID_DISPLAY_VRPASSTHROUGH 2139 /* Quest interiors: black background shows passthrough */
+#define MENU_ID_DISPLAY_VRBODY 2140        /* Quest: first-person body / hands page */
+#define MENU_ID_DISPLAY_VRFULLBODY 2141    /* Quest: enable full-body hand IK */
+#define MENU_ID_DISPLAY_VRWORLDSCALE 2142  /* Quest: world scale percent */
 #endif
 #define MENU_ID_DISPLAY_ANTIALIAS 2123
 #define MENU_ID_DISPLAY_BRIGHTNESS 2125
@@ -217,7 +220,8 @@ U16 DisplayMenu[4 + 6 * 2] = {
 #ifdef USE_GPURENDERER
 static U16 DisplayGraphicsMenu[4 + 6 * 2];
 static U16 DisplayImageMenu[4 + 4 * 2];
-static U16 DisplayVrMenu[4 + 6 * 2];
+static U16 DisplayVrMenu[4 + 8 * 2];
+static U16 DisplayVrBodyMenu[4 + 3 * 2];
 #endif
 static U16 DisplayWindowMenu[4 + 3 * 2];
 
@@ -311,11 +315,27 @@ static void BuildDisplayVrMenu(void) {
     *p++ = MENU_ID_DISPLAY_VRSUPERSAMPLE;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_VRHOVER;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_VRBODY;
     if (OpenXR_PassthroughSupported()) {
         *p++ = 0;
         *p++ = MENU_ID_DISPLAY_VRPASSTHROUGH;
     }
     DisplayVrMenu[1] = (U16)((p - DisplayVrMenu - 4) / 2);
+}
+
+static void BuildDisplayVrBodyMenu(void) {
+    U16 *p = DisplayVrBodyMenu + 4;
+    DisplayVrBodyMenu[0] = 0;
+    DisplayVrBodyMenu[2] = 260;
+    DisplayVrBodyMenu[3] = 0;
+    *p++ = 0;
+    *p++ = 26;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_VRFULLBODY;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_VRWORLDSCALE;
+    DisplayVrBodyMenu[1] = (U16)((p - DisplayVrBodyMenu - 4) / 2);
 }
 #endif
 
@@ -749,6 +769,19 @@ static void BuildCustomMenuText(S32 num, char *string) {
     case MENU_ID_DISPLAY_VRPASSTHROUGH:
         snprintf(string, 256, "Passthrough: %s",
                  VrPassthrough ? "On" : "Off");
+        break;
+
+    case MENU_ID_DISPLAY_VRBODY:
+        snprintf(string, 256, "Body / hands");
+        break;
+
+    case MENU_ID_DISPLAY_VRFULLBODY:
+        snprintf(string, 256, "Full body: %s",
+                 VrFullBody ? "On" : "Off");
+        break;
+
+    case MENU_ID_DISPLAY_VRWORLDSCALE:
+        snprintf(string, 256, "World scale: %d%%", VrWorldScale);
         break;
 
     case MENU_ID_DISPLAY_QUALITY:
@@ -3805,6 +3838,18 @@ static void DisplayMenuApplyChoice(S32 select) {
         WriteConfigFile();
         break;
 
+    case MENU_ID_DISPLAY_VRFULLBODY:
+        VrFullBody ^= 1;
+        WriteConfigFile();
+        break;
+
+    case MENU_ID_DISPLAY_VRWORLDSCALE:
+        VrWorldScale += 10;
+        if (VrWorldScale > 200)
+            VrWorldScale = 50;
+        WriteConfigFile();
+        break;
+
 #ifndef __ANDROID__
     case MENU_ID_DISPLAY_QUALITY:
         if (RenderQuality < 4)
@@ -3853,9 +3898,27 @@ static void GereDisplayImageMenu(void) {
     GereDisplaySubMenu(DisplayImageMenu);
 }
 
+static void GereDisplayVrBodyMenu(void) {
+    BuildDisplayVrBodyMenu();
+    GereDisplaySubMenu(DisplayVrBodyMenu);
+}
+
 static void GereDisplayVrMenu(void) {
     BuildDisplayVrMenu();
-    GereDisplaySubMenu(DisplayVrMenu);
+    DisplayMenuResetBackdrop();
+    for (;;) {
+        S32 select = DoGameMenu(DisplayVrMenu);
+        if (select == 26 || select == 1000)
+            break;
+        if (select == MENU_ID_DISPLAY_VRBODY) {
+            GereDisplayVrBodyMenu();
+            DisplayMenuResetBackdrop();
+        } else {
+            DisplayMenuApplyChoice(select);
+        }
+    }
+    DisplayMenuResetBackdrop();
+    WaitNoInput();
 }
 #endif
 

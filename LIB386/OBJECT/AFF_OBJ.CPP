@@ -46,6 +46,9 @@ TYPE_PT Obj_ListProjectedPoints[MAX_NB_POINTS];
 
 U8 *ObjPtrMap = 0;    // Ptr of the texture page for the current object
 U32 *PtrTextures = 0; // Ptr of texture handles
+/* Optional render-time group mask for the first-person body ghost.  Zero
+   keeps the normal body path byte-identical. */
+U32 ObjHiddenGroupMask = 0;
 
 // Ptr of the object
 T_BODY_HEADER *lBody = NULL;
@@ -1464,12 +1467,24 @@ S16 TestZFar3(STRUC_POLY3_ENV *poly) {
     return zFar;
 }
 
+static S32 HiddenPolyPoint(U16 index) {
+    if (!ObjHiddenGroupMask) {
+        return 0;
+    }
+    const T_OBJ_POINT *p =
+        (const T_OBJ_POINT *)((const U8 *)lBody + lBody->OffPoints) + index;
+    return (ObjHiddenGroupMask & (1u << p->Group)) != 0;
+}
+
 void InsertTriangle(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset) {
     for (int i = 0; i < header->NbPoly; i++) {
         // @@Do_Triangle:
         STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)*poly;
 
-        if (DecorVBOActive || TestVisible(poly3)) {
+        if (HiddenPolyPoint(poly3->P1) && HiddenPolyPoint(poly3->P2) &&
+            HiddenPolyPoint(poly3->P3)) {
+            /* Whole triangle in a hidden group (first-person head). */
+        } else if (DecorVBOActive || TestVisible(poly3)) {
             U32 zFar = TestZFar3(poly3);
 
             // | ZFar | Poly Number |
@@ -1505,10 +1520,12 @@ void InsertQuad(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset) {
     for (int i = 0; i < header->NbPoly; i++) {
         // @@Do_Quad:
         STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)*poly;
+        STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)*poly;
 
-        if (DecorVBOActive || TestVisible(poly3)) {
-            STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)*poly;
-
+        if (HiddenPolyPoint(poly3->P1) && HiddenPolyPoint(poly3->P2) &&
+            HiddenPolyPoint(poly3->P3) && HiddenPolyPoint(poly4->P4)) {
+            /* Whole quad in a hidden group (first-person head). */
+        } else if (DecorVBOActive || TestVisible(poly3)) {
             S16 zFar = TestZFar4(poly3);
 
             TYPE_PT p4 = Obj_ListProjectedPoints[poly4->P4];
@@ -1599,6 +1616,11 @@ S32 EntityCreation(T_BODY_HEADER *body) {
 
         for (int i = 0; i < body->NbLines; ++i) {
             // @@Loop_Lines:
+            if (HiddenPolyPoint(line->P1) && HiddenPolyPoint(line->P2)) {
+                line++;
+                bodyOffset += sizeof(T_OBJ_LINE);
+                continue;
+            }
             T_OBJ_POINT p1 = Obj_ListRotatedPoints[line->P1];
             T_OBJ_POINT p2 = Obj_ListRotatedPoints[line->P2];
             S16 minZ = p1.Z;
@@ -1631,6 +1653,11 @@ S32 EntityCreation(T_BODY_HEADER *body) {
 
         for (int i = 0; i < body->NbSpheres; ++i) {
             // @@Loop_Spheres:
+            if (HiddenPolyPoint(sphere->P1)) {
+                sphere++;
+                bodyOffset += sizeof(T_OBJ_SPHERE);
+                continue;
+            }
             S16 zFar = Obj_ListRotatedPoints[sphere->P1].Z;
             // | ZFar | Poly Number |
             Off_Sort[0] = (zFar << 16) | Nb_Sort;
