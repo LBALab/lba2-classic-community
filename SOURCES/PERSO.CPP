@@ -1467,6 +1467,24 @@ void PERSO_RenderStereo(S32 flagflip) {
                            CubeMode == CUBE_EXTERIEUR AND haveViews;
             S32 lookPose = !CameraFirstPerson AND
                            CubeMode == CUBE_EXTERIEUR AND haveViews;
+            /* OpenXR eye views are parallel on every runtime this ships on:
+               the two poses share one orientation and differ only by the IPD
+               translation.  When that holds, the per-eye difference IS a pure
+               translation, so the single-pass stereo path can render both
+               eyes from one scene pass.  First person used to fall back to
+               the two-pass renderer for every runtime, doubling the scene
+               cost for no stereo benefit.  A runtime that toes the eyes in
+               (quaternion difference above ~0.8 degrees) keeps two passes. */
+            S32 eyesParallel = 0;
+            if (haveViews) {
+                float qd = eyeQ[0][0] * eyeQ[1][0] +
+                           eyeQ[0][1] * eyeQ[1][1] +
+                           eyeQ[0][2] * eyeQ[1][2] +
+                           eyeQ[0][3] * eyeQ[1][3];
+                if (qd < 0.0f)
+                    qd = -qd;
+                eyesParallel = (qd > 0.9999f);
+            }
             float lookYawOff = 0.0f;
             float lookPitchOff = 0.0f;
             /* Head-centre tracked position: mid of the two eye views, metres
@@ -1663,8 +1681,9 @@ void PERSO_RenderStereo(S32 flagflip) {
                 }
                 if (pass == 1) {
                     /* A tracked per-eye orientation is not a pure
-                       translation; keep the two-pass renderer there. */
-                    if (eye1Captured && !truePose &&
+                       translation; two passes are only needed when the eye
+                       quaternions actually differ. */
+                    if (eye1Captured && (!truePose || eyesParallel) &&
                         GL_SinglePassStereoSupported()) {
                         const float e0x =
                             (float)StereoCamShiftX + StereoCamOffsetX;
@@ -1682,11 +1701,18 @@ void PERSO_RenderStereo(S32 flagflip) {
                             (CubeMode == CUBE_INTERIEUR)
                                 ? InteriorStereoScale()
                                 : 1.0f;
+                        /* The single-pass shader maps the content into one
+                           half with cx*0.5, which also halves the parallax.
+                           First person needs the full tracked IPD, so its
+                           delta is doubled here and the half-mapping cancels
+                           it; classic/auto keep their subtler stereo. */
+                        const float fpEyeScale = truePose ? 2.0f : 1.0f;
                         GL_SetSinglePassEyeDelta(
-                            (eye1ShiftX - e0x) * depthScale,
-                            (eye1ShiftY - e0y) * depthScale,
-                            (eye1ShiftZ - e0z) * depthScale,
-                            (eye1ProjX - (float)StereoProjShiftX) * depthScale,
+                            (eye1ShiftX - e0x) * depthScale * fpEyeScale,
+                            (eye1ShiftY - e0y) * depthScale * fpEyeScale,
+                            (eye1ShiftZ - e0z) * depthScale * fpEyeScale,
+                            (eye1ProjX - (float)StereoProjShiftX) *
+                                depthScale * fpEyeScale,
                             0.0f);
                         GL_SetSinglePassStereo(1);
                     } else {

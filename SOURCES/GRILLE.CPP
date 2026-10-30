@@ -72,6 +72,10 @@ typedef struct {
 } T_BRICK_GL_CACHE;
 static T_BRICK_GL_CACHE BrickGLCache[BRICK_GL_CACHE_SIZE];
 static S32 BrickGLCacheNext = 0;
+/* Bricks in the loaded BKG bank.  A stale foreground-brick record (an object
+   overlay carried across a cube change) can name an index past the end of
+   BufferBrick's offset table; the decode then reads a garbage pointer. */
+static S32 s_brickBankCount = 0;
 
 static void ClearBrickGLCache(void) {
     for (S32 i = 0; i < BRICK_GL_CACHE_SIZE; i++) {
@@ -148,7 +152,7 @@ static const U8 *DecodeBrickGL(const U8 *src, S32 *outW, S32 *outH,
     return raw;
 }
 static void DrawBrickGL(S32 brick, S32 x, S32 y) {
-    if (BufferBrick == NULL || brick < 0)
+    if (BufferBrick == NULL || brick < 0 || brick >= s_brickBankCount)
         return;
     U8 *src = BufferBrick + ((U32 *)BufferBrick)[brick];
     S32 w, h, hotX, hotY;
@@ -720,6 +724,9 @@ static void OverlayBegin(void) {
    opaque texels into the patch. */
 static void OverlayMark(T_COLONB *ptrlbc) {
     if (s_overlaySkipPass)
+        return;
+    if (BufferBrick == NULL || ptrlbc->Brick < 0 ||
+        ptrlbc->Brick >= s_brickBankCount)
         return;
     if (!s_overlayActive) {
         DrawBrickOverlayFallback(ptrlbc);
@@ -1495,6 +1502,7 @@ void InitBufferCube() {
 
     //	pas de RECOVER_AREA car BkgHeader en stored et pas en LZSS
     Load_HQR(tmpFilePath, &BkgHeader, 0); // HEADER
+    s_brickBankCount = (S32)BkgHeader.Max_Brk;
 
     // 	pas de RECOVER_AREA car TabAllCube en stored et pas en LZSS
     Load_HQR(tmpFilePath, (void *)TabAllCube, BkgHeader.Brk_Start + BkgHeader.Max_Brk);
