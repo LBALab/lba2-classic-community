@@ -244,6 +244,11 @@ S32 LoadCube(S32 x, S32 y) {
 
     MapIntensity = (U8 *)HQR_Get(HQR_MapIntensity, index + HQR_CUBE_LUM);
 
+    /* LoadCube also runs for off-screen horizon candidates, so this covers
+       decors the camera has not pointed at yet.  The call is a no-op once
+       the cube's list has been seen. */
+    GPU_DecorWarmCube(x, y, ListDecors, NbObjDecors);
+
     return TRUE;
 }
 

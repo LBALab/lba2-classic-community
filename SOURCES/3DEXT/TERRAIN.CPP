@@ -1470,41 +1470,80 @@ static void GPU_TerrainRecordTile(S32 xi, S32 zi) {
     s_gpuTerrainRecordOnly = 0;
 }
 
-static S32 GPU_TerrainDrawLoadedCube(S32 x, S32 y) {
+/* Find, or build and cache, one cube's static terrain.  Draw and warm-up
+   share it so the build code exists once. */
+static T_GPU_TERRAIN_CACHE *GPU_TerrainEnsureLoadedCube(S32 x, S32 y) {
     const U32 epoch = GL_TerrainVBOEpoch();
     T_GPU_TERRAIN_CACHE *e = GPU_TerrainCacheFind(x, y, epoch);
-    if (e == NULL) {
-        e = GPU_TerrainCacheAlloc(x, y, epoch);
-        if (e == NULL) {
-            return 0;
-        }
-
-        T_GL_TerrainVertex *verts = NULL;
-        U16 *ani = NULL;
-        U16 aniCount = 0;
-        U32 count = 0;
-        const S32 ok = GPU_TerrainBuild(x, y, &verts, &count, &ani, &aniCount);
-        if (ok < 0) {
-            /* Out of memory: do not cache a failure, retry next frame. */
-            GPU_TerrainCacheDrop(e, epoch);
-            return 0;
-        }
-        e->eligible = (U8)ok;
-        e->vertexCount = count;
-        e->aniTiles = ani;
-        e->aniCount = aniCount;
-        if (ok && count) {
-            e->vbo = GL_CreateTerrainVBO(verts, count);
-            if (e->vbo == 0) {
-                free(verts);
-                GPU_TerrainCacheDrop(e, epoch);
-                return 0;
-            }
-        }
-        free(verts);
+    if (e != NULL) {
+        e->lastUse = ++s_gpuTerrainUseSeq;
+        return e;
     }
 
+    e = GPU_TerrainCacheAlloc(x, y, epoch);
+    if (e == NULL) {
+        return NULL;
+    }
+
+    T_GL_TerrainVertex *verts = NULL;
+    U16 *ani = NULL;
+    U16 aniCount = 0;
+    U32 count = 0;
+    const S32 ok = GPU_TerrainBuild(x, y, &verts, &count, &ani, &aniCount);
+    if (ok < 0) {
+        /* Out of memory: do not cache a failure, retry next frame. */
+        GPU_TerrainCacheDrop(e, epoch);
+        return NULL;
+    }
+    e->eligible = (U8)ok;
+    e->vertexCount = count;
+    e->aniTiles = ani;
+    e->aniCount = aniCount;
+    if (ok && count) {
+        e->vbo = GL_CreateTerrainVBO(verts, count);
+        if (e->vbo == 0) {
+            free(verts);
+            GPU_TerrainCacheDrop(e, epoch);
+            return NULL;
+        }
+    }
+    free(verts);
     e->lastUse = ++s_gpuTerrainUseSeq;
+    Log_Debug("[Terrain] VBO built cube %d,%d verts=%u", (int)x, (int)y,
+              (unsigned)count);
+    return e;
+}
+
+/* Build one off-screen candidate cube's VBO per frame.  The horizon walk
+   already LoadCube()s every neighbour, so the data is in place; doing the
+   build here keeps the frame that first points at the cube from paying for
+   the whole 65x65 upload. */
+static void GPU_TerrainPrewarmLoadedCube(S32 x, S32 y) {
+    if (!GL_TerrainGPUActive()) {
+        return;
+    }
+    if (GPU_TerrainCacheFind(x, y, GL_TerrainVBOEpoch()) != NULL) {
+        return;
+    }
+
+    static U32 s_prewarmFrame = 0;
+    static S32 s_prewarmFrameValid = 0;
+    const U32 frame = GL_GetFrameSeq();
+    if (s_prewarmFrameValid && s_prewarmFrame == frame) {
+        return;
+    }
+    s_prewarmFrameValid = 1;
+    s_prewarmFrame = frame;
+
+    GPU_TerrainEnsureLoadedCube(x, y);
+}
+
+static S32 GPU_TerrainDrawLoadedCube(S32 x, S32 y) {
+    T_GPU_TERRAIN_CACHE *e = GPU_TerrainEnsureLoadedCube(x, y);
+    if (e == NULL) {
+        return 0;
+    }
+
     if (!e->eligible) {
         return 0;
     }
@@ -1628,6 +1667,11 @@ void DrawHorizon2ZBuf() {
                             s_gpuTerrainCube = 0;
 #endif
                         }
+#ifdef USE_GPURENDERER
+                        else if (GL_GetStereoEye() <= 0) {
+                            GPU_TerrainPrewarmLoadedCube(x, y);
+                        }
+#endif
                         flag = TRUE;
                     } else {
                         DrawOneSea(Y_SEA);

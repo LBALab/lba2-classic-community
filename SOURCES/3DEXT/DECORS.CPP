@@ -7,6 +7,8 @@
 
 #include <GL/RENDER_GL.H> /* GL_ArrayWindowBegin/End */
 
+#include <SDL3/SDL.h> /* SDL_GetPerformanceCounter (warm-up budget) */
+
 /* Eye-1 decor reuse: the pass runs once per loaded cube (the current cube
    plus up to eight horizon cubes), so keep one screen-list snapshot per cube
    for the current stereo pair.  The pair sequence keeps a snapshot from being
@@ -295,6 +297,27 @@ void AffichageObjetDecorsZV(void) {
 #define GPU_DECOR_CACHE_SIZE 64
 #define GPU_DECOR_MAX_GROUPS 32
 
+/* Warm-up: a decor whose body has never been drawn still costs a body
+   decode and a VBO build in the frame it first becomes visible.  With a
+   tracked view that frame arrives when the player turns, so the cost lands
+   as a visible hitch instead of being spread over the idle frames before
+   it.  Cubes enqueue their decor list when LoadCube() first sees it; the
+   step below turns that list into cached bodies/VBOs a few at a time. */
+#define GPU_DECOR_WARM_CUBES 32
+#define GPU_DECOR_WARM_QUEUE 512
+#define GPU_DECOR_WARM_PER_FRAME 4
+#define GPU_DECOR_WARM_BUDGET_US 500
+
+typedef struct {
+    S32 x, y;
+    const void *list;
+} T_GPU_DECOR_WARM_CUBE;
+
+typedef struct {
+    U16 body;
+    U16 beta;
+} T_GPU_DECOR_WARM_ITEM;
+
 typedef struct {
     U32 vbo;
     U32 vertexCount;
@@ -304,6 +327,10 @@ typedef struct {
 
 typedef struct {
     const void *body;
+    /* The HQR index is the stable key: HQR_Get() may evict a block and
+       reuse its address for a different body, while an index keeps its
+       meaning for the whole island. */
+    S32 bodyIndex;
     U16 beta;
     U32 epoch;
     U32 lastUse;
@@ -315,6 +342,16 @@ typedef struct {
 
 static T_GPU_DECOR s_gpuDecor[GPU_DECOR_CACHE_SIZE];
 static U32 s_gpuDecorUseSeq = 0;
+
+static T_GPU_DECOR_WARM_CUBE s_gpuDecorWarmCubes[GPU_DECOR_WARM_CUBES];
+static T_GPU_DECOR_WARM_ITEM s_gpuDecorWarmQueue[GPU_DECOR_WARM_QUEUE];
+static U32 s_gpuDecorWarmHead = 0;
+static U32 s_gpuDecorWarmTail = 0;
+static U32 s_gpuDecorWarmCount = 0;
+static U32 s_gpuDecorWarmFrame = 0;
+static S32 s_gpuDecorWarmFrameValid = 0;
+static U32 s_gpuDecorColdBuilds = 0;
+static U32 s_gpuDecorWarmBuilds = 0;
 
 static void GPU_DecorClearGroups(T_GPU_DECOR *e) {
     for (U16 i = 0; i < e->groupCount; i++) {
@@ -334,10 +371,23 @@ static void GPU_DecorDrop(T_GPU_DECOR *e, U32 epoch) {
         e->groupCount = 0;
     }
     e->body = NULL;
+    e->bodyIndex = -1;
     e->epoch = 0;
     e->lastUse = 0;
     e->valid = 0;
     e->eligible = 0;
+}
+
+static void GPU_DecorWarmReset(void) {
+    for (S32 i = 0; i < GPU_DECOR_WARM_CUBES; i++) {
+        s_gpuDecorWarmCubes[i].x = -1;
+        s_gpuDecorWarmCubes[i].y = -1;
+        s_gpuDecorWarmCubes[i].list = NULL;
+    }
+    s_gpuDecorWarmHead = 0;
+    s_gpuDecorWarmTail = 0;
+    s_gpuDecorWarmCount = 0;
+    s_gpuDecorWarmFrameValid = 0;
 }
 
 void GPU_Decor_InvalidateAll(void) {
@@ -345,9 +395,10 @@ void GPU_Decor_InvalidateAll(void) {
     for (S32 i = 0; i < GPU_DECOR_CACHE_SIZE; i++) {
         GPU_DecorDrop(&s_gpuDecor[i], epoch);
     }
+    GPU_DecorWarmReset();
 }
 
-static T_GPU_DECOR *GPU_DecorFind(const void *body, U16 beta, U32 epoch) {
+static T_GPU_DECOR *GPU_DecorFind(S32 bodyIndex, U16 beta, U32 epoch) {
     for (S32 i = 0; i < GPU_DECOR_CACHE_SIZE; i++) {
         T_GPU_DECOR *e = &s_gpuDecor[i];
         if (!e->valid) {
@@ -357,14 +408,15 @@ static T_GPU_DECOR *GPU_DecorFind(const void *body, U16 beta, U32 epoch) {
             GPU_DecorDrop(e, epoch);
             continue;
         }
-        if (e->body == body && e->beta == beta) {
+        if (e->bodyIndex == bodyIndex && e->beta == beta) {
             return e;
         }
     }
     return NULL;
 }
 
-static T_GPU_DECOR *GPU_DecorAlloc(const void *body, U16 beta, U32 epoch) {
+static T_GPU_DECOR *GPU_DecorAlloc(const void *body, S32 bodyIndex, U16 beta,
+                                   U32 epoch) {
     T_GPU_DECOR *e = NULL;
     for (S32 i = 0; i < GPU_DECOR_CACHE_SIZE; i++) {
         if (!s_gpuDecor[i].valid) {
@@ -382,13 +434,15 @@ static T_GPU_DECOR *GPU_DecorAlloc(const void *body, U16 beta, U32 epoch) {
     }
     GPU_DecorDrop(e, epoch);
     e->body = body;
+    e->bodyIndex = bodyIndex;
     e->beta = beta;
     e->epoch = epoch;
+    e->lastUse = ++s_gpuDecorUseSeq;
     e->valid = 1;
     return e;
 }
 
-static S32 GPU_DecorBuild(T_GPU_DECOR *e) {
+static S32 GPU_DecorBuild(T_GPU_DECOR *e, S32 warm) {
     T_DECORVBO_VERT *capture = NULL;
     U32 captureCount = 0;
     if (!DecorVBORecord((void *)e->body, &capture, &captureCount)) {
@@ -528,7 +582,121 @@ static S32 GPU_DecorBuild(T_GPU_DECOR *e) {
         return 0;
     }
     e->eligible = 1;
+    if (warm) {
+        s_gpuDecorWarmBuilds++;
+    } else {
+        s_gpuDecorColdBuilds++;
+    }
     return 1;
+}
+
+/* Enqueue every decor in a cube's list.  LoadCube() calls this the first
+   time it sees a list, including for horizon cubes that are currently
+   off-screen, so a turn later does not have to decode their bodies and
+   build their VBOs in the frame they appear. */
+void GPU_DecorWarmCube(S32 x, S32 y, const void *list, S32 count) {
+    if (!GL_DecorGPUActive() || list == NULL || count <= 0) {
+        return;
+    }
+
+    static S32 s_disabled = -1;
+    if (s_disabled < 0) {
+        s_disabled = getenv("LBA2_NO_DECOR_WARM") ? 1 : 0;
+    }
+    if (s_disabled) {
+        return;
+    }
+
+    S32 slot = -1;
+    for (S32 i = 0; i < GPU_DECOR_WARM_CUBES; i++) {
+        T_GPU_DECOR_WARM_CUBE *c = &s_gpuDecorWarmCubes[i];
+        if (c->list == list && c->x == x && c->y == y) {
+            return;
+        }
+        if (slot < 0 && c->list == NULL) {
+            slot = i;
+        }
+    }
+    if (slot < 0) {
+        /* Keep the most recently seen cubes; a cube that drops out is
+           re-enqueued if it returns with a different list. */
+        slot = (S32)((U32)y * 16u + (U32)x) % GPU_DECOR_WARM_CUBES;
+    }
+    s_gpuDecorWarmCubes[slot].x = x;
+    s_gpuDecorWarmCubes[slot].y = y;
+    s_gpuDecorWarmCubes[slot].list = list;
+
+    const T_DECORS *decors = (const T_DECORS *)list;
+    for (S32 i = 0; i < count; i++) {
+        const U16 body = (U16)(decors[i].Body & 0xFFFF);
+        const U16 beta = (U16)(decors[i].Beta & 0xFFFF);
+
+        S32 queued = 0;
+        for (U32 q = 0; q < s_gpuDecorWarmCount; q++) {
+            const U32 idx =
+                (s_gpuDecorWarmHead + q) % GPU_DECOR_WARM_QUEUE;
+            if (s_gpuDecorWarmQueue[idx].body == body &&
+                s_gpuDecorWarmQueue[idx].beta == beta) {
+                queued = 1;
+                break;
+            }
+        }
+        if (queued) {
+            continue;
+        }
+        if (s_gpuDecorWarmCount >= GPU_DECOR_WARM_QUEUE) {
+            break;
+        }
+        s_gpuDecorWarmQueue[s_gpuDecorWarmTail].body = body;
+        s_gpuDecorWarmQueue[s_gpuDecorWarmTail].beta = beta;
+        s_gpuDecorWarmTail = (s_gpuDecorWarmTail + 1) % GPU_DECOR_WARM_QUEUE;
+        s_gpuDecorWarmCount++;
+    }
+}
+
+/* Turn queued decors into cached bodies and VBOs inside a small per-frame
+   budget.  Visible decors still build on demand; this only moves the work
+   for objects that are not on screen yet off the frame they appear. */
+void GPU_DecorWarmStep(void) {
+    if (!GL_DecorGPUActive() || s_gpuDecorWarmCount == 0) {
+        return;
+    }
+
+    const U32 frame = GL_GetFrameSeq();
+    if (s_gpuDecorWarmFrameValid && s_gpuDecorWarmFrame == frame) {
+        return;
+    }
+    s_gpuDecorWarmFrameValid = 1;
+    s_gpuDecorWarmFrame = frame;
+
+    const U32 epoch = GL_DecorVBOEpoch();
+    const U64 budget = (SDL_GetPerformanceFrequency() * GPU_DECOR_WARM_BUDGET_US) / 1000000ULL;
+    const U64 start = SDL_GetPerformanceCounter();
+    U32 built = 0;
+
+    while (s_gpuDecorWarmCount > 0 && built < GPU_DECOR_WARM_PER_FRAME) {
+        const T_GPU_DECOR_WARM_ITEM item =
+            s_gpuDecorWarmQueue[s_gpuDecorWarmHead];
+        s_gpuDecorWarmHead = (s_gpuDecorWarmHead + 1) % GPU_DECOR_WARM_QUEUE;
+        s_gpuDecorWarmCount--;
+
+        const void *body = HQR_Get(HQR_Isle_Obj, item.body);
+        if (body == NULL) {
+            continue;
+        }
+        if (GPU_DecorFind(item.body, item.beta, epoch) != NULL) {
+            continue;
+        }
+        T_GPU_DECOR *e = GPU_DecorAlloc(body, item.body, item.beta, epoch);
+        if (e == NULL) {
+            continue;
+        }
+        GPU_DecorBuild(e, 1);
+        built++;
+        if (SDL_GetPerformanceCounter() - start >= budget) {
+            break;
+        }
+    }
 }
 
 /* Draw one static decor.  Returns 1 when the VBO handled it, 0 to let the
@@ -537,16 +705,17 @@ static S32 GPU_DecorDraw(T_DECORS *ptrobj, S32 fogRow) {
     if (!GL_DecorGPUActive()) {
         return 0;
     }
-    const void *body = HQR_Get(HQR_Isle_Obj, ptrobj->Body & 0xFFFF);
+    const S32 bodyIndex = ptrobj->Body & 0xFFFF;
+    const void *body = HQR_Get(HQR_Isle_Obj, bodyIndex);
     const U16 beta = (U16)(ptrobj->Beta & 0xFFFF);
     const U32 epoch = GL_DecorVBOEpoch();
-    T_GPU_DECOR *e = GPU_DecorFind(body, beta, epoch);
+    T_GPU_DECOR *e = GPU_DecorFind(bodyIndex, beta, epoch);
     if (e == NULL) {
-        e = GPU_DecorAlloc(body, beta, epoch);
+        e = GPU_DecorAlloc(body, bodyIndex, beta, epoch);
         if (e == NULL) {
             return 0;
         }
-        GPU_DecorBuild(e);
+        GPU_DecorBuild(e, 0);
     }
     if (!e->eligible || e->groupCount == 0) {
         return 0;
@@ -573,17 +742,18 @@ void AffichageObjetDecorsZBuf(void) {
     S32 numvar;
     S32 zr;
 
-    /* The decor VBO cache belongs to the current cube; dropping it on a cube
-       change also releases the texture-array layers it pinned. */
-    static S32 s_gpuDecorCubeX = 0x7FFFFFFF;
-    static S32 s_gpuDecorCubeY = 0x7FFFFFFF;
-    if (s_gpuDecorCubeX != CurrentCubeX || s_gpuDecorCubeY != CurrentCubeY) {
-        GPU_Decor_InvalidateAll();
-        s_gpuDecorCubeX = CurrentCubeX;
-        s_gpuDecorCubeY = CurrentCubeY;
-    }
-
     ObjPtrMap = ObjTexture; // texture obj
+
+#ifdef USE_GPURENDERER
+    /* The VBO survives a cube change: it is a copy of the body in model
+       space, keyed by HQR index, and the island HQR is what a cube change
+       can replace (LoadIsland/InitSeaCube invalidate).  Warming a few
+       queued decors here keeps the frames before they become visible
+       cheap. */
+    if (GL_GetStereoEye() <= 0) {
+        GPU_DecorWarmStep();
+    }
+#endif
 
 #ifdef USE_GPURENDERER
     /* Decor polys bin into the shared texture array (see RENDER_GL.CPP):
@@ -603,6 +773,13 @@ void AffichageObjetDecorsZBuf(void) {
     const U32 decorPairSeq = GL_GetStereoFrameSeq();
     S32 decorCubeX, decorCubeY;
     GPU_TerrainDecorCube(&decorCubeX, &decorCubeY);
+#ifdef USE_GPURENDERER
+    /* Belt-and-braces for a cube LoadCube() saw before the decor program
+       existed: this pass knows the exact cube these globals belong to. */
+    if (stereoEye <= 0) {
+        GPU_DecorWarmCube(decorCubeX, decorCubeY, ListDecors, NbObjDecors);
+    }
+#endif
     S32 reuseDecorList = 0;
     if (stereoEye == 1 && decorCubeX >= 0 && decorCubeX < 16 &&
         decorCubeY >= 0 && decorCubeY < 16) {
@@ -860,8 +1037,12 @@ void AffichageObjetDecorsZBuf(void) {
         static U32 s_decCensusFrame = 0;
         s_decCensusFrame++;
         if (s_decCensusFrame % 300 == 150) {
-            Log_Info("DecorsPerf: total=%d screened=%d cullable=%d",
-                     (S32)NbObjDecors, (S32)NbObjScreen, culled4);
+            Log_Info("DecorsPerf: total=%d screened=%d cullable=%d "
+                     "cold=%u warm=%u",
+                     (S32)NbObjDecors, (S32)NbObjScreen, culled4,
+                     s_gpuDecorColdBuilds, s_gpuDecorWarmBuilds);
+            s_gpuDecorColdBuilds = 0;
+            s_gpuDecorWarmBuilds = 0;
         }
     }
 }

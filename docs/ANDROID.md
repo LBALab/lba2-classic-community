@@ -316,6 +316,8 @@ projected on the CPU into `PtrAniPoly` so the animated-poly pass keeps
 working. Cube VBOs are cached by `(x, y)` with LRU eviction and dropped when
 `LoadIsland()` or `InitSeaCube()` replaces the per-cube HQR data. The cache
 also drops stale handles after a renderer restart without deleting them.
+One off-screen candidate cube is built per frame, so the frame that first
+turns toward a neighbour does not pay for its whole 65×65 upload.
 
 The path is enabled only while a stereo eye is active, so desktop mono builds
 and the ASM/CPU renderer are unchanged. `LBA2_GPU_TERRAIN=1` forces it on a
@@ -352,6 +354,14 @@ palette/CLUT rows as the software handlers. The VBO is split into
 per-texture-page groups and samples the 2D atlas page cache with its
 `RepMask`, so the static path does not use the texture array that corrupted
 pages on Adreno.
+
+The cache is keyed by HQR body index and survives cube changes; only an
+island or phantom-sea load invalidates it. Because a tracked view can turn
+toward decors that were never on screen, `LoadCube()` also queues each cube's
+decor list for a budgeted warm-up (`GPU_DecorWarmCube`/
+`GPU_DecorWarmStep`), so the body decode and VBO build do not all land in the
+frame the player first looks at them. `DecorsPerf` prints `cold`/`warm` build
+counts and `LBA2_NO_DECOR_WARM=1` disables the warm-up for A/B.
 
 Transparent bodies, alpha/stipple polygons, environment mapping,
 lines/spheres and bodies whose normals do not match their points remain on

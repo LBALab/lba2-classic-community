@@ -916,3 +916,54 @@ mutation arrived without a page or the list overflowed.  `Stale` should no
 longer show the recurring multi-millisecond upload spikes.  If a page looks
 stale after a mutation, check that its mutator called `Atlas_MarkDirty` before
 the next textured polygon.
+
+## First-sight geometry warm-up (2026-11-01)
+
+Report: "in vr there are stutters when new objects load which previously was
+not rendered due to render distance", confirmed to happen in GL mode.
+
+### Diagnosis
+
+Two caches are populated on the first visible frame of a cube/object, not on
+load:
+
+- **Decor bodies.** `GPU_DecorDraw` calls `HQR_Get()` and then
+  `GPU_DecorBuild()` the first time a decor passes the distance and lateral
+  culls.  That combines an HQR block decode with a `DecorVBORecord` replay
+  and a VBO upload.  In mono the camera only advances, so the work is spread
+  over the walk; in VR the head can turn toward a whole cube in one frame, and
+  several cold decors land in the same frame.  The VBO cache was also dropped
+  on every cube change even though the VBO is a model-space copy keyed by the
+  island HQR, so crossing back and forth rebuilt the same objects.
+- **Horizon terrain.** The static terrain VBO path is stereo-only, and
+  `GPU_TerrainDrawLoadedCube` builds a whole 65×65 cube (up to
+  `NB_COTE*NB_COTE*2*2*3` vertices) the first frame a neighbour becomes
+  visible.  A cube boundary moves three neighbours at once.
+
+### Changes
+
+- **Decor warm queue.** `LoadCube()` calls `GPU_DecorWarmCube()` for every
+  cube it loads, including neighbours that `HorizonCubeOffscreen()` will not
+  draw.  The queue dedupes by `(body, beta)`; `GPU_DecorWarmStep()` decodes
+  and caches at most `GPU_DECOR_WARM_PER_FRAME` (4) entries per frame under a
+  0.5 ms budget, running before the decor batch opens.  Visible decors keep
+  their on-demand build, so the fallback is only slower to warm, never
+  different.
+- **Cache key and lifetime.** The decor cache is keyed by HQR index + beta
+  rather than the body pointer (an evicted block can reuse its address) and
+  is invalidated only by `LoadIsland()`/`InitSeaCube()`, not by a cube change.
+- **Terrain prewarm.** `GPU_TerrainEnsureLoadedCube()` is shared by draw and
+  warm-up; `DrawHorizon2ZBuf` builds one off-screen candidate per frame on
+  eye 0/mono, so a turn finds it cached.
+- **Instrumentation.** `DecorsPerf` now prints `cold=<on-demand>` and
+  `warm=<background>` build counts per interval.  `LBA2_NO_DECOR_WARM=1`
+  disables the decor warm-up for A/B.
+
+### Verification
+
+Host GL build and `lba2cc` link.  On-device: after entering an exterior cube,
+`DecorsPerf cold` should fall toward zero within the warm-up window and stay
+there while turning; a `cold` count that keeps climbing at the same rate means
+the queue is being outrun (raise the per-frame budget) or a cube keeps
+re-enqueueing (check the `LoadCube` list pointer).  Terrain should no longer
+show a multi-millisecond spike on the first frame after a cube boundary.

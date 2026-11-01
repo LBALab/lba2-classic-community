@@ -3268,6 +3268,8 @@ U32 GL_GetStereoFrameSeq(void) {
     return s_stereoFrameSeq;
 }
 
+U32 GL_GetFrameSeq(void) { return s_frameSeq; }
+
 S32 GL_StereoOverlayReusable(void) {
     /* Exteriors mix per-eye 2D content (rain drops, object incrusts) into
        Log, so the second eye must start from a cleared buffer.  Only the
@@ -10855,6 +10857,7 @@ S32 GL_Renderer_Resize(U32 resX, U32 resY) {
     return TRUE;
 }
 void GL_BeginFrame(void) {}
+U32 GL_GetFrameSeq(void) { return 0; }
 void GL_ClearFBO(void) {}
 void GL_SetSceneClearColor(U8 palIndex) { (void)palIndex; }
 void GL_ReadbackDepthBuffer(void) {}

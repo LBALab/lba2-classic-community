@@ -305,6 +305,11 @@ S32 GL_StereoOverlayReusable(void);
 //! starts.  Per-pair caches use it to reject data left by an earlier frame.
 U32 GL_GetStereoFrameSeq(void);
 
+//! Monotonic token for the present being built, incremented in
+//! GL_BeginFrame.  Per-frame background work (cache warm-up) uses it to run
+//! once per frame rather than once per cube.
+U32 GL_GetFrameSeq(void);
+
 //! Returns 1 if a fresh left+right eye capture pair is available for this
 //! frame and consumes the flag. PresentMono uses it to decide between the
 //! stereo layer and the mono full-image copy.
