@@ -209,6 +209,16 @@ projection. Tracked per-eye orientation is not a pure translation, so true
 6dof first-person keeps the two-pass eye renderer. The two-pass path remains
 the fallback and the reference for visual comparisons.
 
+In first-person stereo the magic ball leaves the tracked right hand rather
+than the hidden hero: holding Throw shows the ball in that hand and arms the
+throw, and the release uses the aim pose or the swing captured during the
+hold for direction. Speed and gravity come from the hero's normal lance
+animation, so the ball travels the same as in the classic and auto cameras.
+The throw still runs through `ThrowMagicBall`, so magic cost, the sample, the
+fire trail and the release/recall flags are unchanged. This path is
+independent of the full-body ghost, so it also works with `VrFullBody` off.
+`LBA2_NO_VR_THROW=1` restores the animation-driven throw for A/B.
+
 The optional interior hover rig (`VrInteriorHover`, Display → VR → Interior
 hover, console `vrhover`) treats the head as a camera flying over the room. A
 head turn moves the isometric projection centre by exactly the angle turned

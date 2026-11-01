@@ -88,6 +88,17 @@ integrated as a yaw offset in `UpdateFirstPersonCamera` and applied to both the
 base camera and the per-eye stereo override. The offset resets when the camera
 setting changes.
 
+In first-person stereo the magic ball is thrown from the tracked right hand
+(left if the right is not tracked) instead of the hidden hero animation.
+Holding Throw shows the ball in that hand and arms the throw; the release
+launches from the hand. A still hand throws along the controller aim, while a
+swing captured during the hold replaces the aim with the swing direction. The
+launch speed and gravity are read from the hero's normal lance animation, so
+the ball travels exactly as it does in the classic and auto cameras.
+The throw still consumes magic, plays the magic-ball sample, and arms the
+usual recall: after the release the next Throw press returns the ball.
+`LBA2_NO_VR_THROW=1` restores the animation-driven throw for comparison.
+
 The deadzone is shared with the rest of the gamepad (`GamepadDeadzone`). There is
 no stick zoom: the triggers are movement and the remaining buttons are bound, so
 zoom stays on the keyboard and mouse.

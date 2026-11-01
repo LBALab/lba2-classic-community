@@ -634,7 +634,8 @@ U8	ExtraCheckExtraCol( 	T_EXTRA *ptrextra,
 	for( n=0; n<MAX_EXTRAS; n++ )
 	{
 		if( (ptrobjt->Sprite != -1)
-		AND (n != owner) )
+		AND (n != owner)
+		AND !(ptrobjt->Flags & EXTRA_HELD) )
 		{
 			GetExtraZV( ptrobjt, &xt0, &yt0, &zt0, &xt1, &yt1, &zt1 ) ;
 
@@ -1680,6 +1681,9 @@ void	GereExtras()
 	{
 		if( ptrextra->Sprite == -1 )	continue ;
 		if( InitMagicBall AND n==MagicBall )	continue ;
+		/* VR held ball: drawn in the sort pass, but never advances,
+		   collides or times out while it sits in the hand. */
+		if( ptrextra->Flags & EXTRA_HELD )	continue ;
 		if( ptrextra->Flags & EXTRA_WAIT )	continue ;
 		if( ptrextra->Flags & EXTRA_TIME_IN )	continue ;
 

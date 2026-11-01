@@ -159,6 +159,45 @@ void ThrowMagicBall(S32 x, S32 y, S32 z,
         MagicPoint--;
 }
 
+/* The hero's lance animation carries the magic ball's normal launch speed
+   and gravity in its F_THROW_MAGIC action.  First-person physical throwing
+   keeps the hand's direction but reuses these so the ball travels at the
+   same speed in every camera.  Returns 0 when the action cannot be read;
+   the caller then keeps its defaults. */
+S32 GetMagicThrowParams(S32 *vitesse, U8 *poids) {
+    if (vitesse == NULL || poids == NULL)
+        return 0;
+    *vitesse = 0;
+    *poids = 0;
+
+    if (SearchAnim(GEN_ANIM_LANCE, NUM_PERSO) == -1)
+        return 0;
+
+    U8 *ptrc = SearchPtrAnimAction;
+    if (ptrc == NULL)
+        return 0;
+
+    const S32 count = *ptrc++;
+    for (S32 n = 0; n < count; n++) {
+        const U8 command = *ptrc++;
+        if (command == F_NEW_SAMPLE) {
+            ptrc += 8; /* testframe + sample + decal + volume + freq */
+            continue;
+        }
+        if (command == F_THROW_MAGIC) {
+            ptrc += 1 + 2 + 2; /* testframe, point, alpha */
+            *vitesse = *(S16 *)ptrc;
+            ptrc += 2;
+            *poids = *ptrc;
+            return (*vitesse != 0);
+        }
+        /* Any other action before the throw is not part of the hero's
+           lance clip; leave the caller on its fallback. */
+        return 0;
+    }
+    return 0;
+}
+
 /*══════════════════════════════════════════════════════════════════════════*/
 void SampleMagicBall(S32 x, S32 y, S32 z) {
     S32 sample = SAMPLE_MAGIC_BALL;

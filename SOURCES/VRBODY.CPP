@@ -27,7 +27,9 @@
 #include <3D/ROTRALIS.H>
 #include "3DEXT/VAR_EXT.H"
 
+#include <SDL3/SDL.h>
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define VR_ANGLE_PER_RAD (2048.0f / 3.14159265358979f)
@@ -63,6 +65,10 @@ static S32 s_vrActive = 0;
 static S32 s_vrReady = 0;
 static S32 s_vrArmValid[2] = {0, 0};
 static S32 s_vrArmAngles[2][2][3];
+/* Palm position of the drawn ghost hand, in world units.  The throw state
+   reads last frame's palm, the same one-frame lag as the body. */
+static float s_vrPalmWorld[2][3];
+static S32 s_vrPalmValid[2] = {0, 0};
 /* Hand target smoothed in body-local space.  Body-local is the right frame:
  * it filters tracking noise without lagging a body turn (the turn rotates
  * the frame, not the target within it). */
@@ -82,6 +88,36 @@ static T_OBJ_3D s_vrGhost;
  * rotate into place when the view turns. */
 static S32 s_vrBodyBeta = 0;
 static S32 s_vrBodyBetaInit = 0;
+
+/* Throwing hand, refreshed once per rendered frame for the simulation's
+ * throw input.  Origin is in world units; velocity is world units/second;
+ * aim is a world unit vector.  The throw input runs between renders, so it
+ * reads the previous frame's tracking, the same one-frame lag as the body. */
+static float s_vrThrowOrigin[2][3];
+static float s_vrThrowVelocity[2][3];
+static float s_vrThrowAim[2][3];
+static S32 s_vrThrowHandValid[2] = {0, 0};
+static float s_vrThrowPrevPos[2][3];
+static S32 s_vrThrowPrevValid[2] = {0, 0};
+static U32 s_vrThrowPrevTime = 0;
+/* The press arms a physical throw; the release uses the swing captured
+ * while the button was held. */
+static S32 s_vrThrowArmed = 0;
+
+/* Visual-only magic ball shown in the throwing hand while armed.  It is a
+   normal extra drawn by the usual sprite pass, but flagged as waiting and
+   positioned on the hand every frame; the real ball is created on release. */
+static S32 s_vrHeldBall = -1;
+static S32 s_vrHeldHand = -1;
+#define VR_THROW_HAND_FORWARD 120.0f
+static void VrCreateHeldBall(void);
+
+/* A real swing, in engine units/second (roughly 0.8 m/s at the default
+ * world scale).  Below it the throw follows the controller aim.  The
+ * velocity decays over ~80 ms so a gesture that ends just before the
+ * release still selects its direction. */
+#define VR_THROW_SWING_SPEED 560.0f
+#define VR_THROW_VEL_SMOOTH_MS 80.0f
 
 typedef struct {
     float m[3][3];
@@ -239,6 +275,285 @@ static void VrNormalize(float v[3]) {
     v[0] /= n;
     v[1] /= n;
     v[2] /= n;
+}
+
+/* Tracking space is +X right, +Y up, -Z forward, with yaw unrelated to the
+ * game world.  The body maps it to body-local +X left, +Z front, then turns
+ * by the body yaw; a vector uses the same mapping as a hand offset. */
+static void VrTrackingToWorld(const float v[3], S32 beta, float out[3]) {
+    const float a = (float)beta * (VR_PI / 2048.0f);
+    const float c = cosf(a);
+    const float s = sinf(a);
+    const float lx = -v[0];
+    const float lz = -v[2];
+    out[0] = c * lx + s * lz;
+    out[1] = v[1];
+    out[2] = -s * lx + c * lz;
+}
+
+static void VrDropHeldBall(void) {
+    if (s_vrHeldBall >= 0 && s_vrHeldBall < MAX_EXTRAS) {
+        ListExtra[s_vrHeldBall].Sprite = -1;
+    }
+    s_vrHeldBall = -1;
+    s_vrHeldHand = -1;
+}
+
+static void VrPlaceHeldBall(void) {
+    if (s_vrHeldBall < 0) {
+        /* The slot can be cleared by a scene change while the grip is held;
+           recreate it as soon as a hand is tracked again. */
+        if (s_vrThrowArmed &&
+            (s_vrThrowHandValid[0] || s_vrThrowHandValid[1]))
+            VrCreateHeldBall();
+        return;
+    }
+    if (s_vrHeldBall >= MAX_EXTRAS) {
+        s_vrHeldBall = -1;
+        return;
+    }
+    T_EXTRA *held = &ListExtra[s_vrHeldBall];
+    if (held->Sprite != (S16)MagicBallSprite[MagicLevel] ||
+        held->Owner != 255 ||
+        s_vrHeldHand < 0 || !s_vrThrowHandValid[s_vrHeldHand] ||
+        !s_vrThrowArmed) {
+        VrDropHeldBall();
+        return;
+    }
+    const S32 hand = s_vrHeldHand;
+    held->PosX = (S32)s_vrThrowOrigin[hand][0];
+    held->PosY = (S32)s_vrThrowOrigin[hand][1];
+    held->PosZ = (S32)s_vrThrowOrigin[hand][2];
+}
+
+static void VrUpdateThrowState(void) {
+    s_vrThrowHandValid[0] = 0;
+    s_vrThrowHandValid[1] = 0;
+
+    static S32 s_disabled = -1;
+    if (s_disabled < 0)
+        s_disabled = getenv("LBA2_NO_VR_THROW") ? 1 : 0;
+    if (s_disabled) {
+        s_vrThrowPrevValid[0] = 0;
+        s_vrThrowPrevValid[1] = 0;
+        s_vrThrowArmed = 0;
+        VrDropHeldBall();
+        return;
+    }
+
+    if (!CameraFirstPerson || !DisplayStereo3D || !OpenXR_IsActive() ||
+        CubeMode != CUBE_EXTERIEUR || CinemaMode ||
+        Weapon != FLAG_BALLE_MAGIQUE) {
+        s_vrThrowPrevValid[0] = 0;
+        s_vrThrowPrevValid[1] = 0;
+        s_vrThrowArmed = 0;
+        VrDropHeldBall();
+        return;
+    }
+
+    float q0[4], p0[3], q1[4], p1[3];
+    if (!OpenXR_GetEyeView(0, q0, p0) || !OpenXR_GetEyeView(1, q1, p1))
+        return;
+    const float trackingHead[3] = {
+        0.5f * (p0[0] + p1[0]),
+        0.5f * (p0[1] + p1[1]),
+        0.5f * (p0[2] + p1[2])};
+
+    const S32 beta =
+        s_vrBodyBetaInit ? s_vrBodyBeta : ((2048 - BetaCam) & 4095);
+    const float headWorld[3] = {
+        (float)(VueOffsetX + StereoCamOffsetX),
+        (float)(VueOffsetY + StereoCamOffsetY),
+        (float)(VueOffsetZ + StereoCamOffsetZ)};
+    const float units = VrUnitsPerMetre();
+
+    const U32 now = (U32)SDL_GetTicks();
+    U32 dtMs = now - s_vrThrowPrevTime;
+    if (dtMs == 0)
+        dtMs = 1;
+    else if (dtMs > 100)
+        dtMs = 100;
+
+    for (S32 hand = 0; hand < 2; hand++) {
+        float q[4], p[3];
+        if (!OpenXR_GetHandPose(hand, 1, q, p) &&
+            !OpenXR_GetHandJointPose(hand, 1, q, p)) {
+            s_vrThrowPrevValid[hand] = 0;
+            continue;
+        }
+
+        const float off[3] = {
+            p[0] - trackingHead[0],
+            p[1] - trackingHead[1],
+            p[2] - trackingHead[2]};
+        float worldOff[3];
+        VrTrackingToWorld(off, beta, worldOff);
+        if (s_vrPalmValid[hand]) {
+            /* Use the hand the player can actually see.  The palm position
+               is last frame's IK, the same one-frame lag as the body. */
+            s_vrThrowOrigin[hand][0] = s_vrPalmWorld[hand][0];
+            s_vrThrowOrigin[hand][1] = s_vrPalmWorld[hand][1];
+            s_vrThrowOrigin[hand][2] = s_vrPalmWorld[hand][2];
+        } else {
+            s_vrThrowOrigin[hand][0] = headWorld[0] + worldOff[0] * units;
+            s_vrThrowOrigin[hand][1] = headWorld[1] + worldOff[1] * units;
+            s_vrThrowOrigin[hand][2] = headWorld[2] + worldOff[2] * units;
+        }
+
+        if (s_vrThrowPrevValid[hand]) {
+            const float dt = (float)dtMs;
+            const float delta[3] = {
+                (p[0] - s_vrThrowPrevPos[hand][0]) * 1000.0f / dt,
+                (p[1] - s_vrThrowPrevPos[hand][1]) * 1000.0f / dt,
+                (p[2] - s_vrThrowPrevPos[hand][2]) * 1000.0f / dt};
+            float worldVel[3];
+            VrTrackingToWorld(delta, beta, worldVel);
+            /* Time-based smoothing keeps a single noisy pose from deciding
+               the throw while a real swing survives for ~80 ms, so pressing
+               at the end of the gesture still uses the swing. */
+            const float blend =
+                1.0f - expf(-(float)dtMs / VR_THROW_VEL_SMOOTH_MS);
+            for (S32 axis = 0; axis < 3; axis++) {
+                s_vrThrowVelocity[hand][axis] =
+                    s_vrThrowVelocity[hand][axis] * (1.0f - blend) +
+                    worldVel[axis] * units * blend;
+            }
+        } else {
+            s_vrThrowVelocity[hand][0] = 0.0f;
+            s_vrThrowVelocity[hand][1] = 0.0f;
+            s_vrThrowVelocity[hand][2] = 0.0f;
+        }
+        s_vrThrowPrevPos[hand][0] = p[0];
+        s_vrThrowPrevPos[hand][1] = p[1];
+        s_vrThrowPrevPos[hand][2] = p[2];
+        s_vrThrowPrevValid[hand] = 1;
+
+        const float forward[3] = {0.0f, 0.0f, -1.0f};
+        float aim[3];
+        float aimQ[4], aimP[3];
+        if (OpenXR_GetHandPose(hand, 0 /* aim */, aimQ, aimP))
+            VrQuatRotate(aimQ, forward, aim);
+        else
+            VrQuatRotate(q, forward, aim);
+        VrTrackingToWorld(aim, beta, s_vrThrowAim[hand]);
+
+        /* The palm is often closer than the near plane; push it forward
+           until it projects.  Without a drawn hand, hold the ball a little
+           in front of the controller instead.  The ball and the launch use
+           the same point. */
+        if (!s_vrPalmValid[hand]) {
+            s_vrThrowOrigin[hand][0] +=
+                s_vrThrowAim[hand][0] * VR_THROW_HAND_FORWARD;
+            s_vrThrowOrigin[hand][1] +=
+                s_vrThrowAim[hand][1] * VR_THROW_HAND_FORWARD;
+            s_vrThrowOrigin[hand][2] +=
+                s_vrThrowAim[hand][2] * VR_THROW_HAND_FORWARD;
+        }
+        for (S32 attempt = 0; attempt < 6; attempt++) {
+            LongWorldRotatePoint((S32)s_vrThrowOrigin[hand][0],
+                                 (S32)s_vrThrowOrigin[hand][1],
+                                 (S32)s_vrThrowOrigin[hand][2]);
+            if (CameraZr - Z0 >= NearClip + 80)
+                break;
+            s_vrThrowOrigin[hand][0] += s_vrThrowAim[hand][0] * 100.0f;
+            s_vrThrowOrigin[hand][1] += s_vrThrowAim[hand][1] * 100.0f;
+            s_vrThrowOrigin[hand][2] += s_vrThrowAim[hand][2] * 100.0f;
+        }
+
+        s_vrThrowHandValid[hand] = 1;
+    }
+
+    VrPlaceHeldBall();
+    s_vrThrowPrevTime = now;
+}
+
+static S32 VrBody_GetThrow(S32 *x, S32 *y, S32 *z, S32 *alpha, S32 *beta) {
+    if (x == NULL || y == NULL || z == NULL || alpha == NULL || beta == NULL)
+        return 0;
+
+    const S32 hand =
+        s_vrThrowHandValid[1] ? 1 : (s_vrThrowHandValid[0] ? 0 : -1);
+    if (hand < 0)
+        return 0;
+
+    const float vx = s_vrThrowVelocity[hand][0];
+    const float vy = s_vrThrowVelocity[hand][1];
+    const float vz = s_vrThrowVelocity[hand][2];
+    const float speed = sqrtf(vx * vx + vy * vy + vz * vz);
+
+    float dx, dy, dz;
+    if (speed > VR_THROW_SWING_SPEED) {
+        dx = vx / speed;
+        dy = vy / speed;
+        dz = vz / speed;
+    } else {
+        dx = s_vrThrowAim[hand][0];
+        dy = s_vrThrowAim[hand][1];
+        dz = s_vrThrowAim[hand][2];
+    }
+
+    const float len = sqrtf(dx * dx + dy * dy + dz * dz);
+    if (len < 1e-4f)
+        return 0;
+    dx /= len;
+    dy /= len;
+    dz /= len;
+
+    const float horiz = sqrtf(dx * dx + dz * dz);
+    *beta = (S32)(atan2f(dx, dz) * (2048.0f / VR_PI)) & 4095;
+    *alpha = (S32)(atan2f(dy, horiz) * (2048.0f / VR_PI)) & 4095;
+
+    *x = (S32)s_vrThrowOrigin[hand][0];
+    *y = (S32)s_vrThrowOrigin[hand][1];
+    *z = (S32)s_vrThrowOrigin[hand][2];
+
+    Log_Debug("VrBody: physical throw hand=%d dir=(%.2f,%.2f,%.2f)", (int)hand,
+              (double)dx, (double)dy, (double)dz);
+    return 1;
+}
+
+static void VrCreateHeldBall(void) {
+    VrDropHeldBall();
+
+    const S32 hand =
+        s_vrThrowHandValid[1] ? 1 : (s_vrThrowHandValid[0] ? 0 : -1);
+    if (hand < 0)
+        return;
+
+    const S32 index = ThrowExtra(
+        255, (S32)s_vrThrowOrigin[hand][0], (S32)s_vrThrowOrigin[hand][1],
+        (S32)s_vrThrowOrigin[hand][2], (S16)MagicBallSprite[MagicLevel], 0, 0,
+        0, 0, 0);
+    if (index < 0 || index >= MAX_EXTRAS)
+        return;
+
+    T_EXTRA *held = &ListExtra[index];
+    held->Flags = EXTRA_HELD | EXTRA_NO_SHADOW;
+    if (MagicLevel == 4)
+        held->Flags |= EXTRA_TRANSPARENT;
+    held->Body = -1;
+
+    s_vrHeldBall = index;
+    s_vrHeldHand = hand;
+}
+
+S32 VrBody_BeginThrow(void) {
+    if (!s_vrThrowHandValid[1] && !s_vrThrowHandValid[0])
+        return 0;
+    if (!s_vrThrowArmed) {
+        s_vrThrowArmed = 1;
+        VrCreateHeldBall();
+    }
+    return 1;
+}
+
+S32 VrBody_EndThrow(S32 *x, S32 *y, S32 *z, S32 *alpha, S32 *beta) {
+    if (!s_vrThrowArmed)
+        return 0;
+    s_vrThrowArmed = 0;
+    const S32 ok = VrBody_GetThrow(x, y, z, alpha, beta);
+    VrDropHeldBall();
+    return ok;
 }
 
 static void VrMat3FromEngine(const TYPE_MAT *m, VR_MAT3 *out) {
@@ -519,6 +834,8 @@ static void VrSetArmAngles(T_OBJ_3D *ghost, S32 upperGroup, S32 foreGroup,
 }
 
 void VrBody_Update(void) {
+    VrUpdateThrowState();
+
     T_OBJET *hero = &ListObjet[NUM_PERSO];
     T_OBJ_3D ghost;
     const T_BODY_HEADER *body;
@@ -534,6 +851,8 @@ void VrBody_Update(void) {
     s_vrReady = 0;
     s_vrArmValid[0] = 0;
     s_vrArmValid[1] = 0;
+    s_vrPalmValid[0] = 0;
+    s_vrPalmValid[1] = 0;
 
     if (!VrFullBody || !CameraFirstPerson || CubeMode != CUBE_EXTERIEUR ||
         !DisplayStereo3D || !OpenXR_IsActive() || CinemaMode) {
@@ -790,6 +1109,33 @@ void VrBody_Update(void) {
                    handRest, handTarget[hand], handPole[hand],
                    s_vrArmAngles[hand]);
         s_vrArmValid[hand] = 1;
+
+        /* The IK target is the fingertip; move a quarter of the way back to
+           the elbow so the held ball sits in the palm, not past the hand. */
+        {
+            float dx = handTarget[hand][0] - elbow[0];
+            float dy = handTarget[hand][1] - elbow[1];
+            float dz = handTarget[hand][2] - elbow[2];
+            const float len = sqrtf(dx * dx + dy * dy + dz * dz);
+            float palm[3];
+            if (len > 1e-3f) {
+                const float back = len * 0.25f;
+                palm[0] = handTarget[hand][0] - dx / len * back;
+                palm[1] = handTarget[hand][1] - dy / len * back;
+                palm[2] = handTarget[hand][2] - dz / len * back;
+            } else {
+                palm[0] = handTarget[hand][0];
+                palm[1] = handTarget[hand][1];
+                palm[2] = handTarget[hand][2];
+            }
+            const float a = (float)ghost.Beta * (VR_PI / 2048.0f);
+            const float c = cosf(a);
+            const float s = sinf(a);
+            s_vrPalmWorld[hand][0] = ghost.X + c * palm[0] + s * palm[2];
+            s_vrPalmWorld[hand][1] = ghost.Y + palm[1];
+            s_vrPalmWorld[hand][2] = ghost.Z - s * palm[0] + c * palm[2];
+            s_vrPalmValid[hand] = 1;
+        }
     }
 
     /* Apply the solved arm angles to the ghost copy.  An untracked hand

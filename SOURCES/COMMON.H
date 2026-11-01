@@ -668,6 +668,7 @@ typedef	struct	{
 #define	EXTRA_FOUDRE_STEP2	(1L<<28L)	// Foudre etape 2
 #define	EXTRA_FOUDRE_STEP3	(1L<<29L)	// Foudre etape 3
 
+#define	EXTRA_HELD		(1L<<30L)	// Tenue en main (VR): dessinée, mais ni mise à jour ni collision
 #define	EXTRA_NO_SHADOW		(1L<<31L)	// Ne pas Afficher l'ombre de l'extra
 
 // En masquant le champ Flags des Extras avec EXTRA_MASK_WEAPON,

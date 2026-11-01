@@ -4233,8 +4233,18 @@ void DoDir(U8 numobj) {
                         } else {
                             if (ListVarGame[FLAG_BALLE_MAGIQUE] == 1) {
                                 if (MagicBall == -1) {
-                                    InitAnim(GEN_ANIM_LANCE, ANIM_THEN, numobj);
-                                    MagicBallFlags = MAGIC_BALL_LANCEE;
+                                    /* First-person VR: arm the physical throw
+                                       and launch it on release, so the swing
+                                       captured while held sets direction and
+                                       speed.  Non-VR keeps the animation. */
+                                    if (VrBody_BeginThrow()) {
+                                        /* Launched from the release branch
+                                           below; no throw animation. */
+                                    } else {
+                                        InitAnim(GEN_ANIM_LANCE, ANIM_THEN,
+                                                 numobj);
+                                        MagicBallFlags = MAGIC_BALL_LANCEE;
+                                    }
                                 }
                                 LastJoyFlag = TRUE;
                                 flagattack = TRUE;
@@ -4345,6 +4355,34 @@ void DoDir(U8 numobj) {
                         InitAnim(GEN_ANIM_RIEN, ANIM_REPEAT, numobj);
                     }
                 } else {
+                    S32 physicalThrown = FALSE;
+
+                    /* First-person VR: the release is the throw.  The hand
+                       aim/swing captured while the button was held becomes
+                       the launch, and the hero keeps his current animation
+                       (walking) instead of snapping to idle. */
+                    if ((PtrComportement->Flags & CF_WEAPON) &&
+                        Weapon == FLAG_BALLE_MAGIQUE && MagicBall == -1 &&
+                        ListVarGame[FLAG_BALLE_MAGIQUE] == 1) {
+                        S32 throwX, throwY, throwZ;
+                        S32 throwAlpha, throwBeta;
+                        if (VrBody_EndThrow(&throwX, &throwY, &throwZ,
+                                            &throwAlpha, &throwBeta)) {
+                            /* Keep the normal camera's launch speed and
+                               gravity; only the hand supplies the origin and
+                               direction. */
+                            S32 throwSpeed = 105;
+                            U8 throwPoids = 14;
+                            GetMagicThrowParams(&throwSpeed, &throwPoids);
+                            ThrowMagicBall(throwX, throwY, throwZ, throwAlpha,
+                                           throwBeta, throwSpeed, throwPoids);
+                            if (MagicBall != -1)
+                                SampleMagicBall(throwX, throwY, throwZ);
+                            MagicBallFlags = MAGIC_BALL_LACHEE;
+                            physicalThrown = TRUE;
+                        }
+                    }
+
                     if (MagicBallFlags & MAGIC_BALL_LANCEE) {
                         // On a laché la touche <ALT>, se tenir pret a
                         // ramener la balle si le joueur reappuie sur la
@@ -4352,7 +4390,7 @@ void DoDir(U8 numobj) {
                         MagicBallFlags = MAGIC_BALL_LACHEE;
                     }
 
-                    if (LastInput & I_THROW) {
+                    if ((LastInput & I_THROW) && !physicalThrown) {
                         if (numobj == NUM_PERSO && ptrobj->GenAnim != GEN_ANIM_RIEN)
                             DbgHeroActionResets++;
                         InitAnim(GEN_ANIM_RIEN, ANIM_REPEAT, numobj);
