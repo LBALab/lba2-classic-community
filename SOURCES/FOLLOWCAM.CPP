@@ -82,6 +82,12 @@ static S32 FollowCamIsoViewX = 0;
 static S32 FollowCamIsoViewY = 0;
 static S32 FollowCamIsoViewZ = 0;
 static S32 FollowCamIsoViewSet = FALSE;
+/* The pixel shift the iso projection centre carries now (`FollowCamIsoCentre`), and the centre it is
+ * added to. The lattice reads the same pair, so bricks and projected points cannot disagree. */
+static S32 FollowCamIsoPanAppliedX = 0;
+static S32 FollowCamIsoPanAppliedY = 0;
+static S32 FollowCamIsoCentreX = 0;
+static S32 FollowCamIsoCentreY = 0;
 
 /* The eases paced by the clock (cam_ease_ms, cam_target_ms). They are paced by
  * the game clock's time since the previous update, which is a frame's length
@@ -309,11 +315,19 @@ void FollowCamTrace(void) {
             blendLeft = 1; /* on until the frame that shows its end */
     }
 
+    S32 isoPanX, isoPanY;
+
+    FollowCamIsoPan(&isoPanX, &isoPanY);
+
+    /* camt: the iso camera is on its tile's corner, so the pan is whole pixels (FollowCamIsoCentre). */
+    S32 isoOnTile = (CameraX == StartXCube * SIZE_BRICK_XZ) && (CameraY == StartYCube * SIZE_BRICK_Y) &&
+                    (CameraZ == StartZCube * SIZE_BRICK_XZ);
+
     Log_Info("[cam] heroBeta %4d add %4d beta %4d target %4d step %5d delay %3d orbit %d moving %d "
              "zone %d forced %d cine %d follow %d ext %d vue %d alpha %4d dist %6d inshot %d loan %d obs %d hid %d "
              "dt %3d tlag %4d vx %6d vy %5d vz %6d blend %4d sbeta %4d salpha %4d sdist %6d sx %6d sy %5d sz %6d "
              "iso %d tx %d tz %d hx %d hz %d hxw %6d hzw %6d vxw %6d vzw %6d "
-             "lagx %d lagy %d lagz %d panx %d pany %d",
+             "lagx %d lagy %d lagz %d panx %d pany %d camt %d",
              (int)ptr3d->Beta, (int)AddBetaCam, (int)BetaCam, (int)FollowCamTargetBeta,
              (int)step, (int)FollowCamReengageDelay, (int)ManualCameraOrbitActive, (int)moving,
              (int)CameraZone, (int)FlagCameraForcee, (int)CinemaMode, (int)FollowCamera,
@@ -330,11 +344,7 @@ void FollowCamTrace(void) {
              (int)(FollowCamIsoViewX - StartXCube * SIZE_BRICK_XZ),
              (int)(FollowCamIsoViewY - StartYCube * SIZE_BRICK_Y),
              (int)(FollowCamIsoViewZ - StartZCube * SIZE_BRICK_XZ),
-             (int)FollowCamIsoPanX(FollowCamIsoViewX - StartXCube * SIZE_BRICK_XZ,
-                                   FollowCamIsoViewZ - StartZCube * SIZE_BRICK_XZ),
-             (int)FollowCamIsoPanY(FollowCamIsoViewX - StartXCube * SIZE_BRICK_XZ,
-                                   FollowCamIsoViewY - StartYCube * SIZE_BRICK_Y,
-                                   FollowCamIsoViewZ - StartZCube * SIZE_BRICK_XZ));
+             (int)isoPanX, (int)isoPanY, (int)isoOnTile);
     FollowCamHiddenSeen = 0;
 
     prevBeta = BetaCam;
@@ -1346,7 +1356,62 @@ static void iso_view_place(S32 ex, S32 ey, S32 ez) {
     FollowCamIsoViewSet = TRUE;
 }
 
-void FollowCamIsoViewPos(S32 *x, S32 *y, S32 *z) {
+/* The pan the view wants this frame: the distance between where the eye belongs and its tile, as
+ * pixels. Zero off the follow, outside interiors, and when that distance is too large to be a pan
+ * (a new cube before CameraCenter has placed the view on it). */
+static void iso_view_pan_wanted(S32 *x, S32 *y) {
+    S32 tx, ty, tz;
+
+    *x = 0;
+    *y = 0;
+
+    if (!FollowCamIsoViewSet OR CubeMode != CUBE_INTERIEUR)
+        return;
+
+    iso_view_tile(&tx, &ty, &tz);
+    if (!iso_view_near(tx, ty, tz))
+        return;
+
+    *x = FollowCamIsoPanX(FollowCamIsoViewX - tx, FollowCamIsoViewZ - tz);
+    *y = FollowCamIsoPanY(FollowCamIsoViewX - tx, FollowCamIsoViewY - ty, FollowCamIsoViewZ - tz);
+}
+
+void FollowCamIsoCentre(S32 baseX, S32 baseY) {
+    S32 panX, panY;
+
+    iso_view_pan_wanted(&panX, &panY);
+
+    FollowCamIsoCentreX = baseX;
+    FollowCamIsoCentreY = baseY;
+    FollowCamIsoPanAppliedX = panX;
+    FollowCamIsoPanAppliedY = panY;
+
+    SetIsoProjection(baseX + panX, baseY + panY);
+}
+
+/* Put the projection centre on the pan the view wants, if it is not there already. Returns TRUE when
+ * it moved, which is a frame the whole scene must be redrawn on. */
+static S32 iso_view_apply_pan(void) {
+    S32 panX, panY;
+
+    if (CubeMode != CUBE_INTERIEUR) {
+        /* An exterior's projection is Init3DExtView's; nothing of the pan survives into it. */
+        FollowCamIsoPanAppliedX = 0;
+        FollowCamIsoPanAppliedY = 0;
+        return 0;
+    }
+
+    iso_view_pan_wanted(&panX, &panY);
+    if (panX == FollowCamIsoPanAppliedX AND panY == FollowCamIsoPanAppliedY)
+        return 0;
+
+    FollowCamIsoCentre(FollowCamIsoCentreX, FollowCamIsoCentreY);
+    /* The camera has not moved, but the water clip line is a projected Y and the centre has. */
+    SetIsoCamera(StartXCube * SIZE_BRICK_XZ, StartYCube * SIZE_BRICK_Y, StartZCube * SIZE_BRICK_XZ);
+    return 1;
+}
+
+void FollowCamIsoPlaceView(void) {
     S32 ex, ey, ez, tx, ty, tz;
 
     iso_view_eye(&ex, &ey, &ez);
@@ -1354,20 +1419,12 @@ void FollowCamIsoViewPos(S32 *x, S32 *y, S32 *z) {
 
     /* THE EYE IS WHERE THE LAST FRAME LEFT IT: the tick moves the hero, the glide below places the
      * eye on him, and this reads the result. So a view that is not owned, not primed, or left too far
-     * from its tile to be a glide is the only case that gets put back in place here -- and a frame
-     * that writes it writes exactly what it returns, so calling this twice in a frame sees one
-     * answer. */
-    if (!iso_view_owned() OR !FollowCamIsoViewSet OR !iso_view_near(tx, ty, tz)) {
+     * from its tile to be a glide is the only case that gets put back in place here. */
+    if (!iso_view_owned() OR !FollowCamIsoViewSet OR !iso_view_near(tx, ty, tz))
         iso_view_place(ex, ey, ez);
-        *x = ex;
-        *y = ey;
-        *z = ez;
-        return;
-    }
 
-    *x = FollowCamIsoViewX;
-    *y = FollowCamIsoViewY;
-    *z = FollowCamIsoViewZ;
+    if (CubeMode == CUBE_INTERIEUR)
+        FollowCamIsoCentre(FollowCamIsoCentreX, FollowCamIsoCentreY);
 }
 
 S32 FollowCamIsoGlide(void) {
@@ -1380,7 +1437,7 @@ S32 FollowCamIsoGlide(void) {
         /* On the tile, or not ours: nothing to ease, and the frame the view is put there is
          * CameraCenter's. */
         iso_view_place(ex, ey, ez);
-        return 0;
+        return iso_view_apply_pan();
     }
 
     /* ON HIM, AND NOTHING ELSE. `iso_view_eye` above is his own position, so the only question left
@@ -1402,26 +1459,29 @@ S32 FollowCamIsoGlide(void) {
     if (FollowCamIsoViewX == ex AND FollowCamIsoViewY == ey AND FollowCamIsoViewZ == ez)
         return 0; /* already on him: nothing moved, so there is nothing to redraw */
 
+    /* THE EYE IS BOOKKEEPING; THE PICTURE MOVES BY WHOLE PIXELS. The camera itself stays on the
+     * tile's corner, and the pan is added to the projection centre (`FollowCamIsoCentre`) and to the
+     * brick lattice alike. Moving the camera instead shifts the picture by the same amount on paper,
+     * but every projected point then rounds its own fraction of a pixel together with the eye's, while
+     * the lattice rounds the eye's alone: a still door, a sprite or its clip window drifts a pixel
+     * against the wall behind it, frame by frame, as the eye moves (5 still objects in cube 143's walk,
+     * none with this). A shift in whole pixels rounds nothing. */
     iso_view_place(ex, ey, ez);
-    SetIsoCamera(ex, ey, ez);
-    return 1;
+    return iso_view_apply_pan();
 }
 
 void FollowCamIsoPan(S32 *x, S32 *y) {
-    S32 dx = 0, dy = 0, dz = 0;
-
-    /* Derived from the same distance the camera above is placed at, rather than from the camera
-     * itself: the lattice has to move by the amount the PROJECTION moved by, and a camera placed by
-     * anyone else is not that amount. The eye can be either side of its tile -- it trails the hero,
-     * who may be anywhere in the brick when `Start*Cube` steps to it -- so every sign is allowed. */
-    if (FollowCamIsoViewSet AND CubeMode == CUBE_INTERIEUR) {
-        dx = FollowCamIsoViewX - StartXCube * SIZE_BRICK_XZ;
-        dy = FollowCamIsoViewY - StartYCube * SIZE_BRICK_Y;
-        dz = FollowCamIsoViewZ - StartZCube * SIZE_BRICK_XZ;
+    /* The pan the projection centre carries, not the one the view wants: the lattice has to move by
+     * exactly what the projected points moved by, and that is whatever `FollowCamIsoCentre` last
+     * applied. */
+    if (CubeMode != CUBE_INTERIEUR) {
+        *x = 0;
+        *y = 0;
+        return;
     }
 
-    *x = FollowCamIsoPanX(dx, dz);
-    *y = FollowCamIsoPanY(dx, dy, dz);
+    *x = FollowCamIsoPanAppliedX;
+    *y = FollowCamIsoPanAppliedY;
 }
 
 void FollowCamWorldAnchorRebase(void) {

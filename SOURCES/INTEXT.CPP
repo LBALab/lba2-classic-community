@@ -444,14 +444,15 @@ void CameraCenter(S32 flagbeta) {
     }
 
     if (CubeMode == CUBE_INTERIEUR) {
-        /* THE ANCHOR IS A TILE AND THE EYE NEED NOT BE. `Start*Cube` is the tile the view is centred
-           on, which is what the follow moves; with the follow on, the eye sits on the hero himself
-           (FOLLOWCAM.H), so a brick he crosses arrives as a pan and not as a 24-pixel step. With the follow off, or on its tile, this is that tile's own
-           corner, which is what this call has always been. */
-        S32 camX, camY, camZ;
-
-        FollowCamIsoViewPos(&camX, &camY, &camZ);
-        SetIsoCamera(camX, camY, camZ);
+        /* THE CAMERA IS THE TILE; THE PICTURE NEED NOT BE. `Start*Cube` is the tile the view is
+           centred on, which is what the follow moves; with the follow on, the projection centre also
+           carries the hero's offset from that tile as whole pixels (FOLLOWCAM.H), so a brick he crosses
+           arrives as a pan and not as a 24-pixel step. With the follow off that shift is zero, and
+           this is the call it has always been. */
+        FollowCamIsoPlaceView();
+        SetIsoCamera(StartXCube * SIZE_BRICK_XZ,
+                     StartYCube * SIZE_BRICK_Y,
+                     StartZCube * SIZE_BRICK_XZ);
     } else {
         FollowCamSetView();
 

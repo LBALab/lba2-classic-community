@@ -81,7 +81,7 @@ KEYS = ("heroBeta", "add", "beta", "target", "step", "delay", "orbit", "moving",
         "zone", "forced", "cine", "follow", "ext", "vue", "alpha", "dist", "inshot", "loan", "obs", "hid",
         "dt", "tlag", "vx", "vy", "vz", "blend", "sbeta", "salpha", "sdist", "sx", "sy", "sz",
         "iso", "tx", "tz", "hx", "hz", "hxw", "hzw", "vxw", "vzw",
-        "lagx", "lagy", "lagz", "panx", "pany")
+        "lagx", "lagy", "lagz", "panx", "pany", "camt")
 MARK = "[INFO] [cam]"
 print("\t".join(KEYS))
 cut = 0

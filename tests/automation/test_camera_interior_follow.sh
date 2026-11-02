@@ -41,6 +41,13 @@
 #      moving, which reads as the screen jumping by itself, and is worst after a tap. `eyelag` is the
 #      distance between the eye the glide placed and the position he was at when it placed it: 39 for
 #      the eased rule, zero for one that places it on him.
+#   5c AND THE PAN IS WHOLE PIXELS: the camera itself stays on the tile's corner and the pan is a shift
+#      of the projection centre that the brick lattice also adds (FOLLOWCAM.CPP's FollowCamIsoCentre).
+#      A camera moved between tiles shifts the same picture on paper, but each projected point then
+#      rounds its own fraction of a pixel together with the eye's while the lattice rounds the eye's
+#      alone, so a door or sprite standing still drifts a pixel against the wall behind it as the view
+#      pans (5 still objects in this walk, measured with a probe of each object's screen position
+#      against the world origin's). `camt` is 1 on every traced frame the camera is on that corner.
 #   6  A CAMERA ZONE STILL WINS, in an interior and with the switch on. Every interior camera that is
 #      not this option's is a zone's (`SetZoneCamera` re-places `Start*Cube` every frame while the hero
 #      is in the box), and a following camera that overrode one would be a room whose authored shot
@@ -49,7 +56,7 @@
 #
 # Every number below is measured on this tree against the corpus save (both arms of the same walk,
 # cube 143, and the zoned room 154), not chosen: 93 of 95 traced frames on his tile with the switch on
-# against 0 of 95 with it off, a single camera tile for the whole zoned run, at most one frame of his
+# against 2 of 95 with it off, a single camera tile for the whole zoned run, at most one frame of his
 # walk with the picture standing still (15 for an eye eased toward the tile instead), and no frame in
 # which the eye is anywhere but on him (39 units behind for an eye eased toward his position instead).
 #
@@ -185,6 +192,7 @@ for i in range(1, len(rows)):
     eyelag = max(eyelag, abs(dx), abs(dz))
 
 print("eyelag=%d" % eyelag)
+print("camtoff=%d" % sum(1 for r in tail if r["camt"] != "1"))
 ' "$WARMUP_ROWS"
 }
 
@@ -234,6 +242,9 @@ on_tile="$(get "$follow" ontile)"
 #    stops, which is a jump under a stationary hero.
 [ "$(get "$follow" eyelag)" -eq 0 ] \
     || fail "the eye trailed the hero by $(get "$follow" eyelag) units: it is easing toward him instead of sitting on him"
+# 5c ... and the camera is on its tile's corner, so the pan is whole pixels and nothing wobbles.
+[ "$(get "$follow" camtoff)" -eq 0 ] \
+    || fail "the camera was off its tile's corner on $(get "$follow" camtoff) frames: projected objects round differently from the bricks and wobble a pixel against them"
 
 # The control: the same walk and the same room with the switch off.
 arm "$INTERIOR_CUBE" 0 "$WALK_TICKS" "$classic_log"

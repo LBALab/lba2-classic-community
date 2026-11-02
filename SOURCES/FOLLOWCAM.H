@@ -188,9 +188,10 @@ extern void FollowCamNoteFrame(void);
  * An interior's camera USED to be a tile (`StartXCube` * SIZE_BRICK_XZ) and nothing else, so following
  * the hero there meant a 24-pixel cut every time he crossed a brick. The eye is free to sit anywhere,
  * though -- the projection is a linear function of the camera position, so an offset is a shift of
- * the picture -- and the three calls below place it where he actually is. GRILLE.CPP's brick lattice
- * reads the distance between the eye and its tile (`FollowCamIsoPan`), so the grid, the objects and
- * the sprites all slide together.
+ * the picture -- and the calls below follow where he actually is. That offset is applied as a shift in
+ * WHOLE PIXELS of the projection centre (`FollowCamIsoCentre`), with the camera itself left on the
+ * tile's corner, and GRILLE.CPP's brick lattice reads the same shift (`FollowCamIsoPan`), so the grid,
+ * the objects and the sprites all slide together and none of them rounds differently from another.
  *
  * The tile keeps its own job: it is the render's anchor, what the brick window is walked from. It is
  * not the eye's target, which is what makes the motion continuous instead of one brick at a time.
@@ -209,15 +210,18 @@ extern void FollowCamNoteFrame(void);
  * be fully redrawn on. */
 extern S32 FollowCamIsoGlide(void);
 
-/* Where the isometric camera belongs this frame: the eye as the glide last left it, on the hero's
- * tile when the follow is off or the view is somebody else's. Read by CameraCenter (INTEXT.CPP),
- * which is the one place the camera is placed, and pure: a frame that calls it twice sees one
- * answer. */
-extern void FollowCamIsoViewPos(S32 *x, S32 *y, S32 *z);
+/* Settle where the view is this frame (the eye as the glide last left it, or the hero's tile when the
+ * follow is off or the view is somebody else's) and put the projection centre on it. Called by
+ * CameraCenter (INTEXT.CPP), which then places the camera on the tile's corner as it always has. */
+extern void FollowCamIsoPlaceView(void);
 
-/* The brick lattice's pixel shift for that same offset (FOLLOWCAM_MATH.H's `FollowCamIsoPan*`). Zero
- * whenever the eye is on its tile -- which is every interior frame with the option off -- so a caller
- * that draws on whole-tile pixels needs no condition of its own beyond the cube mode. */
+/* Set the isometric projection centre: `base` (Init3DView's framebuffer centre) plus the view's pan.
+ * Init3DView goes through this, so every menu that restores the 3D view keeps the pan. */
+extern void FollowCamIsoCentre(S32 baseX, S32 baseY);
+
+/* The pixel shift the projection centre carries now (FOLLOWCAM_MATH.H's `FollowCamIsoPan*` of the
+ * eye's offset, as last applied). The brick lattice adds it. Zero whenever the eye is on its tile --
+ * which is every interior frame with the option off -- and outside interiors. */
 extern void FollowCamIsoPan(S32 *x, S32 *y);
 
 /* Drop the eye onto the hero: the view has just been placed deliberately (a scene load, the centre
