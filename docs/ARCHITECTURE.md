@@ -97,8 +97,8 @@ The rings, the core and the platform tiers below follow from the principles in
 ![Four nested rings: inner core (the game) inside outer core (the platform) inside Modern inside Experimental; features such as the Auto camera, HD and LBA1 move inward](images/rings.svg)
 
 Settings grow in two rings around the core, Modern inside Experimental. **Original**, the game
-as a 1997 player met it, is not a ring but the reference: every setting at its value from
-before (`SETTING_BEFORE` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). It stays reachable:
+as a 1997 player met it, is not a ring but the reference: every setting the port added at its
+value from before (`SETTING_BEFORE` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). It stays reachable:
 with the settings off the game plays as the original, and a change that breaks that is a
 regression, whichever ring it came from. **Modern** settings change how the game is shown
 or handled, never its rules; what they can change is what the original itself reads from the

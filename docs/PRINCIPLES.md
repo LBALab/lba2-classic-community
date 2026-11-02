@@ -11,9 +11,12 @@ built on them.
 
 The original is the game as the 1990s CD release played it, not the 2022 Classic release.
 
-- With every setting at its value from before (`SETTING_BEFORE` in
-  [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)), the game plays as the original. A change that
-  moves it away is a regression; a change that brings it back is a fix and needs no switch.
+- With every setting the port added at its value from before, the game plays as the original.
+  A setting that switches a behaviour on names, on its row, the value that switches it off
+  (`SETTING_BEFORE` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). Settings the 1997 game
+  already had, such as the volumes and the detail level, stay the player's choice. A change
+  that moves the game away from the original is a regression; a change that brings it back is
+  a fix and needs no switch.
 - A fix to a bug the original itself had gets its own switch, on by default, under **Fix
   retail bugs**, whose No gives back the original's rules
   ([the retail-fix Decision](knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md)).
