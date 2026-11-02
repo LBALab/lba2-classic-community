@@ -210,9 +210,9 @@ projection. Tracked per-eye orientation is not a pure translation, so true
 the fallback and the reference for visual comparisons.
 
 In first-person stereo the magic ball leaves the tracked right hand rather
-than the hidden hero: holding Throw shows the ball in that hand and arms the
-throw, and the release uses the aim pose or the swing captured during the
-hold for direction. Speed and gravity come from the hero's normal lance
+than the hidden hero: holding Throw shows the ball on that hand's palm and
+arms the throw, and the release uses the aim pose or the swing captured during
+the hold for direction. Speed and gravity come from the hero's normal lance
 animation, so the ball travels the same as in the classic and auto cameras.
 The throw still runs through `ThrowMagicBall`, so magic cost, the sample, the
 fire trail and the release/recall flags are unchanged. This path is

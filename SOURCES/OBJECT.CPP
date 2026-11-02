@@ -5646,8 +5646,36 @@ S32 AffOneObject(T_SORT *pt) {
             AffSpecial(numobj);
         } else // sprite
         {
-            SpriteX = Xp + PtrZvExtraRaw[num * 8 + 0]; // Add Hot Spot
-            SpriteY = Yp + PtrZvExtraRaw[num * 8 + 1];
+            if (ptrextra->Flags & EXTRA_HELD) {
+                /* The held ball is placed on the palm, so its sprite is
+                   centred on that point.  A raw sprite is anchored by its
+                   hot spot, which leaves the ball half a sprite down and to
+                   the right of the hand. */
+                const U8 *sbase = (const U8 *)HQR_Get(HQRPtrSpriteRaw, num);
+                if (sbase != NULL) {
+                    const U8 *sprite = sbase + (S32)((const U32 *)sbase)[0];
+                    const S32 deltaX = (S32)sprite[0];
+                    const S32 deltaY = (S32)sprite[1];
+                    const S32 hotX = (S32)(S8)sprite[2];
+                    const S32 hotY = (S32)(S8)sprite[3];
+                    const S32 halfX =
+                        (S32)(((S64)deltaX * ScaleFactorSprite) >> 17);
+                    const S32 halfY =
+                        (S32)(((S64)deltaY * ScaleFactorSprite) >> 17);
+                    SpriteX = Xp -
+                              (S32)(((S64)hotX * ScaleFactorSprite) >> 16) -
+                              halfX;
+                    SpriteY = Yp -
+                              (S32)(((S64)hotY * ScaleFactorSprite) >> 16) -
+                              halfY;
+                } else {
+                    SpriteX = Xp;
+                    SpriteY = Yp;
+                }
+            } else {
+                SpriteX = Xp + PtrZvExtraRaw[num * 8 + 0]; // Add Hot Spot
+                SpriteY = Yp + PtrZvExtraRaw[num * 8 + 1];
+            }
 
             // Toujours des sprites Raw
             CalculeScaleFactorSprite(ptrextra->PosX, ptrextra->PosY, ptrextra->PosZ, ptrextra->Scale);

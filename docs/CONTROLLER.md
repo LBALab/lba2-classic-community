@@ -90,9 +90,10 @@ setting changes.
 
 In first-person stereo the magic ball is thrown from the tracked right hand
 (left if the right is not tracked) instead of the hidden hero animation.
-Holding Throw shows the ball in that hand and arms the throw; the release
-launches from the hand. A still hand throws along the controller aim, while a
-swing captured during the hold replaces the aim with the swing direction. The
+Holding Throw shows the ball on the palm of that hand and arms the throw; the
+release launches from the hand. A still hand throws along the controller aim,
+while a swing captured during the hold replaces the aim with the swing
+direction. The
 launch speed and gravity are read from the hero's normal lance animation, so
 the ball travels exactly as it does in the classic and auto cameras.
 The throw still consumes magic, plays the magic-ball sample, and arms the

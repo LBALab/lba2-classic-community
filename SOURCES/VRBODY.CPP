@@ -397,7 +397,9 @@ static void VrUpdateThrowState(void) {
             p[1] - trackingHead[1],
             p[2] - trackingHead[2]};
         float worldOff[3];
-        VrTrackingToWorld(off, beta, worldOff);
+        /* A tracking offset is a room vector, so it maps to the world without
+           a yaw of its own: the pose it comes from is already room-fixed. */
+        VrTrackingToWorld(off, 0, worldOff);
         if (s_vrPalmValid[hand]) {
             /* Use the hand the player can actually see.  The palm position
                is last frame's IK, the same one-frame lag as the body. */
@@ -408,6 +410,25 @@ static void VrUpdateThrowState(void) {
             s_vrThrowOrigin[hand][0] = headWorld[0] + worldOff[0] * units;
             s_vrThrowOrigin[hand][1] = headWorld[1] + worldOff[1] * units;
             s_vrThrowOrigin[hand][2] = headWorld[2] + worldOff[2] * units;
+        }
+
+        /* The ready orb sits inside the palm point, toward the body: drawn on
+           the exact palm it reads as past the hand. */
+        {
+            const float toBody[3] = {
+                headWorld[0] - s_vrThrowOrigin[hand][0],
+                headWorld[1] - s_vrThrowOrigin[hand][1],
+                headWorld[2] - s_vrThrowOrigin[hand][2]};
+            const float pull = 50.0f;
+            const float dist = sqrtf(toBody[0] * toBody[0] +
+                                     toBody[1] * toBody[1] +
+                                     toBody[2] * toBody[2]);
+            if (dist > pull) {
+                const float k = pull / dist;
+                s_vrThrowOrigin[hand][0] += toBody[0] * k;
+                s_vrThrowOrigin[hand][1] += toBody[1] * k;
+                s_vrThrowOrigin[hand][2] += toBody[2] * k;
+            }
         }
 
         if (s_vrThrowPrevValid[hand]) {
@@ -1265,12 +1286,13 @@ void VrBody_Update(void) {
                 palm[1] = handTarget[hand][1];
                 palm[2] = handTarget[hand][2];
             }
-            const float a = (float)ghost.Beta * (VR_PI / 2048.0f);
-            const float c = cosf(a);
-            const float s = sinf(a);
-            s_vrPalmWorld[hand][0] = ghost.X + c * palm[0] + s * palm[2];
+            /* Rig points already carry the body yaw (VrBuildRig bakes it into
+               the root matrix), so the palm only needs the body translation.
+               Rotating it again by Beta would swing the ball around the
+               player whenever the body turns with the head or the stick. */
+            s_vrPalmWorld[hand][0] = ghost.X + palm[0];
             s_vrPalmWorld[hand][1] = ghost.Y + palm[1];
-            s_vrPalmWorld[hand][2] = ghost.Z - s * palm[0] + c * palm[2];
+            s_vrPalmWorld[hand][2] = ghost.Z + palm[2];
             s_vrPalmValid[hand] = 1;
         }
     }
