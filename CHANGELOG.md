@@ -29,7 +29,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Contributors
 
-Thanks to SIN for the interior follow camera, with its tests.
+Thanks to SIN for the interior follow camera: they designed and wrote it, with
+the math that keeps the bricks and the hero in step, its host tests and its
+fixture, and pointed out the door wobble that the later fixes went after.
 
 Thanks to EPmager for reporting the inventory drawn over the pause menu, with
 logs, recordings and a video of the four data and controller combinations

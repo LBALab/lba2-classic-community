@@ -65,7 +65,7 @@ A session recording carries the camera settings it was made with. A replay uses 
 
 ## Interiors
 
-Indoors the view is the original isometric one, and it moves only when Twinsen nears the edge of the screen. The **interior follow** is an experimental community addition that keeps him in the middle instead: the room slides under him as he walks rather than jumping a brick at a time. Camera shots placed by the game's designers still hold their rooms, and the view glides into and out of them: over `cam_shot_blend_ms` at least, and longer when it has far to go, so it never moves much faster than Twinsen walks. A room opens on the view it keeps, without sliding. It works with either outdoor camera and is off by default.
+Indoors the view is the original isometric one, and it moves only when Twinsen nears the edge of the screen. The **interior follow** is an experimental community addition, contributed by SIN, that keeps him in the middle instead: the room slides under him as he walks rather than jumping a brick at a time. Camera shots placed by the game's designers still hold their rooms, and the view glides into and out of them: over `cam_shot_blend_ms` at least, and longer when it has far to go, so it never moves much faster than Twinsen walks. A room opens on the view it keeps, without sliding. It works with either outdoor camera and is off by default.
 
 - In the console (`F12`): `cam_interior 1`, or `cam_interior 0` for the original view.
 - In `lba2.cfg`: `FollowCameraInterior: 1`.
