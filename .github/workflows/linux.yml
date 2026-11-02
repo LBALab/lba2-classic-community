@@ -43,9 +43,13 @@ jobs:
             "https://github.com/libsdl-org/SDL/releases/download/release-${version}/SDL2-${version}.tar.gz" \
             -o sdl2.tar.gz
           tar -xzf sdl2.tar.gz
+          # The SDL2 release at the API floor asks for a CMake older than 3.5,
+          # which CMake 4 (ubuntu-latest since 26.04) refuses unless told the
+          # policy level to assume. Older CMake ignores the variable.
           cmake -S "SDL2-${version}" -B sdl2-build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PWD/sdl2-sdk" \
-            -DCMAKE_INSTALL_LIBDIR=lib -DSDL_TEST=OFF -DSDL_STATIC=OFF
+            -DCMAKE_INSTALL_LIBDIR=lib -DSDL_TEST=OFF -DSDL_STATIC=OFF \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           cmake --build sdl2-build
           cmake --install sdl2-build
       - name: Configure without SDL3 discovery
@@ -239,8 +243,13 @@ jobs:
   # The baseline is keyed on (file, flag), never on line numbers: those move
   # whenever anything above them is edited, and a baseline that goes stale on
   # contact teaches people to regenerate it without reading it.
+  #
+  # Pinned, not ubuntu-latest: the baseline belongs to one compiler, gcc 13 on
+  # Ubuntu 24.04. ubuntu-latest moved to 26.04 and gcc 15, which reports a
+  # different set on main itself. Moving to a newer compiler is a baseline
+  # update of its own (warning-baseline.sh --update on that image).
   warnings:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
 
     steps:
