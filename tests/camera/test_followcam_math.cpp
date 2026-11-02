@@ -292,6 +292,27 @@ static void test_iso_pan_is_measured_in_bricks(void) {
     ASSERT_EQ_INT(-12, FollowCamIsoPanX(256, 0));
 }
 
+/* An interior glide's length follows its distance: 6 ms a pixel between the setting's floor and the
+ * 1.5 s ceiling, and a cut stays a cut. The square root is exact on the pixels that matter. */
+static void test_iso_glide_length_follows_the_distance(void) {
+    /* Short: the floor (cam_shot_blend_ms). */
+    ASSERT_EQ_INT(600, FollowCamIsoGlideMs(0, 0, 600, 6, 1500));
+    ASSERT_EQ_INT(600, FollowCamIsoGlideMs(30, 40, 600, 6, 1500)); /* 50 px, 300 ms */
+    /* Between: 6 ms a pixel, Euclidean and either sign. */
+    ASSERT_EQ_INT(1200, FollowCamIsoGlideMs(120, -160, 600, 6, 1500)); /* 200 px */
+    ASSERT_EQ_INT(1200, FollowCamIsoGlideMs(-160, 120, 600, 6, 1500));
+    ASSERT_EQ_INT(1014, FollowCamIsoGlideMs(169, 0, 600, 6, 1500));
+    ASSERT_EQ_INT(1008, FollowCamIsoGlideMs(120, 118, 600, 6, 1500)); /* sqrt 28324 = 168.3, rounded down */
+    /* Long: the ceiling, unless the floor is longer still. */
+    ASSERT_EQ_INT(1500, FollowCamIsoGlideMs(3000, 3000, 600, 6, 1500));
+    ASSERT_EQ_INT(2000, FollowCamIsoGlideMs(3000, 3000, 2000, 6, 1500));
+    /* The largest pan a cube allows does not overflow. */
+    ASSERT_EQ_INT(1500, FollowCamIsoGlideMs(0x7fffffff, 0x7fffffff, 600, 6, 1500));
+    /* 0 is the cut, whatever the distance. */
+    ASSERT_EQ_INT(0, FollowCamIsoGlideMs(300, 0, 0, 6, 1500));
+    ASSERT_EQ_INT(0, FollowCamIsoGlideMs(300, 0, -5, 6, 1500));
+}
+
 /* A divisor of zero would be a division fault rather than a slow camera, and the console can set
  * the cvars these come from to anything. */
 /* Standing on the target is not a reason to move. Promoting a zero step to the minimum would
@@ -728,6 +749,7 @@ int main(void) {
     RUN_TEST(test_the_classic_recentre_formula_overshoots);
     RUN_TEST(test_iso_pan_matches_the_projection_over_a_brick);
     RUN_TEST(test_iso_pan_is_measured_in_bricks);
+    RUN_TEST(test_iso_glide_length_follows_the_distance);
     TEST_SUMMARY();
     return test_failures != 0;
 }

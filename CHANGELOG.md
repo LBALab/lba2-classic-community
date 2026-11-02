@@ -17,7 +17,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   middle of the isometric view, the room sliding under him as he walks instead
   of jumping a brick at a time when he nears the screen edge. Camera shots
   placed by the game's designers still hold their rooms, and the view glides
-  into and out of them.
+  into and out of them, taking longer the farther it has to go. A room opens
+  on the view it keeps.
 
 - A screen opened just as the game resumes from the pause menu shows the scene
   behind it, not the menu. The inventory, the behaviour menu and the other

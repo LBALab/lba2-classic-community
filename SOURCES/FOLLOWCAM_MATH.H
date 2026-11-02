@@ -245,6 +245,40 @@ static inline S32 FollowCamBlendWeight(S32 elapsedMs, S32 durMs) {
     return (S32)(t * t * (3000 - 2 * t) / 1000000);
 }
 
+/* How long the interior view takes to glide `panX`, `panY` pixels: long enough that it never moves
+ * faster than `msPerPx` allows at the eased curve's middle, which is half again its average speed.
+ * `floorMs` is the shortest glide (cam_shot_blend_ms; 0 or less is a cut, and stays one), and
+ * `ceilMs` the longest, unless the floor is longer still. A fixed length moved a 340-pixel hand-over
+ * at 14 pixels a frame, against the follow's 1 to 3 while he walks. */
+static inline S32 FollowCamIsoGlideMs(S32 panX, S32 panY, S32 floorMs, S32 msPerPx, S32 ceilMs) {
+    U64 sq = (U64)((S64)panX * panX + (S64)panY * panY);
+    U64 d = 0;
+    U64 bit = (U64)1 << 62;
+    S64 ms;
+
+    if (floorMs <= 0)
+        return 0;
+    /* Integer square root, one bit a turn: 32 turns whatever the distance. */
+    while (bit > sq)
+        bit >>= 2;
+    while (bit != 0) {
+        if (sq >= d + bit) {
+            sq -= d + bit;
+            d = (d >> 1) + bit;
+        } else {
+            d >>= 1;
+        }
+        bit >>= 2;
+    }
+
+    ms = (S64)d * msPerPx;
+    if (ms > ceilMs)
+        ms = ceilMs;
+    if (ms < floorMs)
+        ms = floorMs;
+    return (S32)ms;
+}
+
 /* `weight` thousandths of the way from `from` to `to`. */
 static inline S32 FollowCamBlendValue(S32 from, S32 to, S32 weight) {
     return from + (S32)((S64)(to - from) * weight / 1000);

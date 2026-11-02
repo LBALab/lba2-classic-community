@@ -137,6 +137,11 @@
  * milliseconds, eased in and out. 0 is the cut. */
 #define FOLLOW_CAM_SHOT_BLEND_MS_DEFAULT 600
 #define FOLLOW_CAM_SHOT_BLEND_MS_MAX 5000
+/* Indoors the same setting is the SHORTEST glide: a longer one gets 6 ms a pixel, so its top speed
+ * is a quarter of a pixel a millisecond (4 a frame at 60 Hz, a little over the follow's while he
+ * runs), up to 1.5 s. Measured in play: hand-overs of 60 to 340 pixels, all in 600 ms before. */
+#define FOLLOW_CAM_ISO_GLIDE_MS_PER_PX 6
+#define FOLLOW_CAM_ISO_GLIDE_MAX_MS 1500
 
 /* Elevation (AlphaCam) — applies when Auto camera (FollowCamera) is on -----*/
 #define FOLLOW_CAM_ALPHA_MIN 150 /* minimum elevation angle */

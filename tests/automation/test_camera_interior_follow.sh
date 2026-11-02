@@ -58,6 +58,15 @@
 #      The same holds from one zone's shot to the next with nobody else owning the view between:
 #      crossing from zone 9 into zone 7 of cube 3 is a 162-pixel cut in the classic camera and with
 #      cam_shot_blend_ms 0, and at most 7 pixels a frame with the blend.
+#   7b AND A GLIDE TAKES AS LONG AS ITS DISTANCE NEEDS. A fixed 600 ms carried a 340-pixel hand-over
+#      at 14 pixels a frame in play, against the follow's 1 to 3 while he walks; the length now grows
+#      with the distance (6 ms a pixel, 1.5 s at most, cam_shot_blend_ms the least), so the walk into
+#      the zone below glides for 64 frames instead of 38, at most 8 pixels a frame instead of 13.
+#   8  A ROOM OPENS WHERE IT WILL STAY. The load aims the classic camera a few bricks ahead of him, five
+#      tiles in cube 0, and the follow walked its tile there half the gap a frame: 76 pixels in the
+#      worst frame, 119 in the first fifteen. And a room that opens inside a camera zone (cube 154)
+#      had the zone's shot glide in from the follow's view, which no frame had shown: 39 frames of
+#      slide. Both now open on their final view: nothing moves in the first fifteen frames.
 #   6  A CAMERA ZONE STILL WINS, in an interior and with the switch on. Every interior camera that is
 #      not this option's is a zone's (`SetZoneCamera` re-places `Start*Cube` every frame while the hero
 #      is in the box), and a following camera that overrode one would be a room whose authored shot
@@ -129,6 +138,51 @@ zone2zone_arm() {
         || fail "zone-to-zone run in cube $HANDOVER_CUBE with cam_shot_blend_ms $ms failed: exit $? (see $log)"
 }
 
+# entry_arm <cube> <log> -- the room loaded with the follow already on, nobody touching anything.
+# The blend is set, not left at whatever the arm before wrote to the shared lba2.cfg (the cut arms'
+# 0, under which a glide on entry could not be seen).
+entry_arm() {
+    local cube="$1" log="$2"
+
+    ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
+        --exec "cam_interior 1; cam_shot_blend_ms 600; camtrace 1; cube $cube" \
+        --tick 60 --exit > "$log" 2>&1 \
+        || fail "entry run in cube $cube failed: exit $? (see $log)"
+}
+
+# entry_stats <log> -- how far the shown view moves in the first ENTRY_ROWS interior frames after the
+# load, in pixels (total and the largest frame), and how many of them run a blend.
+ENTRY_ROWS=15
+entry_stats() {
+    cam_tsv "$1" | python3 -c '
+import sys
+
+n = int(sys.argv[1])
+hdr = None
+rows = []
+for line in sys.stdin:
+    f = line.rstrip("\n").split("\t")
+    if hdr is None:
+        hdr = f
+        continue
+    if len(f) == len(hdr):
+        r = {k: int(v) for k, v in zip(hdr, f)}
+        if r["ext"] == 0:
+            rows.append(r)
+rows = rows[: n + 1]
+
+def view(r):
+    return (-24 * (r["tx"] - r["tz"]) + r["panx"], -12 * (r["tx"] + r["tz"]) + 15 * r["ty"] + r["pany"])
+
+moves = [abs(view(b)[0] - view(a)[0]) + abs(view(b)[1] - view(a)[1]) for a, b in zip(rows, rows[1:])]
+print("rows=%d" % len(rows))
+print("iso=%s" % ",".join(sorted(set(str(r["iso"]) for r in rows))))
+print("moved=%d" % sum(moves))
+print("worst=%d" % max(moves + [0]))
+print("blendrows=%d" % sum(1 for r in rows if r["ibl"] > 0))
+' "$ENTRY_ROWS"
+}
+
 # handover_stats <log> -- zone changes seen, blend frames, and the largest move of the shown view in
 # one frame from the first zone change on, in pixels (the lattice's own origin: tile and pan).
 handover_stats() {
@@ -171,6 +225,12 @@ for i in range(max(first, 1), len(rows)):
 print("changes=%s" % ",".join(changes))
 print("rows=%d" % len(rows))
 print("blendrows=%d" % sum(1 for r in rows if r["ibl"] > 0))
+# The longest single blend, in frames: its length follows its distance.
+run = longest = 0
+for r in rows:
+    run = run + 1 if r["ibl"] > 0 else 0
+    longest = max(longest, run)
+print("blendlong=%d" % longest)
 print("jump=%d" % jump)
 # From the first zone-to-zone change on: the zone-to-zone arm is placed by a teleport, which moves the
 # view itself and is not what that arm measures.
@@ -385,8 +445,11 @@ cut="$(handover_stats "$cut_log")"
     || fail "the cut arm moved the view only $(get "$cut" jump) px in a frame: the walk no longer has a jump for the blend to remove"
 [ "$(get "$blend" blendrows)" -ge 20 ] \
     || fail "the hand-over blended over only $(get "$blend" blendrows) frames"
-[ "$(get "$blend" jump)" -le 20 ] \
+[ "$(get "$blend" jump)" -le 10 ] \
     || fail "the view jumped $(get "$blend" jump) px in a frame across a hand-over with the blend on (cut: $(get "$cut" jump))"
+# 7b ... over a length the distance sets, not the fixed 600 ms (38 frames) of the setting alone.
+[ "$(get "$blend" blendlong)" -ge 55 ] \
+    || fail "the longest hand-over glide lasted $(get "$blend" blendlong) frames: its length is not following its distance"
 
 # ... and from one zone's shot to the next.
 zone2zone_arm 600 "$blend_log"
@@ -403,4 +466,17 @@ esac
 [ "$(get "$zblend" jump11)" -le 20 ] \
     || fail "the view jumped $(get "$zblend" jump11) px in a frame from one zone's shot to the next with the blend on (cut: $(get "$zcut" jump11))"
 
-pass "interior follow: view on the hero's tile $on_tile/$tail frames with no overshoot against $classic_tile/$classic_tail classic, the crossing panned over $(get "$follow" lagframes) frames with no whole-brick step, never more than $(get "$follow" stillrun) frame(s) of it standing still and the eye $(get "$follow" eyelag) units off the hero, a camera zone still holds its room, and a hand-over moves the view at most $(get "$blend" jump) px a frame against $(get "$cut" jump) cut ($(get "$zblend" jump11) against $(get "$zcut" jump11) from zone to zone)"
+# 8  Room entry: the room opens on its final view, with no zone (cube 0, aimed five tiles ahead by the
+#    load) and inside one (the zoned room, whose shot takes the view on the first tick).
+for cube in 0 "$ZONED_CUBE"; do
+    entry_arm "$cube" "$blend_log"
+    entry="$(entry_stats "$blend_log")"
+    [ "$(get "$entry" rows)" -gt "$ENTRY_ROWS" ] || fail "only $(get "$entry" rows) interior frames after loading cube $cube"
+    [ "$(get "$entry" iso)" = "1" ] || fail "the interior follow was not in force on entering cube $cube"
+    [ "$(get "$entry" blendrows)" -eq 0 ] \
+        || fail "cube $cube opened with a $(get "$entry" blendrows)-frame glide: a blend started from a view no frame had shown"
+    [ "$(get "$entry" moved)" -eq 0 ] \
+        || fail "the view moved $(get "$entry" moved) px in the first $ENTRY_ROWS frames after loading cube $cube (worst frame $(get "$entry" worst)): the room did not open where it stays"
+done
+
+pass "interior follow: view on the hero's tile $on_tile/$tail frames with no overshoot against $classic_tile/$classic_tail classic, the crossing panned over $(get "$follow" lagframes) frames with no whole-brick step, never more than $(get "$follow" stillrun) frame(s) of it standing still and the eye $(get "$follow" eyelag) units off the hero, a camera zone still holds its room, and a hand-over moves the view at most $(get "$blend" jump) px a frame over $(get "$blend" blendlong) frames against $(get "$cut" jump) cut ($(get "$zblend" jump11) against $(get "$zcut" jump11) from zone to zone), and rooms open on their final view"
