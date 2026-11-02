@@ -1,4 +1,5 @@
 #include <GL/RENDER_GL.H>
+#include <GL/STEREO_POLICY.H>
 
 #include <3D/CAMERA.H>
 #include <3D/PROJ.H>
@@ -5069,14 +5070,20 @@ static S32 GL_StereoDoubleWideAllowed(void) {
     const char *reason = NULL;
     if (getenv("LBA2_NO_STEREO_DW") != NULL)
         reason = "LBA2_NO_STEREO_DW";
-    else if (!DisplayStereo3D)
-        reason = "DisplayStereo3D=0";
-    else if (!OpenXR_IsActive())
-        reason = "OpenXR inactive";
-    else if (!OpenXR_GetStereoEnabled())
-        reason = "stereo disabled";
-    else if (s_antiAlias != 2 && s_antiAlias != 3)
-        reason = "AA not MSAA2/4";
+    else if (!GL_StereoDoubleWideAllowedFor(DisplayStereo3D, OpenXR_IsActive(),
+                                            OpenXR_GetStereoEnabled(),
+                                            s_antiAlias)) {
+        /* Name the setting that blocked the pair: the log is the only place
+           a device run shows why it fell back to per-eye. */
+        if (!DisplayStereo3D)
+            reason = "DisplayStereo3D=0";
+        else if (!OpenXR_IsActive())
+            reason = "OpenXR inactive";
+        else if (!OpenXR_GetStereoEnabled())
+            reason = "stereo disabled";
+        else
+            reason = "FXAA";
+    }
 
     if (reason != NULL) {
         static const char *s_lastReason = NULL;

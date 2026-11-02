@@ -190,8 +190,12 @@ eyes render into the left and right halves of one double-wide MSAA scene
 target, and `OpenXR_PresentMono` blits that target into the double-wide
 swapchain in one pass. When brightness, contrast, or saturation is
 non-neutral, that final pass applies the display transform to the whole
-pair instead of costing a second composite. Per-eye capture FBOs remain as
-a fallback for FXAA or a double-wide FBO failure. Set
+pair instead of costing a second composite. AA off and MSAA both use the
+pair; per-eye capture FBOs remain as a fallback for FXAA, which runs as a
+per-eye composite post pass, or for a double-wide FBO failure. Interior
+parallax depends on the pair: the isometric projection is affine and ignores
+the per-eye camera shift, so the per-eye path renders both halves from one
+camera and the room looks flat. Set
 `LBA2_OXR_GLDEBUG=1` to log GL errors from the present stages; release runs
 skip the per-present error queries.
 
