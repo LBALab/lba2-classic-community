@@ -3714,6 +3714,10 @@ void ReadConfigFile(void) {
         DefFileBufferReadValueDefault("DisplaySoftShadows", FALSE);
     if (DisplaySoftShadows < 0 OR DisplaySoftShadows > 1)
         DisplaySoftShadows = FALSE;
+    DisplayColorGrade =
+        DefFileBufferReadValueDefault("DisplayColorGrade", 0);
+    if (DisplayColorGrade < 0 OR DisplayColorGrade > 2)
+        DisplayColorGrade = 0;
     DisplaySubPixel = DefFileBufferReadValueDefault("DisplaySubPixel", FALSE);
     if (DisplaySubPixel < 0 OR DisplaySubPixel > 1)
         DisplaySubPixel = FALSE;
@@ -3977,6 +3981,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("DisplayAntiAlias", DisplayAntiAlias);
     DefFileBufferWriteValue("DisplayDither", DisplayDither);
     DefFileBufferWriteValue("DisplaySoftShadows", DisplaySoftShadows);
+    DefFileBufferWriteValue("DisplayColorGrade", DisplayColorGrade);
     DefFileBufferWriteValue("DisplaySubPixel", DisplaySubPixel);
     DefFileBufferWriteValue("DisplaySharpen", DisplaySharpen);
     DefFileBufferWriteValue("DisplayStereo3D", DisplayStereo3D);

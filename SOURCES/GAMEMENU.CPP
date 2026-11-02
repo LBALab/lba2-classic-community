@@ -120,6 +120,7 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_WINDOW 2133
 #define MENU_ID_DISPLAY_EFFECTS 2136
 #define MENU_ID_DISPLAY_SOFTSHADOWS 2137
+#define MENU_ID_DISPLAY_COLORGRADE 2144
 #define MENU_ID_DISPLAY_SUBPIXEL 2147
 
 // Resolution sub-page rows occupy a reserved id range: row i carries id
@@ -309,6 +310,8 @@ static void BuildDisplayEffectsMenu(void) {
     *p++ = 26;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_SOFTSHADOWS;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_COLORGRADE;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_SUBPIXEL;
     DisplayEffectsMenu[1] = (U16)((p - DisplayEffectsMenu - 4) / 2);
@@ -708,6 +711,13 @@ static void BuildCustomMenuText(S32 num, char *string) {
     case MENU_ID_DISPLAY_SOFTSHADOWS:
         snprintf(string, 256, "Soft shadows: %s",
                  DisplaySoftShadows ? "On" : "Off");
+        break;
+
+    case MENU_ID_DISPLAY_COLORGRADE:
+        snprintf(string, 256, "Colour grade: %s",
+                 DisplayColorGrade == 1 ? "Warm"
+                 : DisplayColorGrade == 2 ? "Cool"
+                                         : "Off");
         break;
 
     case MENU_ID_DISPLAY_SUBPIXEL:
@@ -3841,6 +3851,11 @@ static void DisplayMenuApplyChoice(S32 select) {
 
     case MENU_ID_DISPLAY_SOFTSHADOWS:
         DisplaySoftShadows ^= 1;
+        WriteConfigFile();
+        break;
+
+    case MENU_ID_DISPLAY_COLORGRADE:
+        DisplayColorGrade = (DisplayColorGrade + 1) % 3;
         WriteConfigFile();
         break;
 

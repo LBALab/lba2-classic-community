@@ -76,6 +76,7 @@ extern "C" S32 DisplaySharpen;
 extern "C" S32 DisplayStereo3D;
 extern "C" S32 DisplaySoftShadows;
 extern "C" S32 DisplaySubPixel;
+extern "C" S32 DisplayColorGrade;
 
 /* Present-side sharpening strength: 0 = off, 1 = low, 2 = high. */
 static float GL_SharpenAmount(void) {
@@ -98,15 +99,38 @@ void GL_SetSubPixelOffset(float du, float dv) {
     s_subPixelV = dv;
 }
 
-/* Scene-only sub-pixel offset.  The overlay, snapshot and horizon blits draw
-   through the same present program and must reset it to zero. */
-static void GL_UploadSubPixel(GLint loc, S32 scene) {
-    if (loc < 0)
-        return;
-    if (scene && DisplaySubPixel)
-        glUniform2f(loc, s_subPixelU, s_subPixelV);
-    else
-        glUniform2f(loc, 0.0f, 0.0f);
+/* Whether the scene composite currently has work the direct-read fast path
+   would skip. */
+static S32 GL_PostFxActive(void) {
+    return DisplayColorGrade != 0 || DisplaySubPixel;
+}
+
+/* Upload the scene post-effect uniforms.  `scene` selects the live values;
+   every other user of the same present program (the 2D overlay, the terrain
+   snapshot and horizon blits) must pass 0, or it inherits the last frame's
+   tint or vignette. */
+static void GL_UploadPostFx(GLint uGrade, GLint uVignette, GLint uSubPixel,
+                            S32 scene) {
+    S32 grade = 0;
+    float vignette = 0.0f;
+    float du = 0.0f;
+    float dv = 0.0f;
+
+    if (scene) {
+        grade = DisplayColorGrade;
+        if (DisplayColorGrade)
+            vignette = 0.16f;
+        if (DisplaySubPixel) {
+            du = s_subPixelU;
+            dv = s_subPixelV;
+        }
+    }
+    if (uGrade >= 0)
+        glUniform1i(uGrade, grade);
+    if (uVignette >= 0)
+        glUniform1f(uVignette, vignette);
+    if (uSubPixel >= 0)
+        glUniform2f(uSubPixel, du, dv);
 }
 
 /* Temporary perf instrumentation: draw calls flushed since GL_BeginFrame */
@@ -153,6 +177,24 @@ S32 GL_BatchFlushCount = 0;
     "    return c;\n"                                                         \
     "}\n"
 
+/* Scene-level post effects shared by both present programs (the plain blit
+   and the FXAA path).  Every effect is opt-in and costs one branch when off.
+   The 2D overlay draws through the same plain program, so the overlay pass
+   resets these uniforms to neutral before it runs. */
+#define GLSL_POSTFX                                                           \
+    "uniform int uGrade;\n"        /* 0 = off, 1 = warm, 2 = cool */           \
+    "uniform float uVignette;\n"   /* 0..1 edge darkening */                   \
+    "uniform vec2 uSubPixel;\n"    /* sub-pixel pan, in UV units */            \
+    "vec3 PostFx(vec3 c, vec2 screenUv) {\n"                                  \
+    "    if (uGrade == 1) c *= vec3(1.06, 1.00, 0.90);\n"                     \
+    "    else if (uGrade == 2) c *= vec3(0.92, 1.00, 1.08);\n"                \
+    "    if (uVignette > 0.001) {\n"                                          \
+    "        vec2 p = screenUv - 0.5;\n"                                      \
+    "        c *= 1.0 - uVignette * smoothstep(0.10, 0.42, dot(p, p));\n"     \
+    "    }\n"                                                                 \
+    "    return c;\n"                                                         \
+    "}\n"
+
 static const char *s_vertSrc =
     GLSL_VERT_HEADER
     "attribute vec2 aPos;\n"
@@ -167,13 +209,15 @@ static const char *s_fragSrc =
     GLSL_FRAG_HEADER GLSL_IMAGE_ADJUST
     "uniform sampler2D uTex;\n"
     "uniform vec2 uTexel;\n"
+    "uniform vec2 uTexScale;\n" /* 1,1 for a normal blit; 0.5,1 per stereo eye */
+    "uniform vec2 uTexOffset;\n" /* eye half offset for the stereo post-Fx pass */
     "uniform float uSharpen;\n" /* 0 = off, unsharp strength */
-    "uniform vec2 uSubPixel;\n" /* interior hover pan remainder, in UV */
+    GLSL_POSTFX
     "varying vec2 vTexCoord;\n"
     "void main() {\n"
     /* The 2D overlay is a screen-space layer: Scale2x and xBR belong to the
        3D texture sampler, so the overlay itself samples plainly. */
-    "    vec2 uv = vTexCoord + uSubPixel;\n"
+    "    vec2 uv = vTexCoord * uTexScale + uTexOffset + uSubPixel;\n"
     "    vec4 result = texture2D(uTex, uv);\n"
     /* Unsharp mask on the composited scene.  Four cross taps at one source
        texel keep it cheap; the overlay is drawn by a different program, so
@@ -187,7 +231,7 @@ static const char *s_fragSrc =
     "        vec3 sblur = (sn + ss + sw + se) * 0.25;\n"
     "        sharpened = result.rgb + (result.rgb - sblur) * uSharpen;\n"
     "    }\n"
-    "    gl_FragColor = vec4(ImageAdjust(sharpened), result.a);\n"
+    "    gl_FragColor = vec4(ImageAdjust(PostFx(sharpened, vTexCoord)), result.a);\n"
     "}\n";
 
 /* ── CLUT shader (3D Gouraud-textured polygons) ─────────────────────────── */
@@ -1201,8 +1245,12 @@ static GLuint s_fboHalfVbo = 0;
 static GLuint s_texture = 0;
 static GLint s_uTexLoc = -1;
 static GLint s_uTexelLoc = -1;  /* present overlay: 1/width, 1/height */
+static GLint s_uTexScaleLoc = -1;
+static GLint s_uTexOffsetLoc = -1;
 static GLint s_uFilterLoc = -1; /* present overlay: 0 nearest, 1 bilinear, 2 Scale2x */
 static GLint s_uSharpenLoc = -1;
+static GLint s_uGradeLoc = -1;
+static GLint s_uVignetteLoc = -1;
 static GLint s_uSubPixelLoc = -1;
 static GLint s_aPosLoc = -1;
 static GLint s_aTexCoordLoc = -1;
@@ -1314,7 +1362,7 @@ static const char *s_fxaaFragSrc =
     "uniform sampler2D uTex;\n"
     "uniform vec2 uTexel;\n"
     "uniform float uSharpen;\n"
-    "uniform vec2 uSubPixel;\n" /* interior hover pan remainder, in UV */
+    GLSL_POSTFX
     "varying vec2 vTexCoord;\n"
     /* Unsharp mask from the FXAA corner taps; applied after the edge blend so
        sharpening and FXAA can be used together. */
@@ -1338,8 +1386,8 @@ static const char *s_fxaaFragSrc =
     "    float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));\n"
     "    float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));\n"
     "    if (lumaMax - lumaMin <= 0.08) {\n"
-    "        gl_FragColor = vec4(ImageAdjust(SharpenColor(\n"
-    "            rgbM, rgbNW, rgbNE, rgbSW, rgbSE)), 1.0);\n"
+    "        gl_FragColor = vec4(ImageAdjust(PostFx(SharpenColor(\n"
+    "            rgbM, rgbNW, rgbNE, rgbSW, rgbSE), vTexCoord)), 1.0);\n"
     "        return;\n"
     "    }\n"
     "    vec2 dir = vec2(-((lumaNW + lumaNE) - (lumaSW + lumaSE)),\n"
@@ -1355,17 +1403,19 @@ static const char *s_fxaaFragSrc =
     "        texture2D(uTex, uv + dir * 0.5).rgb);\n"
     "    float lumaB = dot(rgbB, luma);\n"
     "    if (lumaB < lumaMin || lumaB > lumaMax)\n"
-    "        gl_FragColor = vec4(ImageAdjust(SharpenColor(\n"
-    "            rgbA, rgbNW, rgbNE, rgbSW, rgbSE)), 1.0);\n"
+    "        gl_FragColor = vec4(ImageAdjust(PostFx(SharpenColor(\n"
+    "            rgbA, rgbNW, rgbNE, rgbSW, rgbSE), vTexCoord)), 1.0);\n"
     "    else\n"
-    "        gl_FragColor = vec4(ImageAdjust(SharpenColor(\n"
-    "            rgbB, rgbNW, rgbNE, rgbSW, rgbSE)), 1.0);\n"
+    "        gl_FragColor = vec4(ImageAdjust(PostFx(SharpenColor(\n"
+    "            rgbB, rgbNW, rgbNE, rgbSW, rgbSE), vTexCoord)), 1.0);\n"
     "}\n";
 
 static GLuint s_fxaaProgram = 0;
 static GLint s_fxaa_uTex = -1;
 static GLint s_fxaa_uTexel = -1;
 static GLint s_fxaa_uSharpen = -1;
+static GLint s_fxaa_uGrade = -1;
+static GLint s_fxaa_uVignette = -1;
 static GLint s_fxaa_uSubPixel = -1;
 static GLint s_fxaa_aPos = -1;
 static GLint s_fxaa_aTexCoord = -1;
@@ -2724,6 +2774,12 @@ static S32 s_atlasTexNext = 0;
 static GLuint s_presentFBO = 0;
 static GLuint s_presentColorTex = 0;
 
+/* Stereo post-Fx target: the double-wide scene is resolved, post-processed
+ * into this pair, then the HUD is drawn on top and OpenXR presents it. */
+static GLuint s_postFxFBO = 0;
+static GLuint s_postFxTex = 0;
+static S32 s_stereoPostFxActive = 0;
+
 /* ── GL state — stereo eye capture FBOs ─────────────────────────────────── */
 /* Native stereo: the engine renders the scene twice per frame (once per
  * eye, see GL_SetStereoEye). Eye 0's composite is captured here so the
@@ -3113,6 +3169,16 @@ static GLuint LinkProgram(GLuint vert, GLuint frag) {
 /* ── FBO helpers (SSAA) ──────────────────────────────────────────────────── */
 
 static void GL_DestroyFBO(void) {
+    if (s_postFxFBO) {
+        glDeleteFramebuffers(1, &s_postFxFBO);
+        s_postFxFBO = 0;
+        GL_ForgetFboBinding();
+    }
+    if (s_postFxTex) {
+        glDeleteTextures(1, &s_postFxTex);
+        s_postFxTex = 0;
+    }
+    s_stereoPostFxActive = 0;
     if (s_fbo) {
         glDeleteFramebuffers(1, &s_fbo);
         s_fbo = 0;
@@ -3359,6 +3425,8 @@ U32 GL_GetStereoEyeFBO(S32 eye) {
 }
 
 U32 GL_GetStereoPairFBO(void) {
+    if (s_stereoPostFxActive && s_postFxFBO)
+        return (U32)s_postFxFBO;
     return s_stereoDoubleWide ? (U32)GL_SceneReadFbo() : 0;
 }
 
@@ -3381,7 +3449,8 @@ S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight, U32 dstWidth,
         dstHeight == 0)
         return 0;
 
-    GLuint tex = GL_SceneColorTex();
+    GLuint tex = (s_stereoPostFxActive && s_postFxTex) ? s_postFxTex
+                                                       : GL_SceneColorTex();
     if (tex == 0)
         return 0;
 
@@ -3399,7 +3468,7 @@ S32 GL_BlitStereoPairToCurrent(U32 srcWidth, U32 srcHeight, U32 dstWidth,
                 1.0f / (GLfloat)srcHeight);
     glUniform1i(s_uFilterLoc, exact ? 0 : 1);
     glUniform1f(s_uSharpenLoc, 0.0f);
-    GL_UploadSubPixel(s_uSubPixelLoc, 0);
+    GL_UploadPostFx(s_uGradeLoc, s_uVignetteLoc, s_uSubPixelLoc, 0);
 
     GL_SetDepthTest(0);
     GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -3439,7 +3508,8 @@ S32 GL_BlitStereoRectToCurrent(U32 srcX, U32 srcY, U32 srcWidth, U32 srcHeight,
         srcY + srcHeight > texHeight)
         return 0;
 
-    GLuint tex = GL_SceneColorTex();
+    GLuint tex = (s_stereoPostFxActive && s_postFxTex) ? s_postFxTex
+                                                       : GL_SceneColorTex();
     if (tex == 0)
         return 0;
 
@@ -3458,7 +3528,7 @@ S32 GL_BlitStereoRectToCurrent(U32 srcX, U32 srcY, U32 srcWidth, U32 srcHeight,
                 1.0f / (GLfloat)texHeight);
     glUniform1i(s_uFilterLoc, exact ? 0 : 1);
     glUniform1f(s_uSharpenLoc, 0.0f);
-    GL_UploadSubPixel(s_uSubPixelLoc, 0);
+    GL_UploadPostFx(s_uGradeLoc, s_uVignetteLoc, s_uSubPixelLoc, 0);
 
     GL_SetDepthTest(0);
     GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -3591,6 +3661,31 @@ static void GL_CreateFBO(U32 width, U32 height) {
         return;
     }
 
+    /* Stereo post-Fx pair: same size as the double-wide scene, no depth.
+       The scene is resolved into it, then the HUD is drawn on top. */
+    if (s_stereoDoubleWide) {
+        glGenTextures(1, &s_postFxTex);
+        glBindTexture(GL_TEXTURE_2D, s_postFxTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, targetW, targetH, 0, GL_RGBA,
+                     GL_UNSIGNED_BYTE, NULL);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        glGenFramebuffers(1, &s_postFxFBO);
+        glBindFramebuffer(GL_FRAMEBUFFER, s_postFxFBO);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D, s_postFxTex, 0);
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) !=
+            GL_FRAMEBUFFER_COMPLETE) {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            GL_DestroyFBO();
+            return;
+        }
+    }
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     s_fboWidth = width;
     s_fboHeight = height;
@@ -3714,14 +3809,22 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
 
     s_uTexLoc = glGetUniformLocation(s_program, "uTex");
     s_uTexelLoc = glGetUniformLocation(s_program, "uTexel");
+    s_uTexScaleLoc = glGetUniformLocation(s_program, "uTexScale");
+    s_uTexOffsetLoc = glGetUniformLocation(s_program, "uTexOffset");
     s_uFilterLoc = glGetUniformLocation(s_program, "uFilter");
     s_uSharpenLoc = glGetUniformLocation(s_program, "uSharpen");
+    s_uGradeLoc = glGetUniformLocation(s_program, "uGrade");
+    s_uVignetteLoc = glGetUniformLocation(s_program, "uVignette");
     s_uSubPixelLoc = glGetUniformLocation(s_program, "uSubPixel");
     s_adj_uBrightness = glGetUniformLocation(s_program, "uBrightness");
     s_adj_uContrast = glGetUniformLocation(s_program, "uContrast");
     s_adj_uSaturation = glGetUniformLocation(s_program, "uSaturation");
     s_aPosLoc = glGetAttribLocation(s_program, "aPos");
     s_aTexCoordLoc = glGetAttribLocation(s_program, "aTexCoord");
+    GL_UseProgramCached(s_program);
+    glUniform2f(s_uTexScaleLoc, 1.0f, 1.0f);
+    glUniform2f(s_uTexOffsetLoc, 0.0f, 0.0f);
+    GL_UseProgramCached(0);
 
     /* ── Compile indexed-present shader ── */
     GLuint idxVert = CompileShader(GL_VERTEX_SHADER, s_vertSrc);
@@ -4236,6 +4339,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
             s_fxaa_uTex = glGetUniformLocation(s_fxaaProgram, "uTex");
             s_fxaa_uTexel = glGetUniformLocation(s_fxaaProgram, "uTexel");
             s_fxaa_uSharpen = glGetUniformLocation(s_fxaaProgram, "uSharpen");
+            s_fxaa_uGrade = glGetUniformLocation(s_fxaaProgram, "uGrade");
+            s_fxaa_uVignette = glGetUniformLocation(s_fxaaProgram, "uVignette");
             s_fxaa_uSubPixel = glGetUniformLocation(s_fxaaProgram, "uSubPixel");
             s_fxaaAdj_uBrightness = glGetUniformLocation(s_fxaaProgram, "uBrightness");
             s_fxaaAdj_uContrast = glGetUniformLocation(s_fxaaProgram, "uContrast");
@@ -7890,7 +7995,7 @@ void GL_RestoreTerrainSnapshot(void) {
         glUniform1i(s_uTexLoc, 0);
         glUniform1i(s_uFilterLoc, 1);
         glUniform1f(s_uSharpenLoc, 0.0f);
-        GL_UploadSubPixel(s_uSubPixelLoc, 0);
+        GL_UploadPostFx(s_uGradeLoc, s_uVignetteLoc, s_uSubPixelLoc, 0);
         GL_BindTexUnit(0, s_snapshotTex);
         GL_BindArrayBuffer(s_auxVBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(rverts), rverts, GL_STREAM_DRAW);
@@ -8274,7 +8379,7 @@ void GL_RestoreHorizon(void) {
         glUniform1i(s_uTexLoc, 0);
         glUniform1i(s_uFilterLoc, 1);
         glUniform1f(s_uSharpenLoc, 0.0f);
-        GL_UploadSubPixel(s_uSubPixelLoc, 0);
+        GL_UploadPostFx(s_uGradeLoc, s_uVignetteLoc, s_uSubPixelLoc, 0);
         GL_BindTexUnit(0, s_horizonTex);
         GL_BindArrayBuffer(s_auxVBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(rverts), rverts, GL_STREAM_DRAW);
@@ -8314,6 +8419,8 @@ static void GL_LogSurfaceBudget(const char *when) {
     if (s_fboColorTex)
         fbo += GL_TargetBytes(s_sceneTargetW, s_sceneTargetH, 4);
     if (s_fboDepthRbo)
+        fbo += GL_TargetBytes(s_sceneTargetW, s_sceneTargetH, 4);
+    if (s_postFxTex)
         fbo += GL_TargetBytes(s_sceneTargetW, s_sceneTargetH, 4);
     if (s_msaaColorTex)
         msaa += GL_TargetBytes(s_msaaW, s_msaaH, 4);
@@ -9518,7 +9625,7 @@ static void GL_DrawArgbOverlay(const void *argbPixels, U32 pitch, U32 width,
     glBindTexture(GL_TEXTURE_2D, s_texture);
     glUniform1i(s_uTexLoc, 0);
     glUniform1f(s_uSharpenLoc, 0.0f); /* never sharpen the 2D overlay */
-    GL_UploadSubPixel(s_uSubPixelLoc, 0); /* nor offset it */
+    GL_UploadPostFx(s_uGradeLoc, s_uVignetteLoc, s_uSubPixelLoc, 0); /* nor offset it */
     if (s_overlayImageAdjust) {
         GL_UploadImageAdjust(s_adj_uBrightness, s_adj_uContrast,
                              s_adj_uSaturation);
@@ -9548,6 +9655,71 @@ static void GL_DrawArgbOverlay(const void *argbPixels, U32 pitch, U32 width,
     GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
+/* Post-process the double-wide stereo scene before the HUD is drawn on top.
+   The scene is sampled once per eye into s_postFxFBO; the eye-half UV scale
+   keeps the vignette shape centred in each eye while the sample
+   reads that eye's half of the pair. */
+static S32 GL_ApplyStereoPostFx(void) {
+    if (!s_initialized || !s_postFxFBO || !s_postFxTex || s_directActive ||
+        !GL_PostFxActive() || s_fboWidth == 0 || s_fboHeight == 0)
+        return 0;
+    GLuint tex = GL_SceneColorTex();
+    if (tex == 0 || !Window_GLMakeCurrent())
+        return 0;
+
+    glBindFramebuffer(GL_FRAMEBUFFER, s_postFxFBO);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_CULL_FACE);
+    GL_SetDepthTest(0);
+    GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    GL_UseProgramCached(s_program);
+    GL_BindTexUnit(0, tex);
+    /* Nearest keeps the per-eye UV half from filtering across the pair
+       boundary. */
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glUniform1i(s_uTexLoc, 0);
+    glUniform2f(s_uTexelLoc, 1.0f / (GLfloat)s_fboWidth,
+                1.0f / (GLfloat)s_fboHeight);
+    glUniform1f(s_uSharpenLoc, GL_SharpenAmount());
+    glUniform1f(s_adj_uBrightness, 0.0f);
+    glUniform1f(s_adj_uContrast, 1.0f);
+    glUniform1f(s_adj_uSaturation, 1.0f);
+    GL_UploadPostFx(s_uGradeLoc, s_uVignetteLoc, s_uSubPixelLoc, 1);
+
+    GL_BindArrayBuffer(s_fboVbo);
+    glEnableVertexAttribArray(s_aPosLoc);
+    glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat), (const void *)0);
+    glEnableVertexAttribArray(s_aTexCoordLoc);
+    glVertexAttribPointer(s_aTexCoordLoc, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(GLfloat),
+                          (const void *)(2 * sizeof(GLfloat)));
+
+    for (S32 eye = 0; eye < 2; eye++) {
+        glViewport(eye ? (GLint)s_fboWidth : 0, 0, (GLsizei)s_fboWidth,
+                   (GLsizei)s_fboHeight);
+        glUniform2f(s_uTexScaleLoc, 0.5f, 1.0f);
+        glUniform2f(s_uTexOffsetLoc, eye ? 0.5f : 0.0f, 0.0f);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    }
+
+    glDisableVertexAttribArray(s_aPosLoc);
+    glDisableVertexAttribArray(s_aTexCoordLoc);
+    GL_BindArrayBuffer(0);
+    GL_BindTexUnit(0, 0);
+
+    /* The HUD is drawn next through the same programs: reset everything the
+       scene pass changed so text is neither shifted, blurred nor graded. */
+    glUniform2f(s_uTexScaleLoc, 1.0f, 1.0f);
+    glUniform2f(s_uTexOffsetLoc, 0.0f, 0.0f);
+    glUniform1f(s_uSharpenLoc, 0.0f);
+    GL_UploadPostFx(s_uGradeLoc, s_uVignetteLoc, s_uSubPixelLoc, 0);
+    s_stereoPostFxActive = 1;
+    return 1;
+}
+
 void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
                 S32 filterLinear) {
     if (!s_initialized || argbPixels == NULL) {
@@ -9564,6 +9736,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
 
     /* A fresh present supersedes the previous eye's direct-scene decision. */
     s_stereoEye1SceneDirect = 0;
+    s_stereoPostFxActive = 0;
     s_overlayPending = 0;
 
     /* Flush any remaining batched 3D geometry from the current frame.
@@ -9576,23 +9749,61 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
        into its half, then resolve once after the second eye. */
     if (s_stereoDoubleWide && s_stereoEye >= 0) {
         s_frameActive = 0;
-        glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
-        glDisable(GL_DEPTH_TEST);
-        glViewport(s_sceneEyeX, 0, (GLsizei)s_fboWidth,
-                   (GLsizei)s_fboHeight);
-        {
-            S32 savedAdjust = s_overlayImageAdjust;
-            s_overlayImageAdjust = 0;
-            GL_DrawArgbOverlay(argbPixels, pitch, width, height, filterLinear);
-            s_overlayImageAdjust = savedAdjust;
-        }
+        s_stereoPostFxActive = 0;
 
-        if (s_stereoEye == 0) {
+        const S32 postFx = !s_directActive && GL_PostFxActive();
+        if (postFx && s_stereoEye == 1) {
+            /* Resolve the pair, post-process it once, then draw the HUD into
+               the processed pair so text keeps its own pixels. */
+            GL_ResolveMSAAColor();
+            if (GL_ApplyStereoPostFx()) {
+                for (S32 eye = 0; eye < 2; eye++) {
+                    glViewport(eye ? (GLint)s_fboWidth : 0, 0,
+                               (GLsizei)s_fboWidth, (GLsizei)s_fboHeight);
+                    S32 savedAdjust = s_overlayImageAdjust;
+                    s_overlayImageAdjust = 0;
+                    GL_DrawArgbOverlay(argbPixels, pitch, width, height,
+                                       filterLinear);
+                    s_overlayImageAdjust = savedAdjust;
+                }
+            } else {
+                s_stereoPostFxActive = 0;
+                glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+                glDisable(GL_DEPTH_TEST);
+                for (S32 eye = 0; eye < 2; eye++) {
+                    glViewport(eye ? (GLint)s_fboWidth : 0, 0,
+                               (GLsizei)s_fboWidth, (GLsizei)s_fboHeight);
+                    S32 savedAdjust = s_overlayImageAdjust;
+                    s_overlayImageAdjust = 0;
+                    GL_DrawArgbOverlay(argbPixels, pitch, width, height,
+                                       filterLinear);
+                    s_overlayImageAdjust = savedAdjust;
+                }
+            }
+            s_stereoPairReady = 1;
+        } else if (postFx) {
+            /* Eye 0 only renders the scene; the HUD is drawn once at eye 1. */
             s_stereoPairReady = 0;
         } else {
-            if (!s_directActive)
-                GL_ResolveMSAAColor();
-            s_stereoPairReady = 1;
+            glBindFramebuffer(GL_FRAMEBUFFER, GL_SceneDrawFbo());
+            glDisable(GL_DEPTH_TEST);
+            glViewport(s_sceneEyeX, 0, (GLsizei)s_fboWidth,
+                       (GLsizei)s_fboHeight);
+            {
+                S32 savedAdjust = s_overlayImageAdjust;
+                s_overlayImageAdjust = 0;
+                GL_DrawArgbOverlay(argbPixels, pitch, width, height,
+                                   filterLinear);
+                s_overlayImageAdjust = savedAdjust;
+            }
+
+            if (s_stereoEye == 0) {
+                s_stereoPairReady = 0;
+            } else {
+                if (!s_directActive)
+                    GL_ResolveMSAAColor();
+                s_stereoPairReady = 1;
+            }
         }
 
         U64 profT1 = SDL_GetPerformanceCounter();
@@ -9706,7 +9917,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
             glUniform2f(s_fxaa_uTexel, 1.0f / (GLfloat)s_texWidth,
                         1.0f / (GLfloat)s_texHeight);
             glUniform1f(s_fxaa_uSharpen, GL_SharpenAmount());
-            GL_UploadSubPixel(s_fxaa_uSubPixel, 1);
+            GL_UploadPostFx(s_fxaa_uGrade, s_fxaa_uVignette, s_fxaa_uSubPixel, 1);
             GL_UploadImageAdjust(s_fxaaAdj_uBrightness, s_fxaaAdj_uContrast,
                                  s_fxaaAdj_uSaturation);
             glEnableVertexAttribArray(s_fxaa_aPos);
@@ -9729,7 +9940,7 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
                                  s_adj_uSaturation);
             glUniform1i(s_uFilterLoc, 1);
             glUniform1f(s_uSharpenLoc, GL_SharpenAmount());
-            GL_UploadSubPixel(s_uSubPixelLoc, 1);
+            GL_UploadPostFx(s_uGradeLoc, s_uVignetteLoc, s_uSubPixelLoc, 1);
             glEnableVertexAttribArray(s_aPosLoc);
             glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
                                   4 * sizeof(GLfloat), (const void *)0);
@@ -9940,6 +10151,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
 
     /* A fresh present supersedes the previous eye's direct-scene decision. */
     s_stereoEye1SceneDirect = 0;
+    s_stereoPostFxActive = 0;
     s_overlayPending = 0;
 
     /* Same frame plumbing as GL_Present: flush 3D, pick the composite
@@ -9949,6 +10161,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
         /* The stereo pair reads the scene target directly; the mono
            present target and snapshot/horizon captures are dead weight
            while it runs.  A later mono frame recreates them on demand. */
+        s_stereoPostFxActive = 0;
         GL_DestroySnapshot();
         GL_DestroyHorizon();
         GL_DestroyPresentFBO();
@@ -10384,12 +10597,19 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
                explicit resolve before the HUD lands on it. */
             if (!s_directActive)
                 GL_ResolveMSAAColor();
-            /* The resolve just wrote the single-sample scene texture; without
-               one, keep drawing into whatever GL_SceneDrawFbo() selected
-               (the tile-resolve MSAA target, or the direct swapchain image). */
-            if (!s_directActive && !s_msaaInTile && s_msaaFbo != 0 &&
-                s_fbo != 0)
+            /* Post-process the scene pair before the HUD is drawn, so the
+               HUD text is neither blurred nor graded. */
+            if (!s_directActive && GL_PostFxActive() &&
+                GL_ApplyStereoPostFx()) {
+                /* s_postFxFBO is bound for the HUD. */
+            } else if (!s_directActive && !s_msaaInTile && s_msaaFbo != 0 &&
+                       s_fbo != 0) {
+                /* The resolve just wrote the single-sample scene texture;
+                   without one, keep drawing into whatever GL_SceneDrawFbo()
+                   selected (the tile-resolve MSAA target, or the direct
+                   swapchain image). */
                 glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+            }
             if (overlayEmpty) {
                 s_profOverlayEmpty++;
             } else if (CubeMode != 0 && !s_directActive && s_stereoEye == 1) {
@@ -10459,7 +10679,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     S32 directSceneSafe = overlayEmpty && s_fbo && !s_stereoDoubleWide &&
                           sceneFboMatches && vpX == 0 && vpY == 0 &&
                           vpW == winW && vpH == winH &&
-                          s_antiAlias != 1 && !DisplaySubPixel &&
+                          s_antiAlias != 1 && !GL_PostFxActive() &&
                           GL_ImageAdjustNeutral();
     S32 sceneOnlyPresent = 0;
     if (directSceneSafe && OpenXR_IsActive() &&
@@ -10488,7 +10708,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
             glUniform2f(s_fxaa_uTexel, 1.0f / (GLfloat)s_texWidth,
                         1.0f / (GLfloat)s_texHeight);
             glUniform1f(s_fxaa_uSharpen, GL_SharpenAmount());
-            GL_UploadSubPixel(s_fxaa_uSubPixel, 1);
+            GL_UploadPostFx(s_fxaa_uGrade, s_fxaa_uVignette, s_fxaa_uSubPixel, 1);
             GL_UploadImageAdjust(s_fxaaAdj_uBrightness, s_fxaaAdj_uContrast,
                                  s_fxaaAdj_uSaturation);
             glEnableVertexAttribArray(s_fxaa_aPos);
@@ -10511,7 +10731,7 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
                                  s_adj_uSaturation);
             glUniform1i(s_uFilterLoc, 1);
             glUniform1f(s_uSharpenLoc, GL_SharpenAmount());
-            GL_UploadSubPixel(s_uSubPixelLoc, 1);
+            GL_UploadPostFx(s_uGradeLoc, s_uVignetteLoc, s_uSubPixelLoc, 1);
             glEnableVertexAttribArray(s_aPosLoc);
             glVertexAttribPointer(s_aPosLoc, 2, GL_FLOAT, GL_FALSE,
                                   4 * sizeof(GLfloat), (const void *)0);
