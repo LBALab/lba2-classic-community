@@ -10529,8 +10529,47 @@ U32 GL_GetPresentColorTex(void) {
 
 /* ── Triangle list rendering ────────────────────────────────────────────── */
 
+/* Camera-space vertices handed over for the polygon being submitted (see
+   GL_SetPolyCamera).  Consumed by GL_RenderTriangleList so a nested call from
+   the near-plane clip starts clean. */
+static const S32 *s_polyCam = NULL;
+static S32 s_polyCamCount = 0;
+
+void GL_SetPolyCamera(const S32 *xyz, S32 count) {
+    s_polyCam = xyz;
+    s_polyCamCount = (xyz != NULL) ? count : 0;
+}
+
+/* Clip a body polygon against the near plane in camera space, project the
+   result and submit it through the normal batch.  Returns 0 when nothing is
+   in front of the plane (the software filler's own behavior) so the caller
+   can fall back as before. */
+static S32 GL_ClipNearPoly(S32 typePoly, S32 colorPoly, S32 nbPoints,
+                           Struc_Point *ptrPoints, const S32 *cam) {
+    const S32 nearD = (NearClip > 0) ? NearClip : 1;
+    Struc_Point out[12];
+    const S32 m = GL_ClipPolyToNear(cam, ptrPoints, nbPoints, nearD, out, 12);
+
+    if (m < 3) {
+        return 0;
+    }
+    for (S32 k = 1; k + 1 < m; k++) {
+        Struc_Point tri[3];
+        tri[0] = out[0];
+        tri[1] = out[k];
+        tri[2] = out[k + 1];
+        GL_RenderTriangleList(typePoly, colorPoly, 3, tri);
+    }
+    return 1;
+}
+
 S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
                           Struc_Point *ptrPoints) {
+    const S32 *polyCam = s_polyCam;
+    const S32 polyCamCount = s_polyCamCount;
+    s_polyCam = NULL;
+    s_polyCamCount = 0;
+
     if (!s_initialized) {
         GL_LastRejectReason = 1;
         return 0;
@@ -10573,14 +10612,31 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        would treat that as an ordinary clip-space position — a triangle flung
        across the whole screen that also poisons the depth buffer for the
        terrain drawn after it — so hand these polygons to the SW filler, which
-       clips them against the screen rect the way the original engine did. */
+       clips them against the screen rect the way the original engine did.
+
+       Single-pass stereo draws both eyes from this one submission and puts
+       SW fallbacks into one shared Log overlay, so a body polygon crossing
+       the near plane would keep the eye-0 screen position in both eyes and
+       slide against the world.  Body handlers supply camera-space vertices
+       (GL_SetPolyCamera); clip and project those into the FBO instead. */
+    S32 hasSentinel = 0;
     for (S32 i = 0; i < nbPoints; i++) {
         if (ptrPoints[i].Pt_XE == -32768 && ptrPoints[i].Pt_YE == -32768) {
-            GL_LastRejectReason = 7;
-            return 0;
+            hasSentinel = 1;
+            break;
         }
     }
-
+    static S32 s_noNearClip = -1;
+    if (s_noNearClip < 0) {
+        s_noNearClip = getenv("LBA2_NO_NEARCLIP") ? 1 : 0;
+    }
+    const S32 canClip = !s_noNearClip && s_singlePassStereo &&
+                        polyCam != NULL && polyCamCount == nbPoints &&
+                        nbPoints >= 3 && nbPoints <= 4;
+    if (hasSentinel && !canClip) {
+        GL_LastRejectReason = 7;
+        return 0;
+    }
     /* NZW polygons (animated polys: flowers, water) go through the GL
        batch when the FBO contains valid terrain depth (s_fboHasTerrain).
        This routes them into the FBO with depth testing against terrain,
@@ -10616,6 +10672,15 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        the pair-wide batch packing is skipped here. */
     if (GL_SecondEyePass())
         return 1;
+
+    if (hasSentinel) {
+        if (GL_ClipNearPoly(typePoly, colorPoly, nbPoints, ptrPoints,
+                            polyCam)) {
+            return 1;
+        }
+        GL_LastRejectReason = 7;
+        return 0;
+    }
 
     /* Pack the polygon material: shading mode, alpha/chroma/perspective
        bits in the low byte, flat colour (or shadow level) in the high

@@ -185,6 +185,16 @@ S32 ListSort[MAX_NB_POLYS * 2];
 // List of vertex for Fill_Poly
 Struc_Point ListFillPoly[4];
 
+/* Camera-space vertices of the polygon GetZO3/GetZO4 just projected, in the
+   order the handler will fill ListFillPoly.  Fill_Poly hands them to the GL
+   renderer so a polygon that crosses the near plane can be clipped and
+   projected instead of falling back to the shared 2D overlay, which has no
+   per-eye offset. */
+extern "C" {
+S32 GL_PolyCamCount = 0;
+S32 GL_PolyCam[4][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+}
+
 // Object position in world space
 S32 PosXWr = 0;
 S32 PosYWr = 0;
@@ -399,6 +409,7 @@ static U16 IsoDepth(const T_OBJ_POINT &p) {
 }
 
 void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3) {
+    GL_PolyCamCount = 0;
     if (TypeProj != TYPE_3D) {
         if (!Obj_GLWorld) {
             return;
@@ -414,17 +425,25 @@ void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3) {
 
     for (int i = 0; i < 3; i++) {
         U16 idx = indices[i];
+        /* Camera-space vertex, for the GL near-plane clip.  The software
+           projection drops any vertex closer than NearClip to the sentinel,
+           which the stereo GL path cannot turn into a per-eye position. */
+        GL_PolyCam[i][0] = (S32)Obj_ListRotatedPoints[idx].X + PosXWr;
+        GL_PolyCam[i][1] = (S32)Obj_ListRotatedPoints[idx].Y + PosYWr;
+        GL_PolyCam[i][2] = -(S32)Obj_ListRotatedPoints[idx].Z - PosZWr;
         if (DecorVBOActive) {
             /* Model-space Z is carried through the U16 field verbatim. */
             dst[i].Pt_ZO = (U16)Obj_ListRotatedPoints[idx].Z;
             continue;
         }
-        S32 Z = -Obj_ListRotatedPoints[idx].Z - PosZWr;
+        S32 Z = GL_PolyCam[i][2];
         dst[i].Pt_ZO = (Z * Fill_ZBuffer_Factor) >> 16;
     }
+    GL_PolyCamCount = 3;
 }
 
 void GetZO4(Struc_Point *dst, U16 index1, U16 index2, U16 index3, U16 index4) {
+    GL_PolyCamCount = 0;
     if (TypeProj != TYPE_3D) {
         if (!Obj_GLWorld) {
             return;
@@ -440,13 +459,17 @@ void GetZO4(Struc_Point *dst, U16 index1, U16 index2, U16 index3, U16 index4) {
 
     for (int i = 0; i < 4; i++) {
         U16 idx = indices[i];
+        GL_PolyCam[i][0] = (S32)Obj_ListRotatedPoints[idx].X + PosXWr;
+        GL_PolyCam[i][1] = (S32)Obj_ListRotatedPoints[idx].Y + PosYWr;
+        GL_PolyCam[i][2] = -(S32)Obj_ListRotatedPoints[idx].Z - PosZWr;
         if (DecorVBOActive) {
             dst[i].Pt_ZO = (U16)Obj_ListRotatedPoints[idx].Z;
             continue;
         }
-        S32 Z = -Obj_ListRotatedPoints[idx].Z - PosZWr;
+        S32 Z = GL_PolyCam[i][2];
         dst[i].Pt_ZO = (Z * Fill_ZBuffer_Factor) >> 16;
     }
+    GL_PolyCamCount = 4;
 }
 
 // *************

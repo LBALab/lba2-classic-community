@@ -51,6 +51,7 @@ add_subdirectory(render)
 add_subdirectory(movement)
 add_subdirectory(zone)
 add_subdirectory(gl_triangulate)
+add_subdirectory(gl_nearclip)
 add_subdirectory(stereolook)
 add_subdirectory(bench_terrain)
 

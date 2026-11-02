@@ -18,6 +18,11 @@
 #include <3D/DECORVBO.H>
 extern S32 GPURendererActive;
 
+/* Camera-space vertices captured by GetZO3/GetZO4 for the GL near-plane
+   clip (defined in LIB386/OBJECT/AFF_OBJ.CPP). */
+extern "C" S32 GL_PolyCamCount;
+extern "C" S32 GL_PolyCam[4][3];
+
 /* Temporary perf instrumentation: GL vs SW fallback counts in Fill_Poly */
 S32 GL_PerfAccept = 0;
 S32 GL_PerfReject = 0;
@@ -161,12 +166,22 @@ S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
 
 #ifdef USE_GPURENDERER
     if (GPURendererActive && DecorVBOActive) {
+        /* The replay capture consumes the body's camera-space vertices; the
+           GL clip must not see a stale set on the next terrain call. */
+        GL_PolyCamCount = 0;
         DecorVBO_CapturePoly(Type_Poly, Color_Poly, Nb_Points, Ptr_Points);
         return 1;
     }
     if (GPURendererActive) {
+        /* Camera-space vertices captured by GetZO3/GetZO4 for the near-plane
+           clip.  Consumed here so a non-body caller (terrain, sky/sea,
+           animated tiles) never inherits the previous polygon's data. */
+        const S32 camCount = GL_PolyCamCount;
+        GL_PolyCamCount = 0;
+        GL_SetPolyCamera(camCount > 0 ? &GL_PolyCam[0][0] : NULL, camCount);
         S32 glResult = GL_RenderTriangleList(Type_Poly, Color_Poly, Nb_Points,
                                              Ptr_Points);
+        GL_SetPolyCamera(NULL, 0);
         if (glResult != 0) {
             GL_PerfAccept++;
             return glResult;
@@ -175,6 +190,8 @@ S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
         GL_PerfReject++;
         if (Type_Poly >= 0 && Type_Poly < 32)
             GL_PerfRejectByType[Type_Poly]++;
+    } else {
+        GL_PolyCamCount = 0;
     }
 #endif
 

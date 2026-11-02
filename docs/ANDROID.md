@@ -302,6 +302,9 @@ instead:
   percentage of the full eye separation (default 55). It applies to the
   game's own eye delta as well as to the fake pair, so a lower value shows the
   flattened room the headset renders.
+- `LBA2_NO_NEARCLIP=1` restores the old software fallback for body polygons
+  that cross the near plane, so their single-pass overlay position can be
+  compared with the clipped, per-eye one.
 - `LBA2_FAKE_VR_DIALOG=1` takes the head-mount dialogue layout (strip lifted
   above the eye's lower periphery), so the dialogue box can be reviewed over
   the room rather than over the desktop letterbox.

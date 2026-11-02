@@ -74,6 +74,23 @@ S32 GL_TriangulatePolygon(const Struc_Point *pts, S32 n, U16 *out);
 S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
                           Struc_Point *ptrPoints);
 
+//! Camera-space vertices of the polygon the caller is about to submit, three
+//! S32 per vertex in x, y, depth order.  A body polygon that crosses the near
+//! plane has its screen vertices replaced by the software projection's
+//! (-32768,-32768) sentinel; the GL renderer clips and projects it from this
+//! data instead of leaving it in the shared 2D overlay, which has no per-eye
+//! offset in single-pass stereo.  Pass NULL (or 0) for polygons with no body
+//! camera-space data (terrain, sky/sea, animated tiles).
+void GL_SetPolyCamera(const S32 *xyz, S32 count);
+
+//! Clip a body polygon against the near plane and the safe screen edges in
+//! camera space and project the result.  `cam` is three S32 per vertex
+//! (x, y, depth).  Returns the vertex count written to `out` (0 when the
+//! polygon lies entirely outside).  `outCap` must hold n + 5 vertices.
+//! Pure geometry, host-testable.
+S32 GL_ClipPolyToNear(const S32 *cam, const Struc_Point *pts, S32 n,
+                      S32 nearD, Struc_Point *out, S32 outCap);
+
 //! Set the internal render quality multiplier (1 = native, 2 = SSAA 2x, 4 = SSAA 4x).
 //! Recreates the FBO at the new internal resolution.  Safe to call at any time;
 //! takes effect on the next frame.
