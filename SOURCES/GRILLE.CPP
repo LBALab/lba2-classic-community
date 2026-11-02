@@ -1,5 +1,6 @@
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
+#include "FOLLOWCAM.H" /* FollowCamIsoPan: the brick lattice's sub-tile shift (Map2Screen below) */
 
 #include <3D/PROJREC.H>
 #include <SVGA/SCREEN.H>
@@ -1586,8 +1587,18 @@ void DecompColonne(U8 *pts, U8 *ptd) {
 // iso grid stays centred at any render-space size; at 640×480 this is
 // the original (288, 226). See docs/WIDESCREEN.md Phase 2.
 void Map2Screen(S32 x, S32 y, S32 z) {
-    XScreen = 24 * (x - z) + ((S32)ModeDesiredX / 2 - 32);
-    YScreen = 12 * (z + x) - 15 * y + ((S32)ModeDesiredY / 2 - 14);
+    /* AND THE FRACTION OF A TILE THE ISOMETRIC EYE IS OFF ITS OWN (FOLLOWCAM.H). A brick is not
+       projected, it is blitted on this 24/12/15 lattice, so a camera that the interior follow has put
+       between two tiles would slide the hero and every sprite across a grid that stood still. The
+       shift is the same one `LongProjectPointIso` applies to the points it projects (FOLLOWCAM_MATH.H
+       carries the derivation), and it is zero on every frame the eye is on its tile -- which is every
+       interior frame with the follow off, and every still frame with it on. */
+    S32 panX, panY;
+
+    FollowCamIsoPan(&panX, &panY);
+
+    XScreen = 24 * (x - z) + ((S32)ModeDesiredX / 2 - 32) + panX;
+    YScreen = 12 * (z + x) - 15 * y + ((S32)ModeDesiredY / 2 - 14) + panY;
     Projrec_Map2Screen(x, y, z, XScreen, YScreen);
 }
 

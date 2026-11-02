@@ -37,7 +37,8 @@ extern S32 GfxDitherShading;
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include "FOLLOWCAM.H"
-#include "FOLLOWCAM_CFG.H" /* the *_DEFAULT tunables, read and written by the cfg below */
+#include "FOLLOWCAM_CFG.H"  /* the *_DEFAULT tunables, read and written by the cfg below */
+#include "FOLLOWCAM_MATH.H" /* FollowCamIsoStep: one frame of the interior follow */
 #include "BOOT_EXIT.H"
 #include "UI_LAYOUT.H" /* UI_VCENTER_OFS */
 #include "MOUSE_CAPTURE.H"
@@ -1981,7 +1982,23 @@ restartloop:
                  * the hero is still well inside the right half of the screen,
                  * which is most visible in iso scenes (iso centre shifts with
                  * ModeDesiredX, so hero screen-X tracked the static 539). */
-                if ((Xp<(ClipWindowXMin + 80) OR Xp>(ClipWindowXMax - 100) OR Yp<(80 + ClipWindowYMin) OR Yp>(ClipWindowYMax - 50))
+                /* THE INTERIOR FOLLOW (FollowCamInterior, community): an isometric view IS the tile it
+                 * is centred on (`Start*Cube`, INTEXT.CPP's CameraCenter), so following the player
+                 * there means keeping his tile the centre one instead of waiting for him to reach the
+                 * screen margin. Asked here, in the frame the margin test is asked in, so both
+                 * answers come from one read of the hero's position; asked FIRST because a camera
+                 * that is following is never off screen in the first place, and the margin test is
+                 * left in the condition for the frames the two disagree about. */
+                S32 isoFollow = 0;
+
+                if (FollowCamInterior AND CubeMode == CUBE_INTERIEUR) {
+                    xm = (ptrobj->Obj.X) / SIZE_BRICK_XZ;
+                    zm = (ptrobj->Obj.Z) / SIZE_BRICK_XZ;
+
+                    isoFollow = (xm != StartXCube OR zm != StartZCube) ? 1 : 0;
+                }
+
+                if ((isoFollow OR(Xp<(ClipWindowXMin + 80) OR Xp>(ClipWindowXMax - 100) OR Yp<(80 + ClipWindowYMin) OR Yp>(ClipWindowYMax - 50)))
                         AND !(FollowCamera AND CubeMode == CUBE_EXTERIEUR)) {
                     SaveTimer();
 
@@ -1989,8 +2006,21 @@ restartloop:
                         xm = (ptrobj->Obj.X) / SIZE_BRICK_XZ;
                         zm = (ptrobj->Obj.Z) / SIZE_BRICK_XZ;
 
-                        StartXCube = xm + ((xm - StartXCube)) / 2;
-                        StartZCube = zm + ((zm - StartZCube)) / 2;
+                        if (isoFollow) {
+                            /* Half the gap a frame, never past the hero and never under a tile
+                               (FOLLOWCAM_MATH.H's `FollowCamIsoStep`). The classic line below
+                               deliberately overshoots -- `want + (want - now) / 2` -- which a
+                               one-shot recentre of an off-screen hero can afford and a camera the
+                               player is watching cannot: it would step past him and back.
+                               This is the TILE only: where the picture sits between tiles is the eye's own
+                               business (`FollowCamIsoGlide`), which follows the hero's position every frame rather
+                               than this brick; the tile is what the grid is walked from and the lattice blitted at. */
+                            StartXCube = FollowCamIsoStep(StartXCube, xm);
+                            StartZCube = FollowCamIsoStep(StartZCube, zm);
+                        } else {
+                            StartXCube = xm + ((xm - StartXCube)) / 2;
+                            StartZCube = zm + ((zm - StartZCube)) / 2;
+                        }
                     } else {
                         Rotate(0, DISTANCE_VISEE, ptrobj->Obj.Beta);
                         xm = (ptrobj->Obj.X + X0) / SIZE_BRICK_XZ;
@@ -2039,6 +2069,16 @@ restartloop:
         /* affiche tout */
 
     skip_simulation:
+        /* THE EYE HALF OF THE INTERIOR FOLLOW (FOLLOWCAM.H), and the last thing before the frame is
+           drawn: it puts the eye on the hero, who the tick above has just moved, so the picture moves
+           by his own step every frame instead of waiting for him to reach a tile and then catching up
+           a whole brick -- a 24-pixel stutter, whatever eases it. Nothing between here and `AffScene` reads the camera, and a frame it moves is a
+           frame the whole scene is redrawn on, which is every walking frame and what the exterior
+           camera costs too; a frame it does not, which is every still one, costs a comparison and
+           draws nothing. */
+        if (FollowCamIsoGlide())
+            FirstTime = AFF_ALL_FLIP;
+
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SCENE);
         AffScene(FirstTime);
         Perftrace_PhaseEnd(PERFTRACE_PHASE_SCENE);

@@ -183,6 +183,48 @@ extern void FollowCamNoteCinema(S32 cinema);
  * ~60 fps with the fixed step on) is no gap. */
 extern void FollowCamNoteFrame(void);
 
+/* --- The interior (isometric) view's sub-tile position ---------------------
+ *
+ * An interior's camera USED to be a tile (`StartXCube` * SIZE_BRICK_XZ) and nothing else, so following
+ * the hero there meant a 24-pixel cut every time he crossed a brick. The eye is free to sit anywhere,
+ * though -- the projection is a linear function of the camera position, so an offset is a shift of
+ * the picture -- and the three calls below place it where he actually is. GRILLE.CPP's brick lattice
+ * reads the distance between the eye and its tile (`FollowCamIsoPan`), so the grid, the objects and
+ * the sprites all slide together.
+ *
+ * The tile keeps its own job: it is the render's anchor, what the brick window is walked from. It is
+ * not the eye's target, which is what makes the motion continuous instead of one brick at a time.
+ *
+ * This is render-only state. It moves no simulation value -- not `Start*Cube`, not an actor, not a
+ * random draw -- so a recording, a replay and another end all agree on every tick with it and
+ * without it, exactly like the follow's switch. */
+
+/* Place the camera on the hero. Called once per frame from the main loop, immediately before the
+ * frame is drawn: the tick has just moved him, and this is what the frame shows -- one frame's walk
+ * of a pan, not a brick's worth of catch-up. It does not ease toward him: he walks 7 to 23 units a
+ * frame and a pixel of iso picture is 17 to 21 of them, so a step that is a fraction of his is a
+ * frame that does not move the picture at all, and an eye that eases never closes the rest: it draws
+ * him up to a pixel off centre for the whole of a walk and then slides the room that pixel when he
+ * stops (FOLLOWCAM.CPP). Returns TRUE while the view moved, which is also the frames the scene must
+ * be fully redrawn on. */
+extern S32 FollowCamIsoGlide(void);
+
+/* Where the isometric camera belongs this frame: the eye as the glide last left it, on the hero's
+ * tile when the follow is off or the view is somebody else's. Read by CameraCenter (INTEXT.CPP),
+ * which is the one place the camera is placed, and pure: a frame that calls it twice sees one
+ * answer. */
+extern void FollowCamIsoViewPos(S32 *x, S32 *y, S32 *z);
+
+/* The brick lattice's pixel shift for that same offset (FOLLOWCAM_MATH.H's `FollowCamIsoPan*`). Zero
+ * whenever the eye is on its tile -- which is every interior frame with the option off -- so a caller
+ * that draws on whole-tile pixels needs no condition of its own beyond the cube mode. */
+extern void FollowCamIsoPan(S32 *x, S32 *y);
+
+/* Drop the eye onto the hero: the view has just been placed deliberately (a scene load, the centre
+ * key, a scripted camera), and a pan out of where it used to be is a cut that something meant to
+ * make. */
+extern void FollowCamIsoGlideReset(void);
+
 /* Set by CheckZoneSce on each frame the followed object stands in the box of a
  * camera zone that has fired, and cleared with CameraZone at the top of the
  * frame. CameraZone itself cannot say this: for a zone that fires once it is
@@ -193,6 +235,8 @@ extern S32 FollowCamInShotBox;
  * WriteConfigFile (both PERSO.CPP); most are also console cvars. Defaults in
  * FOLLOWCAM_CFG.H. */
 extern S32 FollowCamera;                  /* the Auto camera is on (config key FollowCamera) */
+extern S32 FollowCamInterior;             /* the interior view follows the hero (config key
+                                           * FollowCameraInterior) -- see FOLLOWCAM_CFG.H */
 extern S32 FollowCamReengageFrames;       /* frames before auto-cam re-centers after a manual pan */
 extern S32 FollowCamDriftDivisor;         /* auto-cam re-center drift divisor (higher = gentler) */
 extern S32 FollowCamSceneCarry;           /* start behind the hero in a new outdoor scene, pitch kept (cvar cam_scene_carry) */

@@ -4,6 +4,7 @@
 #include "FOLLOWCAM.H"
 #include "FOLLOWCAM_CFG.H"
 #include "FOLLOWCAM_MATH.H"
+#include "INTEXT.H" /* SetIsoCamera: placing the isometric eye, water clip and all */
 #include "SETTINGS.H"
 #include "INPUT.H"
 #include <SYSTEM/KEYBOARD_KEYS.H>
@@ -19,6 +20,7 @@
 /* Settings, read from the cfg and mostly exposed as console cvars. Defaults in
  * FOLLOWCAM_CFG.H. Declared in FOLLOWCAM.H. */
 S32 FollowCamera = FALSE;
+S32 FollowCamInterior = FOLLOW_CAM_INTERIOR_DEFAULT;
 S32 FollowCamReengageFrames = FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT;
 S32 FollowCamDriftDivisor = FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT;
 S32 FollowCamSceneCarry = FOLLOW_CAM_SCENE_CARRY_DEFAULT;
@@ -71,6 +73,15 @@ static S32 FollowCamObstructFloor = 0;    /* obstruction clearance: the least ex
 static S32 FollowCamObstructFloorX = 0;   /* obstruction clearance: where he stood when the floor was last raised */
 static S32 FollowCamObstructFloorZ = 0;
 static S32 FollowCamHiddenSeen = 0; /* camtrace: what the last render made of a hidden hero (FollowCamNoteHidden) */
+/* Where the isometric eye is, in world units: the hero's own position, where `FollowCamIsoGlide`
+ * puts it every frame, or the tile's corner when the follow is off. Absolute rather than
+ * an offset because the tile below it steps -- the follow's own step, a script, a scene load -- and
+ * "how far from the tile" is then one subtraction, which is what the trace and the lattice's pan
+ * both read. Set to FALSE, the next placement derives it afresh. */
+static S32 FollowCamIsoViewX = 0;
+static S32 FollowCamIsoViewY = 0;
+static S32 FollowCamIsoViewZ = 0;
+static S32 FollowCamIsoViewSet = FALSE;
 
 /* The eases paced by the clock (cam_ease_ms, cam_target_ms). They are paced by
  * the game clock's time since the previous update, which is a frame's length
@@ -300,7 +311,9 @@ void FollowCamTrace(void) {
 
     Log_Info("[cam] heroBeta %4d add %4d beta %4d target %4d step %5d delay %3d orbit %d moving %d "
              "zone %d forced %d cine %d follow %d ext %d vue %d alpha %4d dist %6d inshot %d loan %d obs %d hid %d "
-             "dt %3d tlag %4d vx %6d vy %5d vz %6d blend %4d sbeta %4d salpha %4d sdist %6d sx %6d sy %5d sz %6d",
+             "dt %3d tlag %4d vx %6d vy %5d vz %6d blend %4d sbeta %4d salpha %4d sdist %6d sx %6d sy %5d sz %6d "
+             "iso %d tx %d tz %d hx %d hz %d hxw %6d hzw %6d vxw %6d vzw %6d "
+             "lagx %d lagy %d lagz %d panx %d pany %d",
              (int)ptr3d->Beta, (int)AddBetaCam, (int)BetaCam, (int)FollowCamTargetBeta,
              (int)step, (int)FollowCamReengageDelay, (int)ManualCameraOrbitActive, (int)moving,
              (int)CameraZone, (int)FlagCameraForcee, (int)CinemaMode, (int)FollowCamera,
@@ -309,7 +322,19 @@ void FollowCamTrace(void) {
              (int)FollowCamEaseDt,
              (int)((FollowCamEaseFrame == FollowCamFrame) ? Distance2D(0, 0, FollowCamTargetLagX, FollowCamTargetLagZ) : 0),
              (int)VueOffsetX, (int)VueOffsetY, (int)VueOffsetZ,
-             (int)blendLeft, (int)shown.Beta, (int)shown.Alpha, (int)shown.Dist, (int)shown.X, (int)shown.Y, (int)shown.Z);
+             (int)blendLeft, (int)shown.Beta, (int)shown.Alpha, (int)shown.Dist, (int)shown.X, (int)shown.Y, (int)shown.Z,
+             (int)FollowCamInterior, (int)StartXCube, (int)StartZCube,
+             (int)(ptr3d->X / SIZE_BRICK_XZ), (int)(ptr3d->Z / SIZE_BRICK_XZ),
+             (int)ptr3d->X, (int)ptr3d->Z,
+             (int)FollowCamIsoViewX, (int)FollowCamIsoViewZ,
+             (int)(FollowCamIsoViewX - StartXCube * SIZE_BRICK_XZ),
+             (int)(FollowCamIsoViewY - StartYCube * SIZE_BRICK_Y),
+             (int)(FollowCamIsoViewZ - StartZCube * SIZE_BRICK_XZ),
+             (int)FollowCamIsoPanX(FollowCamIsoViewX - StartXCube * SIZE_BRICK_XZ,
+                                   FollowCamIsoViewZ - StartZCube * SIZE_BRICK_XZ),
+             (int)FollowCamIsoPanY(FollowCamIsoViewX - StartXCube * SIZE_BRICK_XZ,
+                                   FollowCamIsoViewY - StartYCube * SIZE_BRICK_Y,
+                                   FollowCamIsoViewZ - StartZCube * SIZE_BRICK_XZ));
     FollowCamHiddenSeen = 0;
 
     prevBeta = BetaCam;
@@ -1245,6 +1270,160 @@ void FollowCamSyncTarget(void) {
     FollowCamBlendCut();
 }
 
+/* --- The interior view's sub-tile position ---------------------------------- */
+/* The tile the view is centred on, in world units: `Start*Cube`, which the follow moves a brick at
+ * a time and a camera zone's shot sets directly. It is the RENDER's anchor -- the brick window is
+ * walked from it and GRILLE.CPP's lattice is blitted at its corner -- and it is not where the eye
+ * has to be: the projection is a linear function of the camera position, so an eye anywhere within
+ * a brick of it is the same picture, shifted (`iso_view_eye` below). */
+static void iso_view_tile(S32 *x, S32 *y, S32 *z) {
+    *x = StartXCube * SIZE_BRICK_XZ;
+    *y = StartYCube * SIZE_BRICK_Y;
+    *z = StartZCube * SIZE_BRICK_XZ;
+}
+
+/* Whether the follow is the thing placing the interior camera at all. A camera zone's shot, the map
+ * screen and every exterior are somebody else's: the eye ends where their view begins, or a pan
+ * would outlive the state that produced it and the frame a zone took the view would glide in from the
+ * last one. */
+static S32 iso_view_owned(void) {
+    return FollowCamInterior AND CubeMode == CUBE_INTERIEUR AND !CameraZone AND !ModeLabyrinthe;
+}
+
+/* Whether the eye is close enough to its tile for the distance to be a pan rather than a cut.
+ * Walking cannot get this far: the eye sits on the hero, who is inside that tile. What does arrive
+ * here is the TILE being moved by something else -- a respawn, a savegame load, a script that
+ * re-points the camera -- and that is a cut, so the eye is placed rather than flown. */
+static S32 iso_view_near(S32 tx, S32 ty, S32 tz) {
+    S32 dx = FollowCamIsoViewX - tx;
+    S32 dy = FollowCamIsoViewY - ty;
+    S32 dz = FollowCamIsoViewZ - tz;
+
+    return (dx <= FOLLOW_CAM_ISO_LAG_CUT AND dx >= -FOLLOW_CAM_ISO_LAG_CUT
+                                                       AND dy <= FOLLOW_CAM_ISO_LAG_CUT AND dy >= -FOLLOW_CAM_ISO_LAG_CUT
+                                                                                                      AND dz <= FOLLOW_CAM_ISO_LAG_CUT AND dz >= -FOLLOW_CAM_ISO_LAG_CUT);
+}
+
+/* WHERE THE EYE BELONGS: THE HERO HIMSELF, NOT THE TILE HE IS STANDING ON.
+ *
+ * A tile is 512 units (24 pixels) and `Start*Cube` moves only when he crosses one, so a camera that
+ * eases toward the TILE holds the picture still for as long as he takes to walk a brick and then
+ * spends a handful of frames catching up the whole of it -- measured in cube 143 by
+ * tests/automation/test_camera_interior_follow.sh: five still frames, then 256, 128, 64, 32 and 16
+ * units in five, once per brick and once per axis. That is a stutter however smoothly the catch-up
+ * itself is shaped, and it is the whole of "the interior camera jumps".
+ *
+ * His own position moves every tick, so THAT is the target, and the eye is placed on it exactly
+ * (FollowCamIsoGlide below): the picture then moves one frame's walk of his at a time, while the
+ * tile stays where it is, which is all it was ever needed for. The eye is still inside the tile's
+ * neighbourhood, which is what keeps `iso_view_near` a comparison and not a cut.
+ *
+ * With the follow off, or the view somebody else's, this is the tile's corner: the classic
+ * isometric camera, and what every frame the follow does not own gets. */
+static void iso_view_eye(S32 *x, S32 *y, S32 *z) {
+    if (iso_view_owned()) {
+        T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
+
+        *x = ptr3d->X;
+        *y = ptr3d->Y;
+        *z = ptr3d->Z;
+        return;
+    }
+
+    iso_view_tile(x, y, z);
+}
+
+void FollowCamIsoGlideReset(void) {
+    FollowCamIsoViewSet = FALSE;
+}
+
+/* Bring the eye onto where it belongs: the follow not owning the view, a tile something other than
+ * the follow moved, and the first frame there is one. */
+static void iso_view_place(S32 ex, S32 ey, S32 ez) {
+    FollowCamIsoViewX = ex;
+    FollowCamIsoViewY = ey;
+    FollowCamIsoViewZ = ez;
+    FollowCamIsoViewSet = TRUE;
+}
+
+void FollowCamIsoViewPos(S32 *x, S32 *y, S32 *z) {
+    S32 ex, ey, ez, tx, ty, tz;
+
+    iso_view_eye(&ex, &ey, &ez);
+    iso_view_tile(&tx, &ty, &tz);
+
+    /* THE EYE IS WHERE THE LAST FRAME LEFT IT: the tick moves the hero, the glide below places the
+     * eye on him, and this reads the result. So a view that is not owned, not primed, or left too far
+     * from its tile to be a glide is the only case that gets put back in place here -- and a frame
+     * that writes it writes exactly what it returns, so calling this twice in a frame sees one
+     * answer. */
+    if (!iso_view_owned() OR !FollowCamIsoViewSet OR !iso_view_near(tx, ty, tz)) {
+        iso_view_place(ex, ey, ez);
+        *x = ex;
+        *y = ey;
+        *z = ez;
+        return;
+    }
+
+    *x = FollowCamIsoViewX;
+    *y = FollowCamIsoViewY;
+    *z = FollowCamIsoViewZ;
+}
+
+S32 FollowCamIsoGlide(void) {
+    S32 ex, ey, ez, tx, ty, tz;
+
+    iso_view_eye(&ex, &ey, &ez);
+    iso_view_tile(&tx, &ty, &tz);
+
+    if (!iso_view_owned() OR !FollowCamIsoViewSet OR !iso_view_near(tx, ty, tz)) {
+        /* On the tile, or not ours: nothing to ease, and the frame the view is put there is
+         * CameraCenter's. */
+        iso_view_place(ex, ey, ez);
+        return 0;
+    }
+
+    /* ON HIM, AND NOTHING ELSE. `iso_view_eye` above is his own position, so the only question left
+     * here is whether the eye is already on it: if it is, the frame has nothing to redraw.
+     *
+     * It used to close HALF the distance to him every frame, on the theory that a target which moves
+     * leaves a standing lag of about two frames of his walk and the eye covers one frame of it per
+     * frame. What that measures, in cube 143 with `camtrace`, is a lag that never closes: the eye is
+     * still up to 39 units of z behind the position it was placed from -- a pixel of iso picture --
+     * for the whole of a walk, so the projection draws him that pixel off the centre of the screen
+     * while he moves. When he stops, the eye finishes closing it: the room slides that last pixel under
+     * a hero who is no longer moving, which a player reads as the screen jumping by itself, with
+     * nothing on it having moved to cause it. It is worst after a tap -- the shortest walk there is,
+     * where that catch-up is most of what is seen.
+     *
+     * There is nothing to smooth in a target that is his own position. A camera that is behind it is
+     * only ever late, so the eye is placed ON him: the picture then moves exactly as far as he does,
+     * on the frame he does, and stops when he does. */
+    if (FollowCamIsoViewX == ex AND FollowCamIsoViewY == ey AND FollowCamIsoViewZ == ez)
+        return 0; /* already on him: nothing moved, so there is nothing to redraw */
+
+    iso_view_place(ex, ey, ez);
+    SetIsoCamera(ex, ey, ez);
+    return 1;
+}
+
+void FollowCamIsoPan(S32 *x, S32 *y) {
+    S32 dx = 0, dy = 0, dz = 0;
+
+    /* Derived from the same distance the camera above is placed at, rather than from the camera
+     * itself: the lattice has to move by the amount the PROJECTION moved by, and a camera placed by
+     * anyone else is not that amount. The eye can be either side of its tile -- it trails the hero,
+     * who may be anywhere in the brick when `Start*Cube` steps to it -- so every sign is allowed. */
+    if (FollowCamIsoViewSet AND CubeMode == CUBE_INTERIEUR) {
+        dx = FollowCamIsoViewX - StartXCube * SIZE_BRICK_XZ;
+        dy = FollowCamIsoViewY - StartYCube * SIZE_BRICK_Y;
+        dz = FollowCamIsoViewZ - StartZCube * SIZE_BRICK_XZ;
+    }
+
+    *x = FollowCamIsoPanX(dx, dz);
+    *y = FollowCamIsoPanY(dx, dy, dz);
+}
+
 void FollowCamWorldAnchorRebase(void) {
     FollowCamAnchorHeroBeta = ListObjet[NumObjFollow].Obj.Beta & 4095;
 }
@@ -1448,6 +1627,12 @@ static const T_SETTING FollowCamSettings[] = {
        CONFIG_FILE.CPP's table, which reads it with the legacy AutoCameraCenter
        fallback and its own rule; giving this row a key would read the same
        global twice under two rules, and this table runs last. */
+    /* The interior half (SIN). Unlike the exterior switch below it has a key here: nothing reads it
+       at boot, so this row is how it reaches lba2.cfg. Off by default, and off is the classic margin
+       camera. Recorded: it moves Start*Cube, which saves carry. */
+    {"FollowCameraInterior", NULL, "cam_interior", &FollowCamInterior, SETTING_TRUTHY,
+     FOLLOW_CAM_INTERIOR_DEFAULT, 0, 1, NULL, NULL, NULL, NULL,
+     "Interior camera follows the player (1) or stays classic (0)", SETTING_RECORDED, SETTING_BEFORE(0)},
     {NULL, NULL, "cam_follow", &FollowCamera, SETTING_TRUTHY, FALSE, 0, 1, NULL, NULL, NULL, NULL,
      "Auto camera (third-person follow) enable", SETTING_RECORDED, SETTING_BEFORE_NONE},
 };

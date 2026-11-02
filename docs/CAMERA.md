@@ -1,6 +1,6 @@
 # Camera
 
-Outdoors, LBA2 Classic Community has two cameras. The **classic camera** is the original game's: it sits at fixed angles and jumps when Twinsen walks off screen. The **Auto camera** is a community addition: a third-person camera that follows behind Twinsen and that you can orbit, tilt and zoom. It is off by default. Interiors keep the original isometric view with either camera.
+Outdoors, LBA2 Classic Community has two cameras. The **classic camera** is the original game's: it sits at fixed angles and jumps when Twinsen walks off screen. The **Auto camera** is a community addition: a third-person camera that follows behind Twinsen and that you can orbit, tilt and zoom. It is off by default. Interiors keep the original isometric view with either camera; an experimental interior follow, off by default, keeps Twinsen in the middle of it (see [Interiors](#interiors)).
 
 How the cameras work inside the engine is in [CAMERA_INTERNALS.md](CAMERA_INTERNALS.md).
 
@@ -62,6 +62,15 @@ Each behaviour above is a setting you can switch off to get the camera as it was
 `settings_before cam_` in the console switches off, at once, every behaviour added since the Auto camera first shipped: the rows from `cam_ease_ms` to `cam_obstruct` and the two experimental ones. The finer tuning values (`cam_hd_*`, `cam_ground_clear`, `cam_obstruct_hurry`, `cam_manual_hold`, `cam_recenter_*`) are described in [CAMERA_INTERNALS.md](CAMERA_INTERNALS.md), and `help <name>` in the console explains any of them.
 
 A session recording carries the camera settings it was made with. A replay uses them for its length and then gives yours back.
+
+## Interiors
+
+Indoors the view is the original isometric one, and it moves only when Twinsen nears the edge of the screen. The **interior follow** is an experimental community addition that keeps him in the middle instead: the room slides under him as he walks rather than jumping a brick at a time. Camera shots placed by the game's designers still hold their rooms. It works with either outdoor camera and is off by default.
+
+- In the console (`F12`): `cam_interior 1`, or `cam_interior 0` for the original view.
+- In `lba2.cfg`: `FollowCameraInterior: 1`.
+
+`settings_before cam_` switches it off with the rest.
 
 ## Known limitations
 

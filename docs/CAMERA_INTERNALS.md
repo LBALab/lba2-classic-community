@@ -20,6 +20,7 @@ All functions live behind `extern "C"` and are shared by both interior and exter
 - Camera position is `SetPosCamera(StartXCube * SIZE_BRICK_XZ, ...)`, aligned to the tile grid.
 - **Smooth follow:** when the hero goes off-screen, the main loop moves `StartXCube` / `StartZCube` half way toward the hero's brick each frame (`MainLoop` in [SOURCES/PERSO.CPP](../SOURCES/PERSO.CPP)).
 - Enter (`I_RETURN`) recentres by snapping to the hero's tile.
+- **Interior follow** (`cam_interior`, `FollowCamInterior`, off by default; contributed by SIN): the eye is placed on the hero's own position every frame (`FollowCamIsoGlide`, called just before `AffScene`), not on a tile corner. The tile `Start*Cube` still steps, by `FollowCamIsoStep` (half the gap, never past the hero), because the brick window is walked from it. Bricks are blitted, not projected, so `Map2Screen` adds `FollowCamIsoPan`: the pixel shift the eye's distance from its tile gives the projection ([SOURCES/FOLLOWCAM_MATH.H](../SOURCES/FOLLOWCAM_MATH.H), pinned against `LongProjectPointIso` by `tests/camera`). Every `CameraCenter` other than flagbeta 0 drops the eye back onto the tile (`FollowCamIsoGlideReset`), and a camera zone, the labyrinth mode or an eye more than `FOLLOW_CAM_ISO_LAG_CUT` from its tile is a cut, not a pan. It moves only the view: a recording replays with the same world hash with it on or off. Fixture: `tests/automation/test_camera_interior_follow.sh`.
 
 ## Exterior (perspective)
 
