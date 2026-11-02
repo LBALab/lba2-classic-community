@@ -2094,6 +2094,8 @@ void Console_RegisterAll(void) {
                          "Ordered dithering between palette/CLUT rows (GL)");
     Console_RegisterCvar("softshadows", &DisplaySoftShadows, CONSOLE_CVAR_BOOL,
                          "Feathered ground shadows (GL)");
+    Console_RegisterCvar("subpixel", &DisplaySubPixel, CONSOLE_CVAR_BOOL,
+                         "Sub-pixel interior pan (GL)");
     Console_RegisterCvar("sharpen", &DisplaySharpen, CONSOLE_CVAR_INT,
                          "Present sharpening: 0=off 1=low 2=high (GL)");
 #endif

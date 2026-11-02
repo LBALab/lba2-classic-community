@@ -138,6 +138,7 @@ static void UpdateInteriorHover(S32 *outPanX, S32 *outPanY) {
     s_HoverMoved = 0;
 #ifdef USE_GPURENDERER
     GL_SetSinglePassBaseDelta(0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    GL_SetSubPixelOffset(0.0f, 0.0f);
 #endif
     if (!VrInteriorHover || (!DisplayStereo3D && !InteriorHoverFakeStereo()) ||
         CinemaMode) {
@@ -198,6 +199,23 @@ static void UpdateInteriorHover(S32 *outPanX, S32 *outPanY) {
                          outPanY);
 
 #ifdef USE_GPURENDERER
+    /* The projection centre is an integer, so the pan's fractional part is
+       lost and the room steps by a pixel at a time.  Carry that remainder
+       into the present offset: the pan's sign moves the image opposite to
+       the centre, and a UV offset moves it opposite to the sample. */
+    if (DisplaySubPixel) {
+        float panFX = 0.0f;
+        float panFY = 0.0f;
+        StereoHoverPoseToPanF(yawOff, pitchOff, 0.0f, 0.0f, focalX, focalY,
+                              (S32)ModeDesiredX, (S32)ModeDesiredY, &panFX,
+                              &panFY);
+        GL_SetSubPixelOffset(
+            -(panFX - (float)*outPanX) / (float)ModeDesiredX,
+            -(panFY - (float)*outPanY) / (float)ModeDesiredY);
+    }
+#endif
+
+#ifdef USE_GPURENDERER
     {
         S32 leanX = 0, leanY = 0, wx = 0, wy = 0;
         const float zScale = (float)((double)Fill_ZBuffer_Factor / 65536.0);
@@ -241,6 +259,7 @@ static void UpdateInteriorCameraControl(void) {
         s_HoverBaseY = 0;
 #ifdef USE_GPURENDERER
         GL_SetSinglePassBaseDelta(0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+        GL_SetSubPixelOffset(0.0f, 0.0f);
 #endif
         return;
     }
@@ -251,6 +270,7 @@ static void UpdateInteriorCameraControl(void) {
         s_HoverBaseY = 0;
 #ifdef USE_GPURENDERER
         GL_SetSinglePassBaseDelta(0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+        GL_SetSubPixelOffset(0.0f, 0.0f);
 #endif
         return;
     }
@@ -3694,6 +3714,9 @@ void ReadConfigFile(void) {
         DefFileBufferReadValueDefault("DisplaySoftShadows", FALSE);
     if (DisplaySoftShadows < 0 OR DisplaySoftShadows > 1)
         DisplaySoftShadows = FALSE;
+    DisplaySubPixel = DefFileBufferReadValueDefault("DisplaySubPixel", FALSE);
+    if (DisplaySubPixel < 0 OR DisplaySubPixel > 1)
+        DisplaySubPixel = FALSE;
     DisplaySharpen = DefFileBufferReadValueDefault("DisplaySharpen", 0);
     if (DisplaySharpen < 0 OR DisplaySharpen > 2)
         DisplaySharpen = 0;
@@ -3954,6 +3977,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("DisplayAntiAlias", DisplayAntiAlias);
     DefFileBufferWriteValue("DisplayDither", DisplayDither);
     DefFileBufferWriteValue("DisplaySoftShadows", DisplaySoftShadows);
+    DefFileBufferWriteValue("DisplaySubPixel", DisplaySubPixel);
     DefFileBufferWriteValue("DisplaySharpen", DisplaySharpen);
     DefFileBufferWriteValue("DisplayStereo3D", DisplayStereo3D);
     DefFileBufferWriteValue("RenderQuality", RenderQuality);

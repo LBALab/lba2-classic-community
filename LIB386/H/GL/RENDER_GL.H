@@ -368,6 +368,12 @@ void GL_SetSinglePassEyeDelta(float x, float y, float z, float projX,
 void GL_SetSinglePassBaseDelta(float x, float y, float z, float projX,
                                float projY);
 
+//! Sub-pixel pan applied to the scene composite, in UV units.  The interior
+//! hover rig moves an integer projection centre; this carries the fractional
+//! remainder so the room glides instead of stepping.  Cleared when the pan
+//! is off or the present path changes.
+void GL_SetSubPixelOffset(float du, float dv);
+
 //! Extra screen-space margin, in pixels, that CPU culling must add on each
 //! side while single-pass stereo is active, so geometry visible only in the
 //! second eye is not rejected using the first eye's projection.  Returns 0

@@ -120,6 +120,7 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_WINDOW 2133
 #define MENU_ID_DISPLAY_EFFECTS 2136
 #define MENU_ID_DISPLAY_SOFTSHADOWS 2137
+#define MENU_ID_DISPLAY_SUBPIXEL 2147
 
 // Resolution sub-page rows occupy a reserved id range: row i carries id
 // MENU_ID_RESOLUTION_BASE + i, which BuildCustomMenuText and GereResolutionMenu
@@ -308,6 +309,8 @@ static void BuildDisplayEffectsMenu(void) {
     *p++ = 26;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_SOFTSHADOWS;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_SUBPIXEL;
     DisplayEffectsMenu[1] = (U16)((p - DisplayEffectsMenu - 4) / 2);
 }
 
@@ -705,6 +708,11 @@ static void BuildCustomMenuText(S32 num, char *string) {
     case MENU_ID_DISPLAY_SOFTSHADOWS:
         snprintf(string, 256, "Soft shadows: %s",
                  DisplaySoftShadows ? "On" : "Off");
+        break;
+
+    case MENU_ID_DISPLAY_SUBPIXEL:
+        snprintf(string, 256, "Sub-pixel pan: %s",
+                 DisplaySubPixel ? "On" : "Off");
         break;
 
     case MENU_ID_DISPLAY_VR:
@@ -3833,6 +3841,11 @@ static void DisplayMenuApplyChoice(S32 select) {
 
     case MENU_ID_DISPLAY_SOFTSHADOWS:
         DisplaySoftShadows ^= 1;
+        WriteConfigFile();
+        break;
+
+    case MENU_ID_DISPLAY_SUBPIXEL:
+        DisplaySubPixel ^= 1;
         WriteConfigFile();
         break;
 

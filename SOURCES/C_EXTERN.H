@@ -124,6 +124,7 @@ extern S32 DisplayPerspectiveTextures; ///< opt-in perspective-correct decor/obj
 extern S32 DisplayAntiAlias;  ///< 0 = off, 1 = FXAA, 2 = MSAA×2, 3 = MSAA×4
 extern S32 DisplayDither;     ///< 1 = ordered dither between CLUT rows (GL mode only)
 extern S32 DisplaySoftShadows; ///< 1 = feathered ground shadows (GL mode only)
+extern S32 DisplaySubPixel;    ///< 1 = sub-pixel interior pan (GL mode only)
 extern S32 DisplaySharpen;    ///< 0 = off, 1 = low, 2 = high present sharpening (GL mode only)
 extern S32 RenderQuality;     ///< 1 = native, 2 = 2x SSAA, 4 = 4x SSAA (GL mode only)
 #endif
@@ -262,6 +263,10 @@ extern void StereoHoverPoseToPan(float yawOff, float pitchOff, float dxm,
                                  float dym, float focalX, float focalY,
                                  S32 frameW, S32 frameH, S32 *outPanX,
                                  S32 *outPanY);
+extern void StereoHoverPoseToPanF(float yawOff, float pitchOff, float dxm,
+                                  float dym, float focalX, float focalY,
+                                  S32 frameW, S32 frameH, float *outPanX,
+                                  float *outPanY);
 extern void StereoHoverPanToWorld(S32 panX, S32 panY, float focalX,
                                   float focalY, float zScale, S32 refAz,
                                   S32 *outX, S32 *outY);

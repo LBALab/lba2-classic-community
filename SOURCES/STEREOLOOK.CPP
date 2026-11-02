@@ -119,9 +119,9 @@ static const float HOVER_MAX_LOOK_RAD = 1.48352986f; /* 85 degrees */
    projection focal in pixels, so the shift is exactly the angle turned and
    the room stays where it was hung.  Signs: turning or leaning right moves
    the image left, looking or leaning up moves it down. */
-void StereoHoverPoseToPan(float yawOff, float pitchOff, float dxm, float dym,
-                          float focalX, float focalY, S32 frameW, S32 frameH,
-                          S32 *outPanX, S32 *outPanY) {
+void StereoHoverPoseToPanF(float yawOff, float pitchOff, float dxm, float dym,
+                           float focalX, float focalY, S32 frameW, S32 frameH,
+                           float *outPanX, float *outPanY) {
     if (yawOff > HOVER_MAX_LOOK_RAD)
         yawOff = HOVER_MAX_LOOK_RAD;
     else if (yawOff < -HOVER_MAX_LOOK_RAD)
@@ -150,6 +150,23 @@ void StereoHoverPoseToPan(float yawOff, float pitchOff, float dxm, float dym,
         panY = (float)limitY;
     else if (panY < -(float)limitY)
         panY = -(float)limitY;
+
+    if (outPanX != NULL)
+        *outPanX = panX;
+    if (outPanY != NULL)
+        *outPanY = panY;
+}
+
+/* Whole-pixel view of the same pan: the projection centre is an integer, so
+   the fractional remainder is what a sub-pixel present offset can carry. */
+void StereoHoverPoseToPan(float yawOff, float pitchOff, float dxm, float dym,
+                          float focalX, float focalY, S32 frameW, S32 frameH,
+                          S32 *outPanX, S32 *outPanY) {
+    float panX = 0.0f;
+    float panY = 0.0f;
+
+    StereoHoverPoseToPanF(yawOff, pitchOff, dxm, dym, focalX, focalY, frameW,
+                          frameH, &panX, &panY);
 
     if (outPanX != NULL)
         *outPanX = (S32)panX;
