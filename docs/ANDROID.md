@@ -222,7 +222,10 @@ independent of the full-body ghost, so it also works with `VrFullBody` off.
 If a tracked hand is farther than the model can reach, the first-person ghost
 scales its upper-arm and forearm groups along the bone (up to 2×) so the hand
 meets the controller. The unmodified body is still used for the rig and IK; the
-scaled body copy exists only for the ghost draw.
+scaled body copy exists only for the ghost draw. The ghost's torso is held at
+rest, and the medallion chain and disc are held at their bind pose as well, so
+the swing authored for the third-person body does not read as the medallion
+floating on its own.
 
 The optional interior hover rig (`VrInteriorHover`, Display → VR → Interior
 hover, console `vrhover`) treats the head as a camera flying over the room. A

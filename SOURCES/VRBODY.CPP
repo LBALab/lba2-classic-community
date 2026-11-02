@@ -52,6 +52,8 @@ typedef struct {
 #define VR_GROUP_ARM_L_FORE 5
 #define VR_GROUP_ARM_R_UPPER 6
 #define VR_GROUP_ARM_R_FORE 7
+#define VR_GROUP_CHAIN 17
+#define VR_GROUP_MEDALLION 18
 
 /* ObjectDisplay starts the group animation pointer at CurrentFrame - 1, so
  * group g (g >= 1) reads CurrentFrame[g - 1]; group 0 is the root object. */
@@ -1058,6 +1060,16 @@ void VrBody_Update(void) {
         ghost.CurrentFrame[VR_ANIM(g)].Gamma = 0;
     }
     for (S32 g = 14; g <= 16; g++) {
+        ghost.CurrentFrame[VR_ANIM(g)].Type = 0;
+        ghost.CurrentFrame[VR_ANIM(g)].Alpha = 0;
+        ghost.CurrentFrame[VR_ANIM(g)].Beta = 0;
+        ghost.CurrentFrame[VR_ANIM(g)].Gamma = 0;
+    }
+    /* Groups 17/18 are the medallion chain and disc.  Their swing is authored
+       for the third-person view; on the first-person ghost, whose torso is
+       held at rest, it reads as the medallion floating on its own.  Hold both
+       at the bind pose so the medallion stays on the chest. */
+    for (S32 g = VR_GROUP_CHAIN; g <= VR_GROUP_MEDALLION; g++) {
         ghost.CurrentFrame[VR_ANIM(g)].Type = 0;
         ghost.CurrentFrame[VR_ANIM(g)].Alpha = 0;
         ghost.CurrentFrame[VR_ANIM(g)].Beta = 0;
