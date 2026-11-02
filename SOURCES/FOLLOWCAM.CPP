@@ -1543,9 +1543,14 @@ static S32 iso_view_apply_pan(void) {
     if (panX == FollowCamIsoPanAppliedX AND panY == FollowCamIsoPanAppliedY)
         return 0;
 
+    /* The camera has not moved, but the water clip line is a projected Y and the centre has: it moves
+       with the picture. It was measured where the hero went into the water (OBJECT.CPP), so it is
+       shifted, not projected again from where he stands now. */
+    S32 oldPanY = FollowCamIsoPanAppliedY;
+
     FollowCamIsoCentre(FollowCamIsoCentreX, FollowCamIsoCentreY);
-    /* The camera has not moved, but the water clip line is a projected Y and the centre has. */
-    SetIsoCamera(StartXCube * SIZE_BRICK_XZ, StartYCube * SIZE_BRICK_Y, StartZCube * SIZE_BRICK_XZ);
+    if (FlagWater)
+        FlagWater += FollowCamIsoPanAppliedY - oldPanY;
     return 1;
 }
 

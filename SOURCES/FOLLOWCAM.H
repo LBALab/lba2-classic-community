@@ -196,9 +196,10 @@ extern void FollowCamNoteFrame(void);
  * The tile keeps its own job: it is the render's anchor, what the brick window is walked from. It is
  * not the eye's target, which is what makes the motion continuous instead of one brick at a time.
  *
- * This is render-only state. It moves no simulation value -- not `Start*Cube`, not an actor, not a
- * random draw -- so a recording, a replay and another end all agree on every tick with it and
- * without it, exactly like the follow's switch. */
+ * It moves the view and nothing in the world: no actor, no random draw. It does move the tile
+ * `Start*Cube`, as the classic camera's recentre always has from the same place in the main loop, and
+ * a savegame stores the tile, so a save made with it on can open a room on a different tile. The
+ * world hash of a recording is the same with it on and off. */
 
 /* Place the camera on the hero. Called once per frame from the main loop, immediately before the
  * frame is drawn: the tick has just moved him, and this is what the frame shows -- one frame's walk
