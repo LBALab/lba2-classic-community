@@ -151,6 +151,9 @@ to on by default:
    that recordings do not carry needs only step 2.
 4. Anything judged by feel gets a play test, read back from its trace.
 
+What moves inward is a choice a player makes, not every value behind it. The Auto camera can
+become one Modern switch while the values that tune it stay Experimental.
+
 A second game moves the same way: LBA1 work starts in Experimental, with its own inner core
 on the shared outer core.
 

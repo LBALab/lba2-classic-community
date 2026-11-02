@@ -87,6 +87,9 @@ The original is the game as the 1990s CD release played it, not the 2022 Classic
 
 *Why:* a promise we cannot check becomes a bug report we cannot reproduce.
 
+- Modern offers a few choices, each one tested, and a feature's tuning values stay
+  Experimental: nobody can test every combination of them, and every row a player is offered
+  is one more to read before finding theirs.
 - A platform is an OS on a CPU architecture: an Intel Mac and an Apple Silicon Mac are two
   platforms, and so are 32-bit and 64-bit Android.
 - A platform's tier sets what it is promised
