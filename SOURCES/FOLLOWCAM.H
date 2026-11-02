@@ -201,6 +201,11 @@ extern void FollowCamNoteFrame(void);
  * a savegame stores the tile, so a save made with it on can open a room on a different tile. The
  * world hash of a recording is the same with it on and off. */
 
+/* Whether the interior follow places the view this frame: on, in an interior, and neither a camera
+ * zone nor the labyrinth mode has the view. The tile step (PERSO.CPP) and the pan ask the same thing,
+ * or the tile would step a brick at a time where no pan smooths it. */
+extern S32 FollowCamIsoOwned(void);
+
 /* Place the camera on the hero. Called once per frame from the main loop, immediately before the
  * frame is drawn: the tick has just moved him, and this is what the frame shows -- one frame's walk
  * of a pan, not a brick's worth of catch-up. It does not ease toward him: he walks 7 to 23 units a

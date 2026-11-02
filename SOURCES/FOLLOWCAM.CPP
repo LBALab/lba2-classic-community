@@ -1320,6 +1320,10 @@ static S32 iso_view_owned(void) {
     return FollowCamInterior AND CubeMode == CUBE_INTERIEUR AND !CameraZone AND !ModeLabyrinthe;
 }
 
+S32 FollowCamIsoOwned(void) {
+    return iso_view_owned();
+}
+
 /* Whether the eye is close enough to its tile for the distance to be a pan rather than a cut.
  * Walking cannot get this far: the eye sits on the hero, who is inside that tile. What does arrive
  * here is the TILE being moved by something else -- a respawn, a savegame load, a script that

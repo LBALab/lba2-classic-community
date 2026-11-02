@@ -1991,7 +1991,7 @@ restartloop:
                  * left in the condition for the frames the two disagree about. */
                 S32 isoFollow = 0;
 
-                if (FollowCamInterior AND CubeMode == CUBE_INTERIEUR) {
+                if (FollowCamIsoOwned()) {
                     xm = (ptrobj->Obj.X) / SIZE_BRICK_XZ;
                     zm = (ptrobj->Obj.Z) / SIZE_BRICK_XZ;
 

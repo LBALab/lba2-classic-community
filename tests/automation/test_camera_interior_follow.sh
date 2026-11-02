@@ -67,6 +67,10 @@
 #      worst frame, 119 in the first fifteen. And a room that opens inside a camera zone (cube 154)
 #      had the zone's shot glide in from the follow's view, which no frame had shown: 39 frames of
 #      slide. Both now open on their final view: nothing moves in the first fifteen frames.
+#   9  THE LABYRINTH KEEPS THE CLASSIC VIEW. A scene in the labyrinth mode (cubes 26 and 202) is not
+#      the follow's to place, and the tile used to step after him there anyway, a brick at a time with
+#      no pan to smooth it: 12 jumps of about 27 pixels on one walk. The same walk with the switch on
+#      and off must give the same camera trace, apart from the field that reports the switch.
 #   6  A CAMERA ZONE STILL WINS, in an interior and with the switch on. Every interior camera that is
 #      not this option's is a zone's (`SetZoneCamera` re-places `Start*Cube` every frame while the hero
 #      is in the box), and a following camera that overrode one would be a room whose authored shot
@@ -98,6 +102,8 @@ WALK_TICKS=140
 ZONED_TICKS=180
 # The hand-over walk: cube 3, back into a camera zone and forward out of it again.
 HANDOVER_CUBE=3
+# A scene in the labyrinth mode (byte 4 of its SCENE.HQR header).
+LABYRINTH_CUBE=26
 # Traced rows dropped before the tile comparison: the scene load places the view on him, so the first
 # rows of BOTH arms agree by construction and would flatter the control.
 WARMUP_ROWS=30
@@ -136,6 +142,21 @@ zone2zone_arm() {
         --exec-at 100 "input up 40" \
         --tick 200 --exit > "$log" 2>&1 \
         || fail "zone-to-zone run in cube $HANDOVER_CUBE with cam_shot_blend_ms $ms failed: exit $? (see $log)"
+}
+
+# labyrinth_arm <cam_interior 0|1> <log> -- a walk in the labyrinth, long enough to cross bricks.
+labyrinth_arm() {
+    local on="$1" log="$2"
+
+    ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
+        --exec "cam_interior $on; camtrace 1; cube $LABYRINTH_CUBE; input up 120" \
+        --tick 160 --exit > "$log" 2>&1 \
+        || fail "labyrinth run with cam_interior $on failed: exit $? (see $log)"
+}
+
+# cam_rows <log> -- the camera trace without the field that reports the switch.
+cam_rows() {
+    grep '\[cam\]' "$1" | sed -e 's/.*\[cam\]//' -e 's/ iso [01] / /'
 }
 
 # entry_arm <cube> <log> -- the room loaded with the follow already on, nobody touching anything.
@@ -355,7 +376,9 @@ classic_log="$(mktemp)"
 zoned_log="$(mktemp)"
 blend_log="$(mktemp)"
 cut_log="$(mktemp)"
-trap 'rm -f "$follow_log" "$classic_log" "$zoned_log" "$blend_log" "$cut_log"' EXIT
+lab_on_log="$(mktemp)"
+lab_off_log="$(mktemp)"
+trap 'rm -f "$follow_log" "$classic_log" "$zoned_log" "$blend_log" "$cut_log" "$lab_on_log" "$lab_off_log"' EXIT
 
 arm "$INTERIOR_CUBE" 1 "$WALK_TICKS" "$follow_log"
 follow="$(stats "$follow_log")"
@@ -479,4 +502,14 @@ for cube in 0 "$ZONED_CUBE"; do
         || fail "the view moved $(get "$entry" moved) px in the first $ENTRY_ROWS frames after loading cube $cube (worst frame $(get "$entry" worst)): the room did not open where it stays"
 done
 
-pass "interior follow: view on the hero's tile $on_tile/$tail frames with no overshoot against $classic_tile/$classic_tail classic, the crossing panned over $(get "$follow" lagframes) frames with no whole-brick step, never more than $(get "$follow" stillrun) frame(s) of it standing still and the eye $(get "$follow" eyelag) units off the hero, a camera zone still holds its room, and a hand-over moves the view at most $(get "$blend" jump) px a frame over $(get "$blend" blendlong) frames against $(get "$cut" jump) cut ($(get "$zblend" jump11) against $(get "$zcut" jump11) from zone to zone), and rooms open on their final view"
+# 9  The labyrinth: the switch changes nothing there.
+labyrinth_arm 1 "$lab_on_log"
+labyrinth_arm 0 "$lab_off_log"
+lab_rows="$(cam_rows "$lab_on_log" | wc -l | tr -d ' ')"
+[ "$lab_rows" -gt 100 ] || fail "only $lab_rows traced frames in the labyrinth"
+lab_walk="$(cam_rows "$lab_on_log" | awk '{for (i = 1; i < NF; i++) if ($i == "hxw" || $i == "hzw") k = k $(i + 1) " "; seen[k] = 1; k = ""} END {print length(seen)}')"
+[ "$lab_walk" -gt 20 ] || fail "Twinsen stood at $lab_walk places in the labyrinth: the walk proves nothing"
+[ "$(cam_rows "$lab_on_log")" = "$(cam_rows "$lab_off_log")" ] \
+    || fail "the labyrinth's camera differs with cam_interior 1 (first differing row: $(diff <(cam_rows "$lab_on_log") <(cam_rows "$lab_off_log") | sed -n 2p | cut -c1-200))"
+
+pass "interior follow: view on the hero's tile $on_tile/$tail frames with no overshoot against $classic_tile/$classic_tail classic, the crossing panned over $(get "$follow" lagframes) frames with no whole-brick step, never more than $(get "$follow" stillrun) frame(s) of it standing still and the eye $(get "$follow" eyelag) units off the hero, a camera zone still holds its room, and a hand-over moves the view at most $(get "$blend" jump) px a frame over $(get "$blend" blendlong) frames against $(get "$cut" jump) cut ($(get "$zblend" jump11) against $(get "$zcut" jump11) from zone to zone), rooms open on their final view, and the labyrinth keeps the classic view"
