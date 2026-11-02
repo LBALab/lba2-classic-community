@@ -557,7 +557,8 @@ widescreen, font, palette, or layout changes are most likely to disturb.
 | `ui holomap <path>` | The rotating planet globe + island name strip |
 | `ui dialog <text-id> <path>` | The dialogue bubble + portrait + typewriter text for that text-id |
 | `ui menu-options <path>` | The in-game ESC menu (Volume / Language / Advanced / Controls) over the shaded scene |
-| `ui menu-advanced <path>` | The Advanced options page (camera, movies, text, Fix retail bugs) |
+| `ui menu-advanced <path>` | The Advanced options page (movies, text, Fix retail bugs, the Camera row) |
+| `ui menu-camera <path>` | The Camera page opened from Advanced options (Outdoors, Indoors) |
 | `ui menu-main <path>` | The boot-time main menu (Resume / New Game / Load / Options / Quit) |
 | `ui menu-main-options <path>` | Options entered from the boot main menu |
 | `ui found-object <numvar> <path>` | The found-object cinematic — 3D rotation of `TabInv[numvar]`'s item + dialogue |
@@ -712,7 +713,7 @@ following:
   normal call site and replicate everything it does, gated on capture-armed so
   non-harness callers see no behaviour change.
 
-- **Distinguish the composed page from the visible frame.** `Log` is the render buffer, `Screen` is the clean backdrop, and `BoxUpdate` copies dirty rectangles to persistent `Phys` for presentation. Most modal captures read `Log`; inventory's render path leaves `Screen` valid. Menu captures read `Phys` so missing backdrop updates cannot hide behind a correct offscreen image. They hide the menu pointer and present once more first, so a host pointer crossing the window does not end up in the capture. Every menu verb (`menu-options`, `menu-advanced`, `menu-main`, `menu-main-options`, `display`, `resolution`) also compares the entire indexed `Phys` and `Log` buffers at capture time and reports `presented_matches_rendered=1` only if every visible pixel matches the composed page.
+- **Distinguish the composed page from the visible frame.** `Log` is the render buffer, `Screen` is the clean backdrop, and `BoxUpdate` copies dirty rectangles to persistent `Phys` for presentation. Most modal captures read `Log`; inventory's render path leaves `Screen` valid. Menu captures read `Phys` so missing backdrop updates cannot hide behind a correct offscreen image. They hide the menu pointer and present once more first, so a host pointer crossing the window does not end up in the capture. Every menu verb (`menu-options`, `menu-advanced`, `menu-camera`, `menu-main`, `menu-main-options`, `display`, `resolution`) also compares the entire indexed `Phys` and `Log` buffers at capture time and reports `presented_matches_rendered=1` only if every visible pixel matches the composed page.
 
 - **Pre-arm `PtrMap`/`ObjPtrMap`** for any modal that renders 3D bodies via
   `BodyDisplay`. Without it the texture filler dereferences a null/stale pointer and

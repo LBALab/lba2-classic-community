@@ -88,7 +88,7 @@ Truth hierarchy: code > this document > external sources.
    - [docs/CAMERA_INTERNALS.md](CAMERA_INTERNALS.md) — Interior vs exterior paths, `CameraCenter`, `SearchCameraPos`, Auto camera / `FollowCamera` (community).
    - [docs/GLOSSARY.md](GLOSSARY.md) — Zone type 1 = camera. `AllCameras` in CONFIG.
    - [docs/LIFECYCLES.md](LIFECYCLES.md) — Scene load phase 6: "Initialize camera position". Main loop step 7: `AffScene` (render).
-   - [docs/MENU.md](MENU.md) — Options → Cameras (46/47), toggles `AllCameras`; Advanced options for Auto camera (`FollowCamera`).
+   - [docs/MENU.md](MENU.md) — Options → Cameras (46/47), toggles `AllCameras`; Advanced options → Camera for the Auto camera (`FollowCamera`) and the interior follow (`FollowCamInterior`).
    - [docs/CONFIG.md](CONFIG.md) — `AllCameras`, `FollowCamera` (Auto camera), legacy `AutoCameraCenter`.
 
 3. **Also in code:** Zone type 1 (camera zones), `AffScene` / projection, `ChangeCube`/`OBJECT.CPP` for camera init, projection globals (`LIB386/3D/PROJ` — `XCentre`, `YCentre`, `NearClip`, etc.).

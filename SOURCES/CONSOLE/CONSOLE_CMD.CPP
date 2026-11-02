@@ -639,6 +639,18 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
                       (int)Menu_CaptureMatchesPresented());
         return;
     }
+    if (argc >= 3 && !strcmp(argv[1], "menu-camera")) {
+        /* The Camera page, opened from Advanced options. Same black-bg
+           convention as `display`. */
+        if (Console_GetCaptureBlackBg()) {
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+            memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+        }
+        Camera_MainCapture(argv[2]);
+        Console_Print("ui menu-camera -> %s (presented_matches_rendered=%d)", argv[2],
+                      (int)Menu_CaptureMatchesPresented());
+        return;
+    }
     if (argc >= 3 && !strcmp(argv[1], "resolution")) {
         /* Resolution sub-page (the list opened from the Display submenu's
            Resolution row). Built at runtime, so Resolution_MainCapture
@@ -2533,7 +2545,7 @@ void Console_RegisterAll(void) {
                               "Without a path, writes state_<time>.json under shoot/. Diffing two "
                               "dumps from one session says what changed between two moments.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui {inventory|holomap|menu-options|menu-advanced|menu-main|menu-main-options|config|slideshow} <path> | ui config-pad | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal] | ui askchoice [--press <key>] <question-id> <choice-id>...",
+                              "ui {inventory|holomap|menu-options|menu-advanced|menu-camera|menu-main|menu-main-options|config|slideshow} <path> | ui config-pad | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal] | ui askchoice [--press <key>] <question-id> <choice-id>...",
                               "Composite verb for UI regression fixtures: opens a UI modal "
                               "with a deterministic auto-exit, writes the settled frame to <path> "
                               "via SavePNG, then closes.  Compose with --load / --exec to drive "

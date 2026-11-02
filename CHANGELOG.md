@@ -12,13 +12,18 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Display & render
 
-- An experimental interior follow camera, off by default: `cam_interior 1` in
-  the console (`FollowCameraInterior: 1` in `lba2.cfg`) keeps Twinsen in the
+- An experimental interior follow camera, off by default: Options → Advanced
+  options → Camera → **Indoors: Follow** (`cam_interior 1` in the console,
+  `FollowCameraInterior: 1` in `lba2.cfg`) keeps Twinsen in the
   middle of the isometric view, the room sliding under him as he walks instead
   of jumping a brick at a time when he nears the screen edge. Camera shots
   placed by the game's designers still hold their rooms, and the view glides
   into and out of them, taking longer the farther it has to go. A room opens
   on the view it keeps.
+
+- Options → Advanced options has a **Camera** page with the two camera
+  switches: Outdoors (Auto or Classic, the row that used to read Auto camera /
+  Classic camera) and Indoors (Follow or Classic).
 
 - A screen opened just as the game resumes from the pause menu shows the scene
   behind it, not the menu. The inventory, the behaviour menu and the other

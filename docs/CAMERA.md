@@ -6,7 +6,7 @@ How the cameras work inside the engine is in [CAMERA_INTERNALS.md](CAMERA_INTERN
 
 ## Switching it on
 
-- In the game: Options → Advanced options → **Auto camera** (the same entry reads **Classic camera** when it is off).
+- In the game: Options → Advanced options → Camera → **Outdoors: Auto** (it reads **Outdoors: Classic** when it is off).
 - In the console (`F12`): `cam_follow 1`, or `cam_follow 0` for the classic camera.
 - In `lba2.cfg`: `FollowCamera: 1`.
 
@@ -67,6 +67,7 @@ A session recording carries the camera settings it was made with. A replay uses 
 
 Indoors the view is the original isometric one, and it moves only when Twinsen nears the edge of the screen. The **interior follow** is an experimental community addition, contributed by SIN, that keeps him in the middle instead: the room slides under him as he walks rather than jumping a brick at a time. Camera shots placed by the game's designers still hold their rooms, and the view glides into and out of them: over `cam_shot_blend_ms` at least, and longer when it has far to go, so it never moves much faster than Twinsen walks. A room opens on the view it keeps, without sliding. It works with either outdoor camera and is off by default.
 
+- In the game: Options → Advanced options → Camera → **Indoors: Follow** (it reads **Indoors: Classic** when it is off).
 - In the console (`F12`): `cam_interior 1`, or `cam_interior 0` for the original view.
 - In `lba2.cfg`: `FollowCameraInterior: 1`.
 

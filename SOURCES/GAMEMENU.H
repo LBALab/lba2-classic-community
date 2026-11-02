@@ -95,6 +95,8 @@ extern void Display_MainCapture(const char *path);
 extern void Resolution_MainCapture(const char *path);
 /* Harness hook: capture the Advanced options page, as Display_MainCapture. */
 extern void Advanced_MainCapture(const char *path);
+/* Harness hook: capture the Camera page (opened from Advanced options), the same way. */
+extern void Camera_MainCapture(const char *path);
 /*--------------------------------------------------------------------------*/
 extern void VolumeOptions(void);
 /*--------------------------------------------------------------------------*/

@@ -154,7 +154,7 @@ Code that borrows the 3D camera mid-frame (a 3D icon such as the holomap globe, 
 
 ## Auto camera (`FollowCamera`)
 
-Config key `FollowCamera` (0 = classic, 1 = auto; default 0, legacy key `AutoCameraCenter` also read), toggled in Options → Advanced options. When on, outdoors and outside camera zones and cutscenes, it is a third-person follow. Tuning constants are in `FOLLOWCAM_CFG.H`, logic in [SOURCES/FOLLOWCAM.CPP](../SOURCES/FOLLOWCAM.CPP) and `EXTFUNC.CPP`.
+Config key `FollowCamera` (0 = classic, 1 = auto; default 0, legacy key `AutoCameraCenter` also read), toggled in Options → Advanced options → Camera. When on, outdoors and outside camera zones and cutscenes, it is a third-person follow. Tuning constants are in `FOLLOWCAM_CFG.H`, logic in [SOURCES/FOLLOWCAM.CPP](../SOURCES/FOLLOWCAM.CPP) and `EXTFUNC.CPP`.
 
 ### Spring arm (zoom)
 

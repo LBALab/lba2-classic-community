@@ -3,7 +3,7 @@
 #include "CONTROL.H" /* Control_KeyHold (AskChoice_RequestDrive) */
 #include "DIRECTORIES.H"
 #include "DISTRIB.H"
-#include "FOLLOWCAM.H" /* FollowCamera (Auto/Classic camera menu label) */
+#include "FOLLOWCAM.H" /* FollowCamera, FollowCamInterior (Camera page) */
 #include "INPUT.H"
 #include "JOYSTICK.H"
 
@@ -98,6 +98,8 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_RESOLUTION 2115
 #define MENU_ID_DISPLAY_VSYNC 2116
 #define MENU_ID_RETAIL_FIXES 2117
+#define MENU_ID_CAMERA 2118
+#define MENU_ID_CAMERA_INTERIOR 2119
 
 // Resolution sub-page rows occupy a reserved id range: row i carries id
 // MENU_ID_RESOLUTION_BASE + i, which BuildCustomMenuText and GereResolutionMenu
@@ -246,13 +248,29 @@ U16 AdvancedOptionMenu[] = {
     0,
     MENU_ID_MOVIE_CAMERA,
     0,
-    MENU_ID_FOLLOW_CAMERA,
+    MENU_ID_CAMERA,
     0,
     MENU_ID_VIDEO_SIZE,
     0,
     MENU_ID_DISPLAY_TEXT,
     0,
     MENU_ID_RETAIL_FIXES,
+};
+
+// Camera submenu: the outdoor camera (Auto or Classic) and the indoor one
+// (Follow or Classic). Two separate switches, one page. See GereCameraMenu.
+U16 CameraMenu[] = {
+    0,   // selected
+    3,   // nb entries
+    260, // y center
+    0,   // .dia num
+
+    0,
+    26, // menu precedent
+    0,
+    MENU_ID_FOLLOW_CAMERA,
+    0,
+    MENU_ID_CAMERA_INTERIOR,
 };
 
 U16 SavedConfirmMenu[] = {
@@ -483,7 +501,15 @@ static void BuildCustomMenuText(S32 num, char *string) {
         break;
 
     case MENU_ID_FOLLOW_CAMERA:
-        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(FollowCamera ? MENU_LABEL_AUTO_CAMERA : MENU_LABEL_CLASSIC_CAMERA));
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(FollowCamera ? MENU_LABEL_OUTDOORS_AUTO : MENU_LABEL_OUTDOORS_CLASSIC));
+        break;
+
+    case MENU_ID_CAMERA_INTERIOR:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(FollowCamInterior ? MENU_LABEL_INDOORS_FOLLOW : MENU_LABEL_INDOORS_CLASSIC));
+        break;
+
+    case MENU_ID_CAMERA:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_CAMERA));
         break;
 
     case MENU_ID_DISPLAY_TEXT:
@@ -3262,6 +3288,22 @@ void Advanced_MainCapture(const char *path) {
     Menu_RequestCapture(NULL);
 }
 
+// Harness one-shot capture of the Camera page, the same way.
+void Camera_MainCapture(const char *path) {
+    HQ_StopSample();
+    InitPlasmaMenu();
+
+    CopyScreen(Screen, Log);
+    BoxStaticFullflip();
+    PtrPal = PtrPalNormal;
+    PaletteSync(PtrPalNormal);
+    InitDial(0);
+
+    Menu_RequestCapture(path);
+    DoGameMenu(CameraMenu);
+    Menu_RequestCapture(NULL);
+}
+
 // Harness one-shot capture of the resolution sub-page. Same shape as
 // Display_MainCapture but builds the runtime ResolutionMenu first (the page is
 // generated, not a static array), then drives DoGameMenu(ResolutionMenu) with
@@ -3433,6 +3475,46 @@ S32 GereDisplayMenu(void) {
 /*══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
+S32 GereCameraMenu(void) {
+    S32 select;
+    S32 flag = 0;
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    if (FlagShadeMenu) {
+        ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
+    }
+
+    while (!flag) {
+        select = DoGameMenu(CameraMenu);
+
+        switch (select) {
+        case 26:
+        case 1000:
+            flag = 1;
+            break;
+
+        case MENU_ID_FOLLOW_CAMERA:
+            FollowCamera ^= 1;
+            break;
+
+        case MENU_ID_CAMERA_INTERIOR:
+            FollowCamInterior ^= 1;
+            break;
+        }
+    }
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    WaitNoInput();
+
+    return FALSE;
+}
+
+/*──────────────────────────────────────────────────────────────────────────*/
+
 S32 GereAdvancedOptionsMenu(void) {
     S32 select;
     S32 flag = 0;
@@ -3461,8 +3543,8 @@ S32 GereAdvancedOptionsMenu(void) {
             AllCameras ^= 1;
             break;
 
-        case MENU_ID_FOLLOW_CAMERA:
-            FollowCamera ^= 1;
+        case MENU_ID_CAMERA:
+            GereCameraMenu();
             break;
 
         case MENU_ID_VIDEO_SIZE:
