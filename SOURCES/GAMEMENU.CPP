@@ -621,7 +621,9 @@ void Init3DView(void) {
     // interior scene composition coherent. Routing through ModeDesiredX/Y so
     // iso scenes stay centred at any render-space size; at 640x480 this is the
     // original (311, 240). See docs/WIDESCREEN.md Phase 2.
-    SetIsoProjection((S32)ModeDesiredX / 2 - 9, (S32)ModeDesiredY / 2);
+    // Plus the interior follow's whole-pixel pan (zero with it off), so a menu
+    // that restores the view through here does not drop it.
+    FollowCamIsoCentre((S32)ModeDesiredX / 2 - 9, (S32)ModeDesiredY / 2);
     SetPosCamera(0, 0, 0);
     SetAngleCamera(0, 0, 0);
     SetLightVector(AlphaLight, BetaLight, 0);

@@ -79,7 +79,9 @@ import sys
 # happened" rather than as an error. Keep this in step with the Log_Info call in FOLLOWCAM.CPP.
 KEYS = ("heroBeta", "add", "beta", "target", "step", "delay", "orbit", "moving",
         "zone", "forced", "cine", "follow", "ext", "vue", "alpha", "dist", "inshot", "loan", "obs", "hid",
-        "dt", "tlag", "vx", "vy", "vz", "blend", "sbeta", "salpha", "sdist", "sx", "sy", "sz")
+        "dt", "tlag", "vx", "vy", "vz", "blend", "sbeta", "salpha", "sdist", "sx", "sy", "sz",
+        "iso", "tx", "ty", "tz", "hx", "hz", "hxw", "hzw", "vxw", "vzw",
+        "lagx", "lagy", "lagz", "panx", "pany", "camt", "ibl")
 MARK = "[INFO] [cam]"
 print("\t".join(KEYS))
 cut = 0

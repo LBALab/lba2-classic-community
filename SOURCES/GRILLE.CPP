@@ -1,5 +1,6 @@
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
+#include "FOLLOWCAM.H" /* FollowCamIsoPan: the brick lattice's sub-tile shift (Map2Screen below) */
 
 #include <3D/PROJREC.H>
 #include <SVGA/SCREEN.H>
@@ -1586,8 +1587,16 @@ void DecompColonne(U8 *pts, U8 *ptd) {
 // iso grid stays centred at any render-space size; at 640×480 this is
 // the original (288, 226). See docs/WIDESCREEN.md Phase 2.
 void Map2Screen(S32 x, S32 y, S32 z) {
-    XScreen = 24 * (x - z) + ((S32)ModeDesiredX / 2 - 32);
-    YScreen = 12 * (z + x) - 15 * y + ((S32)ModeDesiredY / 2 - 14);
+    /* PLUS THE INTERIOR FOLLOW'S PAN (FOLLOWCAM.H). A brick is not projected, it is blitted on this
+       24/12/15 lattice, so the whole-pixel shift the follow gives the projection centre has to be
+       added here too, or the hero and every sprite would slide across a grid that stood still. It is
+       the shift the centre carries now, so the two cannot differ, and it is zero with the follow off. */
+    S32 panX, panY;
+
+    FollowCamIsoPan(&panX, &panY);
+
+    XScreen = 24 * (x - z) + ((S32)ModeDesiredX / 2 - 32) + panX;
+    YScreen = 12 * (z + x) - 15 * y + ((S32)ModeDesiredY / 2 - 14) + panY;
     Projrec_Map2Screen(x, y, z, XScreen, YScreen);
 }
 

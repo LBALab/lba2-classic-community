@@ -25,7 +25,9 @@ RING_SAVE="$REPO/tests/savegame/corpus/saves/steam_classic_2023/Wannies fragment
 # The list is checked against the binary's own `varlist cam_` (ring_check_rows), so a new
 # camera setting fails both fixtures until it is added here. That is the point: a setting
 # nobody has flipped is one nobody has shown to be watched, not played. cam_follow is
-# left out because it is the switch the fixtures hold, not one they flip.
+# left out because it is the switch the fixtures hold, not one they flip. cam_interior is
+# left out because it is a switch of its own, the interior camera's, and does not tune the
+# Auto camera; test_camera_interior_follow.sh covers it.
 RING_FLIPS=(
     cam_ease_ms=0
     cam_glide=0
@@ -69,7 +71,7 @@ RING_FLIPS=(
 ring_check_rows() {
     local have want missing extra
     have="$(ctl_headless --exec 'varlist cam_' --tick 2 --exit 2>/dev/null |
-        sed -n 's/^\[control\] *\(cam_[a-z_]*\) - .*/\1/p' | grep -vx cam_follow | sort)"
+        sed -n 's/^\[control\] *\(cam_[a-z_]*\) - .*/\1/p' | grep -vx -e cam_follow -e cam_interior | sort)"
     [ -n "$have" ] || fail "varlist cam_ listed no camera settings: cannot check the flip list"
     want="$(printf '%s\n' "${RING_FLIPS[@]}" | sed 's/=.*//' | sort)"
     missing="$(comm -23 <(printf '%s\n' "$have") <(printf '%s\n' "$want") | tr '\n' ' ')"

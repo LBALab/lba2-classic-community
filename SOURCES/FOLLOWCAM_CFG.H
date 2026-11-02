@@ -137,6 +137,11 @@
  * milliseconds, eased in and out. 0 is the cut. */
 #define FOLLOW_CAM_SHOT_BLEND_MS_DEFAULT 600
 #define FOLLOW_CAM_SHOT_BLEND_MS_MAX 5000
+/* Indoors the same setting is the SHORTEST glide: a longer one gets 6 ms a pixel, so its top speed
+ * is a quarter of a pixel a millisecond (4 a frame at 60 Hz, a little over the follow's while he
+ * runs), up to 1.5 s. Measured in play: hand-overs of 60 to 340 pixels, all in 600 ms before. */
+#define FOLLOW_CAM_ISO_GLIDE_MS_PER_PX 6
+#define FOLLOW_CAM_ISO_GLIDE_MAX_MS 1500
 
 /* Elevation (AlphaCam) — applies when Auto camera (FollowCamera) is on -----*/
 #define FOLLOW_CAM_ALPHA_MIN 150 /* minimum elevation angle */
@@ -153,6 +158,24 @@
  * rest of this header it expands to engine state, so it is usable only where
  * DefVueDistance is declared. */
 #define FOLLOW_CAM_INITIAL_DIST ((DefVueDistance[0] + DefVueDistance[1]) / 2)
+
+/* Interior follow (FollowCamInterior) ---------------------------------------*/
+/* Community addition, off by default like the exterior Auto camera it is named beside. On, the
+ * ISOMETRIC view keeps the hero in the middle of the picture instead of waiting for him to reach the
+ * screen margin: the eye is placed on his own position every frame, so the room slides past him at
+ * exactly his walking speed, the way the exterior camera's does. The TILE it is drawn from still moves
+ * a brick at a time (`FollowCamIsoStep`, FOLLOWCAM_MATH.H) -- that is what the brick window and the
+ * lattice are anchored to -- but the eye does not wait for it.
+ * There is no angle to lerp here and nothing to zoom: an interior's camera is a position, and this is
+ * the switch that keeps it on the hero. The classic margin behaviour is unchanged when this is off. */
+#define FOLLOW_CAM_INTERIOR_DEFAULT 0
+/* How far the eye may be from its tile before the view is CUT rather than moved there: walking never
+ * takes it more than a brick away, since it sits on the hero, so anything further came from the tile
+ * being moved by something else (a respawn, a savegame load, a script re-pointing the camera), which
+ * is a deliberate placement and gets placed rather than glided. Two bricks, and a literal rather than
+ * `2 * SIZE_BRICK_XZ` so this header stays standalone for tests/camera: a brick is 512 units across
+ * and 256 up, so this is two across and four up. */
+#define FOLLOW_CAM_ISO_LAG_CUT 1024
 
 /* Horizontal pan keys [ ] ---------------------------------------------------*/
 #define FOLLOW_CAM_PAN_STEP 30 /* AddBetaCam change per [ / ] key press per frame */

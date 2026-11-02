@@ -14,6 +14,7 @@
 
 #include "C_EXTERN.H"
 #include "FOLLOWCAM.H" /* FollowCamForgetLoan: a recentre ends a scripted shot's loan */
+#include "INTEXT.H"
 
 extern T_OBJET *APtObj; // dans OBJECT.CPP
 
@@ -329,9 +330,38 @@ S32 PtrProjectPoint(S32 xw, S32 yw, S32 zw) {
 //		      compte de AddBetaCam (cameras orientees)
 //		3 --> Don't touch Globales. Juste appel des fonctions Caméras
 
+/* The isometric eye, and the one thing measured from it: the water clip line.
+ *
+ * `FlagWater` holds the screen Y the water starts at, projected from the hero's own position with
+ * the camera as it is (OBJECT.CPP sets it when he enters the water and clips his sprite to it). It is
+ * therefore only correct while the camera is where it was measured at, which is why the two are set
+ * together here: the interior follow moves the eye again after this function's usual caller has, and
+ * a clip line left a brick behind would cut the hero off above the water line.
+ */
+void SetIsoCamera(S32 x, S32 y, S32 z) {
+    SetPosCamera(x, y, z);
+
+    if (FlagWater) // reajuste clipping y de l'eau
+    {
+        LongProjectPoint(ListObjet[NUM_PERSO].Obj.X,
+                         ListObjet[NUM_PERSO].Obj.Y,
+                         ListObjet[NUM_PERSO].Obj.Z);
+
+        FlagWater = Yp;
+    }
+}
+
 void CameraCenter(S32 flagbeta) {
     T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
     S32 newbeta;
+
+    /* A DECISION ABOUT WHERE THE VIEW IS ENDS ANY PAN TOWARDS IT. Every caller but the main loop's
+     * own apply of the anchor (flagbeta 0) has decided the view for itself -- a scene load (200), the
+     * centre key, a scripted camera -- and gliding into a shot someone just chose is the cut they
+     * asked for, arriving late. The follow's sub-tile lag (FOLLOWCAM.H) is dropped here so the shot
+     * lands where it was aimed. */
+    if (flagbeta != 0)
+        FollowCamIsoGlideReset();
 
     /* Every re-aim of the camera lands here: the Center camera control, the
      * script's own camera orders, and the scene changes that reset the view. Each
@@ -414,18 +444,15 @@ void CameraCenter(S32 flagbeta) {
     }
 
     if (CubeMode == CUBE_INTERIEUR) {
-        SetPosCamera(StartXCube * SIZE_BRICK_XZ,
+        /* THE CAMERA IS THE TILE; THE PICTURE NEED NOT BE. `Start*Cube` is the tile the view is
+           centred on, which is what the follow moves; with the follow on, the projection centre also
+           carries the hero's offset from that tile as whole pixels (FOLLOWCAM.H), so a brick he crosses
+           arrives as a pan and not as a 24-pixel step. With the follow off that shift is zero, and
+           this is the call it has always been. */
+        FollowCamIsoPlaceView();
+        SetIsoCamera(StartXCube * SIZE_BRICK_XZ,
                      StartYCube * SIZE_BRICK_Y,
                      StartZCube * SIZE_BRICK_XZ);
-
-        if (FlagWater) // reajuste clipping y de l'eau
-        {
-            LongProjectPoint(ListObjet[NUM_PERSO].Obj.X,
-                             ListObjet[NUM_PERSO].Obj.Y,
-                             ListObjet[NUM_PERSO].Obj.Z);
-
-            FlagWater = Yp;
-        }
     } else {
         FollowCamSetView();
 
