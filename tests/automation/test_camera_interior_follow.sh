@@ -67,6 +67,9 @@
 #      worst frame, 119 in the first fifteen. And a room that opens inside a camera zone (cube 154)
 #      had the zone's shot glide in from the follow's view, which no frame had shown: 39 frames of
 #      slide. Both now open on their final view: nothing moves in the first fifteen frames.
+#   8b AND SO DOES A ROOM ENTERED THROUGH A DOOR. The console's `cube` is a cut the follow is told
+#      about; a door places the camera without one, and the room it led into (142, from 143) opens
+#      inside a camera zone that glided in from the room just left: 155 by 75 pixels over 65 frames.
 #   9  THE LABYRINTH KEEPS THE CLASSIC VIEW. A scene in the labyrinth mode (cubes 26 and 202) is not
 #      the follow's to place, and the tile used to step after him there anyway, a brick at a time with
 #      no pan to smooth it: 12 jumps of about 27 pixels on one walk. The same walk with the switch on
@@ -112,6 +115,10 @@ LABYRINTH_CUBE=26
 # The demo's cube 220 plays a ride up under --demo, with nothing else moving the view.
 RIDE_CUBE=220
 RIDE_MAX_PX=20
+# A door: 143's into 142, which sets him down inside 142's camera zone (zonelist in both rooms).
+DOOR_FROM=143
+DOOR_TO=142
+DOOR_AT="16100 3328 28900"
 # Traced rows dropped before the tile comparison: the scene load places the view on him, so the first
 # rows of BOTH arms agree by construction and would flatter the control.
 WARMUP_ROWS=30
@@ -405,7 +412,9 @@ cut_log="$(mktemp)"
 lab_on_log="$(mktemp)"
 lab_off_log="$(mktemp)"
 ride_log="$(mktemp)"
-trap 'rm -f "$follow_log" "$classic_log" "$zoned_log" "$blend_log" "$cut_log" "$lab_on_log" "$lab_off_log" "$ride_log"' EXIT
+door_log="$(mktemp)"
+door_in_log="$(mktemp)"
+trap 'rm -f "$follow_log" "$classic_log" "$zoned_log" "$blend_log" "$cut_log" "$lab_on_log" "$lab_off_log" "$ride_log" "$door_log" "$door_in_log"' EXIT
 
 arm "$INTERIOR_CUBE" 1 "$WALK_TICKS" "$follow_log"
 follow="$(stats "$follow_log")"
@@ -529,6 +538,21 @@ for cube in 0 "$ZONED_CUBE"; do
         || fail "the view moved $(get "$entry" moved) px in the first $ENTRY_ROWS frames after loading cube $cube (worst frame $(get "$entry" worst)): the room did not open where it stays"
 done
 
+# 8b Through a door: the same, from the trace rows after the scene change.
+ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
+    --exec "cam_interior 1; cam_shot_blend_ms 600; camtrace 1; cubetrace 1; cube $DOOR_FROM" \
+    --exec-at 30 "teleport $DOOR_AT" --tick 80 --exit > "$door_log" 2>&1 \
+    || fail "door run from cube $DOOR_FROM failed: exit $? (see $door_log)"
+sed -n "/\[cube\].* $DOOR_FROM -> $DOOR_TO\$/,\$p" "$door_log" > "$door_in_log"
+[ -s "$door_in_log" ] || fail "he did not go through the door from cube $DOOR_FROM to $DOOR_TO"
+entry="$(entry_stats "$door_in_log")"
+[ "$(get "$entry" rows)" -gt "$ENTRY_ROWS" ] || fail "only $(get "$entry" rows) interior frames after the door into cube $DOOR_TO"
+[ "$(get "$entry" iso)" = "1" ] || fail "the interior follow was not in force through the door into cube $DOOR_TO"
+[ "$(get "$entry" blendrows)" -eq 0 ] \
+    || fail "cube $DOOR_TO opened through a door with a $(get "$entry" blendrows)-frame glide: a blend started from the room just left"
+[ "$(get "$entry" moved)" -eq 0 ] \
+    || fail "the view moved $(get "$entry" moved) px in the first $ENTRY_ROWS frames through the door into cube $DOOR_TO (worst frame $(get "$entry" worst))"
+
 # 9  The labyrinth: the switch changes nothing there.
 labyrinth_arm 1 "$lab_on_log"
 labyrinth_arm 0 "$lab_off_log"
@@ -549,4 +573,4 @@ ride="$(ride_stats "$ride_log")"
 [ "$(get "$ride" worst)" -le "$RIDE_MAX_PX" ] \
     || fail "the view moved $(get "$ride" worst) px in one frame on the ride up in cube $RIDE_CUBE (at most $RIDE_MAX_PX)"
 
-pass "interior follow: view on the hero's tile $on_tile/$tail frames with no overshoot against $classic_tile/$classic_tail classic, the crossing panned over $(get "$follow" lagframes) frames with no whole-brick step, never more than $(get "$follow" stillrun) frame(s) of it standing still and the eye $(get "$follow" eyelag) units off the hero, a camera zone still holds its room, and a hand-over moves the view at most $(get "$blend" jump) px a frame over $(get "$blend" blendlong) frames against $(get "$cut" jump) cut ($(get "$zblend" jump11) against $(get "$zcut" jump11) from zone to zone), rooms open on their final view, the labyrinth keeps the classic view, and a ride up moves the view at most $(get "$ride" worst) px a frame"
+pass "interior follow: view on the hero's tile $on_tile/$tail frames with no overshoot against $classic_tile/$classic_tail classic, the crossing panned over $(get "$follow" lagframes) frames with no whole-brick step, never more than $(get "$follow" stillrun) frame(s) of it standing still and the eye $(get "$follow" eyelag) units off the hero, a camera zone still holds its room, and a hand-over moves the view at most $(get "$blend" jump) px a frame over $(get "$blend" blendlong) frames against $(get "$cut" jump) cut ($(get "$zblend" jump11) against $(get "$zcut" jump11) from zone to zone), rooms open on their final view (through a door too), the labyrinth keeps the classic view, and a ride up moves the view at most $(get "$ride" worst) px a frame"
