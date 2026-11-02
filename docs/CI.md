@@ -84,6 +84,12 @@ against [`scripts/ci/warnings-baseline.txt`](../scripts/ci/warnings-baseline.txt
 The count can fall. It cannot rise. Clearing entries out of that file is the
 unit of cleanup work: small, reviewable, and visibly monotonic.
 
+The job runs on `ubuntu-24.04`, not `ubuntu-latest`. The baseline belongs to
+one compiler (that image's gcc 13), and a newer one reports a different set:
+when `ubuntu-latest` moved to 26.04 and gcc 15, main failed the job without a
+code change. Moving to a newer compiler is a baseline update of its own, run on
+that image.
+
 ```bash
 scripts/ci/warning-baseline.sh            # compare (what CI runs)
 scripts/ci/warning-baseline.sh --update   # regenerate after fixing warnings
