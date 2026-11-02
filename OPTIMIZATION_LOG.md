@@ -967,3 +967,25 @@ there while turning; a `cold` count that keeps climbing at the same rate means
 the queue is being outrun (raise the per-frame budget) or a cube keeps
 re-enqueueing (check the `LoadCube` list pointer).  Terrain should no longer
 show a multi-millisecond spike on the first frame after a cube boundary.
+
+## xBR Lite texture filter (2026-11-01)
+
+xBR Textures (mode 3) runs the full xBR-lv2 corner graph per sampled texel:
+roughly 22 atlas taps, a palette lookup per tap and the LV2 distance/quadrant
+math.  That is the cost users feel at headset resolution.
+
+Mode 4 (`xBR Lite`) keeps the soft diagonal edge with five taps: centre plus
+the four cardinal neighbours.  For each sub-quadrant it reuses the Scale2x
+guard (the two neighbours guarding that corner must be equal) and blends the
+centre toward the guarding neighbour with a weight that ramps from zero at the
+texel centre to one at the outer corner.  Index equality replaces xBR's
+palette-color distance chain, and only the centre plus the two diagonal
+neighbours are CLUT-resolved, so the fragment does three lit lookups instead of
+xBR's corner-tap set.
+
+Implemented in `clutXbrLite` / `arrayXbrLite` (`LIB386/GL/RENDER_GL.CPP`),
+selected by `DisplayTexFilter == 4` through the existing `uBilinear` uniform.
+Menu label `MENU_LABEL_TEXFILTER_XBRLITE`; config validation accepts 0..4.
+Validated with `glslangValidator` for the GLSL-110 base shader and the GLSL-130
+array-injected variant; Quest preset compiles.  Visual/performance check is
+on-device.

@@ -3683,7 +3683,7 @@ void ReadConfigFile(void) {
     if (DisplayAntiAlias == 3)
         DisplayAntiAlias = 2; /* MSAA×4 not offered on Android (GL_SetAntiAlias) */
 #endif
-    if (DisplayTexFilter < 0 OR DisplayTexFilter > 3)
+    if (DisplayTexFilter < 0 OR DisplayTexFilter > 4)
         DisplayTexFilter = TRUE;
 
     DisplayStereo3D = DefFileBufferReadValueDefault("DisplayStereo3D", FALSE);

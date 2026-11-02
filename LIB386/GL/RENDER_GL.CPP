@@ -142,41 +142,12 @@ static const char *s_fragSrc =
     GLSL_FRAG_HEADER GLSL_IMAGE_ADJUST
     "uniform sampler2D uTex;\n"
     "uniform vec2 uTexel;\n"
-    "uniform int uFilter;\n" /* 0 = nearest, 1 = bilinear, 2 = Scale2x */
     "uniform float uSharpen;\n" /* 0 = off, unsharp strength */
     "varying vec2 vTexCoord;\n"
     "void main() {\n"
-    "    vec4 result;\n"
-    "    if (uFilter == 2) {\n"
-    /* Scale2x (the documented 2x edge rules) evaluated per output pixel:
-     * the fragment's position inside its source texel picks the output
-     * sub-quadrant (E0..E3), and the rule replaces it with the matching
-     * neighbour only when the two neighbours guarding that corner agree.
-     * Sampling at exact texel centres with NEAREST keeps the comparisons
-     * exact. */
-    "        vec2 t = vTexCoord / uTexel;\n"
-    "        vec2 f = fract(t);\n"
-    "        vec2 c = (floor(t) + 0.5) * uTexel;\n"
-    "        vec4 e = texture2D(uTex, c);\n"
-    "        vec4 b = texture2D(uTex, c + vec2(0.0, -uTexel.y));\n"
-    "        vec4 d = texture2D(uTex, c + vec2(-uTexel.x, 0.0));\n"
-    "        vec4 rf = texture2D(uTex, c + vec2(uTexel.x, 0.0));\n"
-    "        vec4 h = texture2D(uTex, c + vec2(0.0, uTexel.y));\n"
-    "        result = e;\n"
-    "        if (!all(equal(b, h)) && !all(equal(d, rf))) {\n"
-    "            if (f.x < 0.5 && f.y < 0.5) {\n"
-    "                result = all(equal(d, b)) ? d : e;\n"
-    "            } else if (f.x >= 0.5 && f.y < 0.5) {\n"
-    "                result = all(equal(b, rf)) ? rf : e;\n"
-    "            } else if (f.x < 0.5) {\n"
-    "                result = all(equal(d, h)) ? d : e;\n"
-    "            } else {\n"
-    "                result = all(equal(h, rf)) ? rf : e;\n"
-    "            }\n"
-    "        }\n"
-    "    } else {\n"
-    "        result = texture2D(uTex, vTexCoord);\n"
-    "    }\n"
+    /* The 2D overlay is a screen-space layer: Scale2x and xBR belong to the
+       3D texture sampler, so the overlay itself samples plainly. */
+    "    vec4 result = texture2D(uTex, vTexCoord);\n"
     /* Unsharp mask on the composited scene.  Four cross taps at one source
        texel keep it cheap; the overlay is drawn by a different program, so
        text never gets halos. */
@@ -557,7 +528,7 @@ static const char *s_clutFragSrc =
     "uniform float uCLUTBaseRow;\n"   /* legacy row offset (now per vertex) */
     "uniform float uScaledFogNear;\n" /* Fill_ScaledFogNear (fog-smooth distance, mode 5) */
     "uniform float uFogRowScale;\n"   /* Fill_Fog_Factor / 65536 (fog-smooth distance, mode 5) */
-    "uniform int uBilinear;\n"        /* 0=nearest 1=bilinear 2=Scale2x 3=xBR */
+    "uniform int uBilinear;\n"        /* 0=nearest 1=bilinear 2=Scale2x 3=xBR 4=xBR Lite */
     "uniform float uDither;\n"        /* 1 = ordered dither between CLUT rows */
     /* Terrain far-plane discard.  The static terrain VBO path projects
        cube-local world positions in the vertex shader, where the CPU
@@ -705,6 +676,48 @@ static const char *s_clutFragSrc =
     "        }\n"
     "    }\n"
     "    return vec4(xbrLit(r, gouraudRow, 0.0), 1.0);\n"
+    "}\n"
+    /* xBR Lite (texture filter mode 4): a five-tap cardinal approximation of
+       xBR.  For each sub-quadrant, if the two neighbours guarding that corner
+       compare equal (the Scale2x guard), blend the centre toward that
+       neighbour with a weight that ramps from zero at the texel centre to one
+       at the outer corner.  The result keeps xBR's soft diagonal edge without
+       the twelve corner taps, the palette-color distance chain or the LV2
+       quadrant search. */
+    "vec4 clutXbrLite(vec2 tc, float widthMask, float heightMask,\n"
+    "                  float gouraudRow, float chroma, float noClut) {\n"
+    "    vec2 whm = vec2(widthMask + 1.0, heightMask + 1.0);\n"
+    "    float u = mod(tc.x, whm.x);\n"
+    "    float v = mod(tc.y, whm.y);\n"
+    "    vec2 pC = vec2(floor(u), floor(v));\n"
+    "    vec2 fp = vec2(u - pC.x, v - pC.y);\n"
+    "    float e = xbrIndex(pC, whm);\n"
+    "    if (chroma > 0.5 && e < 0.5) discard;\n"
+    "    float b = xbrIndex(pC + vec2( 0.0, -1.0), whm);\n"
+    "    float d = xbrIndex(pC + vec2(-1.0,  0.0), whm);\n"
+    "    float f = xbrIndex(pC + vec2( 1.0,  0.0), whm);\n"
+    "    float h = xbrIndex(pC + vec2( 0.0,  1.0), whm);\n"
+    "    if (chroma > 0.5) {\n"
+    "        b = spriteChromaIdx(b, e, chroma);\n"
+    "        d = spriteChromaIdx(d, e, chroma);\n"
+    "        f = spriteChromaIdx(f, e, chroma);\n"
+    "        h = spriteChromaIdx(h, e, chroma);\n"
+    "    }\n"
+    "    vec3 cE = xbrLit(e, gouraudRow, noClut);\n"
+    "    if (b == e && d == e && f == e && h == e)\n"
+    "        return vec4(cE, 1.0);\n"
+    "    vec3 cD = xbrLit(d, gouraudRow, noClut);\n"
+    "    vec3 cF = xbrLit(f, gouraudRow, noClut);\n"
+    "    vec3 c = cE;\n"
+    "    float wl = max(1.0 - 2.0 * fp.x, 0.0);\n"
+    "    float wr = max(2.0 * fp.x - 1.0, 0.0);\n"
+    "    float wt = max(1.0 - 2.0 * fp.y, 0.0);\n"
+    "    float wb = max(2.0 * fp.y - 1.0, 0.0);\n"
+    "    if (d == b) c = mix(c, cD, wl * wt);\n"
+    "    if (b == f) c = mix(c, cF, wr * wt);\n"
+    "    if (d == h) c = mix(c, cD, wl * wb);\n"
+    "    if (h == f) c = mix(c, cF, wr * wb);\n"
+    "    return vec4(c, 1.0);\n"
     "}\n"
     "float xbrCDF(vec3 c1, vec3 c2) {\n"
     "    vec3 df = abs(c1 - c2);\n"
@@ -1003,7 +1016,10 @@ static const char *s_clutFragSrc =
         tiles share one draw call. */
     "        float gouraudRow =\n"
     "            floor((vLight + ditherPhase * 256.0 + 128.0) / 256.0) + mColor;\n"
-    "        if (uBilinear == 3) {\n"
+    "        if (uBilinear == 4) {\n"
+    "            color = clutXbrLite(tc, widthMask, heightMask, gouraudRow,\n"
+    "                                mChroma, 0.0);\n"
+    "        } else if (uBilinear == 3) {\n"
     "            color = clutXbr(tc, widthMask, heightMask, gouraudRow,\n"
     "                            mChroma, 0.0);\n"
     "        } else if (uBilinear == 2) {\n"
@@ -1057,7 +1073,9 @@ static const char *s_clutFragSrc =
     "#endif\n"
     "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
     "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
-    "        if (uBilinear == 3) {\n"
+    "        if (uBilinear == 4) {\n"
+    "            color = clutXbrLite(tc, widthMask, heightMask, 0.0, mChroma, 1.0);\n"
+    "        } else if (uBilinear == 3) {\n"
     "            color = clutXbr(tc, widthMask, heightMask, 0.0, mChroma, 1.0);\n"
     "        } else if (uBilinear == 2) {\n"
     "            color = spriteScale2x(tc, widthMask, heightMask, mChroma);\n"
@@ -1241,37 +1259,17 @@ static const char *s_presentIndexedFragSrc =
     "uniform sampler2D uIndices;\n"
     "uniform sampler2D uPalette;\n"
     "uniform vec2 uTexel;\n"
-    "uniform int uFilter;\n" /* 0 = nearest, 1 = bilinear, 2 = Scale2x */
     "varying vec2 vTexCoord;\n"
     "float idxAt(vec2 uv) {\n"
     "    return floor(texture2D(uIndices, uv).r * 255.0 + 0.5);\n"
     "}\n"
     "void main() {\n"
     /* NEAREST filtering makes v exactly i/255; rebuild the texel index and
-     * step to the palette texel centre the same way the CLUT shader does. */
+     * step to the palette texel centre the same way the CLUT shader does.
+     * The overlay itself is not upscaled: Scale2x/xBR are texture-level. */
     "    vec2 t = vTexCoord / uTexel;\n"
-    "    vec2 f = fract(t);\n"
     "    vec2 c = (floor(t) + 0.5) * uTexel;\n"
     "    float e = idxAt(c);\n"
-    /* Scale2x on the raw palette indices — exact integer comparisons, then
-     * a single palette lookup for the winning texel. */
-    "    if (uFilter == 2) {\n"
-    "        float b = idxAt(c + vec2(0.0, -uTexel.y));\n"
-    "        float d = idxAt(c + vec2(-uTexel.x, 0.0));\n"
-    "        float r = idxAt(c + vec2(uTexel.x, 0.0));\n"
-    "        float h = idxAt(c + vec2(0.0, uTexel.y));\n"
-    "        if (b != h && d != r) {\n"
-    "            if (f.x < 0.5 && f.y < 0.5) {\n"
-    "                e = (d == b) ? d : e;\n"
-    "            } else if (f.x >= 0.5 && f.y < 0.5) {\n"
-    "                e = (b == r) ? r : e;\n"
-    "            } else if (f.x < 0.5) {\n"
-    "                e = (d == h) ? d : e;\n"
-    "            } else {\n"
-    "                e = (h == r) ? r : e;\n"
-    "            }\n"
-    "        }\n"
-    "    }\n"
     /* Palette index 0 is transparent, so empty overlay pixels can skip the
        palette fetch and the blend; the rain/HUD leaves most of the screen
        empty. */
@@ -1661,6 +1659,41 @@ static const char *s_arrayInject =
     "    res2 = mix(res2, mix(cD, cH, px.w), maximos.w);\n"
     "    return vec4(mix(res1, res2, step(xbrCDF(cE, res1), xbrCDF(cE, res2))), 1.0);\n"
     "}\n"
+    /* xBR Lite on an array layer: same five-tap cardinal blend as
+       clutXbrLite, fetching the neighbourhood from the layer. */
+    "vec4 arrayXbrLite(vec2 tc, float layer, float gouraudRow, float chroma) {\n"
+    "    float u = mod(tc.x, 256.0);\n"
+    "    float v = mod(tc.y, 256.0);\n"
+    "    vec2 pC = vec2(floor(u), floor(v));\n"
+    "    vec2 fp = vec2(u - pC.x, v - pC.y);\n"
+    "    float e = arrayXbrIndex(pC, layer);\n"
+    "    if (chroma > 0.5 && e < 0.5) discard;\n"
+    "    float b = arrayXbrIndex(pC + vec2( 0.0, -1.0), layer);\n"
+    "    float d = arrayXbrIndex(pC + vec2(-1.0,  0.0), layer);\n"
+    "    float f = arrayXbrIndex(pC + vec2( 1.0,  0.0), layer);\n"
+    "    float h = arrayXbrIndex(pC + vec2( 0.0,  1.0), layer);\n"
+    "    if (chroma > 0.5) {\n"
+    "        b = spriteChromaIdx(b, e, chroma);\n"
+    "        d = spriteChromaIdx(d, e, chroma);\n"
+    "        f = spriteChromaIdx(f, e, chroma);\n"
+    "        h = spriteChromaIdx(h, e, chroma);\n"
+    "    }\n"
+    "    vec3 cE = xbrLit(e, gouraudRow, 0.0);\n"
+    "    if (b == e && d == e && f == e && h == e)\n"
+    "        return vec4(cE, 1.0);\n"
+    "    vec3 cD = xbrLit(d, gouraudRow, 0.0);\n"
+    "    vec3 cF = xbrLit(f, gouraudRow, 0.0);\n"
+    "    vec3 c = cE;\n"
+    "    float wl = max(1.0 - 2.0 * fp.x, 0.0);\n"
+    "    float wr = max(2.0 * fp.x - 1.0, 0.0);\n"
+    "    float wt = max(1.0 - 2.0 * fp.y, 0.0);\n"
+    "    float wb = max(2.0 * fp.y - 1.0, 0.0);\n"
+    "    if (d == b) c = mix(c, cD, wl * wt);\n"
+    "    if (b == f) c = mix(c, cF, wr * wt);\n"
+    "    if (d == h) c = mix(c, cD, wl * wb);\n"
+    "    if (h == f) c = mix(c, cF, wr * wb);\n"
+    "    return vec4(c, 1.0);\n"
+    "}\n"
     "vec4 arraySample(vec2 tc, float rmask, float light, float mcolor,\n"
     "                 float chroma, float bilin) {\n"
     "    float layer = rmask - 32768.0;\n"
@@ -1669,6 +1702,9 @@ static const char *s_arrayInject =
        through 65536 first so the division lands in [0,256) texel units. */
     "    float wu = mod(tc.x, 65536.0) / 256.0;\n"
     "    float wv = mod(tc.y, 65536.0) / 256.0;\n"
+    "    if (bilin > 3.5) {\n"
+    "        return arrayXbrLite(vec2(wu, wv), layer, gouraudRow, chroma);\n"
+    "    }\n"
     "    if (bilin > 2.5) {\n"
     "        return arrayXbr(vec2(wu, wv), layer, gouraudRow, chroma);\n"
     "    }\n"
