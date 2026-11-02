@@ -104,6 +104,13 @@ void ReajustPos(U8 col) {
     (void)col;
 }
 
+/* The interior follow's pan, which Map2Screen adds to the brick lattice (FOLLOWCAM.CPP). The ASM
+   half has no pan, so the C++ half is compared with the follow off: no shift. */
+void FollowCamIsoPan(S32 *x, S32 *y) {
+    *x = 0;
+    *y = 0;
+}
+
 S32 AdjustShadowObjects(S32 xw, S32 zw, S32 y0, S32 y1) {
     (void)xw;
     (void)zw;
