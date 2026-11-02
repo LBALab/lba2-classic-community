@@ -40,6 +40,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   was taken too
   ([#765](https://github.com/LBALab/lba2-classic-community/issues/765)).
 
+### Stability & fixes
+
+- Reading an entry a game data file does not hold now fails cleanly instead of
+  unpacking garbage. The last slot of every data file is its end, not an entry;
+  reading it, or an entry cut short in a damaged file, used to reuse the sizes
+  of the previous read and could stop the engine, as `cube 222` did
+  ([#765](https://github.com/LBALab/lba2-classic-community/issues/765)).
+
 ### Contributors
 
 Thanks to SIN for the interior follow camera: they designed and wrote it, with
