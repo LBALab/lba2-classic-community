@@ -153,8 +153,9 @@ extern S16 OpenXR_LeftStickY;
 extern S16 OpenXR_RightStickX;
 extern S16 OpenXR_RightStickY;
 
-/* Face buttons. Menu is the left controller's menu click, mapped onto
- * K_GAMEPAD_START by JOYSTICK.CPP (the default I_MENUS binding). */
+/* Face buttons. The left controller's menu click maps to K_GAMEPAD_START
+ * (I_MENUS) on a short press and K_GAMEPAD_BACK (I_HOLOMAP) on a long press
+ * in JOYSTICK.CPP. */
 extern S32 OpenXR_ABtn;
 extern S32 OpenXR_BBtn;
 extern S32 OpenXR_XBtn;

@@ -40,6 +40,9 @@ static StickDir s_prevRightDir = DIR_NEUTRAL;
 static S16 s_rstickX = 0;
 static S32 s_openxrControllers = 0; /* last UpdateJoystick poll saw OpenXR controllers */
 static S16 s_rstickY = 0;
+/* Left menu is short-press menu, long-press holomap. */
+static S32 s_openxrMenuPrev = 0;
+static U32 s_openxrMenuDownAt = 0;
 
 //***************************************************************************
 S32 JoystickDeadzone = 8000;
@@ -336,20 +339,47 @@ void UpdateJoystick(void) {
         s_rstickY = OpenXR_RightStickY;
 
         /* OpenXR trigger state is boolean (0/1), not an SDL axis: the analog
-         * deadzone comparison would swallow every press. */
-        if (OpenXR_LeftTrigger)
+         * deadzone comparison would swallow every press.  The left trigger
+         * is a spell modifier while a face button is held; on its own it
+         * stays backward movement. */
+        const S32 spellMod = OpenXR_LeftTrigger;
+        S32 spellKey = 0;
+        if (spellMod) {
+            if (OpenXR_XBtn)
+                spellKey = K_GAMEPAD_DPAD_RIGHT; /* penguin */
+            else if (OpenXR_YBtn)
+                spellKey = K_GAMEPAD_DPAD_DOWN; /* jetpack */
+            else if (OpenXR_ABtn)
+                spellKey = K_GAMEPAD_DPAD_UP; /* protection */
+            else if (OpenXR_BBtn)
+                spellKey = K_GAMEPAD_DPAD_LEFT; /* lightning */
+        }
+        if (spellKey)
+            SET(spellKey);
+        else if (OpenXR_LeftTrigger)
             SET(K_GAMEPAD_LTRIGGER);
         if (OpenXR_RightTrigger)
-            SET(K_GAMEPAD_RTRIGGER);
-        if (OpenXR_ABtn)         SET(K_GAMEPAD_A);
-        if (OpenXR_BBtn)         SET(K_GAMEPAD_B);
-        if (OpenXR_XBtn)         SET(K_GAMEPAD_X);
-        if (OpenXR_YBtn)         SET(K_GAMEPAD_Y);
-        if (OpenXR_MenuBtn)      SET(K_GAMEPAD_START);
+            SET(K_GAMEPAD_RSHOULDER);
+        if (!spellKey) {
+            if (OpenXR_ABtn)         SET(K_GAMEPAD_A);
+            if (OpenXR_BBtn)         SET(K_GAMEPAD_RSTICK_BTN);
+            if (OpenXR_XBtn)         SET(K_GAMEPAD_X);
+            if (OpenXR_YBtn)         SET(K_GAMEPAD_Y);
+        }
+        {
+            const S32 menu = OpenXR_MenuBtn;
+            if (menu && !s_openxrMenuPrev)
+                s_openxrMenuDownAt = (U32)SDL_GetTicks();
+            if (!menu && s_openxrMenuPrev) {
+                const U32 held = (U32)SDL_GetTicks() - s_openxrMenuDownAt;
+                SET(held >= 500 ? K_GAMEPAD_BACK : K_GAMEPAD_START);
+            }
+            s_openxrMenuPrev = menu;
+        }
         if (OpenXR_LeftThumbstickDown)   SET(K_GAMEPAD_LSTICK_BTN);
-        if (OpenXR_RightThumbstickDown)  SET(K_GAMEPAD_RSTICK_BTN);
+        if (OpenXR_RightThumbstickDown)  SET(K_GAMEPAD_B);
         if (OpenXR_LeftGripDown)  SET(K_GAMEPAD_LSHOULDER);
-        if (OpenXR_RightGripDown) SET(K_GAMEPAD_RSHOULDER);
+        if (OpenXR_RightGripDown) SET(K_GAMEPAD_X);
 
         #undef SET
         #undef STICK_DIR
@@ -419,6 +449,10 @@ void UpdateJoystick(void) {
             SetVirtualKeyDown(K_GAMEPAD_LTRIGGER);
         if (rt > dz)
             SetVirtualKeyDown(K_GAMEPAD_RTRIGGER);
+    }
+
+    if (!openxrActive) {
+        s_openxrMenuPrev = 0;
     }
 
     // Edge-detect: find the first bit that went 0 -> 1 this frame.

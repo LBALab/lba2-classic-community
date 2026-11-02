@@ -55,6 +55,9 @@ S32 FlagRestoreCD = 0;
 S32 FlagDial = DIAL_DEF;
 
 S32 FlagSpeedMessage = FALSE; // cf MyDial() and NextDialCar()
+/* Quest A acts like ESC: edge-triggered so the press that opens the
+   dialogue does not immediately abort it. */
+static S32 s_dialAPrev = 0;
 
 S32 DialNbLine; // pour la version demo le 02/08/96
 
@@ -2261,6 +2264,7 @@ void Dial(S32 text, S32 drawscene) {
 
     OpenDial(text);
 
+    s_dialAPrev = (Input & I_ACTION_ALWAYS) != 0;
     while (TRUE) {
         ret = NextDialCar();
 
@@ -2318,6 +2322,13 @@ void Dial(S32 text, S32 drawscene) {
                 }
 
             DialNbLine = 0;
+        }
+
+        {
+            const S32 aDown = (Input & I_ACTION_ALWAYS) != 0;
+            if (aDown && !s_dialAPrev)
+                flagabort = 1;
+            s_dialAPrev = aDown;
         }
 
         // Harness (console `skipmodals`): abort the dialog immediately, as if the player pressed
@@ -2453,6 +2464,7 @@ S32 MyDial(S32 nummess) // attends une touche si autre page sinon continue
         //              FlagDisplayText = memoflagdisplaytext ;
     }
 
+    s_dialAPrev = (Input & I_ACTION_ALWAYS) != 0;
     //      while( dialstat AND !esc )
     while (!esc) {
         PERSO_DialogUpdateWorld();
@@ -2500,7 +2512,10 @@ S32 MyDial(S32 nummess) // attends une touche si autre page sinon continue
             }
         } else {
             MyGetInput();
-            if ((MyKey == K_ESC OR Input & I_MENUS)
+            const S32 aDown = (Input & I_ACTION_ALWAYS) != 0;
+            const S32 aPressed = aDown && !s_dialAPrev;
+            s_dialAPrev = aDown;
+            if ((MyKey == K_ESC OR Input & I_MENUS OR aPressed)
                     OR((dialstat == 0) AND(!TestSpeak()))) // Tout fini
             {
                 // affiche fin du message a vitesse grand v

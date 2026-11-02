@@ -2224,7 +2224,13 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
             timerdraw = TimerRefHR + TEMPO_SCREEN_SAVE;
         }
 
-        if (Input & I_FIRE OR MyKey == K_ENTER OR MyKey == K_NUMPAD_ENTER OR mouse_fire) {
+        /* Quest A loads the selected save.  Keep it out of the save/new-game
+           path: that screen keeps the existing confirm keys. */
+        S32 loadFire = Input & I_FIRE;
+        if (OpenXR_IsActive() && !flagnew)
+            loadFire |= Input & I_ACTION_ALWAYS;
+
+        if (loadFire OR MyKey == K_ENTER OR MyKey == K_NUMPAD_ENTER OR mouse_fire) {
             if (mouse_fire)
                 mouse_fire = 0;
             if (timerdraw) {
@@ -2266,7 +2272,10 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                     strcpy(memoname, GamePathname);
                 }
 
-                while (Input & I_FIRE OR MyKey == K_ENTER)
+                while ((Input & I_FIRE) OR
+                       (OpenXR_IsActive() && !flagnew &&
+                        (Input & I_ACTION_ALWAYS)) OR
+                       MyKey == K_ENTER)
                     MyGetInput();
 
                 // Non-keyboard routing: unless the last input was a physical
@@ -3441,15 +3450,28 @@ S32 DoGameMenu(U16 *ptrmenu) {
             }
         }
 
-        if (Input & I_RETURN OR Input & I_ACTION_M OR MyKey == K_ENTER OR MyKey == K_NUMPAD_ENTER) {
+        /* Quest Touch: A confirms and B goes back.  Keep the desktop
+           gamepad/keyboard meaning (B/Enter confirm, Start/ESC back). */
+        S32 menuConfirm = Input & I_ACTION_M;
+        S32 menuBack = Input & I_MENUS;
+        if (OpenXR_IsActive()) {
+            menuConfirm |= Input & I_ACTION_ALWAYS;
+            menuBack |= Input & I_RETURN;
+            /* Physical B is the camera-mode key on Quest; in a menu it is
+               the back key.  Right-stick click still arrives as I_RETURN. */
+            if (CheckKey(K_GAMEPAD_RSTICK_BTN))
+                menuBack = 1;
+        } else {
+            menuConfirm |= Input & I_RETURN;
+        }
+
+        if (menuConfirm OR MyKey == K_ENTER OR MyKey == K_NUMPAD_ENTER) {
             WaitNoInput();
             AsciiMode = FALSE;
             return ptrmenu[4 + 1 + selected * 2]; // num mess
         }
 
-        if (MyKey == K_ESC
-                         OR Input &
-            I_MENUS) {
+        if (MyKey == K_ESC OR menuBack) {
             AsciiMode = FALSE;
             return 1000;
         }

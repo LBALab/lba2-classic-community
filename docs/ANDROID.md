@@ -362,7 +362,9 @@ fresh per-eye pair
 (menus, videos, interiors, the first frame) fall back to a single
 composite copied to both halves. Controller state comes through the
 OpenXR action pipeline, mapped onto the same virtual-scancode space the
-SDL gamepad path uses so `JOYSTICK.CPP` picks it up unchanged.
+SDL gamepad path uses so `JOYSTICK.CPP` picks it up unchanged. See
+[QUEST_CONTROLS.md](QUEST_CONTROLS.md) for the default controller mapping and
+known gaps.
 
 ### Static decors on the GPU
 
