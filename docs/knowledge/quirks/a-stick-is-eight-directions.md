@@ -23,6 +23,9 @@ sources:
   - id: movement-doc
     resource: ../../MOVEMENT_FRAMERATE.md
     title: Movement is frame-rate dependent, locomotion as animation
+  - id: boundaries
+    resource: ../../../tests/platform/test_platform_contract.cpp
+    title: Both-stick deadzone boundary tests
 ---
 
 # Scope
@@ -31,11 +34,13 @@ Every stick that reaches the binding table. The one exception is the right stick
 
 # Evidence
 
-`untested`, read against the original source. The import's `JoyMakeBitfield` compared each of six axes against a third of its range and set one of two bits per axis plus four hat bits; `GetJoys` kept that signature and the modern body discards its argument. No test pins the quantiser.[^original]
+`untested` against the original source. The import's `JoyMakeBitfield` compared each of six axes against a third of its range and set one of two bits per axis plus four hat bits; `GetJoys` kept that signature and the modern body discards its argument. Host tests pin both sticks immediately below, at and above the selected profile's radius and the x87-sensitive radius 12345; these are modern boundary tests, not equivalence with the 1997 thresholds.[^original][^boundaries]
 
 # Behaviour
 
 `ApplyStickDirection` takes a stick's two axes, applies `GamepadDeadzone`, quantises the angle into eight sectors with hysteresis, and presses one or two virtual scancodes from the pad range at base 1024 into `TabKeys` through `SetVirtualKeyDown`. The binding table then treats them as keys. The magnitude is gone before the funnel sees it. The official 2022 builds list the stick axes as bindable digital keys in their own name table, so the stick has been eight directions in every generation of this game.[^joystick][^research]
+
+The radial comparison uses unsigned squared integer magnitudes: strictly inside is neutral, and the boundary is active. This keeps a radius such as 12345 exact even when an x87 compiler would round a stored float magnitude but retain the threshold product in extended precision. The sum is unsigned because two squared minimum signed 16-bit axes exceed the positive signed 32-bit range.[^joystick][^boundaries]
 
 # Why it is load bearing
 
@@ -52,3 +57,4 @@ Every stick that reaches the binding table. The one exception is the right stick
 [^original]: Commit 333929ab, the initial import, SOURCES/JOYSTICK.CPP, `JoyMakeBitfield` and the six `JoyRange` thresholds divided by three.
 [^research]: [docs/plan/INPUT_RESEARCH.md](../../plan/INPUT_RESEARCH.md), "Gamepad", gap G3 and "What the official LBA2 binaries say".
 [^movement-doc]: [docs/MOVEMENT_FRAMERATE.md](../../MOVEMENT_FRAMERATE.md), "The short version".
+[^boundaries]: [tests/platform/test_platform_contract.cpp](../../../tests/platform/test_platform_contract.cpp), `test_gamepad_deadzone_defaults_and_boundaries`.

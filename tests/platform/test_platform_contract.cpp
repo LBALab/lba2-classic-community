@@ -220,8 +220,6 @@ PlatformInterface Fixture() {
     PlatformInterface api = {};
     api.name = "contract-fixture";
     api.capabilities.windowed = true;
-    api.capabilities.touch_overlay = true;
-    api.capabilities.touch_recenter = true;
     api.system.init = Success;
     api.system.shutdown = Noop;
     api.system.get_error = Error;
@@ -478,25 +476,30 @@ static void test_gamepad_deadzone_defaults_and_boundaries() {
     const U32 rightKeys[][2] = {
         {K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT},
         {K_GAMEPAD_RSTICK_UP, K_GAMEPAD_RSTICK_DOWN}};
-    for (int axis = 0; axis < 2; ++axis) {
-        for (int direction = 0; direction < 2; ++direction) {
-            for (int offset = -1; offset <= 1; ++offset) {
-                memset(s_axes, 0, sizeof(s_axes));
-                const S16 value = (S16)((direction ? 1 : -1) * (LBA2_GAMEPAD_DEADZONE_DEFAULT + offset));
-                s_axes[leftAxes[axis]] = s_axes[rightAxes[axis]] = value;
-                UpdateJoystick();
-                U8 expected[TABKEYS_NUM_KEYS] = {};
-                if (offset >= 0) {
-                    SetExpectedKey(expected, leftKeys[axis][direction]);
-                    SetExpectedKey(expected, rightKeys[axis][direction]);
+    const S32 deadzones[] = {LBA2_GAMEPAD_DEADZONE_DEFAULT, 12345};
+    for (unsigned threshold = 0; threshold < sizeof(deadzones) / sizeof(deadzones[0]); ++threshold) {
+        JoystickDeadzone = deadzones[threshold];
+        for (int axis = 0; axis < 2; ++axis) {
+            for (int direction = 0; direction < 2; ++direction) {
+                for (int offset = -1; offset <= 1; ++offset) {
+                    memset(s_axes, 0, sizeof(s_axes));
+                    const S16 value = (S16)((direction ? 1 : -1) * (JoystickDeadzone + offset));
+                    s_axes[leftAxes[axis]] = s_axes[rightAxes[axis]] = value;
+                    UpdateJoystick();
+                    U8 expected[TABKEYS_NUM_KEYS] = {};
+                    if (offset >= 0) {
+                        SetExpectedKey(expected, leftKeys[axis][direction]);
+                        SetExpectedKey(expected, rightKeys[axis][direction]);
+                    }
+                    ASSERT_MEM_EQ(expected, TabKeys, sizeof(expected));
                 }
-                ASSERT_MEM_EQ(expected, TabKeys, sizeof(expected));
             }
         }
     }
     memset(s_axes, 0, sizeof(s_axes));
     UpdateJoystick();
     EndJoystick();
+    JoystickDeadzone = LBA2_GAMEPAD_DEADZONE_DEFAULT;
     GamepadCameraAnalog = savedAnalog;
 }
 
@@ -747,6 +750,7 @@ static void test_partial_present_after_resize() {
     Log = NULL;
 }
 
+#ifdef TEST_ANDROID_OVERLAY
 static void test_touch_wake_hold_release_and_reapply() {
     ModeDesiredX = ModeResX = 640;
     ModeDesiredY = ModeResY = 480;
@@ -784,8 +788,87 @@ static void test_touch_wake_hold_release_and_reapply() {
     ASSERT_EQ_INT(0, TouchOverlay_HandleEvent(&touch));
 }
 
+static void test_overlay_touch_source_identity() {
+    TouchOverlay_Init();
+    LastInputWasTouch = 1;
+    PlatformEvent direct = {};
+    direct.type = PLATFORM_EVENT_FINGER_DOWN;
+    direct.tfinger.fingerID = 42;
+    direct.tfinger.x = 0.1f;
+    direct.tfinger.y = 0.65f;
+    PlatformEvent indirect = direct;
+    indirect.tfinger.indirect = true;
+    indirect.tfinger.y = 0.85f;
+    TouchOverlay_HandleEvent(&direct);
+    TouchOverlay_HandleEvent(&indirect);
+    ASSERT_TRUE(CheckKey(K_UP) && CheckKey(K_DOWN));
+    direct.type = PLATFORM_EVENT_FINGER_UP;
+    TouchOverlay_HandleEvent(&direct);
+    ASSERT_TRUE(!CheckKey(K_UP) && CheckKey(K_DOWN));
+    indirect.type = PLATFORM_EVENT_FINGER_UP;
+    TouchOverlay_HandleEvent(&indirect);
+    ASSERT_TRUE(!CheckKey(K_UP) && !CheckKey(K_DOWN));
+    TouchOverlay_Shutdown();
+}
+#elif defined(TEST_CUSTOM_OVERLAY)
+static void test_custom_overlay_geometry_keys_and_source() {
+    RestoreInput();
+    InitInput();
+    ClearNoRepeatInput();
+    TouchOverlay_Init();
+    ASSERT_TRUE(TouchOverlay_IsSupported());
+    LastInputWasTouch = 1;
+    PlatformEvent touch = {};
+    touch.type = PLATFORM_EVENT_FINGER_DOWN;
+    touch.tfinger.fingerID = 1;
+    touch.tfinger.x = touch.tfinger.y = 0.25f;
+    ASSERT_EQ_INT(0, TouchOverlay_HandleEvent(&touch));
+    ASSERT_TRUE(!CheckKey(K_GAMEPAD_GUIDE));
+    touch.tfinger.indirect = true;
+    ASSERT_EQ_INT(1, TouchOverlay_HandleEvent(&touch));
+    GetInput(0);
+    ASSERT_EQ_UINT(1u << 12, Input);
+    ASSERT_TRUE(CheckKey(K_GAMEPAD_GUIDE));
+    touch.tfinger.fingerID = 2;
+    touch.tfinger.x = touch.tfinger.y = 0.75f;
+    ASSERT_EQ_INT(1, TouchOverlay_HandleEvent(&touch));
+    touch.type = PLATFORM_EVENT_FINGER_UP;
+    touch.tfinger.fingerID = 1;
+    TouchOverlay_HandleEvent(&touch);
+    ManageKeyboard();
+    ASSERT_TRUE(CheckKey(K_GAMEPAD_GUIDE));
+    touch.tfinger.fingerID = 2;
+    TouchOverlay_HandleEvent(&touch);
+    ASSERT_TRUE(!CheckKey(K_GAMEPAD_GUIDE));
+    TouchOverlay_Shutdown();
+}
+#else
+static void test_profile_without_overlay_buttons() {
+    TouchOverlay_Init();
+    ASSERT_TRUE(!TouchOverlay_IsSupported());
+    TouchOverlay_Shutdown();
+}
+#endif
+
+#if LBA2_INPUT_DIRECT_TOUCH_SLOT >= 0
+static void unbind_probe_key(U32 key) {
+    for (S32 slot = 0; slot < MAX_INPUT_SLOTS; ++slot) {
+        if (DefKeys[slot].Key1 == key)
+            DefKeys[slot].Key1 = 0;
+        if (DefKeys[slot].Key2 == key)
+            DefKeys[slot].Key2 = 0;
+        if (GamepadKeys[slot].Key1 == key)
+            GamepadKeys[slot].Key1 = 0;
+        if (GamepadKeys[slot].Key2 == key)
+            GamepadKeys[slot].Key2 = 0;
+    }
+}
+
 static void test_touch_recenter_scope_pulse_and_bindings() {
     RestoreInput();
+    const S32 slot = LBA2_INPUT_DIRECT_TOUCH_SLOT;
+    const U32 mask = 1u << slot;
+    const U32 defaultKey = DefKeys[slot].Key1;
     InitInput();
     ClearNoRepeatInput();
     memset(TabKeys, 0, sizeof(TabKeys));
@@ -797,7 +880,7 @@ static void test_touch_recenter_scope_pulse_and_bindings() {
     touch.tfinger.x = touch.tfinger.y = 0.5f;
     TouchOverlay_HandleEvent(&touch);
     ManageKeyboard();
-    ASSERT_TRUE(!CheckKey(K_ENTER));
+    ASSERT_TRUE(!CheckKey(defaultKey));
 
     TouchInput_SetGameplay(1);
     LastInputWasTouch = 0;
@@ -807,13 +890,13 @@ static void test_touch_recenter_scope_pulse_and_bindings() {
     touch.type = PLATFORM_EVENT_FINGER_UP;
     TouchOverlay_HandleEvent(&touch);
     GetInput(0);
-    ASSERT_EQ_UINT(1u << 9, Input);
-    ASSERT_TRUE(CheckKey(K_ENTER));
+    ASSERT_EQ_UINT(mask, Input);
+    ASSERT_TRUE(CheckKey(defaultKey));
     ASSERT_EQ_INT(0, LastInputWasKeyboard);
     ASSERT_EQ_INT(0, LastInputWasTouch);
     ASSERT_EQ_INT(0, Key);
     TouchInput_SetGameplay(0);
-    ASSERT_TRUE(!CheckKey(K_ENTER));
+    ASSERT_TRUE(!CheckKey(defaultKey));
     TouchInput_SetGameplay(1);
     touch.type = PLATFORM_EVENT_FINGER_MOTION;
     TouchOverlay_HandleEvent(&touch);
@@ -826,7 +909,13 @@ static void test_touch_recenter_scope_pulse_and_bindings() {
     touch.tfinger.indirect = true;
     TouchOverlay_HandleEvent(&touch);
     GetInput(0);
+#if LBA2_INPUT_INDIRECT_TOUCH_SLOT >= 0
+    ASSERT_EQ_UINT(1u << LBA2_INPUT_INDIRECT_TOUCH_SLOT, Input);
+#else
     ASSERT_EQ_UINT(0, Input);
+#endif
+    TouchInput_EndGameplayPoll();
+    TouchInput_SetGameplay(1);
     touch.tfinger.indirect = false;
     TouchOverlay_HandleEvent(&touch);
     PlatformEvent focus = {};
@@ -838,37 +927,39 @@ static void test_touch_recenter_scope_pulse_and_bindings() {
     focus.type = PLATFORM_EVENT_WINDOW_FOCUS_GAINED;
     TouchOverlay_HandleEvent(&focus);
 
-    DefKeys[9].Key1 = K_F12;
-    DefKeys[9].Key2 = GamepadKeys[9].Key1 = GamepadKeys[9].Key2 = 0;
+    unbind_probe_key(K_F12);
+    DefKeys[slot].Key1 = K_F12;
+    DefKeys[slot].Key2 = GamepadKeys[slot].Key1 = GamepadKeys[slot].Key2 = 0;
     InitInput();
     TouchOverlay_HandleEvent(&touch);
     GetInput(0);
-    ASSERT_EQ_UINT(1u << 9, Input);
+    ASSERT_EQ_UINT(mask, Input);
     ASSERT_TRUE(CheckKey(K_F12));
     TouchInput_SetGameplay(0);
     ASSERT_TRUE(!CheckKey(K_F12));
 
-    DefKeys[9].Key1 = 0;
-    GamepadKeys[9].Key1 = K_GAMEPAD_GUIDE;
+    DefKeys[slot].Key1 = 0;
+    unbind_probe_key(K_GAMEPAD_GUIDE);
+    GamepadKeys[slot].Key1 = K_GAMEPAD_GUIDE;
     InitInput();
     TouchInput_SetGameplay(1);
     TouchOverlay_HandleEvent(&touch);
     GetInput(0);
-    ASSERT_EQ_UINT(1u << 9, Input);
+    ASSERT_EQ_UINT(mask, Input);
     ASSERT_TRUE(CheckKey(K_GAMEPAD_GUIDE));
     TouchInput_SetGameplay(0);
     ASSERT_TRUE(!CheckKey(K_GAMEPAD_GUIDE));
     RestoreInput();
     InitInput();
-    s_keyboard[K_ENTER] = 1;
+    s_keyboard[defaultKey] = 1;
     TouchInput_SetGameplay(1);
     TouchOverlay_HandleEvent(&touch);
     GetInput(0);
     TouchInput_SetGameplay(0);
-    ASSERT_TRUE(CheckKey(K_ENTER));
-    s_keyboard[K_ENTER] = 0;
+    ASSERT_TRUE(CheckKey(defaultKey));
+    s_keyboard[defaultKey] = 0;
     ManageKeyboard();
-    ASSERT_TRUE(!CheckKey(K_ENTER));
+    ASSERT_TRUE(!CheckKey(defaultKey));
 
     TouchInput_SetGameplay(1);
     TouchOverlay_HandleEvent(&touch);
@@ -885,6 +976,9 @@ static void test_touch_recenter_scope_pulse_and_bindings() {
 
 static void test_touch_recenter_between_gameplay_polls() {
     RestoreInput();
+    const S32 slot = LBA2_INPUT_DIRECT_TOUCH_SLOT;
+    const U32 mask = 1u << slot;
+    const U32 defaultKey = DefKeys[slot].Key1;
     InitInput();
     ClearNoRepeatInput();
     memset(TabKeys, 0, sizeof(TabKeys));
@@ -905,14 +999,14 @@ static void test_touch_recenter_between_gameplay_polls() {
     touch.type = PLATFORM_EVENT_FINGER_UP;
     s_events.push_back(touch);
     ManageEvents();
-    ASSERT_TRUE(!CheckKey(K_ENTER));
+    ASSERT_TRUE(!CheckKey(defaultKey));
     GetInput(0);
     ASSERT_EQ_UINT(0, Input);
     TouchInput_SetGameplay(1);
     GetInput(0);
-    ASSERT_EQ_UINT(1u << 9, Input);
+    ASSERT_EQ_UINT(mask, Input);
     TouchInput_EndGameplayPoll();
-    ASSERT_TRUE(!CheckKey(K_ENTER));
+    ASSERT_TRUE(!CheckKey(defaultKey));
     TouchInput_SetGameplay(1);
     GetInput(0);
     ASSERT_EQ_UINT(0, Input);
@@ -932,6 +1026,64 @@ static void test_touch_recenter_between_gameplay_polls() {
     ResetEvents();
 }
 
+#else
+static void test_unconfigured_front_touch() {
+    RestoreInput();
+    InitInput();
+    ClearNoRepeatInput();
+    TouchOverlay_Init();
+    LastInputWasTouch = 0;
+    TouchInput_SetGameplay(1);
+    PlatformEvent touch = {};
+    touch.type = PLATFORM_EVENT_FINGER_DOWN;
+    touch.tfinger.x = touch.tfinger.y = 0.5f;
+    TouchOverlay_HandleEvent(&touch);
+    GetInput(0);
+    ASSERT_EQ_UINT(0, Input);
+    TouchInput_EndGameplayPoll();
+    TouchOverlay_Shutdown();
+}
+#endif
+
+#if LBA2_INPUT_DIRECT_TOUCH_SLOT >= 0 && LBA2_INPUT_INDIRECT_TOUCH_SLOT >= 0
+static void test_independent_touch_actions_share_one_poll() {
+    RestoreInput();
+    InitInput();
+    ClearNoRepeatInput();
+    TouchOverlay_Init();
+    PlatformEvent touch = {};
+    touch.type = PLATFORM_EVENT_FINGER_DOWN;
+    touch.tfinger.fingerID = 42;
+    U32 random = 0xDEADBEEF;
+    for (S32 round = 0; round < 50; ++round) {
+        random = random * 1103515245u + 12345u;
+        const U32 sources = round % 3 == 0 ? 3 : ((random >> 16) & 3);
+        U32 expected = 0;
+        TouchInput_SetGameplay(1);
+        if (sources & 1) {
+            touch.tfinger.indirect = false;
+            ASSERT_EQ_INT(1, TouchOverlay_HandleEvent(&touch));
+            expected |= 1u << LBA2_INPUT_DIRECT_TOUCH_SLOT;
+        }
+        if (sources & 2) {
+            touch.tfinger.indirect = true;
+            ASSERT_EQ_INT(1, TouchOverlay_HandleEvent(&touch));
+            expected |= 1u << LBA2_INPUT_INDIRECT_TOUCH_SLOT;
+        }
+        GetInput(0);
+        ASSERT_EQ_UINT(expected, Input);
+        TouchInput_EndGameplayPoll();
+        ASSERT_TRUE(!CheckKey(DefKeys[LBA2_INPUT_DIRECT_TOUCH_SLOT].Key1));
+        ASSERT_TRUE(!CheckKey(DefKeys[LBA2_INPUT_INDIRECT_TOUCH_SLOT].Key1));
+        TouchInput_SetGameplay(1);
+        GetInput(0);
+        ASSERT_EQ_UINT(0, Input);
+        TouchInput_EndGameplayPoll();
+    }
+    TouchOverlay_Shutdown();
+}
+#endif
+
 int main() {
     if (!InitEvents() || !InitWindow("Contract fixture") ||
         !CreateWindowSurface(8, 6, false))
@@ -946,9 +1098,23 @@ int main() {
     RUN_TEST(test_present_lock_palette_and_overlay_order);
     RUN_TEST(test_zoom_presents_only_updated_rectangles);
     RUN_TEST(test_partial_present_after_resize);
+#ifdef TEST_ANDROID_OVERLAY
     RUN_TEST(test_touch_wake_hold_release_and_reapply);
+    RUN_TEST(test_overlay_touch_source_identity);
+#elif defined(TEST_CUSTOM_OVERLAY)
+    RUN_TEST(test_custom_overlay_geometry_keys_and_source);
+#else
+    RUN_TEST(test_profile_without_overlay_buttons);
+#endif
+#if LBA2_INPUT_DIRECT_TOUCH_SLOT >= 0
     RUN_TEST(test_touch_recenter_scope_pulse_and_bindings);
     RUN_TEST(test_touch_recenter_between_gameplay_polls);
+#else
+    RUN_TEST(test_unconfigured_front_touch);
+#endif
+#if LBA2_INPUT_DIRECT_TOUCH_SLOT >= 0 && LBA2_INPUT_INDIRECT_TOUCH_SLOT >= 0
+    RUN_TEST(test_independent_touch_actions_share_one_poll);
+#endif
     EndWindow();
     EndEvents();
     TEST_SUMMARY();

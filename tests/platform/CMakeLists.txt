@@ -55,7 +55,7 @@ set_target_properties(test_platform_callbacks PROPERTIES CXX_STANDARD 11)
 add_test(NAME test_platform_callbacks COMMAND test_platform_callbacks)
 register_host_test(test_platform_callbacks)
 
-foreach(target test_platform_contract test_platform_vita_deadzone)
+foreach(target test_platform_contract test_platform_vita_input test_platform_alternate_input test_platform_android_input test_platform_custom_touch)
     add_executable(${target}
         test_platform_contract.cpp
         test_platform_header.c
@@ -73,7 +73,13 @@ foreach(target test_platform_contract test_platform_vita_deadzone)
     add_test(NAME ${target} COMMAND ${target})
     register_host_test(${target})
 endforeach()
-target_compile_definitions(test_platform_vita_deadzone PRIVATE LBA2_GAMEPAD_DEADZONE_DEFAULT=13107)
+lba2_target_input_profile(test_platform_contract "${CMAKE_SOURCE_DIR}/cmake/input/default.cmake")
+lba2_target_input_profile(test_platform_vita_input "${CMAKE_SOURCE_DIR}/cmake/input/vita.cmake")
+lba2_target_input_profile(test_platform_alternate_input "${CMAKE_SOURCE_DIR}/tests/input_bindings/alternate_profile.cmake")
+lba2_target_input_profile(test_platform_android_input "${CMAKE_SOURCE_DIR}/cmake/input/android.cmake")
+target_compile_definitions(test_platform_android_input PRIVATE TEST_ANDROID_OVERLAY)
+lba2_target_input_profile(test_platform_custom_touch "${CMAKE_CURRENT_SOURCE_DIR}/touch_profile.cmake")
+target_compile_definitions(test_platform_custom_touch PRIVATE TEST_CUSTOM_OVERLAY)
 
 if(PLATFORM_BACKEND STREQUAL "null")
     add_executable(test_platform_null test_platform_null.cpp)

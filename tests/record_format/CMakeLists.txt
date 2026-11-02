@@ -27,7 +27,7 @@ set_target_properties(test_record_format PROPERTIES CXX_STANDARD 11)
 add_test(NAME test_record_format COMMAND test_record_format)
 register_host_test(test_record_format)
 
-foreach(target test_record_binding_context test_record_binding_context_stick_layout)
+foreach(target test_record_binding_context test_record_binding_context_stick_layout test_record_binding_context_alternate)
     add_executable(${target}
         test_record_binding_context.cpp
         ${CMAKE_SOURCE_DIR}/SOURCES/RECORD_FORMAT.CPP
@@ -44,7 +44,9 @@ foreach(target test_record_binding_context test_record_binding_context_stick_lay
     add_test(NAME ${target} COMMAND ${target})
     register_host_test(${target})
 endforeach()
-target_compile_definitions(test_record_binding_context_stick_layout PRIVATE LBA2_GAMEPAD_STICK_LAYOUT=1)
+lba2_target_input_profile(test_record_binding_context "${CMAKE_SOURCE_DIR}/cmake/input/default.cmake")
+lba2_target_input_profile(test_record_binding_context_stick_layout "${CMAKE_SOURCE_DIR}/cmake/input/vita.cmake")
+lba2_target_input_profile(test_record_binding_context_alternate "${CMAKE_SOURCE_DIR}/tests/input_bindings/alternate_profile.cmake")
 
 find_program(RECORD_TEST_PYTHON NAMES python3)
 if(RECORD_TEST_PYTHON)

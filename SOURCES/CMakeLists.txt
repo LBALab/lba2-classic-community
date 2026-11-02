@@ -15,6 +15,7 @@ add_custom_command(
     DEPENDS ${CMAKE_SOURCE_DIR}/SOURCES/LBA2.CFG ${CMAKE_SOURCE_DIR}/cmake/embed_lba2_cfg.cmake
     COMMENT "Embedding SOURCES/LBA2.CFG for default config fallback"
 )
+add_custom_target(lba2_embedded_cfg DEPENDS ${EMBEDDED_LBA2_CFG_CPP})
 
 # General sources
 set(SOURCES_FILES AMBIANCE.CPP BOOT_EXIT.CPP DISTRIB.CPP AUDIO_BALANCE.CPP AUDIO_CONSOLE.CPP ANIMTEX.CPP BEZIER.CPP BUILD_INFO.CPP BUGGY.CPP CHEATCOD.CPP CLI_ARGS.CPP COMPORTE.CPP CONFIG.CPP CONTROL.CPP CONTROL_PROTO.CPP CONTROL_SERVER.CPP CREDITS.CPP CREDITS_PARSE.CPP
@@ -66,9 +67,7 @@ else()
     add_executable(${LBA2_EXECUTABLE_NAME} ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN} ${SOURCES_FILES_MACOS} ${EMBEDDED_LBA2_CFG_CPP})
 endif()
 target_sources(${LBA2_EXECUTABLE_NAME} PRIVATE $<TARGET_OBJECTS:lba2_platform_entry>)
-if(LBA2_GAMEPAD_STICK_LAYOUT)
-    target_compile_definitions(${LBA2_EXECUTABLE_NAME} PRIVATE LBA2_GAMEPAD_STICK_LAYOUT=1)
-endif()
+add_dependencies(${LBA2_EXECUTABLE_NAME} lba2_embedded_cfg)
 
 # macOS .app bundle metadata: marks the target as a bundled .app, points
 # at the configured Info.plist, and routes the .icns to Contents/Resources/.
@@ -178,7 +177,6 @@ if(NINTENDO_SWITCH)
     include(${CMAKE_SOURCE_DIR}/cmake/switch-package.cmake)
 endif()
 if(VITA)
-    target_compile_definitions(${LBA2_EXECUTABLE_NAME} PRIVATE LBA2_GAMEPAD_DEADZONE_DEFAULT=13107)
     include(${CMAKE_SOURCE_DIR}/cmake/vita-package.cmake)
 endif()
 if(MVIDEO_BACKEND STREQUAL "smacker")

@@ -128,8 +128,6 @@ typedef enum PlatformPresentFilter {
 typedef struct PlatformCapabilities {
     bool windowed;
     bool transient_window_loss;
-    bool touch_overlay;
-    bool touch_recenter; /* front-screen presses recenter during gameplay */
 } PlatformCapabilities;
 
 typedef struct PlatformSystem {

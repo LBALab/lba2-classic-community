@@ -5,9 +5,7 @@
 #include <SYSTEM/ADELINE_TYPES.H>
 #include <PLATFORM/PLATFORM.H>
 
-#ifndef LBA2_GAMEPAD_DEADZONE_DEFAULT
-#define LBA2_GAMEPAD_DEADZONE_DEFAULT 8000
-#endif
+#include <INPUT_PROFILE_CONFIG.H>
 
 #ifdef __cplusplus
 extern "C" {
