@@ -41,8 +41,13 @@
 
 /* Zoom (numpad * / /) — adjusts default arm distance -----------------------*/
 #define FOLLOW_CAM_ZOOM_STEP 200  /* distance change per frame while key held */
-#define FOLLOW_CAM_DIST_MIN 7000  /* closest the player can zoom in (must clear hero mesh) */
+#define FOLLOW_CAM_DIST_MIN 6000  /* closest the player can zoom in (must clear hero mesh) */
 #define FOLLOW_CAM_DIST_MAX 20000 /* furthest the player can zoom out */
+
+/* Default auto-camera framing: the lowest and closest positions the rig
+ * allows, so Auto starts right behind Twinsen instead of the old midpoint. */
+#define FOLLOW_CAM_DEFAULT_DIST 6046 /* save 111 framing */
+#define FOLLOW_CAM_DEFAULT_ALPHA 195 /* save 111 framing */
 
 /* Horizontal pan keys [ ] ---------------------------------------------------*/
 #define FOLLOW_CAM_PAN_STEP 30 /* AddBetaCam change per [ / ] key press per frame */

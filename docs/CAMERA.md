@@ -82,6 +82,8 @@ Probes terrain and decors along the camera-to-target line to find an unoccluded 
 
 Config key `FollowCamera` (0 = classic, 1 = auto; default 0). Also reads legacy key `AutoCameraCenter` for backward compatibility. Toggled in Options → Advanced options ("Auto camera" / "Classic camera" — localized). Off by default so the original camera behavior is preserved.
 
+The default arm starts at `FOLLOW_CAM_DEFAULT_DIST` (6046) with `FOLLOW_CAM_DEFAULT_ALPHA` (195). Entering Auto camera resets to those defaults; manual zoom and tilt then adjust from there.
+
 When enabled in exterior mode (and not in a camera zone or cinema), the implementation is a third-person follow with several coupled pieces (tuning in `FOLLOWCAM_CFG.H`, logic in `PERSO.CPP` / `EXTFUNC.CPP`):
 
 ### Spring arm (zoom)

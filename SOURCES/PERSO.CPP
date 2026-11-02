@@ -401,9 +401,8 @@ S32 EscTimer;
  * to TimerRefHR by ManageTime() after the LIB386/SYSTEM/TIMER.CPP generalised
  * fix; see docs/TIMING.md. Vsync naturally caps terrain refreshes at the
  * display rate (~60 Hz). When the hero is idle, all work is skipped entirely. */
-/* Default resting distance for the spring arm: midpoint of the two VueCamera
- * presets (DefVueDistance[0]=10500, DefVueDistance[1]=17000). */
-#define FOLLOW_CAM_INITIAL_DIST ((DefVueDistance[0] + DefVueDistance[1]) / 2)
+/* Default resting distance for the spring arm: the closer authored preset. */
+#define FOLLOW_CAM_INITIAL_DIST FOLLOW_CAM_DEFAULT_DIST
 static S32 FollowCamPrevHeroX = 0;
 static S32 FollowCamPrevHeroY = 0;
 static S32 FollowCamPrevHeroZ = 0;
@@ -462,8 +461,10 @@ static void UpdateFollowCameraExt(void) {
     /* First-frame init: sync to current camera state.
                      * FollowCamTargetBeta defaults to 0 but BetaCam starts ~2048
                      * after CameraCenter(1), causing a bogus initial spin. */
-    if (FollowCamBaseDist == 0)
+    if (FollowCamBaseDist == 0) {
         FollowCamBaseDist = FOLLOW_CAM_INITIAL_DIST;
+        AlphaCam = FOLLOW_CAM_DEFAULT_ALPHA;
+    }
     if (FollowCamEffectiveDist == 0) {
         FollowCamEffectiveDist = FollowCamBaseDist;
         FollowCamTargetBeta = BetaCam;
@@ -1403,6 +1404,12 @@ void CycleCameraSetting(void) {
         CameraFirstPerson = 1;
     } else {
         FollowCamera = 1;
+        /* Default auto-camera framing: closer and lower than the classic rig. */
+        FollowCamBaseDist = FOLLOW_CAM_INITIAL_DIST;
+        FollowCamEffectiveDist = FollowCamBaseDist;
+        AlphaCam = FOLLOW_CAM_DEFAULT_ALPHA;
+        FollowCamPrevBaseDist = -1;
+        FollowCamPrevAlphaCam = -1;
     }
     FirstTime = AFF_ALL_FLIP;
 }
