@@ -28,7 +28,7 @@ See AGENTS.md "Commit & PR conventions".
 
 - [ ] Builds and runs on: Linux / macOS / Windows / Android (keep the ones you tried)
 - [ ] If LIB386 / 3DEXT touched: ASM equivalence tests pass (`./run_tests_docker.sh`)
-- [ ] If the game plays differently with every setting at its default from before: it restores the original (no switch needed), fixes a bug the original had (its own `fix_` switch under Fix retail bugs), or is an enhancement behind its own setting, off by default
+- [ ] If the game plays differently with every setting at its default from before: it restores the original (no switch needed), fixes a bug the original had (its own `fix_` switch under Fix retail bugs), or is an enhancement behind its own setting, off by default when it lands
 - [ ] Ran the tests and fixtures this change can reach; a recording or golden it replaces was remade against a control
 - [ ] Docs updated in the same PR if behavior or workflow changed
 - [ ] French comments and ASCII art preserved in any modified files

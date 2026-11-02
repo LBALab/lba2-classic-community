@@ -17,7 +17,8 @@ The original is the game as the 1990s CD release played it, not the 2022 Classic
 - A fix to a bug the original itself had gets its own switch, on by default, under **Fix
   retail bugs**, whose No gives back the original's rules
   ([the retail-fix Decision](knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md)).
-  A change to the design is an enhancement: its own setting, off by default.
+  A change to the design is an enhancement: its own setting, off by default when it lands.
+  It goes on by default only by [moving inward](ARCHITECTURE.md#moving-inward).
 - When the source and the release disagree, the release wins, unless a Decision keeps the
   port's choice and says why.
 - Where the original has nothing to say, the surface is ours: save names, touch, the name
