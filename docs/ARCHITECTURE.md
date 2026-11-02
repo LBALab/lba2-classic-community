@@ -98,13 +98,13 @@ The rings, the core and the platform tiers below follow from the principles in
 
 Settings grow in two rings around the core, Modern inside Experimental. **Original**, the game
 as a 1997 player met it, is not a ring but the reference: every setting the port added at its
-value from before (`SETTING_BEFORE` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). It stays reachable:
-with the settings off the game plays as the original, and a change that breaks that is a
-regression, whichever ring it came from. **Modern** settings change how the game is shown
+value from before (`SETTING_BEFORE` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). It stays
+reachable: with the settings off the game plays as the original, and a change that breaks that
+is a regression, whichever ring it came from. **Modern** settings change how the game is shown
 or handled, never its rules; what they can change is what the original itself reads from the
-screen (below). **Experimental** is anything else, and comes out without
-ceremony. The replay digest is how the line is checked: its world hash is what the game holds,
-its view hash the camera, and the same inputs giving the same world hash is the same game.
+screen (below). **Experimental** is anything else, and comes out without ceremony. The replay
+digest is how the line is checked: its world hash is what the game holds, its view hash the
+camera, and the same inputs giving the same world hash is the same game.
 
 The Auto camera's settings are held to that by two fixtures, one per ring, and the one door
 between the rings is the original game's own reading of what is on screen: the lightning spell
@@ -124,8 +124,8 @@ the core is what has to hold still so others can build on it.
 
 - **Inner core, the game.** Its rules, which the world hash measures, the save format and the
   game data formats. Held to its oracle: the ASM, the retail release, the savegame corpus. It
-  changes only by a Decision, and a rule changes only as a retail fix with its own switch
-  ([the retail-fix Decision](knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md)).
+  changes only by a Decision, and a rule departs from the original only as a retail fix with
+  its own switch ([the retail-fix Decision](knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md)).
 - **Outer core, the platform.** The [PAL](PLATFORM_ABSTRACTION.md) contract, console output,
   recording and replay, the settings tables and the test harness. Each is a contract pinned
   by tests; it grows by adding and does not break. A second game on the engine would share it.
