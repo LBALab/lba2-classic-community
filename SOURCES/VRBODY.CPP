@@ -470,10 +470,11 @@ static void VrUpdateThrowState(void) {
             VrQuatRotate(q, forward, aim);
         VrTrackingToWorld(aim, beta, s_vrThrowAim[hand]);
 
-        /* The palm is often closer than the near plane; push it forward
-           until it projects.  Without a drawn hand, hold the ball a little
-           in front of the controller instead.  The ball and the launch use
-           the same point. */
+        /* The held ball and the launch share the hand point.  Without a drawn
+           hand, hold the ball a little in front of the controller instead.
+           The draw path lowers the near clip for the held ball, so a tracked
+           palm does not need to be pushed forward to project: pushing it here
+           would strand the ball at arm's length as the hand comes closer. */
         if (!s_vrPalmValid[hand]) {
             s_vrThrowOrigin[hand][0] +=
                 s_vrThrowAim[hand][0] * VR_THROW_HAND_FORWARD;
@@ -481,16 +482,6 @@ static void VrUpdateThrowState(void) {
                 s_vrThrowAim[hand][1] * VR_THROW_HAND_FORWARD;
             s_vrThrowOrigin[hand][2] +=
                 s_vrThrowAim[hand][2] * VR_THROW_HAND_FORWARD;
-        }
-        for (S32 attempt = 0; attempt < 6; attempt++) {
-            LongWorldRotatePoint((S32)s_vrThrowOrigin[hand][0],
-                                 (S32)s_vrThrowOrigin[hand][1],
-                                 (S32)s_vrThrowOrigin[hand][2]);
-            if (CameraZr - Z0 >= NearClip + 80)
-                break;
-            s_vrThrowOrigin[hand][0] += s_vrThrowAim[hand][0] * 100.0f;
-            s_vrThrowOrigin[hand][1] += s_vrThrowAim[hand][1] * 100.0f;
-            s_vrThrowOrigin[hand][2] += s_vrThrowAim[hand][2] * 100.0f;
         }
 
         s_vrThrowHandValid[hand] = 1;

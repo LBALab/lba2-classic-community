@@ -5203,6 +5203,8 @@ S32 AffOneObject(T_SORT *pt) {
     S32 num;
     S32 memoy;
     S32 memoymax;
+    S32 oldZrClip;
+    S32 held;
 
     numobj = pt->NumObj;
     typeobj = numobj & ~1023;
@@ -5632,7 +5634,20 @@ S32 AffOneObject(T_SORT *pt) {
     case TYPE_EXTRA:
         ptrextra = &ListExtra[numobj];
 
-        PtrProjectPoint(ptrextra->PosX, ptrextra->PosY, ptrextra->PosZ);
+        /* The held VR ball sits in the palm, which can be much closer than
+           the world near plane.  Project it with the same near clip as the
+           first-person ghost so it follows the hand instead of being pushed
+           out to arm's length. */
+        held = (ptrextra->Flags & EXTRA_HELD) != 0;
+        oldZrClip = CameraZrClip;
+        if (held)
+            CameraZrClip = CameraZr - 1;
+        if (!PtrProjectPoint(ptrextra->PosX, ptrextra->PosY, ptrextra->PosZ) &&
+            held) {
+            CameraZrClip = oldZrClip;
+            break;
+        }
+        CameraZrClip = oldZrClip;
 
 #ifdef USE_GPURENDERER
         if (GPURendererActive) {
