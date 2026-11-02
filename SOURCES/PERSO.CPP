@@ -50,6 +50,12 @@ static S32 s_InteriorCamPanY = 0;
 static S32 s_InteriorCamAppliedPanY = 0;
 static S32 s_InteriorCamLastCube = -1;
 static U32 s_InteriorCamLastZoom = 0;
+/* The thumbrest zoom is a view adjustment for the room, so the display
+   setting it borrowed is restored when the room is left.  Without this a
+   zoom taken in a house follows the player outside, where VrFovScale is a
+   different thing (the eye's field of view). */
+static S32 s_InteriorZoomActive = 0;
+static S32 s_InteriorZoomSaved = 100;
 
 /* Head-tracked hover rig.  The anchor is the pose captured when the rig
  * engaged, so entering the mode never jumps the view; the pan is the view
@@ -254,6 +260,16 @@ static S32 InteriorCamStickStep(S16 axis) {
  * opt-in layer on top of the same projection centre. */
 static void UpdateInteriorCameraControl(void) {
     if (CubeMode != CUBE_INTERIEUR) {
+        /* Leaving the room ends its zoom: give the display setting back the
+           value it had before the room was entered, so a zoom taken indoors
+           does not follow the player outside. */
+        if (s_InteriorZoomActive) {
+            s_InteriorZoomActive = 0;
+            if (VrFovScale != s_InteriorZoomSaved) {
+                VrFovScale = s_InteriorZoomSaved;
+                FirstTime = AFF_ALL_FLIP;
+            }
+        }
         s_HoverAnchored = 0;
         s_HoverBaseX = 0;
         s_HoverBaseY = 0;
@@ -280,6 +296,12 @@ static void UpdateInteriorCameraControl(void) {
         s_InteriorCamPanX = 0;
         s_InteriorCamPanY = 0;
         s_HoverAnchored = 0;
+    }
+    if (!s_InteriorZoomActive) {
+        /* First room of this run indoors: remember the display zoom so the
+           exit can restore it. */
+        s_InteriorZoomActive = 1;
+        s_InteriorZoomSaved = VrFovScale;
     }
     if (Input & I_RETURN) {
         s_InteriorCamPanX = 0;
