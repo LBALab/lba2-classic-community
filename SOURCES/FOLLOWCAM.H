@@ -229,6 +229,11 @@ extern void FollowCamIsoPan(S32 *x, S32 *y);
  * make. */
 extern void FollowCamIsoGlideReset(void);
 
+/* A camera zone is about to put a new shot on the interior view (OBJECT.CPP's SetZoneCamera): with
+ * the interior follow on, the view glides into it from what is on screen over cam_shot_blend_ms,
+ * whether the view was the follow's or another zone's. Does nothing with the follow off. */
+extern void FollowCamIsoShotTookView(void);
+
 /* Set by CheckZoneSce on each frame the followed object stands in the box of a
  * camera zone that has fired, and cleared with CameraZone at the top of the
  * frame. CameraZone itself cannot say this: for a zone that fires once it is

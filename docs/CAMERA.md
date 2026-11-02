@@ -49,7 +49,7 @@ Each behaviour above is a setting you can switch off to get the camera as it was
 | `cam_hold_angle` | `FollowCamHoldAngle` | 1 | Keeps the angle you orbit to | drifts back behind Twinsen as he walks |
 | `cam_ease_ms` | `FollowCamEaseMs` | 300 | How quickly the camera comes round behind Twinsen, in milliseconds (600 is the earlier pace) | 0: the earlier per-frame follow, which can stop up to a degree short |
 | `cam_target_ms` | `FollowCamTargetMs` | 300 | How far the view trails Twinsen, in milliseconds | 0: the view pinned to him |
-| `cam_shot_blend_ms` | `FollowCamShotBlendMs` | 600 | Glide into and out of a scripted shot, in milliseconds | 0: a cut |
+| `cam_shot_blend_ms` | `FollowCamShotBlendMs` | 600 | Glide into and out of a scripted shot, in milliseconds (indoors too, with the interior follow) | 0: a cut |
 | `cam_zone_return` | `FollowCamZoneReturn` | 1 | Gives your angle and tilt back after a shot | the shot's angle stays until you move the camera |
 | `cam_zone_skip` | `FollowCamZoneSkip` | 1 | Shots that fire once leave you alone while you steer | they take the view for a moment |
 | `cam_scene_carry` | `FollowCamSceneCarry` | 1 | Starts behind Twinsen out of a building; keeps your angle between two outdoor scenes a script changes | the camera arrives to one side and swings round |
@@ -65,7 +65,7 @@ A session recording carries the camera settings it was made with. A replay uses 
 
 ## Interiors
 
-Indoors the view is the original isometric one, and it moves only when Twinsen nears the edge of the screen. The **interior follow** is an experimental community addition that keeps him in the middle instead: the room slides under him as he walks rather than jumping a brick at a time. Camera shots placed by the game's designers still hold their rooms. It works with either outdoor camera and is off by default.
+Indoors the view is the original isometric one, and it moves only when Twinsen nears the edge of the screen. The **interior follow** is an experimental community addition that keeps him in the middle instead: the room slides under him as he walks rather than jumping a brick at a time. Camera shots placed by the game's designers still hold their rooms, and the view glides into and out of them over `cam_shot_blend_ms`. It works with either outdoor camera and is off by default.
 
 - In the console (`F12`): `cam_interior 1`, or `cam_interior 0` for the original view.
 - In `lba2.cfg`: `FollowCameraInterior: 1`.

@@ -6326,6 +6326,11 @@ void SetZoneCamera(T_ZONE *ptrz) {
 
     if (CubeMode == CUBE_INTERIEUR) {
         if (StartXCube != info0 OR StartYCube != info1 OR StartZCube != info2) {
+            /* A new shot, from another zone's or from the follow's: with the interior follow on,
+               the view glides into it from what is on screen (cam_shot_blend_ms). Does nothing
+               with the follow off. */
+            FollowCamIsoShotTookView();
+
             StartXCube = info0;
             StartYCube = info1;
             StartZCube = info2;

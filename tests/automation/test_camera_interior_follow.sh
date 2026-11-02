@@ -48,6 +48,16 @@
 #      alone, so a door or sprite standing still drifts a pixel against the wall behind it as the view
 #      pans (5 still objects in this walk, measured with a probe of each object's screen position
 #      against the world origin's). `camt` is 1 on every traced frame the camera is on that corner.
+#   7  A HAND-OVER IS A BLEND, NOT A CUT. When a camera zone takes the view or gives it back, the
+#      view the frame shows would jump to the new owner's at once: 206 pixels (x plus y) in one
+#      frame walking into the zone below, and about 100, 60 and 57 in three frames walking out (a
+#      play test found 55 when a shot in Twinsen's house ended). The follow carries the picture
+#      there over cam_shot_blend_ms, the exterior blend's setting: at most 13 pixels a frame on the
+#      same walk. The cut arm
+#      (cam_shot_blend_ms 0) is what says the blend is what removes the jump.
+#      The same holds from one zone's shot to the next with nobody else owning the view between:
+#      crossing from zone 9 into zone 7 of cube 3 is a 162-pixel cut in the classic camera and with
+#      cam_shot_blend_ms 0, and at most 7 pixels a frame with the blend.
 #   6  A CAMERA ZONE STILL WINS, in an interior and with the switch on. Every interior camera that is
 #      not this option's is a zone's (`SetZoneCamera` re-places `Start*Cube` every frame while the hero
 #      is in the box), and a following camera that overrode one would be a room whose authored shot
@@ -61,7 +71,7 @@
 # which the eye is anywhere but on him (39 units behind for an eye eased toward his position instead).
 #
 # Local-only (needs retail data + the tracked corpus save). Not in host_quick CI.
-# Tier: small
+# Tier: medium
 TESTNAME=camera_interior_follow
 . "$(dirname "$0")/lib.sh"
 . "$(dirname "$0")/camlib.sh"
@@ -77,6 +87,8 @@ ZONED_CUBE=154
 WALK=45
 WALK_TICKS=140
 ZONED_TICKS=180
+# The hand-over walk: cube 3, back into a camera zone and forward out of it again.
+HANDOVER_CUBE=3
 # Traced rows dropped before the tile comparison: the scene load places the view on him, so the first
 # rows of BOTH arms agree by construction and would flatter the control.
 WARMUP_ROWS=30
@@ -91,6 +103,83 @@ arm() {
         --exec-at 30 "input up $WALK" \
         --tick "$ticks" --exit > "$log" 2>&1 \
         || fail "run in cube $cube with cam_interior $on failed: exit $? (see $log)"
+}
+
+# handover_arm <cam_shot_blend_ms> <log> -- into the zone and out again, the follow on.
+handover_arm() {
+    local ms="$1" log="$2"
+
+    ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
+        --exec "cam_interior 1; cam_shot_blend_ms $ms; camtrace 1; cube $HANDOVER_CUBE" \
+        --exec-at 20 "input down 110" \
+        --exec-at 170 "input up 110" \
+        --tick 330 --exit > "$log" 2>&1 \
+        || fail "hand-over run in cube $HANDOVER_CUBE with cam_shot_blend_ms $ms failed: exit $? (see $log)"
+}
+
+# zone2zone_arm <cam_shot_blend_ms> <log> -- placed in zone 9 and walked across into zone 7.
+zone2zone_arm() {
+    local ms="$1" log="$2"
+
+    ctl_headless --load "$CAM_SAVE" --fixed-dt 16 \
+        --exec "cam_interior 1; cam_shot_blend_ms $ms; camtrace 1; cube $HANDOVER_CUBE" \
+        --exec-at 10 "teleport 7500 1024 5800 2600" \
+        --exec-at 100 "input up 40" \
+        --tick 200 --exit > "$log" 2>&1 \
+        || fail "zone-to-zone run in cube $HANDOVER_CUBE with cam_shot_blend_ms $ms failed: exit $? (see $log)"
+}
+
+# handover_stats <log> -- zone changes seen, blend frames, and the largest move of the shown view in
+# one frame from the first zone change on, in pixels (the lattice's own origin: tile and pan).
+handover_stats() {
+    cam_tsv "$1" | python3 -c '
+import sys
+
+hdr = None
+rows = []
+for line in sys.stdin:
+    f = line.rstrip("\n").split("\t")
+    if hdr is None:
+        hdr = f
+        continue
+    if len(f) == len(hdr):
+        r = {k: int(v) for k, v in zip(hdr, f)}
+        if r["ext"] == 0:  # the save starts outdoors; the walk is the interior after the warp
+            rows.append(r)
+
+def view(r):
+    return (-24 * (r["tx"] - r["tz"]) + r["panx"], -12 * (r["tx"] + r["tz"]) + 15 * r["ty"] + r["pany"])
+
+def tile(r):
+    return (r["tx"], r["ty"], r["tz"])
+
+# A change is the zone flag flipping (01, 10), or one zone shot replacing another (11).
+changes = []
+first = len(rows)
+first11 = len(rows)
+for i in range(1, len(rows)):
+    a, b = rows[i - 1], rows[i]
+    if a["zone"] != b["zone"] or (a["zone"] and b["zone"] and tile(a) != tile(b)):
+        changes.append("%d%d" % (a["zone"], b["zone"]))
+        first = min(first, i)
+        if a["zone"] and b["zone"]:
+            first11 = min(first11, i)
+jump = 0
+for i in range(max(first, 1), len(rows)):
+    a, b = view(rows[i - 1]), view(rows[i])
+    jump = max(jump, abs(b[0] - a[0]) + abs(b[1] - a[1]))
+print("changes=%s" % ",".join(changes))
+print("rows=%d" % len(rows))
+print("blendrows=%d" % sum(1 for r in rows if r["ibl"] > 0))
+print("jump=%d" % jump)
+# From the first zone-to-zone change on: the zone-to-zone arm is placed by a teleport, which moves the
+# view itself and is not what that arm measures.
+jump11 = 0
+for i in range(max(first11, 1), len(rows)):
+    a, b = view(rows[i - 1]), view(rows[i])
+    jump11 = max(jump11, abs(b[0] - a[0]) + abs(b[1] - a[1]))
+print("jump11=%d" % jump11)
+'
 }
 
 # stats <log> -- what the fixture reads, one `key=value` per line.
@@ -204,7 +293,9 @@ get() {
 follow_log="$(mktemp)"
 classic_log="$(mktemp)"
 zoned_log="$(mktemp)"
-trap 'rm -f "$follow_log" "$classic_log" "$zoned_log"' EXIT
+blend_log="$(mktemp)"
+cut_log="$(mktemp)"
+trap 'rm -f "$follow_log" "$classic_log" "$zoned_log" "$blend_log" "$cut_log"' EXIT
 
 arm "$INTERIOR_CUBE" 1 "$WALK_TICKS" "$follow_log"
 follow="$(stats "$follow_log")"
@@ -279,4 +370,37 @@ zoned="$(stats "$zoned_log")"
 [ "$(get "$zoned" sxdistinct)" = "1" ] && [ "$(get "$zoned" szdistinct)" = "1" ] \
     || fail "the view moved inside a camera zone (sx $(get "$zoned" sxdistinct), sz $(get "$zoned" szdistinct) tiles): the follow overrode an authored shot"
 
-pass "interior follow: view on the hero's tile $on_tile/$tail frames with no overshoot against $classic_tile/$classic_tail classic, the crossing panned over $(get "$follow" lagframes) frames with no whole-brick step, never more than $(get "$follow" stillrun) frame(s) of it standing still and the eye $(get "$follow" eyelag) units off the hero, and a camera zone still holds its room"
+# 7  The hand-over: the same walk into a zone and out again, blended and cut.
+handover_arm 600 "$blend_log"
+blend="$(handover_stats "$blend_log")"
+handover_arm 0 "$cut_log"
+cut="$(handover_stats "$cut_log")"
+
+[ "$(get "$blend" rows)" -gt 200 ] || fail "only $(get "$blend" rows) interior frames in the hand-over run: is cube $HANDOVER_CUBE still an interior?"
+[ "$(get "$blend" changes)" = "01,10" ] && [ "$(get "$cut" changes)" = "01,10" ] \
+    || fail "the hand-over walk did not enter and leave one zone (blend: $(get "$blend" changes), cut: $(get "$cut" changes)): the arm tests nothing"
+[ "$(get "$cut" blendrows)" -eq 0 ] \
+    || fail "a blend ran with cam_shot_blend_ms 0 ($(get "$cut" blendrows) frames)"
+[ "$(get "$cut" jump)" -ge 60 ] \
+    || fail "the cut arm moved the view only $(get "$cut" jump) px in a frame: the walk no longer has a jump for the blend to remove"
+[ "$(get "$blend" blendrows)" -ge 20 ] \
+    || fail "the hand-over blended over only $(get "$blend" blendrows) frames"
+[ "$(get "$blend" jump)" -le 20 ] \
+    || fail "the view jumped $(get "$blend" jump) px in a frame across a hand-over with the blend on (cut: $(get "$cut" jump))"
+
+# ... and from one zone's shot to the next.
+zone2zone_arm 600 "$blend_log"
+zblend="$(handover_stats "$blend_log")"
+zone2zone_arm 0 "$cut_log"
+zcut="$(handover_stats "$cut_log")"
+
+case ",$(get "$zblend" changes),$(get "$zcut" changes)," in
+    *,11,*,11,*) ;;
+    *) fail "the zone-to-zone walk did not cross from one shot to another (blend: $(get "$zblend" changes), cut: $(get "$zcut" changes))" ;;
+esac
+[ "$(get "$zcut" jump11)" -ge 60 ] \
+    || fail "the zone-to-zone cut arm moved the view only $(get "$zcut" jump11) px in a frame: nothing for the blend to remove"
+[ "$(get "$zblend" jump11)" -le 20 ] \
+    || fail "the view jumped $(get "$zblend" jump11) px in a frame from one zone's shot to the next with the blend on (cut: $(get "$zcut" jump11))"
+
+pass "interior follow: view on the hero's tile $on_tile/$tail frames with no overshoot against $classic_tile/$classic_tail classic, the crossing panned over $(get "$follow" lagframes) frames with no whole-brick step, never more than $(get "$follow" stillrun) frame(s) of it standing still and the eye $(get "$follow" eyelag) units off the hero, a camera zone still holds its room, and a hand-over moves the view at most $(get "$blend" jump) px a frame against $(get "$cut" jump) cut ($(get "$zblend" jump11) against $(get "$zcut" jump11) from zone to zone)"

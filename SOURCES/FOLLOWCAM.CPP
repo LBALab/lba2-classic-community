@@ -88,6 +88,24 @@ static S32 FollowCamIsoPanAppliedX = 0;
 static S32 FollowCamIsoPanAppliedY = 0;
 static S32 FollowCamIsoCentreX = 0;
 static S32 FollowCamIsoCentreY = 0;
+/* The eye the applied pan was measured from (the view as shown), and the blend that carries the
+ * picture from one owner's view to the other's when a camera zone or a scripted shot takes the
+ * interior view or gives it back (cam_shot_blend_ms, the setting the exterior blend uses). */
+static S32 FollowCamIsoShownX = 0;
+static S32 FollowCamIsoShownY = 0;
+static S32 FollowCamIsoShownZ = 0;
+static S32 FollowCamIsoShownSet = FALSE;
+static S32 FollowCamIsoShownCube = -1;
+static S32 FollowCamIsoWasOwned = FALSE;
+static S32 FollowCamIsoOwnerFresh = TRUE; /* after a cut: the next owner is noted, not blended into */
+static S32 FollowCamIsoBlendOn = FALSE;
+static S32 FollowCamIsoBlendFromX = 0;
+static S32 FollowCamIsoBlendFromY = 0;
+static S32 FollowCamIsoBlendFromZ = 0;
+static U32 FollowCamIsoBlendStart = 0; /* TimerRefHR */
+static S32 FollowCamIsoBlendDur = 0;
+static S32 iso_blend_left(void);
+static void iso_view_blend_from_shown(void);
 
 /* The eases paced by the clock (cam_ease_ms, cam_target_ms). They are paced by
  * the game clock's time since the previous update, which is a frame's length
@@ -326,8 +344,8 @@ void FollowCamTrace(void) {
     Log_Info("[cam] heroBeta %4d add %4d beta %4d target %4d step %5d delay %3d orbit %d moving %d "
              "zone %d forced %d cine %d follow %d ext %d vue %d alpha %4d dist %6d inshot %d loan %d obs %d hid %d "
              "dt %3d tlag %4d vx %6d vy %5d vz %6d blend %4d sbeta %4d salpha %4d sdist %6d sx %6d sy %5d sz %6d "
-             "iso %d tx %d tz %d hx %d hz %d hxw %6d hzw %6d vxw %6d vzw %6d "
-             "lagx %d lagy %d lagz %d panx %d pany %d camt %d",
+             "iso %d tx %d ty %d tz %d hx %d hz %d hxw %6d hzw %6d vxw %6d vzw %6d "
+             "lagx %d lagy %d lagz %d panx %d pany %d camt %d ibl %d",
              (int)ptr3d->Beta, (int)AddBetaCam, (int)BetaCam, (int)FollowCamTargetBeta,
              (int)step, (int)FollowCamReengageDelay, (int)ManualCameraOrbitActive, (int)moving,
              (int)CameraZone, (int)FlagCameraForcee, (int)CinemaMode, (int)FollowCamera,
@@ -337,14 +355,14 @@ void FollowCamTrace(void) {
              (int)((FollowCamEaseFrame == FollowCamFrame) ? Distance2D(0, 0, FollowCamTargetLagX, FollowCamTargetLagZ) : 0),
              (int)VueOffsetX, (int)VueOffsetY, (int)VueOffsetZ,
              (int)blendLeft, (int)shown.Beta, (int)shown.Alpha, (int)shown.Dist, (int)shown.X, (int)shown.Y, (int)shown.Z,
-             (int)FollowCamInterior, (int)StartXCube, (int)StartZCube,
+             (int)FollowCamInterior, (int)StartXCube, (int)StartYCube, (int)StartZCube,
              (int)(ptr3d->X / SIZE_BRICK_XZ), (int)(ptr3d->Z / SIZE_BRICK_XZ),
              (int)ptr3d->X, (int)ptr3d->Z,
              (int)FollowCamIsoViewX, (int)FollowCamIsoViewZ,
              (int)(FollowCamIsoViewX - StartXCube * SIZE_BRICK_XZ),
              (int)(FollowCamIsoViewY - StartYCube * SIZE_BRICK_Y),
              (int)(FollowCamIsoViewZ - StartZCube * SIZE_BRICK_XZ),
-             (int)isoPanX, (int)isoPanY, (int)isoOnTile);
+             (int)isoPanX, (int)isoPanY, (int)isoOnTile, (int)iso_blend_left());
     FollowCamHiddenSeen = 0;
 
     prevBeta = BetaCam;
@@ -1345,6 +1363,88 @@ static void iso_view_eye(S32 *x, S32 *y, S32 *z) {
 
 void FollowCamIsoGlideReset(void) {
     FollowCamIsoViewSet = FALSE;
+    /* A cut: no blend runs across it, and none starts from the view before it. */
+    FollowCamIsoBlendOn = FALSE;
+    FollowCamIsoShownSet = FALSE;
+    FollowCamIsoOwnerFresh = TRUE;
+}
+
+/* Milliseconds left of the interior blend, 0 when none runs (camtrace's `ibl`). */
+static S32 iso_blend_left(void) {
+    S32 left;
+
+    if (!FollowCamIsoBlendOn)
+        return 0;
+    left = FollowCamIsoBlendDur - (S32)(TimerRefHR - FollowCamIsoBlendStart);
+    return left < 1 ? 1 : left; /* on until the frame that shows its end */
+}
+
+/* WHO HAS THE VIEW CHANGED HANDS: the follow's (the eye on the hero) and a camera zone's or a
+ * scripted shot's (the tile it set). Either way the view the frame shows would jump to the new
+ * owner's in one frame -- measured in a play test at 55 pixels when a shot in Twinsen's house ended
+ * -- so the picture is carried there over cam_shot_blend_ms instead, from wherever it was last
+ * shown. Only with the follow on: with it off the classic camera cuts, as it always has. Called by
+ * both placements (CameraCenter's and the glide's) before either moves the view, because a zone
+ * takes the view through CameraCenter(0), between two glides. */
+static void iso_view_note_owner(void) {
+    S32 owned = iso_view_owned();
+
+    S32 handover = (owned != FollowCamIsoWasOwned) && FollowCamInterior && (FollowCamShotBlendMs > 0);
+    S32 shownHere = (CubeMode == CUBE_INTERIEUR) && FollowCamIsoShownSet && (FollowCamIsoShownCube == NumCube);
+
+    /* The first owner after a cut (a scene load, the centre key, a recentre, an exterior) is where
+       the view starts, not a hand-over: that frame is the cut's. */
+    if (FollowCamIsoOwnerFresh)
+        handover = FALSE;
+    FollowCamIsoOwnerFresh = FALSE;
+
+    if (handover AND shownHere)
+        iso_view_blend_from_shown();
+    FollowCamIsoWasOwned = owned;
+}
+
+/* Start a blend from the view on screen (iso_view_note_owner's rule, without the change of owner). */
+static void iso_view_blend_from_shown(void) {
+    S32 shownHere = (CubeMode == CUBE_INTERIEUR) && FollowCamIsoShownSet && (FollowCamIsoShownCube == NumCube);
+
+    if (!FollowCamInterior OR FollowCamShotBlendMs <= 0 OR FollowCamIsoOwnerFresh OR !shownHere)
+        return;
+
+    FollowCamIsoBlendFromX = FollowCamIsoShownX;
+    FollowCamIsoBlendFromY = FollowCamIsoShownY;
+    FollowCamIsoBlendFromZ = FollowCamIsoShownZ;
+    FollowCamIsoBlendStart = TimerRefHR;
+    FollowCamIsoBlendDur = FollowCamShotBlendMs;
+    FollowCamIsoBlendOn = TRUE;
+}
+
+void FollowCamIsoShotTookView(void) {
+    /* A zone is about to write a new shot. From the follow's view this is also a change of owner,
+       which iso_view_note_owner would catch one call later; starting it here covers the case it
+       cannot see: one zone's shot replacing another's, with nobody else owning the view between. */
+    iso_view_blend_from_shown();
+}
+
+/* The eye the frame shows: the view's own, or while a blend runs, that far from where the blend
+ * started toward the view as it is now (which moves with the hero, so the blend lands on him). */
+static void iso_view_shown(S32 *x, S32 *y, S32 *z) {
+    *x = FollowCamIsoViewX;
+    *y = FollowCamIsoViewY;
+    *z = FollowCamIsoViewZ;
+
+    if (!FollowCamIsoBlendOn)
+        return;
+
+    S32 elapsed = (S32)(TimerRefHR - FollowCamIsoBlendStart);
+    S32 w = elapsed < 0 ? 1000 : FollowCamBlendWeight(elapsed, FollowCamIsoBlendDur);
+
+    if (w >= 1000) {
+        FollowCamIsoBlendOn = FALSE;
+        return;
+    }
+    *x = FollowCamBlendValue(FollowCamIsoBlendFromX, *x, w);
+    *y = FollowCamBlendValue(FollowCamIsoBlendFromY, *y, w);
+    *z = FollowCamBlendValue(FollowCamIsoBlendFromZ, *z, w);
 }
 
 /* Bring the eye onto where it belongs: the follow not owning the view, a tile something other than
@@ -1359,28 +1459,40 @@ static void iso_view_place(S32 ex, S32 ey, S32 ez) {
 /* The pan the view wants this frame: the distance between where the eye belongs and its tile, as
  * pixels. Zero off the follow, outside interiors, and when that distance is too large to be a pan
  * (a new cube before CameraCenter has placed the view on it). */
-static void iso_view_pan_wanted(S32 *x, S32 *y) {
+static void iso_view_pan_wanted(S32 *x, S32 *y, S32 *sx, S32 *sy, S32 *sz) {
     S32 tx, ty, tz;
 
     *x = 0;
     *y = 0;
+    iso_view_tile(sx, sy, sz);
 
     if (!FollowCamIsoViewSet OR CubeMode != CUBE_INTERIEUR)
         return;
 
     iso_view_tile(&tx, &ty, &tz);
-    if (!iso_view_near(tx, ty, tz))
+    iso_view_shown(sx, sy, sz);
+    /* A blend may carry the picture several tiles from its tile; the whole cube is drawn and
+       clipped to the screen (AffGrille), so any pan is drawable. Without one, a view this far from
+       its tile is a cut. */
+    if (!FollowCamIsoBlendOn AND !iso_view_near(tx, ty, tz)) {
+        iso_view_tile(sx, sy, sz);
         return;
+    }
 
-    *x = FollowCamIsoPanX(FollowCamIsoViewX - tx, FollowCamIsoViewZ - tz);
-    *y = FollowCamIsoPanY(FollowCamIsoViewX - tx, FollowCamIsoViewY - ty, FollowCamIsoViewZ - tz);
+    *x = FollowCamIsoPanX(*sx - tx, *sz - tz);
+    *y = FollowCamIsoPanY(*sx - tx, *sy - ty, *sz - tz);
 }
 
 void FollowCamIsoCentre(S32 baseX, S32 baseY) {
-    S32 panX, panY;
+    S32 panX, panY, sx, sy, sz;
 
-    iso_view_pan_wanted(&panX, &panY);
+    iso_view_pan_wanted(&panX, &panY, &sx, &sy, &sz);
 
+    FollowCamIsoShownX = sx;
+    FollowCamIsoShownY = sy;
+    FollowCamIsoShownZ = sz;
+    FollowCamIsoShownSet = (CubeMode == CUBE_INTERIEUR);
+    FollowCamIsoShownCube = NumCube;
     FollowCamIsoCentreX = baseX;
     FollowCamIsoCentreY = baseY;
     FollowCamIsoPanAppliedX = panX;
@@ -1392,16 +1504,19 @@ void FollowCamIsoCentre(S32 baseX, S32 baseY) {
 /* Put the projection centre on the pan the view wants, if it is not there already. Returns TRUE when
  * it moved, which is a frame the whole scene must be redrawn on. */
 static S32 iso_view_apply_pan(void) {
-    S32 panX, panY;
+    S32 panX, panY, sx, sy, sz;
 
     if (CubeMode != CUBE_INTERIEUR) {
         /* An exterior's projection is Init3DExtView's; nothing of the pan survives into it. */
         FollowCamIsoPanAppliedX = 0;
         FollowCamIsoPanAppliedY = 0;
+        FollowCamIsoBlendOn = FALSE;
+        FollowCamIsoShownSet = FALSE;
+        FollowCamIsoOwnerFresh = TRUE;
         return 0;
     }
 
-    iso_view_pan_wanted(&panX, &panY);
+    iso_view_pan_wanted(&panX, &panY, &sx, &sy, &sz);
     if (panX == FollowCamIsoPanAppliedX AND panY == FollowCamIsoPanAppliedY)
         return 0;
 
@@ -1414,6 +1529,7 @@ static S32 iso_view_apply_pan(void) {
 void FollowCamIsoPlaceView(void) {
     S32 ex, ey, ez, tx, ty, tz;
 
+    iso_view_note_owner();
     iso_view_eye(&ex, &ey, &ez);
     iso_view_tile(&tx, &ty, &tz);
 
@@ -1430,6 +1546,7 @@ void FollowCamIsoPlaceView(void) {
 S32 FollowCamIsoGlide(void) {
     S32 ex, ey, ez, tx, ty, tz;
 
+    iso_view_note_owner();
     iso_view_eye(&ex, &ey, &ez);
     iso_view_tile(&tx, &ty, &tz);
 
@@ -1456,16 +1573,14 @@ S32 FollowCamIsoGlide(void) {
      * There is nothing to smooth in a target that is his own position. A camera that is behind it is
      * only ever late, so the eye is placed ON him: the picture then moves exactly as far as he does,
      * on the frame he does, and stops when he does. */
-    if (FollowCamIsoViewX == ex AND FollowCamIsoViewY == ey AND FollowCamIsoViewZ == ez)
-        return 0; /* already on him: nothing moved, so there is nothing to redraw */
-
     /* THE EYE IS BOOKKEEPING; THE PICTURE MOVES BY WHOLE PIXELS. The camera itself stays on the
      * tile's corner, and the pan is added to the projection centre (`FollowCamIsoCentre`) and to the
      * brick lattice alike. Moving the camera instead shifts the picture by the same amount on paper,
      * but every projected point then rounds its own fraction of a pixel together with the eye's, while
      * the lattice rounds the eye's alone: a still door, a sprite or its clip window drifts a pixel
      * against the wall behind it, frame by frame, as the eye moves (5 still objects in cube 143's walk,
-     * none with this). A shift in whole pixels rounds nothing. */
+     * none with this). A shift in whole pixels rounds nothing. A frame whose pan did not change (he
+     * stood still, and no blend runs) redraws nothing. */
     iso_view_place(ex, ey, ez);
     return iso_view_apply_pan();
 }
@@ -1682,7 +1797,7 @@ static const T_SETTING FollowCamSettings[] = {
      "Auto cam: time constant of the look-at point trailing the hero, ms (0 = pinned to him, 300 = retail)", SETTING_RECORDED, SETTING_BEFORE(0)},
     {"FollowCamShotBlendMs", NULL, "cam_shot_blend_ms", &FollowCamShotBlendMs, SETTING_CLAMP,
      FOLLOW_CAM_SHOT_BLEND_MS_DEFAULT, 0, FOLLOW_CAM_SHOT_BLEND_MS_MAX, NULL, NULL, NULL, NULL,
-     "Auto cam: blend into and out of a scripted shot over this many ms (0 = cut)", SETTING_RECORDED, SETTING_BEFORE(0)},
+     "Auto cam and interior follow: blend into and out of a scripted shot or camera zone over this many ms (0 = cut)", SETTING_RECORDED, SETTING_BEFORE(0)},
     /* cvar only, and it must stay that way. FollowCamera's cfg row lives in
        CONFIG_FILE.CPP's table, which reads it with the legacy AutoCameraCenter
        fallback and its own rule; giving this row a key would read the same
