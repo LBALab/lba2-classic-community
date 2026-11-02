@@ -94,6 +94,7 @@ The original is the game as the 1990s CD release played it, not the 2022 Classic
   platforms, and so are 32-bit and 64-bit Android.
 - A platform's tier sets what it is promised
   ([ARCHITECTURE.md "Where it runs"](ARCHITECTURE.md#where-it-runs)).
-- The README and release notes claim nothing beyond a platform's tier. A tier 3 build may ship
-  in a pre-release if it is labelled experimental and untested.
+- The README and release notes claim nothing beyond a platform's tier. A tagged release ships
+  tier 1 builds only; a tier 2 or 3 build may ship in a pre-release, labelled experimental with
+  how it was tested.
 - Docs promise nothing about what comes next; they point to milestones.

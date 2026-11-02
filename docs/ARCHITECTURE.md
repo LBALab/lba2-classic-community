@@ -162,15 +162,19 @@ on the shared outer core.
 Platforms are a second axis, not a ring: every platform runs the same core. Each is pinned to
 one [PAL](PLATFORM_ABSTRACTION.md) backend: desktop on SDL3 (SDL2 is a build option), Android
 on SDL3 only, Switch and Vita on SDL2, and headless automation on the null backend. What a
-platform is promised depends on how it is tested:
+platform is promised depends on how often it is tested on hardware:
 
-- **Tier 1, tested on hardware before a release:** Windows, Linux, macOS and Android.
-- **Tier 2, tested in emulation only.**
-- **Tier 3, builds but is not supported.**
+- **Tier 1, tested on hardware before every release:** Windows, Linux, macOS and Android.
+- **Tier 2, passed its hardware checklist but is not tested before every release:** Switch.
+- **Tier 3, builds in CI but has not passed its hardware checklist:** Vita.
 
-A platform moves up as it meets what the tier above is held to: it builds in CI, the test
-suite runs on it, a recording replays to the same world hash and a save from another platform
-loads.
+Emulation can catch a regression between releases, but it does not stand in for hardware.
+
+A platform moves up as it meets what the tier above is held to. Tier 3 moves to tier 2 when
+its hardware checklist passes ([Switch](SWITCH.md#hardware-acceptance-checklist),
+[Vita](VITA.md#hardware-acceptance-checklist)). Tier 2 moves to tier 1 when someone with the
+device tests it before every release, and on it the test suite runs, a recording replays to
+the same world hash and a save from another platform loads.
 
 ## How to use these docs
 
