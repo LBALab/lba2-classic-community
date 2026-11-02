@@ -1471,11 +1471,15 @@ void PERSO_RenderStereo(S32 flagflip) {
                the two poses share one orientation and differ only by the IPD
                translation.  When that holds, the per-eye difference IS a pure
                translation, so the single-pass stereo path can render both
-               eyes from one scene pass.  First person used to fall back to
-               the two-pass renderer for every runtime, doubling the scene
-               cost for no stereo benefit.  A runtime that toes the eyes in
-               (quaternion difference above ~0.8 degrees) keeps two passes. */
+               eyes from one scene pass.  Single-pass applies the eye delta as
+               a translation only, so ANY orientation difference would leave
+               the second eye rotated by that angle — several pixels on a
+               high-frequency transparent texture, and it changes with the
+               gaze.  Require the two quaternions to be effectively identical;
+               a runtime that toes the eyes in keeps the exact two-pass
+               renderer. */
             S32 eyesParallel = 0;
+            float eyeQd = 1.0f;
             if (haveViews) {
                 float qd = eyeQ[0][0] * eyeQ[1][0] +
                            eyeQ[0][1] * eyeQ[1][1] +
@@ -1483,7 +1487,17 @@ void PERSO_RenderStereo(S32 flagflip) {
                            eyeQ[0][3] * eyeQ[1][3];
                 if (qd < 0.0f)
                     qd = -qd;
-                eyesParallel = (qd > 0.9999f);
+                eyeQd = qd;
+                eyesParallel = (qd > 0.9999995f);
+            }
+            {
+                static S32 s_eyeLog = 0;
+                if (!s_eyeLog) {
+                    Log_Info("[VR] Eye quaternion dot %.8f -> %s stereo",
+                             (double)eyeQd,
+                             eyesParallel ? "single-pass" : "two-pass");
+                    s_eyeLog = 1;
+                }
             }
             float lookYawOff = 0.0f;
             float lookPitchOff = 0.0f;
