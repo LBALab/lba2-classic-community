@@ -10737,9 +10737,14 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
         }
         /* Opt-in: the batch already carries aZ/1-over-W, so types 8-15
            (the affine POLYTEXT/POLYGTEX fillers) can take the same
-           perspective-correct path as the Z-textured types. */
+           perspective-correct path as the Z-textured types.  Chroma-keyed
+           types (12-15, the `type & 4` INCRUST bit) keep the original
+           affine mapping even with the option on: the perspective divide
+           moves their transparent holes relative to the bars, so a lattice
+           or fence visibly shears against its own frame.  Opaque walls,
+           which is what the option exists for, are unaffected. */
         if (DisplayPerspectiveTextures && s_arrayWindow &&
-            typePoly < POLY_TEXTURE_Z) {
+            typePoly < POLY_TEXTURE_Z && ((typePoly & 4) == 0)) {
             matFlags = (U16)(matFlags | (1 << 6));
         }
     }
