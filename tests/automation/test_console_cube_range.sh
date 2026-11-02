@@ -7,6 +7,13 @@
 # The command now reads the scene count from the data, and the test takes the
 # last cube from the command's own reply rather than hard-coding 221.
 #
+# Cube 94 is the phantom cube, the sea past an island's edge: it draws from the
+# island already loaded, on the island walking off the edge records. Indoors no
+# island is loaded and `cube 94` died with SIGSEGV; from another island it
+# switched to Citadel's island number. It is now refused indoors, keeps the
+# island it is entered from, and Twinsen drowns (the console's sea is the map's
+# corner square, open sea on every island).
+#
 # Local-only (needs the binary and retail data); skips cleanly otherwise.
 # Tier: small
 TESTNAME=console_cube_range
@@ -49,4 +56,22 @@ printf '%s\n' "$out" | grep -aq "'12x' is not a number" || fail "cube 12x was no
 out=$(run "$last") || fail "cube $last exited non-zero"
 [ "$(cube_now "$out")" = "$last" ] || fail "cube $last left the hero on cube $(cube_now "$out")"
 
-pass "cube refuses numbers outside 0 to $last and still loads cube $last"
+# --- the phantom cube: refused indoors, keeps the island outdoors ---------------
+out=$(run 94) || fail "cube 94 from indoors exited non-zero (the SIGSEGV)"
+printf '%s\n' "$out" | grep -aq "is the sea past an island's edge" || fail "cube 94 from indoors was not refused"
+[ "$(cube_now "$out")" = "0" ] || fail "cube 94 from indoors moved the hero to cube $(cube_now "$out")"
+
+rm -rf "$tmp/u"
+mkdir -p "$tmp/u"
+# Cube 60 is outdoors on Desert Island (island 2).
+out=$(ctl --user-dir "$tmp/u" --no-audio --fixed-dt 16 --exec "cube 60" \
+    --exec-at 20 "cube 94" --exec-at 40 "status" --exec-at 60 "dumpstate $tmp/s94.json" \
+    --tick 70 --exit 2>&1) ||
+    fail "cube 94 from Desert Island exited non-zero"
+printf '%s\n' "$out" | grep -aq 'Island: 2  Cube: 94' ||
+    fail "cube 94 from Desert Island: $(printf '%s\n' "$out" | grep -aoE 'Island: [0-9]+  Cube: [0-9]+')"
+# GEN_ANIM_NOYADE is 21 (DEFINES.H): standing on land instead, he would not drown.
+grep -aq '"gen_anim": 21,' "$tmp/s94.json" ||
+    fail "cube 94 from Desert Island: Twinsen is not drowning ($(grep -aoE '"gen_anim": [0-9-]+' "$tmp/s94.json"))"
+
+pass "cube refuses numbers outside 0 to $last, still loads cube $last, and enters cube 94 only from outdoors, where Twinsen drowns"
