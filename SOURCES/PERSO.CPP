@@ -1950,7 +1950,6 @@ restartloop:
         Perftrace_FrameBegin();
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SIMULATION);
 
-        if (CmptFrame < 5) Log_Info("MainLoop: frame %d, NewCube=%d", CmptFrame, NewCube);
 
         /* Runtime resolution-switch keep/revert dialog. Pending whenever
            cmd_resolution (or a future menu path) fires a switch; runs once
@@ -3489,7 +3488,6 @@ restartloop:
         Perftrace_PhaseBegin(PERFTRACE_PHASE_OPENXR);
         OpenXR_BeginFrame();
         Perftrace_PhaseEnd(PERFTRACE_PHASE_OPENXR);
-        if (CmptFrame < 5) Log_Info("MainLoop: calling AffScene FirstTime=%d", FirstTime);
         S32 renderFlip = FirstTime;
 #ifdef USE_GPURENDERER
         /* The isometric world lives in the GL FBO, whose brick layer and

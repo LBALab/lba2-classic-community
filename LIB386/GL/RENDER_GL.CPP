@@ -1464,7 +1464,7 @@ static void GL_ProfFrameDone(void) {
     s_profFrames++;
     if (s_profFrames >= GL_PROF_FRAMES) {
         double msPerTick = 1000.0 / (double)SDL_GetPerformanceFrequency();
-        Log_Warn("[GLPerf] frames=%u present=%.2f readback=%.2f convert=%.2f "
+        Log_Debug("[GLPerf] frames=%u present=%.2f readback=%.2f convert=%.2f "
                  "flush=%.2f snapshot=%.2f restore=%.2f mapwait=%.2f (ms) "
                  "flushes=%.1f tris=%.0f sprUp=%.1f skips=%u "
                  "ovlEmpty=%.2f ovlReuse=%.2f direct=%.2f "
@@ -8446,7 +8446,7 @@ static void GL_LogSurfaceBudget(const char *when) {
         overlay += GL_TargetBytes(s_logIndexTexW, s_logIndexTexH, 1);
     U64 total = fbo + msaa + eyes + present + snapshot + horizon + overlay;
     const double mib = 1.0 / (1024.0 * 1024.0);
-    Log_Info("[Perf] surfaces(%s): fbo=%.1f msaa=%.1f eyes=%.1f present=%.1f "
+    Log_Debug("[Perf] surfaces(%s): fbo=%.1f msaa=%.1f eyes=%.1f present=%.1f "
              "snapshot=%.1f horizon=%.1f overlay=%.1f total=%.1f MiB",
              when, (double)fbo * mib, (double)msaa * mib, (double)eyes * mib,
              (double)present * mib, (double)snapshot * mib,

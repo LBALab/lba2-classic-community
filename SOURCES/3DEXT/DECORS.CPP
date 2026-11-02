@@ -1037,7 +1037,7 @@ void AffichageObjetDecorsZBuf(void) {
         static U32 s_decCensusFrame = 0;
         s_decCensusFrame++;
         if (s_decCensusFrame % 300 == 150) {
-            Log_Info("DecorsPerf: total=%d screened=%d cullable=%d "
+            Log_Debug("DecorsPerf: total=%d screened=%d cullable=%d "
                      "cold=%u warm=%u",
                      (S32)NbObjDecors, (S32)NbObjScreen, culled4,
                      s_gpuDecorColdBuilds, s_gpuDecorWarmBuilds);

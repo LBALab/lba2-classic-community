@@ -463,7 +463,7 @@ void AffGrilleExt() {
             U32 *perfFrame = &s_hzPerfFrame[hzEye == 1 ? 1 : 0];
             (*perfFrame)++;
             if (*perfFrame % 300 == 150) {
-                Log_Info("GrillePerf: horizon=%dms draw=%dms capture=%dms "
+                Log_Debug("GrillePerf: horizon=%dms draw=%dms capture=%dms "
                          "restore=%dus resolve=%dus blit=%dus rect=%d%% eye=%d",
                          (S32)(hzT1 - hzT0), (S32)(hzDrawT1 - hzT0),
                          (S32)(hzT1 - hzDrawT1),
@@ -491,7 +491,7 @@ void AffGrilleExt() {
             static U32 s_tnPerfFrame = 0;
             s_tnPerfFrame++;
             if (s_tnPerfFrame % 300 == 150) {
-                Log_Info("GrillePerf: terrain=%dms", (S32)(tnT1 - tnT0));
+                Log_Debug("GrillePerf: terrain=%dms", (S32)(tnT1 - tnT0));
             }
             if (s_tnPerfFrame % 300 == 150) {
 #ifdef USE_GPURENDERER
@@ -522,7 +522,7 @@ void AffGrilleExt() {
             static U32 s_skyPerfFrame = 0;
             s_skyPerfFrame++;
             if (s_skyPerfFrame % 300 == 150) {
-                Log_Info("GrillePerf: skysea=%dms", (S32)(skyT1 - skyT0));
+                Log_Debug("GrillePerf: skysea=%dms", (S32)(skyT1 - skyT0));
             }
         }
     }
@@ -581,7 +581,7 @@ void AffGrilleExt() {
         {
             static S32 s_rbPerfLog = 0;
             if (s_rbPerfLog < 10) {
-                Log_Info("GrillePerf: readback=%dms total=%dms", (S32)(rbT1 - rbT0), (S32)(rbT1 - aggT0));
+                Log_Debug("GrillePerf: readback=%dms total=%dms", (S32)(rbT1 - rbT0), (S32)(rbT1 - aggT0));
                 s_rbPerfLog++;
             }
         }

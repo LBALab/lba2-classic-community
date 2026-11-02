@@ -6440,7 +6440,7 @@ startaffscene:
             extern U32 s_censusClippingGraph;
             extern U32 s_censusScaleLog;
             extern U32 s_censusScaleTLog;
-            Log_Info("Census: a3dGL=%u incrustGL=%u incrustLog=%u special=%u "
+            Log_Debug("Census: a3dGL=%u incrustGL=%u incrustLog=%u special=%u "
                      "affG=%u clipG=%u scaleLog=%u scaleTLog=%u",
                      s_censusA3DGL, s_censusIncrustGL, s_censusIncrustLog,
                      s_censusSpecial, s_censusAffGraph, s_censusClippingGraph,
@@ -6448,7 +6448,7 @@ startaffscene:
             S32 nshown = 0;
             for (S32 n = 0; n < MAX_EXTRAS && nshown < 12; n++) {
                 if (ListExtra[n].Sprite != -1) {
-                    Log_Info("Census: extra[%d] sprite=%d flags=%d pos=%d,%d,%d",
+                    Log_Debug("Census: extra[%d] sprite=%d flags=%d pos=%d,%d,%d",
                              n, ListExtra[n].Sprite, ListExtra[n].Flags,
                              ListExtra[n].PosX, ListExtra[n].PosY,
                              ListExtra[n].PosZ);
@@ -6473,7 +6473,7 @@ startaffscene:
             U32 sortUs = (U32)((objDiagSortEnd - objDiagT0) * 1000000 / freq);
             U32 totalUs = (U32)((SDL_GetPerformanceCounter() - objDiagT0) *
                                 1000000 / freq);
-            Log_Info("[OBJPASS] sortDraw=%uus total=%uus", sortUs, totalUs);
+            Log_Debug("[OBJPASS] sortDraw=%uus total=%uus", sortUs, totalUs);
         }
     }
 
