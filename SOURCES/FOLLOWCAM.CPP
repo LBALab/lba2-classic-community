@@ -1663,6 +1663,17 @@ static S32 iso_view_glide(void) {
      * none with this). A shift in whole pixels rounds nothing. A frame whose pan did not change (he
      * stood still, and no blend runs) redraws nothing. */
     iso_view_place(ex, ey, ez);
+
+    /* THE TILE FOLLOWS HIM ACROSS, NOT UP OR DOWN, so a lift or a long fall carries the eye away from
+     * it until it is too far to pan. The test above asked where the eye WAS; asked only there, the
+     * frame he crosses that distance would be drawn with no pan at all and the next one with the tile
+     * moved: the room jumped 43 pixels for one frame and back (cube 220 of the demo, riding up). The
+     * tile goes to him in the frame he gets there, which moves nothing on screen. */
+    if (!iso_view_near(tx, ty, tz) AND iso_view_snap_tile()) {
+        FollowCamIsoCentre(FollowCamIsoCentreX, FollowCamIsoCentreY);
+        SetIsoCamera(StartXCube * SIZE_BRICK_XZ, StartYCube * SIZE_BRICK_Y, StartZCube * SIZE_BRICK_XZ);
+        return 1;
+    }
     return iso_view_apply_pan();
 }
 

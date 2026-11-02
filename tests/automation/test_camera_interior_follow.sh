@@ -71,6 +71,11 @@
 #      the follow's to place, and the tile used to step after him there anyway, a brick at a time with
 #      no pan to smooth it: 12 jumps of about 27 pixels on one walk. The same walk with the switch on
 #      and off must give the same camera trace, apart from the field that reports the switch.
+#  10  A RIDE UP DOES NOT FLASH. The tile follows him across, not up or down, so on a lift the eye
+#      climbs away from it until it is too far to pan; the frame it got there was drawn with no pan
+#      and the next with the tile moved, a 43-pixel jump and back (the demo's cube 220, riding up). The
+#      ride must cross that distance (the tile's height changes) with no frame moving the view more
+#      than RIDE_MAX_PX.
 #   6  A CAMERA ZONE STILL WINS, in an interior and with the switch on. Every interior camera that is
 #      not this option's is a zone's (`SetZoneCamera` re-places `Start*Cube` every frame while the hero
 #      is in the box), and a following camera that overrode one would be a room whose authored shot
@@ -104,6 +109,9 @@ ZONED_TICKS=180
 HANDOVER_CUBE=3
 # A scene in the labyrinth mode (byte 4 of its SCENE.HQR header).
 LABYRINTH_CUBE=26
+# The demo's cube 220 plays a ride up under --demo, with nothing else moving the view.
+RIDE_CUBE=220
+RIDE_MAX_PX=20
 # Traced rows dropped before the tile comparison: the scene load places the view on him, so the first
 # rows of BOTH arms agree by construction and would flatter the control.
 WARMUP_ROWS=30
@@ -152,6 +160,24 @@ labyrinth_arm() {
         --exec "cam_interior $on; camtrace 1; cube $LABYRINTH_CUBE; input up 120" \
         --tick 160 --exit > "$log" 2>&1 \
         || fail "labyrinth run with cam_interior $on failed: exit $? (see $log)"
+}
+
+# ride_stats <log> -- tile heights seen and the largest move of the view in one frame, in pixels.
+ride_stats() {
+    cam_rows "$1" | python3 -c '
+import sys
+prev = None; ys = set(); worst = 0
+for line in sys.stdin:
+    t = line.split(); d = {t[i]: t[i + 1] for i in range(0, len(t) - 1, 2)}
+    if d.get("ext") != "0" or "pany" not in d:
+        prev = None; continue
+    x, y, z = int(d["tx"]) * 512, int(d["ty"]) * 256, int(d["tz"]) * 512
+    s = (3 * (z - x) / 64 + int(d["panx"]), (15 * y - 6 * (x + z)) / 256 + int(d["pany"]))
+    ys.add(d["ty"])
+    if prev:
+        worst = max(worst, ((s[0] - prev[0]) ** 2 + (s[1] - prev[1]) ** 2) ** 0.5)
+    prev = s
+print("heights=%d" % len(ys)); print("worst=%d" % worst)'
 }
 
 # cam_rows <log> -- the camera trace without the field that reports the switch.
@@ -378,7 +404,8 @@ blend_log="$(mktemp)"
 cut_log="$(mktemp)"
 lab_on_log="$(mktemp)"
 lab_off_log="$(mktemp)"
-trap 'rm -f "$follow_log" "$classic_log" "$zoned_log" "$blend_log" "$cut_log" "$lab_on_log" "$lab_off_log"' EXIT
+ride_log="$(mktemp)"
+trap 'rm -f "$follow_log" "$classic_log" "$zoned_log" "$blend_log" "$cut_log" "$lab_on_log" "$lab_off_log" "$ride_log"' EXIT
 
 arm "$INTERIOR_CUBE" 1 "$WALK_TICKS" "$follow_log"
 follow="$(stats "$follow_log")"
@@ -512,4 +539,14 @@ lab_walk="$(cam_rows "$lab_on_log" | awk '{for (i = 1; i < NF; i++) if ($i == "h
 [ "$(cam_rows "$lab_on_log")" = "$(cam_rows "$lab_off_log")" ] \
     || fail "the labyrinth's camera differs with cam_interior 1 (first differing row: $(diff <(cam_rows "$lab_on_log") <(cam_rows "$lab_off_log") | sed -n 2p | cut -c1-200))"
 
-pass "interior follow: view on the hero's tile $on_tile/$tail frames with no overshoot against $classic_tile/$classic_tail classic, the crossing panned over $(get "$follow" lagframes) frames with no whole-brick step, never more than $(get "$follow" stillrun) frame(s) of it standing still and the eye $(get "$follow" eyelag) units off the hero, a camera zone still holds its room, and a hand-over moves the view at most $(get "$blend" jump) px a frame over $(get "$blend" blendlong) frames against $(get "$cut" jump) cut ($(get "$zblend" jump11) against $(get "$zcut" jump11) from zone to zone), rooms open on their final view, and the labyrinth keeps the classic view"
+# 10 The ride up: the tile catches him in the frame he gets too far, with no flash.
+ctl_headless --fixed-dt 16 --exec "cam_interior 1; camtrace 1; cube $RIDE_CUBE" --demo \
+    --tick 300 --exit > "$ride_log" 2>&1 \
+    || fail "ride run in cube $RIDE_CUBE failed: exit $? (see $ride_log)"
+ride="$(ride_stats "$ride_log")"
+[ "$(get "$ride" heights)" -ge 3 ] \
+    || fail "the tile took $(get "$ride" heights) heights in cube $RIDE_CUBE: the ride never left the tile's reach"
+[ "$(get "$ride" worst)" -le "$RIDE_MAX_PX" ] \
+    || fail "the view moved $(get "$ride" worst) px in one frame on the ride up in cube $RIDE_CUBE (at most $RIDE_MAX_PX)"
+
+pass "interior follow: view on the hero's tile $on_tile/$tail frames with no overshoot against $classic_tile/$classic_tail classic, the crossing panned over $(get "$follow" lagframes) frames with no whole-brick step, never more than $(get "$follow" stillrun) frame(s) of it standing still and the eye $(get "$follow" eyelag) units off the hero, a camera zone still holds its room, and a hand-over moves the view at most $(get "$blend" jump) px a frame over $(get "$blend" blendlong) frames against $(get "$cut" jump) cut ($(get "$zblend" jump11) against $(get "$zcut" jump11) from zone to zone), rooms open on their final view, the labyrinth keeps the classic view, and a ride up moves the view at most $(get "$ride" worst) px a frame"
