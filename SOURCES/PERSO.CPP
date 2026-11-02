@@ -3690,6 +3690,10 @@ void ReadConfigFile(void) {
     DisplayDither = DefFileBufferReadValueDefault("DisplayDither", FALSE);
     if (DisplayDither < 0 OR DisplayDither > 1)
         DisplayDither = FALSE;
+    DisplaySoftShadows =
+        DefFileBufferReadValueDefault("DisplaySoftShadows", FALSE);
+    if (DisplaySoftShadows < 0 OR DisplaySoftShadows > 1)
+        DisplaySoftShadows = FALSE;
     DisplaySharpen = DefFileBufferReadValueDefault("DisplaySharpen", 0);
     if (DisplaySharpen < 0 OR DisplaySharpen > 2)
         DisplaySharpen = 0;
@@ -3949,6 +3953,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("DisplayPerspectiveTextures", DisplayPerspectiveTextures);
     DefFileBufferWriteValue("DisplayAntiAlias", DisplayAntiAlias);
     DefFileBufferWriteValue("DisplayDither", DisplayDither);
+    DefFileBufferWriteValue("DisplaySoftShadows", DisplaySoftShadows);
     DefFileBufferWriteValue("DisplaySharpen", DisplaySharpen);
     DefFileBufferWriteValue("DisplayStereo3D", DisplayStereo3D);
     DefFileBufferWriteValue("RenderQuality", RenderQuality);

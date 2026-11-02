@@ -118,6 +118,8 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_IMAGE 2131
 #define MENU_ID_DISPLAY_VR 2132
 #define MENU_ID_DISPLAY_WINDOW 2133
+#define MENU_ID_DISPLAY_EFFECTS 2136
+#define MENU_ID_DISPLAY_SOFTSHADOWS 2137
 
 // Resolution sub-page rows occupy a reserved id range: row i carries id
 // MENU_ID_RESOLUTION_BASE + i, which BuildCustomMenuText and GereResolutionMenu
@@ -188,15 +190,16 @@ U16 GameOptionMenu[] = {
 
 // Display submenu: the small top-level page of display settings. Each group
 // that would otherwise push the list past the 480px framebuffer lives in its
-// own sub-page (Graphics, Image, VR, Window): a row is 50px plus a 6px gap, and
-// eleven rows put the first row above y=0, where BackupAngles indexes
-// TabOffLine[] out of bounds. Keeping the parent at six rows or fewer leaves
-// room for the OpenXR and windowed-mode variants. "Resolution" stays on the
-// parent because it is the primary action and opens its own generated list.
-U16 DisplayMenu[4 + 6 * 2] = {
+// own sub-page (Graphics, Image, Effects, VR, Window): a row is 50px plus a
+// 6px gap, and eleven rows put the first row above y=0, where BackupAngles
+// indexes TabOffLine[] out of bounds. The parent reaches seven rows on a
+// headset build (Back, Resolution, Graphics, Image, Effects, VR, Window),
+// whose first box starts at y=42. "Resolution" stays on the parent because it
+// is the primary action and opens its own generated list.
+U16 DisplayMenu[4 + 8 * 2] = {
     0, // selected
 #ifdef USE_GPURENDERER
-    5, // nb entries (Back, Resolution, Graphics, Image, Window)
+    6, // nb entries (Back, Resolution, Graphics, Image, Effects, Window)
 #else
     3, // nb entries (Back, Resolution, Window)
 #endif
@@ -220,7 +223,8 @@ U16 DisplayMenu[4 + 6 * 2] = {
 // Child pages. Each is rebuilt before its DoGameMenu loop, so the count always
 // matches the rows written; the arrays are sized for their full fixed lists.
 #ifdef USE_GPURENDERER
-static U16 DisplayGraphicsMenu[4 + 6 * 2];
+static U16 DisplayGraphicsMenu[4 + 8 * 2];
+static U16 DisplayEffectsMenu[4 + 6 * 2];
 static U16 DisplayImageMenu[4 + 4 * 2];
 static U16 DisplayVrMenu[4 + 8 * 2];
 static U16 DisplayVrBodyMenu[4 + 3 * 2];
@@ -244,6 +248,8 @@ static void BuildDisplayMenuEntries(void) {
     *p++ = MENU_ID_DISPLAY_GRAPHICS;
     *p++ = 0;
     *p++ = MENU_ID_DISPLAY_IMAGE;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_EFFECTS;
     if (OpenXR_IsActive()) {
         *p++ = 0;
         *p++ = MENU_ID_DISPLAY_VR;
@@ -288,6 +294,21 @@ static void BuildDisplayGraphicsMenu(void) {
     *p++ = MENU_ID_DISPLAY_QUALITY;
 #endif
     DisplayGraphicsMenu[1] = (U16)((p - DisplayGraphicsMenu - 4) / 2);
+}
+
+/* Look-changing effects, all off by default.  They live on their own page
+   because the Graphics page is already at the row count that still fits the
+   480-tall canvas. */
+static void BuildDisplayEffectsMenu(void) {
+    U16 *p = DisplayEffectsMenu + 4;
+    DisplayEffectsMenu[0] = 0;
+    DisplayEffectsMenu[2] = 260;
+    DisplayEffectsMenu[3] = 0;
+    *p++ = 0;
+    *p++ = 26;
+    *p++ = 0;
+    *p++ = MENU_ID_DISPLAY_SOFTSHADOWS;
+    DisplayEffectsMenu[1] = (U16)((p - DisplayEffectsMenu - 4) / 2);
 }
 
 static void BuildDisplayImageMenu(void) {
@@ -675,6 +696,15 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_IMAGE:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_IMAGE));
+        break;
+
+    case MENU_ID_DISPLAY_EFFECTS:
+        snprintf(string, 256, "Effects");
+        break;
+
+    case MENU_ID_DISPLAY_SOFTSHADOWS:
+        snprintf(string, 256, "Soft shadows: %s",
+                 DisplaySoftShadows ? "On" : "Off");
         break;
 
     case MENU_ID_DISPLAY_VR:
@@ -3801,6 +3831,11 @@ static void DisplayMenuApplyChoice(S32 select) {
         WriteConfigFile();
         break;
 
+    case MENU_ID_DISPLAY_SOFTSHADOWS:
+        DisplaySoftShadows ^= 1;
+        WriteConfigFile();
+        break;
+
     case MENU_ID_DISPLAY_SHARPEN:
         DisplaySharpen = (DisplaySharpen + 1) % 3;
         WriteConfigFile();
@@ -3920,6 +3955,11 @@ static void GereDisplayGraphicsMenu(void) {
     GereDisplaySubMenu(DisplayGraphicsMenu);
 }
 
+static void GereDisplayEffectsMenu(void) {
+    BuildDisplayEffectsMenu();
+    GereDisplaySubMenu(DisplayEffectsMenu);
+}
+
 static void GereDisplayImageMenu(void) {
     BuildDisplayImageMenu();
     GereDisplaySubMenu(DisplayImageMenu);
@@ -3970,8 +4010,8 @@ S32 GereDisplayMenu(void) {
 
     /* Rows are rebuilt by BuildDisplayMenuEntries so the count always
        matches the (type, id) pairs actually written: Back + Resolution
-       + [Graphics + Image if GPURENDERER] + [VR if an immersive OpenXR
-       session is active] + Window. */
+       + [Graphics + Image + Effects if GPURENDERER] + [VR if an immersive
+       OpenXR session is active] + Window. */
     BuildDisplayMenuEntries();
 
     DisplayMenuResetBackdrop();
@@ -3998,6 +4038,11 @@ S32 GereDisplayMenu(void) {
 
         case MENU_ID_DISPLAY_IMAGE:
             GereDisplayImageMenu();
+            break;
+
+        case MENU_ID_DISPLAY_EFFECTS:
+            GereDisplayEffectsMenu();
+            DisplayMenuResetBackdrop();
             break;
 
         case MENU_ID_DISPLAY_VR:

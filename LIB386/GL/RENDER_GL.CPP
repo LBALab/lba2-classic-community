@@ -74,6 +74,7 @@ extern "C" S32 DisplayAntiAlias;
 extern "C" S32 DisplayDither;
 extern "C" S32 DisplaySharpen;
 extern "C" S32 DisplayStereo3D;
+extern "C" S32 DisplaySoftShadows;
 
 /* Present-side sharpening strength: 0 = off, 1 = low, 2 = high. */
 static float GL_SharpenAmount(void) {
@@ -6491,15 +6492,11 @@ void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
    staying faithful. */
 void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
                        U32 level, S32 terrainBias) {
-    Struc_Point pts[64];
     U16 tris[3 * 64];
     static U8 polyVerts[3 * 64 * BATCH_VERT_BYTES];
     S32 ntri;
     S32 nv;
     S32 i;
-    /* Material: polyMode 6 (shadow multiply); the vertex colour byte is
-       the shadow level — the shader derives (15 - level) / 15 from it. */
-    const U16 shadowMat = (U16)(6 | ((U16)(level & 15) << 8));
 
     if (GL_SecondEyePass())
         return;
@@ -6531,12 +6528,6 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
 
     if (!Window_GLMakeCurrent()) {
         return;
-    }
-
-    for (i = 0; i < n; i++) {
-        memset(&pts[i], 0, sizeof(Struc_Point));
-        pts[i].Pt_XE = xs[i];
-        pts[i].Pt_YE = ys[i];
     }
 
     /* Occlusion reference depth.  The SW path never tests the shadow against
@@ -6608,47 +6599,95 @@ void GL_DrawShadowPoly(const S16 *xs, const S16 *ys, const U16 *az, S32 n,
        can go concave — a fan from vertex 0 would spill outside the
        outline (same reason the batch polys triangulate). */
     GL_MarkFBORegion(mx0, my0, mx1, my1);
-    ntri = GL_TriangulatePolygon(pts, n, tris);
 
-    if (ntri > 0) {
+    /* Soft shadows: the same outline drawn as four concentric rings, each
+       multiplying the scene by the fourth root of the intended shade.  A
+       point inside all four receives the original darkening; a point near
+       the edge is covered by fewer rings and stays lighter, so the hard
+       multiply edge becomes a short gradient.  Scaling in screen space about
+       the outline centroid is exact for a shadow lying on the ground. */
+    const S32 rings = DisplaySoftShadows ? 4 : 1;
+    U32 ringLevel = level & 15;
+    if (rings > 1) {
+        const float fTotal = (float)(15 - (S32)ringLevel) / 15.0f;
+        const float fRing = sqrtf(sqrtf(fTotal));
+        S32 l = (S32)lrintf(15.0f - 15.0f * fRing);
+        if (l < 0)
+            l = 0;
+        else if (l > 15)
+            l = 15;
+        ringLevel = (U32)l;
+    }
+    /* Material: polyMode 6 (shadow multiply); the vertex colour byte is the
+       shadow level — the shader derives (15 - level) / 15 from it. */
+    const U16 ringMat = (U16)(6 | ((U16)ringLevel << 8));
+
+    float cx = 0.0f, cy = 0.0f;
+    for (i = 0; i < n; i++) {
+        cx += (float)xs[i];
+        cy += (float)ys[i];
+    }
+    cx /= (float)n;
+    cy /= (float)n;
+
+    /* The vertex arrays read the one stream VBO, so they are specified once
+       for every ring; each ring only re-uploads the buffer.  The buffer must
+       be bound before the pointers are captured: glVertexAttribPointer
+       records the buffer current at call time. */
+    GL_BindArrayBuffer(s_batchVBO);
+    glEnableVertexAttribArray(s_clut_aPos);
+    glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
+                          (const void *)0);
+    glEnableVertexAttribArray(s_clut_aTexCoord);
+    glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)4);
+    glEnableVertexAttribArray(s_clut_aLight);
+    glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)8);
+    glEnableVertexAttribArray(s_clut_aZ);
+    glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)10);
+    glEnableVertexAttribArray(s_clut_aRepMask);
+    glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)12);
+    glEnableVertexAttribArray(s_clut_aMaterial);
+    glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
+                          (const void *)14);
+
+    for (S32 r = 0; r < rings; r++) {
+        Struc_Point ringPts[64];
+        const float scale = 1.0f - 0.055f * (float)r;
+
+        for (i = 0; i < n; i++) {
+            memset(&ringPts[i], 0, sizeof(Struc_Point));
+            ringPts[i].Pt_XE =
+                (S16)lrintf(cx + ((float)xs[i] - cx) * scale);
+            ringPts[i].Pt_YE =
+                (S16)lrintf(cy + ((float)ys[i] - cy) * scale);
+        }
+
+        ntri = GL_TriangulatePolygon(ringPts, n, tris);
+        if (ntri <= 0)
+            continue;
+
         nv = ntri;
         for (i = 0; i < nv; i++) {
             U8 *v = polyVerts + i * BATCH_VERT_BYTES;
             S32 c = tris[i];
-            S16 x = xs[c];
-            S16 y = ys[c];
+            S16 x = ringPts[c].Pt_XE;
+            S16 y = ringPts[c].Pt_YE;
             U16 z = ((S32)az[c] > bias) ? (U16)(az[c] - bias) : 0;
             memcpy(v + 0, &x, 2);
             memcpy(v + 2, &y, 2);
             memset(v + 4, 0, 6); /* UV, light = 0 (unused) */
             memcpy(v + 10, &z, 2);
             memset(v + 12, 0, 2); /* RepMask = 0 */
-            memcpy(v + 14, &shadowMat, 2);
+            memcpy(v + 14, &ringMat, 2);
         }
 
-        GL_BindArrayBuffer(s_batchVBO);
         /* Orphan + upload in one call: see GL_FlushBatch. */
         glBufferData(GL_ARRAY_BUFFER, nv * BATCH_VERT_BYTES, polyVerts,
                      GL_STREAM_DRAW);
-
-        glEnableVertexAttribArray(s_clut_aPos);
-        glVertexAttribPointer(s_clut_aPos, 2, GL_SHORT, GL_FALSE, 16,
-                              (const void *)0);
-        glEnableVertexAttribArray(s_clut_aTexCoord);
-        glVertexAttribPointer(s_clut_aTexCoord, 2, GL_UNSIGNED_SHORT, GL_FALSE,
-                              16, (const void *)4);
-        glEnableVertexAttribArray(s_clut_aLight);
-        glVertexAttribPointer(s_clut_aLight, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
-                              (const void *)8);
-        glEnableVertexAttribArray(s_clut_aZ);
-        glVertexAttribPointer(s_clut_aZ, 1, GL_UNSIGNED_SHORT, GL_FALSE, 16,
-                              (const void *)10);
-        glEnableVertexAttribArray(s_clut_aRepMask);
-        glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE,
-                              16, (const void *)12);
-        glEnableVertexAttribArray(s_clut_aMaterial);
-        glVertexAttribPointer(s_clut_aMaterial, 1, GL_UNSIGNED_SHORT, GL_FALSE,
-                              16, (const void *)14);
 
         GL_DrawStereoClut(GL_TRIANGLES, 0, nv);
         s_profTris += (U32)nv / 3;

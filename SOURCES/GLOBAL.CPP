@@ -96,6 +96,7 @@ S32 DisplayTexFilter = TRUE;
 S32 DisplayPerspectiveTextures = FALSE;                           /* opt-in perspective-correct decor/object batch mapping */
 S32 DisplayAntiAlias = 0; /* 0=off, 1=FXAA, 2=MSAA×2, 3=MSAA×4 */ /* bilinear by default in GL mode */
 S32 DisplayDither = FALSE; /* ordered dither between CLUT rows (GL only) */
+S32 DisplaySoftShadows = FALSE; /* feathered ground shadows (GL only) */
 S32 DisplaySharpen = 0; /* present sharpening: 0=off, 1=low, 2=high (GL only) */
 S32 RenderQuality = 1; /* native resolution by default */
 #endif

@@ -123,6 +123,7 @@ extern S32 DisplayTexFilter;
 extern S32 DisplayPerspectiveTextures; ///< opt-in perspective-correct decor/object mapping (GL batch)
 extern S32 DisplayAntiAlias;  ///< 0 = off, 1 = FXAA, 2 = MSAA×2, 3 = MSAA×4
 extern S32 DisplayDither;     ///< 1 = ordered dither between CLUT rows (GL mode only)
+extern S32 DisplaySoftShadows; ///< 1 = feathered ground shadows (GL mode only)
 extern S32 DisplaySharpen;    ///< 0 = off, 1 = low, 2 = high present sharpening (GL mode only)
 extern S32 RenderQuality;     ///< 1 = native, 2 = 2x SSAA, 4 = 4x SSAA (GL mode only)
 #endif
