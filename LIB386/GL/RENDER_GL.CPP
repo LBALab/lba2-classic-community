@@ -1016,7 +1016,21 @@ static const char *s_clutFragSrc =
         tiles share one draw call. */
     "        float gouraudRow =\n"
     "            floor((vLight + ditherPhase * 256.0 + 128.0) / 256.0) + mColor;\n"
-    "        if (uBilinear == 4) {\n"
+    /* Chroma-keyed decor textures keep the software renderer's nearest
+       sampling.  The edge-directed filters move the bright texel toward a
+       neighbour by a fraction of the sub-texel phase, so on an oblique
+       lattice the pattern shifts inside its own geometry as the camera
+       moves; the two stereo eyes land on different phases and the pattern
+       then slides against the untextured frame. */
+    "        if (mChroma > 0.5) {\n"
+    "            float wrappedU = mod(tc.x, widthMask + 1.0);\n"
+    "            float wrappedV = mod(tc.y, heightMask + 1.0);\n"
+    "            vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
+    "                                (floor(wrappedV) + 0.5) / 256.0);\n"
+    "            float texel = texture2D(uAtlas, atlasUV).r * 255.0;\n"
+    "            if (texel < 0.5) discard;\n"
+    "            color = clutLookup(texel, gouraudRow);\n"
+    "        } else if (uBilinear == 4) {\n"
     "            color = clutXbrLite(tc, widthMask, heightMask, gouraudRow,\n"
     "                                mChroma, 0.0);\n"
     "        } else if (uBilinear == 3) {\n"
@@ -1702,6 +1716,10 @@ static const char *s_arrayInject =
        through 65536 first so the division lands in [0,256) texel units. */
     "    float wu = mod(tc.x, 65536.0) / 256.0;\n"
     "    float wv = mod(tc.y, 65536.0) / 256.0;\n"
+    /* Same rule as the legacy mode-0 chain: a chroma-keyed texture is
+       nearest-sampled so the filtered colour cannot slide the pattern
+       across its own transparent holes. */
+    "    bilin = (chroma > 0.5) ? 0.0 : bilin;\n"
     "    if (bilin > 3.5) {\n"
     "        return arrayXbrLite(vec2(wu, wv), layer, gouraudRow, chroma);\n"
     "    }\n"
