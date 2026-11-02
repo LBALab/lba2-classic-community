@@ -55,7 +55,7 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 
 | Command       | Description |
 |---------------|-------------|
-| **cube** &lt;n&gt; | Request change to cube number &lt;n&gt; (applied next frame in game; cube changes no longer trigger autosave). |
+| **cube** &lt;n&gt; | Request change to cube number &lt;n&gt; (applied next frame in game; cube changes no longer trigger autosave). A number the game data has no scene for (past 221 on the full game, or below 0) is refused with the valid range, and the console stays open. |
 | **load**      | Load save by player name as printed by `listsaves`, or by file name (with optional `.lba`). |
 | **loadbug**   | Load bug save by name or file (optional `.lba`), default `bug`. |
 | **listsaves** | List save games (player names from .lba files). |

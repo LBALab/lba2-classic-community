@@ -38,6 +38,7 @@ extern S32 GfxDitherShading;
 #include <SYSTEM/CDTRACKS.H>
 #include <SYSTEM/CUE.H>
 #include <SYSTEM/DISCIMG.H>
+#include <SYSTEM/HQFILE.H> // HQF_NbRes: the cube command's range
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/STRING.H>
@@ -97,8 +98,25 @@ static void cmd_cube(int argc, const char *argv[]) {
         Console_Print("Usage: cube <number>");
         return;
     }
+    char *end;
+    long cube = strtol(argv[1], &end, 0);
+    if (end == argv[1] || *end != '\0') {
+        Console_Print("cube: '%s' is not a number", argv[1]);
+        return;
+    }
+
+    /* SCENE.HQR holds the largest scene size in entry 0, so cube N is entry N + 1. Its last
+       offset is the end of the file, not a scene: reading it loads a header that is not there. */
+    char scenePath[ADELINE_MAX_PATH];
+    GetResPath(scenePath, ADELINE_MAX_PATH, SCENE_HQR_NAME);
+    S32 nbCubes = HQF_NbRes(scenePath) - 1;
+    if (cube < 0 || cube >= nbCubes) {
+        Console_Print("cube: no cube %ld, the scenes are 0 to %d", cube, nbCubes - 1);
+        return;
+    }
+
     Console_Close();
-    NewCube = (S32)strtol(argv[1], NULL, 0);
+    NewCube = (S32)cube;
     Console_Print("Cube %d (change on next frame)", NewCube);
 }
 

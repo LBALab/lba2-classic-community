@@ -32,6 +32,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   save made on that frame kept the menu as its thumbnail
   ([#832](https://github.com/LBALab/lba2-classic-community/issues/832)).
 
+### Developer tools
+
+- The console's `cube` command refuses a cube the game data does not have, and
+  says which ones it has, instead of crashing. `cube 222` read past the end of
+  the scene file and stopped the engine; a negative number, a huge one or text
+  was taken too
+  ([#765](https://github.com/LBALab/lba2-classic-community/issues/765)).
+
 ### Contributors
 
 Thanks to SIN for the interior follow camera: they designed and wrote it, with
