@@ -53,6 +53,7 @@ The container for nearly everything. Source of truth: `LIB386/SYSTEM/HQFILE.CPP`
 file:
   u32  offsetTable[ N ]     # N = offsetTable[0] / 4  (first offset doubles as the count)
                             #   each entry = byte offset of that entry's header, 0 = empty slot
+                            #   the last one is the file size, not an entry (N - 1 entries)
 entry (at offsetTable[i]):
   u32  SizeFile             # decompressed size
   u32  CompressedSizeFile   # stored size of the payload that follows
@@ -64,6 +65,13 @@ Entries are addressed by **fixed index** — the engine hard-codes which slot ho
 the ACF list, a palette, a font). Drop-in identical across LBA1/TC/LBA2; verified by reading
 every retail archive of all three with `hqr_inspect.py`
 ([LBA1_PORTING_SURFACE.md § verified](LBA1_PORTING_SURFACE.md#verified-against-lba1-retail-data-2026-06-04)).
+
+`HQF_Init` returns 0 (no entry) for an index outside the table, an empty slot, the last slot,
+an offset whose header the file does not hold, and a compressed entry larger than its size plus
+`RECOVER_AREA` (`HQF_LoadClose` would read it to before the caller's buffer); `HQF_LoadClose`
+returns 0 when the data that follows is short. Every
+loader (`Load_HQR`, `LoadMalloc_HQR`, `HQRM_Load`, `HQR_Get`, `HQF_ResSize`) goes through it.
+`tests/hqfile` covers each case.
 
 ## LZSS / LZMIT — compression
 
