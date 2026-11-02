@@ -40,6 +40,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   was taken too
   ([#765](https://github.com/LBALab/lba2-classic-community/issues/765)).
 
+- `cube 94`, the sea past an island's edge where Twinsen drowns, is refused
+  indoors instead of crashing: it draws the island already loaded, and indoors
+  there is none. From outdoors it keeps the island the hero is on, where it used
+  to switch to Citadel's, and Twinsen drowns in open sea
+  ([#765](https://github.com/LBALab/lba2-classic-community/issues/765)).
+
 ### Stability & fixes
 
 - Reading an entry a game data file does not hold now fails cleanly instead of

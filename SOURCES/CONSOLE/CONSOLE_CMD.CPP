@@ -115,6 +115,20 @@ static void cmd_cube(int argc, const char *argv[]) {
         return;
     }
 
+    /* The phantom cube is the sea past an island's edge. It loads no island of its own and
+       draws the horizon from the one in memory, on the island walking off the edge records
+       (DoAnimExt in EXTFUNC.CPP). Indoors no island is loaded, so it would draw from data
+       that was never read. The map square is not set here: DoAnimExt clears PhantomX and
+       PhantomY every frame before the change applies, so the console's sea is the island
+       map's corner square (0, 0), open sea on every island. */
+    if (cube == NUM_CUBE_PHANTOM) {
+        if (CubeMode != CUBE_EXTERIEUR) {
+            Console_Print("cube: %d is the sea past an island's edge; go outdoors first", NUM_CUBE_PHANTOM);
+            return;
+        }
+        PhantomIsland = Island;
+    }
+
     Console_Close();
     NewCube = (S32)cube;
     Console_Print("Cube %d (change on next frame)", NewCube);
