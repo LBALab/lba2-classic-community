@@ -99,6 +99,12 @@ The throw still consumes magic, plays the magic-ball sample, and arms the
 usual recall: after the release the next Throw press returns the ball.
 `LBA2_NO_VR_THROW=1` restores the animation-driven throw for comparison.
 
+If a tracked hand reaches farther than Twinsen's arm can, the visible ghost
+scales its upper-arm and forearm groups along the bone (up to 2×) so the hand
+meets the controller instead of stopping at the model's reach. The hand mesh
+stretches with the forearm; the rig is rebuilt from the unmodified body every
+frame, and the stretched copy is used only for drawing the ghost.
+
 The deadzone is shared with the rest of the gamepad (`GamepadDeadzone`). There is
 no stick zoom: the triggers are movement and the remaining buttons are bound, so
 zoom stays on the keyboard and mouse.

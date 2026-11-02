@@ -82,6 +82,16 @@ static S32 s_poleInit[2] = {0, 0};
 static S32 s_vrBodyHqr = -1;
 static T_OBJET *s_vrHero = NULL;
 static T_OBJ_3D s_vrGhost;
+
+/* When the tracked hand is farther than the model's arm can reach, draw the
+   ghost from a private body copy whose arm groups are scaled along their
+   bones.  The copy is refreshed from the HQR body every frame, so no state
+   survives a body swap. */
+#define VR_MAX_ARM_STRETCH 2.0f
+#define VR_BODY_COPY_PAD 64
+static U8 *s_vrBodyCopy = NULL;
+static U32 s_vrBodyCopySize = 0;
+static S32 s_vrBodyCopyActive = 0;
 /* Body yaw eases toward the view yaw.  A rigid body that shares the camera
  * yaw is locked to the screen during a stick turn, so only the walk clip
  * appears to move; the short catch-up makes the torso and hands visibly
@@ -602,7 +612,8 @@ static void VrMatMul(VR_MAT3 *out, const VR_MAT3 *a, const VR_MAT3 *b) {
 static void VrSolveArm(const TYPE_MAT *parentMat, const float shoulder[3],
                        const float elbow[3], const float hand[3],
                        const float target[3], const float handUp[3],
-                       S32 out[2][3]) {
+                       S32 out[2][3], float *stretchOut, S32 canStretch,
+                       float solvedElbow[3]) {
     float upperRest[3], foreRest[3];
     float d[3], u[3], pole[3], v[3];
     float l1, l2, dlen, a, hgt;
@@ -611,6 +622,7 @@ static void VrSolveArm(const TYPE_MAT *parentMat, const float shoulder[3],
     VR_MAT3 parent, upperLocal, foreLocal, upperBody;
 
     VrMat3FromEngine(parentMat, &parent);
+    *stretchOut = 1.0f;
 
     for (S32 i = 0; i < 3; i++) {
         upperRest[i] = elbow[i] - shoulder[i];
@@ -621,15 +633,26 @@ static void VrSolveArm(const TYPE_MAT *parentMat, const float shoulder[3],
                upperRest[2] * upperRest[2]);
     l2 = sqrtf(foreRest[0] * foreRest[0] + foreRest[1] * foreRest[1] +
                foreRest[2] * foreRest[2]);
-    dlen = sqrtf(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+    const float trueDlen = sqrtf(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+    dlen = trueDlen;
     if (dlen < 1e-3f)
         dlen = 1e-3f;
+    if (canStretch && trueDlen > l1 + l2 - 1.0f) {
+        *stretchOut = trueDlen / (l1 + l2);
+        if (*stretchOut > VR_MAX_ARM_STRETCH)
+            *stretchOut = VR_MAX_ARM_STRETCH;
+        l1 *= *stretchOut;
+        l2 *= *stretchOut;
+    }
     if (dlen > l1 + l2 - 1.0f)
         dlen = l1 + l2 - 1.0f;
     if (dlen < fabsf(l1 - l2) + 1.0f)
         dlen = fabsf(l1 - l2) + 1.0f;
+    /* Normalise against the real target, not the clamped distance: when the
+       reach is capped the elbow must stay along the shoulder-to-hand line. */
+    const float norm = (trueDlen > 1e-3f) ? trueDlen : 1.0f;
     for (S32 i = 0; i < 3; i++)
-        u[i] = d[i] / dlen;
+        u[i] = d[i] / norm;
 
     a = (l1 * l1 - l2 * l2 + dlen * dlen) / (2.0f * dlen);
     hgt = l1 * l1 - a * a;
@@ -669,6 +692,8 @@ static void VrSolveArm(const TYPE_MAT *parentMat, const float shoulder[3],
         elbowOut[i] = shoulder[i] + u[i] * a + v[i] * hgt;
         upper[i] = elbowOut[i] - shoulder[i];
         fore[i] = target[i] - elbowOut[i];
+        if (solvedElbow != NULL)
+            solvedElbow[i] = elbowOut[i];
     }
 
     VrVecByInverse(&parent, upperRest, rawUpper);
@@ -750,6 +775,95 @@ static S32 VrBuildRig(const T_OBJ_3D *obj, const T_BODY_HEADER *body,
         offset = (U16)(offset + grp->NbPts);
     }
     return 1;
+}
+
+/* End offset of the last body section.  Used only to size the private copy;
+   the format keeps all sections before the texture-handle table. */
+static S32 VrBodyCopyEnd(const T_BODY_HEADER *body) {
+    S32 end = body->SizeHeader;
+    S32 e;
+
+    e = body->OffGroupes + body->NbGroupes * (S32)sizeof(VR_GROUP);
+    if (e > end)
+        end = e;
+    e = body->OffPoints + body->NbPoints * (S32)sizeof(TYPE_VT16);
+    if (e > end)
+        end = e;
+    e = body->OffNormales + body->NbNormales * (S32)sizeof(TYPE_VT16);
+    if (e > end)
+        end = e;
+    e = body->OffNormFaces + body->NbNormFaces * (S32)sizeof(TYPE_VT16);
+    if (e > end)
+        end = e;
+    if (body->OffPolys > end)
+        end = body->OffPolys;
+    e = body->OffLines + body->NbLines * 8;
+    if (e > end)
+        end = e;
+    e = body->OffSpheres + body->NbSpheres * 8;
+    if (e > end)
+        end = e;
+    e = body->OffTextures + body->NbTextures * 4;
+    if (e > end)
+        end = e;
+    if (end < (S32)sizeof(T_BODY_HEADER))
+        end = (S32)sizeof(T_BODY_HEADER);
+    return end;
+}
+
+static U8 *VrEnsureBodyCopy(const T_BODY_HEADER *body) {
+    if (body == NULL)
+        return NULL;
+    const S32 end = VrBodyCopyEnd(body);
+    const U32 span = (U32)end + VR_BODY_COPY_PAD;
+    if (s_vrBodyCopy == NULL || s_vrBodyCopySize < span) {
+        U8 *grown = (U8 *)realloc(s_vrBodyCopy, (size_t)span);
+        if (grown == NULL)
+            return NULL;
+        s_vrBodyCopy = grown;
+        s_vrBodyCopySize = span;
+    }
+    memcpy(s_vrBodyCopy, body, (size_t)end);
+    return s_vrBodyCopy;
+}
+
+static S16 VrStretchCoord(float v) {
+    if (v < -32768.0f)
+        v = -32768.0f;
+    else if (v > 32767.0f)
+        v = 32767.0f;
+    return (S16)lrintf(v);
+}
+
+/* Scale a group's points along one bone axis, leaving the thickness alone. */
+static void VrStretchGroup(TYPE_VT16 *dst, const TYPE_VT16 *src, S32 slice,
+                           S32 count, const TYPE_VT16 *from,
+                           const TYPE_VT16 *to, float stretch) {
+    if (stretch <= 1.0001f)
+        return;
+    float dir[3] = {(float)to->X - (float)from->X,
+                    (float)to->Y - (float)from->Y,
+                    (float)to->Z - (float)from->Z};
+    const float len =
+        sqrtf(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+    if (len < 1e-3f)
+        return;
+    dir[0] /= len;
+    dir[1] /= len;
+    dir[2] /= len;
+    for (S32 i = 0; i < count; i++) {
+        const TYPE_VT16 *p = &src[slice + i];
+        TYPE_VT16 *q = &dst[slice + i];
+        const float dx = (float)p->X - (float)from->X;
+        const float dy = (float)p->Y - (float)from->Y;
+        const float dz = (float)p->Z - (float)from->Z;
+        const float along = dx * dir[0] + dy * dir[1] + dz * dir[2];
+        const float k = along * (stretch - 1.0f);
+        q->X = VrStretchCoord((float)p->X + dir[0] * k);
+        q->Y = VrStretchCoord((float)p->Y + dir[1] * k);
+        q->Z = VrStretchCoord((float)p->Z + dir[2] * k);
+        q->Grp = p->Grp;
+    }
 }
 
 /* Hand target in body-local space, relative to the solved head origin. */
@@ -853,6 +967,7 @@ void VrBody_Update(void) {
     s_vrArmValid[1] = 0;
     s_vrPalmValid[0] = 0;
     s_vrPalmValid[1] = 0;
+    s_vrBodyCopyActive = 0;
 
     if (!VrFullBody || !CameraFirstPerson || CubeMode != CUBE_EXTERIEUR ||
         !DisplayStereo3D || !OpenXR_IsActive() || CinemaMode) {
@@ -930,6 +1045,8 @@ void VrBody_Update(void) {
 
     if (!VrBuildRig(&ghost, body, &rig))
         return;
+
+    U8 *bodyCopy = VrEnsureBodyCopy(body);
 
     /* Head-group centroid: eyes sit near the middle of the head mesh at
        about y=1150.  Groups 15/16 are the ponytail at the back, so they are
@@ -1105,17 +1222,37 @@ void VrBody_Update(void) {
             handRest[1] = (float)p->Y;
             handRest[2] = (float)p->Z;
         }
+        float stretch = 1.0f;
+        float solvedElbow[3];
         VrSolveArm(&rig.mat[groups[upper].OrgGroupe], shoulder, elbow,
                    handRest, handTarget[hand], handPole[hand],
-                   s_vrArmAngles[hand]);
+                   s_vrArmAngles[hand], &stretch, bodyCopy != NULL,
+                   solvedElbow);
         s_vrArmValid[hand] = 1;
+
+        if (stretch > 1.0001f && bodyCopy != NULL && bestIdx >= 0) {
+            const TYPE_VT16 *src = (const TYPE_VT16 *)((const U8 *)body +
+                                                       body->OffPoints);
+            TYPE_VT16 *dst =
+                (TYPE_VT16 *)(bodyCopy + body->OffPoints);
+            const VR_GROUP *ug = groups + upper;
+            const TYPE_VT16 *shoulderRaw = &src[ug->OrgPoint];
+            const TYPE_VT16 *elbowRaw = &src[fg->OrgPoint];
+            const TYPE_VT16 *handRaw = &src[rig.slice[fore] + bestIdx];
+            VrStretchGroup(dst, src, rig.slice[upper], ug->NbPts,
+                           shoulderRaw, elbowRaw, stretch);
+            VrStretchGroup(dst, src, rig.slice[fore], fg->NbPts, elbowRaw,
+                           handRaw, stretch);
+            s_vrBodyCopyActive = 1;
+        }
 
         /* The IK target is the fingertip; move a quarter of the way back to
            the elbow so the held ball sits in the palm, not past the hand. */
         {
-            float dx = handTarget[hand][0] - elbow[0];
-            float dy = handTarget[hand][1] - elbow[1];
-            float dz = handTarget[hand][2] - elbow[2];
+            const float *palmBase = (stretch > 1.0f) ? solvedElbow : elbow;
+            float dx = handTarget[hand][0] - palmBase[0];
+            float dy = handTarget[hand][1] - palmBase[1];
+            float dz = handTarget[hand][2] - palmBase[2];
             const float len = sqrtf(dx * dx + dy * dy + dz * dz);
             float palm[3];
             if (len > 1e-3f) {
@@ -1202,7 +1339,18 @@ void VrBody_DrawFirstPerson(void *ptrobj) {
        last object changes. */
     UnsetClip();
     NearClip = 1;
+
+    /* A stretched arm is drawn from the private body copy, which has the
+       scaled point tables.  ObjectDisplay only takes the copy pointer when
+       TransFctBody is null. */
+    Func_TransNumPtr *oldTrans = TransFctBody;
+    if (s_vrBodyCopyActive && s_vrBodyCopy != NULL) {
+        ghost.Body.Ptr = s_vrBodyCopy;
+        TransFctBody = NULL;
+    }
     ObjectDisplay(&ghost);
+    TransFctBody = oldTrans;
+
     ObjHiddenGroupMask = oldMask;
     NearClip = oldNear;
 }

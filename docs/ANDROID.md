@@ -219,6 +219,11 @@ fire trail and the release/recall flags are unchanged. This path is
 independent of the full-body ghost, so it also works with `VrFullBody` off.
 `LBA2_NO_VR_THROW=1` restores the animation-driven throw for A/B.
 
+If a tracked hand is farther than the model can reach, the first-person ghost
+scales its upper-arm and forearm groups along the bone (up to 2×) so the hand
+meets the controller. The unmodified body is still used for the rig and IK; the
+scaled body copy exists only for the ghost draw.
+
 The optional interior hover rig (`VrInteriorHover`, Display → VR → Interior
 hover, console `vrhover`) treats the head as a camera flying over the room. A
 head turn moves the isometric projection centre by exactly the angle turned
