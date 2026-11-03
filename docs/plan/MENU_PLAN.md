@@ -510,7 +510,10 @@ wide rather than 120, so the longest action name, "Behaviour action", clears the
 8. A key another action already has is refused, as the 1997 screen does: the old key stays and
 the help says what to do ("Clear C on Protection spell first."). Nothing changes that the
 player did not choose; a swap would change an action out of view, and a key on two actions
-would fire both in play. A clash that comes in from an edited `lba2.cfg` is framed red. The names the buttons of the
+would fire both in play. A clash that comes in from an edited `lba2.cfg` is framed red. While
+the page waits for a key, the help says the way out: "Press a key, or Esc to keep it.", and on
+the gamepad view "Press a button, or wait to keep it.": every pad button can be bound, so none
+is kept back for cancelling, and after 5 s the wait ends with nothing changed. The names the buttons of the
 pad in use (#371), and each device's bindings have their own reset. Rebound movement keys (WASD,
 say) do not move the menu cursor, which uses fixed keys ([MENU.md](../MENU.md#navigation)), and
 a PC player who rebinds will notice. The 1997 screen stays.
