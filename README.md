@@ -1,24 +1,50 @@
-# Little Big Adventure 2 Classic Community
+# Little Big Adventure 2 — Meta Quest port (AI experiment)
 
-Little Big Adventure 2 (aka Twinsen's Odyssey) is the sequel to Little Big Adventure (aka Relentless: Twinsen's Adventure) in 1997.
+This repository is a fork of [LBALab/lba2-classic-community](https://github.com/LBALab/lba2-classic-community).
 
-This repository is the community fork of the classic source release — a source port maintained with preservation in mind while improving portability and long-term maintainability. Game assets aren't included; you need a legitimate copy of LBA2 to play.
+The purpose of this fork is a **native Meta Quest port of Twinsen's Odyssey** (Little Big Adventure 2). The port is an experiment developed entirely with AI coding agents; it is not an official LBALab release, and its changes should be treated as experimental.
 
-For a history of project changes, please see the [CHANGELOG.md](CHANGELOG.md).
+The OpenGL/GLES renderer is the one contributed in [PR #457 by Link4Electronics](https://github.com/LBALab/lba2-classic-community/pull/457). Everything else builds on the community fork: SDL3, libsmacker, the OpenXR/Quest layer, the VR options, movie upscaling and the reworked menus.
+
+Target performance on Quest is **72 fps**, and the game is mostly stable at that rate through a playthrough.
+
+## What this fork adds
+
+| Area | Improvement / option | Notes |
+|---|---|---|
+| Graphics | OpenGL/GLES renderer | From [PR #457](https://github.com/LBALab/lba2-classic-community/pull/457) by Link4Electronics; the software renderer remains a runtime fallback |
+| Graphics | Runtime resolution and widescreen | Selectable from the Display menu; 320×200 up to 1920×1080 |
+| Graphics | Texture filters | Nearest, Bilinear, Scale2x, xBR, xBR Lite; applied per texture on world geometry |
+| Graphics | Antialiasing | Off, FXAA, MSAA×2, MSAA×4; Quest caps at MSAA×2 |
+| Graphics | Render quality (SSAA) | Native, 2×, 4×; Quest is clamped to Native |
+| Graphics | Image adjustments | Brightness, contrast and saturation at composite time |
+| Graphics | Post effects | Dithering, sharpening, colour grade, soft shadows and sub-pixel interior pan |
+| Graphics | Perspective-correct textures | Always on for opaque decor/object polygons; chroma-keyed polys stay affine |
+| Graphics | Movie upscaling | Nearest, Scale2x or xBR; default xBR and independent of the game texture filter |
+| Quest | Native OpenXR | Android arm64 build, immersive session, stereo 3D and single-pass stereo |
+| Quest | VR presentation | VR zoom, supersampling, interior hover, sub-pixel pan, interior passthrough and a 70% movie screen |
+| Quest | First-person body | Full-body hand IK and world-scale control |
+| Quest | Controller mapping | A confirm/use, B camera/back, X inventory, Y holomap, long-menu in-game menu, right-thumb cheat chord (Full / Gold) |
+| Quest | Quality defaults | xBR Lite, MSAA×2, soft shadows on, vsync off, stereo 3D on, 1.5× supersampling, interior hover/sub-pixel/full body on |
+| Quest | Performance target | 72 fps; mostly stable through the game |
 
 ## About this repository
 
-The original LBA2 engine source is the [`lba2-classic`](https://github.com/2point21/lba2-classic) codebase: it is mostly assembly, with C++ for game logic, and is the canonical historical release. `lba2-classic-community` is a community fork for evolving and modernizing the code: ports of assembly to C++, SDL3 for graphics/audio/input, libsmacker for FMV, native Linux/macOS/Windows/Android builds, and player-facing additions such as widescreen support, gamepad play, and an always-on debug console. The goal is to preserve the history and culture of the original while making the codebase easier to build and extend. See [ASM_TO_CPP_REFERENCE.md](docs/ASM_TO_CPP_REFERENCE.md) for which modules have been ported from ASM to C++ in this fork.
+This is a fork of [`lba2-classic-community`](https://github.com/LBALab/lba2-classic-community), which is itself a community fork of the original [`lba2-classic`](https://github.com/2point21/lba2-classic) source release: mostly assembly, with C++ for game logic, and the canonical historical release. The upstream community fork ports assembly to C++, adds SDL3 for graphics/audio/input, libsmacker for FMV, native Linux/macOS/Windows/Android builds, widescreen support, gamepad play and an always-on debug console. This fork keeps that preservation work and adds the Quest/OpenXR port; see [ASM_TO_CPP_REFERENCE.md](docs/ASM_TO_CPP_REFERENCE.md) for which modules have been ported from ASM to C++.
+
+Game assets aren't included; you need a legitimate copy of LBA2 to play.
+
+For a history of project changes, please see the [CHANGELOG.md](CHANGELOG.md).
 
 ## Playing
 
-Pre-built binaries for Linux, macOS, and Windows.
+This fork is built from source. The release links below point at the upstream community project and are not builds of this fork.
 
-**Stable** — [the latest tagged release](https://github.com/LBALab/lba2-classic-community/releases/latest). A milestone build with less churn than rolling. Pre-1.0 — bugs are still being ironed out, and full-playthrough testing isn't part of the release criteria yet (see the [1.0 bar](docs/RELEASING.md) for what changes at 1.0).
+**Upstream stable** — [the latest tagged release](https://github.com/LBALab/lba2-classic-community/releases/latest). A milestone build with less churn than rolling. Pre-1.0 — bugs are still being ironed out, and full-playthrough testing isn't part of the release criteria yet (see the [1.0 bar](docs/RELEASING.md) for what changes at 1.0).
 
-**Bleeding edge** — [the rolling `latest` pre-release](https://github.com/LBALab/lba2-classic-community/releases/tag/latest). Rebuilt from `main` on every push, may contain unreleased changes, and sometimes carries artifacts not yet in the latest stable tag (newly added platforms land here first). Useful for verifying a fix landed or chasing the freshest feature; not play-tested.
+**Upstream bleeding edge** — [the rolling `latest` pre-release](https://github.com/LBALab/lba2-classic-community/releases/tag/latest). Rebuilt from `main` on every push, may contain unreleased changes, and sometimes carries artifacts not yet in the latest stable tag (newly added platforms land here first). Useful for verifying a fix landed or chasing the freshest feature; not play-tested.
 
-All releases: [Releases page](https://github.com/LBALab/lba2-classic-community/releases).
+All upstream releases: [Releases page](https://github.com/LBALab/lba2-classic-community/releases).
 
 ### Game data
 
@@ -34,6 +60,20 @@ LBA2_GAME_DIR=/path/to/game ./lba2cc
 ```
 
 To re-pick later: `./lba2cc --pick-game-dir`. See [docs/GAME_DATA.md](docs/GAME_DATA.md) for the full discovery order and override precedence.
+
+### Quest (experimental)
+
+The Quest build is a native Android/OpenXR APK. Set the Android SDK, NDK and an SDL3 Android install, connect the headset with developer mode enabled, then run the wizard:
+
+```bash
+export ANDROID_HOME=/path/to/android-sdk
+export ANDROID_NDK=/path/to/android-ndk
+export SDL3_ANDROID_DIR=/path/to/sdl3-android-install
+
+bash scripts/dev/build-and-install-quest.sh
+```
+
+The wizard builds `out/build/quest`, pushes the retail HQR files to `/sdcard/lba2cc/`, and installs the `org.lbalab.lba2cc` APK. See [docs/ANDROID.md](docs/ANDROID.md) for the OpenXR setup and [docs/QUEST_CONTROLS.md](docs/QUEST_CONTROLS.md) for the controller map.
 
 ### Linux
 
