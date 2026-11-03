@@ -17,14 +17,16 @@ they reach the menu is [plan/MENU_PLAN.md](plan/MENU_PLAN.md).
 
 | Question | Words | Who decides |
 |---|---|---|
-| How far along is this setting? (**ring**) | Modern, Experimental. A setting the 1997 game already had is in no ring. | Contributors, on evidence ([moving inward](ARCHITECTURE.md#moving-inward)) |
+| How far along is this setting? (**ring**) | Modern, Experimental. A setting the 1997 game already had, or a retail fix, is in no ring. | Contributors, on evidence ([moving inward](ARCHITECTURE.md#moving-inward)) |
 | Which values do I want? (**preset**) | Classic, Default, Modern | The player |
-| Do my values match a preset? | Custom when they match none | Nobody: the values arrive there |
+| Do my values differ from my preset? | Custom when they do | Nobody: the values arrive there |
 | Am I shown the experiments? | Show experimental settings | The player |
 
 Experimental is a ring and a page, not a set of values, so there is no Experimental preset.
-Custom is never chosen on the preset row; it is what the row shows when the values match none of
-the presets. A preset sets only the game's settings, never the player's own.
+The chosen preset is stored in `lba2.cfg` as the base the player's own values sit on, so a
+player on a preset follows that preset's values from build to build. Custom is never chosen on the preset row; it is
+what the row shows when the player's own values differ from the chosen preset. A preset sets only
+the game's settings, never the player's own.
 
 ### Terms
 
@@ -34,11 +36,11 @@ the presets. A preset sets only the game's settings, never the player's own.
 | Classic | Classic | The player's word for the original's behaviour: the Classic preset, and a setting's value that gives the 1997 behaviour ("Outdoors: Classic"). | The 2022 release, which docs always call "the 2022 release" |
 | The 2022 release | -- | The official re-release of 2022 (on Steam and GOG). A second witness at most, never the reference. | The original |
 | Value from before | -- | The value of a setting the port added that gives back what the game did before it existed (`SETTING_BEFORE` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). The Classic preset applies these, except to the player's settings. | The default |
-| Default | Default | What a fresh install gets: the row's compiled default. Retail fixes are on, so Default is not Classic. | Classic |
+| Default | Default | What a fresh install gets: the row's compiled default. Retail fixes are on, so Default is not Classic. A `lba2.cfg` with no `Preset` key is on Default. | Classic |
 | Modern (ring) | -- | Settings that change how the game is shown or handled, never its rules, each one tested. Offered as menu rows. | Modern (preset) |
 | Modern (preset) | Modern | Default plus every Modern-ring setting a preset sets, at its Modern value: one tested combination. | Modern (ring) |
 | Experimental (ring) | Experimental (a page) | Anything else: features being tried and every tuning value. Off by default, comes out without ceremony. | Experimental builds (a platform tier's pre-release) |
-| Custom | Custom | On the preset row: the values match none of the presets. Computed, never stored. On the Fix retail bugs row it is a stored value the player cycles to, and each fix's own setting decides. | |
+| Custom | Custom | On the preset row: the player's own values differ from the chosen preset in a setting presets set. Computed: the preset is stored, Custom is not. On the Fix retail bugs row it is a stored value the player cycles to, and each fix's own setting decides. | |
 | Player's setting | -- | A setting no preset changes: every setting the 1997 game had, and the port's settings for the screen, the filters, how the mouse and pad feel, and the bindings. Reset settings does change them. | Tuning value |
 | Retail fix | Fix retail bugs | A fix to a bug the original itself had; each has its own switch under the one row ([Decision](knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md)). | Enhancement |
 | Enhancement | -- | A change to the design: its own setting, off by default when it lands. | Retail fix |
@@ -47,7 +49,7 @@ the presets. A preset sets only the game's settings, never the player's own.
 | Tier | -- | How often a platform is tested on hardware ([Where it runs](ARCHITECTURE.md#where-it-runs)). | Ring |
 | Profile | -- | The folder `--profile` names: one player's settings and saves ([plan/PORTABILITY_PLAN.md](plan/PORTABILITY_PLAN.md)). | Preset, settings backup |
 | Settings backup | Settings backup | A copy of `lba2.cfg` the player saves and loads from the menu, and the one kept before a preset or Reset settings replaces values. Planned. | Profile |
-| Preset | -- | In docs about settings, only a player preset. Build presets are "CMake presets". | |
+| Preset | -- | In docs about settings, only a player preset. The chosen one is stored (`Preset` in `lba2.cfg`) and is the base for every setting presets set. Build presets are "CMake presets". | |
 
 ### Reserved words
 

@@ -63,7 +63,9 @@ show and set settings, and never change the game's rules.
 
 ## Presets
 
-Three presets set values; Custom is what the preset row shows when the values match none of them.
+Three presets set values, and the one the player chose is stored in `lba2.cfg` as the base their
+own values sit on. Custom is what the preset row shows when the player's own values differ from
+that base: computed, never chosen.
 
 | Preset | Sets |
 |---|---|
@@ -90,25 +92,56 @@ Without this, Classic would set the mouse confine to its value from before, Mode
 texture filtering for a player who chose Modern for the Auto camera, and both would read Custom
 a minute later.
 
+### The chosen preset is the base
+
+`lba2.cfg` holds the chosen preset (`Preset: Modern`) and, for a setting a preset sets, a value
+only where the player's own differs from it. At read time the chosen preset's value takes the
+place of the row's default: Classic gives the value from before, Default the compiled default,
+Modern the Modern value. The chain [PORTABILITY_PLAN.md](PORTABILITY_PLAN.md) reads becomes
+compiled defaults, game-data config, chosen preset, the profile's own values, flags. The preset
+covers only the settings presets set, so an install's config still sets the player's settings.
+
+Storing the preset is what keeps each one true when a default moves or a setting moves inward:
+
+- A Classic player's file names no value equal to Classic's. When the Auto camera one day moves
+  on by default, they keep Classic's value, because their base is Classic, not the default.
+- A Modern player gets a setting that joins the Modern ring later without choosing Modern again,
+  and the row still reads Modern.
+- A Default player follows the defaults as they move, which is what
+  [The config file](#the-config-file) wants for every player.
+
+Computed from the values alone, each preset fails one of these. A file that leaves out values
+equal to the default takes Classic players along when a default moves; a file that writes every
+value keeps Default and Modern players where they were.
+
+The cost is that the same file gives different values in different builds when a preset's values
+change, which EPmager asked to avoid on #838. A recording carries every value, so a run stays
+reproducible, and on Classic every build gives the original's rules, which is what a runner wants
+checked. A player who wants a setup frozen across builds names its values. The base needs the
+writer to leave out a value equal to it, so it is one Decision with point 2 of
+[The config file](#the-config-file).
+
 ### Choosing a preset
 
 - The preset row opens a page: Classic, Default and Modern, each with a help line saying what it
   sets, and **Back to my settings** when there is something to go back to. The row itself shows
-  what the values match now ("Settings: Custom").
-- Choosing a preset asks for confirmation, then keeps the values it replaces as a settings backup,
-  which Back to my settings restores. It restores the settings a preset sets and the tuning values,
-  not the whole file, so a volume or a resolution changed since stays. The backup is taken after
-  the values in memory are written, since `lba2.cfg` is otherwise written only when the player
-  leaves Options. A preset is never applied by cycling a row: one press past Custom would
-  overwrite a player's setup with no way back.
-- Applying a preset also puts the Experimental tuning values back to their defaults (the backup
-  keeps those too). Changing a setting a preset sets, tuning included, makes the row read Custom;
-  changing a player's setting does not.
-- Custom is computed from the values, never stored. A player who brings an edited `lba2.cfg` sees
-  Custom unless the file happens to match a preset, which answers EPmager's question on #838.
-  While the row reads Custom, the page's help line names the settings that differ from the preset
-  last applied, Experimental ones included, so a value set from the console or a downloaded file
-  can be found.
+  the chosen preset, or Custom when the player's own values differ from it ("Settings: Custom").
+- Choosing a preset asks for confirmation, then keeps the preset it replaces and the player's
+  values as a settings backup, which Back to my settings restores: the preset, the player's values
+  for the settings a preset sets, and the tuning values, not the whole file, so a volume or a
+  resolution changed since stays. The backup is taken after the values in memory are written,
+  since `lba2.cfg` is otherwise written only when the player leaves Options. A preset is never
+  applied by cycling a row: one press past Custom would overwrite a player's setup with no way
+  back.
+- Applying a preset takes out the player's own values for every setting a preset sets and puts
+  the Experimental tuning values back to their defaults (the backup keeps both). Changing a
+  setting a preset sets, tuning included, makes the row read Custom; changing a player's setting
+  does not.
+- Custom is computed: the chosen preset is stored, Custom is not, and no player chooses it. A file
+  with no `Preset` key is on Default, so a player who brings an edited `lba2.cfg` sees Custom where
+  the file sets a value Default does not, which answers EPmager's question on #838. While the row
+  reads Custom, the page's help line names the settings that differ from the chosen preset,
+  Experimental ones included, so a value set from the console or a downloaded file can be found.
 - The Fix retail bugs row stays as it is, and works differently: its Custom is a stored value the
   player cycles to, and each fix keeps its own setting under Yes and No
   ([SOURCES/RETAILFIX.H](../../SOURCES/RETAILFIX.H), `RetailFix_NextMenuValue`), so cycling it
@@ -125,8 +158,9 @@ a minute later.
 - **Show experimental settings** is a separate switch. Off, the Experimental page is not offered;
   its values still apply. Its help says what the page is: English only, and its rows may change
   or go between builds.
-- **Reset settings** puts every setting except the languages back to a fresh install, the
-  player's settings and bindings included, after a confirmation step and with a settings backup
+- **Reset settings** puts every setting except the languages back to a fresh install, the preset
+  to Default and the player's settings and bindings included, after a confirmation step and with
+  a settings backup
   kept first. That is what makes it more than choosing Default. The binding pages have their own
   reset. A fresh install's value is not always the compiled default: an install's own `lba2.cfg`
   is a layer under the profile's, and it can name the player's settings (the demo's names the
@@ -270,9 +304,11 @@ though they never chose it. Moving inward cannot reach existing players.
    grouping moves keys, which it never does, so keeping a comment with its key is new code. The
    29 comment lines from the 1997 seed are not the player's: the first write in the new form drops
    the lines that match the seed.
-2. **The file holds what the player chose.** A key at its default is left out unless the
-   player's own file named it (the provenance from #574 tells the two apart). Left out, it
-   follows the default, including a later one.
+2. **The file holds what the player chose.** First the chosen preset, then a value only where it
+   differs from its base: the chosen preset's value for a setting presets set, the default for
+   the rest. A key equal to its base is left out unless the player's own file named it (the
+   provenance from #574 tells the two apart). Left out, it follows its base, including a later
+   one.
 3. **A reference file beside it**, every key grouped and commented at its default, regenerated
    when the build changes and never read. Players copy lines from it.
 4. **Bring your own config.** A file loaded from the menu is applied key by key, as the console
@@ -280,13 +316,14 @@ though they never chose it. Moving inward cannot reach existing players.
    layer in the chain [PORTABILITY_PLAN.md](PORTABILITY_PLAN.md) reads at every boot (defaults,
    game-data config, the profile's config, flags): under the profile's file it would change
    nothing while that file names every key, and over it a change made in the menu would be lost
-   at the next boot. Settings backups (EPmager, Discussion #782) save and load such files from
-   the menu. The preset row shows what the result matches.
+   at the next boot. A `Preset` line in the file sets the base; without one the base stays as it
+   was. Settings backups (EPmager, Discussion #782) save and load such files from the menu.
 5. **Readable names** for bindings (#61), read alongside the scancodes.
 
-Point 2 changes what a settings row means to an existing file, which is a core contract
-(principle 2), so it starts from a Decision. The migration it needs: the first write in the new
-form keeps a copy of the old file and drops each key equal to a default its row has had. Equal to
+Point 2 and the stored preset change what an existing file means, which is a core contract
+(principle 2), so together they start from one Decision. The migration they need: an old file has
+no `Preset` key, so it is on Default, and the first write in the new form keeps a copy of the old
+file and drops each key equal to a default its row has had. Equal to
 the current default is not enough: if a default has moved, an old file holds the old one, which
 no longer matches, and the player stays on it, the case point 2 exists for. So the migration reads
 a short table of the defaults that moved between releases, by key and release, rather than a
@@ -401,6 +438,9 @@ writers persisting the player's tables while a replay has borrowed them.
 6. Whether the menu cursor follows rebound movement keys or the page says it does not.
 7. The reference file's name, and whether it is written every run or only when the build changes.
 8. Who checks the translations of the new labels.
+9. What the preset row shows when the player's values differ from the chosen preset: Custom, or
+   the preset's name marked as changed ("Modern, changed"). The help line names the preset either
+   way.
 
 ## Not in this plan
 
