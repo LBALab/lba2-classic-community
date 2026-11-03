@@ -321,9 +321,10 @@ those rungs experimental (`RES_CATALOG.CPP`); the menu shows them bare. The list
 their help line says what is unfinished, until Phase 7 lands (open question 10). Resolution is a
 player's setting, so Modern never picks HD.
 
-At 640x480 a page shows the selected row's help on a line below its rows where it fits, and the
-preset page always: the help line is how a player learns what Classic changes. The wide layout
-has the band on every page (north star 3), with the help in it.
+At 640x480 every page shows the selected row's help below its rows, in the 1997 dialogue window:
+the help is how a player learns what a setting does, and what Classic changes. The wide layout
+has the band on every page (north star 3), with the help in it. At every size the help is typed
+in the dialogue voice, again on every cursor move; a player who stops on a row reads it whole.
 
 Help follows two rules:
 
