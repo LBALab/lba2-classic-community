@@ -203,7 +203,10 @@ picks its settings;
 whether **presets set** it, no for every player's setting; whether it is a **switch** or a tuning
 value, since presets set only switches; and the **category**, which the menu and the config file
 both group by. A setting moves inward by changing its ring field in the PR that brings
-the evidence ([ARCHITECTURE.md, Moving inward](../ARCHITECTURE.md#moving-inward)).
+the evidence ([ARCHITECTURE.md, Moving inward](../ARCHITECTURE.md#moving-inward)). A tuning row
+needs two more for the Experimental page: a **step** for Left and Right (`cam_ease_ms` moves by
+50, the stick deadzone by 500), and **value names** for a choice (`mouse_confine` 0, 1 and 2 read
+Never, Fullscreen and Always).
 
 These fields live in a table of the menu's own, keyed by the `lba2.cfg` key, not in `T_SETTING`.
 The build is C++98, so a settings row is a positional initializer, already up to 17 fields, and a
@@ -220,7 +223,9 @@ their own.
    main's: a capture shows a page, not what its rows write. Then move the Options pages into
    `OPTIONS_MENU.CPP`: one table per page and one loop for every page, writing only through
    `Settings_Apply` (Texts, Voices and Display text get their settings rows here). `DoGameMenu`
-   still draws them. Every capture matches main byte for byte. In its own commit, the same loop
+   still draws them. Every capture matches main byte for byte. The draw record and the walks
+   ([Testing](#testing-against-the-original), points 5 and 6) come with the loop, so step 2's
+   pages are checked as they are made. In its own commit, the same loop
    writes `lba2.cfg` when the player leaves Options, so a crash keeps the changes. The binding
    writers then have to write the player's own tables while a replay has borrowed them, as
    `Settings_WriteConfig` already does for a borrowed row: today `WriteInputConfig` writes
@@ -271,6 +276,25 @@ A page is a table of rows, not a loop. A row says:
 One loop draws and runs any page, writes through `Settings_Apply`, and repaints the backdrop on
 entry and exit in one place (today seven page handlers each repeat it). Nothing in the table is a
 pixel position, so a second layout can read the same tables.
+
+The loop keeps three things so a page can change under the player:
+
+- **Where the player is** is one stack of pages, each with the row its cursor is on, the same
+  for every layout. A layout works out its panes from the stack, so a screen that changes size
+  in the menu, or crosses from the one column to the wide layout, keeps the page and the row.
+  Kept as row positions for each layout, the place has to be translated at every crossing: the
+  one column counts the return row, a wide page does not.
+- **The cursor holds a row, not a position.** "Shown when" is checked as the page is drawn, so a
+  row that comes or goes (Back to my settings) leaves the cursor on the row it was on.
+- **Live rows** show the engine's state: Resolution the screen in use, Fullscreen the window as
+  it is. They hold no value of their own, so a preset leaves them alone and they are never drawn
+  as changed.
+
+The loop also records what it drew each frame: each row's label, value, box and fill, and where
+its text ends; the help, its window and the lines it needed; the cursor. The checks in
+[Testing against the original](#testing-against-the-original) read that record, not pixels.
+Which device was used last is one value, read by the Controls page, the Console row, the band's
+legend and the wait for a key.
 
 ## Categories
 
@@ -495,7 +519,9 @@ the bar sits beside them, in the screen's right gap (chosen 2026-11-03 over the 
 rows, no bar, and a two-line help window).
 
 The Experimental page is generated from the settings table: every row in the Experimental ring,
-grouped by category, labelled with its console name and help text, in English. An experiment
+grouped by the table that declares it (the Auto camera, the mouse, the gamepad, the graphics),
+labelled with its console name and help text, in English. Grouped by category, 38 of the 41
+would fall under Controls and camera. An experiment
 then needs no hand-made row and no translations. It is a dense table in the 8x8 font, like the
 key binding screen: the 41 tuning rows in a six-row game-font window would be seven windows of
 scrolling. The table's font is drawn at 1x on every canvas, the size the key binding screen
@@ -545,6 +571,18 @@ The menu does not touch the game's rules, so the world hash cannot see it. Four 
    its value from before.
 4. **The 1997 page.** Its table against 333929a's `GameOptionMenu` (8 rows, known text ids), and
    captures beside GOG DOS `LBA2.EXE` under DOSBox-X. A visual check, not pixel-exact.
+5. **The layout keeps its rules.** Read from the draw record (see [The page model](#the-page-model)),
+   on every page at each size the resolution list offers: one cursor on the screen; a pane's rows
+   share their edges, labels starting on one and values ending on the other; rows 56 apart; the
+   help fits its window; nothing in the wide layout's margins; a key name fits its chip. A
+   capture says a page changed; a rule says which row is wrong and by how many pixels.
+6. **The keys go where they say.** Walks that work on any page, since pages are data: every page
+   can be reached by keys from the hub; Esc from whatever Enter opened puts the cursor back on the
+   row it left; Left then Right on a setting gives its value back; a dimmed row takes no key.
+
+Each problem found by 5 or 6 comes with the command line that opens the screen it was found on.
+Both need game data for the font, as the captures do. The rules are written once, in the
+engine's automation, and take the row and group counts from the tables rather than restate them.
 
 The page tables and the config layout are plain data, so most of this needs no game data. The
 page tables and the menu's own table can be host tests if they name settings by `lba2.cfg` key
@@ -584,6 +622,8 @@ writers persisting the player's tables while a replay has borrowed them.
     "Classic, changed".
 12. Whether the main menu and the 1997 key binding screens stop stretching the menu picture too
     (`Image_LoadStretched`), as the Options pages will.
+13. Whether Reset settings changes the screen. Resolution and Fullscreen are player's settings,
+    which Reset puts back, but putting them back changes the screen under the menu.
 
 ## Not in this plan
 
