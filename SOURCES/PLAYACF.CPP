@@ -402,6 +402,10 @@ S32 PlayAcf(const char *name) {
         }
 
         SetBlackPal();
+        /* The movie writes a complete indexed image into Log; mark it so the
+           GL overlay treats palette index 0 as opaque black instead of the
+           UI chroma key. */
+        FlagMovie = TRUE;
         BoxReset();
         Cls();
         BoxUpdate();
@@ -631,6 +635,7 @@ S32 PlayAcf(const char *name) {
         Cls();
         BoxStaticFullflip();
         SetBlackPal();
+        FlagMovie = FALSE;
 
         HQ_ResumeSamples();
         InitWaitNoKey();

@@ -92,6 +92,8 @@ extern T_OBJET *APtObj;
 //			     l'ecran
 
 extern U8 CinemaMode;
+/* PlayAcf is presenting a full-screen movie into Log. */
+extern S32 FlagMovie;
 extern S32 TimerCinema;
 extern S32 LastYCinema;
 extern S32 DebCycleCinema;   // en pixels Y

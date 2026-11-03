@@ -77,6 +77,7 @@ extern "C" S32 DisplayStereo3D;
 extern "C" S32 DisplaySoftShadows;
 extern "C" S32 DisplaySubPixel;
 extern "C" S32 DisplayColorGrade;
+extern "C" S32 FlagMovie; /* full-screen movie: Log index 0 is opaque */
 
 /* Present-side sharpening strength: 0 = off, 1 = low, 2 = high. */
 static float GL_SharpenAmount(void) {
@@ -1276,6 +1277,7 @@ static GLint s_idx_uIndices = -1;
 static GLint s_idx_uPalette = -1;
 static GLint s_idx_uTexel = -1;
 static GLint s_idx_uFilter = -1;
+static GLint s_idx_uOpaqueBlack = -1;
 /* User image adjustments (Display menu); affine transform applied in every
  * present-side shader so it composes exactly through alpha blending. */
 static GLint s_adj_uBrightness = -1;
@@ -1335,6 +1337,7 @@ static const char *s_presentIndexedFragSrc =
     "uniform sampler2D uIndices;\n"
     "uniform sampler2D uPalette;\n"
     "uniform vec2 uTexel;\n"
+    "uniform float uOpaqueBlack;\n"
     "varying vec2 vTexCoord;\n"
     "float idxAt(vec2 uv) {\n"
     "    return floor(texture2D(uIndices, uv).r * 255.0 + 0.5);\n"
@@ -1346,12 +1349,13 @@ static const char *s_presentIndexedFragSrc =
     "    vec2 t = vTexCoord / uTexel;\n"
     "    vec2 c = (floor(t) + 0.5) * uTexel;\n"
     "    float e = idxAt(c);\n"
-    /* Palette index 0 is transparent, so empty overlay pixels can skip the
-       palette fetch and the blend; the rain/HUD leaves most of the screen
-       empty. */
-    "    if (e < 0.5) discard;\n"
+    /* Palette index 0 is the UI chroma key, so empty overlay pixels can skip
+       the palette fetch and the blend; the rain/HUD leaves most of the screen
+       empty. A full-screen movie is an ordinary indexed image where index 0
+       is black, so uOpaqueBlack forces it visible. */
+    "    if (uOpaqueBlack < 0.5 && e < 0.5) discard;\n"
     "    vec4 pal = texture2D(uPalette, vec2((e + 0.5) / 256.0, 0.5));\n"
-    "    gl_FragColor = vec4(ImageAdjust(pal.rgb), pal.a);\n"
+    "    gl_FragColor = vec4(ImageAdjust(pal.rgb), uOpaqueBlack > 0.5 ? 1.0 : pal.a);\n"
     "}\n";
 
 /* ── FXAA (Fast Approximate Anti-Aliasing) ──────────────────────────────── */
@@ -3846,6 +3850,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_idx_uPalette = glGetUniformLocation(s_presentIndexedProgram, "uPalette");
     s_idx_uTexel = glGetUniformLocation(s_presentIndexedProgram, "uTexel");
     s_idx_uFilter = glGetUniformLocation(s_presentIndexedProgram, "uFilter");
+    s_idx_uOpaqueBlack = glGetUniformLocation(s_presentIndexedProgram, "uOpaqueBlack");
     s_idxAdj_uBrightness = glGetUniformLocation(s_presentIndexedProgram, "uBrightness");
     s_idxAdj_uContrast = glGetUniformLocation(s_presentIndexedProgram, "uContrast");
     s_idxAdj_uSaturation = glGetUniformLocation(s_presentIndexedProgram, "uSaturation");
@@ -10031,6 +10036,7 @@ static void GL_DrawIndexedOverlay(U32 width, U32 height,
     glUniform1i(s_idx_uPalette, 1);
     glUniform2f(s_idx_uTexel, 1.0f / (GLfloat)width, 1.0f / (GLfloat)height);
     glUniform1i(s_idx_uFilter, filterLinear);
+    glUniform1f(s_idx_uOpaqueBlack, FlagMovie ? 1.0f : 0.0f);
 
     GL_BindArrayBuffer(s_vbo);
     glEnableVertexAttribArray(s_idx_aPos);
@@ -10268,7 +10274,10 @@ void GL_PresentIndexed(const U8 *indices, U32 pitch, U32 width, U32 height,
     /* A single-pass interior draws all world content into the FBO, so the
        Log moving boxes are HUD that is identical for the pair; the eye 1
        scan can reuse eye 0's without the conservative box check. */
-    const S32 exteriorOverlay = (CubeMode != 0);
+    /* A movie writes a complete indexed image into Log, so it needs the
+       same full upload and full-screen bounds as exterior 2D content; the
+       shader's chroma key is off for the duration. */
+    const S32 exteriorOverlay = (CubeMode != 0) || FlagMovie;
     const S32 overlayPairStatic = s_singlePassStereo && CubeMode == 0;
     if (exteriorOverlay && s_stereoEye == 0 && s_stereoDoubleWide) {
         /* Only eye 1's Log is presented for the pair; eye 0's overlay scan

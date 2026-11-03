@@ -63,6 +63,9 @@ S32 Value;
 //			     l'ecran
 
 U8 CinemaMode = FALSE;
+/* Full-screen video (PLAYACF): the 8-bit Log holds the movie and palette
+   index 0 is opaque black, not the UI chroma key. */
+S32 FlagMovie = FALSE;
 S32 TimerCinema = 0;
 S32 LastYCinema = 0;
 S32 DebCycleCinema = 0;     // en pixels Y
