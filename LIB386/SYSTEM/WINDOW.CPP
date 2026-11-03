@@ -212,6 +212,23 @@ void Window_DestroyGLContext(void) {
    can call it without reordering the display-mode feature code it sits with. */
 static bool CoerceFullscreenForPlatform(bool fullscreen);
 
+/* Destroy the window for a recreate. On macOS a fullscreen window lives in its
+   own Space, entered through an animation: destroying it mid-transition leaves
+   that Space behind (an empty gray screen) and the next window comes up on the
+   desktop instead. Finish any pending transition and leave fullscreen first. */
+static void DestroyWindowForRecreate(void) {
+    if (sdlWindow == NULL) {
+        return;
+    }
+    SDL_SyncWindow(sdlWindow);
+    if ((SDL_GetWindowFlags(sdlWindow) & SDL_WINDOW_FULLSCREEN) != 0) {
+        SDL_SetWindowFullscreen(sdlWindow, false);
+        SDL_SyncWindow(sdlWindow);
+    }
+    SDL_DestroyWindow(sdlWindow);
+    sdlWindow = NULL;
+}
+
 /* Recreate the SDL window flagged SDL_WINDOW_OPENGL (with the GL attributes
    set before creation) for the GL renderer's present path. */
 bool Window_RecreateWindowForGL(U32 resX, U32 resY, bool fullscreen) {
@@ -228,10 +245,7 @@ bool Window_RecreateWindowForGL(U32 resX, U32 resY, bool fullscreen) {
         SDL_DestroyRenderer(sdlRenderer);
         sdlRenderer = NULL;
     }
-    if (sdlWindow) {
-        SDL_DestroyWindow(sdlWindow);
-        sdlWindow = NULL;
-    }
+    DestroyWindowForRecreate();
 
     windowFullscreenEnabled = fullscreen;
 
@@ -280,10 +294,7 @@ bool Window_RecreateWindowForSW(U32 resX, U32 resY, bool fullscreen) {
     fullscreen = CoerceFullscreenForPlatform(fullscreen);
     Window_DestroyGLContext();
 
-    if (sdlWindow) {
-        SDL_DestroyWindow(sdlWindow);
-        sdlWindow = NULL;
-    }
+    DestroyWindowForRecreate();
 
     windowFullscreenEnabled = fullscreen;
 
@@ -367,10 +378,7 @@ bool Window_RecreateWindowForGPU(U32 resX, U32 resY, bool fullscreen) {
         SDL_DestroyRenderer(sdlRenderer);
         sdlRenderer = NULL;
     }
-    if (sdlWindow) {
-        SDL_DestroyWindow(sdlWindow);
-        sdlWindow = NULL;
-    }
+    DestroyWindowForRecreate();
 
     windowFullscreenEnabled = fullscreen;
 
@@ -493,7 +501,10 @@ bool CreateWindowSurface(U32 resX, U32 resY, bool fullscreen, bool opengl) {
         windowFullscreenEnabled = false;
     }
 
-    sdlRenderer = SDL_CreateRenderer(sdlWindow, NULL);
+    /* An OpenGL window needs SDL's OpenGL renderer: the default on macOS is
+       Metal, and SDL recreates the window without the OpenGL flag to host it,
+       which leaves the GL backend nothing to attach a context to. */
+    sdlRenderer = SDL_CreateRenderer(sdlWindow, opengl ? "opengl" : NULL);
     if (sdlRenderer == NULL) {
         const char *errorMsg = SDL_GetError();
         Log_Error("Unable to create SDL renderer.\n"
