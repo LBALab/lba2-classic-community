@@ -24,13 +24,20 @@ show and set settings, and never change the game's rules.
 - Those handlers write the globals directly (`FollowCamera ^= 1` in `GereCameraMenu`). Only the
   Fix retail bugs row goes through `Settings_Apply`, which is why Vsync needs a hand-written
   `ConfigFile_MarkVSyncSetThisRun()` to be saved.
+- Five rows have no settings-table row to go through. Texts, Voices and Display text set
+  `Language`, `LanguageCD` and `FlagDisplayText`, which `lba2.cfg` spells as words where a row
+  holds a number; Resolution and the two binding screens have writers of their own. Of the 212
+  keys in a fresh `lba2.cfg`, 60 come from the six settings tables and 144 are bindings.
+- `ui menu-*` captures the Options, Advanced and Camera pages. Volume, Language, Display,
+  Resolution and Controller have no capture.
 - Advanced options is full at 8 rows, all a page holds at 640x480 (#738). PR #849 made room for
   the interior camera by turning the Auto camera row into a Camera page.
 - 14 of the 60 settings-table rows give a value from before (`SETTING_BEFORE`); count with
   `grep -c "SETTING_BEFORE(" SOURCES/*.CPP` less the comment in `RETAILFIX.CPP`. No row says
   which ring it is in or which menu category it belongs to.
-- `lba2.cfg` is written at exit and when the resolution changes, nowhere else. A crash, or a phone
-  or handheld that kills the app, loses every other change made in that session.
+- `lba2.cfg` is written whole at exit and when the resolution changes; the console's `vsync`,
+  `fixedtimestep` and `distrib` write their own keys. A crash, or a phone or handheld that kills
+  the app, loses every other change made in that session.
 - A fresh install never shows the menu first: with no save,
   [SOURCES/GAMEMENU.CPP](../../SOURCES/GAMEMENU.CPP) (`IsFirstGameLaunched`) goes straight into
   the intro and a new game, so a new player plays on the defaults before seeing Options.
@@ -89,8 +96,11 @@ a minute later.
   sets, and **Back to my settings** when there is something to go back to. The row itself shows
   what the values match now ("Settings: Custom").
 - Choosing a preset asks for confirmation, then keeps the values it replaces as a settings backup,
-  which Back to my settings restores. A preset is never applied by cycling a row: one press past
-  Custom would overwrite a player's setup with no way back.
+  which Back to my settings restores. It restores the settings a preset sets and the tuning values,
+  not the whole file, so a volume or a resolution changed since stays. The backup is taken after
+  the values in memory are written, since `lba2.cfg` is otherwise written only when the player
+  leaves Options. A preset is never applied by cycling a row: one press past Custom would
+  overwrite a player's setup with no way back.
 - Applying a preset also puts the Experimental tuning values back to their defaults (the backup
   keeps those too). Changing a setting a preset sets, tuning included, makes the row read Custom;
   changing a player's setting does not.
@@ -102,38 +112,69 @@ a minute later.
 - The Fix retail bugs row stays as it is, and works differently: its Custom is a stored value the
   player cycles to, and each fix keeps its own setting under Yes and No
   ([SOURCES/RETAILFIX.H](../../SOURCES/RETAILFIX.H), `RetailFix_NextMenuValue`), so cycling it
-  loses nothing.
+  loses nothing. A preset sets this row and never the fixes under it, which keeps the promise
+  that Yes and No never overwrite them; comparing values with a preset leaves the fixes out too,
+  since under Yes or No they change nothing.
 - **First launch** offers the preset page once, before the intro, so a new player knows Classic
-  and Modern exist. Escape takes Default. Afterwards the page is in Options.
+  and Modern exist. First launch means the profile had no `lba2.cfg` of its own at boot: the
+  check the intro uses today (`IsFirstGameLaunched`, no saves) would offer the page again to a
+  player who deleted their saves. Escape changes nothing, which on a first launch is Default. A
+  run under automation (`Control_IsActive`: `--load`, `--exec`, `--tick`) skips the page as it
+  skips the logos ([SOURCES/PERSO.CPP](../../SOURCES/PERSO.CPP)), so a `ui` verb captures it.
+  Afterwards the page is in Options.
 - **Show experimental settings** is a separate switch. Off, the Experimental page is not offered;
   its values still apply. Its help says what the page is: English only, and its rows may change
   or go between builds.
 - **Reset settings** puts every setting except the languages back to a fresh install, the
   player's settings and bindings included, after a confirmation step and with a settings backup
   kept first. That is what makes it more than choosing Default. The binding pages have their own
-  reset.
+  reset. A fresh install's value is not always the compiled default: an install's own `lba2.cfg`
+  is a layer under the profile's, and it can name the player's settings (the demo's names the
+  volumes, the detail level, scenario cameras, video size and all 72 keyboard bindings). So Reset
+  takes keys out of the profile's file rather than writing defaults over that layer, which needs
+  the writer to leave a key out ([The config file](#the-config-file), point 2).
 
-For this the settings table gains three fields: the **ring** (none for a 1997 setting, Modern or
-Experimental), from which the Modern preset and the Experimental page are built; whether
-**presets set** the row, no for every player's setting; and the **category**, which the menu and
-the config file both group by. A setting moves inward by changing its ring field in the PR that
-brings the evidence ([ARCHITECTURE.md, Moving inward](../ARCHITECTURE.md#moving-inward)).
+For this every setting gains three fields: the **ring** (none for a 1997 setting or a retail fix,
+Modern or Experimental), from which the Modern preset and the Experimental page are built;
+whether **presets set** it, no for every player's setting; and the **category**, which the menu and
+the config file both group by. A Modern-ring setting also says its **Modern value** (on, for the
+switches there are today). A setting moves inward by changing its ring field in the PR that brings
+the evidence ([ARCHITECTURE.md, Moving inward](../ARCHITECTURE.md#moving-inward)).
+
+These fields live in a table of the menu's own, keyed by the `lba2.cfg` key, not in `T_SETTING`.
+The build is C++98, so a settings row is a positional initializer, already up to 17 fields, and a
+row that gave its category would have to spell out every field before it. The menu's fields are
+shell; the row's are the contract the engine, the console and recordings read. A check holds the
+two tables to one entry per key. Texts, Voices and Display text get settings rows, with a list of
+value names so `lba2.cfg` keeps spelling them as words; Resolution and the bindings stay kinds of
+their own.
 
 ## Order of work
 
-1. **Row tables, nothing visible changes.** Move the Options pages into `OPTIONS_MENU.CPP`: one
-   table per page and one loop for every page, writing only through `Settings_Apply`. `DoGameMenu`
-   still draws them. Every `ui menu-*` capture matches main byte for byte. In its own commit, the
-   same loop writes `lba2.cfg` when the player leaves Options, so a crash keeps the changes.
+1. **Row tables, nothing visible changes.** First, on main, a `ui` capture for each page that has
+   none, and a check that selects each row once and compares the `lba2.cfg` it writes with
+   main's: a capture shows a page, not what its rows write. Then move the Options pages into
+   `OPTIONS_MENU.CPP`: one table per page and one loop for every page, writing only through
+   `Settings_Apply` (Texts, Voices and Display text get their settings rows here). `DoGameMenu`
+   still draws them. Every capture matches main byte for byte. In its own commit, the same loop
+   writes `lba2.cfg` when the player leaves Options, so a crash keeps the changes. The binding
+   writers then have to write the player's own tables while a replay has borrowed them, as
+   `Settings_WriteConfig` already does for a borrowed row: today `WriteInputConfig` writes
+   `DefKeys`, which holds the recording's table for the length of a replay (`bindings_install` in
+   [SOURCES/RECORD.CPP](../../SOURCES/RECORD.CPP)), so a replay that opens Options and is then
+   killed would leave the recording's keys in the player's file.
 2. **Categories (#782).** The hub and the category pages below, new labels in six languages,
    goldens remade. PR #835's filter rows land here or in Display first, by agreement with its
    author. The Camera page gains invert and sensitivity rows. A check fails a label that uses a
    reserved word (GLOSSARY).
-3. **Ring, presets-set and category fields in the settings table**, and the config file grouped
-   by category (see below).
+3. **The menu's table of ring, presets-set and category fields**, and the config file grouped by
+   category (see below). Keys with no settings row (the bindings, the resolution, `LastSave`, the
+   install's own keys) get an entry naming their group, so the writer can place them too.
 4. **Windowed list with a scroll bar (#738)**, for the resolution list first.
 5. **An automatic settings backup** (a copy of `lba2.cfg` kept before values are replaced), then
-   **Reset settings** to a fresh install, with a confirmation step.
+   **Reset settings** to a fresh install, with a confirmation step. Reset takes keys out of the
+   file, so the Decision on leaving keys out ([The config file](#the-config-file), point 2) comes
+   before it.
 6. **A value from before on every row the port added (#846)**, then the **Classic** preset.
 7. **Default and Modern presets**, the preset page with Back to my settings, the offer on first
    launch, and a fixture with every Modern setting on.
@@ -153,8 +194,9 @@ A page is a table of rows, not a loop. A row says:
 |---|---|
 | kind | page (opens another), choice (cycles values), slider (a range), action (with a confirmation step where it cannot be undone), binding |
 | label | a `TEXT.HQR` id for a 1997 row, or a `MENU_LABELS` entry |
-| setting | the settings-table row it reads and writes, if any |
+| setting | the settings-table row it reads and writes, if any; resolution and bindings are kinds of their own |
 | shown when | a check: the platform has the feature, the data has speech, Show experimental settings is on |
+| active when | a check on another setting; while it fails the row is drawn dimmed and its help says what it needs |
 | help | one line saying what the row does, and its cost if any |
 
 One loop draws and runs any page, writes through `Settings_Apply`, and repaints the backdrop on
@@ -180,9 +222,11 @@ data, an always-fullscreen device) is hidden, as today.
 
 The Camera page keeps Outdoors and Indoors, and gains invert and sensitivity for the mouse and
 the stick. Players look for those on the camera page in any game, so they are player's settings
-with rows, not tuning on the Experimental page. They only do something while the Auto camera is
-on (the mouse and stick camera run inside it), which makes them the first rows that depend on
-another setting.
+with rows, not tuning on the Experimental page. They only do something with Outdoors on Auto: the
+mouse camera runs only with the Auto camera outdoors, and the stick camera only with the Auto
+camera ([SOURCES/EXTFUNC.CPP](../../SOURCES/EXTFUNC.CPP)). That makes them the first rows that
+depend on another setting. Outdoors is on the same page, so they are dimmed rather than hidden:
+hidden, they would move the rows under the cursor each time the player cycles Outdoors.
 
 At 640x480 a page shows the selected row's help on a line below its rows where it fits, and the
 preset page always: the help line is how a player learns what Default sets. From 840 logical
@@ -222,27 +266,35 @@ though they never chose it. Moving inward cannot reach existing players.
    player's own lines come along: a key this build does not know is kept under a heading at the
    end, so a file shared with a newer build loses nothing, and a comment the player wrote stays
    with the key below it. Today's writer edits the file in place, so both survive now
-   ([LIB386/SYSTEM/DEFFILE.CPP](../../LIB386/SYSTEM/DEFFILE.CPP), `DefFileBufferWriteString`).
+   ([LIB386/SYSTEM/DEFFILE.CPP](../../LIB386/SYSTEM/DEFFILE.CPP), `DefFileBufferWriteString`);
+   grouping moves keys, which it never does, so keeping a comment with its key is new code. The
+   29 comment lines from the 1997 seed are not the player's: the first write in the new form drops
+   the lines that match the seed.
 2. **The file holds what the player chose.** A key at its default is left out unless the
    player's own file named it (the provenance from #574 tells the two apart). Left out, it
    follows the default, including a later one.
 3. **A reference file beside it**, every key grouped and commented at its default, regenerated
    when the build changes and never read. Players copy lines from it.
-4. **Bring your own config.** A file is a layer in the chain
-   [PORTABILITY_PLAN.md](PORTABILITY_PLAN.md) already reads (defaults, game-data config, the
-   profile's config, flags), so a partial file sets only its keys. Settings backups (EPmager,
-   Discussion #782) save and load such files from the menu. The preset row shows what the result
-   matches.
+4. **Bring your own config.** A file loaded from the menu is applied key by key, as the console
+   would set them, and then written: an import, so a partial file sets only its keys. It is not a
+   layer in the chain [PORTABILITY_PLAN.md](PORTABILITY_PLAN.md) reads at every boot (defaults,
+   game-data config, the profile's config, flags): under the profile's file it would change
+   nothing while that file names every key, and over it a change made in the menu would be lost
+   at the next boot. Settings backups (EPmager, Discussion #782) save and load such files from
+   the menu. The preset row shows what the result matches.
 5. **Readable names** for bindings (#61), read alongside the scancodes.
 
 Point 2 changes what a settings row means to an existing file, which is a core contract
 (principle 2), so it starts from a Decision. The migration it needs: the first write in the new
 form keeps a copy of the old file and drops each key equal to a default its row has had. Equal to
 the current default is not enough: if a default has moved, an old file holds the old one, which
-no longer matches, and the player stays on it, the case point 2 exists for. So each row keeps its
-past defaults, and from then on the file records the build that wrote it, so a later migration
-can be exact. A player who had chosen an old default on purpose loses that choice once; the copy
-still holds it.
+no longer matches, and the player stays on it, the case point 2 exists for. So the migration reads
+a short table of the defaults that moved between releases, by key and release, rather than a
+field on every row; which defaults moved is a one-off check against the tags (the camera settings
+switched on on 2026-10-13 shipped in the release that added them, so no release wrote their old
+value). From then on the file records the build that wrote it, so a later migration can be
+exact. A player who had chosen an old default on purpose loses that choice once; the copy still
+holds it.
 
 ## A north star for the Modern UI
 
@@ -305,25 +357,35 @@ a PC player who rebinds will notice. The 1997 screen stays.
 The menu does not touch the game's rules, so the world hash cannot see it. Four checks do:
 
 1. **A refactor changes nothing.** Every menu page is captured before and after and must match
-   main byte for byte. First change one row by hand and see a golden fail. These fixtures need
-   game data and do not run in CI: each PR runs them on US CD and GOG data and says so.
+   main byte for byte, and each row is selected once and the `lba2.cfg` it writes compared with
+   main's. First change one row by hand and see a golden fail. These fixtures need game data and
+   do not run in CI: each PR runs them on US CD and GOG data and says so.
 2. **The 1997 code stays 1997.** `DoGameMenu`, `DrawGameMenu`, `DrawOneChoice` and the plasma
    stay put; a diff against 333929a shows only the port's known edits, listed in a comment where
    they sit.
-3. **Classic is the original.** Choosing Classic sets every row's value from before:
-   [test_ring_off_is_gone.sh](../../tests/automation/test_ring_off_is_gone.sh) with them all off,
-   a host test that the preset touches every row a preset sets and none of the player's
-   settings, and
+3. **Classic is the original.** Choosing Classic sets every setting a preset sets to its value
+   from before, and leaves the player's settings alone, some of which the original did not have
+   (texture filtering, mouse confine). So
+   [test_ring_off_is_gone.sh](../../tests/automation/test_ring_off_is_gone.sh) runs with Classic
+   applied over a player's setup that is not the default, texture filtering on say, which also
+   shows that the player's settings cannot reach the world hash. Then a check that the preset
+   touches every setting a preset sets and none of the player's, and
    `scripts/ci/check-settings-before.py` extended so a row that switches a behaviour on must say
    its value from before.
 4. **The 1997 page.** Its table against 333929a's `GameOptionMenu` (8 rows, known text ids), and
    captures beside GOG DOS `LBA2.EXE` under DOSBox-X. A visual check, not pixel-exact.
 
-The page tables and the config layout are plain data, so host tests can hold them without game
-data: at most 8 rows a plain page, every label in six languages, every row naming a setting that
-exists, every setting with a category, a written file that reads back to the same values, a
-preset applied and then Back to my settings giving every value back, a key this build does not
-know surviving a write.
+The page tables and the config layout are plain data, so most of this needs no game data. The
+page tables and the menu's own table can be host tests if they name settings by `lba2.cfg` key
+and stay free of engine headers: at most 8 rows a plain page, every label in six languages. The
+settings tables cannot: three of the four live in files that pull in the engine
+(`CONFIG_FILE.CPP`, `FOLLOWCAM.CPP`, `AMBIANCE.CPP`), which is why
+`scripts/ci/check-settings-before.py` reads them from the source. Every row naming a setting that
+exists, and every setting with exactly one entry in the menu's table, are checks of that kind.
+Host tests for the writer and the borrow: a written file that reads back to the same values, a
+preset applied and then Back to my settings giving back every value a preset sets while keeping a
+player's setting changed since, a key this build does not know surviving a write, and the binding
+writers persisting the player's tables while a replay has borrowed them.
 
 ## Open questions
 
@@ -332,15 +394,13 @@ know surviving a write.
 2. Image: one choice for the three filters, or three rows (#835)?
 3. How many rows invert and sensitivity take on the Camera page: each has two axes and two
    devices, and the page holds 8 rows.
-4. A row that depends on another (invert and sensitivity on the Auto camera): hidden or greyed
-   out.
-5. Whether a category page gets its own reset, as a row or as a key in the wide layout's prompt
+4. Whether a category page gets its own reset, as a row or as a key in the wide layout's prompt
    bar.
-6. Whether "Fix retail bugs" reads well to players, since "retail" is a developer's word; if it
+5. Whether "Fix retail bugs" reads well to players, since "retail" is a developer's word; if it
    changes, with the step 2 labels.
-7. Whether the menu cursor follows rebound movement keys or the page says it does not.
-8. The reference file's name, and whether it is written every run or only when the build changes.
-9. Who checks the translations of the new labels.
+6. Whether the menu cursor follows rebound movement keys or the page says it does not.
+7. The reference file's name, and whether it is written every run or only when the build changes.
+8. Who checks the translations of the new labels.
 
 ## Not in this plan
 
