@@ -23,8 +23,8 @@ they reach the menu is [plan/MENU_PLAN.md](plan/MENU_PLAN.md).
 | Am I shown the experiments? | Show experimental settings | The player |
 
 Experimental is a ring and a page, not a set of values, so there is no Experimental preset.
-Custom is never chosen; it is what a preset row or a master switch shows when the values match
-none of its choices.
+Custom is never chosen on the preset row; it is what the row shows when the values match none of
+the presets. A preset sets only the game's settings, never the player's own.
 
 ### Terms
 
@@ -33,19 +33,20 @@ none of its choices.
 | The original | -- (players see **Classic**) | The game as the 1990s CD release played it: the reference every change is measured against ([principle 1](PRINCIPLES.md#1-the-original-is-the-reference)). | The 2022 release |
 | Classic | Classic | The player's word for the original's behaviour: the Classic preset, and a setting's value that gives the 1997 behaviour ("Outdoors: Classic"). | The 2022 release, which docs always call "the 2022 release" |
 | The 2022 release | -- | The official re-release of 2022 (on Steam and GOG). A second witness at most, never the reference. | The original |
-| Value from before | -- | The value of a setting the port added that gives back what the game did before it existed (`SETTING_BEFORE` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). The Classic preset applies these. | The default |
+| Value from before | -- | The value of a setting the port added that gives back what the game did before it existed (`SETTING_BEFORE` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). The Classic preset applies these, except to the player's settings. | The default |
 | Default | Default | What a fresh install gets: the row's compiled default. Retail fixes are on, so Default is not Classic. | Classic |
 | Modern (ring) | -- | Settings that change how the game is shown or handled, never its rules, each one tested. Offered as menu rows. | Modern (preset) |
-| Modern (preset) | Modern | Default plus every Modern-ring setting at its Modern value: one tested combination. | Modern (ring) |
+| Modern (preset) | Modern | Default plus every Modern-ring setting a preset sets, at its Modern value: one tested combination. | Modern (ring) |
 | Experimental (ring) | Experimental (a page) | Anything else: features being tried and every tuning value. Off by default, comes out without ceremony. | Experimental builds (a platform tier's pre-release) |
-| Custom | Custom | Shown by a preset row or a master switch (Fix retail bugs) when the values match none of its choices. Computed, never stored. | |
+| Custom | Custom | On the preset row: the values match none of the presets. Computed, never stored. On the Fix retail bugs row it is a stored value the player cycles to, and each fix's own setting decides. | |
+| Player's setting | -- | A setting no preset changes: every setting the 1997 game had, and the port's settings for the screen, the filters, how the mouse and pad feel, and the bindings. Reset settings does change them. | Tuning value |
 | Retail fix | Fix retail bugs | A fix to a bug the original itself had; each has its own switch under the one row ([Decision](knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md)). | Enhancement |
 | Enhancement | -- | A change to the design: its own setting, off by default when it lands. | Retail fix |
-| Tuning value | -- (shown on the Experimental page) | A number that adjusts a feature rather than switching it. Stays Experimental even when its feature is Modern. | |
+| Tuning value | -- (shown on the Experimental page) | A number that adjusts a feature rather than switching it. Stays Experimental even when its feature is Modern. Sensitivity is not one: the player sets it for comfort, so it is a player's setting with a menu row. | Player's setting |
 | Core | -- | What everything else is built on: the inner core (the game's rules and formats) and the outer core (the platform, recording, the settings tables). | |
 | Tier | -- | How often a platform is tested on hardware ([Where it runs](ARCHITECTURE.md#where-it-runs)). | Ring |
 | Profile | -- | The folder `--profile` names: one player's settings and saves ([plan/PORTABILITY_PLAN.md](plan/PORTABILITY_PLAN.md)). | Preset, settings backup |
-| Settings backup | Settings backup | A copy of `lba2.cfg` the player saves and loads from the menu. Planned. | Profile |
+| Settings backup | Settings backup | A copy of `lba2.cfg` the player saves and loads from the menu, and the one kept before a preset or Reset settings replaces values. Planned. | Profile |
 | Preset | -- | In docs about settings, only a player preset. Build presets are "CMake presets". | |
 
 ### Reserved words
