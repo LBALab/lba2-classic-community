@@ -20,9 +20,10 @@ they reach the menu is [plan/MENU_PLAN.md](plan/MENU_PLAN.md).
 | How far along is this setting? (**ring**) | Modern, Experimental. A setting the 1997 game already had, or a retail fix, is in no ring. | Contributors, on evidence ([moving inward](ARCHITECTURE.md#moving-inward)) |
 | Which values do I want? (**preset**) | Classic, Modern | The player |
 | Do my values differ from my preset? | changed when they do ("Modern settings, changed") | Nobody: the values arrive there |
-| Am I shown the experiments? | Show experimental settings | The player |
 
-Experimental is a ring and a page, not a set of values, so there is no Experimental preset.
+Experimental is a ring and a page, not a set of values, so there is no Experimental preset. The
+page is always offered, with no switch to show it: its row's help says it is unfinished and in
+English.
 The chosen preset is stored in `lba2.cfg` as the base the player's own values sit on, so a
 player on a preset follows that preset's values from build to build. The preset row names the chosen preset ("Modern
 settings") and marks it changed when the player's own values differ from it; changed is never chosen. A preset sets only

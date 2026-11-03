@@ -182,9 +182,11 @@ writer to leave out a value equal to it, so it is one Decision with point 2 of
   run under automation (`Control_IsActive`: `--load`, `--exec`, `--tick`) skips the page as it
   skips the logos ([SOURCES/PERSO.CPP](../../SOURCES/PERSO.CPP)), so a `ui` verb captures it.
   Afterwards the page is in Options.
-- **Show experimental settings** is a separate switch. Off, the Experimental page is not offered;
-  its values still apply. Its help says what the page is: English only, and its rows may change
-  or go between builds.
+- **The Experimental page is always offered**, a row on Advanced and reset; no switch shows or
+  hides it (decided 2026-11-03). The page is already a level down, so a switch only hid a row a
+  player had to go looking for, and cost a setting, a row that comes and goes, and a second
+  step. The row's help carries the warning instead: "Unfinished, in English. They may change or
+  go."
 - **Reset settings** puts every setting except the languages back to a fresh install, the preset
   to Modern and the player's settings and bindings included, after a confirmation step and with
   a settings backup
@@ -245,7 +247,7 @@ their own.
    confine, the fixed timestep), so the preset reuses it through the presets-set field.
 7. **The Modern preset**, the preset page with Back to my settings, the offer on first launch,
    and a fixture with every Modern-ring setting on at once.
-8. **Experimental page generated from the settings table**, behind Show experimental settings.
+8. **Experimental page generated from the settings table**, a row on Advanced and reset.
    Then the camera presets (#733), the console row (#679) with the version, the Frame rate row,
    saving and loading settings backups from the menu, each in its own PR.
 9. **The save list into its own file** (roadmap §3, third slice).
@@ -262,7 +264,7 @@ A page is a table of rows, not a loop. A row says:
 | kind | page (opens another), choice (cycles values), slider (a range), action (with a confirmation step where it cannot be undone), binding |
 | label | a `TEXT.HQR` id for a 1997 row, or a `MENU_LABELS` entry |
 | setting | the settings-table row it reads and writes, if any; resolution and bindings are kinds of their own |
-| shown when | a check: the platform has the feature, the data has speech, Show experimental settings is on |
+| shown when | a check: the platform has the feature, the data has speech |
 | active when | a check on another setting; while it fails the row is drawn dimmed and its help says what it needs |
 | help | one line saying what the row does, and its cost if any |
 
@@ -279,7 +281,7 @@ pixel position, so a second layout can read the same tables.
 | Sound | Samples, Voice, Music, General volume, Reverse stereo | |
 | Controls and camera | Keyboard, Gamepad, Camera (a page), Movie camera | Camera presets (#733), modern controls (#372) |
 | Gameplay | opens with its second row | play-changing enhancements |
-| Advanced and reset | Reset settings, Show experimental settings, Fix retail bugs (until Gameplay opens), Console (#679, its value the version), Experimental (a page) | settings backups, cheats |
+| Advanced and reset | Reset settings, Fix retail bugs (until Gameplay opens), Console (#679, its value the version), Experimental (a page) | settings backups, cheats |
 
 The hub has the return row, the preset row and the categories: 7 rows, 8 once Gameplay opens.
 The preset row sits on the hub, under the return row, because it is the choice most players
@@ -572,8 +574,9 @@ writers persisting the player's tables while a replay has borrowed them.
 9. Decided: the preset row shows the preset's name marked as changed ("Modern settings,
    changed"), not Custom, since the stored preset still decides every setting the player has not
    changed. See [Choosing a preset](#choosing-a-preset).
-10. Whether the 720 and 1080 rungs of the resolution list sit behind Show experimental settings,
-    or stay in the list marked as unfinished.
+10. Whether the 720 and 1080 rungs of the resolution list stay in the list marked as unfinished,
+    or are left out until Phase 7. (There is no Show experimental settings switch to put them
+    behind: the Experimental page is always offered.)
 11. Whether a `Preset` line in an imported file takes out the player's own values for settings
     presets set, as choosing the preset in the menu does, and whether an imported key equal to
     the new base stays in the file as one the player named. Left alone, a Modern player who
