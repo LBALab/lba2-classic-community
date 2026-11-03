@@ -507,7 +507,10 @@ and Key 2 or Gamepad with one column, and opens on the device used last; Tab (th
 button) switches. Keys are chips in the 8x8 font at 2x, which hold six letters, so long key
 names are shortened ("Num 5", "RShift", "PrtSc", "ScrLk"). At 640x480 a chip is 116 pixels
 wide rather than 120, so the longest action name, "Behaviour action", clears the first chip by
-8. A key bound to two actions is allowed and framed red. The page names the buttons of the
+8. A key another action already has is refused, as the 1997 screen does: the old key stays and
+the help says what to do ("Clear C on Protection spell first."). Nothing changes that the
+player did not choose; a swap would change an action out of view, and a key on two actions
+would fire both in play. A clash that comes in from an edited `lba2.cfg` is framed red. The names the buttons of the
 pad in use (#371), and each device's bindings have their own reset. Rebound movement keys (WASD,
 say) do not move the menu cursor, which uses fixed keys ([MENU.md](../MENU.md#navigation)), and
 a PC player who rebinds will notice. The 1997 screen stays.
