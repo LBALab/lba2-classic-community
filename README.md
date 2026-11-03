@@ -8,6 +8,10 @@ The OpenGL/GLES renderer is the one contributed in [PR #457 by Link4Electronics]
 
 Target performance on Quest is **72 fps**, and the game is mostly stable at that rate through a playthrough.
 
+<p align="center">
+  <img src="docs/images/quest-port.jpg" alt="Twinsen and Zoé wearing Meta Quest headsets in front of the LBA2 logo" width="420">
+</p>
+
 ## What this fork adds
 
 | Area | Improvement / option | Notes |
