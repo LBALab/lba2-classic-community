@@ -493,7 +493,9 @@ The Experimental page is generated from the settings table: every row in the Exp
 grouped by category, labelled with its console name and help text, in English. An experiment
 then needs no hand-made row and no translations. It is a dense table in the 8x8 font, like the
 key binding screen: the 41 tuning rows in a six-row game-font window would be seven windows of
-scrolling. The game-font list was mocked too.
+scrolling. The table's font is drawn at 1x on every canvas, the size the key binding screen
+had at 640x480: 31 lines in view on the wide canvas, against 14 at 2x. Everywhere else on the
+wide canvas the 8x8 font is 2x. The game-font list was mocked too.
 
 ### Controls
 
