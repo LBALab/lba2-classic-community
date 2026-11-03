@@ -319,8 +319,22 @@ their help line says what is unfinished, until Phase 7 lands (open question 10).
 player's setting, so Modern never picks HD.
 
 At 640x480 a page shows the selected row's help on a line below its rows where it fits, and the
-preset page always: the help line is how a player learns what Classic changes. From 840 logical
-pixels the wide layout has a help line on every page.
+preset page always: the help line is how a player learns what Classic changes. The wide layout
+has the band on every page (north star 3), with the help in it.
+
+Help follows two rules:
+
+- **One message at a time.** When there is something to tell about the row (a key already in
+  use, a question, the wait for a key, why a row is dimmed), it takes the help's place; nothing
+  is added after the help. A dimmed row says why it is dimmed ("Only with the Auto camera."),
+  not what it does.
+- **Room for translation.** English help is at most about 750 pixels in the game font, two
+  thirds of what the band's two lines hold (about 1,130 at 620 wide). Measured on the 1997
+  game's own `TEXT.HQR`, its translations of a sentence run 1.1 times the English typically and
+  up to 1.5 times (German) in their longest tenth, so a translation half as long again still
+  fits. "Stops the picture tearing." is the register; "Stops the picture tearing. Off can raise
+  the frame rate on a slow display." is too long. Once translations exist, a test measures each
+  language's real text.
 
 ## The config file
 
@@ -423,20 +437,33 @@ on the new-game frame and the European CD volume name.
 Not a promise; the direction the steps above should not close off.
 
 1. **Pages are data.** As in the page model above.
-2. **The UI scales in whole steps.** `scale = max(1, floor(min(W / 640, H / 480)))`, and pages
-   lay out on a logical canvas of the framebuffer divided by the scale. 1920x1080 is 2x on a
-   960x540 canvas; 640x480 is 1x and looks as today. This is part of finishing HD (the UI is an
+2. **The UI scales in whole steps.** A screen 3:2 or wider takes one 960x540 composition at the
+   largest whole step it fits, centred both ways, as 1997 centred its 640x480 canvas: 1920x1080
+   is 2x; 2560x1440, 3440x1440 and 2560x1600 are 2x with a border; 3840x2160 is 4x. A narrower
+   screen (4:3, 5:4) takes the one 640x480 column at `max(1, floor(min(W / 640, H / 480)))`.
+   640x480 is 1x and looks as today. This is part of finishing HD (the UI is an
    unscaled 640x480 block there today), so it waits on the same work. Needs a scaled `Font()` (it blits 1:1
    today) and scaled plasma; sprites already have `ScaleSprite`. A UI scale row (Auto, 1x, 2x,
    3x) lets the player choose, and Auto can use the display's content scale where the platform
    reports one (SDL3 has `SDL_GetDisplayContentScale`). A handheld shows why the row is not
-   enough alone: a 7-inch 1280x800 screen gets 1x, small at arm's length, and 2x gives a 640x400
-   canvas, where an 8-row page (8 × 50 + 7 × 6 = 442 pixels) does not fit. So pages window below
-   480 logical pixels, as long lists do, or the larger scale is out of reach there; 1280x720 at
-   2x is 360 pixels tall.
-3. **The same page lays out by width.** Below 840 logical pixels, one column as today. From 840,
-   categories on the left, rows on the right with their values, a help line for the selected row
-   and a prompt bar for the device in use.
+   enough alone: a 7-inch 1280x800 screen gets the composition at 1x, small at arm's length, and
+   2x gives a 640x400 canvas, where an 8-row page (8 × 50 + 7 × 6 = 442 pixels) does not fit.
+   So pages window below 480 logical pixels, as long lists do, or the larger scale is out of
+   reach there; 1280x720 at 2x is 360 pixels tall.
+3. **The same page lays out by width.** The one column is today's 640x480 menu. The wide
+   composition goes one pane at a time, as the 1997 menu goes from a page to a sub-page: the
+   hub's categories, then a page, 640 wide and centred, the page's name as its title in the
+   seventh row's place, labels on the left and values ending on one edge 24 in from the right.
+   A page shows six rows under its title, the hub seven. Two panes side by side were tried: at
+   960 wide the right pane was 416 pixels, short of the 556 six English labels and their values
+   need, and one pane holds them with 84 to spare; the cost is that the hub no longer previews a
+   category's rows. Under the rows, at the same height on every page, the band: one frame,
+   darkened to level 15 (at the menu rows' level, 11, the help measured 1.24:1 over the foam of
+   the menu picture; 15 holds 3.15:1 or more), holding the help in the dialogue voice on two lines
+   and, stacked at its right, the keys the selected row takes, named for the device in use. The
+   first launch's question sits inside the composition, in the band's place. The menu picture
+   behind it is scaled evenly to cover the whole screen and cropped, never stretched. Nothing
+   else is drawn in the margins (32 at the sides, 24 at the top and bottom).
 4. **One focus for every input.** Keyboard, pad, mouse and touch move the same cursor, as the
    fixed UI navigation already does.
 5. **The original parts.** Palette colours, one frame, the game font at one size, plasma for the
@@ -469,8 +496,12 @@ scrolling. The game-font list was mocked too.
 Today keyboard and gamepad are two binding screens, each one 36-row table in the 8x8 font
 (`DrawScreenConfig` in [SOURCES/CONFIG.CPP](../../SOURCES/CONFIG.CPP)). The Modern page splits
 the 36 actions into seven groups of four to seven (movement, actions, behaviours, weapons, magic
-and items, camera, menus), one pane each, with Key 1, Key 2 and Gamepad side by side as key
-chips. A key bound to two actions is allowed and framed red. The page names the buttons of the
+and items, camera, menus), one pane each. It shows one device at a time, Keyboard with Key 1
+and Key 2 or Gamepad with one column, and opens on the device used last; Tab (the pad's View
+button) switches. Keys are chips in the 8x8 font at 2x, which hold six letters, so long key
+names are shortened ("Num 5", "RShift", "PrtSc", "ScrLk"). At 640x480 a chip is 116 pixels
+wide rather than 120, so the longest action name, "Behaviour action", clears the first chip by
+8. A key bound to two actions is allowed and framed red. The page names the buttons of the
 pad in use (#371), and each device's bindings have their own reset. Rebound movement keys (WASD,
 say) do not move the menu cursor, which uses fixed keys ([MENU.md](../MENU.md#navigation)), and
 a PC player who rebinds will notice. The 1997 screen stays.
@@ -512,13 +543,12 @@ writers persisting the player's tables while a replay has borrowed them.
 
 ## Open questions
 
-1. Category names. The wide layout's left pane uses the same ones: one concept, one name, so a
-   name too long for the pane is shortened everywhere.
+1. Category names. The wide layout's hub uses the same ones: one concept, one name, so a
+   name too long for it is shortened everywhere.
 2. Image: one choice for the three filters, or three rows (#835)?
 3. How many rows invert and sensitivity take on the Camera page: each has two axes and two
    devices, and the page holds 8 rows.
-4. Whether a category page gets its own reset, as a row or as a key in the wide layout's prompt
-   bar.
+4. Whether a category page gets its own reset, as a row or as a key in the band's legend.
 5. Whether "Fix retail bugs" reads well to players, since "retail" is a developer's word; if it
    changes, with the step 2 labels.
 6. Whether the menu cursor follows rebound movement keys or the page says it does not.
@@ -535,6 +565,8 @@ writers persisting the player's tables while a replay has borrowed them.
     the new base stays in the file as one the player named. Left alone, a Modern player who
     turned the Auto camera on and imports a Classic file keeps the Auto camera and reads
     "Classic, changed".
+12. Whether the main menu and the 1997 key binding screens stop stretching the menu picture too
+    (`Image_LoadStretched`), as the Options pages will.
 
 ## Not in this plan
 
