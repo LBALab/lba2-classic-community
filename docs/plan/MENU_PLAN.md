@@ -8,7 +8,7 @@ closing off a Modern UI that uses the room a larger screen gives. Status: propos
 
 It builds on [PRINCIPLES.md](../PRINCIPLES.md) and the rings in
 [ARCHITECTURE.md](../ARCHITECTURE.md#the-rings-and-the-core). The words it uses (Classic,
-Default, Modern, Custom, Experimental, ring, preset) are defined in
+Modern, Custom, Experimental, ring, preset) are defined in
 [GLOSSARY.md](../GLOSSARY.md#project-and-settings). The menu and the config file are shell: they
 show and set settings, and never change the game's rules.
 
@@ -54,8 +54,10 @@ show and set settings, and never change the game's rules.
 2. **Modern offers choices, Experimental holds the tuning** (principle 7). The Auto camera is one
    or two Modern rows; its tuning values are on the Experimental page. The same for the graphics
    filters.
-3. **Promise only what you test** (principle 7). The Modern preset turns on every Modern setting
-   it sets at once, so that combination is itself tested, not only each feature alone.
+3. **Promise only what you test** (principle 7). The Modern preset is the defaults, so what it
+   promises is what a fresh install plays. A setting goes on by default only with the evidence
+   [moving inward](../ARCHITECTURE.md#moving-inward) asks for, and the Modern-ring settings are
+   also tested all on at once, since a player can turn them all on.
 4. **Every row is one more to test** (principle 6). A page opens when it has rows to hold:
    Gameplay opens with its second row, and until then Fix retail bugs stays where it is.
 5. **The original stays reachable** (principle 1). The 1997 menu code stays, as the reference and
@@ -63,22 +65,26 @@ show and set settings, and never change the game's rules.
 
 ## Presets
 
-Three presets set values, and the one the player chose is stored in `lba2.cfg` as the base their
+Two presets set values, and the one the player chose is stored in `lba2.cfg` as the base their
 own values sit on. Custom is what the preset row shows when the player's own values differ from
 that base: computed, never chosen.
 
 | Preset | Sets |
 |---|---|
-| **Classic** | Default, with every switch the port added at its value from before and Fix retail bugs on No: the 1997 CD release's rules. |
-| **Default** | What a fresh install gets. Retail fixes on, port features off unless they have moved on by default. |
-| **Modern** | Default, plus every Modern-ring switch at its Modern value. |
+| **Classic** | Every switch the port added at its value from before, and Fix retail bugs on No: the 1997 CD release's rules. |
+| **Modern** | Every switch at its default: what a fresh install gets. Retail fixes on, and a port feature on once it has moved on by default. |
 
-Today that is a short list: Classic differs from Default in the retail fixes, and Modern from
-Default in the outdoor Auto camera. The indoor camera is a candidate for Modern once it passes
-the two ring fixtures that leave it out today (`test_ring_off_is_gone.sh` and
-`test_ring_watch_not_play.sh`): it is a different camera from the outdoor one, and it changes
-what a save carries. The preset earns its place on first launch, where it is the one choice a new
-player makes, and grows as Modern settings arrive.
+The question a player answers is the original's rules or the port's. Being in the Modern ring
+does not put a setting in the Modern preset: a Modern-ring setting is a tested menu row, on or
+off by default, and it reaches the preset only by going on by default, which takes its own
+evidence ([moving inward](../ARCHITECTURE.md#moving-inward)). A third preset between the two, the
+defaults plus every Modern-ring switch on, would hold only the settings tested well enough to be
+offered but not well enough to be on for everyone; a player turns those on by their rows.
+
+Today the two differ in Fix retail bugs alone: every switch the port added is off by default,
+which is its value from before, and nothing is in the Modern ring yet (the Auto camera is
+Experimental until #839). The preset earns its place on first launch, where it is the one choice
+a new player makes.
 
 A preset sets switches, never tuning values: every preset leaves tuning at its default. A
 camera tuning row's value from before is the Auto camera before that behaviour, the start the
@@ -107,16 +113,16 @@ settings, and no preset changes them:
 - how the mouse and pad feel: sensitivity, invert, deadzone, mouse confine, menu mouse;
 - the keyboard and gamepad bindings.
 
-Without this, Classic would set the mouse confine to its value from before, Modern would turn on
-texture filtering for a player who chose Modern for the Auto camera, and both would read Custom
-a minute later.
+Without this, Classic would set the mouse confine to its value from before, choosing Modern
+would put a player's texture filtering back to its default, and both would read Custom a minute
+later.
 
 ### The chosen preset is the base
 
 `lba2.cfg` holds the chosen preset (`Preset: Modern`) and, for a setting a preset sets, a value
 only where the player's own differs from it. At read time the chosen preset's value takes the
-place of the row's default: for a switch, Classic gives the value from before, Default the
-compiled default, Modern the Modern value. The chain [PORTABILITY_PLAN.md](PORTABILITY_PLAN.md) reads becomes
+place of the row's default: for a switch, Classic gives the value from before and Modern the
+default. The chain [PORTABILITY_PLAN.md](PORTABILITY_PLAN.md) reads becomes
 compiled defaults, game-data config, chosen preset, the profile's own values, flags. The preset
 covers only the settings presets set, so an install's config still sets the player's settings.
 
@@ -124,14 +130,13 @@ Storing the preset is what keeps each one true when a default moves or a setting
 
 - A Classic player's file names no value equal to Classic's. When the Auto camera one day moves
   on by default, they keep Classic's value, because their base is Classic, not the default.
-- A Modern player gets a setting that joins the Modern ring later without choosing Modern again,
-  and the row still reads Modern.
-- A Default player follows the defaults as they move, which is what
+- A Modern player follows the defaults as they move: a setting that goes on by default later
+  reaches them without choosing Modern again, which is what
   [The config file](#the-config-file) wants for every player.
 
-Computed from the values alone, each preset fails one of these. A file that leaves out values
-equal to the default takes Classic players along when a default moves; a file that writes every
-value keeps Default and Modern players where they were.
+Computed from the values alone, one preset fails. A file that leaves out values equal to the
+default takes Classic players along when a default moves; a file that writes every value keeps
+Modern players where they were.
 
 The cost is that the same file gives different values in different builds when a preset's values
 change, which EPmager asked to avoid on #838. A recording carries every value, so a run stays
@@ -142,7 +147,7 @@ writer to leave out a value equal to it, so it is one Decision with point 2 of
 
 ### Choosing a preset
 
-- The preset row opens a page: Classic, Default and Modern, each with a help line saying what it
+- The preset row opens a page: Classic and Modern, each with a help line saying what it
   sets, and **Back to my settings** when there is something to go back to. The row itself shows
   the chosen preset, or Custom when the player's own values differ from it ("Settings: Custom").
 - Choosing a preset asks for confirmation, then keeps the preset it replaces and the player's
@@ -157,8 +162,8 @@ writer to leave out a value equal to it, so it is one Decision with point 2 of
   setting a preset sets, tuning included, makes the row read Custom; changing a player's setting
   does not.
 - Custom is computed: the chosen preset is stored, Custom is not, and no player chooses it. A file
-  with no `Preset` key is on Default, so a player who brings an edited `lba2.cfg` sees Custom where
-  the file sets a value Default does not, which answers EPmager's question on #838. While the row
+  with no `Preset` key is on Modern, so a player who brings an edited `lba2.cfg` sees Custom where
+  the file sets a value Modern does not, which answers EPmager's question on #838. While the row
   reads Custom, the page's help line names the settings that differ from the chosen preset,
   Experimental ones included, so a value set from the console or a downloaded file can be found.
 - The Fix retail bugs row stays as it is, and works differently: its Custom is a stored value the
@@ -170,7 +175,7 @@ writer to leave out a value equal to it, so it is one Decision with point 2 of
 - **First launch** offers the preset page once, before the intro, so a new player knows Classic
   and Modern exist. First launch means the profile had no `lba2.cfg` of its own at boot: the
   check the intro uses today (`IsFirstGameLaunched`, no saves) would offer the page again to a
-  player who deleted their saves. Escape changes nothing, which on a first launch is Default. A
+  player who deleted their saves. Escape changes nothing, which on a first launch is Modern. A
   run under automation (`Control_IsActive`: `--load`, `--exec`, `--tick`) skips the page as it
   skips the logos ([SOURCES/PERSO.CPP](../../SOURCES/PERSO.CPP)), so a `ui` verb captures it.
   Afterwards the page is in Options.
@@ -178,9 +183,9 @@ writer to leave out a value equal to it, so it is one Decision with point 2 of
   its values still apply. Its help says what the page is: English only, and its rows may change
   or go between builds.
 - **Reset settings** puts every setting except the languages back to a fresh install, the preset
-  to Default and the player's settings and bindings included, after a confirmation step and with
+  to Modern and the player's settings and bindings included, after a confirmation step and with
   a settings backup
-  kept first. That is what makes it more than choosing Default. The binding pages have their own
+  kept first. That is what makes it more than choosing Modern. The binding pages have their own
   reset. A fresh install's value is not always the compiled default: an install's own `lba2.cfg`
   is a layer under the profile's, and it can name the player's settings (the demo's names the
   volumes, the detail level, scenario cameras, video size and all 72 keyboard bindings). So Reset
@@ -188,11 +193,11 @@ writer to leave out a value equal to it, so it is one Decision with point 2 of
   the writer to leave a key out ([The config file](#the-config-file), point 2).
 
 For this every setting gains four fields: the **ring** (none for a 1997 setting or a retail fix,
-Modern or Experimental), from which the Modern preset and the Experimental page are built;
+Modern or Experimental), from which the Experimental page is built and the Modern-ring fixture
+picks its settings;
 whether **presets set** it, no for every player's setting; whether it is a **switch** or a tuning
 value, since presets set only switches; and the **category**, which the menu and the config file
-both group by. A Modern-ring switch also says its **Modern value** (on, for the switches there
-are today). A setting moves inward by changing its ring field in the PR that brings
+both group by. A setting moves inward by changing its ring field in the PR that brings
 the evidence ([ARCHITECTURE.md, Moving inward](../ARCHITECTURE.md#moving-inward)).
 
 These fields live in a table of the menu's own, keyed by the `lba2.cfg` key, not in `T_SETTING`.
@@ -230,12 +235,13 @@ their own.
    file, so the Decision on leaving keys out ([The config file](#the-config-file), point 2) comes
    before it.
 6. **A value from before on every row the port added (#846)**, then the **Classic** preset.
-   Today Classic needs only Fix retail bugs on No, since both camera switches are off by default;
+   Today Classic needs only Fix retail bugs on No, since every switch the port added is off by
+   default;
    #846 is what keeps a switch that moves on by default later from staying on under Classic.
    Its console step, `settings_before` with no prefix, also sets player's settings (the mouse
    confine, the fixed timestep), so the preset reuses it through the presets-set field.
-7. **Default and Modern presets**, the preset page with Back to my settings, the offer on first
-   launch, and a fixture with every Modern setting on.
+7. **The Modern preset**, the preset page with Back to my settings, the offer on first launch,
+   and a fixture with every Modern-ring setting on at once.
 8. **Experimental page generated from the settings table**, behind Show experimental settings.
    Then the camera presets (#733), the console row (#679), saving and loading settings backups
    from the menu, each in its own PR.
@@ -296,7 +302,7 @@ their help line says what is unfinished, until Phase 7 lands (open question 10).
 player's setting, so Modern never picks HD.
 
 At 640x480 a page shows the selected row's help on a line below its rows where it fits, and the
-preset page always: the help line is how a player learns what Default sets. From 840 logical
+preset page always: the help line is how a player learns what Classic changes. From 840 logical
 pixels the wide layout has a help line on every page.
 
 ## The config file
@@ -373,7 +379,7 @@ though they never chose it. Moving inward cannot reach existing players.
 
 Point 2 and the stored preset change what an existing file means, which is a core contract
 (principle 2), so together they start from one Decision. The migration they need: an old file has
-no `Preset` key, so it is on Default, and the first write in the new form keeps a copy of the old
+no `Preset` key, so it is on Modern, and the first write in the new form keeps a copy of the old
 file and drops each key equal to a default its row has had. Equal to
 the current default is not enough: if a default has moved, an old file holds the old one, which
 no longer matches, and the player stays on it, the case point 2 exists for. So the migration reads
@@ -510,8 +516,8 @@ writers persisting the player's tables while a replay has borrowed them.
 11. Whether a `Preset` line in an imported file takes out the player's own values for settings
     presets set, as choosing the preset in the menu does, and whether an imported key equal to
     the new base stays in the file as one the player named. Left alone, a Modern player who
-    imports a Classic file keeps their indoor camera, loses the outdoor Auto camera that came
-    from Modern, and reads "Classic, changed".
+    turned the Auto camera on and imports a Classic file keeps the Auto camera and reads
+    "Classic, changed".
 
 ## Not in this plan
 

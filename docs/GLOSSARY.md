@@ -18,7 +18,7 @@ they reach the menu is [plan/MENU_PLAN.md](plan/MENU_PLAN.md).
 | Question | Words | Who decides |
 |---|---|---|
 | How far along is this setting? (**ring**) | Modern, Experimental. A setting the 1997 game already had, or a retail fix, is in no ring. | Contributors, on evidence ([moving inward](ARCHITECTURE.md#moving-inward)) |
-| Which values do I want? (**preset**) | Classic, Default, Modern | The player |
+| Which values do I want? (**preset**) | Classic, Modern | The player |
 | Do my values differ from my preset? | Custom when they do | Nobody: the values arrive there |
 | Am I shown the experiments? | Show experimental settings | The player |
 
@@ -36,9 +36,9 @@ the game's settings, never the player's own.
 | Classic | Classic | The player's word for the original's behaviour: the Classic preset, and a setting's value that gives the 1997 behaviour ("Outdoors: Classic"). | The 2022 release, which docs always call "the 2022 release" |
 | The 2022 release | -- | The official re-release of 2022 (on Steam and GOG). A second witness at most, never the reference. | The original |
 | Value from before | -- | The value of a setting the port added that gives back what the game did before it existed (`SETTING_BEFORE` in [SOURCES/SETTINGS.H](../SOURCES/SETTINGS.H)). The Classic preset applies these to switches, never to the player's settings or to tuning values. | The default |
-| Default | Default | What a fresh install gets: the row's compiled default. Retail fixes are on, so Default is not Classic. A `lba2.cfg` with no `Preset` key is on Default. | Classic |
-| Modern (ring) | -- | Settings that change how the game is shown or handled, never its rules, each one tested. Offered as menu rows. | Modern (preset) |
-| Modern (preset) | Modern | Default plus every Modern-ring switch at its Modern value: one tested combination. | Modern (ring) |
+| The default | -- | A row's compiled default: what a fresh install gets, and what the Modern preset gives. Not a preset of its own. | The value from before |
+| Modern (ring) | -- | Settings that change how the game is shown or handled, never its rules, each one tested. Offered as menu rows, on or off by default; going on by default takes its own evidence ([moving inward](ARCHITECTURE.md#moving-inward)). | Modern (preset) |
+| Modern (preset) | Modern | Every setting a preset sets at its default: what a fresh install gets, retail fixes on. It follows the defaults as they move. A `lba2.cfg` with no `Preset` key is on Modern. | Modern (ring) |
 | Experimental (ring) | Experimental (a page) | Anything else: features being tried and every tuning value. Off by default, comes out without ceremony. | Experimental builds (a platform tier's pre-release) |
 | Custom | Custom | On the preset row: the player's own values differ from the chosen preset in a setting presets set. Computed: the preset is stored, Custom is not. On the Fix retail bugs row it is a stored value the player cycles to, and each fix's own setting decides. | |
 | Player's setting | -- | A setting no preset changes: every setting the 1997 game had, and the port's settings for the screen, the filters, the fixed timestep, how the mouse and pad feel, and the bindings. Reset settings does change them. | Tuning value |
