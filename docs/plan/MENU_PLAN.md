@@ -483,11 +483,14 @@ existing goldens byte for byte. Only then does it get wide layouts.
 
 ### Long lists
 
-A plain page does not scroll. A long list of one kind (resolutions, the Experimental page) is a
-windowed list as the save list is, with a scroll bar beside the window: a framed track, a framed
-thumb sized to the window's share of the list, Page Up and Page Down or the shoulder buttons for
-a window at a time, the wheel and a drag for the pointer. At 640x480 the rows of a page that
-scrolls move 14 pixels left to make room; pages that do not scroll stay centred.
+A long list of one kind (resolutions, the Experimental page) is a windowed list as the save list
+is, with a scroll bar beside the window: a framed track, a framed thumb sized to the window's
+share of the list, Page Up and Page Down or the shoulder buttons for a window at a time, the
+wheel and a drag for the pointer. On the wide canvas a plain page holds its rows (Display and
+graphics, at seven, scrolls by one). At 640x480 the help's dialogue window leaves room for five
+rows, so the hub and most pages scroll there too: the rows stay centred at the 1997 width and
+the bar sits beside them, in the screen's right gap (chosen 2026-11-03 over the bar inside the
+rows, no bar, and a two-line help window).
 
 The Experimental page is generated from the settings table: every row in the Experimental ring,
 grouped by category, labelled with its console name and help text, in English. An experiment
