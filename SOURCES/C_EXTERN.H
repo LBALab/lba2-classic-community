@@ -94,6 +94,8 @@ extern T_OBJET *APtObj;
 extern U8 CinemaMode;
 /* PlayAcf is presenting a full-screen movie into Log. */
 extern S32 FlagMovie;
+extern S32 MovieUpscale; /* 0 nearest, 1 Scale2x, 2 xBR */
+extern S32 MovieVrZoom;  /* Quest movie rect percent, 50..100 */
 extern S32 TimerCinema;
 extern S32 LastYCinema;
 extern S32 DebCycleCinema;   // en pixels Y

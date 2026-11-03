@@ -333,6 +333,8 @@ In GL mode, the 3D scene renders directly to the GL framebuffer. 2D elements (sp
 
 The palette-indexed → ARGB conversion for 2D only happens once per frame, on a much smaller workload than the current full-frame conversion.
 
+Movies bypass the CPU upscale when GL is active: `PlayAcf` hands the 320×200 indexed frame to `GL_DrawMovieFrame`, which clears the scene target black and draws it through the indexed layer shader with the selected movie filter (Nearest / Scale2x / xBR). Index 0 is the movie background key: the scene target is cleared literal black and the key is discarded, so a magenta/purple key in the video shows black, not the key colour. On OpenXR the destination rect is shrunk to `MovieVrZoom` percent and centred.
+
 ## Build system
 
 ### Compile-time control

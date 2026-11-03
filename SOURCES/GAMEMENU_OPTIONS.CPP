@@ -81,6 +81,7 @@ static const struct MenuRowDef kGameplayRows[] = {
     {0, MENU_ID_MOVIE_CAMERA},
     {0, MENU_ID_VIDEO_SIZE},
     {0, MENU_ID_DISPLAY_TEXT},
+    {0, MENU_ID_MOVIE_UPSCALE},
 };
 static U16 GameplayMenu[MENU_HEADER_WORDS + MENU_ROW_COUNT(kGameplayRows) * 2];
 
@@ -365,6 +366,11 @@ S32 GereGameplayMenu(void) {
             } else {
                 FlagDisplayText = TRUE;
             }
+            break;
+
+        case MENU_ID_MOVIE_UPSCALE:
+            MovieUpscale = (MovieUpscale + 1) % 3;
+            WriteConfigFile();
             break;
         }
     }

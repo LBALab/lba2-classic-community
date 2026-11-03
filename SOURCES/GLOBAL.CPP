@@ -66,6 +66,12 @@ U8 CinemaMode = FALSE;
 /* Full-screen video (PLAYACF): the 8-bit Log holds the movie and palette
    index 0 is opaque black, not the UI chroma key. */
 S32 FlagMovie = FALSE;
+/* Movie upscaling: 0 = nearest, 1 = Scale2x, 2 = xBR (default).  Kept
+   separate from DisplayTexFilter so game textures and FMV can differ. */
+S32 MovieUpscale = 2;
+/* Quest: shrink the movie rect to this percent of the frame, centred.
+   Desktop keeps the full-frame cine rect. */
+S32 MovieVrZoom = 70;
 S32 TimerCinema = 0;
 S32 LastYCinema = 0;
 S32 DebCycleCinema = 0;     // en pixels Y

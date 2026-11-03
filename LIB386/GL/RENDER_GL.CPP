@@ -1354,6 +1354,12 @@ static const char *s_presentIndexedFragSrc =
        empty. A full-screen movie is an ordinary indexed image where index 0
        is black, so uOpaqueBlack forces it visible. */
     "    if (uOpaqueBlack < 0.5 && e < 0.5) discard;\n"
+    "    if (uOpaqueBlack > 0.5 && e < 0.5) {\n"
+    /* Movie fallback: index 0 is the background key, and the surrounding
+       target is black. Paint black, not the palette's key colour. */
+    "        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);\n"
+    "        return;\n"
+    "    }\n"
     "    vec4 pal = texture2D(uPalette, vec2((e + 0.5) / 256.0, 0.5));\n"
     "    gl_FragColor = vec4(ImageAdjust(pal.rgb), uOpaqueBlack > 0.5 ? 1.0 : pal.a);\n"
     "}\n";
@@ -7757,9 +7763,17 @@ void GL_DecorBatchEnd(void) {
    same entry (see GL_SetSceneClearColor), so the pixels no polygon covers
    read alike.  Index 0 before the first scene is boot black. */
 static U8 s_sceneClearPalIndex = 0;
+static S32 s_sceneClearBlack = 0;
 
 void GL_SetSceneClearColor(U8 palIndex) {
     s_sceneClearPalIndex = palIndex;
+    s_sceneClearBlack = 0;
+}
+
+/* Movie frames carry their own palette; index 0 may be a magenta/other
+   chroma key, so the cinematic clear must be literal black. */
+static void GL_SetSceneClearBlack(void) {
+    s_sceneClearBlack = 1;
 }
 
 void GL_ClearFBO(void) {
@@ -7790,12 +7804,16 @@ void GL_ClearFBO(void) {
          * present path can composite the room over the camera feed. */
         const GLfloat clearAlpha =
             OpenXR_InteriorPassthroughActive() ? 0.0f : 1.0f;
-        const U32 *lut = GL_GetPaletteLUT();
-        if (lut != NULL) {
-            const U32 c = lut[s_sceneClearPalIndex];
-            glClearColor((GLfloat)((c >> 16) & 0xFF) / 255.0f,
-                         (GLfloat)((c >> 8) & 0xFF) / 255.0f,
-                         (GLfloat)(c & 0xFF) / 255.0f, clearAlpha);
+        if (s_sceneClearBlack) {
+            glClearColor(0.0f, 0.0f, 0.0f, clearAlpha);
+        } else {
+            const U32 *lut = GL_GetPaletteLUT();
+            if (lut != NULL) {
+                const U32 c = lut[s_sceneClearPalIndex];
+                glClearColor((GLfloat)((c >> 16) & 0xFF) / 255.0f,
+                             (GLfloat)((c >> 8) & 0xFF) / 255.0f,
+                             (GLfloat)(c & 0xFF) / 255.0f, clearAlpha);
+            }
         }
     }
 
@@ -9141,16 +9159,18 @@ void GL_DrawIndexedLayer(S32 slot, const void *pixels, const void *depth,
                               maskW, maskH, maskX, maskY);
 }
 
-void GL_DrawIndexedLayerOffset(S32 slot, const void *pixels, const void *depth,
-                               S32 w, S32 h, U32 generation, S32 filter,
-                               S32 x0, S32 y0, S32 x1, S32 y1, S32 offX,
-                               S32 offY, U16 azMin, U16 azSpan,
-                               const void *mask, S32 maskW, S32 maskH,
-                               S32 maskX, S32 maskY) {
+static void GL_DrawIndexedLayerRects(S32 slot, const void *pixels, const void *depth,
+                                     S32 w, S32 h, U32 generation, S32 filter,
+                                     S32 srcX0, S32 srcY0, S32 srcX1, S32 srcY1,
+                                     S32 dstX0, S32 dstY0, S32 dstX1, S32 dstY1,
+                                     S32 offX, S32 offY, U16 azMin, U16 azSpan,
+                                     const void *mask, S32 maskW, S32 maskH,
+                                     S32 maskX, S32 maskY, S32 chroma) {
     if (GL_SecondEyePass())
         return;
     if (!s_initialized || pixels == NULL || w <= 0 || h <= 0 ||
-        s_layerProgram == 0 || x1 <= x0 || y1 <= y0 || slot < 0 ||
+        s_layerProgram == 0 || srcX1 <= srcX0 || srcY1 <= srcY0 ||
+        dstX1 <= dstX0 || dstY1 <= dstY0 || slot < 0 ||
         slot >= GL_LAYER_SLOTS) {
         return;
     }
@@ -9290,27 +9310,27 @@ void GL_DrawIndexedLayerOffset(S32 slot, const void *pixels, const void *depth,
     GL_SetDepthTest(0);
     GL_SetDepthWrite(0);
     GL_SetBlendFunc(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    GL_MarkFBORegion(x0 + offX, y0 + offY, x1 - 1 + offX, y1 - 1 + offY);
+    GL_MarkFBORegion(dstX0 + offX, dstY0 + offY, dstX1 - 1 + offX, dstY1 - 1 + offY);
 
     /* One quad covering the whole layer.  Material: polyMode 4 (the texel is
-       the palette index) with the chroma-key bit, so untouched texels stay
-       transparent over the cleared scene instead of painting palette[0]. */
+       the palette index); `chroma` keeps untouched texels transparent over
+       the cleared scene, while a movie paints palette[0] as opaque black. */
     static GLfloat layerVerts[6 * 5];
     static const S8 order[6] = {0, 1, 2, 0, 2, 3};
-    const GLfloat u0 = (GLfloat)x0 / (GLfloat)w;
-    const GLfloat v0 = (GLfloat)y0 / (GLfloat)h;
-    const GLfloat u1 = (GLfloat)x1 / (GLfloat)w;
-    const GLfloat v1 = (GLfloat)y1 / (GLfloat)h;
+    const GLfloat u0 = (GLfloat)srcX0 / (GLfloat)w;
+    const GLfloat v0 = (GLfloat)srcY0 / (GLfloat)h;
+    const GLfloat u1 = (GLfloat)srcX1 / (GLfloat)w;
+    const GLfloat v1 = (GLfloat)srcY1 / (GLfloat)h;
     /* The quad's screen position and the texels it samples are separable:
        a caller that composed at a quantized view offset slides the whole
        image by the leftover here, without re-uploading it. */
-    const GLfloat px[4] = {(GLfloat)(x0 + offX), (GLfloat)(x1 + offX),
-                           (GLfloat)(x1 + offX), (GLfloat)(x0 + offX)};
-    const GLfloat py[4] = {(GLfloat)(y0 + offY), (GLfloat)(y0 + offY),
-                           (GLfloat)(y1 + offY), (GLfloat)(y1 + offY)};
+    const GLfloat px[4] = {(GLfloat)(dstX0 + offX), (GLfloat)(dstX1 + offX),
+                           (GLfloat)(dstX1 + offX), (GLfloat)(dstX0 + offX)};
+    const GLfloat py[4] = {(GLfloat)(dstY0 + offY), (GLfloat)(dstY0 + offY),
+                           (GLfloat)(dstY1 + offY), (GLfloat)(dstY1 + offY)};
     const GLfloat pu[4] = {u0, u1, u1, u0};
     const GLfloat pv[4] = {v0, v0, v1, v1};
-    const GLfloat layerMat = (GLfloat)(4 | (1 << 5));
+    const GLfloat layerMat = (GLfloat)(4 | (chroma ? (1 << 5) : 0));
     for (S32 i = 0; i < 6; i++) {
         GLfloat *v = layerVerts + i * 5;
         const S32 c = order[i];
@@ -9363,6 +9383,60 @@ void GL_DrawIndexedLayerOffset(S32 slot, const void *pixels, const void *depth,
     s_profTris += 2;
 
     GL_BindArrayBuffer(0);
+}
+
+void GL_DrawIndexedLayerOffset(S32 slot, const void *pixels, const void *depth,
+                               S32 w, S32 h, U32 generation, S32 filter,
+                               S32 x0, S32 y0, S32 x1, S32 y1, S32 offX,
+                               S32 offY, U16 azMin, U16 azSpan,
+                               const void *mask, S32 maskW, S32 maskH,
+                               S32 maskX, S32 maskY) {
+    GL_DrawIndexedLayerRects(slot, pixels, depth, w, h, generation, filter,
+                             x0, y0, x1, y1, x0, y0, x1, y1, offX, offY,
+                             azMin, azSpan, mask, maskW, maskH, maskX, maskY, 1);
+}
+
+/* Draw a full indexed image into an arbitrary destination rect.  Unlike the
+   interior layer blit, the source and destination rects differ here, and
+   `chroma` 0 paints palette index 0 instead of treating it as the chroma key;
+   the movie path needs both. */
+void GL_DrawIndexedLayerScaled(S32 slot, const void *pixels, S32 w, S32 h,
+                               U32 generation, S32 filter,
+                               S32 srcX0, S32 srcY0, S32 srcX1, S32 srcY1,
+                               S32 dstX0, S32 dstY0, S32 dstX1, S32 dstY1,
+                               S32 chroma) {
+    GL_DrawIndexedLayerRects(slot, pixels, NULL, w, h, generation, filter,
+                             srcX0, srcY0, srcX1, srcY1,
+                             dstX0, dstY0, dstX1, dstY1, 0, 0,
+                             0, 0, NULL, 0, 0, 0, 0, chroma);
+}
+
+/* Present one movie frame into the scene target.  The scene is cleared black
+   first so the area outside the cine rect (letterbox/pillarbox) is filled,
+   then the indexed frame is drawn with the selected filter (2 = Scale2x,
+   3 = xBR).  The caller keeps Log empty so the normal overlay pass does not
+   paint over this. */
+void GL_DrawMovieFrame(const void *pixels, S32 w, S32 h, S32 filter,
+                       S32 x0, S32 y0, S32 x1, S32 y1) {
+    static U32 s_movieGen = 0;
+
+    if (!s_initialized || pixels == NULL || w <= 0 || h <= 0)
+        return;
+    if (!Window_GLMakeCurrent())
+        return;
+
+    /* PaletteSync bumped the palette generation this frame; upload before the
+       layer draw, or the movie would use the previous frame's palette. */
+    GL_UploadPalette();
+    GL_SetSceneClearBlack();
+    GL_ClearFBO();
+    GL_SetSceneClearColor(0);
+    s_movieGen++;
+    /* Index 0 is the movie's chroma/background key (some videos use a
+       magenta key). The scene target was just cleared black, so discard it
+       and let the black show through rather than painting the key colour. */
+    GL_DrawIndexedLayerScaled(0, pixels, w, h, s_movieGen, filter,
+                              0, 0, w, h, x0, y0, x1, y1, 1);
 }
 
 void GL_ReadbackColorBuffer(void) {

@@ -3771,6 +3771,16 @@ void ReadConfigFile(void) {
     DisplaySharpen = DefFileBufferReadValueDefault("DisplaySharpen", 0);
     if (DisplaySharpen < 0 OR DisplaySharpen > 2)
         DisplaySharpen = 0;
+    MovieUpscale = DefFileBufferReadValueDefault("MovieUpscale", 2);
+    if (MovieUpscale < 0 OR MovieUpscale > 2)
+        MovieUpscale = 2;
+    MovieVrZoom = DefFileBufferReadValueDefault("MovieVrZoom", 70);
+    if (MovieVrZoom == 85)
+        MovieVrZoom = 70; /* migrate the previous default */
+    if (MovieVrZoom < 50)
+        MovieVrZoom = 50;
+    else if (MovieVrZoom > 100)
+        MovieVrZoom = 100;
 #ifdef __ANDROID__
     if (DisplayAntiAlias == 3)
         DisplayAntiAlias = 2; /* MSAA×4 not offered on Android (GL_SetAntiAlias) */
@@ -4030,6 +4040,8 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("DisplayColorGrade", DisplayColorGrade);
     DefFileBufferWriteValue("DisplaySubPixel", DisplaySubPixel);
     DefFileBufferWriteValue("DisplaySharpen", DisplaySharpen);
+    DefFileBufferWriteValue("MovieUpscale", MovieUpscale);
+    DefFileBufferWriteValue("MovieVrZoom", MovieVrZoom);
     DefFileBufferWriteValue("DisplayStereo3D", DisplayStereo3D);
     DefFileBufferWriteValue("RenderQuality", RenderQuality);
 #endif

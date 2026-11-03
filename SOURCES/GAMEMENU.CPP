@@ -156,6 +156,12 @@ static void BuildCustomMenuText(S32 num, char *string) {
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_GAMEPLAY));
         break;
 
+    case MENU_ID_MOVIE_UPSCALE:
+        CopyUtf8ToCp850(string, 256,
+                        GetLocalizedMenuLabel(MovieUpscale == 2 ? MENU_LABEL_MOVIE_UPSCALE_XBR : MovieUpscale == 1 ? MENU_LABEL_MOVIE_UPSCALE_SCALE2X
+                                                                                                                 : MENU_LABEL_MOVIE_UPSCALE_NEAREST));
+        break;
+
     case MENU_ID_CONTROLLER:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_CONTROLLER));
         break;

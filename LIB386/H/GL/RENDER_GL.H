@@ -243,6 +243,20 @@ void GL_DrawIndexedLayerOffset(S32 slot, const void *pixels, const void *depth,
                                const void *mask, S32 maskW, S32 maskH,
                                S32 maskX, S32 maskY);
 
+//! Draw an indexed image from `src` into `dst` (screen pixels), scaling as
+//! needed. `filter` is the layer filter (2 = Scale2x, 3 = xBR). `chroma` 0
+//! paints palette index 0 opaque; 1 treats it as the transparent key.
+void GL_DrawIndexedLayerScaled(S32 slot, const void *pixels, S32 w, S32 h,
+                               U32 generation, S32 filter,
+                               S32 srcX0, S32 srcY0, S32 srcX1, S32 srcY1,
+                               S32 dstX0, S32 dstY0, S32 dstX1, S32 dstY1,
+                               S32 chroma);
+
+//! Present one movie frame (w×h indexed) into the scene target, clearing the
+//! rest black. `filter` 2 = Scale2x, 3 = xBR.
+void GL_DrawMovieFrame(const void *pixels, S32 w, S32 h, S32 filter,
+                       S32 x0, S32 y0, S32 x1, S32 y1);
+
 //! Screen distance the second eye can move a point of the indexed layer,
 //! over the depths `azMin..azMin + azSpan - 1` span.  A caller that has to
 //! cover the same feature in both eyes (the foreground-brick overlay) sizes

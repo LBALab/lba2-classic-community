@@ -60,7 +60,8 @@ Main Menu
 │   │   ├── Classic camera / Auto camera / First person [custom label, community addition]
 │   │   ├── Movie camera OFF/ON (46/47)
 │   │   ├── Small videos / Full screen videos (27/28)
-│   │   └── Don't display text / Display text (16/17)
+│   │   ├── Don't display text / Display text (16/17)
+│   │   └── Movies: Nearest / Scale2x / xBR [default xBR; independent of the game texture filter]
 │   ├── Controls [custom localized label, community addition]
 │   │   ├── Back (26)
 │   │   ├── Keyboard Config (14)
@@ -75,7 +76,7 @@ Main Menu
 
 `DoGameMenu` returns the selected text ID, or `MENU_RET_ESC` (1000) for ESC.
 
-OpenXR builds use a quality-forward default set: Filter = xBR Lite, Antialias = MSAA×2, Soft shadows On, Vsync Off, Stereo 3D On, Supersampling 1.5x, Interior hover On, Sub-pixel pan On, Full body On. They live in `ReadConfigFile` under `#ifdef LBA2_OPENXR`; an existing lba2.cfg still wins, so the defaults only apply to absent keys.
+OpenXR builds use a quality-forward default set: Filter = xBR Lite, Antialias = MSAA×2, Soft shadows On, Vsync Off, Stereo 3D On, Supersampling 1.5x, Interior hover On, Sub-pixel pan On, Full body On. Movies default to xBR upscaling and are drawn at 70% of the frame on Quest, centred, with the rest black (`MovieVrZoom`). Desktop keeps the full-frame cine rect. The values live in `ReadConfigFile` under `#ifdef LBA2_OPENXR` where they are OpenXR-specific; an existing lba2.cfg still wins, so the defaults only apply to absent keys.
 
 ## Terms
 
@@ -110,7 +111,7 @@ Flow: `kMainMenuRows` (template) → `BuildGameMainMenu(firstloop)` → `GameMai
 - **Audio** (`GereVolumeMenu`): `VolumeMenuVoice` / `VolumeMenuNoVoice` depending on `FlagSpeak`. Sliders for Sample, Voice, Music, and General volume, plus the Reverse stereo channels toggle. Persisted via [CONFIG.md](CONFIG.md).
 - **Language** (`GereLanguageMenu`): cycles text language and voice language independently. Text changes reload `text.hqr` immediately; voice changes update the active `LanguageCD` setting.
 - **Display** (`GereDisplayMenu`): a compact parent page — Resolution, Graphics, Image, VR when an OpenXR session is active, Window, FPS counter, and FPS limit — plus one child page per group. The split keeps every page within the row budget of the 480px canvas. Resolution opens the generated mode list; Graphics (GL) holds Renderer / Filter / Antialias / Quality (desktop only; Android clamps SSAA to Native) / Detail Level / Soft shadows; Image (GL) holds the Brightness / Contrast / Saturation sliders plus Colour grade / Dither / Sharpen; VR (OpenXR) holds Stereo 3D / VR zoom / Supersampling / Interior / Body & hands, with Interior holding Interior hover / Sub-pixel pan / Interior passthrough; Window holds Vsync / Fullscreen. See [RUNTIME_RESOLUTION.md](RUNTIME_RESOLUTION.md) and [GFX_OPTIONS.md](GFX_OPTIONS.md). The image sliders (menu types 10–12) use left/right or the mouse wheel to step the signed -20..+20 value by 1 with the volume sliders' key repeat, draw a zero-centred bar, preview live at composite time, and write lba2.cfg once when the Display menu closes.
-- **Gameplay** (`GereGameplayMenu`): the camera setting (Classic camera / Auto camera / First person), movie cameras, video playback size, and subtitle display.
+- **Gameplay** (`GereGameplayMenu`): the camera setting (Classic camera / Auto camera / First person), movie cameras, video playback size, subtitle display, and the movie upscaler (Nearest / Scale2x / xBR, default xBR). The movie filter is independent of the game texture filter.
 - **Save/Load** (`SavedGameManagement`, `ChoosePlayerName`): Player name selection, save slots, `GameChoiceMenu[]`, `SavedConfirmMenu[]` for delete
 - **Keyboard config** (`MenuConfig`): standalone config tool in [SOURCES/CONFIG/](../SOURCES/CONFIG/) or in-game `ReadInputConfig`/`WriteInputConfig`
 - **Cheats** (`GereCheatMenu`): one row per classic typed cheat code, rebuilt from the shared cheat table in [SOURCES/CHEATCOD.CPP](../SOURCES/CHEATCOD.CPP) (`CheatGetCount` / `CheatGetName`) so the menu cannot drift from the codes the game already accepts by typing. Selecting a row runs `TryExecuteCheatByIndex`, the same path the console and typed sequences use (toast + sound included); the Speed / God / Sendell rows are toggles and show their On/Off state in the label. Rows use the reserved `MENU_ID_CHEAT_BASE` id range; `ui cheat-menu <path>` ([CONTROL.md](CONTROL.md)) captures the submenu headless.
