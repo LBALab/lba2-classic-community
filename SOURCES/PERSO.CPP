@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include "GAMEMENU_MENUS.H"
 #include <math.h>   /* cosf/sinf - rolled stereo eye offset */
 #include "IMAGE_LOAD.H"
 
@@ -2413,7 +2414,6 @@ restartloop:
                 SaveTimer();
                 MemoClipWindow();
                 UnsetClipWindow();
-                GameOptionMenu[5] = 15; // retour au jeu
 
                 StopSpeak();
                 InitDial(0); //      SYS
@@ -2422,9 +2422,7 @@ restartloop:
 
                 PauseMusic(FALSE);
 
-                OptionsMenu(FALSE);
-
-                GameOptionMenu[5] = 26; // retour au menu precedent
+                OptionsMenu(FALSE, MENU_ID_RETURN_TO_GAME);
 
                 InitDial(START_FILE_ISLAND + Island);
 
@@ -3566,6 +3564,31 @@ restartloop:
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
+/* Defaults for settings whose preferred value depends on the presentation
+ * path. The cfg still wins: these only apply when the key is absent, so an
+ * existing lba2.cfg keeps the player's choices. */
+#ifdef LBA2_OPENXR
+#define DEF_DISPLAY_TEXFILTER 4  /* xBR Lite */
+#define DEF_DISPLAY_ANTIALIAS 2  /* MSAA x2 */
+#define DEF_DISPLAY_SOFTSHADOWS TRUE
+#define DEF_DISPLAY_VSYNC FALSE
+#define DEF_DISPLAY_STEREO3D TRUE
+#define DEF_VR_SUPERSAMPLE 2 /* 1.5x */
+#define DEF_VR_INTERIOR_HOVER TRUE
+#define DEF_DISPLAY_SUBPIXEL TRUE
+#define DEF_VR_FULLBODY TRUE
+#else
+#define DEF_DISPLAY_TEXFILTER TRUE
+#define DEF_DISPLAY_ANTIALIAS 0
+#define DEF_DISPLAY_SOFTSHADOWS FALSE
+#define DEF_DISPLAY_VSYNC TRUE
+#define DEF_DISPLAY_STEREO3D FALSE
+#define DEF_VR_SUPERSAMPLE 0
+#define DEF_VR_INTERIOR_HOVER FALSE
+#define DEF_DISPLAY_SUBPIXEL FALSE
+#define DEF_VR_FULLBODY FALSE
+#endif
+
 void ReadConfigFile(void) {
     const char *ptr;
 
@@ -3600,7 +3623,7 @@ void ReadConfigFile(void) {
     if (CameraFirstPerson < 0 OR CameraFirstPerson > 1)
         CameraFirstPerson = FALSE;
 
-    VrFullBody = DefFileBufferReadValueDefault("VrFullBody", 0) ? TRUE : FALSE;
+    VrFullBody = DefFileBufferReadValueDefault("VrFullBody", DEF_VR_FULLBODY) ? TRUE : FALSE;
     VrWorldScale = DefFileBufferReadValueDefault("VrWorldScale", 100);
     if (VrWorldScale < 50)
         VrWorldScale = 50;
@@ -3625,9 +3648,9 @@ void ReadConfigFile(void) {
     else if (VrFovScale > 120)
         VrFovScale = 120;
 
-    VrSuperSample = DefFileBufferReadValueDefault("VrSuperSample", 0);
+    VrSuperSample = DefFileBufferReadValueDefault("VrSuperSample", DEF_VR_SUPERSAMPLE);
     if (VrSuperSample < 0 OR VrSuperSample > 2)
-        VrSuperSample = 0;
+        VrSuperSample = DEF_VR_SUPERSAMPLE;
 
     Log_Debug("VR config: fov=%d supersample=%d worldscale=%d fullbody=%d",
               (int)VrFovScale, (int)VrSuperSample, (int)VrWorldScale,
@@ -3635,7 +3658,7 @@ void ReadConfigFile(void) {
 
 
     VrInteriorHover =
-        DefFileBufferReadValueDefault("VrInteriorHover", 0) ? TRUE : FALSE;
+        DefFileBufferReadValueDefault("VrInteriorHover", DEF_VR_INTERIOR_HOVER) ? TRUE : FALSE;
 
     VrPassthrough =
         DefFileBufferReadValueDefault("VrPassthrough", 0) ? TRUE : FALSE;
@@ -3677,10 +3700,10 @@ void ReadConfigFile(void) {
 
     SetWindowFullscreen(DisplayFullScreen != FALSE);
 
-    DisplayVSync = DefFileBufferReadValueDefault("VSync", TRUE);
+    DisplayVSync = DefFileBufferReadValueDefault("VSync", DEF_DISPLAY_VSYNC);
 
     if (DisplayVSync < 0 OR DisplayVSync > 1)
-        DisplayVSync = TRUE;
+        DisplayVSync = DEF_DISPLAY_VSYNC;
 
     /* Renderer exists by now (SetWindowFullscreen above operates on the same
        window/renderer pair), so this applies the saved choice immediately.
@@ -3727,27 +3750,24 @@ void ReadConfigFile(void) {
      InitInput();
  #endif
 
-    DisplayTexFilter = DefFileBufferReadValueDefault("DisplayTexFilter", TRUE);
-    DisplayPerspectiveTextures = DefFileBufferReadValueDefault("DisplayPerspectiveTextures", FALSE);
-    if (DisplayPerspectiveTextures < 0 OR DisplayPerspectiveTextures > 1)
-        DisplayPerspectiveTextures = FALSE;
-    DisplayAntiAlias = DefFileBufferReadValueDefault("DisplayAntiAlias", 0);
+    DisplayTexFilter = DefFileBufferReadValueDefault("DisplayTexFilter", DEF_DISPLAY_TEXFILTER);
+    DisplayAntiAlias = DefFileBufferReadValueDefault("DisplayAntiAlias", DEF_DISPLAY_ANTIALIAS);
     if (DisplayAntiAlias < 0 OR DisplayAntiAlias > 3)
-        DisplayAntiAlias = 0;
+        DisplayAntiAlias = DEF_DISPLAY_ANTIALIAS;
     DisplayDither = DefFileBufferReadValueDefault("DisplayDither", FALSE);
     if (DisplayDither < 0 OR DisplayDither > 1)
         DisplayDither = FALSE;
     DisplaySoftShadows =
-        DefFileBufferReadValueDefault("DisplaySoftShadows", FALSE);
+        DefFileBufferReadValueDefault("DisplaySoftShadows", DEF_DISPLAY_SOFTSHADOWS);
     if (DisplaySoftShadows < 0 OR DisplaySoftShadows > 1)
-        DisplaySoftShadows = FALSE;
+        DisplaySoftShadows = DEF_DISPLAY_SOFTSHADOWS;
     DisplayColorGrade =
         DefFileBufferReadValueDefault("DisplayColorGrade", 0);
     if (DisplayColorGrade < 0 OR DisplayColorGrade > 2)
         DisplayColorGrade = 0;
-    DisplaySubPixel = DefFileBufferReadValueDefault("DisplaySubPixel", FALSE);
+    DisplaySubPixel = DefFileBufferReadValueDefault("DisplaySubPixel", DEF_DISPLAY_SUBPIXEL);
     if (DisplaySubPixel < 0 OR DisplaySubPixel > 1)
-        DisplaySubPixel = FALSE;
+        DisplaySubPixel = DEF_DISPLAY_SUBPIXEL;
     DisplaySharpen = DefFileBufferReadValueDefault("DisplaySharpen", 0);
     if (DisplaySharpen < 0 OR DisplaySharpen > 2)
         DisplaySharpen = 0;
@@ -3756,11 +3776,11 @@ void ReadConfigFile(void) {
         DisplayAntiAlias = 2; /* MSAA×4 not offered on Android (GL_SetAntiAlias) */
 #endif
     if (DisplayTexFilter < 0 OR DisplayTexFilter > 4)
-        DisplayTexFilter = TRUE;
+        DisplayTexFilter = DEF_DISPLAY_TEXFILTER;
 
-    DisplayStereo3D = DefFileBufferReadValueDefault("DisplayStereo3D", FALSE);
+    DisplayStereo3D = DefFileBufferReadValueDefault("DisplayStereo3D", DEF_DISPLAY_STEREO3D);
     if (DisplayStereo3D < 0 OR DisplayStereo3D > 1)
-        DisplayStereo3D = FALSE;
+        DisplayStereo3D = DEF_DISPLAY_STEREO3D;
 
      RenderQuality = DefFileBufferReadValueDefault("RenderQuality", 1);
      if (RenderQuality < 1 OR RenderQuality > 4)
@@ -4004,7 +4024,6 @@ void WriteConfigFile(void) {
 #ifdef USE_GPURENDERER
     DefFileBufferWriteValue("GPURenderer", GPURendererActive);
     DefFileBufferWriteValue("DisplayTexFilter", DisplayTexFilter);
-    DefFileBufferWriteValue("DisplayPerspectiveTextures", DisplayPerspectiveTextures);
     DefFileBufferWriteValue("DisplayAntiAlias", DisplayAntiAlias);
     DefFileBufferWriteValue("DisplayDither", DisplayDither);
     DefFileBufferWriteValue("DisplaySoftShadows", DisplaySoftShadows);

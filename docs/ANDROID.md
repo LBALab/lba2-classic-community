@@ -397,10 +397,9 @@ rendering. `LBA2_NO_DECOR_VBO=1` disables it and
 `LBA2_DECOR_NOCULL=1` disables back-face culling for comparison.
 
 The original software filler maps decor/object textures affinely
-(types 8–15), so a large wall seen obliquely swims as the head moves. The
-opt-in Display → Graphics → Perspective toggle makes the GL batch use its
-existing per-vertex 1/W path for those types; it is off by default and does
-not affect the software/CPU renderer.
+(types 8–15), so a large wall seen obliquely swims as the head moves. The GL
+batch uses its existing per-vertex 1/W path for the opaque types; the software
+renderer keeps the affine mapping.
 
 ### Where the loader comes from
 

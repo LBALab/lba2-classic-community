@@ -21,7 +21,7 @@ The engine has **two text sources, and only one of them is extensible**.
 `TEXT.HQR` is a shipped binary asset we do not own and cannot regenerate. Adding one string to it
 means rewriting two entries (an id bank and a text bank) in each of the six languages, and
 reshipping a file the player already has on disc. So every new label the port introduces
-("Advanced options", "Vsync ON", the resolution dialog) has to live in source, in
+("Gameplay", "Vsync ON", the resolution dialog) has to live in source, in
 [SOURCES/MENU_LABELS.CPP](../SOURCES/MENU_LABELS.CPP). That is not a shortcut, it is the only door.
 
 Everything below explains why the door is shut.

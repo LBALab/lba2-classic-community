@@ -1,4 +1,5 @@
 #include "GAMEMENU_MOUSE.H"
+#include "GAMEMENU_MENUS.H"
 
 #include "C_EXTERN.H"
 
@@ -81,10 +82,10 @@ S32 GameMenuHitTestRow(const U16 *ptrmenu, U32 mx, U32 my, const U16 *gameMainMe
         y = ycenter + UI_VCENTER_OFS - (GM_HAUTEUR_STANDARD * nb + (nb - 1) * GM_MENU_SPACE) / 2;
 
     for (n = 0; n < nb; n++) {
-        S32 num = ptrmenu[4 + n * 2 + 1];
+        S32 num = ptrmenu[MENU_HEADER_WORDS + n * 2 + 1];
 
 #ifdef DEMO
-        if (gameMainMenuPtr != NULL && ptrmenu == gameMainMenuPtr && (num == 72 || num == 73)) {
+        if (gameMainMenuPtr != NULL && ptrmenu == gameMainMenuPtr && (num == MENU_ID_MAIN_LOAD || num == MENU_ID_MAIN_SAVE)) {
             y += GM_HAUTEUR_STANDARD + GM_MENU_SPACE;
             continue;
         }
@@ -158,7 +159,7 @@ S32 GameMenuMouseProcessDoGameMenu(U16 *ptrmenu, S16 *selected, S32 *flag) {
     if (leftUpEdge && s_pressRow >= 0) {
         rel = GameMenuHitTestRow(ptrmenu, MouseX, MouseY, GameMainMenu);
         if (rel == s_pressRow) {
-            mess = ptrmenu[4 + 1 + s_pressRow * 2];
+            mess = ptrmenu[MENU_HEADER_WORDS + 1 + s_pressRow * 2];
             s_pressRow = -1;
             return mess;
         }

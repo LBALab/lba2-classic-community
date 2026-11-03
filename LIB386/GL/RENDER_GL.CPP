@@ -70,7 +70,6 @@ S32 GL_LastRejectReason = 0;
 /* ── External texture filter toggle (from GLOBAL.CPP) ────────────────────── */
 extern "C" S32 DisplayTexFilter;
 extern "C" S32 Obj_GLWorld;
-extern "C" S32 DisplayPerspectiveTextures;
 extern "C" S32 DisplayAntiAlias;
 extern "C" S32 DisplayDither;
 extern "C" S32 DisplaySharpen;
@@ -6561,8 +6560,11 @@ void GL_DrawDecorVBO(U32 vbo, U32 vertexCount, const void *atlasPage,
                 (GLfloat)CameraYLight, (GLfloat)CameraZLight);
     glUniform1f(s_decor_uLightFactor, 1.0f / 65536.0f);
     glUniform1f(s_decor_uTerrainFarClip, 1.0f);
-    glUniform1f(s_decor_uTerrainPersp,
-                DisplayPerspectiveTextures ? 1.0f : 0.0f);
+    /* Static decor is always drawn with camera-space perspective varyings:
+       affine mapping visibly swims on large oblique walls, most of all in
+       VR. The terrain path keeps uTerrainPersp = 0 so it still matches the
+       software rasterizer's screen-linear mapping. */
+    glUniform1f(s_decor_uTerrainPersp, 1.0f);
     glUniform1f(s_decor_uTerrainFar, (GLfloat)clipZFar);
     /* Match the batch/terrain sampler; hardcoding nearest makes minified
        striped/stone decors alias into noise when the user picked bilinear. */
@@ -11038,20 +11040,19 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
         matFlags = (U16)(matFlags | ((typePoly & 4) ? (1 << 5) : 0));
         /* Z-textured types (16-24) are perspective-corrected in the SW
            rasterizer (Filler_TextureZ / FogSmooth divide MapU, MapV, ZBuf
-           by W = 1/Z); types 8-15 (Filler_Texture / Gouraud) are affine. */
+           by W = 1/Z); types 8-15 (Filler_Texture / Gouraud) stay affine
+           there. The GL batch opts the opaque 8-11 types into the same
+           perspective-correct path instead. */
         if (typePoly >= POLY_TEXTURE_Z && typePoly <= POLY_TEXTURE_Z_FOG) {
             matFlags = (U16)(matFlags | (1 << 6));
         }
-        /* Opt-in: the batch already carries aZ/1-over-W, so types 8-15
-           (the affine POLYTEXT/POLYGTEX fillers) can take the same
-           perspective-correct path as the Z-textured types.  Chroma-keyed
-           types (12-15, the `type & 4` INCRUST bit) keep the original
-           affine mapping even with the option on: the perspective divide
-           moves their transparent holes relative to the bars, so a lattice
-           or fence visibly shears against its own frame.  Opaque walls,
-           which is what the option exists for, are unaffected. */
-        if (DisplayPerspectiveTextures && s_arrayWindow &&
-            typePoly < POLY_TEXTURE_Z && ((typePoly & 4) == 0)) {
+        /* The batch already carries aZ/1-over-W, so opaque types 8-11 (the
+           affine POLYTEXT/POLYGTEX fillers) take the same perspective-correct
+           path as the Z-textured types. Chroma-keyed types (12-15, the
+           `type & 4` INCRUST bit) keep the original affine mapping: the
+           perspective divide moves their transparent holes relative to the
+           bars, so a lattice or fence visibly shears against its own frame. */
+        if (s_arrayWindow && typePoly < POLY_TEXTURE_Z && ((typePoly & 4) == 0)) {
             matFlags = (U16)(matFlags | (1 << 6));
         }
     }

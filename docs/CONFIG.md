@@ -36,7 +36,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | DisplayContrast | int | -20, 20 | 0 | Image contrast adjustment at composite time (GL renderer). 0=default |
 | DisplaySaturation | int | -20, 20 | 0 | Image saturation adjustment at composite time (GL renderer). 0=default |
 | ReverseStereo | int | 0, 1 | 0 | 0=OFF, 1=ON |
-| DebugFps | int | 0, 1 | 0 | 1 shows the frame-rate counter in the bottom-left corner (Advanced options toggle; also the `fps` console cvar) |
+| DebugFps | int | 0, 1 | 0 | 1 shows the frame-rate counter in the bottom-left corner (Display → FPS counter toggle; also the `fps` console cvar) |
 | FpsLimit | int | 0, 30, 60, 72, 90, 120 | 0 | Software frame-rate ceiling. 0 = unlimited (vsync alone paces when on). Other values are treated as 0 by the limiter and re-asserted to a table value on first menu cycle |
 | DetailLevel | int | 0–3 | 3 | 0=min (no rain, no sea, no horizon), 1=486, 2=base Pentium, 3=max. Drives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon |
 | FullScreen | int | 0, 1 | 1 | 0=small videos, 1=fullscreen videos. Invalid values → 1 |
@@ -64,18 +64,18 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | Shadow | Shadow quality (1–3) | ReadConfigFile / WriteConfigFile | Options → Detail |
 | AllCameras | Scenario cameras ON/OFF | ReadConfigFile / WriteConfigFile | Options |
 | ReverseStereo | Stereo invert | ReadConfigFile / WriteConfigFile | Options |
-| DebugFps | Frame-rate counter ON/OFF | ReadConfigFile / WriteConfigFile | Options → Advanced options |
-| FpsLimit | Frame-rate limiter (Off/30/60/72/90/120) | ReadConfigFile / WriteConfigFile | Options → Advanced options |
+| DebugFps | Frame-rate counter ON/OFF | ReadConfigFile / WriteConfigFile | Options → Display → FPS counter |
+| FpsLimit | Frame-rate limiter (Off/30/60/72/90/120) | ReadConfigFile / WriteConfigFile | Options → Display → FPS limit |
 | DetailLevel | Graphics detail (0–3) | ReadConfigFile / WriteConfigFile | Options |
-| FullScreen | Video playback size | ReadConfigFile / WriteConfigFile | Options → Advanced options |
-| DisplayFullScreen | Window/display fullscreen toggle | ReadConfigFile / WriteConfigFile | Options → Advanced options |
-| FlagDisplayText | Show subtitles during voice | ReadConfigFile / WriteConfigFile | Options → Advanced options |
-| WaveVolume, VoiceVolume, MusicVolume, MasterVolume | Volume sliders | ReadVolumeSettings / WriteVolumeSettings | Options → Sound volume |
+| FullScreen | Video playback size | ReadConfigFile / WriteConfigFile | Options → Gameplay → Small videos / Full screen videos |
+| DisplayFullScreen | Window/display fullscreen toggle | ReadConfigFile / WriteConfigFile | Options → Display → Window → Fullscreen |
+| FlagDisplayText | Show subtitles during voice | ReadConfigFile / WriteConfigFile | Options → Gameplay → Don't display text |
+| WaveVolume, VoiceVolume, MusicVolume, MasterVolume | Volume sliders | ReadVolumeSettings / WriteVolumeSettings | Options → Audio |
 | CDVolume | CD audio volume | ReadVolumeSettings / WriteVolumeSettings | config only |
 | Input0_1..Input35_2, WinMode | Keyboard mappings | ReadInputConfig / WriteInputConfig | Options → Keyboard |
 | CompressSave | Save compression format | ReadConfigFile | (installer) |
 | Version, Version_US | Distributor version | ReadConfigFile / `distrib` console | (installer; `distrib` console) |
-| Language, LanguageCD, FlagKeepVoice | Language / voice CD | MESSAGE.CPP, ReadConfigFile / WriteConfigFile | Options → Choose language |
+| Language, LanguageCD, FlagKeepVoice | Language / voice CD | MESSAGE.CPP, ReadConfigFile / WriteConfigFile | Options → Language |
 
 **Note:** `FlagKeepVoice` remains installer / CONFIG-tool managed. `Language` and `LanguageCD` are now also written by the in-game Options menu.
 
@@ -83,20 +83,19 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 
 | Key | Purpose | Source | Menu |
 |-----|---------|--------|------|
-| MenuMouse | Optional mouse UX in game menus (`FlagMenuMouse` in code). Default 1 (on). Set 0 to match classic keyboard/joystick-only menus. See [MENU.md](MENU.md) | ReadConfigFile / WriteConfigFile | Options → Advanced options |
-| FollowCamera | Auto camera for exterior scenes (0=classic, 1=auto). Community addition, not in original game; the menu row is a three-way camera setting (Classic camera / Auto camera / First person) | ReadConfigFile / WriteConfigFile | Options → Advanced options |
-| CameraFirstPerson | First-person camera (0=off, 1=on); VR headset builds render the tracked head pose per eye. Community addition, not in original game | ReadConfigFile / WriteConfigFile | Options → Advanced options (camera setting) |
-| DisplayBrightness / DisplayContrast / DisplaySaturation | Image adjustments applied at composite time in the GL present shaders. Community addition, not in original game | ReadConfigFile / WriteConfigFile | Options → Display menu |
-| VrFovScale | VR world zoom as a percent of the eye's natural FOV (50–120, default 100). Above 100 renders a wider field, zoomed out; past ~120 the frame outgrows the authored world. Quest stereo only | ReadConfigFile / WriteConfigFile | Options → Display menu (headset sessions) or console `vrzoom` |
-| VrSuperSample | Quest supersampling: 0 = off (default), 1 = 1.25x, 2 = 1.5x. Scales the GL scene target above the eye buffer and downsamples it on present; the field of view is unchanged. Costs fill rate and memory; a target that cannot be allocated keeps the previous scale | ReadConfigFile / WriteConfigFile | Options → Display → VR → Supersampling |
-| VrInteriorHover | Quest interiors: head-tracked hover camera (0 = off, the default). A head turn keeps the isometric room fixed in the world (`focal * tan(angle)`); a head lean adds a depth-correct parallax through the single-pass stereo stages. Anchored on engage, recaptured by Enter. Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → VR → Interior hover or console `vrhover` |
-| VrPassthrough | Quest interiors: show the headset's passthrough camera through the scene's black background (0 = off, the default). The isometric room is composited over a passthrough layer, so the pixels the scene leaves transparent, chiefly the margin around the room, show the camera feed; cutscenes and exterior scenes stay opaque. Needs a runtime exposing `XR_FB_passthrough`; the menu row is hidden when the system cannot do passthrough. Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → VR → Passthrough or console `vrpassthrough` |
-| DisplayPerspectiveTextures | 0/1; enables perspective-correct texture mapping for the GL batch’s textured decor/object polygons (the original software filler is affine). Default 0 preserves the original look. Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → Graphics → Perspective |
-| DisplayDither | 0/1; ordered 4x4 dither between adjacent CLUT rows for gouraud shading and the fog/sky/sea ramp (GL renderer). Only selects palette entries that already exist, so the palette look is preserved. Default 0 (off). Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → Graphics → Dithering or console `dither` |
-| DisplaySoftShadows | 0/1; draws each ground shadow as four concentric multiply rings instead of one hard-edged polygon, so the outline feathers out. GL renderer only; the software shadow path is unchanged. Default 0 (off). Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → Effects → Soft shadows or console `softshadows` |
-| DisplayColorGrade | 0/1/2; scene tint on the composited 3D view (0 = off, 1 = warm, 2 = cool), with a light edge vignette. The 2D overlay and text keep their colours. GL renderer only. Default 0 (off). Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → Effects → Colour grade or console `colorgrade` |
-| DisplaySubPixel | 0/1; carries the fractional part of the interior hover pan into the present, so the room glides instead of stepping one whole pixel at a time. Quest interiors with the hover camera only. Default 0 (off). Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → Effects → Sub-pixel pan or console `subpixel` |
-| DisplaySharpen | 0/1/2; unsharp-mask sharpening on the composited 3D scene at present time (0 = off, 1 = low, 2 = high). Applies to the scene blit only, so the 2D overlay and text are never sharpened; with FXAA on, the sharpening runs after the edge blend. Default 0 (off). Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → Graphics → Sharpening or console `sharpen` |
+| MenuMouse | Optional mouse UX in game menus (`FlagMenuMouse` in code). Default 1 (on). Set 0 to match classic keyboard/joystick-only menus. See [MENU.md](MENU.md) | ReadConfigFile / WriteConfigFile | lba2.cfg only (no menu row) |
+| FollowCamera | Auto camera for exterior scenes (0=classic, 1=auto). Community addition, not in original game; the menu row is a three-way camera setting (Classic camera / Auto camera / First person) | ReadConfigFile / WriteConfigFile | Options → Gameplay → Camera |
+| CameraFirstPerson | First-person camera (0=off, 1=on); VR headset builds render the tracked head pose per eye. Community addition, not in original game | ReadConfigFile / WriteConfigFile | Options → Gameplay → Camera |
+| DisplayBrightness / DisplayContrast / DisplaySaturation | Image adjustments applied at composite time in the GL present shaders. Community addition, not in original game | ReadConfigFile / WriteConfigFile | Options → Display → Image |
+| VrFovScale | VR world zoom as a percent of the eye's natural FOV (50–120, default 100). Above 100 renders a wider field, zoomed out; past ~120 the frame outgrows the authored world. Quest stereo only | ReadConfigFile / WriteConfigFile | Options → Display → VR → VR zoom or console `vrzoom` |
+| VrSuperSample | Quest supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x. Default 2 (1.5x) on OpenXR builds. Scales the GL scene target above the eye buffer and downsamples it on present; the field of view is unchanged. Costs fill rate and memory; a target that cannot be allocated falls back to off | ReadConfigFile / WriteConfigFile | Options → Display → VR → Supersampling |
+| VrInteriorHover | Quest interiors: head-tracked hover camera. Default on for OpenXR builds. A head turn keeps the isometric room fixed in the world (`focal * tan(angle)`); a head lean adds a depth-correct parallax through the single-pass stereo stages. Anchored on engage, recaptured by Enter. Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → VR → Interior → Interior hover or console `vrhover` |
+| VrPassthrough | Quest interiors: show the headset's passthrough camera through the scene's black background (0 = off, the default). The isometric room is composited over a passthrough layer, so the pixels the scene leaves transparent, chiefly the margin around the room, show the camera feed; cutscenes and exterior scenes stay opaque. Needs a runtime exposing `XR_FB_passthrough`; the menu row is hidden when the system cannot do passthrough. Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → VR → Interior → Interior passthrough or console `vrpassthrough` |
+| DisplayDither | 0/1; ordered 4x4 dither between adjacent CLUT rows for gouraud shading and the fog/sky/sea ramp (GL renderer). Only selects palette entries that already exist, so the palette look is preserved. Default 0 (off). Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → Image → Dither or console `dither` |
+| DisplaySoftShadows | 0/1; draws each ground shadow as four concentric multiply rings instead of one hard-edged polygon, so the outline feathers out. GL renderer only; the software shadow path is unchanged. Default off on desktop, on for OpenXR builds. Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → Graphics → Soft shadows or console `softshadows` |
+| DisplayColorGrade | 0/1/2; scene tint on the composited 3D view (0 = off, 1 = warm, 2 = cool), with a light edge vignette. The 2D overlay and text keep their colours. GL renderer only. Default 0 (off). Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → Image → Colour grade or console `colorgrade` |
+| DisplaySubPixel | 0/1; carries the fractional part of the interior hover pan into the present, so the room glides instead of stepping one whole pixel at a time. Quest interiors with the hover camera only. Default off on desktop, on for OpenXR builds. Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → VR → Interior → Sub-pixel pan or console `subpixel` |
+| DisplaySharpen | 0/1/2; unsharp-mask sharpening on the composited 3D scene at present time (0 = off, 1 = low, 2 = high). Applies to the scene blit only, so the 2D overlay and text are never sharpened; with FXAA on, the sharpening runs after the edge blend. Default 0 (off). Community addition, not in the original game | ReadConfigFile / WriteConfigFile | Options → Display → Image → Sharpen or console `sharpen` |
 
 ## Code reference
 

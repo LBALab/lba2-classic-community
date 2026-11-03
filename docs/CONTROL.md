@@ -361,7 +361,7 @@ widescreen, font, palette, or layout changes are most likely to disturb.
 | `ui holomap <path>` | The rotating planet globe + island name strip |
 | `ui dialog <text-id> <path>` | The dialogue bubble + portrait + typewriter text for that text-id |
 | `ui menu-options <path>` | The in-game ESC menu (Display / Volume / Language / Advanced / Controls / Cheats) over the shaded scene |
-| `ui advanced-options <path>` | The Advanced options submenu, no Options-menu detour |
+| `ui gameplay <path>` | The Gameplay submenu, no Options-menu detour (`advanced-options` is kept as an alias) |
 | `ui cheat-menu <path>` | The Cheat submenu (one row per classic cheat code), no Options-menu detour |
 | `ui menu-main <path>` | The boot-time main menu (Resume / New Game / Load / Options / Quit) |
 | `ui found-object <numvar> <path>` | The found-object cinematic — 3D rotation of `TabInv[numvar]`'s item + dialogue |
