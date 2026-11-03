@@ -328,8 +328,13 @@ though they never chose it. Moving inward cannot reach existing players.
 
 1. **The settings table is the template.** No hand-kept template file: the writer emits keys
    grouped by the category field, in menu order, each under a one-line comment generated from
-   the row (help, range, default). Experimental keys come last under their own heading; game
-   state that is not a preference (`LastSave`, the installer's `Version`) after that. The
+   the row (help, range, default). Nineteen keys have no help text to generate it from today
+   (nine rows, among them `FollowCamera`, `VSync` and `FixedTimestep`, plus the hand-written
+   and seed keys), and ranges are written into the help by hand in two styles, so every key
+   needs a help line and the range comes from the row's minimum and maximum. Experimental keys
+   come last under their own heading; game state that is not a preference (`LastSave`) after
+   that. The installer's keys (`Version` and the rest) belong to the game data, not the
+   profile, so the writer never puts them there. The
    player's own lines come along: a key this build does not know is kept under a heading at the
    end, so a file shared with a newer build loses nothing, and a comment the player wrote stays
    with the key below it. Today's writer edits the file in place, so both survive now
@@ -341,7 +346,16 @@ though they never chose it. Moving inward cannot reach existing players.
    differs from its base: the chosen preset's value for a setting presets set, the default for
    the rest. A key equal to its base is left out unless the player's own file named it (the
    provenance from #574 tells the two apart). Left out, it follows its base, including a later
-   one.
+   one. Two things in today's reader stand in the way. The 1997 seed
+   ([SOURCES/LBA2.CFG](../../SOURCES/LBA2.CFG)) stands in for the game-data config when the
+   install ships none, and three of its values differ from the rows' defaults: effects volume
+   127 against 97, compressed saves on where a missing key reads off, and no stick binding for
+   turning the camera. Today a new profile gets them because the seed is written into it; a file
+   that holds only changes needs the seed named as that layer in the chain, or the rows to take
+   its values. And `ReadInputConfig` ([SOURCES/INPUT.CPP](../../SOURCES/INPUT.CPP)) reads no
+   keyboard binding unless `WinMode` is 1, the mark the binding writer sets (the seed has 0);
+   once it is set, a missing binding already falls back to its default, so the reader drops the
+   mark and reads each binding on its own.
 3. **A reference file beside it**, every key grouped and commented at its default, regenerated
    when the build changes and never read. Players copy lines from it.
 4. **Bring your own config.** A file loaded from the menu is applied key by key, as the console
@@ -350,7 +364,11 @@ though they never chose it. Moving inward cannot reach existing players.
    game-data config, the profile's config, flags): under the profile's file it would change
    nothing while that file names every key, and over it a change made in the menu would be lost
    at the next boot. A `Preset` line in the file sets the base; without one the base stays as it
-   was. Settings backups (EPmager, Discussion #782) save and load such files from the menu.
+   was. Whether that line also takes out the player's own values for settings presets set, as
+   choosing a preset in the menu does, is open question 11. A binding that takes a key another
+   action already has is refused, as the keyboard page refuses it (`CheckKeyConfig`,
+   [SOURCES/CONFIG.CPP](../../SOURCES/CONFIG.CPP)), and the import says which ones it skipped.
+   Settings backups (EPmager, Discussion #782) save and load such files from the menu.
 5. **Readable names** for bindings (#61), read alongside the scancodes.
 
 Point 2 and the stored preset change what an existing file means, which is a core contract
@@ -359,12 +377,23 @@ no `Preset` key, so it is on Default, and the first write in the new form keeps 
 file and drops each key equal to a default its row has had. Equal to
 the current default is not enough: if a default has moved, an old file holds the old one, which
 no longer matches, and the player stays on it, the case point 2 exists for. So the migration reads
-a short table of the defaults that moved between releases, by key and release, rather than a
-field on every row; which defaults moved is a one-off check against the tags (the camera settings
-switched on on 2026-10-13 shipped in the release that added them, so no release wrote their old
-value). From then on the file records the build that wrote it, so a later migration can be
-exact. A player who had chosen an old default on purpose loses that choice once; the copy still
-holds it.
+a short table of the values releases wrote into files that are no longer the default, by key and
+release, rather than a field on every row; which ones is a one-off check against the tags (the
+camera settings switched on on 2026-10-13 shipped in the release that added them, so no release
+wrote their old value). The table lists what a release wrote, not the code's default:
+`DisplayFullScreen` defaulted to a window until 0.13.0, but every seed wrote fullscreen, so a
+window in an old file is the player's choice, and an entry for it would put them in fullscreen.
+From then on the file records the build that wrote it, so a later migration can be exact. A
+player who had chosen an old default on purpose loses that choice once; the copy still holds it.
+
+The migration also takes the installer's keys out of the profile. The 0.12.0 seed wrote
+`Version: 0` into every profile made over data without a config, and later writers kept it. A
+written `Version` counts as declared, so it takes the place of what the data says: harmless on
+the Steam and GOG Classic data those profiles were made over, where the data says 0 too, but the
+profile is shared by every game folder, so one begun on such a copy and later pointed at a
+Twinsen's Odyssey copy runs it as the unknown release (checked 2026-11-03 on the Activision US CD
+data: `unknown (0) from the config` against `activision (1)` without the line), with the LBA2 logo
+on the new-game frame and the European CD volume name.
 
 ## A north star for the Modern UI
 
@@ -478,6 +507,11 @@ writers persisting the player's tables while a replay has borrowed them.
    has not changed, and Custom hides it.
 10. Whether the 720 and 1080 rungs of the resolution list sit behind Show experimental settings,
     or stay in the list marked as unfinished.
+11. Whether a `Preset` line in an imported file takes out the player's own values for settings
+    presets set, as choosing the preset in the menu does, and whether an imported key equal to
+    the new base stays in the file as one the player named. Left alone, a Modern player who
+    imports a Classic file keeps their indoor camera, loses the outdoor Auto camera that came
+    from Modern, and reads "Classic, changed".
 
 ## Not in this plan
 
