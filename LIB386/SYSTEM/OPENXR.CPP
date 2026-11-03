@@ -139,7 +139,7 @@ static XrSpace                 s_stageSpace = XR_NULL_HANDLE;
 static XrSpace                 s_localSpace = XR_NULL_HANDLE;
 static XrSpace                 s_viewSpace = XR_NULL_HANDLE;
 static XrActionSet             s_actionSet = XR_NULL_HANDLE;
-static XrAction                s_actions[19];
+static XrAction                s_actions[20];
 /* Tracked controller spaces: [hand][0 = aim, 1 = grip]. */
 static XrSpace                 s_handSpaces[2][2];
 static XrPosef                 s_handPoses[2][2];
@@ -1183,6 +1183,24 @@ static S32 OpenXR_CreateActions(void) {
         if (XR_FAILED(rc)) return 0;
     }
 
+    /* Right-hand thumb rest, used as the cheat modifier. The left hand uses
+       the same capacitive pad to switch the interior camera to zoom, so the
+       gesture is already familiar. */
+    {
+        XrActionCreateInfo aInfo;
+        memset(&aInfo, 0, sizeof(aInfo));
+        aInfo.type = XR_TYPE_ACTION_CREATE_INFO;
+        aInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+        aInfo.countSubactionPaths = 2;
+        aInfo.subactionPaths = s_handPaths;
+        SDL_strlcpy(aInfo.actionName, "rthumbrest_touch",
+                    sizeof(aInfo.actionName));
+        SDL_strlcpy(aInfo.localizedActionName, "rthumbrest_touch",
+                    sizeof(aInfo.localizedActionName));
+        rc = xrCreateAction(s_actionSet, &aInfo, &s_actions[19]);
+        if (XR_FAILED(rc)) return 0;
+    }
+
     /* Meta Quest 3 controllers are exposed under the oculus/touch_controller
      * interaction profile. Both hand mappings (left=ABXY swapped, right=ABXY
      * canonical) are covered so the binding set is profile-portable. */
@@ -1190,7 +1208,7 @@ static S32 OpenXR_CreateActions(void) {
     XrPath profilePath = XR_NULL_PATH;
     xrStringToPath(s_instance, profileStr, &profilePath);
 
-    static const char *bindingStrs[19] = {
+    static const char *bindingStrs[20] = {
         "/user/hand/right/input/a/click",
         "/user/hand/right/input/b/click",
         "/user/hand/left/input/x/click",
@@ -1210,10 +1228,11 @@ static S32 OpenXR_CreateActions(void) {
         "/user/hand/right/input/aim/pose",
         "/user/hand/left/input/grip/pose",
         "/user/hand/right/input/grip/pose",
+        "/user/hand/right/input/thumbrest/touch",
     };
-    XrActionSuggestedBinding bindings[19];
+    XrActionSuggestedBinding bindings[20];
     U32 j;
-    for (j = 0; j < 19; j++) {
+    for (j = 0; j < 20; j++) {
         bindings[j].action = s_actions[j];
         xrStringToPath(s_instance, bindingStrs[j], &bindings[j].binding);
     }
@@ -1223,11 +1242,18 @@ static S32 OpenXR_CreateActions(void) {
     suggest.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING;
     suggest.interactionProfile = profilePath;
     suggest.suggestedBindings = bindings;
-    suggest.countSuggestedBindings = 19;
+    suggest.countSuggestedBindings = 20;
 
     rc = xrSuggestInteractionProfileBindings(s_instance, &suggest);
     if (XR_FAILED(rc)) {
-        Log_Warn("OpenXR: xrSuggestInteractionProfileBindings failed (0x%x)", (unsigned)rc);
+        Log_Warn("OpenXR: xrSuggestInteractionProfileBindings failed (0x%x); "
+                 "retrying without the optional right-thumb sensor",
+                 (unsigned)rc);
+        suggest.countSuggestedBindings = 19;
+        rc = xrSuggestInteractionProfileBindings(s_instance, &suggest);
+        if (XR_FAILED(rc))
+            Log_Warn("OpenXR: xrSuggestInteractionProfileBindings core failed (0x%x)",
+                     (unsigned)rc);
     }
 
     XrSessionActionSetsAttachInfo attach;
@@ -1337,6 +1363,27 @@ static void OpenXR_ReadActions(void) {
         }
     }
 
+    {
+        /* Optional right-thumb rest, used by the cheat chord. It is read
+           separately because the core bool loop only covers actions 0-12;
+           an unbound runtime simply leaves it at 0. */
+        S32 pressed = 0;
+        U32 h;
+        memset(&gi, 0, sizeof(gi));
+        memset(&stb, 0, sizeof(stb));
+        gi.type = XR_TYPE_ACTION_STATE_GET_INFO;
+        gi.action = s_actions[19];
+        stb.type = XR_TYPE_ACTION_STATE_BOOLEAN;
+        for (h = 0; h < 2; h++) {
+            gi.subactionPath = s_handPaths[h];
+            if (XR_SUCCEEDED(xrGetActionStateBoolean(s_session, &gi, &stb))
+                && stb.isActive && stb.currentState) {
+                pressed = 1;
+            }
+        }
+        OpenXR_RightThumbrestTouched = pressed;
+    }
+
     for (i = 13; i < 15; i++) {
         memset(&gi, 0, sizeof(gi));
         memset(&stv, 0, sizeof(stv));
@@ -1434,6 +1481,7 @@ S32 OpenXR_LeftThumbstickDown = 0;
 S32 OpenXR_RightThumbstickDown = 0;
 S32 OpenXR_LeftThumbstickTouched = 0;
 S32 OpenXR_LeftThumbrestTouched = 0;
+S32 OpenXR_RightThumbrestTouched = 0;
 S16 OpenXR_LeftStickX = 0;
 S16 OpenXR_LeftStickY = 0;
 S16 OpenXR_RightStickX = 0;

@@ -9,6 +9,7 @@
 #include <FILEIO/SAVEPNG.H>
 #include <GL/RENDER_GL.H>
 #include <SVGA/SCREEN.H>
+#include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <string.h>
 
@@ -1046,7 +1047,8 @@ void HoloGlobe(S32 planet) {
 #endif
 
         if ((MyKey == K_ESC)
-                OR(Input & (I_MENUS | I_HOLOMAP))) {
+                OR(Input & (I_MENUS | I_HOLOMAP))
+                OR CheckKey(K_GAMEPAD_RSTICK_BTN)) {
             FlagHoloEnd = TRUE;
             break;
         }
@@ -1065,7 +1067,8 @@ void HoloGlobe(S32 planet) {
                 if (Input & I_DOWN)
                     HoloAlpha = (HoloAlpha + holoRotStep) & 4095;
 
-                if (((Input == I_ACTION_M) OR(Input == I_RETURN)) // espace
+                if (((Input == I_ACTION_M) OR(Input == I_RETURN)
+                     OR(Input == I_ACTION_ALWAYS)) // espace / Quest A
                     AND(!FlagMap)) {
                     //					If the player can or cannot Zoom an other island...
                     if ((NumObjectif == 1000)     //	Twinsen

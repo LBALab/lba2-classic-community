@@ -24,9 +24,9 @@ actions.
 | Left grip | Behaviour menu | `I_COMPORTEMENT`; closes on release |
 | Right A | Talk / search / use | `I_ACTION_ALWAYS` |
 | Right B | Camera mode | Classic / Auto / First person |
-| Left X | Behaviour action | `I_ACTION_M` |
-| Left Y | Inventory | `I_INVENTORY` |
-| Left menu button | Short press: in-game menu; long press: holomap | `I_MENUS` / `I_HOLOMAP` |
+| Left X | Inventory | `I_INVENTORY` |
+| Left Y | Holomap | `I_HOLOMAP` |
+| Left menu button | In-game menu | `I_MENUS` |
 | Head tracking | Look | Body and hands follow when full body is enabled |
 
 ## First person
@@ -65,15 +65,33 @@ actions.
 | Input | Action |
 |---|---|
 | Left stick | Move selection |
-| A or X | Confirm |
-| B or Start / left menu short press | Back or close |
+| A | Confirm |
+| B or Start / left menu | Back or close |
 | A in the load list | Load the selected save |
+
+## Inventory
+
+| Input | Action |
+|---|---|
+| A | Select / use the highlighted item |
 
 ## Dialogue
 
 | Input | Action |
 |---|---|
 | A | Skip the current dialogue, like ESC |
+
+## Cheats
+
+Touch the right thumbrest and press a face button. The chord is edge
+triggered, so holding it applies the cheat once. Touching the pad alone does
+nothing, and the same buttons keep their normal meaning when the thumb is off
+it.
+
+| Input | Action |
+|---|---|
+| Right thumbrest + X | Full: refill health, magic and clover box |
+| Right thumbrest + Y | Gold: add 50 kashes or zlitos |
 
 ## Missing or awkward controls
 

@@ -6,6 +6,7 @@
 
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
+#include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <string.h>
 
@@ -811,7 +812,8 @@ void HoloPlan(S32 numplan) {
 #endif
 
         if ((MyKey == K_ESC)
-                OR(Input & (I_MENUS | I_HOLOMAP))) {
+                OR(Input & (I_MENUS | I_HOLOMAP))
+                OR CheckKey(K_GAMEPAD_RSTICK_BTN)) {
             FlagHoloEnd = TRUE;
             break;
         }
@@ -824,7 +826,8 @@ void HoloPlan(S32 numplan) {
             if (!(Input & I_FIRE))
                 testnofire = FALSE;
         } else if (!FlagMap) {
-            if ((Input & I_ACTION_M) OR(Input & I_RETURN)) {
+            if ((Input & I_ACTION_M) OR(Input & I_RETURN)
+                OR(Input & I_ACTION_ALWAYS)) {
                 break;
             }
 

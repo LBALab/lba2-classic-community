@@ -146,6 +146,8 @@ extern S32 OpenXR_RightThumbstickDown;
  * camera modifier accepts either while the left stick is at rest. */
 extern S32 OpenXR_LeftThumbstickTouched;
 extern S32 OpenXR_LeftThumbrestTouched;
+/* Right-hand thumb rest, used as the cheat modifier chord. */
+extern S32 OpenXR_RightThumbrestTouched;
 
 /* Axes (SDL-style -32767..32767). Y is negated to match SDL's Y-down. */
 extern S16 OpenXR_LeftStickX;

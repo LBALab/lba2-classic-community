@@ -10,6 +10,7 @@
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/OPENXR.H>
 #include <stdint.h>
 #include <string.h>
 
@@ -1330,7 +1331,11 @@ void MenuInventory(U32 tempo) {
 
         DrawOneInventory(InvSelect);
 
-        if (myinput & I_RETURN) {
+        /* Quest A selects the highlighted item, same as the classic confirm
+           key. Gate it to the headset so keyboard W keeps its gameplay
+           meaning. */
+        if ((myinput & I_RETURN) OR
+            (OpenXR_IsActive() && (myinput & I_ACTION_ALWAYS))) {
 #ifdef LBA_EDITOR
             if ((ListVarGame[TabIndir[InvSelect]].Value > 0)
 #else

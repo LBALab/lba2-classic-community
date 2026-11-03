@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include "CHEATCOD.H"
 
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
@@ -40,9 +41,10 @@ static StickDir s_prevRightDir = DIR_NEUTRAL;
 static S16 s_rstickX = 0;
 static S32 s_openxrControllers = 0; /* last UpdateJoystick poll saw OpenXR controllers */
 static S16 s_rstickY = 0;
-/* Left menu is short-press menu, long-press holomap. */
-static S32 s_openxrMenuPrev = 0;
-static U32 s_openxrMenuDownAt = 0;
+/* Right thumb-presence chord: touch the right thumb area and press X/Y for
+   a cheat. Edge-triggered so holding the chord does not repeat the cheat. */
+static S32 s_cheatXPrev = 0;
+static S32 s_cheatYPrev = 0;
 
 //***************************************************************************
 S32 JoystickDeadzone = 8000;
@@ -360,22 +362,29 @@ void UpdateJoystick(void) {
             SET(K_GAMEPAD_LTRIGGER);
         if (OpenXR_RightTrigger)
             SET(K_GAMEPAD_RSHOULDER);
+
+        const S32 rightThumb = OpenXR_RightThumbrestTouched;
+        const S32 cheatX = rightThumb && OpenXR_XBtn && !spellKey;
+        const S32 cheatY = rightThumb && OpenXR_YBtn && !spellKey;
+        if (cheatX && !s_cheatXPrev)
+            TryExecuteCheatByName("full");
+        if (cheatY && !s_cheatYPrev)
+            TryExecuteCheatByName("gold");
+        s_cheatXPrev = cheatX;
+        s_cheatYPrev = cheatY;
+
+        /* A and B keep working with a thumb on the right stick; only X and Y
+           are consumed by the cheat chord, so resting the thumb there cannot
+           swallow talk/search or back. */
         if (!spellKey) {
             if (OpenXR_ABtn)         SET(K_GAMEPAD_A);
             if (OpenXR_BBtn)         SET(K_GAMEPAD_RSTICK_BTN);
-            if (OpenXR_XBtn)         SET(K_GAMEPAD_X);
-            if (OpenXR_YBtn)         SET(K_GAMEPAD_Y);
+            if (OpenXR_XBtn && !rightThumb)
+                SET(K_GAMEPAD_Y);     /* inventory */
+            if (OpenXR_YBtn && !rightThumb)
+                SET(K_GAMEPAD_BACK);  /* holomap */
         }
-        {
-            const S32 menu = OpenXR_MenuBtn;
-            if (menu && !s_openxrMenuPrev)
-                s_openxrMenuDownAt = (U32)SDL_GetTicks();
-            if (!menu && s_openxrMenuPrev) {
-                const U32 held = (U32)SDL_GetTicks() - s_openxrMenuDownAt;
-                SET(held >= 500 ? K_GAMEPAD_BACK : K_GAMEPAD_START);
-            }
-            s_openxrMenuPrev = menu;
-        }
+        if (OpenXR_MenuBtn)      SET(K_GAMEPAD_START);
         if (OpenXR_LeftThumbstickDown)   SET(K_GAMEPAD_LSTICK_BTN);
         if (OpenXR_RightThumbstickDown)  SET(K_GAMEPAD_B);
         if (OpenXR_LeftGripDown)  SET(K_GAMEPAD_LSHOULDER);
@@ -452,7 +461,8 @@ void UpdateJoystick(void) {
     }
 
     if (!openxrActive) {
-        s_openxrMenuPrev = 0;
+        s_cheatXPrev = 0;
+        s_cheatYPrev = 0;
     }
 
     // Edge-detect: find the first bit that went 0 -> 1 this frame.
