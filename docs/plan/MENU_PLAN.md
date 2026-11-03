@@ -243,8 +243,8 @@ their own.
 7. **The Modern preset**, the preset page with Back to my settings, the offer on first launch,
    and a fixture with every Modern-ring setting on at once.
 8. **Experimental page generated from the settings table**, behind Show experimental settings.
-   Then the camera presets (#733), the console row (#679), saving and loading settings backups
-   from the menu, each in its own PR.
+   Then the camera presets (#733), the console row (#679) with the version, the Frame rate row,
+   saving and loading settings backups from the menu, each in its own PR.
 9. **The save list into its own file** (roadmap §3, third slice).
 10. **The 1997 Options page**, and the main menu as the per-game part once LBA1 needs it.
 
@@ -272,17 +272,34 @@ pixel position, so a second layout can read the same tables.
 | Page | Rows | Waiting for a place |
 |---|---|---|
 | Language and interface | Texts, Voices, Display text | On-screen prompts (#371) |
-| Display and graphics | Resolution, Fullscreen, Vsync, Detail level, Video size, Image (a page: the filters) | |
+| Display and graphics | Resolution, Fullscreen, Vsync, Frame rate, Detail level, Video size, Image (a page: the filters) | |
 | Sound | Samples, Voice, Music, General volume, Reverse stereo | |
 | Controls and camera | Keyboard, Gamepad, Camera (a page), Movie camera | Camera presets (#733), modern controls (#372) |
 | Gameplay | opens with its second row | play-changing enhancements |
-| Advanced and reset | Reset settings, Show experimental settings, Fix retail bugs (until Gameplay opens), Console (#679), Experimental (a page) | settings backups, cheats |
+| Advanced and reset | Reset settings, Show experimental settings, Fix retail bugs (until Gameplay opens), Console (#679, its value the version), Experimental (a page) | settings backups, cheats |
 
 The hub has the return row, the preset row and the categories: 7 rows, 8 once Gameplay opens.
 The preset row sits on the hub, under the return row, because it is the choice most players
 come for, and "Advanced" reads as "leave this alone". Every page stays within 8 rows at 640x480;
-Advanced and reset reaches 6 with the return row. A row that cannot apply here (no speech in the
-data, an always-fullscreen device) is hidden, as today.
+Display and graphics reaches 8 with the return row, Advanced and reset 6. A layout that shows
+fewer rows scrolls Display rather than move Frame rate away from Vsync, where a player looks
+for it. A row that cannot apply here (no speech in the data, an
+always-fullscreen device) is hidden, as today.
+
+Experimental holds settings, not debugging. The debug tools (the hit boxes `zv`, `horizon`, the
+traces, `godmode`) are console variables and commands outside the settings table, never saved,
+and stay in the console: there is no Debug page. Two things get a row instead:
+
+- **Frame rate** shows the frame count in a corner while the player plays, as the console's
+  `fps` and the 1997 SPEED code do (`DebugFps`, drawn by `AffNbFps` in
+  [SOURCES/OBJECT.CPP](../../SOURCES/OBJECT.CPP)). It is not kept in `lba2.cfg`: off at every
+  start, as it is today, and presets do not set it.
+- **Console** opens the console (#679): the full console after a key or touch, read-only after
+  a pad button, which any button closes. Its value is the version, read-only: the version string
+  and the commit's first 7 on a build off main (`0.13.3-dev 011394f`), the number alone on a
+  release. Today the version is only in the window title (hidden in fullscreen and on Android),
+  the log, `--version` and the console's `buildinfo`, so a player asked "which build?" has to
+  know where to look.
 
 The Camera page keeps Outdoors and Indoors, and gains invert and sensitivity for the mouse and
 the stick. Players look for those on the camera page in any game, so they are player's settings
