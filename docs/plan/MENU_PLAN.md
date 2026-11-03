@@ -69,13 +69,29 @@ that base: computed, never chosen.
 
 | Preset | Sets |
 |---|---|
-| **Classic** | Every setting a preset sets, at its value from before, and Fix retail bugs to No: the game as the 1997 CD release played. |
+| **Classic** | Default, with every switch the port added at its value from before and Fix retail bugs on No: the 1997 CD release's rules. |
 | **Default** | What a fresh install gets. Retail fixes on, port features off unless they have moved on by default. |
-| **Modern** | Default, plus every Modern-ring setting a preset sets, at its Modern value. |
+| **Modern** | Default, plus every Modern-ring switch at its Modern value. |
 
 Today that is a short list: Classic differs from Default in the retail fixes, and Modern from
-Default in the outdoor and indoor cameras. The preset earns its place on first launch, where it is
-the one choice a new player makes, and grows as Modern settings arrive.
+Default in the outdoor Auto camera. The indoor camera is a candidate for Modern once it passes
+the two ring fixtures that leave it out today (`test_ring_off_is_gone.sh` and
+`test_ring_watch_not_play.sh`): it is a different camera from the outdoor one, and it changes
+what a save carries. The preset earns its place on first launch, where it is the one choice a new
+player makes, and grows as Modern settings arrive.
+
+A preset sets switches, never tuning values: every preset leaves tuning at its default. A
+camera tuning row's value from before is the Auto camera before that behaviour, the start the
+camera fixtures measure from
+([Decision](../knowledge/decisions/a-camera-setting-names-its-value-from-before.md)), not
+anything the 1997 game did. Seven of them differ from their default (`cam_ease_ms` is 300 by
+default and 0 before, `cam_shot_blend_ms` 600 and 0, among others), so a Classic that applied them would give a
+player who then turns the Auto camera on its earliest version, with cuts and no easing.
+
+Classic is the original's rules on the player's screen. The lightning spell and some life
+scripts read which actors were drawn, so a larger screen can change who the spell strikes
+([quirk](../knowledge/quirks/the-game-counts-what-is-on-screen.md)); the 1997 game as it played
+is Classic at 640x480.
 
 ### What a preset leaves alone
 
@@ -85,6 +101,9 @@ settings, and no preset changes them:
 - every setting the 1997 game already had: volumes, reverse stereo, detail level, languages,
   display text, movie camera, video size;
 - the screen: resolution, fullscreen, Vsync, the filters (#835) and the UI scale;
+- the fixed timestep (`FixedTimestep`), which keeps movement the same at any frame rate: its value
+  from before, 0, runs the simulation once per frame, so on a 144 Hz screen Classic would play
+  fast;
 - how the mouse and pad feel: sensitivity, invert, deadzone, mouse confine, menu mouse;
 - the keyboard and gamepad bindings.
 
@@ -96,8 +115,8 @@ a minute later.
 
 `lba2.cfg` holds the chosen preset (`Preset: Modern`) and, for a setting a preset sets, a value
 only where the player's own differs from it. At read time the chosen preset's value takes the
-place of the row's default: Classic gives the value from before, Default the compiled default,
-Modern the Modern value. The chain [PORTABILITY_PLAN.md](PORTABILITY_PLAN.md) reads becomes
+place of the row's default: for a switch, Classic gives the value from before, Default the
+compiled default, Modern the Modern value. The chain [PORTABILITY_PLAN.md](PORTABILITY_PLAN.md) reads becomes
 compiled defaults, game-data config, chosen preset, the profile's own values, flags. The preset
 covers only the settings presets set, so an install's config still sets the player's settings.
 
@@ -168,11 +187,12 @@ writer to leave out a value equal to it, so it is one Decision with point 2 of
   takes keys out of the profile's file rather than writing defaults over that layer, which needs
   the writer to leave a key out ([The config file](#the-config-file), point 2).
 
-For this every setting gains three fields: the **ring** (none for a 1997 setting or a retail fix,
+For this every setting gains four fields: the **ring** (none for a 1997 setting or a retail fix,
 Modern or Experimental), from which the Modern preset and the Experimental page are built;
-whether **presets set** it, no for every player's setting; and the **category**, which the menu and
-the config file both group by. A Modern-ring setting also says its **Modern value** (on, for the
-switches there are today). A setting moves inward by changing its ring field in the PR that brings
+whether **presets set** it, no for every player's setting; whether it is a **switch** or a tuning
+value, since presets set only switches; and the **category**, which the menu and the config file
+both group by. A Modern-ring switch also says its **Modern value** (on, for the switches there
+are today). A setting moves inward by changing its ring field in the PR that brings
 the evidence ([ARCHITECTURE.md, Moving inward](../ARCHITECTURE.md#moving-inward)).
 
 These fields live in a table of the menu's own, keyed by the `lba2.cfg` key, not in `T_SETTING`.
@@ -210,6 +230,10 @@ their own.
    file, so the Decision on leaving keys out ([The config file](#the-config-file), point 2) comes
    before it.
 6. **A value from before on every row the port added (#846)**, then the **Classic** preset.
+   Today Classic needs only Fix retail bugs on No, since both camera switches are off by default;
+   #846 is what keeps a switch that moves on by default later from staying on under Classic.
+   Its console step, `settings_before` with no prefix, also sets player's settings (the mouse
+   confine, the fixed timestep), so the preset reuses it through the presets-set field.
 7. **Default and Modern presets**, the preset page with Back to my settings, the offer on first
    launch, and a fixture with every Modern setting on.
 8. **Experimental page generated from the settings table**, behind Show experimental settings.
@@ -261,6 +285,15 @@ mouse camera runs only with the Auto camera outdoors, and the stick camera only 
 camera ([SOURCES/EXTFUNC.CPP](../../SOURCES/EXTFUNC.CPP)). That makes them the first rows that
 depend on another setting. Outdoors is on the same page, so they are dimmed rather than hidden:
 hidden, they would move the rows under the cursor each time the player cycles Outdoors.
+
+The Resolution list offers 640x480, a widescreen rung 480 pixels high that fills the display's
+width, and rungs 720 and 1080 high ([RUNTIME_RESOLUTION.md](../RUNTIME_RESOLUTION.md),
+`Res_BuildMenuList`). Widescreen is finished; HD is not: at 720 and 1080 the UI is a 640x480
+block in the middle, interiors are a 640-class blit, and the vertical framing is undecided
+([WIDESCREEN.md, Phase 7](../WIDESCREEN.md#phase-7-native-hd)). The console's list already tags
+those rungs experimental (`RES_CATALOG.CPP`); the menu shows them bare. The list marks them, and
+their help line says what is unfinished, until Phase 7 lands (open question 10). Resolution is a
+player's setting, so Modern never picks HD.
 
 At 640x480 a page shows the selected row's help on a line below its rows where it fits, and the
 preset page always: the help line is how a player learns what Default sets. From 840 logical
@@ -340,7 +373,8 @@ Not a promise; the direction the steps above should not close off.
 1. **Pages are data.** As in the page model above.
 2. **The UI scales in whole steps.** `scale = max(1, floor(min(W / 640, H / 480)))`, and pages
    lay out on a logical canvas of the framebuffer divided by the scale. 1920x1080 is 2x on a
-   960x540 canvas; 640x480 is 1x and looks as today. Needs a scaled `Font()` (it blits 1:1
+   960x540 canvas; 640x480 is 1x and looks as today. This is part of finishing HD (the UI is an
+   unscaled 640x480 block there today), so it waits on the same work. Needs a scaled `Font()` (it blits 1:1
    today) and scaled plasma; sprites already have `ScaleSprite`. A UI scale row (Auto, 1x, 2x,
    3x) lets the player choose, and Auto can use the display's content scale where the platform
    reports one (SDL3 has `SDL_GetDisplayContentScale`). A handheld shows why the row is not
@@ -400,8 +434,8 @@ The menu does not touch the game's rules, so the world hash cannot see it. Four 
 2. **The 1997 code stays 1997.** `DoGameMenu`, `DrawGameMenu`, `DrawOneChoice` and the plasma
    stay put; a diff against 333929a shows only the port's known edits, listed in a comment where
    they sit.
-3. **Classic is the original.** Choosing Classic sets every setting a preset sets to its value
-   from before, and leaves the player's settings alone, some of which the original did not have
+3. **Classic is the original.** Choosing Classic sets every switch a preset sets to its value
+   from before, and leaves the player's settings and the tuning values alone, some of which the original did not have
    (texture filtering, mouse confine). So
    [test_ring_off_is_gone.sh](../../tests/automation/test_ring_off_is_gone.sh) runs with Classic
    applied over a player's setup that is not the default, texture filtering on say, which also
@@ -440,7 +474,10 @@ writers persisting the player's tables while a replay has borrowed them.
 8. Who checks the translations of the new labels.
 9. What the preset row shows when the player's values differ from the chosen preset: Custom, or
    the preset's name marked as changed ("Modern, changed"). The help line names the preset either
-   way.
+   way. Leaning to "Modern, changed": the stored preset still decides every setting the player
+   has not changed, and Custom hides it.
+10. Whether the 720 and 1080 rungs of the resolution list sit behind Show experimental settings,
+    or stay in the list marked as unfinished.
 
 ## Not in this plan
 
