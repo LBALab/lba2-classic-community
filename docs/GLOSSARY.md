@@ -19,13 +19,13 @@ they reach the menu is [plan/MENU_PLAN.md](plan/MENU_PLAN.md).
 |---|---|---|
 | How far along is this setting? (**ring**) | Modern, Experimental. A setting the 1997 game already had, or a retail fix, is in no ring. | Contributors, on evidence ([moving inward](ARCHITECTURE.md#moving-inward)) |
 | Which values do I want? (**preset**) | Classic, Modern | The player |
-| Do my values differ from my preset? | Custom when they do | Nobody: the values arrive there |
+| Do my values differ from my preset? | changed when they do ("Modern settings, changed") | Nobody: the values arrive there |
 | Am I shown the experiments? | Show experimental settings | The player |
 
 Experimental is a ring and a page, not a set of values, so there is no Experimental preset.
 The chosen preset is stored in `lba2.cfg` as the base the player's own values sit on, so a
-player on a preset follows that preset's values from build to build. Custom is never chosen on the preset row; it is
-what the row shows when the player's own values differ from the chosen preset. A preset sets only
+player on a preset follows that preset's values from build to build. The preset row names the chosen preset ("Modern
+settings") and marks it changed when the player's own values differ from it; changed is never chosen. A preset sets only
 the game's settings, never the player's own.
 
 ### Terms
@@ -40,7 +40,8 @@ the game's settings, never the player's own.
 | Modern (ring) | -- | Settings that change how the game is shown or handled, never its rules, each one tested. Offered as menu rows, on or off by default; going on by default takes its own evidence ([moving inward](ARCHITECTURE.md#moving-inward)). | Modern (preset) |
 | Modern (preset) | Modern | Every setting a preset sets at its default: what a fresh install gets, retail fixes on. It follows the defaults as they move. A `lba2.cfg` with no `Preset` key is on Modern. | Modern (ring) |
 | Experimental (ring) | Experimental (a page) | Anything else: features being tried and every tuning value. Off by default, comes out without ceremony. | Experimental builds (a platform tier's pre-release) |
-| Custom | Custom | On the preset row: the player's own values differ from the chosen preset in a setting presets set. Computed: the preset is stored, Custom is not. On the Fix retail bugs row it is a stored value the player cycles to, and each fix's own setting decides. | |
+| Changed (preset) | Modern settings, changed | On the preset row: the player's own values differ from the chosen preset in a setting presets set. Computed: the preset is stored, changed is not, and the help line names the settings that differ. | Custom |
+| Custom | Custom | On the Fix retail bugs row: a stored value the player cycles to, and each fix's own setting decides. The preset row never shows it. | Changed (preset) |
 | Player's setting | -- | A setting no preset changes: every setting the 1997 game had, and the port's settings for the screen, the filters, the fixed timestep, how the mouse and pad feel, and the bindings. Reset settings does change them. | Tuning value |
 | Retail fix | Fix retail bugs | A fix to a bug the original itself had; each has its own switch under the one row ([Decision](knowledge/decisions/a-retail-fix-is-a-switch-under-one-row.md)). | Enhancement |
 | Enhancement | -- | A change to the design: its own setting, off by default when it lands. | Retail fix |

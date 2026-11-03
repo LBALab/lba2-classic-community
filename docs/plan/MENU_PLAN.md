@@ -66,8 +66,8 @@ show and set settings, and never change the game's rules.
 ## Presets
 
 Two presets set values, and the one the player chose is stored in `lba2.cfg` as the base their
-own values sit on. Custom is what the preset row shows when the player's own values differ from
-that base: computed, never chosen.
+own values sit on. The preset row names that base ("Modern settings") and marks it changed when
+the player's own values differ from it ("Modern settings, changed"): computed, never chosen.
 
 | Preset | Sets |
 |---|---|
@@ -114,7 +114,7 @@ settings, and no preset changes them:
 - the keyboard and gamepad bindings.
 
 Without this, Classic would set the mouse confine to its value from before, choosing Modern
-would put a player's texture filtering back to its default, and both would read Custom a minute
+would put a player's texture filtering back to its default, and both would read changed a minute
 later.
 
 ### The chosen preset is the base
@@ -148,24 +148,27 @@ writer to leave out a value equal to it, so it is one Decision with point 2 of
 ### Choosing a preset
 
 - The preset row opens a page: Classic and Modern, each with a help line saying what it
-  sets, and **Back to my settings** when there is something to go back to. The row itself shows
-  the chosen preset, or Custom when the player's own values differ from it ("Settings: Custom").
+  sets, and **Back to my settings** when there is something to go back to. The row itself names
+  the chosen preset, "Modern settings" or "Classic settings", and adds "changed" when the player's
+  own values differ from it ("Modern settings, changed"). It names the preset rather than pairing
+  a word with a value ("Settings: Modern"), which sat over the categories and read as one more.
 - Choosing a preset asks for confirmation, then keeps the preset it replaces and the player's
   values as a settings backup, which Back to my settings restores: the preset, the player's values
   for the settings a preset sets, and the tuning values, not the whole file, so a volume or a
   resolution changed since stays. The backup is taken after the values in memory are written,
   since `lba2.cfg` is otherwise written only when the player leaves Options. A preset is never
-  applied by cycling a row: one press past Custom would overwrite a player's setup with no way
-  back.
+  applied by cycling a row: one press past a changed preset would overwrite a player's setup
+  with no way back.
 - Applying a preset takes out the player's own values for every setting a preset sets and puts
   the Experimental tuning values back to their defaults (the backup keeps both). Changing a
-  setting a preset sets, tuning included, makes the row read Custom; changing a player's setting
+  setting a preset sets, tuning included, marks the row changed; changing a player's setting
   does not.
-- Custom is computed: the chosen preset is stored, Custom is not, and no player chooses it. A file
-  with no `Preset` key is on Modern, so a player who brings an edited `lba2.cfg` sees Custom where
-  the file sets a value Modern does not, which answers EPmager's question on #838. While the row
-  reads Custom, the page's help line names the settings that differ from the chosen preset,
-  Experimental ones included, so a value set from the console or a downloaded file can be found.
+- Changed is computed: the chosen preset is stored, changed is not, and no player chooses it. A
+  file with no `Preset` key is on Modern, so a player who brings an edited `lba2.cfg` sees "Modern
+  settings, changed" where the file sets a value Modern does not, which answers EPmager's question
+  on #838. While the row reads changed, the page's help line names the settings that differ from
+  the chosen preset, Experimental ones included, so a value set from the console or a downloaded
+  file can be found.
 - The Fix retail bugs row stays as it is, and works differently: its Custom is a stored value the
   player cycles to, and each fix keeps its own setting under Yes and No
   ([SOURCES/RETAILFIX.H](../../SOURCES/RETAILFIX.H), `RetailFix_NextMenuValue`), so cycling it
@@ -554,10 +557,9 @@ writers persisting the player's tables while a replay has borrowed them.
 6. Whether the menu cursor follows rebound movement keys or the page says it does not.
 7. The reference file's name, and whether it is written every run or only when the build changes.
 8. Who checks the translations of the new labels.
-9. What the preset row shows when the player's values differ from the chosen preset: Custom, or
-   the preset's name marked as changed ("Modern, changed"). The help line names the preset either
-   way. Leaning to "Modern, changed": the stored preset still decides every setting the player
-   has not changed, and Custom hides it.
+9. Decided: the preset row shows the preset's name marked as changed ("Modern settings,
+   changed"), not Custom, since the stored preset still decides every setting the player has not
+   changed. See [Choosing a preset](#choosing-a-preset).
 10. Whether the 720 and 1080 rungs of the resolution list sit behind Show experimental settings,
     or stay in the list marked as unfinished.
 11. Whether a `Preset` line in an imported file takes out the player's own values for settings
