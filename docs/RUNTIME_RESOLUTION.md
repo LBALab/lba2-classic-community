@@ -196,7 +196,7 @@ ResolutionX=768
 ResolutionY=480
 ```
 
-Read at boot: if both keys are present and valid, they seed the initial render resolution. `--resolution WxH` on the CLI overrides. If both are missing, default to `640×480`.
+Read at boot: if both keys are present and valid, they seed the initial render resolution. `--resolution WxH` on the CLI overrides. If both are missing, a Quest build boots at 1680×1760 (the per-eye swapchain recommendation); other builds auto-detect a widescreen size and fall back to `640×480`.
 
 Write: on resolution-switch success (after the keep-confirm dialog), write the new values back to `lba2.cfg`. Same mechanism as the existing `WriteConfigFile` in `PERSO.CPP:2008`.
 

@@ -30,10 +30,10 @@ The projection audit ([WIDESCREEN_PROJECTION_AUDIT.md](WIDESCREEN_PROJECTION_AUD
 
 What the engine does today:
 
-- **First launch auto-detects.** With no `--resolution` flag and no saved `lba2.cfg` resolution, the engine reads the primary display's aspect and boots a widescreen render size at the original 480 height (for example 848×480 on a 16:9 monitor), fullscreen by default (the shipped cfg template carries `DisplayFullScreen: 1`). A 4:3 display keeps 640×480.
+- **First launch auto-detects.** With no `--resolution` flag and no saved `lba2.cfg` resolution, the engine reads the primary display's aspect and boots a widescreen render size at the original 480 height (for example 848×480 on a 16:9 monitor), fullscreen by default (the shipped cfg template carries `DisplayFullScreen: 1`). A 4:3 display keeps 640×480. On the Quest build the boot size is the per-eye 1680×1760 instead, because the headset presents the OpenXR swapchain rather than a monitor mode.
 - **The player stays in control.** The auto choice is re-derived each launch, never persisted, so it follows a monitor swap. Any explicit choice overrides it and sticks: the Display options submenu, the `resolution` console verb, or `--resolution` all write `lba2.cfg`. Reverting to Classic 640×480 is one toggle in the Display menu.
-- **Precedence: `--resolution` CLI > `lba2.cfg` ResolutionX/Y > auto-detect > 640×480.** A headless/dummy driver or a failed display query falls back to 640×480, which is why the test harness (always pinned to `--resolution 640x480`) is unaffected.
-- **No forced 16:9 cap.** A display wider than 16:9 renders at its true aspect up to the engine's maximum width (1920); height stays at 480. The render-space work supports arbitrary width, and SDL letterboxes/pillarboxes the framebuffer to the physical display.
+- **Precedence: `--resolution` CLI > `lba2.cfg` ResolutionX/Y > Quest native 1680×1760 (headset builds) / auto-detect (other builds) > 640×480.** A headless/dummy driver or a failed display query falls back to 640×480, which is why the test harness (always pinned to `--resolution 640x480`) is unaffected.
+- **No forced 16:9 cap.** A display wider than 16:9 renders at its true aspect up to the engine's maximum width (2560); height stays at 480. The render-space work supports arbitrary width, and SDL letterboxes/pillarboxes the framebuffer to the physical display.
 
 > Historical note: the original goal (sketched in issue #45 and the first draft of this doc) was a no-setting auto-detector tied to fullscreen, capped at 16:9. The shipped design keeps the auto-detection but makes it the *default*, not the only option, and renders true display aspect rather than a 16:9 cap. See [Phase 4](#phase-4-fullscreen-and-runtime-resolution).
 
@@ -83,15 +83,16 @@ The wide build still requires a compile-time `RESOLUTION_X` override; runtime se
 
 **Done.** Two strands combine into the [target behaviour](#target-behaviour): explicit player choice (the runtime-resolution work) plus first-launch auto-detection layered on top of it. The engine boots widescreen by default and the player can override or revert at any time.
 
-Boot resolution resolves in `Res_LoadBootDimensions` (`SOURCES/RES_SWITCH.CPP`) with precedence **`--resolution` CLI > `lba2.cfg` ResolutionX/Y > auto-detect > 640×480**:
+Boot resolution resolves in `Res_LoadBootDimensions` (`SOURCES/RES_SWITCH.CPP`) with precedence **`--resolution` CLI > `lba2.cfg` ResolutionX/Y > Quest native 1680×1760 (headset builds) / auto-detect (other builds) > 640×480**:
 
+- **Quest native** (`RES_QUEST_NATIVE_W/H` in `RES_CATALOG.H`) is the per-eye swapchain recommendation. It is used on `LBA2_OPENXR` Android builds because the framebuffer is sized before the OpenXR session exists, so the runtime cannot be queried at boot. It is also the native rung of the head-mounted Display ladder.
 - **Auto-detect** (`Res_AutoDetectDimensions`) queries the primary display windowlessly (`Window_GetPrimaryDisplayDimensions`, `SDL_GetPrimaryDisplay` + `SDL_GetCurrentDisplayMode`) and snaps to a widescreen width that preserves the display aspect at 480 height (`Res_SnapWidescreenWidth`, shared with the Display submenu's catalog). It runs only when CLI and cfg are both silent, returns false on a 4:3 display or a dummy/offscreen driver, and is never persisted. The video subsystem is brought up early in `PERSO.CPP` (idempotent) so the display is queryable before the framebuffer is sized. The two boot resolves (MainBuffer in `PERSO.CPP`, Log/Screen in `INITADEL.C`) must agree, which is why the early resolve also has to see the display.
 - **Fullscreen** is an independent `DisplayFullScreen` cfg flag (`Res_LoadBootFullscreen`) plus an in-game toggle; the shipped cfg template defaults it on, so a fresh install boots fullscreen. `CreateWindowSurface` brings the window up fullscreen directly, and `WINDOW.CPP` aspect-correctly letterboxes/pillarboxes the chosen framebuffer to the physical display.
-- The boot log's `Display` line reports the chosen `WxH`, its source (`CLI` / `cfg` / `auto` / `default`), and the window mode.
+- The boot log's `Display` line reports the chosen `WxH`, its source (`CLI` / `cfg` / `quest` / `auto` / `default`), and the window mode.
 
 #### Runtime resolution switching
 
-Lets the player change render resolution from a console verb or a Display options submenu without relaunching. **Shipped.** The `resolution` console verb, keep/revert dialog, and `lba2.cfg` persistence landed in PRs #237–#241, #244; the Display options submenu (a "Resolution: <current>" cycle row over the curated Classic + display-aspect Widescreen catalog, plus a "Fullscreen" toggle, `SOURCES/GAMEMENU.CPP` `GereDisplayMenu` / `CycleResolution`) landed after. The auto-detect default reuses the same catalog math, so the booted resolution is the same Widescreen entry the menu offers. See [`RUNTIME_RESOLUTION.md`](RUNTIME_RESOLUTION.md) for the design, phasing, and risks.
+Lets the player change render resolution from a console verb or a Display options submenu without relaunching. **Shipped.** The `resolution` console verb, keep/revert dialog, and `lba2.cfg` persistence landed in PRs #237–#241, #244; the Display options submenu (a "Resolution: <current>" cycle row over the curated Classic + display-aspect Widescreen catalog, plus a "Fullscreen" toggle, `SOURCES/GAMEMENU.CPP` `GereDisplayMenu` / `CycleResolution`) landed after. The boot default reuses the same catalog math (on Quest it is the head-mounted ladder's native rung), so the booted resolution is always one the menu offers. See [`RUNTIME_RESOLUTION.md`](RUNTIME_RESOLUTION.md) for the design, phasing, and risks.
 
 ### Phase 5: UI (C2) and HD groundwork
 
@@ -319,7 +320,7 @@ It is still useful as a **call-site map** — its diff touches most of the rende
 ./build/SOURCES/lba2cc --resolution 1280x720 --game-dir /path/to/data
 ```
 
-Range `320x200` – `1920x1024`, width must be a multiple of 8 (matches the historical `RESOLUTION.H` static check). Omit the flag for the compile-time default (`640x480` unless overridden at configure time). Useful for sweeping width-dependent bugs across many candidate resolutions from one binary — see [WIDESCREEN_HARDCODED_DIMS_AUDIT.md "How to sweep"](WIDESCREEN_HARDCODED_DIMS_AUDIT.md#how-to-sweep-for-alignment-class-sibling-bugs).
+Range `320x200` – `2560x2160`, width must be a multiple of 8 (the shared bounds in `RES_CATALOG.H`). Omit the flag for the build's default: `640x480` on desktop builds, `1680x1760` on the Quest build, unless overridden at configure time. Useful for sweeping width-dependent bugs across many candidate resolutions from one binary — see [WIDESCREEN_HARDCODED_DIMS_AUDIT.md "How to sweep"](WIDESCREEN_HARDCODED_DIMS_AUDIT.md#how-to-sweep-for-alignment-class-sibling-bugs).
 
 After Phase 2 + 3, the resulting build shows the centred 3D world filling the wider frame; the 2D UI stays left-justified at its 640-wide layout until Phase 5.
 
@@ -354,7 +355,7 @@ LBA2_BIN=build-wide/SOURCES/lba2cc \
 | 1 – projection capture | Done (#193–#198; corpus + demo baselines, see [tests/projection/](../tests/projection/)) |
 | 2 – projection correction | Done (#199–#203; eight call sites routed through `ModeDesiredX/Y`) |
 | 3 – widen the framebuffer | Done (#204; wide build verified, `corpus_768x480.projrec.hash` baseline committed) |
-| 4 – fullscreen + runtime resolution | Done. Explicit player choice (`--resolution` / `lba2.cfg` / Display submenu / `resolution` verb) plus first-launch widescreen auto-detect; precedence CLI > cfg > auto > 640×480. Fullscreen defaults on via the cfg template. See [Phase 4](#phase-4-fullscreen-and-runtime-resolution). |
+| 4 – fullscreen + runtime resolution | Done. Explicit player choice (`--resolution` / `lba2.cfg` / Display submenu / `resolution` verb) plus first-launch defaults: Quest native 1680×1760 on headset builds, widescreen auto-detect elsewhere; precedence CLI > cfg > Quest native / auto > 640×480. Fullscreen defaults on via the cfg template. See [Phase 4](#phase-4-fullscreen-and-runtime-resolution). |
 | 5 – UI (C2) | Done for the menu/UI surfaces (#213–#228 re-anchor campaign, plus #260, #289, #291, #310). HD-only concerns split out to Phase 7. |
 | 6 – regression | Ongoing per-PR (projrec corpus, `host_quick`, and `ui_*` capture tests gate the 640×480 contract). No final lock-in pass yet. |
 | 7 – native HD | In progress. HD-height render *correctness* is done: Y-clamps (#262), exterior near-clip scaling (#342), and actor shadows (#443) all route through `ModeDesiredY`, and auto-camera HD recompose landed (#343). Remaining is legibility and sharpness: bitmap fonts blit 1:1, iso interior sharpness (experiment branches), holomap tall-res verification, and the vertical-framing decision. See [Phase 7](#phase-7-native-hd). |

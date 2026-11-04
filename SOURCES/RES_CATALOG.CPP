@@ -137,7 +137,7 @@ static const ResModeEntry kHeadMountLadder[] = {
     {840, 880, "0.5x"},
     {1120, 1173, "0.67x"},
     {1256, 1320, "0.75x"},
-    {1680, 1760, "native"},
+    {RES_QUEST_NATIVE_W, RES_QUEST_NATIVE_H, "native"},
 };
 #define kHeadMountLadderCount ((int)(sizeof(kHeadMountLadder) / sizeof(kHeadMountLadder[0])))
 

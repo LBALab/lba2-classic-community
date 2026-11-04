@@ -4044,10 +4044,10 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
     /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >
-       auto-detect > compile-time default). Persist it only when the player
-       chose it explicitly (CLI/cfg at boot, or a runtime Res_Switch); an
-       auto-detected or defaulted resolution is left out so it re-derives from
-       the display each launch instead of freezing into the cfg on first exit. */
+       Quest native / auto-detect > compile-time default). Persist it only when
+       the player chose it explicitly (CLI/cfg at boot, or a runtime
+       Res_Switch); a derived resolution is left out so it re-derives each
+       launch instead of freezing into the cfg on first exit. */
     if (!Res_ResolutionIsAutoDerived()) {
         DefFileBufferWriteValue("ResolutionX", (S32)ModeDesiredX);
         DefFileBufferWriteValue("ResolutionY", (S32)ModeDesiredY);
@@ -4528,9 +4528,10 @@ int main(int argc, char *argv[]) {
 
     /* Configure the framebuffer-sized ListMem entries with the effective resolution
        BEFORE InitMainBuffer() does the giant single-shot allocation. Precedence:
-       --resolution CLI > lba2.cfg ResolutionX/Y > compile-time default. The cfg
-       read uses a transient stack/BSS buffer (no heap, no MainBuffer dependency),
-       so we get the right MainBuffer size in a single allocation cycle. */
+       --resolution CLI > lba2.cfg ResolutionX/Y > Quest native / auto-detect >
+       compile-time default. The cfg read uses a transient stack/BSS buffer (no
+       heap, no MainBuffer dependency), so we get the right MainBuffer size in a
+       single allocation cycle. */
     /* Bring up the video subsystem now (idempotent, since InitProgram's later
        SDL_INIT_VIDEO init is guarded by SDL_WasInit) so Res_LoadBootDimensions
        can query the primary display for widescreen auto-detect BEFORE we size
