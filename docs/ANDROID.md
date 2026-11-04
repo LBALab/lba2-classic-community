@@ -407,7 +407,7 @@ When `LBA2_OPENXR=ON`, the build consumes the official Khronos Android
 OpenXR loader via a pre-staged install at
 `out/android/openxr/install/`. The AAR
 [`org.khronos.openxr:openxr_loader_for_android`](https://central.sonatype.com/artifact/org.khronos.openxr/openxr_loader_for_android)
-(version 1.1.43) was extracted there once: headers under `include/openxr/`
+(version 1.1.65) was extracted there once: headers under `include/openxr/`
 and the per-ABI `libopenxr_loader.so` under `lib/`. CMake consumes the
 install through `LBA2_OPENXR_BASE_DIR` and exposes it as the
 `openxr_loader` target.

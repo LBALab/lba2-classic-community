@@ -174,7 +174,7 @@ log "Configuring CMake (preset=quest)..."
 # out/android/openxr/install (so we don't refetch the base headers
 # on every configure). The install was extracted once from the
 # official Khronos org.khronos.openxr:openxr_loader_for_android AAR
-# version 1.1.43 (Apache 2.0). No Meta-OpenXR-SDK is fetched or
+# version 1.1.65 (Apache 2.0). No Meta-OpenXR-SDK is fetched or
 # linked. The preset also passes SDL3_DIR, so this call just needs to
 # point at the right toolchain file.
 #

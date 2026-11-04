@@ -124,9 +124,9 @@ jobs:
 
       - name: Stage OpenXR loader
         run: |
-          AAR_URL="https://repo1.maven.org/maven2/org/khronos/openxr/openxr_loader_for_android/1.1.43/openxr_loader_for_android-1.1.43.aar"
-          AAR_SHA256="7e1b36141f9a4f1fa4a7e061936344fd9fcd36bce6c47eae2ad09812736167b6"
-          AAR="${RUNNER_TEMP}/openxr_loader_for_android-1.1.43.aar"
+          AAR_URL="https://repo1.maven.org/maven2/org/khronos/openxr/openxr_loader_for_android/1.1.65/openxr_loader_for_android-1.1.65.aar"
+          AAR_SHA256="a298c326085b09181c85235fb04d37510939bd30938ed4322c093c09780e8643"
+          AAR="${RUNNER_TEMP}/openxr_loader_for_android-1.1.65.aar"
 
           curl -fsSLo "$AAR" "$AAR_URL"
           echo "${AAR_SHA256}  ${AAR}" | sha256sum -c -
