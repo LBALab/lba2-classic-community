@@ -10,6 +10,16 @@
 #include "stb_image_write.h"
 
 // ──────────────────────────────────────────────────────────────────────────
+void SavePNGRGB(const char *filename, const void *rgb, S32 xres, S32 yres) {
+    int result = stbi_write_png(filename, xres, yres, 3, rgb, xres * 3);
+    if (result) {
+        LogPrintf("Screenshot saved: %s\n", filename);
+    } else {
+        LogPrintf("Error: Failed to save screenshot to %s\n", filename);
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 void SavePNG(char *filename, void *screen, S32 xres, S32 yres, void *ptrpalette) {
     U8 *indexed = (U8 *)screen;
     U8 *palette = (U8 *)ptrpalette;

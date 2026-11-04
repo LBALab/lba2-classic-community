@@ -48,13 +48,27 @@ recenters behind the hero. Tunables in `lba2.cfg`:
 
 ### Gamepad right stick
 
-In exterior Auto camera scenes the right stick orbits and tilts the camera
+In headset sessions with the Auto camera, the right stick controls zoom
+(X: right = closer, left = wider) and camera tilt (Y: up = toward the
+horizon, down = top-down) through `ApplyManualCameraNudge`; the head-look
+override pans the view, so the rig takes no motion from the head.
+
+In exterior Auto camera scenes (flat presentation) the right stick orbits and tilts the camera
 through the same `ApplyManualCameraNudge` routine as the mouse. While it owns the
 stick, `UpdateJoystick` ([SOURCES/JOYSTICK.CPP](../SOURCES/JOYSTICK.CPP)) stops
 emitting the digital `RSTICK_*` scancodes so the analog path and the bindings
 never double-drive. Outside Auto camera (the classic fixed cameras) the stick
 falls back to the digital bindings: left/right cycle the camera (`I_CAMERA`),
-up/down change the camera preset (`I_CAMERA_LEVEL`). Tunables in `lba2.cfg`:
+up/down change the camera preset (`I_CAMERA_LEVEL`). Pressing the right stick
+(`K_GAMEPAD_RSTICK_BTN`, input slot 36) cycles the camera setting — Classic
+camera / Auto camera / First person — the same three-way cycle as the
+Advanced-options row; configs saved before this binding existed migrate R3 off
+the dodge secondary automatically. The press does nothing in interiors, where
+the isometric camera has no first-person mode; a press held across the exit is
+consumed so it cannot fire on the threshold. Entering an interior while the
+first-person camera is active returns to the classic camera, recentred on the
+hero; entering the classic camera (from first person) also recenters on the
+hero instead of keeping the previous eye framing. Tunables in `lba2.cfg`:
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -63,9 +77,66 @@ up/down change the camera preset (`I_CAMERA_LEVEL`). Tunables in `lba2.cfg`:
 | `GamepadCameraSensY` | 5 | elevation sensitivity (1-10) |
 | `GamepadCameraInvertY` | 0 | invert elevation axis |
 
+In first-person stereo the left stick moves camera-relative: forward/back and
+strafe, with diagonals taken from the stick angle. The movement pass points
+`Obj.Beta` along the stick vector and holds `I_UP` for that frame, so the
+normal walk animation and collision path carry the displacement; the body sits
+behind the camera, so the one-frame facing change is invisible. The right stick
+turns the view at 180°/s (after the shared deadzone). `UpdateJoystick`
+suppresses both sticks' digital scancodes in this mode; the raw right axis is
+integrated as a yaw offset in `UpdateFirstPersonCamera` and applied to both the
+base camera and the per-eye stereo override. The offset resets when the camera
+setting changes.
+
+In first-person stereo the magic ball is thrown from the tracked right hand
+(left if the right is not tracked) instead of the hidden hero animation.
+Holding Throw shows the ball on the palm of that hand and arms the throw; the
+release launches from the hand. A still hand throws along the controller aim,
+while a swing captured during the hold replaces the aim with the swing
+direction. The
+launch speed and gravity are read from the hero's normal lance animation, so
+the ball travels exactly as it does in the classic and auto cameras.
+The throw still consumes magic, plays the magic-ball sample, and arms the
+usual recall: after the release the next Throw press returns the ball.
+`LBA2_NO_VR_THROW=1` restores the animation-driven throw for comparison.
+
+If a tracked hand reaches farther than Twinsen's arm can, the visible ghost
+scales its upper-arm and forearm groups along the bone (up to 2×) so the hand
+meets the controller instead of stopping at the model's reach. The hand mesh
+stretches with the forearm; the rig is rebuilt from the unmodified body every
+frame, and the stretched copy is used only for drawing the ghost.
+
 The deadzone is shared with the rest of the gamepad (`GamepadDeadzone`). There is
 no stick zoom: the triggers are movement and the remaining buttons are bound, so
 zoom stays on the keyboard and mouse.
+
+### Quest interior camera
+
+In a stereo Quest session, interior scenes keep the left stick's ordinary
+locomotion bindings. The right stick moves the isometric view: horizontal
+pans it across, vertical pans it up and down, both clamped to a quarter frame
+so the room cannot be scrolled completely off screen. Enter recenters the pan
+and returns the zoom to 100%; a cube change only recenters the pan.
+
+Resting the left thumb on its capacitive thumb rest, the area by the buttons,
+turns the right stick's vertical axis into the `VrFovScale` zoom (50–120)
+instead of a vertical pan. The rest is a Touch-profile input; the left
+thumbstick's own touch sensor is not the modifier, so a thumb left on the
+stick still pans normally. The interior present scales the resolved stereo
+image about each eye's centre: below 100 the centre is cropped and magnified,
+above 100 the eye shrinks into a centred black frame.
+
+The right stick's digital camera-preset bindings are suppressed in this mode so
+the analog pan does not also cycle the classic camera.
+
+The head-tracked hover rig is opt-in (Display → VR → Interior hover, cfg
+`VrInteriorHover`, console `vrhover`). It anchors the head pose when it
+engages: a head turn moves the room by exactly the angle turned in the eye's
+projection, so the image stays hung in the world instead of following your
+face, and leaning left/right or up/down adds a depth-correct parallax (near
+planes move further than far ones). Looking far enough carries the room out
+of view. Roll is held level. Enter recaptures the anchor. The head look runs
+inside a camera zone too; only cinema scenes keep the authored view.
 
 ## Live tuning (console cvars)
 

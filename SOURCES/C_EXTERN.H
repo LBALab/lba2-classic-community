@@ -92,6 +92,10 @@ extern T_OBJET *APtObj;
 //			     l'ecran
 
 extern U8 CinemaMode;
+/* PlayAcf is presenting a full-screen movie into Log. */
+extern S32 FlagMovie;
+extern S32 MovieUpscale; /* 0 nearest, 1 Scale2x, 2 xBR */
+extern S32 MovieVrZoom;  /* Quest movie rect percent, 50..100 */
 extern S32 TimerCinema;
 extern S32 LastYCinema;
 extern S32 DebCycleCinema;   // en pixels Y
@@ -115,12 +119,32 @@ extern S32 DetailLevel;
 extern S32 VideoFullScreen;
 extern S32 DisplayFullScreen;
 extern S32 DisplayVSync;
-#ifdef USE_GPURENDERER
+extern S32 GpuFocalCapped; /* exterior focal floored at the 720p FOV envelope */
+extern S32 FpsLimit;
+/* Read from renderer-agnostic code paths (projects, flow, menus) and set
+ * only in GL mode; defined in every renderer configuration. */
 extern S32 GPURendererActive; ///< 0 = Software, 1 = OpenGL/GLES
-extern S32 DisplayTexFilter;  ///< 0 = Nearest, 1 = Bilinear (GL mode only)
-extern S32 RenderQuality;     ///< 1 = native, 2 = 2x SSAA, 4 = 4x SSAA (GL mode only)
+#ifdef USE_GPURENDERER
+extern S32 DisplayTexFilter;
+extern S32 DisplayAntiAlias;   ///< 0 = off, 1 = FXAA, 2 = MSAA×2, 3 = MSAA×4
+extern S32 DisplayDither;      ///< 1 = ordered dither between CLUT rows (GL mode only)
+extern S32 DisplaySoftShadows; ///< 1 = feathered ground shadows (GL mode only)
+extern S32 DisplayColorGrade;  ///< 0 = off, 1 = warm, 2 = cool scene grading (GL mode only)
+extern S32 DisplaySubPixel;    ///< 1 = sub-pixel interior pan (GL mode only)
+extern S32 DisplaySharpen;     ///< 0 = off, 1 = low, 2 = high present sharpening (GL mode only)
+extern S32 RenderQuality;      ///< 1 = native, 2 = 2x SSAA, 4 = 4x SSAA (GL mode only)
 #endif
-extern S32 FixedTimestep; ///< #358: min ms of game-time per sim step (0 = off). See docs/MOVEMENT_FRAMERATE.md.
+/* Display adjustments and the VR FOV zoom exist in every renderer config:
+ * GLOBAL.CPP defines them unconditionally and the console cvars reference
+ * them without a GL guard. */
+extern S32 DisplayBrightness; ///< image adjust: -20..+20, 0 = default (GL mode only)
+extern S32 DisplayContrast;   ///< image adjust: -20..+20, 0 = default (GL mode only)
+extern S32 DisplaySaturation; ///< image adjust: -20..+20, 0 = default (GL mode only)
+extern S32 VrFovScale;        ///< VR world zoom percent of the eye FOV: 100 = natural, 120 = widest safe (Quest)
+extern S32 VrSuperSample;     ///< Quest supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x
+extern S32 VrInteriorHover;   ///< Quest interiors: head-tracked hover camera (0 = fixed isometric view)
+extern S32 VrPassthrough;     ///< Quest interiors: black scene background shows the passthrough camera (0 = off)
+extern S32 FixedTimestep;     ///< #358: min ms of game-time per sim step (0 = off). See docs/MOVEMENT_FRAMERATE.md.
 
 /// 1 = mouse hover / click / wheel in plasma menus (see docs/MENU.md). Read from lba2.cfg `MenuMouse`.
 extern S32 FlagMenuMouse;
@@ -220,6 +244,44 @@ extern S32 Planet;
 
 extern S32 AllCameras;
 extern S32 FollowCamera;
+extern S32 CameraFirstPerson;
+#ifdef LBA2_OPENXR
+/* Accumulated right-stick yaw for first-person stereo, in engine angles. */
+S32 FirstPersonStickYaw(void);
+#endif
+extern S32 VrFullBody;       ///< 1 = first-person stereo body + hand IK
+extern S32 VrWorldScale;     ///< world scale percent, 50..200, 100 = current
+extern S32 VrBodyHideGroups; ///< explicit body-group hide mask, -1 = per body
+extern S32 StereoHeadLookActive(void);
+extern void StereoLookShiftAnchorPitch(S32 dAlpha);
+/* Quest-stereo head-look camera math (STEREOLOOK.CPP) */
+extern S32 StereoCamOffsetX; /* tracked head lean, world-space, on the rig camera */
+extern S32 StereoCamOffsetY;
+extern S32 StereoCamOffsetZ;
+extern S32 StereoLookViewBeta(S32 baseBeta, float yawOff);
+extern S32 StereoLookViewAlpha(S32 baseAlpha, float pitchOff);
+extern void StereoLookHeadOffsetToWorld(float dxm, float dym, float dzm,
+                                        S32 betaView, S32 *outX, S32 *outY,
+                                        S32 *outZ);
+/* Interior hover rig: head pose to isometric view pan, and that pan to the
+   per-pixel depth delta the single-pass stereo stages apply. */
+extern void StereoHoverPoseToPan(float yawOff, float pitchOff, float dxm,
+                                 float dym, float focalX, float focalY,
+                                 S32 frameW, S32 frameH, S32 *outPanX,
+                                 S32 *outPanY);
+extern void StereoHoverPoseToPanF(float yawOff, float pitchOff, float dxm,
+                                  float dym, float focalX, float focalY,
+                                  S32 frameW, S32 frameH, float *outPanX,
+                                  float *outPanY);
+extern void StereoHoverPanToWorld(S32 panX, S32 panY, float focalX,
+                                  float focalY, float zScale, S32 refAz,
+                                  S32 *outX, S32 *outY);
+#define STEREO_HOVER_REF_AZ 1000
+/* Shared stereo scene renderer and dialogue world advance. */
+extern S32 PERSO_StereoRenderActive(void);
+extern void PERSO_RenderStereo(S32 flagflip);
+extern void PERSO_DialogUpdateWorld(void);
+extern void CycleCameraSetting(void);
 extern S32 FollowCamBaseDist;
 extern S32 FlagMouseCamera;
 extern S32 FlagMouseCameraDrag;
@@ -249,6 +311,7 @@ extern S32 FollowCamManualHold;       /* frames the pitch/distance auto-assist y
 extern S32 FollowCamManualHoldFrames; /* manual-override hold length (cvar cam_manual_hold) */
 extern S32 FollowCamHoldAngle;        /* free-camera mode: hold manual rotation, no auto-recenter drift (cvar cam_hold_angle) */
 extern S32 ReverseStereo;
+extern S32 DisplayStereo3D; ///< Quest OpenXR only: native per-eye stereo rendering
 
 extern S32 ScaleFactorSprite;
 
@@ -332,6 +395,7 @@ extern S32 FlagSpeak;
 
 //-------------------- ExtFunc.c
 extern U8 *PtrNuances; // Nuances gouraud
+extern U32 CLUTGeneration;
 
 extern U8 MagicHitForce[];
 extern U8 MagicBallHitForce[];

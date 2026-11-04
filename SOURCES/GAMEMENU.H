@@ -55,35 +55,7 @@ extern void DrawGameMenu(U16 *ptrmenu, S32 justone);
 /*--------------------------------------------------------------------------*/
 extern S32 DoGameMenu(U16 *ptrmenu);
 /*--------------------------------------------------------------------------*/
-extern S32 OptionsMenu(S32 flagflip);
-/* Harness hook: arm a one-shot screenshot inside the next DoGameMenu call.
-   After a countdown of iterations (long enough for the menu to fade in and
-   settle), SavePNG is called with the supplied path and DoGameMenu returns
-   1000 (the "ESC" sentinel) so the wrapping menu loop exits cleanly.
-   Pass NULL or "" to disarm.  Used by the console "ui menu-options <path>"
-   verb. */
-extern void Menu_RequestCapture(const char *path);
-/* Harness hook: capture the boot-time main game menu (Resume / New Game /
-   Load / Options / Quit -- the screen the player sees at launch).  Does
-   the minimal MainGameMenu setup (loads the PCR_MENU background bitmap,
-   InitPlasmaMenu, BuildGameMainMenu, InitDial(0)), arms Menu_RequestCapture,
-   then drives DoGameMenu(GameMainMenu) which captures and returns 1000.
-   Skips the surrounding MainGameMenu while-loop, fade transitions, and any
-   case-driven cinematic playback so the verb is non-blocking. */
-extern void Menu_MainCapture(const char *path);
-/* Harness hook: capture the Display submenu (Phase 2 runtime-resolution
-   UX). Mirrors Menu_MainCapture: does the minimal pre-pass the regular
-   OptionsMenu -> GereDisplayMenu path does (InitPlasmaMenu, palette
-   sync, dial bank), arms Menu_RequestCapture, drives DoGameMenu on the
-   DisplayMenu array. The capture site inside DoGameMenu fires and
-   returns 1000. Background pixels come from the caller's Log/Screen
-   state -- `ui --black-bg display` clears them first; the plain verb
-   composites over the live scene. */
-extern void Display_MainCapture(const char *path);
-/* Harness hook: capture the resolution sub-page (the list opened from the
-   Display submenu's Resolution row). Like Display_MainCapture but builds the
-   runtime ResolutionMenu first, then drives DoGameMenu on it. */
-extern void Resolution_MainCapture(const char *path);
+extern S32 OptionsMenu(S32 flagflip, S32 backId);
 /*--------------------------------------------------------------------------*/
 extern void VolumeOptions(void);
 /*--------------------------------------------------------------------------*/
@@ -110,11 +82,6 @@ extern void Help(U8 flaggame);
 extern void Credits(S32 mode);
 /*--------------------------------------------------------------------------*/
 extern S32 SlideShow(void);
-/*--------------------------------------------------------------------------*/
-/* Arm a one-shot SavePNG inside SlideShow's first frame and exit cleanly
-   after capturing. Mirrors Inv_RequestCapture / Menu_RequestCapture /
-   Dial_RequestCapture etc. Wire into the harness via `ui slideshow <path>`. */
-extern void SlideShow_RequestCapture(const char *path);
 /*--------------------------------------------------------------------------*/
 extern void SlideDemo(int argc, char *argv[]);
 /*--------------------------------------------------------------------------*/

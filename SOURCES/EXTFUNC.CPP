@@ -10,16 +10,20 @@
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
+#include "MESSAGE.H"
 
 #include <stdio.h>
 
 #include <SVGA/SCREEN.H>
 #include <GL/RENDER_GL.H>
+#include <SYSTEM/LOG.H>
+#include <SDL3/SDL.h>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/WINDOW.H>
 #include "FOLLOWCAM_CFG.H"
 #include "JOYSTICK.H"
+#include <SYSTEM/OPENXR.H> /* head pose + swapchain for head-tracked camera */
 
 extern S32 Nxw, Nyw, Nzw;
 extern S32 SaveNxw, SaveNzw;
@@ -40,6 +44,7 @@ T_DECORS *PtrDecorsCol = 0; // Objet du decors en collision
 S16 NumDecorsCol = -1;      // avec l'objet courant
 
 U8 *PtrNuances; // Nuances gouraud
+U32 CLUTGeneration = 1;
 
 S32 LastIsland = -1;
 
@@ -99,19 +104,48 @@ void Init3DExtView(void) {
     // At the default 640x480 this is the original (320, 240) — the hardcoded
     // literal Phase 0 of the widescreen plan flagged; see docs/WIDESCREEN.md
     // and docs/WIDESCREEN_PROJECTION_AUDIT.md.
-    // Near clip scales down as the framebuffer grows taller. The focal is fixed
-    // (ChampX/ChampZ), so a taller frame reveals more vertical FOV, which pulls
-    // the bottom of the frustum's ground intersection closer to the camera. The
-    // terrain trivial-rejects whole cells whose depth is within the near plane
-    // (zr <= NearClip in TERRAIN.CPP MaskVisible), so a fixed plane drops near
-    // terrain/buildings that are plainly in view at HD ("clipped on the right").
-    // Scale it with height to keep the near plane at the original screen-space
-    // position. Exact CLIP_NEAR at the original 480, so 480 is unchanged.
-    S32 nearClip = CLIP_NEAR;
-    if (ModeDesiredY > 480)
-        nearClip = CLIP_NEAR * 480 / (S32)ModeDesiredY;
+    // The focal is fixed (ChampX/ChampZ) for the original 640x480 frame, and
+    // a wider/taller frame with that focal reveals ever more field of view —
+    // 62° vertical at 720p, 100° at 1440p, 111° at 1760p.  Past the terrain
+    // grid edge (about 58° per axis) the frame outgrows the authored world:
+    // the ground stops covering the view, the near-plane band and the sky
+    // backdrop take over, and HUD regions sit on stale pixels.  Floor the
+    // focal at roughly the 720p-widescreen envelope (~55° horizontal,
+    // ~31° vertical half-FOV — the envelope 1280x720 is proven within) so
+    // higher resolutions add detail, not extra world.  The floor applies to
+    // ONE shared focal (square pixels — per-axis floors would render the
+    // world anamorphically), so every resolution above the envelope shows
+    // the same field of view, uniformly scaled.  The near plane scales with
+    // the focal so the near band keeps its screen-space position; 480p and
+    // 720p are bit-identical to the previous formulas.
+    S32 focal = ChampX;
+    S32 focalXMin = (S32)(((S64)ModeDesiredX * 35 + 99) / 100); /* ~55° horizontal */
+    S32 focalYMin = (S32)(((S64)ModeDesiredY * 83 + 99) / 100); /* ~31° vertical */
+    if (focal < focalXMin) {
+        focal = focalXMin;
+        GpuFocalCapped = TRUE;
+    }
+    if (focal < focalYMin) {
+        focal = focalYMin;
+        GpuFocalCapped = TRUE;
+    }
+    S32 nearClip = (S32)(((S64)focal * 2400) / ModeDesiredY);
+    /* Zoom-adaptive near band: zooming the auto camera in lowers it toward
+     * the ground; a near plane sized for the far view would clip the world
+     * around the camera (black void at the frame edges). */
+    {
+        S32 distRef = VueDistance;
+        if (distRef < FOLLOW_CAM_DIST_MIN)
+            distRef = FOLLOW_CAM_DIST_MIN;
+        if (distRef > FOLLOW_CAM_DIST_MAX)
+            distRef = FOLLOW_CAM_DIST_MAX;
+        S32 zoomed = (S32)((S64)nearClip * distRef / FOLLOW_CAM_DIST_MAX);
+        if (zoomed < 350)
+            zoomed = 350;
+        nearClip = zoomed;
+    }
     SetProjection((S32)(ModeDesiredX / 2), (S32)(ModeDesiredY / 2),
-                  nearClip, ChampX, ChampZ);
+                  nearClip, focal, focal);
     SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
                     AlphaCam, BetaCam, GammaCam,
                     VueDistance);
@@ -313,11 +347,16 @@ void InitGrilleExt(U32 numcube) {
 /*──────────────────────────────────────────────────────────────────────────*/
 // Affiche la grille complète à la position actuelle de la caméra
 void AffGrilleExt() {
+    U32 aggT0 = SDL_GetTicks();
 #ifdef USE_GPURENDERER
     /* Clear the FBO at the start of terrain rendering.  This is done here
        instead of in GL_FlushBatch() so that frames with no terrain
        (e.g. Twinsen standing still) preserve the previous frame's 3D
-       content in the FBO. */
+       content in the FBO.  The software path clears the screen to FogCoul
+       before the horizon, and those pixels show through wherever no
+       polygon covers them (the sky band above the backdrop cubes), so the
+       FBO must start from the same palette entry instead of black. */
+    GL_SetSceneClearColor((U8)FogCoul);
     GL_ClearFBO();
 #endif
 
@@ -325,13 +364,50 @@ void AffGrilleExt() {
                     AlphaCam, BetaCam, GammaCam,
                     VueDistance);
 
+#ifdef USE_GPURENDERER
+    /* True-pose stereo: replace the orientation the rig just applied with
+       the tracked per-eye view.  SetAngleCamera recomputes the view from the
+       rig world position SetFollowCamera just wrote, so the position stays
+       the game-controlled one while the render orientation is the exact
+       tracked pose — the pose the compositor time-warps from, which is what
+       keeps head rotation artifact-free.  The tracked head translation is a
+       world-space lean on that position; it lands before SetAngleCamera
+       re-reads CameraX/Y/Z. */
+    if (StereoEyeOverride) {
+        CameraX += StereoCamOffsetX;
+        CameraY += StereoCamOffsetY;
+        CameraZ += StereoCamOffsetZ;
+        SetAngleCamera(StereoEyeAlpha, StereoEyeBeta, StereoEyeGamma);
+    }
+#endif
+
     SetLightVector(AlphaLight, BetaLight, 0);
+
+#ifdef USE_GPURENDERER
+    /* Single-pass eye 1 has no 3D scene left to build: eye 0 already drew
+       both halves.  Keep the camera/light setup above for the 2D overlay
+       tail (rain, bubbles, counters), then skip the horizon/terrain/decor
+       CPU walk whose GL draws are suppressed anyway. */
+    if (GPURendererActive && CubeMode == CUBE_EXTERIEUR &&
+        GL_GetStereoEye() == 1 && GL_SinglePassStereoActive()) {
+        /* Eye 1 still runs the per-eye 2D tail (rain, incrusts, counters)
+           into Log, but this early return bypasses the clear below.  Clear
+           eye 0's overlay first or eye 1's drops stack on top of it. */
+        if (Dial_OverlayActive()) {
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY + 512);
+            Dial_OverlayRestore();
+        } else {
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY + 512);
+        }
+        return;
+    }
+#endif
 
     Switch_Fillers(FILL_POLY_FOG_ZBUFFER);
 
     ClearAniPoly();
 
-    ClsTerrainZBuf();
+    ClsTerrainZBuf(!GPURendererActive);
 
     ManageSystem(); // for streaming
 
@@ -341,66 +417,179 @@ void AffGrilleExt() {
     if (FlagDrawHorizon)
 #endif
     {
-        DrawHorizon2ZBuf();
+#ifdef USE_GPURENDERER
+        S32 hzEye = GL_GetStereoEye();
+#else
+        S32 hzEye = -1;
+#endif
+        U64 hzRestoreTicks = 0;
+        U32 hzResolveUs = 0;
+        U32 hzBlitUs = 0;
+        U32 hzRectPct = 0;
+        U32 hzT0 = SDL_GetTicks();
+        U32 hzDrawT1;
+#ifdef USE_GPURENDERER
+        /* Stereo: the neighbor-cube backdrop's disparity is sub-pixel (the
+           backdrop sits >= 32k units away, the eye separation is ~30) —
+           eye 1 restores eye 0's capture instead of re-projecting ~34k grid
+           vertices.  DrawSkySeaZBuf below still runs per eye (the sky/sea
+           quads are few and the fog colour differs with the shifted
+           camera).  The terrain VBO path re-projects the same static
+           vertices per eye in the vertex shader, so the capture is not
+           needed and must not overwrite the right eye's scene. */
+        if (GPURendererActive && hzEye == 1 && !GL_TerrainGPUActive() &&
+            GL_HorizonValid()) {
+            U64 hzRestoreT0 = SDL_GetPerformanceCounter();
+            GL_RestoreHorizon();
+            hzRestoreTicks = SDL_GetPerformanceCounter() - hzRestoreT0;
+            hzDrawT1 = SDL_GetTicks();
+        } else
+#endif
+        {
+            DrawHorizon2ZBuf();
+            hzDrawT1 = SDL_GetTicks();
+#ifdef USE_GPURENDERER
+            if (GPURendererActive && hzEye == 0 && !GL_TerrainGPUActive()) {
+                GL_CaptureHorizon(HorizonBackdropStable());
+                GL_GetHorizonPerf(&hzResolveUs, &hzBlitUs, &hzRectPct);
+            }
+#endif
+        }
+        {
+            U32 hzT1 = SDL_GetTicks();
+            /* One counter per eye: a single alternating counter would land
+               on the same eye every time and hide its counterpart. */
+            static U32 s_hzPerfFrame[2] = {0, 0};
+            U32 *perfFrame = &s_hzPerfFrame[hzEye == 1 ? 1 : 0];
+            (*perfFrame)++;
+            if (*perfFrame % 300 == 150) {
+                Log_Debug("GrillePerf: horizon=%dms draw=%dms capture=%dms "
+                          "restore=%dus resolve=%dus blit=%dus rect=%d%% eye=%d",
+                          (S32)(hzT1 - hzT0), (S32)(hzDrawT1 - hzT0),
+                          (S32)(hzT1 - hzDrawT1),
+                          (S32)(hzRestoreTicks * 1000000 / SDL_GetPerformanceFrequency()),
+                          (S32)hzResolveUs, (S32)hzBlitUs, (S32)hzRectPct,
+                          (S32)hzEye);
+            }
+        }
     }
 
     ManageSystem(); // for streaming
 
-    AffichageTerrainZBuf();
+    {
+        U32 tnT0 = SDL_GetTicks();
+        AffichageTerrainZBuf();
+        U32 tnT1 = SDL_GetTicks();
+        {
+            static U32 s_tnPerfFrame = 0;
+            s_tnPerfFrame++;
+            if (s_tnPerfFrame % 300 == 150) {
+                Log_Debug("GrillePerf: terrain=%dms", (S32)(tnT1 - tnT0));
+            }
+        }
+    }
 
     ManageSystem(); // for streaming
 
-    DrawSkySeaZBuf();
+    {
+        U32 skyT0 = SDL_GetTicks();
+        DrawSkySeaZBuf();
+        U32 skyT1 = SDL_GetTicks();
+        {
+            static U32 s_skyPerfFrame = 0;
+            s_skyPerfFrame++;
+            if (s_skyPerfFrame % 300 == 150) {
+                Log_Debug("GrillePerf: skysea=%dms", (S32)(skyT1 - skyT0));
+            }
+        }
+    }
 
     ManageSystem(); // for streaming
 
     FiltreAnimatedPolys();
 
-#ifdef USE_GPURENDERER
-    /* GL mode: render all filtered animated polys into the FBO so they
-       appear in the terrain layer (visible through the Log overlay after
-       the clearing pass in AffScene).  Without this, animated polys are
-       only drawn by DrawAnimatedPolys during AFF_OBJETS_* frames where
-       the Log overlay is not cleared, so they remain hidden. */
-    if (GPURendererActive && NbAniPoly > 0) {
-        S32 savedRepMask = RepMask;
-        PTR_U8 savedPtrMap = PtrMap;
-        Switch_Fillers(FILL_POLY_FOG_NZW);
-        PtrMap = GroundTexture;
-        RepMask = 0xFFFF;
-        for (S32 iAni = 0; iAni < NbAniPoly; iAni++) {
-            S_ANI_POLY *ani = &PtrPolySea[iAni];
-            UnsetClip();
-            SetClip(ani->X0, ani->Y0, ani->X1, ani->Y1);
-            if (ClipXMin <= ClipXMax && ClipYMin <= ClipYMax) {
-                SetCLUT(ani->Fog);
-                Fill_Poly(ani->Type, ani->Color, 3, ani->Tab_Points);
-            }
-        }
-        UnsetClip();
-        Switch_Fillers(FILL_POLY_TEXTURES);
-        SetCLUT(PalLevel);
-        RepMask = savedRepMask;
-        PtrMap = savedPtrMap;
-    }
-#endif
-
     Switch_Fillers(FILL_POLY_TEXTURES);
 
 #ifdef USE_GPURENDERER
     if (GPURendererActive) {
-        /* GL mode: terrain is in the FBO, not Log.
-           1. Read back depth so ZBufBoxOverWrite2 can occlude shadows.
-           2. Read back color (FBO → Screen as palette indices).
-           3. Copy Screen → Log so ShadeBoxBlk (shadow darkening) has
-              real terrain pixels to darken rather than empty buffer.
-           Body polygons (NPCs, shadows) then render to Log on top of
-           the terrain copy.  GL_Present composites FBO (terrain) +
-           Log (objects + shadows + darkened shadows) on top. */
-        GL_ReadbackDepthBuffer();
-        GL_ReadbackColorBuffer();
-        CopyScreen(Screen, Log);
+        /* GL mode: terrain lives in the FBO; bodies and shadows are drawn
+           into the FBO too.  Log is a pure 2D overlay (sprites, texts) and
+           starts empty every frame — nothing needs the old terrain copy in
+           Log, and clearing it here means no stale sprite pixels can ever
+           ghost on incremental frames.  The depth readback moved after the
+           object pass (see AffScene) so PtrZBuffer includes model geometry
+           for sprite occlusion.  Zeroing Screen keeps the dirty-box
+           Screen→Log restores as no-op clears.
 
+           An open dialogue owns the bottom strip of Log (box, text,
+           portrait) and its pristine copy in Screen; the stereo render is a
+           full redraw per eye, so clearing here would erase what the flat
+           dialogue's incremental frames used to preserve. */
+        U32 rbT0 = SDL_GetTicks();
+        if (Dial_OverlayActive()) {
+            /* Per-eye pass: clear Log so this eye's rain and incrust sprites
+               start clean (they project per eye and would otherwise stack up
+               in the shared overlay), then put the dialogue box, text and
+               portrait captured before the pass back for this eye's present.
+               Screen keeps the pristine dialogue window strip. */
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY + 512);
+            Dial_OverlayRestore();
+        } else {
+            memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+            /* A static stereo overlay is screen-space HUD only: eye 1 redraws
+               the same pixels over eye 0's buffer, so clearing it again only
+               throws away the copy the present reuses.  Any moving 2D content
+               keeps the clear so old sprite positions cannot ghost. */
+            if (!GL_StereoOverlayReusable()) {
+                memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY + 512);
+            }
+        }
+        /* Snapshot the completed terrain FBO: incremental frames restore it
+           before the object pass to erase last frame's GL body/shadow
+           pixels (the FBO is not cleared on AFF_OBJETS_* frames).
+           Stereo eye passes are always AFF_ALL_FLIP full redraws and the
+           restore only ever fires on incremental frames, so a per-eye
+           snapshot was a full-surface color+depth blit twice per frame
+           for nothing. */
+        if (GL_GetStereoEye() < 0) {
+            GL_SnapshotTerrain();
+        }
+        U32 rbT1 = SDL_GetTicks();
+        {
+            static S32 s_rbPerfLog = 0;
+            if (s_rbPerfLog < 10) {
+                Log_Debug("GrillePerf: readback=%dms total=%dms", (S32)(rbT1 - rbT0), (S32)(rbT1 - aggT0));
+                s_rbPerfLog++;
+            }
+        }
+
+        /* GL mode: render the filtered animated polys into the FBO after
+           the snapshot so they stay out of the background it captures and
+           are tracked in the dirty region instead — the incremental restore
+           erases each frame's copies and DrawAnimatedPolys redraws them
+           during AFF_OBJETS_* frames.  Drawing them before the snapshot
+           baked one animation step into the background permanently. */
+        if (NbAniPoly > 0) {
+            S32 savedRepMask = RepMask;
+            PTR_U8 savedPtrMap = PtrMap;
+            Switch_Fillers(FILL_POLY_FOG_NZW);
+            PtrMap = GroundTexture;
+            RepMask = 0xFFFF;
+            for (S32 iAni = 0; iAni < NbAniPoly; iAni++) {
+                S_ANI_POLY *ani = &PtrPolySea[iAni];
+                UnsetClip();
+                SetClip(ani->X0, ani->Y0, ani->X1, ani->Y1);
+                if (ClipXMin <= ClipXMax && ClipYMin <= ClipYMax) {
+                    SetCLUT(ani->Fog);
+                    Fill_Poly(ani->Type, ani->Color, 3, ani->Tab_Points);
+                }
+            }
+            UnsetClip();
+            Switch_Fillers(FILL_POLY_TEXTURES);
+            SetCLUT(PalLevel);
+            RepMask = savedRepMask;
+            PtrMap = savedPtrMap;
+        }
 
     } else
 #endif
@@ -1993,6 +2182,11 @@ S32 GereMouseMovements(S32 boutons) {
  * and zoom leave the auto-follow tracking the hero.  Returns nonzero if any axis
  * changed so the caller can flag a redraw.  The caller clears
  * ManualCameraOrbitActive once per frame before driving sources. */
+/* Extra downward tilt allowance for the VR auto-camera stick tilt: extends
+ * the alpha floor below FOLLOW_CAM_ALPHA_MIN so the camera can approach the
+ * ground plane. Set per call site; 0 everywhere else. */
+static S32 s_tiltFloorExtra = 0;
+
 static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
     S32 changed = 0;
 
@@ -2004,8 +2198,8 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
     }
     if (dAlpha != 0) {
         AlphaCam += dAlpha;
-        if (AlphaCam < FOLLOW_CAM_ALPHA_MIN)
-            AlphaCam = FOLLOW_CAM_ALPHA_MIN;
+        if (AlphaCam < FOLLOW_CAM_ALPHA_MIN - s_tiltFloorExtra)
+            AlphaCam = FOLLOW_CAM_ALPHA_MIN - s_tiltFloorExtra;
         if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
             AlphaCam = FOLLOW_CAM_ALPHA_MAX;
         FirstTime = AFF_ALL_FLIP;
@@ -2022,6 +2216,10 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
             FollowCamBaseDist = FOLLOW_CAM_DIST_MIN;
         if (FollowCamBaseDist > FOLLOW_CAM_DIST_MAX)
             FollowCamBaseDist = FOLLOW_CAM_DIST_MAX;
+        /* Keep the near band zoom-adaptive while the distance changes. */
+        NearClip = (S32)((S64)LFactorX * 2400 / ModeDesiredY * (S64)VueDistance / FOLLOW_CAM_DIST_MAX);
+        if (NearClip < 350)
+            NearClip = 350;
         FirstTime = AFF_ALL_FLIP;
         changed = 1;
     }
@@ -2064,9 +2262,22 @@ S32 GereExtKeys(U32 key)
     S32 flag = 0;
     S32 savetimer;
     S32 savetimer2;
+    s_tiltFloorExtra = 0;
 
-    if (CubeMode != CUBE_EXTERIEUR OR(!key AND !FollowCamera))
+    /* Head look keeps this function alive in classic camera mode too: with
+       no keyboard (headset) and FollowCamera off, the classic-mode branch
+       below would otherwise never run. */
+    if (CubeMode != CUBE_EXTERIEUR
+                        OR(!key AND !FollowCamera AND !(GamepadCameraAnalog AND JoystickIsPresent() AND
+                                                            OpenXR_GetSwapchainWidth() != 0)))
         return (FALSE);
+    { /* TEMP diag */
+        static U32 dbg = 0;
+        if (!FollowCamera AND(dbg++ % 120) == 0) {
+            Log_Info("[HeadLookC] enter classic FollowCamera=%d key=%u B=%d A=%d cz=%d",
+                     FollowCamera, (unsigned)key, BetaCam, AlphaCam, CameraZone);
+        }
+    }
 
     savetimer = TimerRefHR;
     savetimer2 = TimerSystemHR;
@@ -2429,10 +2640,135 @@ S32 GereExtKeys(U32 key)
             }
         }
 
-        /* Gamepad right stick: analog orbit + elevation through the same nudge.
+        /* Head-mounted builds: while the stereo head-look override owns the
+         * view orientation (the normal case, PERSO.CPP), the rig takes no
+         * motion from the head here — the nudges below only matter when no
+         * fresh eye views exist (first frames) and for the right stick.
+         * Immersive sessions always own the head pose: requiring the SDL
+           joystick here killed head-look on Quest (no SDL gamepad in the
+           OpenXR app).  Desktop gamepads keep the analog gate. */
+        if ((OpenXR_IsActive() AND OpenXR_GetSwapchainWidth() != 0) OR(GamepadCameraAnalog AND JoystickIsPresent() AND
+                                                                           OpenXR_GetSwapchainWidth() != 0)) {
+            static float s_lastHeadYaw = -999.0f;
+            static float s_lastHeadPitch = -999.0f;
+            S32 dBeta = 0;
+            S32 dAlpha = 0;
+            S32 dZoom = 0;
+
+            const float yaw = OpenXR_HeadYawDeg();
+            const float pitch = OpenXR_HeadPitchDeg();
+            if (s_lastHeadYaw > -900.0f) {
+                /* Engine angles are 4096 per full turn. */
+                /* Fractional: 4096/360 = 11.38 — integer math lost 3.4%
+                 * of every head motion and compounded per frame. */
+                const float DEG_TO_ENGINE = 4096.0f / 360.0f;
+                float dYaw = yaw - s_lastHeadYaw;
+                /* Wrap at +-180 so crossing the seam is one step, not a
+                 * full-turn snap. */
+                if (dYaw > 180.0f)
+                    dYaw -= 360.0f;
+                else if (dYaw < -180.0f)
+                    dYaw += 360.0f;
+                float dPitch = pitch - s_lastHeadPitch;
+                /* Dead zone: ~1.5 degrees of drift holds the view still. */
+                dBeta = (S32)(dYaw * DEG_TO_ENGINE);
+                /* Negated: raising AlphaCam looks further DOWN from above,
+                   so looking up at the world must decrease it. */
+                dAlpha = -(S32)(dPitch * DEG_TO_ENGINE);
+                if (GamepadCameraInvertY)
+                    dAlpha = -dAlpha;
+            }
+            s_lastHeadYaw = yaw;
+            s_lastHeadPitch = pitch;
+
+            S16 rsx = 0;
+            S16 rsy = 0;
+            JoystickGetRightStick(&rsx, &rsy);
+            s_tiltFloorExtra = 0;
+
+            if (StereoHeadLookActive() && FollowCamera) {
+                /* VR auto camera: the right stick owns zoom and tilt —
+                 * X = zoom (right = in), Y = tilt (up = toward the horizon,
+                 * down = top-down).  The head-look override pans the view
+                 * through the render path, so the rig takes no motion from
+                 * the head here. */
+                s_tiltFloorExtra = 90; /* alpha floor 150 -> 60 (~5 deg): the
+                                          camera can approach the ground */
+                /* StereoEyeBeta owns the head yaw; a rig nudge here would
+                   orbit the camera around Twinsen and double-apply the look. */
+                dBeta = 0;
+                dZoom = StickAxisToCamStep(rsx, GamepadCameraSensX,
+                                           FOLLOW_CAM_ZOOM_STEP * 2);
+                dAlpha = StickAxisToCamStep(rsy, GamepadCameraSensY,
+                                            GamepadCamMaxAlpha);
+                if (GamepadCameraInvertY)
+                    dAlpha = -dAlpha;
+                /* The world-anchored view ignores rig angle nudges: the
+                   tilt feeds the look session's neutral elevation instead. */
+                if (dAlpha != 0)
+                    StereoLookShiftAnchorPitch(dAlpha);
+            } else {
+                if (StereoHeadLookActive()) {
+                    /* The per-eye head-look override owns the orientation
+                     * (1:1, warp-free); nudging the rig angles here would
+                     * pan the view twice. */
+                    dBeta = 0;
+                    dAlpha = 0;
+                }
+                dZoom = -StickAxisToCamStep(rsy, GamepadCameraSensY,
+                                            FOLLOW_CAM_ZOOM_STEP * 2);
+            }
+
+            if (FollowCamera) {
+                if (dBeta != 0 OR dAlpha != 0 OR dZoom != 0)
+                    flag |= ApplyManualCameraNudge(dBeta, dAlpha, dZoom);
+            } else if (CubeMode == CUBE_EXTERIEUR) {
+                /* Classic camera: the rig is preset-based and the angles are
+                   only consumed when CameraCenter re-applies it, so mutate
+                   the angles and re-apply — the head looks around the scene
+                   from the fixed camera position, independently of Twinsen.
+                   Sign note: view-right and view-up are BetaCam+/
+                   AlphaCam- (see the follow path). */
+                if (dBeta != 0) {
+                    /* AddBetaCam survives the zone cameras' CameraCenter(2)
+                       re-apply (it feeds newbeta there); BetaCam gives the
+                       immediate effect when no zone camera owns the view. */
+                    AddBetaCam = (AddBetaCam + dBeta) & 4095;
+                    BetaCam = (BetaCam + dBeta) & 4095;
+                }
+                if (dAlpha != 0) {
+                    AlphaCam += dAlpha;
+                    if (AlphaCam < FOLLOW_CAM_ALPHA_MIN)
+                        AlphaCam = FOLLOW_CAM_ALPHA_MIN;
+                    if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
+                        AlphaCam = FOLLOW_CAM_ALPHA_MAX;
+                }
+                if (dZoom != 0) {
+                    VueDistance -= dZoom;
+                    if (VueDistance < 7000)
+                        VueDistance = 7000;
+                    if (VueDistance > 20000)
+                        VueDistance = 20000;
+                }
+                if (dBeta != 0 OR dAlpha != 0 OR dZoom != 0) {
+                    CameraCenter(0); /* re-applies SetFollowCamera */
+                    FirstTime = AFF_ALL_FLIP;
+                    flag = 1;
+                    { /* TEMP diag */
+                        static U32 dbg2 = 0;
+                        if ((dbg2++ % 60) == 0) {
+                            Log_Info("[HeadLookC] moved dB=%d dA=%d dZ=%d -> B=%d A=%d vd=%d ff=%d",
+                                     dBeta, dAlpha, dZoom, BetaCam, AlphaCam,
+                                     VueDistance, FirstTime);
+                        }
+                    }
+                }
+            }
+        }
+        /* Desktop gamepads: analog orbit + elevation through the same nudge.
          * UpdateJoystick suppresses the digital RSTICK scancodes while this owns
          * the stick (Auto camera, exterior), so the two never double-drive. */
-        if (GamepadCameraAnalog AND JoystickIsPresent()) {
+        else if (GamepadCameraAnalog AND JoystickIsPresent()) {
             S16 rsx = 0;
             S16 rsy = 0;
             JoystickGetRightStick(&rsx, &rsy);

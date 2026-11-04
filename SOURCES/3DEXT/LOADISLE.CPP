@@ -178,6 +178,10 @@ void LoadIsland() {
 
     if (!Load_HQR(islandFilePath, ObjTexture, HQR_TEX_OBJ))
         TheEndCheckFile(islandFilePath);
+
+    /* New per-cube HQR data now backs the same cube coordinates. */
+    GPU_Terrain_InvalidateAll();
+    GPU_Decor_InvalidateAll();
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -240,6 +244,11 @@ S32 LoadCube(S32 x, S32 y) {
 
     MapIntensity = (U8 *)HQR_Get(HQR_MapIntensity, index + HQR_CUBE_LUM);
 
+    /* LoadCube also runs for off-screen horizon candidates, so this covers
+       decors the camera has not pointed at yet.  The call is a no-op once
+       the cube's list has been seen. */
+    GPU_DecorWarmCube(x, y, ListDecors, NbObjDecors);
+
     return TRUE;
 }
 
@@ -276,4 +285,9 @@ void InitSeaCube(void) {
     }
 
     CubeBitField = 0xFFFF;
+
+    /* The phantom cube reuses the MapSommetY/MapPolyGround storage behind the
+       current coordinates; any cached VBO keyed by them is stale. */
+    GPU_Terrain_InvalidateAll();
+    GPU_Decor_InvalidateAll();
 }

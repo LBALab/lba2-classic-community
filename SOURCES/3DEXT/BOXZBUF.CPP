@@ -11,6 +11,10 @@ extern S32 GPURendererActive;
 
 S32 IncZ = 0;
 
+static S32 ZBufBoxOverWrite2Mode(S32 z0, S32 z1,
+                                 S32 xmin, S32 ymin,
+                                 S32 xmax, S32 ymax, S32 writeLog);
+
 // ZBufBoxOverWrite2: Copies terrain pixels from Screen onto Log wherever the
 // terrain Z-buffer is closer than the object's interpolated Z depth.
 // Called by DrawRecover() after an object is rendered to Log, to re-apply
@@ -30,6 +34,22 @@ S32 IncZ = 0;
 S32 ZBufBoxOverWrite2(S32 z0, S32 z1,
                       S32 xmin, S32 ymin,
                       S32 xmax, S32 ymax) {
+    return ZBufBoxOverWrite2Mode(z0, z1, xmin, ymin, xmax, ymax, 1);
+}
+
+// Flag-only variant: identical occlusion test, but never touches Log or
+// Screen.  Used when the object was rendered into the GL FBO instead of
+// Log — there are no object pixels to restore terrain over — while the
+// "completely masked" return value still drives the camera-recenter logic.
+S32 ZBufBoxOverWrite2Flag(S32 z0, S32 z1,
+                          S32 xmin, S32 ymin,
+                          S32 xmax, S32 ymax) {
+    return ZBufBoxOverWrite2Mode(z0, z1, xmin, ymin, xmax, ymax, 0);
+}
+
+static S32 ZBufBoxOverWrite2Mode(S32 z0, S32 z1,
+                                 S32 xmin, S32 ymin,
+                                 S32 xmax, S32 ymax, S32 writeLog) {
     S32 deltaY = ymax - ymin + 1; // eax
     S32 deltaX = xmax - xmin + 1; // ebx
     // ASM: ESI = z1 * Factor (head), EDI = z0 * Factor (feet)
@@ -82,7 +102,8 @@ S32 ZBufBoxOverWrite2(S32 z0, S32 z1,
                     // Is our pixel hidden?
                     if (z < z0Int) {
                         if (glMode) {
-                            dstLog[i] = 0; // GL: clear → FBO terrain shows
+                            if (writeLog)
+                                dstLog[i] = 0; // GL: clear → FBO terrain shows
                         } else {
                             dstLog[i] = dstScreen[i]; // SW: copy terrain
                         }
@@ -93,8 +114,9 @@ S32 ZBufBoxOverWrite2(S32 z0, S32 z1,
             }
 
             if (glMode) {
-                dstLog[i] = 0; // GL: clear → FBO terrain shows
-            } else {
+                if (writeLog)
+                    dstLog[i] = 0; // GL: clear → FBO terrain shows
+            } else if (writeLog) {
                 dstLog[i] = dstScreen[i]; // SW: copy terrain
             }
             i++;

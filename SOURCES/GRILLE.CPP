@@ -1,8 +1,13 @@
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
+#include <stdio.h>
+#include <stdlib.h>
 
+#include <3D/CAMERA.H>
+#include <3D/PROJ.H>
 #include <3D/PROJREC.H>
 #include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
 
 #ifdef USE_GPURENDERER
 #include <GL/RENDER_GL.H>
@@ -53,6 +58,916 @@ typedef struct
 } T_COLONB;
 
 T_COLONB ListBrickColon[NB_COLON][MAX_BRICK];
+
+#ifdef USE_GPURENDERER
+/* The isometric brick bank stores RLE graphics.  The GL world path decodes
+   each tile once and keeps the raw palette-index bitmap for a textured quad;
+   the software AffGraph path keeps its own RLE walk when GL is off. */
+#define BRICK_GL_CACHE_SIZE 1024
+typedef struct {
+    const U8 *src;
+    U8 *raw;
+    S32 w;
+    S32 h;
+} T_BRICK_GL_CACHE;
+static T_BRICK_GL_CACHE BrickGLCache[BRICK_GL_CACHE_SIZE];
+static S32 BrickGLCacheNext = 0;
+/* Bricks in the loaded BKG bank.  A stale foreground-brick record (an object
+   overlay carried across a cube change) can name an index past the end of
+   BufferBrick's offset table; the decode then reads a garbage pointer. */
+static S32 s_brickBankCount = 0;
+
+static void ClearBrickGLCache(void) {
+    for (S32 i = 0; i < BRICK_GL_CACHE_SIZE; i++) {
+        if (BrickGLCache[i].raw != NULL)
+            free(BrickGLCache[i].raw);
+        BrickGLCache[i].src = NULL;
+        BrickGLCache[i].raw = NULL;
+    }
+    BrickGLCacheNext = 0;
+}
+
+static S32 s_currentBrickGL = -1;
+static const U8 *DecodeBrickGL(const U8 *src, S32 *outW, S32 *outH,
+                               S32 *outHotX, S32 *outHotY) {
+    for (S32 i = 0; i < BRICK_GL_CACHE_SIZE; i++) {
+        if (BrickGLCache[i].src == src) {
+            *outW = BrickGLCache[i].w;
+            *outH = BrickGLCache[i].h;
+            *outHotX = (S8)src[2];
+            *outHotY = (S8)src[3];
+            return BrickGLCache[i].raw;
+        }
+    }
+
+    const S32 w = src[0];
+    const S32 h = src[1];
+    if (w <= 0 || h <= 0)
+        return NULL;
+
+    /* Let AffGraph do the RLE walk: the brick bank's stream is the same one
+       the software layer decodes, so this avoids a second, subtly different
+       reader.  It writes into a scratch Log row grid; copy the tile out. */
+    U8 *scratch = (U8 *)malloc((size_t)ModeDesiredX * (size_t)h);
+    U8 *raw = (U8 *)malloc((size_t)w * (size_t)h);
+    if (scratch == NULL || raw == NULL) {
+        free(scratch);
+        free(raw);
+        return NULL;
+    }
+    memset(scratch, 0, (size_t)ModeDesiredX * (size_t)h);
+    memcpy(raw, scratch, 1); /* keep the allocator branch identical on failure */
+
+    void *savedLog = Log;
+    const S32 savedXMin = ClipXMin, savedYMin = ClipYMin;
+    const S32 savedXMax = ClipXMax, savedYMax = ClipYMax;
+    Log = scratch;
+    ClipXMin = 0;
+    ClipYMin = 0;
+    ClipXMax = w - 1;
+    ClipYMax = h - 1;
+    AffGraph(s_currentBrickGL, -(S8)src[2], -(S8)src[3], BufferBrick);
+    Log = savedLog;
+    ClipXMin = savedXMin;
+    ClipYMin = savedYMin;
+    ClipXMax = savedXMax;
+    ClipYMax = savedYMax;
+
+    for (S32 y = 0; y < h; y++)
+        memcpy(raw + y * w, scratch + y * ModeDesiredX, (size_t)w);
+
+    free(scratch);
+    T_BRICK_GL_CACHE *e = &BrickGLCache[BrickGLCacheNext];
+    BrickGLCacheNext = (BrickGLCacheNext + 1) % BRICK_GL_CACHE_SIZE;
+    if (e->raw != NULL)
+        free(e->raw);
+    e->src = src;
+    e->raw = raw;
+    e->w = w;
+    e->h = h;
+    *outW = w;
+    *outH = h;
+    *outHotX = (S8)src[2];
+    *outHotY = (S8)src[3];
+    return raw;
+}
+static void DrawBrickGL(S32 brick, S32 x, S32 y) {
+    if (BufferBrick == NULL || brick < 0 || brick >= s_brickBankCount)
+        return;
+    U8 *src = BufferBrick + ((U32 *)BufferBrick)[brick];
+    S32 w, h, hotX, hotY;
+    s_currentBrickGL = brick;
+    const U8 *raw = DecodeBrickGL(src, &w, &h, &hotX, &hotY);
+    s_currentBrickGL = -1;
+    if (raw == NULL)
+        return;
+    GL_SetSpriteNoDepth(1);
+    GL_DrawSpriteQuad(x + hotX, y + hotY,
+                      x + hotX + w, y + hotY + h,
+                      0, 0, w, h, raw, w, h, 0, 0);
+    GL_SetSpriteNoDepth(0);
+}
+
+/* ── Foreground brick overlay ──────────────────────────────────────────────
+   The software renderer does not redraw a foreground brick from its own
+   pixels: CopyMask copies the pristine background from Screen through the
+   brick's mask.  A brick can be painted behind another brick that shares its
+   mask area, so drawing the overlay brick's texture there would paint the
+   buried brick over the visible one (a wall cap chopped by a notch of stone
+   when an actor stands in the doorway).
+
+   The GL overlay therefore rebuilds the pristine brick background for the
+   object's clip window and composites that background through the overlay
+   brick masks.  The base brick order is needed because the topmost brick at
+   a pixel is the one drawn last. */
+
+/* Every painted brick in base order; the overlay replays this list to
+   reconstruct what the base layer looked like before models were drawn.
+   The list carries values, not bucket pointers: bricks at the extreme left
+   edge are painted but deliberately not bucketed for DrawOverBrick. */
+typedef struct {
+    S16 Xs;
+    S16 Ys;
+    S16 Brick;
+    U16 Az; /* scene depth of the tile's cube column, same scale as models */
+} T_BRICK_ORDER_ENTRY;
+
+#define MAX_BRICK_ORDER 16384
+static T_BRICK_ORDER_ENTRY s_brickOrder[MAX_BRICK_ORDER];
+static S32 s_brickOrderCount = 0;
+static S32 s_brickOrderOverflow = 0;
+
+/* Quest stereo interiors pan the view every tracked frame.  Rebuilding the
+   whole brick composite for a one-pixel move costs more than the pan buys, so
+   the view offset is quantized: the composite is built at the quantized
+   offset and the composed image is slid by the leftover at draw time.  The
+   leftover stays below one quantum, and the canvas carries a quantum of
+   margin on every side so the slide never exposes an edge.  Because the
+   shift is a whole number of pixels, every on-screen texel is the one the
+   unquantized pan would have painted. */
+#define INTERIOR_PAN_QUANTUM 64
+#define INTERIOR_LAYER_MARGIN INTERIOR_PAN_QUANTUM
+static S32 s_layerResX = 0; /* exact view offset minus its quantized value */
+static S32 s_layerResY = 0;
+static S32 s_layerPanX = 0; /* quantized across offset, screen pixels */
+static S32 s_layerPanY = 0;
+
+static void BrickOrderReset(void) {
+    s_brickOrderCount = 0;
+    s_brickOrderOverflow = 0;
+    s_layerResX = 0;
+    s_layerResY = 0;
+    s_layerPanX = 0;
+    s_layerPanY = 0;
+#ifdef USE_GPURENDERER
+    if (GPURendererActive && CubeMode == CUBE_INTERIEUR &&
+        GL_SinglePassStereoActive()) {
+        const S32 panX = XCentre - ((S32)ModeDesiredX / 2 - 9);
+        const S32 panY = YCentre - ((S32)ModeDesiredY / 2);
+        s_layerPanX = panX - panX % INTERIOR_PAN_QUANTUM;
+        s_layerPanY = panY - panY % INTERIOR_PAN_QUANTUM;
+        s_layerResX = panX - s_layerPanX;
+        s_layerResY = panY - s_layerPanY;
+    }
+#endif
+}
+
+static void BrickOrderAdd(S32 brick, S32 xs, S32 ys, U16 az) {
+    if (s_brickOrderCount < MAX_BRICK_ORDER) {
+        T_BRICK_ORDER_ENTRY *e = &s_brickOrder[s_brickOrderCount++];
+        /* Store the composite-space position: the quantized pan is already
+           baked into the recorded order, the draw carries the rest. */
+        e->Xs = (S16)(xs - s_layerResX);
+        e->Ys = (S16)(ys - s_layerResY);
+        e->Brick = (S16)brick;
+        e->Az = az;
+    } else
+        s_brickOrderOverflow = 1;
+}
+
+/* Scene depth of a brick column, on the scale IsoDepth() gives the model
+   polygons: the painter key is (x + z) / 2 in world units from the camera,
+   and aZ counts down from the far end.  Tiles at the same (x, z) share it, so
+   a wall keeps one depth over its whole height while the floor recedes by
+   row. */
+static U16 BrickDepthAz(S32 x, S32 z) {
+    const S32 depth =
+        (((x * SIZE_BRICK_XZ) - CameraX) + ((z * SIZE_BRICK_XZ) - CameraZ)) >>
+        1;
+    return IsoDepthToAz(depth);
+}
+
+/* ── Composed base brick layer ────────────────────────────────────────────
+   An interior is a painter-ordered 2D composite.  Drawing it one quad per
+   brick costs a texture upload and a draw call per tile; a room runs to
+   ~1500 tiles, far past what the sprite texture cache can hold, so the
+   interior frame is dominated by that per-tile overhead rather than by
+   rasterisation.
+
+   Instead, compose the layer through the same AffGraph walk the software
+   renderer uses — identical order, identical clipping, so the pixels match
+   the reference rasterizer by construction — and draw the composed image as
+   one palette-indexed quad.  Composing on the CPU also produces the pristine
+   background the foreground-brick overlay needs, so that path copies from
+   this image instead of replaying the whole brick order per clip window.
+
+   Brick data is immutable once a cube is loaded (BufferBrick is read-only),
+   so the composite only changes when the cube or the painted order does;
+   the key below captures both and skips the walk when neither moved. */
+
+static U8 *s_baseLayer = NULL;
+static S32 s_baseLayerW = 0;
+static S32 s_baseLayerH = 0;
+static U32 s_baseLayerKey = 0;
+static S32 s_baseLayerValid = 0;
+static U32 s_baseLayerGen = 0;
+
+/* AffGraph addresses its rows through TabOffLine, which carries the screen's
+   pitch.  The composed canvas is wider than the screen, so the walk needs a
+   canvas pitch while it runs and the screen's table back afterwards. */
+static U32 *s_basePitchSave = NULL;
+static S32 s_basePitchSaveH = 0;
+
+/* Per-pixel scene depth of the composite, one U8 per screen pixel, painted
+   alongside the colour.  The whole background used to sit at aZ = 0, which the
+   polygon shader treats as screen space: it got no eye offset while the models
+   did, so the room read as a flat painting behind them.  Carrying each tile's
+   own depth per pixel lets the stereo fragment stage shift every pixel by the
+   offset its depth earns, which is what makes the background parallax with the
+   models instead of as one plane.  Values are normalized over the frame's
+   azMin..azMax so a room always uses the full byte range. */
+static U8 *s_baseDepth = NULL;
+static U16 s_baseAzMin = 0;  /* nearest plane in the frame, aZ units */
+static U16 s_baseAzSpan = 1; /* far - near + 1, so 0 never divides */
+
+/* Painted bounds: the layer image is screen-sized, but only this rectangle
+   holds bricks, and the filter cost is per fragment. */
+static S32 s_baseLayerX0 = 0, s_baseLayerY0 = 0;
+static S32 s_baseLayerX1 = -1, s_baseLayerY1 = -1;
+
+static U32 BaseLayerKey(void) {
+    U32 h = 2166136261u;
+    h = (h ^ (U32)(uintptr_t)BufferBrick) * 16777619u;
+    h = (h ^ (U32)NumCube) * 16777619u;
+    h = (h ^ (U32)ModeDesiredX) * 16777619u;
+    h = (h ^ (U32)ModeDesiredY) * 16777619u;
+    h = (h ^ (U32)s_brickOrderCount) * 16777619u;
+    for (S32 i = 0; i < s_brickOrderCount; i++) {
+        const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i];
+        h = (h ^ (U32)(U16)p->Brick) * 16777619u;
+        h = (h ^ (U32)(U16)p->Xs) * 16777619u;
+        h = (h ^ (U32)(U16)p->Ys) * 16777619u;
+        /* Depth follows the camera, not only the painted rectangle, so it is
+           part of the key even when every tile keeps its screen position. */
+        h = (h ^ (U32)p->Az) * 16777619u;
+    }
+    return h;
+}
+
+/* Paint one tile's coverage into the depth map.  The brick data is a
+   run-length stream (LIB386/SVGA/GRAPH.CPP decodes it for the colour blit):
+   each control byte is two opcode bits and a count, opcode 0 skips pixels,
+   1 writes the following literals, 2 repeats the next byte.  Walking it here
+   in the same order as the colour composite marks exactly the pixels the
+   tile leaves visible, at its own depth.  Zero marks an untouched pixel; the
+   colour composite chroma-keys those, so their depth is never sampled. */
+static void BaseLayerDepthStamp(const U8 *data, S32 x, S32 y, U8 dn) {
+    const S32 deltaX = data[0];
+    const S32 nbLine = data[1];
+    const S32 x0 = x + (S8)data[2];
+    const S32 y0 = y + (S8)data[3];
+    if (x0 > ClipXMax || y0 > ClipYMax || x0 + deltaX - 1 < ClipXMin ||
+        y0 + nbLine - 1 < ClipYMin)
+        return;
+
+    const U8 *g = data + 4;
+    for (S32 line = 0; line < nbLine; line++) {
+        const S32 row = y0 + line;
+        U8 *dst = (row >= ClipYMin && row <= ClipYMax)
+                      ? s_baseDepth + (size_t)row * (size_t)s_baseLayerW
+                      : NULL;
+        const U8 nbBlock = *g++;
+        S32 col = x0;
+        for (S32 b = 0; b < nbBlock; b++) {
+            const U8 control = *g++;
+            const S32 op = (control >> 6) & 3;
+            const S32 count = (control & 0x3F) + 1;
+            if (op == 0) {
+                col += count;
+                continue;
+            }
+            S32 last = col + count - 1;
+            if (last > ClipXMax)
+                last = ClipXMax;
+            if (dst != NULL) {
+                for (S32 c = col < ClipXMin ? ClipXMin : col; c <= last; c++) {
+                    /* Literal runs are transparent per texel, repeat runs
+                       per run: index 0 is the chroma key. */
+                    const U8 texel = (op == 1) ? g[c - col] : g[0];
+                    if (texel != 0)
+                        dst[c] = dn;
+                }
+            }
+            /* `g` already sits past the control byte: a literal run carries
+               `count` bytes, a repeat run one (its value). */
+            g += (op == 1) ? count : 1;
+            col += count;
+        }
+    }
+}
+
+/* Compose the recorded brick order into s_baseLayer.  Returns 0 when the
+   layer cannot be produced (no cube, order overflow, allocation failure),
+   in which case the caller keeps the per-brick path. */
+static S32 BaseLayerCompose(void) {
+    const S32 screenW = (S32)ModeDesiredX;
+    const S32 screenH = (S32)ModeDesiredY;
+    /* The canvas is one quantum larger than the screen on each side.  Brick
+       positions are stored in composite space, so the extra band is only
+       there to be slid into view by a sub-quantum pan. */
+    const S32 w = screenW + 2 * INTERIOR_LAYER_MARGIN;
+    const S32 h = screenH + 2 * INTERIOR_LAYER_MARGIN;
+    if (screenW <= 0 || screenH <= 0 || BufferBrick == NULL ||
+        s_brickOrderCount == 0 || s_brickOrderOverflow)
+        return 0;
+
+    if (s_basePitchSaveH < h) {
+        U32 *grown =
+            (U32 *)realloc(s_basePitchSave, (size_t)h * sizeof(U32));
+        if (grown == NULL) {
+            s_baseLayerValid = 0;
+            return 0;
+        }
+        s_basePitchSave = grown;
+        s_basePitchSaveH = h;
+    }
+
+    if (s_baseLayer == NULL || s_baseLayerW != w || s_baseLayerH != h) {
+        U8 *grown = (U8 *)realloc(s_baseLayer, (size_t)w * (size_t)h);
+        if (grown == NULL) {
+            s_baseLayerValid = 0;
+            return 0;
+        }
+        s_baseLayer = grown;
+        U8 *grownDepth = (U8 *)realloc(s_baseDepth, (size_t)w * (size_t)h);
+        if (grownDepth == NULL) {
+            s_baseLayerValid = 0;
+            return 0;
+        }
+        s_baseDepth = grownDepth;
+        s_baseLayerW = w;
+        s_baseLayerH = h;
+        s_baseLayerValid = 0;
+    }
+
+    const U32 key = BaseLayerKey();
+    if (s_baseLayerValid && key == s_baseLayerKey)
+        return 1;
+    memset(s_baseLayer, 0, (size_t)w * (size_t)h);
+    memset(s_baseDepth, 0, (size_t)w * (size_t)h);
+    void *savedLog = Log;
+    const S32 savedXMin = ClipXMin, savedYMin = ClipYMin;
+    const S32 savedXMax = ClipXMax, savedYMax = ClipYMax;
+    ClipXMin = 0;
+    ClipYMin = 0;
+    ClipXMax = w - 1;
+    ClipYMax = h - 1;
+    /* Depth range of this frame's tiles, which normalizes the depth map. */
+    U16 azMin = 65535, azMax = 0;
+    for (S32 i2 = 0; i2 < s_brickOrderCount; i2++) {
+        const U16 az = s_brickOrder[i2].Az;
+        if (az < azMin)
+            azMin = az;
+        if (az > azMax)
+            azMax = az;
+    }
+    const S32 azSpan = (S32)azMax - (S32)azMin + 1;
+
+    /* Lend the canvas its own line pitch for the walk.  Restored below before
+       any other draw touches the screen table. */
+    for (S32 i2 = 0; i2 < h; i2++) {
+        s_basePitchSave[i2] = TabOffLine[i2];
+        TabOffLine[i2] = (U32)i2 * (U32)w;
+    }
+
+    Log = s_baseLayer;
+    S32 bx0 = w, by0 = h, bx1 = -1, by1 = -1;
+    for (S32 i2 = 0; i2 < s_brickOrderCount; i2++) {
+        const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i2];
+        const U8 *src = BufferBrick + ((const U32 *)BufferBrick)[p->Brick];
+        const U8 dn = (U8)(((S32)p->Az - (S32)azMin) * 255 / azSpan);
+        const S32 px = p->Xs + INTERIOR_LAYER_MARGIN;
+        const S32 py = p->Ys + INTERIOR_LAYER_MARGIN;
+        AffGraph(p->Brick, px, py, BufferBrick);
+        /* Depth in the same painter order, so the map names the tile whose
+           pixels are the ones left standing in the colour composite. */
+        BaseLayerDepthStamp(src, px, py, dn);
+        const S32 x0 = px + (S8)src[2];
+        const S32 y0 = py + (S8)src[3];
+        const S32 x1 = x0 + src[0];
+        const S32 y1 = y0 + src[1];
+        if (x0 < bx0)
+            bx0 = x0;
+        if (y0 < by0)
+            by0 = y0;
+        if (x1 > bx1)
+            bx1 = x1;
+        if (y1 > by1)
+            by1 = y1;
+    }
+
+    s_baseAzMin = azMin;
+    s_baseAzSpan = (U16)azSpan;
+
+    for (S32 i2 = 0; i2 < h; i2++)
+        TabOffLine[i2] = s_basePitchSave[i2];
+    Log = savedLog;
+    ClipXMin = savedXMin;
+    ClipYMin = savedYMin;
+    ClipXMax = savedXMax;
+    ClipYMax = savedYMax;
+
+    if (getenv("LBA2_DUMP_DEPTH") != NULL) {
+        FILE *f = fopen("/tmp/opencode/parallax/depth.pgm", "wb");
+        if (f) {
+            fprintf(f, "P5 %d %d 255\n", w, h);
+            for (S32 y = 0; y < h; y++)
+                fwrite(s_baseDepth + (size_t)y * (size_t)w, 1, (size_t)w, f);
+            fclose(f);
+            FILE *c2 = fopen("/tmp/opencode/parallax/layer.pgm", "wb");
+            if (c2) {
+                fprintf(c2, "P5 %d %d 255\n", w, h);
+                for (S32 y = 0; y < h; y++)
+                    fwrite(s_baseLayer + (size_t)y * (size_t)w, 1, (size_t)w, c2);
+                fclose(c2);
+            }
+        }
+    }
+    s_baseLayerX0 = bx0;
+    s_baseLayerY0 = by0;
+    s_baseLayerX1 = bx1;
+    s_baseLayerY1 = by1;
+    s_baseLayerKey = key;
+    s_baseLayerValid = 1;
+    s_baseLayerGen++;
+    return 1;
+}
+
+/* Draw the composed layer as one palette-indexed image.  A scene-sized
+   composite would otherwise need one quad per brick, and the sprite path
+   cannot take it as a single quad because its wrap window is capped at 256
+   texels.  The GL side uploads only when the composition generation changes,
+   so a static camera costs one draw call per frame.
+
+   Returns 0 when the composite could not be built, so the caller can fall
+   back to one quad per brick rather than leaving the room unpainted. */
+static S32 DrawBaseLayerGL(void) {
+    if (!BaseLayerCompose())
+        return 0;
+    /* One quad carrying the colour and, next to it, the depth map the stereo
+       fragment stage warps by.  A single image cannot open a seam, which is
+       what a per-band split did wherever a near wall met a far floor. */
+    GL_DrawIndexedLayerOffset(
+        0, s_baseLayer, s_baseDepth, s_baseLayerW, s_baseLayerH,
+        s_baseLayerGen, DisplayTexFilter, s_baseLayerX0, s_baseLayerY0,
+        s_baseLayerX1, s_baseLayerY1,
+        s_layerResX - INTERIOR_LAYER_MARGIN,
+        s_layerResY - INTERIOR_LAYER_MARGIN, s_baseAzMin, s_baseAzSpan, NULL,
+        0, 0, 0, 0);
+    return 1;
+}
+
+/* Degraded path: the recorded order still names every painted brick, so the
+   layer can fall back to the pre-composite draw when it is unavailable. */
+static void DrawBaseLayerFallbackGL(void) {
+    for (S32 i = 0; i < s_brickOrderCount; i++) {
+        const T_BRICK_ORDER_ENTRY *p = &s_brickOrder[i];
+        /* The order stores composite space; this path has no composite to
+           slide, so it puts each tile back on the exact screen position. */
+        DrawBrickGL(p->Brick, p->Xs + s_layerResX, p->Ys + s_layerResY);
+    }
+}
+
+/* Overlay mask patch, at screen stride in palette indices.  The pristine
+   background it samples through the masks is the composed base layer. */
+static U8 *s_overlayPatch = NULL;
+static U8 *s_overlayDraw = NULL;
+static U8 *s_overlayTile = NULL;
+static S32 s_overlayAllocW = 0;
+static S32 s_overlayAllocH = 0;
+static S32 s_overlayDrawSize = 0;
+static S32 s_overlayTileSize = 0;
+static S32 s_overlayActive = 0;
+static S32 s_overlayClipX0, s_overlayClipY0, s_overlayClipX1, s_overlayClipY1;
+static S32 s_overlayX0, s_overlayY0, s_overlayX1, s_overlayY1;
+
+/* Screen distance the near eye moves a point away from where mono draws it.
+   The overlay has to cover the model where the near eye puts it, and it reads
+   the wall's coverage one offset past that again, so both the marking window
+   and the draw rect are sized from this.  Zero in mono, where the reference
+   marking set is kept exactly. */
+static S32 s_overlayMarginX = 0;
+static S32 s_overlayMarginY = 0;
+static S32 s_overlayWidened = 0;
+static S32 s_overlayWinX0, s_overlayWinY0, s_overlayWinX1, s_overlayWinY1;
+
+/* Eye 1's single-pass pass reuses the overlay eye 0 drew into both halves.
+   Marking and flushing again would rebuild the same mask for a discarded
+   draw, so the whole overlay is skipped there. */
+static S32 s_overlaySkipPass = 0;
+
+static S32 OverlaySecondEyePass(void) {
+    return GPURendererActive && CubeMode == CUBE_INTERIEUR &&
+           GL_SinglePassStereoActive() && GL_GetStereoEye() == 1;
+}
+
+/* Grow the candidate window for the marking walk and for the mask it writes.
+   The model's own box is what the mono path marks and draws; stereo needs the
+   band the other eye can move both the model and the wall into. */
+static void OverlayWidenWindow(void) {
+    if (s_overlaySkipPass)
+        return;
+    if (!GL_SinglePassStereoActive())
+        return;
+    GL_GetLayerShiftMargin(s_baseAzMin, s_baseAzSpan, &s_overlayMarginX,
+                           &s_overlayMarginY);
+    if (s_overlayMarginX == 0 && s_overlayMarginY == 0)
+        return;
+    s_overlayWidened = 1;
+
+    const S32 mx = s_overlayMarginX * 2;
+    const S32 my = s_overlayMarginY * 2;
+    ClipXMin -= mx;
+    ClipYMin -= my;
+    ClipXMax += mx;
+    ClipYMax += my;
+    s_overlayClipX0 -= mx;
+    s_overlayClipY0 -= my;
+    s_overlayClipX1 += mx;
+    s_overlayClipY1 += my;
+    if (s_overlayClipX0 < 0)
+        s_overlayClipX0 = 0;
+    if (s_overlayClipY0 < 0)
+        s_overlayClipY0 = 0;
+    if (s_overlayClipX1 >= s_overlayAllocW)
+        s_overlayClipX1 = s_overlayAllocW - 1;
+    if (s_overlayClipY1 >= s_overlayAllocH)
+        s_overlayClipY1 = s_overlayAllocH - 1;
+
+    /* The walk writes the mask over that whole window, and a patch left over
+       from an earlier frame would still be there — as coverage.  That is what
+       made the near eye's occlusion alternate. */
+    const S32 span = s_overlayClipX1 - s_overlayClipX0 + 1;
+    for (S32 y = s_overlayClipY0; y <= s_overlayClipY1; y++)
+        memset(s_overlayPatch + (size_t)y * s_overlayAllocW + s_overlayClipX0,
+               0, span);
+}
+
+static void OverlayRestoreWindow(void) {
+    ClipXMin = s_overlayWinX0;
+    ClipYMin = s_overlayWinY0;
+    ClipXMax = s_overlayWinX1;
+    ClipYMax = s_overlayWinY1;
+}
+/* Depth of the bricks in the current patch: the overlay restores background
+   pixels over a model, and it must sit at the same depth as the band they came
+   from or it lands a few pixels off the rest of the background. */
+static U32 s_overlayAzSum;
+static U32 s_overlayAzCount;
+static U16 s_overlayAz;
+
+static void OverlayFreeBuffers(void) {
+    free(s_overlayPatch);
+    free(s_overlayDraw);
+    free(s_overlayTile);
+    s_overlayPatch = NULL;
+    s_overlayDraw = NULL;
+    s_overlayTile = NULL;
+    s_overlayAllocW = 0;
+    s_overlayAllocH = 0;
+    s_overlayDrawSize = 0;
+    s_overlayTileSize = 0;
+}
+
+static int OverlayEnsureBuffers(void) {
+    const S32 w = (S32)ModeDesiredX;
+    const S32 h = (S32)ModeDesiredY;
+    if (w <= 0 || h <= 0)
+        return 0;
+    if (s_overlayPatch != NULL && s_overlayAllocW == w && s_overlayAllocH == h)
+        return 1;
+    OverlayFreeBuffers();
+    s_overlayPatch = (U8 *)malloc((size_t)w * (size_t)h);
+    if (s_overlayPatch == NULL) {
+        OverlayFreeBuffers();
+        return 0;
+    }
+    s_overlayAllocW = w;
+    s_overlayAllocH = h;
+    return 1;
+}
+
+static void DrawBrickOverlayFallback(T_COLONB *ptrlbc);
+
+static void OverlayBegin(void) {
+    s_overlayActive = 0;
+    s_overlaySkipPass = 0;
+    if (!(GPURendererActive && CubeMode == CUBE_INTERIEUR))
+        return;
+    if (OverlaySecondEyePass()) {
+        s_overlaySkipPass = 1;
+        return;
+    }
+    if (BufferBrick == NULL || !OverlayEnsureBuffers() || !s_baseLayerValid)
+        return;
+
+    S32 x0 = ClipXMin;
+    S32 y0 = ClipYMin;
+    S32 x1 = ClipXMax;
+    S32 y1 = ClipYMax;
+    if (x0 < 0)
+        x0 = 0;
+    if (y0 < 0)
+        y0 = 0;
+    if (x1 >= s_overlayAllocW)
+        x1 = s_overlayAllocW - 1;
+    if (y1 >= s_overlayAllocH)
+        y1 = s_overlayAllocH - 1;
+    if (x1 < x0 || y1 < y0)
+        return;
+
+    s_overlayClipX0 = x0;
+    s_overlayClipY0 = y0;
+    s_overlayClipX1 = x1;
+    s_overlayClipY1 = y1;
+    s_overlayWinX0 = x0;
+    s_overlayWinY0 = y0;
+    s_overlayWinX1 = x1;
+    s_overlayWinY1 = y1;
+    s_overlayAzSum = 0;
+    s_overlayAzCount = 0;
+    s_overlayAz = 0;
+    s_overlayMarginX = 0;
+    s_overlayMarginY = 0;
+    s_overlayWidened = 0;
+    const S32 span = x1 - x0 + 1;
+    for (S32 y = y0; y <= y1; y++)
+        memset(s_overlayPatch + (size_t)y * s_overlayAllocW + x0, 0, span);
+    s_overlayX0 = x1 + 1;
+    s_overlayY0 = y1 + 1;
+    s_overlayX1 = x0 - 1;
+    s_overlayY1 = y0 - 1;
+    s_overlayActive = 1;
+}
+
+/* Queue one foreground brick: copy the pristine background through its
+   opaque texels into the patch. */
+static void OverlayMark(T_COLONB *ptrlbc) {
+    if (s_overlaySkipPass)
+        return;
+    if (BufferBrick == NULL || ptrlbc->Brick < 0 ||
+        ptrlbc->Brick >= s_brickBankCount)
+        return;
+    if (!s_overlayActive) {
+        DrawBrickOverlayFallback(ptrlbc);
+        return;
+    }
+    const U8 *src = BufferBrick + ((const U32 *)BufferBrick)[ptrlbc->Brick];
+    S32 w, h, hotX, hotY;
+    s_currentBrickGL = ptrlbc->Brick;
+    const U8 *raw = DecodeBrickGL(src, &w, &h, &hotX, &hotY);
+    s_currentBrickGL = -1;
+    if (raw == NULL)
+        return;
+
+    const S32 bx = ptrlbc->Xs + hotX;
+    const S32 by = ptrlbc->Ys + hotY;
+    S32 cx0 = bx;
+    S32 cy0 = by;
+    S32 cx1 = bx + w - 1;
+    S32 cy1 = by + h - 1;
+    if (cx0 < s_overlayClipX0)
+        cx0 = s_overlayClipX0;
+    if (cy0 < s_overlayClipY0)
+        cy0 = s_overlayClipY0;
+    if (cx1 > s_overlayClipX1)
+        cx1 = s_overlayClipX1;
+    if (cy1 > s_overlayClipY1)
+        cy1 = s_overlayClipY1;
+    if (cx1 < cx0 || cy1 < cy0)
+        return;
+
+    for (S32 y = cy0; y <= cy1; y++) {
+        const U8 *srcRow = raw + (size_t)(y - by) * w + (cx0 - bx);
+        U8 *dstRow = s_overlayPatch + (size_t)y * s_overlayAllocW + cx0;
+        /* The patch stays screen-indexed; the composed layer sits in its own
+           canvas, quantized pan and margin included. */
+        const S32 ly = y - s_layerResY + INTERIOR_LAYER_MARGIN;
+        for (S32 x = cx0; x <= cx1; x++, srcRow++, dstRow++) {
+            if (*srcRow != 0) {
+                const S32 lx = x - s_layerResX + INTERIOR_LAYER_MARGIN;
+                if (lx >= 0 && lx < s_baseLayerW && ly >= 0 &&
+                    ly < s_baseLayerH)
+                    *dstRow = s_baseLayer[(size_t)ly * s_baseLayerW + lx];
+            }
+        }
+    }
+
+    if (cx0 < s_overlayX0)
+        s_overlayX0 = cx0;
+    if (cy0 < s_overlayY0)
+        s_overlayY0 = cy0;
+    if (cx1 > s_overlayX1)
+        s_overlayX1 = cx1;
+    if (cy1 > s_overlayY1)
+        s_overlayY1 = cy1;
+    s_overlayAzSum += BrickDepthAz(ptrlbc->Xm, ptrlbc->Zm);
+    s_overlayAzCount++;
+}
+
+/* Draw the composed patch into the scene FBO.  Tiles keep the sprite path's
+   implicit 256-texel repeat window from wrapping wide clip windows. */
+static void OverlayFlush(void) {
+    if (s_overlaySkipPass) {
+        s_overlaySkipPass = 0;
+        return;
+    }
+    if (!s_overlayActive)
+        return;
+    s_overlayActive = 0;
+    OverlayRestoreWindow();
+    if (getenv("LBA2_NO_OVERLAY") != NULL)
+        return;
+
+    /* Redraw the model's box from the composed layer, under a coverage mask of
+       the bricks that are in front of it.  The layer program shifts both the
+       colour and that mask by the pixel's own depth, so the patch is the
+       background's own pixels at the background's own offset — nothing here
+       is resampled differently from the wall around it.  In stereo the quad
+       and the mask window grow with the eye margin (OverlayWidenWindow),
+       because the model and the sampled texel both move by one eye offset. */
+    if (s_baseDepth != NULL && s_baseLayerW > 0 && s_baseLayerH > 0 &&
+        getenv("LBA2_OVERLAY_OLD") == NULL &&
+        s_overlayClipX1 >= s_overlayClipX0 &&
+        s_overlayClipY1 >= s_overlayClipY0) {
+        const int stereo = s_overlayWidened;
+        S32 mx0, my0, mx1, my1;
+        S32 dx0, dy0, dx1, dy1;
+        if (stereo) {
+            /* Mask over the whole marking window, so a texel outside a marked
+               brick reads as no coverage instead of clamping the tile's
+               border.  The quad covers the model's box widened by one eye
+               offset: that is where the near eye puts the model, and the
+               reference box would leave it standing in front of the wall. */
+            mx0 = s_overlayClipX0;
+            my0 = s_overlayClipY0;
+            mx1 = s_overlayClipX1 + 1;
+            my1 = s_overlayClipY1 + 1;
+            dx0 = s_overlayWinX0 - s_overlayMarginX;
+            dy0 = s_overlayWinY0 - s_overlayMarginY;
+            dx1 = s_overlayWinX1 + 1 + s_overlayMarginX;
+            dy1 = s_overlayWinY1 + 1 + s_overlayMarginY;
+        } else {
+            /* Mono: the marked patch's own bounds, exactly as the reference
+               overlay drew it. */
+            mx0 = s_overlayX0;
+            my0 = s_overlayY0;
+            mx1 = s_overlayX1 + 1;
+            my1 = s_overlayY1 + 1;
+            dx0 = mx0;
+            dy0 = my0;
+            dx1 = mx1;
+            dy1 = my1;
+        }
+        if (mx0 < 0)
+            mx0 = 0;
+        if (my0 < 0)
+            my0 = 0;
+        if (mx1 > (S32)ModeDesiredX)
+            mx1 = (S32)ModeDesiredX;
+        if (my1 > (S32)ModeDesiredY)
+            my1 = (S32)ModeDesiredY;
+        if (dx0 < 0)
+            dx0 = 0;
+        if (dy0 < 0)
+            dy0 = 0;
+        if (dx1 > (S32)ModeDesiredX)
+            dx1 = (S32)ModeDesiredX;
+        if (dy1 > (S32)ModeDesiredY)
+            dy1 = (S32)ModeDesiredY;
+        const S32 mw = mx1 - mx0;
+        const S32 mh = my1 - my0;
+        if (mw > 0 && mh > 0) {
+            if (s_overlayTile == NULL ||
+                s_overlayTileSize < mw * mh) {
+                U8 *grown = (U8 *)realloc(s_overlayTile, (size_t)(mw * mh));
+                if (grown == NULL)
+                    return;
+                s_overlayTile = grown;
+                s_overlayTileSize = mw * mh;
+            }
+            for (S32 y = 0; y < mh; y++) {
+                const U8 *src = s_overlayPatch +
+                                (size_t)(my0 + y) * (size_t)s_overlayAllocW +
+                                mx0;
+                U8 *dst = s_overlayTile + (size_t)y * mw;
+                for (S32 x = 0; x < mw; x++)
+                    dst[x] = (src[x] != 0) ? 0xFF : 0;
+            }
+            if (dx1 > dx0 && dy1 > dy0) {
+                /* The screen rect is the model's exact box; the texels come
+                   from the layer's quantized canvas, a margin and a residual
+                   away.  The mask is read beside those texels, so it moves
+                   to the canvas origin too. */
+                const S32 srcOffX = s_layerResX - INTERIOR_LAYER_MARGIN;
+                const S32 srcOffY = s_layerResY - INTERIOR_LAYER_MARGIN;
+                GL_DrawIndexedLayerOffset(
+                    0, s_baseLayer, s_baseDepth, s_baseLayerW, s_baseLayerH,
+                    s_baseLayerGen, DisplayTexFilter, dx0 - srcOffX,
+                    dy0 - srcOffY, dx1 - srcOffX, dy1 - srcOffY, srcOffX,
+                    srcOffY, s_baseAzMin, s_baseAzSpan, s_overlayTile, mw,
+                    mh, mx0 + INTERIOR_LAYER_MARGIN - s_layerResX,
+                    my0 + INTERIOR_LAYER_MARGIN - s_layerResY);
+            }
+            return;
+        }
+    }
+
+    if (s_overlayX1 < s_overlayX0 || s_overlayY1 < s_overlayY0)
+        return;
+
+    if (s_overlayAzCount > 0)
+        s_overlayAz = (U16)(s_overlayAzSum / s_overlayAzCount);
+    const S32 w = s_overlayX1 - s_overlayX0 + 1;
+    const S32 h = s_overlayY1 - s_overlayY0 + 1;
+    const S32 need = w * h;
+    if (need > s_overlayDrawSize) {
+        U8 *grown = (U8 *)realloc(s_overlayDraw, (size_t)need);
+        if (grown == NULL)
+            return;
+        s_overlayDraw = grown;
+        s_overlayDrawSize = need;
+    }
+    if (s_overlayTile == NULL || s_overlayTileSize < 240 * 240) {
+        U8 *grown = (U8 *)realloc(s_overlayTile, (size_t)(240 * 240));
+        if (grown == NULL)
+            return;
+        s_overlayTile = grown;
+        s_overlayTileSize = 240 * 240;
+    }
+
+    for (S32 y = 0; y < h; y++)
+        memcpy(s_overlayDraw + (size_t)y * w,
+               s_overlayPatch + (size_t)(s_overlayY0 + y) * s_overlayAllocW +
+                   s_overlayX0,
+               (size_t)w);
+
+    GL_SetSpriteNoDepth(1);
+    GL_SetSpriteFilterOverride(0);
+    GL_SetSpriteUploadAlways(1);
+    const S32 tile = 240;
+    for (S32 ty = 0; ty < h; ty += tile) {
+        const S32 th = (h - ty < tile) ? h - ty : tile;
+        for (S32 tx = 0; tx < w; tx += tile) {
+            const S32 tw = (w - tx < tile) ? w - tx : tile;
+            for (S32 y = 0; y < th; y++)
+                memcpy(s_overlayTile + (size_t)y * tw,
+                       s_overlayDraw + (size_t)(ty + y) * w + tx,
+                       (size_t)tw);
+            GL_DrawSpriteQuad(s_overlayX0 + tx, s_overlayY0 + ty,
+                              s_overlayX0 + tx + tw, s_overlayY0 + ty + th,
+                              0, 0, tw, th, s_overlayTile, tw, th,
+                              s_overlayAz, 0);
+        }
+    }
+    GL_SetSpriteUploadAlways(0);
+    GL_SetSpriteFilterOverride(-1);
+    GL_SetSpriteNoDepth(0);
+}
+
+/* Software/fallback route: masked copy of the pristine background. */
+static void DrawBrickOverlayFallback(T_COLONB *ptrlbc) {
+    if (GPURendererActive && CubeMode == CUBE_INTERIEUR) {
+        DrawBrickGL(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys);
+        return;
+    }
+    CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+}
+#else
+/* Software-only builds keep the original CopyMask path and need no base-layer
+   reconstruction; the overlay state exists only for the GL renderer. */
+static void OverlayBegin(void) {}
+
+static void OverlayWidenWindow(void) {}
+
+static void OverlayRestoreWindow(void) {}
+
+static void OverlayFlush(void) {}
+
+static void OverlayMark(T_COLONB *ptrlbc) {
+    CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+}
+#endif
 
 U8 *BufferMaskBrick = NULL;
 S32 NbBlock;
@@ -245,6 +1160,9 @@ S32 LoadUsedBrick() {
 }
 /*-------------------------------------------------------------------------*/
 void InitGrille(U32 numcube) {
+#ifdef USE_GPURENDERER
+    ClearBrickGLCache();
+#endif
     U32 id_gri;
     U32 id_bll;
     char tmpFilePath[ADELINE_MAX_PATH];
@@ -401,6 +1319,22 @@ void GetShadow(S32 xw, S32 yw, S32 zw) {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 /*--------------------------------------------------------------------------*/
+/* Shadow depth for the GL fill.  An interior shadow lies on the brick floor,
+   so it takes the floor's depth -- the isometric painter key of the corner --
+   exactly like the background bands and the model polygons.  Without it the
+   corners keep the stale perspective GET_ZO values from the last exterior
+   shadow, and in the headset the shadow sits several pixels off the floor it
+   is supposed to darken. */
+static U16 InteriorShadowAz(S32 worldX, S32 worldZ) {
+    return IsoDepthToAz(((worldX - CameraX) + (worldZ - CameraZ)) >> 1);
+}
+
+/* Same key for anything else the room places by world position (particle
+   flows), so it parallaxes with the bricks and models around it. */
+U16 InteriorWorldAz(S32 worldX, S32 worldZ) {
+    return InteriorShadowAz(worldX, worldZ);
+}
+
 S32 ProjectShadow(T_SORT *ptrs, S32 beta) {
     S32 xmin, zmin, xmax, zmax, xw, yw, zw;
     S32 ys, cy;
@@ -438,6 +1372,7 @@ S32 ProjectShadow(T_SORT *ptrs, S32 beta) {
     else if (cy > altitude_ref + ALTITUDE_MAX)
         cy = altitude_ref + ALTITUDE_MAX;
 
+    ShadowZO[0] = InteriorShadowAz(X0, Z0);
     if (!LongProjectPoint(X0, cy, Z0))
         return FALSE;
     XS0 = Xp;
@@ -457,6 +1392,7 @@ S32 ProjectShadow(T_SORT *ptrs, S32 beta) {
     else if (cy > altitude_ref + ALTITUDE_MAX)
         cy = altitude_ref + ALTITUDE_MAX;
 
+    ShadowZO[1] = InteriorShadowAz(X0, Z0);
     if (!LongProjectPoint(X0, cy, Z0))
         return FALSE;
     XS1 = Xp;
@@ -476,6 +1412,7 @@ S32 ProjectShadow(T_SORT *ptrs, S32 beta) {
     else if (cy > altitude_ref + ALTITUDE_MAX)
         cy = altitude_ref + ALTITUDE_MAX;
 
+    ShadowZO[2] = InteriorShadowAz(X0, Z0);
     if (!LongProjectPoint(X0, cy, Z0))
         return FALSE;
     XS2 = Xp;
@@ -495,6 +1432,7 @@ S32 ProjectShadow(T_SORT *ptrs, S32 beta) {
     else if (cy > altitude_ref + ALTITUDE_MAX)
         cy = altitude_ref + ALTITUDE_MAX;
 
+    ShadowZO[3] = InteriorShadowAz(X0, Z0);
     if (!LongProjectPoint(X0, cy, Z0))
         return FALSE;
     XS3 = Xp;
@@ -564,6 +1502,9 @@ void InitBufferCube() {
 
     //	pas de RECOVER_AREA car BkgHeader en stored et pas en LZSS
     Load_HQR(tmpFilePath, &BkgHeader, 0); // HEADER
+#ifdef USE_GPURENDERER
+    s_brickBankCount = (S32)BkgHeader.Max_Brk;
+#endif
 
     // 	pas de RECOVER_AREA car TabAllCube en stored et pas en LZSS
     Load_HQR(tmpFilePath, (void *)TabAllCube, BkgHeader.Brk_Start + BkgHeader.Max_Brk);
@@ -591,12 +1532,48 @@ void InitBufferCube() {
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
+#ifdef USE_GPURENDERER
+/* A door frame protrudes one cell into the room.  When the actor stands in
+   front of the doorway, the frame's "bricks devant" pass re-blits the top
+   jamb over the head while the body remains in front of the door leaf.  Keep
+   an actor that is on the room side of a nearby door frame in front of it, so
+   the doorway reads as an opening rather than a mask. */
+static S32 OverlayIsDoorFrame(S32 xm, S32 ym, S32 zm, T_COLONB *ptrlbc) {
+    if (ptrlbc->Ym <= ym)
+        return FALSE;
+
+    for (S32 i = 0; i < NbObjets; i++) {
+        T_OBJET *ptrobj = &ListObjet[i];
+        if (!(ptrobj->Flags & SPRITE_CLIP))
+            continue;
+
+        const S32 ox = ptrobj->Obj.X / SIZE_BRICK_XZ;
+        const S32 oz = ptrobj->Obj.Z / SIZE_BRICK_XZ;
+
+        /* Painter order, not a screen-space guess: only reveal an actor that
+           is nearer to the camera than the door. */
+        if (xm + zm < ox + oz)
+            continue;
+
+        /* The jamb sits within two iso cells of the door anchor; three cells
+           of z reach the frame in front of the leaf. */
+        if (abs(ptrlbc->Xm - ox) <= 2 && abs(ptrlbc->Zm - oz) <= 3 &&
+            abs(xm - ox) <= 2 && abs(zm - oz) <= 3)
+            return TRUE;
+    }
+    return FALSE;
+}
+#endif
+
 void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
     register T_COLONB *ptrlbc;
     S32 col, i;
     S32 startcol, endcol;
     S32 xw, yw, zw;
     S32 recouvre;
+
+    OverlayBegin();
+    OverlayWidenWindow();
 
     // Bias -2, not -1: a wall one iso-cube south of the actor projects to
     // XScreen = actor_iso_XScreen - 24, i.e. col = actor_iso_col - 1. The
@@ -637,6 +1614,11 @@ void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
                     recouvre = TRUE;
                 }
 
+#ifdef USE_GPURENDERER
+                if (recouvre && GPURendererActive &&
+                    OverlayIsDoorFrame(xm, ym, zm, ptrlbc))
+                    recouvre = FALSE;
+#endif
                 if (recouvre) {
                     xw = ptrlbc->Xm * SIZE_BRICK_XZ;
                     yw = ptrlbc->Ym * SIZE_BRICK_Y;
@@ -653,13 +1635,14 @@ void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
                                    1
                                        //				AND WorldColBrick(xw+SIZE_BRICK_XZ,yw,zw)==1 ) )
                                        AND WorldColBrick(xw + SIZE_BRICK_XZ, yw, zw) >= 1)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        OverlayMark(ptrlbc);
                     }
                 }
             }
             ptrlbc++;
         }
     }
+    OverlayFlush();
 }
 
 /*--------------------------------------------------------------------------*/
@@ -670,6 +1653,8 @@ void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax) {
     S32 col, i;
     S32 startcol, endcol;
 
+    OverlayBegin();
+    OverlayWidenWindow();
     startcol = (ClipXMin + 24) / 24 - 1;
     endcol = (ClipXMax + 24) / 24;
 
@@ -683,22 +1668,23 @@ void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax) {
                 if (ptrlbc->Ym > ymax) {
                     if ((ptrlbc->Zm >= zm)
                             OR(ptrlbc->Xm >= xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        OverlayMark(ptrlbc);
                     }
                 } else if (ptrlbc->Ym >= ym) {
                     if ((ptrlbc->Zm == zm)
                             AND(ptrlbc->Xm == xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        OverlayMark(ptrlbc);
                     }
 
                     if ((ptrlbc->Zm > zm)
                             OR(ptrlbc->Xm > xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        OverlayMark(ptrlbc);
                     }
                 }
             }
         }
     }
+    OverlayFlush();
 }
 
 /*--------------------------------------------------------------------------*/
@@ -711,6 +1697,7 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
     S32 col, i;
     S32 startcol, endcol;
 
+    OverlayBegin();
     startcol = (ClipXMin + 24) / 24 - 1;
     endcol = (ClipXMax + 24) / 24;
 
@@ -725,20 +1712,23 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
                                  AND ptrlbc->Ym >= ym) {
                     if ((ptrlbc->Zm == zm)
                             AND(ptrlbc->Xm == xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        OverlayMark(ptrlbc);
                     }
 
                     if ((ptrlbc->Zm > zm)
                             OR(ptrlbc->Xm > xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        OverlayMark(ptrlbc);
                     }
                 }
             }
         }
     }
+    OverlayFlush();
 }
 
 /*--------------------------------------------------------------------------*/
+
+static void Map2ScreenPanned(S32 x, S32 y, S32 z);
 
 void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     U8 *adr;
@@ -757,7 +1747,7 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     numbrick = *(U16 *)adr; /* & 32767 */
 
     if (numbrick AND numbrick != ForbidenBrick) {
-        Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
+        Map2ScreenPanned(x - StartXCube, y - StartYCube, z - StartZCube);
 
         // Left clip is -47 (one full brick width minus a pixel), not -24 (half-brick).
         // Many iso bricks have hotX=0 or +24 — their visible pixel range at XScreen=-32
@@ -767,7 +1757,21 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
         // the iso origin offset slides off that multiple and the rejected bricks
         // start having visible content. See WIDESCREEN_HARDCODED_DIMS_AUDIT.md.
         if (XScreen >= -47 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
+#ifdef USE_GPURENDERER
+            /* GL paints the whole brick layer as one composed background
+               after this walk; recording the order is all the base pass
+               does.  The software path still blits each brick here. */
+            if (GPURendererActive && CubeMode == CUBE_INTERIEUR) {
+                BrickOrderAdd(numbrick - 1, XScreen, YScreen,
+                              BrickDepthAz(x, z));
+            } else {
+                AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
+                BrickOrderAdd(numbrick - 1, XScreen, YScreen,
+                              BrickDepthAz(x, z));
+            }
+#else
             AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
+#endif
 
             // ListBrickColon is indexed by `col = (XScreen+24)/24`, which goes
             // negative below -24 and would corrupt the array. Bricks in the
@@ -804,6 +1808,20 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
 
 void AffGrille() {
 #ifdef USE_GPURENDERER
+    /* Single-pass stereo draws both halves from eye 0.  Eye 1 still presents
+       its half, but the brick order, colon list and composed layer are the
+       same, so walking the whole cube again would only rebuild them. */
+    if (GPURendererActive && CubeMode == CUBE_INTERIEUR &&
+        GL_SinglePassStereoActive() && GL_GetStereoEye() == 1)
+        return;
+    if (GPURendererActive && CubeMode == CUBE_INTERIEUR && PtrPal != NULL)
+        SetVideoPaletteSync(PtrPal);
+    /* The isometric grid leaves the FBO edges uncovered where the room does
+       not fill the screen.  The software path fills those with the clear
+       colour, which is palette 0 here — not the exterior fog entry that
+       AffGrilleExt uses — so pin the FBO rather than inherit the last
+       exterior's sky colour. */
+    GL_SetSceneClearColor(0);
     GL_ClearFBO();
 #endif
     S32 block;
@@ -815,6 +1833,9 @@ void AffGrille() {
     YpOrgw = Yp;
 
     memset(NbBrickColon, 0, sizeof(S16) * NB_COLON);
+#ifdef USE_GPURENDERER
+    BrickOrderReset();
+#endif
 
     ptc = BufCube;
     for (z = 0; z < SIZE_CUBE_Z; z++) {
@@ -829,6 +1850,11 @@ void AffGrille() {
             }
         }
     }
+#ifdef USE_GPURENDERER
+    if (GPURendererActive && CubeMode == CUBE_INTERIEUR &&
+        !DrawBaseLayerGL())
+        DrawBaseLayerFallbackGL();
+#endif
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -858,7 +1884,7 @@ void AffBrickBlockColon(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     numbrick = *(U16 *)adr; /* & 32767 */
 
     if (numbrick AND numbrick != ForbidenBrick) {
-        Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
+        Map2ScreenPanned(x - StartXCube, y - StartYCube, z - StartZCube);
 
         if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
             col = (XScreen + 24) / 24; /* 48 / 2 colonne intercalée */
@@ -897,6 +1923,9 @@ void AffGrilleOnly() {
     YpOrgw = Yp;
 
     memset(NbBrickColon, 0, sizeof(S16) * NB_COLON);
+#ifdef USE_GPURENDERER
+    BrickOrderReset();
+#endif
 
     ptc = BufCube;
 
@@ -940,10 +1969,15 @@ void AffBrickBlockOnly(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     numbrick = *(U16 *)adr; /* & 32767 */
 
     if (numbrick AND numbrick != ForbidenBrick) {
-        Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
+        Map2ScreenPanned(x - StartXCube, y - StartYCube, z - StartZCube);
 
         if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
-            AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
+#ifdef USE_GPURENDERER
+            if (GPURendererActive && CubeMode == CUBE_INTERIEUR)
+                DrawBrickGL(numbrick - 1, XScreen, YScreen);
+            else
+#endif
+                AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
         }
     }
 }
@@ -951,6 +1985,9 @@ void AffBrickBlockOnly(S32 block, S32 brick, S16 x, S16 y, S16 z) {
 // Redessine uniquement les block n'ayant pas le code jeu Invisible
 void AffGrilleLabyrinthe() {
 #ifdef USE_GPURENDERER
+    /* Same background rule as AffGrille: palette 0, never the last
+       exterior's fog entry. */
+    GL_SetSceneClearColor(0);
     GL_ClearFBO();
 #endif
     S32 block;
@@ -1435,6 +2472,18 @@ void Map2Screen(S32 x, S32 y, S32 z) {
     XScreen = 24 * (x - z) + ((S32)ModeDesiredX / 2 - 32);
     YScreen = 12 * (z + x) - 15 * y + ((S32)ModeDesiredY / 2 - 14);
     Projrec_Map2Screen(x, y, z, XScreen, YScreen);
+}
+
+/* The brick grid is derived from the framebuffer centre, while the polygon
+   path projects through XCentre/YCentre.  SetIsoProjection moves the
+   projection centre (the interior hover rig pans the view that way), so the
+   background must take the same delta or models slide against a stationary
+   room.  Keep Map2Screen itself untouched: its ASM twin and the projection
+   corpus pin its output. */
+static void Map2ScreenPanned(S32 x, S32 y, S32 z) {
+    Map2Screen(x, y, z);
+    XScreen += XCentre - ((S32)ModeDesiredX / 2 - 9);
+    YScreen += YCentre - ((S32)ModeDesiredY / 2);
 }
 
 //-------------------------------------------------------------------

@@ -13,15 +13,20 @@ extern "C" {
    `perftrace` console verb. See docs/PERFTRACE.md. */
 
 enum {
+    /* Existing values are part of the dump format; new phases append. */
     PERFTRACE_PHASE_SCENE = 0,
     PERFTRACE_PHASE_PRESENT = 1,
-    PERFTRACE_PHASE_COUNT = 2
+    PERFTRACE_PHASE_SIMULATION = 2,
+    PERFTRACE_PHASE_OPENXR = 3,
+    PERFTRACE_PHASE_EYE0 = 4,
+    PERFTRACE_PHASE_EYE1 = 5,
+    PERFTRACE_PHASE_COUNT = 6
 };
 
 void Perftrace_Init(void);
 
-/* Per-frame begin/end. Call from the main loop body, around one AffScene() +
-   UnlockVideoSurface() pair. Inert until Perftrace_Start() is called. */
+/* Per-frame begin/end. Call once per MainLoop iteration, before simulation.
+   Inert until Perftrace_Start() is called. */
 void Perftrace_FrameBegin(void);
 void Perftrace_FrameEnd(void);
 

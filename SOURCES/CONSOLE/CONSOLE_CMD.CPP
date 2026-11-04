@@ -8,6 +8,8 @@
 #include "../PLAYACF.H"
 #include "../CONFIG.H"
 #include "../GAMEMENU.H"
+#include "../GAMEMENU_CAPTURE.H"
+#include "../GAMEMENU_MENUS.H"
 #include "../MUSIC.H"
 #include "../AMBIANCE.H"
 #include <AIL/SAMPLE.H>
@@ -19,6 +21,7 @@
 /* HOLO.H lacks include guards and is pulled in transitively by DEFINES.H. */
 #include "../INVENT.H"
 #include "../OBJECT.H" // SetAnim (teleport stops the hero's carried animation)
+#include "../EXTRA.H"  // ExtraBonus (spawnextra repro hook)
 #include "../RES_CATALOG.H"
 #include "../RES_SWITCH.H"
 #include "../PERFTRACE.H"
@@ -272,6 +275,29 @@ static void cmd_status(int argc, const char *argv[]) {
     Console_Print("Pos: (%d,%d,%d)", Nxw, Nyw, Nzw);
 }
 
+/* shot <path> — save the next frame to an explicit path.  Same capture as
+   `screenshot`, which can only reach the app's own save tree; this exists so a
+   frame can be inspected from outside the device. */
+static void cmd_shot(int argc, const char *argv[]) {
+    const char *path = (argc >= 2) ? argv[1] : NULL;
+#ifdef __ANDROID__
+    /* Default reachable from outside the app's private tree, so a captured
+       frame can be pulled off the device for inspection. */
+    if (path == NULL)
+        path = "/sdcard/lba2cc/shot.png";
+#endif
+    if (path == NULL) {
+        Console_Print("Usage: shot [path]");
+        return;
+    }
+    /* Drop the 2D overlay for this capture: the console's own text lives in
+       Log and would otherwise be composited into the frame. */
+    if (Log != NULL)
+        memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+    Console_RequestScreenshot(path, 1);
+    Console_Print("Screenshot -> %s", path);
+}
+
 static void cmd_screenshot(int argc, const char *argv[]) {
     (void)argc;
     (void)argv;
@@ -364,13 +390,39 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
         return;
     }
     if (argc >= 3 && !strcmp(argv[1], "menu-options")) {
-        /* OptionsMenu(FALSE) opens the in-game options/pause menu and drives
-           DoGameMenu.  Menu_RequestCapture arms a one-shot SavePNG inside
-           DoGameMenu's loop; on capture, DoGameMenu returns 1000 (ESC
-           sentinel) and OptionsMenu's case-1000 exits cleanly. */
+        /* OptionsMenu(FALSE, MENU_ID_RETURN_TO_GAME) opens the in-game
+           options/pause menu and drives DoGameMenu.  Menu_RequestCapture arms
+           a one-shot SavePNG inside DoGameMenu's loop; on capture, DoGameMenu
+           returns 1000 (ESC sentinel) and OptionsMenu's case-1000 exits
+           cleanly. */
         Menu_RequestCapture(argv[2]);
-        OptionsMenu(FALSE);
+        OptionsMenu(FALSE, MENU_ID_RETURN_TO_GAME);
         Console_Print("ui menu-options -> %s", argv[2]);
+        return;
+    }
+    if (argc >= 3 && (!strcmp(argv[1], "gameplay") || !strcmp(argv[1], "advanced-options"))) {
+        /* Gameplay submenu (Options -> Gameplay), driven directly via
+           Gameplay_MainCapture like the display verb: no Options-menu detour,
+           --black-bg fills a cleanroom background. `advanced-options` is the
+           pre-rename alias. */
+        if (Console_GetCaptureBlackBg()) {
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+            memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+        }
+        Gameplay_MainCapture(argv[2]);
+        Console_Print("ui gameplay -> %s", argv[2]);
+        return;
+    }
+    if (argc >= 3 && !strcmp(argv[1], "cheat-menu")) {
+        /* Cheat submenu (Options -> Cheats), driven directly via
+           Cheat_MainCapture like the gameplay verb: no Options-menu
+           detour, --black-bg fills a cleanroom background. */
+        if (Console_GetCaptureBlackBg()) {
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+            memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+        }
+        Cheat_MainCapture(argv[2]);
+        Console_Print("ui cheat-menu -> %s", argv[2]);
         return;
     }
     if (argc >= 3 && !strcmp(argv[1], "display")) {
@@ -494,6 +546,8 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
     Console_Print("       ui video <name> <path>");
     Console_Print("       ui [--black-bg] dialog <text-id> <path>");
     Console_Print("       ui [--black-bg] menu-options <path>");
+    Console_Print("       ui [--black-bg] gameplay <path>");
+    Console_Print("       ui [--black-bg] cheat-menu <path>");
     Console_Print("       ui menu-main <path>");
     Console_Print("       ui [--black-bg] display <path>");
     Console_Print("       ui [--black-bg] resolution <path>");
@@ -1525,6 +1579,50 @@ static void cmd_teleport(int argc, const char *argv[]) {
     Console_Print("Usage: teleport <x> <y> <z> [beta] | teleport actor <n>");
 }
 
+/* spawnextra <sprite> [count]: drop a bouncing bonus extra (ExtraBonus) next to the
+   hero — the repro hook for sprite-extra rendering (18 kashes, 4 heart, 5 magic flask,
+   8 magic ball, 2 dart; GOODRAW indices, SPRITE_* in COMMON.H). */
+static void cmd_spawnextra(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Usage: spawnextra <sprite> [count]");
+        return;
+    }
+    T_OBJET *hero = &ListObjet[NUM_PERSO];
+    S16 num = (S16)atoi(argv[1]);
+    S16 nb = (argc >= 3) ? (S16)atoi(argv[2]) : (S16)1;
+    S32 n = ExtraBonus(hero->Obj.X + 400, hero->Obj.Y + hero->YMax + 200,
+                       hero->Obj.Z, (256 * MUL_ANGLE), 0, num, nb);
+    if (n == -1) {
+        Console_Print("spawnextra: no free extra slot");
+        return;
+    }
+    Console_Print("spawnextra: extra %d sprite %d x%d at (%d,%d,%d)", n, (int)num,
+                  (int)nb, (int)(hero->Obj.X + 400), (int)(hero->Obj.Y + hero->YMax + 200),
+                  (int)hero->Obj.Z);
+}
+
+/* camangle [alpha] [beta] [dist]: read or set the exterior camera orbit, elevation and
+   distance globals directly (LBA angle units for alpha/beta). Input injection cannot drive
+   the camera sticks headlessly, so this is the harness probe for camera-dependent rendering
+   bugs (near-plane clipping, follow-cam recompose): sweep angles from a scripted run and
+   screenshot each. */
+static void cmd_camangle(int argc, const char *argv[]) {
+    extern S32 AlphaCam;
+    extern S32 BetaCam;
+    extern S32 VueDistance;
+    extern S32 FollowCamBaseDist;
+    if (argc >= 2)
+        AlphaCam = atoi(argv[1]) & 4095;
+    if (argc >= 3)
+        BetaCam = atoi(argv[2]) & 4095;
+    if (argc >= 4)
+        VueDistance = atoi(argv[3]);
+    if (argc >= 5)
+        FollowCamBaseDist = atoi(argv[4]);
+    Console_Print("camangle: alpha=%d beta=%d dist=%d baseDist=%d", AlphaCam,
+                  BetaCam, VueDistance, FollowCamBaseDist);
+}
+
 /* varcube <n> [value] / vargame <n> [value]: read or set a scene (cube) or game Life variable.
    With no value, prints the current one; with a value, sets it. Lets a console/harness session drive
    quest state directly -- e.g. arm the flag an NPC's script waits on to reach an interaction stage. */
@@ -1898,16 +1996,23 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("timer", cmd_timer, "Advance timer by N ms (default 200)", "timer [ms]", "Advances high-res timer.");
     Console_RegisterCommandEx("status", cmd_status, "Print island, cube, chapter, objs, FPS, pos", "(no args)",
                               "Snapshot of current game state.");
+    Console_RegisterCommandEx("shot", cmd_shot,
+                              "Save the next frame to an explicit path",
+                              "shot <path>", "PNG, engine resolution.");
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui {inventory|holomap|menu-options|menu-main|config|slideshow} <path> | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal]",
+                              "ui {inventory|holomap|menu-options|gameplay|cheat-menu|menu-main|config|slideshow} <path> | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal]",
                               "Composite verb for UI regression fixtures: opens a UI modal "
                               "with a deterministic auto-exit, writes the settled frame to <path> "
                               "via SavePNG, then closes.  Compose with --load / --exec to drive "
                               "headless captures of UI state.");
     Console_RegisterCommandEx("savebug", cmd_savebug, "Save current game to bugs dir (optional name)", "savebug [name]",
                               "Requires in-game loaded cube (not during video); writes bugs/<name>.lba.");
+    Console_RegisterCommandEx("spawnextra", cmd_spawnextra, "Drop a bonus extra (coin, heart, flask, ball) at the hero",
+                              "spawnextra <sprite> [count]",
+                              "GOODRAW sprite indices (SPRITE_*): 2 dart, 4 heart, 5 magic flask, "
+                              "8 magic ball, 18 kashes.");
     Console_RegisterCommandEx("resolution", cmd_resolution,
                               "Switch render resolution at runtime (no args = list)",
                               "resolution [<n> | WxH | native | --all]",
@@ -1931,6 +2036,10 @@ void Console_RegisterAll(void) {
                               "teleport <x> <y> <z> [beta] | teleport actor <n>",
                               "Sets the hero's coords directly; next frame re-runs zones/collision. "
                               "'actor <n>' jumps onto actor n. Within-cube only.");
+    Console_RegisterCommandEx("camangle", cmd_camangle, "Read/set exterior camera orbit/elevation/distance",
+                              "camangle [alpha] [beta] [dist]",
+                              "Sets AlphaCam/BetaCam/VueDistance directly (LBA angle units). "
+                              "Camera probe for headless rendering bug hunts.");
     Console_RegisterCommandEx("behaviour", cmd_behaviour, "Read/set hero behaviour (comportement)",
                               "behaviour [0..13]", "0=Normal 1=Sportif 2=Aggressive 3=Discreet 4=Protopack. Routes through SetComportement.");
     Console_RegisterCommandEx("weapon", cmd_weapon, "Read/set hero active weapon",
@@ -1979,6 +2088,29 @@ void Console_RegisterAll(void) {
                               "Cost when active is ~1 us/frame; zero when inactive. See docs/PERFTRACE.md.");
 
     Console_RegisterCvar("fps", &DebugFps, CONSOLE_CVAR_BOOL, "Frame rate display");
+    Console_RegisterCvar("camfollow", &FollowCamera, CONSOLE_CVAR_BOOL, "Follow camera (0 = classic)");
+    Console_RegisterCvar("firstperson", &CameraFirstPerson, CONSOLE_CVAR_BOOL, "First-person camera (VR)");
+    Console_RegisterCvar("brightness", &DisplayBrightness, CONSOLE_CVAR_INT, "Image brightness (-20..20)");
+    Console_RegisterCvar("contrast", &DisplayContrast, CONSOLE_CVAR_INT, "Image contrast (-20..20)");
+    Console_RegisterCvar("saturation", &DisplaySaturation, CONSOLE_CVAR_INT, "Image saturation (-20..20)");
+#ifdef USE_GPURENDERER
+    Console_RegisterCvar("dither", &DisplayDither, CONSOLE_CVAR_BOOL,
+                         "Ordered dithering between palette/CLUT rows (GL)");
+    Console_RegisterCvar("softshadows", &DisplaySoftShadows, CONSOLE_CVAR_BOOL,
+                         "Feathered ground shadows (GL)");
+    Console_RegisterCvar("colorgrade", &DisplayColorGrade, CONSOLE_CVAR_INT,
+                         "Scene grading: 0=off 1=warm 2=cool (GL)");
+    Console_RegisterCvar("subpixel", &DisplaySubPixel, CONSOLE_CVAR_BOOL,
+                         "Sub-pixel interior pan (GL)");
+    Console_RegisterCvar("sharpen", &DisplaySharpen, CONSOLE_CVAR_INT,
+                         "Present sharpening: 0=off 1=low 2=high (GL)");
+#endif
+    Console_RegisterCvar("vrzoom", &VrFovScale, CONSOLE_CVAR_INT, "VR world zoom percent of eye FOV (50..120, 100 = natural)");
+    Console_RegisterCvar("vrhover", &VrInteriorHover, CONSOLE_CVAR_BOOL, "Quest interior head-tracked hover camera");
+    Console_RegisterCvar("vrpassthrough", &VrPassthrough, CONSOLE_CVAR_BOOL, "Quest interiors: black scene background shows the passthrough camera");
+    Console_RegisterCvar("vrbody", &VrFullBody, CONSOLE_CVAR_BOOL, "Quest first-person stereo body and independent hand IK");
+    Console_RegisterCvar("vrworldscale", &VrWorldScale, CONSOLE_CVAR_INT, "Quest world scale percent (50..200, 100 = current)");
+    Console_RegisterCvar("vrbodyhide", &VrBodyHideGroups, CONSOLE_CVAR_INT, "Body groups hidden from the first-person camera (-1 = per body)");
     Console_RegisterCvar("horizon", (void *)&FlagDrawHorizon, CONSOLE_CVAR_BOOL_U8, "Draw horizon/cubes around");
     Console_RegisterCvar("zv", &DrawZVObjets, CONSOLE_CVAR_BOOL, "Draw ZV boxes");
 

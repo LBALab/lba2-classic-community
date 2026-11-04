@@ -49,7 +49,7 @@
 #define I_PROTECTION (1 << 2) // 'C'		Sort de Protection
 #define I_FOUDRE (1 << 3)     // 'F'		Sort de Foudre
 
-#define MAX_INPUT 36
+#define MAX_INPUT 37
 
 #define I_JOY (I_UP | I_DOWN | I_LEFT | I_RIGHT)
 #define I_FIRE (I_ACTION_M | I_INVENTORY | I_RETURN | I_THROW | I_COMPORTEMENT)

@@ -14,4 +14,12 @@ extern void AffichageObjetDecorsZBuf(void);
 /*--------------------------------------------------------------------------*/
 extern S32 TestZVDecors(S32 xw, S32 yw, S32 zw, T_DECORS *objet);
 
+/*--------------------------------------------------------------------------*/
+/* Queue a cube's decor list for background body/VBO warm-up.  Called from
+   LoadCube() so off-screen horizon cubes are warmed before a turn reveals
+   them. */
+extern void GPU_DecorWarmCube(S32 x, S32 y, const void *list, S32 count);
+/* Build at most a small budget of queued decors this frame. */
+extern void GPU_DecorWarmStep(void);
+
 #endif // DECORS_H

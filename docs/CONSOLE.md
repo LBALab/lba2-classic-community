@@ -50,6 +50,10 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 - **clover** – clover
 - **box** – clover box
 - **pingouin** – MecaPingouin
+- **god** – toggle god mode
+- **sendell** – toggle Sendell power (one-punch kills)
+
+The same cheats are also reachable without typing: the Options menu has a **Cheats** submenu with one row per cheat (see [MENU.md](MENU.md)).
 
 ## Commands
 
@@ -64,14 +68,17 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 | **timer** [ms] | Advance in-game timer by N ms (default 200). |
 | **status** | Print island, cube, chapter, object/zone counts, FPS, timer, position. |
 | **screenshot** | Save the next frame as PNG in the shoot directory without the console visible (uses SavePNG). |
+| **shot** [path] | Save the next frame as PNG to an explicit path (Android default `/sdcard/lba2cc/shot.png`). Unlike `screenshot` it writes outside the app's private save tree, so a device frame can be pulled off and inspected at engine resolution. |
 | **give** &lt;item&gt; [count] | Grant an inventory item by name — run `give` with no args to list item names; a numeric index still works as a fallback. Writes possession, refreshes the inventory, and plays the “found object” cinematic for real inventory slots. `count` applies to countable items (darts, money, gem, penguin, clover). |
 | **teleport** &lt;x&gt; &lt;y&gt; &lt;z&gt; [beta] \| **teleport actor** &lt;n&gt; | Reposition the hero in the current cube (sets `Obj` coords directly; the next simulated frame re-runs zone detection and collision from the new spot). `actor <n>` jumps onto actor n, the quick way to reach a zone-gated interaction without walking. Within-cube only (cross-cube needs `ChangeCube`). |
+| **camangle** [alpha] [beta] [dist] | Read or set the exterior camera orbit, elevation and distance globals (`AlphaCam`/`BetaCam`/`VueDistance`, LBA angle units) directly. Input injection cannot drive the camera sticks headlessly, so this is the probe for camera-dependent rendering bugs: pair with `camfollow 1` + `cam_hold_angle 1` to stop the follow camera re-centering, sweep angles, and screenshot each. |
 | **input** &lt;flags&gt; [ticks] \| **input seq** &lt;t:flags:dur[/…]&gt; \| **input fseq** &lt;f:flags:dur[/…]&gt; \| **input trace** &lt;0\|1&gt; \| **input off** | Drive the hero without a keyboard, metered in **sim ticks** so a hold means the same amount of gameplay at any `--fixed-timestep` (a throttle-skipped frame consumes no tick): `input up 120` floats/walks forward, `input up+throw 30` holds a combo. Flags: `up down left right action search throw esquive inventory holomap`, combined with `+` or `,` (or a raw `0xNNN` mask). `seq` schedules a sim-tick timeline (`0:up:60/60:up+throw:30`); `fseq` schedules it in **rendered frames**, so a press can be placed on a throttle-skipped frame to reproduce the input-edge drop. `trace 1` logs the injected mask + hero anim/pos each sim tick. See docs/INPUT_SIM_PLAN.md. |
 | **varcube** &lt;n&gt; [value] | Read (no value) or set a scene (cube) Life variable, `n` in `0..79`. Drives quest state, e.g. arm the flag an NPC's script waits on. |
 | **vargame** &lt;n&gt; [value] | Read (no value) or set a game Life variable, `n` in `0..255`. Drives quest / inventory state. |
 | **lifetrace** &lt;objN&gt; \| off | Trace object N's Life script: its comportement/track/zone state each frame, every `LF_` condition it evaluates (with the branch `Value`), and the **actions** it takes (`SET`/`ADD`/`SUB` on cube/game vars, `MESSAGE` dialogs, `FOUND_OBJECT` gives). An NPC-script debugger showing both what a script checks and what it does to game state, e.g. `SET cube_var[16] = 0`. |
 | **useitem** &lt;n&gt; [frames] [delay] \| **useitem trace** &lt;0\|1&gt; | Inject a one-frame inventory item-use of var-game item `n` (as opening the inventory and using it would), so an NPC's give-item check (`LF_USE_INVENTORY`) can be driven headlessly. `frames` injects over N frames; `delay` waits N frames first (to land past a load's clock jump on a throttle-skip frame). `trace 1` logs each `LF_USE_INVENTORY` result. |
 | **cubetrace** &lt;0\|1&gt; | Log every cube transition (`island N: A -> B`) on each `ChangeCube`. Run a playthrough or the demo reel with it on to trace out the game's cube-to-cube flow map. |
+| **spawnextra** &lt;sprite&gt; [count] | Drop a bouncing bonus extra (`ExtraBonus`) next to the hero — the repro hook for sprite-extra rendering (coins, hearts, magic flasks, the thrown ball). `sprite` is a GOODRAW index (`SPRITE_*` in COMMON.H): 2 dart, 4 heart, 5 magic flask, 8 magic ball, 18 kashes. |
 | **zonelist** [type] | List the current cube's scene zones (`ListZone`): each box `(X0,Y0,Z0)-(X1,Y1,Z1)`, its `Type` (`cube`/`camera`/`scenaric`/`giver`/`message`/`ladder`/etc.), `Num` and `Info` fields, marking the zone the hero currently stands in. Zones are what a walkthrough actually turns on: a `scenaric` box sets the hero's `ZoneSce` (read by his Life script via `LF_ZONE_OBJ` to award a pickup or fire an event), a `giver` box hands an item on action inside it, a `cube` box changes scene. Yet they are invisible to `--dump-state` (which only reports the count). Printing the boxes turns "walk to the drawer" into a concrete `teleport <x> <y> <z>` the harness can drive. Optional `type` filters to one zone type. |
 | **skipmodals** &lt;0\|1&gt; | Abort dialogue modals immediately (as if pressing Esc) so a headless run does not hang on a give/talk dialog: the dialogue box spins waiting for a keypress while the main tick loop is stalled. The script continues past the dialog with no quest-state change, so a give still registers. |
 | **playvideo** &lt;name&gt; | Play ACF video by name. |

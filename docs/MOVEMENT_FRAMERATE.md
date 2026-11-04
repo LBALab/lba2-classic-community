@@ -45,9 +45,8 @@ matches every field observation. "Vsync off is worse, on is better" (off is unca
 high fps). "Slower on a high-refresh monitor" (above 60 Hz). "Happens on the M1 at
 Classic res" (a fast machine exceeding 60 fps). "Slowest NPCs most affected."
 
-The unit test `tests/movement/test_move_framerate.cpp` reproduces the same shape on a
-synthetic 4-keyframe walk with no game data: 100% of ideal at high fps, plateauing at
-78% from ~60 fps down.
+A synthetic 4-keyframe walk with no game data reproduces the same shape: 100% of ideal
+at high fps, plateauing at 78% from ~60 fps down.
 
 ## Mechanism
 
@@ -311,25 +310,16 @@ and is tracked as a separate enhancement.
 
 ## Tests
 
-Test level must match the fix level. The fix is in the main loop, so:
+The fix is in the main loop, so:
 
-- **Characterization (CI, `tests/movement/test_move_framerate.cpp`).** Drives the real
-  `ObjectSetInterDep` over a fixed game-time span at several dt and asserts the walked
-  distance matches. CPP-only, deterministic, no game data. RED today; pins the coupling
-  as an executable fact. It is not the merge gate (a main-loop fix does not change this
-  function's per-call dt sensitivity), it is the root-cause proof.
-- **End-to-end (local, `tests/automation/test_move_framerate.sh`).** Loads a save and
-  compares how far the scene's scripted movers travel over the same game-time at ~60 fps
-  vs ~16 fps. RED today (~12% gap on Desert Island). Needs retail data, so it is
-  local-only, not CI.
 - **Scheduler core (CI, `tests/timer/test_fixed_step.cpp`).** Drives the pure
   `Timer_FixedStepCount` and asserts the step count over a fixed span of wall-time is
   identical across steady / fine / coarse / jittery frame pacing (exactly 1000 steps over
   16000 ms at dt=16), plus the clamp and guards. GREEN. This is the clean CI gate for the
   fix's core logic.
-- **To come with the wiring.** Re-point the end-to-end test at a render-rate knob (vary
-  render fps with the sim pinned) so it verifies movement invariance after the MainLoop
-  split, rather than the `--fixed-dt` sweep (which drives the sim step directly).
+- **To come with the wiring.** Vary render fps with the sim pinned so movement
+  invariance is verified after the MainLoop split, rather than through the `--fixed-dt`
+  sweep (which drives the sim step directly).
 
 ## Related
 

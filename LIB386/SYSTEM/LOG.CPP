@@ -16,6 +16,34 @@
 #include <unistd.h> /* isatty, fileno */
 #endif
 
+#ifdef __ANDROID__
+/* On Android, stderr is /dev/null from the activity process — invisible to
+ * adb logcat. Mirror the terminal sink into __android_log_print under a stable
+ * tag so the engine's log surface stays observable via `adb logcat -s lba2cc`.
+ * On non-Android builds this header is absent and the call is a no-op (see
+ * term_sink_write below). */
+#include <android/log.h>
+#define LBA2_LOGCAT_TAG "lba2cc"
+static int sev_to_android(LogSeverity s) {
+    switch (s) {
+    case LOG_DEBUG:
+        return ANDROID_LOG_DEBUG;
+    case LOG_INFO:
+        return ANDROID_LOG_INFO;
+    case LOG_WARN:
+        return ANDROID_LOG_WARN;
+    case LOG_ERROR:
+        return ANDROID_LOG_ERROR;
+    }
+    return ANDROID_LOG_INFO;
+}
+static void logcat_emit(LogSeverity sev, const char *msg) {
+    if (!msg)
+        return;
+    __android_log_print(sev_to_android(sev), LBA2_LOGCAT_TAG, "%s", msg);
+}
+#endif
+
 #ifndef LBA_LOG_NO_SDL
 #include <SDL3/SDL_log.h>
 /* App-defined SDL log categories: ordinary records, section begin, section end —
@@ -152,6 +180,24 @@ const char *severity_color(LogSeverity sev) {
 
 void term_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) {
     FILE *out = s->fp; /* stderr */
+#ifdef __ANDROID__
+    /* Always mirror to logcat (under "lba2cc") so `adb logcat -s lba2cc` shows
+     * the engine's full log on Android, where stderr is not visible. Use the
+     * plain text form (severity tag, no ANSI) so the lines are grep-friendly. */
+    {
+        char cat[LOG_MSG_MAX + 16];
+        if (kind == REC_SECTION_BEGIN)
+            snprintf(cat, sizeof cat, "==== %s ====", msg);
+        else if (kind == REC_SECTION_END)
+            cat[0] = '\0';
+        else if (kind == REC_RAW || kind == REC_BANNER)
+            snprintf(cat, sizeof cat, "%s", msg);
+        else
+            snprintf(cat, sizeof cat, "[%s] %s", severity_tag(sev), msg);
+        if (cat[0])
+            logcat_emit(sev, cat);
+    }
+#endif
     if (!s->colour) {
         /* Redirected / not a TTY: mirror the file sink's plain format so a
          * headless run's stderr is self-describing (severity tag, no ANSI). */

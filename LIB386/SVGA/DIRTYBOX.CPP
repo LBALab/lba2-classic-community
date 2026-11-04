@@ -8,8 +8,10 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/ADELINE.H>
+#include <GL/RENDER_GL.H>
 #include <SYSTEM/CPU.H>
 #include <SYSTEM/EVENTS.H>
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/N_MALLOC.H>
 #include <SYSTEM/TIMER.H>
@@ -41,6 +43,10 @@ static T_BOX *pBoxFree = NULL;
 static T_BOX *pBoxStaticList = NULL;
 static T_BOX *pBoxOptList = NULL;
 static T_BOX *pBoxMovingList = NULL;
+/* A moving box marks 2D content that can differ between stereo eyes (world
+ * sprites, dialogue, counters).  The GL present path uses this to decide
+ * whether eye 1 may reuse eye 0's overlay texture. */
+static S32 s_BoxMovingWrites = 0;
 
 // --- Private functions -------------------------------------------------------
 void NewBox(T_BOX **boxlist, S32 x0, S32 y0, S32 x1, S32 y1);
@@ -328,6 +334,7 @@ again:
 void BoxMovingAdd(S32 x0, S32 y0, S32 x1, S32 y1) {
     CheckClip();
 
+    s_BoxMovingWrites = 1;
     NewBox(&pBoxMovingList, x0, y0, x1, y1);
 }
 
@@ -342,6 +349,7 @@ void BoxUnstaticAdd(S32 x0, S32 y0, S32 x1, S32 y1) {
 
     CheckClip();
 
+    s_BoxMovingWrites = 1;
     x0 &= BoxMask;
     x1 = (x1 + BoxAlign) & BoxMask;
 
@@ -361,6 +369,7 @@ void BoxCls(S32 x0, S32 y0, S32 x1, S32 y1) {
 
     CheckClip();
 
+    s_BoxMovingWrites = 1;
     x0 &= BoxMask;
     x1 = (x1 + BoxAlign) & BoxMask;
 
@@ -379,6 +388,11 @@ void BoxReset() {
     EmptyList(&pBoxMovingList);
     EmptyList(&pBoxStaticList);
     EmptyList(&pBoxOptList);
+    s_BoxMovingWrites = 0;
+}
+
+S32 BoxHadMovingWrites(void) {
+    return s_BoxMovingWrites;
 }
 
 void BoxBlitStaticListToScreen() {
@@ -400,15 +414,39 @@ void BoxBlit() {
 
     // One presented frame. Under fixed-dt this steps the virtual clock for modal inner
     // loops (no-op for the main loop's own render and for non-fixed-dt runs).
-    Timer_FixedDtPresent();
+    // In stereo capture the left eye's AffScene also funnels here; its present
+    // is suppressed (GL_Present skips the swap), so it must not step the clock
+    // either — the right eye's real present does, exactly once.
+    // Stereo presents: the left eye steps the fixed-dt clock, and the eye 1
+    // pass reuses eye 0's input state (its present only draws the HUD half).
+#if defined(USE_GPURENDERER)
+    if (GL_GetStereoEye() != 0)
+        Timer_FixedDtPresent();
+#endif
 
-    ManageEvents();
+#ifdef USE_GPURENDERER
+    const S32 eye1Pass = (GL_GetStereoEye() == 1 && GL_SinglePassStereoActive());
+#else
+    const S32 eye1Pass = FALSE;
+#endif
+    if (!eye1Pass)
+        ManageEvents();
 
     MergeLists(&pBoxOptList, pBoxMovingList); // rebuild BoxOptList
 
     if (pBoxStaticList) {
         MergeListsAndEmpty(&pBoxOptList,
                            &pBoxStaticList); // add static boxes and clear
+    }
+
+    /* DEBUG: count boxes in opt list */
+    {
+        int count = 0;
+        T_BOX *dbg = pBoxOptList;
+        while (dbg) {
+            count++;
+            dbg = dbg->pBoxNext;
+        }
     }
 
     if (MouseSpriteShouldDraw()) // Display mouse (see MOUSE.CPP)
@@ -516,6 +554,9 @@ void BoxStaticFullflip() {
     BoxReset();
     BoxStaticAdd(BoxClipXMin, BoxClipYMin, BoxClipXMax - 1, BoxClipYMax - 1);
     BoxUpdate();
+    /* BoxUpdate -> BoxBlit -> PresentFrame -> GL_Present -> Window_GL_SwapWindow
+     * is the single present funnel; on the Quest that path owns the OpenXR
+     * present, so no explicit OpenXR call is needed here. */
 }
 
 void BoxChangeClip(S32 x0, S32 y0, S32 x1, S32 y1, S32 clean) {

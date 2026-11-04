@@ -80,7 +80,9 @@ Probes terrain and decors along the camera-to-target line to find an unoccluded 
 
 ## Auto camera (`FollowCamera` — community addition, not in the original game)
 
-Config key `FollowCamera` (0 = classic, 1 = auto; default 0). Also reads legacy key `AutoCameraCenter` for backward compatibility. Toggled in Options → Advanced options ("Auto camera" / "Classic camera" — localized). Off by default so the original camera behavior is preserved.
+Config key `FollowCamera` (0 = classic, 1 = auto; default 0). Also reads legacy key `AutoCameraCenter` for backward compatibility. Toggled in Options → Gameplay ("Auto camera" / "Classic camera" — localized). Off by default so the original camera behavior is preserved.
+
+The default arm starts at `FOLLOW_CAM_DEFAULT_DIST` (6046) with `FOLLOW_CAM_DEFAULT_ALPHA` (195). Entering Auto camera resets to those defaults; manual zoom and tilt then adjust from there.
 
 When enabled in exterior mode (and not in a camera zone or cinema), the implementation is a third-person follow with several coupled pieces (tuning in `FOLLOWCAM_CFG.H`, logic in `PERSO.CPP` / `EXTFUNC.CPP`):
 
@@ -165,13 +167,13 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 | Ground/occlusion clearance | SOURCES/PERSO.CPP, FOLLOWCAM_CFG.H | `FollowCamEyeLift`, `FollowCamGroundSettling`, `FollowCamGround`, `FollowCamGroundClearance`, `cam_ground*` cvars |
 | Manual-override fade    | SOURCES/PERSO.CPP, SOURCES/EXTFUNC.CPP | `FollowCamManualHold`, `FollowCamManualHoldFrames`, `autoFactor`, `cam_manual_hold` cvar |
 | Config read/write       | SOURCES/PERSO.CPP          | `ReadConfigFile`, `WriteConfigFile`                                                 |
-| Menu toggle             | SOURCES/GAMEMENU.CPP       | `GereAdvancedOptionsMenu`                                                           |
+| Menu toggle             | SOURCES/GAMEMENU_OPTIONS.CPP | `GereGameplayMenu`                                                                |
 
 
 ## Cross-references
 
 - [CONFIG.md](CONFIG.md) — `FollowCamera` key (Auto camera)
-- [MENU.md](MENU.md) — Advanced options menu entry
+- [MENU.md](MENU.md) — Gameplay menu entry
 - [GLOSSARY.md](GLOSSARY.md) — Zone type 1 = camera zone; `AllCameras`
 - [LIFECYCLES.md](LIFECYCLES.md) — Scene load phase 6: initialize camera; main loop step 7: `AffScene`
 

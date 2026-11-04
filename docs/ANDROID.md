@@ -160,6 +160,13 @@ by editing the `kButtons[]` table (normalised 0..1 coordinates).
 - **Software renderer**: The game uses a software 8-bit→ARGB pipeline.
   Performance on modern ARM64 devices is acceptable at 640x480.
   On older 32-bit ARM (armeabi-v7a) devices, expect lower framerates.
+- **Graphics quality (SSAA)**: The Display → Graphics → Quality row is
+  desktop-only. Android fixes render quality at Native: 2x/4x SSAA at headset
+  resolution exceeds the mobile GPU's fill-rate and memory budget. Use
+  Antialiasing (MSAA×2 or FXAA) or, on a headset, Display → VR → Supersampling
+  (Off / 1.25x / 1.5x). Supersampling renders the 3D scene above the eye buffer
+  and downsamples it on present; it costs fill rate and memory, and reverts to
+  the previous scale if the target cannot be allocated.
 - **CD audio**: CD-ROM music tracks are not available. Use the digital
   sample backend (`SOUND_BACKEND=sdl`).
 - **Text input**: Console commands still require a hardware keyboard. Save-game
@@ -173,3 +180,280 @@ by editing the `kButtons[]` table (normalised 0..1 coordinates).
 - **Android TV**: Touch overlay is automatically disabled when a TV device
   is detected (`android.software.leanback` feature). Use a gamepad or
   remote control instead.
+
+## OpenXR (Meta Quest 3)
+
+Optional, off by default. The Quest build preset (`cmake --preset quest`)
+turns on `-DLBA2_OPENXR=ON` and makes the engine speak to the OpenXR
+runtime on the headset. With the Stereo 3D display option enabled, both
+eyes render into the left and right halves of one double-wide MSAA scene
+target, and `OpenXR_PresentMono` blits that target into the double-wide
+swapchain in one pass. When brightness, contrast, or saturation is
+non-neutral, that final pass applies the display transform to the whole
+pair instead of costing a second composite. AA off and MSAA both use the
+pair; per-eye capture FBOs remain as a fallback for FXAA, which runs as a
+per-eye composite post pass, or for a double-wide FBO failure. Interior
+parallax depends on the pair: the isometric projection is affine and ignores
+the per-eye camera shift, so the per-eye path renders both halves from one
+camera and the room looks flat. Set
+`LBA2_OXR_GLDEBUG=1` to log GL errors from the present stages; release runs
+skip the per-present error queries.
+
+Exterior scenes use a single-pass path: the 3D scene is traversed once from
+the eye-0 camera, and each draw is submitted twice with its own scissor and
+an eye-1 camera delta supplied to the shader. The screen-space 2D overlay is
+drawn once for the pair, at eye 1's present, after the scene resolve, and
+painted into both halves from one band list: the two eyes cannot drift apart,
+and the glyphs avoid the MSAA softening the scene target applies to everything
+else. Eye 1 also skips the terrain and decor walk, the object
+sort insertions and 3D GL calls; the object walk still performs its state
+updates. CPU culling widens edge candidates by the eye-1 disparity, so
+geometry visible only in the second eye is not rejected by the eye-0
+projection. Tracked per-eye orientation is not a pure translation, so true
+6dof first-person keeps the two-pass eye renderer. The two-pass path remains
+the fallback and the reference for visual comparisons.
+
+In first-person stereo the magic ball leaves the tracked right hand rather
+than the hidden hero: holding Throw shows the ball on that hand's palm and
+arms the throw, and the release uses the aim pose or the swing captured during
+the hold for direction. Speed and gravity come from the hero's normal lance
+animation, so the ball travels the same as in the classic and auto cameras.
+The throw still runs through `ThrowMagicBall`, so magic cost, the sample, the
+fire trail and the release/recall flags are unchanged. This path is
+independent of the full-body ghost, so it also works with `VrFullBody` off.
+`LBA2_NO_VR_THROW=1` restores the animation-driven throw for A/B.
+
+If a tracked hand is farther than the model can reach, the first-person ghost
+scales its upper-arm and forearm groups along the bone (up to 2×) so the hand
+meets the controller. The unmodified body is still used for the rig and IK; the
+scaled body copy exists only for the ghost draw. The ghost's torso is held at
+rest, and the medallion chain and disc are held at their bind pose as well, so
+the swing authored for the third-person body does not read as the medallion
+floating on its own.
+
+The optional interior hover rig (`VrInteriorHover`, Display → VR → Interior
+hover, console `vrhover`) treats the head as a camera flying over the room. A
+head turn moves the isometric projection centre by exactly the angle turned
+in the eye's own projection (`focal * tan(angle)`), so the room stays hung in
+the world instead of following the face; looking far enough carries it out of
+view. A head lean feeds the single-pass stereo stages a camera delta common
+to both eyes (`GL_SetSinglePassBaseDelta`), so near planes move further than
+far ones and the lean reads as depth. The brick background takes the same
+projection delta (`Map2ScreenPanned`), so models and room cannot slide
+against each other. Roll is held level: the room is one authored isometric
+composite and rolling it would only rotate a painted image with no hidden
+surfaces. The rig anchors the pose when it engages and recaptures on Enter or
+a cube change, so enabling it never jumps the view. The head look runs inside
+an authored camera zone too (the zone chooses the room framing, not the
+projection centre); only cinema scenes keep the authored view. A modal
+dialogue keeps the rig live: the world already advances behind the box, so
+the head look and the right-stick pan/zoom keep moving the room as well.
+
+The optional interior passthrough (`VrPassthrough`, Display → VR →
+Passthrough, console `vrpassthrough`) makes the black margin around the
+isometric room transparent. `AffGrille` clears the scene target to palette 0
+with alpha 0 while the option is on and the scene is an interior; the present
+submits an `XR_FB_passthrough` reconstruction layer below the projection
+layer and alpha-blends the projection over it (straight alpha, so a
+non-neutral display transform cannot tint the transparent margin). Cutscenes
+(`CinemaMode`) and exterior scenes stay opaque, and a scene that fills the
+target simply shows no passthrough. The layer is created on first use and
+paused outside interiors. The runtime must expose `XR_FB_passthrough`,
+`XR_FB_triangle_mesh` and `XR_FB_composition_layer_alpha_blend`, the system
+must report the passthrough capability, and the Quest manifest declares
+`com.oculus.feature.PASSTHROUGH`; the VR row is hidden when any of that is
+missing, so desktop and non-Quest builds are unaffected.
+
+Modal dialogue renders outside `MainLoop`'s stereo block but uses the same
+per-eye renderer. Its box, text and portrait are 2D content in `Log`, and the
+per-eye present composites `Log` into each eye, so a stereo dialogue draws the
+overlay before the scene pass and lets that pass submit it once. A separate
+overlay blit must never present on its own: a mono frame between per-eye pairs
+makes both eyes sample the same half, which reads as one eye jumping every
+frame. The per-eye pass clears `Log` so per-eye 2D content (rain drops and
+object incrusts project per eye) cannot stack; the dialogue overlay is
+snapshotted before the pass and restored after each eye's clear. `Screen` keeps
+the pristine dialogue window strip the flat game only preserved because its
+dialogue frames were incremental.
+
+For a device experiment, `LBA2_OXR_DIRECT=1` (or a build configured with
+`-DLBA2_OXR_DIRECT=ON`) renders both eyes and the HUD directly into the
+acquired swapchain texture with `EXT_multisampled_render_to_texture`, removing
+the resolve/blit pair. It is off by default, requires the resolve-in-tile probe
+to pass and a neutral display transform, and falls back to the normal
+double-wide blit on any mismatch or incomplete FBO. The runtime resolves the
+texture when the compositor samples it; if the headset shows a black or
+single-eye image, leave it off. `OpenXRPerf` reports a `direct=` count when the
+path is active.
+
+### Reviewing the stereo pair without the headset
+
+`adb exec-out screencap` on a headset captures the compositor's two eye views,
+but each half carries its own pose/reprojection, so the halves are not
+comparable pixel by pixel. A desktop GL build can render the same pair
+instead:
+
+- `LBA2_FAKE_STEREO=30` forces the double-wide single-pass target on a desktop
+  build and synthesises the eye-1 delta so a point at `aZ` 1000 lands 30 px
+  away (the headset's room depths sit near 900-1300). `--screenshot` then
+  writes both halves side by side at eye resolution.
+- `LBA2_FAKE_STEREO_SS=1` additionally raises the scene target to the
+  headset's 1.5x supersampling, so HUD band/scissor maths is exercised at a
+  non-1:1 scale.
+- `LBA2_SS15=1` raises the scene target to the headset's 1.5x supersampling,
+  which is what makes resampling faults inside the interior's foreground-brick
+  patches visible at all.
+- `LBA2_OVERLAY_OLD=1` restores the earlier one-depth brick-overlay patch and
+  `LBA2_NO_OVERLAY=1` turns the overlay off, to compare what it paints.
+- `LBA2_INTERIOR_STEREO=<percent>` sets the interior stereo baseline as a
+  percentage of the full eye separation (default 55). It applies to the
+  game's own eye delta as well as to the fake pair, so a lower value shows the
+  flattened room the headset renders.
+- `LBA2_NO_NEARCLIP=1` restores the old software fallback for body polygons
+  that cross the near plane, so their single-pass overlay position can be
+  compared with the clipped, per-eye one.
+- `LBA2_FAKE_VR_DIALOG=1` takes the head-mount dialogue layout (strip lifted
+  above the eye's lower periphery), so the dialogue box can be reviewed over
+  the room rather than over the desktop letterbox.
+
+Repro: `LBA2_FAKE_STEREO=30 LBA2_FAKE_VR_DIALOG=1 xvfb-run -a lba2cc
+--no-autosave --load <save> --exec-at 2 "cube 15" --exec-at 4 "teleport 25856
+768 29000" --exec-at 30 "ui dialog 3 /tmp/dlg.png" --fixed-dt 16 --tick 120
+--exit`. The dialog capture path runs `GL_SavePresentPNG`, which writes the
+pair.
+
+### Static terrain on the GPU
+
+Stereo draws exterior terrain through a static VBO path instead of the
+per-tile CPU projection. Each cube's heightfield, UVs, light and packed
+material word are uploaded once as a VBO in cube-local coordinates, the same
+frame `SetPosCamera()` shifts the camera into, and a vertex shader reproduces
+`LongProjectPoint3D`. Clip-space `w` is the camera-space depth, so the GPU
+clips geometry behind the eye; the fragment shader discards the sub-`NearClip`
+sliver and anything past `ClipZFar`, matching the software path's per-tile
+near/far gates. Screen-linear UV and depth interpolation, which the batch
+shader gets from `w = 1`, is restored by premultiplying those varyings by `w`
+and dividing by the interpolated `w`.
+
+The current cube and the eight horizon neighbours use the path; animated
+water/flower tiles stay in the VBO as their current frame and are also
+projected on the CPU into `PtrAniPoly` so the animated-poly pass keeps
+working. Cube VBOs are cached by `(x, y)` with LRU eviction and dropped when
+`LoadIsland()` or `InitSeaCube()` replaces the per-cube HQR data. The cache
+also drops stale handles after a renderer restart without deleting them.
+One off-screen candidate cube is built per frame, so the frame that first
+turns toward a neighbour does not pay for its whole 65×65 upload.
+
+The path is enabled only while a stereo eye is active, so desktop mono builds
+and the ASM/CPU renderer are unchanged. `LBA2_GPU_TERRAIN=1` forces it on a
+desktop GL build for visual comparison, `LBA2_GPU_TERRAIN=0` disables it, and
+`LBA2_TERRAIN_NOCULL=1` turns off back-face culling while comparing against
+the batch path.
+
+In first person, each eye
+renders from its tracked view
+(`OpenXR_GetEyeView`): the orientation comes from the runtime-located
+pose and the IPD split runs along the view-space right axis, so the
+compositor's time-warp reprojects head rotation cleanly and the stereo
+depth is real. The classic and auto cameras keep the game's rig position
+but anchor the view to the world, not to Twinsen: the rig framing
+captured when the look session engages plus the head's world-relative
+rotation 1:1 (recentered on the camera-center key), so the auto
+camera's swings around the hero no longer pan the view, and the tracked
+head translation rides on the rig position as a clamped lean (proper
+6dof, `SOURCES/STEREOLOOK.CPP` holds the conventions). Frames without a
+fresh per-eye pair
+(menus, videos, interiors, the first frame) fall back to a single
+composite copied to both halves. Controller state comes through the
+OpenXR action pipeline, mapped onto the same virtual-scancode space the
+SDL gamepad path uses so `JOYSTICK.CPP` picks it up unchanged. See
+[QUEST_CONTROLS.md](QUEST_CONTROLS.md) for the default controller mapping and
+known gaps.
+
+### Static decors on the GPU
+
+Opaque, non-animated decor bodies (buildings, rocks, signs, and similar
+props) are replayed once in model space and cached as a per-`(body, beta)`
+VBO. The vertex shader applies the decor rotation, the per-decor translation
+and `MatriceWorld`, reproduces the CPU projection, and computes the
+camera-space light; flat, flat-textured and gouraud shading select the same
+palette/CLUT rows as the software handlers. The VBO is split into
+per-texture-page groups and samples the 2D atlas page cache with its
+`RepMask`, so the static path does not use the texture array that corrupted
+pages on Adreno.
+
+The cache is keyed by HQR body index and survives cube changes; only an
+island or phantom-sea load invalidates it. Because a tracked view can turn
+toward decors that were never on screen, `LoadCube()` also queues each cube's
+decor list for a budgeted warm-up (`GPU_DecorWarmCube`/
+`GPU_DecorWarmStep`), so the body decode and VBO build do not all land in the
+frame the player first looks at them. `DecorsPerf` prints `cold`/`warm` build
+counts and `LBA2_NO_DECOR_WARM=1` disables the warm-up for A/B.
+
+Transparent bodies, alpha/stipple polygons, environment mapping,
+lines/spheres and bodies whose normals do not match their points remain on
+the per-frame CPU stream path. The static path runs in mono and stereo GL
+rendering. `LBA2_NO_DECOR_VBO=1` disables it and
+`LBA2_DECOR_NOCULL=1` disables back-face culling for comparison.
+
+The original software filler maps decor/object textures affinely
+(types 8–15), so a large wall seen obliquely swims as the head moves. The GL
+batch uses its existing per-vertex 1/W path for the opaque types; the software
+renderer keeps the affine mapping.
+
+### Where the loader comes from
+
+When `LBA2_OPENXR=ON`, the build consumes the official Khronos Android
+OpenXR loader via a pre-staged install at
+`out/android/openxr/install/`. The AAR
+[`org.khronos.openxr:openxr_loader_for_android`](https://central.sonatype.com/artifact/org.khronos.openxr/openxr_loader_for_android)
+(version 1.1.65) was extracted there once: headers under `include/openxr/`
+and the per-ABI `libopenxr_loader.so` under `lib/`. CMake consumes the
+install through `LBA2_OPENXR_BASE_DIR` and exposes it as the
+`openxr_loader` target.
+
+Pointing `LBA2_OPENXR_BASE_DIR` at a different pre-staged install (or
+setting it empty to have CMake fetch
+[KhronosGroup/OpenXR-SDK](https://github.com/KhronosGroup/OpenXR-SDK)
+release-1.1.43 and build the loader from source) both work; the AAR path
+is what the Quest build uses by default because it ships a loader
+tested against the current Quest firmware.
+
+If no OpenXR runtime is reachable, `OpenXR_Init()` logs the failing
+loader call and the rest of the engine runs unmodified.
+
+### Why the Quest 3 init needs `xrInitializeLoaderKHR`
+
+The Quest 3 forward loader (`libopenxr_forwardloader.so` inside the
+Meta `VrDriver` APK) only hands the runtime to callers that have
+called `xrInitializeLoaderKHR` with the calling app's `JavaVM` and a
+global reference to the activity class. The Khronos loader exposes
+this as a "loader function" through `xrGetInstanceProcAddr` with
+`XR_NULL_HANDLE`. `LIB386/SYSTEM/OPENXR.CPP` does exactly that dance,
+then chains `XrInstanceCreateInfoAndroidKHR` into `xrCreateInstance`
+with `applicationVM` and `applicationActivity` set. The same
+`XrLoaderInitInfoAndroidKHR`/`XrInstanceCreateInfoAndroidKHR` pair
+is what the Meta OpenXR SDK's `XrPassthrough` sample uses.
+
+### Building and running on a Quest 3
+
+```bash
+cmake --preset quest
+cmake --build build/quest
+# Push the resulting liblba2cc.so + assets to the headset; see
+# scripts/packaging/bundle-android.sh for the full bundler flow.
+```
+
+CI publishes the same bundle as
+`lba2cc-<version>-quest-arm64-v8a.apk`. `.github/workflows/quest.yml`
+validates the build on push/PR; `release-quest.yml` (tag releases) and
+`release-latest.yml` (rolling) call `reusable-build-quest.yml`, which
+stages the loader from the Khronos AAR, configures the `quest` preset, and
+passes `packaging/android/AndroidManifest.quest.xml` to the bundler.
+
+### License
+
+Apache 2.0 throughout (Khronos OpenXR SDK + AAR). No Meta SDK is
+fetched or linked; the engine does not need Meta's partner-only
+`com.oculus.systemdriver.DriverLoader` Java class because the Khronos
+loader performs the runtime-broker handshake directly.

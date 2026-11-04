@@ -35,6 +35,23 @@ extern S32 Dial_ForceFlag;
 
 extern S32 FlagAnimWhoSpeak;
 
+/* Non-zero while a dialogue window is open and owns the bottom strip of Log:
+   the box, its text and the speaker's portrait are composited there and are
+   not redrawn by the scene pass. */
+extern S32 Dial_OverlayActive(void);
+
+/* Stereo dialogue overlay snapshot.  The per-eye scene pass clears Log (rain
+   and incrust sprites are projected per eye), so the box/text/portrait are
+   captured before the pass and restored after each eye's clear. */
+extern void Dial_OverlayCapture(void);
+extern S32 Dial_OverlayRestore(void);
+extern S32 Dial_OverlayRestoreFrom(S32 y0);
+extern void Dial_OverlayInvalidate(void);
+
+/* Hold the last overlay snapshot alive through the post-dialogue wait (the
+   flat dialogue kept it in Log because its frames were incremental). */
+extern void Dial_OverlayHold(S32 hold);
+
 extern S32 Language; // English
 
 #ifdef CDROM

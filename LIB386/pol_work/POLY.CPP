@@ -4,6 +4,7 @@
 
 #include <SYSTEM/UTILS.H>
 #include <SYSTEM/DEBUG_TRACES.H>
+#include <SYSTEM/LOG.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/CLIP.H>
 #include <FILLER.H>
@@ -14,7 +15,14 @@
 
 #ifdef USE_GPURENDERER
 #include <GL/RENDER_GL.H>
+#include <3D/DECORVBO.H>
 extern S32 GPURendererActive;
+
+/* Camera-space vertices captured by GetZO3/GetZO4 for the GL near-plane
+   clip (defined in LIB386/OBJECT/AFF_OBJ.CPP). */
+extern "C" S32 GL_PolyCamCount;
+extern "C" S32 GL_PolyCam[4][3];
+
 #endif
 
 #include <limits.h>
@@ -153,13 +161,29 @@ S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
 #endif
 
 #ifdef USE_GPURENDERER
+    if (GPURendererActive && DecorVBOActive) {
+        /* The replay capture consumes the body's camera-space vertices; the
+           GL clip must not see a stale set on the next terrain call. */
+        GL_PolyCamCount = 0;
+        DecorVBO_CapturePoly(Type_Poly, Color_Poly, Nb_Points, Ptr_Points);
+        return 1;
+    }
     if (GPURendererActive) {
+        /* Camera-space vertices captured by GetZO3/GetZO4 for the near-plane
+           clip.  Consumed here so a non-body caller (terrain, sky/sea,
+           animated tiles) never inherits the previous polygon's data. */
+        const S32 camCount = GL_PolyCamCount;
+        GL_PolyCamCount = 0;
+        GL_SetPolyCamera(camCount > 0 ? &GL_PolyCam[0][0] : NULL, camCount);
         S32 glResult = GL_RenderTriangleList(Type_Poly, Color_Poly, Nb_Points,
                                              Ptr_Points);
+        GL_SetPolyCamera(NULL, 0);
         if (glResult != 0) {
             return glResult;
         }
         /* GL didn't handle this polygon type — fall through to SW. */
+    } else {
+        GL_PolyCamCount = 0;
     }
 #endif
 
@@ -673,7 +697,7 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points) {
     // ebp = rightPoint = PtC
     // ASM sets fldcw [Status_Int] here — truncation rounding mode
     RoundType = ROUND_TYPE_INT;
-    fesetround(FE_TOWARDZERO);
+    ROUND_SetFpuMode(FE_TOWARDZERO);
 
     Struc_Point *PtA = Fill_LeftPoint;
     Struc_Point *PtB = leftPoint;

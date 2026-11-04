@@ -1,4 +1,11 @@
 #include "C_EXTERN.H"
+#include "GRILLE.H"
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+#include <3D/CAMERA.H>
+#include <POLYGON/POLY.H>
+extern S32 GPURendererActive;
+#endif
 #include "DIRECTORIES.H"
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -429,23 +436,57 @@ S32 AffParticleFlow(S_PART_FLOW *ptrf) {
     S32 n;
     S32 flag = FALSE;
     S_ONE_DOT *ptrd;
+#ifdef USE_GPURENDERER
+    /* Dots drawn into Log are a fixed 2D stamp composited over the 3D FBO,
+       so they paint over buildings regardless of world position.  Batch them
+       into the scene instead: depth-tested for the perspective exterior, and
+       world-anchored (depth test off, painter order) for the isometric
+       interior stereo. */
+    const S32 flowGL = GPURendererActive &&
+                       (CubeMode == CUBE_EXTERIEUR ||
+                        (CubeMode == CUBE_INTERIEUR &&
+                         GL_SinglePassStereoActive()));
+    const S32 flowDepth = GPURendererActive &&
+                          CubeMode == CUBE_EXTERIEUR;
+    if (flowGL) {
+        GL_FlowBatchBegin(flowDepth);
+    }
+#endif
 
     ClearScreenMinMax();
     ptrd = ptrf->PtrListDot;
     for (n = 0; n < ptrf->NbDot; n++, ptrd++) {
         if (ptrd->Mode == DOT_DISPLAY) {
+#ifdef USE_GPURENDERER
+            const S32 flowWX = ptrd->X;
+            const S32 flowWZ = ptrd->Z;
+#endif
             X0 = ptrd->X;
             Y0 = ptrd->Y;
             Z0 = ptrd->Z;
 
             LongWorldRotatePoint(X0, Y0, Z0);
             if (LongProjectPoint(X0, Y0, Z0)) {
-#ifdef LBA_EDITOR
-                if (!(FlagInfos & INFO_BOX_FLOW))
-                    Plot(Xp, Yp, ptrd->Couleur);
-                else
+#ifdef USE_GPURENDERER
+                if (flowGL) {
+                    if (Xp >= ClipXMin && Xp < ClipXMax && Yp >= ClipYMin &&
+                        Yp < ClipYMax) {
+                        const U16 az =
+                            flowDepth
+                                ? (U16)GET_ZO(CameraZr - Z0)
+                                : InteriorWorldAz(flowWX, flowWZ);
+                        GL_FlowBatchRect(Xp, Yp, ptrd->Couleur, az);
+                    }
+                } else
 #endif
-                    BoxFlow(Xp, Yp, ptrd->Couleur);
+                {
+#ifdef LBA_EDITOR
+                    if (!(FlagInfos & INFO_BOX_FLOW))
+                        Plot(Xp, Yp, ptrd->Couleur);
+                    else
+#endif
+                        BoxFlow(Xp, Yp, ptrd->Couleur);
+                }
 
                 if (Xp < ScreenXMin)
                     ScreenXMin = Xp;
@@ -459,6 +500,12 @@ S32 AffParticleFlow(S_PART_FLOW *ptrf) {
             }
         }
     }
+
+#ifdef USE_GPURENDERER
+    if (flowGL) {
+        GL_FlowBatchEnd();
+    }
+#endif
 
 #ifdef LBA_EDITOR
     if (FlagInfos & INFO_DRAW_ZV) {

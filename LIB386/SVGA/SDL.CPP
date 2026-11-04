@@ -38,9 +38,11 @@ S32 screenLockCount = 0;
 bool frameDirty = false;
 static PrePresentFn s_prePresent = NULL;
 static PrePresentFn s_overlayPrePresent = NULL;
+static PrePresentActiveFn s_prePresentActive = NULL;
 static PresentTimingFn s_presentBegin = NULL;
 static PresentTimingFn s_presentEnd = NULL;
 static U32 paletteLUT[PAL_MAX_COLORS];
+static U32 s_paletteGeneration = 1;
 #if defined(__ANDROID__)
 /* Persistent staging buffer for the Android present path (see
  * AcquirePresentTarget): reused across frames, resized on demand, freed in
@@ -55,6 +57,10 @@ const U32 *GL_GetPaletteLUT(void) {
     return paletteLUT;
 }
 
+U32 GL_GetPaletteGeneration(void) {
+    return s_paletteGeneration;
+}
+
 static void RebuildPaletteLUT() {
     if (!sdlPalette) {
         return;
@@ -63,6 +69,7 @@ static void RebuildPaletteLUT() {
         SDL_Color c = sdlPalette->colors[i];
         paletteLUT[i] = ((U32)0xFF << 24) | ((U32)c.r << 16) | ((U32)c.g << 8) | c.b;
     }
+    s_paletteGeneration++;
 }
 
 // --- Initialization ----------------------------------------------------------
@@ -158,7 +165,15 @@ void UnlockVideoSurface() {
         --screenLockCount;
     }
 
+    static S32 s_unlockLogCount = 0;
+    if (s_unlockLogCount < 3) {
+        Log_Info("UnlockVideoSurface: lockCount=%d frameDirty=%d", screenLockCount, (int)frameDirty);
+        s_unlockLogCount++;
+    }
     if (screenLockCount == 0 && frameDirty) {
+        if (s_unlockLogCount < 3) {
+            Log_Info("UnlockVideoSurface: calling PresentFrame");
+        }
         if (s_presentBegin)
             s_presentBegin();
         PresentFrame();
@@ -166,6 +181,15 @@ void UnlockVideoSurface() {
             s_presentEnd();
         frameDirty = false;
     }
+#ifdef USE_GPURENDERER
+    else if (screenLockCount == 0 && GL_GetStereoEye() >= 0) {
+        /* Stereo pair: eye 0's present consumed frameDirty, and eye 1's 2D
+         * Log is identical to eye 0's, so without this the right eye's
+         * composite would be skipped and its capture FBO would go stale
+         * while the left eye stays fresh. Each eye of a pair must present. */
+        PresentFrame();
+    }
+#endif
 }
 
 void WaitVideoSync() {
@@ -220,10 +244,24 @@ void SetVideoPaletteCol(S32 colorIdx, U8 r, U8 g, U8 b) {
     }
 
     paletteLUT[colorIdx] = ((U32)0xFF << 24) | ((U32)r << 16) | ((U32)g << 8) | b;
+    s_paletteGeneration++;
 }
 
 void SetVideoPaletteSync(const U8 src[]) {
+    if (sdlPalette == NULL) {
+        return; /* video not initialized yet; nothing to sync */
+    }
     SetVideoPalette(src, 0, PAL_MAX_COLORS);
+    /* The GL renderer bakes scene colors from this palette into its
+       framebuffer, so a palette change recolors the whole scene.  Frames
+       that only redraw bodies over preserved terrain would otherwise keep
+       showing terrain shaded with the previous palette — black after a
+       load, until a camera move forces a full redraw. */
+#ifdef USE_GPURENDERER
+    if (GPURendererActive) {
+        BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
+    }
+#endif
 }
 
 void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[],
@@ -249,6 +287,10 @@ void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[],
 
 void SetPrePresentCallback(PrePresentFn fn) {
     s_prePresent = fn;
+}
+
+void SetPrePresentActiveCallback(PrePresentActiveFn fn) {
+    s_prePresentActive = fn;
 }
 
 void SetOverlayPrePresentCallback(PrePresentFn fn) {
@@ -298,6 +340,55 @@ static void CommitPresentTarget(void * /*pixels*/, U32 /*pitch*/) {
 }
 #endif
 
+/* ── Software frame limiter ─────────────────────────────────────────────── */
+
+static S32 s_frameLimit = 0;
+static U64 s_frameLimitNext = 0;
+
+void Window_SetFrameLimit(int fps) {
+    if (fps < 0)
+        fps = 0;
+    s_frameLimit = fps;
+    s_frameLimitNext = 0;
+}
+
+/* Called at the end of every presented frame. With vsync on the swap has
+   usually already blocked out most of the budget, so the wait below shrinks
+   to nothing; with vsync off this is the only pacing. The spin tail keeps
+   90/120 fps targets accurate: SDL_Delay alone rounds up to the OS
+   scheduler tick. */
+static void FrameLimitWait(void) {
+    U64 now;
+
+    if (s_frameLimit <= 0) {
+        s_frameLimitNext = 0;
+        return;
+    }
+
+    const U64 freq = SDL_GetPerformanceFrequency();
+    const U64 frame = freq / (U64)s_frameLimit;
+    now = SDL_GetPerformanceCounter();
+
+    if (s_frameLimitNext == 0 || now + frame < s_frameLimitNext) {
+        /* First frame, or a long stall (modal hang, load): restart the
+           cadence from now instead of burst-catching-up. */
+        s_frameLimitNext = now + frame;
+        return;
+    }
+
+    if (now < s_frameLimitNext) {
+        const U64 remainingNs =
+            (s_frameLimitNext - now) * 1000000000ULL / freq;
+        if (remainingNs > 3000000ULL) {
+            SDL_Delay((Uint32)((remainingNs - 2000000ULL) / 1000000ULL));
+        }
+        while ((now = SDL_GetPerformanceCounter()) < s_frameLimitNext) {
+        }
+    }
+
+    s_frameLimitNext += frame;
+}
+
 static void PresentFrame() {
     assert(sdlPalette != NULL);
     assert(Log != NULL);
@@ -311,34 +402,52 @@ static void PresentFrame() {
            with optional bilinear filtering. The palette conversion is the
            same work as the SDL path; the difference is GL handles the
            upscale filtering. */
-        static U32 *s_glStaging = NULL;
-        static U32 s_glStagingSize = 0;
-        U32 needed = ModeDesiredX * ModeDesiredY;
-        if (s_glStagingSize < needed) {
-            free(s_glStaging);
-            s_glStaging = (U32 *)malloc(needed * sizeof(U32));
-            s_glStagingSize = s_glStaging ? needed : 0;
-        }
-        if (s_glStaging == NULL) {
-            return;
-        }
 
-        /* Palette index 0 is the transparent colour: the 3D FBO content
-           shows through wherever the 2D overlay has index 0.  Force alpha
-           to 0 so those pixels are fully transparent when composited. */
-        paletteLUT[0] &= 0x00FFFFFF;
-
-        U8 *logMem = (U8 *)Log;
-        for (U32 y = 0; y < ModeDesiredY; ++y) {
-            U8 *srcRow = logMem + y * ModeDesiredX;
-            U32 *dstRow = s_glStaging + y * ModeDesiredX;
-            for (U32 x = 0; x < ModeDesiredX; ++x) {
-                dstRow[x] = paletteLUT[srcRow[x]];
+        /* Overlay callbacks (console overlay, etc.) draw ARGB directly, so
+           they need the CPU-converted staging buffer. Without them the
+           indexed path uploads the raw palette indices and expands them on
+           the GPU — the CPU per-pixel loop disappears. The active predicate
+           keeps even a registered-but-idle console (the normal state while
+           playing) on the indexed path. */
+        if ((s_prePresent && (!s_prePresentActive || s_prePresentActive())) || s_overlayPrePresent) {
+            static U32 *s_glStaging = NULL;
+            static U32 s_glStagingSize = 0;
+            U32 needed = ModeDesiredX * ModeDesiredY;
+            if (s_glStagingSize < needed) {
+                free(s_glStaging);
+                s_glStaging = (U32 *)malloc(needed * sizeof(U32));
+                s_glStagingSize = s_glStaging ? needed : 0;
             }
-        }
+            if (s_glStaging == NULL) {
+                return;
+            }
 
-        /* Overlay callbacks (console overlay, etc.) */
-        if (s_prePresent || s_overlayPrePresent) {
+            /* Stereo eye 1 presents the same Log as eye 0 — reuse eye 0's
+               converted staging instead of reconverting ~3M pixels per
+               frame (the overlay texture is also skipped for eye 1 in
+               GL_Present). */
+            if (GL_GetStereoEye() == 1) {
+                GL_Present(s_glStaging, ModeDesiredX * 4, ModeDesiredX, ModeDesiredY,
+                           DisplayTexFilter);
+                if (GL_GetStereoEye() != 0)
+                    FrameLimitWait();
+                return;
+            }
+
+            /* Palette index 0 is the transparent colour: the 3D FBO content
+               shows through wherever the 2D overlay has index 0.  Force alpha
+               to 0 so those pixels are fully transparent when composited. */
+            paletteLUT[0] &= 0x00FFFFFF;
+
+            U8 *logMem = (U8 *)Log;
+            for (U32 y = 0; y < ModeDesiredY; ++y) {
+                U8 *srcRow = logMem + y * ModeDesiredX;
+                U32 *dstRow = s_glStaging + y * ModeDesiredX;
+                for (U32 x = 0; x < ModeDesiredX; ++x) {
+                    dstRow[x] = paletteLUT[srcRow[x]];
+                }
+            }
+
             static U8 paletteRgb[256 * 3];
             for (int i = 0; i < 256; i++) {
                 U32 c = paletteLUT[i];
@@ -350,10 +459,23 @@ static void PresentFrame() {
                 s_prePresent(s_glStaging, ModeDesiredX * 4, ModeResX, ModeResY, paletteRgb);
             if (s_overlayPrePresent)
                 s_overlayPrePresent(s_glStaging, ModeDesiredX * 4, ModeResX, ModeResY, paletteRgb);
+
+            GL_Present(s_glStaging, ModeDesiredX * 4, ModeDesiredX, ModeDesiredY,
+                       DisplayTexFilter);
+            if (GL_GetStereoEye() != 0)
+                FrameLimitWait();
+            return;
         }
 
-        GL_Present(s_glStaging, ModeDesiredX * 4, ModeDesiredX, ModeDesiredY,
-                   DisplayTexFilter);
+        /* Palette index 0 is the transparent colour: the 3D FBO content
+           shows through wherever the 2D overlay has index 0.  Force alpha
+           to 0 so the indexed-present shader composites it transparently. */
+        paletteLUT[0] &= 0x00FFFFFF;
+
+        GL_PresentIndexed((const U8 *)Log, ModeDesiredX, ModeDesiredX,
+                          ModeDesiredY, paletteLUT, DisplayTexFilter);
+        if (GL_GetStereoEye() != 0)
+            FrameLimitWait();
         return;
     }
 #endif
@@ -390,6 +512,7 @@ static void PresentFrame() {
     }
 
     CommitPresentTarget(stagingPixels, stagingPitch);
+    FrameLimitWait();
 }
 
 void HandleEventsVideo(const void *event) {

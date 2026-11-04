@@ -55,6 +55,9 @@ S32 GetDxDyGraph(U8 numgraph, S32 *x, S32 *y, const void *bankgraph) {
 
 S32 ClippingGraph(S32 x0, S32 y0, S32 x1, S32 y1, U8 *graphics);
 
+U32 s_censusAffGraph = 0;
+U32 s_censusClippingGraph = 0;
+
 S32 AffGraph(S32 numgraph, S32 x, S32 y, const void *bankgraph) {
     LIB386_TRACE_CPP("AffGraph", "1", "num=%d x=%d y=%d bank=%p", numgraph, x, y, (void *)bankgraph);
     U8 *data = (U8 *)bankgraph + ((U32 *)bankgraph)[numgraph];
@@ -73,8 +76,10 @@ S32 AffGraph(S32 numgraph, S32 x, S32 y, const void *bankgraph) {
 
     if (x0 < ClipXMin || y0 < ClipYMin ||
         x1 > ClipXMax || y1 > ClipYMax) {
+        s_censusClippingGraph++;
         return ClippingGraph(x0, y0, x1, y1, graphics);
     }
+    s_censusAffGraph++;
 
     x1++;
     y1++;

@@ -11,8 +11,12 @@
 #include <3D/LITLISTF.H>
 #include <3D/COPYMAT.H>
 #include <3D/LPROJ.H>
+#include <3D/DECORVBO.H>
 #include <SVGA/CLIP.H>
 #include <POLYGON/POLY.H>
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -42,6 +46,9 @@ TYPE_PT Obj_ListProjectedPoints[MAX_NB_POINTS];
 
 U8 *ObjPtrMap = 0;    // Ptr of the texture page for the current object
 U32 *PtrTextures = 0; // Ptr of texture handles
+/* Optional render-time group mask for the first-person body ghost.  Zero
+   keeps the normal body path byte-identical. */
+U32 ObjHiddenGroupMask = 0;
 
 // Ptr of the object
 T_BODY_HEADER *lBody = NULL;
@@ -64,6 +71,112 @@ Func_TransNumPtr *TransFctBody = NULL; // Pointer to a conversion fct that conve
 // Light list
 U16 ListLights[MAX_NB_POINTS + MAX_NB_POLYS];
 
+/* Static decor VBO capture.  The polygon handlers replay a non-animated body
+   in model space; this buffer receives one entry per triangle vertex so the
+   renderer can bake the decor rotation/translation into a VBO once. */
+S32 DecorVBOActive = 0;
+S32 DecorVBOUnsupported = 0;
+static T_DECORVBO_VERT s_decorCapture[16384];
+static U32 s_decorCaptureCount = 0;
+static S32 s_decorNormal[4];
+static S32 s_decorFlatColor = 0;
+
+void DecorVBO_SetNormal(S32 slot, S32 index) {
+    if (slot >= 0 && slot < 4) {
+        s_decorNormal[slot] = index;
+    }
+}
+
+void DecorVBO_SetFlatColor(S32 color) { s_decorFlatColor = color; }
+
+static const TYPE_VT16 *DecorVBONormal(S32 index) {
+    if (lBody == NULL) {
+        return NULL;
+    }
+    if (index >= 0 && index < lBody->NbNormales) {
+        return (const TYPE_VT16 *)((const U8 *)lBody + lBody->OffNormales) +
+               index;
+    }
+    index -= lBody->NbNormales;
+    if (index >= 0 && index < lBody->NbNormFaces) {
+        return (const TYPE_VT16 *)((const U8 *)lBody + lBody->OffNormFaces) +
+               index;
+    }
+    return NULL;
+}
+
+void DecorVBO_CapturePoly(S32 type, S32 color, S32 n, Struc_Point *pts) {
+    if (!DecorVBOActive) {
+        return;
+    }
+    if (n < 3 || n > 4 || type < 0 || type >= 16) {
+        DecorVBOUnsupported = 1;
+        return;
+    }
+    /* Alpha/stipple (TRANS/TRAME) stay on the CPU filler for now. */
+    if (type == 2 || type == 3) {
+        DecorVBOUnsupported = 1;
+        return;
+    }
+    const S32 textured = (type >= 8);
+    const S32 gouraud = ((type >= 4 && type <= 7) || type >= 10);
+    const S32 flat = (type == 1);
+    const S32 flatTex = (type == 9 || type == 13);
+    const S32 light = gouraud || flat || flatTex;
+    if (textured && PtrMap == NULL) {
+        DecorVBOUnsupported = 1;
+        return;
+    }
+    if (s_decorCaptureCount + (U32)(n - 2) * 3 > 16384) {
+        DecorVBOUnsupported = 1;
+        return;
+    }
+
+    /* Match GL_TriangulatePolygon's first ear for a convex quad.  Its
+       ear-clipping starts at vertex 0 and emits (3,0,1), so the shared
+       diagonal is 1-3; the conventional 0-2 fan samples the texture through
+       the other diagonal and makes striped/stone quads look like noise. */
+    const S32 quadOrder[2][3] = {{1, 2, 3}, {1, 3, 0}};
+    const S32 triOrder[1][3] = {{0, 1, 2}};
+    const S32(*orders)[3] = (n == 4) ? quadOrder : triOrder;
+    const S32 orderCount = (n == 4) ? 2 : 1;
+    for (S32 t = 0; t < orderCount; t++) {
+        for (S32 k = 0; k < 3; k++) {
+            const S32 i = orders[t][k];
+            T_DECORVBO_VERT *v = &s_decorCapture[s_decorCaptureCount++];
+            v->X = pts[i].Pt_XE;
+            v->Y = pts[i].Pt_YE;
+            v->Z = (S16)pts[i].Pt_ZO;
+            v->U = textured ? pts[i].Pt_MapU : 0;
+            v->V = textured ? pts[i].Pt_MapV : 0;
+            v->Type = (U8)type;
+            v->Color = (U8)((flat || flatTex) ? s_decorFlatColor : (color & 0xFF));
+            v->Flags = (U8)((textured ? DECORVBO_FLAG_TEXTURED : 0) |
+                            (gouraud ? DECORVBO_FLAG_GOURAUD : 0) |
+                            (flat ? DECORVBO_FLAG_FLAT : 0) |
+                            (flatTex ? DECORVBO_FLAG_FLAT_TEXTURE : 0));
+            v->Pad = 0;
+            v->Map = textured ? (const void *)PtrMap : NULL;
+            v->Mask = textured ? (U16)(RepMask & 0xFFFF) : 0;
+            if (light) {
+                const TYPE_VT16 *nr = DecorVBONormal(s_decorNormal[i]);
+                if (nr == NULL) {
+                    DecorVBOUnsupported = 1;
+                    return;
+                }
+                v->NX = nr->X;
+                v->NY = nr->Y;
+                v->NZ = nr->Z;
+                v->Flags |= DECORVBO_FLAG_LIGHT;
+            } else {
+                v->NX = 0;
+                v->NY = 0;
+                v->NZ = 0;
+            }
+        }
+    }
+}
+
 // Sort list:
 // * First half of list contain Z:Number
 // * Second half: one pointer for each number
@@ -72,10 +185,21 @@ S32 ListSort[MAX_NB_POLYS * 2];
 // List of vertex for Fill_Poly
 Struc_Point ListFillPoly[4];
 
+/* Camera-space vertices of the polygon GetZO3/GetZO4 just projected, in the
+   order the handler will fill ListFillPoly.  Fill_Poly hands them to the GL
+   renderer so a polygon that crosses the near plane can be clipped and
+   projected instead of falling back to the shared 2D overlay, which has no
+   per-eye offset. */
+extern "C" {
+S32 GL_PolyCamCount = 0;
+S32 GL_PolyCam[4][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+}
+
 // Object position in world space
 S32 PosXWr = 0;
 S32 PosYWr = 0;
 S32 PosZWr = 0;
+S32 Obj_GLWorld = 0;
 
 // Temporary translation components
 S32 TransX = 0;
@@ -275,8 +399,32 @@ static void SetEnvMappedQuadUvs(Struc_Point *points, const STRUC_POLY4_ENV *poly
     Z0 = rotated.Z;
 }
 
+/* Isometric scenes draw bodies in painter order, but the GL world path puts
+   them in the scene FBO where sprite/line/sphere overlays need a real depth
+   to test against.  ProjectListIso replaces each rotated point's Z with the
+   painter sort key (x + z) / 2, so use that (plus the object's camera-relative
+   position) as the isometric view depth. */
+static U16 IsoDepth(const T_OBJ_POINT &p) {
+    return IsoDepthToAz(((PosXWr + PosZWr) >> 1) + (S32)p.Z);
+}
+
 void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3) {
+    GL_PolyCamCount = 0;
     if (TypeProj != TYPE_3D) {
+        if (!Obj_GLWorld) {
+            return;
+        }
+        U16 indices[3] = {index1, index2, index3};
+        for (int i = 0; i < 3; i++) {
+            dst[i].Pt_ZO = IsoDepth(Obj_ListRotatedPoints[indices[i]]);
+        }
+        return;
+    }
+
+    /* The software fillers compute ZO only for a Z-buffered polygon; leave
+       the field untouched otherwise so the ASM comparison stays byte-exact.
+       The GL paths need it (and the camera-space vertices) every time. */
+    if (!Fill_Flag_ZBuffer && !Obj_GLWorld && !DecorVBOActive) {
         return;
     }
 
@@ -284,13 +432,37 @@ void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3) {
 
     for (int i = 0; i < 3; i++) {
         U16 idx = indices[i];
-        S32 Z = -Obj_ListRotatedPoints[idx].Z - PosZWr;
+        /* Camera-space vertex, for the GL near-plane clip.  The software
+           projection drops any vertex closer than NearClip to the sentinel,
+           which the stereo GL path cannot turn into a per-eye position. */
+        GL_PolyCam[i][0] = (S32)Obj_ListRotatedPoints[idx].X + PosXWr;
+        GL_PolyCam[i][1] = (S32)Obj_ListRotatedPoints[idx].Y + PosYWr;
+        GL_PolyCam[i][2] = -(S32)Obj_ListRotatedPoints[idx].Z - PosZWr;
+        if (DecorVBOActive) {
+            /* Model-space Z is carried through the U16 field verbatim. */
+            dst[i].Pt_ZO = (U16)Obj_ListRotatedPoints[idx].Z;
+            continue;
+        }
+        S32 Z = GL_PolyCam[i][2];
         dst[i].Pt_ZO = (Z * Fill_ZBuffer_Factor) >> 16;
     }
+    GL_PolyCamCount = 3;
 }
 
 void GetZO4(Struc_Point *dst, U16 index1, U16 index2, U16 index3, U16 index4) {
+    GL_PolyCamCount = 0;
     if (TypeProj != TYPE_3D) {
+        if (!Obj_GLWorld) {
+            return;
+        }
+        U16 indices[4] = {index1, index2, index3, index4};
+        for (int i = 0; i < 4; i++) {
+            dst[i].Pt_ZO = IsoDepth(Obj_ListRotatedPoints[indices[i]]);
+        }
+        return;
+    }
+
+    if (!Fill_Flag_ZBuffer && !Obj_GLWorld && !DecorVBOActive) {
         return;
     }
 
@@ -298,9 +470,17 @@ void GetZO4(Struc_Point *dst, U16 index1, U16 index2, U16 index3, U16 index4) {
 
     for (int i = 0; i < 4; i++) {
         U16 idx = indices[i];
-        S32 Z = -Obj_ListRotatedPoints[idx].Z - PosZWr;
+        GL_PolyCam[i][0] = (S32)Obj_ListRotatedPoints[idx].X + PosXWr;
+        GL_PolyCam[i][1] = (S32)Obj_ListRotatedPoints[idx].Y + PosYWr;
+        GL_PolyCam[i][2] = -(S32)Obj_ListRotatedPoints[idx].Z - PosZWr;
+        if (DecorVBOActive) {
+            dst[i].Pt_ZO = (U16)Obj_ListRotatedPoints[idx].Z;
+            continue;
+        }
+        S32 Z = GL_PolyCam[i][2];
         dst[i].Pt_ZO = (Z * Fill_ZBuffer_Factor) >> 16;
     }
+    GL_PolyCamCount = 4;
 }
 
 // *************
@@ -354,6 +534,11 @@ S32 Triangle_Flat(U32 typePoly, void *poly) {
     U16 normal = ListLights[poly3->Normale] >> 8;
     U8 color = (poly3->Couleur + normal) & 0xFF;
 
+    DecorVBO_SetNormal(0, poly3->Normale);
+    DecorVBO_SetNormal(1, poly3->Normale);
+    DecorVBO_SetNormal(2, poly3->Normale);
+    DecorVBO_SetFlatColor(poly3->Couleur);
+
     return Fill_Poly(1, color, 3, ListFillPoly);
 }
 
@@ -373,6 +558,12 @@ S32 Quad_Flat(U32 typePoly, void *poly) {
 
     U16 normal = ListLights[poly4->Normale] >> 8;
     U8 color = (poly4->Couleur + normal) & 0xFF;
+
+    DecorVBO_SetNormal(0, poly4->Normale);
+    DecorVBO_SetNormal(1, poly4->Normale);
+    DecorVBO_SetNormal(2, poly4->Normale);
+    DecorVBO_SetNormal(3, poly4->Normale);
+    DecorVBO_SetFlatColor(poly4->Couleur);
 
     return Fill_Poly(1, color, 4, ListFillPoly);
 }
@@ -395,6 +586,10 @@ S32 Triangle_Gouraud(U32 typePoly, void *poly) {
     ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly3->P3].Y;
     ListFillPoly[2].Pt_Light = ListLights[poly3->P3];
 
+    DecorVBO_SetNormal(0, poly3->P1);
+    DecorVBO_SetNormal(1, poly3->P2);
+    DecorVBO_SetNormal(2, poly3->P3);
+
     return Fill_Poly(typePoly >> 2, poly3->Couleur, 3, ListFillPoly);
 }
 
@@ -414,6 +609,11 @@ S32 Quad_Gouraud(U32 typePoly, void *poly) {
     ListFillPoly[3].Pt_XE = Obj_ListProjectedPoints[poly4->P4].X;
     ListFillPoly[3].Pt_YE = Obj_ListProjectedPoints[poly4->P4].Y;
     ListFillPoly[3].Pt_Light = ListLights[poly4->P4];
+
+    DecorVBO_SetNormal(0, poly4->P1);
+    DecorVBO_SetNormal(1, poly4->P2);
+    DecorVBO_SetNormal(2, poly4->P3);
+    DecorVBO_SetNormal(3, poly4->P4);
 
     return Fill_Poly(typePoly >> 2, poly4->Couleur & 0xFF, 4, ListFillPoly);
 }
@@ -499,6 +699,11 @@ S32 Triangle_Texture_Flat(U32 typePoly, void *poly) {
 
     U16 normal = ListLights[poly3->Normale] >> 8;
 
+    DecorVBO_SetNormal(0, poly3->Normale);
+    DecorVBO_SetNormal(1, poly3->Normale);
+    DecorVBO_SetNormal(2, poly3->Normale);
+    DecorVBO_SetFlatColor(poly3->Couleur);
+
     return Fill_Poly(typePoly >> 2, normal, 3, ListFillPoly);
 }
 
@@ -529,6 +734,12 @@ S32 Quad_Texture_Flat(U32 typePoly, void *poly) {
 
     U16 normal = ListLights[poly4->Normale] >> 8;
 
+    DecorVBO_SetNormal(0, poly4->Normale);
+    DecorVBO_SetNormal(1, poly4->Normale);
+    DecorVBO_SetNormal(2, poly4->Normale);
+    DecorVBO_SetNormal(3, poly4->Normale);
+    DecorVBO_SetFlatColor(poly4->Couleur);
+
     return Fill_Poly(typePoly >> 2, normal, 4, ListFillPoly);
 }
 
@@ -558,6 +769,10 @@ S32 Triangle_Texture_Gouraud(U32 typePoly, void *poly) {
     U32 textureInfo = PtrTextures[poly3->HandleText];
     RepMask = textureInfo >> 16;
     PtrMap = ObjPtrMap + (textureInfo & 0xFFFF);
+
+    DecorVBO_SetNormal(0, poly3->P1);
+    DecorVBO_SetNormal(1, poly3->P2);
+    DecorVBO_SetNormal(2, poly3->P3);
 
     return Fill_Poly(typePoly >> 2, ListLights[poly3->P3], 3, ListFillPoly);
 }
@@ -591,6 +806,11 @@ S32 Quad_Texture_Gouraud(U32 typePoly, void *poly) {
     U32 textureInfo = PtrTextures[poly4->HandleText];
     RepMask = textureInfo >> 16;
     PtrMap = ObjPtrMap + (textureInfo & 0xFFFF);
+
+    DecorVBO_SetNormal(0, poly4->P1);
+    DecorVBO_SetNormal(1, poly4->P2);
+    DecorVBO_SetNormal(2, poly4->P3);
+    DecorVBO_SetNormal(3, poly4->P4);
 
     return Fill_Poly(typePoly >> 2, RepMask, 4, ListFillPoly);
 }
@@ -1030,7 +1250,10 @@ S32 Line(U32 typePoly, void *poly) {
     S32 z1 = 0;
     S32 z2 = 0;
 
-    if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D) {
+    if (TypeProj != TYPE_3D && Obj_GLWorld) {
+        z1 = IsoDepth(Obj_ListRotatedPoints[line->P1]);
+        z2 = IsoDepth(Obj_ListRotatedPoints[line->P2]);
+    } else if (Fill_Flag_ZBuffer) {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[line->P1];
         T_OBJ_POINT rotatedP2 = Obj_ListRotatedPoints[line->P2];
 
@@ -1072,6 +1295,14 @@ S32 Sphere(U32 typePoly, void *poly) {
     // @@Return_Radius:
     TYPE_PT p1 = Obj_ListProjectedPoints[sphere->P1];
 
+    // Points behind the near plane or projecting outside S16 range carry
+    // the invalid sentinel (see ProjectList3DF); their radius explodes and
+    // the disc would stretch across the screen.  TestVisible and
+    // InsertQuad apply the same rejection to body polygons.
+    if (p1.X == -0x8000 && p1.Y == -0x8000) {
+        return 0;
+    }
+
     radius = ((radius ^ -1) + 1);
     S32 topY = p1.Y - radius;
     if (topY < ScreenYMin) {
@@ -1095,7 +1326,9 @@ S32 Sphere(U32 typePoly, void *poly) {
 
     S32 z = 0;
 
-    if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D) {
+    if (TypeProj != TYPE_3D && Obj_GLWorld) {
+        z = IsoDepth(Obj_ListRotatedPoints[sphere->P1]);
+    } else if (Fill_Flag_ZBuffer) {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[sphere->P1];
         z = (Fill_ZBuffer_Factor * (-rotatedP1.Z - PosZWr)) >> 16;
     }
@@ -1127,6 +1360,11 @@ S32 Sphere_Transp(U32 typePoly, void *poly) {
 
     TYPE_PT p1 = Obj_ListProjectedPoints[sphere->P1];
 
+    // Same invalid-projection rejection as the solid sphere handler above.
+    if (p1.X == -0x8000 && p1.Y == -0x8000) {
+        return 0;
+    }
+
     radius = ((radius ^ -1) + 1);
     S32 topY = p1.Y - radius;
     if (topY < ScreenYMin) {
@@ -1149,7 +1387,9 @@ S32 Sphere_Transp(U32 typePoly, void *poly) {
     }
 
     S32 z = 0;
-    if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D) {
+    if (TypeProj != TYPE_3D && Obj_GLWorld) {
+        z = IsoDepth(Obj_ListRotatedPoints[sphere->P1]);
+    } else if (Fill_Flag_ZBuffer) {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[sphere->P1];
         z = (Fill_ZBuffer_Factor * (-rotatedP1.Z - PosZWr)) >> 16;
     }
@@ -1261,12 +1501,24 @@ S16 TestZFar3(STRUC_POLY3_ENV *poly) {
     return zFar;
 }
 
+static S32 HiddenPolyPoint(U16 index) {
+    if (!ObjHiddenGroupMask) {
+        return 0;
+    }
+    const T_OBJ_POINT *p =
+        (const T_OBJ_POINT *)((const U8 *)lBody + lBody->OffPoints) + index;
+    return (ObjHiddenGroupMask & (1u << p->Group)) != 0;
+}
+
 void InsertTriangle(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset) {
     for (int i = 0; i < header->NbPoly; i++) {
         // @@Do_Triangle:
         STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)*poly;
 
-        if (TestVisible(poly3)) {
+        if (HiddenPolyPoint(poly3->P1) && HiddenPolyPoint(poly3->P2) &&
+            HiddenPolyPoint(poly3->P3)) {
+            /* Whole triangle in a hidden group (first-person head). */
+        } else if (DecorVBOActive || TestVisible(poly3)) {
             U32 zFar = TestZFar3(poly3);
 
             // | ZFar | Poly Number |
@@ -1302,14 +1554,16 @@ void InsertQuad(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset) {
     for (int i = 0; i < header->NbPoly; i++) {
         // @@Do_Quad:
         STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)*poly;
+        STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)*poly;
 
-        if (TestVisible(poly3)) {
-            STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)*poly;
-
+        if (HiddenPolyPoint(poly3->P1) && HiddenPolyPoint(poly3->P2) &&
+            HiddenPolyPoint(poly3->P3) && HiddenPolyPoint(poly4->P4)) {
+            /* Whole quad in a hidden group (first-person head). */
+        } else if (DecorVBOActive || TestVisible(poly3)) {
             S16 zFar = TestZFar4(poly3);
 
             TYPE_PT p4 = Obj_ListProjectedPoints[poly4->P4];
-            if (p4.X != -0x8000 || p4.Y != -0x8000) {
+            if (DecorVBOActive || p4.X != -0x8000 || p4.Y != -0x8000) {
                 U32 polyType = (header->TypePoly << 26);
                 if (type == 2) {
                     polyType |= (0b11 << 24); // Bit quad+environment
@@ -1360,6 +1614,9 @@ S32 EntityCreation(T_BODY_HEADER *body) {
         U32 mask = 0;
         memcpy(&mask, header, sizeof(U32));
         U8 typePoly = header->TypePoly & 0xFF;
+        if (DecorVBOActive && (mask & MASK_ENVIRONMENT)) {
+            DecorVBOUnsupported = 1;
+        }
         currentPoly = (void *)((U8 *)currentPoly + sizeof(T_POLY_HEADER));
         bodyOffset += sizeof(T_POLY_HEADER);
 
@@ -1393,6 +1650,11 @@ S32 EntityCreation(T_BODY_HEADER *body) {
 
         for (int i = 0; i < body->NbLines; ++i) {
             // @@Loop_Lines:
+            if (HiddenPolyPoint(line->P1) && HiddenPolyPoint(line->P2)) {
+                line++;
+                bodyOffset += sizeof(T_OBJ_LINE);
+                continue;
+            }
             T_OBJ_POINT p1 = Obj_ListRotatedPoints[line->P1];
             T_OBJ_POINT p2 = Obj_ListRotatedPoints[line->P2];
             S16 minZ = p1.Z;
@@ -1425,6 +1687,11 @@ S32 EntityCreation(T_BODY_HEADER *body) {
 
         for (int i = 0; i < body->NbSpheres; ++i) {
             // @@Loop_Spheres:
+            if (HiddenPolyPoint(sphere->P1)) {
+                sphere++;
+                bodyOffset += sizeof(T_OBJ_SPHERE);
+                continue;
+            }
             S16 zFar = Obj_ListRotatedPoints[sphere->P1].Z;
             // | ZFar | Poly Number |
             Off_Sort[0] = (zFar << 16) | Nb_Sort;
@@ -1487,6 +1754,86 @@ S32 EntityCreation(T_BODY_HEADER *body) {
     }
 
     return 1;
+}
+
+S32 DecorVBORecord(void *bodyPtr, T_DECORVBO_VERT **outVerts, U32 *outCount) {
+    T_BODY_HEADER *body = (T_BODY_HEADER *)bodyPtr;
+    if (body == NULL || body->NbLines != 0 || body->NbSpheres != 0 ||
+        (body->Info & MASK_OBJECT_TRANSPARENT)) {
+        return 0;
+    }
+    if (body->NbPoints <= 0 || body->NbPoints > MAX_NB_POINTS ||
+        body->NbNormales < body->NbPoints ||
+        body->NbNormales + body->NbNormFaces > MAX_NB_POINTS + MAX_NB_POLYS) {
+        return 0;
+    }
+
+    lBody = body;
+    const TYPE_VT16 *src =
+        (const TYPE_VT16 *)((const U8 *)body + body->OffPoints);
+    for (S32 i = 0; i < body->NbPoints; i++) {
+        Obj_ListRotatedPoints[i].X = src[i].X;
+        Obj_ListRotatedPoints[i].Y = src[i].Y;
+        Obj_ListRotatedPoints[i].Z = src[i].Z;
+        Obj_ListRotatedPoints[i].Group = src[i].Grp;
+        Obj_ListProjectedPoints[i].X = src[i].X;
+        Obj_ListProjectedPoints[i].Y = src[i].Y;
+    }
+    for (S32 i = 0; i < body->NbNormales + body->NbNormFaces; i++) {
+        ListLights[i] = (U16)i;
+    }
+
+    s_decorCaptureCount = 0;
+    s_decorFlatColor = 0;
+    for (S32 i = 0; i < 4; i++) {
+        s_decorNormal[i] = 0;
+    }
+    DecorVBOUnsupported = 0;
+    DecorVBOActive = 1;
+    /* The replay feeds model-space coordinates to the capture, so there is
+       no camera-space Z.  The software fillers still divide by
+       Z + PosZWr to build W even though the capture ignores W; keep that
+       denominator non-zero or a model point on the Z=0 plane raises SIGFPE.
+       The offset is outside the model-coordinate range and is restored
+       immediately after the replay. */
+    const S32 savedPosZWr = PosZWr;
+    PosZWr = 0x10000000;
+    EntityCreation(body);
+    PosZWr = savedPosZWr;
+    DecorVBOActive = 0;
+
+    if (DecorVBOUnsupported || s_decorCaptureCount == 0) {
+        return 0;
+    }
+    *outVerts = s_decorCapture;
+    *outCount = s_decorCaptureCount;
+    return 1;
+}
+
+/* Screen bounds for the object visibility test.  Single-pass stereo
+   projects and culls with eye 0 but draws both eyes, so widen a full-screen
+   clip by the largest eye-1 disparity; otherwise an object just outside the
+   eye-0 edge is dropped before the second instance can place it on screen.
+   Sub-window clips stay exact: they mask a screen-space layer, not a
+   per-eye frustum. */
+static void Obj_GetCullBounds(S32 *xmin, S32 *ymin, S32 *xmax, S32 *ymax) {
+    *xmin = ClipXMin;
+    *ymin = ClipYMin;
+    *xmax = ClipXMax;
+    *ymax = ClipYMax;
+#ifdef USE_GPURENDERER
+    if (ClipXMin <= 0 && ClipYMin <= 0 &&
+        ClipXMax >= (S32)ModeDesiredX - 1 &&
+        ClipYMax >= (S32)ModeDesiredY - 1) {
+        S32 marginX = 0;
+        S32 marginY = 0;
+        GL_GetSinglePassCullMargin(&marginX, &marginY);
+        *xmin -= marginX;
+        *ymin -= marginY;
+        *xmax += marginX;
+        *ymax += marginY;
+    }
+#endif
 }
 
 S32 ObjectDisplay(T_OBJ_3D *obj) {
@@ -1669,8 +2016,10 @@ S32 ObjectDisplay(T_OBJ_3D *obj) {
                 lBody->NbPoints, -PosXWr, -PosYWr, -PosZWr);
 
     // Is the object visible?
-    if (ScreenXMin > ClipXMax || ScreenYMin > ClipYMax ||
-        ScreenXMax < ClipXMin || ScreenYMax < ClipYMin) {
+    S32 cullXMin, cullYMin, cullXMax, cullYMax;
+    Obj_GetCullBounds(&cullXMin, &cullYMin, &cullXMax, &cullYMax);
+    if (ScreenXMin > cullXMax || ScreenYMin > cullYMax ||
+        ScreenXMax < cullXMin || ScreenYMax < cullYMin) {
         return 0;
     }
 
@@ -1692,8 +2041,10 @@ S32 Return_BodyDisplay(TYPE_MAT *srcMatrix, TYPE_MAT *dstMatrix, S32 alpha, S32 
                 lBody->NbPoints, -PosXWr, -PosYWr, -PosZWr);
 
     // Is the object visible?
-    if (ScreenXMin > ClipXMax || ScreenYMin > ClipYMax ||
-        ScreenXMax < ClipXMin || ScreenYMax < ClipYMin) {
+    S32 cullXMin, cullYMin, cullXMax, cullYMax;
+    Obj_GetCullBounds(&cullXMin, &cullYMin, &cullXMax, &cullYMax);
+    if (ScreenXMin > cullXMax || ScreenYMin > cullYMax ||
+        ScreenXMax < cullXMin || ScreenYMax < cullYMin) {
         return 0;
     }
 

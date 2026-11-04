@@ -9,8 +9,7 @@
 #
 # We run a scripted mover for 3200 ms of game-time at --fixed-dt 16 (200 ticks) and at
 # --fixed-dt 64 (50 ticks) and compare total actor travel. Phase 1 alone: they differ
-# (that is the low-fps loss). Phase 2: they match. The high-fps counterpart (dt8 vs dt16) is
-# test_move_framerate.sh.
+# (that is the low-fps loss). Phase 2: they match.
 #
 # Assumes the default throttle (FixedTimestep=16); the run does not touch it, so it neither
 # depends on nor rewrites lba2.cfg. Local-only (needs retail data + a save); skips cleanly

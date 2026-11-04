@@ -371,5 +371,11 @@ void ClearPlasmaMenu(void) {
 
 void FixePlasmaPtrMap(void) {
     PtrMap = ((T_PLASMA *)TexEffectList[PlasmaMenuIndex].PtrStruct)->TexOffset;
-    AtlasTextureDirty = 1; /* Do_Plasma() mutates the texture in-place — force GL re-upload */
+    /* Do_Plasma() mutates the texture in-place — force GL re-upload.  The
+       scanned fire/plasma effects live in BufferTexture, which the menu draws
+       as a page; name it too so they do not stay stale. */
+    Atlas_MarkDirty(PtrMap);
+    if (BufferTexture) {
+        Atlas_MarkDirty(BufferTexture);
+    }
 }

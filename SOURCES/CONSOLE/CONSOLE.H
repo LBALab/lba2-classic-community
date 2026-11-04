@@ -42,6 +42,12 @@ void Console_PrintColored(int colour, const char *fmt, ...);
 /** Called from video layer pre-present callback. Overlays console onto ARGB frameBuffer if open. */
 void Console_PrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height, const U8 *palette_rgb);
 
+/** 1 while the pre-present callback actually needs the CPU staging buffer this
+ *  frame (console open, or a pending PPM screenshot that reads it). Lets the
+ *  video layer take the indexed-upload fast path — no CPU palette expansion —
+ *  whenever the console would draw nothing. */
+int Console_WantsPrePresent(void);
+
 /** Event filter: call from ManageEvents. Returns 1 if event was consumed (toggle or console input). */
 int Console_FeedEvent(const void *sdlEvent);
 

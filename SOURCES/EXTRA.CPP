@@ -634,7 +634,8 @@ U8	ExtraCheckExtraCol( 	T_EXTRA *ptrextra,
 	for( n=0; n<MAX_EXTRAS; n++ )
 	{
 		if( (ptrobjt->Sprite != -1)
-		AND (n != owner) )
+		AND (n != owner)
+		AND !(ptrobjt->Flags & EXTRA_HELD) )
 		{
 			GetExtraZV( ptrobjt, &xt0, &yt0, &zt0, &xt1, &yt1, &zt1 ) ;
 
@@ -929,12 +930,10 @@ S32	InitExtraAnimSprite( 	U8 owner, S32 x, S32 y, S32 z,
 
 S16	CoulRetourBalle( T_EXTRA *ptrextra )
 {
-	S16	sprite = SPRITE_BALLE_SHADOW ;	// jaune ou feu
-
-	if( ptrextra->Sprite == SPRITE_BALLE_LVL_2 )	sprite = SPRITE_BALLE_SHADOW_2 ;	// vert
-	if( ptrextra->Sprite == SPRITE_BALLE_LVL_3 )	sprite = SPRITE_BALLE_SHADOW_3 ;	// rouge
-
-	return	sprite ;
+	/* A returning magic ball keeps the form it was thrown with.  The
+	   BALLE_SHADOW sprites are stippled ground-shadow art, not a projectile
+	   variant. */
+	return	ptrextra->Sprite ;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -1682,6 +1681,9 @@ void	GereExtras()
 	{
 		if( ptrextra->Sprite == -1 )	continue ;
 		if( InitMagicBall AND n==MagicBall )	continue ;
+		/* VR held ball: drawn in the sort pass, but never advances,
+		   collides or times out while it sits in the hand. */
+		if( ptrextra->Flags & EXTRA_HELD )	continue ;
 		if( ptrextra->Flags & EXTRA_WAIT )	continue ;
 		if( ptrextra->Flags & EXTRA_TIME_IN )	continue ;
 

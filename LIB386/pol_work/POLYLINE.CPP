@@ -5,6 +5,11 @@
 #include <stdio.h>
 #include <SYSTEM/DEBUG_TRACES.H>
 
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+extern S32 GPURendererActive;
+#endif
+
 #ifdef ENABLE_POLY_RECORDING
 #include <SNAPSHOT/POLY_RECORDING.H>
 #endif
@@ -904,6 +909,22 @@ void Line_A(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
     if (g_polyrec_recording)
         polyrec_record_line_a(x0, y0, x1, y1, col, z1, z2);
 #endif
+#ifdef USE_GPURENDERER
+    /* GL path: body-model lines (necklace chains, whiskers) draw into the
+       FBO depth-tested like the body polys around them.  The SW fallback
+       rasterizes into the Log overlay, which composites over the FBO with
+       no occlusion — a necklace drawn there x-rays through its own body
+       whenever the camera looks at the owner's back. */
+    if (GPURendererActive && GL_SphereTargetsFBO()) {
+        S32 c = col;
+        if (Fill_Flag_Fog) {
+            c = Fill_Logical_Palette[c & 0xFF];
+        }
+        GL_DrawLineFBO(x0, y0, x1, y1, c, (U32)(U16)z1, (U32)(U16)z2);
+        return;
+    }
+#endif
+
     if (Fill_Flag_NZW) {
         Line_ZBuffer_NZW(x0, y0, x1, y1, col, z1, z2);
         return;

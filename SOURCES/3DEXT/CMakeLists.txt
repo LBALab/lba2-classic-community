@@ -4,7 +4,8 @@ set(SOURCES_FILES DECORS.CPP GLOBEXT.CPP LBA_EXT.CPP LOADISLE.CPP MAPTOOLS.CPP T
 set(SOURCES_FILES_ASM BOXZBUF.CPP LINERAIN.CPP)
 
 add_library(3dext ${SOURCES_FILES} ${SOURCES_FILES_ASM})
-target_compile_definitions(3dext PRIVATE ONE_GAME_DIRECTORY LBA_GAME CDROM)
+target_compile_definitions(3dext PRIVATE ONE_GAME_DIRECTORY LBA_GAME CDROM
+        $<$<BOOL:${GPURENDERER}>:USE_GPURENDERER>)
 target_link_libraries(3dext PUBLIC sys svg 3D obj poly ani fio)
 target_include_directories(3dext PUBLIC ../../LIB386/H)
 

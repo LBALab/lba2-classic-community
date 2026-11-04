@@ -39,6 +39,11 @@ jobs:
         uses: actions/checkout@v6
       - name: Preparing Container
         uses: pkgforge-dev/anylinux-setup-action@v2
+      - name: Resolve release version
+        run: |
+          if [ "${GITHUB_REF#refs/tags/v}" != "${GITHUB_REF}" ]; then
+            echo "LBA2_VERSION_OVERRIDE=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_ENV"
+          fi
       - name: Make AppImage
         run: /bin/sh ./scripts/packaging/make-appimage.sh
       - name: Upload temporary artifact

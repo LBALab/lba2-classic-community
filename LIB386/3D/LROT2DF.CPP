@@ -11,7 +11,11 @@ void Rotate(S32 x, S32 z, S32 angle) {
 
 /*
  * 2D rotation matching ASM LongRotateF.
- * Uses long double + lrintl to match x87 fistp round-to-nearest-even.
+ * Double + lrint matches x87 fistp round-to-nearest-even: the table entries
+ * are floats in [-1,1] (24-bit mantissa) and the coordinates are small
+ * world-space S32 values (WORLD_SIZE = 2^15), so every product and their
+ * sum stay under the 53-bit double mantissa — exact, i.e. the same value
+ * the 80-bit x87 evaluation produced, without ARM64's software long double.
  */
 void LongRotate(S32 x, S32 z, S32 angle) {
     LIB386_TRACE_CPP("LongRotateF", "1", "x=%d z=%d angle=%d", x, z, angle);
@@ -25,10 +29,10 @@ void LongRotate(S32 x, S32 z, S32 angle) {
         return;
     }
 
-    long double cosA = (long double)CosTabF[angle];
-    long double sinA = (long double)SinTabF[angle];
+    double cosA = (double)CosTabF[angle];
+    double sinA = (double)SinTabF[angle];
 
-    X0 = (S32)lrintl((long double)x * cosA + (long double)z * sinA);
-    Z0 = (S32)lrintl((long double)z * cosA - (long double)x * sinA);
+    X0 = (S32)lrint((double)x * cosA + (double)z * sinA);
+    Z0 = (S32)lrint((double)z * cosA - (double)x * sinA);
     LIB386_TRACE_CPP("LongRotateF", "2", "X0=%d Z0=%d", X0, Z0);
 }

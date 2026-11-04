@@ -29,6 +29,23 @@ S32 CameraXr = 0;
 S32 CameraYr = 0;
 S32 CameraZr = 0;
 
+S32 StereoCamShiftX = 0;
+S32 StereoCamShiftY = 0; /* rolled first-person eye offset (vertical part) */
+S32 StereoProjShiftX = 0;
+/* Stereo eye-FOV focal override: while set, the exterior projection uses
+   these focals so the rendered frame spans the headset's full per-eye field
+   (OPENXR.CPP derives them from the runtime's eye FOVs). */
+S32 StereoFocalX = 0;
+S32 StereoFocalY = 0;
+/* True-pose stereo eye override: while set, the camera orientation is
+   re-applied from these angles after the rig applies its own, so the render
+   orientation is the exact tracked view while the rig position stays the
+   game-controlled one. See AffGrilleExt. */
+S32 StereoEyeOverride = 0;
+S32 StereoEyeAlpha = 0;
+S32 StereoEyeBeta = 0;
+S32 StereoEyeGamma = 0;
+
 S32 CameraZrClip = 0;
 
 S32 NearClip = 1;
@@ -62,8 +79,8 @@ void SetCamera(S32 x, S32 y, S32 z) {
         NearClip = 0;
     } else {
         LongRotatePoint(&MatriceWorld, x, y, z);
-        CameraXr = X0;
-        CameraYr = Y0;
+        CameraXr = X0 + StereoCamShiftX;
+        CameraYr = Y0 + StereoCamShiftY;
         CameraZr = Z0;
         CameraZrClip = Z0 - NearClip;
     }

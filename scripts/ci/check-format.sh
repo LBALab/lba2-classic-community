@@ -4,7 +4,8 @@ set -euo pipefail
 
 # Verify that tracked C/C++ files already match the repo clang-format policy.
 # Like apply-format.sh, this reads exclusions from .clang-format-ignore so the
-# local check and CI are evaluating the same file set.
+# local check and CI are evaluating the same file set. Modified files are
+# checked too, so a run before committing is meaningful.
 
 # shellcheck source=scripts/ci/clang-format-select.sh
 . "$(dirname "${BASH_SOURCE[0]}")/clang-format-select.sh"
@@ -17,11 +18,6 @@ fi
 status=0
 
 while IFS= read -r -d '' file; do
-    # Skip dirty files so local checks stay focused on committed content.
-    if ! git diff --quiet -- "$file" || ! git diff --cached --quiet -- "$file"; then
-        continue
-    fi
-
     if ! output=$("$clang_format" --dry-run --Werror -style=file "$file" 2>&1); then
         echo "Format check failed: $file" >&2
         printf '%s\n' "$output" >&2

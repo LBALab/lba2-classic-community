@@ -6,6 +6,9 @@ extern void ThrowMagicBall(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 vitesse
 /*--------------------------------------------------------------------------*/
 extern void SampleMagicBall(S32 x, S32 y, S32 z);
 /*--------------------------------------------------------------------------*/
+/* Normal magic-ball launch speed/gravity from the hero's lance animation. */
+extern S32 GetMagicThrowParams(S32 *vitesse, U8 *poids);
+/*--------------------------------------------------------------------------*/
 extern S32 ThrowDart(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 vitesse, U8 poids);
 /*--------------------------------------------------------------------------*/
 extern void ThrowConque(T_OBJET *ptrobj, S32 x, S32 y, S32 z, S16 nb);

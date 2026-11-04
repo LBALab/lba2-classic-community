@@ -8,9 +8,11 @@
 #                     --build-dir <cmake-build-dir> \
 #                     --sdk-root <android-sdk> \
 #                     --sdl3-java-src <path-to-sdl3-java-sources> \
+#                     [--label <platform>] \
 #                     --output-dir <where-to-drop-the-apk>
 #
-# Produces: <output-dir>/lba2cc-<version>-android-<arch>.apk
+# Produces: <output-dir>/lba2cc-<version>-<label>-<arch>.apk
+# The label defaults to "android"; the Quest build passes "quest".
 #
 # Requires the Android SDK (command-line tools, build-tools, platform
 # android-34) to be installed at SDK_ROOT.
@@ -19,11 +21,14 @@ set -euo pipefail
 LIB_PATH=""
 VERSION=""
 ARCH="arm64-v8a"
+LABEL="android"
 BUILD_DIR=""
 SDK_ROOT=""
 SDL3_JAVA_SRC=""
 SDL3_LIB=""
 CXX_SHARED_LIB=""
+EXTRA_LIBS=()
+MANIFEST_PATH=""
 OUTPUT_DIR=""
 
 while [[ $# -gt 0 ]]; do
@@ -31,11 +36,14 @@ while [[ $# -gt 0 ]]; do
         --lib) LIB_PATH="$2"; shift 2 ;;
         --version) VERSION="$2"; shift 2 ;;
         --arch) ARCH="$2"; shift 2 ;;
+        --label) LABEL="$2"; shift 2 ;;
         --build-dir) BUILD_DIR="$2"; shift 2 ;;
         --sdk-root) SDK_ROOT="$2"; shift 2 ;;
         --sdl3-java-src) SDL3_JAVA_SRC="$2"; shift 2 ;;
         --sdl3-lib) SDL3_LIB="$2"; shift 2 ;;
         --cxx-shared-lib) CXX_SHARED_LIB="$2"; shift 2 ;;
+        --extra-lib) EXTRA_LIBS+=("$2"); shift 2 ;;
+        --manifest) MANIFEST_PATH="$2"; shift 2 ;;
         --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
         -h|--help)
             sed -n '/^# Usage:/,/^set -e/p' "$0" | sed 's/^# \?//' | head -n -1
@@ -65,7 +73,7 @@ fi
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PACKAGE="org.lbalab.lba2cc"
 LIB_NAME="libmain.so"
-ARTIFACT_NAME="lba2cc-${VERSION}-android-${ARCH}"
+ARTIFACT_NAME="lba2cc-${VERSION}-${LABEL}-${ARCH}"
 ARTIFACT_APK="${OUTPUT_DIR}/${ARTIFACT_NAME}.apk"
 
 echo "[bundle-android] lib:        $LIB_PATH"
@@ -108,6 +116,12 @@ if [[ -n "$SDL3_LIB" ]]; then
         done
     fi
 fi
+# Bundle any extras passed via --extra-lib (e.g. libopenxr_loader.so).
+for extra in "${EXTRA_LIBS[@]}"; do
+    if [[ -f "$extra" ]]; then
+        cp "$extra" "$STAGING/lib/$ARCH/"
+    fi
+done
 # Bundle C++ runtime — auto-discover from the NDK via CMakeCache.txt,
 # falling back to the explicit --cxx-shared-lib flag if provided.
 if [[ -n "$CXX_SHARED_LIB" && -f "$CXX_SHARED_LIB" ]]; then
@@ -154,7 +168,11 @@ cat > "$STAGING/res/values/strings.xml" <<EOF
 </resources>
 EOF
 
-cp "$REPO_ROOT/packaging/android/AndroidManifest.xml" "$STAGING/AndroidManifest.xml"
+if [[ -n "$MANIFEST_PATH" && -f "$MANIFEST_PATH" ]]; then
+    cp "$MANIFEST_PATH" "$STAGING/AndroidManifest.xml"
+else
+    cp "$REPO_ROOT/packaging/android/AndroidManifest.xml" "$STAGING/AndroidManifest.xml"
+fi
 
 # 3. Compile SDL Java sources (plus helpers from packaging/android/java/) into classes.dex
 echo "[bundle-android] compiling Java to DEX..."
@@ -203,9 +221,17 @@ for lib in "lib/$ARCH/"*.so; do
 done
 cd "$REPO_ROOT"
 
-# 6. Zipalign (-P 16: align uncompressed .so to 16 KB pages for 16 KB-page devices)
+# 6. Zipalign (-P 16: align uncompressed .so to 16 KB pages for 16 KB-page
+#    devices). -P is a build-tools 35+ flag; on older build-tools (e.g. 34.0.0)
+#    fall back to -p 4, which gives 4-byte alignment (the .so inside the apk
+#    is uncompressed either way, so it stays loadable on 4 KB-page devices —
+#    the 16 KB alignment is a separate device-compatibility check that
+#    check-16k-align.sh validates post-build).
 echo "[bundle-android] aligning..."
-"$ZIPALIGN" -f -P 16 4 "$STAGING/unsigned.apk" "$STAGING/aligned.apk"
+if ! "$ZIPALIGN" -f -P 16 4 "$STAGING/unsigned.apk" "$STAGING/aligned.apk" 2>/dev/null; then
+    echo "[bundle-android] zipalign -P 16 not supported; falling back to -p 4"
+    "$ZIPALIGN" -f -p 4 "$STAGING/unsigned.apk" "$STAGING/aligned.apk"
+fi
 
 # 7. Debug-sign with the auto-generated debug keystore
 KEYSTORE="${HOME}/.android/debug.keystore"

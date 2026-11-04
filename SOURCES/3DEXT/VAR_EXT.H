@@ -54,6 +54,15 @@ extern	T_SOMMET_ROT	SommetRot[65][65] ;
 
 extern S32 PalLevel;
 
+/* Drops every cached static-horizon terrain VBO; island and phantom-sea
+   loads change the per-cube HQR data behind the same cube coordinates. */
+void GPU_Terrain_InvalidateAll(void);
+void GPU_TerrainDecorCube(S32 *x, S32 *y);
+
+/* Drops the static decor VBOs and releases their pinned texture-array
+   layers; island loads replace the object HQR the body pointers come from. */
+void GPU_Decor_InvalidateAll(void);
+
 #ifdef __cplusplus
 extern "C" S32 FogCoul;
 #else
@@ -109,3 +118,9 @@ extern S32 OffsetAniPoly3;
 extern S32 OffsetAniPoly4;
 
 extern S32 AtlasTextureDirty; /* GL renderer: set when any in-place texture mutation needs GPU re-upload */
+
+#define ATLAS_DIRTY_MAX 16
+extern U8 *AtlasTextureDirtyPtrs[ATLAS_DIRTY_MAX]; /* pages mutated since the last flush */
+extern S32 AtlasTextureDirtyCount;
+extern S32 AtlasTextureDirtyAll; /* unnamed mutation or list overflow: refresh every page */
+extern void Atlas_MarkDirty(U8 *page);

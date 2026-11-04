@@ -21,6 +21,9 @@
 #include <SDL3/SDL.h>     /* SDL_SetHint for --headless (must precede SDL_Init) */
 #include <SYSTEM/FILES.H> /* ExistsFileOrDir */
 #include <SYSTEM/LOG.H>   /* LogSeverity, Log_ParseLevel for --log-level */
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H> /* GL_SavePresentPNG for GL-mode screenshots */
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -547,6 +550,7 @@ int Control_Begin(void) {
        run flat-out. Presentation only -- the rendered pixels and simulation state are
        unchanged (verified: dumps and screenshots are identical with vsync off). */
     Window_SetVSync(0);
+    Window_SetFrameLimit(0);
 
     /* Attract/demo mode: the scene's scripts drive the hero along authored tracks (a
        "canned playthrough"), and dialogues/choices auto-advance on the game clock instead
@@ -591,6 +595,12 @@ int Control_Begin(void) {
            at its top), otherwise the saved hero position is not restored. */
         InitGame(-1);
         ChangeCube();
+        /* The live load path palette-syncs through the load fades; this path
+           skips them, so raise FlagPal: the engine syncs the palette at the
+           top of AffScene, before anything renders.  Without it the GL
+           palette texture stays at its zeroed boot state and the scene
+           renders black. */
+        FlagPal = TRUE;
         FlagFade = FALSE;
     } else {
         /* Fresh start; mirrors the proven debug cube-select path (InitGame(1) then
@@ -800,6 +810,14 @@ static void control_dump_state(const char *path) {
 }
 
 static void control_screenshot(const char *path) {
+#ifdef USE_GPURENDERER
+    /* In GL mode Log holds only the 2D overlay (rain, HUD sprites); the 3D
+       scene lives in the GL FBO. Capture the composite the player sees. */
+    if (GPURendererActive) {
+        GL_SavePresentPNG(path);
+        return;
+    }
+#endif
     /* Capture Log, the presented buffer (SDL PresentFrame uploads Log). Screen is
        a secondary buffer that only holds the clean brick background, so it misses
        the per-frame 3D models and the foreground-brick re-blit. */

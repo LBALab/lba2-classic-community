@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android app manifest for the Meta Quest build of LBA2 Classic Community.
+     Inherits the same activity / permissions as packaging/android/AndroidManifest.xml
+     but adds the features and intent filter that tell the Quest store and
+     the in-headset launcher to treat this as a VR-capable title.
+
+     The OpenXR layer in LIB386/SYSTEM/OPENXR.CPP drives the immersive
+     stereo present and Quest controller input; see docs/ANDROID.md
+     "OpenXR (Meta Quest 3)".
+
+     The Quest-specific launcher entry is gated on the VR headtracking
+     feature so the in-headset store / Oculus app surfaces the app under
+     "VR" rather than under the 2D games list. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.lbalab.lba2cc"
+    android:versionCode="1"
+    android:versionName="@string/version_name">
+
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
+
+    <!-- Required for reading retail game data from external storage.
+         On API 30+, direct /sdcard/ access needs MANAGE_EXTERNAL_STORAGE.
+         The app-specific Android/data/<pkg>/files/ dir works without it. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+
+    <!-- VR headtracking is required so the Meta Quest store treats this as
+         a VR title and surfaces it under the VR section. Without this, the
+         Quest 2/3/Pro launcher shows it as a flat 2D app. -->
+    <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
+    <uses-feature android:name="oculus.software.overlay_app" android:required="false" />
+    <!-- Passthrough is optional in-game (Display → VR → Passthrough), but
+         the OpenXR passthrough extensions are only advertised to apps that
+         declare the feature. Every supported headset can do passthrough. -->
+    <uses-feature android:name="com.oculus.feature.PASSTHROUGH" android:required="true" />
+    <!-- Optional optical hand tracking for the first-person body.  The app
+         falls back to controller grip poses, so neither is required. -->
+    <uses-permission android:name="com.oculus.permission.HAND_TRACKING" />
+    <uses-permission android:name="horizonos.permission.HAND_TRACKING" />
+    <!-- Horizon OS looks for the software feature under both the older
+         com.oculus name and the VrApi-era oculus.software name; declaring
+         both keeps the runtime from leaving the app in ControllersOnly. -->
+    <uses-feature android:name="com.oculus.handtracking" android:required="false" />
+    <uses-feature android:name="oculus.software.handtracking" android:required="false" />
+    <uses-feature android:name="com.oculus.handtracking.frequency" android:required="false" />
+
+    <!-- Optional / non-VR features inherited from the generic manifest. -->
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <application android:label="@string/app_name"
+        android:allowBackup="true"
+        android:hasCode="true"
+        android:icon="@mipmap/ic_launcher"
+        android:requestLegacyExternalStorage="true"
+        android:extractNativeLibs="false">
+
+        <!-- com.oculus.supportedDevices declares which Meta Quest headsets
+             this APK was built for. Without it the Quest shell routes the
+             app through its Android-2D compatibility panel (a small flat
+             0.1x0.1m 2D window in VR space) rather than treating it as a
+             native immersive VR app. "quest2|questpro|quest3|quest3s"
+             covers every shipping headset. -->
+        <meta-data android:name="com.oculus.supportedDevices"
+            android:value="quest2|questpro|quest3|quest3s" />
+        <meta-data android:name="com.oculus.handtracking.frequency"
+            android:value="LOW" />
+
+        <activity android:name="org.libsdl.app.SDLActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <!-- com.oculus.intent.category.VR (NOT android.intent.category.VR)
+                     is the magic value the Meta Quest shell looks for in the
+                     LAUNCHER intent filter to launch the app in immersive
+                     mode. Without it the shell falls back to the
+                     Android-2D compatibility panel. -->
+                <category android:name="com.oculus.intent.category.VR" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

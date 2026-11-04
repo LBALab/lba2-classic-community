@@ -24,6 +24,7 @@ extern void PtrInit3DGame();
 // Objects
 /*--------------------------------------------------------------------------*/
 extern S32 DrawRecover(S32 xw, S32 yw, S32 zw, S32 ymax, S32 zvmax);
+extern S32 DrawRecoverFlag(S32 xw, S32 yw, S32 zw, S32 ymax, S32 zvmax);
 
 /*--------------------------------------------------------------------------*/
 extern void DrawRecover3(S32 xw, S32 yw, S32 zw, S32 ymax, S32 zvmax);

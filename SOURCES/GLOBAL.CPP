@@ -63,6 +63,15 @@ S32 Value;
 //			     l'ecran
 
 U8 CinemaMode = FALSE;
+/* Full-screen video (PLAYACF): the 8-bit Log holds the movie and palette
+   index 0 is opaque black, not the UI chroma key. */
+S32 FlagMovie = FALSE;
+/* Movie upscaling: 0 = nearest, 1 = Scale2x, 2 = xBR (default).  Kept
+   separate from DisplayTexFilter so game textures and FMV can differ. */
+S32 MovieUpscale = 2;
+/* Quest: shrink the movie rect to this percent of the frame, centred.
+   Desktop keeps the full-frame cine rect. */
+S32 MovieVrZoom = 70;
 S32 TimerCinema = 0;
 S32 LastYCinema = 0;
 S32 DebCycleCinema = 0;     // en pixels Y
@@ -87,12 +96,39 @@ S32 DetailLevel = MAX_DETAIL_LEVEL;
 S32 VideoFullScreen = TRUE;
 S32 DisplayFullScreen = FALSE;
 S32 DisplayVSync = TRUE;
+S32 GpuFocalCapped = FALSE; /* exterior focal floored at the 720p FOV envelope (Init3DExtView) */
+S32 FpsLimit = 0;           /* 0 = unlimited, else frames-per-second ceiling */
 
+S32 GPURendererActive = FALSE; /* stays FALSE when the GL renderer is compiled out */
 #ifdef USE_GPURENDERER
-S32 GPURendererActive = FALSE;
-S32 DisplayTexFilter = TRUE; /* bilinear by default in GL mode */
-S32 RenderQuality = 1; /* native resolution by default */
+S32 DisplayTexFilter = TRUE;
+S32 DisplayAntiAlias = 0; /* 0=off, 1=FXAA, 2=MSAA×2, 3=MSAA×4 */ /* bilinear by default in GL mode */
+S32 DisplayDither = FALSE;                                        /* ordered dither between CLUT rows (GL only) */
+S32 DisplaySoftShadows = FALSE;                                   /* feathered ground shadows (GL only) */
+S32 DisplayColorGrade = 0;                                        /* 0=off, 1=warm, 2=cool (GL only) */
+S32 DisplaySubPixel = FALSE;                                      /* sub-pixel interior pan (GL only) */
+S32 DisplaySharpen = 0;                                           /* present sharpening: 0=off, 1=low, 2=high (GL only) */
+S32 RenderQuality = 1;                                            /* native resolution by default */
 #endif
+/* Display adjustments and the VR FOV zoom exist in every renderer config:
+ * the console cvars and the lba2.cfg load/save reference them whether or
+ * not the GL renderer (their only consumer) is compiled in. */
+S32 DisplayBrightness = 0; /* image adjust: added light, -20..+20 */
+S32 DisplayContrast = 0;   /* image adjust: contrast delta, -20..+20 */
+S32 DisplaySaturation = 0; /* image adjust: saturation delta, -20..+20 */
+S32 VrFovScale = 100;      /* VR world zoom, percent of the eye's natural FOV: >100
+                         renders a wider field (zoomed out), capped by the
+                         authored-world edge at about 120 */
+S32 VrSuperSample = 0;     /* Quest supersampling: 0 = off, 1 = 1.25x, 2 = 1.5x.
+                          Scales the GL scene target above the eye buffer;
+                          the present pass downsamples it. */
+S32 VrInteriorHover = 0;   /* Quest interiors: head-tracked hover camera.  A
+                            head turn keeps the room fixed in the world; a
+                            head lean adds depth parallax. */
+S32 VrPassthrough = 0;     /* Quest interiors: the scene clear colour (the black
+                          margin around the isometric room) is composited as
+                          transparent so the headset's passthrough camera
+                          shows through it. */
 
 // #358: min ms of game-time between simulation steps (0 = off, per-frame sim as before).
 // When > 0 the main loop runs the simulation at most once per this many ms of game clock,
@@ -218,6 +254,7 @@ S32 ExtraConque = -1; // Numero extra visant Twinsen (avec Conque)
 
 S32 AllCameras = TRUE;
 S32 FollowCamera = FALSE;
+S32 CameraFirstPerson = 0; /* first-person camera (VR) */
 S32 FollowCamBaseDist = 0; /* player's chosen zoom distance (0 = uninitialised) */
 S32 FlagMouseCamera = TRUE;
 S32 FlagMouseCameraDrag = TRUE; /* 0=free orbit on move, 1=require right-drag */
@@ -245,6 +282,7 @@ S32 FollowCamGroundClearance = FOLLOW_CAM_GROUND_CLEARANCE_DEFAULT;
 S32 FollowCamManualHoldFrames = FOLLOW_CAM_MANUAL_HOLD_DEFAULT;
 S32 FollowCamHoldAngle = FOLLOW_CAM_HOLD_ANGLE_DEFAULT;
 S32 ReverseStereo = FALSE;
+S32 DisplayStereo3D = FALSE; /* Quest OpenXR only: native per-eye stereo */
 S32 Island = 0;
 S32 Planet = 0;
 

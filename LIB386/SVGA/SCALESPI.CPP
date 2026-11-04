@@ -6,6 +6,18 @@
 #include <SVGA/SCREENXY.H>
 #include <SYSTEM/DEBUG_TRACES.H>
 
+/* Incremented by the software sprite-scale paths; printed by the game's
+   per-frame draw census. */
+extern "C" U32 s_censusScaleLog = 0;
+
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+/* Set by the gameplay object pass (SOURCES/OBJECT.CPP): the aZ depth of the
+   sprite being drawn.  Zero means "no GL sprite quad requested" — menus and
+   interior blits keep the Log path. */
+extern U16 SpriteGL_Zo;
+#endif
+
 // Sprite header — matches the ASM struct (SCALESPI.ASM).
 typedef struct {
     U8 Delta_X;
@@ -31,6 +43,41 @@ static S32 divide_16_16(S32 value) {
 
 static S32 sprite_center_16_16(U8 delta) {
     return (S32)(((U32)(delta >> 1) << 16) + ((delta & 1u) ? 0x8000u : 0u));
+}
+
+/* Source rectangle for the GL scaled-sprite quad.  The destination is
+   `width` pixels wide, but the software walk advances the source once per
+   destination pixel, so the sampled span is (width - 1) inverse-scale steps,
+   not `width` texels. */
+static void gl_scaled_source_rect(S32 startTexX, S32 startTexY,
+                                  S32 width, S32 height,
+                                  S32 invFactorX, S32 invFactorY,
+                                  S32 spriteW, S32 spriteH,
+                                  S32 *u0, S32 *v0, S32 *u1, S32 *v1) {
+    S32 lastX = startTexX + (S32)((long long)(width - 1) * invFactorX);
+    S32 lastY = startTexY + (S32)((long long)(height - 1) * invFactorY);
+    *u0 = startTexX >> 16;
+    *v0 = startTexY >> 16;
+    *u1 = (lastX >> 16) + 1;
+    *v1 = (lastY >> 16) + 1;
+    /* A negative hotspot or a clipped start can put the source origin
+       outside the bank; clamp before it wraps the 8.8 UV. */
+    if (*u0 < 0)
+        *u0 = 0;
+    if (*v0 < 0)
+        *v0 = 0;
+    if (*u0 >= spriteW)
+        *u0 = spriteW - 1;
+    if (*v0 >= spriteH)
+        *v0 = spriteH - 1;
+    if (*u1 <= *u0)
+        *u1 = *u0 + 1;
+    if (*v1 <= *v0)
+        *v1 = *v0 + 1;
+    if (*u1 > spriteW)
+        *u1 = spriteW;
+    if (*v1 > spriteH)
+        *v1 = spriteH;
 }
 
 #ifdef __cplusplus
@@ -127,6 +174,19 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory, void *ptrbank)
             return;
         }
 
+#ifdef USE_GPURENDERER
+        if (SpriteGL_Zo != 0) {
+            GL_DrawSpriteQuad(ScreenXMin, ScreenYMin,
+                              ScreenXMin + width, ScreenYMin + height,
+                              startX, startY,
+                              startX + width, startY + height,
+                              srcBase, sprite->Delta_X, sprite->Delta_Y,
+                              SpriteGL_Zo, 0);
+            SpriteGL_Zo = 0;
+            return;
+        }
+#endif
+        s_censusScaleLog++;
         U8 *dstPtr = (U8 *)Log + TabOffLine[ScreenYMin] + ScreenXMin;
         U8 *srcPtr = srcBase + startY * sprite->Delta_X + startX;
 
@@ -214,6 +274,23 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory, void *ptrbank)
         return;
     }
 
+#ifdef USE_GPURENDERER
+    if (SpriteGL_Zo != 0) {
+        S32 u0, v0, u1, v1;
+        gl_scaled_source_rect(startTexX, startTexY, width, height,
+                              invFactorX, invFactorY,
+                              sprite->Delta_X, sprite->Delta_Y,
+                              &u0, &v0, &u1, &v1);
+        GL_DrawSpriteQuad(ScreenXMin, ScreenYMin,
+                          ScreenXMin + width, ScreenYMin + height,
+                          u0, v0, u1, v1,
+                          srcBase, sprite->Delta_X, sprite->Delta_Y,
+                          SpriteGL_Zo, 0);
+        SpriteGL_Zo = 0;
+        return;
+    }
+#endif
+    s_censusScaleLog++;
     U8 *dstPtr = (U8 *)Log + TabOffLine[ScreenYMin] + ScreenXMin;
 
     U8 *srcPtr = srcBase + ((U32)startTexY >> 16) * sprite->Delta_X;

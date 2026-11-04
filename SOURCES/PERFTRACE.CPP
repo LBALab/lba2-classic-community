@@ -15,13 +15,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PERFTRACE_RING_SIZE 256
+/* Deep enough that a dump after a 500-tick harness run still holds the
+   early-run frames: 256 evicted transient spikes (camera-jump redraws) from
+   the window entirely.  ~130 KB of static memory. */
+#define PERFTRACE_RING_SIZE 2048
 
 typedef struct {
     U64 frame_us;
     U64 phase_us[PERFTRACE_PHASE_COUNT];
     U8 scene_tag; /* 0 = unknown / pre-load, 1 = interior/iso, 2 = exterior */
 } Sample;
+
+static const char *const s_phase_names[PERFTRACE_PHASE_COUNT] = {
+    "scene", "present", "sim", "openxr", "eye0", "eye1"};
 
 static Sample s_ring[PERFTRACE_RING_SIZE];
 static int s_ring_head;  /* next write position */
@@ -263,16 +269,16 @@ static void dump_section(FILE *f, const char *label, int tag_filter, int max_sam
         return;
     }
     double avg = (double)s.sum / (double)n;
-    double scene_share = s.sum > 0 ? (100.0 * (double)s.sum_phase[PERFTRACE_PHASE_SCENE]) / (double)s.sum : 0.0;
-    double present_share = s.sum > 0 ? (100.0 * (double)s.sum_phase[PERFTRACE_PHASE_PRESENT]) / (double)s.sum : 0.0;
     double avg_fps = avg > 0 ? 1000000.0 / avg : 0.0;
     fprintf(f, "  frame_us  min=%lu  avg=%.0f  p50=%lu  p95=%lu  p99=%lu  max=%lu  (~%.1f fps)\n",
             (unsigned long)s.min, avg, (unsigned long)s.p50, (unsigned long)s.p95,
             (unsigned long)s.p99, (unsigned long)s.max, avg_fps);
-    fprintf(f, "  scene avg=%.0f us  (%.1f%% of frame)\n",
-            n ? (double)s.sum_phase[PERFTRACE_PHASE_SCENE] / (double)n : 0.0, scene_share);
-    fprintf(f, "  present avg=%.0f us  (%.1f%% of frame)\n\n",
-            n ? (double)s.sum_phase[PERFTRACE_PHASE_PRESENT] / (double)n : 0.0, present_share);
+    fprintf(f, "  phase avg (us):");
+    for (int p = 0; p < PERFTRACE_PHASE_COUNT; ++p) {
+        fprintf(f, "  %s=%.0f", s_phase_names[p],
+                (double)s.sum_phase[p] / (double)n);
+    }
+    fprintf(f, "\n\n");
     free(frame);
     free(phase);
 }
@@ -301,15 +307,21 @@ int Perftrace_Dump(const char *path, int max_samples) {
     dump_section(f, "Exterior", 2, max_samples);
 
     fprintf(f, "## Per-frame samples (oldest first, microseconds)\n");
-    fprintf(f, "# idx  tag    frame   scene  present\n");
+    fprintf(f, "# idx  tag    frame    sim  openxr   eye0   eye1  scene  present\n");
     int n = s_ring_count;
     int take = (max_samples > 0 && max_samples < n) ? max_samples : n;
     int start = (s_ring_head - take + PERFTRACE_RING_SIZE) % PERFTRACE_RING_SIZE;
     for (int i = 0; i < take; ++i) {
         int idx = (start + i) % PERFTRACE_RING_SIZE;
         const Sample *r = &s_ring[idx];
-        fprintf(f, "%5d  %-4s  %6lu  %6lu  %6lu\n", i, tag_name(r->scene_tag),
-                (unsigned long)r->frame_us, (unsigned long)r->phase_us[PERFTRACE_PHASE_SCENE],
+        fprintf(f, "%5d  %-4s  %6lu  %6lu  %6lu  %6lu  %6lu  %6lu  %6lu\n",
+                i, tag_name(r->scene_tag),
+                (unsigned long)r->frame_us,
+                (unsigned long)r->phase_us[PERFTRACE_PHASE_SIMULATION],
+                (unsigned long)r->phase_us[PERFTRACE_PHASE_OPENXR],
+                (unsigned long)r->phase_us[PERFTRACE_PHASE_EYE0],
+                (unsigned long)r->phase_us[PERFTRACE_PHASE_EYE1],
+                (unsigned long)r->phase_us[PERFTRACE_PHASE_SCENE],
                 (unsigned long)r->phase_us[PERFTRACE_PHASE_PRESENT]);
     }
 
@@ -329,6 +341,7 @@ void Perftrace_PrintStatus(Perftrace_PrintFn sink) {
     int n = s_ring_count < 60 ? s_ring_count : 60;
     int start = (s_ring_head - n + PERFTRACE_RING_SIZE) % PERFTRACE_RING_SIZE;
     U64 sum_frame = 0, sum_scene = 0, sum_present = 0;
+    U64 sum_sim = 0, sum_openxr = 0, sum_eye0 = 0, sum_eye1 = 0;
     int iso_n = 0, ext_n = 0;
     U64 iso_sum = 0, ext_sum = 0;
     for (int i = 0; i < n; ++i) {
@@ -337,6 +350,10 @@ void Perftrace_PrintStatus(Perftrace_PrintFn sink) {
         sum_frame += r->frame_us;
         sum_scene += r->phase_us[PERFTRACE_PHASE_SCENE];
         sum_present += r->phase_us[PERFTRACE_PHASE_PRESENT];
+        sum_sim += r->phase_us[PERFTRACE_PHASE_SIMULATION];
+        sum_openxr += r->phase_us[PERFTRACE_PHASE_OPENXR];
+        sum_eye0 += r->phase_us[PERFTRACE_PHASE_EYE0];
+        sum_eye1 += r->phase_us[PERFTRACE_PHASE_EYE1];
         if (r->scene_tag == 1) {
             iso_n++;
             iso_sum += r->frame_us;
@@ -353,7 +370,12 @@ void Perftrace_PrintStatus(Perftrace_PrintFn sink) {
              "ext=%.0fus(n=%d)",
              s_active, n, avg, avg > 0 ? 1000000.0 / avg : 0.0, iso_avg, iso_n, ext_avg, ext_n);
     sink(line);
-    snprintf(line, sizeof(line), "  scene_avg=%.0fus  present_avg=%.0fus  (ring_capacity=%d)",
-             (double)sum_scene / (double)n, (double)sum_present / (double)n, PERFTRACE_RING_SIZE);
+    snprintf(line, sizeof(line),
+             "  sim=%.0fus  openxr=%.0fus  eye0=%.0fus  eye1=%.0fus  "
+             "scene=%.0fus  present=%.0fus  (ring_capacity=%d)",
+             (double)sum_sim / (double)n, (double)sum_openxr / (double)n,
+             (double)sum_eye0 / (double)n, (double)sum_eye1 / (double)n,
+             (double)sum_scene / (double)n, (double)sum_present / (double)n,
+             PERFTRACE_RING_SIZE);
     sink(line);
 }

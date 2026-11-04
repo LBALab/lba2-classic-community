@@ -10,7 +10,7 @@
  *
  * The original ASM uses x87 extended precision throughout and fistp
  * (round-to-nearest-even) for the final integer conversion.  We match
- * this by using long double arithmetic and lrintl().
+ * this by using double arithmetic and lrint().
  */
 S32 LongProjectPoint3D(S32 x, S32 y, S32 z) {
     LIB386_TRACE_CPP("LongProjectPoint3DF", "1", "x=%d y=%d z=%d", x, y, z);
@@ -24,10 +24,10 @@ S32 LongProjectPoint3D(S32 x, S32 y, S32 z) {
         return 0;
     }
 
-    long double factor = (long double)FRatioX / (long double)(CameraZr - z);
+    double factor = (double)FRatioX / (double)(CameraZr - z);
 
-    Xp = XCentre + (S32)lrintl((long double)(x - CameraXr) * factor);
-    Yp = YCentre + (S32)lrintl((long double)(y - CameraYr) * factor * (long double)FRatioY);
+    Xp = XCentre + StereoProjShiftX + (S32)lrint((double)(x - CameraXr) * factor);
+    Yp = YCentre + (S32)lrint((double)(y - CameraYr) * factor * (double)FRatioY);
 
     LIB386_TRACE_CPP("LongProjectPoint3DF", "2", "ret=%d Xp=%d Yp=%d", 1, Xp, Yp);
     Projrec_LongProjectPoint3D(x, y, z, 1, Xp, Yp);

@@ -1,0 +1,170 @@
+/* OpenXR runtime layer — minimal Quest 3 input backend.
+ *
+ * Optional, behind LBA2_OPENXR. On Android + OpenXR build the real
+ * session/reference-space/frame loop lives here; every other platform
+ * sees no-op stubs so callers compile unconditionally with no #ifdef.
+ *
+ * Quest 3 controller input is mapped onto the same virtual-scancode space
+ * JOYSTICK.CPP uses for SDL gamepads (K_GAMEPAD_*), so the existing
+ * GamepadKeys[] bindings and remap screen pick it up automatically.
+ * See LIB386/H/SYSTEM/KEYBOARD_KEYS.H for the K_GAMEPAD_* range.
+ */
+#pragma once
+
+#include <SYSTEM/ADELINE_TYPES.H>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* One-time init: create the OpenXR instance, session, reference spaces,
+ * and gameplay action set. Returns 1 on success, 0 on any failure or when
+ * OpenXR is not built in. */
+S32 OpenXR_Init(void);
+
+/* Tear down the session and instance. Safe to call even if init failed. */
+void OpenXR_Shutdown(void);
+
+/* 1 while a session is running, 0 otherwise. */
+S32 OpenXR_IsActive(void);
+/* The headset's swapchain-recommended image size (max across eyes; 0,0
+   before the session creates it). The resolution catalog uses it as the
+   in-headset "display" so the menu can offer swapchain-native sizes. */
+U32 OpenXR_GetSwapchainWidth(void);
+U32 OpenXR_GetSwapchainHeight(void);
+/* Head orientation from the last located view pose, in degrees: yaw is the
+   horizontal heading (positive = turning right), pitch the elevation
+   (positive = looking up). 0,0 before the first frame is located. The
+   follow-camera consumes these as per-frame deltas (head-tracked orbit). */
+float OpenXR_HeadYawDeg(void);
+float OpenXR_HeadPitchDeg(void);
+float OpenXR_HeadRollDeg(void); /* head roll, degrees, + = tilt right */
+/* Per-eye view from the last xrLocateViews: quat = x,y,z,w, pos = x,y,z in
+ * LOCAL tracking space (one frame stale by design — the compositor time-
+ * warps from exactly this pose, so rendering each eye from it is what keeps
+ * head rotation warp-free). Returns 0 when the eye has no fresh view. */
+S32 OpenXR_GetEyeView(S32 eye, float *quat, float *pos);
+
+/* Tracked controller pose from the same one-frame-stale locate as the eye
+ * views. hand: 0 = left, 1 = right. aimOrGrip: 0 = aim, 1 = grip.
+ * quat = x,y,z,w; pos = x,y,z in LOCAL tracking space (metres).
+ * Returns 0 when that action/space is not tracked this frame. */
+S32 OpenXR_GetHandPose(S32 hand, S32 aimOrGrip, float *quat, float *pos);
+
+/* Optical hand-tracking joint pose (XR_EXT_hand_tracking). joint uses the
+ * OpenXR XrHandJointEXT order: 0 = palm, 1 = wrist. quat/pos are LOCAL-space
+ * metres. Returns 0 when optical tracking is inactive or the joint is not
+ * valid; callers fall back to OpenXR_GetHandPose(grip). */
+S32 OpenXR_GetHandJointPose(S32 hand, S32 joint, float *quat, float *pos);
+
+/* 1 when the runtime is delivering optical hand joints for this hand. */
+S32 OpenXR_HandTrackingActive(S32 hand);
+
+/* Pump OpenXR events (session state changes, loss, etc.). */
+void OpenXR_PollEvents(void);
+
+/* Run one frame of the OpenXR frame loop: xrWaitFrame / xrBeginFrame,
+ * sync actions, xrEndFrame. Returns 1 on success, 0 if the session is
+ * not ready or the frame should be skipped. */
+S32 OpenXR_BeginFrame(void);
+
+/* No-op in the minimal wrapper; retained for a future split where the
+ * renderer owns the swapchain and wants to present after drawing.
+ *
+ * For the Quest 3 immersive (mono blit) path, see OpenXR_PresentMono —
+ * the engine's main loop calls that instead, which copies the SDL
+ * framebuffer into the OpenXR swapchain and submits the composition
+ * layer to the runtime. */
+void OpenXR_EndFrame(void);
+
+/* Quest 3 immersive mono path: copy the current SDL / GLES framebuffer
+ * into the OpenXR swapchain and submit a single XrCompositionLayerProjection
+ * (both eyes reference the same texture) via xrEndFrame. The renderer's
+ * own SDL_GL_SwapWindow is suppressed while this returns non-zero.
+ * Returns 1 on success, 0 if the session is not active or the frame
+ * was skipped (in which case the caller should still let SDL swap). */
+S32 OpenXR_PresentMono(void);
+
+/* 1 while an immersive OpenXR session is owning the present path (i.e.
+ * Window_GL_SwapWindow should be suppressed because OpenXR_PresentMono
+ * already submitted the frame). 0 otherwise. Lets the renderer skip
+ * a redundant SDL swap. */
+S32 OpenXR_ShouldSkipSDLSwap(void);
+
+/* Native stereo toggle for the immersive present path. When enabled (and
+ * the engine renders one frame per eye via GL_SetStereoEye),
+ * OpenXR_PresentMono blits two per-eye composites into the swapchain
+ * image's top/bottom halves and submits one projection layer with a
+ * per-eye sub-image; otherwise both eyes share the mono composite. */
+void OpenXR_SetStereoEnabled(S32 enabled);
+
+/* Current stereo-present mode (0 = mono, 1 = per-eye). */
+S32 OpenXR_GetStereoEnabled(void);
+
+/* 1 when the runtime exposes XR_FB_passthrough and the system reports the
+ * passthrough capability, so the passthrough option has an effect. */
+S32 OpenXR_PassthroughSupported(void);
+
+/* 1 while an interior frame should composite the scene's black background
+ * as transparent over the passthrough underlay.  The renderer reads this
+ * when clearing the scene target so pixels no polygon covers keep alpha 0;
+ * the present path then submits the passthrough layer below the projection
+ * layer and alpha-blends the latter. */
+S32 OpenXR_InteriorPassthroughActive(void);
+
+/* Opt-in direct-to-swapchain stereo (LBA2_OXR_DIRECT): acquire and wait for
+ * the swapchain image before the scene renders, and return the runtime-owned
+ * GL texture plus its allocation size.  The caller sets up the direct MSAA
+ * target with GL_BeginDirectStereo, renders both eyes, and calls
+ * OpenXR_PresentMono, which releases the held image instead of acquiring and
+ * blitting.  Returns 0 when direct mode is disabled, unsupported, or the
+ * image could not be acquired; the normal present path then runs unchanged. */
+S32 OpenXR_AcquireStereoImage(U32 *texture, U32 *width, U32 *height);
+
+/* End the direct target and release the held image if present did not get
+ * that far.  Idempotent; safe to call every frame. */
+void OpenXR_AbortDirectStereo(void);
+
+/* Read the latest Quest 3 controller state and write virtual gamepad
+ * scancodes into TabKeys via the existing helpers in JOYSTICK.CPP.
+ * Returns 1 if OpenXR state was written this frame, 0 otherwise
+ * (inactive, no controllers, or OpenXR not built in). */
+S32 OpenXR_UpdateControllerState(void);
+
+/* ========================================================================= */
+/* Quest 3 controller raw state — consumed by JOYSTICK.CPP. */
+
+/* Button state (boolean). */
+extern S32 OpenXR_LeftGripDown;
+extern S32 OpenXR_RightGripDown;
+extern S32 OpenXR_LeftTrigger;
+extern S32 OpenXR_RightTrigger;
+extern S32 OpenXR_LeftThumbstickDown;
+extern S32 OpenXR_RightThumbstickDown;
+/* Capacitive thumb-presence sensors on the left hand. The stick touch and
+ * the controller-body thumb rest are separate Touch-profile inputs; the
+ * camera modifier accepts either while the left stick is at rest. */
+extern S32 OpenXR_LeftThumbstickTouched;
+extern S32 OpenXR_LeftThumbrestTouched;
+/* Right-hand thumb rest, used as the cheat modifier chord. */
+extern S32 OpenXR_RightThumbrestTouched;
+
+/* Axes (SDL-style -32767..32767). Y is negated to match SDL's Y-down. */
+extern S16 OpenXR_LeftStickX;
+extern S16 OpenXR_LeftStickY;
+extern S16 OpenXR_RightStickX;
+extern S16 OpenXR_RightStickY;
+
+/* Face buttons. The left controller's menu click maps to K_GAMEPAD_START
+ * (I_MENUS) on a short press and K_GAMEPAD_BACK (I_HOLOMAP) on a long press
+ * in JOYSTICK.CPP. */
+extern S32 OpenXR_ABtn;
+extern S32 OpenXR_BBtn;
+extern S32 OpenXR_XBtn;
+extern S32 OpenXR_YBtn;
+extern S32 OpenXR_MenuBtn;
+
+/* ========================================================================= */
+#ifdef __cplusplus
+}
+#endif

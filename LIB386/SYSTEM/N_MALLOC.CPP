@@ -1,6 +1,11 @@
 #include <SYSTEM/N_MALLOC.H>
 
 #include <stdlib.h>
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+
+#define LOG_TAG "lba2cc-malloc"
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -14,7 +19,13 @@ extern "C" {
 void *NormMalloc(U32 size) {
     U64 addr, temp;
 
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "NormMalloc(%u) called", (unsigned)size);
+#endif
     temp = (U64)malloc(size + MALLOC_ALIGN);
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "NormMalloc(%u) malloc returned %p", (unsigned)size, (void *)temp);
+#endif
 
     if (!temp) {
         return NULL;
@@ -25,6 +36,9 @@ void *NormMalloc(U32 size) {
     *((S8 *)addr - 2) = 0;
     *((S8 *)addr - 1) = (S8)(addr - temp);
 
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "NormMalloc(%u) returning %p", (unsigned)size, (void *)addr);
+#endif
     return (void *)addr;
 }
 

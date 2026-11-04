@@ -5,16 +5,22 @@
 #include "ZONE_GEOM.H" // ZonePointInBox -- single source of truth for the zone box test
 
 #include <SYSTEM/LOG.H> // cubetrace
+#include <SDL3/SDL.h>   /* SDL_GetPerformanceCounter (object-pass timing diag) */
 
 #include <stdio.h>
 
 #include "INPUT.H"
+#include "MESSAGE.H"
 #ifdef ENABLE_POLY_RECORDING
 #include <SNAPSHOT/POLY_RECORDING.H>
 #endif
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
+#include <3D/PROJ.H>
+#include <GL/RENDER_GL.H>  /* GL_DrawShadowQuad */
+#include <SYSTEM/OPENXR.H> /* OpenXR_GetSwapchainWidth (head-mount fps position) */
+#include "VRBODY.H"
 #include <SYSTEM/HQFILE.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <stdint.h>
@@ -4223,8 +4229,18 @@ void DoDir(U8 numobj) {
                         } else {
                             if (ListVarGame[FLAG_BALLE_MAGIQUE] == 1) {
                                 if (MagicBall == -1) {
-                                    InitAnim(GEN_ANIM_LANCE, ANIM_THEN, numobj);
-                                    MagicBallFlags = MAGIC_BALL_LANCEE;
+                                    /* First-person VR: arm the physical throw
+                                       and launch it on release, so the swing
+                                       captured while held sets direction and
+                                       speed.  Non-VR keeps the animation. */
+                                    if (VrBody_BeginThrow()) {
+                                        /* Launched from the release branch
+                                           below; no throw animation. */
+                                    } else {
+                                        InitAnim(GEN_ANIM_LANCE, ANIM_THEN,
+                                                 numobj);
+                                        MagicBallFlags = MAGIC_BALL_LANCEE;
+                                    }
                                 }
                                 LastJoyFlag = TRUE;
                                 flagattack = TRUE;
@@ -4335,6 +4351,34 @@ void DoDir(U8 numobj) {
                         InitAnim(GEN_ANIM_RIEN, ANIM_REPEAT, numobj);
                     }
                 } else {
+                    S32 physicalThrown = FALSE;
+
+                    /* First-person VR: the release is the throw.  The hand
+                       aim/swing captured while the button was held becomes
+                       the launch, and the hero keeps his current animation
+                       (walking) instead of snapping to idle. */
+                    if ((PtrComportement->Flags & CF_WEAPON) &&
+                        Weapon == FLAG_BALLE_MAGIQUE && MagicBall == -1 &&
+                        ListVarGame[FLAG_BALLE_MAGIQUE] == 1) {
+                        S32 throwX, throwY, throwZ;
+                        S32 throwAlpha, throwBeta;
+                        if (VrBody_EndThrow(&throwX, &throwY, &throwZ,
+                                            &throwAlpha, &throwBeta)) {
+                            /* Keep the normal camera's launch speed and
+                               gravity; only the hand supplies the origin and
+                               direction. */
+                            S32 throwSpeed = 105;
+                            U8 throwPoids = 14;
+                            GetMagicThrowParams(&throwSpeed, &throwPoids);
+                            ThrowMagicBall(throwX, throwY, throwZ, throwAlpha,
+                                           throwBeta, throwSpeed, throwPoids);
+                            if (MagicBall != -1)
+                                SampleMagicBall(throwX, throwY, throwZ);
+                            MagicBallFlags = MAGIC_BALL_LACHEE;
+                            physicalThrown = TRUE;
+                        }
+                    }
+
                     if (MagicBallFlags & MAGIC_BALL_LANCEE) {
                         // On a laché la touche <ALT>, se tenir pret a
                         // ramener la balle si le joueur reappuie sur la
@@ -4342,7 +4386,7 @@ void DoDir(U8 numobj) {
                         MagicBallFlags = MAGIC_BALL_LACHEE;
                     }
 
-                    if (LastInput & I_THROW) {
+                    if ((LastInput & I_THROW) && !physicalThrown) {
                         if (numobj == NUM_PERSO && ptrobj->GenAnim != GEN_ANIM_RIEN)
                             DbgHeroActionResets++;
                         InitAnim(GEN_ANIM_RIEN, ANIM_REPEAT, numobj);
@@ -4827,6 +4871,37 @@ void AfficheShadow(T_SORT *pt, S32 beta) {
             S32 xmin, xmax, zmin, zmax;
             S32 yw /*= pt->Yw*/;
 
+#ifdef USE_GPURENDERER
+            /* GL mode: the shadow is the Bezier-rounded outline the SW
+               span filler traces, filled as one multiply-blended,
+               depth-tested polygon straight into the FBO — terrain
+               occlusion comes from the FBO depth buffer, which is exactly
+               the occlusion DrawRecover used to restore after the
+               ShadeBoxBlk pass.  No Log pixels involved, and no dependence
+               on the FBO→palette readback staying faithful. */
+            if (GPURendererActive) {
+                DrawShadowGL();
+
+                /* Interior foreground bricks are overlays with no FBO depth,
+                   so the depth-tested shadow would show through them.  Mirror
+                   the software DrawShadow -> DrawRecover sequence: repaint the
+                   bricks in front of the shadow after the GL polygon. */
+                if (CubeMode == CUBE_INTERIEUR) {
+                    S32 xmin, xmax, zmin, zmax;
+
+                    xmin = pt->XMin - pt->Xw;
+                    xmax = pt->XMax - pt->Xw;
+                    zmin = pt->ZMin - pt->Zw;
+                    zmax = pt->ZMax - pt->Zw;
+
+                    DrawRecoverFlag(pt->Xw, pt->Yw, pt->Zw,
+                                    pt->YMax - pt->Yw,
+                                    ade_max((xmax - xmin) / 2, (zmax - zmin) / 2));
+                }
+                return;
+            }
+#endif
+
             DrawShadow();
 
             yw = pt->Yw;
@@ -4853,6 +4928,282 @@ void AfficheShadow(T_SORT *pt, S32 beta) {
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 /*──────────────────────────────────────────────────────────────────────────*/
+/* Depth of the sprite currently being drawn (aZ units), set right after
+   each PtrProjectPoint/PtrProjectSprite call in the sprite cases.  Non-zero
+   tells the SVGA blitters (ScaleSprite*) to draw through the GL FBO as a
+   depth-tested quad instead of into Log. */
+U16 SpriteGL_Zo = 0;
+
+/* Isometric world sprites sit at their object position; the perspective
+   CameraZr-Z0 depth has no meaning in the isometric projection.  Match the
+   body polygon depth from IsoDepth (AFF_OBJ.CPP) so a sprite body or extra
+   depth-tests against the interior FBO instead of x-raying through it. */
+static U16 SpriteGLDepth(S32 x, S32 z) {
+    if (CubeMode == CUBE_INTERIEUR) {
+        return IsoDepthToAz(((x - CameraXr) + (z - CameraZr)) >> 1);
+    }
+    return (U16)GET_ZO(CameraZr - Z0);
+}
+
+/* The held VR ball sits in the palm, which can be much closer than the world
+   near plane.  Project it with the same near clip as the first-person ghost so
+   it can follow the hand instead of being pushed out to arm's length.  The
+   override is scoped to this one projection: the sort preclip and the draw
+   both need it, or the ball never reaches the draw. */
+static S32 ProjectExtra(T_EXTRA *extra) {
+    const S32 oldZrClip = CameraZrClip;
+    if (extra->Flags & EXTRA_HELD)
+        CameraZrClip = CameraZr - 1;
+    const S32 ok = PtrProjectPoint(extra->PosX, extra->PosY, extra->PosZ);
+    CameraZrClip = oldZrClip;
+    return ok;
+}
+
+/* Temporary draw-path census counters */
+U32 s_censusA3DGL = 0;
+U32 s_censusIncrustGL = 0;
+U32 s_censusIncrustLog = 0;
+U32 s_censusSpecial = 0;
+extern "C" {
+extern U32 s_censusScaleLog;  /* defined in LIB386/SVGA/SCALESPI.CPP */
+extern U32 s_censusScaleTLog; /* defined in LIB386/SVGA/SCALESPT.CPP */
+}
+
+/* Per-entry depth for INCRUST_DISP sprites following objects (aZ units),
+   captured when the loop projects them; consumed by the INCRUST_SPRITE
+   GL quad path.  Zero = draw to Log as before. */
+static U16 s_incrustZo[MAX_INCRUST_DISP];
+
+/* GPH (RLE) sprite decode cache for the GL sprite-quad path. */
+#define GPH_CACHE_SIZE 32
+static const void *s_gphCachePtr[GPH_CACHE_SIZE];
+static U8 *s_gphCacheRaw[GPH_CACHE_SIZE];
+static S32 s_gphCacheW[GPH_CACHE_SIZE];
+static S32 s_gphCacheH[GPH_CACHE_SIZE];
+static S32 s_gphCacheNext = 0;
+
+static const U8 *Obj_DecodeGph(const void *bank, S32 *outW, S32 *outH,
+                               S32 *outHotX, S32 *outHotY) {
+    U8 *data = (U8 *)bank + ((U32 *)bank)[0];
+    const S32 w = data[0];
+    const S32 h = data[1];
+    *outHotX = (S8)data[2];
+    *outHotY = (S8)data[3];
+
+    for (S32 i = 0; i < GPH_CACHE_SIZE; i++) {
+        if (s_gphCachePtr[i] == data) {
+            *outW = s_gphCacheW[i];
+            *outH = s_gphCacheH[i];
+            return s_gphCacheRaw[i];
+        }
+    }
+
+    U8 *raw = (U8 *)malloc((size_t)w * h);
+    if (raw == NULL) {
+        return NULL;
+    }
+    memset(raw, 0, (size_t)w * h);
+
+    /* Same RLE stream AffGraph walks: op 0 = skip, op 1 = literal run,
+       op 2/3 = solid run (colour at data[1] past the control byte). */
+    const U8 *g = data + 4;
+    S32 x = 0;
+    for (S32 line = 0; line < h; line++) {
+        U8 nbBlock = *g++;
+        for (S32 j = 0; j < nbBlock; j++) {
+            U8 control = *g++;
+            U8 opCode = (control & 0b11000000) >> 6;
+            U32 counter = control & 0b00111111;
+            if (opCode == 0) {
+                g++;
+                x += counter + 1;
+            } else {
+                counter++;
+                if (opCode == 1) {
+                    while (counter > 0) {
+                        raw[line * w + x] = *g++;
+                        x++;
+                        counter--;
+                    }
+                } else {
+                    U8 color = g[1];
+                    g += 2;
+                    while (counter > 0) {
+                        raw[line * w + x] = color;
+                        x++;
+                        counter--;
+                    }
+                }
+            }
+        }
+        x = 0;
+    }
+
+    const S32 slot = s_gphCacheNext;
+    s_gphCacheNext = (s_gphCacheNext + 1) % GPH_CACHE_SIZE;
+    if (s_gphCacheRaw[slot]) {
+        free(s_gphCacheRaw[slot]);
+    }
+    s_gphCachePtr[slot] = data;
+    s_gphCacheRaw[slot] = raw;
+    s_gphCacheW[slot] = w;
+    s_gphCacheH[slot] = h;
+    *outW = w;
+    *outH = h;
+    return raw;
+}
+
+#ifdef USE_GPURENDERER
+/* HQR sprite banks use a different RLE stream than the anim-3DS GPH cache
+   (the bank offset at [0], then a header).  Decode through AffGraph, whose
+   clipping also keeps malformed-looking edge runs inside the sprite. */
+#define WORLD_GPH_CACHE_SIZE 32
+typedef struct {
+    const U8 *src;
+    U8 *raw;
+    S32 w;
+    S32 h;
+    S32 hotX;
+    S32 hotY;
+} T_WORLD_GPH_CACHE;
+static T_WORLD_GPH_CACHE s_worldGphCache[WORLD_GPH_CACHE_SIZE];
+static S32 s_worldGphNext = 0;
+
+static const U8 *Obj_DecodeWorldGph(const U8 *bank, S32 *outW, S32 *outH,
+                                    S32 *outHotX, S32 *outHotY) {
+    const U8 *data = bank + ((const U32 *)bank)[0];
+    for (S32 i = 0; i < WORLD_GPH_CACHE_SIZE; i++) {
+        if (s_worldGphCache[i].src == data) {
+            *outW = s_worldGphCache[i].w;
+            *outH = s_worldGphCache[i].h;
+            *outHotX = s_worldGphCache[i].hotX;
+            *outHotY = s_worldGphCache[i].hotY;
+            return s_worldGphCache[i].raw;
+        }
+    }
+
+    const S32 w = data[0];
+    const S32 h = data[1];
+    const S32 hotX = (S8)data[2];
+    const S32 hotY = (S8)data[3];
+    if (w <= 0 || h <= 0)
+        return NULL;
+
+    U8 *scratch = (U8 *)malloc((size_t)ModeDesiredX * (size_t)h);
+    if (scratch == NULL)
+        return NULL;
+    memset(scratch, 0, (size_t)ModeDesiredX * (size_t)h);
+
+    void *savedLog = Log;
+    const S32 savedXMin = ClipXMin, savedYMin = ClipYMin;
+    const S32 savedXMax = ClipXMax, savedYMax = ClipYMax;
+    Log = scratch;
+    ClipXMin = 0;
+    ClipYMin = 0;
+    ClipXMax = w - 1;
+    ClipYMax = h - 1;
+    AffGraph(0, -hotX, -hotY, (void *)bank);
+    Log = savedLog;
+    ClipXMin = savedXMin;
+    ClipYMin = savedYMin;
+    ClipXMax = savedXMax;
+    ClipYMax = savedYMax;
+
+    U8 *raw = (U8 *)malloc((size_t)w * (size_t)h);
+    if (raw != NULL) {
+        for (S32 y = 0; y < h; y++)
+            memcpy(raw + (size_t)y * w, scratch + (size_t)y * ModeDesiredX,
+                   (size_t)w);
+    }
+    free(scratch);
+    if (raw == NULL)
+        return NULL;
+
+    T_WORLD_GPH_CACHE *e = &s_worldGphCache[s_worldGphNext];
+    s_worldGphNext = (s_worldGphNext + 1) % WORLD_GPH_CACHE_SIZE;
+    free(e->raw);
+    e->src = data;
+    e->raw = raw;
+    e->w = w;
+    e->h = h;
+    e->hotX = hotX;
+    e->hotY = hotY;
+    *outW = w;
+    *outH = h;
+    *outHotX = hotX;
+    *outHotY = hotY;
+    return raw;
+}
+
+/* Interior world sprites (doors, extras) were still blitted into Log, whose
+   pixels composite over the FBO and therefore cannot be occluded by the hero
+   or accept the sprite clip region.  Draw them as depth-tested quads inside
+   the current clip instead. */
+static void DrawWorldSpriteGL(S32 xp, S32 yp, S32 sprite, U16 zo) {
+    if (!GPURendererActive)
+        return;
+
+    if (sprite < 100) {
+        /* Raw sprites use ScaleSprite's own GL fast path. */
+        PtrAffGraph(xp, yp, sprite);
+        return;
+    }
+
+    if (zo == 0) {
+        /* Same fallback as ScaleSprite for a depth outside the view. */
+        PtrAffGraph(xp, yp, sprite);
+        return;
+    }
+
+    const U8 *bank = (const U8 *)GetPtrSprite(sprite);
+    if (bank == NULL) {
+        PtrAffGraph(xp, yp, sprite);
+        return;
+    }
+
+    S32 w, h, hotX, hotY;
+    const U8 *raw = Obj_DecodeWorldGph(bank, &w, &h, &hotX, &hotY);
+    if (raw == NULL) {
+        PtrAffGraph(xp, yp, sprite);
+        return;
+    }
+
+    const S32 dx = xp + hotX;
+    const S32 dy = yp + hotY;
+    S32 cx0 = dx;
+    S32 cy0 = dy;
+    S32 cx1 = dx + w;
+    S32 cy1 = dy + h;
+    if (cx0 < ClipXMin)
+        cx0 = ClipXMin;
+    if (cy0 < ClipYMin)
+        cy0 = ClipYMin;
+    if (cx1 > ClipXMax + 1)
+        cx1 = ClipXMax + 1;
+    if (cy1 > ClipYMax + 1)
+        cy1 = ClipYMax + 1;
+    if (cx1 <= cx0 || cy1 <= cy0) {
+        ScreenXMin = 1;
+        ScreenYMin = 1;
+        ScreenXMax = 0;
+        ScreenYMax = 0;
+        return;
+    }
+
+    ScreenXMin = cx0;
+    ScreenYMin = cy0;
+    ScreenXMax = cx1;
+    ScreenYMax = cy1;
+    GL_SetSpriteNoDepth(0);
+    /* The decoded buffer is owned by the per-source GPH cache, so the same
+       pointer always carries the same pixels; the sprite texture cache can
+       keep the upload instead of refreshing it on every draw. */
+    GL_DrawSpriteQuad(cx0, cy0, cx1, cy1,
+                      cx0 - dx, cy0 - dy, cx1 - dx, cy1 - dy,
+                      raw, w, h, zo, 0);
+}
+#endif
+
 S32 AffOneObject(T_SORT *pt) {
     T_OBJET *ptrobj;
     T_EXTRA *ptrextra;
@@ -4915,7 +5266,10 @@ S32 AffOneObject(T_SORT *pt) {
             SetClip(0, 0, ModeDesiredX - 1, FlagWater);
         }
 
-        aff = ObjectDisplay(&ptrobj->Obj);
+        if (CameraFirstPerson AND numobj == NUM_PERSO)
+            aff = 0; /* first person: the hero body is the camera */
+        else
+            aff = ObjectDisplay(&ptrobj->Obj);
 
         if (aff) /* objet pas tout clippé */
         {
@@ -4950,8 +5304,18 @@ S32 AffOneObject(T_SORT *pt) {
 
                     BoxMovingAdd(ClipXMin, ClipYMin, ClipXMax, ClipYMax);
                 } else {
+                    // GL mode: the body went into the FBO (z-tested); only
+                    // the "completely masked" flag is needed (camera logic).
+#if defined(USE_GPURENDERER)
+                    if (GPURendererActive
+                            ? DrawRecoverFlag(ptrobj->Obj.X, yw, ptrobj->Obj.Z, ptrobj->YMax,
+                                              ade_max((ptrobj->XMax - ptrobj->XMin) / 2, (ptrobj->ZMax - ptrobj->ZMin) / 2))
+                            : DrawRecover(ptrobj->Obj.X, yw, ptrobj->Obj.Z, ptrobj->YMax,
+                                          ade_max((ptrobj->XMax - ptrobj->XMin) / 2, (ptrobj->ZMax - ptrobj->ZMin) / 2))) {
+#else
                     if (DrawRecover(ptrobj->Obj.X, yw, ptrobj->Obj.Z, ptrobj->YMax,
                                     ade_max((ptrobj->XMax - ptrobj->XMin) / 2, (ptrobj->ZMax - ptrobj->ZMin) / 2))) {
+#endif
                         // Objet complètement masqué
                         if (numobj == NumObjFollow
                                           AND TestNumObjFollow // protec boucle infinie
@@ -5004,7 +5368,11 @@ S32 AffOneObject(T_SORT *pt) {
         if (CubeMode == CUBE_EXTERIEUR
                             AND ptrobj->Flags &
             (OBJ_ZBUFFER | OBJ_IN_WATER)) {
+#ifdef USE_GPURENDERER
+            Switch_Fillers(GPURendererActive ? FILL_POLY_FOG_NZW : FILL_POLY_FOG);
+#else
             Switch_Fillers(FILL_POLY_FOG);
+#endif
         }
         break;
 
@@ -5046,6 +5414,12 @@ S32 AffOneObject(T_SORT *pt) {
                          ptrobj->Obj.Y,
                          ptrobj->Obj.Z, num);
 
+#ifdef USE_GPURENDERER
+        if (GPURendererActive) {
+            SpriteGL_Zo = SpriteGLDepth(ptrobj->Obj.X, ptrobj->Obj.Z);
+        }
+#endif
+
         if (ptrobj->Flags & SPRITE_CLIP) {
             SetClip(ptrobj->Info + XpOrgw, ptrobj->Info1 + YpOrgw,
                     ptrobj->Info2 + XpOrgw, ptrobj->Info3 + YpOrgw);
@@ -5054,12 +5428,22 @@ S32 AffOneObject(T_SORT *pt) {
             // sprites
             if (ClipXMin <= ClipXMax
                                 AND ClipYMin <= ClipYMax) {
-                PtrAffGraph(SpriteX, SpriteY, num);
+#ifdef USE_GPURENDERER
+                if (GPURendererActive)
+                    DrawWorldSpriteGL(SpriteX, SpriteY, num, SpriteGL_Zo);
+                else
+#endif
+                    PtrAffGraph(SpriteX, SpriteY, num);
                 UnsetClip();
                 SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
             }
         } else {
-            PtrAffGraph(SpriteX, SpriteY, num);
+#ifdef USE_GPURENDERER
+            if (GPURendererActive)
+                DrawWorldSpriteGL(SpriteX, SpriteY, num, SpriteGL_Zo);
+            else
+#endif
+                PtrAffGraph(SpriteX, SpriteY, num);
             SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
         }
 
@@ -5143,6 +5527,16 @@ S32 AffOneObject(T_SORT *pt) {
         SpriteX = Xp + PtrZvAnim3DS[num * 8 + 0];
         SpriteY = Yp + PtrZvAnim3DS[num * 8 + 1];
 
+#ifdef USE_GPURENDERER
+        /* GL mode: draw anim sprites (NPC eyes, hero hands) as depth-tested
+           quads in the FBO — Log pixels could never be occluded by models.
+           The anchor depth is exact: the attachment point sits ON the model
+           surface, and the live FBO depth test does the occlusion. */
+        if (GPURendererActive) {
+            SpriteGL_Zo = SpriteGLDepth(ptrobj->Obj.X, ptrobj->Obj.Z);
+        }
+#endif
+
         if (ptrobj->Flags & SPRITE_CLIP) {
             SetClip(ptrobj->Info + XpOrgw, ptrobj->Info1 + YpOrgw,
                     ptrobj->Info2 + XpOrgw, ptrobj->Info3 + YpOrgw);
@@ -5151,10 +5545,54 @@ S32 AffOneObject(T_SORT *pt) {
             // sprites
             if (ClipXMin <= ClipXMax
                                 AND ClipYMin <= ClipYMax) {
-                AffGraph(0, SpriteX, SpriteY, GetPtrAnim3DS(num));
+#ifdef USE_GPURENDERER
+                if (GPURendererActive) {
+                    S32 gw, gh, hotX, hotY;
+                    const U8 *raw = Obj_DecodeGph(GetPtrAnim3DS(num), &gw, &gh,
+                                                  &hotX, &hotY);
+                    if (raw) {
+                        s_censusA3DGL++;
+                        GL_DrawSpriteQuad(SpriteX + hotX, SpriteY + hotY,
+                                          SpriteX + hotX + gw,
+                                          SpriteY + hotY + gh,
+                                          0, 0, gw, gh,
+                                          raw, gw, gh,
+                                          SpriteGL_Zo, 0);
+                        ScreenXMin = SpriteX + hotX;
+                        ScreenYMin = SpriteY + hotY;
+                        ScreenXMax = ScreenXMin + gw;
+                        ScreenYMax = ScreenYMin + gh;
+                    }
+                } else
+#endif
+                {
+                    AffGraph(0, SpriteX, SpriteY, GetPtrAnim3DS(num));
+                }
             }
         } else {
-            AffGraph(0, SpriteX, SpriteY, GetPtrAnim3DS(num));
+#ifdef USE_GPURENDERER
+            if (GPURendererActive) {
+                S32 gw, gh, hotX, hotY;
+                const U8 *raw = Obj_DecodeGph(GetPtrAnim3DS(num), &gw, &gh,
+                                              &hotX, &hotY);
+                if (raw) {
+                    s_censusA3DGL++;
+                    GL_DrawSpriteQuad(SpriteX + hotX, SpriteY + hotY,
+                                      SpriteX + hotX + gw,
+                                      SpriteY + hotY + gh,
+                                      0, 0, gw, gh,
+                                      raw, gw, gh,
+                                      SpriteGL_Zo, 0);
+                    ScreenXMin = SpriteX + hotX;
+                    ScreenYMin = SpriteY + hotY;
+                    ScreenXMax = ScreenXMin + gw;
+                    ScreenYMax = ScreenYMin + gh;
+                }
+            } else
+#endif
+            {
+                AffGraph(0, SpriteX, SpriteY, GetPtrAnim3DS(num));
+            }
             SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
         }
 
@@ -5204,16 +5642,51 @@ S32 AffOneObject(T_SORT *pt) {
     case TYPE_EXTRA:
         ptrextra = &ListExtra[numobj];
 
-        PtrProjectPoint(ptrextra->PosX, ptrextra->PosY, ptrextra->PosZ);
+        if (!ProjectExtra(ptrextra) && (ptrextra->Flags & EXTRA_HELD))
+            break;
 
+#ifdef USE_GPURENDERER
+        if (GPURendererActive) {
+            SpriteGL_Zo = SpriteGLDepth(ptrextra->PosX, ptrextra->PosZ);
+        }
+#endif
         num = ptrextra->Sprite;
         if (num & 32768) /// effet spécial
         {
+            s_censusSpecial++;
             AffSpecial(numobj);
         } else // sprite
         {
-            SpriteX = Xp + PtrZvExtraRaw[num * 8 + 0]; // Add Hot Spot
-            SpriteY = Yp + PtrZvExtraRaw[num * 8 + 1];
+            if (ptrextra->Flags & EXTRA_HELD) {
+                /* The held ball is placed on the palm, so its sprite is
+                   centred on that point.  A raw sprite is anchored by its
+                   hot spot, which leaves the ball half a sprite down and to
+                   the right of the hand. */
+                const U8 *sbase = (const U8 *)HQR_Get(HQRPtrSpriteRaw, num);
+                if (sbase != NULL) {
+                    const U8 *sprite = sbase + (S32)((const U32 *)sbase)[0];
+                    const S32 deltaX = (S32)sprite[0];
+                    const S32 deltaY = (S32)sprite[1];
+                    const S32 hotX = (S32)(S8)sprite[2];
+                    const S32 hotY = (S32)(S8)sprite[3];
+                    const S32 halfX =
+                        (S32)(((S64)deltaX * ScaleFactorSprite) >> 17);
+                    const S32 halfY =
+                        (S32)(((S64)deltaY * ScaleFactorSprite) >> 17);
+                    SpriteX = Xp -
+                              (S32)(((S64)hotX * ScaleFactorSprite) >> 16) -
+                              halfX;
+                    SpriteY = Yp -
+                              (S32)(((S64)hotY * ScaleFactorSprite) >> 16) -
+                              halfY;
+                } else {
+                    SpriteX = Xp;
+                    SpriteY = Yp;
+                }
+            } else {
+                SpriteX = Xp + PtrZvExtraRaw[num * 8 + 0]; // Add Hot Spot
+                SpriteY = Yp + PtrZvExtraRaw[num * 8 + 1];
+            }
 
             // Toujours des sprites Raw
             CalculeScaleFactorSprite(ptrextra->PosX, ptrextra->PosY, ptrextra->PosZ, ptrextra->Scale);
@@ -5331,11 +5804,21 @@ void AffNbFps(void) {
         UnsetClipWindow();
 
         CoulText(LBAWHITE, 0);
-        // Pin to the bottom-left corner at any render height. The glyph cell is
-        // 8 px tall (GraphPrintf), so ModeDesiredY - 8 sits flush with the
-        // bottom edge; the original hardcoded 472 only matched 480-tall modes
-        // and floated mid-screen at taller resolutions.
-        GraphPrintf(FALSE, 0, ModeDesiredY - 8, "%d ", NbFramePerSecond);
+        // Center-top: always readable in the headset (the bottom-left corner
+        // falls outside the eye FOV on Quest when the compositor letterboxes).
+        // On a head-mount drop it further into the visible band — the top
+        // 12% of the frame sits in the eye's upper periphery.
+        {
+            char fpsbuf[16];
+            snprintf(fpsbuf, sizeof(fpsbuf), "%d ", NbFramePerSecond);
+            S32 fpsLen = (S32)strlen(fpsbuf);
+            S32 fpsX = (ModeDesiredX - fpsLen * 8) / 2;
+            S32 fpsY = OpenXR_GetSwapchainWidth() ? (S32)ModeDesiredY * 3 / 10
+                                                  : ModeDesiredY / 8;
+            if (fpsX < 0)
+                fpsX = 0;
+            GraphPrintf(FALSE, fpsX, fpsY, "%s", fpsbuf);
+        }
 
         RestoreClipWindow();
         UnsetClip();
@@ -5370,8 +5853,6 @@ void AffScene(S32 flagflip) {
        during AFF_ALL_* frames (where Screen holds clean FBO palette
        indices) and reused for AFF_OBJETS_* frames where BoxBlit would
        otherwise contaminate Screen. */
-    static U8 *s_fboBaseline = NULL;
-    static S32 s_baselineSize = 0;
 #endif
 
 /*------------------------------------------------------------------------*/
@@ -5416,9 +5897,49 @@ startaffscene:
     oldxporg = XpOrgw;
     oldyporg = YpOrgw;
 
+#ifdef USE_GPURENDERER
+    GL_SetWorldGL(GPURendererActive);
+    /* The isometric world owns the FBO; its brick layer is painted only on
+       full redraws.  Keep that invariant while the GL interior path is
+       active instead of restoring a stale software background. */
+    if (GPURendererActive && CubeMode == CUBE_INTERIEUR &&
+        flagflip != AFF_ALL_FLIP && flagflip != AFF_ALL_NO_FLIP) {
+        flagflip = AFF_ALL_NO_FLIP;
+        FlagFlip = flagflip;
+    }
+#endif
+
     /*------------------------------------------------------------------------*/
 
     UnsetClip();
+
+#ifdef USE_GPURENDERER
+    /* GL mode: on every frame that does not redraw the terrain (idle,
+       AFF_OBJETS_*, and any other non-AFF_ALL flip), the FBO still holds
+       last frame's body/shadow pixels and Log still holds last frame's 2D
+       overlay.  Blit the terrain snapshot back over the FBO before anything
+       draws this frame — including DrawAnimatedPolys in the OBJETS case
+       below, whose fresh copies must survive until the next frame's erase —
+       and empty the clip window's Log rows so bodies/shadows/sprites start
+       from a clean scene.  Modal loops (dialogue) narrow the clip window
+       above their typewriter strip and rely on that strip's Log content
+       persisting across frames, so the clear must not reach below the
+       window.  The idle flagflip=0 path reaches the object pass without
+       running any switch case, so this cannot live inside the OBJETS case. */
+    if (GPURendererActive && CubeMode == CUBE_EXTERIEUR && flagflip != AFF_ALL_FLIP && flagflip != AFF_ALL_NO_FLIP) {
+        static S32 s_noRestore = -1;
+        if (s_noRestore < 0) {
+            s_noRestore = getenv("LBA2_NO_RESTORE") ? 1 : 0;
+        }
+        if (!s_noRestore) {
+            GL_RestoreTerrainSnapshot();
+        }
+        if (ClipWindowYMax >= ClipWindowYMin) {
+            memset((U8 *)Log + (size_t)ClipWindowYMin * ModeDesiredX, 0,
+                   (size_t)ModeDesiredX * (size_t)(ClipWindowYMax - ClipWindowYMin + 1));
+        }
+    }
+#endif
 
     switch (flagflip) {
     case AFF_OBJETS_FLIP:
@@ -5448,31 +5969,45 @@ startaffscene:
     case AFF_ALL_NO_FLIP:
         LockTimer();
         BoxReset();
-        Cls();
+        if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+            /* GL exterior: the 3D scene composites from the FBO, and
+               AffGrilleExt clears Log wholesale before the object pass.
+               The full-screen static box only needs to mark the frame for
+               present — filling Log here (and again in ClsTerrainZBuf)
+               would be overwritten unused. */
+            BoxStaticAdd(BoxClipXMin, BoxClipYMin, BoxClipXMax - 1,
+                         BoxClipYMax - 1);
+        } else {
+            Cls();
+        }
 
         RefreshGrille();
 
         ChangeIncrustPos(oldxporg, oldyporg, XpOrgw, YpOrgw);
         //			HQ_ChangeBalanceSamples( oldxporg, oldyporg ) ;
 
-        CopyScreen(Log, Screen);
-
+        /* GL exterior: AffGrilleExt zeroed Log and Screen, so this copy is
+           zero over zero.  Interior GL and the software renderer keep the
+           background in Screen. */
+        if (!(GPURendererActive && CubeMode == CUBE_EXTERIEUR)) {
+            CopyScreen(Log, Screen);
 #ifdef USE_GPURENDERER
-        /* Save the FBO palette baseline for the Log clearing pass.
-           Only updated during AFF_ALL_* frames where Screen holds the
-           clean FBO readback.  AFF_OBJETS_* frames reuse this baseline
-           (BoxBlit would otherwise contaminate Screen). */
-        if (GPURendererActive) {
-            S32 needed = (S32)ModeDesiredX * (S32)ModeDesiredY;
-            if (s_baselineSize != needed) {
-                free(s_fboBaseline);
-                s_fboBaseline = (U8 *)malloc((size_t)needed);
-                s_baselineSize = needed;
+            /* GL interior: the full redraw copies the brick background over
+               Log, which also owns the dialog box/text/portrait strip.
+               Restore only that strip after the copy; the scene above it
+               must stay visible. */
+            if (GPURendererActive && CubeMode == CUBE_INTERIEUR &&
+                Dial_OverlayActive()) {
+                Dial_OverlayRestoreFrom(Dial_Y0);
+                /* NewInitDialWindow shaded the FBO once; the per-frame full
+                   redraw clears it, so re-shade the strip after the scene. */
+                if (FlagMessageShade) {
+                    GL_ShadeBox(Dial_X0 + 1, Dial_Y0 + 1, Dial_X1 - 1,
+                                Dial_Y1 - 1, 8);
+                }
             }
-            if (s_fboBaseline)
-                memcpy(s_fboBaseline, Screen, (size_t)needed);
-        }
 #endif
+        }
 
         if (flagflip == AFF_ALL_FLIP
                                 AND !CinemaMode AND MemoClipWindowYMin > 0) {
@@ -5489,17 +6024,40 @@ startaffscene:
     if (AnimateTexture OR ProtectActif)
         DoTextureAnimation();
 
+#ifdef USE_GPURENDERER
+    /* GL mode clears the Log overlay every frame (the snapshot restore above),
+     * so anything drawn into Log only on full-redraw frames would vanish on
+     * the next idle frame — the original SW renderer let Log persist between
+     * redraws and never needed this.  The FPS counter is exactly such HUD:
+     * AffNbFps runs in the AFF_* cases only, so on idle frames (flagflip == 0,
+     * camera at rest) redraw it here or it disappears while standing still. */
+    if (GPURendererActive AND DebugFps AND flagflip == 0) {
+        AffNbFps();
+    }
+#endif
+
     /*------------------------------------------------------------------------*/
     /* objets scenarique 3D ou sprite */
 
     BaseReset();
 
     if (CubeMode == CUBE_EXTERIEUR) {
+#ifdef USE_GPURENDERER
+        /* GL mode: draw the bodies under a z-tested, no-z-write bank so
+           they batch straight into the FBO — terrain occlusion comes from
+           the FBO depth buffer instead of DrawRecover fixing up Log. */
+        Switch_Fillers(GPURendererActive ? FILL_POLY_FOG_NZW : FILL_POLY_FOG);
+#else
         Switch_Fillers(FILL_POLY_FOG);
+#endif
         PtrCLUTGouraud = PtrCLUTFog;
     }
 
     NbTriObj = 0;
+
+#ifdef USE_GPURENDERER
+    GL_ArrayWindowBegin();
+#endif
 
     /*------------------------------------------------------------------------*/
 
@@ -5712,7 +6270,7 @@ startaffscene:
         z = ptrextra->PosZ;
 
         // preclip
-        if (!PtrProjectPoint(x, y, z))
+        if (!ProjectExtra(ptrextra))
             continue;
 
         if ((U16)ptrextra->Sprite == 0x8004u) // Dalle labyrinthe
@@ -5814,7 +6372,13 @@ startaffscene:
     PtrMap = ObjPtrMap = BufferTexture;
     RepMask = 0xFFFF;
 
+    /* Throwaway diag: object-pass breakdown — the sorted body walk vs the
+       rain/incrust tail, per AffScene call (x2 in stereo). */
+    U64 objDiagT0 = SDL_GetPerformanceCounter();
+    U64 objDiagSortEnd = objDiagT0;
+
     if (BaseSort()) {
+        objDiagSortEnd = SDL_GetPerformanceCounter();
         // NumObjFollow masqué on
         // doit redessiner la camera
         if (flagflip == AFF_ALL_FLIP OR flagflip == AFF_ALL_NO_FLIP) {
@@ -5827,12 +6391,77 @@ startaffscene:
     }
 
     /*------------------------------------------------------------------------*/
+#ifdef USE_GPURENDERER
+    /* GL mode: refresh PtrZBuffer after the object pass so it contains
+       terrain AND model depth — the Log-layer sprites (eyes, hands) test
+       their occlusion against it on the next frame.
+
+       Stereo eye passes are full redraws: each AffGrilleExt clears the
+       buffer before the object pass, so the readback can never be observed
+       by either eye.  Skip the depth resolve and PBO read there; the mono
+       incremental path still needs the one-frame-old depth. */
+    if (GPURendererActive && CubeMode == CUBE_EXTERIEUR &&
+        GL_GetStereoEye() < 0) {
+        GL_ReadbackDepthBuffer();
+    }
+
+    /* First-person hero: the sort walk deliberately skipped the gameplay
+       body, so draw the IK ghost after all other bodies.  It goes after the
+       depth readback on purpose: the ghost surrounds the camera, so baking
+       its depth into PtrZBuffer makes the terrain in front of the player
+       look occluded and get culled on the next incremental frame. */
+    if (GPURendererActive && VrFullBody && CameraFirstPerson &&
+        CubeMode == CUBE_EXTERIEUR) {
+        VrBody_DrawFirstPerson(&ListObjet[NUM_PERSO]);
+    }
+
+    GL_ArrayWindowEnd();
+    GL_SetWorldGL(0);
+#endif
+
+    /* Temporary census: what did this frame actually draw? */
+    {
+        static S32 s_censusFrames = 0;
+        if (++s_censusFrames % 300 == 1) {
+            extern U32 s_censusAffGraph;
+            extern U32 s_censusClippingGraph;
+            extern U32 s_censusScaleLog;
+            extern U32 s_censusScaleTLog;
+            Log_Debug("Census: a3dGL=%u incrustGL=%u incrustLog=%u special=%u "
+                      "affG=%u clipG=%u scaleLog=%u scaleTLog=%u",
+                      s_censusA3DGL, s_censusIncrustGL, s_censusIncrustLog,
+                      s_censusSpecial, s_censusAffGraph, s_censusClippingGraph,
+                      s_censusScaleLog, s_censusScaleTLog);
+            S32 nshown = 0;
+            for (S32 n = 0; n < MAX_EXTRAS && nshown < 12; n++) {
+                if (ListExtra[n].Sprite != -1) {
+                    Log_Debug("Census: extra[%d] sprite=%d flags=%d pos=%d,%d,%d",
+                              n, ListExtra[n].Sprite, ListExtra[n].Flags,
+                              ListExtra[n].PosX, ListExtra[n].PosY,
+                              ListExtra[n].PosZ);
+                    nshown++;
+                }
+            }
+        }
+    }
     if (CubeMode == CUBE_EXTERIEUR) {
         if (Island == 0 AND TEMPETE_ACTIVE AND RainEnable)
             AffRain();
 
         SetCLUT(PalLevel);
         Switch_Fillers(FILL_POLY_TEXTURES);
+    }
+
+    {
+        static U32 s_objDiagFrame = 0;
+        s_objDiagFrame++;
+        if (s_objDiagFrame % 300 == 150) {
+            U64 freq = SDL_GetPerformanceFrequency();
+            U32 sortUs = (U32)((objDiagSortEnd - objDiagT0) * 1000000 / freq);
+            U32 totalUs = (U32)((SDL_GetPerformanceCounter() - objDiagT0) *
+                                1000000 / freq);
+            Log_Debug("[OBJPASS] sortDraw=%uus total=%uus", sortUs, totalUs);
+        }
     }
 
     /*------------------------------------------------------------------------*/
@@ -5873,6 +6502,11 @@ startaffscene:
                             ListObjet[num].Obj.Y + ListObjet[num].YMax,
                             ListObjet[num].Obj.Z);
 
+#ifdef USE_GPURENDERER
+            if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+                s_incrustZo[n] = (U16)GET_ZO(CameraZr - Z0);
+            }
+#endif
             ptrdisp->X = (S16)Xp;
             ptrdisp->Y = (S16)Yp;
 
@@ -5892,6 +6526,11 @@ startaffscene:
                             ListObjet[num].Obj.Y + ListObjet[num].YMax,
                             ListObjet[num].Obj.Z);
 
+#ifdef USE_GPURENDERER
+            if (GPURendererActive && CubeMode == CUBE_EXTERIEUR) {
+                s_incrustZo[n] = (U16)GET_ZO(CameraZr - Z0);
+            }
+#endif
             ptrdisp->X = (S16)Xp;
             ptrdisp->Y = (S16)Yp;
 
@@ -6015,6 +6654,45 @@ startaffscene:
             }
 
             ScaleFactorSprite = DEF_SCALE_FACTOR;
+#ifdef USE_GPURENDERER
+            /* GL mode: follow-sprites (eye markers etc.) draw as depth-tested
+               quads in the FBO so models occlude them. */
+            if (GPURendererActive && CubeMode == CUBE_EXTERIEUR && s_incrustZo[n] != 0) {
+                if (ptrdisp->Num >= 100) {
+                    S32 gw, gh, hotX, hotY;
+                    const U8 *raw = Obj_DecodeGph(HQR_Get(HQRPtrSprite,
+                                                          ptrdisp->Num),
+                                                  &gw, &gh, &hotX, &hotY);
+                    if (raw) {
+                        s_censusIncrustGL++;
+                        GL_DrawSpriteQuad(SpriteX + hotX, SpriteY + hotY,
+                                          SpriteX + hotX + gw,
+                                          SpriteY + hotY + gh,
+                                          0, 0, gw, gh,
+                                          raw, gw, gh,
+                                          s_incrustZo[n], 0);
+                    }
+                } else {
+                    U8 *sptr = (U8 *)HQR_Get(HQRPtrSpriteRaw, ptrdisp->Num);
+                    if (sptr != NULL) {
+                        GL_DrawSpriteQuad(SpriteX + (S8)sptr[2],
+                                          SpriteY + (S8)sptr[3],
+                                          SpriteX + (S8)sptr[2] + sptr[0],
+                                          SpriteY + (S8)sptr[3] + sptr[1],
+                                          0, 0, sptr[0], sptr[1],
+                                          sptr + 4, sptr[0], sptr[1],
+                                          s_incrustZo[n], 0);
+                    }
+                }
+                SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
+                if (ClipXMin <= ClipXMax
+                                    AND ClipYMin <= ClipYMax) {
+                    BoxMovingAdd(ClipXMin, ClipYMin, ClipXMax, ClipYMax);
+                }
+                break;
+            }
+#endif
+            s_censusIncrustLog++;
             PtrAffGraph(SpriteX, SpriteY, ptrdisp->Num);
             SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
 
@@ -6177,63 +6855,7 @@ startaffscene:
         RestoreClipWindow();
     }
 
-    /*-------------------------------------------------------------------------*/
-
-#ifdef USE_GPURENDERER
-    /* GL mode: the Log overlay (palette-indexed) covers the FBO (GL-rendered)
-       for every non-zero pixel, hiding the FBO's GL quality (fog, SSAA,
-       animated polys).  After all objects/shadows have rendered to Log,
-       clear any pixel that still matches the FBO baseline back to index 0
-       (transparent).  Only pixels modified by body polygons, ShadeBoxBlk
-       (shadows), or other 2D effects remain opaque.
-
-       The baseline is saved during AFF_ALL_* frames (where Screen holds
-       clean FBO palette indices).  AFF_OBJETS_* frames reuse the same
-       baseline — BoxBlit would otherwise contaminate Screen.
-
-       Excluded for interior scenes: the FBO is never populated there
-       (interiors use 2D bitmap blits, not Fill_Poly), so clearing Log
-       would expose a black FBO.
-
-       RGB comparison (not palette-index equality): the FBO→palette
-       readback is lossy, so a house polygon pixel that visually
-       differs from the terrain may quantize to the same palette index.
-       Comparing actual RGB values avoids falsely clearing object pixels
-       that coincidentally share a palette index with the terrain. */
-    if (GPURendererActive
-            && CubeMode == CUBE_EXTERIEUR
-            && s_fboBaseline) {
-        const U32 *lut = GL_GetPaletteLUT();
-        if (lut) {
-            const U32 nPixels = (U32)ModeDesiredX * (U32)ModeDesiredY;
-            const U8 *src = s_fboBaseline;
-            U8 *dst = (U8 *)Log;
-            /* Squared-distance threshold: 16 per channel ≈ tolerance
-               of 4 in each R/G/B component.  Loose enough to absorb
-               the readback quantisation gap, tight enough not to swallow
-               house polygons whose textures differ from terrain. */
-            const U32 thresh2 = 16 * 16 * 3;
-            for (U32 i = 0; i < nPixels; i++) {
-                U8 li = dst[i];
-                U8 bi = src[i];
-                if (li == bi) {
-                    /* Fast path: identical index → definitely terrain */
-                    dst[i] = 0;
-                } else if (li != 0 && bi != 0) {
-                    /* Both non-zero but different indices: compare RGB */
-                    U32 c1 = lut[li];
-                    U32 c2 = lut[bi];
-                    S32 dr = (S32)((c1 >> 16) & 0xFF) - (S32)((c2 >> 16) & 0xFF);
-                    S32 dg = (S32)((c1 >>  8) & 0xFF) - (S32)((c2 >>  8) & 0xFF);
-                    S32 db = (S32)((c1      ) & 0xFF) - (S32)((c2      ) & 0xFF);
-                    if ((U32)(dr*dr + dg*dg + db*db) < thresh2) {
-                        dst[i] = 0;
-                    }
-                }
-            }
-        }
-    }
-#endif
+    /*------------------------------------------------------------------------*/
 
     UnsetClip();
 
@@ -6288,6 +6910,10 @@ startaffscene:
 
     if (FlagPal) {
         PaletteSync(PtrPal);
+        /* The GL renderer bakes scene colors from the palette into its
+           framebuffer: without a full redraw, terrain rendered while the
+           palette was still dark would persist on every incremental frame. */
+        FirstTime = AFF_ALL_FLIP;
         FlagPal = FALSE;
     }
 

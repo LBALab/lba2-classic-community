@@ -8,6 +8,11 @@
 extern "C" {
 #endif
 
+/* Set while the GL renderer owns the world pass.  Interior (isometric)
+   bodies then need a view depth for FBO occlusion; the software path keeps
+   its painter-order primitive behavior. */
+extern S32 Obj_GLWorld;
+
 // -----------------------------------------------------------------------------
 #pragma pack(push, 1)
 typedef struct {
@@ -132,6 +137,8 @@ typedef struct {
 
 // -----------------------------------------------------------------------------
 extern U8 *ObjPtrMap; // Ptr on the current texture page
+/* Optional render-time mask of body groups to skip (first-person head). */
+extern U32 ObjHiddenGroupMask;
 extern T_OBJ_POINT Obj_ListRotatedPoints[];
 
 extern Func_TransNumPtr *TransFctBody; // Pointer to a conversion fct that converts a body number into its address

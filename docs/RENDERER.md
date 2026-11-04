@@ -1,6 +1,8 @@
 # GPU Renderer (OpenGL 2.1 / GLES 2.0)
 
-Optional hardware-accelerated 3D rendering backend alongside the existing software rasterizer. The GL code is always compiled in (on platforms with GL headers). The user selects between Software and OpenGL at runtime via the Display menu. Vulkan is a future goal (not in scope for this work).
+Optional hardware-accelerated rendering backend alongside the existing software rasterizer. The GL code is always compiled in (on platforms with GL headers). The user selects between Software and OpenGL at runtime via the Display menu. Vulkan is a future goal (not in scope for this work).
+
+When OpenGL is active, the whole world is rendered through it: exterior terrain, decors, models and sprites, and the isometric interior brick layer, models and world sprites. The 8-bit `Log` path remains for UI, text and menus, then composites over the GL frame.
 
 **Scope:** OpenGL 2.1 for desktop, OpenGL ES 2.0 for Android. Vulkan is a future goal (not in scope for this work).
 
@@ -36,11 +38,68 @@ Game logic (SOURCES/)
   │   ├─ Renders via GLSL shader
   │   └─ Writes to GL default framebuffer (depth + color)
   │
-  └─ 2D sprites/UI: AffGraph(), text, menu → writes to Log (8-bit indexed)
-      └─ Composited as a 2D overlay quad on top of the GL 3D scene
+  ├─ World sprites/extras: ScaleSprite/GL sprite quads into the FBO
+  └─ UI/text/menu: AffGraph(), text, menu → writes to Log (8-bit indexed)
+      └─ Composited as a 2D overlay quad on top of the GL scene
 ```
 
-The key insight: 3D is fully GPU-rendered, 2D elements (sprites, HUD text, menu) still use the existing SW path writing to `Log`, then get composited as a textured quad.
+The key insight: every world pixel is rasterized by GL, including the isometric interior. UI and text still use the indexed `Log` buffer and are composited as a textured quad.
+
+**Scene background.** The software path starts each frame by clearing the screen to the scene fog colour (`ClsTerrainZBuf` → `SetClearColor(FogCoul); Cls()`), and that colour shows wherever no polygon lands: the sky band above the horizon cubes, the edges around the isometric grid. GL clears its scene FBO instead, so its clear colour has to carry the same palette entry. `GL_SetSceneClearColor` takes the index and `GL_ClearFBO` resolves it through the palette at clear time. `AffGrilleExt` passes `FogCoul`; `AffGrille` and `AffGrilleLabyrinthe` pass 0, matching the interior software background, which shows the clear colour rather than the fog entry. Clearing to black leaves the Desert horizon black where the software renderer shows sky blue.
+
+Full-screen views with no terrain pass clear the FBO themselves: the credits clear to `FogCoul`, and the holomap (globe and island plan) clears to index 0 each frame. The holomap needs it twice over: its backdrop is the `Log`'s index 0, which the composite treats as transparent, so without the clear the last world frame stays visible around the globe, and its 3D globe draws into the FBO without a depth clear, so un-cleared depth leaves the previous rotation behind as a trail.
+
+### Isometric interior
+
+Interior worlds do not use the exterior perspective terrain path. `AffGrille` clears the scene FBO and composes the whole brick layer into a screen-sized palette-index buffer, then draws it as one quad through `GL_DrawIndexedLayer` (`SOURCES/GRILLE.CPP`). The composition is the software walk itself — `AffGraph` per brick, in painter order, with the same clipping — so the layer matches the reference rasterizer by construction. One quad per brick used to cost a texture upload and a draw call per tile, and a room runs to ~1500 tiles, far past what the sprite texture cache can hold: that per-tile overhead, not rasterization, was the interior bottleneck. The composite is keyed on the cube, the source data and the painted order, so a static camera uploads nothing and pays one draw call; the draw covers only the painted bounds, because the display filter runs per fragment.
+
+The sprite path cannot draw that image: it carries the atlas UV in the 8.8 fixed-point attribute pair, whose 16 bits cap a quad at 256 texels. `s_layerVertSrc` takes normalized coordinates instead and scales them into the same texel space in floating point, so the shared CLUT fragment program is unchanged apart from its `LBA_LAYER_NO_WRAP` branch: the layer takes its wrap window from the texture size and lets the sampler clamp, which gives the edge-directed filters a real neighbourhood across the whole image instead of per tile. When the composite is unavailable (allocation failure, brick-order overflow) `AffGrille` falls back to one quad per brick.
+
+**Quantized interior pan.** In Quest single-pass stereo the view pans every tracked frame, and rebuilding ~1500 tiles for a one-pixel move costs more than the pan buys. `BrickOrderReset` quantizes the pan to 64 pixels and `BrickOrderAdd` records each brick at `exact - residual`, so the composite only changes when the quantized offset crosses a step. The layer is drawn by `GL_DrawIndexedLayerOffset`, which keeps the quad's screen position and its sampled texels separate: the composed canvas is one quantum larger than the screen on every side, and the draw slides it by the residual, which is below one quantum. Every on-screen texel therefore comes from the brick the unquantized pan would have painted, at the same screen position — the quantization trades a coarser rebuild rate for nothing visible. `OverlayMark` reads the canvas at the same residual and margin, so a foreground-brick patch stays registered with the room.
+
+**Second-eye pass.** In single-pass stereo the eye 0 draw already covers both halves, so the eye 1 pass exists only to present its HUD half. Pair-wide work therefore returns early there: `AffGrille` reuses eye 0's brick order, colon list and composed layer instead of walking the cube again; the foreground-brick overlay, sprites, shadows, spheres, lines, shading boxes and particle flows skip their marking, upload and state setup; and `GL_RenderTriangleList` keeps every SW fallback but skips the batch packing that the eye 1 flush would discard. Only the per-eye present still runs.
+
+**Stereo parallax.** In the Quest's single-pass stereo view the background used to sit at `aZ = 0`, which the polygon stages read as screen space: it took no eye offset while the models did, so the room read as a flat painting behind them. The composite therefore carries a second, screen-sized byte map of its own depth. `BaseLayerCompose` writes it in the same painter walk as the colour (`BaseLayerDepthStamp` decodes the same run-length brick stream and marks every texel the tile actually writes) with each tile's `BrickDepthAz`, the isometric painter key `(x + z) / 2` mapped onto the scene's `aZ` scale by `IsoDepthToAz`, normalized over the frame's `azMin..azMax`. `GL_DrawIndexedLayer` uploads it next to the colour texture, and the fragment program's `LBA_LAYER_NO_WRAP` branch shifts each pixel by `uLayerShiftPx + uLayerShiftPerAz / az`, where `az` comes from that pixel's own depth byte. `GL_SetLayerWarpUniforms` derives the two shift terms per eye from the same eye delta the polygon vertex stage applies, so a background pixel at a given depth moves exactly as far as a model at that depth: one image, warped per pixel, with no band to seam and no quad to tilt. The depth map takes texture unit 6 because units 3-5 already carry the texture arrays the batch, decor and terrain programs sample.
+
+**Interior baseline.** An isometric room is a painter-ordered composite, not real geometry, so the full interocular separation separates a near wall from the wall behind it and opens a strip that mono never showed — at wall corners it reads as the same moulding drawn twice. `PERSO_RenderStereo` scales the eye delta for interior scenes (`InteriorStereoScale`, 55 % by default, `LBA2_INTERIOR_STEREO` overrides it), which closes that strip. The factor multiplies the whole delta, so background, models, sprites and flows all take it and nothing slides against anything else; exterior stereo keeps the full separation. The remaining parallax is still depth-correct, just gentler.
+
+**Interior zoom.** `VrFovScale` scales the presented interior image per eye in `OpenXR_PresentMono`, because the isometric room is a screen-space composite and a projection FOV change cannot scale it. Below 100 the eye source rect is cropped around its centre and stretched to the full half (zoom in); above 100 the full eye is blitted into a smaller centred rectangle, with the surrounding swapchain cleared black (zoom out). Both eyes use their own half of the pair, so the stereo pair stays registered. The HUD, which lives in the same composite, scales with the room. A zoomed eye is drawn through the present shader (`GL_BlitStereoRectToCurrent`), not a raw blit, so brightness, contrast and saturation apply to it exactly as they do to the unzoomed pair.
+
+**Common camera delta.** The interior hover rig leans the whole pair, not one eye. `GL_SetSinglePassBaseDelta` carries that delta and every single-pass stage adds it to both instances (`eye * uEyeWorld + uBaseWorld`); the layer warp uses it for eye 0 and base + eye delta for eye 1. A point at the reference painter depth moves by the pan, nearer planes further and farther ones less, and the batch and the backdrop share the terms so models cannot slide against the bricks. The CPU cull margins include the base because eye 0 now moves too.
+
+**Near-plane body polygons.** The software body projection replaces the screen position of any vertex closer than `NearClip` with the `(-32768,-32768)` sentinel, and `GL_RenderTriangleList` used to hand that polygon to the software filler. In single-pass stereo that filler writes into the one `Log` image shared by both eyes, so the polygon kept the eye-0 screen position in both halves and slid against the world as the camera moved; a near fence showed it most clearly because its geometry runs off the frame edge. `GetZO3`/`GetZO4` now capture the camera-space vertices of the polygon they project, `Fill_Poly` passes them to `GL_SetPolyCamera`, and `GL_ClipPolyToNear` clips the polygon against the near plane in camera space and projects the result before batching it, so both eyes get their own position. Non-body callers (terrain, sky/sea, animated tiles) pass no camera data and keep the software fallback. Mono and the two-pass renderer are unchanged (the clip is gated to single-pass stereo); `LBA2_NO_NEARCLIP=1` restores the fallback for comparison.
+
+The isometric brick positions come from `Map2Screen`, which derives its origin from the framebuffer centre; the polygon path uses `XCentre`/`YCentre`. `Map2ScreenPanned` adds the projection-centre delta at the brick-walk call sites, so the hover pan moves the background with the models. `Map2Screen` itself is untouched, keeping its ASM twin and the projection corpus stable.
+
+`GL_SetWorldGL` lets the interior object polygons enter `GL_RenderTriangleList` without a terrain depth buffer. In that world pass `ProjectListIso` has already replaced each body point's Z with its painter sort key, so `GetZO3`/`GetZO4` derive a view depth from that key and the object's camera-relative position. Opaque body batches then write FBO depth, which lets the body-model lines, spheres and sprite overlays depth-test against the body instead of x-raying through it. Lines and spheres take the same isometric depth and draw into the FBO; the Log overlay remains UI.
+
+Particle flows (candle flames, smoke, sparks) paint 2×2 palette blocks point by point and used to go straight into `Log`, so in the near eye a flame stayed at the mono position while the candle it belongs to moved away from it. In an interior under single-pass stereo the points are batched into one indexed draw at each point's own isometric depth (`GL_FlowBatchRect`, `InteriorWorldAz` — the same painter key the interior floor shadows use); mono keeps the `BoxFlow` overlay path, so the flat-screen picture is unchanged.
+
+`DrawOverBrick*` keeps foreground bricks above models, but it must restore the background, not repaint the selected brick. The software `CopyMask` copies the pristine background through the brick mask; a foreground brick can share its mask area with a brick painted later in the base order, so drawing the selected brick's texture would bring that buried brick back over the visible one. The GL path mirrors `CopyMask`: `OverlayMark` copies the composed base layer through the brick mask, and `OverlayFlush` draws that rectangle of the layer again under a binary coverage tile of the bricks in front. Sampling the composed layer is what makes the overlay cheap — the previous implementation rebuilt the pristine window by re-walking every brick in the order for each clip window, which cost more per frame than the base layer itself.
+
+Carrying the patch as its own image instead — one depth per patch, or a mask held in screen space — resamples the wall differently from the wall beside it, which reads as a box of background about a pixel off around every model, worst at supersampled stereo depths where the whole box is visibly a different resample. The layer redraw is the background's own pixels at the background's own offset, so no such seam exists.
+
+In single-pass stereo the layer program shifts colour and coverage by the pixel's own depth, so the outline a model is cut by travels with the bricks that draw it. Reading the coverage where the pixel is, rather than where its shifted sample lands, leaves the repainted wall behind by the eye offset in the near eye and the model stands in front of it. Because both the model and the sampled texel move by up to one eye offset, the overlay sizes its marking window and draw rect from `GL_GetLayerShiftMargin` — twice the margin for the coverage tile, once for the quad — and clears the patch buffer over that same window; a patch left over from an earlier frame would otherwise be read as coverage, which shows up as occlusion alternating frame to frame. Mono keeps the reference marking set and patch bounds exactly. `LBA2_OVERLAY_OLD=1` restores the earlier one-depth patch, and `LBA2_NO_OVERLAY=1` skips the overlay entirely, both for comparison.
+
+Character shadows draw as depth-tested GL polygons, but interior foreground bricks are overlays with no FBO depth. `AfficheShadow` therefore follows `DrawShadowGL` with the interior `DrawRecoverFlag` pass, mirroring the software `DrawShadow` → `DrawRecover` sequence, so a shadow that reaches past a platform edge stays behind the bricks in front of it.
+
+Interior world sprites from the GPH sprite bank, including doors and extras, also draw into the FBO. `TYPE_OBJ_SPRITE` used to call `PtrAffGraph`, which wrote into `Log`; those pixels always composited over the GL scene, so a door leaf could cover a character standing in front of it. `DrawWorldSpriteGL` decodes the HQR sprite stream through `AffGraph` into a cached scratch bitmap (it is not the anim-3DS GPH stream), intersects the destination with the active `SPRITE_CLIP` rectangle, and draws the sub-rect as a depth-tested quad. The software path still uses `PtrAffGraph`.
+
+The foreground-brick pass has one GL-only door-frame exception. A door frame protrudes into the room, so `DrawOverBrick` would re-blit its top jamb over an actor's head while the rest of the actor stayed in front of the leaf. `OverlayIsDoorFrame` skips high bricks in the two-x/three-z cell neighborhood of a `SPRITE_CLIP` door when the actor is nearer in painter order; the base brick already supplies the frame behind the actor. Software keeps the original overlay set. Repro: load a cube 15 save, run `--exec-at 2 "cube 15" --exec-at 4 "teleport 25856 768 29000" --tick 30`, and verify the hero stays visible in front of the closed center door.
+
+The interior full flip copies `Screen` over `Log` every frame, which would erase an open dialogue strip. `SpeakAnimation` snapshots the strip before the scene pass and `AffScene` restores it after the copy, so the typewriter text, border and shade survive the full redraw in both mono and stereo.
+
+In single-pass stereo the HUD is drawn once for the pair, not once per eye: `GL_PresentIndexed` resolves the double-wide scene target at eye 1's present and then draws the overlay's bands into each half from the same texture and the same band list. Placement is identical by construction, and the glyphs land after the MSAA resolve instead of inside it, which is what keeps a dialogue strip readable at headset resolutions — text drawn into the resolved target is the sharp one.
+
+Scene post-effects run on the double-wide pair before that HUD pass. `GL_ApplyStereoPostFx` samples each eye half from `GL_SceneColorTex()` through the plain present program, with the eye-half UV offset and a per-eye `uTexel`, and writes the result into a pair-sized `s_postFxFBO`; the HUD is then drawn into that processed pair and OpenXR presents it. Colour grade and sub-pixel pan therefore reach stereo frames, while the HUD keeps its own pixels. The direct-to-swapchain stereo experiment still bypasses this pass.
+
+Exterior stereo skips eye 0's `Log` scan and upload entirely (only eye 1's overlay is presented for the pair) and uploads the dynamic `Log` in full instead of diffing it row by row; the overlay is then drawn after the pair blit at swapchain resolution rather than into the 1.5x MSAA scene target. Interiors keep the banded HUD path because the zoom scales the whole composite, and the fake-stereo harness draws at eye 0 before any swap.
+
+On Quest the touch overlay is disabled, so its pre-present callback is unregistered when OpenXR takes over: a registered-but-idle callback would otherwise force the CPU-converted ARGB present path every frame (full-frame palette conversion plus a fullscreen overlay quad per eye) even though it draws nothing. Keeping it unregistered leaves the indexed present path active — GPU palette lookup, diffed overlay upload and, with a neutral display transform and an empty overlay, the direct scene read. In single-pass interiors eye 1 also reuses eye 0's overlay scan and bands, so the `Log` diff runs once per pair.
+
+Interior palettes are selected by `ChoicePalette`; it now syncs the video/GL palette LUT as well, which is what keeps indexed brick and sprite textures on the room's palette rather than the previous scene's.
+
+`DisplayTexFilter` is also honoured by gameplay sprite quads, including the decoded brick tiles: nearest, palette-resolved bilinear, Scale2x, xBR and xBR Lite are selected per draw through the CLUT shader. Filtering happens on palette indices and resolves through the palette texture, so the result does not interpolate raw palette indices. Sprite quads carry `RepMask = 0xFFFF` so the filter neighbourhood clamps at the texture edge instead of wrapping to the opposite edge of the tile; without that clamp, xBR drew a dark seam at every brick boundary. Chroma-keyed neighbour taps resolve to the centre texel instead of palette[0], so a filtered edge does not darken against the transparent key.
 
 ### GL 2.1 vs GLES 2.0
 
@@ -91,9 +150,17 @@ Source: `SOURCES/MEM.CPP:245-255`, `SOURCES/3DEXT/LOADISLE.CPP:176-179`, `SOURCE
 
 Object polygons have individual RepMask values from the body's texture handle table (`AFF_OBJ.CPP:442`). This means RepMask can change per-polygon within a batch.
 
+The GL backend uploads only the RepMask-sized region of each page (`GL_BindAtlasFor` in `LIB386/GL/RENDER_GL.CPP`): a page lives in memory at a 256-byte row stride, so a (w,h) sub-rect upload must set `GL_UNPACK_ROW_LENGTH` to 256 — tight packing scrambles every row past the first (diagonal-stripe artifacts). On GLES 2.0 builds without `GL_UNPACK_ROW_LENGTH` the upload falls back to the full 256×256 page.
+
+### Sea and sky clipping
+
+`Draw_Poly` (`SOURCES/3DEXT/DRAWSKY.CPP`) clips sea and sky quads against the near and far planes, then against the screen rectangle. The screen clip interpolates the UV and camera depth in the same perspective space as the batch shader (UV/Z and 1/Z), so a corner that projects far outside S16 no longer shifts the visible texture. `SkySeaQuadVisible` rejects a quad only when a circumscribed sphere around it is wholly off-screen or entirely past the far plane; a failed projection or a near quad is kept for the exact clipper. `LBA2_NO_SEA_CLAMP=1` and `LBA2_NO_SEA_CULL=1` restore the previous paths for comparison.
+
 ### Animated water tiles
 
-`GroundTexture` is mutated in-place every 250ms: 32×32 blocks are copied from `SkySeaTexture` into specific locations in `GroundTexture` (`TERRAIN.CPP:1019-1053`). The GL backend must detect this and re-upload the dirty region via `glTexSubImage2D`, or re-upload the whole atlas (64KB, negligible).
+`GroundTexture` is mutated in place every 250 ms: `DoAnimatedPolys()` copies 32×32 blocks from the sky/sea page into specific locations in it (`TERRAIN.CPP`). The mutation sets `AtlasTextureDirty` and adds the page to the renderer's dirty-page list, along with `BufferTexture` while `DoTextureAnimation()` is active, because that rebakes effects there between ticks. At the next textured polygon the GL renderer marks each listed page stale: its 2D cache entry and any array layers that sample it are re-uploaded at flush time by `GL_BindAtlasFor` or `GL_ArrayBind`, while the other cached pages stay resident. A pointer inside a 64 KB page also invalidates the page-base entry, because the inventory draws `BufferTexture` while its effects live at offsets. A null page, or more distinct pages than the list holds, falls back to bumping the global content version and re-uploading every cached page.
+
+The menu fire bar calls `DoTextureAnimation()` and then `FixePlasmaPtrMap()`; the latter names the menu plasma page and `BufferTexture`, which holds the scanned fire/plasma effects. The plasma page and the effect page can be refreshed independently in one interval.
 
 ### UV coordinates
 
@@ -122,6 +189,8 @@ The CLUT is a 256×256 table: `[gouraud_row][texel] → palette_color_index`. It
 The CLUT index formula: `gouraudIndex = ((gouraudValue >> 8) & 0xFF00) | texel`
 
 In the GL renderer, the full 64 KB fog table is uploaded once as a 256×256 LUMINANCE texture. The gouraud value's high byte (0–255) indexes the row directly — no need to track `SetCLUT` changes, since the shader samples the correct 16-row block within the full table.
+
+The upload is generation-tracked: `InitPalette()` bumps `CLUTGeneration` when it selects a new XPL fog table, and `GL_UploadCLUT` re-sends the table only when that generation or `PtrCLUTFog` changes. `SetVideoPalette()`/`SetVideoPaletteCol()` similarly bump a palette generation so the 1 KB palette texture is uploaded only when the palette actually changes.
 
 ### Fill_Logical_Palette
 
@@ -198,11 +267,45 @@ No separate GL fog equation needed — the CLUT already encodes the fog blend.
 
 Triangles are collected into a VBO and flushed when:
 
-- Atlas page changes (different `PtrMap` base pointer)
-- CLUT changes (different fog/brightness level via `SetCLUT`)
-- RepMask changes (different UV wrapping)
+- Atlas page changes (different `PtrMap` base pointer) — only for polys on the 2D path; textured polys inside the decor/object windows sample the texture array instead and skip this trigger
+- The batch's class (array vs 2D) changes — non-sampling polys inherit the open batch's class so bodies mixing textured and flat polys do not flip programs per poly
+- Alpha mode changes (only TRANS batches enable blending; mode, chroma and perspective differences branch per fragment in the shader, so they share a batch)
+- Fog-smooth mode enters or leaves the batch (type 24 pins the depth func to `GL_ALWAYS` under NZW)
+- Z-buffer/NZW fill flags change
 - Batch buffer full (~4096 vertices)
 - End of frame (before present)
+
+The CLUT row is *not* a flush trigger: `SetCLUT()` changes it per terrain tile (fog distance), and it rides per vertex instead — in the material word's high byte for CLUT-textured polygons (mode 0), in the RepMask vertex field for gouraud-table ones (mode 3) — so tiles share draw calls.
+
+### Static terrain VBO path (stereo)
+
+Exterior terrain bypasses the per-tile batch in stereo. `AffichageTerrainZBuf` uploads each cube once as a `T_GL_TerrainVertex` VBO (cube-local position, 8.8 atlas UV, light, RepMask, material, and the tile's top-left corner for the fog row) and draws the whole cube with one call through `s_terrainVertSrc`. The vertex shader applies `MatriceWorld` and the cube-local `CameraXr/Yr/Zr` and reproduces `LongProjectPoint3D`; `w` is the camera-space depth, so the GPU clips behind the eye, and the fragment shader discards the sub-`NearClip` sliver and anything past `ClipZFar`. The batch shader's screen-linear interpolation comes from `w = 1`, so the terrain shader premultiplies UV and depth by `w` and divides by the interpolated `w` in the fragment stage.
+
+The cache is keyed by cube `(x, y)`, holds 16 entries with LRU eviction, and is dropped when `LoadIsland()` or `InitSeaCube()` replaces the per-cube HQR data. A cube's VBO is built lazily, but `DrawHorizon2ZBuf` also builds one off-screen candidate per frame (`GPU_TerrainPrewarmLoadedCube`), so turning toward a neighbour does not pay the whole 65×65 upload in the frame it first appears. Animated water/flower tiles remain in the VBO as their current frame and are also projected on the CPU into `PtrAniPoly` so the animated-poly pass is unchanged. The path is active only for a stereo eye unless `LBA2_GPU_TERRAIN=1` forces it; `LBA2_GPU_TERRAIN=0` is a kill switch and `LBA2_TERRAIN_NOCULL=1` disables culling for comparison. The mono desktop path stays on the batch.
+
+### Texture array path
+
+Textured polys queued inside the decor/object windows (`GL_ArrayWindowBegin/End`) stamp `0x8000|layer` into the RepMask vertex field and sample a `GL_TEXTURE_2D_ARRAY` on unit 3 through a GLSL-3 variant of the CLUT program. Each layer holds the poly's `(PtrMap, w, h)` region *tiled* to 256×256, so the shader's `mod`-256 UV wrap reproduces the RepMask wrap for UVs pushed outside the region (raw 256×256 windows would sample the neighbouring texture block's bytes instead). This is what lets the decor pass — which interleaves a different page offset per poly group — merge into one batch instead of flushing per offset; `LBA2_NO_ARRAY=1` forces the 2D path for comparison.
+
+### Decor VBO streams
+
+The decor pass collects its screen-space triangles into CPU streams (the same 16-byte batch vertex layout) and draws them at `GL_DecorBatchEnd` instead of flushing the shared batch whenever a decor changes atlas class, alpha or depth-write mode. Array-path decors sample the texture array. Non-array decors use the legacy CLUT program, carry their 2D atlas page and mask, and are drawn before the array stream and static decor VBOs so their ordering matches the shared batch. Fog-smooth decors bind that page and use the shared batch's `GL_ALWAYS` depth function under NZW. Both kinds split into depth-writing opaque, depth-test-only opaque and alpha streams; alpha and non-Z-buffered polygons do not write depth. `LBA2_NO_DECOR_BATCH=1` keeps the per-state batch path for comparison.
+
+The array program is linked separately and Adreno assigns it different attribute slots from the legacy CLUT program, so both layouts are queried and the vertex-array spec is re-issued when the current program changes.
+
+Eye 1 reuses eye 0’s decor screen list and sort order per loaded cube: the pass runs once for the current cube and once for each visible horizon cube, so one snapshot is kept for each cube for the current stereo pair (`GL_GetStereoFrameSeq()`). The cube/decor-count/pair guard prevents a stale list at a cube boundary, and the lateral reject’s frame margins cover the IPD shift.
+
+The GL batch interpolates texture coordinates affinely for the original POLYTEXT/POLYGTEX types (8–15), matching the software filler. On a large, oblique wall this is visible as texture swim/warp, especially in VR. The GL batch marks the opaque types perspective-correct. The screen-space batch pre-divides the UV by `1/W` per vertex and divides by the interpolated `1/W` in the fragment shader, the same path the Z-textured types 16–24 use. Chroma-keyed types (12–15, the `type & 4` INCRUST bit) keep the affine mapping: the perspective divide moves their transparent holes relative to the bars, so a lattice or fence visibly shears against its own frame while the opaque walls the fix targets stay corrected. The 3D vertex stages (static decor VBO, GPU terrain) already put the camera depth in clip `w`, so the hardware interpolates a plain UV perspective-correctly; those stages hand the perspective variant over undivided, because pre-dividing there weights the samples by `1/w²` and adds the swim the fix exists to remove. The software/CPU renderer keeps the original affine look.
+
+### Static decor VBO
+
+Opaque, non-animated decor bodies bypass the per-frame CPU projection. The polygon handlers replay each body once in model space through `DecorVBORecord`, which captures positions, point/face normals, 8.8 UVs, the raw body colour and the 2D page `RepMask`. A `T_GL_DecorVertex` VBO is cached per `(HQR body index, beta)`; the vertex shader applies the decor's beta rotation (baked at build), its world translation (a per-draw uniform) and `MatriceWorld`, then reproduces `LongProjectPoint3D` and the camera-space light. Flat and flat-textured shading select their palette/CLUT row from that light exactly as the CPU handlers do, and the per-decor fog row rides in the material word.
+
+The VBO is split into per-texture-page groups; each group samples the 2D atlas page cache with its `RepMask` via `GL_BindAtlasFor`, so the static path never touches the texture array. The cache is keyed by the HQR index rather than the body pointer — a block can be evicted and its address reused for another body — and is dropped only when `LoadIsland()` or `InitSeaCube()` replaces the island HQR, not on a cube change: the VBO is a model-space copy and stays valid across cubes.
+
+The first frame a decor becomes visible would otherwise pay a body decode plus a VBO build in that frame; with a tracked view that frame arrives when the player turns, and several of them in one frame read as a hitch. `LoadCube()` therefore calls `GPU_DecorWarmCube()` for every cube it sees, including off-screen horizon candidates, and `GPU_DecorWarmStep()` turns a few queued decors into cached bodies/VBOs per frame under a small time budget. Visible decors still build on demand, so a fast turn only degrades to the old first-frame cost. `DecorsPerf` reports `cold`/`warm` build counts and `LBA2_NO_DECOR_WARM=1` disables the warm-up for A/B.
+
+Bodies that are transparent, use alpha/stipple polygons, environment mapping, lines/spheres, or whose normals do not match their points stay on the per-frame CPU stream path. The static path is used in mono and stereo GL rendering, not only in a stereo eye. `LBA2_NO_DECOR_VBO=1` disables it and `LBA2_DECOR_NOCULL=1` disables back-face culling for comparison.
 
 ### Vertex format
 
@@ -212,7 +315,11 @@ struct GLVertex {
     U16 texU, texV;    // texture coordinates (from Struc_Point::Pt_MapU/V)
     U16 light;         // Gouraud intensity (from Struc_Point::Pt_Light)
     U16 zo;            // normalized Z (from Struc_Point::Pt_ZO)
-};  // 12 bytes per vertex
+    U16 repMask;       // UV wrap mask; gouraud-table mode 3 reuses it for the CLUT row;
+                       // 0x8000|layer marks an array-path poly (see Texture array path)
+    U16 material;      // low byte: shading mode + alpha/chroma/persp flags,
+                       // high byte: flat colour, shadow level, or CLUT row (mode 0)
+};  // 16 bytes per vertex
 ```
 
 ## 2D/3D compositing
@@ -225,6 +332,8 @@ In GL mode, the 3D scene renders directly to the GL framebuffer. 2D elements (sp
 4. Draw fullscreen quad with alpha blending (transparent colors become see-through)
 
 The palette-indexed → ARGB conversion for 2D only happens once per frame, on a much smaller workload than the current full-frame conversion.
+
+Movies bypass the CPU upscale when GL is active: `PlayAcf` hands the 320×200 indexed frame to `GL_DrawMovieFrame`, which clears the scene target black and draws it through the indexed layer shader with the selected movie filter (Nearest / Scale2x / xBR). Index 0 is the movie background key: the scene target is cleared literal black and the key is discarded, so a magenta/purple key in the video shows black, not the key colour. On OpenXR the destination rect is shrunk to `MovieVrZoom` percent and centred.
 
 ## Build system
 
@@ -279,7 +388,11 @@ DisplayMenu[] = {
 
 **Texture filter toggle** (`MENU_ID_DISPLAY_TEXFILTER`): flips `GL_NEAREST` ↔ `GL_LINEAR` on the atlas texture. **Only active when the OpenGL renderer is selected** — when Software is active, this row is greyed out (non-selectable). Switching the renderer to OpenGL enables it; switching back to Software greys it out again. Trivial to apply at runtime.
 
-The Renderer row is always selectable. The Texture Filter row's selectability depends on the current renderer. Both rows are always visible in the menu (when `GPURENDERER=ON` at build time). If the user's GPU doesn't support GL 2.1 / GLES 2.0, the OpenGL option is shown but produces an error message on selection.
+The shipped option now cycles five values (`DisplayTexFilter`: 0 = Nearest, 1 = Bilinear, 2 = Scale2x, 3 = xBR Textures, 4 = xBR Lite). Values 2–4 apply their documented edge rules **per texture, inside the 3D sampler** — the CLUT shader gathers the atlas neighbourhood of the sampled texel and runs the rules on it (`clutScale2x` / `clutXbr` / `clutXbrLite`, plus `arrayScale2x` / `arrayXbr` / `arrayXbrLite` in the texture-array variant), so geometry edges, the 2D UI and text render fully native and only world textures are smoothed. The values map 1:1 onto the shader's `uBilinear` uniform (0 = nearest, 1 = bilinear, 2 = Scale2x, 3 = xBR, 4 = xBR Lite). The 2D overlay is not upscaled by any of these modes: it samples plainly (`s_fragSrc` / `s_presentIndexedFragSrc` no longer run a present-side Scale2x pass), so HUD, text and menus stay native and only the 3D texture sampler smooths world textures.
+
+**Scale2x (2)** compares raw atlas indices — exact integers — and replaces the centre texel with a neighbour only when the two guards of the sample's sub-quadrant agree; a replaced texel costs a single CLUT lookup. **xBR Textures (3)** runs Hyllian's xBR-lv2 rules (MIT, CORNER_C variant — CPU twin `XbrUpscale2x` in `LIB386/SVGA/XBR.CPP`, host-tested in `tests/xbr/`): edge weights come from unlit palette colors, and the blend applies those weights to the CLUT-lit neighbours, so gouraud lighting stays a per-texel lookup and only the smoothing changes. xBR keeps boundaries crisper than bilinear; Scale2x changes texels only where the documented rules fire, staying closest to the original art. **xBR Lite (4)** keeps xBR's soft diagonal edge with five taps: the four cardinal neighbours plus the centre, the Scale2x guard for each sub-quadrant, and a blend weight that ramps from zero at the texel centre to one at the outer corner. It uses index equality instead of the palette-color distance chain and three lit lookups instead of xBR's corner-tap set, so it costs roughly Scale2x plus a few mixes rather than full xBR.
+
+The Renderer row is always selectable. The Texture Filter row's selectability depends on the current renderer. Both rows are visible in the menu (when `GPURENDERER=ON` at build time), except that OpenXR/Quest builds omit the Renderer row: an immersive session presents the OpenXR GL swapchain, the software renderer's CPU surface cannot reach it, and the Quest build already forces the GL renderer on. If the user's GPU doesn't support GL 2.1 / GLES 2.0, the OpenGL option is shown but produces an error message on selection.
 
 ### Menu labels
 
@@ -307,7 +420,7 @@ Both are runtime settings, not build-dependent. Read in `ReadConfigFile()` (`PER
 
 ## Risks and open questions
 
-1. **Animated water dirty-tracking:** `GroundTexture` is mutated in-place (32×32 copies from `SkySeaTexture`). Need to detect changes and re-upload. Options: dirty-flag per block, CRC check, or unconditional re-upload of the whole atlas each frame (64KB — negligible).
+1. **Animated water dirty-tracking:** resolved by the named-page dirty flag in "Animated water tiles". A caller that sets `AtlasTextureDirty` without a page still takes the conservative full-cache upload path.
 
 2. **Per-polygon RepMask for objects:** Object body polygons have individual RepMask from the texture handle table. This forces a batch flush per-polygon for objects, or RepMask must be encoded as a vertex attribute and handled in the shader via `mod()`.
 
@@ -319,7 +432,7 @@ Both are runtime settings, not build-dependent. Read in `ReadConfigFile()` (`PER
 
 6. **GLES 2.0 `GL_LUMINANCE` vs desktop `GL_R8`:** Desktop GL deprecated `GL_LUMINANCE` but it still works. Could use `GL_LUMINANCE` everywhere for simplicity, or `#ifdef` branch for correctness.
 
-7. **Batch flush frequency:** Objects with many individually-textured polygons (each with different PtrMap offset + RepMask) will flush the batch frequently. Profile to see if this is a real problem — the batch is small (4096 verts) and GPU draw calls are cheap on modern hardware, but may matter on very old GLES 2.0 devices.
+7. **Batch flush frequency:** Objects with many individually-textured polygons (each with different PtrMap offset + RepMask) used to flush the batch per offset — measured at 240 atlas flushes per frame on an island view. The texture array path (see Geometry batching) merged these: 46 flushes total on the same view, pixel-identical output.
 
 ## Implementation phases
 
@@ -364,7 +477,7 @@ Both are runtime settings, not build-dependent. Read in `ReadConfigFile()` (`PER
 
 - ✅ Atlas pointer tracked; re-uploaded to GL when `PtrMap` changes (single 256×256 page at a time)
 - ✅ `RepMask` UV wrapping handled via per-vertex attribute in fragment shader (no batch-flush needed)
-- ✅ Handle animated water tile mutations in `GroundTexture` — dirty flag in `DoAnimatedPolys()` forces re-upload
+- ✅ Handle animated water tile mutations in `GroundTexture` — the named dirty page in `DoAnimatedPolys()` forces a re-upload of that page
 - ✅ Per-polygon RepMask handling for object body textures (via `Pt_RepMask` vertex attribute)
 
 ### Phase 6: Full 3D scene rendering

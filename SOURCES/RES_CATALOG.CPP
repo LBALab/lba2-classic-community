@@ -6,6 +6,7 @@
 #include "RES_CATALOG.H"
 
 #include <SYSTEM/WINDOW.H> /* Window_GetDisplayDimensions */
+#include <SYSTEM/OPENXR.H> /* OpenXR_GetSwapchainWidth/Height (Quest display) */
 
 /* True if (w, h) already appears in the first `n` entries of `list`. Defined
    below; forward-declared so the menu-list builder can dedup against itself. */
@@ -95,6 +96,55 @@ U32 Res_SnapWidescreenWidth(U32 dispW, U32 dispH) {
     return Res_SnapAspectWidth(dispW, dispH, 480);
 }
 
+/* Effective display for resolution candidates: the SDL window's display when
+   available, widened/tallened to the OpenXR swapchain on head-mounted builds —
+   the swapchain is what the player actually sees, and it can exceed both the
+   Android activity surface and the desktop caps (Quest 3 mono: 1680x1760). */
+static bool Res_EffectiveDisplay(U32 *outW, U32 *outH) {
+    U32 w = 0, h = 0;
+    if (Window_GetDisplayDimensions(&w, &h)) {
+        *outW = w;
+        *outH = h;
+    } else {
+        *outW = 0;
+        *outH = 0;
+    }
+    U32 sw = OpenXR_GetSwapchainWidth();
+    U32 sh = OpenXR_GetSwapchainHeight();
+    if (sw > *outW)
+        *outW = sw;
+    if (sh > *outH)
+        *outH = sh;
+    return *outW != 0 && *outH != 0;
+}
+
+/* Head-mounted resolution ladder. The in-headset view is the OpenXR swapchain,
+ * whose aspect is the eye FOV's (~square on Quest) — not an aspect the game's
+ * content is authored for. Offering panel-aspect or panel-native sizes made
+ * the world look stretched and let oversized entries crop; so on a headset the
+ * menu offers ONLY the game's intended modern aspect (16:9), sized to fit the
+ * swapchain width exactly: every entry renders fully visible, centred with
+ * cinema bars, and switching between them never changes the framing. The
+ * largest entry is the swapchain-width maximum (1680x945 on a Quest 3). */
+/* Head-mount ladder: resolutions matching the per-eye swapchain dimensions
+ * (1680×1760 on Quest 3).  The old 16:9 ladder caused a 1.86× vertical
+ * upscale when blitted to the swapchain — every source pixel became ~1.86
+ * destination pixels vertically, which the user perceives as blur.  These
+ * entries are 1:1 with the swapchain at various quality steps. */
+static const ResModeEntry kHeadMountLadder[] = {
+    {416, 440, "0.25x"},
+    {560, 587, "0.33x"},
+    {840, 880, "0.5x"},
+    {1120, 1173, "0.67x"},
+    {1256, 1320, "0.75x"},
+    {1680, 1760, "native"},
+};
+#define kHeadMountLadderCount ((int)(sizeof(kHeadMountLadder) / sizeof(kHeadMountLadder[0])))
+
+static bool Res_HeadMounted(void) {
+    return OpenXR_GetSwapchainWidth() != 0;
+}
+
 int Res_BuildMenuList(ResModeEntry *out, int cap) {
     int n = 0;
 
@@ -107,8 +157,21 @@ int Res_BuildMenuList(ResModeEntry *out, int cap) {
         n++;
     }
 
+    /* Head-mounted builds: 16:9 ladder only (see kHeadMountLadder). The
+       classic 4:3 anchor is deliberately absent — an aspect change is exactly
+       what these entries must not do. */
+    if (Res_HeadMounted()) {
+        /* Entries above the swapchain size are supersampled: the present
+         * blit downscales them to fit, so every option stays fully visible
+         * at the same 16:9 framing. */
+        for (int i = 0; i < kHeadMountLadderCount && n < cap; i++) {
+            out[n++] = kHeadMountLadder[i];
+        }
+        return n;
+    }
+
     U32 dispW = 0, dispH = 0;
-    if (!Window_GetDisplayDimensions(&dispW, &dispH))
+    if (!Res_EffectiveDisplay(&dispW, &dispH))
         return n; /* headless: classic only */
 
     /* A ladder of display-aspect-matched modes at increasing render heights, so
@@ -119,8 +182,8 @@ int Res_BuildMenuList(ResModeEntry *out, int cap) {
        resolution is always a listed entry. Heights that don't fit the panel, or
        whose width would exceed 1920 (ultrawide at 1080), are dropped; dups
        against the anchor (a 4:3 panel's @480 is 640x480) are skipped. */
-    static const U32 kLadderH[] = {480, 720, 1080};
-    static const char *kLadderTag[] = {"widescreen", "hd", "fhd"};
+    static const U32 kLadderH[] = {480, 720, 1080, 1440};
+    static const char *kLadderTag[] = {"widescreen", "hd", "fhd", "qhd"};
     for (int i = 0; i < (int)(sizeof(kLadderH) / sizeof(kLadderH[0])) && n < cap; i++) {
         const U32 h = kLadderH[i];
         if (h > dispH)
@@ -132,6 +195,18 @@ int Res_BuildMenuList(ResModeEntry *out, int cap) {
         out[n].h = h;
         out[n].tag = kLadderTag[i];
         n++;
+    }
+
+    /* Panel-native resolution: fills the panel exactly (on Quest the OpenXR
+       swapchain size, e.g. 1680x1760 — the sharpest the headset can show). */
+    {
+        const U32 nw = Res_SnapNativeW(dispW), nh = Res_SnapNativeH(dispH);
+        if (nw && nh && !catalog_contains(out, n, nw, nh) && n < cap) {
+            out[n].w = nw;
+            out[n].h = nh;
+            out[n].tag = "native";
+            n++;
+        }
     }
 
     return n;
@@ -147,8 +222,17 @@ static bool catalog_contains(const ResModeEntry *list, int n, U32 w, U32 h) {
 
 int Res_BuildCatalog(ResModeEntry *out, int cap, bool includeAdvanced) {
     U32 dispW = 0, dispH = 0;
-    const bool hasDisplay = Window_GetDisplayDimensions(&dispW, &dispH);
+    const bool hasDisplay = Res_EffectiveDisplay(&dispW, &dispH);
     int n = 0;
+
+    /* Head-mounted builds: the 16:9 ladder only — no curated tables (their
+       mixed aspects are monitor-oriented). */
+    if (Res_HeadMounted()) {
+        for (int i = 0; i < kHeadMountLadderCount && n < cap; i++) {
+            out[n++] = kHeadMountLadder[i];
+        }
+        return n;
+    }
 
     /* Recommended: 640x480 always present, the rest gated by display fit. */
     for (int i = 0; i < kRecommendedCount && n < cap; i++) {

@@ -28,6 +28,18 @@ releases ship fixes. Don't wait for `1.0` to bump versions — there's
 plenty of new work in the fork already, and incremental `0.x` releases
 keep momentum.
 
+### Version sources
+
+This fork keeps its own `0.0.x` line; upstream's `0.13.x` version does not
+apply here.
+
+- Dev and rolling builds read `VERSION` at the repo root (currently
+  `0.0.1-dev`).
+- Tag releases derive the version from the tag (`v0.0.2` → `0.0.2`) and pass
+  it as `LBA2_VERSION_OVERRIDE`. The binary, `VERSION.txt`, and artifact
+  filenames all use the tag, even if `VERSION` has not been bumped.
+- After a release, bump `VERSION` for the next development cycle.
+
 ### Engine version vs `NUM_VERSION`
 
 These are independent:
@@ -71,11 +83,12 @@ would replace the narrative with a sparse auto-generated section (most
 pre-tag commits are not conventional-commit-formatted). Just promote the
 heading.
 
-The version number itself lives in the `VERSION` file at the repo
-root. CMake reads it, embeds it in the binary, and writes it to
-`build/VERSION.txt` for release pipelines (PR #74) to consume. So a release
-cut also bumps that file: `0.9.0-dev` → `0.9.0` for the release commit,
-then `0.10.0-dev` for the next development cycle.
+The dev version lives in the `VERSION` file at the repo root. CMake reads
+it, embeds it in the binary, and writes it to `build/VERSION.txt` for release
+pipelines (PR #74) to consume. Tag builds override that value with the tag
+through `LBA2_VERSION_OVERRIDE`, so the released binary and artifact names
+carry the tag version; `VERSION` only needs bumping for the next development
+cycle.
 
 ```bash
 VERSION=v0.9.0
@@ -190,9 +203,9 @@ tools only look at the latter.
 
 ### Drafting the release
 
-Pushing the tag auto-creates the GitHub Release: the five per-platform
+Pushing the tag auto-creates the GitHub Release: the six per-platform
 release workflows
-(`release-{linux-appimage,linux-tarball,macos,windows,android}.yml`)
+(`release-{linux-appimage,linux-tarball,macos,windows,android,quest}.yml`)
 each fire on `push: tags: ['v*']`, attach their artifact, and trigger
 `softprops/action-gh-release@v2` which materialises the Release. No
 manual `gh release create` is needed.
@@ -239,7 +252,7 @@ Cross-arch tarballs are checked via qemu-user-static binfmt (auto-registered);
 cross-arch AppImages are skipped because qemu doesn't handle the AppImage
 type-2 runtime stub reliably.
 
-Windows ZIPs, macOS DMGs and Android APKs aren't checked. Running them
+Windows ZIPs, macOS DMGs and Android/Quest APKs aren't checked. Running them
 on a Linux host needs `wine`, `qemu-system-x86`, a Mac, or an Android
 emulator, which is more machinery than the marginal signal justifies.
 
@@ -399,10 +412,10 @@ platform fires first, and adding a new platform is a copy-and-fill exercise:
 |---|---|
 | **Triggers** | `push: tags: ['v*']` + `workflow_dispatch:`. Tags do real releases; dispatch is for validation runs. |
 | **Job structure** | Two jobs: `build` (matrix, even if 1×1) → `release`. The `build` job is a `uses:` call into `.github/workflows/reusable-build-<platform>.yml` — all toolchain setup, configure, build, and bundle steps live there so `release-latest.yml` can share them. Reusables live at the top level of `.github/workflows/`; GitHub Actions rejects `workflow_call` files in subdirectories. `fail-fast: false` so one arch failing doesn't drop others. |
-| **Artifact handoff** | Reusable build legs use `actions/upload-artifact@v7` with `name: <artifact-prefix>-<arch>`, where `artifact-prefix` is a workflow input. Tag callers leave it at the default (`AppImage`, `LinuxTarball`, `Windows`, `macOS`, `Android`); `release-latest.yml` overrides to `latest-*`. The release job downloads via `pattern: '<prefix>-*' merge-multiple: true`. |
-| **Release upload** | `softprops/action-gh-release@v2` with `generate_release_notes: true`. Asset attach is idempotent across the four per-tag workflows; body is **not** — the action appends the regenerated notes on every run, so the body lands duplicated 4× and is replaced post-tag by the CHANGELOG extraction in [Drafting the release](#drafting-the-release). Tracked as [#153](https://github.com/LBALab/lba2-classic-community/issues/153). |
+| **Artifact handoff** | Reusable build legs use `actions/upload-artifact@v7` with `name: <artifact-prefix>-<arch>`, where `artifact-prefix` is a workflow input. Tag callers leave it at the default (`AppImage`, `LinuxTarball`, `Windows`, `macOS`, `Android`, `Quest`); `release-latest.yml` overrides to `latest-*`. The release job downloads via `pattern: '<prefix>-*' merge-multiple: true`. |
+| **Release upload** | `softprops/action-gh-release@v2` with `generate_release_notes: true`. Asset attach is idempotent across the six per-tag workflows; body is **not** — the action appends the regenerated notes on every run, so the body lands duplicated once per workflow and is replaced post-tag by the CHANGELOG extraction in [Drafting the release](#drafting-the-release). Tracked as [#153](https://github.com/LBALab/lba2-classic-community/issues/153). |
 | **Tag-only upload** | Release job is gated by `if: startsWith(github.ref, 'refs/tags/')`. `workflow_dispatch` produces downloadable artifacts via the build job's upload step but does not touch the Releases page (avoids creating a "release" named after a branch). |
-| **Artifact naming** | `<exe>-<version>-<platform>-<arch>.<ext>`, e.g. `lba2cc-0.11.0-windows-x64.zip`, `lba2cc-0.11.0-linux-x86_64.tar.gz`, `lba2cc-0.11.0-macos-arm64.dmg`, `lba2cc-0.11.0-android-arm64-v8a.apk`. The AppImage's platform label is `anylinux` (`lba2cc-0.11.0-anylinux-x86_64.AppImage`) and it ships a `.zsync` companion alongside it, whose update channel points at the rolling `latest` release rather than the tag. |
+| **Artifact naming** | `<exe>-<version>-<platform>-<arch>.<ext>`, e.g. `lba2cc-0.11.0-windows-x64.zip`, `lba2cc-0.11.0-linux-x86_64.tar.gz`, `lba2cc-0.11.0-macos-arm64.dmg`, `lba2cc-0.11.0-android-arm64-v8a.apk`, `lba2cc-0.11.0-quest-arm64-v8a.apk`. The AppImage's platform label is `anylinux` (`lba2cc-0.11.0-anylinux-x86_64.AppImage`) and it ships a `.zsync` companion alongside it, whose update channel points at the rolling `latest` release rather than the tag. |
 | **Version source** | `build/VERSION.txt`, generated by `cmake/git_version.cmake` from the canonical `VERSION` file. Read once after configure. |
 | **Packaging logic** | Lives under `scripts/packaging/` (`make-appimage.sh`, `bundle-linux-tarball.sh`, `bundle-windows.sh`, `bundle-macos.sh`). One script per platform; the workflow is glue. |
 
@@ -513,7 +526,7 @@ rolling release sits below it, clearly labeled.
 | **Partial release on failure** | `if: always() && !cancelled()` on the release job. If one platform's build leg fails, the rolling release still updates with the platforms that succeeded. Tag releases are stricter (`if: startsWith(github.ref, 'refs/tags/')`) because a tagged release is meant to be complete. |
 
 Same packaging scripts (`make-appimage.sh`, `bundle-linux-tarball.sh`,
-`bundle-windows.sh`, `bundle-macos.sh`), same artifact shape, same
+`bundle-windows.sh`, `bundle-macos.sh`, `bundle-android.sh`), same artifact shape, same
 naming. The rolling release is functionally a tag-release at HEAD-of-main
 with a moving tag instead of a fixed semver.
 

@@ -1,0 +1,31 @@
+name: Quest
+
+# Validation build for the Meta Quest (OpenXR) APK. Mirrors linux.yml /
+# windows.yml: it builds on push and PR but does not touch the Releases page.
+# The release build lives in reusable-build-quest.yml, called by
+# release-quest.yml (v* tags) and release-latest.yml (rolling pre-release).
+# See docs/ANDROID.md "OpenXR (Meta Quest 3)".
+
+on:
+  push:
+    paths-ignore: &doc-paths
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.vscode/**'
+      - '.editorconfig'
+      - '.git-blame-ignore-revs'
+      - 'cliff.toml'
+  pull_request:
+    paths-ignore: *doc-paths
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    uses: ./.github/workflows/reusable-build-quest.yml

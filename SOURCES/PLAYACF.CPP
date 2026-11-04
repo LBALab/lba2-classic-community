@@ -16,6 +16,9 @@
 #include <AIL/VIDEO_AUDIO_RESAMPLE.H>
 #include <FILEIO/SAVEPNG.H>
 #include <SYSTEM/WINDOW.H> // AppActive
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+#endif
 
 static int videoLogEnabled = 0;
 
@@ -32,6 +35,7 @@ int VideoLogIsEnabled(void) {
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOGPRINT.H>
+#include <SYSTEM/OPENXR.H>
 #include <SDL3/SDL.h>
 #include <stdio.h>
 #include <string.h>
@@ -254,11 +258,12 @@ void PlayAllAcf(void) {
    floor mapping floor(d*src/dst); at the legacy 2x (dstW=640, dstH=400) that
    duplicates every source pixel/row exactly, byte-identical to the old fixed
    2× loop. */
-static void ReadNextVideoFrame(smk smkObject, U8 *destOrigin, U32 destStride, S32 dstW, S32 dstH, U8 **pal) {
+static void ReadNextVideoFrame(smk smkObject, U8 *destOrigin, U32 destStride, S32 dstW, S32 dstH, U8 **pal, U8 **srcFrame) {
     const S32 srcW = 320;
     const S32 srcH = 200;
     U8 *frame = (U8 *)smk_get_video(smkObject);
     *pal = (U8 *)smk_get_palette(smkObject);
+    *srcFrame = frame;
 
     for (S32 dy = 0; dy < dstH; dy++) {
         const S32 srcY = (dy * srcH) / dstH;
@@ -402,8 +407,23 @@ S32 PlayAcf(const char *name) {
         }
 
         SetBlackPal();
+        /* Movie upscaling is a GPU layer pass; without it (or on the software
+           renderer) keep the legacy CPU blit + opaque overlay. */
+        S32 gpuMovie = 0;
+        S32 movieFilter = 0;
+#ifdef USE_GPURENDERER
+        gpuMovie = (GPURendererActive && MovieUpscale != 0);
+        movieFilter = (MovieUpscale == 1) ? 2 : 3; /* Scale2x, xBR */
+#endif
+        FlagMovie = gpuMovie ? FALSE : TRUE;
         BoxReset();
         Cls();
+#ifdef USE_GPURENDERER
+        if (gpuMovie) {
+            GL_SetSceneClearColor(0);
+            GL_ClearFBO();
+        }
+#endif
         BoxUpdate();
         InitWaitNoKey();
         InitWaitNoInput(I_JOY | I_FIRE | I_MENUS);
@@ -518,10 +538,22 @@ S32 PlayAcf(const char *name) {
         S32 dstW, dstH, dstX0, dstY0;
         Video_ComputeCineRect((S32)ModeDesiredX, (S32)ModeDesiredY, VideoFullScreen,
                               &dstW, &dstH, &dstX0, &dstY0);
+#if defined(USE_GPURENDERER) && defined(LBA2_OPENXR)
+        /* In a headset the movie fills the eye, which is uncomfortable. Shrink
+           it around the same centre and leave the surrounding frame black.
+           Desktop never takes this path. */
+        if (OpenXR_IsActive()) {
+            dstW = dstW * MovieVrZoom / 100;
+            dstH = dstH * MovieVrZoom / 100;
+            dstX0 = ((S32)ModeDesiredX - dstW) / 2;
+            dstY0 = ((S32)ModeDesiredY - dstH) / 2;
+        }
+#endif
         memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
         U8 *cineOrigin = (U8 *)Log + (size_t)dstY0 * (size_t)ModeDesiredX + (size_t)dstX0;
 
         U8 *pal = NULL;
+        U8 *srcFrame = NULL;
         U32 videoStartTicks = 0;
         int videoFrozen = 0; // console open or focus lost -> hold the frame
         int everFocused = 0; // set once the window is focused; a never-focused run
@@ -533,7 +565,7 @@ S32 PlayAcf(const char *name) {
                 PushCurrentFrameVideoAudio(smkObject, tracksToPlay, numTracks, a_d, a_r, a_c, usf);
             }
 
-            ReadNextVideoFrame(smkObject, cineOrigin, ModeDesiredX, dstW, dstH, &pal);
+            ReadNextVideoFrame(smkObject, cineOrigin, ModeDesiredX, dstW, dstH, &pal, &srcFrame);
             if (pal) {
                 // The video is on screen with its own palette; clear FlagBlackPal so
                 // the engine state matches (SetBlackPal at entry left it TRUE). The
@@ -542,6 +574,12 @@ S32 PlayAcf(const char *name) {
                 FlagBlackPal = FALSE;
                 PaletteSync(pal);
             }
+#ifdef USE_GPURENDERER
+            if (gpuMovie && srcFrame) {
+                GL_DrawMovieFrame(srcFrame, 320, 200, movieFilter,
+                                  dstX0, dstY0, dstX0 + dstW, dstY0 + dstH);
+            }
+#endif
 
             /* Harness one-shot capture — saves a composited frame past the
                cinematic's initial fade-in (frame 0 is uniformly black for the
@@ -555,6 +593,13 @@ S32 PlayAcf(const char *name) {
                 s_video_capture_path[0] = '\0';
                 goto fin_play;
             }
+#ifdef USE_GPURENDERER
+            if (gpuMovie) {
+                /* The movie is in the scene target; keep the indexed overlay
+                   empty so the normal chroma-keyed HUD path paints nothing. */
+                memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+            }
+#endif
             BoxStaticAdd(0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1));
             BoxUpdate();
 
@@ -628,9 +673,14 @@ S32 PlayAcf(const char *name) {
            every LM_PLAY_ACF / TM_PLAY_ACF / menu-FMV caller and flashed the scene one
            frame before the fade-in (#404). */
         FadeToBlack(lastFramePal);
+        /* The GPU movie lives in the scene target; make the final present an
+           opaque black overlay so the movie does not stay on screen. */
+        FlagMovie = TRUE;
+        memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
         Cls();
         BoxStaticFullflip();
         SetBlackPal();
+        FlagMovie = FALSE;
 
         HQ_ResumeSamples();
         InitWaitNoKey();

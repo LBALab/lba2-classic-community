@@ -6,6 +6,11 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/CLIP.H>
 
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+extern S32 GPURendererActive;
+#endif
+
 #ifdef ENABLE_POLY_RECORDING
 #include <SNAPSHOT/POLY_RECORDING.H>
 #endif
@@ -142,6 +147,25 @@ void Fill_Sphere(S32 Type_Sphere, S32 Color_Sphere, S32 Centre_X, S32 Centre_Y, 
     if (g_polyrec_recording)
         polyrec_record_fill_sphere(Type_Sphere, Color_Sphere, Centre_X, Centre_Y, Rayon, zBufferValue);
 #endif
+
+#ifdef USE_GPURENDERER
+    /* GL path: the disc draws into the FBO with the same depth-test
+       semantics as the SW Log fillers, but only when the surrounding body
+       polys render into the FBO too.  The software path still uses Log for
+       non-Z-buffered bodies; the isometric GL world puts those bodies in
+       the FBO and supplies isometric depth, so spheres follow them there. */
+    if (GPURendererActive && GL_SphereTargetsFBO()) {
+        Color_Sphere &= 0xFF;
+        if (Fill_Flag_Fog) {
+            Color_Sphere = Fill_Logical_Palette[Color_Sphere];
+        }
+        GL_DrawSphere(Centre_X, Centre_Y, Rayon, Color_Sphere,
+                      (U32)(U16)zBufferValue, !Fill_Flag_NZW,
+                      Type_Sphere == 2);
+        return;
+    }
+#endif
+
     Sphere_Filler_Func Fill_Filler;
 
     // Select appropriate line drawing function based on flags and type

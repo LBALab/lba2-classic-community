@@ -7,7 +7,9 @@
 #include "INPUT.H"
 
 #include <FILEIO/SAVEPNG.H>
+#include <GL/RENDER_GL.H>
 #include <SVGA/SCREEN.H>
+#include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <string.h>
 
@@ -1033,8 +1035,20 @@ void HoloGlobe(S32 planet) {
 
         ClearZBufMinMax();
 
+#ifdef USE_GPURENDERER
+        /* The globe renders through the GL batch into the scene FBO.  Clear
+           it to the same black the software Z-buffer clear leaves behind, or
+           the previous rotation stays on screen as a trail and the world's
+           last frame shows through outside the sphere. */
+        if (GPURendererActive) {
+            GL_SetSceneClearColor(0);
+            GL_ClearFBO();
+        }
+#endif
+
         if ((MyKey == K_ESC)
-                OR(Input & (I_MENUS | I_HOLOMAP))) {
+                OR(Input & (I_MENUS | I_HOLOMAP))
+                    OR CheckKey(K_GAMEPAD_RSTICK_BTN)) {
             FlagHoloEnd = TRUE;
             break;
         }
@@ -1053,7 +1067,8 @@ void HoloGlobe(S32 planet) {
                 if (Input & I_DOWN)
                     HoloAlpha = (HoloAlpha + holoRotStep) & 4095;
 
-                if (((Input == I_ACTION_M) OR(Input == I_RETURN)) // espace
+                if (((Input == I_ACTION_M) OR(Input == I_RETURN)
+                         OR(Input == I_ACTION_ALWAYS)) // espace / Quest A
                     AND(!FlagMap)) {
                     //					If the player can or cannot Zoom an other island...
                     if ((NumObjectif == 1000)     //	Twinsen
@@ -1245,6 +1260,16 @@ void HoloMap() {
     FlagMap = 0;
     FlagHoloEnd = FALSE;
     //-----
+#ifdef USE_GPURENDERER
+    /* The holomap is an opaque black backdrop, but the 8-bit Log's index 0
+       is transparent in the GL composite and the palette fade cannot reach
+       the RGBA scene FBO.  Clear it before the fade so the last world frame
+       cannot show through around the globe. */
+    if (GPURendererActive) {
+        GL_SetSceneClearColor(0);
+        GL_ClearFBO();
+    }
+#endif
     FadeToBlackAndSamples(PtrPal);
     HQ_StopSample();
 

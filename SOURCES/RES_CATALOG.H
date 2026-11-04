@@ -30,7 +30,7 @@ extern "C" {
    derive their limits from these. The Y ceiling is ADELINE_MAX_Y_RES so the
    bound and the static TabOffLine[]/TabOffPhysLine[] sizing can't drift. */
 #define RES_MIN_W 320
-#define RES_MAX_W 1920
+#define RES_MAX_W 2560
 #define RES_MIN_H 200
 #define RES_MAX_H ADELINE_MAX_Y_RES
 

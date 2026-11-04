@@ -16,7 +16,7 @@
  * 3. Inner loop: dot(light_scaled, vertex) → fistp → clamp to [0,∞)
  *
  * Step 2 reinterprets X0/Y0/Z0 as float storage.  We replicate this
- * with local float variables and lrintl for the final rounding.
+ * with local float variables and lrint for the final rounding.
  */
 void LightList(TYPE_MAT *Mat, U16 *dst, TYPE_VT16 *src, S32 n) {
     LIB386_TRACE_CPP("LightListF", "1", "Mat=%p dst=%p src=%p n=%d", (void *)Mat, (void *)dst, (void *)src, n);
@@ -35,8 +35,8 @@ void LightList(TYPE_MAT *Mat, U16 *dst, TYPE_VT16 *src, S32 n) {
     memcpy(&Z0, &lz, sizeof(lz));
 
     for (S32 i = 0; i < n; i++) {
-        long double dot = (long double)lx * src[i].X + (long double)ly * src[i].Y + (long double)lz * src[i].Z;
-        S32 value = (S32)lrintl(dot);
+        double dot = (double)lx * src[i].X + (double)ly * src[i].Y + (double)lz * src[i].Z;
+        S32 value = (S32)lrint(dot);
         dst[i] = (value < 0) ? 0 : (U16)value;
     }
 }

@@ -14,5 +14,6 @@
 
 /// Maximum screen resolution of Y axis. Sizes the static TabOffLine[] /
 /// TabOffPhysLine[] line-offset tables and bounds the runtime resolution
-/// switch (see RES_MAX_H in RES_CATALOG.H, kept in sync). 1080 enables 1080p.
-#define ADELINE_MAX_Y_RES 1080
+/// switch (see RES_MAX_H in RES_CATALOG.H, kept in sync). 2160 covers 1080p
+/// and the OpenXR swapchain-recommended size on Quest (1680x1760).
+#define ADELINE_MAX_Y_RES 2160

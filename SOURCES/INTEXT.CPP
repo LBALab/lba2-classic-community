@@ -13,6 +13,7 @@
  *══════════════════════════════════════════════════════════════════════════*/
 
 #include "C_EXTERN.H"
+#include <SYSTEM/OPENXR.H> /* head-mount camera defaults */
 
 extern T_OBJET *APtObj; // dans OBJECT.CPP
 
@@ -99,6 +100,35 @@ S32 DrawRecover(S32 xw, S32 yw, S32 zw, S32 ymax, S32 zvmax) {
     }
 
     return flagbox;
+}
+
+/*──────────────────────────────────────────────────────────────────────────*/
+// Flag-only companion to DrawRecover: same occlusion test, but never
+// restores terrain pixels.  Used when the body was rendered into the GL
+// FBO — there are no Log pixels to fix — while the "completely masked"
+// return value still drives the camera-recenter logic.
+S32 DrawRecoverFlag(S32 xw, S32 yw, S32 zw, S32 ymax, S32 zvmax) {
+    if (CubeMode == CUBE_INTERIEUR) {
+        DrawOverBrick(xw / SIZE_BRICK_XZ,
+                      yw / SIZE_BRICK_Y,
+                      zw / SIZE_BRICK_XZ);
+
+        BoxMovingAdd(ClipXMin, ClipYMin, ClipXMax, ClipYMax);
+
+        return 0;
+    }
+
+    S32 z0, z1;
+
+    LongWorldRotatePoint(xw, yw, zw);
+
+    z0 = CameraZr - Z0 - zvmax; // calculer par rapport à la zv
+
+    LongWorldRotatePoint(xw, yw + ymax, zw);
+
+    z1 = CameraZr - Z0 - zvmax; // calculer par rapport à la zv
+
+    return ZBufBoxOverWrite2Flag(z0, z1, ClipXMin, ClipYMin, ClipXMax, ClipYMax);
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -336,7 +366,14 @@ void CameraCenter(S32 flagbeta) {
     case 2:
 #ifdef LBA_EDITOR
         VueDistance = DEFAULT_DISTANCE_CAM;
+#ifdef LBA2_OPENXR
+        /* Head-mounted: near the clamp floor so the rig sits at Twinsen's
+           back, not over the scene — the classic 30 degree top-down reads
+           badly in a headset. */
+        AlphaCam = OpenXR_GetSwapchainWidth() ? 180 : DEFAULT_ALPHA_CAM;
+#else
         AlphaCam = DEFAULT_ALPHA_CAM;
+#endif
 #else
         VueDistance = DefVueDistance[VueCamera];
         AlphaCam = DefAlphaCam[VueCamera];
@@ -364,7 +401,13 @@ void CameraCenter(S32 flagbeta) {
         GammaCam = DEFAULT_GAMMA_CAM;
 #ifdef LBA_EDITOR
         VueDistance = DEFAULT_DISTANCE_CAM;
+#ifdef LBA2_OPENXR
+        /* Head-mounted: ride visibly lower than the classic 30 degree rig so
+           the hero-centred view reads more over-the-shoulder. */
+        AlphaCam = OpenXR_GetSwapchainWidth() ? 250 : DEFAULT_ALPHA_CAM;
+#else
         AlphaCam = DEFAULT_ALPHA_CAM;
+#endif
 #else
         VueDistance = DefVueDistance[VueCamera];
         AlphaCam = DefAlphaCam[VueCamera];
@@ -464,7 +507,7 @@ void FlyCamera(S32 offx, S32 offy, S32 offz,
                 NbAniPoly = 0;
                 PtrAniPoly = PtrPolySea;
 
-                ClsTerrainZBuf();
+                ClsTerrainZBuf(TRUE);
 
 #ifdef LBA_EDITOR
                 if (FlagInfos & INFO_HORIZON)

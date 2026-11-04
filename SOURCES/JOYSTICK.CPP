@@ -1,8 +1,10 @@
 #include "C_EXTERN.H"
+#include "CHEATCOD.H"
 
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOG.H>
+#include <SYSTEM/OPENXR.H>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_gamepad.h>
@@ -37,10 +39,16 @@ static StickDir s_prevRightDir = DIR_NEUTRAL;
 // Raw right-stick axes from the last UpdateJoystick poll, exposed via
 // JoystickGetRightStick for the analog camera. 0,0 when no pad is open.
 static S16 s_rstickX = 0;
+static S32 s_openxrControllers = 0; /* last UpdateJoystick poll saw OpenXR controllers */
 static S16 s_rstickY = 0;
+/* Right thumb-presence chord: touch the right thumb area and press X/Y for
+   a cheat. Edge-triggered so holding the chord does not repeat the cheat. */
+static S32 s_cheatXPrev = 0;
+static S32 s_cheatYPrev = 0;
 
 //***************************************************************************
 S32 JoystickDeadzone = 8000;
+S32 JoystickFirstPersonStick = 0;
 
 static SDL_Gamepad *s_gamepad = NULL;
 static SDL_JoystickID s_gamepadId = 0;
@@ -61,6 +69,13 @@ static U32 s_firstPressedThisFrame = 0;
 
 static inline void SetVirtualKeyDown(U32 scancode) {
     TabKeys[PAD_KEY_INDEX(scancode)] |= (U8)PAD_KEY_BIT(scancode);
+}
+
+/* ApplyStickDirection passes 0 for an axis it deliberately suppresses. */
+static inline void SetVirtualKeyDownIf(U32 scancode) {
+    if (scancode != 0) {
+        SetVirtualKeyDown(scancode);
+    }
 }
 
 // Clear the TabKeys bytes that hold gamepad bits. Called each frame before
@@ -235,32 +250,32 @@ static void ApplyStickDirection(S16 x, S16 y, U32 keyLeft, U32 keyRight,
 
     switch (sector) {
     case 0:
-        SetVirtualKeyDown(keyRight);
+        SetVirtualKeyDownIf(keyRight);
         break;
     case 1:
-        SetVirtualKeyDown(keyRight);
-        SetVirtualKeyDown(keyUp);
+        SetVirtualKeyDownIf(keyRight);
+        SetVirtualKeyDownIf(keyUp);
         break;
     case 2:
-        SetVirtualKeyDown(keyUp);
+        SetVirtualKeyDownIf(keyUp);
         break;
     case 3:
-        SetVirtualKeyDown(keyLeft);
-        SetVirtualKeyDown(keyUp);
+        SetVirtualKeyDownIf(keyLeft);
+        SetVirtualKeyDownIf(keyUp);
         break;
     case 4:
-        SetVirtualKeyDown(keyLeft);
+        SetVirtualKeyDownIf(keyLeft);
         break;
     case 5:
-        SetVirtualKeyDown(keyLeft);
-        SetVirtualKeyDown(keyDown);
+        SetVirtualKeyDownIf(keyLeft);
+        SetVirtualKeyDownIf(keyDown);
         break;
     case 6:
-        SetVirtualKeyDown(keyDown);
+        SetVirtualKeyDownIf(keyDown);
         break;
     case 7:
-        SetVirtualKeyDown(keyRight);
-        SetVirtualKeyDown(keyDown);
+        SetVirtualKeyDownIf(keyRight);
+        SetVirtualKeyDownIf(keyDown);
         break;
     }
     *prevState = (StickDir)(sector + 1);
@@ -282,75 +297,182 @@ void UpdateJoystick(void) {
     s_rstickX = 0;
     s_rstickY = 0;
 
-    if (s_gamepad == NULL) {
-        return;
-    }
+    S32 openxrActive = OpenXR_UpdateControllerState();
+    s_openxrControllers = openxrActive;
 
-    struct ButtonMap {
-        SDL_GamepadButton btn;
-        U32 key;
-    };
-    static const ButtonMap kButtons[] = {
-        {SDL_GAMEPAD_BUTTON_SOUTH, K_GAMEPAD_A},
-        {SDL_GAMEPAD_BUTTON_EAST, K_GAMEPAD_B},
-        {SDL_GAMEPAD_BUTTON_WEST, K_GAMEPAD_X},
-        {SDL_GAMEPAD_BUTTON_NORTH, K_GAMEPAD_Y},
-        {SDL_GAMEPAD_BUTTON_BACK, K_GAMEPAD_BACK},
-        {SDL_GAMEPAD_BUTTON_GUIDE, K_GAMEPAD_GUIDE},
-        {SDL_GAMEPAD_BUTTON_START, K_GAMEPAD_START},
-        {SDL_GAMEPAD_BUTTON_LEFT_STICK, K_GAMEPAD_LSTICK_BTN},
-        {SDL_GAMEPAD_BUTTON_RIGHT_STICK, K_GAMEPAD_RSTICK_BTN},
-        {SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, K_GAMEPAD_LSHOULDER},
-        {SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, K_GAMEPAD_RSHOULDER},
-        {SDL_GAMEPAD_BUTTON_DPAD_UP, K_GAMEPAD_DPAD_UP},
-        {SDL_GAMEPAD_BUTTON_DPAD_DOWN, K_GAMEPAD_DPAD_DOWN},
-        {SDL_GAMEPAD_BUTTON_DPAD_LEFT, K_GAMEPAD_DPAD_LEFT},
-        {SDL_GAMEPAD_BUTTON_DPAD_RIGHT, K_GAMEPAD_DPAD_RIGHT},
-    };
-    for (size_t i = 0; i < sizeof(kButtons) / sizeof(kButtons[0]); i++) {
-        if (SDL_GetGamepadButton(s_gamepad, kButtons[i].btn)) {
-            SetVirtualKeyDown(kButtons[i].key);
+    if (openxrActive) {
+#define SET(vk) SetVirtualKeyDown(vk)
+#define STICK_DIR(idx, x, y, left, right, up, down)                     \
+    do {                                                                \
+        StickDir *prev = (idx == 0) ? &s_prevLeftDir : &s_prevRightDir; \
+        ApplyStickDirection(x, y, left, right, up, down, prev);         \
+    } while (0)
+
+        /* First-person stereo uses raw sticks: left for camera-relative
+           movement, right for view yaw.  The digital scancodes would drive
+           the hero's own turn/animation against the head-tracked view. */
+        const S32 firstPersonStick = JoystickFirstPersonStick;
+        if (firstPersonStick) {
+            /* Both axes are consumed as raw values in PERSO.CPP: left stick
+               for camera-relative movement, right stick for yaw. */
+            s_prevLeftDir = DIR_NEUTRAL;
+        } else {
+            STICK_DIR(0, OpenXR_LeftStickX, OpenXR_LeftStickY,
+                      K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT,
+                      K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN);
         }
+
+        /* A stereo interior owns the right stick for the camera pan/zoom.
+           Sending its digital scancodes as well would also cycle the classic
+           camera presets; the raw axes are read in PERSO.CPP. */
+        const S32 interiorCam = OpenXR_IsActive() && DisplayStereo3D &&
+                                CubeMode == CUBE_INTERIEUR;
+        if ((GamepadCameraAnalog && FollowCamera &&
+             CubeMode == CUBE_EXTERIEUR) ||
+            interiorCam || firstPersonStick) {
+            s_prevRightDir = DIR_NEUTRAL;
+        } else {
+            STICK_DIR(1, OpenXR_RightStickX, OpenXR_RightStickY,
+                      K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT,
+                      K_GAMEPAD_RSTICK_UP, K_GAMEPAD_RSTICK_DOWN);
+        }
+
+        /* Raw right-stick axes for the analog camera (EXTFUNC reads them via
+         * JoystickGetRightStick), same contract as the SDL path below. */
+        s_rstickX = OpenXR_RightStickX;
+        s_rstickY = OpenXR_RightStickY;
+
+        /* OpenXR trigger state is boolean (0/1), not an SDL axis: the analog
+         * deadzone comparison would swallow every press.  The left trigger
+         * is a spell modifier while a face button is held; on its own it
+         * stays backward movement. */
+        const S32 spellMod = OpenXR_LeftTrigger;
+        S32 spellKey = 0;
+        if (spellMod) {
+            if (OpenXR_XBtn)
+                spellKey = K_GAMEPAD_DPAD_RIGHT; /* penguin */
+            else if (OpenXR_YBtn)
+                spellKey = K_GAMEPAD_DPAD_DOWN; /* jetpack */
+            else if (OpenXR_ABtn)
+                spellKey = K_GAMEPAD_DPAD_UP; /* protection */
+            else if (OpenXR_BBtn)
+                spellKey = K_GAMEPAD_DPAD_LEFT; /* lightning */
+        }
+        if (spellKey)
+            SET(spellKey);
+        else if (OpenXR_LeftTrigger)
+            SET(K_GAMEPAD_LTRIGGER);
+        if (OpenXR_RightTrigger)
+            SET(K_GAMEPAD_RSHOULDER);
+
+        const S32 rightThumb = OpenXR_RightThumbrestTouched;
+        const S32 cheatX = rightThumb && OpenXR_XBtn && !spellKey;
+        const S32 cheatY = rightThumb && OpenXR_YBtn && !spellKey;
+        if (cheatX && !s_cheatXPrev)
+            TryExecuteCheatByName("full");
+        if (cheatY && !s_cheatYPrev)
+            TryExecuteCheatByName("gold");
+        s_cheatXPrev = cheatX;
+        s_cheatYPrev = cheatY;
+
+        /* A and B keep working with a thumb on the right stick; only X and Y
+           are consumed by the cheat chord, so resting the thumb there cannot
+           swallow talk/search or back. */
+        if (!spellKey) {
+            if (OpenXR_ABtn)
+                SET(K_GAMEPAD_A);
+            if (OpenXR_BBtn)
+                SET(K_GAMEPAD_RSTICK_BTN);
+            if (OpenXR_XBtn && !rightThumb)
+                SET(K_GAMEPAD_Y); /* inventory */
+            if (OpenXR_YBtn && !rightThumb)
+                SET(K_GAMEPAD_BACK); /* holomap */
+        }
+        if (OpenXR_MenuBtn)
+            SET(K_GAMEPAD_START);
+        if (OpenXR_LeftThumbstickDown)
+            SET(K_GAMEPAD_LSTICK_BTN);
+        if (OpenXR_RightThumbstickDown)
+            SET(K_GAMEPAD_B);
+        if (OpenXR_LeftGripDown)
+            SET(K_GAMEPAD_LSHOULDER);
+        if (OpenXR_RightGripDown)
+            SET(K_GAMEPAD_X);
+
+#undef SET
+#undef STICK_DIR
+    } else if (s_gamepad != NULL) {
+        struct ButtonMap {
+            SDL_GamepadButton btn;
+            U32 key;
+        };
+        static const ButtonMap kButtons[] = {
+            {SDL_GAMEPAD_BUTTON_SOUTH, K_GAMEPAD_A},
+            {SDL_GAMEPAD_BUTTON_EAST, K_GAMEPAD_B},
+            {SDL_GAMEPAD_BUTTON_WEST, K_GAMEPAD_X},
+            {SDL_GAMEPAD_BUTTON_NORTH, K_GAMEPAD_Y},
+            {SDL_GAMEPAD_BUTTON_BACK, K_GAMEPAD_BACK},
+            {SDL_GAMEPAD_BUTTON_GUIDE, K_GAMEPAD_GUIDE},
+            {SDL_GAMEPAD_BUTTON_START, K_GAMEPAD_START},
+            {SDL_GAMEPAD_BUTTON_LEFT_STICK, K_GAMEPAD_LSTICK_BTN},
+            {SDL_GAMEPAD_BUTTON_RIGHT_STICK, K_GAMEPAD_RSTICK_BTN},
+            {SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, K_GAMEPAD_LSHOULDER},
+            {SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, K_GAMEPAD_RSHOULDER},
+            {SDL_GAMEPAD_BUTTON_DPAD_UP, K_GAMEPAD_DPAD_UP},
+            {SDL_GAMEPAD_BUTTON_DPAD_DOWN, K_GAMEPAD_DPAD_DOWN},
+            {SDL_GAMEPAD_BUTTON_DPAD_LEFT, K_GAMEPAD_DPAD_LEFT},
+            {SDL_GAMEPAD_BUTTON_DPAD_RIGHT, K_GAMEPAD_DPAD_RIGHT},
+        };
+        for (size_t i = 0; i < sizeof(kButtons) / sizeof(kButtons[0]); i++) {
+            if (SDL_GetGamepadButton(s_gamepad, kButtons[i].btn)) {
+                SetVirtualKeyDown(kButtons[i].key);
+            }
+        }
+
+        // The D-pad emits only its own K_GAMEPAD_DPAD_* scancodes (above), never
+        // the left-stick virtual keys. That keeps the D-pad and left stick as
+        // independent, separately bindable input sources (issue #360): whatever a
+        // player binds to a D-pad direction in the controls menu is all it does, no
+        // hidden aliasing onto the stick's cardinals.
+
+        S16 lx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTX);
+        S16 ly = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTY);
+        S16 rx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHTX);
+        S16 ry = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHTY);
+        S16 lt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
+        S16 rt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
+
+        // Cache the raw right stick for the analog camera (EXTFUNC reads it).
+        s_rstickX = rx;
+        s_rstickY = ry;
+
+        ApplyStickDirection(lx, ly, K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT,
+                            K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN,
+                            &s_prevLeftDir);
+
+        // Right stick stays 8-way digital for bindings, EXCEPT while the analog
+        // camera owns it (Auto camera in an exterior scene): there EXTFUNC reads the
+        // raw axes, so emitting RSTICK scancodes too would double-drive elevation
+        // and the classic camera turn.
+        if (GamepadCameraAnalog && FollowCamera && CubeMode == CUBE_EXTERIEUR) {
+            s_prevRightDir = DIR_NEUTRAL;
+        } else {
+            ApplyStickDirection(rx, ry, K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT,
+                                K_GAMEPAD_RSTICK_UP, K_GAMEPAD_RSTICK_DOWN,
+                                &s_prevRightDir);
+        }
+
+        S16 dz = (S16)JoystickDeadzone;
+        if (lt > dz)
+            SetVirtualKeyDown(K_GAMEPAD_LTRIGGER);
+        if (rt > dz)
+            SetVirtualKeyDown(K_GAMEPAD_RTRIGGER);
     }
 
-    // The D-pad emits only its own K_GAMEPAD_DPAD_* scancodes (above), never
-    // the left-stick virtual keys. That keeps the D-pad and left stick as
-    // independent, separately bindable input sources (issue #360): whatever a
-    // player binds to a D-pad direction in the controls menu is all it does, no
-    // hidden aliasing onto the stick's cardinals.
-
-    S16 lx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTX);
-    S16 ly = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTY);
-    S16 rx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHTX);
-    S16 ry = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHTY);
-    S16 lt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
-    S16 rt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
-
-    // Cache the raw right stick for the analog camera (EXTFUNC reads it).
-    s_rstickX = rx;
-    s_rstickY = ry;
-
-    ApplyStickDirection(lx, ly, K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT,
-                        K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN,
-                        &s_prevLeftDir);
-
-    // Right stick stays 8-way digital for bindings, EXCEPT while the analog
-    // camera owns it (Auto camera in an exterior scene): there EXTFUNC reads the
-    // raw axes, so emitting RSTICK scancodes too would double-drive elevation
-    // and the classic camera turn.
-    if (GamepadCameraAnalog && FollowCamera && CubeMode == CUBE_EXTERIEUR) {
-        s_prevRightDir = DIR_NEUTRAL;
-    } else {
-        ApplyStickDirection(rx, ry, K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT,
-                            K_GAMEPAD_RSTICK_UP, K_GAMEPAD_RSTICK_DOWN,
-                            &s_prevRightDir);
+    if (!openxrActive) {
+        s_cheatXPrev = 0;
+        s_cheatYPrev = 0;
     }
-
-    S16 dz = (S16)JoystickDeadzone;
-    if (lt > dz)
-        SetVirtualKeyDown(K_GAMEPAD_LTRIGGER);
-    if (rt > dz)
-        SetVirtualKeyDown(K_GAMEPAD_RTRIGGER);
 
     // Edge-detect: find the first bit that went 0 -> 1 this frame.
     for (U32 i = firstByte; i <= lastByte; i++) {
@@ -399,7 +521,9 @@ S32 JoystickButtonPressed(void) {
 
 //***************************************************************************
 S32 JoystickIsPresent(void) {
-    return (s_gamepad != NULL) ? 1 : 0;
+    /* The Quest Touch controllers arrive through the OpenXR action path, not
+       an SDL gamepad; they count as the controller. */
+    return (s_gamepad != NULL || s_openxrControllers) ? 1 : 0;
 }
 
 //***************************************************************************
