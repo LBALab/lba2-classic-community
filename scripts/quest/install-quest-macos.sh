@@ -23,7 +23,7 @@
 # enabled, a data-capable USB cable, and your own LBA2 game data.
 set -euo pipefail
 
-REPO="s-gelazevicius/lba2-quest"
+REPO="simsas-experiments/lba2-classic-quest"
 PACKAGE="org.lbalab.lba2cc"
 ACTIVITY="org.libsdl.app.SDLActivity"
 DEST="/sdcard/lba2cc"
@@ -41,6 +41,41 @@ TMP=""
 
 usage() {
     sed -n '2,/^set -euo pipefail/p' "$0" | sed 's/^# \{0,1\}//' | sed '$d'
+}
+
+banner() {
+    cat <<'EOF'
+
+  _     ____    _    ____
+ | |   | __ )  / \  |___ \
+ | |   |  _ \ / _ \   __) |
+ | |___| |_) / ___ \ / __/
+ |_____|____/_/   \_\_____|
+
+  Twinsen's Odyssey on Meta Quest - installer
+
+EOF
+}
+
+step() {
+    printf '\n==> %s\n' "$*"
+}
+
+finished() {
+    printf '\n============================================================\n'
+    printf ' LBA2 is installed on the Quest.\n'
+    printf ' Launch it from the library: Library > Unknown Sources.\n'
+    printf '============================================================\n\n'
+}
+
+wait_for_exit() {
+    # Keep the window open when the script is launched from a file manager.
+    # Skip when stdin is not a terminal so pipelines and CI do not block.
+    if [ -t 0 ]; then
+        printf 'Press any key to exit...'
+        read -r -n 1 -s || true
+        printf '\n'
+    fi
 }
 
 while [ $# -gt 0 ]; do
@@ -70,6 +105,9 @@ for tool in curl unzip; do
     fi
 done
 
+banner
+step "Starting the installer"
+
 github_curl() {
     if [ -n "${GITHUB_TOKEN:-}" ]; then
         curl -fsSL --retry 3 --retry-delay 2 \
@@ -88,10 +126,11 @@ cleanup() {
             rm -rf "$TMP"
         fi
     fi
+    wait_for_exit
 }
 trap cleanup EXIT
 
-echo "Downloading temporary Android platform-tools..."
+step "Downloading Android platform-tools"
 curl -fL --retry 3 --retry-delay 2 -o "$TMP/platform-tools.zip" "$PLATFORM_TOOLS_URL"
 unzip -q "$TMP/platform-tools.zip" -d "$TMP"
 ADB="$TMP/platform-tools/adb"
@@ -128,7 +167,7 @@ else
         API_URL="https://api.github.com/repos/$REPO/releases/latest"
     fi
 
-    echo "Looking up the Quest release..."
+    step "Reading the Quest release"
     if ! RELEASE_JSON="$(github_curl \
         -H 'Accept: application/vnd.github+json' \
         -H 'User-Agent: lba2-quest-installer' "$API_URL")"; then
@@ -158,7 +197,7 @@ else
     fi
 
     APK_PATH="$TMP/$APK_NAME"
-    echo "Downloading $APK_NAME..."
+    step "Downloading $APK_NAME"
     if [ -n "$ASSET_API_URL" ]; then
         github_curl -H 'Accept: application/octet-stream' \
             -o "$APK_PATH" "$ASSET_API_URL"
@@ -172,6 +211,7 @@ if [ -z "$ASSETS" ]; then
     IFS= read -r ASSETS
 fi
 case "$ASSETS" in
+    "~") ASSETS="$HOME" ;;
     "~"/*) ASSETS="$HOME/${ASSETS#~/}" ;;
 esac
 
@@ -208,7 +248,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
     exit 0
 fi
 
-echo "Checking for a connected Quest..."
+step "Checking for a connected Quest"
 "$ADB" start-server >/dev/null 2>&1 || true
 DEVICES="$("$ADB" devices 2>/dev/null || true)"
 ONLINE="$(printf '%s\n' "$DEVICES" | awk 'NR>1 && $2=="device" {print $1}')"
@@ -249,7 +289,7 @@ adb_cmd() {
     "$ADB" -s "$SERIAL" "$@"
 }
 
-echo "Copying game data to $DEST ..."
+step "Copying game files to $DEST"
 adb_cmd shell mkdir -p "$DEST"
 adb_cmd push "$ASSETS/." "$DEST/"
 
@@ -262,6 +302,7 @@ install_once() {
     adb_cmd install -r "$APK_PATH" >"$TMP/install.log" 2>&1
 }
 
+step "Installing $APK_NAME"
 if ! install_once; then
     INSTALL_OUTPUT="$(cat "$TMP/install.log")"
     printf '%s\n' "$INSTALL_OUTPUT"
@@ -303,3 +344,5 @@ if [ "$LAUNCH" -eq 1 ]; then
         echo "Installed, but the app could not be launched automatically. Open it from the Quest library."
     fi
 fi
+
+finished

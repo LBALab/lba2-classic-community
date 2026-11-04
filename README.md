@@ -31,25 +31,36 @@ The project targets mainly Quest. The same source also builds Linux, macOS, Wind
 
 Requirements: a Quest 2/3/Pro with Developer Mode and USB debugging enabled, a data-capable USB cable, and your own LBA2 game data.
 
+| Desktop | Installer download |
+|---|---|
+| Linux | [install-quest-linux.sh](https://github.com/simsas-experiments/lba2-classic-quest/raw/main/scripts/quest/install-quest-linux.sh) |
+| macOS | [install-quest-macos.sh](https://github.com/simsas-experiments/lba2-classic-quest/raw/main/scripts/quest/install-quest-macos.sh) |
+| Windows | [install-quest-windows.ps1](https://github.com/simsas-experiments/lba2-classic-quest/raw/main/scripts/quest/install-quest-windows.ps1) ([.cmd launcher](https://github.com/simsas-experiments/lba2-classic-quest/raw/main/scripts/quest/install-quest-windows.cmd)) |
+
 Linux:
 
 ```bash
-bash scripts/quest/install-quest-linux.sh
+curl -fLO https://github.com/simsas-experiments/lba2-classic-quest/raw/main/scripts/quest/install-quest-linux.sh
+bash install-quest-linux.sh
 ```
 
 macOS:
 
 ```bash
-bash scripts/quest/install-quest-macos.sh
+curl -fLO https://github.com/simsas-experiments/lba2-classic-quest/raw/main/scripts/quest/install-quest-macos.sh
+bash install-quest-macos.sh
 ```
 
-Windows:
+Windows (PowerShell):
 
-```bat
-scripts\quest\install-quest-windows.cmd
+```powershell
+Invoke-WebRequest -OutFile install-quest-windows.ps1 https://github.com/simsas-experiments/lba2-classic-quest/raw/main/scripts/quest/install-quest-windows.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install-quest-windows.ps1
 ```
 
-The installer downloads temporary Android platform-tools, fetches the latest Quest APK from the [Releases page](https://github.com/s-gelazevicius/lba2-quest/releases), asks for the folder containing `lba2.hqr`, copies the game data to `/sdcard/lba2cc/`, and installs the APK. It does not need Docker or root.
+The installer downloads temporary Android platform-tools, fetches the latest Quest APK from the [Releases page](https://github.com/simsas-experiments/lba2-classic-quest/releases), asks for the folder containing `lba2.hqr`, copies the game data to `/sdcard/lba2cc/`, and installs the APK. It does not need Docker or root. The same scripts live in [`scripts/quest/`](scripts/quest) if you already cloned the repository; on Windows, put the `.cmd` launcher beside the `.ps1` to double-click it.
+
+On Windows, the installer reuses an existing `adb` from `PATH` or the Android SDK when it finds one; otherwise it downloads a temporary copy and Windows may ask for permission. Use `-AdbPath` to point at your own `adb.exe`.
 
 If adb cannot see the headset, enable Developer Mode and USB debugging, use a data cable, and accept the debugging prompt in the headset. On Windows, install the Meta Quest ADB driver if the device is not listed.
 
@@ -80,7 +91,7 @@ The same source also produces:
 | Windows | `lba2cc-<version>-windows-x64.zip` |
 | Android | `lba2cc-<version>-android-<abi>.apk` |
 
-All are published on the [Releases page](https://github.com/s-gelazevicius/lba2-quest/releases).
+All are published on the [Releases page](https://github.com/simsas-experiments/lba2-classic-quest/releases).
 
 ## Building from source
 
