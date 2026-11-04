@@ -417,16 +417,19 @@ void BoxBlit() {
     // In stereo capture the left eye's AffScene also funnels here; its present
     // is suppressed (GL_Present skips the swap), so it must not step the clock
     // either — the right eye's real present does, exactly once.
+    // Stereo presents: the left eye steps the fixed-dt clock, and the eye 1
+    // pass reuses eye 0's input state (its present only draws the HUD half).
 #if defined(USE_GPURENDERER)
     if (GL_GetStereoEye() != 0)
         Timer_FixedDtPresent();
 #endif
 
-    /* The eye 1 pass of single-pass stereo reuses eye 0's input state; its
-       present only draws the HUD half. */
 #ifdef USE_GPURENDERER
-    if (!(GL_GetStereoEye() == 1 && GL_SinglePassStereoActive()))
+    const S32 eye1Pass = (GL_GetStereoEye() == 1 && GL_SinglePassStereoActive());
+#else
+    const S32 eye1Pass = FALSE;
 #endif
+    if (!eye1Pass)
         ManageEvents();
 
     MergeLists(&pBoxOptList, pBoxMovingList); // rebuild BoxOptList

@@ -37,56 +37,56 @@
 /* opengl32.dll exports GL 1.1 only, while the renderer uses the GL 2/3
    entry points. Resolve those from the driver once the context is current;
    aliasing each call name to a loaded pointer leaves the call sites as-is. */
-#define LBA2_GL_WIN_FUNCS(X)                                                \
-    X(PFNGLACTIVETEXTUREPROC, glActiveTexture)                              \
-    X(PFNGLATTACHSHADERPROC, glAttachShader)                                \
-    X(PFNGLBINDATTRIBLOCATIONPROC, glBindAttribLocation)                    \
-    X(PFNGLBINDBUFFERPROC, glBindBuffer)                                    \
-    X(PFNGLBINDFRAMEBUFFERPROC, glBindFramebuffer)                          \
-    X(PFNGLBINDRENDERBUFFERPROC, glBindRenderbuffer)                        \
-    X(PFNGLBLITFRAMEBUFFERPROC, glBlitFramebuffer)                          \
-    X(PFNGLBUFFERDATAPROC, glBufferData)                                    \
-    X(PFNGLBUFFERSUBDATAPROC, glBufferSubData)                              \
-    X(PFNGLCHECKFRAMEBUFFERSTATUSPROC, glCheckFramebufferStatus)            \
-    X(PFNGLCLIENTWAITSYNCPROC, glClientWaitSync)                            \
-    X(PFNGLCOMPILESHADERPROC, glCompileShader)                              \
-    X(PFNGLCREATEPROGRAMPROC, glCreateProgram)                              \
-    X(PFNGLCREATESHADERPROC, glCreateShader)                                \
-    X(PFNGLDELETEBUFFERSPROC, glDeleteBuffers)                              \
-    X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers)                    \
-    X(PFNGLDELETEPROGRAMPROC, glDeleteProgram)                              \
-    X(PFNGLDELETERENDERBUFFERSPROC, glDeleteRenderbuffers)                  \
-    X(PFNGLDELETESHADERPROC, glDeleteShader)                                \
-    X(PFNGLDELETESYNCPROC, glDeleteSync)                                    \
-    X(PFNGLDISABLEVERTEXATTRIBARRAYPROC, glDisableVertexAttribArray)        \
-    X(PFNGLENABLEVERTEXATTRIBARRAYPROC, glEnableVertexAttribArray)          \
-    X(PFNGLFENCESYNCPROC, glFenceSync)                                      \
-    X(PFNGLFRAMEBUFFERRENDERBUFFERPROC, glFramebufferRenderbuffer)          \
-    X(PFNGLFRAMEBUFFERTEXTURE2DPROC, glFramebufferTexture2D)                \
-    X(PFNGLGENBUFFERSPROC, glGenBuffers)                                    \
-    X(PFNGLGENFRAMEBUFFERSPROC, glGenFramebuffers)                          \
-    X(PFNGLGENRENDERBUFFERSPROC, glGenRenderbuffers)                        \
-    X(PFNGLGETATTRIBLOCATIONPROC, glGetAttribLocation)                      \
-    X(PFNGLGETPROGRAMIVPROC, glGetProgramiv)                                \
-    X(PFNGLGETSHADERINFOLOGPROC, glGetShaderInfoLog)                        \
-    X(PFNGLGETSHADERIVPROC, glGetShaderiv)                                  \
-    X(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation)                    \
-    X(PFNGLLINKPROGRAMPROC, glLinkProgram)                                  \
-    X(PFNGLMAPBUFFERRANGEPROC, glMapBufferRange)                            \
-    X(PFNGLRENDERBUFFERSTORAGEPROC, glRenderbufferStorage)                  \
-    X(PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC,                              \
-      glRenderbufferStorageMultisample)                                     \
-    X(PFNGLSHADERSOURCEPROC, glShaderSource)                                \
-    X(PFNGLTEXIMAGE3DPROC, glTexImage3D)                                    \
-    X(PFNGLTEXSUBIMAGE3DPROC, glTexSubImage3D)                              \
-    X(PFNGLUNIFORM1FPROC, glUniform1f)                                      \
-    X(PFNGLUNIFORM1IPROC, glUniform1i)                                      \
-    X(PFNGLUNIFORM2FPROC, glUniform2f)                                      \
-    X(PFNGLUNIFORM3FPROC, glUniform3f)                                      \
-    X(PFNGLUNIFORM4FPROC, glUniform4f)                                      \
-    X(PFNGLUNIFORMMATRIX3FVPROC, glUniformMatrix3fv)                        \
-    X(PFNGLUNMAPBUFFERPROC, glUnmapBuffer)                                  \
-    X(PFNGLUSEPROGRAMPROC, glUseProgram)                                    \
+#define LBA2_GL_WIN_FUNCS(X)                                         \
+    X(PFNGLACTIVETEXTUREPROC, glActiveTexture)                       \
+    X(PFNGLATTACHSHADERPROC, glAttachShader)                         \
+    X(PFNGLBINDATTRIBLOCATIONPROC, glBindAttribLocation)             \
+    X(PFNGLBINDBUFFERPROC, glBindBuffer)                             \
+    X(PFNGLBINDFRAMEBUFFERPROC, glBindFramebuffer)                   \
+    X(PFNGLBINDRENDERBUFFERPROC, glBindRenderbuffer)                 \
+    X(PFNGLBLITFRAMEBUFFERPROC, glBlitFramebuffer)                   \
+    X(PFNGLBUFFERDATAPROC, glBufferData)                             \
+    X(PFNGLBUFFERSUBDATAPROC, glBufferSubData)                       \
+    X(PFNGLCHECKFRAMEBUFFERSTATUSPROC, glCheckFramebufferStatus)     \
+    X(PFNGLCLIENTWAITSYNCPROC, glClientWaitSync)                     \
+    X(PFNGLCOMPILESHADERPROC, glCompileShader)                       \
+    X(PFNGLCREATEPROGRAMPROC, glCreateProgram)                       \
+    X(PFNGLCREATESHADERPROC, glCreateShader)                         \
+    X(PFNGLDELETEBUFFERSPROC, glDeleteBuffers)                       \
+    X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers)             \
+    X(PFNGLDELETEPROGRAMPROC, glDeleteProgram)                       \
+    X(PFNGLDELETERENDERBUFFERSPROC, glDeleteRenderbuffers)           \
+    X(PFNGLDELETESHADERPROC, glDeleteShader)                         \
+    X(PFNGLDELETESYNCPROC, glDeleteSync)                             \
+    X(PFNGLDISABLEVERTEXATTRIBARRAYPROC, glDisableVertexAttribArray) \
+    X(PFNGLENABLEVERTEXATTRIBARRAYPROC, glEnableVertexAttribArray)   \
+    X(PFNGLFENCESYNCPROC, glFenceSync)                               \
+    X(PFNGLFRAMEBUFFERRENDERBUFFERPROC, glFramebufferRenderbuffer)   \
+    X(PFNGLFRAMEBUFFERTEXTURE2DPROC, glFramebufferTexture2D)         \
+    X(PFNGLGENBUFFERSPROC, glGenBuffers)                             \
+    X(PFNGLGENFRAMEBUFFERSPROC, glGenFramebuffers)                   \
+    X(PFNGLGENRENDERBUFFERSPROC, glGenRenderbuffers)                 \
+    X(PFNGLGETATTRIBLOCATIONPROC, glGetAttribLocation)               \
+    X(PFNGLGETPROGRAMIVPROC, glGetProgramiv)                         \
+    X(PFNGLGETSHADERINFOLOGPROC, glGetShaderInfoLog)                 \
+    X(PFNGLGETSHADERIVPROC, glGetShaderiv)                           \
+    X(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation)             \
+    X(PFNGLLINKPROGRAMPROC, glLinkProgram)                           \
+    X(PFNGLMAPBUFFERRANGEPROC, glMapBufferRange)                     \
+    X(PFNGLRENDERBUFFERSTORAGEPROC, glRenderbufferStorage)           \
+    X(PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC,                       \
+      glRenderbufferStorageMultisample)                              \
+    X(PFNGLSHADERSOURCEPROC, glShaderSource)                         \
+    X(PFNGLTEXIMAGE3DPROC, glTexImage3D)                             \
+    X(PFNGLTEXSUBIMAGE3DPROC, glTexSubImage3D)                       \
+    X(PFNGLUNIFORM1FPROC, glUniform1f)                               \
+    X(PFNGLUNIFORM1IPROC, glUniform1i)                               \
+    X(PFNGLUNIFORM2FPROC, glUniform2f)                               \
+    X(PFNGLUNIFORM3FPROC, glUniform3f)                               \
+    X(PFNGLUNIFORM4FPROC, glUniform4f)                               \
+    X(PFNGLUNIFORMMATRIX3FVPROC, glUniformMatrix3fv)                 \
+    X(PFNGLUNMAPBUFFERPROC, glUnmapBuffer)                           \
+    X(PFNGLUSEPROGRAMPROC, glUseProgram)                             \
     X(PFNGLVERTEXATTRIBPOINTERPROC, glVertexAttribPointer)
 
 #define LBA2_GL_WIN_DECL(type, name) static type lba2_##name = NULL;
