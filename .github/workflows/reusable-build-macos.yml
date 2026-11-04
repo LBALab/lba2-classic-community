@@ -60,11 +60,18 @@ jobs:
           build-type: Release
           cmake-arguments: "-DSDL_STATIC=ON -DSDL_SHARED=OFF"
 
+      - name: Resolve release version
+        run: |
+          if [ "${GITHUB_REF#refs/tags/v}" != "${GITHUB_REF}" ]; then
+            echo "LBA2_VERSION_OVERRIDE=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_ENV"
+          fi
+
       - name: Configure (static-link release build)
         run: |
           cmake --preset ${{ matrix.preset }} \
                 -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
                 -DLBA2_LINK_STATIC=ON \
+                -DLBA2_VERSION_OVERRIDE="${LBA2_VERSION_OVERRIDE:-}" \
                 -DCMAKE_BUILD_TYPE=Release
 
       - name: Build

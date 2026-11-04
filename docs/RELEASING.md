@@ -28,6 +28,18 @@ releases ship fixes. Don't wait for `1.0` to bump versions — there's
 plenty of new work in the fork already, and incremental `0.x` releases
 keep momentum.
 
+### Version sources
+
+This fork keeps its own `0.0.x` line; upstream's `0.13.x` version does not
+apply here.
+
+- Dev and rolling builds read `VERSION` at the repo root (currently
+  `0.0.1-dev`).
+- Tag releases derive the version from the tag (`v0.0.2` → `0.0.2`) and pass
+  it as `LBA2_VERSION_OVERRIDE`. The binary, `VERSION.txt`, and artifact
+  filenames all use the tag, even if `VERSION` has not been bumped.
+- After a release, bump `VERSION` for the next development cycle.
+
 ### Engine version vs `NUM_VERSION`
 
 These are independent:
@@ -71,11 +83,12 @@ would replace the narrative with a sparse auto-generated section (most
 pre-tag commits are not conventional-commit-formatted). Just promote the
 heading.
 
-The version number itself lives in the `VERSION` file at the repo
-root. CMake reads it, embeds it in the binary, and writes it to
-`build/VERSION.txt` for release pipelines (PR #74) to consume. So a release
-cut also bumps that file: `0.9.0-dev` → `0.9.0` for the release commit,
-then `0.10.0-dev` for the next development cycle.
+The dev version lives in the `VERSION` file at the repo root. CMake reads
+it, embeds it in the binary, and writes it to `build/VERSION.txt` for release
+pipelines (PR #74) to consume. Tag builds override that value with the tag
+through `LBA2_VERSION_OVERRIDE`, so the released binary and artifact names
+carry the tag version; `VERSION` only needs bumping for the next development
+cycle.
 
 ```bash
 VERSION=v0.9.0

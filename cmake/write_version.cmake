@@ -8,34 +8,41 @@
 #   OUT_TXT           — path to write plain-text version (build/VERSION.txt)
 #   OUT_HDR           — path to write generated header (build/VERSION_GENERATED.h)
 #   GIT_EXECUTABLE    — full path to `git`, or empty if not found
+#   VERSION_OVERRIDE  — release tag version, or empty for a dev build
 #
-# Source of truth: the `VERSION` file at the repo root (Plan C — checked-in
-# canonical value). Git is used only to mark a dirty working tree, so:
+# Source of truth: the `VERSION_OVERRIDE` cache variable when set (tag
+# releases), otherwise the `VERSION` file at the repo root. Git is used
+# only to mark a dirty working tree, so:
 #
+#   * Tag release                        → exact tag version
 #   * Tarballs / no-git environments    → exact contents of VERSION
 #   * Clean dev clone                    → exact contents of VERSION
 #   * Dirty dev clone (uncommitted)      → VERSION contents + "-dirty"
 #
 # This avoids fetch-depth concerns (no `git describe`, no tag history needed)
-# and keeps maintainer intent (VERSION file) authoritative — git only
-# enriches the bit it can know without history: "do you have uncommitted
-# changes?".
+# and keeps maintainer intent authoritative.
 
-# Read VERSION file (canonical source).
-if(NOT EXISTS "${SOURCE_DIR}/VERSION")
-    message(FATAL_ERROR "VERSION file missing at ${SOURCE_DIR}/VERSION")
-endif()
-file(READ "${SOURCE_DIR}/VERSION" _version_raw)
-string(STRIP "${_version_raw}" _version)
+set(_version_overridden FALSE)
+if(DEFINED VERSION_OVERRIDE AND NOT "${VERSION_OVERRIDE}" STREQUAL "")
+    set(_version "${VERSION_OVERRIDE}")
+    set(_version_overridden TRUE)
+else()
+    # Read VERSION file (canonical dev source).
+    if(NOT EXISTS "${SOURCE_DIR}/VERSION")
+        message(FATAL_ERROR "VERSION file missing at ${SOURCE_DIR}/VERSION")
+    endif()
+    file(READ "${SOURCE_DIR}/VERSION" _version_raw)
+    string(STRIP "${_version_raw}" _version)
 
-if(_version STREQUAL "")
-    message(FATAL_ERROR "VERSION file is empty")
+    if(_version STREQUAL "")
+        message(FATAL_ERROR "VERSION file is empty")
+    endif()
 endif()
 
 # Optional git enrichment: append "-dirty" if working tree has uncommitted
 # changes. Skip silently if git isn't available or .git is missing
-# (tarball case).
-if(GIT_EXECUTABLE AND EXISTS "${SOURCE_DIR}/.git")
+# (tarball case), and never add it to a tag override.
+if(NOT _version_overridden AND GIT_EXECUTABLE AND EXISTS "${SOURCE_DIR}/.git")
     execute_process(
         COMMAND ${GIT_EXECUTABLE} diff-index --quiet HEAD --
         WORKING_DIRECTORY ${SOURCE_DIR}

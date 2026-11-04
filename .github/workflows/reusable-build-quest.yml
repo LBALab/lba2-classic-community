@@ -139,12 +139,19 @@ jobs:
           cp "${RUNNER_TEMP}/openxr-aar/prefab/modules/openxr_loader/libs/android.${{ matrix.abi }}/libopenxr_loader.so" \
                 out/android/openxr/install/lib/
 
+      - name: Resolve release version
+        run: |
+          if [ "${GITHUB_REF#refs/tags/v}" != "${GITHUB_REF}" ]; then
+            echo "LBA2_VERSION_OVERRIDE=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_ENV"
+          fi
+
       - name: Configure LBA2
         run: |
           cmake --preset ${{ matrix.preset }} \
                 -DSDL3_DIR="${SDL3_ANDROID_DIR}" \
                 -DSOUND_BACKEND=sdl \
                 -DMVIDEO_BACKEND=smacker \
+                -DLBA2_VERSION_OVERRIDE="${LBA2_VERSION_OVERRIDE:-}" \
                 -DCMAKE_BUILD_TYPE=Release \
                 2>&1
 

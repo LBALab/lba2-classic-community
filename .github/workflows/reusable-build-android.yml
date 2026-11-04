@@ -124,11 +124,18 @@ jobs:
           echo "SDL3_ANDROID_DIR=${SDL3_INSTALL}/lib/cmake/SDL3" >> "$GITHUB_ENV"
           echo "SDL3_DIR=${SDL3_INSTALL}/lib/cmake/SDL3" >> "$GITHUB_ENV"
 
+      - name: Resolve release version
+        run: |
+          if [ "${GITHUB_REF#refs/tags/v}" != "${GITHUB_REF}" ]; then
+            echo "LBA2_VERSION_OVERRIDE=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_ENV"
+          fi
+
       - name: Configure LBA2
         run: |
           cmake --preset ${{ matrix.preset }} \
                 -DSOUND_BACKEND=sdl \
                 -DMVIDEO_BACKEND=smacker \
+                -DLBA2_VERSION_OVERRIDE="${LBA2_VERSION_OVERRIDE:-}" \
                 -DCMAKE_BUILD_TYPE=Release \
                 2>&1
 

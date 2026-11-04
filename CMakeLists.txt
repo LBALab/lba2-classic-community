@@ -184,9 +184,11 @@ endif()
 
 # Engine version string. Reads the canonical value from the VERSION file
 # at the repo root and (optionally) appends -dirty when the working tree
-# has uncommitted changes. Produces both ${CMAKE_BINARY_DIR}/VERSION.txt
-# (plain text, for release pipelines) and ${CMAKE_BINARY_DIR}/VERSION_GENERATED.h
-# (defines LBA2_VERSION_STRING for the binary).
+# has uncommitted changes. Release workflows pass the git tag here so the
+# binary and every artifact carry the tag version. Produces both
+# ${CMAKE_BINARY_DIR}/VERSION.txt (plain text, for release pipelines) and
+# ${CMAKE_BINARY_DIR}/VERSION_GENERATED.h (defines LBA2_VERSION_STRING).
+set(LBA2_VERSION_OVERRIDE "" CACHE STRING "Release version (git tag without the leading v); empty uses VERSION")
 include(${CMAKE_SOURCE_DIR}/cmake/git_version.cmake)
 
 # Product metadata. Single source of truth for executable name, runtime window

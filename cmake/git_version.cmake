@@ -34,6 +34,7 @@ add_custom_command(
             -DOUT_TXT=${_VERSION_TXT}
             -DOUT_HDR=${_VERSION_HDR}
             -DGIT_EXECUTABLE=${GIT_EXECUTABLE}
+            -DVERSION_OVERRIDE=${LBA2_VERSION_OVERRIDE}
             -P ${_VERSION_SCRIPT}
     DEPENDS ${_VERSION_SCRIPT} ${CMAKE_SOURCE_DIR}/VERSION
     COMMENT "Resolving LBA2 version"
@@ -54,6 +55,7 @@ if(NOT EXISTS ${_VERSION_HDR})
                 -DOUT_TXT=${_VERSION_TXT}
                 -DOUT_HDR=${_VERSION_HDR}
                 -DGIT_EXECUTABLE=${GIT_EXECUTABLE}
+                -DVERSION_OVERRIDE=${LBA2_VERSION_OVERRIDE}
                 -P ${_VERSION_SCRIPT}
     )
 endif()
