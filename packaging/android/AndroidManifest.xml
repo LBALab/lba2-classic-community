@@ -34,7 +34,7 @@
     <!-- VR headtracking is not declared here: phone / TV / tablet builds
          do not want to advertise VR support (the store filters by it). The
          Quest build uses packaging/android/AndroidManifest.quest.xml,
-         selected by the bundler when --manifest is passed. -->
+         selected by the bundler when the manifest override is passed. -->
 
     <!-- Landscape orientation required for the game's aspect ratio -->
     <application android:label="@string/app_name"
