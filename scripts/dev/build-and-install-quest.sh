@@ -233,6 +233,7 @@ bash "$REPO_ROOT/scripts/packaging/bundle-android.sh" \
     --lib "$NATIVE_LIB" \
     --version "$VERSION" \
     --arch arm64-v8a \
+    --label quest \
     --build-dir "$BUILD_DIR" \
     --sdk-root "$SDK_ROOT" \
     --sdl3-java-src "$REPO_ROOT/out/android/SDL3" \
@@ -245,7 +246,7 @@ if [ ${PIPESTATUS[0]} -ne 0 ]; then
   fatal "APK bundling failed."
 fi
 
-APK_PATH="$OUTPUT_DIR/lba2cc-${VERSION}-android-arm64-v8a.apk"
+APK_PATH="$OUTPUT_DIR/lba2cc-${VERSION}-quest-arm64-v8a.apk"
 if [ ! -f "$APK_PATH" ]; then
   fatal "APK not found at $APK_PATH"
 fi

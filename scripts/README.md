@@ -54,7 +54,7 @@ into each artifact.
 | [packaging/bundle-linux-tarball.sh](packaging/bundle-linux-tarball.sh) | Bundle a built Linux binary into a portable `.tar.gz`. | CI, `build-linux-tarball.sh` |
 | [packaging/bundle-macos.sh](packaging/bundle-macos.sh) | Bundle a built `.app` into a macOS DMG. | CI, `build-macos-release.sh` |
 | [packaging/bundle-windows.sh](packaging/bundle-windows.sh) | Bundle a built `lba2cc.exe` into a portable ZIP. | CI, `build-windows-release.sh` |
-| [packaging/bundle-android.sh](packaging/bundle-android.sh) | Bundle a built native `.so` into a debug-signed APK. | CI (android) |
+| [packaging/bundle-android.sh](packaging/bundle-android.sh) | Bundle a built native `.so` into a debug-signed APK (`--label` selects the `android` or `quest` artifact name). | CI (android, quest) |
 | [packaging/make-appimage.sh](packaging/make-appimage.sh) | Build a Linux AppImage (installs deps, packs the SDL3 runtime). | CI (linux appimage) |
 
 ## Regression baselines & savegame corpus

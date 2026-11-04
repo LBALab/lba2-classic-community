@@ -83,6 +83,8 @@ bash scripts/dev/build-and-install-quest.sh
 
 The wizard builds `out/build/quest`, pushes the retail HQR files to `/sdcard/lba2cc/`, and installs the `org.lbalab.lba2cc` APK. See [docs/ANDROID.md](docs/ANDROID.md) for the OpenXR setup and [docs/QUEST_CONTROLS.md](docs/QUEST_CONTROLS.md) for the controller map.
 
+Release builds on this fork also publish `lba2cc-<version>-quest-arm64-v8a.apk` as a GitHub release asset; sideload it with `adb install -r`.
+
 ### Linux
 
 Grab `lba2cc-<version>-anylinux-<arch>.AppImage`, then:

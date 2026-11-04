@@ -8,9 +8,11 @@
 #                     --build-dir <cmake-build-dir> \
 #                     --sdk-root <android-sdk> \
 #                     --sdl3-java-src <path-to-sdl3-java-sources> \
+#                     [--label <platform>] \
 #                     --output-dir <where-to-drop-the-apk>
 #
-# Produces: <output-dir>/lba2cc-<version>-android-<arch>.apk
+# Produces: <output-dir>/lba2cc-<version>-<label>-<arch>.apk
+# The label defaults to "android"; the Quest build passes "quest".
 #
 # Requires the Android SDK (command-line tools, build-tools, platform
 # android-34) to be installed at SDK_ROOT.
@@ -19,6 +21,7 @@ set -euo pipefail
 LIB_PATH=""
 VERSION=""
 ARCH="arm64-v8a"
+LABEL="android"
 BUILD_DIR=""
 SDK_ROOT=""
 SDL3_JAVA_SRC=""
@@ -33,6 +36,7 @@ while [[ $# -gt 0 ]]; do
         --lib) LIB_PATH="$2"; shift 2 ;;
         --version) VERSION="$2"; shift 2 ;;
         --arch) ARCH="$2"; shift 2 ;;
+        --label) LABEL="$2"; shift 2 ;;
         --build-dir) BUILD_DIR="$2"; shift 2 ;;
         --sdk-root) SDK_ROOT="$2"; shift 2 ;;
         --sdl3-java-src) SDL3_JAVA_SRC="$2"; shift 2 ;;
@@ -69,7 +73,7 @@ fi
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PACKAGE="org.lbalab.lba2cc"
 LIB_NAME="libmain.so"
-ARTIFACT_NAME="lba2cc-${VERSION}-android-${ARCH}"
+ARTIFACT_NAME="lba2cc-${VERSION}-${LABEL}-${ARCH}"
 ARTIFACT_APK="${OUTPUT_DIR}/${ARTIFACT_NAME}.apk"
 
 echo "[bundle-android] lib:        $LIB_PATH"
