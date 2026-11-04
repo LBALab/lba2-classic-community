@@ -4,6 +4,10 @@ This repository is a fork of [LBALab/lba2-classic-community](https://github.com/
 
 The purpose of this fork is a **native Meta Quest port of Twinsen's Odyssey** (Little Big Adventure 2). The port is an experiment developed entirely with AI coding agents; it is not an official LBALab release, and its changes should be treated as experimental.
 
+On Quest the game runs with native **stereo 3D**, full **6DoF** head and controller tracking, a **first-person IK body and camera**, and an **interior 3D parallax diorama** effect. The port adds various graphical improvements while keeping the original gameplay and assets intact.
+
+The project targets mainly Quest, but desktop builds should also work; the desktop build has been tested on Linux.
+
 The OpenGL/GLES renderer is the one contributed in [PR #457 by Link4Electronics](https://github.com/LBALab/lba2-classic-community/pull/457). Everything else builds on the community fork: SDL3, libsmacker, the OpenXR/Quest layer, the VR options, movie upscaling and the reworked menus.
 
 Target performance on Quest is **72 fps**, and the game is mostly stable at that rate through a playthrough.
@@ -25,9 +29,9 @@ Target performance on Quest is **72 fps**, and the game is mostly stable at that
 | Graphics | Post effects | Dithering, sharpening, colour grade, soft shadows and sub-pixel interior pan |
 | Graphics | Perspective-correct textures | Always on for opaque decor/object polygons; chroma-keyed polys stay affine |
 | Graphics | Movie upscaling | Nearest, Scale2x or xBR; default xBR and independent of the game texture filter |
-| Quest | Native OpenXR | Android arm64 build, immersive session, stereo 3D and single-pass stereo |
-| Quest | VR presentation | VR zoom, supersampling, interior hover, sub-pixel pan, interior passthrough and a 70% movie screen |
-| Quest | First-person body | Full-body hand IK and world-scale control |
+| Quest | Native OpenXR | Android arm64 build, immersive session, native stereo 3D, full 6DoF tracking and single-pass stereo |
+| Quest | VR presentation | VR zoom, supersampling, interior hover, sub-pixel pan, interior passthrough, a 3D parallax diorama and a 70% movie screen |
+| Quest | First-person body | First-person IK body/camera, full-body hand IK and world-scale control |
 | Quest | Controller mapping | A confirm/use, B camera/back, X inventory, Y holomap, long-menu in-game menu, right-thumb cheat chord (Full / Gold) |
 | Quest | Quality defaults | xBR Lite, MSAA×2, soft shadows on, vsync off, stereo 3D on, 1.5× supersampling, interior hover/sub-pixel/full body on |
 | Quest | Performance target | 72 fps; mostly stable through the game |
