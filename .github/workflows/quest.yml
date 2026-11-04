@@ -1,17 +1,13 @@
 name: Quest
 
-# Build, validate, and release the Meta Quest (OpenXR) APK. One workflow
-# covers the push/PR build (like linux.yml / windows.yml), the tag release,
-# and the rolling latest release (release-latest.yml calls it through
-# workflow_call). Produces `lba2cc-<version>-quest-arm64-v8a.apk` with the
-# Khronos OpenXR loader staged from the official AAR and the Quest manifest.
-#
-# See docs/ANDROID.md "OpenXR (Meta Quest 3)" for the runtime side.
+# Validation build for the Meta Quest (OpenXR) APK. Mirrors linux.yml /
+# windows.yml: it builds on push and PR but does not touch the Releases page.
+# The release build lives in reusable-build-quest.yml, called by
+# release-quest.yml (v* tags) and release-latest.yml (rolling pre-release).
+# See docs/ANDROID.md "OpenXR (Meta Quest 3)".
 
 on:
   push:
-    branches: ['**']
-    tags: ['v*']
     paths-ignore: &doc-paths
       - '**.md'
       - 'docs/**'
@@ -25,206 +21,11 @@ on:
   pull_request:
     paths-ignore: *doc-paths
   workflow_dispatch:
-  workflow_call:
-    inputs:
-      artifact-prefix:
-        description: >-
-          Prefix for the upload-artifact name. Caller appends -<arch>.
-          Tag/validation runs use "Quest"; release-latest passes
-          "latest-quest" so its download-artifact pattern picks them up.
-        type: string
-        required: false
-        default: Quest
 
 concurrency:
-  group: ${{ github.workflow }}-quest-${{ github.ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
-
-env:
-  ARTIFACT_PREFIX: ${{ inputs.artifact-prefix || 'Quest' }}
 
 jobs:
   build:
-    name: "Build ${{ matrix.arch }}"
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: arm64-v8a
-            abi: arm64-v8a
-            ndk_target: aarch64-linux-android
-            preset: quest
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Code Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Install Android SDK command-line tools
-        run: |
-          ANDROID_HOME="${ANDROID_HOME:-${HOME}/Android/Sdk}"
-          mkdir -p "${ANDROID_HOME}/cmdline-tools"
-          if [ ! -f "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" ]; then
-            CLI_ZIP="${RUNNER_TEMP}/cmdline-tools.zip"
-            curl -fsSLo "$CLI_ZIP" \
-              "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
-            unzip -qo "$CLI_ZIP" -d "${RUNNER_TEMP}/cmdline-tools-unzip"
-            mkdir -p "${ANDROID_HOME}/cmdline-tools/latest"
-            mv "${RUNNER_TEMP}/cmdline-tools-unzip/cmdline-tools/"* \
-               "${ANDROID_HOME}/cmdline-tools/latest/"
-            rm -rf "$CLI_ZIP" "${RUNNER_TEMP}/cmdline-tools-unzip"
-          fi
-          echo "ANDROID_HOME=${ANDROID_HOME}" >> "$GITHUB_ENV"
-          echo "${ANDROID_HOME}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-
-      - name: Accept SDK licenses
-        run: |
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-
-      - name: Install Android SDK components
-        run: |
-          sdkmanager --install \
-            "platforms;android-34" \
-            "build-tools;35.0.0" \
-            "ndk;28.2.13676358" \
-            "platform-tools" \
-            2>&1
-
-      - name: Set environment
-        run: |
-          ANDROID_NDK="${ANDROID_HOME}/ndk/28.2.13676358"
-          echo "ANDROID_NDK=${ANDROID_NDK}" >> "$GITHUB_ENV"
-          echo "${ANDROID_HOME}/build-tools/35.0.0" >> "$GITHUB_PATH"
-          echo "${ANDROID_HOME}/platform-tools" >> "$GITHUB_PATH"
-
-      - name: Build SDL3 for Android
-        run: |
-          SDL3_DIR="${RUNNER_TEMP}/SDL3"
-          SDL3_BUILD="${RUNNER_TEMP}/sdl3-build"
-          SDL3_INSTALL="${RUNNER_TEMP}/sdl3-install"
-
-          if [ ! -d "$SDL3_DIR" ]; then
-            for i in 1 2 3; do
-              git clone --depth 1 --branch release-3.2.16 \
-                https://github.com/libsdl-org/SDL.git "$SDL3_DIR" 2>&1 && break
-              echo "SDL3 clone attempt $i failed, retrying..."
-              rm -rf "$SDL3_DIR"
-              sleep 2
-            done
-          fi
-
-          cmake -S "$SDL3_DIR" -B "$SDL3_BUILD" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK}/build/cmake/android.toolchain.cmake" \
-            -DANDROID_ABI=${{ matrix.abi }} \
-            -DANDROID_PLATFORM=24 \
-            -DANDROID_STL=c++_shared \
-            -DSDL_SHARED=ON \
-            -DSDL_STATIC=OFF \
-            -DSDL_TEST=OFF \
-            -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
-
-          cmake --build "$SDL3_BUILD" -- -j$(nproc)
-          cmake --install "$SDL3_BUILD" --prefix "$SDL3_INSTALL"
-
-          echo "SDL3_ANDROID_DIR=${SDL3_INSTALL}/lib/cmake/SDL3" >> "$GITHUB_ENV"
-          echo "SDL3_DIR=${SDL3_INSTALL}/lib/cmake/SDL3" >> "$GITHUB_ENV"
-
-      - name: Stage OpenXR loader
-        run: |
-          AAR_URL="https://repo1.maven.org/maven2/org/khronos/openxr/openxr_loader_for_android/1.1.43/openxr_loader_for_android-1.1.43.aar"
-          AAR_SHA256="7e1b36141f9a4f1fa4a7e061936344fd9fcd36bce6c47eae2ad09812736167b6"
-          AAR="${RUNNER_TEMP}/openxr_loader_for_android-1.1.43.aar"
-
-          curl -fsSLo "$AAR" "$AAR_URL"
-          echo "${AAR_SHA256}  ${AAR}" | sha256sum -c -
-
-          rm -rf "${RUNNER_TEMP}/openxr-aar" out/android/openxr/install
-          unzip -qo "$AAR" -d "${RUNNER_TEMP}/openxr-aar"
-          mkdir -p out/android/openxr/install/include out/android/openxr/install/lib
-          cp -R "${RUNNER_TEMP}/openxr-aar/prefab/modules/headers/include/openxr" \
-                out/android/openxr/install/include/
-          cp "${RUNNER_TEMP}/openxr-aar/prefab/modules/openxr_loader/libs/android.${{ matrix.abi }}/libopenxr_loader.so" \
-                out/android/openxr/install/lib/
-
-      - name: Configure LBA2
-        run: |
-          cmake --preset ${{ matrix.preset }} \
-                -DSDL3_DIR="${SDL3_ANDROID_DIR}" \
-                -DSOUND_BACKEND=sdl \
-                -DMVIDEO_BACKEND=smacker \
-                -DCMAKE_BUILD_TYPE=Release \
-                2>&1
-
-      - name: Build LBA2 native library
-        run: |
-          cmake --build --preset ${{ matrix.preset }} -- -j$(nproc) 2>&1
-
-      - name: Bundle APK
-        run: |
-          BUILD_DIR="out/build/${{ matrix.preset }}"
-          VERSION=$(cat "$BUILD_DIR/VERSION.txt")
-          NATIVE_LIB="$BUILD_DIR/SOURCES/liblba2cc.so"
-          OPENXR_LIB="$BUILD_DIR/SOURCES/libopenxr_loader.so"
-          SDL3_SRC="${RUNNER_TEMP}/SDL3"
-          SDL3_LIB="${RUNNER_TEMP}/sdl3-install/lib/libSDL3.so"
-          CXX_SHARED_LIB="${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${{ matrix.ndk_target }}/libc++_shared.so"
-
-          mkdir -p dist
-
-          bash scripts/packaging/bundle-android.sh \
-            --lib "$NATIVE_LIB" \
-            --version "$VERSION" \
-            --arch "${{ matrix.abi }}" \
-            --label quest \
-            --build-dir "$BUILD_DIR" \
-            --sdk-root "$ANDROID_HOME" \
-            --sdl3-java-src "$SDL3_SRC" \
-            --sdl3-lib "$SDL3_LIB" \
-            --cxx-shared-lib "$CXX_SHARED_LIB" \
-            --manifest "$PWD/packaging/android/AndroidManifest.quest.xml" \
-            --extra-lib "$OPENXR_LIB" \
-            --output-dir dist
-
-      - name: Verify 16 KB page alignment
-        run: |
-          APK=$(ls dist/*-quest-arm64-v8a.apk | head -1)
-          bash scripts/dev/check-16k-align.sh "$APK"
-
-      - name: Upload temporary artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ env.ARTIFACT_PREFIX }}-${{ matrix.arch }}
-          path: dist
-
-  release:
-    name: Attach to GitHub Release
-    needs: [build]
-    if: startsWith(github.ref, 'refs/tags/')
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v7
-        with:
-          pattern: Quest-*
-          merge-multiple: true
-
-      - name: Release Quest APK
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            lba2cc-*-quest-*.apk
-          tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
+    uses: ./.github/workflows/reusable-build-quest.yml

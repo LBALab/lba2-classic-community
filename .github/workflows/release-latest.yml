@@ -67,7 +67,7 @@ jobs:
       artifact-prefix: latest-android
 
   build-quest:
-    uses: ./.github/workflows/quest.yml
+    uses: ./.github/workflows/reusable-build-quest.yml
     with:
       artifact-prefix: latest-quest
 

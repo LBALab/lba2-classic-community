@@ -190,10 +190,9 @@ tools only look at the latter.
 
 ### Drafting the release
 
-Pushing the tag auto-creates the GitHub Release: the per-platform release
-workflows
-(`release-{linux-appimage,linux-tarball,macos,windows,android}.yml`, plus
-the combined Quest `quest.yml`)
+Pushing the tag auto-creates the GitHub Release: the six per-platform
+release workflows
+(`release-{linux-appimage,linux-tarball,macos,windows,android,quest}.yml`)
 each fire on `push: tags: ['v*']`, attach their artifact, and trigger
 `softprops/action-gh-release@v2` which materialises the Release. No
 manual `gh release create` is needed.
@@ -399,7 +398,7 @@ platform fires first, and adding a new platform is a copy-and-fill exercise:
 | Concern | Convention |
 |---|---|
 | **Triggers** | `push: tags: ['v*']` + `workflow_dispatch:`. Tags do real releases; dispatch is for validation runs. |
-| **Job structure** | Two jobs: `build` (matrix, even if 1×1) → `release`. The `build` job is a `uses:` call into `.github/workflows/reusable-build-<platform>.yml` — all toolchain setup, configure, build, and bundle steps live there so `release-latest.yml` can share them. Reusables live at the top level of `.github/workflows/`; GitHub Actions rejects `workflow_call` files in subdirectories. `fail-fast: false` so one arch failing doesn't drop others. Quest is the exception: `quest.yml` carries the build and tag-release jobs in one file and exposes `workflow_call` so `release-latest.yml` reuses the same build. |
+| **Job structure** | Two jobs: `build` (matrix, even if 1×1) → `release`. The `build` job is a `uses:` call into `.github/workflows/reusable-build-<platform>.yml` — all toolchain setup, configure, build, and bundle steps live there so `release-latest.yml` can share them. Reusables live at the top level of `.github/workflows/`; GitHub Actions rejects `workflow_call` files in subdirectories. `fail-fast: false` so one arch failing doesn't drop others. |
 | **Artifact handoff** | Reusable build legs use `actions/upload-artifact@v7` with `name: <artifact-prefix>-<arch>`, where `artifact-prefix` is a workflow input. Tag callers leave it at the default (`AppImage`, `LinuxTarball`, `Windows`, `macOS`, `Android`, `Quest`); `release-latest.yml` overrides to `latest-*`. The release job downloads via `pattern: '<prefix>-*' merge-multiple: true`. |
 | **Release upload** | `softprops/action-gh-release@v2` with `generate_release_notes: true`. Asset attach is idempotent across the six per-tag workflows; body is **not** — the action appends the regenerated notes on every run, so the body lands duplicated once per workflow and is replaced post-tag by the CHANGELOG extraction in [Drafting the release](#drafting-the-release). Tracked as [#153](https://github.com/LBALab/lba2-classic-community/issues/153). |
 | **Tag-only upload** | Release job is gated by `if: startsWith(github.ref, 'refs/tags/')`. `workflow_dispatch` produces downloadable artifacts via the build job's upload step but does not touch the Releases page (avoids creating a "release" named after a branch). |
