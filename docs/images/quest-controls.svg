@@ -22,7 +22,7 @@
       <path d="M 330 155 L 525 175"/>
       <path d="M 330 205 L 530 190"/>
       <path d="M 330 305 L 455 290"/>
-      <path d="M 330 365 L 500 240" stroke-dasharray="7 6"/>
+      <path d="M 330 365 L 760 280" stroke-dasharray="7 6"/>
       <path d="M 760 80 L 600 275"/>
       <path d="M 920 35 L 680 195"/>
       <path d="M 700 600 L 660 520"/>
@@ -30,7 +30,7 @@
       <path d="M 1590 155 L 1370 175"/>
       <path d="M 1590 205 L 1370 190"/>
       <path d="M 1590 305 L 1290 275"/>
-      <path d="M 1590 365 L 1400 240" stroke-dasharray="7 6"/>
+      <path d="M 1590 365 L 1140 280" stroke-dasharray="7 6"/>
       <path d="M 1120 40 L 1210 195"/>
       <path d="M 1080 600 L 1230 520"/>
     </g>
@@ -39,7 +39,7 @@
       <path d="M 330 155 L 525 175" stroke="#0e7490"/>
       <path d="M 330 205 L 530 190" stroke="#0e7490"/>
       <path d="M 330 305 L 455 290" stroke="#7e22ce"/>
-      <path d="M 330 365 L 500 240" stroke="#4338ca" stroke-dasharray="7 6"/>
+      <path d="M 330 365 L 760 280" stroke="#4338ca" stroke-dasharray="7 6"/>
       <path d="M 760 80 L 600 275" stroke="#15803d"/>
       <path d="M 920 35 L 680 195" stroke="#15803d"/>
       <path d="M 700 600 L 660 520" stroke="#7e22ce"/>
@@ -47,7 +47,7 @@
       <path d="M 1590 155 L 1370 175" stroke="#b45309"/>
       <path d="M 1590 205 L 1370 190" stroke="#b45309"/>
       <path d="M 1590 305 L 1290 275" stroke="#15803d"/>
-      <path d="M 1590 365 L 1400 240" stroke="#4338ca" stroke-dasharray="7 6"/>
+      <path d="M 1590 365 L 1140 280" stroke="#4338ca" stroke-dasharray="7 6"/>
       <path d="M 1120 40 L 1210 195" stroke="#15803d"/>
       <path d="M 1080 600 L 1230 520" stroke="#7e22ce"/>
     </g>
@@ -59,7 +59,7 @@
     <circle cx="525" cy="175" r="6" fill="#0e7490"/>
     <circle cx="530" cy="190" r="6" fill="#0e7490"/>
     <circle cx="455" cy="290" r="6" fill="#7e22ce"/>
-    <circle cx="500" cy="240" r="6" fill="#4338ca"/>
+    <circle cx="760" cy="280" r="6" fill="#4338ca"/>
     <circle cx="600" cy="275" r="6" fill="#15803d"/>
     <circle cx="680" cy="195" r="6" fill="#15803d"/>
     <circle cx="660" cy="520" r="6" fill="#7e22ce"/>
@@ -67,7 +67,7 @@
     <circle cx="1370" cy="175" r="6" fill="#b45309"/>
     <circle cx="1370" cy="190" r="6" fill="#b45309"/>
     <circle cx="1290" cy="275" r="6" fill="#15803d"/>
-    <circle cx="1400" cy="240" r="6" fill="#4338ca"/>
+    <circle cx="1140" cy="280" r="6" fill="#4338ca"/>
     <circle cx="1210" cy="195" r="6" fill="#15803d"/>
     <circle cx="1230" cy="520" r="6" fill="#7e22ce"/>
   </g>
